@@ -3,5 +3,6 @@ language: go
 go:
   - 1.12.5
 
-srcipt:
-  - go test -timeout 1h ./...
+script:
+    - make build
+    - make test
