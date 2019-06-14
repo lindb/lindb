@@ -22,4 +22,5 @@ func newSegment(baseTime int64) (*segment, error) {
 }
 
 func (s *segment) getFamily() {
+
 }
