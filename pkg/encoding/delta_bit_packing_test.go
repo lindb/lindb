@@ -1,8 +1,8 @@
 package encoding
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func TestAdd(t *testing.T) {
@@ -14,6 +14,7 @@ func TestAdd(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		p.Add(100)
 	}
+
 	p.Add(200)
 
 	b, err := p.Bytes()

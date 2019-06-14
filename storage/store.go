@@ -1,10 +1,14 @@
 package storage
 
 import (
-	"sync"
 	"path/filepath"
-	"github.com/eleme/lindb/storage/version"
+	"sync"
+
+	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
+	meta "github.com/eleme/lindb/storage/version"
+
+	"go.uber.org/zap"
 )
 
 type Store struct {
@@ -14,6 +18,7 @@ type Store struct {
 	versions *meta.VersionSet
 	families map[string]*Family
 	mutex    sync.Mutex
+	logger   *zap.Logger
 }
 
 func NewStore(name string, option StoreOption) (*Store, error) {
@@ -22,16 +27,21 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 	}
 
 	// file lock, only allow open by a instance
-	lock := NewLock(filepath.Join(option.Path, meta.LOCK))
+	lock := NewLock(filepath.Join(option.Path, meta.Lock))
 	err := lock.Lock()
 	if err != nil {
 		return nil, err
 	}
 
+	log := logger.GetLogger()
+
 	// unlock file lock if error
 	defer func() {
 		if err != nil {
-			lock.Unlock()
+			e := lock.Unlock()
+			if e != nil {
+				log.Error("unlock file error:", zap.Error(e))
+			}
 		}
 	}()
 
@@ -40,6 +50,7 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 		option:   option,
 		lock:     lock,
 		families: make(map[string]*Family),
+		logger:   log,
 	}
 
 	// init and recover version set

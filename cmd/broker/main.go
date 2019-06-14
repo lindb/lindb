@@ -1,16 +1,20 @@
 package main
 
 import (
-	"net/http"
-	"fmt"
 	"flag"
-	"github.com/eleme/lindb/broker"
-	"github.com/eleme/lindb/pkg/config"
+	"fmt"
+	"net/http"
 	"os"
+
+	"github.com/eleme/lindb/broker"
 	"github.com/eleme/lindb/broker/rest"
+	"github.com/eleme/lindb/pkg/config"
 	"github.com/eleme/lindb/pkg/logger"
+
 	"go.uber.org/zap"
 )
+
+const unknown = "unknown"
 
 // These variables are populated via the Go linker.
 var (
@@ -22,10 +26,11 @@ var (
 
 func init() {
 	if version == "" {
-		version = "unknown"
+		version = unknown
 	}
+
 	if commit == "" {
-		commit = "unknown"
+		commit = unknown
 	}
 
 	flag.BoolVar(&help, "help", false, "help")
@@ -40,17 +45,21 @@ func main() {
 		usage()
 		os.Exit(0)
 	}
+
 	log := logger.GetLogger()
 
 	log.Info("load config file", zap.String("path", configFile))
 
 	brokerConfig := &broker.Config{}
 	config.Parse(configFile, brokerConfig)
-	log.Info("start http server", zap.Any("port", brokerConfig.Http.Port))
+	log.Info("start http server", zap.Any("port", brokerConfig.HTTP.Port))
 
 	router := rest.NewRouter(brokerConfig)
 
-	http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.Http.Port), router)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.HTTP.Port), router); err != nil {
+		log.Error("start http server error", zap.Error(err))
+		os.Exit(0)
+	}
 }
 
 func usage() {

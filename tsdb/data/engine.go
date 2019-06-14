@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+
 	"github.com/eleme/lindb/pkg/option"
 )
 
@@ -17,12 +18,12 @@ func NewEngine(name string) *Engine {
 	}
 }
 
-func (e *Engine) CreateShard(shardId int32, option option.ShardOption) error {
-	var shard, ok = e.shards[shardId]
+func (e *Engine) CreateShard(shardID int32, option option.ShardOption) error {
+	var shard, ok = e.shards[shardID]
 	if ok {
-		return fmt.Errorf("engine[%s] exist shard[%d]", e.name, shardId)
+		return fmt.Errorf("engine[%s] exist shard[%d]", e.name, shardID)
 	}
-	shard = NewShard(shardId, option)
-	e.shards[shardId] = shard
+	shard = NewShard(shardID, option)
+	e.shards[shardID] = shard
 	return nil
 }

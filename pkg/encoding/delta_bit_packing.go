@@ -1,10 +1,10 @@
 package encoding
 
 import (
-	"encoding/binary"
 	"bytes"
-	"fmt"
+	"encoding/binary"
 	"math/bits"
+
 	"github.com/eleme/lindb/pkg/bit"
 )
 
@@ -32,9 +32,7 @@ type DeltaBitPackingDecoder struct {
 }
 
 func NewDeltaBitPackingEncoder() *DeltaBitPackingEncoder {
-	return &DeltaBitPackingEncoder{
-
-	}
+	return &DeltaBitPackingEncoder{}
 }
 
 func NewDeltaBitPackingDecoder(buf *[]byte) *DeltaBitPackingDecoder {
@@ -74,17 +72,14 @@ func (p *DeltaBitPackingEncoder) Add(v int32) {
 func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
 	var scratch [binary.MaxVarintLen64]byte
 	var buf bytes.Buffer
-	fmt.Printf("%d\n", int64(len(p.deltas)))
 	n := binary.PutVarint(scratch[:], int64(len(p.deltas)))
 	if _, err := buf.Write(scratch[:n]); err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("min:%d\n", p.minDelta)
 	var max int32
 	for _, v := range p.deltas {
 		deltaDelta := v - p.minDelta
-		//fmt.Printf("%d=%d\n", v, deltaDelta)
 		if max < deltaDelta {
 			max = deltaDelta
 		}
@@ -104,17 +99,13 @@ func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
 	bw := bit.NewWriter(&buf)
 	for _, v := range p.deltas {
 		deltaDelta := v - p.minDelta
-		//fmt.Printf("jj==%d:%d:%d\n", deltaDelta, v, p.minDelta)
-		bw.WriteBits(uint64(deltaDelta), width)
+		err := bw.WriteBits(uint64(deltaDelta), width)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	bw.Flush()
-
-	fmt.Printf("max:%d\n", max)
-	fmt.Printf("max bit withd:%d\n", width)
-
-	fmt.Printf("len:%d\n", buf.Len())
-
 	return buf.Bytes(), nil
 }
 

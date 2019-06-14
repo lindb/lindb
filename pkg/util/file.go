@@ -1,8 +1,9 @@
 package util
 
 import (
-	"os"
 	"bufio"
+	"os"
+
 	"github.com/BurntSushi/toml"
 )
 

@@ -2,11 +2,12 @@ package logger
 
 import (
 	"io"
-	"github.com/mattn/go-isatty"
-	"sync"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap"
 	"os"
+	"sync"
+
+	"github.com/mattn/go-isatty"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -32,6 +33,7 @@ func Info(msg string, fields ...zap.Field) {
 }
 
 func (c *Config) New() (*zap.Logger, error) {
+
 	//w := zapcore.AddSync(&lumberjack.Logger{
 	//	Filename:   "/var/log/myapp/foo.log",
 	//	MaxSize:    500, // megabytes

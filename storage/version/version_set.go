@@ -1,12 +1,12 @@
 package meta
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"io/ioutil"
-	"fmt"
-	"sync"
 	"sync/atomic"
+
 	"github.com/eleme/lindb/pkg/util"
 )
 
@@ -15,7 +15,7 @@ type VersionSet struct {
 	nextFileNumber     int64
 	storePath          string
 	familyVersion      map[string]*FamilyVersion
-	mutex              sync.Mutex
+	//mutex              sync.Mutex
 }
 
 func NewVersionSet(storePath string) *VersionSet {
@@ -45,11 +45,11 @@ func (vs *VersionSet) NextFileNumber() int64 {
 func (vs *VersionSet) initializeIfNeeded() error {
 	if !util.Exist(filepath.Join(vs.storePath, Current())) {
 		manifest := manifestFileName(vs.manifestFileNumber)
-		tmp := filepath.Join(vs.storePath, fmt.Sprintf("%s.%s", CURRENT, TMP_SUFFIX))
+		tmp := filepath.Join(vs.storePath, fmt.Sprintf("%s.%s", current, tmpSuffix))
 		if err := ioutil.WriteFile(tmp, []byte(manifest), 0666); err != nil {
 			return err
 		}
-		if err := os.Rename(tmp, filepath.Join(vs.storePath, CURRENT)); err != nil {
+		if err := os.Rename(tmp, filepath.Join(vs.storePath, current)); err != nil {
 			return err
 		}
 	}

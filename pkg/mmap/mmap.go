@@ -1,8 +1,8 @@
 package mmap
 
 import (
-	"syscall"
 	"os"
+	"syscall"
 )
 
 // Map memory-maps a file.

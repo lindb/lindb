@@ -8,7 +8,7 @@ type Log interface {
 type LogType string
 
 type NewLogFunc func() Log
-//
+
 var newLogFuncMap = make(map[string]Log)
 
 func RegisterLogType(logType string, fn Log) {
