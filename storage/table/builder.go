@@ -75,13 +75,17 @@ func (b *StoreBuilder) Add(key uint32, value []byte) bool {
 func (b *StoreBuilder) Close() error {
 	offset, err := b.offset.Bytes()
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal store table offsets error:%s", err)
 	}
 
 	n, err := b.fw.Write(offset)
 
 	b.keys.RunOptimize()
 	keys, err := b.keys.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
 	b.fw.Write(keys)
 
 	b.pos = b.pos + int32(n)

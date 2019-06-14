@@ -21,4 +21,5 @@ func Test_BuildStore(t *testing.T) {
 		return
 	}
 
+	NewReader("../../test_data/test_kv.sst")
 }
