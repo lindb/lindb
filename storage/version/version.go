@@ -8,7 +8,7 @@ type Version struct {
 }
 
 func newVersion(fv *FamilyVersion) *Version {
-	var ref int32 = 0
+	var ref int32
 	return &Version{
 		fv:  fv,
 		ref: &ref,

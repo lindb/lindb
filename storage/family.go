@@ -1,14 +1,16 @@
 package storage
 
 import (
-	"sync"
-	"github.com/eleme/lindb/pkg/logger"
-	"go.uber.org/zap"
 	"path/filepath"
+	"sync"
+
+	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
-	"github.com/BurntSushi/toml"
-	"github.com/eleme/lindb/storage/version"
 	"github.com/eleme/lindb/storage/table"
+	meta "github.com/eleme/lindb/storage/version"
+
+	"github.com/BurntSushi/toml"
+	"go.uber.org/zap"
 )
 
 type Family struct {
@@ -44,6 +46,7 @@ func NewFamily(store *Store, name string, option FamilyOption) (*Family, error) 
 		familyVersion: meta.NewFamilyVersion(),
 		logger:        log,
 	}
+
 	log.Info("new family success", zap.String("family", name))
 	return f, nil
 }
@@ -100,14 +103,14 @@ func (f *Family) deleteObsoleteFiles() {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	/*
-	//make a set of all of the live files
-Set<Long> live = newHashSet();
-live.addAll(this.getTableFiles());
+			//make a set of all of the live files
+		Set<Long> live = newHashSet();
+		live.addAll(this.getTableFiles());
 
-/*
- * add live rollup reference files, maybe some roll up files is not alive but rollup job need it,
- * so those files cannot delete, because read these files when do rollup job.
- //*/
+		/*
+		 * add live rollup reference files, maybe some roll up files is not alive but rollup job need it,
+		 * so those files cannot delete, because read these files when do rollup job.
+		 //*/
 	//live.addAll(this.kvStore.getLiveReferenceFiles());
 	//
 	//List<File> files = Lists.newArrayList();

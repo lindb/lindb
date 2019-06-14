@@ -4,8 +4,8 @@ import "sync"
 
 type MeasurementStore struct {
 	timeSeries map[string]*TimeSeriesStore
-	tsSeq      uint32
-	mux        sync.Mutex
+	//tsSeq      uint32
+	mux sync.Mutex
 }
 
 func newMeasurement() *MeasurementStore {

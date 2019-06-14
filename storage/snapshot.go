@@ -2,7 +2,8 @@ package storage
 
 import (
 	"sync/atomic"
-	"github.com/eleme/lindb/storage/version"
+
+	meta "github.com/eleme/lindb/storage/version"
 )
 
 type Snapshot struct {
@@ -12,7 +13,7 @@ type Snapshot struct {
 
 // create snapshot for reading data
 func newSnapshot(version *meta.Version) *Snapshot {
-	var closed int32 = 0
+	var closed int32
 	return &Snapshot{
 		version: version,
 		closed:  &closed,

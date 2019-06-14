@@ -1,10 +1,12 @@
 package rest
 
 import (
-	"github.com/gorilla/mux"
-	"net/http"
 	"fmt"
+	"net/http"
+
 	"github.com/eleme/lindb/broker"
+
+	"github.com/gorilla/mux"
 )
 
 type route struct {
@@ -36,9 +38,10 @@ func NewRouter(config *broker.Config) *mux.Router {
 			Name(route.name).
 			Handler(route.handler)
 	}
+
 	router.PathPrefix("/static/").
 		Handler(http.StripPrefix("/static/",
-		http.FileServer(http.Dir(config.Http.Static))))
+			http.FileServer(http.Dir(config.HTTP.Static))))
 
 	return router
 }

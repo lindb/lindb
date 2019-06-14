@@ -2,11 +2,14 @@ package encoding
 
 import (
 	"bytes"
-	"math"
 	"fmt"
+	"math"
 	"math/bits"
+
 	"github.com/eleme/lindb/pkg/bit"
 )
+
+const blockSizeAdjustment = 1
 
 type FloatEncoder struct {
 	previousVal uint64
@@ -19,6 +22,8 @@ type FloatEncoder struct {
 
 	first  bool
 	finish bool
+
+	err error
 }
 
 type FloatDecoder struct {
@@ -36,7 +41,7 @@ type FloatDecoder struct {
 
 func NewFloatEncoder() *FloatEncoder {
 	s := &FloatEncoder{
-		first: true,
+		first:   true,
 		leading: int(^uint8(0)),
 	}
 	// new bit writer
@@ -73,37 +78,37 @@ func (e *FloatEncoder) Write(v float64) error {
 	if e.first {
 		e.first = false
 		e.previousVal = val
-		e.bw.WriteBits(val, 64)
+		e.err = e.bw.WriteBits(val, 64)
 		return nil
 	}
 
 	delta := val ^ e.previousVal
 	if delta == 0 {
 		// write '0' bit
-		e.bw.WriteBit(bit.Zero)
+		e.err = e.bw.WriteBit(bit.Zero)
 	} else {
 		// write '1' bit
-		e.bw.WriteBit(bit.One)
+		e.err = e.bw.WriteBit(bit.One)
 
 		leading := bits.LeadingZeros64(delta)
 		trailing := bits.TrailingZeros64(delta)
 
 		if leading >= e.leading && trailing >= e.trailing {
 			// write control bit('1') for using previous block information
-			e.bw.WriteBit(bit.One)
-			e.bw.WriteBits(delta>>uint(e.trailing), 64-e.leading-e.trailing)
+			e.err = e.bw.WriteBit(bit.One)
+			e.err = e.bw.WriteBits(delta>>uint(e.trailing), 64-e.leading-e.trailing)
 		} else {
 			// write control bit('0') for not using previous block information
-			e.bw.WriteBit(bit.Zero)
+			e.err = e.bw.WriteBit(bit.Zero)
 			blockSize := 64 - leading - trailing
 			/*
 			 * Store the length of the number of leading zeros in the next 6 bits.
 			 * Store the length of the meaningful XORed value in the next 6 bits.
 			 * Store the meaningful bits of the XOR value.
 			 */
-			e.bw.WriteBits(uint64(leading), 6)
-			e.bw.WriteBits(uint64(blockSize-1), 6)
-			e.bw.WriteBits(delta>>uint(trailing), blockSize)
+			e.err = e.bw.WriteBits(uint64(leading), 6)
+			e.err = e.bw.WriteBits(uint64(blockSize-blockSizeAdjustment), 6)
+			e.err = e.bw.WriteBits(delta>>uint(trailing), blockSize)
 
 			e.leading = leading
 			e.trailing = trailing
@@ -163,7 +168,7 @@ func (d *FloatDecoder) Next() bool {
 			if d.err != nil {
 				return false
 			}
-			blockSize = blockSize + 1
+			blockSize += blockSizeAdjustment
 			d.trailing = 64 - d.leading - blockSize
 		} else {
 			//reuse previous leading and trailing
@@ -175,7 +180,7 @@ func (d *FloatDecoder) Next() bool {
 			return false
 		}
 		val := delta << d.trailing
-		d.val = d.val ^ val
+		d.val ^= val
 	}
 	return true
 }

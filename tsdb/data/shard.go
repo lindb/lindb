@@ -1,10 +1,11 @@
 package data
 
 import (
-	"github.com/eleme/lindb/tsdb/mem"
-	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/models"
 	"time"
+
+	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/tsdb/mem"
 )
 
 type Shard struct {
@@ -13,9 +14,9 @@ type Shard struct {
 	mem    *mem.MemoryDatabase
 }
 
-func NewShard(shardId int32, option option.ShardOption) *Shard {
+func NewShard(shardID int32, option option.ShardOption) *Shard {
 	shard := &Shard{
-		id:     shardId,
+		id:     shardID,
 		option: option,
 		mem:    mem.NewMemDatabase(),
 	}

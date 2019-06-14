@@ -1,9 +1,9 @@
 package encoding
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func Test_Write(t *testing.T) {
@@ -36,6 +36,7 @@ func Benchmark_Write(t *testing.B) {
 	fmt.Printf("encode cost: %d \n", time.Now().UnixNano()/1000000-now)
 
 	e.Flush()
+
 	fmt.Printf("data size:%d \n", len(e.Bytes()))
 
 	now = time.Now().UnixNano() / 1000000
