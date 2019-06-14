@@ -5,9 +5,7 @@
 
 ref: https://github.com/golang-standards/project-layout
 
-## go vendor
-
-### install
+### Help
 ``
-go install govendor
+make help
 ``

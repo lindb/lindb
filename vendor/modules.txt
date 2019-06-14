@@ -1,0 +1,33 @@
+# github.com/BurntSushi/toml v0.3.1
+github.com/BurntSushi/toml
+# github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
+github.com/RoaringBitmap/roaring
+# github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
+github.com/glycerine/go-unsnap-stream
+# github.com/golang/snappy v0.0.1
+github.com/golang/snappy
+# github.com/gorilla/mux v1.7.2
+github.com/gorilla/mux
+# github.com/mattn/go-isatty v0.0.8
+github.com/mattn/go-isatty
+# github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae
+github.com/mschoch/smat
+# github.com/philhofer/fwd v1.0.0
+github.com/philhofer/fwd
+# github.com/tinylib/msgp v1.1.0
+github.com/tinylib/msgp/msgp
+# github.com/willf/bitset v1.1.10
+github.com/willf/bitset
+# go.uber.org/atomic v1.4.0
+go.uber.org/atomic
+# go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f
+go.uber.org/multierr
+# go.uber.org/zap v0.0.0-20190430155229-8a2ee5670ced
+go.uber.org/zap
+go.uber.org/zap/zapcore
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/buffer
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+# golang.org/x/sys v0.0.0-20190222072716-a9d3bda3a223
+golang.org/x/sys/unix
