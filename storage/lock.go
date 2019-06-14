@@ -1,11 +1,13 @@
 package storage
 
 import (
-	"syscall"
-	"os"
 	"fmt"
-	"go.uber.org/zap"
+	"os"
+	"syscall"
+
 	"github.com/eleme/lindb/pkg/logger"
+
+	"go.uber.org/zap"
 )
 
 // File lock

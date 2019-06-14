@@ -1,5 +1,5 @@
 package data
 
-type family struct {
-
-}
+//type family struct {
+//
+//}

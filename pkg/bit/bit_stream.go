@@ -1,8 +1,8 @@
 package bit
 
 import (
-	"io"
 	"bytes"
+	"io"
 )
 
 // A Bit is a zero or a one
@@ -164,7 +164,7 @@ func (r *Reader) ReadByte() (byte, error) {
 		//todo check length
 		//buf := *r.buf
 		//idx := r.pos
-		r.b,_ = r.buf.ReadByte()
+		r.b, _ = r.buf.ReadByte()
 		//[idx]
 		//r.pos = idx + 1
 		//if n != 1 || (err != nil && err != io.EOF) {
@@ -182,7 +182,7 @@ func (r *Reader) ReadByte() (byte, error) {
 	byt := r.b
 
 	//todo check length
-	r.b,_ = r.buf.ReadByte()
+	r.b, _ = r.buf.ReadByte()
 	//var n int
 	//var err error
 	//n, err = r.buf.Read(r.b[:])

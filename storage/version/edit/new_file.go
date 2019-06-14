@@ -2,11 +2,6 @@ package edit
 
 import "github.com/eleme/lindb/storage"
 
-func init()  {
-	//RegisterLogType("a", new(AddFile))
-	//RegisterLogType("b",NewDeleteFile)
-}
-
 type AddFile struct {
 	level int32
 	file  *storage.FileMeta

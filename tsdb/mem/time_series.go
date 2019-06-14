@@ -2,6 +2,7 @@ package mem
 
 import (
 	"sync"
+
 	"github.com/eleme/lindb/models"
 )
 
@@ -12,22 +13,21 @@ type SegmentStore struct {
 	baseTime int64
 }
 type FieldStore struct {
-	segments    map[int64]*SegmentStore
-	lastUpdated int64
-	mux         sync.Mutex
+	segments map[int64]*SegmentStore
+	//lastUpdated int64
+	mux sync.Mutex
 }
 
 type TimeSeriesStore struct {
 	measurementStore *MeasurementStore
-	tsId             uint32
-	fields           map[string]*FieldStore
-	lastUpdated      int64
-	mux              sync.Mutex
+	//tsId             uint32
+	fields map[string]*FieldStore
+	//lastUpdated      int64
+	mux sync.Mutex
 }
 
 func newTimeSeriesStore(measurementStore *MeasurementStore) *TimeSeriesStore {
 	return &TimeSeriesStore{
-		tsId:             0,
 		measurementStore: measurementStore,
 	}
 }

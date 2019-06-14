@@ -1,10 +1,10 @@
 package broker
 
 type Config struct {
-	Http Http
+	HTTP HTTP
 }
 
-type Http struct {
-	Port int32
+type HTTP struct {
+	Port   int32
 	Static string
 }

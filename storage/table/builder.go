@@ -1,12 +1,14 @@
 package table
 
 import (
+	"fmt"
+
+	"github.com/eleme/lindb/pkg/encoding"
+	"github.com/eleme/lindb/pkg/io"
+	"github.com/eleme/lindb/pkg/logger"
+
 	"github.com/RoaringBitmap/roaring"
 	"go.uber.org/zap"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/io"
-	"fmt"
-	"github.com/eleme/lindb/pkg/encoding"
 )
 
 type Builder interface {
@@ -52,7 +54,7 @@ func (b *StoreBuilder) Add(key uint32, value []byte) bool {
 
 	n, err := b.fw.Write(value)
 	if err != nil {
-		b.pos = b.pos + int32(n)
+		b.pos += int32(n)
 		//TODO
 		b.logger.Error("write file error")
 		return false
@@ -75,16 +77,28 @@ func (b *StoreBuilder) Add(key uint32, value []byte) bool {
 func (b *StoreBuilder) Close() error {
 	offset, err := b.offset.Bytes()
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal store table offsets error:%s", err)
 	}
 
 	n, err := b.fw.Write(offset)
+	if err != nil {
+		return fmt.Errorf("write offsets error:%s", err)
+	}
 
 	b.keys.RunOptimize()
 	keys, err := b.keys.MarshalBinary()
-	b.fw.Write(keys)
+	if err != nil {
+		return err
+	}
 
-	b.pos = b.pos + int32(n)
+	b.pos += int32(n)
+
+	n, err = b.fw.Write(keys)
+	if err != nil {
+		return err
+	}
+
+	b.pos += int32(n)
 
 	return nil
 }

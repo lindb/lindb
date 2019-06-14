@@ -21,20 +21,16 @@ func New() *CommandLine {
 func (c *CommandLine) Run() error {
 
 	// register OS signals for graceful termination
-	signal.Notify(c.osSignal, os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(c.osSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	return c.mainLoop()
 }
 
 // mainLoop runs the main prompt loop for CommandLine
 func (c *CommandLine) mainLoop() error {
-	for {
-		select {
-		case <-c.osSignal:
-			c.exit()
-			return nil
-		}
-	}
+	<-c.osSignal
+	c.exit()
+	return nil
 }
 
 // exit CommandLine

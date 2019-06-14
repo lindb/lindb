@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/eleme/lindb/cmd/cli"
 	"fmt"
+
+	"github.com/eleme/lindb/cmd/cli"
 )
 
 func main() {
-
 	c := cli.New()
 
 	if err := c.Run(); nil != err {

@@ -1,8 +1,8 @@
 package mem
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 func Test_Write(t *testing.T) {
