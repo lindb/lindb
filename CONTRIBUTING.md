@@ -54,9 +54,42 @@ For [issues][issue] we use the following labels to quickly categorize issues:
 
 Commit messages should try to follow these guidelines:
 
-* First line is no more than 50 characters and describes the changes.
-* The body of the commit message should include a more detailed explanation of the change.
-  It is ok to use markdown formatting in the explanation.
+#### format
+
++ type: necessary(`:#issue` issue number is optional)
++ scope: optional
++ subject: necessary
+
+```
+[type:#issue][scope]: subject
+```
+
+#### type
+ + feat: new feature
+ + fix: bug solved
+ + docs: commits of documentation
+ + style: code style(The change does not affect code-logic)
+ + refactor: neither new features nor bugfixs is added
+ + test: changes of unit-test
+ + chore: changes of ci-process and ci-tools
+
+#### scope
+
+scope is used to describe the scope of commit impact, such as `tsdb:index`, `broker:routes`, `storage`, etc
+
+#### subject
+
+subject is a short description of commit message, no more than 50 characters.
+
++ use simple present tense of the verbs, such as `change`, `add`, `fix`;
++ the first letter is lowercase;
++ end without a period(.);
+
+#### Example
++ [feat:#1][Lindb]: add init commit
++ [chore:#2][travis]: add lint tools
++ [fix:#3][model:point]: change type timestamp from int64 to uint64
++ [docs:#7][contributing]: add guideline for commit-message-format
 
 ### Version Numbers
 
