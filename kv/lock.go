@@ -1,4 +1,4 @@
-package storage
+package kv
 
 import (
 	"fmt"
@@ -10,13 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// File lock
+// Lock is file lock
 type Lock struct {
 	fileName string
 	file     *os.File
 	logger   *zap.Logger
 }
 
+// NewLock create new file lock instance
 func NewLock(fileName string) *Lock {
 	return &Lock{
 		fileName: fileName,
@@ -24,7 +25,7 @@ func NewLock(fileName string) *Lock {
 	}
 }
 
-// Lock
+// Lock try lock file, if fail return err
 func (l *Lock) Lock() error {
 	f, err := os.Create(l.fileName)
 	if nil != err {
@@ -39,7 +40,7 @@ func (l *Lock) Lock() error {
 	return nil
 }
 
-// Unlock
+// Unlock unlock file lock, if fail return err
 func (l *Lock) Unlock() error {
 	defer func() {
 		if err := os.Remove(l.fileName); nil != err {

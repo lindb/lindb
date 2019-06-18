@@ -15,22 +15,23 @@ const (
 	One Bit = true
 )
 
-// a bit writer writes bits to an io.Writer
+// Writer writes bits to an io.Writer
 type Writer struct {
 	w     io.Writer
 	b     [1]byte
 	count uint8
 }
 
-// a bit reader reads bits from an io.Reader
+// Reader reads bits from buffer
 type Reader struct {
-	//buf   *[]byte
 	buf   *bytes.Buffer
 	b     byte
 	count uint8
-	//pos   int32
+
+	err error
 }
 
+// NewWriter create bit writer
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		w:     w,
@@ -38,6 +39,7 @@ func NewWriter(w io.Writer) *Writer {
 	}
 }
 
+// NewReader crate bit reader
 func NewReader(buf *bytes.Buffer) *Reader {
 	return &Reader{
 		buf:   buf,
@@ -45,6 +47,7 @@ func NewReader(buf *bytes.Buffer) *Reader {
 	}
 }
 
+// WriteBit writes a bit value
 func (w *Writer) WriteBit(bit Bit) error {
 	if bit {
 		w.b[0] |= 1 << (w.count - 1)
@@ -64,6 +67,7 @@ func (w *Writer) WriteBit(bit Bit) error {
 	return nil
 }
 
+// WriteBits writes number of bits
 func (w *Writer) WriteBits(u uint64, numBits int) error {
 	u <<= 64 - uint(numBits)
 
@@ -89,6 +93,7 @@ func (w *Writer) WriteBits(u uint64, numBits int) error {
 	return nil
 }
 
+// WriteByte write a byte
 func (w *Writer) WriteByte(b byte) error {
 	w.b[0] |= b >> (8 - w.count)
 
@@ -101,7 +106,7 @@ func (w *Writer) WriteByte(b byte) error {
 	return nil
 }
 
-//Flush the currently in-process byte
+//Flush flushs the currently in-process byte
 func (w *Writer) Flush() error {
 	if w.count != 8 {
 		_, err := w.w.Write(w.b[:])
@@ -110,25 +115,19 @@ func (w *Writer) Flush() error {
 	return nil
 }
 
+// ReadBit reads a bit, if failure return error
 func (r *Reader) ReadBit() (Bit, error) {
 	if r.count == 0 {
-		//buf := *r.buf
-		//idx := r.pos
-		//todo check length
-		r.b, _ = r.buf.ReadByte()
-		//buf[idx]
-		//r.pos = idx + 1
-		//if n, err := r.buf.Read(r.b[:]); n != 1 || (err != nil && err != io.EOF) {
-		//	return Zero, err
-		//}
+		r.b, r.err = r.buf.ReadByte()
 		r.count = 8
 	}
 	r.count--
 	d := r.b & 0x80
 	r.b <<= 1
-	return d != 0, nil
+	return d != 0, r.err
 }
 
+// ReadBits read number of bits
 func (r *Reader) ReadBits(numBits int) (uint64, error) {
 	var u uint64
 
@@ -158,41 +157,17 @@ func (r *Reader) ReadBits(numBits int) (uint64, error) {
 	return u, nil
 }
 
+// ReadByte reads a byte
 func (r *Reader) ReadByte() (byte, error) {
 	if r.count == 0 {
-		//n, err := r.buf.Read(r.b[:])
-		//todo check length
-		//buf := *r.buf
-		//idx := r.pos
-		r.b, _ = r.buf.ReadByte()
-		//[idx]
-		//r.pos = idx + 1
-		//if n != 1 || (err != nil && err != io.EOF) {
-		//	r.b[0] = 0
-		//	return r.b[0], err
-		//}
-		//// mask io.EOF for the last byte
-		//if err == io.EOF {
-		//	err = nil
-		//}
-		//return r.b[0], err
-		return r.b, nil
+		r.b, r.err = r.buf.ReadByte()
+		return r.b, r.err
 	}
 
 	byt := r.b
 
-	//todo check length
-	r.b, _ = r.buf.ReadByte()
-	//var n int
-	//var err error
-	//n, err = r.buf.Read(r.b[:])
-	//if n != 1 || (err != nil && err != io.EOF) {
-	//	return 0, err
-	//}
-
+	r.b, r.err = r.buf.ReadByte()
 	byt |= r.b >> r.count
-
 	r.b <<= 8 - r.count
-
-	return byt, nil
+	return byt, r.err
 }

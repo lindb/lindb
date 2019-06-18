@@ -1,8 +1,11 @@
 .idea/
 test_data
 bin/
+.vscode/
+
 # temp file during testing
 *.test
+.vscode/
 
 ## Go
 # Binaries for programs and plugins
