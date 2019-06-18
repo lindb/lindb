@@ -1,7 +1,8 @@
 .idea/
 test_data
 bin/
-
+# temp file during testing
+*.test
 
 ## Go
 # Binaries for programs and plugins
