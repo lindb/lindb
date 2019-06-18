@@ -3,6 +3,8 @@ package encoding
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAdd(t *testing.T) {
@@ -25,10 +27,12 @@ func TestAdd(t *testing.T) {
 
 	d := NewDeltaBitPackingDecoder(&b)
 
+	count := 0
 	for d.HasNext() {
-		x := d.Next()
-		fmt.Printf("first=%d\n", x)
+		_ = d.Next()
+		count++
 	}
+	assert.Equal(t, 104, count)
 
 	fmt.Printf("xx,%p", &d)
 }

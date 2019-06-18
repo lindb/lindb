@@ -1,9 +1,11 @@
 package tsdb
 
-import "github.com/eleme/lindb/pkg/option"
+import (
+	"github.com/eleme/lindb/pkg/option"
+)
 
-// time series storage engine
+// Engine that time series storage engine
 type Engine interface {
-	// create shard for data partition
+	// Create shard for data partition
 	CreateShard(shardID int32, option option.ShardOption) error
 }
