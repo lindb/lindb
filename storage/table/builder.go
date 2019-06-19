@@ -3,8 +3,9 @@ package table
 import (
 	"fmt"
 
+	"github.com/eleme/lindb/pkg/bufioutil"
+
 	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/io"
 	"github.com/eleme/lindb/pkg/logger"
 
 	"github.com/RoaringBitmap/roaring"
@@ -20,7 +21,7 @@ type StoreBuilder struct {
 	keys    *roaring.Bitmap
 	lastKey uint32
 	logger  *zap.Logger
-	fw      *io.FileWriter
+	writer  bufioutil.BufioWriter
 	offset  *encoding.DeltaBitPackingEncoder
 
 	pos int32
@@ -31,14 +32,14 @@ type StoreBuilder struct {
 func NewStoreBuilder(fileName string) (Builder, error) {
 	keys := roaring.New()
 	log := logger.GetLogger()
-	writer, err := io.NewWriter(fileName)
+	writer, err := bufioutil.NewBufioWriter(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("create file write for store builder error:%s", err)
 	}
 	return &StoreBuilder{
 		keys:   keys,
 		logger: log,
-		fw:     writer,
+		writer: writer,
 		first:  true,
 		pos:    0,
 		offset: encoding.NewDeltaBitPackingEncoder(),
@@ -52,7 +53,7 @@ func (b *StoreBuilder) Add(key uint32, value []byte) bool {
 		return false
 	}
 
-	n, err := b.fw.Write(value)
+	n, err := b.writer.Write(value)
 	if err != nil {
 		b.pos += int32(n)
 		//TODO
@@ -80,7 +81,7 @@ func (b *StoreBuilder) Close() error {
 		return fmt.Errorf("marshal store table offsets error:%s", err)
 	}
 
-	n, err := b.fw.Write(offset)
+	n, err := b.writer.Write(offset)
 	if err != nil {
 		return fmt.Errorf("write offsets error:%s", err)
 	}
@@ -93,7 +94,7 @@ func (b *StoreBuilder) Close() error {
 
 	b.pos += int32(n)
 
-	n, err = b.fw.Write(keys)
+	n, err = b.writer.Write(keys)
 	if err != nil {
 		return err
 	}
