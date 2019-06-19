@@ -2,6 +2,8 @@
 github.com/BurntSushi/toml
 # github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 github.com/RoaringBitmap/roaring
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
 # github.com/golang/snappy v0.0.1
@@ -14,6 +16,10 @@ github.com/mattn/go-isatty
 github.com/mschoch/smat
 # github.com/philhofer/fwd v1.0.0
 github.com/philhofer/fwd
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/assert
 # github.com/tinylib/msgp v1.1.0
 github.com/tinylib/msgp/msgp
 # github.com/willf/bitset v1.1.10
