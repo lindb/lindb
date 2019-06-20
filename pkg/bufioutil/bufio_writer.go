@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultWriteBufferSize = 1024 * 1024 // 1MB
+	defaultWriteBufferSize = 256 * 1024 // 256KB
 )
 
 // BufioWriter writes entries to a specified file by buffered I/O. Not thread-safe.
@@ -16,6 +16,10 @@ type BufioWriter interface {
 	// Write writes a new entry containing logs in order.
 	// Close syncs data to disk, then closes the opened file.
 	io.WriteCloser
+	// Reset switches the buffered writer to write to a new file:
+	// open the new file; close the old opening file;
+	// discards any buffered data and reset the states of bufio.Writer
+	Reset(fileName string) error
 	// Sync flushes data first, then calls syscall.sync.
 	Sync() error
 	// Flush flushes data to io.Writer.
@@ -43,6 +47,22 @@ func NewBufioWriter(fileName string) (BufioWriter, error) {
 		w:        bufio.NewWriterSize(f, defaultWriteBufferSize),
 		f:        f,
 	}, nil
+}
+
+// Reset switches the buffered writer to write to a new file.
+func (bw *bufioWriter) Reset(fileName string) error {
+	newF, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	if err = bw.Close(); err != nil {
+		return err
+	}
+	bw.f = newF
+	bw.w = bufio.NewWriterSize(newF, defaultWriteBufferSize)
+	bw.size = 0
+	bw.fileName = fileName
+	return nil
 }
 
 // Write writes byte-slice to the buffer.

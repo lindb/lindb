@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultReadBufferSize = 1024 * 1024 // 1MB
+	defaultReadBufferSize = 256 * 1024 // 256KB
 )
 
 // The entries are encoded as follows:
@@ -31,10 +31,10 @@ type BufioReader interface {
 	// discards any buffered data and reset the states of bufio.Reader
 	// reset the content-buffer and count.
 	Reset(fileName string) error
-	// Truncate changes the size of file, use it while error is raised.
-	Truncate(count int64) error
 	// Count returns the total size of bytes read successfully, including length cost.
 	Count() int64
+	// Size returns the total size of the file.
+	Size() (int64, error)
 	// Close closes the underlying file.
 	Close() error
 }
@@ -50,7 +50,7 @@ type bufioReader struct {
 
 // NewBufioReader returns a new BufioReader from fileName.
 func NewBufioReader(fileName string) (BufioReader, error) {
-	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -61,44 +61,36 @@ func NewBufioReader(fileName string) (BufioReader, error) {
 	}, nil
 }
 
-// Read returns body from next entry.
+// Read returns content from next entry, the underlying buffer is reusable.
 func (br *bufioReader) Read() (eof bool, content []byte, err error) {
 	var lenBuf [4]byte // buffer for store uint32
 	// read length
-	n, err := io.ReadFull(br.r, lenBuf[:])
+	_, err = io.ReadFull(br.r, lenBuf[:])
 	if err == io.EOF {
-		return true, nil, nil
+		return true, nil, err
 	} else if err != nil {
 		return false, nil, err
 	}
-	br.count += int64(n)
 	// got length
 	length := binary.BigEndian.Uint32(lenBuf[:])
-
-	contentBuf := *(GetBuffer(length))
-	defer PutBuffer(&contentBuf)
+	// expand the cap or not
+	if uint32(cap(br.content)) < length {
+		br.content = make([]byte, length)
+	}
+	// shrink the length
+	br.content = br.content[:length]
 	// read content
-	n, err = io.ReadFull(br.r, contentBuf)
+	n, err := io.ReadFull(br.r, br.content)
 	if err != nil {
 		return false, nil, err
 	}
-	br.count += int64(n)
-	br.setContent(contentBuf)
+	br.count += int64(n) + 4
 	return false, br.content, nil
-}
-
-// setContent copies the data into reader's underlying reusable buffer.
-func (br *bufioReader) setContent(contentBuf []byte) {
-	if cap(br.content) < len(contentBuf) {
-		br.content = make([]byte, len(contentBuf))
-	}
-	copy(br.content, contentBuf)
-	br.content = br.content[:len(contentBuf)]
 }
 
 // Reset switches the buffered reader to read from a new file.
 func (br *bufioReader) Reset(fileName string) error {
-	newF, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666)
+	newF, err := os.Open(fileName)
 	if err != nil {
 		return err
 	}
@@ -118,15 +110,19 @@ func (br *bufioReader) Count() int64 {
 	return br.count
 }
 
-// Truncate changes the size of file, it will drop the data after the offset length of count.
-func (br *bufioReader) Truncate(count int64) error {
-	return br.f.Truncate(count)
-}
-
 // Close closes the opened file.
 func (br *bufioReader) Close() error {
 	if br.f == nil {
 		return nil
 	}
 	return br.f.Close()
+}
+
+// Size return the stat of the file.
+func (br *bufioReader) Size() (int64, error) {
+	stat, err := br.f.Stat()
+	if err != nil {
+		return 0, err
+	}
+	return stat.Size(), nil
 }
