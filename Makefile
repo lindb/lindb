@@ -16,6 +16,9 @@ build:  ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GO
 
 GOLANGCI_LINT_VERSION ?= "latest"
 
+generate:
+	go list ./... | grep -v '/vendor/' | xargs go generate
+
 test:  ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
