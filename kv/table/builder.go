@@ -14,6 +14,11 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	// magic-number in the footer of sst file
+	magicNumberOffsetFile uint64 = 7308327815838786409
+)
+
 // Builder builds sst file
 type Builder interface {
 	// FileNumber returns file name for store builder
@@ -47,7 +52,7 @@ type storeBuilder struct {
 	first bool
 }
 
-// NewStoreBuilder create store builder instance for building store file
+// NewStoreBuilder creates store builder instance for building store file
 func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 	fileName := filepath.Join(path, version.Table(fileNumber))
 	keys := roaring.New()
@@ -82,7 +87,7 @@ func (b *storeBuilder) Add(key uint32, value []byte) error {
 
 	// get write offset
 	offset := b.writer.Size()
-	if err := b.write(value); err != nil {
+	if _, err := b.writer.Write(value); err != nil {
 		return fmt.Errorf("write data into store file error:%s", err)
 	}
 	// add offset into offset buffer
@@ -127,7 +132,7 @@ func (b *storeBuilder) Close() error {
 	if err != nil {
 		return fmt.Errorf("marshal store table offsets error:%s", err)
 	}
-	if err := b.write(offset); err != nil {
+	if _, err = b.writer.Write(offset); err != nil {
 		return err
 	}
 
@@ -137,28 +142,17 @@ func (b *storeBuilder) Close() error {
 		return err
 	}
 	posOfKeys := b.writer.Size()
-	if err := b.write(keys); err != nil {
+	if _, err = b.writer.Write(keys); err != nil {
 		return err
 	}
 
-	// for file footer for offsets/keys index, length=12
-	var buf [8]byte
-	binary.BigEndian.PutUint32(buf[:], uint32(posOfOffset))
-	binary.BigEndian.PutUint32(buf[4:], uint32(posOfKeys))
-	if err := b.write(buf[:]); err != nil {
+	// for file footer for offsets/keys index, length=1+4+4+8
+	var buf [16]byte
+	binary.BigEndian.PutUint32(buf[:4], uint32(posOfOffset))
+	binary.BigEndian.PutUint32(buf[4:8], uint32(posOfKeys))
+	binary.BigEndian.PutUint64(buf[8:], magicNumberOffsetFile)
+	if _, err = b.writer.Write(buf[:]); err != nil {
 		return err
 	}
 	return b.writer.Close()
-}
-
-// write writes value init file, then check written length, return error if failure
-func (b *storeBuilder) write(value []byte) error {
-	n, err := b.writer.Write(value)
-	if err != nil {
-		return fmt.Errorf("write data into store file error:%s", err)
-	}
-	if n != len(value) {
-		return fmt.Errorf("written length != input value's length")
-	}
-	return nil
 }

@@ -67,21 +67,21 @@ func (bw *bufioWriter) Reset(fileName string) error {
 
 // Write writes byte-slice to the buffer.
 func (bw *bufioWriter) Write(content []byte) (int, error) {
-	var buf [4]byte // buf for store length(uint32)
-	binary.BigEndian.PutUint32(buf[:], uint32(len(content)))
+	var buf [8]byte // buf for store length
+	variantLength := binary.PutUvarint(buf[:], uint64(len(content)))
 	// write length
-	if n, err := bw.w.Write(buf[:]); err == nil {
-		bw.size += int64(n)
-	} else {
-		return 0, err
-	}
-	// write content
-	n, err := bw.w.Write(content)
+	n1, err := bw.w.Write(buf[:variantLength])
 	if err != nil {
 		return 0, err
 	}
-	bw.size += int64(len(content))
-	return n, nil
+	bw.size += int64(n1)
+	// write content
+	n2, err := bw.w.Write(content)
+	if err != nil {
+		return 0, err
+	}
+	bw.size += int64(n2)
+	return n1 + n2, nil
 }
 
 // Sync flushes the buffered data to the write-queue of the disk.
