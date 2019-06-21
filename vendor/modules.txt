@@ -2,6 +2,8 @@
 github.com/BurntSushi/toml
 # github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 github.com/RoaringBitmap/roaring
+# github.com/armon/go-radix v1.0.0
+github.com/armon/go-radix
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/coreos/bbolt v1.3.3
@@ -100,6 +102,8 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
 github.com/golang/groupcache/lru
+# github.com/golang/mock v1.1.1
+github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
