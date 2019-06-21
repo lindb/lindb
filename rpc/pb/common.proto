@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package common;
+
+enum RequestType {
+    WritePoints = 0;
+}
+
+message RequestContext {
+    RequestType type = 1;
+}
+
+message ResponseContext {
+    RequestType type = 1;
+    string msg = 2;
+}
+
+
+
+
+
+
+
+
+

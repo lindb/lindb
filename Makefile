@@ -1,4 +1,4 @@
-.PHONY: help build test deps clean
+.PHONY: help build test deps pb clean
 
 # Ref: https://gist.github.com/prwhite/8168133
 help:  ## Display this help
@@ -33,6 +33,8 @@ deps:  ## Update vendor.
 	rm -rf vendor
 	go mod vendor -v
 
+pb:  ## generate pb file.
+	./generate_pb.sh
 
 clean:  ## Clean up useless files.
 	rm -rf bin
