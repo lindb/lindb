@@ -1,6 +1,7 @@
 package table
 
 import (
+	"encoding/binary"
 	"os"
 	"testing"
 
@@ -12,6 +13,12 @@ import (
 const (
 	testKVPath = "test_builder"
 )
+
+func Test_magicNumber(t *testing.T) {
+	code := []byte("eleme-ci")
+	assert.Len(t, code, 8)
+	assert.Equal(t, magicNumberOffsetFile, binary.BigEndian.Uint64(code))
+}
 
 func Test_BuildStore(t *testing.T) {
 	_ = util.MkDirIfNotExist(testKVPath)

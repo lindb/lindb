@@ -161,11 +161,8 @@ func (vs *StoreVersionSet) recover() error {
 		return fmt.Errorf("create journal reader error:%s", err)
 	}
 	// read edit log
-	for {
-		eof, record, err := reader.Read()
-		if eof {
-			break
-		}
+	for reader.Next() {
+		record, err := reader.Read()
 		if err != nil {
 			return fmt.Errorf("recover data from manifest file error:%s", err)
 		}
