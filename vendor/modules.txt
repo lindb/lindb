@@ -157,6 +157,8 @@ github.com/modern-go/reflect2
 github.com/mschoch/smat
 # github.com/philhofer/fwd v1.0.0
 github.com/philhofer/fwd
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/prometheus/client_golang v1.0.0
@@ -204,9 +206,9 @@ golang.org/x/crypto/blowfish
 # golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 golang.org/x/net/context
 golang.org/x/net/trace
+golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
-golang.org/x/net/internal/timeseries
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20190412213103-97732733099d
@@ -225,11 +227,11 @@ google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/grpc v1.21.1
 google.golang.org/grpc
+google.golang.org/grpc/keepalive
 google.golang.org/grpc/codes
 google.golang.org/grpc/credentials
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/health/grpc_health_v1
-google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/status
 google.golang.org/grpc/balancer
@@ -254,10 +256,10 @@ google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
 google.golang.org/grpc/tap
 google.golang.org/grpc/credentials/internal
-google.golang.org/grpc/health
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
+google.golang.org/grpc/health
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 gopkg.in/check.v1
 # gopkg.in/yaml.v2 v2.2.1
