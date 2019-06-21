@@ -25,7 +25,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.9.2 // indirect
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.8
-	github.com/pkg/errors v0.8.1 // indirect
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/stretchr/testify v1.3.0
@@ -38,6 +38,6 @@ require (
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/time v0.0.0-20190513212739-9d24e82272b4 // indirect
-	google.golang.org/grpc v1.21.1 // indirect
+	google.golang.org/grpc v1.21.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 )

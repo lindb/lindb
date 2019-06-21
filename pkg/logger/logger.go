@@ -29,7 +29,7 @@ func New() *zap.Logger {
 }
 
 func Info(msg string, fields ...zap.Field) {
-	logger.Info(msg, fields...)
+	GetLogger().Info(msg, fields...)
 }
 
 func (c *Config) New() (*zap.Logger, error) {

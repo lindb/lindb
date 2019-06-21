@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package broker;
+
+import "common.proto";
+
+service BrokerService {
+    rpc WritePoints (WritePointsRequest) returns (WritePointsResponse) {
+    }
+}
+
+message Point {
+    string name = 1;
+    int64 timestamp = 2;
+    map<string, string> tags = 3;
+    repeated Field fields = 4;
+}
+
+message Field {
+    string name = 1;
+    AggType aggType = 2;
+    double value = 3;
+}
+
+enum AggType {
+    GAUGE = 0;
+    SUM = 1;
+    MIN = 2;
+    MAX = 3;
+}
+
+message WritePointsRequest {
+    common.RequestContext context = 1;
+    repeated Point points = 2;
+}
+
+message WritePointsResponse {
+    common.ResponseContext context = 1;
+}
