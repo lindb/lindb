@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/eleme/lindb/pkg/lockers"
+
 	"github.com/eleme/lindb/kv/table"
 	"github.com/eleme/lindb/kv/version"
 	"github.com/eleme/lindb/pkg/logger"
@@ -14,20 +16,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// Store is kv store, support column family, but different other LSM implements.
-// current implement not include memory table write logic.
+// Store is kv store, supporting column family, but is different from other LSM implementation.
+// Current implementation doesn't contain memory table write logic.
 type Store struct {
-	name     string
-	option   StoreOption
-	lock     *Lock // file lock make sure store only been open once instance
+	name   string
+	option StoreOption
+	// file-lock restricts access to store by allowing only one instance
+	lock     *lockers.FileLock
 	versions *version.StoreVersionSet
-	familyID int // each family instance need assign an unique family id
+	// each family instance need to be assigned an unique family id
+	familyID int
 	families map[string]*Family
+	// RWMutex for accessing family
+	rwMutex sync.RWMutex
 
 	storeInfo *storeInfo
 	cache     table.Cache
-
-	mutex sync.RWMutex
 
 	logger *zap.Logger
 }
@@ -50,9 +54,8 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 		info = newStoreInfo(option)
 		isCreate = true
 	}
-
-	// first need do file lock, only allow open by a instance
-	lock := NewLock(filepath.Join(option.Path, version.Lock))
+	// try lock
+	lock := lockers.NewFileLock(filepath.Join(option.Path, version.Lock))
 	err := lock.Lock()
 	if err != nil {
 		return nil, err
@@ -78,7 +81,7 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 		storeInfo: info,
 	}
 
-	// init  version set
+	// init version set
 	store.versions = version.NewStoreVersionSet(store.option.Path, store.option.Levels)
 
 	if isCreate {
@@ -87,20 +90,20 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 			return nil, err
 		}
 	} else {
-		// exist store need load all families instance
-		for familyName, familyOption := range info.Familyies {
+		// existed store need loading all families instance
+		for familyName, familyOption := range info.Families {
 			if store.familyID < familyOption.ID {
 				store.familyID = familyOption.ID
 			}
-			// open exist family
+			// open existed family
 			family, err := newFamily(store, familyOption)
 			if err != nil {
-				return nil, fmt.Errorf("build family instance for exsit store[%s] error:%s", option.Path, err)
+				return nil, fmt.Errorf("building family instance for existed store[%s] error:%s", option.Path, err)
 			}
 			store.families[familyName] = family
 		}
 	}
-	// recover version set, after recvoer family options
+	// recover version set, after recovering family options
 	if err := store.versions.Recover(); err != nil {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
@@ -112,48 +115,50 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 
 // CreateFamily create/load column family.
 func (s *Store) CreateFamily(familyName string, option FamilyOption) (*Family, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	var family, ok = s.families[familyName]
-	if !ok {
-		familyPath := filepath.Join(s.option.Path, familyName)
-
-		var err error
-		if !util.Exist(familyPath) {
-			// create new family
-			option.Name = familyName
-			// assign unqiue family id
-			s.familyID++
-			option.ID = s.familyID
-			s.storeInfo.Familyies[familyName] = option
-			if err := s.dumpStoreInfo(); err != nil {
-				// if dump store info error remove family option from store info
-				delete(s.storeInfo.Familyies, familyName)
-				return nil, err
-			}
-		}
-
-		family, err = newFamily(s, s.storeInfo.Familyies[familyName])
-
-		if err != nil {
-			return nil, err
-		}
-		s.families[familyName] = family
+	s.rwMutex.RLock()
+	family, ok := s.families[familyName]
+	s.rwMutex.RUnlock()
+	if ok {
+		return family, nil
 	}
 
+	// todo: check the lock granularity
+	s.rwMutex.Lock()
+	defer s.rwMutex.Unlock()
+
+	familyPath := filepath.Join(s.option.Path, familyName)
+	var err error
+	if !util.Exist(familyPath) {
+		// create new family
+		option.Name = familyName
+		// assign unique family id
+		s.familyID++
+		option.ID = s.familyID
+		s.storeInfo.Families[familyName] = option
+		if err := s.dumpStoreInfo(); err != nil {
+			// if dump store info error remove family option from store info
+			delete(s.storeInfo.Families, familyName)
+			return nil, err
+		}
+	}
+
+	family, err = newFamily(s, s.storeInfo.Families[familyName])
+	if err != nil {
+		return nil, err
+	}
+	s.families[familyName] = family
 	return family, nil
 }
 
-// GetFamily gets family based on name, if not exist return nil
+// GetFamily gets family based on name, return nil if not exist.
 func (s *Store) GetFamily(familyName string) (*Family, bool) {
-	s.mutex.Lock()
+	s.rwMutex.RLock()
 	family, ok := s.families[familyName]
-	s.mutex.Unlock()
+	s.rwMutex.RUnlock()
 	return family, ok
 }
 
-// Close closes store, then release some resoure
+// Close closes store, then release some resource
 func (s *Store) Close() error {
 	if err := s.cache.Close(); err != nil {
 		s.logger.Error("close store cache error", zap.String("store", s.option.Path), zap.Error(err))
@@ -164,7 +169,7 @@ func (s *Store) Close() error {
 	return s.lock.Unlock()
 }
 
-// dumpStoreInfo peresist store info to INFO file
+// dumpStoreInfo persists store info to INFO file
 func (s *Store) dumpStoreInfo() error {
 	infoPath := filepath.Join(s.option.Path, version.Options)
 	tmp := fmt.Sprintf("%s.%s", infoPath, version.TmpSuffix)

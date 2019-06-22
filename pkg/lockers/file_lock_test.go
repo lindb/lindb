@@ -1,4 +1,4 @@
-package kv
+package lockers
 
 import (
 	"os"
@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLock(t *testing.T) {
-	var lock = NewLock("t.lock")
+func TestFileLock(t *testing.T) {
+	var lock = NewFileLock("t.lock")
 	var err = lock.Lock()
 	assert.Nil(t, err, "lock error")
 
@@ -18,7 +18,7 @@ func TestLock(t *testing.T) {
 	err = lock.Unlock()
 	assert.Nil(t, err, "unlock error")
 
-	lock = NewLock("t.lock")
+	lock = NewFileLock("t.lock")
 	err = lock.Lock()
 	assert.Nil(t, err, "lock error")
 
@@ -27,7 +27,7 @@ func TestLock(t *testing.T) {
 	fileInfo, _ := os.Stat("t.lock")
 	assert.Nil(t, fileInfo, "lock file exist")
 
-	lock = NewLock("/tmp/not_dir/t.lock")
+	lock = NewFileLock("/tmp/not_dir/t.lock")
 	err = lock.Lock()
 	assert.NotNil(t, err, "cannot lock not exist file")
 }

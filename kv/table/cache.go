@@ -14,9 +14,9 @@ import (
 
 // Cache caches table readers
 type Cache interface {
-	// GetReader returns store reader from cache, if not exsit create new reader
+	// GetReader returns store reader from cache, create new reader if not exist.
 	GetReader(family string, fileNumber int64) (Reader, error)
-	// Close cleans cache data, first closes reader resource
+	// Close cleans cache data after closing reader resource firstly
 	Close() error
 }
 
@@ -35,7 +35,7 @@ func NewCache(storePath string) Cache {
 	}
 }
 
-// GetReader returns store reader from cache, if not exsit create new reader
+// GetReader returns store reader from cache, create new reader if not exist
 func (c *mapCache) GetReader(family string, fileNumber int64) (Reader, error) {
 	filePath := filepath.Join(family, version.Table(fileNumber))
 	c.mutex.Lock()
@@ -57,7 +57,7 @@ func (c *mapCache) GetReader(family string, fileNumber int64) (Reader, error) {
 	return newReader, nil
 }
 
-// Close cleans cache data, first closes reader resource
+// Close closes reader resource and cleans cache data.
 func (c *mapCache) Close() error {
 	log := logger.GetLogger()
 	for k, v := range c.readers {

@@ -31,8 +31,7 @@ func (l *level) deleteFile(fileNumber int64) {
 
 // getFiles returns all files in current level
 func (l *level) getFiles() []*FileMeta {
-	values := []*FileMeta{}
-
+	var values []*FileMeta
 	for _, v := range l.files {
 		values = append(values, v)
 	}

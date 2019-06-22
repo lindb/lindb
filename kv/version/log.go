@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/eleme/lindb/pkg/stream"
+	strm "github.com/eleme/lindb/pkg/stream"
 )
 
 func init() {
@@ -22,7 +22,7 @@ func init() {
 	})
 }
 
-// NewLogFunc create speic eidt log instance
+// NewLogFunc create specific edit log instance
 type NewLogFunc func() Log
 
 var newLogFuncMap = make(map[int32]NewLogFunc)
@@ -51,7 +51,7 @@ type Log interface {
 	apply(version *Version)
 }
 
-// StoreLog metadata eidt log store level
+// StoreLog metadata dit log store level
 type StoreLog interface {
 	Log
 	// applyVersionSet apply edito to store version set
@@ -74,7 +74,7 @@ func CreateNewFile(level int32, file *FileMeta) *NewFile {
 
 // Encode writes new file data to binary, if error return err
 func (n *NewFile) Encode() ([]byte, error) {
-	var stream = stream.BinaryWriter()
+	var stream = strm.BinaryWriter()
 
 	stream.PutInt32(n.level)                // level
 	stream.PutInt64(n.file.GetFileNumber()) // file number
@@ -87,7 +87,7 @@ func (n *NewFile) Encode() ([]byte, error) {
 
 // Decode reads new file from binary, if error return err
 func (n *NewFile) Decode(v []byte) error {
-	var stream = stream.BinaryReader(v)
+	var stream = strm.BinaryReader(v)
 	// read level
 	n.level = stream.ReadInt32()
 	// read file meta
@@ -117,7 +117,7 @@ func NewDeleteFile(level int32, fileNumber int64) *DeleteFile {
 
 // Encode writes delete file data into binary
 func (d *DeleteFile) Encode() ([]byte, error) {
-	var stream = stream.BinaryWriter()
+	var stream = strm.BinaryWriter()
 
 	stream.PutInt32(d.level)
 	stream.PutInt64(d.fileNumber)
@@ -127,7 +127,7 @@ func (d *DeleteFile) Encode() ([]byte, error) {
 
 // Decode reads delete file data from binary
 func (d *DeleteFile) Decode(v []byte) error {
-	var stream = stream.BinaryReader(v)
+	var stream = strm.BinaryReader(v)
 
 	d.level = stream.ReadInt32()
 	d.fileNumber = stream.ReadInt64()
@@ -145,7 +145,7 @@ type NextFileNumber struct {
 	fileNumber int64
 }
 
-// NewNextFileNumber create NextFileNumber instance
+// NewNextFileNumber creates NextFileNumber instance
 func NewNextFileNumber(fileNumber int64) *NextFileNumber {
 	return &NextFileNumber{
 		fileNumber: fileNumber,
@@ -154,14 +154,14 @@ func NewNextFileNumber(fileNumber int64) *NextFileNumber {
 
 // Encode writes next file number data into binary
 func (n *NextFileNumber) Encode() ([]byte, error) {
-	var stream = stream.BinaryWriter()
+	var stream = strm.BinaryWriter()
 	stream.PutInt64(n.fileNumber)
 	return stream.Bytes()
 }
 
 // Decode reads next file number data from binary
 func (n *NextFileNumber) Decode(v []byte) error {
-	var stream = stream.BinaryReader(v)
+	var stream = strm.BinaryReader(v)
 	n.fileNumber = stream.ReadInt64()
 	return stream.Error()
 }
@@ -171,7 +171,7 @@ func (n *NextFileNumber) apply(version *Version) {
 	// do nothing
 }
 
-//applyVersionSet applys edito to store version set
+//applyVersionSet applies edito to store version set
 func (n *NextFileNumber) applyVersionSet(versionSet *StoreVersionSet) {
 	versionSet.setNextFileNumberWithoutLock(n.fileNumber)
 }
