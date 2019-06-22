@@ -1,4 +1,4 @@
-package storage
+package lockers
 
 import (
 	"fmt"
@@ -10,22 +10,23 @@ import (
 	"go.uber.org/zap"
 )
 
-// File lock
-type Lock struct {
+// FileLock is file lock
+type FileLock struct {
 	fileName string
 	file     *os.File
 	logger   *zap.Logger
 }
 
-func NewLock(fileName string) *Lock {
-	return &Lock{
+// NewFileLock create new file lock instance
+func NewFileLock(fileName string) *FileLock {
+	return &FileLock{
 		fileName: fileName,
 		logger:   logger.GetLogger(),
 	}
 }
 
-// Lock
-func (l *Lock) Lock() error {
+// Lock try locking file, return err if fails.
+func (l *FileLock) Lock() error {
 	f, err := os.Create(l.fileName)
 	if nil != err {
 		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
@@ -39,8 +40,8 @@ func (l *Lock) Lock() error {
 	return nil
 }
 
-// Unlock
-func (l *Lock) Unlock() error {
+// Unlock unlock file lock, if fail return err
+func (l *FileLock) Unlock() error {
 	defer func() {
 		if err := os.Remove(l.fileName); nil != err {
 			l.logger.Error("remove file lock error", zap.String("file", l.fileName), zap.Error(err))
