@@ -5,14 +5,14 @@ import (
 	"reflect"
 
 	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/stream"
+	strm "github.com/eleme/lindb/pkg/stream"
 )
 
 // StoreFamilyID is store level edit log,
 // actually store family is not actual family just store store level edit log for metadata.
 const StoreFamilyID = 0
 
-// EditLog includes all metadata edit log
+// EditLog contains all metadata edit log
 type EditLog struct {
 	logs     []Log
 	familyID int
@@ -30,14 +30,14 @@ func (el *EditLog) Add(log Log) {
 	el.logs = append(el.logs, log)
 }
 
-// IsEmpty returns if has eidt logs
+// IsEmpty returns edit logs is empty or not.
 func (el *EditLog) IsEmpty() bool {
 	return len(el.logs) == 0
 }
 
 // marshal encodes edit log to binary data
 func (el *EditLog) marshal() ([]byte, error) {
-	stream := stream.BinaryWriter()
+	stream := strm.BinaryWriter()
 	// write family id
 	stream.PutInt32(int32(el.familyID))
 	// write num of logs
@@ -58,7 +58,7 @@ func (el *EditLog) marshal() ([]byte, error) {
 
 // unmarshal create an edit log from its seriealized in buf
 func (el *EditLog) unmarshal(buf []byte) error {
-	stream := stream.BinaryReader(buf)
+	stream := strm.BinaryReader(buf)
 	el.familyID = int(stream.ReadInt32())
 	// read num of logs
 	count := stream.ReadUvarint64()
@@ -70,8 +70,8 @@ func (el *EditLog) unmarshal(buf []byte) error {
 			return fmt.Errorf("cannot get log type new func, type is:[%d]", logType)
 		}
 		l := fn()
-		len := int(stream.ReadUvarint32())
-		logData := stream.ReadBytes(len)
+		length := int(stream.ReadUvarint32())
+		logData := stream.ReadBytes(length)
 		if err := l.Decode(logData); err != nil {
 			return fmt.Errorf("unmarshal log data error, type is:[%d],error:%s", logType, err)
 		}

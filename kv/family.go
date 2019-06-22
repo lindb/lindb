@@ -12,7 +12,7 @@ import (
 	"github.com/eleme/lindb/pkg/util"
 )
 
-// Family implement column family for data isolation each family
+// Family implements column family for data isolation each family.
 type Family struct {
 	store         *Store
 	name          string
@@ -22,7 +22,7 @@ type Family struct {
 	logger        *zap.Logger
 }
 
-// newFamily creates new family or open exsit family
+// newFamily creates new family or open existed family.
 func newFamily(store *Store, option FamilyOption) (*Family, error) {
 	log := logger.GetLogger()
 	name := option.Name
@@ -31,7 +31,7 @@ func newFamily(store *Store, option FamilyOption) (*Family, error) {
 
 	if !util.Exist(familyPath) {
 		if err := util.MkDir(familyPath); err != nil {
-			return nil, fmt.Errorf("mk family path error:%s", err)
+			return nil, fmt.Errorf("mkdir family path error:%s", err)
 		}
 	}
 
@@ -48,14 +48,14 @@ func newFamily(store *Store, option FamilyOption) (*Family, error) {
 	return f, nil
 }
 
-// NewFlusher creates flusher for saving data to family
+// NewFlusher creates flusher for saving data to family.
 func (f *Family) NewFlusher() Flusher {
 	return newStoreFlusher(f)
 }
 
 // GetSnapshot returns current version for given key, includes sst files
 func (f *Family) GetSnapshot(key uint32) (*Snapshot, error) {
-	version, files := f.familyVersion.FindFiles(key)
+	v, files := f.familyVersion.FindFiles(key)
 	var readers []table.Reader
 	for _, fileMeta := range files {
 		// get store reader from cache
@@ -65,17 +65,17 @@ func (f *Family) GetSnapshot(key uint32) (*Snapshot, error) {
 		}
 		readers = append(readers, reader)
 	}
-	return newSnapshot(version, readers), nil
+	return newSnapshot(v, readers), nil
 }
 
-// newTableBuilder create table builder instance for storing kv data
+// newTableBuilder creates table builder instance for storing kv data.
 func (f *Family) newTableBuilder() (table.Builder, error) {
 	fileNumber := f.store.versions.NextFileNumber()
 	return table.NewStoreBuilder(f.familyPath, fileNumber)
 }
 
-// commitEditLog peresists eidt logs into mamanifest file
-// returns ture commit successfully, else failure
+// commitEditLog persists edit logs into manifest file.
+// returns true on committing successfully and false on failure
 func (f *Family) commitEditLog(editLog *version.EditLog) bool {
 	if editLog.IsEmpty() {
 		f.logger.Warn("edit log is empty", f.logStoreField(), f.logFamilyField())
@@ -88,12 +88,12 @@ func (f *Family) commitEditLog(editLog *version.EditLog) bool {
 	return true
 }
 
-// logStoreField logging store info
+// logStoreField logs store info。
 func (f *Family) logStoreField() zap.Field {
 	return zap.String("store", f.store.option.Path)
 }
 
-// logFamilyField logging family info
+// logFamilyField logs family info.
 func (f *Family) logFamilyField() zap.Field {
 	return zap.String("family", f.name)
 }

@@ -7,11 +7,11 @@ import (
 	"github.com/eleme/lindb/kv/version"
 )
 
-// Flusher flushs data into kv store, for big data maybe split many sstable
+// Flusher flushes data into kv store, for big data will be split into many sstable
 type Flusher interface {
 	// Add puts k/v pair
 	Add(key uint32, value []byte) error
-	// Commit flushs data and commits metadata
+	// Commit flushes data and commits metadata
 	Commit() error
 }
 
@@ -42,7 +42,7 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 	return sf.builder.Add(key, value)
 }
 
-// Commit flushs data and commits metadata
+// Commit flushes data and commits metadata
 func (sf *storeFlusher) Commit() error {
 	builder := sf.builder
 	if builder != nil {

@@ -12,7 +12,7 @@ type StoreOption struct {
 	Levels int    `toml:"levels"`
 }
 
-// DefaultStoreOption build default store option
+// DefaultStoreOption builds default store option
 func DefaultStoreOption(path string) StoreOption {
 	return StoreOption{
 		Path:   path,
@@ -23,13 +23,13 @@ func DefaultStoreOption(path string) StoreOption {
 // storeInfo stores store config option, include all family's option in this kv store
 type storeInfo struct {
 	StoreOption StoreOption             `toml:"store"`
-	Familyies   map[string]FamilyOption `toml:"families"`
+	Families    map[string]FamilyOption `toml:"families"`
 }
 
-// newStoreInfo create store info instance for saving configs
+// newStoreInfo creates store info instance for saving configs
 func newStoreInfo(storeOption StoreOption) *storeInfo {
 	return &storeInfo{
 		StoreOption: storeOption,
-		Familyies:   make(map[string]FamilyOption),
+		Families:    make(map[string]FamilyOption),
 	}
 }

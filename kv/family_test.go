@@ -19,10 +19,10 @@ func Test_Data_Write_Read(t *testing.T) {
 
 	f, err := kv.CreateFamily("f", FamilyOption{})
 	assert.Nil(t, err, "cannot create family")
-	fluser := f.NewFlusher()
-	_ = fluser.Add(1, []byte("test"))
-	_ = fluser.Add(10, []byte("test10"))
-	commitErr := fluser.Commit()
+	flusher := f.NewFlusher()
+	_ = flusher.Add(1, []byte("test"))
+	_ = flusher.Add(10, []byte("test10"))
+	commitErr := flusher.Commit()
 	assert.Nil(t, commitErr)
 
 	snapshot, _ := f.GetSnapshot(10)

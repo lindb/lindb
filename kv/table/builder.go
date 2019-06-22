@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// Builder build sst file
+// Builder builds sst file
 type Builder interface {
-	// FileNumber returns file name for store bulider
+	// FileNumber returns file name for store builder
 	FileNumber() int64
 	// Add puts k/v pair init sst file write buffer
 	Add(key uint32, value []byte) error
@@ -34,7 +34,7 @@ type Builder interface {
 
 // storeBuilder builds store file
 type storeBuilder struct {
-	fileNubmer int64
+	fileNumber int64
 	fileName   string
 	logger     *zap.Logger
 	writer     bufioutil.BufioWriter
@@ -57,7 +57,7 @@ func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 		return nil, fmt.Errorf("create file write for store builder error:%s", err)
 	}
 	return &storeBuilder{
-		fileNubmer: fileNumber,
+		fileNumber: fileNumber,
 		fileName:   fileName,
 		keys:       keys,
 		logger:     log,
@@ -67,9 +67,9 @@ func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 	}, nil
 }
 
-// FileNumber returns file name for store bulider
+// FileNumber returns file name of store builder.
 func (b *storeBuilder) FileNumber() int64 {
-	return b.fileNubmer
+	return b.fileNumber
 }
 
 // Add adds key/value pair into store file, if write failure return error
@@ -120,7 +120,7 @@ func (b *storeBuilder) Count() uint64 {
 	return b.keys.GetCardinality()
 }
 
-// Close writes file footer then closes resources
+// Close writes file footer before closing resources
 func (b *storeBuilder) Close() error {
 	posOfOffset := b.writer.Size()
 	offset, err := b.offset.Bytes()
@@ -151,7 +151,7 @@ func (b *storeBuilder) Close() error {
 	return b.writer.Close()
 }
 
-// write writes value init file, then check written length, if failure return error
+// write writes value init file, then check written length, return error if failure
 func (b *storeBuilder) write(value []byte) error {
 	n, err := b.writer.Write(value)
 	if err != nil {

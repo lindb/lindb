@@ -10,13 +10,13 @@ import (
 	"github.com/eleme/lindb/pkg/mmap"
 )
 
-// Reader read k/v pair from store file
+// Reader reads k/v pair from store file
 type Reader interface {
 	// Get returns value for giving key
 	Get(key uint32) []byte
 	// Iterator iterates over a store's key/value pairs in key order.
 	Iterator() Iterator
-	// Close close reader, release releted resources
+	// Close closes reader, release related resources
 	Close() error
 }
 
@@ -30,7 +30,7 @@ type storeMMapReader struct {
 	offsets []int32
 }
 
-// newMMapStoreReader create mmap store file reader
+// newMMapStoreReader creates mmap store file reader
 func newMMapStoreReader(path string) (Reader, error) {
 	buf, err := mmap.Map(path)
 	if err != nil {
@@ -50,7 +50,7 @@ func newMMapStoreReader(path string) (Reader, error) {
 	return r, nil
 }
 
-// initialize store reader, read index block(keys,offset etc.), then cache it
+// initialize initializes store reader, reads index block(keys,offset etc.), then caches it
 func (r *storeMMapReader) initialize() error {
 	fileLen := r.len
 	offsetOfOffset := int(r.readUint32(fileLen - 8))
@@ -72,7 +72,7 @@ func (r *storeMMapReader) initialize() error {
 	return nil
 }
 
-// Get retrun value for key, if not exist return nil
+// Get return value for key, if not exist return nil
 func (r *storeMMapReader) Get(key uint32) []byte {
 	if !r.keys.Contains(key) {
 		return nil
@@ -112,7 +112,7 @@ type storeMMapIterator struct {
 	idx int
 }
 
-// newMMapIterator create store iterator using mmap store reader
+// newMMapIterator creates store iterator using mmap store reader
 func newMMapIterator(reader *storeMMapReader) Iterator {
 	return &storeMMapIterator{
 		reader: reader,
