@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
+	"github.com/coreos/etcd/integration"
 	etcd "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/integration"
 
 	"github.com/stretchr/testify/assert"
 
