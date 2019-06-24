@@ -24,6 +24,7 @@ var (
 	help       bool
 )
 
+// init inits the broker config
 func init() {
 	if version == "" {
 		version = unknown
@@ -53,24 +54,14 @@ func main() {
 	brokerConfig := &broker.Config{}
 	config.Parse(configFile, brokerConfig)
 	log.Info("start http server", zap.Any("port", brokerConfig.HTTP.Port))
-
 	router := rest.NewRouter(brokerConfig)
-	//TODO set the correct server addr
-	mux, cancel, e := rest.CreateRPCProxyServerMux("")
-	if e != nil {
-		log.Error("create gRpc gateway proxy error", zap.Error(e))
-		os.Exit(0)
-	}
-	if cancel != nil {
-		defer cancel()
-	}
-	handler := &rest.APIHandler{Mux: mux, Route: router}
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.HTTP.Port), handler); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.HTTP.Port), router); err != nil {
 		log.Error("start http server error", zap.Error(err))
 		os.Exit(0)
 	}
 }
 
+// usage prints the version of broker
 func usage() {
 	_, _ = fmt.Fprintf(os.Stderr, `lindb broker version: %s
 	

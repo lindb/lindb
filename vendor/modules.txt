@@ -7,12 +7,12 @@ github.com/beorn7/perks/quantile
 # github.com/coreos/bbolt v1.3.3
 github.com/coreos/bbolt
 # github.com/coreos/etcd v3.3.13+incompatible
+github.com/coreos/etcd/integration
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 github.com/coreos/etcd/etcdserver/etcdserverpb
 github.com/coreos/etcd/mvcc/mvccpb
 github.com/coreos/etcd/pkg/types
-github.com/coreos/etcd/integration
 github.com/coreos/etcd/client
 github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/clientv3/namespace
@@ -196,9 +196,9 @@ golang.org/x/crypto/blowfish
 # golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 golang.org/x/net/context
 golang.org/x/net/trace
-golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/internal/timeseries
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20190412213103-97732733099d
@@ -246,9 +246,9 @@ google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
 google.golang.org/grpc/tap
 google.golang.org/grpc/credentials/internal
+google.golang.org/grpc/health
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
-google.golang.org/grpc/health
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2

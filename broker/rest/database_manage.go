@@ -9,52 +9,55 @@ import (
 	"github.com/eleme/lindb/pkg/option"
 )
 
-// Handler for get database config
+// GetDatabase gets a database config by the databaseName.
 func GetDatabase(w http.ResponseWriter, r *http.Request) {
 	databaseName, err := GetParamsFromRequest("databaseName", r, "", true)
 	if err != nil {
-		ErrorResponse(w, err)
+		errorResponse(w, err)
 		return
 	}
 	db := service.New()
 	database, err := db.Get(databaseName)
 	if err != nil {
-		ErrorResponse(w, err)
+		errorResponse(w, err)
 		return
 	}
-	OKResponse(w, database)
+	okResponse(w, database)
 }
 
-// Handler for create or update database config
+// CreateOrUpdateDatabase creates the database config if there is no database
+// config with the name database.Name, otherwise update the config
 func CreateOrUpdateDatabase(w http.ResponseWriter, r *http.Request) {
 	database := &option.Database{}
 	err := checkDatabaseParams(r, database)
 	if err != nil {
-		ErrorResponse(w, err)
+		errorResponse(w, err)
 		return
 	}
 	db := service.New()
 	err = db.Create(*database)
 	if err != nil {
-		ErrorResponse(w, err)
+		errorResponse(w, err)
 		return
 	}
-	NoContent(w)
+	noContent(w)
 }
 
+//checkDatabaseParams checks whether the database config meets the requirements,
+// if false returns en error
 func checkDatabaseParams(r *http.Request, database *option.Database) error {
 	err := GetJSONBodyFromRequest(r, database)
 	if err != nil {
 		return err
 	}
-	if database.Name == "" {
-		return fmt.Errorf("the database name must not be null")
+	if len(database.Name) == 0 {
+		return fmt.Errorf("the database name must not be empty")
 	}
-	if database.NumOfShard < 0 {
-		return fmt.Errorf("the  NumOfShard must not less than zero")
+	if database.NumOfShard <= 0 {
+		return fmt.Errorf("the  NumOfShard must lbe greater than 0")
 	}
-	if database.ReplicaFactor < 0 {
-		return fmt.Errorf("the ReplicaFactor must not less than zero")
+	if database.ReplicaFactor <= 0 {
+		return fmt.Errorf("the ReplicaFactor must be greater than 0")
 	}
 	return nil
 }
