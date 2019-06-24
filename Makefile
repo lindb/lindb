@@ -10,8 +10,8 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 build:  ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/broker' $(LDFLAGS) ./cmd/broker/
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/cli' $(LDFLAGS) ./cmd/cli/
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/node' $(LDFLAGS) ./cmd/node/
+	# env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/cli' $(LDFLAGS) ./cmd/cli/
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/stroage' $(LDFLAGS) ./cmd/storage/
 
 
 GOLANGCI_LINT_VERSION ?= "latest"
