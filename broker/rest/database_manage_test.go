@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	etcd "go.etcd.io/etcd/clientv3"
 
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/state"

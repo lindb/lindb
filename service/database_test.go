@@ -3,9 +3,8 @@ package service
 import (
 	"testing"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	etcd "go.etcd.io/etcd/clientv3"
-
 	"github.com/stretchr/testify/assert"
 
 	"github.com/eleme/lindb/pkg/option"

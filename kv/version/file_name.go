@@ -16,13 +16,11 @@ type FileType int
 
 // File types.
 const (
-	TypeManifest FileType = 1 << iota
+	TypeManifest FileType = iota
 	TypeJournal
 	TypeTable
 	TypeTemp
 	TypeInfo
-
-	TypeAll = TypeManifest | TypeJournal | TypeTable | TypeTemp | TypeInfo
 )
 
 // FileDesc define file type and file number

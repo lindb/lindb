@@ -7,6 +7,7 @@ github.com/beorn7/perks/quantile
 # github.com/coreos/bbolt v1.3.3
 github.com/coreos/bbolt
 # github.com/coreos/etcd v3.3.13+incompatible
+github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/integration
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
@@ -14,7 +15,6 @@ github.com/coreos/etcd/etcdserver/etcdserverpb
 github.com/coreos/etcd/mvcc/mvccpb
 github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/client
-github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/clientv3/namespace
 github.com/coreos/etcd/embed
 github.com/coreos/etcd/etcdserver
@@ -135,6 +135,10 @@ github.com/jonboulle/clockwork
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/kr/pretty v0.1.0
+github.com/kr/pretty
+# github.com/kr/text v0.1.0
+github.com/kr/text
 # github.com/mattn/go-isatty v0.0.8
 github.com/mattn/go-isatty
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
@@ -176,8 +180,6 @@ github.com/tmc/grpc-websocket-proxy/wsproxy
 github.com/willf/bitset
 # github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
 github.com/xiang90/probing
-# go.etcd.io/etcd v3.3.13+incompatible
-go.etcd.io/etcd/clientv3
 # go.uber.org/atomic v1.4.0
 go.uber.org/atomic
 # go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f
@@ -250,5 +252,7 @@ google.golang.org/grpc/health
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
+# gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+gopkg.in/check.v1
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2
