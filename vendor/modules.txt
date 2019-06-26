@@ -7,6 +7,7 @@ github.com/beorn7/perks/quantile
 # github.com/coreos/bbolt v1.3.3
 github.com/coreos/bbolt
 # github.com/coreos/etcd v3.3.13+incompatible
+github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/integration
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
@@ -14,7 +15,6 @@ github.com/coreos/etcd/etcdserver/etcdserverpb
 github.com/coreos/etcd/mvcc/mvccpb
 github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/client
-github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/clientv3/namespace
 github.com/coreos/etcd/embed
 github.com/coreos/etcd/etcdserver
@@ -101,18 +101,18 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.1
-github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/protoc-gen-go/generator
+github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
+github.com/golang/protobuf/jsonpb
+github.com/golang/protobuf/protoc-gen-go/generator
 github.com/golang/protobuf/ptypes/wrappers
 github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/protoc-gen-go/generator/internal/remap
 github.com/golang/protobuf/protoc-gen-go/plugin
-github.com/golang/protobuf/ptypes
 # github.com/golang/snappy v0.0.1
 github.com/golang/snappy
 # github.com/google/btree v1.0.0
@@ -127,14 +127,18 @@ github.com/grpc-ecosystem/go-grpc-middleware
 github.com/grpc-ecosystem/go-grpc-prometheus
 # github.com/grpc-ecosystem/grpc-gateway v1.9.2
 github.com/grpc-ecosystem/grpc-gateway/runtime
-github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/utilities
+github.com/grpc-ecosystem/grpc-gateway/internal
 # github.com/jonboulle/clockwork v0.1.0
 github.com/jonboulle/clockwork
 # github.com/json-iterator/go v1.1.6
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/kr/pretty v0.1.0
+github.com/kr/pretty
+# github.com/kr/text v0.1.0
+github.com/kr/text
 # github.com/mattn/go-isatty v0.0.8
 github.com/mattn/go-isatty
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
@@ -176,8 +180,6 @@ github.com/tmc/grpc-websocket-proxy/wsproxy
 github.com/willf/bitset
 # github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
 github.com/xiang90/probing
-# go.etcd.io/etcd v3.3.13+incompatible
-go.etcd.io/etcd/clientv3
 # go.uber.org/atomic v1.4.0
 go.uber.org/atomic
 # go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f
@@ -212,18 +214,18 @@ golang.org/x/text/transform
 # golang.org/x/time v0.0.0-20190513212739-9d24e82272b4
 golang.org/x/time/rate
 # google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
+google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/protobuf/field_mask
-google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.21.1
-google.golang.org/grpc/codes
-google.golang.org/grpc/grpclog
-google.golang.org/grpc/metadata
-google.golang.org/grpc/status
 google.golang.org/grpc
+google.golang.org/grpc/codes
 google.golang.org/grpc/credentials
+google.golang.org/grpc/grpclog
 google.golang.org/grpc/health/grpc_health_v1
 google.golang.org/grpc/keepalive
+google.golang.org/grpc/metadata
+google.golang.org/grpc/status
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/connectivity
@@ -250,5 +252,7 @@ google.golang.org/grpc/health
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
+# gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+gopkg.in/check.v1
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2

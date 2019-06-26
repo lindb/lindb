@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.9.2
+	github.com/grpc-ecosystem/grpc-gateway v1.9.2 // indirect
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.8
 	github.com/pkg/errors v0.8.1 // indirect
@@ -28,7 +28,6 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	go.etcd.io/bbolt v1.3.3 // indirect
-	go.etcd.io/etcd v3.3.13+incompatible
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f // indirect
 	go.uber.org/zap v0.0.0-20190430155229-8a2ee5670ced
@@ -36,4 +35,5 @@ require (
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/time v0.0.0-20190513212739-9d24e82272b4 // indirect
 	google.golang.org/grpc v1.21.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 )
