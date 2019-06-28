@@ -4,21 +4,23 @@ import (
 	"fmt"
 
 	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/tsdb"
 )
-
-type Engine struct {
+// engine 
+type engine struct {
 	name   string
 	shards map[int32]*Shard
 }
 
-func NewEngine(name string) *Engine {
-	return &Engine{
+// NewEngine creates
+func NewEngine(name string) tsdb.Engine {
+	return &engine{
 		name:   name,
 		shards: make(map[int32]*Shard),
 	}
 }
 
-func (e *Engine) CreateShard(shardID int32, option option.ShardOption) error {
+func (e *engine) CreateShard(shardID int32, option option.ShardOption) error {
 	var shard, ok = e.shards[shardID]
 	if ok {
 		return fmt.Errorf("engine[%s] exist shard[%d]", e.name, shardID)
