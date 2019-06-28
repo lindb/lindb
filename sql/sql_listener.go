@@ -2,10 +2,15 @@ package sql
 
 import (
 	"fmt"
+
+	parser "github.com/eleme/lindb/sql/grammar"
+
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+
 	"github.com/eleme/lindb/pkg/proto"
-	"github.com/eleme/lindb/sql/grammar"
+
 	"github.com/eleme/lindb/sql/util"
+
 	"strconv"
 	"strings"
 )
@@ -13,7 +18,7 @@ import (
 type Listener struct {
 	*parser.BaseSQLListener
 	statement *proto.Stmt
-	stmt      *queryStatement
+	stmt      *QueryStatement
 }
 
 func (ql *Listener) InitSQLListener() {
@@ -26,11 +31,11 @@ func (ql *Listener) VisitTerminal(node antlr.TerminalNode) {
 	}
 }
 
-// EnterDrop_database_stmt override lindb sql drop database stmt
-func (ql *Listener) EnterDrop_database_stmt(ctx *parser.Drop_database_stmtContext) {
-	fmt.Println("EnterDrop_database_stmt")
+// EnterDropDatabaseStmt override lindb sql drop database stmt
+func (ql *Listener) EnterDropDatabaseStmt(ctx *parser.DropDatabaseStmtContext) {
+	fmt.Println("EnterDropDatabaseStmt")
 	dropDatabase := new(proto.DropDatabase)
-	databaseName := ctx.Database_name().(*parser.Database_nameContext)
+	databaseName := ctx.DatabaseName().(*parser.DatabaseNameContext)
 	dropDatabase.Database = util.GetStringValue(databaseName.Ident().GetText())
 	//todo
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_DropDatabase)
@@ -39,9 +44,9 @@ func (ql *Listener) EnterDrop_database_stmt(ctx *parser.Drop_database_stmtContex
 	}
 }
 
-// EnterShow_stats_stmt override lindb sql show stats stmt
-func (ql *Listener) EnterShow_stats_stmt(ctx *parser.Show_stats_stmtContext) {
-	fmt.Println("EnterShow_stats_stmt")
+// EnterShowStatsStmt override lindb sql show stats stmt
+func (ql *Listener) EnterShowStatsStmt(ctx *parser.ShowStatsStmtContext) {
+	fmt.Println("EnterShowStatsStmt")
 	showStats := new(proto.ShowStats)
 	iModuleContext := ctx.Module()
 	if iModuleContext != nil {
@@ -61,48 +66,48 @@ func (ql *Listener) EnterShow_stats_stmt(ctx *parser.Show_stats_stmtContext) {
 	}
 }
 
-// EnterShow_databases_stmt override lindb sql show databases stmt
-func (ql *Listener) EnterShow_databases_stmt(ctx *parser.Show_databases_stmtContext) {
+// EnterShowDatabasesStmt override lindb sql show databases stmt
+func (ql *Listener) EnterShowDatabasesStmt(ctx *parser.ShowDatabasesStmtContext) {
 	//todo
-	fmt.Println("EnterShow_databases_stmt")
+	fmt.Println("EnterShowDatabasesStmt")
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowDatabases)
 	if ok {
 		x.ShowDatabases = new(proto.ShowDatabases)
 	}
 }
 
-// EnterShow_node_stmt override lindb sql show node stmt
-func (ql *Listener) EnterShow_node_stmt(ctx *parser.Show_node_stmtContext) {
+// EnterShowNodeStmt override lindb sql show node stmt
+func (ql *Listener) EnterShowNodeStmt(ctx *parser.ShowNodeStmtContext) {
 	//todo
-	fmt.Println("EnterShow_node_stmt")
+	fmt.Println("EnterShowNodeStmt")
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowNode)
 	if ok {
 		x.ShowNode = new(proto.ShowNode)
 	}
 }
 
-// EnterShow_queries_stmt override lindb sql show queries stmt
-func (ql *Listener) EnterShow_queries_stmt(ctx *parser.Show_queries_stmtContext) {
+// EnterShowQueriesStmt override lindb sql show queries stmt
+func (ql *Listener) EnterShowQueriesStmt(ctx *parser.ShowQueriesStmtContext) {
 	//todo
-	fmt.Println("EnterShow_queries_stmt")
+	fmt.Println("EnterShowQueriesStmt")
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowQueries)
 	if ok {
 		x.ShowQueries = new(proto.ShowQueries)
 	}
 }
 
-// EnterKill_query_stmt override lindb sql kill query stmt
-func (ql *Listener) EnterKill_query_stmt(ctx *parser.Kill_query_stmtContext) {
-	fmt.Println("EnterKill_query_stmt")
+// EnterKillQueryStmt override lindb sql kill query stmt
+func (ql *Listener) EnterKillQueryStmt(ctx *parser.KillQueryStmtContext) {
+	fmt.Println("EnterKillQueryStmt")
 	killQuery := new(proto.KillQuery)
-	queryId := ctx.Query_id().GetText()
-	id, _ := strconv.ParseInt(queryId, 10, 64)
+	queryID := ctx.QueryId().GetText()
+	id, _ := strconv.ParseInt(queryID, 10, 64)
 	killQuery.QueryId = id
-	iServerIdContext := ctx.Server_id()
-	if iServerIdContext != nil {
-		serverIdContext := iServerIdContext.(*parser.Server_idContext)
-		serverId, _ := strconv.ParseInt(serverIdContext.L_INT().GetText(), 10, 32)
-		killQuery.ServerId = int32(serverId)
+	iServerIDContext := ctx.ServerId()
+	if iServerIDContext != nil {
+		serverIDContext := iServerIDContext.(*parser.ServerIdContext)
+		serverID, _ := strconv.ParseInt(serverIDContext.L_INT().GetText(), 10, 32)
+		killQuery.ServerId = int32(serverID)
 	}
 	//todo
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_KillQuery)
@@ -111,17 +116,17 @@ func (ql *Listener) EnterKill_query_stmt(ctx *parser.Kill_query_stmtContext) {
 	}
 }
 
-// EnterShow_measurements_stmt override lindb sql show measurements stmt
-func (ql *Listener) EnterShow_measurements_stmt(ctx *parser.Show_measurements_stmtContext) {
-	fmt.Println("EnterShow_measurements_stmt")
+// EnterShowMeasurementsStmt override lindb sql show measurements stmt
+func (ql *Listener) EnterShowMeasurementsStmt(ctx *parser.ShowMeasurementsStmtContext) {
+	fmt.Println("EnterShowMeasurementsStmt")
 	showMetric := new(proto.ShowMetric)
-	iWithMeasurementClauseContext := ctx.With_measurement_clause()
+	iWithMeasurementClauseContext := ctx.WithMeasurementClause()
 	if iWithMeasurementClauseContext != nil {
-		withMeasurementClauseContext := iWithMeasurementClauseContext.(*parser.With_measurement_clauseContext)
-		name := withMeasurementClauseContext.Metric_name().GetText()
+		withMeasurementClauseContext := iWithMeasurementClauseContext.(*parser.WithMeasurementClauseContext)
+		name := withMeasurementClauseContext.MetricName().GetText()
 		showMetric.Name = name
 	}
-	limit := parseLimitDefault(ctx.Limit_clause())
+	limit := parseLimitDefault(ctx.LimitClause())
 	showMetric.Limit = limit
 	//todo
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowMetric)
@@ -130,13 +135,13 @@ func (ql *Listener) EnterShow_measurements_stmt(ctx *parser.Show_measurements_st
 	}
 }
 
-// EnterShow_field_keys_stmt override lindb sql show field keys stmt
-func (ql *Listener) EnterShow_field_keys_stmt(ctx *parser.Show_field_keys_stmtContext) {
-	fmt.Println("EnterShow_field_keys_stmt")
-	metric := ctx.Metric_name().GetText()
+// EnterShowFieldKeysStmt override lindb sql show field keys stmt
+func (ql *Listener) EnterShowFieldKeysStmt(ctx *parser.ShowFieldKeysStmtContext) {
+	fmt.Println("EnterShowFieldKeysStmt")
+	metric := ctx.MetricName().GetText()
 	showFieldKeys := new(proto.ShowFieldKeys)
 	showFieldKeys.Measurement = util.GetStringValue(metric)
-	limit := parseLimitDefault(ctx.Limit_clause())
+	limit := parseLimitDefault(ctx.LimitClause())
 	showFieldKeys.Limit = limit
 	//todo
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowFieldKeys)
@@ -145,14 +150,14 @@ func (ql *Listener) EnterShow_field_keys_stmt(ctx *parser.Show_field_keys_stmtCo
 	}
 }
 
-// EnterShow_tag_keys_stmt override lindb sql show tag keys stmt
-func (ql *Listener) EnterShow_tag_keys_stmt(ctx *parser.Show_tag_keys_stmtContext) {
-	fmt.Println("EnterShow_tag_keys_stmt")
-	metric := ctx.Metric_name().GetText()
+// EnterShowTagKeysStmt override lindb sql show tag keys stmt
+func (ql *Listener) EnterShowTagKeysStmt(ctx *parser.ShowTagKeysStmtContext) {
+	fmt.Println("EnterShowTagKeysStmt")
+	metric := ctx.MetricName().GetText()
 	showTagKeys := new(proto.ShowTagKeys)
 	showTagKeys.Measurement = util.GetStringValue(metric)
 
-	limit := parseLimitDefault(ctx.Limit_clause())
+	limit := parseLimitDefault(ctx.LimitClause())
 	showTagKeys.Limit = limit
 	//todo
 	x, ok := ql.statement.GetStmt().(*proto.Stmt_ShowTagKeys)
@@ -161,10 +166,10 @@ func (ql *Listener) EnterShow_tag_keys_stmt(ctx *parser.Show_tag_keys_stmtContex
 	}
 }
 
-// EnterShow_info_stmt override lindb sql show info stmt
-func (ql *Listener) EnterShow_info_stmt(ctx *parser.Show_info_stmtContext) {
-	fmt.Println("EnterShow_info_stmt")
-	metric := ctx.Metric_name().GetText()
+// EnterShowInfoStmt override lindb sql show info stmt
+func (ql *Listener) EnterShowInfoStmt(ctx *parser.ShowInfoStmtContext) {
+	fmt.Println("EnterShowInfoStmt")
+	metric := ctx.MetricName().GetText()
 	showInfo := new(proto.ShowInfo)
 	showInfo.Measurement = util.GetStringValue(metric)
 	//todo
@@ -174,26 +179,26 @@ func (ql *Listener) EnterShow_info_stmt(ctx *parser.Show_info_stmtContext) {
 	}
 }
 
-// EnterShow_tag_values_stmt override lindb sql show tag values stmt
-func (ql *Listener) EnterShow_tag_values_stmt(ctx *parser.Show_tag_values_stmtContext) {
-	fmt.Println("EnterShow_tag_values_stmt")
-	metric := ctx.Metric_name().GetText()
-	withTagClause := ctx.With_tag_clause().(*parser.With_tag_clauseContext)
-	tagKey := withTagClause.Tag_key().GetText()
+// EnterShowTagValuesStmt override lindb sql show tag values stmt
+func (ql *Listener) EnterShowTagValuesStmt(ctx *parser.ShowTagValuesStmtContext) {
+	fmt.Println("EnterShowTagValuesStmt")
+	metric := ctx.MetricName().GetText()
+	withTagClause := ctx.WithTagClause().(*parser.WithTagClauseContext)
+	tagKey := withTagClause.TagKey().GetText()
 	showTagValues := new(proto.ShowTagValues)
 	showTagValues.Measurement = util.GetStringValue(metric)
 	showTagValues.TagKey = util.GetStringValue(tagKey)
 
-	limit := parseLimitDefault(ctx.Limit_clause())
+	limit := parseLimitDefault(ctx.LimitClause())
 	showTagValues.Limit = limit
-	iWhereTagValueClauseContext := ctx.Where_tag_cascade()
+	iWhereTagValueClauseContext := ctx.WhereTagCascade()
 	if iWhereTagValueClauseContext != nil {
-		whereTagValueClauseContext := iWhereTagValueClauseContext.(*parser.Where_tag_cascadeContext)
-		iTagCascadeExprContext := whereTagValueClauseContext.Tag_cascade_expr()
+		whereTagValueClauseContext := iWhereTagValueClauseContext.(*parser.WhereTagCascadeContext)
+		iTagCascadeExprContext := whereTagValueClauseContext.TagCascadeExpr()
 		if iTagCascadeExprContext != nil {
-			tagCascadeExprContext := iTagCascadeExprContext.(*parser.Tag_cascade_exprContext)
-			tagEqualExpr := tagCascadeExprContext.Tag_equal_expr().(*parser.Tag_equal_exprContext)
-			var tagValuePattern = tagEqualExpr.Tag_value_pattern().GetText()
+			tagCascadeExprContext := iTagCascadeExprContext.(*parser.TagCascadeExprContext)
+			tagEqualExpr := tagCascadeExprContext.TagEqualExpr().(*parser.TagEqualExprContext)
+			var tagValuePattern = tagEqualExpr.TagValuePattern().GetText()
 			if len(tagValuePattern) > 0 {
 				tagValuePattern = util.GetStringValue(tagValuePattern)
 				index := strings.Index(tagValuePattern, "*")
@@ -201,7 +206,7 @@ func (ql *Listener) EnterShow_tag_values_stmt(ctx *parser.Show_tag_values_stmtCo
 					showTagValues.TagValue = tagValuePattern[0:index]
 				}
 			}
-			tagBooleanExprContext := tagCascadeExprContext.Tag_boolean_expr()
+			tagBooleanExprContext := tagCascadeExprContext.TagBooleanExpr()
 			if tagBooleanExprContext != nil {
 				condition := new(proto.Condition)
 				showTagValues.Condition = condition
@@ -215,23 +220,23 @@ func (ql *Listener) EnterShow_tag_values_stmt(ctx *parser.Show_tag_values_stmtCo
 	}
 }
 
-// EnterShow_tag_values_info_stmt override lindb sql show tag values info stmt
-func (ql *Listener) EnterShow_tag_values_info_stmt(ctx *parser.Show_tag_values_info_stmtContext) {
-	metric := ctx.Metric_name().GetText()
-	withTagClause := ctx.With_tag_clause().(*parser.With_tag_clauseContext)
-	tagKey := withTagClause.Tag_key().GetText()
+// EnterShowTagValuesInfoStmt override lindb sql show tag values info stmt
+func (ql *Listener) EnterShowTagValuesInfoStmt(ctx *parser.ShowTagValuesInfoStmtContext) {
+	metric := ctx.MetricName().GetText()
+	withTagClause := ctx.WithTagClause().(*parser.WithTagClauseContext)
+	tagKey := withTagClause.TagKey().GetText()
 	showTagValuesInfo := new(proto.ShowTagValuesInfo)
 	showTagValuesInfo.Measurement = util.GetStringValue(metric)
 	showTagValuesInfo.TagKey = util.GetStringValue(tagKey)
 
-	iWhereTagValueClauseContext := ctx.Where_tag_cascade()
+	iWhereTagValueClauseContext := ctx.WhereTagCascade()
 	if iWhereTagValueClauseContext != nil {
-		whereTagValueClauseContext := iWhereTagValueClauseContext.(*parser.Where_tag_cascadeContext)
-		iTagCascadeExprContext := whereTagValueClauseContext.Tag_cascade_expr()
+		whereTagValueClauseContext := iWhereTagValueClauseContext.(*parser.WhereTagCascadeContext)
+		iTagCascadeExprContext := whereTagValueClauseContext.TagCascadeExpr()
 		if iTagCascadeExprContext != nil {
-			tagCascadeExprContext := iTagCascadeExprContext.(*parser.Tag_cascade_exprContext)
-			tagEqualExpr := tagCascadeExprContext.Tag_equal_expr().(*parser.Tag_equal_exprContext)
-			var tagValuePattern = tagEqualExpr.Tag_value_pattern().GetText()
+			tagCascadeExprContext := iTagCascadeExprContext.(*parser.TagCascadeExprContext)
+			tagEqualExpr := tagCascadeExprContext.TagEqualExpr().(*parser.TagEqualExprContext)
+			var tagValuePattern = tagEqualExpr.TagValuePattern().GetText()
 			if len(tagValuePattern) > 0 {
 				tagValuePattern = util.GetStringValue(tagValuePattern)
 				showTagValuesInfo.TagValue = tagValuePattern
@@ -247,22 +252,22 @@ func (ql *Listener) EnterShow_tag_values_info_stmt(ctx *parser.Show_tag_values_i
 	panic(fmt.Sprintln("show tag values info is not valid"))
 }
 
-// EnterQuery_stmt override lindb sql query stmt
-func (ql *Listener) EnterQuery_stmt(ctx *parser.Query_stmtContext) {
-	fmt.Println("EnterQuery_stmt")
+// EnterQueryStmt override lindb sql query stmt
+func (ql *Listener) EnterQueryStmt(ctx *parser.QueryStmtContext) {
+	fmt.Println("EnterQueryStmt")
 	ql.stmt = NewDefaultQueryStatement()
 	ql.stmt.Parse(ctx)
 }
 
-func parseLimitDefault(ctx parser.ILimit_clauseContext) int32 {
+func parseLimitDefault(ctx parser.ILimitClauseContext) int32 {
 	return parseLimit(ctx, 50)
 }
 
-func parseLimit(ctx parser.ILimit_clauseContext, defaultValue int32) int32 {
+func parseLimit(ctx parser.ILimitClauseContext, defaultValue int32) int32 {
 	if ctx == nil {
 		return defaultValue
 	}
-	limitClauseContext := ctx.(*parser.Limit_clauseContext)
+	limitClauseContext := ctx.(*parser.LimitClauseContext)
 	limit := limitClauseContext.L_INT().GetText()
 	l, _ := strconv.ParseInt(limit, 10, 32)
 	return int32(l)

@@ -1,4 +1,4 @@
-// Code generated from /Users/dupeng/Documents/gohub/src/github.com/eleme/lindb/cmd/sql/antlr4/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
+// Code generated from /Users/dupeng/Documents/gohub/src/github.com/eleme/lindb/sql/antlr4/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
 
 package parser // SQL
 
@@ -12,131 +12,131 @@ func (v *BaseSQLVisitor) VisitStatement(ctx *StatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitStatement_list(ctx *Statement_listContext) interface{} {
+func (v *BaseSQLVisitor) VisitStatementList(ctx *StatementListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitCreate_database_stmt(ctx *Create_database_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWith_clause_list(ctx *With_clause_listContext) interface{} {
+func (v *BaseSQLVisitor) VisitWithClauseList(ctx *WithClauseListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWith_clause(ctx *With_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitWithClause(ctx *WithClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInterval_define_list(ctx *Interval_define_listContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntervalDefineList(ctx *IntervalDefineListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInterval_define(ctx *Interval_defineContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntervalDefine(ctx *IntervalDefineContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShard_num(ctx *Shard_numContext) interface{} {
+func (v *BaseSQLVisitor) VisitShardNum(ctx *ShardNumContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTtl_val(ctx *Ttl_valContext) interface{} {
+func (v *BaseSQLVisitor) VisitTtlVal(ctx *TtlValContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitMetattl_val(ctx *Metattl_valContext) interface{} {
+func (v *BaseSQLVisitor) VisitMetattlVal(ctx *MetattlValContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitPast_val(ctx *Past_valContext) interface{} {
+func (v *BaseSQLVisitor) VisitPastVal(ctx *PastValContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitFuture_val(ctx *Future_valContext) interface{} {
+func (v *BaseSQLVisitor) VisitFutureVal(ctx *FutureValContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInterval_name_val(ctx *Interval_name_valContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntervalNameVal(ctx *IntervalNameValContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitReplica_factor(ctx *Replica_factorContext) interface{} {
+func (v *BaseSQLVisitor) VisitReplicaFactor(ctx *ReplicaFactorContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitDatabase_name(ctx *Database_nameContext) interface{} {
+func (v *BaseSQLVisitor) VisitDatabaseName(ctx *DatabaseNameContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitUpdate_database_stmt(ctx *Update_database_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitUpdateDatabaseStmt(ctx *UpdateDatabaseStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitDrop_database_stmt(ctx *Drop_database_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitDropDatabaseStmt(ctx *DropDatabaseStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_databases_stmt(ctx *Show_databases_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowDatabasesStmt(ctx *ShowDatabasesStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_node_stmt(ctx *Show_node_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowNodeStmt(ctx *ShowNodeStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_measurements_stmt(ctx *Show_measurements_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_tag_keys_stmt(ctx *Show_tag_keys_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowTagKeysStmt(ctx *ShowTagKeysStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_info_stmt(ctx *Show_info_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowInfoStmt(ctx *ShowInfoStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_tag_values_stmt(ctx *Show_tag_values_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowTagValuesStmt(ctx *ShowTagValuesStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_tag_values_info_stmt(ctx *Show_tag_values_info_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowTagValuesInfoStmt(ctx *ShowTagValuesInfoStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_field_keys_stmt(ctx *Show_field_keys_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowFieldKeysStmt(ctx *ShowFieldKeysStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_queries_stmt(ctx *Show_queries_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowQueriesStmt(ctx *ShowQueriesStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShow_stats_stmt(ctx *Show_stats_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitShowStatsStmt(ctx *ShowStatsStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWith_measurement_clause(ctx *With_measurement_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitWithMeasurementClause(ctx *WithMeasurementClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWith_tag_clause(ctx *With_tag_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitWithTagClause(ctx *WithTagClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWhere_tag_cascade(ctx *Where_tag_cascadeContext) interface{} {
+func (v *BaseSQLVisitor) VisitWhereTagCascade(ctx *WhereTagCascadeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitKill_query_stmt(ctx *Kill_query_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitKillQueryStmt(ctx *KillQueryStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitQuery_id(ctx *Query_idContext) interface{} {
+func (v *BaseSQLVisitor) VisitQueryId(ctx *QueryIdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitServer_id(ctx *Server_idContext) interface{} {
+func (v *BaseSQLVisitor) VisitServerId(ctx *ServerIdContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -148,7 +148,7 @@ func (v *BaseSQLVisitor) VisitComponent(ctx *ComponentContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitQuery_stmt(ctx *Query_stmtContext) interface{} {
+func (v *BaseSQLVisitor) VisitQueryStmt(ctx *QueryStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -164,51 +164,51 @@ func (v *BaseSQLVisitor) VisitAlias(ctx *AliasContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitFrom_clause(ctx *From_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitFromClause(ctx *FromClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitWhere_clause(ctx *Where_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitWhereClause(ctx *WhereClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitClause_boolean_expr(ctx *Clause_boolean_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitClauseBooleanExpr(ctx *ClauseBooleanExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_cascade_expr(ctx *Tag_cascade_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagCascadeExpr(ctx *TagCascadeExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_equal_expr(ctx *Tag_equal_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagEqualExpr(ctx *TagEqualExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_boolean_expr(ctx *Tag_boolean_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagBooleanExpr(ctx *TagBooleanExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_value_list(ctx *Tag_value_listContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagValueList(ctx *TagValueListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTime_expr(ctx *Time_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitTimeExpr(ctx *TimeExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTime_boolean_expr(ctx *Time_boolean_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitTimeBooleanExpr(ctx *TimeBooleanExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitNow_expr(ctx *Now_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitNowExpr(ctx *NowExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitNow_func(ctx *Now_funcContext) interface{} {
+func (v *BaseSQLVisitor) VisitNowFunc(ctx *NowFuncContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitGroup_by_clause(ctx *Group_by_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitGroupByClause(ctx *GroupByClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -220,47 +220,47 @@ func (v *BaseSQLVisitor) VisitDimension(ctx *DimensionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitFill_option(ctx *Fill_optionContext) interface{} {
+func (v *BaseSQLVisitor) VisitFillOption(ctx *FillOptionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitOrder_by_clause(ctx *Order_by_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitOrderByClause(ctx *OrderByClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInterval_by_clause(ctx *Interval_by_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntervalByClause(ctx *IntervalByClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitSort_field(ctx *Sort_fieldContext) interface{} {
+func (v *BaseSQLVisitor) VisitSortField(ctx *SortFieldContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitSort_fields(ctx *Sort_fieldsContext) interface{} {
+func (v *BaseSQLVisitor) VisitSortFields(ctx *SortFieldsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitHaving_clause(ctx *Having_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitHavingClause(ctx *HavingClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitBool_expr(ctx *Bool_exprContext) interface{} {
+func (v *BaseSQLVisitor) VisitBoolExpr(ctx *BoolExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitBool_expr_logical_op(ctx *Bool_expr_logical_opContext) interface{} {
+func (v *BaseSQLVisitor) VisitBoolExprLogicalOp(ctx *BoolExprLogicalOpContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitBool_expr_atom(ctx *Bool_expr_atomContext) interface{} {
+func (v *BaseSQLVisitor) VisitBoolExprAtom(ctx *BoolExprAtomContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitBool_expr_binary(ctx *Bool_expr_binaryContext) interface{} {
+func (v *BaseSQLVisitor) VisitBoolExprBinary(ctx *BoolExprBinaryContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitBool_expr_binary_operator(ctx *Bool_expr_binary_operatorContext) interface{} {
+func (v *BaseSQLVisitor) VisitBoolExprBinaryOperator(ctx *BoolExprBinaryOperatorContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -268,59 +268,59 @@ func (v *BaseSQLVisitor) VisitExpr(ctx *ExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitDuration_lit(ctx *Duration_litContext) interface{} {
+func (v *BaseSQLVisitor) VisitDurationLit(ctx *DurationLitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInterval_item(ctx *Interval_itemContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntervalItem(ctx *IntervalItemContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitExpr_func(ctx *Expr_funcContext) interface{} {
+func (v *BaseSQLVisitor) VisitExprFunc(ctx *ExprFuncContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitExpr_func_params(ctx *Expr_func_paramsContext) interface{} {
+func (v *BaseSQLVisitor) VisitExprFuncParams(ctx *ExprFuncParamsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitFunc_param(ctx *Func_paramContext) interface{} {
+func (v *BaseSQLVisitor) VisitFuncParam(ctx *FuncParamContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitExpr_atom(ctx *Expr_atomContext) interface{} {
+func (v *BaseSQLVisitor) VisitExprAtom(ctx *ExprAtomContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitIdent_filter(ctx *Ident_filterContext) interface{} {
+func (v *BaseSQLVisitor) VisitIdentFilter(ctx *IdentFilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitInt_number(ctx *Int_numberContext) interface{} {
+func (v *BaseSQLVisitor) VisitIntNumber(ctx *IntNumberContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitDec_number(ctx *Dec_numberContext) interface{} {
+func (v *BaseSQLVisitor) VisitDecNumber(ctx *DecNumberContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitLimit_clause(ctx *Limit_clauseContext) interface{} {
+func (v *BaseSQLVisitor) VisitLimitClause(ctx *LimitClauseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitMetric_name(ctx *Metric_nameContext) interface{} {
+func (v *BaseSQLVisitor) VisitMetricName(ctx *MetricNameContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_key(ctx *Tag_keyContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagKey(ctx *TagKeyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_value(ctx *Tag_valueContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagValue(ctx *TagValueContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitTag_value_pattern(ctx *Tag_value_patternContext) interface{} {
+func (v *BaseSQLVisitor) VisitTagValuePattern(ctx *TagValuePatternContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -328,6 +328,6 @@ func (v *BaseSQLVisitor) VisitIdent(ctx *IdentContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitNon_reserved_words(ctx *Non_reserved_wordsContext) interface{} {
+func (v *BaseSQLVisitor) VisitNonReservedWords(ctx *NonReservedWordsContext) interface{} {
 	return v.VisitChildren(ctx)
 }

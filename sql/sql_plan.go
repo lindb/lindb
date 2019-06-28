@@ -1,10 +1,13 @@
 package sql
 
 import (
-	"github.com/antlr/antlr4/runtime/Go/antlr"
-	"github.com/eleme/lindb/pkg/proto"
-	parser "github.com/eleme/lindb/sql/grammar"
 	"sync"
+
+	"github.com/antlr/antlr4/runtime/Go/antlr"
+
+	"github.com/eleme/lindb/pkg/proto"
+
+	parser "github.com/eleme/lindb/sql/grammar"
 )
 
 var (

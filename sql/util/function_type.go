@@ -3,6 +3,16 @@ package util
 type FunctionType int32
 
 const (
+	Sum       = "sum"
+	Count     = "count"
+	Min       = "min"
+	Max       = "max"
+	Avg       = "avg"
+	Mean      = "mean"
+	Histogram = "histogram"
+)
+
+const (
 	SUM FunctionType = iota + 1
 	COUNT
 	MIN
@@ -13,43 +23,43 @@ const (
 )
 
 // String override FunctionType to string method,default `sum`
-func (this FunctionType) String() string {
-	switch this {
+func (f FunctionType) String() string {
+	switch f {
 	case SUM:
-		return "sum"
+		return Sum
 	case COUNT:
-		return "count"
+		return Count
 	case MIN:
-		return "min"
+		return Min
 	case MAX:
-		return "max"
+		return Max
 	case AVG:
-		return "avg"
+		return Avg
 	case MEAN:
-		return "mean"
+		return Mean
 	case HISTOGRAM:
-		return "histogram"
+		return Histogram
 	default:
-		return "sum"
+		return Sum
 	}
 }
 
 // GetFunctionType get FunctionType by Function name,default `SUM`
 func GetFunctionType(name string) FunctionType {
 	switch name {
-	case "sum":
+	case Sum:
 		return FunctionType(1)
-	case "count":
+	case Count:
 		return FunctionType(2)
-	case "min":
+	case Min:
 		return FunctionType(3)
-	case "max":
+	case Max:
 		return FunctionType(4)
-	case "avg":
+	case Avg:
 		return FunctionType(5)
-	case "mean":
+	case Mean:
 		return FunctionType(6)
-	case "histogram":
+	case Histogram:
 		return FunctionType(7)
 	default:
 		return FunctionType(1)

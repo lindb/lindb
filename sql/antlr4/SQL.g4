@@ -1,134 +1,134 @@
 // Define a grammar called LinSQL for LinDB query language
 grammar SQL;
 
-statement                : statement_list EOF;
+statement                : statementList EOF;
 
-statement_list           :
-                           create_database_stmt
-                         | update_database_stmt
-                         | drop_database_stmt
-                         | show_databases_stmt
-                         | show_node_stmt
-                         | show_measurements_stmt
-                         | show_info_stmt
-                         | show_tag_keys_stmt
-                         | show_queries_stmt
-                         | show_tag_values_stmt
-                         | show_tag_values_info_stmt
-                         | show_field_keys_stmt
-                         | show_stats_stmt
-                         | kill_query_stmt
-                         | query_stmt
+statementList           :
+                           createDatabaseStmt
+                         | updateDatabaseStmt
+                         | dropDatabaseStmt
+                         | showDatabasesStmt
+                         | showNodeStmt
+                         | showMeasurementsStmt
+                         | showInfoStmt
+                         | showTagKeysStmt
+                         | showQueriesStmt
+                         | showTagValuesStmt
+                         | showTagValuesInfoStmt
+                         | showFieldKeysStmt
+                         | showStatsStmt
+                         | killQueryStmt
+                         | queryStmt
                          ;
 
-create_database_stmt     : T_CREATE T_DATASBAE database_name ( T_WITH with_clause_list )? (T_COMMA interval_define_list)?;
-with_clause_list         : with_clause (T_COMMA with_clause)* ;
-with_clause              :
-                           (T_INTERVAL duration_lit)
-                         | (T_SHARD shard_num)
-                         | (T_REPLICATION replica_factor)
-                         | (T_TTL ttl_val)
-                         | (T_META_TTL metattl_val)
-                         | (T_PAST_TTL past_val)
-                         | (T_FUTURE_TTL future_val)
+createDatabaseStmt     : T_CREATE T_DATASBAE databaseName ( T_WITH withClauseList )? (T_COMMA intervalDefineList)?;
+withClauseList         : withClause (T_COMMA withClause)* ;
+withClause              :
+                           (T_INTERVAL durationLit)
+                         | (T_SHARD shardNum)
+                         | (T_REPLICATION replicaFactor)
+                         | (T_TTL ttlVal)
+                         | (T_META_TTL metattlVal)
+                         | (T_PAST_TTL pastVal)
+                         | (T_FUTURE_TTL futureVal)
 
                          ;
-interval_define_list     : interval_define (T_COMMA interval_define)* ;
-interval_define          : T_OPEN_P T_INTERVAL_NAME interval_name_val T_COMMA T_TTL ttl_val T_COMMA T_INTERVAL duration_lit  T_CLOSE_P;
-shard_num                : int_number;
-ttl_val                  : duration_lit;
-metattl_val              : duration_lit;
-past_val                 : duration_lit;
-future_val               : duration_lit;
-interval_name_val        : ident;
-replica_factor           : int_number;
-database_name            : ident;
+intervalDefineList     : intervalDefine (T_COMMA intervalDefine)* ;
+intervalDefine          : T_OPEN_P T_INTERVAL_NAME intervalNameVal T_COMMA T_TTL ttlVal T_COMMA T_INTERVAL durationLit  T_CLOSE_P;
+shardNum                : intNumber;
+ttlVal                  : durationLit;
+metattlVal              : durationLit;
+pastVal                 : durationLit;
+futureVal               : durationLit;
+intervalNameVal        : ident;
+replicaFactor           : intNumber;
+databaseName            : ident;
 
-update_database_stmt     : T_UPDATE T_DATASBAE database_name ( T_WITH with_clause_list )? (T_COMMA interval_define_list)?;
+updateDatabaseStmt     : T_UPDATE T_DATASBAE databaseName ( T_WITH withClauseList )? (T_COMMA intervalDefineList)?;
 
-drop_database_stmt       : T_DROP T_DATASBAE database_name;
+dropDatabaseStmt       : T_DROP T_DATASBAE databaseName;
 
 //meta data query plan
-show_databases_stmt      : T_SHOW T_DATASBAES;
-show_node_stmt           : T_SHOW T_NODE;
-show_measurements_stmt   : T_SHOW T_MEASUREMENTS with_measurement_clause? limit_clause? ;
-show_tag_keys_stmt       : T_SHOW T_TAG T_KEYS T_FROM metric_name limit_clause? ;
-show_info_stmt           : T_SHOW T_INFO T_FROM metric_name;
-show_tag_values_stmt     : T_SHOW T_TAG T_VALUES T_FROM metric_name with_tag_clause where_tag_cascade?  limit_clause? ;
-show_tag_values_info_stmt: T_SHOW T_TAG T_VALUES T_INFO T_FROM metric_name with_tag_clause where_tag_cascade;
-show_field_keys_stmt     : T_SHOW T_FIELD T_KEYS T_FROM metric_name limit_clause? ;
-show_queries_stmt        : T_SHOW T_QUERIES limit_clause? ;
-show_stats_stmt          : T_SHOW T_STATS ( T_FOR module)? (T_WITH component)?;
-with_measurement_clause  : T_WITH T_MEASUREMENT ( T_EQUAL metric_name | T_REGEXP metric_name ) ;
-with_tag_clause          : T_WITH T_KEY T_EQUAL tag_key;
-where_tag_cascade        : T_WHERE  tag_cascade_expr;
+showDatabasesStmt      : T_SHOW T_DATASBAES;
+showNodeStmt           : T_SHOW T_NODE;
+showMeasurementsStmt   : T_SHOW T_MEASUREMENTS withMeasurementClause? limitClause? ;
+showTagKeysStmt       : T_SHOW T_TAG T_KEYS T_FROM metricName limitClause? ;
+showInfoStmt           : T_SHOW T_INFO T_FROM metricName;
+showTagValuesStmt     : T_SHOW T_TAG T_VALUES T_FROM metricName withTagClause whereTagCascade?  limitClause? ;
+showTagValuesInfoStmt: T_SHOW T_TAG T_VALUES T_INFO T_FROM metricName withTagClause whereTagCascade;
+showFieldKeysStmt     : T_SHOW T_FIELD T_KEYS T_FROM metricName limitClause? ;
+showQueriesStmt        : T_SHOW T_QUERIES limitClause? ;
+showStatsStmt          : T_SHOW T_STATS ( T_FOR module)? (T_WITH component)?;
+withMeasurementClause  : T_WITH T_MEASUREMENT ( T_EQUAL metricName | T_REGEXP metricName ) ;
+withTagClause          : T_WITH T_KEY T_EQUAL tagKey;
+whereTagCascade        : T_WHERE  tagCascadeExpr;
 //kill query plan
-kill_query_stmt          : T_KILL T_QUERY query_id (T_ON server_id)? ;
-query_id                 : L_INT ;
-server_id                : L_INT ;
+killQueryStmt          : T_KILL T_QUERY queryId (T_ON serverId)? ;
+queryId                 : L_INT ;
+serverId                : L_INT ;
 module                   : ident ;
 component                : ident ;
 
 //data query plan
-query_stmt               : T_EXPLAIN? T_SELECT fields from_clause where_clause? group_by_clause? interval_by_clause? order_by_clause? limit_clause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? T_SELECT fields fromClause whereClause? groupByClause? intervalByClause? orderByClause? limitClause? T_WITH_VALUE?;
 //select fields
 fields                   : field ( T_COMMA field )* ;
 field                    : expr alias? ;
 alias                    : T_AS ident ;
 
 //from clause
-from_clause              : T_FROM metric_name ;
+fromClause              : T_FROM metricName ;
 
 //where clause
-where_clause             : T_WHERE clause_boolean_expr;
+whereClause             : T_WHERE clauseBooleanExpr;
 
-clause_boolean_expr      :
-                           tag_boolean_expr
-                         | time_expr
-                         | clause_boolean_expr T_AND clause_boolean_expr
+clauseBooleanExpr      :
+                           tagBooleanExpr
+                         | timeExpr
+                         | clauseBooleanExpr T_AND clauseBooleanExpr
                          ;
-tag_cascade_expr         : tag_equal_expr
-                         | tag_boolean_expr
-                         | tag_equal_expr (T_AND  tag_boolean_expr)?
+tagCascadeExpr         : tagEqualExpr
+                         | tagBooleanExpr
+                         | tagEqualExpr (T_AND  tagBooleanExpr)?
                          ;
-tag_equal_expr           : T_VALUE T_EQUAL tag_value_pattern ;
+tagEqualExpr           : T_VALUE T_EQUAL tagValuePattern ;
 
-tag_boolean_expr         :
-                           T_OPEN_P tag_boolean_expr T_CLOSE_P
-                         | tag_key (T_EQUAL | T_LIKE | T_REGEXP | T_NOTEQUAL | T_NOTEQUAL2) tag_value
-                         | tag_key (T_IN | T_NOT T_IN) T_OPEN_P tag_value_list T_CLOSE_P
-                         | tag_boolean_expr (T_AND | T_OR) tag_boolean_expr
+tagBooleanExpr         :
+                           T_OPEN_P tagBooleanExpr T_CLOSE_P
+                         | tagKey (T_EQUAL | T_LIKE | T_REGEXP | T_NOTEQUAL | T_NOTEQUAL2) tagValue
+                         | tagKey (T_IN | T_NOT T_IN) T_OPEN_P tagValueList T_CLOSE_P
+                         | tagBooleanExpr (T_AND | T_OR) tagBooleanExpr
                          ;
-tag_value_list           : tag_value (T_COMMA tag_value)*;
-time_expr                : time_boolean_expr (T_AND time_boolean_expr)? ;
-time_boolean_expr        : T_TIME bool_expr_binary_operator (now_expr | ident) ;
+tagValueList           : tagValue (T_COMMA tagValue)*;
+timeExpr                : timeBooleanExpr (T_AND timeBooleanExpr)? ;
+timeBooleanExpr        : T_TIME boolExprBinaryOperator (nowExpr | ident) ;
 
-now_expr                 : now_func  duration_lit? ;
+nowExpr                 : nowFunc  durationLit? ;
 
-now_func                 : T_NOW T_OPEN_P expr_func_params? T_CLOSE_P ;
+nowFunc                 : T_NOW T_OPEN_P exprFuncParams? T_CLOSE_P ;
 
 //group by
-group_by_clause          : T_GROUP T_BY dimensions (T_FILL T_OPEN_P fill_option T_CLOSE_P)? having_clause? ;
+groupByClause          : T_GROUP T_BY dimensions (T_FILL T_OPEN_P fillOption T_CLOSE_P)? havingClause? ;
 dimensions               : dimension (T_COMMA dimension)* ;
-dimension                : ident | T_TIME T_OPEN_P duration_lit T_CLOSE_P ;
-fill_option              : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
+dimension                : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P ;
+fillOption              : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
 
-order_by_clause          : T_ORDER T_BY sort_fields ;
-interval_by_clause       : T_INTERVAL T_BY interval_name_val;
-sort_field               : expr ( T_ASC | T_DESC )* ;
-sort_fields              : sort_field ( T_COMMA sort_field )* ;
+orderByClause          : T_ORDER T_BY sortFields ;
+intervalByClause       : T_INTERVAL T_BY intervalNameVal;
+sortField               : expr ( T_ASC | T_DESC )* ;
+sortFields              : sortField ( T_COMMA sortField )* ;
 
-having_clause            : T_HAVING bool_expr ;
-bool_expr                :
-                           T_OPEN_P bool_expr T_CLOSE_P
-                         | bool_expr bool_expr_logical_op bool_expr
-                         | bool_expr_atom
+havingClause            : T_HAVING boolExpr ;
+boolExpr                :
+                           T_OPEN_P boolExpr T_CLOSE_P
+                         | boolExpr boolExprLogicalOp boolExpr
+                         | boolExprAtom
                          ;
-bool_expr_logical_op     : T_AND  | T_OR ;
-bool_expr_atom           : bool_expr_binary ;
+boolExprLogicalOp     : T_AND  | T_OR ;
+boolExprAtom           : boolExprBinary ;
                          //bool_expr_single_in
-bool_expr_binary         : expr bool_expr_binary_operator expr;
-bool_expr_binary_operator:
+boolExprBinary         : expr boolExprBinaryOperator expr;
+boolExprBinaryOperator:
                            T_EQUAL
                          | T_NOTEQUAL
                          | T_NOTEQUAL2
@@ -145,13 +145,13 @@ expr                     :
                          | expr T_ADD expr
                          | expr T_SUB expr
                          | T_OPEN_P expr T_CLOSE_P
-                         | expr_func
-                         | expr_atom
-                         | duration_lit
+                         | exprFunc
+                         | exprAtom
+                         | durationLit
                          ;
 
-duration_lit             : int_number interval_item ;
-interval_item            :
+durationLit             : intNumber intervalItem ;
+intervalItem            :
                            T_SECOND
                          | T_MINUTE
                          | T_HOUR
@@ -160,34 +160,34 @@ interval_item            :
                          | T_MONTH
                          | T_YEAR
                          ;
-expr_func                : ident T_OPEN_P expr_func_params? T_CLOSE_P ;
-expr_func_params         : func_param (T_COMMA func_param)* ;
-func_param               :
+exprFunc                : ident T_OPEN_P exprFuncParams? T_CLOSE_P ;
+exprFuncParams         : funcParam (T_COMMA funcParam)* ;
+funcParam               :
                            expr
-                         | tag_boolean_expr
+                         | tagBooleanExpr
                          ;
-expr_atom                :
-                           ident ident_filter?
-                         | dec_number
-                         | int_number
+exprAtom                :
+                           ident identFilter?
+                         | decNumber
+                         | intNumber
                          ;
-ident_filter             :
-                            T_OPEN_SB tag_boolean_expr T_CLOSE_SB ;
-//ident_conditon           : T_OPEN_SB tag_boolean_expr T_CLOSE_SB ;
+identFilter             :
+                            T_OPEN_SB tagBooleanExpr T_CLOSE_SB ;
+//ident_conditon           : T_OPEN_SB tagBooleanExpr T_CLOSE_SB ;
 
 // Integer (positive or negative)
-int_number               : ('-' | '+')? L_INT ;
+intNumber               : ('-' | '+')? L_INT ;
 // Decimal number (positive or negative)
-dec_number               : ('-' | '+')? L_DEC ;
-limit_clause             : T_LIMIT L_INT ;
-metric_name              : ident ;
-tag_key                  : ident ;
-tag_value                : ident ;
-tag_value_pattern        : ident ;
-ident                    :  (L_ID | non_reserved_words) ('.' (L_ID | non_reserved_words))* ;
+decNumber               : ('-' | '+')? L_DEC ;
+limitClause             : T_LIMIT L_INT ;
+metricName              : ident ;
+tagKey                  : ident ;
+tagValue                : ident ;
+tagValuePattern        : ident ;
+ident                    :  (L_ID | nonReservedWords) ('.' (L_ID | nonReservedWords))* ;
 
 
-non_reserved_words      :
+nonReservedWords      :
                           T_CREATE
                         | T_INTERVAL
                         | T_SHARD

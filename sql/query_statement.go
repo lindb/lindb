@@ -2,9 +2,11 @@ package sql
 
 import (
 	"fmt"
+
 	"github.com/eleme/lindb/pkg/proto"
 	parser "github.com/eleme/lindb/sql/grammar"
 	"github.com/eleme/lindb/sql/util"
+
 	"strconv"
 	"strings"
 	"time"
@@ -14,7 +16,7 @@ type Unit struct {
 	unit int32
 }
 
-type queryStatement struct {
+type QueryStatement struct {
 	measurement         string
 	startTime           int64
 	endTime             int64
@@ -26,14 +28,14 @@ type queryStatement struct {
 	conditionAggregates map[*proto.Condition]map[util.AggregatorUnit]Unit
 	groupBy             map[string]bool
 	interval            int64
-	fieldId             int
+	fieldID             int
 }
 
 // NewDefaultQueryStatement build lindb default query statement
-func NewDefaultQueryStatement() *queryStatement {
-	return &queryStatement{
+func NewDefaultQueryStatement() *QueryStatement {
+	return &QueryStatement{
 		limit:               20,
-		fieldId:             1,
+		fieldID:             1,
 		condition:           new(proto.Condition),
 		fieldExprList:       make([]proto.FieldExpr, 0, 10),
 		groupBy:             make(map[string]bool),
@@ -42,11 +44,11 @@ func NewDefaultQueryStatement() *queryStatement {
 }
 
 // Parse lindb parse query sql
-func (qs *queryStatement) Parse(ctx *parser.Query_stmtContext) {
+func (qs *QueryStatement) Parse(ctx *parser.QueryStmtContext) {
 	// parse measurement like 'table'
-	if ctx.From_clause() != nil {
-		clauseContext := ctx.From_clause().(*parser.From_clauseContext)
-		qs.measurement = util.GetStringValue(clauseContext.Metric_name().GetText())
+	if ctx.FromClause() != nil {
+		clauseContext := ctx.FromClause().(*parser.FromClauseContext)
+		qs.measurement = util.GetStringValue(clauseContext.MetricName().GetText())
 	}
 	// parse select fields
 	if ctx.Fields() != nil {
@@ -54,29 +56,29 @@ func (qs *queryStatement) Parse(ctx *parser.Query_stmtContext) {
 		qs.parseFields(fieldsContext)
 	}
 	//parse where clause
-	if ctx.Where_clause() != nil {
-		whereClause := ctx.Where_clause().(*parser.Where_clauseContext)
+	if ctx.WhereClause() != nil {
+		whereClause := ctx.WhereClause().(*parser.WhereClauseContext)
 		qs.parseClause(whereClause)
 	}
 	//parse group by
-	if ctx.Group_by_clause() != nil {
-		groupBy := ctx.Group_by_clause().(*parser.Group_by_clauseContext)
+	if ctx.GroupByClause() != nil {
+		groupBy := ctx.GroupByClause().(*parser.GroupByClauseContext)
 		qs.parseGroupBy(groupBy)
 	}
 	//parse order by
-	if ctx.Order_by_clause() != nil {
-		orderBy := ctx.Order_by_clause().(*parser.Order_by_clauseContext)
+	if ctx.OrderByClause() != nil {
+		orderBy := ctx.OrderByClause().(*parser.OrderByClauseContext)
 		qs.parseOrderBy(orderBy)
 	}
 	//parse limit
-	if ctx.Limit_clause() != nil {
-		limitClause := ctx.Limit_clause().(*parser.Limit_clauseContext)
+	if ctx.LimitClause() != nil {
+		limitClause := ctx.LimitClause().(*parser.LimitClauseContext)
 		qs.parseLimit(limitClause)
 	}
 }
 
 // parseLimit parse lindb sql limit
-func (qs *queryStatement) parseLimit(limitClause *parser.Limit_clauseContext) {
+func (qs *QueryStatement) parseLimit(limitClause *parser.LimitClauseContext) {
 	if nil != limitClause {
 		limit, _ := strconv.ParseInt(limitClause.L_INT().GetText(), 10, 32)
 		qs.limit = int32(limit)
@@ -84,7 +86,7 @@ func (qs *queryStatement) parseLimit(limitClause *parser.Limit_clauseContext) {
 }
 
 // build build lindb query statement
-func (qs *queryStatement) build() *proto.Query {
+func (qs *QueryStatement) build() *proto.Query {
 	query := new(proto.Query)
 	query.Measurement = qs.measurement
 	query.Interval = qs.interval
@@ -139,45 +141,45 @@ func (qs *queryStatement) build() *proto.Query {
 }
 
 // parseClause lindb sql parse where clause
-func (qs *queryStatement) parseClause(whereClauseContext *parser.Where_clauseContext) {
+func (qs *QueryStatement) parseClause(whereClauseContext *parser.WhereClauseContext) {
 	if nil == whereClauseContext {
 		return
 	}
-	clause := whereClauseContext.Clause_boolean_expr().(*parser.Clause_boolean_exprContext)
-	allClause := clause.AllClause_boolean_expr()
-	if nil != allClause && len(allClause) > 0 {
-		var exprs = make([]parser.Clause_boolean_exprContext, 0, len(allClause))
+	clause := whereClauseContext.ClauseBooleanExpr().(*parser.ClauseBooleanExprContext)
+	allClause := clause.AllClauseBooleanExpr()
+	switch {
+	case len(allClause) > 0:
+		var exprs = make([]parser.ClauseBooleanExprContext, 0, len(allClause))
 		for i := range allClause {
-			expr := allClause[i].(*parser.Clause_boolean_exprContext)
+			expr := allClause[i].(*parser.ClauseBooleanExprContext)
 			exprs = append(exprs, *expr)
 		}
 		qs.parseConditionClause(exprs)
-	} else if nil != clause.Time_expr() {
-		expr := clause.Time_expr().(*parser.Time_exprContext)
+	case nil != clause.TimeExpr():
+		expr := clause.TimeExpr().(*parser.TimeExprContext)
 		qs.parseTimeExpr(expr)
-	} else if nil != clause.Tag_boolean_expr() {
-		expr := clause.Tag_boolean_expr().(*parser.Tag_boolean_exprContext)
+	case nil != clause.TagBooleanExpr():
+		expr := clause.TagBooleanExpr().(*parser.TagBooleanExprContext)
 		parseTagExpr(expr, qs.condition)
 	}
-
 	if qs.condition.Operator == proto.LogicOperator_UNKNOWN {
 		qs.condition.Operator = proto.LogicOperator_AND
 	}
 }
 
 // parseConditionClause parse lindb sql condition clause
-func (qs *queryStatement) parseConditionClause(clauseList []parser.Clause_boolean_exprContext) {
+func (qs *QueryStatement) parseConditionClause(clauseList []parser.ClauseBooleanExprContext) {
 	if clauseList == nil {
 		return
 	}
 	if 2 == len(clauseList) {
 		for i := 0; i < 2; i++ {
 			clause := clauseList[i]
-			if nil != clause.Time_expr() {
-				timeExpr := clause.Time_expr().(*parser.Time_exprContext)
+			if nil != clause.TimeExpr() {
+				timeExpr := clause.TimeExpr().(*parser.TimeExprContext)
 				qs.parseTimeExpr(timeExpr)
-			} else if nil != clause.Tag_boolean_expr() {
-				exprContext := clause.Tag_boolean_expr().(*parser.Tag_boolean_exprContext)
+			} else if nil != clause.TagBooleanExpr() {
+				exprContext := clause.TagBooleanExpr().(*parser.TagBooleanExprContext)
 				parseTagExpr(exprContext, qs.condition)
 			}
 		}
@@ -185,32 +187,32 @@ func (qs *queryStatement) parseConditionClause(clauseList []parser.Clause_boolea
 }
 
 // parseTimeExpr lindb Parse time range condition
-func (qs *queryStatement) parseTimeExpr(ctx *parser.Time_exprContext) {
+func (qs *QueryStatement) parseTimeExpr(ctx *parser.TimeExprContext) {
 	if ctx == nil {
 		return
 	}
-	timeBooleanExprContexts := ctx.AllTime_boolean_expr()
+	timeBooleanExprContexts := ctx.AllTimeBooleanExpr()
 	for i := range timeBooleanExprContexts {
-		timeExpr := timeBooleanExprContexts[i].(*parser.Time_boolean_exprContext)
+		timeExpr := timeBooleanExprContexts[i].(*parser.TimeBooleanExprContext)
 		timestamp := timeExpr.Ident()
-		var times int64 = 0
+		var times int64
 		if timestamp != nil {
 			times = util.ParseTimestamp(util.GetStringValue(timestamp.GetText()))
 		}
-		iNowExpr := timeExpr.Now_expr()
+		iNowExpr := timeExpr.NowExpr()
 		if iNowExpr != nil {
 			now := time.Now().Unix() * 1000
-			nowExpr := iNowExpr.(*parser.Now_exprContext)
-			if nowExpr.Duration_lit() != nil {
-				durationList := nowExpr.Duration_lit().(*parser.Duration_litContext)
+			nowExpr := iNowExpr.(*parser.NowExprContext)
+			if nowExpr.DurationLit() != nil {
+				durationList := nowExpr.DurationLit().(*parser.DurationLitContext)
 				duration := parseDuration(durationList)
 				times = now + duration
 			} else {
 				times = now
 			}
 		}
-		iOpCtx := timeExpr.Bool_expr_binary_operator()
-		opCtx := iOpCtx.(*parser.Bool_expr_binary_operatorContext)
+		iOpCtx := timeExpr.BoolExprBinaryOperator()
+		opCtx := iOpCtx.(*parser.BoolExprBinaryOperatorContext)
 		if opCtx.T_GREATER() != nil || opCtx.T_GREATEREQUAL() != nil {
 			qs.startTime = times
 		}
@@ -222,12 +224,12 @@ func (qs *queryStatement) parseTimeExpr(ctx *parser.Time_exprContext) {
 }
 
 // parseFields lindb sql parse a list of one or more fields
-func (qs *queryStatement) parseFields(ctx *parser.FieldsContext) {
+func (qs *QueryStatement) parseFields(ctx *parser.FieldsContext) {
 	if ctx == nil {
 		return
 	}
 	fieldContexts := ctx.AllField()
-	if fieldContexts == nil || len(fieldContexts) == 0 {
+	if len(fieldContexts) == 0 {
 		return
 	}
 	for i := range fieldContexts {
@@ -237,14 +239,14 @@ func (qs *queryStatement) parseFields(ctx *parser.FieldsContext) {
 }
 
 // parseOrderBy lindb sql parse order by
-func (qs *queryStatement) parseOrderBy(orderByClause *parser.Order_by_clauseContext) {
+func (qs *QueryStatement) parseOrderBy(orderByClause *parser.OrderByClauseContext) {
 	if orderByClause != nil {
-		iSortFieldsContext := orderByClause.Sort_fields()
+		iSortFieldsContext := orderByClause.SortFields()
 		if iSortFieldsContext != nil {
-			sortFieldsContext := iSortFieldsContext.(*parser.Sort_fieldsContext)
-			sortFieldContextList := sortFieldsContext.AllSort_field()
-			if sortFieldContextList != nil && len(sortFieldContextList) > 0 {
-				sortFieldContext := sortFieldContextList[0].(*parser.Sort_fieldContext)
+			sortFieldsContext := iSortFieldsContext.(*parser.SortFieldsContext)
+			sortFieldContextList := sortFieldsContext.AllSortField()
+			if len(sortFieldContextList) > 0 {
+				sortFieldContext := sortFieldContextList[0].(*parser.SortFieldContext)
 				if len(sortFieldContext.AllT_ASC()) > 0 {
 					qs.desc = false
 				} else {
@@ -253,7 +255,7 @@ func (qs *queryStatement) parseOrderBy(orderByClause *parser.Order_by_clauseCont
 
 				expr := new(proto.Expr)
 				exprContext := sortFieldContext.Expr().(*parser.ExprContext)
-				qs.parseExpr(exprContext, expr)
+				qs.parseExpr(exprContext)
 				//todo
 				//if new(proto.Expr_Ref).Ref == expr.GetRef() {
 				//	ref := expr.GetRef().RefName
@@ -274,11 +276,11 @@ func (qs *queryStatement) parseOrderBy(orderByClause *parser.Order_by_clauseCont
 }
 
 // parseField lindb sql parse a single field
-func (qs *queryStatement) parseField(ctx *parser.FieldContext) {
+func (qs *QueryStatement) parseField(ctx *parser.FieldContext) {
 	exprCtx := ctx.Expr().(*parser.ExprContext)
 	field := new(proto.FieldExpr)
 	expr := new(proto.Expr)
-	qs.parseExpr(exprCtx, expr)
+	qs.parseExpr(exprCtx)
 	if ctx.Alias() != nil {
 		alias := ctx.Alias().(*parser.AliasContext)
 		field.Alias = parseAlias(alias)
@@ -295,117 +297,122 @@ func parseAlias(ctx *parser.AliasContext) string {
 	return util.GetStringValue(alias)
 }
 
-func (qs *queryStatement) parseExpr(ctx *parser.ExprContext, expr *proto.Expr) {
+func (qs *QueryStatement) parseExpr(ctx *parser.ExprContext) {
 	if nil == ctx {
 		return
 	}
-	if nil != ctx.Expr_atom() {
-		atom := ctx.Expr_atom().(*parser.Expr_atomContext)
-		qs.parseExprAtom(atom, expr)
-	} else if nil != ctx.Expr_func() {
-		fun := ctx.Expr_func().(*parser.Expr_funcContext)
-		qs.parseCall(fun, expr)
-	} else if nil != ctx.Duration_lit() {
-		lin := ctx.Duration_lit().(*parser.Duration_litContext)
+	switch {
+	case nil != ctx.ExprAtom():
+		atom := ctx.ExprAtom().(*parser.ExprAtomContext)
+		qs.parseExprAtom(atom)
+	case nil != ctx.ExprFunc():
+		fun := ctx.ExprFunc().(*parser.ExprFuncContext)
+		qs.parseCall(fun)
+	case nil != ctx.DurationLit():
+		lin := ctx.DurationLit().(*parser.DurationLitContext)
 		interval := parseDuration(lin)
 		longVal := new(proto.LongExpr)
 		longVal.Value = interval
 		//todo set long value
-	} else if nil != ctx.AllExpr() {
+	case nil != ctx.AllExpr():
 		exprContexts := ctx.AllExpr()
 		size := len(exprContexts)
-		if 2 == size {
+		switch size {
+		case 2:
 			binaryExp := new(proto.BinaryExpr)
 			left := new(proto.Expr)
 			exprContext0 := exprContexts[0].(*parser.ExprContext)
-			qs.parseExpr(exprContext0, left)
+			qs.parseExpr(exprContext0)
 			binaryExp.Left = left
 			var op proto.Operator
-			if ctx.T_ADD() != nil {
+			switch {
+			case ctx.T_ADD() != nil:
 				op = proto.Operator_ADD
-			} else if ctx.T_SUB() != nil {
+			case ctx.T_SUB() != nil:
 				op = proto.Operator_SUB
-			} else if ctx.T_MUL() != nil {
+			case ctx.T_MUL() != nil:
 				op = proto.Operator_MUL
-			} else if ctx.T_DIV() != nil {
+			case ctx.T_DIV() != nil:
 				op = proto.Operator_DIV
-			} else {
+			default:
 				panic(fmt.Sprintln("Unknown operator type in expr"))
 			}
 			binaryExp.Op = op
 			right := new(proto.Expr)
 			exprContext1 := exprContexts[1].(*parser.ExprContext)
-			qs.parseExpr(exprContext1, right)
+			qs.parseExpr(exprContext1)
 			binaryExp.Right = right
 			//todo set binary value
-		} else if 1 == size {
+			return
+		case 1:
 			exprContext := exprContexts[0].(*parser.ExprContext)
-			qs.parseExpr(exprContext, expr)
-		} else {
+			qs.parseExpr(exprContext)
+			return
+		default:
 			panic(fmt.Sprintln("Unknown expr type"))
 		}
 	}
-
 }
 
-func (qs *queryStatement) parseExprAtom(ctx *parser.Expr_atomContext, expr *proto.Expr) {
-	if ctx.Ident() != nil {
+func (qs *QueryStatement) parseExprAtom(ctx *parser.ExprAtomContext) {
+	switch {
+	case ctx.Ident() != nil:
 		valRef := new(proto.ValRefExpr)
 		field := util.GetStringValue(ctx.Ident().GetText())
-		filterContext, e := ctx.Ident_filter().(*parser.Ident_filterContext)
-		var currentFieldId int32
-		if true == e {
+		var currentFieldID int32
+		if ctx.IdentFilter() != nil {
+			filterContext, _ := ctx.IdentFilter().(*parser.IdentFilterContext)
 			condition := parseFilter(filterContext)
-			currentFieldId = qs.addField(condition, *util.NewAggregatorUnit(field, nil, nil))
+			currentFieldID = qs.addField(condition, *util.NewAggregatorUnit(field, nil, nil))
 		} else {
-			currentFieldId = qs.addField(new(proto.Condition), *util.NewAggregatorUnit(field, nil, nil))
+			currentFieldID = qs.addField(new(proto.Condition), *util.NewAggregatorUnit(field, nil, nil))
 		}
-		valRef.RefName = strconv.Itoa(int(currentFieldId))
+		valRef.RefName = strconv.Itoa(int(currentFieldID))
 		//todo set ref value
-	} else if ctx.Int_number() != nil {
+	case ctx.IntNumber() != nil:
 		longVal := new(proto.LongExpr)
-		dec, _ := strconv.ParseInt(ctx.Int_number().GetText(), 10, 64)
+		dec, _ := strconv.ParseInt(ctx.IntNumber().GetText(), 10, 64)
 		longVal.Value = dec
 		//todo set long value
-	} else if ctx.Dec_number() != nil {
+	case ctx.DecNumber() != nil:
 		doubleVal := new(proto.DoubleExpr)
-		dec, _ := strconv.ParseFloat(ctx.Dec_number().GetText(), 64)
+		dec, _ := strconv.ParseFloat(ctx.DecNumber().GetText(), 64)
 		doubleVal.Value = dec
 		//todo set double value
-	} else {
+	default:
 		panic(fmt.Sprintf("Unknown expr atom type"))
 	}
 }
 
 // addField parse lindb sql field
-func (qs *queryStatement) addField(condition *proto.Condition, unit util.AggregatorUnit) int32 {
+func (qs *QueryStatement) addField(condition *proto.Condition, unit util.AggregatorUnit) int32 {
 	aggregatorUnits := qs.conditionAggregates[condition]
 	if aggregatorUnits == nil {
 		aggregatorUnits = make(map[util.AggregatorUnit]Unit)
 	}
 	id := aggregatorUnits[unit]
 	if id.unit <= 0 {
-		id.unit = int32(qs.fieldId)
+		id.unit = int32(qs.fieldID)
 		aggregatorUnits[unit] = id
-		qs.fieldId++
+		qs.fieldID++
 	}
 	qs.conditionAggregates[condition] = aggregatorUnits
 	return id.unit
 }
 
 // parseCall lindb sql parse a function call
-func (qs *queryStatement) parseCall(ctx *parser.Expr_funcContext, expr *proto.Expr) {
+func (qs *QueryStatement) parseCall(ctx *parser.ExprFuncContext) {
 	name := util.GetStringValue(ctx.Ident().GetText())
 	if !util.IsDownSamplingOrAggregator(name) {
 		callExpr := new(proto.CallExpr)
 		callExpr.Name = name
-		if ctx.Expr_func_params() != nil {
-			funcParams := ctx.Expr_func_params().(*parser.Expr_func_paramsContext)
-			funcParam := funcParams.AllFunc_param()
+		if ctx.ExprFuncParams() != nil {
+			funcParams := ctx.ExprFuncParams().(*parser.ExprFuncParamsContext)
+			funcParam := funcParams.AllFuncParam()
 			for i := range funcParam {
-				param := funcParam[i].(*parser.Func_paramContext)
+				param := funcParam[i].(*parser.FuncParamContext)
 				callParam := new(proto.Expr)
-				qs.parseCallParam(param, callParam)
+				qs.parseCallParam(param)
 				callExpr.Args = append(callExpr.Args, callParam)
 			}
 		}
@@ -413,19 +420,20 @@ func (qs *queryStatement) parseCall(ctx *parser.Expr_funcContext, expr *proto.Ex
 		return
 	}
 	varRefBuilder := new(proto.ValRefExpr)
-	currentFieldId := qs.parseDownSamplingOrAggregator(ctx)
-	varRefBuilder.RefName = strconv.Itoa(int(currentFieldId))
+	currentFieldID := qs.parseDownSamplingOrAggregator(ctx)
+	varRefBuilder.RefName = strconv.Itoa(int(currentFieldID))
 	//todo set ref value
 }
 
 // parseDownSamplingOrAggregator parse lindb down sampling or aggregator
-func (qs *queryStatement) parseDownSamplingOrAggregator(ctx *parser.Expr_funcContext) int32 {
+func (qs *QueryStatement) parseDownSamplingOrAggregator(ctx *parser.ExprFuncContext) int32 {
 	var values = make(map[int]string)
 	filterCondition := getCallNames(ctx, values)
 	size := len(values)
-	var currentFieldId int32 = 0
+	var currentFieldID int32
 	var aggregatorUnit util.AggregatorUnit
-	if 2 == size {
+	switch size {
+	case 2:
 		fun := values[0]
 		function := util.ValueOf(fun)
 		if strings.HasPrefix(fun, util.DownSampling) {
@@ -433,50 +441,51 @@ func (qs *queryStatement) parseDownSamplingOrAggregator(ctx *parser.Expr_funcCon
 		} else {
 			aggregatorUnit = *util.NewAggregatorUnit(values[1], nil, &function)
 		}
-	} else if 3 == size {
+	case 3:
 		fieldName := values[2]
 		fun1 := util.ValueOf(values[1])
 		fun0 := util.ValueOf(values[0])
 		aggregatorUnit = *util.NewAggregatorUnit(fieldName, &fun1, &fun0)
-	} else if 1 == size {
+	case 1:
 		aggregatorUnit = *util.NewAggregatorUnit(values[0], nil, nil)
-	} else {
+	default:
 		panic(fmt.Sprintln("sql is not valid"))
 	}
+
 	if filterCondition == nil {
-		currentFieldId = qs.addField(new(proto.Condition), aggregatorUnit)
+		currentFieldID = qs.addField(new(proto.Condition), aggregatorUnit)
 	} else {
-		currentFieldId = qs.addField(filterCondition, aggregatorUnit)
+		currentFieldID = qs.addField(filterCondition, aggregatorUnit)
 	}
-	return currentFieldId
+	return currentFieldID
 }
 
-func getCallNames(ctx *parser.Expr_funcContext, values map[int]string) *proto.Condition {
+func getCallNames(ctx *parser.ExprFuncContext, values map[int]string) *proto.Condition {
 	var filterCondition *proto.Condition
 	callName := util.GetStringValue(ctx.Ident().GetText())
 	valuesLen := len(values)
 	values[valuesLen] = callName
-	if ctx.Expr_func_params() != nil {
-		paramsContext := ctx.Expr_func_params().(*parser.Expr_func_paramsContext)
-		funcParams := paramsContext.AllFunc_param()
+	if ctx.ExprFuncParams() != nil {
+		paramsContext := ctx.ExprFuncParams().(*parser.ExprFuncParamsContext)
+		funcParams := paramsContext.AllFuncParam()
 		for i := range funcParams {
-			param := funcParams[i].(*parser.Func_paramContext)
+			param := funcParams[i].(*parser.FuncParamContext)
 			if param.Expr() == nil {
 				continue
 			}
 			exprContext := param.Expr().(*parser.ExprContext)
-			if exprContext.Expr_func() != nil {
-				exprFuncContext := exprContext.Expr_func().(*parser.Expr_funcContext)
+			if exprContext.ExprFunc() != nil {
+				exprFuncContext := exprContext.ExprFunc().(*parser.ExprFuncContext)
 				getCallNames(exprFuncContext, values)
-			} else if exprContext.Expr_atom() != nil {
-				atomContext := exprContext.Expr_atom().(*parser.Expr_atomContext)
+			} else if exprContext.ExprAtom() != nil {
+				atomContext := exprContext.ExprAtom().(*parser.ExprAtomContext)
 				identContext := atomContext.Ident()
 				if identContext != nil {
 					valuesLen = len(values)
 					values[valuesLen] = util.GetStringValue(identContext.GetText())
 				}
-				if atomContext.Ident_filter() != nil {
-					filterContext := atomContext.Ident_filter().(*parser.Ident_filterContext)
+				if atomContext.IdentFilter() != nil {
+					filterContext := atomContext.IdentFilter().(*parser.IdentFilterContext)
 					filterCondition = parseFilter(filterContext)
 				}
 			}
@@ -486,12 +495,12 @@ func getCallNames(ctx *parser.Expr_funcContext, values map[int]string) *proto.Co
 }
 
 // parseFilter parse lindb sql filter
-func parseFilter(identFilterContext *parser.Ident_filterContext) *proto.Condition {
+func parseFilter(identFilterContext *parser.IdentFilterContext) *proto.Condition {
 	if identFilterContext == nil {
 		return nil
 	}
 	fieldCondition := new(proto.Condition)
-	expr := identFilterContext.Tag_boolean_expr().(*parser.Tag_boolean_exprContext)
+	expr := identFilterContext.TagBooleanExpr().(*parser.TagBooleanExprContext)
 	parseTagExpr(expr, fieldCondition)
 	if proto.LogicOperator_UNKNOWN == fieldCondition.Operator {
 		fieldCondition.Operator = proto.LogicOperator_AND
@@ -500,31 +509,31 @@ func parseFilter(identFilterContext *parser.Ident_filterContext) *proto.Conditio
 }
 
 // parseCallParam parse lindb sql call expr param
-func (qs *queryStatement) parseCallParam(ctx *parser.Func_paramContext, callParam *proto.Expr) {
-	if nil != ctx.Tag_boolean_expr() {
+func (qs *QueryStatement) parseCallParam(ctx *parser.FuncParamContext) {
+	if nil != ctx.TagBooleanExpr() {
 		conditionBuilder := new(proto.Condition)
-		exprContext := ctx.Tag_boolean_expr().(*parser.Tag_boolean_exprContext)
+		exprContext := ctx.TagBooleanExpr().(*parser.TagBooleanExprContext)
 		parseTagExpr(exprContext, conditionBuilder)
 	} else {
 		exprContext := ctx.Expr().(*parser.ExprContext)
-		qs.parseExpr(exprContext, callParam)
+		qs.parseExpr(exprContext)
 	}
 
 }
 
 // parseTagExpr parse lindb sql tag
-func parseTagExpr(ctx *parser.Tag_boolean_exprContext, condition *proto.Condition) {
+func parseTagExpr(ctx *parser.TagBooleanExprContext, condition *proto.Condition) {
 	if nil == ctx {
 		return
 	}
-	tagKeyCtx := ctx.Tag_key()
+	tagKeyCtx := ctx.TagKey()
 	if nil != tagKeyCtx {
 		filter := parseTag(ctx)
 		condition.TagFilters = append(condition.TagFilters, filter)
 	} else {
-		tagCtxList := ctx.AllTag_boolean_expr()
+		tagCtxList := ctx.AllTagBooleanExpr()
 		size := len(tagCtxList)
-		tagCtx0 := tagCtxList[0].(*parser.Tag_boolean_exprContext)
+		tagCtx0 := tagCtxList[0].(*parser.TagBooleanExprContext)
 		if 2 == size {
 			var logicOp proto.LogicOperator
 			if nil != ctx.T_AND() {
@@ -533,7 +542,7 @@ func parseTagExpr(ctx *parser.Tag_boolean_exprContext, condition *proto.Conditio
 				logicOp = proto.LogicOperator_OR
 			}
 
-			tagCtx1 := tagCtxList[1].(*parser.Tag_boolean_exprContext)
+			tagCtx1 := tagCtxList[1].(*parser.TagBooleanExprContext)
 			if proto.LogicOperator_OR == logicOp {
 				orCondition := new(proto.Condition)
 				orCondition.Operator = logicOp
@@ -541,14 +550,14 @@ func parseTagExpr(ctx *parser.Tag_boolean_exprContext, condition *proto.Conditio
 				parseTagExpr(tagCtx1, orCondition)
 				condition.Condition = append(condition.Condition, orCondition)
 			} else {
-				if nil != tagCtx0.Tag_key() {
+				if nil != tagCtx0.TagKey() {
 					filter := parseTag(tagCtx0)
 					condition.TagFilters = append(condition.TagFilters, filter)
 				} else {
 					parseTagExpr(tagCtx0, condition)
 				}
 
-				if nil != tagCtx1.Tag_key() {
+				if nil != tagCtx1.TagKey() {
 					filter := parseTag(tagCtx1)
 					condition.TagFilters = append(condition.TagFilters, filter)
 				} else {
@@ -561,7 +570,9 @@ func parseTagExpr(ctx *parser.Tag_boolean_exprContext, condition *proto.Conditio
 		} else if 1 == size {
 			condition2 := new(proto.Condition)
 			parseTagExpr(tagCtx0, condition2)
-			if proto.LogicOperator_AND == condition2.Operator && 0 == len(condition2.Condition) && proto.LogicOperator_AND == condition.Operator {
+			if proto.LogicOperator_AND == condition2.Operator &&
+				0 == len(condition2.Condition) &&
+				proto.LogicOperator_AND == condition.Operator {
 				for i := range condition2.TagFilters {
 					tagFilter := condition2.TagFilters[i]
 					condition.TagFilters = append(condition.TagFilters, tagFilter)
@@ -575,20 +586,21 @@ func parseTagExpr(ctx *parser.Tag_boolean_exprContext, condition *proto.Conditio
 }
 
 // parseTag parse lindb sql tag filter
-func parseTag(ctx *parser.Tag_boolean_exprContext) *proto.TagFilter {
-	tagKeyCtx := ctx.Tag_key()
+func parseTag(ctx *parser.TagBooleanExprContext) *proto.TagFilter {
+	tagKeyCtx := ctx.TagKey()
 	var op proto.Operator
-	if nil != ctx.T_EQUAL() {
+	switch {
+	case nil != ctx.T_EQUAL():
 		op = proto.Operator_EQUAL
-	} else if nil != ctx.T_LIKE() || nil != ctx.T_REGEXP() {
+	case nil != ctx.T_LIKE() || nil != ctx.T_REGEXP():
 		op = proto.Operator_LIKE
-	} else if nil != ctx.T_NOTEQUAL() || nil != ctx.T_NOTEQUAL2() {
+	case nil != ctx.T_NOTEQUAL() || nil != ctx.T_NOTEQUAL2():
 		op = proto.Operator_NOT_EQUAL
-	} else if nil != ctx.T_NOT() && nil != ctx.T_IN() {
+	case nil != ctx.T_NOT() && nil != ctx.T_IN():
 		op = proto.Operator_NOT_IN
-	} else if nil != ctx.T_NOT() && nil != ctx.T_IN() {
+	case nil == ctx.T_NOT() && nil != ctx.T_IN():
 		op = proto.Operator_IN
-	} else {
+	default:
 		panic(fmt.Sprintf("unknown filter operator"))
 	}
 
@@ -596,15 +608,15 @@ func parseTag(ctx *parser.Tag_boolean_exprContext) *proto.TagFilter {
 	tagKey := util.GetStringValue(tagKeyCtx.GetText())
 	filter.TagKey = tagKey
 	filter.Op = op
-	ctx.Tag_value()
+	ctx.TagValue()
 	if proto.Operator_IN == op || proto.Operator_NOT_IN == op {
-		tagValueListContext, b := ctx.Tag_value_list().(*parser.Tag_value_listContext)
-		if true == b {
-			tagValueContexts := tagValueListContext.AllTag_value()
+		if ctx.TagValueList() != nil {
+			tagValueListContext, _ := ctx.TagValueList().(*parser.TagValueListContext)
+			tagValueContexts := tagValueListContext.AllTagValue()
 			if len(tagValueContexts) > 0 {
 				var tagValues = make([]string, 0)
 				for i := range tagValueContexts {
-					item := tagValueContexts[i].(*parser.Tag_valueContext)
+					item := tagValueContexts[i].(*parser.TagValueContext)
 					tagValue := item.Ident().GetText()
 					tagValues = append(tagValues, tagValue)
 				}
@@ -616,7 +628,7 @@ func parseTag(ctx *parser.Tag_boolean_exprContext) *proto.TagFilter {
 			panic(fmt.Sprintf(" the tag values for operator %s must be list", op))
 		}
 	} else {
-		tagValueContext := ctx.Tag_value().(*parser.Tag_valueContext)
+		tagValueContext := ctx.TagValue().(*parser.TagValueContext)
 		tagValue := util.GetStringValue(tagValueContext.Ident().GetText())
 		filter.TagValue = tagValue
 	}
@@ -624,40 +636,41 @@ func parseTag(ctx *parser.Tag_boolean_exprContext) *proto.TagFilter {
 }
 
 // parseDuration lindb sql parse a  time duration from a string
-func parseDuration(ctx *parser.Duration_litContext) int64 {
-	duration, _ := strconv.ParseInt(ctx.Int_number().GetText(), 10, 64)
-	unit, b := ctx.Interval_item().(*parser.Interval_itemContext)
-	var result int64 = 0
-	if false == b {
+func parseDuration(ctx *parser.DurationLitContext) int64 {
+	duration, _ := strconv.ParseInt(ctx.IntNumber().GetText(), 10, 64)
+	var result int64
+	if ctx.IntervalItem() == nil {
 		return result
 	}
-	if nil != unit.T_SECOND() {
+	unit, _ := ctx.IntervalItem().(*parser.IntervalItemContext)
+	switch {
+	case nil != unit.T_SECOND():
 		result = duration * util.OneSeconds
-	} else if nil != unit.T_MINUTE() {
+	case nil != unit.T_MINUTE():
 		result = duration * util.OneMinute
-	} else if nil != unit.T_HOUR() {
+	case nil != unit.T_HOUR():
 		result = duration * util.OneHour
-	} else if nil != unit.T_DAY() {
+	case nil != unit.T_DAY():
 		result = duration * util.OneDay
-	} else if nil != unit.T_WEEK() {
+	case nil != unit.T_WEEK():
 		result = duration * util.OneWeek
-	} else if nil != unit.T_MONTH() {
+	case nil != unit.T_MONTH():
 		result = duration * util.OneMonth
-	} else if nil != unit.T_YEAR() {
+	case nil != unit.T_YEAR():
 		result = duration * util.OneYear
 	}
 	return result
 }
 
 // parseGroupBy parse lindb sql group by
-func (qs *queryStatement) parseGroupBy(ctx *parser.Group_by_clauseContext) {
+func (qs *QueryStatement) parseGroupBy(ctx *parser.GroupByClauseContext) {
 	if nil == ctx {
 		return
 	}
-	dimensions, err := ctx.Dimensions().(*parser.DimensionsContext)
-	if false == err {
+	if ctx.Dimensions() == nil {
 		return
 	}
+	dimensions, _ := ctx.Dimensions().(*parser.DimensionsContext)
 	var dimensionContextList = dimensions.AllDimension()
 	for i := range dimensionContextList {
 		dimension := dimensionContextList[i].(*parser.DimensionContext)
@@ -665,9 +678,9 @@ func (qs *queryStatement) parseGroupBy(ctx *parser.Group_by_clauseContext) {
 		if nil != tagKey {
 			qs.groupBy[util.GetStringValue(tagKey.GetText())] = true
 		}
-		durationContext := dimension.Duration_lit()
+		durationContext := dimension.DurationLit()
 		if durationContext != nil {
-			qs.interval = parseDuration(durationContext.(*parser.Duration_litContext))
+			qs.interval = parseDuration(durationContext.(*parser.DurationLitContext))
 		}
 	}
 }

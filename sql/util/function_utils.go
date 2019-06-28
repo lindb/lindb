@@ -14,9 +14,7 @@ var SimpleFunction = []string{SUM.String(), COUNT.String(), MIN.String(), MAX.St
 
 // ValueOf get FunctionType by function name
 func ValueOf(functionName string) FunctionType {
-	if strings.HasPrefix(functionName, DownSampling) {
-		functionName = functionName[len(DownSampling):]
-	}
+	functionName = strings.TrimPrefix(functionName, DownSampling)
 	return GetFunctionType(functionName)
 }
 

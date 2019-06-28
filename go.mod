@@ -36,5 +36,5 @@ require (
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/time v0.0.0-20190513212739-9d24e82272b4 // indirect
 	google.golang.org/grpc v1.21.1 // indirect
-	github.com/antlr/antlr4/runtime/Go/antlr // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr v4.7.2 // indirect
 )

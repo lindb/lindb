@@ -2,15 +2,19 @@ package sql
 
 import (
 	"fmt"
+
 	"github.com/eleme/lindb/pkg/proto"
+
 	"github.com/stretchr/testify/assert"
+
 	"testing"
 )
 
 var sqlPlan = GetInstance()
 
 func Test_QueryPlan(t *testing.T) {
-	sql := "select f from test where a='a1' or b='b1' and time>'20190410 00:00:00' and time<'20190410 10:00:00' order by f desc"
+	sql := "select f from test where a='a1' or b='b1' and time>'20190410 00:00:00' " +
+		"and time<'20190410 10:00:00' order by f desc"
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -26,7 +30,8 @@ func Test_QueryPlan(t *testing.T) {
 }
 
 func Test_QueryPlan1(t *testing.T) {
-	sql := "select rate(max(d_avg(a), 'name' = '1*')),b,max(c),d_max(e),d_avg(a) from test group by 'type',time(1m)"
+	sql := "select rate(max(d_avg(a), 'name' = '1*')),b,max(c),d_max(e),d_avg(a)" +
+		" from test group by 'type',time(1m)"
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(60000), query.Interval)
@@ -37,7 +42,8 @@ func Test_QueryPlan1(t *testing.T) {
 }
 
 func Test_QueryPlan2(t *testing.T) {
-	sql := "select f from test where a='a1' and (e='ee1' or (f='f1' and  (g='g1' or g='g2' ))) and (aa='a1' and bb='b1') and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (e='ee1' or (f='f1' and  " +
+		"(g='g1' or g='g2' ))) and (aa='a1' and bb='b1') and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -51,7 +57,8 @@ func Test_QueryPlan2(t *testing.T) {
 }
 
 func Test_QueryPlan3(t *testing.T) {
-	sql := "select f from test where a='a1' or b='b1' and time>'20190410 00:00:00' and time<'20190410 10:00:00'"
+	sql := "select f from test where a='a1' or b='b1' and time>'20190410 00:00:00'" +
+		" and time<'20190410 10:00:00'"
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -79,7 +86,8 @@ func Test_QueryPlan4(t *testing.T) {
 }
 
 func Test_QueryPlan5(t *testing.T) {
-	sql := "select f from test where a='a1' and (e='e1' or (f='f1' and f='f2') ) and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (e='e1' or (f='f1' and f='f2') )" +
+		" and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -95,7 +103,8 @@ func Test_QueryPlan5(t *testing.T) {
 }
 
 func Test_QueryPlan6(t *testing.T) {
-	sql := "select f from test where a='a1' and (e='e1' or (f='f1' and  (g='g1' or g='g2' )) ) and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (e='e1' or (f='f1' and " +
+		" (g='g1' or g='g2' )) ) and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -111,7 +120,8 @@ func Test_QueryPlan6(t *testing.T) {
 }
 
 func Test_QueryPlan7(t *testing.T) {
-	sql := "select f from test where a='a1' and (ee='e1' and (e='e1' or f='f1') and (g='g1' or g='g2' )) and (aa='a1' or bb='b1') and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (ee='e1' and (e='e1' or f='f1') and" +
+		" (g='g1' or g='g2' )) and (aa='a1' or bb='b1') and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -127,7 +137,8 @@ func Test_QueryPlan7(t *testing.T) {
 }
 
 func Test_QueryPlan8(t *testing.T) {
-	sql := "select f from test where a='a1' and (ee='ee1' and ((e='e1' or f='f1') or (g='g1' or g='g2' ))) and (aa='a1' or bb='b1') and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (ee='ee1' and ((e='e1' or f='f1') or " +
+		"(g='g1' or g='g2' ))) and (aa='a1' or bb='b1') and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)
@@ -143,7 +154,8 @@ func Test_QueryPlan8(t *testing.T) {
 }
 
 func Test_QueryPlan9(t *testing.T) {
-	sql := "select f from test where a='a1' and (e='ee1' or (f='f1' and  (g='g1' or g='g2' ))) and (aa='a1' and bb='b1') and b='b1' and d='d1' and c='c1' "
+	sql := "select f from test where a='a1' and (e='ee1' or (f='f1' and  " +
+		"(g='g1' or g='g2' ))) and (aa='a1' and bb='b1') and b='b1' and d='d1' and c='c1' "
 	query := sqlPlan.Plan(sql).stmt.build()
 	assert.Equal(t, "test", query.Measurement)
 	assert.Equal(t, int64(0), query.Interval)

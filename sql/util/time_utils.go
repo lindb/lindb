@@ -22,11 +22,12 @@ const (
 func ParseTimestamp(date string) int64 {
 	loc, _ := time.LoadLocation("PRC")
 	var format string
-	if strings.Index(date, "-") > 0 {
+	switch {
+	case strings.Index(date, "-") > 0:
 		format = dataTimeFormat2
-	} else if strings.Index(date, "/") > 0 {
+	case strings.Index(date, "/") > 0:
 		format = dataTimeFormat3
-	} else {
+	default:
 		format = dataTimeFormat1
 	}
 	t, _ := time.ParseInLocation(format, date, loc)
