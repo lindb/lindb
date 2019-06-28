@@ -2,7 +2,6 @@ package kv
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -169,16 +168,12 @@ func (s *Store) Close() error {
 	return s.lock.Unlock()
 }
 
-// dumpStoreInfo persists store info to INFO file
+// dumpStoreInfo persists store info to OPTIONS file
 func (s *Store) dumpStoreInfo() error {
 	infoPath := filepath.Join(s.option.Path, version.Options)
-	tmp := fmt.Sprintf("%s.%s", infoPath, version.TmpSuffix)
 	// write store info using toml format
-	if err := util.EncodeToml(tmp, s.storeInfo); err != nil {
-		return fmt.Errorf("write store info error:%s", err)
-	}
-	if err := os.Rename(tmp, infoPath); err != nil {
-		return fmt.Errorf("rename store info tmp file name error:%s", err)
+	if err := util.EncodeToml(infoPath, s.storeInfo); err != nil {
+		return fmt.Errorf("write store info to file[%s] error:%s", infoPath, err)
 	}
 	return nil
 }
