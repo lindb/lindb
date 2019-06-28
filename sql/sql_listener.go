@@ -217,7 +217,6 @@ func (ql *Listener) EnterShow_tag_values_stmt(ctx *parser.Show_tag_values_stmtCo
 
 // EnterShow_tag_values_info_stmt override lindb sql show tag values info stmt
 func (ql *Listener) EnterShow_tag_values_info_stmt(ctx *parser.Show_tag_values_info_stmtContext) {
-	fmt.Println("EnterShow_tag_values_info_stmt")
 	metric := ctx.Metric_name().GetText()
 	withTagClause := ctx.With_tag_clause().(*parser.With_tag_clauseContext)
 	tagKey := withTagClause.Tag_key().GetText()
