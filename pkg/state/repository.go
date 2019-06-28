@@ -17,14 +17,14 @@ type Repository interface {
 	// Delete deletes value for given key from repository
 	Delete(ctx context.Context, key string) error
 	// Heartbeat does heartbeat on the key with a value and ttl
-	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) error
+	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
 	Watch(ctx context.Context, key string) (WatchEventChan, error)
 	// Close closes repository and release resources
 	Close() error
 }
 
-// EventType represent a watch event type.
+// EventType represents a watch event type.
 type EventType int
 
 // Event types.
@@ -40,6 +40,10 @@ type Event struct {
 	Value []byte
 
 	Err error
+}
+
+// Closed represents close status
+type Closed interface {
 }
 
 // WatchEventChan notify event channel

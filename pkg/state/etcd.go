@@ -61,15 +61,20 @@ func (r *etcdRepository) Close() error {
 }
 
 // Heartbeat does heartbeat on the key with a value and ttl based on etcd
-func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte, ttl int64) error {
+func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error) {
 	h := newHeartbeat(r.client, key, value, ttl)
 	err := h.grantKeepAliveLease(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	ch := make(chan Closed)
 	// do keepalive/retry background
-	go h.keepAlive(ctx)
-	return nil
+	go func() {
+		// close closed channel, if keep alive stopped
+		defer close(ch)
+		h.keepAlive(ctx)
+	}()
+	return ch, nil
 }
 
 // Watch watches on a key. The watched events will be returned through the returned channel.

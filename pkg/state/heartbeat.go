@@ -16,6 +16,7 @@ const defaultTTL = 10 // defalut ttl => 5 seconds
 // define errors
 var errKeepaliveStopped = errors.New("heartbeat keepalive stopped")
 
+// heartbeat represents a heartbeat with etcd, it will start a goroutine does keepalive in background
 type heartbeat struct {
 	client *etcd.Client
 	key    string
@@ -26,6 +27,7 @@ type heartbeat struct {
 	ttl int64
 }
 
+// newHeartbeat creates heartbeat instance
 func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64) *heartbeat {
 	if ttl <= 0 {
 		ttl = defaultTTL
@@ -38,6 +40,7 @@ func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64) *hea
 	}
 }
 
+// grantKeepAliveLease grants ectd lease, if success do keepalive
 func (h *heartbeat) grantKeepAliveLease(ctx context.Context) error {
 	resp, err := h.client.Grant(ctx, h.ttl)
 	if err != nil {
@@ -51,6 +54,7 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) error {
 	return err
 }
 
+// keepAlive does keepalive and retry
 func (h *heartbeat) keepAlive(ctx context.Context) {
 	log := logger.GetLogger()
 	var (
@@ -62,9 +66,15 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 		if err != nil {
 			log.Error("do heartbeat keepalive error, retry.", zap.Error(err))
 			time.Sleep(gap)
+			// do retry grant keep alive if lease ttl
 			err = h.grantKeepAliveLease(ctx)
+			// if ctx happen err, return stop keepalive
+			if ctx.Err() != nil {
+				return
+			}
 		} else {
 			err = h.handleAliveResp(ctx)
+			// return if keepalive stopped
 			if err != nil && err != errKeepaliveStopped {
 				return
 			}
@@ -72,6 +82,8 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 	}
 
 }
+
+// handleAliveResp handles keepalive response, if keepalive closed or ctx canceled return keep liave stopped error
 func (h *heartbeat) handleAliveResp(ctx context.Context) error {
 	select {
 	case aliveResp := <-h.keepaliveCh:
@@ -79,7 +91,7 @@ func (h *heartbeat) handleAliveResp(ctx context.Context) error {
 			return errKeepaliveStopped
 		}
 	case <-ctx.Done():
-		return ctx.Err()
+		return errKeepaliveStopped
 	}
 	return nil
 }

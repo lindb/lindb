@@ -92,7 +92,8 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 	heartbeat := fmt.Sprintf("/cluster1/storage/heartbeat/%s:%d", ip, 2918)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err = b.Heartbeat(ctx, heartbeat, []byte("test"), 1)
+	var ch <-chan Closed
+	ch, err = b.Heartbeat(ctx, heartbeat, []byte("test"), 1)
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -105,6 +106,11 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 	_, err = b.Get(ctx, heartbeat)
 	if err == nil {
 		c.Fatal("heartbeat should be deleted automatically")
+	}
+	select {
+	case <-ch:
+	case <-time.After(500 * time.Millisecond):
+		c.Fatal("cancel heartbeat timeout")
 	}
 }
 
