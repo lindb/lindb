@@ -17,7 +17,7 @@ func TestCreateDatabase(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	defer clus.Terminate(t)
 
-	state.New("etcd", etcd.Config{
+	_ = state.New("etcd", etcd.Config{
 		Endpoints: []string{clus.Members[0].GRPCAddr()},
 	})
 
@@ -28,4 +28,24 @@ func TestCreateDatabase(t *testing.T) {
 		ReplicaFactor: 3,
 	})
 	assert.Nil(t, err)
+}
+
+func TestDatabaseService_Get(t *testing.T) {
+	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	defer clus.Terminate(t)
+
+	_ = state.New("etcd", etcd.Config{
+		Endpoints: []string{clus.Members[0].GRPCAddr()},
+	})
+
+	db := New()
+	err := db.Create(option.Database{
+		Name:          "test",
+		NumOfShard:    12,
+		ReplicaFactor: 3,
+	})
+	assert.Nil(t, err)
+	database, err := db.Get("test")
+	assert.Nil(t, err)
+	assert.Equal(t, "test", database.Name)
 }

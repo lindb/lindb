@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -19,16 +20,12 @@ type route struct {
 type routes []route
 
 var rs = routes{
-	route{
-		"Index",
-		"GET",
-		"/",
-		func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "Welcome to my website!")
-		},
-	},
+	route{"CreateOrUpdateDatabase", "POST", "/database", CreateOrUpdateDatabase},
+	route{"GetDatabase", "Get", "/database", GetDatabase},
 }
 
+// NewRouter returns a new router with a panic handler and a static server
+// handler.
 func NewRouter(config *broker.Config) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range rs {
@@ -36,12 +33,35 @@ func NewRouter(config *broker.Config) *mux.Router {
 			Methods(route.method).
 			Path(route.pattern).
 			Name(route.name).
-			Handler(route.handler)
+			Handler(panicHandler(route.handler))
 	}
-
+	// static server path
 	router.PathPrefix("/static/").
 		Handler(http.StripPrefix("/static/",
 			http.FileServer(http.Dir(config.HTTP.Static))))
-
 	return router
+}
+
+// panicHandler handles panics and returns a json response with error message
+// and http code 500
+func panicHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		defer func() {
+			r := recover()
+			if r != nil {
+				fmt.Println("come in")
+				switch t := r.(type) {
+				case string:
+					err = errors.New(t)
+				case error:
+					err = t
+				default:
+					err = errors.New("UnKnow ERROR")
+				}
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+		}()
+		h.ServeHTTP(w, r)
+	})
 }

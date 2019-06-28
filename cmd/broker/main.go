@@ -24,6 +24,7 @@ var (
 	help       bool
 )
 
+// init inits the broker config
 func init() {
 	if version == "" {
 		version = unknown
@@ -53,19 +54,18 @@ func main() {
 	brokerConfig := &broker.Config{}
 	config.Parse(configFile, brokerConfig)
 	log.Info("start http server", zap.Any("port", brokerConfig.HTTP.Port))
-
 	router := rest.NewRouter(brokerConfig)
-
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.HTTP.Port), router); err != nil {
 		log.Error("start http server error", zap.Error(err))
 		os.Exit(0)
 	}
 }
 
+// usage prints the version of broker
 func usage() {
-	fmt.Fprintf(os.Stderr, `lindb broker version: %s
-
-Options:
-`, version)
+	_, _ = fmt.Fprintf(os.Stderr, `lindb broker version: %s
+	
+	Options:
+	`, version)
 	flag.PrintDefaults()
 }
