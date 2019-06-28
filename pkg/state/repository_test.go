@@ -3,9 +3,9 @@ package state
 import (
 	"testing"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
 	"github.com/stretchr/testify/assert"
-	etcd "go.etcd.io/etcd/clientv3"
 )
 
 func TestNewRepo(t *testing.T) {

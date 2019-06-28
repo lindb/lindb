@@ -16,14 +16,43 @@ type Repository interface {
 	Put(ctx context.Context, key string, val []byte) error
 	// Delete deletes value for given key from repository
 	Delete(ctx context.Context, key string) error
+	// Heartbeat does heartbeat on the key with a value and ttl
+	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
+	// Watch watches on a key. The watched events will be returned through the returned channel.
+	Watch(ctx context.Context, key string) (WatchEventChan, error)
 	// Close closes repository and release resources
 	Close() error
 }
 
+// EventType represents a watch event type.
+type EventType int
+
+// Event types.
+const (
+	EventTypeModify EventType = iota
+	EventTypeDelete
+)
+
+// Event defines repository watch event on key or perfix
+type Event struct {
+	Type  EventType
+	Key   string
+	Value []byte
+
+	Err error
+}
+
+// Closed represents close status
+type Closed interface {
+}
+
+// WatchEventChan notify event channel
+type WatchEventChan <-chan *Event
+
 // New creates global state reposistory
 func New(repoType string, config interface{}) error {
 	if repoType == "etcd" {
-		repo, err := newETCDRepository(config)
+		repo, err := newEtedRepository(config)
 		if err != nil {
 			return err
 		}
