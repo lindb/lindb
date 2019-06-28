@@ -1,4 +1,4 @@
-package data
+package tsdb
 
 import (
 	"time"
@@ -8,14 +8,17 @@ import (
 	"github.com/eleme/lindb/tsdb/mem"
 )
 
-type Shard struct {
+type Shard interface {
+}
+
+type shard struct {
 	id     int32
 	option option.ShardOption
 	mem    *mem.MemoryDatabase
 }
 
-func NewShard(shardID int32, option option.ShardOption) *Shard {
-	shard := &Shard{
+func newShard(shardID int32, option option.ShardOption) Shard {
+	shard := &shard{
 		id:     shardID,
 		option: option,
 		mem:    mem.NewMemDatabase(),
@@ -23,7 +26,7 @@ func NewShard(shardID int32, option option.ShardOption) *Shard {
 	return shard
 }
 
-func (s *Shard) Write(point models.Point) {
+func (s *shard) Write(point models.Point) {
 	timestamp := point.Timestamp()
 	now := time.Now().Unix()
 
