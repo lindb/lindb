@@ -2,6 +2,7 @@ package util
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -43,17 +44,23 @@ func Exist(file string) bool {
 	return true
 }
 
-// EncodeToml encodes data into file using toml format
+// EncodeToml encodes data into file using toml format,
+// encode data to tmp file, if success then rename tmp => target file
 func EncodeToml(fileName string, v interface{}) error {
-	f, _ := os.Create(fileName)
+	tmp := fmt.Sprintf("%s.tmp", fileName)
+	f, _ := os.Create(tmp)
 	w := bufio.NewWriter(f)
+	// write info using toml format
 	if err := toml.NewEncoder(w).Encode(v); err != nil {
 		return err
+	}
+	if err := os.Rename(tmp, fileName); err != nil {
+		return fmt.Errorf("rename tmp file[%s] name error:%s", tmp, err)
 	}
 	return nil
 }
 
-// DecodeToml encodes data from file using toml format
+// DecodeToml decodes data from file using toml format
 func DecodeToml(fileName string, v interface{}) error {
 	if _, err := toml.DecodeFile(fileName, v); err != nil {
 		return err
