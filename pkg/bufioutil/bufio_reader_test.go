@@ -20,6 +20,17 @@ func Test_NewBufioReader(t *testing.T) {
 	assert.NotNil(t, br)
 }
 
+func TestBufioReader_getVariantLength(t *testing.T) {
+	assert.Equal(t, int64(1), GetVariantLength(0))
+	assert.Equal(t, int64(1), GetVariantLength(1))
+	assert.Equal(t, int64(1), GetVariantLength(127))
+	assert.Equal(t, int64(2), GetVariantLength(129))
+	assert.Equal(t, int64(2), GetVariantLength(16383))
+	assert.Equal(t, int64(3), GetVariantLength(16384))
+	assert.Equal(t, int64(3), GetVariantLength(2097151))
+	assert.Equal(t, int64(4), GetVariantLength(2097152))
+}
+
 func TestBufioReader_content(t *testing.T) {
 	defer os.Remove(_testFile)
 	bw, _ := NewBufioWriter(_testFile)
@@ -31,19 +42,19 @@ func TestBufioReader_content(t *testing.T) {
 
 	bw.Write([]byte("a"))
 	bw.Flush()
-	br.Read()
+	br.Next()
 	assert.Equal(t, 1, len(br.content))
 	assert.Equal(t, 1, cap(br.content))
 
 	bw.Write([]byte("abcde"))
 	bw.Flush()
-	br.Read()
+	br.Next()
 	assert.Equal(t, 5, len(br.content))
 	assert.Equal(t, 5, cap(br.content))
 
 	bw.Write([]byte("xy"))
 	bw.Flush()
-	br.Read()
+	br.Next()
 	assert.Equal(t, 2, len(br.content))
 	assert.Equal(t, 5, cap(br.content))
 }
@@ -60,17 +71,14 @@ func BenchmarkBufioReader_Read(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		eof, content, err := br.Read()
+		assert.True(b, br.Next())
+		content, err := br.Read()
 		if i < 100 || i > b.N-100 {
-			assert.False(b, eof)
 			assert.Equal(b, _testContent, content)
 			assert.Nil(b, err)
 		}
 	}
-	eof, content, err := br.Read()
-	assert.True(b, eof)
-	assert.Nil(b, content)
-	assert.Nil(b, err)
+	assert.False(b, br.Next())
 }
 
 func TestBufioReader_Count_Reset_Close(t *testing.T) {
@@ -85,13 +93,10 @@ func TestBufioReader_Count_Reset_Close(t *testing.T) {
 	}
 	bw.Sync()
 
-	for {
-		eof, _, _ := br.Read()
-		if eof {
-			break
-		}
+	for br.Next() {
+		br.Read()
 	}
-	assert.Equal(t, int(br.Count()), (len(_testContent)+4)*100000)
+	assert.Equal(t, (len(_testContent)+1)*100000, int(br.Count()))
 
 	err := br.Reset("new" + _testFile)
 	assert.Nil(t, err)
@@ -105,11 +110,37 @@ func TestBufioReader_Size(t *testing.T) {
 	bw, _ := NewBufioWriter(_testFile)
 	br, _ := NewBufioReader(_testFile)
 
-	for i := 1; i < 11; i++ {
-		bw.Write(_testContent)
-		bw.Flush()
-		size, err := br.Size()
-		assert.Nil(t, err)
-		assert.Equal(t, int64(len(_testContent)*i+4*i), size)
-	}
+	var (
+		s0     []byte      // 0 + 1
+		s64    [64]byte    // 64 + 1
+		s128   [128]byte   // 128 + 2
+		s16383 [16383]byte // 16383 + 2
+		s16384 [16384]byte // 16384 + 3
+	)
+
+	bw.Write(s0)
+	bw.Flush()
+	size, err := br.Size()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), size)
+
+	bw.Write(s64[:])
+	bw.Flush()
+	size, _ = br.Size()
+	assert.Equal(t, int64(1+65), size)
+
+	bw.Write(s128[:])
+	bw.Flush()
+	size, _ = br.Size()
+	assert.Equal(t, int64(1+65+130), size)
+
+	bw.Write(s16383[:])
+	bw.Flush()
+	size, _ = br.Size()
+	assert.Equal(t, int64(1+65+130+16385), size)
+
+	bw.Write(s16384[:])
+	bw.Flush()
+	size, _ = br.Size()
+	assert.Equal(t, int64(1+65+130+16385+16387), size)
 }
