@@ -17,7 +17,17 @@ import (
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.
 // Current implementation doesn't contain memory table write logic.
-type Store struct {
+type Store interface {
+	// CreateFamily create/load column family.
+	CreateFamily(familyName string, option FamilyOption) (Family, error)
+	// GetFamily gets family based on name, return nil if not exist.
+	GetFamily(familyName string) Family
+	// Close closes store, then release some resource
+	Close() error
+}
+
+// store implements Store interface
+type store struct {
 	name   string
 	option StoreOption
 	// file-lock restricts access to store by allowing only one instance
@@ -25,7 +35,7 @@ type Store struct {
 	versions *version.StoreVersionSet
 	// each family instance need to be assigned an unique family id
 	familyID int
-	families map[string]*Family
+	families map[string]Family
 	// RWMutex for accessing family
 	rwMutex sync.RWMutex
 
@@ -36,7 +46,7 @@ type Store struct {
 }
 
 // NewStore new store instance, need recover data if store existent
-func NewStore(name string, option StoreOption) (*Store, error) {
+func NewStore(name string, option StoreOption) (Store, error) {
 	var info *storeInfo
 	var isCreate bool
 	if util.Exist(option.Path) {
@@ -71,11 +81,11 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 		}
 	}()
 
-	store := &Store{
+	store := &store{
 		name:      name,
 		option:    option,
 		lock:      lock,
-		families:  make(map[string]*Family),
+		families:  make(map[string]Family),
 		logger:    log,
 		storeInfo: info,
 	}
@@ -113,7 +123,7 @@ func NewStore(name string, option StoreOption) (*Store, error) {
 }
 
 // CreateFamily create/load column family.
-func (s *Store) CreateFamily(familyName string, option FamilyOption) (*Family, error) {
+func (s *store) CreateFamily(familyName string, option FamilyOption) (Family, error) {
 	s.rwMutex.RLock()
 	family, ok := s.families[familyName]
 	s.rwMutex.RUnlock()
@@ -150,15 +160,15 @@ func (s *Store) CreateFamily(familyName string, option FamilyOption) (*Family, e
 }
 
 // GetFamily gets family based on name, return nil if not exist.
-func (s *Store) GetFamily(familyName string) (*Family, bool) {
+func (s *store) GetFamily(familyName string) Family {
 	s.rwMutex.RLock()
-	family, ok := s.families[familyName]
+	family := s.families[familyName]
 	s.rwMutex.RUnlock()
-	return family, ok
+	return family
 }
 
 // Close closes store, then release some resource
-func (s *Store) Close() error {
+func (s *store) Close() error {
 	if err := s.cache.Close(); err != nil {
 		s.logger.Error("close store cache error", zap.String("store", s.option.Path), zap.Error(err))
 	}
@@ -169,7 +179,7 @@ func (s *Store) Close() error {
 }
 
 // dumpStoreInfo persists store info to OPTIONS file
-func (s *Store) dumpStoreInfo() error {
+func (s *store) dumpStoreInfo() error {
 	infoPath := filepath.Join(s.option.Path, version.Options)
 	// write store info using toml format
 	if err := util.EncodeToml(infoPath, s.storeInfo); err != nil {

@@ -13,6 +13,8 @@ import (
 type StorageService interface {
 	// CreateShards creates shards for data partition
 	CreateShards(db string, option option.ShardOption, shardIDs ...int32) error
+	// GetEngine returns engine by given db name, if not exist return nil
+	GetEngine(db string) tsdb.Engine
 	// GetShard returns shard by given db and shard id, if not exist return nil
 	GetShard(db string, shardID int32) tsdb.Shard
 }
@@ -37,16 +39,14 @@ func GetStorageService() (StorageService, error) {
 
 // newStorageService creates storage service instance for managing tsdb engine
 func newStorageService() StorageService {
-	return &storageService{
-		engines: make(map[string]tsdb.Engine),
-	}
+	return &storageService{}
 }
 
 // storageService implements StorageService interface
 type storageService struct {
-	engines map[string]tsdb.Engine
+	engines sync.Map
 
-	mutex sync.RWMutex
+	mutex sync.Mutex
 }
 
 // CreateShards creates shards for data partition by given options
@@ -56,16 +56,13 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("cannot create empty shard for db[%s]", db)
 	}
-	s.mutex.RLock()
-	engine, ok := s.engines[db]
-	s.mutex.RUnlock()
-
-	if !ok {
+	engine := s.GetEngine(db)
+	if engine == nil {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 		// double check
-		engine, ok = s.engines[db]
-		if !ok {
+		engine = s.GetEngine(db)
+		if engine == nil {
 			// check engine config if nil
 			// 1) not set when system init
 			// 2) clean up when runtime
@@ -79,7 +76,7 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 			if err != nil {
 				return err
 			}
-			s.engines[db] = engine
+			s.engines.Store(db, engine)
 		}
 	}
 
@@ -93,11 +90,19 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 
 // GetShard returns shard by given db and shard id, if not exist return nil
 func (s *storageService) GetShard(db string, shardID int32) tsdb.Shard {
-	s.mutex.RLock()
-	engine, ok := s.engines[db]
-	s.mutex.RUnlock()
-	if !ok {
+	engine := s.GetEngine(db)
+	if engine == nil {
 		return nil
 	}
 	return engine.GetShard(shardID)
+}
+
+// GetEngine returns engine by given db name, if not exist return nil
+func (s *storageService) GetEngine(db string) tsdb.Engine {
+	engine, _ := s.engines.Load(db)
+	e, ok := engine.(tsdb.Engine)
+	if ok {
+		return e
+	}
+	return nil
 }
