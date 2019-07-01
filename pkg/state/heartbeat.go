@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/eleme/lindb/pkg/logger"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.uber.org/zap"
-
-	"github.com/eleme/lindb/pkg/logger"
 )
 
 const defaultTTL = 10 // defalut ttl => 5 seconds
@@ -54,20 +54,48 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) error {
 	return err
 }
 
-// keepAlive does keepalive and retry
-func (h *heartbeat) keepAlive(ctx context.Context) {
+func (h *heartbeat) PutIfNotExist(ctx context.Context) (bool, error) {
+	resp, err := h.client.Grant(ctx, h.ttl)
+	if err != nil {
+		return false, err
+	}
+	txn := h.client.Txn(context.TODO()).If(etcd.Compare(etcd.CreateRevision(h.key), "=", 0))
+	txn = txn.Then(etcd.OpPut(h.key, string(h.value), etcd.WithLease(resp.ID)))
+	txn = txn.Else(etcd.OpGet(h.key))
+	response, err := txn.Commit()
+	if err != nil {
+		return false, err
+	}
+	response.Responses[0].GetResponse()
+	if response.Succeeded {
+		h.keepaliveCh, err = h.client.KeepAlive(ctx, resp.ID)
+	}
+	return response.Succeeded, err
+}
+
+// keepAlive does keepalive and retry,if the key should be not exist,it should retry
+func (h *heartbeat) keepAlive(ctx context.Context, keepAliveNotExit bool) {
 	log := logger.GetLogger()
 	var (
 		err error
 		gap = 100 * time.Millisecond
 	)
-
 	for {
 		if err != nil {
 			log.Error("do heartbeat keepalive error, retry.", zap.Error(err))
 			time.Sleep(gap)
-			// do retry grant keep alive if lease ttl
-			err = h.grantKeepAliveLease(ctx)
+			if keepAliveNotExit {
+				// retry put if not exist.if failed closes the heartbeat
+				isSuccess, e := h.PutIfNotExist(ctx)
+				err = e
+				if !isSuccess {
+					// put if not exist failed ,close heartbeat
+					return
+				}
+			} else {
+				// do retry grant keep alive if lease ttl
+				err = h.grantKeepAliveLease(ctx)
+			}
 			// if ctx happen err, return stop keepalive
 			if ctx.Err() != nil {
 				return
@@ -80,7 +108,6 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 			}
 		}
 	}
-
 }
 
 // handleAliveResp handles keepalive response, if keepalive closed or ctx canceled return keep liave stopped error
