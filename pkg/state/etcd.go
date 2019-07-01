@@ -72,9 +72,33 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 	go func() {
 		// close closed channel, if keep alive stopped
 		defer close(ch)
-		h.keepAlive(ctx)
+		h.keepAlive(ctx, false)
 	}()
 	return ch, nil
+}
+
+// PutIfNotExitAndKeepLease  puts a key with a value.it will be success
+// if the key does not exist,otherwise it will be failed.When this
+// operation success,it will do keepalive background
+func (r *etcdRepository) PutIfNotExist(ctx context.Context, key string,
+	value []byte, ttl int64) (bool, <-chan Closed, error) {
+	h := newHeartbeat(r.client, key, value, ttl)
+	success, err := h.PutIfNotExist(ctx)
+	if err != nil {
+		return false, nil, err
+	}
+	// when put success,do keep alive
+	if success {
+		ch := make(chan Closed)
+		// do keepalive/retry background
+		go func() {
+			// close closed channel, if keep alive stopped
+			defer close(ch)
+			h.keepAlive(ctx, true)
+		}()
+		return success, ch, nil
+	}
+	return success, nil, nil
 }
 
 // Watch watches on a key. The watched events will be returned through the returned channel.
@@ -100,9 +124,8 @@ func (r *etcdRepository) Watch(ctx context.Context, key string) (WatchEventChan,
 			}
 		}
 	}
-	// start goroutine handle watch event in backgound
+	// start goroutine handle watch event in background
 	go r.handleWatchEvent(ctx, wch, ch)
-
 	return ch, nil
 }
 
@@ -126,7 +149,7 @@ func (r *etcdRepository) handleWatchEvent(ctx context.Context, wc etcd.WatchChan
 				return
 			}
 		}
-		// conveert event
+		// convert event
 		for _, event := range watchResp.Events {
 			eventType := EventTypeModify
 			if event.Type == etcd.EventTypeDelete {
@@ -150,7 +173,7 @@ func (r *etcdRepository) get(ctx context.Context, key string) (*etcd.GetResponse
 	return resp, nil
 }
 
-// getValue retruns value of get's response
+// getValue returns value of get's response
 func (r *etcdRepository) getValue(key string, resp *etcd.GetResponse) ([]byte, error) {
 	if len(resp.Kvs) == 0 {
 		return nil, fmt.Errorf("key[%s] not exist", key)
@@ -161,4 +184,42 @@ func (r *etcdRepository) getValue(key string, resp *etcd.GetResponse) ([]byte, e
 		return nil, fmt.Errorf("key[%s]'s value is empty", key)
 	}
 	return firstkv.Value, nil
+}
+
+// WatchPrefix watches on a prefix.All of the changes who has the prefix
+// will be notified through the WatchEventChan channel.
+func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string) (WatchEventChan, error) {
+	resp, err := r.client.Get(ctx, prefixKey, etcd.WithPrefix(), etcd.WithSerializable())
+	if err != nil {
+		return nil, err
+	}
+	//watch the next revision
+	options := append([]etcd.OpOption{etcd.WithRev(resp.Header.Revision + 1), etcd.WithPrefix(), etcd.WithPrevKV()})
+	wch := r.client.Watch(ctx, prefixKey, options...)
+
+	ch := make(chan *Event)
+	// convert  event
+	if len(resp.Kvs) != 0 {
+		for i := 0; i < len(resp.Kvs); i++ {
+			if !r.notifyWatchEvent(ctx, ch, &Event{Type: EventTypeModify,
+				Key: string(resp.Kvs[i].Key), Value: resp.Kvs[i].Value}) {
+				close(ch)
+				return nil, fmt.Errorf("notify watch event error, maybe context is canceled")
+			}
+		}
+	}
+	// start goroutine handle watch event in background
+	go r.handleWatchEvent(ctx, wch, ch)
+	return ch, err
+}
+
+// DeleteWithValue deletes the key with the value.it will returns success
+// if the value of the key in the etcd equals the incoming value
+func (r *etcdRepository) DeleteWithValue(ctx context.Context, key string, value []byte) (bool, error) {
+	cmp := etcd.Compare(etcd.Value(key), "=", string(value))
+	resp, err := r.client.Txn(ctx).If(cmp).Then(etcd.OpDelete(key)).Commit()
+	if err != nil {
+		return false, err
+	}
+	return resp.Succeeded, nil
 }

@@ -18,8 +18,18 @@ type Repository interface {
 	Delete(ctx context.Context, key string) error
 	// Heartbeat does heartbeat on the key with a value and ttl
 	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
+	// PutIfNotExist  puts a key with a value.it will be success
+	// if the key does not exist,otherwise it will be failed.When this
+	// operation success,it will do keepalive background
+	PutIfNotExist(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
 	Watch(ctx context.Context, key string) (WatchEventChan, error)
+	// WatchPrefix watches on a prefix.All of the changes who has the prefix
+	// will be notified through the WatchEventChan channel.
+	WatchPrefix(ctx context.Context, prefixKey string) (WatchEventChan, error)
+	// DeleteWithValue deletes the key with the value.it will returns success
+	// if the value of the key in the etcd equals the incoming value
+	DeleteWithValue(ctx context.Context, key string, value []byte) (bool, error)
 	// Close closes repository and release resources
 	Close() error
 }
