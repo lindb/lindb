@@ -13,8 +13,18 @@ import (
 )
 
 // Family implements column family for data isolation each family.
-type Family struct {
-	store         *Store
+type Family interface {
+	// Name return family's name
+	Name() string
+	// NewFlusher creates flusher for saving data to family.
+	NewFlusher() Flusher
+	// GetSnapshot returns current version for given key, includes sst files
+	GetSnapshot(key uint32) (Snapshot, error)
+}
+
+// family implements Family interface
+type family struct {
+	store         *store
 	name          string
 	familyPath    string
 	option        FamilyOption
@@ -23,7 +33,7 @@ type Family struct {
 }
 
 // newFamily creates new family or open existed family.
-func newFamily(store *Store, option FamilyOption) (*Family, error) {
+func newFamily(store *store, option FamilyOption) (Family, error) {
 	log := logger.GetLogger()
 	name := option.Name
 
@@ -35,7 +45,7 @@ func newFamily(store *Store, option FamilyOption) (*Family, error) {
 		}
 	}
 
-	f := &Family{
+	f := &family{
 		familyPath:    familyPath,
 		store:         store,
 		name:          name,
@@ -48,13 +58,18 @@ func newFamily(store *Store, option FamilyOption) (*Family, error) {
 	return f, nil
 }
 
+// Name return family's name
+func (f *family) Name() string {
+	return f.name
+}
+
 // NewFlusher creates flusher for saving data to family.
-func (f *Family) NewFlusher() Flusher {
+func (f *family) NewFlusher() Flusher {
 	return newStoreFlusher(f)
 }
 
 // GetSnapshot returns current version for given key, includes sst files
-func (f *Family) GetSnapshot(key uint32) (*Snapshot, error) {
+func (f *family) GetSnapshot(key uint32) (Snapshot, error) {
 	v, files := f.familyVersion.FindFiles(key)
 	var readers []table.Reader
 	for _, fileMeta := range files {
@@ -69,14 +84,14 @@ func (f *Family) GetSnapshot(key uint32) (*Snapshot, error) {
 }
 
 // newTableBuilder creates table builder instance for storing kv data.
-func (f *Family) newTableBuilder() (table.Builder, error) {
+func (f *family) newTableBuilder() (table.Builder, error) {
 	fileNumber := f.store.versions.NextFileNumber()
 	return table.NewStoreBuilder(f.familyPath, fileNumber)
 }
 
 // commitEditLog persists edit logs into manifest file.
 // returns true on committing successfully and false on failure
-func (f *Family) commitEditLog(editLog *version.EditLog) bool {
+func (f *family) commitEditLog(editLog *version.EditLog) bool {
 	if editLog.IsEmpty() {
 		f.logger.Warn("edit log is empty", f.logStoreField(), f.logFamilyField())
 		return true
@@ -89,11 +104,11 @@ func (f *Family) commitEditLog(editLog *version.EditLog) bool {
 }
 
 // logStoreField logs store info。
-func (f *Family) logStoreField() zap.Field {
+func (f *family) logStoreField() zap.Field {
 	return zap.String("store", f.store.option.Path)
 }
 
 // logFamilyField logs family info.
-func (f *Family) logFamilyField() zap.Field {
+func (f *family) logFamilyField() zap.Field {
 	return zap.String("family", f.name)
 }

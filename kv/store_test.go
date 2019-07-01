@@ -19,9 +19,16 @@ func TestReOpen(t *testing.T) {
 	_, e := NewStore("test_kv", option)
 	assert.NotNil(t, e, "store re-open not allow")
 
+	kv, _ = kv.(*store)
+
 	f1, _ := kv.CreateFamily("f", FamilyOption{})
 	assert.NotNil(t, f1, "cannot create family")
-	assert.Equal(t, 1, kv.familyID, "store family id is wrong")
+
+	kvStore, ok := kv.(*store)
+	if ok {
+		assert.Equal(t, 1, kvStore.familyID, "store family id is wrong")
+	}
+	assert.True(t, ok)
 
 	kv.Close()
 
@@ -30,10 +37,18 @@ func TestReOpen(t *testing.T) {
 		t.Error(e)
 	}
 	assert.NotNil(t, kv2, "cannot re-open kv store")
-	f2, _ := kv.GetFamily("f")
-	assert.Equal(t, f1.name, f2.name, "family diff when store reopen")
-	assert.Equal(t, f1.option.ID, f2.option.ID, "family id diff")
-	assert.Equal(t, 1, kv2.familyID, "store family id is wrong")
+	f2 := kv.GetFamily("f")
+	assert.Equal(t, f1.Name(), f2.Name(), "family diff when store reopen")
+	family, flag := f1.(*family)
+	if flag {
+		assert.Equal(t, family.option.ID, family.option.ID, "family id diff")
+	}
+	assert.True(t, flag)
+	kvStore, ok = kv2.(*store)
+	if ok {
+		assert.Equal(t, 1, kvStore.familyID, "store family id is wrong")
+	}
+	assert.True(t, ok)
 }
 
 func TestCreateFamily(t *testing.T) {
@@ -47,12 +62,11 @@ func TestCreateFamily(t *testing.T) {
 	f1, err2 := kv.CreateFamily("f", FamilyOption{})
 	assert.Nil(t, err2, "cannot create family")
 
-	var f2, ok = kv.GetFamily("f")
-	assert.True(t, ok, "can't get family")
+	var f2 = kv.GetFamily("f")
 	assert.Equal(t, f1, f2, "family not same for same name")
 
-	_, ok = kv.GetFamily("f1")
-	assert.False(t, ok, "get not exist family")
+	f11 := kv.GetFamily("f11")
+	assert.Nil(t, f11)
 
 	_, e := NewStore("test_kv", option)
 	assert.NotNil(t, e, "store re-open not allow")

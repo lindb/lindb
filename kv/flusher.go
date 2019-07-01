@@ -17,12 +17,12 @@ type Flusher interface {
 
 // storeFlusher family level store flusher
 type storeFlusher struct {
-	family  *Family
+	family  *family
 	builder table.Builder
 	editLog *version.EditLog
 }
 
-func newStoreFlusher(family *Family) Flusher {
+func newStoreFlusher(family *family) Flusher {
 	return &storeFlusher{
 		family:  family,
 		editLog: version.NewEditLog(family.option.ID),

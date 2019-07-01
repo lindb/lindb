@@ -7,8 +7,16 @@ import (
 	"github.com/eleme/lindb/kv/version"
 )
 
-// Snapshot current family version, for reading data.
-type Snapshot struct {
+// Snapshot represents a current family version by given key, for reading data.
+type Snapshot interface {
+	// Readers returns store reader that match query condition
+	Readers() []table.Reader
+	// Close releases related resources
+	Close()
+}
+
+// snapshot implements Snapshot interface
+type snapshot struct {
 	readers []table.Reader
 
 	version *version.Version
@@ -16,20 +24,20 @@ type Snapshot struct {
 }
 
 // newSnapshot new snapshot instance
-func newSnapshot(version *version.Version, readers []table.Reader) *Snapshot {
-	return &Snapshot{
+func newSnapshot(version *version.Version, readers []table.Reader) Snapshot {
+	return &snapshot{
 		version: version,
 		readers: readers,
 	}
 }
 
 // Readers returns store reader that match query condition
-func (s *Snapshot) Readers() []table.Reader {
+func (s *snapshot) Readers() []table.Reader {
 	return s.readers
 }
 
 // Close releases related resources
-func (s *Snapshot) Close() {
+func (s *snapshot) Close() {
 	// atomic set closed status, make sure only release once
 	if atomic.CompareAndSwapInt32(&s.closed, 0, 1) {
 		s.version.Release()

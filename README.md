@@ -1,6 +1,7 @@
 ![lindb_logo.png](https://github.com/eleme/lindb/wiki/images/lindb_logo.png)
 
 ![Travis CI Build Status](https://api.travis-ci.org/google/btree.svg?branch=master)
+[![codecov](https://codecov.io/gh/stone1100/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/stone1100/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 
 ## What is LinDB?

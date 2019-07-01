@@ -3,6 +3,7 @@ package util
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -34,6 +35,19 @@ func MkDir(path string) error {
 		return e
 	}
 	return nil
+}
+
+// ListDir reads the directory named by dirname and returns a list of filename.
+func ListDir(path string) ([]string, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, file := range files {
+		result = append(result, file.Name())
+	}
+	return result, nil
 }
 
 // Exist check file or dir if exist
