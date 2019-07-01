@@ -47,6 +47,10 @@ func TestCommitEditLog(t *testing.T) {
 	editLog.Add(newFile)
 	editLog.Add(version.NewDeleteFile(1, 123))
 
-	flag := f.commitEditLog(editLog)
-	assert.True(t, flag, "commit edit log error")
+	family, ok := f.(*family)
+	if ok {
+		flag := family.commitEditLog(editLog)
+		assert.True(t, flag, "commit edit log error")
+	}
+	assert.True(t, ok)
 }

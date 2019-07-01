@@ -10,9 +10,14 @@ import (
 )
 
 const options = "OPTIONS"
+const shardPath = "shard"
 
 // Engine represents a time series storage engine
 type Engine interface {
+	// Name returns tsdb engine's name, engine's name is database's name for user
+	Name() string
+	// NumOfShards returns number of shards in tsdb engine
+	NumOfShards() int
 	// CreateShards creates shards for data partition
 	CreateShards(option option.ShardOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id, if not exist returns nil
@@ -31,10 +36,12 @@ type info struct {
 type engine struct {
 	name   string
 	path   string
-	shards map[int32]Shard
+	shards sync.Map
 	info   *info
 
-	mutex sync.RWMutex
+	numOfShards int
+
+	mutex sync.Mutex
 }
 
 // NewEngine creates engine instance if create engine's path successfully
@@ -52,19 +59,32 @@ func NewEngine(name string, path string) (Engine, error) {
 		}
 	}
 	e := &engine{
-		name:   name,
-		path:   enginePath,
-		shards: make(map[int32]Shard),
-		info:   info,
+		name: name,
+		path: enginePath,
+		info: info,
 	}
 	// load shards if engine is exist
 	if len(e.info.ShardIDs) > 0 {
 		for _, shardID := range e.info.ShardIDs {
-			shard := newShard(shardID, info.ShardOption)
-			e.shards[shardID] = shard
+			shard, err := newShard(shardID, filepath.Join(enginePath, shardPath, string(shardID)), info.ShardOption)
+			if err != nil {
+				return nil, fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, name, err)
+			}
+			e.shards.Store(shardID, shard)
+			e.numOfShards++
 		}
 	}
 	return e, nil
+}
+
+// Name returns tsdb engine's name, engine's name is database's name for user
+func (e *engine) Name() string {
+	return e.name
+}
+
+// NumOfShards returns number of shards in tsdb engine
+func (e *engine) NumOfShards() int {
+	return e.numOfShards
 }
 
 // CreateShards creates shards for data partition
@@ -73,15 +93,20 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 		return fmt.Errorf("shard is list is empty")
 	}
 	for _, shardID := range shardIDs {
-		e.mutex.RLock()
-		_, ok := e.shards[shardID]
-		e.mutex.RUnlock()
+		shard := e.GetShard(shardID)
 
-		if !ok {
+		if shard == nil {
 			// be careful need do mutex unlock
 			e.mutex.Lock()
-			_, ok = e.shards[shardID]
-			if !ok {
+			// double check
+			shard = e.GetShard(shardID)
+			if shard == nil {
+				// new shard
+				shard, err := newShard(shardID, filepath.Join(e.path, shardPath, string(shardID)), option)
+				if err != nil {
+					e.mutex.Unlock()
+					return fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, e.name, err)
+				}
 				// using new shard option
 				newInfo := &info{ShardOption: option, ShardIDs: e.info.ShardIDs}
 				// add new shard id
@@ -90,9 +115,8 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 					e.mutex.Unlock()
 					return err
 				}
-
-				shard := newShard(shardID, option)
-				e.shards[shardID] = shard
+				e.shards.Store(shardID, shard)
+				e.numOfShards++
 				e.mutex.Unlock()
 			}
 		}
@@ -102,10 +126,12 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 
 // GetShard returns shard by given shard id, if not exist returns nil
 func (e *engine) GetShard(shardID int32) Shard {
-	e.mutex.RLock()
-	shard := e.shards[shardID]
-	e.mutex.RUnlock()
-	return shard
+	shard, _ := e.shards.Load(shardID)
+	s, ok := shard.(Shard)
+	if ok {
+		return s
+	}
+	return nil
 }
 
 // Close closed engine then release resource
