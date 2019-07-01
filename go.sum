@@ -5,6 +5,8 @@ github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba h1:Kn6NWugu2
 github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba/go.mod h1:D3qVegWTmfCaX4Bl5CrBE9hfrSrrXIr8KVNvRsDi1NI=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
+github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4 h1:+sJdmEMxyZwqPzKpJy3tsdpclRN/7k2yonC9UT4TYMo=
+github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4/go.mod h1:T7PbCXFs94rrTttyxjbyT5+/1V8T2TYDejxUfHJjw1Y=
 github.com/armon/go-radix v1.0.0 h1:F4z6KzEeeQIMeLFa97iZU6vupzoecKdU5TX24SNppXI=
 github.com/armon/go-radix v1.0.0/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
