@@ -5,6 +5,7 @@ go 1.12
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
+	github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
 	github.com/armon/go-radix v1.0.0
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
@@ -15,6 +16,7 @@ require (
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/mock v1.1.1
+	github.com/golang/protobuf v1.3.1
 	github.com/google/btree v1.0.0 // indirect
 	github.com/gorilla/mux v1.7.2
 	github.com/gorilla/websocket v1.4.0 // indirect

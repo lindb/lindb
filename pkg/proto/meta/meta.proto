@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package proto;
+
+//message Database {
+//    string name = 1;
+//    repeated ShardState shards = 2;
+//}
+
+message ShardForDatabase {
+    string name = 1;
+    int32 id = 2;
+}
+
+//message ShardState {
+//    int64 masterEpoch = 1;
+//    int32 shardId = 2;
+//    int32 leader = 3;
+//    Replica aliveReplica = 4;
+//    Replica replica = 5;
+//    Replica isr = 6;
+//}
+//
+//message Replica {
+//    repeated int32 replicas = 1;
+//}
+
+//message Node {
+//    int32 id = 1;
+//    string hostIp = 2;
+//    string hostName = 3;
+//    int32 tcp = 4;
+//    int64 deadTime = 5;
+//}
+
+//message Relation {
+//    repeated Node parents = 6;
+//    repeated Node children = 7;
+//}
+
+message Policy {
+    int64 id = 1;
+    string name = 2;
+    string dataSource = 3;
+    string expression = 4;
+    string operator = 5;
+    double threshold = 6;
+    repeated int32 scope = 7;
+}
+
+message Metadata {
+    int32 master = 1;
+    int64 masterEpoch = 2;
+    repeated int32 aliveNodes = 3;
+    // all nodes include dead nodes
+    repeated bytes allNodes = 4;
+    repeated bytes databases = 5;
+    repeated string deletedDatabases = 6;
+}
+
+message MetadataSnapshot {
+    // current master
+    int32 master = 1;
+    // alive nodes
+    repeated bytes nodes = 2;
+    // active databases
+    repeated bytes databases = 3;
+}

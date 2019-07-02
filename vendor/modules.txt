@@ -2,6 +2,8 @@
 github.com/BurntSushi/toml
 # github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 github.com/RoaringBitmap/roaring
+# github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
+github.com/antlr/antlr4/runtime/Go/antlr
 # github.com/armon/go-radix v1.0.0
 github.com/armon/go-radix
 # github.com/beorn7/perks v1.0.0
