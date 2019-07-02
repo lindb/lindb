@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package proto;
+import "common.proto";
+
+enum LogicOperator {
+    UNKNOWN = 0;
+    AND = 1;
+    OR = 2;
+}
+
+message TagFilter {
+    string tagKey = 1;
+    Operator op = 2;
+    string tagValue = 3;
+    repeated string tagValueItems = 4;
+}
+
+message Filters {
+    LogicOperator operator = 1;
+    repeated TagFilter tagFilters = 2;
+}
+
+message Condition {
+    LogicOperator operator = 1;
+    repeated TagFilter tagFilters = 2;
+    repeated Condition condition = 3;
+}
