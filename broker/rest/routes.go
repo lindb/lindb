@@ -7,6 +7,8 @@ import (
 
 	"github.com/eleme/lindb/broker"
 
+	rice "github.com/GeertJohan/go.rice"
+
 	"github.com/gorilla/mux"
 )
 
@@ -38,7 +40,7 @@ func NewRouter(config *broker.Config) *mux.Router {
 	// static server path
 	router.PathPrefix("/static/").
 		Handler(http.StripPrefix("/static/",
-			http.FileServer(http.Dir(config.HTTP.Static))))
+			http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
 	return router
 }
 

@@ -15,6 +15,9 @@ bin/
 *.so
 *.dylib
 
+web/node_modules/
+web/build/*
+
 # Test binary, built with `go test -c`
 *.test
 

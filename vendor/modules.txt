@@ -1,5 +1,8 @@
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
+# github.com/GeertJohan/go.rice v1.0.0
+github.com/GeertJohan/go.rice
+github.com/GeertJohan/go.rice/embedded
 # github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 github.com/RoaringBitmap/roaring
 # github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
@@ -90,6 +93,8 @@ github.com/coreos/go-semver/semver
 github.com/coreos/go-systemd/journal
 # github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 github.com/coreos/pkg/capnslog
+# github.com/daaku/go.zipexe v1.0.0
+github.com/daaku/go.zipexe
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible

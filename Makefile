@@ -9,6 +9,7 @@ help:  ## Display this help
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 build:  ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
+	cd web/ && make web_build
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/broker' $(LDFLAGS) ./cmd/broker/
 	# env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/cli' $(LDFLAGS) ./cmd/cli/
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/stroage' $(LDFLAGS) ./cmd/storage/
@@ -38,6 +39,7 @@ pb:  ## generate pb file.
 
 clean:  ## Clean up useless files.
 	rm -rf bin
+	cd web/ && make web_clean
 	find . -type f -name '*.out' -exec rm -f {} +
 	find . -type f -name '.DS_Store' -exec rm -f {} +
 	find . -type f -name '*.test' -exec rm -f {} +
