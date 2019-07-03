@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/eleme/lindb/broker"
+	"github.com/eleme/lindb/config"
 
 	rice "github.com/GeertJohan/go.rice"
 
@@ -28,7 +28,7 @@ var rs = routes{
 
 // NewRouter returns a new router with a panic handler and a static server
 // handler.
-func NewRouter(config *broker.Config) *mux.Router {
+func NewRouter(config *config.BrokerConfig) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range rs {
 		router.

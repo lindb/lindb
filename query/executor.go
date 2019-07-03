@@ -1,5 +1,5 @@
 package query
 
-type Execute interface {
+type Executor interface {
 	Execute()
 }

@@ -1,23 +1,28 @@
 .PHONY: help build test deps pb clean
 
+# use the latest git tag as release-version
+GIT_TAG_NAME=$(shell git tag --sort=-creatordate|head -n 1)
+BUILD_TIME=$(shell date "+%Y-%m-%dT%H:%M:%S%z")
+LD_FLAGS=-ldflags="-X github.com/eleme/lindb/cmd/lind.version=$(GIT_TAG_NAME) -X github.com/eleme/lindb/cmd/lind.buildTime=$(BUILD_TIME)"
+
 # Ref: https://gist.github.com/prwhite/8168133
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} \
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
+build-frontend:  clean-build
+	cd web/ && make web_build
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-build:  ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
-	cd web/ && make web_build
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/broker' $(LDFLAGS) ./cmd/broker/
-	# env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/cli' $(LDFLAGS) ./cmd/cli/
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/stroage' $(LDFLAGS) ./cmd/storage/
+build: clean-build ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/lind' $(LD_FLAGS) ./cmd/
 
+build-all: build-frontend build  ## Build executable files with front-end files inside.
 
 GOLANGCI_LINT_VERSION ?= "latest"
 
-generate:
+generate:  ## go generate
 	go list ./... | grep -v '/vendor/' | xargs go generate
 
 test:  ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
@@ -37,9 +42,13 @@ deps:  ## Update vendor.
 pb:  ## generate pb file.
 	./generate_pb.sh
 
-clean:  ## Clean up useless files.
-	rm -rf bin
+clean-build:
+	rm -f bin/lind
 	cd web/ && make web_clean
+
+
+clean:  ## Clean up useless files.
+	$(clean-build)
 	find . -type f -name '*.out' -exec rm -f {} +
 	find . -type f -name '.DS_Store' -exec rm -f {} +
 	find . -type f -name '*.test' -exec rm -f {} +
