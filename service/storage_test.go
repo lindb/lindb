@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/util"
-	"github.com/eleme/lindb/storage/config"
 )
 
 var testPath = "test_data"

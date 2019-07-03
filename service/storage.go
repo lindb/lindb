@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/eleme/lindb/config"
+
 	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/storage/config"
 	"github.com/eleme/lindb/tsdb"
 )
 
