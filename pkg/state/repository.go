@@ -59,7 +59,7 @@ type Closed interface {
 // WatchEventChan notify event channel
 type WatchEventChan <-chan *Event
 
-// New creates global state reposistory
+// New creates global state repository
 func New(repoType string, config interface{}) error {
 	if repoType == "etcd" {
 		repo, err := newEtedRepository(config)

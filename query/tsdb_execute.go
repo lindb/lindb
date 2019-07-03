@@ -19,8 +19,8 @@ type tsdbExecute struct {
 	err error
 }
 
-// NewTSDBExecute creates execution which queries tsdb storage
-func NewTSDBExecute(engine tsdb.Engine, shardIDs []int32, query models.Query) Execute {
+// NewTSDBExecutor creates execution which queries tsdb storage
+func NewTSDBExecutor(engine tsdb.Engine, shardIDs []int32, query models.Query) Executor {
 	return &tsdbExecute{
 		engine:   engine,
 		shardIDs: shardIDs,

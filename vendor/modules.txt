@@ -140,6 +140,8 @@ github.com/grpc-ecosystem/go-grpc-prometheus
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
 github.com/grpc-ecosystem/grpc-gateway/internal
+# github.com/inconshreveable/mousetrap v1.0.0
+github.com/inconshreveable/mousetrap
 # github.com/jonboulle/clockwork v0.1.0
 github.com/jonboulle/clockwork
 # github.com/json-iterator/go v1.1.6
@@ -183,6 +185,10 @@ github.com/prometheus/procfs/internal/fs
 github.com/sirupsen/logrus
 # github.com/soheilhy/cmux v0.1.4
 github.com/soheilhy/cmux
+# github.com/spf13/cobra v0.0.5
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.3
+github.com/spf13/pflag
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 # github.com/tinylib/msgp v1.1.0
@@ -267,5 +273,5 @@ google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/health
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 gopkg.in/check.v1
-# gopkg.in/yaml.v2 v2.2.1
+# gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
