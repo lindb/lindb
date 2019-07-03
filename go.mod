@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/BurntSushi/toml v0.3.1
+	github.com/GeertJohan/go.rice v1.0.0
 	github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 	github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
 	github.com/armon/go-radix v1.0.0
