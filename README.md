@@ -1,4 +1,4 @@
-![lindb_logo.png](https://github.com/eleme/lindb/wiki/images/lindb_logo.png)
+![lindb_logo.png](https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png)
 
 ![Travis CI Build Status](https://api.travis-ci.org/google/btree.svg?branch=master)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
@@ -41,7 +41,13 @@ Once we implement the final feature and replace the LinDB under production envir
 
 ## Architecture
 
-![architecture](https://github.com/eleme/lindb/wiki/images/lindb_architecture.jpg)
+![architecture](https://github.com/eleme/lindb/wiki/images/readme/lindb_architecture.jpg)
+
+## Screenshots
+![home](https://github.com/eleme/lindb/wiki/images/readme/home.png)
+![search](https://github.com/eleme/lindb/wiki/images/readme/search.png)
+![explain](https://github.com/eleme/lindb/wiki/images/readme/explain.png)
+![database](https://github.com/eleme/lindb/wiki/images/readme/database.png)
 
 ## Contributing
 
