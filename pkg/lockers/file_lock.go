@@ -2,57 +2,57 @@ package lockers
 
 import (
 	"fmt"
-	"os"
-	"syscall"
 
 	"github.com/eleme/lindb/pkg/logger"
 
+	"github.com/gofrs/flock"
 	"go.uber.org/zap"
 )
 
 // FileLock is file lock
 type FileLock struct {
-	fileName string
-	file     *os.File
-	logger   *zap.Logger
+	lock *flock.Flock
+	log  *zap.Logger
 }
 
 // NewFileLock create new file lock instance
 func NewFileLock(fileName string) *FileLock {
 	return &FileLock{
-		fileName: fileName,
-		logger:   logger.GetLogger(),
+		lock: flock.New(fileName),
+		log:  logger.GetLogger(),
 	}
 }
 
 // Lock try locking file, return err if fails.
 func (l *FileLock) Lock() error {
-	f, err := os.Create(l.fileName)
-	if nil != err {
-		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
+	if l.lock.Locked() {
+		return fmt.Errorf("cannot lock twice, file[%s]", l.lock.Path())
 	}
-	l.file = f
-	// invoke syscall for file lock
-	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if nil != err {
-		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
+	return l.lock.Lock()
+}
+
+// RLock try locking file, return err if fails.
+func (l *FileLock) RLock() error {
+	if l.lock.RLocked() {
+		return fmt.Errorf("cannot rlock twice, file[%s]", l.lock.Path())
 	}
-	return nil
+	return l.lock.RLock()
+}
+
+// IsLocked detects if this file is locked
+func (l *FileLock) IsLocked() bool {
+	return l.lock.Locked()
+}
+
+// IsRLocked detects if this file is read locked
+func (l *FileLock) IsRLocked() bool {
+	return l.lock.RLocked()
 }
 
 // Unlock unlock file lock, if fail return err
 func (l *FileLock) Unlock() error {
-	defer func() {
-		if err := os.Remove(l.fileName); nil != err {
-			l.logger.Error("remove file lock error", zap.String("file", l.fileName), zap.Error(err))
-		}
-		l.logger.Info("remove file lock successfully", zap.String("file", l.fileName))
-	}()
-
-	defer func() {
-		if err := l.file.Close(); nil != err {
-			l.logger.Error("close file lock error", zap.String("file", l.fileName), zap.Error(err))
-		}
-	}()
-	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	if !l.lock.Locked() {
+		return fmt.Errorf("no lock to unlock, file[%s]", l.lock.Path())
+	}
+	return l.lock.Unlock()
 }

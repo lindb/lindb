@@ -1,33 +1,70 @@
 package lockers
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	. "gopkg.in/check.v1"
 )
 
-func TestFileLock(t *testing.T) {
-	var lock = NewFileLock("t.lock")
+type TestSuite struct {
+	path string
+	lock *FileLock
+}
+
+var _ = Suite(&TestSuite{})
+
+func Test(t *testing.T) { TestingT(t) }
+
+func (t *TestSuite) SetUpTest(c *C) {
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "go-flock-")
+	c.Assert(err, IsNil)
+	c.Assert(tmpFile, Not(IsNil))
+
+	t.path = tmpFile.Name()
+
+	defer os.Remove(t.path)
+	tmpFile.Close()
+
+	t.lock = NewFileLock(t.path)
+}
+
+func (t *TestSuite) TestFileLock(c *C) {
+	var lock = t.lock
+	defer os.Remove(t.path)
 	var err = lock.Lock()
-	assert.Nil(t, err, "lock error")
+	c.Assert(err, IsNil)
 
 	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock again for locked file")
+	c.Assert(err, NotNil)
+
+	c.Assert(lock.IsLocked(), Equals, true)
 
 	err = lock.Unlock()
-	assert.Nil(t, err, "unlock error")
+	c.Assert(err, IsNil)
 
-	lock = NewFileLock("t.lock")
-	err = lock.Lock()
-	assert.Nil(t, err, "lock error")
+}
 
-	lock.Unlock()
+func (t *TestSuite) TestFileLock_RLock(c *C) {
+	var lock = t.lock
+	defer os.Remove(t.path)
+	var err = lock.RLock()
+	c.Assert(err, IsNil)
+	c.Assert(lock.IsRLocked(), Equals, true)
+}
 
-	fileInfo, _ := os.Stat("t.lock")
-	assert.Nil(t, fileInfo, "lock file exist")
+func (t *TestSuite) TestFileLock_RLock2(c *C) {
+	var lock = t.lock
+	defer os.Remove(t.path)
+	_ = lock.RLock()
+	var err = lock.RLock()
+	c.Assert(err, NotNil)
+}
 
-	lock = NewFileLock("/tmp/not_dir/t.lock")
-	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock not exist file")
+func (t *TestSuite) TestFileLock_Unlock(c *C) {
+	var lock = t.lock
+	lock = NewFileLock(t.path)
+	var err = lock.Unlock()
+	c.Assert(err, NotNil)
 }

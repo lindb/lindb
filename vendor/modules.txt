@@ -103,6 +103,8 @@ github.com/dgrijalva/jwt-go
 github.com/ghodss/yaml
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
+# github.com/gofrs/flock v0.7.1
+github.com/gofrs/flock
 # github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
