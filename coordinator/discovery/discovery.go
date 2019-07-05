@@ -5,17 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
+
+	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
-
-	"go.uber.org/zap"
 )
 
 // Discovery defines a discovery of a list of node.it will watch the node
 // online and offline and update the the lived node list
 type Discovery struct {
-	serverMap sync.Map
+	serverMap atomic.Value
 }
 
 // NewDiscovery returns a Discovery who will watch the changes of the key with
@@ -25,11 +26,9 @@ func NewDiscovery(ctx context.Context, prefix string) (*Discovery, error) {
 		return nil, fmt.Errorf("the key must not be null")
 	}
 	discovery := &Discovery{}
+	discovery.serverMap.Store(&sync.Map{})
 	repo := state.GetRepo()
-	watchEventChan, err := repo.WatchPrefix(ctx, prefix)
-	if err != nil {
-		return nil, err
-	}
+	watchEventChan := repo.WatchPrefix(ctx, prefix)
 	go discovery.handlerNodeChangeEvent(watchEventChan)
 	return discovery, nil
 }
@@ -37,7 +36,7 @@ func NewDiscovery(ctx context.Context, prefix string) (*Discovery, error) {
 // NodeList returns the current lived nod array
 func (d *Discovery) NodeList() []*Node {
 	nodeList := make([]*Node, 0)
-	d.serverMap.Range(func(key, value interface{}) bool {
+	d.serverMap.Load().(*sync.Map).Range(func(key, value interface{}) bool {
 		nodeList = append(nodeList, value.(*Node))
 		return true
 	})
@@ -47,18 +46,29 @@ func (d *Discovery) NodeList() []*Node {
 // handlerServerChange handles the changes of the node and update the
 // node map
 func (d *Discovery) handlerNodeChangeEvent(eventChan state.WatchEventChan) {
+	log := logger.GetLogger()
 	for event := range eventChan {
+		if event.Err != nil {
+			continue
+		}
 		switch event.Type {
 		case state.EventTypeDelete:
-			d.serverMap.Delete(event.Key)
+			m := d.serverMap.Load().(*sync.Map)
+			for _, kv := range event.KeyValues {
+				m.Delete(kv.Key)
+			}
+		case state.EventTypeAll:
+			d.serverMap.Store(&sync.Map{})
+			fallthrough
 		case state.EventTypeModify:
-			node := &Node{}
-			err := json.Unmarshal(event.Value, node)
-			if err != nil {
-				log := logger.GetLogger()
-				log.Error(" deserialize error", zap.Error(err))
-			} else {
-				d.serverMap.Store(event.Key, node)
+			m := d.serverMap.Load().(*sync.Map)
+			for _, kv := range event.KeyValues {
+				node := &Node{}
+				if err := json.Unmarshal(kv.Value, node); err != nil {
+					log.Error(" deserialize error", zap.Error(err))
+				} else {
+					m.Store(kv.Key, node)
+				}
 			}
 		}
 	}
