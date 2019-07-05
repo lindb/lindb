@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/eleme/lindb/pkg/hashers"
+
 	radix "github.com/armon/go-radix"
 
 	"github.com/eleme/lindb/models"
-
-	"github.com/eleme/lindb/pkg/util"
 )
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
@@ -69,7 +69,7 @@ func newMemoryDatabase(ctx context.Context) *memoryDatabase {
 
 // getBucket returns the mStoresBucket by measurement-name.
 func (md *memoryDatabase) getBucket(measurement string) *mStoresBucket {
-	return md.mStoresList[shardingCountMask&util.Fnv32(measurement)]
+	return md.mStoresList[shardingCountMask&hashers.Fnv32a(measurement)]
 }
 
 // getMeasurementStore returns a TimeSeriesStore by measurement + tags.
