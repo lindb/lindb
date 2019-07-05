@@ -3,6 +3,8 @@ package state
 import (
 	"context"
 	"fmt"
+
+	etcdcliv3 "github.com/coreos/etcd/clientv3"
 )
 
 // global repository for state storage
@@ -23,13 +25,15 @@ type Repository interface {
 	// operation success,it will do keepalive background
 	PutIfNotExist(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
-	Watch(ctx context.Context, key string) (WatchEventChan, error)
+	Watch(ctx context.Context, key string) WatchEventChan
 	// WatchPrefix watches on a prefix.All of the changes who has the prefix
 	// will be notified through the WatchEventChan channel.
-	WatchPrefix(ctx context.Context, prefixKey string) (WatchEventChan, error)
-	// DeleteWithValue deletes the key with the value.it will returns success
+	WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan
+	// DeleteWithValue deletes the key with the value. It will returns nil
 	// if the value of the key in the etcd equals the incoming value
-	DeleteWithValue(ctx context.Context, key string, value []byte) (bool, error)
+	DeleteWithValue(ctx context.Context, key string, value []byte) error
+	// Txn returns a etcdcliv3.Txn.
+	Txn(ctx context.Context) etcdcliv3.Txn
 	// Close closes repository and release resources
 	Close() error
 }
@@ -41,20 +45,25 @@ type EventType int
 const (
 	EventTypeModify EventType = iota
 	EventTypeDelete
+	EventTypeAll
 )
+
+type EventKeyValue struct {
+	Key   string
+	Value []byte
+	Rev   int64
+}
 
 // Event defines repository watch event on key or perfix
 type Event struct {
-	Type  EventType
-	Key   string
-	Value []byte
+	Type      EventType
+	KeyValues []EventKeyValue
 
 	Err error
 }
 
 // Closed represents close status
-type Closed interface {
-}
+type Closed struct{}
 
 // WatchEventChan notify event channel
 type WatchEventChan <-chan *Event

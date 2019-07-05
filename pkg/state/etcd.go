@@ -2,24 +2,23 @@ package state
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	etcdcliv3 "github.com/coreos/etcd/clientv3"
 )
 
 // etcdRepository is repository based on etc storage
 type etcdRepository struct {
-	client *etcd.Client
+	client *etcdcliv3.Client
 }
 
 // newEtedRepository creates a new repository based on etcd storage
 func newEtedRepository(config interface{}) (Repository, error) {
-	v, ok := config.(etcd.Config)
+	v, ok := config.(etcdcliv3.Config)
 	if !ok {
 		return nil, fmt.Errorf("config type is not etc.confit")
 	}
-	cli, err := etcd.New(v)
+	cli, err := etcdcliv3.New(v)
 	if err != nil {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
@@ -40,19 +39,13 @@ func (r *etcdRepository) Get(ctx context.Context, key string) ([]byte, error) {
 // Put puts a key-value pair into etcd
 func (r *etcdRepository) Put(ctx context.Context, key string, val []byte) error {
 	_, err := r.client.Put(ctx, key, string(val))
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Delete deletes value for given key from etcd
 func (r *etcdRepository) Delete(ctx context.Context, key string) error {
 	_, err := r.client.Delete(ctx, key)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Close closes etcd client
@@ -101,71 +94,8 @@ func (r *etcdRepository) PutIfNotExist(ctx context.Context, key string,
 	return success, nil, nil
 }
 
-// Watch watches on a key. The watched events will be returned through the returned channel.
-func (r *etcdRepository) Watch(ctx context.Context, key string) (WatchEventChan, error) {
-	resp, err := r.get(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-	// watch key next revision
-	opts := []etcd.OpOption{etcd.WithRev(resp.Header.Revision + 1)}
-	wch := r.client.Watch(ctx, key, opts...)
-
-	// make len=1 chan for notify init event if key exist
-	ch := make(chan *Event, 1)
-
-	// if key exist notify for got value
-	if len(resp.Kvs) != 0 {
-		firstkv := resp.Kvs[0]
-		if len(firstkv.Value) != 0 {
-			if !r.notifyWatchEvent(ctx, ch, &Event{Type: EventTypeModify, Key: key, Value: firstkv.Value}) {
-				close(ch)
-				return nil, fmt.Errorf("notify watch event error, maybe context is canceled")
-			}
-		}
-	}
-	// start goroutine handle watch event in background
-	go r.handleWatchEvent(ctx, wch, ch)
-	return ch, nil
-}
-
-// notifyWatchEvent notify watch event through channel, chan <- event
-func (r *etcdRepository) notifyWatchEvent(ctx context.Context, ch chan *Event, event *Event) bool {
-	select {
-	case ch <- event:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
-// handleWatchEvent handles etcd watch event, then convert repository watch event
-func (r *etcdRepository) handleWatchEvent(ctx context.Context, wc etcd.WatchChan, ech chan *Event) {
-	defer close(ech)
-	for watchResp := range wc {
-		err := watchResp.Err()
-		if err != nil {
-			if !r.notifyWatchEvent(ctx, ech, &Event{Err: err}) {
-				return
-			}
-		}
-		// convert event
-		for _, event := range watchResp.Events {
-			eventType := EventTypeModify
-			if event.Type == etcd.EventTypeDelete {
-				eventType = EventTypeDelete
-			}
-			kv := event.Kv
-			if !r.notifyWatchEvent(ctx, ech, &Event{Type: eventType, Key: string(kv.Key), Value: kv.Value}) {
-				return
-			}
-		}
-	}
-	r.notifyWatchEvent(ctx, ech, &Event{Err: errors.New("watch is closed")})
-}
-
 // get returns response of get operator
-func (r *etcdRepository) get(ctx context.Context, key string) (*etcd.GetResponse, error) {
+func (r *etcdRepository) get(ctx context.Context, key string) (*etcdcliv3.GetResponse, error) {
 	resp, err := r.client.Get(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("get value failure for key[%s], error:%s", key, err)
@@ -174,7 +104,7 @@ func (r *etcdRepository) get(ctx context.Context, key string) (*etcd.GetResponse
 }
 
 // getValue returns value of get's response
-func (r *etcdRepository) getValue(key string, resp *etcd.GetResponse) ([]byte, error) {
+func (r *etcdRepository) getValue(key string, resp *etcdcliv3.GetResponse) ([]byte, error) {
 	if len(resp.Kvs) == 0 {
 		return nil, fmt.Errorf("key[%s] not exist", key)
 	}
@@ -186,40 +116,34 @@ func (r *etcdRepository) getValue(key string, resp *etcd.GetResponse) ([]byte, e
 	return firstkv.Value, nil
 }
 
+// Watch watches on a key. The watched events will be returned through the returned channel.
+//
+// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
+// deleted values we do not know.
+func (r *etcdRepository) Watch(ctx context.Context, key string) WatchEventChan {
+	watcher := newWatcher(ctx, r, key)
+	return watcher.EventC
+}
+
 // WatchPrefix watches on a prefix.All of the changes who has the prefix
 // will be notified through the WatchEventChan channel.
-func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string) (WatchEventChan, error) {
-	resp, err := r.client.Get(ctx, prefixKey, etcd.WithPrefix(), etcd.WithSerializable())
-	if err != nil {
-		return nil, err
-	}
-	//watch the next revision
-	options := append([]etcd.OpOption{etcd.WithRev(resp.Header.Revision + 1), etcd.WithPrefix(), etcd.WithPrevKV()})
-	wch := r.client.Watch(ctx, prefixKey, options...)
-
-	ch := make(chan *Event)
-	// convert  event
-	if len(resp.Kvs) != 0 {
-		for i := 0; i < len(resp.Kvs); i++ {
-			if !r.notifyWatchEvent(ctx, ch, &Event{Type: EventTypeModify,
-				Key: string(resp.Kvs[i].Key), Value: resp.Kvs[i].Value}) {
-				close(ch)
-				return nil, fmt.Errorf("notify watch event error, maybe context is canceled")
-			}
-		}
-	}
-	// start goroutine handle watch event in background
-	go r.handleWatchEvent(ctx, wch, ch)
-	return ch, err
+//
+// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
+// deleted values we do not know.
+func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan {
+	watcher := newWatcher(ctx, r, prefixKey, etcdcliv3.WithPrefix())
+	return watcher.EventC
 }
 
 // DeleteWithValue deletes the key with the value.it will returns success
 // if the value of the key in the etcd equals the incoming value
-func (r *etcdRepository) DeleteWithValue(ctx context.Context, key string, value []byte) (bool, error) {
-	cmp := etcd.Compare(etcd.Value(key), "=", string(value))
-	resp, err := r.client.Txn(ctx).If(cmp).Then(etcd.OpDelete(key)).Commit()
-	if err != nil {
-		return false, err
-	}
-	return resp.Succeeded, nil
+func (r *etcdRepository) DeleteWithValue(ctx context.Context, key string, value []byte) error {
+	cmp := etcdcliv3.Compare(etcdcliv3.Value(key), "=", string(value))
+	resp, err := r.client.Txn(ctx).If(cmp).Then(etcdcliv3.OpDelete(key)).Commit()
+	return TxnErr(resp, err)
+}
+
+// Txn returns a etcdcliv3.Txn.
+func (r *etcdRepository) Txn(ctx context.Context) etcdcliv3.Txn {
+	return r.client.Txn(ctx)
 }
