@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,9 +12,13 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	"github.com/stretchr/testify/assert"
+	"github.com/coreos/pkg/capnslog"
 	"gopkg.in/check.v1"
 )
+
+func init() {
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+}
 
 type address struct {
 	Home string
@@ -121,84 +124,105 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// test watch no exist path
-	ch, err := b.Watch(ctx, "/cluster1/controller/1")
-	if err != nil {
-		c.Fatal(err)
-	}
+	ch := b.Watch(ctx, "/cluster1/controller/1")
 	c.Assert(ch, check.NotNil)
-	var count int32
+	var wg sync.WaitGroup
 	var mutex sync.RWMutex
 	val := make(map[string]string)
-	go func() {
+	syncKVs := func(ch WatchEventChan) {
 		for event := range ch {
+			if event.Err != nil {
+				continue
+			}
 			mutex.Lock()
-			val[event.Key] = string(event.Value)
-			atomic.AddInt32(&count, 1)
+			for _, kv := range event.KeyValues {
+				val[kv.Key] = string(kv.Value)
+			}
 			mutex.Unlock()
 		}
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		syncKVs(ch)
 	}()
 	_ = b.Put(ctx, "/cluster1/controller/1", []byte("1"))
 
 	// test watch exist path
 	_ = b.Put(ctx, "/cluster1/controller/2", []byte("2"))
-	ch2, err2 := b.Watch(ctx, "/cluster1/controller/2")
-	if err2 != nil {
-		c.Fatal(err2)
-	}
+	ch2 := b.Watch(ctx, "/cluster1/controller/2")
+	wg.Add(1)
 	go func() {
-		for event := range ch2 {
-			mutex.Lock()
-			val[event.Key] = string(event.Value)
-			atomic.AddInt32(&count, 1)
-			mutex.Unlock()
-		}
+		defer wg.Done()
+		syncKVs(ch2)
 	}()
+
 	// modify value of key2
 	_ = b.Put(ctx, "/cluster1/controller/2", []byte("222"))
 	time.Sleep(100 * time.Millisecond)
 	cancel()
+	wg.Wait()
 
 	// check watch trigger count
-	c.Assert(atomic.AddInt32(&count, 0), check.Equals, int32(3))
-
-	mutex.RLock()
 	c.Assert(len(val), check.Equals, 2)
 	c.Assert(val["/cluster1/controller/1"], check.Equals, "1")
 	c.Assert(val["/cluster1/controller/2"], check.Equals, "222")
-	mutex.RUnlock()
 }
 
 func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 	b, _ := newEtedRepository(cfg)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	_ = b.Put(context.TODO(), "/lindb/broker/1", []byte("1"))
-
 	_ = b.Put(context.TODO(), "/lindb/broker/2", []byte("2"))
-
-	ch, err := b.Watch(ctx, "/lindb/broker")
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	go func() {
-		for event := range ch {
-			println(event.Key + string(event.Value))
-			c.Assert(event.Key, check.Equals, "/lindb/broker/3")
-			c.Assert(string(event.Value), check.Equals, "3")
-			switch event.Type {
-			case EventTypeModify:
-
-			case EventTypeDelete:
-			}
-		}
-	}()
+	ch := b.WatchPrefix(ctx, "/lindb/broker")
+	time.Sleep(100 * time.Millisecond)
 
 	_ = b.Put(context.TODO(), "/lindb/broker/3", []byte("3"))
 	bytes1, _ := b.Get(context.TODO(), "/lindb/broker/3")
 	c.Assert(string(bytes1), check.Equals, "3")
-	time.Sleep(10 * time.Second)
-	cancel()
+	b.Delete(context.TODO(), "/lindb/broker/3")
+	time.Sleep(time.Second)
+
+	var allEvt, modifyEvt, deleteEvt bool
+	for event := range ch {
+		if event.Err != nil {
+			continue
+		}
+		kvs := map[string]string{}
+		for _, kv := range event.KeyValues {
+			kvs[kv.Key] = string(kv.Value)
+		}
+		switch event.Type {
+		case EventTypeAll:
+			c.Assert(allEvt, check.Equals, false)
+			c.Assert(modifyEvt, check.Equals, false)
+			c.Assert(deleteEvt, check.Equals, false)
+			c.Assert(len(kvs), check.Equals, 2)
+			c.Assert(kvs["/lindb/broker/1"], check.Equals, "1")
+			c.Assert(kvs["/lindb/broker/2"], check.Equals, "2")
+			allEvt = true
+		case EventTypeModify:
+			c.Assert(allEvt, check.Equals, true)
+			c.Assert(modifyEvt, check.Equals, false)
+			c.Assert(deleteEvt, check.Equals, false)
+			c.Assert(len(kvs), check.Equals, 1)
+			c.Assert(kvs["/lindb/broker/3"], check.Equals, "3")
+			modifyEvt = true
+		case EventTypeDelete:
+			c.Assert(allEvt, check.Equals, true)
+			c.Assert(modifyEvt, check.Equals, true)
+			c.Assert(deleteEvt, check.Equals, false)
+			c.Assert(len(kvs), check.Equals, 1)
+			_, ok := kvs["/lindb/broker/3"]
+			c.Assert(ok, check.Equals, true)
+			deleteEvt = true
+			cancel()
+		}
+	}
+	c.Assert(deleteEvt, check.Equals, true)
 }
 
 func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
@@ -250,17 +274,14 @@ func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
 func (ts *testEtcdRepoSuite) TestDeleteWithTheValue(c *check.C) {
 	b, _ := newEtedRepository(cfg)
 	_ = b.Put(context.TODO(), "test", []byte("value1"))
-	success, err := b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
+	err := b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
 	if err != nil {
 		c.Fatal("the operation should be success")
 	}
-	assert.True(c, success)
 
 	_ = b.Put(context.TODO(), "test", []byte("value2"))
-	success2, err := b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
-	if err != nil {
+	err = b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
+	if err != ErrTxnFailed {
 		c.Fatal("the operation should not have error")
 	}
-	assert.False(c, success2)
-
 }
