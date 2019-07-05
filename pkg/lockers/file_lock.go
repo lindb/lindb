@@ -1,58 +1,53 @@
 package lockers
 
 import (
-	"fmt"
-	"os"
-	"syscall"
-
-	"github.com/eleme/lindb/pkg/logger"
-
-	"go.uber.org/zap"
+	"sync"
 )
 
-// FileLock is file lock
-type FileLock struct {
+// filesMap is a simple mutex locked map containing files in use.
+var filesMap = &struct {
+	sync.Mutex
+	files map[string]struct{}
+}{
+	files: make(map[string]struct{}),
+}
+
+// FileLocker provides the ability of restricting access to a specified file for a single process.
+// thread-safe, not process-safe.
+type FileLocker interface {
+	// TryLock will try to lock the file and return whether it succeed or not without blocking.
+	TryLock() bool
+	// Unlock unlocks the file, this operation is reentrant。
+	Unlock()
+}
+
+// fileLocker implements FileLocker
+type fileLocker struct {
 	fileName string
-	file     *os.File
-	logger   *zap.Logger
 }
 
-// NewFileLock create new file lock instance
-func NewFileLock(fileName string) *FileLock {
-	return &FileLock{
-		fileName: fileName,
-		logger:   logger.GetLogger(),
-	}
+// NewFileLocker returns a new FileLocker.
+func NewFileLocker(fileName string) FileLocker {
+	return &fileLocker{fileName: fileName}
 }
 
-// Lock try locking file, return err if fails.
-func (l *FileLock) Lock() error {
-	f, err := os.Create(l.fileName)
-	if nil != err {
-		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
+// TryLock try locking file, return false if locked.
+func (fl *fileLocker) TryLock() bool {
+	filesMap.Lock()
+	defer filesMap.Unlock()
+
+	_, ok := filesMap.files[fl.fileName]
+	if ok {
+		return false
 	}
-	l.file = f
-	// invoke syscall for file lock
-	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if nil != err {
-		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
-	}
-	return nil
+	filesMap.files[fl.fileName] = struct{}{}
+	return true
 }
 
-// Unlock unlock file lock, if fail return err
-func (l *FileLock) Unlock() error {
-	defer func() {
-		if err := os.Remove(l.fileName); nil != err {
-			l.logger.Error("remove file lock error", zap.String("file", l.fileName), zap.Error(err))
-		}
-		l.logger.Info("remove file lock successfully", zap.String("file", l.fileName))
-	}()
+// Unlock unlocks file lock.
+func (fl *fileLocker) Unlock() {
+	filesMap.Lock()
+	defer filesMap.Unlock()
 
-	defer func() {
-		if err := l.file.Close(); nil != err {
-			l.logger.Error("close file lock error", zap.String("file", l.fileName), zap.Error(err))
-		}
-	}()
-	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	delete(filesMap.files, fl.fileName)
 }

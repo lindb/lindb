@@ -1,6 +1,7 @@
 package tsdb
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -49,9 +50,10 @@ func TestNewSegment(t *testing.T) {
 func TestGetSegmentsByTimeRange(t *testing.T) {
 	defer util.RemoveDir(testPath)
 	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
-	s.GetOrCreateSegment("20190702")
-	t2, _ := util.ParseTimestamp("20190702", "20060102")
+	s.GetOrCreateSegment("20190705")
+	t2, _ := util.ParseTimestamp("20190705", "20060102")
 	segments := s.GetSegments(models.TimeRange{Start: t2, End: t2 + 60*60*1000})
+	fmt.Println(len(segments))
 	assert.Equal(t, 1, len(segments))
 
 	segments = s.GetSegments(models.TimeRange{Start: t2 + 50*1000, End: t2 + 60*60*1000})

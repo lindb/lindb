@@ -5,10 +5,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/eleme/lindb/pkg/lockers"
-
 	"github.com/eleme/lindb/kv/table"
 	"github.com/eleme/lindb/kv/version"
+	"github.com/eleme/lindb/pkg/lockers"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
 
@@ -30,8 +29,8 @@ type Store interface {
 type store struct {
 	name   string
 	option StoreOption
-	// file-lock restricts access to store by allowing only one instance
-	lock     *lockers.FileLock
+	// FileLocker restricts access to store by allowing only one goroutine
+	locker   lockers.FileLocker
 	versions *version.StoreVersionSet
 	// each family instance need to be assigned an unique family id
 	familyID int
@@ -47,55 +46,52 @@ type store struct {
 
 // NewStore new store instance, need recover data if store existent
 func NewStore(name string, option StoreOption) (Store, error) {
-	var info *storeInfo
-	var isCreate bool
+	var (
+		info     *storeInfo
+		isCreate bool
+		err      error
+	)
 	if util.Exist(option.Path) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		if err := util.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
+		if err = util.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
 			return nil, fmt.Errorf("load store info error:%s", err)
 		}
 	} else {
 		// create store, initialize path and store info
-		if err := util.MkDir(option.Path); err != nil {
+		if err = util.MkDir(option.Path); err != nil {
 			return nil, fmt.Errorf("create store path error:%s", err)
 		}
 		info = newStoreInfo(option)
 		isCreate = true
 	}
-	// try lock
-	lock := lockers.NewFileLock(filepath.Join(option.Path, version.Lock))
-	err := lock.Lock()
-	if err != nil {
-		return nil, err
-	}
-
-	log := logger.GetLogger()
-
-	// unlock file lock if error
-	defer func() {
-		if err != nil {
-			if e := lock.Unlock(); e != nil {
-				log.Error("unlock file error:", zap.String("store", option.Path), zap.Error(e))
-			}
-		}
-	}()
 
 	store := &store{
 		name:      name,
 		option:    option,
-		lock:      lock,
+		locker:    lockers.NewFileLocker(filepath.Join(option.Path, name)),
 		families:  make(map[string]Family),
-		logger:    log,
+		logger:    logger.GetLogger(),
 		storeInfo: info,
 	}
+
+	// try lock
+	if !store.locker.TryLock() {
+		return nil, fmt.Errorf("file: %s is alreay locked", filepath.Join(option.Path, name))
+	}
+	// unlock file if error
+	defer func() {
+		if err != nil {
+			store.locker.Unlock()
+		}
+	}()
 
 	// init version set
 	store.versions = version.NewStoreVersionSet(store.option.Path, store.option.Levels)
 
 	if isCreate {
 		// if store is new created, need dump store info to INFO file
-		if err := store.dumpStoreInfo(); err != nil {
+		if err = store.dumpStoreInfo(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -105,15 +101,16 @@ func NewStore(name string, option StoreOption) (Store, error) {
 				store.familyID = familyOption.ID
 			}
 			// open existed family
-			family, err := newFamily(store, familyOption)
+			var fam Family
+			fam, err = newFamily(store, familyOption)
 			if err != nil {
 				return nil, fmt.Errorf("building family instance for existed store[%s] error:%s", option.Path, err)
 			}
-			store.families[familyName] = family
+			store.families[familyName] = fam
 		}
 	}
 	// recover version set, after recovering family options
-	if err := store.versions.Recover(); err != nil {
+	if err = store.versions.Recover(); err != nil {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
 
@@ -131,7 +128,6 @@ func (s *store) CreateFamily(familyName string, option FamilyOption) (Family, er
 		return family, nil
 	}
 
-	// todo: check the lock granularity
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()
 
@@ -175,7 +171,8 @@ func (s *store) Close() error {
 	if err := s.versions.Destroy(); err != nil {
 		s.logger.Error("destroy store version set error", zap.String("store", s.option.Path), zap.Error(err))
 	}
-	return s.lock.Unlock()
+	s.locker.Unlock()
+	return nil
 }
 
 // dumpStoreInfo persists store info to OPTIONS file

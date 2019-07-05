@@ -7,7 +7,6 @@ import (
 const sstSuffix = "sst"
 const TmpSuffix = "tmp"
 
-const Lock = "LOCK"
 const Options = "OPTIONS"
 const manifestPrefix = "MANIFEST-"
 
@@ -39,7 +38,7 @@ func Table(fileNumber int64) string {
 	return fmt.Sprintf("%06d.%s", fileNumber, sstSuffix)
 }
 
-// manifestFileName return manifeset file name
+// manifestFileName return manifest file name
 func manifestFileName(fileNumber int64) string {
 	return fmt.Sprintf("%s%06d", manifestPrefix, fileNumber)
 }

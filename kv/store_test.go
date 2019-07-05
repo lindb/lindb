@@ -55,7 +55,7 @@ func TestCreateFamily(t *testing.T) {
 	option := DefaultStoreOption("../test_data")
 	defer util.RemoveDir(testKVPath)
 
-	var kv, err = NewStore("test_kv", option)
+	var kv, err = NewStore("test_kv_2", option)
 	defer kv.Close()
 	assert.Nil(t, err, "cannot create kv store")
 
@@ -68,6 +68,6 @@ func TestCreateFamily(t *testing.T) {
 	f11 := kv.GetFamily("f11")
 	assert.Nil(t, f11)
 
-	_, e := NewStore("test_kv", option)
+	_, e := NewStore("test_kv_2", option)
 	assert.NotNil(t, e, "store re-open not allow")
 }

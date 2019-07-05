@@ -1,33 +1,23 @@
 package lockers
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFileLock(t *testing.T) {
-	var lock = NewFileLock("t.lock")
-	var err = lock.Lock()
-	assert.Nil(t, err, "lock error")
+func Test_FileLocker(t *testing.T) {
+	fl1 := NewFileLocker("/lindb/storage/1")
+	assert.True(t, fl1.TryLock())
+	assert.False(t, fl1.TryLock())
 
-	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock again for locked file")
+	fl2 := NewFileLocker("/lindb/storage/2")
+	assert.True(t, fl2.TryLock())
 
-	err = lock.Unlock()
-	assert.Nil(t, err, "unlock error")
+	fl3 := NewFileLocker("/lindb/storage/2")
+	assert.False(t, fl3.TryLock())
 
-	lock = NewFileLock("t.lock")
-	err = lock.Lock()
-	assert.Nil(t, err, "lock error")
+	fl2.Unlock()
+	assert.True(t, fl2.TryLock())
 
-	lock.Unlock()
-
-	fileInfo, _ := os.Stat("t.lock")
-	assert.Nil(t, fileInfo, "lock file exist")
-
-	lock = NewFileLock("/tmp/not_dir/t.lock")
-	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock not exist file")
 }
