@@ -12,8 +12,13 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
+	"github.com/coreos/pkg/capnslog"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+}
 
 func TestElect(t *testing.T) {
 	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})

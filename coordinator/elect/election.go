@@ -31,11 +31,7 @@ func (e *Election) Elect(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	// watch the change of the master
-	err = e.watchMasterChange(ctx)
-	if err != nil {
-		log := logger.GetLogger()
-		log.Error("try to watch master error ", zap.Error(err))
-	}
+	e.watchMasterChange(ctx)
 	return success, err
 }
 
@@ -46,12 +42,12 @@ func (e *Election) Resign(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	success, err := state.GetRepo().DeleteWithValue(ctx, e.key, nodeBytes)
-	if err != nil {
+	err = state.GetRepo().DeleteWithValue(ctx, e.key, nodeBytes)
+	if err != nil && err != state.ErrTxnFailed {
 		return err
 	}
 	e.updateMasterFlag(false)
-	log.Info("the master resign %s", zap.Bool("result", success))
+	log.Info("the master resign %s", zap.Bool("result", err == nil))
 	// close the chan of master change
 	return nil
 }
@@ -76,28 +72,32 @@ func (e *Election) IsMaster() (bool, *discovery.Node, error) {
 }
 
 // watchMasterChange watches the changes of the master
-func (e *Election) watchMasterChange(ctx context.Context) error {
-	watchEventChan, err := state.GetRepo().Watch(ctx, e.key)
-	if err == nil {
-		go e.handlerMasterChange(ctx, watchEventChan)
-	}
-	return err
+func (e *Election) watchMasterChange(ctx context.Context) {
+	watchEventChan := state.GetRepo().Watch(ctx, e.key)
+	go e.handlerMasterChange(ctx, watchEventChan)
 }
 
 // handlerMasterChange handles the change of master.if the type is delete,it
 // will try to elect master
 func (e *Election) handlerMasterChange(ctx context.Context, eventChan state.WatchEventChan) {
+	log := logger.GetLogger()
 	for event := range eventChan {
+		if event.Err != nil {
+			continue
+		}
 		switch event.Type {
 		case state.EventTypeDelete:
-			log := logger.GetLogger()
 			success, _ := e.tryElect(ctx)
 			log.Info("current node retries to registers as master", zap.Bool("result", success))
+		case state.EventTypeAll:
+			fallthrough
 		case state.EventTypeModify:
 			// check the value is
-			node := &discovery.Node{}
-			_ = json.Unmarshal(event.Value, node)
-			e.updateMasterFlag(node.IP == e.node.IP && node.Port == e.node.Port)
+			for _, kv := range event.KeyValues {
+				node := &discovery.Node{}
+				_ = json.Unmarshal(kv.Value, node)
+				e.updateMasterFlag(node.IP == e.node.IP && node.Port == e.node.Port)
+			}
 		}
 	}
 }
