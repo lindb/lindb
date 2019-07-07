@@ -6,11 +6,14 @@ import (
 	"os"
 
 	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/query"
+	"github.com/eleme/lindb/storage"
 	"github.com/eleme/lindb/tsdb"
 
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -58,6 +61,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 }
 
 func serveStorage(cmd *cobra.Command, args []string) error {
+	log := logger.GetLogger()
 	ctx := newCtxWithSignals()
 
 	if storageCfgPath == "" {
@@ -70,6 +74,12 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 
 	storageConfig := config.StorageConfig{}
 	if _, err := toml.DecodeFile(storageCfgPath, &storageConfig); err != nil {
+		return err
+	}
+	// start the repository server
+	storageServer := storage.New(ctx, &storageConfig)
+	if err := storageServer.Start(); err != nil {
+		log.Error("storage start failed", zap.Error(err))
 		return err
 	}
 
