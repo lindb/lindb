@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -23,8 +24,8 @@ func TestNewRegister(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	node := Node{"127.0.0.1", 2080}
-	register := NewRegister(node, "/test/", "node1", 1)
+	node := models.Node{IP: "127.0.0.1", Port: 2080}
+	register := NewRegister("/test/node1", node, 1)
 	err := register.Register(ctx)
 	assert.Nil(t, err)
 	nodeBytes, _ := json.Marshal(node)
@@ -43,8 +44,8 @@ func TestUnRegister(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	node := Node{"127.0.0.1", 2080}
-	register := NewRegister(node, "/test/", "node1", 1)
+	node := models.Node{IP: "127.0.0.1", Port: 2080}
+	register := NewRegister("/test/node1", node, 1)
 	err := register.Register(ctx)
 	assert.Nil(t, err)
 	nodeBytes, _ := json.Marshal(node)
