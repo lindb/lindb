@@ -7,10 +7,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go.uber.org/zap"
-
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
+
+	"go.uber.org/zap"
 )
 
 // Discovery defines a discovery of a list of node.it will watch the node
@@ -34,10 +35,10 @@ func NewDiscovery(ctx context.Context, prefix string) (*Discovery, error) {
 }
 
 // NodeList returns the current lived nod array
-func (d *Discovery) NodeList() []*Node {
-	nodeList := make([]*Node, 0)
+func (d *Discovery) NodeList() []*models.Node {
+	nodeList := make([]*models.Node, 0)
 	d.serverMap.Load().(*sync.Map).Range(func(key, value interface{}) bool {
-		nodeList = append(nodeList, value.(*Node))
+		nodeList = append(nodeList, value.(*models.Node))
 		return true
 	})
 	return nodeList
@@ -63,7 +64,7 @@ func (d *Discovery) handlerNodeChangeEvent(eventChan state.WatchEventChan) {
 		case state.EventTypeModify:
 			m := d.serverMap.Load().(*sync.Map)
 			for _, kv := range event.KeyValues {
-				node := &Node{}
+				node := &models.Node{}
 				if err := json.Unmarshal(kv.Value, node); err != nil {
 					log.Error(" deserialize error", zap.Error(err))
 				} else {

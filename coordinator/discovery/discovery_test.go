@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -40,7 +41,7 @@ func TestNodeList(t *testing.T) {
 	assert.Equal(t, 0, len(nodeList))
 
 	repo := state.GetRepo()
-	node := Node{"127.0.0.1", 2080}
+	node := models.Node{IP: "127.0.0.1", Port: 2080}
 	bytes, _ := json.Marshal(node)
 	_ = repo.Put(context.TODO(), "/test/key1", bytes)
 	_ = repo.Put(context.TODO(), "/test/key2", bytes)

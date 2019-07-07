@@ -3,12 +3,17 @@ package state
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
 )
 
 // global repository for state storage
 var repository Repository
+
+const (
+	ETCD string = "etcd"
+)
 
 // Repository stores state data, such as metadata/config/status/task etc.
 type Repository interface {
@@ -70,7 +75,7 @@ type WatchEventChan <-chan *Event
 
 // New creates global state repository
 func New(repoType string, config interface{}) error {
-	if repoType == "etcd" {
+	if repoType == ETCD {
 		repo, err := newEtedRepository(config)
 		if err != nil {
 			return err
@@ -84,4 +89,23 @@ func New(repoType string, config interface{}) error {
 // GetRepo returns state repository
 func GetRepo() Repository {
 	return repository
+}
+
+// the custom repository config
+type RepositoryConfig struct {
+	RepositoryType string
+	URL            string
+}
+
+// convert custom config to real repository config
+func NewRepositoryConfig(config RepositoryConfig) (interface{}, error) {
+	switch config.RepositoryType {
+	case ETCD:
+		return &etcdcliv3.Config{
+			Endpoints: strings.Split(config.URL, ","),
+		}, nil
+	default:
+		return nil, fmt.Errorf("repo type not support, type is:%s", config.RepositoryType)
+	}
+
 }
