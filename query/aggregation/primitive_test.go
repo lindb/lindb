@@ -9,7 +9,7 @@ import (
 )
 
 func TestPrimitiveSumIntegerAgg(t *testing.T) {
-	agg := NewPrimitiveAggregator(field.Integer, field.GetAggFunc("sum"), 10)
+	agg := NewPrimitiveAggregator(field.Integer, field.GetAggFunc(field.Sum), 10)
 	//ignore wrong idx
 	agg.Aggregate(-1, 10)
 	agg.Aggregate(10, 10)
@@ -28,7 +28,7 @@ func TestPrimitiveSumIntegerAgg(t *testing.T) {
 }
 
 func TestPrimitiveSumFloatAgg(t *testing.T) {
-	agg := NewPrimitiveAggregator(field.Float, field.GetAggFunc("sum"), 10)
+	agg := NewPrimitiveAggregator(field.Float, field.GetAggFunc(field.Sum), 10)
 	//ignore wrong idx
 	agg.Aggregate(-1, 10)
 	agg.Aggregate(10, 10)

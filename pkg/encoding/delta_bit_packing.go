@@ -125,7 +125,6 @@ func (d *DeltaBitPackingDecoder) Next() int32 {
 	d.pos--
 	v := int32(x) + d.minDelta
 	vv := d.previous - v
-	//fmt.Printf("jj==%d:%d:%d\n", x, v, d.minDelta)
 	d.previous = vv
 	return vv
 }

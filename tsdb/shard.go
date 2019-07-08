@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/eleme/lindb/tsdb/memdb"
 
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/pkg/util"
 )
 
@@ -31,7 +31,7 @@ type shard struct {
 	id     int32
 	path   string
 	option option.ShardOption
-	memDb  memdb.MemoryDatabase
+	memDB  memdb.MemoryDatabase
 
 	segment IntervalSegment // smallest interval for writing data
 
@@ -40,8 +40,6 @@ type shard struct {
 	segments map[interval.Type]IntervalSegment
 
 	cancel func()
-
-	intervalCalc interval.Calculator
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -50,7 +48,7 @@ func newShard(shardID int32, path string, option option.ShardOption) (Shard, err
 	if option.Interval <= 0 {
 		return nil, fmt.Errorf("interval cannot be negative")
 	}
-	if interval.GetCalculator(option.IntervalType) == nil {
+	if _, err := interval.GetCalculator(option.IntervalType); err != nil {
 		return nil, fmt.Errorf("interval type[%d] not define", option.IntervalType)
 	}
 	if err := util.MkDirIfNotExist(path); err != nil {
@@ -64,12 +62,19 @@ func newShard(shardID int32, path string, option option.ShardOption) (Shard, err
 	if err != nil {
 		return nil, err
 	}
+	var memDB memdb.MemoryDatabase
 	ctx, cancel := context.WithCancel(context.Background())
+	memDB, err = memdb.NewMemoryDatabase(ctx, option.TimeWindow, int64(option.Interval), option.IntervalType)
+	if err != nil {
+		//if create memory database error, cancel background context
+		cancel()
+		return nil, err
+	}
 	shard := &shard{
 		id:       shardID,
 		path:     path,
 		option:   option,
-		memDb:    memdb.NewMemoryDatabase(ctx),
+		memDB:    memDB,
 		segment:  segment,
 		segments: make(map[interval.Type]IntervalSegment),
 		cancel:   cancel,
@@ -91,21 +96,14 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange models.TimeRan
 // Write writes the metric-point into memory-database.
 func (s *shard) Write(point models.Point) error {
 	timestamp := point.Timestamp()
-	now := time.Now().Unix()
+	now := timeutil.Now()
 
-	if timestamp < now-s.option.Behind {
+	if timestamp < now-s.option.Behind || timestamp > now+s.option.Ahead {
 		return nil
 	}
 
-	if timestamp > now+s.option.Ahead {
-		return nil
-	}
-	//use family base time for memory store
-	segmentTime := s.intervalCalc.CalFamilyBaseTime(point.Timestamp())
-	//slot time for ts data store
-	slotTime := s.intervalCalc.CalSlot(point.Timestamp())
-
-	return s.memDb.Write(point, segmentTime, slotTime)
+	// write metric point into memory db
+	return s.memDB.Write(point)
 }
 
 // Close closes the memDatabase and spawned goroutines.

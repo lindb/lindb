@@ -87,15 +87,19 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 
 // GetSegments returns segment list by time range, return nil if not match
 func (s *intervalSegment) GetSegments(timeRange models.TimeRange) []Segment {
+	calc, err := interval.GetCalculator(s.intervalType)
+	if err != nil {
+		return nil
+	}
+
 	var segments []Segment
-	calc := interval.GetCalculator(s.intervalType)
 	start := calc.CalSegmentTime(timeRange.Start)
 	end := calc.CalSegmentTime(timeRange.End)
 	s.segments.Range(func(k, v interface{}) bool {
 		segment, ok := v.(Segment)
 		if ok {
 			baseTime := segment.BaseTime()
-			if start >= baseTime && end <= baseTime {
+			if baseTime >= start && baseTime <= end {
 				segments = append(segments, segment)
 			}
 		}
@@ -152,7 +156,11 @@ func newSegment(segmentName string, intervalType interval.Type, path string) (Se
 		return nil, fmt.Errorf("create  kv store for segment error:%s", err)
 	}
 	// parse base time from segment name
-	baseTime, err := interval.GetCalculator(intervalType).ParseSegmentTime(segmentName)
+	calc, err := interval.GetCalculator(intervalType)
+	if err != nil {
+		return nil, err
+	}
+	baseTime, err := calc.ParseSegmentTime(segmentName)
 	if err != nil {
 		return nil, fmt.Errorf("parse segment[%s] base time error", path)
 	}
