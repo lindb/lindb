@@ -2,17 +2,14 @@ syntax = "proto3";
 
 package common;
 
-enum RequestType {
-    WritePoints = 0;
+message Request {
+    bytes data = 1;
 }
 
-message RequestContext {
-    RequestType type = 1;
-}
-
-message ResponseContext {
-    RequestType type = 1;
+message Response {
+    int32 code = 1;
     string msg = 2;
+    bytes data = 3;
 }
 
 

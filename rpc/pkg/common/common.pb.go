@@ -21,47 +21,25 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type RequestType int32
-
-const (
-	RequestType_WritePoints RequestType = 0
-)
-
-var RequestType_name = map[int32]string{
-	0: "WritePoints",
+type Request struct {
+	Data                 []byte   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-var RequestType_value = map[string]int32{
-	"WritePoints": 0,
-}
-
-func (x RequestType) String() string {
-	return proto.EnumName(RequestType_name, int32(x))
-}
-
-func (RequestType) EnumDescriptor() ([]byte, []int) {
+func (m *Request) Reset()         { *m = Request{} }
+func (m *Request) String() string { return proto.CompactTextString(m) }
+func (*Request) ProtoMessage()    {}
+func (*Request) Descriptor() ([]byte, []int) {
 	return fileDescriptor_555bd8c177793206, []int{0}
 }
-
-type RequestContext struct {
-	Type                 RequestType `protobuf:"varint,1,opt,name=type,proto3,enum=common.RequestType" json:"type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
-}
-
-func (m *RequestContext) Reset()         { *m = RequestContext{} }
-func (m *RequestContext) String() string { return proto.CompactTextString(m) }
-func (*RequestContext) ProtoMessage()    {}
-func (*RequestContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_555bd8c177793206, []int{0}
-}
-func (m *RequestContext) XXX_Unmarshal(b []byte) error {
+func (m *Request) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RequestContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RequestContext.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Request.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -71,45 +49,46 @@ func (m *RequestContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return b[:n], nil
 	}
 }
-func (m *RequestContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RequestContext.Merge(m, src)
+func (m *Request) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Request.Merge(m, src)
 }
-func (m *RequestContext) XXX_Size() int {
+func (m *Request) XXX_Size() int {
 	return m.Size()
 }
-func (m *RequestContext) XXX_DiscardUnknown() {
-	xxx_messageInfo_RequestContext.DiscardUnknown(m)
+func (m *Request) XXX_DiscardUnknown() {
+	xxx_messageInfo_Request.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RequestContext proto.InternalMessageInfo
+var xxx_messageInfo_Request proto.InternalMessageInfo
 
-func (m *RequestContext) GetType() RequestType {
+func (m *Request) GetData() []byte {
 	if m != nil {
-		return m.Type
+		return m.Data
 	}
-	return RequestType_WritePoints
+	return nil
 }
 
-type ResponseContext struct {
-	Type                 RequestType `protobuf:"varint,1,opt,name=type,proto3,enum=common.RequestType" json:"type,omitempty"`
-	Msg                  string      `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+type Response struct {
+	Code                 int32    `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                  string   `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Data                 []byte   `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ResponseContext) Reset()         { *m = ResponseContext{} }
-func (m *ResponseContext) String() string { return proto.CompactTextString(m) }
-func (*ResponseContext) ProtoMessage()    {}
-func (*ResponseContext) Descriptor() ([]byte, []int) {
+func (m *Response) Reset()         { *m = Response{} }
+func (m *Response) String() string { return proto.CompactTextString(m) }
+func (*Response) ProtoMessage()    {}
+func (*Response) Descriptor() ([]byte, []int) {
 	return fileDescriptor_555bd8c177793206, []int{1}
 }
-func (m *ResponseContext) XXX_Unmarshal(b []byte) error {
+func (m *Response) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ResponseContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Response) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ResponseContext.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Response.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -119,56 +98,60 @@ func (m *ResponseContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return b[:n], nil
 	}
 }
-func (m *ResponseContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResponseContext.Merge(m, src)
+func (m *Response) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Response.Merge(m, src)
 }
-func (m *ResponseContext) XXX_Size() int {
+func (m *Response) XXX_Size() int {
 	return m.Size()
 }
-func (m *ResponseContext) XXX_DiscardUnknown() {
-	xxx_messageInfo_ResponseContext.DiscardUnknown(m)
+func (m *Response) XXX_DiscardUnknown() {
+	xxx_messageInfo_Response.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ResponseContext proto.InternalMessageInfo
+var xxx_messageInfo_Response proto.InternalMessageInfo
 
-func (m *ResponseContext) GetType() RequestType {
+func (m *Response) GetCode() int32 {
 	if m != nil {
-		return m.Type
+		return m.Code
 	}
-	return RequestType_WritePoints
+	return 0
 }
 
-func (m *ResponseContext) GetMsg() string {
+func (m *Response) GetMsg() string {
 	if m != nil {
 		return m.Msg
 	}
 	return ""
 }
 
+func (m *Response) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
 func init() {
-	proto.RegisterEnum("common.RequestType", RequestType_name, RequestType_value)
-	proto.RegisterType((*RequestContext)(nil), "common.RequestContext")
-	proto.RegisterType((*ResponseContext)(nil), "common.ResponseContext")
+	proto.RegisterType((*Request)(nil), "common.Request")
+	proto.RegisterType((*Response)(nil), "common.Response")
 }
 
 func init() { proto.RegisterFile("common.proto", fileDescriptor_555bd8c177793206) }
 
 var fileDescriptor_555bd8c177793206 = []byte{
-	// 165 bytes of a gzipped FileDescriptorProto
+	// 138 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x49, 0xce, 0xcf, 0xcd,
-	0xcd, 0xcf, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0x94, 0x2c, 0xb9, 0xf8,
-	0x82, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x9c, 0xf3, 0xf3, 0x4a, 0x52, 0x2b, 0x4a, 0x84, 0xd4,
-	0xb9, 0x58, 0x4a, 0x2a, 0x0b, 0x52, 0x25, 0x18, 0x15, 0x18, 0x35, 0xf8, 0x8c, 0x84, 0xf5, 0xa0,
-	0xda, 0xa0, 0xaa, 0x42, 0x2a, 0x0b, 0x52, 0x83, 0xc0, 0x0a, 0x94, 0x7c, 0xb8, 0xf8, 0x83, 0x52,
-	0x8b, 0x0b, 0xf2, 0xf3, 0x8a, 0x53, 0x49, 0xd5, 0x2b, 0x24, 0xc0, 0xc5, 0x9c, 0x5b, 0x9c, 0x2e,
-	0xc1, 0xa4, 0xc0, 0xa8, 0xc1, 0x19, 0x04, 0x62, 0x6a, 0xc9, 0x71, 0x71, 0x23, 0x29, 0x13, 0xe2,
-	0xe7, 0xe2, 0x0e, 0x2f, 0xca, 0x2c, 0x49, 0x0d, 0xc8, 0xcf, 0xcc, 0x2b, 0x29, 0x16, 0x60, 0x70,
-	0x12, 0x38, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x67, 0x3c,
-	0x96, 0x63, 0x48, 0x62, 0x03, 0xfb, 0xc4, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x24, 0xce, 0x5b,
-	0x6a, 0xd9, 0x00, 0x00, 0x00,
+	0xcd, 0xcf, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0x94, 0x64, 0xb9, 0xd8,
+	0x83, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x84, 0x84, 0xb8, 0x58, 0x52, 0x12, 0x4b, 0x12, 0x25,
+	0x18, 0x15, 0x18, 0x35, 0x78, 0x82, 0xc0, 0x6c, 0x25, 0x17, 0x2e, 0x8e, 0xa0, 0xd4, 0xe2, 0x82,
+	0xfc, 0xbc, 0xe2, 0x54, 0x90, 0x7c, 0x72, 0x7e, 0x4a, 0x2a, 0x58, 0x9e, 0x35, 0x08, 0xcc, 0x16,
+	0x12, 0xe0, 0x62, 0xce, 0x2d, 0x4e, 0x97, 0x60, 0x52, 0x60, 0xd4, 0xe0, 0x0c, 0x02, 0x31, 0xe1,
+	0xa6, 0x30, 0x23, 0x4c, 0x71, 0x12, 0x38, 0xf1, 0x48, 0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07,
+	0x8f, 0xe4, 0x18, 0x67, 0x3c, 0x96, 0x63, 0x48, 0x62, 0x03, 0xbb, 0xc2, 0x18, 0x10, 0x00, 0x00,
+	0xff, 0xff, 0x57, 0xef, 0xda, 0xbf, 0x95, 0x00, 0x00, 0x00,
 }
 
-func (m *RequestContext) Marshal() (dAtA []byte, err error) {
+func (m *Request) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -178,15 +161,16 @@ func (m *RequestContext) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RequestContext) MarshalTo(dAtA []byte) (int, error) {
+func (m *Request) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.Type != 0 {
-		dAtA[i] = 0x8
+	if len(m.Data) > 0 {
+		dAtA[i] = 0xa
 		i++
-		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Data)))
+		i += copy(dAtA[i:], m.Data)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -194,7 +178,7 @@ func (m *RequestContext) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *ResponseContext) Marshal() (dAtA []byte, err error) {
+func (m *Response) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -204,21 +188,27 @@ func (m *ResponseContext) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ResponseContext) MarshalTo(dAtA []byte) (int, error) {
+func (m *Response) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.Type != 0 {
+	if m.Code != 0 {
 		dAtA[i] = 0x8
 		i++
-		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
+		i = encodeVarintCommon(dAtA, i, uint64(m.Code))
 	}
 	if len(m.Msg) > 0 {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintCommon(dAtA, i, uint64(len(m.Msg)))
 		i += copy(dAtA[i:], m.Msg)
+	}
+	if len(m.Data) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Data)))
+		i += copy(dAtA[i:], m.Data)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -235,14 +225,15 @@ func encodeVarintCommon(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *RequestContext) Size() (n int) {
+func (m *Request) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Type != 0 {
-		n += 1 + sovCommon(uint64(m.Type))
+	l = len(m.Data)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -250,16 +241,20 @@ func (m *RequestContext) Size() (n int) {
 	return n
 }
 
-func (m *ResponseContext) Size() (n int) {
+func (m *Response) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Type != 0 {
-		n += 1 + sovCommon(uint64(m.Type))
+	if m.Code != 0 {
+		n += 1 + sovCommon(uint64(m.Code))
 	}
 	l = len(m.Msg)
+	if l > 0 {
+		n += 1 + l + sovCommon(uint64(l))
+	}
+	l = len(m.Data)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
 	}
@@ -282,7 +277,7 @@ func sovCommon(x uint64) (n int) {
 func sozCommon(x uint64) (n int) {
 	return sovCommon(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *RequestContext) Unmarshal(dAtA []byte) error {
+func (m *Request) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -305,17 +300,17 @@ func (m *RequestContext) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RequestContext: wiretype end group for non-group")
+			return fmt.Errorf("proto: Request: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RequestContext: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Request: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
 			}
-			m.Type = 0
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowCommon
@@ -325,11 +320,26 @@ func (m *RequestContext) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Type |= RequestType(b&0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
+			if m.Data == nil {
+				m.Data = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCommon(dAtA[iNdEx:])
@@ -355,7 +365,7 @@ func (m *RequestContext) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ResponseContext) Unmarshal(dAtA []byte) error {
+func (m *Response) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -378,17 +388,17 @@ func (m *ResponseContext) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ResponseContext: wiretype end group for non-group")
+			return fmt.Errorf("proto: Response: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ResponseContext: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Response: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Code", wireType)
 			}
-			m.Type = 0
+			m.Code = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowCommon
@@ -398,7 +408,7 @@ func (m *ResponseContext) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Type |= RequestType(b&0x7F) << shift
+				m.Code |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -434,6 +444,40 @@ func (m *ResponseContext) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Msg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
+			if m.Data == nil {
+				m.Data = []byte{}
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
