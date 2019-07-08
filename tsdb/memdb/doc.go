@@ -6,14 +6,14 @@ package memdb
 //+------------------------------------+
 //|           Memory Database          |
 //+------------------+-----------------+
-//|     Measurement  |  Measurement    |
+//|     Metric  	 |  Metric         |
 //|     Store        |  Store          |
 //+------------------+-----------------+
 //
 // +--------------+       +--------------+
 // |              |------>|              |
 // |              |-+     |              |-+
-// |   Memory     | |     |  Measurement | |
+// |   Memory     | |     |  Metric      | |
 // |   Database   | |-+   |  Store       | |-+
 // |   RwMutex    | | |   |  RWMutex     | | |
 // |              | | |   |              | | |

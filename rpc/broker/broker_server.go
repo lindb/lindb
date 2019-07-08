@@ -3,8 +3,6 @@ package broker
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/rpc"
 	"github.com/eleme/lindb/rpc/pkg/batch"
@@ -42,9 +40,6 @@ func (ws *Server) Init() {
 func (ws *Server) WritePoints(
 	ctx context.Context,
 	request *brokerpb.WritePointsRequest) (*brokerpb.WritePointsResponse, error) {
-
-	logger.GetLogger().Info("receive points",
-		zap.Any("points", request.Points))
 
 	return &brokerpb.WritePointsResponse{
 		Context: rpc.BuildResponseContext(""),

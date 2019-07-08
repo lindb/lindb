@@ -4,15 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/eleme/lindb/pkg/field"
 )
 
-func Test_newFieldStore(t *testing.T) {
-	fStore := newFieldStore()
-	assert.NotNil(t, fStore)
-}
-
 func Test_getSegmentStore(t *testing.T) {
-	fStore := newFieldStore()
+	fStore := newFieldStore(field.SumField)
 	sStore := fStore.getSegmentStore(11)
-	assert.NotNil(t, sStore)
+	assert.Nil(t, sStore)
 }

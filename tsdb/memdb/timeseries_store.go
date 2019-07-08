@@ -4,12 +4,13 @@ import (
 	"container/list"
 	"time"
 
+	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/lockers"
 )
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
-	// todo: tsID
+	//TODO: tsID
 	// tsID             uint32 // tsId identifier
 	fields         map[string]*fieldStore // key: fieldName
 	tagsID         string                 // tags identifier
@@ -33,7 +34,7 @@ func (ts *timeSeriesStore) getFieldStore(fieldName string) *fieldStore {
 	ts.sl.Lock()
 	store, exist := ts.fields[fieldName]
 	if !exist {
-		store = newFieldStore()
+		store = newFieldStore(field.SumField)
 		ts.fields[fieldName] = store
 	}
 	ts.sl.Unlock()

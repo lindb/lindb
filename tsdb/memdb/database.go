@@ -6,121 +6,140 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eleme/lindb/pkg/hashers"
-
 	radix "github.com/armon/go-radix"
 
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/hashers"
+	"github.com/eleme/lindb/pkg/interval"
+	"github.com/eleme/lindb/pkg/timeutil"
 )
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 // A version is assigned since start.
 type MemoryDatabase interface {
-	// PrefixSearchMeasurements returns measurements by prefix search.
-	PrefixSearchMeasurements(measurementPrefix string, maxCount uint16) []string
+	// PrefixSearchMetricNames returns metric names by prefix search.
+	PrefixSearchMetricNames(prefix string, maxCount uint16) []string
 	// RegexSearchTags returns tag-values which matches the pattern.
-	RegexSearchTags(measurement string, tagsIDPattern string) []string
+	RegexSearchTags(metric string, tagsIDPattern string) []string
 	// WithMaxTagsLimit spawn a goroutine to receives limitation from this channel.
 	// The producer shall send the config periodically.
-	// key: measurement-name, value: max-limit
+	// key: metric-name, value: max-limit
 	WithMaxTagsLimit(<-chan map[string]uint32)
 	// Write writes metrics to the memory-database,
 	// return error when exceed max count of tagsIdentifier
-	Write(point models.Point, segmentTime int64, slotTime int32) error
+	Write(point models.Point) error
 	// GetVersion returns the version of memory-database,
 	// which is actually the uptime in millisecond.
 	GetVersion() int64
 }
 
-// mStoresBucket is a simple rwMutex locked map of MeasurementStore.
+// mStoresBucket is a simple rwMutex locked map of metricStore.
 type mStoresBucket struct {
 	rwLock sync.RWMutex
-	m      map[string]*measurementStore
+	m      map[string]*metricStore
 }
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
+	timeWindow   int
+	interval     int64
+	intervalType interval.Type
+	intervalCalc interval.Calculator
+
+	blockStore *blockStore
+
 	ctx         context.Context
 	once4Syncer sync.Once                              // once for tags-limitation syncer
-	mStoresList [shardingCountOfMStores]*mStoresBucket // measurement-name -> *MeasurementStore
+	mStoresList [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
 	mu4Tree     sync.RWMutex                           // rwMutex of radix.Tree
 	tree        *radix.Tree                            // radix tree for prefix string searching
 	version     int64                                  // start-time in seconds
 }
 
 // NewMemoryDatabase returns a new memoryDatabase.
-func NewMemoryDatabase(ctx context.Context) MemoryDatabase {
-	return newMemoryDatabase(ctx)
+func NewMemoryDatabase(ctx context.Context, timeWindow int,
+	interval int64, intervalType interval.Type) (MemoryDatabase, error) {
+	return newMemoryDatabase(ctx, timeWindow, interval, intervalType)
 }
 
 // newMemoryDatabase is the new method.
-func newMemoryDatabase(ctx context.Context) *memoryDatabase {
+func newMemoryDatabase(ctx context.Context, timeWindow int,
+	intervalValue int64, intervalType interval.Type) (*memoryDatabase, error) {
+	timeCalc, err := interval.GetCalculator(intervalType)
+	if err != nil {
+		return nil, err
+	}
 	md := memoryDatabase{
-		ctx:     ctx,
-		tree:    radix.New(),
-		version: time.Now().Unix()}
+		timeWindow:   timeWindow,
+		interval:     intervalValue,
+		intervalType: intervalType,
+		intervalCalc: timeCalc,
+		blockStore:   newBlockStore(timeWindow),
+		ctx:          ctx,
+		tree:         radix.New(),
+		version:      timeutil.Now()}
 	for i := range md.mStoresList {
 		md.mStoresList[i] = &mStoresBucket{
-			m: make(map[string]*measurementStore)}
+			m: make(map[string]*metricStore)}
 	}
 	go md.evictorRunner(ctx)
-	return &md
+	return &md, nil
 }
 
-// getBucket returns the mStoresBucket by measurement-name.
-func (md *memoryDatabase) getBucket(measurement string) *mStoresBucket {
-	return md.mStoresList[shardingCountMask&hashers.Fnv32a(measurement)]
+// getBucket returns the mStoresBucket by metric-name.
+func (md *memoryDatabase) getBucket(metric string) *mStoresBucket {
+	return md.mStoresList[shardingCountMask&hashers.Fnv32a(metric)]
 }
 
-// getMeasurementStore returns a TimeSeriesStore by measurement + tags.
-func (md *memoryDatabase) getMeasurementStore(measurement string) *measurementStore {
-	bucket := md.getBucket(measurement)
+// getMetricStore returns a TimeSeriesStore by metric + tags.
+func (md *memoryDatabase) getMetricStore(metricName string) *metricStore {
+	bucket := md.getBucket(metricName)
 
-	var mStore *measurementStore
+	var mStore *metricStore
 	bucket.rwLock.RLock()
-	mStore, ok := bucket.m[measurement]
+	mStore, ok := bucket.m[metricName]
 	bucket.rwLock.RUnlock()
 
 	if !ok {
 		bucket.rwLock.Lock()
-		mStore, ok = bucket.m[measurement]
+		mStore, ok = bucket.m[metricName]
 		if !ok {
-			mStore = newMeasurementStore(measurement)
+			mStore = newMetricStore(metricName)
 			md.mu4Tree.Lock()
-			md.tree.Insert(measurement, nil)
+			md.tree.Insert(metricName, nil)
 			md.mu4Tree.Unlock()
-			bucket.m[measurement] = mStore
+			bucket.m[metricName] = mStore
 		}
 		bucket.rwLock.Unlock()
 	}
 	return mStore
 }
 
-// PrefixSearchMeasurements returns the measurements by prefix search.
-func (md *memoryDatabase) PrefixSearchMeasurements(measurementPrefix string, maxCount uint16) []string {
-	if measurementPrefix == "" {
+// PrefixSearchMetricNames returns the metric names by prefix search.
+func (md *memoryDatabase) PrefixSearchMetricNames(prefix string, maxCount uint16) []string {
+	if prefix == "" {
 		return nil
 	}
 	md.mu4Tree.RLock()
 	defer md.mu4Tree.RUnlock()
 
-	var measurements []string
-	md.tree.WalkPrefix(measurementPrefix, func(s string, v interface{}) bool {
-		if len(measurements) >= int(maxCount) {
+	var metricNames []string
+	md.tree.WalkPrefix(prefix, func(s string, v interface{}) bool {
+		if len(metricNames) >= int(maxCount) {
 			return true
 		}
-		measurements = append(measurements, s)
+		metricNames = append(metricNames, s)
 		return false
 	})
-	return measurements
+	return metricNames
 }
 
 // RegexSearchTags returns tag-values which matches the pattern.
-func (md *memoryDatabase) RegexSearchTags(measurement string, tagsIDPattern string) []string {
-	bucket := md.getBucket(measurement)
+func (md *memoryDatabase) RegexSearchTags(metric string, tagsIDPattern string) []string {
+	bucket := md.getBucket(metric)
 
 	bucket.rwLock.RLock()
-	mStore, ok := bucket.m[measurement]
+	mStore, ok := bucket.m[metric]
 	bucket.rwLock.RUnlock()
 	if !ok {
 		return nil
@@ -152,10 +171,10 @@ func (md *memoryDatabase) WithMaxTagsLimit(limitationCh <-chan map[string]uint32
 
 // setLimitations set max-count limitation of tagID.
 func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
-	for measurementName, limit := range limitations {
-		bucket := md.getBucket(measurementName)
+	for metricName, limit := range limitations {
+		bucket := md.getBucket(metricName)
 		bucket.rwLock.RLock()
-		mStore, ok := bucket.m[measurementName]
+		mStore, ok := bucket.m[metricName]
 		bucket.rwLock.RUnlock()
 		if !ok {
 			continue
@@ -165,7 +184,7 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(point models.Point, segmentTime int64, slotTime int32) error {
+func (md *memoryDatabase) Write(point models.Point) error {
 	if point == nil {
 		return fmt.Errorf("point is nil")
 	}
@@ -173,19 +192,23 @@ func (md *memoryDatabase) Write(point models.Point, segmentTime int64, slotTime 
 		return fmt.Errorf("fields is nil")
 	}
 
-	mStore := md.getMeasurementStore(point.Name())
+	mStore := md.getMetricStore(point.Name())
 	if mStore.isFull() {
 		return models.ErrTooManyTags
 	}
+	timestamp := point.Timestamp()
+
+	// calc family start time and slot index
+	segmentTime := md.intervalCalc.CalSegmentTime(timestamp)
+	family := md.intervalCalc.CalFamily(timestamp, segmentTime)
+	familyStartTime := md.intervalCalc.CalFamilyStartTime(segmentTime, family)
+	slotIndex := md.intervalCalc.CalSlot(timestamp, familyStartTime, md.interval)
 
 	tsStore := mStore.getTimeSeries(point.TagsID())
-	var err error
 	for fieldName, field := range point.Fields() {
 		fieldStore := tsStore.getFieldStore(fieldName)
-		segmentStore := fieldStore.getSegmentStore(segmentTime)
-		if err = segmentStore.Write(slotTime, field); err != nil {
-			return err
-		}
+		// write data
+		fieldStore.write(md.blockStore, familyStartTime, slotIndex, field)
 	}
 	return nil
 }
@@ -218,10 +241,10 @@ func (md *memoryDatabase) evictorRunner(ctx context.Context) {
 }
 
 // evict evicts tsStore of mStore concurrently,
-// and delete MeasurementStore whose timeSeriesMap is empty.
+// and delete metricStore whose timeSeriesMap is empty.
 func (md *memoryDatabase) evict(theStoreMap *mStoresBucket) {
 	// get all mStores
-	var allMstore []*measurementStore
+	var allMstore []*metricStore
 	theStoreMap.rwLock.RLock()
 	for _, mStore := range theStoreMap.m {
 		allMstore = append(allMstore, mStore)
@@ -235,9 +258,9 @@ func (md *memoryDatabase) evict(theStoreMap *mStoresBucket) {
 		if mStore.isEmpty() {
 			theStoreMap.rwLock.Lock()
 			if mStore.isEmpty() {
-				delete(theStoreMap.m, mStore.measurementName)
+				delete(theStoreMap.m, mStore.name)
 				md.mu4Tree.Lock()
-				md.tree.Delete(mStore.measurementName)
+				md.tree.Delete(mStore.name)
 				md.mu4Tree.Unlock()
 			}
 			theStoreMap.rwLock.Unlock()

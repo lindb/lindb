@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 )
 
-// measurementStore holds a mapping relation of tag and TsStore.
-type measurementStore struct {
+// metricStore holds a mapping relation of tag and TsStore.
+type metricStore struct {
 	// map-key: tagsID
 	tsMap map[string]*timeSeriesStore
 	// sync.RWMutex for tsMap.
@@ -18,35 +18,35 @@ type measurementStore struct {
 	// evictor will scans the list to check which of them should be purged from the map.
 	lruList *list.List
 	// Sync.Mutex for timeSeriesList
-	mu4List         sync.Mutex
-	measurementName string
+	mu4List sync.Mutex
+	name    string
 	// maximum number of combinations of tags
 	maxTagsLimit uint32
 	// tsSeq           uint32
 }
 
-// newMeasurementStore returns a new MeasurementStore from measurementName.
-func newMeasurementStore(measurementName string) *measurementStore {
-	ms := measurementStore{
-		measurementName: measurementName,
-		tsMap:           make(map[string]*timeSeriesStore),
-		maxTagsLimit:    defaultMaxTagsLimit,
-		lruList:         list.New()}
+// newMetricStore returns a new metricStore from name.
+func newMetricStore(name string) *metricStore {
+	ms := metricStore{
+		name:         name,
+		tsMap:        make(map[string]*timeSeriesStore),
+		maxTagsLimit: defaultMaxTagsLimit,
+		lruList:      list.New()}
 	return &ms
 }
 
 // setMaxTagsLimit removes race condition.
-func (ms *measurementStore) setMaxTagsLimit(limit uint32) {
+func (ms *metricStore) setMaxTagsLimit(limit uint32) {
 	atomic.StoreUint32(&ms.maxTagsLimit, limit)
 }
 
 // getMaxTagsLimit removes race condition.
-func (ms *measurementStore) getMaxTagsLimit() uint32 {
+func (ms *metricStore) getMaxTagsLimit() uint32 {
 	return atomic.LoadUint32(&ms.maxTagsLimit)
 }
 
 // regexSearchTags search tags which matches the pattern.
-func (ms *measurementStore) regexSearchTags(tagsIDPattern string) []string {
+func (ms *metricStore) regexSearchTags(tagsIDPattern string) []string {
 	if tagsIDPattern == "" {
 		return nil
 	}
@@ -69,7 +69,7 @@ func (ms *measurementStore) regexSearchTags(tagsIDPattern string) []string {
 }
 
 // getTimeSeries returns timeSeriesStore by tagsID.
-func (ms *measurementStore) getTimeSeries(tagsID string) *timeSeriesStore {
+func (ms *metricStore) getTimeSeries(tagsID string) *timeSeriesStore {
 	ms.mu4Map.RLock()
 	tsStore, exist := ms.tsMap[tagsID]
 	ms.mu4Map.RUnlock()
@@ -96,7 +96,7 @@ func (ms *measurementStore) getTimeSeries(tagsID string) *timeSeriesStore {
 }
 
 // getTagsCount return the map's length.
-func (ms *measurementStore) getTagsCount() int {
+func (ms *metricStore) getTagsCount() int {
 	ms.mu4Map.RLock()
 	length := len(ms.tsMap)
 	ms.mu4Map.RUnlock()
@@ -104,17 +104,17 @@ func (ms *measurementStore) getTagsCount() int {
 }
 
 // isFull detects if timeSeriesMap exceeds the tagsID limitation.
-func (ms *measurementStore) isFull() bool {
+func (ms *metricStore) isFull() bool {
 	return uint32(ms.getTagsCount()) >= ms.getMaxTagsLimit()
 }
 
 // isEmpty detects if timeSeriesMap is empty or not.
-func (ms *measurementStore) isEmpty() bool {
+func (ms *metricStore) isEmpty() bool {
 	return ms.getTagsCount() == 0
 }
 
-// evict scans all measurement-stores and removes which are not in use for a while.
-func (ms *measurementStore) evict() {
+// evict scans all metric-stores and removes which are not in use for a while.
+func (ms *metricStore) evict() {
 	ms.mu4List.Lock()
 	defer ms.mu4List.Unlock()
 

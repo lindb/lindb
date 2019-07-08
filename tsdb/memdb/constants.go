@@ -3,11 +3,11 @@ package memdb
 import "sync/atomic"
 
 const (
-	// buckets count for sharding measurement-stores, 32
+	// buckets count for sharding metric-stores, 32
 	shardingCountOfMStores = 2 << 4
 	// mask for calculating sharding-index by AND
 	shardingCountMask = shardingCountOfMStores - 1
-	// use this limit of measurement-store when maxTagsLimit is not set
+	// use this limit of metric-store when maxTagsLimit is not set
 	defaultMaxTagsLimit = 10000
 )
 

@@ -14,6 +14,7 @@ type EngineOption struct {
 
 // ShardOption represents a shard storage configuration
 type ShardOption struct {
+	TimeWindow   int           `toml:"timeWindow"`   // time window of memory database block
 	Behind       int64         `toml:"behind"`       // allowed timestamp write behind
 	Ahead        int64         `toml:"ahead"`        // allowed timestamp write ahead
 	Interval     time.Duration `toml:"interval"`     // interval duration
