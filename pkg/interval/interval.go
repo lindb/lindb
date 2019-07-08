@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/timeutil"
 )
 
 // Type defines interval type
@@ -60,8 +60,12 @@ func register(intervalType Type, calc Calculator) {
 }
 
 // GetCalculator returns calculator for given interval type
-func GetCalculator(intervalType Type) Calculator {
-	return intervalTypes[intervalType]
+func GetCalculator(intervalType Type) (Calculator, error) {
+	calc, ok := intervalTypes[intervalType]
+	if !ok {
+		return nil, fmt.Errorf("cannot found interval calculator by type:%d", intervalType)
+	}
+	return calc, nil
 }
 
 // init register interval types when system init
@@ -79,88 +83,124 @@ type Calculator interface {
 	ParseSegmentTime(segmentName string) (int64, error)
 	// CalSegmentTime calculates segment base time based on given segment name
 	CalSegmentTime(timestamp int64) int64
-	// CalSegmentTime calculates family base time based on given timestamp
-	CalFamilyBaseTime(timestamp int64) int64
-	// CalSlot calculates field store slot index based on given timestamp
-	CalSlot(timestamp int64) int32
+	// CalFamily calculates family base time based on given timestamp
+	CalFamily(timestamp int64, segmentTime int64) int
+	// CalFamilyStartTime calculates famliy start time based on segment time and family
+	CalFamilyStartTime(segmentTime int64, family int) int64
+	// CalSlot calculates field store slot index based on given timestamp and base time
+	CalSlot(timestamp, baseTime, interval int64) int
 }
 
 // day implements Calculator interface for day interval type
 type day struct {
 }
 
-func (d *day) CalSlot(timestamp int64) int32 {
-	//TODO
-	return 0
+// CalSlot calculates field store slot index based on given timestamp and base time for day interval type
+func (d *day) CalSlot(timestamp, baseTime, interval int64) int {
+	return int(((timestamp - baseTime) % timeutil.OneHour) / interval)
 }
 
 // GetSegment returns segment name by given timestamp for day interval type
 func (d *day) GetSegment(timestamp int64) string {
-	return util.FormatTimestamp(timestamp, "20060102")
+	return timeutil.FormatTimestamp(timestamp, "20060102")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for day interval type
 func (d *day) ParseSegmentTime(segmentName string) (int64, error) {
-	return util.ParseTimestamp(segmentName, "20060102")
+	return timeutil.ParseTimestamp(segmentName, "20060102")
 }
 
+// CalSegmentTime calculates segment base time based on given segment name for day interval type
 func (d *day) CalSegmentTime(timestamp int64) int64 {
 	t := time.Unix(timestamp/1000, 0)
 	t2 := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
 	return t2.UnixNano() / 1000000
 }
-func (d *day) CalFamilyBaseTime(timestamp int64) int64 {
-	//TODO
-	return 0
+
+// CalFamily calculates family base time based on given timestamp for day interval type
+func (d *day) CalFamily(timestamp int64, segmentTime int64) int {
+	return int((timestamp - segmentTime) / timeutil.OneHour)
+}
+
+// CalFamilyStartTime calculates famliy start time based on segment time and family for day interval type
+func (d *day) CalFamilyStartTime(segmentTime int64, family int) int64 {
+	return segmentTime + int64(family)*timeutil.OneHour
 }
 
 // month implements Calculator interface for month interval type
 type month struct {
 }
 
-func (m *month) CalSlot(timestamp int64) int32 {
-	return 0
+// CalSlot calculates field store slot index based on given timestamp and base time for month interval type
+func (m *month) CalSlot(timestamp, baseTime, interval int64) int {
+	return int(((timestamp - baseTime) % timeutil.OneDay) / interval)
 }
 
 // GetSegment returns segment name by given timestamp for month interval type
 func (m *month) GetSegment(timestamp int64) string {
-	return util.FormatTimestamp(timestamp, "200601")
+	return timeutil.FormatTimestamp(timestamp, "200601")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for month interval type
 func (m *month) ParseSegmentTime(segmentName string) (int64, error) {
-	return util.ParseTimestamp(segmentName, "200601")
+	return timeutil.ParseTimestamp(segmentName, "200601")
 }
+
+// CalSegmentTime calculates segment base time based on given segment name for month interval type
 func (m *month) CalSegmentTime(timestamp int64) int64 {
-	return 0
+	t := time.Unix(timestamp/1000, 0)
+	t2 := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano() / 1000000
 }
-func (m *month) CalFamilyBaseTime(timestamp int64) int64 {
-	//TODO
-	return 0
+
+// CalFamily calculates family base time based on given timestamp for month interval type
+func (m *month) CalFamily(timestamp int64, segmentTime int64) int {
+	t := time.Unix(timestamp/1000, 0)
+	return t.Day()
+}
+
+// CalFamilyStartTime calculates famliy start time based on segment time and family for month interval type
+func (m *month) CalFamilyStartTime(segmentTime int64, family int) int64 {
+	t := time.Unix(segmentTime/1000, 0)
+	t2 := time.Date(t.Year(), t.Month(), family, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano() / 1000000
 }
 
 // year implements Calculator interface for year interval type
 type year struct {
 }
 
-func (y *year) CalSlot(timestamp int64) int32 {
-	//TODO
-	return 0
+// CalSlot calculates field store slot index based on given timestamp and base time for year interval type
+func (y *year) CalSlot(timestamp, baseTime, interval int64) int {
+	return int((timestamp - baseTime) / interval)
 }
 
 // GetSegment returns segment name by given timestamp for day interval type
 func (y *year) GetSegment(timestamp int64) string {
-	return util.FormatTimestamp(timestamp, "2006")
+	return timeutil.FormatTimestamp(timestamp, "2006")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for year interval type
 func (y *year) ParseSegmentTime(segmentName string) (int64, error) {
-	return util.ParseTimestamp(segmentName, "2006")
+	return timeutil.ParseTimestamp(segmentName, "2006")
 }
+
+// CalSegmentTime calculates segment base time based on given segment name for year interval type
 func (y *year) CalSegmentTime(timestamp int64) int64 {
-	return 0
+	t := time.Unix(timestamp/1000, 0)
+	t2 := time.Date(t.Year(), time.January, 1, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano() / 1000000
 }
-func (y *year) CalFamilyBaseTime(timestamp int64) int64 {
-	//TODO
-	return 0
+
+// CalFamily calculates family base time based on given timestamp for year interval type
+func (y *year) CalFamily(timestamp int64, segmentTime int64) int {
+	t := time.Unix(timestamp/1000, 0)
+	return int(t.Month())
+}
+
+// CalFamilyStartTime calculates famliy start time based on segment time and family for year interval type
+func (y *year) CalFamilyStartTime(segmentTime int64, family int) int64 {
+	t := time.Unix(segmentTime/1000, 0)
+	t2 := time.Date(t.Year(), time.Month(family), 1, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano() / 1000000
 }

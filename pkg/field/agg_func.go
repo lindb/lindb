@@ -3,26 +3,26 @@ package field
 import "fmt"
 
 func init() {
-	registerFunc("sum", &sumAgg{})
-	registerFunc("min", &minAgg{})
-	registerFunc("max", &maxAgg{})
+	registerFunc(Sum, &sumAgg{})
+	registerFunc(Min, &minAgg{})
+	registerFunc(Max, &maxAgg{})
 }
 
 // FuncType represents field's aggregator function type
 type FuncType string
 
-var aggFuncMap = make(map[FuncType]AggFunc)
+var aggFuncMap = make(map[AggType]AggFunc)
 
 // registerFunc register aggregator function for given func type, if have duplicate func type, panic
-func registerFunc(funcType FuncType, aggFunc AggFunc) {
+func registerFunc(funcType AggType, aggFunc AggFunc) {
 	if _, ok := aggFuncMap[funcType]; ok {
-		panic(fmt.Sprintf("agg func type already registered: %s", funcType))
+		panic(fmt.Sprintf("agg func type already registered: %d", funcType))
 	}
 	aggFuncMap[funcType] = aggFunc
 }
 
 //GetAggFunc returns aggregator function by given func type
-func GetAggFunc(funcType FuncType) AggFunc {
+func GetAggFunc(funcType AggType) AggFunc {
 	return aggFuncMap[funcType]
 }
 

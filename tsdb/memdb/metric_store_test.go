@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_newMeasurementStore(t *testing.T) {
-	mStore := newMeasurementStore("cpu.load")
+func Test_newMetricStore(t *testing.T) {
+	mStore := newMetricStore("cpu.load")
 	assert.NotNil(t, mStore)
 	assert.NotNil(t, mStore.tsMap)
 	assert.NotZero(t, mStore.maxTagsLimit)
 }
 
-func Test_measurementStore_isEmpty_isFull(t *testing.T) {
-	mStore := newMeasurementStore("cpu.load")
+func Test_metricStore_isEmpty_isFull(t *testing.T) {
+	mStore := newMetricStore("cpu.load")
 	assert.True(t, mStore.isEmpty())
 	assert.False(t, mStore.isFull())
 
@@ -34,8 +34,8 @@ func Test_measurementStore_isEmpty_isFull(t *testing.T) {
 	assert.False(t, mStore.isEmpty())
 }
 
-func Test_measurementStore_regexSearchTags(t *testing.T) {
-	mStore := newMeasurementStore("cpu.load")
+func Test_metricStore_regexSearchTags(t *testing.T) {
+	mStore := newMetricStore("cpu.load")
 
 	// invalid pattern
 	assert.Nil(t, mStore.regexSearchTags(""))
@@ -56,16 +56,16 @@ func Test_measurementStore_regexSearchTags(t *testing.T) {
 	assert.Contains(t, matched[10], "alpha-29")
 }
 
-func Test_measurementStore_getTimeSeries(t *testing.T) {
-	mStore := newMeasurementStore("cpu.load")
+func Test_metricStore_getTimeSeries(t *testing.T) {
+	mStore := newMetricStore("cpu.load")
 
 	assert.NotNil(t, mStore.getTimeSeries("host=alpha-1"))
 	assert.Equal(t, mStore.getTimeSeries("host=alpha-2"), mStore.getTimeSeries("host=alpha-2"))
 	assert.Equal(t, mStore.getTagsCount(), 2)
 }
 
-func Test_measurementStore_evict(t *testing.T) {
-	mStore := newMeasurementStore("cpu.load")
+func Test_metricStore_evict(t *testing.T) {
+	mStore := newMetricStore("cpu.load")
 	mStore.evict()
 	assert.True(t, mStore.isEmpty())
 	// has not been purged
