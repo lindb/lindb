@@ -5,68 +5,55 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/models"
-
 	"github.com/eleme/lindb/pkg/state"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/coreos/pkg/capnslog"
-	"github.com/stretchr/testify/assert"
+	"gopkg.in/check.v1"
 )
 
 func init() {
 	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 }
 
-func TestElect(t *testing.T) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
+type testElectionSuite struct {
+	mock.RepoTestSuite
+}
 
-	_ = state.New("etcd", etcd.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
+var _ = check.Suite(&testElectionSuite{})
+
+func TestElection(t *testing.T) {
+	check.TestingT(t)
+}
+
+func (ts *testElectionSuite) TestElect(c *check.C) {
+	repo, _ := state.NewRepo(state.Config{
+		Endpoints: ts.Cluster.Endpoints,
 	})
 	node := models.Node{IP: "127.0.0.1", Port: 2080}
-	election := NewElection(node, "test", 1)
+	election := NewElection(repo, node, "test", 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	// first node election register must be success
 	success, err := election.Elect(ctx)
 	if err != nil {
-		t.Errorf("Elect error :%s", err.Error())
+		c.Fatal(err)
 	}
-	assert.True(t, success)
+	c.Assert(success, check.Equals, true)
 	node2 := models.Node{IP: "127.0.0.2", Port: 2080}
-	// second node election should be false
 
-	election2 := NewElection(node2, "test", 1)
+	// second node election should be false
+	election2 := NewElection(repo, node2, "test", 1)
 	ctx2, cancel2 := context.WithCancel(context.Background())
 	success2, _ := election2.Elect(ctx2)
-	assert.False(t, success2)
+	c.Assert(success2, check.Equals, false)
 	isMaster := election2.IsMaster()
-	assert.False(t, isMaster)
+	c.Assert(isMaster, check.Equals, false)
 	cancel()
 	// first node exist,the second node should be the master
 	time.Sleep(2 * time.Second)
 	isMaster2 := election2.IsMaster()
-	assert.True(t, isMaster2)
+	c.Assert(isMaster2, check.Equals, true)
+
 	defer cancel2()
-}
-
-func TestResign(t *testing.T) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-
-	_ = state.New("etcd", etcd.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
-	})
-	node := models.Node{IP: "127.0.0.1", Port: 2080}
-	election := NewElection(node, "test", 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	success, _ := election.Elect(ctx)
-	assert.True(t, success)
-	election.Resign(context.TODO())
-
-	isMaster := election.IsMaster()
-	assert.False(t, isMaster)
-	defer cancel()
 }

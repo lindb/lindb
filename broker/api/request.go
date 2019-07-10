@@ -1,4 +1,4 @@
-package rest
+package api
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-//GetJSONBodyFromRequest gets json from request body and then parses into specified struct
+// GetJSONBodyFromRequest gets json from request body and then parses into specified struct
 func GetJSONBodyFromRequest(r *http.Request, t interface{}) error {
 	decoder := json.NewDecoder(r.Body)
 	if decoder != nil {
@@ -38,14 +38,14 @@ func GetParamsFromRequest(paramsName string, r *http.Request, defaultValue strin
 			value = values[0]
 		}
 	// the parameter value need to be parsed from the url when the request method is GET
-	case http.MethodGet:
+	case http.MethodGet, http.MethodDelete:
 		values := r.URL.Query()[paramsName]
 		if len(values) > 0 {
 			value = values[0]
 		}
 	// default return error
 	default:
-		return "", fmt.Errorf("only GET and POST methods are supported")
+		return "", fmt.Errorf("only GET/POST/DELETE methods are supported")
 	}
 	if len(value) > 0 {
 		return value, nil
@@ -54,26 +54,4 @@ func GetParamsFromRequest(paramsName string, r *http.Request, defaultValue strin
 		return defaultValue, nil
 	}
 	return "", fmt.Errorf("could not find the param;[%s] values ", paramsName)
-}
-
-// okResponse responses with content and set the http status code 200
-func okResponse(w http.ResponseWriter, a interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	b, _ := json.Marshal(a)
-	_, _ = w.Write(b)
-}
-
-// NoContent responses with empty content and set the http status code 204
-func noContent(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// errorResponse responses error message and set the http status code 500
-func errorResponse(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusInternalServerError)
-	b, _ := json.Marshal(err.Error())
-	_, _ = w.Write(b)
 }

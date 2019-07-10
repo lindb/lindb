@@ -2,14 +2,10 @@ package storage
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/coordinator/discovery"
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/pkg/util"
 
 	"go.uber.org/zap"
 )
@@ -47,33 +43,33 @@ func (s *Storage) Start() error {
 	if err := s.initRepository(); err != nil {
 		return err
 	}
-	ip, err := util.GetHostIP()
-	if err != nil {
-		return err
-	}
-	nodeName := fmt.Sprintf("%s:%v", ip, s.config.StoragePort)
-	key := fmt.Sprintf("%s/storage/%s/", s.config.HeartBeatPrefix, nodeName)
-	node := models.Node{IP: ip, Port: s.config.StoragePort}
-	s.register = discovery.NewRegister(key, node, s.config.HeartBeatTTL)
-	if err := s.register.Register(s.ctx); err != nil {
-		return err
-	}
-	//TODO gets cluster config from etcd and registers to the cluster
-	s.state = Running
+	// ip, err := util.GetHostIP()
+	// if err != nil {
+	// 	return err
+	// }
+	// nodeName := fmt.Sprintf("%s:%v", ip, s.config.StoragePort)
+	// key := fmt.Sprintf("%s/storage/%s/", s.config.HeartBeatPrefix, nodeName)
+	// node := models.Node{IP: ip, Port: s.config.StoragePort}
+	// s.register = discovery.NewRegister(key, node, s.config.HeartBeatTTL)
+	// if err := s.register.Register(s.ctx); err != nil {
+	// 	return err
+	// }
+	// //TODO gets cluster config from etcd and registers to the cluster
+	// s.state = Running
 	return nil
 }
 
 // initRepository inits the repository for the storage
 func (s *Storage) initRepository() error {
-	newRepositoryConfig, err := state.NewRepositoryConfig(s.config.RepositoryConfig)
-	if err != nil {
-		s.log.Error("convent repository config failed", zap.Error(err))
-		return err
-	}
-	if err := state.New(s.config.RepositoryType, newRepositoryConfig); err != nil {
-		s.log.Error("init repository failed", zap.Error(err))
-		return err
-	}
+	// newRepositoryConfig, err := state.NewRepositoryConfig(s.config.RepositoryConfig)
+	// if err != nil {
+	// 	s.log.Error("convent repository config failed", zap.Error(err))
+	// 	return err
+	// }
+	// if err := state.New(s.config.RepositoryType, newRepositoryConfig); err != nil {
+	// 	s.log.Error("init repository failed", zap.Error(err))
+	// 	return err
+	// }
 	return nil
 }
 

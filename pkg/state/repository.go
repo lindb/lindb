@@ -2,16 +2,12 @@ package state
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
 )
 
-// global repository for state storage
-var repository Repository
-
 const (
+	// ETCD defines state store using ectd cluster
 	ETCD string = "etcd"
 )
 
@@ -19,6 +15,8 @@ const (
 type Repository interface {
 	// Get retrieves value for given key from repository
 	Get(ctx context.Context, key string) ([]byte, error)
+	// List retrieves list for given prefix from repository
+	List(ctx context.Context, prefix string) ([][]byte, error)
 	// Put puts a key-value pair into repository
 	Put(ctx context.Context, key string, val []byte) error
 	// Delete deletes value for given key from repository
@@ -34,9 +32,6 @@ type Repository interface {
 	// WatchPrefix watches on a prefix.All of the changes who has the prefix
 	// will be notified through the WatchEventChan channel.
 	WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan
-	// DeleteWithValue deletes the key with the value. It will returns nil
-	// if the value of the key in the etcd equals the incoming value
-	DeleteWithValue(ctx context.Context, key string, value []byte) error
 	// Txn returns a etcdcliv3.Txn.
 	Txn(ctx context.Context) etcdcliv3.Txn
 	// Close closes repository and release resources
@@ -53,6 +48,7 @@ const (
 	EventTypeAll
 )
 
+// EventKeyValue represents task event
 type EventKeyValue struct {
 	Key   string
 	Value []byte
@@ -73,39 +69,7 @@ type Closed struct{}
 // WatchEventChan notify event channel
 type WatchEventChan <-chan *Event
 
-// New creates global state repository
-func New(repoType string, config interface{}) error {
-	if repoType == ETCD {
-		repo, err := newEtedRepository(config)
-		if err != nil {
-			return err
-		}
-		repository = repo
-		return nil
-	}
-	return fmt.Errorf("repo type not define, type is:%s", repoType)
-}
-
-// GetRepo returns state repository
-func GetRepo() Repository {
-	return repository
-}
-
-// the custom repository config
-type RepositoryConfig struct {
-	RepositoryType string
-	URL            string
-}
-
-// convert custom config to real repository config
-func NewRepositoryConfig(config RepositoryConfig) (interface{}, error) {
-	switch config.RepositoryType {
-	case ETCD:
-		return &etcdcliv3.Config{
-			Endpoints: strings.Split(config.URL, ","),
-		}, nil
-	default:
-		return nil, fmt.Errorf("repo type not support, type is:%s", config.RepositoryType)
-	}
-
+// NewRepo create state repository based on config
+func NewRepo(config Config) (Repository, error) {
+	return newEtedRepository(config)
 }

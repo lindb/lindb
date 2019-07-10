@@ -22,13 +22,12 @@ type Discovery struct {
 
 // NewDiscovery returns a Discovery who will watch the changes of the key with
 // the given prefix
-func NewDiscovery(ctx context.Context, prefix string) (*Discovery, error) {
+func NewDiscovery(ctx context.Context, repo state.Repository, prefix string) (*Discovery, error) {
 	if len(prefix) == 0 {
 		return nil, fmt.Errorf("the key must not be null")
 	}
 	discovery := &Discovery{}
 	discovery.serverMap.Store(&sync.Map{})
-	repo := state.GetRepo()
 	watchEventChan := repo.WatchPrefix(ctx, prefix)
 	go discovery.handlerNodeChangeEvent(watchEventChan)
 	return discovery, nil
