@@ -23,7 +23,7 @@ LinDB("Lin" stands for wisdom in Shanghainese) is a open-source Time Series Data
   LinDB uses the ETCD cluster to ensure the meta-data is highly available and safely stored. 
   In the event of failure, the Multi-channel replication protocol of WAL will avoid the problem of data inconsistency:  
 
-  1). Only one person in each replication channel is responsible for the authority of the data, so the conflits will not happen;  
+  1). Only one person in each replication channel is responsible for the authority of the data, so the conflicts will not happen;  
 
   2). Data reliability is guaranteed: as long as the data that has not been copied in the old leader is not lost, it will be copied to other replication while the old leader is online again; 
 
