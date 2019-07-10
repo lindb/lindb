@@ -61,11 +61,14 @@ func BuildNewUserInfo(userName string, password string) (string, string) {
 // LoginLinDB login lindb
 // user info query from config file
 func LoginLinDB(w http.ResponseWriter, r *http.Request) {
+	if r.Body == nil {
+		writeErrorResponse(w, apierrors.APIErrInvalidAccessKeyID, r.URL)
+		return
+	}
 	var user UserInfo
 	er := json.NewDecoder(r.Body).Decode(&user)
 	if er != nil {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = fmt.Fprint(w, "Error in request")
+		writeErrorResponse(w, apierrors.APIErrInvalidAccessKeyID, r.URL)
 		return
 	}
 	if len(user.UserName) == 0 {
