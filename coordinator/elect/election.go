@@ -23,13 +23,13 @@ type Election struct {
 }
 
 // NewElection returns a new election on a given key,value and heartbeat ttl
-func NewElection(node models.Node, key string, ttl int64) *Election {
+func NewElection(repo state.Repository, node models.Node, key string, ttl int64) *Election {
 	return &Election{
 		key:             key,
 		node:            node,
 		ttl:             ttl,
 		isCurrentMaster: atomic.NewBool(false),
-		repo:            state.GetRepo(),
+		repo:            repo,
 		log:             logger.GetLogger(),
 	}
 }

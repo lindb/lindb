@@ -1,15 +1,15 @@
-package rest
+package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
-	"github.com/eleme/lindb/config"
-
 	rice "github.com/GeertJohan/go.rice"
-
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
+
+	"github.com/eleme/lindb/pkg/logger"
+	"github.com/eleme/lindb/pkg/util"
 )
 
 type route struct {
@@ -19,28 +19,30 @@ type route struct {
 	handler http.HandlerFunc
 }
 
-type routes []route
+var routes []route
 
-var rs = routes{
-	route{"CreateOrUpdateDatabase", "POST", "/database", CreateOrUpdateDatabase},
-	route{"GetDatabase", "Get", "/database", GetDatabase},
+func AddRoute(name, method, pattern string, handler http.HandlerFunc) {
+	routes = append(routes, route{name: name, method: method, pattern: pattern, handler: handler})
 }
 
-// NewRouter returns a new router with a panic handler and a static server
-// handler.
-func NewRouter(config *config.BrokerConfig) *mux.Router {
+// NewRouter returns a new router with a panic handler and a static server handler.
+func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	for _, route := range rs {
+	for _, route := range routes {
 		router.
 			Methods(route.method).
 			Path(route.pattern).
 			Name(route.name).
 			Handler(panicHandler(route.handler))
 	}
-	// static server path
-	router.PathPrefix("/static/").
-		Handler(http.StripPrefix("/static/",
-			http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
+
+	// static server path exist, serve web console
+	webPath := "./web/build"
+	if util.Exist(webPath) {
+		router.PathPrefix("/static/").
+			Handler(http.StripPrefix("/static/",
+				http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
+	}
 	return router
 }
 
@@ -48,11 +50,12 @@ func NewRouter(config *config.BrokerConfig) *mux.Router {
 // and http code 500
 func panicHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.GetLogger().Info("TTTTT", zap.Any("fff", r))
 		var err error
 		defer func() {
 			r := recover()
+			logger.GetLogger().Info("errr", zap.Stack("dfsfds"), zap.Any("fff", r))
 			if r != nil {
-				fmt.Println("come in")
 				switch t := r.(type) {
 				case string:
 					err = errors.New(t)

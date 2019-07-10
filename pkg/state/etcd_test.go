@@ -8,10 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/pkg/util"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/coreos/pkg/capnslog"
 	"gopkg.in/check.v1"
 )
@@ -25,34 +24,19 @@ type address struct {
 }
 
 type testEtcdRepoSuite struct {
+	mock.RepoTestSuite
 }
 
 var _ = check.Suite(&testEtcdRepoSuite{})
 
-var cluster *integration.ClusterV3
-var (
-	test *testing.T
-	cfg  etcd.Config
-)
-
 func Test(t *testing.T) {
-	test = t
 	check.TestingT(t)
 }
 
-func (ts *testEtcdRepoSuite) SetUpSuite(c *check.C) {
-	cluster = integration.NewClusterV3(test, &integration.ClusterConfig{Size: 1})
-	cfg = etcd.Config{
-		Endpoints: []string{cluster.Members[0].GRPCAddr()},
-	}
-}
-
-func (ts *testEtcdRepoSuite) TearDownSuite(c *check.C) {
-	cluster.Terminate(test)
-}
-
 func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
-	var rep, err = newEtedRepository(cfg)
+	var rep, err = newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -80,16 +64,38 @@ func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 	c.Assert(err2, check.NotNil)
 
 	_ = rep.Close()
+}
 
+func (ts *testEtcdRepoSuite) TestList(c *check.C) {
+	var rep, err = newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	home1 := &address{
+		Home: "home1",
+	}
+
+	d, _ := json.Marshal(home1)
+	rep.Put(context.TODO(), "/test/key1", d)
+	rep.Put(context.TODO(), "/test/key2", d)
+	rep.Put(context.TODO(), "/test/key3", []byte{})
+	list, _ := rep.List(context.TODO(), "/test")
+
+	c.Assert(len(list), check.Equals, 2)
 }
 
 func (ts *testEtcdRepoSuite) TestNew(c *check.C) {
-	_, err := newEtedRepository("error type")
+	_, err := newEtedRepository(Config{})
 	c.Assert(err, check.NotNil)
 }
 
 func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
-	b, err := newEtedRepository(cfg)
+	b, err := newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -120,7 +126,9 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
-	b, _ := newEtedRepository(cfg)
+	b, _ := newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// test watch no exist path
@@ -171,7 +179,9 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
-	b, _ := newEtedRepository(cfg)
+	b, _ := newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -226,7 +236,9 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
-	b, _ := newEtedRepository(cfg)
+	b, _ := newEtedRepository(Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	// the key should not exist,it must be success
 	success, ch, err := b.PutIfNotExist(ctx, "/lindb/breoker/master", []byte("test"), 1)
@@ -270,18 +282,4 @@ func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
 	c.Assert(string(bytes3), check.Equals, "test3")
 
 	cancel3()
-}
-func (ts *testEtcdRepoSuite) TestDeleteWithTheValue(c *check.C) {
-	b, _ := newEtedRepository(cfg)
-	_ = b.Put(context.TODO(), "test", []byte("value1"))
-	err := b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
-	if err != nil {
-		c.Fatal("the operation should be success")
-	}
-
-	_ = b.Put(context.TODO(), "test", []byte("value2"))
-	err = b.DeleteWithValue(context.TODO(), "test", []byte("value1"))
-	if err != ErrTxnFailed {
-		c.Fatal("the operation should not have error")
-	}
 }

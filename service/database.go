@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 )
 
@@ -13,10 +13,10 @@ const databaseConfigNode = "/lindb/database/config"
 
 // DatabaseService defines database service interface
 type DatabaseService interface {
-	// Create creates or update database based on config
-	Create(database option.Database) error
-	// Get gets database config by databaseName
-	Get(databaseName string) (option.Database, error)
+	// Save saves database config
+	Save(database models.Database) error
+	// Get gets database config by name
+	Get(name string) (models.Database, error)
 }
 
 // databaseService implements DatabaseService interface
@@ -24,29 +24,38 @@ type databaseService struct {
 	repo state.Repository
 }
 
-// New creates the global database service
-func New() DatabaseService {
+// NewDatabaseService creates database service
+func NewDatabaseService(repo state.Repository) DatabaseService {
 	return &databaseService{
-		repo: state.GetRepo(),
+		repo: repo,
 	}
 }
 
-// Create creates database, saving config into state's repo
-func (db *databaseService) Create(database option.Database) error {
+// Save saves database config into state's repo
+func (db *databaseService) Save(database models.Database) error {
+	if len(database.Name) == 0 {
+		return fmt.Errorf("name cannot be empty")
+	}
+	if database.NumOfShard <= 0 {
+		return fmt.Errorf("num. of shard must be > 0")
+	}
+	if database.ReplicaFactor <= 0 {
+		return fmt.Errorf("replica factor must be > 0")
+	}
 	data, err := json.Marshal(database)
 	if err != nil {
 		return fmt.Errorf("marshal database config error:%s", err)
 	}
-	return db.repo.Put(context.TODO(), getDataBasePath(database.Name), data)
+	return db.repo.Put(context.TODO(), getDatabasePath(database.Name), data)
 }
 
 // Get returns the database config in the state's repo
-func (db *databaseService) Get(databaseName string) (option.Database, error) {
-	database := option.Database{}
-	if databaseName == "" {
+func (db *databaseService) Get(name string) (models.Database, error) {
+	database := models.Database{}
+	if name == "" {
 		return database, fmt.Errorf("database name must not be null")
 	}
-	configBytes, err := db.repo.Get(context.TODO(), getDataBasePath(databaseName))
+	configBytes, err := db.repo.Get(context.TODO(), getDatabasePath(name))
 	if err != nil {
 		return database, err
 	}
@@ -57,7 +66,7 @@ func (db *databaseService) Get(databaseName string) (option.Database, error) {
 	return database, nil
 }
 
-// getDataBasePath gets the path where the database config is stored
-func getDataBasePath(databaseName string) string {
+// getDatabasePath gets the path where the database config is stored
+func getDatabasePath(databaseName string) string {
 	return databaseConfigNode + "/" + databaseName
 }

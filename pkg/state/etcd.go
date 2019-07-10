@@ -4,26 +4,33 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
+
+	"github.com/eleme/lindb/pkg/logger"
 )
 
 // etcdRepository is repository based on etc storage
 type etcdRepository struct {
-	client *etcdcliv3.Client
+	namespace string
+	client    *etcdcliv3.Client
 }
 
 // newEtedRepository creates a new repository based on etcd storage
-func newEtedRepository(config interface{}) (Repository, error) {
-	v, ok := config.(etcdcliv3.Config)
-	if !ok {
-		return nil, fmt.Errorf("config type is not etc.confit")
+func newEtedRepository(config Config) (Repository, error) {
+	cfg := etcdcliv3.Config{
+		Endpoints: config.Endpoints,
+		// DialTimeout: config.DialTimeout * time.Second,
 	}
-	cli, err := etcdcliv3.New(v)
+	cli, err := etcdcliv3.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
+	logger.GetLogger().Info("new etcd client successfully", zap.Any("endpoints", config.Endpoints))
 	return &etcdRepository{
-		client: cli,
+		namespace: config.Namespace,
+		client:    cli,
 	}, nil
 }
 
@@ -34,6 +41,24 @@ func (r *etcdRepository) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, err
 	}
 	return r.getValue(key, resp)
+}
+
+// List retrieves list for given prefix from etcd
+func (r *etcdRepository) List(ctx context.Context, prefix string) ([][]byte, error) {
+	resp, err := r.client.Get(ctx, prefix, etcdcliv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+	var result [][]byte
+
+	if len(resp.Kvs) > 0 {
+		for _, kv := range resp.Kvs {
+			if len(kv.Value) > 0 {
+				result = append(result, kv.Value)
+			}
+		}
+	}
+	return result, nil
 }
 
 // Put puts a key-value pair into etcd
@@ -133,14 +158,6 @@ func (r *etcdRepository) Watch(ctx context.Context, key string) WatchEventChan {
 func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan {
 	watcher := newWatcher(ctx, r, prefixKey, etcdcliv3.WithPrefix())
 	return watcher.EventC
-}
-
-// DeleteWithValue deletes the key with the value.it will returns success
-// if the value of the key in the etcd equals the incoming value
-func (r *etcdRepository) DeleteWithValue(ctx context.Context, key string, value []byte) error {
-	cmp := etcdcliv3.Compare(etcdcliv3.Value(key), "=", string(value))
-	resp, err := r.client.Txn(ctx).If(cmp).Then(etcdcliv3.OpDelete(key)).Commit()
-	return TxnErr(resp, err)
 }
 
 // Txn returns a etcdcliv3.Txn.

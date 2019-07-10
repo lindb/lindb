@@ -5,14 +5,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/models"
 )
 
 func TestShardAssign(t *testing.T) {
 	storageNodeIDs := []int{0, 1, 2, 3, 4}
 
 	_, err1 := ShardAssignment(storageNodeIDs,
-		option.Database{
+		models.Database{
 			Name:          "test",
 			NumOfShard:    0,
 			ReplicaFactor: 3,
@@ -20,7 +20,7 @@ func TestShardAssign(t *testing.T) {
 	assert.NotNil(t, err1)
 
 	_, err2 := ShardAssignment(storageNodeIDs,
-		option.Database{
+		models.Database{
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 6,
@@ -28,13 +28,13 @@ func TestShardAssign(t *testing.T) {
 	assert.NotNil(t, err2)
 
 	shardAssignment, _ := ShardAssignment(storageNodeIDs,
-		option.Database{
+		models.Database{
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 3,
 		})
 
-	shardAssignment2 := option.NewShardAssignment()
+	shardAssignment2 := models.NewShardAssignment()
 	shardAssignment2.AddReplica(0, 0)
 	shardAssignment2.AddReplica(0, 1)
 	shardAssignment2.AddReplica(0, 2)

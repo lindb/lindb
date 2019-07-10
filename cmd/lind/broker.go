@@ -2,25 +2,16 @@ package lind
 
 import (
 	"fmt"
-	"net/http"
 	_ "net/http/pprof" // for profiling
-	"os"
 
-	"github.com/eleme/lindb/broker/rest"
-	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/broker"
 
-	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 )
 
 var (
 	brokerCfgPath = ""
 	brokerDebug   = false
-)
-
-const (
-	brokerCfgName        = "broker.toml"
-	defaultBrokerCfgFile = cfgFilePath + "/" + brokerCfgName
 )
 
 // newBrokerCmd returns a new broker-cmd
@@ -31,7 +22,7 @@ func newBrokerCmd() *cobra.Command {
 		Short:   "The compute layer of LinDB",
 	}
 	runBrokerCmd.PersistentFlags().StringVar(&brokerCfgPath, "config", "",
-		fmt.Sprintf("broker config file path, default is %s", defaultBrokerCfgFile))
+		fmt.Sprintf("broker config file path, default is %s", broker.DefaultBrokerCfgFile))
 	runBrokerCmd.PersistentFlags().BoolVar(&brokerDebug, "debug", false,
 		"profiling Go programs with pprof")
 	brokerCmd.AddCommand(
@@ -59,28 +50,20 @@ var initializeBrokerConfigCmd = &cobra.Command{
 // serveBroker runs the broker
 func serveBroker(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
-	go func() {
-		<-ctx.Done()
-		os.Exit(0)
-	}()
 
-	if brokerCfgPath == "" {
-		brokerCfgPath = defaultBrokerCfgFile
+	// start broker server
+	broker := broker.NewBrokerRuntime(brokerCfgPath)
+	if err := broker.Run(); err != nil {
+		return fmt.Errorf("run broker error:%s", err)
 	}
-	if _, err := os.Stat(brokerCfgPath); err != nil {
-		return fmt.Errorf("config file doesn't exist, see how to initialize the config by `lind broker -h`")
-	}
-	fmt.Printf("load config file: %v successfully\n", brokerCfgPath)
 
-	brokerConfig := config.BrokerConfig{}
-	if _, err := toml.DecodeFile(brokerCfgPath, &brokerConfig); err != nil {
-		return err
-	}
-	fmt.Printf("HTTP server listening on: %d\n", brokerConfig.HTTP.Port)
+	// waiting system exit signal
+	<-ctx.Done()
 
-	router := rest.NewRouter(&brokerConfig)
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", brokerConfig.HTTP.Port), router); err != nil {
-		return err
+	// stop broker server
+	if err := broker.Stop(); err != nil {
+		return fmt.Errorf("stop broker error:%s", err)
 	}
+
 	return nil
 }
