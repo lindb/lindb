@@ -104,6 +104,7 @@ github.com/damnever/goctl/zerocopy
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
+github.com/dgrijalva/jwt-go/request
 # github.com/ghodss/yaml v1.0.0
 github.com/ghodss/yaml
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
@@ -201,6 +202,8 @@ github.com/stretchr/testify/require
 github.com/tinylib/msgp/msgp
 # github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5
 github.com/tmc/grpc-websocket-proxy/wsproxy
+# github.com/urfave/negroni v1.0.0
+github.com/urfave/negroni
 # github.com/willf/bitset v1.1.10
 github.com/willf/bitset
 # github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2

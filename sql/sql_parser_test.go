@@ -1,8 +1,6 @@
 package sql
 
 import (
-	"fmt"
-
 	"github.com/eleme/lindb/pkg/proto"
 
 	"github.com/stretchr/testify/assert"
@@ -26,5 +24,4 @@ func Test_Sql_Parser(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 4, len(query.Condition.TagFilters))
 	assert.Equal(t, 2, len(query.Condition.Condition))
-	fmt.Println(query)
 }

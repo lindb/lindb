@@ -2,11 +2,16 @@ package config
 
 // BrokerConfig represents a broker configuration
 type BrokerConfig struct {
-	HTTP HTTP `toml:"HTTP"`
+	HTTP   HTTP   `toml:"HTTP"`
+	SERVER SERVER `toml:"SERVER"`
 }
 
 // HTTP represents an HTTP level configuration of broker.
 type HTTP struct {
 	Port   uint16 `toml:"port"`
 	Static string `toml:"static"`
+}
+
+type SERVER struct {
+	Port uint16 `toml:"port"`
 }
