@@ -1,4 +1,4 @@
-package option
+package models
 
 // Database defines database config
 type Database struct {

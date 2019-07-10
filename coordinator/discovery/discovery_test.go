@@ -6,11 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/coreos/pkg/capnslog"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,15 +19,15 @@ func init() {
 }
 
 func TestNodeList(t *testing.T) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	clus := mock.StartEtcdCluster(t)
 	defer clus.Terminate(t)
-
-	_ = state.New("etcd", etcd.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
+	repo, _ := state.NewRepo(state.Config{
+		Endpoints: clus.Endpoints,
 	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	newDiscovery, err := NewDiscovery(ctx, "/test/")
+	newDiscovery, err := NewDiscovery(ctx, repo, "/test/")
 
 	if err != nil {
 		t.Errorf("Discovery error :%s", err.Error())
@@ -40,7 +39,6 @@ func TestNodeList(t *testing.T) {
 	nodeList := newDiscovery.NodeList()
 	assert.Equal(t, 0, len(nodeList))
 
-	repo := state.GetRepo()
 	node := models.Node{IP: "127.0.0.1", Port: 2080}
 	bytes, _ := json.Marshal(node)
 	_ = repo.Put(context.TODO(), "/test/key1", bytes)

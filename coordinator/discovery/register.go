@@ -21,8 +21,8 @@ type Register struct {
 }
 
 // NewRegister returns a new register.the key must began with the watch prefix key
-func NewRegister(key string, node models.Node, ttl int64) *Register {
-	return &Register{key: key, node: node, ttl: ttl, repo: state.GetRepo(), log: logger.GetLogger()}
+func NewRegister(repo state.Repository, key string, node models.Node, ttl int64) *Register {
+	return &Register{key: key, node: node, ttl: ttl, repo: repo, log: logger.GetLogger()}
 }
 
 // Register registers the node info with prefix and key in the RegisterInfo

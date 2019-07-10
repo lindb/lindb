@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/models"
 )
 
 // Shard assigment reference kafka partition assigment
@@ -27,7 +27,7 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []int, database option.Database) (*option.ShardAssignment, error) {
+func ShardAssignment(storageNodeIDs []int, database models.Database) (*models.ShardAssignment, error) {
 	numOfShard := database.NumOfShard
 	replicaFactor := database.ReplicaFactor
 	if numOfShard <= 0 {
@@ -42,7 +42,7 @@ func ShardAssignment(storageNodeIDs []int, database option.Database) (*option.Sh
 				database.Name)
 	}
 
-	shardAssignment := option.NewShardAssignment()
+	shardAssignment := models.NewShardAssignment()
 	assignReplicasToStorages(storageNodeIDs, numOfShard, replicaFactor, -1, -1, shardAssignment)
 
 	return shardAssignment, nil
@@ -51,7 +51,7 @@ func ShardAssignment(storageNodeIDs []int, database option.Database) (*option.Sh
 // assignReplicasToStorages assigns replica list for database's each shard, return shard assignment result
 func assignReplicasToStorages(storageNodeIDs []int,
 	numOfShard, replicaFactor, fixedStartIndex, startShardID int,
-	shardAssignment *option.ShardAssignment) {
+	shardAssignment *models.ShardAssignment) {
 	numOfNode := len(storageNodeIDs)
 
 	// init start index/shift/current shard

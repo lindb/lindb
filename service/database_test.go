@@ -3,48 +3,53 @@ package service
 import (
 	"testing"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
-	"github.com/stretchr/testify/assert"
+	"gopkg.in/check.v1"
 
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/eleme/lindb/mock"
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 )
 
-func TestCreateDatabase(t *testing.T) {
-	//TODO mock it???
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
-
-	_ = state.New("etcd", etcd.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
-	})
-
-	db := New()
-	err := db.Create(option.Database{
-		Name:          "test",
-		NumOfShard:    12,
-		ReplicaFactor: 3,
-	})
-	assert.Nil(t, err)
+type testDatabaseSRVSuite struct {
+	mock.RepoTestSuite
 }
 
-func TestDatabaseService_Get(t *testing.T) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
+func TestDatabaseSRV(t *testing.T) {
+	check.Suite(&testDatabaseSRVSuite{})
+	check.TestingT(t)
+}
 
-	_ = state.New("etcd", etcd.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
+func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
+	repo, _ := state.NewRepo(state.Config{
+		Endpoints: ts.Cluster.Endpoints,
 	})
 
-	db := New()
-	err := db.Create(option.Database{
+	db := NewDatabaseService(repo)
+	database := models.Database{
 		Name:          "test",
 		NumOfShard:    12,
 		ReplicaFactor: 3,
+	}
+	err := db.Save(database)
+	if err != nil {
+		c.Fatal(err)
+	}
+	err = db.Save(models.Database{
+		NumOfShard:    12,
+		ReplicaFactor: 3,
 	})
-	assert.Nil(t, err)
-	database, err := db.Get("test")
-	assert.Nil(t, err)
-	assert.Equal(t, "test", database.Name)
+	c.Assert(err, check.NotNil)
+	err = db.Save(models.Database{
+		Name:          "test",
+		ReplicaFactor: 3,
+	})
+	c.Assert(err, check.NotNil)
+	err = db.Save(models.Database{
+		Name:       "test",
+		NumOfShard: 12,
+	})
+	c.Assert(err, check.NotNil)
+
+	database2, _ := db.Get("test")
+	c.Assert(database, check.DeepEquals, database2)
 }

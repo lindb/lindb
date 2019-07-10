@@ -7,10 +7,10 @@ import (
 	"time"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/coreos/pkg/capnslog"
-	"github.com/stretchr/testify/require"
+	"gopkg.in/check.v1"
 
+	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/pkg/state"
 )
 
@@ -36,16 +36,27 @@ func (p *dummyProcessor) Process(ctx context.Context, task Task) error {
 }
 func (p *dummyProcessor) CallCount() int { return int(atomic.LoadInt32(&p.callcnt)) }
 
-func Test_tasks(t *testing.T) {
-	clus := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	defer clus.Terminate(t)
+type testTaskSuite struct {
+	mock.RepoTestSuite
+}
+
+var _ = check.Suite(&testTaskSuite{})
+
+func TestElection(t *testing.T) {
+	check.TestingT(t)
+}
+
+func (ts *testTaskSuite) Test_tasks(c *check.C) {
 	config := etcdcliv3.Config{
-		Endpoints: []string{clus.Members[0].GRPCAddr()},
+		Endpoints: ts.Cluster.Endpoints,
 	}
-	_ = state.New("etcd", config)
+	repo, _ := state.NewRepo(state.Config{
+		Endpoints: ts.Cluster.Endpoints,
+	})
 	cli, err := etcdcliv3.New(config)
-	require.Nil(t, err)
-	repo := state.GetRepo()
+	if err != nil {
+		c.Fatal(err)
+	}
 	ctx := context.TODO()
 	keypfx := "/let-me-through"
 
@@ -55,31 +66,42 @@ func Test_tasks(t *testing.T) {
 		{NodeID: "her", Params: dummyParams{}},
 		{NodeID: "him", Params: dummyParams{}},
 	})
-	require.Nil(t, err)
+	if err != nil {
+		c.Fatal(err)
+	}
 
 	processor := &dummyProcessor{}
 	executor1 := NewExecutor(ctx, keypfx, "her", repo)
 	executor1.Register(processor)
 	go executor1.Run()
 	time.Sleep(333 * time.Millisecond)
-	require.Equal(t, 1, processor.CallCount())
+
+	c.Assert(1, check.Equals, processor.CallCount())
+
 	executor1.Close()
 
 	executor2 := NewExecutor(ctx, keypfx, "him", repo)
 	executor2.Register(processor)
 	go executor2.Run()
 	time.Sleep(333 * time.Millisecond)
-	require.Equal(t, 2, processor.CallCount())
+	c.Assert(2, check.Equals, processor.CallCount())
 	executor2.Close()
 
 	time.Sleep(666 * time.Millisecond)
 	resp, err := cli.Get(ctx, keypfx, etcdcliv3.WithPrefix())
-	require.Nil(t, err)
-	require.Equal(t, 1, len(resp.Kvs))
+	if err != nil {
+		c.Fatal(err)
+	}
+	c.Assert(1, check.Equals, len(resp.Kvs))
+
 	var tasks groupedTasks
 	(&tasks).UnsafeUnmarshal(resp.Kvs[0].Value)
-	require.Equal(t, StateDoneOK, tasks.State)
+
+	c.Assert(StateDoneOK, check.Equals, tasks.State)
+	fail := true
 	for _, task := range tasks.Tasks {
-		require.Equal(t, StateDoneOK, task.State)
+		c.Assert(StateDoneOK, check.Equals, task.State)
+		fail = false
 	}
+	c.Assert(false, check.Equals, fail)
 }

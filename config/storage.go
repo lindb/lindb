@@ -17,7 +17,7 @@ type Engine struct {
 
 // RepositoryConfig represents the repository config
 type StorageRepositoryConfig struct {
-	state.RepositoryConfig `toml:"RepositoryConfig"`
-	HeartBeatTTL           int64  `toml:"HeartBeatTTL"`
-	HeartBeatPrefix        string `toml:"HeartBeatPrefix"`
+	state.Config    `toml:"RepositoryConfig"`
+	HeartBeatTTL    int64  `toml:"HeartBeatTTL"`
+	HeartBeatPrefix string `toml:"HeartBeatPrefix"`
 }
