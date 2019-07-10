@@ -32,15 +32,15 @@ class LoginForm extends React.Component<any, LoginState> {
                 return;
             }
             this.setState({loading: true, error: null});
-            // LoginService.login(values).then(value => {
+            // LoginService.user(values).then(value => {
             //     if (value && value.response && value.response.status == 400) {
             //         this.setState({loading: false, error: value.response.data});
             //     } else {
             //         const url = window.location.hash;
             //         let forward = "/";
-            //         const login = "#/login?from=#";
-            //         if (url && url.indexOf(login) >= 0) {
-            //             forward = url.substring(url.indexOf(login) + login.length);
+            //         const user = "#/user?from=#";
+            //         if (url && url.indexOf(user) >= 0) {
+            //             forward = url.substring(url.indexOf(user) + user.length);
             //         }
             //         window.location.hash = forward;
             //     }

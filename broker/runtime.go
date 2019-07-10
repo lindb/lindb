@@ -3,6 +3,10 @@ package broker
 import (
 	"context"
 	"fmt"
+	"regexp"
+
+	"github.com/eleme/lindb/broker/middleware"
+
 	"net/http"
 	"time"
 
@@ -32,6 +36,11 @@ type srv struct {
 type apiHandler struct {
 	storageClusterAPI *admin.StorageClusterAPI
 	databaseAPI       *admin.DatabaseAPI
+	loginAPI          *api.LoginAPI
+}
+
+type middlewareHandler struct {
+	authentication *middleware.UserAuthentication
 }
 
 // runtime represents broker runtime dependency
@@ -86,6 +95,7 @@ func (r *runtime) Run() error {
 	}
 
 	r.buildServiceDependency()
+	r.buildMiddlewareDependency()
 	r.buildAPIDependency()
 
 	// start http server
@@ -171,13 +181,30 @@ func (r *runtime) buildAPIDependency() {
 	handler := apiHandler{
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
+		loginAPI:          api.NewLoginAPI(r.config.User),
 	}
 
-	api.AddRoute("SaveStorageCluster", http.MethodPost, "/storage/cluster", handler.storageClusterAPI.Create)
-	api.AddRoute("GetStorageCluster", http.MethodGet, "/storage/cluster", handler.storageClusterAPI.GetByName)
-	api.AddRoute("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handler.storageClusterAPI.DeleteByName)
-	api.AddRoute("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handler.storageClusterAPI.List)
+	api.AddRoutes("Login", http.MethodPost, "/login", handler.loginAPI.Login)
+	api.AddRoutes("Check", http.MethodGet, "/check/1", handler.loginAPI.Check)
 
-	api.AddRoute("CreateOrUpdateDatabase", http.MethodPost, "/database", handler.databaseAPI.Save)
-	api.AddRoute("GetDatabase", http.MethodGet, "/database", handler.databaseAPI.GetByName)
+	api.AddRoutes("SaveStorageCluster", http.MethodPost, "/storage/cluster", handler.storageClusterAPI.Create)
+	api.AddRoutes("GetStorageCluster", http.MethodGet, "/storage/cluster", handler.storageClusterAPI.GetByName)
+	api.AddRoutes("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handler.storageClusterAPI.DeleteByName)
+	api.AddRoutes("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handler.storageClusterAPI.List)
+
+	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handler.databaseAPI.Save)
+	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handler.databaseAPI.GetByName)
+}
+
+// buildMiddlewareDependency builds middleware dependency
+// pattern support regexp matching
+func (r *runtime) buildMiddlewareDependency() {
+	middlewareHandler := middlewareHandler{
+		authentication: middleware.NewUserAuthentication(r.config.User),
+	}
+	validate, err := regexp.Compile("/check/*")
+	if err == nil {
+		api.AddMiddleware(middlewareHandler.authentication.ValidateMiddleware, validate)
+	}
+
 }

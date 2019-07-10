@@ -43,6 +43,7 @@ func DoRequest(t *testing.T, httpHandler *HTTPHandler) {
 	// We create a ResponseRecorder (which satisfies http.ResponseWriter) to
 	// record the response.
 	rr := httptest.NewRecorder()
+
 	handler := httpHandler.HandlerFunc
 
 	// Our handlers satisfy http.Handler, so we can call their ServeHTTP method

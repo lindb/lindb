@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 )
 
@@ -8,6 +9,7 @@ import (
 type Broker struct {
 	HTTP        HTTP         `toml:"HTTP"`
 	Coordinator state.Config `toml:"coordinator"`
+	User        models.User  `toml:"user"`
 }
 
 // HTTP represents an HTTP level configuration of broker.

@@ -3,12 +3,11 @@ package api
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
 )
 
@@ -19,23 +18,48 @@ type route struct {
 	handler http.HandlerFunc
 }
 
+type middlewareHandler struct {
+	regexp     *regexp.Regexp
+	middleware mux.MiddlewareFunc
+}
+
 var routes []route
 
-func AddRoute(name, method, pattern string, handler http.HandlerFunc) {
+var middlewareHandlers []middlewareHandler
+
+func AddMiddleware(middleware mux.MiddlewareFunc, regexp *regexp.Regexp) {
+	middlewareHandlers = append(middlewareHandlers, middlewareHandler{middleware: middleware, regexp: regexp})
+}
+
+func AddRoutes(name, method, pattern string, handler http.HandlerFunc) {
 	routes = append(routes, route{name: name, method: method, pattern: pattern, handler: handler})
 }
 
 // NewRouter returns a new router with a panic handler and a static server handler.
+// middleware Method by method
 func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range routes {
+		mds := getMiddleware(route.pattern)
+		var handler http.Handler
+		// this route.pattern set middleware
+		if len(mds) > 0 {
+			for _, md := range mds {
+				if handler != nil {
+					handler = md.Middleware(handler)
+				} else {
+					handler = md.Middleware(route.handler)
+				}
+			}
+		} else {
+			handler = route.handler
+		}
 		router.
 			Methods(route.method).
-			Path(route.pattern).
 			Name(route.name).
-			Handler(panicHandler(route.handler))
+			Handler(panicHandler(handler)).
+			Path(route.pattern)
 	}
-
 	// static server path exist, serve web console
 	webPath := "./web/build"
 	if util.Exist(webPath) {
@@ -43,18 +67,43 @@ func NewRouter() *mux.Router {
 			Handler(http.StripPrefix("/static/",
 				http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
 	}
+	//router.Use(mux.CORSMethodMiddleware(router))
+	router.HandleFunc("*", crossHandler)
 	return router
+}
+
+// getMiddleware returns suited middleware by pattern
+func getMiddleware(pattern string) []mux.MiddlewareFunc {
+	var ms []mux.MiddlewareFunc
+	for _, middlewareHandler := range middlewareHandlers {
+		if middlewareHandler.regexp.MatchString(pattern) {
+			ms = append(ms, middlewareHandler.middleware)
+		}
+	}
+	return ms
+}
+
+// crossHandler builds crossing http request handler
+func crossHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Add("Access-Control-Allow-Method", "POST, OPTIONS, GET, HEAD, PUT, PATCH, DELETE")
+
+	w.Header().Add("Access-Control-Allow-Headers",
+		"Origin, X-Requested-With, X-HTTP-Method-Override,accept-charset,accept-encoding , Content-Type, Accept, Cookie")
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == http.MethodOptions {
+		return
+	}
 }
 
 // panicHandler handles panics and returns a json response with error message
 // and http code 500
 func panicHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.GetLogger().Info("TTTTT", zap.Any("fff", r))
 		var err error
 		defer func() {
 			r := recover()
-			logger.GetLogger().Info("errr", zap.Stack("dfsfds"), zap.Any("fff", r))
 			if r != nil {
 				switch t := r.(type) {
 				case string:

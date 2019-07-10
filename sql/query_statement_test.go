@@ -1,8 +1,6 @@
 package sql
 
 import (
-	"fmt"
-
 	"github.com/eleme/lindb/pkg/proto"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +22,6 @@ func Test_QueryPlan(t *testing.T) {
 	assert.Equal(t, 1, len(query.Condition.Condition))
 	assert.Equal(t, int32(20), query.Limit)
 	assert.Equal(t, true, query.OrderBy.GetDesc())
-	fmt.Println(query)
 }
 
 func Test_QueryPlan1(t *testing.T) {
@@ -36,7 +33,6 @@ func Test_QueryPlan1(t *testing.T) {
 	assert.Equal(t, 1, len(query.GroupByExpr.GroupBy))
 	assert.Equal(t, []string{"type"}, query.GroupByExpr.GroupBy)
 	assert.Equal(t, 5, len(query.FieldExprList))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan2(t *testing.T) {
@@ -51,7 +47,6 @@ func Test_QueryPlan2(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 6, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan3(t *testing.T) {
@@ -66,7 +61,6 @@ func Test_QueryPlan3(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_OR, query.Condition.Operator)
 	assert.Equal(t, 0, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan4(t *testing.T) {
@@ -80,7 +74,6 @@ func Test_QueryPlan4(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 1, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan5(t *testing.T) {
@@ -97,7 +90,6 @@ func Test_QueryPlan5(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 4, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan6(t *testing.T) {
@@ -114,7 +106,6 @@ func Test_QueryPlan6(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 4, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan7(t *testing.T) {
@@ -131,7 +122,6 @@ func Test_QueryPlan7(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 4, len(query.Condition.TagFilters))
 	assert.Equal(t, 2, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan8(t *testing.T) {
@@ -148,7 +138,6 @@ func Test_QueryPlan8(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 4, len(query.Condition.TagFilters))
 	assert.Equal(t, 2, len(query.Condition.Condition))
-	fmt.Println(query)
 }
 
 func Test_QueryPlan9(t *testing.T) {
@@ -165,5 +154,4 @@ func Test_QueryPlan9(t *testing.T) {
 	assert.Equal(t, proto.LogicOperator_AND, query.Condition.Operator)
 	assert.Equal(t, 6, len(query.Condition.TagFilters))
 	assert.Equal(t, 1, len(query.Condition.Condition))
-	fmt.Println(query)
 }
