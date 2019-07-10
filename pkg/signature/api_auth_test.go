@@ -32,11 +32,6 @@ func Test_LoginLinDB(t *testing.T) {
 
 	LoginLinDB(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
 	var resultUser UserInfo
 	er := json.Unmarshal(rr.Body.Bytes(), &resultUser)
 	assert.Equal(t, true, er == nil)
