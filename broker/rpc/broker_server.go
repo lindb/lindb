@@ -9,8 +9,8 @@ import (
 
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/rpc"
-	"github.com/eleme/lindb/rpc/pkg/broker"
-	"github.com/eleme/lindb/rpc/pkg/common"
+	"github.com/eleme/lindb/rpc/proto/broker"
+	"github.com/eleme/lindb/rpc/proto/common"
 )
 
 type BrokerServer interface {

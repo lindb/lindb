@@ -133,6 +133,10 @@ func (c *Controller) run() {
 		case <-c.ctx.Done():
 			return
 		case evt := <-evtc:
+			if evt == nil {
+				log.Warn("task event channel closed")
+				return
+			}
 			if evt.Err == nil {
 				switch evt.Type {
 				case state.EventTypeAll:

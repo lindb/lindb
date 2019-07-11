@@ -15,37 +15,15 @@ import (
 var testPath = "test_data"
 var validOption = option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day}
 
-func TestNew(t *testing.T) {
-	defer util.RemoveDir(testPath)
-	_, err := GetStorageService()
-
-	assert.NotNil(t, err)
-
-	EngineConfig = &config.Engine{
-		Path: testPath,
-	}
-	service, _ := GetStorageService()
-
-	assert.NotNil(t, service)
-}
-
 func TestCreateShards(t *testing.T) {
 	defer util.RemoveDir(testPath)
 
-	EngineConfig = &config.Engine{
+	cfg := config.Engine{
 		Path: testPath,
 	}
-	service, _ := GetStorageService()
+	service := NewStorageService(cfg)
 	err := service.CreateShards("test_db", option.ShardOption{})
 	assert.NotNil(t, err)
-
-	EngineConfig = nil
-	err = service.CreateShards("test_db", option.ShardOption{}, 1, 2, 3)
-	assert.NotNil(t, err)
-
-	EngineConfig = &config.Engine{
-		Path: testPath,
-	}
 
 	err = service.CreateShards("test_db", validOption, 1, 2, 3)
 	assert.Nil(t, err)

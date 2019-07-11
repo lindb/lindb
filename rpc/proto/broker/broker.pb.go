@@ -6,7 +6,7 @@ package broker
 import (
 	context "context"
 	fmt "fmt"
-	common "github.com/eleme/lindb/rpc/pkg/common"
+	common "github.com/eleme/lindb/rpc/proto/common"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	math "math"

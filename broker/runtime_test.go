@@ -2,6 +2,7 @@ package broker
 
 import (
 	"testing"
+	"time"
 
 	"gopkg.in/check.v1"
 
@@ -19,7 +20,7 @@ type testBrokerRuntimeSuite struct {
 	mock.RepoTestSuite
 }
 
-func TestDatabaseAPI(t *testing.T) {
+func TestBrokerRuntime(t *testing.T) {
 	check.Suite(&testBrokerRuntimeSuite{})
 	test = t
 	check.TestingT(t)
@@ -51,6 +52,9 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 	if err != nil {
 		c.Fatal(err)
 	}
+	// wait run finish
+	time.Sleep(500 * time.Millisecond)
+
 	c.Assert(server.Running, check.Equals, broker.State())
 
 	broker.Stop()
