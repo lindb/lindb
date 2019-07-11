@@ -28,5 +28,6 @@ func ParseTimestamp(timestampStr, layout string) (int64, error) {
 // since January 1, 1970 UTC. The result does not depend on the
 // location associated with t.
 func Now() int64 {
-	return time.Now().Unix() * 1000
+	now := time.Now().UnixNano()
+	return now - now%1000000
 }

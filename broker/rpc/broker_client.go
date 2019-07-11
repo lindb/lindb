@@ -6,8 +6,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/eleme/lindb/rpc/pkg/broker"
-	"github.com/eleme/lindb/rpc/pkg/common"
+	"github.com/eleme/lindb/rpc/proto/broker"
+	"github.com/eleme/lindb/rpc/proto/common"
 )
 
 type BrokerClient interface {

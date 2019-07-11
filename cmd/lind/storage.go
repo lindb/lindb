@@ -3,22 +3,10 @@ package lind
 import (
 	"fmt"
 	_ "net/http/pprof" // for profiling
-	"os"
 
-	"github.com/eleme/lindb/config"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/query"
 	"github.com/eleme/lindb/storage"
-	"github.com/eleme/lindb/tsdb"
 
-	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-)
-
-const (
-	storageCfgName        = "storage.toml"
-	defaultStorageCfgFile = cfgFilePath + "/" + storageCfgName
 )
 
 var (
@@ -34,7 +22,7 @@ func newStorageCmd() *cobra.Command {
 		Short:   "The storage layer of LinDB",
 	}
 	runStorageCmd.PersistentFlags().StringVar(&storageCfgPath, "config", "",
-		fmt.Sprintf("storage config file path, default is %s", defaultStorageCfgFile))
+		fmt.Sprintf("storage config file path, default is %s", storage.DefaultStorageCfgFile))
 	runStorageCmd.PersistentFlags().BoolVar(&storageDebug, "debug", false,
 		"profiling Go programs with pprof")
 
@@ -61,38 +49,22 @@ var initializeStorageConfigCmd = &cobra.Command{
 }
 
 func serveStorage(cmd *cobra.Command, args []string) error {
-	log := logger.GetLogger()
 	ctx := newCtxWithSignals()
 
-	if storageCfgPath == "" {
-		storageCfgPath = defaultStorageCfgFile
-	}
-	if _, err := os.Stat(storageCfgPath); err != nil {
-		return fmt.Errorf("config file doesn't exist, see how to initialize the config by `lind storage -h`")
-	}
-	fmt.Printf("load config file: %v successfully\n", storageCfgPath)
-
-	storageConfig := config.StorageConfig{}
-	if _, err := toml.DecodeFile(storageCfgPath, &storageConfig); err != nil {
-		return err
-	}
-	// start the repository server
-	storageServer := storage.New(ctx, &storageConfig)
-	if err := storageServer.Start(); err != nil {
-		log.Error("storage start failed", zap.Error(err))
-		return err
+	// start storage server
+	storage := storage.NewStorageRuntime(storageCfgPath)
+	if err := storage.Run(); err != nil {
+		return fmt.Errorf("run storage server error:%s", err)
 	}
 
-	// create a new engine
-	engine, err := tsdb.NewEngine(storageConfig.Name, storageConfig.Path)
-	if err != nil {
-		return err
-	}
-	// todo: fix this
-	_ = query.NewTSDBExecutor(engine, nil, nil)
-
+	// waiting system exit signal
 	<-ctx.Done()
-	return engine.Close()
+
+	// stop storage server
+	if err := storage.Stop(); err != nil {
+		return fmt.Errorf("stop storage server error:%s", err)
+	}
+	return nil
 }
 
 // databaseCmd provides the ability to control the database of storage

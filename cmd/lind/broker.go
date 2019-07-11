@@ -54,7 +54,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	// start broker server
 	broker := broker.NewBrokerRuntime(brokerCfgPath)
 	if err := broker.Run(); err != nil {
-		return fmt.Errorf("run broker error:%s", err)
+		return fmt.Errorf("run broker server error:%s", err)
 	}
 
 	// waiting system exit signal
@@ -62,7 +62,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 
 	// stop broker server
 	if err := broker.Stop(); err != nil {
-		return fmt.Errorf("stop broker error:%s", err)
+		return fmt.Errorf("stop broker server error:%s", err)
 	}
 
 	return nil
