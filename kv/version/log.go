@@ -76,11 +76,11 @@ func CreateNewFile(level int32, file *FileMeta) *NewFile {
 func (n *NewFile) Encode() ([]byte, error) {
 	var stream = strm.BinaryWriter()
 
-	stream.PutInt32(n.level)                // level
-	stream.PutInt64(n.file.GetFileNumber()) // file number
-	stream.PutUvarint32(n.file.GetMinKey()) // min key
-	stream.PutUvarint32(n.file.GetMaxKey()) // max key
-	stream.PutInt32(n.file.GetFileSize())   // file size
+	stream.PutVarint32(n.level)                // level
+	stream.PutVarint64(n.file.GetFileNumber()) // file number
+	stream.PutUvarint32(n.file.GetMinKey())    // min key
+	stream.PutUvarint32(n.file.GetMaxKey())    // max key
+	stream.PutVarint32(n.file.GetFileSize())   // file size
 
 	return stream.Bytes()
 }
@@ -89,9 +89,9 @@ func (n *NewFile) Encode() ([]byte, error) {
 func (n *NewFile) Decode(v []byte) error {
 	var stream = strm.BinaryReader(v)
 	// read level
-	n.level = stream.ReadInt32()
+	n.level = stream.ReadVarint32()
 	// read file meta
-	n.file = NewFileMeta(stream.ReadInt64(), stream.ReadUvarint32(), stream.ReadUvarint32(), stream.ReadInt32())
+	n.file = NewFileMeta(stream.ReadVarint64(), stream.ReadUvarint32(), stream.ReadUvarint32(), stream.ReadVarint32())
 	// if error, return it
 	return stream.Error()
 }
@@ -119,8 +119,8 @@ func NewDeleteFile(level int32, fileNumber int64) *DeleteFile {
 func (d *DeleteFile) Encode() ([]byte, error) {
 	var stream = strm.BinaryWriter()
 
-	stream.PutInt32(d.level)
-	stream.PutInt64(d.fileNumber)
+	stream.PutVarint32(d.level)
+	stream.PutVarint64(d.fileNumber)
 
 	return stream.Bytes()
 }
@@ -129,8 +129,8 @@ func (d *DeleteFile) Encode() ([]byte, error) {
 func (d *DeleteFile) Decode(v []byte) error {
 	var stream = strm.BinaryReader(v)
 
-	d.level = stream.ReadInt32()
-	d.fileNumber = stream.ReadInt64()
+	d.level = stream.ReadVarint32()
+	d.fileNumber = stream.ReadVarint64()
 
 	return stream.Error()
 }
@@ -155,14 +155,14 @@ func NewNextFileNumber(fileNumber int64) *NextFileNumber {
 // Encode writes next file number data into binary
 func (n *NextFileNumber) Encode() ([]byte, error) {
 	var stream = strm.BinaryWriter()
-	stream.PutInt64(n.fileNumber)
+	stream.PutVarint64(n.fileNumber)
 	return stream.Bytes()
 }
 
 // Decode reads next file number data from binary
 func (n *NextFileNumber) Decode(v []byte) error {
 	var stream = strm.BinaryReader(v)
-	n.fileNumber = stream.ReadInt64()
+	n.fileNumber = stream.ReadVarint64()
 	return stream.Error()
 }
 

@@ -152,13 +152,13 @@ func (w *Writer) serializeBranchNode(currentHigh int, parentNode *x) (startPos i
 				bodyWriter.PutByte(HasParent)
 				//write suffix
 				suffix := branchNode.k.([]byte)[len(currentCommonPrefix):]
-				bodyWriter.PutKey(suffix)
+				bodyWriter.PutLenBytes(suffix)
 			} else {
 				bodyWriter.PutByte(NoParent)
 				//write suffix
 				noParentKey := branchNode.lastKey
 				noParentSuffix := noParentKey[len(currentCommonPrefix):]
-				bodyWriter.PutKey(noParentSuffix)
+				bodyWriter.PutLenBytes(noParentSuffix)
 			}
 			bodyWriter.PutUvarint64(uint64(startPos))
 		}
@@ -167,7 +167,7 @@ func (w *Writer) serializeBranchNode(currentHigh int, parentNode *x) (startPos i
 	//write branch node count
 	branchWriter.PutUvarint64(uint64(branchCount))
 	//write longest common prefix
-	branchWriter.PutKey(currentCommonPrefix)
+	branchWriter.PutLenBytes(currentCommonPrefix)
 	by, err := bodyWriter.Bytes()
 	if nil != err {
 		logger.GetLogger("pkg/tree").Error("serializeBranchNode get bytes error:", logger.Error(err))
@@ -192,7 +192,7 @@ func (w *Writer) serializeLeafNode(currentHigh int, dType *d, leafCommonPrefix [
 
 			pair := dType.d[i]
 			//write suffix
-			dataWriter.PutKey(pair.k.([]byte))
+			dataWriter.PutLenBytes(pair.k.([]byte))
 			//write value
 			dataWriter.PutUvarint64(uint64(pair.v.(int)))
 		}
@@ -200,7 +200,7 @@ func (w *Writer) serializeLeafNode(currentHigh int, dType *d, leafCommonPrefix [
 	//write leaf node count
 	leafWriter.PutUvarint64(uint64(leafCount))
 	//write leaf node lcp
-	leafWriter.PutKey(leafCommonPrefix)
+	leafWriter.PutLenBytes(leafCommonPrefix)
 	by, err := dataWriter.Bytes()
 	if nil != err {
 		logger.GetLogger("pkg/tree").Error("serializeLeafNode get bytes error:", logger.Error(err))
