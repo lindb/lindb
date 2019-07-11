@@ -11,14 +11,16 @@ import (
 
 func TestSimpleSegmentStore(t *testing.T) {
 	aggFunc := field.GetAggFunc(field.Sum)
-	store := newSimpleFieldStore(int64(10), aggFunc)
+	store := newSimpleFieldStore(aggFunc)
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)
 
-	compress, err := store.bytes()
+	compress, startSlot, endSlot, err := store.bytes()
 	assert.Nil(t, compress)
 	assert.NotNil(t, err)
+	assert.Equal(t, 0, startSlot)
+	assert.Equal(t, 0, endSlot)
 
 	bs := newBlockStore(30)
 	ss.writeInt(bs, 10, int64(100))
@@ -33,8 +35,10 @@ func TestSimpleSegmentStore(t *testing.T) {
 	// compact because slot out of current time window
 	ss.writeInt(bs, 41, int64(50))
 
-	compress, err = store.bytes()
+	compress, startSlot, endSlot, err = store.bytes()
 	assert.Nil(t, err)
+	assert.Equal(t, 10, startSlot)
+	assert.Equal(t, 41, endSlot)
 
 	tsd := encoding.NewTSDDecoder(compress)
 	assert.Equal(t, 10, tsd.StartTime())
@@ -55,7 +59,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 
 func BenchmarkSimpleSegmentStore(b *testing.B) {
 	aggFunc := field.GetAggFunc(field.Sum)
-	store := newSimpleFieldStore(int64(10), aggFunc)
+	store := newSimpleFieldStore(aggFunc)
 	ss, _ := store.(*simpleFieldStore)
 
 	bs := newBlockStore(30)

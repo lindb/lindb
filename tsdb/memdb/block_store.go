@@ -9,6 +9,7 @@ import (
 	"github.com/eleme/lindb/pkg/field"
 )
 
+// the longest length of basic-variable on x64 platform
 const maxTimeWindow = 64
 
 // blockStore represents a pool of block for reuse
@@ -88,7 +89,8 @@ type block interface {
 	bytes() []byte
 }
 
-// container marks if has value in block based on index
+// container(bit array) is a mapping from 64 value to uint64 in big-endian,
+// it is a temporary data-structure for compressing data.
 type container struct {
 	container uint64
 	startTime int
@@ -96,12 +98,12 @@ type container struct {
 	compress []byte
 }
 
-// hasValue returns if has value with pos, if has value return true
+// hasValue returns whether value is absent or present at pos, if present return true
 func (c *container) hasValue(pos int) bool {
 	return c.container&(1<<uint64(maxTimeWindow-pos-1)) != 0
 }
 
-// setValue marks pos has value
+// setValue marks pos is present
 func (c *container) setValue(pos int) {
 	c.container |= 1 << uint64(maxTimeWindow-pos-1)
 }
@@ -119,7 +121,7 @@ func (c *container) getStartTime() int {
 
 // getEndTime returns end time slot
 func (c *container) getEndTime() int {
-	// get trainilng zeros for container
+	// get trailing zeros for container
 	trailing := bits.TrailingZeros64(c.container)
 	return c.startTime + (maxTimeWindow - trailing) - 1
 }
@@ -156,11 +158,11 @@ func (b *intBlock) updateValue(pos int, value int64) {
 // compact compress block data
 func (b *intBlock) compact(aggFunc field.AggFunc) error {
 	//TODO handle error
-	merge := newMerge(b, b.values, b.compress, aggFunc)
+	merger := newMerger(b, b.values, b.compress, aggFunc)
 	// do merge logic
-	merge.merge()
+	merger.merge()
 
-	buf, err := merge.tsd.Bytes()
+	buf, err := merger.tsd.Bytes()
 	if err != nil {
 		return err
 	}
@@ -203,10 +205,10 @@ func (b *floatBlock) compact(aggFunc field.AggFunc) error {
 	return nil
 }
 
-// merge is merge operation which provides compress block data.
+// merger is merge operation which provides compress block data.
 // 1) compress data not exist, just compress current block values
 // 2) compress data exist, merge compress data and block values
-type merge struct {
+type merger struct {
 	block        block
 	values       []int64
 	compressData []byte
@@ -220,9 +222,9 @@ type merge struct {
 	aggFunc field.AggFunc
 }
 
-// newMerge creates merge operation with given agg func based on block data and exist compress data
-func newMerge(block block, values []int64, compressData []byte, aggFunc field.AggFunc) *merge {
-	m := &merge{
+// newMerger creates merge operation with given agg func based on block data and exist compress data
+func newMerger(block block, values []int64, compressData []byte, aggFunc field.AggFunc) *merger {
+	m := &merger{
 		block:        block,
 		values:       values,
 		compressData: compressData,
@@ -233,7 +235,7 @@ func newMerge(block block, values []int64, compressData []byte, aggFunc field.Ag
 }
 
 // init initializes merge context, such time range, tsd decoder if has compress data
-func (m *merge) init() {
+func (m *merger) init() {
 	curStartTime := m.block.getStartTime()
 	curEndTime := m.block.getEndTime()
 	if len(m.compressData) == 0 {
@@ -260,9 +262,9 @@ func (m *merge) init() {
 }
 
 // merge does merge logic
-func (m *merge) merge() {
+func (m *merger) merge() {
 	if m.oldData == nil {
-		// compress data not eixst, just compress block data
+		// compress data not exist, just compress block data
 		m.compress()
 	} else {
 		// has old compress data, need merge block data
@@ -296,18 +298,18 @@ func (m *merge) merge() {
 }
 
 // isInRange return slot if in range, yes return true
-func (m *merge) isInRange(slot, start, end int) bool {
+func (m *merger) isInRange(slot, start, end int) bool {
 	return slot >= start && slot <= end
 }
 
 // mergeData merges current block values and compress data
-func (m *merge) mergeData(newPos, oldPos int) {
+func (m *merger) mergeData(newPos, oldPos int) {
 	b := m.block
 	hasValue := b.hasValue(newPos)
 	hasOldValue := m.oldData.HasValueWithSlot(oldPos)
 	switch {
 	case hasValue && hasOldValue:
-		// has value both in current and old, do rullup operation with agg func
+		// has value both in current and old, do rollup operation with agg func
 		val := m.aggFunc.AggregateInt(m.values[newPos], encoding.ZigZagDecode(m.oldData.Value()))
 		m.appendValue(encoding.ZigZagEncode(val))
 	case hasValue:
@@ -323,14 +325,14 @@ func (m *merge) mergeData(newPos, oldPos int) {
 }
 
 // compress compress current block values
-func (m *merge) compress() {
+func (m *merger) compress() {
 	for i := m.startTime; i <= m.endTime; i++ {
 		m.appendNewData(i - m.startTime)
 	}
 }
 
 // appendNewData appends current block value with pos
-func (m *merge) appendNewData(pos int) {
+func (m *merger) appendNewData(pos int) {
 	if m.block.hasValue(pos) {
 		m.appendValue(encoding.ZigZagEncode(m.values[pos]))
 	} else {
@@ -339,7 +341,7 @@ func (m *merge) appendNewData(pos int) {
 }
 
 // appendOldData reads compress data then appends it with new pos
-func (m *merge) appendOldData(pos int) {
+func (m *merger) appendOldData(pos int) {
 	if m.oldData.HasValueWithSlot(pos) {
 		m.appendValue(m.oldData.Value())
 	} else {
@@ -348,12 +350,12 @@ func (m *merge) appendOldData(pos int) {
 }
 
 // appendValue appends value with new pos
-func (m *merge) appendValue(val uint64) {
+func (m *merger) appendValue(val uint64) {
 	m.tsd.AppendTime(bit.One)
 	m.tsd.AppendValue(val)
 }
 
 // appendEmptyValue appends time slot only
-func (m *merge) appendEmptyValue() {
+func (m *merger) appendEmptyValue() {
 	m.tsd.AppendTime(bit.Zero)
 }

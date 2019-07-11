@@ -6,7 +6,9 @@
 
 ## What is LinDB?
 
-LinDB("Lin" stands for wisdom in Shanghainese) is a open-source Time Series Database which provides high performance, high availability and horizontal scalability.
+LinDB("Lin" stands for wisdom in Shanghainese) is a open-source Time Series Database which provides high performance, high availability and horizontal scalability. 
+
+LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes per day and 2.7PB total  raw data. 
 
 + __High performance__
 
@@ -29,12 +31,16 @@ LinDB("Lin" stands for wisdom in Shanghainese) is a open-source Time Series Data
 
 + __Horizontal scalability__
 
-  Series based sharding strategy in LinDB solves the hotspots problem, and is truly horizontally expanded available by simply adding new broker and storage nodes.
+  Tags based sharding strategy in LinDB solves the hotspots problem, and is truly horizontally expanded available by simply adding new broker and storage nodes.
+  
++ __Governance capability of metrics__
+
+  To ensure the robustness of the system, LinDB do not assume that users has understood the best practices of using metrics, therefore, LinDB provides the ability of restricting unfriendly user based on metric granularity and tags granularity.
 
 ## State of this project
 
 The current develop branch is unstable and is not recommended for production use. LinDB 0.1(what will be the first release version) is currently in the development stage. 
-Additional features will arrive during next month, we will translate the JAVA version of LinDB currently used under the production environment to Golang as soon as possible.
+Additional features will arrive during July, we will translate the JAVA version of LinDB currently used under the production environment to Golang as soon as possible.
 
 Once we implement the final feature and replace the LinDB under production environment with the Golang version, LinDB 0.1.0 will be released. At that point, we will move into the stable phase, our intention is to avoid breaking changes to the API and storage file format.
 

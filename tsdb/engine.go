@@ -12,6 +12,8 @@ import (
 const options = "OPTIONS"
 const shardPath = "shard"
 
+//go:generate mockgen -source ./engine.go -destination=./engine_mock.go -package tsdb
+
 // Engine represents a time series storage engine
 type Engine interface {
 	// Name returns tsdb engine's name, engine's name is database's name for user

@@ -11,21 +11,25 @@ const (
 	defaultReadBufferSize = 256 * 1024 // 256KB
 )
 
-// The entries are encoded as follows,
-// of which the length flag is encoded with binary.variant
-// ┌───────────────────┬───────────────────┐
-// │         Entry     │    Entry          │
-// ├─────────┬─────────┬─────────┬─────────┤
-// │ Length  │ Content │ Length  │ Content │
-// │0-4 bytes│ N bytes │0-4 bytes│ N bytes │
-// └─────────┴─────────┴─────────┴─────────┘
-//
-// mapping of len(content)(uint32) and bytes-count:
-// 0 -> 0
-// [1, 2<<6) -> 1
-// [2<<6, 2<<13) -> 2
-// [2<<13, 2<<20) -> 3
-// [2<<20, 2<<27) -> 4
+/*
+
+The entries are encoded as follows,
+of which the length flag is encoded with binary.variant
+┌───────────────────┬───────────────────┐
+│         Entry     │    Entry          │
+├─────────┬─────────┼─────────┬─────────┤
+│ Length  │ Content │ Length  │ Content │
+│ uvariant│ N bytes │ uvariant│ N bytes │
+└─────────┴─────────┴─────────┴─────────┘
+
+mapping of len(content)(uint32) and bytes-count:
+0 -> 0
+[1, 2<<6) -> 1
+[2<<6, 2<<13) -> 2
+[2<<13, 2<<20) -> 3
+[2<<20, 2<<27) -> 4
+
+*/
 
 // BufioReader read entries from a specified file by buffered I/O. Not thread-safe
 type BufioReader interface {
