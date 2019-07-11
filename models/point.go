@@ -8,12 +8,11 @@ import "github.com/eleme/lindb/pkg/field"
 type Point interface {
 	Name() string
 	Timestamp() int64
-	Tags() map[string]string
+	// Tags sorts keys in ascii ascending order, then concat each key and value.
+	// example: ezone=nj(delim)host=alpha-1.vm(delim)ip=1.1.1.1(delim)
+	Tags() string
 	Fields() map[string]Field
-
-	// sort tags by key in ascii ascending order, then concat each key and value.
-	TagsID() string
-	TsID() uint32
+	TagsMap() map[string]string
 }
 
 // Field is the numerical key-value pair of metric.

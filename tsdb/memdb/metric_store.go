@@ -1,37 +1,89 @@
 package memdb
 
 import (
-	"container/list"
-	"regexp"
-	"sort"
+	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/eleme/lindb/pkg/hashers"
+	"github.com/eleme/lindb/pkg/lockers"
+	"github.com/eleme/lindb/tsdb/index"
+	"github.com/eleme/lindb/tsdb/metrictbl"
 )
 
-// metricStore holds a mapping relation of tag and TsStore.
+// versionedTSMap holds a mapping relation of tags and TsStore.
+// a version is assigned since newed,
+type versionedTSMap struct {
+	tsMap       map[uint32]*timeSeriesStore // map-key: FNV32a(sortedTag)
+	familyTimes map[int64]struct{}          // all segments
+	version     int64                       // uptime in nanoseconds
+}
+
+// allTSStores returns a tsStore list in order of tsID.
+func (vm *versionedTSMap) allTSStores() (buf *[]*timeSeriesStore, release func()) {
+	buf = tsStoresListPool.get(len(vm.tsMap))
+	var count = 0
+	for _, tsStore := range vm.tsMap {
+		(*buf)[count] = tsStore
+		count++
+	}
+	return buf, func() {
+		tsStoresListPool.put(buf)
+	}
+}
+
+// unionFamilyTimesTo update familyTimes to the input map.
+func (vm *versionedTSMap) unionFamilyTimesTo(segments map[int64]struct{}) {
+	for familyTime := range vm.familyTimes {
+		segments[familyTime] = struct{}{}
+	}
+}
+
+// flushMetricBlockTo flushes metric-block of mStore to the writer.
+func (vm *versionedTSMap) flushMetricBlocksTo(
+	writer metrictbl.TableWriter, metricID uint32, familyTime int64, generator index.IDGenerator) error {
+
+	// this familyTime doesn't exist
+	if _, ok := vm.familyTimes[familyTime]; !ok {
+		return nil
+	}
+	all, release := vm.allTSStores()
+	defer release()
+
+	for _, tsStore := range *all {
+		tsStore.flushTSEntryTo(writer, metricID, familyTime, generator)
+	}
+	return writer.WriteMetricBlock(metricID)
+}
+
+// newVersionedTSMap returns a new versionedTSMap.
+func newVersionedTSMap() *versionedTSMap {
+	return &versionedTSMap{
+		tsMap:       make(map[uint32]*timeSeriesStore),
+		familyTimes: make(map[int64]struct{}),
+		version:     time.Now().UnixNano()}
+}
+
+// metricStore is composed of the immutable part and mutable part of tsMap.
+// evictor scans the lruList to check which of them should be purged from the mutable part.
+// flusher flushes both the immutable and mutable tsMap to disk, after flushing, the immutable part will be removed.
 type metricStore struct {
-	// map-key: tagsID
-	tsMap map[string]*timeSeriesStore
-	// sync.RWMutex for tsMap.
-	mu4Map sync.RWMutex
-	// timeSeriesList records the last accessed timestamps of TimeSeriesStore
-	// evictor will scans the list to check which of them should be purged from the map.
-	lruList *list.List
-	// Sync.Mutex for timeSeriesList
-	mu4List sync.Mutex
-	name    string
-	// maximum number of combinations of tags
-	maxTagsLimit uint32
-	// tsSeq           uint32
+	immutable    []*versionedTSMap // immutable TSMap list that has not been flushed to disk
+	sl4immutable lockers.SpinLock  // spin-lock of immutable versionedTSMap list
+	mutable      *versionedTSMap   // current mutable TSMap in use
+	mu4Mutable   sync.RWMutex      // sync.RWMutex for mutable tsMap
+	name         string            // metric name
+	maxTagsLimit uint32            // maximum number of combinations of tags
+	metricID     uint32            // default 0, unset
 }
 
 // newMetricStore returns a new metricStore from name.
 func newMetricStore(name string) *metricStore {
 	ms := metricStore{
 		name:         name,
-		tsMap:        make(map[string]*timeSeriesStore),
-		maxTagsLimit: defaultMaxTagsLimit,
-		lruList:      list.New()}
+		mutable:      newVersionedTSMap(),
+		maxTagsLimit: defaultMaxTagsLimit}
 	return &ms
 }
 
@@ -40,66 +92,64 @@ func (ms *metricStore) setMaxTagsLimit(limit uint32) {
 	atomic.StoreUint32(&ms.maxTagsLimit, limit)
 }
 
+// mustGetMetricID returns metricID, if unset, generate a new one.
+func (ms *metricStore) mustGetMetricID(generator index.IDGenerator) uint32 {
+	metricID := atomic.LoadUint32(&ms.metricID)
+	if metricID > 0 {
+		return metricID
+	}
+	atomic.CompareAndSwapUint32(&ms.metricID, 0, generator.GenMetricID(ms.name))
+	return atomic.LoadUint32(&ms.metricID)
+}
+
 // getMaxTagsLimit removes race condition.
 func (ms *metricStore) getMaxTagsLimit() uint32 {
 	return atomic.LoadUint32(&ms.maxTagsLimit)
 }
 
-// regexSearchTags search tags which matches the pattern.
-func (ms *metricStore) regexSearchTags(tagsIDPattern string) []string {
-	if tagsIDPattern == "" {
-		return nil
+// addFamilyTime marked this familyTime.
+func (ms *metricStore) addFamilyTime(familyTime int64) {
+	ms.mu4Mutable.RLock()
+	_, ok := ms.mutable.familyTimes[familyTime]
+	ms.mu4Mutable.RUnlock()
+	if ok {
+		return
 	}
-	validPattern, err := regexp.Compile(tagsIDPattern)
-	if err != nil {
-		return nil
-	}
-	var matched []string
-	ms.mu4Map.RLock()
-	for tagsID := range ms.tsMap {
-		if validPattern.MatchString(tagsID) {
-			matched = append(matched, tagsID)
-		}
-	}
-	ms.mu4Map.RUnlock()
-	sort.Slice(matched, func(i, j int) bool {
-		return matched[i] < matched[j]
-	})
-	return matched
+	ms.mu4Mutable.Lock()
+	ms.mutable.familyTimes[familyTime] = struct{}{}
+	ms.mu4Mutable.Unlock()
 }
 
-// getTimeSeries returns timeSeriesStore by tagsID.
-func (ms *metricStore) getTimeSeries(tagsID string) *timeSeriesStore {
-	ms.mu4Map.RLock()
-	tsStore, exist := ms.tsMap[tagsID]
-	ms.mu4Map.RUnlock()
+// getTSStore returns timeSeriesStore, return false when not exist.
+func (ms *metricStore) getTSStore(tagsHash uint32) (tsStore *timeSeriesStore, ok bool) {
+	ms.mu4Mutable.RLock()
+	tsStore, ok = ms.mutable.tsMap[tagsHash]
+	ms.mu4Mutable.RUnlock()
+	return
+}
 
-	if !exist {
-		ms.mu4Map.Lock()
-		tsStore, exist = ms.tsMap[tagsID]
-		if !exist {
-			tsStore = newTimeSeriesStore(tagsID)
-			ms.tsMap[tagsID] = tsStore
+// getOrCreateTSStore returns timeSeriesStore by sortedTags.
+func (ms *metricStore) getOrCreateTSStore(sortedTags string) *timeSeriesStore {
+	tagsHash := hashers.Fnv32a(sortedTags)
+
+	tsStore, ok := ms.getTSStore(tagsHash)
+	if !ok {
+		ms.mu4Mutable.Lock()
+		tsStore, ok = ms.mutable.tsMap[tagsHash]
+		if !ok {
+			tsStore = newTimeSeriesStore(sortedTags)
+			ms.mutable.tsMap[tagsHash] = tsStore
 		}
-		ms.mu4Map.Unlock()
+		ms.mu4Mutable.Unlock()
 	}
-
-	ms.mu4List.Lock()
-	if exist {
-		ms.lruList.MoveToBack(tsStore.element)
-	} else {
-		tsStore.element = ms.lruList.PushBack(tsStore)
-	}
-	ms.mu4List.Unlock()
-
 	return tsStore
 }
 
 // getTagsCount return the map's length.
 func (ms *metricStore) getTagsCount() int {
-	ms.mu4Map.RLock()
-	length := len(ms.tsMap)
-	ms.mu4Map.RUnlock()
+	ms.mu4Mutable.RLock()
+	length := len(ms.mutable.tsMap)
+	ms.mu4Mutable.RUnlock()
 	return length
 }
 
@@ -115,23 +165,105 @@ func (ms *metricStore) isEmpty() bool {
 
 // evict scans all metric-stores and removes which are not in use for a while.
 func (ms *metricStore) evict() {
-	ms.mu4List.Lock()
-	defer ms.mu4List.Unlock()
-
-	var next *list.Element
-	for e := ms.lruList.Front(); e != nil; e = next {
-		next = e.Next()
-		tsStore := e.Value.(*timeSeriesStore)
-		if tsStore.shouldBeEvicted() {
-			// remove from map
-			ms.mu4Map.Lock()
-			delete(ms.tsMap, tsStore.tagsID)
-			ms.mu4Map.Unlock()
-			// remove from list
-			ms.lruList.Remove(e)
-		} else {
-			// elements behind this are still in use.
-			break
+	var evictList []uint32
+	ms.mu4Mutable.RLock()
+	for tagsHash, tStore := range ms.mutable.tsMap {
+		if tStore.shouldBeEvicted() {
+			evictList = append(evictList, tagsHash)
 		}
 	}
+	ms.mu4Mutable.RUnlock()
+
+	ms.mu4Mutable.Lock()
+	for _, tagsHash := range evictList {
+		tsStore, ok := ms.mutable.tsMap[tagsHash]
+		if !ok {
+			continue
+		}
+		if tsStore.shouldBeEvicted() {
+			delete(ms.mutable.tsMap, tagsHash)
+		}
+	}
+	ms.mu4Mutable.Unlock()
+}
+
+// unionFamilyTimesTo updates familyTimes of mutable and immutable to the input map.
+func (ms *metricStore) unionFamilyTimesTo(families map[int64]struct{}) {
+	ms.mu4Mutable.RLock()
+	ms.mutable.unionFamilyTimesTo(families)
+	ms.mu4Mutable.RUnlock()
+
+	ms.sl4immutable.Lock()
+	for _, vm := range ms.immutable {
+		vm.unionFamilyTimesTo(families)
+	}
+	ms.sl4immutable.Unlock()
+}
+
+// assignNewVersion moves the mutable TSMap to immutable list, then creates a new mutable map.
+func (ms *metricStore) assignNewVersion() error {
+	ms.mu4Mutable.Lock()
+	if ms.mutable.version+minIntervalForResetMetricStore*int64(time.Millisecond) > time.Now().UnixNano() {
+		ms.mu4Mutable.Unlock()
+		return fmt.Errorf("reset version of metric: %s too frequently", ms.name)
+	}
+	oldMutable := ms.mutable
+	ms.mutable = newVersionedTSMap()
+	ms.mu4Mutable.Unlock()
+
+	ms.sl4immutable.Lock()
+	ms.immutable = append(ms.immutable, oldMutable)
+	ms.sl4immutable.Unlock()
+
+	return nil
+}
+
+// updateTSIDAndFieldID calls mustGet to generate tsID and fieldID.
+func (ms *metricStore) updateTSIDAndFieldID(metricID uint32, generator index.IDGenerator) {
+	ms.mu4Mutable.RLock()
+	tsStores, release := ms.mutable.allTSStores()
+	ms.mu4Mutable.RUnlock()
+	defer release()
+
+	for _, tsStore := range *tsStores {
+		tsStore.mustGetTSID(metricID, generator)
+		tsStore.generateFieldsID(metricID, generator)
+	}
+}
+
+// flushMetricBlocksTo writes metric-blocks to the writer.
+func (ms *metricStore) flushMetricBlocksTo(
+	writer metrictbl.TableWriter, familyTime int64, generator index.IDGenerator) error {
+
+	var err error
+	metricID := ms.mustGetMetricID(generator)
+
+	// pick immutable
+	ms.sl4immutable.Lock()
+	// build immutable metric-blocks
+	for _, vm := range ms.immutable {
+		if vm == nil {
+			continue
+		}
+		err = vm.flushMetricBlocksTo(writer, metricID, familyTime, generator)
+		delete(vm.familyTimes, familyTime)
+		if err != nil {
+			ms.sl4immutable.Unlock()
+			return err
+		}
+	}
+	ms.sl4immutable.Unlock()
+
+	ms.mu4Mutable.RLock()
+	err = ms.mutable.flushMetricBlocksTo(writer, metricID, familyTime, generator)
+	ms.mu4Mutable.RUnlock()
+
+	ms.mu4Mutable.Lock()
+	delete(ms.mutable.familyTimes, familyTime)
+	ms.mu4Mutable.Unlock()
+
+	if err != nil {
+		return err
+	}
+	return nil
 }

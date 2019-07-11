@@ -16,6 +16,9 @@ bin/
 *.so
 *.dylib
 
+# mock files
+*mock.go
+
 web/node_modules/
 web/build/*
 

@@ -28,9 +28,9 @@ func GetAggFunc(funcType AggType) AggFunc {
 
 // AggFunc represents field's aggregator function for int64 or float64 value
 type AggFunc interface {
-	// AggregateInt aggregates two int64 values, return aggregate result
+	// AggregateInt aggregates two int64 values into one
 	AggregateInt(a, b int64) int64
-	// AggregateInt aggregates two float64 values, return aggregate result
+	// AggregateInt aggregates two float64 values into one
 	AggregateFloat(a, b float64) float64
 }
 

@@ -5,17 +5,19 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/bufioutil"
-
 	"github.com/RoaringBitmap/roaring"
 
+	"github.com/eleme/lindb/pkg/bufioutil"
 	"github.com/eleme/lindb/pkg/encoding"
 	"github.com/eleme/lindb/pkg/mmap"
 )
 
 const (
-	// length(1) + posOfOffset(4)+posOfKeys(4)+magicNumber(8)
-	sstFileFooterSize = 1 + 4 + 4 + 8
+	sstFileFooterSize = 1 + // entry length wrote by bufioutil
+		4 + // posOfOffset(4)
+		4 + // posOfKeys(4)
+		1 + // version(1)
+		8 // magicNumber(8)
 	// footer-size, offset(1), keys(1)
 	sstFileMinLength = sstFileFooterSize + 2
 )
@@ -69,7 +71,7 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("read sstfile:%s footer error", r.path)
 	}
 	// validate magic-number
-	if binary.BigEndian.Uint64(buf[8:]) != magicNumberOffsetFile {
+	if binary.BigEndian.Uint64(buf[9:]) != magicNumberOffsetFile {
 		return fmt.Errorf("verify magic-number of sstfile:%s failure", r.path)
 	}
 	posOfOffset := int(binary.BigEndian.Uint32(buf[:4]))

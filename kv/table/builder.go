@@ -13,9 +13,13 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
+//go:generate mockgen -source ./builder.go -destination=./builder_mock.go -package table
+
 const (
 	// magic-number in the footer of sst file
 	magicNumberOffsetFile uint64 = 7308327815838786409
+	// current file layout version
+	version0 = 0
 )
 
 // Builder builds sst file
@@ -44,6 +48,7 @@ type storeBuilder struct {
 	writer     bufioutil.BufioWriter
 	offset     *encoding.DeltaBitPackingEncoder
 
+	// see paper of roaring bitmap: https://arxiv.org/pdf/1603.06549.pdf
 	keys   *roaring.Bitmap
 	minKey uint32
 	maxKey uint32
@@ -148,10 +153,11 @@ func (b *storeBuilder) Close() error {
 	}
 
 	// for file footer for offsets/keys index, length=1+4+4+8
-	var buf [16]byte
+	var buf [17]byte
 	binary.BigEndian.PutUint32(buf[:4], uint32(posOfOffset))
 	binary.BigEndian.PutUint32(buf[4:8], uint32(posOfKeys))
-	binary.BigEndian.PutUint64(buf[8:], magicNumberOffsetFile)
+	buf[8] = version0
+	binary.BigEndian.PutUint64(buf[9:], magicNumberOffsetFile)
 	if _, err = b.writer.Write(buf[:]); err != nil {
 		return err
 	}

@@ -7,20 +7,14 @@ github.com/GeertJohan/go.rice/embedded
 github.com/RoaringBitmap/roaring
 # github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
 github.com/antlr/antlr4/runtime/Go/antlr
-# github.com/armon/go-radix v1.0.0
-github.com/armon/go-radix
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/coreos/bbolt v1.3.3
 github.com/coreos/bbolt
 # github.com/coreos/etcd v3.3.13+incompatible
-github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/integration
+github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/mvcc/mvccpb
-github.com/coreos/etcd/auth/authpb
-github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
-github.com/coreos/etcd/etcdserver/etcdserverpb
-github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/client
 github.com/coreos/etcd/clientv3/namespace
 github.com/coreos/etcd/embed
@@ -33,12 +27,16 @@ github.com/coreos/etcd/etcdserver/api/v3election/v3electionpb
 github.com/coreos/etcd/etcdserver/api/v3lock
 github.com/coreos/etcd/etcdserver/api/v3lock/v3lockpb
 github.com/coreos/etcd/etcdserver/api/v3rpc
+github.com/coreos/etcd/etcdserver/etcdserverpb
 github.com/coreos/etcd/pkg/testutil
 github.com/coreos/etcd/pkg/tlsutil
 github.com/coreos/etcd/pkg/transport
+github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/proxy/grpcproxy
 github.com/coreos/etcd/proxy/grpcproxy/adapter
 github.com/coreos/etcd/rafthttp
+github.com/coreos/etcd/auth/authpb
+github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 github.com/coreos/etcd/pkg/pathutil
 github.com/coreos/etcd/pkg/srv
 github.com/coreos/etcd/version
@@ -99,7 +97,6 @@ github.com/daaku/go.zipexe
 github.com/damnever/goctl/queue
 github.com/damnever/goctl/retry
 github.com/damnever/goctl/semaphore
-github.com/damnever/goctl/zerocopy
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible

@@ -13,6 +13,8 @@ import (
 	"github.com/eleme/lindb/pkg/util"
 )
 
+//go:generate mockgen -source ./segment.go -destination=./segment_mock.go -package tsdb
+
 // IntervalSegment represents a interval segment, there are some segments in a shard.
 type IntervalSegment interface {
 	// GetOrCreateSegment creates new segment if not exist, if exist return it
@@ -128,7 +130,7 @@ func (s *intervalSegment) getSegment(segmentName string) Segment {
 }
 
 // Segment represents a time based segment, there are some segments in a interval segment.
-// A segment use k/v store stores time series data.
+// A segment use k/v store for storing time series data.
 type Segment interface {
 	// BaseTime returns segment base time
 	BaseTime() int64

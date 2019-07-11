@@ -85,7 +85,7 @@ type Calculator interface {
 	CalSegmentTime(timestamp int64) int64
 	// CalFamily calculates family base time based on given timestamp
 	CalFamily(timestamp int64, segmentTime int64) int
-	// CalFamilyStartTime calculates famliy start time based on segment time and family
+	// CalFamilyStartTime calculates family start time based on segment time and family
 	CalFamilyStartTime(segmentTime int64, family int) int64
 	// CalSlot calculates field store slot index based on given timestamp and base time
 	CalSlot(timestamp, baseTime, interval int64) int
@@ -122,7 +122,7 @@ func (d *day) CalFamily(timestamp int64, segmentTime int64) int {
 	return int((timestamp - segmentTime) / timeutil.OneHour)
 }
 
-// CalFamilyStartTime calculates famliy start time based on segment time and family for day interval type
+// CalFamilyStartTime calculates family start time based on segment time and family for day interval type
 func (d *day) CalFamilyStartTime(segmentTime int64, family int) int64 {
 	return segmentTime + int64(family)*timeutil.OneHour
 }
