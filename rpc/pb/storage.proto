@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package storage;
+
+import "common.proto";
+
+service WriteService {
+    rpc WritePoints (common.Request) returns (common.Response) {
+    }
+}

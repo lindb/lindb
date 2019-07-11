@@ -46,12 +46,14 @@ clean-build:
 	rm -f bin/lind
 	cd web/ && make web_clean
 
-
-clean:  ## Clean up useless files.
-	$(clean-build)
+clean-tmp: ## clean up tmp and test out files
 	find . -type f -name '*.out' -exec rm -f {} +
 	find . -type f -name '.DS_Store' -exec rm -f {} +
 	find . -type f -name '*.test' -exec rm -f {} +
 	find . -type f -name '*.prof' -exec rm -f {} +
 	find . -type s -name 'localhost:*' -exec rm -f {} +
 	find . -type s -name '127.0.0.1:*' -exec rm -f {} +
+
+clean:  ## Clean up useless files.
+	$(clean-build)
+	$(clean-tmp)

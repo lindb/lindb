@@ -34,22 +34,18 @@ type apiHandler struct {
 	databaseAPI       *admin.DatabaseAPI
 }
 
-// Runtime represents broker runtime dependency
+// runtime represents broker runtime dependency
 type runtime struct {
-	state server.State
-
+	state   server.State
 	cfgPath string
 	config  config.Broker
+	ctx     context.Context
+	cancel  context.CancelFunc
 
 	// init value when runtime
-	repo state.Repository
-
-	srv srv
-
+	repo       state.Repository
+	srv        srv
 	httpServer *http.Server
-
-	ctx    context.Context
-	cancel context.CancelFunc
 
 	log *zap.Logger
 }
@@ -93,9 +89,7 @@ func (r *runtime) Run() error {
 	r.buildAPIDependency()
 
 	// start http server
-	go func() {
-		r.startHTTPServer()
-	}()
+	r.startHTTPServer()
 
 	r.state = server.Running
 	return nil
@@ -125,6 +119,7 @@ func (r *runtime) Stop() error {
 		}
 	}
 
+	r.log.Info("broker server stop complete")
 	r.state = server.Terminated
 	return nil
 }
@@ -143,9 +138,12 @@ func (r *runtime) startHTTPServer() {
 		IdleTimeout:  time.Second * 60,
 		Handler:      router,
 	}
-	if err := r.httpServer.ListenAndServe(); err != nil {
-		panic(fmt.Sprintf("start http server error:%s", err))
-	}
+	go func() {
+		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			panic(fmt.Sprintf("start http server error:%s", err))
+		}
+		r.log.Info("http server stop complete")
+	}()
 }
 
 // startStateRepo starts state repository

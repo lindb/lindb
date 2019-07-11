@@ -20,34 +20,19 @@ type StorageService interface {
 	GetShard(db string, shardID int32) tsdb.Shard
 }
 
-var (
-	storageSvc StorageService
-	once       sync.Once
-	// EngineConfig must set when system init
-	EngineConfig *config.Engine
-)
-
-// GetStorageService returns singleton storage service instance
-func GetStorageService() (StorageService, error) {
-	if EngineConfig == nil {
-		return nil, fmt.Errorf("cannot get storage service, because storage config is nil")
+// NewStorageService creates storage service instance for managing tsdb engine
+func NewStorageService(config config.Engine) StorageService {
+	return &storageService{
+		config: config,
 	}
-	once.Do(func() {
-		storageSvc = newStorageService()
-	})
-	return storageSvc, nil
-}
-
-// newStorageService creates storage service instance for managing tsdb engine
-func newStorageService() StorageService {
-	return &storageService{}
 }
 
 // storageService implements StorageService interface
 type storageService struct {
 	engines sync.Map
 
-	mutex sync.Mutex
+	config config.Engine
+	mutex  sync.Mutex
 }
 
 // CreateShards creates shards for data partition by given options
@@ -64,16 +49,9 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 		// double check
 		engine = s.GetEngine(db)
 		if engine == nil {
-			// check engine config if nil
-			// 1) not set when system init
-			// 2) clean up when runtime
-			if EngineConfig == nil {
-				return fmt.Errorf("cannot create engine, because storage config is nil")
-			}
-
 			// create tsdb engine
 			var err error
-			engine, err = tsdb.NewEngine(db, EngineConfig.Path)
+			engine, err = tsdb.NewEngine(db, s.config.Path)
 			if err != nil {
 				return err
 			}

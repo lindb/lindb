@@ -1,6 +1,8 @@
 package rpc
 
-import "github.com/eleme/lindb/rpc/pkg/common"
+import (
+	"github.com/eleme/lindb/rpc/proto/common"
+)
 
 const (
 	OK int32 = iota

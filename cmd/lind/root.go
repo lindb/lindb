@@ -5,9 +5,6 @@ import (
 )
 
 const (
-	// default config file location of LinDB
-	cfgFilePath = "/etc/lindb"
-
 	linDBText = `
     __     _             ____     ____ 
    / /    (_)   ____    / __ \   / __ )
