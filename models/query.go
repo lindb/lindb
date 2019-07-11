@@ -16,3 +16,9 @@ type Query interface {
 type TimeRange struct {
 	Start, End int64
 }
+
+// TagFilter is a filter of metric-tag.
+type TagFilter struct {
+	TagName  string
+	TagValue string
+}

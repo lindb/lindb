@@ -22,16 +22,19 @@ build-all: build-frontend build  ## Build executable files with front-end files 
 
 GOLANGCI_LINT_VERSION ?= "latest"
 
-generate:  ## go generate
+pre-test: ## go generate mock file.
+	if [ ! -e ${GOPATH}/bin/mockgen ]; then \
+		go get github.com/golang/mock/mockgen; \
+	fi
 	go list ./... | grep -v '/vendor/' | xargs go generate
 
-test:  ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
 	fi
 	./bin/golangci-lint run
-	GO111MODULE=on go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
+test:  pre-test ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
+	GO111MODULE=on go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
 deps:  ## Update vendor.
 	go mod verify

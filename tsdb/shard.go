@@ -14,6 +14,8 @@ import (
 	"github.com/eleme/lindb/pkg/util"
 )
 
+//go:generate mockgen -source ./shard.go -destination=./shard_mock.go -package tsdb
+
 const segmentPath = "segment"
 
 // Shard is a horizontal partition of metrics for LinDB.
@@ -38,8 +40,7 @@ type shard struct {
 	// segments keeps all interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
 	segments map[interval.Type]IntervalSegment
-
-	cancel func()
+	cancel   context.CancelFunc
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
