@@ -3,8 +3,23 @@ package stream
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/magiconair/properties/assert"
 )
+
+func TestPutInt(t *testing.T) {
+	writer := BinaryWriter()
+	writer.PutUint32(uint32(123))
+	writer.PutUint64(uint64(456))
+
+	buf, err := writer.Bytes()
+	if err != nil {
+		t.Error(err)
+	}
+
+	reader := BinaryReader(buf)
+	assert.Equal(t, reader.ReadUint32(), uint32(123))
+	assert.Equal(t, reader.ReadUint64(), uint64(456))
+}
 
 func TestByteBufReader_ReadBytes(t *testing.T) {
 
@@ -17,10 +32,10 @@ func TestByteBufReader_ReadBytes(t *testing.T) {
 	}
 
 	writer := BinaryWriter()
-	writer.PutUInt32(uint32(len(keys)))
+	writer.PutUint32(uint32(len(keys)))
 
 	for _, k := range keys {
-		writer.PutKey([]byte(k))
+		writer.PutLenBytes([]byte(k))
 	}
 
 	by, err := writer.Bytes()
@@ -29,11 +44,11 @@ func TestByteBufReader_ReadBytes(t *testing.T) {
 	assert.Equal(t, writer.Len(), len(by))
 
 	reader := NewBufReader(by)
-	count := reader.ReadUInt32()
+	count := reader.ReadUint32()
 	assert.Equal(t, uint32(len(keys)), count)
 
 	for i := 0; i < int(count); i++ {
-		_, k := reader.ReadKey()
+		_, k := reader.ReadLenBytes()
 		assert.Equal(t, keys[i], string(k))
 	}
 

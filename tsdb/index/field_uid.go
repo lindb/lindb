@@ -34,8 +34,8 @@ type FieldReader struct {
 //newFieldReader returns FieldReader
 func newFieldReader(byteArray []byte) *FieldReader {
 	bufReader := stream.NewBufReader(byteArray)
-	sequence := uint16(bufReader.ReadInt())
-	count := int(bufReader.ReadInt())
+	sequence := uint16(bufReader.ReadUvarint64())
+	count := int(bufReader.ReadUvarint64())
 
 	return &FieldReader{
 		reader:     bufReader,
@@ -85,8 +85,8 @@ func (f *FieldUID) GetFields(metricID uint32, limit int16) map[string]struct{} {
 	f.family.Lookup(metricID, func(bytes []byte) bool {
 		fieldReader := newFieldReader(bytes)
 		for i := 0; i < fieldReader.fieldCount; i++ {
-			_, key := fieldReader.reader.ReadKey()
-			id := fieldReader.reader.ReadInt()
+			_, key := fieldReader.reader.ReadLenBytes()
+			id := fieldReader.reader.ReadUvarint64()
 			//todo
 			fmt.Println("fieldName", key, " id:", id)
 		}
@@ -105,7 +105,7 @@ func (f *FieldUID) Flush() error {
 
 		fieldNames := f.getSortFieldNames()
 		for _, fieldName := range fieldNames {
-			writer.PutKey([]byte(fieldName))
+			writer.PutLenBytes([]byte(fieldName))
 			writer.PutUvarint64(uint64(f.fieldMap[fieldName]))
 		}
 
@@ -156,8 +156,8 @@ func (f *FieldUID) GetFieldID(metricID uint32, field string) uint32 {
 	f.family.Lookup(metricID, func(byteArray []byte) bool {
 		fieldReader := newFieldReader(byteArray)
 		for i := 0; i < fieldReader.fieldCount; i++ {
-			_, key := fieldReader.reader.ReadKey()
-			id := fieldReader.reader.ReadInt()
+			_, key := fieldReader.reader.ReadLenBytes()
+			id := fieldReader.reader.ReadUvarint64()
 			if bytes.Equal(key, []byte(field)) {
 				fieldID = uint32(id)
 				return true

@@ -93,13 +93,14 @@ type TSDDecoder struct {
 // NewTSDDecoder create tsd decoder instance
 func NewTSDDecoder(data []byte) *TSDDecoder {
 	binary := stream.BinaryReader(data)
-	startTime := int(binary.ReadInt32())
-	count := int(binary.ReadInt32())
+	startTime := int(binary.ReadUvarint32())
+	count := int(binary.ReadUvarint32())
 	length := binary.ReadUvarint32()
 	buf := binary.ReadBytes(int(length))
 	timeSlots := bit.NewReader(bytes.NewBuffer(buf))
 	length = binary.ReadUvarint32()
 	buf = binary.ReadBytes(int(length))
+
 	return &TSDDecoder{
 		startTime: startTime,
 		endTime:   startTime + count - 1,
