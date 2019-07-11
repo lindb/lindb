@@ -46,14 +46,14 @@ func (it *ReaderIterator) Next() bool {
 	}
 	//read next data block
 	if !it.hit {
-		it.leafNodes = int(it.reader.bufReader.ReadInt())
-		_, lcp := it.reader.bufReader.ReadKey()
+		it.leafNodes = int(it.reader.bufReader.ReadUvarint64())
+		_, lcp := it.reader.bufReader.ReadLenBytes()
 		it.lcp = lcp
 		it.hit = true
 	}
 	if it.idx < it.leafNodes {
-		_, key := it.reader.bufReader.ReadKey()
-		v := int(it.reader.bufReader.ReadInt())
+		_, key := it.reader.bufReader.ReadLenBytes()
+		v := int(it.reader.bufReader.ReadUvarint64())
 
 		it.idx++
 		if len(it.lcp) > 0 {
@@ -94,11 +94,11 @@ func NewReader(treeBytes []byte) *Reader {
 	if HasChildrenNode == reader.bufReader.ReadByte() {
 		reader.hasChildrenNode = true
 	}
-	reader.height = int(reader.bufReader.ReadInt())
+	reader.height = int(reader.bufReader.ReadUvarint64())
 	//Starting offset of each height
 	for i := 0; i < reader.height; i++ {
-		high := int(reader.bufReader.ReadInt())
-		start := int(reader.bufReader.ReadInt())
+		high := int(reader.bufReader.ReadUvarint64())
+		start := int(reader.bufReader.ReadUvarint64())
 		reader.highPos[high] = start
 	}
 
@@ -136,9 +136,9 @@ func (r *Reader) findTargetLeafNodePos(target []byte) int {
 		for high := 1; high < r.height; high++ {
 			r.bufReader.NewPosition(r.bodyPos + r.highPos[high] + startPos)
 			//read branch count
-			count := int(r.bufReader.ReadInt())
+			count := int(r.bufReader.ReadUvarint64())
 			//read common prefix
-			lcpLen, lcp := r.bufReader.ReadKey()
+			lcpLen, lcp := r.bufReader.ReadLenBytes()
 
 			if lcpLen >= len(target) {
 				if bytes.Compare(lcp, target) < 0 {
@@ -184,17 +184,17 @@ func (r *Reader) linearSearchTargetPos(target []byte, count, lcpLen int, lcp []b
 		if cmp > 0 {
 			//read next branch node
 			r.bufReader.ReadByte()
-			r.bufReader.ReadKey()
-			return int(r.bufReader.ReadInt())
+			r.bufReader.ReadLenBytes()
+			return int(r.bufReader.ReadUvarint64())
 		}
 	}
 
 	for i := 0; i < count; i++ {
 		//read a branch node
 		hasParent := r.bufReader.ReadByte() == HasParent
-		suffixLen := int(r.bufReader.ReadInt())
+		suffixLen := int(r.bufReader.ReadUvarint64())
 		suffix := r.bufReader.ReadBytes(suffixLen)
-		nextStartPos := int(r.bufReader.ReadInt())
+		nextStartPos := int(r.bufReader.ReadUvarint64())
 
 		cmp := BytesCompare(suffix, targetSuffix)
 		if cmp > 0 {
@@ -212,8 +212,8 @@ func (r *Reader) linearSearchTargetPos(target []byte, count, lcpLen int, lcp []b
 func (r *Reader) linearSearchTarget(pos int, target []byte) (int /*V*/, bool) {
 	r.bufReader.NewPosition(r.bodyPos + r.highPos[r.height] + pos)
 
-	count := int(r.bufReader.ReadInt())
-	lcpLen, lcp := r.bufReader.ReadKey()
+	count := int(r.bufReader.ReadUvarint64())
+	lcpLen, lcp := r.bufReader.ReadLenBytes()
 
 	if lcpLen > 0 {
 		if !bytes.HasPrefix(target, lcp) {
@@ -223,8 +223,8 @@ func (r *Reader) linearSearchTarget(pos int, target []byte) (int /*V*/, bool) {
 
 	for i := 0; i < count; i++ {
 		//read a leaf node
-		suffix := r.bufReader.ReadBytes(int(r.bufReader.ReadInt()))
-		v := int(r.bufReader.ReadInt())
+		suffix := r.bufReader.ReadBytes(int(r.bufReader.ReadUvarint64()))
+		v := int(r.bufReader.ReadUvarint64())
 		if bytes.Equal(target[lcpLen:], suffix) {
 			return v, true
 		}
@@ -277,8 +277,8 @@ func (r *Reader) Seek(prefix []byte) Iterator {
 //seekLeafNodes return a ReaderIterator.
 //Leaf node for seek lookup.
 func (r *Reader) seekLeafNodes(filter Filter) *ReaderIterator {
-	leafNodes := int(r.bufReader.ReadInt())
-	leafLcpLen, leafLcp := r.bufReader.ReadKey()
+	leafNodes := int(r.bufReader.ReadUvarint64())
+	leafLcpLen, leafLcp := r.bufReader.ReadLenBytes()
 
 	it := &ReaderIterator{
 		reader:    r,
@@ -289,8 +289,8 @@ func (r *Reader) seekLeafNodes(filter Filter) *ReaderIterator {
 
 	for i := 0; i < leafNodes; i++ {
 		it.idx++
-		_, suffix := r.bufReader.ReadKey()
-		v := int(r.bufReader.ReadInt())
+		_, suffix := r.bufReader.ReadLenBytes()
+		v := int(r.bufReader.ReadUvarint64())
 		key := suffix
 		if leafLcpLen > 0 {
 			key = bytesCombine(leafLcp, suffix)

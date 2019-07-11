@@ -39,13 +39,13 @@ func (el *EditLog) IsEmpty() bool {
 func (el *EditLog) marshal() ([]byte, error) {
 	stream := strm.BinaryWriter()
 	// write family id
-	stream.PutInt32(int32(el.familyID))
+	stream.PutVarint32(int32(el.familyID))
 	// write num of logs
 	stream.PutUvarint64(uint64(len(el.logs)))
 	// write detail log data
 	for _, log := range el.logs {
 		logType := logTypes[reflect.TypeOf(log)]
-		stream.PutInt32(logType)
+		stream.PutVarint32(logType)
 		value, err := log.Encode()
 		if err != nil {
 			return nil, fmt.Errorf("edit logs encode error: %s", err)
@@ -59,12 +59,12 @@ func (el *EditLog) marshal() ([]byte, error) {
 // unmarshal create an edit log from its seriealized in buf
 func (el *EditLog) unmarshal(buf []byte) error {
 	stream := strm.BinaryReader(buf)
-	el.familyID = int(stream.ReadInt32())
+	el.familyID = int(stream.ReadVarint32())
 	// read num of logs
 	count := stream.ReadUvarint64()
 	// read detail log data
 	for ; count > 0; count-- {
-		logType := stream.ReadInt32()
+		logType := stream.ReadVarint32()
 		fn, ok := newLogFuncMap[logType]
 		if !ok {
 			return fmt.Errorf("cannot get log type new func, type is:[%d]", logType)

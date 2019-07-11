@@ -138,7 +138,7 @@ func TestTagsMapping(t *testing.T) {
 				tagsMap["disk"] = fmt.Sprintf("%s%d", "disk-", j)
 				tagsMap["partition"] = fmt.Sprintf("%s%d", "partition-", k)
 				//writer.PutUInt32(uint32(id))
-				//writer.PutKey([]byte(MapToString(tagsMap)))
+				//writer.PutLenBytes([]byte(MapToString(tagsMap)))
 				_, err := writer.Write([]byte(MapToString(tagsMap)))
 				length += len(MapToString(tagsMap))
 				//fmt.Println(n)

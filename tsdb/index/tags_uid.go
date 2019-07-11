@@ -51,19 +51,19 @@ func newTagsReader(byteArray []byte) *TagsReader {
 	bufReader := stream.NewBufReader(byteArray)
 
 	//header
-	tagNames := int(bufReader.ReadInt())
+	tagNames := int(bufReader.ReadUvarint64())
 	tagOffset := make(map[string]int, tagNames)
 	for i := 0; i < tagNames; i++ {
-		_, tagName := bufReader.ReadKey()
-		offset := int(bufReader.ReadInt())
+		_, tagName := bufReader.ReadLenBytes()
+		offset := int(bufReader.ReadUvarint64())
 		tagOffset[string(tagName)] = offset
 	}
 	//read tag tree position
-	tagTreeLen := int(bufReader.ReadInt())
+	tagTreeLen := int(bufReader.ReadUvarint64())
 	tagTreePos := bufReader.GetPosition()
 	bufReader.NewPosition(bufReader.GetPosition() + tagTreeLen)
 	//read bitmap offset position
-	bitmapOffsetLen := int(bufReader.ReadInt())
+	bitmapOffsetLen := int(bufReader.ReadUvarint64())
 	bitmapOffsetPos := bufReader.GetPosition()
 	bufReader.NewPosition(bufReader.GetPosition() + bitmapOffsetLen)
 
@@ -84,13 +84,13 @@ func (tr *TagsReader) getTagValueBitmap(tagName, tagValue string) *roaring.Bitma
 	offset, ok := tr.tagNameOffset[tagName]
 	if ok {
 		tr.reader.NewPosition(tr.tagTreePosition + offset)
-		treeLen := int(tr.reader.ReadInt())
+		treeLen := int(tr.reader.ReadUvarint64())
 		treeBytes := tr.reader.ReadBytes(treeLen)
 		treeReader := tree.NewReader(treeBytes)
 		bitmapIdx, ok := treeReader.Get([]byte(tagValue))
 		if ok {
 			tr.reader.NewPosition(tr.bitmapOffsetPosition + bitmapIdx*4)
-			bitmapPos := int(tr.reader.ReadUInt32())
+			bitmapPos := int(tr.reader.ReadUint32())
 			tr.reader.NewPosition(tr.bitmapPosition + bitmapPos)
 			pos := tr.reader.GetPosition()
 
@@ -111,7 +111,7 @@ func (tr *TagsReader) seek(tagName string, prefix []byte) tree.Iterator {
 	offset, ok := tr.tagNameOffset[tagName]
 	if ok {
 		tr.reader.NewPosition(tr.tagTreePosition + offset)
-		treeLen := int(tr.reader.ReadInt())
+		treeLen := int(tr.reader.ReadUvarint64())
 		treeBytes := tr.reader.ReadBytes(treeLen)
 		treeReader := tree.NewReader(treeBytes)
 		return treeReader.Seek(prefix)
@@ -253,7 +253,8 @@ func (t *TagsUID) SuggestTagValues(metricID uint32, tagName string, tagValuePref
 		it := tagsReader.seek(tagName, []byte(tagValuePrefix))
 		if nil != it {
 			for it.Next() {
-				fmt.Println("seek:", string(it.GetKey()))
+
+				//fmt.Println("seek:", string(it.GetKey()))
 			}
 		}
 		return false
@@ -275,7 +276,7 @@ func (t *TagsUID) Flush() error {
 		for _, tagName := range tagNames {
 			tagTree := t.tagsMap[tagName]
 
-			tagNameOffset.PutKey([]byte(tagName))
+			tagNameOffset.PutLenBytes([]byte(tagName))
 			tagNameOffset.PutUvarint64(uint64(tagTreeWriter.Len()))
 
 			by, err := tree.NewWriter(tagTree).Encode()
@@ -289,7 +290,7 @@ func (t *TagsUID) Flush() error {
 
 		for _, bitmap := range t.bitmaps {
 			if nil != bitmap {
-				bitmapOffset.PutUInt32(uint32(bitmapWriter.Len()))
+				bitmapOffset.PutUint32(uint32(bitmapWriter.Len()))
 
 				bitmap.RunOptimize()
 				bitmapBytes, err := bitmap.ToBytes()

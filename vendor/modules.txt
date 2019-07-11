@@ -35,6 +35,7 @@ github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/proxy/grpcproxy
 github.com/coreos/etcd/proxy/grpcproxy/adapter
 github.com/coreos/etcd/rafthttp
+github.com/coreos/etcd/pkg/stringutil
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 github.com/coreos/etcd/pkg/pathutil
