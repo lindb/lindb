@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
@@ -46,7 +47,7 @@ func (w *watcher) watch(eventc chan<- *Event) {
 		for {
 			var err error
 			if resp, err = cli.Get(w.ctx, w.key, w.opts...); err == nil {
-				evtAll = packAllEvents(resp.Kvs)
+				evtAll = w.packAllEvents(resp.Kvs)
 				break
 			}
 			select {
@@ -79,19 +80,26 @@ func (w *watcher) watch(eventc chan<- *Event) {
 				select {
 				case <-w.ctx.Done():
 					return
-				case eventc <- packWatchEvent(event):
+				case eventc <- w.packWatchEvent(event):
 				}
 			}
 		}
 	}
 }
 
-func packWatchEvent(watchEvent *etcdcliv3.Event) *Event {
+func (w *watcher) parseKey(key string) string {
+	if len(w.cli.namespace) == 0 {
+		return key
+	}
+	return strings.Replace(key, w.cli.namespace, "", 1)
+}
+
+func (w *watcher) packWatchEvent(watchEvent *etcdcliv3.Event) *Event {
 	kv := watchEvent.Kv
 	evt := &Event{
 		Type: EventTypeModify,
 		KeyValues: []EventKeyValue{
-			{Key: string(kv.Key), Value: kv.Value, Rev: kv.ModRevision},
+			{Key: w.parseKey(string(kv.Key)), Value: kv.Value, Rev: kv.ModRevision},
 		},
 	}
 	if watchEvent.Type == mvccpb.DELETE {
@@ -100,11 +108,11 @@ func packWatchEvent(watchEvent *etcdcliv3.Event) *Event {
 	return evt
 }
 
-func packAllEvents(kvs []*mvccpb.KeyValue) *Event {
+func (w *watcher) packAllEvents(kvs []*mvccpb.KeyValue) *Event {
 	evt := &Event{Type: EventTypeAll}
 	for _, kv := range kvs {
 		evt.KeyValues = append(evt.KeyValues, EventKeyValue{
-			Key:   string(kv.Key),
+			Key:   w.parseKey(string(kv.Key)),
 			Value: kv.Value,
 			Rev:   kv.ModRevision,
 		})

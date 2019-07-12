@@ -43,20 +43,20 @@ func (ts *testRegistrySuite) TestRegister(c *check.C) {
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.String())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
 	nodeInfo := models.Node{}
-	json.Unmarshal(nodeBytes, &nodeInfo)
+	_ = json.Unmarshal(nodeBytes, &nodeInfo)
 	c.Assert(node, check.Equals, nodeInfo)
 
 	// test re-register
-	repo.Delete(context.TODO(), nodePath)
+	_ = repo.Delete(context.TODO(), nodePath)
 	_, err = repo.Get(context.TODO(), nodePath)
 	c.Assert(err, check.NotNil)
 	// wait register success
 	time.Sleep(500 * time.Millisecond)
 	nodeBytes, _ = repo.Get(context.TODO(), nodePath)
-	json.Unmarshal(nodeBytes, &nodeInfo)
+	_ = json.Unmarshal(nodeBytes, &nodeInfo)
 	c.Assert(node, check.Equals, nodeInfo)
 
-	registry.Close()
+	_ = registry.Close()
 	time.Sleep(time.Second)
 	_, err = repo.Get(context.TODO(), nodePath)
 	c.Assert(err, check.NotNil)
@@ -68,7 +68,9 @@ func (ts *testRegistrySuite) TestDeregister(c *check.C) {
 	})
 
 	registry := NewRegistry(repo, testRegistryPath, 100)
-	defer registry.Close()
+	defer func() {
+		_ = registry.Close()
+	}()
 
 	node := models.Node{IP: "127.0.0.1", Port: 2080}
 	err := registry.Register(node)
@@ -81,12 +83,11 @@ func (ts *testRegistrySuite) TestDeregister(c *check.C) {
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.String())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
 	nodeInfo := models.Node{}
-	json.Unmarshal(nodeBytes, &nodeInfo)
+	_ = json.Unmarshal(nodeBytes, &nodeInfo)
 	c.Assert(node, check.Equals, nodeInfo)
 
-	registry.Deregister(node)
+	_ = registry.Deregister(node)
 	time.Sleep(500 * time.Millisecond)
 	_, err = repo.Get(context.TODO(), nodePath)
 	c.Assert(err, check.NotNil)
-
 }

@@ -1,7 +1,7 @@
 package elect
 
 import (
-	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,21 +9,32 @@ import (
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/state"
 
-	"github.com/coreos/pkg/capnslog"
 	"gopkg.in/check.v1"
 )
 
-func init() {
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+type mockListener struct {
+	onFailOverCount    int32
+	onResignationCount int32
+}
+
+func newMockListener() Listener {
+	return &mockListener{}
+}
+
+func (l *mockListener) OnResignation() {
+	atomic.AddInt32(&l.onResignationCount, 1)
+}
+
+func (l *mockListener) OnFailOver() {
+	atomic.AddInt32(&l.onFailOverCount, 1)
 }
 
 type testElectionSuite struct {
 	mock.RepoTestSuite
 }
 
-var _ = check.Suite(&testElectionSuite{})
-
 func TestElection(t *testing.T) {
+	check.Suite(&testElectionSuite{})
 	check.TestingT(t)
 }
 
@@ -31,29 +42,32 @@ func (ts *testElectionSuite) TestElect(c *check.C) {
 	repo, _ := state.NewRepo(state.Config{
 		Endpoints: ts.Cluster.Endpoints,
 	})
-	node := models.Node{IP: "127.0.0.1", Port: 2080}
-	election := NewElection(repo, node, "test", 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	// first node election register must be success
-	success, err := election.Elect(ctx)
-	if err != nil {
-		c.Fatal(err)
-	}
-	c.Assert(success, check.Equals, true)
-	node2 := models.Node{IP: "127.0.0.2", Port: 2080}
+	listener1 := newMockListener()
+	l1, _ := listener1.(*mockListener)
+	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	election := NewElection(repo, node1, 1, listener1)
+	election.Initialize()
+	election.Elect()
+
+	time.Sleep(500 * time.Millisecond)
+
+	c.Assert(int32(1), check.Equals, atomic.LoadInt32(&l1.onFailOverCount))
 
 	// second node election should be false
-	election2 := NewElection(repo, node2, "test", 1)
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	success2, _ := election2.Elect(ctx2)
-	c.Assert(success2, check.Equals, false)
-	isMaster := election2.IsMaster()
-	c.Assert(isMaster, check.Equals, false)
-	cancel()
-	// first node exist,the second node should be the master
-	time.Sleep(2 * time.Second)
-	isMaster2 := election2.IsMaster()
-	c.Assert(isMaster2, check.Equals, true)
+	node2 := models.Node{IP: "127.0.0.2", Port: 2080}
+	listener2 := newMockListener()
+	l2, _ := listener2.(*mockListener)
 
-	defer cancel2()
+	election2 := NewElection(repo, node2, 1, listener2)
+	election2.Initialize()
+	election2.Elect()
+
+	// cancel first node
+	election.Close()
+
+	time.Sleep(500 * time.Millisecond)
+	// second node become master
+	c.Assert(int32(1), check.Equals, atomic.LoadInt32(&l2.onFailOverCount))
+
+	election2.Close()
 }

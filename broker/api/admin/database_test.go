@@ -29,7 +29,16 @@ func (ts *testDatabaseAPISuite) TestGetDatabase(c *check.C) {
 
 	api := NewDatabaseAPI(service.NewDatabaseService(repo))
 
-	db := models.Database{Name: "test", NumOfShard: 1, ReplicaFactor: 1}
+	db := models.Database{
+		Name: "test",
+		Clusters: []models.DatabaseCluster{
+			{
+				Name:          "test",
+				NumOfShard:    12,
+				ReplicaFactor: 3,
+			},
+		},
+	}
 	//create success
 	mock.DoRequest(test, &mock.HTTPHandler{
 		Method:         http.MethodPost,
@@ -41,24 +50,11 @@ func (ts *testDatabaseAPISuite) TestGetDatabase(c *check.C) {
 	mock.DoRequest(test, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/database",
-		RequestBody:    models.Database{NumOfShard: 1, ReplicaFactor: 1},
+		RequestBody:    models.Database{},
 		HandlerFunc:    api.Save,
 		ExpectHTTPCode: 500,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/database",
-		RequestBody:    models.Database{Name: "test", ReplicaFactor: 1},
-		HandlerFunc:    api.Save,
-		ExpectHTTPCode: 500,
-	})
-	mock.DoRequest(test, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/database",
-		RequestBody:    models.Database{Name: "test", NumOfShard: 1},
-		HandlerFunc:    api.Save,
-		ExpectHTTPCode: 500,
-	})
+
 	// get success
 	mock.DoRequest(test, &mock.HTTPHandler{
 		Method:         http.MethodGet,

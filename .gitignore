@@ -2,6 +2,7 @@
 test_data
 bin/
 .vscode/
+.DS_Store
 
 # temp file during testing
 *.test

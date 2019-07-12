@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator/discovery"
+	task "github.com/eleme/lindb/coordinator/storage"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/server"
@@ -44,11 +46,12 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	node     models.Node
-	server   rpc.TCPServer
-	repo     state.Repository
-	registry discovery.Registry
-	srv      srv
+	node         models.Node
+	server       rpc.TCPServer
+	repo         state.Repository
+	registry     discovery.Registry
+	taskExecutor *task.TaskExecutor
+	srv          srv
 
 	log *zap.Logger
 }
@@ -102,10 +105,13 @@ func (r *runtime) Run() error {
 
 	// register storage node info
 	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, discovery.ActiveNodesPath, r.config.Server.TTL)
+	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.Server.TTL)
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
+
+	r.taskExecutor = task.NewTaskExecutor(r.ctx, &r.node, r.repo, r.srv.storageService)
+	r.taskExecutor.Run()
 
 	r.state = server.Running
 	return nil
@@ -130,6 +136,12 @@ func (r *runtime) startStateRepo() error {
 // Stop stops storage server
 func (r *runtime) Stop() error {
 	defer r.cancel()
+
+	if r.taskExecutor != nil {
+		if err := r.taskExecutor.Close(); err != nil {
+			r.log.Error("close task executor error", zap.Error(err))
+		}
+	}
 
 	// close registry, deregister storage node from active list
 	if r.registry != nil {
@@ -166,8 +178,7 @@ func (r *runtime) buildServiceDependency() {
 
 // startTCPServer starts tcp server
 func (r *runtime) startTCPServer() {
-	server := rpc.NewTCPServer(fmt.Sprintf("%s:%d", r.node.IP, r.node.Port))
-	r.server = server
+	r.server = rpc.NewTCPServer(fmt.Sprintf("%s:%d", r.node.IP, r.node.Port))
 
 	// bind rpc handlers
 	r.bindRPCHandlers()

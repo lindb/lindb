@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
 )
@@ -14,7 +15,7 @@ import (
 type Executor struct {
 	keypfx     string
 	cli        state.Repository
-	nodeID     string
+	node       *models.Node
 	processors map[Kind]*taskProcessor
 
 	ctx    context.Context
@@ -22,12 +23,12 @@ type Executor struct {
 }
 
 // NewExecutor creates a new Executor, the keypfx must be the same as Controller's.
-func NewExecutor(ctx context.Context, keypfx string, nodeID string, cli state.Repository) *Executor {
+func NewExecutor(ctx context.Context, node *models.Node, cli state.Repository) *Executor {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Executor{
-		keypfx:     fmt.Sprintf("%s/task-coordinator/%s/executor/%s/", keypfx, version, nodeID),
+		keypfx:     fmt.Sprintf("/task-coordinator/%s/executor/%s/", version, node.String()),
 		cli:        cli,
-		nodeID:     nodeID,
+		node:       node,
 		processors: map[Kind]*taskProcessor{},
 		ctx:        ctx,
 		cancel:     cancel,

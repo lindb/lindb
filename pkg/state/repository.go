@@ -2,13 +2,12 @@ package state
 
 import (
 	"context"
-
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
+	"errors"
 )
 
-const (
-	// ETCD defines state store using ectd cluster
-	ETCD string = "etcd"
+var (
+	// ErrNotExist represents key not exist
+	ErrNotExist = errors.New("not exist")
 )
 
 // Repository stores state data, such as metadata/config/status/task etc.
@@ -23,17 +22,18 @@ type Repository interface {
 	Delete(ctx context.Context, key string) error
 	// Heartbeat does heartbeat on the key with a value and ttl
 	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
-	// PutIfNotExist  puts a key with a value.it will be success
-	// if the key does not exist,otherwise it will be failed.When this
-	// operation success,it will do keepalive background
+	// PutIfNotExist puts a key with a value,
+	// 1) returns success if the key does not exist and puts success
+	// 2) returns failure if key exist
+	// When this operation success, it will do keepalive background for keep session
 	PutIfNotExist(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
 	Watch(ctx context.Context, key string) WatchEventChan
 	// WatchPrefix watches on a prefix.All of the changes who has the prefix
 	// will be notified through the WatchEventChan channel.
 	WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan
-	// Txn returns a etcdcliv3.Txn.
-	Txn(ctx context.Context) etcdcliv3.Txn
+	// Batch puts k/v list, this operation is atomic
+	Batch(ctx context.Context, batch Batch) (bool, error)
 	// Close closes repository and release resources
 	Close() error
 }
@@ -47,6 +47,17 @@ const (
 	EventTypeDelete
 	EventTypeAll
 )
+
+// KeyValue represents key/value pair
+type KeyValue struct {
+	Key   string
+	Value []byte
+}
+
+// Batch represents put list for batch operation
+type Batch struct {
+	KVs []KeyValue
+}
 
 // EventKeyValue represents task event
 type EventKeyValue struct {

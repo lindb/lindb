@@ -19,16 +19,16 @@ type Engine interface {
 	// NumOfShards returns number of shards in tsdb engine
 	NumOfShards() int
 	// CreateShards creates shards for data partition
-	CreateShards(option option.ShardOption, shardIDs ...int32) error
+	CreateShards(option option.ShardOption, shardIDs ...int) error
 	// GetShard returns shard by given shard id, if not exist returns nil
-	GetShard(shardID int32) Shard
+	GetShard(shardID int) Shard
 	// Close closed engine then release resource
 	Close() error
 }
 
 // info represents a engine information about config and shards
 type info struct {
-	ShardIDs    []int32            `toml:"shardIds"`
+	ShardIDs    []int              `toml:"shardIds"`
 	ShardOption option.ShardOption `toml:"shardOption"`
 }
 
@@ -88,7 +88,7 @@ func (e *engine) NumOfShards() int {
 }
 
 // CreateShards creates shards for data partition
-func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) error {
+func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("shard is list is empty")
 	}
@@ -102,7 +102,7 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 			shard = e.GetShard(shardID)
 			if shard == nil {
 				// new shard
-				shard, err := newShard(shardID, filepath.Join(e.path, shardPath, string(shardID)), option)
+				shard, err := newShard(shardID, filepath.Join(e.path, shardPath, fmt.Sprintf("%d", shardID)), option)
 				if err != nil {
 					e.mutex.Unlock()
 					return fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, e.name, err)
@@ -125,7 +125,7 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 }
 
 // GetShard returns shard by given shard id, if not exist returns nil
-func (e *engine) GetShard(shardID int32) Shard {
+func (e *engine) GetShard(shardID int) Shard {
 	shard, _ := e.shards.Load(shardID)
 	s, ok := shard.(Shard)
 	if ok {

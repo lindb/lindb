@@ -26,30 +26,61 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 
 	db := NewDatabaseService(repo)
 	database := models.Database{
-		Name:          "test",
-		NumOfShard:    12,
-		ReplicaFactor: 3,
+		Name: "test",
+		Clusters: []models.DatabaseCluster{
+			{
+				Name:          "test",
+				NumOfShard:    12,
+				ReplicaFactor: 3,
+			},
+		},
 	}
 	err := db.Save(database)
 	if err != nil {
 		c.Fatal(err)
 	}
-	err = db.Save(models.Database{
-		NumOfShard:    12,
-		ReplicaFactor: 3,
-	})
+	database2, _ := db.Get("test")
+	c.Assert(database, check.DeepEquals, database2)
+
+	// test create database error
+	err = db.Save(models.Database{})
 	c.Assert(err, check.NotNil)
+
 	err = db.Save(models.Database{
-		Name:          "test",
-		ReplicaFactor: 3,
-	})
-	c.Assert(err, check.NotNil)
-	err = db.Save(models.Database{
-		Name:       "test",
-		NumOfShard: 12,
+		Name: "test",
 	})
 	c.Assert(err, check.NotNil)
 
-	database2, _ := db.Get("test")
-	c.Assert(database, check.DeepEquals, database2)
+	err = db.Save(models.Database{
+		Name: "test",
+		Clusters: []models.DatabaseCluster{
+			{
+				NumOfShard:    12,
+				ReplicaFactor: 3,
+			},
+		},
+	})
+	c.Assert(err, check.NotNil)
+
+	err = db.Save(models.Database{
+		Name: "test",
+		Clusters: []models.DatabaseCluster{
+			{
+				Name:          "test",
+				ReplicaFactor: 3,
+			},
+		},
+	})
+	c.Assert(err, check.NotNil)
+
+	err = db.Save(models.Database{
+		Name: "test",
+		Clusters: []models.DatabaseCluster{
+			{
+				Name:       "test",
+				NumOfShard: 3,
+			},
+		},
+	})
+	c.Assert(err, check.NotNil)
 }

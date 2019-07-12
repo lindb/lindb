@@ -6,10 +6,9 @@ import (
 	"fmt"
 
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
 )
-
-const databaseConfigNode = "/lindb/database/config"
 
 // DatabaseService defines database service interface
 type DatabaseService interface {
@@ -36,17 +35,25 @@ func (db *databaseService) Save(database models.Database) error {
 	if len(database.Name) == 0 {
 		return fmt.Errorf("name cannot be empty")
 	}
-	if database.NumOfShard <= 0 {
-		return fmt.Errorf("num. of shard must be > 0")
+	if len(database.Clusters) == 0 {
+		return fmt.Errorf("cluster is empty")
 	}
-	if database.ReplicaFactor <= 0 {
-		return fmt.Errorf("replica factor must be > 0")
+	for _, cluster := range database.Clusters {
+		if len(cluster.Name) == 0 {
+			return fmt.Errorf("cluster name is empty")
+		}
+		if cluster.NumOfShard <= 0 {
+			return fmt.Errorf("num. of shard must be > 0")
+		}
+		if cluster.ReplicaFactor <= 0 {
+			return fmt.Errorf("replica factor must be > 0")
+		}
 	}
 	data, err := json.Marshal(database)
 	if err != nil {
 		return fmt.Errorf("marshal database config error:%s", err)
 	}
-	return db.repo.Put(context.TODO(), getDatabasePath(database.Name), data)
+	return db.repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath(database.Name), data)
 }
 
 // Get returns the database config in the state's repo
@@ -55,7 +62,7 @@ func (db *databaseService) Get(name string) (models.Database, error) {
 	if name == "" {
 		return database, fmt.Errorf("database name must not be null")
 	}
-	configBytes, err := db.repo.Get(context.TODO(), getDatabasePath(name))
+	configBytes, err := db.repo.Get(context.TODO(), pathutil.GetDatabaseConfigPath(name))
 	if err != nil {
 		return database, err
 	}
@@ -64,9 +71,4 @@ func (db *databaseService) Get(name string) (models.Database, error) {
 		return database, err
 	}
 	return database, nil
-}
-
-// getDatabasePath gets the path where the database config is stored
-func getDatabasePath(databaseName string) string {
-	return databaseConfigNode + "/" + databaseName
 }
