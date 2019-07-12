@@ -45,6 +45,7 @@ type (
 func (t Task) UnsafeMarshal() []byte {
 	data, err := json.Marshal(t)
 	if err != nil {
+		//TODO panic???
 		panic(err)
 	}
 	return data
@@ -53,6 +54,7 @@ func (t Task) UnsafeMarshal() []byte {
 // UnsafeUnmarshal unmarshals itself by JSON decoder, it will panic if error occurs.
 func (t *Task) UnsafeUnmarshal(data []byte) {
 	if err := json.Unmarshal(data, t); err != nil {
+		//TODO panic???
 		panic(err)
 	}
 }
@@ -60,6 +62,7 @@ func (t *Task) UnsafeUnmarshal(data []byte) {
 func (gt groupedTasks) UnsafeMarshal() []byte {
 	data, err := json.Marshal(gt)
 	if err != nil {
+		//TODO panic???
 		panic(err)
 	}
 	return data
@@ -67,6 +70,7 @@ func (gt groupedTasks) UnsafeMarshal() []byte {
 
 func (gt *groupedTasks) UnsafeUnmarshal(data []byte) {
 	if err := json.Unmarshal(data, gt); err != nil {
+		//TODO panic???
 		panic(err)
 	}
 }

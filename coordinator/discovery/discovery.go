@@ -2,73 +2,97 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sync"
-	"sync/atomic"
 
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
 
 	"go.uber.org/zap"
 )
 
-// Discovery defines a discovery of a list of node.it will watch the node
-// online and offline and update the the lived node list
-type Discovery struct {
-	serverMap atomic.Value
+// Listener represents discovery resource event callback interface,
+// includes create/delete/cleanup operation
+type Listener interface {
+	// OnCreate is resource creation callback
+	OnCreate(key string, resource []byte)
+	// OnDelete is resource deletion callback
+	OnDelete(key string)
+	// Cleanup cleans all resources
+	Cleanup()
 }
 
-// NewDiscovery returns a Discovery who will watch the changes of the key with
-// the given prefix
-func NewDiscovery(ctx context.Context, repo state.Repository, prefix string) (*Discovery, error) {
-	if len(prefix) == 0 {
-		return nil, fmt.Errorf("the key must not be null")
+// Discovery represents discovery resources, through watch resource's prefix
+type Discovery interface {
+	// Discovery starts discovery resources change, includes create/delete/clean
+	Discovery() error
+	// Close stops watch, trigger all resource cleanup callback
+	Close()
+}
+
+// discovery implements discovery interface
+type discovery struct {
+	prefix   string
+	repo     state.Repository
+	listener Listener
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	log *zap.Logger
+}
+
+// NewDiscovery returns a Discovery who will watch the changes with the given prefix
+func NewDiscovery(repo state.Repository, prefix string, listener Listener) Discovery {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &discovery{
+		prefix:   prefix,
+		repo:     repo,
+		ctx:      ctx,
+		cancel:   cancel,
+		listener: listener,
+		log:      logger.GetLogger(),
 	}
-	discovery := &Discovery{}
-	discovery.serverMap.Store(&sync.Map{})
-	watchEventChan := repo.WatchPrefix(ctx, prefix)
-	go discovery.handlerNodeChangeEvent(watchEventChan)
-	return discovery, nil
 }
 
-// NodeList returns the current lived nod array
-func (d *Discovery) NodeList() []*models.Node {
-	nodeList := make([]*models.Node, 0)
-	d.serverMap.Load().(*sync.Map).Range(func(key, value interface{}) bool {
-		nodeList = append(nodeList, value.(*models.Node))
-		return true
-	})
-	return nodeList
+// Discovery starts discovery resources change, includes create/delete/clean
+func (d *discovery) Discovery() error {
+	if len(d.prefix) == 0 {
+		return fmt.Errorf("watch prefix is empth for discovery resource")
+	}
+	watchEventCh := d.repo.WatchPrefix(d.ctx, d.prefix)
+	go func() {
+		d.handlerResourceChange(watchEventCh)
+		d.log.Warn("exit discovery loop")
+	}()
+	return nil
 }
 
-// handlerServerChange handles the changes of the node and update the
-// node map
-func (d *Discovery) handlerNodeChangeEvent(eventChan state.WatchEventChan) {
-	log := logger.GetLogger()
-	for event := range eventChan {
+// Cleanup cleans all resources
+func (d *discovery) Close() {
+	d.cancel()
+	d.listener.Cleanup()
+	if err := d.repo.Close(); err != nil {
+		d.log.Error("close state repo error", zap.String("prefix", d.prefix))
+	}
+}
+
+// handlerResourceChange handles the changes of event for resources
+func (d *discovery) handlerResourceChange(eventCh state.WatchEventChan) {
+	for event := range eventCh {
 		if event.Err != nil {
 			continue
 		}
 		switch event.Type {
 		case state.EventTypeDelete:
-			m := d.serverMap.Load().(*sync.Map)
 			for _, kv := range event.KeyValues {
-				m.Delete(kv.Key)
+				d.listener.OnDelete(kv.Key)
 			}
 		case state.EventTypeAll:
-			d.serverMap.Store(&sync.Map{})
+			d.listener.Cleanup()
 			fallthrough
 		case state.EventTypeModify:
-			m := d.serverMap.Load().(*sync.Map)
 			for _, kv := range event.KeyValues {
-				node := &models.Node{}
-				if err := json.Unmarshal(kv.Value, node); err != nil {
-					log.Error(" deserialize error", zap.Error(err))
-				} else {
-					m.Store(kv.Key, node)
-				}
+				d.listener.OnCreate(kv.Key, kv.Value)
 			}
 		}
 	}

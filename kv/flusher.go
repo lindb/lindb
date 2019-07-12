@@ -15,13 +15,14 @@ type Flusher interface {
 	Commit() error
 }
 
-// storeFlusher family level store flusher
+// storeFlusher is family level store flusher
 type storeFlusher struct {
 	family  *family
 	builder table.Builder
 	editLog *version.EditLog
 }
 
+// newStoreFlusher create family store flusher
 func newStoreFlusher(family *family) Flusher {
 	return &storeFlusher{
 		family:  family,
@@ -29,7 +30,8 @@ func newStoreFlusher(family *family) Flusher {
 	}
 }
 
-// Add puts k/v pair
+// Add adds puts k/v pair.
+// NOTICE: key must key in sort by desc
 func (sf *storeFlusher) Add(key uint32, value []byte) error {
 	if sf.builder == nil {
 		builder, err := sf.family.newTableBuilder()

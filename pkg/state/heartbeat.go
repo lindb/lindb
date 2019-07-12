@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const defaultTTL = 10 // defalut ttl => 5 seconds
+const defaultTTL = 10 // default ttl => 10 seconds
 
 // define errors
 var errKeepaliveStopped = errors.New("heartbeat keepalive stopped")
@@ -54,12 +54,13 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) error {
 	return err
 }
 
+//TODO need refactor
 func (h *heartbeat) PutIfNotExist(ctx context.Context) (bool, error) {
 	resp, err := h.client.Grant(ctx, h.ttl)
 	if err != nil {
 		return false, err
 	}
-	txn := h.client.Txn(context.TODO()).If(etcd.Compare(etcd.CreateRevision(h.key), "=", 0))
+	txn := h.client.Txn(ctx).If(etcd.Compare(etcd.CreateRevision(h.key), "=", 0))
 	txn = txn.Then(etcd.OpPut(h.key, string(h.value), etcd.WithLease(resp.ID)))
 	txn = txn.Else(etcd.OpGet(h.key))
 	response, err := txn.Commit()

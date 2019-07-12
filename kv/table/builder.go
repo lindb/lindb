@@ -24,6 +24,7 @@ type Builder interface {
 	// FileNumber returns file name for store builder
 	FileNumber() int64
 	// Add puts k/v pair init sst file write buffer
+	// NOTICE: key must key in sort by desc
 	Add(key uint32, value []byte) error
 	// MinKey returns min key in store
 	MinKey() uint32

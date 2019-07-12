@@ -4,17 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
-
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
 	"github.com/eleme/lindb/pkg/util"
+
+	"gopkg.in/check.v1"
 )
 
 var brokerCfgPath = "./broker.toml"
-var test *testing.T
 
 type testBrokerRuntimeSuite struct {
 	mock.RepoTestSuite
@@ -22,12 +21,13 @@ type testBrokerRuntimeSuite struct {
 
 func TestBrokerRuntime(t *testing.T) {
 	check.Suite(&testBrokerRuntimeSuite{})
-	test = t
 	check.TestingT(t)
 }
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	defer util.RemoveDir(brokerCfgPath)
+	defer func() {
+		_ = util.RemoveDir(brokerCfgPath)
+	}()
 	// test run fail
 	broker := NewBrokerRuntime(brokerCfgPath)
 	err := broker.Run()
@@ -46,7 +46,7 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			Endpoints: ts.Cluster.Endpoints,
 		},
 	}
-	util.EncodeToml(brokerCfgPath, &cfg)
+	_ = util.EncodeToml(brokerCfgPath, &cfg)
 	broker = NewBrokerRuntime(brokerCfgPath)
 	err = broker.Run()
 	if err != nil {
@@ -57,6 +57,6 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 
 	c.Assert(server.Running, check.Equals, broker.State())
 
-	broker.Stop()
+	_ = broker.Stop()
 	c.Assert(server.Terminated, check.Equals, broker.State())
 }

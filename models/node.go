@@ -14,3 +14,9 @@ type Node struct {
 func (n *Node) String() string {
 	return fmt.Sprintf("%s:%d", n.IP, n.Port)
 }
+
+// Master represents master basic info
+type Master struct {
+	Node      Node  `json:"node"`
+	ElectTime int64 `json:"electTime"`
+}

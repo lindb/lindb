@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
-	"github.com/damnever/goctl/zerocopy"
 	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/pkg/logger"
@@ -40,7 +38,7 @@ type ControllerTaskParam struct {
 // Controller is responsible for submitting tasks, noticing responding when task status changes.
 //
 // TODO(damnever): API to notify task status changes.
-//  - we can simply watch the key: /<keypfx>/task-coordinator/<version>/status/kinds/<task-kind>/names/<task-name>
+//  - we can simply watch the key: /task-coordinator/<version>/status/kinds/<task-kind>/names/<task-name>
 type Controller struct {
 	keypfx string
 	cli    state.Repository
@@ -52,10 +50,10 @@ type Controller struct {
 }
 
 // NewController creates a new controller.
-func NewController(ctx context.Context, keypfx string, cli state.Repository) *Controller {
+func NewController(ctx context.Context, cli state.Repository) *Controller {
 	ctx, cancel := context.WithCancel(ctx)
 	c := &Controller{
-		keypfx: fmt.Sprintf("%s/task-coordinator/%s", keypfx, version),
+		keypfx: fmt.Sprintf("/task-coordinator/%s", version),
 		cli:    cli,
 		ctx:    ctx,
 		cancel: cancel,
@@ -80,7 +78,7 @@ func (c *Controller) Submit(kind Kind, name string, params []ControllerTaskParam
 
 	// TODO(damnever): kinds validation
 	grp := groupedTasks{State: StateRunning}
-	ops := []etcdcliv3.Op{{}}
+	batch := state.Batch{KVs: []state.KeyValue{{}}}
 	for _, param := range params {
 		task := Task{
 			Kind:     kind,
@@ -90,24 +88,22 @@ func (c *Controller) Submit(kind Kind, name string, params []ControllerTaskParam
 			State:    StateCreated,
 		}
 		grp.Tasks = append(grp.Tasks, task)
-		ops = append(ops, etcdcliv3.OpPut(
-			c.taskKey(kind, name, param.NodeID),
-			zerocopy.UnsafeBtoa(task.UnsafeMarshal()),
-		))
+		batch.KVs = append(batch.KVs, state.KeyValue{
+			Key:   c.taskKey(kind, name, param.NodeID),
+			Value: task.UnsafeMarshal()})
 	}
 	key := c.statusKey(kind, name)
-	ops[0] = etcdcliv3.OpPut(
-		key,
-		zerocopy.UnsafeBtoa(grp.UnsafeMarshal()),
-	)
+	batch.KVs[0] = state.KeyValue{
+		Key:   key,
+		Value: grp.UnsafeMarshal(),
+	}
 
-	resp, err := c.cli.Txn(c.ctx).If(
-		etcdcliv3.Compare(etcdcliv3.CreateRevision(key), "=", 0),
-	).Then(ops...).Commit()
+	resp, err := c.cli.Batch(c.ctx, batch)
 	if err != nil {
 		return err
 	}
-	if !resp.Succeeded {
+	if !resp {
+		//TODO need modify error type
 		return ErrTaskNameAlreadyExisted
 	}
 	return nil
@@ -216,24 +212,25 @@ func (w *statusWaiter) Confirm(task Task) {
 }
 
 func (w *statusWaiter) UpdateStatus(c *Controller) error {
-	ops := []etcdcliv3.Op{{}}
-	w.tasks.State = StateDoneOK
-	for _, task := range w.tasks.Tasks {
-		ops = append(ops, etcdcliv3.OpDelete(c.taskKey(task.Kind, task.Name, task.Executor)))
-		if task.ErrMsg != "" {
-			w.tasks.State = StateDoneErr
-		}
-	}
-	ops[0] = etcdcliv3.OpPut(w.key, zerocopy.UnsafeBtoa(w.tasks.UnsafeMarshal()))
-	resp, err := c.cli.Txn(c.ctx).If(
-		etcdcliv3.Compare(etcdcliv3.ModRevision(w.key), "=", w.rev),
-	).Then(ops...).Commit()
-	if err != nil {
-		return err
-	}
-	if !resp.Succeeded {
-		return fmt.Errorf("coordinator/task: someone changed the %s", w.key)
-	}
+	//TODO need impl?????
+	//batch := state.Batch{KVs: []state.KeyValue{{}}}
+	//w.tasks.State = StateDoneOK
+	//for _, task := range w.tasks.Tasks {
+	//	batch.KVs = append(batch.KVs, etcdcliv3.OpDelete(c.taskKey(task.Kind, task.Name, task.Executor)))
+	//	if task.ErrMsg != "" {
+	//		w.tasks.State = StateDoneErr
+	//	}
+	//}
+	//ops[0] = etcdcliv3.OpPut(w.key, zerocopy.UnsafeBtoa(w.tasks.UnsafeMarshal()))
+	//resp, err := c.cli.Txn(c.ctx).If(
+	//	etcdcliv3.Compare(etcdcliv3.ModRevision(w.key), "=", w.rev),
+	//).Then(ops...).Commit()
+	//if err != nil {
+	//	return err
+	//}
+	//if !resp.Succeeded {
+	//	return fmt.Errorf("coordinator/task: someone changed the %s", w.key)
+	//}
 	return nil
 }
 

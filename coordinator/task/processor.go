@@ -6,11 +6,9 @@ import (
 	"sync"
 	"time"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
 	"github.com/damnever/goctl/queue"
 	"github.com/damnever/goctl/retry"
 	"github.com/damnever/goctl/semaphore"
-	"github.com/damnever/goctl/zerocopy"
 	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/pkg/logger"
@@ -118,14 +116,15 @@ func (p *taskProcessor) process(evt taskEvent) {
 	} else {
 		task.State = StateDoneOK
 	}
-	resp, err := p.cli.Txn(p.ctx).If(
-		etcdcliv3.Compare(etcdcliv3.ModRevision(evt.key), "=", evt.rev),
-	).Then(
-		etcdcliv3.OpPut(evt.key, zerocopy.UnsafeBtoa(task.UnsafeMarshal())),
-	).Commit()
-	if err := state.TxnErr(resp, err); err != nil {
-		log.Error("update task status", zap.String("name", evt.key), zap.Error(err))
-	}
+	//TODO ????????modify status
+	//resp, err := p.cli.Txn(p.ctx).If(
+	//	etcdcliv3.Compare(etcdcliv3.ModRevision(evt.key), "=", evt.rev),
+	//).Then(
+	//	etcdcliv3.OpPut(evt.key, zerocopy.UnsafeBtoa(task.UnsafeMarshal())),
+	//).Commit()
+	//if err := state.TxnErr(resp, err); err != nil {
+	//	log.Error("update task status", zap.String("name", evt.key), zap.Error(err))
+	//}
 }
 
 func (p *taskProcessor) Stop() {

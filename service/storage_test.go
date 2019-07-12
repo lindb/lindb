@@ -16,7 +16,9 @@ var testPath = "test_data"
 var validOption = option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day}
 
 func TestCreateShards(t *testing.T) {
-	defer util.RemoveDir(testPath)
+	defer func() {
+		_ = util.RemoveDir(testPath)
+	}()
 
 	cfg := config.Engine{
 		Path: testPath,

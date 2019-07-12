@@ -37,7 +37,7 @@ func (ts *brokerTestSuite) SetUpSuite(c *check.C) {
 		}
 	}()
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 }
 
 func (ts *brokerTestSuite) TearDownSuite(c *check.C) {

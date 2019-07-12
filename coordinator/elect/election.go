@@ -3,119 +3,181 @@ package elect
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
+	"github.com/eleme/lindb/pkg/timeutil"
 
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
-// Election defines the info for the election
-type Election struct {
-	repo            state.Repository
-	isCurrentMaster *atomic.Bool
-	key             string
-	node            models.Node
-	ttl             int64
-	log             *zap.Logger
+// masterPath represents master elect path
+const masterPath = "/master/node"
+
+// Listener represent master change callback interface
+type Listener interface {
+	// OnFailOver triggers master fail-over, current node become master
+	OnFailOver()
+	// OnResignation triggers master resignation
+	OnResignation()
 }
 
-// NewElection returns a new election on a given key,value and heartbeat ttl
-func NewElection(repo state.Repository, node models.Node, key string, ttl int64) *Election {
-	return &Election{
-		key:             key,
-		node:            node,
-		ttl:             ttl,
-		isCurrentMaster: atomic.NewBool(false),
-		repo:            repo,
-		log:             logger.GetLogger(),
+// Election represents master elect
+type Election interface {
+	// Initialize initializes election, such as master change watch
+	Initialize()
+	// Elect elects master, include retry elect when elect fail
+	Elect()
+	// Close closes master elect
+	Close()
+	// IsMaster returns current node if is master
+	IsMaster() bool
+}
+
+// election implements election interface for master elect
+type election struct {
+	repo     state.Repository
+	isMaster *atomic.Bool
+	node     models.Node
+	ttl      int64
+
+	listener Listener
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	retryCh chan int
+
+	log *zap.Logger
+}
+
+// NewElection returns a new election
+func NewElection(repo state.Repository, node models.Node, ttl int64, listener Listener) Election {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &election{
+		node:     node,
+		ttl:      ttl,
+		isMaster: atomic.NewBool(false),
+		repo:     repo,
+		listener: listener,
+		ctx:      ctx,
+		cancel:   cancel,
+		retryCh:  make(chan int),
+		log:      logger.GetLogger(),
 	}
 }
 
-// Elect returns the result of register master
-func (e *Election) Elect(ctx context.Context) (bool, error) {
-	success, err := e.tryElect(ctx)
-	if err != nil {
-		return false, err
+// Initialize initializes election, such as master change watch
+func (e *election) Initialize() {
+	// watch master change event
+	watchEventChan := e.repo.Watch(e.ctx, masterPath)
+
+	go func() {
+		e.handlerMasterChange(watchEventChan)
+		e.log.Info("exit master change event watch loop", zap.Any("node", e.node))
+	}()
+}
+
+// Elect elects master,start goroutine do elect logic
+func (e *election) Elect() {
+	go func() {
+		e.elect()
+		e.log.Warn("exit master elect loop", zap.Any("node", e.node))
+	}()
+}
+
+// IsMaster returns current node if is master
+func (e *election) IsMaster() bool {
+	return e.isMaster.Load()
+}
+
+// elect elects master, start elect loop for retry when failure
+func (e *election) elect() {
+	log := e.log
+	for {
+		if e.ctx.Err() != nil {
+			log.Error("context canceled, exit elect loop")
+			return
+		}
+		log.Info("starting try elect master", zap.Any("node", e.node))
+
+		master := models.Master{Node: e.node, ElectTime: timeutil.Now()}
+		masterBytes, err := json.Marshal(master)
+		var result bool
+		if err == nil {
+			result, _, err = e.repo.PutIfNotExist(e.ctx, masterPath, masterBytes, e.ttl)
+		}
+		if err != nil {
+			log.Warn("got an error when master elect, sleep 500ms then retry",
+				zap.Error(err), zap.Any("node", e.node))
+			// sleep, then try again
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		if result {
+			log.Info("become master", zap.Any("node", e.node))
+		}
+		log.Info("finish master elect....")
+
+		// wait retry signal
+		<-e.retryCh
 	}
-	// watch the change of the master
-	e.watchMasterChange(ctx)
-	return success, err
 }
 
-//Resign deletes the master node if it is the master
-func (e *Election) Resign(ctx context.Context) {
-	e.updateMasterFlag(false)
-	if !e.IsMaster() {
-		e.log.Info("the node is not master ")
-		return
+// Close closes master elect
+func (e *election) Close() {
+	e.resign()
+	e.cancel()
+}
+
+// resign resigns master role, delete master elect node
+func (e *election) resign() {
+	if e.isMaster.Load() {
+		if err := e.repo.Delete(e.ctx, masterPath); err != nil {
+			e.log.Error("delete master path failed", zap.Error(err))
+		}
+		e.isMaster.Store(false)
 	}
-	e.log.Info("the node is master, resign")
-	if err := e.repo.Delete(ctx, e.key); err != nil {
-		e.log.Error("resign failed ", zap.Error(err))
-	}
 }
 
-// IsMaster returns the flag current node is master.if false returns the current master
-func (e *Election) IsMaster() bool {
-	return e.isCurrentMaster.Load()
-}
-
-// watchMasterChange watches the changes of the master
-func (e *Election) watchMasterChange(ctx context.Context) {
-	watchEventChan := e.repo.Watch(ctx, e.key)
-	go e.handlerMasterChange(ctx, watchEventChan)
-}
-
-// handlerMasterChange handles the change of master.if the type is delete,it
-// will try to elect master
-func (e *Election) handlerMasterChange(ctx context.Context, eventChan state.WatchEventChan) {
+// handlerMasterChange handles the event of master change,
+// if master node is deleted, retry elect master
+func (e *election) handlerMasterChange(eventChan state.WatchEventChan) {
+	log := e.log
 	for event := range eventChan {
 		if event.Err != nil {
+			log.Error("get error master change event", zap.Error(event.Err))
 			continue
 		}
 		switch event.Type {
 		case state.EventTypeDelete:
-			success, err := e.tryElect(ctx)
-			if err != nil {
-				e.log.Error("register master failed when master node is deleted", zap.Error(err))
+			log.Info("master node lost, retry elect new master")
+			if e.isMaster.Load() {
+				// current node is master, do resignation when master delete is deleted
+				log.Info("current node is master, do resig when master node is deleted")
+				e.listener.OnResignation()
 			}
-			e.log.Info("current node retries to registers as master", zap.Bool("result", success))
+			e.resign()
+			// notify try elect master
+			e.retryCh <- 1
 		case state.EventTypeAll:
 			fallthrough
 		case state.EventTypeModify:
 			// check the value is
 			for _, kv := range event.KeyValues {
-				node := &models.Node{}
-				if err := json.Unmarshal(kv.Value, node); err != nil {
-					e.log.Error("deserialize node values error", zap.Error(err))
-				} else {
-					e.updateMasterFlag(node.IP == e.node.IP && node.Port == e.node.Port)
+				master := models.Master{}
+				if err := json.Unmarshal(kv.Value, &master); err != nil {
+					e.log.Error("unmarshal master value error", zap.Error(err))
+				} else if master.Node.IP == e.node.IP && master.Node.Port == e.node.Port {
+					e.isMaster.Store(true)
+					// current node become master
+					e.listener.OnFailOver()
 				}
 			}
 		}
 	}
-}
-
-// tryElect tries to elect as master.if the operation PutIfNotExist succeed,
-// it will return success
-func (e *Election) tryElect(ctx context.Context) (bool, error) {
-	bytes, err := json.Marshal(e.node)
-	if err != nil {
-		return false, err
-	}
-	// TODO notice the changes of master
-	success, _, err := e.repo.PutIfNotExist(ctx, e.key, bytes, e.ttl)
-	e.updateMasterFlag(success)
-	if err != nil {
-		e.log.Error("try to register master error ", zap.Error(err))
-	}
-	return success, err
-}
-
-// updateMasterFlag updates the the flag whether current is master
-func (e *Election) updateMasterFlag(isMaster bool) {
-	e.isCurrentMaster.Store(isMaster)
 }

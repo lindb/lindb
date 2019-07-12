@@ -11,13 +11,8 @@ import (
 	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/pkg/util"
 
-	"github.com/coreos/pkg/capnslog"
 	"gopkg.in/check.v1"
 )
-
-func init() {
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
-}
 
 type address struct {
 	Home string
@@ -27,9 +22,8 @@ type testEtcdRepoSuite struct {
 	mock.RepoTestSuite
 }
 
-var _ = check.Suite(&testEtcdRepoSuite{})
-
-func Test(t *testing.T) {
+func TestETCDRepo(t *testing.T) {
+	check.Suite(&testEtcdRepoSuite{})
 	check.TestingT(t)
 }
 
@@ -68,6 +62,7 @@ func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 
 func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 	var rep, err = newEtedRepository(Config{
+		Namespace: "/test/list",
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	if err != nil {
@@ -79,12 +74,13 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 	}
 
 	d, _ := json.Marshal(home1)
-	rep.Put(context.TODO(), "/test/key1", d)
-	rep.Put(context.TODO(), "/test/key2", d)
-	rep.Put(context.TODO(), "/test/key3", []byte{})
+	_ = rep.Put(context.TODO(), "/test/key1", d)
+	_ = rep.Put(context.TODO(), "/test/key2", d)
+	// value is empty, will ignore
+	_ = rep.Put(context.TODO(), "/test/key3", []byte{})
 	list, _ := rep.List(context.TODO(), "/test")
 
-	c.Assert(len(list), check.Equals, 2)
+	c.Assert(2, check.Equals, len(list))
 }
 
 func (ts *testEtcdRepoSuite) TestNew(c *check.C) {
@@ -193,7 +189,7 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 	_ = b.Put(context.TODO(), "/lindb/broker/3", []byte("3"))
 	bytes1, _ := b.Get(context.TODO(), "/lindb/broker/3")
 	c.Assert(string(bytes1), check.Equals, "3")
-	b.Delete(context.TODO(), "/lindb/broker/3")
+	_ = b.Delete(context.TODO(), "/lindb/broker/3")
 	time.Sleep(time.Second)
 
 	var allEvt, modifyEvt, deleteEvt bool
@@ -282,4 +278,22 @@ func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
 	c.Assert(string(bytes3), check.Equals, "test3")
 
 	cancel3()
+}
+
+func (ts *testEtcdRepoSuite) TestBatch(c *check.C) {
+	b, _ := newEtedRepository(Config{
+		Namespace: "/test/batch",
+		Endpoints: ts.Cluster.Endpoints,
+	})
+	batch := Batch{
+		KVs: []KeyValue{
+			{"key1", []byte("value1")},
+			{"key2", []byte("value2")},
+			{"key3", []byte("value3")},
+		}}
+	success, _ := b.Batch(context.TODO(), batch)
+	c.Assert(true, check.Equals, success)
+
+	list, _ := b.List(context.TODO(), "key")
+	c.Assert(3, check.Equals, len(list))
 }
