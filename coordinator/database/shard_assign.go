@@ -10,7 +10,8 @@ import (
 // Shard assigment reference kafka partition assigment
 // kafka implement => (https://github.com/apache/kafka/blob/2.3/core/src/main/scala/kafka/admin/AdminUtils.scala)
 
-// ShardAssignment assigns replica list for database's each shard based on selected node list
+// ShardAssignment assigns replica list for storage cluster
+// which database's each shard based on selected node list in cluster.
 // There are 2 goals of replica assignment:
 // 1. Spread the replicas evenly among storage nodes for currently cluster state.
 // 2. For shards assigned to a particular storage node, their other replicas are spread over the other storage nodes.
@@ -27,29 +28,30 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []int, database models.Database) (*models.ShardAssignment, error) {
-	numOfShard := database.NumOfShard
-	replicaFactor := database.ReplicaFactor
+func ShardAssignment(storageNodeIDs []int, cluster models.DatabaseCluster) (*models.ShardAssignment, error) {
+	numOfShard := cluster.NumOfShard
+	replicaFactor := cluster.ReplicaFactor
 	if numOfShard <= 0 {
-		return nil, fmt.Errorf("shard assign error for database[%s], because num. of shard <=0", database.Name)
+		return nil, fmt.Errorf("shard assign error for cluster[%s], because num. of shard <=0", cluster.Name)
 	}
 	if replicaFactor <= 0 {
-		return nil, fmt.Errorf("shard assign error for database[%s], bacause replica factor <=0", database.Name)
+		return nil, fmt.Errorf("shard assign error for cluster[%s], bacause replica factor <=0", cluster.Name)
 	}
 	if replicaFactor > len(storageNodeIDs) {
 		return nil,
-			fmt.Errorf("shard assign error for database[%s], bacause replica factor > num. of storage nodes",
-				database.Name)
+			fmt.Errorf("shard assign error for cluster[%s], bacause replica factor > num. of storage nodes",
+				cluster.Name)
 	}
 
 	shardAssignment := models.NewShardAssignment()
-	assignReplicasToStorages(storageNodeIDs, numOfShard, replicaFactor, -1, -1, shardAssignment)
+	assignReplicasToStorageNodes(storageNodeIDs, numOfShard, replicaFactor, -1, -1, shardAssignment)
 
 	return shardAssignment, nil
 }
 
-// assignReplicasToStorages assigns replica list for database's each shard, return shard assignment result
-func assignReplicasToStorages(storageNodeIDs []int,
+// assignReplicasToStorageNodes assigns replica list for storage cluster
+// which database's each shard based on selected node list in cluster.
+func assignReplicasToStorageNodes(storageNodeIDs []int,
 	numOfShard, replicaFactor, fixedStartIndex, startShardID int,
 	shardAssignment *models.ShardAssignment) {
 	numOfNode := len(storageNodeIDs)
@@ -75,12 +77,12 @@ func assignReplicasToStorages(storageNodeIDs []int,
 
 		// elect first replica as leader
 		leader := storageNodeIDs[firstReplicaIndex]
-		shardAssignment.AddReplica(int32(currentShardID), leader)
+		shardAssignment.AddReplica(currentShardID, leader)
 
 		// assign other replica
 		for j := 0; j < replicaFactor-1; j++ {
 			idx := replicaIndex(firstReplicaIndex, nextReplicaShift, j, numOfNode)
-			shardAssignment.AddReplica(int32(currentShardID), storageNodeIDs[idx])
+			shardAssignment.AddReplica(currentShardID, storageNodeIDs[idx])
 		}
 
 		// do next shard assign
@@ -89,7 +91,7 @@ func assignReplicasToStorages(storageNodeIDs []int,
 
 }
 
-// replicaIndex calculates replica index based on firist replica index and shift
+// replicaIndex calculates replica index based on first replica index and shift
 func replicaIndex(firstReplicaIndex, secondReplicaShift, replicaIndex, numOfNode int) int {
 	shift := 1 + (secondReplicaShift+replicaIndex)%(numOfNode-1)
 	return (firstReplicaIndex + shift) % numOfNode

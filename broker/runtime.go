@@ -15,6 +15,10 @@ import (
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/broker/api/admin"
 	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/constants"
+	"github.com/eleme/lindb/coordinator"
+	"github.com/eleme/lindb/coordinator/discovery"
+	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
@@ -48,13 +52,16 @@ type runtime struct {
 	state   server.State
 	cfgPath string
 	config  config.Broker
-	ctx     context.Context
-	cancel  context.CancelFunc
-
+	node    models.Node
 	// init value when runtime
 	repo       state.Repository
 	srv        srv
 	httpServer *http.Server
+	master     coordinator.Master
+	registry   discovery.Registry
+
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	log *zap.Logger
 }
@@ -88,6 +95,14 @@ func (r *runtime) Run() error {
 	}
 	r.log.Info("load broker config from file successfully", zap.String("config", r.cfgPath))
 
+	ip, err := util.GetHostIP()
+	if err != nil {
+		r.state = server.Failed
+		return fmt.Errorf("cannot get server ip address, error:%s", err)
+	}
+
+	r.node = models.Node{IP: ip, Port: r.config.HTTP.Port}
+
 	// start state repository
 	if err := r.startStateRepo(); err != nil {
 		r.state = server.Failed
@@ -100,6 +115,19 @@ func (r *runtime) Run() error {
 
 	// start http server
 	r.startHTTPServer()
+
+	// register storage node info
+	//TODO TTL default value???
+	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
+	if err := r.registry.Register(r.node); err != nil {
+		return fmt.Errorf("register storage node error:%s", err)
+	}
+
+	//TODO config ttl
+	r.master = coordinator.NewMaster(r.repo, r.node, 1)
+	if err := r.master.Start(); err != nil {
+		return fmt.Errorf("start master error:%s", err)
+	}
 
 	r.state = server.Running
 	return nil
@@ -115,8 +143,12 @@ func (r *runtime) Stop() error {
 	r.log.Info("stopping broker server.....")
 	defer r.cancel()
 
+	if r.master != nil {
+		r.master.Stop()
+	}
+
 	if r.httpServer != nil {
-		r.log.Info("shutdowning http server")
+		r.log.Info("starting shutdown http server")
 		if err := r.httpServer.Shutdown(r.ctx); err != nil {
 			r.log.Error("shutdown http server error", zap.Error(err))
 		}

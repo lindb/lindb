@@ -8,12 +8,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
+	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
 )
-
-const storageClusterPath = "/storage/cluster"
 
 // StorageClusterService defines storage cluster service interface
 type StorageClusterService interface {
@@ -50,7 +50,7 @@ func (s *storageClusterService) Save(storageCluster models.StorageCluster) error
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	err = s.repo.Put(ctx, s.getClusterPath(storageCluster.Name), data)
+	err = s.repo.Put(ctx, pathutil.GetStorageClusterPath(storageCluster.Name), data)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (s *storageClusterService) Save(storageCluster models.StorageCluster) error
 func (s *storageClusterService) Delete(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	return s.repo.Delete(ctx, s.getClusterPath(name))
+	return s.repo.Delete(ctx, pathutil.GetStorageClusterPath(name))
 }
 
 // Get storage cluster by given name
@@ -69,8 +69,7 @@ func (s *storageClusterService) Get(name string) (models.StorageCluster, error) 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	// err = s.repo.Put(ctx, s.getClusterPath(storageCluster.Name), data)
-	data, err := s.repo.Get(ctx, s.getClusterPath(name))
+	data, err := s.repo.Get(ctx, pathutil.GetStorageClusterPath(name))
 	storageCluster := models.StorageCluster{}
 	if err != nil {
 		return storageCluster, err
@@ -82,13 +81,13 @@ func (s *storageClusterService) Get(name string) (models.StorageCluster, error) 
 	return storageCluster, err
 }
 
-// List lists all storage cluster config
+// List lists config of all storage clusters
 func (s *storageClusterService) List() ([]models.StorageCluster, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	var result []models.StorageCluster
-	data, err := s.repo.List(ctx, storageClusterPath)
+	data, err := s.repo.List(ctx, constants.StorageClusterConfigPath)
 	if err != nil {
 		return result, err
 	}
@@ -102,9 +101,4 @@ func (s *storageClusterService) List() ([]models.StorageCluster, error) {
 		}
 	}
 	return result, err
-}
-
-// getClusterPath return cluster storage path
-func (s *storageClusterService) getClusterPath(name string) string {
-	return fmt.Sprintf("%s/%s", storageClusterPath, name)
 }

@@ -3,10 +3,14 @@ package mock
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
-
 	"github.com/coreos/etcd/integration"
+	"github.com/coreos/pkg/capnslog"
+	"gopkg.in/check.v1"
 )
+
+func init() {
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+}
 
 // EtcdCluster mock etcd cluster for testing
 type EtcdCluster struct {

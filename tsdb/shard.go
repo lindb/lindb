@@ -28,7 +28,7 @@ type Shard interface {
 
 // shard implements Shard interface
 type shard struct {
-	id     int32
+	id     int
 	path   string
 	option option.ShardOption
 	memDB  memdb.MemoryDatabase
@@ -44,7 +44,7 @@ type shard struct {
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
 // return error if fail.
-func newShard(shardID int32, path string, option option.ShardOption) (Shard, error) {
+func newShard(shardID int, path string, option option.ShardOption) (Shard, error) {
 	if option.Interval <= 0 {
 		return nil, fmt.Errorf("interval cannot be negative")
 	}

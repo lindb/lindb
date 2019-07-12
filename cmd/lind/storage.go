@@ -4,6 +4,8 @@ import (
 	"fmt"
 	_ "net/http/pprof" // for profiling
 
+	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/pkg/util"
 	"github.com/eleme/lindb/storage"
 
 	"github.com/spf13/cobra"
@@ -43,8 +45,13 @@ var runStorageCmd = &cobra.Command{
 var initializeStorageConfigCmd = &cobra.Command{
 	Use:   "initialize-config",
 	Short: "initialize a new storage-config by steps",
-	Run: func(cmd *cobra.Command, args []string) {
-		// todo: @codingcrush
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path := storageCfgPath
+		if len(path) == 0 {
+			path = storage.DefaultStorageCfgFile
+		}
+		defaultCfg := config.NewDefaultStorageCfg()
+		return util.EncodeToml(path, &defaultCfg)
 	},
 }
 
@@ -52,8 +59,8 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	// start storage server
-	storage := storage.NewStorageRuntime(storageCfgPath)
-	if err := storage.Run(); err != nil {
+	storageRuntime := storage.NewStorageRuntime(storageCfgPath)
+	if err := storageRuntime.Run(); err != nil {
 		return fmt.Errorf("run storage server error:%s", err)
 	}
 
@@ -61,7 +68,7 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	<-ctx.Done()
 
 	// stop storage server
-	if err := storage.Stop(); err != nil {
+	if err := storageRuntime.Stop(); err != nil {
 		return fmt.Errorf("stop storage server error:%s", err)
 	}
 	return nil

@@ -38,13 +38,13 @@ func (ts *testStorageClusterSRVSuite) TestStorageCluster(c *check.C) {
 	cluster2, _ := srv.Get("test1")
 	c.Assert(cluster, check.DeepEquals, cluster2)
 
-	srv.Save(models.StorageCluster{
+	_ = srv.Save(models.StorageCluster{
 		Name: "test2",
 	})
 	clusterList, _ := srv.List()
 	c.Assert(len(clusterList), check.Equals, 2)
 
-	srv.Delete("test1")
+	_ = srv.Delete("test1")
 
 	_, err2 := srv.Get("test1")
 	c.Assert(err2, check.NotNil)

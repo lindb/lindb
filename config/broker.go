@@ -16,3 +16,17 @@ type Broker struct {
 type HTTP struct {
 	Port uint16 `toml:"port"`
 }
+
+// NewDefaultBrokerCfg creates broker default config
+func NewDefaultBrokerCfg() Broker {
+	return Broker{
+		HTTP: HTTP{
+			Port: 9000,
+		},
+		Coordinator: state.Config{
+			Namespace:   "/lindb/broker",
+			Endpoints:   []string{"http://localhost:2379"},
+			DialTimeout: 5,
+		},
+	}
+}

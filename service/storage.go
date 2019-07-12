@@ -13,11 +13,11 @@ import (
 // StorageService represents a storage manage interface for tsdb engine
 type StorageService interface {
 	// CreateShards creates shards for data partition
-	CreateShards(db string, option option.ShardOption, shardIDs ...int32) error
+	CreateShards(db string, option option.ShardOption, shardIDs ...int) error
 	// GetEngine returns engine by given db name, if not exist return nil
 	GetEngine(db string) tsdb.Engine
 	// GetShard returns shard by given db and shard id, if not exist return nil
-	GetShard(db string, shardID int32) tsdb.Shard
+	GetShard(db string, shardID int) tsdb.Shard
 }
 
 // NewStorageService creates storage service instance for managing tsdb engine
@@ -38,7 +38,7 @@ type storageService struct {
 // CreateShards creates shards for data partition by given options
 // 1) dump engine option into local disk
 // 2) create shard storage struct
-func (s *storageService) CreateShards(db string, option option.ShardOption, shardIDs ...int32) error {
+func (s *storageService) CreateShards(db string, option option.ShardOption, shardIDs ...int) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("cannot create empty shard for db[%s]", db)
 	}
@@ -68,7 +68,7 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 }
 
 // GetShard returns shard by given db and shard id, if not exist return nil
-func (s *storageService) GetShard(db string, shardID int32) tsdb.Shard {
+func (s *storageService) GetShard(db string, shardID int) tsdb.Shard {
 	engine := s.GetEngine(db)
 	if engine == nil {
 		return nil

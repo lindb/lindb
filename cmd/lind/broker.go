@@ -5,6 +5,8 @@ import (
 	_ "net/http/pprof" // for profiling
 
 	"github.com/eleme/lindb/broker"
+	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/pkg/util"
 
 	"github.com/spf13/cobra"
 )
@@ -42,8 +44,13 @@ var runBrokerCmd = &cobra.Command{
 var initializeBrokerConfigCmd = &cobra.Command{
 	Use:   "initialize-config",
 	Short: "initialize a new broker-config by steps",
-	Run: func(cmd *cobra.Command, args []string) {
-		// todo: @codingcrush
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path := brokerCfgPath
+		if len(path) == 0 {
+			path = broker.DefaultBrokerCfgFile
+		}
+		defaultCfg := config.NewDefaultBrokerCfg()
+		return util.EncodeToml(path, &defaultCfg)
 	},
 }
 
@@ -52,8 +59,8 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	// start broker server
-	broker := broker.NewBrokerRuntime(brokerCfgPath)
-	if err := broker.Run(); err != nil {
+	brokerRuntime := broker.NewBrokerRuntime(brokerCfgPath)
+	if err := brokerRuntime.Run(); err != nil {
 		return fmt.Errorf("run broker server error:%s", err)
 	}
 
@@ -61,7 +68,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	<-ctx.Done()
 
 	// stop broker server
-	if err := broker.Stop(); err != nil {
+	if err := brokerRuntime.Stop(); err != nil {
 		return fmt.Errorf("stop broker server error:%s", err)
 	}
 

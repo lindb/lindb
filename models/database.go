@@ -1,10 +1,19 @@
 package models
 
-// Database defines database config
+import "github.com/eleme/lindb/pkg/option"
+
+// Database defines database config, database can include multi-cluster
 type Database struct {
-	Name          string `json:"name"`
-	NumOfShard    int    `json:"numOfShard"`
-	ReplicaFactor int    `json:"replicaFactor"`
+	Name     string            `json:"name"`
+	Clusters []DatabaseCluster `json:"clusters"`
+}
+
+// DatabaseCluster represents database's storage cluster config
+type DatabaseCluster struct {
+	Name          string             `json:"name"`
+	NumOfShard    int                `json:"numOfShard"`
+	ReplicaFactor int                `json:"replicaFactor"`
+	ShardOption   option.ShardOption `json:"shardOption"`
 }
 
 // Replica defines replica list for spec shard of database
@@ -14,22 +23,22 @@ type Replica struct {
 
 // ShardAssignment defines shard assignment for database
 type ShardAssignment struct {
-	Shards map[int32]Replica `json:"shards"`
+	Config DatabaseCluster `json:"cluster"`
+	Nodes  map[int]Node    `json:"nodes"`
+	Shards map[int]Replica `json:"shards"`
 }
 
 // NewShardAssignment returns empty shard assignment instance
 func NewShardAssignment() *ShardAssignment {
 	return &ShardAssignment{
-		Shards: make(map[int32]Replica),
+		Nodes:  make(map[int]Node),
+		Shards: make(map[int]Replica),
 	}
 }
 
 // AddReplica adds replica id to replica list of spec shard
-func (s *ShardAssignment) AddReplica(shardID int32, replicaID int) {
-	replica, ok := s.Shards[shardID]
-	if !ok {
-		replica = Replica{}
-		s.Shards[shardID] = replica
-	}
+func (s *ShardAssignment) AddReplica(shardID int, replicaID int) {
+	replica := s.Shards[shardID]
 	replica.Replicas = append(replica.Replicas, replicaID)
+	s.Shards[shardID] = replica
 }

@@ -1,0 +1,46 @@
+package storage
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"go.uber.org/zap"
+
+	"github.com/eleme/lindb/constants"
+	"github.com/eleme/lindb/coordinator/task"
+	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/logger"
+	"github.com/eleme/lindb/service"
+)
+
+// createShardProcessor represents create shard when receive task.
+// create shard if it not exist
+type createShardProcessor struct {
+	storageService service.StorageService
+}
+
+// newCreateShardProcessor returns create shard processor instance
+func newCreateShardProcessor(storageService service.StorageService) task.Processor {
+	return &createShardProcessor{
+		storageService: storageService,
+	}
+}
+
+func (p *createShardProcessor) Kind() task.Kind             { return constants.CreateShard }
+func (p *createShardProcessor) RetryCount() int             { return 0 }
+func (p *createShardProcessor) RetryBackOff() time.Duration { return 0 }
+func (p *createShardProcessor) Concurrency() int            { return 1 }
+
+// Process creates shard for storing time series data
+func (p *createShardProcessor) Process(ctx context.Context, task task.Task) error {
+	param := models.CreateShardTask{}
+	if err := json.Unmarshal(task.Params, &param); err != nil {
+		return err
+	}
+	logger.GetLogger().Info("process create shard task", zap.String("params", string(task.Params)))
+	if err := p.storageService.CreateShards(param.Database, param.ShardOption, param.ShardIDs...); err != nil {
+		return err
+	}
+	return nil
+}
