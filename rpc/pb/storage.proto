@@ -4,7 +4,17 @@ package storage;
 
 import "common.proto";
 
+message WriteRequest {
+    int64 requestID = 1;
+    common.Replica replica = 2;
+}
+
+message WriteResponse {
+    int64 requestID = 1;
+    string errorMsg = 2;
+}
+
 service WriteService {
-    rpc WritePoints (common.Request) returns (common.Response) {
+    rpc Write (stream WriteRequest) returns (stream WriteResponse) {
     }
 }

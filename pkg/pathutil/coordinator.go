@@ -7,19 +7,24 @@ import (
 	"github.com/eleme/lindb/constants"
 )
 
-// GetStorageClusterPath returns path which storing config of storage cluster
-func GetStorageClusterPath(name string) string {
+// GetStorageClusterConfigPath returns path which storing config of storage cluster
+func GetStorageClusterConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", constants.StorageClusterConfigPath, name)
+}
+
+// GetStorageClusterStatePath returns path whine storing state of storage cluster
+func GetStorageClusterStatePath(name string) string {
+	return fmt.Sprintf("%s/%s", constants.StorageClusterStatePath, name)
 }
 
 // GetDatabaseConfigPath returns path which storing config of database
 func GetDatabaseConfigPath(name string) string {
-	return constants.DatabaseConfigPath + "/" + name
+	return fmt.Sprintf("%s/%s", constants.DatabaseConfigPath, name)
 }
 
 // GetDatabaseAssignPath returns path which storing shard assignment of database
 func GetDatabaseAssignPath(name string) string {
-	return constants.DatabaseAssignPath + "/" + name
+	return fmt.Sprintf("%s/%s", constants.DatabaseAssignPath, name)
 }
 
 // GetNodePath returns node register path

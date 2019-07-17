@@ -10,7 +10,7 @@ import (
 // CreateShardTask represents create shard task param
 type CreateShardTask struct {
 	Database    string             `json:"database"`
-	ShardIDs    []int              `json:"shardIDs"`
+	ShardIDs    []int32            `json:"shardIDs"`
 	ShardOption option.ShardOption `json:"shardOption"`
 }
 

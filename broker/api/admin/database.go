@@ -39,8 +39,8 @@ func (d *DatabaseAPI) GetByName(w http.ResponseWriter, r *http.Request) {
 // Save creates the database config if there is no database
 // config with the name database.Name, otherwise update the config
 func (d *DatabaseAPI) Save(w http.ResponseWriter, r *http.Request) {
-	database := models.Database{}
-	err := api.GetJSONBodyFromRequest(r, &database)
+	database := &models.Database{}
+	err := api.GetJSONBodyFromRequest(r, database)
 	if err != nil {
 		api.Error(w, err)
 		return

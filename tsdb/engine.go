@@ -12,8 +12,6 @@ import (
 const options = "OPTIONS"
 const shardPath = "shard"
 
-//go:generate mockgen -source ./engine.go -destination=./engine_mock.go -package tsdb
-
 // Engine represents a time series storage engine
 type Engine interface {
 	// Name returns tsdb engine's name, engine's name is database's name for user
@@ -21,16 +19,16 @@ type Engine interface {
 	// NumOfShards returns number of shards in tsdb engine
 	NumOfShards() int
 	// CreateShards creates shards for data partition
-	CreateShards(option option.ShardOption, shardIDs ...int) error
+	CreateShards(option option.ShardOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id, if not exist returns nil
-	GetShard(shardID int) Shard
+	GetShard(shardID int32) Shard
 	// Close closed engine then release resource
 	Close() error
 }
 
 // info represents a engine information about config and shards
 type info struct {
-	ShardIDs    []int              `toml:"shardIds"`
+	ShardIDs    []int32            `toml:"shardIds"`
 	ShardOption option.ShardOption `toml:"shardOption"`
 }
 
@@ -90,7 +88,7 @@ func (e *engine) NumOfShards() int {
 }
 
 // CreateShards creates shards for data partition
-func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int) error {
+func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("shard is list is empty")
 	}
@@ -113,7 +111,7 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int) error 
 				newInfo := &info{ShardOption: option, ShardIDs: e.info.ShardIDs}
 				// add new shard id
 				newInfo.ShardIDs = append(newInfo.ShardIDs, shardID)
-				if err := e.dumpEningeInfo(newInfo); err != nil {
+				if err := e.dumpEngineInfo(newInfo); err != nil {
 					e.mutex.Unlock()
 					return err
 				}
@@ -127,7 +125,7 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int) error 
 }
 
 // GetShard returns shard by given shard id, if not exist returns nil
-func (e *engine) GetShard(shardID int) Shard {
+func (e *engine) GetShard(shardID int32) Shard {
 	shard, _ := e.shards.Load(shardID)
 	s, ok := shard.(Shard)
 	if ok {
@@ -142,8 +140,8 @@ func (e *engine) Close() error {
 	return nil
 }
 
-// dumpEningeInfo persists option info to OPTIONS file
-func (e *engine) dumpEningeInfo(newInfo *info) error {
+// dumpEngineInfo persists option info to OPTIONS file
+func (e *engine) dumpEngineInfo(newInfo *info) error {
 	infoPath := infoPath(e.path)
 	// write store info using toml format
 	if err := util.EncodeToml(infoPath, newInfo); err != nil {

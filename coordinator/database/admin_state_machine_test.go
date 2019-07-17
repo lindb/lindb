@@ -79,7 +79,7 @@ func (ts *testAdminStateMachineSuite) TestDatabaseShardAssign(c *check.C) {
 			},
 		},
 	}
-	_ = databaseSRV.Save(dbCfg)
+	_ = databaseSRV.Save(&dbCfg)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -137,7 +137,7 @@ func (ts *testAdminStateMachineSuite) TestWrongCfg(c *check.C) {
 			},
 		},
 	}
-	_ = databaseSRV.Save(dbCfg)
+	_ = databaseSRV.Save(&dbCfg)
 	time.Sleep(100 * time.Millisecond)
 	_, err := cluster.GetShardAssign("test2")
 	c.Assert(state.ErrNotExist, check.Equals, err)
@@ -160,7 +160,7 @@ func (ts *testAdminStateMachineSuite) TestWrongCfg(c *check.C) {
 	}
 	data, _ := json.Marshal(dbCfg)
 	_ = repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath("test4"), data)
-	_ = databaseSRV.Save(dbCfg)
+	_ = databaseSRV.Save(&dbCfg)
 	time.Sleep(100 * time.Millisecond)
 	_, err = cluster.GetShardAssign("test4")
 	c.Assert(state.ErrNotExist, check.Equals, err)
@@ -176,7 +176,7 @@ func (ts *testAdminStateMachineSuite) TestWrongCfg(c *check.C) {
 			},
 		},
 	}
-	_ = databaseSRV.Save(dbCfg)
+	_ = databaseSRV.Save(&dbCfg)
 	time.Sleep(100 * time.Millisecond)
 	_, err = cluster.GetShardAssign("test5")
 	c.Assert(state.ErrNotExist, check.Equals, err)
@@ -204,7 +204,7 @@ func (ts *testAdminStateMachineSuite) TestWrongCfg(c *check.C) {
 			},
 		},
 	}
-	_ = databaseSRV.Save(dbCfg)
+	_ = databaseSRV.Save(&dbCfg)
 	time.Sleep(100 * time.Millisecond)
 	cluster2 := clusterStateMachine.GetCluster("storage2")
 	_, err = cluster2.GetShardAssign("test6")

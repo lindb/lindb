@@ -6,13 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	pb "github.com/eleme/lindb/rpc/proto/field"
+
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_NewMemoryDatabase(t *testing.T) {
@@ -76,36 +78,28 @@ func Test_WithMaxTagsLimit(t *testing.T) {
 }
 
 func Test_Write(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
 
-	assert.NotNil(t, md.Write(nil))
+	metric := &pb.Metric{
+		Name:      "cpu.load",
+		Timestamp: timeutil.Now(),
+		Tags:      "idle",
+		Fields: []*pb.Field{
+			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+		},
+	}
 
-	p := models.NewMockPoint(ctrl)
-	p.EXPECT().Name().Return("cpu.load").AnyTimes()
-	p.EXPECT().Tags().Return("idle").AnyTimes()
-	p.EXPECT().Timestamp().Return(timeutil.Now()).AnyTimes()
-	p.EXPECT().Fields().Return(nil).Times(1)
-	assert.NotNil(t, md.Write(p))
+	assert.Nil(t, md.Write(metric))
 
-	fakeFields := make(map[string]models.Field)
-	fakeField := models.NewMockField(ctrl)
-	fakeField.EXPECT().Type().Return(field.MaxField).AnyTimes()
-	fakeField.EXPECT().IsComplex().Return(true).AnyTimes()
-	fakeFields["test"] = fakeField
-	p.EXPECT().Fields().Return(fakeFields).AnyTimes()
-
-	assert.Nil(t, md.Write(p))
 	// assert error
 	mStore := md.getOrCreateMStore("cpu.load")
 
 	for i := 0; i < 110000; i++ {
 		mStore.getOrCreateTSStore(strconv.Itoa(i))
 	}
-	assert.Equal(t, models.ErrTooManyTags, md.Write(p))
+	assert.Equal(t, models.ErrTooManyTags, md.Write(metric))
 }
 
 func Test_evict(t *testing.T) {

@@ -13,8 +13,6 @@ import (
 	"github.com/eleme/lindb/pkg/util"
 )
 
-//go:generate mockgen -source ./segment.go -destination=./segment_mock.go -package tsdb
-
 // IntervalSegment represents a interval segment, there are some segments in a shard.
 type IntervalSegment interface {
 	// GetOrCreateSegment creates new segment if not exist, if exist return it

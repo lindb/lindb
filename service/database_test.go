@@ -35,23 +35,26 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	}
-	err := db.Save(database)
+	err := db.Save(&database)
 	if err != nil {
 		c.Fatal(err)
 	}
 	database2, _ := db.Get("test")
-	c.Assert(database, check.DeepEquals, database2)
+	c.Assert(database, check.DeepEquals, *database2)
+	database2, err = db.Get("test_not_exist")
+	c.Assert(err, check.Equals, state.ErrNotExist)
+	c.Assert(database2, check.IsNil)
 
 	// test create database error
-	err = db.Save(models.Database{})
+	err = db.Save(&models.Database{})
 	c.Assert(err, check.NotNil)
 
-	err = db.Save(models.Database{
+	err = db.Save(&models.Database{
 		Name: "test",
 	})
 	c.Assert(err, check.NotNil)
 
-	err = db.Save(models.Database{
+	err = db.Save(&models.Database{
 		Name: "test",
 		Clusters: []models.DatabaseCluster{
 			{
@@ -62,7 +65,7 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 	})
 	c.Assert(err, check.NotNil)
 
-	err = db.Save(models.Database{
+	err = db.Save(&models.Database{
 		Name: "test",
 		Clusters: []models.DatabaseCluster{
 			{
@@ -73,7 +76,7 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 	})
 	c.Assert(err, check.NotNil)
 
-	err = db.Save(models.Database{
+	err = db.Save(&models.Database{
 		Name: "test",
 		Clusters: []models.DatabaseCluster{
 			{
@@ -82,5 +85,13 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	})
+	c.Assert(err, check.NotNil)
+
+	_ = repo.Close()
+
+	err = db.Save(&database)
+	c.Assert(err, check.NotNil)
+	database2, err = db.Get("test")
+	c.Assert(database2, check.IsNil)
 	c.Assert(err, check.NotNil)
 }

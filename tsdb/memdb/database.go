@@ -7,8 +7,11 @@ import (
 	"sync"
 	"time"
 
+	pb "github.com/eleme/lindb/rpc/proto/field"
+
 	"github.com/eleme/lindb/kv"
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/logger"
@@ -28,7 +31,7 @@ type MemoryDatabase interface {
 	WithMaxTagsLimit(<-chan map[string]uint32)
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(point models.Point) error
+	Write(metric *pb.Metric) error
 	// ResetMetricStore reassigns a new version to metricStore
 	// This method provides the ability to reset the tsStore in memory for skipping the tsID-limitation
 	ResetMetricStore(metricName string) error
@@ -183,32 +186,31 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(point models.Point) error {
-	if point == nil {
-		return fmt.Errorf("point is nil")
-	}
-	if point.Fields() == nil {
-		return fmt.Errorf("fields is nil")
-	}
+func (md *memoryDatabase) Write(metric *pb.Metric) error {
 
-	mStore := md.getOrCreateMStore(point.Name())
+	mStore := md.getOrCreateMStore(metric.Name)
 	if mStore.isFull() {
 		return models.ErrTooManyTags
 	}
-	timestamp := point.Timestamp()
+	timestamp := metric.Timestamp
 
 	// calculate family start time and slot index
 	segmentTime := md.intervalCalc.CalSegmentTime(timestamp)                      // day
 	family := md.intervalCalc.CalFamily(timestamp, segmentTime)                   // hours
 	familyStartTime := md.intervalCalc.CalFamilyStartTime(segmentTime, family)    // family timestamp
 	slotIndex := md.intervalCalc.CalSlot(timestamp, familyStartTime, md.interval) // slot offset of family
-	tsStore := mStore.getOrCreateTSStore(point.Tags())
+	tsStore := mStore.getOrCreateTSStore(metric.Tags)
 	if tsStore.isFull() {
 		return models.ErrTooManyFields
 	}
 
-	for fieldName, f := range point.Fields() {
-		fieldStore, err := tsStore.getOrCreateFStore(fieldName, f.Type())
+	for _, f := range metric.Fields {
+		fieldType := getFieldType(f)
+		if fieldType == field.Unknown {
+			//TODO add log or metric
+			continue
+		}
+		fieldStore, err := tsStore.getOrCreateFStore(f.Name, fieldType)
 		// field type do not match before
 		if err != nil {
 			return err

@@ -12,6 +12,7 @@ import (
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
+	"github.com/eleme/lindb/service"
 )
 
 // ClusterStateMachine represents storage cluster control when node is master,
@@ -148,7 +149,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	cluster, err := newCluster(c.ctx, cfg)
+	cluster, err := newCluster(c.ctx, cfg, service.NewStorageStateService(c.repo))
 	if err != nil {
 		c.log.Error("create storage cluster error",
 			logger.Any("cfg", cfg), logger.Error(err))

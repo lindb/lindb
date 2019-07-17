@@ -7,10 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/lockers"
-	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/tsdb/index"
 	"github.com/eleme/lindb/tsdb/metrictbl"
 
@@ -44,32 +41,6 @@ func makeMockTableWriter(ctrl *gomock.Controller) *metrictbl.MockTableWriter {
 	mockTW.EXPECT().Commit().Return(nil).AnyTimes()
 
 	return mockTW
-}
-
-func makeMockPoint(ctrl *gomock.Controller) *models.MockPoint {
-	mockPoint := models.NewMockPoint(ctrl)
-
-	mockPoint.EXPECT().Name().Return("cpu.load").AnyTimes()
-	mockPoint.EXPECT().Tags().Return("idle").AnyTimes()
-	mockPoint.EXPECT().Timestamp().Return(timeutil.Now()).AnyTimes()
-
-	fakeFields := make(map[string]models.Field)
-	fakeHistogram := models.NewMockField(ctrl)
-	fakeHistogram.EXPECT().Type().Return(field.HistogramField).AnyTimes()
-	fakeHistogram.EXPECT().IsComplex().Return(true).AnyTimes()
-	fakeFields["histogram"] = fakeHistogram
-
-	fakeMax := models.NewMockSimpleField(ctrl)
-	fakeMax.EXPECT().ValueType().Return(field.Integer).AnyTimes()
-	fakeMax.EXPECT().AggType().Return(field.Sum).AnyTimes()
-	fakeMax.EXPECT().Type().Return(field.SumField).AnyTimes()
-	fakeMax.EXPECT().Value().Return(1).AnyTimes()
-	fakeMax.EXPECT().IsComplex().Return(false).AnyTimes()
-
-	fakeFields["max"] = fakeMax
-
-	mockPoint.EXPECT().Fields().Return(fakeFields).AnyTimes()
-	return mockPoint
 }
 
 ///////////////////////////////////////////////////
