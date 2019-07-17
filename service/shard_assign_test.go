@@ -46,4 +46,12 @@ func (ts *testShardAssignSRVSuite) TestShardAssign(c *check.C) {
 
 	_, err := srv.Get("not_exist")
 	c.Assert(state.ErrNotExist, check.Equals, err)
+
+	_ = repo.Close()
+
+	// test error
+	err = srv.Save("db2", shardAssign2)
+	c.Assert(err, check.NotNil)
+	_, err = srv.Get("db2")
+	c.Assert(err, check.NotNil)
 }

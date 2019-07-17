@@ -250,13 +250,7 @@ func (t *TagsUID) SuggestTagValues(metricID uint32, tagName string, tagValuePref
 	//todo
 	t.family.Lookup(metricID, func(byteArray []byte) bool {
 		tagsReader := newTagsReader(byteArray)
-		it := tagsReader.seek(tagName, []byte(tagValuePrefix))
-		if nil != it {
-			for it.Next() {
-
-				//fmt.Println("seek:", string(it.GetKey()))
-			}
-		}
+		_ = tagsReader.seek(tagName, []byte(tagValuePrefix))
 		return false
 	})
 	return nil

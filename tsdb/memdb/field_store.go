@@ -3,7 +3,8 @@ package memdb
 import (
 	"sync/atomic"
 
-	"github.com/eleme/lindb/models"
+	pb "github.com/eleme/lindb/rpc/proto/field"
+
 	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/lockers"
 	"github.com/eleme/lindb/pkg/logger"
@@ -15,7 +16,7 @@ import (
 type fieldStore struct {
 	fieldType field.Type             // sum, gauge, min, max
 	fieldID   uint32                 // default 0
-	segments  map[int64]segmentStore // familyTime
+	segments  map[int64]segmentStore // familyTime => segment store
 	sl        lockers.SpinLock       // spin-lock
 }
 
@@ -58,30 +59,19 @@ func (fs *fieldStore) getSegmentStore(familyStartTime int64) (segmentStore, bool
 	return store, ok
 }
 
-func (fs *fieldStore) write(blockStore *blockStore, familyStartTime int64, slot int, f models.Field) {
+func (fs *fieldStore) write(blockStore *blockStore, familyStartTime int64, slot int, f *pb.Field) {
 	fs.sl.Lock()
-	if !f.IsComplex() {
-		sf, ok := f.(models.SimpleField)
-		if !ok {
-			memDBLogger.Warn("convert field to simple field error")
-			return
-		}
+	switch fields := f.Field.(type) {
+	case *pb.Field_Sum:
 		store, exist := fs.segments[familyStartTime]
 		if !exist {
 			//TODO ???
-			store = newSimpleFieldStore(field.GetAggFunc(sf.AggType()))
+			store = newSimpleFieldStore(field.GetAggFunc(field.Sum))
 			fs.segments[familyStartTime] = store
 		}
-		simpleStore, ok := store.(*simpleFieldStore)
-		if ok {
-			val := sf.Value()
-			switch value := val.(type) {
-			case int64:
-				simpleStore.writeInt(blockStore, slot, value)
-			case float64:
-				//TODO handle float value
-			}
-		}
+		store.writeFloat(blockStore, slot, fields.Sum)
+	default:
+		memDBLogger.Warn("convert field error, unknown field type")
 	}
 
 	fs.sl.Unlock()

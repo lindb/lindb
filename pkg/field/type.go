@@ -28,4 +28,6 @@ const (
 	MinField
 	MaxField
 	HistogramField
+
+	Unknown
 )

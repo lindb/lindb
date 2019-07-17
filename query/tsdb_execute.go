@@ -12,7 +12,7 @@ import (
 type tsdbExecute struct {
 	engine   tsdb.Engine
 	query    models.Query
-	shardIDs []int
+	shardIDs []int32
 
 	shards []tsdb.Shard
 
@@ -20,7 +20,7 @@ type tsdbExecute struct {
 }
 
 // NewTSDBExecutor creates execution which queries tsdb storage
-func NewTSDBExecutor(engine tsdb.Engine, shardIDs []int, query models.Query) Executor {
+func NewTSDBExecutor(engine tsdb.Engine, shardIDs []int32, query models.Query) Executor {
 	return &tsdbExecute{
 		engine:   engine,
 		shardIDs: shardIDs,

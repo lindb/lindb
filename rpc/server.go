@@ -35,7 +35,7 @@ func (s *server) Start() error {
 		return err
 	}
 
-	s.logger.Info("rpc server start serving")
+	s.logger.Info("rpc server start serving", logger.String("address", s.bindAddress))
 	return s.gs.Serve(lis)
 }
 
@@ -44,7 +44,5 @@ func (s *server) GetServer() *grpc.Server {
 }
 
 func (s *server) Stop() {
-	if s.gs != nil {
-		s.gs.Stop()
-	}
+	s.gs.Stop()
 }

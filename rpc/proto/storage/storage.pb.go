@@ -9,6 +9,7 @@ import (
 	common "github.com/eleme/lindb/rpc/proto/common"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	io "io"
 	math "math"
 )
 
@@ -23,18 +24,138 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type WriteRequest struct {
+	RequestID            int64           `protobuf:"varint,1,opt,name=requestID,proto3" json:"requestID,omitempty"`
+	Replica              *common.Replica `protobuf:"bytes,2,opt,name=replica,proto3" json:"replica,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *WriteRequest) Reset()         { *m = WriteRequest{} }
+func (m *WriteRequest) String() string { return proto.CompactTextString(m) }
+func (*WriteRequest) ProtoMessage()    {}
+func (*WriteRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0d2c4ccf1453ffdb, []int{0}
+}
+func (m *WriteRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WriteRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteRequest.Merge(m, src)
+}
+func (m *WriteRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *WriteRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteRequest proto.InternalMessageInfo
+
+func (m *WriteRequest) GetRequestID() int64 {
+	if m != nil {
+		return m.RequestID
+	}
+	return 0
+}
+
+func (m *WriteRequest) GetReplica() *common.Replica {
+	if m != nil {
+		return m.Replica
+	}
+	return nil
+}
+
+type WriteResponse struct {
+	RequestID            int64    `protobuf:"varint,1,opt,name=requestID,proto3" json:"requestID,omitempty"`
+	ErrorMsg             string   `protobuf:"bytes,2,opt,name=errorMsg,proto3" json:"errorMsg,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteResponse) Reset()         { *m = WriteResponse{} }
+func (m *WriteResponse) String() string { return proto.CompactTextString(m) }
+func (*WriteResponse) ProtoMessage()    {}
+func (*WriteResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0d2c4ccf1453ffdb, []int{1}
+}
+func (m *WriteResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WriteResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteResponse.Merge(m, src)
+}
+func (m *WriteResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *WriteResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteResponse proto.InternalMessageInfo
+
+func (m *WriteResponse) GetRequestID() int64 {
+	if m != nil {
+		return m.RequestID
+	}
+	return 0
+}
+
+func (m *WriteResponse) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
+}
+
+func init() {
+	proto.RegisterType((*WriteRequest)(nil), "storage.WriteRequest")
+	proto.RegisterType((*WriteResponse)(nil), "storage.WriteResponse")
+}
+
 func init() { proto.RegisterFile("storage.proto", fileDescriptor_0d2c4ccf1453ffdb) }
 
 var fileDescriptor_0d2c4ccf1453ffdb = []byte{
-	// 128 bytes of a gzipped FileDescriptorProto
+	// 207 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2d, 0x2e, 0xc9, 0x2f,
 	0x4a, 0x4c, 0x4f, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x87, 0x72, 0xa5, 0x78, 0x92,
-	0xf3, 0x73, 0x73, 0xf3, 0xf3, 0x20, 0xc2, 0x46, 0x4e, 0x5c, 0x3c, 0xe1, 0x45, 0x99, 0x25, 0xa9,
-	0xc1, 0xa9, 0x45, 0x65, 0x99, 0xc9, 0xa9, 0x42, 0x46, 0x5c, 0xdc, 0x60, 0x7e, 0x40, 0x7e, 0x66,
-	0x5e, 0x49, 0xb1, 0x10, 0xbf, 0x1e, 0x54, 0x75, 0x50, 0x6a, 0x61, 0x69, 0x6a, 0x71, 0x89, 0x94,
-	0x00, 0x42, 0xa0, 0xb8, 0x20, 0x3f, 0xaf, 0x38, 0x55, 0x89, 0xc1, 0x49, 0xe0, 0xc4, 0x23, 0x39,
-	0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92, 0x63, 0x9c, 0xf1, 0x58, 0x8e, 0x21, 0x89, 0x0d,
-	0x6c, 0xb8, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x94, 0xa0, 0xeb, 0xe1, 0x84, 0x00, 0x00, 0x00,
+	0xf3, 0x73, 0x73, 0xf3, 0xf3, 0x20, 0xc2, 0x4a, 0xe1, 0x5c, 0x3c, 0xe1, 0x45, 0x99, 0x25, 0xa9,
+	0x41, 0xa9, 0x85, 0xa5, 0xa9, 0xc5, 0x25, 0x42, 0x32, 0x5c, 0x9c, 0x45, 0x10, 0xa6, 0xa7, 0x8b,
+	0x04, 0xa3, 0x02, 0xa3, 0x06, 0x73, 0x10, 0x42, 0x40, 0x48, 0x93, 0x8b, 0xbd, 0x28, 0xb5, 0x20,
+	0x27, 0x33, 0x39, 0x51, 0x82, 0x49, 0x81, 0x51, 0x83, 0xdb, 0x88, 0x5f, 0x0f, 0x6a, 0x5a, 0x10,
+	0x44, 0x38, 0x08, 0x26, 0xaf, 0xe4, 0xc9, 0xc5, 0x0b, 0x35, 0xb8, 0xb8, 0x20, 0x3f, 0xaf, 0x38,
+	0x95, 0x80, 0xc9, 0x52, 0x5c, 0x1c, 0xa9, 0x45, 0x45, 0xf9, 0x45, 0xbe, 0xc5, 0xe9, 0x60, 0xa3,
+	0x39, 0x83, 0xe0, 0x7c, 0x23, 0x1f, 0xa8, 0x1b, 0x83, 0x53, 0x8b, 0xca, 0x32, 0x93, 0x53, 0x85,
+	0x6c, 0xb8, 0x58, 0xc1, 0x7c, 0x21, 0x51, 0x3d, 0x98, 0x1f, 0x91, 0xfd, 0x20, 0x25, 0x86, 0x2e,
+	0x0c, 0x71, 0x81, 0x12, 0x83, 0x06, 0xa3, 0x01, 0xa3, 0x93, 0xc0, 0x89, 0x47, 0x72, 0x8c, 0x17,
+	0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38, 0xe3, 0xb1, 0x1c, 0x43, 0x12, 0x1b, 0x38, 0x28,
+	0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0xc5, 0x05, 0x3c, 0x14, 0x32, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -49,7 +170,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type WriteServiceClient interface {
-	WritePoints(ctx context.Context, in *common.Request, opts ...grpc.CallOption) (*common.Response, error)
+	Write(ctx context.Context, opts ...grpc.CallOption) (WriteService_WriteClient, error)
 }
 
 type writeServiceClient struct {
@@ -60,51 +181,536 @@ func NewWriteServiceClient(cc *grpc.ClientConn) WriteServiceClient {
 	return &writeServiceClient{cc}
 }
 
-func (c *writeServiceClient) WritePoints(ctx context.Context, in *common.Request, opts ...grpc.CallOption) (*common.Response, error) {
-	out := new(common.Response)
-	err := c.cc.Invoke(ctx, "/storage.WriteService/WritePoints", in, out, opts...)
+func (c *writeServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (WriteService_WriteClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_WriteService_serviceDesc.Streams[0], "/storage.WriteService/Write", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &writeServiceWriteClient{stream}
+	return x, nil
+}
+
+type WriteService_WriteClient interface {
+	Send(*WriteRequest) error
+	Recv() (*WriteResponse, error)
+	grpc.ClientStream
+}
+
+type writeServiceWriteClient struct {
+	grpc.ClientStream
+}
+
+func (x *writeServiceWriteClient) Send(m *WriteRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *writeServiceWriteClient) Recv() (*WriteResponse, error) {
+	m := new(WriteResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // WriteServiceServer is the server API for WriteService service.
 type WriteServiceServer interface {
-	WritePoints(context.Context, *common.Request) (*common.Response, error)
+	Write(WriteService_WriteServer) error
 }
 
 func RegisterWriteServiceServer(s *grpc.Server, srv WriteServiceServer) {
 	s.RegisterService(&_WriteService_serviceDesc, srv)
 }
 
-func _WriteService_WritePoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(common.Request)
-	if err := dec(in); err != nil {
+func _WriteService_Write_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(WriteServiceServer).Write(&writeServiceWriteServer{stream})
+}
+
+type WriteService_WriteServer interface {
+	Send(*WriteResponse) error
+	Recv() (*WriteRequest, error)
+	grpc.ServerStream
+}
+
+type writeServiceWriteServer struct {
+	grpc.ServerStream
+}
+
+func (x *writeServiceWriteServer) Send(m *WriteResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *writeServiceWriteServer) Recv() (*WriteRequest, error) {
+	m := new(WriteRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(WriteServiceServer).WritePoints(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/storage.WriteService/WritePoints",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WriteServiceServer).WritePoints(ctx, req.(*common.Request))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 var _WriteService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "storage.WriteService",
 	HandlerType: (*WriteServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "WritePoints",
-			Handler:    _WriteService_WritePoints_Handler,
+			StreamName:    "Write",
+			Handler:       _WriteService_Write_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "storage.proto",
 }
+
+func (m *WriteRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WriteRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.RequestID != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintStorage(dAtA, i, uint64(m.RequestID))
+	}
+	if m.Replica != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintStorage(dAtA, i, uint64(m.Replica.Size()))
+		n1, err := m.Replica.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *WriteResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WriteResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.RequestID != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintStorage(dAtA, i, uint64(m.RequestID))
+	}
+	if len(m.ErrorMsg) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintStorage(dAtA, i, uint64(len(m.ErrorMsg)))
+		i += copy(dAtA[i:], m.ErrorMsg)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func encodeVarintStorage(dAtA []byte, offset int, v uint64) int {
+	for v >= 1<<7 {
+		dAtA[offset] = uint8(v&0x7f | 0x80)
+		v >>= 7
+		offset++
+	}
+	dAtA[offset] = uint8(v)
+	return offset + 1
+}
+func (m *WriteRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RequestID != 0 {
+		n += 1 + sovStorage(uint64(m.RequestID))
+	}
+	if m.Replica != nil {
+		l = m.Replica.Size()
+		n += 1 + l + sovStorage(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *WriteResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RequestID != 0 {
+		n += 1 + sovStorage(uint64(m.RequestID))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 1 + l + sovStorage(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func sovStorage(x uint64) (n int) {
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
+}
+func sozStorage(x uint64) (n int) {
+	return sovStorage(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *WriteRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowStorage
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WriteRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WriteRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequestID", wireType)
+			}
+			m.RequestID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RequestID |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Replica", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthStorage
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Replica == nil {
+				m.Replica = &common.Replica{}
+			}
+			if err := m.Replica.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipStorage(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WriteResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowStorage
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WriteResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WriteResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequestID", wireType)
+			}
+			m.RequestID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.RequestID |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthStorage
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipStorage(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthStorage
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func skipStorage(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return 0, ErrIntOverflowStorage
+			}
+			if iNdEx >= l {
+				return 0, io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		wireType := int(wire & 0x7)
+		switch wireType {
+		case 0:
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return 0, ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return 0, io.ErrUnexpectedEOF
+				}
+				iNdEx++
+				if dAtA[iNdEx-1] < 0x80 {
+					break
+				}
+			}
+			return iNdEx, nil
+		case 1:
+			iNdEx += 8
+			return iNdEx, nil
+		case 2:
+			var length int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return 0, ErrIntOverflowStorage
+				}
+				if iNdEx >= l {
+					return 0, io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				length |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if length < 0 {
+				return 0, ErrInvalidLengthStorage
+			}
+			iNdEx += length
+			if iNdEx < 0 {
+				return 0, ErrInvalidLengthStorage
+			}
+			return iNdEx, nil
+		case 3:
+			for {
+				var innerWire uint64
+				var start int = iNdEx
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return 0, ErrIntOverflowStorage
+					}
+					if iNdEx >= l {
+						return 0, io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					innerWire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				innerWireType := int(innerWire & 0x7)
+				if innerWireType == 4 {
+					break
+				}
+				next, err := skipStorage(dAtA[start:])
+				if err != nil {
+					return 0, err
+				}
+				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthStorage
+				}
+			}
+			return iNdEx, nil
+		case 4:
+			return iNdEx, nil
+		case 5:
+			iNdEx += 4
+			return iNdEx, nil
+		default:
+			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
+		}
+	}
+	panic("unreachable")
+}
+
+var (
+	ErrInvalidLengthStorage = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowStorage   = fmt.Errorf("proto: integer overflow")
+)

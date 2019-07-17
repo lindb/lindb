@@ -50,6 +50,7 @@ type runtime struct {
 	registry     discovery.Registry
 	taskExecutor *task.TaskExecutor
 	srv          srv
+	handler      *rpcHandler
 
 	log *logger.Logger
 }
@@ -176,7 +177,7 @@ func (r *runtime) buildServiceDependency() {
 
 // startTCPServer starts tcp server
 func (r *runtime) startTCPServer() {
-	r.server = rpc.NewTCPServer(fmt.Sprintf("%s:%d", r.node.IP, r.node.Port))
+	r.server = rpc.NewTCPServer(fmt.Sprintf(":%d", r.node.Port))
 
 	// bind rpc handlers
 	r.bindRPCHandlers()
@@ -190,9 +191,11 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
-	handlers := rpcHandler{
+	//TODO
+	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService),
 	}
+	//r.handler = handler
 
-	storage.RegisterWriteServiceServer(r.server.GetServer(), handlers.writer)
+	storage.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
 }

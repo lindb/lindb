@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package field;
+
+message MetricList {
+    repeated Metric metrics = 1;
+}
+
+message Metric {
+    string name = 1;
+    int64 timestamp = 2;
+    string tags = 3;
+    repeated Field fields = 4;
+}
+
+message Field {
+    string name = 1;
+    oneof field {
+        double sum = 100;
+        double min = 101;
+    }
+}

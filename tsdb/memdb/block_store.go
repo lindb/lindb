@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"math"
 	"math/bits"
 	"sync"
 
@@ -21,31 +22,45 @@ type blockStore struct {
 
 // newBlockStore returns a pool of block with fixed time window
 func newBlockStore(timeWindow int) *blockStore {
+	tw := timeWindow
+	if tw <= 0 {
+		tw = maxTimeWindow
+	}
 	return &blockStore{
-		timeWindow: timeWindow,
+		timeWindow: tw,
 		intBlockPool: sync.Pool{
 			New: func() interface{} {
-				return newIntBlock(timeWindow)
+				return newIntBlock(tw)
 			},
 		},
 		floatBlockPool: sync.Pool{
 			New: func() interface{} {
-				return newFloatBlock(timeWindow)
+				return newFloatBlock(tw)
 			},
 		},
 	}
 }
 
-// freeIntBlock resets int block data and free it, puts it into pool for reusing
-func (bs *blockStore) freeIntBlock(block *intBlock) {
+// freeBlock resets block data and free it, puts it into pool for reusing
+func (bs *blockStore) freeBlock(block block) {
 	block.reset()
-	bs.intBlockPool.Put(block)
+	switch b := block.(type) {
+	case *intBlock:
+		bs.intBlockPool.Put(b)
+	case *floatBlock:
+		bs.floatBlockPool.Put(b)
+	}
 }
 
-// freeFloatBlock resets float block data and free it, puts it into pool for reusing
-func (bs *blockStore) freeFloatBlock(block *floatBlock) {
-	block.reset()
-	bs.floatBlockPool.Put(block)
+func (bs *blockStore) allocBlock(valueType field.ValueType) block {
+	switch valueType {
+	case field.Integer:
+		return bs.allocIntBlock()
+	case field.Float:
+		return bs.allocFloatBlock()
+	default:
+		return nil
+	}
 }
 
 // allocIntBlock alloc int block from pool
@@ -75,6 +90,14 @@ type block interface {
 	hasValue(pos int) bool
 	// setValue marks pos has value
 	setValue(pos int)
+	// setIntValue sets int64 value with pos
+	setIntValue(pos int, value int64)
+	// getIntValue returns int64 value for pos
+	getIntValue(pos int) int64
+	// setFloatValue sets float64 value with pos
+	setFloatValue(pos int, value float64)
+	// getFloatValue returns float64 value for pos
+	getFloatValue(pos int) float64
 	// setStartTime sets start time slot
 	setStartTime(startTime int)
 	// getStartTime returns start time slot
@@ -126,10 +149,46 @@ func (c *container) getEndTime() int {
 	return c.startTime + (maxTimeWindow - trailing) - 1
 }
 
+func (c *container) getIntValue(pos int) int64 {
+	// do nothing
+	return 0
+}
+func (c *container) setIntValue(pos int, value int64) {
+	// do nothing
+}
+
+func (c *container) getFloatValue(pos int) float64 {
+	// do nothing
+	return 0
+}
+
+func (c *container) setFloatValue(pos int, value float64) {
+	// do nothing
+}
+
 // reset cleans block data, just reset container mark
 func (c *container) reset() {
 	c.container = 0
 	c.compress = c.compress[:0]
+}
+
+// bytes returns compress data for block data
+func (c *container) bytes() []byte {
+	return c.compress
+}
+
+// merge merges values and compress data of container based on value type nad agg func
+func (c *container) merge(valueType field.ValueType,
+	values []uint64, aggFunc field.AggFunc) (start, end int, err error) {
+	merger := newMerger(c, valueType, values, c.compress, aggFunc)
+
+	buf, err := merger.merge()
+	if err != nil {
+		return merger.startTime, merger.endTime, err
+	}
+
+	c.compress = buf
+	return merger.startTime, merger.endTime, nil
 }
 
 // intBlock represents a int block for storing metric point in memory
@@ -145,36 +204,25 @@ func newIntBlock(size int) *intBlock {
 	}
 }
 
-// getValue returns value with pos
-func (b *intBlock) getValue(pos int) int64 {
-	return b.values[pos]
+// setIntValue updates int64 value with pos
+func (b *intBlock) setIntValue(pos int, value int64) {
+	b.setValue(pos)
+	b.values[pos] = value
 }
 
-// updateValue updates value with pos
-func (b *intBlock) updateValue(pos int, value int64) {
-	b.values[pos] = value
+// getIntValue return int64 value for pos
+func (b *intBlock) getIntValue(pos int) int64 {
+	return b.values[pos]
 }
 
 // compact compress block data
 func (b *intBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
-	//TODO handle error
-	merger := newMerger(b, b.values, b.compress, aggFunc)
-	// do merge logic
-	merger.merge()
-
-	var buf []byte
-	buf, err = merger.tsd.Bytes()
-	if err != nil {
-		return
+	length := len(b.values)
+	values := make([]uint64, length)
+	for i := 0; i < length; i++ {
+		values[i] = encoding.ZigZagEncode(b.values[i])
 	}
-
-	b.compress = buf
-	return merger.startTime, merger.endTime, nil
-}
-
-// bytes returns compress data for block data
-func (b *intBlock) bytes() []byte {
-	return b.compress
+	return b.merge(field.Integer, values, aggFunc)
 }
 
 // floatBlock represents a float block for storing metric point in memory
@@ -190,28 +238,34 @@ func newFloatBlock(size int) *floatBlock {
 	}
 }
 
-// getValue returns value with pos
-func (b *floatBlock) getValue(pos int) float64 {
-	return b.values[pos]
+// setFloatValue updates float64 value with pos
+func (b *floatBlock) setFloatValue(pos int, value float64) {
+	b.setValue(pos)
+	b.values[pos] = value
 }
 
-// updateValue updates value with pos
-func (b *floatBlock) updateValue(pos int, value float64) {
-	b.values[pos] = value
+// getFloatValue returns float64 value for pos
+func (b *floatBlock) getFloatValue(pos int) float64 {
+	return b.values[pos]
 }
 
 // compact compress block data
 func (b *floatBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
-	//TODO need implement
-	return
+	length := len(b.values)
+	values := make([]uint64, length)
+	for i := 0; i < length; i++ {
+		values[i] = math.Float64bits(b.values[i])
+	}
+	return b.merge(field.Float, values, aggFunc)
 }
 
 // merger is merge operation which provides compress block data.
 // 1) compress data not exist, just compress current block values
 // 2) compress data exist, merge compress data and block values
 type merger struct {
-	block        block
-	values       []int64
+	valueType    field.ValueType
+	block        *container
+	values       []uint64
 	compressData []byte
 	tsd          *encoding.TSDEncoder
 
@@ -224,8 +278,11 @@ type merger struct {
 }
 
 // newMerger creates merge operation with given agg func based on block data and exist compress data
-func newMerger(block block, values []int64, compressData []byte, aggFunc field.AggFunc) *merger {
+func newMerger(block *container, valueType field.ValueType,
+	values []uint64, compressData []byte,
+	aggFunc field.AggFunc) *merger {
 	m := &merger{
+		valueType:    valueType,
 		block:        block,
 		values:       values,
 		compressData: compressData,
@@ -262,8 +319,8 @@ func (m *merger) init() {
 	m.tsd = encoding.NewTSDEncoder(m.startTime)
 }
 
-// merge does merge logic
-func (m *merger) merge() {
+// merge merges block's values and compress data based on agg func and value type
+func (m *merger) merge() ([]byte, error) {
 	if m.oldData == nil {
 		// compress data not exist, just compress block data
 		m.compress()
@@ -296,6 +353,12 @@ func (m *merger) merge() {
 			}
 		}
 	}
+
+	buf, err := m.tsd.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 // isInRange return slot if in range, yes return true
@@ -311,11 +374,17 @@ func (m *merger) mergeData(newPos, oldPos int) {
 	switch {
 	case hasValue && hasOldValue:
 		// has value both in current and old, do rollup operation with agg func
-		val := m.aggFunc.AggregateInt(m.values[newPos], encoding.ZigZagDecode(m.oldData.Value()))
-		m.appendValue(encoding.ZigZagEncode(val))
+		switch m.valueType {
+		case field.Integer:
+			val := m.aggFunc.AggregateInt(encoding.ZigZagDecode(m.values[newPos]), encoding.ZigZagDecode(m.oldData.Value()))
+			m.appendValue(encoding.ZigZagEncode(val))
+		case field.Float:
+			val := m.aggFunc.AggregateFloat(math.Float64frombits(m.values[newPos]), math.Float64frombits(m.oldData.Value()))
+			m.appendValue(math.Float64bits(val))
+		}
 	case hasValue:
 		// append current block block
-		m.appendValue(encoding.ZigZagEncode(m.values[newPos]))
+		m.appendValue(m.values[newPos])
 	case hasOldValue:
 		// read old compress value then append value with new pos
 		m.appendValue(m.oldData.Value())
@@ -335,7 +404,7 @@ func (m *merger) compress() {
 // appendNewData appends current block value with pos
 func (m *merger) appendNewData(pos int) {
 	if m.block.hasValue(pos) {
-		m.appendValue(encoding.ZigZagEncode(m.values[pos]))
+		m.appendValue(m.values[pos])
 	} else {
 		m.appendEmptyValue()
 	}
