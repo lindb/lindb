@@ -7,14 +7,14 @@ import (
 
 	"github.com/eleme/lindb/tsdb/memdb"
 
+	pb "github.com/eleme/lindb/rpc/proto/field"
+
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/pkg/util"
 )
-
-//go:generate mockgen -source ./shard.go -destination=./shard_mock.go -package tsdb
 
 const segmentPath = "segment"
 
@@ -23,14 +23,14 @@ type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
 	GetSegments(intervalType interval.Type, timeRange models.TimeRange) []Segment
 	// Write writes the metric-point into memory-database.
-	Write(point models.Point) error
+	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
 	Close()
 }
 
 // shard implements Shard interface
 type shard struct {
-	id     int
+	id     int32
 	path   string
 	option option.ShardOption
 	memDB  memdb.MemoryDatabase
@@ -45,7 +45,7 @@ type shard struct {
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
 // return error if fail.
-func newShard(shardID int, path string, option option.ShardOption) (Shard, error) {
+func newShard(shardID int32, path string, option option.ShardOption) (Shard, error) {
 	if option.Interval <= 0 {
 		return nil, fmt.Errorf("interval cannot be negative")
 	}
@@ -95,16 +95,24 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange models.TimeRan
 }
 
 // Write writes the metric-point into memory-database.
-func (s *shard) Write(point models.Point) error {
-	timestamp := point.Timestamp()
+func (s *shard) Write(metric *pb.Metric) error {
+	if metric == nil {
+		return fmt.Errorf("metric is nil")
+	}
+	if metric.Fields == nil {
+		return fmt.Errorf("fields is nil")
+	}
+	timestamp := metric.Timestamp
 	now := timeutil.Now()
 
-	if timestamp < now-s.option.Behind || timestamp > now+s.option.Ahead {
+	// check metric timestamp if in acceptable time range
+	if (s.option.Behind > 0 && timestamp < now-s.option.Behind) ||
+		(s.option.Ahead > 0 && timestamp > now+s.option.Ahead) {
 		return nil
 	}
 
 	// write metric point into memory db
-	return s.memDB.Write(point)
+	return s.memDB.Write(metric)
 }
 
 // Close closes the memDatabase and spawned goroutines.

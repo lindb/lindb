@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"github.com/eleme/lindb/pkg/field"
+	"github.com/eleme/lindb/pkg/timeutil"
+
+	pb "github.com/eleme/lindb/rpc/proto/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +35,14 @@ func Test_flushFieldTo_write(t *testing.T) {
 
 	tw := makeMockTableWriter(ctrl)
 	gen := makeMockIDGenerator(ctrl)
-	p := makeMockPoint(ctrl)
+	p := &pb.Metric{
+		Name:      "cpu.load",
+		Timestamp: timeutil.Now(),
+		Tags:      "idle",
+		Fields: []*pb.Field{
+			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+		},
+	}
 
 	fStore := newFieldStore(field.SumField)
 	assert.Equal(t, fStore.getFamiliesCount(), 0)
@@ -46,7 +56,7 @@ func Test_flushFieldTo_write(t *testing.T) {
 	fStore.flushFieldTo(tw, 2, gen, 32, "sum")
 	assert.Equal(t, fStore.getFamiliesCount(), 0)
 
-	for _, f := range p.Fields() {
+	for _, f := range p.Fields {
 		fStore.write(newBlockStore(10), 5, 3, f)
 		fStore.flushFieldTo(tw, 32, gen, 2, "sum")
 	}

@@ -9,10 +9,12 @@ import (
 
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/broker/api/admin"
+	apiState "github.com/eleme/lindb/broker/api/state"
 	"github.com/eleme/lindb/broker/middleware"
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator"
+	"github.com/eleme/lindb/coordinator/broker"
 	"github.com/eleme/lindb/coordinator/discovery"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
@@ -28,15 +30,23 @@ const (
 	DefaultBrokerCfgFile = "./" + cfgName
 )
 
+// srv represents all services for broker
 type srv struct {
 	storageClusterService service.StorageClusterService
 	databaseService       service.DatabaseService
 }
 
+// apiHandler represents all api handlers for broker
 type apiHandler struct {
 	storageClusterAPI *admin.StorageClusterAPI
 	databaseAPI       *admin.DatabaseAPI
 	loginAPI          *api.LoginAPI
+	storageStateAPI   *apiState.StorageAPI
+}
+
+// stateMachine represents all state machines for broker
+type stateMachine struct {
+	storageState broker.StorageStateMachine
 }
 
 type middlewareHandler struct {
@@ -50,11 +60,12 @@ type runtime struct {
 	config  config.Broker
 	node    models.Node
 	// init value when runtime
-	repo       state.Repository
-	srv        srv
-	httpServer *http.Server
-	master     coordinator.Master
-	registry   discovery.Registry
+	repo         state.Repository
+	srv          srv
+	httpServer   *http.Server
+	master       coordinator.Master
+	registry     discovery.Registry
+	stateMachine *stateMachine
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -106,6 +117,12 @@ func (r *runtime) Run() error {
 	}
 
 	r.buildServiceDependency()
+
+	// finally start all state machine
+	if err := r.startStateMachine(); err != nil {
+		return fmt.Errorf("start state machine error:%s", err)
+	}
+
 	r.buildMiddlewareDependency()
 	r.buildAPIDependency()
 
@@ -139,15 +156,19 @@ func (r *runtime) Stop() error {
 	r.log.Info("stopping broker server.....")
 	defer r.cancel()
 
-	if r.master != nil {
-		r.master.Stop()
-	}
-
 	if r.httpServer != nil {
 		r.log.Info("starting shutdown http server")
 		if err := r.httpServer.Shutdown(r.ctx); err != nil {
 			r.log.Error("shutdown http server error", logger.Error(err))
 		}
+	}
+
+	if r.master != nil {
+		r.master.Stop()
+	}
+
+	if r.stateMachine != nil {
+		r.stopStateMachine()
 	}
 
 	if r.repo != nil {
@@ -210,6 +231,7 @@ func (r *runtime) buildAPIDependency() {
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User),
+		storageStateAPI:   apiState.NewStorageAPI(r.stateMachine.storageState),
 	}
 
 	api.AddRoutes("Login", http.MethodPost, "/login", handler.loginAPI.Login)
@@ -222,6 +244,8 @@ func (r *runtime) buildAPIDependency() {
 
 	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handler.databaseAPI.Save)
 	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handler.databaseAPI.GetByName)
+
+	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handler.storageStateAPI.List)
 }
 
 // buildMiddlewareDependency builds middleware dependency
@@ -235,4 +259,25 @@ func (r *runtime) buildMiddlewareDependency() {
 		api.AddMiddleware(middlewareHandler.authentication.ValidateMiddleware, validate)
 	}
 
+}
+
+// startStateMachine starts related state machines for broker
+func (r *runtime) startStateMachine() error {
+	r.stateMachine = &stateMachine{}
+	storageStateMachine, err := broker.NewStorageStateMachine(r.ctx, r.repo)
+	if err != nil {
+		return err
+	}
+	r.stateMachine.storageState = storageStateMachine
+
+	return nil
+}
+
+// stopStateMachine stops broker's state machines
+func (r *runtime) stopStateMachine() {
+	if r.stateMachine.storageState != nil {
+		if err := r.stateMachine.storageState.Close(); err != nil {
+			r.log.Error("close storage state state machine error", logger.Error(err))
+		}
+	}
 }

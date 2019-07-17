@@ -119,7 +119,7 @@ func initTagsFamily() kv.Family {
 	return family
 }
 
-func TestTagsMapping(t *testing.T) {
+func BenchmarkTagsMapping(b *testing.B) {
 	id := 1
 	//writer := stream.BinaryWriter()
 	//util.RemoveDir("../m.txt")
@@ -168,10 +168,4 @@ func TestTagsMapping(t *testing.T) {
 	fmt.Println(string(dst))
 	reader.Read(dst)
 	fmt.Println(string(dst))
-
-	//by, _ := writer.Bytes()
-	//fmt.Println(len(by))
-	//dst := snappy.Encode(nil, by)
-	//fmt.Println(len(dst))
-
 }

@@ -22,8 +22,8 @@ func NewStorageClusterAPI(storageClusterService service.StorageClusterService) *
 
 // Create creates config of storage cluster
 func (s *StorageClusterAPI) Create(w http.ResponseWriter, r *http.Request) {
-	storage := models.StorageCluster{}
-	err := api.GetJSONBodyFromRequest(r, &storage)
+	storage := &models.StorageCluster{}
+	err := api.GetJSONBodyFromRequest(r, storage)
 	if err != nil {
 		api.Error(w, err)
 		return

@@ -51,9 +51,9 @@ func (ts *testTaskExecutorSuite) TestCreateShard(c *check.C) {
 	cluster, _ := newCluster(context.TODO(), models.StorageCluster{Config: state.Config{
 		Namespace: "/admin/shard/test",
 		Endpoints: ts.Cluster.Endpoints,
-	}})
-	nodes := make(map[int]models.Node)
-	nodes[1] = node
+	}}, service.NewStorageStateService(repo))
+	nodes := make(map[int]*models.Node)
+	nodes[1] = &node
 	shardAssign := models.NewShardAssignment()
 	shardAssign.AddReplica(1, 1)
 	_ = cluster.SaveShardAssign("test",

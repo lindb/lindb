@@ -129,7 +129,7 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 		return fmt.Errorf("active node not found")
 	}
 	//TODO need calc resource and pick related node for store data
-	var nodes = make(map[int]models.Node)
+	var nodes = make(map[int]*models.Node)
 	for idx, node := range activeNodes {
 		nodes[idx] = node
 	}
@@ -156,7 +156,7 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 }
 
 // getNodes returns all active nodes by cluster name
-func (sm *adminStateMachine) getNodes(clusterName string) (map[int]models.Node, error) {
+func (sm *adminStateMachine) getNodes(clusterName string) (map[int]*models.Node, error) {
 	cluster := sm.storageCluster.GetCluster(clusterName)
 	if cluster == nil {
 		return nil, fmt.Errorf("stroage cluster not exist")
@@ -165,7 +165,7 @@ func (sm *adminStateMachine) getNodes(clusterName string) (map[int]models.Node, 
 	if len(activeNodes) == 0 {
 		return nil, fmt.Errorf("active node not found")
 	}
-	var nodes = make(map[int]models.Node)
+	var nodes = make(map[int]*models.Node)
 	for idx, node := range activeNodes {
 		nodes[idx] = node
 	}

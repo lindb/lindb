@@ -47,7 +47,7 @@ func NewFloatDecoder(b []byte) *FloatDecoder {
 	}
 }
 
-// Next returns if has value in xor stream, return ture has value
+// Next returns if has value in xor stream, return true has value
 func (d *FloatDecoder) Next() bool {
 	return d.decoder.Next()
 }

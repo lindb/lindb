@@ -12,11 +12,9 @@ message Response {
     bytes data = 3;
 }
 
-
-
-
-
-
-
-
+message Replica {
+    string database = 1;
+    int32 shardID = 2;
+    bytes data = 3; // refer MetricList data
+}
 

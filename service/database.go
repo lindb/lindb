@@ -13,9 +13,9 @@ import (
 // DatabaseService defines database service interface
 type DatabaseService interface {
 	// Save saves database config
-	Save(database models.Database) error
-	// Get gets database config by name
-	Get(name string) (models.Database, error)
+	Save(database *models.Database) error
+	// Get gets database config by name, if not exist return ErrNotExist
+	Get(name string) (*models.Database, error)
 }
 
 // databaseService implements DatabaseService interface
@@ -31,7 +31,7 @@ func NewDatabaseService(repo state.Repository) DatabaseService {
 }
 
 // Save saves database config into state's repo
-func (db *databaseService) Save(database models.Database) error {
+func (db *databaseService) Save(database *models.Database) error {
 	if len(database.Name) == 0 {
 		return fmt.Errorf("name cannot be empty")
 	}
@@ -56,17 +56,17 @@ func (db *databaseService) Save(database models.Database) error {
 	return db.repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath(database.Name), data)
 }
 
-// Get returns the database config in the state's repo
-func (db *databaseService) Get(name string) (models.Database, error) {
-	database := models.Database{}
+// Get returns the database config in the state's repo, if not exist return ErrNotExist
+func (db *databaseService) Get(name string) (*models.Database, error) {
 	if name == "" {
-		return database, fmt.Errorf("database name must not be null")
+		return nil, fmt.Errorf("database name must not be null")
 	}
 	configBytes, err := db.repo.Get(context.TODO(), pathutil.GetDatabaseConfigPath(name))
 	if err != nil {
-		return database, err
+		return nil, err
 	}
-	err = json.Unmarshal(configBytes, &database)
+	database := &models.Database{}
+	err = json.Unmarshal(configBytes, database)
 	if err != nil {
 		return database, err
 	}
