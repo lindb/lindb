@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator/discovery"
 	"github.com/eleme/lindb/coordinator/storage"
@@ -37,7 +35,7 @@ type adminStateMachine struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewAdminStateMachine creates admin state machine instance
@@ -50,7 +48,7 @@ func NewAdminStateMachine(ctx context.Context, repo state.Repository,
 		storageCluster: storageCluster,
 		ctx:            c,
 		cancel:         cancel,
-		log:            logger.GetLogger(),
+		log:            logger.GetLogger("database/admin/state/machine"),
 	}
 	// new database config discovery
 	stateMachine.discovery = discovery.NewDiscovery(repo, constants.DatabaseConfigPath, stateMachine)
@@ -65,12 +63,12 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 	cfg := models.Database{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
 		sm.log.Error("discovery database create but unmarshal error",
-			zap.String("data", string(resource)), zap.Error(err))
+			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
 
 	if len(cfg.Name) == 0 {
-		sm.log.Error("database name cannot be empty", zap.String("data", string(resource)))
+		sm.log.Error("database name cannot be empty", logger.String("data", string(resource)))
 		return
 	}
 
@@ -81,19 +79,19 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 		cluster := sm.storageCluster.GetCluster(clusterCfg.Name)
 		if cluster == nil {
 			sm.log.Error("storage cluster not exist",
-				zap.String("cluster", clusterCfg.Name))
+				logger.String("cluster", clusterCfg.Name))
 			continue
 		}
 		shardAssign, err := cluster.GetShardAssign(cfg.Name)
 		if err != nil && err != state.ErrNotExist {
-			sm.log.Error("get shard assign error", zap.Error(err), zap.Stack("db_admin"))
+			sm.log.Error("get shard assign error", logger.Error(err), logger.Stack())
 			return
 		}
 		// build shard assignment for creation database, generate related coordinator task
 		if shardAssign == nil {
 			if err := sm.createShardAssignment(cfg.Name, cluster, clusterCfg); err != nil {
 				sm.log.Error("create shard assignment error",
-					zap.String("data", string(resource)), zap.Error(err))
+					logger.String("data", string(resource)), logger.Error(err))
 			}
 		}
 

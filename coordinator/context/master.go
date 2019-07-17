@@ -1,8 +1,6 @@
 package context
 
 import (
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/coordinator/database"
 	"github.com/eleme/lindb/coordinator/storage"
 	"github.com/eleme/lindb/pkg/logger"
@@ -28,11 +26,11 @@ func NewMasterContext(stateMachine *StateMachine) *MasterContext {
 
 // Close closes all state machines, releases resource that master used
 func (m *MasterContext) Close() {
-	log := logger.GetLogger()
+	log := logger.GetLogger("coordinator/context")
 	if err := m.stateMachine.StorageCluster.Close(); err != nil {
-		log.Error("close storage cluster state machine error", zap.Error(err), zap.Stack("stack"))
+		log.Error("close storage cluster state machine error", logger.Error(err), logger.Stack())
 	}
 	if err := m.stateMachine.DatabaseAdmin.Close(); err != nil {
-		log.Error("close database admin state machine error", zap.Error(err), zap.Stack("stack"))
+		log.Error("close database admin state machine error", logger.Error(err), logger.Stack())
 	}
 }

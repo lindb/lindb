@@ -6,22 +6,20 @@ import (
 	"syscall"
 
 	"github.com/eleme/lindb/pkg/logger"
-
-	"go.uber.org/zap"
 )
 
 // FileLock is file lock
 type FileLock struct {
 	fileName string
 	file     *os.File
-	logger   *zap.Logger
+	logger   *logger.Logger
 }
 
 // NewFileLock create new file lock instance
 func NewFileLock(fileName string) *FileLock {
 	return &FileLock{
 		fileName: fileName,
-		logger:   logger.GetLogger(),
+		logger:   logger.GetLogger(fmt.Sprintf("file/lock[%s]", fileName)),
 	}
 }
 
@@ -44,14 +42,14 @@ func (l *FileLock) Lock() error {
 func (l *FileLock) Unlock() error {
 	defer func() {
 		if err := os.Remove(l.fileName); nil != err {
-			l.logger.Error("remove file lock error", zap.String("file", l.fileName), zap.Error(err))
+			l.logger.Error("remove file lock error", logger.Error(err))
 		}
-		l.logger.Info("remove file lock successfully", zap.String("file", l.fileName))
+		l.logger.Info("remove file lock successfully")
 	}()
 
 	defer func() {
 		if err := l.file.Close(); nil != err {
-			l.logger.Error("close file lock error", zap.String("file", l.fileName), zap.Error(err))
+			l.logger.Error("close file lock error", logger.Error(err))
 		}
 	}()
 	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)

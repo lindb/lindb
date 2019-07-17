@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator/discovery"
 	"github.com/eleme/lindb/models"
@@ -39,12 +37,12 @@ type clusterStateMachine struct {
 	clusters map[string]Cluster
 
 	mutex sync.RWMutex
-	log   *zap.Logger
+	log   *logger.Logger
 }
 
 // NewClusterStateMachine create state machine, init cluster controller if exist, watch change event
 func NewClusterStateMachine(ctx context.Context, repo state.Repository) (ClusterStateMachine, error) {
-	log := logger.GetLogger()
+	log := logger.GetLogger("cluster/state/machine")
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &clusterStateMachine{
 		repo:     repo,
@@ -73,7 +71,7 @@ func NewClusterStateMachine(ctx context.Context, repo state.Repository) (Cluster
 
 // OnCreate creates and starts cluster controller when receive create event
 func (c *clusterStateMachine) OnCreate(key string, resource []byte) {
-	c.log.Info("storage cluster be created", zap.String("key", key))
+	c.log.Info("storage cluster be created", logger.String("key", key))
 	c.addCluster(resource)
 }
 
@@ -140,11 +138,11 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	cfg := models.StorageCluster{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
 		c.log.Error("discovery new storage config but unmarshal error",
-			zap.String("data", string(resource)), zap.Error(err))
+			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
 	if len(cfg.Name) == 0 {
-		c.log.Error("cluster name is empty", zap.Any("cfg", cfg))
+		c.log.Error("cluster name is empty", logger.Any("cfg", cfg))
 		return
 	}
 	c.mutex.Lock()
@@ -153,7 +151,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	cluster, err := newCluster(c.ctx, cfg)
 	if err != nil {
 		c.log.Error("create storage cluster error",
-			zap.Any("cfg", cfg), zap.Error(err))
+			logger.Any("cfg", cfg), logger.Error(err))
 		return
 	}
 	c.clusters[cfg.Name] = cluster

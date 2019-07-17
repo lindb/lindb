@@ -51,7 +51,7 @@ type election struct {
 
 	retryCh chan int
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewElection returns a new election
@@ -66,7 +66,7 @@ func NewElection(repo state.Repository, node models.Node, ttl int64, listener Li
 		ctx:      ctx,
 		cancel:   cancel,
 		retryCh:  make(chan int),
-		log:      logger.GetLogger(),
+		log:      logger.GetLogger("coordinator/elect"),
 	}
 }
 
@@ -77,7 +77,7 @@ func (e *election) Initialize() {
 
 	go func() {
 		e.handlerMasterChange(watchEventChan)
-		e.log.Info("exit master change event watch loop", zap.Any("node", e.node))
+		e.log.Info("exit master change event watch loop", logger.Any("node", e.node))
 	}()
 }
 

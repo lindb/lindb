@@ -9,8 +9,6 @@ import (
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
-
-	"go.uber.org/zap"
 )
 
 // Registry represents server node register
@@ -32,7 +30,7 @@ type registry struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewRegistry returns a new registry with prefix and ttl
@@ -44,7 +42,7 @@ func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
 		repo:   repo,
 		ctx:    ctx,
 		cancel: cancel,
-		log:    logger.GetLogger(),
+		log:    logger.GetLogger("coondinator/registry"),
 	}
 }
 
@@ -52,7 +50,7 @@ func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
 func (r *registry) Register(node models.Node) error {
 	nodeBytes, err := json.Marshal(node)
 	if err != nil {
-		r.log.Error("convert node to byte error when register node info", zap.Error(err))
+		r.log.Error("convert node to byte error when register node info", logger.Error(err))
 		return err
 	}
 	// register node info
@@ -82,12 +80,12 @@ func (r *registry) register(path string, node []byte) {
 		}
 		closed, err := r.repo.Heartbeat(r.ctx, path, node, r.ttl)
 		if err != nil {
-			r.log.Error("register storage node error", zap.Error(err))
+			r.log.Error("register storage node error", logger.Error(err))
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
-		r.log.Info("register storage node successfully", zap.String("path", path))
+		r.log.Info("register storage node successfully", logger.String("path", path))
 
 		select {
 		case <-r.ctx.Done():

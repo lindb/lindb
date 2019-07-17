@@ -41,7 +41,7 @@ func (fs *fieldStore) write(blockStore *blockStore, familyStartTime int64, slot 
 	if !f.IsComplex() {
 		sf, ok := f.(models.SimpleField)
 		if !ok {
-			logger.GetLogger().Warn("convert field to simple field error")
+			logger.GetLogger("mem/field/store").Warn("convert field to simple field error")
 			return
 		}
 		store, exist := fs.segments[familyStartTime]

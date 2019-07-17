@@ -3,7 +3,6 @@ package rpc
 import (
 	"net"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/eleme/lindb/pkg/logger"
@@ -19,14 +18,14 @@ type server struct {
 	bindAddress string
 	gs          *grpc.Server
 
-	logger *zap.Logger
+	logger *logger.Logger
 }
 
 func NewTCPServer(bindAddress string) TCPServer {
 	return &server{
 		bindAddress: bindAddress,
 		gs:          grpc.NewServer(),
-		logger:      logger.GetLogger(),
+		logger:      logger.GetLogger("rpc/server"),
 	}
 }
 
