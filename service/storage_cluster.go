@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
@@ -95,7 +93,9 @@ func (s *storageClusterService) List() ([]models.StorageCluster, error) {
 		storageCluster := models.StorageCluster{}
 		err = json.Unmarshal(val, &storageCluster)
 		if err != nil {
-			logger.GetLogger().Warn("unmarshal storage cluster data error", zap.String("data", string(val)))
+			logger.GetLogger("service/storage/cluster").
+				Warn("unmarshal data error",
+					logger.String("data", string(val)))
 		} else {
 			result = append(result, storageCluster)
 		}

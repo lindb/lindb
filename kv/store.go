@@ -5,14 +5,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/eleme/lindb/pkg/lockers"
-
 	"github.com/eleme/lindb/kv/table"
 	"github.com/eleme/lindb/kv/version"
+	"github.com/eleme/lindb/pkg/lockers"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
-
-	"go.uber.org/zap"
 )
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.
@@ -42,7 +39,7 @@ type store struct {
 	storeInfo *storeInfo
 	cache     table.Cache
 
-	logger *zap.Logger
+	logger *logger.Logger
 }
 
 // NewStore new store instance, need recover data if store existent
@@ -70,13 +67,13 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		return nil, err
 	}
 
-	log := logger.GetLogger()
+	log := logger.GetLogger(fmt.Sprintf("kv/store[%s]", option.Path))
 
 	// unlock file lock if error
 	defer func() {
 		if err != nil {
 			if e := lock.Unlock(); e != nil {
-				log.Error("unlock file error:", zap.String("store", option.Path), zap.Error(e))
+				log.Error("unlock file error:", logger.Error(e))
 			}
 		}
 	}()
@@ -170,10 +167,10 @@ func (s *store) GetFamily(familyName string) Family {
 // Close closes store, then release some resource
 func (s *store) Close() error {
 	if err := s.cache.Close(); err != nil {
-		s.logger.Error("close store cache error", zap.String("store", s.option.Path), zap.Error(err))
+		s.logger.Error("close store cache error", logger.Error(err))
 	}
 	if err := s.versions.Destroy(); err != nil {
-		s.logger.Error("destroy store version set error", zap.String("store", s.option.Path), zap.Error(err))
+		s.logger.Error("destroy store version set error", logger.Error(err))
 	}
 	return s.lock.Unlock()
 }

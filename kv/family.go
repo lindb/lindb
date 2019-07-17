@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/kv/table"
 	"github.com/eleme/lindb/kv/version"
 	"github.com/eleme/lindb/pkg/logger"
@@ -29,15 +27,15 @@ type family struct {
 	familyPath    string
 	option        FamilyOption
 	familyVersion *version.FamilyVersion
-	logger        *zap.Logger
+	logger        *logger.Logger
 }
 
 // newFamily creates new family or open existed family.
 func newFamily(store *store, option FamilyOption) (Family, error) {
-	log := logger.GetLogger()
 	name := option.Name
 
 	familyPath := filepath.Join(store.option.Path, name)
+	log := logger.GetLogger(fmt.Sprintf("kv/famliy[%s]", familyPath))
 
 	if !util.Exist(familyPath) {
 		if err := util.MkDir(familyPath); err != nil {
@@ -54,7 +52,7 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 		logger:        log,
 	}
 
-	log.Info("new family success", f.logStoreField(), f.logFamilyField())
+	log.Info("new family success")
 	return f, nil
 }
 
@@ -93,22 +91,12 @@ func (f *family) newTableBuilder() (table.Builder, error) {
 // returns true on committing successfully and false on failure
 func (f *family) commitEditLog(editLog *version.EditLog) bool {
 	if editLog.IsEmpty() {
-		f.logger.Warn("edit log is empty", f.logStoreField(), f.logFamilyField())
+		f.logger.Warn("edit log is empty")
 		return true
 	}
 	if err := f.store.versions.CommitFamilyEditLog(f.name, editLog); err != nil {
-		f.logger.Error("commit edit log error:", f.logStoreField(), f.logFamilyField(), zap.Error(err))
+		f.logger.Error("commit edit log error:", logger.Error(err))
 		return false
 	}
 	return true
-}
-
-// logStoreField logs store info。
-func (f *family) logStoreField() zap.Field {
-	return zap.String("store", f.store.option.Path)
-}
-
-// logFamilyField logs family info.
-func (f *family) logFamilyField() zap.Field {
-	return zap.String("family", f.name)
 }

@@ -17,8 +17,6 @@ import (
 	"github.com/eleme/lindb/rpc/proto/storage"
 	"github.com/eleme/lindb/service"
 	"github.com/eleme/lindb/storage/handler"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -53,7 +51,7 @@ type runtime struct {
 	taskExecutor *task.TaskExecutor
 	srv          srv
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -65,7 +63,7 @@ func NewStorageRuntime(cfgPath string) server.Service {
 		ctx:     ctx,
 		cancel:  cancel,
 
-		log: logger.GetLogger(),
+		log: logger.GetLogger("storage/runtime"),
 	}
 }
 
@@ -139,14 +137,14 @@ func (r *runtime) Stop() error {
 
 	if r.taskExecutor != nil {
 		if err := r.taskExecutor.Close(); err != nil {
-			r.log.Error("close task executor error", zap.Error(err))
+			r.log.Error("close task executor error", logger.Error(err))
 		}
 	}
 
 	// close registry, deregister storage node from active list
 	if r.registry != nil {
 		if err := r.registry.Close(); err != nil {
-			r.log.Error("unregister storage error", zap.Error(err))
+			r.log.Error("unregister storage error", logger.Error(err))
 		}
 	}
 
@@ -154,7 +152,7 @@ func (r *runtime) Stop() error {
 	if r.repo != nil {
 		r.log.Info("closing state repo")
 		if err := r.repo.Close(); err != nil {
-			r.log.Error("close state repo error, when storage stop", zap.Error(err))
+			r.log.Error("close state repo error, when storage stop", logger.Error(err))
 		}
 	}
 

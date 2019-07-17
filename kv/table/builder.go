@@ -11,7 +11,6 @@ import (
 	"github.com/eleme/lindb/pkg/logger"
 
 	"github.com/RoaringBitmap/roaring"
-	"go.uber.org/zap"
 )
 
 const (
@@ -42,7 +41,6 @@ type Builder interface {
 type storeBuilder struct {
 	fileNumber int64
 	fileName   string
-	logger     *zap.Logger
 	writer     bufioutil.BufioWriter
 	offset     *encoding.DeltaBitPackingEncoder
 
@@ -51,13 +49,15 @@ type storeBuilder struct {
 	maxKey uint32
 
 	first bool
+
+	logger *logger.Logger
 }
 
 // NewStoreBuilder creates store builder instance for building store file
 func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 	fileName := filepath.Join(path, version.Table(fileNumber))
 	keys := roaring.New()
-	log := logger.GetLogger()
+	log := logger.GetLogger(fmt.Sprintf("kv/builder[%s]", fileName))
 	writer, err := bufioutil.NewBufioWriter(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("create file write for store builder error:%s", err)
@@ -82,7 +82,7 @@ func (b *storeBuilder) FileNumber() int64 {
 func (b *storeBuilder) Add(key uint32, value []byte) error {
 	if !b.first && key <= b.maxKey {
 		b.logger.Warn("key is smaller then last key ignore current options.",
-			zap.String("file", b.fileName), zap.Any("last", b.maxKey), zap.Any("cur", key))
+			logger.Uint32("last", b.maxKey), logger.Uint32("cur", key))
 		return nil
 	}
 

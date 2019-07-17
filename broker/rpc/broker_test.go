@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap"
 	"gopkg.in/check.v1"
 
 	"github.com/eleme/lindb/pkg/logger"
@@ -33,7 +32,7 @@ func (ts *brokerTestSuite) SetUpSuite(c *check.C) {
 	go func() {
 		err := ts.bs.Start()
 		if err != nil {
-			logger.GetLogger().Error("start broker server error", zap.Error(err))
+			logger.GetLogger("broker/test").Error("start broker server error", logger.Error(err))
 		}
 	}()
 

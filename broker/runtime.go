@@ -3,17 +3,13 @@ package broker
 import (
 	"context"
 	"fmt"
-	"regexp"
-
-	"github.com/eleme/lindb/broker/middleware"
-
 	"net/http"
+	"regexp"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/broker/api/admin"
+	"github.com/eleme/lindb/broker/middleware"
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator"
@@ -63,7 +59,7 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewBrokerRuntime creates broker runtime
@@ -74,7 +70,7 @@ func NewBrokerRuntime(cfgPath string) server.Service {
 		cfgPath: cfgPath,
 		ctx:     ctx,
 		cancel:  cancel,
-		log:     logger.GetLogger(),
+		log:     logger.GetLogger("broker/runtime"),
 	}
 }
 
@@ -93,7 +89,7 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return fmt.Errorf("decode config file error:%s", err)
 	}
-	r.log.Info("load broker config from file successfully", zap.String("config", r.cfgPath))
+	r.log.Info("load broker config from file successfully", logger.String("config", r.cfgPath))
 
 	ip, err := util.GetHostIP()
 	if err != nil {
@@ -150,14 +146,14 @@ func (r *runtime) Stop() error {
 	if r.httpServer != nil {
 		r.log.Info("starting shutdown http server")
 		if err := r.httpServer.Shutdown(r.ctx); err != nil {
-			r.log.Error("shutdown http server error", zap.Error(err))
+			r.log.Error("shutdown http server error", logger.Error(err))
 		}
 	}
 
 	if r.repo != nil {
 		r.log.Info("closing state repo")
 		if err := r.repo.Close(); err != nil {
-			r.log.Error("close state repo error, when broker stop", zap.Error(err))
+			r.log.Error("close state repo error, when broker stop", logger.Error(err))
 		}
 	}
 
@@ -170,7 +166,7 @@ func (r *runtime) Stop() error {
 func (r *runtime) startHTTPServer() {
 	port := r.config.HTTP.Port
 
-	r.log.Info("starting http server", zap.Uint16("port", port))
+	r.log.Info("starting http server", logger.Uint16("port", port))
 	router := api.NewRouter()
 	//TODO add timeout config???
 	r.httpServer = &http.Server{

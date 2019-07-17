@@ -8,7 +8,6 @@ import (
 	"github.com/eleme/lindb/pkg/logger"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"go.uber.org/zap"
 )
 
 const defaultTTL = 10 // default ttl => 10 seconds
@@ -76,14 +75,14 @@ func (h *heartbeat) PutIfNotExist(ctx context.Context) (bool, error) {
 
 // keepAlive does keepalive and retry,if the key should be not exist,it should retry
 func (h *heartbeat) keepAlive(ctx context.Context, keepAliveNotExit bool) {
-	log := logger.GetLogger()
+	log := logger.GetLogger("state/heartbeat")
 	var (
 		err error
 		gap = 100 * time.Millisecond
 	)
 	for {
 		if err != nil {
-			log.Error("do heartbeat keepalive error, retry.", zap.Error(err))
+			log.Error("do heartbeat keepalive error, retry.", logger.Error(err))
 			time.Sleep(gap)
 			if keepAliveNotExit {
 				// retry put if not exist.if failed closes the heartbeat

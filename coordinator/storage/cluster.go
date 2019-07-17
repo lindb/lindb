@@ -14,8 +14,6 @@ import (
 	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
 	"github.com/eleme/lindb/service"
-
-	"go.uber.org/zap"
 )
 
 // Cluster represents storage cluster controller,
@@ -49,7 +47,7 @@ type cluster struct {
 	databases          map[string]*models.DatabaseCluster
 
 	mutex sync.RWMutex
-	log   *zap.Logger
+	log   *logger.Logger
 }
 
 // newCluster creates cluster controller, init active node list if exist node
@@ -65,7 +63,7 @@ func newCluster(ctx context.Context, cfg models.StorageCluster) (Cluster, error)
 		controller:         task.NewController(ctx, repo),
 		nodes:              make(map[string]models.Node),
 		databases:          make(map[string]*models.DatabaseCluster),
-		log:                logger.GetLogger(),
+		log:                logger.GetLogger("coordinator/storage/cluster"),
 	}
 	// init active nodes if exist
 	nodeList, err := repo.List(ctx, constants.ActiveNodesPath)
@@ -171,7 +169,7 @@ func (c *cluster) Close() {
 	c.discovery.Close()
 	if err := c.repo.Close(); err != nil {
 		c.log.Error("close state repo of storage cluster",
-			zap.String("cluster", c.cfg.Name), zap.Error(err), zap.Stack("stack"))
+			logger.String("cluster", c.cfg.Name), logger.Error(err), logger.Stack())
 	}
 }
 
@@ -180,7 +178,7 @@ func (c *cluster) addNode(resource []byte) {
 	node := models.Node{}
 	if err := json.Unmarshal(resource, &node); err != nil {
 		c.log.Error("discovery new storage node but unmarshal error",
-			zap.String("data", string(resource)), zap.Error(err))
+			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
 

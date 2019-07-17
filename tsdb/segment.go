@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/kv"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
@@ -146,7 +144,7 @@ type segment struct {
 	//TODO
 	// families     map[int64]kv.Family
 
-	logger *zap.Logger
+	logger *logger.Logger
 }
 
 // newSegment returns segment, segment is wrapper of kv store
@@ -169,7 +167,7 @@ func newSegment(segmentName string, intervalType interval.Type, path string) (Se
 		baseTime:     baseTime,
 		kvStore:      kvStore,
 		intervalType: intervalType,
-		logger:       logger.GetLogger(),
+		logger:       logger.GetLogger("tsdb/segment"),
 	}, nil
 }
 
@@ -181,6 +179,6 @@ func (s *segment) BaseTime() int64 {
 // Close closes segment, include kv store
 func (s *segment) Close() {
 	if err := s.kvStore.Close(); err != nil {
-		s.logger.Error("close kv store error", zap.Error(err))
+		s.logger.Error("close kv store error", logger.Error(err))
 	}
 }

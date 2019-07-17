@@ -3,25 +3,20 @@ package admin
 import (
 	"net/http"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/service"
 )
 
 // StorageClusterAPI represents storage cluster admin rest api
 type StorageClusterAPI struct {
 	storageClusterService service.StorageClusterService
-	log                   *zap.Logger
 }
 
 // NewStorageClusterAPI create storage cluster api
 func NewStorageClusterAPI(storageClusterService service.StorageClusterService) *StorageClusterAPI {
 	return &StorageClusterAPI{
 		storageClusterService: storageClusterService,
-		log:                   logger.GetLogger(),
 	}
 }
 

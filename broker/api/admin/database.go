@@ -4,9 +4,8 @@ import (
 	"net/http"
 
 	"github.com/eleme/lindb/broker/api"
-	"github.com/eleme/lindb/service"
-
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/service"
 )
 
 // DatabaseAPI represents database admin rest api
