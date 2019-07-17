@@ -6,12 +6,11 @@ import (
 	"path/filepath"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
-	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/pkg/logger"
 )
 
-// etcdRepository is repository based on etc storage
+// etcdRepository is repository based on etcd storage
 type etcdRepository struct {
 	namespace string
 	client    *etcdcliv3.Client
@@ -27,7 +26,7 @@ func newEtedRepository(config Config) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
-	logger.GetLogger().Info("new etcd client successfully", zap.Any("endpoints", config.Endpoints))
+	logger.GetLogger("state").Info("new etcd client successfully", logger.Any("endpoints", config.Endpoints))
 	return &etcdRepository{
 		namespace: config.Namespace,
 		client:    cli,

@@ -8,8 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/pkg/bufioutil"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/util"
@@ -29,7 +27,7 @@ type StoreVersionSet struct {
 	manifest bufioutil.BufioWriter
 	mutex    sync.RWMutex
 
-	logger *zap.Logger
+	logger *logger.Logger
 }
 
 // NewStoreVersionSet new VersionSet instance
@@ -41,7 +39,7 @@ func NewStoreVersionSet(storePath string, numOfLevels int) *StoreVersionSet {
 		numOfLevels:        numOfLevels,
 		familyVersions:     make(map[string]*FamilyVersion),
 		familyIDs:          make(map[int]string),
-		logger:             logger.GetLogger(),
+		logger:             logger.GetLogger(fmt.Sprintf("kv/version/set[%s]", storePath)),
 	}
 }
 
@@ -65,7 +63,7 @@ func (vs *StoreVersionSet) NextFileNumber() int64 {
 	return nextNumber - 1
 }
 
-// CommitFamilyEditLog peresists edit logs to manifest file, then apply new version to family version
+// CommitFamilyEditLog persists edit logs to manifest file, then apply new version to family version
 func (vs *StoreVersionSet) CommitFamilyEditLog(family string, editLog *EditLog) error {
 	// get family version based on family name
 	familyVersion := vs.GetFamilyVersion(family)
@@ -78,7 +76,7 @@ func (vs *StoreVersionSet) CommitFamilyEditLog(family string, editLog *EditLog) 
 
 	// add next file number init edit log for each delta edit log
 	editLog.Add(NewNextFileNumber(vs.nextFileNumber))
-	// peresist eidt log
+	// persist edit log
 	if err := vs.peresistEditLogs(vs.manifest, []*EditLog{editLog}); err != nil {
 		return err
 	}
@@ -91,8 +89,7 @@ func (vs *StoreVersionSet) CommitFamilyEditLog(family string, editLog *EditLog) 
 	// Install the new version for family level version edit log
 	familyVersion.appendVersion(newVersion)
 
-	//TODO add detail edit log data
-	vs.logger.Info("log and apply new version edit", zap.String("store", vs.storePath))
+	vs.logger.Info("log and apply new version edit", logger.Any("log", editLog))
 	return nil
 }
 
@@ -101,7 +98,7 @@ func (vs *StoreVersionSet) CommitFamilyEditLog(family string, editLog *EditLog) 
 func (vs *StoreVersionSet) CreateFamilyVersion(family string, familyID int) *FamilyVersion {
 	var familyVersion = vs.GetFamilyVersion(family)
 	if familyVersion != nil {
-		vs.logger.Warn("family version exist, use it.", zap.String("store", vs.storePath), zap.String("family", family))
+		vs.logger.Warn("family version exist, use it.", logger.String("family", family))
 		return familyVersion
 	}
 	familyVersion = newFamilyVersion(vs)
@@ -127,13 +124,13 @@ func (vs *StoreVersionSet) GetFamilyVersion(family string) *FamilyVersion {
 // Initialize if version file not exists, else recover old data then init journal writer.
 func (vs *StoreVersionSet) Recover() error {
 	if !util.Exist(filepath.Join(vs.storePath, current())) {
-		vs.logger.Info("version set's current file not exist, initialize it", zap.String("store", vs.storePath))
+		vs.logger.Info("version set's current file not exist, initialize it")
 		if err := vs.initJournal(); err != nil {
 			return err
 		}
 		return nil
 	}
-	vs.logger.Info("recover version set data from journal file", zap.String("store", vs.storePath))
+	vs.logger.Info("recover version set data from journal file")
 	if err := vs.recover(); err != nil {
 		return err
 	}
@@ -153,8 +150,8 @@ func (vs *StoreVersionSet) recover() error {
 	reader, err := bufioutil.NewBufioReader(manifestPath)
 	defer func() {
 		if e := reader.Close(); e != nil {
-			logger.GetLogger().Error("close manifest reader error",
-				zap.String("manifeset", manifestPath))
+			vs.logger.Error("close manifest reader error",
+				logger.String("manifest", manifestPath))
 		}
 	}()
 	if err != nil {

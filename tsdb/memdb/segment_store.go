@@ -3,13 +3,11 @@ package memdb
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/logger"
 )
 
-// segmentStore stores field data based on famliy start time
+// segmentStore stores field data based on family start time
 type segmentStore interface {
 	bytes() ([]byte, error)
 }
@@ -48,7 +46,7 @@ func (fs *simpleFieldStore) writeInt(blockStore *blockStore, slotTime int, value
 			// if current slot time out of current time window, need compress block data
 			err := currentBlock.compact(fs.aggFunc)
 			if err != nil {
-				logger.GetLogger().Error("compress block data error, data will lost", zap.Error(err))
+				logger.GetLogger("memdb").Error("compress block data error, data will lost", logger.Error(err))
 			} else {
 				currentBlock.setStartTime(slotTime) // reset start time using slot time
 				currentBlock.setValue(0)
@@ -58,7 +56,7 @@ func (fs *simpleFieldStore) writeInt(blockStore *blockStore, slotTime int, value
 			// in current time window, do rollup value
 			var pos = slotTime - startTime
 			if currentBlock.hasValue(pos) {
-				// do rullup using agg func
+				// do rollup using agg func
 				currentBlock.updateValue(pos, fs.aggFunc.AggregateInt(currentBlock.getValue(pos), value))
 			} else {
 				currentBlock.setValue(pos)

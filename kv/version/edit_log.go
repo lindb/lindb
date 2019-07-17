@@ -94,7 +94,7 @@ func (el *EditLog) apply(version *Version) {
 
 // apply store edit logs into version set
 func (el *EditLog) applyVersionSet(versionSet *StoreVersionSet) {
-	l := logger.GetLogger()
+	l := logger.GetLogger("kv/edit/log")
 	for _, log := range el.logs {
 		switch v := log.(type) {
 		case StoreLog:

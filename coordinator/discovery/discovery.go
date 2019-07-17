@@ -6,8 +6,6 @@ import (
 
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
-
-	"go.uber.org/zap"
 )
 
 // Listener represents discovery resource event callback interface,
@@ -38,7 +36,7 @@ type discovery struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewDiscovery returns a Discovery who will watch the changes with the given prefix
@@ -50,7 +48,7 @@ func NewDiscovery(repo state.Repository, prefix string, listener Listener) Disco
 		ctx:      ctx,
 		cancel:   cancel,
 		listener: listener,
-		log:      logger.GetLogger(),
+		log:      logger.GetLogger("coordinator/discovery"),
 	}
 }
 
@@ -72,7 +70,7 @@ func (d *discovery) Close() {
 	d.cancel()
 	d.listener.Cleanup()
 	if err := d.repo.Close(); err != nil {
-		d.log.Error("close state repo error", zap.String("prefix", d.prefix))
+		d.log.Error("close state repo error", logger.String("prefix", d.prefix))
 	}
 }
 

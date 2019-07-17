@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
@@ -20,6 +18,8 @@ type Executor struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	log *logger.Logger
 }
 
 // NewExecutor creates a new Executor, the keypfx must be the same as Controller's.
@@ -31,6 +31,7 @@ func NewExecutor(ctx context.Context, node *models.Node, cli state.Repository) *
 		node:       node,
 		processors: map[Kind]*taskProcessor{},
 		ctx:        ctx,
+		log:        logger.GetLogger("coordinator/task/executor"),
 		cancel:     cancel,
 	}
 }
@@ -44,7 +45,6 @@ func (e *Executor) Register(procs ...Processor) {
 
 // Run must be called after Register, otherwise it may panic, O(∩_∩)O~.
 func (e *Executor) Run() {
-	log := logger.GetLogger()
 	evtc := e.cli.WatchPrefix(e.ctx, e.keypfx)
 	for {
 		select {
@@ -65,31 +65,30 @@ func (e *Executor) Run() {
 				case state.EventTypeDelete:
 				}
 			} else {
-				log.Error("watch events", zap.Error(evt.Err))
+				e.log.Error("watch events", logger.Error(evt.Err))
 			}
 		}
 	}
 }
 
 func (e *Executor) dispatch(kvevt state.EventKeyValue) {
-	log := logger.GetLogger()
 	var task Task
 	(&task).UnsafeUnmarshal(kvevt.Value)
 	if task.State > StateRunning {
-		log.Debug("stale task", zap.String("name", kvevt.Key))
+		e.log.Debug("stale task", logger.String("name", kvevt.Key))
 		return
 	}
 	proc, ok := e.processors[task.Kind]
 	if !ok {
-		log.Warn("processor not found", zap.String("kind", string(task.Kind)))
+		e.log.Warn("processor not found", logger.String("kind", string(task.Kind)))
 		return
 	}
 	// Each task processor has an infinite events queue, so it won't block others.
 	err := proc.Submit(taskEvent{key: kvevt.Key, task: task, rev: kvevt.Rev})
 	if err != nil {
-		log.Warn("dispatch task", zap.Error(err))
+		e.log.Warn("dispatch task", logger.Error(err))
 	} else {
-		log.Info("dispatch task", zap.String("name", kvevt.Key))
+		e.log.Info("dispatch task", logger.String("name", kvevt.Key))
 	}
 }
 

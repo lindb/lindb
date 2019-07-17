@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/coordinator/task"
 	"github.com/eleme/lindb/models"
@@ -38,7 +36,8 @@ func (p *createShardProcessor) Process(ctx context.Context, task task.Task) erro
 	if err := json.Unmarshal(task.Params, &param); err != nil {
 		return err
 	}
-	logger.GetLogger().Info("process create shard task", zap.String("params", string(task.Params)))
+	logger.GetLogger("create_shard/task").
+		Info("process create shard task", logger.String("params", string(task.Params)))
 	if err := p.storageService.CreateShards(param.Database, param.ShardOption, param.ShardIDs...); err != nil {
 		return err
 	}

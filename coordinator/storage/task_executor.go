@@ -3,8 +3,6 @@ package storage
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/coordinator/task"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/logger"
@@ -20,7 +18,7 @@ type TaskExecutor struct {
 	repo           state.Repository
 	ctx            context.Context
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewTaskExecutor creates task executor
@@ -37,7 +35,7 @@ func NewTaskExecutor(ctx context.Context,
 		repo:           repo,
 		executor:       executor,
 		storageService: storageService,
-		log:            logger.GetLogger(),
+		log:            logger.GetLogger("storage/task/executor"),
 	}
 }
 

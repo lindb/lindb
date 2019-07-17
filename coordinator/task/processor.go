@@ -9,7 +9,6 @@ import (
 	"github.com/damnever/goctl/queue"
 	"github.com/damnever/goctl/retry"
 	"github.com/damnever/goctl/semaphore"
-	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
@@ -92,13 +91,13 @@ func (p *taskProcessor) run() {
 }
 
 func (p *taskProcessor) process(evt taskEvent) {
-	log := logger.GetLogger()
+	log := logger.GetLogger("coordinator/task/processor")
 	defer func() {
 		p.wg.Done()
 		_ = p.sem.Release()
 		if e := recover(); e != nil {
-			log.Error("process task", zap.Error(fmt.Errorf("panic: %v", e)),
-				zap.String("name", evt.key))
+			log.Error("process task", logger.Error(fmt.Errorf("panic: %v", e)),
+				logger.String("name", evt.key))
 		}
 	}()
 
@@ -110,7 +109,7 @@ func (p *taskProcessor) process(evt taskEvent) {
 	})
 	task := evt.task
 	if err != nil {
-		log.Error("process task", zap.String("name", evt.key), zap.Error(err))
+		log.Error("process task", logger.String("name", evt.key), logger.Error(err))
 		task.State = StateDoneErr
 		task.ErrMsg = err.Error()
 	} else {

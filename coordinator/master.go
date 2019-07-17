@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/zap"
-
 	coCtx "github.com/eleme/lindb/coordinator/context"
 	"github.com/eleme/lindb/coordinator/database"
 	"github.com/eleme/lindb/coordinator/elect"
@@ -40,7 +38,7 @@ type master struct {
 
 	mutex sync.Mutex
 
-	log *zap.Logger
+	log *logger.Logger
 }
 
 // NewMaster create master for current node
@@ -51,7 +49,7 @@ func NewMaster(repo state.Repository, node models.Node, ttl int64) Master {
 		node:   node,
 		ctx:    ctx,
 		cancel: cancel,
-		log:    logger.GetLogger(),
+		log:    logger.GetLogger("coordinator/master"),
 	}
 	// create master election
 	m.elect = elect.NewElection(repo, node, ttl, m)
@@ -66,14 +64,14 @@ func (m *master) OnFailOver() {
 	storageCluster, err := storage.NewClusterStateMachine(m.ctx, m.repo)
 	if err != nil {
 		//TODO modify
-		m.log.Error("start storage cluster state machine error", zap.Error(err))
+		m.log.Error("start storage cluster state machine error", logger.Error(err))
 		return
 	}
 	stateMachine.StorageCluster = storageCluster
 
 	databaseAdmin, err := database.NewAdminStateMachine(m.ctx, m.repo, storageCluster)
 	if err != nil {
-		m.log.Error("start database admin state machine error", zap.Error(err))
+		m.log.Error("start database admin state machine error", logger.Error(err))
 		return
 	}
 	stateMachine.DatabaseAdmin = databaseAdmin

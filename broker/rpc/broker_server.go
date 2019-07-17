@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/eleme/lindb/pkg/logger"
@@ -21,13 +20,13 @@ type BrokerServer interface {
 type brokerSever struct {
 	bindAddress string
 	gs          *grpc.Server
-	logger      *zap.Logger
+	logger      *logger.Logger
 }
 
 func NewBrokerServer(bindAddress string) BrokerServer {
 	return &brokerSever{
 		bindAddress: bindAddress,
-		logger:      logger.GetLogger(),
+		logger:      logger.GetLogger("broker/rpc"),
 	}
 }
 

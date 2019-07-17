@@ -1,10 +1,9 @@
 package table
 
 import (
+	"fmt"
 	"path/filepath"
 	"sync"
-
-	"go.uber.org/zap"
 
 	"github.com/eleme/lindb/kv/version"
 	"github.com/eleme/lindb/pkg/logger"
@@ -25,6 +24,8 @@ type mapCache struct {
 	storePath string
 	readers   map[string]Reader
 	mutex     sync.Mutex
+
+	log *logger.Logger
 }
 
 // NewCache creates cache for store readers
@@ -32,6 +33,7 @@ func NewCache(storePath string) Cache {
 	return &mapCache{
 		storePath: storePath,
 		readers:   make(map[string]Reader),
+		log:       logger.GetLogger(fmt.Sprintf("kv/cache[%s]", storePath)),
 	}
 }
 
@@ -59,11 +61,10 @@ func (c *mapCache) GetReader(family string, fileNumber int64) (Reader, error) {
 
 // Close closes reader resource and cleans cache data.
 func (c *mapCache) Close() error {
-	log := logger.GetLogger()
 	for k, v := range c.readers {
 		if err := v.Close(); err != nil {
-			log.Error("close store reader error",
-				zap.String("path", c.storePath), zap.String("file", k), zap.Error(err))
+			c.log.Error("close store reader error",
+				logger.String("file", k), logger.Error(err))
 		}
 	}
 	return nil

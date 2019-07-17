@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"go.uber.org/zap"
-
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/state"
 )
@@ -123,7 +121,7 @@ func (c *Controller) run() {
 
 	evtc := c.cli.WatchPrefix(c.ctx, c.keypfx)
 	waiters := newWaiters()
-	log := logger.GetLogger()
+	log := logger.GetLogger("coordinator/task/controller")
 	for {
 		select {
 		case <-c.ctx.Done():
@@ -149,7 +147,7 @@ func (c *Controller) run() {
 							var task Task
 							(&task).UnsafeUnmarshal(kv.Value)
 							if err := waiters.TryNotify(c, task); err != nil {
-								log.Error("update status", zap.Error(err))
+								log.Error("update status", logger.Error(err))
 							}
 						}
 					}
@@ -157,7 +155,7 @@ func (c *Controller) run() {
 					// NOTE(damnever): delete events are useless
 				}
 			} else {
-				log.Warn("error event", zap.Error(evt.Err))
+				log.Warn("error event", logger.Error(evt.Err))
 			}
 		}
 	}
