@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -65,7 +66,6 @@ func (c *Config) New() (*zap.Logger, error) {
 	)
 
 	logger := zap.New(core)
-	logger.Info("logger init success")
 	return logger, nil
 }
 
@@ -82,25 +82,30 @@ func IsTerminal(w io.Writer) bool {
 // Debug logs a message at DebugLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.log.Debug(msg, fields...)
+	l.log.Debug(l.formatMsg(msg), fields...)
 }
 
 // Info logs a message at InfoLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.log.Info(msg, fields...)
+	l.log.Info(l.formatMsg(msg), fields...)
 }
 
 // Warn logs a message at WarnLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.log.Warn(msg, fields...)
+	l.log.Warn(l.formatMsg(msg), fields...)
 }
 
 // Error logs a message at ErrorLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.log.Error(msg, fields...)
+	l.log.Error(l.formatMsg(msg), fields...)
+}
+
+// formatMsg formats msg using module name
+func (l *Logger) formatMsg(msg string) string {
+	return fmt.Sprintf("[%s]:%s", l.module, msg)
 }
 
 // String constructs a field with the given key and value.
