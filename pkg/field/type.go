@@ -20,7 +20,7 @@ const (
 )
 
 // Type represents field type for LinDB support
-type Type int16
+type Type uint16
 
 // Defines all field types for LinDB support(user write)
 const (
