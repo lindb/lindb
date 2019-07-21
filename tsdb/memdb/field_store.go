@@ -13,7 +13,6 @@ import (
 
 // fieldStore holds the relation of familyStartTime and segmentStore.
 type fieldStore struct {
-	fieldName *string                // field-name, nil after fieldID is generated
 	fieldType field.Type             // sum, gauge, min, max
 	fieldID   uint32                 // default 0
 	segments  map[int64]segmentStore // familyTime
@@ -21,25 +20,20 @@ type fieldStore struct {
 }
 
 // newFieldStore returns a new fieldStore.
-func newFieldStore(fieldName string, fieldType field.Type) *fieldStore {
+func newFieldStore(fieldType field.Type) *fieldStore {
 	return &fieldStore{
-		fieldName: &fieldName,
 		fieldType: fieldType,
 		segments:  make(map[int64]segmentStore),
 	}
 }
 
 // mustGetFieldID returns fieldID, if unset, generate a new one.
-func (fs *fieldStore) mustGetFieldID(metricID uint32, generator index.IDGenerator) uint32 {
+func (fs *fieldStore) mustGetFieldID(generator index.IDGenerator, metricID uint32, fieldName string) uint32 {
 	fieldID := atomic.LoadUint32(&fs.fieldID)
 	if fieldID > 0 {
 		return fieldID
 	}
-	theFieldName := fs.fieldName
-	if theFieldName != nil {
-		atomic.CompareAndSwapUint32(&fs.fieldID, 0, generator.GenFieldID(metricID, *theFieldName, fs.fieldType))
-		fs.fieldName = nil
-	}
+	atomic.CompareAndSwapUint32(&fs.fieldID, 0, generator.GenFieldID(metricID, fieldName, fs.fieldType))
 	return atomic.LoadUint32(&fs.fieldID)
 }
 
@@ -94,10 +88,10 @@ func (fs *fieldStore) write(blockStore *blockStore, familyStartTime int64, slot 
 }
 
 // flushFieldTo flushes segments' data to writer and reset the segments-map.
-func (fs *fieldStore) flushFieldTo(writer metrictbl.TableWriter, metricID uint32,
-	familyTime int64, generator index.IDGenerator) {
-	fieldID := fs.mustGetFieldID(metricID, generator)
+func (fs *fieldStore) flushFieldTo(writer metrictbl.TableWriter, familyTime int64,
+	generator index.IDGenerator, metricID uint32, fieldName string) {
 
+	fieldID := fs.mustGetFieldID(generator, metricID, fieldName)
 	fs.sl.Lock()
 	defer fs.sl.Unlock()
 

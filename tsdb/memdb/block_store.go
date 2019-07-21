@@ -82,7 +82,7 @@ type block interface {
 	// getEndTime returns end time slot
 	getEndTime() int
 	// compact compress block data with agg func for rollup operation
-	compact(aggFunc field.AggFunc) error
+	compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error)
 	// reset cleans block data, just reset container mark
 	reset()
 	// bytes returns compress data for block data
@@ -156,19 +156,20 @@ func (b *intBlock) updateValue(pos int, value int64) {
 }
 
 // compact compress block data
-func (b *intBlock) compact(aggFunc field.AggFunc) error {
+func (b *intBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
 	//TODO handle error
 	merger := newMerger(b, b.values, b.compress, aggFunc)
 	// do merge logic
 	merger.merge()
 
-	buf, err := merger.tsd.Bytes()
+	var buf []byte
+	buf, err = merger.tsd.Bytes()
 	if err != nil {
-		return err
+		return
 	}
 
 	b.compress = buf
-	return nil
+	return merger.startTime, merger.endTime, nil
 }
 
 // bytes returns compress data for block data
@@ -200,9 +201,9 @@ func (b *floatBlock) updateValue(pos int, value float64) {
 }
 
 // compact compress block data
-func (b *floatBlock) compact(aggFunc field.AggFunc) error {
+func (b *floatBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
 	//TODO need implement
-	return nil
+	return
 }
 
 // merger is merge operation which provides compress block data.

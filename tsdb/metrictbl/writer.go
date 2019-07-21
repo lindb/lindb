@@ -6,7 +6,7 @@ import (
 	"hash/crc32"
 	"sync/atomic"
 
-	"github.com/eleme/lindb/kv/table"
+	"github.com/eleme/lindb/kv"
 	"github.com/eleme/lindb/pkg/encoding"
 
 	"github.com/RoaringBitmap/roaring"
@@ -25,20 +25,20 @@ type TableWriter interface {
 	WriteTSEntry(tsID uint32)
 	// WriteMetricBlock writes a full metric-block, this will be called after writing all entries of this metric.
 	WriteMetricBlock(metricID uint32) error
-	// Close closes the writer, this will be called after writing all metric-blocks.
-	Close() error
+	// Commit closes the writer, this will be called after writing all metric-blocks.
+	Commit() error
 }
 
 // NewTableWriter returns a new TableWriter, interval is used to calculate the time-range of field data slots.`
-func NewTableWriter(builder table.Builder, interval int64) TableWriter {
-	return newTableWriter(builder, interval)
+func NewTableWriter(flusher kv.Flusher, interval int64) TableWriter {
+	return newTableWriter(flusher, interval)
 }
 
 // newTableWriter returns a new newTableWriter.
-func newTableWriter(builder table.Builder, interval int64) *tableWriter {
+func newTableWriter(flusher kv.Flusher, interval int64) *tableWriter {
 	return &tableWriter{
 		interval:     interval,
-		tableBuilder: builder,
+		flusher:      flusher,
 		blockBuilder: newBlockBuilder(),
 		entryBuilder: newTSEntryBuilder()}
 }
@@ -46,7 +46,7 @@ func newTableWriter(builder table.Builder, interval int64) *tableWriter {
 // tableWriter implements TableWriter.
 type tableWriter struct {
 	interval     int64
-	tableBuilder table.Builder
+	flusher      kv.Flusher
 	blockBuilder *blockBuilder
 	entryBuilder *entryBuilder
 }
@@ -71,16 +71,16 @@ func (w *tableWriter) WriteMetricBlock(metricID uint32) error {
 	if err := w.blockBuilder.finish(); err != nil {
 		return err
 	}
-	if err := w.tableBuilder.Add(metricID, w.blockBuilder.bytes()); err != nil {
+	if err := w.flusher.Add(metricID, w.blockBuilder.bytes()); err != nil {
 		return err
 	}
 	w.blockBuilder.reset()
 	return nil
 }
 
-// Close adds the footer and then closes the kv builder, this will be called after writing all metric-blocks.
-func (w *tableWriter) Close() error {
-	return w.tableBuilder.Close()
+// Commit adds the footer and then closes the kv builder, this will be called after writing all metric-blocks.
+func (w *tableWriter) Commit() error {
+	return w.flusher.Commit()
 }
 
 // blockBuilder builds a metric-block containing multi TSEntry in order.

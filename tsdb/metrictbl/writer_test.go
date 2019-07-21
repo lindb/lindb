@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eleme/lindb/kv/table"
+	"github.com/eleme/lindb/kv"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -111,25 +111,25 @@ func Test_TableWriter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockBuilder := table.NewMockBuilder(ctrl)
+	mockFlusher := kv.NewMockFlusher(ctrl)
 
-	tw0 := newTableWriter(mockBuilder, 10)
+	tw0 := newTableWriter(mockFlusher, 10)
 	assert.NotNil(t, tw0)
 
 	// add error
-	tw := newTableWriter(mockBuilder, 10)
-	mockBuilder.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error"))
+	tw := newTableWriter(mockFlusher, 10)
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error"))
 	err := tw.WriteMetricBlock(uint32(1))
 	assert.NotNil(t, err)
 	// close error
-	mockBuilder.EXPECT().Close().Return(fmt.Errorf("close error"))
-	assert.NotNil(t, tw.Close())
+	mockFlusher.EXPECT().Commit().Return(fmt.Errorf("close error"))
+	assert.NotNil(t, tw.Commit())
 	// common write
 	tw.WriteField(uint32(1), []byte("test-field"), 1, 1)
 	tw.WriteTSEntry(uint32(2))
 
-	mockBuilder.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	tw.WriteMetricBlock(uint32(3))
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	assert.Nil(t, tw.WriteMetricBlock(uint32(3)))
 
 	for x := 0; x < 100; x++ {
 		for y := 0; y < 100; y++ {
@@ -141,6 +141,6 @@ func Test_TableWriter(t *testing.T) {
 		assert.Nil(t, tw.WriteMetricBlock(uint32(x)))
 
 	}
-	mockBuilder.EXPECT().Close().Return(nil)
-	assert.Nil(t, tw.Close())
+	mockFlusher.EXPECT().Commit().Return(nil)
+	assert.Nil(t, tw.Commit())
 }

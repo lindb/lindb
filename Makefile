@@ -24,8 +24,10 @@ GOLANGCI_LINT_VERSION ?= "latest"
 
 pre-test: ## go generate mock file.
 	if [ ! -e ${GOPATH}/bin/mockgen ]; then \
-		go get github.com/golang/mock/mockgen; \
+		go install github.com/golang/mock/mockgen; \
 	fi
+	go generate github.com/eleme/lindb/kv
+	go generate github.com/eleme/lindb/tsdb/metrictbl
 	go list ./... | grep -v '/vendor/' | xargs go generate
 
 	if [ ! -e ./bin/golangci-lint ]; then \

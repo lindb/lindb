@@ -11,7 +11,7 @@ import (
 )
 
 func Test_newTimeSeriesStore(t *testing.T) {
-	tsStore := newTimeSeriesStore("host=alpha")
+	tsStore := newTimeSeriesStore()
 	assert.NotNil(t, tsStore)
 	assert.NotZero(t, tsStore.lastAccessedAt)
 }
@@ -21,14 +21,14 @@ func Test_mustGetTSID(t *testing.T) {
 	defer ctrl.Finish()
 
 	gen := makeMockIDGenerator(ctrl)
-	tsStore := newTimeSeriesStore("host=alpha")
+	tsStore := newTimeSeriesStore()
 
-	assert.NotZero(t, tsStore.mustGetTSID(32, gen))
-	assert.NotZero(t, tsStore.mustGetTSID(32, gen))
+	assert.NotZero(t, tsStore.mustGetTSID(gen, 32, "host=alpha", 1))
+	assert.NotZero(t, tsStore.mustGetTSID(gen, 32, "host=alpha", 1))
 }
 
 func Test_getOrCreateFStore(t *testing.T) {
-	tsStore := newTimeSeriesStore("host=alpha")
+	tsStore := newTimeSeriesStore()
 	tsStore.lastAccessedAt = 0
 
 	fStore, err := tsStore.getOrCreateFStore("idle", field.MaxField)
@@ -43,24 +43,24 @@ func Test_getOrCreateFStore(t *testing.T) {
 }
 
 func Test_shouldBeEvicted(t *testing.T) {
-	tsStore := newTimeSeriesStore("host=alpha")
-	fStore := newFieldStore("sum", field.SumField)
+	tsStore := newTimeSeriesStore()
+	fStore := newFieldStore(field.SumField)
 
-	tsStore.fields[1] = fStore
+	tsStore.fields["1"] = fStore
 	assert.False(t, tsStore.shouldBeEvicted())
 
 	fStore.segments[1] = nil
-	tsStore.fields[1] = fStore
+	tsStore.fields["1"] = fStore
 	assert.False(t, tsStore.shouldBeEvicted())
 
-	delete(tsStore.fields, 1)
+	delete(tsStore.fields, "1")
 	setTagsIDTTL(1) // 1 ms
 	time.Sleep(time.Millisecond)
 	assert.True(t, tsStore.shouldBeEvicted())
 }
 
 func Test_getFieldsCount(t *testing.T) {
-	tsStore := newTimeSeriesStore("host=alpha")
+	tsStore := newTimeSeriesStore()
 	assert.Equal(t, 0, tsStore.getFieldsCount())
 
 	tsStore.getOrCreateFStore("idle", field.MaxField)
@@ -73,12 +73,12 @@ func Test_flushTSEntryTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	tsStore := newTimeSeriesStore("host=alpha")
+	tsStore := newTimeSeriesStore()
 	tw := makeMockTableWriter(ctrl)
 	gen := makeMockIDGenerator(ctrl)
 
 	tsStore.getOrCreateFStore("idle", field.MaxField)
 	tsStore.getOrCreateFStore("system", field.MaxField)
 
-	tsStore.flushTSEntryTo(tw, 3, 2, gen)
+	tsStore.flushTSEntryTo(tw, 3, gen, 2, "host=alpha", time.Now().UnixNano())
 }
