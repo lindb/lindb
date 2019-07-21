@@ -163,13 +163,3 @@ func (d *TSDDecoder) Value() uint64 {
 	}
 	return 0
 }
-
-// DecodeTSDTime decodes start-time-slot and end-time-slot of tsd.
-// a simple method extracted from NewTSDDecoder to reduce gc pressure.
-func DecodeTSDTime(data []byte) (startTime, endTime int) {
-	binary := stream.BinaryReader(data)
-	startTime = int(binary.ReadInt32())
-	count := int(binary.ReadInt32())
-	endTime = startTime + count - 1
-	return
-}

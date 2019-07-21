@@ -8,7 +8,6 @@ import (
 
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
 
@@ -30,7 +29,7 @@ func Test_getBucket(t *testing.T) {
 	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
 
 	for i := 0; i < 1000; i++ {
-		assert.NotNil(t, md.getBucket(hashers.Fnv32a(strconv.Itoa(i))))
+		assert.NotNil(t, md.getBucket(strconv.Itoa(i)))
 	}
 }
 
@@ -149,13 +148,13 @@ func Test_flushFamilyTo(t *testing.T) {
 	md.generator = gen
 
 	getMStore := func() *metricStore {
-		mStore := newMetricStore("cpu")
+		mStore := newMetricStore()
 		mStore.mutable = newVersionedTSMap()
 		mStore.immutable = append(mStore.immutable, newVersionedTSMap())
 		return mStore
 	}
-	md.mStoresList[0].m[hashers.Fnv32a("cpu")] = getMStore()
-	assert.Nil(t, md.flushFamilyTo(1, tw))
+	md.mStoresList[0].m["cpu"] = getMStore()
+	assert.Nil(t, md.flushFamilyTo(tw, 1))
 }
 
 func Test_ResetMetricStore(t *testing.T) {

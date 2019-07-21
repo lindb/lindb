@@ -3,7 +3,6 @@ package memdb
 import (
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/encoding"
 	"github.com/eleme/lindb/pkg/field"
 	"github.com/eleme/lindb/pkg/logger"
 )
@@ -44,7 +43,7 @@ func (fs *simpleFieldStore) writeInt(blockStore *blockStore, slotTime int, value
 		startTime := currentBlock.getStartTime()
 		if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
 			// if current slot time out of current time window, need compress block data
-			err := currentBlock.compact(fs.aggFunc)
+			_, _, err := currentBlock.compact(fs.aggFunc)
 			if err != nil {
 				memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
 			} else {
@@ -70,11 +69,10 @@ func (fs *simpleFieldStore) bytes() (data []byte, startSlot, endSlot int, err er
 		err = fmt.Errorf("block is empty")
 		return
 	}
-	if err = fs.block.compact(fs.aggFunc); err != nil {
+	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc); err != nil {
 		err = fmt.Errorf("compact block data in simple field store error:%s", err)
 		return
 	}
 	data = fs.block.bytes()
-	startSlot, endSlot = encoding.DecodeTSDTime(data)
 	return
 }

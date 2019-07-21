@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eleme/lindb/kv/table"
+	"github.com/eleme/lindb/kv"
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
@@ -40,33 +40,38 @@ type MemoryDatabase interface {
 	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
-	FlushFamilyTo(familyTime int64, tableBuilder table.Builder) error
+	FlushFamilyTo(flusher kv.Flusher, familyTime int64) error
 	// todo: @codingcrush, query
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
 type mStoresBucket struct {
 	rwLock sync.RWMutex
-	m      map[uint32]*metricStore // key: FNV32a(metric-name)
+	m      map[string]*metricStore // key: metric-name
 }
 
-// allMetricStores returns pointers to metricStore in bucket.
-func (bkt *mStoresBucket) allMetricStores() (stores *[]*metricStore, release func()) {
+// allMetricStores returns a clone of metricNames and pointer of mstores in bucket.
+func (bkt *mStoresBucket) allMetricStores() (metricNames *[]string, stores *[]*metricStore, release func()) {
 	// get all mStores
-	stores = metricStoresListPool.get(len(bkt.m))
+	length := len(bkt.m)
+	metricNames = stringListPool.get(length)
+	stores = metricStoresListPool.get(length)
+
 	release = func() {
+		stringListPool.put(metricNames)
 		metricStoresListPool.put(stores)
 	}
 
 	bkt.rwLock.RLock()
 	idx := 0
-	for _, mStore := range bkt.m {
+	for metricName, mStore := range bkt.m {
 		// delete tag of tStore which has not been used for a while
+		(*metricNames)[idx] = metricName
 		(*stores)[idx] = mStore
 		idx++
 	}
 	bkt.rwLock.RUnlock()
-	return stores, release
+	return metricNames, stores, release
 }
 
 // memoryDatabase implements MemoryDatabase.
@@ -106,40 +111,38 @@ func newMemoryDatabase(ctx context.Context, timeWindow int,
 		evictNotifier: make(chan struct{})}
 	for i := range md.mStoresList {
 		md.mStoresList[i] = &mStoresBucket{
-			m: make(map[uint32]*metricStore)}
+			m: make(map[string]*metricStore)}
 	}
 	go md.evictor(ctx)
 	// todo: go md.IDSyncer(), initialize it by calling NewMemoryDatabase?
 	return &md, nil
 }
 
-// getBucket returns the mStoresBucket by metric-hash.
-func (md *memoryDatabase) getBucket(metricHash uint32) *mStoresBucket {
-	return md.mStoresList[shardingCountMask&metricHash]
+// getBucket returns the mStoresBucket by metric-name.
+func (md *memoryDatabase) getBucket(metricName string) *mStoresBucket {
+	return md.mStoresList[shardingCountMask&hashers.Fnv32a(metricName)]
 }
 
-// getMStore returns the mStore by metric-hash.
-func (md *memoryDatabase) getMStore(metricHash uint32) (mStore *metricStore, ok bool) {
-	bkt := md.getBucket(metricHash)
+// getMStore returns the mStore by metric-name.
+func (md *memoryDatabase) getMStore(metricName string) (mStore *metricStore, ok bool) {
+	bkt := md.getBucket(metricName)
 	bkt.rwLock.RLock()
-	mStore, ok = bkt.m[metricHash]
+	mStore, ok = bkt.m[metricName]
 	bkt.rwLock.RUnlock()
 	return
 }
 
 // getOrCreateMStore returns a TimeSeriesStore by metric + tags.
 func (md *memoryDatabase) getOrCreateMStore(metricName string) *metricStore {
-	metricHash := hashers.Fnv32a(metricName)
-
-	bucket := md.getBucket(metricHash)
+	bucket := md.getBucket(metricName)
 	var mStore *metricStore
-	mStore, ok := md.getMStore(metricHash)
+	mStore, ok := md.getMStore(metricName)
 	if !ok {
 		bucket.rwLock.Lock()
-		mStore, ok = bucket.m[metricHash]
+		mStore, ok = bucket.m[metricName]
 		if !ok {
-			mStore = newMetricStore(metricName)
-			bucket.m[metricHash] = mStore
+			mStore = newMetricStore()
+			bucket.m[metricName] = mStore
 		}
 		bucket.rwLock.Unlock()
 	}
@@ -171,7 +174,7 @@ func (md *memoryDatabase) WithMaxTagsLimit(limitationCh <-chan map[string]uint32
 // setLimitations set max-count limitation of tagID.
 func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 	for metricName, limit := range limitations {
-		mStore, ok := md.getMStore(hashers.Fnv32a(metricName))
+		mStore, ok := md.getMStore(metricName)
 		if !ok {
 			continue
 		}
@@ -235,17 +238,17 @@ func (md *memoryDatabase) evictor(ctx context.Context) {
 // and delete metricStore whose timeSeriesMap is empty.
 func (md *memoryDatabase) evict(bucket *mStoresBucket) {
 	// get all allMStores
-	allMStores, release := bucket.allMetricStores()
+	metricNames, allMStores, release := bucket.allMetricStores()
 	defer release()
 
-	for _, mStore := range *allMStores {
+	for idx, mStore := range *allMStores {
 		// delete tag of tStore which has not been used for a while
 		mStore.evict()
 		// delete mStore whose tags is empty now.
 		if mStore.isEmpty() {
 			bucket.rwLock.Lock()
 			if mStore.isEmpty() {
-				delete(bucket.m, hashers.Fnv32a(mStore.name))
+				delete(bucket.m, (*metricNames)[idx])
 			}
 			bucket.rwLock.Unlock()
 		}
@@ -254,7 +257,7 @@ func (md *memoryDatabase) evict(bucket *mStoresBucket) {
 
 // ResetMetricStore flushes the specified metricStore, then a new version will be assigned.
 func (md *memoryDatabase) ResetMetricStore(metricName string) error {
-	mStore, ok := md.getMStore(hashers.Fnv32a(metricName))
+	mStore, ok := md.getMStore(metricName)
 	if !ok {
 		return fmt.Errorf("metric: %s doesn't exist", metricName)
 	}
@@ -274,7 +277,7 @@ func (md *memoryDatabase) CountMetrics() int {
 
 // CountTags returns count of tags of a specified metricName, return -1 when metric not exist.
 func (md *memoryDatabase) CountTags(metricName string) int {
-	mStore, ok := md.getMStore(hashers.Fnv32a(metricName))
+	mStore, ok := md.getMStore(metricName)
 	if !ok {
 		return -1
 	}
@@ -304,13 +307,13 @@ func (md *memoryDatabase) Families() []int64 {
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
 // this method must be called before the cancellation.
-func (md *memoryDatabase) FlushFamilyTo(familyTime int64, tblBuilder table.Builder) error {
-	writer := metrictbl.NewTableWriter(tblBuilder, md.interval)
-	return md.flushFamilyTo(familyTime, writer)
+func (md *memoryDatabase) FlushFamilyTo(flusher kv.Flusher, familyTime int64) error {
+	writer := metrictbl.NewTableWriter(flusher, md.interval)
+	return md.flushFamilyTo(writer, familyTime)
 }
 
 // flushFamilyTo is the real flush method, used for mock-test
-func (md *memoryDatabase) flushFamilyTo(familyTime int64, writer metrictbl.TableWriter) error {
+func (md *memoryDatabase) flushFamilyTo(writer metrictbl.TableWriter, familyTime int64) error {
 	defer func() {
 		// non-block notifying evictor
 		select {
@@ -321,9 +324,10 @@ func (md *memoryDatabase) flushFamilyTo(familyTime int64, writer metrictbl.Table
 
 	var err error
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
-		allMetricStores, release := md.mStoresList[bucketIndex].allMetricStores()
-		for _, mStore := range *allMetricStores {
-			if err = mStore.flushMetricBlocksTo(writer, familyTime, md.generator); err != nil {
+		metricNames, allMetricStores, release := md.mStoresList[bucketIndex].allMetricStores()
+		for idx, mStore := range *allMetricStores {
+			metricName := (*metricNames)[idx]
+			if err = mStore.flushMetricBlocksTo(writer, familyTime, md.generator, metricName); err != nil {
 				return err
 			}
 		}
@@ -350,10 +354,11 @@ func (md *memoryDatabase) IDSyncer(ctx context.Context, syncInterval time.Durati
 // syncID is the real syncID method.
 func (md *memoryDatabase) syncID() {
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
-		allMetricStores, release := md.mStoresList[bucketIndex].allMetricStores()
-		for _, mStore := range *allMetricStores {
-			metricID := mStore.mustGetMetricID(md.generator)
-			mStore.updateTSIDAndFieldID(metricID, md.generator)
+		metricNames, metricStores, release := md.mStoresList[bucketIndex].allMetricStores()
+		for idx, mStore := range *metricStores {
+			metricName := (*metricNames)[idx]
+			metricID := mStore.mustGetMetricID(md.generator, metricName)
+			mStore.updateTSIDAndFieldID(md.generator, metricID)
 		}
 		release()
 	}
