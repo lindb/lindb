@@ -13,17 +13,18 @@ import (
 
 func Test_sortedTSStores(t *testing.T) {
 	vm := newVersionedTSMap()
-	vm.tsMap[1] = newTimeSeriesStore("1")
-	vm.tsMap[2] = newTimeSeriesStore("2")
-	vm.tsMap[3] = newTimeSeriesStore("3")
+	vm.tsMap["1"] = newTimeSeriesStore()
+	vm.tsMap["2"] = newTimeSeriesStore()
+	vm.tsMap["3"] = newTimeSeriesStore()
 
-	m, release := vm.allTSStores()
+	tagsList, tsStoreList, release := vm.allTSStores()
 	defer release()
-	assert.Len(t, *m, 3)
+	assert.Len(t, *tagsList, 3)
+	assert.Len(t, *tsStoreList, 3)
 }
 
 func Test_newMetricStore(t *testing.T) {
-	mStore := newMetricStore("cpu.load")
+	mStore := newMetricStore()
 	assert.NotNil(t, mStore)
 	assert.NotNil(t, mStore.mutable)
 	assert.NotNil(t, mStore.mutable.tsMap)
@@ -31,25 +32,25 @@ func Test_newMetricStore(t *testing.T) {
 }
 
 func Test_metricStore_isEmpty_isFull(t *testing.T) {
-	mStore := newMetricStore("cpu.load")
+	mStore := newMetricStore()
 	assert.True(t, mStore.isEmpty())
 	assert.False(t, mStore.isFull())
 
-	for i := uint32(0); i < 100; i++ {
-		mStore.mutable.tsMap[i] = nil
+	for i := 0; i < 100; i++ {
+		mStore.mutable.tsMap[strconv.Itoa(i)] = nil
 	}
 	assert.False(t, mStore.isFull())
 	assert.False(t, mStore.isEmpty())
 
-	for i := uint32(0); i < defaultMaxTagsLimit; i++ {
-		mStore.mutable.tsMap[i] = nil
+	for i := 0; i < defaultMaxTagsLimit; i++ {
+		mStore.mutable.tsMap[strconv.Itoa(i)] = nil
 	}
 	assert.True(t, mStore.isFull())
 	assert.False(t, mStore.isEmpty())
 }
 
 func Test_metricStore_getTimeSeries(t *testing.T) {
-	mStore := newMetricStore("cpu.load")
+	mStore := newMetricStore()
 
 	assert.NotNil(t, mStore.getOrCreateTSStore("host=alpha-1"))
 	assert.Equal(t, mStore.getOrCreateTSStore("host=alpha-2"), mStore.getOrCreateTSStore("host=alpha-2"))
@@ -57,7 +58,7 @@ func Test_metricStore_getTimeSeries(t *testing.T) {
 }
 
 func Test_metricStore_evict(t *testing.T) {
-	mStore := newMetricStore("cpu.load")
+	mStore := newMetricStore()
 	mStore.evict()
 	assert.True(t, mStore.isEmpty())
 	// has not been purged
@@ -89,9 +90,9 @@ func Test_mustGetMetricID(t *testing.T) {
 	defer ctrl.Finish()
 
 	gen := makeMockIDGenerator(ctrl)
-	mStore := newMetricStore("cpu")
-	assert.NotZero(t, mStore.mustGetMetricID(gen))
-	assert.NotZero(t, mStore.mustGetMetricID(gen))
+	mStore := newMetricStore()
+	assert.NotZero(t, mStore.mustGetMetricID(gen, "m1"))
+	assert.NotZero(t, mStore.mustGetMetricID(gen, "m2"))
 }
 
 func Test_unionFamilyTimesTo(t *testing.T) {
@@ -101,7 +102,7 @@ func Test_unionFamilyTimesTo(t *testing.T) {
 	vm.unionFamilyTimesTo(segments)
 	assert.Equal(t, 4, len(segments))
 
-	ms := newMetricStore("cpu")
+	ms := newMetricStore()
 	ms.mutable = vm
 	ms.immutable = append(ms.immutable, vm, vm)
 
@@ -110,7 +111,7 @@ func Test_unionFamilyTimesTo(t *testing.T) {
 }
 
 func Test_assignNewVersion(t *testing.T) {
-	ms := newMetricStore("cpu")
+	ms := newMetricStore()
 	ms.mutable = newVersionedTSMap()
 
 	assert.NotNil(t, ms.assignNewVersion())

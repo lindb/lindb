@@ -17,4 +17,11 @@ func Test_pool(t *testing.T) {
 	metricStoresListPool.get(15)
 	metricStoresListPool.get(1)
 
+	item5 := stringListPool.get(10)
+	stringListPool.put(item5)
+	item6 := stringListPool.get(5)
+	stringListPool.put(item6)
+	stringListPool.get(15)
+	stringListPool.get(1)
+
 }
