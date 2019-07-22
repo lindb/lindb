@@ -74,14 +74,14 @@
     ],
     "quotemark": [
       true,
-      "double",
+      "single",
       "jsx-double",
       "avoid-escape"
     ],
     "radix": false,
     "semicolon": [
       true,
-      "always"
+      "never"
     ],
     "switch-default": true,
     "trailing-comma": [
@@ -117,6 +117,7 @@
       "check-separator",
       "check-type",
       "check-typecast"
-    ]
+    ],
+    "no-unused-expression": false
   }
 }
