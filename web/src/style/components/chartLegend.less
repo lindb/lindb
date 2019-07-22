@@ -1,0 +1,32 @@
+.lindb-chart-legend {
+  text-align: center;
+
+  &__item {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: monospace;
+    display: inline-block;
+    vertical-align: text-bottom;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 5px;
+    box-sizing: border-box;
+    opacity: 1;
+    transition: opacity 0.25s;
+
+    &.hidden {
+      opacity: 0.35;
+    }
+
+    &__icon {
+      display: inline-block;
+      height: 8px;
+      width: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+  }
+}

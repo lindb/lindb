@@ -1,0 +1,138 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background-color: #f0f2f5;
+}
+
+body {
+  height: unset;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  flex: 1;
+  overflow-x: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+@sider-base-width: 200px;
+@sider-logo-height: 64px;
+@header-base-height: 64px;
+
+.lindb-sider-layout {
+  flex: 1;
+
+  .lindb-sider {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow: auto;
+    background-color: #fff;
+    z-index: 4;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
+
+    .lindb-sider__menu {
+      height: 100%;
+      padding-top: @sider-logo-height;
+    }
+
+    .lindb-sider__logo {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: @sider-logo-height * 0.2 0;
+      text-align: center;
+      height: @sider-logo-height + 1;
+      border-right: @border-width-base @border-style-base @border-color-split;
+      border-bottom: 1px solid @border-color-split;
+
+      img {
+        height: 100%;
+      }
+    }
+  }
+
+  .lindb-content-container {
+    padding: @block-spacing @block-spacing 0;
+    margin-left: @sider-base-width;
+    margin-top: @header-base-height;
+
+    .lindb-header {
+      position: fixed;
+      top: 0;
+      left: @sider-base-width;
+      right: 0;
+      z-index: 3;
+      background-color: #fff;
+      height: @header-base-height;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
+      padding: 0 20px;
+
+      .lindb-header__breadcrumb {
+        float: left;
+        height: 100%;
+        display: flex;
+        align-items: center;
+
+        .anticon {
+          margin-right: 10px;
+          font-size: 16px;
+          //float: left;
+          //line-height: @header-base-height;
+        }
+
+        .ant-breadcrumb {
+          font-size: 16px;
+        }
+      }
+
+      .lindb-header__menu {
+        float: right;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+
+        .lindb-header__menu-item {
+          float: right;
+          user-select: none;
+
+          &.bold {
+            font-weight: bold;
+          }
+
+          .anticon {
+            margin-right: 8px;
+          }
+
+          a {
+            padding: 0 15px;
+            display: block;
+            color: rgba(0, 0, 0, 0.65);
+          }
+        }
+      }
+    }
+  }
+}
+
+.lindb-login {
+  height: 100%;
+}
+
+.lindb-footer {
+  text-align: center;
+  line-height: 2em;
+  border-top: 1px solid #E4E7ED;
+  color: rgba(0, 0, 0, 0.4);
+
+  &.sider {
+    margin-left: @sider-base-width;
+  }
+}
