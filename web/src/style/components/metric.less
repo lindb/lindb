@@ -1,0 +1,36 @@
+.lindb-metric {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+
+  .lindb-chart-canvas {
+    flex: 1;
+    position: relative;
+
+    // `chart.resize()` will auto calculate parent container height
+    canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .lindb-chart-canvas__crosshair {
+      border-left: 1px dashed #F56C6C;
+      position: absolute;
+      pointer-events: none;
+      top: 0;
+      left: 0;
+    }
+
+    &:hover {
+      .lindb-chart-canvas__crosshair {
+        will-change: transform;
+      }
+    }
+  }
+
+  .lindb-chart-legend {
+    max-height: 80px;
+    overflow: auto;
+  }
+}
