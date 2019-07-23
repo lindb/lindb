@@ -2,19 +2,37 @@ syntax = "proto3";
 
 package storage;
 
-import "common.proto";
+message Replica {
+    int64 seq = 1;
+    bytes data = 2; // refer MetricList data
+}
 
 message WriteRequest {
-    int64 requestID = 1;
-    common.Replica replica = 2;
+    repeated Replica replicas = 3;
 }
 
 message WriteResponse {
-    int64 requestID = 1;
-    string errorMsg = 2;
+    oneof seq {
+        int64 resetSeq = 1;
+        int64 ackSeq = 2;
+    }
+}
+
+message QueryRequest {
+    string msg = 1;
+}
+
+message QueryResponse {
+    string msg = 1;
 }
 
 service WriteService {
     rpc Write (stream WriteRequest) returns (stream WriteResponse) {
+    }
+}
+
+service QueryService {
+    rpc Query (stream QueryRequest) returns (stream QueryResponse) {
+
     }
 }

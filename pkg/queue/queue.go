@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"path"
 	"sync/atomic"
 	"time"
 
@@ -68,19 +69,18 @@ type queue struct {
 // NewQueue returns Queue based on dirPath, dataFileSizeLimit is used to limit the segment file size,
 // removeTaskInterval specifics the interval to remove expired segments.
 func NewQueue(dirPath string, dataFileSizeLimit int, removeTaskInterval time.Duration) (Queue, error) {
-	dirPath = fileutil.DirAppendSepa(dirPath)
 	if err := fileutil.MkDir(dirPath); err != nil {
 		return nil, err
 	}
 
-	metaPath := dirPath + metaFileName
+	metaPath := path.Join(dirPath, metaFileName)
 	meta, err := loadOrCreateMeta(metaPath)
 	if err != nil {
 		return nil, err
 	}
 
 	headSeq, tailSeq := meta.ReadInt64(queueHeadSeqOffset), meta.ReadInt64(queueTailSeqOffset)
-	fct, err := segment.NewFactory(dirPath+segmentDirName, dataFileSizeLimit, headSeq, tailSeq)
+	fct, err := segment.NewFactory(path.Join(dirPath, segmentDirName), dataFileSizeLimit, headSeq, tailSeq)
 	if err != nil {
 		return nil, err
 	}

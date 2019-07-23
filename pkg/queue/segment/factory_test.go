@@ -241,11 +241,6 @@ func TestFactory_RemoveSegments(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// could not remove all
-	if err := fct.RemoveSegments(5); err == nil {
-		t.Fatal("should be error")
-	}
-
 	// remove the first one
 	if err := fct.RemoveSegments(1); err != nil {
 		t.Fatal(err)

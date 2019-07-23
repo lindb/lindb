@@ -7,13 +7,19 @@ type Storage struct {
 	Coordinator state.Config `toml:"coordinator"`
 	Server      Server       `toml:"server"`
 
-	Engine Engine `toml:"engine"`
+	Engine      Engine      `toml:"engine"`
+	Replication Replication `toml:"replication"`
 }
 
 // Server represents tcp server config
 type Server struct {
 	Port uint16 `toml:"port"`
 	TTL  int64  `toml:"ttl"`
+}
+
+// Replication represents replication config
+type Replication struct {
+	Path string `toml:"path"`
 }
 
 // Engine represents a tsdb engine level configuration
@@ -35,6 +41,9 @@ func NewDefaultStorageCfg() Storage {
 		},
 		Engine: Engine{
 			Path: "/tmp",
+		},
+		Replication: Replication{
+			Path: "/tmp/storage/replication",
 		},
 	}
 }
