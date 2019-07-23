@@ -10,6 +10,7 @@ import (
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/broker/api/admin"
 	stateAPI "github.com/eleme/lindb/broker/api/state"
+	"github.com/eleme/lindb/broker/handler"
 	"github.com/eleme/lindb/broker/middleware"
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/constants"
@@ -22,6 +23,9 @@ import (
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
 	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/replication"
+	"github.com/eleme/lindb/rpc"
+	brokerpb "github.com/eleme/lindb/rpc/proto/broker"
 	"github.com/eleme/lindb/service"
 )
 
@@ -35,6 +39,7 @@ const (
 type srv struct {
 	storageClusterService service.StorageClusterService
 	databaseService       service.DatabaseService
+	channelManager        replication.ChannelManager
 }
 
 // apiHandler represents all api handlers for broker
@@ -44,6 +49,10 @@ type apiHandler struct {
 	loginAPI          *api.LoginAPI
 	storageStateAPI   *stateAPI.StorageAPI
 	brokerStateAPI    *stateAPI.BrokerAPI
+}
+
+type rpcHandler struct {
+	writer *handler.Writer
 }
 
 // stateMachine represents all state machines for broker
@@ -69,6 +78,9 @@ type runtime struct {
 	master       coordinator.Master
 	registry     discovery.Registry
 	stateMachine *stateMachine
+
+	server  rpc.TCPServer
+	handler *rpcHandler
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -129,6 +141,9 @@ func (r *runtime) Run() error {
 	r.buildMiddlewareDependency()
 	r.buildAPIDependency()
 
+	// start tcp server
+	r.startTCPServer()
+
 	// start http server
 	r.startHTTPServer()
 
@@ -181,6 +196,12 @@ func (r *runtime) Stop() error {
 		}
 	}
 
+	// finally shutdown rpc server
+	if r.server != nil {
+		r.log.Info("stopping grpc server")
+		r.server.Stop()
+	}
+
 	r.log.Info("broker server stop complete")
 	r.state = server.Terminated
 	return nil
@@ -221,9 +242,14 @@ func (r *runtime) startStateRepo() error {
 
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() {
+	// todo watch stateMachine states change.
+	// hard code create channel first.
+	cm := replication.NewChannelManager(r.config.ReplicationChannel, rpc.NewClientStreamFactory(r.node))
+
 	srv := srv{
 		storageClusterService: service.NewStorageClusterService(r.repo),
 		databaseService:       service.NewDatabaseService(r.repo),
+		channelManager:        cm,
 	}
 	r.srv = srv
 }
@@ -296,4 +322,27 @@ func (r *runtime) stopStateMachine() {
 			r.log.Error("close node state state machine error", logger.Error(err))
 		}
 	}
+}
+
+func (r *runtime) startTCPServer() {
+	r.server = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.Server.Port))
+
+	// bind rpc handlers
+	r.bindRPCHandlers()
+
+	go func() {
+		if err := r.server.Start(); err != nil {
+			panic(err)
+		}
+	}()
+}
+
+// bindRPCHandlers binds rpc handlers, registers handler into grpc server
+func (r *runtime) bindRPCHandlers() {
+
+	r.handler = &rpcHandler{
+		writer: handler.NewWriter(r.srv.channelManager),
+	}
+
+	brokerpb.RegisterBrokerServiceServer(r.server.GetServer(), r.handler.writer)
 }

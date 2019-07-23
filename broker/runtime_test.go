@@ -45,6 +45,16 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			Namespace: "/test/broker",
 			Endpoints: ts.Cluster.Endpoints,
 		},
+		Server: config.Server{
+			Port: 2881,
+			TTL:  1,
+		},
+		ReplicationChannel: config.ReplicationChannel{
+			Path:                       "/tmp/broker/replication",
+			BufferSize:                 32,
+			SegmentFileSize:            128 * 1024 * 1024,
+			RemoveTaskIntervalInSecond: 60,
+		},
 	}
 	_ = fileutil.EncodeToml(brokerCfgPath, &cfg)
 	broker = NewBrokerRuntime(brokerCfgPath)

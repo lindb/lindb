@@ -14,6 +14,7 @@ import (
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
 	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/replication"
 	"github.com/eleme/lindb/rpc"
 	"github.com/eleme/lindb/rpc/proto/storage"
 	"github.com/eleme/lindb/service"
@@ -28,12 +29,14 @@ const (
 
 // srv represents all dependency services
 type srv struct {
-	storageService service.StorageService
+	storageService  service.StorageService
+	sequenceManager replication.SequenceManager
 }
 
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
 	writer *handler.Writer
+	query  *handler.Query
 }
 
 // runtime represents storage runtime dependency
@@ -91,7 +94,10 @@ func (r *runtime) Run() error {
 	}
 
 	// build service dependency for storage server
-	r.buildServiceDependency()
+	if err := r.buildServiceDependency(); err != nil {
+		r.state = server.Failed
+		return err
+	}
 
 	r.node = models.Node{IP: ip, Port: r.config.Server.Port}
 	// start tcp server
@@ -169,11 +175,17 @@ func (r *runtime) Stop() error {
 }
 
 // buildServiceDependency builds broker service dependency
-func (r *runtime) buildServiceDependency() {
+func (r *runtime) buildServiceDependency() error {
+	sm, err := replication.NewSequenceManager(r.config.Replication.Path)
+	if err != nil {
+		return err
+	}
 	srv := srv{
-		storageService: service.NewStorageService(r.config.Engine),
+		storageService:  service.NewStorageService(r.config.Engine),
+		sequenceManager: sm,
 	}
 	r.srv = srv
+	return nil
 }
 
 // startTCPServer starts tcp server
@@ -192,11 +204,12 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
-	//TODO
+
 	r.handler = &rpcHandler{
-		writer: handler.NewWriter(r.srv.storageService),
+		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
+		query:  handler.NewQuery(rpc.NewServerStreamFactory()),
 	}
-	//r.handler = handler
 
 	storage.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
+	storage.RegisterQueryServiceServer(r.server.GetServer(), r.handler.query)
 }

@@ -35,7 +35,6 @@ github.com/coreos/etcd/pkg/types
 github.com/coreos/etcd/proxy/grpcproxy
 github.com/coreos/etcd/proxy/grpcproxy/adapter
 github.com/coreos/etcd/rafthttp
-github.com/coreos/etcd/pkg/stringutil
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
 github.com/coreos/etcd/pkg/pathutil
@@ -118,11 +117,11 @@ github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/jsonpb
+github.com/golang/protobuf/protoc-gen-go/generator
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-github.com/golang/protobuf/jsonpb
-github.com/golang/protobuf/protoc-gen-go/generator
 github.com/golang/protobuf/ptypes/wrappers
 github.com/golang/protobuf/ptypes/struct
 github.com/golang/protobuf/protoc-gen-go/descriptor
@@ -221,11 +220,11 @@ golang.org/x/crypto/bcrypt
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/blowfish
 # golang.org/x/net v0.0.0-20190628185345-da137c7871d7
-golang.org/x/net/trace
 golang.org/x/net/context
-golang.org/x/net/internal/timeseries
+golang.org/x/net/trace
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
+golang.org/x/net/internal/timeseries
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20190730174312-6a60838ec25
@@ -244,15 +243,19 @@ google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/protobuf/field_mask
 # google.golang.org/grpc v1.21.1
 google.golang.org/grpc
+google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
+google.golang.org/grpc/grpclog
+google.golang.org/grpc/keepalive
+google.golang.org/grpc/codes
+google.golang.org/grpc/credentials
+google.golang.org/grpc/health/grpc_health_v1
+google.golang.org/grpc/status
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/roundrobin
-google.golang.org/grpc/codes
 google.golang.org/grpc/connectivity
-google.golang.org/grpc/credentials
 google.golang.org/grpc/encoding
 google.golang.org/grpc/encoding/proto
-google.golang.org/grpc/grpclog
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
 google.golang.org/grpc/internal/balancerload
@@ -262,21 +265,17 @@ google.golang.org/grpc/internal/envconfig
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/transport
-google.golang.org/grpc/keepalive
-google.golang.org/grpc/metadata
 google.golang.org/grpc/naming
 google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
-google.golang.org/grpc/status
 google.golang.org/grpc/tap
-google.golang.org/grpc/health/grpc_health_v1
-google.golang.org/grpc/balancer/base
+google.golang.org/grpc/health
 google.golang.org/grpc/credentials/internal
+google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
-google.golang.org/grpc/health
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 gopkg.in/check.v1
 # gopkg.in/yaml.v2 v2.2.2

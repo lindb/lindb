@@ -27,13 +27,13 @@ type meta struct {
 
 // NewMeta returns a Meta by mapping file at filePath with size.
 func NewMeta(filePath string, size int) (Meta, error) {
-	mbys, err := fileutil.RWMap(filePath, size)
+	bytes, err := fileutil.RWMap(filePath, size)
 	if err != nil {
 		return nil, err
 	}
 
 	return &meta{
-		mappedPage: page.NewMappedPage(filePath, mbys, page.MMapCloseFunc, page.MMapSyncFunc),
+		mappedPage: page.NewMappedPage(filePath, bytes, page.MMapCloseFunc, page.MMapSyncFunc),
 	}, nil
 }
 

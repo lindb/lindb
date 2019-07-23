@@ -10,9 +10,20 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/coreos/etcd/pkg/stringutil"
 )
+
+const (
+	chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+)
+
+func randomString(length int) string {
+	bytes := make([]byte, length)
+	l := len(chars)
+	for i := range bytes {
+		bytes[i] = chars[rand.Intn(l)]
+	}
+	return string(bytes)
+}
 
 func TestOneFanOut(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanOut")
@@ -39,7 +50,8 @@ func TestOneFanOut(t *testing.T) {
 	assert.Equal(t, f1.Name(), "f1")
 	assert.Equal(t, f1.HeadSeq(), int64(0))
 	assert.Equal(t, f1.TailSeq(), int64(0))
-	assert.Equal(t, f1.Consume(), int64(SeqNoNewMessageAvailable))
+	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
+	assert.Equal(t, f1.Pending(), int64(0))
 
 	assert.Equal(t, fq.HeadSeq(), int64(0))
 	assert.Equal(t, fq.TailSeq(), int64(0))
@@ -51,11 +63,13 @@ func TestOneFanOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, seq, int64(0))
+	assert.Equal(t, f1.Pending(), int64(1))
 
 	fseq := f1.Consume()
 	assert.Equal(t, fseq, int64(0))
 	assert.Equal(t, f1.HeadSeq(), int64(1))
 	assert.Equal(t, f1.TailSeq(), int64(0))
+	assert.Equal(t, f1.Pending(), int64(0))
 
 	assert.Equal(t, f1.HeadSeq(), int64(1))
 	assert.Equal(t, f1.TailSeq(), int64(0))
@@ -66,7 +80,7 @@ func TestOneFanOut(t *testing.T) {
 	}
 	assert.Equal(t, fmsg, msg)
 
-	assert.Equal(t, f1.Consume(), int64(SeqNoNewMessageAvailable))
+	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
 
 	// msg1, msg2
 	msg1 := []byte("456")
@@ -87,8 +101,9 @@ func TestOneFanOut(t *testing.T) {
 	}
 
 	assert.Equal(t, seq, int64(2))
-
 	assert.Equal(t, fq.HeadSeq(), int64(3))
+
+	assert.Equal(t, f1.Pending(), int64(2))
 
 	fseq = f1.Consume()
 	assert.Equal(t, fseq, int64(1))
@@ -117,9 +132,65 @@ func TestOneFanOut(t *testing.T) {
 	f1.Ack(fseq)
 	assert.Equal(t, f1.TailSeq(), fseq)
 	assert.Equal(t, fq.TailSeq(), fseq)
+	assert.Equal(t, f1.Pending(), int64(0))
 
 	fq.Close()
 
+}
+
+func TestFanOut_SetHeadSeq(t *testing.T) {
+	dir := path.Join(os.TempDir(), "fanOut")
+
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Error(err)
+		}
+
+	}()
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f1, err := fq.GetOrCreateFanOut("f1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f1.SetHeadSeq(1); err == nil {
+		t.Fatal("should be error")
+	}
+
+	if _, err := fq.Append([]byte("123")); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fq.Append([]byte("456")); err != nil {
+		t.Fatal(err)
+	}
+
+	seq := f1.Consume()
+	assert.Equal(t, seq, int64(0))
+
+	seq = f1.Consume()
+	assert.Equal(t, seq, int64(1))
+
+	if err := f1.SetHeadSeq(0); err != nil {
+		t.Fatal(err)
+	}
+
+	seq = f1.Consume()
+	assert.Equal(t, seq, int64(0))
+
+	seq = f1.Consume()
+	assert.Equal(t, seq, int64(1))
+
+	f1.Ack(1)
+
+	if err := f1.SetHeadSeq(0); err == nil {
+		t.Fatal("should be error")
+	}
 }
 
 func TestMultipleFanOut(t *testing.T) {
@@ -142,14 +213,14 @@ func TestMultipleFanOut(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, f1.Consume(), int64(SeqNoNewMessageAvailable))
+	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
 
 	f2, err := fq.GetOrCreateFanOut("f2")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, f2.Consume(), int64(SeqNoNewMessageAvailable))
+	assert.Equal(t, f2.Consume(), SeqNoNewMessageAvailable)
 
 	msg := []byte("123")
 
@@ -186,7 +257,6 @@ func TestMultipleFanOut(t *testing.T) {
 
 func TestConcurrentRead(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanout_concurrent")
-
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -202,10 +272,10 @@ func TestConcurrentRead(t *testing.T) {
 	msgSize := 1024
 	dataFileSize := 512
 	// random text
-	bytesSli := make([][]byte, msgSize, msgSize)
+	bytesSli := make([][]byte, msgSize)
 
 	for i := range bytesSli {
-		bytesSli[i] = []byte(stringutil.RandomStrings(uint(rand.Intn(10)+1), 1)[0])
+		bytesSli[i] = []byte(randomString(rand.Intn(10) + 1))
 	}
 
 	fq, err := NewFanOutQueue(dir, dataFileSize, time.Second)
@@ -283,7 +353,7 @@ func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string, wg *sync.Wait
 			return
 		}
 		seq := fo.Consume()
-		if seq == -1 {
+		if seq == SeqNoNewMessageAvailable {
 			time.Sleep(time.Millisecond)
 			continue
 		}

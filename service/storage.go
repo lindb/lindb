@@ -10,6 +10,8 @@ import (
 	"github.com/eleme/lindb/tsdb"
 )
 
+//go:generate mockgen -source ./storage.go -destination=./storage_mock.go -package service
+
 // StorageService represents a storage manage interface for tsdb engine
 type StorageService interface {
 	// CreateShards creates shards for data partition
