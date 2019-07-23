@@ -38,8 +38,3 @@ func TestFileUtil(t *testing.T) {
 	files, _ := ListDir(testPath)
 	assert.Equal(t, "toml", files[0])
 }
-
-func TestDirAppendSepa(t *testing.T) {
-	assert.Equal(t, "/data/data/", DirAppendSepa("/data/data/"))
-	assert.Equal(t, "/data/data/", DirAppendSepa("/data/data"))
-}

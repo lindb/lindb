@@ -3,6 +3,7 @@ package segment
 import (
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,8 +98,6 @@ type factory struct {
 // NewFactory builds a segment factory by loading file from dirPath.
 // HeadSeq and  TailSeq are used to filter segments in use.
 func NewFactory(dirPath string, dataFileSizeLimit int, headSeq, tailSeq int64) (Factory, error) {
-	dirPath = fileutil.DirAppendSepa(dirPath)
-
 	if err := fileutil.MkDir(dirPath); err != nil {
 		return nil, err
 	}
@@ -138,14 +137,15 @@ func (fct *factory) load(headSeq, tailSeq int64) error {
 	filePathSet := make(map[string]struct{})
 
 	for _, fn := range fileNames {
-		filePathSet[fct.dirPath+fn] = struct{}{}
+		filePath := path.Join(fct.dirPath, fn)
+		filePathSet[filePath] = struct{}{}
 		if strings.HasSuffix(fn, indexFileSuffix) {
 			seqNumStr := fn[0:strings.Index(fn, indexFileSuffix)]
-			seq, err := strconv.Atoi(seqNumStr)
+			seq, err := strconv.ParseInt(seqNumStr, 10, 64)
 			if err != nil {
 				return err
 			}
-			seqRange = append(seqRange, int64(seq))
+			seqRange = append(seqRange, seq)
 		}
 	}
 
@@ -217,7 +217,7 @@ func (fct *factory) loadOrCreateSegment(begin, end int64, filePathSet map[string
 
 // buildFilePath concatenates the dirPath and fileName as a filePath
 func (fct *factory) buildFilePath(fileName string) string {
-	return fct.dirPath + fileName
+	return path.Join(fct.dirPath, fileName)
 }
 
 // buildIndexAndDataFilePath returns the indexFilePath and dataFilePath for segment with beginSeq.
@@ -254,7 +254,7 @@ func (fct *factory) NewSegment(beginSeq int64) (Segment, error) {
 	}
 
 	fakeSet := map[string]struct{}{
-		fct.dirPath + strconv.FormatInt(beginSeq, 10) + dataFileSuffix: {},
+		fct.buildFilePath(strconv.FormatInt(beginSeq, 10) + dataFileSuffix): {},
 	}
 
 	err := fct.loadOrCreateSegment(beginSeq, beginSeq, fakeSet)
@@ -276,7 +276,7 @@ func (fct *factory) RemoveSegments(ackSeq int64) error {
 	lastSeg := fct.segments[len(fct.segments)-1]
 	if lastSeg.End() <= ackSeq {
 		fct.lock4segments.Unlock()
-		return fmt.Errorf("remove segments with ackSeq(%d) >= the last segment end(%d)", ackSeq, lastSeg.End())
+		return nil
 	}
 
 	index := 0

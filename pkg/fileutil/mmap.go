@@ -47,8 +47,8 @@ func Map(path string) ([]byte, error) {
 
 // RWMap maps a file for read and write with give size.
 // New file is created is not existed.
-func RWMap(path string, size int) ([]byte, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+func RWMap(filePath string, size int) ([]byte, error) {
+	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}

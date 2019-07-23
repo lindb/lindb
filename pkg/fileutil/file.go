@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -81,12 +80,4 @@ func DecodeToml(fileName string, v interface{}) error {
 		return err
 	}
 	return nil
-}
-
-// DirAppendSepa returns dir path end with file separator
-func DirAppendSepa(dirPath string) string {
-	if dirPath[len(dirPath)-1] != filepath.Separator {
-		dirPath += string(filepath.Separator)
-	}
-	return dirPath
 }

@@ -51,6 +51,9 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 			Namespace: "/test/storage",
 			Endpoints: ts.Cluster.Endpoints,
 		},
+		Replication: config.Replication{
+			Path: "/tmp/storage/replication",
+		},
 	}
 	_ = fileutil.EncodeToml(storageCfgPath, &cfg)
 	storage = NewStorageRuntime(storageCfgPath)
