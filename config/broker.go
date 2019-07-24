@@ -28,5 +28,9 @@ func NewDefaultBrokerCfg() Broker {
 			Endpoints:   []string{"http://localhost:2379"},
 			DialTimeout: 5,
 		},
+		User: models.User{
+			UserName: "admin",
+			Password: "admin123",
+		},
 	}
 }
