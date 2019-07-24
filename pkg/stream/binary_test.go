@@ -3,7 +3,7 @@ package stream
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPutInt(t *testing.T) {

@@ -9,7 +9,6 @@ import (
 
 	pb "github.com/eleme/lindb/rpc/proto/field"
 
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/timeutil"
@@ -21,7 +20,7 @@ const segmentPath = "segment"
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
-	GetSegments(intervalType interval.Type, timeRange models.TimeRange) []Segment
+	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
@@ -86,7 +85,7 @@ func newShard(shardID int32, path string, option option.ShardOption) (Shard, err
 }
 
 // GetSegments returns segment list by interval type and time range, return nil if not match
-func (s *shard) GetSegments(intervalType interval.Type, timeRange models.TimeRange) []Segment {
+func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment {
 	segment, ok := s.segments[intervalType]
 	if ok {
 		return segment.GetSegments(timeRange)

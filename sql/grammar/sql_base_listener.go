@@ -1,7 +1,6 @@
-// Code generated from /Users/dupeng/Documents/gohub/src/github.com/eleme/lindb/sql/antlr4/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
+// Code generated from /Users/huangjie/Documents/github/lindb/sql/grammar/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
 
-package parser // SQL
-
+package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
 
 // BaseSQLListener is a complete listener for a parse tree produced by SQLParser.
@@ -33,209 +32,17 @@ func (s *BaseSQLListener) EnterStatementList(ctx *StatementListContext) {}
 // ExitStatementList is called when production statementList is exited.
 func (s *BaseSQLListener) ExitStatementList(ctx *StatementListContext) {}
 
-// EnterCreateDatabaseStmt is called when production createDatabaseStmt is entered.
-func (s *BaseSQLListener) EnterCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) {}
-
-// ExitCreateDatabaseStmt is called when production createDatabaseStmt is exited.
-func (s *BaseSQLListener) ExitCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) {}
-
-// EnterWithClauseList is called when production withClauseList is entered.
-func (s *BaseSQLListener) EnterWithClauseList(ctx *WithClauseListContext) {}
-
-// ExitWithClauseList is called when production withClauseList is exited.
-func (s *BaseSQLListener) ExitWithClauseList(ctx *WithClauseListContext) {}
-
-// EnterWithClause is called when production withClause is entered.
-func (s *BaseSQLListener) EnterWithClause(ctx *WithClauseContext) {}
-
-// ExitWithClause is called when production withClause is exited.
-func (s *BaseSQLListener) ExitWithClause(ctx *WithClauseContext) {}
-
-// EnterIntervalDefineList is called when production intervalDefineList is entered.
-func (s *BaseSQLListener) EnterIntervalDefineList(ctx *IntervalDefineListContext) {}
-
-// ExitIntervalDefineList is called when production intervalDefineList is exited.
-func (s *BaseSQLListener) ExitIntervalDefineList(ctx *IntervalDefineListContext) {}
-
-// EnterIntervalDefine is called when production intervalDefine is entered.
-func (s *BaseSQLListener) EnterIntervalDefine(ctx *IntervalDefineContext) {}
-
-// ExitIntervalDefine is called when production intervalDefine is exited.
-func (s *BaseSQLListener) ExitIntervalDefine(ctx *IntervalDefineContext) {}
-
-// EnterShardNum is called when production shardNum is entered.
-func (s *BaseSQLListener) EnterShardNum(ctx *ShardNumContext) {}
-
-// ExitShardNum is called when production shardNum is exited.
-func (s *BaseSQLListener) ExitShardNum(ctx *ShardNumContext) {}
-
-// EnterTtlVal is called when production ttlVal is entered.
-func (s *BaseSQLListener) EnterTtlVal(ctx *TtlValContext) {}
-
-// ExitTtlVal is called when production ttlVal is exited.
-func (s *BaseSQLListener) ExitTtlVal(ctx *TtlValContext) {}
-
-// EnterMetattlVal is called when production metattlVal is entered.
-func (s *BaseSQLListener) EnterMetattlVal(ctx *MetattlValContext) {}
-
-// ExitMetattlVal is called when production metattlVal is exited.
-func (s *BaseSQLListener) ExitMetattlVal(ctx *MetattlValContext) {}
-
-// EnterPastVal is called when production pastVal is entered.
-func (s *BaseSQLListener) EnterPastVal(ctx *PastValContext) {}
-
-// ExitPastVal is called when production pastVal is exited.
-func (s *BaseSQLListener) ExitPastVal(ctx *PastValContext) {}
-
-// EnterFutureVal is called when production futureVal is entered.
-func (s *BaseSQLListener) EnterFutureVal(ctx *FutureValContext) {}
-
-// ExitFutureVal is called when production futureVal is exited.
-func (s *BaseSQLListener) ExitFutureVal(ctx *FutureValContext) {}
-
-// EnterIntervalNameVal is called when production intervalNameVal is entered.
-func (s *BaseSQLListener) EnterIntervalNameVal(ctx *IntervalNameValContext) {}
-
-// ExitIntervalNameVal is called when production intervalNameVal is exited.
-func (s *BaseSQLListener) ExitIntervalNameVal(ctx *IntervalNameValContext) {}
-
-// EnterReplicaFactor is called when production replicaFactor is entered.
-func (s *BaseSQLListener) EnterReplicaFactor(ctx *ReplicaFactorContext) {}
-
-// ExitReplicaFactor is called when production replicaFactor is exited.
-func (s *BaseSQLListener) ExitReplicaFactor(ctx *ReplicaFactorContext) {}
-
-// EnterDatabaseName is called when production databaseName is entered.
-func (s *BaseSQLListener) EnterDatabaseName(ctx *DatabaseNameContext) {}
-
-// ExitDatabaseName is called when production databaseName is exited.
-func (s *BaseSQLListener) ExitDatabaseName(ctx *DatabaseNameContext) {}
-
-// EnterUpdateDatabaseStmt is called when production updateDatabaseStmt is entered.
-func (s *BaseSQLListener) EnterUpdateDatabaseStmt(ctx *UpdateDatabaseStmtContext) {}
-
-// ExitUpdateDatabaseStmt is called when production updateDatabaseStmt is exited.
-func (s *BaseSQLListener) ExitUpdateDatabaseStmt(ctx *UpdateDatabaseStmtContext) {}
-
-// EnterDropDatabaseStmt is called when production dropDatabaseStmt is entered.
-func (s *BaseSQLListener) EnterDropDatabaseStmt(ctx *DropDatabaseStmtContext) {}
-
-// ExitDropDatabaseStmt is called when production dropDatabaseStmt is exited.
-func (s *BaseSQLListener) ExitDropDatabaseStmt(ctx *DropDatabaseStmtContext) {}
-
-// EnterShowDatabasesStmt is called when production showDatabasesStmt is entered.
-func (s *BaseSQLListener) EnterShowDatabasesStmt(ctx *ShowDatabasesStmtContext) {}
-
-// ExitShowDatabasesStmt is called when production showDatabasesStmt is exited.
-func (s *BaseSQLListener) ExitShowDatabasesStmt(ctx *ShowDatabasesStmtContext) {}
-
-// EnterShowNodeStmt is called when production showNodeStmt is entered.
-func (s *BaseSQLListener) EnterShowNodeStmt(ctx *ShowNodeStmtContext) {}
-
-// ExitShowNodeStmt is called when production showNodeStmt is exited.
-func (s *BaseSQLListener) ExitShowNodeStmt(ctx *ShowNodeStmtContext) {}
-
-// EnterShowMeasurementsStmt is called when production showMeasurementsStmt is entered.
-func (s *BaseSQLListener) EnterShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
-
-// ExitShowMeasurementsStmt is called when production showMeasurementsStmt is exited.
-func (s *BaseSQLListener) ExitShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
-
-// EnterShowTagKeysStmt is called when production showTagKeysStmt is entered.
-func (s *BaseSQLListener) EnterShowTagKeysStmt(ctx *ShowTagKeysStmtContext) {}
-
-// ExitShowTagKeysStmt is called when production showTagKeysStmt is exited.
-func (s *BaseSQLListener) ExitShowTagKeysStmt(ctx *ShowTagKeysStmtContext) {}
-
-// EnterShowInfoStmt is called when production showInfoStmt is entered.
-func (s *BaseSQLListener) EnterShowInfoStmt(ctx *ShowInfoStmtContext) {}
-
-// ExitShowInfoStmt is called when production showInfoStmt is exited.
-func (s *BaseSQLListener) ExitShowInfoStmt(ctx *ShowInfoStmtContext) {}
-
-// EnterShowTagValuesStmt is called when production showTagValuesStmt is entered.
-func (s *BaseSQLListener) EnterShowTagValuesStmt(ctx *ShowTagValuesStmtContext) {}
-
-// ExitShowTagValuesStmt is called when production showTagValuesStmt is exited.
-func (s *BaseSQLListener) ExitShowTagValuesStmt(ctx *ShowTagValuesStmtContext) {}
-
-// EnterShowTagValuesInfoStmt is called when production showTagValuesInfoStmt is entered.
-func (s *BaseSQLListener) EnterShowTagValuesInfoStmt(ctx *ShowTagValuesInfoStmtContext) {}
-
-// ExitShowTagValuesInfoStmt is called when production showTagValuesInfoStmt is exited.
-func (s *BaseSQLListener) ExitShowTagValuesInfoStmt(ctx *ShowTagValuesInfoStmtContext) {}
-
-// EnterShowFieldKeysStmt is called when production showFieldKeysStmt is entered.
-func (s *BaseSQLListener) EnterShowFieldKeysStmt(ctx *ShowFieldKeysStmtContext) {}
-
-// ExitShowFieldKeysStmt is called when production showFieldKeysStmt is exited.
-func (s *BaseSQLListener) ExitShowFieldKeysStmt(ctx *ShowFieldKeysStmtContext) {}
-
-// EnterShowQueriesStmt is called when production showQueriesStmt is entered.
-func (s *BaseSQLListener) EnterShowQueriesStmt(ctx *ShowQueriesStmtContext) {}
-
-// ExitShowQueriesStmt is called when production showQueriesStmt is exited.
-func (s *BaseSQLListener) ExitShowQueriesStmt(ctx *ShowQueriesStmtContext) {}
-
-// EnterShowStatsStmt is called when production showStatsStmt is entered.
-func (s *BaseSQLListener) EnterShowStatsStmt(ctx *ShowStatsStmtContext) {}
-
-// ExitShowStatsStmt is called when production showStatsStmt is exited.
-func (s *BaseSQLListener) ExitShowStatsStmt(ctx *ShowStatsStmtContext) {}
-
-// EnterWithMeasurementClause is called when production withMeasurementClause is entered.
-func (s *BaseSQLListener) EnterWithMeasurementClause(ctx *WithMeasurementClauseContext) {}
-
-// ExitWithMeasurementClause is called when production withMeasurementClause is exited.
-func (s *BaseSQLListener) ExitWithMeasurementClause(ctx *WithMeasurementClauseContext) {}
-
-// EnterWithTagClause is called when production withTagClause is entered.
-func (s *BaseSQLListener) EnterWithTagClause(ctx *WithTagClauseContext) {}
-
-// ExitWithTagClause is called when production withTagClause is exited.
-func (s *BaseSQLListener) ExitWithTagClause(ctx *WithTagClauseContext) {}
-
-// EnterWhereTagCascade is called when production whereTagCascade is entered.
-func (s *BaseSQLListener) EnterWhereTagCascade(ctx *WhereTagCascadeContext) {}
-
-// ExitWhereTagCascade is called when production whereTagCascade is exited.
-func (s *BaseSQLListener) ExitWhereTagCascade(ctx *WhereTagCascadeContext) {}
-
-// EnterKillQueryStmt is called when production killQueryStmt is entered.
-func (s *BaseSQLListener) EnterKillQueryStmt(ctx *KillQueryStmtContext) {}
-
-// ExitKillQueryStmt is called when production killQueryStmt is exited.
-func (s *BaseSQLListener) ExitKillQueryStmt(ctx *KillQueryStmtContext) {}
-
-// EnterQueryId is called when production queryId is entered.
-func (s *BaseSQLListener) EnterQueryId(ctx *QueryIdContext) {}
-
-// ExitQueryId is called when production queryId is exited.
-func (s *BaseSQLListener) ExitQueryId(ctx *QueryIdContext) {}
-
-// EnterServerId is called when production serverId is entered.
-func (s *BaseSQLListener) EnterServerId(ctx *ServerIdContext) {}
-
-// ExitServerId is called when production serverId is exited.
-func (s *BaseSQLListener) ExitServerId(ctx *ServerIdContext) {}
-
-// EnterModule is called when production module is entered.
-func (s *BaseSQLListener) EnterModule(ctx *ModuleContext) {}
-
-// ExitModule is called when production module is exited.
-func (s *BaseSQLListener) ExitModule(ctx *ModuleContext) {}
-
-// EnterComponent is called when production component is entered.
-func (s *BaseSQLListener) EnterComponent(ctx *ComponentContext) {}
-
-// ExitComponent is called when production component is exited.
-func (s *BaseSQLListener) ExitComponent(ctx *ComponentContext) {}
-
 // EnterQueryStmt is called when production queryStmt is entered.
 func (s *BaseSQLListener) EnterQueryStmt(ctx *QueryStmtContext) {}
 
 // ExitQueryStmt is called when production queryStmt is exited.
 func (s *BaseSQLListener) ExitQueryStmt(ctx *QueryStmtContext) {}
+
+// EnterSelectExpr is called when production selectExpr is entered.
+func (s *BaseSQLListener) EnterSelectExpr(ctx *SelectExprContext) {}
+
+// ExitSelectExpr is called when production selectExpr is exited.
+func (s *BaseSQLListener) ExitSelectExpr(ctx *SelectExprContext) {}
 
 // EnterFields is called when production fields is entered.
 func (s *BaseSQLListener) EnterFields(ctx *FieldsContext) {}
@@ -267,29 +74,17 @@ func (s *BaseSQLListener) EnterWhereClause(ctx *WhereClauseContext) {}
 // ExitWhereClause is called when production whereClause is exited.
 func (s *BaseSQLListener) ExitWhereClause(ctx *WhereClauseContext) {}
 
-// EnterClauseBooleanExpr is called when production clauseBooleanExpr is entered.
-func (s *BaseSQLListener) EnterClauseBooleanExpr(ctx *ClauseBooleanExprContext) {}
+// EnterConditionExpr is called when production conditionExpr is entered.
+func (s *BaseSQLListener) EnterConditionExpr(ctx *ConditionExprContext) {}
 
-// ExitClauseBooleanExpr is called when production clauseBooleanExpr is exited.
-func (s *BaseSQLListener) ExitClauseBooleanExpr(ctx *ClauseBooleanExprContext) {}
+// ExitConditionExpr is called when production conditionExpr is exited.
+func (s *BaseSQLListener) ExitConditionExpr(ctx *ConditionExprContext) {}
 
-// EnterTagCascadeExpr is called when production tagCascadeExpr is entered.
-func (s *BaseSQLListener) EnterTagCascadeExpr(ctx *TagCascadeExprContext) {}
+// EnterTagFilterExpr is called when production tagFilterExpr is entered.
+func (s *BaseSQLListener) EnterTagFilterExpr(ctx *TagFilterExprContext) {}
 
-// ExitTagCascadeExpr is called when production tagCascadeExpr is exited.
-func (s *BaseSQLListener) ExitTagCascadeExpr(ctx *TagCascadeExprContext) {}
-
-// EnterTagEqualExpr is called when production tagEqualExpr is entered.
-func (s *BaseSQLListener) EnterTagEqualExpr(ctx *TagEqualExprContext) {}
-
-// ExitTagEqualExpr is called when production tagEqualExpr is exited.
-func (s *BaseSQLListener) ExitTagEqualExpr(ctx *TagEqualExprContext) {}
-
-// EnterTagBooleanExpr is called when production tagBooleanExpr is entered.
-func (s *BaseSQLListener) EnterTagBooleanExpr(ctx *TagBooleanExprContext) {}
-
-// ExitTagBooleanExpr is called when production tagBooleanExpr is exited.
-func (s *BaseSQLListener) ExitTagBooleanExpr(ctx *TagBooleanExprContext) {}
+// ExitTagFilterExpr is called when production tagFilterExpr is exited.
+func (s *BaseSQLListener) ExitTagFilterExpr(ctx *TagFilterExprContext) {}
 
 // EnterTagValueList is called when production tagValueList is entered.
 func (s *BaseSQLListener) EnterTagValueList(ctx *TagValueListContext) {}
@@ -297,17 +92,17 @@ func (s *BaseSQLListener) EnterTagValueList(ctx *TagValueListContext) {}
 // ExitTagValueList is called when production tagValueList is exited.
 func (s *BaseSQLListener) ExitTagValueList(ctx *TagValueListContext) {}
 
+// EnterTimeRangeExpr is called when production timeRangeExpr is entered.
+func (s *BaseSQLListener) EnterTimeRangeExpr(ctx *TimeRangeExprContext) {}
+
+// ExitTimeRangeExpr is called when production timeRangeExpr is exited.
+func (s *BaseSQLListener) ExitTimeRangeExpr(ctx *TimeRangeExprContext) {}
+
 // EnterTimeExpr is called when production timeExpr is entered.
 func (s *BaseSQLListener) EnterTimeExpr(ctx *TimeExprContext) {}
 
 // ExitTimeExpr is called when production timeExpr is exited.
 func (s *BaseSQLListener) ExitTimeExpr(ctx *TimeExprContext) {}
-
-// EnterTimeBooleanExpr is called when production timeBooleanExpr is entered.
-func (s *BaseSQLListener) EnterTimeBooleanExpr(ctx *TimeBooleanExprContext) {}
-
-// ExitTimeBooleanExpr is called when production timeBooleanExpr is exited.
-func (s *BaseSQLListener) ExitTimeBooleanExpr(ctx *TimeBooleanExprContext) {}
 
 // EnterNowExpr is called when production nowExpr is entered.
 func (s *BaseSQLListener) EnterNowExpr(ctx *NowExprContext) {}
@@ -327,17 +122,17 @@ func (s *BaseSQLListener) EnterGroupByClause(ctx *GroupByClauseContext) {}
 // ExitGroupByClause is called when production groupByClause is exited.
 func (s *BaseSQLListener) ExitGroupByClause(ctx *GroupByClauseContext) {}
 
-// EnterDimensions is called when production dimensions is entered.
-func (s *BaseSQLListener) EnterDimensions(ctx *DimensionsContext) {}
+// EnterGroupByKeys is called when production groupByKeys is entered.
+func (s *BaseSQLListener) EnterGroupByKeys(ctx *GroupByKeysContext) {}
 
-// ExitDimensions is called when production dimensions is exited.
-func (s *BaseSQLListener) ExitDimensions(ctx *DimensionsContext) {}
+// ExitGroupByKeys is called when production groupByKeys is exited.
+func (s *BaseSQLListener) ExitGroupByKeys(ctx *GroupByKeysContext) {}
 
-// EnterDimension is called when production dimension is entered.
-func (s *BaseSQLListener) EnterDimension(ctx *DimensionContext) {}
+// EnterGroupByKey is called when production groupByKey is entered.
+func (s *BaseSQLListener) EnterGroupByKey(ctx *GroupByKeyContext) {}
 
-// ExitDimension is called when production dimension is exited.
-func (s *BaseSQLListener) ExitDimension(ctx *DimensionContext) {}
+// ExitGroupByKey is called when production groupByKey is exited.
+func (s *BaseSQLListener) ExitGroupByKey(ctx *GroupByKeyContext) {}
 
 // EnterFillOption is called when production fillOption is entered.
 func (s *BaseSQLListener) EnterFillOption(ctx *FillOptionContext) {}
@@ -350,12 +145,6 @@ func (s *BaseSQLListener) EnterOrderByClause(ctx *OrderByClauseContext) {}
 
 // ExitOrderByClause is called when production orderByClause is exited.
 func (s *BaseSQLListener) ExitOrderByClause(ctx *OrderByClauseContext) {}
-
-// EnterIntervalByClause is called when production intervalByClause is entered.
-func (s *BaseSQLListener) EnterIntervalByClause(ctx *IntervalByClauseContext) {}
-
-// ExitIntervalByClause is called when production intervalByClause is exited.
-func (s *BaseSQLListener) ExitIntervalByClause(ctx *IntervalByClauseContext) {}
 
 // EnterSortField is called when production sortField is entered.
 func (s *BaseSQLListener) EnterSortField(ctx *SortFieldContext) {}
@@ -393,23 +182,23 @@ func (s *BaseSQLListener) EnterBoolExprAtom(ctx *BoolExprAtomContext) {}
 // ExitBoolExprAtom is called when production boolExprAtom is exited.
 func (s *BaseSQLListener) ExitBoolExprAtom(ctx *BoolExprAtomContext) {}
 
-// EnterBoolExprBinary is called when production boolExprBinary is entered.
-func (s *BaseSQLListener) EnterBoolExprBinary(ctx *BoolExprBinaryContext) {}
+// EnterBinaryExpr is called when production binaryExpr is entered.
+func (s *BaseSQLListener) EnterBinaryExpr(ctx *BinaryExprContext) {}
 
-// ExitBoolExprBinary is called when production boolExprBinary is exited.
-func (s *BaseSQLListener) ExitBoolExprBinary(ctx *BoolExprBinaryContext) {}
+// ExitBinaryExpr is called when production binaryExpr is exited.
+func (s *BaseSQLListener) ExitBinaryExpr(ctx *BinaryExprContext) {}
 
-// EnterBoolExprBinaryOperator is called when production boolExprBinaryOperator is entered.
-func (s *BaseSQLListener) EnterBoolExprBinaryOperator(ctx *BoolExprBinaryOperatorContext) {}
+// EnterBinaryOperator is called when production binaryOperator is entered.
+func (s *BaseSQLListener) EnterBinaryOperator(ctx *BinaryOperatorContext) {}
 
-// ExitBoolExprBinaryOperator is called when production boolExprBinaryOperator is exited.
-func (s *BaseSQLListener) ExitBoolExprBinaryOperator(ctx *BoolExprBinaryOperatorContext) {}
+// ExitBinaryOperator is called when production binaryOperator is exited.
+func (s *BaseSQLListener) ExitBinaryOperator(ctx *BinaryOperatorContext) {}
 
-// EnterExpr is called when production expr is entered.
-func (s *BaseSQLListener) EnterExpr(ctx *ExprContext) {}
+// EnterFieldExpr is called when production fieldExpr is entered.
+func (s *BaseSQLListener) EnterFieldExpr(ctx *FieldExprContext) {}
 
-// ExitExpr is called when production expr is exited.
-func (s *BaseSQLListener) ExitExpr(ctx *ExprContext) {}
+// ExitFieldExpr is called when production fieldExpr is exited.
+func (s *BaseSQLListener) ExitFieldExpr(ctx *FieldExprContext) {}
 
 // EnterDurationLit is called when production durationLit is entered.
 func (s *BaseSQLListener) EnterDurationLit(ctx *DurationLitContext) {}
@@ -488,12 +277,6 @@ func (s *BaseSQLListener) EnterTagValue(ctx *TagValueContext) {}
 
 // ExitTagValue is called when production tagValue is exited.
 func (s *BaseSQLListener) ExitTagValue(ctx *TagValueContext) {}
-
-// EnterTagValuePattern is called when production tagValuePattern is entered.
-func (s *BaseSQLListener) EnterTagValuePattern(ctx *TagValuePatternContext) {}
-
-// ExitTagValuePattern is called when production tagValuePattern is exited.
-func (s *BaseSQLListener) ExitTagValuePattern(ctx *TagValuePatternContext) {}
 
 // EnterIdent is called when production ident is entered.
 func (s *BaseSQLListener) EnterIdent(ctx *IdentContext) {}

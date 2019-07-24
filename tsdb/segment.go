@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/logger"
+	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/pkg/util"
 )
 
@@ -18,7 +18,7 @@ type IntervalSegment interface {
 	// GetOrCreateSegment creates new segment if not exist, if exist return it
 	GetOrCreateSegment(segmentName string) (Segment, error)
 	// GetSegments returns segment list by time range, return nil if not match
-	GetSegments(timeRange models.TimeRange) []Segment
+	GetSegments(timeRange timeutil.TimeRange) []Segment
 	// Close closes interval segment, release resource
 	Close()
 }
@@ -84,7 +84,7 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 }
 
 // GetSegments returns segment list by time range, return nil if not match
-func (s *intervalSegment) GetSegments(timeRange models.TimeRange) []Segment {
+func (s *intervalSegment) GetSegments(timeRange timeutil.TimeRange) []Segment {
 	calc, err := interval.GetCalculator(s.intervalType)
 	if err != nil {
 		return nil
