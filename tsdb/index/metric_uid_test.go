@@ -1,7 +1,6 @@
 package index
 
 import (
-	"encoding/binary"
 	"fmt"
 	"testing"
 
@@ -14,6 +13,7 @@ import (
 var testKVPath = "../test"
 
 func Test_MeasurementAdd(t *testing.T) {
+	//TODO need modify test case
 	util.RemoveDir(testKVPath)
 	defer util.RemoveDir(testKVPath)
 	option := kv.DefaultStoreOption(testKVPath)
@@ -38,19 +38,4 @@ func Test_MeasurementAdd(t *testing.T) {
 	}
 
 	_ = indexStore.Close()
-
-	indexStore, _ = kv.NewStore("index", option)
-	family, _ = indexStore.CreateFamily("measurement", kv.FamilyOption{})
-
-	snapshot, _ := family.GetSnapshot(MetricSequenceIDKey)
-	readers := snapshot.Readers()
-	if nil != readers {
-		for _, reader := range readers {
-			byteArray := reader.Get(MetricSequenceIDKey)
-			fmt.Println("re-open:", binary.BigEndian.Uint32(byteArray))
-		}
-	}
-
-	measurementUID.SuggestMetrics("key-", 100)
-
 }

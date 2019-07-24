@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 
 	"github.com/eleme/lindb/broker/middleware"

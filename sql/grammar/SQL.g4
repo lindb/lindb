@@ -3,119 +3,47 @@ grammar SQL;
 
 statement                : statementList EOF;
 
-statementList           :
-                           createDatabaseStmt
-                         | updateDatabaseStmt
-                         | dropDatabaseStmt
-                         | showDatabasesStmt
-                         | showNodeStmt
-                         | showMeasurementsStmt
-                         | showInfoStmt
-                         | showTagKeysStmt
-                         | showQueriesStmt
-                         | showTagValuesStmt
-                         | showTagValuesInfoStmt
-                         | showFieldKeysStmt
-                         | showStatsStmt
-                         | killQueryStmt
-                         | queryStmt
-                         ;
-
-createDatabaseStmt     : T_CREATE T_DATASBAE databaseName ( T_WITH withClauseList )? (T_COMMA intervalDefineList)?;
-withClauseList         : withClause (T_COMMA withClause)* ;
-withClause              :
-                           (T_INTERVAL durationLit)
-                         | (T_SHARD shardNum)
-                         | (T_REPLICATION replicaFactor)
-                         | (T_TTL ttlVal)
-                         | (T_META_TTL metattlVal)
-                         | (T_PAST_TTL pastVal)
-                         | (T_FUTURE_TTL futureVal)
-
-                         ;
-intervalDefineList     : intervalDefine (T_COMMA intervalDefine)* ;
-intervalDefine          : T_OPEN_P T_INTERVAL_NAME intervalNameVal T_COMMA T_TTL ttlVal T_COMMA T_INTERVAL durationLit  T_CLOSE_P;
-shardNum                : intNumber;
-ttlVal                  : durationLit;
-metattlVal              : durationLit;
-pastVal                 : durationLit;
-futureVal               : durationLit;
-intervalNameVal        : ident;
-replicaFactor           : intNumber;
-databaseName            : ident;
-
-updateDatabaseStmt     : T_UPDATE T_DATASBAE databaseName ( T_WITH withClauseList )? (T_COMMA intervalDefineList)?;
-
-dropDatabaseStmt       : T_DROP T_DATASBAE databaseName;
-
-//meta data query plan
-showDatabasesStmt      : T_SHOW T_DATASBAES;
-showNodeStmt           : T_SHOW T_NODE;
-showMeasurementsStmt   : T_SHOW T_MEASUREMENTS withMeasurementClause? limitClause? ;
-showTagKeysStmt       : T_SHOW T_TAG T_KEYS T_FROM metricName limitClause? ;
-showInfoStmt           : T_SHOW T_INFO T_FROM metricName;
-showTagValuesStmt     : T_SHOW T_TAG T_VALUES T_FROM metricName withTagClause whereTagCascade?  limitClause? ;
-showTagValuesInfoStmt: T_SHOW T_TAG T_VALUES T_INFO T_FROM metricName withTagClause whereTagCascade;
-showFieldKeysStmt     : T_SHOW T_FIELD T_KEYS T_FROM metricName limitClause? ;
-showQueriesStmt        : T_SHOW T_QUERIES limitClause? ;
-showStatsStmt          : T_SHOW T_STATS ( T_FOR module)? (T_WITH component)?;
-withMeasurementClause  : T_WITH T_MEASUREMENT ( T_EQUAL metricName | T_REGEXP metricName ) ;
-withTagClause          : T_WITH T_KEY T_EQUAL tagKey;
-whereTagCascade        : T_WHERE  tagCascadeExpr;
-//kill query plan
-killQueryStmt          : T_KILL T_QUERY queryId (T_ON serverId)? ;
-queryId                 : L_INT ;
-serverId                : L_INT ;
-module                   : ident ;
-component                : ident ;
+statementList           : queryStmt;
 
 //data query plan
-queryStmt               : T_EXPLAIN? T_SELECT fields fromClause whereClause? groupByClause? intervalByClause? orderByClause? limitClause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? selectExpr fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+selectExpr              : T_SELECT fields;
 //select fields
 fields                   : field ( T_COMMA field )* ;
-field                    : expr alias? ;
+field                    : fieldExpr alias? ;
 alias                    : T_AS ident ;
 
 //from clause
 fromClause              : T_FROM metricName ;
 
 //where clause
-whereClause             : T_WHERE clauseBooleanExpr;
+whereClause             : T_WHERE conditionExpr;
 
-clauseBooleanExpr      :
-                           tagBooleanExpr
-                         | timeExpr
-                         | clauseBooleanExpr T_AND clauseBooleanExpr
-                         ;
-tagCascadeExpr         : tagEqualExpr
-                         | tagBooleanExpr
-                         | tagEqualExpr (T_AND  tagBooleanExpr)?
-                         ;
-tagEqualExpr           : T_VALUE T_EQUAL tagValuePattern ;
+conditionExpr          : tagFilterExpr | timeRangeExpr ;
 
-tagBooleanExpr         :
-                           T_OPEN_P tagBooleanExpr T_CLOSE_P
-                         | tagKey (T_EQUAL | T_LIKE | T_REGEXP | T_NOTEQUAL | T_NOTEQUAL2) tagValue
-                         | tagKey (T_IN | T_NOT T_IN) T_OPEN_P tagValueList T_CLOSE_P
-                         | tagBooleanExpr (T_AND | T_OR) tagBooleanExpr
-                         ;
+tagFilterExpr          :
+                         T_OPEN_P tagFilterExpr T_CLOSE_P
+                       | tagKey (T_EQUAL | T_LIKE | T_NOT T_LIKE | T_REGEXP | T_NEQREGEXP | T_NOTEQUAL | T_NOTEQUAL2) tagValue
+                       | tagKey (T_IN | T_NOT T_IN) T_OPEN_P tagValueList T_CLOSE_P
+                       | tagFilterExpr (T_AND | T_OR) tagFilterExpr
+                       ;
+
 tagValueList           : tagValue (T_COMMA tagValue)*;
-timeExpr                : timeBooleanExpr (T_AND timeBooleanExpr)? ;
-timeBooleanExpr        : T_TIME boolExprBinaryOperator (nowExpr | ident) ;
+timeRangeExpr          : timeExpr (T_AND timeExpr)? ;
+timeExpr               : T_TIME binaryOperator (nowExpr | ident) ;
 
 nowExpr                 : nowFunc  durationLit? ;
 
 nowFunc                 : T_NOW T_OPEN_P exprFuncParams? T_CLOSE_P ;
 
 //group by
-groupByClause          : T_GROUP T_BY dimensions (T_FILL T_OPEN_P fillOption T_CLOSE_P)? havingClause? ;
-dimensions               : dimension (T_COMMA dimension)* ;
-dimension                : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P ;
-fillOption              : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
+groupByClause          : T_GROUP T_BY groupByKeys (T_FILL T_OPEN_P fillOption T_CLOSE_P)? havingClause? ;
+groupByKeys            : groupByKey (T_COMMA groupByKey)* ;
+groupByKey             : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P ;
+fillOption             : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
 
 orderByClause          : T_ORDER T_BY sortFields ;
-intervalByClause       : T_INTERVAL T_BY intervalNameVal;
-sortField               : expr ( T_ASC | T_DESC )* ;
+sortField               : fieldExpr ( T_ASC | T_DESC )* ;
 sortFields              : sortField ( T_COMMA sortField )* ;
 
 havingClause            : T_HAVING boolExpr ;
@@ -125,10 +53,9 @@ boolExpr                :
                          | boolExprAtom
                          ;
 boolExprLogicalOp     : T_AND  | T_OR ;
-boolExprAtom           : boolExprBinary ;
-                         //bool_expr_single_in
-boolExprBinary         : expr boolExprBinaryOperator expr;
-boolExprBinaryOperator:
+boolExprAtom           : binaryExpr ;
+binaryExpr         : fieldExpr binaryOperator fieldExpr;
+binaryOperator:
                            T_EQUAL
                          | T_NOTEQUAL
                          | T_NOTEQUAL2
@@ -139,12 +66,12 @@ boolExprBinaryOperator:
                          | (T_LIKE | T_REGEXP)
                          ;
 
-expr                     :
-                           expr T_MUL expr
-                         | expr T_DIV expr
-                         | expr T_ADD expr
-                         | expr T_SUB expr
-                         | T_OPEN_P expr T_CLOSE_P
+fieldExpr                :
+                           fieldExpr T_MUL fieldExpr
+                         | fieldExpr T_DIV fieldExpr
+                         | fieldExpr T_ADD fieldExpr
+                         | fieldExpr T_SUB fieldExpr
+                         | T_OPEN_P fieldExpr T_CLOSE_P
                          | exprFunc
                          | exprAtom
                          | durationLit
@@ -163,17 +90,15 @@ intervalItem            :
 exprFunc                : ident T_OPEN_P exprFuncParams? T_CLOSE_P ;
 exprFuncParams         : funcParam (T_COMMA funcParam)* ;
 funcParam               :
-                           expr
-                         | tagBooleanExpr
+                           fieldExpr
+                         | tagFilterExpr
                          ;
 exprAtom                :
                            ident identFilter?
                          | decNumber
                          | intNumber
                          ;
-identFilter             :
-                            T_OPEN_SB tagBooleanExpr T_CLOSE_SB ;
-//ident_conditon           : T_OPEN_SB tagBooleanExpr T_CLOSE_SB ;
+identFilter             : T_OPEN_SB tagFilterExpr T_CLOSE_SB ;
 
 // Integer (positive or negative)
 intNumber               : ('-' | '+')? L_INT ;
@@ -183,7 +108,6 @@ limitClause             : T_LIMIT L_INT ;
 metricName              : ident ;
 tagKey                  : ident ;
 tagValue                : ident ;
-tagValuePattern        : ident ;
 ident                    :  (L_ID | nonReservedWords) ('.' (L_ID | nonReservedWords))* ;
 
 
@@ -324,6 +248,7 @@ T_GREATEREQUAL       :  '>='  ;
 T_LESS               :  '<'   ;
 T_LESSEQUAL          :  '<='  ;
 T_REGEXP             :  '=~'  ;
+T_NEQREGEXP          :  '!~'  ;
 T_COMMA              :  ','   ;
 T_OPEN_B             :  '{'   ;
 T_CLOSE_B            :  '}'   ;
