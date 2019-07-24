@@ -1,6 +1,7 @@
 ![lindb_logo.png](https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png)
 
-![Travis CI Build Status](https://api.travis-ci.org/google/btree.svg?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/eleme/lindb)](https://goreportcard.com/report/github.com/eleme/lindb)
+[![Travis CI Build Status](https://travis-ci.org/eleme/lindb.svg?branch=develop)](https://travis-ci.org/eleme/lindb)
 [![codecov](https://codecov.io/gh/stone1100/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/stone1100/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 

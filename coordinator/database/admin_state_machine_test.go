@@ -81,7 +81,7 @@ func (ts *testAdminStateMachineSuite) TestDatabaseShardAssign(c *check.C) {
 	}
 	_ = databaseSRV.Save(&dbCfg)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	shardAssign, err := cluster.GetShardAssign("test")
 	if err != nil {

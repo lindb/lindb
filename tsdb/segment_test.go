@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/pkg/util"
@@ -52,14 +51,14 @@ func TestGetSegmentsByTimeRange(t *testing.T) {
 	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
 	s.GetOrCreateSegment("20190702")
 	t2, _ := timeutil.ParseTimestamp("20190702", "20060102")
-	segments := s.GetSegments(models.TimeRange{Start: t2, End: t2 + 60*60*1000})
+	segments := s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 60*60*1000})
 	assert.Equal(t, 1, len(segments))
 
-	segments = s.GetSegments(models.TimeRange{Start: t2 + 50*1000, End: t2 + 60*60*1000})
+	segments = s.GetSegments(timeutil.TimeRange{Start: t2 + 50*1000, End: t2 + 60*60*1000})
 	assert.Equal(t, 1, len(segments))
 
 	t2, _ = timeutil.ParseTimestamp("20190701", "20060102")
-	segments = s.GetSegments(models.TimeRange{Start: t2, End: t2 + 25*60*60*1000})
+	segments = s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 25*60*60*1000})
 	assert.Equal(t, 1, len(segments))
 
 }

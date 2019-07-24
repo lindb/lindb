@@ -9,7 +9,6 @@ import (
 
 	pb "github.com/eleme/lindb/rpc/proto/field"
 
-	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/timeutil"
@@ -42,9 +41,9 @@ func TestGetSegments(t *testing.T) {
 		_ = util.RemoveDir(testPath)
 	}()
 	shard, _ := newShard(1, path, option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day})
-	assert.Nil(t, shard.GetSegments(interval.Month, models.TimeRange{}))
-	assert.Nil(t, shard.GetSegments(interval.Day, models.TimeRange{}))
-	assert.Equal(t, 0, len(shard.GetSegments(interval.Day, models.TimeRange{})))
+	assert.Nil(t, shard.GetSegments(interval.Month, timeutil.TimeRange{}))
+	assert.Nil(t, shard.GetSegments(interval.Day, timeutil.TimeRange{}))
+	assert.Equal(t, 0, len(shard.GetSegments(interval.Day, timeutil.TimeRange{})))
 }
 
 func TestWrite(t *testing.T) {

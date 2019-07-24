@@ -1,12 +1,29 @@
 package timeutil
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 const (
+	// OneSecond is the number of millisecond for a second
+	OneSecond int64 = 1000
+	// OneMinute is the number of millisecond for a minute
+	OneMinute = 60 * OneSecond
 	// OneHour is the number of millisecond for an hour
-	OneHour = 60 * 60 * 1000
-	// OneDay is the number of millisecond for an day
-	OneDay = 24 * 60 * 60 * 1000
+	OneHour = 60 * OneMinute
+	// OneDay is the number of millisecond for a day
+	OneDay = 24 * OneHour
+	// OneWeek is the number of millisecond for a week
+	OneWeek = 7 * OneDay
+	// OneMonth is the number of millisecond for a month
+	OneMonth = 31 * OneDay
+	// OneYear is the number of millisecond for a year
+	OneYear = 365 * OneDay
+	//TODO ????
+	dataTimeFormat1 = "20060102 15:04:05"
+	dataTimeFormat2 = "2006-01-02 15:04:05"
+	dataTimeFormat3 = "2006/01/02 15:04:05"
 )
 
 // FormatTimestamp returns timestamp format based on layout
@@ -16,8 +33,21 @@ func FormatTimestamp(timestamp int64, layout string) string {
 }
 
 // ParseTimestamp parses timestamp str value based on layout using local zone
-func ParseTimestamp(timestampStr, layout string) (int64, error) {
-	tm, err := time.ParseInLocation(layout, timestampStr, time.Local)
+func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
+	var format string
+	if len(layout) > 0 {
+		format = layout[0]
+	} else {
+		switch {
+		case strings.Index(timestampStr, "-") > 0:
+			format = dataTimeFormat2
+		case strings.Index(timestampStr, "/") > 0:
+			format = dataTimeFormat3
+		default:
+			format = dataTimeFormat1
+		}
+	}
+	tm, err := time.ParseInLocation(format, timestampStr, time.Local)
 	if err != nil {
 		return 0, err
 	}

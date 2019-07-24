@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/coreos/etcd/pkg/stringutil"
-	"github.com/magiconair/properties/assert"
 )
 
 func TestOneFanOut(t *testing.T) {

@@ -164,7 +164,7 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 
 	// modify value of key2
 	_ = b.Put(ctx, "/cluster1/controller/2", []byte("222"))
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 	cancel()
 	wg.Wait()
 
