@@ -19,7 +19,7 @@ fromClause              : T_FROM metricName ;
 //where clause
 whereClause             : T_WHERE conditionExpr;
 
-conditionExpr          : tagFilterExpr | timeRangeExpr ;
+conditionExpr          : tagFilterExpr | tagFilterExpr T_AND timeRangeExpr | timeRangeExpr (T_AND tagFilterExpr)?;
 
 tagFilterExpr          :
                          T_OPEN_P tagFilterExpr T_CLOSE_P

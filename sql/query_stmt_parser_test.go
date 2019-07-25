@@ -154,10 +154,13 @@ func TestLimit(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 20, query.Limit)
 }
+
 func TestTimeRange(t *testing.T) {
 	sql := "select f from cpu where time>'20190410 00:00:00' and time<'20190410 10:00:00'"
 	query, err := Parse(sql)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	assert.Equal(t, "cpu", query.MetricName)
 	startTime, _ := timeutil.ParseTimestamp("20190410 00:00:00")
 	assert.Equal(t, startTime, query.TimeRange.Start)
