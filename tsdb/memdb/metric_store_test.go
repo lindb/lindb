@@ -1,121 +1,208 @@
 package memdb
 
 import (
-	"strconv"
+	"fmt"
 	"testing"
-	"time"
 
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/timeutil"
+	pb "github.com/eleme/lindb/rpc/proto/field"
 
+	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_sortedTSStores(t *testing.T) {
-	vm := newVersionedTSMap()
-	vm.tsMap["1"] = newTimeSeriesStore()
-	vm.tsMap["2"] = newTimeSeriesStore()
-	vm.tsMap["3"] = newTimeSeriesStore()
+func Test_mStore_getMetricId(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
 
-	tagsList, tsStoreList, release := vm.allTSStores()
-	defer release()
-	assert.Len(t, *tagsList, 3)
-	assert.Len(t, *tsStoreList, 3)
-}
-
-func Test_newMetricStore(t *testing.T) {
-	mStore := newMetricStore()
-	assert.NotNil(t, mStore)
-	assert.NotNil(t, mStore.mutable)
-	assert.NotNil(t, mStore.mutable.tsMap)
-	assert.NotZero(t, mStore.maxTagsLimit)
-}
-
-func Test_metricStore_isEmpty_isFull(t *testing.T) {
-	mStore := newMetricStore()
-	assert.True(t, mStore.isEmpty())
+	assert.NotNil(t, mStoreInterface)
+	assert.Equal(t, uint32(100), mStoreInterface.getMetricID())
+	assert.True(t, mStoreInterface.isEmpty())
 	assert.False(t, mStore.isFull())
-
-	for i := 0; i < 100; i++ {
-		mStore.mutable.tsMap[strconv.Itoa(i)] = nil
-	}
-	assert.False(t, mStore.isFull())
-	assert.False(t, mStore.isEmpty())
-
-	for i := 0; i < defaultMaxTagsLimit; i++ {
-		mStore.mutable.tsMap[strconv.Itoa(i)] = nil
-	}
-	assert.True(t, mStore.isFull())
-	assert.False(t, mStore.isEmpty())
+	assert.Zero(t, mStoreInterface.getTagsCount())
 }
 
-func Test_metricStore_getTimeSeries(t *testing.T) {
-	mStore := newMetricStore()
+func Test_mStore_setMaxTagsLimit(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
 
-	assert.NotNil(t, mStore.getOrCreateTSStore("host=alpha-1"))
-	assert.Equal(t, mStore.getOrCreateTSStore("host=alpha-2"), mStore.getOrCreateTSStore("host=alpha-2"))
-	assert.Equal(t, mStore.getTagsCount(), 2)
+	assert.NotZero(t, mStore.getMaxTagsLimit())
+	mStoreInterface.setMaxTagsLimit(1000)
+	assert.Equal(t, uint32(1000), mStore.getMaxTagsLimit())
 }
 
-func Test_metricStore_evict(t *testing.T) {
-	mStore := newMetricStore()
-	mStore.evict()
-	assert.True(t, mStore.isEmpty())
-	// has not been purged
-	for i := 0; i < 2000; i++ {
-		mStore.getOrCreateTSStore(strconv.Itoa(i)).getOrCreateFStore("t", field.MaxField)
-	}
-	setTagsIDTTL(60 * 1000) // 1 minute
-	assert.Equal(t, 2000, mStore.getTagsCount())
-	mStore.evict()
-	assert.Equal(t, 2000, mStore.getTagsCount())
-
-	// purge half
-	time.Sleep(time.Millisecond * 20)
-	setTagsIDTTL(20) // 20 ms
-	for i := 0; i < 1000; i++ {
-		mStore.getOrCreateTSStore(strconv.Itoa(i)).getOrCreateFStore("t", field.MaxField)
-	}
-	mStore.evict()
-	assert.Equal(t, 1000, mStore.getTagsCount())
-	// purge all
-	time.Sleep(time.Millisecond * 20)
-	setTagsIDTTL(20) // 20 ms
-	mStore.evict()
-	assert.True(t, mStore.isEmpty())
-}
-
-func Test_mustGetMetricID(t *testing.T) {
+func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	gen := makeMockIDGenerator(ctrl)
-	mStore := newMetricStore()
-	assert.NotZero(t, mStore.mustGetMetricID(gen, "m1"))
-	assert.NotZero(t, mStore.mustGetMetricID(gen, "m2"))
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().getTStore(gomock.Any()).Return(nil, false).AnyTimes()
+	mockTagIdx.EXPECT().getOrCreateTStore(gomock.Any()).Return(nil, fmt.Errorf("error")).AnyTimes()
+	mockTagIdx.EXPECT().len().Return(10).AnyTimes()
+
+	mStore.mutable = mockTagIdx
+	assert.NotNil(t, mStore.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
 }
 
-func Test_unionFamilyTimesTo(t *testing.T) {
-	vm := newVersionedTSMap()
-	segments := map[int64]struct{}{1: {}, 2: {}, 3: {}}
-	vm.familyTimes = map[int64]struct{}{2: {}, 4: {}}
-	vm.unionFamilyTimesTo(segments)
-	assert.Equal(t, 4, len(segments))
+func Test_mStore_isFull(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	ms := newMetricStore()
-	ms.mutable = vm
-	ms.immutable = append(ms.immutable, vm, vm)
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().len().Return(10000000).AnyTimes()
 
-	ms.unionFamilyTimesTo(segments)
-	assert.Equal(t, 4, len(segments))
+	mStore.mutable = mockTagIdx
+	assert.Equal(t, models.ErrTooManyTags,
+		mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
 }
 
-func Test_assignNewVersion(t *testing.T) {
-	ms := newMetricStore()
-	ms.mutable = newVersionedTSMap()
+func Test_mStore_write_ok(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	assert.NotNil(t, ms.assignNewVersion())
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
 
-	ms.mutable.version -= minIntervalForResetMetricStore * int64(time.Millisecond)
-	assert.Nil(t, ms.assignNewVersion())
+	mockTStore := NewMocktStoreINTF(ctrl)
+	mockTStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().len().Return(1).AnyTimes()
+	mockTagIdx.EXPECT().getTStore(gomock.Any()).Return(nil, false).AnyTimes()
+	mockTagIdx.EXPECT().getOrCreateTStore(gomock.Any()).Return(mockTStore, nil).AnyTimes()
+
+	mStore.mutable = mockTagIdx
+	assert.Nil(t, mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
+}
+
+func Test_mStore_resetVersion(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	assert.Nil(t, mStore.immutable)
+	assert.NotNil(t, mStoreInterface.resetVersion())
+
+	tagIdx := mStore.mutable.(*tagIndex)
+	tagIdx.version -= 3600 * 1000
+	mStore.mutable = tagIdx
+	assert.Nil(t, mStoreInterface.resetVersion())
+	assert.NotNil(t, mStore.immutable)
+}
+
+func Test_mStore_evict(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	// evict on empty
+	mStore.evict()
+	assert.True(t, mStore.isEmpty())
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mock tStores
+	mockTStore1 := NewMocktStoreINTF(ctrl)
+	mockTStore1.EXPECT().isNoData().Return(true).AnyTimes()
+	mockTStore1.EXPECT().isExpired().Return(false).AnyTimes()
+	mockTStore2 := NewMocktStoreINTF(ctrl)
+	mockTStore2.EXPECT().isNoData().Return(false).AnyTimes()
+	mockTStore2.EXPECT().isExpired().Return(false).AnyTimes()
+	mockTStore3 := NewMocktStoreINTF(ctrl)
+	mockTStore3.EXPECT().isNoData().Return(true).AnyTimes()
+	mockTStore3.EXPECT().isExpired().Return(true).AnyTimes()
+	mockTStore4 := NewMocktStoreINTF(ctrl)
+	mockTStore4.EXPECT().isNoData().Return(true).AnyTimes()
+	mockTStore4.EXPECT().isExpired().Return(true).AnyTimes()
+	// mock tagIndex
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().allTStores().Return(map[uint32]tStoreINTFWithHash{
+		11: {tStoreINTF: mockTStore1, hash: 1},
+		22: {tStoreINTF: mockTStore2, hash: 2},
+		33: {tStoreINTF: mockTStore3, hash: 3},
+		44: {tStoreINTF: mockTStore3, hash: 4},
+	})
+	mockTagIdx.EXPECT().getTStoreBySeriesID(uint32(33)).Return(mockTStore3, true).AnyTimes()
+	mockTagIdx.EXPECT().getTStoreBySeriesID(uint32(44)).Return(nil, false).AnyTimes()
+	mockTagIdx.EXPECT().removeTStores(uint32(33)).Return().AnyTimes()
+
+	mStore.mutable = mockTagIdx
+	mStoreInterface.evict()
+}
+
+func Test_mStore_flushMetricsTo_error(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mock tagIndex
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().flushMetricTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")).AnyTimes()
+	mStore.immutable = []tagIndexINTF{mockTagIdx}
+
+	assert.NotNil(t, mStoreInterface.flushMetricsTo(nil, flushContext{}))
+}
+
+func Test_mStore_flushMetricsTo_OK(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mock tagIndex
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	mockTagIdx.EXPECT().flushMetricTo(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mStore.immutable = []tagIndexINTF{mockTagIdx}
+	mStore.mutable = mockTagIdx
+
+	assert.Nil(t, mStoreInterface.flushMetricsTo(nil, flushContext{}))
+	assert.Nil(t, mStore.immutable)
+}
+
+func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	count := int64(0)
+	mockTagIdx.EXPECT().getVersion().DoAndReturn(func() int64 {
+		count++
+		return count
+	}).AnyTimes()
+
+	// mock findSeriesIDsByExpr
+	returnNotNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(
+		gomock.Any(), gomock.Any()).Return(roaring.New()).Times(2)
+	returnNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(
+		gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	gomock.InOrder(returnNotNil, returnNil)
+	// build mStore
+	mStore.immutable = []tagIndexINTF{mockTagIdx}
+	mStore.mutable = mockTagIdx
+	// result assert
+	set, err := mStoreInterface.findSeriesIDsByExpr(nil, timeutil.TimeRange{})
+	assert.Nil(t, err)
+	assert.NotNil(t, set)
+	_, err2 := mStoreInterface.findSeriesIDsByExpr(nil, timeutil.TimeRange{})
+	assert.Nil(t, err2)
+	// mock getSeriesIDsForTag
+	returnNotNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(
+		gomock.Any(), gomock.Any()).Return(roaring.New()).Times(2)
+	returnNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(
+		gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	gomock.InOrder(returnNotNil2, returnNil2)
+	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
+	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
+
 }

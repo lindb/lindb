@@ -20,27 +20,25 @@ import (
 
 func makeMockIDGenerator(ctrl *gomock.Controller) *index.MockIDGenerator {
 	mockGen := index.NewMockIDGenerator(ctrl)
-	mockGen.EXPECT().GenTSID(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(uint32(2222)).AnyTimes()
 	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(uint32(1111)).AnyTimes()
+		Return(uint16(1111), nil).AnyTimes()
 	mockGen.EXPECT().GenMetricID(gomock.Any()).
 		Return(uint32(3333)).AnyTimes()
 
 	return mockGen
 }
 
-func makeMockTableWriter(ctrl *gomock.Controller) *metrictbl.MockTableWriter {
-	mockTW := metrictbl.NewMockTableWriter(ctrl)
-	mockTW.EXPECT().WriteField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+func makeMockTableFlusher(ctrl *gomock.Controller) *metrictbl.MockTableFlusher {
+	mockTF := metrictbl.NewMockTableFlusher(ctrl)
+	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
-	mockTW.EXPECT().WriteTSEntry(gomock.Any()).
+	mockTF.EXPECT().FlushSeries(gomock.Any()).
 		Return().AnyTimes()
-	mockTW.EXPECT().WriteMetricBlock(gomock.Any()).
+	mockTF.EXPECT().FlushMetric(gomock.Any()).
 		Return(nil).AnyTimes()
-	mockTW.EXPECT().Commit().Return(nil).AnyTimes()
+	mockTF.EXPECT().Commit().Return(nil).AnyTimes()
 
-	return mockTW
+	return mockTF
 }
 
 ///////////////////////////////////////////////////
