@@ -6,6 +6,11 @@ type Expr interface {
 	expr()
 }
 
+// TagFilter represents tag filter for searching time series
+type TagFilter interface {
+	TagKey() string
+}
+
 // SelectItem represents a select item from select statement
 type SelectItem struct {
 	Expr  Expr
@@ -68,8 +73,13 @@ func (e *FieldExpr) expr()  {}
 func (e *CallExpr) expr()   {}
 func (e *ParenExpr) expr()  {}
 func (e *BinaryExpr) expr() {}
+func (e *NotExpr) expr()    {}
 func (e *EqualsExpr) expr() {}
 func (e *InExpr) expr()     {}
 func (e *LikeExpr) expr()   {}
 func (e *RegexExpr) expr()  {}
-func (e *NotExpr) expr()    {}
+
+func (e *EqualsExpr) TagKey() string { return e.Key }
+func (e *InExpr) TagKey() string     { return e.Key }
+func (e *LikeExpr) TagKey() string   { return e.Key }
+func (e *RegexExpr) TagKey() string  { return e.Key }

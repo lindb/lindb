@@ -15,6 +15,8 @@ import (
 	"github.com/eleme/lindb/pkg/util"
 )
 
+//go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb -self_package=github.com/eleme/lindb/tsdb
+
 const segmentPath = "segment"
 
 // Shard is a horizontal partition of metrics for LinDB.
