@@ -39,7 +39,7 @@ linters-settings:
     misspell:
         locale: US
     lll:
-        line-length: 120
+        line-length: 150
         tab-width: 1
     unused:
         check-exported: false

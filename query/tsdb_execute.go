@@ -29,7 +29,7 @@ func NewTSDBExecutor(engine tsdb.Engine, shardIDs []int32, query models.Query) E
 }
 
 // Execute executes search logic in tsdb level,
-// 1) valition input params
+// 1) validation input params
 // 2) build execute plan
 // 3) build execute pipeline
 // 4) run pipeline

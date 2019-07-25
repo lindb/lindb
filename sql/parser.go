@@ -26,7 +26,7 @@ func Parse(sql string) (stmt *stmt.Query, err error) {
 			default:
 				err = errors.New("unknown panic when sql parse")
 			}
-			log.Error("parse sql", logger.String("sql", sql), logger.Error(err))
+			log.Error("parse sql", logger.String("sql", sql), logger.Error(err), logger.Stack())
 			stmt = nil
 		}
 	}()
