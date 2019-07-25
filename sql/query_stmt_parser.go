@@ -54,7 +54,7 @@ func (q *queryStmtParse) build() (*stmt.Query, error) {
 	query.Condition = q.condition
 
 	now := timeutil.Now()
-	query.TimeRange = &timeutil.TimeRange{Start: q.startTime, End: q.endTime}
+	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
 	if query.TimeRange.Start <= 0 {
 		query.TimeRange.Start = now - timeutil.OneHour
 	}

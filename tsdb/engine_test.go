@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/util"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var testPath = "test_data"

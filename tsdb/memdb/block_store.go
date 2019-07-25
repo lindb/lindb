@@ -10,6 +10,8 @@ import (
 	"github.com/eleme/lindb/pkg/field"
 )
 
+//go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb
+
 // the longest length of basic-variable on x64 platform
 const maxTimeWindow = 64
 

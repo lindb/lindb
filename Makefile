@@ -23,11 +23,7 @@ build-all: build-frontend build  ## Build executable files with front-end files 
 GOLANGCI_LINT_VERSION ?= "latest"
 
 pre-test: ## go generate mock file.
-	if [ ! -e ${GOPATH}/bin/mockgen ]; then \
-		go install github.com/golang/mock/mockgen; \
-	fi
-	go generate github.com/eleme/lindb/kv
-	go generate github.com/eleme/lindb/tsdb/metrictbl
+	go install "./vendor/github.com/golang/mock/mockgen"
 	go list ./... | grep -v '/vendor/' | xargs go generate
 
 	if [ ! -e ./bin/golangci-lint ]; then \
@@ -40,7 +36,7 @@ test:  pre-test ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 
 deps:  ## Update vendor.
 	go mod verify
-	go mod tidy -v
+#	go mod tidy -v
 	rm -rf vendor
 	go mod vendor -v
 

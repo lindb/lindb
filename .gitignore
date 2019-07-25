@@ -18,6 +18,7 @@ bin/
 
 # mock files
 *mock.go
+*mock_test.go
 
 web/node_modules/
 web/build/*

@@ -7,3 +7,5 @@ type TableReader interface {
 	ContainsMetric(metricID uint32, startTime, endTime int) bool
 	ContainsTSEntry(uint32) bool
 }
+
+// todo: @codingcrush, implement this

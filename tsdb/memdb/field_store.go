@@ -1,41 +1,44 @@
 package memdb
 
 import (
-	"sync/atomic"
-
-	pb "github.com/eleme/lindb/rpc/proto/field"
-
 	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/lockers"
 	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/eleme/lindb/pkg/timeutil"
+	pb "github.com/eleme/lindb/rpc/proto/field"
 	"github.com/eleme/lindb/tsdb/metrictbl"
 )
 
+//go:generate mockgen -source ./field_store.go -destination=./field_store_mock_test.go -package memdb
+
+// fStoreINTF abstracts a field-store
+type fStoreINTF interface {
+	// getFieldType returns the field-type
+	getFieldType() field.Type
+	// write writes the metric's field with writeContext
+	write(f *pb.Field, writeCtx writeContext)
+	// flushFieldTo flushes field data of the specific familyTime
+	// return false if there is no data related of familyTime
+	flushFieldTo(tableFlusher metrictbl.TableFlusher, familyTime int64) (flushed bool)
+	// timeRange returns the start-time and end-time of fStore's data
+	// ok means data is available
+	timeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
+}
+
+// todo:@codingcrush, replace segments with slice
 // fieldStore holds the relation of familyStartTime and segmentStore.
 type fieldStore struct {
-	fieldType field.Type             // sum, gauge, min, max
-	fieldID   uint32                 // default 0
-	segments  map[int64]segmentStore // familyTime => segment store
-	sl        lockers.SpinLock       // spin-lock
+	fieldType field.Type           // sum, gauge, min, max
+	fieldID   uint16               // default 0
+	segments  map[int64]sStoreINTF // familyTime => segment store
 }
 
 // newFieldStore returns a new fieldStore.
-func newFieldStore(fieldType field.Type) *fieldStore {
+func newFieldStore(fieldID uint16, fieldType field.Type) fStoreINTF {
 	return &fieldStore{
+		fieldID:   fieldID,
 		fieldType: fieldType,
-		segments:  make(map[int64]segmentStore),
+		segments:  make(map[int64]sStoreINTF),
 	}
-}
-
-// mustGetFieldID returns fieldID, if unset, generate a new one.
-func (fs *fieldStore) mustGetFieldID(generator index.IDGenerator, metricID uint32, fieldName string) uint32 {
-	fieldID := atomic.LoadUint32(&fs.fieldID)
-	if fieldID > 0 {
-		return fieldID
-	}
-	atomic.CompareAndSwapUint32(&fs.fieldID, 0, generator.GenFieldID(metricID, fieldName, fs.fieldType))
-	return atomic.LoadUint32(&fs.fieldID)
 }
 
 // getFieldType returns field type for current field store
@@ -43,51 +46,26 @@ func (fs *fieldStore) getFieldType() field.Type {
 	return fs.fieldType
 }
 
-// getSegmentsCount returns count of families.
-func (fs *fieldStore) getFamiliesCount() int {
-	fs.sl.Lock()
-	length := len(fs.segments)
-	fs.sl.Unlock()
-	return length
-}
-
-// getSegmentStore returns a segmentStore, if segment store not exist returns nil
-func (fs *fieldStore) getSegmentStore(familyStartTime int64) (segmentStore, bool) {
-	fs.sl.Lock()
-	store, ok := fs.segments[familyStartTime]
-	fs.sl.Unlock()
-	return store, ok
-}
-
-func (fs *fieldStore) write(blockStore *blockStore, familyStartTime int64, slot int, f *pb.Field) {
-	fs.sl.Lock()
+func (fs *fieldStore) write(f *pb.Field, writeCtx writeContext) {
 	switch fields := f.Field.(type) {
 	case *pb.Field_Sum:
-		store, exist := fs.segments[familyStartTime]
+		sStore, exist := fs.segments[writeCtx.familyTime]
 		if !exist {
 			//TODO ???
-			store = newSimpleFieldStore(field.GetAggFunc(field.Sum))
-			fs.segments[familyStartTime] = store
+			sStore = newSimpleFieldStore(field.GetAggFunc(field.Sum))
+			fs.segments[writeCtx.familyTime] = sStore
 		}
-		store.writeFloat(blockStore, slot, fields.Sum)
+		sStore.writeFloat(fields.Sum, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}
-
-	fs.sl.Unlock()
 }
 
 // flushFieldTo flushes segments' data to writer and reset the segments-map.
-func (fs *fieldStore) flushFieldTo(writer metrictbl.TableWriter, familyTime int64,
-	generator index.IDGenerator, metricID uint32, fieldName string) {
-
-	fieldID := fs.mustGetFieldID(generator, metricID, fieldName)
-	fs.sl.Lock()
-	defer fs.sl.Unlock()
-
+func (fs *fieldStore) flushFieldTo(tableFlusher metrictbl.TableFlusher, familyTime int64) (flushed bool) {
 	ss, ok := fs.segments[familyTime]
 	if !ok {
-		return
+		return false
 	}
 	delete(fs.segments, familyTime)
 
@@ -95,7 +73,27 @@ func (fs *fieldStore) flushFieldTo(writer metrictbl.TableWriter, familyTime int6
 
 	if err != nil {
 		memDBLogger.Error("read segment data error:", logger.Error(err))
-		return
+		return false
 	}
-	writer.WriteField(fieldID, data, startSlot, endSlot)
+	tableFlusher.FlushField(fs.fieldID, fs.fieldType, data, startSlot, endSlot)
+	return true
+}
+
+func (fs *fieldStore) timeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
+	for familyTime, sStore := range fs.segments {
+		startSlot, endSlot, err := sStore.slotRange()
+		if err != nil {
+			continue
+		}
+		ok = true
+		startTime := familyTime + int64(startSlot)*interval
+		endTime := familyTime + int64(endSlot)*interval
+		if timeRange.Start == 0 || startTime < timeRange.Start {
+			timeRange.Start = startTime
+		}
+		if timeRange.End == 0 || timeRange.End < endTime {
+			timeRange.End = endTime
+		}
+	}
+	return
 }
