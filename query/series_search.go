@@ -13,17 +13,17 @@ type seriesSearch struct {
 	metricID uint32
 	query    *stmt.Query
 
-	index index.Index
+	filter index.SeriesIDsFilter
 
 	resultSet *series.MultiVerSeriesIDSet
 	err       error
 }
 
 // newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(metricID uint32, index index.Index, query *stmt.Query) *seriesSearch {
+func newSeriesSearch(metricID uint32, filter index.SeriesIDsFilter, query *stmt.Query) *seriesSearch {
 	return &seriesSearch{
 		metricID: metricID,
-		index:    index,
+		filter:   filter,
 		query:    query,
 	}
 }
@@ -58,7 +58,7 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (series *series.
 	}
 	switch expr := condition.(type) {
 	case stmt.TagFilter:
-		result, err := s.index.FindSeriesIDsByExpr(s.metricID, expr, s.query.TimeRange)
+		result, err := s.filter.FindSeriesIDsByExpr(s.metricID, expr, s.query.TimeRange)
 		if err != nil {
 			s.err = err
 			return
@@ -72,7 +72,7 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (series *series.
 		matchResult, tagKey := s.findSeriesIDsByExpr(expr.Expr)
 		if len(tagKey) > 0 {
 			// get all series ids for tag key
-			all, err := s.index.GetSeriesIDsForTag(s.metricID, tagKey, s.query.TimeRange)
+			all, err := s.filter.GetSeriesIDsForTag(s.metricID, tagKey, s.query.TimeRange)
 			if err != nil {
 				s.err = err
 				return nil, tagKey

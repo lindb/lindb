@@ -1,20 +1,27 @@
 package memdb
 
 import (
+	"fmt"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 
 	"github.com/eleme/lindb/pkg/encoding"
 	"github.com/eleme/lindb/pkg/field"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleSegmentStore(t *testing.T) {
 	aggFunc := field.GetAggFunc(field.Sum)
 	store := newSimpleFieldStore(aggFunc)
+
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)
+	assert.Equal(t, aggFunc, ss.AggFunc())
+
+	_, _, err := ss.slotRange()
+	assert.NotNil(t, err)
 
 	compress, startSlot, endSlot, err := store.bytes()
 	assert.Nil(t, compress)
@@ -22,20 +29,37 @@ func TestSimpleSegmentStore(t *testing.T) {
 	assert.Equal(t, 0, startSlot)
 	assert.Equal(t, 0, endSlot)
 
-	bs := newBlockStore(30)
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx := writeContext{
+		blockStore:   newBlockStore(30),
+		timeInterval: 10,
+		metricID:     1,
+		familyTime:   0,
+	}
+
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// memory auto rollup
-	ss.writeInt(bs, 11, int64(110))
+	writeCtx.slotIndex = 11
+	ss.writeInt(110, writeCtx)
 	// memory auto rollup
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// compact because slot out of current time window
-	ss.writeInt(bs, 40, int64(20))
+	writeCtx.slotIndex = 40
+	ss.writeInt(20, writeCtx)
 	// compact before time window
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// compact because slot out of current time window
-	ss.writeInt(bs, 41, int64(50))
+	writeCtx.slotIndex = 41
+	ss.writeInt(50, writeCtx)
 
 	compress, startSlot, endSlot, err = store.bytes()
+	assert.Nil(t, err)
+	assert.Equal(t, 10, startSlot)
+	assert.Equal(t, 41, endSlot)
+
+	startSlot, endSlot, err = store.slotRange()
 	assert.Nil(t, err)
 	assert.Equal(t, 10, startSlot)
 	assert.Equal(t, 41, endSlot)
@@ -55,6 +79,39 @@ func TestSimpleSegmentStore(t *testing.T) {
 
 	assert.True(t, tsd.HasValueWithSlot(31))
 	assert.Equal(t, int64(50), encoding.ZigZagDecode(tsd.Value()))
+
+	// write float test
+	writeCtx.slotIndex = 10
+	ss.writeFloat(10, writeCtx)
+}
+
+func Test_sStore_error(t *testing.T) {
+	store := newSimpleFieldStore(field.GetAggFunc(field.Sum))
+	ss, _ := store.(*simpleFieldStore)
+	// compact error test
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockBlock := NewMockblock(ctrl)
+	mockBlock.EXPECT().compact(gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
+	mockBlock.EXPECT().setIntValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockBlock.EXPECT().getStartTime().Return(12).AnyTimes()
+	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()
+	ss.block = mockBlock
+	_, _, _, err := ss.bytes()
+	assert.NotNil(t, err)
+
+	writeCtx := writeContext{
+		blockStore:   newBlockStore(30),
+		timeInterval: 10,
+		metricID:     1,
+		familyTime:   0,
+	}
+
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
+	// memory auto rollup
+	writeCtx.slotIndex = 11
+	ss.writeInt(110, writeCtx)
 }
 
 func BenchmarkSimpleSegmentStore(b *testing.B) {
@@ -62,18 +119,30 @@ func BenchmarkSimpleSegmentStore(b *testing.B) {
 	store := newSimpleFieldStore(aggFunc)
 	ss, _ := store.(*simpleFieldStore)
 
-	bs := newBlockStore(30)
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx := writeContext{
+		blockStore:   newBlockStore(30),
+		timeInterval: 10,
+		metricID:     1,
+		familyTime:   0,
+	}
+
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// memory auto rollup
-	ss.writeInt(bs, 11, int64(110))
+	writeCtx.slotIndex = 11
+	ss.writeInt(110, writeCtx)
 	// memory auto rollup
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// compact because slot out of current time window
-	ss.writeInt(bs, 40, int64(20))
+	writeCtx.slotIndex = 40
+	ss.writeInt(20, writeCtx)
 	// compact before time window
-	ss.writeInt(bs, 10, int64(100))
+	writeCtx.slotIndex = 10
+	ss.writeInt(100, writeCtx)
 	// compact because slot out of current time window
-	ss.writeInt(bs, 41, int64(50))
+	writeCtx.slotIndex = 41
+	ss.writeInt(50, writeCtx)
 
 	store.bytes()
 }

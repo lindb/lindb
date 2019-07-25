@@ -2,69 +2,118 @@ package memdb
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	pb "github.com/eleme/lindb/rpc/proto/field"
-
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
+	pb "github.com/eleme/lindb/rpc/proto/field"
+	"github.com/eleme/lindb/tsdb/index"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_NewMemoryDatabase(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	md, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
 
-	assert.NotNil(t, md)
+	mdINTF, err := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	assert.Nil(t, err)
+	assert.NotNil(t, mdINTF)
+
+	mdINTF, err = NewMemoryDatabase(ctx, 32, 10*1000, interval.Type(3232323))
+	assert.Nil(t, mdINTF)
+	assert.NotNil(t, err)
 }
 
-func Test_getBucket(t *testing.T) {
+func Test_MemoryDatabase_Write(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	for i := 0; i < 1000; i++ {
-		assert.NotNil(t, md.getBucket(strconv.Itoa(i)))
-	}
+	// mock generator
+	mockGen := index.NewMockIDGenerator(ctrl)
+	count := uint32(0)
+	mockGen.EXPECT().GenMetricID("test1").
+		Do(func() {
+			count++
+		}).Return(count).AnyTimes()
+
+	// build memory-database
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	md.generator = mockGen
+
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().getMetricID().Return(uint32(1)).AnyTimes()
+	errCall1 := mockMStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	okCall2 := mockMStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	gomock.InOrder(errCall1, okCall2)
+	// load mock
+	hash := hashers.Fnv64a("test1")
+	md.getBucket(hash).hash2MStore[hash] = mockMStore
+	// write error
+	err := md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
+	assert.NotNil(t, err)
+	assert.Nil(t, md.Families())
+	// write ok
+	err = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
+	assert.Nil(t, err)
+	// test families
+	md.Write(&pb.Metric{Name: "test1", Timestamp: 1564297200000})
+	md.Write(&pb.Metric{Name: "test1", Timestamp: 1564308000000})
+	assert.NotNil(t, md.Families())
+	assert.Len(t, md.Families(), 3)
 }
 
-func Test_getOrCreateMStore(t *testing.T) {
+func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	for i := 0; i < 1000; i++ {
-		assert.NotNil(t, md.getOrCreateMStore(strconv.Itoa(i)))
-	}
-}
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	md.generator = makeMockIDGenerator(ctrl)
+	// count metrics
+	assert.Equal(t, 0, md.CountMetrics())
 
-func Test_setLimitations(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().setMaxTagsLimit(gomock.Any()).Return().AnyTimes()
+	mockMStore.EXPECT().getTagsCount().Return(1).AnyTimes()
+	mockMStore.EXPECT().resetVersion().Return(nil).AnyTimes()
+	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
-	md.getOrCreateMStore("cpu.load")
-	md.getOrCreateMStore("loadavg")
-
+	hash := hashers.Fnv64a("cpu.load")
+	md.getOrCreateMStore("cpu.load", hash)
+	md.getBucket(hash).hash2MStore[hash] = mockMStore
 	md.setLimitations(limitations)
-	assert.Equal(t, uint32(10), md.getOrCreateMStore("cpu.load").getMaxTagsLimit())
-	assert.NotEqual(t, uint32(10), md.getOrCreateMStore("loadavg").getMaxTagsLimit())
+
+	// countTags
+	assert.Equal(t, -1, md.CountTags("cpu.load1"))
+	assert.Equal(t, 1, md.CountTags("cpu.load"))
+
+	// count metrics
+	assert.Equal(t, 1, md.CountMetrics())
+
+	// reset mStore
+	assert.NotNil(t, md.ResetMetricStore("cpu.load2"))
+	assert.Nil(t, md.ResetMetricStore("cpu.load"))
 }
 
-func Test_WithMaxTagsLimit(t *testing.T) {
+func Test_MemoryDatabase_WithMaxTagsLimit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
 
-	md.getOrCreateMStore("cpu.load")
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+
 	limitationCh := make(chan map[string]uint32)
 	md.WithMaxTagsLimit(limitationCh)
 	md.WithMaxTagsLimit(limitationCh)
@@ -72,158 +121,113 @@ func Test_WithMaxTagsLimit(t *testing.T) {
 	limitationCh <- nil
 	limitationCh <- map[string]uint32{"cpu.load": 10}
 	time.Sleep(time.Millisecond * 10)
-	assert.Equal(t, uint32(10), md.getOrCreateMStore("cpu.load").getMaxTagsLimit())
 
 	close(limitationCh)
-}
-
-func Test_Write(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	metric := &pb.Metric{
-		Name:      "cpu.load",
-		Timestamp: timeutil.Now(),
-		Tags:      "idle",
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
-		},
-	}
-
-	assert.Nil(t, md.Write(metric))
-
-	// assert error
-	mStore := md.getOrCreateMStore("cpu.load")
-
-	for i := 0; i < 110000; i++ {
-		mStore.getOrCreateTSStore(strconv.Itoa(i))
-	}
-	assert.Equal(t, models.ErrTooManyTags, md.Write(metric))
-}
-
-func Test_evict(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	setTagsIDTTL(60 * 1000) // 60 s
-	for i := 0; i < 1000; i++ {
-		md.getOrCreateMStore(strconv.Itoa(i))
-	}
-	for _, store := range md.mStoresList {
-		md.evict(store)
-	}
-	// purges all
-	assert.Equal(t, 0, len(md.mStoresList[0].m))
-}
-
-func Test_evictor(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-	md.evictNotifier <- struct{}{}
-	md.evictNotifier <- struct{}{}
-	md.evictNotifier <- struct{}{}
-	time.Sleep(time.Millisecond * 100)
-}
-
-func Test_flushFamilyTo(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	gen := makeMockIDGenerator(ctrl)
-	tw := makeMockTableWriter(ctrl)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-	md.generator = gen
-
-	getMStore := func() *metricStore {
-		mStore := newMetricStore()
-		mStore.mutable = newVersionedTSMap()
-		mStore.immutable = append(mStore.immutable, newVersionedTSMap())
-		return mStore
-	}
-	md.mStoresList[0].m["cpu"] = getMStore()
-	assert.Nil(t, md.flushFamilyTo(tw, 1))
-}
-
-func Test_ResetMetricStore(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	mStore := md.getOrCreateMStore("cpu")
-	assert.NotNil(t, md.ResetMetricStore("cpu"))
-
-	mStore.mutable.version -= int64(time.Hour)
-	assert.Nil(t, md.ResetMetricStore("cpu"))
-}
-
-func Test_CountMetrics(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	for i := 0; i < 100; i++ {
-		md.getOrCreateMStore(strconv.Itoa(i))
-	}
-	assert.Equal(t, 100, md.CountMetrics())
-}
-
-func Test_CountTags(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	mStore := md.getOrCreateMStore("cpu")
-	for i := 0; i < 100; i++ {
-		mStore.getOrCreateTSStore(strconv.Itoa(i))
-	}
-	assert.Equal(t, 100, md.CountTags("cpu"))
-	assert.Equal(t, -1, md.CountTags("memory"))
-
-}
-
-func Test_Families(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	mStore := md.getOrCreateMStore("cpu")
-	vm := newVersionedTSMap()
-	vm.familyTimes = map[int64]struct{}{2: {}, 4: {}}
-	mStore.mutable = vm
-
-	assert.Len(t, md.Families(), 2)
-}
-
-func Test_IDSyner(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockGen := makeMockIDGenerator(ctrl)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-	md.generator = mockGen
-	go md.IDSyncer(ctx, time.Millisecond)
 	time.Sleep(time.Millisecond * 10)
 }
 
-func Test_syncID(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockGen := makeMockIDGenerator(ctrl)
+func Test_MemoryDatabase_WithMaxTagsLimit_cancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
 
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	limitationCh := make(chan map[string]uint32)
+	mdINTF.WithMaxTagsLimit(limitationCh)
+	cancel()
+	time.Sleep(time.Millisecond * 10)
+}
+
+func Test_MemoryDatabase_evict(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	md, _ := newMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-
-	md.getOrCreateMStore("cpu").
-		getOrCreateTSStore("host=alpha").
-		getOrCreateFStore("idel", field.SumField)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	// mock generator
+	mockGen := index.NewMockIDGenerator(ctrl)
+	for i := 0; i < 1000; i++ {
+		mockGen.EXPECT().GenMetricID(strconv.Itoa(i)).Return(uint32(i)).AnyTimes()
+	}
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
 	md.generator = mockGen
-	md.syncID()
+	// prepare mStores
+	for i := 0; i < 1000; i++ {
+		md.getOrCreateMStore(strconv.Itoa(i), hashers.Fnv64a(strconv.Itoa(i)))
+	}
+	// evict all
+	for _, store := range md.mStoresList {
+		md.evict(store)
+	}
+}
+
+func Test_MemoryDatabase_evictor(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	md.evictNotifier <- struct{}{}
+	md.evictNotifier <- struct{}{}
+	md.evictNotifier <- struct{}{}
+	time.Sleep(time.Millisecond * 10)
+}
+
+func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().findSeriesIDsByExpr(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().getSeriesIDsForTag("", gomock.Any()).Return(nil, nil).AnyTimes()
+	// not exist
+	_, err := md.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
+	assert.NotNil(t, err)
+	_, err = md.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
+	assert.NotNil(t, err)
+	// exist
+	md.getBucket(3333).hash2MStore[3333] = mockMStore
+	md.metricID2Hash.Store(uint32(1), uint64(3333))
+	_, err = md.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
+	assert.Nil(t, err)
+	_, err = md.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
+	assert.Nil(t, err)
+}
+
+func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF.FlushFamilyTo(nil, 10)
+	mdINTF.FlushFamilyTo(nil, 10)
+	mdINTF.FlushFamilyTo(nil, 10)
+	time.Sleep(time.Millisecond * 10)
+}
+
+func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().getMetricID().Return(uint32(1)).AnyTimes()
+	mockMStore.EXPECT().evict().Return().AnyTimes()
+	mockMStore.EXPECT().isEmpty().Return(false).AnyTimes()
+
+	returnNil := mockMStore.EXPECT().flushMetricsTo(gomock.Any(), gomock.Any()).Return(nil)
+	returnError := mockMStore.EXPECT().flushMetricsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	gomock.InOrder(returnNil, returnError)
+
+	md.getBucket(4).hash2MStore[1] = mockMStore
+	md.getBucket(4).familyTimes = map[int64]struct{}{33: {}}
+	assert.Nil(t, md.flushFamilyTo(nil, 10))
+	assert.NotNil(t, md.flushFamilyTo(nil, 10))
 }

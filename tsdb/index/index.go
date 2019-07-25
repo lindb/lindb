@@ -13,17 +13,17 @@ import (
 type IDGenerator interface {
 	// GenMetricID generates ID(uint32) from metricName
 	GenMetricID(metricName string) uint32
-	// GenTSID generates ID(uint32) from metricID, sortedTags and version.
-	GenTSID(metricID uint32, sortedTags string, version int64) uint32
 	// GenFieldID generates ID(uint32) from metricID and fieldName
-	GenFieldID(metricID uint32, fieldName string, fieldType field.Type) uint32
+	GenFieldID(metricID uint32, fieldName string, fieldType field.Type) (uint16, error)
 }
 
-// Index represents an index of tags for searching series by expr
-// support multi-version based on timestamp, so need time range for filter spec version
-type Index interface {
+// SeriesIDsFilter represents the query ability for filtering seriesIDs by expr from an index of tags.
+// to support multi-version based on timestamp, time range for filtering spec version is necessary
+type SeriesIDsFilter interface {
 	// FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
-	FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter, timeRange *timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
+		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 	// GetSeriesIDsForTag get series ids for spec metric's tag key
-	GetSeriesIDsForTag(metricID uint32, tagKey string, timeRange *timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	GetSeriesIDsForTag(metricID uint32, tagKey string,
+		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 }

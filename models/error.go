@@ -8,6 +8,10 @@ import (
 // writes exceed the max limit of tag identifiers.
 var ErrTooManyTags = errors.New("too many tags")
 
+// ErrTooManyTagKeys is the error returned by memory-database when
+// writes exceed the max limit of tag keys.
+var ErrTooManyTagKeys = errors.New("too many tag keys")
+
 // ErrTooManyFields is the error returned by memory-database when
 // writes exceed the max limit of fields.
 var ErrTooManyFields = errors.New("too many fields")

@@ -112,7 +112,7 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
 github.com/golang/groupcache/lru
-# github.com/golang/mock v1.3.1
+# github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
@@ -219,10 +219,10 @@ golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/blowfish
 # golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 golang.org/x/net/trace
+golang.org/x/net/context
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
-golang.org/x/net/context
 golang.org/x/net/http/httpguts
 golang.org/x/net/idna
 # golang.org/x/sys v0.0.0-20190730174312-6a60838ec25
