@@ -218,6 +218,12 @@ func (s *BaseSQLListener) EnterExprFunc(ctx *ExprFuncContext) {}
 // ExitExprFunc is called when production exprFunc is exited.
 func (s *BaseSQLListener) ExitExprFunc(ctx *ExprFuncContext) {}
 
+// EnterFuncName is called when production funcName is entered.
+func (s *BaseSQLListener) EnterFuncName(ctx *FuncNameContext) {}
+
+// ExitFuncName is called when production funcName is exited.
+func (s *BaseSQLListener) ExitFuncName(ctx *FuncNameContext) {}
+
 // EnterExprFuncParams is called when production exprFuncParams is entered.
 func (s *BaseSQLListener) EnterExprFuncParams(ctx *ExprFuncParamsContext) {}
 

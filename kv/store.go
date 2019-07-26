@@ -7,9 +7,9 @@ import (
 
 	"github.com/eleme/lindb/kv/table"
 	"github.com/eleme/lindb/kv/version"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/lockers"
 	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.
@@ -46,15 +46,15 @@ type store struct {
 func NewStore(name string, option StoreOption) (Store, error) {
 	var info *storeInfo
 	var isCreate bool
-	if util.Exist(option.Path) {
+	if fileutil.Exist(option.Path) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		if err := util.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
+		if err := fileutil.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
 			return nil, fmt.Errorf("load store info error:%s", err)
 		}
 	} else {
 		// create store, initialize path and store info
-		if err := util.MkDir(option.Path); err != nil {
+		if err := fileutil.MkDir(option.Path); err != nil {
 			return nil, fmt.Errorf("create store path error:%s", err)
 		}
 		info = newStoreInfo(option)
@@ -134,7 +134,7 @@ func (s *store) CreateFamily(familyName string, option FamilyOption) (Family, er
 
 	familyPath := filepath.Join(s.option.Path, familyName)
 	var err error
-	if !util.Exist(familyPath) {
+	if !fileutil.Exist(familyPath) {
 		// create new family
 		option.Name = familyName
 		// assign unique family id
@@ -179,7 +179,7 @@ func (s *store) Close() error {
 func (s *store) dumpStoreInfo() error {
 	infoPath := filepath.Join(s.option.Path, version.Options)
 	// write store info using toml format
-	if err := util.EncodeToml(infoPath, s.storeInfo); err != nil {
+	if err := fileutil.EncodeToml(infoPath, s.storeInfo); err != nil {
 		return fmt.Errorf("write store info to file[%s] error:%s", infoPath, err)
 	}
 	return nil

@@ -1,0 +1,19 @@
+package aggregation
+
+import (
+	"testing"
+
+	"github.com/eleme/lindb/pkg/field"
+)
+
+func TestPrimitiveSumFloatAgg(t *testing.T) {
+	agg := newPrimitiveAggregator(uint16(1), 5, field.GetAggFunc(field.Sum))
+	agg.Aggregate(1, 10.0)
+	agg.Aggregate(1, 30.0)
+	agg.Aggregate(-1, 30.0)
+	agg.Aggregate(10, 30.0)
+
+	except := map[int]float64{1: 40.0}
+	it := agg.Iterator()
+	AssertPrimitiveIt(t, it, except)
+}

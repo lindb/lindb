@@ -7,15 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 var testKVPath = "../test"
 
 func Test_MeasurementAdd(t *testing.T) {
 	//TODO need modify test case
-	util.RemoveDir(testKVPath)
-	defer util.RemoveDir(testKVPath)
+	fileutil.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 	option := kv.DefaultStoreOption(testKVPath)
 	var indexStore, _ = kv.NewStore("index", option)
 	family, _ := indexStore.CreateFamily("measurement", kv.FamilyOption{})

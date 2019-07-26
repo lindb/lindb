@@ -6,6 +6,14 @@ import (
 	"github.com/eleme/lindb/tsdb/series"
 )
 
+//go:generate mockgen -source=./series_search.go -destination=./series_search_mock.go -package=query
+
+// SeriesSearch represents a series search by condition expression
+type SeriesSearch interface {
+	// Search searches series ids base on condition, if search fail return nil, else return multi-version series ids
+	Search() (*series.MultiVerSeriesIDSet, error)
+}
+
 // seriesSearch represents a series search by condition expression,
 // only do tag filter, return series ids.
 // return multi-version series id set for condition
@@ -15,8 +23,7 @@ type seriesSearch struct {
 
 	filter index.SeriesIDsFilter
 
-	resultSet *series.MultiVerSeriesIDSet
-	err       error
+	err error
 }
 
 // newSeriesSearch creates a a series search using query condition
@@ -28,24 +35,17 @@ func newSeriesSearch(metricID uint32, filter index.SeriesIDsFilter, query *stmt.
 	}
 }
 
-// search searches series ids based on query condition
-func (s *seriesSearch) search() {
+// Search searches series ids base on condition, if search fail return nil, else return multi-version series ids
+func (s *seriesSearch) Search() (*series.MultiVerSeriesIDSet, error) {
 	condition := s.query.Condition
 	if condition == nil {
-		return
+		return nil, nil
 	}
 	seriesIDs, _ := s.findSeriesIDsByExpr(condition)
-	s.resultSet = seriesIDs
-}
-
-// error returns error, if search fail
-func (s *seriesSearch) error() error {
-	return s.err
-}
-
-// getResultSet return series ids result set, if search success
-func (s *seriesSearch) getResultSet() *series.MultiVerSeriesIDSet {
-	return s.resultSet
+	if s.err != nil {
+		return nil, s.err
+	}
+	return seriesIDs, nil
 }
 
 // findSeriesIDsByExpr finds series ids by expr, recursion filter for expr

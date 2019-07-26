@@ -106,6 +106,9 @@ type SQLListener interface {
 	// EnterExprFunc is called when entering the exprFunc production.
 	EnterExprFunc(c *ExprFuncContext)
 
+	// EnterFuncName is called when entering the funcName production.
+	EnterFuncName(c *FuncNameContext)
+
 	// EnterExprFuncParams is called when entering the exprFuncParams production.
 	EnterExprFuncParams(c *ExprFuncParamsContext)
 
@@ -240,6 +243,9 @@ type SQLListener interface {
 
 	// ExitExprFunc is called when exiting the exprFunc production.
 	ExitExprFunc(c *ExprFuncContext)
+
+	// ExitFuncName is called when exiting the funcName production.
+	ExitFuncName(c *FuncNameContext)
 
 	// ExitExprFuncParams is called when exiting the exprFuncParams production.
 	ExitExprFuncParams(c *ExprFuncParamsContext)

@@ -5,14 +5,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 var testKVPath = "../test_data"
 
 func TestReOpen(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer util.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 
 	var kv, _ = NewStore("test_kv", option)
 	assert.NotNil(t, kv, "cannot create kv store")
@@ -53,7 +53,7 @@ func TestReOpen(t *testing.T) {
 
 func TestCreateFamily(t *testing.T) {
 	option := DefaultStoreOption("../test_data")
-	defer util.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 
 	var kv, err = NewStore("test_kv", option)
 	defer kv.Close()

@@ -22,16 +22,15 @@ func TestSampleCondition(t *testing.T) {
 
 	query, _ := sql.Parse("select f from cpu")
 	search := newSeriesSearch(1, mockFilter, query)
-	search.search()
-	assert.Nil(t, search.getResultSet())
+	resultSet, _ := search.Search()
+	assert.Nil(t, resultSet)
 
 	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
 	mockFilter.EXPECT().
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(s, nil)
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet := search.getResultSet()
+	resultSet, _ = search.Search()
 	assert.Equal(t, *s, *resultSet)
 
 	query, _ = sql.Parse("select f from cpu where ip like '1.1.*.1'")
@@ -39,8 +38,7 @@ func TestSampleCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.LikeExpr{Key: "ip", Value: "1.1.*.1"}, query.TimeRange).
 		Return(s, nil)
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet = search.getResultSet()
+	resultSet, _ = search.Search()
 	assert.Equal(t, *s, *resultSet)
 
 	query, _ = sql.Parse("select f from cpu where ip =~ '1.1.*.1'")
@@ -48,8 +46,7 @@ func TestSampleCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.RegexExpr{Key: "ip", Regexp: "1.1.*.1"}, query.TimeRange).
 		Return(s, nil)
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet = search.getResultSet()
+	resultSet, _ = search.Search()
 	assert.Equal(t, *s, *resultSet)
 
 	query, _ = sql.Parse("select f from cpu where ip in ('1.1.1.1','1.1.3.3')")
@@ -57,8 +54,7 @@ func TestSampleCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "1.1.3.3"}}, query.TimeRange).
 		Return(s, nil)
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet = search.getResultSet()
+	resultSet, _ = search.Search()
 	assert.Equal(t, *s, *resultSet)
 
 	// search error
@@ -67,9 +63,9 @@ func TestSampleCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(nil, errors.New("search error"))
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	assert.Nil(t, search.getResultSet())
-	assert.NotNil(t, search.error())
+	resultSet, err := search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
 }
 
 func TestNotCondition(t *testing.T) {
@@ -86,8 +82,7 @@ func TestNotCondition(t *testing.T) {
 		GetSeriesIDsForTag(uint32(1), "ip", query.TimeRange).
 		Return(mockSeriesIDSet(int64(11), roaring.BitmapOf(1, 2, 3, 4)), nil)
 	search := newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet := search.getResultSet()
+	resultSet, _ := search.Search()
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(1, 2)), *resultSet)
 
 	// error
@@ -100,9 +95,9 @@ func TestNotCondition(t *testing.T) {
 		GetSeriesIDsForTag(uint32(1), "ip", query.TimeRange).
 		Return(nil, errors.New("get series ids error"))
 	search = newSeriesSearch(1, mockFilter, query)
-	search.search()
-	assert.NotNil(t, search.error())
-	assert.Nil(t, search.getResultSet())
+	resultSet, err := search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
 }
 
 func TestBinaryCondition(t *testing.T) {
@@ -120,8 +115,7 @@ func TestBinaryCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "path", Value: "/data"}, query.TimeRange).
 		Return(mockSeriesIDSet(int64(11), roaring.BitmapOf(3, 5)), nil)
 	search := newSeriesSearch(1, mockFilter, query)
-	search.search()
-	resultSet := search.getResultSet()
+	resultSet, _ := search.Search()
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(3)), *resultSet)
 
 	// or
@@ -135,8 +129,7 @@ func TestBinaryCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "path", Value: "/data"}, query.TimeRange).
 		Return(mockSeriesIDSet(int64(11), roaring.BitmapOf(3, 5)), nil)
 	search = newSeriesSearch(1, mockFilter2, query)
-	search.search()
-	resultSet = search.getResultSet()
+	resultSet, _ = search.Search()
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(1, 2, 3, 4, 5)), *resultSet)
 
 	// error
@@ -145,9 +138,9 @@ func TestBinaryCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(nil, errors.New("left error"))
 	search = newSeriesSearch(1, mockFilter3, query)
-	search.search()
-	assert.NotNil(t, search.error())
-	assert.Nil(t, search.getResultSet())
+	resultSet, err := search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
 
 	mockFilter4 := index.NewMockSeriesIDsFilter(ctrl)
 	query, _ = sql.Parse("select f from cpu " +
@@ -159,9 +152,9 @@ func TestBinaryCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "path", Value: "/data"}, query.TimeRange).
 		Return(nil, errors.New("right error"))
 	search = newSeriesSearch(1, mockFilter4, query)
-	search.search()
-	assert.NotNil(t, search.error())
-	assert.Nil(t, search.getResultSet())
+	resultSet, err = search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
 }
 
 func TestComplexCondition(t *testing.T) {
@@ -187,8 +180,7 @@ func TestComplexCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "path", Value: "/home"}, query.TimeRange).
 		Return(mockSeriesIDSet(int64(11), roaring.BitmapOf(1)), nil)
 	search := newSeriesSearch(10, mockFilter, query)
-	search.search()
-	resultSet := search.getResultSet()
+	resultSet, _ := search.Search()
 	// ip not in ('1.1.1.1','2.2.2.2') => 3,6,7,8
 	// ip not in ('1.1.1.1','2.2.2.2') and region='sh' => 3,7
 	// path='/data' or path='/home' => 1,3,5
@@ -207,9 +199,9 @@ func TestComplexCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
 		Return(nil, errors.New("complex error"))
 	search = newSeriesSearch(10, mockFilter1, query)
-	search.search()
-	assert.NotNil(t, search.error())
-	assert.Nil(t, search.getResultSet())
+	resultSet, err := search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
 }
 
 func mockSeriesIDSet(version int64, ids *roaring.Bitmap) *series.MultiVerSeriesIDSet {

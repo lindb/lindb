@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 
 	"github.com/eleme/lindb/pkg/bufioutil"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 // StoreVersionSet maintains all metadata for kv store
@@ -123,7 +123,7 @@ func (vs *StoreVersionSet) GetFamilyVersion(family string) *FamilyVersion {
 // Recover recover version set if exist, recover been invoked when kv store init.
 // Initialize if version file not exists, else recover old data then init journal writer.
 func (vs *StoreVersionSet) Recover() error {
-	if !util.Exist(filepath.Join(vs.storePath, current())) {
+	if !fileutil.Exist(filepath.Join(vs.storePath, current())) {
 		vs.logger.Info("version set's current file not exist, initialize it")
 		if err := vs.initJournal(); err != nil {
 			return err

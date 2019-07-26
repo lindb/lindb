@@ -1,5 +1,7 @@
 package stmt
 
+import "github.com/eleme/lindb/pkg/function"
+
 // Expr represents a interface for all expression types
 type Expr interface {
 	// expr ensures spec expression type need implement the interface
@@ -24,7 +26,7 @@ type FieldExpr struct {
 
 // CallExpr represents a function call expression
 type CallExpr struct {
-	Name   string
+	Type   function.Type
 	Params []Expr
 }
 

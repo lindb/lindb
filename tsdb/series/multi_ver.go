@@ -24,6 +24,20 @@ func (mv *MultiVerSeriesIDSet) Add(version int64, ids *roaring.Bitmap) {
 	}
 }
 
+// IsEmpty returns true if the multi-versions is empty or all bitmap is empty under versions
+func (mv *MultiVerSeriesIDSet) IsEmpty() bool {
+	if len(mv.versions) == 0 {
+		return true
+	}
+	for _, ids := range mv.versions {
+		// if one bitmap is not empty, return false
+		if !ids.IsEmpty() {
+			return false
+		}
+	}
+	return true
+}
+
 // And computes the intersection between two set and stores the result in the current set
 func (mv *MultiVerSeriesIDSet) And(other *MultiVerSeriesIDSet) {
 	// 1. computes the intersection between two version

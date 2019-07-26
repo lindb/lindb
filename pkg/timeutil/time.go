@@ -60,3 +60,23 @@ func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
 func Now() int64 {
 	return time.Now().UnixNano() / 1000000
 }
+
+// CalPointCount calculates point counts between start time and end time by interval
+func CalPointCount(startTime, endTime, interval int64) int {
+	diff := endTime - startTime
+	pointCount := diff / interval
+	if diff%interval > 0 {
+		pointCount++
+	}
+	if pointCount == 0 {
+		pointCount = 1
+	}
+	return int(pointCount)
+}
+
+func CalIntervalRatio(queryInterval, storageInterval int64) int {
+	if queryInterval < storageInterval {
+		return 1
+	}
+	return int(queryInterval / storageInterval)
+}

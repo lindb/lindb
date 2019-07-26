@@ -106,7 +106,7 @@ func (w *Writer) WriteByte(b byte) error {
 	return nil
 }
 
-//Flush flushs the currently in-process byte
+//Flush flushes the currently in-process byte
 func (w *Writer) Flush() error {
 	if w.count != 8 {
 		_, err := w.w.Write(w.b[:])

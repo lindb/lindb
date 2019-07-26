@@ -8,7 +8,7 @@ import (
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 type route struct {
@@ -62,7 +62,7 @@ func NewRouter() *mux.Router {
 	}
 	// static server path exist, serve web console
 	webPath := "./web/build"
-	if util.Exist(webPath) {
+	if fileutil.Exist(webPath) {
 		router.PathPrefix("/static/").
 			Handler(http.StripPrefix("/static/",
 				http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))

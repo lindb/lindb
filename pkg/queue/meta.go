@@ -1,7 +1,7 @@
 package queue
 
 import (
-	"github.com/eleme/lindb/pkg/mmap"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/queue/page"
 	"github.com/eleme/lindb/pkg/stream"
 )
@@ -27,7 +27,7 @@ type meta struct {
 
 // NewMeta returns a Meta by mapping file at filePath with size.
 func NewMeta(filePath string, size int) (Meta, error) {
-	mbys, err := mmap.RWMap(filePath, size)
+	mbys, err := fileutil.RWMap(filePath, size)
 	if err != nil {
 		return nil, err
 	}

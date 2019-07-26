@@ -334,7 +334,7 @@ func (index *tagIndex) unionBitMap(union *roaring.Bitmap, x2 *roaring.Bitmap, ti
 		if !ok {
 			continue
 		}
-		if timeRange.Overlaps(&tRange) {
+		if timeRange.Overlap(&tRange) {
 			union.Add(seriesID)
 		}
 	}

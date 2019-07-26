@@ -43,10 +43,17 @@ func (l *listener) EnterFieldExpr(ctx *grammar.FieldExprContext) {
 	}
 }
 
-// EnterExprFunc is called when production exprFunc is entered.
-func (l *listener) EnterExprFunc(ctx *grammar.ExprFuncContext) {
+// ExitFieldExpr is called when production fieldExpr is exited.
+func (l *listener) ExitFieldExpr(ctx *grammar.FieldExprContext) {
 	if l.stmt != nil {
-		l.stmt.visitExprFunc(ctx)
+		l.stmt.completeFieldExpr(ctx)
+	}
+}
+
+// EnterFuncName is called when production exprFunc is entered.
+func (l *listener) EnterFuncName(ctx *grammar.FuncNameContext) {
+	if l.stmt != nil {
+		l.stmt.visitFuncName(ctx)
 	}
 }
 

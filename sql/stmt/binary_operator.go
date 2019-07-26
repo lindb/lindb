@@ -6,6 +6,7 @@ type BinaryOP int
 const (
 	AND BinaryOP = iota + 1
 	OR
+
 	ADD
 	SUB
 	MUL

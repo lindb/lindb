@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/eleme/lindb/config"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 var testPath = "test_data"
@@ -17,7 +17,7 @@ var validOption = option.ShardOption{Interval: time.Second * 10, IntervalType: i
 
 func TestCreateShards(t *testing.T) {
 	defer func() {
-		_ = util.RemoveDir(testPath)
+		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	cfg := config.Engine{

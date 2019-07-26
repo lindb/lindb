@@ -14,11 +14,11 @@ import (
 	"github.com/eleme/lindb/coordinator/storage"
 	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/pkg/util"
 	"github.com/eleme/lindb/service"
 )
 
@@ -38,7 +38,7 @@ func TestAdminStateMachine(t *testing.T) {
 
 func (ts *testAdminStateMachineSuite) TestDatabaseShardAssign(c *check.C) {
 	defer func() {
-		_ = util.RemoveDir(testPath)
+		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	cfg := config.Engine{
@@ -97,7 +97,7 @@ func (ts *testAdminStateMachineSuite) TestDatabaseShardAssign(c *check.C) {
 		check.Equals,
 		shardAssign.Config)
 
-	c.Assert(true, check.Equals, util.Exist(filepath.Join(testPath, "test", "shard")))
+	c.Assert(true, check.Equals, fileutil.Exist(filepath.Join(testPath, "test", "shard")))
 }
 
 func (ts *testAdminStateMachineSuite) TestWrongCfg(c *check.C) {
