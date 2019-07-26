@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/stream"
-	"github.com/eleme/lindb/pkg/util"
-
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/snappy"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/eleme/lindb/kv"
+	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/eleme/lindb/pkg/stream"
 )
 
 func TestBitmap(t *testing.T) {
@@ -42,7 +42,7 @@ func TestBitmap(t *testing.T) {
 
 func TestTagsUid_GetOrCreateTagsId(t *testing.T) {
 	tagsUID := initTags()
-	defer util.RemoveDir("../test")
+	defer fileutil.RemoveDir("../test")
 
 	for i := 1; i < 3; i++ {
 		for j := 1; j < count; j++ {
@@ -72,7 +72,7 @@ func TestTagsUid_GetOrCreateTagsId(t *testing.T) {
 }
 
 func TestTagsUid_GetTagNames(t *testing.T) {
-	defer util.RemoveDir("../test")
+	defer fileutil.RemoveDir("../test")
 	tagsUID := initTags()
 	for i := 1; i < 10; i++ {
 		tagsUID.GetTagNames(uint32(i), 100)
@@ -81,7 +81,7 @@ func TestTagsUid_GetTagNames(t *testing.T) {
 }
 
 func TestTagsUid_SuggestTagValues(t *testing.T) {
-	defer util.RemoveDir("../test")
+	defer fileutil.RemoveDir("../test")
 	tagsUID := initTags()
 	for i := 1; i < 10; i++ {
 		tagsUID.SuggestTagValues(uint32(i), "a", "value-1-", 100)
@@ -96,7 +96,7 @@ func TestTagsUid_SuggestTagValues(t *testing.T) {
 var count = 11
 
 func initTags() *TagsUID {
-	util.RemoveDir("../test")
+	fileutil.RemoveDir("../test")
 	tagsUID := NewTagsUID(initTagsFamily())
 	for i := 1; i < 10; i++ {
 		for j := 1; j < count; j++ {

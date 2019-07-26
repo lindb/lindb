@@ -142,3 +142,8 @@ func Stack() zap.Field {
 func Any(key string, value interface{}) zap.Field {
 	return zap.Any(key, value)
 }
+
+// Int64 constructs a field with the given key and value.
+func Int64(key string, val int64) zap.Field {
+	return zap.Field{Key: key, Type: zapcore.Int64Type, Integer: val}
+}

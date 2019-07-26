@@ -6,7 +6,7 @@ import (
 
 	"github.com/eleme/lindb/broker"
 	"github.com/eleme/lindb/config"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ var initializeBrokerConfigCmd = &cobra.Command{
 			path = broker.DefaultBrokerCfgFile
 		}
 		defaultCfg := config.NewDefaultBrokerCfg()
-		return util.EncodeToml(path, &defaultCfg)
+		return fileutil.EncodeToml(path, &defaultCfg)
 	},
 }
 

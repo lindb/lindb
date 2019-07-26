@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/stream"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 func TestSeqRange(t *testing.T) {
@@ -265,7 +265,7 @@ func TestFactory_RemoveSegments(t *testing.T) {
 	assert.Equal(t, fct.SegmentsSize(), 1)
 
 	// list file to check
-	files, err := util.ListDir(tmpDir)
+	files, err := fileutil.ListDir(tmpDir)
 	if err != nil {
 		t.Fatal(err)
 	}

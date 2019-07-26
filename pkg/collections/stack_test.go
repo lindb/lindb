@@ -12,7 +12,7 @@ func TestStack(t *testing.T) {
 
 	s.Push(1)
 	assert.False(t, s.Empty())
-	assert.Equal(t, 1, s.len)
+	assert.Equal(t, 1, s.Size())
 
 	assert.Equal(t, 1, s.Peek().(int))
 
@@ -22,12 +22,13 @@ func TestStack(t *testing.T) {
 	s.Push(1)
 	s.Push(2)
 
-	assert.Equal(t, 2, s.len)
+	assert.Equal(t, 2, s.Size())
 	assert.Equal(t, 2, s.Pop().(int))
-	assert.Equal(t, 1, s.len)
+	assert.Equal(t, 1, s.Size())
 
 	s.Pop()
 
+	assert.Equal(t, 0, s.Size())
 	assert.True(t, s.Empty())
 	assert.Nil(t, s.Peek())
 	assert.Nil(t, s.Pop())

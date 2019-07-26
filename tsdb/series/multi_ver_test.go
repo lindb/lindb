@@ -7,6 +7,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMultiVerSeriesIDSet_IsEmpty(t *testing.T) {
+	multiVer1 := NewMultiVerSeriesIDSet()
+	assert.True(t, multiVer1.IsEmpty())
+	multiVer1.Add(int64(12), roaring.BitmapOf())
+	assert.True(t, multiVer1.IsEmpty())
+	multiVer1 = NewMultiVerSeriesIDSet()
+	multiVer1.Add(int64(12), roaring.BitmapOf(1, 2, 3, 4, 5))
+	assert.False(t, multiVer1.IsEmpty())
+}
+
 func TestMultiVerSeriesIDSet_And(t *testing.T) {
 	multiVer1 := NewMultiVerSeriesIDSet()
 	multiVer1.Add(int64(12), roaring.BitmapOf(1, 2, 3, 4))

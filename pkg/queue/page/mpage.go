@@ -3,7 +3,7 @@ package page
 import (
 	"sync/atomic"
 
-	"github.com/eleme/lindb/pkg/mmap"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 // MappedPage represents a holder for mmap bytes.
@@ -30,14 +30,14 @@ type MappedPage interface {
 type CloseFunc func(mappedBytes []byte) error
 
 // MMapCloseFunc defines the way to release mmaped bytes.
-var MMapCloseFunc CloseFunc = mmap.Unmap
+var MMapCloseFunc CloseFunc = fileutil.Unmap
 
 // SyncFunc defines the way to flush bytes to storage.
 // This makes it easy to use normal non-mmapped bytes for test.
 type SyncFunc func(mappedBytes []byte) error
 
 // MMapSyncFunc defines the way to flush mmaped bytes.
-var MMapSyncFunc SyncFunc = mmap.Sync
+var MMapSyncFunc SyncFunc = fileutil.Sync
 
 // mappedPage implements MappedPage
 type mappedPage struct {

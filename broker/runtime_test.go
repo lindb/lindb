@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/check.v1"
+
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/mock"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/pkg/util"
-
-	"gopkg.in/check.v1"
 )
 
 var brokerCfgPath = "./broker.toml"
@@ -26,7 +26,7 @@ func TestBrokerRuntime(t *testing.T) {
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 	defer func() {
-		_ = util.RemoveDir(brokerCfgPath)
+		_ = fileutil.RemoveDir(brokerCfgPath)
 	}()
 	// test run fail
 	broker := NewBrokerRuntime(brokerCfgPath)
@@ -46,7 +46,7 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			Endpoints: ts.Cluster.Endpoints,
 		},
 	}
-	_ = util.EncodeToml(brokerCfgPath, &cfg)
+	_ = fileutil.EncodeToml(brokerCfgPath, &cfg)
 	broker = NewBrokerRuntime(brokerCfgPath)
 	err = broker.Run()
 	if err != nil {

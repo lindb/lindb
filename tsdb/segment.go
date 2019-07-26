@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/eleme/lindb/kv"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb -self_package=github.com/eleme/lindb/tsdb
@@ -38,7 +38,7 @@ type intervalSegment struct {
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
 func newIntervalSegment(interval time.Duration, intervalType interval.Type, path string) (IntervalSegment, error) {
-	if err := util.MkDirIfNotExist(path); err != nil {
+	if err := fileutil.MkDirIfNotExist(path); err != nil {
 		return nil, err
 	}
 	intervalSegment := &intervalSegment{
@@ -49,7 +49,7 @@ func newIntervalSegment(interval time.Duration, intervalType interval.Type, path
 
 	// load segments if exist
 	//TODO too many kv store load???
-	segmentNames, err := util.ListDir(path)
+	segmentNames, err := fileutil.ListDir(path)
 	if err != nil {
 		//TODO return error????
 		return nil, err
@@ -134,6 +134,8 @@ func (s *intervalSegment) getSegment(segmentName string) Segment {
 type Segment interface {
 	// BaseTime returns segment base time
 	BaseTime() int64
+	// GetDataFamilies returns data family list by time range, return nil if not match
+	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
 	// Close closes segment, include kv store
 	Close()
 }
@@ -176,6 +178,10 @@ func newSegment(segmentName string, intervalType interval.Type, path string) (Se
 // BaseTime returns segment base time
 func (s *segment) BaseTime() int64 {
 	return s.baseTime
+}
+func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
+	//TODO need impl
+	return nil
 }
 
 // Close closes segment, include kv store

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/pkg/util"
 	pb "github.com/eleme/lindb/rpc/proto/field"
 	"github.com/eleme/lindb/tsdb/memdb"
 
@@ -21,7 +21,7 @@ var path = filepath.Join(testPath, shardPath, "1")
 
 func TestNewShard(t *testing.T) {
 	defer func() {
-		_ = util.RemoveDir(testPath)
+		_ = fileutil.RemoveDir(testPath)
 	}()
 	shard, err := newShard(1, path, option.ShardOption{})
 	assert.NotNil(t, err)
@@ -35,12 +35,12 @@ func TestNewShard(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, shard)
 
-	assert.True(t, util.Exist(path))
+	assert.True(t, fileutil.Exist(path))
 }
 
 func TestGetSegments(t *testing.T) {
 	defer func() {
-		_ = util.RemoveDir(testPath)
+		_ = fileutil.RemoveDir(testPath)
 	}()
 	shard, _ := newShard(1, path, option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day})
 	assert.Nil(t, shard.GetSegments(interval.Month, timeutil.TimeRange{}))
@@ -50,7 +50,7 @@ func TestGetSegments(t *testing.T) {
 
 func TestWrite(t *testing.T) {
 	defer func() {
-		_ = util.RemoveDir(testPath)
+		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	ctrl := gomock.NewController(t)

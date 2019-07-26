@@ -8,11 +8,12 @@ import (
 
 	"github.com/eleme/lindb/kv"
 	"github.com/eleme/lindb/pkg/field"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/util"
 )
 
 func TestFieldUid_GetOrCreateFieldId(t *testing.T) {
-	defer util.RemoveDir("../test")
+	defer fileutil.RemoveDir("../test")
 	fieldUID := NewFieldUID(initFieldFamily())
 
 	for i := 1; i < 10; i++ {

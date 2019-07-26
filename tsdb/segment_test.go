@@ -7,29 +7,29 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 var segPath = filepath.Join(testPath, shardPath, "1", segmentPath, interval.Day.String())
 
 func TestNewIntervalSegment(t *testing.T) {
-	defer util.RemoveDir(testPath)
+	defer fileutil.RemoveDir(testPath)
 	s, err := newIntervalSegment(time.Second*10, interval.Day, segPath)
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
-	assert.True(t, util.Exist(segPath))
+	assert.True(t, fileutil.Exist(segPath))
 }
 
 func TestNewSegment(t *testing.T) {
-	defer util.RemoveDir(testPath)
+	defer fileutil.RemoveDir(testPath)
 	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
 
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
 	assert.NotNil(t, seg)
-	assert.True(t, util.Exist(filepath.Join(segPath, "20190702")))
+	assert.True(t, fileutil.Exist(filepath.Join(segPath, "20190702")))
 
 	s.Close()
 
@@ -40,14 +40,14 @@ func TestNewSegment(t *testing.T) {
 		seg = seg1.getSegment("20190702")
 		assert.Nil(t, err)
 		assert.NotNil(t, seg)
-		assert.True(t, util.Exist(filepath.Join(segPath, "20190702")))
+		assert.True(t, fileutil.Exist(filepath.Join(segPath, "20190702")))
 	} else {
 		t.Fail()
 	}
 }
 
 func TestGetSegmentsByTimeRange(t *testing.T) {
-	defer util.RemoveDir(testPath)
+	defer fileutil.RemoveDir(testPath)
 	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
 	s.GetOrCreateSegment("20190702")
 	t2, _ := timeutil.ParseTimestamp("20190702", "20060102")

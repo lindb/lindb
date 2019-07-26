@@ -7,11 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap"
-
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/queue/segment"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 const (
@@ -75,7 +73,7 @@ type fanOutQueue struct {
 
 // NewFanOutQueue returns a FanOutQueue persisted in dirPath.
 func NewFanOutQueue(dirPath string, dataFileSize int, removeTaskInterval time.Duration) (FanOutQueue, error) {
-	dirPath = util.DirAppendSepa(dirPath)
+	dirPath = fileutil.DirAppendSepa(dirPath)
 
 	// loads queue
 	q, err := NewQueue(dirPath, dataFileSize, removeTaskInterval)
@@ -83,12 +81,12 @@ func NewFanOutQueue(dirPath string, dataFileSize int, removeTaskInterval time.Du
 		return nil, err
 	}
 
-	foDir := util.DirAppendSepa(dirPath + fanOutDirName)
-	if err := util.MkDir(foDir); err != nil {
+	foDir := fileutil.DirAppendSepa(dirPath + fanOutDirName)
+	if err := fileutil.MkDir(foDir); err != nil {
 		return nil, err
 	}
 
-	fileNames, err := util.ListDir(foDir)
+	fileNames, err := fileutil.ListDir(foDir)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +327,7 @@ func (f *fanOut) Ack(ackSeq int64) {
 		f.meta.WriteInt64(fanOutHeadSeqOffset, f.HeadSeq())
 		f.meta.WriteInt64(fanOutTailSeqOffset, f.TailSeq())
 		if err := f.meta.Sync(); err != nil {
-			f.logger.Error("sync fanOut meta error", zap.Error(err))
+			f.logger.Error("sync fanOut meta error", logger.Error(err))
 		}
 
 		// update FanOutQueue ackSeq
@@ -355,7 +353,7 @@ func (f *fanOut) setTailSeq(seq int64) {
 func (f *fanOut) Close() {
 	if atomic.CompareAndSwapInt32(&f.closed, 0, 1) {
 		if err := f.meta.Close(); err != nil {
-			f.logger.Error("close fanOut meta error", zap.String("fanOut", f.name), zap.Error(err))
+			f.logger.Error("close fanOut meta error", logger.String("fanOut", f.name), logger.Error(err))
 		}
 	}
 }

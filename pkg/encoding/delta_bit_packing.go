@@ -8,10 +8,12 @@ import (
 	"github.com/eleme/lindb/pkg/bit"
 )
 
-//parquet delta encoding https://github.com/apache/parquet-format/blob/master/Encodings.md#RLE
-//<num of values -1(exclude first value)><min delta><bit width of max value(delta of min delta)><list of deltas>
-//for singed values, use zigzag encoding(https://developers.google.com/protocol-buffers/docs/encoding#signed-integers)
+// reference:
+// parquet delta encoding https://github.com/apache/parquet-format/blob/master/Encodings.md#RLE
+// <num of values -1(exclude first value)><min delta><bit width of max value(delta of min delta)><list of deltas>
+// for singed values, use zigzag encoding(https://developers.google.com/protocol-buffers/docs/encoding#signed-integers)
 
+// DeltaBitPackingEncoder represents a delta encoding for int32
 type DeltaBitPackingEncoder struct {
 	first    int32
 	previous int32
@@ -21,20 +23,7 @@ type DeltaBitPackingEncoder struct {
 	hasFirst bool
 }
 
-type DeltaBitPackingDecoder struct {
-	buf      *bytes.Buffer
-	br       *bit.Reader
-	count    int64
-	pos      int64
-	width    int
-	previous int32
-	minDelta int32
-}
-
-func NewDeltaBitPackingEncoder() *DeltaBitPackingEncoder {
-	return &DeltaBitPackingEncoder{}
-}
-
+// NewDeltaBitPackingDecoder creates a delta decoder
 func NewDeltaBitPackingDecoder(buf *[]byte) *DeltaBitPackingDecoder {
 	d := &DeltaBitPackingDecoder{
 		buf: bytes.NewBuffer(*buf),
@@ -51,6 +40,7 @@ func NewDeltaBitPackingDecoder(buf *[]byte) *DeltaBitPackingDecoder {
 	return d
 }
 
+// Add adds a new int value
 func (p *DeltaBitPackingEncoder) Add(v int32) {
 	if !p.hasFirst {
 		p.hasFirst = true
@@ -69,6 +59,7 @@ func (p *DeltaBitPackingEncoder) Add(v int32) {
 	p.previous = v
 }
 
+// Bytes returns binary data, if failure return error
 func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
 	var scratch [binary.MaxVarintLen64]byte
 	var buf bytes.Buffer
@@ -105,14 +96,34 @@ func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
 		}
 	}
 
-	bw.Flush()
+	if err := bw.Flush(); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
+// DeltaBitPackingDecoder represents a delta decoding for int32
+type DeltaBitPackingDecoder struct {
+	buf      *bytes.Buffer
+	br       *bit.Reader
+	count    int64
+	pos      int64
+	width    int
+	previous int32
+	minDelta int32
+}
+
+// NewDeltaBitPackingEncoder creates a delta encoder
+func NewDeltaBitPackingEncoder() *DeltaBitPackingEncoder {
+	return &DeltaBitPackingEncoder{}
+}
+
+// HasNext tests if has more int32 value
 func (d *DeltaBitPackingDecoder) HasNext() bool {
 	return d.pos > 0
 }
 
+// Next returns next value if exist
 func (d *DeltaBitPackingDecoder) Next() int32 {
 	if d.pos == d.count {
 		x, _ := binary.ReadVarint(d.buf)

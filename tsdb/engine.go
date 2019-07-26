@@ -5,14 +5,15 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/tsdb/index"
 )
+
+//go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
 
 const options = "OPTIONS"
 const shardPath = "shard"
-
-//go:generate mockgen -source ./engine.go -destination=./engine_mock_test.go -package tsdb
 
 // Engine represents a time series storage engine
 type Engine interface {
@@ -24,6 +25,8 @@ type Engine interface {
 	CreateShards(option option.ShardOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
+	// GetMetadataGetter returns metadata getter for metric level metadata
+	GetMetadataGetter() index.MetadataGetter
 	// Close closed engine then release resource
 	Close() error
 }
@@ -50,13 +53,13 @@ type engine struct {
 func NewEngine(name string, path string) (Engine, error) {
 	enginePath := filepath.Join(path, name)
 	// create engine path
-	if err := util.MkDirIfNotExist(enginePath); err != nil {
+	if err := fileutil.MkDirIfNotExist(enginePath); err != nil {
 		return nil, fmt.Errorf("create path of tsdb engine[%s] erorr: %s", name, err)
 	}
 	infoPath := infoPath(enginePath)
 	info := &info{}
-	if util.Exist(infoPath) {
-		if err := util.DecodeToml(infoPath, info); err != nil {
+	if fileutil.Exist(infoPath) {
+		if err := fileutil.DecodeToml(infoPath, info); err != nil {
 			return nil, fmt.Errorf("load engine option from file[%s] error:%s", infoPath, err)
 		}
 	}
@@ -136,6 +139,11 @@ func (e *engine) GetShard(shardID int32) Shard {
 	return nil
 }
 
+func (e *engine) GetMetadataGetter() index.MetadataGetter {
+	//TODO need impl
+	return nil
+}
+
 // Close closed engine then release resource
 func (e *engine) Close() error {
 	//TODO impl close logic
@@ -146,7 +154,7 @@ func (e *engine) Close() error {
 func (e *engine) dumpEngineInfo(newInfo *info) error {
 	infoPath := infoPath(e.path)
 	// write store info using toml format
-	if err := util.EncodeToml(infoPath, newInfo); err != nil {
+	if err := fileutil.EncodeToml(infoPath, newInfo); err != nil {
 		return fmt.Errorf("write engine info to file[%s] error:%s", infoPath, err)
 	}
 	e.info = newInfo

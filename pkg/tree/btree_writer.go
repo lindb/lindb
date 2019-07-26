@@ -170,6 +170,7 @@ func (w *Writer) serializeBranchNode(currentHigh int, parentNode *x) (startPos i
 	branchWriter.PutLenBytes(currentCommonPrefix)
 	by, err := bodyWriter.Bytes()
 	if nil != err {
+		//TODO need handle error
 		logger.GetLogger("pkg/tree").Error("serializeBranchNode get bytes error:", logger.Error(err))
 	}
 	branchWriter.PutBytes(by)
@@ -203,6 +204,7 @@ func (w *Writer) serializeLeafNode(currentHigh int, dType *d, leafCommonPrefix [
 	leafWriter.PutLenBytes(leafCommonPrefix)
 	by, err := dataWriter.Bytes()
 	if nil != err {
+		//TODO need handle error
 		logger.GetLogger("pkg/tree").Error("serializeLeafNode get bytes error:", logger.Error(err))
 	}
 	leafWriter.PutBytes(by)

@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/eleme/lindb/pkg/fileutil"
 
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -21,7 +21,7 @@ func Test_magicNumber(t *testing.T) {
 }
 
 func Test_BuildStore(t *testing.T) {
-	_ = util.MkDirIfNotExist(testKVPath)
+	_ = fileutil.MkDirIfNotExist(testKVPath)
 	var builder, err = NewStoreBuilder(testKVPath, 10)
 	defer os.RemoveAll(testKVPath)
 	defer builder.Close()
