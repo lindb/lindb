@@ -34,7 +34,6 @@ func BinaryReader(v []byte) *Binary {
 	}
 }
 
-//=================================binary writer
 // PutBytes encodes bytes into buf
 func (b *Binary) PutBytes(v []byte) {
 	length := len(v)
@@ -117,7 +116,6 @@ func (b *Binary) Len() int {
 	return b.buf.Len()
 }
 
-//=================================binary reader
 // ReadVarint32 reads int32 from buffer
 func (b *Binary) ReadVarint32() int32 {
 	return int32(b.ReadUvarint64())
@@ -179,7 +177,7 @@ func (b *Binary) Error() error {
 	return b.err
 }
 
-//=================================buf reader
+//TODO need refactor??
 //ByteBufReader provides methods to read specific values from a byte array
 type ByteBufReader struct {
 	buf      []byte
@@ -195,7 +193,7 @@ func NewBufReader(bufArray []byte) *ByteBufReader {
 	}
 }
 
-//ReadLenBytes reads a key containing length and bytes from the buffer
+// ReadLenBytes reads a key containing length and bytes from the buffer
 func (r *ByteBufReader) ReadLenBytes() (length int, key []byte) {
 	length = int(r.ReadUvarint64())
 	if length > 0 {
@@ -204,14 +202,14 @@ func (r *ByteBufReader) ReadLenBytes() (length int, key []byte) {
 	return length, key
 }
 
-//ReadInt reads variable-length positive int from the buffer
+// ReadUvarint64 reads variable-length positive int from the buffer
 func (r *ByteBufReader) ReadUvarint64() uint64 {
 	v, length := readUvarint(r.buf[r.position:])
 	r.position += length
 	return v
 }
 
-//ReadInt reads variable-length positive int from the buffer
+// readUvarint reads variable-length positive int from the buffer
 func readUvarint(buf []byte) (v uint64, len int) {
 	var x uint64
 	var s uint
@@ -250,7 +248,7 @@ func (r *ByteBufReader) SubArray(start int) []byte {
 	return sub
 }
 
-//ReadBytes reads a byte from the buffer
+//ReadByte reads a byte from the buffer
 func (r *ByteBufReader) ReadByte() byte {
 	b := r.buf[r.position]
 	r.position++

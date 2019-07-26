@@ -9,7 +9,7 @@ import (
 
 	"github.com/eleme/lindb/pkg/bufioutil"
 	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/mmap"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 const (
@@ -43,7 +43,7 @@ type storeMMapReader struct {
 
 // newMMapStoreReader creates mmap store file reader
 func newMMapStoreReader(path string) (Reader, error) {
-	data, err := mmap.Map(path)
+	data, err := fileutil.Map(path)
 	if err != nil {
 		return nil, fmt.Errorf("create mmap store reader error:%s", err)
 	}
@@ -110,7 +110,7 @@ func (r *storeMMapReader) Iterator() Iterator {
 
 // close store reader, release resource
 func (r *storeMMapReader) Close() error {
-	return mmap.Unmap(r.data)
+	return fileutil.Unmap(r.data)
 }
 
 // readBytes reads bytes from buffer, read length+data format

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/eleme/lindb/pkg/collections"
+	"github.com/eleme/lindb/pkg/function"
 	"github.com/eleme/lindb/pkg/strutil"
 	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/sql/grammar"
@@ -308,8 +309,19 @@ func (q *queryStmtParse) completeTagFilterExpr() {
 // visitFieldExpr visits when production field expression is entered
 func (q *queryStmtParse) visitFieldExpr(ctx *grammar.FieldExprContext) {
 	//var selectItem stmt.Expr
-	if ctx.ExprFunc() != nil {
+	switch {
+	case ctx.ExprFunc() != nil:
 		q.exprStack.Push(&stmt.CallExpr{})
+	case ctx.T_OPEN_P() != nil:
+		q.exprStack.Push(&stmt.ParenExpr{})
+	case ctx.T_MUL() != nil:
+		q.exprStack.Push(&stmt.BinaryExpr{Operator: stmt.MUL})
+	case ctx.T_DIV() != nil:
+		q.exprStack.Push(&stmt.BinaryExpr{Operator: stmt.DIV})
+	case ctx.T_ADD() != nil:
+		q.exprStack.Push(&stmt.BinaryExpr{Operator: stmt.ADD})
+	case ctx.T_SUB() != nil:
+		q.exprStack.Push(&stmt.BinaryExpr{Operator: stmt.SUB})
 	}
 }
 
@@ -324,8 +336,8 @@ func (q *queryStmtParse) visitAlias(ctx *grammar.AliasContext) {
 	}
 }
 
-// visitExprFunc visits when production function call expression is entered
-func (q *queryStmtParse) visitExprFunc(ctx *grammar.ExprFuncContext) {
+// visitFuncName visits when production function call expression is entered
+func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
 	if q.exprStack.Empty() {
 		return
 	}
@@ -333,7 +345,20 @@ func (q *queryStmtParse) visitExprFunc(ctx *grammar.ExprFuncContext) {
 	if !ok {
 		return
 	}
-	callExpr.Name = strutil.GetStringValue(ctx.Ident().GetText())
+	switch {
+	case ctx.T_SUM() != nil:
+		callExpr.Type = function.Sum
+	case ctx.T_MIN() != nil:
+		callExpr.Type = function.Min
+	case ctx.T_MAX() != nil:
+		callExpr.Type = function.Max
+	case ctx.T_AVG() != nil:
+		callExpr.Type = function.Avg
+	case ctx.T_STDDEV() != nil:
+		callExpr.Type = function.Stddev
+	case ctx.T_HISTOGRAM() != nil:
+		callExpr.Type = function.Histogram
+	}
 }
 
 // completeFuncExpr completes a function call expression for select list
@@ -342,7 +367,7 @@ func (q *queryStmtParse) completeFuncExpr() {
 	if cur != nil {
 		expr, ok := cur.(stmt.Expr)
 		if ok {
-			q.setFuncParam(expr)
+			q.setExprParam(expr)
 		}
 		if q.exprStack.Empty() {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
@@ -358,14 +383,14 @@ func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
 		if q.exprStack.Empty() {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: &stmt.FieldExpr{Name: val}})
 		} else {
-			q.setFuncParam(&stmt.FieldExpr{Name: val})
+			q.setExprParam(&stmt.FieldExpr{Name: val})
 		}
 	default:
 	}
 }
 
-// setFuncParam sets function call param
-func (q *queryStmtParse) setFuncParam(param stmt.Expr) {
+// setExprParam sets expr's param(call,paren,binary)
+func (q *queryStmtParse) setExprParam(param stmt.Expr) {
 	if q.exprStack.Empty() {
 		return
 	}
@@ -373,6 +398,41 @@ func (q *queryStmtParse) setFuncParam(param stmt.Expr) {
 	switch expr := q.exprStack.Peek().(type) {
 	case *stmt.CallExpr:
 		expr.Params = append(expr.Params, param)
+	case *stmt.ParenExpr:
+		expr.Expr = param
+	case *stmt.BinaryExpr:
+		if expr.Left == nil {
+			expr.Left = param
+		} else if expr.Right == nil {
+			expr.Right = param
+		}
 	default:
+	}
+}
+
+// completeFieldExpr completes a field expr,
+// only paren and binary expr need do set expr param,
+// set func's param in complete func parse section.
+func (q *queryStmtParse) completeFieldExpr(ctx *grammar.FieldExprContext) {
+	switch {
+	case ctx.T_OPEN_P() != nil:
+	case ctx.T_MUL() != nil:
+	case ctx.T_DIV() != nil:
+	case ctx.T_ADD() != nil:
+	case ctx.T_SUB() != nil:
+	default:
+		return
+	}
+
+	cur := q.exprStack.Pop()
+
+	if cur != nil {
+		expr, ok := cur.(stmt.Expr)
+		if ok {
+			q.setExprParam(expr)
+		}
+		if q.exprStack.Empty() {
+			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
+		}
 	}
 }

@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_Data_Write_Read(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer util.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 
 	var kv, err = NewStore("test_kv", option)
 	defer kv.Close()
@@ -35,7 +35,7 @@ func Test_Data_Write_Read(t *testing.T) {
 
 func TestCommitEditLog(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer util.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 
 	var kv, _ = NewStore("test_kv", option)
 	defer kv.Close()
@@ -57,7 +57,7 @@ func TestCommitEditLog(t *testing.T) {
 
 func TestFamily_Lookup(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer util.RemoveDir(testKVPath)
+	defer fileutil.RemoveDir(testKVPath)
 
 	var kv, _ = NewStore("test_kv", option)
 	defer kv.Close()

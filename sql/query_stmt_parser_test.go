@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/eleme/lindb/pkg/function"
 	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/sql/stmt"
 )
@@ -62,7 +63,7 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name:   "sum",
+					Type:   function.Sum,
 					Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}},
 				},
 			},
@@ -77,9 +78,9 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name: "max",
+					Type: function.Max,
 					Params: []stmt.Expr{&stmt.CallExpr{
-						Name:   "sum",
+						Type:   function.Sum,
 						Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 					},
 				},
@@ -92,21 +93,21 @@ func TestComplexSelectItem(t *testing.T) {
 		[]stmt.Expr{
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name:   "min",
+					Type:   function.Min,
 					Params: []stmt.Expr{&stmt.FieldExpr{Name: "a"}},
 				},
 			},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name:   "avg",
+					Type:   function.Avg,
 					Params: []stmt.Expr{&stmt.FieldExpr{Name: "b"}},
 				},
 			},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name: "max",
+					Type: function.Max,
 					Params: []stmt.Expr{&stmt.CallExpr{
-						Name:   "sum",
+						Type:   function.Sum,
 						Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 					},
 				},
@@ -114,7 +115,7 @@ func TestComplexSelectItem(t *testing.T) {
 		},
 		query.SelectItems)
 
-	sql = "select a,b,std(max(sum(c))) from memory"
+	sql = "select a,b,stddev(max(sum(c))) from memory"
 	query, _ = Parse(sql)
 	assert.Equal(t,
 		[]stmt.Expr{
@@ -122,13 +123,49 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Name: "std",
+					Type: function.Stddev,
 					Params: []stmt.Expr{
 						&stmt.CallExpr{
-							Name: "max",
+							Type: function.Max,
 							Params: []stmt.Expr{&stmt.CallExpr{
-								Name:   "sum",
+								Type:   function.Sum,
 								Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+							},
+						},
+					},
+				},
+			},
+		},
+		query.SelectItems)
+
+}
+
+func TestMathExpress(t *testing.T) {
+	// math expression
+	sql := "select max(sum(c)+c*d/e) from memory"
+	query, err := Parse(sql)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t,
+		[]stmt.Expr{
+			&stmt.SelectItem{
+				Expr: &stmt.CallExpr{
+					Type: function.Max,
+					Params: []stmt.Expr{
+						&stmt.BinaryExpr{
+							Left: &stmt.CallExpr{
+								Type:   function.Sum,
+								Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+							Operator: stmt.ADD,
+							Right: &stmt.BinaryExpr{
+								Left: &stmt.BinaryExpr{
+									Left:     &stmt.FieldExpr{Name: "c"},
+									Operator: stmt.MUL,
+									Right:    &stmt.FieldExpr{Name: "d"},
+								},
+								Operator: stmt.DIV,
+								Right:    &stmt.FieldExpr{Name: "e"},
 							},
 						},
 					},

@@ -1,4 +1,4 @@
-package mmap
+package fileutil
 
 import (
 	"bytes"

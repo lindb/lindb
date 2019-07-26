@@ -12,10 +12,10 @@ import (
 	"github.com/eleme/lindb/constants"
 	"github.com/eleme/lindb/mock"
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/pathutil"
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/pkg/util"
 )
 
 var storageCfgPath = "./storage.toml"
@@ -31,7 +31,7 @@ func TestStorageRuntime(t *testing.T) {
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	defer func() {
-		_ = util.RemoveDir(storageCfgPath)
+		_ = fileutil.RemoveDir(storageCfgPath)
 	}()
 	// test run fail
 	storage := NewStorageRuntime(storageCfgPath)
@@ -52,7 +52,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 			Endpoints: ts.Cluster.Endpoints,
 		},
 	}
-	_ = util.EncodeToml(storageCfgPath, &cfg)
+	_ = fileutil.EncodeToml(storageCfgPath, &cfg)
 	storage = NewStorageRuntime(storageCfgPath)
 	err = storage.Run()
 	if err != nil {

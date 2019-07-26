@@ -1,5 +1,7 @@
 package field
 
+import "github.com/eleme/lindb/pkg/function"
+
 // ValueType represents primitive field's value type
 type ValueType int
 
@@ -31,3 +33,17 @@ const (
 
 	Unknown
 )
+
+var schemas = map[Type]schema{}
+
+func init() {
+	schemas[SumField] = newSumSchema()
+}
+
+func GetPrimitiveFields(fieldType Type, funcType function.Type) map[uint16]AggType {
+	schema := schemas[fieldType]
+	if schema == nil {
+		return nil
+	}
+	return schema.getPrimitiveFields(funcType)
+}

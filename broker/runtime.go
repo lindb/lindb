@@ -17,6 +17,7 @@ import (
 	"github.com/eleme/lindb/coordinator/broker"
 	"github.com/eleme/lindb/coordinator/discovery"
 	"github.com/eleme/lindb/models"
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/server"
 	"github.com/eleme/lindb/pkg/state"
@@ -90,13 +91,13 @@ func (r *runtime) Run() error {
 	if r.cfgPath == "" {
 		r.cfgPath = DefaultBrokerCfgFile
 	}
-	if !util.Exist(r.cfgPath) {
+	if !fileutil.Exist(r.cfgPath) {
 		r.state = server.Failed
 		return fmt.Errorf("config file doesn't exist, see how to initialize the config by `lind broker -h`")
 	}
 
 	r.config = config.Broker{}
-	if err := util.DecodeToml(r.cfgPath, &r.config); err != nil {
+	if err := fileutil.DecodeToml(r.cfgPath, &r.config); err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("decode config file error:%s", err)
 	}

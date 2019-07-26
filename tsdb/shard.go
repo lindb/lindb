@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/eleme/lindb/tsdb/memdb"
-
 	pb "github.com/eleme/lindb/rpc/proto/field"
 
+	"github.com/eleme/lindb/pkg/fileutil"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/option"
 	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/tsdb/index"
+	"github.com/eleme/lindb/tsdb/memdb"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb -self_package=github.com/eleme/lindb/tsdb
@@ -23,6 +23,8 @@ const segmentPath = "segment"
 type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
 	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
+	// GetSeriesIDsFilter returns series index for searching series(tags)
+	GetSeriesIDsFilter() index.SeriesIDsFilter
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
@@ -53,7 +55,7 @@ func newShard(shardID int32, path string, option option.ShardOption) (Shard, err
 	if _, err := interval.GetCalculator(option.IntervalType); err != nil {
 		return nil, fmt.Errorf("interval type[%d] not define", option.IntervalType)
 	}
-	if err := util.MkDirIfNotExist(path); err != nil {
+	if err := fileutil.MkDirIfNotExist(path); err != nil {
 		return nil, err
 	}
 
@@ -92,6 +94,11 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeR
 	if ok {
 		return segment.GetSegments(timeRange)
 	}
+	return nil
+}
+
+func (s *shard) GetSeriesIDsFilter() index.SeriesIDsFilter {
+	//TODO need impl
 	return nil
 }
 

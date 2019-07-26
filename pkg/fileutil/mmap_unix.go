@@ -1,6 +1,6 @@
 // +build darwin dragonfly freebsd linux openbsd solaris netbsd
 
-package mmap
+package fileutil
 
 import "golang.org/x/sys/unix"
 

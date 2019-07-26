@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/eleme/lindb/pkg/fileutil"
 )
 
 var vsTestPath = "test_data"
@@ -100,13 +100,13 @@ func TestCreateFamily(t *testing.T) {
 }
 
 func initVersionSetTestData() {
-	if err := util.MkDirIfNotExist(vsTestPath); err != nil {
+	if err := fileutil.MkDirIfNotExist(vsTestPath); err != nil {
 		fmt.Println("create test path error")
 	}
 }
 
 func destoryVersionTestData() {
-	if err := util.RemoveDir(vsTestPath); err != nil {
+	if err := fileutil.RemoveDir(vsTestPath); err != nil {
 		fmt.Println("delete test path error")
 	}
 }
