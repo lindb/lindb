@@ -9,7 +9,7 @@ import (
 
 	"github.com/eleme/lindb/broker/api"
 	"github.com/eleme/lindb/broker/api/admin"
-	apiState "github.com/eleme/lindb/broker/api/state"
+	stateAPI "github.com/eleme/lindb/broker/api/state"
 	"github.com/eleme/lindb/broker/middleware"
 	"github.com/eleme/lindb/config"
 	"github.com/eleme/lindb/constants"
@@ -42,12 +42,14 @@ type apiHandler struct {
 	storageClusterAPI *admin.StorageClusterAPI
 	databaseAPI       *admin.DatabaseAPI
 	loginAPI          *api.LoginAPI
-	storageStateAPI   *apiState.StorageAPI
+	storageStateAPI   *stateAPI.StorageAPI
+	brokerStateAPI    *stateAPI.BrokerAPI
 }
 
 // stateMachine represents all state machines for broker
 type stateMachine struct {
 	storageState broker.StorageStateMachine
+	nodeState    broker.NodeStateMachine
 }
 
 type middlewareHandler struct {
@@ -232,7 +234,8 @@ func (r *runtime) buildAPIDependency() {
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User),
-		storageStateAPI:   apiState.NewStorageAPI(r.stateMachine.storageState),
+		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachine.storageState),
+		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachine.nodeState),
 	}
 
 	api.AddRoutes("Login", http.MethodPost, "/login", handler.loginAPI.Login)
@@ -246,7 +249,8 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handler.databaseAPI.Save)
 	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handler.databaseAPI.GetByName)
 
-	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handler.storageStateAPI.List)
+	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handler.storageStateAPI.ListStorageCluster)
+	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handler.brokerStateAPI.ListBrokerNodes)
 }
 
 // buildMiddlewareDependency builds middleware dependency
@@ -271,6 +275,12 @@ func (r *runtime) startStateMachine() error {
 	}
 	r.stateMachine.storageState = storageStateMachine
 
+	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.repo)
+	if err != nil {
+		return err
+	}
+	r.stateMachine.nodeState = nodeStateMachine
+
 	return nil
 }
 
@@ -279,6 +289,11 @@ func (r *runtime) stopStateMachine() {
 	if r.stateMachine.storageState != nil {
 		if err := r.stateMachine.storageState.Close(); err != nil {
 			r.log.Error("close storage state state machine error", logger.Error(err))
+		}
+	}
+	if r.stateMachine.nodeState != nil {
+		if err := r.stateMachine.nodeState.Close(); err != nil {
+			r.log.Error("close node state state machine error", logger.Error(err))
 		}
 	}
 }

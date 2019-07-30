@@ -20,3 +20,9 @@ type Master struct {
 	Node      Node  `json:"node"`
 	ElectTime int64 `json:"electTime"`
 }
+
+// ActiveNode represents active node include online time
+type ActiveNode struct {
+	Node       Node  `json:"node"`
+	OnlineTime int64 `json:"onlineTime"` // node online time(millisecond)
+}

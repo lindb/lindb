@@ -42,9 +42,9 @@ func (ts *testRegistrySuite) TestRegister(c *check.C) {
 
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
-	nodeInfo := models.Node{}
+	nodeInfo := models.ActiveNode{}
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo)
+	c.Assert(node, check.Equals, nodeInfo.Node)
 
 	// test re-register
 	_ = repo.Delete(context.TODO(), nodePath)
@@ -54,7 +54,7 @@ func (ts *testRegistrySuite) TestRegister(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 	nodeBytes, _ = repo.Get(context.TODO(), nodePath)
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo)
+	c.Assert(node, check.Equals, nodeInfo.Node)
 
 	_ = registry.Close()
 	time.Sleep(time.Second)
@@ -82,9 +82,9 @@ func (ts *testRegistrySuite) TestDeregister(c *check.C) {
 
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
-	nodeInfo := models.Node{}
+	nodeInfo := models.ActiveNode{}
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo)
+	c.Assert(node, check.Equals, nodeInfo.Node)
 
 	_ = registry.Deregister(node)
 	time.Sleep(500 * time.Millisecond)

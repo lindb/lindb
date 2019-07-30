@@ -222,15 +222,15 @@ func (ts *testAdminStateMachineSuite) prepareStorageCluster(repo state.Repositor
 		Config: storage1,
 	})
 	_ = repo.Put(context.TODO(), constants.StorageClusterConfigPath+"/storage1", data1)
-	node1, _ := json.Marshal(models.Node{IP: "127.0.0.1", Port: 2080})
+	node1, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.1", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node1", node1)
-	node2, _ := json.Marshal(models.Node{IP: "127.0.0.2", Port: 2080})
+	node2, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.2", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node2", node2)
-	node3, _ := json.Marshal(models.Node{IP: "127.0.0.3", Port: 2080})
+	node3, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.3", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node3", node3)
-	node4, _ := json.Marshal(models.Node{IP: "127.0.0.4", Port: 2080})
+	node4, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.4", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node4", node4)
-	node5, _ := json.Marshal(models.Node{IP: "127.0.0.5", Port: 2080})
+	node5, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.5", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node5", node5)
 
 }

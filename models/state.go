@@ -3,20 +3,20 @@ package models
 // StorageState represents storage cluster node state.
 // NOTICE: it is not safe for concurrent use.
 type StorageState struct {
-	Name        string           `json:"name"`
-	ActiveNodes map[string]*Node `json:"activeNodes"`
+	Name        string                 `json:"name"`
+	ActiveNodes map[string]*ActiveNode `json:"activeNodes"`
 }
 
 // NewStorageState creates storage cluster state
 func NewStorageState() *StorageState {
 	return &StorageState{
-		ActiveNodes: make(map[string]*Node),
+		ActiveNodes: make(map[string]*ActiveNode),
 	}
 }
 
 // AddActiveNode adds a node into active node list
-func (s *StorageState) AddActiveNode(node *Node) {
-	key := node.Indicator()
+func (s *StorageState) AddActiveNode(node *ActiveNode) {
+	key := node.Node.Indicator()
 	_, ok := s.ActiveNodes[key]
 	if !ok {
 		s.ActiveNodes[key] = node
@@ -29,8 +29,8 @@ func (s *StorageState) RemoveActiveNode(node string) {
 }
 
 // GetActiveNodes returns all active nodes
-func (s *StorageState) GetActiveNodes() []*Node {
-	var nodes []*Node
+func (s *StorageState) GetActiveNodes() []*ActiveNode {
+	var nodes []*ActiveNode
 	for _, node := range s.ActiveNodes {
 		nodes = append(nodes, node)
 	}
