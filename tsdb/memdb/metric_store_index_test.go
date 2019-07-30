@@ -86,7 +86,7 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 	mockTStore1.EXPECT().flushSeriesTo(gomock.Any(), gomock.Any()).Return(false).AnyTimes()
 	mockTStore2 := NewMocktStoreINTF(ctrl)
 	mockTStore2.EXPECT().flushSeriesTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
-	tagIdx.seriesID2TStore = map[uint32]tStoreINTFWithHash{
+	tagIdx.seriesID2TStore = map[uint32]tStoreNode{
 		1: {tStoreINTF: mockTStore1, hash: 1},
 		2: {tStoreINTF: mockTStore2, hash: 2},
 	}
@@ -112,7 +112,7 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 	mockTStore2 := NewMocktStoreINTF(ctrl)
 	mockTStore2.EXPECT().timeRange().Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
 
-	newMap := make(map[uint32]tStoreINTFWithHash)
+	newMap := make(map[uint32]tStoreNode)
 	for seriesID, tStore := range tagIdx.seriesID2TStore {
 		if seriesID == 4 {
 			tStore.tStoreINTF = mockTStore2

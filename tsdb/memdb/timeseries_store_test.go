@@ -45,7 +45,7 @@ func Test_tStore_write(t *testing.T) {
 	mockFStore.EXPECT().write(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockFStore.EXPECT().getFieldType().Return(field.SumField).AnyTimes()
 	// get existed fStore
-	tStore.fields["sum"] = mockFStore
+	tStore.insertFStore("sum", mockFStore)
 	writeCtx := writeContext{
 		metricID:   1,
 		generator:  makeMockIDGenerator(ctrl),
@@ -68,7 +68,7 @@ func Test_tStore_write(t *testing.T) {
 	assert.Nil(t, err)
 	// too many fields
 	for i := 0; i < 3000; i++ {
-		tStore.fields[strconv.Itoa(i)] = newFieldStore(uint16(i), field.SumField)
+		tStore.insertFStore(strconv.Itoa(i), newFieldStore(uint16(i), field.SumField))
 	}
 	err = tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "sum2", Field: &pb.Field_Sum{}}}}, writeCtx)
 	assert.Equal(t, models.ErrTooManyFields, err)
@@ -85,7 +85,7 @@ func Test_tStore_GenFieldID_error(t *testing.T) {
 	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		uint16(0), models.ErrWrongFieldType).AnyTimes()
 	// error field type from generator
-	tStore.fields = make(map[string]fStoreINTF)
+	tStore.fStoreNodes = nil
 	err := tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
 		metricID:   1,
 		generator:  mockGen,
@@ -137,27 +137,27 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	mockFStore3.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(false).AnyTimes()
 	mockFStore3.EXPECT().timeRange(gomock.Any()).Return(
 		timeutil.TimeRange{Start: 100, End: 200}, false).AnyTimes()
-	tStore.fields = map[string]fStoreINTF{
-		"1": mockFStore1,
-		"2": mockFStore2,
-		"3": mockFStore3}
+	tStore.insertFStore("1", mockFStore1)
+	tStore.insertFStore("2", mockFStore2)
+	tStore.insertFStore("3", mockFStore3)
 	assert.True(t, tStore.flushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 	assert.False(t, tStoreInterface.isNoData())
 	timeRange, _ := tStoreInterface.timeRange()
 	assert.Equal(t, int64(70), (timeRange.End-timeRange.Start)/1000)
 
 	// flush error
-	tStore.fields = map[string]fStoreINTF{
-		"3": mockFStore3}
+	tStore.fStoreNodes = nil
+	tStore.insertFStore("3", mockFStore3)
+
 	assert.False(t, tStore.flushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 
 	// no-data
 	mockFStore4 := NewMockfStoreINTF(ctrl)
 	mockFStore4.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 	mockFStore4.EXPECT().timeRange(gomock.Any()).Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
-	tStore.fields = map[string]fStoreINTF{
-		"3": mockFStore3,
-		"4": mockFStore4}
+	tStore.fStoreNodes = nil
+	tStore.insertFStore("3", mockFStore3)
+	tStore.insertFStore("4", mockFStore4)
 	assert.True(t, tStore.flushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 	assert.True(t, tStoreInterface.isNoData())
 }

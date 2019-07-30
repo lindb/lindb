@@ -2,6 +2,7 @@ package memdb
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/eleme/lindb/pkg/field"
@@ -50,20 +51,20 @@ func Test_fStore_timeRange(t *testing.T) {
 	mockSStore4.EXPECT().slotRange().Return(4, 14, nil).AnyTimes()
 
 	// error case
-	theFieldStore.segments[1564297200000] = mockSStore3
+	theFieldStore.insertSStore(1564297200000, mockSStore3)
 	timeRange, ok := theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(0), timeRange.Start)
 	assert.Equal(t, int64(0), timeRange.End)
 	assert.False(t, ok)
 
-	theFieldStore.segments[1564300800000] = mockSStore1
+	theFieldStore.insertSStore(1564300800000, mockSStore1)
 	timeRange, ok = theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564300900000), timeRange.End)
 	assert.True(t, ok)
 
-	theFieldStore.segments[1564304400000] = mockSStore2
-	theFieldStore.segments[1564308000000] = mockSStore4
+	theFieldStore.insertSStore(1564304400000, mockSStore2)
+	theFieldStore.insertSStore(1564308000000, mockSStore4)
 	timeRange, ok = theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564308140000), timeRange.End)
@@ -83,17 +84,47 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	mockSStore2 := NewMocksStoreINTF(ctrl)
 	mockSStore2.EXPECT().bytes().Return(nil, 1, 212, nil)
 
-	theFieldStore.segments[1564304400000] = mockSStore1
-	theFieldStore.segments[1564308000000] = mockSStore2
+	theFieldStore.insertSStore(1564304400000, mockSStore1)
+	theFieldStore.insertSStore(1564308000000, mockSStore2)
 
-	assert.Len(t, theFieldStore.segments, 2)
+	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
 	assert.False(t, theFieldStore.flushFieldTo(mockTF, 1564297200000))
-	assert.Len(t, theFieldStore.segments, 2)
+	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// mock error
 	assert.False(t, theFieldStore.flushFieldTo(mockTF, 1564304400000))
-	assert.Len(t, theFieldStore.segments, 1)
+	assert.Len(t, theFieldStore.sStoreNodes, 1)
 	// mock ok
 	assert.True(t, theFieldStore.flushFieldTo(mockTF, 1564308000000))
-	assert.Len(t, theFieldStore.segments, 0)
+	assert.Len(t, theFieldStore.sStoreNodes, 0)
+}
+
+func Test_fStore_removeSStore(t *testing.T) {
+	fsINTF := newFieldStore(1, field.SumField)
+	fs := fsINTF.(*fieldStore)
+	// segments empty
+	fs.removeSStore(0)
+	fs.removeSStore(1)
+	// assert sorted
+	fs.insertSStore(1, nil)
+	fs.insertSStore(9, nil)
+	fs.insertSStore(2, nil)
+	fs.insertSStore(3, nil)
+	fs.insertSStore(7, nil)
+	fs.insertSStore(4, nil)
+	assert.True(t, sort.IsSorted(fs.sStoreNodes))
+	// remove greater
+	fs.removeSStore(10)
+	// remove not exist
+	fs.removeSStore(8)
+	// remove smaller
+	fs.removeSStore(0)
+	// remove existed
+	fs.removeSStore(9)
+	fs.removeSStore(1)
+	fs.removeSStore(3)
+	fs.removeSStore(4)
+	fs.removeSStore(2)
+	fs.removeSStore(7)
+
 }
