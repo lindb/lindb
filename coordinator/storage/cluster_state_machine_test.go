@@ -78,9 +78,9 @@ func (ts *testClusterStateMachineSuite) TestDiscovery(c *check.C) {
 		Namespace: "storage1",
 		Endpoints: ts.Cluster.Endpoints,
 	})
-	node1, _ := json.Marshal(models.Node{IP: "127.0.0.1", Port: 2080})
+	node1, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.1", Port: 2080}})
 	_ = repo2.Put(context.TODO(), constants.ActiveNodesPath+"/node1", node1)
-	node2, _ := json.Marshal(models.Node{IP: "127.0.0.2", Port: 2080})
+	node2, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.2", Port: 2080}})
 	_ = repo2.Put(context.TODO(), constants.ActiveNodesPath+"/127.0.0.2:2080", node2)
 	_ = repo2.Put(context.TODO(), constants.ActiveNodesPath+"/node3", []byte("dd"))
 	time.Sleep(200 * time.Millisecond)
@@ -126,9 +126,9 @@ func (ts *testClusterStateMachineSuite) TestExistNodes(c *check.C) {
 		Config: storage1,
 	})
 	_ = repo.Put(context.TODO(), constants.StorageClusterConfigPath+"/storage1", data1)
-	node1, _ := json.Marshal(models.Node{IP: "127.0.0.1", Port: 2080})
+	node1, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.1", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node1", node1)
-	node2, _ := json.Marshal(models.Node{IP: "127.0.0.2", Port: 2080})
+	node2, _ := json.Marshal(models.ActiveNode{Node: models.Node{IP: "127.0.0.2", Port: 2080}})
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node2", node2)
 	_ = repo.Put(context.TODO(), constants.ActiveNodesPath+"/node3", []byte("dd"))
 

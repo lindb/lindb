@@ -19,8 +19,8 @@ func NewStorageAPI(stateMachine broker.StorageStateMachine) *StorageAPI {
 	}
 }
 
-// List lists state of all storage clusters
-func (s *StorageAPI) List(w http.ResponseWriter, r *http.Request) {
+// ListStorageCluster lists state of all storage clusters
+func (s *StorageAPI) ListStorageCluster(w http.ResponseWriter, r *http.Request) {
 	clusters := s.stateMachine.List()
 	api.OK(w, clusters)
 }

@@ -51,7 +51,6 @@ func TestStatusStateMachine(t *testing.T) {
 			{Key: pathutil.GetReplicaStatePath("1.1.1.1:2080"), Value: data},
 		},
 	})
-	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, replicaStatus, sm.GetReplicas("1.1.1.1:2080").Replicas)
 	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.2:2080").Replicas))
 	// delete event
@@ -61,7 +60,6 @@ func TestStatusStateMachine(t *testing.T) {
 			{Key: pathutil.GetReplicaStatePath("1.1.1.1:2080")},
 		},
 	})
-	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.1:2080").Replicas))
 }
 
