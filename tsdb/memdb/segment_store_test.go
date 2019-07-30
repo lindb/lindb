@@ -13,7 +13,7 @@ import (
 
 func TestSimpleSegmentStore(t *testing.T) {
 	aggFunc := field.GetAggFunc(field.Sum)
-	store := newSimpleFieldStore(aggFunc)
+	store := newSimpleFieldStore(0, aggFunc)
 
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
@@ -86,7 +86,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 }
 
 func Test_sStore_error(t *testing.T) {
-	store := newSimpleFieldStore(field.GetAggFunc(field.Sum))
+	store := newSimpleFieldStore(0, field.GetAggFunc(field.Sum))
 	ss, _ := store.(*simpleFieldStore)
 	// compact error test
 	ctrl := gomock.NewController(t)
@@ -116,7 +116,7 @@ func Test_sStore_error(t *testing.T) {
 
 func BenchmarkSimpleSegmentStore(b *testing.B) {
 	aggFunc := field.GetAggFunc(field.Sum)
-	store := newSimpleFieldStore(aggFunc)
+	store := newSimpleFieldStore(0, aggFunc)
 	ss, _ := store.(*simpleFieldStore)
 
 	writeCtx := writeContext{

@@ -12,8 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
+	mockSStore := NewMocksStoreINTF(ctrl)
+	mockSStore.EXPECT().getFamilyTime().Return(familyTime).AnyTimes()
+	return mockSStore
+}
+
 func Test_newFieldStore(t *testing.T) {
-	fStore := newFieldStore(10, field.SumField)
+	fStore := newFieldStore("sum", 10, field.SumField)
 	assert.NotNil(t, fStore)
 	assert.Equal(t, fStore.getFieldType(), field.SumField)
 	timeRange, ok := fStore.timeRange(10)
@@ -23,7 +29,7 @@ func Test_newFieldStore(t *testing.T) {
 }
 
 func Test_fStore_write(t *testing.T) {
-	fStore := newFieldStore(10, field.SumField)
+	fStore := newFieldStore("sum", 10, field.SumField)
 	theFieldStore := fStore.(*fieldStore)
 	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
 
@@ -38,33 +44,34 @@ func Test_fStore_timeRange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fStore := newFieldStore(10, field.SumField)
+	fStore := newFieldStore("sum", 10, field.SumField)
 	theFieldStore := fStore.(*fieldStore)
 
-	mockSStore1 := NewMocksStoreINTF(ctrl)
+	mockSStore1 := getMockSStore(ctrl, 1564300800000)
 	mockSStore1.EXPECT().slotRange().Return(1, 10, nil).AnyTimes()
-	mockSStore2 := NewMocksStoreINTF(ctrl)
+	mockSStore2 := getMockSStore(ctrl, 1564304400000)
 	mockSStore2.EXPECT().slotRange().Return(3, 5, nil).AnyTimes()
-	mockSStore3 := NewMocksStoreINTF(ctrl)
+	mockSStore3 := getMockSStore(ctrl, 1564297200000)
 	mockSStore3.EXPECT().slotRange().Return(6, 13, fmt.Errorf("error")).AnyTimes()
-	mockSStore4 := NewMocksStoreINTF(ctrl)
+	mockSStore4 := getMockSStore(ctrl, 1564308000000)
 	mockSStore4.EXPECT().slotRange().Return(4, 14, nil).AnyTimes()
 
 	// error case
-	theFieldStore.insertSStore(1564297200000, mockSStore3)
+
+	theFieldStore.insertSStore(mockSStore3)
 	timeRange, ok := theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(0), timeRange.Start)
 	assert.Equal(t, int64(0), timeRange.End)
 	assert.False(t, ok)
 
-	theFieldStore.insertSStore(1564300800000, mockSStore1)
+	theFieldStore.insertSStore(mockSStore1)
 	timeRange, ok = theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564300900000), timeRange.End)
 	assert.True(t, ok)
 
-	theFieldStore.insertSStore(1564304400000, mockSStore2)
-	theFieldStore.insertSStore(1564308000000, mockSStore4)
+	theFieldStore.insertSStore(mockSStore2)
+	theFieldStore.insertSStore(mockSStore4)
 	timeRange, ok = theFieldStore.timeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564308140000), timeRange.End)
@@ -75,17 +82,17 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fStore := newFieldStore(10, field.SumField)
+	fStore := newFieldStore("sum", 10, field.SumField)
 	theFieldStore := fStore.(*fieldStore)
 
 	mockTF := makeMockTableFlusher(ctrl)
-	mockSStore1 := NewMocksStoreINTF(ctrl)
-	mockSStore1.EXPECT().bytes().Return(nil, 0, 0, fmt.Errorf("error"))
-	mockSStore2 := NewMocksStoreINTF(ctrl)
-	mockSStore2.EXPECT().bytes().Return(nil, 1, 212, nil)
+	mockSStore1 := getMockSStore(ctrl, 1564304400000)
+	mockSStore1.EXPECT().bytes().Return(nil, 0, 0, fmt.Errorf("error")).AnyTimes()
+	mockSStore2 := getMockSStore(ctrl, 1564308000000)
+	mockSStore2.EXPECT().bytes().Return(nil, 1, 212, nil).AnyTimes()
 
-	theFieldStore.insertSStore(1564304400000, mockSStore1)
-	theFieldStore.insertSStore(1564308000000, mockSStore2)
+	theFieldStore.insertSStore(mockSStore1)
+	theFieldStore.insertSStore(mockSStore2)
 
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
@@ -100,18 +107,22 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 }
 
 func Test_fStore_removeSStore(t *testing.T) {
-	fsINTF := newFieldStore(1, field.SumField)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fsINTF := newFieldStore("sum", 1, field.SumField)
 	fs := fsINTF.(*fieldStore)
 	// segments empty
 	fs.removeSStore(0)
 	fs.removeSStore(1)
+
 	// assert sorted
-	fs.insertSStore(1, nil)
-	fs.insertSStore(9, nil)
-	fs.insertSStore(2, nil)
-	fs.insertSStore(3, nil)
-	fs.insertSStore(7, nil)
-	fs.insertSStore(4, nil)
+	fs.insertSStore(getMockSStore(ctrl, 1))
+	fs.insertSStore(getMockSStore(ctrl, 9))
+	fs.insertSStore(getMockSStore(ctrl, 2))
+	fs.insertSStore(getMockSStore(ctrl, 3))
+	fs.insertSStore(getMockSStore(ctrl, 7))
+	fs.insertSStore(getMockSStore(ctrl, 5))
 	assert.True(t, sort.IsSorted(fs.sStoreNodes))
 	// remove greater
 	fs.removeSStore(10)

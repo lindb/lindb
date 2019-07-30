@@ -121,11 +121,11 @@ func Test_mStore_evict(t *testing.T) {
 	mockTStore4.EXPECT().isExpired().Return(true).AnyTimes()
 	// mock tagIndex
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
-	mockTagIdx.EXPECT().allTStores().Return(map[uint32]tStoreNode{
-		11: {tStoreINTF: mockTStore1, hash: 1},
-		22: {tStoreINTF: mockTStore2, hash: 2},
-		33: {tStoreINTF: mockTStore3, hash: 3},
-		44: {tStoreINTF: mockTStore3, hash: 4},
+	mockTagIdx.EXPECT().allTStores().Return(map[uint32]tStoreINTF{
+		11: mockTStore1,
+		22: mockTStore2,
+		33: mockTStore3,
+		44: mockTStore3,
 	})
 	mockTagIdx.EXPECT().getTStoreBySeriesID(uint32(33)).Return(mockTStore3, true).AnyTimes()
 	mockTagIdx.EXPECT().getTStoreBySeriesID(uint32(44)).Return(nil, false).AnyTimes()

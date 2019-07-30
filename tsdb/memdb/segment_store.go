@@ -13,6 +13,7 @@ import (
 // sStoreINTF represents segment-store,
 // which abstracts a store for storing field data based on family start time
 type sStoreINTF interface {
+	getFamilyTime() int64
 	slotRange() (startSlot, endSlot int, err error)
 	bytes() (data []byte, startSlot, endSlot int, err error)
 	writeInt(value int64, writeCtx writeContext)
@@ -21,17 +22,22 @@ type sStoreINTF interface {
 
 // singleFieldStore stores single field
 type simpleFieldStore struct {
-	block   block
-	aggFunc field.AggFunc
+	familyTime int64
+	block      block
+	aggFunc    field.AggFunc
 }
 
 // newSingleFieldStore returns a new segment store for simple field store
-func newSimpleFieldStore(aggFunc field.AggFunc) sStoreINTF {
+func newSimpleFieldStore(familyTime int64, aggFunc field.AggFunc) sStoreINTF {
 	return &simpleFieldStore{
-		aggFunc: aggFunc,
+		familyTime: familyTime,
+		aggFunc:    aggFunc,
 	}
 }
 
+func (fs *simpleFieldStore) getFamilyTime() int64 {
+	return fs.familyTime
+}
 func (fs *simpleFieldStore) AggFunc() field.AggFunc {
 	//TODO using type????
 	return fs.aggFunc

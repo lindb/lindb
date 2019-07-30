@@ -16,6 +16,8 @@ import (
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
+	// getHash returns the FNV1a hash of the tags
+	getHash() uint64
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// flushSeriesTo flushes the series data segment.
@@ -29,22 +31,17 @@ type tStoreINTF interface {
 	isNoData() bool
 }
 
-// fStoreNode is a wrapper of fStore interface and field-name
-type fStoreNode struct {
-	fieldName string
-	fStoreINTF
-}
-
 // fStoreNodes implements sort.Interface
-type fStoreNodes []fStoreNode
+type fStoreNodes []fStoreINTF
 
 func (f fStoreNodes) Len() int           { return len(f) }
-func (f fStoreNodes) Less(i, j int) bool { return f[i].fieldName < f[j].fieldName }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].getFieldName() < f[j].getFieldName() }
 func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
 	seriesID      uint32           // series id
+	hash          uint64           // hash of tags
 	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
 	lastWroteTime int64            // last write-time in milliseconds
 	startDelta    int32            // startTime = lastWroteTime + startDelta
@@ -54,28 +51,34 @@ type timeSeriesStore struct {
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
-func newTimeSeriesStore(seriesID uint32) tStoreINTF {
+func newTimeSeriesStore(seriesID uint32, tagsHash uint64) tStoreINTF {
 	return &timeSeriesStore{
 		seriesID:      seriesID,
+		hash:          tagsHash,
 		lastWroteTime: timeutil.Now(),
 		startDelta:    math.MaxInt32,
 		endDelta:      math.MaxInt32}
 }
 
+// getHash returns the FNV1a hash of the tags
+func (ts *timeSeriesStore) getHash() uint64 {
+	return ts.hash
+}
+
 // getFStore returns the fStore in this list from field-name.
 func (ts *timeSeriesStore) getFStore(fieldName string) (fStoreINTF, bool) {
 	idx := sort.Search(len(ts.fStoreNodes), func(i int) bool {
-		return ts.fStoreNodes[i].fieldName >= fieldName
+		return ts.fStoreNodes[i].getFieldName() >= fieldName
 	})
-	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].fieldName != fieldName {
+	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].getFieldName() != fieldName {
 		return nil, false
 	}
 	return ts.fStoreNodes[idx], true
 }
 
 // insertFStore inserts a new fStore to field list.
-func (ts *timeSeriesStore) insertFStore(fieldName string, fStore fStoreINTF) {
-	ts.fStoreNodes = append(ts.fStoreNodes, fStoreNode{fieldName: fieldName, fStoreINTF: fStore})
+func (ts *timeSeriesStore) insertFStore(fStore fStoreINTF) {
+	ts.fStoreNodes = append(ts.fStoreNodes, fStore)
 	sort.Sort(ts.fStoreNodes)
 }
 
@@ -185,8 +188,8 @@ func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.T
 		if err != nil {
 			return nil, err
 		}
-		fStore = newFieldStore(fieldID, fieldType)
-		ts.insertFStore(fieldName, fStore)
+		fStore = newFieldStore(fieldName, fieldID, fieldType)
+		ts.insertFStore(fStore)
 	}
 	return fStore, nil
 }
