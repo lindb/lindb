@@ -54,7 +54,7 @@ func (r *registry) Register(node models.Node) error {
 		return err
 	}
 	// register node info
-	path := pathutil.GetNodePath(r.prefix, node.String())
+	path := pathutil.GetNodePath(r.prefix, node.Indicator())
 	// register node if fail retry it
 	go r.register(path, nodeBytes)
 	return nil
@@ -62,7 +62,7 @@ func (r *registry) Register(node models.Node) error {
 
 // Deregister deregisters node info, remove it from active list
 func (r *registry) Deregister(node models.Node) error {
-	return r.repo.Delete(r.ctx, pathutil.GetNodePath(r.prefix, node.String()))
+	return r.repo.Delete(r.ctx, pathutil.GetNodePath(r.prefix, node.Indicator()))
 }
 
 // Close closes registry, releases resources

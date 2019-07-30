@@ -158,7 +158,7 @@ func (c *cluster) SaveShardAssign(databaseName string, shardAssign *models.Shard
 	for nodeID, taskParam := range tasks {
 		node := shardAssign.Nodes[nodeID]
 		params = append(params, task.ControllerTaskParam{
-			NodeID: node.String(),
+			NodeID: node.Indicator(),
 			Params: taskParam,
 		})
 	}

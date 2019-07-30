@@ -10,8 +10,8 @@ type Node struct {
 	Port uint16 `json:"port"`
 }
 
-// String returns node info string
-func (n *Node) String() string {
+// Indicator returns return node indicator's string
+func (n *Node) Indicator() string {
 	return fmt.Sprintf("%s:%d", n.IP, n.Port)
 }
 

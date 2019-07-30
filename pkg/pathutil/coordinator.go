@@ -32,6 +32,11 @@ func GetNodePath(prefix, node string) string {
 	return fmt.Sprintf("%s/%s", prefix, node)
 }
 
+// GetReplicaStatePath returns replica's state path
+func GetReplicaStatePath(node string) string {
+	return fmt.Sprintf("%s/%s", constants.ReplicaStatePath, node)
+}
+
 // GetName returns name, splits path and gets last path
 func GetName(path string) string {
 	_, name := filepath.Split(path)

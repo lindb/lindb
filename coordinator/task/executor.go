@@ -26,7 +26,7 @@ type Executor struct {
 func NewExecutor(ctx context.Context, node *models.Node, cli state.Repository) *Executor {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Executor{
-		keypfx:     fmt.Sprintf("/task-coordinator/%s/executor/%s/", version, node.String()),
+		keypfx:     fmt.Sprintf("/task-coordinator/%s/executor/%s/", version, node.Indicator()),
 		cli:        cli,
 		node:       node,
 		processors: map[Kind]*taskProcessor{},

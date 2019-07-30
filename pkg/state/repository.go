@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+//go:generate mockgen -source=./repository.go -destination=./repository_mock.go -package=state
+
 var (
 	// ErrNotExist represents key not exist
 	ErrNotExist = errors.New("not exist")
