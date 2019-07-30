@@ -301,7 +301,7 @@ func (r *runtime) startStateMachine() error {
 	}
 	r.stateMachine.storageState = storageStateMachine
 
-	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.repo)
+	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.node, r.repo)
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	})
 	agg.Aggregate(it)
 
-	except := map[int]float64{
+	expect := map[int]float64{
 		5: 5.5,
 		6: 5.5,
 		7: 5.5,
@@ -37,7 +37,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 
 	fieldIt := agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
-	AssertPrimitiveIt(t, fieldIt.Next(), except)
+	AssertPrimitiveIt(t, fieldIt.Next(), expect)
 	assert.Equal(t, uint16(15), fieldIt.ID())
 	assert.Equal(t, field.SumField, fieldIt.FieldType())
 	assert.False(t, fieldIt.HasNext())
@@ -51,7 +51,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	})
 	agg.Aggregate(it)
 
-	except = map[int]float64{
+	expect = map[int]float64{
 		5: 11,
 		6: 6.6,
 		7: 5.5,
@@ -60,7 +60,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 
 	fieldIt = agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
-	AssertPrimitiveIt(t, fieldIt.Next(), except)
+	AssertPrimitiveIt(t, fieldIt.Next(), expect)
 	assert.Equal(t, uint16(15), fieldIt.ID())
 	assert.Equal(t, field.SumField, fieldIt.FieldType())
 	assert.False(t, fieldIt.HasNext())

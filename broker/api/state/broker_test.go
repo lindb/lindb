@@ -15,6 +15,7 @@ import (
 func TestBrokerAPI_ListBrokerNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	node := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 2080}, OnlineTime: timeutil.Now()}
 	nodes := []models.ActiveNode{node}
 

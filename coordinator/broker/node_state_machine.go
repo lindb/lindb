@@ -20,6 +20,8 @@ import (
 // listens node online/offline change event
 type NodeStateMachine interface {
 	discovery.Listener
+	// GetCurrentNode returns the current broker node
+	GetCurrentNode() models.Node
 	// GetActiveNodes returns all active broker nodes
 	GetActiveNodes() []models.ActiveNode
 	// Close closes state machine, then releases resource
@@ -29,8 +31,9 @@ type NodeStateMachine interface {
 // nodeStateMachine implements node state machine interface,
 // watches active node path.
 type nodeStateMachine struct {
-	repo      state.Repository
-	discovery discovery.Discovery
+	currentNode models.Node
+	repo        state.Repository
+	discovery   discovery.Discovery
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -43,14 +46,15 @@ type nodeStateMachine struct {
 }
 
 // NewNodeStateMachine creates a node state machine, and starts discovery for watching node state change event
-func NewNodeStateMachine(ctx context.Context, repo state.Repository) (NodeStateMachine, error) {
+func NewNodeStateMachine(ctx context.Context, currentNode models.Node, repo state.Repository) (NodeStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &nodeStateMachine{
-		ctx:    c,
-		cancel: cancel,
-		repo:   repo,
-		nodes:  make(map[string]models.ActiveNode),
-		log:    logger.GetLogger("broker/node/state/machine"),
+		ctx:         c,
+		cancel:      cancel,
+		currentNode: currentNode,
+		repo:        repo,
+		nodes:       make(map[string]models.ActiveNode),
+		log:         logger.GetLogger("broker/node/state/machine"),
 	}
 	// new replica status discovery
 	stateMachine.discovery = discovery.NewDiscovery(repo, constants.ActiveNodesPath, stateMachine)
@@ -58,6 +62,11 @@ func NewNodeStateMachine(ctx context.Context, repo state.Repository) (NodeStateM
 		return nil, fmt.Errorf("discovery broker node error:%s", err)
 	}
 	return stateMachine, nil
+}
+
+// GetCurrentNode returns the current broker node
+func (s *nodeStateMachine) GetCurrentNode() models.Node {
+	return s.currentNode
 }
 
 // GetActiveNodes returns all active broker nodes
