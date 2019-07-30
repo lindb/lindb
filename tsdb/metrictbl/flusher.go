@@ -16,6 +16,7 @@ import (
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package metrictbl
 
 // TableFlusher is a wrapper of kv.Builder, provides ability to build a metric-table file to disk.
+// The layout is available in `tsdb/doc.go`
 // Level1: metric-block
 // Level2: TSEntry
 // Level3: compressed field data
