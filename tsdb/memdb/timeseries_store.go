@@ -2,6 +2,7 @@ package memdb
 
 import (
 	"math"
+	"sort"
 
 	"github.com/eleme/lindb/models"
 	"github.com/eleme/lindb/pkg/field"
@@ -28,16 +29,28 @@ type tStoreINTF interface {
 	isNoData() bool
 }
 
-// todo: @codingcrush, replace fields with slice
+// fStoreNode is a wrapper of fStore interface and field-name
+type fStoreNode struct {
+	fieldName string
+	fStoreINTF
+}
+
+// fStoreNodes implements sort.Interface
+type fStoreNodes []fStoreNode
+
+func (f fStoreNodes) Len() int           { return len(f) }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].fieldName < f[j].fieldName }
+func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
-	seriesID      uint32                // series id
-	fields        map[string]fStoreINTF // key: fieldName
-	lastWroteTime int64                 // last write-time in milliseconds
-	startDelta    int32                 // startTime = lastWroteTime + startDelta
-	endDelta      int32                 // endTime = lastWroteTime + endDelta
-	hasData       bool                  // noData flags symbols if all data has been flushed
-	sl            lockers.SpinLock      // spin-lock
+	seriesID      uint32           // series id
+	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
+	lastWroteTime int64            // last write-time in milliseconds
+	startDelta    int32            // startTime = lastWroteTime + startDelta
+	endDelta      int32            // endTime = lastWroteTime + endDelta
+	hasData       bool             // noData flags symbols if all data has been flushed
+	sl            lockers.SpinLock // spin-lock
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
@@ -46,8 +59,24 @@ func newTimeSeriesStore(seriesID uint32) tStoreINTF {
 		seriesID:      seriesID,
 		lastWroteTime: timeutil.Now(),
 		startDelta:    math.MaxInt32,
-		endDelta:      math.MaxInt32,
-		fields:        make(map[string]fStoreINTF)}
+		endDelta:      math.MaxInt32}
+}
+
+// getFStore returns the fStore in this list from field-name.
+func (ts *timeSeriesStore) getFStore(fieldName string) (fStoreINTF, bool) {
+	idx := sort.Search(len(ts.fStoreNodes), func(i int) bool {
+		return ts.fStoreNodes[i].fieldName >= fieldName
+	})
+	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].fieldName != fieldName {
+		return nil, false
+	}
+	return ts.fStoreNodes[idx], true
+}
+
+// insertFStore inserts a new fStore to field list.
+func (ts *timeSeriesStore) insertFStore(fieldName string, fStore fStoreINTF) {
+	ts.fStoreNodes = append(ts.fStoreNodes, fStoreNode{fieldName: fieldName, fStoreINTF: fStore})
+	sort.Sort(ts.fStoreNodes)
 }
 
 // isNoData symbols if all data of this tStore has been flushed
@@ -89,7 +118,7 @@ func (ts *timeSeriesStore) afterFlush(flushCtx flushContext) {
 	// update hasData flag
 	var startTime, endTime int64
 	ts.hasData = false
-	for _, fStore := range ts.fields {
+	for _, fStore := range ts.fStoreNodes {
 		timeRange, ok := fStore.timeRange(flushCtx.timeInterval)
 		if !ok {
 			continue
@@ -141,14 +170,14 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.Type,
 	writeCtx writeContext) (fStoreINTF, error) {
 
-	fStore, exist := ts.fields[fieldName]
-	if exist {
+	fStore, ok := ts.getFStore(fieldName)
+	if ok {
 		if fStore.getFieldType() != fieldType {
 			return nil, models.ErrWrongFieldType
 		}
 	} else {
 		// forbid creating new fStore when full
-		if len(ts.fields) >= maxFieldsLimit {
+		if len(ts.fStoreNodes) >= maxFieldsLimit {
 			return nil, models.ErrTooManyFields
 		}
 		// wrong field type
@@ -157,7 +186,7 @@ func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.T
 			return nil, err
 		}
 		fStore = newFieldStore(fieldID, fieldType)
-		ts.fields[fieldName] = fStore
+		ts.insertFStore(fieldName, fStore)
 	}
 	return fStore, nil
 }
@@ -165,7 +194,7 @@ func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.T
 // flushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) flushSeriesTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) (flushed bool) {
 	ts.sl.Lock()
-	for _, fStore := range ts.fields {
+	for _, fStore := range ts.fStoreNodes {
 		fieldDataFlushed := fStore.flushFieldTo(tableFlusher, flushCtx.familyTime)
 		flushed = flushed || fieldDataFlushed
 	}

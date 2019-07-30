@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/pkg/timeutil"
@@ -16,6 +15,8 @@ import (
 	"github.com/eleme/lindb/tsdb/index"
 	"github.com/eleme/lindb/tsdb/metrictbl"
 	"github.com/eleme/lindb/tsdb/series"
+
+	"github.com/segmentio/fasthash/fnv1a"
 )
 
 var memDBLogger = logger.GetLogger("memdb")
@@ -143,7 +144,7 @@ func (md *memoryDatabase) getBucket(metricHash uint64) *mStoresBucket {
 
 // getMStore returns the mStore by metric-name.
 func (md *memoryDatabase) getMStore(metricName string) (mStore mStoreINTF, ok bool) {
-	return md.getMStoreByMetricHash(hashers.Fnv64a(metricName))
+	return md.getMStoreByMetricHash(fnv1a.HashString64(metricName))
 }
 
 // getMStoreByMetricHash returns the mStore by metric-hash.
@@ -237,7 +238,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	familyStartTime := md.intervalCalc.CalFamilyStartTime(segmentTime, family)    // family timestamp
 	slotIndex := md.intervalCalc.CalSlot(timestamp, familyStartTime, md.interval) // slot offset of family
 
-	hash := hashers.Fnv64a(metric.Name)
+	hash := fnv1a.HashString64(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
 	// todo: @codingcrush, pass it as milliseconds
 	err = mStore.write(metric, writeContext{
