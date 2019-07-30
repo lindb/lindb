@@ -13,7 +13,7 @@ func TestPrimitiveSumFloatAgg(t *testing.T) {
 	agg.Aggregate(-1, 30.0)
 	agg.Aggregate(10, 30.0)
 
-	except := map[int]float64{1: 40.0}
+	expect := map[int]float64{1: 40.0}
 	it := agg.Iterator()
-	AssertPrimitiveIt(t, it, except)
+	AssertPrimitiveIt(t, it, expect)
 }

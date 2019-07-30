@@ -50,14 +50,14 @@ func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[in
 	return it
 }
 
-func AssertPrimitiveIt(t *testing.T, it field.PrimitiveIterator, except map[int]float64) {
+func AssertPrimitiveIt(t *testing.T, it field.PrimitiveIterator, expect map[int]float64) {
 	count := 0
 	for it.HasNext() {
 		timeSlot, value := it.Next()
-		assert.Equal(t, except[timeSlot], value)
+		assert.Equal(t, expect[timeSlot], value)
 		count++
 	}
-	assert.Equal(t, count, len(except))
+	assert.Equal(t, count, len(expect))
 }
 
 func generateFloatArray(values []float64) *collections.FloatArray {

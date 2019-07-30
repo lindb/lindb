@@ -18,7 +18,8 @@ func (n *Node) Indicator() string {
 	return fmt.Sprintf("%s:%d", n.IP, n.Port)
 }
 
-// ParseNode parses Node from indicator, if indicator is not in the form [ip]:port  or port is not valid num, return error.
+// ParseNode parses Node from indicator,
+// if indicator is not in the form [ip]:port  or port is not valid num, return error.
 func ParseNode(indicator string) (*Node, error) {
 	index := strings.Index(indicator, ":")
 	if index < 0 {
