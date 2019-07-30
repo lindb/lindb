@@ -63,7 +63,7 @@ Each shard contains a MemoryDatabase.
     +--------------+
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of ssTable━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric table━━━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
@@ -131,12 +131,12 @@ Level3(Fields Info, Fields Data)
 ┌─────────────────────────────────────────────────────────────────┬─────────────────────┐
 │               Fields Info                                       │   Fields Data       │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
-│StartTime │ EndTime  │ Length   │ BitArray │  Data1   │  Data2   │  Data1   │ Data2    │
-│ variant  │ variant  │ variant  │          │  Length  │  Length  │          │          │
+│StartTime │ EndTime  │ BitArray │ BitArray │  Data1   │  Data2   │  Data1   │ Data2    │
+│ (delta)  │ (delta)  │  Length  │          │  Length  │  Length  │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │ uvariant │ uvariant │ N Bytes  │ uvariant │ uvariant │ N Bytes  │ N Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-bit array example(10101001, 0001)
+bit array example(10101001, 1010100110101001)
 
 
 */

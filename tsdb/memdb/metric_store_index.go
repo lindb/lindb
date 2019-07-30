@@ -31,7 +31,7 @@ type tagIndexINTF interface {
 	// len returns the count of tStores
 	len() int
 	// allTStores returns the map of seriesID and tStores
-	allTStores() map[uint32]tStoreNode
+	allTStores() map[uint32]tStoreINTF
 	// flushMetricTo flush metric to the tableFlusher
 	flushMetricTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
 	// getVersion returns a version(uptime) of the index
@@ -49,16 +49,10 @@ type tagKVEntrySet struct {
 }
 
 // newTagKVEntrySet returns a new tagKVEntrySet
-func newTagKVEntrySet(tagKey string) *tagKVEntrySet {
-	return &tagKVEntrySet{
+func newTagKVEntrySet(tagKey string) tagKVEntrySet {
+	return tagKVEntrySet{
 		key:    tagKey,
 		values: make(map[string]*roaring.Bitmap)}
-}
-
-// tStoreNode is a wrapper of tStore-interface and a hash id.
-type tStoreNode struct {
-	tStoreINTF
-	hash uint64
 }
 
 // tagIndex implements tagIndexINTF,
@@ -67,8 +61,8 @@ type tStoreNode struct {
 type tagIndex struct {
 	// invertedIndex part for storing a mapping from tag-keys to the tsStore list,
 	// the purpose of this index is to allow fast filtering and querying
-	tagKVEntrySet   []*tagKVEntrySet
-	seriesID2TStore map[uint32]tStoreNode
+	tagKVEntrySet   []tagKVEntrySet
+	seriesID2TStore map[uint32]tStoreINTF
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
 	// the purpose of this index is to allow fast writing
 	hash2SeriesID map[uint64]uint32
@@ -80,7 +74,7 @@ type tagIndex struct {
 // newTagIndex returns a new tagIndexINTF with version.
 func newTagIndex() tagIndexINTF {
 	return &tagIndex{
-		seriesID2TStore: make(map[uint32]tStoreNode),
+		seriesID2TStore: make(map[uint32]tStoreINTF),
 		hash2SeriesID:   make(map[uint64]uint32),
 		version:         timeutil.Now()}
 }
@@ -105,7 +99,7 @@ func (index *tagIndex) insertNewTStore(tag string, newSeriesID uint32, tStore tS
 		entrySet.values[tagPair.Value] = bitMap
 	}
 	// insert to the id mapping
-	index.seriesID2TStore[newSeriesID] = tStoreNode{tStoreINTF: tStore, hash: fnv1a.HashString64(tag)}
+	index.seriesID2TStore[newSeriesID] = tStore
 	return nil
 }
 
@@ -116,7 +110,7 @@ func (index *tagIndex) getTagKeyEntry(tagKey string) (*tagKVEntrySet, bool) {
 	if offset >= len(index.tagKVEntrySet) || index.tagKVEntrySet[offset].key != tagKey {
 		return nil, false
 	}
-	return index.tagKVEntrySet[offset], true
+	return &index.tagKVEntrySet[offset], true
 }
 
 // getOrInsertTagKeyEntry get or insert a new entrySet, return error when tag keys exceeds the limit.
@@ -125,7 +119,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 	offset := sort.Search(length, func(i int) bool { return index.tagKVEntrySet[i].key >= tagKey })
 	// present in the slice
 	if offset < len(index.tagKVEntrySet) && index.tagKVEntrySet[offset].key == tagKey {
-		return index.tagKVEntrySet[offset], nil
+		return &index.tagKVEntrySet[offset], nil
 	}
 	if length >= defaultMaxTagKeys {
 		return nil, models.ErrTooManyTagKeys
@@ -139,7 +133,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 			return index.tagKVEntrySet[i].key < index.tagKVEntrySet[j].key
 		})
 	}
-	return newEntry, nil
+	return &newEntry, nil
 }
 
 // getTStore returns a tStoreINTF from string tags.
@@ -168,7 +162,7 @@ func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
 	}
 	// seriesID is not allocated before, assign a new one.
 	incrSeriesID := atomic.AddUint32(&index.idCounter, 1)
-	newTStore := newTimeSeriesStore(incrSeriesID)
+	newTStore := newTimeSeriesStore(incrSeriesID, fnv1a.HashString64(tags))
 	// bind relation of tag kv pairs to the tStore
 	err := index.insertNewTStore(tags, incrSeriesID, newTStore)
 	if err != nil {
@@ -196,10 +190,10 @@ func (index *tagIndex) removeTStores(seriesIDs ...uint32) {
 	}
 	// remove from seriesID2TStore
 	for _, id := range seriesIDs {
-		wrapper, ok := index.seriesID2TStore[id]
+		tStore, ok := index.seriesID2TStore[id]
 		if ok {
 			delete(index.seriesID2TStore, id)
-			tagHashes = append(tagHashes, wrapper.hash)
+			tagHashes = append(tagHashes, tStore.getHash())
 		}
 	}
 	// remove from forward index
@@ -214,7 +208,7 @@ func (index *tagIndex) len() int {
 }
 
 // allTStores returns the map of seriesID and tStores
-func (index *tagIndex) allTStores() map[uint32]tStoreNode {
+func (index *tagIndex) allTStores() map[uint32]tStoreINTF {
 	return index.seriesID2TStore
 }
 

@@ -83,12 +83,14 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
+	mockTStore1.EXPECT().getHash().Return(uint64(1)).AnyTimes()
 	mockTStore1.EXPECT().flushSeriesTo(gomock.Any(), gomock.Any()).Return(false).AnyTimes()
 	mockTStore2 := NewMocktStoreINTF(ctrl)
 	mockTStore2.EXPECT().flushSeriesTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
-	tagIdx.seriesID2TStore = map[uint32]tStoreNode{
-		1: {tStoreINTF: mockTStore1, hash: 1},
-		2: {tStoreINTF: mockTStore2, hash: 2},
+	mockTStore1.EXPECT().getHash().Return(uint64(2)).AnyTimes()
+	tagIdx.seriesID2TStore = map[uint32]tStoreINTF{
+		1: mockTStore1,
+		2: mockTStore2,
 	}
 	// FlushMetric ok
 	assert.Nil(t, tagIdxInterface.flushMetricTo(mockTF, flushContext{}))
@@ -107,20 +109,22 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 	tagIdxInterface.getOrCreateTStore("host=b22,zone=sz") // 7
 	tagIdxInterface.getOrCreateTStore("host=bcd,zone=sh") // 8
 
-	mockTStore1 := NewMocktStoreINTF(ctrl)
-	mockTStore1.EXPECT().timeRange().Return(timeutil.TimeRange{Start: 1000, End: 2000}, true).AnyTimes()
-	mockTStore2 := NewMocktStoreINTF(ctrl)
-	mockTStore2.EXPECT().timeRange().Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
-
-	newMap := make(map[uint32]tStoreNode)
+	newMap := make(map[uint32]tStoreINTF)
 	for seriesID, tStore := range tagIdx.seriesID2TStore {
+		mockTStore := NewMocktStoreINTF(ctrl)
+		mockTStore.EXPECT().getHash().Return(tStore.getHash()).AnyTimes()
+
+		var newStore tStoreINTF
 		if seriesID == 4 {
-			tStore.tStoreINTF = mockTStore2
+			mockTStore.EXPECT().timeRange().Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
+			newStore = mockTStore
 		} else {
-			tStore.tStoreINTF = mockTStore1
+			mockTStore.EXPECT().timeRange().Return(timeutil.TimeRange{Start: 1000, End: 2000}, true).AnyTimes()
+			newStore = mockTStore
 		}
-		newMap[seriesID] = tStore
+		newMap[seriesID] = newStore
 	}
+
 	tagIdx.seriesID2TStore = newMap
 	return tagIdxInterface
 }

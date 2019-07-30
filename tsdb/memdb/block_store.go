@@ -68,21 +68,13 @@ func (bs *blockStore) allocBlock(valueType field.ValueType) block {
 // allocIntBlock alloc int block from pool
 func (bs *blockStore) allocIntBlock() *intBlock {
 	block := bs.intBlockPool.Get()
-	b, ok := block.(*intBlock)
-	if ok {
-		return b
-	}
-	return nil
+	return block.(*intBlock)
 }
 
 // allocIntBlock alloc float block from pool
 func (bs *blockStore) allocFloatBlock() *floatBlock {
 	block := bs.floatBlockPool.Get()
-	b, ok := block.(*floatBlock)
-	if ok {
-		return b
-	}
-	return nil
+	return block.(*floatBlock)
 }
 
 // block represents a fixed size time window of metric data.
