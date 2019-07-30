@@ -7,12 +7,12 @@ import (
 	"sync/atomic"
 
 	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/timeutil"
 	"github.com/eleme/lindb/sql/stmt"
 	"github.com/eleme/lindb/tsdb/metrictbl"
 
 	"github.com/RoaringBitmap/roaring"
+	"github.com/segmentio/fasthash/fnv1a"
 )
 
 //go:generate mockgen -source ./metric_store_index.go -destination=./metric_store_index_mock_test.go -package memdb
@@ -31,7 +31,7 @@ type tagIndexINTF interface {
 	// len returns the count of tStores
 	len() int
 	// allTStores returns the map of seriesID and tStores
-	allTStores() map[uint32]tStoreINTFWithHash
+	allTStores() map[uint32]tStoreNode
 	// flushMetricTo flush metric to the tableFlusher
 	flushMetricTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
 	// getVersion returns a version(uptime) of the index
@@ -55,8 +55,8 @@ func newTagKVEntrySet(tagKey string) *tagKVEntrySet {
 		values: make(map[string]*roaring.Bitmap)}
 }
 
-// tStoreINTFWithHash is a wrapper of tStore-interface and a hash id.
-type tStoreINTFWithHash struct {
+// tStoreNode is a wrapper of tStore-interface and a hash id.
+type tStoreNode struct {
 	tStoreINTF
 	hash uint64
 }
@@ -68,7 +68,7 @@ type tagIndex struct {
 	// invertedIndex part for storing a mapping from tag-keys to the tsStore list,
 	// the purpose of this index is to allow fast filtering and querying
 	tagKVEntrySet   []*tagKVEntrySet
-	seriesID2TStore map[uint32]tStoreINTFWithHash
+	seriesID2TStore map[uint32]tStoreNode
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
 	// the purpose of this index is to allow fast writing
 	hash2SeriesID map[uint64]uint32
@@ -80,7 +80,7 @@ type tagIndex struct {
 // newTagIndex returns a new tagIndexINTF with version.
 func newTagIndex() tagIndexINTF {
 	return &tagIndex{
-		seriesID2TStore: make(map[uint32]tStoreINTFWithHash),
+		seriesID2TStore: make(map[uint32]tStoreNode),
 		hash2SeriesID:   make(map[uint64]uint32),
 		version:         timeutil.Now()}
 }
@@ -105,7 +105,7 @@ func (index *tagIndex) insertNewTStore(tag string, newSeriesID uint32, tStore tS
 		entrySet.values[tagPair.Value] = bitMap
 	}
 	// insert to the id mapping
-	index.seriesID2TStore[newSeriesID] = tStoreINTFWithHash{tStoreINTF: tStore, hash: hashers.Fnv64a(tag)}
+	index.seriesID2TStore[newSeriesID] = tStoreNode{tStoreINTF: tStore, hash: fnv1a.HashString64(tag)}
 	return nil
 }
 
@@ -144,7 +144,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 
 // getTStore returns a tStoreINTF from string tags.
 func (index *tagIndex) getTStore(tags string) (tStoreINTF, bool) {
-	hash := hashers.Fnv64a(tags)
+	hash := fnv1a.HashString64(tags)
 	theTagID, ok := index.hash2SeriesID[hash]
 	if ok {
 		return index.seriesID2TStore[theTagID], true
@@ -161,7 +161,7 @@ func (index *tagIndex) getTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool) {
 // getOrCreateTStore get or creates the tStore from string tags,
 // the tags is considered as a empty key-value pair while tags is nil.
 func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
-	hash := hashers.Fnv64a(tags)
+	hash := fnv1a.HashString64(tags)
 	seriesID, ok := index.hash2SeriesID[hash]
 	if ok {
 		return index.seriesID2TStore[seriesID], nil
@@ -214,7 +214,7 @@ func (index *tagIndex) len() int {
 }
 
 // allTStores returns the map of seriesID and tStores
-func (index *tagIndex) allTStores() map[uint32]tStoreINTFWithHash {
+func (index *tagIndex) allTStores() map[uint32]tStoreNode {
 	return index.seriesID2TStore
 }
 

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/pkg/hashers"
 	"github.com/eleme/lindb/pkg/interval"
 	"github.com/eleme/lindb/pkg/timeutil"
 	pb "github.com/eleme/lindb/rpc/proto/field"
 	"github.com/eleme/lindb/tsdb/index"
 
 	"github.com/golang/mock/gomock"
+	"github.com/segmentio/fasthash/fnv1a"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,7 +56,7 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	okCall2 := mockMStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	gomock.InOrder(errCall1, okCall2)
 	// load mock
-	hash := hashers.Fnv64a("test1")
+	hash := fnv1a.HashString64("test1")
 	md.getBucket(hash).hash2MStore[hash] = mockMStore
 	// write error
 	err := md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
@@ -90,7 +90,7 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 	mockMStore.EXPECT().resetVersion().Return(nil).AnyTimes()
 	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
-	hash := hashers.Fnv64a("cpu.load")
+	hash := fnv1a.HashString64("cpu.load")
 	md.getOrCreateMStore("cpu.load", hash)
 	md.getBucket(hash).hash2MStore[hash] = mockMStore
 	md.setLimitations(limitations)
@@ -151,7 +151,7 @@ func Test_MemoryDatabase_evict(t *testing.T) {
 	md.generator = mockGen
 	// prepare mStores
 	for i := 0; i < 1000; i++ {
-		md.getOrCreateMStore(strconv.Itoa(i), hashers.Fnv64a(strconv.Itoa(i)))
+		md.getOrCreateMStore(strconv.Itoa(i), fnv1a.HashString64(strconv.Itoa(i)))
 	}
 	// evict all
 	for _, store := range md.mStoresList {

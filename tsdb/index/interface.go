@@ -9,7 +9,7 @@ import (
 	"github.com/eleme/lindb/tsdb/series"
 )
 
-//go:generate mockgen -source ./index.go -destination=./index_mock.go -package=index
+//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=index
 
 var ErrNotExist = errors.New("not exist")
 

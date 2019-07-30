@@ -29,6 +29,7 @@ require (
 	github.com/mattn/go-isatty v0.0.8
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0 // indirect
+	github.com/segmentio/fasthash v1.0.0
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
