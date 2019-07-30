@@ -10,6 +10,7 @@ type Expr interface {
 
 // TagFilter represents tag filter for searching time series
 type TagFilter interface {
+	// TagKey returns the filter's tag key
 	TagKey() string
 }
 
@@ -81,7 +82,14 @@ func (e *InExpr) expr()     {}
 func (e *LikeExpr) expr()   {}
 func (e *RegexExpr) expr()  {}
 
+// TagKey returns the equals filter's tag key
 func (e *EqualsExpr) TagKey() string { return e.Key }
-func (e *InExpr) TagKey() string     { return e.Key }
-func (e *LikeExpr) TagKey() string   { return e.Key }
-func (e *RegexExpr) TagKey() string  { return e.Key }
+
+// TagKey returns the in filter's tag key
+func (e *InExpr) TagKey() string { return e.Key }
+
+// TagKey returns the like filter's tag key
+func (e *LikeExpr) TagKey() string { return e.Key }
+
+// TagKey returns the regex filter's tag key
+func (e *RegexExpr) TagKey() string { return e.Key }

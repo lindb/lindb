@@ -16,7 +16,7 @@ func NewStorageState() *StorageState {
 
 // AddActiveNode adds a node into active node list
 func (s *StorageState) AddActiveNode(node *Node) {
-	key := node.String()
+	key := node.Indicator()
 	_, ok := s.ActiveNodes[key]
 	if !ok {
 		s.ActiveNodes[key] = node
