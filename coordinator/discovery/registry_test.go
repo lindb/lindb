@@ -40,7 +40,7 @@ func (ts *testRegistrySuite) TestRegister(c *check.C) {
 	// wait register success
 	time.Sleep(500 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.String())
+	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
 	nodeInfo := models.Node{}
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
@@ -80,7 +80,7 @@ func (ts *testRegistrySuite) TestDeregister(c *check.C) {
 	// wait register success
 	time.Sleep(500 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.String())
+	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
 	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
 	nodeInfo := models.Node{}
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
