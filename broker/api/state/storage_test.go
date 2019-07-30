@@ -41,7 +41,7 @@ func (ts *testStorageAPISuite) TestStorageState(c *check.C) {
 
 	storageState := models.NewStorageState()
 	storageState.Name = "LinDB_Storage"
-	storageState.AddActiveNode(&models.Node{IP: "1.1.1.1", Port: 9000})
+	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 	srv := service.NewStorageStateService(repo)
 	_ = srv.Save("Test_LinDB", storageState)
 	time.Sleep(100 * time.Millisecond)
@@ -50,7 +50,7 @@ func (ts *testStorageAPISuite) TestStorageState(c *check.C) {
 	mock.DoRequest(test, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/storage/state",
-		HandlerFunc:    api.List,
+		HandlerFunc:    api.ListStorageCluster,
 		ExpectHTTPCode: 200,
 		ExpectResponse: []*models.StorageState{storageState},
 	})

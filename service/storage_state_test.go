@@ -26,7 +26,7 @@ func (ts *testStorageStateSRVSuite) TestStorageState(c *check.C) {
 	})
 	storageState := models.NewStorageState()
 	storageState.Name = "LinDB_Storage"
-	storageState.AddActiveNode(&models.Node{IP: "1.1.1.1", Port: 9000})
+	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 
 	srv := NewStorageStateService(repo)
 

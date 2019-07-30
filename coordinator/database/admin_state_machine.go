@@ -131,7 +131,7 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	//TODO need calc resource and pick related node for store data
 	var nodes = make(map[int]*models.Node)
 	for idx, node := range activeNodes {
-		nodes[idx] = node
+		nodes[idx] = &node.Node
 	}
 
 	var nodeIDs []int
@@ -167,7 +167,7 @@ func (sm *adminStateMachine) getNodes(clusterName string) (map[int]*models.Node,
 	}
 	var nodes = make(map[int]*models.Node)
 	for idx, node := range activeNodes {
-		nodes[idx] = node
+		nodes[idx] = &node.Node
 	}
 	return nodes, nil
 }

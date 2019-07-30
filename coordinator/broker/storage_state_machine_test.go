@@ -39,7 +39,7 @@ func (ts *testStorageStateMachineSuite) TestStorageState(c *check.C) {
 
 	storageState := models.NewStorageState()
 	storageState.Name = "LinDB_Storage"
-	storageState.AddActiveNode(&models.Node{IP: "1.1.1.1", Port: 9000})
+	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 	srv := service.NewStorageStateService(repo)
 	err = srv.Save("Test_LinDB", storageState)
 	if err != nil {
@@ -83,7 +83,7 @@ func (ts *testStorageStateMachineSuite) TestStorageState_Fail(c *check.C) {
 
 	storageState := models.NewStorageState()
 	storageState.Name = "Test_LinDB"
-	storageState.AddActiveNode(&models.Node{IP: "1.1.1.1", Port: 9000})
+	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 	srv := service.NewStorageStateService(repo)
 	err = srv.Save("Test_LinDB", storageState)
 	if err != nil {

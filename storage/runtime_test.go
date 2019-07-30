@@ -68,10 +68,10 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	if err != nil {
 		c.Fatal(err)
 	}
-	nodeInfo := models.Node{}
+	nodeInfo := models.ActiveNode{}
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
 
-	c.Assert(runtime.node, check.Equals, nodeInfo)
+	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
 
 	_ = storage.Stop()
 	c.Assert(server.Terminated, check.Equals, storage.State())
