@@ -164,16 +164,16 @@ func (vs *StoreVersionSet) recover() error {
 			return fmt.Errorf("recover data from manifest file error:%s", err)
 		}
 		editLog := &EditLog{}
-		unmalshalErr := editLog.unmarshal(record)
-		if unmalshalErr != nil {
-			return fmt.Errorf("unmarshal edit log data from manifest file error:%s", unmalshalErr)
+		unmarshalErr := editLog.unmarshal(record)
+		if unmarshalErr != nil {
+			return fmt.Errorf("unmarshal edit log data from manifest file error:%s", unmarshalErr)
 		}
 
 		familyID := editLog.familyID
 		if familyID == StoreFamilyID {
 			editLog.applyVersionSet(vs)
 		} else {
-			// find releted family version
+			// find related family version
 			familyVersion := vs.getFamilyVersion(familyID)
 			if familyVersion == nil {
 				return fmt.Errorf("cannot get family version by id:%d", familyID)
@@ -213,17 +213,17 @@ func (vs *StoreVersionSet) initJournal() error {
 		if err != nil {
 			return err
 		}
-		// need snapshot writes snaphot first
+		// need snapshot writes snapshot first
 		editLogs := vs.createSnapshot()
 		if err := vs.peresistEditLogs(writer, editLogs); err != nil {
 			return err
 		}
-		// make sure write snapshot success, importment!!!!!!!
+		// make sure write snapshot success, important!!!!!!!
 		// then set manifest file name into current file
 		if err := vs.setCurrent(manifestFileName); err != nil {
 			return err
 		}
-		// finally set version set's namifest writer
+		// finally set version set's manifest writer
 		vs.manifest = writer
 	}
 	return nil

@@ -1,4 +1,4 @@
-package query
+package parallel
 
 import "github.com/lindb/lindb/pkg/field"
 
@@ -16,4 +16,7 @@ type Executor interface {
 	// 1) plan query language
 	// 2) aggregator data from time series(memory/file/network)
 	Execute() <-chan field.GroupedTimeSeries
+
+	// Error returns the execution error
+	Error() error
 }

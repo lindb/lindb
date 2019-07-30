@@ -14,11 +14,11 @@ func TestFieldIterator(t *testing.T) {
 
 	it := newFieldIterator(uint16(111), field.SumField, []field.PrimitiveIterator{primitiveIt, primitiveIt1})
 
-	except := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
+	expect := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
 	assert.True(t, it.HasNext())
-	AssertPrimitiveIt(t, it.Next(), except)
+	AssertPrimitiveIt(t, it.Next(), expect)
 	assert.True(t, it.HasNext())
-	AssertPrimitiveIt(t, it.Next(), except)
+	AssertPrimitiveIt(t, it.Next(), expect)
 
 	assert.False(t, it.HasNext())
 	assert.Nil(t, it.Next())
@@ -29,8 +29,8 @@ func TestFieldIterator(t *testing.T) {
 func TestPrimitiveIterator(t *testing.T) {
 	it := newPrimitiveIterator(uint16(10), generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
-	except := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
-	AssertPrimitiveIt(t, it, except)
+	expect := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
+	AssertPrimitiveIt(t, it, expect)
 
 	assert.False(t, it.HasNext())
 	timeSlot, value := it.Next()

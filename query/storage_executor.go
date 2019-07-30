@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/aggregation"
@@ -37,8 +38,8 @@ type storageExecutor struct {
 	err error
 }
 
-// NewStorageExecutor creates execution which queries the data of storage engine
-func NewStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) Executor {
+// NewStorageExecutor creates the execution which queries the data of storage engine
+func NewStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
 	interval := query.Interval
 	if interval <= 0 {
 		//TODO use storage interval
@@ -103,6 +104,11 @@ func (e *storageExecutor) Execute() <-chan field.GroupedTimeSeries {
 		e.shardLevelSearch(shard)
 	}
 	return e.resultCh
+}
+
+// Error returns the execution error
+func (e *storageExecutor) Error() error {
+	return e.err
 }
 
 // shardLevelSearch searches data from shard

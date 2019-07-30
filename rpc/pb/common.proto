@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package common;
+
+enum TaskType {
+    UNKNOWN = 0;
+    Intermediate = 1;
+    Leaf = 2;
+}
+message TaskRequest {
+    string parentTaskID = 1;
+    int32 type = 2;
+    bytes physicalPlan = 3;
+    bytes payload = 4;
+}
+
+message TaskResponse {
+    string TaskID = 1;
+    bool completed = 2;
+    string errMsg = 3;
+    bytes payload = 4;
+}
+
+service TaskService {
+    rpc Handle (stream TaskRequest) returns (stream TaskResponse) {
+    }
+}

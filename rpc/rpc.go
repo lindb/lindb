@@ -14,9 +14,9 @@ import (
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
-//go:generate mockgen -source ./proto/storage/storage.pb.go -destination=./proto/storage/storage_mock.pb.go -package storage
-
-//go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package rpc
+//go:generate mockgen -source ./proto/storage/storage.pb.go -destination=./proto/storage/storage_mock.pb.go -package=storage
+//go:generate mockgen -source ./proto/common/common.pb.go -destination=./proto/common/common_mock.pb.go -package=common
+//go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
 
 const (
 	metaKeyLogicNode = "metaKeyLogicNode"
@@ -138,6 +138,7 @@ func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
 }
 
 // ServerStreamFactory represents a factory to get server stream.
+//TODO current only support one connection->stream, not support connection pool case
 type ServerStreamFactory interface {
 	// GetStream returns a ServerStream for a node.
 	GetStream(node models.Node) (grpc.ServerStream, bool)

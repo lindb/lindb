@@ -92,12 +92,12 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling2.AddFunctionType(function.Max)
 	downSampling3 := aggregation.NewAggregatorSpec(uint16(13), "c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Histogram)
-	except := map[uint16]*aggregation.AggregatorSpec{
+	expect := map[uint16]*aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
 		uint16(12): downSampling2,
 		uint16(13): downSampling3,
 	}
-	assert.Equal(t, except, storagePlan.fields)
+	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(11), uint16(12), uint16(13)}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
@@ -115,11 +115,11 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling3.AddFunctionType(function.Avg)
 	downSampling4 := aggregation.NewAggregatorSpec(uint16(14), "e", field.HistogramField)
 	downSampling4.AddFunctionType(function.Histogram)
-	except = map[uint16]*aggregation.AggregatorSpec{
+	expect = map[uint16]*aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
 		uint16(13): downSampling3,
 		uint16(14): downSampling4,
 	}
-	assert.Equal(t, except, storagePlan.fields)
+	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(11), uint16(13), uint16(14)}, storagePlan.getFieldIDs())
 }

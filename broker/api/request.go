@@ -53,5 +53,5 @@ func GetParamsFromRequest(paramsName string, r *http.Request, defaultValue strin
 	if !required {
 		return defaultValue, nil
 	}
-	return "", fmt.Errorf("could not find the param;[%s] values ", paramsName)
+	return "", fmt.Errorf("please input %s", paramsName)
 }

@@ -78,18 +78,16 @@ func newCluster(ctx context.Context,
 	for _, node := range nodeList {
 		cluster.addNode(node)
 	}
+	// set cluster name
+	cluster.clusterState.Name = cfg.Name
+	// saving new cluster state
+	cluster.saveClusterState()
 
 	// new storage active node discovery
 	cluster.discovery = discovery.NewDiscovery(repo, constants.ActiveNodesPath, cluster)
 	if err := cluster.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery active storage nodes error:%s", err)
 	}
-
-	// set cluster name
-	cluster.clusterState.Name = cfg.Name
-
-	// saving new cluster state
-	cluster.saveClusterState()
 
 	cluster.log.Info("init storage cluster success", logger.String("cluster", cluster.cfg.Name))
 	return cluster, nil

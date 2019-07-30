@@ -19,16 +19,18 @@ func TestNodeStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	currentNode := models.Node{IP: "1.1.1.2", Port: 2080}
 	eventCh := make(chan *state.Event)
 	repo := state.NewMockRepository(ctrl)
 	repo.EXPECT().WatchPrefix(gomock.Any(), constants.ActiveNodesPath).Return(eventCh)
 	repo.EXPECT().Close().Return(nil)
 
-	stateMachine, err := NewNodeStateMachine(context.TODO(), repo)
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, repo)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
+	assert.Equal(t, currentNode, stateMachine.GetCurrentNode())
 
 	// wrong event
 	sendEvent(eventCh, &state.Event{
