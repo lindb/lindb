@@ -1,4 +1,6 @@
-![lindb_logo.png](https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png)
+<p align="left">
+    <img width="400" src="https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png">
+</p>
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/eleme/lindb)](https://goreportcard.com/report/github.com/eleme/lindb)
 [![Travis CI Build Status](https://travis-ci.org/eleme/lindb.svg?branch=develop)](https://travis-ci.org/eleme/lindb)
