@@ -121,12 +121,6 @@ func mockStorage(ctl *gomock.Controller, db string, shardID int32, shard tsdb.Sh
 	return mockStorage
 }
 
-//func mockEngine(ctl *gomock.Controller, shardID int32, shard tsdb.Shard) tsdb.Engine {
-//	mockEngine := tsdb.NewMockEngine(ctl)
-//	mockEngine.EXPECT().GetShard(shardID).Return(shard)
-//	return mockEngine
-//}
-
 func mockShard(ctl *gomock.Controller) tsdb.Shard {
 	mockShard := tsdb.NewMockShard(ctl)
 	mockShard.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
@@ -134,5 +128,5 @@ func mockShard(ctl *gomock.Controller) tsdb.Shard {
 }
 
 func mockContext(db string, shardID uint32, node models.Node) context.Context {
-	return rpc.CreateIngoingContext(context.TODO(), db, shardID, node)
+	return rpc.CreateIncomingContext(context.TODO(), db, shardID, node)
 }

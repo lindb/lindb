@@ -199,6 +199,11 @@ func createOutgoingContextWithPairs(ctx context.Context, pairs ...string) contex
 	return metadata.NewOutgoingContext(ctx, metadata.Pairs(pairs...))
 }
 
+// createIncomingContextWithPairs creates outGoing context with key, value pairs, mainly for test.
+func createIncomingContextWithPairs(ctx context.Context, pairs ...string) context.Context {
+	return metadata.NewIncomingContext(ctx, metadata.Pairs(pairs...))
+}
+
 // createOutgoingContext creates outGoing context with provided parameters.
 // db is the database, shardID is the shard id for database,
 // logicNode is a client provided identification on server side.
@@ -210,12 +215,16 @@ func createOutgoingContext(ctx context.Context, db string, shardID uint32, logic
 		metaKeyShardID, strconv.Itoa(int(shardID)))
 }
 
-// CreateIngoingContext creates inGoging context with given parameters, mainly for test rpc server, mock ingoing context.
-func CreateIngoingContext(ctx context.Context, db string, shardID uint32, logicNode models.Node) context.Context {
+// CreateIncomingContext creates inGoging context with given parameters, mainly for test rpc server, mock ingoing context.
+func CreateIncomingContext(ctx context.Context, db string, shardID uint32, logicNode models.Node) context.Context {
 	return metadata.NewIncomingContext(ctx,
 		metadata.Pairs(metaKeyLogicNode, logicNode.Indicator(),
 			metaKeyDatabase, db,
 			metaKeyShardID, strconv.Itoa(int(shardID))))
+}
+
+func CreateIncomingContextWithNode(ctx context.Context, node models.Node) context.Context {
+	return createIncomingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
 }
 
 // getStringFromContext retrieving string metaValue from context for metaKey.

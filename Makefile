@@ -32,7 +32,7 @@ pre-test: ## go generate mock file.
 	./bin/golangci-lint run --skip-dirs=ci
 
 test:  pre-test ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
-	GO111MODULE=on go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
 deps:  ## Update vendor.
 	go mod verify

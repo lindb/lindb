@@ -1,125 +1,70 @@
 package handler
 
 import (
+	"context"
+	"io"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
 	"github.com/eleme/lindb/rpc"
 	"github.com/eleme/lindb/rpc/proto/storage"
 )
 
-var log = logger.GetLogger("handler/query_test")
-
 /**
-client -> connect, recv
-server register stream
-sever write
+query server
+register stream
+get stream
+deregister stream
 */
-func TestQueryStream(t *testing.T) {
-	query := NewQuery(rpc.NewServerStreamFactory())
+func TestQueryServerFactory_Register(t *testing.T) {
+	ctl := gomock.NewController(t)
 
-	sv := rpc.NewTCPServer(":9001")
-	gs := sv.GetServer()
+	mockServerStream := storage.NewMockQueryService_QueryServer(ctl)
 
-	storage.RegisterQueryServiceServer(gs, query)
-
-	go func() {
-		if err := sv.Start(); err != nil {
-			t.Error(err)
-		}
-	}()
-
-	logicNode := models.Node{
+	node := models.Node{
 		IP:   "1.1.1.1",
 		Port: 123,
 	}
-	cliFct := rpc.NewClientStreamFactory(logicNode)
-
-	remoteNode := models.Node{
-		IP:   "",
-		Port: 9001,
-	}
-
-	queryCli, err := cliFct.CreateQueryClient(remoteNode)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	done := make(chan struct{})
+
+	gomock.InOrder(
+		mockServerStream.EXPECT().Context().Return(buildContext(node)),
+		mockServerStream.EXPECT().Recv().DoAndReturn(func() (*storage.QueryRequest, error) {
+			<-done
+			return nil, io.EOF
+		}),
+	)
+
+	sfct := rpc.NewServerStreamFactory()
+
+	query := NewQuery(sfct)
+
 	go func() {
-		<-done
-		s, ok := query.fct.GetStream(logicNode)
-		if !ok {
-			t.Error("should exists")
-			return
-		}
-
-		sv := s.(storage.QueryService_QueryServer)
-
-		err = sv.Send(&storage.QueryResponse{
-			Msg: "server",
-		})
-
-		if err != nil {
+		if err := query.Query(mockServerStream); err != nil {
 			t.Error(err)
-			return
 		}
-		log.Info("server send")
 	}()
 
-	err = queryCli.Send(&storage.QueryRequest{
-		Msg: "client",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// wait for query.Query exec
+	time.Sleep(10 * time.Millisecond)
 
-	log.Info("client send")
+	assert.Equal(t, 1, len(sfct.Nodes()))
+	assert.Equal(t, node, sfct.Nodes()[0])
 
-	// wait for register connection
-	time.Sleep(20 * time.Millisecond)
+	stream, ok := sfct.GetStream(node)
+	assert.True(t, ok)
+
+	_, ok = stream.(storage.QueryService_QueryServer)
+	assert.True(t, ok)
+
 	close(done)
-
-	resp, err := queryCli.Recv()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	log.Info("client recv:" + resp.Msg)
-
-	err = queryCli.CloseSend()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// wait for DisConn
-	time.Sleep(100 * time.Millisecond)
-
-	assert.Equal(t, 0, len(query.fct.Nodes()))
-
 }
 
-func TestMap(t *testing.T) {
-	m := make(map[models.Node]string)
-
-	node1 := models.Node{
-		IP:   "123",
-		Port: 123,
-	}
-
-	node2 := models.Node{
-		IP:   "123",
-		Port: 123,
-	}
-
-	m[node1] = "node1"
-	m[node2] = "node2"
-
-	assert.Equal(t, len(m), 1)
-	assert.Equal(t, m[node1], "node2")
-
+func buildContext(logicNode models.Node) context.Context {
+	return rpc.CreateIncomingContextWithNode(context.TODO(), logicNode)
 }
