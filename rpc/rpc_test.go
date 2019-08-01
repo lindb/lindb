@@ -47,7 +47,7 @@ func TestContext(t *testing.T) {
 		IP:   "1.1.1.1",
 		Port: 123,
 	}
-	ctx := CreateIngoingContext(context.TODO(), "db", 0, node)
+	ctx := CreateIncomingContext(context.TODO(), "db", 0, node)
 
 	n, err := GetLogicNodeFromContext(ctx)
 	if err != nil {

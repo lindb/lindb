@@ -258,7 +258,8 @@ getClient cli1
 cli1 recv err
 getClient err
 getClient cli2
-cli2 recv
+close
+cli2 recv err and return
 */
 func TestReplicator_RecvError(t *testing.T) {
 	ctl := gomock.NewController(t)
@@ -269,12 +270,10 @@ func TestReplicator_RecvError(t *testing.T) {
 
 	done := make(chan struct{})
 	mockWriteCli2 := storage.NewMockWriteService_WriteClient(ctl)
-	gomock.InOrder(
-		mockWriteCli2.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
-			<-done
-			return nil, errors.New("recv error 2")
-		}),
-	)
+	mockWriteCli2.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done
+		return nil, errors.New("recv error 2")
+	})
 
 	mockFanOut := queue.NewMockFanOut(ctl)
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
@@ -291,12 +290,12 @@ func TestReplicator_RecvError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// too short sleep time will crash the test
-	time.Sleep(20*time.Millisecond + time.Second)
+	// re-conn will wait 1 second.
+	time.Sleep(100*time.Millisecond + time.Second)
 
 	rep.Stop()
 	close(done)
 
+	// wait for sendLoop recvLoop to exit.
 	time.Sleep(time.Second)
-
 }
