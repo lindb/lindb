@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/eleme/lindb/kv/table"
-	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/lockers"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/lockers"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.

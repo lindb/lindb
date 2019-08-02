@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/fileutil"
 
 	"github.com/stretchr/testify/assert"
 )

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/logger"
 
 	etcd "github.com/coreos/etcd/clientv3"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/eleme/lindb/cmd/lind"
+	"github.com/lindb/lindb/cmd/lind"
 )
 
 func main() {

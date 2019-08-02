@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/service"
 
-	"github.com/eleme/lindb/config"
-	"github.com/eleme/lindb/mock"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/service"
+	"gopkg.in/check.v1"
 )
 
 var testPath = "test_data"

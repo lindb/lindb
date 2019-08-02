@@ -1,4 +1,4 @@
-module github.com/eleme/lindb
+module github.com/lindb/lindb
 
 go 1.12
 

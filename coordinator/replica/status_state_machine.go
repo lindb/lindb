@@ -7,12 +7,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/coordinator/discovery"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/pathutil"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/pathutil"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./status_state_machine.go -destination=./status_state_machine_mock.go -package=replica

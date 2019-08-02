@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"path/filepath"
 
-	pb "github.com/eleme/lindb/rpc/proto/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/tsdb/index"
-	"github.com/eleme/lindb/tsdb/memdb"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
-//go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb -self_package=github.com/eleme/lindb/tsdb
+//go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb -self_package=github.com/lindb/lindb/tsdb
 
 const segmentPath = "segment"
 

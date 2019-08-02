@@ -6,9 +6,9 @@ import (
 	"hash/crc32"
 	"sync/atomic"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/field"
 
 	"github.com/RoaringBitmap/roaring"
 )

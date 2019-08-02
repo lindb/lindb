@@ -1,8 +1,8 @@
 package stmt
 
 import (
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // Query represents search statement

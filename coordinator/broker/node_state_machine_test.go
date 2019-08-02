@@ -9,10 +9,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestNodeStateMachine(t *testing.T) {

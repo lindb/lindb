@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/eleme/lindb/config"
+	"github.com/lindb/lindb/config"
 
-	"github.com/eleme/lindb/pkg/option"
-	"github.com/eleme/lindb/tsdb"
+	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/tsdb"
 )
 
 //go:generate mockgen -source ./storage.go -destination=./storage_mock.go -package service

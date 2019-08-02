@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/eleme/lindb/models"
+	"github.com/lindb/lindb/models"
 )
 
 // Shard assigment reference kafka partition assigment

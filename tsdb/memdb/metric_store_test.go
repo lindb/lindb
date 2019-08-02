@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"

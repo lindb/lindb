@@ -6,10 +6,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/eleme/lindb/coordinator/broker"
-	"github.com/eleme/lindb/mock"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestBrokerAPI_ListBrokerNodes(t *testing.T) {

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/stream"
-	"github.com/eleme/lindb/pkg/tree"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/tree"
 
 	"github.com/RoaringBitmap/roaring"
 	"go.uber.org/zap"

@@ -6,12 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 func TestBlockAlloc(t *testing.T) {
 	bs := newBlockStore(-1)
+	assert.NotNil(t, bs)
 	bs = newBlockStore(10)
 
 	// int block

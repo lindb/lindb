@@ -3,8 +3,8 @@ package encoding
 import (
 	"bytes"
 
-	"github.com/eleme/lindb/pkg/bit"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 // TSDEncoder encodes time series data point

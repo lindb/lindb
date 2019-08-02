@@ -3,11 +3,11 @@ package service
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 
-	"github.com/eleme/lindb/mock"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 type testDatabaseSRVSuite struct {

@@ -1,8 +1,8 @@
 package aggregation
 
 import (
-	"github.com/eleme/lindb/pkg/collections"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 type fieldIterator struct {

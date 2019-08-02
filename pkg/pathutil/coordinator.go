@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/eleme/lindb/constants"
+	"github.com/lindb/lindb/constants"
 )
 
 // GetStorageClusterConfigPath returns path which storing config of storage cluster

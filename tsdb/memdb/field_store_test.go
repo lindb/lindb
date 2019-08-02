@@ -5,8 +5,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/eleme/lindb/pkg/field"
-	pb "github.com/eleme/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/pkg/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

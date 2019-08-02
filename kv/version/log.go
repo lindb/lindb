@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	strm "github.com/eleme/lindb/pkg/stream"
+	strm "github.com/lindb/lindb/pkg/stream"
 )
 
 func init() {

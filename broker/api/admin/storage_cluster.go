@@ -3,9 +3,9 @@ package admin
 import (
 	"net/http"
 
-	"github.com/eleme/lindb/broker/api"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/service"
+	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/service"
 )
 
 // StorageClusterAPI represents storage cluster admin rest api

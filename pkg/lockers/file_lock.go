@@ -5,7 +5,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // FileLock is file lock

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/metrictbl"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/segmentio/fasthash/fnv1a"

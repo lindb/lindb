@@ -3,7 +3,7 @@ package tsdb
 import (
 	"github.com/RoaringBitmap/roaring"
 
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 //MetricUid represents metric name unique id under the database

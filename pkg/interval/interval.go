@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // Type defines interval type

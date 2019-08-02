@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/rpc/proto/field"
 )
 
 func TestPBModel(t *testing.T) {

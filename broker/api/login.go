@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/eleme/lindb/broker/middleware"
-	"github.com/eleme/lindb/models"
+	"github.com/lindb/lindb/broker/middleware"
+	"github.com/lindb/lindb/models"
 )
 
 // LoginAPI represents login param

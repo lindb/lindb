@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/queue/segment"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/queue/segment"
 )
 
 //go:generate mockgen -source ./fanout.go -destination ./fanout_mock.go -package queue

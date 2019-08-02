@@ -1,6 +1,6 @@
 package stmt
 
-import "github.com/eleme/lindb/pkg/function"
+import "github.com/lindb/lindb/pkg/function"
 
 // Expr represents a interface for all expression types
 type Expr interface {

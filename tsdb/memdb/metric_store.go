@@ -5,12 +5,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/metrictbl"
-	"github.com/eleme/lindb/tsdb/series"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock_test.go -package memdb

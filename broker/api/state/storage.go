@@ -3,8 +3,8 @@ package state
 import (
 	"net/http"
 
-	"github.com/eleme/lindb/broker/api"
-	"github.com/eleme/lindb/coordinator/broker"
+	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/coordinator/broker"
 )
 
 // StorageAPI represents query storage cluster's state api from broker state machine

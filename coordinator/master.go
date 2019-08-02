@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
-	coCtx "github.com/eleme/lindb/coordinator/context"
-	"github.com/eleme/lindb/coordinator/database"
-	"github.com/eleme/lindb/coordinator/elect"
-	"github.com/eleme/lindb/coordinator/storage"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
+	coCtx "github.com/lindb/lindb/coordinator/context"
+	"github.com/lindb/lindb/coordinator/database"
+	"github.com/lindb/lindb/coordinator/elect"
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // Master represents all metadata/state controller, only has one active master in broker cluster.

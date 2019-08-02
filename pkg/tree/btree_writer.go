@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 const (

@@ -3,8 +3,8 @@ package kv
 import (
 	"testing"
 
-	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/fileutil"
 
 	"github.com/stretchr/testify/assert"
 )

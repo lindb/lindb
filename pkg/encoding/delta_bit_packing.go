@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"math/bits"
 
-	"github.com/eleme/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/bit"
 )
 
 // reference:

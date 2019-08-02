@@ -7,7 +7,7 @@ import (
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
 
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // etcdRepository is repository based on etcd storage
