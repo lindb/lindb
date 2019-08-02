@@ -8,4 +8,4 @@ script:
     - make build
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash) -t 2cc83759-e383-4420-a1ff-4f11d4be99d9
+  - bash <(curl -s https://codecov.io/bash)
