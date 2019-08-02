@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/eleme/lindb/models"
+	"github.com/lindb/lindb/models"
 
 	"github.com/stretchr/testify/assert"
 )

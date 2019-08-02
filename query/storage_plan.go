@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/eleme/lindb/pkg/function"
-	"github.com/eleme/lindb/query/aggregation"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/query/aggregation"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/index"
 )
 
 // storageExecutePlan represents a storage level execute plan for data search,

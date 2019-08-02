@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/mock"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/pkg/util"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 )
 
 type address struct {

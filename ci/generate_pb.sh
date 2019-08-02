@@ -6,7 +6,7 @@ set -ex
 
 echo "generate pb file"
 
-GO_PREFIX_PATH=github.com/eleme/lindb/rpc/proto
+GO_PREFIX_PATH=github.com/lindb/lindb/rpc/proto
 
 function collect() {
     file=$(basename $1)

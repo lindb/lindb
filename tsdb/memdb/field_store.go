@@ -3,11 +3,11 @@ package memdb
 import (
 	"sort"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
-	"github.com/eleme/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/metrictbl"
 )
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock_test.go -package memdb

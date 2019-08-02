@@ -6,10 +6,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/sql"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
 )
 
 func TestStorageExecute_validation(t *testing.T) {

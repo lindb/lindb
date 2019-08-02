@@ -1,8 +1,8 @@
 package aggregation
 
 import (
-	"github.com/eleme/lindb/pkg/collections"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 // PrimitiveAggregator represents a primitive field aggregator under spec field aggregator.

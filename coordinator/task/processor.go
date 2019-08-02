@@ -10,8 +10,8 @@ import (
 	"github.com/damnever/goctl/retry"
 	"github.com/damnever/goctl/semaphore"
 
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // Processor is responsible for process actual tasks.

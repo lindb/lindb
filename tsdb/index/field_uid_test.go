@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/util"
 )
 
 func TestFieldUid_GetOrCreateFieldId(t *testing.T) {

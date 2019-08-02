@@ -5,9 +5,9 @@ import (
 	"math/bits"
 	"sync"
 
-	"github.com/eleme/lindb/pkg/bit"
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 //go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb

@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/coordinator/discovery"
-	"github.com/eleme/lindb/coordinator/storage"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // AdminStateMachine is database config controller,

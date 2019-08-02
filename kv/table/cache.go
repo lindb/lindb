@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 //TODO using lur cache?????

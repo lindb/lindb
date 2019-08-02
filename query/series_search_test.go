@@ -8,10 +8,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/sql"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/index"
-	"github.com/eleme/lindb/tsdb/series"
+	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestSampleCondition(t *testing.T) {

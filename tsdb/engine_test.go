@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 var testPath = "test_data"

@@ -3,10 +3,10 @@ package index
 import (
 	"errors"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/series"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=index

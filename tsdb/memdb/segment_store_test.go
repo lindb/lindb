@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

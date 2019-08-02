@@ -1,6 +1,6 @@
 package constants
 
-import "github.com/eleme/lindb/coordinator/task"
+import "github.com/lindb/lindb/coordinator/task"
 
 // defines common constants will be used in broker and storage
 const (

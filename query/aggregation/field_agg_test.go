@@ -6,9 +6,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/function"
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestFieldAggregator_Aggregate(t *testing.T) {

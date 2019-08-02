@@ -7,9 +7,9 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 
-	"github.com/eleme/lindb/pkg/bufioutil"
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/bufioutil"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 const (

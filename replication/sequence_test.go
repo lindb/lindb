@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 func TestSequence(t *testing.T) {

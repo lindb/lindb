@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/index"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

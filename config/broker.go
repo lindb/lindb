@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // Broker represents a broker configuration

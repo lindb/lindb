@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/pathutil"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/pathutil"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // ShardAssignService represents database shard assignment maintain

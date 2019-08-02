@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // Listener represents discovery resource event callback interface,

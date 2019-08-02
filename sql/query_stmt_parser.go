@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/eleme/lindb/pkg/collections"
-	"github.com/eleme/lindb/pkg/function"
-	"github.com/eleme/lindb/pkg/strutil"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/sql/grammar"
-	"github.com/eleme/lindb/sql/stmt"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 // queryStmtParse represents query statement parser using visitor

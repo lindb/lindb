@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/rpc/proto/storage"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
 //go:generate mockgen -source ./proto/storage/storage.pb.go -destination=./proto/storage/storage_mock.pb.go -package storage

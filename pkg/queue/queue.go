@@ -7,9 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/queue/segment"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/queue/segment"
 )
 
 const (

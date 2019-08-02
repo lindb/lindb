@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/coordinator/discovery"
-	"github.com/eleme/lindb/coordinator/task"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/pathutil"
-	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/service"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/pathutil"
+	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/service"
 )
 
 // Cluster represents storage cluster controller,

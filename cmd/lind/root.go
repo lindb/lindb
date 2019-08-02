@@ -13,7 +13,7 @@ const (
 /_____//_/   /_/ /_/ /_____/  /_____/  
 
 LinDB is a scalable, distributed, high performance, high availability Time Series Database, produced by Eleme-CI.
-Complete documentation is available at https://github.com/eleme/lindb
+Complete documentation is available at https://github.com/lindb/lindb
 `
 )
 

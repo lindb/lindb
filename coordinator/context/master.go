@@ -1,9 +1,9 @@
 package context
 
 import (
-	"github.com/eleme/lindb/coordinator/database"
-	"github.com/eleme/lindb/coordinator/storage"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/coordinator/database"
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // StateMachine represents all state machine for master

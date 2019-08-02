@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // StorageCluster represents config of storage cluster

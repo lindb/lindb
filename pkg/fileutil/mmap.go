@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 var log = logger.GetLogger("pkg/mmap")

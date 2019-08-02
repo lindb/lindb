@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-//go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb -self_package=github.com/eleme/lindb/tsdb
+//go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb -self_package=github.com/lindb/lindb/tsdb
 
 // IntervalSegment represents a interval segment, there are some segments in a shard.
 type IntervalSegment interface {

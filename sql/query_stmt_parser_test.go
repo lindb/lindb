@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/function"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/sql/stmt"
+	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestMetricName(t *testing.T) {

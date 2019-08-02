@@ -26,7 +26,7 @@ linters-settings:
     gofmt:
         simplify: true
     goimports:
-        local-prefixes: github.com/eleme/lindb
+        local-prefixes: github.com/lindb/lindb
     gocyclo:
         min-complexity: 16
     maligned:

@@ -11,13 +11,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/replication"
-	"github.com/eleme/lindb/rpc"
-	"github.com/eleme/lindb/rpc/proto/storage"
-	"github.com/eleme/lindb/service"
-	"github.com/eleme/lindb/tsdb"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/storage"
+	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {

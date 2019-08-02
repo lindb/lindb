@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 func TestFieldIterator(t *testing.T) {

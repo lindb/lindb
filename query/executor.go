@@ -1,6 +1,6 @@
 package query
 
-import "github.com/eleme/lindb/pkg/field"
+import "github.com/lindb/lindb/pkg/field"
 
 // Executor represents a query executor both storage/broker side.
 // When returning query results the following is the order in which processing takes place:

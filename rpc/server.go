@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 type TCPServer interface {

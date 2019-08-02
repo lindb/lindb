@@ -3,10 +3,10 @@ package index
 import (
 	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/tree"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/tree"
+	"github.com/lindb/lindb/pkg/util"
 )
 
 //MetricUid represents metric name unique id under the database

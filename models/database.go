@@ -1,6 +1,6 @@
 package models
 
-import "github.com/eleme/lindb/pkg/option"
+import "github.com/lindb/lindb/pkg/option"
 
 // Database defines database config, database can include multi-cluster
 type Database struct {

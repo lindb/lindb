@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/pkg/lockers"
-	"github.com/eleme/lindb/tsdb/index"
-	"github.com/eleme/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/pkg/lockers"
+	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/metrictbl"
 
 	"github.com/golang/mock/gomock"
 )

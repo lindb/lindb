@@ -1,8 +1,8 @@
 package aggregation
 
 import (
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/function"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/function"
 )
 
 // dummy value to keep field name unique

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/pathutil"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/pathutil"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // StorageClusterService defines storage cluster service interface

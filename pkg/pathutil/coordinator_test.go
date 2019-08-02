@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/constants"
+	"github.com/lindb/lindb/constants"
 )
 
 func TestGetName(t *testing.T) {

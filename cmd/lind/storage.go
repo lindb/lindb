@@ -4,9 +4,9 @@ import (
 	"fmt"
 	_ "net/http/pprof" // for profiling
 
-	"github.com/eleme/lindb/config"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/storage"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/storage"
 
 	"github.com/spf13/cobra"
 )
