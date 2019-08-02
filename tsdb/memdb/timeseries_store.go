@@ -4,12 +4,12 @@ import (
 	"math"
 	"sort"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/lockers"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
-	"github.com/eleme/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/lockers"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/metrictbl"
 )
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock_test.go -package memdb

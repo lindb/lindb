@@ -3,12 +3,12 @@ package query
 import (
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/query/aggregation"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb"
-	"github.com/eleme/lindb/tsdb/series"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/query/aggregation"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 // storageExecutor represents execution search logic in storage level,

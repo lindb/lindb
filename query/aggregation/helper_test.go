@@ -7,8 +7,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/collections"
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 ///////////////////////////////////////////////////

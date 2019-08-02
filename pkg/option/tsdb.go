@@ -3,7 +3,7 @@ package option
 import (
 	"time"
 
-	"github.com/eleme/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/interval"
 )
 
 // EngineOption represents a engine option include shard ids and shard's option

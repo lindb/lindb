@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/eleme/lindb/pkg/logger"
-	strm "github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/logger"
+	strm "github.com/lindb/lindb/pkg/stream"
 )
 
 // StoreFamilyID is store level edit log,

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/eleme/lindb/constants"
-	"github.com/eleme/lindb/coordinator/task"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/service"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/service"
 )
 
 // createShardProcessor represents create shard when receive task.

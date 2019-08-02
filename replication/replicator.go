@@ -7,11 +7,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/queue"
-	"github.com/eleme/lindb/rpc"
-	"github.com/eleme/lindb/rpc/proto/storage"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
 const (

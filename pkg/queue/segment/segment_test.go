@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/queue/page"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/queue/page"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 var closeFunc = func([]byte) error {

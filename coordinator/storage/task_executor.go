@@ -3,11 +3,11 @@ package storage
 import (
 	"context"
 
-	"github.com/eleme/lindb/coordinator/task"
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/state"
-	"github.com/eleme/lindb/service"
+	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/service"
 )
 
 // TaskExecutor represents storage node task executor.

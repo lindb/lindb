@@ -5,9 +5,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/tsdb"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/index"
 )
 
 ///////////////////////////////////////////////////

@@ -2,7 +2,7 @@
     <img width="400" src="https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png">
 </p>
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/eleme/lindb)](https://goreportcard.com/report/github.com/eleme/lindb)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
 [![Travis CI Build Status](https://travis-ci.org/eleme/lindb.svg?branch=develop)](https://travis-ci.org/eleme/lindb)
 [![codecov](https://codecov.io/gh/stone1100/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/stone1100/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
@@ -51,20 +51,20 @@ Once we implement the final feature and replace the LinDB under production envir
 
 ## Architecture
 
-![architecture](https://github.com/eleme/lindb/wiki/images/readme/lindb_architecture.jpg)
+![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
 
 ## Screenshots
-![home](https://github.com/eleme/lindb/wiki/images/readme/home.png)
-![search](https://github.com/eleme/lindb/wiki/images/readme/search.png)
-![explain](https://github.com/eleme/lindb/wiki/images/readme/explain.png)
-![database](https://github.com/eleme/lindb/wiki/images/readme/database.png)
+![home](https://github.com/lindb/lindb/wiki/images/readme/home.png)
+![search](https://github.com/lindb/lindb/wiki/images/readme/search.png)
+![explain](https://github.com/lindb/lindb/wiki/images/readme/explain.png)
+![database](https://github.com/lindb/lindb/wiki/images/readme/database.png)
 
 ## Contributing
 
 Contributions are welcomed and greatly appreciated. See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
 #### CI 
-Pull requests should be appropriately labeled, and linked to any relevant [bug or feature tracking issues](https://github.com/eleme/lindb/issues). 
+Pull requests should be appropriately labeled, and linked to any relevant [bug or feature tracking issues](https://github.com/lindb/lindb/issues). 
 All pull requests will run through Travis-CI. Community contributors should be able to see the outcome of this process by looking at the checks on their PR and fix the build errors.
 
 #### Static Analysis 

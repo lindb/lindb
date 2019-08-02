@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/bufioutil"
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/bufioutil"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 
 	"github.com/RoaringBitmap/roaring"
 )

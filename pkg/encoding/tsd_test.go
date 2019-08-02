@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/bit"
 )
 
 func TestCodec(t *testing.T) {

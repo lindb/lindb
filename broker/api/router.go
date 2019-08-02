@@ -8,7 +8,7 @@ import (
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 type route struct {

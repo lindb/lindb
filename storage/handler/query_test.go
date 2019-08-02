@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/storage"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/rpc"
-	"github.com/eleme/lindb/rpc/proto/storage"
 )
 
 /**

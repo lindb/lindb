@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/replication"
-	"github.com/eleme/lindb/rpc"
-	"github.com/eleme/lindb/rpc/proto/storage"
-	"github.com/eleme/lindb/service"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/storage"
+	"github.com/lindb/lindb/service"
 )
 
 // Writer implements the stream write service.

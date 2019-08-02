@@ -3,7 +3,7 @@ package tree
 import (
 	"bytes"
 
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 //Reader represents is used to parse B+Tree in the disk, support get and prefix query

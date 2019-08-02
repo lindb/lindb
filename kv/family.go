@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/eleme/lindb/kv/table"
-	"github.com/eleme/lindb/kv/version"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // Family implements column family for data isolation each family.

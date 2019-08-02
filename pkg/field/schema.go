@@ -1,6 +1,6 @@
 package field
 
-import "github.com/eleme/lindb/pkg/function"
+import "github.com/lindb/lindb/pkg/function"
 
 type schema interface {
 	getPrimitiveFields(funcType function.Type) map[uint16]AggType

@@ -1,6 +1,6 @@
 package field
 
-import "github.com/eleme/lindb/pkg/function"
+import "github.com/lindb/lindb/pkg/function"
 
 // ValueType represents primitive field's value type
 type ValueType int

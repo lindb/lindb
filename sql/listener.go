@@ -1,8 +1,8 @@
 package sql
 
 import (
-	"github.com/eleme/lindb/sql/grammar"
-	"github.com/eleme/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 type listener struct {

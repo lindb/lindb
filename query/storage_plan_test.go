@@ -6,12 +6,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/function"
-	"github.com/eleme/lindb/query/aggregation"
-	"github.com/eleme/lindb/sql"
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/query/aggregation"
+	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/index"
 )
 
 func TestStoragePlan_Metric(t *testing.T) {

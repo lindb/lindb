@@ -3,7 +3,7 @@ package page
 import (
 	"sync/atomic"
 
-	"github.com/eleme/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 // MappedPage represents a holder for mmap bytes.

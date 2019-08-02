@@ -11,9 +11,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/queue/page"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/queue/page"
 )
 
 const (

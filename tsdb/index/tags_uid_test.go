@@ -9,9 +9,9 @@ import (
 	"github.com/golang/snappy"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 func TestBitmap(t *testing.T) {

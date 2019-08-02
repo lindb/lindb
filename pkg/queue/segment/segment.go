@@ -6,9 +6,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/queue/page"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/queue/page"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 const (

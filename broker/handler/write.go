@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 
-	"github.com/eleme/lindb/replication"
-	"github.com/eleme/lindb/rpc/proto/broker"
+	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/rpc/proto/broker"
 )
 
 type Writer struct {

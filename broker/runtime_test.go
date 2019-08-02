@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 
-	"github.com/eleme/lindb/config"
-	"github.com/eleme/lindb/mock"
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/server"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/server"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 var brokerCfgPath = "./broker.toml"

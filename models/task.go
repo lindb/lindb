@@ -3,8 +3,8 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 // CreateShardTask represents create shard task param

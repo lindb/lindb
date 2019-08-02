@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/eleme/lindb/models"
-	"github.com/eleme/lindb/pkg/pathutil"
-	"github.com/eleme/lindb/pkg/state"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/pathutil"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 // StorageStateService represents storage cluster state maintain

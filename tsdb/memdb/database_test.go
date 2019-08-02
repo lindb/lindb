@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eleme/lindb/pkg/interval"
-	"github.com/eleme/lindb/pkg/timeutil"
-	pb "github.com/eleme/lindb/rpc/proto/field"
-	"github.com/eleme/lindb/tsdb/index"
+	"github.com/lindb/lindb/pkg/interval"
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/index"
 
 	"github.com/golang/mock/gomock"
 	"github.com/segmentio/fasthash/fnv1a"

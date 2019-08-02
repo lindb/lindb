@@ -1,9 +1,9 @@
 package query
 
 import (
-	"github.com/eleme/lindb/sql/stmt"
-	"github.com/eleme/lindb/tsdb/index"
-	"github.com/eleme/lindb/tsdb/series"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source=./series_search.go -destination=./series_search_mock.go -package=query

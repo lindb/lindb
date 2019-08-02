@@ -7,11 +7,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/eleme/lindb/kv"
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/logger"
-	"github.com/eleme/lindb/pkg/stream"
-	"github.com/eleme/lindb/pkg/util"
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/util"
 )
 
 //FieldUID represents field unique under the metric name.

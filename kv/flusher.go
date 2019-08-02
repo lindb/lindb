@@ -3,8 +3,8 @@ package kv
 import (
 	"fmt"
 
-	"github.com/eleme/lindb/kv/table"
-	"github.com/eleme/lindb/kv/version"
+	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package kv

@@ -1,9 +1,9 @@
 package queue
 
 import (
-	"github.com/eleme/lindb/pkg/fileutil"
-	"github.com/eleme/lindb/pkg/queue/page"
-	"github.com/eleme/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/queue/page"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 const int64Size = 8

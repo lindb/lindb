@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"math/bits"
 
-	"github.com/eleme/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/bit"
 )
 
 // reference facebook gorilla paper(https://www.vldb.org/pvldb/vol8/p1816-teller.pdf)

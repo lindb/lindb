@@ -3,7 +3,7 @@ package aggregation
 import (
 	"testing"
 
-	"github.com/eleme/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 func TestPrimitiveSumFloatAgg(t *testing.T) {

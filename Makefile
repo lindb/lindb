@@ -3,7 +3,7 @@
 # use the latest git tag as release-version
 GIT_TAG_NAME=$(shell git tag --sort=-creatordate|head -n 1)
 BUILD_TIME=$(shell date "+%Y-%m-%dT%H:%M:%S%z")
-LD_FLAGS=-ldflags="-X github.com/eleme/lindb/cmd/lind.version=$(GIT_TAG_NAME) -X github.com/eleme/lindb/cmd/lind.buildTime=$(BUILD_TIME)"
+LD_FLAGS=-ldflags="-X github.com/lindb/lindb/cmd/lind.version=$(GIT_TAG_NAME) -X github.com/lindb/lindb/cmd/lind.buildTime=$(BUILD_TIME)"
 
 # Ref: https://gist.github.com/prwhite/8168133
 help:  ## Display this help

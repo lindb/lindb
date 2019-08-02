@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestInit(t *testing.T) {

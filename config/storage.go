@@ -1,6 +1,6 @@
 package config
 
-import "github.com/eleme/lindb/pkg/state"
+import "github.com/lindb/lindb/pkg/state"
 
 // Storage represents a storage configuration
 type Storage struct {

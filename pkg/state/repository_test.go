@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/eleme/lindb/mock"
+	"github.com/lindb/lindb/mock"
 )
 
 func TestNewRepo(t *testing.T) {

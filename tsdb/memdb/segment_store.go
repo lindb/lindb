@@ -3,9 +3,9 @@ package memdb
 import (
 	"fmt"
 
-	"github.com/eleme/lindb/pkg/encoding"
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb

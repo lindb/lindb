@@ -1,9 +1,9 @@
 package aggregation
 
 import (
-	"github.com/eleme/lindb/pkg/field"
-	"github.com/eleme/lindb/pkg/timeutil"
-	"github.com/eleme/lindb/query/selector"
+	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/query/selector"
 )
 
 // FieldAggregator represents a field aggregator, aggregator the field series which with same field id
