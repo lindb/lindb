@@ -1,10 +1,12 @@
 <p align="left">
-    <img width="400" src="https://github.com/eleme/lindb/wiki/images/readme/lindb_logo.png">
+    <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
 
+[![LICENSE](https://img.shields.io/github/license/lindb/lindb)](https://github.com/lindb/lindb/blob/develop/LICENSE)
+[![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
-[![Travis CI Build Status](https://travis-ci.org/eleme/lindb.svg?branch=develop)](https://travis-ci.org/eleme/lindb)
-[![codecov](https://codecov.io/gh/stone1100/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/stone1100/lindb)
+[![Travis CI Build Status](https://travis-ci.org/lindb/lindb.svg?branch=develop)](https://travis-ci.org/lindb/lindb)
+[![codecov](https://codecov.io/gh/lindb/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 
 ## What is LinDB?
