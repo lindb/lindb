@@ -17,6 +17,8 @@ var ErrNotExist = errors.New("not exist")
 type IDGenerator interface {
 	// GenMetricID generates ID(uint32) from metricName
 	GenMetricID(metricName string) uint32
+	// GenTagID generates ID(uint32) from metricID + tagKey
+	GenTagID(metricID uint32, tagKey string) uint32
 	// GenFieldID generates ID(uint32) from metricID and fieldName
 	GenFieldID(metricID uint32, fieldName string, fieldType field.Type) (uint16, error)
 }

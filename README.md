@@ -11,7 +11,7 @@
 
 ## What is LinDB?
 
-LinDB("Lin" stands for wisdom in Shanghainese) is a open-source Time Series Database which provides high performance, high availability and horizontal scalability. 
+LinDB("Lin" stands for wisdom in Shanghainese) is an open-source Time Series Database which provides high performance, high availability and horizontal scalability. 
 
 LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes per day and 2.7PB total  raw data. 
 

@@ -70,32 +70,22 @@ Each shard contains a MemoryDatabase.
                    |  TagKV  |  TagKV  |  TagKV  |  TagKV  |  TagKV  | Footer  |
                    | EntrySet| EntrySet| EntrySet| Offset  |  Index  |         |
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                   \        |\        +----------------------------------------+
-                 /             \                   \       | +-----------------------------------------+       \
-                /               \                   \      +--------------------------------------+     \       \
-               /                 \                   +-----------------------+                     \     \       \
-  +-----------+                   +-----------------------------------+       \                     \     \       \
- /                 Level2                                              \       \                     \     \       \
-v--------+--------+-----------------+--------+--------+--------+--------v       v--------+---+--------v     v-------v
-| LOUDS  |Version1|Version2|Version1|Version2|TagValue|TagValue| CRC32  |       | Offset |...| Offset |     | TagKV |
-|TrieTree|        |        | Length | Length | Data1  | Data2  |CheckSum|       |        |   |        |     | Bitmap|
-+--------+--------+--------+--------+--------+--------+--------+--------+       +--------+---+--------+     +-------+
+                  /           \                   \        |\        +-------------------------------+
+                 /             \                   \       | +--------------------------------+       \
+                /               \                   \      +-----------------------------+     \       \
+               /                 \                   +--------------+                     \     \       \
+  +-----------+                   +--------------------------+       \                     \     \       \
+ /                 Level2                                     \       \                     \     \       \
+v--------+--------+--------+--------+--------+--------+--------v       v--------+---+--------v     v-------v
+| LOUDS  |TagValue| Data1  | Data2  |TagValue|TagValue| CRC32  |       | Offset |...| Offset |     | TagKV |
+|TrieTree| Count  | Length | Length | Data1  | Data2  |CheckSum|       |        |   |        |     | Bitmap|
++--------+--------+--------+--------+--------+--------+--------+       +--------+---+--------+     +-------+
 
 
 Level1(KV table: TagKV EntrySet, Offset, Keys)
 Level1 is same as metric-table as below
-Key: metricID+tagKey
+Key: tagID
 
-
-Level2(EntrySet Data)
-┌──────────────────────────────────────────────────────┐
-│                EntrySet Data                         │
-├──────────┬──────────┬──────────┬──────────┬──────────┤
-│ Version1 │  TagKV   │ TagValue │  ......  │  CRC32   │
-│ (int64)  │  Length  │   Data   │          │ CheckSum │
-├──────────┼──────────┼──────────┼──────────┼──────────┤
-│  4 Bytes │ uvariant │ N Bytes  │          │ 4 Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level2(LOUDS Encoded Trie Tree)
 ┌─────────────────────────────────────────────────────────────────┐
@@ -108,14 +98,14 @@ Level2(LOUDS Encoded Trie Tree)
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level2(Versioned TagValue Data)
-┌───────────────────────────────────────────┐
-│     Versioned TagValue Data               │
-├──────────┬──────────┬──────────┬──────────┤
-│TagValue1 │TagValue2 │TagValue1 │TagValue2 │
-│BitMapLen │BitMapLen │  BitMap  │  BitMap  │
-├──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ uvariant │  N Bytes │  N Bytes │
-└──────────┴──────────┴──────────┴──────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      Versioned TagValue Data                               │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│ Version  │ Version1 │ Version2 │ Version1 │ Version2 │TagValue1 │TagValue2 │
+│  Count   │ (Delta)  │ (Delta)  │  Length  │  Length  │  BitMap  │  BitMap  │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │ 4 Bytes  │ uvariant │ uvariant │ uvariant │ N Bytes  │  N Bytes │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Succinct trie tree(Example):
 (KEY Value: eleme:1, etcd:2, etrace:3)

@@ -19,6 +19,8 @@ import (
 
 // tagIndexINTF abstracts the index of tStores, not thread-safe
 type tagIndexINTF interface {
+	// getTagKVEntrySet returns the kv-entrySet for flushing index data.
+	getTagKVEntrySet() []tagKVEntrySet
 	// getTStore get tStore from string tags
 	getTStore(tags string) (tStoreINTF, bool)
 	// getTStoreBySeriesID get tStore from seriesID
@@ -64,7 +66,7 @@ type tagIndex struct {
 	tagKVEntrySet   []tagKVEntrySet
 	seriesID2TStore map[uint32]tStoreINTF
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
-	// the purpose of this index is to allow fast writing
+	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idCounter     uint32
 	// version is the uptime in milliseconds
@@ -77,6 +79,11 @@ func newTagIndex() tagIndexINTF {
 		seriesID2TStore: make(map[uint32]tStoreINTF),
 		hash2SeriesID:   make(map[uint64]uint32),
 		version:         timeutil.Now()}
+}
+
+// getTagKVEntrySet returns the kv-entrySet for flushing index data.
+func (index *tagIndex) getTagKVEntrySet() []tagKVEntrySet {
+	return index.tagKVEntrySet
 }
 
 // insertNewTStore binds a new tStore to the inverted index to the seriesID.

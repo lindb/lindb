@@ -231,3 +231,27 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	assert.Nil(t, md.flushFamilyTo(nil, 10))
 	assert.NotNil(t, md.flushFamilyTo(nil, 10))
 }
+
+func Test_FlushSeriesIndexTo(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	// test FlushSeriesIndexTo
+	mdINTF.FlushSeriesIndexTo(nil)
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	gomock.InOrder(
+		mockMStore.EXPECT().flushIndexesTo(gomock.Any(), gomock.Any()).Return(nil),
+		mockMStore.EXPECT().flushIndexesTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
+	)
+	// insert to bucket
+	md.getBucket(4).hash2MStore[1] = mockMStore
+	// test flushSeriesIndexTo
+	assert.Nil(t, md.flushSeriesIndexTo(nil))
+	assert.NotNil(t, md.flushSeriesIndexTo(nil))
+
+}

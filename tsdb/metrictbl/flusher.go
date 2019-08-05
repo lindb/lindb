@@ -33,11 +33,6 @@ type TableFlusher interface {
 
 // NewTableFlusher returns a new TableWriter, interval is used to calculate the time-range of field data slots.`
 func NewTableFlusher(flusher kv.Flusher, interval int64) TableFlusher {
-	return newTableFlusher(flusher, interval)
-}
-
-// newTableFlusher returns a new tableFlusher.
-func newTableFlusher(flusher kv.Flusher, interval int64) *tableFlusher {
 	return &tableFlusher{
 		interval:     interval,
 		flusher:      flusher,
