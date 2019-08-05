@@ -9,6 +9,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
 )
@@ -31,6 +33,8 @@ type mStoreINTF interface {
 	getTagsCount() int
 	// flushMetricsTo flushes metric-block of mStore to the writer.
 	flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
+	// flushIndexesTo flushes index of mStore to the writer
+	flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator index.IDGenerator) error
 	// resetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	resetVersion() error
@@ -188,6 +192,37 @@ func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flush
 	ms.mutex4Mutable.RLock()
 	err = ms.mutable.flushMetricTo(tableFlusher, flushCtx)
 	ms.mutex4Mutable.RUnlock()
+	return err
+}
+
+// flushIndexesTo flushes index of mStore to the writer
+func (ms *metricStore) flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator index.IDGenerator) error {
+	tagKeyData := make(map[string][]indextbl.VersionedTagKVEntrySet)
+	var err error
+
+	ms.mutex4Immutable.RLock()
+	ms.mutex4Mutable.RLock()
+	// build a data-structure for flush
+	for _, indexINTF := range ms.immutable {
+		for _, entrySet := range indexINTF.getTagKVEntrySet() {
+			tagKeyData[entrySet.key] = append(tagKeyData[entrySet.key], indextbl.VersionedTagKVEntrySet{
+				Version:  indexINTF.getVersion(),
+				EntrySet: entrySet.values})
+		}
+	}
+	for _, entrySet := range ms.mutable.getTagKVEntrySet() {
+		tagKeyData[entrySet.key] = append(tagKeyData[entrySet.key], indextbl.VersionedTagKVEntrySet{
+			Version:  ms.mutable.getVersion(),
+			EntrySet: entrySet.values})
+	}
+	// flush data of all indexes
+	for tagKey, data := range tagKeyData {
+		if err = tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, tagKey), data); err != nil {
+			break
+		}
+	}
+	ms.mutex4Mutable.RUnlock()
+	ms.mutex4Immutable.RUnlock()
 	return err
 }
 

@@ -115,11 +115,8 @@ func Test_TableFlusher(t *testing.T) {
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
 
-	tw0 := newTableFlusher(mockFlusher, 10)
-	assert.NotNil(t, tw0)
-
 	// add error
-	tw := newTableFlusher(mockFlusher, 10)
+	tw := NewTableFlusher(mockFlusher, 10)
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error"))
 	err := tw.FlushMetric(uint32(1))
 	assert.NotNil(t, err)
