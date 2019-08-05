@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/indextbl"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -165,6 +166,42 @@ func Test_mStore_flushMetricsTo_OK(t *testing.T) {
 
 	assert.Nil(t, mStoreInterface.flushMetricsTo(nil, flushContext{}))
 	assert.Nil(t, mStore.immutable)
+}
+
+func Test_mStore_flushIndexesTo(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// mock id generator
+	fakeKVEntrySet := []tagKVEntrySet{
+		{
+			key: "host", values: map[string]*roaring.Bitmap{"alpha": roaring.New(), "beta": roaring.New()},
+		},
+		{
+			key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "bj": roaring.New()},
+		}}
+	// mock tag index interface
+	mockTagIdx1 := NewMocktagIndexINTF(ctrl)
+	mockTagIdx1.EXPECT().getTagKVEntrySet().Return(fakeKVEntrySet).AnyTimes()
+	mockTagIdx1.EXPECT().getVersion().Return(int64(1)).AnyTimes()
+	mockTagIdx2 := NewMocktagIndexINTF(ctrl)
+	mockTagIdx2.EXPECT().getTagKVEntrySet().Return(fakeKVEntrySet).AnyTimes()
+	mockTagIdx2.EXPECT().getVersion().Return(int64(2)).AnyTimes()
+	// replace index of mStore with mocked
+	mStore.immutable = []tagIndexINTF{mockTagIdx1}
+	mStore.mutable = mockTagIdx2
+	// mock index-table series flusher
+	mockTableFlusher := indextbl.NewMockSeriesIndexFlusher(ctrl)
+	// assert mock result
+	gomock.InOrder(
+		mockTableFlusher.EXPECT().FlushTagKey(gomock.Any(), gomock.Any()).Return(fmt.Errorf("flush error")),
+		mockTableFlusher.EXPECT().FlushTagKey(gomock.Any(), gomock.Any()).Return(nil).AnyTimes(),
+	)
+	assert.NotNil(t, mStore.flushIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.Nil(t, mStore.flushIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 }
 
 func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {

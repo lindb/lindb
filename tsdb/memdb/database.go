@@ -13,6 +13,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
 
@@ -44,6 +45,8 @@ type MemoryDatabase interface {
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
 	FlushFamilyTo(flusher kv.Flusher, familyTime int64) error
+	// FlushSeriesIndexTo flushes the series tag and values to the kv builder
+	FlushSeriesIndexTo(flusher kv.Flusher) error
 	// SeriesIDsFilter contains the methods for filtering seriesIDs from memDB
 	index.SeriesIDsFilter
 }
@@ -389,6 +392,26 @@ func (md *memoryDatabase) flushFamilyTo(tableFlusher metrictbl.TableFlusher, fam
 		}
 		// remove familyTime from oldFamilyTimesList
 		delete(oldFamilyTimesList[bucketIndex], familyTime)
+	}
+	return nil
+}
+
+// FlushSeriesIndexTo flushes the series data to a index file.
+func (md *memoryDatabase) FlushSeriesIndexTo(flusher kv.Flusher) error {
+	return md.flushSeriesIndexTo(indextbl.NewSeriesIndexFlusher(flusher))
+}
+
+// flushSeriesIndexTo is the real method for flushing index, used for mock-test
+func (md *memoryDatabase) flushSeriesIndexTo(tableFlusher indextbl.SeriesIndexFlusher) error {
+	var err error
+	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
+		bkt := md.mStoresList[bucketIndex]
+		_, allMetricStores := bkt.allMetricStores()
+		for _, mStore := range allMetricStores {
+			if err = mStore.flushIndexesTo(tableFlusher, md.generator); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

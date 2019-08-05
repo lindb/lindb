@@ -47,6 +47,8 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	tagIdxInterface.getOrCreateTStore("g=33")
 	tagIdxInterface.getOrCreateTStore("h=33")
 
+	// getTagKVEntrySet test
+	assert.NotNil(t, tagIdxInterface.getTagKVEntrySet())
 }
 
 func Test_tagIndex_tStore_error(t *testing.T) {
