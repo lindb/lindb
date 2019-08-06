@@ -6,12 +6,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
@@ -36,7 +35,7 @@ type mStoreINTF interface {
 	// flushMetricsTo flushes metric-block of mStore to the writer.
 	flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
 	// flushIndexesTo flushes index of mStore to the writer
-	flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator index.IDGenerator) error
+	flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator indexdb.IDGenerator) error
 	// resetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	resetVersion() error
@@ -49,7 +48,7 @@ type mStoreINTF interface {
 
 // mStoreFieldIDGetter gets fieldID from fieldsMeta, and calls the id-generator when not exist
 type mStoreFieldIDGetter interface {
-	getFieldIDOrGenerate(fieldName string, fieldType field.Type, generator index.IDGenerator) (uint16, error)
+	getFieldIDOrGenerate(fieldName string, fieldType field.Type, generator indexdb.IDGenerator) (uint16, error)
 }
 
 // metricStore is composed of the immutable part and mutable part of indexes.
@@ -101,7 +100,7 @@ func newMetricStore(metricID uint32) mStoreINTF {
 
 // getFieldIDOrGenerate gets fieldID from fieldsMeta, and calls the id-generator when not exist
 func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Type,
-	generator index.IDGenerator) (uint16, error) {
+	generator indexdb.IDGenerator) (uint16, error) {
 
 	ms.mutex4Fields.RLock()
 	fm, ok := ms.fieldsMetas.getFieldMeta(fieldName)
@@ -111,7 +110,7 @@ func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Ty
 		if fm.fieldType == fieldType {
 			return fm.fieldID, nil
 		}
-		return 0, models.ErrWrongFieldType
+		return 0, ErrWrongFieldType
 	}
 	// not exist
 	ms.mutex4Fields.Lock()
@@ -123,7 +122,7 @@ func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Ty
 	}
 	// forbid creating new fStore when full
 	if len(ms.fieldsMetas) >= maxFieldsLimit {
-		return 0, models.ErrTooManyFields
+		return 0, ErrTooManyFields
 	}
 	// generate and check fieldType
 	newFieldID, err := generator.GenFieldID(ms.metricID, fieldName, fieldType)
@@ -145,7 +144,7 @@ func (ms *metricStore) getMetricID() uint32 {
 // write writes the metric to the tStore
 func (ms *metricStore) write(metric *pb.Metric, writeCtx writeContext) error {
 	if ms.isFull() {
-		return models.ErrTooManyTags
+		return ErrTooManyTags
 	}
 	var err error
 	tStore, ok := ms.getTStore(metric.Tags)
@@ -274,7 +273,7 @@ func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flush
 }
 
 // flushIndexesTo flushes index of mStore to the writer
-func (ms *metricStore) flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator index.IDGenerator) error {
+func (ms *metricStore) flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator indexdb.IDGenerator) error {
 	tagKeyData := make(map[string][]indextbl.VersionedTagKVEntrySet)
 	var err error
 

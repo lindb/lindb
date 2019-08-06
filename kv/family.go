@@ -18,8 +18,6 @@ type Family interface {
 	NewFlusher() Flusher
 	// GetSnapshot returns current version for given key, includes sst files
 	GetSnapshot(key uint32) (Snapshot, error)
-	// Lookup represents lookup value associated with the given key, by the extractor-function filter
-	Lookup(key uint32, extractorFunc func([]byte) bool)
 }
 
 // family implements Family interface
@@ -81,24 +79,6 @@ func (f *family) GetSnapshot(key uint32) (Snapshot, error) {
 		readers = append(readers, reader)
 	}
 	return newSnapshot(v, readers), nil
-}
-
-//Lookup represents lookup value associated with the given key, by the extractor-function filter
-func (f *family) Lookup(key uint32, extractorFunc func([]byte) bool) {
-	snapshot, err := f.GetSnapshot(key)
-	if nil != err {
-		f.logger.Error("lookup error:", logger.Error(err))
-		return
-	}
-	readers := snapshot.Readers()
-	for _, reader := range readers {
-		byteArray := reader.Get(key)
-		if nil != byteArray {
-			if extractorFunc(byteArray) {
-				return
-			}
-		}
-	}
 }
 
 // newTableBuilder creates table builder instance for storing kv data.

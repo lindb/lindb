@@ -11,7 +11,7 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-//go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package indextbl
+//go:generate mockgen -source ./series_flusher.go -destination=./series_flusher_mock.go -package indextbl
 
 // VersionedTagKVEntrySet is a entrySet related a specific tagKey and version.
 type VersionedTagKVEntrySet struct {

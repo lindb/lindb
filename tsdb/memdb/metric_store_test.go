@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 
@@ -63,7 +62,7 @@ func Test_mStore_isFull(t *testing.T) {
 	mockTagIdx.EXPECT().len().Return(10000000).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.Equal(t, models.ErrTooManyTags,
+	assert.Equal(t, ErrTooManyTags,
 		mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
 }
 
@@ -258,7 +257,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGen := index.NewMockIDGenerator(ctrl)
+	mockGen := indexdb.NewMockIDGenerator(ctrl)
 	// mock generate ok
 	mockGen.EXPECT().GenFieldID(uint32(100), "sum", field.SumField).Return(uint16(1), nil).AnyTimes()
 	fieldID, err := mStoreInterface.getFieldIDOrGenerate("sum", field.SumField, mockGen)
@@ -272,7 +271,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	assert.NotNil(t, err)
 	// mock generate failure
 	mockGen.EXPECT().GenFieldID(uint32(100), "gen-error", field.SumField).
-		Return(uint16(1), models.ErrWrongFieldType)
+		Return(uint16(1), ErrWrongFieldType)
 	_, err = mStoreInterface.getFieldIDOrGenerate("gen-error", field.SumField, mockGen)
 	assert.NotNil(t, err)
 
@@ -290,7 +289,7 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGen := index.NewMockIDGenerator(ctrl)
+	mockGen := indexdb.NewMockIDGenerator(ctrl)
 	// fields meta sort
 	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()

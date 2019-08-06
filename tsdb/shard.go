@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"path/filepath"
 
-	pb "github.com/lindb/lindb/rpc/proto/field"
-
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/index"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 )
 
-//go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb -self_package=github.com/lindb/lindb/tsdb
+//go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
 
 const segmentPath = "segment"
 
@@ -24,7 +23,7 @@ type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
 	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
 	// GetSeriesIDsFilter returns series index for searching series(tags)
-	GetSeriesIDsFilter() index.SeriesIDsFilter
+	GetSeriesIDsFilter() indexdb.SeriesIDsFilter
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
@@ -97,7 +96,7 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeR
 	return nil
 }
 
-func (s *shard) GetSeriesIDsFilter() index.SeriesIDsFilter {
+func (s *shard) GetSeriesIDsFilter() indexdb.SeriesIDsFilter {
 	//TODO need impl
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 
@@ -73,14 +72,14 @@ func Test_tStore_GenFieldID_error(t *testing.T) {
 	// mock id generator
 	mockGetter := NewMockmStoreFieldIDGetter(ctrl)
 	mockGetter.EXPECT().getFieldIDOrGenerate(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(uint16(1), models.ErrWrongFieldType).AnyTimes()
+		Return(uint16(1), ErrWrongFieldType).AnyTimes()
 	// error field type from generator
 	tStore.fStoreNodes = nil
 	err := tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
 		metricID:            1,
 		blockStore:          newBlockStore(30),
 		mStoreFieldIDGetter: mockGetter})
-	assert.Equal(t, models.ErrWrongFieldType, err)
+	assert.Equal(t, ErrWrongFieldType, err)
 }
 
 func Test_tStore_afterWrite(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
@@ -32,7 +32,7 @@ type Engine interface {
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
 	// GetMetadataGetter returns metadata getter for metric level metadata
-	GetMetadataGetter() index.MetadataGetter
+	GetMetadataGetter() indexdb.MetadataGetter
 	// Close closed engine then release resource
 	Close() error
 }
@@ -154,7 +154,7 @@ func (e *engine) GetShard(shardID int32) Shard {
 	return nil
 }
 
-func (e *engine) GetMetadataGetter() index.MetadataGetter {
+func (e *engine) GetMetadataGetter() indexdb.MetadataGetter {
 	//TODO need impl
 	return nil
 }

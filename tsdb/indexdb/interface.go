@@ -1,17 +1,13 @@
-package index
+package indexdb
 
 import (
-	"errors"
-
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/series"
 )
 
-//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=index
-
-var ErrNotExist = errors.New("not exist")
+//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
 
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
@@ -43,4 +39,12 @@ type SeriesIDsFilter interface {
 	// GetSeriesIDsForTag get series ids for spec metric's tag key
 	GetSeriesIDsForTag(metricID uint32, tagKey string,
 		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+}
+
+// IndexDatabase represents a database of index files,
+// it provides the abilities of generate id and getting meta data from the index.
+// See `tsdb/doc` for index file layout.
+type IndexDatabase interface {
+	IDGenerator
+	MetadataGetter
 }
