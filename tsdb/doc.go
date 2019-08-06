@@ -156,6 +156,71 @@ Values: [2, 1, 3]
                                                Value:3
 
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric index table━━━━━━━━━━━━━━━━━━━━━━━━
+Metric Index table is composed of 2 families: Metric Tree and Metric Meta:
+
+a) Metric Tree Table
+Metric-Tree is a LOUDS encoded succinct trie tree which
+provides the Rank&Select primitive for querying MetricID with metricName from the trie tree.
+
+                   Level1
+                   +---------+---------+---------+---------+
+                   | Metric  |  Meta   | Index   |  Footer |
+                   | Tree    |         |         |         |
+                   +---------+---------+---------+---------+
+
+
+Level1(Metric Tree)
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                  LOUDS Encoded Trie Tree                                         │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│ MetricID │  TagID   │  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │ MetricID │
+│ Sequence │ Sequence │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │   Data   │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ 4N Bytes │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+b) Metric Meta Table
+Metric-Meta stores meta info for metric,
+such as tagKey, tagID, fieldID, fieldName and fieldType etc.
+
+                   Level1
+                   +---------+---------+---------+---------+---------+---------+
+                   | Metric  | Metric  | Metric  | Metric  | Metric  | Footer  |
+                   | Meta    |  Meta   |  Meta   |  Meta   | Index   |         |
+                   +---------+---------+---------+---------+---------+---------+
+                  /           \        |         |\        +--------------+
+                 /             \       |         | +---------------+       \
+                /               \      |         +------------+     \       \
+               /                 \     +-+                     \     \       \
+  +-----------+                   \       \                     \     \       \
+ /                 Level2          \       \                     \     \       \
+v--------+--------+--------+--------v       v--------+---+--------v     v-------v
+| TagKey | TagKey | Field  | Field  |       | Offset |...| Offset |     | Metric|
+| Length |  Meta  | Length | Meta   |       |        |   |        |     | Bitmap|
++--------+--------+--------+--------+       +--------+---+--------+     +-------+
+
+Level2(TagKey Meta)
+┌─────────────────────────────────────────────────────────────────┐
+│                            TagKey Meta                          │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│  TagKey  │  TagKey  │  TagID   │  TagKey  │  TagKey  │  TagID   │
+│   Len    │          │          │   Len    │          │          │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │ N Bytes  │ 4 Bytes  │ 1 Bytes  │ N Bytes  │ 4 Bytes  │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+Level2(Field Meta)
+┌─────────────────────────────────────────────────────────────────┐
+│                            Field Meta                           │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │
+│   Len    │  Name    │  Type    │   Len    │  Name    │  Type    │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │ N Bytes  │ 1 Byte   │ uvariant │ N Bytes  │ 1 Byte   │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric table━━━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1

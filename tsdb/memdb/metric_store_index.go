@@ -129,7 +129,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 		return &index.tagKVEntrySet[offset], nil
 	}
 	if length >= defaultMaxTagKeys {
-		return nil, models.ErrTooManyTagKeys
+		return nil, ErrTooManyTagKeys
 	}
 	// not present
 	newEntry := newTagKVEntrySet(tagKey)

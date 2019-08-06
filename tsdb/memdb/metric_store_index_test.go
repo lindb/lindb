@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metrictbl"
@@ -60,7 +59,7 @@ func Test_tagIndex_tStore_error(t *testing.T) {
 	}
 	assert.Equal(t, 512, tagIdx.len())
 	_, err := tagIdxInterface.getOrCreateTStore("zone=nj")
-	assert.Equal(t, models.ErrTooManyTagKeys, err)
+	assert.Equal(t, ErrTooManyTagKeys, err)
 	assert.Equal(t, 512, tagIdx.len())
 	// remove tStores
 	tagIdx.removeTStores()

@@ -12,7 +12,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
@@ -48,7 +48,7 @@ type MemoryDatabase interface {
 	// FlushSeriesIndexTo flushes the series tag and values to the kv builder
 	FlushSeriesIndexTo(flusher kv.Flusher) error
 	// SeriesIDsFilter contains the methods for filtering seriesIDs from memDB
-	index.SeriesIDsFilter
+	indexdb.SeriesIDsFilter
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
@@ -112,7 +112,7 @@ type memoryDatabase struct {
 	once4Syncer   sync.Once                              // once for tags-limitation syncer
 	metricID2Hash sync.Map                               // key: metric-id(uint32), value: hash(uint64)
 	mStoresList   [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
-	generator     index.IDGenerator                      // the generator for generating ID of metric, field
+	generator     indexdb.IDGenerator                    // the generator for generating ID of metric, field
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -225,7 +225,7 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 // writeContext holds the context for writing
 type writeContext struct {
 	blockStore   *blockStore
-	generator    index.IDGenerator
+	generator    indexdb.IDGenerator
 	metricID     uint32
 	familyTime   int64
 	slotIndex    int

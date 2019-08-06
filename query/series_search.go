@@ -2,7 +2,7 @@ package query
 
 import (
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/series"
 )
 
@@ -21,13 +21,13 @@ type seriesSearch struct {
 	metricID uint32
 	query    *stmt.Query
 
-	filter index.SeriesIDsFilter
+	filter indexdb.SeriesIDsFilter
 
 	err error
 }
 
 // newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(metricID uint32, filter index.SeriesIDsFilter, query *stmt.Query) *seriesSearch {
+func newSeriesSearch(metricID uint32, filter indexdb.SeriesIDsFilter, query *stmt.Query) *seriesSearch {
 	return &seriesSearch{
 		metricID: metricID,
 		filter:   filter,
