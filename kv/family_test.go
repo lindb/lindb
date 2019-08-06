@@ -54,36 +54,3 @@ func TestCommitEditLog(t *testing.T) {
 	}
 	assert.True(t, ok)
 }
-
-func TestFamily_Lookup(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
-	defer fileutil.RemoveDir(testKVPath)
-
-	var kv, _ = NewStore("test_kv", option)
-	defer kv.Close()
-
-	f, _ := kv.CreateFamily("f", FamilyOption{})
-
-	keys := []string{
-		"apple",
-		"orange",
-		"apple pie",
-		"lemon meringue",
-		"lemon",
-	}
-	flusher := f.NewFlusher()
-	for idx, k := range keys {
-		flusher.Add(uint32(idx), []byte(k))
-	}
-
-	flusher.Commit()
-
-	for idx, k := range keys {
-		key := k
-		f.Lookup(uint32(idx), func(byteArray []byte) bool {
-			assert.Equal(t, []byte(key), byteArray)
-			return true
-		})
-	}
-
-}

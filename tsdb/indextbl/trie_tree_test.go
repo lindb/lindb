@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/RoaringBitmap/roaring"
-
 	"github.com/stretchr/testify/assert"
 )
 

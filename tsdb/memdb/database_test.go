@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/index"
+	"github.com/lindb/lindb/tsdb/indexdb"
 
 	"github.com/golang/mock/gomock"
 	"github.com/segmentio/fasthash/fnv1a"
@@ -37,7 +37,7 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	// mock generator
-	mockGen := index.NewMockIDGenerator(ctrl)
+	mockGen := indexdb.NewMockIDGenerator(ctrl)
 	count := uint32(0)
 	mockGen.EXPECT().GenMetricID("test1").
 		Do(func() {
@@ -142,7 +142,7 @@ func Test_MemoryDatabase_evict(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// mock generator
-	mockGen := index.NewMockIDGenerator(ctrl)
+	mockGen := indexdb.NewMockIDGenerator(ctrl)
 	for i := 0; i < 1000; i++ {
 		mockGen.EXPECT().GenMetricID(strconv.Itoa(i)).Return(uint32(i)).AnyTimes()
 	}

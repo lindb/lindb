@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
@@ -59,7 +58,7 @@ func TestWrite(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	gomock.InOrder(
 		mockMemDB.EXPECT().Write(gomock.Any()).Return(nil),
-		mockMemDB.EXPECT().Write(gomock.Any()).Return(models.ErrTooManyTags),
+		mockMemDB.EXPECT().Write(gomock.Any()).Return(memdb.ErrTooManyTags),
 	)
 
 	shardINTF, _ := newShard(1, path, option.ShardOption{
