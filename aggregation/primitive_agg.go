@@ -17,7 +17,7 @@ type PrimitiveAggregator interface {
 // primitiveAggregator implements primitive aggregator interface, using array for storing aggregation result
 type primitiveAggregator struct {
 	id         uint16
-	values     *collections.FloatArray
+	values     collections.FloatArray
 	pointCount int
 	aggFunc    field.AggFunc
 }

@@ -4,8 +4,10 @@ package field
 
 // TimeSeries represents an iterator for the time series data
 type TimeSeries interface {
-	// Iterator returns the field's iterator
-	Iterator() Iterator
+	// HasNext returns if the iteration has more field's iterator
+	HasNext() bool
+	// Next returns the field's iterator
+	Next() Iterator
 }
 
 // GroupedTimeSeries represents a iterator for the grouped time series data
@@ -26,9 +28,11 @@ type MultiTimeSeries interface {
 
 // Iterator represents a field's data iterator, support multi field for one series
 type Iterator interface {
-	// ID returns the field id
+	// ID returns the field's id
 	ID() uint16
-	// FieldType returns the type of field
+	// Name return the field's name
+	Name() string
+	// FieldType returns the field's type
 	FieldType() Type
 	// HasNext returns if the iteration has more fields
 	HasNext() bool

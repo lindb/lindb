@@ -23,6 +23,11 @@ func newFieldIterator(id uint16, fieldType field.Type, its []field.PrimitiveIter
 	}
 }
 
+func (it *fieldIterator) Name() string {
+	//TODO need impl
+	return ""
+}
+
 func (it *fieldIterator) ID() uint16 {
 	return it.id
 }
@@ -47,11 +52,11 @@ func (it *fieldIterator) Next() field.PrimitiveIterator {
 // primitiveIterator represents primitive iterator using array
 type primitiveIterator struct {
 	id uint16
-	it *collections.FloatArrayIterator
+	it collections.FloatArrayIterator
 }
 
 // newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id uint16, values *collections.FloatArray) field.PrimitiveIterator {
+func newPrimitiveIterator(id uint16, values collections.FloatArray) field.PrimitiveIterator {
 	it := &primitiveIterator{
 		id: id,
 	}

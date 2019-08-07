@@ -1,8 +1,8 @@
 package aggregation
 
 import (
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/pkg/function"
 )
 
 // dummy value to keep field name unique
@@ -14,7 +14,7 @@ type AggregatorSpec struct {
 	fieldID   uint16
 	fieldName string
 	fieldType field.Type
-	functions map[function.Type]bool
+	functions map[function.FuncType]bool
 }
 
 func NewAggregatorSpec(fieldID uint16, fieldName string, fieldType field.Type) *AggregatorSpec {
@@ -22,18 +22,18 @@ func NewAggregatorSpec(fieldID uint16, fieldName string, fieldType field.Type) *
 		fieldID:   fieldID,
 		fieldName: fieldName,
 		fieldType: fieldType,
-		functions: make(map[function.Type]bool),
+		functions: make(map[function.FuncType]bool),
 	}
 }
 
-func (a *AggregatorSpec) AddFunctionType(funcType function.Type) {
+func (a *AggregatorSpec) AddFunctionType(funcType function.FuncType) {
 	_, exist := a.functions[funcType]
 	if !exist {
 		a.functions[funcType] = dummy
 	}
 }
 
-func DownSamplingFunc(fieldType field.Type) function.Type {
+func DownSamplingFunc(fieldType field.Type) function.FuncType {
 	switch fieldType {
 	case field.SumField:
 		return function.Sum
@@ -48,7 +48,7 @@ func DownSamplingFunc(fieldType field.Type) function.Type {
 	}
 }
 
-func IsSupportFunc(fieldType field.Type, funcType function.Type) bool {
+func IsSupportFunc(fieldType field.Type, funcType function.FuncType) bool {
 	switch fieldType {
 	case field.SumField:
 		switch funcType {
