@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/function"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -63,8 +63,8 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type:   function.Sum,
-					Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}},
+					FuncType: function.Sum,
+					Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}},
 				},
 			},
 		},
@@ -78,10 +78,10 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type: function.Max,
+					FuncType: function.Max,
 					Params: []stmt.Expr{&stmt.CallExpr{
-						Type:   function.Sum,
-						Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+						FuncType: function.Sum,
+						Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 					},
 				},
 			},
@@ -93,22 +93,22 @@ func TestComplexSelectItem(t *testing.T) {
 		[]stmt.Expr{
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type:   function.Min,
-					Params: []stmt.Expr{&stmt.FieldExpr{Name: "a"}},
+					FuncType: function.Min,
+					Params:   []stmt.Expr{&stmt.FieldExpr{Name: "a"}},
 				},
 			},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type:   function.Avg,
-					Params: []stmt.Expr{&stmt.FieldExpr{Name: "b"}},
+					FuncType: function.Avg,
+					Params:   []stmt.Expr{&stmt.FieldExpr{Name: "b"}},
 				},
 			},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type: function.Max,
+					FuncType: function.Max,
 					Params: []stmt.Expr{&stmt.CallExpr{
-						Type:   function.Sum,
-						Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+						FuncType: function.Sum,
+						Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 					},
 				},
 			},
@@ -123,13 +123,13 @@ func TestComplexSelectItem(t *testing.T) {
 			&stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "b"}},
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type: function.Stddev,
+					FuncType: function.Stddev,
 					Params: []stmt.Expr{
 						&stmt.CallExpr{
-							Type: function.Max,
+							FuncType: function.Max,
 							Params: []stmt.Expr{&stmt.CallExpr{
-								Type:   function.Sum,
-								Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+								FuncType: function.Sum,
+								Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 							},
 						},
 					},
@@ -151,12 +151,12 @@ func TestMathExpress(t *testing.T) {
 		[]stmt.Expr{
 			&stmt.SelectItem{
 				Expr: &stmt.CallExpr{
-					Type: function.Max,
+					FuncType: function.Max,
 					Params: []stmt.Expr{
 						&stmt.BinaryExpr{
 							Left: &stmt.CallExpr{
-								Type:   function.Sum,
-								Params: []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+								FuncType: function.Sum,
+								Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
 							Operator: stmt.ADD,
 							Right: &stmt.BinaryExpr{
 								Left: &stmt.BinaryExpr{

@@ -77,6 +77,7 @@ func (a *fieldAggregator) Aggregate(it field.Iterator) {
 			continue
 		}
 		primitiveFieldID := primitiveIt.ID()
+		//TODO multi-aggs
 		aggregator, ok := a.aggregates[primitiveFieldID]
 		if !ok {
 			continue

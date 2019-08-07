@@ -1,9 +1,11 @@
 package field
 
-import "github.com/lindb/lindb/pkg/function"
+import (
+	"github.com/lindb/lindb/aggregation/function"
+)
 
 type schema interface {
-	getPrimitiveFields(funcType function.Type) map[uint16]AggType
+	getPrimitiveFields(funcType function.FuncType) map[uint16]AggType
 }
 
 type sumSchema struct {
@@ -16,7 +18,7 @@ func newSumSchema() schema {
 	}
 }
 
-func (s *sumSchema) getPrimitiveFields(funcType function.Type) map[uint16]AggType {
+func (s *sumSchema) getPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
 	switch funcType {
 	case function.Sum:
 		return map[uint16]AggType{s.primitiveFieldID: Sum}

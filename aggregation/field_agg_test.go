@@ -6,8 +6,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/pkg/function"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 

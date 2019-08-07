@@ -6,9 +6,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/pkg/function"
-	"github.com/lindb/lindb/query/aggregation"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/index"

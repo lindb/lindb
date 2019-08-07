@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/lindb/lindb/pkg/function"
-	"github.com/lindb/lindb/query/aggregation"
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/index"
 )
@@ -107,7 +107,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			p.err = err
 			return
 		}
-		var funcType function.Type
+		var funcType function.FuncType
 		// tests if has func with field
 		if parentFunc == nil {
 			// if not using field default down sampling func
@@ -118,12 +118,12 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			}
 		} else {
 			// using use input, and check func is supported
-			if !aggregation.IsSupportFunc(fieldType, parentFunc.Type) {
+			if !aggregation.IsSupportFunc(fieldType, parentFunc.FuncType) {
 				//TODO format error msg
-				p.err = fmt.Errorf("field type[%d] not supprot function[%d]", fieldType, parentFunc.Type)
+				p.err = fmt.Errorf("field type[%d] not supprot function[%d]", fieldType, parentFunc.FuncType)
 				return
 			}
-			funcType = parentFunc.Type
+			funcType = parentFunc.FuncType
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
