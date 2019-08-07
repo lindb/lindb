@@ -3,10 +3,10 @@ package query
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/query/aggregation"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/series"
@@ -158,11 +158,12 @@ func (e *storageExecutor) familyLevelSearch(family tsdb.DataFamily, seriesIDSet 
 		if timeSeries == nil {
 			break
 		}
-
-		it := timeSeries.Iterator()
-		//TODO use family time range
-		agg := aggregation.NewFieldAggregator(1, e.interval, e.query.TimeRange.Start, e.query.TimeRange.End, e.intervalRatio, e.aggregations[it.ID()])
-		agg.Aggregate(it)
+		for timeSeries.HasNext() {
+			it := timeSeries.Next()
+			//TODO use family time range
+			agg := aggregation.NewFieldAggregator(1, e.interval, e.query.TimeRange.Start, e.query.TimeRange.End, e.intervalRatio, e.aggregations[it.ID()])
+			agg.Aggregate(it)
+		}
 	}
 }
 

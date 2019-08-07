@@ -1,6 +1,8 @@
 package field
 
-import "github.com/lindb/lindb/pkg/function"
+import (
+	"github.com/lindb/lindb/aggregation/function"
+)
 
 // ValueType represents primitive field's value type
 type ValueType int
@@ -40,10 +42,15 @@ func init() {
 	schemas[SumField] = newSumSchema()
 }
 
-func GetPrimitiveFields(fieldType Type, funcType function.Type) map[uint16]AggType {
+// GetPrimitiveFields returns the primitive fields for down sampling
+func GetPrimitiveFields(fieldType Type, funcType function.FuncType) map[uint16]AggType {
 	schema := schemas[fieldType]
 	if schema == nil {
 		return nil
 	}
 	return schema.getPrimitiveFields(funcType)
+}
+
+func GetPrimitiveFieldsValue() {
+
 }

@@ -73,7 +73,9 @@ func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldI
 	it.EXPECT().HasNext().Return(false).AnyTimes()
 
 	timeSeries := field.NewMockMultiTimeSeries(ctrl)
-	timeSeries.EXPECT().Iterator().Return(it)
+	timeSeries.EXPECT().HasNext().Return(true)
+	timeSeries.EXPECT().Next().Return(it)
+	timeSeries.EXPECT().HasNext().Return(false)
 	//return it
 	return timeSeries
 }

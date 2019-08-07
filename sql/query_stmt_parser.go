@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/function"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/grammar"
@@ -347,17 +347,17 @@ func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
 	}
 	switch {
 	case ctx.T_SUM() != nil:
-		callExpr.Type = function.Sum
+		callExpr.FuncType = function.Sum
 	case ctx.T_MIN() != nil:
-		callExpr.Type = function.Min
+		callExpr.FuncType = function.Min
 	case ctx.T_MAX() != nil:
-		callExpr.Type = function.Max
+		callExpr.FuncType = function.Max
 	case ctx.T_AVG() != nil:
-		callExpr.Type = function.Avg
+		callExpr.FuncType = function.Avg
 	case ctx.T_STDDEV() != nil:
-		callExpr.Type = function.Stddev
+		callExpr.FuncType = function.Stddev
 	case ctx.T_HISTOGRAM() != nil:
-		callExpr.Type = function.Histogram
+		callExpr.FuncType = function.Histogram
 	}
 }
 

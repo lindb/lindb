@@ -1,11 +1,16 @@
 package stmt
 
-import "github.com/lindb/lindb/pkg/function"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/lindb/lindb/aggregation/function"
+)
 
 // Expr represents a interface for all expression types
 type Expr interface {
-	// expr ensures spec expression type need implement the interface
-	expr()
+	// Rewrite rewrites the expr after parse
+	Rewrite() string
 }
 
 // TagFilter represents tag filter for searching time series
@@ -27,8 +32,8 @@ type FieldExpr struct {
 
 // CallExpr represents a function call expression
 type CallExpr struct {
-	Type   function.Type
-	Params []Expr
+	FuncType function.FuncType
+	Params   []Expr
 }
 
 // ParenExpr represents a parenthesized expression
@@ -71,16 +76,62 @@ type NotExpr struct {
 	Expr Expr
 }
 
-func (e *SelectItem) expr() {}
-func (e *FieldExpr) expr()  {}
-func (e *CallExpr) expr()   {}
-func (e *ParenExpr) expr()  {}
-func (e *BinaryExpr) expr() {}
-func (e *NotExpr) expr()    {}
-func (e *EqualsExpr) expr() {}
-func (e *InExpr) expr()     {}
-func (e *LikeExpr) expr()   {}
-func (e *RegexExpr) expr()  {}
+// Rewrite rewrites the select item expr after parse
+func (e *SelectItem) Rewrite() string {
+	if len(e.Alias) == 0 {
+		return e.Expr.Rewrite()
+	}
+	return fmt.Sprintf("%s as %s", e.Expr.Rewrite(), e.Alias)
+}
+
+// Rewrite rewrites the field expr after parse
+func (e *FieldExpr) Rewrite() string {
+	return e.Name
+}
+
+// Rewrite rewrites the call expr after parse
+func (e *CallExpr) Rewrite() string {
+	var params []string
+	for _, param := range e.Params {
+		params = append(params, param.Rewrite())
+	}
+	return fmt.Sprintf("%s(%s)", function.FuncTypeString(e.FuncType), strings.Join(params, ","))
+}
+
+// Rewrite rewrites the paren expr after parse
+func (e *ParenExpr) Rewrite() string {
+	return fmt.Sprintf("(%s)", e.Expr.Rewrite())
+}
+
+// Rewrite rewrites the binary expr after parse
+func (e *BinaryExpr) Rewrite() string {
+	return fmt.Sprintf("%s%s%s", e.Left.Rewrite(), BinaryOPString(e.Operator), e.Right.Rewrite())
+}
+
+// Rewrite rewrites the not expr after parse
+func (e *NotExpr) Rewrite() string {
+	return fmt.Sprintf("not %s", e.Expr.Rewrite())
+}
+
+// Rewrite rewrites the equals expr after parse
+func (e *EqualsExpr) Rewrite() string {
+	return fmt.Sprintf("%s=%s", e.Key, e.Value)
+}
+
+// Rewrite rewrites the in expr after parse
+func (e *InExpr) Rewrite() string {
+	return fmt.Sprintf("%s in (%s)", e.Key, strings.Join(e.Values, ","))
+}
+
+// Rewrite rewrites the like expr after parse
+func (e *LikeExpr) Rewrite() string {
+	return fmt.Sprintf("%s like %s", e.Key, e.Value)
+}
+
+// Rewrite rewrites the regex expr after parse
+func (e *RegexExpr) Rewrite() string {
+	return fmt.Sprintf("%s=~%s", e.Key, e.Regexp)
+}
 
 // TagKey returns the equals filter's tag key
 func (e *EqualsExpr) TagKey() string { return e.Key }
