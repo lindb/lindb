@@ -23,6 +23,7 @@ bin/
 
 web/node_modules/
 web/build/*
+web/yarn-error.log
 
 # Test binary, built with `go test -c`
 *.test
