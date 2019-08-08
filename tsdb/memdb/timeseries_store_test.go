@@ -1,15 +1,12 @@
 package memdb
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/index"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -40,39 +37,31 @@ func Test_tStore_write(t *testing.T) {
 
 	tStoreInterface := newTimeSeriesStore(100, 100)
 	tStore := tStoreInterface.(*timeSeriesStore)
-
+	// mock fieldID getter
+	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
+	mockFieldIDGetter.EXPECT().getFieldIDOrGenerate(gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
+	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
 	mockFStore.EXPECT().write(gomock.Any(), gomock.Any()).Return().AnyTimes()
-	mockFStore.EXPECT().getFieldType().Return(field.SumField).AnyTimes()
-	mockFStore.EXPECT().getFieldName().Return("sum").AnyTimes()
+	mockFStore.EXPECT().getFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
-	tStore.insertFStore(mockFStore)
-	writeCtx := writeContext{
-		metricID:   1,
-		generator:  makeMockIDGenerator(ctrl),
-		blockStore: newBlockStore(30)}
 	err := tStore.write(
 		&pb.Metric{
 			Fields: []*pb.Field{
 				{Name: "sum", Field: &pb.Field_Sum{}},
 				{Name: "min", Field: &pb.Field_Min{}},
 				{Name: "unknown", Field: nil}},
-		}, writeCtx)
+		}, writeContext{
+			metricID:            1,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockFieldIDGetter})
 	assert.Nil(t, err)
 	assert.False(t, tStoreInterface.isNoData())
-	// error field type
-	err = tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "sum", Field: &pb.Field_Min{}}}}, writeCtx)
-	assert.Equal(t, models.ErrWrongFieldType, err)
 
-	// create new fStore
-	err = tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "sum1", Field: &pb.Field_Sum{}}}}, writeCtx)
-	assert.Nil(t, err)
-	// too many fields
-	for i := 0; i < 3000; i++ {
-		tStore.insertFStore(newFieldStore(strconv.Itoa(i), uint16(i), field.SumField))
-	}
-	err = tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "sum2", Field: &pb.Field_Sum{}}}}, writeCtx)
-	assert.Equal(t, models.ErrTooManyFields, err)
+	// insert test
+	tStore.insertFStore(newFieldStore(3))
+	tStore.insertFStore(newFieldStore(2))
 }
 
 func Test_tStore_GenFieldID_error(t *testing.T) {
@@ -82,15 +71,15 @@ func Test_tStore_GenFieldID_error(t *testing.T) {
 	tStoreInterface := newTimeSeriesStore(100, 100)
 	tStore := tStoreInterface.(*timeSeriesStore)
 	// mock id generator
-	mockGen := index.NewMockIDGenerator(ctrl)
-	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		uint16(0), models.ErrWrongFieldType).AnyTimes()
+	mockGetter := NewMockmStoreFieldIDGetter(ctrl)
+	mockGetter.EXPECT().getFieldIDOrGenerate(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(uint16(1), models.ErrWrongFieldType).AnyTimes()
 	// error field type from generator
 	tStore.fStoreNodes = nil
 	err := tStore.write(&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
-		metricID:   1,
-		generator:  mockGen,
-		blockStore: newBlockStore(30)})
+		metricID:            1,
+		blockStore:          newBlockStore(30),
+		mStoreFieldIDGetter: mockGetter})
 	assert.Equal(t, models.ErrWrongFieldType, err)
 }
 
@@ -127,20 +116,20 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	familyTime := timeutil.Now() / 3600 / 1000 * 3600 * 1000
 	// has data
 	mockFStore1 := NewMockfStoreINTF(ctrl)
-	mockFStore1.EXPECT().getFieldName().Return("1").AnyTimes()
+	mockFStore1.EXPECT().getFieldID().Return(uint16(1)).AnyTimes()
 	mockFStore1.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 	mockFStore1.EXPECT().timeRange(gomock.Any()).Return(timeutil.TimeRange{
 		Start: familyTime + 1000*60, End: familyTime + 1000*120}, true).AnyTimes()
 	mockFStore2 := NewMockfStoreINTF(ctrl)
 	mockFStore2.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
-	mockFStore2.EXPECT().getFieldName().Return("2").AnyTimes()
+	mockFStore2.EXPECT().getFieldID().Return(uint16(2)).AnyTimes()
 	mockFStore2.EXPECT().timeRange(gomock.Any()).Return(timeutil.TimeRange{
 		Start: familyTime + 1000*70, End: familyTime + 1000*130}, true).AnyTimes()
 	mockFStore3 := NewMockfStoreINTF(ctrl)
 	mockFStore3.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(false).AnyTimes()
 	mockFStore3.EXPECT().timeRange(gomock.Any()).Return(
 		timeutil.TimeRange{Start: 100, End: 200}, false).AnyTimes()
-	mockFStore3.EXPECT().getFieldName().Return("3").AnyTimes()
+	mockFStore3.EXPECT().getFieldID().Return(uint16(3)).AnyTimes()
 
 	tStore.insertFStore(mockFStore1)
 	tStore.insertFStore(mockFStore2)
@@ -160,7 +149,7 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	mockFStore4 := NewMockfStoreINTF(ctrl)
 	mockFStore4.EXPECT().flushFieldTo(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 	mockFStore4.EXPECT().timeRange(gomock.Any()).Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
-	mockFStore4.EXPECT().getFieldName().Return("4").AnyTimes()
+	mockFStore4.EXPECT().getFieldID().Return(uint16(4)).AnyTimes()
 	tStore.fStoreNodes = nil
 	tStore.insertFStore(mockFStore3)
 	tStore.insertFStore(mockFStore4)

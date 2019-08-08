@@ -2,10 +2,12 @@ package memdb
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
@@ -42,6 +44,12 @@ type mStoreINTF interface {
 	findSeriesIDsByExpr(expr stmt.TagFilter, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 	// getSeriesIDsForTag get series ids by tagKey and timeRange
 	getSeriesIDsForTag(tagKey string, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	mStoreFieldIDGetter
+}
+
+// mStoreFieldIDGetter gets fieldID from fieldsMeta, and calls the id-generator when not exist
+type mStoreFieldIDGetter interface {
+	getFieldIDOrGenerate(fieldName string, fieldType field.Type, generator index.IDGenerator) (uint16, error)
 }
 
 // metricStore is composed of the immutable part and mutable part of indexes.
@@ -50,11 +58,36 @@ type mStoreINTF interface {
 // after flushing, the immutable part will be removed.
 type metricStore struct {
 	immutable       []tagIndexINTF // immutable index that has not been flushed to disk
-	mutex4Immutable sync.RWMutex   // sync.RWMutex for immutable index
+	mutex4Immutable sync.RWMutex   // read-write lock  for immutable index
 	mutable         tagIndexINTF   // current mutable index in use
-	mutex4Mutable   sync.RWMutex   // sync.RWMutex for mutable index
+	mutex4Mutable   sync.RWMutex   // read-write lock  for mutable index
 	maxTagsLimit    uint32         // maximum number of combinations of tags
 	metricID        uint32         // persistent on the disk
+	mutex4Fields    sync.RWMutex   // read-write lock for fieldsMeta
+	fieldsMetas     fieldsMetas    // mapping of fieldNames and fieldIDs
+}
+
+// fieldMeta contains the meta info of field
+type fieldMeta struct {
+	fieldName string
+	fieldID   uint16
+	fieldType field.Type
+}
+
+// fieldsMetas implements sort.Interface
+type fieldsMetas []fieldMeta
+
+func (fm fieldsMetas) Len() int           { return len(fm) }
+func (fm fieldsMetas) Less(i, j int) bool { return fm[i].fieldName < fm[j].fieldName }
+func (fm fieldsMetas) Swap(i, j int)      { fm[i], fm[j] = fm[j], fm[i] }
+
+// getField get the fieldMeta from fieldName, return false when not exist
+func (fm fieldsMetas) getFieldMeta(fieldName string) (fieldMeta, bool) {
+	idx := sort.Search(len(fm), func(i int) bool { return fm[i].fieldName >= fieldName })
+	if idx >= len(fm) || fm[idx].fieldName != fieldName {
+		return fieldMeta{}, false
+	}
+	return fm[idx], true
 }
 
 // newMetricStore returns a new mStoreINTF.
@@ -64,6 +97,44 @@ func newMetricStore(metricID uint32) mStoreINTF {
 		mutable:      newTagIndex(),
 		maxTagsLimit: defaultMaxTagsLimit}
 	return &ms
+}
+
+// getFieldIDOrGenerate gets fieldID from fieldsMeta, and calls the id-generator when not exist
+func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Type,
+	generator index.IDGenerator) (uint16, error) {
+
+	ms.mutex4Fields.RLock()
+	fm, ok := ms.fieldsMetas.getFieldMeta(fieldName)
+	ms.mutex4Fields.RUnlock()
+	// exist, check fieldType
+	if ok {
+		if fm.fieldType == fieldType {
+			return fm.fieldID, nil
+		}
+		return 0, models.ErrWrongFieldType
+	}
+	// not exist
+	ms.mutex4Fields.Lock()
+	defer ms.mutex4Fields.Unlock()
+	fm, ok = ms.fieldsMetas.getFieldMeta(fieldName)
+	// double check
+	if ok {
+		return fm.fieldID, nil
+	}
+	// forbid creating new fStore when full
+	if len(ms.fieldsMetas) >= maxFieldsLimit {
+		return 0, models.ErrTooManyFields
+	}
+	// generate and check fieldType
+	newFieldID, err := generator.GenFieldID(ms.metricID, fieldName, fieldType)
+	if err != nil { // fieldType not matches to the existed
+		return 0, err
+	}
+	ms.fieldsMetas = append(ms.fieldsMetas, fieldMeta{
+		fieldName: fieldName, fieldID: newFieldID, fieldType: fieldType})
+	sort.Sort(ms.fieldsMetas)
+	return newFieldID, nil
+
 }
 
 // getMetricID returns the metricID
@@ -174,6 +245,13 @@ func (ms *metricStore) resetVersion() error {
 
 // flushMetricsTo writes metric-blocks to the writer.
 func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error {
+	// flush field meta info
+	ms.mutex4Fields.RLock()
+	for _, fm := range ms.fieldsMetas {
+		tableFlusher.FlushFieldMeta(fm.fieldID, fm.fieldType)
+	}
+	ms.mutex4Fields.RUnlock()
+
 	var err error
 	// pick immutable
 	ms.mutex4Immutable.Lock()
