@@ -144,9 +144,9 @@ func newMMapIterator(reader *storeMMapReader) Iterator {
 	}
 }
 
-// Next moves the iterator to the next key/value pair.
+// HasNext returns if the iteration has more element.
 // It returns false if the iterator is exhausted.
-func (it *storeMMapIterator) Next() bool {
+func (it *storeMMapIterator) HasNext() bool {
 	return it.keyIt.HasNext()
 }
 
