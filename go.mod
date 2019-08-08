@@ -28,6 +28,7 @@ require (
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.8
 	github.com/pkg/errors v0.8.1
+	github.com/plar/go-adaptive-radix-tree v1.0.1
 	github.com/prometheus/client_golang v1.0.0 // indirect
 	github.com/segmentio/fasthash v1.0.0
 	github.com/soheilhy/cmux v0.1.4 // indirect
