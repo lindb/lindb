@@ -86,10 +86,12 @@ subject is a short description of commit message, no more than 50 characters.
 + end without a period(.);
 
 #### Example
-+ [feat:#1][Lindb]: add init commit
-+ [chore:#2][travis]: add lint tools
++ [feat]: add init commit
++ [chore:#1]: add travis ci
++ [test:#2]: add unit test for tsdb
 + [fix:#3][model:point]: change type timestamp from int64 to uint64
-+ [docs:#7][contributing]: add guideline for commit-message-format
++ [feat:#4][tsdb]: implementation of memdb
++ [docs:#7]: add guideline for commit-message-format
 
 ### Version Numbers
 
