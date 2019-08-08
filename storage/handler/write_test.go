@@ -2,22 +2,35 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path"
 	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
+)
+
+/**
+case replica seq match:
+
+case replica seq not match:
+*/
+
+var (
+	node = models.Node{
+		IP:   "127.0.0.1",
+		Port: 123,
+	}
+	database = "database"
+	shardID  = int32(0)
 )
 
 func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
@@ -34,85 +47,125 @@ func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 	return wr, fmt.Sprintf("[%d,%d)", seqBegin, seqEnd)
 }
 
-/**
-stream replica -> 01234
-stream replica -> 012 (duplicate reset to 5)
-stream replica -> 34
-stream replica -> 56789
-*/
-func TestWriter_Write(t *testing.T) {
-	tmp := path.Join(os.TempDir(), "test_write")
-	if err := fileutil.RemoveDir(tmp); err != nil {
-		t.Fatal(err)
-	}
+func TestWriter_Next(t *testing.T) {
+	ctl := gomock.NewController(t)
+	sm := replication.NewMockSequenceManager(ctl)
+	s := replication.NewMockSequence(ctl)
 
-	defer func() {
-		if err := fileutil.RemoveDir(tmp); err != nil {
-			t.Error(err)
-		}
-	}()
+	seq := int64(5)
+	s.EXPECT().GetHeadSeq().Return(seq)
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
 
-	mockCtl := gomock.NewController(t)
+	writer := NewWriter(nil, sm)
 
-	node := models.Node{
-		IP:   "1.1.1.1",
-		Port: 12345,
-	}
-
-	ws := mockStream(mockCtl, "db", 0, node)
-
-	sm, err := replication.NewSequenceManager(tmp)
+	ctx := mockContext(database, shardID, node)
+	resp, err := writer.Next(ctx, &storage.NextSeqRequest{
+		ShardID:  shardID,
+		Database: database})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	writer := NewWriter(mockStorage(mockCtl, "db", 0, mockShard(mockCtl)), sm)
-
-	err = writer.Write(ws)
-	if err != nil {
-		t.Fatal("should be nil")
-	}
-
+	assert.Equal(t, seq, resp.Seq)
 }
 
-func mockStream(ctl *gomock.Controller, db string, shardID uint32, node models.Node) storage.WriteService_WriteServer {
-	ctx := mockContext(db, shardID, node)
-	mockWriteServer := storage.NewMockWriteService_WriteServer(ctl)
+func TestWriter_Reset(t *testing.T) {
+	ctl := gomock.NewController(t)
+	sm := replication.NewMockSequenceManager(ctl)
+	s := replication.NewMockSequence(ctl)
 
-	gomock.InOrder(
-		mockWriteServer.EXPECT().Context().Return(ctx).Times(1),
-		mockWriteServer.EXPECT().Recv().DoAndReturn(func() (*storage.WriteRequest, error) {
-			rq, str := buildWriteRequest(0, 5)
-			fmt.Println("recv:" + str)
-			return rq, nil
-		}),
-		mockWriteServer.EXPECT().Recv().DoAndReturn(func() (*storage.WriteRequest, error) {
-			rq, str := buildWriteRequest(0, 3)
-			fmt.Println("recv:" + str)
-			return rq, nil
-		}),
-		mockWriteServer.EXPECT().Send(&storage.WriteResponse{
-			Seq: &storage.WriteResponse_ResetSeq{
-				ResetSeq: 5,
-			},
-		}).Return(nil),
-		mockWriteServer.EXPECT().Recv().DoAndReturn(func() (*storage.WriteRequest, error) {
-			rq, str := buildWriteRequest(3, 5)
-			fmt.Println("recv:" + str)
-			return rq, nil
-		}),
-		mockWriteServer.EXPECT().Recv().DoAndReturn(func() (*storage.WriteRequest, error) {
-			rq, str := buildWriteRequest(5, 10)
-			fmt.Println("recv:" + str)
-			return rq, nil
-		}),
-		mockWriteServer.EXPECT().Recv().DoAndReturn(func() (*storage.WriteRequest, error) {
-			fmt.Println("recv: eof")
-			return nil, io.EOF
-		}),
+	seq := int64(5)
+	s.EXPECT().SetHeadSeq(seq).Return()
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
+
+	writer := NewWriter(nil, sm)
+
+	ctx := mockContext(database, shardID, node)
+	_, err := writer.Reset(ctx, &storage.ResetSeqRequest{
+		Database: database,
+		ShardID:  shardID,
+		Seq:      seq,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWriter_WriteSuccess(t *testing.T) {
+	ctl := gomock.NewController(t)
+	sm := replication.NewMockSequenceManager(ctl)
+	s := replication.NewMockSequence(ctl)
+
+	var (
+		seqBeg int64 = 5
+		seqEnd int64 = 10
 	)
 
-	return mockWriteServer
+	for i := seqBeg; i < seqEnd; i++ {
+		s.EXPECT().GetHeadSeq().Return(i)
+		s.EXPECT().SetHeadSeq(i + 1).Return()
+	}
+
+	s.EXPECT().GetHeadSeq().Return(seqEnd)
+	s.EXPECT().Synced().Return(false)
+
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
+
+	stom := mockStorage(ctl, database, shardID, mockShard(ctl))
+
+	writer := NewWriter(stom, sm)
+
+	ctx := mockContext(database, shardID, node)
+
+	stream := storage.NewMockWriteService_WriteServer(ctl)
+	stream.EXPECT().Context().Return(ctx)
+
+	wr1, _ := buildWriteRequest(seqBeg, seqEnd)
+	stream.EXPECT().Recv().Return(wr1, nil)
+
+	stream.EXPECT().Send(&storage.WriteResponse{
+		CurSeq: seqEnd - 1,
+	}).Return(nil)
+
+	stream.EXPECT().Recv().Return(nil, errors.New("recv error"))
+
+	err := writer.Write(stream)
+	if err == nil {
+		t.Fatal("should be error")
+	}
+}
+
+func TestWriter_WriteSeqNotMatch(t *testing.T) {
+	ctl := gomock.NewController(t)
+	sm := replication.NewMockSequenceManager(ctl)
+	s := replication.NewMockSequence(ctl)
+
+	var (
+		seqBeg int64 = 5
+		seqEnd int64 = 10
+	)
+
+	// wrong seq
+	s.EXPECT().GetHeadSeq().Return(seqEnd + 1)
+
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
+
+	stom := mockStorage(ctl, database, shardID, mockShard(ctl))
+
+	writer := NewWriter(stom, sm)
+
+	ctx := mockContext(database, shardID, node)
+
+	stream := storage.NewMockWriteService_WriteServer(ctl)
+	stream.EXPECT().Context().Return(ctx)
+
+	wr1, _ := buildWriteRequest(seqBeg, seqEnd)
+	stream.EXPECT().Recv().Return(wr1, nil)
+
+	err := writer.Write(stream)
+	if err == nil {
+		t.Fatal("should be error")
+	}
 }
 
 func mockStorage(ctl *gomock.Controller, db string, shardID int32, shard tsdb.Shard) service.StorageService {
@@ -127,6 +180,6 @@ func mockShard(ctl *gomock.Controller) tsdb.Shard {
 	return mockShard
 }
 
-func mockContext(db string, shardID uint32, node models.Node) context.Context {
+func mockContext(db string, shardID int32, node models.Node) context.Context {
 	return rpc.CreateIncomingContext(context.TODO(), db, shardID, node)
 }

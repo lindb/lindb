@@ -8,14 +8,42 @@ message Replica {
 }
 
 message WriteRequest {
-    repeated Replica replicas = 3;
+    repeated Replica replicas = 1;
 }
 
+// if replica seq not match headSeq, tell the broker the desired next seq.
+// if the broker still has the data for desired next seq, sends from the next seq,
+// otherwise the broker sends a reset request to reset the storage headSeq.
+
+// if replica seq does not match with the seq num in storage, return error.
+// The broker will re-construct the stream, negotiation with the storage side.
 message WriteResponse {
-    oneof seq {
-        int64 resetSeq = 1;
+    // current max sequence num received, used for client to control sliding window
+    int64 curSeq = 1;
+    // oneof means one of almost one item, could be null
+    // if ackSeq is provided, the broker ack the seq,
+    oneof ack {
         int64 ackSeq = 2;
     }
+}
+
+message ResetSeqRequest {
+    string database = 1;
+    int32 shardID = 2;
+    int64 seq = 3;
+}
+
+
+message ResetSeqResponse {
+}
+
+message NextSeqRequest {
+    string database = 1;
+    int32 shardID = 2;
+}
+
+message NextSeqResponse {
+    int64 seq = 1;
 }
 
 message QueryRequest {
@@ -28,6 +56,12 @@ message QueryResponse {
 
 service WriteService {
     rpc Write (stream WriteRequest) returns (stream WriteResponse) {
+    }
+
+    rpc Reset (ResetSeqRequest) returns (ResetSeqResponse) {
+    }
+
+    rpc Next (NextSeqRequest) returns (NextSeqResponse) {
     }
 }
 
