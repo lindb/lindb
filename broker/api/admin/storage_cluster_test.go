@@ -1,83 +1,100 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
-
-	check "gopkg.in/check.v1"
 )
 
-type testStorageClusterAPISuite struct {
-	mock.RepoTestSuite
-}
-
-var test *testing.T
-
 func TestStorageClusterAPI(t *testing.T) {
-	check.Suite(&testStorageClusterAPISuite{})
-	test = t
-	check.TestingT(t)
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (ts *testStorageClusterAPISuite) TestStorageCluster(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Endpoints: ts.Cluster.Endpoints,
-	})
+	storageClusterService := service.NewMockStorageClusterService(ctrl)
 
-	api := NewStorageClusterAPI(service.NewStorageClusterService(repo))
+	api := NewStorageClusterAPI(storageClusterService)
 
 	cfg := models.StorageCluster{
 		Name: "test1",
 	}
-	mock.DoRequest(test, &mock.HTTPHandler{
+	storageClusterService.EXPECT().Save(gomock.Any()).Return(nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
-		URL:            "/stroage/cluster",
+		URL:            "/storage/cluster",
 		RequestBody:    cfg,
 		HandlerFunc:    api.Create,
 		ExpectHTTPCode: 204,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
+	storageClusterService.EXPECT().Save(gomock.Any()).Return(fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
-		URL:            "/stroage/cluster",
-		RequestBody:    models.StorageCluster{},
+		URL:            "/storage/cluster",
+		RequestBody:    cfg,
 		HandlerFunc:    api.Create,
 		ExpectHTTPCode: 500,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
+	storageClusterService.EXPECT().Get(gomock.Any()).Return(&cfg, nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/storage/cluster?name=test1",
 		HandlerFunc:    api.GetByName,
 		ExpectHTTPCode: 200,
 		ExpectResponse: cfg,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
+	storageClusterService.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodGet,
+		URL:            "/storage/cluster?name=test1",
+		HandlerFunc:    api.GetByName,
+		ExpectHTTPCode: 500,
+	})
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodGet,
+		URL:            "/storage/cluster",
+		HandlerFunc:    api.GetByName,
+		ExpectHTTPCode: 500,
+	})
+
+	storageClusterService.EXPECT().List().Return([]*models.StorageCluster{&cfg}, nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
-		URL:            "/stroage/cluster",
+		URL:            "/storage/cluster",
 		HandlerFunc:    api.List,
 		ExpectHTTPCode: 200,
 		ExpectResponse: []models.StorageCluster{cfg},
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
+	storageClusterService.EXPECT().List().Return(nil, fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/storage/cluster",
+		HandlerFunc:    api.List,
+		ExpectHTTPCode: 500,
+	})
+
+	storageClusterService.EXPECT().Delete(gomock.Any()).Return(nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodDelete,
-		URL:            "/stroage/cluster?name=test1",
+		URL:            "/storage/cluster?name=test1",
 		HandlerFunc:    api.DeleteByName,
 		ExpectHTTPCode: 204,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/cluster?name=test1",
-		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 404,
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodDelete,
+		URL:            "/storage/cluster",
+		HandlerFunc:    api.DeleteByName,
+		ExpectHTTPCode: 500,
 	})
-	mock.DoRequest(test, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/cluster?name=test19999",
-		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 404,
+	storageClusterService.EXPECT().Delete(gomock.Any()).Return(fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodDelete,
+		URL:            "/storage/cluster?name=test1",
+		HandlerFunc:    api.DeleteByName,
+		ExpectHTTPCode: 500,
 	})
 }

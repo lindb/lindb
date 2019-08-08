@@ -14,6 +14,8 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./storage_state_machine.go -destination=./storage_state_machine_mock.go -package=broker
+
 // StorageStateMachine represents storage cluster state state machine.
 // Each broker node will start this state machine which watch storage cluster state change event.
 type StorageStateMachine interface {
@@ -39,7 +41,7 @@ type storageStateMachine struct {
 }
 
 // NewStorageStateMachine creates state machine, init data if exist, then starts watch change event
-func NewStorageStateMachine(ctx context.Context, repo state.Repository) (StorageStateMachine, error) {
+func NewStorageStateMachine(ctx context.Context, repo state.Repository, discoveryFactory discovery.Factory) (StorageStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	log := logger.GetLogger("storage/state")
 	stateMachine := &storageStateMachine{
@@ -59,7 +61,7 @@ func NewStorageStateMachine(ctx context.Context, repo state.Repository) (Storage
 		stateMachine.addCluster(cluster)
 	}
 	// new storage config discovery
-	stateMachine.discovery = discovery.NewDiscovery(repo, constants.StorageClusterStatePath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterStatePath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery storage cluster state error:%s", err)
 	}
@@ -92,7 +94,7 @@ func (s *storageStateMachine) OnDelete(key string) {
 }
 
 func (s *storageStateMachine) Cleanup() {
-	//TODO impl????
+	// do nothing
 }
 
 // Close closes state machine, stops watch change event

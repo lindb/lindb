@@ -14,6 +14,8 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./admin_state_machine.go -destination=./admin_state_machine_mock.go -package=database
+
 // AdminStateMachine is database config controller,
 // creates shard assignment based on config and active nodes related storage cluster.
 // runtime watches database change event, maintain shard assignment and create related coordinator task.
@@ -27,7 +29,6 @@ type AdminStateMachine interface {
 // adminStateMachine implement admin state machine interface.
 // all metadata change will store related storage cluster.
 type adminStateMachine struct {
-	repo           state.Repository
 	storageCluster storage.ClusterStateMachine
 	discovery      discovery.Discovery
 
@@ -39,19 +40,18 @@ type adminStateMachine struct {
 }
 
 // NewAdminStateMachine creates admin state machine instance
-func NewAdminStateMachine(ctx context.Context, repo state.Repository,
+func NewAdminStateMachine(ctx context.Context, discoveryFactory discovery.Factory,
 	storageCluster storage.ClusterStateMachine) (AdminStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	// new admin state machine instance
 	stateMachine := &adminStateMachine{
-		repo:           repo,
 		storageCluster: storageCluster,
 		ctx:            c,
 		cancel:         cancel,
 		log:            logger.GetLogger("database/admin/state/machine"),
 	}
 	// new database config discovery
-	stateMachine.discovery = discovery.NewDiscovery(repo, constants.DatabaseConfigPath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseConfigPath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery database config error:%s", err)
 	}
@@ -153,21 +153,4 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 		return err
 	}
 	return nil
-}
-
-// getNodes returns all active nodes by cluster name
-func (sm *adminStateMachine) getNodes(clusterName string) (map[int]*models.Node, error) {
-	cluster := sm.storageCluster.GetCluster(clusterName)
-	if cluster == nil {
-		return nil, fmt.Errorf("stroage cluster not exist")
-	}
-	activeNodes := cluster.GetActiveNodes()
-	if len(activeNodes) == 0 {
-		return nil, fmt.Errorf("active node not found")
-	}
-	var nodes = make(map[int]*models.Node)
-	for idx, node := range activeNodes {
-		nodes[idx] = &node.Node
-	}
-	return nodes, nil
 }

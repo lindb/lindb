@@ -17,6 +17,8 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
@@ -38,6 +40,8 @@ const (
 // srv represents all services for broker
 type srv struct {
 	storageClusterService service.StorageClusterService
+	storageStateService   service.StorageStateService
+	shardAssignService    service.ShardAssignService
 	databaseService       service.DatabaseService
 	channelManager        replication.ChannelManager
 }
@@ -73,6 +77,7 @@ type runtime struct {
 	node    models.Node
 	// init value when runtime
 	repo         state.Repository
+	repoFactory  state.RepositoryFactory
 	srv          srv
 	httpServer   *http.Server
 	master       coordinator.Master
@@ -154,8 +159,13 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
 
+	taskController := task.NewController(r.ctx, r.repo)
+	discoveryFactory := discovery.NewFactory(r.repo)
+	clusterFactory := storage.NewClusterFactory()
+
 	//TODO config ttl
-	r.master = coordinator.NewMaster(r.repo, r.node, 1)
+	r.master = coordinator.NewMaster(r.repo, r.node, 1, taskController,
+		discoveryFactory, r.repoFactory, clusterFactory, r.srv.storageStateService, r.srv.shardAssignService)
 	if err := r.master.Start(); err != nil {
 		return fmt.Errorf("start master error:%s", err)
 	}
@@ -231,7 +241,8 @@ func (r *runtime) startHTTPServer() {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := state.NewRepo(r.config.Coordinator)
+	r.repoFactory = state.NewRepositoryFactory()
+	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}
@@ -249,6 +260,8 @@ func (r *runtime) buildServiceDependency() {
 	srv := srv{
 		storageClusterService: service.NewStorageClusterService(r.repo),
 		databaseService:       service.NewDatabaseService(r.repo),
+		storageStateService:   service.NewStorageStateService(r.repo),
+		shardAssignService:    service.NewShardAssignService(r.repo),
 		channelManager:        cm,
 	}
 	r.srv = srv
@@ -256,7 +269,7 @@ func (r *runtime) buildServiceDependency() {
 
 // buildAPIDependency builds broker api dependency
 func (r *runtime) buildAPIDependency() {
-	handler := apiHandler{
+	handlers := apiHandler{
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User),
@@ -264,19 +277,19 @@ func (r *runtime) buildAPIDependency() {
 		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachine.nodeState),
 	}
 
-	api.AddRoutes("Login", http.MethodPost, "/login", handler.loginAPI.Login)
-	api.AddRoutes("Check", http.MethodGet, "/check/1", handler.loginAPI.Check)
+	api.AddRoutes("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
+	api.AddRoutes("Check", http.MethodGet, "/check/1", handlers.loginAPI.Check)
 
-	api.AddRoutes("SaveStorageCluster", http.MethodPost, "/storage/cluster", handler.storageClusterAPI.Create)
-	api.AddRoutes("GetStorageCluster", http.MethodGet, "/storage/cluster", handler.storageClusterAPI.GetByName)
-	api.AddRoutes("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handler.storageClusterAPI.DeleteByName)
-	api.AddRoutes("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handler.storageClusterAPI.List)
+	api.AddRoutes("SaveStorageCluster", http.MethodPost, "/storage/cluster", handlers.storageClusterAPI.Create)
+	api.AddRoutes("GetStorageCluster", http.MethodGet, "/storage/cluster", handlers.storageClusterAPI.GetByName)
+	api.AddRoutes("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handlers.storageClusterAPI.DeleteByName)
+	api.AddRoutes("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handlers.storageClusterAPI.List)
 
-	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handler.databaseAPI.Save)
-	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handler.databaseAPI.GetByName)
+	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
+	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
 
-	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handler.storageStateAPI.ListStorageCluster)
-	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handler.brokerStateAPI.ListBrokerNodes)
+	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
+	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
 }
 
 // buildMiddlewareDependency builds middleware dependency
@@ -295,13 +308,14 @@ func (r *runtime) buildMiddlewareDependency() {
 // startStateMachine starts related state machines for broker
 func (r *runtime) startStateMachine() error {
 	r.stateMachine = &stateMachine{}
-	storageStateMachine, err := broker.NewStorageStateMachine(r.ctx, r.repo)
+	discoveryFactory := discovery.NewFactory(r.repo)
+	storageStateMachine, err := broker.NewStorageStateMachine(r.ctx, r.repo, discoveryFactory)
 	if err != nil {
 		return err
 	}
 	r.stateMachine.storageState = storageStateMachine
 
-	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.node, r.repo)
+	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.node, discoveryFactory)
 	if err != nil {
 		return err
 	}

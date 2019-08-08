@@ -11,7 +11,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./node_state_machine.go -destination=./node_state_machine_mock.go -package=broker
@@ -32,7 +31,6 @@ type NodeStateMachine interface {
 // watches active node path.
 type nodeStateMachine struct {
 	currentNode models.Node
-	repo        state.Repository
 	discovery   discovery.Discovery
 
 	ctx    context.Context
@@ -46,18 +44,17 @@ type nodeStateMachine struct {
 }
 
 // NewNodeStateMachine creates a node state machine, and starts discovery for watching node state change event
-func NewNodeStateMachine(ctx context.Context, currentNode models.Node, repo state.Repository) (NodeStateMachine, error) {
+func NewNodeStateMachine(ctx context.Context, currentNode models.Node, discoveryFactory discovery.Factory) (NodeStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &nodeStateMachine{
 		ctx:         c,
 		cancel:      cancel,
 		currentNode: currentNode,
-		repo:        repo,
 		nodes:       make(map[string]models.ActiveNode),
 		log:         logger.GetLogger("broker/node/state/machine"),
 	}
 	// new replica status discovery
-	stateMachine.discovery = discovery.NewDiscovery(repo, constants.ActiveNodesPath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery broker node error:%s", err)
 	}

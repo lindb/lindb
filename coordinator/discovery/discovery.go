@@ -8,6 +8,24 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./discovery.go -destination=./discovery_mock.go -package=discovery
+
+// Factory represents a discovery create factory
+type Factory interface {
+	// CreateDiscovery creates a discovery who will watch the changes with the given prefix
+	CreateDiscovery(prefix string, listener Listener) Discovery
+}
+
+// factory implements factory interface using state repo
+type factory struct {
+	repo state.Repository
+}
+
+// NewFactory creates a factory
+func NewFactory(repo state.Repository) Factory {
+	return &factory{repo: repo}
+}
+
 // Listener represents discovery resource event callback interface,
 // includes create/delete/cleanup operation
 type Listener interface {
@@ -39,12 +57,12 @@ type discovery struct {
 	log *logger.Logger
 }
 
-// NewDiscovery returns a Discovery who will watch the changes with the given prefix
-func NewDiscovery(repo state.Repository, prefix string, listener Listener) Discovery {
+// CreateDiscovery creates a discovery who will watch the changes with the given prefix
+func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &discovery{
 		prefix:   prefix,
-		repo:     repo,
+		repo:     f.repo,
 		ctx:      ctx,
 		cancel:   cancel,
 		listener: listener,

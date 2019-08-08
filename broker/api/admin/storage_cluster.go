@@ -45,7 +45,7 @@ func (s *StorageClusterAPI) GetByName(w http.ResponseWriter, r *http.Request) {
 	}
 	cluster, err := s.storageClusterService.Get(name)
 	if err != nil {
-		api.NotFound(w)
+		api.Error(w, err)
 		return
 	}
 	api.OK(w, cluster)
