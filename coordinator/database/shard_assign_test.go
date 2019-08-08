@@ -19,6 +19,14 @@ func TestShardAssign(t *testing.T) {
 		})
 	assert.NotNil(t, err1)
 
+	_, err1 = ShardAssignment(storageNodeIDs,
+		models.DatabaseCluster{
+			Name:          "test",
+			NumOfShard:    3,
+			ReplicaFactor: 0,
+		})
+	assert.NotNil(t, err1)
+
 	_, err2 := ShardAssignment(storageNodeIDs,
 		models.DatabaseCluster{
 			Name:          "test",

@@ -3,111 +3,64 @@ package broker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
-	"time"
 
-	check "gopkg.in/check.v1"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
-type testStorageStateMachineSuite struct {
-	mock.RepoTestSuite
-}
-
 func TestStorageStateMachine(t *testing.T) {
-	check.Suite(&testStorageStateMachineSuite{})
-	check.TestingT(t)
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (ts *testStorageStateMachineSuite) TestStorageState(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Namespace: "/coordinator/storage/state",
-		Endpoints: ts.Cluster.Endpoints,
-	})
+	repo := state.NewMockRepository(ctrl)
+	factory := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
 
-	stateMachine, err := NewStorageStateMachine(context.TODO(), repo)
-	if err != nil {
-		c.Fatal(err)
-	}
-	clusters := stateMachine.List()
-	c.Assert(0, check.Equals, len(clusters))
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	_, err := NewStorageStateMachine(context.TODO(), repo, factory)
+	assert.NotNil(t, err)
 
 	storageState := models.NewStorageState()
-	storageState.Name = "LinDB_Storage"
-	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
-	srv := service.NewStorageStateService(repo)
-	err = srv.Save("Test_LinDB", storageState)
-	if err != nil {
-		c.Fatal(err)
-	}
-	time.Sleep(200 * time.Millisecond)
-	clusters = stateMachine.List()
-	c.Assert(1, check.Equals, len(clusters))
-	c.Assert(*storageState, check.DeepEquals, *clusters[0])
+	storageState.Name = "test"
+	data, _ := json.Marshal(storageState)
+	data2, _ := json.Marshal(models.NewStorageState())
 
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 1, 2}, data2}, nil)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	_, err = NewStorageStateMachine(context.TODO(), repo, factory)
+	assert.NotNil(t, err)
+
+	// normal case
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 1, 2}}, nil)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery().Return(nil)
+	stateMachine, err := NewStorageStateMachine(context.TODO(), repo, factory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, 1, len(stateMachine.List()))
+	assert.Equal(t, *storageState, *(stateMachine.List()[0]))
+
+	storageState2 := models.NewStorageState()
+	storageState2.Name = "test2"
+	data3, _ := json.Marshal(storageState2)
+
+	stateMachine.OnCreate("/data/test2", data3)
+	assert.Equal(t, 2, len(stateMachine.List()))
+
+	stateMachine.OnDelete("/data/test")
+	assert.Equal(t, 1, len(stateMachine.List()))
+	assert.Equal(t, *storageState2, *(stateMachine.List()[0]))
+	stateMachine.Cleanup()
+
+	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
-	clusters = stateMachine.List()
-	c.Assert(0, check.Equals, len(clusters))
-
-	// re-open state exist
-	repo, _ = state.NewRepo(state.Config{
-		Namespace: "/coordinator/storage/state",
-		Endpoints: ts.Cluster.Endpoints,
-	})
-	stateMachine, err = NewStorageStateMachine(context.TODO(), repo)
-	if err != nil {
-		c.Fatal(err)
-	}
-	clusters = stateMachine.List()
-	c.Assert(1, check.Equals, len(clusters))
-	c.Assert(*storageState, check.DeepEquals, *clusters[0])
-}
-
-func (ts *testStorageStateMachineSuite) TestStorageState_Fail(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Namespace: "/coordinator/storage/state/fail",
-		Endpoints: ts.Cluster.Endpoints,
-	})
-
-	stateMachine, err := NewStorageStateMachine(context.TODO(), repo)
-	if err != nil {
-		c.Fatal(err)
-	}
-	clusters := stateMachine.List()
-	c.Assert(0, check.Equals, len(clusters))
-
-	storageState := models.NewStorageState()
-	storageState.Name = "Test_LinDB"
-	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
-	srv := service.NewStorageStateService(repo)
-	err = srv.Save("Test_LinDB", storageState)
-	if err != nil {
-		c.Fatal(err)
-	}
-	time.Sleep(200 * time.Millisecond)
-	clusters = stateMachine.List()
-	c.Assert(1, check.Equals, len(clusters))
-	c.Assert(*storageState, check.DeepEquals, *clusters[0])
-
-	// wrong data
-	_ = repo.Put(context.TODO(), pathutil.GetStorageClusterStatePath("test"), []byte("ddd"))
-	time.Sleep(200 * time.Millisecond)
-	clusters = stateMachine.List()
-	c.Assert(1, check.Equals, len(clusters))
-
-	_ = repo.Delete(context.TODO(), pathutil.GetStorageClusterStatePath("Test_LinDB"))
-	time.Sleep(200 * time.Millisecond)
-	clusters = stateMachine.List()
-	c.Assert(0, check.Equals, len(clusters))
-
-	data, _ := json.Marshal(models.NewStorageState())
-	_ = repo.Put(context.TODO(), pathutil.GetStorageClusterStatePath("test1"), data)
-	time.Sleep(200 * time.Millisecond)
-	clusters = stateMachine.List()
-	c.Assert(0, check.Equals, len(clusters))
+	assert.Equal(t, 0, len(stateMachine.List()))
 }

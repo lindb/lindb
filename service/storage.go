@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source ./storage.go -destination=./storage_mock.go -package service
 
-// StorageService represents a storage manage interface for tsdb engine
+// StorageService represents a storage manage interface for time series engine
 type StorageService interface {
 	// CreateShards creates shards for data partition
 	CreateShards(db string, option option.ShardOption, shardIDs ...int32) error
@@ -22,19 +22,21 @@ type StorageService interface {
 	GetShard(db string, shardID int32) tsdb.Shard
 }
 
-// NewStorageService creates storage service instance for managing tsdb engine
-func NewStorageService(config config.Engine) StorageService {
-	return &storageService{
-		config: config,
-	}
-}
-
 // storageService implements StorageService interface
 type storageService struct {
 	engines sync.Map
 
-	config config.Engine
-	mutex  sync.Mutex
+	factory tsdb.EngineFactory
+	config  config.Engine
+	mutex   sync.Mutex
+}
+
+// NewStorageService creates storage service instance for managing time series engine
+func NewStorageService(config config.Engine, factory tsdb.EngineFactory) StorageService {
+	return &storageService{
+		factory: factory,
+		config:  config,
+	}
 }
 
 // CreateShards creates shards for data partition by given options
@@ -51,9 +53,9 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 		// double check
 		engine = s.GetEngine(db)
 		if engine == nil {
-			// create tsdb engine
+			// create time series engine
 			var err error
-			engine, err = tsdb.NewEngine(db, s.config.Path)
+			engine, err = s.factory.CreateEngine(db, s.config.Path)
 			if err != nil {
 				return err
 			}

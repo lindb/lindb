@@ -8,12 +8,15 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
 )
+
+//go:generate mockgen -source=./cluster_state_machine.go -destination=./cluster_state_machine_mock.go -package=storage
 
 // ClusterStateMachine represents storage cluster control when node is master,
 // watches cluster config change event, then create/delete related storage cluster controller.
@@ -35,6 +38,13 @@ type clusterStateMachine struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
+	storageStateService service.StorageStateService
+	shardAssignService  service.ShardAssignService
+	clusterFactory      ClusterFactory
+	discoveryFactory    discovery.Factory
+	repoFactory         state.RepositoryFactory
+	taskController      task.Controller
+
 	clusters map[string]Cluster
 
 	mutex sync.RWMutex
@@ -42,15 +52,29 @@ type clusterStateMachine struct {
 }
 
 // NewClusterStateMachine create state machine, init cluster controller if exist, watch change event
-func NewClusterStateMachine(ctx context.Context, repo state.Repository) (ClusterStateMachine, error) {
+func NewClusterStateMachine(
+	ctx context.Context,
+	repo state.Repository,
+	taskController task.Controller,
+	discoveryFactory discovery.Factory,
+	clusterFactory ClusterFactory,
+	repoFactory state.RepositoryFactory,
+	storageStateService service.StorageStateService,
+	shardAssignService service.ShardAssignService) (ClusterStateMachine, error) {
 	log := logger.GetLogger("cluster/state/machine")
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &clusterStateMachine{
-		repo:     repo,
-		ctx:      c,
-		cancel:   cancel,
-		clusters: make(map[string]Cluster),
-		log:      log,
+		repo:                repo,
+		ctx:                 c,
+		cancel:              cancel,
+		clusterFactory:      clusterFactory,
+		discoveryFactory:    discoveryFactory,
+		repoFactory:         repoFactory,
+		storageStateService: storageStateService,
+		taskController:      taskController,
+		shardAssignService:  shardAssignService,
+		clusters:            make(map[string]Cluster),
+		log:                 log,
 	}
 	clusterList, err := repo.List(c, constants.StorageClusterConfigPath)
 	if err != nil {
@@ -62,7 +86,7 @@ func NewClusterStateMachine(ctx context.Context, repo state.Repository) (Cluster
 		stateMachine.addCluster(cluster)
 	}
 	// new storage config discovery
-	stateMachine.discovery = discovery.NewDiscovery(repo, constants.StorageClusterConfigPath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterConfigPath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery storage cluster config error:%s", err)
 	}
@@ -148,9 +172,25 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	cluster, err := newCluster(c.ctx, cfg, service.NewStorageStateService(c.repo))
+	repo, err := c.repoFactory.CreateRepo(cfg.Config)
 	if err != nil {
+		c.log.Error("new state repo error when create cluster",
+			logger.Any("cfg", cfg), logger.Error(err))
+		return
+	}
+	clusterCfg := clusterCfg{
+		ctx:                 c.ctx,
+		cfg:                 cfg,
+		storageStateService: c.storageStateService,
+		repo:                repo,
+		controller:          c.taskController,
+		factory:             c.discoveryFactory,
+		shardAssignService:  c.shardAssignService,
+	}
+	cluster, err := c.clusterFactory.newCluster(clusterCfg)
+	if err != nil {
+		// IMPORTANT!!!!!!!: need clean cluster cfg resource when new cluster fail
+		(&clusterCfg).clean()
 		c.log.Error("create storage cluster error",
 			logger.Any("cfg", cfg), logger.Error(err))
 		return

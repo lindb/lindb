@@ -27,10 +27,14 @@ func NewMasterContext(stateMachine *StateMachine) *MasterContext {
 // Close closes all state machines, releases resource that master used
 func (m *MasterContext) Close() {
 	log := logger.GetLogger("coordinator/context")
-	if err := m.stateMachine.StorageCluster.Close(); err != nil {
-		log.Error("close storage cluster state machine error", logger.Error(err), logger.Stack())
+	if m.stateMachine.StorageCluster != nil {
+		if err := m.stateMachine.StorageCluster.Close(); err != nil {
+			log.Error("close storage cluster state machine error", logger.Error(err), logger.Stack())
+		}
 	}
-	if err := m.stateMachine.DatabaseAdmin.Close(); err != nil {
-		log.Error("close database admin state machine error", logger.Error(err), logger.Stack())
+	if m.stateMachine.DatabaseAdmin != nil {
+		if err := m.stateMachine.DatabaseAdmin.Close(); err != nil {
+			log.Error("close database admin state machine error", logger.Error(err), logger.Stack())
+		}
 	}
 }

@@ -16,8 +16,11 @@ var testPath = "test_data"
 var validOption = option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day}
 
 func TestNew(t *testing.T) {
-	defer fileutil.RemoveDir(testPath)
-	engine, _ := NewEngine("test_db", testPath)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	factory := NewEngineFactory()
+	engine, _ := factory.CreateEngine("test_db", testPath)
 	assert.NotNil(t, engine)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 
@@ -38,10 +41,10 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, engine.GetShard(3))
 	assert.Nil(t, engine.GetShard(10))
 	assert.Equal(t, 3, engine.NumOfShards())
-	engine.Close()
+	_ = engine.Close()
 
 	// re-open engine test load exist data
-	engine, _ = NewEngine("test_db", testPath)
+	engine, _ = factory.CreateEngine("test_db", testPath)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db", "OPTIONS")))
 
@@ -50,5 +53,5 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, engine.GetShard(3))
 	assert.Nil(t, engine.GetShard(10))
 	assert.Equal(t, 3, engine.NumOfShards())
-	engine.Close()
+	_ = engine.Close()
 }

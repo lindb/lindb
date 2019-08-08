@@ -15,11 +15,17 @@ import (
 const options = "OPTIONS"
 const shardPath = "shard"
 
+// EngineFactory represents a time series engine create factory
+type EngineFactory interface {
+	// CreateEngine creates engine instance if create engine's path successfully
+	CreateEngine(name string, path string) (Engine, error)
+}
+
 // Engine represents a time series storage engine
 type Engine interface {
-	// Name returns tsdb engine's name, engine's name is database's name for user
+	// Name returns time series engine's name, engine's name is database's name for user
 	Name() string
-	// NumOfShards returns number of shards in tsdb engine
+	// NumOfShards returns number of shards in time series engine
 	NumOfShards() int
 	// CreateShards creates shards for data partition
 	CreateShards(option option.ShardOption, shardIDs ...int32) error
@@ -49,8 +55,17 @@ type engine struct {
 	mutex sync.Mutex
 }
 
-// NewEngine creates engine instance if create engine's path successfully
-func NewEngine(name string, path string) (Engine, error) {
+// engineFactory implements engine factory interface
+type engineFactory struct {
+}
+
+// NewEngineFactory creates an engine factory for creating time series engine
+func NewEngineFactory() EngineFactory {
+	return &engineFactory{}
+}
+
+// CreateEngine creates an engine instance if create engine's path successfully
+func (f *engineFactory) CreateEngine(name string, path string) (Engine, error) {
 	enginePath := filepath.Join(path, name)
 	// create engine path
 	if err := fileutil.MkDirIfNotExist(enginePath); err != nil {
@@ -82,7 +97,7 @@ func NewEngine(name string, path string) (Engine, error) {
 	return e, nil
 }
 
-// Name returns tsdb engine's name, engine's name is database's name for user
+// Name returns time series engine's name, engine's name is database's name for user
 func (e *engine) Name() string {
 	return e.name
 }

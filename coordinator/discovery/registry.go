@@ -74,11 +74,8 @@ func (r *registry) register(path string, node models.Node) {
 		if r.ctx.Err() != nil {
 			return
 		}
-		nodeBytes, err := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
-		if err != nil {
-			r.log.Error("convert node to byte error when register node info", logger.Error(err))
-			return
-		}
+		nodeBytes, _ := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
+
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, r.ttl)
 		if err != nil {
 			r.log.Error("register storage node error", logger.Error(err))

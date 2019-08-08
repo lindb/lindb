@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
@@ -41,7 +41,8 @@ func TestElection(t *testing.T) {
 }
 
 func (ts *testTaskSuite) Test_tasks(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
+	factory := state.NewRepositoryFactory()
+	repo, _ := factory.CreateRepo(state.Config{
 		Namespace: "/coordinator/test/task",
 		Endpoints: ts.Cluster.Endpoints,
 	})

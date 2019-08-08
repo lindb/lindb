@@ -19,6 +19,7 @@ import (
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/storage/handler"
+	"github.com/lindb/lindb/tsdb"
 )
 
 const (
@@ -130,7 +131,8 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := state.NewRepo(r.config.Coordinator)
+	factory := state.NewRepositoryFactory()
+	repo, err := factory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}
@@ -181,7 +183,7 @@ func (r *runtime) buildServiceDependency() error {
 		return err
 	}
 	srv := srv{
-		storageService:  service.NewStorageService(r.config.Engine),
+		storageService:  service.NewStorageService(r.config.Engine, tsdb.NewEngineFactory()),
 		sequenceManager: sm,
 	}
 	r.srv = srv

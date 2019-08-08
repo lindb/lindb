@@ -1,93 +1,71 @@
 package discovery
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/mock"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-
-	check "gopkg.in/check.v1"
 )
-
-type testRegistrySuite struct {
-	mock.RepoTestSuite
-}
 
 var testRegistryPath = "/test/registry"
 
 func TestRegistry(t *testing.T) {
-	check.Suite(&testRegistrySuite{})
-	check.TestingT(t)
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (ts *testRegistrySuite) TestRegister(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Endpoints: ts.Cluster.Endpoints,
-	})
+	repo := state.NewMockRepository(ctrl)
 
-	registry := NewRegistry(repo, testRegistryPath, 100)
+	registry1 := NewRegistry(repo, testRegistryPath, 100)
+
+	closedCh := make(chan state.Closed)
 
 	node := models.Node{IP: "127.0.0.1", Port: 2080}
-	err := registry.Register(node)
+	gomock.InOrder(
+		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, fmt.Errorf("err")),
+		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(closedCh, nil),
+	)
+	err := registry1.Register(node)
 	if err != nil {
-		c.Fatal(err)
+		t.Fatal(err)
 	}
-	// wait register success
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
+
+	// maybe retry do heartbeat after close chan
+	repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	close(closedCh)
 
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
-	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
-	nodeInfo := models.ActiveNode{}
-	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo.Node)
+	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
+	err = registry1.Deregister(node)
+	assert.Nil(t, err)
 
-	// test re-register
-	_ = repo.Delete(context.TODO(), nodePath)
-	_, err = repo.Get(context.TODO(), nodePath)
-	c.Assert(err, check.NotNil)
-	// wait register success
-	time.Sleep(500 * time.Millisecond)
-	nodeBytes, _ = repo.Get(context.TODO(), nodePath)
-	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo.Node)
+	err = registry1.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_ = registry.Close()
-	time.Sleep(time.Second)
-	_, err = repo.Get(context.TODO(), nodePath)
-	c.Assert(err, check.NotNil)
-}
+	registry1 = NewRegistry(repo, testRegistryPath, 100)
+	err = registry1.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := registry1.(*registry)
+	r.register("/data/pant", node)
 
-func (ts *testRegistrySuite) TestDeregister(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Endpoints: ts.Cluster.Endpoints,
+	registry1 = NewRegistry(repo, testRegistryPath, 100)
+	r = registry1.(*registry)
+
+	// cancel ctx in timer
+	time.AfterFunc(100*time.Millisecond, func() {
+		r.cancel()
 	})
-
-	registry := NewRegistry(repo, testRegistryPath, 100)
-	defer func() {
-		_ = registry.Close()
-	}()
-
-	node := models.Node{IP: "127.0.0.1", Port: 2080}
-	err := registry.Register(node)
-	if err != nil {
-		c.Fatal(err)
-	}
-	// wait register success
-	time.Sleep(500 * time.Millisecond)
-
-	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
-	nodeBytes, _ := repo.Get(context.TODO(), nodePath)
-	nodeInfo := models.ActiveNode{}
-	_ = json.Unmarshal(nodeBytes, &nodeInfo)
-	c.Assert(node, check.Equals, nodeInfo.Node)
-
-	_ = registry.Deregister(node)
-	time.Sleep(500 * time.Millisecond)
-	_, err = repo.Get(context.TODO(), nodePath)
-	c.Assert(err, check.NotNil)
+	r.register("/data/pant", node)
 }
