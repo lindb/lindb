@@ -78,12 +78,12 @@ func (r *registry) register(path string, node models.Node) {
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, r.ttl)
 		if err != nil {
-			r.log.Error("register storage node error", logger.Error(err))
+			r.log.Error("register node error", logger.Error(err))
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
-		r.log.Info("register storage node successfully", logger.String("path", path))
+		r.log.Info("register node successfully", logger.String("path", path))
 
 		select {
 		case <-r.ctx.Done():

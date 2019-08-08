@@ -85,6 +85,7 @@ func NewMaster(
 // OnFailOver invoked after master electing, current node become a new master
 func (m *master) OnFailOver() {
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	stateMachine := &coCtx.StateMachine{}
 	storageCluster, err := storage.NewClusterStateMachine(m.ctx, m.repo,
@@ -107,7 +108,6 @@ func (m *master) OnFailOver() {
 	m.masterCtx = coCtx.NewMasterContext(stateMachine)
 
 	//FIXME resign if init master context
-	defer m.mutex.Unlock()
 }
 
 // OnResignation invoked current node is master, before re-electing
