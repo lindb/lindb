@@ -5,12 +5,16 @@ package tsdb
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of Shard━━━━━━━━━━━━━━━━━━━━━━━━
 
-Each shard contains a MemoryDatabase.
+Each shard contains a MemoryDatabase and DiskDatabase.
 ┌──────────────────┬──────────────────┐
-│      Shard       │   Shard          │
+│       Shard      │       Shard      │
 ├──────────────────┼──────────────────┤
-│  Memory Database │  Memory Database │
-└──────────────────┴──────────────────┘
+│       MemDB      │       MemDB      │
+├──────────────────┼──────────────────┤
+│       DiskDB     │       DiskDB     │
+├──────────────────┴──────────────────┤
+│               IndexDB               │
+└─────────────────────────────────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of memDB━━━━━━━━━━━━━━━━━━━━━━━━
@@ -117,7 +121,7 @@ Values: [2, 1, 3]
 
 
                    +--------+
-                   | (Root) |
+                   |        | (pseudo root)
                    |  10    |
                    +--------+
                        |
@@ -160,8 +164,7 @@ Values: [2, 1, 3]
 Metric Index table is composed of 2 families: Metric Tree and Metric Meta:
 
 a) Metric Tree Table
-Metric-Tree is a LOUDS encoded succinct trie tree which
-provides the Rank&Select primitive for querying MetricID with metricName from the trie tree.
+Metric-Tree is a gzip compressed k/v pairs of metricNames and metricIDs on disk.
 
                    Level1
                    +---------+---------+---------+---------+
@@ -169,16 +172,16 @@ provides the Rank&Select primitive for querying MetricID with metricName from th
                    | Tree    |         |         |         |
                    +---------+---------+---------+---------+
 
-
 Level1(Metric Tree)
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  LOUDS Encoded Trie Tree                                         │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│ MetricID │  TagID   │  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │ MetricID │
-│ Sequence │ Sequence │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │   Data   │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ 4N Bytes │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+┌─────────────────────┬─────────────────────────────────────────────────────────────────┐
+│                     │            Gzip Compressed Metric K/V pairs                     │
+├──────────┬──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│ MetricID │  TagID   │MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │
+│ Sequence │ Sequence │  Length  │          │          │  Length  │          │          │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
 
 b) Metric Meta Table
 Metric-Meta stores meta info for metric,
@@ -190,9 +193,9 @@ such as tagKey, tagID, fieldID, fieldName and fieldType etc.
                    | Meta    |  Meta   |  Meta   |  Meta   | Index   |         |
                    +---------+---------+---------+---------+---------+---------+
                   /           \        |         |\        +--------------+
-                 /             \       |         | +---------------+       \
-                /               \      |         +------------+     \       \
-               /                 \     +-+                     \     \       \
+                 /             \       +         | +---------------+       \
+                /               \       \        +------------+     \       \
+               /                 \       \                     \     \       \
   +-----------+                   \       \                     \     \       \
  /                 Level2          \       \                     \     \       \
 v--------+--------+--------+--------v       v--------+---+--------v     v-------v

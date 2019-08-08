@@ -1,7 +1,5 @@
 package indexdb
 
-//// indexDatabase implements IndexDatabase.
-//type indexDatabase struct {
-//	metricIDSequence uint32 // a counter since 1
-//	tagIDSequence    uint32 // a counter since 1
-//}
+import "github.com/lindb/lindb/pkg/logger"
+
+var indexDBLogger = logger.GetLogger("tsdb/indexdb")

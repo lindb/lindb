@@ -60,9 +60,9 @@ func Test_SeriesIndexFlusher_RS_error(t *testing.T) {
 	mockTrie.EXPECT().Add(gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockTrie.EXPECT().Reset().Return().AnyTimes()
 	// mock rank select
-	mockRS := NewMockrankSelectINTF(ctrl)
+	mockRS := NewMockRSINTF(ctrl)
 	// mock binary return
-	mockBin := &loudsBinary{LOUDS: mockRS, isPrefixKey: mockRS, labels: nil, values: nil}
+	mockBin := &seriesBinData{LOUDS: mockRS, isPrefixKey: mockRS, labels: nil, values: nil}
 	mockTrie.EXPECT().MarshalBinary().Return(mockBin).AnyTimes()
 	// replace trie with mock
 	indexFlusher.trie = mockTrie
