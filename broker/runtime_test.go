@@ -4,16 +4,13 @@ import (
 	"testing"
 	"time"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
-
-var brokerCfgPath = "./broker.toml"
 
 type testBrokerRuntimeSuite struct {
 	mock.RepoTestSuite
@@ -25,18 +22,6 @@ func TestBrokerRuntime(t *testing.T) {
 }
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	defer func() {
-		_ = fileutil.RemoveDir(brokerCfgPath)
-	}()
-	// test run fail
-	broker := NewBrokerRuntime(brokerCfgPath)
-	err := broker.Run()
-	if err == nil {
-		c.Fail()
-	}
-	c.Assert(server.Failed, check.Equals, broker.State())
-
-	// test normal broker run
 	cfg := config.Broker{
 		HTTP: config.HTTP{
 			Port: 9999,
@@ -56,9 +41,8 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			RemoveTaskIntervalInSecond: 60,
 		},
 	}
-	_ = fileutil.EncodeToml(brokerCfgPath, &cfg)
-	broker = NewBrokerRuntime(brokerCfgPath)
-	err = broker.Run()
+	broker := NewBrokerRuntime(cfg)
+	err := broker.Run()
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -66,6 +50,7 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 
 	c.Assert(server.Running, check.Equals, broker.State())
+	c.Assert("broker", check.Equals, broker.Name())
 
 	_ = broker.Stop()
 	c.Assert(server.Terminated, check.Equals, broker.State())

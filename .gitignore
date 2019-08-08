@@ -20,7 +20,7 @@ bin/
 *mock.go
 *mock.pb.go
 *mock_test.go
-
+default.etcd
 web/node_modules/
 web/build/*
 web/yarn-error.log

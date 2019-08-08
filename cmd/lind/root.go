@@ -12,8 +12,8 @@ const (
  / /___ / /   / / / / / /_/ /  / /_/ / 
 /_____//_/   /_/ /_/ /_____/  /_____/  
 
-LinDB is a scalable, distributed, high performance, high availability Time Series Database, produced by Eleme-CI.
-Complete documentation is available at https://github.com/lindb/lindb
+LinDB is a scalable, high performance, high availability, distributed time series database.
+Complete documentation is available at https://lindb.io
 `
 )
 
@@ -30,5 +30,6 @@ func init() {
 		versionCmd,
 		newStorageCmd(),
 		newBrokerCmd(),
+		newStandaloneCmd(),
 	)
 }

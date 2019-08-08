@@ -78,7 +78,7 @@ func (d *discovery) Discovery() error {
 	watchEventCh := d.repo.WatchPrefix(d.ctx, d.prefix)
 	go func() {
 		d.handlerResourceChange(watchEventCh)
-		d.log.Warn("exit discovery loop")
+		d.log.Warn("exit discovery loop", logger.String("prefix", d.prefix))
 	}()
 	return nil
 }
@@ -87,9 +87,6 @@ func (d *discovery) Discovery() error {
 func (d *discovery) Close() {
 	d.cancel()
 	d.listener.Cleanup()
-	if err := d.repo.Close(); err != nil {
-		d.log.Error("close state repo error", logger.String("prefix", d.prefix))
-	}
 }
 
 // handlerResourceChange handles the changes of event for resources

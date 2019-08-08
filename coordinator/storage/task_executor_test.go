@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,7 @@ func TestTaskExecutor(t *testing.T) {
 
 	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(nil)
 	exec.Run()
+	time.Sleep(100 * time.Millisecond)
 	err := exec.Close()
 	if err != nil {
 		t.Fatal(err)

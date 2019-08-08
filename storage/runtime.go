@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
@@ -20,12 +19,6 @@ import (
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/storage/handler"
 	"github.com/lindb/lindb/tsdb"
-)
-
-const (
-	storageCfgName = "storage.toml"
-	// DefaultStorageCfgFile defines storage default config file path
-	DefaultStorageCfgFile = "./" + storageCfgName
 )
 
 // srv represents all dependency services
@@ -42,9 +35,8 @@ type rpcHandler struct {
 
 // runtime represents storage runtime dependency
 type runtime struct {
-	state   server.State
-	cfgPath string
-	config  config.Storage
+	state  server.State
+	config config.Storage
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -61,32 +53,25 @@ type runtime struct {
 }
 
 // NewStorageRuntime creates storage runtime
-func NewStorageRuntime(cfgPath string) server.Service {
+func NewStorageRuntime(config config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		state:   server.New,
-		cfgPath: cfgPath,
-		ctx:     ctx,
-		cancel:  cancel,
+		state:  server.New,
+		config: config,
+		ctx:    ctx,
+		cancel: cancel,
 
 		log: logger.GetLogger("storage/runtime"),
 	}
 }
 
+// Name returns the storage service's name
+func (r *runtime) Name() string {
+	return "storage"
+}
+
 // Run runs storage server
 func (r *runtime) Run() error {
-	if r.cfgPath == "" {
-		r.cfgPath = DefaultStorageCfgFile
-	}
-	if !fileutil.Exist(r.cfgPath) {
-		r.state = server.Failed
-		return fmt.Errorf("config file doesn't exist, see how to initialize the config by `lind storage -h`")
-	}
-	r.config = config.Storage{}
-	if err := fileutil.DecodeToml(r.cfgPath, &r.config); err != nil {
-		r.state = server.Failed
-		return fmt.Errorf("decode config file error:%s", err)
-	}
 
 	ip, err := util.GetHostIP()
 	if err != nil {
