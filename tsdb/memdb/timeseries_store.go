@@ -4,7 +4,6 @@ import (
 	"math"
 	"sort"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -35,7 +34,7 @@ type tStoreINTF interface {
 type fStoreNodes []fStoreINTF
 
 func (f fStoreNodes) Len() int           { return len(f) }
-func (f fStoreNodes) Less(i, j int) bool { return f[i].getFieldName() < f[j].getFieldName() }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].getFieldID() < f[j].getFieldID() }
 func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
@@ -65,12 +64,12 @@ func (ts *timeSeriesStore) getHash() uint64 {
 	return ts.hash
 }
 
-// getFStore returns the fStore in this list from field-name.
-func (ts *timeSeriesStore) getFStore(fieldName string) (fStoreINTF, bool) {
+// getFStore returns the fStore in this list from field-id.
+func (ts *timeSeriesStore) getFStore(fieldID uint16) (fStoreINTF, bool) {
 	idx := sort.Search(len(ts.fStoreNodes), func(i int) bool {
-		return ts.fStoreNodes[i].getFieldName() >= fieldName
+		return ts.fStoreNodes[i].getFieldID() >= fieldID
 	})
-	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].getFieldName() != fieldName {
+	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].getFieldID() != fieldID {
 		return nil, false
 	}
 	return ts.fStoreNodes[idx], true
@@ -173,22 +172,14 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.Type,
 	writeCtx writeContext) (fStoreINTF, error) {
 
-	fStore, ok := ts.getFStore(fieldName)
-	if ok {
-		if fStore.getFieldType() != fieldType {
-			return nil, models.ErrWrongFieldType
-		}
-	} else {
-		// forbid creating new fStore when full
-		if len(ts.fStoreNodes) >= maxFieldsLimit {
-			return nil, models.ErrTooManyFields
-		}
-		// wrong field type
-		fieldID, err := writeCtx.generator.GenFieldID(writeCtx.metricID, fieldName, fieldType)
-		if err != nil {
-			return nil, err
-		}
-		fStore = newFieldStore(fieldName, fieldID, fieldType)
+	fieldID, err := writeCtx.getFieldIDOrGenerate(fieldName, fieldType, writeCtx.generator)
+	if err != nil {
+		return nil, err
+	}
+
+	fStore, ok := ts.getFStore(fieldID)
+	if !ok {
+		fStore = newFieldStore(fieldID)
 		ts.insertFStore(fStore)
 	}
 	return fStore, nil

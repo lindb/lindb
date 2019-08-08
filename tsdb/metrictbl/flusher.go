@@ -21,8 +21,10 @@ import (
 // Level2: TSEntry
 // Level3: compressed field data
 type TableFlusher interface {
+	// FlushFieldMeta writes the meta info a field
+	FlushFieldMeta(fieldID uint16, fieldType field.Type)
 	// FlushField writes a compressed field data to writer.
-	FlushField(fieldID uint16, fieldType field.Type, data []byte, startSlot, endSlot int)
+	FlushField(fieldID uint16, data []byte, startSlot, endSlot int)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
 	FlushSeries(seriesID uint32)
 	// FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
@@ -48,12 +50,17 @@ type tableFlusher struct {
 	entryBuilder *entryBuilder
 }
 
+// FlushFieldMeta writes the meta info a field
+func (w *tableFlusher) FlushFieldMeta(fieldID uint16, fieldType field.Type) {
+	w.blockBuilder.appendFieldMeta(fieldID, fieldType)
+}
+
 // FlushField writes a compressed field data to writer.
-func (w *tableFlusher) FlushField(fieldID uint16, fieldType field.Type, data []byte, startSlot, endSlot int) {
+func (w *tableFlusher) FlushField(fieldID uint16, data []byte, startSlot, endSlot int) {
 	startTime := int64(startSlot) * w.interval
 	endTime := int64(endSlot) * w.interval
 
-	w.blockBuilder.appendFieldMeta(fieldID, fieldType, startTime, endTime)
+	w.blockBuilder.addStartEndTime(startTime, endTime)
 	w.entryBuilder.addField(fieldID, data, startTime, endTime)
 }
 
@@ -109,8 +116,8 @@ func (blockBuilder *blockBuilder) addSeries(seriesID uint32, data []byte) {
 	_, _ = blockBuilder.buf.Write(data)
 }
 
-// appendFieldMeta builds a field-id list, min start-time and max end-time.
-func (blockBuilder *blockBuilder) appendFieldMeta(fieldID uint16, fieldType field.Type, startTime, endTime int64) {
+// appendFieldMeta updates min start-time and max end-time.
+func (blockBuilder *blockBuilder) addStartEndTime(startTime, endTime int64) {
 	// collect min-startTime and max-endTime of one entry.
 	atomic.CompareAndSwapInt64(&blockBuilder.minStartTime, 0, startTime)
 	if blockBuilder.minStartTime > startTime {
@@ -119,6 +126,10 @@ func (blockBuilder *blockBuilder) appendFieldMeta(fieldID uint16, fieldType fiel
 	if blockBuilder.maxEndTime < endTime {
 		blockBuilder.maxEndTime = endTime
 	}
+}
+
+// appendFieldMeta builds a field-id list in order.
+func (blockBuilder *blockBuilder) appendFieldMeta(fieldID uint16, fieldType field.Type) {
 	if _, ok := blockBuilder.metaFieldsIDMap[fieldID]; ok {
 		return
 	}

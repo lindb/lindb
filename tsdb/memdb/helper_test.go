@@ -30,7 +30,8 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *index.MockIDGenerator {
 
 func makeMockTableFlusher(ctrl *gomock.Controller) *metrictbl.MockTableFlusher {
 	mockTF := metrictbl.NewMockTableFlusher(ctrl)
-	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
 	mockTF.EXPECT().FlushSeries(gomock.Any()).
 		Return().AnyTimes()

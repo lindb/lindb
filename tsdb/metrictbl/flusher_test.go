@@ -69,17 +69,27 @@ func Test_metricBlockBuilder_addTSEntry(t *testing.T) {
 func Test_metricBlockBuilder_finish(t *testing.T) {
 	block := newBlockBuilder()
 
-	block.appendFieldMeta(uint16(10), field.SumField, 1, 2)
-	block.appendFieldMeta(uint16(11), field.SumField, 3, 7)
-	block.appendFieldMeta(uint16(12), field.SumField, 4, 5)
+	block.appendFieldMeta(uint16(10), field.SumField)
+	block.appendFieldMeta(uint16(11), field.SumField)
+	block.appendFieldMeta(uint16(12), field.SumField)
+	block.addStartEndTime(1, 2)
+	block.addStartEndTime(3, 7)
+	block.addStartEndTime(4, 5)
+
 	block.addSeries(uint32(1), []byte("a"))
-	block.appendFieldMeta(uint16(20), field.SumField, 1, 9)
-	block.appendFieldMeta(uint16(21), field.SumField, 2, 3)
-	block.appendFieldMeta(uint16(22), field.SumField, 8, 10)
+	block.appendFieldMeta(uint16(20), field.SumField)
+	block.appendFieldMeta(uint16(21), field.SumField)
+	block.appendFieldMeta(uint16(22), field.SumField)
+	block.addStartEndTime(1, 9)
+	block.addStartEndTime(2, 3)
+	block.addStartEndTime(8, 10)
 	block.addSeries(uint32(2), []byte("bc"))
-	block.appendFieldMeta(uint16(30), field.SumField, 1, 9)
-	block.appendFieldMeta(uint16(31), field.SumField, 2, 3)
-	block.appendFieldMeta(uint16(32), field.SumField, 8, 10)
+	block.appendFieldMeta(uint16(30), field.SumField)
+	block.appendFieldMeta(uint16(31), field.SumField)
+	block.appendFieldMeta(uint16(32), field.SumField)
+	block.addStartEndTime(1, 9)
+	block.addStartEndTime(2, 3)
+	block.addStartEndTime(8, 10)
 	block.addSeries(uint32(3), []byte("def"))
 
 	assert.Nil(t, block.finish())
@@ -124,7 +134,8 @@ func Test_TableFlusher(t *testing.T) {
 	mockFlusher.EXPECT().Commit().Return(fmt.Errorf("close error"))
 	assert.NotNil(t, tw.Commit())
 	// common write
-	tw.FlushField(uint16(1), field.SumField, []byte("test-field"), 1, 1)
+	tw.FlushFieldMeta(1, field.SumField)
+	tw.FlushField(1, []byte("test-field"), 1, 1)
 	tw.FlushSeries(uint32(2))
 
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -133,12 +144,13 @@ func Test_TableFlusher(t *testing.T) {
 	for x := 0; x < 100; x++ {
 		for y := 0; y < 100; y++ {
 			for z := 0; z < 100; z++ {
-				tw.FlushField(uint16(z), field.SumField, []byte("test-field"), 1, 2)
+				tw.FlushFieldMeta(uint16(z), field.SumField)
+				tw.FlushField(uint16(z), []byte("test-field"), 1, 2)
+				tw.FlushField(uint16(z), []byte("test-field"), 0, 2)
 			}
 			tw.FlushSeries(uint32(y))
 		}
 		assert.Nil(t, tw.FlushMetric(uint32(x)))
-
 	}
 	mockFlusher.EXPECT().Commit().Return(nil)
 	assert.Nil(t, tw.Commit())
