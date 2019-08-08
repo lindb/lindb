@@ -5,7 +5,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/field"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/golang/mock/gomock"
@@ -19,9 +18,9 @@ func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
 }
 
 func Test_newFieldStore(t *testing.T) {
-	fStore := newFieldStore("sum", 10, field.SumField)
+	fStore := newFieldStore(1)
 	assert.NotNil(t, fStore)
-	assert.Equal(t, fStore.getFieldType(), field.SumField)
+	assert.Equal(t, uint16(1), fStore.getFieldID())
 	timeRange, ok := fStore.timeRange(10)
 	assert.False(t, ok)
 	assert.Equal(t, int64(0), timeRange.Start)
@@ -29,7 +28,7 @@ func Test_newFieldStore(t *testing.T) {
 }
 
 func Test_fStore_write(t *testing.T) {
-	fStore := newFieldStore("sum", 10, field.SumField)
+	fStore := newFieldStore(10)
 	theFieldStore := fStore.(*fieldStore)
 	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
 
@@ -44,7 +43,7 @@ func Test_fStore_timeRange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fStore := newFieldStore("sum", 10, field.SumField)
+	fStore := newFieldStore(10)
 	theFieldStore := fStore.(*fieldStore)
 
 	mockSStore1 := getMockSStore(ctrl, 1564300800000)
@@ -82,7 +81,7 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fStore := newFieldStore("sum", 10, field.SumField)
+	fStore := newFieldStore(10)
 	theFieldStore := fStore.(*fieldStore)
 
 	mockTF := makeMockTableFlusher(ctrl)
@@ -110,7 +109,7 @@ func Test_fStore_removeSStore(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fsINTF := newFieldStore("sum", 1, field.SumField)
+	fsINTF := newFieldStore(1)
 	fs := fsINTF.(*fieldStore)
 	// segments empty
 	fs.removeSStore(0)

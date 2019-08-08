@@ -230,6 +230,7 @@ type writeContext struct {
 	familyTime   int64
 	slotIndex    int
 	timeInterval int64
+	mStoreFieldIDGetter
 }
 
 // Write writes metric-point to database.
@@ -245,12 +246,13 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	mStore := md.getOrCreateMStore(metric.Name, hash)
 	// todo: @codingcrush, pass it as milliseconds
 	err = mStore.write(metric, writeContext{
-		metricID:     mStore.getMetricID(),
-		blockStore:   md.blockStore,
-		generator:    md.generator,
-		familyTime:   familyStartTime,
-		slotIndex:    slotIndex,
-		timeInterval: md.interval})
+		metricID:            mStore.getMetricID(),
+		blockStore:          md.blockStore,
+		generator:           md.generator,
+		familyTime:          familyStartTime,
+		slotIndex:           slotIndex,
+		timeInterval:        md.interval,
+		mStoreFieldIDGetter: mStore})
 	if err == nil {
 		bkt := md.getBucket(hash)
 		bkt.addFamilyTime(familyStartTime)

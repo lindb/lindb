@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/index"
 	"github.com/lindb/lindb/tsdb/indextbl"
+	"github.com/lindb/lindb/tsdb/metrictbl"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -164,7 +167,12 @@ func Test_mStore_flushMetricsTo_OK(t *testing.T) {
 	mStore.immutable = []tagIndexINTF{mockTagIdx}
 	mStore.mutable = mockTagIdx
 
-	assert.Nil(t, mStoreInterface.flushMetricsTo(nil, flushContext{}))
+	// mock flush field meta
+	mockTF := metrictbl.NewMockTableFlusher(ctrl)
+	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).AnyTimes()
+	mStore.fieldsMetas = append(mStore.fieldsMetas, fieldMeta{}, fieldMeta{})
+
+	assert.Nil(t, mStoreInterface.flushMetricsTo(mockTF, flushContext{}))
 	assert.Nil(t, mStore.immutable)
 }
 
@@ -241,5 +249,54 @@ func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 	gomock.InOrder(returnNotNil2, returnNil2)
 	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
 	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
+}
+
+func Test_getFieldIDOrGenerate(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGen := index.NewMockIDGenerator(ctrl)
+	// mock generate ok
+	mockGen.EXPECT().GenFieldID(uint32(100), "sum", field.SumField).Return(uint16(1), nil).AnyTimes()
+	fieldID, err := mStoreInterface.getFieldIDOrGenerate("sum", field.SumField, mockGen)
+	assert.Equal(t, uint16(1), fieldID)
+	assert.Nil(t, err)
+	// exist case
+	_, err = mStoreInterface.getFieldIDOrGenerate("sum", field.SumField, mockGen)
+	// field not matches to the existed
+	assert.Nil(t, err)
+	_, err = mStoreInterface.getFieldIDOrGenerate("sum", field.MinField, mockGen)
+	assert.NotNil(t, err)
+	// mock generate failure
+	mockGen.EXPECT().GenFieldID(uint32(100), "gen-error", field.SumField).
+		Return(uint16(1), models.ErrWrongFieldType)
+	_, err = mStoreInterface.getFieldIDOrGenerate("gen-error", field.SumField, mockGen)
+	assert.NotNil(t, err)
+
+	// mock too many fields
+	for range [3000]struct{}{} {
+		mStore.fieldsMetas = append(mStore.fieldsMetas, fieldMeta{})
+	}
+	_, err = mStoreInterface.getFieldIDOrGenerate("sum", field.SumField, mockGen)
+	assert.NotNil(t, err)
+}
+
+func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	//mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockGen := index.NewMockIDGenerator(ctrl)
+	// fields meta sort
+	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
+	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()
+	mockGen.EXPECT().GenFieldID(uint32(100), "3", field.SumField).Return(uint16(3), nil).AnyTimes()
+	mStoreInterface.getFieldIDOrGenerate("3", field.SumField, mockGen)
+	mStoreInterface.getFieldIDOrGenerate("1", field.SumField, mockGen)
+	mStoreInterface.getFieldIDOrGenerate("2", field.SumField, mockGen)
 
 }
