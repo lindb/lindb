@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/service"
 )
@@ -33,7 +33,7 @@ func (p *createShardProcessor) Concurrency() int            { return 1 }
 // Process creates shard for storing time series data
 func (p *createShardProcessor) Process(ctx context.Context, task task.Task) error {
 	param := models.CreateShardTask{}
-	if err := json.Unmarshal(task.Params, &param); err != nil {
+	if err := encoding.JSONUnmarshal(task.Params, &param); err != nil {
 		return err
 	}
 	logger.GetLogger("create_shard/task").

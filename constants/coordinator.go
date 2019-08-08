@@ -24,6 +24,8 @@ const (
 	StorageClusterStatePath = "/state/storage/cluster"
 	// ReplicaStatePath represents the replica's state
 	ReplicaStatePath = "/state/replica"
+	// MasterPath represents master elect path
+	MasterPath = "/master/node"
 )
 
 // defines all task kinds

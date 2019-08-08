@@ -13,6 +13,8 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./storage_cluster.go -destination=./storage_service_mock.go -package service
+
 // StorageClusterService defines storage cluster service interface
 type StorageClusterService interface {
 	// Save saves storage cluster config
@@ -40,16 +42,12 @@ func (s *storageClusterService) Save(storageCluster *models.StorageCluster) erro
 	if storageCluster.Name == "" {
 		return fmt.Errorf("storage cluster name cannot be empty")
 	}
-	data, err := json.Marshal(storageCluster)
-	if err != nil {
-		return fmt.Errorf("marshal storage cluster error:%s", err)
-	}
+	data, _ := json.Marshal(storageCluster)
 	//TODO add timeout????
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	err = s.repo.Put(ctx, pathutil.GetStorageClusterConfigPath(storageCluster.Name), data)
-	if err != nil {
+	if err := s.repo.Put(ctx, pathutil.GetStorageClusterConfigPath(storageCluster.Name), data); err != nil {
 		return err
 	}
 	return nil

@@ -1,53 +1,50 @@
 package service
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/mock"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-
-	"gopkg.in/check.v1"
 )
 
-type testStorageStateSRVSuite struct {
-	mock.RepoTestSuite
-}
+func TestStorageSateService(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func TestStorageStateSRV(t *testing.T) {
-	check.Suite(&testStorageStateSRVSuite{})
-	check.TestingT(t)
-}
+	repo := state.NewMockRepository(ctrl)
 
-func (ts *testStorageStateSRVSuite) TestStorageState(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Namespace: "/test/storage/state",
-		Endpoints: ts.Cluster.Endpoints,
-	})
 	storageState := models.NewStorageState()
 	storageState.Name = "LinDB_Storage"
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 
 	srv := NewStorageStateService(repo)
 
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := srv.Save("Test_LinDB", storageState)
 	if err != nil {
-		c.Fatal(err)
+		t.Fatal(err)
 	}
 
-	storageState1, _ := srv.Get("Test_LinDB")
-
-	c.Assert(storageState, check.DeepEquals, storageState1)
-
-	_, err = srv.Get("Test_LinDB_Not_Exist")
-	c.Assert(state.ErrNotExist, check.Equals, err)
-
-	_ = repo.Close()
-
-	// test error
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = srv.Save("Test_LinDB", storageState)
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
+
+	data, _ := json.Marshal(&storageState)
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data, nil)
+	storageState1, _ := srv.Get("Test_LinDB")
+	assert.Equal(t, storageState, storageState1)
+
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte{1, 1, 3}, nil)
 	storageState1, err = srv.Get("Test_LinDB")
-	c.Assert(storageState1, check.IsNil)
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
+	assert.Nil(t, storageState1)
+
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
+	_, err = srv.Get("Test_LinDB_Not_Exist")
+	assert.Equal(t, state.ErrNotExist, err)
 }

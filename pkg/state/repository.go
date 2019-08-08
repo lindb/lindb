@@ -12,6 +12,12 @@ var (
 	ErrNotExist = errors.New("not exist")
 )
 
+// RepositoryFactory represents the repository create factory
+type RepositoryFactory interface {
+	// CreateRepo creates state repository based on config
+	CreateRepo(config Config) (Repository, error)
+}
+
 // Repository stores state data, such as metadata/config/status/task etc.
 type Repository interface {
 	// Get retrieves value for given key from repository
@@ -82,7 +88,16 @@ type Closed struct{}
 // WatchEventChan notify event channel
 type WatchEventChan <-chan *Event
 
-// NewRepo create state repository based on config
-func NewRepo(config Config) (Repository, error) {
+// repositoryFactory represents a repository create factory
+type repositoryFactory struct {
+}
+
+// NewRepositoryFactory creates a repository factory
+func NewRepositoryFactory() RepositoryFactory {
+	return &repositoryFactory{}
+}
+
+// CreateRepo creates state repository based on config
+func (f *repositoryFactory) CreateRepo(config Config) (Repository, error) {
 	return newEtedRepository(config)
 }

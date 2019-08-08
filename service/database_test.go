@@ -1,30 +1,24 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 
-	check "gopkg.in/check.v1"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-type testDatabaseSRVSuite struct {
-	mock.RepoTestSuite
-}
+func TestDatabaseService(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func TestDatabaseSRV(t *testing.T) {
-	check.Suite(&testDatabaseSRVSuite{})
-	check.TestingT(t)
-}
-
-func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
-	repo, _ := state.NewRepo(state.Config{
-		Endpoints: ts.Cluster.Endpoints,
-	})
+	repo := state.NewMockRepository(ctrl)
 
 	db := NewDatabaseService(repo)
+
 	database := models.Database{
 		Name: "test",
 		Clusters: []models.DatabaseCluster{
@@ -35,24 +29,37 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	}
+	data, _ := json.Marshal(&database)
+
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := db.Save(&database)
 	if err != nil {
-		c.Fatal(err)
+		t.Fatal(err)
 	}
+
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data, nil)
 	database2, _ := db.Get("test")
-	c.Assert(database, check.DeepEquals, *database2)
+	assert.Equal(t, database, *database2)
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
 	database2, err = db.Get("test_not_exist")
-	c.Assert(err, check.Equals, state.ErrNotExist)
-	c.Assert(database2, check.IsNil)
+	assert.Equal(t, state.ErrNotExist, err)
+	assert.Nil(t, database2)
+	database2, err = db.Get("")
+	assert.NotNil(t, err)
+	assert.Nil(t, database2)
+
+	// json unmarshal error
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte{1, 1, 1}, nil)
+	database2, err = db.Get("json_unmarshal_err")
+	assert.NotNil(t, err)
+	assert.Nil(t, database2)
 
 	// test create database error
 	err = db.Save(&models.Database{})
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
 
-	err = db.Save(&models.Database{
-		Name: "test",
-	})
-	c.Assert(err, check.NotNil)
+	err = db.Save(&models.Database{Name: "test"})
+	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
 		Name: "test",
@@ -63,7 +70,7 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	})
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
 		Name: "test",
@@ -74,7 +81,7 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	})
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
 		Name: "test",
@@ -85,13 +92,5 @@ func (ts *testDatabaseSRVSuite) TestDatabase(c *check.C) {
 			},
 		},
 	})
-	c.Assert(err, check.NotNil)
-
-	_ = repo.Close()
-
-	err = db.Save(&database)
-	c.Assert(err, check.NotNil)
-	database2, err = db.Get("test")
-	c.Assert(database2, check.IsNil)
-	c.Assert(err, check.NotNil)
+	assert.NotNil(t, err)
 }

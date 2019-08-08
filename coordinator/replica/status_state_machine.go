@@ -12,7 +12,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./status_state_machine.go -destination=./status_state_machine_mock.go -package=replica
@@ -32,7 +31,6 @@ type StatusStateMachine interface {
 // statusStateMachine implements status state machine,
 // watches replica state path for listening modify event which broker uploaded
 type statusStateMachine struct {
-	repo      state.Repository
 	discovery discovery.Discovery
 
 	ctx    context.Context
@@ -46,17 +44,16 @@ type statusStateMachine struct {
 }
 
 // NewStatusStateMachine creates a replica's status state machine
-func NewStatusStateMachine(ctx context.Context, repo state.Repository) (StatusStateMachine, error) {
+func NewStatusStateMachine(ctx context.Context, factory discovery.Factory) (StatusStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	sm := &statusStateMachine{
-		repo:    repo,
 		ctx:     c,
 		cancel:  cancel,
 		brokers: make(map[string]models.BrokerReplicaState),
 		log:     logger.GetLogger("replica/status/state/machine"),
 	}
 	// new replica status discovery
-	sm.discovery = discovery.NewDiscovery(repo, constants.ReplicaStatePath, sm)
+	sm.discovery = factory.CreateDiscovery(constants.ReplicaStatePath, sm)
 	if err := sm.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery database status error:%s", err)
 	}

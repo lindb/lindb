@@ -10,6 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./controller.go -destination=./controller_mock.go -package=task
+
 const (
 	version = "v1" // TODO
 	// FIXME(damnever): magic number, see also: --max-txn-ops in etcd
@@ -33,11 +35,19 @@ type ControllerTaskParam struct {
 	Params ToBytes
 }
 
-// Controller is responsible for submitting tasks, noticing responding when task status changes.
+// Controller is responsible for submitting tasks
+type Controller interface {
+	// Submit submits a task with params
+	Submit(kind Kind, name string, params []ControllerTaskParam) error
+	// Close closes controller, then releases the resource
+	Close() error
+}
+
+// controller is responsible for submitting tasks, noticing responding when task status changes.
 //
 // TODO(damnever): API to notify task status changes.
 //  - we can simply watch the key: /task-coordinator/<version>/status/kinds/<task-kind>/names/<task-name>
-type Controller struct {
+type controller struct {
 	keypfx string
 	cli    state.Repository
 
@@ -48,9 +58,9 @@ type Controller struct {
 }
 
 // NewController creates a new controller.
-func NewController(ctx context.Context, cli state.Repository) *Controller {
+func NewController(ctx context.Context, cli state.Repository) Controller {
 	ctx, cancel := context.WithCancel(ctx)
-	c := &Controller{
+	c := &controller{
 		keypfx: fmt.Sprintf("/task-coordinator/%s", version),
 		cli:    cli,
 		ctx:    ctx,
@@ -63,7 +73,7 @@ func NewController(ctx context.Context, cli state.Repository) *Controller {
 
 // Submit submits a task with params and node ids, a readable name with
 // context information is recommended.
-func (c *Controller) Submit(kind Kind, name string, params []ControllerTaskParam) error {
+func (c *controller) Submit(kind Kind, name string, params []ControllerTaskParam) error {
 	if atomic.LoadInt32(&c.closed) == 1 {
 		return ErrControllerClosed
 	}
@@ -108,7 +118,7 @@ func (c *Controller) Submit(kind Kind, name string, params []ControllerTaskParam
 }
 
 // Close shutdown Controller.
-func (c *Controller) Close() error {
+func (c *controller) Close() error {
 	if atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		c.cancel()
 		<-c.donec
@@ -116,7 +126,7 @@ func (c *Controller) Close() error {
 	return nil
 }
 
-func (c *Controller) run() {
+func (c *controller) run() {
 	close(c.donec)
 
 	evtc := c.cli.WatchPrefix(c.ctx, c.keypfx)
@@ -161,11 +171,11 @@ func (c *Controller) run() {
 	}
 }
 
-func (c *Controller) statusKey(kind Kind, name string) string {
+func (c *controller) statusKey(kind Kind, name string) string {
 	return fmt.Sprintf("%s/status/kinds/%s/names/%s", c.keypfx, kind, name)
 }
 
-func (c *Controller) taskKey(kind Kind, name, nodeID string) string {
+func (c *controller) taskKey(kind Kind, name, nodeID string) string {
 	return fmt.Sprintf("%s/executor/%s/kinds/%s/names/%s", c.keypfx, nodeID, kind, name)
 }
 
@@ -209,7 +219,7 @@ func (w *statusWaiter) Confirm(task Task) {
 	}
 }
 
-func (w *statusWaiter) UpdateStatus(c *Controller) error {
+func (w *statusWaiter) UpdateStatus(c Controller) error {
 	//TODO need impl?????
 	//batch := state.Batch{KVs: []state.KeyValue{{}}}
 	//w.tasks.State = StateDoneOK
@@ -259,7 +269,7 @@ func (w waiters) TryAdd(key string, tasks groupedTasks, rev int64) {
 	kw[tasks.Tasks[0].Name] = newStatusWaiter(key, tasks, rev)
 }
 
-func (w waiters) TryNotify(c *Controller, task Task) (err error) {
+func (w waiters) TryNotify(c Controller, task Task) (err error) {
 	if task.State <= StateRunning { // NOTE(damnever): Ignore newly created tasks.
 		return
 	}

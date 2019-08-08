@@ -10,6 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
+//go:generate mockgen -source=./database.go -destination=./database_mock.go -package service
+
 // DatabaseService defines database service interface
 type DatabaseService interface {
 	// Save saves database config
@@ -49,16 +51,13 @@ func (db *databaseService) Save(database *models.Database) error {
 			return fmt.Errorf("replica factor must be > 0")
 		}
 	}
-	data, err := json.Marshal(database)
-	if err != nil {
-		return fmt.Errorf("marshal database config error:%s", err)
-	}
+	data, _ := json.Marshal(database)
 	return db.repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath(database.Name), data)
 }
 
 // Get returns the database config in the state's repo, if not exist return ErrNotExist
 func (db *databaseService) Get(name string) (*models.Database, error) {
-	if name == "" {
+	if len(name) == 0 {
 		return nil, fmt.Errorf("database name must not be null")
 	}
 	configBytes, err := db.repo.Get(context.TODO(), pathutil.GetDatabaseConfigPath(name))
@@ -68,7 +67,7 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 	database := &models.Database{}
 	err = json.Unmarshal(configBytes, database)
 	if err != nil {
-		return database, err
+		return nil, err
 	}
 	return database, nil
 }

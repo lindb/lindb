@@ -3,82 +3,53 @@ package replica
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/pathutil"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestStatusStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	eventCh := make(chan *state.Event)
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().WatchPrefix(gomock.Any(), constants.ReplicaStatePath).Return(eventCh)
+	factory := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	sm, err := NewStatusStateMachine(context.TODO(), repo)
+	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	_, err := NewStatusStateMachine(context.TODO(), factory)
+	assert.NotNil(t, err)
+
+	discovery1.EXPECT().Discovery().Return(nil)
+	sm, err := NewStatusStateMachine(context.TODO(), factory)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.NotNil(t, sm)
 
+	sm.OnCreate("/data/err1", []byte{1, 1, 3})
+
 	replicaStatus := []models.ReplicaState{{
 		Cluster:  "test",
 		Database: "11",
 	}}
-	data, _ := json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
+	brokerReplicaState := models.BrokerReplicaState{Replicas: replicaStatus}
 
-	// wrong event
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: pathutil.GetReplicaStatePath("1.1.1.1:2080"), Value: nil},
-		},
-	})
-	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.1:2080").Replicas))
-	// modify event
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: pathutil.GetReplicaStatePath("1.1.1.1:2080"), Value: data},
-		},
-	})
-	assert.Equal(t, replicaStatus, sm.GetReplicas("1.1.1.1:2080").Replicas)
-	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.2:2080").Replicas))
-	// delete event
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeDelete,
-		KeyValues: []state.EventKeyValue{
-			{Key: pathutil.GetReplicaStatePath("1.1.1.1:2080")},
-		},
-	})
-	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.1:2080").Replicas))
-}
+	data, _ := json.Marshal(&brokerReplicaState)
+	sm.OnCreate("/data/1.1.1.1:9000", data)
+	assert.Equal(t, brokerReplicaState, sm.GetReplicas("1.1.1.1:9000"))
 
-func TestStatusStateMachine_GetQueryableReplicas(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	eventCh := make(chan *state.Event)
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().WatchPrefix(gomock.Any(), constants.ReplicaStatePath).Return(eventCh)
-
-	sm, err := NewStatusStateMachine(context.TODO(), repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, 0, len(sm.GetQueryableReplicas("test")))
+	sm.OnDelete("/data/1.1.1.1:9000")
+	assert.Equal(t, 0, len(sm.GetReplicas("1.1.1.1:9000").Replicas))
 
 	// broker 1:
-	replicaStatus := []models.ReplicaState{
+	replicaStatus = []models.ReplicaState{
 		{
 			Cluster:      "test",
 			Database:     "test_db_2",
@@ -104,13 +75,8 @@ func TestStatusStateMachine_GetQueryableReplicas(t *testing.T) {
 			ShardID:      1,
 		},
 	}
-	data, _ := json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: pathutil.GetReplicaStatePath("2.1.1.1:2080"), Value: data},
-		},
-	})
+	data, _ = json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
+	sm.OnCreate("/broker/2.1.1.1:2080", data)
 
 	// broker 2:
 	replicaStatus = []models.ReplicaState{
@@ -140,12 +106,7 @@ func TestStatusStateMachine_GetQueryableReplicas(t *testing.T) {
 		},
 	}
 	data, _ = json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: pathutil.GetReplicaStatePath("2.1.1.2:2080"), Value: data},
-		},
-	})
+	sm.OnCreate("/broker/2.1.1.2:2080", data)
 
 	r := sm.GetQueryableReplicas("test_db")
 	assert.Equal(t, 1, len(r))
@@ -162,9 +123,9 @@ func TestStatusStateMachine_GetQueryableReplicas(t *testing.T) {
 		return shards[i] < shards[j]
 	})
 	assert.Equal(t, []int32{1, 2}, shards)
-}
 
-func sendEvent(eventCh chan *state.Event, event *state.Event) {
-	eventCh <- event
-	time.Sleep(10 * time.Millisecond)
+	r = sm.GetQueryableReplicas("test_db_not_exist")
+	assert.Nil(t, r)
+
+	sm.Cleanup()
 }

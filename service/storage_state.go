@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
+
+//go:generate mockgen -source=./storage_state.go -destination=./storage_state_mock.go -package service
 
 // StorageStateService represents storage cluster state maintain
 type StorageStateService interface {
@@ -34,16 +35,12 @@ func NewStorageStateService(repo state.Repository) StorageStateService {
 
 // Save saves newest storage state for cluster name
 func (s *storageStateService) Save(clusterName string, storageState *models.StorageState) error {
-	data, err := json.Marshal(storageState)
-	if err != nil {
-		return fmt.Errorf("marshal storage state error:%s", err)
-	}
+	data, _ := json.Marshal(storageState)
 	//TODO add timeout????
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	err = s.repo.Put(ctx, pathutil.GetStorageClusterStatePath(clusterName), data)
-	if err != nil {
+	if err := s.repo.Put(ctx, pathutil.GetStorageClusterStatePath(clusterName), data); err != nil {
 		return err
 	}
 	return nil
