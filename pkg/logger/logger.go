@@ -136,11 +136,27 @@ func Stack() zap.Field {
 	return zap.Stack("stack")
 }
 
+// Reflect constructs a field with the given key and an arbitrary object. It uses
+// an encoding-appropriate, reflection-based function to lazily serialize nearly
+// any object into the logging context, but it's relatively slow and
+// allocation-heavy. Outside tests, Any is always a better choice.
+//
+// If encoding fails (e.g., trying to serialize a map[int]string to JSON), Reflect
+// includes the error message in the final log output.
+func Reflect(key string, val interface{}) zap.Field {
+	return zap.Reflect(key, val)
+}
+
 // Any takes a key and an arbitrary value and chooses the best way to represent
 // them as a field, falling back to a reflection-based approach only if
 // necessary.
 func Any(key string, value interface{}) zap.Field {
 	return zap.Any(key, value)
+}
+
+// Int32 constructs a field with the given key and value.
+func Int32(key string, val int32) zap.Field {
+	return zap.Field{Key: key, Type: zapcore.Int32Type, Integer: int64(val)}
 }
 
 // Int64 constructs a field with the given key and value.

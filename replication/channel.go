@@ -29,8 +29,9 @@ type ChannelManager interface {
 	GetChannel(cluster, database string, hash int32) (Channel, error)
 
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific cluster,
-	// database and shardID. NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-	CreateChannel(cluster, database string, numOfShard, shardID uint32) (Channel, error)
+	// database and shardID, numOfShard should be greater or equal than the origin setting, otherwise error is returned.
+	// numOfShard is used eot calculate the shardID for a given hash.
+	CreateChannel(cluster, database string, numOfShard, shardID int32) (Channel, error)
 
 	// Close closes all the channel.
 	Close()
@@ -44,8 +45,6 @@ type channelManager struct {
 	cancel context.CancelFunc
 	// config
 	cfg config.ReplicationChannel
-	//// directory path
-	//dirPath string
 	// factory to get rpc  write client
 	fct rpc.ClientStreamFactory
 	// channelID(a tuple of cluster, database, shardID)  -> Channel
@@ -57,7 +56,7 @@ type channelManager struct {
 }
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
-// WriteClientFactory makes it easy to mock rpc client for test.
+// WriteClientFactory makes it easy to mock rpc streamClient for test.
 func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactory) ChannelManager {
 	cxt, cancel := context.WithCancel(context.TODO())
 	return &channelManager{
@@ -76,8 +75,11 @@ func (cm *channelManager) GetChannel(cluster, database string, hash int32) (Chan
 	if !ok {
 		return nil, fmt.Errorf("channel for cluster:%s, database:%s not found", cluster, database)
 	}
-	numOfShard := shardVal.(uint32)
-	shardID := uint32(hash) % numOfShard
+	numOfShard := shardVal.(int32)
+	shardID := hash % numOfShard
+	if shardID < 0 {
+		shardID = -shardID
+	}
 
 	channelID := cm.buildChannelID(cluster, database, shardID)
 	channelVal, ok := cm.channelMap.Load(channelID)
@@ -92,7 +94,7 @@ func (cm *channelManager) GetChannel(cluster, database string, hash int32) (Chan
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific cluster,
 // database and shardID. NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-func (cm *channelManager) CreateChannel(cluster, database string, numOfShard, shardID uint32) (Channel, error) {
+func (cm *channelManager) CreateChannel(cluster, database string, numOfShard, shardID int32) (Channel, error) {
 	if numOfShard <= 0 || shardID >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
@@ -108,7 +110,7 @@ func (cm *channelManager) CreateChannel(cluster, database string, numOfShard, sh
 			dbID := cm.buildDatabaseID(cluster, database)
 			shardVal, ok := cm.databaseShardsMap.Load(dbID)
 			if ok {
-				oldNumOfShard := shardVal.(uint32)
+				oldNumOfShard := shardVal.(int32)
 				if numOfShard < oldNumOfShard {
 					return nil, errors.New("numOfShard should be equal or greater than original setting")
 				}
@@ -135,7 +137,7 @@ func (cm *channelManager) Close() {
 }
 
 // buildChannelID return a string id by joining cluster, database, shardID with separator.
-func (cm *channelManager) buildChannelID(cluster, database string, shardID uint32) string {
+func (cm *channelManager) buildChannelID(cluster, database string, shardID int32) string {
 	return cluster + "/" + database + "/" + strconv.Itoa(int(shardID))
 }
 
@@ -151,7 +153,7 @@ type Channel interface {
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
-	ShardID() uint32
+	ShardID() int32
 	// Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
 	// data is wrote successfully.
 	// Concurrent safe.
@@ -172,7 +174,7 @@ type channel struct {
 	fct      rpc.ClientStreamFactory
 	cluster  string
 	database string
-	shardID  uint32
+	shardID  int32
 	// underlying storage for written data
 	q queue.FanOutQueue
 	// chanel to convert multiple goroutine write to single goroutine write to FanOutQueue
@@ -185,7 +187,7 @@ type channel struct {
 }
 
 // newChannel returns a new channel with specific attribution.
-func newChannel(cxt context.Context, cfg config.ReplicationChannel, cluster, database string, shardID uint32,
+func newChannel(cxt context.Context, cfg config.ReplicationChannel, cluster, database string, shardID int32,
 	fct rpc.ClientStreamFactory) (Channel, error) {
 	dirPath := path.Join(cfg.Path, cluster, database, strconv.Itoa(int(shardID)))
 	interval := time.Duration(cfg.RemoveTaskIntervalInSecond) * time.Second
@@ -224,7 +226,7 @@ func (c *channel) Database() string {
 }
 
 // ShardID returns the shardID attribution.
-func (c *channel) ShardID() uint32 {
+func (c *channel) ShardID() int32 {
 	return c.shardID
 }
 
@@ -242,10 +244,8 @@ func (c *channel) GetOrCreateReplicator(target models.Node) (Replicator, error) 
 			if err != nil {
 				return nil, err
 			}
-			rep, err := newReplicator(target, c.cluster, c.database, c.shardID, fo, c.fct)
-			if err != nil {
-				return nil, err
-			}
+			rep := newReplicator(target, c.cluster, c.database, c.shardID, fo, c.fct)
+
 			c.replicatorMap.Store(target, rep)
 			return rep, nil
 		}

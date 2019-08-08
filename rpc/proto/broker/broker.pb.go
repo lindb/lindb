@@ -8,8 +8,11 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -47,7 +50,7 @@ func (m *WriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_WriteRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +118,7 @@ func (m *WriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_WriteResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -202,6 +205,14 @@ type BrokerServiceServer interface {
 	Write(context.Context, *WriteRequest) (*WriteResponse, error)
 }
 
+// UnimplementedBrokerServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedBrokerServiceServer struct {
+}
+
+func (*UnimplementedBrokerServiceServer) Write(ctx context.Context, req *WriteRequest) (*WriteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Write not implemented")
+}
+
 func RegisterBrokerServiceServer(s *grpc.Server, srv BrokerServiceServer) {
 	s.RegisterService(&_BrokerService_serviceDesc, srv)
 }
@@ -240,7 +251,7 @@ var _BrokerService_serviceDesc = grpc.ServiceDesc{
 func (m *WriteRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -248,43 +259,52 @@ func (m *WriteRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WriteRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WriteRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Cluster) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintBroker(dAtA, i, uint64(len(m.Cluster)))
-		i += copy(dAtA[i:], m.Cluster)
-	}
-	if len(m.Database) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintBroker(dAtA, i, uint64(len(m.Database)))
-		i += copy(dAtA[i:], m.Database)
-	}
-	if m.Hash != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintBroker(dAtA, i, uint64(m.Hash))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Data) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Data)
+		copy(dAtA[i:], m.Data)
 		i = encodeVarintBroker(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Hash != 0 {
+		i = encodeVarintBroker(dAtA, i, uint64(m.Hash))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if len(m.Database) > 0 {
+		i -= len(m.Database)
+		copy(dAtA[i:], m.Database)
+		i = encodeVarintBroker(dAtA, i, uint64(len(m.Database)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Cluster) > 0 {
+		i -= len(m.Cluster)
+		copy(dAtA[i:], m.Cluster)
+		i = encodeVarintBroker(dAtA, i, uint64(len(m.Cluster)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *WriteResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -292,30 +312,39 @@ func (m *WriteResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WriteResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WriteResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Msg) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintBroker(dAtA, i, uint64(len(m.Msg)))
-		i += copy(dAtA[i:], m.Msg)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Msg) > 0 {
+		i -= len(m.Msg)
+		copy(dAtA[i:], m.Msg)
+		i = encodeVarintBroker(dAtA, i, uint64(len(m.Msg)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintBroker(dAtA []byte, offset int, v uint64) int {
+	offset -= sovBroker(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *WriteRequest) Size() (n int) {
 	if m == nil {
@@ -361,14 +390,7 @@ func (m *WriteResponse) Size() (n int) {
 }
 
 func sovBroker(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozBroker(x uint64) (n int) {
 	return sovBroker(uint64((x << 1) ^ uint64((int64(x) >> 63))))

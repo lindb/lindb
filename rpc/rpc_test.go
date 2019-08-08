@@ -4,9 +4,20 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc/proto/storage"
+)
+
+var (
+	node = models.Node{
+		IP:   "127.0.0.1",
+		Port: 123,
+	}
+	database = "database"
+	shardID  = int32(0)
 )
 
 func TestClientConnFactory(t *testing.T) {
@@ -47,7 +58,7 @@ func TestContext(t *testing.T) {
 		IP:   "1.1.1.1",
 		Port: 123,
 	}
-	ctx := CreateIncomingContext(context.TODO(), "db", 0, node)
+	ctx := CreateIncomingContext(context.TODO(), database, shardID, node)
 
 	n, err := GetLogicNodeFromContext(ctx)
 	if err != nil {
@@ -59,12 +70,52 @@ func TestContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, db, "db")
+	assert.Equal(t, db, database)
 
-	shardID, err := GetShardIDFromContext(ctx)
+	sID, err := GetShardIDFromContext(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, shardID, int32(0))
+	assert.Equal(t, shardID, sID)
+}
+
+func TestClientStreamFactory(t *testing.T) {
+	target := models.Node{
+		IP:   "127.0.0.1",
+		Port: 1234,
+	}
+	fct := NewClientStreamFactory(node)
+	_, err := fct.CreateWriteServiceClient(target)
+	assert.Nil(t, err)
+
+	assert.Equal(t, fct.LogicNode(), node)
+
+	// stream client will dail the target address, it's no easy to test
+}
+
+func TestServerStreamFactory(t *testing.T) {
+	fct := NewServerStreamFactory()
+
+	_, ok := fct.GetStream(node)
+	assert.False(t, ok)
+
+	ctl := gomock.NewController(t)
+	mockServerStream := storage.NewMockWriteService_WriteServer(ctl)
+
+	fct.Register(node, mockServerStream)
+	ss, ok := fct.GetStream(node)
+	assert.True(t, ok)
+
+	_, ok = ss.(storage.WriteService_WriteServer)
+	assert.True(t, ok)
+	assert.Equal(t, ss, mockServerStream)
+
+	nodes := fct.Nodes()
+	assert.Equal(t, 1, len(nodes))
+	assert.Equal(t, node, nodes[0])
+
+	fct.Deregister(node)
+	nodes = fct.Nodes()
+	assert.Equal(t, 0, len(nodes))
 }

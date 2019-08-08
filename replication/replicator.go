@@ -1,11 +1,10 @@
 package replication
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -16,6 +15,8 @@ import (
 
 const (
 	batchReplicaSize = 10
+	//maxPendingSeqSize = 100
+	unaryRPCTimeout = time.Second * 3
 )
 
 // Replicator represents a task to replicate data to target.
@@ -27,7 +28,7 @@ type Replicator interface {
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
-	ShardID() uint32
+	ShardID() int32
 	// Pending returns the num of messages remaining to replicate.
 	Pending() int64
 	// Stop stops the replication task.
@@ -39,23 +40,29 @@ type replicator struct {
 	target   models.Node
 	cluster  string
 	database string
-	shardID  uint32
+	shardID  int32
 	// underlying fanOut records the replication process.
 	fo queue.FanOut
-	// factory to get write client
+	// factory to get write streamClient
 	fct rpc.ClientStreamFactory
-	// current WriteClient
-	client storage.WriteService_WriteClient
-	// lock to protect client
+	// current WriteStreamClient
+	streamClient storage.WriteService_WriteClient
+	// current WriteServiceClient
+	serviceClient storage.WriteServiceClient
+	// lock to protect clients
 	lock4client sync.RWMutex
-	// 0-> running, 1 -> stopped
+	// 0 -> running, 1 -> stopped
 	stopped int32
-	logger  *logger.Logger
+	// 0 -> notReady, 1 -> ready
+	ready int32
+	//storage received cur sequence num
+	//storageCurSeq int64
+	logger *logger.Logger
 }
 
 // newReplicator returns a Replicator with specific attributions.
-func newReplicator(target models.Node, cluster, database string, shardID uint32,
-	fo queue.FanOut, fct rpc.ClientStreamFactory) (Replicator, error) {
+func newReplicator(target models.Node, cluster, database string, shardID int32,
+	fo queue.FanOut, fct rpc.ClientStreamFactory) Replicator {
 	r := &replicator{
 		target:   target,
 		cluster:  cluster,
@@ -66,17 +73,10 @@ func newReplicator(target models.Node, cluster, database string, shardID uint32,
 		logger:   logger.GetLogger("replication/replicator"),
 	}
 
-	client, err := fct.CreateWriteClient(database, shardID, target)
-	if err != nil {
-		return nil, err
-	}
-
-	r.client = client
-
 	go r.recvLoop()
 	go r.sendLoop()
 
-	return r, nil
+	return r
 }
 
 // Target returns the target target for replication.
@@ -95,7 +95,7 @@ func (r *replicator) Database() string {
 }
 
 // ShardID returns the shardID attribution.
-func (r *replicator) ShardID() uint32 {
+func (r *replicator) ShardID() int32 {
 	return r.shardID
 }
 
@@ -114,6 +114,18 @@ func (r *replicator) isStopped() bool {
 	return atomic.LoadInt32(&r.stopped) == 1
 }
 
+func (r *replicator) isReady() bool {
+	return atomic.LoadInt32(&r.ready) == 1
+}
+
+func (r *replicator) setReady(ready bool) {
+	if ready {
+		atomic.StoreInt32(&r.ready, 1)
+	} else {
+		atomic.StoreInt32(&r.ready, 0)
+	}
+}
+
 // recvLoop is a loop to receive message from rpc stream.
 // The loop recovers from panic to prevent crash.
 // The loop handles rpc re-connection issues.
@@ -122,8 +134,8 @@ func (r *replicator) recvLoop() {
 	defer func() {
 		if rec := recover(); rec != nil {
 			r.logger.Error("recover from panic, replicator.recvLoop",
-				zap.Reflect("rec", rec),
-				zap.Stack("stack"))
+				logger.Reflect("recover", rec),
+				logger.Stack())
 
 			r.logger.Info("restart recvLoop")
 			go r.recvLoop()
@@ -131,47 +143,113 @@ func (r *replicator) recvLoop() {
 	}()
 
 	for {
-		// when connection is stopped, replicator.client.Recv() returns error.
-		resp, err := r.client.Recv()
+		if !r.isReady() {
+			r.initClient()
+		}
 
+		if r.isStopped() {
+			r.logger.Info("end recvLoop")
+			return
+		}
+
+		// when connection is stopped, replicator.streamClient.Recv() returns error.
+		resp, err := r.streamClient.Recv()
 		if err != nil {
-			r.logger.Error("recvLoop receive error", zap.Error(err))
-			for {
-				// try to re-construct the streaming
-				if r.isStopped() {
-					r.logger.Info("end recvLoop")
-					return
-				}
-
-				client, err := r.fct.CreateWriteClient(r.database, r.shardID, r.target)
-				if err != nil {
-					r.logger.Error("recvLoop re-construct the streaming error", zap.Error(err))
-					time.Sleep(time.Second)
-					continue
-				}
-				r.logger.Info("recvLoop re-construct the streaming success")
-				r.lock4client.Lock()
-				r.client = client
-				r.lock4client.Unlock()
-				break
-
-			}
+			r.logger.Error("recvLoop receive error", logger.Error(err))
+			r.setReady(false)
 			continue
 		}
 
-		//logger.GetLogger("replication").Info("receive:", logger.Error(err), logger.Any("resp", resp))
+		// todo@TianliangXia use resp.curSeq for sliding window control
 
-		switch resp.Seq.(type) {
-		case *storage.WriteResponse_AckSeq:
-			r.fo.Ack(resp.GetAckSeq())
-		case *storage.WriteResponse_ResetSeq:
-			r.logger.Warn("reset head seq", zap.Int64("restSeq", resp.GetResetSeq()))
-			if err := r.fo.SetHeadSeq(resp.GetResetSeq()); err != nil {
-				r.logger.Error("reset head seq error", zap.Error(err))
-			}
+		// ackSeq could be nil, means no ack signal
+		ack, ok := resp.Ack.(*storage.WriteResponse_AckSeq)
+		if ok {
+			r.fo.Ack(ack.AckSeq)
 		}
 	}
+}
 
+func (r *replicator) initClient() {
+	// try to re-construct the streaming
+	for {
+		if r.isStopped() {
+			return
+		}
+
+		serviceClient, err := r.fct.CreateWriteServiceClient(r.target)
+		if err != nil {
+			r.logger.Error("recvLoop get service streamClient error", logger.Error(err))
+			time.Sleep(time.Second)
+			continue
+		}
+		r.serviceClient = serviceClient
+
+		// get storage head seq, reset fanOut headSeq or reset storage headSeq.
+		nextSeq, err := r.remoteNextSeq()
+		if err != nil {
+			r.logger.Error("recvLoop get remote next seq error", logger.Error(err))
+			continue
+		}
+
+		// try to reset fanOut headSeq, if success, consume from new headSeq,
+		// if fail, try to reset remote headSeq.
+		r.logger.Info("recvLoop try to set fanOut head seq", logger.Int64("headSeq", nextSeq))
+		if err := r.fo.SetHeadSeq(nextSeq); err != nil {
+			r.logger.Error("recvLoop reset fanOut head seq error", logger.Error(err))
+
+			foHeadSeq := r.fo.HeadSeq()
+			r.logger.Info("recvLoop try to set remote storage head seq", logger.Int64("headSeq", foHeadSeq))
+			if err := r.resetRemoteSeq(foHeadSeq); err != nil {
+				r.logger.Error("recvLoop reset remote head seq error", logger.Error(err))
+				continue
+			}
+		}
+
+		streamClient, err := r.fct.CreateWriteClient(r.database, r.shardID, r.target)
+		if err != nil {
+			r.logger.Error("recvLoop get clientStreaming error", logger.Error(err))
+			continue
+		}
+
+		r.logger.Info("recvLoop get clientStreaming success")
+		r.lock4client.Lock()
+		r.streamClient = streamClient
+		r.lock4client.Unlock()
+		break
+	}
+	r.setReady(true)
+}
+
+func (r *replicator) remoteNextSeq() (int64, error) {
+	nextReq := &storage.NextSeqRequest{
+		Database: r.database,
+		ShardID:  r.shardID,
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), unaryRPCTimeout)
+	ctx = rpc.CreateOutgoingContextWithNode(ctx, r.fct.LogicNode())
+	nextResp, err := r.serviceClient.Next(ctx, nextReq)
+	cancel()
+	if err != nil {
+		return -1, err
+	}
+	return nextResp.Seq, nil
+}
+
+func (r *replicator) resetRemoteSeq(resetSeq int64) error {
+	// reset storage headSeq
+	nextReq := &storage.ResetSeqRequest{
+		Database: r.database,
+		ShardID:  r.shardID,
+		Seq:      resetSeq,
+	}
+	ctx, cancel := context.WithTimeout(context.TODO(), unaryRPCTimeout)
+	ctx = rpc.CreateOutgoingContextWithNode(ctx, r.fct.LogicNode())
+	// response body is empty, if no error return, reset seq success
+	_, err := r.serviceClient.Reset(ctx, nextReq)
+	cancel()
+	return err
 }
 
 // sendLoop is a loop to send message to rpc stream, it recovers from panic to prevent crash.
@@ -180,8 +258,8 @@ func (r *replicator) sendLoop() {
 	defer func() {
 		if rec := recover(); rec != nil {
 			r.logger.Error("recover from panic, replicator.sendLoop",
-				zap.Reflect("rec", rec),
-				zap.Stack("stack"))
+				logger.Reflect("recover", rec),
+				logger.Stack())
 
 			r.logger.Info("restart sendLoop")
 			go r.sendLoop()
@@ -196,7 +274,15 @@ func (r *replicator) sendLoop() {
 			r.logger.Info("end sendLoop")
 			return
 		}
+
+		// conn not ready
+		if !r.isReady() {
+			time.Sleep(time.Second)
+			continue
+		}
+
 		replicas := r.consumeBatch(&reusedReplicas)
+		// no more replicas
 		if len(replicas) == 0 {
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -204,17 +290,19 @@ func (r *replicator) sendLoop() {
 		wr := &storage.WriteRequest{
 			Replicas: replicas,
 		}
-		seqs := make([]int64, 0, len(wr.Replicas))
-		for _, rep := range wr.Replicas {
-			seqs = append(seqs, rep.Seq)
-		}
-		r.logger.Info("send ", zap.Any("wr", seqs))
 
+		// todo debug level
+		r.logger.Info("send replicas",
+			logger.Int64("begin", replicas[0].Seq),
+			logger.Int64("end", replicas[len(replicas)-1].Seq))
+
+		// recvLoop may change streamClient
 		r.lock4client.RLock()
-		cli := r.client
+		cli := r.streamClient
 		r.lock4client.RUnlock()
 		if err := cli.Send(wr); err != nil {
-			r.logger.Error("sendLoop write request error", zap.Error(err))
+			r.logger.Error("sendLoop write request error", logger.Error(err))
+			r.setReady(false)
 		}
 	}
 }
@@ -232,8 +320,8 @@ func (r *replicator) consumeBatch(repPointer *[]*storage.Replica) []*storage.Rep
 
 		data, err := r.fo.Get(seq)
 		if err != nil {
-			r.logger.Error("get message from fanout queue error", zap.String("database", r.database),
-				zap.Uint32("shardID", r.shardID))
+			r.logger.Error("get message from fanout queue error", logger.String("database", r.database),
+				logger.Int32("shardID", r.shardID))
 			break
 		}
 

@@ -8,7 +8,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc/proto/storage"
@@ -84,10 +83,12 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 type ClientStreamFactory interface {
 	// LogicNode returns the a logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
-	// CreateWriteClient creates a WriteClient.
-	CreateWriteClient(db string, shardID uint32, target models.Node) (storage.WriteService_WriteClient, error)
+	// CreateWriteClient creates a stream WriteClient.
+	CreateWriteClient(db string, shardID int32, target models.Node) (storage.WriteService_WriteClient, error)
 	// CreateQueryClient creates a QueryClient.
 	CreateQueryClient(target models.Node) (storage.QueryService_QueryClient, error)
+	// CreateWriteServiceClient creates a WriteServiceClient
+	CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error)
 }
 
 // clientStreamFactory implements ClientStreamFactory.
@@ -115,7 +116,7 @@ func (w *clientStreamFactory) CreateQueryClient(target models.Node) (storage.Que
 }
 
 // CreateWriteClient creates a WriteClient.
-func (w *clientStreamFactory) CreateWriteClient(db string, shardID uint32,
+func (w *clientStreamFactory) CreateWriteClient(db string, shardID int32,
 	target models.Node) (storage.WriteService_WriteClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
@@ -127,6 +128,15 @@ func (w *clientStreamFactory) CreateWriteClient(db string, shardID uint32,
 	cli, err := storage.NewWriteServiceClient(conn).Write(ctx)
 
 	return cli, err
+}
+
+// CreateWriteServiceClient creates a WriteServiceClient
+func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error) {
+	conn, err := w.connFct.GetClientConn(target)
+	if err != nil {
+		return nil, err
+	}
+	return storage.NewWriteServiceClient(conn), nil
 }
 
 // NewClientStreamFactory returns a factory to get clientStream.
@@ -209,23 +219,29 @@ func createIncomingContextWithPairs(ctx context.Context, pairs ...string) contex
 // db is the database, shardID is the shard id for database,
 // logicNode is a client provided identification on server side.
 // These parameters will passed to the sever side in stream context.
-func createOutgoingContext(ctx context.Context, db string, shardID uint32, logicNode models.Node) context.Context {
+func createOutgoingContext(ctx context.Context, db string, shardID int32, logicNode models.Node) context.Context {
 	return metadata.AppendToOutgoingContext(ctx,
 		metaKeyLogicNode, logicNode.Indicator(),
 		metaKeyDatabase, db,
 		metaKeyShardID, strconv.Itoa(int(shardID)))
 }
 
-// CreateIncomingContext creates inGoging context with given parameters, mainly for test rpc server, mock ingoing context.
-func CreateIncomingContext(ctx context.Context, db string, shardID uint32, logicNode models.Node) context.Context {
+// CreateIncomingContext creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
+func CreateIncomingContext(ctx context.Context, db string, shardID int32, logicNode models.Node) context.Context {
 	return metadata.NewIncomingContext(ctx,
 		metadata.Pairs(metaKeyLogicNode, logicNode.Indicator(),
 			metaKeyDatabase, db,
 			metaKeyShardID, strconv.Itoa(int(shardID))))
 }
 
+// CreateIncomingContext creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
 func CreateIncomingContextWithNode(ctx context.Context, node models.Node) context.Context {
 	return createIncomingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
+}
+
+// CreateOutgoingContext creates outgoing context with logic node.
+func CreateOutgoingContextWithNode(ctx context.Context, node models.Node) context.Context {
+	return createOutgoingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
 }
 
 // getStringFromContext retrieving string metaValue from context for metaKey.
@@ -271,15 +287,4 @@ func GetShardIDFromContext(cxt context.Context) (int32, error) {
 	}
 
 	return int32(num), nil
-}
-
-// GetNodeFromContext return remote node.
-func GetNodeFromContext(cxt context.Context) (*models.Node, error) {
-	remotePeer, ok := peer.FromContext(cxt)
-	if !ok {
-		return nil, errors.New("get remote address from context error")
-	}
-
-	address := remotePeer.Addr.String()
-	return models.ParseNode(address)
 }

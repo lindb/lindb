@@ -3,8 +3,6 @@ package replication
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -12,54 +10,84 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
-const (
-	defaultBufferSize                 = 32
-	defaultSegmentDataFileSizeLimit   = 128 * 1024 * 1024
-	defaultRemoveTaskIntervalInSecond = 60
-)
+/**
+////
+no replicas
 
-var replicationConfig = config.ReplicationChannel{
-	Path:                       "/tmp/broker/replication",
-	BufferSize:                 defaultBufferSize,
-	SegmentFileSize:            defaultSegmentDataFileSizeLimit,
-	RemoveTaskIntervalInSecond: defaultRemoveTaskIntervalInSecond,
-}
+case get remote nextSeq fail:
+fct.CreateWriteServiceClient fail, wait 1 sec
+fct.CreateWriteServiceClient success
+nextSeq, err := r.remoteNextSeq fail
+stop
 
-// mock write client
-type mockWriteClientFactory struct {
-	client storage.WriteService_WriteClient
-}
+case get remote nextSeq success, set local fanOut seq success:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient fail
 
-func (m *mockWriteClientFactory) LogicNode() models.Node {
-	panic("implement me")
-}
+case get remote nextSeq success, set local fanOut seq fail, set remote head seq fail:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) fail
+r.resetRemoteSeq(r.fo.HeadSeq()) fail
 
-func (m *mockWriteClientFactory) CreateWriteClient(db string, shardID uint32,
-	remote models.Node) (storage.WriteService_WriteClient, error) {
-	return m.client, nil
-}
 
-func (m *mockWriteClientFactory) CreateQueryClient(remote models.Node) (storage.QueryService_QueryClient, error) {
-	panic("implement me")
-}
+case get remote nextSeq success, set local fanOut seq fail, set remote head seq success:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) fail
+r.resetRemoteSeq(r.fo.HeadSeq()) fail
+r.serviceClient.Reset(ctx, nextReq) success
 
-func newMockWriteClientFactory(client storage.WriteService_WriteClient) rpc.ClientStreamFactory {
-	return &mockWriteClientFactory{
-		client: client,
+////
+with replicas
+
+case normal replication, negotiation, set local fanOut seq success
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 5
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient fail
+r.streamClient.Recv() block
+
+fanOut consumer and get 5 ~ 20
+stop
+
+case replication seq not match, first set local fanOut seq to 5, second set to 7:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 5
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient success
+r.streamClient.Recv() block, then return error
+fanOut consumer and get 5 ~ 15
+
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 17
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient success
+r.streamClient.Recv() block, then return error
+fanOut consumer and get 7 ~ 15
+
+stop
+
+
+*/
+
+var (
+	node = models.Node{
+		IP:   "123",
+		Port: 123,
 	}
-}
-
-var node = models.Node{
-	IP:   "123",
-	Port: 123,
-}
+	cluster  = "cluster"
+	database = "database"
+	shardID  = int32(0)
+)
 
 func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 	replicas := make([]*storage.Replica, seqEnd-seqBegin)
@@ -75,227 +103,315 @@ func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 	return wr, fmt.Sprintf("[%d,%d)", seqBegin, seqEnd)
 }
 
-/***
-send 0~10
-send 10~20
-recv reset 0
-send 0~10
-send 10~20
-*/
-func TestReplicator_ResetOnce(t *testing.T) {
-	tmpDir := path.Join(os.TempDir(), "TestReplica_RestOnce")
-	if err := os.RemoveAll(tmpDir); err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Error(err)
-		}
-
-	}()
-
+func TestSimple(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockWriteCli := storage.NewMockWriteService_WriteClient(ctl)
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error")).AnyTimes()
 
-	resetSeq := int64(0)
-	endSeq := int64(20)
+	rep := newReplicator(node, cluster, database, shardID, nil, mockFct)
 
-	req1, _ := buildWriteRequest(resetSeq, resetSeq+10)
-	req2, _ := buildWriteRequest(resetSeq+10, endSeq)
-	req3, _ := buildWriteRequest(resetSeq, resetSeq+10)
-	req4, _ := buildWriteRequest(resetSeq+10, endSeq)
+	assert.Equal(t, cluster, rep.Cluster())
+	assert.Equal(t, database, rep.Database())
+	assert.Equal(t, shardID, rep.ShardID())
+	assert.Equal(t, node, rep.Target())
 
-	done := make(chan struct{})
-
-	respReset := &storage.WriteResponse{
-		Seq: &storage.WriteResponse_ResetSeq{
-			ResetSeq: resetSeq,
-		},
-	}
-
-	respNil := &storage.WriteResponse{
-		Seq: nil,
-	}
-
-	recv1 := mockWriteCli.EXPECT().Recv().Do(func() {
-		<-done
-	}).Return(respReset, nil)
-
-	mockWriteCli.EXPECT().Recv().Do(func() {
-		<-done
-	}).Return(respNil, nil).After(recv1).AnyTimes()
-
-	send1 := mockWriteCli.EXPECT().Send(req1).Return(nil)
-
-	send2 := mockWriteCli.EXPECT().Send(req2).Do(func(interface{}) {
-		close(done)
-	}).Return(nil).After(send1)
-
-	send3 := mockWriteCli.EXPECT().Send(req3).Return(nil).After(send2)
-
-	mockWriteCli.EXPECT().Send(req4).Return(nil).After(send3)
-
-	q, err := queue.NewFanOutQueue(tmpDir, defaultSegmentDataFileSizeLimit, defaultRemoveTaskIntervalInSecond)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i < int(endSeq); i++ {
-		if _, err := q.Append([]byte(strconv.Itoa(i))); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	fo, err := q.GetOrCreateFanOut("f1")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rep, err := newReplicator(node, "cluster", "database", 0, fo, newMockWriteClientFactory(mockWriteCli))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, rep.Cluster(), "cluster")
-	assert.Equal(t, rep.Database(), "database")
-	assert.Equal(t, rep.ShardID(), uint32(0))
-	assert.Equal(t, rep.Target(), node)
-
-	// too short sleep time will crash the test
-	time.Sleep(500 * time.Millisecond)
-
-	q.Close()
+	rep.Stop()
 }
 
-/***
-send 0~10
-recv reset 5
-send 5~10
+/**
+case get remote nextSeq fail:
+fct.CreateWriteServiceClient fail, wait 1 sec
+fct.CreateWriteServiceClient success
+nextSeq, err := r.remoteNextSeq fail
+stop
 */
-func TestReplicator_Batch(t *testing.T) {
-	tmpDir := path.Join(os.TempDir(), "TestReplica_Batch")
-	if err := os.RemoveAll(tmpDir); err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Error(err)
-		}
-
-	}()
-
+func TestGetRemoteNextSeqFail(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockWriteCli := storage.NewMockWriteService_WriteClient(ctl)
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(nil, errors.New("get remote next seq error"))
 
-	begSeq := int64(0)
-	resetSeq := int64(5)
-	endSeq := int64(10)
-
-	req1, _ := buildWriteRequest(begSeq, endSeq)
-	req2, _ := buildWriteRequest(resetSeq, endSeq)
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error"))
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
 
 	done := make(chan struct{})
-
-	respReset := &storage.WriteResponse{
-		Seq: &storage.WriteResponse_ResetSeq{
-			ResetSeq: resetSeq,
-		},
-	}
-
-	respNil := &storage.WriteResponse{
-		Seq: nil,
-	}
-
-	recv1 := mockWriteCli.EXPECT().Recv().Do(func() {
-		<-done
-	}).Return(respReset, nil)
-
-	mockWriteCli.EXPECT().Recv().Do(func() {
-		<-done
-	}).Return(respNil, nil).After(recv1).AnyTimes()
-
-	send1 := mockWriteCli.EXPECT().Send(req1).Do(func(interface{}) {
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(node models.Node) (storage.WriteServiceClient, error) {
 		close(done)
-	}).Return(nil)
+		// wait for <- done to stop replica
+		time.Sleep(100 * time.Millisecond)
+		return nil, errors.New("get service client error any")
+	})
 
-	mockWriteCli.EXPECT().Send(req2).Return(nil).After(send1)
-
-	q, err := queue.NewFanOutQueue(tmpDir, defaultSegmentDataFileSizeLimit, defaultRemoveTaskIntervalInSecond)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i < int(endSeq); i++ {
-		if _, err := q.Append([]byte(strconv.Itoa(i))); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	fo, err := q.GetOrCreateFanOut("f1")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = newReplicator(node, "cluster", "database", 0, fo, newMockWriteClientFactory(mockWriteCli))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// too short sleep time will crash the test
-	time.Sleep(500 * time.Millisecond)
-
-	q.Close()
+	rep := newReplicator(node, cluster, database, shardID, nil, mockFct)
+	// if the main go-routine is block, check mock call missing work will be block too.
+	<-done
+	rep.Stop()
 }
 
-/***
-getClient cli1
-cli1 recv err
-getClient err
-getClient cli2
-close
-cli2 recv err and return
+/**
+case get remote nextSeq success, set local fanOut seq fail:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) fail
+r.resetRemoteSeq(r.fo.HeadSeq()) fail
 */
-func TestReplicator_RecvError(t *testing.T) {
+func TestSetLocalHeadSeqFail(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockWriteCli1 := storage.NewMockWriteService_WriteClient(ctl)
-	mockWriteCli1.EXPECT().Recv().Return(nil, errors.New("recv error 1"))
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 0,
+	}, nil)
+	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, errors.New("reset remote next seq error"))
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node).Times(2)
 
 	done := make(chan struct{})
-	mockWriteCli2 := storage.NewMockWriteService_WriteClient(ctl)
-	mockWriteCli2.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
-		<-done
-		return nil, errors.New("recv error 2")
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+		close(done)
+		// wait for <- done to stop replica
+		time.Sleep(100 * time.Millisecond)
+		return nil, errors.New("get service client error any")
 	})
 
 	mockFanOut := queue.NewMockFanOut(ctl)
-	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
+	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
+	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
+
+	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+
+	<-done
+	rep.Stop()
+}
+
+/**
+case get remote nextSeq success, set local fanOut seq success:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) success
+*/
+func TestSetLocalHeadSeqSuccess(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	nextSeq := int64(5)
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: nextSeq,
+	}, nil)
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	gomock.InOrder(
-		mockFct.EXPECT().CreateWriteClient("database", uint32(0), node).Return(mockWriteCli1, nil),
-		mockFct.EXPECT().CreateWriteClient("database", uint32(0), node).Return(nil, errors.New("get client error")),
-		mockFct.EXPECT().CreateWriteClient("database", uint32(0), node).Return(mockWriteCli2, nil),
-	)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("create stream client error"))
 
-	rep, err := newReplicator(node, "cluster", "database", 0, mockFanOut, mockFct)
-	if err != nil {
-		t.Fatal(err)
+	done := make(chan struct{})
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+		close(done)
+		// wait for <- done to stop replica
+		time.Sleep(100 * time.Millisecond)
+		return nil, errors.New("get service client error any")
+	})
+
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil)
+
+	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+
+	<-done
+	rep.Stop()
+}
+
+/**
+case get remote nextSeq success, set local fanOut seq fail, set remote head seq success:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success
+r.fo.SetHeadSeq(nextSeq) fail
+r.resetRemoteSeq(r.fo.HeadSeq()) fail
+r.serviceClient.Reset(ctx, nextReq) success
+*/
+func TestResetRemoteSeqSuccess(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 0,
+	}, nil)
+	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(&storage.ResetSeqResponse{}, nil)
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node).Times(2)
+	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("creat write client error"))
+
+	done := make(chan struct{})
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+		close(done)
+		time.Sleep(100 * time.Millisecond)
+		return nil, errors.New("get service client error any")
+	})
+
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
+	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
+
+	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+
+	<-done
+	rep.Stop()
+}
+
+/**
+case normal replication, negotiation, set local fanOut seq success
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 5
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient fail
+r.streamClient.Recv() block
+
+fanOut consumer and get 5 ~ 20
+stop
+*/
+func TestNormalReplication(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	nextSeq := int64(5)
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: nextSeq,
+	}, nil)
+
+	done := make(chan struct{})
+	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done
+		return nil, errors.New("stream canceled")
+	})
+
+	// replica 5~15
+	wr1, _ := buildWriteRequest(5, 15)
+	mockClientStream.EXPECT().Send(wr1).Return(nil)
+
+	// replica 15 ~ 20
+	wr2, _ := buildWriteRequest(15, 20)
+	mockClientStream.EXPECT().Send(wr2).Return(nil)
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil)
+
+	for i := 5; i < 20; i++ {
+		mockFanOut.EXPECT().Consume().Return(int64(i))
+		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
 	}
+	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
-	// re-conn will wait 1 second.
-	time.Sleep(100*time.Millisecond + time.Second)
+	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
 
+	time.Sleep(time.Second * 2)
 	rep.Stop()
 	close(done)
+}
 
-	// wait for sendLoop recvLoop to exit.
-	time.Sleep(time.Second)
+/**
+case replication seq not match, first set local fanOut seq to 5, second set to 7:
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 5
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient success
+r.streamClient.Recv() block, then return error
+fanOut consumer and get 5 ~ 15
+
+fct.CreateWriteServiceClient success
+r.serviceClient.Next(ctx, nextReq) success next = 17
+r.fo.SetHeadSeq(nextSeq) success
+r.fct.CreateWriteClient success
+r.streamClient.Recv() block, then return error
+fanOut consumer and get 7 ~ 15
+
+stop
+*/
+func TestReplicationSeqNotMatch(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 5,
+	}, nil)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 7,
+	}, nil)
+
+	done1 := make(chan struct{})
+	done2 := make(chan struct{})
+	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done1
+		time.Sleep(10 * time.Millisecond)
+		return nil, errors.New("stream canceled")
+	})
+
+	// replica 5~15
+	wr1, _ := buildWriteRequest(5, 15)
+	mockClientStream.EXPECT().Send(wr1).DoAndReturn(func(_ *storage.WriteRequest) error {
+		// notify recv loop to re-connect
+		close(done1)
+		return errors.New("seq not match")
+	})
+
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done2
+		return nil, errors.New("stream canceled")
+	})
+
+	// replica 7 ~ 15
+	wr2, _ := buildWriteRequest(7, 15)
+	mockClientStream.EXPECT().Send(wr2).Return(nil)
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	// first time
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	// second time
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFanOut.EXPECT().SetHeadSeq(int64(5)).Return(nil)
+	mockFanOut.EXPECT().SetHeadSeq(int64(7)).Return(nil)
+	// first time
+	for i := 5; i < 15; i++ {
+		mockFanOut.EXPECT().Consume().Return(int64(i))
+		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
+	}
+
+	// second time
+	for i := 7; i < 15; i++ {
+		mockFanOut.EXPECT().Consume().Return(int64(i))
+		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
+	}
+	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
+
+	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+
+	time.Sleep(time.Second * 4)
+	rep.Stop()
+	close(done2)
 }

@@ -2,6 +2,7 @@ package replication
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path"
 	"testing"
@@ -10,40 +11,34 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
-func mockWriteClient(ctl *gomock.Controller) *storage.MockWriteService_WriteClient {
-	mockWriteCli := storage.NewMockWriteService_WriteClient(ctl)
-	mockWriteCli.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	mockWriteCli.EXPECT().Recv().Return(
-		&storage.WriteResponse{
-			Seq: &storage.WriteResponse_AckSeq{
-				AckSeq: 0,
-			},
-		}, nil).AnyTimes()
+const (
+	defaultBufferSize                 = 32
+	defaultSegmentDataFileSizeLimit   = 128 * 1024 * 1024
+	defaultRemoveTaskIntervalInSecond = 60
+)
 
-	return mockWriteCli
-}
-
-func TestNewChannel(t *testing.T) {
-
+var replicationConfig = config.ReplicationChannel{
+	Path:                       "/tmp/broker/replication",
+	BufferSize:                 defaultBufferSize,
+	SegmentFileSize:            defaultSegmentDataFileSizeLimit,
+	RemoveTaskIntervalInSecond: defaultRemoveTaskIntervalInSecond,
 }
 
 func TestChannelManager_GetChannel(t *testing.T) {
 	dirPath := path.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
 	replicationConfig.Path = dirPath
-
-	ctl := gomock.NewController(t)
-	cm := NewChannelManager(replicationConfig, &mockWriteClientFactory{client: mockWriteClient(ctl)})
-	defer ctl.Finish()
+	cm := NewChannelManager(replicationConfig, nil)
 
 	if _, err := cm.GetChannel("cluster", "database", 0); err == nil {
 		t.Fatal("should be error")
@@ -89,15 +84,17 @@ func TestChannel_GetOrCreateReplicator(t *testing.T) {
 	dirPath := path.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
-	replicationConfig.Path = dirPath
-
 	ctl := gomock.NewController(t)
-	cm := NewChannelManager(replicationConfig, &mockWriteClientFactory{client: mockWriteClient(ctl)})
 	defer ctl.Finish()
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error any")).AnyTimes()
+
+	replicationConfig.Path = dirPath
+	cm := NewChannelManager(replicationConfig, mockFct)
 
 	ch, err := cm.CreateChannel("cluster", "database", 2, 0)
 	if err != nil {
@@ -108,12 +105,8 @@ func TestChannel_GetOrCreateReplicator(t *testing.T) {
 
 	assert.Equal(t, ch.Cluster(), "cluster")
 	assert.Equal(t, ch.Database(), "database")
-	assert.Equal(t, ch.ShardID(), uint32(0))
+	assert.Equal(t, ch.ShardID(), int32(0))
 
-	node := models.Node{
-		IP:   "1.1.1.1",
-		Port: 8000,
-	}
 	rep1, err := ch.GetOrCreateReplicator(node)
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +123,7 @@ func TestChannel_GetOrCreateReplicator(t *testing.T) {
 	cm.Close()
 }
 
-func TestChannel_Write(t *testing.T) {
+func TestChannel_WriteFail(t *testing.T) {
 	dirPath := path.Join(os.TempDir(), "test_channel_manager")
 	if err := os.RemoveAll(dirPath); err != nil {
 		t.Fatal(err)
@@ -138,15 +131,19 @@ func TestChannel_Write(t *testing.T) {
 
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
-			t.Fatal(err)
+			t.Error(err)
 		}
 	}()
 
 	replicationConfig.Path = dirPath
 
 	ctl := gomock.NewController(t)
-	cm := NewChannelManager(replicationConfig, &mockWriteClientFactory{client: mockWriteClient(ctl)})
 	defer ctl.Finish()
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error any")).AnyTimes()
+
+	cm := NewChannelManager(replicationConfig, mockFct)
 
 	ch, err := cm.CreateChannel("cluster", "database", 2, 0)
 	if err != nil {
@@ -155,10 +152,6 @@ func TestChannel_Write(t *testing.T) {
 
 	assert.Equal(t, len(ch.Targets()), 0)
 
-	node := models.Node{
-		IP:   "1.1.1.1",
-		Port: 8000,
-	}
 	rep1, err := ch.GetOrCreateReplicator(node)
 	if err != nil {
 		t.Fatal(err)
@@ -171,8 +164,73 @@ func TestChannel_Write(t *testing.T) {
 	// wait for replication
 	time.Sleep(100 * time.Millisecond)
 
-	assert.Equal(t, rep1.Pending(), int64(0))
+	assert.Equal(t, rep1.Pending(), int64(1))
 
 	cm.Close()
 
+}
+
+func TestChannel_WriteSuccess(t *testing.T) {
+	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	if err := os.RemoveAll(dirPath); err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		if err := os.RemoveAll(dirPath); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	replicationConfig.Path = dirPath
+
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 0,
+	}, nil)
+
+	done := make(chan struct{})
+	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done
+		return nil, errors.New("recv errors")
+	})
+
+	wr, _ := buildWriteRequest(0, 1)
+	mockClientStream.EXPECT().Send(wr).Return(nil)
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockClientStream, nil)
+
+	cm := NewChannelManager(replicationConfig, mockFct)
+
+	ch, err := cm.CreateChannel(cluster, database, 2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, len(ch.Targets()), 0)
+
+	rep1, err := ch.GetOrCreateReplicator(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ch.Write(context.TODO(), []byte("0")); err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for replication
+	time.Sleep(2 * time.Second)
+	assert.Equal(t, rep1.Pending(), int64(0))
+
+	cm.Close()
+	// cm close pass to replicator is async, wait
+	time.Sleep(100 * time.Millisecond)
+	close(done)
 }
