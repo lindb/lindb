@@ -51,13 +51,13 @@ func TestStoreIterator(t *testing.T) {
 	}
 	defer reader.Close()
 	it := reader.Iterator()
-	assert.True(t, it.Next())
+	assert.True(t, it.HasNext())
 	assert.Equal(t, uint32(1), it.Key())
 	assert.Equal(t, []byte("test"), it.Value())
 
-	assert.True(t, it.Next())
+	assert.True(t, it.HasNext())
 	assert.Equal(t, uint32(10), it.Key())
 	assert.Equal(t, []byte("test10"), it.Value())
 
-	assert.False(t, it.Next())
+	assert.False(t, it.HasNext())
 }
