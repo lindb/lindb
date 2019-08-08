@@ -97,7 +97,7 @@ func (e *election) elect() {
 			log.Error("context canceled, exit elect loop")
 			return
 		}
-		log.Info("starting try elect master", logger.Any("node", e.node))
+		log.Info("try elect master", logger.Any("node", e.node))
 
 		master := models.Master{Node: e.node, ElectTime: timeutil.Now()}
 		masterBytes := encoding.JSONMarshal(master)
@@ -158,7 +158,7 @@ func (e *election) handleEvent(event *state.Event) {
 		log.Info("master node lost, retry elect new master")
 		if e.isMaster.Load() {
 			// current node is master, do resignation when master delete is deleted
-			log.Info("current node is master, do resig when master node is deleted")
+			log.Info("current node is master, do resign when master node is deleted")
 			e.listener.OnResignation()
 		}
 		e.resign()

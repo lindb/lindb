@@ -58,7 +58,6 @@ func TestDiscovery(t *testing.T) {
 	d := factory.CreateDiscovery("", newMockListener())
 	err := d.Discovery()
 	assert.NotNil(t, err)
-	repo.EXPECT().Close().Return(fmt.Errorf("err"))
 	d.Close()
 
 	listener := newMockListener()
@@ -70,7 +69,6 @@ func TestDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(100 * time.Millisecond)
-	repo.EXPECT().Close().Return(nil)
 	d.Close()
 
 	eventCh := make(chan *state.Event)
@@ -127,7 +125,6 @@ func TestDiscovery(t *testing.T) {
 	assert.Equal(t, []byte{1, 1, 2}, nodes["/test/discovery1/key4"])
 	listener.mutex.Unlock()
 
-	repo.EXPECT().Close().Return(nil)
 	d.Close()
 }
 

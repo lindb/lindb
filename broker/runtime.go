@@ -20,7 +20,6 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
@@ -29,12 +28,6 @@ import (
 	"github.com/lindb/lindb/rpc"
 	brokerpb "github.com/lindb/lindb/rpc/proto/broker"
 	"github.com/lindb/lindb/service"
-)
-
-const (
-	cfgName = "broker.toml"
-	// DefaultBrokerCfgFile defines broker default config file path
-	DefaultBrokerCfgFile = "./" + cfgName
 )
 
 // srv represents all services for broker
@@ -71,10 +64,9 @@ type middlewareHandler struct {
 
 // runtime represents broker runtime dependency
 type runtime struct {
-	state   server.State
-	cfgPath string
-	config  config.Broker
-	node    models.Node
+	state  server.State
+	config config.Broker
+	node   models.Node
 	// init value when runtime
 	repo         state.Repository
 	repoFactory  state.RepositoryFactory
@@ -94,34 +86,24 @@ type runtime struct {
 }
 
 // NewBrokerRuntime creates broker runtime
-func NewBrokerRuntime(cfgPath string) server.Service {
+func NewBrokerRuntime(config config.Broker) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		state:   server.New,
-		cfgPath: cfgPath,
-		ctx:     ctx,
-		cancel:  cancel,
-		log:     logger.GetLogger("broker/runtime"),
+		state:  server.New,
+		config: config,
+		ctx:    ctx,
+		cancel: cancel,
+		log:    logger.GetLogger("broker/runtime"),
 	}
+}
+
+// Name returns the broker service's name
+func (r *runtime) Name() string {
+	return "broker"
 }
 
 // Run runs broker server based on config file
 func (r *runtime) Run() error {
-	if r.cfgPath == "" {
-		r.cfgPath = DefaultBrokerCfgFile
-	}
-	if !fileutil.Exist(r.cfgPath) {
-		r.state = server.Failed
-		return fmt.Errorf("config file doesn't exist, see how to initialize the config by `lind broker -h`")
-	}
-
-	r.config = config.Broker{}
-	if err := fileutil.DecodeToml(r.cfgPath, &r.config); err != nil {
-		r.state = server.Failed
-		return fmt.Errorf("decode config file error:%s", err)
-	}
-	r.log.Info("load broker config from file successfully", logger.String("config", r.cfgPath))
-
 	ip, err := util.GetHostIP()
 	if err != nil {
 		r.state = server.Failed
@@ -159,6 +141,7 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
 
+	//TODO need move to master context
 	taskController := task.NewController(r.ctx, r.repo)
 	discoveryFactory := discovery.NewFactory(r.repo)
 	clusterFactory := storage.NewClusterFactory()
@@ -302,7 +285,6 @@ func (r *runtime) buildMiddlewareDependency() {
 	if err == nil {
 		api.AddMiddleware(middlewareHandler.authentication.ValidateMiddleware, validate)
 	}
-
 }
 
 // startStateMachine starts related state machines for broker

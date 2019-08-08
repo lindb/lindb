@@ -6,19 +6,16 @@ import (
 	"testing"
 	"time"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
-
-var storageCfgPath = "./storage.toml"
 
 type testStorageRuntimeSuite struct {
 	mock.RepoTestSuite
@@ -30,17 +27,6 @@ func TestStorageRuntime(t *testing.T) {
 }
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
-	defer func() {
-		_ = fileutil.RemoveDir(storageCfgPath)
-	}()
-	// test run fail
-	storage := NewStorageRuntime(storageCfgPath)
-	err := storage.Run()
-	if err == nil {
-		c.Fail()
-	}
-	c.Assert(server.Failed, check.Equals, storage.State())
-
 	// test normal storage run
 	cfg := config.Storage{
 		Server: config.Server{
@@ -55,9 +41,8 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 			Path: "/tmp/storage/replication",
 		},
 	}
-	_ = fileutil.EncodeToml(storageCfgPath, &cfg)
-	storage = NewStorageRuntime(storageCfgPath)
-	err = storage.Run()
+	storage := NewStorageRuntime(cfg)
+	err := storage.Run()
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -75,6 +60,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	_ = json.Unmarshal(nodeBytes, &nodeInfo)
 
 	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
+	c.Assert("storage", check.Equals, storage.Name())
 
 	_ = storage.Stop()
 	c.Assert(server.Terminated, check.Equals, storage.State())

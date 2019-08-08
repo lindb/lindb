@@ -29,7 +29,7 @@ func printVersion() {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version of LinDB",
+	Short: "Print the version",
 	Run: func(cmd *cobra.Command, args []string) {
 		printVersion()
 	},
@@ -37,7 +37,7 @@ var versionCmd = &cobra.Command{
 
 var envCmd = &cobra.Command{
 	Use:   "env",
-	Short: "Print environment info of LinDB",
+	Short: "Print environment information",
 	Run: func(cmd *cobra.Command, args []string) {
 		printVersion()
 		fmt.Printf("GOOS=%q\n", runtime.GOOS)
