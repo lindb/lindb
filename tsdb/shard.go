@@ -34,8 +34,12 @@ type Shard interface {
 type shard struct {
 	id     int32
 	path   string
-	option option.ShardOption
+	option option.EngineOption
 	memDB  memdb.MemoryDatabase
+
+	// write accept time range
+	ahead  int64
+	behind int64
 
 	segment IntervalSegment // smallest interval for writing data
 
@@ -47,27 +51,28 @@ type shard struct {
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
 // return error if fail.
-func newShard(shardID int32, path string, option option.ShardOption) (Shard, error) {
-	if option.Interval <= 0 {
-		return nil, fmt.Errorf("interval cannot be negative")
+func newShard(shardID int32, path string, option option.EngineOption) (Shard, error) {
+	if err := option.Validation(); err != nil {
+		return nil, fmt.Errorf("engine option is invalid, err:%s", err)
 	}
-	if _, err := interval.GetCalculator(option.IntervalType); err != nil {
-		return nil, fmt.Errorf("interval type[%d] not define", option.IntervalType)
+	intervalVal, _ := timeutil.ParseInterval(option.Interval)
+	intervalType := interval.CalcIntervalType(intervalVal)
+	if _, err := interval.GetCalculator(intervalType); err != nil {
+		return nil, fmt.Errorf("interval type[%s] not define", intervalType)
 	}
 	if err := fileutil.MkDirIfNotExist(path); err != nil {
 		return nil, err
 	}
 
 	// new segment for writing
-	segment, err := newIntervalSegment(option.Interval,
-		option.IntervalType,
-		filepath.Join(path, segmentPath, option.IntervalType.String()))
+	segment, err := newIntervalSegment(intervalVal, intervalType,
+		filepath.Join(path, segmentPath, string(intervalType)))
 	if err != nil {
 		return nil, err
 	}
 	var memDB memdb.MemoryDatabase
 	ctx, cancel := context.WithCancel(context.Background())
-	memDB, err = memdb.NewMemoryDatabase(ctx, option.TimeWindow, int64(option.Interval), option.IntervalType)
+	memDB, err = memdb.NewMemoryDatabase(ctx, option.TimeWindow, intervalVal, intervalType)
 	if err != nil {
 		//if create memory database error, cancel background context
 		cancel()
@@ -82,8 +87,10 @@ func newShard(shardID int32, path string, option option.ShardOption) (Shard, err
 		segments: make(map[interval.Type]IntervalSegment),
 		cancel:   cancel,
 	}
+	shard.ahead, _ = timeutil.ParseInterval(option.Ahead)
+	shard.behind, _ = timeutil.ParseInterval(option.Behind)
 	// add writing segment into segment list
-	shard.segments[option.IntervalType] = segment
+	shard.segments[intervalType] = segment
 	return shard, nil
 }
 
@@ -113,8 +120,8 @@ func (s *shard) Write(metric *pb.Metric) error {
 	now := timeutil.Now()
 
 	// check metric timestamp if in acceptable time range
-	if (s.option.Behind > 0 && timestamp < now-s.option.Behind) ||
-		(s.option.Ahead > 0 && timestamp > now+s.option.Ahead) {
+	if (s.behind > 0 && timestamp < now-s.behind) ||
+		(s.ahead > 0 && timestamp > now+s.ahead) {
 		return nil
 	}
 

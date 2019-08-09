@@ -33,6 +33,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 			Port: 9999,
 			TTL:  1,
 		},
+		Engine: config.Engine{Path: "/tmp/storage/data"},
 		Coordinator: state.Config{
 			Namespace: "/test/storage",
 			Endpoints: ts.Cluster.Endpoints,

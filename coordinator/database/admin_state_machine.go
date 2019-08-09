@@ -75,7 +75,9 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
-	for _, clusterCfg := range cfg.Clusters {
+	clusters := cfg.Clusters
+	for i := range clusters {
+		clusterCfg := clusters[i]
 		cluster := sm.storageCluster.GetCluster(clusterCfg.Name)
 		if cluster == nil {
 			sm.log.Error("storage cluster not exist",

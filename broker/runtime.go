@@ -142,13 +142,12 @@ func (r *runtime) Run() error {
 	}
 
 	//TODO need move to master context
-	taskController := task.NewController(r.ctx, r.repo)
 	discoveryFactory := discovery.NewFactory(r.repo)
-	clusterFactory := storage.NewClusterFactory()
 
 	//TODO config ttl
-	r.master = coordinator.NewMaster(r.repo, r.node, 1, taskController,
-		discoveryFactory, r.repoFactory, clusterFactory, r.srv.storageStateService, r.srv.shardAssignService)
+	r.master = coordinator.NewMaster(r.repo, r.node, 1, task.NewControllerFactory(),
+		discoveryFactory, r.repoFactory, storage.NewClusterFactory(),
+		r.srv.storageStateService, r.srv.shardAssignService)
 	if err := r.master.Start(); err != nil {
 		return fmt.Errorf("start master error:%s", err)
 	}

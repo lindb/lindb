@@ -43,7 +43,7 @@ type clusterStateMachine struct {
 	clusterFactory      ClusterFactory
 	discoveryFactory    discovery.Factory
 	repoFactory         state.RepositoryFactory
-	taskController      task.Controller
+	controllerFactory   task.ControllerFactory
 
 	clusters map[string]Cluster
 
@@ -55,7 +55,7 @@ type clusterStateMachine struct {
 func NewClusterStateMachine(
 	ctx context.Context,
 	repo state.Repository,
-	taskController task.Controller,
+	controllerFactory task.ControllerFactory,
 	discoveryFactory discovery.Factory,
 	clusterFactory ClusterFactory,
 	repoFactory state.RepositoryFactory,
@@ -71,7 +71,7 @@ func NewClusterStateMachine(
 		discoveryFactory:    discoveryFactory,
 		repoFactory:         repoFactory,
 		storageStateService: storageStateService,
-		taskController:      taskController,
+		controllerFactory:   controllerFactory,
 		shardAssignService:  shardAssignService,
 		clusters:            make(map[string]Cluster),
 		log:                 log,
@@ -183,8 +183,8 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 		cfg:                 cfg,
 		storageStateService: c.storageStateService,
 		repo:                repo,
-		controller:          c.taskController,
-		factory:             c.discoveryFactory,
+		controllerFactory:   c.controllerFactory,
+		factory:             discovery.NewFactory(repo),
 		shardAssignService:  c.shardAssignService,
 	}
 	cluster, err := c.clusterFactory.newCluster(clusterCfg)
