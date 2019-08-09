@@ -25,7 +25,7 @@ function httpCodeHandler(resp: AxiosResponse, url: string, message: string) {
     })
   }
   if (!resp || (resp.status < 200 || resp.status >= 300)) {
-    if (resp.status == 401) {
+    if (resp.status === 401) {
       let callbackUrl = window.location.hash
       window.location.hash = `/login?from=${encodeURIComponent(callbackUrl)}`
     } else {

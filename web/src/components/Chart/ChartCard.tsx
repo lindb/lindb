@@ -13,22 +13,21 @@ interface ChartCardStatus {
 }
 
 export default class ChartCard extends React.Component<ChartCardProps, ChartCardStatus> {
-  constructor(props: ChartCardProps) {
-    super(props)
-    this.state = {}
-  }
-
   render() {
     const { chart } = this.props
+    const { title, ql, unit, group } = chart
+
     return (
-      <Card title={chart.title} size="small">
+      <Card title={title} size="small">
         <LazyLoad height={300} once={true} resize={true}>
-          <Metric
-            db="_internal"
-            ql={chart.ql}
-            unit={chart.unit}
-            group={chart.group}
-          />
+          {(ql && unit) ? (
+            <Metric
+              db="_internal"
+              ql={ql}
+              unit={unit}
+              group={group}
+            />
+          ) : null}
         </LazyLoad>
       </Card>
     )

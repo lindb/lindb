@@ -1,23 +1,23 @@
-import moment from 'moment-es6'
+// import moment from 'moment-es6'
 
 export class TimePickerModel {
   private title: string
   private from: string
   private to: string
-  private time: {
-    from: number
-    to: number
-  }
+  // private time: {
+  //   from: number
+  //   to: number
+  // }
 
   constructor(title: string, from: string, to: string) {
     this.title = title
     this.from = from
     this.to = to
 
-    this.time = {
-      from: moment(this.from).valueOf(),
-      to: moment(this.to).valueOf(),
-    }
+    // this.time = {
+    //   from: moment(this.from).valueOf(),
+    //   to: moment(this.to).valueOf(),
+    // }
   }
 }
 

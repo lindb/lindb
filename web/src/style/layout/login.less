@@ -1,0 +1,56 @@
+.lindb-login {
+  position: relative;
+  height: 100%;
+  z-index: 1;
+
+  .lindb-login__background {
+    @spacing: 20px;
+    position: fixed;
+    top: @spacing;
+    left: @spacing;
+    right: @spacing;
+    bottom: 0;
+    opacity: 0.3;
+    z-index: -1;
+  }
+
+  .lindb-footer {
+    background: unset !important;
+    pointer-events: none;
+    border: none;
+  }
+
+  .ant-layout-content {
+    pointer-events: none;
+  }
+
+  .lindb-login__content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+
+    .lindb-login__content__logo {
+      pointer-events: none;
+      display: block;
+      margin:  auto;
+      height: 150px;
+      user-select: none;
+    }
+
+    .lindb-login__content__input {
+      pointer-events: auto;
+      margin-top: 20px;
+      background: transparent;
+
+      input {
+        background: rgba(255, 255, 255, 0.65);
+      }
+    }
+
+    .lindb-login__content__btn {
+      pointer-events: auto;
+      margin-top: 20px;
+    }
+  }
+}
