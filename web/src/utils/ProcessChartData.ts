@@ -1,30 +1,35 @@
 import { getChartColor, toRGBA } from './util'
 import { getOptions } from '../config/chartConfig'
-import { ResultSet, UnitEnum } from '../model/Metric'
+import { ChartDatasets, ResultSet, UnitEnum } from '../model/Metric'
 
 /**
  * Generate Line Chart data and options
  * @param {ResultSet} resultSet
  * @param {UnitEnum} unit Current chart Y-axes unit
  */
-export function LineChart(resultSet: ResultSet, unit: UnitEnum) {
+export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
   if (!resultSet || !resultSet.result) {
     return {}
   }
 
   const { result: { interval, groups, startTime } } = resultSet
 
-  if (!groups || groups.length === 0) {
+  if (!groups || groups.length === 0 || !startTime || !interval) {
     return {}
   }
 
   // const times = [ ...Array(pointCount) ].join('0').split('').map((_, idx) => startTime + idx * interval)
   // const labels = times.map(time => moment(time).format('HH:mm'))
-  const datasets = []
+  const datasets: ChartDatasets[] = []
   let colorIdx = 0
 
-  groups.map(item => {
+  groups.forEach(item => {
     const { group, fields } = item
+
+    if (!group || !fields) {
+      return
+    }
+
     const groupName = Object.keys(group).map(key => group[ key ]).join('/')
 
     for (let key of Object.keys(fields)) {
@@ -45,7 +50,7 @@ export function LineChart(resultSet: ResultSet, unit: UnitEnum) {
     }
   })
 
-  const plugins = [] // Line Plugins
+  const plugins: any[] = [] // Line Plugins
 
   return {
     data: { datasets },

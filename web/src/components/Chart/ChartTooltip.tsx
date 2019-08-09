@@ -1,5 +1,5 @@
 import * as React from 'react'
-import moment from 'moment-es6'
+// import moment from 'moment-es6'
 import { observer } from 'mobx-react'
 import { autobind } from 'core-decorators'
 import { observable, reaction } from 'mobx'
@@ -15,12 +15,12 @@ interface ChartTooltipStatus {
 
 @observer
 export default class ChartTooltip extends React.Component<ChartTooltipProps, ChartTooltipStatus> {
-  @observable dataSource: ChartTooltipData // Tooltip data source, do not display when value is null
+  @observable dataSource: ChartTooltipData | null = null // Tooltip data source, do not display when value is null
 
   tooltip: React.RefObject<HTMLDivElement>
   tooltipArrow: React.RefObject<HTMLDivElement>
   disposers: any[]
-  private timer // tooltip countdown timer
+  private timer = 0 // tooltip countdown timer
   private INTERVAL = 350 // Interval for disappear(ms)
   private SCREEN_SPACING = 5 // Minimum gap between Tooltip and windows
 
@@ -66,7 +66,7 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
    */
   @autobind
   setDisappearTimer() {
-    this.timer = setTimeout(() => this.dataSource = null, this.INTERVAL)
+    this.timer = +setTimeout(() => this.dataSource = null, this.INTERVAL)
   }
 
   /**
@@ -86,7 +86,7 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
    * @param {ChartTooltipData} data Tooltip data source
    */
   @autobind
-  handleTooltipDataChange(data: ChartTooltipData) {
+  handleTooltipDataChange(data: ChartTooltipData | null) {
     if (data === null) {
       this.setDisappearTimer()
     } else {
@@ -111,7 +111,7 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
       >
         {/* Timestamp */}
         <div className="lindb-chart-tooltip__timestamp">
-          {moment(data.time).format('YYYY-MM-DD HH:mm:ss')}
+          {/*{moment(data.time).format('YYYY-MM-DD HH:mm:ss')}*/}{data.time}
         </div>
 
         {/* Data Source */}
@@ -189,8 +189,8 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
     const containerHeight = tooltipHeight + spacing + offset
     const scrollTop = document.documentElement.scrollTop // window scroll distance
 
-    let top: number = null
-    let left: number = null
+    let top: number | null = null
+    let left: number | null = null
     let isBottom: boolean = false
 
     // when vertical direction could contain tooltip

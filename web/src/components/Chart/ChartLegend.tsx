@@ -27,8 +27,9 @@ export default class ChartLegend extends React.Component<ChartLegendProps, Chart
 
   @autobind
   handleLegendItemClick(index: number) {
-    this.state.status[ index ] = !this.state.status[ index ]
-    this.setState({ status: this.state.status })
+    const status = this.state.status.slice()
+    status[ index ] = !this.state.status[ index ]
+    this.setState({ status })
 
     const { onLegendClick } = this.props
     onLegendClick && onLegendClick(index, this.state.status)
@@ -42,7 +43,7 @@ export default class ChartLegend extends React.Component<ChartLegendProps, Chart
     return (
       <div className={cls}>
         {/* render Legend Item */}
-        {data.datasets && data.datasets.map((item, index) => {
+        {data.datasets && data.datasets.map((item: any, index: number) => {
           const { label, borderColor } = item
 
           return (

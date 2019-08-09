@@ -24,7 +24,7 @@ class Home extends React.Component<HomeProps, HomeState> {
   }
 
   render() {
-    const data = []
+    const data: any[] = []
 
     return (
       <div>

@@ -14,11 +14,6 @@ interface TipsStatus {
 }
 
 export default class Tips extends React.Component<TipsProps, TipsStatus> {
-  constructor(props: TipsProps) {
-    super(props)
-    this.state = {}
-  }
-
   render() {
     const { icon, tip, size, className } = this.props
     const prefixCls = `${PREFIXCLS}-tips`

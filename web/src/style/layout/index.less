@@ -1,0 +1,29 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  background-color: #f0f2f5;
+}
+
+body {
+  height: unset;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  flex: 1;
+  overflow-x: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+@sider-base-width: 200px;
+@sider-logo-height: 64px;
+@header-base-height: 64px;
+
+@import "footer";
+@import "sider";
+@import "login";

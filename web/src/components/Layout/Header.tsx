@@ -1,6 +1,6 @@
 import * as React from 'react'
-import {Icon, Layout} from 'antd'
-import {Link} from 'react-router-dom'
+import { Icon, Layout } from 'antd'
+import { Link } from 'react-router-dom'
 import BreadcrumbHeader from '../BreadcrumbHeader'
 
 const { Header: AntDHeader } = Layout
@@ -12,11 +12,6 @@ interface HeaderStatus {
 }
 
 export default class Header extends React.Component<HeaderProps, HeaderStatus> {
-  constructor(props: HeaderProps) {
-    super(props)
-    this.state = {}
-  }
-
   render() {
     return (
       <AntDHeader className="lindb-header">
@@ -27,10 +22,10 @@ export default class Header extends React.Component<HeaderProps, HeaderStatus> {
             <Link to="/login">Login</Link>
           </li>
           <li className="lindb-header__menu-item">
-            <a href="https://github.com/lindb/lindb/wiki" target="_blank"><Icon type="read" />Help</a>
+            <a href="https://github.com/eleme/lindb/wiki" rel="noopener noreferrer" target="_blank"><Icon type="read" />Help</a>
           </li>
           <li className="lindb-header__menu-item">
-            <a href="https://github.com/lindb/lindb" target="_blank"><Icon type="github" />GitHub</a>
+            <a href="https://github.com/eleme/lindb" rel="noopener noreferrer" target="_blank"><Icon type="github" />GitHub</a>
           </li>
         </ul>
       </AntDHeader>
