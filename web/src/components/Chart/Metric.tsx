@@ -10,16 +10,16 @@ import { ChartTooltipData, ResultSet, UnitEnum } from '../../model/Metric'
 import Chart from './Chart'
 import ChartLegend from './ChartLegend'
 
-const uuid = require('react-native-uuid')
+const uuidv4 = require('uuid/v4')
 
 interface MetricProps {
   db: string
-  ql?: string
+  ql: string
+  unit: UnitEnum
   group?: object
   showQL?: boolean
   showError?: boolean
   timeRange?: any
-  unit?: UnitEnum
 }
 
 interface MetricStatus {
@@ -27,14 +27,14 @@ interface MetricStatus {
 
 @observer
 export default class Metric extends React.Component<MetricProps, MetricStatus> {
-  @observable chartResult: ResultSet
+  @observable chartResult: ResultSet | null = null
   @observable loading: boolean = false
   private readonly uuid: string
 
   constructor(props: MetricProps) {
     super(props)
 
-    this.uuid = uuid.v4() // Set unique ID
+    this.uuid = uuidv4() // Set unique ID
   }
 
   async componentDidMount() {

@@ -17,7 +17,11 @@ ChartJS.defaults.global.elements.line.borderWidth = 1
  * @param {UnitEnum} unit Current chart Y-axes unit
  * @return chart config
  */
-export function getOptions(unit: UnitEnum) {
+export function getOptions(unit?: UnitEnum) {
+  if (!unit) {
+    return
+  }
+
   // Generate Options
   const color = { border: '#d2d2d2' }
 
@@ -54,6 +58,7 @@ export function getOptions(unit: UnitEnum) {
       },
       time: {
         displayFormats: {
+          second: 'HH:mm:ss',
           minute: 'HH:mm',
           hour: 'Do.H',
         },

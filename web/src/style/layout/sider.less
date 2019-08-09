@@ -1,29 +1,3 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: sans-serif;
-  background-color: #f0f2f5;
-}
-
-body {
-  height: unset;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-#root {
-  flex: 1;
-  overflow-x: hidden;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-@sider-base-width: 200px;
-@sider-logo-height: 64px;
-@header-base-height: 64px;
-
 .lindb-sider-layout {
   flex: 1;
 
@@ -119,20 +93,5 @@ body {
         }
       }
     }
-  }
-}
-
-.lindb-login {
-  height: 100%;
-}
-
-.lindb-footer {
-  text-align: center;
-  line-height: 2em;
-  border-top: 1px solid #E4E7ED;
-  color: rgba(0, 0, 0, 0.4);
-
-  &.sider {
-    margin-left: @sider-base-width;
   }
 }

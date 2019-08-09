@@ -1,6 +1,6 @@
 import { API_URL, Get } from './index'
 import { httpCodeHandler } from '../utils/notification'
-import { Group, Result, ResultSet } from '../model/Metric'
+import { ResultSet } from '../model/Metric'
 
 export async function explain(db: string, ql: string): Promise<any> {
   const url = API_URL + '/api/search'

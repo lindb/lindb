@@ -40,8 +40,22 @@ export class Result {
 }
 
 export class Group {
-  group?: Map<string, string>
-  fields?: Map<string, Array<number>>
+  group?: { [ propName: string ]: string }
+  fields?: { [ propName: string ]: number[] }
+}
+
+export interface ChartDatasets {
+  fill: boolean
+  label: string
+  data: ChartDatasetsData[]
+  backgroundColor: string
+  borderColor: string
+  pointBackgroundColor: string
+}
+
+export interface ChartDatasetsData {
+  x: Date,
+  y: number
 }
 
 /* Tooltip Data Source */

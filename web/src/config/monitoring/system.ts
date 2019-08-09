@@ -1,3 +1,4 @@
+/*eslint no-template-curly-in-string: "off"*/
 import { Metric, UnitEnum } from '../../model/Metric'
 
 let SEQ = 910000000

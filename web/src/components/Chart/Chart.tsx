@@ -35,7 +35,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
     this.disposers = [
       reaction(
-        () => StoreManager.ChartEventStore.hiddenSeries.get(props.uuid),
+        () => StoreManager.ChartEventStore.hiddenSeries.get(props.uuid) || [],
         this.handleLegendItemClick,
       ),
       reaction(
@@ -50,10 +50,6 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
     this.addEventListener()
   }
 
-  shouldComponentUpdate(nextProps: Readonly<ChartProps>, nextState: Readonly<ChartStatus>): boolean {
-    return false
-  }
-
   componentWillUnmount(): void {
     this.disposers.map(handle => handle())
   }
@@ -64,6 +60,9 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
   renderChart() {
     const { type, data, options, plugins } = this.props
     const canvas = this.chartCanvas.current
+    if (!canvas) {
+      return
+    }
 
     const ctx = canvas.getContext('2d')
 
@@ -72,6 +71,9 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
   addEventListener() {
     const canvas = this.chartCanvas.current
+    if (!canvas) {
+      return
+    }
 
     canvas.addEventListener('mousemove', this.handleMouseMove)
     canvas.addEventListener('mouseout', this.handleMouseOut)
@@ -79,6 +81,11 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
   @autobind
   handleMouseMove(e: MouseEvent) {
+    const canvas = this.chartCanvas.current
+    if (!canvas) {
+      return
+    }
+
     // Get all vertical points
     const points = this.chartInstance.getElementsAtXAxis(e) // vertical Points
     const index = points.length > 0 ? points[ 0 ]._index : 0  // current mouseover index
@@ -91,12 +98,12 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
     // Get all vertical series information
     const series = datasets
-    .filter((item, idx) => {
+    .filter((_: any, idx: number) => {
       // filter series(hidden)
       const meta = this.chartInstance.getDatasetMeta(idx)
       return meta ? !meta.hidden : true
     })
-    .map(item => ({
+    .map((item: any) => ({
       color: item.borderColor,
       name: item.label,
       value: item.data[ index ].y,
@@ -107,7 +114,6 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
      *  calculate size info
      */
     const { chartArea } = this.chartInstance
-    const canvas = this.chartCanvas.current
     const {
       left: canvasLeft,
       top: canvasTop,
@@ -173,7 +179,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
   }
 
   @autobind
-  handleCrosshairMove(data: ChartTooltipData) {
+  handleCrosshairMove(data: ChartTooltipData | null) {
     const crosshair = this.crosshair.current
     const canvas = this.chartCanvas.current
     const { chartArea } = this.chartInstance

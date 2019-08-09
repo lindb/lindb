@@ -13,10 +13,6 @@ interface SiderMenuStatus {
 }
 
 export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenuStatus> {
-  constructor(props: SiderMenuProps) {
-    super(props)
-  }
-
   renderMenu(menus: Array<any>, parentPath?: string) {
     const IconTitle = (icon: string, title: string) => <span><Icon type={icon}/>{title}</span>
 
