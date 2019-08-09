@@ -37,11 +37,11 @@ type master struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	elect          elect.Election
-	masterCtx      *coCtx.MasterContext
-	taskController task.Controller
-	clusterFactory storage.ClusterFactory
-	repoFactory    state.RepositoryFactory
+	elect             elect.Election
+	masterCtx         *coCtx.MasterContext
+	controllerFactory task.ControllerFactory
+	clusterFactory    storage.ClusterFactory
+	repoFactory       state.RepositoryFactory
 
 	storageStateService service.StorageStateService
 	shardAssignService  service.ShardAssignService
@@ -56,7 +56,7 @@ func NewMaster(
 	repo state.Repository,
 	node models.Node,
 	ttl int64,
-	taskController task.Controller,
+	controllerFactory task.ControllerFactory,
 	discoveryFactory discovery.Factory,
 	repoFactory state.RepositoryFactory,
 	clusterFactory storage.ClusterFactory,
@@ -66,7 +66,7 @@ func NewMaster(
 	ctx, cancel := context.WithCancel(context.Background())
 	m := &master{
 		repo:                repo,
-		taskController:      taskController,
+		controllerFactory:   controllerFactory,
 		discoveryFactory:    discoveryFactory,
 		clusterFactory:      clusterFactory,
 		repoFactory:         repoFactory,
@@ -89,7 +89,7 @@ func (m *master) OnFailOver() {
 
 	stateMachine := &coCtx.StateMachine{}
 	storageCluster, err := storage.NewClusterStateMachine(m.ctx, m.repo,
-		m.taskController, m.discoveryFactory, m.clusterFactory, m.repoFactory,
+		m.controllerFactory, m.discoveryFactory, m.clusterFactory, m.repoFactory,
 		m.storageStateService, m.shardAssignService)
 	if err != nil {
 		//TODO modify

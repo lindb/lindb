@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -18,7 +19,7 @@ const shardPath = "shard"
 // EngineFactory represents a time series engine create factory
 type EngineFactory interface {
 	// CreateEngine creates engine instance if create engine's path successfully
-	CreateEngine(name string, path string) (Engine, error)
+	CreateEngine(name string) (Engine, error)
 }
 
 // Engine represents a time series storage engine
@@ -28,7 +29,7 @@ type Engine interface {
 	// NumOfShards returns number of shards in time series engine
 	NumOfShards() int
 	// CreateShards creates shards for data partition
-	CreateShards(option option.ShardOption, shardIDs ...int32) error
+	CreateShards(option option.EngineOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
 	// GetMetadataGetter returns metadata getter for metric level metadata
@@ -39,8 +40,8 @@ type Engine interface {
 
 // info represents a engine information about config and shards
 type info struct {
-	ShardIDs    []int32            `toml:"shardIds"`
-	ShardOption option.ShardOption `toml:"shardOption"`
+	ShardIDs []int32             `toml:"shardIds"`
+	Engine   option.EngineOption `toml:"engine"`
 }
 
 // engine implements Engine for storing shards, each shard represents a time series storage
@@ -57,16 +58,21 @@ type engine struct {
 
 // engineFactory implements engine factory interface
 type engineFactory struct {
+	cfg config.Engine // the common cfg of time series engine
 }
 
 // NewEngineFactory creates an engine factory for creating time series engine
-func NewEngineFactory() EngineFactory {
-	return &engineFactory{}
+func NewEngineFactory(cfg config.Engine) (EngineFactory, error) {
+	// create time series storage path
+	if err := fileutil.MkDirIfNotExist(cfg.Path); err != nil {
+		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Path, err)
+	}
+	return &engineFactory{cfg: cfg}, nil
 }
 
 // CreateEngine creates an engine instance if create engine's path successfully
-func (f *engineFactory) CreateEngine(name string, path string) (Engine, error) {
-	enginePath := filepath.Join(path, name)
+func (f *engineFactory) CreateEngine(name string) (Engine, error) {
+	enginePath := filepath.Join(f.cfg.Path, name)
 	// create engine path
 	if err := fileutil.MkDirIfNotExist(enginePath); err != nil {
 		return nil, fmt.Errorf("create path of tsdb engine[%s] erorr: %s", name, err)
@@ -86,7 +92,7 @@ func (f *engineFactory) CreateEngine(name string, path string) (Engine, error) {
 	// load shards if engine is exist
 	if len(e.info.ShardIDs) > 0 {
 		for _, shardID := range e.info.ShardIDs {
-			shard, err := newShard(shardID, filepath.Join(enginePath, shardPath, string(shardID)), info.ShardOption)
+			shard, err := newShard(shardID, filepath.Join(enginePath, shardPath, string(shardID)), info.Engine)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, name, err)
 			}
@@ -108,7 +114,7 @@ func (e *engine) NumOfShards() int {
 }
 
 // CreateShards creates shards for data partition
-func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) error {
+func (e *engine) CreateShards(option option.EngineOption, shardIDs ...int32) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("shard is list is empty")
 	}
@@ -127,8 +133,8 @@ func (e *engine) CreateShards(option option.ShardOption, shardIDs ...int32) erro
 					e.mutex.Unlock()
 					return fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, e.name, err)
 				}
-				// using new shard option
-				newInfo := &info{ShardOption: option, ShardIDs: e.info.ShardIDs}
+				// using new engine option
+				newInfo := &info{Engine: option, ShardIDs: e.info.ShardIDs}
 				// add new shard id
 				newInfo.ShardIDs = append(newInfo.ShardIDs, shardID)
 				if err := e.dumpEngineInfo(newInfo); err != nil {

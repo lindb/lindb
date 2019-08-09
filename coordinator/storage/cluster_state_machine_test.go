@@ -20,7 +20,7 @@ func TestClusterStateMachine_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	controller := task.NewMockController(ctrl)
+	controllerFactory := task.NewMockControllerFactory(ctrl)
 	storageService := service.NewMockStorageStateService(ctrl)
 	shardAssignService := service.NewMockShardAssignService(ctrl)
 
@@ -35,7 +35,7 @@ func TestClusterStateMachine_New(t *testing.T) {
 	// list exist storage cluster err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	_, err := NewClusterStateMachine(context.TODO(), repo,
-		controller, discoverFactory, clusterFactory, repoFactory,
+		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)
 
 	assert.NotNil(t, err)
@@ -44,7 +44,7 @@ func TestClusterStateMachine_New(t *testing.T) {
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
 	_, err = NewClusterStateMachine(context.TODO(), repo,
-		controller, discoverFactory, clusterFactory, repoFactory,
+		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)
 	assert.NotNil(t, err)
 
@@ -70,7 +70,7 @@ func TestClusterStateMachine_New(t *testing.T) {
 	discovery1.EXPECT().Discovery().Return(nil)
 
 	stateMachine, err := NewClusterStateMachine(context.TODO(), repo,
-		controller, discoverFactory, clusterFactory, repoFactory,
+		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)
 
 	assert.Nil(t, err)

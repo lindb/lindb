@@ -167,8 +167,12 @@ func (r *runtime) buildServiceDependency() error {
 	if err != nil {
 		return err
 	}
+	engineFactory, err := tsdb.NewEngineFactory(r.config.Engine)
+	if err != nil {
+		return err
+	}
 	srv := srv{
-		storageService:  service.NewStorageService(r.config.Engine, tsdb.NewEngineFactory()),
+		storageService:  service.NewStorageService(engineFactory),
 		sequenceManager: sm,
 	}
 	r.srv = srv

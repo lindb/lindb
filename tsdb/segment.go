@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -28,7 +27,7 @@ type IntervalSegment interface {
 // intervalSegment implements IntervalSegment interface
 type intervalSegment struct {
 	path         string
-	interval     time.Duration
+	interval     int64
 	intervalType interval.Type
 
 	segments sync.Map
@@ -37,7 +36,7 @@ type intervalSegment struct {
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
-func newIntervalSegment(interval time.Duration, intervalType interval.Type, path string) (IntervalSegment, error) {
+func newIntervalSegment(interval int64, intervalType interval.Type, path string) (IntervalSegment, error) {
 	if err := fileutil.MkDirIfNotExist(path); err != nil {
 		return nil, err
 	}
@@ -93,8 +92,8 @@ func (s *intervalSegment) GetSegments(timeRange timeutil.TimeRange) []Segment {
 	}
 
 	var segments []Segment
-	start := calc.CalSegmentTime(timeRange.Start)
-	end := calc.CalSegmentTime(timeRange.End)
+	start := calc.CalcSegmentTime(timeRange.Start)
+	end := calc.CalcSegmentTime(timeRange.End)
 	s.segments.Range(func(k, v interface{}) bool {
 		segment, ok := v.(Segment)
 		if ok {

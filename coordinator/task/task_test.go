@@ -42,13 +42,14 @@ func TestElection(t *testing.T) {
 
 func (ts *testTaskSuite) Test_tasks(c *check.C) {
 	factory := state.NewRepositoryFactory()
+	controllerFactory := NewControllerFactory()
 	repo, _ := factory.CreateRepo(state.Config{
 		Namespace: "/coordinator/test/task",
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	ctx := context.TODO()
 
-	controller := NewController(ctx, repo)
+	controller := controllerFactory.CreateController(ctx, repo)
 	node1 := &models.Node{IP: "1.1.1.1", Port: 8000}
 	node2 := &models.Node{IP: "1.1.1.2", Port: 8000}
 	defer func() {

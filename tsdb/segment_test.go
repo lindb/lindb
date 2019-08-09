@@ -12,19 +12,23 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-var segPath = filepath.Join(testPath, shardPath, "1", segmentPath, interval.Day.String())
+var segPath = filepath.Join(testPath, shardPath, "1", segmentPath, string(interval.Day))
 
 func TestNewIntervalSegment(t *testing.T) {
-	defer fileutil.RemoveDir(testPath)
-	s, err := newIntervalSegment(time.Second*10, interval.Day, segPath)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	s, err := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
 	assert.Nil(t, err)
 	assert.NotNil(t, s)
 	assert.True(t, fileutil.Exist(segPath))
 }
 
 func TestNewSegment(t *testing.T) {
-	defer fileutil.RemoveDir(testPath)
-	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
 
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
@@ -33,7 +37,7 @@ func TestNewSegment(t *testing.T) {
 
 	s.Close()
 
-	s, _ = newIntervalSegment(time.Second*10, interval.Day, segPath)
+	s, _ = newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
 
 	seg1, ok := s.(*intervalSegment)
 	if ok {
@@ -47,9 +51,11 @@ func TestNewSegment(t *testing.T) {
 }
 
 func TestGetSegmentsByTimeRange(t *testing.T) {
-	defer fileutil.RemoveDir(testPath)
-	s, _ := newIntervalSegment(time.Second*10, interval.Day, segPath)
-	s.GetOrCreateSegment("20190702")
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	_, _ = s.GetOrCreateSegment("20190702")
 	t2, _ := timeutil.ParseTimestamp("20190702", "20060102")
 	segments := s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 60*60*1000})
 	assert.Equal(t, 1, len(segments))

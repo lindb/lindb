@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/embed"
+	"github.com/coreos/pkg/capnslog"
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
@@ -88,6 +89,9 @@ func (r *runtime) Stop() error {
 
 // startETCD starts embed etcd server
 func (r *runtime) startETCD() error {
+	// config ectd server info level
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+
 	cfg := embed.NewConfig()
 	lcurl, _ := url.Parse(r.cfg.ETCD.URL)
 	cfg.LCUrls = []url.URL{*lcurl}

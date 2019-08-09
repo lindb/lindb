@@ -3,33 +3,36 @@ package tsdb
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
 )
 
 var testPath = "test_data"
-var validOption = option.ShardOption{Interval: time.Second * 10, IntervalType: interval.Day}
+var validOption = option.EngineOption{Interval: "10s"}
+var engineCfg = config.Engine{Path: testPath}
 
 func TestNew(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	factory := NewEngineFactory()
-	engine, _ := factory.CreateEngine("test_db", testPath)
+	factory, err := NewEngineFactory(engineCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine, _ := factory.CreateEngine("test_db")
 	assert.NotNil(t, engine)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 
 	assert.Equal(t, 0, engine.NumOfShards())
 
-	err := engine.CreateShards(option.ShardOption{})
+	err = engine.CreateShards(option.EngineOption{})
 	assert.NotNil(t, err)
 
-	err = engine.CreateShards(option.ShardOption{}, 1, 2, 3)
+	err = engine.CreateShards(option.EngineOption{}, 1, 2, 3)
 	assert.NotNil(t, err)
 
 	err = engine.CreateShards(validOption, 1, 2, 3)
@@ -44,7 +47,7 @@ func TestNew(t *testing.T) {
 	_ = engine.Close()
 
 	// re-open engine test load exist data
-	engine, _ = factory.CreateEngine("test_db", testPath)
+	engine, _ = factory.CreateEngine("test_db")
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db", "OPTIONS")))
 

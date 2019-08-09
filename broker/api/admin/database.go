@@ -45,6 +45,14 @@ func (d *DatabaseAPI) Save(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
+	// validate engine config
+	clusters := database.Clusters
+	for i := range clusters {
+		if err := clusters[i].Engine.Validation(); err != nil {
+			api.Error(w, err)
+			return
+		}
+	}
 	err = d.databaseService.Save(database)
 	if err != nil {
 		api.Error(w, err)

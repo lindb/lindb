@@ -31,3 +31,32 @@ func TestCalIntervalRatio(t *testing.T) {
 	assert.Equal(t, 5, CalIntervalRatio(55, 10))
 	assert.Equal(t, 10, CalIntervalRatio(1000, 100))
 }
+
+func TestParseInterval(t *testing.T) {
+	_, err := ParseInterval("10t")
+	assert.NotNil(t, err)
+
+	_, err = ParseInterval("as")
+	assert.NotNil(t, err)
+	interval, err := ParseInterval(" 10  s")
+	assert.Equal(t, 10*OneSecond, interval)
+	assert.Nil(t, err)
+	interval, _ = ParseInterval(" 10  S")
+	assert.Equal(t, 10*OneSecond, interval)
+	interval, _ = ParseInterval("10m")
+	assert.Equal(t, 10*OneMinute, interval)
+	interval, _ = ParseInterval("10h")
+	assert.Equal(t, 10*OneHour, interval)
+	interval, _ = ParseInterval("10H")
+	assert.Equal(t, 10*OneHour, interval)
+	interval, _ = ParseInterval("10d")
+	assert.Equal(t, 10*OneDay, interval)
+	interval, _ = ParseInterval("10D")
+	assert.Equal(t, 10*OneDay, interval)
+	interval, _ = ParseInterval("10M")
+	assert.Equal(t, 10*OneMonth, interval)
+	interval, _ = ParseInterval("10y")
+	assert.Equal(t, 10*OneYear, interval)
+	interval, _ = ParseInterval("10Y")
+	assert.Equal(t, 10*OneYear, interval)
+}

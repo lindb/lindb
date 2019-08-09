@@ -18,11 +18,42 @@ const (
 	maxTasksLimit = 127
 )
 
+var log = logger.GetLogger("coordinator/task/controller")
+
 var (
 	ErrControllerClosed       = fmt.Errorf("coordinator/task: controller closed")
 	ErrMaxTasksLimitExceeded  = fmt.Errorf("coordinator/task: tasks number can not greater than %d", maxTasksLimit)
 	ErrTaskNameAlreadyExisted = fmt.Errorf("coordinator/task: task name already existed")
 )
+
+// ControllerFactory represents a task controller create factory
+type ControllerFactory interface {
+	// CreateController creates a new task controller
+	CreateController(ctx context.Context, cli state.Repository) Controller
+}
+
+// controllerFactory implements the interface
+type controllerFactory struct {
+}
+
+// NewControllerFactory creates a task controller create factory
+func NewControllerFactory() ControllerFactory {
+	return &controllerFactory{}
+}
+
+// NewController creates a new controller.
+func (f *controllerFactory) CreateController(ctx context.Context, cli state.Repository) Controller {
+	ctx, cancel := context.WithCancel(ctx)
+	c := &controller{
+		keypfx: fmt.Sprintf("/task-coordinator/%s", version),
+		cli:    cli,
+		ctx:    ctx,
+		cancel: cancel,
+		donec:  make(chan struct{}),
+	}
+	go c.run()
+	return c
+}
 
 // ToBytes can convert itself into bytes.
 type ToBytes interface {
@@ -55,20 +86,6 @@ type controller struct {
 	cancel context.CancelFunc
 	donec  chan struct{}
 	closed int32
-}
-
-// NewController creates a new controller.
-func NewController(ctx context.Context, cli state.Repository) Controller {
-	ctx, cancel := context.WithCancel(ctx)
-	c := &controller{
-		keypfx: fmt.Sprintf("/task-coordinator/%s", version),
-		cli:    cli,
-		ctx:    ctx,
-		cancel: cancel,
-		donec:  make(chan struct{}),
-	}
-	go c.run()
-	return c
 }
 
 // Submit submits a task with params and node ids, a readable name with
@@ -129,9 +146,12 @@ func (c *controller) Close() error {
 func (c *controller) run() {
 	close(c.donec)
 
+	log.Info("task controller running")
+
+	defer log.Info("task controller loop exit")
+
 	evtc := c.cli.WatchPrefix(c.ctx, c.keypfx)
 	waiters := newWaiters()
-	log := logger.GetLogger("coordinator/task/controller")
 	for {
 		select {
 		case <-c.ctx.Done():
