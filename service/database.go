@@ -40,7 +40,11 @@ func (db *databaseService) Save(database *models.Database) error {
 	if len(database.Clusters) == 0 {
 		return fmt.Errorf("cluster is empty")
 	}
-	for _, cluster := range database.Clusters {
+
+	clusters := database.Clusters
+	for i := range clusters {
+		cluster := clusters[i]
+
 		if len(cluster.Name) == 0 {
 			return fmt.Errorf("cluster name is empty")
 		}

@@ -237,10 +237,10 @@ type writeContext struct {
 func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	timestamp := metric.Timestamp
 	// calculate family start time and slot index
-	segmentTime := md.intervalCalc.CalSegmentTime(timestamp)                      // day
-	family := md.intervalCalc.CalFamily(timestamp, segmentTime)                   // hours
-	familyStartTime := md.intervalCalc.CalFamilyStartTime(segmentTime, family)    // family timestamp
-	slotIndex := md.intervalCalc.CalSlot(timestamp, familyStartTime, md.interval) // slot offset of family
+	segmentTime := md.intervalCalc.CalcSegmentTime(timestamp)                      // day
+	family := md.intervalCalc.CalcFamily(timestamp, segmentTime)                   // hours
+	familyStartTime := md.intervalCalc.CalcFamilyStartTime(segmentTime, family)    // family timestamp
+	slotIndex := md.intervalCalc.CalcSlot(timestamp, familyStartTime, md.interval) // slot offset of family
 
 	hash := fnv1a.HashString64(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)

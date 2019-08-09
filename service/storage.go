@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lindb/lindb/config"
-
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -15,7 +13,7 @@ import (
 // StorageService represents a storage manage interface for time series engine
 type StorageService interface {
 	// CreateShards creates shards for data partition
-	CreateShards(db string, option option.ShardOption, shardIDs ...int32) error
+	CreateShards(db string, option option.EngineOption, shardIDs ...int32) error
 	// GetEngine returns engine by given db name, if not exist return nil
 	GetEngine(db string) tsdb.Engine
 	// GetShard returns shard by given db and shard id, if not exist return nil
@@ -27,22 +25,20 @@ type storageService struct {
 	engines sync.Map
 
 	factory tsdb.EngineFactory
-	config  config.Engine
 	mutex   sync.Mutex
 }
 
 // NewStorageService creates storage service instance for managing time series engine
-func NewStorageService(config config.Engine, factory tsdb.EngineFactory) StorageService {
+func NewStorageService(factory tsdb.EngineFactory) StorageService {
 	return &storageService{
 		factory: factory,
-		config:  config,
 	}
 }
 
 // CreateShards creates shards for data partition by given options
 // 1) dump engine option into local disk
 // 2) create shard storage struct
-func (s *storageService) CreateShards(db string, option option.ShardOption, shardIDs ...int32) error {
+func (s *storageService) CreateShards(db string, option option.EngineOption, shardIDs ...int32) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("cannot create empty shard for db[%s]", db)
 	}
@@ -55,7 +51,7 @@ func (s *storageService) CreateShards(db string, option option.ShardOption, shar
 		if engine == nil {
 			// create time series engine
 			var err error
-			engine, err = s.factory.CreateEngine(db, s.config.Path)
+			engine, err = s.factory.CreateEngine(db)
 			if err != nil {
 				return err
 			}

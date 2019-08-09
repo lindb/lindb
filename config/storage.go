@@ -40,7 +40,7 @@ func NewDefaultStorageCfg() Storage {
 			TTL:  1,
 		},
 		Engine: Engine{
-			Path: "/tmp",
+			Path: "/tmp/storage/data",
 		},
 		Replication: Replication{
 			Path: "/tmp/storage/replication",

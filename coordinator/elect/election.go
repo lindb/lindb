@@ -80,6 +80,8 @@ func (e *election) Initialize() {
 // Elect elects master,start goroutine do elect logic
 func (e *election) Elect() {
 	go func() {
+		// wait init
+		time.Sleep(10 * time.Millisecond)
 		e.elect()
 		log.Warn("exit master elect loop", logger.Any("node", e.node))
 	}()

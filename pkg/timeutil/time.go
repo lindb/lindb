@@ -1,6 +1,8 @@
 package timeutil
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -74,9 +76,58 @@ func CalPointCount(startTime, endTime, interval int64) int {
 	return int(pointCount)
 }
 
+// CalIntervalRatio calculates the interval ratio for query
 func CalIntervalRatio(queryInterval, storageInterval int64) int {
 	if queryInterval < storageInterval {
 		return 1
 	}
 	return int(queryInterval / storageInterval)
+}
+
+// ParseInterval parses the interval str, return number of interval(millisecond),
+// if parse fail, return 0 and err
+func ParseInterval(intervalStr string) (int64, error) {
+	var unit, interval int64
+	var unitStr string
+	switch {
+	case strings.HasSuffix(intervalStr, "s"):
+		unitStr = "s"
+		unit = OneSecond
+	case strings.HasSuffix(intervalStr, "S"):
+		unitStr = "S"
+		unit = OneSecond
+	case strings.HasSuffix(intervalStr, "m"):
+		unitStr = "m"
+		unit = OneMinute
+	case strings.HasSuffix(intervalStr, "h"):
+		unitStr = "h"
+		unit = OneHour
+	case strings.HasSuffix(intervalStr, "H"):
+		unitStr = "H"
+		unit = OneHour
+	case strings.HasSuffix(intervalStr, "d"):
+		unitStr = "d"
+		unit = OneDay
+	case strings.HasSuffix(intervalStr, "D"):
+		unitStr = "D"
+		unit = OneDay
+	case strings.HasSuffix(intervalStr, "M"):
+		unitStr = "M"
+		unit = OneMonth
+	case strings.HasSuffix(intervalStr, "y"):
+		unitStr = "y"
+		unit = OneYear
+	case strings.HasSuffix(intervalStr, "Y"):
+		unitStr = "Y"
+		unit = OneYear
+	default:
+		return 0, fmt.Errorf("unknown interval")
+	}
+	intervalStr = strings.Replace(intervalStr, unitStr, "", 1)
+	intervalStr = strings.Trim(intervalStr, " ")
+	interval, err := strconv.ParseInt(intervalStr, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return interval * unit, nil
 }

@@ -31,13 +31,15 @@ func TestStorageCluster(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	controller := task.NewMockController(ctrl)
+	controllerFactory := task.NewMockControllerFactory(ctrl)
+	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
 	shardAssignService := service.NewMockShardAssignService(ctrl)
 	cfg := clusterCfg{
 		storageStateService: storageService,
 		cfg:                 storage,
 		repo:                repo,
 		factory:             discoveryFactory,
-		controller:          controller,
+		controllerFactory:   controllerFactory,
 		shardAssignService:  shardAssignService,
 	}
 	_, err := factory.newCluster(cfg)

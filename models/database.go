@@ -10,10 +10,10 @@ type Database struct {
 
 // DatabaseCluster represents database's storage cluster config
 type DatabaseCluster struct {
-	Name          string             `json:"name"`
-	NumOfShard    int                `json:"numOfShard"`
-	ReplicaFactor int                `json:"replicaFactor"`
-	ShardOption   option.ShardOption `json:"shardOption"`
+	Name          string              `json:"name"`          // database's name
+	NumOfShard    int                 `json:"numOfShard"`    // num. of shard
+	ReplicaFactor int                 `json:"replicaFactor"` // replica refactor
+	Engine        option.EngineOption `json:"engine"`        // time series engine option
 }
 
 // Replica defines replica list for spec shard of database

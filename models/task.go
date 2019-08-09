@@ -1,26 +1,18 @@
 package models
 
 import (
-	"encoding/json"
-
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 )
 
 // CreateShardTask represents the create shard task param
 type CreateShardTask struct {
-	Database    string             `json:"database"`
-	ShardIDs    []int32            `json:"shardIDs"`
-	ShardOption option.ShardOption `json:"shardOption"`
+	Database string              `json:"database"` // database's name
+	ShardIDs []int32             `json:"shardIDs"` // shard ids
+	Engine   option.EngineOption `json:"engine"`   // time series engine
 }
 
 // Bytes returns the create shard task binary data using json
 func (t CreateShardTask) Bytes() []byte {
-	data, err := json.Marshal(t)
-	if err != nil {
-		logger.GetLogger("model/task").Error("marshal create shard task error",
-			logger.Error(err))
-		return nil
-	}
-	return data
+	return encoding.JSONMarshal(t)
 }

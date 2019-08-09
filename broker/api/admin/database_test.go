@@ -9,6 +9,7 @@ import (
 
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/service"
 )
 
@@ -27,6 +28,7 @@ func TestDatabaseAPI(t *testing.T) {
 				Name:          "test",
 				NumOfShard:    12,
 				ReplicaFactor: 3,
+				Engine:        option.EngineOption{Interval: "10s"},
 			},
 		},
 	}
@@ -41,10 +43,19 @@ func TestDatabaseAPI(t *testing.T) {
 	})
 	// create err
 	databaseService.EXPECT().Save(gomock.Any()).Return(fmt.Errorf("err"))
+	db.Name = ""
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/database",
-		RequestBody:    models.Database{},
+		RequestBody:    db,
+		HandlerFunc:    api.Save,
+		ExpectHTTPCode: 500,
+	})
+	db.Clusters = append(db.Clusters, models.DatabaseCluster{Engine: option.EngineOption{Interval: "aa"}})
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/database",
+		RequestBody:    db,
 		HandlerFunc:    api.Save,
 		ExpectHTTPCode: 500,
 	})

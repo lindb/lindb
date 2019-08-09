@@ -27,7 +27,7 @@ type clusterCfg struct {
 	cfg                 models.StorageCluster
 	storageStateService service.StorageStateService
 	repo                state.Repository
-	controller          task.Controller
+	controllerFactory   task.ControllerFactory
 	factory             discovery.Factory
 	shardAssignService  service.ShardAssignService
 }
@@ -77,8 +77,9 @@ type Cluster interface {
 
 // cluster implements cluster controller, master will maintain multi storage cluster
 type cluster struct {
-	cfg       clusterCfg
-	discovery discovery.Discovery
+	cfg            clusterCfg
+	discovery      discovery.Discovery
+	taskController task.Controller
 
 	clusterState *models.StorageState
 	databases    map[string]*models.DatabaseCluster
@@ -89,9 +90,10 @@ type cluster struct {
 // newCluster creates cluster controller, init active node list if exist node
 func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster := &cluster{
-		cfg:          cfg,
-		clusterState: models.NewStorageState(),
-		databases:    make(map[string]*models.DatabaseCluster),
+		cfg:            cfg,
+		clusterState:   models.NewStorageState(),
+		databases:      make(map[string]*models.DatabaseCluster),
+		taskController: cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo),
 	}
 	// init active nodes if exist
 	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
@@ -172,7 +174,7 @@ func (c *cluster) SaveShardAssign(databaseName string, shardAssign *models.Shard
 				tasks[replicaID] = taskParam
 			}
 			taskParam.ShardIDs = append(taskParam.ShardIDs, int32(ID))
-			taskParam.ShardOption = shardAssign.Config.ShardOption
+			taskParam.Engine = shardAssign.Config.Engine
 		}
 	}
 	var params []task.ControllerTaskParam
@@ -193,7 +195,7 @@ func (c *cluster) SaveShardAssign(databaseName string, shardAssign *models.Shard
 // SubmitTask submits coordinator task based on kind and params into related storage cluster,
 // storage node will execute task if it care this task kind
 func (c *cluster) SubmitTask(kind task.Kind, name string, params []task.ControllerTaskParam) error {
-	return c.cfg.controller.Submit(kind, name, params)
+	return c.taskController.Submit(kind, name, params)
 }
 
 // Close stops watch, and cleanups cluster's metadata
