@@ -205,6 +205,11 @@ func (c *cluster) Close() {
 	c.databases = make(map[string]*models.DatabaseCluster)
 	c.mutex.Unlock()
 
+	// need close task controller of current storage cluster
+	if err := c.taskController.Close(); err != nil {
+		log.Error("close task controller", logger.Error(err))
+	}
+
 	c.discovery.Close()
 	(&c.cfg).clean()
 }
