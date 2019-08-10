@@ -19,7 +19,7 @@ func TestStorageCluster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := &clusterFactory{}
+	factory := NewClusterFactory()
 	storage := models.StorageCluster{
 		Config: state.Config{Namespace: "storage"},
 	}
@@ -31,6 +31,7 @@ func TestStorageCluster(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	controller := task.NewMockController(ctrl)
+	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	controllerFactory := task.NewMockControllerFactory(ctrl)
 	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
 	shardAssignService := service.NewMockShardAssignService(ctrl)

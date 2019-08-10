@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-// Executor executes tasks on node.
+// Executor watches task event and dispatches the task event to target task processor
 type Executor struct {
-	keypfx     string
-	cli        state.Repository
+	keyPrefix  string
+	repo       state.Repository
 	node       *models.Node
 	processors map[Kind]*taskProcessor
 
@@ -22,36 +23,37 @@ type Executor struct {
 	log *logger.Logger
 }
 
-// NewExecutor creates a new Executor, the keypfx must be the same as Controller's.
-func NewExecutor(ctx context.Context, node *models.Node, cli state.Repository) *Executor {
+// NewExecutor creates a new Executor, the task key prefix must be the same as Controller's.
+func NewExecutor(ctx context.Context, node *models.Node, repo state.Repository) *Executor {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Executor{
-		keypfx:     fmt.Sprintf("/task-coordinator/%s/executor/%s/", version, node.Indicator()),
-		cli:        cli,
+		keyPrefix:  fmt.Sprintf("%s/executor/%s/", taskCoordinatorKey, node.Indicator()),
+		repo:       repo,
 		node:       node,
 		processors: map[Kind]*taskProcessor{},
 		ctx:        ctx,
-		log:        logger.GetLogger("coordinator/task/executor"),
 		cancel:     cancel,
+		log:        logger.GetLogger("coordinator/task/executor"),
 	}
 }
 
-// Register must be called before Run.
+// Register registers task processor.
+// Notice: must be called before Run.
 func (e *Executor) Register(procs ...Processor) {
 	for _, proc := range procs {
-		e.processors[proc.Kind()] = newTaskProcessor(e.ctx, proc, e.cli)
+		e.processors[proc.Kind()] = newTaskProcessor(e.ctx, proc, e.repo)
 	}
 }
 
 // Run must be called after Register, otherwise it may panic, O(∩_∩)O~.
 func (e *Executor) Run() {
-	evtc := e.cli.WatchPrefix(e.ctx, e.keypfx)
+	eventCh := e.repo.WatchPrefix(e.ctx, e.keyPrefix)
 	for {
 		select {
-		case <-e.ctx.Done():
+		case <-e.ctx.Done(): // Context canceled
 			return
-		case evt := <-evtc:
-			if evt == nil { // Context canceled
+		case evt := <-eventCh:
+			if evt == nil { // chan closed
 				return
 			}
 			if evt.Err == nil {
@@ -63,19 +65,25 @@ func (e *Executor) Run() {
 						e.dispatch(kv)
 					}
 				case state.EventTypeDelete:
+					// delete not used
 				}
 			} else {
-				e.log.Error("watch events", logger.Error(evt.Err))
+				e.log.Error("watch task events", logger.Error(evt.Err))
 			}
 		}
 	}
 }
 
-func (e *Executor) dispatch(kvevt state.EventKeyValue) {
-	var task Task
-	(&task).UnsafeUnmarshal(kvevt.Value)
+// dispatch dispatches task event to target task processor
+func (e *Executor) dispatch(eventKV state.EventKeyValue) {
+	task := Task{}
+	if err := encoding.JSONUnmarshal(eventKV.Value, &task); err != nil {
+		e.log.Error("unmarshal task data", logger.Any("data", eventKV.Value))
+		return
+	}
+
 	if task.State > StateRunning {
-		e.log.Debug("stale task", logger.String("name", kvevt.Key))
+		e.log.Debug("stale task", logger.String("name", eventKV.Key))
 		return
 	}
 	proc, ok := e.processors[task.Kind]
@@ -84,11 +92,11 @@ func (e *Executor) dispatch(kvevt state.EventKeyValue) {
 		return
 	}
 	// Each task processor has an infinite events queue, so it won't block others.
-	err := proc.Submit(taskEvent{key: kvevt.Key, task: task, rev: kvevt.Rev})
+	err := proc.Submit(taskEvent{key: eventKV.Key, task: task, rev: eventKV.Rev})
 	if err != nil {
 		e.log.Warn("dispatch task", logger.Error(err))
 	} else {
-		e.log.Info("dispatch task", logger.String("name", kvevt.Key))
+		e.log.Info("dispatch task successfully", logger.String("name", eventKV.Key))
 	}
 }
 

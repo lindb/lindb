@@ -6,25 +6,21 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./controller.go -destination=./controller_mock.go -package=task
 
-const (
-	version = "v1" // TODO
-	// FIXME(damnever): magic number, see also: --max-txn-ops in etcd
-	maxTasksLimit = 127
+var (
+	// ErrControllerClosed causes error when does some ops after controller is closed
+	ErrControllerClosed = fmt.Errorf("coordinator/task: controller closed")
+	// ErrMaxTasksLimitExceeded causes error when exceeds the task limit
+	ErrMaxTasksLimitExceeded = fmt.Errorf("coordinator/task: tasks number can not greater than %d", maxTasksLimit)
 )
 
 var log = logger.GetLogger("coordinator/task/controller")
-
-var (
-	ErrControllerClosed       = fmt.Errorf("coordinator/task: controller closed")
-	ErrMaxTasksLimitExceeded  = fmt.Errorf("coordinator/task: tasks number can not greater than %d", maxTasksLimit)
-	ErrTaskNameAlreadyExisted = fmt.Errorf("coordinator/task: task name already existed")
-)
 
 // ControllerFactory represents a task controller create factory
 type ControllerFactory interface {
@@ -42,14 +38,15 @@ func NewControllerFactory() ControllerFactory {
 }
 
 // NewController creates a new controller.
-func (f *controllerFactory) CreateController(ctx context.Context, cli state.Repository) Controller {
+func (f *controllerFactory) CreateController(ctx context.Context, repo state.Repository) Controller {
 	ctx, cancel := context.WithCancel(ctx)
 	c := &controller{
-		keypfx: fmt.Sprintf("/task-coordinator/%s", version),
-		cli:    cli,
-		ctx:    ctx,
-		cancel: cancel,
-		donec:  make(chan struct{}),
+		keyPrefix:    taskCoordinatorKey,
+		statusPrefix: fmt.Sprintf("%s/status/kinds", taskCoordinatorKey),
+		repo:         repo,
+		ctx:          ctx,
+		cancel:       cancel,
+		donec:        make(chan struct{}),
 	}
 	go c.run()
 	return c
@@ -72,15 +69,20 @@ type Controller interface {
 	Submit(kind Kind, name string, params []ControllerTaskParam) error
 	// Close closes controller, then releases the resource
 	Close() error
+	// taskKey returns the key of task
+	taskKey(kind Kind, name, nodeID string) string
+	// statusKey returns the key of task status
+	statusKey(kind Kind, name string) string
 }
 
 // controller is responsible for submitting tasks, noticing responding when task status changes.
 //
-// TODO(damnever): API to notify task status changes.
+// API to notify task status changes.
 //  - we can simply watch the key: /task-coordinator/<version>/status/kinds/<task-kind>/names/<task-name>
 type controller struct {
-	keypfx string
-	cli    state.Repository
+	keyPrefix    string
+	statusPrefix string
+	repo         state.Repository
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -101,9 +103,9 @@ func (c *controller) Submit(kind Kind, name string, params []ControllerTaskParam
 		return nil
 	}
 
+	txn := c.repo.NewTransaction()
 	// TODO(damnever): kinds validation
 	grp := groupedTasks{State: StateRunning}
-	batch := state.Batch{KVs: []state.KeyValue{{}}}
 	for _, param := range params {
 		task := Task{
 			Kind:     kind,
@@ -113,28 +115,23 @@ func (c *controller) Submit(kind Kind, name string, params []ControllerTaskParam
 			State:    StateCreated,
 		}
 		grp.Tasks = append(grp.Tasks, task)
-		batch.KVs = append(batch.KVs, state.KeyValue{
-			Key:   c.taskKey(kind, name, param.NodeID),
-			Value: task.UnsafeMarshal()})
 	}
-	key := c.statusKey(kind, name)
-	batch.KVs[0] = state.KeyValue{
-		Key:   key,
-		Value: grp.UnsafeMarshal(),
+	// first, must put task status track
+	txn.Put(c.statusKey(kind, name), encoding.JSONMarshal(&grp))
+	// then, add tasks
+	for i := range grp.Tasks {
+		task := grp.Tasks[i]
+		txn.Put(c.taskKey(kind, name, task.Executor), encoding.JSONMarshal(&task))
 	}
-
-	resp, err := c.cli.Batch(c.ctx, batch)
+	// finally, commit txn
+	err := c.repo.Commit(c.ctx, txn)
 	if err != nil {
 		return err
-	}
-	if !resp {
-		//TODO need modify error type
-		return ErrTaskNameAlreadyExisted
 	}
 	return nil
 }
 
-// Close shutdown Controller.
+// Close shutdowns task controller
 func (c *controller) Close() error {
 	if atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		c.cancel()
@@ -150,13 +147,14 @@ func (c *controller) run() {
 
 	defer log.Info("task controller loop exit")
 
-	evtc := c.cli.WatchPrefix(c.ctx, c.keypfx)
-	waiters := newWaiters()
+	// watch "/task-coordinator/:version" for listening task event change
+	eventCh := c.repo.WatchPrefix(c.ctx, c.keyPrefix)
+	waiters := newWaiter(c.ctx, c.repo)
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
-		case evt := <-evtc:
+		case evt := <-eventCh:
 			if evt == nil {
 				log.Warn("task event channel closed")
 				return
@@ -164,18 +162,22 @@ func (c *controller) run() {
 			if evt.Err == nil {
 				switch evt.Type {
 				case state.EventTypeAll:
-					waiters = newWaiters()
 					fallthrough
 				case state.EventTypeModify:
 					for _, kv := range evt.KeyValues {
-						// FIXME(damnever): more robust checking
-						if strings.Contains(kv.Key, "status") {
-							var tasks groupedTasks
-							(&tasks).UnsafeUnmarshal(kv.Value)
+						if strings.HasPrefix(kv.Key, c.statusPrefix) {
+							tasks := groupedTasks{}
+							if err := encoding.JSONUnmarshal(kv.Value, &tasks); err != nil {
+								log.Error("unmarshal grouped tasks")
+								continue
+							}
 							waiters.TryAdd(kv.Key, tasks, kv.Rev)
 						} else {
-							var task Task
-							(&task).UnsafeUnmarshal(kv.Value)
+							task := Task{}
+							if err := encoding.JSONUnmarshal(kv.Value, &task); err != nil {
+								log.Error("unmarshal task")
+								continue
+							}
 							if err := waiters.TryNotify(c, task); err != nil {
 								log.Error("update status", logger.Error(err))
 							}
@@ -185,21 +187,25 @@ func (c *controller) run() {
 					// NOTE(damnever): delete events are useless
 				}
 			} else {
-				log.Warn("error event", logger.Error(evt.Err))
+				log.Warn("got event with error", logger.Error(evt.Err))
 			}
 		}
 	}
 }
 
+// statusKey returns the key of task status
 func (c *controller) statusKey(kind Kind, name string) string {
-	return fmt.Sprintf("%s/status/kinds/%s/names/%s", c.keypfx, kind, name)
+	return fmt.Sprintf("%s/status/kinds/%s/names/%s", c.keyPrefix, kind, name)
 }
 
+// taskKey returns the key of task
 func (c *controller) taskKey(kind Kind, name, nodeID string) string {
-	return fmt.Sprintf("%s/executor/%s/kinds/%s/names/%s", c.keypfx, nodeID, kind, name)
+	return fmt.Sprintf("%s/executor/%s/kinds/%s/names/%s", c.keyPrefix, nodeID, kind, name)
 }
 
 type statusWaiter struct {
+	ctx     context.Context
+	repo    state.Repository
 	kind    Kind
 	name    string
 	key     string
@@ -208,8 +214,12 @@ type statusWaiter struct {
 	waiting map[string]struct{}
 }
 
-func newStatusWaiter(key string, tasks groupedTasks, rev int64) *statusWaiter {
+func newStatusWaiter(ctx context.Context,
+	key string, tasks groupedTasks, rev int64,
+	repo state.Repository) *statusWaiter {
 	w := &statusWaiter{
+		ctx:     ctx,
+		repo:    repo,
 		kind:    tasks.Tasks[0].Kind,
 		name:    tasks.Tasks[0].Name,
 		key:     key,
@@ -223,10 +233,7 @@ func newStatusWaiter(key string, tasks groupedTasks, rev int64) *statusWaiter {
 	return w
 }
 
-func (w *statusWaiter) Confirm(task Task) {
-	if task.Kind != w.kind || task.Name != w.name {
-		return
-	}
+func (w *statusWaiter) confirm(task Task) {
 	if _, ok := w.waiting[task.Executor]; !ok {
 		return
 	}
@@ -240,25 +247,20 @@ func (w *statusWaiter) Confirm(task Task) {
 }
 
 func (w *statusWaiter) UpdateStatus(c Controller) error {
-	//TODO need impl?????
-	//batch := state.Batch{KVs: []state.KeyValue{{}}}
-	//w.tasks.State = StateDoneOK
-	//for _, task := range w.tasks.Tasks {
-	//	batch.KVs = append(batch.KVs, etcdcliv3.OpDelete(c.taskKey(task.Kind, task.Name, task.Executor)))
-	//	if task.ErrMsg != "" {
-	//		w.tasks.State = StateDoneErr
-	//	}
-	//}
-	//ops[0] = etcdcliv3.OpPut(w.key, zerocopy.UnsafeBtoa(w.tasks.UnsafeMarshal()))
-	//resp, err := c.cli.Txn(c.ctx).If(
-	//	etcdcliv3.Compare(etcdcliv3.ModRevision(w.key), "=", w.rev),
-	//).Then(ops...).Commit()
-	//if err != nil {
-	//	return err
-	//}
-	//if !resp.Succeeded {
-	//	return fmt.Errorf("coordinator/task: someone changed the %s", w.key)
-	//}
+	txn := w.repo.NewTransaction()
+	w.tasks.State = StateDoneOK
+	for _, task := range w.tasks.Tasks {
+		txn.Delete(c.taskKey(task.Kind, task.Name, task.Executor))
+		if task.ErrMsg != "" {
+			w.tasks.State = StateDoneErr
+		}
+	}
+	txn.Put(w.key, encoding.JSONMarshal(&w.tasks))
+	txn.ModRevisionCmp(w.key, "=", w.rev)
+
+	if err := w.repo.Commit(w.ctx, txn); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -268,32 +270,40 @@ func (w *statusWaiter) IsDone() bool {
 
 type kindStatusWaiter map[string]*statusWaiter
 
-type waiters map[Kind]kindStatusWaiter
-
-func newWaiters() waiters {
-	return map[Kind]kindStatusWaiter{}
+type waiter struct {
+	ctx     context.Context
+	repo    state.Repository
+	waiters map[Kind]kindStatusWaiter
 }
 
-func (w waiters) TryAdd(key string, tasks groupedTasks, rev int64) {
+func newWaiter(ctx context.Context, repo state.Repository) *waiter {
+	return &waiter{
+		waiters: make(map[Kind]kindStatusWaiter),
+		ctx:     ctx,
+		repo:    repo,
+	}
+}
+
+func (w *waiter) TryAdd(key string, tasks groupedTasks, rev int64) {
 	if tasks.State > StateRunning { // NOTE(damnever): Ignore newly finished tasks.
 		return
 	}
 
 	kind := tasks.Tasks[0].Kind
-	kw, ok := w[kind]
+	kw, ok := w.waiters[kind]
 	if !ok {
 		kw = kindStatusWaiter{}
-		w[kind] = kw
+		w.waiters[kind] = kw
 	}
 	// FIXME(damnever): check duplicate
-	kw[tasks.Tasks[0].Name] = newStatusWaiter(key, tasks, rev)
+	kw[tasks.Tasks[0].Name] = newStatusWaiter(w.ctx, key, tasks, rev, w.repo)
 }
 
-func (w waiters) TryNotify(c Controller, task Task) (err error) {
+func (w *waiter) TryNotify(c Controller, task Task) (err error) {
 	if task.State <= StateRunning { // NOTE(damnever): Ignore newly created tasks.
 		return
 	}
-	kw, ok := w[task.Kind]
+	kw, ok := w.waiters[task.Kind]
 	if !ok {
 		return
 	}
@@ -302,7 +312,7 @@ func (w waiters) TryNotify(c Controller, task Task) (err error) {
 		return
 	}
 
-	sw.Confirm(task)
+	sw.confirm(task)
 	if sw.IsDone() {
 		if err = sw.UpdateStatus(c); err == nil {
 			delete(kw, task.Name)

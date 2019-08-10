@@ -14,6 +14,8 @@ var (
 	ErrNoKey = fmt.Errorf("etcd has no such key")
 	// ErrTxnFailed indicates the txn failed.
 	ErrTxnFailed = fmt.Errorf("role changed or target revision mismatch")
+	// ErrTxnConvert transaction covert failed.
+	ErrTxnConvert = fmt.Errorf("cannot covert etcd transaction")
 )
 
 // TxnErr converts txn response and error into one error.

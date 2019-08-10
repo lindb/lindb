@@ -10,9 +10,12 @@ import (
 	"github.com/damnever/goctl/retry"
 	"github.com/damnever/goctl/semaphore"
 
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
+
+//go:generate mockgen -source=./processor.go -destination=./processor_mock.go -package=task
 
 // Processor is responsible for process actual tasks.
 // The caller must ensure Process func is goroutine safe if it changes the shared state.
@@ -34,7 +37,7 @@ type taskProcessor struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	cli       state.Repository
+	repo      state.Repository
 	taskq     *queue.Queue
 	retrier   retry.Retrier
 	sem       *semaphore.Semaphore
@@ -42,7 +45,7 @@ type taskProcessor struct {
 	processor Processor
 }
 
-func newTaskProcessor(ctx context.Context, proc Processor, cli state.Repository) *taskProcessor {
+func newTaskProcessor(ctx context.Context, proc Processor, repo state.Repository) *taskProcessor {
 	concurrency := proc.Concurrency()
 	if concurrency <= 0 {
 		concurrency = 1
@@ -53,7 +56,7 @@ func newTaskProcessor(ctx context.Context, proc Processor, cli state.Repository)
 		ctx:    cctx,
 		cancel: cancel,
 
-		cli:       cli,
+		repo:      repo,
 		taskq:     queue.NewQueue(),
 		retrier:   retry.New(retry.ConstantBackoffs(proc.RetryCount(), proc.RetryBackOff())),
 		sem:       semaphore.NewSemaphore(concurrency),
@@ -93,6 +96,7 @@ func (p *taskProcessor) run() {
 func (p *taskProcessor) process(evt taskEvent) {
 	log := logger.GetLogger("coordinator/task/processor")
 	defer func() {
+		// wait task process done¬
 		p.wg.Done()
 		_ = p.sem.Release()
 		if e := recover(); e != nil {
@@ -115,15 +119,14 @@ func (p *taskProcessor) process(evt taskEvent) {
 	} else {
 		task.State = StateDoneOK
 	}
-	//TODO ????????modify status
-	//resp, err := p.cli.Txn(p.ctx).If(
-	//	etcdcliv3.Compare(etcdcliv3.ModRevision(evt.key), "=", evt.rev),
-	//).Then(
-	//	etcdcliv3.OpPut(evt.key, zerocopy.UnsafeBtoa(task.UnsafeMarshal())),
-	//).Commit()
-	//if err := state.TxnErr(resp, err); err != nil {
-	//	log.Error("update task status", zap.String("name", evt.key), zap.Error(err))
-	//}
+
+	// save task status
+	txn := p.repo.NewTransaction()
+	txn.ModRevisionCmp(evt.key, "=", evt.rev)
+	txn.Put(evt.key, encoding.JSONMarshal(&task))
+	if err := p.repo.Commit(p.ctx, txn); err != nil {
+		log.Error("update task status", logger.String("name", evt.key), logger.Error(err))
+	}
 }
 
 func (p *taskProcessor) Stop() {
