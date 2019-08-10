@@ -176,10 +176,47 @@ func (r *etcdRepository) Batch(ctx context.Context, batch Batch) (bool, error) {
 	return resp.Succeeded, nil
 }
 
+// NewTransaction creates a new transaction
+func (r *etcdRepository) NewTransaction() Transaction {
+	return newTransaction(r)
+}
+
+// Commit commits the transaction, if fail return err
+func (r *etcdRepository) Commit(ctx context.Context, txn Transaction) error {
+	t, ok := txn.(*transaction)
+	if !ok {
+		return ErrTxnConvert
+	}
+	resp, err := r.client.Txn(ctx).If(t.cmps...).Then(t.ops...).Commit()
+	return TxnErr(resp, err)
+}
+
 // keyPath return new key path with namespace prefix
 func (r *etcdRepository) keyPath(key string) string {
 	if len(r.namespace) > 0 {
 		return filepath.Join(r.namespace, key)
 	}
 	return key
+}
+
+type transaction struct {
+	ops  []etcdcliv3.Op
+	cmps []etcdcliv3.Cmp
+	repo *etcdRepository
+}
+
+func newTransaction(repo *etcdRepository) Transaction {
+	return &transaction{repo: repo}
+}
+
+func (t *transaction) ModRevisionCmp(key, op string, v interface{}) {
+	t.cmps = append(t.cmps, etcdcliv3.Compare(etcdcliv3.ModRevision(t.repo.keyPath(key)), op, v))
+}
+
+func (t *transaction) Put(key string, value []byte) {
+	t.ops = append(t.ops, etcdcliv3.OpPut(t.repo.keyPath(key), string(value)))
+}
+
+func (t *transaction) Delete(key string) {
+	t.ops = append(t.ops, etcdcliv3.OpDelete(t.repo.keyPath(key)))
 }

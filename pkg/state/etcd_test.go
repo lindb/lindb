@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/pkg/util"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 )
 
 type address struct {
@@ -296,4 +296,52 @@ func (ts *testEtcdRepoSuite) TestBatch(c *check.C) {
 
 	list, _ := b.List(context.TODO(), "key")
 	c.Assert(3, check.Equals, len(list))
+}
+
+func (ts *testEtcdRepoSuite) TestTransaction(c *check.C) {
+	b, _ := newEtedRepository(Config{
+		Namespace: "/test/batch",
+		Endpoints: ts.Cluster.Endpoints,
+	})
+
+	txn := b.NewTransaction()
+	txn.Put("test", []byte("value"))
+	err := b.Commit(context.TODO(), txn)
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	v, _ := b.Get(context.TODO(), "test")
+	c.Assert([]byte("value"), check.DeepEquals, v)
+
+	txn = b.NewTransaction()
+	txn.ModRevisionCmp("key", "=", 0)
+	txn.Put("test", []byte("value2"))
+	err = b.Commit(context.TODO(), txn)
+	if err != nil {
+		c.Fatal(err)
+	}
+	v, _ = b.Get(context.TODO(), "test")
+	c.Assert([]byte("value2"), check.DeepEquals, v)
+
+	txn = b.NewTransaction()
+	txn.ModRevisionCmp("key", "=", 33)
+	txn.Delete("test")
+	err = b.Commit(context.TODO(), txn)
+	c.Assert(err, check.NotNil)
+
+	v, _ = b.Get(context.TODO(), "test")
+	c.Assert([]byte("value2"), check.DeepEquals, v)
+
+	txn = b.NewTransaction()
+	txn.ModRevisionCmp("key", "=", 0)
+	txn.Delete("test")
+	err = b.Commit(context.TODO(), txn)
+	if err != nil {
+		c.Fatal(err)
+	}
+	_, err = b.Get(context.TODO(), "test")
+	c.Assert(err, check.NotNil)
+
+	c.Assert(TxnErr(nil, fmt.Errorf("err")), check.NotNil)
 }

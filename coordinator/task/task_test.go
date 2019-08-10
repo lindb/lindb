@@ -6,11 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
-
-	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
+	"github.com/stretchr/testify/assert"
 )
 
 const kindDummy Kind = "you-guess"
@@ -31,70 +27,9 @@ func (p *dummyProcessor) Process(ctx context.Context, task Task) error {
 }
 func (p *dummyProcessor) CallCount() int { return int(atomic.LoadInt32(&p.callcnt)) }
 
-type testTaskSuite struct {
-	mock.RepoTestSuite
-}
-
-func TestElection(t *testing.T) {
-	check.Suite(&testTaskSuite{})
-	check.TestingT(t)
-}
-
-func (ts *testTaskSuite) Test_tasks(c *check.C) {
-	factory := state.NewRepositoryFactory()
-	controllerFactory := NewControllerFactory()
-	repo, _ := factory.CreateRepo(state.Config{
-		Namespace: "/coordinator/test/task",
-		Endpoints: ts.Cluster.Endpoints,
-	})
-	ctx := context.TODO()
-
-	controller := controllerFactory.CreateController(ctx, repo)
-	node1 := &models.Node{IP: "1.1.1.1", Port: 8000}
-	node2 := &models.Node{IP: "1.1.1.2", Port: 8000}
-	defer func() {
-		_ = controller.Close()
-	}()
-	err := controller.Submit(kindDummy, "wtf-2019-07-05--1", []ControllerTaskParam{
-		{NodeID: node1.Indicator(), Params: dummyParams{}},
-		{NodeID: node2.Indicator(), Params: dummyParams{}},
-	})
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	processor := &dummyProcessor{}
-	executor1 := NewExecutor(ctx, node1, repo)
-	executor1.Register(processor)
-	go executor1.Run()
-	time.Sleep(333 * time.Millisecond)
-
-	c.Assert(1, check.Equals, processor.CallCount())
-
-	_ = executor1.Close()
-
-	executor2 := NewExecutor(ctx, node2, repo)
-	executor2.Register(processor)
-	go executor2.Run()
-	time.Sleep(333 * time.Millisecond)
-	c.Assert(2, check.Equals, processor.CallCount())
-	_ = executor2.Close()
-
-	//time.Sleep(666 * time.Millisecond)
-	//resp, err := cli.Get(ctx, keypfx, etcdcliv3.WithPrefix())
-	//if err != nil {
-	//	c.Fatal(err)
-	//}
-	//c.Assert(1, check.Equals, len(resp.Kvs))
-
-	//var tasks groupedTasks
-	//(&tasks).UnsafeUnmarshal(resp.Kvs[0].Value)
-
-	//c.Assert(StateDoneOK, check.Equals, tasks.State)
-	//fail := true
-	//for _, task := range tasks.Tasks {
-	//	c.Assert(StateDoneOK, check.Equals, task.State)
-	//	fail = false
-	//}
-	//c.Assert(false, check.Equals, fail)
+func TestTask(t *testing.T) {
+	assert.Equal(t, "StateCreated", StateCreated.String())
+	assert.Equal(t, "StateRunning", StateRunning.String())
+	assert.Equal(t, "StateDoneErr", StateDoneErr.String())
+	assert.Equal(t, "StateDoneOK", StateDoneOK.String())
 }

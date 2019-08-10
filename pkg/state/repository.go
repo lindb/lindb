@@ -42,6 +42,10 @@ type Repository interface {
 	WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan
 	// Batch puts k/v list, this operation is atomic
 	Batch(ctx context.Context, batch Batch) (bool, error)
+	// NewTransaction creates a new transaction
+	NewTransaction() Transaction
+	// Commit commits the transaction, if fail return err
+	Commit(ctx context.Context, txn Transaction) error
 	// Close closes repository and release resources
 	Close() error
 }
@@ -100,4 +104,10 @@ func NewRepositoryFactory() RepositoryFactory {
 // CreateRepo creates state repository based on config
 func (f *repositoryFactory) CreateRepo(config Config) (Repository, error) {
 	return newEtedRepository(config)
+}
+
+type Transaction interface {
+	ModRevisionCmp(key, op string, v interface{})
+	Put(key string, value []byte)
+	Delete(key string)
 }
