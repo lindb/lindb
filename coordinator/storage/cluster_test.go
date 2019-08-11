@@ -119,7 +119,6 @@ func TestStorageCluster(t *testing.T) {
 	assert.Nil(t, err1)
 
 	assert.Equal(t, repo, cluster.GetRepo())
-	cluster.Cleanup()
 
 	discovery1.EXPECT().Close()
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))

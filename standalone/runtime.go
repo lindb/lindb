@@ -1,6 +1,8 @@
 package standalone
 
 import (
+	"context"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -9,8 +11,10 @@ import (
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/storage"
 )
 
@@ -44,6 +48,12 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return err
 	}
+
+	// cleanup state for previous embed etcd server state
+	if err := r.cleanupState(); err != nil {
+		return err
+	}
+
 	// start storage server
 	storageRuntime := storage.NewStorageRuntime(r.cfg.Storage)
 	if err := storageRuntime.Run(); err != nil {
@@ -109,6 +119,25 @@ func (r *runtime) startETCD() error {
 		log.Error("etcd server took too long to start")
 	case err := <-e.Err():
 		log.Error("etcd server error", logger.Error(err))
+	}
+	return nil
+}
+
+// cleanupState cleans the state of previous standalone process.
+// 1. master node in etcd, because etcd will trigger master node expire event
+func (r *runtime) cleanupState() error {
+	repoFactory := state.NewRepositoryFactory()
+	repo, err := repoFactory.CreateRepo(r.cfg.Broker.Coordinator)
+	if err != nil {
+		return fmt.Errorf("start broker state repo error:%s", err)
+	}
+	defer func() {
+		if err := repo.Close(); err != nil {
+			log.Error("close state repo when do cleanup", logger.Error(err))
+		}
+	}()
+	if err := repo.Delete(context.TODO(), constants.MasterPath); err != nil {
+		return fmt.Errorf("delete old master error")
 	}
 	return nil
 }

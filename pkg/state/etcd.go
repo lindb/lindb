@@ -79,8 +79,8 @@ func (r *etcdRepository) Close() error {
 
 // Heartbeat does heartbeat on the key with a value and ttl based on etcd
 func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error) {
-	h := newHeartbeat(r.client, r.keyPath(key), value, ttl)
-	err := h.grantKeepAliveLease(ctx)
+	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, false)
+	_, err := h.grantKeepAliveLease(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -89,18 +89,18 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 	go func() {
 		// close closed channel, if keep alive stopped
 		defer close(ch)
-		h.keepAlive(ctx, false)
+		h.keepAlive(ctx)
 	}()
 	return ch, nil
 }
 
-// PutIfNotExitAndKeepLease  puts a key with a value.it will be success
+// Elect puts a key with a value.it will be success
 // if the key does not exist,otherwise it will be failed.When this
 // operation success,it will do keepalive background
-func (r *etcdRepository) PutIfNotExist(ctx context.Context, key string,
+func (r *etcdRepository) Elect(ctx context.Context, key string,
 	value []byte, ttl int64) (bool, <-chan Closed, error) {
-	h := newHeartbeat(r.client, r.keyPath(key), value, ttl)
-	success, err := h.PutIfNotExist(ctx)
+	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, true)
+	success, err := h.grantKeepAliveLease(ctx)
 	if err != nil {
 		return false, nil, err
 	}
@@ -111,7 +111,7 @@ func (r *etcdRepository) PutIfNotExist(ctx context.Context, key string,
 		go func() {
 			// close closed channel, if keep alive stopped
 			defer close(ch)
-			h.keepAlive(ctx, true)
+			h.keepAlive(ctx)
 		}()
 		return success, ch, nil
 	}
@@ -144,8 +144,8 @@ func (r *etcdRepository) getValue(key string, resp *etcdcliv3.GetResponse) ([]by
 //
 // NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
 // deleted values we do not know.
-func (r *etcdRepository) Watch(ctx context.Context, key string) WatchEventChan {
-	watcher := newWatcher(ctx, r, r.keyPath(key))
+func (r *etcdRepository) Watch(ctx context.Context, key string, fetchVal bool) WatchEventChan {
+	watcher := newWatcher(ctx, r, r.keyPath(key), fetchVal)
 	return watcher.EventC
 }
 
@@ -154,8 +154,8 @@ func (r *etcdRepository) Watch(ctx context.Context, key string) WatchEventChan {
 //
 // NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
 // deleted values we do not know.
-func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan {
-	watcher := newWatcher(ctx, r, r.keyPath(prefixKey), etcdcliv3.WithPrefix())
+func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan {
+	watcher := newWatcher(ctx, r, r.keyPath(prefixKey), fetchVal, etcdcliv3.WithPrefix())
 	return watcher.EventC
 }
 

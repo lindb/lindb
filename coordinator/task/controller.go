@@ -20,7 +20,7 @@ var (
 	ErrMaxTasksLimitExceeded = fmt.Errorf("coordinator/task: tasks number can not greater than %d", maxTasksLimit)
 )
 
-var log = logger.GetLogger("coordinator/task/controller")
+var log = logger.GetLogger("coordinator/task")
 
 // ControllerFactory represents a task controller create factory
 type ControllerFactory interface {
@@ -134,6 +134,7 @@ func (c *controller) Submit(kind Kind, name string, params []ControllerTaskParam
 // Close shutdowns task controller
 func (c *controller) Close() error {
 	if atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
+		log.Info("closing task controller")
 		c.cancel()
 		<-c.donec
 	}
@@ -148,7 +149,7 @@ func (c *controller) run() {
 	defer log.Info("task controller loop exit")
 
 	// watch "/task-coordinator/:version" for listening task event change
-	eventCh := c.repo.WatchPrefix(c.ctx, c.keyPrefix)
+	eventCh := c.repo.WatchPrefix(c.ctx, c.keyPrefix, true)
 	waiters := newWaiter(c.ctx, c.repo)
 	for {
 		select {

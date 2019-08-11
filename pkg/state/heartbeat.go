@@ -22,44 +22,36 @@ type heartbeat struct {
 	value  []byte
 
 	keepaliveCh <-chan *etcd.LeaseKeepAliveResponse
+	isElect     bool
 
 	ttl int64
 }
 
 // newHeartbeat creates heartbeat instance
-func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64) *heartbeat {
+func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64, isElect bool) *heartbeat {
 	if ttl <= 0 {
 		ttl = defaultTTL
 	}
 	return &heartbeat{
-		client: client,
-		key:    key,
-		value:  value,
-		ttl:    ttl,
+		client:  client,
+		isElect: isElect,
+		key:     key,
+		value:   value,
+		ttl:     ttl,
 	}
 }
 
 // grantKeepAliveLease grants ectd lease, if success do keepalive
-func (h *heartbeat) grantKeepAliveLease(ctx context.Context) error {
-	resp, err := h.client.Grant(ctx, h.ttl)
-	if err != nil {
-		return err
-	}
-	_, err = h.client.Put(ctx, h.key, string(h.value), etcd.WithLease(resp.ID))
-	if err != nil {
-		return err
-	}
-	h.keepaliveCh, err = h.client.KeepAlive(ctx, resp.ID)
-	return err
-}
-
-//TODO need refactor
-func (h *heartbeat) PutIfNotExist(ctx context.Context) (bool, error) {
+func (h *heartbeat) grantKeepAliveLease(ctx context.Context) (bool, error) {
 	resp, err := h.client.Grant(ctx, h.ttl)
 	if err != nil {
 		return false, err
 	}
-	txn := h.client.Txn(ctx).If(etcd.Compare(etcd.CreateRevision(h.key), "=", 0))
+	var ops []etcd.Cmp
+	if h.isElect {
+		ops = append(ops, etcd.Compare(etcd.CreateRevision(h.key), "=", 0))
+	}
+	txn := h.client.Txn(ctx).If(ops...)
 	txn = txn.Then(etcd.OpPut(h.key, string(h.value), etcd.WithLease(resp.ID)))
 	txn = txn.Else(etcd.OpGet(h.key))
 	response, err := txn.Commit()
@@ -74,7 +66,7 @@ func (h *heartbeat) PutIfNotExist(ctx context.Context) (bool, error) {
 }
 
 // keepAlive does keepalive and retry,if the key should be not exist,it should retry
-func (h *heartbeat) keepAlive(ctx context.Context, keepAliveNotExit bool) {
+func (h *heartbeat) keepAlive(ctx context.Context) {
 	log := logger.GetLogger("state/heartbeat")
 	var (
 		err error
@@ -84,9 +76,9 @@ func (h *heartbeat) keepAlive(ctx context.Context, keepAliveNotExit bool) {
 		if err != nil {
 			log.Error("do heartbeat keepalive error, retry.", logger.Error(err))
 			time.Sleep(gap)
-			if keepAliveNotExit {
+			if h.isElect {
 				// retry put if not exist.if failed closes the heartbeat
-				isSuccess, e := h.PutIfNotExist(ctx)
+				isSuccess, e := h.grantKeepAliveLease(ctx)
 				err = e
 				if !isSuccess {
 					// put if not exist failed ,close heartbeat
@@ -94,7 +86,7 @@ func (h *heartbeat) keepAlive(ctx context.Context, keepAliveNotExit bool) {
 				}
 			} else {
 				// do retry grant keep alive if lease ttl
-				err = h.grantKeepAliveLease(ctx)
+				_, err = h.grantKeepAliveLease(ctx)
 			}
 			// if ctx happen err, return stop keepalive
 			if ctx.Err() != nil {

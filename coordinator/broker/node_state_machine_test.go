@@ -71,5 +71,4 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
-	stateMachine.Cleanup()
 }

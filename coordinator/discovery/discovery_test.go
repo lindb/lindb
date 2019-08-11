@@ -63,7 +63,7 @@ func TestDiscovery(t *testing.T) {
 	listener := newMockListener()
 	d = factory.CreateDiscovery(testDiscoveryPath, listener)
 
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(nil)
 	err = d.Discovery()
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestDiscovery(t *testing.T) {
 	listener = newMockListener()
 	d = factory.CreateDiscovery(testDiscoveryPath, listener)
 
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(eventCh)
 	err = d.Discovery()
 	if err != nil {
 		t.Fatal(err)
@@ -101,17 +101,11 @@ func TestDiscovery(t *testing.T) {
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeDelete,
 		KeyValues: []state.EventKeyValue{
-			{Key: "/test/discovery1/key3", Value: []byte{1, 1, 2}},
+			{Key: "/test/discovery1/key3"},
 		},
 	})
 	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeAll,
-		KeyValues: []state.EventKeyValue{
-			{Key: "/test/discovery1/key4", Value: []byte{1, 1, 2}},
-		},
-	})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeAll,
+		Type: state.EventTypeModify,
 		Err:  fmt.Errorf("err"),
 	})
 
@@ -120,9 +114,9 @@ func TestDiscovery(t *testing.T) {
 
 	listener.mutex.Lock()
 	nodes := listener.nodes
-	assert.Equal(t, 1, len(nodes))
-	assert.Equal(t, 6, listener.invokes)
-	assert.Equal(t, []byte{1, 1, 2}, nodes["/test/discovery1/key4"])
+	assert.Equal(t, 2, len(nodes))
+	assert.Equal(t, 4, listener.invokes)
+	assert.Equal(t, []byte{1, 1, 2}, nodes["/test/discovery1/key2"])
 	listener.mutex.Unlock()
 
 	d.Close()
