@@ -126,6 +126,4 @@ func TestStatusStateMachine(t *testing.T) {
 
 	r = sm.GetQueryableReplicas("test_db_not_exist")
 	assert.Nil(t, r)
-
-	sm.Cleanup()
 }

@@ -32,7 +32,7 @@ func TestExecutor(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)
 	exec.Run()
 	exec = NewExecutor(context.TODO(), &node, repo)
 	exec.Register(&dummyProcessor{})
@@ -40,7 +40,7 @@ func TestExecutor(t *testing.T) {
 	time.AfterFunc(100*time.Millisecond, func() {
 		close(eventCh)
 	})
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(eventCh)
 	exec.Run()
 
 	eventCh = make(chan *state.Event)
@@ -50,7 +50,7 @@ func TestExecutor(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(eventCh)
 	go func() {
 		sendEvent(eventCh, &state.Event{
 			Type: state.EventTypeAll,
@@ -111,4 +111,23 @@ func TestExecutor_dispatch(t *testing.T) {
 	_ = exec.Close()
 	task = Task{Kind: "test"}
 	exec.dispatch(state.EventKeyValue{Key: "xxx", Value: encoding.JSONMarshal(&task)})
+}
+
+func TestExecutor_Run(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	repo := state.NewMockRepository(ctrl)
+
+	node := models.Node{IP: "1.1.1.1", Port: 8000}
+	exec := NewExecutor(context.TODO(), &node, repo)
+
+	time.AfterFunc(100*time.Millisecond, func() {
+		err := exec.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)
+	exec.Run()
 }

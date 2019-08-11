@@ -22,7 +22,7 @@ func TestController_Submit(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	txn := state.NewMockTransaction(ctrl)
 
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)
 	controller := factory.CreateController(context.TODO(), repo)
 	assert.NotNil(t, controller)
 	params := make([]ControllerTaskParam, 127)
@@ -78,7 +78,7 @@ func TestController_run(t *testing.T) {
 
 	// test event channel close
 	eventCh := make(chan *state.Event)
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(eventCh)
 	controller := factory.CreateController(context.TODO(), repo)
 	assert.NotNil(t, controller)
 	close(eventCh)
@@ -91,7 +91,7 @@ func TestController_run(t *testing.T) {
 
 	// normal case
 	eventCh = make(chan *state.Event)
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(eventCh)
 	controller = factory.CreateController(context.TODO(), repo)
 	assert.NotNil(t, controller)
 

@@ -47,7 +47,7 @@ func (e *Executor) Register(procs ...Processor) {
 
 // Run must be called after Register, otherwise it may panic, O(∩_∩)O~.
 func (e *Executor) Run() {
-	eventCh := e.repo.WatchPrefix(e.ctx, e.keyPrefix)
+	eventCh := e.repo.WatchPrefix(e.ctx, e.keyPrefix, true)
 	for {
 		select {
 		case <-e.ctx.Done(): // Context canceled

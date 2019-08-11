@@ -22,7 +22,7 @@ func TestTaskExecutor(t *testing.T) {
 	exec := NewTaskExecutor(context.TODO(), &models.Node{IP: "1.1.1.1", Port: 5000}, repo, storageService)
 	assert.NotNil(t, exec)
 
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)
 	exec.Run()
 	time.Sleep(100 * time.Millisecond)
 	err := exec.Close()

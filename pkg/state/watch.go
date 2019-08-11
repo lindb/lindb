@@ -14,21 +14,24 @@ const (
 )
 
 type watcher struct {
-	ctx  context.Context
-	cli  *etcdRepository
-	key  string
-	opts []etcdcliv3.OpOption
+	ctx      context.Context
+	cli      *etcdRepository
+	key      string
+	fetchVal bool
+	opts     []etcdcliv3.OpOption
 
 	EventC WatchEventChan
 }
 
-func newWatcher(ctx context.Context, cli *etcdRepository, key string, opts ...etcdcliv3.OpOption) *watcher {
+func newWatcher(ctx context.Context,
+	cli *etcdRepository, key string, fetchVal bool, opts ...etcdcliv3.OpOption) *watcher {
 	eventc := make(chan *Event)
 	w := &watcher{
-		ctx:  ctx,
-		cli:  cli,
-		key:  key,
-		opts: opts,
+		ctx:      ctx,
+		cli:      cli,
+		key:      key,
+		opts:     opts,
+		fetchVal: fetchVal,
 
 		EventC: eventc,
 	}
@@ -36,8 +39,8 @@ func newWatcher(ctx context.Context, cli *etcdRepository, key string, opts ...et
 	return w
 }
 
-func (w *watcher) watch(eventc chan<- *Event) {
-	defer close(eventc)
+func (w *watcher) watch(eventCh chan<- *Event) {
+	defer close(eventCh)
 
 	cli := w.cli.client
 	var evtAll *Event
@@ -59,7 +62,7 @@ func (w *watcher) watch(eventc chan<- *Event) {
 		select {
 		case <-w.ctx.Done():
 			return
-		case eventc <- evtAll:
+		case eventCh <- evtAll:
 		}
 
 		opts := append(w.opts, etcdcliv3.WithRev(resp.Header.Revision+1))
@@ -72,7 +75,7 @@ func (w *watcher) watch(eventc chan<- *Event) {
 				select {
 				case <-w.ctx.Done():
 					return
-				case eventc <- &Event{Err: err}:
+				case eventCh <- &Event{Err: err}:
 				}
 				continue
 			}
@@ -80,7 +83,7 @@ func (w *watcher) watch(eventc chan<- *Event) {
 				select {
 				case <-w.ctx.Done():
 					return
-				case eventc <- w.packWatchEvent(event):
+				case eventCh <- w.packWatchEvent(event):
 				}
 			}
 		}

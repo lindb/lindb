@@ -87,18 +87,17 @@ type cluster struct {
 	mutex sync.RWMutex
 }
 
-// newCluster creates cluster controller, init active node list if exist node
+// newCluster creates cluster controller, init active node list if exist node, must return cluster
 func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster := &cluster{
-		cfg:            cfg,
-		clusterState:   models.NewStorageState(),
-		databases:      make(map[string]*models.DatabaseCluster),
-		taskController: cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo),
+		cfg:          cfg,
+		clusterState: models.NewStorageState(),
+		databases:    make(map[string]*models.DatabaseCluster),
 	}
 	// init active nodes if exist
 	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
 	if err != nil {
-		return nil, fmt.Errorf("get active nodes error:%s", err)
+		return cluster, fmt.Errorf("get active nodes error:%s", err)
 	}
 	for _, node := range nodeList {
 		_ = cluster.addNode(node)
@@ -111,8 +110,9 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	// new storage active node discovery
 	cluster.discovery = cfg.factory.CreateDiscovery(constants.ActiveNodesPath, cluster)
 	if err := cluster.discovery.Discovery(); err != nil {
-		return nil, fmt.Errorf("discovery active storage nodes error:%s", err)
+		return cluster, fmt.Errorf("discovery active storage nodes error:%s", err)
 	}
+	cluster.taskController = cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo)
 
 	log.Info("init storage cluster success", logger.String("cluster", cluster.clusterState.Name))
 	return cluster, nil
@@ -135,10 +135,6 @@ func (c *cluster) OnDelete(key string) {
 	c.mutex.Unlock()
 
 	c.saveClusterState()
-}
-
-func (c *cluster) Cleanup() {
-	// do nothing
 }
 
 // GetRepo returns current storage cluster's state repo
@@ -200,17 +196,17 @@ func (c *cluster) SubmitTask(kind task.Kind, name string, params []task.Controll
 
 // Close stops watch, and cleanups cluster's metadata
 func (c *cluster) Close() {
-	c.mutex.Lock()
-	c.clusterState = models.NewStorageState()
-	c.databases = make(map[string]*models.DatabaseCluster)
-	c.mutex.Unlock()
-
-	// need close task controller of current storage cluster
-	if err := c.taskController.Close(); err != nil {
-		log.Error("close task controller", logger.Error(err))
+	log.Info("close storage cluster state machine", logger.String("cluster", c.cfg.cfg.Name))
+	if c.taskController != nil {
+		// need close task controller of current storage cluster
+		if err := c.taskController.Close(); err != nil {
+			log.Error("close task controller", logger.String("cluster", c.cfg.cfg.Name), logger.Error(err))
+		}
+	}
+	if c.discovery != nil {
+		c.discovery.Close()
 	}
 
-	c.discovery.Close()
 	(&c.cfg).clean()
 }
 

@@ -62,7 +62,8 @@ func TestClusterStateMachine_New(t *testing.T) {
 
 	gomock.InOrder(
 		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo1, nil),
-		clusterFactory.EXPECT().newCluster(gomock.Any()).Return(nil, fmt.Errorf("err")),
+		clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, fmt.Errorf("err")),
+		cluster.EXPECT().Close(),
 		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(state.NewMockRepository(ctrl), nil),
 		clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, nil),
 		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err")),
@@ -88,8 +89,6 @@ func TestClusterStateMachine_New(t *testing.T) {
 	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(state.NewMockRepository(ctrl), nil)
 	clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, nil)
 	stateMachine.OnCreate("/test/data/test1", encoding.JSONMarshal(&models.StorageState{Name: "test1"}))
-
-	stateMachine.Cleanup()
 
 	cluster.EXPECT().Close()
 	discovery1.EXPECT().Close()

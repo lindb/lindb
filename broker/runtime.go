@@ -9,6 +9,7 @@ import (
 
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
+	masterAPI "github.com/lindb/lindb/broker/api/cluster"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
 	"github.com/lindb/lindb/broker/handler"
 	"github.com/lindb/lindb/broker/middleware"
@@ -46,6 +47,7 @@ type apiHandler struct {
 	loginAPI          *api.LoginAPI
 	storageStateAPI   *stateAPI.StorageAPI
 	brokerStateAPI    *stateAPI.BrokerAPI
+	masterAPI         *masterAPI.MasterAPI
 }
 
 type rpcHandler struct {
@@ -126,13 +128,6 @@ func (r *runtime) Run() error {
 	}
 
 	r.buildMiddlewareDependency()
-	r.buildAPIDependency()
-
-	// start tcp server
-	r.startTCPServer()
-
-	// start http server
-	r.startHTTPServer()
 
 	// register storage node info
 	//TODO TTL default value???
@@ -140,17 +135,27 @@ func (r *runtime) Run() error {
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
-
-	//TODO need move to master context
-	discoveryFactory := discovery.NewFactory(r.repo)
-
-	//TODO config ttl
-	r.master = coordinator.NewMaster(r.repo, r.node, 1, task.NewControllerFactory(),
-		discoveryFactory, r.repoFactory, storage.NewClusterFactory(),
-		r.srv.storageStateService, r.srv.shardAssignService)
-	if err := r.master.Start(); err != nil {
-		return fmt.Errorf("start master error:%s", err)
+	masterCfg := &coordinator.MasterCfg{
+		Ctx:                 r.ctx,
+		Repo:                r.repo,
+		Node:                r.node,
+		TTL:                 1, //TODO need config
+		DiscoveryFactory:    discovery.NewFactory(r.repo),
+		ControllerFactory:   task.NewControllerFactory(),
+		ClusterFactory:      storage.NewClusterFactory(),
+		RepoFactory:         r.repoFactory,
+		StorageStateService: r.srv.storageStateService,
+		ShardAssignService:  r.srv.shardAssignService,
 	}
+
+	r.master = coordinator.NewMaster(masterCfg)
+	r.master.Start()
+
+	r.buildAPIDependency()
+	// start tcp server
+	r.startTCPServer()
+	// start http server
+	r.startHTTPServer()
 
 	r.state = server.Running
 	return nil
@@ -257,6 +262,7 @@ func (r *runtime) buildAPIDependency() {
 		loginAPI:          api.NewLoginAPI(r.config.User),
 		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachine.storageState),
 		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachine.nodeState),
+		masterAPI:         masterAPI.NewMasterAPI(r.master),
 	}
 
 	api.AddRoutes("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -272,6 +278,8 @@ func (r *runtime) buildAPIDependency() {
 
 	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
 	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
+
+	api.AddRoutes("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
 }
 
 // buildMiddlewareDependency builds middleware dependency
