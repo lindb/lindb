@@ -107,12 +107,6 @@ func (sm *adminStateMachine) OnDelete(key string) {
 	//panic("implement me")
 }
 
-// Cleanup does cleanup operation when receive event
-func (sm *adminStateMachine) Cleanup() {
-	//TODO
-	//panic("implement me")
-}
-
 // Close closes admin state machine, stops watch change event
 func (sm *adminStateMachine) Close() error {
 	sm.discovery.Close()

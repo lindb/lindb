@@ -60,10 +60,6 @@ func NewStatusStateMachine(ctx context.Context, factory discovery.Factory) (Stat
 	return sm, nil
 }
 
-func (sm *statusStateMachine) Cleanup() {
-	// do nothing
-}
-
 // GetQueryableReplicas returns the queryable replicas
 // returns storage node => shard id list
 func (sm *statusStateMachine) GetQueryableReplicas(database string) map[string][]int32 {

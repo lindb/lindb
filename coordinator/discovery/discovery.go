@@ -33,8 +33,6 @@ type Listener interface {
 	OnCreate(key string, resource []byte)
 	// OnDelete is resource deletion callback
 	OnDelete(key string)
-	// Cleanup cleans all resources
-	Cleanup()
 }
 
 // Discovery represents discovery resources, through watch resource's prefix
@@ -75,7 +73,8 @@ func (d *discovery) Discovery() error {
 	if len(d.prefix) == 0 {
 		return fmt.Errorf("watch prefix is empth for discovery resource")
 	}
-	watchEventCh := d.repo.WatchPrefix(d.ctx, d.prefix)
+
+	watchEventCh := d.repo.WatchPrefix(d.ctx, d.prefix, false)
 	go func() {
 		d.handlerResourceChange(watchEventCh)
 		d.log.Warn("exit discovery loop", logger.String("prefix", d.prefix))
@@ -86,7 +85,6 @@ func (d *discovery) Discovery() error {
 // Cleanup cleans all resources
 func (d *discovery) Close() {
 	d.cancel()
-	d.listener.Cleanup()
 }
 
 // handlerResourceChange handles the changes of event for resources
@@ -100,9 +98,6 @@ func (d *discovery) handlerResourceChange(eventCh state.WatchEventChan) {
 			for _, kv := range event.KeyValues {
 				d.listener.OnDelete(kv.Key)
 			}
-		case state.EventTypeAll:
-			d.listener.Cleanup()
-			fallthrough
 		case state.EventTypeModify:
 			for _, kv := range event.KeyValues {
 				d.listener.OnCreate(kv.Key, kv.Value)

@@ -14,12 +14,15 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
+//go:generate mockgen -source=./election.go -destination=./election_mock.go -package=elect
+
 var log = logger.GetLogger("coordinator/elect")
 
 // Listener represent master change callback interface
 type Listener interface {
-	// OnFailOver triggers master fail-over, current node become master
-	OnFailOver()
+	// OnFailOver triggers master fail-over, current node become master,
+	// if fail over is failure return err
+	OnFailOver() error
 	// OnResignation triggers master resignation
 	OnResignation()
 }
@@ -34,12 +37,15 @@ type Election interface {
 	Close()
 	// IsMaster returns current node if is master
 	IsMaster() bool
+	// GetMaster returns the current master info
+	GetMaster() *models.Master
 }
 
 // election implements election interface for master elect
 type election struct {
 	repo     state.Repository
 	isMaster *atomic.Bool
+	master   atomic.Value
 	node     models.Node
 	ttl      int64
 
@@ -69,7 +75,7 @@ func NewElection(ctx context.Context, repo state.Repository, node models.Node, t
 // Initialize initializes election, such as master change watch
 func (e *election) Initialize() {
 	// watch master change event
-	watchEventChan := e.repo.Watch(e.ctx, constants.MasterPath)
+	watchEventChan := e.repo.Watch(e.ctx, constants.MasterPath, true)
 
 	go func() {
 		e.handleMasterChange(watchEventChan)
@@ -92,6 +98,16 @@ func (e *election) IsMaster() bool {
 	return e.isMaster.Load()
 }
 
+// GetMaster returns the current master
+func (e *election) GetMaster() *models.Master {
+	m := e.master.Load()
+	master, ok := m.(*models.Master)
+	if ok {
+		return master
+	}
+	return nil
+}
+
 // elect elects master, start elect loop for retry when failure
 func (e *election) elect() {
 	for {
@@ -103,7 +119,7 @@ func (e *election) elect() {
 
 		master := models.Master{Node: e.node, ElectTime: timeutil.Now()}
 		masterBytes := encoding.JSONMarshal(master)
-		result, _, err := e.repo.PutIfNotExist(e.ctx, constants.MasterPath, masterBytes, e.ttl)
+		result, _, err := e.repo.Elect(e.ctx, constants.MasterPath, masterBytes, e.ttl)
 
 		if err != nil {
 			log.Warn("got an error when master elect, sleep 500ms then retry",
@@ -135,10 +151,12 @@ func (e *election) Close() {
 // resign resigns master role, delete master elect node
 func (e *election) resign() {
 	if e.isMaster.Load() {
+		log.Info("do master resign because current node is master", logger.Stack())
 		if err := e.repo.Delete(e.ctx, constants.MasterPath); err != nil {
 			log.Error("delete master path failed", logger.Error(err))
 		}
 		e.isMaster.Store(false)
+		e.master.Store(&models.Master{}) // store empty master
 	}
 }
 
@@ -155,6 +173,7 @@ func (e *election) handleEvent(event *state.Event) {
 		log.Error("get error master change event", logger.Error(event.Err))
 		return
 	}
+	log.Info("receive master change event", logger.String("type", event.Type.String()))
 	switch event.Type {
 	case state.EventTypeDelete:
 		log.Info("master node lost, retry elect new master")
@@ -163,9 +182,7 @@ func (e *election) handleEvent(event *state.Event) {
 			log.Info("current node is master, do resign when master node is deleted")
 			e.listener.OnResignation()
 		}
-		e.resign()
-		// notify try elect master
-		e.retryCh <- 1
+		e.reElect()
 	case state.EventTypeAll:
 		fallthrough
 	case state.EventTypeModify:
@@ -175,12 +192,26 @@ func (e *election) handleEvent(event *state.Event) {
 			if err := encoding.JSONUnmarshal(kv.Value, &master); err != nil {
 				log.Error("unmarshal master value error", logger.Error(err))
 			}
+			log.Info("current master is", logger.Any("master", master))
 			// check current node if is master
 			if master.Node.IP == e.node.IP && master.Node.Port == e.node.Port {
-				e.isMaster.Store(true)
 				// current node become master
-				e.listener.OnFailOver()
+				if err := e.listener.OnFailOver(); err != nil {
+					e.reElect()
+					log.Error("master fail over", logger.Error(err))
+					return
+				}
+				e.isMaster.Store(true)
 			}
+			// cache master info
+			e.master.Store(&master)
 		}
 	}
+}
+
+// reElect re-elects master
+func (e *election) reElect() {
+	e.resign()
+	// notify try elect master
+	e.retryCh <- 1
 }

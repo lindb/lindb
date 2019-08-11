@@ -30,16 +30,18 @@ type Repository interface {
 	Delete(ctx context.Context, key string) error
 	// Heartbeat does heartbeat on the key with a value and ttl
 	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
-	// PutIfNotExist puts a key with a value,
+	// Elect puts a key with a value,
 	// 1) returns success if the key does not exist and puts success
 	// 2) returns failure if key exist
 	// When this operation success, it will do keepalive background for keep session
-	PutIfNotExist(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
+	Elect(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
-	Watch(ctx context.Context, key string) WatchEventChan
+	// fetchVal: if fetch prefix key's values for init
+	Watch(ctx context.Context, key string, fetchVal bool) WatchEventChan
 	// WatchPrefix watches on a prefix.All of the changes who has the prefix
 	// will be notified through the WatchEventChan channel.
-	WatchPrefix(ctx context.Context, prefixKey string) WatchEventChan
+	// fetchVal: if fetch prefix key's values for init
+	WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan
 	// Batch puts k/v list, this operation is atomic
 	Batch(ctx context.Context, batch Batch) (bool, error)
 	// NewTransaction creates a new transaction
@@ -59,6 +61,20 @@ const (
 	EventTypeDelete
 	EventTypeAll
 )
+
+// String returns event type string value
+func (e EventType) String() string {
+	switch e {
+	case EventTypeModify:
+		return "modify"
+	case EventTypeDelete:
+		return "delete"
+	case EventTypeAll:
+		return "all"
+	default:
+		return "unknown"
+	}
+}
 
 // KeyValue represents key/value pair
 type KeyValue struct {

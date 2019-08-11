@@ -128,7 +128,7 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// test watch no exist path
-	ch := b.Watch(ctx, "/cluster1/controller/1")
+	ch := b.Watch(ctx, "/cluster1/controller/1", true)
 	c.Assert(ch, check.NotNil)
 	var wg sync.WaitGroup
 	var mutex sync.RWMutex
@@ -155,7 +155,7 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 
 	// test watch exist path
 	_ = b.Put(ctx, "/cluster1/controller/2", []byte("2"))
-	ch2 := b.Watch(ctx, "/cluster1/controller/2")
+	ch2 := b.Watch(ctx, "/cluster1/controller/2", true)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -183,7 +183,7 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 
 	_ = b.Put(context.TODO(), "/lindb/broker/1", []byte("1"))
 	_ = b.Put(context.TODO(), "/lindb/broker/2", []byte("2"))
-	ch := b.WatchPrefix(ctx, "/lindb/broker")
+	ch := b.WatchPrefix(ctx, "/lindb/broker", true)
 	time.Sleep(100 * time.Millisecond)
 
 	_ = b.Put(context.TODO(), "/lindb/broker/3", []byte("3"))
@@ -231,13 +231,13 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 	c.Assert(deleteEvt, check.Equals, true)
 }
 
-func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
+func (ts *testEtcdRepoSuite) TestElect(c *check.C) {
 	b, _ := newEtedRepository(Config{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	// the key should not exist,it must be success
-	success, ch, err := b.PutIfNotExist(ctx, "/lindb/breoker/master", []byte("test"), 1)
+	success, ch, err := b.Elect(ctx, "/lindb/breoker/master", []byte("test"), 1)
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
 	c.Assert(string(bytes), check.Equals, "test")
 
 	ctx2, cancel2 := context.WithCancel(context.Background())
-	shouldFalse, _, _ := b.PutIfNotExist(ctx2, "/lindb/breoker/master", []byte("test2"), 1)
+	shouldFalse, _, _ := b.Elect(ctx2, "/lindb/breoker/master", []byte("test2"), 1)
 	if cancel2 != nil {
 		cancel2()
 	}
@@ -270,7 +270,7 @@ func (ts *testEtcdRepoSuite) TestPutIfNotExitAndKeepLease(c *check.C) {
 	}
 
 	ctx3, cancel3 := context.WithCancel(context.Background())
-	shouldSuccess, _, _ := b.PutIfNotExist(ctx3, "/lindb/breoker/master", []byte("test3"), 1)
+	shouldSuccess, _, _ := b.Elect(ctx3, "/lindb/breoker/master", []byte("test3"), 1)
 	c.Assert(shouldSuccess, check.Equals, true)
 
 	bytes3, _ := b.Get(context.TODO(), "/lindb/breoker/master")

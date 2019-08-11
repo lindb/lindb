@@ -58,7 +58,6 @@ func TestStorageStateMachine(t *testing.T) {
 	stateMachine.OnDelete("/data/test")
 	assert.Equal(t, 1, len(stateMachine.List()))
 	assert.Equal(t, *storageState2, *(stateMachine.List()[0]))
-	stateMachine.Cleanup()
 
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()

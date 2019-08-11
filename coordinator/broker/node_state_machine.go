@@ -51,7 +51,7 @@ func NewNodeStateMachine(ctx context.Context, currentNode models.Node, discovery
 		cancel:      cancel,
 		currentNode: currentNode,
 		nodes:       make(map[string]models.ActiveNode),
-		log:         logger.GetLogger("broker/node/state/machine"),
+		log:         logger.GetLogger("broker/node/sm"),
 	}
 	// new replica status discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath, stateMachine)
@@ -97,10 +97,6 @@ func (s *nodeStateMachine) OnDelete(key string) {
 	s.mutex.Lock()
 	delete(s.nodes, nodeID)
 	s.mutex.Unlock()
-}
-
-func (s *nodeStateMachine) Cleanup() {
-	// do nothing
 }
 
 // Close closes state machine, then releases resource

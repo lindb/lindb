@@ -83,7 +83,6 @@ func TestAdminStateMachine(t *testing.T) {
 	stateMachine.OnCreate("/data/db1", data)
 
 	stateMachine.OnDelete("mock")
-	stateMachine.Cleanup()
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
 }

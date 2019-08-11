@@ -3,7 +3,6 @@ package elect
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,23 +15,6 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
-type mockListener struct {
-	onFailOverCount    int32
-	onResignationCount int32
-}
-
-func newMockListener() *mockListener {
-	return &mockListener{}
-}
-
-func (l *mockListener) OnResignation() {
-	atomic.AddInt32(&l.onResignationCount, 1)
-}
-
-func (l *mockListener) OnFailOver() {
-	atomic.AddInt32(&l.onFailOverCount, 1)
-}
-
 func TestElection_Initialize(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -41,14 +23,14 @@ func TestElection_Initialize(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	listener1 := newMockListener()
+	listener1 := NewMockListener(ctrl)
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
 	election := NewElection(context.TODO(), repo, node1, 1, listener1)
 	election.Initialize()
 	election.Close()
 
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(eventCh)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(eventCh)
 	election = NewElection(context.TODO(), repo, node1, 1, listener1)
 	election.Initialize()
 	election.Close()
@@ -59,10 +41,10 @@ func TestElection_Elect(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
+	listener1 := NewMockListener(ctrl)
 
-	listener1 := newMockListener()
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
 	election := NewElection(context.TODO(), repo, node1, 1, listener1)
 	election.Initialize()
 	election.Elect()
@@ -75,23 +57,25 @@ func TestElection_elect(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	repo := state.NewMockRepository(ctrl)
+	listener1 := NewMockListener(ctrl)
 
-	listener1 := newMockListener()
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
 	election1 := NewElection(ctx, repo, node1, 1, listener1)
 	election1.Initialize()
 	e := election1.(*election)
 	time.AfterFunc(700*time.Millisecond, func() {
+		e.retryCh <- 1
+		time.Sleep(10 * time.Millisecond)
 		close(e.retryCh)
 		cancel()
 	})
 
 	//fail
-	repo.EXPECT().PutIfNotExist(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(false, nil, fmt.Errorf("err"))
 	// success
-	repo.EXPECT().PutIfNotExist(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(true, nil, nil).AnyTimes()
 	e.elect()
 
@@ -104,9 +88,9 @@ func TestElection_Handle_Event(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	listener1 := newMockListener()
+	listener1 := NewMockListener(ctrl)
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
 	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
 	election1.Initialize()
 	e := election1.(*election)
@@ -128,6 +112,7 @@ func TestElection_Handle_Event(t *testing.T) {
 			Err:  fmt.Errorf("err"),
 		})
 		data := encoding.JSONMarshal(&models.Master{Node: node1})
+		listener1.EXPECT().OnFailOver().Return(nil)
 		sendEvent(eventCh, &state.Event{
 			Type: state.EventTypeModify,
 			KeyValues: []state.EventKeyValue{
@@ -135,7 +120,6 @@ func TestElection_Handle_Event(t *testing.T) {
 			},
 		})
 
-		assert.Equal(t, int32(1), atomic.LoadInt32(&listener1.onFailOverCount))
 		assert.True(t, e.IsMaster())
 
 		// close chan
@@ -146,19 +130,35 @@ func TestElection_Handle_Event(t *testing.T) {
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 	election1.Close()
 }
+
 func TestElection_handle_event(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
+	listener1 := NewMockListener(ctrl)
 
-	listener1 := newMockListener()
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
 	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
+	assert.Nil(t, election1.GetMaster())
 	election1.Initialize()
 	e := election1.(*election)
 	data := encoding.JSONMarshal(&models.Master{Node: node1})
+	time.AfterFunc(10*time.Millisecond, func() {
+		<-e.retryCh
+	})
+	listener1.EXPECT().OnFailOver().Return(fmt.Errorf("err"))
+	e.handleEvent(&state.Event{
+		Type: state.EventTypeModify,
+		KeyValues: []state.EventKeyValue{
+			{Key: constants.MasterPath, Value: data},
+		},
+	})
+	assert.False(t, e.IsMaster())
+	assert.Nil(t, e.GetMaster())
+
+	listener1.EXPECT().OnFailOver().Return(nil)
 	e.handleEvent(&state.Event{
 		Type: state.EventTypeModify,
 		KeyValues: []state.EventKeyValue{
@@ -166,16 +166,19 @@ func TestElection_handle_event(t *testing.T) {
 		},
 	})
 	assert.True(t, e.IsMaster())
+	assert.Equal(t, node1, e.GetMaster().Node)
 
 	time.AfterFunc(100*time.Millisecond, func() {
 		<-e.retryCh
 	})
 
+	listener1.EXPECT().OnResignation()
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	e.handleEvent(&state.Event{
 		Type: state.EventTypeDelete,
 	})
 	assert.False(t, e.IsMaster())
+	assert.Equal(t, models.Master{}, *e.GetMaster())
 
 	election1.Close()
 }
@@ -185,14 +188,24 @@ func TestElection_Err(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
+	listener1 := NewMockListener(ctrl)
 
-	listener1 := newMockListener()
 	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
 	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
 	election1.Close()
 	e := election1.(*election)
 	e.elect()
 	election1.Close()
+
+	election1 = NewElection(context.TODO(), repo, node1, 1, listener1)
+
+	time.AfterFunc(100*time.Millisecond, func() {
+		election1.Close()
+	})
+	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(true, nil, nil).AnyTimes()
+	e = election1.(*election)
+	e.elect()
 }
 
 func sendEvent(eventCh chan *state.Event, event *state.Event) {

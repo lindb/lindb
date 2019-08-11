@@ -104,18 +104,8 @@ func (c *clusterStateMachine) OnCreate(key string, resource []byte) {
 func (c *clusterStateMachine) OnDelete(key string) {
 	name := pathutil.GetName(key)
 	c.mutex.Lock()
-	cluster, ok := c.clusters[name]
-	if ok {
-		// need cleanup cluster resource
-		cluster.Close()
-
-		delete(c.clusters, name)
-	}
+	c.deleteCluster(name)
 	c.mutex.Unlock()
-}
-
-func (c *clusterStateMachine) Cleanup() {
-	// do nothing
 }
 
 // GetCluster returns cluster controller for maintain the metadata of storage cluster
@@ -172,6 +162,10 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	// shutdown old cluster state machine if exist
+	c.deleteCluster(cfg.Name)
+
 	repo, err := c.repoFactory.CreateRepo(cfg.Config)
 	if err != nil {
 		c.log.Error("new state repo error when create cluster",
@@ -190,10 +184,23 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	cluster, err := c.clusterFactory.newCluster(clusterCfg)
 	if err != nil {
 		// IMPORTANT!!!!!!!: need clean cluster cfg resource when new cluster fail
+		if cluster != nil {
+			cluster.Close()
+		}
 		(&clusterCfg).clean()
 		c.log.Error("create storage cluster error",
 			logger.Any("cfg", cfg), logger.Error(err))
 		return
 	}
 	c.clusters[cfg.Name] = cluster
+}
+
+// deleteCluster deletes the cluster if exist
+func (c *clusterStateMachine) deleteCluster(name string) {
+	cluster, ok := c.clusters[name]
+	if ok {
+		// need cleanup cluster resource
+		cluster.Close()
+		delete(c.clusters, name)
+	}
 }

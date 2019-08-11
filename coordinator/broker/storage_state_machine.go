@@ -43,7 +43,7 @@ type storageStateMachine struct {
 // NewStorageStateMachine creates state machine, init data if exist, then starts watch change event
 func NewStorageStateMachine(ctx context.Context, repo state.Repository, discoveryFactory discovery.Factory) (StorageStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
-	log := logger.GetLogger("storage/state")
+	log := logger.GetLogger("/broker/storage/sm")
 	stateMachine := &storageStateMachine{
 		repo:            repo,
 		ctx:             c,
@@ -91,10 +91,6 @@ func (s *storageStateMachine) OnDelete(key string) {
 	s.mutex.Lock()
 	delete(s.storageClusters, name)
 	s.mutex.Unlock()
-}
-
-func (s *storageStateMachine) Cleanup() {
-	// do nothing
 }
 
 // Close closes state machine, stops watch change event
