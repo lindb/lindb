@@ -161,25 +161,25 @@ Values: [2, 1, 3]
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric index table━━━━━━━━━━━━━━━━━━━━━━━━
-Metric Index table is composed of 2 families: Metric Tree and Metric Meta:
+Metric Index table is composed of 2 parts: Metric Names and Metric Meta:
 
-a) Metric Tree Table
-Metric-Tree is a gzip compressed k/v pairs of metricNames and metricIDs on disk.
+a) Metric-NameID-Table
+Metric-NameID-Table is a gzip compressed k/v pairs of metricNames and metricIDs on disk.
 
                    Level1
                    +---------+---------+---------+---------+
-                   | Metric  |  Meta   | Index   |  Footer |
-                   | Tree    |         |         |         |
+                   | Metric  |  Meta   | Index   | Footer  |
+                   | KVPair  |         |         |         |
                    +---------+---------+---------+---------+
 
-Level1(Metric Tree)
-┌─────────────────────┬─────────────────────────────────────────────────────────────────┐
-│                     │            Gzip Compressed Metric K/V pairs                     │
-├──────────┬──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│ MetricID │  TagID   │MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │
-│ Sequence │ Sequence │  Length  │          │          │  Length  │          │          │
+Level1(Metric NameID Table)
+┌─────────────────────────────────────────────────────────────────┬─────────────────────┐
+│            Gzip Compressed Metric K/V pairs                     │  SequenceNumber     │
+├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
+│MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │ MetricID │  TagID   │
+│  Length  │          │          │  Length  │          │          │ Sequence │ Sequence │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │
+│ uvariant │ N Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
@@ -199,29 +199,29 @@ such as tagKey, tagID, fieldID, fieldName and fieldType etc.
   +-----------+                   \       \                     \     \       \
  /                 Level2          \       \                     \     \       \
 v--------+--------+--------+--------v       v--------+---+--------v     v-------v
-| TagKey | TagKey | Field  | Field  |       | Offset |...| Offset |     | Metric|
-| Length |  Meta  | Length | Meta   |       |        |   |        |     | Bitmap|
+|  Tag   | TagKey | Field  | Field  |       | Offset |...| Offset |     | Metric|
+| MetaLen|  Meta  | MetaLen| Meta   |       |        |   |        |     | Bitmap|
 +--------+--------+--------+--------+       +--------+---+--------+     +-------+
 
 Level2(TagKey Meta)
-┌─────────────────────────────────────────────────────────────────┐
-│                            TagKey Meta                          │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│  TagKey  │  TagKey  │  TagID   │  TagKey  │  TagKey  │  TagID   │
-│   Len    │          │          │   Len    │          │          │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ N Bytes  │ 4 Bytes  │ 1 Bytes  │ N Bytes  │ 4 Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+┌──────────┬─────────────────────────────────────────────────────────────────┐
+│  MetaLen │                       TagKey Meta                               │
+├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│  TagKey  │  TagKey  │  TagKey  │  TagID   │  TagKey  │  TagKey  │  TagID   │
+│  MetaLen │   Len    │          │          │   Len    │          │          │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │  1 Byte  │ N Bytes  │ 4 Bytes  │  1 Byte  │ N Bytes  │ 4 Bytes  │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level2(Field Meta)
-┌─────────────────────────────────────────────────────────────────┐
-│                            Field Meta                           │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │
-│   Len    │  Name    │  Type    │   Len    │  Name    │  Type    │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ N Bytes  │ 1 Byte   │ uvariant │ N Bytes  │ 1 Byte   │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+┌──────────┬───────────────────────────────────────────────────────────────────────────────────────┐
+│  MetaLen │                                    Field Meta                                         │
+├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │
+│  MetaLen │   Len    │  Name    │  Type    │   ID     │   Len    │  Name    │  Type    │   ID     │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │  1 Byte  │ N Bytes  │ 1 Byte   │ 2 Bytes  │  1 Byte  │ N Bytes  │  1 Byte  │ 2 Bytes  │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric table━━━━━━━━━━━━━━━━━━━━━━━━

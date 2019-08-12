@@ -75,15 +75,15 @@ func NewBufioReader(fileName string) (BufioReader, error) {
 	}, nil
 }
 
-// GetVariantLength returns the length of variant-encoded-bytes.
-func GetVariantLength(value uint64) int64 {
+// GetUVariantLength returns the length of variant-encoded-bytes.
+func GetUVariantLength(value uint64) int {
 	i := uint8(1)
 	for ; ; i++ {
 		if value < 2<<(i*7-1) {
 			break
 		}
 	}
-	return int64(i)
+	return int(i)
 }
 
 // Next detects if there is data to read.
@@ -95,7 +95,7 @@ func (br *bufioReader) Next() bool {
 		br.err = err
 		return true
 	}
-	br.count += GetVariantLength(length)
+	br.count += int64(GetUVariantLength(length))
 	// expand the cap or not
 	if uint64(cap(br.content)) < length {
 		br.content = make([]byte, length)
