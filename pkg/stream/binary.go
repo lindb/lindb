@@ -162,6 +162,15 @@ func (b *Binary) ReadInt64() int64 {
 	return int64(b.ReadUint64())
 }
 
+// ReadByte reads 1 byte
+func (b *Binary) ReadByte() byte {
+	data := b.buf.Next(1)
+	if len(data) == 1 {
+		return data[0]
+	}
+	return byte(0)
+}
+
 // ReadBytes reads n len bytes, use buf.Next()
 func (b *Binary) ReadBytes(n int) []byte {
 	return b.buf.Next(n)

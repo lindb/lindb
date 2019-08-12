@@ -7,6 +7,8 @@ import (
 	"github.com/lindb/lindb/kv/version"
 )
 
+//go:generate mockgen -source ./snapshot.go -destination=./snapshot_mock.go -package kv
+
 // Snapshot represents a current family version by given key, for reading data.
 type Snapshot interface {
 	// Readers returns store reader that match query condition

@@ -21,14 +21,14 @@ func Test_NewBufioReader(t *testing.T) {
 }
 
 func TestBufioReader_getVariantLength(t *testing.T) {
-	assert.Equal(t, int64(1), GetVariantLength(0))
-	assert.Equal(t, int64(1), GetVariantLength(1))
-	assert.Equal(t, int64(1), GetVariantLength(127))
-	assert.Equal(t, int64(2), GetVariantLength(129))
-	assert.Equal(t, int64(2), GetVariantLength(16383))
-	assert.Equal(t, int64(3), GetVariantLength(16384))
-	assert.Equal(t, int64(3), GetVariantLength(2097151))
-	assert.Equal(t, int64(4), GetVariantLength(2097152))
+	assert.Equal(t, 1, GetUVariantLength(0))
+	assert.Equal(t, 1, GetUVariantLength(1))
+	assert.Equal(t, 1, GetUVariantLength(127))
+	assert.Equal(t, 2, GetUVariantLength(129))
+	assert.Equal(t, 2, GetUVariantLength(16383))
+	assert.Equal(t, 3, GetUVariantLength(16384))
+	assert.Equal(t, 3, GetUVariantLength(2097151))
+	assert.Equal(t, 4, GetUVariantLength(2097152))
 }
 
 func TestBufioReader_content(t *testing.T) {
