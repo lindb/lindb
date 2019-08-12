@@ -12,6 +12,8 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
+//go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table
+
 const (
 	sstFileFooterSize = 1 + // entry length wrote by bufioutil
 		4 + // posOfOffset(4)
@@ -119,7 +121,7 @@ func (r *storeMMapReader) readBytes(offset int) []byte {
 	if err != nil {
 		return nil
 	}
-	bytesCount := int(bufioutil.GetVariantLength(length))
+	bytesCount := bufioutil.GetUVariantLength(length)
 	start := offset + bytesCount
 	end := start + int(length)
 	if end > len(r.data) {
