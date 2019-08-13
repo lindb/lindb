@@ -14,7 +14,7 @@ import (
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
 	query    *stmt.Query
-	metadata indexdb.MetadataGetter
+	idGetter indexdb.IDGetter
 
 	fields map[uint16]*aggregation.AggregatorSpec
 
@@ -24,9 +24,9 @@ type storageExecutePlan struct {
 }
 
 // newStorageExecutePlan creates a storage execute plan
-func newStorageExecutePlan(index indexdb.MetadataGetter, query *stmt.Query) Plan {
+func newStorageExecutePlan(index indexdb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
-		metadata: index,
+		idGetter: index,
 		query:    query,
 		fields:   make(map[uint16]*aggregation.AggregatorSpec),
 	}
@@ -35,7 +35,7 @@ func newStorageExecutePlan(index indexdb.MetadataGetter, query *stmt.Query) Plan
 // Plan plans the query language, generates the execute plan for storage query
 func (p *storageExecutePlan) Plan() error {
 	// metric name => id, like table name
-	metricID, err := p.metadata.GetMetricID(p.query.MetricName)
+	metricID, err := p.idGetter.GetMetricID(p.query.MetricName)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		p.field(nil, e.Left)
 		p.field(nil, e.Right)
 	case *stmt.FieldExpr:
-		fieldID, fieldType, err := p.metadata.GetFieldID(p.metricID, e.Name)
+		fieldID, fieldType, err := p.idGetter.GetFieldID(p.metricID, e.Name)
 		if err != nil {
 			p.err = err
 			return

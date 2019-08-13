@@ -4,15 +4,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/tsdb/memdb"
+	"github.com/lindb/lindb/tsdb/series"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 var path = filepath.Join(testPath, shardPath, "1")
@@ -57,7 +58,7 @@ func TestWrite(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	gomock.InOrder(
 		mockMemDB.EXPECT().Write(gomock.Any()).Return(nil),
-		mockMemDB.EXPECT().Write(gomock.Any()).Return(memdb.ErrTooManyTags),
+		mockMemDB.EXPECT().Write(gomock.Any()).Return(series.ErrTooManyTags),
 	)
 
 	shardINTF, _ := newShard(1, path, option.EngineOption{Interval: "10s"})

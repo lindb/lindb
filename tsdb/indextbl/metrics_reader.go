@@ -24,15 +24,17 @@ const (
 // MetricsNameIDReader reads metricNameID info from the kv table
 type MetricsNameIDReader interface {
 	// ReadMetricNS read metricNameID data by the namespace-id
-	ReadMetricNS(nsID uint32) (data []byte, metricIDSeq, tagIDSeq uint32)
+	ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool)
 }
 
 // MetricsMetaReader reads metric meta info from the kv table
 type MetricsMetaReader interface {
 	// ReadTagID read tagIDs by metricID and tagKey
-	ReadTagID(metricID uint32, tagKey string) (tagID uint32)
+	ReadTagID(metricID uint32, tagKey string) (tagID uint32, ok bool)
+	// ReadMaxFieldID return the max field-id of this metric, return 0 if not exist
+	ReadMaxFieldID(metricID uint32) (maxFieldID uint16)
 	// ReadFieldID read fieldID and fieldType from metricID and fieldName
-	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type)
+	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, ok bool)
 }
 
 // metricsNameIDReader implements MetricsNameIDReader
@@ -46,19 +48,18 @@ func NewMetricsNameIDReader(snapshot kv.Snapshot) MetricsNameIDReader {
 }
 
 // ReadMetricNS read metricNameID data by the namespace-id
-func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data []byte, metricIDSeq, tagIDSeq uint32) {
-	var buffer bytes.Buffer
+func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool) {
 	for _, reader := range r.snapshot.Readers() {
 		block := reader.Get(nsID)
 		if len(block) < metricNameIDSequenceSize {
 			continue
 		}
 		seqOffset := len(block) - metricNameIDSequenceSize
-		buffer.Write(block[:seqOffset])
+		data = append(data, block[:seqOffset])
+		ok = true
 		metricIDSeq = binary.BigEndian.Uint32(block[seqOffset : seqOffset+metricIDSize])
 		tagIDSeq = binary.BigEndian.Uint32(block[seqOffset+metricIDSize:])
 	}
-	data = buffer.Bytes()
 	return
 }
 
@@ -73,7 +74,7 @@ func NewMetricsMetaReader(snapshot kv.Snapshot) MetricsMetaReader {
 }
 
 // ReadTagID read tagIDs by metricID and tagKey
-func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uint32) {
+func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uint32, ok bool) {
 	for _, reader := range r.snapshot.Readers() {
 		tagMeta, _ := r.readMetasBlock(reader, metricID)
 		if tagMeta == nil {
@@ -85,18 +86,18 @@ func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uin
 			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
 			thisBinaryTagID := sr.ReadBytes(tagIDSize)
 			if len(thisBinaryTagID) != tagIDSize {
-				continue
+				break
 			}
 			tagID = binary.BigEndian.Uint32(thisBinaryTagID)
 			if thisTagKey == tagKey && tagID != 0 {
-				return tagID
+				return tagID, true
 			}
 			if sr.Error() != nil {
 				break
 			}
 		}
 	}
-	return 0
+	return 0, false
 }
 
 // readTagFieldBlock reads the tagMeta and FieldMeta blocks from binary by metricID
@@ -132,8 +133,41 @@ func (r *metricsMetaReader) readMetasBlock(reader table.Reader, metricID uint32)
 	return tagMeta, remainingBlock[sizeOfFieldLen:]
 }
 
+// ReadMaxFieldID return the max field-id of this metric
+func (r *metricsMetaReader) ReadMaxFieldID(metricID uint32) (maxFieldID uint16) {
+	readers := r.snapshot.Readers()
+	if len(readers) == 0 {
+		return 0
+	}
+	_, fieldMeta := r.readMetasBlock(readers[len(readers)-1], metricID)
+	if fieldMeta == nil {
+		return 0
+	}
+	sr := stream.BinaryReader(fieldMeta)
+	for !sr.Empty() {
+		thisFieldNameLen := sr.ReadByte()
+		// read field-name
+		sr.ReadBytes(int(thisFieldNameLen))
+		// read field-type
+		sr.ReadByte()
+		// read field-ID binary
+		thisBinaryFieldID := sr.ReadBytes(fieldIDSize)
+		// data corruption
+		if len(thisBinaryFieldID) != fieldIDSize {
+			break
+		}
+		maxFieldID = binary.BigEndian.Uint16(thisBinaryFieldID)
+		if sr.Error() != nil {
+			break
+		}
+	}
+	return
+}
+
 // ReadFieldID read fieldID and fieldType from metricID and fieldName
-func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type) {
+func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
+	fieldID uint16, fieldType field.Type, ok bool) {
+
 	for _, reader := range r.snapshot.Readers() {
 		_, fieldMeta := r.readMetasBlock(reader, metricID)
 		if fieldMeta == nil {
@@ -141,15 +175,20 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (fiel
 		}
 		sr := stream.BinaryReader(fieldMeta)
 		for !sr.Empty() {
+			// read field-name
 			thisFieldNameLen := sr.ReadByte()
 			thisFieldName := string(sr.ReadBytes(int(thisFieldNameLen)))
+			// read field-type
 			fieldType = field.Type(sr.ReadByte())
+			// read field-ID binary
 			thisBinaryFieldID := sr.ReadBytes(fieldIDSize)
+			// data corruption
 			if len(thisBinaryFieldID) != fieldIDSize {
-				continue
+				break
 			}
 			fieldID = binary.BigEndian.Uint16(thisBinaryFieldID)
 			if thisFieldName == fieldName && fieldID != 0 && fieldType != 0 {
+				ok = true
 				return
 			}
 			if sr.Error() != nil {
@@ -157,5 +196,5 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (fiel
 			}
 		}
 	}
-	return 0, field.Type(0)
+	return 0, field.Type(0), false
 }

@@ -27,13 +27,13 @@ func MockTSDBEngine(ctrl *gomock.Controller, families ...tsdb.DataFamily) tsdb.E
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().GetSegments(gomock.Any(), gomock.Any()).Return([]tsdb.Segment{segment}).AnyTimes()
 
-	metadataIndex := indexdb.NewMockMetadataGetter(ctrl)
+	metadataIndex := indexdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).Return(uint16(10), field.SumField, nil).AnyTimes()
 
 	engine := tsdb.NewMockEngine(ctrl)
 	engine.EXPECT().GetShard(gomock.Any()).Return(shard).AnyTimes()
-	engine.EXPECT().GetMetadataGetter().Return(metadataIndex).AnyTimes()
+	engine.EXPECT().GetIDGetter().Return(metadataIndex).AnyTimes()
 	engine.EXPECT().NumOfShards().Return(3).AnyTimes()
 	return engine
 }

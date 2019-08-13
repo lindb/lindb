@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -62,7 +63,7 @@ func Test_mStore_isFull(t *testing.T) {
 	mockTagIdx.EXPECT().len().Return(10000000).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.Equal(t, ErrTooManyTags,
+	assert.Equal(t, series.ErrTooManyTags,
 		mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
 }
 
@@ -271,7 +272,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	assert.NotNil(t, err)
 	// mock generate failure
 	mockGen.EXPECT().GenFieldID(uint32(100), "gen-error", field.SumField).
-		Return(uint16(1), ErrWrongFieldType)
+		Return(uint16(1), series.ErrWrongFieldType)
 	_, err = mStoreInterface.getFieldIDOrGenerate("gen-error", field.SumField, mockGen)
 	assert.NotNil(t, err)
 

@@ -39,8 +39,8 @@ type Engine interface {
 	CreateShards(option option.EngineOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
-	// GetMetadataGetter returns metadata getter for metric level metadata
-	GetMetadataGetter() indexdb.MetadataGetter
+	// GetIDGetter returns id getter for metric level metadata
+	GetIDGetter() indexdb.IDGetter
 	// Close closed engine then release resource
 	Close() error
 }
@@ -217,7 +217,8 @@ func (e *engine) GetShard(shardID int32) Shard {
 	return nil
 }
 
-func (e *engine) GetMetadataGetter() indexdb.MetadataGetter {
+// GetIDGetter returns id getter for metric level metadata
+func (e *engine) GetIDGetter() indexdb.IDGetter {
 	//TODO need impl
 	return nil
 }

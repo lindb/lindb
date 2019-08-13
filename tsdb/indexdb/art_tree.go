@@ -65,7 +65,7 @@ func (tree *artTree) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary set the tree from the binary.
 func (tree *artTree) UnmarshalBinary(data []byte) error {
-	if data == nil {
+	if len(data) == 0 {
 		return nil
 	}
 	gzipReader, err := gzip.NewReader(bytes.NewReader(data))
