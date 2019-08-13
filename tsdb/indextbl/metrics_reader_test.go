@@ -23,17 +23,21 @@ func Test_MetricsNameIDReader(t *testing.T) {
 	// mock readers return nil
 	mockReader1.EXPECT().Get(uint32(1)).Return(nil)
 	mockReader2.EXPECT().Get(uint32(1)).Return(nil)
-	data, metricIDSeq, tagIDSeq := metricNameIDReader.ReadMetricNS(1)
+	data, metricIDSeq, tagIDSeq, ok := metricNameIDReader.ReadMetricNS(1)
 	assert.Nil(t, data)
 	assert.Zero(t, metricIDSeq)
 	assert.Zero(t, tagIDSeq)
+	assert.False(t, ok)
 	// mock ok
 	mockReader1.EXPECT().Get(uint32(2)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	mockReader2.EXPECT().Get(uint32(2)).Return(nil)
-	data, metricIDSeq, tagIDSeq = metricNameIDReader.ReadMetricNS(2)
-	assert.Nil(t, data)
+	data, metricIDSeq, tagIDSeq, ok = metricNameIDReader.ReadMetricNS(2)
+	for _, d := range data {
+		assert.Len(t, d, 0)
+	}
 	assert.NotZero(t, metricIDSeq)
 	assert.NotZero(t, tagIDSeq)
+	assert.True(t, ok)
 }
 
 func prepareData(ctrl *gomock.Controller) ([]byte, []byte) {
@@ -83,20 +87,50 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	mockReader1.EXPECT().Get(uint32(2)).Return(data1).AnyTimes()
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2).AnyTimes()
 	// tag found
-	tagID := metaReader.ReadTagID(2, "a2")
+	tagID, ok := metaReader.ReadTagID(2, "a2")
 	assert.Equal(t, uint32(7), tagID)
+	assert.True(t, ok)
 	// tag not found
-	tagID = metaReader.ReadTagID(2, "a3")
+	tagID, ok = metaReader.ReadTagID(2, "a3")
 	assert.Zero(t, tagID)
+	assert.False(t, ok)
 
 	// field found
-	fieldID, fieldType := metaReader.ReadFieldID(2, "sum2")
+	fieldID, fieldType, ok := metaReader.ReadFieldID(2, "sum2")
+	assert.True(t, ok)
 	assert.Equal(t, uint16(5), fieldID)
 	assert.Equal(t, field.SumField, fieldType)
 	// field not found
-	fieldID, fieldType = metaReader.ReadFieldID(2, "sum3")
+	fieldID, fieldType, ok = metaReader.ReadFieldID(2, "sum3")
 	assert.Equal(t, uint16(0), fieldID)
+	assert.False(t, ok)
 	assert.Equal(t, field.Type(0), fieldType)
+}
+
+func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// empty readers
+	mockSnapShot1 := kv.NewMockSnapshot(ctrl)
+	mockSnapShot1.EXPECT().Readers().Return(nil).AnyTimes()
+	metaReader1 := NewMetricsMetaReader(mockSnapShot1)
+	assert.Zero(t, metaReader1.ReadMaxFieldID(1))
+
+	// mock normal readers
+	mockSnapShot := kv.NewMockSnapshot(ctrl)
+	mockReader2 := table.NewMockReader(ctrl)
+	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader2}).AnyTimes()
+	metaReader := NewMetricsMetaReader(mockSnapShot)
+	_, data2 := prepareData(ctrl)
+	mockReader2.EXPECT().Get(uint32(2)).Return(data2)
+	assert.Equal(t, uint16(6), metaReader.ReadMaxFieldID(2))
+
+	// mock corrupt data
+	data2 = append(data2, byte(32))
+	mockReader2.EXPECT().Get(uint32(2)).Return(data2)
+	assert.Equal(t, uint16(0), metaReader.ReadMaxFieldID(2))
+
 }
 
 func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {

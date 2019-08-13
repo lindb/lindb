@@ -10,8 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -23,7 +23,7 @@ type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
 	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
 	// GetSeriesIDsFilter returns series index for searching series(tags)
-	GetSeriesIDsFilter() indexdb.SeriesIDsFilter
+	GetSeriesIDsFilter() series.Filter
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
@@ -103,7 +103,7 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeR
 	return nil
 }
 
-func (s *shard) GetSeriesIDsFilter() indexdb.SeriesIDsFilter {
+func (s *shard) GetSeriesIDsFilter() series.Filter {
 	//TODO need impl
 	return nil
 }

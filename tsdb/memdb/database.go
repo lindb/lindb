@@ -47,8 +47,9 @@ type MemoryDatabase interface {
 	FlushFamilyTo(flusher kv.Flusher, familyTime int64) error
 	// FlushSeriesIndexTo flushes the series tag and values to the kv builder
 	FlushSeriesIndexTo(flusher kv.Flusher) error
-	// SeriesIDsFilter contains the methods for filtering seriesIDs from memDB
-	indexdb.SeriesIDsFilter
+	// series.Filter contains the methods for filtering seriesIDs from memDB
+	series.Filter
+	// series.MetadataGetter todo: @codingcrush
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.

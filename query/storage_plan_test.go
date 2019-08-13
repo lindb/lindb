@@ -12,13 +12,14 @@ import (
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestStoragePlan_Metric(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := indexdb.NewMockMetadataGetter(ctrl)
+	metadataIndex := indexdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil)
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).
 		Return(uint16(10), field.SumField, nil).AnyTimes()
@@ -30,17 +31,17 @@ func TestStoragePlan_Metric(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), indexdb.ErrNotExist)
+	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), series.ErrMetaDataNotExist)
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, indexdb.ErrNotExist, err)
+	assert.Equal(t, series.ErrMetaDataNotExist, err)
 }
 
 func TestStoragePlan_SelectList(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := indexdb.NewMockMetadataGetter(ctrl)
+	metadataIndex := indexdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "f").
 		Return(uint16(10), field.SumField, nil).AnyTimes()
@@ -54,7 +55,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		Return(uint16(14), field.HistogramField, nil).AnyTimes()
 
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "no_f").
-		Return(uint16(99), field.HistogramField, indexdb.ErrNotExist).AnyTimes()
+		Return(uint16(99), field.HistogramField, series.ErrMetaDataNotExist).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
@@ -64,7 +65,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	query, _ = sql.Parse("select no_f from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, indexdb.ErrNotExist, err)
+	assert.Equal(t, series.ErrMetaDataNotExist, err)
 
 	// normal
 	query, _ = sql.Parse("select f from cpu")

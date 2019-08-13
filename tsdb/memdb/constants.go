@@ -7,12 +7,6 @@ const (
 	shardingCountOfMStores = 2 << 4
 	// mask for calculating sharding-index by AND
 	shardingCountMask = shardingCountOfMStores - 1
-	// use this limit of metric-store when maxTagsLimit is not set
-	defaultMaxTagsLimit = 100000
-	// max tag keys limitation of a metric-store
-	defaultMaxTagKeys = 512
-	// max fields limitation of a tsStore.
-	maxFieldsLimit = 1024
 	// unit: millisecond, used to prevent resetting metric-store too frequently.
 	minIntervalForResetMetricStore = 10 * 1000
 )
