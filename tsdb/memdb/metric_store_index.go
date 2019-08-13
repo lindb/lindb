@@ -6,10 +6,12 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/segmentio/fasthash/fnv1a"
@@ -128,8 +130,8 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 	if offset < len(index.tagKVEntrySet) && index.tagKVEntrySet[offset].key == tagKey {
 		return &index.tagKVEntrySet[offset], nil
 	}
-	if length >= defaultMaxTagKeys {
-		return nil, ErrTooManyTagKeys
+	if length >= constants.MStoreMaxTagKeysCount {
+		return nil, series.ErrTooManyTagKeys
 	}
 	// not present
 	newEntry := newTagKVEntrySet(tagKey)

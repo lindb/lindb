@@ -83,7 +83,7 @@ func (e *storageExecutor) Execute() <-chan field.GroupedTimeSeries {
 	//TODO need modify
 	e.intervalRatio = timeutil.CalIntervalRatio(100, 100)
 
-	plan := newStorageExecutePlan(e.engine.GetMetadataGetter(), e.query)
+	plan := newStorageExecutePlan(e.engine.GetIDGetter(), e.query)
 	if err := plan.Plan(); err != nil {
 		e.err = err
 		return nil

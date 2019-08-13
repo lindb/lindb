@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -94,7 +95,7 @@ func newMetricStore(metricID uint32) mStoreINTF {
 	ms := metricStore{
 		metricID:     metricID,
 		mutable:      newTagIndex(),
-		maxTagsLimit: defaultMaxTagsLimit}
+		maxTagsLimit: constants.DefaultMStoreMaxTagsCount}
 	return &ms
 }
 
@@ -110,7 +111,7 @@ func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Ty
 		if fm.fieldType == fieldType {
 			return fm.fieldID, nil
 		}
-		return 0, ErrWrongFieldType
+		return 0, series.ErrWrongFieldType
 	}
 	// not exist
 	ms.mutex4Fields.Lock()
@@ -121,8 +122,8 @@ func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Ty
 		return fm.fieldID, nil
 	}
 	// forbid creating new fStore when full
-	if len(ms.fieldsMetas) >= maxFieldsLimit {
-		return 0, ErrTooManyFields
+	if len(ms.fieldsMetas) >= constants.TStoreMaxFieldsCount {
+		return 0, series.ErrTooManyFields
 	}
 	// generate and check fieldType
 	newFieldID, err := generator.GenFieldID(ms.metricID, fieldName, fieldType)
@@ -144,7 +145,7 @@ func (ms *metricStore) getMetricID() uint32 {
 // write writes the metric to the tStore
 func (ms *metricStore) write(metric *pb.Metric, writeCtx writeContext) error {
 	if ms.isFull() {
-		return ErrTooManyTags
+		return series.ErrTooManyTags
 	}
 	var err error
 	tStore, ok := ms.getTStore(metric.Tags)

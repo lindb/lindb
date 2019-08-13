@@ -6,7 +6,6 @@ import (
 
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
@@ -17,7 +16,7 @@ import (
 func TestSampleCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFilter := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter := series.NewMockFilter(ctrl)
 	s := mockSeriesIDSet(int64(1), roaring.BitmapOf(1, 2, 3, 4))
 
 	query, _ := sql.Parse("select f from cpu")
@@ -71,7 +70,7 @@ func TestSampleCondition(t *testing.T) {
 func TestNotCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFilter := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter := series.NewMockFilter(ctrl)
 
 	query, _ := sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	mockFilter.EXPECT().
@@ -103,7 +102,7 @@ func TestNotCondition(t *testing.T) {
 func TestBinaryCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFilter := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter := series.NewMockFilter(ctrl)
 
 	// and
 	query, _ := sql.Parse("select f from cpu " +
@@ -119,7 +118,7 @@ func TestBinaryCondition(t *testing.T) {
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(3)), *resultSet)
 
 	// or
-	mockFilter2 := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter2 := series.NewMockFilter(ctrl)
 	query, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' or path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
 	mockFilter2.EXPECT().
@@ -133,7 +132,7 @@ func TestBinaryCondition(t *testing.T) {
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(1, 2, 3, 4, 5)), *resultSet)
 
 	// error
-	mockFilter3 := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter3 := series.NewMockFilter(ctrl)
 	mockFilter3.EXPECT().
 		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(nil, errors.New("left error"))
@@ -142,7 +141,7 @@ func TestBinaryCondition(t *testing.T) {
 	assert.Nil(t, resultSet)
 	assert.NotNil(t, err)
 
-	mockFilter4 := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter4 := series.NewMockFilter(ctrl)
 	query, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' or path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
 	mockFilter4.EXPECT().
@@ -160,7 +159,7 @@ func TestBinaryCondition(t *testing.T) {
 func TestComplexCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFilter := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter := series.NewMockFilter(ctrl)
 
 	query, _ := sql.Parse("select f from cpu" +
 		" where (ip not in ('1.1.1.1','2.2.2.2') and region='sh') and (path='/data' or path='/home')")
@@ -188,7 +187,7 @@ func TestComplexCondition(t *testing.T) {
 	assert.Equal(t, *mockSeriesIDSet(int64(11), roaring.BitmapOf(3)), *resultSet)
 
 	// error
-	mockFilter1 := indexdb.NewMockSeriesIDsFilter(ctrl)
+	mockFilter1 := series.NewMockFilter(ctrl)
 	mockFilter1.EXPECT().
 		FindSeriesIDsByExpr(uint32(10), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}, query.TimeRange).
 		Return(mockSeriesIDSet(int64(11), roaring.BitmapOf(1, 2, 4)), nil)
