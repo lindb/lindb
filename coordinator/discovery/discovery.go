@@ -12,6 +12,8 @@ import (
 
 // Factory represents a discovery create factory
 type Factory interface {
+	// GetRepo returns the repo of discovery used
+	GetRepo() state.Repository
 	// CreateDiscovery creates a discovery who will watch the changes with the given prefix
 	CreateDiscovery(prefix string, listener Listener) Discovery
 }
@@ -24,6 +26,24 @@ type factory struct {
 // NewFactory creates a factory
 func NewFactory(repo state.Repository) Factory {
 	return &factory{repo: repo}
+}
+
+// GetRepo returns the repo of discovery used
+func (f *factory) GetRepo() state.Repository {
+	return f.repo
+}
+
+// CreateDiscovery creates a discovery who will watch the changes with the given prefix
+func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &discovery{
+		prefix:   prefix,
+		repo:     f.repo,
+		ctx:      ctx,
+		cancel:   cancel,
+		listener: listener,
+		log:      logger.GetLogger("coordinator/discovery"),
+	}
 }
 
 // Listener represents discovery resource event callback interface,
@@ -53,19 +73,6 @@ type discovery struct {
 	cancel context.CancelFunc
 
 	log *logger.Logger
-}
-
-// CreateDiscovery creates a discovery who will watch the changes with the given prefix
-func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &discovery{
-		prefix:   prefix,
-		repo:     f.repo,
-		ctx:      ctx,
-		cancel:   cancel,
-		listener: listener,
-		log:      logger.GetLogger("coordinator/discovery"),
-	}
 }
 
 // Discovery starts discovery resources change, includes create/delete/clean

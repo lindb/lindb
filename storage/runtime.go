@@ -9,12 +9,14 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	taskHandler "github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/util"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/storage/handler"
@@ -30,7 +32,7 @@ type srv struct {
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
 	writer *handler.Writer
-	query  *handler.Query
+	task   *taskHandler.TaskHandler
 }
 
 // runtime represents storage runtime dependency
@@ -85,7 +87,7 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	r.node = models.Node{IP: ip, Port: r.config.Server.Port}
+	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: util.GetHostName()}
 	// start tcp server
 	r.startTCPServer()
 
@@ -198,9 +200,11 @@ func (r *runtime) bindRPCHandlers() {
 
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
-		query:  handler.NewQuery(rpc.NewServerStreamFactory()),
+		task:   taskHandler.NewTaskHandler(rpc.GetServerStreamFactory(), nil),
+		//query:  handler.NewQuery(rpc.GetServerStreamFactory()),
 	}
 
+	//TODO add task service ??????
 	storage.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
-	storage.RegisterQueryServiceServer(r.server.GetServer(), r.handler.query)
+	common.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
 }

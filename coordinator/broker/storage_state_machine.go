@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
-	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./storage_state_machine.go -destination=./storage_state_machine_mock.go -package=broker
@@ -28,12 +28,12 @@ type StorageStateMachine interface {
 
 // storageStateMachine implements storage state state machine interface
 type storageStateMachine struct {
-	repo      state.Repository
-	discovery discovery.Discovery
-	ctx       context.Context
-	cancel    context.CancelFunc
+	discovery     discovery.Discovery
+	ctx           context.Context
+	cancel        context.CancelFunc
+	streamFactory rpc.ClientStreamFactory
 
-	storageClusters map[string]*models.StorageState
+	storageClusters map[string]*StorageClusterState
 
 	mutex sync.RWMutex
 
@@ -41,16 +41,18 @@ type storageStateMachine struct {
 }
 
 // NewStorageStateMachine creates state machine, init data if exist, then starts watch change event
-func NewStorageStateMachine(ctx context.Context, repo state.Repository, discoveryFactory discovery.Factory) (StorageStateMachine, error) {
+func NewStorageStateMachine(ctx context.Context,
+	discoveryFactory discovery.Factory, streamFactory rpc.ClientStreamFactory) (StorageStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	log := logger.GetLogger("/broker/storage/sm")
 	stateMachine := &storageStateMachine{
-		repo:            repo,
+		streamFactory:   streamFactory,
 		ctx:             c,
 		cancel:          cancel,
-		storageClusters: make(map[string]*models.StorageState),
+		storageClusters: make(map[string]*StorageClusterState),
 		log:             log,
 	}
+	repo := discoveryFactory.GetRepo()
 	clusterList, err := repo.List(c, constants.StorageClusterStatePath)
 	if err != nil {
 		return nil, fmt.Errorf("get storage cluster state list error:%s", err)
@@ -75,8 +77,9 @@ func (s *storageStateMachine) List() []*models.StorageState {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, storageState := range s.storageClusters {
-		result = append(result, storageState)
+		result = append(result, storageState.state)
 	}
+
 	return result
 }
 
@@ -89,16 +92,28 @@ func (s *storageStateMachine) OnCreate(key string, resource []byte) {
 func (s *storageStateMachine) OnDelete(key string) {
 	name := pathutil.GetName(key)
 	s.mutex.Lock()
-	delete(s.storageClusters, name)
-	s.mutex.Unlock()
+	defer s.mutex.Unlock()
+
+	state, ok := s.storageClusters[name]
+	if ok {
+		state.close()
+		delete(s.storageClusters, name)
+	}
 }
 
 // Close closes state machine, stops watch change event
 func (s *storageStateMachine) Close() error {
 	s.discovery.Close()
+
 	s.mutex.Lock()
-	s.storageClusters = make(map[string]*models.StorageState)
-	s.mutex.Unlock()
+	defer s.mutex.Unlock()
+
+	// close all storage cluster's states
+	for _, state := range s.storageClusters {
+		state.close()
+	}
+
+	s.storageClusters = make(map[string]*StorageClusterState)
 	s.cancel()
 	return nil
 }
@@ -115,7 +130,15 @@ func (s *storageStateMachine) addCluster(resource []byte) {
 		s.log.Error("cluster name is empty")
 		return
 	}
+	s.log.Info("storage cluster state change", logger.String("cluster", storageState.Name))
 	s.mutex.Lock()
-	s.storageClusters[storageState.Name] = storageState
-	s.mutex.Unlock()
+	defer s.mutex.Unlock()
+
+	//TODO need check if same state, maybe state is same, such as system start
+	state, ok := s.storageClusters[storageState.Name]
+	if !ok {
+		state = newStorageClusterState(s.streamFactory)
+		s.storageClusters[storageState.Name] = state
+	}
+	state.SetState(storageState)
 }

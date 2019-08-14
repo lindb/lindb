@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/lindb/lindb/broker/api"
@@ -14,19 +15,21 @@ type MetricAPI struct {
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 	executorFactory     parallel.ExecutorFactory
+	jobManager          parallel.JobManager
 }
 
 // NewMetricAPI creates the metric query api
 func NewMetricAPI(replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
-	executorFactory parallel.ExecutorFactory) *MetricAPI {
+	executorFactory parallel.ExecutorFactory, jobManager parallel.JobManager) *MetricAPI {
 	return &MetricAPI{
 		replicaStateMachine: replicaStateMachine,
 		nodeStateMachine:    nodeStateMachine,
 		executorFactory:     executorFactory,
+		jobManager:          jobManager,
 	}
 }
 
-// Search searches the metric data based on database and sql
+// Search searches the metric data based on database and sql.
 func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 	db, err := api.GetParamsFromRequest("db", r, "", true)
 	if err != nil {
@@ -38,7 +41,17 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	//TODO need impl
-	_ = m.executorFactory.NewBrokerExecutor(db, sql, m.replicaStateMachine, m.nodeStateMachine, nil)
+	exec := m.executorFactory.NewBrokerExecutor(db, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	results := exec.Execute()
+	if results != nil {
+		for result := range results {
+			//TODO need handle result
+			fmt.Println(result)
+		}
+	}
+	if err := exec.Error(); err != nil {
+		api.Error(w, err)
+		return
+	}
 	api.OK(w, "ok")
 }

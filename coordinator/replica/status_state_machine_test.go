@@ -126,4 +126,10 @@ func TestStatusStateMachine(t *testing.T) {
 
 	r = sm.GetQueryableReplicas("test_db_not_exist")
 	assert.Nil(t, r)
+
+	discovery1.EXPECT().Close()
+	err = sm.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 }

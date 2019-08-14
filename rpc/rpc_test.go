@@ -3,11 +3,13 @@ package rpc
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
@@ -31,7 +33,7 @@ func TestClientConnFactory(t *testing.T) {
 		Port: 456,
 	}
 
-	fct := NewClientConnFactory()
+	fct := GetClientConnFactory()
 
 	conn1, err := fct.GetClientConn(node1)
 	if err != nil {
@@ -95,7 +97,7 @@ func TestClientStreamFactory(t *testing.T) {
 }
 
 func TestServerStreamFactory(t *testing.T) {
-	fct := NewServerStreamFactory()
+	fct := GetServerStreamFactory()
 
 	_, ok := fct.GetStream(node)
 	assert.False(t, ok)
@@ -118,4 +120,32 @@ func TestServerStreamFactory(t *testing.T) {
 	fct.Deregister(node)
 	nodes = fct.Nodes()
 	assert.Equal(t, 0, len(nodes))
+}
+
+func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	go ctrl.Finish()
+
+	handler := common.NewMockTaskServiceServer(ctrl)
+
+	factory := NewClientStreamFactory(models.Node{IP: "127.0.0.2", Port: 9000})
+	target := models.Node{IP: "127.0.0.1", Port: 9000}
+
+	client, err := factory.CreateTaskClient(target)
+	assert.NotNil(t, err)
+	assert.Nil(t, client)
+
+	server := NewTCPServer(":9000")
+	common.RegisterTaskServiceServer(server.GetServer(), handler)
+	go func() {
+		_ = server.Start()
+	}()
+
+	// wait server start finish
+	time.Sleep(10 * time.Millisecond)
+
+	_, _ = factory.CreateTaskClient(target)
+
+	time.Sleep(10 * time.Millisecond)
+	server.Stop()
 }

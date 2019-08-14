@@ -96,7 +96,7 @@ func (p *taskProcessor) run() {
 func (p *taskProcessor) process(evt taskEvent) {
 	log := logger.GetLogger("coordinator/task/processor")
 	defer func() {
-		// wait task process done¬
+		// wait task process done
 		p.wg.Done()
 		_ = p.sem.Release()
 		if e := recover(); e != nil {

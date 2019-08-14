@@ -2,6 +2,8 @@ package parallel
 
 import "github.com/lindb/lindb/pkg/field"
 
+//go:generate mockgen -source=./executor.go -destination=./executor_mock.go -package=parallel
+
 // Executor represents a query executor both storage/broker side.
 // When returning query results the following is the order in which processing takes place:
 // 1) filtering

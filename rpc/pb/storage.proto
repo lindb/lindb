@@ -46,14 +46,6 @@ message NextSeqResponse {
     int64 seq = 1;
 }
 
-message QueryRequest {
-    string msg = 1;
-}
-
-message QueryResponse {
-    string msg = 1;
-}
-
 service WriteService {
     rpc Write (stream WriteRequest) returns (stream WriteResponse) {
     }
@@ -62,11 +54,5 @@ service WriteService {
     }
 
     rpc Next (NextSeqRequest) returns (NextSeqResponse) {
-    }
-}
-
-service QueryService {
-    rpc Query (stream QueryRequest) returns (stream QueryResponse) {
-
     }
 }

@@ -55,7 +55,7 @@ func NewRouter() *mux.Router {
 			handler = route.handler
 		}
 		router.
-			Methods(route.method).
+			Methods([]string{route.method, http.MethodOptions}...).
 			Name(route.name).
 			Handler(panicHandler(handler)).
 			Path(route.pattern)
@@ -67,8 +67,25 @@ func NewRouter() *mux.Router {
 			Handler(http.StripPrefix("/static/",
 				http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
 	}
-	//router.Use(mux.CORSMethodMiddleware(router))
-	router.HandleFunc("*", crossHandler)
+	// add cors support
+	router.Use(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Method", "POST, OPTIONS, GET, HEAD, PUT, PATCH, DELETE")
+
+				w.Header().Set("Access-Control-Allow-Headers",
+					"Origin, X-Requested-With, X-HTTP-Method-Override,accept-charset,accept-encoding "+
+						", Content-Type, Accept, Authorization")
+				w.Header().Set("Content-Type", "application/json")
+
+				if r.Method == http.MethodOptions {
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		})
 	return router
 }
 
@@ -81,20 +98,6 @@ func getMiddleware(pattern string) []mux.MiddlewareFunc {
 		}
 	}
 	return ms
-}
-
-// crossHandler builds crossing http request handler
-func crossHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
-	w.Header().Add("Access-Control-Allow-Method", "POST, OPTIONS, GET, HEAD, PUT, PATCH, DELETE")
-
-	w.Header().Add("Access-Control-Allow-Headers",
-		"Origin, X-Requested-With, X-HTTP-Method-Override,accept-charset,accept-encoding , Content-Type, Accept, Cookie")
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method == http.MethodOptions {
-		return
-	}
 }
 
 // panicHandler handles panics and returns a json response with error message
