@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -18,6 +20,8 @@ type DatabaseService interface {
 	Save(database *models.Database) error
 	// Get gets database config by name, if not exist return ErrNotExist
 	Get(name string) (*models.Database, error)
+	// List returns all database configs
+	List() ([]*models.Database, error)
 }
 
 // databaseService implements DatabaseService interface
@@ -74,4 +78,25 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 		return nil, err
 	}
 	return database, nil
+}
+
+// List returns all database configs
+func (db *databaseService) List() ([]*models.Database, error) {
+	var result []*models.Database
+	data, err := db.repo.List(context.TODO(), constants.DatabaseConfigPath)
+	if err != nil {
+		return result, err
+	}
+	for _, val := range data {
+		db := &models.Database{}
+		err = json.Unmarshal(val, db)
+		if err != nil {
+			logger.GetLogger("service/db").
+				Warn("unmarshal data error",
+					logger.String("data", string(val)))
+		} else {
+			result = append(result, db)
+		}
+	}
+	return result, nil
 }

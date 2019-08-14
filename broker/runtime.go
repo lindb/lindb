@@ -290,6 +290,7 @@ func (r *runtime) buildAPIDependency() {
 
 	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
 	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
+	api.AddRoutes("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
 
 	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
 	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)

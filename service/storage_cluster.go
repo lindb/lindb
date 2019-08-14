@@ -98,5 +98,5 @@ func (s *storageClusterService) List() ([]*models.StorageCluster, error) {
 			result = append(result, storageCluster)
 		}
 	}
-	return result, err
+	return result, nil
 }
