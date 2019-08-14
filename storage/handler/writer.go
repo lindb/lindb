@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 )
@@ -69,7 +70,6 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 
 	sequence, ok := w.sm.GetSequence(database, shardID, *logicNode)
 	if !ok {
-		var err error
 		sequence, err = w.sm.CreateSequence(database, shardID, *logicNode)
 		if err != nil {
 			return err
@@ -83,7 +83,6 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 
 	for {
 		req, err := stream.Recv()
-		w.logger.Info("req", logger.Any("req", req))
 		if err == io.EOF {
 			return nil
 		}
@@ -108,8 +107,18 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 
 			sequence.SetHeadSeq(hs + 1)
 
-			// todo write to storage
-			//data := rep.Data
+			metric := &field.Metric{}
+			//TODO need modify
+			err := metric.Unmarshal(rep.Data)
+			if err != nil {
+				logger.GetLogger("write").Error("unmarshal metric", logger.Error(err))
+				continue
+			}
+			err = shard.Write(metric)
+			if err != nil {
+				logger.GetLogger("write").Error("write metric", logger.Error(err))
+				continue
+			}
 		}
 
 		resp := &storage.WriteResponse{
@@ -119,7 +128,6 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		// add acked seq if synced
 		if sequence.Synced() {
 			resp.Ack = &storage.WriteResponse_AckSeq{AckSeq: sequence.GetAckSeq()}
-
 		}
 
 		if err := stream.Send(resp); err != nil {
@@ -156,7 +164,6 @@ func (w *Writer) getSequenceFromCtx(ctx context.Context) (replication.Sequence, 
 		return nil, err
 	}
 	return w.getSequence(database, shardID, *logicNode)
-
 }
 
 func (w *Writer) getSequence(database string, shardID int32, logicNode models.Node) (replication.Sequence, error) {
