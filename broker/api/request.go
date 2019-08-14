@@ -38,14 +38,14 @@ func GetParamsFromRequest(paramsName string, r *http.Request, defaultValue strin
 			value = values[0]
 		}
 	// the parameter value need to be parsed from the url when the request method is GET
-	case http.MethodGet, http.MethodDelete:
+	case http.MethodGet, http.MethodDelete, http.MethodPut:
 		values := r.URL.Query()[paramsName]
 		if len(values) > 0 {
 			value = values[0]
 		}
 	// default return error
 	default:
-		return "", fmt.Errorf("only GET/POST/DELETE methods are supported")
+		return "", fmt.Errorf("only GET/POST/DELETE/PUT methods are supported")
 	}
 	if len(value) > 0 {
 		return value, nil

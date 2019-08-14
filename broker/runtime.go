@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
 	masterAPI "github.com/lindb/lindb/broker/api/cluster"
+	writeAPI "github.com/lindb/lindb/broker/api/metric"
 	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
 	"github.com/lindb/lindb/broker/handler"
@@ -52,6 +53,7 @@ type apiHandler struct {
 	brokerStateAPI    *stateAPI.BrokerAPI
 	masterAPI         *masterAPI.MasterAPI
 	metricAPI         *queryAPI.MetricAPI
+	writeAPI          *writeAPI.WriteAPI
 }
 
 type rpcHandler struct {
@@ -278,6 +280,7 @@ func (r *runtime) buildAPIDependency() {
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExectorFactory(), jobManager),
+		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
 	}
 
 	api.AddRoutes("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -298,6 +301,8 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoutes("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
 
 	api.AddRoutes("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
+
+	api.AddRoutes("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
 }
 
 // buildMiddlewareDependency builds middleware dependency

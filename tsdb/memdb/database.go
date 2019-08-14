@@ -253,6 +253,8 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 		slotIndex:           slotIndex,
 		timeInterval:        md.interval,
 		mStoreFieldIDGetter: mStore})
+	fmt.Println("ddddddd")
+	fmt.Println(err)
 	if err == nil {
 		bkt := md.getBucket(hash)
 		bkt.addFamilyTime(familyStartTime)
