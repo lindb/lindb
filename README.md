@@ -1,3 +1,5 @@
+[点击查看中文版本](/README.cn.md)
+
 <p align="left">
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
@@ -13,7 +15,7 @@
 
 LinDB is an open-source Time Series Database which provides high performance, high availability and horizontal scalability. 
 
-LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes per day and 2.7PB total  raw data. 
+LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes per day and 2.7PB total raw data.
 
 + __High performance__
 
@@ -36,7 +38,7 @@ LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes 
 
 + __Horizontal scalability__
 
-  Tags based sharding strategy in LinDB solves the hotspots problem, and is truly horizontally expanded available by simply adding new broker and storage nodes.
+  Series(Tags) based sharding strategy in LinDB solves the hotspots problem, and is truly horizontally expanded available by simply adding new broker and storage nodes.
   
 + __Governance capability of metrics__
 
@@ -45,7 +47,8 @@ LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes 
 ## State of this project
 
 The current develop branch is unstable and is not recommended for production use. LinDB 0.1(what will be the first release version) is currently in the development stage. 
-Additional features will arrive during July, we will translate the JAVA version of LinDB currently used under the production environment to Golang as soon as possible.
+Additional features will arrive during July and August, we will translate the JAVA version of LinDB currently used under the production environment to Golang as soon as possible.
+The GO version is not only a simple translation of the JAVA version, but has been redesigned in many aspects.
 
 Once we implement the final feature and replace the LinDB under production environment with the Golang version, LinDB 0.1.0 will be released. At that point, we will move into the stable phase, our intention is to avoid breaking changes to the API and storage file format.
 
