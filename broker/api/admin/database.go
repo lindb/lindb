@@ -60,3 +60,13 @@ func (d *DatabaseAPI) Save(w http.ResponseWriter, r *http.Request) {
 	}
 	api.NoContent(w)
 }
+
+// List returns all database configs
+func (d *DatabaseAPI) List(w http.ResponseWriter, r *http.Request) {
+	dbs, err := d.databaseService.List()
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	api.OK(w, dbs)
+}
