@@ -10,24 +10,27 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
 	masterAPI "github.com/lindb/lindb/broker/api/cluster"
+	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
 	"github.com/lindb/lindb/broker/handler"
 	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/util"
+	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	brokerpb "github.com/lindb/lindb/rpc/proto/broker"
+	commonpb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
 )
 
@@ -48,20 +51,16 @@ type apiHandler struct {
 	storageStateAPI   *stateAPI.StorageAPI
 	brokerStateAPI    *stateAPI.BrokerAPI
 	masterAPI         *masterAPI.MasterAPI
+	metricAPI         *queryAPI.MetricAPI
 }
 
 type rpcHandler struct {
 	writer *handler.Writer
-}
-
-// stateMachine represents all state machines for broker
-type stateMachine struct {
-	storageState broker.StorageStateMachine
-	nodeState    broker.NodeStateMachine
+	task   *parallel.TaskHandler
 }
 
 type middlewareHandler struct {
-	authentication *middleware.UserAuthentication
+	authentication middleware.Authentication
 }
 
 // runtime represents broker runtime dependency
@@ -70,16 +69,17 @@ type runtime struct {
 	config config.Broker
 	node   models.Node
 	// init value when runtime
-	repo         state.Repository
-	repoFactory  state.RepositoryFactory
-	srv          srv
-	httpServer   *http.Server
-	master       coordinator.Master
-	registry     discovery.Registry
-	stateMachine *stateMachine
+	repo          state.Repository
+	repoFactory   state.RepositoryFactory
+	srv           srv
+	httpServer    *http.Server
+	master        coordinator.Master
+	registry      discovery.Registry
+	stateMachines *coordinator.BrokerStateMachines
 
-	server  rpc.TCPServer
-	handler *rpcHandler
+	server     rpc.TCPServer
+	handler    *rpcHandler
+	middleware *middlewareHandler
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -112,7 +112,7 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("cannot get server ip address, error:%s", err)
 	}
 
-	r.node = models.Node{IP: ip, Port: r.config.HTTP.Port}
+	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: util.GetHostName()}
 
 	// start state repository
 	if err := r.startStateRepo(); err != nil {
@@ -121,13 +121,25 @@ func (r *runtime) Run() error {
 	}
 
 	r.buildServiceDependency()
+	discoveryFactory := discovery.NewFactory(r.repo)
+
+	smFactory := coordinator.NewStateMachineFactory(&coordinator.StateMachineCfg{
+		Ctx:                 r.ctx,
+		CurrentNode:         r.node,
+		DiscoveryFactory:    discoveryFactory,
+		ClientStreamFactory: rpc.NewClientStreamFactory(r.node),
+	})
 
 	// finally start all state machine
-	if err := r.startStateMachine(); err != nil {
-		return fmt.Errorf("start state machine error:%s", err)
+	r.stateMachines = coordinator.NewBrokerStateMachines(smFactory)
+	if err := r.stateMachines.Start(); err != nil {
+		return fmt.Errorf("start state machines error:%s", err)
 	}
 
 	r.buildMiddlewareDependency()
+	r.buildAPIDependency()
+	// start tcp server
+	r.startTCPServer()
 
 	// register storage node info
 	//TODO TTL default value???
@@ -140,7 +152,7 @@ func (r *runtime) Run() error {
 		Repo:                r.repo,
 		Node:                r.node,
 		TTL:                 1, //TODO need config
-		DiscoveryFactory:    discovery.NewFactory(r.repo),
+		DiscoveryFactory:    discoveryFactory,
 		ControllerFactory:   task.NewControllerFactory(),
 		ClusterFactory:      storage.NewClusterFactory(),
 		RepoFactory:         r.repoFactory,
@@ -151,9 +163,6 @@ func (r *runtime) Run() error {
 	r.master = coordinator.NewMaster(masterCfg)
 	r.master.Start()
 
-	r.buildAPIDependency()
-	// start tcp server
-	r.startTCPServer()
 	// start http server
 	r.startHTTPServer()
 
@@ -182,8 +191,8 @@ func (r *runtime) Stop() error {
 		r.master.Stop()
 	}
 
-	if r.stateMachine != nil {
-		r.stopStateMachine()
+	if r.stateMachines != nil {
+		r.stateMachines.Stop()
 	}
 
 	if r.repo != nil {
@@ -256,13 +265,19 @@ func (r *runtime) buildServiceDependency() {
 
 // buildAPIDependency builds broker api dependency
 func (r *runtime) buildAPIDependency() {
+	senderManager := parallel.NewTaskSenderManager()
+	taskManager := parallel.NewTaskManager(r.node, senderManager)
+	jobManager := parallel.NewJobManager(taskManager)
+
 	handlers := apiHandler{
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
-		loginAPI:          api.NewLoginAPI(r.config.User),
-		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachine.storageState),
-		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachine.nodeState),
+		loginAPI:          api.NewLoginAPI(r.config.User, r.middleware.authentication),
+		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachines.StorageSM),
+		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
+		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
+			r.stateMachines.NodeSM, query.NewExectorFactory(), jobManager),
 	}
 
 	api.AddRoutes("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -280,50 +295,19 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
 
 	api.AddRoutes("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
+
+	api.AddRoutes("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
 }
 
 // buildMiddlewareDependency builds middleware dependency
 // pattern support regexp matching
 func (r *runtime) buildMiddlewareDependency() {
-	middlewareHandler := middlewareHandler{
-		authentication: middleware.NewUserAuthentication(r.config.User),
+	r.middleware = &middlewareHandler{
+		authentication: middleware.NewAuthentication(r.config.User),
 	}
 	validate, err := regexp.Compile("/check/*")
 	if err == nil {
-		api.AddMiddleware(middlewareHandler.authentication.ValidateMiddleware, validate)
-	}
-}
-
-// startStateMachine starts related state machines for broker
-func (r *runtime) startStateMachine() error {
-	r.stateMachine = &stateMachine{}
-	discoveryFactory := discovery.NewFactory(r.repo)
-	storageStateMachine, err := broker.NewStorageStateMachine(r.ctx, r.repo, discoveryFactory)
-	if err != nil {
-		return err
-	}
-	r.stateMachine.storageState = storageStateMachine
-
-	nodeStateMachine, err := broker.NewNodeStateMachine(r.ctx, r.node, discoveryFactory)
-	if err != nil {
-		return err
-	}
-	r.stateMachine.nodeState = nodeStateMachine
-
-	return nil
-}
-
-// stopStateMachine stops broker's state machines
-func (r *runtime) stopStateMachine() {
-	if r.stateMachine.storageState != nil {
-		if err := r.stateMachine.storageState.Close(); err != nil {
-			r.log.Error("close storage state state machine error", logger.Error(err))
-		}
-	}
-	if r.stateMachine.nodeState != nil {
-		if err := r.stateMachine.nodeState.Close(); err != nil {
-			r.log.Error("close node state state machine error", logger.Error(err))
-		}
+		api.AddMiddleware(r.middleware.authentication.Validate, validate)
 	}
 }
 
@@ -342,10 +326,11 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
-
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.channelManager),
+		task:   parallel.NewTaskHandler(rpc.GetServerStreamFactory(), nil),
 	}
 
 	brokerpb.RegisterBrokerServiceServer(r.server.GetServer(), r.handler.writer)
+	commonpb.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
 }

@@ -8,11 +8,8 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -78,7 +75,7 @@ func (m *TaskRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_TaskRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
+		n, err := m.MarshalTo(b)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +146,7 @@ func (m *TaskResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_TaskResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
+		n, err := m.MarshalTo(b)
 		if err != nil {
 			return nil, err
 		}
@@ -286,14 +283,6 @@ type TaskServiceServer interface {
 	Handle(TaskService_HandleServer) error
 }
 
-// UnimplementedTaskServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedTaskServiceServer struct {
-}
-
-func (*UnimplementedTaskServiceServer) Handle(srv TaskService_HandleServer) error {
-	return status.Errorf(codes.Unimplemented, "method Handle not implemented")
-}
-
 func RegisterTaskServiceServer(s *grpc.Server, srv TaskServiceServer) {
 	s.RegisterService(&_TaskService_serviceDesc, srv)
 }
@@ -342,7 +331,7 @@ var _TaskService_serviceDesc = grpc.ServiceDesc{
 func (m *TaskRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
@@ -350,52 +339,43 @@ func (m *TaskRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TaskRequest) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *TaskRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
+	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.Payload) > 0 {
-		i -= len(m.Payload)
-		copy(dAtA[i:], m.Payload)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
-		i--
-		dAtA[i] = 0x22
-	}
-	if len(m.PhysicalPlan) > 0 {
-		i -= len(m.PhysicalPlan)
-		copy(dAtA[i:], m.PhysicalPlan)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.PhysicalPlan)))
-		i--
-		dAtA[i] = 0x1a
+	if len(m.ParentTaskID) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.ParentTaskID)))
+		i += copy(dAtA[i:], m.ParentTaskID)
 	}
 	if m.Type != 0 {
-		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
-		i--
 		dAtA[i] = 0x10
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
 	}
-	if len(m.ParentTaskID) > 0 {
-		i -= len(m.ParentTaskID)
-		copy(dAtA[i:], m.ParentTaskID)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.ParentTaskID)))
-		i--
-		dAtA[i] = 0xa
+	if len(m.PhysicalPlan) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.PhysicalPlan)))
+		i += copy(dAtA[i:], m.PhysicalPlan)
 	}
-	return len(dAtA) - i, nil
+	if len(m.Payload) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
+		i += copy(dAtA[i:], m.Payload)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func (m *TaskResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
@@ -403,63 +383,52 @@ func (m *TaskResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TaskResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *TaskResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
+	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.Payload) > 0 {
-		i -= len(m.Payload)
-		copy(dAtA[i:], m.Payload)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
-		i--
-		dAtA[i] = 0x22
-	}
-	if len(m.ErrMsg) > 0 {
-		i -= len(m.ErrMsg)
-		copy(dAtA[i:], m.ErrMsg)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.ErrMsg)))
-		i--
-		dAtA[i] = 0x1a
+	if len(m.TaskID) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.TaskID)))
+		i += copy(dAtA[i:], m.TaskID)
 	}
 	if m.Completed {
-		i--
+		dAtA[i] = 0x10
+		i++
 		if m.Completed {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i--
-		dAtA[i] = 0x10
+		i++
 	}
-	if len(m.TaskID) > 0 {
-		i -= len(m.TaskID)
-		copy(dAtA[i:], m.TaskID)
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.TaskID)))
-		i--
-		dAtA[i] = 0xa
+	if len(m.ErrMsg) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.ErrMsg)))
+		i += copy(dAtA[i:], m.ErrMsg)
 	}
-	return len(dAtA) - i, nil
+	if len(m.Payload) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
+		i += copy(dAtA[i:], m.Payload)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func encodeVarintCommon(dAtA []byte, offset int, v uint64) int {
-	offset -= sovCommon(v)
-	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return base
+	return offset + 1
 }
 func (m *TaskRequest) Size() (n int) {
 	if m == nil {
@@ -516,7 +485,14 @@ func (m *TaskResponse) Size() (n int) {
 }
 
 func sovCommon(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozCommon(x uint64) (n int) {
 	return sovCommon(uint64((x << 1) ^ uint64((int64(x) >> 63))))

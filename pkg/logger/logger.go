@@ -30,6 +30,7 @@ func GetLogger(module string) *Logger {
 	}
 }
 
+// getLogger returns the zap logger
 func getLogger() *zap.Logger {
 	once.Do(func() {
 		logger = New()
@@ -37,12 +38,14 @@ func getLogger() *zap.Logger {
 	return logger
 }
 
+// New creates a zap logger
 func New() *zap.Logger {
 	config := NewConfig()
 	l, _ := config.New()
 	return l
 }
 
+// New creates a zap logger based on user config
 func (c *Config) New() (*zap.Logger, error) {
 	//TODO ?????
 	//w := zapcore.AddSync(&lumberjack.Logger{

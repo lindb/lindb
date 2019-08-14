@@ -5,7 +5,7 @@ import pb "github.com/lindb/lindb/rpc/proto/common"
 // TaskDispatcher represents the task dispatcher
 type TaskDispatcher interface {
 	// Dispatch dispatches the task request based on task type
-	Dispatch(req pb.TaskRequest)
+	Dispatch(req *pb.TaskRequest)
 }
 
 // TaskProcessor represents the task processor, all task processors are async

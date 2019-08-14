@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
@@ -54,8 +55,8 @@ type clientConnFactory struct {
 	lock4map sync.Mutex
 }
 
-// NewClientConnFactory returns a default ClientConnFactory.
-func NewClientConnFactory() ClientConnFactory {
+// GetClientConnFactory returns a singleton ClientConnFactory.
+func GetClientConnFactory() ClientConnFactory {
 	return clientCoonFct
 }
 
@@ -85,8 +86,8 @@ type ClientStreamFactory interface {
 	LogicNode() models.Node
 	// CreateWriteClient creates a stream WriteClient.
 	CreateWriteClient(db string, shardID int32, target models.Node) (storage.WriteService_WriteClient, error)
-	// CreateQueryClient creates a QueryClient.
-	CreateQueryClient(target models.Node) (storage.QueryService_QueryClient, error)
+	// CreateQueryClient creates a stream task client
+	CreateTaskClient(target models.Node) (common.TaskService_HandleClient, error)
 	// CreateWriteServiceClient creates a WriteServiceClient
 	CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error)
 }
@@ -102,16 +103,17 @@ func (w *clientStreamFactory) LogicNode() models.Node {
 	return w.logicNode
 }
 
-// CreateQueryClient creates a QueryClient.
-func (w *clientStreamFactory) CreateQueryClient(target models.Node) (storage.QueryService_QueryClient, error) {
+// CreateQueryClient creates a stream task client
+func (w *clientStreamFactory) CreateTaskClient(target models.Node) (common.TaskService_HandleClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
 	}
 
 	node := w.LogicNode()
+	//TODO handle context?????
 	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&node).Indicator())
-	cli, err := storage.NewQueryServiceClient(conn).Query(ctx)
+	cli, err := common.NewTaskServiceClient(conn).Handle(ctx)
 	return cli, err
 }
 
@@ -143,7 +145,7 @@ func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (stor
 func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
 	return &clientStreamFactory{
 		logicNode: logicNode,
-		connFct:   NewClientConnFactory(),
+		connFct:   GetClientConnFactory(),
 	}
 }
 
@@ -160,7 +162,8 @@ type ServerStreamFactory interface {
 	Nodes() []models.Node
 }
 
-func NewServerStreamFactory() ServerStreamFactory {
+// GetServerStreamFactory returns the singleton server stream factory
+func GetServerStreamFactory() ServerStreamFactory {
 	return serverStreamFct
 }
 

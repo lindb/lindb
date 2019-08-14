@@ -54,6 +54,7 @@ func TestDiscovery(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	factory := NewFactory(repo)
+	assert.Equal(t, repo, factory.GetRepo())
 
 	d := factory.CreateDiscovery("", newMockListener())
 	err := d.Discovery()
