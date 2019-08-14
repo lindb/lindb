@@ -22,8 +22,6 @@ type StorageService interface {
 
 // storageService implements StorageService interface
 type storageService struct {
-	engines sync.Map
-
 	factory tsdb.EngineFactory
 	mutex   sync.Mutex
 }
@@ -49,13 +47,12 @@ func (s *storageService) CreateShards(db string, option option.EngineOption, sha
 		// double check
 		engine = s.GetEngine(db)
 		if engine == nil {
-			// create time series engine
+			// create a time series engine
 			var err error
 			engine, err = s.factory.CreateEngine(db)
 			if err != nil {
 				return err
 			}
-			s.engines.Store(db, engine)
 		}
 	}
 
@@ -78,10 +75,5 @@ func (s *storageService) GetShard(db string, shardID int32) tsdb.Shard {
 
 // GetEngine returns engine by given db name, if not exist return nil
 func (s *storageService) GetEngine(db string) tsdb.Engine {
-	engine, _ := s.engines.Load(db)
-	e, ok := engine.(tsdb.Engine)
-	if ok {
-		return e
-	}
-	return nil
+	return s.factory.GetEngine(db)
 }
