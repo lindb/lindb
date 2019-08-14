@@ -9,8 +9,9 @@ import (
 
 // Node represents the basic info of server
 type Node struct {
-	IP   string `json:"ip"`
-	Port uint16 `json:"port"`
+	IP       string `json:"ip"`
+	Port     uint16 `json:"port"`
+	HostName string `json:"hostName"`
 }
 
 // Indicator returns return node indicator's string

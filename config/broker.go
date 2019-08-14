@@ -33,6 +33,9 @@ func NewDefaultBrokerCfg() Broker {
 		HTTP: HTTP{
 			Port: 9000,
 		},
+		Server: Server{
+			Port: 9001,
+		},
 		Coordinator: state.Config{
 			Namespace:   "/lindb/broker",
 			Endpoints:   []string{"http://localhost:2379"},

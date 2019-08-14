@@ -18,6 +18,9 @@ GOARCH ?= $(shell go env GOARCH)
 build: clean-build ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/lind' $(LD_FLAGS) ./cmd/
 
+build-linux: clean-build ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
+	env GOOS=linux GOARCH=amd64 go build -o 'bin/lind' $(LD_FLAGS) ./cmd/
+
 build-all: build-frontend build  ## Build executable files with front-end files inside.
 
 GOLANGCI_LINT_VERSION ?= "latest"

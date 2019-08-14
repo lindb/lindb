@@ -1,86 +1,109 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	check "gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
 )
 
-type testLoginAPISuite struct {
-	mock.RepoTestSuite
-}
+var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGFzc3dvc" +
+	"mQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk"
 
-var test *testing.T
+func TestLogin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func TestLoginApi(t *testing.T) {
-	check.Suite(&testLoginAPISuite{})
-	test = t
-	check.TestingT(t)
-}
+	auth := middleware.NewMockAuthentication(ctrl)
 
-func (tl *testLoginAPISuite) TestLogin(c *check.C) {
 	user := models.User{UserName: "admin", Password: "admin123"}
-	api := NewLoginAPI(user)
+	api := NewLoginAPI(user, auth)
 
 	//create success
-	mock.DoRequest(test, &mock.HTTPHandler{
+	auth.EXPECT().CreateToken(gomock.Any()).Return(tokenStr, nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    user,
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
+		ExpectResponse: tokenStr,
+	})
+
+	// token create fail
+	auth.EXPECT().CreateToken(gomock.Any()).Return("", fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/user",
+		RequestBody:    models.User{UserName: "admin", Password: "admin123"},
+		HandlerFunc:    api.Login,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
 	})
 
 	//user failure error password
-	mock.DoRequest(test, &mock.HTTPHandler{
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    models.User{UserName: "admin", Password: "admin1234"},
 		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
 	})
 
 	//user failure error user name
-	mock.DoRequest(test, &mock.HTTPHandler{
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    models.User{UserName: "123", Password: "admin123"},
 		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
 	})
 
 	//user failure error password
-	mock.DoRequest(test, &mock.HTTPHandler{
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    models.User{UserName: "admin", Password: "admin1234"},
 		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
 	})
 
 	//user login failure  password is empty
-	mock.DoRequest(test, &mock.HTTPHandler{
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    models.User{UserName: "admin"},
 		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
 	})
 
 	//user login failure  user name is empty
-	mock.DoRequest(test, &mock.HTTPHandler{
+	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
 		RequestBody:    models.User{Password: "admin1234"},
 		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 200,
+		ExpectResponse: "",
+	})
+
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/check",
+		HandlerFunc:    api.Check,
+		ExpectHTTPCode: 200,
+		ExpectResponse: user,
 	})
 }
 
@@ -94,9 +117,7 @@ func Test_JWT(t *testing.T) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &claims)
 	tokenString, _ := token.SignedString([]byte(cid))
 
-	assert.Equal(t,
-		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGFzc3dvc"+
-			"mQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk", tokenString)
+	assert.Equal(t, tokenStr, tokenString)
 
 	mapClaims := middleware.CustomClaims{}
 	_, _ = jwt.ParseWithClaims(tokenString, &mapClaims, func(token *jwt.Token) (i interface{}, e error) {

@@ -1,22 +1,26 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 )
+
+var log = logger.GetLogger("login")
 
 // LoginAPI represents login param
 type LoginAPI struct {
 	user models.User
+	auth middleware.Authentication
 }
 
 // NewLoginAPI creates login api instance
-func NewLoginAPI(user models.User) *LoginAPI {
+func NewLoginAPI(user models.User, auth middleware.Authentication) *LoginAPI {
 	return &LoginAPI{
 		user: user,
+		auth: auth,
 	}
 }
 
@@ -28,36 +32,38 @@ func (l *LoginAPI) Login(w http.ResponseWriter, r *http.Request) {
 	err := GetJSONBodyFromRequest(r, &user)
 	// login request is error
 	if err != nil {
-		OK(w, err)
+		log.Error("cannot get user info from request")
+		OK(w, "")
 		return
 	}
 	// user name is empty
 	if len(user.UserName) == 0 {
-		err = errors.New("user name is empty")
-		Error(w, err)
+		log.Error("username is empty")
+		OK(w, "")
 		return
 	}
 	// password is empty
 	if len(user.Password) == 0 {
-		err = errors.New("password is empty")
-		Error(w, err)
+		log.Error("password is empty")
+		OK(w, "")
 		return
 	}
 	// user name is error
 	if l.user.UserName != user.UserName {
-		err = errors.New("user name is error")
-		Error(w, err)
+		log.Error("username is invalid")
+		OK(w, "")
 		return
 	}
 	// password is error
 	if l.user.Password != user.Password {
-		err = errors.New("password is error")
-		Error(w, err)
+		log.Error("password is invalid")
+		OK(w, "")
 		return
 	}
-	token, err := middleware.CreateToken(user)
+	token, err := l.auth.CreateToken(user)
 	if err != nil {
-		Error(w, err)
+		OK(w, "")
+		return
 	}
 	OK(w, token)
 }

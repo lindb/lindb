@@ -26,6 +26,8 @@ type StatusStateMachine interface {
 	GetQueryableReplicas(database string) map[string][]int32
 	// GetReplicas returns the replica state list under this broker by broker's indicator
 	GetReplicas(broker string) models.BrokerReplicaState
+	// Close closes state machine, stops watch change event
+	Close() error
 }
 
 // statusStateMachine implements status state machine,
@@ -103,6 +105,13 @@ func (sm *statusStateMachine) GetReplicas(broker string) models.BrokerReplicaSta
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
 	return sm.brokers[broker]
+}
+
+// Close closes state machine, stops watch change event
+func (sm *statusStateMachine) Close() error {
+	sm.discovery.Close()
+	sm.cancel()
+	return nil
 }
 
 // OnCreates updates the broker's replica status when broker upload replica state
