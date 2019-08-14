@@ -83,4 +83,21 @@ func TestDatabaseAPI(t *testing.T) {
 		HandlerFunc:    api.GetByName,
 		ExpectHTTPCode: 500,
 	})
+
+	databaseService.EXPECT().List().Return(nil, fmt.Errorf("err"))
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodGet,
+		URL:            "/database/list",
+		HandlerFunc:    api.List,
+		ExpectHTTPCode: 500,
+	})
+
+	databaseService.EXPECT().List().Return([]*models.Database{&db}, nil)
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodGet,
+		URL:            "/database/list",
+		HandlerFunc:    api.List,
+		ExpectHTTPCode: 200,
+		ExpectResponse: []*models.Database{&db},
+	})
 }
