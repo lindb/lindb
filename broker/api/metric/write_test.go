@@ -20,20 +20,12 @@ func TestWriteAPI_Sum(t *testing.T) {
 	// param error
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
-		URL:            "/metric/sum?cluster=dal",
+		URL:            "/metric/sum",
 		HandlerFunc:    api.Sum,
 		ExpectHTTPCode: 500,
 	})
 
-	// param error
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/sum?db=dal",
-		HandlerFunc:    api.Sum,
-		ExpectHTTPCode: 500,
-	})
-
-	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
 		URL:            "/metric/sum?db=dal&cluster=dal",
@@ -42,7 +34,7 @@ func TestWriteAPI_Sum(t *testing.T) {
 	})
 
 	ch := replication.NewMockChannel(ctrl)
-	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(ch, nil).AnyTimes()
+	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any()).Return(ch, nil).AnyTimes()
 	ch.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,

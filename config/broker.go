@@ -25,6 +25,7 @@ type ReplicationChannel struct {
 	BufferSize                 int    `toml:"bufferSize"`
 	SegmentFileSize            int    `toml:"segmentFileSize"`
 	RemoveTaskIntervalInSecond int    `toml:"remoteTaskIntervalInSecond"`
+	ReportInterval             int    `toml:"reportInterval"` // replicator state report interval
 }
 
 // NewDefaultBrokerCfg creates broker default config

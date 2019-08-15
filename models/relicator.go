@@ -10,21 +10,15 @@ type BrokerReplicaState struct {
 
 // ReplicaState represents the status of replicator's channel
 type ReplicaState struct {
-	Cluster      string `json:"cluster"`      // cluster which storing database
 	Database     string `json:"database"`     // database name
 	ShardID      int32  `json:"shardID"`      // shard id
-	TO           Node   `json:"to"`           // target storage node for database's shard
-	WriteIndex   int64  `json:"writeIndex"`   // wal write index
+	Target       Node   `json:"target"`       // target storage node for database's shard
+	Pending      int64  `json:"pending"`      // the num. of pending which it need replica msg
 	ReplicaIndex int64  `json:"replicaIndex"` // replica index for current replicator's channel
-	CommitIndex  int64  `json:"commitIndex"`  // commit index
+	AckIndex     int64  `json:"ackIndex"`     // commit index
 }
 
-// ShardIndicator returns shard indicator based on cluster/database/shard id
+// ShardIndicator returns shard indicator based on database/shard id
 func (r ReplicaState) ShardIndicator() string {
-	return fmt.Sprintf("%s/%s/%d", r.Cluster, r.Database, r.ShardID)
-}
-
-// Pending returns the num. of pending which it need replica msg
-func (r ReplicaState) Pending() int64 {
-	return r.WriteIndex - r.ReplicaIndex
+	return fmt.Sprintf("%s/%d", r.Database, r.ShardID)
 }

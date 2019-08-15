@@ -111,8 +111,7 @@ func (sm *replicatorStateMachine) buildShardAssign(shardAssign *models.ShardAssi
 // createReplicaChannel creates wal replica channel for spec database's shard
 func (sm *replicatorStateMachine) createReplicaChannel(numOfShard, shardID int, shardAssign *models.ShardAssignment) {
 	db := shardAssign.Name
-	//FIXME: remove or set cluster
-	ch, err := sm.cm.CreateChannel("dal", db, int32(numOfShard), int32(shardID))
+	ch, err := sm.cm.CreateChannel(db, int32(numOfShard), int32(shardID))
 	if err != nil {
 		sm.log.Error("create replica channel", logger.Error(err))
 		return
