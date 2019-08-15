@@ -2,13 +2,13 @@ package kv
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -28,7 +28,7 @@ type store struct {
 	name   string
 	option StoreOption
 	// file-lock restricts access to store by allowing only one instance
-	lock     *lockers.FileLock
+	lock     *fileutil.LockedFile
 	versions *version.StoreVersionSet
 	// each family instance need to be assigned an unique family id
 	familyID int
@@ -60,9 +60,10 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		info = newStoreInfo(option)
 		isCreate = true
 	}
-	// try lock
-	lock := lockers.NewFileLock(filepath.Join(option.Path, version.Lock))
-	err := lock.Lock()
+	// try lock, XXX: maybe write a pid to make debugging easier.
+	lockedf, err := fileutil.TryLockFile(
+		filepath.Join(option.Path, version.Lock),
+		os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +71,10 @@ func NewStore(name string, option StoreOption) (Store, error) {
 	log := logger.GetLogger("kv", fmt.Sprintf("Store[%s]", option.Path))
 
 	// unlock file lock if error
+	// NOTE: we need the same error so that we can do clean up work properly.
 	defer func() {
 		if err != nil {
-			if e := lock.Unlock(); e != nil {
+			if e := lockedf.Close(); e != nil {
 				log.Error("unlock file error:", logger.Error(e))
 			}
 		}
@@ -81,7 +83,7 @@ func NewStore(name string, option StoreOption) (Store, error) {
 	store := &store{
 		name:      name,
 		option:    option,
-		lock:      lock,
+		lock:      lockedf,
 		families:  make(map[string]Family),
 		logger:    log,
 		storeInfo: info,
@@ -92,7 +94,7 @@ func NewStore(name string, option StoreOption) (Store, error) {
 
 	if isCreate {
 		// if store is new created, need dump store info to INFO file
-		if err := store.dumpStoreInfo(); err != nil {
+		if err = store.dumpStoreInfo(); err != nil {
 			return nil, err
 		}
 	} else {
@@ -102,7 +104,8 @@ func NewStore(name string, option StoreOption) (Store, error) {
 				store.familyID = familyOption.ID
 			}
 			// open existed family
-			family, err := newFamily(store, familyOption)
+			var family Family
+			family, err = newFamily(store, familyOption)
 			if err != nil {
 				return nil, fmt.Errorf("building family instance for existed store[%s] error:%s", option.Path, err)
 			}
@@ -110,7 +113,7 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		}
 	}
 	// recover version set, after recovering family options
-	if err := store.versions.Recover(); err != nil {
+	if err = store.versions.Recover(); err != nil {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
 
@@ -172,7 +175,7 @@ func (s *store) Close() error {
 	if err := s.versions.Destroy(); err != nil {
 		s.logger.Error("destroy store version set error", logger.Error(err))
 	}
-	return s.lock.Unlock()
+	return s.lock.Close()
 }
 
 // dumpStoreInfo persists store info to OPTIONS file

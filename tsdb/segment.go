@@ -12,7 +12,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-//go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb -self_package=github.com/lindb/lindb/tsdb
+//go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
 
 // IntervalSegment represents a interval segment, there are some segments in a shard.
 type IntervalSegment interface {

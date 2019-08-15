@@ -6,7 +6,7 @@ import (
 	"github.com/lindb/lindb/tsdb/series"
 )
 
-//go:generate mockgen -source=./scan.go -destination=./scan_mock.go -package=tsdb -self_package=github.com/lindb/lindb/tsdb
+//go:generate mockgen -source=./scan.go -destination=./scan_mock.go -package=tsdb
 
 type ScanContext struct {
 	// required
