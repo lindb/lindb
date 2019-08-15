@@ -84,7 +84,6 @@ var (
 		IP:   "123",
 		Port: 123,
 	}
-	cluster  = "cluster"
 	database = "database"
 	shardID  = int32(0)
 )
@@ -110,9 +109,8 @@ func TestSimple(t *testing.T) {
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
 	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error")).AnyTimes()
 
-	rep := newReplicator(node, cluster, database, shardID, nil, mockFct)
+	rep := newReplicator(node, database, shardID, nil, mockFct)
 
-	assert.Equal(t, cluster, rep.Cluster())
 	assert.Equal(t, database, rep.Database())
 	assert.Equal(t, shardID, rep.ShardID())
 	assert.Equal(t, node, rep.Target())
@@ -147,7 +145,7 @@ func TestGetRemoteNextSeqFail(t *testing.T) {
 		return nil, errors.New("get service client error any")
 	})
 
-	rep := newReplicator(node, cluster, database, shardID, nil, mockFct)
+	rep := newReplicator(node, database, shardID, nil, mockFct)
 	// if the main go-routine is block, check mock call missing work will be block too.
 	<-done
 	rep.Stop()
@@ -186,7 +184,7 @@ func TestSetLocalHeadSeqFail(t *testing.T) {
 	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
 	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
 
-	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -224,7 +222,7 @@ func TestSetLocalHeadSeqSuccess(t *testing.T) {
 	mockFanOut := queue.NewMockFanOut(ctl)
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil)
 
-	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -264,7 +262,7 @@ func TestResetRemoteSeqSuccess(t *testing.T) {
 	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
 	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
 
-	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -320,7 +318,7 @@ func TestNormalReplication(t *testing.T) {
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
-	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
 
 	time.Sleep(time.Second * 2)
 	rep.Stop()
@@ -409,7 +407,7 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
-	rep := newReplicator(node, cluster, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
 
 	time.Sleep(time.Second * 4)
 	rep.Stop()

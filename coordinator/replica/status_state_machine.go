@@ -90,10 +90,10 @@ func (sm *statusStateMachine) GetQueryableReplicas(database string) map[string][
 			// has multi-replica, chooses the fastest
 			// sort replicas based pending msg
 			sort.Slice(replicaList, func(i, j int) bool {
-				return replicaList[i].Pending() < replicaList[j].Pending()
+				return replicaList[i].Pending < replicaList[j].Pending
 			})
 		}
-		nodeID := replicaList[0].TO.Indicator()
+		nodeID := replicaList[0].Target.Indicator()
 		result[nodeID] = append(result[nodeID], replicaList[0].ShardID)
 	}
 

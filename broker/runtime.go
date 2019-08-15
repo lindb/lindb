@@ -41,6 +41,7 @@ type srv struct {
 	storageStateService   service.StorageStateService
 	shardAssignService    service.ShardAssignService
 	databaseService       service.DatabaseService
+	replicatorService     service.ReplicatorService
 	channelManager        replication.ChannelManager
 }
 
@@ -254,14 +255,18 @@ func (r *runtime) startStateRepo() error {
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() {
 	// todo watch stateMachine states change.
+
+	replicatorService := service.NewReplicatorService(r.node, r.repo)
+
 	// hard code create channel first.
-	cm := replication.NewChannelManager(r.config.ReplicationChannel, rpc.NewClientStreamFactory(r.node))
+	cm := replication.NewChannelManager(r.config.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorService)
 
 	srv := srv{
 		storageClusterService: service.NewStorageClusterService(r.repo),
 		databaseService:       service.NewDatabaseService(r.repo),
 		storageStateService:   service.NewStorageStateService(r.repo),
 		shardAssignService:    service.NewShardAssignService(r.repo),
+		replicatorService:     replicatorService,
 		channelManager:        cm,
 	}
 	r.srv = srv

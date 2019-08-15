@@ -8,13 +8,11 @@ import (
 
 func TestReplicaState(t *testing.T) {
 	replica := ReplicaState{
-		Cluster:      "cluster",
 		Database:     "db",
 		ShardID:      int32(1),
-		WriteIndex:   100,
+		Pending:      100,
 		ReplicaIndex: 50,
 	}
 
-	assert.Equal(t, "cluster/db/1", replica.ShardIndicator())
-	assert.Equal(t, int64(50), replica.Pending())
+	assert.Equal(t, "db/1", replica.ShardIndicator())
 }

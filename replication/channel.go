@@ -13,7 +13,9 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./channel.go -destination=./channel_mock.go -package=replication
@@ -21,17 +23,21 @@ import (
 // ErrCanceled is the error returned when writing data ctx canceled.
 var ErrCanceled = errors.New("write data ctx done")
 
+const defaultReportInterval = 30
+
+var log = logger.GetLogger("replication")
+
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
-	// GetChannel returns the channel for specific cluster, database and hash.
-	// Error is returned when cluster, database is invalid or the total num of Channels
-	// for a cluster, database is less than the numOfShard.
-	GetChannel(cluster, database string, hash int32) (Channel, error)
+	// GetChannel returns the channel for specific database and hash.
+	// Error is returned when database is invalid or the total num of Channels
+	// for a database is less than the numOfShard.
+	GetChannel(database string, hash int32) (Channel, error)
 
-	// CreateChannel creates a new channel or returns a existed channel for storage with specific cluster,
-	// database and shardID, numOfShard should be greater or equal than the origin setting, otherwise error is returned.
+	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
+	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
-	CreateChannel(cluster, database string, numOfShard, shardID int32) (Channel, error)
+	CreateChannel(database string, numOfShard, shardID int32) (Channel, error)
 
 	// Close closes all the channel.
 	Close()
@@ -47,9 +53,11 @@ type channelManager struct {
 	cfg config.ReplicationChannel
 	// factory to get rpc  write client
 	fct rpc.ClientStreamFactory
-	// channelID(a tuple of cluster, database, shardID)  -> Channel
+	// for report replica state
+	replicatorService service.ReplicatorService
+	// channelID(a tuple of database, shardID)  -> Channel
 	channelMap sync.Map
-	// databaseID(a tuple of cluster, database)  -> numOfShard
+	// databaseID(a tuple of database)  -> numOfShard
 	databaseShardsMap sync.Map
 	// lock for channelMap
 	lock4map sync.Mutex
@@ -57,23 +65,27 @@ type channelManager struct {
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
 // WriteClientFactory makes it easy to mock rpc streamClient for test.
-func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactory) ChannelManager {
+func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactory,
+	replicatorService service.ReplicatorService) ChannelManager {
 	cxt, cancel := context.WithCancel(context.TODO())
-	return &channelManager{
-		cxt:    cxt,
-		cancel: cancel,
-		cfg:    cfg,
-		fct:    fct,
+	cm := &channelManager{
+		cxt:               cxt,
+		cancel:            cancel,
+		cfg:               cfg,
+		fct:               fct,
+		replicatorService: replicatorService,
 	}
+	cm.scheduleStateReport()
+	return cm
 }
 
-// GetChannel returns the channel for specific cluster, database and hash.
-// Error is returned when cluster, database is invalid or the total num of Channels
-// for a cluster, database is less than the numOfShard.
-func (cm *channelManager) GetChannel(cluster, database string, hash int32) (Channel, error) {
-	shardVal, ok := cm.databaseShardsMap.Load(cm.buildDatabaseID(cluster, database))
+// GetChannel returns the channel for specific database and hash.
+// Error is returned when database is invalid or the total num of Channels
+// for a database is less than the numOfShard.
+func (cm *channelManager) GetChannel(database string, hash int32) (Channel, error) {
+	shardVal, ok := cm.databaseShardsMap.Load(database)
 	if !ok {
-		return nil, fmt.Errorf("channel for cluster:%s, database:%s not found", cluster, database)
+		return nil, fmt.Errorf("channel for  database:%s not found", database)
 	}
 	numOfShard := shardVal.(int32)
 	shardID := hash % numOfShard
@@ -81,24 +93,24 @@ func (cm *channelManager) GetChannel(cluster, database string, hash int32) (Chan
 		shardID = -shardID
 	}
 
-	channelID := cm.buildChannelID(cluster, database, shardID)
+	channelID := cm.buildChannelID(database, shardID)
 	channelVal, ok := cm.channelMap.Load(channelID)
 
 	if !ok {
-		return nil, fmt.Errorf("channel for cluster:%s, database:%s, shardID:%d not found", cluster, database, shardID)
+		return nil, fmt.Errorf("channel for database:%s, shardID:%d not found", database, shardID)
 	}
 
 	ch := channelVal.(Channel)
 	return ch, nil
 }
 
-// CreateChannel creates a new channel or returns a existed channel for storage with specific cluster,
-// database and shardID. NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-func (cm *channelManager) CreateChannel(cluster, database string, numOfShard, shardID int32) (Channel, error) {
+// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
+// NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
+func (cm *channelManager) CreateChannel(database string, numOfShard, shardID int32) (Channel, error) {
 	if numOfShard <= 0 || shardID >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
-	channelID := cm.buildChannelID(cluster, database, shardID)
+	channelID := cm.buildChannelID(database, shardID)
 	val, ok := cm.channelMap.Load(channelID)
 	if !ok {
 		// double check
@@ -107,18 +119,16 @@ func (cm *channelManager) CreateChannel(cluster, database string, numOfShard, sh
 		val, ok = cm.channelMap.Load(channelID)
 		if !ok {
 			// check numOfShard
-			dbID := cm.buildDatabaseID(cluster, database)
-			shardVal, ok := cm.databaseShardsMap.Load(dbID)
+			shardVal, ok := cm.databaseShardsMap.Load(database)
 			if ok {
 				oldNumOfShard := shardVal.(int32)
 				if numOfShard < oldNumOfShard {
 					return nil, errors.New("numOfShard should be equal or greater than original setting")
 				}
 			}
-			cm.databaseShardsMap.Store(dbID, numOfShard)
+			cm.databaseShardsMap.Store(database, numOfShard)
 
-			ch, err := newChannel(cm.cxt, cm.cfg,
-				cluster, database, shardID, cm.fct)
+			ch, err := newChannel(cm.cxt, cm.cfg, database, shardID, cm.fct)
 			if err != nil {
 				return nil, err
 			}
@@ -136,20 +146,66 @@ func (cm *channelManager) Close() {
 	cm.cancel()
 }
 
-// buildChannelID return a string id by joining cluster, database, shardID with separator.
-func (cm *channelManager) buildChannelID(cluster, database string, shardID int32) string {
-	return cluster + "/" + database + "/" + strconv.Itoa(int(shardID))
+// scheduleStateReport schedules a state report background job
+func (cm *channelManager) scheduleStateReport() {
+	interval := defaultReportInterval
+	if cm.cfg.ReportInterval > 0 {
+		interval = cm.cfg.ReportInterval
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				cm.reportState()
+			case <-cm.cxt.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 }
 
-// buildDatabaseID return a string id by joining cluster, database.
-func (cm *channelManager) buildDatabaseID(cluster, database string) string {
-	return cluster + "/" + database
+// reportState reports the state of all replicators under current broker
+func (cm *channelManager) reportState() {
+	brokerState := models.BrokerReplicaState{ReportTime: timeutil.Now()}
+	cm.channelMap.Range(func(key, value interface{}) bool {
+		channel, ok := value.(Channel)
+		if ok {
+			channel.Database()
+			targets := channel.Targets()
+			for i := range targets {
+				target := targets[i]
+				replicator, err := channel.GetOrCreateReplicator(target)
+				if err != nil {
+					log.Error("get replicator fail", logger.String("target", (&target).Indicator()), logger.Error(err))
+					continue
+				}
+				replicatorState := models.ReplicaState{
+					Database:     replicator.Database(),
+					Target:       target,
+					ShardID:      replicator.ShardID(),
+					Pending:      replicator.Pending(),
+					ReplicaIndex: replicator.ReplicaIndex(),
+					AckIndex:     replicator.AckIndex(),
+				}
+				brokerState.Replicas = append(brokerState.Replicas, replicatorState)
+			}
+		}
+		return true
+	})
+	if err := cm.replicatorService.Report(&brokerState); err != nil {
+		log.Error("report broker replicator state fail", logger.Error(err))
+	}
+}
+
+// buildChannelID return a string id by joining database, shardID with separator.
+func (cm *channelManager) buildChannelID(database string, shardID int32) string {
+	return database + "/" + strconv.Itoa(int(shardID))
 }
 
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
-	// Cluster returns the cluster attribution.
-	Cluster() string
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
@@ -172,7 +228,6 @@ type channel struct {
 	dirPath string
 	// factory to get WriteClient
 	fct      rpc.ClientStreamFactory
-	cluster  string
 	database string
 	shardID  int32
 	// underlying storage for written data
@@ -187,9 +242,9 @@ type channel struct {
 }
 
 // newChannel returns a new channel with specific attribution.
-func newChannel(cxt context.Context, cfg config.ReplicationChannel, cluster, database string, shardID int32,
+func newChannel(cxt context.Context, cfg config.ReplicationChannel, database string, shardID int32,
 	fct rpc.ClientStreamFactory) (Channel, error) {
-	dirPath := path.Join(cfg.Path, cluster, database, strconv.Itoa(int(shardID)))
+	dirPath := path.Join(cfg.Path, database, strconv.Itoa(int(shardID)))
 	interval := time.Duration(cfg.RemoveTaskIntervalInSecond) * time.Second
 
 	q, err := queue.NewFanOutQueue(dirPath, cfg.SegmentFileSize, interval)
@@ -201,7 +256,6 @@ func newChannel(cxt context.Context, cfg config.ReplicationChannel, cluster, dat
 		cxt:      cxt,
 		dirPath:  dirPath,
 		fct:      fct,
-		cluster:  cluster,
 		database: database,
 		shardID:  shardID,
 		q:        q,
@@ -213,11 +267,6 @@ func newChannel(cxt context.Context, cfg config.ReplicationChannel, cluster, dat
 	c.watchClose()
 
 	return c, nil
-}
-
-// Cluster returns the cluster attribution.
-func (c *channel) Cluster() string {
-	return c.cluster
 }
 
 // Database returns the database attribution.
@@ -244,7 +293,7 @@ func (c *channel) GetOrCreateReplicator(target models.Node) (Replicator, error) 
 			if err != nil {
 				return nil, err
 			}
-			rep := newReplicator(target, c.cluster, c.database, c.shardID, fo, c.fct)
+			rep := newReplicator(target, c.database, c.shardID, fo, c.fct)
 
 			c.replicatorMap.Store(target, rep)
 			return rep, nil

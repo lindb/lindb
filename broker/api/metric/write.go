@@ -21,11 +21,6 @@ func NewWriteAPI(cm replication.ChannelManager) *WriteAPI {
 }
 
 func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
-	cluster, err := api.GetParamsFromRequest("cluster", r, "", true)
-	if err != nil {
-		api.Error(w, err)
-		return
-	}
 	databaseName, err := api.GetParamsFromRequest("db", r, "", true)
 	if err != nil {
 		api.Error(w, err)
@@ -43,7 +38,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 
 	data, _ := metric.Marshal()
 
-	ch, err := m.cm.GetChannel(cluster, databaseName, 0)
+	ch, err := m.cm.GetChannel(databaseName, 0)
 	if err != nil {
 		api.Error(w, err)
 		return
