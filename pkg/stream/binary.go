@@ -3,7 +3,6 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 )
 
 // Binary is stream for writing data into memory buffer
@@ -38,11 +37,7 @@ func BinaryReader(v []byte) *Binary {
 func (b *Binary) PutBytes(v []byte) {
 	length := len(v)
 	if length > 0 {
-		n, err := b.buf.Write(v)
-		b.err = err
-		if n != length {
-			b.err = fmt.Errorf("write len not eqauls value's len")
-		}
+		_, b.err = b.buf.Write(v)
 	}
 }
 
