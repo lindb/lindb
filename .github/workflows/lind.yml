@@ -3,41 +3,69 @@ on: [push, pull_request]
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Setup Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2-beta
         with:
           go-version: 1.14
-        id: go
+
+      - name: Display golang info
+        shell: bash
+        run: |
+          echo $(go version) at $(which go)
+          echo go version: $(go version)
+          echo cache: $(ls $RUNNER_TOOL_CACHE/go)
+          echo go env: $(go env GOPATH)
 
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
           fetch-depth: 1
 
-      - name: Test
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-          make pre-test
-          make test
-          bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
+      - name: Test on ubuntu
+        shell: bash
+        run: make mock-check-test
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Test on windows
+        shell: bash
+        run: make mock-test
+        if: matrix.os == 'windows-latest'
+
+      - name: codecov
+        shell: bash
+        run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2-beta
         with:
           go-version: 1.14
 
+      - name: Display golang info
+        shell: bash
+        run: |
+          echo $(go version) at $(which go)
+          echo go version: $(go version)
+          echo cache: $(ls $RUNNER_TOOL_CACHE/go)
+          echo go env: $(go env GOPATH)
+
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
           fetch-depth: 1
 
       - name: Build
+        shell: bash
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
           make build

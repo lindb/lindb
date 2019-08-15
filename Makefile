@@ -1,4 +1,4 @@
-.PHONY: help build test deps generate clean
+.PHONY: help build verify generate mock check test mock-check-test check-test mock-test clean
 
 # use the latest git tag as release-version
 GIT_TAG_NAME=$(shell git tag --sort=-creatordate|head -n 1)
@@ -24,7 +24,7 @@ build-lind:
 
 GOLANGCI_LINT_VERSION ?= "v1.18.0"
 
-pre-test: ## go generate mock file.
+mock: ## go generate mock file.
 	go install "./ci/mockgen"
 
 	go list ./... | grep -v '/vendor' |grep -v '/gomock' | xargs go generate
@@ -41,18 +41,22 @@ pre-test: ## go generate mock file.
        sed -i 's#\[x\.#\[#g; s#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
     fi
 
-test: ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
+check: ## golangci-lint check
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
 	fi
 	./bin/golangci-lint run
+
+test: ## Run test cases.
 	go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-deps:  ## Update vendor.
+mock-check-test: mock check test ## mock -> check -> test
+check-test: check test ## check -> test
+mock-test: mock test ## mock -> test
+
+verify:  ## verify go mod.
 	go mod verify
 	go mod tidy -v
-#	rm -rf vendor
-#	go mod vendor -v
 
 generate:  ## generate pb file.
 	# go get github.com/benbjohnson/tmpl

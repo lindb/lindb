@@ -3,7 +3,6 @@ package lockers
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -35,16 +34,11 @@ func NewFileLock(fileName string) FileLock {
 
 // Lock try locking file, return err if fails.
 func (l *fileLock) Lock() error {
-	f, err := os.Create(l.fileName)
-	if nil != err {
-		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
-	}
-	l.file = f
-	// invoke syscall for file lock
-	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if nil != err {
+	f, err := lockFile(l.fileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
+	if err != nil {
 		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
 	}
+	l.file = f
 	return nil
 }
 
@@ -62,5 +56,5 @@ func (l *fileLock) Unlock() error {
 			l.logger.Error("close file lock error", logger.Error(err))
 		}
 	}()
-	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	return unlockFile(l.file)
 }
