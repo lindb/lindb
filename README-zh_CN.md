@@ -1,5 +1,3 @@
-[Click me switch to English version](/README.md)
-
 <p align="left">
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
@@ -10,6 +8,8 @@
 [![Travis CI Build Status](https://travis-ci.org/lindb/lindb.svg?branch=develop)](https://travis-ci.org/lindb/lindb)
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+
+[English](./README.md) | 简体中文
 
 ## 简介
 
@@ -58,12 +58,6 @@ LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB
 ## 架构
 
 ![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
-
-## 截图
-![home](https://github.com/lindb/lindb/wiki/images/readme/home.png)
-![search](https://github.com/lindb/lindb/wiki/images/readme/search.png)
-![explain](https://github.com/lindb/lindb/wiki/images/readme/explain.png)
-![database](https://github.com/lindb/lindb/wiki/images/readme/database.png)
 
 ## 贡献代码
 
