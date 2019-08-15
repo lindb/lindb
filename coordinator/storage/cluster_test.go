@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
 )
@@ -19,6 +20,9 @@ func TestStorageCluster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	engineOption := option.EngineOption{
+		Interval: "10s",
+	}
 	factory := NewClusterFactory()
 	storage := models.StorageCluster{
 		Config: state.Config{Namespace: "storage"},
@@ -82,13 +86,13 @@ func TestStorageCluster(t *testing.T) {
 	shardAssign, err := cluster.GetShardAssign("test")
 	assert.Nil(t, shardAssign)
 	assert.NotNil(t, err)
-	shardAssignService.EXPECT().Get(gomock.Any()).Return(models.NewShardAssignment(), nil)
+	shardAssignService.EXPECT().Get(gomock.Any()).Return(models.NewShardAssignment("test"), nil)
 	shardAssign, err = cluster.GetShardAssign("test")
 	assert.NotNil(t, shardAssign)
 	assert.Nil(t, err)
 
 	// save shard assignment
-	shardAssign = models.NewShardAssignment()
+	shardAssign = models.NewShardAssignment("test")
 	shardAssign.AddReplica(1, 1)
 	shardAssign.AddReplica(2, 1)
 	shardAssign.AddReplica(3, 2)
@@ -97,17 +101,17 @@ func TestStorageCluster(t *testing.T) {
 	shardAssign.Nodes[2] = &models.Node{IP: "1.1.1.2", Port: 8000}
 	// save shard assign err
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = cluster.SaveShardAssign("test", shardAssign)
+	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
 	assert.NotNil(t, err)
 	// submit task err
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = cluster.SaveShardAssign("test", shardAssign)
+	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
 	assert.NotNil(t, err)
 	// success
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	err = cluster.SaveShardAssign("test", shardAssign)
+	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
 	assert.Nil(t, err)
 
 	// test submit task

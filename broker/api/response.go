@@ -7,31 +7,34 @@ import (
 
 // OK responses with content and set the http status code 200
 func OK(w http.ResponseWriter, a interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
 	b, _ := json.Marshal(a)
-	_, _ = w.Write(b)
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
-	}
+	response(w, http.StatusOK, b)
 }
 
 // NoContent responses with empty content and set the http status code 204
 func NoContent(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusNoContent)
+	response(w, http.StatusNoContent, nil)
 }
 
 // NotFound responses resource not found
 func NotFound(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusNotFound)
+	response(w, http.StatusNotFound, nil)
 }
 
 // Error responses error message and set the http status code 500
 func Error(w http.ResponseWriter, err error) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusInternalServerError)
 	b, _ := json.Marshal(err.Error())
-	_, _ = w.Write(b)
+	response(w, http.StatusInternalServerError, b)
+}
+
+// response responses json body for http restful api
+func response(w http.ResponseWriter, httpCode int, content []byte) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(httpCode)
+	if len(content) > 0 {
+		_, _ = w.Write(content)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
 }

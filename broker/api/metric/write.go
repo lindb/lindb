@@ -5,10 +5,7 @@ import (
 	"net/http"
 
 	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/pkg/util"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc/proto/field"
 )
@@ -18,20 +15,11 @@ type WriteAPI struct {
 }
 
 func NewWriteAPI(cm replication.ChannelManager) *WriteAPI {
-	//TODO need remove
-	ch, err := cm.CreateChannel("dal", "test", 1, 0)
-	if err != nil {
-		logger.GetLogger("write").Error("create channel", logger.Error(err))
-	}
-	ip, _ := util.GetHostIP()
-	_, err = ch.GetOrCreateReplicator(models.Node{IP: ip, Port: 2891})
-	if err != nil {
-		logger.GetLogger("write").Error("create replicator", logger.Error(err))
-	}
 	return &WriteAPI{
 		cm: cm,
 	}
 }
+
 func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 	cluster, err := api.GetParamsFromRequest("cluster", r, "", true)
 	if err != nil {

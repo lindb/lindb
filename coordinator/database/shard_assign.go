@@ -28,22 +28,22 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []int, cluster models.DatabaseCluster) (*models.ShardAssignment, error) {
-	numOfShard := cluster.NumOfShard
-	replicaFactor := cluster.ReplicaFactor
+func ShardAssignment(storageNodeIDs []int, cfg *models.Database) (*models.ShardAssignment, error) {
+	numOfShard := cfg.NumOfShard
+	replicaFactor := cfg.ReplicaFactor
 	if numOfShard <= 0 {
-		return nil, fmt.Errorf("shard assign error for cluster[%s], because num. of shard <=0", cluster.Name)
+		return nil, fmt.Errorf("shard assign error for databaes[%s], because num. of shard <=0", cfg.Name)
 	}
 	if replicaFactor <= 0 {
-		return nil, fmt.Errorf("shard assign error for cluster[%s], bacause replica factor <=0", cluster.Name)
+		return nil, fmt.Errorf("shard assign error for databaes[%s], bacause replica factor <=0", cfg.Name)
 	}
 	if replicaFactor > len(storageNodeIDs) {
 		return nil,
-			fmt.Errorf("shard assign error for cluster[%s], bacause replica factor > num. of storage nodes",
-				cluster.Name)
+			fmt.Errorf("shard assign error for databaes[%s], bacause replica factor > num. of storage nodes",
+				cfg.Name)
 	}
 
-	shardAssignment := models.NewShardAssignment()
+	shardAssignment := models.NewShardAssignment(cfg.Name)
 	assignReplicasToStorageNodes(storageNodeIDs, numOfShard, replicaFactor, -1, -1, shardAssignment)
 
 	return shardAssignment, nil

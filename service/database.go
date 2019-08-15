@@ -41,23 +41,19 @@ func (db *databaseService) Save(database *models.Database) error {
 	if len(database.Name) == 0 {
 		return fmt.Errorf("name cannot be empty")
 	}
-	if len(database.Clusters) == 0 {
-		return fmt.Errorf("cluster is empty")
+	if len(database.Cluster) == 0 {
+		return fmt.Errorf("cluster name cannot eb empty")
 	}
 
-	clusters := database.Clusters
-	for i := range clusters {
-		cluster := clusters[i]
-
-		if len(cluster.Name) == 0 {
-			return fmt.Errorf("cluster name is empty")
-		}
-		if cluster.NumOfShard <= 0 {
-			return fmt.Errorf("num. of shard must be > 0")
-		}
-		if cluster.ReplicaFactor <= 0 {
-			return fmt.Errorf("replica factor must be > 0")
-		}
+	if database.NumOfShard <= 0 {
+		return fmt.Errorf("num. of shard must be > 0")
+	}
+	if database.ReplicaFactor <= 0 {
+		return fmt.Errorf("replica factor must be > 0")
+	}
+	// validate time series engine option
+	if err := database.Engine.Validation(); err != nil {
+		return err
 	}
 	data, _ := json.Marshal(database)
 	return db.repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath(database.Name), data)

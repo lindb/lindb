@@ -78,7 +78,6 @@ func NewRouter() *mux.Router {
 				w.Header().Set("Access-Control-Allow-Headers",
 					"Origin, X-Requested-With, X-HTTP-Method-Override,accept-charset,accept-encoding "+
 						", Content-Type, Accept, Authorization")
-				w.Header().Set("Content-Type", "application/json")
 
 				if r.Method == http.MethodOptions {
 					return

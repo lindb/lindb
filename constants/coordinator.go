@@ -9,23 +9,23 @@ const (
 )
 
 // defines storage level constants will be used in storage
-const (
-	// DatabaseAssignPath represents database shard assignment
-	DatabaseAssignPath = "/database/assign"
-)
+//const ()
 
 // defines broker level constants will be used in broker
 const (
+	// MasterPath represents master elect path
+	MasterPath = "/master/node"
+	// DatabaseAssignPath represents database shard assignment
+	DatabaseAssignPath = "/database/assign"
 	// StorageClusterConfigPath represents cluster config store
 	StorageClusterConfigPath = "/storage/cluster/config"
 	// DatabaseConfigPath represents database config path
 	DatabaseConfigPath = "/database/config"
+
 	// StorageClusterStatePath represents storage cluster state
 	StorageClusterStatePath = "/state/storage/cluster"
 	// ReplicaStatePath represents the replica's state
 	ReplicaStatePath = "/state/replica"
-	// MasterPath represents master elect path
-	MasterPath = "/master/node"
 )
 
 // defines all task kinds

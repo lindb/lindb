@@ -7,7 +7,9 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./state_machine_factory.go -destination=./state_machine_factory_mock.go -package=coordinator
@@ -17,6 +19,8 @@ type StateMachineCfg struct {
 	Ctx                 context.Context
 	CurrentNode         models.Node
 	DiscoveryFactory    discovery.Factory
+	ShardAssignSRV      service.ShardAssignService
+	ChannelManager      replication.ChannelManager
 	ClientStreamFactory rpc.ClientStreamFactory // rpc client stream create factory
 }
 
@@ -28,6 +32,8 @@ type StateMachineFactory interface {
 	CreateStorageStateMachine() (broker.StorageStateMachine, error)
 	// CreateReplicaStatusStateMachine creates the shard replica status state machine
 	CreateReplicaStatusStateMachine() (replica.StatusStateMachine, error)
+	// CreateReplicatorStateMachine creates the shard replicator state machine
+	CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error)
 }
 
 // stateMachineFactory implements the interface, using state machine config for creating
@@ -53,4 +59,9 @@ func (s *stateMachineFactory) CreateStorageStateMachine() (broker.StorageStateMa
 // CreateReplicaStatusStateMachine creates the shard replica status state machine, if fail returns err
 func (s *stateMachineFactory) CreateReplicaStatusStateMachine() (replica.StatusStateMachine, error) {
 	return replica.NewStatusStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
+}
+
+// CreateReplicatorStateMachine creates the shard replicator state machine
+func (s *stateMachineFactory) CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error) {
+	return replica.NewReplicatorStateMachine(s.cfg.Ctx, s.cfg.ChannelManager, s.cfg.ShardAssignSRV, s.cfg.DiscoveryFactory)
 }
