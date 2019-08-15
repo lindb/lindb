@@ -6,6 +6,7 @@ run:
     skip-dirs:
         - vendor
         - bin
+        - ci
     # modules-download-mode: readonly
 
 
