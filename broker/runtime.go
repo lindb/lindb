@@ -128,6 +128,8 @@ func (r *runtime) Run() error {
 	smFactory := coordinator.NewStateMachineFactory(&coordinator.StateMachineCfg{
 		Ctx:                 r.ctx,
 		CurrentNode:         r.node,
+		ChannelManager:      r.srv.channelManager,
+		ShardAssignSRV:      r.srv.shardAssignService,
 		DiscoveryFactory:    discoveryFactory,
 		ClientStreamFactory: rpc.NewClientStreamFactory(r.node),
 	})
@@ -138,17 +140,6 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("start state machines error:%s", err)
 	}
 
-	r.buildMiddlewareDependency()
-	r.buildAPIDependency()
-	// start tcp server
-	r.startTCPServer()
-
-	// register storage node info
-	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
-	if err := r.registry.Register(r.node); err != nil {
-		return fmt.Errorf("register storage node error:%s", err)
-	}
 	masterCfg := &coordinator.MasterCfg{
 		Ctx:                 r.ctx,
 		Repo:                r.repo,
@@ -161,8 +152,19 @@ func (r *runtime) Run() error {
 		StorageStateService: r.srv.storageStateService,
 		ShardAssignService:  r.srv.shardAssignService,
 	}
-
 	r.master = coordinator.NewMaster(masterCfg)
+
+	r.buildMiddlewareDependency()
+	r.buildAPIDependency()
+	// start tcp server
+	r.startTCPServer()
+
+	// register broker node info
+	//TODO TTL default value???
+	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
+	if err := r.registry.Register(r.node); err != nil {
+		return fmt.Errorf("register storage node error:%s", err)
+	}
 	r.master.Start()
 
 	// start http server

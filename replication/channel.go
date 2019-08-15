@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 )
+
+//go:generate mockgen -source=./channel.go -destination=./channel_mock.go -package=replication
 
 // ErrCanceled is the error returned when writing data ctx canceled.
 var ErrCanceled = errors.New("write data ctx done")
@@ -284,12 +284,12 @@ func (c *channel) initAppendTask() {
 			_, err := c.q.Append(data)
 			if err != nil {
 				// todo retry?
-				c.logger.Error("append data error", zap.String("dirPath", c.dirPath),
-					zap.Error(err))
+				c.logger.Error("append data error", logger.String("dirPath", c.dirPath),
+					logger.Error(err))
 			}
 		}
 
-		c.logger.Info("close queue for channel", zap.String("dirPath", c.dirPath))
+		c.logger.Info("close queue for channel", logger.String("dirPath", c.dirPath))
 		c.q.Close()
 	}()
 }

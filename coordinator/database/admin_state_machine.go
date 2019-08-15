@@ -75,29 +75,25 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
-	clusters := cfg.Clusters
-	for i := range clusters {
-		clusterCfg := clusters[i]
-		cluster := sm.storageCluster.GetCluster(clusterCfg.Name)
-		if cluster == nil {
-			sm.log.Error("storage cluster not exist",
-				logger.String("cluster", clusterCfg.Name))
-			continue
-		}
-		shardAssign, err := cluster.GetShardAssign(cfg.Name)
-		if err != nil && err != state.ErrNotExist {
-			sm.log.Error("get shard assign error", logger.Error(err), logger.Stack())
-			return
-		}
-		// build shard assignment for creation database, generate related coordinator task
-		if shardAssign == nil {
-			if err := sm.createShardAssignment(cfg.Name, cluster, clusterCfg); err != nil {
-				sm.log.Error("create shard assignment error",
-					logger.String("data", string(resource)), logger.Error(err))
-			}
-		}
-
+	cluster := sm.storageCluster.GetCluster(cfg.Cluster)
+	if cluster == nil {
+		sm.log.Error("storage cluster not exist",
+			logger.String("cluster", cfg.Cluster))
+		return
 	}
+	shardAssign, err := cluster.GetShardAssign(cfg.Name)
+	if err != nil && err != state.ErrNotExist {
+		sm.log.Error("get shard assign error", logger.Error(err))
+		return
+	}
+	// build shard assignment for creation database, generate related coordinator task
+	if shardAssign == nil {
+		if err := sm.createShardAssignment(cfg.Name, cluster, &cfg); err != nil {
+			sm.log.Error("create shard assignment error",
+				logger.String("data", string(resource)), logger.Error(err))
+		}
+	}
+
 	//} else if len(shardAssign.Shards) != cfg.NumOfShard {
 	//TODO need implement modify database shard num.
 }
@@ -119,7 +115,7 @@ func (sm *adminStateMachine) Close() error {
 // 2) save shard assignment into related storage cluster
 // 3) submit create shard coordinator task(storage node will execute it when receive task event)
 func (sm *adminStateMachine) createShardAssignment(databaseName string,
-	cluster storage.Cluster, clusterCfg models.DatabaseCluster) error {
+	cluster storage.Cluster, cfg *models.Database) error {
 	activeNodes := cluster.GetActiveNodes()
 	if len(activeNodes) == 0 {
 		return fmt.Errorf("active node not found")
@@ -136,16 +132,15 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	}
 
 	// generate shard assignment based on node ids and config
-	shardAssign, err := ShardAssignment(nodeIDs, clusterCfg)
+	shardAssign, err := ShardAssignment(nodeIDs, cfg)
 	if err != nil {
 		return err
 	}
 	// set nodes and config, storage node will use it when execute create shard task
 	shardAssign.Nodes = nodes
-	shardAssign.Config = clusterCfg
 
 	// save shard assignment into related storage cluster
-	if err := cluster.SaveShardAssign(databaseName, shardAssign); err != nil {
+	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Engine); err != nil {
 		return err
 	}
 	return nil

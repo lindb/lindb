@@ -11,6 +11,7 @@ type BrokerStateMachines struct {
 	StorageSM       broker.StorageStateMachine
 	NodeSM          broker.NodeStateMachine
 	ReplicaStatusSM replica.StatusStateMachine
+	ReplicatorSM    replica.ReplicatorStateMachine
 
 	factory StateMachineFactory
 
@@ -30,6 +31,10 @@ func (s *BrokerStateMachines) Start() (err error) {
 	if err != nil {
 		return err
 	}
+	s.ReplicatorSM, err = s.factory.CreateReplicatorStateMachine()
+	if err != nil {
+		return err
+	}
 	s.StorageSM, err = s.factory.CreateStorageStateMachine()
 	if err != nil {
 		return err
@@ -45,17 +50,22 @@ func (s *BrokerStateMachines) Start() (err error) {
 func (s *BrokerStateMachines) Stop() {
 	if s.StorageSM != nil {
 		if err := s.StorageSM.Close(); err != nil {
-			s.log.Error("close storage state state machine error", logger.Error(err))
+			s.log.Error("close storage state machine error", logger.Error(err))
 		}
 	}
 	if s.NodeSM != nil {
 		if err := s.NodeSM.Close(); err != nil {
-			s.log.Error("close node state state machine error", logger.Error(err))
+			s.log.Error("close node state machine error", logger.Error(err))
 		}
 	}
 	if s.ReplicaStatusSM != nil {
 		if err := s.ReplicaStatusSM.Close(); err != nil {
-			s.log.Error("close replica status state state machine error", logger.Error(err))
+			s.log.Error("close replica status state machine error", logger.Error(err))
+		}
+	}
+	if s.ReplicatorSM != nil {
+		if err := s.ReplicatorSM.Close(); err != nil {
+			s.log.Error("close replicator state machine error", logger.Error(err))
 		}
 	}
 }

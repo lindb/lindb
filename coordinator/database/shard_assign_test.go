@@ -12,7 +12,7 @@ func TestShardAssign(t *testing.T) {
 	storageNodeIDs := []int{0, 1, 2, 3, 4}
 
 	_, err1 := ShardAssignment(storageNodeIDs,
-		models.DatabaseCluster{
+		&models.Database{
 			Name:          "test",
 			NumOfShard:    0,
 			ReplicaFactor: 3,
@@ -20,7 +20,7 @@ func TestShardAssign(t *testing.T) {
 	assert.NotNil(t, err1)
 
 	_, err1 = ShardAssignment(storageNodeIDs,
-		models.DatabaseCluster{
+		&models.Database{
 			Name:          "test",
 			NumOfShard:    3,
 			ReplicaFactor: 0,
@@ -28,7 +28,7 @@ func TestShardAssign(t *testing.T) {
 	assert.NotNil(t, err1)
 
 	_, err2 := ShardAssignment(storageNodeIDs,
-		models.DatabaseCluster{
+		&models.Database{
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 6,
@@ -36,7 +36,7 @@ func TestShardAssign(t *testing.T) {
 	assert.NotNil(t, err2)
 
 	shardAssignment, _ := ShardAssignment(storageNodeIDs,
-		models.DatabaseCluster{
+		&models.Database{
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 3,

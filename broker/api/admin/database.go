@@ -29,8 +29,7 @@ func (d *DatabaseAPI) GetByName(w http.ResponseWriter, r *http.Request) {
 	}
 	database, err := d.databaseService.Get(databaseName)
 	if err != nil {
-		//TODO add not found error?????
-		api.Error(w, err)
+		api.NotFound(w)
 		return
 	}
 	api.OK(w, database)
@@ -44,14 +43,6 @@ func (d *DatabaseAPI) Save(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		api.Error(w, err)
 		return
-	}
-	// validate engine config
-	clusters := database.Clusters
-	for i := range clusters {
-		if err := clusters[i].Engine.Validation(); err != nil {
-			api.Error(w, err)
-			return
-		}
 	}
 	err = d.databaseService.Save(database)
 	if err != nil {

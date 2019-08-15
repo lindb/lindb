@@ -20,17 +20,25 @@ func TestBrokerStateMachines(t *testing.T) {
 	nodeSM := broker.NewMockNodeStateMachine(ctrl)
 	replicaSM := replica.NewMockStatusStateMachine(ctrl)
 	storageStateSM := broker.NewMockStorageStateMachine(ctrl)
+	replicatorSM := replica.NewMockReplicatorStateMachine(ctrl)
 
 	factory.EXPECT().CreateNodeStateMachine().Return(nil, fmt.Errorf("err"))
 	err := brokerSMs.Start()
 	assert.NotNil(t, err)
 
 	factory.EXPECT().CreateNodeStateMachine().Return(nodeSM, nil)
+	factory.EXPECT().CreateReplicatorStateMachine().Return(nil, fmt.Errorf("err"))
+	err = brokerSMs.Start()
+	assert.NotNil(t, err)
+
+	factory.EXPECT().CreateNodeStateMachine().Return(nodeSM, nil)
+	factory.EXPECT().CreateReplicatorStateMachine().Return(replicatorSM, nil)
 	factory.EXPECT().CreateStorageStateMachine().Return(nil, fmt.Errorf("err"))
 	err = brokerSMs.Start()
 	assert.NotNil(t, err)
 
 	factory.EXPECT().CreateNodeStateMachine().Return(nodeSM, nil)
+	factory.EXPECT().CreateReplicatorStateMachine().Return(replicatorSM, nil)
 	factory.EXPECT().CreateStorageStateMachine().Return(storageStateSM, nil)
 	factory.EXPECT().CreateReplicaStatusStateMachine().Return(nil, fmt.Errorf("err"))
 	err = brokerSMs.Start()
@@ -39,6 +47,7 @@ func TestBrokerStateMachines(t *testing.T) {
 	factory.EXPECT().CreateNodeStateMachine().Return(nodeSM, nil)
 	factory.EXPECT().CreateStorageStateMachine().Return(storageStateSM, nil)
 	factory.EXPECT().CreateReplicaStatusStateMachine().Return(replicaSM, nil)
+	factory.EXPECT().CreateReplicatorStateMachine().Return(replicatorSM, nil)
 	err = brokerSMs.Start()
 	if err != nil {
 		t.Fatal(err)
@@ -47,5 +56,6 @@ func TestBrokerStateMachines(t *testing.T) {
 	nodeSM.EXPECT().Close().Return(fmt.Errorf("err"))
 	replicaSM.EXPECT().Close().Return(fmt.Errorf("err"))
 	storageStateSM.EXPECT().Close().Return(fmt.Errorf("err"))
+	replicatorSM.EXPECT().Close().Return(fmt.Errorf("err"))
 	brokerSMs.Stop()
 }

@@ -111,14 +111,17 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			//TODO need modify
 			err := metric.Unmarshal(rep.Data)
 			if err != nil {
-				logger.GetLogger("write").Error("unmarshal metric", logger.Error(err))
+				w.logger.Error("unmarshal metric", logger.Error(err))
 				continue
 			}
-			err = shard.Write(metric)
-			if err != nil {
-				logger.GetLogger("write").Error("write metric", logger.Error(err))
-				continue
-			}
+			w.logger.Info("receive metric", logger.Any("metric", rep.Data))
+
+			//TODO write metric, need handle panic
+			//err = shard.Write(metric)
+			//if err != nil {
+			//	logger.GetLogger("write").Error("write metric", logger.Error(err))
+			//	continue
+			//}
 		}
 
 		resp := &storage.WriteResponse{

@@ -145,6 +145,7 @@ func (f *engineFactory) Close() {
 
 }
 
+// load loads the time series engines if exist
 func (f *engineFactory) load() error {
 	names, err := fileutil.ListDir(f.cfg.Path)
 	if err != nil {

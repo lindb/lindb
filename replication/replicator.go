@@ -138,6 +138,8 @@ func (r *replicator) recvLoop() {
 				logger.Stack())
 
 			r.logger.Info("restart recvLoop")
+			//TODO modify sleep threshold for retry
+			time.Sleep(500 * time.Millisecond)
 			go r.recvLoop()
 		}
 	}()
