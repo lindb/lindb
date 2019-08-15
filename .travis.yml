@@ -1,11 +1,17 @@
+# Default stage.
 language: go
+
+os:
+  - linux
 
 go:
   - 1.12.5
 
 script:
-    - make test
-    - make build
+  - make test
+  - make build
+  - make build GOOS=darwin GOARCH=amd64
+  - make build GOOS=windows GOARCH=amd64
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
