@@ -48,7 +48,7 @@ func TestReplicatorStateMachine(t *testing.T) {
 	}
 	assert.NotNil(t, sm)
 
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	shardAssignSRV.EXPECT().List().Return([]*models.ShardAssignment{shardAssign}, nil)
 	discovery1.EXPECT().Discovery().Return(nil)
 	sm, err = NewReplicatorStateMachine(context.TODO(), cm, shardAssignSRV, discoveryFactory)
@@ -61,11 +61,11 @@ func TestReplicatorStateMachine(t *testing.T) {
 	// test on create event
 	sm.OnCreate("/test/path", []byte{1, 2, 3})
 	ch := replication.NewMockChannel(ctrl)
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(ch, nil)
+	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(ch, nil)
 	ch.EXPECT().GetOrCreateReplicator(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	sm.OnCreate("/test/path", data)
 
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(ch, nil)
+	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(ch, nil)
 	ch.EXPECT().GetOrCreateReplicator(gomock.Any()).Return(nil, nil)
 	sm.OnCreate("/test/path", data)
 

@@ -18,7 +18,7 @@ func NewWriter(cm replication.ChannelManager) *Writer {
 }
 
 func (w *Writer) Write(cxt context.Context, req *broker.WriteRequest) (*broker.WriteResponse, error) {
-	ch, err := w.cm.GetChannel(req.GetCluster(), req.GetDatabase(), req.GetHash())
+	ch, err := w.cm.GetChannel(req.GetDatabase(), req.GetHash())
 	if err != nil {
 		return nil, err
 	}

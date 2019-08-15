@@ -23,14 +23,16 @@ const (
 type Replicator interface {
 	// Target returns the target target for replication.
 	Target() models.Node
-	// Cluster returns the cluster attribution.
-	Cluster() string
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
 	ShardID() int32
 	// Pending returns the num of messages remaining to replicate.
 	Pending() int64
+	// ReplicaIndex returns the index of message replica
+	ReplicaIndex() int64
+	// AckIndex returns the index of message replica ack
+	AckIndex() int64
 	// Stop stops the replication task.
 	Stop()
 }
@@ -38,7 +40,6 @@ type Replicator interface {
 // replicator implements Replicator.
 type replicator struct {
 	target   models.Node
-	cluster  string
 	database string
 	shardID  int32
 	// underlying fanOut records the replication process.
@@ -61,11 +62,10 @@ type replicator struct {
 }
 
 // newReplicator returns a Replicator with specific attributions.
-func newReplicator(target models.Node, cluster, database string, shardID int32,
+func newReplicator(target models.Node, database string, shardID int32,
 	fo queue.FanOut, fct rpc.ClientStreamFactory) Replicator {
 	r := &replicator{
 		target:   target,
-		cluster:  cluster,
 		database: database,
 		shardID:  shardID,
 		fo:       fo,
@@ -84,11 +84,6 @@ func (r *replicator) Target() models.Node {
 	return r.target
 }
 
-// Cluster returns the cluster attribution.
-func (r *replicator) Cluster() string {
-	return r.cluster
-}
-
 // Database returns the database attribution.
 func (r *replicator) Database() string {
 	return r.database
@@ -102,6 +97,16 @@ func (r *replicator) ShardID() int32 {
 // Pending returns the num of messages remaining to replicate.
 func (r *replicator) Pending() int64 {
 	return r.fo.Pending()
+}
+
+// ReplicaIndex returns the index of message replica
+func (r *replicator) ReplicaIndex() int64 {
+	return r.fo.HeadSeq()
+}
+
+// AckIndex returns the index of message replica ack
+func (r *replicator) AckIndex() int64 {
+	return r.fo.TailSeq()
 }
 
 // Stop stops the replication task.

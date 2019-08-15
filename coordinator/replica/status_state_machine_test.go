@@ -36,7 +36,6 @@ func TestStatusStateMachine(t *testing.T) {
 	sm.OnCreate("/data/err1", []byte{1, 1, 3})
 
 	replicaStatus := []models.ReplicaState{{
-		Cluster:  "test",
 		Database: "11",
 	}}
 	brokerReplicaState := models.BrokerReplicaState{Replicas: replicaStatus}
@@ -51,26 +50,23 @@ func TestStatusStateMachine(t *testing.T) {
 	// broker 1:
 	replicaStatus = []models.ReplicaState{
 		{
-			Cluster:      "test",
 			Database:     "test_db_2",
-			TO:           models.Node{IP: "1.1.1.2", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.2", Port: 2090},
+			Pending:      50,
 			ReplicaIndex: 50,
 			ShardID:      1,
 		},
 		{
-			Cluster:      "test",
 			Database:     "test_db",
-			TO:           models.Node{IP: "1.1.1.2", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.2", Port: 2090},
+			Pending:      50,
 			ReplicaIndex: 50,
 			ShardID:      1,
 		},
 		{
-			Cluster:      "test",
 			Database:     "test_db",
-			TO:           models.Node{IP: "1.1.1.3", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.3", Port: 2090},
+			Pending:      10,
 			ReplicaIndex: 90,
 			ShardID:      1,
 		},
@@ -81,26 +77,23 @@ func TestStatusStateMachine(t *testing.T) {
 	// broker 2:
 	replicaStatus = []models.ReplicaState{
 		{
-			Cluster:      "test",
 			Database:     "test_db_2",
-			TO:           models.Node{IP: "1.1.1.2", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.2", Port: 2090},
+			Pending:      50,
 			ReplicaIndex: 50,
 			ShardID:      2,
 		},
 		{
-			Cluster:      "test",
 			Database:     "test_db",
-			TO:           models.Node{IP: "1.1.1.2", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.2", Port: 2090},
+			Pending:      50,
 			ReplicaIndex: 50,
 			ShardID:      2,
 		},
 		{
-			Cluster:      "test",
 			Database:     "test_db",
-			TO:           models.Node{IP: "1.1.1.3", Port: 2090},
-			WriteIndex:   100,
+			Target:       models.Node{IP: "1.1.1.3", Port: 2090},
+			Pending:      10,
 			ReplicaIndex: 90,
 			ShardID:      2,
 		},
