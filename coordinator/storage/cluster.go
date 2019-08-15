@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
@@ -66,7 +67,7 @@ type Cluster interface {
 	// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 	GetShardAssign(databaseName string) (*models.ShardAssignment, error)
 	// SaveShardAssign saves shard assignment
-	SaveShardAssign(databaseName string, shardAssign *models.ShardAssignment) error
+	SaveShardAssign(databaseName string, shardAssign *models.ShardAssignment, engine option.EngineOption) error
 	// SubmitTask generates coordinator task
 	SubmitTask(kind task.Kind, name string, params []task.ControllerTaskParam) error
 	// GetRepo returns current storage cluster's state repo
@@ -82,7 +83,7 @@ type cluster struct {
 	taskController task.Controller
 
 	clusterState *models.StorageState
-	databases    map[string]*models.DatabaseCluster
+	databases    map[string]*models.Database
 
 	mutex sync.RWMutex
 }
@@ -92,7 +93,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster := &cluster{
 		cfg:          cfg,
 		clusterState: models.NewStorageState(),
-		databases:    make(map[string]*models.DatabaseCluster),
+		databases:    make(map[string]*models.Database),
 	}
 	// init active nodes if exist
 	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
@@ -156,7 +157,8 @@ func (c *cluster) GetShardAssign(databaseName string) (*models.ShardAssignment, 
 }
 
 // SaveShardAssign saves shard assignment, generates create shard task after saving successfully
-func (c *cluster) SaveShardAssign(databaseName string, shardAssign *models.ShardAssignment) error {
+func (c *cluster) SaveShardAssign(databaseName string,
+	shardAssign *models.ShardAssignment, engine option.EngineOption) error {
 	if err := c.cfg.shardAssignService.Save(databaseName, shardAssign); err != nil {
 		return err
 	}
@@ -170,7 +172,7 @@ func (c *cluster) SaveShardAssign(databaseName string, shardAssign *models.Shard
 				tasks[replicaID] = taskParam
 			}
 			taskParam.ShardIDs = append(taskParam.ShardIDs, int32(ID))
-			taskParam.Engine = shardAssign.Config.Engine
+			taskParam.Engine = engine
 		}
 	}
 	var params []task.ControllerTaskParam

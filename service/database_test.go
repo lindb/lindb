@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -21,14 +22,11 @@ func TestDatabaseService(t *testing.T) {
 	db := NewDatabaseService(repo)
 
 	database := models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:          "test",
-				NumOfShard:    12,
-				ReplicaFactor: 3,
-			},
-		},
+		Name:          "test",
+		Cluster:       "cluster-test",
+		NumOfShard:    12,
+		ReplicaFactor: 3,
+		Engine:        option.EngineOption{Interval: "10s"},
 	}
 	data, _ := json.Marshal(&database)
 
@@ -63,35 +61,24 @@ func TestDatabaseService(t *testing.T) {
 	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				NumOfShard:    12,
-				ReplicaFactor: 3,
-			},
-		},
+		Name:          "test",
+		Cluster:       "cluster-test",
+		NumOfShard:    12,
+		ReplicaFactor: 3,
 	})
 	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:          "test",
-				ReplicaFactor: 3,
-			},
-		},
+		Name:          "test",
+		Cluster:       "cluster-test",
+		ReplicaFactor: 3,
 	})
 	assert.NotNil(t, err)
 
 	err = db.Save(&models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:       "test",
-				NumOfShard: 3,
-			},
-		},
+		Name:       "test",
+		Cluster:    "cluster-test",
+		NumOfShard: 3,
 	})
 	assert.NotNil(t, err)
 }
@@ -115,14 +102,10 @@ func TestDatabaseService_List(t *testing.T) {
 	}
 	assert.Equal(t, 0, len(list))
 	database := models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:          "test",
-				NumOfShard:    12,
-				ReplicaFactor: 3,
-			},
-		},
+		Name:          "test",
+		Cluster:       "cluster-test",
+		NumOfShard:    12,
+		ReplicaFactor: 3,
 	}
 	data, _ := json.Marshal(&database)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 2, 4}}, nil)

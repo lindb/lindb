@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/service"
 )
 
 func TestStateMachineFactory_Create(t *testing.T) {
@@ -22,11 +23,13 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	discoveryFactory.EXPECT().GetRepo().Return(repo).AnyTimes()
+	shardAssignSVR := service.NewMockShardAssignService(ctrl)
 
 	factory := NewStateMachineFactory(&StateMachineCfg{
 		Ctx:              context.TODO(),
 		CurrentNode:      models.Node{IP: "1.1.1.1", Port: 9000},
 		DiscoveryFactory: discoveryFactory,
+		ShardAssignSRV:   shardAssignSVR,
 	})
 
 	// test node state machine
@@ -67,4 +70,17 @@ func TestStateMachineFactory_Create(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.NotNil(t, replicaStatusSM)
+
+	// test replicator state machine
+	shardAssignSVR.EXPECT().List().Return(nil, fmt.Errorf("err"))
+	replicatorSM, err := factory.CreateReplicatorStateMachine()
+	assert.NotNil(t, err)
+	assert.Nil(t, replicatorSM)
+	shardAssignSVR.EXPECT().List().Return(nil, nil)
+	discovery1.EXPECT().Discovery().Return(nil)
+	replicatorSM, err = factory.CreateReplicatorStateMachine()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.NotNil(t, replicatorSM)
 }

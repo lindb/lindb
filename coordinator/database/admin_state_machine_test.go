@@ -42,11 +42,12 @@ func TestAdminStateMachine(t *testing.T) {
 	stateMachine.OnCreate("/data/db1", data)
 
 	data, _ = json.Marshal(&models.Database{Name: "db1"})
+	storageCluster.EXPECT().GetCluster("").Return(nil)
 	stateMachine.OnCreate("/data/db1", data)
 
 	data, _ = json.Marshal(&models.Database{
-		Name:     "db1",
-		Clusters: []models.DatabaseCluster{{Name: "db1_cluster1"}},
+		Name:    "db1",
+		Cluster: "db1_cluster1",
 	})
 	storageCluster.EXPECT().GetCluster("db1_cluster1").Return(nil)
 	stateMachine.OnCreate("/data/db1", data)
@@ -64,21 +65,17 @@ func TestAdminStateMachine(t *testing.T) {
 	stateMachine.OnCreate("/data/db1", data)
 
 	data, _ = json.Marshal(&models.Database{
-		Name: "db1",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:          "db1_cluster1",
-				NumOfShard:    10,
-				ReplicaFactor: 3,
-			},
-		},
+		Name:          "db1",
+		Cluster:       "db1_cluster1",
+		NumOfShard:    10,
+		ReplicaFactor: 3,
 	})
 
-	cluster.EXPECT().SaveShardAssign("db1", gomock.Any()).Return(fmt.Errorf("err"))
+	cluster.EXPECT().SaveShardAssign("db1", gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	cluster.EXPECT().GetActiveNodes().Return(prepareStorageCluster())
 	stateMachine.OnCreate("/data/db1", data)
 
-	cluster.EXPECT().SaveShardAssign("db1", gomock.Any()).Return(nil)
+	cluster.EXPECT().SaveShardAssign("db1", gomock.Any(), gomock.Any()).Return(nil)
 	cluster.EXPECT().GetActiveNodes().Return(prepareStorageCluster())
 	stateMachine.OnCreate("/data/db1", data)
 

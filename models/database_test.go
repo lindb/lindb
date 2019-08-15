@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewShardAssignment(t *testing.T) {
-	shardAssign := NewShardAssignment()
+	shardAssign := NewShardAssignment("test")
 	shardAssign.AddReplica(1, 1)
 	shardAssign.AddReplica(1, 2)
 	shardAssign.AddReplica(2, 3)

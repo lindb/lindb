@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -19,7 +20,7 @@ func TestShardAssignService(t *testing.T) {
 
 	srv := NewShardAssignService(repo)
 
-	shardAssign1 := models.NewShardAssignment()
+	shardAssign1 := models.NewShardAssignment("test")
 	shardAssign1.AddReplica(1, 1)
 	shardAssign1.AddReplica(1, 2)
 	shardAssign1.AddReplica(1, 3)
@@ -27,7 +28,7 @@ func TestShardAssignService(t *testing.T) {
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	_ = srv.Save("db1", shardAssign1)
 
-	shardAssign2 := models.NewShardAssignment()
+	shardAssign2 := models.NewShardAssignment("test")
 	shardAssign2.AddReplica(1, 1)
 	shardAssign2.AddReplica(2, 2)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -50,5 +51,15 @@ func TestShardAssignService(t *testing.T) {
 	// unmarshal error
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte{1, 3, 34}, nil)
 	_, err = srv.Get("not_exist")
+	assert.NotNil(t, err)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data2, {1, 2, 3}}, nil)
+	list, _ := srv.List()
+	assert.Equal(t, 1, len(list))
+	assert.Equal(t, *shardAssign2, *(list[0]))
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	list, err = srv.List()
+	assert.Nil(t, list)
 	assert.NotNil(t, err)
 }

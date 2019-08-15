@@ -22,15 +22,11 @@ func TestDatabaseAPI(t *testing.T) {
 	api := NewDatabaseAPI(databaseService)
 
 	db := models.Database{
-		Name: "test",
-		Clusters: []models.DatabaseCluster{
-			{
-				Name:          "test",
-				NumOfShard:    12,
-				ReplicaFactor: 3,
-				Engine:        option.EngineOption{Interval: "10s"},
-			},
-		},
+		Name:          "test",
+		Cluster:       "test",
+		NumOfShard:    12,
+		ReplicaFactor: 3,
+		Engine:        option.EngineOption{Interval: "10s"},
 	}
 	// create success
 	databaseService.EXPECT().Save(gomock.Any()).Return(nil)
@@ -44,14 +40,6 @@ func TestDatabaseAPI(t *testing.T) {
 	// create err
 	databaseService.EXPECT().Save(gomock.Any()).Return(fmt.Errorf("err"))
 	db.Name = ""
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/database",
-		RequestBody:    db,
-		HandlerFunc:    api.Save,
-		ExpectHTTPCode: 500,
-	})
-	db.Clusters = append(db.Clusters, models.DatabaseCluster{Engine: option.EngineOption{Interval: "aa"}})
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/database",
@@ -81,7 +69,7 @@ func TestDatabaseAPI(t *testing.T) {
 		Method:         http.MethodGet,
 		URL:            "/database?name=test",
 		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 500,
+		ExpectHTTPCode: 404,
 	})
 
 	databaseService.EXPECT().List().Return(nil, fmt.Errorf("err"))
