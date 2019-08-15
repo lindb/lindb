@@ -1,5 +1,3 @@
-[点击查看中文版本](/README.cn.md)
-
 <p align="left">
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
@@ -10,6 +8,8 @@
 [![Travis CI Build Status](https://travis-ci.org/lindb/lindb.svg?branch=develop)](https://travis-ci.org/lindb/lindb)
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+
+English | [简体中文](./README-zh_CN.md)
 
 ## What is LinDB?
 
@@ -57,12 +57,6 @@ Once we implement the final feature and replace the LinDB under production envir
 ## Architecture
 
 ![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
-
-## Screenshots
-![home](https://github.com/lindb/lindb/wiki/images/readme/home.png)
-![search](https://github.com/lindb/lindb/wiki/images/readme/search.png)
-![explain](https://github.com/lindb/lindb/wiki/images/readme/explain.png)
-![database](https://github.com/lindb/lindb/wiki/images/readme/database.png)
 
 ## Contributing
 
