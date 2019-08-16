@@ -7,10 +7,10 @@ import (
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=series
 
-// MetadataGetter represents the query ability for metric level metadata
-type MetadataGetter interface {
+// MetaGetter represents the query ability for metric level metadata
+type MetaGetter interface {
 	// GetTagValues returns tag values by tag keys and spec version for metric level
-	GetTagValues(metricID uint32, tagKeys []string, version int64) (tagValues [][]string, err error)
+	GetTagValues(metricID uint32, tagKeys []string, version uint32) (tagValues [][]string, err error)
 }
 
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
@@ -23,3 +23,6 @@ type Filter interface {
 	GetSeriesIDsForTag(metricID uint32, tagKey string,
 		timeRange timeutil.TimeRange) (*MultiVerSeriesIDSet, error)
 }
+
+// DataGetter represents the query ability for querying data of the seriesIDs
+type DataGetter interface{}

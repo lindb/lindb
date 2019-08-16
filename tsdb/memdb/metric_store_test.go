@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/tsdb/indextbl"
+
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
 
@@ -25,7 +25,8 @@ func Test_mStore_getMetricId(t *testing.T) {
 	assert.Equal(t, uint32(100), mStoreInterface.getMetricID())
 	assert.True(t, mStoreInterface.isEmpty())
 	assert.False(t, mStore.isFull())
-	assert.Zero(t, mStoreInterface.getTagsCount())
+	assert.Zero(t, mStoreInterface.getTagsUsed())
+	assert.Zero(t, mStoreInterface.getTagsInUse())
 }
 
 func Test_mStore_setMaxTagsLimit(t *testing.T) {
@@ -47,7 +48,7 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().getTStore(gomock.Any()).Return(nil, false).AnyTimes()
 	mockTagIdx.EXPECT().getOrCreateTStore(gomock.Any()).Return(nil, fmt.Errorf("error")).AnyTimes()
-	mockTagIdx.EXPECT().len().Return(10).AnyTimes()
+	mockTagIdx.EXPECT().tagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
 	assert.NotNil(t, mStore.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
@@ -60,7 +61,7 @@ func Test_mStore_isFull(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
-	mockTagIdx.EXPECT().len().Return(10000000).AnyTimes()
+	mockTagIdx.EXPECT().tagsUsed().Return(10000000).AnyTimes()
 
 	mStore.mutable = mockTagIdx
 	assert.Equal(t, series.ErrTooManyTags,
@@ -78,7 +79,8 @@ func Test_mStore_write_ok(t *testing.T) {
 	mockTStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
-	mockTagIdx.EXPECT().len().Return(1).AnyTimes()
+	mockTagIdx.EXPECT().tagsUsed().Return(1).AnyTimes()
+	mockTagIdx.EXPECT().updateTime(gomock.Any()).Return().AnyTimes()
 	mockTagIdx.EXPECT().getTStore(gomock.Any()).Return(nil, false).AnyTimes()
 	mockTagIdx.EXPECT().getOrCreateTStore(gomock.Any()).Return(mockTStore, nil).AnyTimes()
 
@@ -176,42 +178,6 @@ func Test_mStore_flushMetricsTo_OK(t *testing.T) {
 	assert.Nil(t, mStore.immutable)
 }
 
-func Test_mStore_flushIndexesTo(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
-	mStore := mStoreInterface.(*metricStore)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// mock id generator
-	fakeKVEntrySet := []tagKVEntrySet{
-		{
-			key: "host", values: map[string]*roaring.Bitmap{"alpha": roaring.New(), "beta": roaring.New()},
-		},
-		{
-			key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "bj": roaring.New()},
-		}}
-	// mock tag index interface
-	mockTagIdx1 := NewMocktagIndexINTF(ctrl)
-	mockTagIdx1.EXPECT().getTagKVEntrySet().Return(fakeKVEntrySet).AnyTimes()
-	mockTagIdx1.EXPECT().getVersion().Return(int64(1)).AnyTimes()
-	mockTagIdx2 := NewMocktagIndexINTF(ctrl)
-	mockTagIdx2.EXPECT().getTagKVEntrySet().Return(fakeKVEntrySet).AnyTimes()
-	mockTagIdx2.EXPECT().getVersion().Return(int64(2)).AnyTimes()
-	// replace index of mStore with mocked
-	mStore.immutable = []tagIndexINTF{mockTagIdx1}
-	mStore.mutable = mockTagIdx2
-	// mock index-table series flusher
-	mockTableFlusher := indextbl.NewMockSeriesIndexFlusher(ctrl)
-	// assert mock result
-	gomock.InOrder(
-		mockTableFlusher.EXPECT().FlushTagKey(gomock.Any(), gomock.Any()).Return(fmt.Errorf("flush error")),
-		mockTableFlusher.EXPECT().FlushTagKey(gomock.Any(), gomock.Any()).Return(nil).AnyTimes(),
-	)
-	assert.NotNil(t, mStore.flushIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
-	assert.Nil(t, mStore.flushIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
-}
-
 func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
@@ -227,28 +193,24 @@ func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 	}).AnyTimes()
 
 	// mock findSeriesIDsByExpr
-	returnNotNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(
-		gomock.Any(), gomock.Any()).Return(roaring.New()).Times(2)
-	returnNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(
-		gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	returnNotNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(gomock.Any()).Return(roaring.New()).Times(2)
+	returnNil := mockTagIdx.EXPECT().findSeriesIDsByExpr(gomock.Any()).Return(nil).Times(2)
 	gomock.InOrder(returnNotNil, returnNil)
 	// build mStore
 	mStore.immutable = []tagIndexINTF{mockTagIdx}
 	mStore.mutable = mockTagIdx
 	// result assert
-	set, err := mStoreInterface.findSeriesIDsByExpr(nil, timeutil.TimeRange{})
+	set, err := mStoreInterface.findSeriesIDsByExpr(nil)
 	assert.Nil(t, err)
 	assert.NotNil(t, set)
-	_, err2 := mStoreInterface.findSeriesIDsByExpr(nil, timeutil.TimeRange{})
+	_, err2 := mStoreInterface.findSeriesIDsByExpr(nil)
 	assert.Nil(t, err2)
 	// mock getSeriesIDsForTag
-	returnNotNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(
-		gomock.Any(), gomock.Any()).Return(roaring.New()).Times(2)
-	returnNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(
-		gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	returnNotNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(gomock.Any()).Return(roaring.New()).Times(2)
+	returnNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(gomock.Any()).Return(nil).Times(2)
 	gomock.InOrder(returnNotNil2, returnNil2)
-	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
-	mStoreInterface.getSeriesIDsForTag("", timeutil.TimeRange{})
+	mStoreInterface.getSeriesIDsForTag("")
+	mStoreInterface.getSeriesIDsForTag("")
 }
 
 func Test_getFieldIDOrGenerate(t *testing.T) {
@@ -286,7 +248,6 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 
 func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
-	//mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -298,5 +259,82 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 	mStoreInterface.getFieldIDOrGenerate("3", field.SumField, mockGen)
 	mStoreInterface.getFieldIDOrGenerate("1", field.SumField, mockGen)
 	mStoreInterface.getFieldIDOrGenerate("2", field.SumField, mockGen)
+}
 
+func Test_mStore_flushSeriesIndexesTo_OK(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fakeKVEntrySet1 := []tagKVEntrySet{
+		{key: "host", values: map[string]*roaring.Bitmap{"alpha": roaring.New(), "beta": roaring.New()}},
+		{key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "bj": roaring.New()}},
+	}
+	fakeKVEntrySet2 := []tagKVEntrySet{
+		{key: "ip", values: map[string]*roaring.Bitmap{"1.1.1.1": roaring.New(), "2.2.2.2": roaring.New()}},
+		{key: "zone", values: map[string]*roaring.Bitmap{"sh": roaring.New(), "bj": roaring.New()}},
+	}
+	fakeKVEntrySet3 := []tagKVEntrySet{
+		{key: "usage", values: map[string]*roaring.Bitmap{"idle": roaring.New(), "system": roaring.New()}},
+		{key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "nt": roaring.New()}},
+	}
+	// mock tag index interface
+	mockTagIdx1 := NewMocktagIndexINTF(ctrl)
+	mockTagIdx1.EXPECT().getTagKVEntrySets().Return(fakeKVEntrySet1).AnyTimes()
+	mockTagIdx1.EXPECT().getTimeRange().Return(uint32(1), uint32(2)).AnyTimes()
+	mockTagIdx1.EXPECT().getVersion().Return(uint32(1)).AnyTimes()
+	mockTagIdx1.EXPECT().getTagKVEntrySet("host").Return(&fakeKVEntrySet1[0], true).AnyTimes()
+	mockTagIdx1.EXPECT().getTagKVEntrySet("zone").Return(&fakeKVEntrySet1[1], true).AnyTimes()
+	mockTagIdx1.EXPECT().getTagKVEntrySet("ip").Return(nil, false).AnyTimes()
+	mockTagIdx1.EXPECT().getTagKVEntrySet("usage").Return(nil, false).AnyTimes()
+
+	mockTagIdx2 := NewMocktagIndexINTF(ctrl)
+	mockTagIdx2.EXPECT().getTagKVEntrySets().Return(fakeKVEntrySet2).AnyTimes()
+	mockTagIdx2.EXPECT().getTimeRange().Return(uint32(1), uint32(2)).AnyTimes()
+	mockTagIdx2.EXPECT().getVersion().Return(uint32(2)).AnyTimes()
+	mockTagIdx2.EXPECT().getTagKVEntrySet("ip").Return(&fakeKVEntrySet2[0], true).AnyTimes()
+	mockTagIdx2.EXPECT().getTagKVEntrySet("host").Return(nil, false).AnyTimes()
+	mockTagIdx2.EXPECT().getTagKVEntrySet("usage").Return(nil, false).AnyTimes()
+	mockTagIdx2.EXPECT().getTagKVEntrySet("zone").Return(&fakeKVEntrySet2[1], true).AnyTimes()
+
+	mockTagIdx3 := NewMocktagIndexINTF(ctrl)
+	mockTagIdx3.EXPECT().getTagKVEntrySets().Return(fakeKVEntrySet3).AnyTimes()
+	mockTagIdx3.EXPECT().getTimeRange().Return(uint32(1), uint32(2)).AnyTimes()
+	mockTagIdx3.EXPECT().getVersion().Return(uint32(3)).AnyTimes()
+	mockTagIdx3.EXPECT().getTagKVEntrySet("usage").Return(&fakeKVEntrySet3[0], true).AnyTimes()
+	mockTagIdx3.EXPECT().getTagKVEntrySet("host").Return(nil, false).AnyTimes()
+	mockTagIdx3.EXPECT().getTagKVEntrySet("ip").Return(nil, false).AnyTimes()
+	mockTagIdx3.EXPECT().getTagKVEntrySet("zone").Return(&fakeKVEntrySet3[1], true).AnyTimes()
+	// mock index-table series flusher
+	mockTableFlusher := indextbl.NewMockSeriesIndexFlusher(ctrl)
+	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return().AnyTimes()
+	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any()).Return().AnyTimes()
+
+	//////////////////////////////////////////////
+	// immutable part empty
+	//////////////////////////////////////////////
+	mStore.mutable = mockTagIdx1
+	assert.Len(t, mStore.buildTagKeyValuesForFlush(), 2)
+	// flush ok
+	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(nil).Times(2)
+	assert.Nil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	// flush error
+	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	assert.NotNil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+
+	//////////////////////////////////////////////
+	// neither mutable nor immutable part is empty
+	//////////////////////////////////////////////
+	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
+	mStore.mutable = mockTagIdx3
+	assert.Len(t, mStore.buildTagKeyValuesForFlush(), 4)
+	// flush error
+	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	assert.NotNil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	// flush ok
+	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(nil).Times(4)
+	assert.Nil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 }

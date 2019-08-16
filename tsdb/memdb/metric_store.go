@@ -31,19 +31,21 @@ type mStoreINTF interface {
 	isEmpty() bool
 	// evict scans all tsStore and removes which are not in use for a while.
 	evict()
-	// getTagsCount return the tags count
-	getTagsCount() int
+	// getTagsInUse return the in-use tStores count.
+	getTagsInUse() int
+	// getTagsUsed return count of all used tStores.
+	getTagsUsed() int
 	// flushMetricsTo flushes metric-block of mStore to the writer.
 	flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
-	// flushIndexesTo flushes index of mStore to the writer
-	flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator indexdb.IDGenerator) error
+	// flushSeriesIndexesTo flushes series-index of mStore to the writer
+	flushSeriesIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator indexdb.IDGenerator) error
 	// resetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	resetVersion() error
-	// findSeriesIDsByExpr finds series ids by tag filter expr and timeRange
-	findSeriesIDsByExpr(expr stmt.TagFilter, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
-	// getSeriesIDsForTag get series ids by tagKey and timeRange
-	getSeriesIDsForTag(tagKey string, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	// findSeriesIDsByExpr finds series ids by tag filter expr
+	findSeriesIDsByExpr(expr stmt.TagFilter) (*series.MultiVerSeriesIDSet, error)
+	// getSeriesIDsForTag get series ids by tagKey
+	getSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
 	mStoreFieldIDGetter
 }
 
@@ -158,7 +160,13 @@ func (ms *metricStore) write(metric *pb.Metric, writeCtx writeContext) error {
 		}
 		ms.mutex4Mutable.Unlock()
 	}
-	return tStore.write(metric, writeCtx)
+	err = tStore.write(metric, writeCtx)
+	if err == nil {
+		ms.mutex4Mutable.RLock()
+		ms.mutable.updateTime(uint32(writeCtx.PointTime() / 1000))
+		ms.mutex4Mutable.RUnlock()
+	}
+	return err
 }
 
 // setMaxTagsLimit sets the max tags-limit of the metricStore
@@ -179,22 +187,30 @@ func (ms *metricStore) getTStore(tags string) (tStore tStoreINTF, ok bool) {
 	return
 }
 
-// getTagsCount return the map's length.
-func (ms *metricStore) getTagsCount() int {
+// getTagsInUse return the tStores count.
+func (ms *metricStore) getTagsInUse() int {
 	ms.mutex4Mutable.RLock()
-	length := ms.mutable.len()
+	size := ms.mutable.tagsInUse()
 	ms.mutex4Mutable.RUnlock()
-	return length
+	return size
+}
+
+// getTagsUsed return count of all used tStores.
+func (ms *metricStore) getTagsUsed() int {
+	ms.mutex4Mutable.RLock()
+	size := ms.mutable.tagsUsed()
+	ms.mutex4Mutable.RUnlock()
+	return size
 }
 
 // isFull detects if timeSeriesMap exceeds the tagsID limitation.
 func (ms *metricStore) isFull() bool {
-	return uint32(ms.getTagsCount()) >= ms.getMaxTagsLimit()
+	return uint32(ms.getTagsUsed()) >= ms.getMaxTagsLimit()
 }
 
-// isEmpty detects if timeSeriesMap is empty or not.
+// isEmpty detects if tStores were all evicted or not.
 func (ms *metricStore) isEmpty() bool {
-	return ms.getTagsCount() == 0
+	return ms.getTagsInUse() == 0
 }
 
 // evict scans all tsStore and removes which are not in use for a while.
@@ -229,7 +245,7 @@ func (ms *metricStore) evict() {
 // resetVersion moves the mutable index to immutable list, then creates a new active index.
 func (ms *metricStore) resetVersion() error {
 	ms.mutex4Mutable.Lock()
-	if ms.mutable.getVersion()+minIntervalForResetMetricStore > timeutil.Now() {
+	if ms.mutable.getVersion()+minIntervalForResetMetricStore > uint32(timeutil.Now()/1000) {
 		ms.mutex4Mutable.Unlock()
 		return fmt.Errorf("reset version too frequently")
 	}
@@ -273,53 +289,109 @@ func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flush
 	return err
 }
 
-// flushIndexesTo flushes index of mStore to the writer
-func (ms *metricStore) flushIndexesTo(tableFlusher indextbl.SeriesIndexFlusher, idGenerator indexdb.IDGenerator) error {
-	tagKeyData := make(map[string][]indextbl.VersionedTagKVEntrySet)
-	var err error
+// flushSeriesIndexesTo flushes series-index of mStore to the writer
+func (ms *metricStore) flushSeriesIndexesTo(tableFlusher indextbl.SeriesIndexFlusher,
+	idGenerator indexdb.IDGenerator) error {
 
 	ms.mutex4Immutable.RLock()
 	ms.mutex4Mutable.RLock()
-	// build a data-structure for flush
-	for _, indexINTF := range ms.immutable {
-		for _, entrySet := range indexINTF.getTagKVEntrySet() {
-			tagKeyData[entrySet.key] = append(tagKeyData[entrySet.key], indextbl.VersionedTagKVEntrySet{
-				Version:  indexINTF.getVersion(),
-				EntrySet: entrySet.values})
-		}
+	defer ms.mutex4Mutable.RUnlock()
+	defer ms.mutex4Immutable.RUnlock()
+
+	// immutable part is empty
+	if len(ms.immutable) == 0 {
+		return ms.flushMutableSeriesIndexesTo(tableFlusher, idGenerator)
 	}
-	for _, entrySet := range ms.mutable.getTagKVEntrySet() {
-		tagKeyData[entrySet.key] = append(tagKeyData[entrySet.key], indextbl.VersionedTagKVEntrySet{
-			Version:  ms.mutable.getVersion(),
-			EntrySet: entrySet.values})
-	}
+
+	// immutable part is not empty, collect all mappings of tagKey -> tagValue
+	tagKeyValues := ms.buildTagKeyValuesForFlush()
 	// flush data of all indexes
-	for tagKey, data := range tagKeyData {
-		if err = tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, tagKey), data); err != nil {
-			break
+	for tagKey, tagValues := range tagKeyValues {
+		for tagValue := range tagValues {
+			for _, indexINTF := range ms.immutable {
+				entrySet, ok := indexINTF.getTagKVEntrySet(tagKey)
+				if !ok {
+					continue
+				}
+				if bitmap, ok := entrySet.values[tagValue]; ok {
+					startTime, endTime := indexINTF.getTimeRange()
+					tableFlusher.FlushVersion(indexINTF.getVersion(), startTime, endTime, bitmap)
+				}
+			}
+			entrySet, ok := ms.mutable.getTagKVEntrySet(tagKey)
+			if ok {
+				if bitmap, ok := entrySet.values[tagValue]; ok {
+					startTime, endTime := ms.mutable.getTimeRange()
+					tableFlusher.FlushVersion(ms.mutable.getVersion(), startTime, endTime, bitmap)
+				}
+			}
+			tableFlusher.FlushTagValue(tagValue)
+		}
+		if err := tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, tagKey)); err != nil {
+			return err
 		}
 	}
-	ms.mutex4Mutable.RUnlock()
-	ms.mutex4Immutable.RUnlock()
-	return err
+	return nil
 }
 
-// findSeriesIDsByExpr finds series ids by tag filter expr and timeRange
-func (ms *metricStore) findSeriesIDsByExpr(expr stmt.TagFilter,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
+// flushMutableSeriesIndexesTo only flushes mutable part, when the immutable part is empty
+func (ms *metricStore) flushMutableSeriesIndexesTo(tableFlusher indextbl.SeriesIndexFlusher,
+	idGenerator indexdb.IDGenerator) error {
+
+	for _, entrySet := range ms.mutable.getTagKVEntrySets() {
+		startTime, endTime := ms.mutable.getTimeRange()
+		for tagValue, bitmap := range entrySet.values {
+			tableFlusher.FlushVersion(ms.mutable.getVersion(), startTime, endTime, bitmap)
+			tableFlusher.FlushTagValue(tagValue)
+		}
+		if err := tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, entrySet.key)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// buildTagKeyValuesForFlush unions the mapping relations of all indexes
+func (ms *metricStore) buildTagKeyValuesForFlush() map[string]map[string]struct{} {
+	// immutable part is not empty, collect all mappings of tagKey -> tagValue
+	tagKeyValues := make(map[string]map[string]struct{})
+	for _, indexINTF := range ms.immutable {
+		for _, entrySet := range indexINTF.getTagKVEntrySets() {
+			tagValues := make(map[string]struct{})
+			for tagValue := range entrySet.values {
+				tagValues[tagValue] = struct{}{}
+			}
+			tagKeyValues[entrySet.key] = tagValues
+		}
+	}
+	for _, entrySet := range ms.mutable.getTagKVEntrySets() {
+		tagValues, ok := tagKeyValues[entrySet.key]
+		if !ok {
+			tagValues = make(map[string]struct{})
+		}
+		for tagValue := range entrySet.values {
+			tagValues[tagValue] = struct{}{}
+		}
+		tagKeyValues[entrySet.key] = tagValues
+	}
+	return tagKeyValues
+}
+
+// findSeriesIDsByExpr finds series ids by tag filter expr
+func (ms *metricStore) findSeriesIDsByExpr(expr stmt.TagFilter) (*series.MultiVerSeriesIDSet, error) {
 
 	multiVerSeriesIDSet := series.NewMultiVerSeriesIDSet()
 
 	ms.mutex4Immutable.RLock()
 	for _, tagIdx := range ms.immutable {
-		if bitMap := tagIdx.findSeriesIDsByExpr(expr, timeRange); bitMap != nil {
+		if bitMap := tagIdx.findSeriesIDsByExpr(expr); bitMap != nil {
 			multiVerSeriesIDSet.Add(tagIdx.getVersion(), bitMap)
 		}
 	}
 	ms.mutex4Immutable.RUnlock()
 
 	ms.mutex4Mutable.RLock()
-	if bitMap := ms.mutable.findSeriesIDsByExpr(expr, timeRange); bitMap != nil {
+	if bitMap := ms.mutable.findSeriesIDsByExpr(expr); bitMap != nil {
 		multiVerSeriesIDSet.Add(ms.mutable.getVersion(), bitMap)
 	}
 	ms.mutex4Mutable.RUnlock()
@@ -327,22 +399,21 @@ func (ms *metricStore) findSeriesIDsByExpr(expr stmt.TagFilter,
 	return multiVerSeriesIDSet, nil
 }
 
-// getSeriesIDsForTag get series ids by tagKey and timeRange
-func (ms *metricStore) getSeriesIDsForTag(tagKey string,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
+// getSeriesIDsForTag get series ids by tagKey
+func (ms *metricStore) getSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error) {
 
 	multiVerSeriesIDSet := series.NewMultiVerSeriesIDSet()
 
 	ms.mutex4Immutable.RLock()
 	for _, tagIdx := range ms.immutable {
-		if bitMap := tagIdx.getSeriesIDsForTag(tagKey, timeRange); bitMap != nil {
+		if bitMap := tagIdx.getSeriesIDsForTag(tagKey); bitMap != nil {
 			multiVerSeriesIDSet.Add(tagIdx.getVersion(), bitMap)
 		}
 	}
 	ms.mutex4Immutable.RUnlock()
 
 	ms.mutex4Mutable.RLock()
-	if bitMap := ms.mutable.getSeriesIDsForTag(tagKey, timeRange); bitMap != nil {
+	if bitMap := ms.mutable.getSeriesIDsForTag(tagKey); bitMap != nil {
 		multiVerSeriesIDSet.Add(ms.mutable.getVersion(), bitMap)
 	}
 	ms.mutex4Mutable.RUnlock()

@@ -3,18 +3,63 @@ package tsdb
 /*
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of Shard━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━Data Flow━━━━━━━━━━━━━━━━━━━━━━━━
 
-Each shard contains a MemoryDatabase and DiskDatabase.
-┌──────────────────┬──────────────────┐
-│       Shard      │       Shard      │
-├──────────────────┼──────────────────┤
-│       MemDB      │       MemDB      │
-├──────────────────┼──────────────────┤
-│       DiskDB     │       DiskDB     │
-├──────────────────┴──────────────────┤
-│               IndexDB               │
-└─────────────────────────────────────┘
+Each shard contains a MemoryDatabase, the Index Database is a global singleton
+
+a) Write Flow
+
++-------------------------------------+
+|                                     |
+|               Engine                |
+|                                     |
++------+---------------------+--------+
+       |                     |
+       |                     |
+Shard  |               Shard |
++------v-------+       +-----v--------+
+|   Memory     |       |   Memory     +-------------------------------------+
+|  Database    |       |  Database    +--------------+                      |
++-----^-+------+       +-----^-+------+              |                      |
+      | |                    | |                     |                      |
+      | |                    | | ID                  |                      |
+      | |                    | | Generator           |                      |
++-----+-v--------------------+-v------+              |                      |
+|                                     |              |                      |
+|          Index Database             |              |                      |
+|                                     |              |                      |
++------+----------------------+-------+              |                      |
+       |                      |                      |                      |
+       | Flush                | Flush                | Flush                | Flush
+       | NameIDIndex          | MetaIndex            | SeriesIndex          | Metrics
++------v-------+       +------v-------+       +------v-------+       +------v-------+
+| MetricNameID |       |  MetricMeta  |       |    Series    |       |  MetricData  |
+|  IndexTable  |       |  IndexTable  |       |  IndexTable  |       |    Table     |
++--------------+       +--------------+       +--------------+       +--------------+
+
+
+b) Query flow
+
+Shard                  Shard
++------+-------+       +-----+--------+
+|   Memory     |       |   Memory     <--------------+ series.MetaGetter
+|  Database    |       |  Database    |              | series.Filter
++-----^-+------+       +-----^-+------+              | series.DataGetter
+      | |                    | |                     +----------------------
+      | |                    | |
+      | |           IDGetter | |
++-----+-v--------------------+-v------+
+|                                     <-------------------------------------+
+|          Index Database             |                                     |
+|                                     <--------------+                      |
++------^----------------------^-------+              |                      |
+       |                      |                      |                      |
+       | Read                 | Read                 |                      |
+       | NameIDIndex          | MetaIndex            | series.Filter        | series.DataGetter
++------+-------+       +------+-------+       +------+-------+       +------+-------+
+| MetricNameID |       |  MetricMeta  |       |    Series    |       |  MetricData  |
+|  IndexTable  |       |  IndexTable  |       |  IndexTable  |       |    Table     |
++--------------+       +--------------+       +--------------+       +--------------+
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of memDB━━━━━━━━━━━━━━━━━━━━━━━━
@@ -78,38 +123,53 @@ Each shard contains a MemoryDatabase and DiskDatabase.
                  /             \                   \       | +--------------------------------+       \
                 /               \                   \      +-----------------------------+     \       \
                /                 \                   +--------------+                     \     \       \
-  +-----------+                   +--------------------------+       \                     \     \       \
- /                 Level2                                     \       \                     \     \       \
-v--------+--------+--------+--------+--------+--------+--------v       v--------+---+--------v     v-------v
-| LOUDS  |TagValue| Data1  | Data2  |TagValue|TagValue| CRC32  |       | Offset |...| Offset |     | TagKV |
-|TrieTree| Count  | Length | Length | Data1  | Data2  |CheckSum|       |        |   |        |     | Bitmap|
-+--------+--------+--------+--------+--------+--------+--------+       +--------+---+--------+     +-------+
+  +-----------+                   +-----------------+                \                     \     \       \
+ /                 Level2                            \                \                     \     \       \
+v--------+--------+--------+--------+--------+--------v                v--------+---+--------v     v-------v
+|  Time  | LOUDS  |TagValue|TagValue|TagValue| CRC32  |                | Offset |...| Offset |     | TagKV |
+|  Range |TrieTree|  Info  | Data1  | Data2  |CheckSum|                |        |   |        |     | Bitmap|
++--------+--------+--------+--------+--------+--------+                +--------+---+--------+     +-------+
 
 
 Level1(KV table: TagKV EntrySet, Offset, Keys)
 Level1 is same as metric-table as below
 Key: tagID
+This block is alias as EntrySetBlock
 
 
-Level2(LOUDS Encoded Trie Tree)
-┌─────────────────────────────────────────────────────────────────┐
-│                    LOUDS Encoded Trie Tree                      │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │
-│  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+Level2(TimeRange & LOUDS Encoded Trie Tree)
+This block is alias as TreeBlock
+┌─────────────────────┬────────────────────────────────────────────────────────────────────────────┐
+│       TimeRange     │                        LOUDS Encoded Trie Tree                             │
+├──────────┬──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
+│ StartTime│  EndTime │   Trie   │  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │
+│  uint32  │  uint32  │  TreeLen │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│  4 Bytes │  4 Bytes │ uvariant │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+Level2(TagValue Info)
+alias as OffsetsBlock
+┌────────────────────────────────┐
+│          TagValue Info         │
+├──────────┬──────────┬──────────┤
+│ TagValue │  Data1   │  Data2   │
+│  Count   │  Length  │  Length  │
+├──────────┼──────────┼──────────┤
+│ uvariant │ uvariant │ uvariant │
+└──────────┴──────────┴──────────┘
+
 
 Level2(Versioned TagValue Data)
-┌────────────────────────────────────────────────────────────────────────────┐
-│                      Versioned TagValue Data                               │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│ Version  │ Version1 │ Version2 │ Version1 │ Version2 │TagValue1 │TagValue2 │
-│  Count   │ (Delta)  │ (Delta)  │  Length  │  Length  │  BitMap  │  BitMap  │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ 4 Bytes  │ uvariant │ uvariant │ uvariant │ N Bytes  │  N Bytes │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+alias as TagValueDataBlock
+┌──────────┬──────────────────────────────────────────────────────┬─────────────────────┐
+│          │                  VersionedTagValue                   │  VersionedTagValues │
+├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
+│ Version  │ Version1 │StartTime1│ EndTime1 │ BitMap1  │ TagValue1│  Version │ Version  │
+│  Count   │  uint32  │ (Delta)  │  (Delta) │  Length  │  BitMap  │   Meta2  │  Meta3   │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│ uvariant │ 4 Bytes  │ variant  │ variant  │ uvariant │ N Bytes  │ N Bytes  │  N Bytes │
+└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Succinct trie tree(Example):
 (KEY Value: eleme:1, etcd:2, etrace:3)
@@ -122,40 +182,45 @@ Values: [2, 1, 3]
 
                    +--------+
                    |        | (pseudo root)
-                   |  10    |
+                   |  10    | (node-0)
+                   +--------+
+                       |
+                   +---v----+
+                   |        | (root)
+                   |  10    | (node-1)
                    +--------+
                        |
                    +---v----+
                    |   e    |
-                   |  110   |
+                   |  110   | (node-2)
                    +---+----+
                       / \
               +------+   +----+
              /                 \
         +---v----+          +---v----+
         |   l    |          |   t    |
-        |   10   |          |   110  |
+        |   10   | (node-3) |   110  | (node-4)
         +---+----+          +---+----+
             |                   |\_______________
             |                   |                \
         +---v----+          +---v----+        +---v----+
         |   e    |          |   c    |        |   r    |
-        |   10   |          |   10   |        |   10   |
+        |   10   | (node-5) |   10   |(node-6)|   10   |(node-7)
         +---+----+          +---+----+        +---+----+
             |                   |                 |
         +---v----+          +---v----+        +---v----+
         |   m    |          |   d    |        |   a    |
-        |   10   |          |   0    |        |   10   |
+        |   10   | (node-8) |   0    |(node-9)|   10   |(node-10)
         +---+----+          +--------+        +---+----+
             |                 Value:2             |
         +---v----+                            +---v----+
         |   e    |                            |   c    |
-        |   0    |                            |   10   |
+        |   0    | (node-11)                  |   10   | (node-12)
         +--------+                            +---+----+
           Value:1                                 |
                                               +---v----+
                                               |   e    |
-                                              |   0    |
+                                              |   0    | (node-13)
                                               +--------+
                                                Value:3
 
@@ -224,7 +289,7 @@ Level2(Field Meta)
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric table━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of metric data table━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
@@ -270,8 +335,8 @@ Level1(KV table: Footer)
 ┌──────────────────────────────────────────────────────┐
 │                    Footer                            │
 ├──────────┬──────────┬──────────┬──────────┬──────────┤
-│  length  │ position │ position │ Version  │  Magic   │
-│          │ OfOffset │ OfKeys   │          │  Number  │
+│  length  │ position │ position │  Table   │  Magic   │
+│          │ OfOffset │ OfKeys   │ Version  │  Number  │
 ├──────────┼──────────┼──────────┼──────────┼──────────┤
 │  1 Byte  │ 4 Bytes  │ 4 Bytes  │ 1 Bytes  │  8 Bytes │
 └──────────┴──────────┴──────────┴──────────┴──────────┘

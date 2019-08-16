@@ -117,7 +117,6 @@ func (rs *rankSelect) LastChild(nodeNumber uint64) (childNodeNumber uint64, ok b
 	pos := rs.Position(nodeNumber)
 	childPos := rs.Select0(rs.Rank1(pos)+1) - 1
 	return rs.NodeNumber(childPos), rs.Bit(childPos)
-
 }
 
 func (rs *rankSelect) ChildrenNum(nodeNumber uint64) uint64 {

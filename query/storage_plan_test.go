@@ -31,10 +31,10 @@ func TestStoragePlan_Metric(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), series.ErrMetaDataNotExist)
+	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), series.ErrNotFound)
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, series.ErrMetaDataNotExist, err)
+	assert.Equal(t, series.ErrNotFound, err)
 }
 
 func TestStoragePlan_SelectList(t *testing.T) {
@@ -55,7 +55,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		Return(uint16(14), field.HistogramField, nil).AnyTimes()
 
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "no_f").
-		Return(uint16(99), field.HistogramField, series.ErrMetaDataNotExist).AnyTimes()
+		Return(uint16(99), field.HistogramField, series.ErrNotFound).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
@@ -65,7 +65,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	query, _ = sql.Parse("select no_f from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, series.ErrMetaDataNotExist, err)
+	assert.Equal(t, series.ErrNotFound, err)
 
 	// normal
 	query, _ = sql.Parse("select f from cpu")
