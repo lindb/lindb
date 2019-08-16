@@ -5,8 +5,9 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
-	"github.com/mattn/go-isatty"
+	isatty "github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -15,6 +16,33 @@ var (
 	logger *zap.Logger
 	once   sync.Once
 )
+
+// SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
+func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("[2006-01-02 - 15:04:05]"))
+}
+
+// SimpleLevelEncoder serializes a Level to a lowercase string. For example,
+// InfoLevel is serialized to "info".
+func SimpleLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(LevelString(l))
+}
+
+// LevelString returns a lower-case ASCII representation of the log level.
+func LevelString(l zapcore.Level) string {
+	switch l {
+	case zapcore.DebugLevel:
+		return "[debug]"
+	case zapcore.InfoLevel:
+		return "[info]"
+	case zapcore.WarnLevel:
+		return "[warn]"
+	case zapcore.ErrorLevel:
+		return "[error]"
+	default:
+		return fmt.Sprintf("[Level(%d)]", l)
+	}
+}
 
 // Logger is wrapper for zap logger with module, it is singleton.
 type Logger struct {
@@ -61,7 +89,8 @@ func (c *Config) New() (*zap.Logger, error) {
 	//)
 	//logger := zap.New(core)
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeTime = SimpleTimeEncoder
+	encoderConfig.EncodeLevel = SimpleLevelEncoder
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderConfig),
 		os.Stdout,
@@ -108,7 +137,7 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 
 // formatMsg formats msg using module name
 func (l *Logger) formatMsg(msg string) string {
-	return fmt.Sprintf("[%s]:%s", l.module, msg)
+	return fmt.Sprintf("[%s]: %s", l.module, msg)
 }
 
 // String constructs a field with the given key and value.
