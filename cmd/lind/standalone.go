@@ -68,7 +68,7 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if err := fileutil.LoadConfig(standaloneCfgPath, defaultStorageCfgFile, &standaloneCfg); err != nil {
+	if err := fileutil.LoadConfig(standaloneCfgPath, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode config file error:%s", err)
 	}
 
