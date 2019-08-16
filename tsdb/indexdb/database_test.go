@@ -1,6 +1,7 @@
 package indexdb
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/lindb/lindb/kv"
@@ -191,4 +192,54 @@ func Test_IndexDatabase(t *testing.T) {
 	set, err = db.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.Nil(t, err)
+}
+
+func Test_IndexDatabase_FlushNameIDsTo(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := emptyDatabase()
+	mockFlusher := kv.NewMockFlusher(ctrl)
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	assert.Nil(t, db.FlushNameIDsTo(mockFlusher))
+
+	db.youngMetricNameIDs["1"] = 1
+	db.youngMetricNameIDs["2"] = 2
+	db.metricIDSequence = 10
+	db.tagKeyIDSequence = 15
+
+	assert.Nil(t, db.FlushNameIDsTo(mockFlusher))
+	assert.Equal(t, 2, db.tree.Size())
+}
+
+func Test_IndexDatabase_FlushMetricsMetaTo(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := emptyDatabase()
+	assert.Nil(t, db.FlushMetricsMetaTo(nil))
+
+	set := func() {
+		db.youngTagKeyIDs = map[uint32][]tagKeyAndID{
+			1: {{tagKey: "11", tagKeyID: 11},
+				{tagKey: "12", tagKeyID: 12}},
+			2: {{tagKey: "22", tagKeyID: 22},
+				{tagKey: "23", tagKeyID: 23}}}
+		db.youngFieldIDs = map[uint32][]fieldIDAndType{
+			2: {{fieldID: 22, fieldType: field.SumField},
+				{fieldID: 23, fieldType: field.MaxField}},
+			3: {{fieldID: 33, fieldType: field.MinField},
+				{fieldID: 34, fieldType: field.SumField}}}
+	}
+	mockFlusher := kv.NewMockFlusher(ctrl)
+	set()
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+	assert.Nil(t, db.FlushMetricsMetaTo(mockFlusher))
+
+	// map empty
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	assert.Nil(t, db.FlushMetricsMetaTo(mockFlusher))
+	// flush with error
+	set()
+	assert.NotNil(t, db.FlushMetricsMetaTo(mockFlusher))
 }
