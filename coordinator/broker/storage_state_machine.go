@@ -28,10 +28,10 @@ type StorageStateMachine interface {
 
 // storageStateMachine implements storage state state machine interface
 type storageStateMachine struct {
-	discovery     discovery.Discovery
-	ctx           context.Context
-	cancel        context.CancelFunc
-	streamFactory rpc.ClientStreamFactory
+	discovery         discovery.Discovery
+	ctx               context.Context
+	cancel            context.CancelFunc
+	taskClientFactory rpc.TaskClientFactory
 
 	storageClusters map[string]*StorageClusterState
 
@@ -42,15 +42,15 @@ type storageStateMachine struct {
 
 // NewStorageStateMachine creates state machine, init data if exist, then starts watch change event
 func NewStorageStateMachine(ctx context.Context,
-	discoveryFactory discovery.Factory, streamFactory rpc.ClientStreamFactory) (StorageStateMachine, error) {
+	discoveryFactory discovery.Factory, taskClientFactory rpc.TaskClientFactory) (StorageStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
-	log := logger.GetLogger("/broker/storage/sm")
+	log := logger.GetLogger("broker/storage/state/machine")
 	stateMachine := &storageStateMachine{
-		streamFactory:   streamFactory,
-		ctx:             c,
-		cancel:          cancel,
-		storageClusters: make(map[string]*StorageClusterState),
-		log:             log,
+		taskClientFactory: taskClientFactory,
+		ctx:               c,
+		cancel:            cancel,
+		storageClusters:   make(map[string]*StorageClusterState),
+		log:               log,
 	}
 	repo := discoveryFactory.GetRepo()
 	clusterList, err := repo.List(c, constants.StorageClusterStatePath)
@@ -60,7 +60,7 @@ func NewStorageStateMachine(ctx context.Context,
 
 	// init exist cluster list
 	for _, cluster := range clusterList {
-		stateMachine.addCluster(cluster)
+		stateMachine.addCluster(cluster.Value)
 	}
 	// new storage config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterStatePath, stateMachine)
@@ -137,7 +137,7 @@ func (s *storageStateMachine) addCluster(resource []byte) {
 	//TODO need check if same state, maybe state is same, such as system start
 	state, ok := s.storageClusters[storageState.Name]
 	if !ok {
-		state = newStorageClusterState(s.streamFactory)
+		state = newStorageClusterState(s.taskClientFactory)
 		s.storageClusters[storageState.Name] = state
 	}
 	state.SetState(storageState)

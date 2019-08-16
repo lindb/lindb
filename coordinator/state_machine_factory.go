@@ -16,12 +16,12 @@ import (
 
 // StateMachineCfg represents the state machine config
 type StateMachineCfg struct {
-	Ctx                 context.Context
-	CurrentNode         models.Node
-	DiscoveryFactory    discovery.Factory
-	ShardAssignSRV      service.ShardAssignService
-	ChannelManager      replication.ChannelManager
-	ClientStreamFactory rpc.ClientStreamFactory // rpc client stream create factory
+	Ctx               context.Context
+	CurrentNode       models.Node
+	DiscoveryFactory  discovery.Factory
+	ShardAssignSRV    service.ShardAssignService
+	ChannelManager    replication.ChannelManager
+	TaskClientFactory rpc.TaskClientFactory // rpc task stream create factory
 }
 
 // StateMachineFactory represents the state machine create factory
@@ -53,7 +53,7 @@ func (s *stateMachineFactory) CreateNodeStateMachine() (broker.NodeStateMachine,
 
 // CreateStorageStateMachine creates the storage state machine, if fail returns err
 func (s *stateMachineFactory) CreateStorageStateMachine() (broker.StorageStateMachine, error) {
-	return broker.NewStorageStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory, s.cfg.ClientStreamFactory)
+	return broker.NewStorageStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory, s.cfg.TaskClientFactory)
 }
 
 // CreateReplicaStatusStateMachine creates the shard replica status state machine, if fail returns err

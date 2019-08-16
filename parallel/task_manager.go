@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc"
+	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 //go:generate mockgen -source=./task_manager.go -destination=./task_manager_mock.go -package=parallel
@@ -21,24 +23,29 @@ type TaskManager interface {
 	// Get returns the task context by task id
 	Get(taskID string) TaskContext
 
-	// GetTaskSenderManager returns the task sender manager
-	GetTaskSenderManager() TaskSenderManager
+	// SendRequest sends the task request to target node based on node's indicator
+	SendRequest(targetNodeID string, req *pb.TaskRequest) error
+	// SendResponse sends the task response to parent node
+	SendResponse(targetNodeID string, resp *pb.TaskResponse) error
 }
 
 // taskManager implements the task manager interface, tracks all task of the current node
 type taskManager struct {
-	currentNodeID string
-	seq           int64
-	taskSender    TaskSenderManager
+	currentNodeID     string
+	seq               int64
+	taskClientFactory rpc.TaskClientFactory
+	taskServerFactory rpc.TaskServerFactory
 
 	tasks sync.Map
 }
 
 // NewTaskManager creates the task manager
-func NewTaskManager(currentNode models.Node, taskSender TaskSenderManager) TaskManager {
+func NewTaskManager(currentNode models.Node,
+	taskClientFactory rpc.TaskClientFactory, taskServerFactory rpc.TaskServerFactory) TaskManager {
 	return &taskManager{
-		currentNodeID: (&currentNode).Indicator(),
-		taskSender:    taskSender,
+		currentNodeID:     (&currentNode).Indicator(),
+		taskClientFactory: taskClientFactory,
+		taskServerFactory: taskServerFactory,
 	}
 }
 
@@ -72,7 +79,28 @@ func (t *taskManager) Get(taskID string) TaskContext {
 	return taskCtx
 }
 
-// GetTaskSenderManager returns the task sender manager
-func (t *taskManager) GetTaskSenderManager() TaskSenderManager {
-	return t.taskSender
+// SendRequest sends the task request to target node based on node's indicator,
+// if fail, returns err
+func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) error {
+	client := t.taskClientFactory.GetTaskClient(targetNodeID)
+	if client == nil {
+		return errNoSendStream
+	}
+	if err := client.Send(req); err != nil {
+		return errTaskSend
+	}
+	return nil
+}
+
+// SendResponse sends the task response to parent node,
+// if fail, returns err
+func (t *taskManager) SendResponse(parentNodeID string, resp *pb.TaskResponse) error {
+	stream := t.taskServerFactory.GetStream(parentNodeID)
+	if stream == nil {
+		return errNoSendStream
+	}
+	if err := stream.Send(resp); err != nil {
+		return err
+	}
+	return nil
 }

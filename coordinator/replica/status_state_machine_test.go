@@ -12,20 +12,29 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestStatusStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
+	factory.EXPECT().GetRepo().Return(repo).AnyTimes()
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	_, err := NewStatusStateMachine(context.TODO(), factory)
 	assert.NotNil(t, err)
 
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
+	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	_, err = NewStatusStateMachine(context.TODO(), factory)
+	assert.NotNil(t, err)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "key", Value: []byte{1, 2, 3}}}, nil)
 	discovery1.EXPECT().Discovery().Return(nil)
 	sm, err := NewStatusStateMachine(context.TODO(), factory)
 	if err != nil {

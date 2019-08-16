@@ -54,6 +54,16 @@ func NewStatusStateMachine(ctx context.Context, factory discovery.Factory) (Stat
 		brokers: make(map[string]models.BrokerReplicaState),
 		log:     logger.GetLogger("replica/status/state/machine"),
 	}
+	repo := factory.GetRepo()
+	replicaStatusList, err := repo.List(c, constants.ReplicaStatePath)
+	if err != nil {
+		return nil, fmt.Errorf("replica status list error:%s", err)
+	}
+
+	// init exist replica status list
+	for _, brokerReplica := range replicaStatusList {
+		sm.addBrokerReplica(brokerReplica.Key, brokerReplica.Value)
+	}
 	// new replica status discovery
 	sm.discovery = factory.CreateDiscovery(constants.ReplicaStatePath, sm)
 	if err := sm.discovery.Discovery(); err != nil {
@@ -116,16 +126,7 @@ func (sm *statusStateMachine) Close() error {
 
 // OnCreates updates the broker's replica status when broker upload replica state
 func (sm *statusStateMachine) OnCreate(key string, resource []byte) {
-	brokerReplicaState := models.BrokerReplicaState{}
-	if err := json.Unmarshal(resource, &brokerReplicaState); err != nil {
-		sm.log.Error("discovery replica status but unmarshal error",
-			logger.String("data", string(resource)), logger.Error(err))
-		return
-	}
-	broker := pathutil.GetName(key)
-	sm.mutex.Lock()
-	sm.brokers[broker] = brokerReplicaState
-	sm.mutex.Unlock()
+	sm.addBrokerReplica(key, resource)
 }
 
 // OnDelete deletes the broker's replica status when broker offline
@@ -133,5 +134,18 @@ func (sm *statusStateMachine) OnDelete(key string) {
 	broker := pathutil.GetName(key)
 	sm.mutex.Lock()
 	delete(sm.brokers, broker)
+	sm.mutex.Unlock()
+}
+
+func (sm *statusStateMachine) addBrokerReplica(key string, data []byte) {
+	brokerReplicaState := models.BrokerReplicaState{}
+	if err := json.Unmarshal(data, &brokerReplicaState); err != nil {
+		sm.log.Error("discovery replica status but unmarshal error",
+			logger.String("data", string(data)), logger.Error(err))
+		return
+	}
+	broker := pathutil.GetName(key)
+	sm.mutex.Lock()
+	sm.brokers[broker] = brokerReplicaState
 	sm.mutex.Unlock()
 }

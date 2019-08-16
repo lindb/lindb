@@ -89,11 +89,11 @@ func (s *storageClusterService) List() ([]*models.StorageCluster, error) {
 	}
 	for _, val := range data {
 		storageCluster := &models.StorageCluster{}
-		err = json.Unmarshal(val, storageCluster)
+		err = json.Unmarshal(val.Value, storageCluster)
 		if err != nil {
 			logger.GetLogger("service/storage/cluster").
 				Warn("unmarshal data error",
-					logger.String("data", string(val)))
+					logger.String("data", string(val.Value)))
 		} else {
 			result = append(result, storageCluster)
 		}

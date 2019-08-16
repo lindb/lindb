@@ -168,7 +168,9 @@ func (cm *channelManager) scheduleStateReport() {
 
 // reportState reports the state of all replicators under current broker
 func (cm *channelManager) reportState() {
-	brokerState := models.BrokerReplicaState{ReportTime: timeutil.Now()}
+	brokerState := models.BrokerReplicaState{
+		ReportTime: timeutil.Now(),
+	}
 	cm.channelMap.Range(func(key, value interface{}) bool {
 		channel, ok := value.(Channel)
 		if ok {

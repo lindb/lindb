@@ -43,6 +43,14 @@ type srv struct {
 	databaseService       service.DatabaseService
 	replicatorService     service.ReplicatorService
 	channelManager        replication.ChannelManager
+	taskManager           parallel.TaskManager
+	jobManager            parallel.JobManager
+}
+
+// factory represents all factories for broker
+type factory struct {
+	taskClient rpc.TaskClientFactory
+	taskServer rpc.TaskServerFactory
 }
 
 // apiHandler represents all api handlers for broker
@@ -75,6 +83,7 @@ type runtime struct {
 	repo          state.Repository
 	repoFactory   state.RepositoryFactory
 	srv           srv
+	factory       factory
 	httpServer    *http.Server
 	master        coordinator.Master
 	registry      discovery.Registry
@@ -123,16 +132,22 @@ func (r *runtime) Run() error {
 		return err
 	}
 
+	//time.Sleep(10*time.Second)
+	r.factory = factory{
+		taskClient: rpc.NewTaskClientFactory(r.node),
+		taskServer: rpc.NewTaskServerFactory(),
+	}
+
 	r.buildServiceDependency()
 	discoveryFactory := discovery.NewFactory(r.repo)
 
 	smFactory := coordinator.NewStateMachineFactory(&coordinator.StateMachineCfg{
-		Ctx:                 r.ctx,
-		CurrentNode:         r.node,
-		ChannelManager:      r.srv.channelManager,
-		ShardAssignSRV:      r.srv.shardAssignService,
-		DiscoveryFactory:    discoveryFactory,
-		ClientStreamFactory: rpc.NewClientStreamFactory(r.node),
+		Ctx:               r.ctx,
+		CurrentNode:       r.node,
+		ChannelManager:    r.srv.channelManager,
+		ShardAssignSRV:    r.srv.shardAssignService,
+		DiscoveryFactory:  discoveryFactory,
+		TaskClientFactory: r.factory.taskClient,
 	})
 
 	// finally start all state machine
@@ -260,6 +275,12 @@ func (r *runtime) buildServiceDependency() {
 
 	// hard code create channel first.
 	cm := replication.NewChannelManager(r.config.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorService)
+	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
+	jobManager := parallel.NewJobManager(taskManager)
+
+	//TODO (stone100)close it????
+	taskReceiver := parallel.NewTaskReceiver(jobManager)
+	r.factory.taskClient.SetTaskReceiver(taskReceiver)
 
 	srv := srv{
 		storageClusterService: service.NewStorageClusterService(r.repo),
@@ -268,16 +289,14 @@ func (r *runtime) buildServiceDependency() {
 		shardAssignService:    service.NewShardAssignService(r.repo),
 		replicatorService:     replicatorService,
 		channelManager:        cm,
+		taskManager:           taskManager,
+		jobManager:            jobManager,
 	}
 	r.srv = srv
 }
 
 // buildAPIDependency builds broker api dependency
 func (r *runtime) buildAPIDependency() {
-	senderManager := parallel.NewTaskSenderManager()
-	taskManager := parallel.NewTaskManager(r.node, senderManager)
-	jobManager := parallel.NewJobManager(taskManager)
-
 	handlers := apiHandler{
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
@@ -286,7 +305,7 @@ func (r *runtime) buildAPIDependency() {
 		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM, query.NewExectorFactory(), jobManager),
+			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
 	}
 
@@ -339,9 +358,11 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
+	//FIXME: (stone1100) need close
+	dispatcher := parallel.NewIntermediateTaskDispatcher()
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.channelManager),
-		task:   parallel.NewTaskHandler(rpc.GetServerStreamFactory(), nil),
+		task:   parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
 	}
 
 	brokerpb.RegisterBrokerServiceServer(r.server.GetServer(), r.handler.writer)
