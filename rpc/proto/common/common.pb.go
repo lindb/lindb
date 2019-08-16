@@ -8,8 +8,11 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -52,10 +55,11 @@ func (TaskType) EnumDescriptor() ([]byte, []int) {
 }
 
 type TaskRequest struct {
-	ParentTaskID         string   `protobuf:"bytes,1,opt,name=parentTaskID,proto3" json:"parentTaskID,omitempty"`
-	Type                 int32    `protobuf:"varint,2,opt,name=type,proto3" json:"type,omitempty"`
-	PhysicalPlan         []byte   `protobuf:"bytes,3,opt,name=physicalPlan,proto3" json:"physicalPlan,omitempty"`
-	Payload              []byte   `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
+	JobID                int64    `protobuf:"varint,1,opt,name=jobID,proto3" json:"jobID,omitempty"`
+	ParentTaskID         string   `protobuf:"bytes,2,opt,name=parentTaskID,proto3" json:"parentTaskID,omitempty"`
+	Type                 int32    `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	PhysicalPlan         []byte   `protobuf:"bytes,4,opt,name=physicalPlan,proto3" json:"physicalPlan,omitempty"`
+	Payload              []byte   `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -75,7 +79,7 @@ func (m *TaskRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_TaskRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -93,6 +97,13 @@ func (m *TaskRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_TaskRequest proto.InternalMessageInfo
+
+func (m *TaskRequest) GetJobID() int64 {
+	if m != nil {
+		return m.JobID
+	}
+	return 0
+}
 
 func (m *TaskRequest) GetParentTaskID() string {
 	if m != nil {
@@ -123,10 +134,11 @@ func (m *TaskRequest) GetPayload() []byte {
 }
 
 type TaskResponse struct {
-	TaskID               string   `protobuf:"bytes,1,opt,name=TaskID,proto3" json:"TaskID,omitempty"`
-	Completed            bool     `protobuf:"varint,2,opt,name=completed,proto3" json:"completed,omitempty"`
-	ErrMsg               string   `protobuf:"bytes,3,opt,name=errMsg,proto3" json:"errMsg,omitempty"`
-	Payload              []byte   `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
+	JobID                int64    `protobuf:"varint,1,opt,name=jobID,proto3" json:"jobID,omitempty"`
+	TaskID               string   `protobuf:"bytes,2,opt,name=TaskID,proto3" json:"TaskID,omitempty"`
+	Completed            bool     `protobuf:"varint,3,opt,name=completed,proto3" json:"completed,omitempty"`
+	ErrMsg               string   `protobuf:"bytes,4,opt,name=errMsg,proto3" json:"errMsg,omitempty"`
+	Payload              []byte   `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -146,7 +158,7 @@ func (m *TaskResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_TaskResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -164,6 +176,13 @@ func (m *TaskResponse) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_TaskResponse proto.InternalMessageInfo
+
+func (m *TaskResponse) GetJobID() int64 {
+	if m != nil {
+		return m.JobID
+	}
+	return 0
+}
 
 func (m *TaskResponse) GetTaskID() string {
 	if m != nil {
@@ -202,26 +221,27 @@ func init() {
 func init() { proto.RegisterFile("common.proto", fileDescriptor_555bd8c177793206) }
 
 var fileDescriptor_555bd8c177793206 = []byte{
-	// 302 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0xb1, 0x4e, 0xf3, 0x30,
-	0x14, 0x85, 0xeb, 0xfe, 0xfd, 0xd3, 0xf6, 0x36, 0x43, 0x64, 0x10, 0x8a, 0x10, 0x8a, 0xaa, 0x4c,
-	0x11, 0x43, 0x85, 0xe8, 0xc4, 0x8a, 0x18, 0x5a, 0x01, 0x05, 0x99, 0x22, 0x66, 0x93, 0x5c, 0xa0,
-	0x22, 0xb1, 0x8d, 0x6d, 0x2a, 0x75, 0xe6, 0x25, 0x78, 0x24, 0x46, 0x1e, 0x01, 0x85, 0x17, 0x41,
-	0x71, 0x82, 0x20, 0x03, 0x9b, 0xcf, 0x67, 0x5d, 0x1f, 0x9f, 0x73, 0xc1, 0x4f, 0x65, 0x51, 0x48,
-	0x31, 0x51, 0x5a, 0x5a, 0x49, 0xbd, 0x5a, 0xc5, 0x2f, 0x04, 0x46, 0x4b, 0x6e, 0x1e, 0x19, 0x3e,
-	0x3d, 0xa3, 0xb1, 0x34, 0x06, 0x5f, 0x71, 0x8d, 0xc2, 0x56, 0x70, 0x7e, 0x12, 0x92, 0x31, 0x49,
-	0x86, 0xac, 0xc5, 0x28, 0x85, 0x9e, 0xdd, 0x28, 0x0c, 0xbb, 0x63, 0x92, 0xfc, 0x67, 0xee, 0xec,
-	0xe6, 0x1e, 0x36, 0x66, 0x95, 0xf2, 0xfc, 0x32, 0xe7, 0x22, 0xfc, 0x37, 0x26, 0x89, 0xcf, 0x5a,
-	0x8c, 0x86, 0xd0, 0x57, 0x7c, 0x93, 0x4b, 0x9e, 0x85, 0x3d, 0x77, 0xfd, 0x2d, 0xe3, 0x35, 0xf8,
-	0xf5, 0x27, 0x8c, 0x92, 0xc2, 0x20, 0xdd, 0x01, 0xaf, 0xe5, 0xdf, 0x28, 0xba, 0x07, 0xc3, 0x54,
-	0x16, 0x2a, 0x47, 0x8b, 0x99, 0xb3, 0x1f, 0xb0, 0x1f, 0x50, 0x4d, 0xa1, 0xd6, 0xe7, 0xe6, 0xde,
-	0xb9, 0x0f, 0x59, 0xa3, 0xfe, 0xf6, 0xdd, 0x9f, 0xc2, 0xa0, 0x7a, 0x79, 0x59, 0x25, 0x18, 0x41,
-	0xff, 0x7a, 0x71, 0xba, 0xb8, 0xb8, 0x59, 0x04, 0x1d, 0x1a, 0x80, 0x3f, 0x17, 0x16, 0x75, 0x81,
-	0xd9, 0x8a, 0x5b, 0x0c, 0x08, 0x1d, 0x40, 0xef, 0x0c, 0xf9, 0x5d, 0xd0, 0x3d, 0x9c, 0xd5, 0x8d,
-	0x5d, 0xa1, 0x5e, 0xaf, 0x52, 0xa4, 0x47, 0xe0, 0xcd, 0xb8, 0xc8, 0x72, 0xa4, 0x5b, 0x93, 0xa6,
-	0xe2, 0x5f, 0x85, 0xee, 0x6e, 0xb7, 0x61, 0x1d, 0x30, 0xee, 0x24, 0xe4, 0x80, 0x1c, 0x07, 0x6f,
-	0x65, 0x44, 0xde, 0xcb, 0x88, 0x7c, 0x94, 0x11, 0x79, 0xfd, 0x8c, 0x3a, 0xb7, 0x9e, 0xdb, 0xce,
-	0xf4, 0x2b, 0x00, 0x00, 0xff, 0xff, 0x41, 0x40, 0x6f, 0x3a, 0xad, 0x01, 0x00, 0x00,
+	// 320 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0xcf, 0x4a, 0xc3, 0x40,
+	0x10, 0x87, 0x3b, 0xfd, 0x93, 0xb6, 0xd3, 0x1c, 0xc2, 0x5a, 0x24, 0x88, 0x84, 0x90, 0x53, 0xf0,
+	0x50, 0xc4, 0x9e, 0xbc, 0x4a, 0x0f, 0x2d, 0x6a, 0x95, 0xb5, 0xe2, 0x79, 0x9b, 0x8c, 0x5a, 0x4d,
+	0xb2, 0x31, 0x59, 0x85, 0xbe, 0x83, 0x0f, 0xa0, 0x6f, 0xe4, 0xd1, 0x47, 0x90, 0xfa, 0x22, 0x92,
+	0x4d, 0x44, 0x73, 0xe8, 0x6d, 0xbf, 0xdf, 0xee, 0x2c, 0xdf, 0xcc, 0xa0, 0x19, 0xc8, 0x38, 0x96,
+	0xc9, 0x28, 0xcd, 0xa4, 0x92, 0xcc, 0x28, 0xc9, 0x7b, 0x07, 0x1c, 0x2c, 0x44, 0xfe, 0xc8, 0xe9,
+	0xe9, 0x99, 0x72, 0xc5, 0x86, 0xd8, 0x79, 0x90, 0xcb, 0xd9, 0xc4, 0x06, 0x17, 0xfc, 0x16, 0x2f,
+	0x81, 0x79, 0x68, 0xa6, 0x22, 0xa3, 0x44, 0x15, 0x4f, 0x67, 0x13, 0xbb, 0xe9, 0x82, 0xdf, 0xe7,
+	0xb5, 0x8c, 0x31, 0x6c, 0xab, 0x75, 0x4a, 0x76, 0xcb, 0x05, 0xbf, 0xc3, 0xf5, 0x59, 0xd7, 0xdd,
+	0xaf, 0xf3, 0x55, 0x20, 0xa2, 0xcb, 0x48, 0x24, 0x76, 0xdb, 0x05, 0xdf, 0xe4, 0xb5, 0x8c, 0xd9,
+	0xd8, 0x4d, 0xc5, 0x3a, 0x92, 0x22, 0xb4, 0x3b, 0xfa, 0xfa, 0x17, 0xbd, 0x57, 0x40, 0xb3, 0x74,
+	0xcb, 0x53, 0x99, 0xe4, 0xb4, 0x45, 0x6e, 0x17, 0x8d, 0x9a, 0x56, 0x45, 0x6c, 0x1f, 0xfb, 0x81,
+	0x8c, 0xd3, 0x88, 0x14, 0x85, 0xda, 0xaa, 0xc7, 0xff, 0x82, 0xa2, 0x8a, 0xb2, 0xec, 0x3c, 0xbf,
+	0xd3, 0x52, 0x7d, 0x5e, 0xd1, 0x76, 0x9d, 0x83, 0x31, 0xf6, 0x8a, 0x9f, 0x17, 0x45, 0x63, 0x03,
+	0xec, 0x5e, 0xcf, 0x4f, 0xe7, 0x17, 0x37, 0x73, 0xab, 0xc1, 0x2c, 0x34, 0x67, 0x89, 0xa2, 0x2c,
+	0xa6, 0x70, 0x25, 0x14, 0x59, 0xc0, 0x7a, 0xd8, 0x3e, 0x23, 0x71, 0x6b, 0x35, 0x8f, 0xa6, 0xe5,
+	0x78, 0xaf, 0x28, 0x7b, 0x59, 0x05, 0xc4, 0x8e, 0xd1, 0x98, 0x8a, 0x24, 0x8c, 0x88, 0xed, 0x8c,
+	0xaa, 0x7d, 0xfc, 0x9b, 0xfe, 0xde, 0xb0, 0x1e, 0x96, 0x6d, 0x7b, 0x0d, 0x1f, 0x0e, 0xe1, 0xc4,
+	0xfa, 0xd8, 0x38, 0xf0, 0xb9, 0x71, 0xe0, 0x6b, 0xe3, 0xc0, 0xdb, 0xb7, 0xd3, 0x58, 0x1a, 0x7a,
+	0x95, 0xe3, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xc9, 0x93, 0x76, 0xd8, 0xda, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -283,6 +303,14 @@ type TaskServiceServer interface {
 	Handle(TaskService_HandleServer) error
 }
 
+// UnimplementedTaskServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedTaskServiceServer struct {
+}
+
+func (*UnimplementedTaskServiceServer) Handle(srv TaskService_HandleServer) error {
+	return status.Errorf(codes.Unimplemented, "method Handle not implemented")
+}
+
 func RegisterTaskServiceServer(s *grpc.Server, srv TaskServiceServer) {
 	s.RegisterService(&_TaskService_serviceDesc, srv)
 }
@@ -331,7 +359,7 @@ var _TaskService_serviceDesc = grpc.ServiceDesc{
 func (m *TaskRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -339,43 +367,57 @@ func (m *TaskRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TaskRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TaskRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ParentTaskID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.ParentTaskID)))
-		i += copy(dAtA[i:], m.ParentTaskID)
-	}
-	if m.Type != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
-	}
-	if len(m.PhysicalPlan) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.PhysicalPlan)))
-		i += copy(dAtA[i:], m.PhysicalPlan)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Payload) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Payload)
+		copy(dAtA[i:], m.Payload)
 		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
-		i += copy(dAtA[i:], m.Payload)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.PhysicalPlan) > 0 {
+		i -= len(m.PhysicalPlan)
+		copy(dAtA[i:], m.PhysicalPlan)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.PhysicalPlan)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.Type != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.Type))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.ParentTaskID) > 0 {
+		i -= len(m.ParentTaskID)
+		copy(dAtA[i:], m.ParentTaskID)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.ParentTaskID)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.JobID != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.JobID))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *TaskResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -383,52 +425,68 @@ func (m *TaskResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TaskResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TaskResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.TaskID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.TaskID)))
-		i += copy(dAtA[i:], m.TaskID)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Payload) > 0 {
+		i -= len(m.Payload)
+		copy(dAtA[i:], m.Payload)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.ErrMsg) > 0 {
+		i -= len(m.ErrMsg)
+		copy(dAtA[i:], m.ErrMsg)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.ErrMsg)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.Completed {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.Completed {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.ErrMsg) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.ErrMsg)))
-		i += copy(dAtA[i:], m.ErrMsg)
+	if len(m.TaskID) > 0 {
+		i -= len(m.TaskID)
+		copy(dAtA[i:], m.TaskID)
+		i = encodeVarintCommon(dAtA, i, uint64(len(m.TaskID)))
+		i--
+		dAtA[i] = 0x12
 	}
-	if len(m.Payload) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintCommon(dAtA, i, uint64(len(m.Payload)))
-		i += copy(dAtA[i:], m.Payload)
+	if m.JobID != 0 {
+		i = encodeVarintCommon(dAtA, i, uint64(m.JobID))
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintCommon(dAtA []byte, offset int, v uint64) int {
+	offset -= sovCommon(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *TaskRequest) Size() (n int) {
 	if m == nil {
@@ -436,6 +494,9 @@ func (m *TaskRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
+	if m.JobID != 0 {
+		n += 1 + sovCommon(uint64(m.JobID))
+	}
 	l = len(m.ParentTaskID)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
@@ -463,6 +524,9 @@ func (m *TaskResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	if m.JobID != 0 {
+		n += 1 + sovCommon(uint64(m.JobID))
+	}
 	l = len(m.TaskID)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
@@ -485,14 +549,7 @@ func (m *TaskResponse) Size() (n int) {
 }
 
 func sovCommon(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozCommon(x uint64) (n int) {
 	return sovCommon(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -527,6 +584,25 @@ func (m *TaskRequest) Unmarshal(dAtA []byte) error {
 		}
 		switch fieldNum {
 		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JobID", wireType)
+			}
+			m.JobID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JobID |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ParentTaskID", wireType)
 			}
@@ -558,7 +634,7 @@ func (m *TaskRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.ParentTaskID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 2:
+		case 3:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
 			}
@@ -577,7 +653,7 @@ func (m *TaskRequest) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 3:
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field PhysicalPlan", wireType)
 			}
@@ -611,7 +687,7 @@ func (m *TaskRequest) Unmarshal(dAtA []byte) error {
 				m.PhysicalPlan = []byte{}
 			}
 			iNdEx = postIndex
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
 			}
@@ -700,6 +776,25 @@ func (m *TaskResponse) Unmarshal(dAtA []byte) error {
 		}
 		switch fieldNum {
 		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field JobID", wireType)
+			}
+			m.JobID = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.JobID |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field TaskID", wireType)
 			}
@@ -731,7 +826,7 @@ func (m *TaskResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.TaskID = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 2:
+		case 3:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Completed", wireType)
 			}
@@ -751,7 +846,7 @@ func (m *TaskResponse) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Completed = bool(v != 0)
-		case 3:
+		case 4:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ErrMsg", wireType)
 			}
@@ -783,7 +878,7 @@ func (m *TaskResponse) Unmarshal(dAtA []byte) error {
 			}
 			m.ErrMsg = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 4:
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
 			}

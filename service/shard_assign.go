@@ -48,11 +48,11 @@ func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
 	var result []*models.ShardAssignment
 	for _, val := range data {
 		shardAssign := &models.ShardAssignment{}
-		err = encoding.JSONUnmarshal(val, shardAssign)
+		err = encoding.JSONUnmarshal(val.Value, shardAssign)
 		if err != nil {
 			logger.GetLogger("service/shard/assign").
 				Warn("unmarshal data error",
-					logger.String("data", string(val)))
+					logger.String("data", string(val.Value)))
 		} else {
 			result = append(result, shardAssign)
 		}

@@ -47,7 +47,7 @@ func NewDefaultBrokerCfg() Broker {
 			Password: "admin123",
 		},
 		ReplicationChannel: ReplicationChannel{
-			Path:                       "/tmp/broker/replication",
+			Path:                       "/tmp/lindb/broker/replication",
 			BufferSize:                 32,
 			SegmentFileSize:            128 * 1024 * 1024,
 			RemoveTaskIntervalInSecond: 60,

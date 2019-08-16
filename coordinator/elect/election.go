@@ -151,7 +151,7 @@ func (e *election) Close() {
 // resign resigns master role, delete master elect node
 func (e *election) resign() {
 	if e.isMaster.Load() {
-		log.Info("do master resign because current node is master", logger.Stack())
+		log.Info("do master resign because current node is master")
 		if err := e.repo.Delete(e.ctx, constants.MasterPath); err != nil {
 			log.Error("delete master path failed", logger.Error(err))
 		}

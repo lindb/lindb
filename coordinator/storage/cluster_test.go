@@ -50,10 +50,10 @@ func TestStorageCluster(t *testing.T) {
 	_, err := factory.newCluster(cfg)
 	assert.NotNil(t, err)
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{
-		encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 4000}}),
-		{1, 1, 1},
-		encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 4000}}),
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Key: "/node1", Value: encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 4000}})},
+		{Key: "/node_err", Value: []byte{1, 1, 1, 1}},
+		{Key: "/node2", Value: encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 4000}})},
 	}, nil).AnyTimes()
 
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))

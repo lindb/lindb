@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
 )
@@ -12,19 +13,21 @@ import (
 // 1. receives the task request, and searches the data from time seres engine
 // 2. sends the result to the parent node(root or intermediate)
 type leafTask struct {
-	currentNodeID  string
-	storageService service.StorageService
-	factory        ExecutorFactory
+	currentNodeID     string
+	storageService    service.StorageService
+	executorFactory   ExecutorFactory
+	taskServerFactory rpc.TaskServerFactory
 }
 
-// NewLeafTask creates the leaf task
-func NewLeafTask(currentNode models.Node,
+// newLeafTask creates the leaf task
+func newLeafTask(currentNode models.Node,
 	storageService service.StorageService,
-	factory ExecutorFactory) TaskProcessor {
+	executorFactory ExecutorFactory, taskServerFactory rpc.TaskServerFactory) TaskProcessor {
 	return &leafTask{
-		currentNodeID:  (&currentNode).Indicator(),
-		storageService: storageService,
-		factory:        factory,
+		currentNodeID:     (&currentNode).Indicator(),
+		storageService:    storageService,
+		executorFactory:   executorFactory,
+		taskServerFactory: taskServerFactory,
 	}
 }
 
@@ -51,7 +54,19 @@ func (p *leafTask) Process(req *pb.TaskRequest) error {
 	if engine == nil {
 		return errNoDatabase
 	}
+
+	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
+	if stream == nil {
+		return errNoSendStream
+	}
+	_ = stream.Send(&pb.TaskResponse{
+		JobID:     req.JobID,
+		TaskID:    req.ParentTaskID,
+		Completed: true,
+	})
+
 	//TODO impl query logic and send task result to parent node
-	_ = p.factory.NewStorageExecutor(engine, curLeaf.ShardIDs, nil)
+	//exec := p.executorFactory.NewStorageExecutor(engine, curLeaf.ShardIDs, nil)
+	//exec.Execute()
 	return nil
 }

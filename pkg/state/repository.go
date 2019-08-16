@@ -23,7 +23,7 @@ type Repository interface {
 	// Get retrieves value for given key from repository
 	Get(ctx context.Context, key string) ([]byte, error)
 	// List retrieves list for given prefix from repository
-	List(ctx context.Context, prefix string) ([][]byte, error)
+	List(ctx context.Context, prefix string) ([]KeyValue, error)
 	// Put puts a key-value pair into repository
 	Put(ctx context.Context, key string, val []byte) error
 	// Delete deletes value for given key from repository

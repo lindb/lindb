@@ -8,17 +8,19 @@ enum TaskType {
     Leaf = 2;
 }
 message TaskRequest {
-    string parentTaskID = 1;
-    int32 type = 2;
-    bytes physicalPlan = 3;
-    bytes payload = 4;
+    int64 jobID = 1;
+    string parentTaskID = 2;
+    int32 type = 3;
+    bytes physicalPlan = 4;
+    bytes payload = 5;
 }
 
 message TaskResponse {
-    string TaskID = 1;
-    bool completed = 2;
-    string errMsg = 3;
-    bytes payload = 4;
+    int64 jobID = 1;
+    string TaskID = 2;
+    bool completed = 3;
+    string errMsg = 4;
+    bytes payload = 5;
 }
 
 service TaskService {

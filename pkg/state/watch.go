@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
@@ -90,19 +89,12 @@ func (w *watcher) watch(eventCh chan<- *Event) {
 	}
 }
 
-func (w *watcher) parseKey(key string) string {
-	if len(w.cli.namespace) == 0 {
-		return key
-	}
-	return strings.Replace(key, w.cli.namespace, "", 1)
-}
-
 func (w *watcher) packWatchEvent(watchEvent *etcdcliv3.Event) *Event {
 	kv := watchEvent.Kv
 	evt := &Event{
 		Type: EventTypeModify,
 		KeyValues: []EventKeyValue{
-			{Key: w.parseKey(string(kv.Key)), Value: kv.Value, Rev: kv.ModRevision},
+			{Key: w.cli.parseKey(string(kv.Key)), Value: kv.Value, Rev: kv.ModRevision},
 		},
 	}
 	if watchEvent.Type == mvccpb.DELETE {
@@ -115,7 +107,7 @@ func (w *watcher) packAllEvents(kvs []*mvccpb.KeyValue) *Event {
 	evt := &Event{Type: EventTypeAll}
 	for _, kv := range kvs {
 		evt.KeyValues = append(evt.KeyValues, EventKeyValue{
-			Key:   w.parseKey(string(kv.Key)),
+			Key:   w.cli.parseKey(string(kv.Key)),
 			Value: kv.Value,
 			Rev:   kv.ModRevision,
 		})

@@ -38,8 +38,8 @@ type storageExecutor struct {
 	err error
 }
 
-// NewStorageExecutor creates the execution which queries the data of storage engine
-func NewStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
+// newStorageExecutor creates the execution which queries the data of storage engine
+func newStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
 	interval := query.Interval
 	if interval <= 0 {
 		//TODO use storage interval

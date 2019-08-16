@@ -85,11 +85,11 @@ func (db *databaseService) List() ([]*models.Database, error) {
 	}
 	for _, val := range data {
 		db := &models.Database{}
-		err = json.Unmarshal(val, db)
+		err = json.Unmarshal(val.Value, db)
 		if err != nil {
 			logger.GetLogger("service/db").
 				Warn("unmarshal data error",
-					logger.String("data", string(val)))
+					logger.String("data", string(val.Value)))
 		} else {
 			result = append(result, db)
 		}

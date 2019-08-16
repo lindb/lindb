@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	etcdcliv3 "github.com/coreos/etcd/clientv3"
 
@@ -43,17 +44,17 @@ func (r *etcdRepository) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 // List retrieves list for given prefix from etcd
-func (r *etcdRepository) List(ctx context.Context, prefix string) ([][]byte, error) {
+func (r *etcdRepository) List(ctx context.Context, prefix string) ([]KeyValue, error) {
 	resp, err := r.client.Get(ctx, r.keyPath(prefix), etcdcliv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
-	var result [][]byte
+	var result []KeyValue
 
 	if len(resp.Kvs) > 0 {
 		for _, kv := range resp.Kvs {
 			if len(kv.Value) > 0 {
-				result = append(result, kv.Value)
+				result = append(result, KeyValue{Key: r.parseKey(string(kv.Key)), Value: kv.Value})
 			}
 		}
 	}
@@ -197,6 +198,14 @@ func (r *etcdRepository) keyPath(key string) string {
 		return filepath.Join(r.namespace, key)
 	}
 	return key
+}
+
+// parseKey parses the key, removes the namespace
+func (r *etcdRepository) parseKey(key string) string {
+	if len(r.namespace) == 0 {
+		return key
+	}
+	return strings.Replace(key, r.namespace, "", 1)
 }
 
 type transaction struct {
