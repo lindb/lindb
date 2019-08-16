@@ -17,9 +17,7 @@ func Test_newTimeSeriesStore(t *testing.T) {
 	assert.NotNil(t, tStore)
 	assert.True(t, tStore.isNoData())
 	assert.False(t, tStore.isExpired())
-
-	_, ok := tStore.timeRange()
-	assert.False(t, ok)
+	assert.Equal(t, uint64(100), tStore.getHash())
 }
 
 func Test_tStore_expired(t *testing.T) {
@@ -87,21 +85,8 @@ func Test_tStore_afterWrite(t *testing.T) {
 	tStoreInterface := newTimeSeriesStore(100, 100)
 	tStore := tStoreInterface.(*timeSeriesStore)
 
-	writeCtx := writeContext{
-		timeInterval: 10 * 1000,
-		slotIndex:    40,
-		familyTime:   timeutil.Now() / 3600 / 1000 * 3600 * 1000}
-	tStore.afterWrite(writeCtx)
+	tStore.afterWrite()
 	assert.True(t, tStore.hasData)
-	assert.Equal(t, tStore.startDelta, tStore.endDelta)
-	timeRange, _ := tStore.timeRange()
-	assert.Equal(t, timeRange.Start, timeRange.End)
-
-	writeCtx.slotIndex = 380
-	tStore.afterWrite(writeCtx)
-	timeRange, _ = tStore.timeRange()
-	assert.True(t, timeRange.Start < timeRange.End)
-	assert.True(t, timeRange.End > timeutil.Now())
 }
 
 func Test_tStore_flushSeriesTo(t *testing.T) {
@@ -136,8 +121,6 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	tStore.insertFStore(mockFStore3)
 	assert.True(t, tStore.flushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 	assert.False(t, tStoreInterface.isNoData())
-	timeRange, _ := tStoreInterface.timeRange()
-	assert.Equal(t, int64(70), (timeRange.End-timeRange.Start)/1000)
 
 	// flush error
 	tStore.fStoreNodes = nil

@@ -21,8 +21,14 @@ import (
 
 // tagIndexINTF abstracts the index of tStores, not thread-safe
 type tagIndexINTF interface {
-	// getTagKVEntrySet returns the kv-entrySet for flushing index data.
-	getTagKVEntrySet() []tagKVEntrySet
+	// updateTime updates the start and endTime by CAS
+	updateTime(pointTime uint32)
+	// return timeRange in seconds
+	getTimeRange() (startTime, endTime uint32)
+	// getTagKVEntrySet returns the kv-entrySet by tagKey
+	getTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool)
+	// getTagKVEntrySets returns the kv-entrySets for flushing index data.
+	getTagKVEntrySets() []tagKVEntrySet
 	// getTStore get tStore from string tags
 	getTStore(tags string) (tStoreINTF, bool)
 	// getTStoreBySeriesID get tStore from seriesID
@@ -32,18 +38,20 @@ type tagIndexINTF interface {
 	getOrCreateTStore(tags string) (tStoreINTF, error)
 	// removeTStores removes tStores from a list of seriesID
 	removeTStores(seriesIDs ...uint32)
-	// len returns the count of tStores
-	len() int
+	// tagsUsed returns the count of all used tags, it is used for restricting write.
+	tagsUsed() int
+	// tagsInUse returns how many tags are still in use, it is used for evicting
+	tagsInUse() int
 	// allTStores returns the map of seriesID and tStores
 	allTStores() map[uint32]tStoreINTF
 	// flushMetricTo flush metric to the tableFlusher
 	flushMetricTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
-	// getVersion returns a version(uptime) of the index
-	getVersion() int64
-	// findSeriesIDsByExpr finds series ids by tag filter expr and timeRange
-	findSeriesIDsByExpr(expr stmt.TagFilter, timeRange timeutil.TimeRange) *roaring.Bitmap
-	// getSeriesIDsForTag get series ids by tagKey and timeRange
-	getSeriesIDsForTag(tagKey string, timeRange timeutil.TimeRange) *roaring.Bitmap
+	// getVersion returns a version(uptime in seconds) of the index
+	getVersion() uint32
+	// findSeriesIDsByExpr finds series ids by tag filter expr
+	findSeriesIDsByExpr(expr stmt.TagFilter) *roaring.Bitmap
+	// getSeriesIDsForTag get series ids by tagKey
+	getSeriesIDsForTag(tagKey string) *roaring.Bitmap
 }
 
 // tagKVEntrySet is a inverted mapping relation of tag-value and seriesID group.
@@ -71,8 +79,10 @@ type tagIndex struct {
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idCounter     uint32
-	// version is the uptime in milliseconds
-	version int64
+	// version is the uptime in seconds
+	version   uint32
+	startTime uint32 // startTime, endTime of all data written
+	endTime   uint32
 }
 
 // newTagIndex returns a new tagIndexINTF with version.
@@ -80,11 +90,40 @@ func newTagIndex() tagIndexINTF {
 	return &tagIndex{
 		seriesID2TStore: make(map[uint32]tStoreINTF),
 		hash2SeriesID:   make(map[uint64]uint32),
-		version:         timeutil.Now()}
+		version:         uint32(timeutil.Now() / 1000),
+		startTime:       uint32(timeutil.Now() / 1000),
+		endTime:         uint32(timeutil.Now() / 1000)}
 }
 
-// getTagKVEntrySet returns the kv-entrySet for flushing index data.
-func (index *tagIndex) getTagKVEntrySet() []tagKVEntrySet {
+// updateTime updates the start and endTime by CAS
+func (index *tagIndex) updateTime(pointTime uint32) {
+	for {
+		startTime := atomic.LoadUint32(&index.startTime)
+		if startTime <= pointTime {
+			break
+		}
+		if atomic.CompareAndSwapUint32(&index.startTime, startTime, pointTime) {
+			break
+		}
+	}
+	for {
+		endTime := atomic.LoadUint32(&index.endTime)
+		if endTime >= pointTime {
+			break
+		}
+		if atomic.CompareAndSwapUint32(&index.endTime, endTime, pointTime) {
+			break
+		}
+	}
+}
+
+// getTimeRange return timeRange in seconds
+func (index *tagIndex) getTimeRange() (startTime, endTime uint32) {
+	return atomic.LoadUint32(&index.startTime), atomic.LoadUint32(&index.endTime)
+}
+
+// getTagKVEntrySets returns the kv-entrySet for flushing index data.
+func (index *tagIndex) getTagKVEntrySets() []tagKVEntrySet {
 	return index.tagKVEntrySet
 }
 
@@ -112,8 +151,8 @@ func (index *tagIndex) insertNewTStore(tag string, newSeriesID uint32, tStore tS
 	return nil
 }
 
-// getTagKeyEntry search the tagKeyEntry by binary-search
-func (index *tagIndex) getTagKeyEntry(tagKey string) (*tagKVEntrySet, bool) {
+// getTagKVEntrySet search the tagKeyEntry by binary-search
+func (index *tagIndex) getTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool) {
 	offset := sort.Search(len(index.tagKVEntrySet), func(i int) bool { return index.tagKVEntrySet[i].key >= tagKey })
 	// not present in the slice
 	if offset >= len(index.tagKVEntrySet) || index.tagKVEntrySet[offset].key != tagKey {
@@ -166,12 +205,19 @@ func (index *tagIndex) getTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool) {
 func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
 	hash := fnv1a.HashString64(tags)
 	seriesID, ok := index.hash2SeriesID[hash]
+	// hash is already existed before
 	if ok {
-		return index.seriesID2TStore[seriesID], nil
+		tStore, ok := index.seriesID2TStore[seriesID]
+		// has been evicted before, reuse the old seriesID
+		if !ok {
+			tStore = newTimeSeriesStore(seriesID, hash)
+			index.seriesID2TStore[seriesID] = tStore
+		}
+		return tStore, nil
 	}
 	// seriesID is not allocated before, assign a new one.
 	incrSeriesID := atomic.AddUint32(&index.idCounter, 1)
-	newTStore := newTimeSeriesStore(incrSeriesID, fnv1a.HashString64(tags))
+	newTStore := newTimeSeriesStore(incrSeriesID, hash)
 	// bind relation of tag kv pairs to the tStore
 	err := index.insertNewTStore(tags, incrSeriesID, newTStore)
 	if err != nil {
@@ -183,37 +229,26 @@ func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
 	return newTStore, nil
 }
 
-// removeTStores removes the seriesID from both the forward and inverted index.
+// removeTStores removes the tStores from seriesIDs
+// removeTStores does not remove the mapping relation of hash and seriesID and keep the seriesID in bitmap
 func (index *tagIndex) removeTStores(seriesIDs ...uint32) {
 	if len(seriesIDs) == 0 {
 		return
 	}
-	var tagHashes []uint64
-	// remove from bitmap
-	for _, entrySet := range index.tagKVEntrySet {
-		for _, bitMap := range entrySet.values {
-			for _, id := range seriesIDs {
-				bitMap.Remove(id)
-			}
-		}
-	}
 	// remove from seriesID2TStore
 	for _, id := range seriesIDs {
-		tStore, ok := index.seriesID2TStore[id]
-		if ok {
-			delete(index.seriesID2TStore, id)
-			tagHashes = append(tagHashes, tStore.getHash())
-		}
-	}
-	// remove from forward index
-	for _, tagHash := range tagHashes {
-		delete(index.hash2SeriesID, tagHash)
+		delete(index.seriesID2TStore, id)
 	}
 }
 
-// len returns the count of tStores
-func (index *tagIndex) len() int {
+// tagsUsed returns the count of all used tStores
+func (index *tagIndex) tagsUsed() int {
 	return len(index.hash2SeriesID)
+}
+
+// tagsInUse returns how many tags are still in use, it is used for evicting
+func (index *tagIndex) tagsInUse() int {
+	return len(index.seriesID2TStore)
 }
 
 // allTStores returns the map of seriesID and tStores
@@ -235,68 +270,59 @@ func (index *tagIndex) flushMetricTo(tableFlusher metrictbl.TableFlusher, flushC
 }
 
 // getVersion returns a version(uptime) of the index
-func (index *tagIndex) getVersion() int64 {
+func (index *tagIndex) getVersion() uint32 {
 	return index.version
 }
 
-// findSeriesIDsByExpr finds series ids by tag filter expr and timeRange
-func (index *tagIndex) findSeriesIDsByExpr(expr stmt.TagFilter, timeRange timeutil.TimeRange) *roaring.Bitmap {
-	entrySet, ok := index.getTagKeyEntry(expr.TagKey())
+// findSeriesIDsByExpr finds series ids by tag filter expr
+func (index *tagIndex) findSeriesIDsByExpr(expr stmt.TagFilter) *roaring.Bitmap {
+	entrySet, ok := index.getTagKVEntrySet(expr.TagKey())
 	if !ok {
 		return nil
 	}
 	switch expression := expr.(type) {
 	case *stmt.EqualsExpr:
-		return index.findSeriesIDsByEqual(entrySet, expression, timeRange)
+		return index.findSeriesIDsByEqual(entrySet, expression)
 	case *stmt.InExpr:
-		return index.findSeriesIDsByIn(entrySet, expression, timeRange)
+		return index.findSeriesIDsByIn(entrySet, expression)
 	case *stmt.LikeExpr:
-		return index.findSeriesIDsByLike(entrySet, expression, timeRange)
+		return index.findSeriesIDsByLike(entrySet, expression)
 	case *stmt.RegexExpr:
-		return index.findSeriesIDsByRegex(entrySet, expression, timeRange)
+		return index.findSeriesIDsByRegex(entrySet, expression)
 	}
 	return nil
 }
-func (index *tagIndex) findSeriesIDsByEqual(entrySet *tagKVEntrySet, expr *stmt.EqualsExpr,
-	timeRange timeutil.TimeRange) *roaring.Bitmap {
 
+func (index *tagIndex) findSeriesIDsByEqual(entrySet *tagKVEntrySet, expr *stmt.EqualsExpr) *roaring.Bitmap {
 	bitmap, ok := entrySet.values[expr.Value]
 	if !ok {
 		return nil
 	}
-	union := roaring.New()
-	index.unionBitMap(union, bitmap, timeRange)
-	return union
+	return bitmap.Clone()
 }
 
-func (index *tagIndex) findSeriesIDsByIn(entrySet *tagKVEntrySet, expr *stmt.InExpr,
-	timeRange timeutil.TimeRange) *roaring.Bitmap {
-
+func (index *tagIndex) findSeriesIDsByIn(entrySet *tagKVEntrySet, expr *stmt.InExpr) *roaring.Bitmap {
 	union := roaring.New()
 	for _, value := range expr.Values {
 		bitmap, ok := entrySet.values[value]
 		if !ok {
 			continue
 		}
-		index.unionBitMap(union, bitmap, timeRange)
+		union.Or(bitmap)
 	}
 	return union
 }
 
-func (index *tagIndex) findSeriesIDsByLike(entrySet *tagKVEntrySet, expr *stmt.LikeExpr,
-	timeRange timeutil.TimeRange) *roaring.Bitmap {
-
+func (index *tagIndex) findSeriesIDsByLike(entrySet *tagKVEntrySet, expr *stmt.LikeExpr) *roaring.Bitmap {
 	union := roaring.New()
 	for value, bitmap := range entrySet.values {
 		if strings.Contains(value, expr.Value) {
-			index.unionBitMap(union, bitmap, timeRange)
+			union.Or(bitmap)
 		}
 	}
 	return union
 }
-func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.RegexExpr,
-	timeRange timeutil.TimeRange) *roaring.Bitmap {
-
+func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.RegexExpr) *roaring.Bitmap {
 	pattern, err := regexp.Compile(expr.Regexp)
 	if err != nil {
 		return nil
@@ -304,41 +330,21 @@ func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.
 	union := roaring.New()
 	for value, bitmap := range entrySet.values {
 		if pattern.MatchString(value) {
-			index.unionBitMap(union, bitmap, timeRange)
+			union.Or(bitmap)
 		}
 	}
 	return union
 }
 
-// getSeriesIDsForTag get series ids by tagKey and timeRange
-func (index *tagIndex) getSeriesIDsForTag(tagKey string, timeRange timeutil.TimeRange) *roaring.Bitmap {
-	entrySet, ok := index.getTagKeyEntry(tagKey)
+// getSeriesIDsForTag get series ids by tagKey
+func (index *tagIndex) getSeriesIDsForTag(tagKey string) *roaring.Bitmap {
+	entrySet, ok := index.getTagKVEntrySet(tagKey)
 	if !ok {
 		return nil
 	}
-
 	union := roaring.New()
 	for _, bitMap := range entrySet.values {
-		index.unionBitMap(union, bitMap, timeRange)
+		union.Or(bitMap)
 	}
 	return union
-}
-
-// unionBitMap computes the union between two bitmaps and stores the result in the first bitmap.
-func (index *tagIndex) unionBitMap(union *roaring.Bitmap, x2 *roaring.Bitmap, timeRange timeutil.TimeRange) {
-	iterator := x2.Iterator()
-	for iterator.HasNext() {
-		seriesID := iterator.Next()
-		tStore, ok := index.getTStoreBySeriesID(seriesID)
-		if !ok {
-			continue
-		}
-		tRange, ok := tStore.timeRange()
-		if !ok {
-			continue
-		}
-		if timeRange.Overlap(&tRange) {
-			union.Add(seriesID)
-		}
-	}
 }

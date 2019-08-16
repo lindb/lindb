@@ -3,6 +3,7 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 // Binary is stream for writing data into memory buffer
@@ -138,12 +139,20 @@ func (b *Binary) ReadUvarint64() uint64 {
 // ReadUint32 read 4 bytes from buf as uint32
 func (b *Binary) ReadUint32() uint32 {
 	buf := b.ReadBytes(4)
+	if len(buf) != 4 {
+		b.err = fmt.Errorf("EOF occurs when ReadUint32")
+		return 0
+	}
 	return binary.LittleEndian.Uint32(buf)
 }
 
 // ReadUint64 read 8 bytes from buf as uint64
 func (b *Binary) ReadUint64() uint64 {
 	buf := b.ReadBytes(8)
+	if len(buf) != 8 {
+		b.err = fmt.Errorf("EOF occurs when ReadUint64")
+		return 0
+	}
 	return binary.LittleEndian.Uint64(buf)
 }
 
@@ -163,6 +172,7 @@ func (b *Binary) ReadByte() byte {
 	if len(data) == 1 {
 		return data[0]
 	}
+	b.err = fmt.Errorf("read byte failed")
 	return byte(0)
 }
 

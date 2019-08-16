@@ -113,24 +113,15 @@ func (db *indexDatabase) GenMetricID(metricName string) uint32 {
 
 // GenTagID generates tagID(uint32) from metricName and tagKey
 func (db *indexDatabase) GenTagID(metricID uint32, tagKey string) uint32 {
-	// case1: tagKeyID exist in memory
-	db.rwMux.RLock()
-	tagKeyID, ok := db.getTagIDInMem(metricID, tagKey)
-	if ok {
-		db.rwMux.RUnlock()
-		return tagKeyID
+	// case1, 2: check if it is in memory or on disk
+	tagID, err := db.GetTagID(metricID, tagKey)
+	if err == nil {
+		return tagID
 	}
-	// case2: tagKeyID exist on disk
-	tagKeyID, ok = db.metaReader.ReadTagID(metricID, tagKey)
-	if ok {
-		db.rwMux.RUnlock()
-		return tagKeyID
-	}
-	db.rwMux.RUnlock()
 	// case3: double check
 	db.rwMux.Lock()
 	defer db.rwMux.Unlock()
-	tagKeyID, ok = db.getTagIDInMem(metricID, tagKey)
+	tagKeyID, ok := db.getTagIDInMem(metricID, tagKey)
 	if ok {
 		return tagKeyID
 	}
@@ -157,6 +148,23 @@ func (db *indexDatabase) getTagIDInMem(metricID uint32, tagKey string) (uint32, 
 		}
 	}
 	return 0, false
+}
+
+// GetTagID returns tag ID(uint32), return ErrNotFound if not exist
+func (db *indexDatabase) GetTagID(metricID uint32, tagKey string) (tagID uint32, err error) {
+	// case1: tagKeyID exist in memory
+	db.rwMux.RLock()
+	defer db.rwMux.RUnlock()
+	tagKeyID, ok := db.getTagIDInMem(metricID, tagKey)
+	if ok {
+		return tagKeyID, nil
+	}
+	// case2: tagKeyID exist on disk
+	tagKeyID, ok = db.metaReader.ReadTagID(metricID, tagKey)
+	if ok {
+		return tagKeyID, nil
+	}
+	return 0, series.ErrNotFound
 }
 
 func (db *indexDatabase) getFieldIDInMem(metricID uint32, fieldName string) (uint16, field.Type, bool) {
@@ -242,7 +250,7 @@ func (db *indexDatabase) GetMetricID(metricName string) (uint32, error) {
 	if ok {
 		return val.(uint32), nil
 	}
-	return 0, series.ErrMetaDataNotExist
+	return 0, series.ErrNotFound
 }
 
 // GetFieldID returns field ID(uint16), if not exist return ErrMetaDataNotExist error
@@ -252,13 +260,13 @@ func (db *indexDatabase) GetFieldID(metricID uint32, fieldName string) (
 	var ok bool
 	fieldID, fieldType, ok = db.metaReader.ReadFieldID(metricID, fieldName)
 	if !ok {
-		return 0, 0, series.ErrMetaDataNotExist
+		return 0, 0, series.ErrNotFound
 	}
 	return fieldID, fieldType, nil
 }
 
 // GetTagValues get tag values corresponding with the tagKeys
-func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version int64) (
+func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
 	tagValues [][]string, err error) {
 	return db.seriesReader.GetTagValues(metricID, tagKeys, version)
 }
@@ -266,13 +274,21 @@ func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
 func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	return db.seriesReader.FindSeriesIDsByExpr(metricID, expr, timeRange)
+	tagID, err := db.GetTagID(metricID, expr.TagKey())
+	if err != nil {
+		return nil, err
+	}
+	return db.seriesReader.FindSeriesIDsByExprForTagID(tagID, expr, timeRange)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key
 func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	return db.seriesReader.GetSeriesIDsForTag(metricID, tagKey, timeRange)
+	tagID, err := db.GetTagID(metricID, tagKey)
+	if err != nil {
+		return nil, err
+	}
+	return db.seriesReader.GetSeriesIDsForTagID(tagID, timeRange)
 }
 
 // FlushNameIDsTo flushes metricName and metricID to flusher

@@ -88,10 +88,18 @@ func Test_Read(t *testing.T) {
 	assert.Equal(t, byte(7), reader.ReadByte())
 	assert.Equal(t, byte(0), reader.ReadByte())
 	assert.True(t, reader.Empty())
-	assert.Nil(t, reader.Error())
+	assert.NotNil(t, reader.Error())
 
 	// test error read uvariant64
 	reader = BinaryReader(nil)
 	reader.ReadUvarint64()
+	assert.NotNil(t, reader.Error())
+
+	// test error read uint32, uint64
+	reader = BinaryReader(nil)
+	reader.ReadUint32()
+	assert.NotNil(t, reader.Error())
+	reader = BinaryReader(nil)
+	reader.ReadUint64()
 	assert.NotNil(t, reader.Error())
 }

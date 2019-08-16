@@ -86,7 +86,7 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().setMaxTagsLimit(gomock.Any()).Return().AnyTimes()
-	mockMStore.EXPECT().getTagsCount().Return(1).AnyTimes()
+	mockMStore.EXPECT().getTagsUsed().Return(1).AnyTimes()
 	mockMStore.EXPECT().resetVersion().Return(nil).AnyTimes()
 	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
@@ -181,8 +181,8 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().findSeriesIDsByExpr(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	mockMStore.EXPECT().getSeriesIDsForTag("", gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().findSeriesIDsByExpr(gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().getSeriesIDsForTag("").Return(nil, nil).AnyTimes()
 	// not exist
 	_, err := md.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
 	assert.NotNil(t, err)
@@ -245,8 +245,8 @@ func Test_FlushSeriesIndexTo(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	gomock.InOrder(
-		mockMStore.EXPECT().flushIndexesTo(gomock.Any(), gomock.Any()).Return(nil),
-		mockMStore.EXPECT().flushIndexesTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().flushSeriesIndexesTo(gomock.Any(), gomock.Any()).Return(nil),
+		mockMStore.EXPECT().flushSeriesIndexesTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
 	)
 	// insert to bucket
 	md.getBucket(4).hash2MStore[1] = mockMStore

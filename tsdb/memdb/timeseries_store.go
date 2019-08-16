@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"math"
 	"sort"
 
 	"github.com/lindb/lindb/pkg/field"
@@ -21,9 +20,6 @@ type tStoreINTF interface {
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// flushSeriesTo flushes the series data segment.
 	flushSeriesTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) (flushed bool)
-	// timeRange returns the start-time and end-time of segment's data
-	// ok means data is available
-	timeRange() (timeRange timeutil.TimeRange, ok bool)
 	// isExpired detects if this tStore has not been used for a TTL
 	isExpired() bool
 	// isNoData symbols if all data of this tStore has been flushed
@@ -40,13 +36,11 @@ func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
 	seriesID      uint32           // series id
-	hash          uint64           // hash of tags
-	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
-	lastWroteTime int64            // last write-time in milliseconds
-	startDelta    int32            // startTime = lastWroteTime + startDelta
-	endDelta      int32            // endTime = lastWroteTime + endDelta
-	hasData       bool             // noData flags symbols if all data has been flushed
 	sl            lockers.SpinLock // spin-lock
+	hash          uint64           // hash of tags
+	lastWroteTime uint32           // last write-time in seconds
+	hasData       bool             // noData flags symbols if all data has been flushed
+	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
@@ -54,9 +48,7 @@ func newTimeSeriesStore(seriesID uint32, tagsHash uint64) tStoreINTF {
 	return &timeSeriesStore{
 		seriesID:      seriesID,
 		hash:          tagsHash,
-		lastWroteTime: timeutil.Now(),
-		startDelta:    math.MaxInt32,
-		endDelta:      math.MaxInt32}
+		lastWroteTime: uint32(timeutil.Now() / 1000)}
 }
 
 // getHash returns the FNV1a hash of the tags
@@ -86,36 +78,15 @@ func (ts *timeSeriesStore) isNoData() bool {
 	return !ts.hasData
 }
 
-// timeRange returns the start-time and end-time in milliseconds
-func (ts *timeSeriesStore) timeRange() (timeRange timeutil.TimeRange, ok bool) {
-	ts.sl.Lock()
-	timeRange = timeutil.TimeRange{
-		Start: ts.lastWroteTime + int64(ts.startDelta),
-		End:   ts.lastWroteTime + int64(ts.endDelta)}
-	ok = ts.startDelta != math.MaxInt32 && ts.endDelta != math.MaxInt32
-	ts.sl.Unlock()
-	return
-}
-
-// afterWrite set hasData, then update the start-time and end-time
-func (ts *timeSeriesStore) afterWrite(writeCtx writeContext) {
+// afterWrite set hasData to true and updates the lastWroteTime
+func (ts *timeSeriesStore) afterWrite() {
 	// hasData is true now
 	ts.hasData = true
-	// update time range
-	now := timeutil.Now()
-	pointTime := writeCtx.familyTime + writeCtx.timeInterval*int64(writeCtx.slotIndex)
-	startTime := ts.lastWroteTime + int64(ts.startDelta)
-	endTime := ts.lastWroteTime + int64(ts.endDelta)
-	if ts.startDelta == math.MaxInt32 || pointTime < startTime {
-		ts.startDelta = int32(pointTime - now)
-	}
-	if ts.endDelta == math.MaxInt32 || endTime < pointTime {
-		ts.endDelta = int32(pointTime - now)
-	}
-	ts.lastWroteTime = now
+	// update lastWroteTime
+	ts.lastWroteTime = uint32(timeutil.Now() / 1000)
 }
 
-// afterFlush update the flag of hasData, and the start-time and end-time
+// afterFlush checks if the tStore contains any data after flushing
 func (ts *timeSeriesStore) afterFlush(flushCtx flushContext) {
 	// update hasData flag
 	var startTime, endTime int64
@@ -133,18 +104,11 @@ func (ts *timeSeriesStore) afterFlush(flushCtx flushContext) {
 			endTime = timeRange.End
 		}
 	}
-	if ts.hasData {
-		ts.startDelta = int32(startTime - ts.lastWroteTime)
-		ts.endDelta = int32(endTime - ts.lastWroteTime)
-	} else {
-		ts.startDelta = math.MaxInt32
-		ts.endDelta = math.MaxInt32
-	}
 }
 
 // isExpired detects if this tStore has not been used for a TTL
 func (ts *timeSeriesStore) isExpired() bool {
-	return ts.lastWroteTime+getTagsIDTTL() < timeutil.Now()
+	return int64(ts.lastWroteTime)*1000+getTagsIDTTL() < timeutil.Now()
 }
 
 // write write the data of metric to the fStore.
@@ -160,7 +124,7 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 		}
 		if fStore, err := ts.getOrCreateFStore(f.Name, fieldType, writeCtx); err == nil {
 			fStore.write(f, writeCtx)
-			ts.afterWrite(writeCtx)
+			ts.afterWrite()
 		} else {
 			return err // field type do not match before, too many fields
 		}
