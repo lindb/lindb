@@ -2,43 +2,44 @@ package indexdb
 
 import (
 	"encoding/binary"
-	"math"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_ARTTree_marshaller_unmarshaler(t *testing.T) {
-	tree := newArtTree()
-	assert.NotNil(t, tree)
+func Test_nameIDCompressor(t *testing.T) {
+	compressor := newNameIDCompressor()
 	for i := 0; i < 10000; i++ {
-		tree.Insert([]byte(strconv.Itoa(i)), uint32(i))
+		compressor.AddNameID(strconv.Itoa(i), uint32(i))
 	}
-	data, err := tree.MarshalBinary()
+	data, err := compressor.Close()
 	assert.Nil(t, err)
 
-	tree2 := newArtTree()
-	err = tree2.UnmarshalBinary(data)
+	tree := newArtTree()
+	err = tree.UnmarshalBinary(data)
 	assert.Nil(t, err)
-	_, err = tree2.MarshalBinary()
+	assert.Equal(t, 10000, tree.Size())
+
+	compressor2 := newNameIDCompressor()
+	for it := tree.Iterator(); it.HasNext(); {
+		item, _ := it.Next()
+		compressor2.AddNameID(string(item.Key()), item.Value().(uint32))
+	}
+	_, err = compressor2.Close()
 	assert.Nil(t, err)
-	assert.Equal(t, tree.Size(), tree2.Size())
-	// mock type assertion failure
-	tree.Insert([]byte("bad-value"), 1.1111)
-	_, err = tree.MarshalBinary()
+	_, err = compressor2.Close()
 	assert.Nil(t, err)
 }
 
 func Test_ARTTree_error(t *testing.T) {
 	tree := newArtTree()
 	assert.Nil(t, tree.UnmarshalBinary(nil))
-
 	assert.NotNil(t, tree.UnmarshalBinary([]byte{1, 2}))
 
-	goodTree := newArtTree()
-	goodTree.Insert([]byte("1"), uint32(1))
-	goodData, _ := goodTree.MarshalBinary()
+	compressor := newNameIDCompressor()
+	compressor.AddNameID("1", 1)
+	goodData, _ := compressor.Close()
 	// mock bad length
 	badData1 := append([]byte{}, goodData...)
 	badData1 = append(badData1, byte(32))
@@ -49,8 +50,7 @@ func Test_ARTTree_error(t *testing.T) {
 	badData2 := append([]byte{}, goodData...)
 	badData2 = append(badData2, buf[:1]...)
 	badData2 = append(badData2, []byte("abc")...)
-	binary.PutUvarint(buf[:], math.MaxUint32)
-	badData2 = append(badData2, buf[:]...)
+	badData2 = append(badData2, byte(1))
 	assert.NotNil(t, tree.UnmarshalBinary(badData2))
 
 }

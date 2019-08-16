@@ -1,6 +1,7 @@
 package indexdb
 
 import (
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/tsdb/series"
 )
@@ -34,4 +35,8 @@ type IndexDatabase interface {
 	IDGetter
 	series.MetadataGetter
 	series.Filter
+	// FlushNameIDsTo flushes metricName and metricID to flusher
+	FlushNameIDsTo(flusher kv.Flusher) error
+	// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
+	FlushMetricsMetaTo(flusher kv.Flusher) error
 }

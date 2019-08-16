@@ -2,7 +2,6 @@ package indexdb
 
 import (
 	"bytes"
-	"compress/flate"
 	"compress/gzip"
 	"encoding"
 	"encoding/binary"
@@ -18,7 +17,6 @@ import (
 
 // artTreeINTF is a serializable/deserializable Adaptive-Radix-Tree
 type artTreeINTF interface {
-	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 	art.Tree
 }
@@ -31,36 +29,6 @@ type artTree struct {
 // newArtTree returns a new ART-Tree
 func newArtTree() artTreeINTF {
 	return &artTree{art.New()}
-}
-
-// MarshalBinary encodes the artTree into a binary form and returns the result.
-func (tree *artTree) MarshalBinary() (data []byte, err error) {
-	var (
-		buffer        bytes.Buffer // storing metric-Name, metricID
-		variableBuf   [8]byte      // placeholder for uint32
-		gzipWriter, _ = gzip.NewWriterLevel(&buffer, flate.BestSpeed)
-	)
-	for it := tree.Iterator(); it.HasNext(); {
-		item, _ := it.Next()
-		metricName := item.Key()
-		metricID, ok := item.Value().(uint32)
-		if !ok {
-			indexDBLogger.Error("ART-Tree node type error")
-			continue
-		}
-		// write metricName length
-		size := binary.PutUvarint(variableBuf[:], uint64(len(metricName)))
-		_, _ = gzipWriter.Write(variableBuf[:size])
-		// write metricName
-		_, _ = gzipWriter.Write([]byte(metricName))
-		// write metricID
-		binary.BigEndian.PutUint32(variableBuf[:], metricID)
-		_, _ = gzipWriter.Write(variableBuf[:4])
-	}
-	if err = gzipWriter.Close(); err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
 }
 
 // UnmarshalBinary set the tree from the binary.
@@ -85,9 +53,6 @@ func (tree *artTree) UnmarshalBinary(data []byte) error {
 			break
 		}
 		metricName := reader.ReadBytes(int(size))
-		if reader.Error() != nil {
-			break
-		}
 		metricID := reader.ReadUint32()
 		if reader.Error() != nil {
 			break
@@ -98,4 +63,38 @@ func (tree *artTree) UnmarshalBinary(data []byte) error {
 		return reader.Error()
 	}
 	return nil
+}
+
+// nameIDCompressor is used to compress newly-created metricName and metricID pairs.
+type nameIDCompressor struct {
+	buf         bytes.Buffer // storing metric-Name, metricID
+	variableBuf [8]byte      // placeholder for uint32
+	gzipWriter  *gzip.Writer
+}
+
+// newNameIDCompressor returns a new nameIDCompressor
+func newNameIDCompressor() *nameIDCompressor {
+	compressor := &nameIDCompressor{}
+	compressor.gzipWriter, _ = gzip.NewWriterLevel(&compressor.buf, gzip.BestSpeed)
+	return compressor
+}
+
+// AddNameID add a new metricName and metricID pair to buffer
+func (c *nameIDCompressor) AddNameID(metricName string, metricID uint32) {
+	// write metricName length
+	size := binary.PutUvarint(c.variableBuf[:], uint64(len(metricName)))
+	_, _ = c.gzipWriter.Write(c.variableBuf[:size])
+	// write metricName
+	_, _ = c.gzipWriter.Write([]byte(metricName))
+	// write metricID
+	binary.BigEndian.PutUint32(c.variableBuf[:], metricID)
+	_, _ = c.gzipWriter.Write(c.variableBuf[:4])
+}
+
+// Close closes the underlying gzip writer and return compressed data
+func (c *nameIDCompressor) Close() ([]byte, error) {
+	if err := c.gzipWriter.Close(); err != nil {
+		return nil, err
+	}
+	return c.buf.Bytes(), nil
 }

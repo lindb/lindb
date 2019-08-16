@@ -8,7 +8,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/indextbl"
@@ -23,7 +22,6 @@ const (
 )
 
 var (
-	indexDBLogger   = logger.GetLogger("tsdb/indexdb")
 	once4IndexDb    sync.Once
 	indexDBInstance *indexDatabase
 )
@@ -41,8 +39,6 @@ type fieldIDAndType struct {
 	fieldType field.Type
 }
 
-// todo: @codingcrush, flush
-
 // indexDatabase implements IndexDatabase
 type indexDatabase struct {
 	recoverError     error        // last error during recovery
@@ -54,7 +50,7 @@ type indexDatabase struct {
 	youngMetricNameIDs map[string]uint32           // metricName -> metricID
 	youngTagKeyIDs     map[uint32][]tagKeyAndID    // metricID -> tagKey + tagKeyID
 	youngFieldIDs      map[uint32][]fieldIDAndType // metricID -> fieldName + fieldType
-	// index reaader
+	// index reader
 	nameIDsReader indextbl.MetricsNameIDReader
 	metaReader    indextbl.MetricsMetaReader
 	seriesReader  indextbl.SeriesIndexReader
@@ -277,4 +273,77 @@ func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilte
 func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	return db.seriesReader.GetSeriesIDsForTag(metricID, tagKey, timeRange)
+}
+
+// FlushNameIDsTo flushes metricName and metricID to flusher
+func (db *indexDatabase) FlushNameIDsTo(flusher kv.Flusher) error {
+	nameIDFlusher := indextbl.NewMetricsNameIDFlusher(flusher)
+	return db.flushNameIDsTo(nameIDFlusher)
+}
+
+// flushNameIDsTo is the real flush method for flushing nameID mapping relation
+func (db *indexDatabase) flushNameIDsTo(nameIDFlusher indextbl.MetricsNameIDFlusher) error {
+	db.rwMux.Lock()
+	unflushed := db.youngMetricNameIDs
+	db.youngMetricNameIDs = make(map[string]uint32)
+	for metricName, metricID := range unflushed {
+		db.tree.Insert([]byte(metricName), metricID)
+	}
+	db.rwMux.Unlock()
+
+	compressor := newNameIDCompressor()
+	for metricName, metricID := range unflushed {
+		compressor.AddNameID(metricName, metricID)
+	}
+	data, err := compressor.Close()
+	if err != nil {
+		return err
+	}
+	return nameIDFlusher.FlushMetricsNS(defaultNSID, data,
+		atomic.LoadUint32(&db.metricIDSequence),
+		atomic.LoadUint32(&db.tagKeyIDSequence))
+}
+
+// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
+func (db *indexDatabase) FlushMetricsMetaTo(flusher kv.Flusher) error {
+	metaFlusher := indextbl.NewMetricsMetaFlusher(flusher)
+	return db.flushMetricsMetaTo(metaFlusher)
+}
+
+// flushMetricsMetaTo is the real method for flushing metrics-meta data
+func (db *indexDatabase) flushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error {
+	db.rwMux.Lock()
+	unflushedTagKeys := db.youngTagKeyIDs
+	unflushedFields := db.youngFieldIDs
+	db.youngTagKeyIDs = make(map[uint32][]tagKeyAndID)
+	db.youngFieldIDs = make(map[uint32][]fieldIDAndType)
+	db.rwMux.Unlock()
+
+	// union of metricID
+	metricIDs := make(map[uint32]struct{})
+	for metricID := range unflushedTagKeys {
+		metricIDs[metricID] = struct{}{}
+	}
+	for metricID := range unflushedFields {
+		metricIDs[metricID] = struct{}{}
+	}
+	// flush process
+	for metricID := range metricIDs {
+		items1, ok := unflushedTagKeys[metricID]
+		if ok {
+			for _, item := range items1 {
+				flusher.FlushTagKeyID(item.tagKey, item.tagKeyID)
+			}
+		}
+		items2, ok := unflushedFields[metricID]
+		if ok {
+			for _, item := range items2 {
+				flusher.FlushFieldID(item.fieldName, item.fieldType, item.fieldID)
+			}
+		}
+		if err := flusher.FlushMetricMeta(metricID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
