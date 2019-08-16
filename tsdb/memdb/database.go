@@ -234,6 +234,11 @@ type writeContext struct {
 	mStoreFieldIDGetter
 }
 
+// PointTime returns the point time
+func (writeCtx writeContext) PointTime() int64 {
+	return writeCtx.familyTime + writeCtx.timeInterval*int64(writeCtx.slotIndex)
+}
+
 // Write writes metric-point to database.
 func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	timestamp := metric.Timestamp
@@ -324,7 +329,7 @@ func (md *memoryDatabase) CountTags(metricName string) int {
 	if !ok {
 		return -1
 	}
-	return mStore.getTagsCount()
+	return mStore.getTagsUsed()
 }
 
 // Families returns the families in memory which has not been flushed yet.
@@ -413,7 +418,7 @@ func (md *memoryDatabase) flushSeriesIndexTo(tableFlusher indextbl.SeriesIndexFl
 		bkt := md.mStoresList[bucketIndex]
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushIndexesTo(tableFlusher, md.generator); err != nil {
+			if err = mStore.flushSeriesIndexesTo(tableFlusher, md.generator); err != nil {
 				return err
 			}
 		}
@@ -429,7 +434,7 @@ func (md *memoryDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilt
 	if !ok {
 		return nil, fmt.Errorf("metricID: %d not found", metricID)
 	}
-	return mStore.findSeriesIDsByExpr(expr, timeRange)
+	return mStore.findSeriesIDsByExpr(expr)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key from mStore.
@@ -440,5 +445,5 @@ func (md *memoryDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 	if !ok {
 		return nil, fmt.Errorf("metricID: %d not found", metricID)
 	}
-	return mStore.getSeriesIDsForTag(tagKey, timeRange)
+	return mStore.getSeriesIDsForTag(tagKey)
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/sql/stmt"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/field"
@@ -181,15 +183,16 @@ func Test_IndexDatabase(t *testing.T) {
 	assert.Nil(t, tagValues)
 	assert.Nil(t, err)
 
-	mockSeriesReader.EXPECT().FindSeriesIDsByExpr(gomock.Any(), gomock.Any(), gomock.Any()).
+	db.youngTagKeyIDs = map[uint32][]tagKeyAndID{1: {{tagKey: "host", tagKeyID: 2}, {tagKey: "zone", tagKeyID: 3}}}
+	mockSeriesReader.EXPECT().FindSeriesIDsByExprForTagID(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil)
-	set, err := db.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
+	set, err := db.FindSeriesIDsByExpr(1, &stmt.EqualsExpr{Key: "host", Value: "dev"}, timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.Nil(t, err)
 
-	mockSeriesReader.EXPECT().GetSeriesIDsForTag(gomock.Any(), gomock.Any(), gomock.Any()).
+	mockSeriesReader.EXPECT().GetSeriesIDsForTagID(gomock.Any(), gomock.Any()).
 		Return(nil, nil)
-	set, err = db.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
+	set, err = db.GetSeriesIDsForTag(1, "zone", timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.Nil(t, err)
 }

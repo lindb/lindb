@@ -2,8 +2,8 @@ package series
 
 import "errors"
 
-// ErrMetaDataNotExist is returned by index-database when the meta-data of metric not exists
-var ErrMetaDataNotExist = errors.New("meta data not exist")
+// ErrNotFound is returned by index-database when the data does not exists on disk
+var ErrNotFound = errors.New("data not found")
 
 // ErrTooManyTags is the error returned by tsdb when
 // writes exceed the max limit of tag identifiers.

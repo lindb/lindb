@@ -23,8 +23,8 @@ type sStoreINTF interface {
 // singleFieldStore stores single field
 type simpleFieldStore struct {
 	familyTime int64
-	block      block
 	aggFunc    field.AggFunc
+	block      block
 }
 
 // newSingleFieldStore returns a new segment store for simple field store

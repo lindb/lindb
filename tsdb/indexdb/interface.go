@@ -20,10 +20,12 @@ type IDGenerator interface {
 
 // IDGetter represents the query ability for metric level, such as metric id, field meta etc.
 type IDGetter interface {
-	// GetMetricID returns metric ID(uint32), if not exist return ErrNotExist error
+	// GetMetricID returns metric ID(uint32), if not exist return ErrNotFound error
 	GetMetricID(metricName string) (uint32, error)
+	// GetTagID returns tag ID(uint32), return ErrNotFound if not exist
+	GetTagID(metricID uint32, tagKey string) (tagID uint32, err error)
 	// GetFieldID returns field id and type by given metricID and field name,
-	// if not exist return ErrNotExist error
+	// if not exist return ErrNotFound error
 	GetFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, err error)
 }
 
@@ -33,7 +35,7 @@ type IDGetter interface {
 type IndexDatabase interface {
 	IDGenerator
 	IDGetter
-	series.MetadataGetter
+	series.MetaGetter
 	series.Filter
 	// FlushNameIDsTo flushes metricName and metricID to flusher
 	FlushNameIDsTo(flusher kv.Flusher) error

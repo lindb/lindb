@@ -7,23 +7,23 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/bufioutil"
+	"github.com/lindb/lindb/pkg/logger"
 
 	"github.com/RoaringBitmap/roaring"
 )
 
 //go:generate mockgen -source ./series_flusher.go -destination=./series_flusher_mock.go -package indextbl
 
-// VersionedTagKVEntrySet is a entrySet related a specific tagKey and version.
-type VersionedTagKVEntrySet struct {
-	Version  int64                      // series version
-	EntrySet map[string]*roaring.Bitmap // tagValues bitmap
-}
-
 // SeriesIndexFlusher is a wrapper of kv.Builder, provides the ability to build a versioned series-id index table.
 // The layout is available in `tsdb/doc.go`
 type SeriesIndexFlusher interface {
-	// FlushTagKey writes a version of the tagValues and related bitmap to the index table.
-	FlushTagKey(tagID uint32, versionedTagKVSets []VersionedTagKVEntrySet) error
+	// FlushVersion writes a versioned bitmap to index table.
+	FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap)
+	// FlushTagValue ends writing VersionedTagValueBlock in index table.
+	FlushTagValue(tagValue string)
+	// FlushTagKey ends writing entrySetBlock in index table.
+	FlushTagKey(tagID uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
 	Commit() error
 }
@@ -40,113 +40,157 @@ func NewSeriesIndexFlusher(flusher kv.Flusher) SeriesIndexFlusher {
 // seriesIndexFlusher implements SeriesIndexFlusher.
 type seriesIndexFlusher struct {
 	flusher        kv.Flusher
-	trie           trieTreeINTF
+	trie           trieTreeBuilder
 	entrySetBuffer bytes.Buffer
-	usingBuffers   []*bytes.Buffer
 	bufferPool     sync.Pool
 	VariableBuf    [8]byte
+	// time range
+	minStartTime uint32
+	maxEndTime   uint32
+	// for tagValue data builder
+	versionCount   int
+	tagValueBuffer *bytes.Buffer
+	// used for mock
+	resetDisabled bool
 }
 
 func (w *seriesIndexFlusher) getBuffer() *bytes.Buffer {
 	return w.bufferPool.Get().(*bytes.Buffer)
 }
 
-// FlushTagKey writes a version of the tagValues and related bitmap to the index table.
-func (w *seriesIndexFlusher) FlushTagKey(tagID uint32, versionedTagKVSets []VersionedTagKVEntrySet) error {
-	defer w.reset()
+// FlushVersion writes a versioned bitmap to index table.
+func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap) {
+	if w.tagValueBuffer == nil {
+		w.tagValueBuffer = w.getBuffer()
+	}
+	// count flushed versions
+	w.versionCount++
+	// update time range
+	if startTime < w.minStartTime || w.minStartTime == 0 {
+		w.minStartTime = startTime
+	}
+	if endTime > w.maxEndTime || w.maxEndTime == 0 {
+		w.maxEndTime = endTime
+	}
+	// write version
+	binary.LittleEndian.PutUint32(w.VariableBuf[:], version)
+	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:4])
+	// write startTime delta
+	startTimeDelta := int64(startTime) - int64(version)
+	size := binary.PutVarint(w.VariableBuf[:], startTimeDelta)
+	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	// write endTime delta
+	endTimeDelta := int64(endTime) - int64(version)
+	size = binary.PutVarint(w.VariableBuf[:], endTimeDelta)
+	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	// write bitmap length
+	out, err := bitmap.MarshalBinary()
+	if err != nil {
+		moduleLogger.Error("marshal bitmap failure", logger.Error(err))
+	}
+	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(out)))
+	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	// write bitmap data
+	_, _ = w.tagValueBuffer.Write(out)
+}
 
-	for _, tagKVSet := range versionedTagKVSets {
-		for tagValue, bitmap := range tagKVSet.EntrySet {
-			w.trie.Add(tagValue, tagKVSet.Version, bitmap)
-		}
+// bufferWithVersionCount is the value of trie-tree node
+type bufferWithVersionCount struct {
+	versionCount int
+	buffer       *bytes.Buffer
+}
+
+// FlushTagValue indicate a VersionedTagValueDataBlock is done.
+func (w *seriesIndexFlusher) FlushTagValue(tagValue string) {
+	w.trie.Add(tagValue, bufferWithVersionCount{
+		versionCount: w.versionCount,
+		buffer:       w.tagValueBuffer})
+
+	w.tagValueBuffer = nil
+	w.versionCount = 0
+}
+
+func (w *seriesIndexFlusher) FlushTagKey(tagID uint32) error {
+	if !w.resetDisabled {
+		defer w.reset()
 	}
-	bin := w.trie.MarshalBinary()
-	// write entrySet
-	var (
-		err error
-		out []byte
-	)
-	// write labels length
-	size := binary.PutUvarint(w.VariableBuf[:], uint64(len(bin.labels)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	// write labels
-	_, _ = w.entrySetBuffer.Write(bin.labels)
-	// write isPrefixKey length
-	out, err = bin.isPrefixKey.MarshalBinary()
+
+	treeDataBlock := w.trie.MarshalBinary()
+	// write startTime
+	binary.LittleEndian.PutUint32(w.VariableBuf[:], w.minStartTime)
+	w.entrySetBuffer.Write(w.VariableBuf[:4])
+	// write endTime
+	binary.LittleEndian.PutUint32(w.VariableBuf[:], w.maxEndTime)
+	w.entrySetBuffer.Write(w.VariableBuf[:4])
+	// build isPrefixKey
+	isPrefixBlock, err := treeDataBlock.isPrefixKey.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(out)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	// write isPrefixKey bitmap
-	_, _ = w.entrySetBuffer.Write(out)
-	// write LOUDS length
-	out, err = bin.LOUDS.MarshalBinary()
+	// build LOUDS length
+	LOUDSBlock, err := treeDataBlock.LOUDS.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(out)))
+	treeLength := bufioutil.GetUVariantLength(uint64(len(treeDataBlock.labels))) + // labels length uvariant size
+		len(treeDataBlock.labels) + // labels length
+		bufioutil.GetUVariantLength(uint64(len(isPrefixBlock))) + // isPrefixKey length uvariant size
+		len(isPrefixBlock) + // isPrefixKey length
+		bufioutil.GetUVariantLength(uint64(len(LOUDSBlock))) + // LOUDSBlock length uvariantsize
+		len(LOUDSBlock) // LOUDSBlock length
+	// write tree length
+	size := binary.PutUvarint(w.VariableBuf[:], uint64(treeLength))
 	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	// write isPrefixKey bitmap
-	_, _ = w.entrySetBuffer.Write(out)
+	// write labels length & labels
+	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(treeDataBlock.labels)))
+	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
+	_, _ = w.entrySetBuffer.Write(treeDataBlock.labels)
+	// write isPrefixKey length & bitmap
+	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(isPrefixBlock)))
+	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
+	_, _ = w.entrySetBuffer.Write(isPrefixBlock)
+	// write LOUDS length & bitmap
+	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(LOUDSBlock)))
+	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
+	_, _ = w.entrySetBuffer.Write(LOUDSBlock)
 
 	// write tagValueCount
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(bin.values)))
+	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(treeDataBlock.values)))
 	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
 
-	// write data lengths
-	for _, versionedBitMapList := range bin.values {
-		bufs, err := w.tagValueData2Buffer(versionedBitMapList)
-		if err != nil {
-			return err
-		}
-		var length = 0
-		for _, buf := range bufs {
-			length += buf.Len()
-			w.usingBuffers = append(w.usingBuffers, buf)
-		}
-		// write data length
-		size := binary.PutUvarint(w.VariableBuf[:], uint64(length))
-		_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	}
-	// compact buffers
-	for _, usingBuffer := range w.usingBuffers {
-		w.entrySetBuffer.Write(usingBuffer.Bytes())
-	}
+	// write all data length and versioned tagValue data blocks
+	w.writeTagValueDataBlockTo(&w.entrySetBuffer, treeDataBlock)
+
 	// write crc32 checksum
-	binary.BigEndian.PutUint32(w.VariableBuf[0:4], crc32.ChecksumIEEE(w.entrySetBuffer.Bytes()))
+	binary.LittleEndian.PutUint32(w.VariableBuf[0:4], crc32.ChecksumIEEE(w.entrySetBuffer.Bytes()))
 	w.entrySetBuffer.Write(w.VariableBuf[:4])
 
 	return w.flusher.Add(tagID, w.entrySetBuffer.Bytes())
 }
 
-func (w *seriesIndexFlusher) tagValueData2Buffer(vbs versionedBitmaps) ([]*bytes.Buffer, error) {
-	// storing tag value length data
-	tagValueDataBuffer := w.getBuffer()
-	// write version count
-	size := binary.PutUvarint(w.VariableBuf[:], uint64(len(vbs)))
-	_, _ = tagValueDataBuffer.Write(w.VariableBuf[:size])
-	// write version and version delta
-	lastVersion := int64(0)
-	for _, vb := range vbs {
-		size = binary.PutUvarint(w.VariableBuf[:], uint64(vb.version-lastVersion))
-		_, _ = tagValueDataBuffer.Write(w.VariableBuf[:size])
-		lastVersion = vb.version
+// writeTagValueDataBlockTo write tagValueDataBlocks to the buffer.
+func (w *seriesIndexFlusher) writeTagValueDataBlockTo(buffer *bytes.Buffer, treeDataBlock *trieTreeData) {
+	// write lengths of all versioned tagValue data block
+	for _, item := range treeDataBlock.values {
+		it := item.(bufferWithVersionCount)
+		// write all data length
+		dataBlockLen := bufioutil.GetUVariantLength(uint64(it.versionCount)) + // version count size
+			len(it.buffer.Bytes()) // versionedTagValue blocks
+		size := binary.PutUvarint(w.VariableBuf[:], uint64(dataBlockLen))
+		_, _ = buffer.Write(w.VariableBuf[:size])
 	}
-	// storing bitmap data
-	bitMapBuffer := w.getBuffer()
-	for _, vb := range vbs {
-		output, err := vb.bitmap.MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-		// write version length
-		size = binary.PutUvarint(w.VariableBuf[:], uint64(len(output)))
-		_, _ = tagValueDataBuffer.Write(w.VariableBuf[:size])
-		// write tag value bitmap
-		bitMapBuffer.Write(output)
+	// write all versioned tagValue data block
+	for _, item := range treeDataBlock.values {
+		it := item.(bufferWithVersionCount)
+		// write version count
+		size := binary.PutUvarint(w.VariableBuf[:], uint64(it.versionCount))
+		_, _ = buffer.Write(w.VariableBuf[:size])
+		// write all versions of tagValue bitmaps
+		_, _ = buffer.Write(it.buffer.Bytes())
+		// put buffer back to pool
+		it.buffer.Reset()
+		w.bufferPool.Put(it.buffer)
 	}
-	return []*bytes.Buffer{tagValueDataBuffer, bitMapBuffer}, nil
 }
 
 // Commit closes the writer, this will be called after writing all tagKeys.
@@ -159,9 +203,4 @@ func (w *seriesIndexFlusher) Commit() error {
 func (w *seriesIndexFlusher) reset() {
 	w.trie.Reset()
 	w.entrySetBuffer.Reset()
-	for _, buffer := range w.usingBuffers {
-		buffer.Reset()
-		w.bufferPool.Put(buffer)
-	}
-	w.usingBuffers = w.usingBuffers[:0]
 }

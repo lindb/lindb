@@ -7,8 +7,8 @@ const (
 	shardingCountOfMStores = 2 << 4
 	// mask for calculating sharding-index by AND
 	shardingCountMask = shardingCountOfMStores - 1
-	// unit: millisecond, used to prevent resetting metric-store too frequently.
-	minIntervalForResetMetricStore = 10 * 1000
+	// unit: seconds, used to prevent resetting metric-store too frequently.
+	minIntervalForResetMetricStore = 10
 )
 
 // use var for mocking
