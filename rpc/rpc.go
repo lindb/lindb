@@ -25,17 +25,12 @@ const (
 )
 
 var (
-	clientCoonFct   ClientConnFactory
-	serverStreamFct ServerStreamFactory
+	clientConnFct ClientConnFactory
 )
 
 func init() {
-	clientCoonFct = &clientConnFactory{
+	clientConnFct = &clientConnFactory{
 		connMap: make(map[models.Node]*grpc.ClientConn),
-	}
-
-	serverStreamFct = &serverStreamFactory{
-		nodeMap: make(map[models.Node]grpc.ServerStream),
 	}
 }
 
@@ -57,7 +52,7 @@ type clientConnFactory struct {
 
 // GetClientConnFactory returns a singleton ClientConnFactory.
 func GetClientConnFactory() ClientConnFactory {
-	return clientCoonFct
+	return clientConnFct
 }
 
 // GetClientConn returns the grpc ClientConn for a target node.
@@ -149,65 +144,6 @@ func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
 	}
 }
 
-// ServerStreamFactory represents a factory to get server stream.
-//TODO current only support one connection->stream, not support connection pool case
-type ServerStreamFactory interface {
-	// GetStream returns a ServerStream for a node.
-	GetStream(node models.Node) (grpc.ServerStream, bool)
-	// Register registers a stream for a node.
-	Register(node models.Node, stream grpc.ServerStream)
-	// Deregister unregisters a stream for node.
-	Deregister(node models.Node)
-	// Nodes returns all registered nodes.
-	Nodes() []models.Node
-}
-
-// GetServerStreamFactory returns the singleton server stream factory
-func GetServerStreamFactory() ServerStreamFactory {
-	return serverStreamFct
-}
-
-type serverStreamFactory struct {
-	nodeMap map[models.Node]grpc.ServerStream
-	lock    sync.RWMutex
-}
-
-// GetStream returns a ServerStream for a node.
-func (fct *serverStreamFactory) GetStream(node models.Node) (grpc.ServerStream, bool) {
-	fct.lock.RLock()
-	defer fct.lock.RUnlock()
-
-	st, ok := fct.nodeMap[node]
-	return st, ok
-}
-
-// Register registers a stream for a node.
-func (fct *serverStreamFactory) Register(node models.Node, stream grpc.ServerStream) {
-	fct.lock.Lock()
-	defer fct.lock.Unlock()
-
-	fct.nodeMap[node] = stream
-}
-
-// Nodes returns all registered nodes.
-func (fct *serverStreamFactory) Nodes() []models.Node {
-	fct.lock.RLock()
-	defer fct.lock.RUnlock()
-
-	nodes := make([]models.Node, 0, len(fct.nodeMap))
-	for node := range fct.nodeMap {
-		nodes = append(nodes, node)
-	}
-	return nodes
-}
-
-// Deregister unregisters a stream for node.
-func (fct *serverStreamFactory) Deregister(node models.Node) {
-	fct.lock.Lock()
-	defer fct.lock.Unlock()
-	delete(fct.nodeMap, node)
-}
-
 // createOutgoingContextWithPairs creates outGoing context with key, value pairs.
 func createOutgoingContextWithPairs(ctx context.Context, pairs ...string) context.Context {
 	return metadata.NewOutgoingContext(ctx, metadata.Pairs(pairs...))
@@ -237,7 +173,7 @@ func CreateIncomingContext(ctx context.Context, db string, shardID int32, logicN
 			metaKeyShardID, strconv.Itoa(int(shardID))))
 }
 
-// CreateIncomingContext creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
+// CreateIncomingContextWithNode creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
 func CreateIncomingContextWithNode(ctx context.Context, node models.Node) context.Context {
 	return createIncomingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
 }

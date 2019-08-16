@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/util"
+	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/common"
@@ -27,6 +28,11 @@ import (
 type srv struct {
 	storageService  service.StorageService
 	sequenceManager replication.SequenceManager
+}
+
+// factory represents all factories for storage
+type factory struct {
+	taskServer rpc.TaskServerFactory
 }
 
 // rpcHandler represents all dependency rpc handlers
@@ -48,6 +54,7 @@ type runtime struct {
 	repo         state.Repository
 	registry     discovery.Registry
 	taskExecutor *task.TaskExecutor
+	factory      factory
 	srv          srv
 	handler      *rpcHandler
 
@@ -88,6 +95,9 @@ func (r *runtime) Run() error {
 	}
 
 	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: util.GetHostName()}
+
+	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
+
 	// start tcp server
 	r.startTCPServer()
 
@@ -197,11 +207,13 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
+	//FIXME: (stone1100) need close
+	dispatcher := taskHandler.NewLeafTaskDispatcher(r.node, r.srv.storageService,
+		query.NewExecutorFactory(), r.factory.taskServer)
 
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
-		task:   taskHandler.NewTaskHandler(rpc.GetServerStreamFactory(), nil),
-		//query:  handler.NewQuery(rpc.GetServerStreamFactory()),
+		task:   taskHandler.NewTaskHandler(r.factory.taskServer, dispatcher),
 	}
 
 	//TODO add task service ??????

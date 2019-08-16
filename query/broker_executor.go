@@ -26,13 +26,15 @@ type brokerExecutor struct {
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 
+	resultSet chan field.GroupedTimeSeries
+
 	jobManager parallel.JobManager
 
 	err error
 }
 
-// NewBrokerExecutor creates the execution which executes the job of parallel query
-func NewBrokerExecutor(database string, sql string,
+// newBrokerExecutor creates the execution which executes the job of parallel query
+func newBrokerExecutor(database string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager) parallel.Executor {
 	exec := &brokerExecutor{
@@ -50,7 +52,7 @@ func NewBrokerExecutor(database string, sql string,
 // 2) build execute plan
 // 3) run distribution query job
 func (e *brokerExecutor) Execute() <-chan field.GroupedTimeSeries {
-	//FIXME need using storage's replica state
+	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	if len(storageNodes) == 0 {
 		e.err = errNoAvailableStorageNode
@@ -65,13 +67,13 @@ func (e *brokerExecutor) Execute() <-chan field.GroupedTimeSeries {
 	}
 	brokerPlan := plan.(*brokerPlan)
 	brokerPlan.physicalPlan.Database = e.database
-	if err := e.jobManager.SubmitJob(brokerPlan.physicalPlan); err != nil {
+	e.resultSet = make(chan field.GroupedTimeSeries)
+	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.resultSet, brokerPlan.physicalPlan)); err != nil {
 		e.err = err
+		close(e.resultSet)
 		return nil
 	}
-
-	//TODO need impl
-	return nil
+	return e.resultSet
 }
 
 // Error returns the execution error

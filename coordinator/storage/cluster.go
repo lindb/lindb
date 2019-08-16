@@ -101,7 +101,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 		return cluster, fmt.Errorf("get active nodes error:%s", err)
 	}
 	for _, node := range nodeList {
-		_ = cluster.addNode(node)
+		_ = cluster.addNode(node.Value)
 	}
 	// set cluster name
 	cluster.clusterState.Name = cfg.cfg.Name

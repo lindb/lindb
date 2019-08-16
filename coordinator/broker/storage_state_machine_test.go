@@ -20,6 +20,8 @@ func TestStorageStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
+
 	streamFactory := rpc.NewMockClientStreamFactory(ctrl)
 	clientStream := pb.NewMockTaskService_HandleClient(ctrl)
 	clientStream.EXPECT().CloseSend().Return(nil).AnyTimes()
@@ -31,7 +33,7 @@ func TestStorageStateMachine(t *testing.T) {
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	_, err := NewStorageStateMachine(context.TODO(), factory, streamFactory)
+	_, err := NewStorageStateMachine(context.TODO(), factory, taskClientFactory)
 	assert.NotNil(t, err)
 
 	storageState := models.NewStorageState()
@@ -39,17 +41,24 @@ func TestStorageStateMachine(t *testing.T) {
 	data, _ := json.Marshal(storageState)
 	data2, _ := json.Marshal(models.NewStorageState())
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 1, 2}, data2}, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Value: data},
+		{Value: []byte{1, 1, 2}},
+		{Value: data2},
+	}, nil)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err = NewStorageStateMachine(context.TODO(), factory, streamFactory)
+	_, err = NewStorageStateMachine(context.TODO(), factory, taskClientFactory)
 	assert.NotNil(t, err)
 
 	// normal case
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 1, 2}}, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Value: data},
+		{Value: []byte{1, 1, 3}},
+	}, nil)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewStorageStateMachine(context.TODO(), factory, streamFactory)
+	stateMachine, err := NewStorageStateMachine(context.TODO(), factory, taskClientFactory)
 	if err != nil {
 		t.Fatal(err)
 	}

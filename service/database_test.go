@@ -108,7 +108,10 @@ func TestDatabaseService_List(t *testing.T) {
 		ReplicaFactor: 3,
 	}
 	data, _ := json.Marshal(&database)
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, {1, 2, 4}}, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Key: "db", Value: data},
+		{Key: "err", Value: []byte{1, 2, 4}},
+	}, nil)
 	list, err = db.List()
 	if err != nil {
 		t.Fatal(err)

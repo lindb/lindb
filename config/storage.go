@@ -40,10 +40,10 @@ func NewDefaultStorageCfg() Storage {
 			TTL:  1,
 		},
 		Engine: Engine{
-			Path: "/tmp/storage/data",
+			Path: "/tmp/lindb/storage/data",
 		},
 		Replication: Replication{
-			Path: "/tmp/storage/replication",
+			Path: "/tmp/lindb/storage/replication",
 		},
 	}
 }

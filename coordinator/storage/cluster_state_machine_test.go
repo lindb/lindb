@@ -50,12 +50,12 @@ func TestClusterStateMachine_New(t *testing.T) {
 
 	// normal case
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).
-		Return([][]byte{
-			encoding.JSONMarshal(&models.StorageState{Name: "test1"}),
-			{1, 2, 3},
-			encoding.JSONMarshal(&models.StorageState{Name: "test2"}),
-			encoding.JSONMarshal(&models.StorageState{Name: "test3"}),
-			encoding.JSONMarshal(&models.StorageState{}),
+		Return([]state.KeyValue{
+			{Key: "test1", Value: encoding.JSONMarshal(&models.StorageState{Name: "test1"})},
+			{Key: "unmarshal_err", Value: []byte{1, 2, 3}},
+			{Key: "test2", Value: encoding.JSONMarshal(&models.StorageState{Name: "test2"})},
+			{Key: "test3", Value: encoding.JSONMarshal(&models.StorageState{Name: "test3"})},
+			{Key: "error", Value: encoding.JSONMarshal(&models.StorageState{})},
 		}, nil).AnyTimes()
 	repo1 := state.NewMockRepository(ctrl)
 	repo1.EXPECT().Close().Return(nil)

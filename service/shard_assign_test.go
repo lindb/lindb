@@ -53,7 +53,10 @@ func TestShardAssignService(t *testing.T) {
 	_, err = srv.Get("not_exist")
 	assert.NotNil(t, err)
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data2, {1, 2, 3}}, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Key: "data2", Value: data2},
+		{Key: "err", Value: []byte{1, 1, 1}},
+	}, nil)
 	list, _ := srv.List()
 	assert.Equal(t, 1, len(list))
 	assert.Equal(t, *shardAssign2, *(list[0]))

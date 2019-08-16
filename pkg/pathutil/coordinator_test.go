@@ -20,6 +20,7 @@ func TestGetDatabaseAssignPath(t *testing.T) {
 func TestGetDatabaseConfigPath(t *testing.T) {
 	assert.Equal(t, constants.DatabaseConfigPath+"/name", GetDatabaseConfigPath("name"))
 }
+
 func TestGetNodePath(t *testing.T) {
 	assert.Equal(t, "prefix/name", GetNodePath("prefix", "name"))
 }

@@ -83,7 +83,7 @@ func NewClusterStateMachine(
 
 	// init exist cluster list
 	for _, cluster := range clusterList {
-		stateMachine.addCluster(cluster)
+		stateMachine.addCluster(cluster.Value)
 	}
 	// new storage config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterConfigPath, stateMachine)

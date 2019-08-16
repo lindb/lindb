@@ -10,7 +10,6 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc/proto/common"
-	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
 var (
@@ -52,7 +51,6 @@ func TestClientConnFactory(t *testing.T) {
 
 	assert.True(t, conn1 == conn11)
 	assert.False(t, conn1 == conn2)
-
 }
 
 func TestContext(t *testing.T) {
@@ -94,32 +92,6 @@ func TestClientStreamFactory(t *testing.T) {
 	assert.Equal(t, fct.LogicNode(), node)
 
 	// stream client will dail the target address, it's no easy to test
-}
-
-func TestServerStreamFactory(t *testing.T) {
-	fct := GetServerStreamFactory()
-
-	_, ok := fct.GetStream(node)
-	assert.False(t, ok)
-
-	ctl := gomock.NewController(t)
-	mockServerStream := storage.NewMockWriteService_WriteServer(ctl)
-
-	fct.Register(node, mockServerStream)
-	ss, ok := fct.GetStream(node)
-	assert.True(t, ok)
-
-	_, ok = ss.(storage.WriteService_WriteServer)
-	assert.True(t, ok)
-	assert.Equal(t, ss, mockServerStream)
-
-	nodes := fct.Nodes()
-	assert.Equal(t, 1, len(nodes))
-	assert.Equal(t, node, nodes[0])
-
-	fct.Deregister(node)
-	nodes = fct.Nodes()
-	assert.Equal(t, 0, len(nodes))
 }
 
 func TestClientStreamFactory_CreateTaskClient(t *testing.T) {

@@ -62,7 +62,11 @@ func TestStorageClusterService(t *testing.T) {
 	_, err1 := srv.List()
 	assert.NotNil(t, err1)
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([][]byte{data, data, {1, 1, 1}}, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Key: "data1", Value: data},
+		{Key: "data2", Value: data},
+		{Key: "data_err", Value: []byte{1, 2, 2}},
+	}, nil)
 	clusterList, _ := srv.List()
 	assert.Equal(t, 2, len(clusterList))
 
