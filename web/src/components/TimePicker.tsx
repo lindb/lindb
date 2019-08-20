@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { autobind } from 'core-decorators'
-import { TIME_FORMAT } from '../config/constant'
+import { TIME_FORMAT } from '../config/config'
 import { Button, Col, DatePicker, Divider, Popover, Row } from 'antd'
 
 const RangePicker = DatePicker.RangePicker

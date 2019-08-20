@@ -9,7 +9,10 @@ import ChartTooltip from '../../components/Chart/ChartTooltip'
 
 import SearchPage from '../Search'
 import HomePage from '../Home/Home'
+import Cluster from '../Setting/Cluster'
+import Database from '../Setting/Database'
 import MonitoringSystem from '../Monitoring/System'
+import { CreateDatabaseWithForm } from '../Setting/NewDatabase'
 
 const { Content: AntDContent } = Layout
 
@@ -42,6 +45,9 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/" component={HomePage}/>
               <Route exact={true} path="/search" component={SearchPage}/>
               <Route exact={true} path="/monitoring/system" component={MonitoringSystem}/>
+              <Route exact={true} path="/setting/cluster" component={Cluster}/>
+              <Route exact={true} path="/setting/database" component={Database}/>
+              <Route exact={true} path="/setting/database/new" component={CreateDatabaseWithForm}/>
             </Switch>
           </AntDContent>
 

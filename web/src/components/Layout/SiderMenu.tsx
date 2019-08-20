@@ -5,6 +5,7 @@ import { Layout, Icon, Menu } from 'antd'
 import { MENUS } from '../../config/menu'
 
 const { Sider } = Layout
+const Logo = require('../../assets/images/logo_title.png')
 
 interface SiderMenuProps {
 }
@@ -41,7 +42,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
       <Sider className="lindb-sider" collapsible={true} trigger={null}>
         {/* Logo */}
         <div className="lindb-sider__logo">
-          <img src="images/LinDB.png" alt="LinDB"/>
+          <Link to="/"><img src={Logo} alt="LinDB"/></Link>
         </div>
 
         {/* Menu */}
