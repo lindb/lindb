@@ -2,6 +2,9 @@ import * as React from 'react'
 import NodeInfo from './NodeInfo'
 import { observer } from 'mobx-react'
 import { Card, Table, Tag } from 'antd'
+import { getBrokersList, getMaster } from '../../service/home'
+import { BrokersList } from '../../model/service'
+import { dateFormatter } from '../../utils/util'
 
 const { Column } = Table
 
@@ -9,39 +12,67 @@ interface HomeProps {
 }
 
 interface HomeState {
+  ip: string
+  port: number
+  electTime: number
+  brokers: BrokersList
 }
 
 @observer
 class Home extends React.Component<HomeProps, HomeState> {
-
-  constructor(props: Readonly<HomeProps>) {
+  constructor(props: HomeProps) {
     super(props)
-    this.state = {}
+
+    this.state = {
+      ip: '',
+      port: 0,
+      electTime: 0,
+      brokers: [],
+    }
   }
 
-  onTabChange = (key: string) => {
-    this.setState({ key })
+  componentDidMount(): void {
+    this.init()
+  }
+
+  init() {
+    this.getMaster()
+    this.getBrokersList()
+  }
+
+  async getMaster() {
+    const result: any = await getMaster()
+    if (result) {
+      const { node: { ip, port }, electTime } = result
+      this.setState({ ip, port, electTime })
+    }
+  }
+
+  async getBrokersList() {
+    const brokers: any = await getBrokersList()
+    if (brokers) {
+      this.setState({ brokers })
+    }
   }
 
   render() {
-    const data: any[] = []
+    const { ip, port, electTime, brokers } = this.state
 
     return (
       <div>
         {/* Master */}
         <Card size="small" title="Master" loading={false}>
-          adca-infra-etrace-lindb-1.vm.elenet.me(2890)
-          <Tag color="green">Elect Time: 2019-06-27 15:23:40</Tag>
+          {ip}:{port} <Tag color="green">Elect Time: {dateFormatter(electTime)}</Tag>
         </Card>
 
         {/* Node */}
         <Card size="small" title="Node">
-          <NodeInfo/>
+          <NodeInfo brokers={brokers}/>
         </Card>
 
         {/* Dead Node */}
         <Card size="small" title="Dead Node" loading={false}>
-          <Table dataSource={data} size="small">
+          <Table dataSource={[]} size="small">
             <Column title="ID" dataIndex="id" key="id"/>
             <Column title="Host Name" dataIndex="hostname" key="hostname"/>
             <Column title="IP" dataIndex="ip" key="ip"/>
@@ -52,7 +83,7 @@ class Home extends React.Component<HomeProps, HomeState> {
 
         {/* Database */}
         <Card size="small" title="Database" loading={false}>
-          <Table dataSource={data} size="small">
+          <Table dataSource={[]} size="small">
             <Column title="Name" dataIndex="Name" key="Name"/>
             <Column title="Num. Shard" dataIndex="Shard" key="Shard"/>
             <Column title="Num. Leader" dataIndex="Leader" key="Leader"/>
@@ -65,7 +96,7 @@ class Home extends React.Component<HomeProps, HomeState> {
 
         {/* Software Attributes */}
         <Card size="small" title="Software Attributes" loading={false}>
-          <Table dataSource={data} size="small">
+          <Table dataSource={[]} size="small">
             <Column title="Name" dataIndex="Name" key="Name"/>
             <Column title="Value" dataIndex="Value" key="Value"/>
           </Table>

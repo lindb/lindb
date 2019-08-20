@@ -1,7 +1,7 @@
 import { Icon } from 'antd'
 import * as React from 'react'
 import classNames from 'classnames'
-import { PREFIXCLS } from '../../config/constant'
+import { PREFIXCLS } from '../../config/config'
 
 interface TipsProps {
   tip: string

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Col, Row } from 'antd'
 import { Board } from '../../model/Metric'
-import { SPACING } from '../../config/constant'
+import { SPACING } from '../../config/config'
 
 import ChartCard from './ChartCard'
 

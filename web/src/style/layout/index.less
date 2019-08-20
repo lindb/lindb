@@ -27,3 +27,21 @@ body {
 @import "footer";
 @import "sider";
 @import "login";
+
+/* Custom Variable */
+@block-spacing: 10px;
+
+/* Variable Antd Style */
+// Card
+.@{card-prefix-cls},
+.@{table-prefix-cls}-wrapper,
+.custom-spacing-block {
+  margin-bottom: @block-spacing;
+}
+.@{card-prefix-cls} .@{table-prefix-cls}-wrapper {
+  margin-bottom: 0;
+}
+// Table
+.@{table-prefix-cls} {
+  background: #fff;
+}
