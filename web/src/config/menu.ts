@@ -29,9 +29,9 @@ export const MENUS = [
         path: '/cluster',
       },
       {
-        title: 'Logic Database',
+        title: 'Database',
         icon: 'database',
-        path: '/logic/database',
+        path: '/database',
       },
     ],
   },

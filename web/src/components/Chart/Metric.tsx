@@ -44,7 +44,9 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
     const result = await search(db, ql)
     this.loading = true
 
-    this.chartResult = result.data
+    if (result) {
+      this.chartResult = result
+    }
   }
 
   // Clean up

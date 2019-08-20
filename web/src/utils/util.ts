@@ -1,3 +1,6 @@
+import moment from 'moment-es6'
+import { TIME_FORMAT } from '../config/config'
+
 /**
  * hex to rgba
  * @param {string} hex Color hex value
@@ -49,4 +52,9 @@ export function getRandomNumBetween(min: number, max: number) {
   const Range = max - min
   const Rand = Math.random()
   return min + Math.round(Rand * Range)
+}
+
+export function dateFormatter(time: number | Date, formatter: string = TIME_FORMAT) {
+  // @ts-ignore
+  return moment(time).format(formatter)
 }
