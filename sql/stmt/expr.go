@@ -1,11 +1,19 @@
 package stmt
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/lindb/lindb/aggregation/function"
+	"github.com/lindb/lindb/pkg/encoding"
 )
+
+// exprData represents inner wrapper of expr for json marshal
+type exprData struct {
+	Type string          `json:"type"`
+	Expr json.RawMessage `json:"expr"`
+}
 
 // Expr represents a interface for all expression types
 type Expr interface {
@@ -25,15 +33,28 @@ type SelectItem struct {
 	Alias string
 }
 
+// innerSelectItem represents inner wrapper of select item for json marshal
+type innerSelectItem struct {
+	exprData
+	Alias string `json:"alias"`
+}
+
 // FieldExpr represents a field name for select list
 type FieldExpr struct {
-	Name string
+	Name string `json:"name"`
 }
 
 // CallExpr represents a function call expression
 type CallExpr struct {
 	FuncType function.FuncType
 	Params   []Expr
+}
+
+// innerCallExpr represents inner wrapper of call expr for json marshal
+type innerCallExpr struct {
+	Type     string            `json:"type"`
+	FuncType function.FuncType `json:"funcType"`
+	Params   []json.RawMessage `json:"params"`
 }
 
 // ParenExpr represents a parenthesized expression
@@ -47,28 +68,36 @@ type BinaryExpr struct {
 	Operator    BinaryOP
 }
 
+// innerBinaryExpr represents inner wrapper of binary expr for json marshal
+type innerBinaryExpr struct {
+	Type     string          `json:"type"`
+	Left     json.RawMessage `json:"left"`
+	Right    json.RawMessage `json:"right"`
+	Operator BinaryOP        `json:"operator"`
+}
+
 // EqualsExpr represents an equals expression
 type EqualsExpr struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // InExpr represents an in expression
 type InExpr struct {
-	Key    string
-	Values []string
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
 }
 
 // LikeExpr represents a like expression
 type LikeExpr struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // RegexExpr represents a regular expression
 type RegexExpr struct {
-	Key    string
-	Regexp string
+	Key    string `json:"key"`
+	Regexp string `json:"regexp"`
 }
 
 // NotExpr represents a not expression
@@ -131,6 +160,158 @@ func (e *LikeExpr) Rewrite() string {
 // Rewrite rewrites the regex expr after parse
 func (e *RegexExpr) Rewrite() string {
 	return fmt.Sprintf("%s=~%s", e.Key, e.Regexp)
+}
+
+// Marshal returns json of expr using custom json marshal
+func Marshal(expr Expr) []byte {
+	switch e := expr.(type) {
+	case *RegexExpr:
+		return encoding.JSONMarshal(&exprData{Type: "regex", Expr: encoding.JSONMarshal(expr)})
+	case *LikeExpr:
+		return encoding.JSONMarshal(&exprData{Type: "like", Expr: encoding.JSONMarshal(expr)})
+	case *InExpr:
+		return encoding.JSONMarshal(&exprData{Type: "in", Expr: encoding.JSONMarshal(expr)})
+	case *EqualsExpr:
+		return encoding.JSONMarshal(&exprData{Type: "equals", Expr: encoding.JSONMarshal(expr)})
+	case *FieldExpr:
+		return encoding.JSONMarshal(&exprData{Type: "field", Expr: encoding.JSONMarshal(expr)})
+	case *NotExpr:
+		return encoding.JSONMarshal(&exprData{Type: "not", Expr: Marshal(e.Expr)})
+	case *ParenExpr:
+		return encoding.JSONMarshal(&exprData{Type: "paren", Expr: Marshal(e.Expr)})
+	case *SelectItem:
+		inner := innerSelectItem{
+			exprData: exprData{
+				Type: "selectItem",
+				Expr: Marshal(e.Expr),
+			},
+			Alias: e.Alias,
+		}
+		return encoding.JSONMarshal(&inner)
+	case *CallExpr:
+		inner := innerCallExpr{
+			Type:     "call",
+			FuncType: e.FuncType,
+		}
+		for _, param := range e.Params {
+			inner.Params = append(inner.Params, Marshal(param))
+		}
+		return encoding.JSONMarshal(&inner)
+	case *BinaryExpr:
+		inner := innerBinaryExpr{
+			Type:     "binary",
+			Left:     Marshal(e.Left),
+			Right:    Marshal(e.Right),
+			Operator: e.Operator,
+		}
+		return encoding.JSONMarshal(&inner)
+	default:
+		return nil
+	}
+}
+
+// Unmarshal parses value to expr
+func Unmarshal(value []byte) (Expr, error) {
+	var exprData exprData
+	err := json.Unmarshal(value, &exprData)
+	if err != nil {
+		return nil, err
+	}
+	switch exprData.Type {
+	case "regex":
+		return unmarshal(&exprData, &RegexExpr{})
+	case "like":
+		return unmarshal(&exprData, &LikeExpr{})
+	case "in":
+		return unmarshal(&exprData, &InExpr{})
+	case "equals":
+		return unmarshal(&exprData, &EqualsExpr{})
+	case "field":
+		return unmarshal(&exprData, &FieldExpr{})
+	case "paren":
+		e, err := Unmarshal(exprData.Expr)
+		if err != nil {
+			return nil, err
+		}
+		return &ParenExpr{Expr: e}, nil
+	case "binary":
+		return unmarshalBinary(value)
+	case "selectItem":
+		return unmarshalSelectItem(value)
+	case "call":
+		return unmarshalCall(value)
+	case "not":
+		e, err := Unmarshal(exprData.Expr)
+		if err != nil {
+			return nil, err
+		}
+		return &NotExpr{Expr: e}, nil
+	default:
+		return nil, fmt.Errorf("expr type not match:%s", exprData.Type)
+	}
+}
+
+// unmarshalCall parses value to call expr
+func unmarshalCall(value []byte) (Expr, error) {
+	innerExpr := innerCallExpr{}
+	err := encoding.JSONUnmarshal(value, &innerExpr)
+	if err != nil {
+		return nil, err
+	}
+	expr := &CallExpr{FuncType: innerExpr.FuncType}
+	for _, param := range innerExpr.Params {
+		e, err := Unmarshal(param)
+		if err != nil {
+			return nil, err
+		}
+		expr.Params = append(expr.Params, e)
+	}
+	return expr, nil
+}
+
+// unmarshalSelectItem parses value to select item expr
+func unmarshalSelectItem(value []byte) (Expr, error) {
+	innerExpr := innerSelectItem{}
+	err := encoding.JSONUnmarshal(value, &innerExpr)
+	if err != nil {
+		return nil, err
+	}
+	e, err := Unmarshal(innerExpr.Expr)
+	if err != nil {
+		return nil, err
+	}
+	return &SelectItem{Alias: innerExpr.Alias, Expr: e}, nil
+}
+
+// unmarshalBinary parses value to binary expr
+func unmarshalBinary(value []byte) (Expr, error) {
+	innerExpr := innerBinaryExpr{}
+	err := encoding.JSONUnmarshal(value, &innerExpr)
+	if err != nil {
+		return nil, err
+	}
+	left, err := Unmarshal(innerExpr.Left)
+	if err != nil {
+		return nil, err
+	}
+	right, err := Unmarshal(innerExpr.Right)
+	if err != nil {
+		return nil, err
+	}
+	expr := &BinaryExpr{
+		Left:     left,
+		Right:    right,
+		Operator: innerExpr.Operator,
+	}
+	return expr, nil
+}
+
+// unmarshal parses expr data to expr
+func unmarshal(exprData *exprData, expr Expr) (Expr, error) {
+	if err := encoding.JSONUnmarshal(exprData.Expr, expr); err != nil {
+		return nil, err
+	}
+	return expr, nil
 }
 
 // TagKey returns the equals filter's tag key
