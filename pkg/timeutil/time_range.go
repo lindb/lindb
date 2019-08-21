@@ -2,7 +2,8 @@ package timeutil
 
 // TimeRange represents time range with start/end timestamp
 type TimeRange struct {
-	Start, End int64
+	Start int64 `json:"start"`
+	End   int64 `json:"end"`
 }
 
 // IsEmpty tests if empty, start>=end => empty
