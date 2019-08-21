@@ -24,6 +24,7 @@ default.etcd
 web/node_modules/
 web/build/*
 web/yarn-error.log
+web/package-lock.json
 
 # Test binary, built with `go test -c`
 *.test
