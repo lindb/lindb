@@ -53,9 +53,9 @@ type segment struct {
 	// current dataOffset for data page
 	dataOffset int
 	// writer for index bytes
-	indexWriter *stream.Binary
+	indexWriter *stream.SliceWriter
 	// writer for data bytes
-	dataWriter *stream.Binary
+	dataWriter *stream.SliceWriter
 	logger     *logger.Logger
 }
 
@@ -105,8 +105,8 @@ func (seg *segment) adjustOffset() error {
 	// new segment
 	if seg.begin == seg.end {
 		seg.dataOffset = 0
-		seg.indexWriter = stream.BinaryBufWriter(seg.indexPage.Buffer(0))
-		seg.dataWriter = stream.BinaryBufWriter(seg.dataPage.Buffer(0))
+		seg.indexWriter = stream.NewSliceWriter(seg.indexPage.Buffer(0))
+		seg.dataWriter = stream.NewSliceWriter(seg.dataPage.Buffer(0))
 		return nil
 	}
 	// restore segment from file
@@ -116,8 +116,8 @@ func (seg *segment) adjustOffset() error {
 	}
 
 	seg.dataOffset = dataOffset + dataLen
-	seg.indexWriter = stream.BinaryBufWriter(seg.indexPage.Buffer(int(seg.end-seg.begin) * indexItemSize))
-	seg.dataWriter = stream.BinaryBufWriter(seg.dataPage.Buffer(seg.dataOffset))
+	seg.indexWriter = stream.NewSliceWriter(seg.indexPage.Buffer(int(seg.end-seg.begin) * indexItemSize))
+	seg.dataWriter = stream.NewSliceWriter(seg.dataPage.Buffer(seg.dataOffset))
 	return nil
 }
 
@@ -146,10 +146,9 @@ func (seg *segment) calDataOffsetAndLen(seq int64) (int, int, error) {
 		return 0, 0, ErrOutOfRange
 	}
 	indexOffset := seq - seg.Begin()
-
-	bin := stream.BinaryReader(seg.indexPage.Data(int(indexOffset)*indexItemSize, indexItemSize))
-
-	return int(bin.ReadInt32()), int(bin.ReadInt32()), nil
+	data := seg.indexPage.Data(int(indexOffset)*indexItemSize, indexItemSize)
+	reader := stream.NewReader(data)
+	return int(reader.ReadInt32()), int(reader.ReadInt32()), reader.Error()
 }
 
 // Contains checks if sequence seq lies in segment sequence range [begin, end).

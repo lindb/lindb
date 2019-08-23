@@ -7,7 +7,6 @@ import (
 	"github.com/RoaringBitmap/roaring"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -125,7 +124,7 @@ func (r *seriesIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeuti
 			continue
 		}
 		// read time-range of the total entry-set
-		sr := stream.BinaryReader(block)
+		sr := stream.NewReader(block)
 		startTime := sr.ReadUint32()
 		endTime := sr.ReadUint32()
 		blockTimeRange := timeutil.TimeRange{
@@ -142,7 +141,7 @@ func (r *seriesIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeuti
 // entrySetBlockToTreeQuerier converts the binary block to a tire tree block querier
 func (r *seriesIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQuerier, error) {
 	var tree trieTreeBlock
-	sr := stream.BinaryReader(block)
+	sr := stream.NewReader(block)
 	// read time-range
 	_ = sr.ReadBytes(timeRangeSize)
 	////////////////////////////////
@@ -150,6 +149,7 @@ func (r *seriesIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQu
 	////////////////////////////////
 	// read trie-tree length
 	expectedTrieTreeLen := sr.ReadUvarint64()
+	startPosOfTree := sr.Position()
 	// read label length
 	labelsLen := sr.ReadUvarint64()
 	// read labels block
@@ -167,13 +167,7 @@ func (r *seriesIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQu
 		return nil, sr.Error()
 	}
 	// validation of length
-	realTrieTreeBlockLen := bufioutil.GetUVariantLength(labelsLen) +
-		len(tree.labels) +
-		bufioutil.GetUVariantLength(isPrefixKeyLen) +
-		len(isPrefixBlock) +
-		bufioutil.GetUVariantLength(loudsLen) +
-		len(LOUDSBlock)
-	if realTrieTreeBlockLen != int(expectedTrieTreeLen) {
+	if sr.Position()-startPosOfTree != int(expectedTrieTreeLen) {
 		return nil, fmt.Errorf("failed validation of trie-tree")
 	}
 	// unmarshal LOUDS block to rank-select
@@ -194,16 +188,14 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 	offsets []int) (*series.MultiVerSeriesIDSet, error) {
 
 	// read trie-tree length
-	sr := stream.BinaryReader(block)
+	sr := stream.NewReader(block)
 	_ = sr.ReadBytes(timeRangeSize)
 	trieTreeLen := sr.ReadUvarint64()
-	cursorPos := timeRangeSize + // time range
-		bufioutil.GetUVariantLength(trieTreeLen) + int(trieTreeLen) // tree block
-	if len(block) <= cursorPos {
-		return nil, fmt.Errorf("entrySet block length:%d validation failure", cursorPos)
+	// move to the end of trie tree block
+	sr.ShiftAt(uint32(trieTreeLen))
+	if sr.Empty() || sr.Error() != nil {
+		return nil, fmt.Errorf("entrySet block length validation failure")
 	}
-	// move to the end of trie-tree
-	sr = stream.BinaryReader(block[cursorPos:])
 	////////////////////////////////
 	// Block: TagValue Info
 	////////////////////////////////
@@ -213,8 +205,6 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 	if tagValueCount == 0 {
 		return nil, fmt.Errorf("tagValueCount equals to 0")
 	}
-	// move to tagValueCount
-	cursorPos += bufioutil.GetUVariantLength(tagValueCount)
 	var (
 		// offsets to the end of tagValueInfo block
 		tagValueDataBlockOffsets []int
@@ -231,7 +221,6 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 			tagValueDataBlockOffsets = append(tagValueDataBlockOffsets, offsetCounter)
 		}
 		offsetCounter += int(dataLen)
-		cursorPos += bufioutil.GetUVariantLength(dataLen)
 	}
 	////////////////////////////////
 	// Block: Versioned TagValue Data
@@ -241,7 +230,7 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 	}
 	idSet := series.NewMultiVerSeriesIDSet()
 	for _, offset := range tagValueDataBlockOffsets {
-		subIDSet, err := r.readTagValueDataBlock(block, offset+cursorPos, timeRange)
+		subIDSet, err := r.readTagValueDataBlock(block, offset+sr.Position(), timeRange)
 		if err != nil {
 			return nil, err
 		}
@@ -256,13 +245,13 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 // readTagValueDataBlock parses the tagValueDataBlock, and return the the multi-versions seriesID bitmap
 func (r *seriesIndexReader) readTagValueDataBlock(block []byte, pos int,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	if len(block) <= pos {
-		return nil, fmt.Errorf("failed validation of tagValueData's length")
-	}
-	sr := stream.BinaryReader(block[pos:])
+	// jump to target
+	sr := stream.NewReader(block)
+	sr.ShiftAt(uint32(pos))
+
 	// read VersionCount
 	versionCount := sr.ReadUvarint64()
-	if versionCount == 0 {
+	if versionCount == 0 || sr.Empty() || sr.Error() != nil {
 		return nil, fmt.Errorf("versionCount equals to 0")
 	}
 	var (

@@ -62,22 +62,23 @@ func (e *TSDEncoder) Bytes() ([]byte, error) {
 		return nil, e.err
 	}
 
-	binary := stream.BinaryWriter()
-	binary.PutUvarint32(uint32(e.startTime))
-	binary.PutUvarint32(uint32(e.count))
+	writer := stream.NewBufferWriter(nil)
+	defer writer.ReleaseBuffer()
+	writer.PutUvarint32(uint32(e.startTime))
+	writer.PutUvarint32(uint32(e.count))
 
 	windowBuf := e.buf.Bytes()
-	binary.PutUvarint32(uint32(len(windowBuf)))
-	binary.PutBytes(windowBuf)
-	binary.PutUvarint32(uint32(len(valueBuf)))
-	binary.PutBytes(valueBuf)
+	writer.PutUvarint32(uint32(len(windowBuf)))
+	writer.PutBytes(windowBuf)
+	writer.PutUvarint32(uint32(len(valueBuf)))
+	writer.PutBytes(valueBuf)
 
-	return binary.Bytes()
+	return writer.Bytes()
 }
 
 // TSDDecoder decodes time series compress data
 type TSDDecoder struct {
-	binary    *stream.Binary
+	reader    *stream.Reader
 	startTime int
 	endTime   int
 	count     int
@@ -92,14 +93,14 @@ type TSDDecoder struct {
 
 // NewTSDDecoder create tsd decoder instance
 func NewTSDDecoder(data []byte) *TSDDecoder {
-	binary := stream.BinaryReader(data)
-	startTime := int(binary.ReadUvarint32())
-	count := int(binary.ReadUvarint32())
-	length := binary.ReadUvarint32()
-	buf := binary.ReadBytes(int(length))
+	reader := stream.NewReader(data)
+	startTime := int(reader.ReadUvarint32())
+	count := int(reader.ReadUvarint32())
+	length := reader.ReadUvarint32()
+	buf := reader.ReadBytes(int(length))
 	timeSlots := bit.NewReader(bytes.NewBuffer(buf))
-	length = binary.ReadUvarint32()
-	buf = binary.ReadBytes(int(length))
+	length = reader.ReadUvarint32()
+	buf = reader.ReadBytes(int(length))
 
 	return &TSDDecoder{
 		startTime: startTime,
@@ -107,13 +108,13 @@ func NewTSDDecoder(data []byte) *TSDDecoder {
 		count:     count,
 		timeSlots: timeSlots,
 		values:    NewXORDecoder(buf),
-		binary:    binary,
+		reader:    reader,
 	}
 }
 
 // Error returns decode error
 func (d *TSDDecoder) Error() error {
-	return d.binary.Error()
+	return d.reader.Error()
 }
 
 // StartTime returns tsd start time slot
@@ -168,9 +169,9 @@ func (d *TSDDecoder) Value() uint64 {
 // DecodeTSDTime decodes start-time-slot and end-time-slot of tsd.
 // a simple method extracted from NewTSDDecoder to reduce gc pressure.
 func DecodeTSDTime(data []byte) (startTime, endTime int) {
-	binary := stream.BinaryReader(data)
-	startTime = int(binary.ReadUvarint32())
-	count := int(binary.ReadUvarint32())
+	reader := stream.NewReader(data)
+	startTime = int(reader.ReadUvarint32())
+	count := int(reader.ReadUvarint32())
 	endTime = startTime + count - 1
 	return
 }

@@ -2,12 +2,12 @@ package indextbl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
 
 	"go.uber.org/zap"
 )
@@ -53,14 +53,13 @@ func NewMetricsNameIDFlusher(flusher kv.Flusher) MetricsNameIDFlusher {
 
 // FlushMetricsNS flushes a mapping relation of metric-name and metric-ID to the underlying kv table.
 func (f *metricsNameIDFlusher) FlushMetricsNS(nsID uint32, data []byte, metricIDSeq, tagIDSeq uint32) error {
-	var variableBuf [4]byte
+	writer := stream.NewBufferWriter(bytes.NewBuffer(data))
 	// write metricIDSeq
-	binary.BigEndian.PutUint32(variableBuf[:], metricIDSeq)
-	data = append(data, variableBuf[:]...)
+	writer.PutUint32(metricIDSeq)
 	// write tagIDSeq
-	binary.BigEndian.PutUint32(variableBuf[:], tagIDSeq)
-	data = append(data, variableBuf[:]...)
-	return f.flusher.Add(nsID, data)
+	writer.PutUint32(tagIDSeq)
+	block, _ := writer.Bytes()
+	return f.flusher.Add(nsID, block)
 }
 
 // Commit closes the writer, this will be called after writing all namespaces.
@@ -68,16 +67,19 @@ func (f *metricsNameIDFlusher) Commit() error { return f.flusher.Commit() }
 
 // metricsMetaFlusher implements MetricsMetaFlusher
 type metricsMetaFlusher struct {
-	flusher     kv.Flusher
-	valueBuf    bytes.Buffer
-	tagsBuf     bytes.Buffer
-	fieldBuf    bytes.Buffer
-	variableBuf [8]byte
+	flusher        kv.Flusher
+	valueBufWriter *stream.BufferWriter
+	tagsBufWriter  *stream.BufferWriter
+	fieldBufWriter *stream.BufferWriter
 }
 
 // NewMetricsMetaFlusher returns a new MetricsMetaFlusher
 func NewMetricsMetaFlusher(flusher kv.Flusher) MetricsMetaFlusher {
-	return &metricsMetaFlusher{flusher: flusher}
+	return &metricsMetaFlusher{
+		flusher:        flusher,
+		valueBufWriter: stream.NewBufferWriter(nil),
+		tagsBufWriter:  stream.NewBufferWriter(nil),
+		fieldBufWriter: stream.NewBufferWriter(nil)}
 }
 
 // FlushTagKeyID flushes the relation of tagKey and tagID to buffer
@@ -89,11 +91,10 @@ func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagID uint32) {
 		nameIDIndexFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
 	}
 	// write tagKey
-	f.tagsBuf.WriteByte(byte(len(tagKey)))
-	f.tagsBuf.WriteString(tagKey)
+	f.tagsBufWriter.PutByte(byte(len(tagKey)))
+	f.tagsBufWriter.PutBytes([]byte(tagKey))
 	// write tagID
-	binary.BigEndian.PutUint32(f.variableBuf[:], tagID)
-	f.tagsBuf.Write(f.variableBuf[:tagIDSize])
+	f.tagsBufWriter.PutUint32(tagID)
 }
 
 // FlushFieldID flushes the relation of fieldName and fieldID to buffer
@@ -105,38 +106,38 @@ func (f *metricsMetaFlusher) FlushFieldID(fieldName string, fieldType field.Type
 		nameIDIndexFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
 	}
 	// write field-name
-	f.fieldBuf.WriteByte(byte(len(fieldName)))
-	f.fieldBuf.WriteString(fieldName)
+	f.fieldBufWriter.PutByte(byte(len(fieldName)))
+	f.fieldBufWriter.PutBytes([]byte(fieldName))
 	// write fieldType
-	f.fieldBuf.WriteByte(byte(fieldType))
+	f.fieldBufWriter.PutByte(byte(fieldType))
 	// write fieldID
-	binary.BigEndian.PutUint16(f.variableBuf[:], fieldID)
-	f.fieldBuf.Write(f.variableBuf[:fieldIDSize])
+	f.fieldBufWriter.PutUInt16(fieldID)
 }
 
 // FlushMetricsMeta flushes meta info above to the underlying kv table
 func (f *metricsMetaFlusher) FlushMetricMeta(metricID uint32) error {
 	defer func() {
-		f.valueBuf.Reset()
-		f.tagsBuf.Reset()
-		f.fieldBuf.Reset()
+		f.valueBufWriter.Reset()
+		f.tagsBufWriter.Reset()
+		f.fieldBufWriter.Reset()
 	}()
 	f.buildMetricMeta()
-	return f.flusher.Add(metricID, f.valueBuf.Bytes())
+	data, _ := f.valueBufWriter.Bytes()
+	return f.flusher.Add(metricID, data)
 }
 
 // buildMetricMeta build the meta buffer
 func (f *metricsMetaFlusher) buildMetricMeta() {
 	// write tags meta length
-	size1 := binary.PutUvarint(f.variableBuf[:], uint64(f.tagsBuf.Len()))
-	f.valueBuf.Write(f.variableBuf[:size1])
+	f.valueBufWriter.PutUvarint64(uint64(f.tagsBufWriter.Len()))
 	// write tags meta
-	f.valueBuf.Write(f.tagsBuf.Bytes())
+	data, _ := f.tagsBufWriter.Bytes()
+	f.valueBufWriter.PutBytes(data)
 	// write fields meta length
-	size2 := binary.PutUvarint(f.variableBuf[:], uint64(f.fieldBuf.Len()))
-	f.valueBuf.Write(f.variableBuf[:size2])
+	f.valueBufWriter.PutUvarint64(uint64(f.fieldBufWriter.Len()))
+	data, _ = f.fieldBufWriter.Bytes()
 	// write fields meta
-	f.valueBuf.Write(f.fieldBuf.Bytes())
+	f.valueBufWriter.PutBytes(data)
 }
 
 // Commit closes the writer, this will be called after writing all metric meta info.
