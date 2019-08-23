@@ -19,7 +19,7 @@ import (
 
 //go:generate mockgen -source=./cluster.go -destination=./cluster_mock.go -package=storage
 
-var log = logger.GetLogger("coordinator/storage/cluster")
+var log = logger.GetLogger("coordinator", "StorageCluster")
 
 // clusterCfg represents the config which creates cluster instance need
 // IMPORTANT: need clean config's resource

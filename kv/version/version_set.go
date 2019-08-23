@@ -39,7 +39,7 @@ func NewStoreVersionSet(storePath string, numOfLevels int) *StoreVersionSet {
 		numOfLevels:        numOfLevels,
 		familyVersions:     make(map[string]*FamilyVersion),
 		familyIDs:          make(map[int]string),
-		logger:             logger.GetLogger(fmt.Sprintf("kv/version/set[%s]", storePath)),
+		logger:             logger.GetLogger("kv", fmt.Sprintf("VersionSet[%s]", storePath)),
 	}
 }
 

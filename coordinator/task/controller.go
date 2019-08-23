@@ -20,7 +20,7 @@ var (
 	ErrMaxTasksLimitExceeded = fmt.Errorf("coordinator/task: tasks number can not greater than %d", maxTasksLimit)
 )
 
-var log = logger.GetLogger("coordinator/task")
+var log = logger.GetLogger("coordinator", "TaskController")
 
 // ControllerFactory represents a task controller create factory
 type ControllerFactory interface {

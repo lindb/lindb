@@ -67,7 +67,7 @@ func NewSegment(indexPage, dataPage page.MappedPage, begin, end int64) (Segment,
 		dataPage:  dataPage,
 		begin:     begin,
 		end:       end,
-		logger:    logger.GetLogger("pkg/segment"),
+		logger:    logger.GetLogger("pkg/queue", "Segment"),
 	}
 
 	if err := seg.adjustOffset(); err != nil {

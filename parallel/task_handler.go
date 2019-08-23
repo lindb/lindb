@@ -21,7 +21,7 @@ func NewTaskHandler(fct rpc.TaskServerFactory, dispatcher TaskDispatcher) *TaskH
 	return &TaskHandler{
 		fct:        fct,
 		dispatcher: dispatcher,
-		logger:     logger.GetLogger("parallel/task/handler"),
+		logger:     logger.GetLogger("parallel", "TaskHandler"),
 	}
 }
 

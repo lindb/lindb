@@ -18,7 +18,7 @@ import (
 	"github.com/lindb/lindb/storage"
 )
 
-var log = logger.GetLogger("standalone")
+var log = logger.GetLogger("standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {

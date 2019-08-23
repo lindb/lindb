@@ -48,7 +48,7 @@ func NewAdminStateMachine(ctx context.Context, discoveryFactory discovery.Factor
 		storageCluster: storageCluster,
 		ctx:            c,
 		cancel:         cancel,
-		log:            logger.GetLogger("database/admin/state/machine"),
+		log:            logger.GetLogger("coordinator", "AdminStateMachine"),
 	}
 	// new database config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseConfigPath, stateMachine)

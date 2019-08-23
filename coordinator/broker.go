@@ -21,7 +21,7 @@ type BrokerStateMachines struct {
 func NewBrokerStateMachines(factory StateMachineFactory) *BrokerStateMachines {
 	return &BrokerStateMachines{
 		factory: factory,
-		log:     logger.GetLogger("coordinator/broker/sm"),
+		log:     logger.GetLogger("coordinator", "BrokerFSM"),
 	}
 }
 

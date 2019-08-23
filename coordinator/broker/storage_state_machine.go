@@ -16,6 +16,10 @@ import (
 
 //go:generate mockgen -source=./storage_state_machine.go -destination=./storage_state_machine_mock.go -package=broker
 
+var (
+	storageFSMLogger = logger.GetLogger("broker", "StorageFSM")
+)
+
 // StorageStateMachine represents storage cluster state state machine.
 // Each broker node will start this state machine which watch storage cluster state change event.
 type StorageStateMachine interface {
@@ -44,7 +48,7 @@ type storageStateMachine struct {
 func NewStorageStateMachine(ctx context.Context,
 	discoveryFactory discovery.Factory, taskClientFactory rpc.TaskClientFactory) (StorageStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
-	log := logger.GetLogger("broker/storage/state/machine")
+	log := storageFSMLogger
 	stateMachine := &storageStateMachine{
 		taskClientFactory: taskClientFactory,
 		ctx:               c,

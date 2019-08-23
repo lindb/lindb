@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	isatty "github.com/mattn/go-isatty"
@@ -13,47 +15,61 @@ import (
 )
 
 var (
-	logger *zap.Logger
-	once   sync.Once
+	// max length of all modules
+	maxModuleNameLen uint32
+	logger           *zap.Logger
+	once             sync.Once
 )
 
 // SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(t.Format("[2006-01-02 - 15:04:05]"))
+	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
 }
 
-// SimpleLevelEncoder serializes a Level to a lowercase string. For example,
+// SimpleColorLevelEncoder serializes a Level to a lowercase string. For example,
 // InfoLevel is serialized to "info".
 func SimpleLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(LevelString(l))
 }
 
-// LevelString returns a lower-case ASCII representation of the log level.
+// LevelString returns a upper-case ASCII representation of the log level.
 func LevelString(l zapcore.Level) string {
 	switch l {
 	case zapcore.DebugLevel:
-		return "[debug]"
+		return Magenta.Add("DEBUG")
 	case zapcore.InfoLevel:
-		return "[info]"
+		return Green.Add("INFO")
 	case zapcore.WarnLevel:
-		return "[warn]"
+		return Yellow.Add("WARN")
 	case zapcore.ErrorLevel:
-		return "[error]"
+		return Red.Add("ERROR")
 	default:
-		return fmt.Sprintf("[Level(%d)]", l)
+		return Red.Add(fmt.Sprintf("LEVEL(%d)", l))
 	}
 }
 
 // Logger is wrapper for zap logger with module, it is singleton.
 type Logger struct {
 	module string
+	role   string
 	log    *zap.Logger
 }
 
 // GetLogger return logger with module name
-func GetLogger(module string) *Logger {
+func GetLogger(module, role string) *Logger {
+	length := len(module)
+	for {
+		currentMaxModuleLen := atomic.LoadUint32(&maxModuleNameLen)
+		if uint32(length) <= currentMaxModuleLen {
+			break
+		}
+		if atomic.CompareAndSwapUint32(&maxModuleNameLen, currentMaxModuleLen, uint32(length)) {
+			break
+		}
+	}
 	return &Logger{
 		module: module,
+		role:   role,
 		log:    getLogger(),
 	}
 }
@@ -103,10 +119,13 @@ func (c *Config) New() (*zap.Logger, error) {
 
 // IsTerminal checks if w is a file and whether it is an interactive terminal session.
 func IsTerminal(w io.Writer) bool {
+	if runtime.GOOS == "windows" {
+		return false
+	}
 	if f, ok := w.(interface {
 		Fd() uintptr
 	}); ok {
-		return isatty.IsTerminal(f.Fd())
+		return isatty.IsTerminal(f.Fd()) || isatty.IsCygwinTerminal(f.Fd())
 	}
 	return false
 }
@@ -137,7 +156,13 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 
 // formatMsg formats msg using module name
 func (l *Logger) formatMsg(msg string) string {
-	return fmt.Sprintf("[%s]: %s", l.module, msg)
+	moduleName := Cyan.Add(fmt.Sprintf("[%*s]", atomic.LoadUint32(&maxModuleNameLen), l.module))
+	if l.role == "" {
+		return fmt.Sprintf("%s: %s",
+			moduleName, msg)
+	}
+	return fmt.Sprintf("%s [%s]: %s",
+		moduleName, l.role, msg)
 }
 
 // String constructs a field with the given key and value.

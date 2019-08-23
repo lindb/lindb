@@ -27,7 +27,7 @@ func NewWriter(storageService service.StorageService, sm replication.SequenceMan
 	return &Writer{
 		storageService: storageService,
 		sm:             sm,
-		logger:         logger.GetLogger("handler/writer"),
+		logger:         logger.GetLogger("storage", "Writer"),
 	}
 }
 

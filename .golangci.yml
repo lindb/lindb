@@ -7,6 +7,7 @@ run:
         - vendor
         - bin
         - ci
+        - cmd
     # modules-download-mode: readonly
 
 

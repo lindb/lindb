@@ -107,7 +107,7 @@ func NewBrokerRuntime(config config.Broker) server.Service {
 		config: config,
 		ctx:    ctx,
 		cancel: cancel,
-		log:    logger.GetLogger("broker/runtime"),
+		log:    logger.GetLogger("broker", "Runtime"),
 	}
 }
 

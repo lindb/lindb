@@ -9,6 +9,7 @@ import (
 
 // serveStandalone runs the cluster as standalone mode
 func run(ctx context.Context, service server.Service) error {
+	printLogoWhenIsTty()
 	// start service
 	if err := service.Run(); err != nil {
 		return fmt.Errorf("run service[%s] error:%s", service.Name(), err)

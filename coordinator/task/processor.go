@@ -94,7 +94,7 @@ func (p *taskProcessor) run() {
 }
 
 func (p *taskProcessor) process(evt taskEvent) {
-	log := logger.GetLogger("coordinator/task/processor")
+	log := logger.GetLogger("coordinator", "TaskProcessor")
 	defer func() {
 		// wait task process done
 		p.wg.Done()

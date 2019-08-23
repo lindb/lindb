@@ -31,7 +31,7 @@ func NewTCPServer(bindAddress string) TCPServer {
 	return &server{
 		bindAddress: bindAddress,
 		gs:          grpc.NewServer(),
-		logger:      logger.GetLogger("rpc/server"),
+		logger:      logger.GetLogger("rpc", "Server"),
 	}
 }
 
