@@ -1,12 +1,8 @@
 package indextbl
 
 import (
-	"bytes"
-	"encoding/binary"
-
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/stream"
 )
@@ -16,9 +12,6 @@ import (
 const (
 	metricNameIDSequenceSize = 4 + // metricID sequence
 		4 // tagID sequence
-	metricIDSize = 4 // uint32
-	fieldIDSize  = 2 // uint16
-	tagIDSize    = 4 // uint32
 )
 
 // MetricsNameIDReader reads metricNameID info from the kv table
@@ -54,11 +47,11 @@ func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data [][]byte, metricID
 		if len(block) < metricNameIDSequenceSize {
 			continue
 		}
-		seqOffset := len(block) - metricNameIDSequenceSize
-		data = append(data, block[:seqOffset])
+		sr := stream.NewReader(block)
+		sr.ShiftAt(uint32(len(block) - metricNameIDSequenceSize))
 		ok = true
-		metricIDSeq = binary.BigEndian.Uint32(block[seqOffset : seqOffset+metricIDSize])
-		tagIDSeq = binary.BigEndian.Uint32(block[seqOffset+metricIDSize:])
+		metricIDSeq = sr.ReadUint32()
+		tagIDSeq = sr.ReadUint32()
 	}
 	return
 }
@@ -80,15 +73,11 @@ func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uin
 		if tagMeta == nil {
 			continue
 		}
-		sr := stream.BinaryReader(tagMeta)
+		sr := stream.NewReader(tagMeta)
 		for !sr.Empty() {
 			tagKeyLen := sr.ReadByte()
 			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
-			thisBinaryTagID := sr.ReadBytes(tagIDSize)
-			if len(thisBinaryTagID) != tagIDSize {
-				break
-			}
-			tagID = binary.BigEndian.Uint32(thisBinaryTagID)
+			tagID = sr.ReadUint32()
 			if thisTagKey == tagKey && tagID != 0 {
 				return tagID, true
 			}
@@ -106,31 +95,29 @@ func (r *metricsMetaReader) readMetasBlock(reader table.Reader, metricID uint32)
 	if block == nil {
 		return nil, nil
 	}
-	// validation of tagMeta
-	keyMetaLength, err := binary.ReadUvarint(bytes.NewBuffer(block))
-	// read block failure
-	if err != nil {
-		return nil, nil
-	}
-	sizeOfKeyLen := bufioutil.GetUVariantLength(keyMetaLength)
-	keyMetaEndPos := sizeOfKeyLen + int(keyMetaLength)
+	sr := stream.NewReader(block)
+
+	// read length of tagMeta
+	keyMetaLength := sr.ReadUvarint64()
+	startOfTagMeta := sr.Position()
+	// jump to end of tagMeta block
+	sr.ShiftAt(uint32(keyMetaLength))
+	endOfTagMeta := sr.Position()
 	// block size too small
-	if len(block) < keyMetaEndPos {
+	if sr.Error() != nil {
 		return nil, nil
 	}
-	tagMeta = block[sizeOfKeyLen:keyMetaEndPos]
-	// validation of fieldMeta
-	remainingBlock := block[keyMetaEndPos:]
-	fieldLength, err := binary.ReadUvarint(bytes.NewBuffer(remainingBlock))
-	if err != nil {
-		return nil, nil
-	}
+	tagMeta = block[startOfTagMeta:endOfTagMeta]
+	// read length of fieldMeta
+	fieldMetaLen := sr.ReadUvarint64()
+	startOfFieldMeta := sr.Position()
+	sr.ShiftAt(uint32(fieldMetaLen))
+	endOfFieldMeta := sr.Position()
 	// failing assertion: the remaining block is field block
-	sizeOfFieldLen := bufioutil.GetUVariantLength(fieldLength)
-	if len(remainingBlock) != sizeOfFieldLen+int(fieldLength) {
+	if sr.Error() != nil || !sr.Empty() {
 		return nil, nil
 	}
-	return tagMeta, remainingBlock[sizeOfFieldLen:]
+	return tagMeta, block[startOfFieldMeta:endOfFieldMeta]
 }
 
 // ReadMaxFieldID return the max field-id of this metric
@@ -143,23 +130,18 @@ func (r *metricsMetaReader) ReadMaxFieldID(metricID uint32) (maxFieldID uint16) 
 	if fieldMeta == nil {
 		return 0
 	}
-	sr := stream.BinaryReader(fieldMeta)
+	sr := stream.NewReader(fieldMeta)
 	for !sr.Empty() {
 		thisFieldNameLen := sr.ReadByte()
 		// read field-name
 		sr.ReadBytes(int(thisFieldNameLen))
 		// read field-type
 		sr.ReadByte()
-		// read field-ID binary
-		thisBinaryFieldID := sr.ReadBytes(fieldIDSize)
-		// data corruption
-		if len(thisBinaryFieldID) != fieldIDSize {
-			break
-		}
-		maxFieldID = binary.BigEndian.Uint16(thisBinaryFieldID)
+		thisFieldID := sr.ReadUint16()
 		if sr.Error() != nil {
 			break
 		}
+		maxFieldID = thisFieldID
 	}
 	return
 }
@@ -173,20 +155,15 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 		if fieldMeta == nil {
 			continue
 		}
-		sr := stream.BinaryReader(fieldMeta)
+		sr := stream.NewReader(fieldMeta)
 		for !sr.Empty() {
 			// read field-name
 			thisFieldNameLen := sr.ReadByte()
 			thisFieldName := string(sr.ReadBytes(int(thisFieldNameLen)))
 			// read field-type
 			fieldType = field.Type(sr.ReadByte())
-			// read field-ID binary
-			thisBinaryFieldID := sr.ReadBytes(fieldIDSize)
 			// data corruption
-			if len(thisBinaryFieldID) != fieldIDSize {
-				break
-			}
-			fieldID = binary.BigEndian.Uint16(thisBinaryFieldID)
+			fieldID = sr.ReadUint16()
 			if thisFieldName == fieldName && fieldID != 0 && fieldType != 0 {
 				ok = true
 				return

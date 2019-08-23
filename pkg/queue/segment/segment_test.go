@@ -19,7 +19,7 @@ var syncFunc = func([]byte) error {
 }
 
 func buildDataPage(t *testing.T, data ...[]byte) page.MappedPage {
-	dataWriter := stream.BinaryWriter()
+	dataWriter := stream.NewBufferWriter(nil)
 
 	for _, msg := range data {
 		dataWriter.PutBytes(msg)
@@ -35,7 +35,7 @@ func buildDataPage(t *testing.T, data ...[]byte) page.MappedPage {
 }
 
 func buildIndexPage(t *testing.T, data ...[]byte) page.MappedPage {
-	indexWriter := stream.BinaryWriter()
+	indexWriter := stream.NewBufferWriter(nil)
 
 	offset := int32(0)
 	for _, msg := range data {
@@ -154,10 +154,10 @@ func TestWrite(t *testing.T) {
 
 func TestSegment_Append(t *testing.T) {
 	msg0 := []byte("123")
-	dataWriter := stream.BinaryBufWriter(make([]byte, 10))
+	dataWriter := stream.NewSliceWriter(make([]byte, 10))
 	dataWriter.PutBytes(msg0)
 
-	indexWriter := stream.BinaryBufWriter(make([]byte, 16))
+	indexWriter := stream.NewSliceWriter(make([]byte, 16))
 	indexWriter.PutInt32(0)
 	indexWriter.PutInt32(3)
 

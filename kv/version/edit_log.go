@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/lindb/lindb/pkg/logger"
-	strm "github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 // StoreFamilyID is store level edit log,
@@ -39,47 +39,49 @@ func (el *EditLog) IsEmpty() bool {
 
 // marshal encodes edit log to binary data
 func (el *EditLog) marshal() ([]byte, error) {
-	stream := strm.BinaryWriter()
+	writer := stream.NewBufferWriter(nil)
+	defer writer.ReleaseBuffer()
+
 	// write family id
-	stream.PutVarint32(int32(el.familyID))
+	writer.PutVarint32(int32(el.familyID))
 	// write num of logs
-	stream.PutUvarint64(uint64(len(el.logs)))
+	writer.PutUvarint64(uint64(len(el.logs)))
 	// write detail log data
 	for _, log := range el.logs {
 		logType := logTypes[reflect.TypeOf(log)]
-		stream.PutVarint32(logType)
+		writer.PutVarint32(logType)
 		value, err := log.Encode()
 		if err != nil {
 			return nil, fmt.Errorf("edit logs encode error: %s", err)
 		}
-		stream.PutUvarint32(uint32(len(value))) // write log bytes length
-		stream.PutBytes(value)                  // write log bytes data
+		writer.PutUvarint32(uint32(len(value))) // write log bytes length
+		writer.PutBytes(value)                  // write log bytes data
 	}
-	return stream.Bytes()
+	return writer.Bytes()
 }
 
-// unmarshal create an edit log from its seriealized in buf
+// unmarshal create an edit log from its serialized in buf
 func (el *EditLog) unmarshal(buf []byte) error {
-	stream := strm.BinaryReader(buf)
-	el.familyID = int(stream.ReadVarint32())
+	reader := stream.NewReader(buf)
+	el.familyID = int(reader.ReadVarint32())
 	// read num of logs
-	count := stream.ReadUvarint64()
+	count := reader.ReadUvarint64()
 	// read detail log data
 	for ; count > 0; count-- {
-		logType := stream.ReadVarint32()
+		logType := reader.ReadVarint32()
 		fn, ok := newLogFuncMap[logType]
 		if !ok {
 			return fmt.Errorf("cannot get log type new func, type is:[%d]", logType)
 		}
 		l := fn()
-		length := int(stream.ReadUvarint32())
-		logData := stream.ReadBytes(length)
+		length := int(reader.ReadUvarint32())
+		logData := reader.ReadBytes(length)
 		if err := l.Decode(logData); err != nil {
 			return fmt.Errorf("unmarshal log data error, type is:[%d],error:%s", logType, err)
 		}
 		el.Add(l)
 	}
-	return stream.Error()
+	return reader.Error()
 }
 
 // apply family edit logs into version metadata

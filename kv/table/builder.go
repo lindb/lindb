@@ -17,7 +17,7 @@ import (
 
 const (
 	// magic-number in the footer of sst file
-	magicNumberOffsetFile uint64 = 7308327815838786409
+	magicNumberOffsetFile uint64 = 0x69632d656d656c65
 	// current file layout version
 	version0 = 0
 )
@@ -154,10 +154,10 @@ func (b *storeBuilder) Close() error {
 
 	// for file footer for offsets/keys index, length=1+4+4+8
 	var buf [17]byte
-	binary.BigEndian.PutUint32(buf[:4], uint32(posOfOffset))
-	binary.BigEndian.PutUint32(buf[4:8], uint32(posOfKeys))
+	binary.LittleEndian.PutUint32(buf[:4], uint32(posOfOffset))
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(posOfKeys))
 	buf[8] = version0
-	binary.BigEndian.PutUint64(buf[9:], magicNumberOffsetFile)
+	binary.LittleEndian.PutUint64(buf[9:], magicNumberOffsetFile)
 	if _, err = b.writer.Write(buf[:]); err != nil {
 		return err
 	}

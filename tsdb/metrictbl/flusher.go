@@ -1,14 +1,13 @@
 package metrictbl
 
 import (
-	"bytes"
-	"encoding/binary"
 	"hash/crc32"
 	"sync/atomic"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/pkg/stream"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -94,7 +93,7 @@ type blockBuilder struct {
 	metaFieldsID    []uint16              // fieldID list of fields-meta
 	metaFieldsIDMap map[uint16]int        // set
 	metaFieldsType  map[uint16]field.Type // field-id -> fieldType
-	buf             bytes.Buffer
+	writer          *stream.BufferWriter
 	offset          *encoding.DeltaBitPackingEncoder
 	keys            *roaring.Bitmap
 }
@@ -105,15 +104,16 @@ func newBlockBuilder() *blockBuilder {
 		metaFieldsIDMap: make(map[uint16]int),
 		metaFieldsType:  make(map[uint16]field.Type),
 		keys:            roaring.New(),
+		writer:          stream.NewBufferWriter(nil),
 		offset:          encoding.NewDeltaBitPackingEncoder()}
 }
 
 // addSeries puts tsID and metric-block data in memory.
 func (blockBuilder *blockBuilder) addSeries(seriesID uint32, data []byte) {
-	offset := blockBuilder.buf.Len()
+	offset := blockBuilder.writer.Len()
 	blockBuilder.offset.Add(int32(offset))
 	blockBuilder.keys.Add(seriesID)
-	_, _ = blockBuilder.buf.Write(data)
+	blockBuilder.writer.PutBytes(data)
 }
 
 // appendFieldMeta updates min start-time and max end-time.
@@ -145,7 +145,7 @@ func (blockBuilder *blockBuilder) reset() {
 	blockBuilder.metaFieldsID = blockBuilder.metaFieldsID[:0]
 	blockBuilder.metaFieldsIDMap = make(map[uint16]int)
 	blockBuilder.metaFieldsType = make(map[uint16]field.Type)
-	blockBuilder.buf.Reset()
+	blockBuilder.writer.Reset()
 	blockBuilder.keys.Clear()
 	blockBuilder.offset = encoding.NewDeltaBitPackingEncoder()
 }
@@ -153,12 +153,12 @@ func (blockBuilder *blockBuilder) reset() {
 // finish writes keys, offset.
 func (blockBuilder *blockBuilder) finish() error {
 	// write offset
-	posOfOffset := blockBuilder.buf.Len()
+	posOfOffset := blockBuilder.writer.Len()
 	offset, err := blockBuilder.offset.Bytes()
 	if err != nil {
 		return err
 	}
-	_, _ = blockBuilder.buf.Write(offset)
+	blockBuilder.writer.PutBytes(offset)
 
 	// write keys
 	blockBuilder.keys.RunOptimize()
@@ -166,52 +166,44 @@ func (blockBuilder *blockBuilder) finish() error {
 	if err != nil {
 		return err
 	}
-	posOfKeys := blockBuilder.buf.Len()
-	_, _ = blockBuilder.buf.Write(keys)
+	posOfKeys := blockBuilder.writer.Len()
+	blockBuilder.writer.PutBytes(keys)
 
 	// write fields-meta
-	posOfMeta := blockBuilder.buf.Len()
-	var buf [16]byte
+	posOfMeta := blockBuilder.writer.Len()
 	// write start-time, end-time
-	size := binary.PutUvarint(buf[:], uint64(blockBuilder.minStartTime))
-	_, _ = blockBuilder.buf.Write(buf[:size])
-	size = binary.PutUvarint(buf[:], uint64(blockBuilder.maxEndTime))
-	_, _ = blockBuilder.buf.Write(buf[:size])
+	blockBuilder.writer.PutUvarint64(uint64(blockBuilder.minStartTime))
+	blockBuilder.writer.PutUvarint64(uint64(blockBuilder.maxEndTime))
 	// write fields count
-	size = binary.PutUvarint(buf[:], uint64(len(blockBuilder.metaFieldsID)))
-	blockBuilder.buf.Write(buf[:size])
+	blockBuilder.writer.PutUvarint64(uint64(len(blockBuilder.metaFieldsID)))
 	// write field-id, field-type list
 	for _, fieldID := range blockBuilder.metaFieldsID {
 		// write field-id
-		binary.BigEndian.PutUint16(buf[:], fieldID)
+		blockBuilder.writer.PutUInt16(fieldID)
 		// write field-type
 		fieldType := blockBuilder.metaFieldsType[fieldID]
-		buf[2] = byte(fieldType)
-		blockBuilder.buf.Write(buf[:3])
+		blockBuilder.writer.PutByte(byte(fieldType))
 	}
 	// write footer, length: 4+4+4+4
-	binary.BigEndian.PutUint32(buf[:4], uint32(posOfOffset))
-	binary.BigEndian.PutUint32(buf[4:8], uint32(posOfKeys))
-	binary.BigEndian.PutUint32(buf[8:12], uint32(posOfMeta))
-	_, _ = blockBuilder.buf.Write(buf[:12])
+	blockBuilder.writer.PutUint32(uint32(posOfOffset))
+	blockBuilder.writer.PutUint32(uint32(posOfKeys))
+	blockBuilder.writer.PutUint32(uint32(posOfMeta))
 	// write crc32
-	h := crc32.ChecksumIEEE(blockBuilder.buf.Bytes())
-	binary.BigEndian.PutUint32(buf[12:16], h)
-	_, _ = blockBuilder.buf.Write(buf[12:16])
-
+	blockBuilder.writer.PutUint32(crc32.ChecksumIEEE(blockBuilder.bytes()))
 	return nil
 }
 
 // bytes returns a slice of the underlying data written before.
 func (blockBuilder *blockBuilder) bytes() []byte {
-	return blockBuilder.buf.Bytes()
+	data, _ := blockBuilder.writer.Bytes()
+	return data
 }
 
 // Level4: builder
 // entryBuilder builds a series containing different fields.
 type entryBuilder struct {
-	dataBuf      bytes.Buffer
-	lenBuf       bytes.Buffer
+	dataWriter   *stream.BufferWriter
+	lenWriter    *stream.BufferWriter
 	fieldsData   map[uint16][]byte
 	bitArray     *bitArray
 	minStartTime int64 // startTime of fields-meta
@@ -222,6 +214,8 @@ type entryBuilder struct {
 func newSeriesEntryBuilder() *entryBuilder {
 	return &entryBuilder{
 		bitArray:   &bitArray{},
+		dataWriter: stream.NewBufferWriter(nil),
+		lenWriter:  stream.NewBufferWriter(nil),
 		fieldsData: make(map[uint16][]byte)}
 }
 
@@ -239,21 +233,18 @@ func (entryBuilder *entryBuilder) addField(fieldID uint16, data []byte, startTim
 
 // bytes builds a slice of the underlying fields-info data written before.
 func (entryBuilder *entryBuilder) bytes(metaFieldsID []uint16) []byte {
-	entryBuilder.dataBuf.Reset()
-	entryBuilder.lenBuf.Reset()
+	entryBuilder.dataWriter.Reset()
+	entryBuilder.lenWriter.Reset()
 
 	if len(metaFieldsID) == 0 {
 		return nil
 	}
 
-	var buf [8]byte
 	var existedFieldsID []uint16
 	// write start-time
-	size1 := binary.PutUvarint(buf[:], uint64(entryBuilder.minStartTime))
-	entryBuilder.dataBuf.Write(buf[:size1])
+	entryBuilder.dataWriter.PutUvarint64(uint64(entryBuilder.minStartTime))
 	// write end-time
-	size2 := binary.PutUvarint(buf[:], uint64(entryBuilder.maxEndTime))
-	entryBuilder.dataBuf.Write(buf[:size2])
+	entryBuilder.dataWriter.PutUvarint64(uint64(entryBuilder.maxEndTime))
 	// build bit-array
 	for idx, fieldID := range metaFieldsID {
 		if _, ok := entryBuilder.fieldsData[fieldID]; !ok {
@@ -263,28 +254,29 @@ func (entryBuilder *entryBuilder) bytes(metaFieldsID []uint16) []byte {
 		entryBuilder.bitArray.setBit(uint16(idx))
 	}
 	// write bit-array length
-	size3 := binary.PutUvarint(buf[:], uint64(entryBuilder.bitArray.getLen()))
-	entryBuilder.dataBuf.Write(buf[:size3])
+	entryBuilder.dataWriter.PutUvarint64(uint64(entryBuilder.bitArray.getLen()))
 	// write bit-array
-	entryBuilder.dataBuf.Write(entryBuilder.bitArray.payload)
+	entryBuilder.dataWriter.PutBytes(entryBuilder.bitArray.payload)
 	// write variant length in order of fields in fields-meta
 	for _, fieldID := range existedFieldsID {
 		theData := entryBuilder.fieldsData[fieldID]
-		size4 := binary.PutUvarint(buf[:], uint64(len(theData)))
-		entryBuilder.lenBuf.Write(buf[:size4])
+		entryBuilder.lenWriter.PutUvarint64(uint64(len(theData)))
 	}
-	entryBuilder.dataBuf.Write(entryBuilder.lenBuf.Bytes())
+	lenData, _ := entryBuilder.lenWriter.Bytes()
+	entryBuilder.dataWriter.PutBytes(lenData)
 	// write data in order of fields in fields-meta
 	for _, fieldID := range existedFieldsID {
 		theData := entryBuilder.fieldsData[fieldID]
-		entryBuilder.dataBuf.Write(theData)
+		entryBuilder.dataWriter.PutBytes(theData)
 	}
-	return entryBuilder.dataBuf.Bytes()
+	data, _ := entryBuilder.dataWriter.Bytes()
+	return data
 }
 
 // reset resets the inner buffer and time-range.
 func (entryBuilder *entryBuilder) reset() {
-	entryBuilder.dataBuf.Reset()
+	entryBuilder.dataWriter.Reset()
+	entryBuilder.lenWriter.Reset()
 	entryBuilder.bitArray.reset()
 	entryBuilder.fieldsData = make(map[uint16][]byte)
 	entryBuilder.minStartTime = 0

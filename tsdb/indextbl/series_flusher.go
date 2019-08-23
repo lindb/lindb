@@ -2,13 +2,12 @@ package indextbl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"hash/crc32"
-	"sync"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/bufioutil"
+	"github.com/lindb/lindb/pkg/bufpool"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -33,9 +32,10 @@ type SeriesIndexFlusher interface {
 // NewSeriesIndexFlusher returns a new SeriesIndexFlusher
 func NewSeriesIndexFlusher(flusher kv.Flusher) SeriesIndexFlusher {
 	return &seriesIndexFlusher{
-		flusher:    flusher,
-		bufferPool: sync.Pool{New: func() interface{} { return &bytes.Buffer{} }},
-		trie:       newTrieTree(),
+		flusher:        flusher,
+		entrySetWriter: stream.NewBufferWriter(nil),
+		trie:           newTrieTree(),
+		tagValueWriter: stream.NewBufferWriter(nil),
 	}
 }
 
@@ -43,27 +43,23 @@ func NewSeriesIndexFlusher(flusher kv.Flusher) SeriesIndexFlusher {
 type seriesIndexFlusher struct {
 	flusher        kv.Flusher
 	trie           trieTreeBuilder
-	entrySetBuffer bytes.Buffer
-	bufferPool     sync.Pool
-	VariableBuf    [8]byte
+	entrySetWriter *stream.BufferWriter
 	// time range
 	minStartTime uint32
 	maxEndTime   uint32
 	// for tagValue data builder
 	versionCount   int
+	tagValueWriter *stream.BufferWriter
 	tagValueBuffer *bytes.Buffer
 	// used for mock
 	resetDisabled bool
 }
 
-func (w *seriesIndexFlusher) getBuffer() *bytes.Buffer {
-	return w.bufferPool.Get().(*bytes.Buffer)
-}
-
 // FlushVersion writes a versioned bitmap to index table.
 func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap) {
 	if w.tagValueBuffer == nil {
-		w.tagValueBuffer = w.getBuffer()
+		w.tagValueBuffer = bufpool.GetBuffer()
+		w.tagValueWriter.SwitchBuffer(w.tagValueBuffer)
 	}
 	// count flushed versions
 	w.versionCount++
@@ -75,25 +71,21 @@ func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uin
 		w.maxEndTime = endTime
 	}
 	// write version
-	binary.LittleEndian.PutUint32(w.VariableBuf[:], version)
-	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:4])
+	w.tagValueWriter.PutUint32(version)
 	// write startTime delta
 	startTimeDelta := int64(startTime) - int64(version)
-	size := binary.PutVarint(w.VariableBuf[:], startTimeDelta)
-	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	w.tagValueWriter.PutVarint64(startTimeDelta)
 	// write endTime delta
 	endTimeDelta := int64(endTime) - int64(version)
-	size = binary.PutVarint(w.VariableBuf[:], endTimeDelta)
-	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	w.tagValueWriter.PutVarint64(endTimeDelta)
 	// write bitmap length
 	out, err := bitmap.MarshalBinary()
 	if err != nil {
 		seriesIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
 	}
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(out)))
-	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])
+	w.tagValueWriter.PutUvarint64(uint64(len(out)))
 	// write bitmap data
-	_, _ = w.tagValueBuffer.Write(out)
+	w.tagValueWriter.PutBytes(out)
 }
 
 // bufferWithVersionCount is the value of trie-tree node
@@ -119,11 +111,9 @@ func (w *seriesIndexFlusher) FlushTagKey(tagID uint32) error {
 
 	treeDataBlock := w.trie.MarshalBinary()
 	// write startTime
-	binary.LittleEndian.PutUint32(w.VariableBuf[:], w.minStartTime)
-	w.entrySetBuffer.Write(w.VariableBuf[:4])
+	w.entrySetWriter.PutUint32(w.minStartTime)
 	// write endTime
-	binary.LittleEndian.PutUint32(w.VariableBuf[:], w.maxEndTime)
-	w.entrySetBuffer.Write(w.VariableBuf[:4])
+	w.entrySetWriter.PutUint32(w.maxEndTime)
 	// build isPrefixKey
 	isPrefixBlock, err := treeDataBlock.isPrefixKey.MarshalBinary()
 	if err != nil {
@@ -134,64 +124,55 @@ func (w *seriesIndexFlusher) FlushTagKey(tagID uint32) error {
 	if err != nil {
 		return err
 	}
-	treeLength := bufioutil.GetUVariantLength(uint64(len(treeDataBlock.labels))) + // labels length uvariant size
+	treeLength := stream.GetUVariantLength(uint64(len(treeDataBlock.labels))) + // labels length uvariant size
 		len(treeDataBlock.labels) + // labels length
-		bufioutil.GetUVariantLength(uint64(len(isPrefixBlock))) + // isPrefixKey length uvariant size
+		stream.GetUVariantLength(uint64(len(isPrefixBlock))) + // isPrefixKey length uvariant size
 		len(isPrefixBlock) + // isPrefixKey length
-		bufioutil.GetUVariantLength(uint64(len(LOUDSBlock))) + // LOUDSBlock length uvariantsize
+		stream.GetUVariantLength(uint64(len(LOUDSBlock))) + // LOUDSBlock length uvariantsize
 		len(LOUDSBlock) // LOUDSBlock length
 	// write tree length
-	size := binary.PutUvarint(w.VariableBuf[:], uint64(treeLength))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
+	w.entrySetWriter.PutUvarint64(uint64(treeLength))
 	// write labels length & labels
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(treeDataBlock.labels)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	_, _ = w.entrySetBuffer.Write(treeDataBlock.labels)
+	w.entrySetWriter.PutUvarint64(uint64(len(treeDataBlock.labels)))
+	w.entrySetWriter.PutBytes(treeDataBlock.labels)
 	// write isPrefixKey length & bitmap
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(isPrefixBlock)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	_, _ = w.entrySetBuffer.Write(isPrefixBlock)
+	w.entrySetWriter.PutUvarint64(uint64(len(isPrefixBlock)))
+	w.entrySetWriter.PutBytes(isPrefixBlock)
 	// write LOUDS length & bitmap
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(LOUDSBlock)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-	_, _ = w.entrySetBuffer.Write(LOUDSBlock)
-
+	w.entrySetWriter.PutUvarint64(uint64(len(LOUDSBlock)))
+	w.entrySetWriter.PutBytes(LOUDSBlock)
 	// write tagValueCount
-	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(treeDataBlock.values)))
-	_, _ = w.entrySetBuffer.Write(w.VariableBuf[:size])
-
+	w.entrySetWriter.PutUvarint64(uint64(len(treeDataBlock.values)))
 	// write all data length and versioned tagValue data blocks
-	w.writeTagValueDataBlockTo(&w.entrySetBuffer, treeDataBlock)
+	w.writeTagValueDataBlockTo(w.entrySetWriter, treeDataBlock)
 
 	// write crc32 checksum
-	binary.LittleEndian.PutUint32(w.VariableBuf[0:4], crc32.ChecksumIEEE(w.entrySetBuffer.Bytes()))
-	w.entrySetBuffer.Write(w.VariableBuf[:4])
-
-	return w.flusher.Add(tagID, w.entrySetBuffer.Bytes())
+	data, _ := w.entrySetWriter.Bytes()
+	w.entrySetWriter.PutUint32(crc32.ChecksumIEEE(data))
+	data, _ = w.entrySetWriter.Bytes()
+	return w.flusher.Add(tagID, data)
 }
 
-// writeTagValueDataBlockTo write tagValueDataBlocks to the buffer.
-func (w *seriesIndexFlusher) writeTagValueDataBlockTo(buffer *bytes.Buffer, treeDataBlock *trieTreeData) {
+// writeTagValueDataBlockTo write tagValueDataBlocks to the writer.
+func (w *seriesIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWriter, treeDataBlock *trieTreeData) {
 	// write lengths of all versioned tagValue data block
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
 		// write all data length
-		dataBlockLen := bufioutil.GetUVariantLength(uint64(it.versionCount)) + // version count size
+		dataBlockLen := stream.GetUVariantLength(uint64(it.versionCount)) + // version count size
 			len(it.buffer.Bytes()) // versionedTagValue blocks
-		size := binary.PutUvarint(w.VariableBuf[:], uint64(dataBlockLen))
-		_, _ = buffer.Write(w.VariableBuf[:size])
+		writer.PutUvarint64(uint64(dataBlockLen))
 	}
 	// write all versioned tagValue data block
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
 		// write version count
-		size := binary.PutUvarint(w.VariableBuf[:], uint64(it.versionCount))
-		_, _ = buffer.Write(w.VariableBuf[:size])
+		writer.PutUvarint64(uint64(it.versionCount))
 		// write all versions of tagValue bitmaps
-		_, _ = buffer.Write(it.buffer.Bytes())
+		writer.PutBytes(it.buffer.Bytes())
 		// put buffer back to pool
 		it.buffer.Reset()
-		w.bufferPool.Put(it.buffer)
+		bufpool.PutBuffer(it.buffer)
 	}
 }
 
@@ -204,5 +185,5 @@ func (w *seriesIndexFlusher) Commit() error {
 // reset resets the trie and buf
 func (w *seriesIndexFlusher) reset() {
 	w.trie.Reset()
-	w.entrySetBuffer.Reset()
+	w.entrySetWriter.Reset()
 }
