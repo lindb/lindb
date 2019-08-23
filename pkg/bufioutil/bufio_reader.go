@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 const (
@@ -75,17 +77,6 @@ func NewBufioReader(fileName string) (BufioReader, error) {
 	}, nil
 }
 
-// GetUVariantLength returns the length of variant-encoded-bytes.
-func GetUVariantLength(value uint64) int {
-	i := uint8(1)
-	for ; ; i++ {
-		if value < 2<<(i*7-1) {
-			break
-		}
-	}
-	return int(i)
-}
-
 // Next detects if there is data to read.
 func (br *bufioReader) Next() bool {
 	length, err := binary.ReadUvarint(br.r)
@@ -95,7 +86,7 @@ func (br *bufioReader) Next() bool {
 		br.err = err
 		return true
 	}
-	br.count += int64(GetUVariantLength(length))
+	br.count += int64(stream.GetUVariantLength(length))
 	// expand the cap or not
 	if uint64(cap(br.content)) < length {
 		br.content = make([]byte, length)

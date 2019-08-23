@@ -7,9 +7,9 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 
-	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table
@@ -73,11 +73,11 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("read sstfile:%s footer error", r.path)
 	}
 	// validate magic-number
-	if binary.BigEndian.Uint64(buf[9:]) != magicNumberOffsetFile {
+	if binary.LittleEndian.Uint64(buf[9:]) != magicNumberOffsetFile {
 		return fmt.Errorf("verify magic-number of sstfile:%s failure", r.path)
 	}
-	posOfOffset := int(binary.BigEndian.Uint32(buf[:4]))
-	posOfKeys := int(binary.BigEndian.Uint32(buf[4:8]))
+	posOfOffset := int(binary.LittleEndian.Uint32(buf[:4]))
+	posOfKeys := int(binary.LittleEndian.Uint32(buf[4:8]))
 	if err := r.keys.UnmarshalBinary(r.readBytes(posOfKeys)); err != nil {
 		return fmt.Errorf("unmarshal keys data from file[%s] error:%s", r.path, err)
 	}
@@ -121,7 +121,7 @@ func (r *storeMMapReader) readBytes(offset int) []byte {
 	if err != nil {
 		return nil
 	}
-	bytesCount := bufioutil.GetUVariantLength(length)
+	bytesCount := stream.GetUVariantLength(length)
 	start := offset + bytesCount
 	end := start + int(length)
 	if end > len(r.data) {

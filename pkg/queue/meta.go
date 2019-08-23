@@ -39,13 +39,13 @@ func NewMeta(filePath string, size int) (Meta, error) {
 
 // ReadInt64 returns int64 starting from offset.
 func (m *meta) ReadInt64(offset int) int64 {
-	reader := stream.BinaryReader(m.mappedPage.Data(offset, int64Size))
+	reader := stream.NewReader(m.mappedPage.Data(offset, int64Size))
 	return reader.ReadInt64()
 }
 
 // WriteInt64 write int64 value to bytes starting from offset.
 func (m *meta) WriteInt64(offset int, value int64) {
-	writer := stream.BinaryBufWriter(m.mappedPage.Data(offset, int64Size))
+	writer := stream.NewSliceWriter(m.mappedPage.Data(offset, int64Size))
 	writer.PutInt64(value)
 }
 

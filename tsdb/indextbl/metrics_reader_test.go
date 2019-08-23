@@ -61,7 +61,9 @@ func prepareData(ctrl *gomock.Controller) ([]byte, []byte) {
 	metaFlusherINTF2.FlushTagKeyID("b2", 8)
 	metaFlusher2.buildMetricMeta()
 
-	return metaFlusher1.valueBuf.Bytes(), metaFlusher2.valueBuf.Bytes()
+	valueBufData1, _ := metaFlusher1.valueBufWriter.Bytes()
+	valueBufData2, _ := metaFlusher2.valueBufWriter.Bytes()
+	return valueBufData1, valueBufData2
 }
 
 func Test_MetricsMetaReader_ok(t *testing.T) {

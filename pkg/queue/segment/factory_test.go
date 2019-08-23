@@ -189,7 +189,7 @@ func writeFile(t *testing.T, tmpDir string, seqNum int, msgs ...[]byte) {
 			t.Fatal(err)
 		}
 
-		writer := stream.BinaryWriter()
+		writer := stream.NewBufferWriter(nil)
 		writer.PutInt32(offset)
 		writer.PutInt32(dataLen)
 

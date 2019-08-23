@@ -60,7 +60,8 @@ func buildSeriesIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock [
 	}
 	// pick the zoneBlock buffer
 	seriesFlusher.FlushTagKey(20)
-	zoneBlock = append(zoneBlock, seriesFlusherImpl.entrySetBuffer.Bytes()...)
+	data, _ := seriesFlusherImpl.entrySetWriter.Bytes()
+	zoneBlock = append(zoneBlock, data...)
 	seriesFlusherImpl.reset()
 
 	/////////////////////////
@@ -76,7 +77,8 @@ func buildSeriesIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock [
 	}
 	// pick the ipBlock buffer
 	seriesFlusher.FlushTagKey(21)
-	ipBlock = append(ipBlock, seriesFlusherImpl.entrySetBuffer.Bytes()...)
+	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
+	ipBlock = append(ipBlock, data...)
 	seriesFlusherImpl.reset()
 
 	/////////////////////////
@@ -92,7 +94,8 @@ func buildSeriesIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock [
 	}
 	// pick the hostBlock buffer
 	seriesFlusher.FlushTagKey(22)
-	hostBlock = append(hostBlock, seriesFlusherImpl.entrySetBuffer.Bytes()...)
+	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
+	hostBlock = append(hostBlock, data...)
 	seriesFlusherImpl.reset()
 	return zoneBlock, ipBlock, hostBlock
 }

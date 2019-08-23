@@ -98,8 +98,8 @@ func Test_metricBlockBuilder_finish(t *testing.T) {
 	assert.Equal(t, "abcdef", string(data[:6]))
 	// validate pos of meta
 	footer := data[len(data)-16:]
-	assert.Equal(t, uint32(6), binary.BigEndian.Uint32(footer[:4]))
-	posOfMeta := binary.BigEndian.Uint32(footer[8:])
+	assert.Equal(t, uint32(6), binary.LittleEndian.Uint32(footer[:4]))
+	posOfMeta := binary.LittleEndian.Uint32(footer[8:])
 	// validate start-Time
 	r := bytes.NewReader(data[posOfMeta:])
 	startTime, _ := binary.ReadUvarint(r)

@@ -45,7 +45,7 @@ func (tree *artTree) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return err
 	}
-	reader := stream.BinaryReader(decoded)
+	reader := stream.NewReader(decoded)
 	for {
 		// read length of metricName
 		size := reader.ReadUvarint64()
