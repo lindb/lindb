@@ -67,7 +67,7 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		return nil, err
 	}
 
-	log := logger.GetLogger(fmt.Sprintf("kv/store[%s]", option.Path))
+	log := logger.GetLogger("kv", fmt.Sprintf("Store[%s]", option.Path))
 
 	// unlock file lock if error
 	defer func() {

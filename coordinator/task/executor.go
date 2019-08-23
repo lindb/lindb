@@ -33,7 +33,7 @@ func NewExecutor(ctx context.Context, node *models.Node, repo state.Repository) 
 		processors: map[Kind]*taskProcessor{},
 		ctx:        ctx,
 		cancel:     cancel,
-		log:        logger.GetLogger("coordinator/task/executor"),
+		log:        logger.GetLogger("coordinator", "TaskExecutor"),
 	}
 }
 

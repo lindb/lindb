@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("pkg/mmap")
+var log = logger.GetLogger("pkg/fileutil", "MMAP")
 
 const (
 	read = 1 << iota

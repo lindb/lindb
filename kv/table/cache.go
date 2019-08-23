@@ -33,7 +33,7 @@ func NewCache(storePath string) Cache {
 	return &mapCache{
 		storePath: storePath,
 		readers:   make(map[string]Reader),
-		log:       logger.GetLogger(fmt.Sprintf("kv/cache[%s]", storePath)),
+		log:       logger.GetLogger("kv", fmt.Sprintf("Cache[%s]", storePath)),
 	}
 }
 

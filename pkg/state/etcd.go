@@ -27,7 +27,8 @@ func newEtedRepository(config Config) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
-	logger.GetLogger("state").Info("new etcd client successfully", logger.Any("endpoints", config.Endpoints))
+	logger.GetLogger("pkg/state", "ETCDRepository").Info("new etcd client successfully",
+		logger.Any("endpoints", config.Endpoints))
 	return &etcdRepository{
 		namespace: config.Namespace,
 		client:    cli,

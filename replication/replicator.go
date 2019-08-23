@@ -70,7 +70,7 @@ func newReplicator(target models.Node, database string, shardID int32,
 		shardID:  shardID,
 		fo:       fo,
 		fct:      fct,
-		logger:   logger.GetLogger("replication/replicator"),
+		logger:   logger.GetLogger("replication", "Replicator"),
 	}
 
 	go r.recvLoop()

@@ -10,13 +10,22 @@ import (
 // These variables are populated via the Go linker.
 var (
 	// release version, ldflags
-	version = "unknown"
+	version = ""
 	// binary build-time, ldflags
 	buildTime = "unknown"
 )
 
+const defaultVersion = "0.0.0"
+
+func getVersion() string {
+	if version == "" {
+		return defaultVersion
+	}
+	return version
+}
+
 func printVersion() {
-	fmt.Printf("LinDB %v, BuildDate: %v\n", version, buildTime)
+	fmt.Printf("LinDB: %v, BuildDate: %v\n", getVersion(), buildTime)
 }
 
 var versionCmd = &cobra.Command{

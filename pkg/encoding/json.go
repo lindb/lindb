@@ -6,7 +6,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("encoding")
+var log = logger.GetLogger("pkg/encoding", "JSONMarshaller")
 
 // JSONMarshal returns the JSON encoding of v.
 func JSONMarshal(v interface{}) []byte {
