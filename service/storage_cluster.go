@@ -91,7 +91,7 @@ func (s *storageClusterService) List() ([]*models.StorageCluster, error) {
 		storageCluster := &models.StorageCluster{}
 		err = json.Unmarshal(val.Value, storageCluster)
 		if err != nil {
-			logger.GetLogger("service/storage/cluster").
+			logger.GetLogger("service", "StorageCluster").
 				Warn("unmarshal data error",
 					logger.String("data", string(val.Value)))
 		} else {

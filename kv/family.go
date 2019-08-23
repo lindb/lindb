@@ -35,7 +35,7 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 	name := option.Name
 
 	familyPath := filepath.Join(store.option.Path, name)
-	log := logger.GetLogger(fmt.Sprintf("kv/family[%s]", familyPath))
+	log := logger.GetLogger("kv", fmt.Sprintf("Family[%s]", familyPath))
 
 	if !fileutil.Exist(familyPath) {
 		if err := fileutil.MkDir(familyPath); err != nil {

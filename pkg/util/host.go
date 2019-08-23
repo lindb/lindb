@@ -75,7 +75,7 @@ func GetHostIP() (string, error) {
 func GetHostName() string {
 	hostName, err := osHostname()
 	if err != nil {
-		logger.GetLogger("host").Warn("get host name", logger.Error(err))
+		logger.GetLogger("pkg/util", "HostGetter").Warn("get host name", logger.Error(err))
 		hostName = "unknown"
 	}
 	return hostName

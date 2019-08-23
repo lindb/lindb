@@ -25,7 +25,7 @@ var ErrCanceled = errors.New("write data ctx done")
 
 const defaultReportInterval = 30
 
-var log = logger.GetLogger("replication")
+var log = logger.GetLogger("replication", "ChannelManager")
 
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
@@ -262,7 +262,7 @@ func newChannel(cxt context.Context, cfg config.ReplicationChannel, database str
 		shardID:  shardID,
 		q:        q,
 		ch:       make(chan []byte, cfg.BufferSize),
-		logger:   logger.GetLogger("replication/channel"),
+		logger:   logger.GetLogger("replication", "Channel"),
 	}
 
 	c.initAppendTask()

@@ -15,7 +15,7 @@ import (
 //go:generate mockgen -source ./metrics_flusher.go -destination=./metrics_flusher_mock.go -package indextbl
 
 var (
-	moduleLogger = logger.GetLogger("tsdb/indextbl")
+	nameIDIndexFlusherLogger = logger.GetLogger("tsdb", "IndexTableFlusher")
 )
 
 // MetricsNameIDFlusher is a wrapper of kv.Builder, provides the ability to store metricNames and metricIDs to disk.
@@ -86,7 +86,7 @@ func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagID uint32) {
 		return
 	}
 	if len(tagKey) > math.MaxUint8 {
-		moduleLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
+		nameIDIndexFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
 	}
 	// write tagKey
 	f.tagsBuf.WriteByte(byte(len(tagKey)))
@@ -102,7 +102,7 @@ func (f *metricsMetaFlusher) FlushFieldID(fieldName string, fieldType field.Type
 		return
 	}
 	if len(fieldName) > math.MaxUint8 {
-		moduleLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
+		nameIDIndexFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
 	}
 	// write field-name
 	f.fieldBuf.WriteByte(byte(len(fieldName)))

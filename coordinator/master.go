@@ -19,7 +19,7 @@ import (
 
 //go:generate mockgen -source=./master.go -destination=./master_mock.go -package=coordinator
 
-var log = logger.GetLogger("coordinator/master")
+var log = logger.GetLogger("coordinator", "Master")
 
 // MasterCfg represents the config for master creating
 type MasterCfg struct {

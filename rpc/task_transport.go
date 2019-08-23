@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source ./task_transport.go -destination=./task_transport_mock.go -package=rpc
 
-var log = logger.GetLogger("rpc/task")
+var log = logger.GetLogger("rpc", "TaskClient")
 
 // TaskClientFactory represents the task stream manage
 type TaskClientFactory interface {

@@ -104,7 +104,7 @@ func NewQueue(dirPath string, dataFileSizeLimit int, removeTaskInterval time.Dur
 		headSeq:           headSeq,
 		tailSeq:           tailSeq,
 		rmSegmentsTicker:  time.NewTicker(removeTaskInterval),
-		logger:            logger.GetLogger("pkg/queue"),
+		logger:            logger.GetLogger("pkg/queue", "Queue"),
 	}
 
 	q.initRemoveSegmentsTask()

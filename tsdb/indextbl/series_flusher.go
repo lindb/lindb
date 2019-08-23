@@ -15,6 +15,8 @@ import (
 
 //go:generate mockgen -source ./series_flusher.go -destination=./series_flusher_mock.go -package indextbl
 
+var seriesIndexFlusherLogger = logger.GetLogger("tsdb", "SeriesIndexTableFlusher")
+
 // SeriesIndexFlusher is a wrapper of kv.Builder, provides the ability to build a versioned series-id index table.
 // The layout is available in `tsdb/doc.go`
 type SeriesIndexFlusher interface {
@@ -86,7 +88,7 @@ func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uin
 	// write bitmap length
 	out, err := bitmap.MarshalBinary()
 	if err != nil {
-		moduleLogger.Error("marshal bitmap failure", logger.Error(err))
+		seriesIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
 	}
 	size = binary.PutUvarint(w.VariableBuf[:], uint64(len(out)))
 	_, _ = w.tagValueBuffer.Write(w.VariableBuf[:size])

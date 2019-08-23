@@ -17,7 +17,7 @@ import (
 const options = "OPTIONS"
 const shardPath = "shard"
 
-var log = logger.GetLogger("engine")
+var log = logger.GetLogger("tsdb", "Engine")
 
 // EngineFactory represents a time series engine create factory
 type EngineFactory interface {

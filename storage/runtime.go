@@ -70,7 +70,7 @@ func NewStorageRuntime(config config.Storage) server.Service {
 		ctx:    ctx,
 		cancel: cancel,
 
-		log: logger.GetLogger("storage/runtime"),
+		log: logger.GetLogger("storage", "Runtime"),
 	}
 }
 

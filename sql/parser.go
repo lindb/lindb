@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-var log = logger.GetLogger("sql/parser")
+var log = logger.GetLogger("sql", "Parser")
 var errorHandle = &errorListener{}
 var walker = antlr.ParseTreeWalkerDefault
 

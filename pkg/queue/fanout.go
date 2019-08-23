@@ -286,7 +286,7 @@ func NewFanOut(metaPath string, q FanOutQueue) (FanOut, error) {
 		seg:     seg,
 		headSeq: headSeq,
 		tailSeq: tailSeq,
-		logger:  logger.GetLogger("pkg/fanout"),
+		logger:  logger.GetLogger("pkg/queue", "FanOut"),
 	}, nil
 }
 

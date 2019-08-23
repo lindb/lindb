@@ -50,7 +50,7 @@ func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
 		shardAssign := &models.ShardAssignment{}
 		err = encoding.JSONUnmarshal(val.Value, shardAssign)
 		if err != nil {
-			logger.GetLogger("service/shard/assign").
+			logger.GetLogger("service", "ShardAssignService").
 				Warn("unmarshal data error",
 					logger.String("data", string(val.Value)))
 		} else {

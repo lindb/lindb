@@ -55,7 +55,7 @@ func NewReplicatorStateMachine(ctx context.Context,
 		cancel:       cancel,
 		cm:           cm,
 		shardAssigns: make(map[string]*models.ShardAssignment),
-		log:          logger.GetLogger("coordinator/replicator/sm"),
+		log:          logger.GetLogger("coordinator", "ReplicatorFSM"),
 	}
 	for _, shardAssign := range shardAssigns {
 		stateMachine.buildShardAssign(shardAssign)

@@ -61,7 +61,7 @@ func NewClusterStateMachine(
 	repoFactory state.RepositoryFactory,
 	storageStateService service.StorageStateService,
 	shardAssignService service.ShardAssignService) (ClusterStateMachine, error) {
-	log := logger.GetLogger("cluster/state/machine")
+	log := logger.GetLogger("coordinator", "ClusterFSM")
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &clusterStateMachine{
 		repo:                repo,

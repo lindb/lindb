@@ -15,6 +15,8 @@ import (
 	"github.com/lindb/lindb/tsdb/series"
 )
 
+var seriesIndexReaderLogger = logger.GetLogger("tsdb", "SeriesIndexTableReader")
+
 //go:generate mockgen -source ./series_reader.go -destination=./series_reader_mock.go -package indextbl
 
 const (
@@ -61,7 +63,7 @@ func (r *seriesIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.
 		var offsets []int
 		q, err := r.entrySetBlockToTreeQuerier(entrySetBlock)
 		if err != nil {
-			moduleLogger.Error("failed reading trie-tree block", logger.Error(err))
+			seriesIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
 		}
 		switch expression := expr.(type) {

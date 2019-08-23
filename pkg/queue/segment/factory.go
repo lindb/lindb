@@ -107,7 +107,7 @@ func NewFactory(dirPath string, dataFileSizeLimit int, headSeq, tailSeq int64) (
 		dataFileSizeLimit: dataFileSizeLimit,
 		segments:          make([]Segment, 0),
 		seqRange:          make(SeqRange, 0),
-		logger:            logger.GetLogger("pkg/factory"),
+		logger:            logger.GetLogger("pkg/queue", "SegmentFactory"),
 	}
 
 	// load from file

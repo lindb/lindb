@@ -16,12 +16,14 @@ const StoreFamilyID = 0
 type EditLog struct {
 	logs     []Log
 	familyID int
+	logger   *logger.Logger
 }
 
 // NewEditLog new EditLog instance
 func NewEditLog(familyID int) *EditLog {
 	return &EditLog{
 		familyID: familyID,
+		logger:   logger.GetLogger("kv", "EditLog"),
 	}
 }
 
@@ -94,13 +96,12 @@ func (el *EditLog) apply(version *Version) {
 
 // apply store edit logs into version set
 func (el *EditLog) applyVersionSet(versionSet *StoreVersionSet) {
-	l := logger.GetLogger("kv/edit/log")
 	for _, log := range el.logs {
 		switch v := log.(type) {
 		case StoreLog:
 			v.applyVersionSet(versionSet)
 		default:
-			l.Warn("cannot apply family edit log to version set")
+			el.logger.Warn("cannot apply family edit log to version set")
 		}
 	}
 }

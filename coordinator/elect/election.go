@@ -16,7 +16,7 @@ import (
 
 //go:generate mockgen -source=./election.go -destination=./election_mock.go -package=elect
 
-var log = logger.GetLogger("coordinator/elect")
+var log = logger.GetLogger("coordinator", "Election")
 
 // Listener represent master change callback interface
 type Listener interface {

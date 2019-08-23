@@ -20,7 +20,7 @@ import (
 	"github.com/segmentio/fasthash/fnv1a"
 )
 
-var memDBLogger = logger.GetLogger("memdb")
+var memDBLogger = logger.GetLogger("tsdb", "MemDB")
 
 //go:generate mockgen -source ./database.go -destination=./database_mock.go -package memdb
 

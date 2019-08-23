@@ -62,7 +62,7 @@ type storeBuilder struct {
 func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 	fileName := filepath.Join(path, version.Table(fileNumber))
 	keys := roaring.New()
-	log := logger.GetLogger(fmt.Sprintf("kv/builder[%s]", fileName))
+	log := logger.GetLogger("kv", fmt.Sprintf("Builder[%s]", fileName))
 	writer, err := bufioutil.NewBufioWriter(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("create file write for store builder error:%s", err)

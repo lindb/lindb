@@ -170,7 +170,7 @@ func newSegment(segmentName string, intervalType interval.Type, path string) (Se
 		baseTime:     baseTime,
 		kvStore:      kvStore,
 		intervalType: intervalType,
-		logger:       logger.GetLogger("tsdb/segment"),
+		logger:       logger.GetLogger("tsdb", "Segment"),
 	}, nil
 }
 

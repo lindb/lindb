@@ -87,7 +87,7 @@ func (db *databaseService) List() ([]*models.Database, error) {
 		db := &models.Database{}
 		err = json.Unmarshal(val.Value, db)
 		if err != nil {
-			logger.GetLogger("service/db").
+			logger.GetLogger("service", "DatabaseService").
 				Warn("unmarshal data error",
 					logger.String("data", string(val.Value)))
 		} else {

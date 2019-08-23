@@ -43,7 +43,7 @@ func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
 		repo:   repo,
 		ctx:    ctx,
 		cancel: cancel,
-		log:    logger.GetLogger("coordinator/registry"),
+		log:    logger.GetLogger("coordinator", "Registry"),
 	}
 }
 

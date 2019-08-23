@@ -42,7 +42,7 @@ func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
 		ctx:      ctx,
 		cancel:   cancel,
 		listener: listener,
-		log:      logger.GetLogger("coordinator/discovery"),
+		log:      logger.GetLogger("coordinator", "DiscoveryFactory"),
 	}
 }
 

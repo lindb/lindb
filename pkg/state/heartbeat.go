@@ -67,7 +67,7 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) (bool, error) {
 
 // keepAlive does keepalive and retry,if the key should be not exist,it should retry
 func (h *heartbeat) keepAlive(ctx context.Context) {
-	log := logger.GetLogger("state/heartbeat")
+	log := logger.GetLogger("pkg/state", "HeartBeat")
 	var (
 		err error
 		gap = 100 * time.Millisecond
