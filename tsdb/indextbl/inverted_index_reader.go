@@ -14,44 +14,36 @@ import (
 	"github.com/lindb/lindb/tsdb/series"
 )
 
-var seriesIndexReaderLogger = logger.GetLogger("tsdb", "SeriesIndexTableReader")
+var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
 
-//go:generate mockgen -source ./series_reader.go -destination=./series_reader_mock.go -package indextbl
+//go:generate mockgen -source ./inverted_index_reader.go -destination=./inverted_index_reader_mock.go -package indextbl
 
 const (
 	timeRangeSize = 4 + // uint32, start-time
 		4 // uint32, end-time
 )
 
-// SeriesIndexReader reads versioned seriesID bitmap from series-index-table
-type SeriesIndexReader interface {
+// InvertedIndexReader reads versioned seriesID bitmap from series-index-table
+type InvertedIndexReader interface {
 	// GetSeriesIDsForTagID get series ids for spec metric's keyID
 	GetSeriesIDsForTagID(tagID uint32, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 	// FindSeriesIDsByExprForTagID finds series ids by tag filter expr and tagID
 	FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
 		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
-	series.MetaGetter
 }
 
-// seriesIndexReader implements SeriesIndexReader
-type seriesIndexReader struct {
+// invertedIndexReader implements InvertedIndexReader
+type invertedIndexReader struct {
 	snapshot kv.Snapshot
 }
 
-// NewSeriesIndexReader returns a new SeriesIndexReader
-func NewSeriesIndexReader(snapshot kv.Snapshot) SeriesIndexReader {
-	return &seriesIndexReader{snapshot: snapshot}
-}
-
-// GetTagValues returns tag values by tag keys and spec version for metric level
-func (r *seriesIndexReader) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
-	tagValues [][]string, err error) {
-	// todo: @codingcrush, #92 forward index implementation
-	return nil, nil
+// NewInvertedIndexReader returns a new invertedIndexReader
+func NewInvertedIndexReader(snapshot kv.Snapshot) InvertedIndexReader {
+	return &invertedIndexReader{snapshot: snapshot}
 }
 
 // FindSeriesIDsByExprForTagID finds series ids by tag filter expr for tagId
-func (r *seriesIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
+func (r *invertedIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
 	if len(entrySetBlocks) == 0 {
@@ -62,7 +54,7 @@ func (r *seriesIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.
 		var offsets []int
 		q, err := r.entrySetBlockToTreeQuerier(entrySetBlock)
 		if err != nil {
-			seriesIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
+			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
 		}
 		switch expression := expr.(type) {
@@ -96,7 +88,7 @@ func (r *seriesIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.
 }
 
 // GetSeriesIDsForTagID get series ids for spec metric's tag keyID
-func (r *seriesIndexReader) GetSeriesIDsForTagID(tagID uint32,
+func (r *invertedIndexReader) GetSeriesIDsForTagID(tagID uint32,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
 	if len(entrySetBlocks) == 0 {
@@ -117,14 +109,15 @@ func (r *seriesIndexReader) GetSeriesIDsForTagID(tagID uint32,
 }
 
 // filterEntrySetBlocks filters the entry-set block which matches the time-range in the series-index-table
-func (r *seriesIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeutil.TimeRange) (entrySetBlocks [][]byte) {
+func (r *invertedIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeutil.TimeRange) (entrySetBlocks [][]byte) {
+	sr := stream.NewReader(nil)
 	for _, reader := range r.snapshot.Readers() {
 		block := reader.Get(tagID)
 		if len(block) <= timeRangeSize {
 			continue
 		}
 		// read time-range of the total entry-set
-		sr := stream.NewReader(block)
+		sr.Reset(block)
 		startTime := sr.ReadUint32()
 		endTime := sr.ReadUint32()
 		blockTimeRange := timeutil.TimeRange{
@@ -139,7 +132,7 @@ func (r *seriesIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeuti
 }
 
 // entrySetBlockToTreeQuerier converts the binary block to a tire tree block querier
-func (r *seriesIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQuerier, error) {
+func (r *invertedIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQuerier, error) {
 	var tree trieTreeBlock
 	sr := stream.NewReader(block)
 	// read time-range
@@ -184,7 +177,7 @@ func (r *seriesIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQu
 }
 
 // entrySetBlockToIDSet parses the entry-set block, then return the multi-versions seriesID bitmap
-func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeutil.TimeRange,
+func (r *invertedIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeutil.TimeRange,
 	offsets []int) (*series.MultiVerSeriesIDSet, error) {
 
 	// read trie-tree length
@@ -243,7 +236,7 @@ func (r *seriesIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeuti
 }
 
 // readTagValueDataBlock parses the tagValueDataBlock, and return the the multi-versions seriesID bitmap
-func (r *seriesIndexReader) readTagValueDataBlock(block []byte, pos int,
+func (r *invertedIndexReader) readTagValueDataBlock(block []byte, pos int,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	// jump to target
 	sr := stream.NewReader(block)

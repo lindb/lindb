@@ -1,8 +1,8 @@
 package indexdb
 
 import (
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/series"
 )
 
@@ -30,15 +30,17 @@ type IDGetter interface {
 }
 
 // IndexDatabase represents a database of index files,
-// it provides the abilities of generate id and getting meta data from the index.
+// it provides the abilities to generate id and get meta data from the index.
 // See `tsdb/doc` for index file layout.
 type IndexDatabase interface {
+	// Recover loads metric-names and metricIDs from the index file to build the tree
+	Recover(nameIDsReader indextbl.MetricsNameIDReader) error
 	IDGenerator
 	IDGetter
 	series.MetaGetter
 	series.Filter
 	// FlushNameIDsTo flushes metricName and metricID to flusher
-	FlushNameIDsTo(flusher kv.Flusher) error
+	FlushNameIDsTo(flusher indextbl.MetricsNameIDFlusher) error
 	// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-	FlushMetricsMetaTo(flusher kv.Flusher) error
+	FlushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error
 }

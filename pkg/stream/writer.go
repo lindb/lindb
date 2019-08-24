@@ -58,7 +58,7 @@ func (w *writer) PutUint32(v uint32) {
 	_, w.err = w.buf.Write(w.scratch[:4])
 }
 
-// PutUint64 encodes a int64 as 8 bytes into buf
+// PutUint64 encodes a uint64 as 8 bytes into buf
 func (w *writer) PutUint64(v uint64) {
 	binary.LittleEndian.PutUint64(w.scratch[:], v)
 	_, w.err = w.buf.Write(w.scratch[:8])
