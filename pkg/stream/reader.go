@@ -48,7 +48,6 @@ func (r *Reader) ReadUvarint64() uint64 {
 func (r *Reader) ReadUint16() uint16 {
 	buf := r.ReadBytes(2)
 	if len(buf) != 2 {
-		r.err = io.EOF
 		return 0
 	}
 	return binary.LittleEndian.Uint16(buf)
@@ -94,7 +93,7 @@ func (r *Reader) ReadByte() byte {
 	return b
 }
 
-// ReadBytes reads n len bytes, use buf.Next()
+// ReadBytes reads n len bytes
 func (r *Reader) ReadBytes(n int) []byte {
 	block := make([]byte, n)
 	for i := 0; i < n; i++ {
@@ -124,7 +123,7 @@ func (r *Reader) ShiftAt(offset uint32) {
 		r.err = io.EOF
 		return
 	}
-	r.reader = bytes.NewReader(r.original[newPos:])
+	r.reader.Reset(r.original[newPos:])
 }
 
 // Reset resets the Reader, then reads from the buffer

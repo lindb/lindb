@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/tsdb/indextbl"
-
 	"github.com/lindb/lindb/pkg/field"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
 
@@ -261,12 +260,7 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 	mStoreInterface.getFieldIDOrGenerate("2", field.SumField, mockGen)
 }
 
-func Test_mStore_flushSeriesIndexesTo_OK(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
-	mStore := mStoreInterface.(*metricStore)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *MocktagIndexINTF, *MocktagIndexINTF) {
 
 	fakeKVEntrySet1 := []tagKVEntrySet{
 		{key: "host", values: map[string]*roaring.Bitmap{"alpha": roaring.New(), "beta": roaring.New()}},
@@ -307,8 +301,19 @@ func Test_mStore_flushSeriesIndexesTo_OK(t *testing.T) {
 	mockTagIdx3.EXPECT().getTagKVEntrySet("host").Return(nil, false).AnyTimes()
 	mockTagIdx3.EXPECT().getTagKVEntrySet("ip").Return(nil, false).AnyTimes()
 	mockTagIdx3.EXPECT().getTagKVEntrySet("zone").Return(&fakeKVEntrySet3[1], true).AnyTimes()
+
+	return mockTagIdx1, mockTagIdx2, mockTagIdx3
+}
+
+func Test_mStore_flushInvertedIndexTo(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
+
 	// mock index-table series flusher
-	mockTableFlusher := indextbl.NewMockSeriesIndexFlusher(ctrl)
+	mockTableFlusher := indextbl.NewMockInvertedIndexFlusher(ctrl)
 	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
 	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any()).Return().AnyTimes()
@@ -320,10 +325,10 @@ func Test_mStore_flushSeriesIndexesTo_OK(t *testing.T) {
 	assert.Len(t, mStore.buildTagKeyValuesForFlush(), 2)
 	// flush ok
 	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(nil).Times(2)
-	assert.Nil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.Nil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush error
 	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
-	assert.NotNil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.NotNil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 
 	//////////////////////////////////////////////
 	// neither mutable nor immutable part is empty
@@ -333,8 +338,35 @@ func Test_mStore_flushSeriesIndexesTo_OK(t *testing.T) {
 	assert.Len(t, mStore.buildTagKeyValuesForFlush(), 4)
 	// flush error
 	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
-	assert.NotNil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.NotNil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush ok
 	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return(nil).Times(4)
-	assert.Nil(t, mStore.flushSeriesIndexesTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.Nil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+}
+
+func Test_mStore_flushForwardIndexTo(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
+
+	// mock index-table series flusher
+	mockTableFlusher := indextbl.NewMockForwardIndexFlusher(ctrl)
+	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return().AnyTimes()
+	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockTableFlusher.EXPECT().FlushMetricID(gomock.Any()).Return(nil).AnyTimes()
+
+	//////////////////////////////////////////////
+	// immutable part empty
+	//////////////////////////////////////////////
+	mStore.mutable = mockTagIdx1
+	assert.Nil(t, mStoreInterface.flushForwardIndexTo(mockTableFlusher))
+	//////////////////////////////////////////////
+	// neither mutable nor immutable part is empty
+	//////////////////////////////////////////////
+	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
+	mStore.mutable = mockTagIdx3
+	assert.Nil(t, mStoreInterface.flushForwardIndexTo(mockTableFlusher))
 }

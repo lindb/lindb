@@ -26,10 +26,18 @@ func Test_NewIndexDatabase_recover(t *testing.T) {
 	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
 	// mock read ns ok
 	mockReader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8}).AnyTimes()
-	db, err := NewIndexDatabase(mockSnapShot, nil, nil)
+	db := NewIndexDatabase(nil, nil)
+
+	nameIDReader := indextbl.NewMetricsNameIDReader(mockSnapShot)
+	err := db.Recover(nameIDReader)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
-	db, err = NewIndexDatabase(mockSnapShot, nil, nil)
+	// once test
+	_ = NewIndexDatabase(nil, nil)
+	_ = NewIndexDatabase(nil, nil)
+
+	err = db.Recover(nameIDReader)
+
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 }
@@ -174,23 +182,25 @@ func Test_IndexDatabase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	db := emptyDatabase()
-	mockSeriesReader := indextbl.NewMockSeriesIndexReader(ctrl)
-	db.seriesReader = mockSeriesReader
+	mockForwardIdxReader := indextbl.NewMockForwardIndexReader(ctrl)
+	mockInvertedIdxReader := indextbl.NewMockInvertedIndexReader(ctrl)
+	db.forwardIndexReader = mockForwardIdxReader
+	db.invertedIndexReader = mockInvertedIdxReader
 
-	mockSeriesReader.EXPECT().GetTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
+	mockForwardIdxReader.EXPECT().GetTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil)
 	tagValues, err := db.GetTagValues(1, nil, 1)
 	assert.Nil(t, tagValues)
 	assert.Nil(t, err)
 
 	db.youngTagKeyIDs = map[uint32][]tagKeyAndID{1: {{tagKey: "host", tagKeyID: 2}, {tagKey: "zone", tagKeyID: 3}}}
-	mockSeriesReader.EXPECT().FindSeriesIDsByExprForTagID(gomock.Any(), gomock.Any(), gomock.Any()).
+	mockInvertedIdxReader.EXPECT().FindSeriesIDsByExprForTagID(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil)
 	set, err := db.FindSeriesIDsByExpr(1, &stmt.EqualsExpr{Key: "host", Value: "dev"}, timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.Nil(t, err)
 
-	mockSeriesReader.EXPECT().GetSeriesIDsForTagID(gomock.Any(), gomock.Any()).
+	mockInvertedIdxReader.EXPECT().GetSeriesIDsForTagID(gomock.Any(), gomock.Any()).
 		Return(nil, nil)
 	set, err = db.GetSeriesIDsForTag(1, "zone", timeutil.TimeRange{})
 	assert.Nil(t, set)
@@ -202,8 +212,9 @@ func Test_IndexDatabase_FlushNameIDsTo(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := emptyDatabase()
-	mockFlusher := kv.NewMockFlusher(ctrl)
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	mockKVFlusher := kv.NewMockFlusher(ctrl)
+	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	mockFlusher := indextbl.NewMetricsNameIDFlusher(mockKVFlusher)
 	assert.Nil(t, db.FlushNameIDsTo(mockFlusher))
 
 	db.youngMetricNameIDs["1"] = 1
@@ -234,15 +245,16 @@ func Test_IndexDatabase_FlushMetricsMetaTo(t *testing.T) {
 			3: {{fieldID: 33, fieldType: field.MinField},
 				{fieldID: 34, fieldType: field.SumField}}}
 	}
-	mockFlusher := kv.NewMockFlusher(ctrl)
+	mockKVFlusher := kv.NewMockFlusher(ctrl)
 	set()
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(3)
-	assert.Nil(t, db.FlushMetricsMetaTo(mockFlusher))
+	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+	mockMetaFlusher := indextbl.NewMetricsMetaFlusher(mockKVFlusher)
+	assert.Nil(t, db.FlushMetricsMetaTo(mockMetaFlusher))
 
 	// map empty
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")).Times(1)
-	assert.Nil(t, db.FlushMetricsMetaTo(mockFlusher))
+	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	assert.Nil(t, db.FlushMetricsMetaTo(mockMetaFlusher))
 	// flush with error
 	set()
-	assert.NotNil(t, db.FlushMetricsMetaTo(mockFlusher))
+	assert.NotNil(t, db.FlushMetricsMetaTo(mockMetaFlusher))
 }

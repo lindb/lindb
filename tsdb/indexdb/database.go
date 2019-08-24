@@ -41,7 +41,6 @@ type fieldIDAndType struct {
 
 // indexDatabase implements IndexDatabase
 type indexDatabase struct {
-	recoverError     error        // last error during recovery
 	metricIDSequence uint32       // counter from 1
 	tagKeyIDSequence uint32       // counter from 1
 	rwMux            sync.RWMutex // readwrite lock for art-tree and map
@@ -51,46 +50,42 @@ type indexDatabase struct {
 	youngTagKeyIDs     map[uint32][]tagKeyAndID    // metricID -> tagKey + tagKeyID
 	youngFieldIDs      map[uint32][]fieldIDAndType // metricID -> fieldName + fieldType
 	// index reader
-	nameIDsReader indextbl.MetricsNameIDReader
-	metaReader    indextbl.MetricsMetaReader
-	seriesReader  indextbl.SeriesIndexReader
+	metaReader          indextbl.MetricsMetaReader
+	invertedIndexReader indextbl.InvertedIndexReader
+	forwardIndexReader  indextbl.ForwardIndexReader
 }
 
 // NewIndexDatabase returns a new IndexDatabase
-func NewIndexDatabase(nameIDIndexSnapShot kv.Snapshot, metaIndexSnapShot kv.Snapshot,
-	seriesIndexSnapShot kv.Snapshot) (IndexDatabase, error) {
-
+func NewIndexDatabase(metaIndexSnapShot kv.Snapshot, seriesIndexSnapShot kv.Snapshot) IndexDatabase {
 	once4IndexDb.Do(func() {
 		indexDBInstance = &indexDatabase{
-			tree:               newArtTree(),
-			youngMetricNameIDs: make(map[string]uint32),
-			youngTagKeyIDs:     make(map[uint32][]tagKeyAndID),
-			youngFieldIDs:      make(map[uint32][]fieldIDAndType),
-			nameIDsReader:      indextbl.NewMetricsNameIDReader(nameIDIndexSnapShot),
-			metaReader:         indextbl.NewMetricsMetaReader(metaIndexSnapShot),
-			seriesReader:       indextbl.NewSeriesIndexReader(seriesIndexSnapShot)}
-		indexDBInstance.recover()
+			tree:                newArtTree(),
+			youngMetricNameIDs:  make(map[string]uint32),
+			youngTagKeyIDs:      make(map[uint32][]tagKeyAndID),
+			youngFieldIDs:       make(map[uint32][]fieldIDAndType),
+			metaReader:          indextbl.NewMetricsMetaReader(metaIndexSnapShot),
+			invertedIndexReader: indextbl.NewInvertedIndexReader(seriesIndexSnapShot)}
 	})
-	return indexDBInstance, indexDBInstance.recoverError
+	return indexDBInstance
 }
 
-// recover loads metric-names and metricIDs from the index file and build the tree
-func (db *indexDatabase) recover() {
+// Recover loads metric-names and metricIDs from the index file to build the tree
+func (db *indexDatabase) Recover(nameIDsReader indextbl.MetricsNameIDReader) error {
 	db.rwMux.Lock()
 	defer db.rwMux.Unlock()
 
 	var err error
-	data, metricIDSeq, tagIDSeq, ok := db.nameIDsReader.ReadMetricNS(defaultNSID)
+	data, metricIDSeq, tagIDSeq, ok := nameIDsReader.ReadMetricNS(defaultNSID)
 	if ok {
 		db.metricIDSequence = metricIDSeq
 		db.tagKeyIDSequence = tagIDSeq
 		for _, d := range data {
-			err = db.tree.UnmarshalBinary(d)
-			if db.recoverError == nil {
-				db.recoverError = err
+			if err = db.tree.UnmarshalBinary(d); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 // GenMetricID generates ID(uint32) from metricName
@@ -268,7 +263,7 @@ func (db *indexDatabase) GetFieldID(metricID uint32, fieldName string) (
 // GetTagValues get tag values corresponding with the tagKeys
 func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
 	tagValues [][]string, err error) {
-	return db.seriesReader.GetTagValues(metricID, tagKeys, version)
+	return db.forwardIndexReader.GetTagValues(metricID, tagKeys, version)
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
@@ -278,7 +273,7 @@ func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilte
 	if err != nil {
 		return nil, err
 	}
-	return db.seriesReader.FindSeriesIDsByExprForTagID(tagID, expr, timeRange)
+	return db.invertedIndexReader.FindSeriesIDsByExprForTagID(tagID, expr, timeRange)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key
@@ -288,17 +283,11 @@ func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 	if err != nil {
 		return nil, err
 	}
-	return db.seriesReader.GetSeriesIDsForTagID(tagID, timeRange)
+	return db.invertedIndexReader.GetSeriesIDsForTagID(tagID, timeRange)
 }
 
 // FlushNameIDsTo flushes metricName and metricID to flusher
-func (db *indexDatabase) FlushNameIDsTo(flusher kv.Flusher) error {
-	nameIDFlusher := indextbl.NewMetricsNameIDFlusher(flusher)
-	return db.flushNameIDsTo(nameIDFlusher)
-}
-
-// flushNameIDsTo is the real flush method for flushing nameID mapping relation
-func (db *indexDatabase) flushNameIDsTo(nameIDFlusher indextbl.MetricsNameIDFlusher) error {
+func (db *indexDatabase) FlushNameIDsTo(flusher indextbl.MetricsNameIDFlusher) error {
 	db.rwMux.Lock()
 	unflushed := db.youngMetricNameIDs
 	db.youngMetricNameIDs = make(map[string]uint32)
@@ -315,19 +304,13 @@ func (db *indexDatabase) flushNameIDsTo(nameIDFlusher indextbl.MetricsNameIDFlus
 	if err != nil {
 		return err
 	}
-	return nameIDFlusher.FlushMetricsNS(defaultNSID, data,
+	return flusher.FlushMetricsNS(defaultNSID, data,
 		atomic.LoadUint32(&db.metricIDSequence),
 		atomic.LoadUint32(&db.tagKeyIDSequence))
 }
 
 // FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-func (db *indexDatabase) FlushMetricsMetaTo(flusher kv.Flusher) error {
-	metaFlusher := indextbl.NewMetricsMetaFlusher(flusher)
-	return db.flushMetricsMetaTo(metaFlusher)
-}
-
-// flushMetricsMetaTo is the real method for flushing metrics-meta data
-func (db *indexDatabase) flushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error {
+func (db *indexDatabase) FlushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error {
 	db.rwMux.Lock()
 	unflushedTagKeys := db.youngTagKeyIDs
 	unflushedFields := db.youngFieldIDs

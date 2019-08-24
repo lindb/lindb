@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/stream"
@@ -205,15 +206,16 @@ type entryBuilder struct {
 	dataWriter   *stream.BufferWriter
 	lenWriter    *stream.BufferWriter
 	fieldsData   map[uint16][]byte
-	bitArray     *bitArray
+	bitArray     *collections.BitArray
 	minStartTime int64 // startTime of fields-meta
 	maxEndTime   int64 // endTime of fields-meta
 }
 
 // newSeriesEntryBuilder returns a new entryBuilder, default first 2 byte is the column count.
 func newSeriesEntryBuilder() *entryBuilder {
+	bitArray, _ := collections.NewBitArray(nil)
 	return &entryBuilder{
-		bitArray:   &bitArray{},
+		bitArray:   bitArray,
 		dataWriter: stream.NewBufferWriter(nil),
 		lenWriter:  stream.NewBufferWriter(nil),
 		fieldsData: make(map[uint16][]byte)}
@@ -251,12 +253,12 @@ func (entryBuilder *entryBuilder) bytes(metaFieldsID []uint16) []byte {
 			continue
 		}
 		existedFieldsID = append(existedFieldsID, fieldID)
-		entryBuilder.bitArray.setBit(uint16(idx))
+		entryBuilder.bitArray.SetBit(uint16(idx))
 	}
 	// write bit-array length
-	entryBuilder.dataWriter.PutUvarint64(uint64(entryBuilder.bitArray.getLen()))
+	entryBuilder.dataWriter.PutUvarint64(uint64(entryBuilder.bitArray.Len()))
 	// write bit-array
-	entryBuilder.dataWriter.PutBytes(entryBuilder.bitArray.payload)
+	entryBuilder.dataWriter.PutBytes(entryBuilder.bitArray.Bytes())
 	// write variant length in order of fields in fields-meta
 	for _, fieldID := range existedFieldsID {
 		theData := entryBuilder.fieldsData[fieldID]
@@ -277,7 +279,7 @@ func (entryBuilder *entryBuilder) bytes(metaFieldsID []uint16) []byte {
 func (entryBuilder *entryBuilder) reset() {
 	entryBuilder.dataWriter.Reset()
 	entryBuilder.lenWriter.Reset()
-	entryBuilder.bitArray.reset()
+	entryBuilder.bitArray.Reset()
 	entryBuilder.fieldsData = make(map[uint16][]byte)
 	entryBuilder.minStartTime = 0
 	entryBuilder.maxEndTime = 0
