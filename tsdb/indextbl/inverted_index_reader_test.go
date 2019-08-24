@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func buildSeriesIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
+func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	kvFlusher := kv.NewMockFlusher(ctrl)
 	kvFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	seriesFlusher := NewSeriesIndexFlusher(kvFlusher)
-	seriesFlusherImpl := seriesFlusher.(*seriesIndexFlusher)
+	seriesFlusher := NewInvertedIndexFlusher(kvFlusher)
+	seriesFlusherImpl := seriesFlusher.(*invertedIndexFlusher)
 	// disable auto reset to pick the entrySetBuffer
 	seriesFlusherImpl.resetDisabled = true
 	/////////////////////////
@@ -100,8 +100,8 @@ func buildSeriesIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock [
 	return zoneBlock, ipBlock, hostBlock
 }
 
-func buildSeriesIndexReader(ctrl *gomock.Controller) SeriesIndexReader {
-	zoneBlock, ipBlock, hostBlock := buildSeriesIndexBlock(ctrl)
+func buildSeriesIndexReader(ctrl *gomock.Controller) InvertedIndexReader {
+	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock(ctrl)
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(19)).Return(nil).AnyTimes()
@@ -112,10 +112,10 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) SeriesIndexReader {
 	mockSnapShot := kv.NewMockSnapshot(ctrl)
 	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
 	// build series index reader
-	return NewSeriesIndexReader(mockSnapShot)
+	return NewInvertedIndexReader(mockSnapShot)
 }
 
-func Test_SeriesIndexReader_GetSeriesIDsForTagID(t *testing.T) {
+func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -154,7 +154,7 @@ func Test_intSliceContains(t *testing.T) {
 	assert.False(t, intSliceContains([]int{1, 3, 4, 5, 8}, 9))
 }
 
-func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_badCase(t *testing.T) {
+func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_badCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -176,7 +176,7 @@ func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_badCase(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
 }
-func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) {
+func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
@@ -193,7 +193,7 @@ func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) 
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
+func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
@@ -214,7 +214,7 @@ func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
+func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
@@ -235,7 +235,7 @@ func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) {
+func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
@@ -246,21 +246,11 @@ func Test_SeriesIndexReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) 
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_GetTagValues(t *testing.T) {
+func Test_InvertedIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
-
-	tagValues, err := reader.GetTagValues(1, []string{"host"}, 1500000000)
-	assert.Nil(t, err)
-	assert.Nil(t, tagValues)
-}
-
-func Test_SeriesIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	reader := buildSeriesIndexReader(ctrl)
-	readerImpl := reader.(*seriesIndexReader)
+	readerImpl := reader.(*invertedIndexReader)
 	// block length too short, 8 bytes
 	_, err := readerImpl.entrySetBlockToIDSet(
 		[]byte{16, 86, 104, 89, 32, 63, 84, 101},
@@ -283,7 +273,7 @@ func Test_SeriesIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
 			End:   1600000000 * 1000}, nil)
 	assert.NotNil(t, err)
 	// offsets is nil
-	_, _, hostBlock := buildSeriesIndexBlock(ctrl)
+	_, _, hostBlock := buildInvertedIndexBlock(ctrl)
 	_, err = readerImpl.entrySetBlockToIDSet(
 		hostBlock,
 		timeutil.TimeRange{
@@ -292,11 +282,11 @@ func Test_SeriesIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_readTagValueDataBlock_error_cases(t *testing.T) {
+func Test_InvertedIndexReader_readTagValueDataBlock_error_cases(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
-	readerImpl := reader.(*seriesIndexReader)
+	readerImpl := reader.(*invertedIndexReader)
 
 	// validation of length failed
 	idSet, err := readerImpl.readTagValueDataBlock(nil, 10, timeutil.TimeRange{})
@@ -312,11 +302,11 @@ func Test_SeriesIndexReader_readTagValueDataBlock_error_cases(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_SeriesIndexReader_entrySetBlockToTreeQuerier_error_cases(t *testing.T) {
+func Test_InvertedIndexReader_entrySetBlockToTreeQuerier_error_cases(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
-	readerImpl := reader.(*seriesIndexReader)
+	readerImpl := reader.(*invertedIndexReader)
 
 	// read stream eof
 	_, err := readerImpl.entrySetBlockToTreeQuerier(

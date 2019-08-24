@@ -12,13 +12,13 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-//go:generate mockgen -source ./series_flusher.go -destination=./series_flusher_mock.go -package indextbl
+//go:generate mockgen -source ./inverted_index_flusher.go -destination=./inverted_index_flusher_mock.go -package indextbl
 
-var seriesIndexFlusherLogger = logger.GetLogger("tsdb", "SeriesIndexTableFlusher")
+var invertedIndexFlusherLogger = logger.GetLogger("tsdb", "InvertedIndexFlusher")
 
-// SeriesIndexFlusher is a wrapper of kv.Builder, provides the ability to build a versioned series-id index table.
+// InvertedIndexFlusher is a wrapper of kv.Builder, provides the ability to build a versioned series-id index table.
 // The layout is available in `tsdb/doc.go`
-type SeriesIndexFlusher interface {
+type InvertedIndexFlusher interface {
 	// FlushVersion writes a versioned bitmap to index table.
 	FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap)
 	// FlushTagValue ends writing VersionedTagValueBlock in index table.
@@ -29,9 +29,9 @@ type SeriesIndexFlusher interface {
 	Commit() error
 }
 
-// NewSeriesIndexFlusher returns a new SeriesIndexFlusher
-func NewSeriesIndexFlusher(flusher kv.Flusher) SeriesIndexFlusher {
-	return &seriesIndexFlusher{
+// NewInvertedIndexFlusher returns a new InvertedIndexFlusher
+func NewInvertedIndexFlusher(flusher kv.Flusher) InvertedIndexFlusher {
+	return &invertedIndexFlusher{
 		flusher:        flusher,
 		entrySetWriter: stream.NewBufferWriter(nil),
 		trie:           newTrieTree(),
@@ -39,8 +39,8 @@ func NewSeriesIndexFlusher(flusher kv.Flusher) SeriesIndexFlusher {
 	}
 }
 
-// seriesIndexFlusher implements SeriesIndexFlusher.
-type seriesIndexFlusher struct {
+// invertedIndexFlusher implements InvertedIndexFlusher.
+type invertedIndexFlusher struct {
 	flusher        kv.Flusher
 	trie           trieTreeBuilder
 	entrySetWriter *stream.BufferWriter
@@ -56,7 +56,7 @@ type seriesIndexFlusher struct {
 }
 
 // FlushVersion writes a versioned bitmap to index table.
-func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap) {
+func (w *invertedIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap) {
 	if w.tagValueBuffer == nil {
 		w.tagValueBuffer = bufpool.GetBuffer()
 		w.tagValueWriter.SwitchBuffer(w.tagValueBuffer)
@@ -81,7 +81,7 @@ func (w *seriesIndexFlusher) FlushVersion(version uint32, startTime, endTime uin
 	// write bitmap length
 	out, err := bitmap.MarshalBinary()
 	if err != nil {
-		seriesIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
+		invertedIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
 	}
 	w.tagValueWriter.PutUvarint64(uint64(len(out)))
 	// write bitmap data
@@ -95,7 +95,7 @@ type bufferWithVersionCount struct {
 }
 
 // FlushTagValue indicate a VersionedTagValueDataBlock is done.
-func (w *seriesIndexFlusher) FlushTagValue(tagValue string) {
+func (w *invertedIndexFlusher) FlushTagValue(tagValue string) {
 	w.trie.Add(tagValue, bufferWithVersionCount{
 		versionCount: w.versionCount,
 		buffer:       w.tagValueBuffer})
@@ -104,7 +104,7 @@ func (w *seriesIndexFlusher) FlushTagValue(tagValue string) {
 	w.versionCount = 0
 }
 
-func (w *seriesIndexFlusher) FlushTagKey(tagID uint32) error {
+func (w *invertedIndexFlusher) FlushTagKey(tagID uint32) error {
 	if !w.resetDisabled {
 		defer w.reset()
 	}
@@ -154,7 +154,7 @@ func (w *seriesIndexFlusher) FlushTagKey(tagID uint32) error {
 }
 
 // writeTagValueDataBlockTo write tagValueDataBlocks to the writer.
-func (w *seriesIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWriter, treeDataBlock *trieTreeData) {
+func (w *invertedIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWriter, treeDataBlock *trieTreeData) {
 	// write lengths of all versioned tagValue data block
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
@@ -177,13 +177,13 @@ func (w *seriesIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWrite
 }
 
 // Commit closes the writer, this will be called after writing all tagKeys.
-func (w *seriesIndexFlusher) Commit() error {
+func (w *invertedIndexFlusher) Commit() error {
 	w.reset()
 	return w.flusher.Commit()
 }
 
 // reset resets the trie and buf
-func (w *seriesIndexFlusher) reset() {
+func (w *invertedIndexFlusher) reset() {
 	w.trie.Reset()
 	w.entrySetWriter.Reset()
 }

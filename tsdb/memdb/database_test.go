@@ -228,11 +228,11 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 
 	md.getBucket(4).hash2MStore[1] = mockMStore
 	md.getBucket(4).familyTimes = map[int64]struct{}{33: {}}
-	assert.Nil(t, md.flushFamilyTo(nil, 10))
-	assert.NotNil(t, md.flushFamilyTo(nil, 10))
+	assert.Nil(t, md.FlushFamilyTo(nil, 10))
+	assert.NotNil(t, md.FlushFamilyTo(nil, 10))
 }
 
-func Test_FlushSeriesIndexTo(t *testing.T) {
+func Test_FlushIndexTo(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctrl := gomock.NewController(t)
@@ -240,18 +240,24 @@ func Test_FlushSeriesIndexTo(t *testing.T) {
 
 	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
 	md := mdINTF.(*memoryDatabase)
-	// test FlushSeriesIndexTo
-	mdINTF.FlushSeriesIndexTo(nil)
+	// test FlushIndexTo
+	assert.Nil(t, mdINTF.FlushInvertedIndexTo(nil))
+	assert.Nil(t, mdINTF.FlushForwardIndexTo(nil))
+
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	gomock.InOrder(
-		mockMStore.EXPECT().flushSeriesIndexesTo(gomock.Any(), gomock.Any()).Return(nil),
-		mockMStore.EXPECT().flushSeriesIndexesTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().flushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(nil),
+		mockMStore.EXPECT().flushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().flushForwardIndexTo(gomock.Any()).Return(nil),
+		mockMStore.EXPECT().flushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error")),
 	)
 	// insert to bucket
 	md.getBucket(4).hash2MStore[1] = mockMStore
-	// test flushSeriesIndexTo
-	assert.Nil(t, md.flushSeriesIndexTo(nil))
-	assert.NotNil(t, md.flushSeriesIndexTo(nil))
-
+	// test flushInvertedIndexTo
+	assert.Nil(t, md.FlushInvertedIndexTo(nil))
+	assert.NotNil(t, md.FlushInvertedIndexTo(nil))
+	// test flushForwardIndexTo
+	assert.Nil(t, md.FlushForwardIndexTo(nil))
+	assert.NotNil(t, md.FlushForwardIndexTo(nil))
 }

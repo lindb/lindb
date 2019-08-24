@@ -18,5 +18,4 @@ func Test_BufferPool(t *testing.T) {
 
 	buf2 := GetBuffer()
 	assert.Equal(t, 0, buf2.Len())
-	assert.Equal(t, 64, buf2.Cap())
 }

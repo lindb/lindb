@@ -6,7 +6,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -44,9 +43,11 @@ type MemoryDatabase interface {
 	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
-	FlushFamilyTo(flusher kv.Flusher, familyTime int64) error
-	// FlushSeriesIndexTo flushes the series tag and values to the kv builder
-	FlushSeriesIndexTo(flusher kv.Flusher) error
+	FlushFamilyTo(flusher metrictbl.TableFlusher, familyTime int64) error
+	// FlushInvertedIndexTo flushes the inverted-index of series to the kv builder
+	FlushInvertedIndexTo(flusher indextbl.InvertedIndexFlusher) error
+	// FlushForwardIndexTo flushes the forward-index of series to the kv builder
+	FlushForwardIndexTo(flusher indextbl.ForwardIndexFlusher) error
 	// series.Filter contains the methods for filtering seriesIDs from memDB
 	series.Filter
 	// series.MetadataGetter todo: @codingcrush
@@ -349,13 +350,6 @@ func (md *memoryDatabase) Families() []int64 {
 	return list
 }
 
-// FlushFamilyTo flushes all data related to the family from metric-stores to builder,
-// this method must be called before the cancellation.
-func (md *memoryDatabase) FlushFamilyTo(flusher kv.Flusher, familyTime int64) error {
-	tableFlusher := metrictbl.NewTableFlusher(flusher, md.interval)
-	return md.flushFamilyTo(tableFlusher, familyTime)
-}
-
 // flushContext holds the context for flushing
 type flushContext struct {
 	metricID     uint32
@@ -363,8 +357,9 @@ type flushContext struct {
 	timeInterval int64
 }
 
-// flushFamilyTo is the real flush method, used for mock-test
-func (md *memoryDatabase) flushFamilyTo(tableFlusher metrictbl.TableFlusher, familyTime int64) error {
+// FlushFamilyTo flushes all data related to the family from metric-stores to builder,
+// this method must be called before the cancellation.
+func (md *memoryDatabase) FlushFamilyTo(flusher metrictbl.TableFlusher, familyTime int64) error {
 	defer func() {
 		// non-block notifying evictor
 		select {
@@ -392,7 +387,7 @@ func (md *memoryDatabase) flushFamilyTo(tableFlusher metrictbl.TableFlusher, fam
 
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushMetricsTo(tableFlusher, flushContext{
+			if err = mStore.flushMetricsTo(flusher, flushContext{
 				metricID:     mStore.getMetricID(),
 				familyTime:   familyTime,
 				timeInterval: md.interval,
@@ -406,19 +401,29 @@ func (md *memoryDatabase) flushFamilyTo(tableFlusher metrictbl.TableFlusher, fam
 	return nil
 }
 
-// FlushSeriesIndexTo flushes the series data to a index file.
-func (md *memoryDatabase) FlushSeriesIndexTo(flusher kv.Flusher) error {
-	return md.flushSeriesIndexTo(indextbl.NewSeriesIndexFlusher(flusher))
-}
-
-// flushSeriesIndexTo is the real method for flushing index, used for mock-test
-func (md *memoryDatabase) flushSeriesIndexTo(tableFlusher indextbl.SeriesIndexFlusher) error {
+// FlushInvertedIndexTo flushes the series data to a inverted-index file.
+func (md *memoryDatabase) FlushInvertedIndexTo(flusher indextbl.InvertedIndexFlusher) error {
 	var err error
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
 		bkt := md.mStoresList[bucketIndex]
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushSeriesIndexesTo(tableFlusher, md.generator); err != nil {
+			if err = mStore.flushInvertedIndexTo(flusher, md.generator); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// FlushForwardIndexTo flushes the forward-index of series to a forward-index file
+func (md *memoryDatabase) FlushForwardIndexTo(flusher indextbl.ForwardIndexFlusher) error {
+	var err error
+	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
+		bkt := md.mStoresList[bucketIndex]
+		_, allMetricStores := bkt.allMetricStores()
+		for _, mStore := range allMetricStores {
+			if err = mStore.flushForwardIndexTo(flusher); err != nil {
 				return err
 			}
 		}

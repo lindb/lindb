@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_SeriesIndexFlusher_Commit(t *testing.T) {
+func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewSeriesIndexFlusher(mockFlusher)
+	indexFlusher := NewInvertedIndexFlusher(mockFlusher)
 	assert.NotNil(t, indexFlusher)
 
 	// mock commit error
@@ -29,12 +29,12 @@ func Test_SeriesIndexFlusher_Commit(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func Test_SeriesIndexFlusher_RS_error(t *testing.T) {
+func Test_InvertedIndexFlusher_RS_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewSeriesIndexFlusher(mockFlusher).(*seriesIndexFlusher)
+	indexFlusher := NewInvertedIndexFlusher(mockFlusher).(*invertedIndexFlusher)
 
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	// mock trie tree
@@ -67,7 +67,7 @@ func Test_SeriesIndexFlusher_OK(t *testing.T) {
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
-	indexFlusher := NewSeriesIndexFlusher(mockFlusher)
+	indexFlusher := NewInvertedIndexFlusher(mockFlusher)
 
 	// flush versions of tagValue1
 	indexFlusher.FlushVersion(1, 3, 5, roaring.New())
