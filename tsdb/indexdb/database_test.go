@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
@@ -23,8 +24,8 @@ func Test_NewIndexDatabase_recover(t *testing.T) {
 
 	// mock nameIds reader
 	mockReader := table.NewMockReader(ctrl)
-	mockSnapShot := kv.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
+	mockSnapShot := version.NewMockSnapshot(ctrl)
+	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
 	// mock read ns ok
 	mockReader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8}).AnyTimes()
 	db := NewIndexDatabase(nil, nil)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 )
 
@@ -23,6 +24,8 @@ const (
 	// footer-size, offset(1), keys(1)
 	sstFileMinLength = sstFileFooterSize + 2
 )
+
+var log = logger.GetLogger("kv", "reader")
 
 // Reader reads k/v pair from store file
 type Reader interface {
@@ -46,6 +49,14 @@ type storeMMapReader struct {
 // newMMapStoreReader creates mmap store file reader
 func newMMapStoreReader(path string) (Reader, error) {
 	data, err := fileutil.Map(path)
+	defer func() {
+		if err != nil {
+			if e := fileutil.Unmap(data); e != nil {
+				log.Warn("unmap error when new store reader fail",
+					logger.String("path", path), logger.Error(err))
+			}
+		}
+	}()
 	if err != nil {
 		return nil, fmt.Errorf("create mmap store reader error:%s", err)
 	}

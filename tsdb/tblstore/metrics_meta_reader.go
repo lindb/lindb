@@ -3,8 +3,8 @@ package tblstore
 import (
 	"strings"
 
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/stream"
 )
@@ -36,17 +36,22 @@ type MetricsMetaReader interface {
 
 // metricsNameIDReader implements MetricsNameIDReader
 type metricsNameIDReader struct {
-	snapshot kv.Snapshot
+	snapshot version.Snapshot
 }
 
 // NewMetricsNameIDReader returns a new MetricsNameIDReader
-func NewMetricsNameIDReader(snapshot kv.Snapshot) MetricsNameIDReader {
+func NewMetricsNameIDReader(snapshot version.Snapshot) MetricsNameIDReader {
 	return &metricsNameIDReader{snapshot: snapshot}
 }
 
 // ReadMetricNS read metricNameID data by the namespace-id
 func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool) {
-	for _, reader := range r.snapshot.Readers() {
+	readers, err := r.snapshot.FindReaders(nsID)
+	if err != nil {
+		//todo need check
+		return
+	}
+	for _, reader := range readers {
 		block := reader.Get(nsID)
 		if len(block) < metricNameIDSequenceSize {
 			continue
@@ -62,17 +67,22 @@ func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data [][]byte, metricID
 
 // metricsMetaReader implements MetricsMetaReader
 type metricsMetaReader struct {
-	snapshot kv.Snapshot
+	snapshot version.Snapshot
 }
 
 // NewMetricsMetaReader returns a new MetricsMetaReader
-func NewMetricsMetaReader(snapshot kv.Snapshot) MetricsMetaReader {
+func NewMetricsMetaReader(snapshot version.Snapshot) MetricsMetaReader {
 	return &metricsMetaReader{snapshot: snapshot}
 }
 
 // ReadTagID read tagIDs by metricID and tagKey
 func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uint32, ok bool) {
-	for _, reader := range r.snapshot.Readers() {
+	readers, err := r.snapshot.FindReaders(metricID)
+	if err != nil {
+		//todo need check
+		return 0, false
+	}
+	for _, reader := range readers {
 		tagMeta, _ := r.readMetasBlock(reader, metricID)
 		if tagMeta == nil {
 			continue
@@ -123,8 +133,9 @@ func (r *metricsMetaReader) readMetasBlock(reader table.Reader, metricID uint32)
 
 // ReadMaxFieldID return the max field-id of this metric
 func (r *metricsMetaReader) ReadMaxFieldID(metricID uint32) (maxFieldID uint16) {
-	readers := r.snapshot.Readers()
-	if len(readers) == 0 {
+	readers, err := r.snapshot.FindReaders(metricID)
+	//TODO need check
+	if err != nil || len(readers) == 0 {
 		return 0
 	}
 	_, fieldMeta := r.readMetasBlock(readers[len(readers)-1], metricID)
@@ -150,8 +161,13 @@ func (r *metricsMetaReader) ReadMaxFieldID(metricID uint32) (maxFieldID uint16) 
 // ReadFieldID read fieldID and fieldType from metricID and fieldName
 func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 	fieldID uint16, fieldType field.Type, ok bool) {
+	readers, err := r.snapshot.FindReaders(metricID)
+	if err != nil {
+		//TODO need check
+		return fieldID, fieldType, ok
+	}
 
-	for _, reader := range r.snapshot.Readers() {
+	for _, reader := range readers {
 		_, fieldMeta := r.readMetasBlock(reader, metricID)
 		if fieldMeta == nil {
 			continue
@@ -177,7 +193,11 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 // SuggestTagKeys returns suggestion of tagKeys by prefix
 func (r *metricsMetaReader) SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string {
 	var collectedTagKeys []string
-	for _, reader := range r.snapshot.Readers() {
+	readers, err := r.snapshot.FindReaders(metricID)
+	if err != nil {
+		return nil
+	}
+	for _, reader := range readers {
 		tagMeta, _ := r.readMetasBlock(reader, metricID)
 		if tagMeta == nil {
 			continue

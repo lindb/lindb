@@ -1,10 +1,32 @@
 package version
 
-import "sync"
+import (
+	"sync"
+)
 
-// FamilyVersion maintains family level metadata
-type FamilyVersion struct {
-	versionSet *StoreVersionSet
+//go:generate mockgen -source=./family_version.go -destination=./family_version_mock.go -package=version
+
+type FamilyVersion interface {
+	// GetID returns the family id
+	GetID() int
+	// GetVersionSet returns the store version set
+	GetVersionSet() StoreVersionSet
+	// GetAllActiveFiles returns all files based on all active versions
+	GetAllActiveFiles() []*FileMeta
+	// GetSnapshot returns the current version's snapshot
+	GetSnapshot() Snapshot
+
+	// removeVersion removes version from active versions
+	removeVersion(v *Version)
+	// appendVersion swaps family's current version, then releases previous version
+	appendVersion(v *Version)
+}
+
+// familyVersion maintains family level metadata
+type familyVersion struct {
+	ID         int
+	familyName string
+	versionSet StoreVersionSet
 
 	current        *Version           // current mutable version
 	activeVersions map[int64]*Version // all active versions include mutable/immutable versions
@@ -13,8 +35,10 @@ type FamilyVersion struct {
 }
 
 // newFamilyVersion new FamilyVersion instance
-func newFamilyVersion(versionSet *StoreVersionSet) *FamilyVersion {
-	fv := &FamilyVersion{
+func newFamilyVersion(familyID int, familyName string, versionSet StoreVersionSet) FamilyVersion {
+	fv := &familyVersion{
+		ID:             familyID,
+		familyName:     familyName,
 		versionSet:     versionSet,
 		activeVersions: make(map[int64]*Version),
 	}
@@ -25,30 +49,25 @@ func newFamilyVersion(versionSet *StoreVersionSet) *FamilyVersion {
 	return fv
 }
 
-// GetCurrent returns current mutable version
-func (fv *FamilyVersion) GetCurrent() *Version {
+// GetID returns the family id
+func (fv *familyVersion) GetID() int {
+	return fv.ID
+}
+
+// GetVersionSet returns the store version set
+func (fv *familyVersion) GetVersionSet() StoreVersionSet {
+	return fv.versionSet
+}
+
+// GetSnapshot returns the current version's snapshot
+func (fv *familyVersion) GetSnapshot() Snapshot {
 	fv.mutex.RLock()
 	defer fv.mutex.RUnlock()
-	// inc ref count of version
-	fv.current.retain()
-	return fv.current
+	return newSnapshot(fv.familyName, fv.current, fv.versionSet.getCache())
 }
 
-// FindFiles finds all files include key from current's level,
-// must return files related version, and retain it, release version after read data.
-func (fv *FamilyVersion) FindFiles(key uint32) (*Version, []*FileMeta) {
-	fv.mutex.RLock()
-	current := fv.current
-	// must retain it, don't release util finish read, release it during snapshot's closing.
-	current.retain()
-	// find files related given key
-	files := current.findFiles(key)
-	fv.mutex.RUnlock()
-	return current, files
-}
-
-// GetAllFiles returns all files based on all active versions
-func (fv *FamilyVersion) GetAllFiles() []*FileMeta {
+// GetAllActiveFiles returns all files based on all active versions
+func (fv *familyVersion) GetAllActiveFiles() []*FileMeta {
 	var files []*FileMeta
 	var fileNumbers = make(map[int64]int64)
 	for _, version := range fv.activeVersions {
@@ -66,15 +85,18 @@ func (fv *FamilyVersion) GetAllFiles() []*FileMeta {
 	return files
 }
 
-// removeVersion removes version from active versions
-func (fv *FamilyVersion) removeVersion(v *Version) {
+// removeVersion removes version from active versions,
+// cannot remove current version from active versions.
+func (fv *familyVersion) removeVersion(v *Version) {
 	fv.mutex.Lock()
-	delete(fv.activeVersions, v.id)
+	if v != fv.current {
+		delete(fv.activeVersions, v.id)
+	}
 	fv.mutex.Unlock()
 }
 
 // appendVersion swaps family's current version, then releases previous version
-func (fv *FamilyVersion) appendVersion(v *Version) {
+func (fv *familyVersion) appendVersion(v *Version) {
 	previous := fv.current
 
 	fv.mutex.Lock()
@@ -82,7 +104,8 @@ func (fv *FamilyVersion) appendVersion(v *Version) {
 	fv.current = v
 	fv.mutex.Unlock()
 
-	if previous != nil {
-		previous.Release()
+	if previous != nil && previous.numOfRef() == 0 {
+		// remove version from family active versions
+		v.fv.removeVersion(previous)
 	}
 }

@@ -65,7 +65,7 @@ func (m *mergedIterator) HasNext() bool {
 	result := len(m.pq) > 0
 	if result {
 		// pop item and get value
-		val := m.pq.Pop()
+		val := heap.Pop(&m.pq)
 		item := val.(*item)
 		m.curKey = item.key
 		m.curValue = item.value
@@ -93,6 +93,7 @@ func (m *mergedIterator) Value() []byte {
 	return m.curValue
 }
 
+// item represents an item under priority queue, using key as priority.
 type item struct {
 	it Iterator
 
@@ -102,20 +103,25 @@ type item struct {
 	index int
 }
 
+// priorityQueue implements heap.Interface and holds Items.
 type priorityQueue []*item
 
+// Len returns the number of elements in priority queue
 func (pq priorityQueue) Len() int { return len(pq) }
 
+// Less compares key of item
 func (pq priorityQueue) Less(i, j int) bool {
-	return pq[i].key > pq[j].key
+	return pq[i].key < pq[j].key
 }
 
+// Swap swaps the elements with indexes i and j.
 func (pq priorityQueue) Swap(i, j int) {
 	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].index = i
-	pq[j].index = j
+	pq[i].index = j
+	pq[j].index = i
 }
 
+// Push pushes a item into priority queue
 func (pq *priorityQueue) Push(x interface{}) {
 	n := len(*pq)
 	item := x.(*item)
@@ -123,6 +129,7 @@ func (pq *priorityQueue) Push(x interface{}) {
 	*pq = append(*pq, item)
 }
 
+// Pop removes and returns element of length -1
 func (pq *priorityQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
@@ -132,6 +139,7 @@ func (pq *priorityQueue) Pop() interface{} {
 	return item
 }
 
+// update modifies the priority by the key of item
 func (pq *priorityQueue) update(item *item) {
 	heap.Fix(pq, item.index)
 }

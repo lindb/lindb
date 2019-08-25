@@ -5,16 +5,19 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-//TODO using lur cache?????
+//FIXME store100 using lur cache?????
+
+//go:generate mockgen -source ./cache.go -destination=./cache_mock.go -package table
 
 // Cache caches table readers
 type Cache interface {
 	// GetReader returns store reader from cache, create new reader if not exist.
-	GetReader(family string, fileNumber int64) (Reader, error)
+	GetReader(family string, fileName string) (Reader, error)
+	// Evict evicts file reader from cache
+	Evict(family string, fileName string)
 	// Close cleans cache data after closing reader resource firstly
 	Close() error
 }
@@ -37,9 +40,24 @@ func NewCache(storePath string) Cache {
 	}
 }
 
+// Evict evicts file reader from cache
+func (c *mapCache) Evict(family string, fileName string) {
+	filePath := filepath.Join(family, fileName)
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	reader, ok := c.readers[filePath]
+	if ok {
+		if err := reader.Close(); err != nil {
+			c.log.Error("close store reader error",
+				logger.String("file", filePath), logger.Error(err))
+		}
+		delete(c.readers, filePath)
+	}
+}
+
 // GetReader returns store reader from cache, create new reader if not exist
-func (c *mapCache) GetReader(family string, fileNumber int64) (Reader, error) {
-	filePath := filepath.Join(family, version.Table(fileNumber))
+func (c *mapCache) GetReader(family string, fileName string) (Reader, error) {
+	filePath := filepath.Join(family, fileName)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

@@ -6,6 +6,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRegisterLogType(t *testing.T) {
+	defer func() {
+		if err := recover(); err != nil {
+			assert.True(t, true)
+		} else {
+			assert.Fail(t, "test panic fail")
+		}
+	}()
+
+	RegisterLogType(1, func() Log {
+		return &NewFile{}
+	})
+}
 func TestNewFile(t *testing.T) {
 	newFile := CreateNewFile(1, NewFileMeta(12, 1, 100, 2014))
 	bytes, err := newFile.Encode()

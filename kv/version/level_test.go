@@ -14,8 +14,8 @@ func Test_File_Level(t *testing.T) {
 	level.addFile(NewFileMeta(1, 1, 10, 1024))
 
 	var files = level.getFiles()
-
 	assert.Equal(t, 1, len(files), "add file wrong")
+	assert.Equal(t, 1, level.numberOfFiles())
 
 	//add file
 	level.addFile(NewFileMeta(2, 1, 10, 1024))
@@ -25,7 +25,8 @@ func Test_File_Level(t *testing.T) {
 	level.deleteFile(2)
 
 	files = level.getFiles()
-	assert.Equal(t, 2, len(files), "dlete file wrong")
+	assert.Equal(t, 2, len(files), "delete file wrong")
+	assert.Equal(t, 2, level.numberOfFiles())
 }
 
 func Test_Add_Files(t *testing.T) {

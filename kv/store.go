@@ -1,9 +1,11 @@
 package kv
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -11,6 +13,22 @@ import (
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+//go:generate mockgen -source ./store.go -destination=./store_mock.go -package kv
+
+var defaultCompactCheckInterval = 60
+
+var mergers = make(map[string]Merger)
+
+// RegisterMerger registers family merger
+// NOTICE: must register before create family
+func RegisterMerger(name string, merger Merger) {
+	_, ok := mergers[name]
+	if ok {
+		panic("merger already register")
+	}
+	mergers[name] = merger
+}
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.
 // Current implementation doesn't contain memory table write logic.
@@ -29,7 +47,7 @@ type store struct {
 	option StoreOption
 	// file-lock restricts access to store by allowing only one instance
 	lock     *lockers.FileLock
-	versions *version.StoreVersionSet
+	versions version.StoreVersionSet
 	// each family instance need to be assigned an unique family id
 	familyID int
 	families map[string]Family
@@ -38,6 +56,9 @@ type store struct {
 
 	storeInfo *storeInfo
 	cache     table.Cache
+
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	logger *logger.Logger
 }
@@ -69,12 +90,14 @@ func NewStore(name string, option StoreOption) (Store, error) {
 
 	log := logger.GetLogger("kv", fmt.Sprintf("Store[%s]", option.Path))
 
+	ctx, cancel := context.WithCancel(context.Background())
 	// unlock file lock if error
 	defer func() {
 		if err != nil {
 			if e := lock.Unlock(); e != nil {
 				log.Error("unlock file error:", logger.Error(e))
 			}
+			cancel()
 		}
 	}()
 
@@ -85,10 +108,14 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		families:  make(map[string]Family),
 		logger:    log,
 		storeInfo: info,
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 
+	// build store reader cache
+	store.cache = table.NewCache(store.option.Path)
 	// init version set
-	store.versions = version.NewStoreVersionSet(store.option.Path, store.option.Levels)
+	store.versions = version.NewStoreVersionSet(store.option.Path, store.cache, store.option.Levels)
 
 	if isCreate {
 		// if store is new created, need dump store info to INFO file
@@ -114,8 +141,8 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
 
-	// build store reader cache
-	store.cache = table.NewCache(store.option.Path)
+	// schedule compact job
+	store.scheduleCompactJob()
 	return store, nil
 }
 
@@ -172,6 +199,7 @@ func (s *store) Close() error {
 	if err := s.versions.Destroy(); err != nil {
 		s.logger.Error("destroy store version set error", logger.Error(err))
 	}
+	s.cancel()
 	return s.lock.Unlock()
 }
 
@@ -183,4 +211,41 @@ func (s *store) dumpStoreInfo() error {
 		return fmt.Errorf("write store info to file[%s] error:%s", infoPath, err)
 	}
 	return nil
+}
+
+// scheduleCompactJob schedules a compaction background job
+func (s *store) scheduleCompactJob() {
+	interval := defaultCompactCheckInterval
+	if s.option.CompactCheckInterval > 0 {
+		interval = s.option.CompactCheckInterval
+	}
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				s.compact()
+			case <-s.ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// compact checks if family need do compact, if need, does compaction job
+func (s *store) compact() {
+	s.rwMutex.RLock()
+	families := make([]Family, len(s.families))
+	i := 0
+	for _, family := range s.families {
+		families[i] = family
+		i++
+	}
+	s.rwMutex.RUnlock()
+	for _, family := range families {
+		if family.needCompat() {
+			family.compact()
+		}
+	}
 }

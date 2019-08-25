@@ -10,7 +10,7 @@ import (
 
 // StoreFamilyID is store level edit log,
 // actually store family is not actual family just store store level edit log for metadata.
-const StoreFamilyID = 0
+const StoreFamilyID = -99999999
 
 // EditLog contains all metadata edit log
 type EditLog struct {
@@ -25,6 +25,11 @@ func NewEditLog(familyID int) *EditLog {
 		familyID: familyID,
 		logger:   logger.GetLogger("kv", "EditLog"),
 	}
+}
+
+// GetLogs return the logs under edit log
+func (el *EditLog) GetLogs() []Log {
+	return el.logs
 }
 
 // Add adds edit log into log list
@@ -91,13 +96,13 @@ func (el *EditLog) apply(version *Version) {
 
 		if v, ok := log.(StoreLog); ok {
 			// if log is store log, need to apply version set
-			v.applyVersionSet(version.fv.versionSet)
+			v.applyVersionSet(version.fv.GetVersionSet())
 		}
 	}
 }
 
 // apply store edit logs into version set
-func (el *EditLog) applyVersionSet(versionSet *StoreVersionSet) {
+func (el *EditLog) applyVersionSet(versionSet StoreVersionSet) {
 	for _, log := range el.logs {
 		switch v := log.(type) {
 		case StoreLog:

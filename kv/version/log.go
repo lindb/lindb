@@ -7,6 +7,8 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+//go:generate mockgen -source=./log.go -destination=./log_mock.go -package=version
+
 func init() {
 	// register new file
 	RegisterLogType(1, func() Log {
@@ -54,8 +56,8 @@ type Log interface {
 // StoreLog metadata dit log store level
 type StoreLog interface {
 	Log
-	// applyVersionSet apply edito to store version set
-	applyVersionSet(versionSet *StoreVersionSet)
+	// applyVersionSet apply edit to store version set
+	applyVersionSet(versionSet StoreVersionSet)
 }
 
 // NewFile add new file into metadata
@@ -174,7 +176,7 @@ func (n *NextFileNumber) apply(version *Version) {
 	// do nothing
 }
 
-//applyVersionSet applies edito to store version set
-func (n *NextFileNumber) applyVersionSet(versionSet *StoreVersionSet) {
+//applyVersionSet applies edit to store version set
+func (n *NextFileNumber) applyVersionSet(versionSet StoreVersionSet) {
 	versionSet.setNextFileNumberWithoutLock(n.fileNumber)
 }
