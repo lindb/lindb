@@ -14,7 +14,7 @@ func newLevel() *level {
 
 // addFile adds new file into file list
 func (l *level) addFile(file *FileMeta) {
-	l.files[file.fileNumber] = file
+	l.files[file.GetFileNumber()] = file
 }
 
 // addFiles adds new files into file list
@@ -36,4 +36,9 @@ func (l *level) getFiles() []*FileMeta {
 		values = append(values, v)
 	}
 	return values
+}
+
+// numberOfFiles returns the number of files in current level
+func (l *level) numberOfFiles() int {
+	return len(l.files)
 }

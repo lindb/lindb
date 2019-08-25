@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -92,8 +93,8 @@ func buildForwardIndexReader(ctrl *gomock.Controller) *forwardIndexReader {
 	mockReader.EXPECT().Get(uint32(0)).Return(nil).AnyTimes()
 	mockReader.EXPECT().Get(uint32(1)).Return(data).AnyTimes()
 	// build mock snapshot
-	mockSnapShot := kv.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
+	mockSnapShot := version.NewMockSnapshot(ctrl)
+	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
 	// build forward index reader
 	indexReader := NewForwardIndexReader(mockSnapShot)
 	return indexReader.(*forwardIndexReader)

@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
@@ -56,7 +56,7 @@ type indexDatabase struct {
 }
 
 // NewIndexDatabase returns a new IndexDatabase
-func NewIndexDatabase(metaIndexSnapShot kv.Snapshot, seriesIndexSnapShot kv.Snapshot) IndexDatabase {
+func NewIndexDatabase(metaIndexSnapShot version.Snapshot, seriesIndexSnapShot version.Snapshot) IndexDatabase {
 	once4IndexDb.Do(func() {
 		indexDBInstance = &indexDatabase{
 			tree:                newArtTree(),

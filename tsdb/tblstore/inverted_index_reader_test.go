@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 
@@ -109,8 +110,8 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) InvertedIndexReader {
 	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock).AnyTimes()
 	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock).AnyTimes()
 	// mock snapshots
-	mockSnapShot := kv.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
+	mockSnapShot := version.NewMockSnapshot(ctrl)
+	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
 	// build series index reader
 	return NewInvertedIndexReader(mockSnapShot)
 }
@@ -330,6 +331,7 @@ func Test_InvertedIndexReader_entrySetBlockToTreeQuerier_error_cases(t *testing.
 		1, 1, // labels
 		1, 1, // is prefix
 		13}) // louds
+
 	badBLOCK = append(badBLOCK, out...) // LOUDS block
 	_, err = readerImpl.entrySetBlockToTreeQuerier(badBLOCK)
 	assert.NotNil(t, err)
@@ -349,8 +351,8 @@ func Test_InvertedIndexReader_SuggestTagValues(t *testing.T) {
 	// mock corruption
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}).AnyTimes()
-	mockSnapShot := kv.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
+	mockSnapShot := version.NewMockSnapshot(ctrl)
+	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
 	corruptedReader := NewInvertedIndexReader(mockSnapShot)
 	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
 }

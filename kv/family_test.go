@@ -3,21 +3,29 @@ package kv
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/fileutil"
-
-	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	RegisterMerger("mockMerger", &mockAppendMerger{})
+}
 
 func Test_Data_Write_Read(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer fileutil.RemoveDir(testKVPath)
+	defer func() {
+		_ = fileutil.RemoveDir(testKVPath)
+	}()
 
 	var kv, err = NewStore("test_kv", option)
-	defer kv.Close()
+	defer func() {
+		_ = kv.Close()
+	}()
 	assert.Nil(t, err, "cannot create kv store")
 
-	f, err := kv.CreateFamily("f", FamilyOption{})
+	f, err := kv.CreateFamily("f", FamilyOption{Merger: "mockMerger"})
 	assert.Nil(t, err, "cannot create family")
 	flusher := f.NewFlusher()
 	_ = flusher.Add(1, []byte("test"))
@@ -25,8 +33,8 @@ func Test_Data_Write_Read(t *testing.T) {
 	commitErr := flusher.Commit()
 	assert.Nil(t, commitErr)
 
-	snapshot, _ := f.GetSnapshot(10)
-	readers := snapshot.Readers()
+	snapshot := f.GetSnapshot()
+	readers, _ := snapshot.FindReaders(10)
 	assert.Equal(t, 1, len(readers))
 	assert.Equal(t, []byte("test"), readers[0].Get(1))
 	assert.Equal(t, []byte("test10"), readers[0].Get(10))
@@ -35,12 +43,16 @@ func Test_Data_Write_Read(t *testing.T) {
 
 func TestCommitEditLog(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
-	defer fileutil.RemoveDir(testKVPath)
+	defer func() {
+		_ = fileutil.RemoveDir(testKVPath)
+	}()
 
 	var kv, _ = NewStore("test_kv", option)
-	defer kv.Close()
+	defer func() {
+		_ = kv.Close()
+	}()
 
-	f, _ := kv.CreateFamily("f", FamilyOption{})
+	f, _ := kv.CreateFamily("f", FamilyOption{Merger: "mockMerger"})
 
 	editLog := version.NewEditLog(1)
 	newFile := version.CreateNewFile(1, version.NewFileMeta(12, 1, 100, 2014))
