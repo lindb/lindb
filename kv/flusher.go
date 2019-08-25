@@ -19,16 +19,16 @@ type Flusher interface {
 
 // storeFlusher is family level store flusher
 type storeFlusher struct {
-	family  *family
+	family  Family
 	builder table.Builder
 	editLog *version.EditLog
 }
 
 // newStoreFlusher create family store flusher
-func newStoreFlusher(family *family) Flusher {
+func newStoreFlusher(family Family) Flusher {
 	return &storeFlusher{
 		family:  family,
-		editLog: version.NewEditLog(family.option.ID),
+		editLog: version.NewEditLog(family.ID()),
 	}
 }
 
@@ -40,6 +40,7 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 		if err != nil {
 			return fmt.Errorf("create table build error:%s", err)
 		}
+		sf.family.addPendingOutput(builder.FileNumber())
 		sf.builder = builder
 	}
 	//TODO add file size limit
@@ -47,11 +48,19 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 }
 
 // Commit flushes data and commits metadata
-func (sf *storeFlusher) Commit() error {
+func (sf *storeFlusher) Commit() (err error) {
 	builder := sf.builder
+	defer func() {
+		if builder != nil {
+			// remove temp file number if fail
+			fileNumber := builder.FileNumber()
+			sf.family.removePendingOutput(fileNumber)
+		}
+	}()
 	if builder != nil {
 		if err := builder.Close(); err != nil {
-			return fmt.Errorf("close table builder error when flush commit, error:%s", err)
+			err = fmt.Errorf("close table builder error when flush commit, error:%s", err)
+			return err
 		}
 
 		fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
@@ -59,7 +68,8 @@ func (sf *storeFlusher) Commit() error {
 	}
 
 	if flag := sf.family.commitEditLog(sf.editLog); !flag {
-		return fmt.Errorf("commit edit log failure")
+		err = fmt.Errorf("commit edit log failure")
+		return err
 	}
 	return nil
 }

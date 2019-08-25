@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
@@ -13,44 +15,58 @@ var vsTestPath = "test_data"
 
 func TestVersionSetRecover(t *testing.T) {
 	initVersionSetTestData()
-	defer destoryVersionTestData()
+	defer destroyVersionTestData()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cache := table.NewMockCache(ctrl)
 
-	var vs = NewStoreVersionSet(vsTestPath, 2)
+	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	err := vs.Recover()
 	assert.Nil(t, err)
-	vs.Destroy()
+	_ = vs.Destroy()
 
-	vs = NewStoreVersionSet(vsTestPath, 2)
+	vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	err2 := vs.Recover()
 	assert.Nil(t, err2)
-	vs.Destroy()
+	_ = vs.Destroy()
 }
 
 func TestAssign_NextFileNumber(t *testing.T) {
 	initVersionSetTestData()
-	defer destoryVersionTestData()
+	defer destroyVersionTestData()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cache := table.NewMockCache(ctrl)
 
-	var vs = NewStoreVersionSet(vsTestPath, 2)
-	assert.Equal(t, int64(2), vs.nextFileNumber, "wrong next file number")
+	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
+	vs1 := vs.(*storeVersionSet)
+	assert.Equal(t, int64(2), vs1.nextFileNumber, "wrong next file number")
 	assert.Equal(t, int64(2), vs.NextFileNumber(), "assign wrong next file number")
-	assert.Equal(t, int64(3), vs.nextFileNumber, "wrong next file number")
+	assert.Equal(t, int64(3), vs1.nextFileNumber, "wrong next file number")
 }
 
 func TestVersionID(t *testing.T) {
 	initVersionSetTestData()
-	defer destoryVersionTestData()
+	defer destroyVersionTestData()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cache := table.NewMockCache(ctrl)
 
-	var vs = NewStoreVersionSet(vsTestPath, 2)
-	assert.Equal(t, int64(0), vs.versionID, "wrong new version id")
+	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
+	vs1 := vs.(*storeVersionSet)
+	assert.Equal(t, int64(0), vs1.versionID, "wrong new version id")
 	assert.Equal(t, int64(0), vs.newVersionID(), "assign wrong version id")
-	assert.Equal(t, int64(1), vs.versionID, "wrong next version id")
+	assert.Equal(t, int64(1), vs1.versionID, "wrong next version id")
 }
 
 func TestCommitFamilyEditLog(t *testing.T) {
 	initVersionSetTestData()
-	defer destoryVersionTestData()
+	defer destroyVersionTestData()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cache := table.NewMockCache(ctrl)
 
-	var vs = NewStoreVersionSet(vsTestPath, 2)
+	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	assert.NotNil(t, vs, "cannot create store version")
 	var err = vs.Recover()
 	assert.Nil(t, err, "recover error")
@@ -67,28 +83,34 @@ func TestCommitFamilyEditLog(t *testing.T) {
 	err = vs.CommitFamilyEditLog("f", editLog)
 	assert.Nil(t, err, "commit family edit log error")
 
-	vs.Destroy()
+	_ = vs.Destroy()
 
 	// test recover many times
 	for i := 0; i < 3; i++ {
-		vs = NewStoreVersionSet(vsTestPath, 2)
+		vs = NewStoreVersionSet(vsTestPath, cache, 2)
 		vs.CreateFamilyVersion("f", familyID)
 		err = vs.Recover()
 		assert.Nil(t, err, "recover error")
 
 		familyVersion := vs.GetFamilyVersion("f")
-		assert.Equal(t, newFile.file, familyVersion.GetCurrent().getAllFiles()[0], "cannot recover family version data")
-		assert.Equal(t, int64(3+i), vs.nextFileNumber, "recover file number error")
+		snapshot := familyVersion.GetSnapshot()
+		vs1 := vs.(*storeVersionSet)
+		assert.Equal(t, newFile.file, snapshot.GetCurrent().getAllFiles()[0], "cannot recover family version data")
+		assert.Equal(t, int64(3+i), vs1.nextFileNumber, "recover file number error")
+		snapshot.Close()
 
-		vs.Destroy()
+		_ = vs.Destroy()
 	}
 }
 
 func TestCreateFamily(t *testing.T) {
 	initVersionSetTestData()
-	defer destoryVersionTestData()
+	defer destroyVersionTestData()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	cache := table.NewMockCache(ctrl)
 
-	var vs = NewStoreVersionSet(vsTestPath, 2)
+	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 
 	familyVersion := vs.CreateFamilyVersion("family", 1)
 	assert.NotNil(t, familyVersion, "get nil family version")
@@ -105,7 +127,7 @@ func initVersionSetTestData() {
 	}
 }
 
-func destoryVersionTestData() {
+func destroyVersionTestData() {
 	if err := fileutil.RemoveDir(vsTestPath); err != nil {
 		fmt.Println("delete test path error")
 	}

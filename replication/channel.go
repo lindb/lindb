@@ -46,7 +46,7 @@ type ChannelManager interface {
 // channelManager implements ChannelManager.
 type channelManager struct {
 	// context passed to all Channel
-	cxt context.Context
+	ctx context.Context
 	// cancelFun to cancel context
 	cancel context.CancelFunc
 	// config
@@ -67,9 +67,9 @@ type channelManager struct {
 // WriteClientFactory makes it easy to mock rpc streamClient for test.
 func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactory,
 	replicatorService service.ReplicatorService) ChannelManager {
-	cxt, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	cm := &channelManager{
-		cxt:               cxt,
+		ctx:               ctx,
 		cancel:            cancel,
 		cfg:               cfg,
 		fct:               fct,
@@ -128,7 +128,7 @@ func (cm *channelManager) CreateChannel(database string, numOfShard, shardID int
 			}
 			cm.databaseShardsMap.Store(database, numOfShard)
 
-			ch, err := newChannel(cm.cxt, cm.cfg, database, shardID, cm.fct)
+			ch, err := newChannel(cm.ctx, cm.cfg, database, shardID, cm.fct)
 			if err != nil {
 				return nil, err
 			}
@@ -158,7 +158,7 @@ func (cm *channelManager) scheduleStateReport() {
 			select {
 			case <-ticker.C:
 				cm.reportState()
-			case <-cm.cxt.Done():
+			case <-cm.ctx.Done():
 				ticker.Stop()
 				return
 			}

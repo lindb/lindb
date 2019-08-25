@@ -3,14 +3,12 @@ package table
 import (
 	"encoding/binary"
 	"fmt"
-	"path/filepath"
 
-	"github.com/lindb/lindb/kv/version"
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-
-	"github.com/RoaringBitmap/roaring"
 )
 
 //go:generate mockgen -source ./builder.go -destination=./builder_mock.go -package table
@@ -37,6 +35,8 @@ type Builder interface {
 	Size() int32
 	// Count returns the number of k/v pairs contained in the store
 	Count() uint64
+	// Abandon abandons current store build for some reason
+	Abandon() error
 	// Close closes sst file write buffer
 	Close() error
 }
@@ -59,9 +59,7 @@ type storeBuilder struct {
 }
 
 // NewStoreBuilder creates store builder instance for building store file
-func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
-	fileName := filepath.Join(path, version.Table(fileNumber))
-	keys := roaring.New()
+func NewStoreBuilder(fileNumber int64, fileName string) (Builder, error) {
 	log := logger.GetLogger("kv", fmt.Sprintf("Builder[%s]", fileName))
 	writer, err := bufioutil.NewBufioWriter(fileName)
 	if err != nil {
@@ -70,7 +68,7 @@ func NewStoreBuilder(path string, fileNumber int64) (Builder, error) {
 	return &storeBuilder{
 		fileNumber: fileNumber,
 		fileName:   fileName,
-		keys:       keys,
+		keys:       roaring.New(),
 		logger:     log,
 		writer:     writer,
 		first:      true,
@@ -129,6 +127,11 @@ func (b *storeBuilder) Size() int32 {
 // Count returns the number of k/v pairs contained in the store
 func (b *storeBuilder) Count() uint64 {
 	return b.keys.GetCardinality()
+}
+
+// Abandon abandons current store build for some reason, for example compaction job fail or memory store dump error
+func (b *storeBuilder) Abandon() error {
+	return b.writer.Close()
 }
 
 // Close writes file footer before closing resources

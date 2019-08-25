@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/tsdb/series"
@@ -32,14 +32,14 @@ type ForwardIndexReader interface {
 
 // forwardIndexReader implements ForwardIndexReader
 type forwardIndexReader struct {
-	snapshot kv.Snapshot
+	snapshot version.Snapshot
 	sr       *stream.Reader
 	buffer   []byte
 	dict     map[int]string
 }
 
 // NewForwardIndexReader returns a new ForwardIndexReader
-func NewForwardIndexReader(snapshot kv.Snapshot) ForwardIndexReader {
+func NewForwardIndexReader(snapshot version.Snapshot) ForwardIndexReader {
 	return &forwardIndexReader{
 		snapshot: snapshot,
 		dict:     make(map[int]string),
@@ -264,7 +264,11 @@ func (r *forwardIndexReader) readStringBlockByOffsets(stringBlocks []byte, offse
 
 // getVersionBlock gets the latest block from snapshot which matches the version in forward-index-table
 func (r *forwardIndexReader) getVersionBlock(metricID uint32, version uint32) (versionBlock []byte) {
-	readers := r.snapshot.Readers()
+	readers, err := r.snapshot.FindReaders(metricID)
+	if err != nil {
+		//TODO need check
+		return nil
+	}
 
 	// if we get it from the latest reader, ignore the elder readers
 	for i := len(readers) - 1; i >= 0; i-- {
