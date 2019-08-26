@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/pkg/util"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 )
 
 type address struct {
@@ -28,7 +29,7 @@ func TestETCDRepo(t *testing.T) {
 }
 
 func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
-	var rep, err = newEtedRepository(Config{
+	var rep, err = newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	if err != nil {
@@ -61,7 +62,7 @@ func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestList(c *check.C) {
-	var rep, err = newEtedRepository(Config{
+	var rep, err = newEtedRepository(config.RepoState{
 		Namespace: "/test/list",
 		Endpoints: ts.Cluster.Endpoints,
 	})
@@ -84,12 +85,12 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestNew(c *check.C) {
-	_, err := newEtedRepository(Config{})
+	_, err := newEtedRepository(config.RepoState{})
 	c.Assert(err, check.NotNil)
 }
 
 func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
-	b, err := newEtedRepository(Config{
+	b, err := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	if err != nil {
@@ -122,7 +123,7 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
-	b, _ := newEtedRepository(Config{
+	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -175,7 +176,7 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
-	b, _ := newEtedRepository(Config{
+	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -232,7 +233,7 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestElect(c *check.C) {
-	b, _ := newEtedRepository(Config{
+	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -281,7 +282,7 @@ func (ts *testEtcdRepoSuite) TestElect(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestBatch(c *check.C) {
-	b, _ := newEtedRepository(Config{
+	b, _ := newEtedRepository(config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: ts.Cluster.Endpoints,
 	})
@@ -299,7 +300,7 @@ func (ts *testEtcdRepoSuite) TestBatch(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestTransaction(c *check.C) {
-	b, _ := newEtedRepository(Config{
+	b, _ := newEtedRepository(config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: ts.Cluster.Endpoints,
 	})

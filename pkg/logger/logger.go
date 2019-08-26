@@ -2,10 +2,8 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,26 +12,22 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	// max length of all modules
-	maxModuleNameLen uint32
-	logger           *zap.Logger
-	once             sync.Once
-)
-
 // SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
 }
 
-// SimpleColorLevelEncoder serializes a Level to a lowercase string. For example,
-// InfoLevel is serialized to "info".
+// SimpleLevelEncoder serializes a Level to a upper case string. For example,
+// InfoLevel is serialized to "INFO".
 func SimpleLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(LevelString(l))
 }
 
 // LevelString returns a upper-case ASCII representation of the log level.
 func LevelString(l zapcore.Level) string {
+	if !isTerminal {
+		return l.CapitalString()
+	}
 	switch l {
 	case zapcore.DebugLevel:
 		return Magenta.Add("DEBUG")
@@ -48,115 +42,66 @@ func LevelString(l zapcore.Level) string {
 	}
 }
 
+// IsTerminal checks if the stdOut is a terminal or not
+func IsTerminal(f *os.File) bool {
+	if runtime.GOOS == "windows" {
+		return false
+	}
+	fd := f.Fd()
+	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
+}
+
 // Logger is wrapper for zap logger with module, it is singleton.
 type Logger struct {
 	module string
 	role   string
-	log    *zap.Logger
+	logger *zap.Logger
 }
 
-// GetLogger return logger with module name
-func GetLogger(module, role string) *Logger {
-	length := len(module)
-	for {
-		currentMaxModuleLen := atomic.LoadUint32(&maxModuleNameLen)
-		if uint32(length) <= currentMaxModuleLen {
-			break
-		}
-		if atomic.CompareAndSwapUint32(&maxModuleNameLen, currentMaxModuleLen, uint32(length)) {
-			break
-		}
+// getInitializedOrDefaultLogger try get initialized zap logger,
+// if failure, it will use the default logger
+func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {
+	if l.logger != nil {
+		return l.logger
 	}
-	return &Logger{
-		module: module,
-		role:   role,
-		log:    getLogger(),
+	item := logger.Load()
+	if item == nil {
+		return defaultLogger
 	}
-}
-
-// getLogger returns the zap logger
-func getLogger() *zap.Logger {
-	once.Do(func() {
-		logger = New()
-	})
-	return logger
-}
-
-// New creates a zap logger
-func New() *zap.Logger {
-	config := NewConfig()
-	l, _ := config.New()
-	return l
-}
-
-// New creates a zap logger based on user config
-func (c *Config) New() (*zap.Logger, error) {
-	//TODO ?????
-	//w := zapcore.AddSync(&lumberjack.Logger{
-	//	Filename:   "/var/log/myapp/foo.log",
-	//	MaxSize:    500, // megabytes
-	//	MaxBackups: 3,
-	//	MaxAge:     28, // days
-	//})
-	//core := zapcore.NewCore(
-	//	zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-	//	w,
-	//	zap.InfoLevel,
-	//)
-	//logger := zap.New(core)
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = SimpleTimeEncoder
-	encoderConfig.EncodeLevel = SimpleLevelEncoder
-	core := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderConfig),
-		os.Stdout,
-		c.Level,
-	)
-
-	logger := zap.New(core)
-	return logger, nil
-}
-
-// IsTerminal checks if w is a file and whether it is an interactive terminal session.
-func IsTerminal(w io.Writer) bool {
-	if runtime.GOOS == "windows" {
-		return false
-	}
-	if f, ok := w.(interface {
-		Fd() uintptr
-	}); ok {
-		return isatty.IsTerminal(f.Fd()) || isatty.IsCygwinTerminal(f.Fd())
-	}
-	return false
+	l.logger = item.(*zap.Logger)
+	return l.logger
 }
 
 // Debug logs a message at DebugLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.log.Debug(l.formatMsg(msg), fields...)
+	l.getInitializedOrDefaultLogger().Debug(l.formatMsg(msg), fields...)
 }
 
 // Info logs a message at InfoLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.log.Info(l.formatMsg(msg), fields...)
+	l.getInitializedOrDefaultLogger().Info(l.formatMsg(msg), fields...)
 }
 
 // Warn logs a message at WarnLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.log.Warn(l.formatMsg(msg), fields...)
+	l.getInitializedOrDefaultLogger().Warn(l.formatMsg(msg), fields...)
 }
 
 // Error logs a message at ErrorLevel. The message includes any fields passed
 // at the log site, as well as any fields accumulated on the logger.
 func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.log.Error(l.formatMsg(msg), fields...)
+	l.getInitializedOrDefaultLogger().Error(l.formatMsg(msg), fields...)
 }
 
 // formatMsg formats msg using module name
 func (l *Logger) formatMsg(msg string) string {
-	moduleName := Cyan.Add(fmt.Sprintf("[%*s]", atomic.LoadUint32(&maxModuleNameLen), l.module))
+	moduleName := fmt.Sprintf("[%*s]", atomic.LoadUint32(&maxModuleNameLen), l.module)
+	if isTerminal {
+		moduleName = Cyan.Add(moduleName)
+	}
 	if l.role == "" {
 		return fmt.Sprintf("%s: %s",
 			moduleName, msg)

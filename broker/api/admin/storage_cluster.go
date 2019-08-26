@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/service"
 )
 
@@ -22,7 +22,7 @@ func NewStorageClusterAPI(storageClusterService service.StorageClusterService) *
 
 // Create creates config of storage cluster
 func (s *StorageClusterAPI) Create(w http.ResponseWriter, r *http.Request) {
-	storage := &models.StorageCluster{}
+	storage := &config.StorageCluster{}
 	err := api.GetJSONBodyFromRequest(r, storage)
 	if err != nil {
 		api.Error(w, err)

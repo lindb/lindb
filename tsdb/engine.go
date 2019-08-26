@@ -73,8 +73,8 @@ type engineFactory struct {
 // NewEngineFactory creates an engine factory for creating time series engine
 func NewEngineFactory(cfg config.Engine) (EngineFactory, error) {
 	// create time series storage path
-	if err := fileutil.MkDirIfNotExist(cfg.Path); err != nil {
-		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Path, err)
+	if err := fileutil.MkDirIfNotExist(cfg.Dir); err != nil {
+		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Dir, err)
 	}
 
 	f := &engineFactory{cfg: cfg}
@@ -88,7 +88,7 @@ func NewEngineFactory(cfg config.Engine) (EngineFactory, error) {
 
 // CreateEngine creates an engine instance if create engine's path successfully
 func (f *engineFactory) CreateEngine(name string) (Engine, error) {
-	enginePath := filepath.Join(f.cfg.Path, name)
+	enginePath := filepath.Join(f.cfg.Dir, name)
 	// create engine path
 	if err := fileutil.MkDirIfNotExist(enginePath); err != nil {
 		return nil, fmt.Errorf("create path of tsdb engine[%s] erorr: %s", name, err)
@@ -147,7 +147,7 @@ func (f *engineFactory) Close() {
 
 // load loads the time series engines if exist
 func (f *engineFactory) load() error {
-	names, err := fileutil.ListDir(f.cfg.Path)
+	names, err := fileutil.ListDir(f.cfg.Dir)
 	if err != nil {
 		return err
 	}

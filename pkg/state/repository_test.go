@@ -3,15 +3,16 @@ package state
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewRepo(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t)
 	defer cluster.Terminate(t)
-	cfg := Config{
+	cfg := config.RepoState{
 		Endpoints: cluster.Endpoints,
 	}
 

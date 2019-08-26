@@ -3,6 +3,7 @@ test_data
 bin/
 .vscode/
 .DS_Store
+*.log
 
 # temp file during testing
 *.test
@@ -23,6 +24,7 @@ bin/
 *mock.go
 *mock.pb.go
 *mock_test.go
+
 default.etcd
 web/node_modules/
 web/build/*

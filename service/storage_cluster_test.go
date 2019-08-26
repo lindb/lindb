@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -22,7 +22,7 @@ func TestStorageClusterService(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	cluster := models.StorageCluster{
+	cluster := config.StorageCluster{
 		Name: "test1",
 	}
 	srv := NewStorageClusterService(repo)
@@ -32,7 +32,7 @@ func TestStorageClusterService(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = srv.Save(&models.StorageCluster{})
+	err = srv.Save(&config.StorageCluster{})
 	assert.NotNil(t, err)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = srv.Save(&cluster)
@@ -54,7 +54,7 @@ func TestStorageClusterService(t *testing.T) {
 	assert.Nil(t, cluster2)
 
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	_ = srv.Save(&models.StorageCluster{
+	_ = srv.Save(&config.StorageCluster{
 		Name: "test2",
 	})
 

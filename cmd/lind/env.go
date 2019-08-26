@@ -13,6 +13,10 @@ var (
 	version = ""
 	// binary build-time, ldflags
 	buildTime = "unknown"
+	// debug mode
+	debug = false
+	// cfg path
+	cfg = ""
 )
 
 const defaultVersion = "0.0.0"

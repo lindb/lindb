@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/broker/middleware"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/models"
 )
 
 var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGFzc3dvc" +
@@ -23,7 +23,7 @@ func TestLogin(t *testing.T) {
 
 	auth := middleware.NewMockAuthentication(ctrl)
 
-	user := models.User{UserName: "admin", Password: "admin123"}
+	user := config.User{UserName: "admin", Password: "admin123"}
 	api := NewLoginAPI(user, auth)
 
 	//create success
@@ -42,7 +42,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{UserName: "admin", Password: "admin123"},
+		RequestBody:    config.User{UserName: "admin", Password: "admin123"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -52,7 +52,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{UserName: "admin", Password: "admin1234"},
+		RequestBody:    config.User{UserName: "admin", Password: "admin1234"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -62,7 +62,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{UserName: "123", Password: "admin123"},
+		RequestBody:    config.User{UserName: "123", Password: "admin123"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -72,7 +72,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{UserName: "admin", Password: "admin1234"},
+		RequestBody:    config.User{UserName: "admin", Password: "admin1234"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -82,7 +82,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{UserName: "admin"},
+		RequestBody:    config.User{UserName: "admin"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -92,7 +92,7 @@ func TestLogin(t *testing.T) {
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/user",
-		RequestBody:    models.User{Password: "admin1234"},
+		RequestBody:    config.User{Password: "admin1234"},
 		HandlerFunc:    api.Login,
 		ExpectHTTPCode: 200,
 		ExpectResponse: "",
@@ -108,7 +108,7 @@ func TestLogin(t *testing.T) {
 }
 
 func Test_JWT(t *testing.T) {
-	user := models.User{UserName: "admin", Password: "admin123"}
+	user := config.User{UserName: "admin", Password: "admin123"}
 	claims := middleware.CustomClaims{
 		UserName: user.UserName,
 		Password: user.Password,

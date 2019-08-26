@@ -175,7 +175,7 @@ func (r *runtime) Stop() error {
 
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() error {
-	sm, err := replication.NewSequenceManager(r.config.Replication.Path)
+	sm, err := replication.NewSequenceManager(r.config.Replication.Dir)
 	if err != nil {
 		return err
 	}

@@ -25,7 +25,7 @@ const (
 )
 
 var replicationConfig = config.ReplicationChannel{
-	Path:                       "/tmp/broker/replication",
+	Dir:                        "/tmp/broker/replication",
 	BufferSize:                 defaultBufferSize,
 	SegmentFileSize:            defaultSegmentDataFileSizeLimit,
 	RemoveTaskIntervalInSecond: defaultRemoveTaskIntervalInSecond,
@@ -45,7 +45,7 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	replicatorService := service.NewMockReplicatorService(ctrl)
 	replicatorService.EXPECT().Report(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 
-	replicationConfig.Path = dirPath
+	replicationConfig.Dir = dirPath
 	cm := NewChannelManager(replicationConfig, nil, replicatorService)
 
 	if _, err := cm.GetChannel("database", 0); err == nil {
@@ -105,7 +105,7 @@ func TestChannel_GetOrCreateReplicator(t *testing.T) {
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
 	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error any")).AnyTimes()
 
-	replicationConfig.Path = dirPath
+	replicationConfig.Dir = dirPath
 	cm := NewChannelManager(replicationConfig, mockFct, replicatorService)
 
 	ch, err := cm.CreateChannel("database", 2, 0)
@@ -148,7 +148,7 @@ func TestChannel_WriteFail(t *testing.T) {
 		ctl.Finish()
 	}()
 
-	replicationConfig.Path = dirPath
+	replicationConfig.Dir = dirPath
 
 	replicatorService := service.NewMockReplicatorService(ctl)
 	replicatorService.EXPECT().Report(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
@@ -197,7 +197,7 @@ func TestChannel_WriteSuccess(t *testing.T) {
 		ctl.Finish()
 	}()
 
-	replicationConfig.Path = dirPath
+	replicationConfig.Dir = dirPath
 
 	replicatorService := service.NewMockReplicatorService(ctl)
 	replicatorService.EXPECT().Report(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()

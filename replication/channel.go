@@ -246,7 +246,7 @@ type channel struct {
 // newChannel returns a new channel with specific attribution.
 func newChannel(cxt context.Context, cfg config.ReplicationChannel, database string, shardID int32,
 	fct rpc.ClientStreamFactory) (Channel, error) {
-	dirPath := path.Join(cfg.Path, database, strconv.Itoa(int(shardID)))
+	dirPath := path.Join(cfg.Dir, database, strconv.Itoa(int(shardID)))
 	interval := time.Duration(cfg.RemoveTaskIntervalInSecond) * time.Second
 
 	q, err := queue.NewFanOutQueue(dirPath, cfg.SegmentFileSize, interval)
