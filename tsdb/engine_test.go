@@ -13,7 +13,7 @@ import (
 
 var testPath = "test_data"
 var validOption = option.EngineOption{Interval: "10s"}
-var engineCfg = config.Engine{Path: testPath}
+var engineCfg = config.Engine{Dir: testPath}
 
 func TestNew(t *testing.T) {
 	defer func() {

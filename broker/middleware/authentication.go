@@ -8,23 +8,23 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/config"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 //go:generate mockgen -source=./authentication.go -destination=./authentication_mock.go -package=middleware
 
 type Authentication interface {
 	// CreateLToken returns the authentication token
-	CreateToken(user models.User) (string, error)
+	CreateToken(user config.User) (string, error)
 	// Validate validates the token
 	Validate(next http.Handler) http.Handler
 }
 
 // userAuthentication represents user authentication using jwt
 type userAuthentication struct {
-	user models.User
+	user config.User
 }
 
 // CustomClaims represents jwt custom claims param
@@ -41,7 +41,7 @@ func (*CustomClaims) Valid() error {
 }
 
 // NewAuthentication creates authentication api instance
-func NewAuthentication(user models.User) Authentication {
+func NewAuthentication(user config.User) Authentication {
 	return &userAuthentication{
 		user: user,
 	}
@@ -71,7 +71,7 @@ func (u *userAuthentication) Validate(next http.Handler) http.Handler {
 // ParseToken returns jwt claims by token
 // get secret key use Md5Encrypt method with username and password
 // then jwt parse token by secret key
-func parseToken(tokenString string, user models.User) *CustomClaims {
+func parseToken(tokenString string, user config.User) *CustomClaims {
 	claims := CustomClaims{}
 	cid := Md5Encrypt(user)
 	_, _ = jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
@@ -81,7 +81,7 @@ func parseToken(tokenString string, user models.User) *CustomClaims {
 }
 
 // CreateLToken returns token use jwt with custom claims
-func (u *userAuthentication) CreateToken(user models.User) (string, error) {
+func (u *userAuthentication) CreateToken(user config.User) (string, error) {
 	claims := CustomClaims{
 		UserName: user.UserName,
 		Password: user.Password,
@@ -92,7 +92,7 @@ func (u *userAuthentication) CreateToken(user models.User) (string, error) {
 }
 
 // Md5Encrypt returns secret key use Mk5 encryption with username and password
-func Md5Encrypt(user models.User) string {
+func Md5Encrypt(user config.User) string {
 	/* #nosec */
 	md5Encrypt := md5.New()
 	key := fmt.Sprintf("%s/%s", user.UserName, user.Password)

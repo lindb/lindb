@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
@@ -150,7 +150,7 @@ func (c *clusterStateMachine) cleanupCluster() {
 
 // addCluster creates and starts cluster controller, if success cache it
 func (c *clusterStateMachine) addCluster(resource []byte) {
-	cfg := models.StorageCluster{}
+	cfg := config.StorageCluster{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
 		c.log.Error("discovery new storage config but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))

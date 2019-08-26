@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/config"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -24,8 +26,8 @@ func TestStorageCluster(t *testing.T) {
 		Interval: "10s",
 	}
 	factory := NewClusterFactory()
-	storage := models.StorageCluster{
-		Config: state.Config{Namespace: "storage"},
+	storage := config.StorageCluster{
+		Config: config.RepoState{Namespace: "storage"},
 	}
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)

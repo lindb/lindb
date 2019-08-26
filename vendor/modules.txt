@@ -215,10 +215,10 @@ go.uber.org/atomic
 # go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f
 go.uber.org/multierr
 # go.uber.org/zap v0.0.0-20190430155229-8a2ee5670ced
-go.uber.org/zap
 go.uber.org/zap/zapcore
-go.uber.org/zap/internal/bufferpool
+go.uber.org/zap
 go.uber.org/zap/buffer
+go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 # golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
@@ -284,5 +284,7 @@ google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
 # gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 gopkg.in/check.v1
+# gopkg.in/natefinch/lumberjack.v2 v2.0.0
+gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
