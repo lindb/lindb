@@ -3,6 +3,8 @@ package state
 import (
 	"context"
 	"errors"
+
+	"github.com/lindb/lindb/config"
 )
 
 //go:generate mockgen -source=./repository.go -destination=./repository_mock.go -package=state
@@ -15,7 +17,7 @@ var (
 // RepositoryFactory represents the repository create factory
 type RepositoryFactory interface {
 	// CreateRepo creates state repository based on config
-	CreateRepo(config Config) (Repository, error)
+	CreateRepo(repoState config.RepoState) (Repository, error)
 }
 
 // Repository stores state data, such as metadata/config/status/task etc.
@@ -118,8 +120,8 @@ func NewRepositoryFactory() RepositoryFactory {
 }
 
 // CreateRepo creates state repository based on config
-func (f *repositoryFactory) CreateRepo(config Config) (Repository, error) {
-	return newEtedRepository(config)
+func (f *repositoryFactory) CreateRepo(repoState config.RepoState) (Repository, error) {
+	return newEtedRepository(repoState)
 }
 
 type Transaction interface {

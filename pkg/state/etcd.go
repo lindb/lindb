@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
-
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
+
+	etcdcliv3 "github.com/coreos/etcd/clientv3"
 )
 
 // etcdRepository is repository based on etcd storage
@@ -18,9 +19,9 @@ type etcdRepository struct {
 }
 
 // newEtedRepository creates a new repository based on etcd storage
-func newEtedRepository(config Config) (Repository, error) {
+func newEtedRepository(repoState config.RepoState) (Repository, error) {
 	cfg := etcdcliv3.Config{
-		Endpoints: config.Endpoints,
+		Endpoints: repoState.Endpoints,
 		// DialTimeout: config.DialTimeout * time.Second,
 	}
 	cli, err := etcdcliv3.New(cfg)
@@ -28,9 +29,9 @@ func newEtedRepository(config Config) (Repository, error) {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
 	logger.GetLogger("pkg/state", "ETCDRepository").Info("new etcd client successfully",
-		logger.Any("endpoints", config.Endpoints))
+		logger.Any("endpoints", repoState.Endpoints))
 	return &etcdRepository{
-		namespace: config.Namespace,
+		namespace: repoState.Namespace,
 		client:    cli,
 	}, nil
 }

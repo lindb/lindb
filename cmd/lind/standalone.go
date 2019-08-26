@@ -8,12 +8,8 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/standalone"
-)
-
-var (
-	standaloneCfgPath = ""
-	standaloneDebug   = false
 )
 
 const (
@@ -25,9 +21,8 @@ const (
 // newStandaloneCmd returns a new standalone-cmd
 func newStandaloneCmd() *cobra.Command {
 	standaloneCmd := &cobra.Command{
-		Use:     "standalone",
-		Aliases: []string{"sa"},
-		Short:   "Run as the standalone mode(embed broker/storage/etcd)",
+		Use:   "standalone",
+		Short: "Run as the standalone mode(embed broker/storage/etcd)",
 	}
 
 	standaloneCmd.AddCommand(
@@ -35,9 +30,9 @@ func newStandaloneCmd() *cobra.Command {
 		initializeStandaloneConfigCmd,
 	)
 
-	runStandaloneCmd.PersistentFlags().BoolVar(&standaloneDebug, "debug", false,
+	runStandaloneCmd.PersistentFlags().BoolVar(&debug, "debug", false,
 		"profiling Go programs with pprof")
-	runStandaloneCmd.PersistentFlags().StringVar(&standaloneCfgPath, "config", "",
+	runStandaloneCmd.PersistentFlags().StringVar(&cfg, "config", "",
 		fmt.Sprintf("config file path for standalone mode, default is %s", defaultStandaloneCfgFile))
 
 	return standaloneCmd
@@ -45,18 +40,21 @@ func newStandaloneCmd() *cobra.Command {
 
 var runStandaloneCmd = &cobra.Command{
 	Use:   "run",
-	Short: "run as a standalone mode",
+	Short: "run as the standalone mode",
 	RunE:  serveStandalone,
 }
 
 // initializeStandaloneConfigCmd initializes config for standalone mode
 var initializeStandaloneConfigCmd = &cobra.Command{
 	Use:   "init-config",
-	Short: "initialize a new standalone-config by steps",
+	Short: "create a new default standalone-config",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		path := standaloneCfgPath
+		path := cfg
 		if len(path) == 0 {
 			path = defaultStandaloneCfgFile
+		}
+		if err := checkExistenceOf(path); err != nil {
+			return err
 		}
 		defaultCfg := config.NewDefaultStandaloneCfg()
 		return fileutil.EncodeToml(path, &defaultCfg)
@@ -68,8 +66,11 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if err := fileutil.LoadConfig(standaloneCfgPath, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
-		return fmt.Errorf("decode config file error:%s", err)
+	if err := fileutil.LoadConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
+		return fmt.Errorf("decode config file error: %s", err)
+	}
+	if err := logger.InitLogger(standaloneCfg.Logging); err != nil {
+		return fmt.Errorf("init logger error: %s", err)
 	}
 
 	// run cluster as standalone mode

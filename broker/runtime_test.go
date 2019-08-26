@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/pkg/server"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 type testBrokerRuntimeSuite struct {
@@ -22,11 +21,11 @@ func TestBrokerRuntime(t *testing.T) {
 }
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	cfg := config.Broker{
+	cfg := config.Broker{BrokerKernel: config.BrokerKernel{
 		HTTP: config.HTTP{
 			Port: 9999,
 		},
-		Coordinator: state.Config{
+		Coordinator: config.RepoState{
 			Namespace: "/test/broker",
 			Endpoints: ts.Cluster.Endpoints,
 		},
@@ -35,12 +34,12 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			TTL:  1,
 		},
 		ReplicationChannel: config.ReplicationChannel{
-			Path:                       "/tmp/broker/replication",
+			Dir:                        "/tmp/broker/replication",
 			BufferSize:                 32,
 			SegmentFileSize:            128 * 1024 * 1024,
 			RemoveTaskIntervalInSecond: 60,
 		},
-	}
+	}}
 	broker := NewBrokerRuntime(cfg)
 	err := broker.Run()
 	if err != nil {

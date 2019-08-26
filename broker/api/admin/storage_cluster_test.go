@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/service"
+
+	"github.com/golang/mock/gomock"
 )
 
 func TestStorageClusterAPI(t *testing.T) {
@@ -20,7 +20,7 @@ func TestStorageClusterAPI(t *testing.T) {
 
 	api := NewStorageClusterAPI(storageClusterService)
 
-	cfg := models.StorageCluster{
+	cfg := config.StorageCluster{
 		Name: "test1",
 	}
 	storageClusterService.EXPECT().Save(gomock.Any()).Return(nil)
@@ -61,13 +61,13 @@ func TestStorageClusterAPI(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	storageClusterService.EXPECT().List().Return([]*models.StorageCluster{&cfg}, nil)
+	storageClusterService.EXPECT().List().Return([]*config.StorageCluster{&cfg}, nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPost,
 		URL:            "/storage/cluster",
 		HandlerFunc:    api.List,
 		ExpectHTTPCode: 200,
-		ExpectResponse: []models.StorageCluster{cfg},
+		ExpectResponse: []config.StorageCluster{cfg},
 	})
 	storageClusterService.EXPECT().List().Return(nil, fmt.Errorf("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{

@@ -6,23 +6,23 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/lindb/lindb/config"
 
-	"github.com/lindb/lindb/models"
+	"github.com/stretchr/testify/assert"
 )
 
 var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGF" +
 	"zc3dvcmQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk"
 
 func Test_ParseToken(t *testing.T) {
-	user := models.User{UserName: "admin", Password: "admin123"}
+	user := config.User{UserName: "admin", Password: "admin123"}
 	claim := parseToken(tokenStr, user)
 	assert.Equal(t, user.UserName, claim.UserName)
 	assert.Equal(t, user.Password, claim.Password)
 }
 
 func Test_CreateToken(t *testing.T) {
-	user := models.User{UserName: "admin", Password: "admin123"}
+	user := config.User{UserName: "admin", Password: "admin123"}
 	u := NewAuthentication(user)
 	token, err := u.CreateToken(user)
 	assert.Equal(t, true, err == nil)
@@ -37,7 +37,7 @@ func TestUserAuthentication_Validate(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer abc123")
 
 	rr := httptest.NewRecorder()
-	user := models.User{UserName: "admin", Password: "admin123"}
+	user := config.User{UserName: "admin", Password: "admin123"}
 	auth := NewAuthentication(user)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

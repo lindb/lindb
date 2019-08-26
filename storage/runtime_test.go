@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -14,7 +14,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/server"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 type testStorageRuntimeSuite struct {
@@ -28,20 +27,20 @@ func TestStorageRuntime(t *testing.T) {
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	// test normal storage run
-	cfg := config.Storage{
+	cfg := config.Storage{StorageKernel: config.StorageKernel{
 		Server: config.Server{
 			Port: 9999,
 			TTL:  1,
 		},
-		Engine: config.Engine{Path: "/tmp/storage/data"},
-		Coordinator: state.Config{
+		Engine: config.Engine{Dir: "/tmp/storage/data"},
+		Coordinator: config.RepoState{
 			Namespace: "/test/storage",
 			Endpoints: ts.Cluster.Endpoints,
 		},
 		Replication: config.Replication{
-			Path: "/tmp/storage/replication",
+			Dir: "/tmp/storage/replication",
 		},
-	}
+	}}
 	storage := NewStorageRuntime(cfg)
 	err := storage.Run()
 	if err != nil {

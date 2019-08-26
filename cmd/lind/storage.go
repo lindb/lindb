@@ -6,14 +6,10 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/storage"
 
 	"github.com/spf13/cobra"
-)
-
-var (
-	storageCfgPath = ""
-	storageDebug   = false
 )
 
 const (
@@ -30,13 +26,12 @@ var runStorageCmd = &cobra.Command{
 // newStorageCmd returns a new storage-cmd
 func newStorageCmd() *cobra.Command {
 	storageCmd := &cobra.Command{
-		Use:     "storage",
-		Aliases: []string{"sto", "stor"},
-		Short:   "Run as a storage node in cluster mode",
+		Use:   "storage",
+		Short: "Run as a storage node with cluster mode enabled",
 	}
-	runStorageCmd.PersistentFlags().BoolVar(&storageDebug, "debug", false,
+	runStorageCmd.PersistentFlags().BoolVar(&debug, "debug", false,
 		"profiling Go programs with pprof")
-	runStorageCmd.PersistentFlags().StringVar(&storageCfgPath, "config", "",
+	runStorageCmd.PersistentFlags().StringVar(&cfg, "config", "",
 		fmt.Sprintf("storage config file path, default is %s", defaultStorageCfgFile))
 
 	storageCmd.AddCommand(
@@ -49,11 +44,14 @@ func newStorageCmd() *cobra.Command {
 
 var initializeStorageConfigCmd = &cobra.Command{
 	Use:   "init-config",
-	Short: "initialize a new storage-config by steps",
+	Short: "create a new default storage-config",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		path := storageCfgPath
+		path := cfg
 		if len(path) == 0 {
 			path = defaultStorageCfgFile
+		}
+		if err := checkExistenceOf(path); err != nil {
+			return err
 		}
 		defaultCfg := config.NewDefaultStorageCfg()
 		return fileutil.EncodeToml(path, &defaultCfg)
@@ -64,9 +62,13 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	storageCfg := config.Storage{}
-	if err := fileutil.LoadConfig(storageCfgPath, defaultStorageCfgFile, &storageCfg); err != nil {
-		return fmt.Errorf("decode config file error:%s", err)
+	if err := fileutil.LoadConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
+		return fmt.Errorf("decode config file error: %s", err)
 	}
+	if err := logger.InitLogger(storageCfg.Logging); err != nil {
+		return fmt.Errorf("init logger error: %s", err)
+	}
+
 	// start storage server
 	storageRuntime := storage.NewStorageRuntime(storageCfg)
 	if err := run(ctx, storageRuntime); err != nil {

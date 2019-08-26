@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
@@ -18,13 +18,13 @@ import (
 // StorageClusterService defines storage cluster service interface
 type StorageClusterService interface {
 	// Save saves storage cluster config
-	Save(storageCluster *models.StorageCluster) error
+	Save(storageCluster *config.StorageCluster) error
 	// Delete deletes storage cluster config
 	Delete(name string) error
 	// Get storage cluster by given name, if not exist return ErrNotExist
-	Get(name string) (*models.StorageCluster, error)
+	Get(name string) (*config.StorageCluster, error)
 	// List lists all storage cluster config
-	List() ([]*models.StorageCluster, error)
+	List() ([]*config.StorageCluster, error)
 }
 
 // storageClusterService implements storage cluster service interface
@@ -38,7 +38,7 @@ func NewStorageClusterService(repo state.Repository) StorageClusterService {
 }
 
 // Save saves storage cluster config
-func (s *storageClusterService) Save(storageCluster *models.StorageCluster) error {
+func (s *storageClusterService) Save(storageCluster *config.StorageCluster) error {
 	if storageCluster.Name == "" {
 		return fmt.Errorf("storage cluster name cannot be empty")
 	}
@@ -61,7 +61,7 @@ func (s *storageClusterService) Delete(name string) error {
 }
 
 // Get storage cluster by given name
-func (s *storageClusterService) Get(name string) (*models.StorageCluster, error) {
+func (s *storageClusterService) Get(name string) (*config.StorageCluster, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -69,7 +69,7 @@ func (s *storageClusterService) Get(name string) (*models.StorageCluster, error)
 	if err != nil {
 		return nil, err
 	}
-	storageCluster := &models.StorageCluster{}
+	storageCluster := &config.StorageCluster{}
 	err = json.Unmarshal(data, storageCluster)
 	if err != nil {
 		return nil, err
@@ -78,17 +78,17 @@ func (s *storageClusterService) Get(name string) (*models.StorageCluster, error)
 }
 
 // List lists config of all storage clusters
-func (s *storageClusterService) List() ([]*models.StorageCluster, error) {
+func (s *storageClusterService) List() ([]*config.StorageCluster, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	var result []*models.StorageCluster
+	var result []*config.StorageCluster
 	data, err := s.repo.List(ctx, constants.StorageClusterConfigPath)
 	if err != nil {
 		return result, err
 	}
 	for _, val := range data {
-		storageCluster := &models.StorageCluster{}
+		storageCluster := &config.StorageCluster{}
 		err = json.Unmarshal(val.Value, storageCluster)
 		if err != nil {
 			logger.GetLogger("service", "StorageCluster").

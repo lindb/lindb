@@ -48,4 +48,5 @@ require (
 	golang.org/x/time v0.0.0-20190513212739-9d24e82272b4 // indirect
 	google.golang.org/grpc v1.21.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )

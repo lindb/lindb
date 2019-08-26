@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/lindb/lindb/broker/middleware"
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -12,12 +12,12 @@ var log = logger.GetLogger("broker", "LoginAPI")
 
 // LoginAPI represents login param
 type LoginAPI struct {
-	user models.User
+	user config.User
 	auth middleware.Authentication
 }
 
 // NewLoginAPI creates login api instance
-func NewLoginAPI(user models.User, auth middleware.Authentication) *LoginAPI {
+func NewLoginAPI(user config.User, auth middleware.Authentication) *LoginAPI {
 	return &LoginAPI{
 		user: user,
 		auth: auth,
@@ -28,7 +28,7 @@ func NewLoginAPI(user models.User, auth middleware.Authentication) *LoginAPI {
 // if use name or password is empty will responses error msg
 // if use name or password is error also will responses error msg
 func (l *LoginAPI) Login(w http.ResponseWriter, r *http.Request) {
-	user := models.User{}
+	user := config.User{}
 	err := GetJSONBodyFromRequest(r, &user)
 	// login request is error
 	if err != nil {

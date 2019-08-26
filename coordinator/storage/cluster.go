@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
@@ -25,7 +26,7 @@ var log = logger.GetLogger("coordinator", "StorageCluster")
 // IMPORTANT: need clean config's resource
 type clusterCfg struct {
 	ctx                 context.Context
-	cfg                 models.StorageCluster
+	cfg                 config.StorageCluster
 	storageStateService service.StorageStateService
 	repo                state.Repository
 	controllerFactory   task.ControllerFactory

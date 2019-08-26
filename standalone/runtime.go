@@ -55,13 +55,13 @@ func (r *runtime) Run() error {
 	}
 
 	// start storage server
-	storageRuntime := storage.NewStorageRuntime(r.cfg.Storage)
+	storageRuntime := storage.NewStorageRuntime(config.Storage{StorageKernel: r.cfg.Storage})
 	if err := storageRuntime.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
 	// start broker server
-	brokerRuntime := broker.NewBrokerRuntime(r.cfg.Broker)
+	brokerRuntime := broker.NewBrokerRuntime(config.Broker{BrokerKernel: r.cfg.Broker})
 	if err := brokerRuntime.Run(); err != nil {
 		r.state = server.Failed
 		return err
