@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 
 var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
 
-//go:generate mockgen -source ./inverted_index_reader.go -destination=./inverted_index_reader_mock.go -package indextbl
+//go:generate mockgen -source ./inverted_index_reader.go -destination=./inverted_index_reader_mock.go -package tblstore
 
 const (
 	timeRangeSize = 4 + // uint32, start-time

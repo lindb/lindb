@@ -84,7 +84,7 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	fStore := newFieldStore(10)
 	theFieldStore := fStore.(*fieldStore)
 
-	mockTF := makeMockTableFlusher(ctrl)
+	mockTF := makeMockDataFlusher(ctrl)
 	mockSStore1 := getMockSStore(ctrl, 1564304400000)
 	mockSStore1.EXPECT().bytes().Return(nil, 0, 0, fmt.Errorf("error")).AnyTimes()
 	mockSStore2 := getMockSStore(ctrl, 1564308000000)

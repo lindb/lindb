@@ -12,9 +12,8 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/indextbl"
-	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock_test.go -package memdb
@@ -36,11 +35,11 @@ type mStoreINTF interface {
 	// getTagsUsed return count of all used tStores.
 	getTagsUsed() int
 	// flushMetricsTo flushes metric-block of mStore to the writer.
-	flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
+	flushMetricsTo(tableFlusher tblstore.MetricsDataFlusher, flushCtx flushContext) error
 	// flushForwardIndexTo flushes metric-block of mStore to the writer.
-	flushForwardIndexTo(tableFlusher indextbl.ForwardIndexFlusher) error
+	flushForwardIndexTo(tableFlusher tblstore.ForwardIndexFlusher) error
 	// flushInvertedIndexTo flushes series-index of mStore to the writer
-	flushInvertedIndexTo(tableFlusher indextbl.InvertedIndexFlusher, idGenerator indexdb.IDGenerator) error
+	flushInvertedIndexTo(tableFlusher tblstore.InvertedIndexFlusher, idGenerator indexdb.IDGenerator) error
 	// resetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	resetVersion() error
@@ -262,11 +261,11 @@ func (ms *metricStore) resetVersion() error {
 }
 
 // flushMetricsTo writes metric-blocks to the writer.
-func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error {
+func (ms *metricStore) flushMetricsTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) error {
 	// flush field meta info
 	ms.mutex4Fields.RLock()
 	for _, fm := range ms.fieldsMetas {
-		tableFlusher.FlushFieldMeta(fm.fieldID, fm.fieldType)
+		flusher.FlushFieldMeta(fm.fieldID, fm.fieldType)
 	}
 	ms.mutex4Fields.RUnlock()
 
@@ -275,7 +274,7 @@ func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flush
 	ms.mutex4Immutable.Lock()
 	// build immutable metric-blocks
 	for _, tagIdx := range ms.immutable {
-		if err = tagIdx.flushMetricTo(tableFlusher, flushCtx); err != nil {
+		if err = tagIdx.flushMetricTo(flusher, flushCtx); err != nil {
 			ms.mutex4Immutable.Unlock()
 			return err
 		}
@@ -286,13 +285,13 @@ func (ms *metricStore) flushMetricsTo(tableFlusher metrictbl.TableFlusher, flush
 
 	// reset the mutable part
 	ms.mutex4Mutable.RLock()
-	err = ms.mutable.flushMetricTo(tableFlusher, flushCtx)
+	err = ms.mutable.flushMetricTo(flusher, flushCtx)
 	ms.mutex4Mutable.RUnlock()
 	return err
 }
 
 // flushForwardIndexTo flushes metric-block of mStore to the writer.
-func (ms *metricStore) flushForwardIndexTo(tableFlusher indextbl.ForwardIndexFlusher) error {
+func (ms *metricStore) flushForwardIndexTo(flusher tblstore.ForwardIndexFlusher) error {
 	ms.mutex4Immutable.RLock()
 	ms.mutex4Mutable.RLock()
 	defer ms.mutex4Mutable.RUnlock()
@@ -301,23 +300,23 @@ func (ms *metricStore) flushForwardIndexTo(tableFlusher indextbl.ForwardIndexFlu
 	flushIndexINTF := func(indexINTF tagIndexINTF) {
 		for _, entrySet := range indexINTF.getTagKVEntrySets() {
 			for tagValue, bitmap := range entrySet.values {
-				tableFlusher.FlushTagValue(tagValue, bitmap)
+				flusher.FlushTagValue(tagValue, bitmap)
 			}
-			tableFlusher.FlushTagKey(entrySet.key)
+			flusher.FlushTagKey(entrySet.key)
 		}
 		startTime, endTime := indexINTF.getTimeRange()
-		tableFlusher.FlushVersion(indexINTF.getVersion(), startTime, endTime)
+		flusher.FlushVersion(indexINTF.getVersion(), startTime, endTime)
 	}
-
+	// real flush process
 	for _, indexINTF := range ms.immutable {
 		flushIndexINTF(indexINTF)
 	}
 	flushIndexINTF(ms.mutable)
-	return tableFlusher.FlushMetricID(ms.metricID)
+	return flusher.FlushMetricID(ms.metricID)
 }
 
 // flushInvertedIndexTo flushes the inverted-index of mStore to the writer
-func (ms *metricStore) flushInvertedIndexTo(tableFlusher indextbl.InvertedIndexFlusher,
+func (ms *metricStore) flushInvertedIndexTo(flusher tblstore.InvertedIndexFlusher,
 	idGenerator indexdb.IDGenerator) error {
 
 	ms.mutex4Immutable.RLock()
@@ -325,62 +324,7 @@ func (ms *metricStore) flushInvertedIndexTo(tableFlusher indextbl.InvertedIndexF
 	defer ms.mutex4Mutable.RUnlock()
 	defer ms.mutex4Immutable.RUnlock()
 
-	// immutable part is empty
-	if len(ms.immutable) == 0 {
-		return ms.flushMutableInvertedIndexesTo(tableFlusher, idGenerator)
-	}
-
-	// immutable part is not empty, collect all mappings of tagKey -> tagValue
-	tagKeyValues := ms.buildTagKeyValuesForFlush()
-	// flush data of all indexes
-	for tagKey, tagValues := range tagKeyValues {
-		for tagValue := range tagValues {
-			for _, indexINTF := range ms.immutable {
-				entrySet, ok := indexINTF.getTagKVEntrySet(tagKey)
-				if !ok {
-					continue
-				}
-				if bitmap, ok := entrySet.values[tagValue]; ok {
-					startTime, endTime := indexINTF.getTimeRange()
-					tableFlusher.FlushVersion(indexINTF.getVersion(), startTime, endTime, bitmap)
-				}
-			}
-			entrySet, ok := ms.mutable.getTagKVEntrySet(tagKey)
-			if ok {
-				if bitmap, ok := entrySet.values[tagValue]; ok {
-					startTime, endTime := ms.mutable.getTimeRange()
-					tableFlusher.FlushVersion(ms.mutable.getVersion(), startTime, endTime, bitmap)
-				}
-			}
-			tableFlusher.FlushTagValue(tagValue)
-		}
-		if err := tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, tagKey)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// flushMutableInvertedIndexesTo only flushes mutable part, when the immutable part is empty
-func (ms *metricStore) flushMutableInvertedIndexesTo(tableFlusher indextbl.InvertedIndexFlusher,
-	idGenerator indexdb.IDGenerator) error {
-
-	for _, entrySet := range ms.mutable.getTagKVEntrySets() {
-		startTime, endTime := ms.mutable.getTimeRange()
-		for tagValue, bitmap := range entrySet.values {
-			tableFlusher.FlushVersion(ms.mutable.getVersion(), startTime, endTime, bitmap)
-			tableFlusher.FlushTagValue(tagValue)
-		}
-		if err := tableFlusher.FlushTagKey(idGenerator.GenTagID(ms.metricID, entrySet.key)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// buildTagKeyValuesForFlush unions the mapping relations of all indexes
-func (ms *metricStore) buildTagKeyValuesForFlush() map[string]map[string]struct{} {
-	// immutable part is not empty, collect all mappings of tagKey -> tagValue
+	// build relation of tagKey -> {tagValue1...}
 	tagKeyValues := make(map[string]map[string]struct{})
 	for _, indexINTF := range ms.immutable {
 		for _, entrySet := range indexINTF.getTagKVEntrySets() {
@@ -401,7 +345,34 @@ func (ms *metricStore) buildTagKeyValuesForFlush() map[string]map[string]struct{
 		}
 		tagKeyValues[entrySet.key] = tagValues
 	}
-	return tagKeyValues
+
+	// flush data process
+	for tagKey, tagValues := range tagKeyValues {
+		for tagValue := range tagValues {
+			for _, indexINTF := range ms.immutable {
+				entrySet, ok := indexINTF.getTagKVEntrySet(tagKey)
+				if !ok {
+					continue
+				}
+				if bitmap, ok := entrySet.values[tagValue]; ok {
+					startTime, endTime := indexINTF.getTimeRange()
+					flusher.FlushVersion(indexINTF.getVersion(), startTime, endTime, bitmap)
+				}
+			}
+			entrySet, ok := ms.mutable.getTagKVEntrySet(tagKey)
+			if ok {
+				if bitmap, ok := entrySet.values[tagValue]; ok {
+					startTime, endTime := ms.mutable.getTimeRange()
+					flusher.FlushVersion(ms.mutable.getVersion(), startTime, endTime, bitmap)
+				}
+			}
+			flusher.FlushTagValue(tagValue)
+		}
+		if err := flusher.FlushTagID(idGenerator.GenTagID(ms.metricID, tagKey)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // findSeriesIDsByExpr finds series ids by tag filter expr

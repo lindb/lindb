@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock_test.go -package memdb
@@ -20,7 +20,7 @@ type fStoreINTF interface {
 	write(f *pb.Field, writeCtx writeContext)
 	// flushFieldTo flushes field data of the specific familyTime
 	// return false if there is no data related of familyTime
-	flushFieldTo(tableFlusher metrictbl.TableFlusher, familyTime int64) (flushed bool)
+	flushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool)
 	// timeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
 	timeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
@@ -101,7 +101,7 @@ func (fs *fieldStore) write(f *pb.Field, writeCtx writeContext) {
 }
 
 // flushFieldTo flushes segments' data to writer and reset the segments-map.
-func (fs *fieldStore) flushFieldTo(tableFlusher metrictbl.TableFlusher, familyTime int64) (flushed bool) {
+func (fs *fieldStore) flushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool) {
 	sStore, ok := fs.getSStore(familyTime)
 
 	if !ok {

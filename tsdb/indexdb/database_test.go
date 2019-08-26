@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/sql/stmt"
-
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/indextbl"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,7 @@ func Test_NewIndexDatabase_recover(t *testing.T) {
 	mockReader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8}).AnyTimes()
 	db := NewIndexDatabase(nil, nil)
 
-	nameIDReader := indextbl.NewMetricsNameIDReader(mockSnapShot)
+	nameIDReader := tblstore.NewMetricsNameIDReader(mockSnapShot)
 	err := db.Recover(nameIDReader)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
@@ -86,7 +85,7 @@ func Test_IndexDatabase_GenTagID(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := emptyDatabase()
-	mockMetaReader := indextbl.NewMockMetricsMetaReader(ctrl)
+	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
 	db.metaReader = mockMetaReader
 
 	// data on disk
@@ -111,7 +110,7 @@ func Test_IndexDatabase_GetFieldID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metaReader := indextbl.NewMockMetricsMetaReader(ctrl)
+	metaReader := tblstore.NewMockMetricsMetaReader(ctrl)
 	db := emptyDatabase()
 	db.metaReader = metaReader
 
@@ -135,7 +134,7 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metaReader := indextbl.NewMockMetricsMetaReader(ctrl)
+	metaReader := tblstore.NewMockMetricsMetaReader(ctrl)
 	db := emptyDatabase()
 	db.metaReader = metaReader
 
@@ -182,8 +181,8 @@ func Test_IndexDatabase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	db := emptyDatabase()
-	mockForwardIdxReader := indextbl.NewMockForwardIndexReader(ctrl)
-	mockInvertedIdxReader := indextbl.NewMockInvertedIndexReader(ctrl)
+	mockForwardIdxReader := tblstore.NewMockForwardIndexReader(ctrl)
+	mockInvertedIdxReader := tblstore.NewMockInvertedIndexReader(ctrl)
 	db.forwardIndexReader = mockForwardIdxReader
 	db.invertedIndexReader = mockInvertedIdxReader
 
@@ -214,7 +213,7 @@ func Test_IndexDatabase_FlushNameIDsTo(t *testing.T) {
 	db := emptyDatabase()
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
 	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	mockFlusher := indextbl.NewMetricsNameIDFlusher(mockKVFlusher)
+	mockFlusher := tblstore.NewMetricsNameIDFlusher(mockKVFlusher)
 	assert.Nil(t, db.FlushNameIDsTo(mockFlusher))
 
 	db.youngMetricNameIDs["1"] = 1
@@ -248,7 +247,7 @@ func Test_IndexDatabase_FlushMetricsMetaTo(t *testing.T) {
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
 	set()
 	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(3)
-	mockMetaFlusher := indextbl.NewMetricsMetaFlusher(mockKVFlusher)
+	mockMetaFlusher := tblstore.NewMetricsMetaFlusher(mockKVFlusher)
 	assert.Nil(t, db.FlushMetricsMetaTo(mockMetaFlusher))
 
 	// map empty

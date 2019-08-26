@@ -9,7 +9,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
 )
@@ -28,8 +28,8 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *indexdb.MockIDGenerator {
 	return mockGen
 }
 
-func makeMockTableFlusher(ctrl *gomock.Controller) *metrictbl.MockTableFlusher {
-	mockTF := metrictbl.NewMockTableFlusher(ctrl)
+func makeMockDataFlusher(ctrl *gomock.Controller) *tblstore.MockMetricsDataFlusher {
+	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
 	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()

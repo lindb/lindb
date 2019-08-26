@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"github.com/lindb/lindb/kv"
@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./metrics_reader.go -destination=./metrics_reader_mock.go -package indextbl
+//go:generate mockgen -source ./metrics_meta_reader.go -destination=./metrics_meta_reader_mock.go -package tblstore
 
 const (
 	metricNameIDSequenceSize = 4 + // metricID sequence

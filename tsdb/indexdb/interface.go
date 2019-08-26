@@ -2,8 +2,8 @@ package indexdb
 
 import (
 	"github.com/lindb/lindb/pkg/field"
-	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
@@ -34,13 +34,13 @@ type IDGetter interface {
 // See `tsdb/doc` for index file layout.
 type IndexDatabase interface {
 	// Recover loads metric-names and metricIDs from the index file to build the tree
-	Recover(nameIDsReader indextbl.MetricsNameIDReader) error
+	Recover(nameIDsReader tblstore.MetricsNameIDReader) error
 	IDGenerator
 	IDGetter
 	series.MetaGetter
 	series.Filter
 	// FlushNameIDsTo flushes metricName and metricID to flusher
-	FlushNameIDsTo(flusher indextbl.MetricsNameIDFlusher) error
+	FlushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error
 	// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-	FlushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error
+	FlushMetricsMetaTo(flusher tblstore.MetricsMetaFlusher) error
 }
