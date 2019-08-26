@@ -1,4 +1,4 @@
-package metrictbl
+package tblstore
 
 import (
 	"bytes"
@@ -126,7 +126,7 @@ func Test_TableFlusher(t *testing.T) {
 	mockFlusher := kv.NewMockFlusher(ctrl)
 
 	// add error
-	tw := NewTableFlusher(mockFlusher, 10)
+	tw := NewMetricsDataFlusher(mockFlusher, 10)
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("test error"))
 	err := tw.FlushMetric(uint32(1))
 	assert.NotNil(t, err)

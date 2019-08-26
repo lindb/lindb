@@ -12,9 +12,8 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/indextbl"
-	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/segmentio/fasthash/fnv1a"
 )
@@ -43,11 +42,11 @@ type MemoryDatabase interface {
 	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
-	FlushFamilyTo(flusher metrictbl.TableFlusher, familyTime int64) error
+	FlushFamilyTo(flusher tblstore.MetricsDataFlusher, familyTime int64) error
 	// FlushInvertedIndexTo flushes the inverted-index of series to the kv builder
-	FlushInvertedIndexTo(flusher indextbl.InvertedIndexFlusher) error
+	FlushInvertedIndexTo(flusher tblstore.InvertedIndexFlusher) error
 	// FlushForwardIndexTo flushes the forward-index of series to the kv builder
-	FlushForwardIndexTo(flusher indextbl.ForwardIndexFlusher) error
+	FlushForwardIndexTo(flusher tblstore.ForwardIndexFlusher) error
 	// series.Filter contains the methods for filtering seriesIDs from memDB
 	series.Filter
 	// series.MetadataGetter todo: @codingcrush
@@ -359,7 +358,7 @@ type flushContext struct {
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
 // this method must be called before the cancellation.
-func (md *memoryDatabase) FlushFamilyTo(flusher metrictbl.TableFlusher, familyTime int64) error {
+func (md *memoryDatabase) FlushFamilyTo(flusher tblstore.MetricsDataFlusher, familyTime int64) error {
 	defer func() {
 		// non-block notifying evictor
 		select {
@@ -402,7 +401,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metrictbl.TableFlusher, familyTi
 }
 
 // FlushInvertedIndexTo flushes the series data to a inverted-index file.
-func (md *memoryDatabase) FlushInvertedIndexTo(flusher indextbl.InvertedIndexFlusher) error {
+func (md *memoryDatabase) FlushInvertedIndexTo(flusher tblstore.InvertedIndexFlusher) error {
 	var err error
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
 		bkt := md.mStoresList[bucketIndex]
@@ -417,7 +416,7 @@ func (md *memoryDatabase) FlushInvertedIndexTo(flusher indextbl.InvertedIndexFlu
 }
 
 // FlushForwardIndexTo flushes the forward-index of series to a forward-index file
-func (md *memoryDatabase) FlushForwardIndexTo(flusher indextbl.ForwardIndexFlusher) error {
+func (md *memoryDatabase) FlushForwardIndexTo(flusher tblstore.ForwardIndexFlusher) error {
 	var err error
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
 		bkt := md.mStoresList[bucketIndex]

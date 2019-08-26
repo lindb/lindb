@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-//go:generate mockgen -source ./inverted_index_flusher.go -destination=./inverted_index_flusher_mock.go -package indextbl
+//go:generate mockgen -source ./inverted_index_flusher.go -destination=./inverted_index_flusher_mock.go -package tblstore
 
 var invertedIndexFlusherLogger = logger.GetLogger("tsdb", "InvertedIndexFlusher")
 
@@ -23,8 +23,8 @@ type InvertedIndexFlusher interface {
 	FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap)
 	// FlushTagValue ends writing VersionedTagValueBlock in index table.
 	FlushTagValue(tagValue string)
-	// FlushTagKey ends writing entrySetBlock in index table.
-	FlushTagKey(tagID uint32) error
+	// FlushTagID ends writing entrySetBlock in index table.
+	FlushTagID(tagID uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
 	Commit() error
 }
@@ -104,7 +104,8 @@ func (w *invertedIndexFlusher) FlushTagValue(tagValue string) {
 	w.versionCount = 0
 }
 
-func (w *invertedIndexFlusher) FlushTagKey(tagID uint32) error {
+// FlushTagID ends writing entrySetBlock in index table.
+func (w *invertedIndexFlusher) FlushTagID(tagID uint32) error {
 	if !w.resetDisabled {
 		defer w.reset()
 	}

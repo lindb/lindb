@@ -10,8 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indextbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	art "github.com/plar/go-adaptive-radix-tree"
 )
@@ -50,9 +50,9 @@ type indexDatabase struct {
 	youngTagKeyIDs     map[uint32][]tagKeyAndID    // metricID -> tagKey + tagKeyID
 	youngFieldIDs      map[uint32][]fieldIDAndType // metricID -> fieldName + fieldType
 	// index reader
-	metaReader          indextbl.MetricsMetaReader
-	invertedIndexReader indextbl.InvertedIndexReader
-	forwardIndexReader  indextbl.ForwardIndexReader
+	metaReader          tblstore.MetricsMetaReader
+	invertedIndexReader tblstore.InvertedIndexReader
+	forwardIndexReader  tblstore.ForwardIndexReader
 }
 
 // NewIndexDatabase returns a new IndexDatabase
@@ -63,14 +63,14 @@ func NewIndexDatabase(metaIndexSnapShot kv.Snapshot, seriesIndexSnapShot kv.Snap
 			youngMetricNameIDs:  make(map[string]uint32),
 			youngTagKeyIDs:      make(map[uint32][]tagKeyAndID),
 			youngFieldIDs:       make(map[uint32][]fieldIDAndType),
-			metaReader:          indextbl.NewMetricsMetaReader(metaIndexSnapShot),
-			invertedIndexReader: indextbl.NewInvertedIndexReader(seriesIndexSnapShot)}
+			metaReader:          tblstore.NewMetricsMetaReader(metaIndexSnapShot),
+			invertedIndexReader: tblstore.NewInvertedIndexReader(seriesIndexSnapShot)}
 	})
 	return indexDBInstance
 }
 
 // Recover loads metric-names and metricIDs from the index file to build the tree
-func (db *indexDatabase) Recover(nameIDsReader indextbl.MetricsNameIDReader) error {
+func (db *indexDatabase) Recover(nameIDsReader tblstore.MetricsNameIDReader) error {
 	db.rwMux.Lock()
 	defer db.rwMux.Unlock()
 
@@ -287,7 +287,7 @@ func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 }
 
 // FlushNameIDsTo flushes metricName and metricID to flusher
-func (db *indexDatabase) FlushNameIDsTo(flusher indextbl.MetricsNameIDFlusher) error {
+func (db *indexDatabase) FlushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error {
 	db.rwMux.Lock()
 	unflushed := db.youngMetricNameIDs
 	db.youngMetricNameIDs = make(map[string]uint32)
@@ -310,7 +310,7 @@ func (db *indexDatabase) FlushNameIDsTo(flusher indextbl.MetricsNameIDFlusher) e
 }
 
 // FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-func (db *indexDatabase) FlushMetricsMetaTo(flusher indextbl.MetricsMetaFlusher) error {
+func (db *indexDatabase) FlushMetricsMetaTo(flusher tblstore.MetricsMetaFlusher) error {
 	db.rwMux.Lock()
 	unflushedTagKeys := db.youngTagKeyIDs
 	unflushedFields := db.youngFieldIDs

@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"sort"
@@ -15,7 +15,7 @@ import (
 // [2] Fast, Small, Simple Rank/Select on Bitmaps:
 //     https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
 
-//go:generate mockgen -source ./series_trie_tree.go -destination=./series_trie_tree_mock.go -package indextbl
+//go:generate mockgen -source ./series_trie_tree.go -destination=./series_trie_tree_mock.go -package tblstore
 
 // trieTreeBuilder abstract a trie tree in memory.
 // All the descendants of a trieTreeNode have a common prefix of the string associated with that trieTreeNode,

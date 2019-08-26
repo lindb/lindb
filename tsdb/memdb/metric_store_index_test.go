@@ -6,8 +6,8 @@ import (
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +79,7 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 
-	mockTF := metrictbl.NewMockTableFlusher(ctrl)
+	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).MaxTimes(2)
 
 	// tStores is empty

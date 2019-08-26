@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/metrictbl"
+	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock_test.go -package memdb
@@ -19,7 +19,7 @@ type tStoreINTF interface {
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// flushSeriesTo flushes the series data segment.
-	flushSeriesTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) (flushed bool)
+	flushSeriesTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) (flushed bool)
 	// isExpired detects if this tStore has not been used for a TTL
 	isExpired() bool
 	// isNoData symbols if all data of this tStore has been flushed
@@ -150,14 +150,15 @@ func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.T
 }
 
 // flushSeriesTo flushes the series data segment.
-func (ts *timeSeriesStore) flushSeriesTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) (flushed bool) {
+func (ts *timeSeriesStore) flushSeriesTo(flusher tblstore.MetricsDataFlusher,
+	flushCtx flushContext) (flushed bool) {
 	ts.sl.Lock()
 	for _, fStore := range ts.fStoreNodes {
-		fieldDataFlushed := fStore.flushFieldTo(tableFlusher, flushCtx.familyTime)
+		fieldDataFlushed := fStore.flushFieldTo(flusher, flushCtx.familyTime)
 		flushed = flushed || fieldDataFlushed
 	}
 	if flushed {
-		tableFlusher.FlushSeries(ts.seriesID)
+		flusher.FlushSeries(ts.seriesID)
 		ts.afterFlush(flushCtx)
 	}
 	// update time range info

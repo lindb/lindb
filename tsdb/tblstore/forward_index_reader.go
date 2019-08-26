@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ const (
 
 var forwardIndexReaderLogger = logger.GetLogger("tsdb", "ForwardIndexReader")
 
-//go:generate mockgen -source ./forward_index_reader.go -destination=./forward_index_reader_mock.go -package indextbl
+//go:generate mockgen -source ./forward_index_reader.go -destination=./forward_index_reader_mock.go -package tblstore
 
 // ForwardIndexReader reads tagKeys and tagValues from forward-index
 type ForwardIndexReader interface {
@@ -132,15 +132,9 @@ func (r *forwardIndexReader) readKeysLUTBlock(versionBlock []byte, tagKeysSeq []
 		kvIndexes[seq] = thisIndexes
 	}
 	// get all indexes of values
-	uniqueIndexes := make(map[int]struct{})
+	var indexesList []int
 	for _, tagValueIndexes := range kvIndexes {
-		for _, tagValueIndex := range tagValueIndexes {
-			uniqueIndexes[tagValueIndex] = struct{}{}
-		}
-	}
-	indexesList := make([]int, len(uniqueIndexes))[:0]
-	for index := range uniqueIndexes {
-		indexesList = append(indexesList, index)
+		indexesList = append(indexesList, tagValueIndexes...)
 	}
 	sort.Slice(indexesList, func(i, j int) bool { return indexesList[i] < indexesList[j] })
 	return kvIndexes, indexesList, r.sr.Error()
@@ -240,7 +234,7 @@ func (r *forwardIndexReader) readStringBlockByOffsets(stringBlocks []byte, offse
 		if thisBlockSeq >= len(offsets) {
 			return fmt.Errorf("index cannot be found in dict block")
 		}
-		// this block is decodes
+		// this block is decoded
 		lastDecodedBlockSeq = thisBlockSeq
 		thisBlockStartPos := offsets[thisBlockSeq]
 		thisBlockEndPos := thisBlockStartPos + lengths[thisBlockSeq]

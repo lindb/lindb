@@ -8,8 +8,8 @@ import (
 // dummy value to keep field name unique
 const dummy bool = false
 
-type AggregatorStreamSpec struct {
-}
+type AggregatorStreamSpec struct{}
+
 type AggregatorSpec struct {
 	fieldID   uint16
 	fieldName string

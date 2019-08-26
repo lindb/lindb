@@ -96,7 +96,7 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	tStoreInterface := newTimeSeriesStore(100, 100)
 	tStore := tStoreInterface.(*timeSeriesStore)
 
-	mockTF := makeMockTableFlusher(ctrl)
+	mockTF := makeMockDataFlusher(ctrl)
 
 	familyTime := timeutil.Now() / 3600 / 1000 * 3600 * 1000
 	// has data
