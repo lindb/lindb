@@ -10,8 +10,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/metrictbl"
 	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/segmentio/fasthash/fnv1a"
@@ -45,7 +45,7 @@ type tagIndexINTF interface {
 	// allTStores returns the map of seriesID and tStores
 	allTStores() map[uint32]tStoreINTF
 	// flushMetricTo flush metric to the tableFlusher
-	flushMetricTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error
+	flushMetricTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) error
 	// getVersion returns a version(uptime in seconds) of the index
 	getVersion() uint32
 	// findSeriesIDsByExpr finds series ids by tag filter expr
@@ -257,7 +257,7 @@ func (index *tagIndex) allTStores() map[uint32]tStoreINTF {
 }
 
 // flushMetricTo flushes metric-block of mStore to the writer.
-func (index *tagIndex) flushMetricTo(tableFlusher metrictbl.TableFlusher, flushCtx flushContext) error {
+func (index *tagIndex) flushMetricTo(tableFlusher tblstore.MetricsDataFlusher, flushCtx flushContext) error {
 	flushed := false
 	for _, tStore := range index.seriesID2TStore {
 		tStoreDataFlushed := tStore.flushSeriesTo(tableFlusher, flushCtx)

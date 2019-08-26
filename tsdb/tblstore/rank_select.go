@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/hillbig/rsdic"
 )
 
-//go:generate mockgen -source ./rank_select.go -destination=./rank_select_mock.go -package indextbl
+//go:generate mockgen -source ./rank_select.go -destination=./rank_select_mock.go -package tblstore
 
 // Ref:
 // [1] Engineering the LOUDS succinct tree representation:

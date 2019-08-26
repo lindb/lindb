@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"hash/crc32"
@@ -15,7 +15,7 @@ import (
 	"github.com/golang/snappy"
 )
 
-//go:generate mockgen -source ./forward_index_flusher.go -destination=./forward_index_flusher_mock.go -package indextbl
+//go:generate mockgen -source ./forward_index_flusher.go -destination=./forward_index_flusher_mock.go -package tblstore
 
 const (
 	// stringBlockSize is the size of a compressed string block

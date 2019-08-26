@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"testing"
@@ -59,7 +59,7 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 		seriesFlusher.FlushTagValue(zone)
 	}
 	// pick the zoneBlock buffer
-	seriesFlusher.FlushTagKey(20)
+	seriesFlusher.FlushTagID(20)
 	data, _ := seriesFlusherImpl.entrySetWriter.Bytes()
 	zoneBlock = append(zoneBlock, data...)
 	seriesFlusherImpl.reset()
@@ -76,7 +76,7 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 		seriesFlusher.FlushTagValue(ip)
 	}
 	// pick the ipBlock buffer
-	seriesFlusher.FlushTagKey(21)
+	seriesFlusher.FlushTagID(21)
 	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
 	ipBlock = append(ipBlock, data...)
 	seriesFlusherImpl.reset()
@@ -93,7 +93,7 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 		seriesFlusher.FlushTagValue(host)
 	}
 	// pick the hostBlock buffer
-	seriesFlusher.FlushTagKey(22)
+	seriesFlusher.FlushTagID(22)
 	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
 	hostBlock = append(hostBlock, data...)
 	seriesFlusherImpl.reset()

@@ -1,4 +1,4 @@
-package metrictbl
+package tblstore
 
 import (
 	"hash/crc32"
@@ -13,14 +13,14 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-//go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package metrictbl
+//go:generate mockgen -source ./metrics_data_flusher.go -destination=./metrics_data_flusher_mock.go -package tblstore
 
-// TableFlusher is a wrapper of kv.Builder, provides ability to build a metric-table file to disk.
+// MetricsDataFlusher is a wrapper of kv.Builder, provides ability to build a metric-table file to disk.
 // The layout is available in `tsdb/doc.go`
 // Level1: metric-block
 // Level2: TSEntry
 // Level3: compressed field data
-type TableFlusher interface {
+type MetricsDataFlusher interface {
 	// FlushFieldMeta writes the meta info a field
 	FlushFieldMeta(fieldID uint16, fieldType field.Type)
 	// FlushField writes a compressed field data to writer.
@@ -33,17 +33,18 @@ type TableFlusher interface {
 	Commit() error
 }
 
-// NewTableFlusher returns a new TableWriter, interval is used to calculate the time-range of field data slots.`
-func NewTableFlusher(flusher kv.Flusher, interval int64) TableFlusher {
-	return &tableFlusher{
+// NewMetricsDataFlusher returns a new MetricsDataFlusher,
+// interval is used to calculate the time-range of field data slots.`
+func NewMetricsDataFlusher(flusher kv.Flusher, interval int64) MetricsDataFlusher {
+	return &metricsDataFlusher{
 		interval:     interval,
 		flusher:      flusher,
 		blockBuilder: newBlockBuilder(),
 		entryBuilder: newSeriesEntryBuilder()}
 }
 
-// tableFlusher implements TableWriter.
-type tableFlusher struct {
+// metricsDataFlusher implements MetricsDataFlusher.
+type metricsDataFlusher struct {
 	interval     int64
 	flusher      kv.Flusher
 	blockBuilder *blockBuilder
@@ -51,12 +52,12 @@ type tableFlusher struct {
 }
 
 // FlushFieldMeta writes the meta info a field
-func (w *tableFlusher) FlushFieldMeta(fieldID uint16, fieldType field.Type) {
+func (w *metricsDataFlusher) FlushFieldMeta(fieldID uint16, fieldType field.Type) {
 	w.blockBuilder.appendFieldMeta(fieldID, fieldType)
 }
 
 // FlushField writes a compressed field data to writer.
-func (w *tableFlusher) FlushField(fieldID uint16, data []byte, startSlot, endSlot int) {
+func (w *metricsDataFlusher) FlushField(fieldID uint16, data []byte, startSlot, endSlot int) {
 	startTime := int64(startSlot) * w.interval
 	endTime := int64(endSlot) * w.interval
 
@@ -65,13 +66,13 @@ func (w *tableFlusher) FlushField(fieldID uint16, data []byte, startSlot, endSlo
 }
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
-func (w *tableFlusher) FlushSeries(seriesID uint32) {
+func (w *metricsDataFlusher) FlushSeries(seriesID uint32) {
 	w.blockBuilder.addSeries(seriesID, w.entryBuilder.bytes(w.blockBuilder.metaFieldsID))
 	w.entryBuilder.reset()
 }
 
 // FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
-func (w *tableFlusher) FlushMetric(metricID uint32) error {
+func (w *metricsDataFlusher) FlushMetric(metricID uint32) error {
 	if err := w.blockBuilder.finish(); err != nil {
 		return err
 	}
@@ -83,7 +84,7 @@ func (w *tableFlusher) FlushMetric(metricID uint32) error {
 }
 
 // Commit adds the footer and then closes the kv builder, this will be called after writing all metric-blocks.
-func (w *tableFlusher) Commit() error {
+func (w *metricsDataFlusher) Commit() error {
 	return w.flusher.Commit()
 }
 

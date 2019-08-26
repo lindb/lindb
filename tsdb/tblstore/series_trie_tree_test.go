@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"testing"

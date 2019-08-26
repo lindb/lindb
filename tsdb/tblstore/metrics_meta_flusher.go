@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockgen -source ./metrics_flusher.go -destination=./metrics_flusher_mock.go -package indextbl
+//go:generate mockgen -source ./metrics_meta_flusher.go -destination=./metrics_meta_flusher_mock.go -package tblstore
 
 var (
 	nameIDIndexFlusherLogger = logger.GetLogger("tsdb", "IndexTableFlusher")

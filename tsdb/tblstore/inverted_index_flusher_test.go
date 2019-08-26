@@ -1,4 +1,4 @@
-package indextbl
+package tblstore
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 
 	// mock commit ok
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	err := indexFlusher.FlushTagKey(333)
+	err := indexFlusher.FlushTagID(333)
 	assert.Nil(t, err)
 }
 
@@ -54,11 +54,11 @@ func Test_InvertedIndexFlusher_RS_error(t *testing.T) {
 
 	// mock isPrefixKey error
 	mockRS.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("error1"))
-	assert.NotNil(t, indexFlusher.FlushTagKey(11))
+	assert.NotNil(t, indexFlusher.FlushTagID(11))
 	// mock LOUDS error
 	mockRS.EXPECT().MarshalBinary().Return([]byte("12345"), nil)
 	mockRS.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("error2"))
-	assert.NotNil(t, indexFlusher.FlushTagKey(11))
+	assert.NotNil(t, indexFlusher.FlushTagID(11))
 }
 
 func Test_SeriesIndexFlusher_OK(t *testing.T) {
@@ -82,5 +82,5 @@ func Test_SeriesIndexFlusher_OK(t *testing.T) {
 	// flush tagValue2
 	indexFlusher.FlushTagValue("2")
 	// flush tagKey
-	assert.Nil(t, indexFlusher.FlushTagKey(0))
+	assert.Nil(t, indexFlusher.FlushTagID(0))
 }
