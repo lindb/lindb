@@ -334,3 +334,23 @@ func Test_InvertedIndexReader_entrySetBlockToTreeQuerier_error_cases(t *testing.
 	_, err = readerImpl.entrySetBlockToTreeQuerier(badBLOCK)
 	assert.NotNil(t, err)
 }
+
+func Test_InvertedIndexReader_SuggestTagValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	reader := buildSeriesIndexReader(ctrl)
+
+	// tagID not exist
+	assert.Nil(t, reader.SuggestTagValues(19, "", 10000000))
+	// search ip
+	assert.Len(t, reader.SuggestTagValues(21, "192", 1000), 9)
+	assert.Len(t, reader.SuggestTagValues(21, "192", 3), 3)
+
+	// mock corruption
+	mockReader := table.NewMockReader(ctrl)
+	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}).AnyTimes()
+	mockSnapShot := kv.NewMockSnapshot(ctrl)
+	mockSnapShot.EXPECT().Readers().Return([]table.Reader{mockReader}).AnyTimes()
+	corruptedReader := NewInvertedIndexReader(mockSnapShot)
+	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
+}

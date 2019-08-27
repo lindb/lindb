@@ -58,14 +58,9 @@ func Test_InitLogger(t *testing.T) {
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 
-	cfg3 := config.Logging{Level: "info", Format: "json"}
+	cfg3 := config.Logging{Level: "info"}
 	assert.Nil(t, InitLogger(cfg3))
-	GetLogger("test", "test").Info("hello world")
 
-	cfg4 := config.Logging{Level: "info", Format: "logfmt"}
+	cfg4 := config.Logging{Level: "debug"}
 	assert.Nil(t, InitLogger(cfg4))
-
-	cfg5 := config.Logging{Level: "debug", Format: "unknown"}
-	assert.NotNil(t, InitLogger(cfg5))
-
 }

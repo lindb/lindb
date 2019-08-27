@@ -199,6 +199,8 @@ type trieTreeQuerier interface {
 	FindOffsetsByLike(value string) (offsets []int)
 	// FindOffsetsByRegex find offsets of prefixKeys which regex matches the pattern in the tree
 	FindOffsetsByRegex(pattern string) (offsets []int)
+	// PrefixSearch returns keys by prefix-search
+	PrefixSearch(value string, limit int) (founds []string)
 }
 
 // trieTreeBlock is the structured trie-tree-block of series-index-table
@@ -296,58 +298,93 @@ func (block *trieTreeBlock) FindOffsetsByLike(value string) (offsets []int) {
 	return offsets
 }
 
+// _triePrefix represents a prefix on the trie tree
+type _triePrefix struct {
+	nodeNumber int
+	payload    []byte
+}
+
 func (block *trieTreeBlock) FindOffsetsByRegex(pattern string) (offsets []int) {
 	rp, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil
 	}
-	keys := block.keys()
-	for key, offset := range keys {
-		if rp.Match([]byte(key)) {
-			offsets = append(offsets, offset)
-		}
-	}
-	return offsets
-}
-
-// keys return all keys on the tree(key->offset)
-func (block *trieTreeBlock) keys() map[string]int {
-	type prefix struct {
-		nodeNumber uint64
-		payload    []byte
-	}
+	literalPrefix, _ := rp.LiteralPrefix()
+	_, nodeNumber := block.walkTreeByValue(literalPrefix)
 	var (
-		keys     = make(map[string]int)
-		prefixes = []prefix{{nodeNumber: 1}}
+		prefixes = []_triePrefix{{nodeNumber: int(nodeNumber), payload: []byte(literalPrefix)}}
 	)
-
 	for len(prefixes) > 0 {
 		thisPrefix := prefixes[len(prefixes)-1] // get the tail prefix
 		prefixes = prefixes[:len(prefixes)-1]   // pop it
-
 		// collect a new key and offset
-		if block.isPrefixKey.Bit(thisPrefix.nodeNumber) {
-			offset := int(block.isPrefixKey.Rank1(thisPrefix.nodeNumber) - 1)
-			keys[string(thisPrefix.payload)] = offset
+		if block.isPrefixKey.Bit(uint64(thisPrefix.nodeNumber)) {
+			offset := int(block.isPrefixKey.Rank1(uint64(thisPrefix.nodeNumber)) - 1)
+			if rp.Match(thisPrefix.payload) {
+				offsets = append(offsets, offset)
+			}
 		}
-		firstChildNumber, ok := block.LOUDS.FirstChild(thisPrefix.nodeNumber)
+		firstChildNumber, ok := block.LOUDS.FirstChild(uint64(thisPrefix.nodeNumber))
 		if !ok {
 			continue
 		}
-		lastChildNumber, ok := block.LOUDS.LastChild(thisPrefix.nodeNumber)
+		lastChildNumber, ok := block.LOUDS.LastChild(uint64(thisPrefix.nodeNumber))
 		if !ok {
 			continue
 		}
 		for childNumber := firstChildNumber; childNumber <= lastChildNumber; childNumber++ {
 			// validate labels length
 			if int(childNumber) >= len(block.labels) {
-				return keys
+				return offsets
 			}
-			var newPrefix []byte
-			newPrefix = append(newPrefix, thisPrefix.payload...)
-			newPrefix = append(newPrefix, block.labels[int(childNumber)])
-			prefixes = append(prefixes, prefix{nodeNumber: childNumber, payload: newPrefix})
+			newPrefix := _triePrefix{nodeNumber: int(childNumber), payload: make([]byte, 16)[:0]}
+			newPrefix.payload = append(newPrefix.payload, thisPrefix.payload...)
+			newPrefix.payload = append(newPrefix.payload, block.labels[int(childNumber)])
+			prefixes = append(prefixes, newPrefix)
 		}
 	}
-	return keys
+	return offsets
+}
+
+func (block *trieTreeBlock) PrefixSearch(value string, limit int) (founds []string) {
+	// prefix key not exist
+	exhausted, nodeNumber := block.walkTreeByValue(value)
+	if !exhausted {
+		return nil
+	}
+	// exhausted, walk the sub-tree
+	var (
+		prefixes = []_triePrefix{{nodeNumber: int(nodeNumber), payload: []byte(value)}}
+	)
+	for len(prefixes) > 0 {
+		if len(founds) >= limit {
+			break
+		}
+		thisPrefix := prefixes[len(prefixes)-1] // get the tail prefix
+		prefixes = prefixes[:len(prefixes)-1]   // pop it
+		// collect a new key and offset
+		if block.isPrefixKey.Bit(uint64(thisPrefix.nodeNumber)) {
+			thisPrefix.payload = append(thisPrefix.payload, block.labels[thisPrefix.nodeNumber])
+			founds = append(founds, string(thisPrefix.payload))
+		}
+		firstChildNumber, ok := block.LOUDS.FirstChild(uint64(thisPrefix.nodeNumber))
+		if !ok {
+			continue
+		}
+		lastChildNumber, ok := block.LOUDS.LastChild(uint64(thisPrefix.nodeNumber))
+		if !ok {
+			continue
+		}
+		for childNumber := firstChildNumber; childNumber <= lastChildNumber; childNumber++ {
+			// validate labels length
+			if int(childNumber) >= len(block.labels) {
+				return founds
+			}
+			newPrefix := _triePrefix{nodeNumber: int(childNumber), payload: make([]byte, 16)[:0]}
+			newPrefix.payload = append(newPrefix.payload, thisPrefix.payload...)
+			newPrefix.payload = append(newPrefix.payload, block.labels[int(childNumber)])
+			prefixes = append(prefixes, newPrefix)
+		}
+	}
+	return founds
 }

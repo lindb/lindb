@@ -39,6 +39,7 @@ type IndexDatabase interface {
 	IDGetter
 	series.MetaGetter
 	series.Filter
+	series.Suggester
 	// FlushNameIDsTo flushes metricName and metricID to flusher
 	FlushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error
 	// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher

@@ -13,6 +13,17 @@ type MetaGetter interface {
 	GetTagValues(metricID uint32, tagKeys []string, version uint32) (tagValues [][]string, err error)
 }
 
+// Suggester represents the suggest ability for metricNames, tagKeys and tagValues.
+// default max limit of suggestions is set in constants
+type Suggester interface {
+	// SuggestMetrics returns suggestions from a given prefix of metricName
+	SuggestMetrics(metricPrefix string, limit int) []string
+	// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+	SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string
+	// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
+	SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string
+}
+
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
 // to support multi-version based on timestamp, time range for filtering spec version is necessary
 type Filter interface {

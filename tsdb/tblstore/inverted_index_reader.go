@@ -6,6 +6,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
@@ -30,6 +31,8 @@ type InvertedIndexReader interface {
 	// FindSeriesIDsByExprForTagID finds series ids by tag filter expr and tagID
 	FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
 		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	// SuggestTagValues finds tagValues by prefix search
+	SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string
 }
 
 // invertedIndexReader implements InvertedIndexReader
@@ -283,6 +286,30 @@ func (r *invertedIndexReader) readTagValueDataBlock(block []byte, pos int,
 		readCounter++
 	}
 	return idSet, nil
+}
+
+// SuggestTagValues finds tagValues by prefix search
+func (r *invertedIndexReader) SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string {
+	if limit > constants.MaxSuggestions {
+		limit = constants.MaxSuggestions
+	}
+	var tagValues []string
+	for _, reader := range r.snapshot.Readers() {
+		block := reader.Get(tagID)
+		if len(block) <= timeRangeSize {
+			continue
+		}
+		q, err := r.entrySetBlockToTreeQuerier(block)
+		if err != nil {
+			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
+			continue
+		}
+		tagValues = append(tagValues, q.PrefixSearch(tagValuePrefix, limit-len(tagValues))...)
+		if len(tagValues) >= limit {
+			return tagValues
+		}
+	}
+	return tagValues
 }
 
 // intSliceContains detects if item is in the slice
