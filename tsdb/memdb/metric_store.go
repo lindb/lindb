@@ -3,6 +3,7 @@ package memdb
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -22,6 +23,12 @@ import (
 type mStoreINTF interface {
 	// getMetricID returns the metricID
 	getMetricID() uint32
+	// suggestTagKeys returns tagKeys by prefix-search
+	suggestTagKeys(tagKeyPrefix string, limit int) []string
+	// suggestTagValues returns tagValues by prefix-search
+	suggestTagValues(tagKey, tagValuePrefix string, limit int) []string
+	// getTagValues get tagValues from the specified version and tagKeys
+	getTagValues(tagKeys []string, version uint32) (tagValues [][]string, err error)
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// setMaxTagsLimit sets the max tags-limit
@@ -143,6 +150,101 @@ func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Ty
 // getMetricID returns the metricID
 func (ms *metricStore) getMetricID() uint32 {
 	return atomic.LoadUint32(&ms.metricID)
+}
+
+// suggestTagKeys returns tagKeys by prefix-search
+func (ms *metricStore) suggestTagKeys(tagKeyPrefix string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	var tagKeys []string
+	ms.mutex4Immutable.RLock()
+	ms.mutex4Mutable.RLock()
+	defer ms.mutex4Immutable.RUnlock()
+	defer ms.mutex4Mutable.RUnlock()
+
+	prefixSearchTagKey := func(tagIndex tagIndexINTF) {
+		for _, entrySet := range tagIndex.getTagKVEntrySets() {
+			if len(tagKeys) >= limit {
+				return
+			}
+			if strings.HasPrefix(entrySet.key, tagKeyPrefix) {
+				tagKeys = append(tagKeys, entrySet.key)
+			}
+		}
+	}
+	for _, indexINTF := range ms.immutable {
+		prefixSearchTagKey(indexINTF)
+	}
+	prefixSearchTagKey(ms.mutable)
+	return tagKeys
+}
+
+// suggestTagValues returns tagValues by prefix-search
+func (ms *metricStore) suggestTagValues(tagKey, tagValuePrefix string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	if limit > constants.MaxSuggestions {
+		limit = constants.MaxSuggestions
+	}
+	var tagValues []string
+	ms.mutex4Immutable.RLock()
+	ms.mutex4Mutable.RLock()
+	defer ms.mutex4Immutable.RUnlock()
+	defer ms.mutex4Mutable.RUnlock()
+
+	prefixSearchTagValue := func(tagIndex tagIndexINTF) {
+		for _, entrySet := range tagIndex.getTagKVEntrySets() {
+			if len(tagValues) >= limit {
+				return
+			}
+			for tagValue := range entrySet.values {
+				if strings.HasPrefix(tagValue, tagValuePrefix) {
+					tagValues = append(tagValues, tagValue)
+				}
+			}
+		}
+	}
+	for _, indexINTF := range ms.immutable {
+		prefixSearchTagValue(indexINTF)
+	}
+	prefixSearchTagValue(ms.mutable)
+	return tagValues
+}
+
+// getTagValues get tagValues from the specified version and tagKeys
+func (ms *metricStore) getTagValues(tagKeys []string, version uint32) (tagValues [][]string, err error) {
+	ms.mutex4Immutable.RLock()
+	ms.mutex4Mutable.RLock()
+	defer ms.mutex4Immutable.RUnlock()
+	defer ms.mutex4Mutable.RUnlock()
+
+	var found tagIndexINTF
+	for _, indexINTF := range ms.immutable {
+		if indexINTF.getVersion() == version {
+			found = indexINTF
+		}
+	}
+	if ms.mutable.getVersion() == version {
+		found = ms.mutable
+	}
+	if found == nil {
+		return nil, series.ErrNotFound
+	}
+	for _, tagKey := range tagKeys {
+		entrySet, ok := found.getTagKVEntrySet(tagKey)
+		if !ok {
+			tagValues = append(tagValues, nil)
+			continue
+		}
+		var tagValueList []string
+		for tagValue := range entrySet.values {
+			tagValueList = append(tagValueList, tagValue)
+		}
+		tagValues = append(tagValues, tagValueList)
+	}
+	return tagValues, nil
 }
 
 // write writes the metric to the tStore

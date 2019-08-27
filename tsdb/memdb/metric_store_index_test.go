@@ -183,6 +183,10 @@ func Test_tagIndex_findSeriesIDsByRegex(t *testing.T) {
 	// tag-value exist
 	bitmap = tagIdxInterface.findSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: `b2[0-9]+`})
 	assert.Equal(t, uint64(2), bitmap.GetCardinality())
+	// literal prefix:22 not exist
+	bitmap = tagIdxInterface.findSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: `22+`})
+	assert.Equal(t, uint64(0), bitmap.GetCardinality())
+
 }
 
 func Test_tagIndex_getSeriesIDsForTag(t *testing.T) {

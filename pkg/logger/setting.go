@@ -1,10 +1,8 @@
 package logger
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 
 	"github.com/lindb/lindb/config"
@@ -26,7 +24,7 @@ var (
 )
 
 const (
-	lindLogFile = "lind.log"
+	lindLogFilename = "lind.log"
 )
 
 // GetLogger return logger with module name
@@ -62,7 +60,7 @@ func newDefaultLogger() *zap.Logger {
 // InitLogger initializes a zap logger from user config
 func InitLogger(cfg config.Logging) error {
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   filepath.Join(cfg.Dir, lindLogFile),
+		Filename:   filepath.Join(cfg.Dir, lindLogFilename),
 		MaxSize:    int(cfg.MaxSize),
 		MaxBackups: int(cfg.MaxBackups),
 		MaxAge:     int(cfg.MaxAge),
@@ -79,17 +77,8 @@ func InitLogger(cfg config.Logging) error {
 	encoderConfig.EncodeTime = SimpleTimeEncoder
 	encoderConfig.EncodeLevel = SimpleLevelEncoder
 	// check format
-	var encoder zapcore.Encoder
-	switch strings.ToLower(cfg.Format) {
-	case "json":
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
-	case "logfmt":
-		encoder = zapcore.NewConsoleEncoder(encoderConfig)
-	default:
-		return fmt.Errorf("config format: %s is not supported", cfg.Format)
-	}
 	core := zapcore.NewCore(
-		encoder,
+		zapcore.NewConsoleEncoder(encoderConfig),
 		w,
 		RunningAtomicLevel)
 	logger.Store(zap.New(core))

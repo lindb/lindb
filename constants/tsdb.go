@@ -7,4 +7,6 @@ const (
 	MStoreMaxTagKeysCount = 512
 	// max fields limitation of a tsStore.
 	TStoreMaxFieldsCount = 1024
+	// the max number of suggestions count
+	MaxSuggestions = 10000
 )

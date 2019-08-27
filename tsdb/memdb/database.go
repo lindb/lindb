@@ -49,7 +49,10 @@ type MemoryDatabase interface {
 	FlushForwardIndexTo(flusher tblstore.ForwardIndexFlusher) error
 	// series.Filter contains the methods for filtering seriesIDs from memDB
 	series.Filter
-	// series.MetadataGetter todo: @codingcrush
+	// series.MetaGetter returns tag values by tag keys and spec version for metric level
+	series.MetaGetter
+	// series.Suggester returns the suggestions from prefix string
+	series.Suggester
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
@@ -250,7 +253,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 
 	hash := fnv1a.HashString64(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
-	// todo: @codingcrush, pass it as milliseconds
+
 	err = mStore.write(metric, writeContext{
 		metricID:            mStore.getMetricID(),
 		blockStore:          md.blockStore,
@@ -259,8 +262,6 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 		slotIndex:           slotIndex,
 		timeInterval:        md.interval,
 		mStoreFieldIDGetter: mStore})
-	fmt.Println("ddddddd")
-	fmt.Println(err)
 	if err == nil {
 		bkt := md.getBucket(hash)
 		bkt.addFamilyTime(familyStartTime)
@@ -450,4 +451,38 @@ func (md *memoryDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 		return nil, fmt.Errorf("metricID: %d not found", metricID)
 	}
 	return mStore.getSeriesIDsForTag(tagKey)
+}
+
+// GetTagValues returns tag values by tag keys and spec version for metric level from memory-database
+func (md *memoryDatabase) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
+	tagValues [][]string, err error) {
+	// get hash of metricId
+	mStore, ok := md.getMStoreByMetricID(metricID)
+	if !ok {
+		return nil, series.ErrNotFound
+	}
+	return mStore.getTagValues(tagKeys, version)
+}
+
+// SuggestMetrics returns nil, as the index-db contains all metricNames
+func (md *memoryDatabase) SuggestMetrics(prefix string, limit int) (suggestions []string) {
+	return nil
+}
+
+// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+func (md *memoryDatabase) SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string {
+	mStore, ok := md.getMStore(metricName)
+	if !ok {
+		return nil
+	}
+	return mStore.suggestTagKeys(tagKeyPrefix, limit)
+}
+
+// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
+func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string {
+	mStore, ok := md.getMStore(metricName)
+	if !ok {
+		return nil
+	}
+	return mStore.suggestTagValues(tagKey, tagValuePrefix, limit)
 }

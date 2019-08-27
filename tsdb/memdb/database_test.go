@@ -232,7 +232,7 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	assert.NotNil(t, md.FlushFamilyTo(nil, 10))
 }
 
-func Test_FlushIndexTo(t *testing.T) {
+func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctrl := gomock.NewController(t)
@@ -260,4 +260,50 @@ func Test_FlushIndexTo(t *testing.T) {
 	// test flushForwardIndexTo
 	assert.Nil(t, md.FlushForwardIndexTo(nil))
 	assert.NotNil(t, md.FlushForwardIndexTo(nil))
+}
+
+func Test_MemoryDatabase_GetTagValues(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().getTagValues(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	md.getBucket(3333).hash2MStore[3333] = mockMStore
+	md.metricID2Hash.Store(uint32(3333), uint64(3333))
+
+	// existed metricID
+	_, err := mdINTF.GetTagValues(3333, nil, 1)
+	assert.Nil(t, err)
+	// inexisted metricID
+	_, err = mdINTF.GetTagValues(3334, nil, 1)
+	assert.NotNil(t, err)
+
+}
+
+func Test_MemoryDatabase_Suggset(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	md := mdINTF.(*memoryDatabase)
+
+	assert.Nil(t, md.SuggestMetrics("", 100))
+	assert.Nil(t, md.SuggestTagKeys("", "", 100))
+	assert.Nil(t, md.SuggestTagValues("", "", "", 100))
+
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().suggestTagKeys(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMStore.EXPECT().suggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	md.metricID2Hash.Store(fnv1a.HashString64("test"), uint64(3333))
+	md.getBucket(fnv1a.HashString64("test")).hash2MStore[fnv1a.HashString64("test")] = mockMStore
+
+	assert.Nil(t, md.SuggestTagKeys("test", "", 100))
+	assert.Nil(t, md.SuggestTagValues("test", "", "", 100))
 }

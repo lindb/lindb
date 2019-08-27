@@ -30,8 +30,8 @@ Shard  |               Shard |
 |                                     |              +--------------+                      |
 +------+----------------------+-------+              |              |                      |
        |                      |                      |              |                      |
-       | Flush                | Flush                | Flush        |                      | Flush
-       | NameIDIndex          | MetaIndex            | SeriesIndex  |                      | Metrics
+       |                      |                      | SeriesIndex- | ForwardIndex-        |
+       | NameIDIndexFlusher   | MetaIndexFlusher     | Flusher      | Flusher              | MetricDataFlusher
 +------v-------+       +------v-------+       +------v-------+------v-------+       +------v-------+
 | MetricNameID |       |  MetricMeta  |       |SeriesInverted| SeriesForward|       |  MetricData  |
 |  IndexTable  |       |  IndexTable  |       |  IndexTable  |  IndexTable  |       |    Table     |
@@ -41,10 +41,10 @@ Shard  |               Shard |
 b) Query flow
 
 Shard                  Shard
-+------+-------+       +-----+--------+
-|   Memory     |       |   Memory     <--------------+ series.MetaGetter
-|  Database    |       |  Database    |              | series.Filter
-+-----^-+------+       +-----^-+------+              | series.DataGetter
++------+-------+       +-----+--------+                Suggester
+|   Memory     |       |   Memory     <--------------+ MetaGetter
+|  Database    |       |  Database    |              | Filter
++-----^-+------+       +-----^-+------+              | DataGetter
       | |                    | |                     +----------------------
       | |                    | |
       | |           IDGetter | |
@@ -54,8 +54,8 @@ Shard                  Shard
 |                                     <--------------+--------------+                      |
 +------^----------------------^-------+              |              |                      |
        |                      |                      |              |                      |
-       ^ Read                 ^ Read                 ^              ^                      ^
-       | NameIDIndex          | MetaIndex            |series.Filter |series.MetaGetter     | series.DataGetter
+       ^ Suggester            ^ Suggester            ^ Suggester    ^                      ^
+       | NameIDIndexReader    | MetaIndexReader      | Filter       | MetaGetter           | DataGetter
 +------+-------+       +------+-------+       +------+-------+------+-------+       +------+-------+
 | MetricNameID |       |  MetricMeta  |       |SeriesInverted| SeriesForward|       |  MetricData  |
 |  IndexTable  |       |  IndexTable  |       |  IndexTable  |  IndexTable  |       |    Table     |

@@ -88,6 +88,60 @@ func (db *indexDatabase) Recover(nameIDsReader tblstore.MetricsNameIDReader) err
 	return nil
 }
 
+// SuggestMetrics returns suggestions of metricNames from a given prefix,
+func (db *indexDatabase) SuggestMetrics(prefix string, limit int) (suggestions []string) {
+	if limit <= 0 {
+		return nil
+	}
+	if limit > constants.MaxSuggestions {
+		limit = constants.MaxSuggestions
+	}
+	suggestions = make([]string, 128)[:0]
+
+	db.rwMux.RLock()
+	defer db.rwMux.RUnlock()
+
+	db.tree.ForEachPrefix(art.Key(prefix), func(node art.Node) (cont bool) {
+		if len(suggestions) >= limit {
+			return false
+		}
+		suggestions = append(suggestions, string(node.Key()))
+		return true
+	})
+	return suggestions
+}
+
+// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+func (db *indexDatabase) SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	metricID, err := db.GetMetricID(metricName)
+	if err != nil {
+		return nil
+	}
+	return db.metaReader.SuggestTagKeys(metricID, tagKeyPrefix, limit)
+}
+
+// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
+func (db *indexDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	if limit > constants.MaxSuggestions {
+		limit = constants.MaxSuggestions
+	}
+	metricID, err := db.GetMetricID(metricName)
+	if err != nil {
+		return nil
+	}
+	tagID, err := db.GetTagID(metricID, tagKey)
+	if err != nil {
+		return nil
+	}
+	return db.invertedIndexReader.SuggestTagValues(tagID, tagValuePrefix, limit)
+}
+
 // GenMetricID generates ID(uint32) from metricName
 func (db *indexDatabase) GenMetricID(metricName string) uint32 {
 	metricID, err := db.GetMetricID(metricName)

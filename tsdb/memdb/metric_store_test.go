@@ -367,3 +367,54 @@ func Test_mStore_flushForwardIndexTo(t *testing.T) {
 	mStore.mutable = mockTagIdx3
 	assert.Nil(t, mStoreInterface.flushForwardIndexTo(mockTableFlusher))
 }
+
+func Test_mStore_getTagValues(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
+
+	//////////////////////////////////////////////
+	// immutable part empty
+	//////////////////////////////////////////////
+	mStore.mutable = mockTagIdx3
+	tagValues, err := mStoreInterface.getTagValues([]string{"host", "zone", "ip", "usage"}, 3)
+	assert.Nil(t, err)
+	assert.Len(t, tagValues, 4)
+	assert.Len(t, tagValues[0], 0)
+	assert.Len(t, tagValues[1], 2)
+	assert.Len(t, tagValues[2], 0)
+	assert.Len(t, tagValues[3], 2)
+	//////////////////////////////////////////////
+	// immutable part not empty
+	//////////////////////////////////////////////
+	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
+	mStore.mutable = mockTagIdx3
+	// version not match
+	_, err = mStoreInterface.getTagValues([]string{"ip"}, 4)
+	assert.NotNil(t, err)
+	// version match, found
+	_, err = mStoreInterface.getTagValues([]string{"ip"}, 1)
+	assert.Nil(t, err)
+}
+
+func Test_mStore_suggest(t *testing.T) {
+	mStoreInterface := newMetricStore(100)
+	mStore := mStoreInterface.(*metricStore)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
+
+	// invalid limit
+	assert.Nil(t, mStoreInterface.suggestTagValues("", "", 0))
+	assert.Nil(t, mStoreInterface.suggestTagKeys("", 0))
+
+	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
+	mStore.mutable = mockTagIdx3
+
+	assert.Len(t, mStoreInterface.suggestTagKeys("host", 1), 1)
+	assert.Len(t, mStoreInterface.suggestTagKeys("host", 3), 1)
+	assert.Len(t, mStoreInterface.suggestTagValues("host", "a", 1), 1)
+	assert.Len(t, mStoreInterface.suggestTagValues("host", "a", 100000), 1)
+}

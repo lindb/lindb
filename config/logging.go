@@ -11,9 +11,6 @@ var (
 type Logging struct {
 	// Dir is the output directory for log-files
 	Dir string `toml:"dir"`
-	// logfmt, and json are available
-	// logfmt is more user-friendly, but json is more machine-readable
-	Format string `toml:"format"`
 	// Determine which level of logs will be emitted.
 	// error, warn, info, and debug are available
 	Level string `toml:"level"`
@@ -36,7 +33,6 @@ type Logging struct {
 func NewDefaultLoggingCfg() Logging {
 	return Logging{
 		Dir:        filepath.Join(defaultParentDir, "log"),
-		Format:     "logfmt",
 		Level:      "info",
 		MaxSize:    500,
 		MaxBackups: 3,
