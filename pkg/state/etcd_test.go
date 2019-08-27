@@ -10,7 +10,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/pkg/util"
+	"github.com/lindb/lindb/pkg/hostutil"
 
 	check "gopkg.in/check.v1"
 )
@@ -96,7 +96,7 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 	if err != nil {
 		c.Fatal(err)
 	}
-	ip, _ := util.GetHostIP()
+	ip, _ := hostutil.GetHostIP()
 	heartbeat := fmt.Sprintf("/cluster1/storage/heartbeat/%s:%d", ip, 2918)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

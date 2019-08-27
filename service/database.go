@@ -8,7 +8,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -56,7 +55,7 @@ func (db *databaseService) Save(database *models.Database) error {
 		return err
 	}
 	data, _ := json.Marshal(database)
-	return db.repo.Put(context.TODO(), pathutil.GetDatabaseConfigPath(database.Name), data)
+	return db.repo.Put(context.TODO(), constants.GetDatabaseConfigPath(database.Name), data)
 }
 
 // Get returns the database config in the state's repo, if not exist return ErrNotExist
@@ -64,7 +63,7 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("database name must not be null")
 	}
-	configBytes, err := db.repo.Get(context.TODO(), pathutil.GetDatabaseConfigPath(name))
+	configBytes, err := db.repo.Get(context.TODO(), constants.GetDatabaseConfigPath(name))
 	if err != nil {
 		return nil, err
 	}

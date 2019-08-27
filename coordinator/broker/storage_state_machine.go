@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -94,7 +94,7 @@ func (s *storageStateMachine) OnCreate(key string, resource []byte) {
 
 // OnDelete deletes storage cluster's state when cluster offline
 func (s *storageStateMachine) OnDelete(key string) {
-	name := pathutil.GetName(key)
+	_, name := filepath.Split(key)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

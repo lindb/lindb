@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -50,7 +50,7 @@ func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
 // Register registers node info, add it to active node list for discovery
 func (r *registry) Register(node models.Node) error {
 	// register node info
-	path := pathutil.GetNodePath(r.prefix, node.Indicator())
+	path := constants.GetNodePath(r.prefix, node.Indicator())
 	// register node if fail retry it
 	go r.register(path, node)
 	return nil
@@ -58,7 +58,7 @@ func (r *registry) Register(node models.Node) error {
 
 // Deregister deregisters node info, remove it from active list
 func (r *registry) Deregister(node models.Node) error {
-	return r.repo.Delete(r.ctx, pathutil.GetNodePath(r.prefix, node.Indicator()))
+	return r.repo.Delete(r.ctx, constants.GetNodePath(r.prefix, node.Indicator()))
 }
 
 // Close closes registry, releases resources

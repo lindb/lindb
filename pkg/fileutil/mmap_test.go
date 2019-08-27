@@ -54,9 +54,11 @@ func (ts *testSuite) TestRWMap(c *check.C) {
 	var size = 1024
 
 	mapBytes, err := RWMap(filename, size)
-
 	if err != nil {
 		c.Error("RWMap", err)
+	}
+	if Unmap(nil) != nil {
+		c.Error("unmap nil returns not nil")
 	}
 
 	buffer := bytes.NewBuffer(mapBytes[:0])
@@ -67,6 +69,10 @@ func (ts *testSuite) TestRWMap(c *check.C) {
 
 	if err := Sync(mapBytes); err != nil {
 		c.Error(err)
+	}
+
+	if Unmap(mapBytes) != nil {
+		c.Errorf("unmap mapBytes with error: %v", err)
 	}
 
 	fileContent, err := ioutil.ReadFile(filename)

@@ -86,7 +86,7 @@ func (br *bufioReader) Next() bool {
 		br.err = err
 		return true
 	}
-	br.count += int64(stream.GetUVariantLength(length))
+	br.count += int64(stream.UvariantSize(length))
 	// expand the cap or not
 	if uint64(cap(br.content)) < length {
 		br.content = make([]byte, length)

@@ -121,7 +121,7 @@ func (r *storeMMapReader) readBytes(offset int) []byte {
 	if err != nil {
 		return nil
 	}
-	bytesCount := stream.GetUVariantLength(length)
+	bytesCount := stream.UvariantSize(length)
 	start := offset + bytesCount
 	end := start + int(length)
 	if end > len(r.data) {

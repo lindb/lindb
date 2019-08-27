@@ -8,7 +8,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -62,7 +61,7 @@ func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
 
 // Get gets shard assignment by given database name, if not exist return ErrNotExist
 func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, error) {
-	data, err := s.repo.Get(context.TODO(), pathutil.GetDatabaseAssignPath(databaseName))
+	data, err := s.repo.Get(context.TODO(), constants.GetDatabaseAssignPath(databaseName))
 	if err != nil {
 		return nil, err
 	}
@@ -76,5 +75,5 @@ func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, 
 // Save saves shard assignment for given database name, if fail return error
 func (s *shardAssignService) Save(databaseName string, shardAssign *models.ShardAssignment) error {
 	data, _ := json.Marshal(shardAssign)
-	return s.repo.Put(context.TODO(), pathutil.GetDatabaseAssignPath(databaseName), data)
+	return s.repo.Put(context.TODO(), constants.GetDatabaseAssignPath(databaseName), data)
 }

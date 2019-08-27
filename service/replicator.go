@@ -3,9 +3,9 @@ package service
 import (
 	"context"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -35,7 +35,7 @@ func NewReplicatorService(node models.Node, repo state.Repository) ReplicatorSer
 func (s *replicatorService) Report(state *models.BrokerReplicaState) error {
 	data := encoding.JSONMarshal(state)
 	//TODO need using timeout
-	if err := s.repo.Put(context.TODO(), pathutil.GetReplicaStatePath((&s.node).Indicator()), data); err != nil {
+	if err := s.repo.Put(context.TODO(), constants.GetReplicaStatePath((&s.node).Indicator()), data); err != nil {
 		return err
 	}
 	return nil
