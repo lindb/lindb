@@ -1,6 +1,7 @@
 package tblstore
 
 import (
+	"regexp"
 	"sort"
 	"sync"
 )
@@ -295,5 +296,58 @@ func (block *trieTreeBlock) FindOffsetsByLike(value string) (offsets []int) {
 	return offsets
 }
 
-// todo: @codingcrush, implementation, traverse the values by forward index?
-func (block *trieTreeBlock) FindOffsetsByRegex(pattern string) (offsets []int) { return nil }
+func (block *trieTreeBlock) FindOffsetsByRegex(pattern string) (offsets []int) {
+	rp, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil
+	}
+	keys := block.keys()
+	for key, offset := range keys {
+		if rp.Match([]byte(key)) {
+			offsets = append(offsets, offset)
+		}
+	}
+	return offsets
+}
+
+// keys return all keys on the tree(key->offset)
+func (block *trieTreeBlock) keys() map[string]int {
+	type prefix struct {
+		nodeNumber uint64
+		payload    []byte
+	}
+	var (
+		keys     = make(map[string]int)
+		prefixes = []prefix{{nodeNumber: 1}}
+	)
+
+	for len(prefixes) > 0 {
+		thisPrefix := prefixes[len(prefixes)-1] // get the tail prefix
+		prefixes = prefixes[:len(prefixes)-1]   // pop it
+
+		// collect a new key and offset
+		if block.isPrefixKey.Bit(thisPrefix.nodeNumber) {
+			offset := int(block.isPrefixKey.Rank1(thisPrefix.nodeNumber) - 1)
+			keys[string(thisPrefix.payload)] = offset
+		}
+		firstChildNumber, ok := block.LOUDS.FirstChild(thisPrefix.nodeNumber)
+		if !ok {
+			continue
+		}
+		lastChildNumber, ok := block.LOUDS.LastChild(thisPrefix.nodeNumber)
+		if !ok {
+			continue
+		}
+		for childNumber := firstChildNumber; childNumber <= lastChildNumber; childNumber++ {
+			// validate labels length
+			if int(childNumber) >= len(block.labels) {
+				return keys
+			}
+			var newPrefix []byte
+			newPrefix = append(newPrefix, thisPrefix.payload...)
+			newPrefix = append(newPrefix, block.labels[int(childNumber)])
+			prefixes = append(prefixes, prefix{nodeNumber: childNumber, payload: newPrefix})
+		}
+	}
+	return keys
+}
