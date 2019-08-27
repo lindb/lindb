@@ -21,7 +21,7 @@ type GroupedTimeSeries interface {
 type MultiTimeSeries interface {
 	TimeSeries
 	// Version returns the version no.
-	Version() int64
+	Version() uint32
 	// ID returns the time series id under current metric
 	ID() uint32
 }

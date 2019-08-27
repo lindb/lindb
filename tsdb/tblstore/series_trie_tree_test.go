@@ -1,8 +1,12 @@
 package tblstore
 
 import (
+	"fmt"
+	"math"
+	"sync"
 	"testing"
 
+	"github.com/RoaringBitmap/roaring"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -151,9 +155,74 @@ func Test_trieTreeQuerier(t *testing.T) {
 	assert.Nil(t, data.FindOffsetsByLike("etrace1"))
 
 	// test FindOffsetsByRegex
-	assert.Len(t, data.keys(), 6)
 	assert.Len(t, data.FindOffsetsByRegex("et"), 2)
-	assert.Len(t, data.FindOffsetsByRegex("cd"), 2)
+	assert.Len(t, data.FindOffsetsByRegex("cd"), 1)
+	assert.Len(t, data.FindOffsetsByRegex("^c[a-d]?"), 2)
 	// bad pattern
 	assert.Nil(t, data.FindOffsetsByRegex("[a^-#]("))
+
+	// test PrefixSearch
+	assert.Len(t, data.PrefixSearch("e", 3), 3)
+	assert.Len(t, data.PrefixSearch("e", 1), 1)
+	assert.Len(t, data.PrefixSearch("etcd1", 1), 0)
+
+}
+
+var (
+	once4TestTrieTree sync.Once
+	testTrieTree      *trieTreeData
+)
+
+func prepareTrieTreeData() *trieTreeData {
+	once4TestTrieTree.Do(
+		func() {
+			tree := newTrieTree()
+			for x := 0; x < math.MaxUint8; x++ {
+				for y := 0; y < math.MaxUint8; y++ {
+					// build ip
+					seriesID := uint32(x*math.MaxUint8 + y)
+					ip := fmt.Sprintf("192.168.%d.%d", x, y)
+					r := roaring.New()
+					r.Add(seriesID)
+					tree.Add(ip, r)
+				}
+			}
+			testTrieTree = tree.MarshalBinary()
+		})
+	return testTrieTree
+}
+
+func BenchmarkTrieTree_LikeSearch(b *testing.B) {
+	data := prepareTrieTreeData()
+	for i := 0; i < b.N; i++ {
+		data.FindOffsetsByLike("192.168.1.1")
+	}
+}
+
+func BenchmarkTrieTree_EqualSearch(b *testing.B) {
+	data := prepareTrieTreeData()
+	for i := 0; i < b.N; i++ {
+		data.FindOffsetsByEqual("192.168.1.1")
+	}
+}
+
+func BenchmarkTrieTree_InSearch(b *testing.B) {
+	data := prepareTrieTreeData()
+	for i := 0; i < b.N; i++ {
+		data.FindOffsetsByIn([]string{"192.168.1.1", "192.168.3.2", "192.168.2.2"})
+	}
+}
+
+func BenchmarkTrieTree_RegexSearch(b *testing.B) {
+	data := prepareTrieTreeData()
+	for i := 0; i < b.N; i++ {
+		data.FindOffsetsByRegex("192\\.168")
+	}
+}
+
+func BenchmarkTrieTree_PrefixSearch(b *testing.B) {
+	data := prepareTrieTreeData()
+	for i := 0; i < b.N; i++ {
+		data.PrefixSearch("192.168.1.1", 100)
+	}
 }

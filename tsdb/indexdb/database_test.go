@@ -2,6 +2,7 @@ package indexdb
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/lindb/lindb/kv"
@@ -12,6 +13,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
+	art "github.com/plar/go-adaptive-radix-tree"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,19 +28,24 @@ func Test_NewIndexDatabase_recover(t *testing.T) {
 	// mock read ns ok
 	mockReader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8}).AnyTimes()
 	db := NewIndexDatabase(nil, nil)
+	// once test
+	_ = NewIndexDatabase(nil, nil)
 
 	nameIDReader := tblstore.NewMetricsNameIDReader(mockSnapShot)
 	err := db.Recover(nameIDReader)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
+
 	// once test
-	_ = NewIndexDatabase(nil, nil)
-	_ = NewIndexDatabase(nil, nil)
-
 	err = db.Recover(nameIDReader)
-
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
+
+	// mock unmarshal failure
+	mockNameIDReader := tblstore.NewMockMetricsNameIDReader(ctrl)
+	mockNameIDReader.EXPECT().ReadMetricNS(gomock.Any()).
+		Return([][]byte{{1, 3}}, uint32(1), uint32(1), true).AnyTimes()
+	assert.NotNil(t, db.Recover(mockNameIDReader))
 }
 
 func emptyDatabase() *indexDatabase {
@@ -256,4 +263,52 @@ func Test_IndexDatabase_FlushMetricsMetaTo(t *testing.T) {
 	// flush with error
 	set()
 	assert.NotNil(t, db.FlushMetricsMetaTo(mockMetaFlusher))
+}
+
+func Test_IndexDatabase_SuggestMetrics(t *testing.T) {
+	db := emptyDatabase()
+	for i := 10000; i < 30000; i++ {
+		db.tree.Insert(art.Key(strconv.Itoa(i)), i)
+	}
+	// invalid limit
+	assert.Len(t, db.SuggestMetrics("1", -1), 0)
+	// limit exceeds the limit
+	assert.Len(t, db.SuggestMetrics("2", 20000), 10000)
+	// smaller than limit
+	assert.Len(t, db.SuggestMetrics("2000", 5000), 11)
+}
+
+func Test_IndexDatabase_SuggestTagKeysValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := emptyDatabase()
+	// invalid limit
+	assert.Nil(t, db.SuggestTagKeys("", "", 0))
+	assert.Nil(t, db.SuggestTagValues("", "", "", 0))
+
+	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
+	db.metaReader = mockMetaReader
+
+	// SuggestTagKeys
+	assert.Len(t, db.SuggestTagKeys("inexistent-metric", "", 100), 0)
+	db.tree.Insert(art.Key("m1"), uint32(1))
+	mockMetaReader.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]string{"key1"}).AnyTimes()
+	assert.Len(t, db.SuggestTagKeys("m1", "", 100), 1)
+
+	// SuggestTagValues
+	mockInvertedReader := tblstore.NewMockInvertedIndexReader(ctrl)
+	mockInvertedReader.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]string{"v1"}).AnyTimes()
+	db.invertedIndexReader = mockInvertedReader
+	// metricID inexistent
+	assert.Nil(t, db.SuggestTagValues("inexistent-metric", "", "", 10000000))
+	gomock.InOrder(
+		mockMetaReader.EXPECT().ReadTagID(uint32(1), "1").Return(uint32(0), false),
+		mockMetaReader.EXPECT().ReadTagID(uint32(1), "2").Return(uint32(1), true))
+	// tagID inexistent
+	assert.Nil(t, db.SuggestTagValues("m1", "1", "", 10))
+	// tagID exist
+	assert.Len(t, db.SuggestTagValues("m1", "2", "", 10), 1)
 }

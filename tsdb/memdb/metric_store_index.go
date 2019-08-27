@@ -327,8 +327,13 @@ func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.
 	if err != nil {
 		return nil
 	}
+	// the regex pattern is regarded as a prefix string + pattern
+	literalPrefix, _ := pattern.LiteralPrefix()
 	union := roaring.New()
 	for value, bitmap := range entrySet.values {
+		if !strings.HasPrefix(value, literalPrefix) {
+			continue
+		}
 		if pattern.MatchString(value) {
 			union.Or(bitmap)
 		}

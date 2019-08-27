@@ -1,6 +1,8 @@
 package tblstore
 
 import (
+	"strings"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/field"
@@ -28,6 +30,8 @@ type MetricsMetaReader interface {
 	ReadMaxFieldID(metricID uint32) (maxFieldID uint16)
 	// ReadFieldID read fieldID and fieldType from metricID and fieldName
 	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, ok bool)
+	// SuggestTagKeys returns suggestion of tagKeys by prefix
+	SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string
 }
 
 // metricsNameIDReader implements MetricsNameIDReader
@@ -74,15 +78,12 @@ func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uin
 			continue
 		}
 		sr := stream.NewReader(tagMeta)
-		for !sr.Empty() {
+		for !sr.Empty() && sr.Error() == nil {
 			tagKeyLen := sr.ReadByte()
 			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
 			tagID = sr.ReadUint32()
 			if thisTagKey == tagKey && tagID != 0 {
 				return tagID, true
-			}
-			if sr.Error() != nil {
-				break
 			}
 		}
 	}
@@ -156,7 +157,7 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 			continue
 		}
 		sr := stream.NewReader(fieldMeta)
-		for !sr.Empty() {
+		for !sr.Empty() && sr.Error() == nil {
 			// read field-name
 			thisFieldNameLen := sr.ReadByte()
 			thisFieldName := string(sr.ReadBytes(int(thisFieldNameLen)))
@@ -168,10 +169,33 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 				ok = true
 				return
 			}
-			if sr.Error() != nil {
-				break
-			}
 		}
 	}
 	return 0, field.Type(0), false
+}
+
+// SuggestTagKeys returns suggestion of tagKeys by prefix
+func (r *metricsMetaReader) SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string {
+	var collectedTagKeys []string
+	for _, reader := range r.snapshot.Readers() {
+		tagMeta, _ := r.readMetasBlock(reader, metricID)
+		if tagMeta == nil {
+			continue
+		}
+		sr := stream.NewReader(tagMeta)
+		for !sr.Empty() && sr.Error() == nil {
+			// read tagKey
+			if limit <= len(collectedTagKeys) {
+				return collectedTagKeys
+			}
+			tagKeyLen := sr.ReadByte()
+			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
+			// readTagID
+			_ = sr.ReadUint32()
+			if strings.HasPrefix(thisTagKey, tagKeyPrefix) {
+				collectedTagKeys = append(collectedTagKeys, thisTagKey)
+			}
+		}
+	}
+	return collectedTagKeys
 }
