@@ -243,7 +243,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T
 	_, err := reader.FindSeriesIDsByExprForTagID(22, &stmt.RegexExpr{
 		Key: "host", Regexp: "eleme-dev-sh-"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_InvertedIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
