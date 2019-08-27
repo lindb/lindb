@@ -1,21 +1,15 @@
-package util
+package hostutil
 
 import (
 	"errors"
 	"net"
-	"os"
 	"sync"
-
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
 	once sync.Once
 	host hostInfo
 )
-
-// Override for testing
-var osHostname = os.Hostname
 
 // hostInfo defines host basic info, if cannot get host info returns error
 type hostInfo struct {
@@ -69,14 +63,4 @@ func extractHostInfo() {
 func GetHostIP() (string, error) {
 	extractHostInfo()
 	return host.hostIP, host.err
-}
-
-// GetHostName returns the current node's hostname
-func GetHostName() string {
-	hostName, err := osHostname()
-	if err != nil {
-		logger.GetLogger("pkg/util", "HostGetter").Warn("get host name", logger.Error(err))
-		hostName = "unknown"
-	}
-	return hostName
 }

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/config"
@@ -13,7 +14,6 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
 )
@@ -131,7 +131,7 @@ func (c *cluster) OnCreate(key string, resource []byte) {
 
 // OnDelete remove node from active node list when node offline
 func (c *cluster) OnDelete(key string) {
-	name := pathutil.GetName(key)
+	_, name := filepath.Split(key)
 	c.mutex.Lock()
 	c.clusterState.RemoveActiveNode(name)
 	c.mutex.Unlock()

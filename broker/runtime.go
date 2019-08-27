@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -23,10 +24,10 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/util"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
@@ -118,13 +119,18 @@ func (r *runtime) Name() string {
 
 // Run runs broker server based on config file
 func (r *runtime) Run() error {
-	ip, err := util.GetHostIP()
+	ip, err := hostutil.GetHostIP()
 	if err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("cannot get server ip address, error:%s", err)
 	}
 
-	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: util.GetHostName()}
+	hostName, err := os.Hostname()
+	if err != nil {
+		r.log.Error("get host name with error", logger.Error(err))
+		hostName = "unknown"
+	}
+	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: hostName}
 
 	// start state repository
 	if err := r.startStateRepo(); err != nil {

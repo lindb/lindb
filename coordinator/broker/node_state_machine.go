@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 )
 
 //go:generate mockgen -source=./node_state_machine.go -destination=./node_state_machine_mock.go -package=broker
@@ -85,7 +85,8 @@ func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
-	nodeID := pathutil.GetName(key)
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
 	s.mutex.Lock()
 	s.nodes[nodeID] = node
 	s.mutex.Unlock()
@@ -93,7 +94,8 @@ func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 
 // OnDelete removes node into active node list when node offline
 func (s *nodeStateMachine) OnDelete(key string) {
-	nodeID := pathutil.GetName(key)
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
 	s.mutex.Lock()
 	delete(s.nodes, nodeID)
 	s.mutex.Unlock()

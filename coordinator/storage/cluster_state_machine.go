@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/config"
@@ -11,7 +12,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
 )
@@ -102,7 +102,7 @@ func (c *clusterStateMachine) OnCreate(key string, resource []byte) {
 
 // OnDelete deletes cluster controller from cache, closes it
 func (c *clusterStateMachine) OnDelete(key string) {
-	name := pathutil.GetName(key)
+	_, name := filepath.Split(key)
 	c.mutex.Lock()
 	c.deleteCluster(name)
 	c.mutex.Unlock()

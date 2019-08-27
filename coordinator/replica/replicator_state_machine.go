@@ -3,6 +3,7 @@ package replica
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
@@ -10,7 +11,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/service"
 )
@@ -83,7 +83,7 @@ func (sm *replicatorStateMachine) OnCreate(key string, resource []byte) {
 
 // OnDelete trigger on database deletion, destroy related replicators for deletion database
 func (sm *replicatorStateMachine) OnDelete(key string) {
-	dbName := pathutil.GetName(key)
+	_, dbName := filepath.Split(key)
 	sm.mutex.Lock()
 	//FIXME: need remove replicator and channel when database delete?
 	delete(sm.shardAssigns, dbName)

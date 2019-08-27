@@ -91,13 +91,29 @@ func Test_Stream_SliceWriter(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_Stream_GetUVariantLength(t *testing.T) {
-	assert.Equal(t, 1, stream.GetUVariantLength(0))
-	assert.Equal(t, 1, stream.GetUVariantLength(1))
-	assert.Equal(t, 1, stream.GetUVariantLength(127))
-	assert.Equal(t, 2, stream.GetUVariantLength(129))
-	assert.Equal(t, 2, stream.GetUVariantLength(16383))
-	assert.Equal(t, 3, stream.GetUVariantLength(16384))
-	assert.Equal(t, 3, stream.GetUVariantLength(2097151))
-	assert.Equal(t, 4, stream.GetUVariantLength(2097152))
+func Test_Stream_UvariantSize(t *testing.T) {
+	assert.Equal(t, 1, stream.UvariantSize(0))
+	assert.Equal(t, 1, stream.UvariantSize(1))
+	assert.Equal(t, 1, stream.UvariantSize(127))
+	assert.Equal(t, 2, stream.UvariantSize(129))
+	assert.Equal(t, 2, stream.UvariantSize(16383))
+	assert.Equal(t, 3, stream.UvariantSize(16384))
+	assert.Equal(t, 3, stream.UvariantSize(2097151))
+	assert.Equal(t, 4, stream.UvariantSize(2097152))
+}
+
+func Test_Stream_VariantSize(t *testing.T) {
+	assert.Equal(t, 1, stream.VariantSize(0))
+	assert.Equal(t, 1, stream.VariantSize(-63))
+	assert.Equal(t, 1, stream.VariantSize(63))
+	assert.Equal(t, 1, stream.VariantSize(-64))
+	assert.Equal(t, 2, stream.VariantSize(-65))
+	assert.Equal(t, 2, stream.VariantSize(64))
+	assert.Equal(t, 2, stream.VariantSize(-127))
+	assert.Equal(t, 2, stream.VariantSize(127))
+	assert.Equal(t, 2, stream.VariantSize(8191))
+	assert.Equal(t, 2, stream.VariantSize(-8191))
+	assert.Equal(t, 3, stream.VariantSize(8192))
+	assert.Equal(t, 2, stream.VariantSize(-8192))
+	assert.Equal(t, 3, stream.VariantSize(-8193))
 }

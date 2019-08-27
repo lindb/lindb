@@ -22,3 +22,7 @@ func TestJSONCodec(t *testing.T) {
 	err = JSONUnmarshal([]byte{1, 1, 1}, &user1)
 	assert.NotNil(t, err)
 }
+
+func Test_JSONMarshal(t *testing.T) {
+	assert.Len(t, JSONMarshal(make(chan struct{}, 1)), 0)
+}

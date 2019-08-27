@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 )
 
 //go:generate mockgen -source=./status_state_machine.go -destination=./status_state_machine_mock.go -package=replica
@@ -131,7 +131,7 @@ func (sm *statusStateMachine) OnCreate(key string, resource []byte) {
 
 // OnDelete deletes the broker's replica status when broker offline
 func (sm *statusStateMachine) OnDelete(key string) {
-	broker := pathutil.GetName(key)
+	_, broker := filepath.Split(key)
 	sm.mutex.Lock()
 	delete(sm.brokers, broker)
 	sm.mutex.Unlock()
@@ -144,7 +144,7 @@ func (sm *statusStateMachine) addBrokerReplica(key string, data []byte) {
 			logger.String("data", string(data)), logger.Error(err))
 		return
 	}
-	broker := pathutil.GetName(key)
+	_, broker := filepath.Split(key)
 	sm.mutex.Lock()
 	sm.brokers[broker] = brokerReplicaState
 	sm.mutex.Unlock()

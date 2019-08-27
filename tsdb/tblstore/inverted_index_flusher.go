@@ -125,11 +125,11 @@ func (w *invertedIndexFlusher) FlushTagID(tagID uint32) error {
 	if err != nil {
 		return err
 	}
-	treeLength := stream.GetUVariantLength(uint64(len(treeDataBlock.labels))) + // labels length uvariant size
+	treeLength := stream.UvariantSize(uint64(len(treeDataBlock.labels))) + // labels length uvariant size
 		len(treeDataBlock.labels) + // labels length
-		stream.GetUVariantLength(uint64(len(isPrefixBlock))) + // isPrefixKey length uvariant size
+		stream.UvariantSize(uint64(len(isPrefixBlock))) + // isPrefixKey length uvariant size
 		len(isPrefixBlock) + // isPrefixKey length
-		stream.GetUVariantLength(uint64(len(LOUDSBlock))) + // LOUDSBlock length uvariantsize
+		stream.UvariantSize(uint64(len(LOUDSBlock))) + // LOUDSBlock length uvariantsize
 		len(LOUDSBlock) // LOUDSBlock length
 	// write tree length
 	w.entrySetWriter.PutUvarint64(uint64(treeLength))
@@ -160,7 +160,7 @@ func (w *invertedIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWri
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
 		// write all data length
-		dataBlockLen := stream.GetUVariantLength(uint64(it.versionCount)) + // version count size
+		dataBlockLen := stream.UvariantSize(uint64(it.versionCount)) + // version count size
 			len(it.buffer.Bytes()) // versionedTagValue blocks
 		writer.PutUvarint64(uint64(dataBlockLen))
 	}
