@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/lindb/lindb/constants"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -40,7 +41,7 @@ func (s *storageStateService) Save(clusterName string, storageState *models.Stor
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if err := s.repo.Put(ctx, pathutil.GetStorageClusterStatePath(clusterName), data); err != nil {
+	if err := s.repo.Put(ctx, constants.GetStorageClusterStatePath(clusterName), data); err != nil {
 		return err
 	}
 	return nil
@@ -51,7 +52,7 @@ func (s *storageStateService) Get(clusterName string) (*models.StorageState, err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	data, err := s.repo.Get(ctx, pathutil.GetStorageClusterStatePath(clusterName))
+	data, err := s.repo.Get(ctx, constants.GetStorageClusterStatePath(clusterName))
 	if err != nil {
 		return nil, err
 	}

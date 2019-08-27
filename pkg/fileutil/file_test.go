@@ -1,7 +1,9 @@
 package fileutil
 
 import (
+	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,4 +39,15 @@ func TestFileUtil(t *testing.T) {
 
 	files, _ := ListDir(testPath)
 	assert.Equal(t, "toml", files[0])
+
+	assert.Nil(t, MkDir(filepath.Join(os.TempDir(), "tmp/test.toml")))
+}
+
+func TestFileUtil_errors(t *testing.T) {
+	// inexistent directory
+	_, err := ListDir(filepath.Join(os.TempDir(), "/tmp/tmp/tmp/tmp"))
+
+	// encode toml failure
+	assert.NotNil(t, err)
+	assert.NotNil(t, EncodeToml(filepath.Join(os.TempDir(), "/tmp/test.toml"), []byte{}))
 }

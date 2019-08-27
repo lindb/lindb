@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,9 @@ func TestCodec(t *testing.T) {
 	assert.Equal(t, 10, decoder.StartTime())
 	assert.Equal(t, 13, decoder.EndTime())
 	assert.Equal(t, 4, decoder.count)
+	startTime, endTime := DecodeTSDTime(data)
+	assert.Equal(t, 10, startTime)
+	assert.Equal(t, 13, endTime)
 
 	assert.True(t, decoder.Next())
 	assert.True(t, decoder.HasValue())
@@ -71,4 +75,16 @@ func TestHasValueWithSlot(t *testing.T) {
 	// out of range
 	assert.False(t, decoder.HasValueWithSlot(-2))
 	assert.False(t, decoder.HasValueWithSlot(100))
+}
+
+func Test_Empty_TSDEncoderDecoder(t *testing.T) {
+	encoder := NewTSDEncoder(1)
+	encoder.AppendTime(bit.One)
+	encoder.err = fmt.Errorf("error")
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(2)
+	assert.NotNil(t, encoder.Error())
+
+	decoder := NewTSDDecoder(nil)
+	assert.NotNil(t, decoder.Error())
 }

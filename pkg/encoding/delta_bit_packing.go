@@ -6,6 +6,7 @@ import (
 	"math/bits"
 
 	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 // reference:
@@ -61,14 +62,13 @@ func (p *DeltaBitPackingEncoder) Add(v int32) {
 
 // Bytes returns binary data, if failure return error
 func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
-	var scratch [binary.MaxVarintLen64]byte
-	var buf bytes.Buffer
-	n := binary.PutVarint(scratch[:], int64(len(p.deltas)))
-	if _, err := buf.Write(scratch[:n]); err != nil {
-		return nil, err
-	}
+	var (
+		buf bytes.Buffer
+		max int32
+	)
+	sw := stream.NewBufferWriter(&buf)
+	sw.PutVarint64(int64(len(p.deltas)))
 
-	var max int32
 	for _, v := range p.deltas {
 		deltaDelta := v - p.minDelta
 		if max < deltaDelta {
@@ -76,15 +76,11 @@ func (p *DeltaBitPackingEncoder) Bytes() ([]byte, error) {
 		}
 	}
 	width := 32 - bits.LeadingZeros32(uint32(max))
-	buf.WriteByte(byte(width))
-	n1 := binary.PutVarint(scratch[:], int64(ZigZagEncode(int64(p.minDelta))))
-	if _, err := buf.Write(scratch[:n1]); err != nil {
-		return nil, err
-	}
-
-	n2 := binary.PutVarint(scratch[:], int64(p.first))
-	if _, err := buf.Write(scratch[:n2]); err != nil {
-		return nil, err
+	sw.PutByte(byte(width))
+	sw.PutVarint64(int64(ZigZagEncode(int64(p.minDelta))))
+	sw.PutVarint64(int64(p.first))
+	if sw.Error() != nil {
+		return nil, sw.Error()
 	}
 
 	bw := bit.NewWriter(&buf)

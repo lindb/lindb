@@ -1,6 +1,7 @@
 package timeutil
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,4 +60,12 @@ func TestParseInterval(t *testing.T) {
 	assert.Equal(t, 10*OneYear, interval)
 	interval, _ = ParseInterval("10Y")
 	assert.Equal(t, 10*OneYear, interval)
+}
+
+func Test_Now(t *testing.T) {
+	assert.Len(t, strconv.FormatUint(uint64(Now()), 10), 13)
+}
+
+func Test_FormatTimestamp(t *testing.T) {
+	t.Log(FormatTimestamp(Now()*1000, dataTimeFormat1))
 }

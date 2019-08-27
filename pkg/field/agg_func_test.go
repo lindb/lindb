@@ -34,3 +34,9 @@ func TestMaxAgg(t *testing.T) {
 	assert.Equal(t, float64(99.0), agg.AggregateFloat(1, 99.0))
 	assert.Equal(t, float64(99.0), agg.AggregateFloat(99.0, 1))
 }
+
+func Test_registerPanic(t *testing.T) {
+	assert.Panics(t, func() {
+		registerFunc(Sum, &sumAgg{})
+	})
+}

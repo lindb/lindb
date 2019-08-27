@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pathutil"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -47,7 +46,7 @@ func (s *storageClusterService) Save(storageCluster *config.StorageCluster) erro
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if err := s.repo.Put(ctx, pathutil.GetStorageClusterConfigPath(storageCluster.Name), data); err != nil {
+	if err := s.repo.Put(ctx, constants.GetStorageClusterConfigPath(storageCluster.Name), data); err != nil {
 		return err
 	}
 	return nil
@@ -57,7 +56,7 @@ func (s *storageClusterService) Save(storageCluster *config.StorageCluster) erro
 func (s *storageClusterService) Delete(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	return s.repo.Delete(ctx, pathutil.GetStorageClusterConfigPath(name))
+	return s.repo.Delete(ctx, constants.GetStorageClusterConfigPath(name))
 }
 
 // Get storage cluster by given name
@@ -65,7 +64,7 @@ func (s *storageClusterService) Get(name string) (*config.StorageCluster, error)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	data, err := s.repo.Get(ctx, pathutil.GetStorageClusterConfigPath(name))
+	data, err := s.repo.Get(ctx, constants.GetStorageClusterConfigPath(name))
 	if err != nil {
 		return nil, err
 	}
