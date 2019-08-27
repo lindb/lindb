@@ -149,4 +149,11 @@ func Test_trieTreeQuerier(t *testing.T) {
 	assert.Equal(t, []int{5}, data.FindOffsetsByLike("fire"))
 	assert.Nil(t, data.FindOffsetsByLike(""))
 	assert.Nil(t, data.FindOffsetsByLike("etrace1"))
+
+	// test FindOffsetsByRegex
+	assert.Len(t, data.keys(), 6)
+	assert.Len(t, data.FindOffsetsByRegex("et"), 2)
+	assert.Len(t, data.FindOffsetsByRegex("cd"), 2)
+	// bad pattern
+	assert.Nil(t, data.FindOffsetsByRegex("[a^-#]("))
 }
