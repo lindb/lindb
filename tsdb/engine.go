@@ -9,7 +9,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
@@ -40,7 +40,7 @@ type Engine interface {
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
 	// GetIDGetter returns id getter for metric level metadata
-	GetIDGetter() indexdb.IDGetter
+	GetIDGetter() diskdb.IDGetter
 	// Close closed engine then release resource
 	Close() error
 }
@@ -218,7 +218,7 @@ func (e *engine) GetShard(shardID int32) Shard {
 }
 
 // GetIDGetter returns id getter for metric level metadata
-func (e *engine) GetIDGetter() indexdb.IDGetter {
+func (e *engine) GetIDGetter() diskdb.IDGetter {
 	//TODO need impl
 	return nil
 }

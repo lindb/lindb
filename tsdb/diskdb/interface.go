@@ -1,12 +1,11 @@
-package indexdb
+package diskdb
 
 import (
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/tsdb/series"
-	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
-//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
+//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=diskdb
 
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
@@ -29,19 +28,28 @@ type IDGetter interface {
 	GetFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, err error)
 }
 
-// IndexDatabase represents a database of index files,
-// it provides the abilities to generate id and get meta data from the index.
-// See `tsdb/doc` for index file layout.
-type IndexDatabase interface {
+// IDSequencer contains the abilities for querying and generating ID numbers.
+type IDSequencer interface {
 	// Recover loads metric-names and metricIDs from the index file to build the tree
-	Recover(nameIDsReader tblstore.MetricsNameIDReader) error
+	Recover() error
 	IDGenerator
 	IDGetter
+	// SuggestMetrics returns suggestions from a given prefix of metricName
+	SuggestMetrics(metricPrefix string, limit int) []string
+	// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+	SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string
+	// FlushNameIDs flushes metricName and metricID to family
+	FlushNameIDs() error
+	// FlushMetricsMeta flushes tagKey, tagKeyId, fieldName, fieldID to family
+	FlushMetricsMeta() error
+}
+
+// IndexDatabase represents a database of index files, it is shard-level
+// it provides the abilities to filter seriesID from the index.
+// See `tsdb/doc` for index file layout.
+type IndexDatabase interface {
 	series.MetaGetter
 	series.Filter
-	series.Suggester
-	// FlushNameIDsTo flushes metricName and metricID to flusher
-	FlushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error
-	// FlushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-	FlushMetricsMetaTo(flusher tblstore.MetricsMetaFlusher) error
+	// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
+	SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string
 }

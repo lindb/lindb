@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/series"
 )
 
@@ -19,7 +19,7 @@ func TestStoragePlan_Metric(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := indexdb.NewMockIDGetter(ctrl)
+	metadataIndex := diskdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil)
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).
 		Return(uint16(10), field.SumField, nil).AnyTimes()
@@ -41,7 +41,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := indexdb.NewMockIDGetter(ctrl)
+	metadataIndex := diskdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "f").
 		Return(uint16(10), field.SumField, nil).AnyTimes()

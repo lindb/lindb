@@ -5,7 +5,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 
@@ -52,15 +51,15 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	// flush zone tag, tagID: 20
 	/////////////////////////
 	for zone, ids := range zoneMapping {
-		for version := uint32(1500000000); version < 1800000000; version += 100000000 {
+		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.AddMany(ids)
-			seriesFlusher.FlushVersion(version, version+10000, version+20000, bitmap)
+			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(zone)
 	}
 	// pick the zoneBlock buffer
-	seriesFlusher.FlushTagID(20)
+	_ = seriesFlusher.FlushTagID(20)
 	data, _ := seriesFlusherImpl.entrySetWriter.Bytes()
 	zoneBlock = append(zoneBlock, data...)
 	seriesFlusherImpl.reset()
@@ -69,15 +68,15 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	// flush ip tag, tagID: 21
 	/////////////////////////
 	for seriesID, ip := range ipMapping {
-		for version := uint32(1500000000); version < 1800000000; version += 100000000 {
+		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(version, version+10000, version+20000, bitmap)
+			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(ip)
 	}
 	// pick the ipBlock buffer
-	seriesFlusher.FlushTagID(21)
+	_ = seriesFlusher.FlushTagID(21)
 	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
 	ipBlock = append(ipBlock, data...)
 	seriesFlusherImpl.reset()
@@ -86,15 +85,15 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	// flush host tag, tagID: 22
 	/////////////////////////
 	for seriesID, host := range hostMapping {
-		for version := uint32(1500000000); version < 1800000000; version += 100000000 {
+		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(version, version+10000, version+20000, bitmap)
+			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(host)
 	}
 	// pick the hostBlock buffer
-	seriesFlusher.FlushTagID(22)
+	_ = seriesFlusher.FlushTagID(22)
 	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
 	hostBlock = append(hostBlock, data...)
 	seriesFlusherImpl.reset()
@@ -109,11 +108,8 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) InvertedIndexReader {
 	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock).AnyTimes()
 	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock).AnyTimes()
 	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock).AnyTimes()
-	// mock snapshots
-	mockSnapShot := version.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
 	// build series index reader
-	return NewInvertedIndexReader(mockSnapShot)
+	return NewInvertedIndexReader([]table.Reader{mockReader})
 }
 
 func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
@@ -351,8 +347,6 @@ func Test_InvertedIndexReader_SuggestTagValues(t *testing.T) {
 	// mock corruption
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}).AnyTimes()
-	mockSnapShot := version.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
-	corruptedReader := NewInvertedIndexReader(mockSnapShot)
+	corruptedReader := NewInvertedIndexReader([]table.Reader{mockReader})
 	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
 }

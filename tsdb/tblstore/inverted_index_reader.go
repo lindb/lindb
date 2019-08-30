@@ -7,7 +7,7 @@ import (
 	"github.com/RoaringBitmap/roaring"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -37,12 +37,12 @@ type InvertedIndexReader interface {
 
 // invertedIndexReader implements InvertedIndexReader
 type invertedIndexReader struct {
-	snapshot version.Snapshot
+	readers []table.Reader
 }
 
 // NewInvertedIndexReader returns a new invertedIndexReader
-func NewInvertedIndexReader(snapshot version.Snapshot) InvertedIndexReader {
-	return &invertedIndexReader{snapshot: snapshot}
+func NewInvertedIndexReader(readers []table.Reader) InvertedIndexReader {
+	return &invertedIndexReader{readers: readers}
 }
 
 // FindSeriesIDsByExprForTagID finds series ids by tag filter expr for tagId
@@ -114,12 +114,7 @@ func (r *invertedIndexReader) GetSeriesIDsForTagID(tagID uint32,
 // filterEntrySetBlocks filters the entry-set block which matches the time-range in the series-index-table
 func (r *invertedIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeutil.TimeRange) (entrySetBlocks [][]byte) {
 	sr := stream.NewReader(nil)
-	readers, err := r.snapshot.FindReaders(tagID)
-	if err != nil {
-		//TODO need check
-		return nil
-	}
-	for _, reader := range readers {
+	for _, reader := range r.readers {
 		block := reader.Get(tagID)
 		if len(block) <= timeRangeSize {
 			continue
@@ -298,13 +293,8 @@ func (r *invertedIndexReader) SuggestTagValues(tagID uint32, tagValuePrefix stri
 	if limit > constants.MaxSuggestions {
 		limit = constants.MaxSuggestions
 	}
-	readers, err := r.snapshot.FindReaders(tagID)
-	if err != nil {
-		//TODO need check
-		return nil
-	}
 	var tagValues []string
-	for _, reader := range readers {
+	for _, reader := range r.readers {
 		block := reader.Get(tagID)
 		if len(block) <= timeRangeSize {
 			continue

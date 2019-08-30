@@ -7,7 +7,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/kv/version"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -57,7 +56,7 @@ func buildForwardIndexBlock(ctrl *gomock.Controller) []byte {
 
 	flusher := NewForwardIndexFlusher(mockKVFlusher)
 	flusherImpl := flusher.(*forwardIndexFlusher)
-	for version := 0; version < 3; version++ {
+	for v := 0; v < 3; v++ {
 		// flush tag ip
 		for ip, seriesID := range ipMapping {
 			bitmap := roaring.NewBitmap()
@@ -78,7 +77,7 @@ func buildForwardIndexBlock(ctrl *gomock.Controller) []byte {
 		}
 		flusher.FlushTagKey("host")
 		// flush version
-		flusher.FlushVersion(uint32(version), uint32(version*100), uint32(version+1)*100)
+		flusher.FlushVersion(uint32(v), uint32(v*100), uint32(v+1)*100)
 	}
 	flusherImpl.resetDisabled = true
 	_ = flusher.FlushMetricID(1)
@@ -92,11 +91,9 @@ func buildForwardIndexReader(ctrl *gomock.Controller) *forwardIndexReader {
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(0)).Return(nil).AnyTimes()
 	mockReader.EXPECT().Get(uint32(1)).Return(data).AnyTimes()
-	// build mock snapshot
-	mockSnapShot := version.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader}, nil).AnyTimes()
+	mockReaders := []table.Reader{mockReader}
 	// build forward index reader
-	indexReader := NewForwardIndexReader(mockSnapShot)
+	indexReader := NewForwardIndexReader(mockReaders)
 	return indexReader.(*forwardIndexReader)
 }
 

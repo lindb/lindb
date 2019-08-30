@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 
 	"github.com/golang/mock/gomock"
 	"github.com/segmentio/fasthash/fnv1a"
@@ -37,7 +37,7 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	// mock generator
-	mockGen := indexdb.NewMockIDGenerator(ctrl)
+	mockGen := diskdb.NewMockIDGenerator(ctrl)
 	count := uint32(0)
 	mockGen.EXPECT().GenMetricID("test1").
 		Do(func() {
@@ -66,8 +66,8 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	err = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
 	assert.Nil(t, err)
 	// test families
-	md.Write(&pb.Metric{Name: "test1", Timestamp: 1564297200000})
-	md.Write(&pb.Metric{Name: "test1", Timestamp: 1564308000000})
+	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564297200000})
+	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564308000000})
 	assert.NotNil(t, md.Families())
 	assert.Len(t, md.Families(), 3)
 }
@@ -142,7 +142,7 @@ func Test_MemoryDatabase_evict(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	// mock generator
-	mockGen := indexdb.NewMockIDGenerator(ctrl)
+	mockGen := diskdb.NewMockIDGenerator(ctrl)
 	for i := 0; i < 1000; i++ {
 		mockGen.EXPECT().GenMetricID(strconv.Itoa(i)).Return(uint32(i)).AnyTimes()
 	}
@@ -202,9 +202,9 @@ func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
 	defer cancel()
 
 	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
-	mdINTF.FlushFamilyTo(nil, 10)
-	mdINTF.FlushFamilyTo(nil, 10)
-	mdINTF.FlushFamilyTo(nil, 10)
+	_ = mdINTF.FlushFamilyTo(nil, 10)
+	_ = mdINTF.FlushFamilyTo(nil, 10)
+	_ = mdINTF.FlushFamilyTo(nil, 10)
 	time.Sleep(time.Millisecond * 10)
 }
 

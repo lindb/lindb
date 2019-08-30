@@ -52,7 +52,7 @@ func NewStatusStateMachine(ctx context.Context, factory discovery.Factory) (Stat
 		ctx:     c,
 		cancel:  cancel,
 		brokers: make(map[string]models.BrokerReplicaState),
-		log:     logger.GetLogger("coordinator", "ReplicaFSM"),
+		log:     logger.GetLogger("coordinator", "ReplicaStatusStateMachine"),
 	}
 	repo := factory.GetRepo()
 	replicaStatusList, err := repo.List(c, constants.ReplicaStatePath)

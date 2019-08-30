@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
@@ -116,7 +116,7 @@ type memoryDatabase struct {
 	once4Syncer   sync.Once                              // once for tags-limitation syncer
 	metricID2Hash sync.Map                               // key: metric-id(uint32), value: hash(uint64)
 	mStoresList   [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
-	generator     indexdb.IDGenerator                    // the generator for generating ID of metric, field
+	generator     diskdb.IDGenerator                     // the generator for generating ID of metric, field
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -180,12 +180,12 @@ func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) mSto
 	mStore, ok := md.getMStoreByMetricHash(hash)
 	if !ok {
 		metricID := md.generator.GenMetricID(metricName)
-		newMStore := newMetricStore(metricID)
 
 		bucket.rwLock.Lock()
 		mStore, ok = bucket.hash2MStore[hash]
 		if !ok {
-			bucket.hash2MStore[hash] = newMStore
+			mStore = newMetricStore(metricID)
+			bucket.hash2MStore[hash] = mStore
 			md.metricID2Hash.Store(metricID, hash)
 		}
 		bucket.rwLock.Unlock()
@@ -229,7 +229,7 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 // writeContext holds the context for writing
 type writeContext struct {
 	blockStore   *blockStore
-	generator    indexdb.IDGenerator
+	generator    diskdb.IDGenerator
 	metricID     uint32
 	familyTime   int64
 	slotIndex    int
