@@ -6,7 +6,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 )
 
-var log = logger.GetLogger("broker", "StorageState")
+var log = logger.GetLogger("coordinator", "BrokerStorageClusterState")
 
 const dummy = ""
 

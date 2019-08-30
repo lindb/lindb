@@ -12,7 +12,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
@@ -46,7 +46,7 @@ type mStoreINTF interface {
 	// flushForwardIndexTo flushes metric-block of mStore to the writer.
 	flushForwardIndexTo(tableFlusher tblstore.ForwardIndexFlusher) error
 	// flushInvertedIndexTo flushes series-index of mStore to the writer
-	flushInvertedIndexTo(tableFlusher tblstore.InvertedIndexFlusher, idGenerator indexdb.IDGenerator) error
+	flushInvertedIndexTo(tableFlusher tblstore.InvertedIndexFlusher, idGenerator diskdb.IDGenerator) error
 	// resetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	resetVersion() error
@@ -59,7 +59,7 @@ type mStoreINTF interface {
 
 // mStoreFieldIDGetter gets fieldID from fieldsMeta, and calls the id-generator when not exist
 type mStoreFieldIDGetter interface {
-	getFieldIDOrGenerate(fieldName string, fieldType field.Type, generator indexdb.IDGenerator) (uint16, error)
+	getFieldIDOrGenerate(fieldName string, fieldType field.Type, generator diskdb.IDGenerator) (uint16, error)
 }
 
 // metricStore is composed of the immutable part and mutable part of indexes.
@@ -111,7 +111,7 @@ func newMetricStore(metricID uint32) mStoreINTF {
 
 // getFieldIDOrGenerate gets fieldID from fieldsMeta, and calls the id-generator when not exist
 func (ms *metricStore) getFieldIDOrGenerate(fieldName string, fieldType field.Type,
-	generator indexdb.IDGenerator) (uint16, error) {
+	generator diskdb.IDGenerator) (uint16, error) {
 
 	ms.mutex4Fields.RLock()
 	fm, ok := ms.fieldsMetas.getFieldMeta(fieldName)
@@ -419,7 +419,7 @@ func (ms *metricStore) flushForwardIndexTo(flusher tblstore.ForwardIndexFlusher)
 
 // flushInvertedIndexTo flushes the inverted-index of mStore to the writer
 func (ms *metricStore) flushInvertedIndexTo(flusher tblstore.InvertedIndexFlusher,
-	idGenerator indexdb.IDGenerator) error {
+	idGenerator diskdb.IDGenerator) error {
 
 	ms.mutex4Immutable.RLock()
 	ms.mutex4Mutable.RLock()

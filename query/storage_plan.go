@@ -7,14 +7,14 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 )
 
 // storageExecutePlan represents a storage level execute plan for data search,
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
 	query    *stmt.Query
-	idGetter indexdb.IDGetter
+	idGetter diskdb.IDGetter
 
 	fields map[uint16]*aggregation.AggregatorSpec
 
@@ -24,7 +24,7 @@ type storageExecutePlan struct {
 }
 
 // newStorageExecutePlan creates a storage execute plan
-func newStorageExecutePlan(index indexdb.IDGetter, query *stmt.Query) Plan {
+func newStorageExecutePlan(index diskdb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
 		idGetter: index,
 		query:    query,

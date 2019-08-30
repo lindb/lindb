@@ -3,24 +3,21 @@ package tblstore
 import (
 	"testing"
 
-	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/field"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/pkg/field"
 )
 
 func Test_MetricsNameIDReader(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockSnapShot := version.NewMockSnapshot(ctrl)
 	mockReader1 := table.NewMockReader(ctrl)
 	mockReader2 := table.NewMockReader(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader1, mockReader2}, nil).AnyTimes()
 
-	metricNameIDReader := NewMetricsNameIDReader(mockSnapShot)
+	metricNameIDReader := NewMetricsNameIDReader([]table.Reader{mockReader1, mockReader2})
 	// mock readers return nil
 	mockReader1.EXPECT().Get(uint32(1)).Return(nil)
 	mockReader2.EXPECT().Get(uint32(1)).Return(nil)
@@ -71,12 +68,10 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSnapShot := version.NewMockSnapshot(ctrl)
 	mockReader1 := table.NewMockReader(ctrl)
 	mockReader2 := table.NewMockReader(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader1, mockReader2}, nil).AnyTimes()
 
-	metaReader := NewMetricsMetaReader(mockSnapShot)
+	metaReader := NewMetricsMetaReader([]table.Reader{mockReader1, mockReader2})
 	assert.NotNil(t, metaReader)
 
 	// mock nil
@@ -117,16 +112,12 @@ func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
 	defer ctrl.Finish()
 
 	// empty readers
-	mockSnapShot1 := version.NewMockSnapshot(ctrl)
-	mockSnapShot1.EXPECT().FindReaders(gomock.Any()).Return(nil, nil).AnyTimes()
-	metaReader1 := NewMetricsMetaReader(mockSnapShot1)
+	metaReader1 := NewMetricsMetaReader(nil)
 	assert.Zero(t, metaReader1.ReadMaxFieldID(1))
 
 	// mock normal readers
-	mockSnapShot := version.NewMockSnapshot(ctrl)
 	mockReader2 := table.NewMockReader(ctrl)
-	mockSnapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockReader2}, nil).AnyTimes()
-	metaReader := NewMetricsMetaReader(mockSnapShot)
+	metaReader := NewMetricsMetaReader([]table.Reader{mockReader2})
 	_, data2 := prepareData(ctrl)
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2)
 	assert.Equal(t, uint16(6), metaReader.ReadMaxFieldID(2))
@@ -141,8 +132,7 @@ func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
 func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockSnapShot := version.NewMockSnapshot(ctrl)
-	metaReaderINTF := NewMetricsMetaReader(mockSnapShot)
+	metaReaderINTF := NewMetricsMetaReader(nil)
 	metaReader := metaReaderINTF.(*metricsMetaReader)
 
 	mockReader := table.NewMockReader(ctrl)
