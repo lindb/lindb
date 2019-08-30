@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/pkg/lockers"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
@@ -18,8 +18,8 @@ import (
 //                mock interface
 ///////////////////////////////////////////////////
 
-func makeMockIDGenerator(ctrl *gomock.Controller) *indexdb.MockIDGenerator {
-	mockGen := indexdb.NewMockIDGenerator(ctrl)
+func makeMockIDGenerator(ctrl *gomock.Controller) *diskdb.MockIDGenerator {
+	mockGen := diskdb.NewMockIDGenerator(ctrl)
 	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(uint16(1111), nil).AnyTimes()
 	mockGen.EXPECT().GenMetricID(gomock.Any()).

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/tsdb/series"
@@ -32,18 +32,18 @@ type ForwardIndexReader interface {
 
 // forwardIndexReader implements ForwardIndexReader
 type forwardIndexReader struct {
-	snapshot version.Snapshot
-	sr       *stream.Reader
-	buffer   []byte
-	dict     map[int]string
+	readers []table.Reader
+	sr      *stream.Reader
+	buffer  []byte
+	dict    map[int]string
 }
 
 // NewForwardIndexReader returns a new ForwardIndexReader
-func NewForwardIndexReader(snapshot version.Snapshot) ForwardIndexReader {
+func NewForwardIndexReader(readers []table.Reader) ForwardIndexReader {
 	return &forwardIndexReader{
-		snapshot: snapshot,
-		dict:     make(map[int]string),
-		sr:       stream.NewReader(nil)}
+		readers: readers,
+		dict:    make(map[int]string),
+		sr:      stream.NewReader(nil)}
 }
 
 // GetTagValues returns tag values by tag keys and spec version for metric level
@@ -264,15 +264,9 @@ func (r *forwardIndexReader) readStringBlockByOffsets(stringBlocks []byte, offse
 
 // getVersionBlock gets the latest block from snapshot which matches the version in forward-index-table
 func (r *forwardIndexReader) getVersionBlock(metricID uint32, version uint32) (versionBlock []byte) {
-	readers, err := r.snapshot.FindReaders(metricID)
-	if err != nil {
-		//TODO need check
-		return nil
-	}
-
 	// if we get it from the latest reader, ignore the elder readers
-	for i := len(readers) - 1; i >= 0; i-- {
-		reader := readers[i]
+	for i := len(r.readers) - 1; i >= 0; i-- {
+		reader := r.readers[i]
 		block := reader.Get(metricID)
 		if len(block) <= footerSizeAfterVersionEntries {
 			continue

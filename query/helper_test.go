@@ -5,7 +5,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 
 	"github.com/golang/mock/gomock"
 )
@@ -27,7 +27,7 @@ func MockTSDBEngine(ctrl *gomock.Controller, families ...tsdb.DataFamily) tsdb.E
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().GetSegments(gomock.Any(), gomock.Any()).Return([]tsdb.Segment{segment}).AnyTimes()
 
-	metadataIndex := indexdb.NewMockIDGetter(ctrl)
+	metadataIndex := diskdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).Return(uint16(10), field.SumField, nil).AnyTimes()
 

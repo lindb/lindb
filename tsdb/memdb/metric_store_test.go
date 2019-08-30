@@ -6,7 +6,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/field"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
@@ -218,7 +218,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGen := indexdb.NewMockIDGenerator(ctrl)
+	mockGen := diskdb.NewMockIDGenerator(ctrl)
 	// mock generate ok
 	mockGen.EXPECT().GenFieldID(uint32(100), "sum", field.SumField).Return(uint16(1), nil).AnyTimes()
 	fieldID, err := mStoreInterface.getFieldIDOrGenerate("sum", field.SumField, mockGen)
@@ -249,7 +249,7 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGen := indexdb.NewMockIDGenerator(ctrl)
+	mockGen := diskdb.NewMockIDGenerator(ctrl)
 	// fields meta sort
 	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()

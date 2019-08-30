@@ -13,20 +13,20 @@ a) Write Flow
 |                                     |
 |               Engine                |
 |                                     |
-+------+---------------------+--------+
-       |                     |
-       |                     |
-Shard  |               Shard |
-+------v-------+       +-----v--------+
-|   Memory     |       |   Memory     +----------------------------------------------------+
-|  Database    |       |  Database    +--------------+                                     |
++------+----------------------+-------+
+       |                      |
+       |                      |
+Shard  |               Shard  |
++------v-------+       +------v-------+
+| Data | Memory|       | Data | Memory+----------------------------------------------------+
+|  DB  |   DB  |       |  DB  |   DB  +--------------+                                     |
 +-----^-+------+       +-----^-+------+              |                                     |
       | |                    | |                     |                                     |
       | |                    | | ID                  |                                     |
       | |                    | | Generator           |                                     |
 +-----+-v--------------------+-v------+              |                                     |
 |                                     |              |                                     |
-|          Index Database             |              |                                     |
+|            ID Sequencer             |              |                                     |
 |                                     |              +--------------+                      |
 +------+----------------------+-------+              |              |                      |
        |                      |                      |              |                      |
@@ -42,19 +42,19 @@ b) Query flow
 
 Shard                  Shard
 +------+-------+       +-----+--------+                Suggester
-|   Memory     |       |   Memory     <--------------+ MetaGetter
-|  Database    |       |  Database    |              | Filter
+| Data | Memory|       | Data | Memory<--------------+ MetaGetter
+|  DB  |   DB  |       |  DB  |   DB  |              | Filter
 +-----^-+------+       +-----^-+------+              | DataGetter
       | |                    | |                     +----------------------
       | |                    | |
       | |           IDGetter | |
 +-----+-v--------------------+-v------+
 |                                     <----------------------------------------------------+
-|          Index Database             |                                                    |
+|            ID Sequencer             |                                                    |
 |                                     <--------------+--------------+                      |
 +------^----------------------^-------+              |              |                      |
-       |                      |                      |              |                      |
-       ^ Suggester            ^ Suggester            ^ Suggester    ^                      ^
+       |                      |                      | Suggest-     |                      |
+       ^ SuggestMetrics       ^ SuggestTagKeys       ^ TagValues    ^                      ^
        | NameIDIndexReader    | MetaIndexReader      | Filter       | MetaGetter           | DataGetter
 +------+-------+       +------+-------+       +------+-------+------+-------+       +------+-------+
 | MetricNameID |       |  MetricMeta  |       |SeriesInverted| SeriesForward|       |  MetricData  |

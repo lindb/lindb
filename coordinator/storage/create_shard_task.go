@@ -36,7 +36,7 @@ func (p *createShardProcessor) Process(ctx context.Context, task task.Task) erro
 	if err := encoding.JSONUnmarshal(task.Params, &param); err != nil {
 		return err
 	}
-	logger.GetLogger("coordinator", "createShardProcessor").
+	logger.GetLogger("coordinator", "StorageCreateShardProcessor").
 		Info("process create shard task", logger.String("params", string(task.Params)))
 	if err := p.storageService.CreateShards(param.Database, param.Engine, param.ShardIDs...); err != nil {
 		return err

@@ -35,7 +35,7 @@ func NewTaskExecutor(ctx context.Context,
 		repo:           repo,
 		executor:       executor,
 		storageService: storageService,
-		log:            logger.GetLogger("storage", "TaskExecutor"),
+		log:            logger.GetLogger("coordinator", "StorageTaskExecutor"),
 	}
 }
 

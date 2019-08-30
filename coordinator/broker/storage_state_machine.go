@@ -17,7 +17,7 @@ import (
 //go:generate mockgen -source=./storage_state_machine.go -destination=./storage_state_machine_mock.go -package=broker
 
 var (
-	storageFSMLogger = logger.GetLogger("broker", "StorageFSM")
+	storageFSMLogger = logger.GetLogger("coordinator", "BrokerStorageStateMachine")
 )
 
 // StorageStateMachine represents storage cluster state state machine.

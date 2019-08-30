@@ -51,7 +51,7 @@ func NewNodeStateMachine(ctx context.Context, currentNode models.Node, discovery
 		cancel:      cancel,
 		currentNode: currentNode,
 		nodes:       make(map[string]models.ActiveNode),
-		log:         logger.GetLogger("broker", "NodeFSM"),
+		log:         logger.GetLogger("coordinator", "BrokerNodeStateMachine"),
 	}
 	// new replica status discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath, stateMachine)

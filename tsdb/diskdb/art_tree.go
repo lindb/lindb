@@ -1,4 +1,4 @@
-package indexdb
+package diskdb
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	art "github.com/plar/go-adaptive-radix-tree"
 )
 
-//go:generate mockgen -source ./art_tree.go -destination=./art_tree_mock.go -package=indexdb
+//go:generate mockgen -source ./art_tree.go -destination=./art_tree_mock.go -package=diskdb
 
 // artTreeINTF is a serializable/deserializable Adaptive-Radix-Tree
 type artTreeINTF interface {
