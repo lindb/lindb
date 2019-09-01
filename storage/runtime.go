@@ -134,7 +134,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	factory := state.NewRepositoryFactory()
+	factory := state.NewRepositoryFactory("storage")
 	repo, err := factory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)

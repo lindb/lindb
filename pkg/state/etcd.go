@@ -16,10 +16,11 @@ import (
 type etcdRepository struct {
 	namespace string
 	client    *etcdcliv3.Client
+	logger    *logger.Logger
 }
 
 // newEtedRepository creates a new repository based on etcd storage
-func newEtedRepository(repoState config.RepoState) (Repository, error) {
+func newEtedRepository(repoState config.RepoState, owner string) (Repository, error) {
 	cfg := etcdcliv3.Config{
 		Endpoints: repoState.Endpoints,
 		// DialTimeout: config.DialTimeout * time.Second,
@@ -28,12 +29,14 @@ func newEtedRepository(repoState config.RepoState) (Repository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create etc client error:%s", err)
 	}
-	logger.GetLogger("pkg/state", "ETCDRepository").Info("new etcd client successfully",
-		logger.Any("endpoints", repoState.Endpoints))
-	return &etcdRepository{
+	repo := etcdRepository{
 		namespace: repoState.Namespace,
 		client:    cli,
-	}, nil
+		logger:    logger.GetLogger(owner, "ETCD")}
+
+	repo.logger.Info("new etcd client successfully",
+		logger.Any("endpoints", repoState.Endpoints))
+	return &repo, nil
 }
 
 // Get retrieves value for given key from etcd
@@ -83,6 +86,7 @@ func (r *etcdRepository) Close() error {
 // Heartbeat does heartbeat on the key with a value and ttl based on etcd
 func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error) {
 	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, false)
+	h.withLogger(r.logger)
 	_, err := h.grantKeepAliveLease(ctx)
 	if err != nil {
 		return nil, err
@@ -103,6 +107,7 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 func (r *etcdRepository) Elect(ctx context.Context, key string,
 	value []byte, ttl int64) (bool, <-chan Closed, error) {
 	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, true)
+	h.withLogger(r.logger)
 	success, err := h.grantKeepAliveLease(ctx)
 	if err != nil {
 		return false, nil, err

@@ -12,7 +12,7 @@ import (
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/pkg/hostutil"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 )
 
 type address struct {
@@ -31,7 +31,7 @@ func TestETCDRepo(t *testing.T) {
 func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 	var rep, err = newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 	var rep, err = newEtedRepository(config.RepoState{
 		Namespace: "/test/list",
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -85,14 +85,14 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 }
 
 func (ts *testEtcdRepoSuite) TestNew(c *check.C) {
-	_, err := newEtedRepository(config.RepoState{})
+	_, err := newEtedRepository(config.RepoState{}, "nobody")
 	c.Assert(err, check.NotNil)
 }
 
 func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 	b, err := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	if err != nil {
 		c.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func (ts *testEtcdRepoSuite) TestHeartBeat(c *check.C) {
 func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// test watch no exist path
@@ -178,7 +178,7 @@ func (ts *testEtcdRepoSuite) TestWatch(c *check.C) {
 func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -235,7 +235,7 @@ func (ts *testEtcdRepoSuite) TestGetWatchPrefix(c *check.C) {
 func (ts *testEtcdRepoSuite) TestElect(c *check.C) {
 	b, _ := newEtedRepository(config.RepoState{
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	ctx, cancel := context.WithCancel(context.Background())
 	// the key should not exist,it must be success
 	success, ch, err := b.Elect(ctx, "/lindb/breoker/master", []byte("test"), 1)
@@ -285,7 +285,7 @@ func (ts *testEtcdRepoSuite) TestBatch(c *check.C) {
 	b, _ := newEtedRepository(config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 	batch := Batch{
 		KVs: []KeyValue{
 			{"key1", []byte("value1")},
@@ -303,7 +303,7 @@ func (ts *testEtcdRepoSuite) TestTransaction(c *check.C) {
 	b, _ := newEtedRepository(config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: ts.Cluster.Endpoints,
-	})
+	}, "nobody")
 
 	txn := b.NewTransaction()
 	txn.Put("test", []byte("value"))

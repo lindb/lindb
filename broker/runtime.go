@@ -263,7 +263,7 @@ func (r *runtime) startHTTPServer() {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	r.repoFactory = state.NewRepositoryFactory()
+	r.repoFactory = state.NewRepositoryFactory("broker")
 	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
