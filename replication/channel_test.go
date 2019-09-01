@@ -1,13 +1,14 @@
 package replication
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -18,18 +19,15 @@ import (
 	"github.com/lindb/lindb/service"
 )
 
-const (
-	defaultBufferSize                 = 32
-	defaultSegmentDataFileSizeLimit   = 128 * 1024 * 1024
-	defaultRemoveTaskIntervalInSecond = 60
-)
-
 var replicationConfig = config.ReplicationChannel{
 	Dir:                        "/tmp/broker/replication",
-	BufferSize:                 defaultBufferSize,
-	SegmentFileSize:            defaultSegmentDataFileSizeLimit,
-	RemoveTaskIntervalInSecond: defaultRemoveTaskIntervalInSecond,
+	BufferSize:                 32,
+	SegmentFileSize:            128 * 1024 * 1024,
+	RemoveTaskIntervalInSecond: 60,
 	ReportInterval:             1,
+	FlushIntervalInSecond:      0,
+	CheckFlushIntervalInSecond: 1,
+	BufferSizeLimit:            0,
 }
 
 func TestChannelManager_GetChannel(t *testing.T) {
@@ -48,21 +46,12 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	replicationConfig.Dir = dirPath
 	cm := NewChannelManager(replicationConfig, nil, replicatorService)
 
-	if _, err := cm.GetChannel("database", 0); err == nil {
-		t.Fatal("should be error")
-	}
-
 	_, err := cm.CreateChannel("database", 2, 2)
 	if err == nil {
 		t.Fatal("should be error")
 	}
 
 	ch1, err := cm.CreateChannel("database", 3, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ch11, err := cm.GetChannel("database", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,15 +66,56 @@ func TestChannelManager_GetChannel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, ch11, ch1)
 	assert.Equal(t, ch111, ch1)
 
-	_, err = cm.GetChannel("database", 1)
-	if err == nil {
-		t.Fatal("should be error")
+	cm.Close()
+}
+
+func TestChannelManager_Write(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	defer func() {
+		if err := os.RemoveAll(dirPath); err != nil {
+			t.Error(err)
+		}
+		ctrl.Finish()
+	}()
+
+	replicatorService := service.NewMockReplicatorService(ctrl)
+	replicatorService.EXPECT().Report(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+
+	replicationConfig.Dir = dirPath
+	cm := NewChannelManager(replicationConfig, nil, replicatorService)
+
+	_, err := cm.CreateChannel("database", 1, 0)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	cm.Close()
+	metricList := &field.MetricList{
+		Database: "database",
+		Metrics: []*field.Metric{
+			{
+				Name:      "name",
+				Timestamp: time.Now().Unix() * 1000,
+				Tags:      map[string]string{"tagKey": "tagVal"},
+				Fields: []*field.Field{
+					{
+						Name: "sum",
+						Field: &field.Field_Sum{
+							Sum: &field.Sum{
+								Value: 1.0,
+							}},
+					},
+				},
+			},
+		},
+	}
+
+	err = cm.Write(metricList)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestChannel_GetOrCreateReplicator(t *testing.T) {
@@ -170,7 +200,7 @@ func TestChannel_WriteFail(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ch.Write(context.TODO(), []byte("123")); err != nil {
+	if err := ch.Write([]byte("123")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -236,7 +266,7 @@ func TestChannel_WriteSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ch.Write(context.TODO(), []byte("0")); err != nil {
+	if err := ch.Write([]byte("0")); err != nil {
 		t.Fatal(err)
 	}
 

@@ -33,11 +33,15 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			Port: 2881,
 			TTL:  1,
 		},
+		TCPServer: config.TCPServer{Port: 2882},
 		ReplicationChannel: config.ReplicationChannel{
 			Dir:                        "/tmp/broker/replication",
 			BufferSize:                 32,
 			SegmentFileSize:            128 * 1024 * 1024,
 			RemoveTaskIntervalInSecond: 60,
+			CheckFlushIntervalInSecond: 1,
+			FlushIntervalInSecond:      5,
+			BufferSizeLimit:            128 * 1024,
 		},
 	}}
 	broker := NewBrokerRuntime(cfg)

@@ -95,14 +95,14 @@ func TestWrite(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
 	assert.NotNil(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
 
@@ -128,14 +128,14 @@ func TestShard_Write_Accept(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now() + timeutil.OneHour + 10000,
 		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
 	assert.Nil(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now() - timeutil.OneHour - 10000,
 		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
 	shardINTF.Close()

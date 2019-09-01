@@ -1,33 +1,45 @@
 package rpc
 
 import (
+	"errors"
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/golang/mock/gomock"
 )
 
-func TestTCPServer(t *testing.T) {
-	server := NewTCPServer(":9000")
-	go func() {
-		_ = server.Start()
-	}()
-	assert.NotNil(t, server.GetServer())
-	server1 := NewTCPServer(":9000")
+func TestNewTCPServer(t *testing.T) {
+	s := NewTCPServer(":111111111", nil)
+	if s.Start() == nil {
+		t.Fatal("should be error")
+	}
 
-	// wait server start finish
-	time.Sleep(10 * time.Millisecond)
-	err := server1.Start()
-	assert.NotNil(t, err)
+	ctl := gomock.NewController(t)
+	mockTCPHandler := NewMockTCPHandler(ctl)
+	mockTCPHandler.EXPECT().Handle(gomock.Any()).Return(errors.New("mock errors"))
 
-	time.Sleep(10 * time.Millisecond)
-	server.Stop()
+	s = NewTCPServer(":9000", mockTCPHandler)
 
 	go func() {
-		_ = server1.Start()
+		if err := s.Start(); err != nil {
+			fmt.Printf("tcp server start err:%v", err)
+		}
 	}()
-	time.Sleep(10 * time.Millisecond)
-	server1.Stop()
 
-	time.Sleep(10 * time.Millisecond)
+	// wait to server to start
+	time.Sleep(time.Millisecond * 20)
+
+	conn, err := net.Dial("tcp", ":9000")
+	assert.Nil(t, err)
+
+	// wait for server to handler
+	time.Sleep(time.Millisecond * 20)
+	err = conn.Close()
+	assert.Nil(t, err)
+
+	s.Stop()
 }

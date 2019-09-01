@@ -10,6 +10,7 @@ type BrokerKernel struct {
 	Coordinator        RepoState          `toml:"coordinator"`
 	User               User               `toml:"user"`
 	Server             Server             `toml:"server"`
+	TCPServer          TCPServer          `toml:"tcpServer"`
 	ReplicationChannel ReplicationChannel `toml:"replicationChannel"`
 }
 
@@ -30,6 +31,10 @@ type User struct {
 	Password string `toml:"password" json:"password"`
 }
 
+type TCPServer struct {
+	Port uint16 `toml:"port"`
+}
+
 // ReplicationChannel represents config for data replication in broker.
 type ReplicationChannel struct {
 	Dir                        string `toml:"path"`
@@ -37,6 +42,12 @@ type ReplicationChannel struct {
 	SegmentFileSize            int    `toml:"segmentFileSize"`
 	RemoveTaskIntervalInSecond int    `toml:"remoteTaskIntervalInSecond"`
 	ReportInterval             int    `toml:"reportInterval"` // replicator state report interval
+	// interval for check flush
+	CheckFlushIntervalInSecond int `toml:"checkFlushIntervalInSecond"`
+	// interval for flush
+	FlushIntervalInSecond int `toml:"flushIntervalInSecond"`
+	//buffer size limit for batch bytes before append to queue
+	BufferSizeLimit int `toml:"bufferSizeLimit"`
 }
 
 // NewDefaultBrokerCfg creates broker default config

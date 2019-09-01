@@ -2,18 +2,19 @@ syntax = "proto3";
 
 package broker;
 
+
 message WriteRequest {
     string cluster = 1;
     string database = 2;
-    int32 hash = 3;
-    bytes data = 4;
+    bytes data = 3;
 }
 
 message WriteResponse {
-    string msg = 1;
+    int32 code = 1;
+    string message = 2;
 }
 
 service BrokerService {
-    rpc Write (WriteRequest) returns (WriteResponse) {
+    rpc Write (stream WriteRequest) returns (stream WriteResponse) {
     }
 }

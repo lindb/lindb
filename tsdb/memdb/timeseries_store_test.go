@@ -47,8 +47,9 @@ func Test_tStore_write(t *testing.T) {
 	err := tStore.write(
 		&pb.Metric{
 			Fields: []*pb.Field{
-				{Name: "sum", Field: &pb.Field_Sum{}},
-				{Name: "min", Field: &pb.Field_Min{}},
+				{Name: "sum", Field: &pb.Field_Sum{Sum: &pb.Sum{
+					Value: 1.0,
+				}}},
 				{Name: "unknown", Field: nil}},
 		}, writeContext{
 			metricID:            1,
