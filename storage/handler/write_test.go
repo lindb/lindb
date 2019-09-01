@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/replication"
@@ -49,6 +51,7 @@ func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 
 func TestWriter_Next(t *testing.T) {
 	ctl := gomock.NewController(t)
+	defer ctl.Finish()
 	sm := replication.NewMockSequenceManager(ctl)
 	s := replication.NewMockSequence(ctl)
 
@@ -65,12 +68,29 @@ func TestWriter_Next(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	assert.Equal(t, seq, resp.Seq)
+
+	// not metadata
+	ctx = context.TODO()
+	_, err = writer.Next(ctx, &storage.NextSeqRequest{
+		Database: database,
+		ShardID:  shardID,
+	})
+	assert.NotNil(t, err)
+
+	ctx = mockContext(database, shardID, node)
+	sm.EXPECT().GetSequence(database, shardID, node).Return(nil, false)
+	sm.EXPECT().CreateSequence(database, shardID, node).Return(nil, fmt.Errorf("err"))
+	_, err = writer.Next(ctx, &storage.NextSeqRequest{
+		Database: database,
+		ShardID:  shardID,
+	})
+	assert.NotNil(t, err)
 }
 
 func TestWriter_Reset(t *testing.T) {
 	ctl := gomock.NewController(t)
+	defer ctl.Finish()
 	sm := replication.NewMockSequenceManager(ctl)
 	s := replication.NewMockSequence(ctl)
 
@@ -89,10 +109,71 @@ func TestWriter_Reset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// not metadata
+	ctx = context.TODO()
+	_, err = writer.Reset(ctx, &storage.ResetSeqRequest{
+		Database: database,
+		ShardID:  shardID,
+		Seq:      seq,
+	})
+	assert.NotNil(t, err)
+
+	ctx = mockContext(database, shardID, node)
+	sm.EXPECT().GetSequence(database, shardID, node).Return(nil, false)
+	sm.EXPECT().CreateSequence(database, shardID, node).Return(nil, fmt.Errorf("err"))
+	_, err = writer.Reset(ctx, &storage.ResetSeqRequest{
+		Database: database,
+		ShardID:  shardID,
+		Seq:      seq,
+	})
+	assert.NotNil(t, err)
 }
 
-func TestWriter_WriteSuccess(t *testing.T) {
+func TestWriter_Write_Fail(t *testing.T) {
 	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+	sm := replication.NewMockSequenceManager(ctl)
+	storageSRV := service.NewMockStorageService(ctl)
+
+	writer := NewWriter(storageSRV, sm)
+	stream := storage.NewMockWriteService_WriteServer(ctl)
+	stream.EXPECT().Context().Return(context.TODO())
+	err := writer.Write(stream)
+	assert.NotNil(t, err)
+
+	sm.EXPECT().GetSequence(database, shardID, node).Return(nil, false)
+	sm.EXPECT().CreateSequence(database, shardID, node).Return(nil, fmt.Errorf("err"))
+	stream.EXPECT().Context().Return(mockContext(database, shardID, node))
+	err = writer.Write(stream)
+	assert.NotNil(t, err)
+
+	s := replication.NewMockSequence(ctl)
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
+	stream.EXPECT().Context().Return(mockContext(database, shardID, node))
+	storageSRV.EXPECT().GetShard(database, shardID).Return(nil)
+	err = writer.Write(stream)
+	assert.NotNil(t, err)
+
+	shard := tsdb.NewMockShard(ctl)
+	stream.EXPECT().Context().Return(mockContext(database, shardID, node)).AnyTimes()
+	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true).AnyTimes()
+	storageSRV.EXPECT().GetShard(database, shardID).Return(shard).AnyTimes()
+	stream.EXPECT().Recv().Return(nil, io.EOF)
+	_ = writer.Write(stream)
+	assert.Nil(t, nil)
+
+	gomock.InOrder(
+		stream.EXPECT().Recv().Return(&storage.WriteRequest{}, nil),
+		stream.EXPECT().Recv().Return(nil, fmt.Errorf("err")),
+	)
+	err = writer.Write(stream)
+	assert.NotNil(t, err)
+}
+
+func TestWriter_Write_Success(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
 	sm := replication.NewMockSequenceManager(ctl)
 	s := replication.NewMockSequence(ctl)
 
@@ -137,6 +218,7 @@ func TestWriter_WriteSuccess(t *testing.T) {
 
 func TestWriter_WriteSeqNotMatch(t *testing.T) {
 	ctl := gomock.NewController(t)
+	defer ctl.Finish()
 	sm := replication.NewMockSequenceManager(ctl)
 	s := replication.NewMockSequence(ctl)
 
@@ -166,6 +248,25 @@ func TestWriter_WriteSeqNotMatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("should be error")
 	}
+}
+
+func TestWrite_parse_ctx(t *testing.T) {
+	_, _, _, err := parseCtx(context.TODO())
+	assert.NotNil(t, err)
+
+	ctx := metadata.NewIncomingContext(context.TODO(), metadata.Pairs("metaKeyLogicNode", "1.1.1.1:9000"))
+	_, _, _, err = parseCtx(ctx)
+	assert.NotNil(t, err)
+	ctx = metadata.NewIncomingContext(context.TODO(), metadata.Pairs("metaKeyLogicNode", "1.1.1.1:9000", "metaKeyDatabase", "db"))
+	_, _, _, err = parseCtx(ctx)
+	assert.NotNil(t, err)
+	db, shard, node, err := parseCtx(mockContext("db", int32(10), models.Node{IP: "1.1.1.1", Port: 9000}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, db, "db")
+	assert.Equal(t, shard, int32(10))
+	assert.Equal(t, models.Node{IP: "1.1.1.1", Port: 9000}, *node)
 }
 
 func mockStorage(ctl *gomock.Controller, db string, shardID int32, shard tsdb.Shard) service.StorageService {
