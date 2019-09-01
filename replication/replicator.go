@@ -168,7 +168,6 @@ func (r *replicator) recvLoop() {
 		}
 
 		// todo@TianliangXia use resp.curSeq for sliding window control
-
 		// ackSeq could be nil, means no ack signal
 		ack, ok := resp.Ack.(*storage.WriteResponse_AckSeq)
 		if ok {
@@ -196,6 +195,9 @@ func (r *replicator) initClient() {
 		nextSeq, err := r.remoteNextSeq()
 		if err != nil {
 			r.logger.Error("recvLoop get remote next seq error", logger.Error(err))
+			// typically CreateWriteServiceClient won't return err if remote target is unavailable(async dial), the real rpc call will.
+			// sleep to avoid dead for loop
+			time.Sleep(time.Second)
 			continue
 		}
 
@@ -298,7 +300,7 @@ func (r *replicator) sendLoop() {
 			Replicas: replicas,
 		}
 
-		// todo debug level
+		//todo debug level
 		r.logger.Info("send replicas",
 			logger.Int64("begin", replicas[0].Seq),
 			logger.Int64("end", replicas[len(replicas)-1].Seq))

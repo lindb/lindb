@@ -107,10 +107,10 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, client)
 
-	server := NewTCPServer(":9000")
-	common.RegisterTaskServiceServer(server.GetServer(), handler)
+	grpcServer := NewGRPCServer(":9000")
+	common.RegisterTaskServiceServer(grpcServer.GetServer(), handler)
 	go func() {
-		_ = server.Start()
+		_ = grpcServer.Start()
 	}()
 
 	// wait server start finish
@@ -119,5 +119,5 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	_, _ = factory.CreateTaskClient(target)
 
 	time.Sleep(10 * time.Millisecond)
-	server.Stop()
+	grpcServer.Stop()
 }

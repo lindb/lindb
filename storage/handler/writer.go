@@ -8,6 +8,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	streamIO "github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/field"
@@ -92,9 +93,9 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			continue
 		}
 
-		// nextSeq means the sequence of replica wanted
-		for _, rep := range req.Replicas {
-			seq := rep.Seq
+		// nextSeq means the sequence replica wanted
+		for _, replica := range req.Replicas {
+			seq := replica.Seq
 
 			hs := sequence.GetHeadSeq()
 			if hs != seq {
@@ -102,22 +103,10 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 				return errors.New("seq num not match")
 			}
 
+			w.handleReplica(replica)
+
 			sequence.SetHeadSeq(hs + 1)
 
-			metric := &field.Metric{}
-			//TODO need modify
-			err := metric.Unmarshal(rep.Data)
-			if err != nil {
-				w.logger.Error("unmarshal metric", logger.Error(err))
-				continue
-			}
-			w.logger.Info("receive metric", logger.Any("metric", rep.Data))
-
-			//TODO write metric, need handle panic
-			if err := shard.Write(metric); err != nil {
-				w.logger.Error("write metric fail", logger.Error(err))
-				continue
-			}
 		}
 
 		resp := &storage.WriteResponse{
@@ -135,6 +124,37 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 	}
 }
 
+func (w *Writer) handleReplica(replica *storage.Replica) {
+	reader := streamIO.NewReader(replica.Data)
+	for !reader.Empty() {
+		bytesLen := reader.ReadUvarint32()
+
+		bytes := reader.ReadBytes(int(bytesLen))
+
+		if err := reader.Error(); err != nil {
+			w.logger.Error("read metricList bytes from replica", logger.Error(err))
+			break
+		}
+
+		var metricList field.MetricList
+		err := metricList.Unmarshal(bytes)
+		if err != nil {
+			w.logger.Error("unmarshal metricList", logger.Error(err))
+			continue
+		}
+
+		//todo DEBUG level
+		w.logger.Info("receive metricList", logger.Any("metricList", metricList))
+
+		//TODO write metric, need handle panic
+		//err = shard.Write(metric)
+		//if err != nil {
+		//	logger.GetLogger("write").Error("write metric", logger.Error(err))
+		//	continue
+		//}
+	}
+}
+
 func getLogicNodeFromCtx(ctx context.Context) (*models.Node, error) {
 	return rpc.GetLogicNodeFromContext(ctx)
 }
@@ -142,19 +162,16 @@ func getLogicNodeFromCtx(ctx context.Context) (*models.Node, error) {
 func parseCtx(ctx context.Context) (database string, shardID int32, logicNode *models.Node, err error) {
 	logicNode, err = rpc.GetLogicNodeFromContext(ctx)
 	if err != nil {
-		return "", 0, nil, err
+		return
 	}
 
 	database, err = rpc.GetDatabaseFromContext(ctx)
 	if err != nil {
-		return "", 0, nil, err
+		return
 	}
 
 	shardID, err = rpc.GetShardIDFromContext(ctx)
-	if err != nil {
-		return "", 0, nil, err
-	}
-	return database, shardID, logicNode, err
+	return
 }
 
 func (w *Writer) getSequence(database string, shardID int32, logicNode models.Node) (replication.Sequence, error) {

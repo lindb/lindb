@@ -52,7 +52,7 @@ type runtime struct {
 	cancel context.CancelFunc
 
 	node         models.Node
-	server       rpc.TCPServer
+	server       rpc.GRPCServer
 	repo         state.Repository
 	registry     discovery.Registry
 	taskExecutor *task.TaskExecutor
@@ -199,7 +199,7 @@ func (r *runtime) buildServiceDependency() error {
 
 // startTCPServer starts tcp server
 func (r *runtime) startTCPServer() {
-	r.server = rpc.NewTCPServer(fmt.Sprintf(":%d", r.node.Port))
+	r.server = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.node.Port))
 
 	// bind rpc handlers
 	r.bindRPCHandlers()

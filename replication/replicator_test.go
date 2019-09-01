@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/pkg/stream"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -75,8 +77,6 @@ r.streamClient.Recv() block, then return error
 fanOut consumer and get 7 ~ 15
 
 stop
-
-
 */
 
 var (
@@ -93,13 +93,26 @@ func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 	for i := seqBegin; i < seqEnd; i++ {
 		replicas[i-seqBegin] = &storage.Replica{
 			Seq:  i,
-			Data: []byte(strconv.Itoa(int(i))),
+			Data: buildMessageBytes(int(i)),
 		}
 	}
 	wr := &storage.WriteRequest{
 		Replicas: replicas,
 	}
 	return wr, fmt.Sprintf("[%d,%d)", seqBegin, seqEnd)
+}
+
+// messageLen, message
+func buildMessageBytes(seq int) []byte {
+	numInBytes := []byte(strconv.Itoa(seq))
+	buf := stream.NewBufferWriter(nil)
+	buf.PutUvarint32(uint32(len(numInBytes)))
+	buf.PutBytes(numInBytes)
+	bytes, err := buf.Bytes()
+	if err != nil {
+		panic(err)
+	}
+	return bytes
 }
 
 func TestSimple(t *testing.T) {
@@ -314,7 +327,7 @@ func TestNormalReplication(t *testing.T) {
 
 	for i := 5; i < 20; i++ {
 		mockFanOut.EXPECT().Consume().Return(int64(i))
-		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
+		mockFanOut.EXPECT().Get(int64(i)).Return(buildMessageBytes(i), nil)
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
@@ -397,13 +410,13 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 	// first time
 	for i := 5; i < 15; i++ {
 		mockFanOut.EXPECT().Consume().Return(int64(i))
-		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
+		mockFanOut.EXPECT().Get(int64(i)).Return(buildMessageBytes(i), nil)
 	}
 
 	// second time
 	for i := 7; i < 15; i++ {
 		mockFanOut.EXPECT().Consume().Return(int64(i))
-		mockFanOut.EXPECT().Get(int64(i)).Return([]byte(strconv.Itoa(i)), nil)
+		mockFanOut.EXPECT().Get(int64(i)).Return(buildMessageBytes(i), nil)
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
