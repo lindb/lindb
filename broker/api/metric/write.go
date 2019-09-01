@@ -1,7 +1,6 @@
 package metric
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/lindb/lindb/broker/api"
@@ -32,21 +31,21 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
+				Value: 1.0,
+			}}},
 		},
 	}
 
-	data, _ := metric.Marshal()
+	metricList := &field.MetricList{
+		Database: databaseName,
+		Metrics:  []*field.Metric{metric},
+	}
 
-	ch, err := m.cm.GetChannel(databaseName, 0)
-	if err != nil {
+	if err := m.cm.Write(metricList); err != nil {
 		api.Error(w, err)
 		return
 	}
 
-	if err := ch.Write(context.TODO(), data); err != nil {
-		api.Error(w, err)
-		return
-	}
 	api.OK(w, "ok")
 }

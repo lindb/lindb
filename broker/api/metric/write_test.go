@@ -1,7 +1,7 @@
 package metric
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -25,7 +25,7 @@ func TestWriteAPI_Sum(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	cm.EXPECT().Write(gomock.Any()).Return(errors.New("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
 		URL:            "/metric/sum?db=dal&cluster=dal",
@@ -33,17 +33,7 @@ func TestWriteAPI_Sum(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	ch := replication.NewMockChannel(ctrl)
-	cm.EXPECT().GetChannel(gomock.Any(), gomock.Any()).Return(ch, nil).AnyTimes()
-	ch.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/sum?db=dal&cluster=dal",
-		HandlerFunc:    api.Sum,
-		ExpectHTTPCode: 500,
-	})
-
-	ch.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
+	cm.EXPECT().Write(gomock.Any()).Return(nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
 		URL:            "/metric/sum?db=dal&cluster=dal",

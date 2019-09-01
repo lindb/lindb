@@ -1,13 +1,21 @@
 package replication
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/lindb/lindb/pkg/stream"
+
+	"github.com/segmentio/fasthash/fnv1a"
+
+	"github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
@@ -29,11 +37,8 @@ var log = logger.GetLogger("replication", "ChannelManager")
 
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
-	// GetChannel returns the channel for specific database and hash.
-	// Error is returned when database is invalid or the total num of Channels
-	// for a database is less than the numOfShard.
-	GetChannel(database string, hash int32) (Channel, error)
-
+	// Write writes a MetricList, the manager handler the database, sharding things.
+	Write(list *field.MetricList) error
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
@@ -61,6 +66,7 @@ type channelManager struct {
 	databaseShardsMap sync.Map
 	// lock for channelMap
 	lock4map sync.Mutex
+	logger   *logger.Logger
 }
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
@@ -74,34 +80,63 @@ func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactor
 		cfg:               cfg,
 		fct:               fct,
 		replicatorService: replicatorService,
+		logger:            logger.GetLogger("replication", "channelManager"),
 	}
 	cm.scheduleStateReport()
 	return cm
 }
 
-// GetChannel returns the channel for specific database and hash.
-// Error is returned when database is invalid or the total num of Channels
-// for a database is less than the numOfShard.
-func (cm *channelManager) GetChannel(database string, hash int32) (Channel, error) {
-	shardVal, ok := cm.databaseShardsMap.Load(database)
+// Write writes a MetricList, the manager handler the database, sharding things.
+func (cm *channelManager) Write(metricList *field.MetricList) error {
+	shardVal, ok := cm.databaseShardsMap.Load(metricList.Database)
 	if !ok {
-		return nil, fmt.Errorf("channel for  database:%s not found", database)
+		return fmt.Errorf("database %s not found", metricList.Database)
 	}
+
+	// sharding metrics to shards
 	numOfShard := shardVal.(int32)
-	shardID := hash % numOfShard
-	if shardID < 0 {
-		shardID = -shardID
+	numOfMetric := len(metricList.Metrics)
+	avgLen := numOfMetric/int(numOfShard) + 1
+
+	metricsMap := make(map[int32][]*field.Metric, numOfShard)
+	for _, metric := range metricList.Metrics {
+		hash := metricHash(metric)
+		shardID := int32(hash) % numOfShard
+		l, ok := metricsMap[shardID]
+		if !ok {
+			l = make([]*field.Metric, 0, avgLen)
+		}
+		l = append(l, metric)
+		metricsMap[shardID] = l
 	}
 
-	channelID := cm.buildChannelID(database, shardID)
-	channelVal, ok := cm.channelMap.Load(channelID)
+	for shardID, l := range metricsMap {
+		channelID := cm.buildChannelID(metricList.Database, shardID)
+		channelVal, ok := cm.channelMap.Load(channelID)
 
-	if !ok {
-		return nil, fmt.Errorf("channel for database:%s, shardID:%d not found", database, shardID)
+		if !ok {
+			// broker error, do not return to client
+			cm.logger.Error("channel not found", logger.String("database", metricList.Database), logger.Int32("shardID", shardID))
+			continue
+		}
+
+		ch := channelVal.(Channel)
+
+		ml := &field.MetricList{
+			Metrics: l,
+		}
+
+		data, err := ml.Marshal()
+		if err != nil {
+			// won't happen
+			return err
+		}
+
+		if err := ch.Write(data); err != nil {
+			cm.logger.Error("channel write data error", logger.String("database", metricList.Database), logger.Int32("shardID", shardID))
+		}
 	}
-
-	ch := channelVal.(Channel)
-	return ch, nil
+	return nil
 }
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
@@ -206,16 +241,36 @@ func (cm *channelManager) buildChannelID(database string, shardID int32) string 
 	return database + "/" + strconv.Itoa(int(shardID))
 }
 
+func metricHash(metric *field.Metric) uint32 {
+	tagsLen := len(metric.Tags)
+	if tagsLen == 0 {
+		return 0
+	}
+
+	tagValues := make([]string, 0, tagsLen)
+	for _, val := range metric.Tags {
+		tagValues = append(tagValues, val)
+	}
+
+	sort.Strings(tagValues)
+
+	hash := fnv1a.HashString32(tagValues[0])
+	for i := 1; i < tagsLen; i++ {
+		hash = fnv1a.AddString32(hash, tagValues[i])
+	}
+	return hash
+}
+
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
 	ShardID() int32
-	// Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
+	// Write writes the data into the channel, ErrCanceled is returned when the channel is canceled before
 	// data is wrote successfully.
 	// Concurrent safe.
-	Write(cxt context.Context, data []byte) error
+	Write(data []byte) error
 	// GetOrCreateReplicator get a existed or creates a new replicator for target.
 	// Concurrent safe.
 	GetOrCreateReplicator(target models.Node) (Replicator, error)
@@ -226,7 +281,7 @@ type Channel interface {
 // channel implements Channel.
 type channel struct {
 	// context to close channel
-	cxt     context.Context
+	ctx     context.Context
 	dirPath string
 	// factory to get WriteClient
 	fct      rpc.ClientStreamFactory
@@ -236,6 +291,16 @@ type channel struct {
 	q queue.FanOutQueue
 	// chanel to convert multiple goroutine write to single goroutine write to FanOutQueue
 	ch chan []byte
+
+	// last flush time
+	lastFlushTime time.Time
+	// interval for check flush
+	checkFlushInterval time.Duration
+	// interval for flush
+	flushInterval time.Duration
+	//buffer size limit for batch bytes before append to queue
+	bufferSizeLimit int
+
 	// target -> replicator map
 	replicatorMap sync.Map
 	// lock to protect replicatorMap
@@ -255,14 +320,18 @@ func newChannel(cxt context.Context, cfg config.ReplicationChannel, database str
 	}
 
 	c := &channel{
-		cxt:      cxt,
-		dirPath:  dirPath,
-		fct:      fct,
-		database: database,
-		shardID:  shardID,
-		q:        q,
-		ch:       make(chan []byte, cfg.BufferSize),
-		logger:   logger.GetLogger("replication", "Channel"),
+		ctx:                cxt,
+		dirPath:            dirPath,
+		fct:                fct,
+		database:           database,
+		shardID:            shardID,
+		q:                  q,
+		ch:                 make(chan []byte, cfg.BufferSize),
+		lastFlushTime:      time.Now(),
+		checkFlushInterval: time.Duration(cfg.CheckFlushIntervalInSecond) * time.Second,
+		flushInterval:      time.Duration(cfg.FlushIntervalInSecond) * time.Second,
+		bufferSizeLimit:    cfg.BufferSizeLimit,
+		logger:             logger.GetLogger("replication", "Channel"),
 	}
 
 	c.initAppendTask()
@@ -319,36 +388,82 @@ func (c *channel) Targets() []models.Node {
 // Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
 // data is wrote successfully.
 // Concurrent safe.
-func (c *channel) Write(cxt context.Context, data []byte) error {
+func (c *channel) Write(data []byte) error {
 	select {
 	case c.ch <- data:
 		return nil
-	case <-cxt.Done():
+	case <-c.ctx.Done():
 		return ErrCanceled
 	}
 }
 
-// initAppendTask starts a goroutine to consume data from ch and append to q.
+// initAppendTask starts a goroutine to consume data from ch and batch append to q.
 func (c *channel) initAppendTask() {
 	go func() {
-		for data := range c.ch {
-			_, err := c.q.Append(data)
-			if err != nil {
-				// todo retry?
-				c.logger.Error("append data error", logger.String("dirPath", c.dirPath),
-					logger.Error(err))
+		// on avg 2 * limit could avoid buffer grow
+		buffer := stream.NewBufferWriter(bytes.NewBuffer(make([]byte, 0, 2*c.bufferSizeLimit)))
+		ticker := time.NewTicker(c.checkFlushInterval)
+		defer ticker.Stop()
+
+	loop:
+		for {
+			select {
+			case <-c.ctx.Done():
+				break loop
+			case data := <-c.ch:
+				appendWithVarLen(buffer, data)
+			case <-ticker.C:
 			}
+			// check
+			c.checkFlush(buffer)
 		}
 
-		c.logger.Info("close queue for channel", logger.String("dirPath", c.dirPath))
-		c.q.Close()
+		// try to drain data from chan
+	closeLoop:
+		for {
+			select {
+			case data := <-c.ch:
+				appendWithVarLen(buffer, data)
+			default:
+				break closeLoop
+			}
+			c.checkFlush(buffer)
+		}
+
+		c.checkFlush(buffer)
+		c.logger.Info("close channel append routine", logger.String("database", c.Database()), logger.Int32("shardID", c.ShardID()))
 	}()
+}
+
+func (c *channel) checkFlush(buffer *stream.BufferWriter) {
+	if buffer.Len() == 0 {
+		return
+	}
+	now := time.Now()
+	if buffer.Len() > c.bufferSizeLimit || now.After(c.lastFlushTime.Add(c.flushInterval)) {
+		data, err := buffer.Bytes()
+		if err != nil {
+			c.logger.Error("checkFlush err", logger.Error(err))
+			return
+		}
+		_, err = c.q.Append(data)
+		if err != nil {
+			c.logger.Error("append to queue err", logger.Error(err))
+		}
+		buffer.Reset()
+		c.lastFlushTime = now
+	}
+}
+
+func appendWithVarLen(binary *stream.BufferWriter, data []byte) {
+	binary.PutUvarint32(uint32(len(data)))
+	binary.PutBytes(data)
 }
 
 // watchClose waits on the context done then close the ch.
 func (c *channel) watchClose() {
 	go func() {
-		<-c.cxt.Done()
+		<-c.ctx.Done()
 		c.lock4map.RLock()
 		defer c.lock4map.RUnlock()
 		c.replicatorMap.Range(func(key, value interface{}) bool {
@@ -356,7 +471,5 @@ func (c *channel) watchClose() {
 			rep.Stop()
 			return true
 		})
-		// todo avoid Write send data to closed channel.
-		close(c.ch)
 	}()
 }

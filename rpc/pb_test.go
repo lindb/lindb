@@ -14,7 +14,7 @@ func TestPBModel(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now(),
 		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: 1.0}},
+			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{Value: 1.0}}},
 		},
 	}
 

@@ -5,16 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
@@ -40,13 +42,48 @@ func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
 	for i := seqBegin; i < seqEnd; i++ {
 		replicas[i-seqBegin] = &storage.Replica{
 			Seq:  i,
-			Data: []byte(strconv.Itoa(int(i))),
+			Data: buildMessageBytes(),
 		}
 	}
 	wr := &storage.WriteRequest{
 		Replicas: replicas,
 	}
 	return wr, fmt.Sprintf("[%d,%d)", seqBegin, seqEnd)
+}
+
+func buildMetricList() *field.MetricList {
+	return &field.MetricList{Database: "db",
+		Metrics: []*field.Metric{{
+			Name:      "name",
+			Timestamp: time.Now().Unix() * 1000,
+			Tags:      map[string]string{"tagKey": "tagVal"},
+			Fields: []*field.Field{{
+				Name: "sum",
+				Field: &field.Field_Sum{
+					Sum: &field.Sum{
+						Value: 1.0,
+					},
+				},
+			}},
+		}}}
+}
+
+// messageLen, message
+func buildMessageBytes() []byte {
+	ml := buildMetricList()
+	mlBytes, err := ml.Marshal()
+	if err != nil {
+		panic(err)
+	}
+
+	buf := stream.NewBufferWriter(nil)
+	buf.PutUvarint32(uint32(len(mlBytes)))
+	buf.PutBytes(mlBytes)
+	bytes, err := buf.Bytes()
+	if err != nil {
+		panic(err)
+	}
+	return bytes
 }
 
 func TestWriter_Next(t *testing.T) {
@@ -180,6 +217,7 @@ func TestWriter_Write_Success(t *testing.T) {
 	var (
 		seqBeg int64 = 5
 		seqEnd int64 = 10
+		ackSeq int64 = 8
 	)
 
 	for i := seqBeg; i < seqEnd; i++ {
@@ -188,7 +226,8 @@ func TestWriter_Write_Success(t *testing.T) {
 	}
 
 	s.EXPECT().GetHeadSeq().Return(seqEnd)
-	s.EXPECT().Synced().Return(false)
+	s.EXPECT().Synced().Return(true)
+	s.EXPECT().GetAckSeq().Return(ackSeq)
 
 	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
 
@@ -206,9 +245,10 @@ func TestWriter_Write_Success(t *testing.T) {
 
 	stream.EXPECT().Send(&storage.WriteResponse{
 		CurSeq: seqEnd - 1,
-	}).Return(nil)
+		Ack:    &storage.WriteResponse_AckSeq{AckSeq: ackSeq},
+	}).Return(errors.New("send error"))
 
-	stream.EXPECT().Recv().Return(nil, errors.New("recv error"))
+	//stream.EXPECT().Recv().Return(nil, errors.New("recv error"))
 
 	err := writer.Write(stream)
 	if err == nil {

@@ -117,6 +117,7 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 	defer ts.sl.Unlock()
 
 	for _, f := range metric.Fields {
+		// todo FieldType
 		fieldType := getFieldType(f)
 		if fieldType == field.Unknown {
 			//TODO add log or metric

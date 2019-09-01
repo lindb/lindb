@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
-	brokerpb "github.com/lindb/lindb/rpc/proto/broker"
 	commonpb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
 )
@@ -67,8 +66,8 @@ type apiHandler struct {
 }
 
 type rpcHandler struct {
-	writer *handler.Writer
-	task   *parallel.TaskHandler
+	task       *parallel.TaskHandler
+	tcpHandler rpc.TCPHandler
 }
 
 type middlewareHandler struct {
@@ -90,9 +89,11 @@ type runtime struct {
 	registry      discovery.Registry
 	stateMachines *coordinator.BrokerStateMachines
 
-	server     rpc.TCPServer
+	grpcServer rpc.GRPCServer
 	handler    *rpcHandler
 	middleware *middlewareHandler
+
+	tcpServer rpc.TCPServer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -229,9 +230,14 @@ func (r *runtime) Stop() error {
 	}
 
 	// finally shutdown rpc server
-	if r.server != nil {
+	if r.grpcServer != nil {
 		r.log.Info("stopping grpc server")
-		r.server.Stop()
+		r.grpcServer.Stop()
+	}
+
+	if r.tcpServer != nil {
+		r.log.Info("stopping tcp server")
+		r.tcpServer.Stop()
 	}
 
 	r.log.Info("broker server stop complete")
@@ -350,16 +356,18 @@ func (r *runtime) buildMiddlewareDependency() {
 }
 
 func (r *runtime) startTCPServer() {
-	r.server = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.Server.Port))
+	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.Server.Port))
 
 	// bind rpc handlers
 	r.bindRPCHandlers()
 
 	go func() {
-		if err := r.server.Start(); err != nil {
+		if err := r.grpcServer.Start(); err != nil {
 			panic(err)
 		}
 	}()
+
+	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.TCPServer.Port), r.handler.tcpHandler)
 }
 
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
@@ -367,10 +375,10 @@ func (r *runtime) bindRPCHandlers() {
 	//FIXME: (stone1100) need close
 	dispatcher := parallel.NewIntermediateTaskDispatcher()
 	r.handler = &rpcHandler{
-		writer: handler.NewWriter(r.srv.channelManager),
-		task:   parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
+		task:       parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
+		tcpHandler: handler.NewTCPHandler(r.srv.channelManager),
 	}
 
-	brokerpb.RegisterBrokerServiceServer(r.server.GetServer(), r.handler.writer)
-	commonpb.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
+	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.handler.task)
+
 }

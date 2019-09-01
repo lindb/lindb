@@ -47,15 +47,16 @@ func TestTaskServerFactory(t *testing.T) {
 }
 
 func TestTaskClientFactory(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
 	oldClientConnFct := clientConnFct
-	mockClientConnFct := NewMockClientConnFactory(ctrl)
+	mockClientConnFct := NewMockClientConnFactory(ctl)
 	clientConnFct = mockClientConnFct
-	rpcServer := NewTCPServer(":9000")
-	common.RegisterTaskServiceServer(rpcServer.GetServer(), &mockTaskHandle{})
+	grpcServer := NewGRPCServer(":9000")
+	common.RegisterTaskServiceServer(grpcServer.GetServer(), &mockTaskHandle{})
 
 	go func() {
-		err := rpcServer.Start()
+		err := grpcServer.Start()
 		if err != nil {
 			fmt.Print(err)
 		}
@@ -63,11 +64,10 @@ func TestTaskClientFactory(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer func() {
 		clientConnFct = oldClientConnFct
-		ctrl.Finish()
 	}()
 
 	fct := NewTaskClientFactory(models.Node{IP: "127.0.0.1", Port: 123})
-	receiver := NewMockTaskReceiver(ctrl)
+	receiver := NewMockTaskReceiver(ctl)
 	fct.SetTaskReceiver(receiver)
 
 	target := models.Node{IP: "127.0.0.1", Port: 122}

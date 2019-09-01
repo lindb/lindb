@@ -32,11 +32,14 @@ func Test_fStore_write(t *testing.T) {
 	theFieldStore := fStore.(*fieldStore)
 	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
 
-	// unknown field
+	//unknown field
 	theFieldStore.write(&pb.Field{Name: "unknown"}, writeCtx)
 	// sum field
-	theFieldStore.write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{}}, writeCtx)
-	theFieldStore.write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{}}, writeCtx)
+	theFieldStore.write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{
+		Sum: &pb.Sum{
+			Value: 1.0,
+		},
+	}}, writeCtx)
 }
 
 func Test_fStore_timeRange(t *testing.T) {

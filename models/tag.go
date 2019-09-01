@@ -1,6 +1,9 @@
 package models
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // Tag is the key/value tag pair of a metric point.
 type Tag struct {
@@ -21,4 +24,27 @@ func NewTags(tagStr string) (theTags []Tag) {
 		theTags = append(theTags, Tag{Key: kv[0], Value: kv[1]})
 	}
 	return
+}
+
+// convert tags to string
+func TagsAsString(tags map[string]string) string {
+	tagKeyValues := make([]string, 0, len(tags))
+
+	totalLen := 0
+	for key, val := range tags {
+		keyVal := key + val
+		tagKeyValues = append(tagKeyValues, keyVal)
+		totalLen += len(keyVal)
+	}
+
+	sort.Strings(tagKeyValues)
+
+	var builder strings.Builder
+	builder.Grow(totalLen)
+
+	for _, tagKeyValue := range tagKeyValues {
+		builder.WriteString(tagKeyValue)
+	}
+
+	return builder.String()
 }

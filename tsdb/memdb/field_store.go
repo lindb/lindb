@@ -94,7 +94,7 @@ func (fs *fieldStore) write(f *pb.Field, writeCtx writeContext) {
 			sStore = newSimpleFieldStore(writeCtx.familyTime, field.GetAggFunc(field.Sum))
 			fs.insertSStore(sStore)
 		}
-		sStore.writeFloat(fields.Sum, writeCtx)
+		sStore.writeFloat(fields.Sum.Value, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}

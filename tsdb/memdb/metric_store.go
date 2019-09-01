@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -253,10 +254,11 @@ func (ms *metricStore) write(metric *pb.Metric, writeCtx writeContext) error {
 		return series.ErrTooManyTags
 	}
 	var err error
-	tStore, ok := ms.getTStore(metric.Tags)
+	tagsStr := models.TagsAsString(metric.Tags)
+	tStore, ok := ms.getTStore(tagsStr)
 	if !ok {
 		ms.mutex4Mutable.Lock()
-		tStore, err = ms.mutable.getOrCreateTStore(metric.Tags)
+		tStore, err = ms.mutable.getOrCreateTStore(tagsStr)
 		if err != nil {
 			ms.mutex4Mutable.Unlock()
 			return err

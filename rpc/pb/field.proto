@@ -3,20 +3,54 @@ syntax = "proto3";
 package field;
 
 message MetricList {
-    repeated Metric metrics = 1;
+    string database = 1;
+    repeated Metric metrics = 2;
 }
 
 message Metric {
     string name = 1;
     int64 timestamp = 2;
-    string tags = 3;
+    map<string, string> tags = 3;
     repeated Field fields = 4;
 }
+
+message Sum {
+    double value = 1;
+}
+
+message Gauge {
+    double value = 1;
+}
+
+message Summary {
+    repeated Quantile quantiles = 1;
+    double sum = 2;
+    double count = 3;
+}
+
+message Quantile {
+    double quantile = 1;
+    double value = 2;
+}
+
+message Histogram {
+    repeated Bucket buckets = 1;
+    double sum = 2;
+    double count = 3;
+}
+
+message Bucket {
+    double upperBound = 1;
+    double value = 2;
+}
+
 
 message Field {
     string name = 1;
     oneof field {
-        double sum = 100;
-        double min = 101;
+        Sum sum = 2;
+        Gauge gauge = 3;
+        Summary summary = 4;
+        Histogram histogram = 5;
     }
 }

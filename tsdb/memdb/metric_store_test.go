@@ -49,7 +49,7 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	mockTagIdx.EXPECT().tagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.NotNil(t, mStore.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
+	assert.NotNil(t, mStore.write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
 }
 
 func Test_mStore_isFull(t *testing.T) {
@@ -63,7 +63,7 @@ func Test_mStore_isFull(t *testing.T) {
 
 	mStore.mutable = mockTagIdx
 	assert.Equal(t, series.ErrTooManyTags,
-		mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
+		mStoreInterface.write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
 }
 
 func Test_mStore_write_ok(t *testing.T) {
@@ -83,7 +83,7 @@ func Test_mStore_write_ok(t *testing.T) {
 	mockTagIdx.EXPECT().getOrCreateTStore(gomock.Any()).Return(mockTStore, nil).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.Nil(t, mStoreInterface.write(&pb.Metric{Name: "metric", Tags: "test"}, writeContext{}))
+	assert.Nil(t, mStoreInterface.write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
 }
 
 func Test_mStore_resetVersion(t *testing.T) {
