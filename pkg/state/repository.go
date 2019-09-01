@@ -112,16 +112,17 @@ type WatchEventChan <-chan *Event
 
 // repositoryFactory represents a repository create factory
 type repositoryFactory struct {
+	owner string
 }
 
-// NewRepositoryFactory creates a repository factory
-func NewRepositoryFactory() RepositoryFactory {
-	return &repositoryFactory{}
+// NewRepositoryFactory creates a repository factory by owner
+func NewRepositoryFactory(owner string) RepositoryFactory {
+	return &repositoryFactory{owner: owner}
 }
 
 // CreateRepo creates state repository based on config
 func (f *repositoryFactory) CreateRepo(repoState config.RepoState) (Repository, error) {
-	return newEtedRepository(repoState)
+	return newEtedRepository(repoState, f.owner)
 }
 
 type Transaction interface {

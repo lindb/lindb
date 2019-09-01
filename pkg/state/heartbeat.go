@@ -24,7 +24,8 @@ type heartbeat struct {
 	keepaliveCh <-chan *etcd.LeaseKeepAliveResponse
 	isElect     bool
 
-	ttl int64
+	ttl    int64
+	logger *logger.Logger
 }
 
 // newHeartbeat creates heartbeat instance
@@ -38,7 +39,13 @@ func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64, isEl
 		key:     key,
 		value:   value,
 		ttl:     ttl,
+		logger:  logger.GetLogger("pkg/state", "HeartBeat"),
 	}
+}
+
+// withLogger sets a new logger
+func (h *heartbeat) withLogger(logger *logger.Logger) {
+	h.logger = logger
 }
 
 // grantKeepAliveLease grants ectd lease, if success do keepalive
@@ -67,14 +74,13 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) (bool, error) {
 
 // keepAlive does keepalive and retry,if the key should be not exist,it should retry
 func (h *heartbeat) keepAlive(ctx context.Context) {
-	log := logger.GetLogger("pkg/state", "HeartBeat")
 	var (
 		err error
 		gap = 100 * time.Millisecond
 	)
 	for {
 		if err != nil {
-			log.Error("do heartbeat keepalive error, retry.", logger.Error(err))
+			h.logger.Error("do heartbeat keepalive error, retry.", logger.Error(err))
 			time.Sleep(gap)
 			if h.isElect {
 				// retry put if not exist.if failed closes the heartbeat
