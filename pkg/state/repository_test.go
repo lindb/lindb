@@ -16,7 +16,7 @@ func TestNewRepo(t *testing.T) {
 		Endpoints: cluster.Endpoints,
 	}
 
-	factory := NewRepositoryFactory()
+	factory := NewRepositoryFactory("nobody")
 	repo, err := factory.CreateRepo(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, repo)

@@ -126,7 +126,7 @@ func (r *runtime) startETCD() error {
 // cleanupState cleans the state of previous standalone process.
 // 1. master node in etcd, because etcd will trigger master node expire event
 func (r *runtime) cleanupState() error {
-	repoFactory := state.NewRepositoryFactory()
+	repoFactory := state.NewRepositoryFactory("standalone")
 	repo, err := repoFactory.CreateRepo(r.cfg.Broker.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
