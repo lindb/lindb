@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/series"
 )
@@ -22,8 +23,11 @@ const segmentPath = "segment"
 type Shard interface {
 	// GetSegments returns segment list by interval type and time range, return nil if not match
 	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
-	// GetSeriesIDsFilter returns series index for searching series(tags)
+	// GetSeriesIDsFilter returns series index for searching series(tags),
+	// using this filter for filtering data in kv store.
 	GetSeriesIDsFilter() series.Filter
+	// GetMemoryDatabase returns memory database
+	GetMemoryDatabase() memdb.MemoryDatabase
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
@@ -32,10 +36,13 @@ type Shard interface {
 
 // shard implements Shard interface
 type shard struct {
-	id     int32
-	path   string
-	option option.EngineOption
-	memDB  memdb.MemoryDatabase
+	id      int32
+	path    string
+	option  option.EngineOption
+	memDB   memdb.MemoryDatabase
+	indexDB diskdb.IndexDatabase
+
+	//TODO codingcrush add kv store for data storage
 
 	// write accept time range
 	ahead  int64
@@ -51,7 +58,7 @@ type shard struct {
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
 // return error if fail.
-func newShard(shardID int32, path string, option option.EngineOption) (Shard, error) {
+func newShard(shardID int32, path string, index Index, option option.EngineOption) (Shard, error) {
 	if err := option.Validation(); err != nil {
 		return nil, fmt.Errorf("engine option is invalid, err:%s", err)
 	}
@@ -64,6 +71,11 @@ func newShard(shardID int32, path string, option option.EngineOption) (Shard, er
 		return nil, err
 	}
 
+	indexDB, err := index.CreateIndexDatabase(shardID)
+	if err != nil {
+		return nil, fmt.Errorf("create index database for shard[%d] error:%s", shardID, err)
+	}
+
 	// new segment for writing
 	segment, err := newIntervalSegment(intervalVal, intervalType,
 		filepath.Join(path, segmentPath, string(intervalType)))
@@ -72,7 +84,12 @@ func newShard(shardID int32, path string, option option.EngineOption) (Shard, er
 	}
 	var memDB memdb.MemoryDatabase
 	ctx, cancel := context.WithCancel(context.Background())
-	memDB, err = memdb.NewMemoryDatabase(ctx, option.TimeWindow, intervalVal, intervalType)
+	memDB, err = memdb.NewMemoryDatabase(ctx, memdb.MemoryDatabaseCfg{
+		TimeWindow:    option.TimeWindow,
+		IntervalValue: intervalVal,
+		IntervalType:  intervalType,
+		Generator:     index.GetIDSequencer(),
+	})
 	if err != nil {
 		//if create memory database error, cancel background context
 		cancel()
@@ -83,6 +100,7 @@ func newShard(shardID int32, path string, option option.EngineOption) (Shard, er
 		path:     path,
 		option:   option,
 		memDB:    memDB,
+		indexDB:  indexDB,
 		segment:  segment,
 		segments: make(map[interval.Type]IntervalSegment),
 		cancel:   cancel,
@@ -103,9 +121,14 @@ func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeR
 	return nil
 }
 
+// GetSeriesIDsFilter returns series index for searching series(tags)
 func (s *shard) GetSeriesIDsFilter() series.Filter {
-	//TODO need impl
-	return nil
+	return s.indexDB
+}
+
+// GetMemoryDatabase returns memory database
+func (s *shard) GetMemoryDatabase() memdb.MemoryDatabase {
+	return s.memDB
 }
 
 // Write writes the metric-point into memory-database.

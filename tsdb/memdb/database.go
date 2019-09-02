@@ -104,6 +104,14 @@ func (bkt *mStoresBucket) allMetricStores() (metricHashes []uint64, stores []mSt
 	return
 }
 
+// MemoryDatabaseCfg represents the memory database config
+type MemoryDatabaseCfg struct {
+	TimeWindow    int
+	IntervalValue int64
+	IntervalType  interval.Type
+	Generator     diskdb.IDGenerator
+}
+
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
 	timeWindow    int                                    // rollup window of memory-database
@@ -120,19 +128,18 @@ type memoryDatabase struct {
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
-func NewMemoryDatabase(ctx context.Context, timeWindow int,
-	intervalValue int64, intervalType interval.Type) (MemoryDatabase, error) {
-
-	timeCalc, err := interval.GetCalculator(intervalType)
+func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
+	timeCalc, err := interval.GetCalculator(cfg.IntervalType)
 	if err != nil {
 		return nil, err
 	}
 	md := memoryDatabase{
-		timeWindow:    timeWindow,
-		interval:      intervalValue,
-		intervalType:  intervalType,
+		timeWindow:    cfg.TimeWindow,
+		interval:      cfg.IntervalValue,
+		intervalType:  cfg.IntervalType,
+		generator:     cfg.Generator,
 		intervalCalc:  timeCalc,
-		blockStore:    newBlockStore(timeWindow),
+		blockStore:    newBlockStore(cfg.TimeWindow),
 		ctx:           ctx,
 		evictNotifier: make(chan struct{})}
 	for i := range md.mStoresList {
@@ -179,6 +186,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) mSto
 	var mStore mStoreINTF
 	mStore, ok := md.getMStoreByMetricHash(hash)
 	if !ok {
+		//FIXME codingcrush need check lock
 		metricID := md.generator.GenMetricID(metricName)
 
 		bucket.rwLock.Lock()

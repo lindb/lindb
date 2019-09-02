@@ -193,6 +193,7 @@ func (s *store) GetFamily(familyName string) Family {
 
 // Close closes store, then release some resource
 func (s *store) Close() error {
+	//FIXME stone1100 need if has background job doing(family compact/flush etc.)
 	if err := s.cache.Close(); err != nil {
 		s.logger.Error("close store cache error", logger.Error(err))
 	}

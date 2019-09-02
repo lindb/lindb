@@ -47,6 +47,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, 3, engine.NumOfShards())
 
 	assert.Nil(t, factory.GetEngine("no_exist"))
+	assert.NotNil(t, engine.GetIDGetter())
 
 	factory.Close()
 

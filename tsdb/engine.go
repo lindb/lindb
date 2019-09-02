@@ -43,6 +43,9 @@ type Engine interface {
 	GetIDGetter() diskdb.IDGetter
 	// Close closed engine then release resource
 	Close() error
+
+	// getIndex returns the index
+	getIndex() Index
 }
 
 // info represents a engine information about config and shards
@@ -57,6 +60,7 @@ type engine struct {
 	path   string
 	shards sync.Map
 	info   *info
+	index  Index
 
 	numOfShards int
 
@@ -100,15 +104,22 @@ func (f *engineFactory) CreateEngine(name string) (Engine, error) {
 			return nil, fmt.Errorf("load engine option from file[%s] error:%s", infoPath, err)
 		}
 	}
+	//FIXME store1100 add cfg
+	index, err := newIndex(name, f.cfg)
+	if err != nil {
+		return nil, err
+	}
 	e := &engine{
-		name: name,
-		path: enginePath,
-		info: info,
+		name:  name,
+		path:  enginePath,
+		info:  info,
+		index: index,
 	}
 	// load shards if engine is exist
 	if len(e.info.ShardIDs) > 0 {
 		for _, shardID := range e.info.ShardIDs {
-			shard, err := newShard(shardID, filepath.Join(enginePath, shardPath, fmt.Sprintf("%d", shardID)), info.Engine)
+			shard, err := newShard(shardID, filepath.Join(enginePath, shardPath, fmt.Sprintf("%d", shardID)),
+				e.getIndex(), info.Engine)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, name, err)
 			}
@@ -142,7 +153,6 @@ func (f *engineFactory) Close() {
 
 		return true
 	})
-
 }
 
 // load loads the time series engines if exist
@@ -185,7 +195,8 @@ func (e *engine) CreateShards(option option.EngineOption, shardIDs ...int32) err
 			shard = e.GetShard(shardID)
 			if shard == nil {
 				// new shard
-				shard, err := newShard(shardID, filepath.Join(e.path, shardPath, fmt.Sprintf("%d", shardID)), option)
+				shard, err := newShard(shardID, filepath.Join(e.path, shardPath, fmt.Sprintf("%d", shardID)),
+					e.getIndex(), option)
 				if err != nil {
 					e.mutex.Unlock()
 					return fmt.Errorf("cannot create shard[%d] for engine[%s] error:%s", shardID, e.name, err)
@@ -207,6 +218,11 @@ func (e *engine) CreateShards(option option.EngineOption, shardIDs ...int32) err
 	return nil
 }
 
+// getIndex returns the index
+func (e *engine) getIndex() Index {
+	return e.index
+}
+
 // GetShard returns shard by given shard id, if not exist returns nil
 func (e *engine) GetShard(shardID int32) Shard {
 	shard, _ := e.shards.Load(shardID)
@@ -219,12 +235,12 @@ func (e *engine) GetShard(shardID int32) Shard {
 
 // GetIDGetter returns id getter for metric level metadata
 func (e *engine) GetIDGetter() diskdb.IDGetter {
-	//TODO need impl
-	return nil
+	return e.index.GetIDSequencer()
 }
 
 // Close closed engine then release resource
 func (e *engine) Close() error {
+	e.index.Close()
 	//TODO impl close logic
 	return nil
 }

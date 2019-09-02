@@ -68,12 +68,9 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		return err
 	}
 
-	sequence, ok := w.sm.GetSequence(database, shardID, *logicNode)
-	if !ok {
-		sequence, err = w.sm.CreateSequence(database, shardID, *logicNode)
-		if err != nil {
-			return err
-		}
+	sequence, err := w.getSequence(database, shardID, *logicNode)
+	if err != nil {
+		return err
 	}
 
 	shard := w.storageService.GetShard(database, shardID)
@@ -117,11 +114,10 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			w.logger.Info("receive metric", logger.Any("metric", rep.Data))
 
 			//TODO write metric, need handle panic
-			//err = shard.Write(metric)
-			//if err != nil {
-			//	logger.GetLogger("write").Error("write metric", logger.Error(err))
-			//	continue
-			//}
+			if err := shard.Write(metric); err != nil {
+				w.logger.Error("write metric fail", logger.Error(err))
+				continue
+			}
 		}
 
 		resp := &storage.WriteResponse{
@@ -159,14 +155,6 @@ func parseCtx(ctx context.Context) (database string, shardID int32, logicNode *m
 		return "", 0, nil, err
 	}
 	return database, shardID, logicNode, err
-}
-
-func (w *Writer) getSequenceFromCtx(ctx context.Context) (replication.Sequence, error) {
-	database, shardID, logicNode, err := parseCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return w.getSequence(database, shardID, *logicNode)
 }
 
 func (w *Writer) getSequence(database string, shardID int32, logicNode models.Node) (replication.Sequence, error) {
