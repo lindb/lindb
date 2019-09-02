@@ -17,15 +17,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var cfg = MemoryDatabaseCfg{
+	TimeWindow:    32,
+	IntervalValue: 10 * 1000,
+	IntervalType:  interval.Day,
+}
+
 func Test_NewMemoryDatabase(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mdINTF, err := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, err := NewMemoryDatabase(ctx, cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, mdINTF)
 
-	mdINTF, err = NewMemoryDatabase(ctx, 32, 10*1000, interval.Type(3232323))
+	mdINTF, err = NewMemoryDatabase(ctx, MemoryDatabaseCfg{
+		TimeWindow:    32,
+		IntervalValue: 10 * 1000,
+		IntervalType:  interval.Type(3232323),
+	})
 	assert.Nil(t, mdINTF)
 	assert.NotNil(t, err)
 }
@@ -45,7 +55,7 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 		}).Return(count).AnyTimes()
 
 	// build memory-database
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	md.generator = mockGen
 
@@ -78,7 +88,7 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	md.generator = makeMockIDGenerator(ctrl)
 	// count metrics
@@ -111,7 +121,7 @@ func Test_MemoryDatabase_WithMaxTagsLimit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 
 	limitationCh := make(chan map[string]uint32)
@@ -129,7 +139,7 @@ func Test_MemoryDatabase_WithMaxTagsLimit(t *testing.T) {
 func Test_MemoryDatabase_WithMaxTagsLimit_cancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	limitationCh := make(chan map[string]uint32)
 	mdINTF.WithMaxTagsLimit(limitationCh)
 	cancel()
@@ -146,7 +156,7 @@ func Test_MemoryDatabase_evict(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		mockGen.EXPECT().GenMetricID(strconv.Itoa(i)).Return(uint32(i)).AnyTimes()
 	}
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	md.generator = mockGen
 	// prepare mStores
@@ -163,7 +173,7 @@ func Test_MemoryDatabase_evictor(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	md.evictNotifier <- struct{}{}
 	md.evictNotifier <- struct{}{}
@@ -177,7 +187,7 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
@@ -201,7 +211,7 @@ func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	_ = mdINTF.FlushFamilyTo(nil, 10)
 	_ = mdINTF.FlushFamilyTo(nil, 10)
 	_ = mdINTF.FlushFamilyTo(nil, 10)
@@ -214,7 +224,7 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 
 	mockMStore := NewMockmStoreINTF(ctrl)
@@ -238,7 +248,7 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	// test FlushIndexTo
 	assert.Nil(t, mdINTF.FlushInvertedIndexTo(nil))
@@ -267,7 +277,7 @@ func Test_MemoryDatabase_GetTagValues(t *testing.T) {
 	defer cancel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
@@ -289,7 +299,7 @@ func Test_MemoryDatabase_Suggset(t *testing.T) {
 	defer cancel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mdINTF, _ := NewMemoryDatabase(ctx, 32, 10*1000, interval.Day)
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 
 	assert.Nil(t, md.SuggestMetrics("", 100))
