@@ -8,7 +8,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 func prepareData(ctrl *gomock.Controller) ([]byte, []byte) {

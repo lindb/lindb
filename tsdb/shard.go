@@ -10,9 +10,9 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/memdb"
-	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -21,11 +21,13 @@ const segmentPath = "segment"
 
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
-	// GetSegments returns segment list by interval type and time range, return nil if not match
-	GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment
+	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
+	GetDataFamilies(intervalType interval.Type, timeRange timeutil.TimeRange) []DataFamily
 	// GetSeriesIDsFilter returns series index for searching series(tags),
 	// using this filter for filtering data in kv store.
 	GetSeriesIDsFilter() series.Filter
+	// GetMetaGetter returns tags meta getter
+	GetMetaGetter() series.MetaGetter
 	// GetMemoryDatabase returns memory database
 	GetMemoryDatabase() memdb.MemoryDatabase
 	// Write writes the metric-point into memory-database.
@@ -36,11 +38,12 @@ type Shard interface {
 
 // shard implements Shard interface
 type shard struct {
-	id      int32
-	path    string
-	option  option.EngineOption
-	memDB   memdb.MemoryDatabase
-	indexDB diskdb.IndexDatabase
+	id       int32
+	path     string
+	option   option.EngineOption
+	memDB    memdb.MemoryDatabase
+	indexDB  diskdb.IndexDatabase
+	interval int64
 
 	//TODO codingcrush add kv store for data storage
 
@@ -64,9 +67,6 @@ func newShard(shardID int32, path string, index Index, option option.EngineOptio
 	}
 	intervalVal, _ := timeutil.ParseInterval(option.Interval)
 	intervalType := interval.CalcIntervalType(intervalVal)
-	if _, err := interval.GetCalculator(intervalType); err != nil {
-		return nil, fmt.Errorf("interval type[%s] not define", intervalType)
-	}
 	if err := fileutil.MkDirIfNotExist(path); err != nil {
 		return nil, err
 	}
@@ -84,22 +84,18 @@ func newShard(shardID int32, path string, index Index, option option.EngineOptio
 	}
 	var memDB memdb.MemoryDatabase
 	ctx, cancel := context.WithCancel(context.Background())
-	memDB, err = memdb.NewMemoryDatabase(ctx, memdb.MemoryDatabaseCfg{
+	memDB = memdb.NewMemoryDatabase(ctx, memdb.MemoryDatabaseCfg{
 		TimeWindow:    option.TimeWindow,
 		IntervalValue: intervalVal,
 		IntervalType:  intervalType,
 		Generator:     index.GetIDSequencer(),
 	})
-	if err != nil {
-		//if create memory database error, cancel background context
-		cancel()
-		return nil, err
-	}
 	shard := &shard{
 		id:       shardID,
 		path:     path,
 		option:   option,
 		memDB:    memDB,
+		interval: intervalVal,
 		indexDB:  indexDB,
 		segment:  segment,
 		segments: make(map[interval.Type]IntervalSegment),
@@ -112,17 +108,22 @@ func newShard(shardID int32, path string, index Index, option option.EngineOptio
 	return shard, nil
 }
 
-// GetSegments returns segment list by interval type and time range, return nil if not match
-func (s *shard) GetSegments(intervalType interval.Type, timeRange timeutil.TimeRange) []Segment {
+// GetDataFamilies returns data family list by interval type and time range, return nil if not match
+func (s *shard) GetDataFamilies(intervalType interval.Type, timeRange timeutil.TimeRange) []DataFamily {
 	segment, ok := s.segments[intervalType]
 	if ok {
-		return segment.GetSegments(timeRange)
+		return segment.getDataFamilies(timeRange)
 	}
 	return nil
 }
 
 // GetSeriesIDsFilter returns series index for searching series(tags)
 func (s *shard) GetSeriesIDsFilter() series.Filter {
+	return s.indexDB
+}
+
+// GetMetaGetter returns tags meta getter
+func (s *shard) GetMetaGetter() series.MetaGetter {
 	return s.indexDB
 }
 

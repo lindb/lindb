@@ -6,7 +6,8 @@ import (
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -14,8 +15,6 @@ import (
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// retain retains a lock of tStore
-	retain() func()
 	// getHash returns the FNV1a hash of the tags
 	getHash() uint64
 	// getFStore returns the fStore in this list from field-id.
@@ -28,6 +27,8 @@ type tStoreINTF interface {
 	isExpired() bool
 	// isNoData symbols if all data of this tStore has been flushed
 	isNoData() bool
+	// scan scans time series store, then finds data by field id and time range
+	scan(sCtx *series.ScanContext, version series.Version, seriesID uint32, fieldMetas map[uint16]*fieldMeta)
 }
 
 // fStoreNodes implements sort.Interface
@@ -51,12 +52,6 @@ func newTimeSeriesStore(tagsHash uint64) tStoreINTF {
 	return &timeSeriesStore{
 		hash:          tagsHash,
 		lastWroteTime: uint32(timeutil.Now() / 1000)}
-}
-
-// retain retains a lock of tStore
-func (ts *timeSeriesStore) retain() func() {
-	ts.sl.Lock()
-	return ts.sl.Unlock
 }
 
 // getHash returns the FNV1a hash of the tags
@@ -144,7 +139,6 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 // getOrCreateFStore get a fieldStore by fieldName and fieldType
 func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.Type,
 	writeCtx writeContext) (fStoreINTF, error) {
-
 	fieldID, err := writeCtx.getFieldIDOrGenerate(fieldName, fieldType, writeCtx.generator)
 	if err != nil {
 		return nil, err

@@ -9,7 +9,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"

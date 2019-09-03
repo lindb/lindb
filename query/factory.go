@@ -1,6 +1,8 @@
 package query
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
@@ -8,19 +10,23 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
+// executorFactory implements parallel.ExecutorFactory
 type executorFactory struct {
 }
 
+// NewExecutorFactory creates executor factory
 func NewExecutorFactory() parallel.ExecutorFactory {
 	return &executorFactory{}
 }
 
-func (*executorFactory) NewStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
-	return newStorageExecutor(engine, shardIDs, query)
+// NewStorageExecutor creates storage executor
+func (*executorFactory) NewStorageExecutor(ctx context.Context, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
+	return newStorageExecutor(ctx, engine, shardIDs, query)
 }
 
-func (*executorFactory) NewBrokerExecutor(database string, sql string,
+// NewStorageExecutor creates broker executor
+func (*executorFactory) NewBrokerExecutor(ctx context.Context, database string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager) parallel.Executor {
-	return newBrokerExecutor(database, sql, replicaStateMachine, nodeStateMachine, jobManager)
+	return newBrokerExecutor(ctx, database, sql, replicaStateMachine, nodeStateMachine, jobManager)
 }

@@ -1,6 +1,8 @@
 package parallel
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -27,7 +29,7 @@ func newIntermediateTask(curNode models.Node, taskManger TaskManager) *intermedi
 
 // Process processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
-func (p *intermediateTask) Process(req *pb.TaskRequest) error {
+func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	physicalPlan := models.PhysicalPlan{}
 	if err := encoding.JSONUnmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
 		return errUnmarshalPlan
@@ -37,7 +39,8 @@ func (p *intermediateTask) Process(req *pb.TaskRequest) error {
 		if intermediate.Indicator == p.curNodeID {
 			taskID := p.taskManager.AllocTaskID()
 			//TODO set task id
-			taskCtx := newTaskContext(taskID, IntermediateTask, req.ParentTaskID, intermediate.Parent, intermediate.NumOfTask)
+			taskCtx := newTaskContext(taskID, IntermediateTask, req.ParentTaskID, intermediate.Parent,
+				intermediate.NumOfTask, newResultMerger(nil))
 			p.taskManager.Submit(taskCtx)
 			taskSubmitted = true
 			break
@@ -74,7 +77,7 @@ func (p *intermediateTask) Receive(resp *pb.TaskResponse) error {
 		return nil
 	}
 	//TODO impl result handler
-	taskCtx.ReceiveResult()
+	taskCtx.ReceiveResult(resp)
 
 	if taskCtx.Completed() {
 		p.taskManager.Complete(taskID)

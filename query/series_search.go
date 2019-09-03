@@ -1,11 +1,9 @@
 package query
 
 import (
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/series"
 )
-
-//go:generate mockgen -source=./series_search.go -destination=./series_search_mock.go -package=query
 
 // SeriesSearch represents a series search by condition expression
 type SeriesSearch interface {

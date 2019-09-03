@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -10,15 +11,19 @@ import (
 	"github.com/lindb/lindb/tsdb/diskdb"
 )
 
+var (
+	errEmptySelectList = errors.New("select item list is empty")
+)
+
 // storageExecutePlan represents a storage level execute plan for data search,
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
 	query    *stmt.Query
 	idGetter diskdb.IDGetter
 
-	fields map[uint16]*aggregation.AggregatorSpec
-
-	metricID uint32
+	metricID       uint32
+	fields         map[uint16]*aggregation.AggregatorSpec
+	groupByTagKeys map[string]uint32
 
 	err error
 }
@@ -26,9 +31,10 @@ type storageExecutePlan struct {
 // newStorageExecutePlan creates a storage execute plan
 func newStorageExecutePlan(index diskdb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
-		idGetter: index,
-		query:    query,
-		fields:   make(map[uint16]*aggregation.AggregatorSpec),
+		idGetter:       index,
+		query:          query,
+		fields:         make(map[uint16]*aggregation.AggregatorSpec),
+		groupByTagKeys: make(map[string]uint32),
 	}
 }
 
@@ -40,18 +46,36 @@ func (p *storageExecutePlan) Plan() error {
 		return err
 	}
 	p.metricID = metricID
-
+	if err := p.groupBy(); err != nil {
+		return err
+	}
 	if err := p.selectList(); err != nil {
 		return err
 	}
-
 	if p.err != nil {
 		return p.err
 	}
-	if len(p.fields) == 0 {
-		return fmt.Errorf("field cannot be empty for select list")
+	return nil
+}
+
+// hasGroupBy returns if query has group by tag keys
+func (p *storageExecutePlan) hasGroupBy() bool {
+	return len(p.query.GroupBy) > 0
+}
+
+// groupBy parses group by tag keys
+func (p *storageExecutePlan) groupBy() error {
+	if len(p.query.GroupBy) == 0 {
+		return nil
 	}
 
+	for _, tagKey := range p.query.GroupBy {
+		tagKeyID, err := p.idGetter.GetTagKeyID(p.metricID, tagKey)
+		if err != nil {
+			return err
+		}
+		p.groupByTagKeys[tagKey] = tagKeyID
+	}
 	return nil
 }
 
@@ -72,7 +96,7 @@ func (p *storageExecutePlan) getFieldIDs() []uint16 {
 func (p *storageExecutePlan) selectList() error {
 	selectItems := p.query.SelectItems
 	if len(selectItems) == 0 {
-		return fmt.Errorf("select item list is empty")
+		return errEmptySelectList
 	}
 
 	for _, selectItem := range selectItems {

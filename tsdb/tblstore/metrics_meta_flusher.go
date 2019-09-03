@@ -6,7 +6,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 
 	"go.uber.org/zap"
 )

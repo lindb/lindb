@@ -35,6 +35,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 				Value: 1.0,
 			}}},
 		},
+		Tags: map[string]string{"host": "1.1.1.1", "disk": "/tmp"},
 	}
 
 	metricList := &field.MetricList{

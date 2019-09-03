@@ -1,6 +1,8 @@
 package parallel
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/sql/stmt"
@@ -12,9 +14,9 @@ import (
 // ExecutorFactory represents the executor factory that creates storage/broker executor
 type ExecutorFactory interface {
 	// NewStorageExecutor creates the storage executor based on params
-	NewStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query) Executor
+	NewStorageExecutor(ctx context.Context, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) Executor
 	// NewBrokerExecutor creates the broker executor based on params
-	NewBrokerExecutor(database string, sql string,
+	NewBrokerExecutor(ctx context.Context, database string, sql string,
 		replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 		jobManager JobManager) Executor
 }

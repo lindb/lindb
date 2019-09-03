@@ -101,7 +101,7 @@ func writeMetricList(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChann
 		t.Fatal(err)
 	}
 
-	cm.EXPECT().Write(metricList).Return(mockErr)
+	cm.EXPECT().Write(gomock.Any()).Return(mockErr)
 
 	n, err := conn.Write(bytes)
 	if err != nil {

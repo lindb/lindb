@@ -7,7 +7,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb
@@ -99,7 +99,7 @@ type block interface {
 	// getEndTime returns end time slot
 	getEndTime() int
 	// compact compress block data with agg func for rollup operation
-	compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error)
+	compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error)
 	// reset cleans block data, just reset container mark
 	reset()
 	// bytes returns compress data for block data
@@ -166,9 +166,26 @@ func (c *container) reset() {
 	c.compress = c.compress[:0]
 }
 
+func (c *container) isEmpty() bool {
+	return c.container == 0
+}
+
 // bytes returns compress data for block data
 func (c *container) bytes() []byte {
 	return c.compress
+}
+
+// DecodeTSDTime returns the start/end under compress tsd data
+func (c *container) DecodeTSDTime(needSlotRange bool) (startSlot, endSlot int, needCompact bool) {
+	if c.container == 0 {
+		if needSlotRange && len(c.compress) > 0 {
+			startSlot, endSlot = encoding.DecodeTSDTime(c.compress)
+		}
+		return
+	}
+	// block has value, need compact value
+	needCompact = true
+	return
 }
 
 // merge merges values and compress data of container based on value type nad agg func
@@ -182,6 +199,7 @@ func (c *container) merge(valueType field.ValueType,
 	}
 
 	c.compress = buf
+	c.container = 0
 	return merger.startTime, merger.endTime, nil
 }
 
@@ -210,13 +228,20 @@ func (b *intBlock) getIntValue(pos int) int64 {
 }
 
 // compact compress block data
-func (b *intBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
+func (b *intBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error) {
+	needCompact := false
+	startSlot, endSlot, needCompact = b.DecodeTSDTime(needSlotRange)
+	if !needCompact {
+		return
+	}
+
 	length := len(b.values)
 	values := make([]uint64, length)
 	for i := 0; i < length; i++ {
 		values[i] = encoding.ZigZagEncode(b.values[i])
 	}
-	return b.merge(field.Integer, values, aggFunc)
+	startSlot, endSlot, err = b.merge(field.Integer, values, aggFunc)
+	return
 }
 
 // floatBlock represents a float block for storing metric point in memory
@@ -244,13 +269,20 @@ func (b *floatBlock) getFloatValue(pos int) float64 {
 }
 
 // compact compress block data
-func (b *floatBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
+func (b *floatBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error) {
+	needCompact := false
+
+	startSlot, endSlot, needCompact = b.DecodeTSDTime(needSlotRange)
+	if !needCompact {
+		return
+	}
 	length := len(b.values)
 	values := make([]uint64, length)
 	for i := 0; i < length; i++ {
 		values[i] = math.Float64bits(b.values[i])
 	}
-	return b.merge(field.Float, values, aggFunc)
+	startSlot, endSlot, err = b.merge(field.Float, values, aggFunc)
+	return
 }
 
 // merger is merge operation which provides compress block data.
@@ -324,6 +356,7 @@ func (m *merger) merge() ([]byte, error) {
 		curEndTime := m.block.getEndTime()
 		oldStartTime := m.oldData.StartTime()
 		oldEndTime := m.oldData.EndTime()
+		//TODO add check start/end range????
 
 		// do merge and compress data
 		for i := m.startTime; i <= m.endTime; i++ {

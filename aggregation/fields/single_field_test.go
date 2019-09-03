@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 func TestNewSingleField(t *testing.T) {

@@ -2,8 +2,8 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 // PrimitiveAggregator represents a primitive field aggregator under spec field aggregator.

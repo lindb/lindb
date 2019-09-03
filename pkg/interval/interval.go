@@ -30,13 +30,14 @@ func register(intervalType Type, calc Calculator) {
 	intervalTypes[intervalType] = calc
 }
 
-// GetCalculator returns calculator for given interval type
-func GetCalculator(intervalType Type) (Calculator, error) {
+// GetCalculator returns calculator for given interval type,
+// if not define, use default value: day
+func GetCalculator(intervalType Type) Calculator {
 	calc, ok := intervalTypes[intervalType]
 	if !ok {
-		return nil, fmt.Errorf("cannot found interval calculator by type: %s", intervalType)
+		return &day{}
 	}
-	return calc, nil
+	return calc
 }
 
 // init register interval types when system init
@@ -56,8 +57,10 @@ type Calculator interface {
 	CalcSegmentTime(timestamp int64) int64
 	// CalcFamily calculates family base time based on given timestamp
 	CalcFamily(timestamp int64, segmentTime int64) int
-	// CalcFamilyStartTime calculates family start time based on segment time and family
-	CalcFamilyStartTime(segmentTime int64, family int) int64
+	// CalcFamilyStartTime calculates family start time based on segment time and family time
+	CalcFamilyStartTime(segmentTime int64, familyTime int) int64
+	// CalcFamilyEndTime calculates family end time based on family start time
+	CalcFamilyEndTime(familyStartTime int64) int64
 	// CalcSlot calculates field store slot index based on given timestamp and base time
 	CalcSlot(timestamp, baseTime, interval int64) int
 }
@@ -93,9 +96,14 @@ func (d *day) CalcFamily(timestamp int64, segmentTime int64) int {
 	return int((timestamp - segmentTime) / timeutil.OneHour)
 }
 
-// CalcFamilyStartTime calculates family start time based on segment time and family for day interval type
-func (d *day) CalcFamilyStartTime(segmentTime int64, family int) int64 {
-	return segmentTime + int64(family)*timeutil.OneHour
+// CalcFamilyStartTime calculates family start time based on segment time and family time for day interval type
+func (d *day) CalcFamilyStartTime(segmentTime int64, familyTime int) int64 {
+	return segmentTime + int64(familyTime)*timeutil.OneHour
+}
+
+// CalcFamilyEndTime calculates family end time based on family start time for day interval type
+func (d *day) CalcFamilyEndTime(familyStartTime int64) int64 {
+	return familyStartTime + timeutil.OneHour - 1
 }
 
 // month implements Calculator interface for month interval type
@@ -131,10 +139,17 @@ func (m *month) CalcFamily(timestamp int64, segmentTime int64) int {
 }
 
 // CalcFamilyStartTime calculates family start time based on segment time and family for month interval type
-func (m *month) CalcFamilyStartTime(segmentTime int64, family int) int64 {
+func (m *month) CalcFamilyStartTime(segmentTime int64, familyTime int) int64 {
 	t := time.Unix(segmentTime/1000, 0)
-	t2 := time.Date(t.Year(), t.Month(), family, 0, 0, 0, 0, time.Local)
+	t2 := time.Date(t.Year(), t.Month(), familyTime, 0, 0, 0, 0, time.Local)
 	return t2.UnixNano() / 1000000
+}
+
+// CalcFamilyEndTime calculates family end time based on family start time for month interval type
+func (m *month) CalcFamilyEndTime(familyStartTime int64) int64 {
+	t := time.Unix(familyStartTime/1000, 0)
+	t2 := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano()/1000000 - 1
 }
 
 // year implements Calculator interface for year interval type
@@ -170,10 +185,17 @@ func (y *year) CalcFamily(timestamp int64, segmentTime int64) int {
 }
 
 // CalcFamilyStartTime calculates family start time based on segment time and family for year interval type
-func (y *year) CalcFamilyStartTime(segmentTime int64, family int) int64 {
+func (y *year) CalcFamilyStartTime(segmentTime int64, familyTime int) int64 {
 	t := time.Unix(segmentTime/1000, 0)
-	t2 := time.Date(t.Year(), time.Month(family), 1, 0, 0, 0, 0, time.Local)
+	t2 := time.Date(t.Year(), time.Month(familyTime), 1, 0, 0, 0, 0, time.Local)
 	return t2.UnixNano() / 1000000
+}
+
+// CalcFamilyEndTime calculates family end time based on family start time for year interval type
+func (y *year) CalcFamilyEndTime(familyStartTime int64) int64 {
+	t := time.Unix(familyStartTime/1000, 0)
+	t2 := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, time.Local)
+	return t2.UnixNano()/1000000 - 1
 }
 
 // CalcIntervalType calculates the interval type by interval
