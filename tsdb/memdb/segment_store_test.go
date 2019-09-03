@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 	_, _, err := ss.slotRange()
 	assert.NotNil(t, err)
 
-	compress, startSlot, endSlot, err := store.bytes()
+	compress, startSlot, endSlot, err := store.bytes(true)
 	assert.Nil(t, compress)
 	assert.NotNil(t, err)
 	assert.Equal(t, 0, startSlot)
@@ -54,7 +54,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 	writeCtx.slotIndex = 41
 	ss.writeInt(50, writeCtx)
 
-	compress, startSlot, endSlot, err = store.bytes()
+	compress, startSlot, endSlot, err = store.bytes(true)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, startSlot)
 	assert.Equal(t, 41, endSlot)
@@ -92,12 +92,12 @@ func Test_sStore_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBlock := NewMockblock(ctrl)
-	mockBlock.EXPECT().compact(gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
+	mockBlock.EXPECT().compact(gomock.Any(), gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
 	mockBlock.EXPECT().setIntValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockBlock.EXPECT().getStartTime().Return(12).AnyTimes()
 	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()
 	ss.block = mockBlock
-	_, _, _, err := ss.bytes()
+	_, _, _, err := ss.bytes(false)
 	assert.NotNil(t, err)
 
 	writeCtx := writeContext{
@@ -144,5 +144,5 @@ func BenchmarkSimpleSegmentStore(b *testing.B) {
 	writeCtx.slotIndex = 41
 	ss.writeInt(50, writeCtx)
 
-	store.bytes()
+	_, _, _, _ = store.bytes(true)
 }

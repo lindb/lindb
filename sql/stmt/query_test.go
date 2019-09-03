@@ -45,11 +45,10 @@ func TestQuery_Marshal(t *testing.T) {
 				Right:    &EqualsExpr{Key: "path", Value: "/home"},
 			}},
 		},
-		TimeRange:    timeutil.TimeRange{Start: 10, End: 30},
-		Interval:     1000,
-		IntervalType: "10s",
-		GroupBy:      []string{"a", "b", "c"},
-		Limit:        100,
+		TimeRange: timeutil.TimeRange{Start: 10, End: 30},
+		Interval:  1000,
+		GroupBy:   []string{"a", "b", "c"},
+		Limit:     100,
 	}
 
 	data := encoding.JSONMarshal(&query)

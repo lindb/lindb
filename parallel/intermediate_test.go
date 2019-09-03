@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -23,14 +24,14 @@ func TestIntermediate_Process(t *testing.T) {
 	processor := newIntermediateTask(currentNode, taskManager)
 
 	// unmarshal error
-	err := processor.Process(&pb.TaskRequest{PhysicalPlan: nil})
+	err := processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: nil})
 	assert.Equal(t, errUnmarshalPlan, err)
 
 	plan, _ := json.Marshal(&models.PhysicalPlan{
 		Intermediates: []models.Intermediate{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
 	})
 	// wrong request
-	err = processor.Process(&pb.TaskRequest{PhysicalPlan: plan})
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan})
 	assert.Equal(t, errWrongRequest, err)
 
 	plan2, _ := json.Marshal(&models.PhysicalPlan{
@@ -42,12 +43,12 @@ func TestIntermediate_Process(t *testing.T) {
 	taskManager.EXPECT().AllocTaskID().Return("taskID").AnyTimes()
 	// send request error
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = processor.Process(&pb.TaskRequest{PhysicalPlan: plan2})
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2})
 	assert.NotNil(t, err)
 
 	// normal
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = processor.Process(&pb.TaskRequest{PhysicalPlan: plan2})
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +57,7 @@ func TestIntermediate_Process(t *testing.T) {
 	plan, _ = json.Marshal(&models.PhysicalPlan{
 		Intermediates: []models.Intermediate{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
-	err = processor.Process(&pb.TaskRequest{PhysicalPlan: plan})
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,19 +78,22 @@ func TestIntermediate_Receive(t *testing.T) {
 	}
 
 	// send task result error
+	merger := NewMockResultMerger(ctrl)
+	merger.EXPECT().Merge(gomock.Any())
 	taskManager.EXPECT().Complete("taskID")
 	taskManager.EXPECT().Get("taskID").
-		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1))
+		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1, merger))
 	taskManager.EXPECT().SendResponse(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID"})
+	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID", Completed: true})
 	assert.NotNil(t, err)
 
 	// normal case
+	merger.EXPECT().Merge(gomock.Any())
 	taskManager.EXPECT().Complete("taskID")
 	taskManager.EXPECT().Get("taskID").
-		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1))
+		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1, merger))
 	taskManager.EXPECT().SendResponse(gomock.Any(), gomock.Any()).Return(nil)
-	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID"})
+	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID", Completed: true})
 	if err != nil {
 		t.Fatal(err)
 	}

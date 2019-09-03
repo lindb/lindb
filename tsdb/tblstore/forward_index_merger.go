@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 )
 
 type forwardIndexMerger struct {

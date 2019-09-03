@@ -33,11 +33,9 @@ func TestTaskHandler_Handle(t *testing.T) {
 
 	ctx = rpc.CreateIncomingContextWithNode(context.TODO(), models.Node{IP: "1.1.1.1", Port: 9000})
 	server.EXPECT().Context().Return(ctx)
-	gomock.InOrder(
-		server.EXPECT().Recv().Return(nil, fmt.Errorf("err")),
-		server.EXPECT().Recv().Return(nil, nil),
-		dispatcher.EXPECT().Dispatch(gomock.Any()),
-		server.EXPECT().Recv().Return(nil, io.EOF),
-	)
+	server.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
+	server.EXPECT().Recv().Return(nil, nil)
+	server.EXPECT().Recv().Return(nil, io.EOF)
+	dispatcher.EXPECT().Dispatch(gomock.Any(), gomock.Any()).AnyTimes()
 	_ = handler.Handle(server)
 }

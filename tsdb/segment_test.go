@@ -13,7 +13,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 )
 
 var segPath = filepath.Join(testPath, shardPath, "1", segmentPath, string(interval.Day))
@@ -31,7 +31,15 @@ func TestNewIntervalSegment(t *testing.T) {
 	s.Close()
 
 	// create fail
-	_ = fileutil.MkDirIfNotExist(filepath.Join(segPath, "20190903"))
+	_, err = newSegment("20190903", int64(10000), interval.Day, filepath.Join(segPath, "20190903"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cannot re-open kv-store
+	s, err = newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	assert.Nil(t, s)
+	assert.NotNil(t, err)
+
 	s, err = newIntervalSegment(int64(time.Second*10), interval.Unknown, segPath)
 	assert.Nil(t, s)
 	assert.NotNil(t, err)
@@ -72,28 +80,53 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	}
 }
 
-func TestGetSegmentsByTimeRange(t *testing.T) {
+func TestIntervalSegment_getDataFamilies(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
-	_, _ = s.GetOrCreateSegment("20190702")
-	t2, _ := timeutil.ParseTimestamp("20190702", "20060102")
-	segments := s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 60*60*1000})
-	assert.Equal(t, 1, len(segments))
+	segment1, _ := s.GetOrCreateSegment("20190902")
+	now, _ := timeutil.ParseTimestamp("20190902 19:10:48", "20060102 15:04:05")
+	_, _ = segment1.GetDataFamily(now)
+	now, _ = timeutil.ParseTimestamp("20190902 20:10:48", "20060102 15:04:05")
+	_, _ = segment1.GetDataFamily(now)
+	now, _ = timeutil.ParseTimestamp("20190902 22:10:48", "20060102 15:04:05")
+	_, _ = segment1.GetDataFamily(now)
+	segment2, _ := s.GetOrCreateSegment("20190904")
+	now, _ = timeutil.ParseTimestamp("20190904 22:10:48", "20060102 15:04:05")
+	_, _ = segment2.GetDataFamily(now)
+	now, _ = timeutil.ParseTimestamp("20190904 20:10:48", "20060102 15:04:05")
+	_, _ = segment2.GetDataFamily(now)
 
-	segments = s.GetSegments(timeutil.TimeRange{Start: t2 + 50*1000, End: t2 + 60*60*1000})
-	assert.Equal(t, 1, len(segments))
+	start, _ := timeutil.ParseTimestamp("20190901 20:10:48", "20060102 15:04:05")
+	end, _ := timeutil.ParseTimestamp("20190901 22:10:48", "20060102 15:04:05")
+	segments := s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 0, len(segments))
 
-	t2, _ = timeutil.ParseTimestamp("20190701", "20060102")
-	segments = s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 25*60*60*1000})
-	assert.Equal(t, 1, len(segments))
+	start, _ = timeutil.ParseTimestamp("20190905 20:10:48", "20060102 15:04:05")
+	end, _ = timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
+	segments = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 0, len(segments))
 
-	seg := s.(*intervalSegment)
-	seg.intervalType = interval.Unknown
-	t2, _ = timeutil.ParseTimestamp("20190701", "20060102")
-	segments = s.GetSegments(timeutil.TimeRange{Start: t2, End: t2 + 25*60*60*1000})
-	assert.Nil(t, segments)
+	start, _ = timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
+	end, _ = timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
+	segments = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 5, len(segments))
+
+	start, _ = timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
+	end, _ = timeutil.ParseTimestamp("20190902 20:40:48", "20060102 15:04:05")
+	segments = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 2, len(segments))
+
+	start, _ = timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
+	end, _ = timeutil.ParseTimestamp("20190904 19:40:48", "20060102 15:04:05")
+	segments = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 3, len(segments))
+
+	start, _ = timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
+	end, _ = timeutil.ParseTimestamp("20190902 19:40:48", "20060102 15:04:05")
+	segments = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
+	assert.Equal(t, 1, len(segments))
 }
 
 func TestSegment_Close(t *testing.T) {
@@ -126,9 +159,23 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, familyBaseTime, dataFamily.BaseTime())
+	familyEndTime, _ := timeutil.ParseTimestamp("20190904 20:00:00", "20060102 15:04:05")
+	assert.Equal(t, timeutil.TimeRange{
+		Start: familyBaseTime,
+		End:   familyEndTime - 1,
+	}, *dataFamily.TimeRange())
 	dataFamily1, _ := seg.GetDataFamily(now)
 	assert.Equal(t, dataFamily, dataFamily1)
+
+	// segment not match
+	now, _ = timeutil.ParseTimestamp("20190903 19:10:48", "20060102 15:04:05")
+	dataFamily, err = seg.GetDataFamily(now)
+	assert.Nil(t, dataFamily)
+	assert.NotNil(t, err)
+	now, _ = timeutil.ParseTimestamp("20190905 19:10:48", "20060102 15:04:05")
+	dataFamily, err = seg.GetDataFamily(now)
+	assert.Nil(t, dataFamily)
+	assert.NotNil(t, err)
 
 	// wrong data family type
 	wrongTime, _ := timeutil.ParseTimestamp("20190904 23:10:48", "20060102 15:04:05")
@@ -153,12 +200,12 @@ func TestSegment_New(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, err := newSegment("20190904", interval.Day, testPath)
+	s, err := newSegment("20190904", int64(10000), interval.Day, testPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.NotNil(t, s)
-	s, err = newSegment("20190904", interval.Day, testPath)
+	s, err = newSegment("20190904", int64(10000), interval.Day, testPath)
 	assert.NotNil(t, err)
 	assert.Nil(t, s)
 }

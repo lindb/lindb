@@ -76,7 +76,8 @@ func CalPointCount(startTime, endTime, interval int64) int {
 	return int(pointCount)
 }
 
-// CalIntervalRatio calculates the interval ratio for query
+// CalIntervalRatio calculates the interval ratio for query,
+// if query interval < storage interval return 1.
 func CalIntervalRatio(queryInterval, storageInterval int64) int {
 	if queryInterval < storageInterval {
 		return 1

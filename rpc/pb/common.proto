@@ -23,6 +23,15 @@ message TaskResponse {
     bytes payload = 5;
 }
 
+message TimeSeriesList {
+    repeated TimeSeries timeSeriesList = 1;
+}
+
+message TimeSeries {
+    map<string, string> tags = 1;
+    map<string, bytes> fields = 2;
+}
+
 service TaskService {
     rpc Handle (stream TaskRequest) returns (stream TaskResponse) {
     }

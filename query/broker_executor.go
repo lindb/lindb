@@ -1,10 +1,12 @@
 package query
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 )
 
 // brokerExecutor represents the broker query executor,
@@ -26,15 +28,16 @@ type brokerExecutor struct {
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 
-	resultSet chan series.GroupedIterator
+	resultSet chan *series.TimeSeriesEvent
 
 	jobManager parallel.JobManager
 
+	ctx context.Context
 	err error
 }
 
 // newBrokerExecutor creates the execution which executes the job of parallel query
-func newBrokerExecutor(database string, sql string,
+func newBrokerExecutor(ctx context.Context, database string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager) parallel.Executor {
 	exec := &brokerExecutor{
@@ -43,6 +46,7 @@ func newBrokerExecutor(database string, sql string,
 		replicaStateMachine: replicaStateMachine,
 		nodeStateMachine:    nodeStateMachine,
 		jobManager:          jobManager,
+		ctx:                 ctx,
 	}
 	return exec
 }
@@ -51,7 +55,7 @@ func newBrokerExecutor(database string, sql string,
 // 1) get metadata based on params
 // 2) build execute plan
 // 3) run distribution query job
-func (e *brokerExecutor) Execute() <-chan series.GroupedIterator {
+func (e *brokerExecutor) Execute() <-chan *series.TimeSeriesEvent {
 	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	if len(storageNodes) == 0 {
@@ -67,8 +71,8 @@ func (e *brokerExecutor) Execute() <-chan series.GroupedIterator {
 	}
 	brokerPlan := plan.(*brokerPlan)
 	brokerPlan.physicalPlan.Database = e.database
-	e.resultSet = make(chan series.GroupedIterator)
-	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.resultSet, brokerPlan.physicalPlan)); err != nil {
+	e.resultSet = make(chan *series.TimeSeriesEvent)
+	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.resultSet, brokerPlan.physicalPlan, brokerPlan.query)); err != nil {
 		e.err = err
 		close(e.resultSet)
 		return nil

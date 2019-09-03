@@ -3,8 +3,8 @@ package fields
 import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 // singleField represents the single field series

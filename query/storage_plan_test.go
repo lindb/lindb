@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -8,11 +9,11 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/diskdb"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestStoragePlan_Metric(t *testing.T) {
@@ -123,4 +124,98 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	}
 	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(11), uint16(13), uint16(14)}, storagePlan.getFieldIDs())
+}
+
+func TestStorageExecutePlan_groupBy(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	idGetter := diskdb.NewMockIDGetter(ctrl)
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(10), nil),
+		idGetter.EXPECT().GetTagKeyID(uint32(10), "path").Return(uint32(11), nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+	)
+
+	// normal
+	query, _ := sql.Parse("select f from disk group by host,path")
+	plan := newStorageExecutePlan(idGetter, query)
+	err := plan.Plan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	storagePlan := plan.(*storageExecutePlan)
+	downSampling := aggregation.NewAggregatorSpec(uint16(10), "f", field.SumField)
+	downSampling.AddFunctionType(function.Sum)
+	assert.Equal(t, map[uint16]*aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
+	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
+	assert.Equal(t, 2, len(storagePlan.groupByTagKeys))
+	assert.Equal(t, uint32(10), storagePlan.groupByTagKeys["host"])
+	assert.Equal(t, uint32(11), storagePlan.groupByTagKeys["path"])
+	assert.True(t, storagePlan.hasGroupBy())
+
+	// get tag key err
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(0), fmt.Errorf("err")),
+	)
+	query, _ = sql.Parse("select f from disk group by host,path")
+	plan = newStorageExecutePlan(idGetter, query)
+	err = plan.Plan()
+	assert.NotNil(t, err)
+}
+
+func TestStorageExecutePlan_empty_select_item(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	idGetter := diskdb.NewMockIDGetter(ctrl)
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+	)
+	plan := newStorageExecutePlan(idGetter, &stmt.Query{MetricName: "disk"})
+	err := plan.Plan()
+	assert.Equal(t, errEmptySelectList, err)
+}
+
+func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	idGetter := diskdb.NewMockIDGetter(ctrl)
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.Unknown, nil),
+	)
+	query, _ := sql.Parse("select f from disk")
+	plan := newStorageExecutePlan(idGetter, query)
+	err := plan.Plan()
+	assert.NotNil(t, err)
+
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+	)
+	query, _ = sql.Parse("select histogram(f) from disk")
+	plan = newStorageExecutePlan(idGetter, query)
+	err = plan.Plan()
+	assert.NotNil(t, err)
+
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+	)
+	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
+	plan = newStorageExecutePlan(idGetter, query)
+	err = plan.Plan()
+	assert.NotNil(t, err)
+
+	gomock.InOrder(
+		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+	)
+	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
+	plan = newStorageExecutePlan(idGetter, query)
+	err = plan.Plan()
+	assert.NotNil(t, err)
 }

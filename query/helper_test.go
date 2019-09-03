@@ -3,30 +3,24 @@ package query
 import (
 	"sort"
 
+	"github.com/golang/mock/gomock"
+
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/diskdb"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
-
-	"github.com/golang/mock/gomock"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 ///////////////////////////////////////////////////
 //                mock interface				 //
 ///////////////////////////////////////////////////
 
-func MockTSDBEngine(ctrl *gomock.Controller, scanners ...series.DataFamilyScanner) tsdb.Engine {
-	segment := tsdb.NewMockSegment(ctrl)
-	if len(scanners) > 0 {
-		for _, f := range scanners {
-			segment.EXPECT().GetDataFamilyScanners(gomock.Any()).Return([]series.DataFamilyScanner{f})
-		}
-	} else {
-		segment.EXPECT().GetDataFamilyScanners(gomock.Any()).Return(nil).AnyTimes()
-	}
-
+func MockTSDBEngine(ctrl *gomock.Controller) tsdb.Engine {
 	shard := tsdb.NewMockShard(ctrl)
-	shard.EXPECT().GetSegments(gomock.Any(), gomock.Any()).Return([]tsdb.Segment{segment}).AnyTimes()
+	memDB := memdb.NewMockMemoryDatabase(ctrl)
+	shard.EXPECT().GetMemoryDatabase().Return(memDB).AnyTimes()
+	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	metadataIndex := diskdb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()

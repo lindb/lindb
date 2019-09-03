@@ -2,11 +2,12 @@ package query
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -198,6 +199,24 @@ func TestComplexCondition(t *testing.T) {
 		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
 		Return(nil, errors.New("complex error"))
 	search = newSeriesSearch(10, mockFilter1, query)
+	resultSet, err := search.Search()
+	assert.Nil(t, resultSet)
+	assert.NotNil(t, err)
+}
+
+func TestSeriesSearch_condition_fail(t *testing.T) {
+	search := newSeriesSearch(10, nil, nil)
+	result, _ := search.findSeriesIDsByExpr(nil)
+	assert.Nil(t, result)
+
+	search = newSeriesSearch(10, nil, nil)
+	result, _ = search.findSeriesIDsByExpr(&stmt.BinaryExpr{Operator: stmt.ADD})
+	assert.Nil(t, result)
+
+	query, _ := sql.Parse("select f from disk " +
+		"where (ip='1.1.1.1')")
+	search = newSeriesSearch(10, nil, query)
+	search.err = fmt.Errorf("err")
 	resultSet, err := search.Search()
 	assert.Nil(t, resultSet)
 	assert.NotNil(t, err)

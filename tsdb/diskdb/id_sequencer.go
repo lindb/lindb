@@ -6,8 +6,8 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	art "github.com/plar/go-adaptive-radix-tree"
@@ -204,13 +204,7 @@ func (seq *idSequencer) getTagKeyIDInMem(
 }
 
 // GetTagKeyID returns tag ID(uint32), return ErrNotFound if not exist
-func (seq *idSequencer) GetTagKeyID(
-	metricID uint32,
-	tagKey string,
-) (
-	tagKeyID uint32,
-	err error,
-) {
+func (seq *idSequencer) GetTagKeyID(metricID uint32, tagKey string) (tagID uint32, err error) {
 	// case1: tagKeyID exist in memory
 	seq.rwMux.RLock()
 	defer seq.rwMux.RUnlock()

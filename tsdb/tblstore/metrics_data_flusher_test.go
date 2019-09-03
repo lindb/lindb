@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/tsdb/field"
-
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/series/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

@@ -295,7 +295,7 @@ func (r *runtime) buildServiceDependency() {
 	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
 	jobManager := parallel.NewJobManager(taskManager)
 
-	//TODO (stone100)close it????
+	//FIXME (stone100)close it????
 	taskReceiver := parallel.NewTaskReceiver(jobManager)
 	r.factory.taskClient.SetTaskReceiver(taskReceiver)
 

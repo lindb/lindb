@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 func TestBlockAlloc(t *testing.T) {
@@ -39,6 +39,7 @@ func TestTimeWindowRange(t *testing.T) {
 
 	// int block
 	b1 := bs.allocIntBlock()
+	assert.True(t, b1.isEmpty())
 	b1.setStartTime(10)
 	b1.setIntValue(10, int64(100))
 	assert.True(t, b1.hasValue(10))
@@ -50,6 +51,7 @@ func TestTimeWindowRange(t *testing.T) {
 	assert.False(t, b1.hasValue(10))
 	assert.Equal(t, 40, b1.getStartTime())
 	assert.Equal(t, 40, b1.getEndTime())
+	assert.False(t, b1.isEmpty())
 
 	// float block
 	b2 := bs.allocFloatBlock()
@@ -91,6 +93,11 @@ func TestCompactIntBlock(t *testing.T) {
 	assert.Nil(t, bs.allocBlock(field.ValueType(999)))
 	// int block
 	b1 := bs.allocBlock(field.Integer)
+	start, end, err := b1.compact(field.GetAggFunc(field.Sum), true)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, start)
+	assert.Equal(t, 0, end)
+
 	b1.setStartTime(10)
 	b1.setIntValue(10, int64(100))
 	assert.True(t, b1.hasValue(10))
@@ -99,10 +106,14 @@ func TestCompactIntBlock(t *testing.T) {
 	assert.Equal(t, 20, b1.getEndTime())
 
 	// test compact [10,20] and no compress => [10,20]
-	start, end, err := b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	assert.Equal(t, 10, start)
+	assert.Equal(t, 20, end)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	assert.Nil(t, err)
 	assert.Equal(t, 10, start)
 	assert.Equal(t, 20, end)
 
@@ -119,7 +130,7 @@ func TestCompactIntBlock(t *testing.T) {
 	b1.setIntValue(10, int64(100))
 
 	// test compact [10,20] and compress[10,20] => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +151,7 @@ func TestCompactIntBlock(t *testing.T) {
 	b1.setIntValue(11, int64(100))
 
 	// test compact [10,21] and compress[10,20] => [10,21]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +175,7 @@ func TestCompactIntBlock(t *testing.T) {
 	b1.setIntValue(11, int64(90))
 
 	// test compact [40,51] and compress[10,21] => [10,51]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,6 +206,11 @@ func TestCompactFloatBlock(t *testing.T) {
 
 	// float block
 	b1 := bs.allocBlock(field.Float)
+	start, end, err := b1.compact(field.GetAggFunc(field.Sum), true)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, start)
+	assert.Equal(t, 0, end)
+
 	b1.setStartTime(10)
 	b1.setFloatValue(10, 100.05)
 	assert.True(t, b1.hasValue(10))
@@ -203,12 +219,20 @@ func TestCompactFloatBlock(t *testing.T) {
 	assert.Equal(t, 20, b1.getEndTime())
 
 	// test compact [10,20] and no compress => [10,20]
-	start, end, err := b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 10, start)
 	assert.Equal(t, 20, end)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, 10, start)
+	assert.Equal(t, 20, end)
+	data1 := b1.bytes()
+	assert.Equal(t, data1, b1.bytes())
 
 	tsd := encoding.NewTSDDecoder(b1.bytes())
 	assert.Equal(t, 10, tsd.StartTime())
@@ -223,7 +247,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(10, 100.05)
 
 	// test compact [10,20] and compress[10,20] => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +268,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(11, 100.0)
 
 	// test compact [10,21] and compress[10,20] => [10,21]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +292,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(11, 90.0)
 
 	// test compact [40,51] and compress[10,21] => [10,51]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,4 +316,12 @@ func TestCompactFloatBlock(t *testing.T) {
 	}
 	assert.True(t, tsd.HasValueWithSlot(41))
 	assert.Equal(t, 90.0, math.Float64frombits(tsd.Value()))
+}
+
+func TestContainer_Get_Set(t *testing.T) {
+	c := &container{}
+	c.setFloatValue(10, 10.0)
+	assert.Equal(t, 0.0, c.getFloatValue(10))
+	c.setIntValue(10, 10)
+	assert.Equal(t, int64(0), c.getIntValue(10))
 }

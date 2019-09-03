@@ -1,7 +1,9 @@
 package parallel
 
 import (
+	"context"
 	"io"
+	"time"
 
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -53,6 +55,16 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
 			q.logger.Error("task server stream error", logger.Error(err))
 			continue
 		}
-		q.dispatcher.Dispatch(req)
+		q.dispatch(req)
 	}
+}
+
+// dispatch dispatches request with timeout
+func (q *TaskHandler) dispatch(req *common.TaskRequest) {
+	//TODO add timeout cfg, need cancel ctx??
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	go func() {
+		defer cancel()
+		q.dispatcher.Dispatch(ctx, req)
+	}()
 }

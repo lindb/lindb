@@ -8,10 +8,7 @@ import (
 
 func TestTagsAsString(t *testing.T) {
 	assert.Equal(t, "", TagsAsString(nil))
-
-	assert.Equal(t, "", TagsAsString(map[string]string{}))
-
-	tagsStr := TagsAsString(map[string]string{"t2": "v2", "t1": "v1"})
-
-	assert.Equal(t, "t1v1t2v2", tagsStr)
+	tags := map[string]string{"t2": "v2", "t1": "v1"}
+	tagsStr := TagsAsString(tags)
+	assert.Equal(t, "t1=v1,t2=v2", tagsStr)
 }

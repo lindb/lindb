@@ -22,7 +22,7 @@ func TestTaskManager_ClientStream(t *testing.T) {
 
 	taskManager1 := NewTaskManager(currentNode, taskClientFactory, taskServerFactory)
 
-	taskCtx := newTaskContext("xxx", IntermediateTask, "parentTaskID", "parentNode", 2)
+	taskCtx := newTaskContext("xxx", IntermediateTask, "parentTaskID", "parentNode", 2, nil)
 	taskManager1.Submit(taskCtx)
 
 	assert.Equal(t, taskCtx, taskManager1.Get("xxx"))
@@ -32,7 +32,7 @@ func TestTaskManager_ClientStream(t *testing.T) {
 	taskManager2.tasks.Store("xxx11", nil)
 	assert.Nil(t, taskManager1.Get("xxx11"))
 
-	taskCtx = newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 2)
+	taskCtx = newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 2, nil)
 	taskManager1.Submit(taskCtx)
 	assert.Equal(t, taskCtx, taskManager1.Get("taskID"))
 	taskManager1.Complete("taskID")

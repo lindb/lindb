@@ -156,7 +156,7 @@ func (f *family) needCompat() bool {
 	defer snapshot.Close()
 
 	numberOfFiles := snapshot.GetCurrent().NumberOfFilesInLevel(0)
-	if numberOfFiles >= f.option.CompactThreshold {
+	if numberOfFiles > 0 && numberOfFiles >= f.option.CompactThreshold {
 		f.logger.Info("need to compact level0 files",
 			logger.Any("numOfFiles", numberOfFiles), logger.Any("threshold", f.option.CompactThreshold))
 		return true

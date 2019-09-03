@@ -5,7 +5,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
@@ -15,7 +15,7 @@ import (
 type sStoreINTF interface {
 	getFamilyTime() int64
 	slotRange() (startSlot, endSlot int, err error)
-	bytes() (data []byte, startSlot, endSlot int, err error)
+	bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error)
 	writeInt(value int64, writeCtx writeContext)
 	writeFloat(value float64, writeCtx writeContext)
 }
@@ -87,7 +87,7 @@ func (fs *simpleFieldStore) calcTimeWindow(blockStore *blockStore, slotTime int,
 
 	// if current slot time out of current time window, need compress block data, start new time window
 	if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
-		_, _, err := currentBlock.compact(fs.aggFunc)
+		_, _, err := currentBlock.compact(fs.aggFunc, false)
 		if err != nil {
 			memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
 		} else {
@@ -107,12 +107,12 @@ func (fs *simpleFieldStore) calcTimeWindow(blockStore *blockStore, slotTime int,
 	return pos, needRollup
 }
 
-func (fs *simpleFieldStore) bytes() (data []byte, startSlot, endSlot int, err error) {
+func (fs *simpleFieldStore) bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error) {
 	if fs.block == nil {
 		err = fmt.Errorf("block is empty")
 		return
 	}
-	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc); err != nil {
+	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc, needSlotRange); err != nil {
 		err = fmt.Errorf("compact block data in simple field store error:%s", err)
 		return
 	}

@@ -2,7 +2,7 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 // dummy value to keep field name unique

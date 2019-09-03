@@ -6,7 +6,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

@@ -28,11 +28,11 @@ func TestJobManager_SubmitJob(t *testing.T) {
 		ShardIDs: []int32{1, 2, 4},
 	})
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err := jobManager.SubmitJob(NewJobContext(nil, physicalPlan))
+	err := jobManager.SubmitJob(NewJobContext(nil, physicalPlan, nil))
 	assert.NotNil(t, err)
 
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = jobManager.SubmitJob(NewJobContext(nil, physicalPlan))
+	err = jobManager.SubmitJob(NewJobContext(nil, physicalPlan, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,11 +56,11 @@ func TestJobManager_SubmitJob_2(t *testing.T) {
 	})
 
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err := jobManager.SubmitJob(NewJobContext(nil, physicalPlan))
+	err := jobManager.SubmitJob(NewJobContext(nil, physicalPlan, nil))
 	assert.NotNil(t, err)
 
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = jobManager.SubmitJob(NewJobContext(nil, physicalPlan))
+	err = jobManager.SubmitJob(NewJobContext(nil, physicalPlan, nil))
 	if err != nil {
 		t.Fatal(err)
 	}

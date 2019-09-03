@@ -1,13 +1,15 @@
 package query
 
 import (
-	"fmt"
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // MetricAPI represents the metric query api
@@ -31,6 +33,7 @@ func NewMetricAPI(replicaStateMachine replica.StatusStateMachine, nodeStateMachi
 
 // Search searches the metric data based on database and sql.
 func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
+	var err error
 	db, err := api.GetParamsFromRequest("db", r, "", true)
 	if err != nil {
 		api.Error(w, err)
@@ -41,17 +44,57 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	exec := m.executorFactory.NewBrokerExecutor(db, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	//TODO add timeout cfg
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	defer cancel()
+	exec := m.executorFactory.NewBrokerExecutor(ctx, db, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
 	results := exec.Execute()
+	resultsSet := ResultSet{Fields: make(map[string]DataPoint)}
 	if results != nil {
 		for result := range results {
-			//TODO need handle result
-			fmt.Println(result)
+			if result.Err != nil {
+				err = result.Err
+				break
+			}
+			ts := result.Series
+			for ts.HasNext() {
+				field := ts.Next()
+
+				for field.HasNext() {
+					pIt := field.Next()
+					segmentStartTime := field.SegmentStartTime()
+
+					for pIt.HasNext() {
+						var dataPoint DataPoint
+						ok := false
+						dataPoint, ok = resultsSet.Fields[field.FieldName()]
+						if !ok {
+							dataPoint = DataPoint{Points: make(map[int64]float64)}
+							resultsSet.Fields[field.FieldName()] = dataPoint
+						}
+						slot, val := pIt.Next()
+						//TODO need fix it
+						dataPoint.Points[int64(slot*10000)+segmentStartTime] = val
+					}
+				}
+			}
 		}
 	}
-	if err := exec.Error(); err != nil {
+	if exec.Error() != nil {
+		err = exec.Error()
+	}
+	if err != nil {
 		api.Error(w, err)
 		return
 	}
-	api.OK(w, "ok")
+	logger.GetLogger("re", "re").Info("result", logger.Any("R", resultsSet))
+	api.OK(w, resultsSet)
+}
+
+type ResultSet struct {
+	Fields map[string]DataPoint
+}
+
+type DataPoint struct {
+	Points map[int64]float64
 }
