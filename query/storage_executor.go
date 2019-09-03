@@ -132,7 +132,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	timeRange := e.query.TimeRange
 	segments := shard.GetSegments(e.query.IntervalType, timeRange)
 	for _, segment := range segments {
-		families := segment.GetDataFamilies(timeRange)
+		families := segment.GetDataFamilyScanners(timeRange)
 		for _, family := range families {
 			e.familyLevelSearch(family, seriesIDSet)
 		}
@@ -140,21 +140,21 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 }
 
 // familyLevelSearch searches data from data family, do down sampling and aggregation
-func (e *storageExecutor) familyLevelSearch(family tsdb.DataFamily, seriesIDSet *series.MultiVerSeriesIDSet) {
-	scanner := family.Scan(
-		&tsdb.ScanContext{
+func (e *storageExecutor) familyLevelSearch(scanner series.DataFamilyScanner, seriesIDSet *series.MultiVerSeriesIDSet) {
+	scanItr := scanner.Scan(
+		series.ScanContext{
 			MetricID:    e.metricID,
 			FieldIDs:    e.fieldIDs,
 			TimeRange:   e.query.TimeRange,
 			SeriesIDSet: seriesIDSet,
 		})
 
-	if scanner == nil {
+	if scanItr == nil {
 		return
 	}
-	defer scanner.Close()
-	for scanner.HasNext() {
-		timeSeries := scanner.Next()
+	defer scanItr.Close()
+	for scanItr.HasNext() {
+		timeSeries := scanItr.Next()
 		if timeSeries == nil {
 			break
 		}

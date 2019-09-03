@@ -13,7 +13,7 @@ type Reader struct {
 	err      error
 }
 
-// ReaderReader create binary stream for reading data
+// NewReader read data from binary stream
 func NewReader(data []byte) *Reader {
 	return &Reader{
 		original: data,

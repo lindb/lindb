@@ -259,6 +259,13 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	_, _, err = mocked.idSequencer.GetFieldID(1, "f1")
 	assert.NotNil(t, err)
+	// case3: read existed fieldID
+	mocked.idSequencer.youngFieldIDs = map[uint32][]fieldIDAndType{3: {{
+		fieldType: field.SumField, fieldID: 1, fieldName: "sum"}}}
+	fid, ftype, err := mocked.idSequencer.GetFieldID(3, "sum")
+	assert.Nil(t, err)
+	assert.Equal(t, uint16(1), fid)
+	assert.Equal(t, field.SumField, ftype)
 
 	///////////////////////////////////
 	// readFieldID
