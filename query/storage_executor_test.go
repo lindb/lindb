@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestStorageExecute_validation(t *testing.T) {
@@ -55,7 +56,7 @@ func TestStorageExecute_Simple(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var families []tsdb.DataFamily
+	var scanners []series.DataFamilyScanner
 	for i := 0; i < 3; i++ {
 		seriesData := MockSumFieldSeries(ctrl, 10, 1, map[int]interface{}{
 			5:  5.5,
@@ -64,25 +65,42 @@ func TestStorageExecute_Simple(t *testing.T) {
 			16: 5.5,
 			56: 5.5,
 		})
-		scanner := tsdb.NewMockScanner(ctrl)
-		scanner.EXPECT().Close()
-		scanner.EXPECT().HasNext().Return(true)
-		scanner.EXPECT().Next().Return(seriesData)
+		itr := series.NewMockScanIterator(ctrl)
+		itr.EXPECT().Close()
+		itr.EXPECT().HasNext().Return(true)
+		itr.EXPECT().Next().Return(seriesData)
 
 		// finish scanner
-		scanner.EXPECT().HasNext().Return(false)
+		itr.EXPECT().HasNext().Return(false)
 
-		family := tsdb.NewMockDataFamily(ctrl)
-		family.EXPECT().Scan(gomock.Any()).Return(scanner)
+		scanner := series.NewMockDataFamilyScanner(ctrl)
+		scanner.EXPECT().Scan(gomock.Any()).Return(itr)
 
-		families = append(families, family)
+		scanners = append(scanners, scanner)
 	}
 
-	engine := MockTSDBEngine(ctrl, families...)
+	engine := MockTSDBEngine(ctrl, scanners...)
 
 	// normal case
 	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
 	exec := newStorageExecutor(engine, []int32{1, 2, 3}, query)
 	_ = exec.Execute()
 	assert.Nil(t, exec.Error())
+
+	execImpl := exec.(*storageExecutor)
+	// mock scanner return nil
+	mockScanner1 := series.NewMockDataFamilyScanner(ctrl)
+	mockScanner1.EXPECT().Scan(gomock.Any()).Return(nil).Times(1)
+	execImpl.familyLevelSearch(mockScanner1, nil)
+	// mock scanner return iterator with nil ts
+	mockScanner2 := series.NewMockDataFamilyScanner(ctrl)
+	mockItr := series.NewMockScanIterator(ctrl)
+	mockItr.EXPECT().Close().Return()
+	mockItr.EXPECT().HasNext().Return(true)
+	mockItr.EXPECT().Next().Return(nil)
+	mockScanner2.EXPECT().Scan(gomock.Any()).Return(mockItr)
+	execImpl.familyLevelSearch(mockScanner2, nil)
+	// check shards error
+	execImpl.shardIDs = nil
+	assert.NotNil(t, execImpl.checkShards())
 }
