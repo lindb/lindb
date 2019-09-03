@@ -330,6 +330,14 @@ func (seq *idSequencer) GetMetricID(metricName string) (uint32, error) {
 func (seq *idSequencer) GetFieldID(metricID uint32, fieldName string) (
 	fieldID uint16, fieldType field.Type, err error) {
 
+	seq.rwMux.RLock()
+	fID, fType, ok := seq.getFieldIDInMem(metricID, fieldName)
+	if ok {
+		seq.rwMux.RUnlock()
+		return fID, fType, nil
+	}
+	seq.rwMux.RUnlock()
+
 	snapShot := seq.metaFamily.GetSnapshot()
 	defer snapShot.Close()
 	readers, err := snapShot.FindReaders(metricID)

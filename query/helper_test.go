@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/golang/mock/gomock"
 )
@@ -14,14 +15,14 @@ import (
 //                mock interface				 //
 ///////////////////////////////////////////////////
 
-func MockTSDBEngine(ctrl *gomock.Controller, families ...tsdb.DataFamily) tsdb.Engine {
+func MockTSDBEngine(ctrl *gomock.Controller, scanners ...series.DataFamilyScanner) tsdb.Engine {
 	segment := tsdb.NewMockSegment(ctrl)
-	if len(families) > 0 {
-		for _, f := range families {
-			segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]tsdb.DataFamily{f})
+	if len(scanners) > 0 {
+		for _, f := range scanners {
+			segment.EXPECT().GetDataFamilyScanners(gomock.Any()).Return([]series.DataFamilyScanner{f})
 		}
 	} else {
-		segment.EXPECT().GetDataFamilies(gomock.Any()).Return(nil).AnyTimes()
+		segment.EXPECT().GetDataFamilyScanners(gomock.Any()).Return(nil).AnyTimes()
 	}
 
 	shard := tsdb.NewMockShard(ctrl)

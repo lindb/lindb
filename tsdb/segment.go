@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/lindb/tsdb/series"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
@@ -133,8 +135,8 @@ func (s *intervalSegment) getSegment(segmentName string) Segment {
 type Segment interface {
 	// BaseTime returns segment base time
 	BaseTime() int64
-	// GetDataFamilies returns data family list by time range, return nil if not match
-	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
+	// GetDataFamilyScanners returns data family list by time range, return nil if not match
+	GetDataFamilyScanners(timeRange timeutil.TimeRange) []series.DataFamilyScanner
 	// Close closes segment, include kv store
 	Close()
 }
@@ -178,7 +180,7 @@ func newSegment(segmentName string, intervalType interval.Type, path string) (Se
 func (s *segment) BaseTime() int64 {
 	return s.baseTime
 }
-func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
+func (s *segment) GetDataFamilyScanners(timeRange timeutil.TimeRange) []series.DataFamilyScanner {
 	//TODO need impl
 	return nil
 }
