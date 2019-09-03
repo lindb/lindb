@@ -10,9 +10,9 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/diskdb"
-	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/segmentio/fasthash/fnv1a"
@@ -53,8 +53,8 @@ type MemoryDatabase interface {
 	series.MetaGetter
 	// series.Suggester returns the suggestions from prefix string
 	series.Suggester
-	// series.DataFamilyScanner scans metric-data
-	series.DataFamilyScanner
+	// series.Scanner scans metric-data
+	series.Scanner
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
@@ -130,11 +130,8 @@ type memoryDatabase struct {
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
-func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
-	timeCalc, err := interval.GetCalculator(cfg.IntervalType)
-	if err != nil {
-		return nil, err
-	}
+func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) MemoryDatabase {
+	timeCalc := interval.GetCalculator(cfg.IntervalType)
 	md := memoryDatabase{
 		timeWindow:    cfg.TimeWindow,
 		interval:      cfg.IntervalValue,
@@ -150,7 +147,7 @@ func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) (MemoryDataba
 			hash2MStore: make(map[uint64]mStoreINTF)}
 	}
 	go md.evictor(ctx)
-	return &md, nil
+	return &md
 }
 
 // getBucket returns the mStoresBucket by metric-hash.
@@ -451,7 +448,7 @@ func (md *memoryDatabase) FindSeriesIDsByExpr(
 
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
-		return nil, fmt.Errorf("metricID: %d not found", metricID)
+		return nil, series.ErrNotFound
 	}
 	return mStore.findSeriesIDsByExpr(expr)
 }
@@ -468,7 +465,7 @@ func (md *memoryDatabase) GetSeriesIDsForTag(
 
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
-		return nil, fmt.Errorf("metricID: %d not found", metricID)
+		return nil, series.ErrNotFound
 	}
 	return mStore.getSeriesIDsForTag(tagKey)
 }
@@ -508,12 +505,11 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 }
 
 // Scan scans data from memory by scan-context
-func (md *memoryDatabase) Scan(sCtx series.ScanContext) series.VersionIterator {
+func (md *memoryDatabase) Scan(sCtx *series.ScanContext) {
 	mStore, ok := md.getMStoreByMetricID(sCtx.MetricID)
-	if !ok {
-		return nil
+	if ok {
+		sCtx.Interval = md.interval
+		sCtx.IntervalCalc = md.intervalCalc
+		mStore.Scan(sCtx)
 	}
-	sCtx.TimeInterval = md.interval
-	// todo: fixme, add family-time
-	return mStore.scan(sCtx)
 }

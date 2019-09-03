@@ -172,6 +172,10 @@ func (d *TSDDecoder) HasValueWithSlot(slot int) bool {
 	return false
 }
 
+func (d *TSDDecoder) Slot() int {
+	return d.startTime + d.idx - 1
+}
+
 // Value returns value of time slot
 func (d *TSDDecoder) Value() uint64 {
 	if d.values.Next() {

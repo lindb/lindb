@@ -3,8 +3,8 @@ package aggregation
 import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/selector"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 // FieldAggregator represents a field aggregator, aggregator the field series which with same field id
@@ -19,28 +19,33 @@ type FieldAggregator interface {
 
 // fieldAggregator implements field aggregator interface, aggregator field series based on aggregator spec
 type fieldAggregator struct {
-	baseTime   int64
-	timeRange  timeutil.TimeRange
-	interval   int64
-	aggregates map[uint16]PrimitiveAggregator
-	pointCount int
+	familyStartTime int64
+	startSlot       int
+	timeRange       timeutil.TimeRange
+	interval        int64
+	aggregates      map[uint16]PrimitiveAggregator
+	pointCount      int
 
 	aggSpec  *AggregatorSpec
 	selector selector.SlotSelector
 }
 
-// NewFieldAggregator creates a field aggregator
-func NewFieldAggregator(baseTime, interval, start, end int64, intervalRatio int, aggSpec *AggregatorSpec) FieldAggregator {
+// NewFieldAggregator creates a field aggregator,
+// time range 's start and end is index based on base time and interval.
+// e.g. family start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
+// real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
+func NewFieldAggregator(familyStartTime, interval, startIdx, endIdx int64, intervalRatio int, aggSpec *AggregatorSpec) FieldAggregator {
 	agg := &fieldAggregator{
-		baseTime:   baseTime,
-		interval:   interval,
-		pointCount: timeutil.CalPointCount(baseTime+interval*start, baseTime+interval*end, interval),
-		aggSpec:    aggSpec,
-		aggregates: make(map[uint16]PrimitiveAggregator),
+		familyStartTime: familyStartTime,
+		interval:        interval,
+		startSlot:       int(startIdx),
+		pointCount:      timeutil.CalPointCount(familyStartTime+interval*startIdx, familyStartTime+interval*endIdx, interval),
+		aggSpec:         aggSpec,
+		aggregates:      make(map[uint16]PrimitiveAggregator),
 	}
 
-	agg.timeRange = timeutil.TimeRange{Start: baseTime + interval*start, End: baseTime + interval*int64(agg.pointCount)}
-	agg.selector = selector.NewIndexSlotSelector(int(start), intervalRatio)
+	agg.timeRange = timeutil.TimeRange{Start: familyStartTime + interval*startIdx, End: familyStartTime + interval*int64(agg.pointCount)}
+	agg.selector = selector.NewIndexSlotSelector(int(startIdx), intervalRatio)
 
 	for funcType := range aggSpec.functions {
 		primitiveFields := field.GetPrimitiveFields(aggSpec.fieldType, funcType)
@@ -65,7 +70,7 @@ func (a *fieldAggregator) Iterator() series.FieldIterator {
 		its[idx] = it.Iterator()
 		idx++
 	}
-	return newFieldIterator(a.aggSpec.fieldID, a.aggSpec.fieldType, its)
+	return newFieldIterator(a.aggSpec.fieldID, a.aggSpec.fieldName, a.aggSpec.fieldType, a.familyStartTime, a.startSlot, its)
 }
 
 // Aggregate aggregates the field series into current aggregator
@@ -78,7 +83,7 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 			continue
 		}
 		primitiveFieldID := primitiveIt.FieldID()
-		//TODO multi-aggs
+		//FIXME stone1100 multi-aggs
 		aggregator, ok := a.aggregates[primitiveFieldID]
 		if !ok {
 			continue

@@ -1,8 +1,8 @@
 package diskdb
 
 import (
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=diskdb

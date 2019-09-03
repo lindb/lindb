@@ -212,36 +212,150 @@ func (m *TaskResponse) GetPayload() []byte {
 	return nil
 }
 
+type TimeSeriesList struct {
+	TimeSeriesList       []*TimeSeries `protobuf:"bytes,1,rep,name=timeSeriesList,proto3" json:"timeSeriesList,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+	XXX_unrecognized     []byte        `json:"-"`
+	XXX_sizecache        int32         `json:"-"`
+}
+
+func (m *TimeSeriesList) Reset()         { *m = TimeSeriesList{} }
+func (m *TimeSeriesList) String() string { return proto.CompactTextString(m) }
+func (*TimeSeriesList) ProtoMessage()    {}
+func (*TimeSeriesList) Descriptor() ([]byte, []int) {
+	return fileDescriptor_555bd8c177793206, []int{2}
+}
+func (m *TimeSeriesList) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TimeSeriesList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TimeSeriesList.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TimeSeriesList) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimeSeriesList.Merge(m, src)
+}
+func (m *TimeSeriesList) XXX_Size() int {
+	return m.Size()
+}
+func (m *TimeSeriesList) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimeSeriesList.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimeSeriesList proto.InternalMessageInfo
+
+func (m *TimeSeriesList) GetTimeSeriesList() []*TimeSeries {
+	if m != nil {
+		return m.TimeSeriesList
+	}
+	return nil
+}
+
+type TimeSeries struct {
+	Tags                 map[string]string `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Fields               map[string][]byte `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *TimeSeries) Reset()         { *m = TimeSeries{} }
+func (m *TimeSeries) String() string { return proto.CompactTextString(m) }
+func (*TimeSeries) ProtoMessage()    {}
+func (*TimeSeries) Descriptor() ([]byte, []int) {
+	return fileDescriptor_555bd8c177793206, []int{3}
+}
+func (m *TimeSeries) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *TimeSeries) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_TimeSeries.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *TimeSeries) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TimeSeries.Merge(m, src)
+}
+func (m *TimeSeries) XXX_Size() int {
+	return m.Size()
+}
+func (m *TimeSeries) XXX_DiscardUnknown() {
+	xxx_messageInfo_TimeSeries.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_TimeSeries proto.InternalMessageInfo
+
+func (m *TimeSeries) GetTags() map[string]string {
+	if m != nil {
+		return m.Tags
+	}
+	return nil
+}
+
+func (m *TimeSeries) GetFields() map[string][]byte {
+	if m != nil {
+		return m.Fields
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("common.TaskType", TaskType_name, TaskType_value)
 	proto.RegisterType((*TaskRequest)(nil), "common.TaskRequest")
 	proto.RegisterType((*TaskResponse)(nil), "common.TaskResponse")
+	proto.RegisterType((*TimeSeriesList)(nil), "common.TimeSeriesList")
+	proto.RegisterType((*TimeSeries)(nil), "common.TimeSeries")
+	proto.RegisterMapType((map[string][]byte)(nil), "common.TimeSeries.FieldsEntry")
+	proto.RegisterMapType((map[string]string)(nil), "common.TimeSeries.TagsEntry")
 }
 
 func init() { proto.RegisterFile("common.proto", fileDescriptor_555bd8c177793206) }
 
 var fileDescriptor_555bd8c177793206 = []byte{
-	// 320 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0xcf, 0x4a, 0xc3, 0x40,
-	0x10, 0x87, 0x3b, 0xfd, 0x93, 0xb6, 0xd3, 0x1c, 0xc2, 0x5a, 0x24, 0x88, 0x84, 0x90, 0x53, 0xf0,
-	0x50, 0xc4, 0x9e, 0xbc, 0x4a, 0x0f, 0x2d, 0x6a, 0x95, 0xb5, 0xe2, 0x79, 0x9b, 0x8c, 0x5a, 0x4d,
-	0xb2, 0x31, 0x59, 0x85, 0xbe, 0x83, 0x0f, 0xa0, 0x6f, 0xe4, 0xd1, 0x47, 0x90, 0xfa, 0x22, 0x92,
-	0x4d, 0x44, 0x73, 0xe8, 0x6d, 0xbf, 0xdf, 0xee, 0x2c, 0xdf, 0xcc, 0xa0, 0x19, 0xc8, 0x38, 0x96,
-	0xc9, 0x28, 0xcd, 0xa4, 0x92, 0xcc, 0x28, 0xc9, 0x7b, 0x07, 0x1c, 0x2c, 0x44, 0xfe, 0xc8, 0xe9,
-	0xe9, 0x99, 0x72, 0xc5, 0x86, 0xd8, 0x79, 0x90, 0xcb, 0xd9, 0xc4, 0x06, 0x17, 0xfc, 0x16, 0x2f,
-	0x81, 0x79, 0x68, 0xa6, 0x22, 0xa3, 0x44, 0x15, 0x4f, 0x67, 0x13, 0xbb, 0xe9, 0x82, 0xdf, 0xe7,
-	0xb5, 0x8c, 0x31, 0x6c, 0xab, 0x75, 0x4a, 0x76, 0xcb, 0x05, 0xbf, 0xc3, 0xf5, 0x59, 0xd7, 0xdd,
-	0xaf, 0xf3, 0x55, 0x20, 0xa2, 0xcb, 0x48, 0x24, 0x76, 0xdb, 0x05, 0xdf, 0xe4, 0xb5, 0x8c, 0xd9,
-	0xd8, 0x4d, 0xc5, 0x3a, 0x92, 0x22, 0xb4, 0x3b, 0xfa, 0xfa, 0x17, 0xbd, 0x57, 0x40, 0xb3, 0x74,
-	0xcb, 0x53, 0x99, 0xe4, 0xb4, 0x45, 0x6e, 0x17, 0x8d, 0x9a, 0x56, 0x45, 0x6c, 0x1f, 0xfb, 0x81,
-	0x8c, 0xd3, 0x88, 0x14, 0x85, 0xda, 0xaa, 0xc7, 0xff, 0x82, 0xa2, 0x8a, 0xb2, 0xec, 0x3c, 0xbf,
-	0xd3, 0x52, 0x7d, 0x5e, 0xd1, 0x76, 0x9d, 0x83, 0x31, 0xf6, 0x8a, 0x9f, 0x17, 0x45, 0x63, 0x03,
-	0xec, 0x5e, 0xcf, 0x4f, 0xe7, 0x17, 0x37, 0x73, 0xab, 0xc1, 0x2c, 0x34, 0x67, 0x89, 0xa2, 0x2c,
-	0xa6, 0x70, 0x25, 0x14, 0x59, 0xc0, 0x7a, 0xd8, 0x3e, 0x23, 0x71, 0x6b, 0x35, 0x8f, 0xa6, 0xe5,
-	0x78, 0xaf, 0x28, 0x7b, 0x59, 0x05, 0xc4, 0x8e, 0xd1, 0x98, 0x8a, 0x24, 0x8c, 0x88, 0xed, 0x8c,
-	0xaa, 0x7d, 0xfc, 0x9b, 0xfe, 0xde, 0xb0, 0x1e, 0x96, 0x6d, 0x7b, 0x0d, 0x1f, 0x0e, 0xe1, 0xc4,
-	0xfa, 0xd8, 0x38, 0xf0, 0xb9, 0x71, 0xe0, 0x6b, 0xe3, 0xc0, 0xdb, 0xb7, 0xd3, 0x58, 0x1a, 0x7a,
-	0x95, 0xe3, 0x9f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xc9, 0x93, 0x76, 0xd8, 0xda, 0x01, 0x00, 0x00,
+	// 446 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x53, 0xcb, 0x6e, 0xd3, 0x40,
+	0x14, 0xcd, 0xe4, 0xe1, 0xc6, 0x37, 0x56, 0x65, 0x5d, 0x2a, 0x64, 0x45, 0x95, 0x65, 0x79, 0x65,
+	0xb1, 0x88, 0xaa, 0x56, 0x02, 0xda, 0x25, 0x2a, 0xa8, 0x11, 0x21, 0xa0, 0x69, 0x10, 0xeb, 0x69,
+	0x7c, 0x1b, 0x4c, 0xfd, 0xc2, 0x33, 0xad, 0xe4, 0x7f, 0xe0, 0x03, 0xe0, 0x8f, 0x58, 0xf2, 0x09,
+	0x28, 0xec, 0xf8, 0x0a, 0xe4, 0xb1, 0xa9, 0x6b, 0x9e, 0xbb, 0x39, 0x67, 0xce, 0xb9, 0x3a, 0xbe,
+	0x3e, 0x03, 0xd6, 0x3a, 0x4b, 0x92, 0x2c, 0x9d, 0xe5, 0x45, 0xa6, 0x32, 0x34, 0x6a, 0xe4, 0x7f,
+	0x62, 0x30, 0x59, 0x09, 0x79, 0xc5, 0xe9, 0xfd, 0x35, 0x49, 0x85, 0x7b, 0x30, 0x7a, 0x97, 0x5d,
+	0xcc, 0x4f, 0x1d, 0xe6, 0xb1, 0x60, 0xc0, 0x6b, 0x80, 0x3e, 0x58, 0xb9, 0x28, 0x28, 0x55, 0x95,
+	0x74, 0x7e, 0xea, 0xf4, 0x3d, 0x16, 0x98, 0xbc, 0xc3, 0x21, 0xc2, 0x50, 0x95, 0x39, 0x39, 0x03,
+	0x8f, 0x05, 0x23, 0xae, 0xcf, 0xda, 0xf7, 0xb6, 0x94, 0xd1, 0x5a, 0xc4, 0xaf, 0x62, 0x91, 0x3a,
+	0x43, 0x8f, 0x05, 0x16, 0xef, 0x70, 0xe8, 0xc0, 0x4e, 0x2e, 0xca, 0x38, 0x13, 0xa1, 0x33, 0xd2,
+	0xd7, 0x3f, 0xa1, 0xff, 0x81, 0x81, 0x55, 0x67, 0x93, 0x79, 0x96, 0x4a, 0xfa, 0x4b, 0xb8, 0xfb,
+	0x60, 0x74, 0x62, 0x35, 0x08, 0xf7, 0xc1, 0x5c, 0x67, 0x49, 0x1e, 0x93, 0xa2, 0x50, 0xa7, 0x1a,
+	0xf3, 0x96, 0xa8, 0x5c, 0x54, 0x14, 0x2f, 0xe4, 0x46, 0x87, 0x32, 0x79, 0x83, 0xfe, 0x11, 0x67,
+	0x01, 0xbb, 0xab, 0x28, 0xa1, 0x73, 0x2a, 0x22, 0x92, 0x8b, 0x48, 0x2a, 0x3c, 0x81, 0x5d, 0xd5,
+	0x61, 0x1c, 0xe6, 0x0d, 0x82, 0xc9, 0x21, 0xce, 0x9a, 0x5d, 0xb7, 0x7a, 0xfe, 0x8b, 0xd2, 0xff,
+	0xce, 0x00, 0xda, 0x6b, 0x3c, 0x80, 0xa1, 0x12, 0x1b, 0xd9, 0x0c, 0xd8, 0xff, 0x7d, 0xc0, 0x6c,
+	0x25, 0x36, 0xf2, 0x69, 0xaa, 0x8a, 0x92, 0x6b, 0x25, 0x3e, 0x04, 0xe3, 0x32, 0xa2, 0x38, 0x94,
+	0x4e, 0x5f, 0x7b, 0xdc, 0x3f, 0x78, 0x9e, 0x69, 0x41, 0xed, 0x6a, 0xd4, 0xd3, 0x47, 0x60, 0xde,
+	0x8e, 0x42, 0x1b, 0x06, 0x57, 0x54, 0xea, 0x7d, 0x9a, 0xbc, 0x3a, 0x56, 0x3b, 0xbe, 0x11, 0xf1,
+	0x35, 0x35, 0xcb, 0xac, 0xc1, 0x49, 0xff, 0x31, 0x9b, 0x1e, 0xc3, 0xe4, 0xce, 0xbc, 0xff, 0x59,
+	0xad, 0x3b, 0xd6, 0x07, 0x47, 0x30, 0xae, 0x7e, 0xca, 0xaa, 0xea, 0xc4, 0x04, 0x76, 0x5e, 0x2f,
+	0x9f, 0x2f, 0x5f, 0xbe, 0x59, 0xda, 0x3d, 0xb4, 0xc1, 0x9a, 0xa7, 0x8a, 0x8a, 0x84, 0xc2, 0x48,
+	0x28, 0xb2, 0x19, 0x8e, 0x61, 0xb8, 0x20, 0x71, 0x69, 0xf7, 0x0f, 0xcf, 0xea, 0x66, 0x9e, 0x53,
+	0x71, 0x13, 0xad, 0x09, 0x8f, 0xc1, 0x38, 0x13, 0x69, 0x18, 0x13, 0xde, 0xbb, 0xfd, 0xd2, 0xb6,
+	0xb8, 0xd3, 0xbd, 0x2e, 0x59, 0x37, 0xc6, 0xef, 0x05, 0xec, 0x80, 0x3d, 0xb1, 0x3f, 0x6f, 0x5d,
+	0xf6, 0x65, 0xeb, 0xb2, 0xaf, 0x5b, 0x97, 0x7d, 0xfc, 0xe6, 0xf6, 0x2e, 0x0c, 0xfd, 0x0a, 0x8e,
+	0x7e, 0x04, 0x00, 0x00, 0xff, 0xff, 0x57, 0x5d, 0x48, 0xac, 0x15, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -477,6 +591,114 @@ func (m *TaskResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *TimeSeriesList) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TimeSeriesList) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeSeriesList) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.TimeSeriesList) > 0 {
+		for iNdEx := len(m.TimeSeriesList) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.TimeSeriesList[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintCommon(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *TimeSeries) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TimeSeries) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeSeries) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Fields) > 0 {
+		for k := range m.Fields {
+			v := m.Fields[k]
+			baseI := i
+			if len(v) > 0 {
+				i -= len(v)
+				copy(dAtA[i:], v)
+				i = encodeVarintCommon(dAtA, i, uint64(len(v)))
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintCommon(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintCommon(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Tags) > 0 {
+		for k := range m.Tags {
+			v := m.Tags[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintCommon(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintCommon(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintCommon(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintCommon(dAtA []byte, offset int, v uint64) int {
 	offset -= sovCommon(v)
 	base := offset
@@ -541,6 +763,56 @@ func (m *TaskResponse) Size() (n int) {
 	l = len(m.Payload)
 	if l > 0 {
 		n += 1 + l + sovCommon(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimeSeriesList) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.TimeSeriesList) > 0 {
+		for _, e := range m.TimeSeriesList {
+			l = e.Size()
+			n += 1 + l + sovCommon(uint64(l))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *TimeSeries) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Tags) > 0 {
+		for k, v := range m.Tags {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCommon(uint64(len(k))) + 1 + len(v) + sovCommon(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCommon(uint64(mapEntrySize))
+		}
+	}
+	if len(m.Fields) > 0 {
+		for k, v := range m.Fields {
+			_ = k
+			_ = v
+			l = 0
+			if len(v) > 0 {
+				l = 1 + len(v) + sovCommon(uint64(len(v)))
+			}
+			mapEntrySize := 1 + len(k) + sovCommon(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovCommon(uint64(mapEntrySize))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -911,6 +1183,403 @@ func (m *TaskResponse) Unmarshal(dAtA []byte) error {
 			if m.Payload == nil {
 				m.Payload = []byte{}
 			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCommon(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TimeSeriesList) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCommon
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TimeSeriesList: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TimeSeriesList: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TimeSeriesList", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TimeSeriesList = append(m.TimeSeriesList, &TimeSeries{})
+			if err := m.TimeSeriesList[len(m.TimeSeriesList)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCommon(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *TimeSeries) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCommon
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: TimeSeries: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: TimeSeries: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tags", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Tags == nil {
+				m.Tags = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCommon
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCommon
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCommon
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCommon
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCommon
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCommon(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Tags[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fields", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCommon
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCommon
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthCommon
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Fields == nil {
+				m.Fields = make(map[string][]byte)
+			}
+			var mapkey string
+			mapvalue := []byte{}
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCommon
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCommon
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCommon
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCommon
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthCommon
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = make([]byte, mapbyteLen)
+					copy(mapvalue, dAtA[iNdEx:postbytesIndex])
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCommon(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCommon
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Fields[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

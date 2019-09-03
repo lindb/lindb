@@ -2,7 +2,7 @@ package memdb
 
 import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 // getFieldType return field type by given field

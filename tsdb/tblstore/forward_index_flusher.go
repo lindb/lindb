@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/snappy"

@@ -16,6 +16,7 @@ import (
 	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 // Writer implements the stream write service.
@@ -105,7 +106,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 				return status.Errorf(codes.OutOfRange, "seq num not match replica:%d, storage:%d", seq, hs)
 			}
 
-			w.handleReplica(replica)
+			w.handleReplica(shard, replica)
 
 			sequence.SetHeadSeq(hs + 1)
 
@@ -126,7 +127,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 	}
 }
 
-func (w *Writer) handleReplica(replica *storage.Replica) {
+func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
 	reader := streamIO.NewReader(replica.Data)
 	for !reader.Empty() {
 		bytesLen := reader.ReadUvarint32()
@@ -149,11 +150,13 @@ func (w *Writer) handleReplica(replica *storage.Replica) {
 		w.logger.Info("receive metricList", logger.Any("metricList", metricList))
 
 		//TODO write metric, need handle panic
-		//err = shard.Write(metric)
-		//if err != nil {
-		//	logger.GetLogger("write").Error("write metric", logger.Error(err))
-		//	continue
-		//}
+		for _, metric := range metricList.Metrics {
+			err = shard.Write(metric)
+		}
+		if err != nil {
+			w.logger.Error("write metric", logger.Error(err))
+			continue
+		}
 	}
 }
 

@@ -11,8 +11,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/series"
 )
 
 var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")

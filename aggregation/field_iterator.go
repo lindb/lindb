@@ -1,32 +1,44 @@
 package aggregation
 
 import (
+	"math"
+
+	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 type fieldIterator struct {
 	id        uint16
+	name      string
 	fieldType field.Type
+
+	familyStartTime int64
+	startSlot       int
 
 	length int
 	idx    int
 	its    []series.PrimitiveIterator
 }
 
-func newFieldIterator(id uint16, fieldType field.Type, its []series.PrimitiveIterator) series.FieldIterator {
+func newFieldIterator(id uint16, name string, fieldType field.Type,
+	familyStartTime int64, startSlot int, its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
-		id:        id,
-		fieldType: fieldType,
-		its:       its,
-		length:    len(its),
+		id:              id,
+		name:            name,
+		fieldType:       fieldType,
+		familyStartTime: familyStartTime,
+		startSlot:       startSlot,
+		its:             its,
+		length:          len(its),
 	}
 }
 
 func (it *fieldIterator) FieldName() string {
-	//TODO need impl
-	return ""
+	return it.name
 }
 
 func (it *fieldIterator) FieldID() uint16 {
@@ -48,6 +60,41 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 	primitiveIt := it.its[it.idx]
 	it.idx++
 	return primitiveIt
+}
+
+//FIXME stone1100 need refactor
+func (it *fieldIterator) Bytes() ([]byte, error) {
+	writer := stream.NewBufferWriter(nil)
+
+	writer.PutVarint64(it.familyStartTime)
+
+	for it.HasNext() {
+		primitiveIt := it.Next()
+		encoder := encoding.NewTSDEncoder(it.startSlot)
+		idx := 0
+		for primitiveIt.HasNext() {
+			slot, value := primitiveIt.Next()
+			for slot > idx {
+				encoder.AppendTime(bit.Zero)
+				idx++
+			}
+			encoder.AppendTime(bit.One)
+			encoder.AppendValue(math.Float64bits(value))
+			idx++
+		}
+		data, err := encoder.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		writer.PutUInt16(primitiveIt.FieldID())
+		writer.PutVarint32(int32(len(data)))
+		writer.PutBytes(data)
+	}
+	return writer.Bytes()
+}
+
+func (it *fieldIterator) SegmentStartTime() int64 {
+	return it.familyStartTime
 }
 
 // primitiveIterator represents primitive iterator using array

@@ -13,9 +13,9 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/memdb"
-	"github.com/lindb/lindb/tsdb/series"
 )
 
 var path = filepath.Join(testPath, shardPath, "1")
@@ -59,9 +59,9 @@ func TestGetSegments(t *testing.T) {
 	index.EXPECT().GetIDSequencer().Return(diskdb.NewMockIDSequencer(ctrl))
 	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(nil, nil)
 	shard, _ := newShard(1, path, index, option.EngineOption{Interval: "10s"})
-	assert.Nil(t, shard.GetSegments(interval.Month, timeutil.TimeRange{}))
-	assert.Nil(t, shard.GetSegments(interval.Day, timeutil.TimeRange{}))
-	assert.Equal(t, 0, len(shard.GetSegments(interval.Day, timeutil.TimeRange{})))
+	assert.Nil(t, shard.GetDataFamilies(interval.Month, timeutil.TimeRange{}))
+	assert.Nil(t, shard.GetDataFamilies(interval.Day, timeutil.TimeRange{}))
+	assert.Equal(t, 0, len(shard.GetDataFamilies(interval.Day, timeutil.TimeRange{})))
 }
 
 func TestWrite(t *testing.T) {
@@ -108,6 +108,7 @@ func TestWrite(t *testing.T) {
 
 	assert.NotNil(t, shardINTF.GetMemoryDatabase())
 	assert.NotNil(t, shardINTF.GetSeriesIDsFilter())
+	assert.NotNil(t, shardINTF.GetMetaGetter())
 	shardINTF.Close()
 }
 

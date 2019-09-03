@@ -4,8 +4,8 @@ import (
 	"github.com/lindb/lindb/aggregation/fields"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source=./expression.go -destination=./expression_mock.go -package=aggregation

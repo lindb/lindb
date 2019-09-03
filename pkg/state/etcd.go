@@ -118,7 +118,9 @@ func (r *etcdRepository) Elect(ctx context.Context, key string,
 		// do keepalive/retry background
 		go func() {
 			// close closed channel, if keep alive stopped
-			defer close(ch)
+			defer func() {
+				close(ch)
+			}()
 			h.keepAlive(ctx)
 		}()
 		return success, ch, nil

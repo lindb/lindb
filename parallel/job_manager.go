@@ -69,9 +69,10 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 		JobID:        jobID,
 		ParentTaskID: taskID,
 		PhysicalPlan: planPayload,
+		Payload:      encoding.JSONMarshal(ctx.Query()),
 	}
 
-	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask)
+	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask, newResultMerger(ctx.ResultSet()))
 	j.taskManager.Submit(taskCtx)
 
 	if len(plan.Intermediates) > 0 {

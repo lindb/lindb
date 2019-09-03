@@ -4,8 +4,8 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -70,14 +70,8 @@ func (db *indexDatabase) GetTagValues(
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
-func (db *indexDatabase) FindSeriesIDsByExpr(
-	metricID uint32,
-	expr stmt.TagFilter,
-	timeRange timeutil.TimeRange,
-) (
-	*series.MultiVerSeriesIDSet,
-	error,
-) {
+func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
+	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, expr.TagKey())
 	if err != nil {
 		return nil, err

@@ -1,6 +1,8 @@
 package parallel
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -12,13 +14,13 @@ import (
 // TaskDispatcher represents the task dispatcher
 type TaskDispatcher interface {
 	// Dispatch dispatches the task request based on task type
-	Dispatch(req *pb.TaskRequest)
+	Dispatch(ctx context.Context, req *pb.TaskRequest)
 }
 
 // TaskProcessor represents the task processor, all task processors are async
 type TaskProcessor interface {
 	// Process processes the task request
-	Process(req *pb.TaskRequest) error
+	Process(ctx context.Context, req *pb.TaskRequest) error
 }
 
 // leafTaskDispatcher represents leaf task dispatcher for storage
@@ -36,11 +38,8 @@ func NewLeafTaskDispatcher(currentNode models.Node,
 }
 
 // Dispatch dispatches the request to storage engine query processor
-func (d *leafTaskDispatcher) Dispatch(req *pb.TaskRequest) {
-	//FIXME(stone1100) need remove err
-	go func() {
-		_ = d.processor.Process(req)
-	}()
+func (d *leafTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
+	_ = d.processor.Process(ctx, req)
 }
 
 // intermediateTaskDispatcher represents intermediate task dispatcher for broker
@@ -53,6 +52,6 @@ func NewIntermediateTaskDispatcher() TaskDispatcher {
 }
 
 // Dispatch dispatches the request to distribution query processor, merges the results
-func (d *intermediateTaskDispatcher) Dispatch(req *pb.TaskRequest) {
+func (d *intermediateTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
 
 }

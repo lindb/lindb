@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/tsdb/series"
+	"github.com/lindb/lindb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"

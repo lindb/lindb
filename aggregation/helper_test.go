@@ -4,13 +4,12 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/lindb/lindb/tsdb/series"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 ///////////////////////////////////////////////////
@@ -18,9 +17,8 @@ import (
 ///////////////////////////////////////////////////
 
 // MockSumFieldIterator returns mock an iterator of sum field
-func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[int]interface{}) series.FieldIterator {
+func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[int]interface{}) *series.MockFieldIterator {
 	it := series.NewMockFieldIterator(ctrl)
-	//it.EXPECT().ID().Return(fieldID)
 	it.EXPECT().HasNext().Return(true)
 
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)

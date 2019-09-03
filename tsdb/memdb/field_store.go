@@ -6,7 +6,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -26,6 +27,9 @@ type fStoreINTF interface {
 	// TimeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
 	TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
+
+	// scan scans field store data
+	scan(sCtx *series.ScanContext, version series.Version, seriesID uint32, fieldMeta *fieldMeta, ts *timeSeriesStore)
 }
 
 // sStoreNodes implements the sort.Interface
@@ -111,7 +115,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, fam
 	}
 
 	fs.removeSStore(familyTime)
-	data, startSlot, endSlot, err := sStore.bytes()
+	data, startSlot, endSlot, err := sStore.bytes(true)
 
 	if err != nil {
 		memDBLogger.Error("read segment data error:", logger.Error(err))

@@ -101,7 +101,7 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 		} else {
 			err = h.handleAliveResp(ctx)
 			// return if keepalive stopped
-			if err != nil && err != errKeepaliveStopped {
+			if err != nil && err == errKeepaliveStopped {
 				return
 			}
 		}

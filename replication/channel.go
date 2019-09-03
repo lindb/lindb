@@ -94,14 +94,15 @@ func (cm *channelManager) Write(metricList *field.MetricList) error {
 	}
 
 	// sharding metrics to shards
-	numOfShard := shardVal.(int32)
+	// TODO need modify
+	numOfShard := uint32(shardVal.(int32))
 	numOfMetric := len(metricList.Metrics)
 	avgLen := numOfMetric/int(numOfShard) + 1
 
 	metricsMap := make(map[int32][]*field.Metric, numOfShard)
 	for _, metric := range metricList.Metrics {
 		hash := metricHash(metric)
-		shardID := int32(hash) % numOfShard
+		shardID := int32(hash % numOfShard)
 		l, ok := metricsMap[shardID]
 		if !ok {
 			l = make([]*field.Metric, 0, avgLen)

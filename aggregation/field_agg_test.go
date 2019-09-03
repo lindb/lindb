@@ -8,7 +8,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 func TestFieldAggregator_Aggregate(t *testing.T) {

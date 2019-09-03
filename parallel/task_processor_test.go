@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,10 +15,10 @@ func TestLeafTaskDispatcher_Dispatch(t *testing.T) {
 	defer ctrl.Finish()
 
 	leafTaskDispatcher := NewLeafTaskDispatcher(models.Node{IP: "1.1.1.1", Port: 9000}, nil, nil, nil)
-	leafTaskDispatcher.Dispatch(&pb.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
+	leafTaskDispatcher.Dispatch(context.TODO(), &pb.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
 }
 
 func TestIntermediateTaskDispatcher_Dispatch(t *testing.T) {
 	dispatcher := NewIntermediateTaskDispatcher()
-	dispatcher.Dispatch(&pb.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
+	dispatcher.Dispatch(context.TODO(), &pb.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
 }

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/diskdb"
-	"github.com/lindb/lindb/tsdb/field"
-	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/RoaringBitmap/roaring"

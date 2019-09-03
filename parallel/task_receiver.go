@@ -3,6 +3,7 @@ package parallel
 import (
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/series"
 )
 
 // taskReceiver represents receive the task result from the sub tasks
@@ -23,8 +24,9 @@ func (r *taskReceiver) Receive(resp *pb.TaskResponse) error {
 	if taskCtx == nil {
 		return nil
 	}
+
 	//TODO impl result handler
-	taskCtx.ReceiveResult()
+	taskCtx.ReceiveResult(resp)
 
 	if taskCtx.Completed() {
 		taskManager.Complete(taskID)
@@ -32,6 +34,11 @@ func (r *taskReceiver) Receive(resp *pb.TaskResponse) error {
 		if taskCtx.TaskType() == RootTask {
 			jobCtx := r.jobManager.GetJob(resp.JobID)
 			if jobCtx != nil {
+
+				err := taskCtx.Error()
+				if err != nil {
+					jobCtx.Emit(&series.TimeSeriesEvent{Err: err})
+				}
 				jobCtx.Complete()
 			}
 		}
