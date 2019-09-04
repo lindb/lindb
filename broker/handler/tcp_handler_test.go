@@ -54,7 +54,7 @@ func TestTcpHandler_Handle(t *testing.T) {
 	wg.Wait()
 	// wait for server handler go routine
 	time.Sleep(20 * time.Millisecond)
-	tcpServer.Stop()
+	//tcpServer.Stop()
 
 }
 
