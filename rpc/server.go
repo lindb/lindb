@@ -54,7 +54,7 @@ func (s *tcpServer) Start() error {
 	s.lis = lis
 	// working now
 	atomic.StoreInt32(&s.inWorking, 1)
-	s.logger.Info("rpc tcpServer start serving", logger.String("address", s.bindAddress))
+	s.logger.Info("TCPServer start serving", logger.String("address", s.bindAddress))
 
 	for {
 		// Listen for an incoming connection.
@@ -64,7 +64,7 @@ func (s *tcpServer) Start() error {
 			if atomic.LoadInt32(&s.inShutDown) != 0 {
 				return nil
 			}
-			s.logger.Error("tcp server error when accepting", logger.Error(err))
+			s.logger.Error("TPCServer error when accepting", logger.Error(err))
 			return err
 		}
 		// Handle connections in a new goroutine.
@@ -94,7 +94,7 @@ func (s *tcpServer) Stop() {
 			atomic.StoreInt32(&s.inShutDown, 1)
 			err := s.lis.Close()
 			if err != nil {
-				s.logger.Error("close tcp server error", logger.Error(err))
+				s.logger.Error("close TCPServer error", logger.Error(err))
 			}
 		})
 }
@@ -127,7 +127,7 @@ func (s *grpcServer) Start() error {
 		return err
 	}
 
-	s.logger.Info("rpc tcpServer start serving", logger.String("address", s.bindAddress))
+	s.logger.Info("GRPCServer start serving", logger.String("address", s.bindAddress))
 
 	return s.gs.Serve(lis)
 }

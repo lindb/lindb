@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
+
+	"google.golang.org/grpc/codes"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -35,12 +37,12 @@ func NewWriter(storageService service.StorageService, sm replication.SequenceMan
 func (w *Writer) Reset(ctx context.Context, req *storage.ResetSeqRequest) (*storage.ResetSeqResponse, error) {
 	logicNode, err := getLogicNodeFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sequence, err := w.getSequence(req.Database, req.ShardID, *logicNode)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	sequence.SetHeadSeq(req.Seq)
@@ -51,12 +53,12 @@ func (w *Writer) Reset(ctx context.Context, req *storage.ResetSeqRequest) (*stor
 func (w *Writer) Next(ctx context.Context, req *storage.NextSeqRequest) (*storage.NextSeqResponse, error) {
 	logicNode, err := getLogicNodeFromCtx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sequence, err := w.getSequence(req.Database, req.ShardID, *logicNode)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &storage.NextSeqResponse{Seq: sequence.GetHeadSeq()}, nil
@@ -66,17 +68,17 @@ func (w *Writer) Next(ctx context.Context, req *storage.NextSeqRequest) (*storag
 func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 	database, shardID, logicNode, err := parseCtx(stream.Context())
 	if err != nil {
-		return err
+		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sequence, err := w.getSequence(database, shardID, *logicNode)
 	if err != nil {
-		return err
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	shard := w.storageService.GetShard(database, shardID)
 	if shard == nil {
-		return fmt.Errorf("shard %d for database %s not exists", shardID, database)
+		return status.Errorf(codes.NotFound, "shard %d for database %s not exists", shardID, database)
 	}
 
 	for {
@@ -86,7 +88,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		}
 		if err != nil {
 			w.logger.Error("error", logger.Error(err))
-			return err
+			return status.Error(codes.Internal, err.Error())
 		}
 
 		if len(req.Replicas) == 0 {
@@ -100,7 +102,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			hs := sequence.GetHeadSeq()
 			if hs != seq {
 				// reset to headSeq
-				return errors.New("seq num not match")
+				return status.Errorf(codes.OutOfRange, "seq num not match replica:%d, storage:%d", seq, hs)
 			}
 
 			w.handleReplica(replica)
@@ -119,7 +121,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		}
 
 		if err := stream.Send(resp); err != nil {
-			return err
+			return status.Error(codes.Internal, err.Error())
 		}
 	}
 }

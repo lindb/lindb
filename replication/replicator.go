@@ -164,6 +164,7 @@ func (r *replicator) recvLoop() {
 		if err != nil {
 			r.logger.Error("recvLoop receive error", logger.Error(err))
 			r.setReady(false)
+			time.Sleep(time.Second)
 			continue
 		}
 

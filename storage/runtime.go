@@ -100,7 +100,7 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: hostName}
+	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 
@@ -115,7 +115,7 @@ func (r *runtime) Run() error {
 
 	// register storage node info
 	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.Server.TTL)
+	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.GRPC.TTL)
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
