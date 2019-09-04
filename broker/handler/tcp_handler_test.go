@@ -54,7 +54,7 @@ func TestTcpHandler_Handle(t *testing.T) {
 	wg.Wait()
 	// wait for server handler go routine
 	time.Sleep(20 * time.Millisecond)
-	//tcpServer.Stop()
+	tcpServer.Stop()
 
 }
 
@@ -173,7 +173,7 @@ func testWrongBytes2(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChanne
 }
 
 func buildMetricList(value float64) *field.MetricList {
-	return &field.MetricList{Database: "db",
+	return &field.MetricList{Database: "dal",
 		Metrics: []*field.Metric{{
 			Name:      "name",
 			Timestamp: time.Now().Unix() * 1000,
@@ -188,3 +188,37 @@ func buildMetricList(value float64) *field.MetricList {
 			}},
 		}}}
 }
+
+//// 发送数据用
+//func TestWriteToBroker(t *testing.T) {
+//	conn, err := net.Dial("tcp", ":9002")
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	for i := 0; i < 1000; i++ {
+//		ml := buildMetricList(float64(i))
+//
+//		metricListBytes, err := ml.Marshal()
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//
+//		writer := stream.NewBufferWriter(nil)
+//		writer.PutInt32(int32(len(metricListBytes)))
+//		writer.PutBytes(metricListBytes)
+//
+//		bytes, err := writer.Bytes()
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//
+//		if _, err := conn.Write(bytes); err != nil {
+//			t.Fatal(err)
+//		}
+//	}
+//
+//	if err := conn.Close(); err != nil {
+//		t.Fatal(err)
+//	}
+//}

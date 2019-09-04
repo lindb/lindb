@@ -6,11 +6,11 @@ import (
 
 // BrokerKernel represents a broker configuration
 type BrokerKernel struct {
-	HTTP               HTTP               `toml:"HTTP"`
+	HTTP               HTTP               `toml:"http"`
 	Coordinator        RepoState          `toml:"coordinator"`
 	User               User               `toml:"user"`
-	Server             Server             `toml:"server"`
-	TCPServer          TCPServer          `toml:"tcpServer"`
+	GRPC               GRPC               `toml:"grpc"`
+	TCP                TCP                `toml:"tcp"`
 	ReplicationChannel ReplicationChannel `toml:"replicationChannel"`
 }
 
@@ -31,7 +31,7 @@ type User struct {
 	Password string `toml:"password" json:"password"`
 }
 
-type TCPServer struct {
+type TCP struct {
 	Port uint16 `toml:"port"`
 }
 
@@ -57,8 +57,11 @@ func NewDefaultBrokerCfg() Broker {
 			HTTP: HTTP{
 				Port: 9000,
 			},
-			Server: Server{
+			GRPC: GRPC{
 				Port: 9001,
+			},
+			TCP: TCP{
+				Port: 9002,
 			},
 			Coordinator: RepoState{
 				Namespace:   "/lindb/broker",
@@ -74,6 +77,9 @@ func NewDefaultBrokerCfg() Broker {
 				BufferSize:                 32,
 				SegmentFileSize:            128 * 1024 * 1024,
 				RemoveTaskIntervalInSecond: 60,
+				CheckFlushIntervalInSecond: 1,
+				FlushIntervalInSecond:      5,
+				BufferSizeLimit:            128 * 1024,
 			}},
 		Logging: NewDefaultLoggingCfg(),
 	}
