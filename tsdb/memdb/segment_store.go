@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/tsdb/field"
 )
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
@@ -38,6 +38,7 @@ func newSimpleFieldStore(familyTime int64, aggFunc field.AggFunc) sStoreINTF {
 func (fs *simpleFieldStore) getFamilyTime() int64 {
 	return fs.familyTime
 }
+
 func (fs *simpleFieldStore) AggFunc() field.AggFunc {
 	//TODO using type????
 	return fs.aggFunc

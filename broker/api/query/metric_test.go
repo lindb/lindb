@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/series"
+
+	"github.com/golang/mock/gomock"
 )
 
 func TestMetricAPI_Search(t *testing.T) {
@@ -48,10 +48,10 @@ func TestMetricAPI_Search(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	ch := make(chan field.GroupedTimeSeries)
+	ch := make(chan series.GroupedIterator)
 
 	time.AfterFunc(10*time.Millisecond, func() {
-		ch <- field.NewMockGroupedTimeSeries(ctrl)
+		ch <- series.NewMockGroupedIterator(ctrl)
 		close(ch)
 	})
 

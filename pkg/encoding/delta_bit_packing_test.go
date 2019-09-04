@@ -1,13 +1,12 @@
 package encoding
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAdd(t *testing.T) {
+func Test_DeltaBitPackingEncoder_Add(t *testing.T) {
 	p := NewDeltaBitPackingEncoder()
 
 	p.Add(1)
@@ -19,13 +18,11 @@ func TestAdd(t *testing.T) {
 
 	p.Add(200)
 
-	b, err := p.Bytes()
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Printf("xx,%p\n", &b)
+	b := p.Bytes()
 
-	d := NewDeltaBitPackingDecoder(&b)
+	t.Logf("xx,%p\n", &b)
+
+	d := NewDeltaBitPackingDecoder(b)
 
 	count := 0
 	for d.HasNext() {
@@ -34,5 +31,20 @@ func TestAdd(t *testing.T) {
 	}
 	assert.Equal(t, 104, count)
 
-	fmt.Printf("xx,%p", &d)
+	t.Logf("xx,%p", &d)
+}
+
+func Test_DeltaBitPackingEncoder_Reset(t *testing.T) {
+	p := NewDeltaBitPackingEncoder()
+	for i := 0; i < 100; i++ {
+		p.Add(100)
+	}
+	b1 := p.Bytes()
+	p.Reset()
+	for i := 0; i < 100; i++ {
+		p.Add(100)
+	}
+	b2 := p.Bytes()
+	assert.Equal(t, b1, b2)
+
 }

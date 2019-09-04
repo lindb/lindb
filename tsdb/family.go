@@ -7,8 +7,8 @@ import (
 
 // DataFamily represents a storage unit for time series data, support multi-version.
 type DataFamily interface {
-	// GetScanner returns a scanner which scans time series data based on query condition, returns scan iterator
-	GetScanner(scanContext *series.ScanContext) series.ScanIterator
+	// series.DataFamilyScanner returns a iterator which scans time series data based on query condition
+	series.DataFamilyScanner
 	// BaseTime returns the data family's base time
 	BaseTime() int64
 }
@@ -27,8 +27,8 @@ func newDataFamily(baseTime int64, family kv.Family) DataFamily {
 	}
 }
 
-// GetScanner returns a scanner which scans time series data based on query condition, returns scan iterator
-func (f *dataFamily) GetScanner(scanContext *series.ScanContext) series.ScanIterator {
+// Scan scans time series data based on query condition, returns scan iterator
+func (f *dataFamily) Scan(scanContext series.ScanContext) series.VersionIterator {
 	//TODO codingcrush
 	return nil
 }

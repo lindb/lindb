@@ -2,7 +2,8 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 // PrimitiveAggregator represents a primitive field aggregator under spec field aggregator.
@@ -11,7 +12,7 @@ type PrimitiveAggregator interface {
 	// Aggregate aggregates value with time slot(index)
 	Aggregate(idx int, value float64)
 	// Iterator returns an iterator for aggregator results
-	Iterator() field.PrimitiveIterator
+	Iterator() series.PrimitiveIterator
 }
 
 // primitiveAggregator implements primitive aggregator interface, using array for storing aggregation result
@@ -32,7 +33,7 @@ func newPrimitiveAggregator(id uint16, pointCount int, aggFunc field.AggFunc) Pr
 }
 
 // Iterator returns an iterator for aggregator results
-func (agg *primitiveAggregator) Iterator() field.PrimitiveIterator {
+func (agg *primitiveAggregator) Iterator() series.PrimitiveIterator {
 	return newPrimitiveIterator(agg.id, agg.values)
 }
 

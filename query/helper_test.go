@@ -3,9 +3,9 @@ package query
 import (
 	"sort"
 
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/field"
 	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/golang/mock/gomock"
@@ -40,15 +40,17 @@ func MockTSDBEngine(ctrl *gomock.Controller, scanners ...series.DataFamilyScanne
 }
 
 // MockSumFieldSeries returns mock an iterator of sum field
-func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldID uint16, points map[int]interface{}) field.MultiTimeSeries {
-	it := field.NewMockIterator(ctrl)
+func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldID uint16,
+	points map[int]interface{}) series.Iterator {
+
+	it := series.NewMockFieldIterator(ctrl)
 	//it.EXPECT().ID().Return(fieldID)
 	it.EXPECT().HasNext().Return(true)
 
-	primitiveIt := field.NewMockPrimitiveIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().Next().Return(primitiveIt)
 
-	primitiveIt.EXPECT().ID().Return(primitiveFieldID)
+	primitiveIt.EXPECT().FieldID().Return(primitiveFieldID)
 
 	var keys []int
 	for timeSlot := range points {
@@ -65,7 +67,7 @@ func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldI
 	// mock nil primitive iterator
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(nil)
-	it.EXPECT().ID().Return(fieldID)
+	it.EXPECT().FieldID().Return(fieldID)
 
 	// return hasNext=>false, finish primitive iterator
 	primitiveIt.EXPECT().HasNext().Return(false).AnyTimes()
@@ -73,7 +75,7 @@ func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldI
 	// sum field only has one primitive field
 	it.EXPECT().HasNext().Return(false).AnyTimes()
 
-	timeSeries := field.NewMockMultiTimeSeries(ctrl)
+	timeSeries := series.NewMockIterator(ctrl)
 	timeSeries.EXPECT().HasNext().Return(true)
 	timeSeries.EXPECT().Next().Return(it)
 	timeSeries.EXPECT().HasNext().Return(false)

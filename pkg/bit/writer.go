@@ -1,7 +1,6 @@
 package bit
 
 import (
-	"bytes"
 	"io"
 )
 
@@ -22,29 +21,18 @@ type Writer struct {
 	count uint8
 }
 
-// Reader reads bits from buffer
-type Reader struct {
-	buf   *bytes.Buffer
-	b     byte
-	count uint8
-
-	err error
-}
-
 // NewWriter create bit writer
 func NewWriter(w io.Writer) *Writer {
-	return &Writer{
-		w:     w,
-		count: 8,
-	}
+	var bw Writer
+	bw.Reset(w)
+	return &bw
 }
 
-// NewReader crate bit reader
-func NewReader(buf *bytes.Buffer) *Reader {
-	return &Reader{
-		buf:   buf,
-		count: 0,
-	}
+// Reset writes to a new writer
+func (w *Writer) Reset(writer io.Writer) {
+	w.w = writer
+	w.b[0] = 0
+	w.count = 8
 }
 
 // WriteBit writes a bit value
@@ -106,68 +94,11 @@ func (w *Writer) WriteByte(b byte) error {
 	return nil
 }
 
-//Flush flushes the currently in-process byte
+// Flush flushes the currently in-process byte
 func (w *Writer) Flush() error {
 	if w.count != 8 {
 		_, err := w.w.Write(w.b[:])
 		return err
 	}
 	return nil
-}
-
-// ReadBit reads a bit, if failure return error
-func (r *Reader) ReadBit() (Bit, error) {
-	if r.count == 0 {
-		r.b, r.err = r.buf.ReadByte()
-		r.count = 8
-	}
-	r.count--
-	d := r.b & 0x80
-	r.b <<= 1
-	return d != 0, r.err
-}
-
-// ReadBits read number of bits
-func (r *Reader) ReadBits(numBits int) (uint64, error) {
-	var u uint64
-
-	for numBits >= 8 {
-		byt, err := r.ReadByte()
-		if err != nil {
-			return 0, err
-		}
-
-		u = (u << 8) | uint64(byt)
-		numBits -= 8
-	}
-
-	var err error
-	for numBits > 0 && err != io.EOF {
-		byt, err := r.ReadBit()
-		if err != nil {
-			return 0, err
-		}
-		u <<= 1
-		if byt {
-			u |= 1
-		}
-		numBits--
-	}
-
-	return u, nil
-}
-
-// ReadByte reads a byte
-func (r *Reader) ReadByte() (byte, error) {
-	if r.count == 0 {
-		r.b, r.err = r.buf.ReadByte()
-		return r.b, r.err
-	}
-
-	byt := r.b
-
-	r.b, r.err = r.buf.ReadByte()
-	byt |= r.b >> r.count
-	r.b <<= 8 - r.count
-	return byt, r.err
 }

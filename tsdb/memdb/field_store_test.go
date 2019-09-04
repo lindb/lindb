@@ -20,8 +20,8 @@ func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
 func Test_newFieldStore(t *testing.T) {
 	fStore := newFieldStore(1)
 	assert.NotNil(t, fStore)
-	assert.Equal(t, uint16(1), fStore.getFieldID())
-	timeRange, ok := fStore.timeRange(10)
+	assert.Equal(t, uint16(1), fStore.GetFieldID())
+	timeRange, ok := fStore.TimeRange(10)
 	assert.False(t, ok)
 	assert.Equal(t, int64(0), timeRange.Start)
 	assert.Equal(t, int64(0), timeRange.End)
@@ -33,9 +33,9 @@ func Test_fStore_write(t *testing.T) {
 	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
 
 	//unknown field
-	theFieldStore.write(&pb.Field{Name: "unknown"}, writeCtx)
+	theFieldStore.Write(&pb.Field{Name: "unknown"}, writeCtx)
 	// sum field
-	theFieldStore.write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{
+	theFieldStore.Write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{
 		Sum: &pb.Sum{
 			Value: 1.0,
 		},
@@ -61,20 +61,20 @@ func Test_fStore_timeRange(t *testing.T) {
 	// error case
 
 	theFieldStore.insertSStore(mockSStore3)
-	timeRange, ok := theFieldStore.timeRange(10 * 1000)
+	timeRange, ok := theFieldStore.TimeRange(10 * 1000)
 	assert.Equal(t, int64(0), timeRange.Start)
 	assert.Equal(t, int64(0), timeRange.End)
 	assert.False(t, ok)
 
 	theFieldStore.insertSStore(mockSStore1)
-	timeRange, ok = theFieldStore.timeRange(10 * 1000)
+	timeRange, ok = theFieldStore.TimeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564300900000), timeRange.End)
 	assert.True(t, ok)
 
 	theFieldStore.insertSStore(mockSStore2)
 	theFieldStore.insertSStore(mockSStore4)
-	timeRange, ok = theFieldStore.timeRange(10 * 1000)
+	timeRange, ok = theFieldStore.TimeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564308140000), timeRange.End)
 	assert.True(t, ok)
@@ -98,13 +98,13 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
-	assert.False(t, theFieldStore.flushFieldTo(mockTF, 1564297200000))
+	assert.False(t, theFieldStore.FlushFieldTo(mockTF, 1564297200000))
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// mock error
-	assert.False(t, theFieldStore.flushFieldTo(mockTF, 1564304400000))
+	assert.False(t, theFieldStore.FlushFieldTo(mockTF, 1564304400000))
 	assert.Len(t, theFieldStore.sStoreNodes, 1)
 	// mock ok
-	assert.True(t, theFieldStore.flushFieldTo(mockTF, 1564308000000))
+	assert.True(t, theFieldStore.FlushFieldTo(mockTF, 1564308000000))
 	assert.Len(t, theFieldStore.sStoreNodes, 0)
 }
 

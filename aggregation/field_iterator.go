@@ -2,7 +2,8 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 type fieldIterator struct {
@@ -11,10 +12,10 @@ type fieldIterator struct {
 
 	length int
 	idx    int
-	its    []field.PrimitiveIterator
+	its    []series.PrimitiveIterator
 }
 
-func newFieldIterator(id uint16, fieldType field.Type, its []field.PrimitiveIterator) field.Iterator {
+func newFieldIterator(id uint16, fieldType field.Type, its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
 		id:        id,
 		fieldType: fieldType,
@@ -23,12 +24,12 @@ func newFieldIterator(id uint16, fieldType field.Type, its []field.PrimitiveIter
 	}
 }
 
-func (it *fieldIterator) Name() string {
+func (it *fieldIterator) FieldName() string {
 	//TODO need impl
 	return ""
 }
 
-func (it *fieldIterator) ID() uint16 {
+func (it *fieldIterator) FieldID() uint16 {
 	return it.id
 }
 
@@ -40,7 +41,7 @@ func (it *fieldIterator) HasNext() bool {
 	return it.idx < it.length
 }
 
-func (it *fieldIterator) Next() field.PrimitiveIterator {
+func (it *fieldIterator) Next() series.PrimitiveIterator {
 	if it.idx >= it.length {
 		return nil
 	}
@@ -56,7 +57,7 @@ type primitiveIterator struct {
 }
 
 // newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id uint16, values collections.FloatArray) field.PrimitiveIterator {
+func newPrimitiveIterator(id uint16, values collections.FloatArray) series.PrimitiveIterator {
 	it := &primitiveIterator{
 		id: id,
 	}
@@ -67,7 +68,7 @@ func newPrimitiveIterator(id uint16, values collections.FloatArray) field.Primit
 }
 
 // ID returns the primitive field id
-func (it *primitiveIterator) ID() uint16 {
+func (it *primitiveIterator) FieldID() uint16 {
 	return it.id
 }
 

@@ -137,11 +137,8 @@ func (b *storeBuilder) Abandon() error {
 // Close writes file footer before closing resources
 func (b *storeBuilder) Close() error {
 	posOfOffset := b.writer.Size()
-	offset, err := b.offset.Bytes()
-	if err != nil {
-		return fmt.Errorf("marshal store table offsets error:%s", err)
-	}
-	if _, err = b.writer.Write(offset); err != nil {
+	offset := b.offset.Bytes()
+	if _, err := b.writer.Write(offset); err != nil {
 		return err
 	}
 

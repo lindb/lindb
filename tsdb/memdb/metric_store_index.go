@@ -210,14 +210,14 @@ func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
 		tStore, ok := index.seriesID2TStore[seriesID]
 		// has been evicted before, reuse the old seriesID
 		if !ok {
-			tStore = newTimeSeriesStore(seriesID, hash)
+			tStore = newTimeSeriesStore(hash)
 			index.seriesID2TStore[seriesID] = tStore
 		}
 		return tStore, nil
 	}
 	// seriesID is not allocated before, assign a new one.
 	incrSeriesID := atomic.AddUint32(&index.idCounter, 1)
-	newTStore := newTimeSeriesStore(incrSeriesID, hash)
+	newTStore := newTimeSeriesStore(hash)
 	// bind relation of tag kv pairs to the tStore
 	err := index.insertNewTStore(tags, incrSeriesID, newTStore)
 	if err != nil {
@@ -259,8 +259,8 @@ func (index *tagIndex) allTStores() map[uint32]tStoreINTF {
 // flushMetricTo flushes metric-block of mStore to the writer.
 func (index *tagIndex) flushMetricTo(tableFlusher tblstore.MetricsDataFlusher, flushCtx flushContext) error {
 	flushed := false
-	for _, tStore := range index.seriesID2TStore {
-		tStoreDataFlushed := tStore.flushSeriesTo(tableFlusher, flushCtx)
+	for seriesID, tStore := range index.seriesID2TStore {
+		tStoreDataFlushed := tStore.flushSeriesTo(tableFlusher, flushCtx, seriesID)
 		flushed = flushed || tStoreDataFlushed
 	}
 	if !flushed {

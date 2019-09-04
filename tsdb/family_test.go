@@ -3,10 +3,11 @@ package tsdb
 import (
 	"testing"
 
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/tsdb/series"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/kv"
 )
 
 func TestDataFamily_BaseTime(t *testing.T) {
@@ -26,5 +27,5 @@ func TestDataFamily_Scan(t *testing.T) {
 	dataFamily := newDataFamily(int64(1000), family)
 
 	//TODO need impl scan test logic
-	assert.Nil(t, dataFamily.GetScanner(nil))
+	assert.Nil(t, dataFamily.Scan(series.ScanContext{}))
 }

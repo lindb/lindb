@@ -7,7 +7,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
 )
 
 //go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb

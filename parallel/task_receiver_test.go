@@ -6,8 +6,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/field"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestTaskReceiver_Receive(t *testing.T) {
@@ -27,7 +27,7 @@ func TestTaskReceiver_Receive(t *testing.T) {
 	taskManager.EXPECT().Get("taskID").
 		Return(newTaskContext("taskID", RootTask, "parentTaskID", "parentNode", 1))
 
-	jobManager.EXPECT().GetJob(gomock.Any()).Return(NewJobContext(make(chan field.GroupedTimeSeries), nil))
+	jobManager.EXPECT().GetJob(gomock.Any()).Return(NewJobContext(make(chan series.GroupedIterator), nil))
 	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID"})
 	assert.Nil(t, err)
 

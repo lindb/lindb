@@ -5,9 +5,9 @@ import (
 	"math"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/tsdb/field"
 
 	"go.uber.org/zap"
 )

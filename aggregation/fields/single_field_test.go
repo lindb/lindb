@@ -7,25 +7,26 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestNewSingleField(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	it := field.NewMockIterator(ctrl)
+	it := series.NewMockFieldIterator(ctrl)
 	it.EXPECT().HasNext().Return(false)
 	it.EXPECT().FieldType().Return(field.SumField)
 	f := NewSingleField(10, it)
 	assert.Nil(t, f)
 
-	it = field.NewMockIterator(ctrl)
+	it = series.NewMockFieldIterator(ctrl)
 	it.EXPECT().FieldType().Return(field.Unknown)
 	f = NewSingleField(10, it)
 	assert.Nil(t, f)
 
-	primitiveIt := field.NewMockPrimitiveIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	primitiveIt.EXPECT().HasNext().Return(false)

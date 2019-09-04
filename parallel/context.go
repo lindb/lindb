@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 type TaskType int
@@ -20,11 +20,11 @@ type JobContext interface {
 }
 
 type jobContext struct {
-	resultSet chan field.GroupedTimeSeries
+	resultSet chan series.GroupedIterator
 	plan      *models.PhysicalPlan
 }
 
-func NewJobContext(resultSet chan field.GroupedTimeSeries, plan *models.PhysicalPlan) JobContext {
+func NewJobContext(resultSet chan series.GroupedIterator, plan *models.PhysicalPlan) JobContext {
 	return &jobContext{resultSet: resultSet, plan: plan}
 }
 

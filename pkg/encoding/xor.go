@@ -128,8 +128,19 @@ func NewXORDecoder(b []byte) *XORDecoder {
 		b:     b,
 		first: true,
 	}
-	s.br = bit.NewReader(bytes.NewBuffer(b))
+	s.br = bit.NewReader(b)
 	return s
+}
+
+// Reset resets the underlying buffer to decode
+func (d *XORDecoder) Reset(b []byte) {
+	d.b = b
+	d.br.Reset(b)
+	d.first = true
+	d.leading = 0
+	d.trailing = 0
+	d.err = nil
+	d.val = 0
 }
 
 // Next return if has value in buffer using xor, do uncompress logic in next method,

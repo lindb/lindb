@@ -93,23 +93,28 @@ type TSDDecoder struct {
 
 // NewTSDDecoder create tsd decoder instance
 func NewTSDDecoder(data []byte) *TSDDecoder {
-	reader := stream.NewReader(data)
-	startTime := int(reader.ReadUvarint32())
-	count := int(reader.ReadUvarint32())
-	length := reader.ReadUvarint32()
-	buf := reader.ReadBytes(int(length))
-	timeSlots := bit.NewReader(bytes.NewBuffer(buf))
-	length = reader.ReadUvarint32()
-	buf = reader.ReadBytes(int(length))
-
-	return &TSDDecoder{
-		startTime: startTime,
-		endTime:   startTime + count - 1,
-		count:     count,
-		timeSlots: timeSlots,
-		values:    NewXORDecoder(buf),
-		reader:    reader,
+	decoder := &TSDDecoder{
+		reader:    stream.NewReader(nil),
+		values:    NewXORDecoder(nil),
+		timeSlots: bit.NewReader(nil),
 	}
+	decoder.Reset(data)
+	return decoder
+}
+
+// readMeta reads the meta info from the data
+func (d *TSDDecoder) Reset(data []byte) {
+	d.reader.Reset(data)
+
+	d.startTime = int(d.reader.ReadUvarint32())
+	d.count = int(d.reader.ReadUvarint32())
+	d.endTime = d.startTime + d.count - 1
+
+	length := d.reader.ReadUvarint32()
+	d.timeSlots.Reset(d.reader.ReadBytes(int(length)))
+
+	length = d.reader.ReadUvarint32()
+	d.values.Reset(d.reader.ReadBytes(int(length)))
 }
 
 // Error returns decode error
