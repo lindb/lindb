@@ -3,10 +3,10 @@ package memdb
 import (
 	"sort"
 
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -14,16 +14,18 @@ import (
 
 // fStoreINTF abstracts a field-store
 type fStoreINTF interface {
-	// getFieldID returns the fieldID
-	getFieldID() uint16
-	// write writes the metric's field with writeContext
-	write(f *pb.Field, writeCtx writeContext)
-	// flushFieldTo flushes field data of the specific familyTime
+	// GetSStore gets the sStore from list by familyTime.
+	GetSStore(familyTime int64) (sStoreINTF, bool)
+	// GetFieldID returns the fieldID
+	GetFieldID() uint16
+	// Write writes the metric's field with writeContext
+	Write(f *pb.Field, writeCtx writeContext)
+	// FlushFieldTo flushes field data of the specific familyTime
 	// return false if there is no data related of familyTime
-	flushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool)
-	// timeRange returns the start-time and end-time of fStore's data
+	FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool)
+	// TimeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
-	timeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
+	TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
 }
 
 // sStoreNodes implements the sort.Interface
@@ -46,10 +48,10 @@ type fieldStore struct {
 func newFieldStore(fieldID uint16) fStoreINTF { return &fieldStore{fieldID: fieldID} }
 
 // getFieldID returns the fieldID
-func (fs *fieldStore) getFieldID() uint16 { return fs.fieldID }
+func (fs *fieldStore) GetFieldID() uint16 { return fs.fieldID }
 
-// getSStore gets the sStore from list by familyTime.
-func (fs *fieldStore) getSStore(familyTime int64) (sStoreINTF, bool) {
+// GetSStore gets the sStore from list by familyTime.
+func (fs *fieldStore) GetSStore(familyTime int64) (sStoreINTF, bool) {
 	idx := sort.Search(len(fs.sStoreNodes), func(i int) bool {
 		return fs.sStoreNodes[i].getFamilyTime() >= familyTime
 	})
@@ -84,8 +86,8 @@ func (fs *fieldStore) insertSStore(sStore sStoreINTF) {
 	sort.Sort(fs.sStoreNodes)
 }
 
-func (fs *fieldStore) write(f *pb.Field, writeCtx writeContext) {
-	sStore, ok := fs.getSStore(writeCtx.familyTime)
+func (fs *fieldStore) Write(f *pb.Field, writeCtx writeContext) {
+	sStore, ok := fs.GetSStore(writeCtx.familyTime)
 
 	switch fields := f.Field.(type) {
 	case *pb.Field_Sum:
@@ -100,9 +102,9 @@ func (fs *fieldStore) write(f *pb.Field, writeCtx writeContext) {
 	}
 }
 
-// flushFieldTo flushes segments' data to writer and reset the segments-map.
-func (fs *fieldStore) flushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool) {
-	sStore, ok := fs.getSStore(familyTime)
+// FlushFieldTo flushes segments' data to writer and reset the segments-map.
+func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool) {
+	sStore, ok := fs.GetSStore(familyTime)
 
 	if !ok {
 		return false
@@ -119,7 +121,7 @@ func (fs *fieldStore) flushFieldTo(tableFlusher tblstore.MetricsDataFlusher, fam
 	return true
 }
 
-func (fs *fieldStore) timeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
+func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
 	for _, sStore := range fs.sStoreNodes {
 		startSlot, endSlot, err := sStore.slotRange()
 		if err != nil {

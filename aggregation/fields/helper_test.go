@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //////////////////////////////////////////////////
@@ -15,9 +16,9 @@ import (
 ///////////////////////////////////////////////////
 
 // mockSingleIterator returns mock an iterator of single field
-func mockSingleIterator(ctrl *gomock.Controller, fieldType field.Type) field.Iterator {
-	it := field.NewMockIterator(ctrl)
-	primitiveIt := field.NewMockPrimitiveIterator(ctrl)
+func mockSingleIterator(ctrl *gomock.Controller, fieldType field.Type) series.FieldIterator {
+	it := series.NewMockFieldIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().FieldType().Return(fieldType)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)

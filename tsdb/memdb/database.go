@@ -53,6 +53,8 @@ type MemoryDatabase interface {
 	series.MetaGetter
 	// series.Suggester returns the suggestions from prefix string
 	series.Suggester
+	// series.DataFamilyScanner scans metric-data
+	series.DataFamilyScanner
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
@@ -181,14 +183,12 @@ func (md *memoryDatabase) getMStoreByMetricID(metricID uint32) (mStore mStoreINT
 
 // getOrCreateMStore returns the mStore by metricHash.
 func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) mStoreINTF {
-	bucket := md.getBucket(hash)
-
 	var mStore mStoreINTF
 	mStore, ok := md.getMStoreByMetricHash(hash)
 	if !ok {
-		//FIXME codingcrush need check lock
 		metricID := md.generator.GenMetricID(metricName)
 
+		bucket := md.getBucket(hash)
 		bucket.rwLock.Lock()
 		mStore, ok = bucket.hash2MStore[hash]
 		if !ok {
@@ -493,4 +493,15 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 		return nil
 	}
 	return mStore.suggestTagValues(tagKey, tagValuePrefix, limit)
+}
+
+// Scan scans data from memory by scan-context
+func (md *memoryDatabase) Scan(sCtx series.ScanContext) series.VersionIterator {
+	mStore, ok := md.getMStoreByMetricID(sCtx.MetricID)
+	if !ok {
+		return nil
+	}
+	sCtx.TimeInterval = md.interval
+	// todo: fixme, add family-time
+	return mStore.scan(sCtx)
 }

@@ -8,9 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 func TestExpression_prepare(t *testing.T) {
@@ -36,9 +37,9 @@ func TestExpression_prepare(t *testing.T) {
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
 
-	timeSeries1 := field.NewMockTimeSeries(ctrl)
+	timeSeries1 := series.NewMockIterator(ctrl)
 	timeSeries1.EXPECT().HasNext().Return(true)
-	it3 := field.NewMockIterator(ctrl)
+	it3 := series.NewMockFieldIterator(ctrl)
 	it3.EXPECT().FieldType().Return(field.Unknown)
 	timeSeries1.EXPECT().Next().Return(it3)
 	timeSeries1.EXPECT().HasNext().Return(false)
@@ -97,7 +98,7 @@ func TestExpression_BinaryEval(t *testing.T) {
 	it2 := mockSingleIterator(ctrl, "f2", field.MaxField)
 	it3 := mockSingleIterator(ctrl, "f3", field.MaxField)
 
-	timeSeries1 := field.NewMockTimeSeries(ctrl)
+	timeSeries1 := series.NewMockIterator(ctrl)
 	timeSeries1.EXPECT().HasNext().Return(true)
 	timeSeries1.EXPECT().Next().Return(it1)
 	timeSeries1.EXPECT().HasNext().Return(true)

@@ -65,7 +65,7 @@ func TestStorageExecute_Simple(t *testing.T) {
 			16: 5.5,
 			56: 5.5,
 		})
-		itr := series.NewMockScanIterator(ctrl)
+		itr := series.NewMockVersionIterator(ctrl)
 		itr.EXPECT().Close()
 		itr.EXPECT().HasNext().Return(true)
 		itr.EXPECT().Next().Return(seriesData)
@@ -94,8 +94,8 @@ func TestStorageExecute_Simple(t *testing.T) {
 	execImpl.familyLevelSearch(mockScanner1, nil)
 	// mock scanner return iterator with nil ts
 	mockScanner2 := series.NewMockDataFamilyScanner(ctrl)
-	mockItr := series.NewMockScanIterator(ctrl)
-	mockItr.EXPECT().Close().Return()
+	mockItr := series.NewMockVersionIterator(ctrl)
+	mockItr.EXPECT().Close().Return(nil)
 	mockItr.EXPECT().HasNext().Return(true)
 	mockItr.EXPECT().Next().Return(nil)
 	mockScanner2.EXPECT().Scan(gomock.Any()).Return(mockItr)

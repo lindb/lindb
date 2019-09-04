@@ -4,7 +4,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 // brokerExecutor represents the broker query executor,
@@ -26,7 +26,7 @@ type brokerExecutor struct {
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 
-	resultSet chan field.GroupedTimeSeries
+	resultSet chan series.GroupedIterator
 
 	jobManager parallel.JobManager
 
@@ -51,7 +51,7 @@ func newBrokerExecutor(database string, sql string,
 // 1) get metadata based on params
 // 2) build execute plan
 // 3) run distribution query job
-func (e *brokerExecutor) Execute() <-chan field.GroupedTimeSeries {
+func (e *brokerExecutor) Execute() <-chan series.GroupedIterator {
 	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	if len(storageNodes) == 0 {
@@ -67,7 +67,7 @@ func (e *brokerExecutor) Execute() <-chan field.GroupedTimeSeries {
 	}
 	brokerPlan := plan.(*brokerPlan)
 	brokerPlan.physicalPlan.Database = e.database
-	e.resultSet = make(chan field.GroupedTimeSeries)
+	e.resultSet = make(chan series.GroupedIterator)
 	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.resultSet, brokerPlan.physicalPlan)); err != nil {
 		e.err = err
 		close(e.resultSet)

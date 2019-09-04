@@ -1,9 +1,10 @@
 package aggregation
 
 import (
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/selector"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 // FieldAggregator represents a field aggregator, aggregator the field series which with same field id
@@ -11,9 +12,9 @@ type FieldAggregator interface {
 	// TimeRange returns the time range of current aggregator
 	TimeRange() timeutil.TimeRange
 	// Aggregate aggregates the field series into current aggregator
-	Aggregate(it field.Iterator)
+	Aggregate(it series.FieldIterator)
 	// Iterator returns an iterator for aggregator result
-	Iterator() field.Iterator
+	Iterator() series.FieldIterator
 }
 
 // fieldAggregator implements field aggregator interface, aggregator field series based on aggregator spec
@@ -57,8 +58,8 @@ func (a *fieldAggregator) TimeRange() timeutil.TimeRange {
 }
 
 // Iterator returns an iterator for aggregator result
-func (a *fieldAggregator) Iterator() field.Iterator {
-	its := make([]field.PrimitiveIterator, len(a.aggregates))
+func (a *fieldAggregator) Iterator() series.FieldIterator {
+	its := make([]series.PrimitiveIterator, len(a.aggregates))
 	idx := 0
 	for _, it := range a.aggregates {
 		its[idx] = it.Iterator()
@@ -68,7 +69,7 @@ func (a *fieldAggregator) Iterator() field.Iterator {
 }
 
 // Aggregate aggregates the field series into current aggregator
-func (a *fieldAggregator) Aggregate(it field.Iterator) {
+func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	slotSelector := a.selector
 
 	for it.HasNext() {
@@ -76,7 +77,7 @@ func (a *fieldAggregator) Aggregate(it field.Iterator) {
 		if primitiveIt == nil {
 			continue
 		}
-		primitiveFieldID := primitiveIt.ID()
+		primitiveFieldID := primitiveIt.FieldID()
 		//TODO multi-aggs
 		aggregator, ok := a.aggregates[primitiveFieldID]
 		if !ok {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -33,7 +32,7 @@ type storageExecutor struct {
 	intervalRatio int
 	interval      int64
 
-	resultCh chan field.GroupedTimeSeries
+	resultCh chan series.GroupedIterator
 
 	err error
 }
@@ -58,7 +57,7 @@ func newStorageExecutor(engine tsdb.Engine, shardIDs []int32, query *stmt.Query)
 // 2) build execute plan
 // 3) build execute pipeline
 // 4) run pipeline
-func (e *storageExecutor) Execute() <-chan field.GroupedTimeSeries {
+func (e *storageExecutor) Execute() <-chan series.GroupedIterator {
 	// do query validation
 	if err := e.validation(); err != nil {
 		e.err = err
@@ -95,7 +94,7 @@ func (e *storageExecutor) Execute() <-chan field.GroupedTimeSeries {
 	}
 
 	//TODO set size
-	e.resultCh = make(chan field.GroupedTimeSeries, 10)
+	e.resultCh = make(chan series.GroupedIterator, 10)
 
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.aggregations = storageExecutePlan.fields
@@ -161,7 +160,8 @@ func (e *storageExecutor) familyLevelSearch(scanner series.DataFamilyScanner, se
 		for timeSeries.HasNext() {
 			it := timeSeries.Next()
 			//TODO use family time range
-			agg := aggregation.NewFieldAggregator(1, e.interval, e.query.TimeRange.Start, e.query.TimeRange.End, e.intervalRatio, e.aggregations[it.ID()])
+			agg := aggregation.NewFieldAggregator(1, e.interval, e.query.TimeRange.Start,
+				e.query.TimeRange.End, e.intervalRatio, e.aggregations[it.FieldID()])
 			agg.Aggregate(it)
 		}
 	}

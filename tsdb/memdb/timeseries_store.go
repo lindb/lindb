@@ -3,10 +3,10 @@ package memdb
 import (
 	"sort"
 
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -14,12 +14,16 @@ import (
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
+	// retain retains a lock of tStore
+	retain() func()
 	// getHash returns the FNV1a hash of the tags
 	getHash() uint64
+	// getFStore returns the fStore in this list from field-id.
+	getFStore(fieldID uint16) (fStoreINTF, bool)
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// flushSeriesTo flushes the series data segment.
-	flushSeriesTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) (flushed bool)
+	flushSeriesTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext, seriesID uint32) (flushed bool)
 	// isExpired detects if this tStore has not been used for a TTL
 	isExpired() bool
 	// isNoData symbols if all data of this tStore has been flushed
@@ -30,12 +34,11 @@ type tStoreINTF interface {
 type fStoreNodes []fStoreINTF
 
 func (f fStoreNodes) Len() int           { return len(f) }
-func (f fStoreNodes) Less(i, j int) bool { return f[i].getFieldID() < f[j].getFieldID() }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].GetFieldID() < f[j].GetFieldID() }
 func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
-	seriesID      uint32           // series id
 	sl            lockers.SpinLock // spin-lock
 	hash          uint64           // hash of tags
 	lastWroteTime uint32           // last write-time in seconds
@@ -44,11 +47,16 @@ type timeSeriesStore struct {
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
-func newTimeSeriesStore(seriesID uint32, tagsHash uint64) tStoreINTF {
+func newTimeSeriesStore(tagsHash uint64) tStoreINTF {
 	return &timeSeriesStore{
-		seriesID:      seriesID,
 		hash:          tagsHash,
 		lastWroteTime: uint32(timeutil.Now() / 1000)}
+}
+
+// retain retains a lock of tStore
+func (ts *timeSeriesStore) retain() func() {
+	ts.sl.Lock()
+	return ts.sl.Unlock
 }
 
 // getHash returns the FNV1a hash of the tags
@@ -59,9 +67,9 @@ func (ts *timeSeriesStore) getHash() uint64 {
 // getFStore returns the fStore in this list from field-id.
 func (ts *timeSeriesStore) getFStore(fieldID uint16) (fStoreINTF, bool) {
 	idx := sort.Search(len(ts.fStoreNodes), func(i int) bool {
-		return ts.fStoreNodes[i].getFieldID() >= fieldID
+		return ts.fStoreNodes[i].GetFieldID() >= fieldID
 	})
-	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].getFieldID() != fieldID {
+	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].GetFieldID() != fieldID {
 		return nil, false
 	}
 	return ts.fStoreNodes[idx], true
@@ -92,7 +100,7 @@ func (ts *timeSeriesStore) afterFlush(flushCtx flushContext) {
 	var startTime, endTime int64
 	ts.hasData = false
 	for _, fStore := range ts.fStoreNodes {
-		timeRange, ok := fStore.timeRange(flushCtx.timeInterval)
+		timeRange, ok := fStore.TimeRange(flushCtx.timeInterval)
 		if !ok {
 			continue
 		}
@@ -124,7 +132,7 @@ func (ts *timeSeriesStore) write(metric *pb.Metric, writeCtx writeContext) error
 			continue
 		}
 		if fStore, err := ts.getOrCreateFStore(f.Name, fieldType, writeCtx); err == nil {
-			fStore.write(f, writeCtx)
+			fStore.Write(f, writeCtx)
 			ts.afterWrite()
 		} else {
 			return err // field type do not match before, too many fields
@@ -152,14 +160,14 @@ func (ts *timeSeriesStore) getOrCreateFStore(fieldName string, fieldType field.T
 
 // flushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) flushSeriesTo(flusher tblstore.MetricsDataFlusher,
-	flushCtx flushContext) (flushed bool) {
+	flushCtx flushContext, seriesID uint32) (flushed bool) {
 	ts.sl.Lock()
 	for _, fStore := range ts.fStoreNodes {
-		fieldDataFlushed := fStore.flushFieldTo(flusher, flushCtx.familyTime)
+		fieldDataFlushed := fStore.FlushFieldTo(flusher, flushCtx.familyTime)
 		flushed = flushed || fieldDataFlushed
 	}
 	if flushed {
-		flusher.FlushSeries(ts.seriesID)
+		flusher.FlushSeries(seriesID)
 		ts.afterFlush(flushCtx)
 	}
 	// update time range info

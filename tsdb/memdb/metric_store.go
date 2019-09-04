@@ -9,11 +9,11 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/field"
 	"github.com/lindb/lindb/tsdb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
@@ -56,6 +56,8 @@ type mStoreINTF interface {
 	// getSeriesIDsForTag get series ids by tagKey
 	getSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
 	mStoreFieldIDGetter
+	// scan returns a iterator for scanning data
+	scan(sCtx series.ScanContext) series.VersionIterator
 }
 
 // mStoreFieldIDGetter gets fieldID from fieldsMeta, and calls the id-generator when not exist

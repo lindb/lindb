@@ -3,7 +3,8 @@ package fields
 import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 // singleField represents the single field series
@@ -13,7 +14,7 @@ type singleField struct {
 }
 
 // NewSingleField creates a single field series
-func NewSingleField(capacity int, it field.Iterator) Field {
+func NewSingleField(capacity int, it series.FieldIterator) Field {
 	fieldType := it.FieldType()
 	if fieldType == field.Unknown {
 		return nil
