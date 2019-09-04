@@ -27,7 +27,7 @@ func TestStorageRuntime(t *testing.T) {
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	// test normal storage run
 	cfg := config.Storage{StorageKernel: config.StorageKernel{
-		Server: config.Server{
+		GRPC: config.GRPC{
 			Port: 9999,
 			TTL:  1,
 		},

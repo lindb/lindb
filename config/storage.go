@@ -7,7 +7,7 @@ import (
 // Storage represents a storage configuration
 type StorageKernel struct {
 	Coordinator RepoState   `toml:"coordinator"`
-	Server      Server      `toml:"server"`
+	GRPC        GRPC        `toml:"grpc"`
 	Engine      Engine      `toml:"engine"`
 	Replication Replication `toml:"replication"`
 }
@@ -18,8 +18,8 @@ type Storage struct {
 	Logging Logging `toml:"logging"`
 }
 
-// Server represents tcp server config
-type Server struct {
+// GRPC represents grpc server config
+type GRPC struct {
 	Port uint16 `toml:"port"`
 	TTL  int64  `toml:"ttl"`
 }
@@ -42,7 +42,7 @@ func NewDefaultStorageCfg() Storage {
 				Namespace:   "/lindb/storage",
 				Endpoints:   []string{"http://localhost:2379"},
 				DialTimeout: 5},
-			Server: Server{
+			GRPC: GRPC{
 				Port: 2891,
 				TTL:  1},
 			Engine: Engine{

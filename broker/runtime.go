@@ -66,8 +66,11 @@ type apiHandler struct {
 }
 
 type rpcHandler struct {
-	task       *parallel.TaskHandler
-	tcpHandler rpc.TCPHandler
+	task *parallel.TaskHandler
+}
+
+type tcpHandler struct {
+	handler rpc.TCPHandler
 }
 
 type middlewareHandler struct {
@@ -90,10 +93,11 @@ type runtime struct {
 	stateMachines *coordinator.BrokerStateMachines
 
 	grpcServer rpc.GRPCServer
-	handler    *rpcHandler
-	middleware *middlewareHandler
+	tcpServer  rpc.TCPServer
+	rpcHandler *rpcHandler
+	tcpHandler *tcpHandler
 
-	tcpServer rpc.TCPServer
+	middleware *middlewareHandler
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -131,7 +135,7 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.Server.Port, HostName: hostName}
+	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName}
 
 	// start state repository
 	if err := r.startStateRepo(); err != nil {
@@ -180,6 +184,7 @@ func (r *runtime) Run() error {
 	r.buildMiddlewareDependency()
 	r.buildAPIDependency()
 	// start tcp server
+	r.startGRPCServer()
 	r.startTCPServer()
 
 	// register broker node info
@@ -245,7 +250,7 @@ func (r *runtime) Stop() error {
 	return nil
 }
 
-// startHTTPServer starts http server for api handler
+// startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
 	port := r.config.HTTP.Port
 
@@ -355,30 +360,46 @@ func (r *runtime) buildMiddlewareDependency() {
 	}
 }
 
+// startTCPServer starts the TCP server
 func (r *runtime) startTCPServer() {
-	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.Server.Port))
+	r.buildTCPHandlers()
+	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.TCP.Port), r.tcpHandler.handler)
 
-	// bind rpc handlers
-	r.bindRPCHandlers()
+	go func() {
+		if err := r.tcpServer.Start(); err != nil {
+			r.log.Error("broker tcp server", logger.Error(err))
+			panic(err)
+		}
+	}()
+}
+
+// startGRPCServer starts the GRPC server
+func (r *runtime) startGRPCServer() {
+	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.GRPC.Port))
+
+	// bind grpc handlers
+	r.bindGRPCHandlers()
 
 	go func() {
 		if err := r.grpcServer.Start(); err != nil {
 			panic(err)
 		}
 	}()
-
-	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.TCPServer.Port), r.handler.tcpHandler)
 }
 
-// bindRPCHandlers binds rpc handlers, registers handler into grpc server
-func (r *runtime) bindRPCHandlers() {
+// bindGRPCHandlers binds rpc handlers, registers rpcHandler into grpc server
+func (r *runtime) bindGRPCHandlers() {
 	//FIXME: (stone1100) need close
 	dispatcher := parallel.NewIntermediateTaskDispatcher()
-	r.handler = &rpcHandler{
-		task:       parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
-		tcpHandler: handler.NewTCPHandler(r.srv.channelManager),
+	r.rpcHandler = &rpcHandler{
+		task: parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
 	}
 
-	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.handler.task)
+	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
 
+}
+
+//buildTCPHandlers builds tcp handlers
+func (r *runtime) buildTCPHandlers() {
+	r.tcpHandler = &tcpHandler{handler: handler.NewTCPHandler(r.srv.channelManager)}
 }

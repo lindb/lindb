@@ -29,11 +29,11 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 			Namespace: "/test/broker",
 			Endpoints: ts.Cluster.Endpoints,
 		},
-		Server: config.Server{
+		GRPC: config.GRPC{
 			Port: 2881,
 			TTL:  1,
 		},
-		TCPServer: config.TCPServer{Port: 2882},
+		TCP: config.TCP{Port: 2882},
 		ReplicationChannel: config.ReplicationChannel{
 			Dir:                        "/tmp/broker/replication",
 			BufferSize:                 32,
