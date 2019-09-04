@@ -4,11 +4,13 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/lindb/lindb/tsdb/series"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
 )
 
 ///////////////////////////////////////////////////
@@ -16,15 +18,15 @@ import (
 ///////////////////////////////////////////////////
 
 // MockSumFieldIterator returns mock an iterator of sum field
-func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[int]interface{}) field.Iterator {
-	it := field.NewMockIterator(ctrl)
+func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[int]interface{}) series.FieldIterator {
+	it := series.NewMockFieldIterator(ctrl)
 	//it.EXPECT().ID().Return(fieldID)
 	it.EXPECT().HasNext().Return(true)
 
-	primitiveIt := field.NewMockPrimitiveIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().Next().Return(primitiveIt)
 
-	primitiveIt.EXPECT().ID().Return(fieldID)
+	primitiveIt.EXPECT().FieldID().Return(fieldID)
 
 	var keys []int
 	for timeSlot := range points {
@@ -50,7 +52,7 @@ func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[in
 	return it
 }
 
-func AssertPrimitiveIt(t *testing.T, it field.PrimitiveIterator, expect map[int]float64) {
+func AssertPrimitiveIt(t *testing.T, it series.PrimitiveIterator, expect map[int]float64) {
 	count := 0
 	for it.HasNext() {
 		timeSlot, value := it.Next()
@@ -69,13 +71,13 @@ func generateFloatArray(values []float64) collections.FloatArray {
 }
 
 // mockSingleIterator returns mock an iterator of single field
-func mockSingleIterator(ctrl *gomock.Controller, fieldName string, fieldType field.Type) field.Iterator {
-	it := field.NewMockIterator(ctrl)
-	primitiveIt := field.NewMockPrimitiveIterator(ctrl)
+func mockSingleIterator(ctrl *gomock.Controller, fieldName string, fieldType field.Type) series.FieldIterator {
+	it := series.NewMockFieldIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	it.EXPECT().FieldType().Return(fieldType)
-	it.EXPECT().Name().Return(fieldName)
+	it.EXPECT().FieldName().Return(fieldName)
 	primitiveIt.EXPECT().HasNext().Return(true)
 	primitiveIt.EXPECT().Next().Return(4, 1.1)
 	primitiveIt.EXPECT().HasNext().Return(true)
@@ -84,8 +86,8 @@ func mockSingleIterator(ctrl *gomock.Controller, fieldName string, fieldType fie
 	return it
 }
 
-func mockTimeSeries(ctrl *gomock.Controller, fields map[string]field.Type) field.TimeSeries {
-	timeSeries := field.NewMockTimeSeries(ctrl)
+func mockTimeSeries(ctrl *gomock.Controller, fields map[string]field.Type) series.Iterator {
+	timeSeries := series.NewMockIterator(ctrl)
 	for fieldName, fieldType := range fields {
 		it := mockSingleIterator(ctrl, fieldName, fieldType)
 

@@ -1,7 +1,6 @@
 package series
 
 import (
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -15,16 +14,12 @@ type ScanContext struct {
 	TimeRange timeutil.TimeRange
 	// optional, if SeriesIDSet is nil, just search metric level data
 	SeriesIDSet *MultiVerSeriesIDSet
+	// for context usage
+	TimeInterval int64 // database interval in seconds
+	FamilyTime   int64 // family time
 }
 
 // DataFamilyScanner represents the scan ability over family data.
 type DataFamilyScanner interface {
-	Scan(sCtx ScanContext) ScanIterator
-}
-
-// ScanIterator represents a iterator over multi-version series data
-type ScanIterator interface {
-	HasNext() bool
-	Next() field.MultiTimeSeries
-	Close()
+	Scan(sCtx ScanContext) VersionIterator
 }

@@ -4,8 +4,8 @@ import (
 	"github.com/lindb/lindb/aggregation/fields"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/series"
 )
 
 //go:generate mockgen -source=./expression.go -destination=./expression_mock.go -package=aggregation
@@ -23,7 +23,7 @@ type Expression interface {
 // 2. eval the expression
 // 3. build result set
 type expression struct {
-	timeSeries  field.TimeSeries
+	timeSeries  series.Iterator
 	selectItems []stmt.Expr
 
 	fieldStore map[string]fields.Field
@@ -32,7 +32,7 @@ type expression struct {
 }
 
 // NewExpression creates an expression
-func NewExpression(timeSeries field.TimeSeries, pointCount int, selectItems []stmt.Expr) Expression {
+func NewExpression(timeSeries series.Iterator, pointCount int, selectItems []stmt.Expr) Expression {
 	return &expression{
 		timeSeries:  timeSeries,
 		pointCount:  pointCount,
@@ -77,7 +77,7 @@ func (e *expression) prepare() {
 		it := e.timeSeries.Next()
 		f := fields.NewSingleField(e.pointCount, it)
 		if f != nil {
-			e.fieldStore[it.Name()] = f
+			e.fieldStore[it.FieldName()] = f
 		}
 	}
 }

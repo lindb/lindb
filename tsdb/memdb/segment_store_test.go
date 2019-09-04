@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 func TestSimpleSegmentStore(t *testing.T) {
 	aggFunc := field.GetAggFunc(field.Sum)
 	store := newSimpleFieldStore(0, aggFunc)
-
+	assert.Equal(t, int64(0), store.getFamilyTime())
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)

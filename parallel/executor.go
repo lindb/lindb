@@ -1,6 +1,8 @@
 package parallel
 
-import "github.com/lindb/lindb/pkg/field"
+import (
+	"github.com/lindb/lindb/tsdb/series"
+)
 
 //go:generate mockgen -source=./executor.go -destination=./executor_mock.go -package=parallel
 
@@ -17,7 +19,7 @@ type Executor interface {
 	// Execute execute query
 	// 1) plan query language
 	// 2) aggregator data from time series(memory/file/network)
-	Execute() <-chan field.GroupedTimeSeries
+	Execute() <-chan series.GroupedIterator
 
 	// Error returns the execution error
 	Error() error

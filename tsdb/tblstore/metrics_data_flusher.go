@@ -7,8 +7,8 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/tsdb/field"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -149,17 +149,14 @@ func (blockBuilder *blockBuilder) reset() {
 	blockBuilder.metaFieldsType = make(map[uint16]field.Type)
 	blockBuilder.writer.Reset()
 	blockBuilder.keys.Clear()
-	blockBuilder.offset = encoding.NewDeltaBitPackingEncoder()
+	blockBuilder.offset.Reset()
 }
 
 // finish writes keys, offset.
 func (blockBuilder *blockBuilder) finish() error {
 	// write offset
 	posOfOffset := blockBuilder.writer.Len()
-	offset, err := blockBuilder.offset.Bytes()
-	if err != nil {
-		return err
-	}
+	offset := blockBuilder.offset.Bytes()
 	blockBuilder.writer.PutBytes(offset)
 
 	// write keys

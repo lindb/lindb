@@ -169,7 +169,7 @@ func (flusher *forwardIndexFlusher) resetVersionContext() {
 		delete(flusher.tagValuesMap, tagKey)
 	}
 	// reset keys and offsets
-	flusher.offsets = encoding.NewDeltaBitPackingEncoder()
+	flusher.offsets.Reset()
 	flusher.keys.Clear()
 }
 
@@ -243,10 +243,7 @@ func (flusher *forwardIndexFlusher) FlushVersion(version uint32, startTime, endT
 
 // finishVersion writes the version
 func (flusher *forwardIndexFlusher) finishVersion(startPos, dictBlockOffsetPos, tagKeysLUTBlockPos int) {
-	offsets, err := flusher.offsets.Bytes()
-	if err != nil {
-		forwardIndexFlusherLogger.Error("marshal offsets error", logger.Error(err))
-	}
+	offsets := flusher.offsets.Bytes()
 	// position of the offset block
 	offsetsPosition := flusher.metricBlockWriter.Len()
 	// write offsets

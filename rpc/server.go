@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"net"
+	"sync"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 
@@ -28,6 +30,9 @@ type tcpServer struct {
 	handler     TCPHandler
 	lis         net.Listener
 	logger      *logger.Logger
+	onceClose   sync.Once
+	inWorking   int32
+	inShutDown  int32
 }
 
 // NewTCPServer creates the tcp tcpServer
@@ -47,12 +52,18 @@ func (s *tcpServer) Start() error {
 	}
 
 	s.lis = lis
+	// working now
+	atomic.StoreInt32(&s.inWorking, 1)
 	s.logger.Info("rpc tcpServer start serving", logger.String("address", s.bindAddress))
 
 	for {
 		// Listen for an incoming connection.
 		conn, err := lis.Accept()
 		if err != nil {
+			// has been shutdown
+			if atomic.LoadInt32(&s.inShutDown) != 0 {
+				return nil
+			}
 			s.logger.Error("tcp server error when accepting", logger.Error(err))
 			return err
 		}
@@ -73,12 +84,19 @@ func (s *tcpServer) Start() error {
 
 // Stop stops the grpc tcpServer
 func (s *tcpServer) Stop() {
-	if s.lis != nil {
-		err := s.lis.Close()
-		if err != nil {
-			s.logger.Error("close tcp server error", logger.Error(err))
-		}
-	}
+	s.onceClose.Do(
+		func() {
+			// not working
+			if atomic.LoadInt32(&s.inWorking) == 0 {
+				return
+			}
+			// shutdown
+			atomic.StoreInt32(&s.inShutDown, 1)
+			err := s.lis.Close()
+			if err != nil {
+				s.logger.Error("close tcp server error", logger.Error(err))
+			}
+		})
 }
 
 type GRPCServer interface {

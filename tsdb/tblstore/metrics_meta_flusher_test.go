@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/field"
+	"github.com/lindb/lindb/tsdb/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

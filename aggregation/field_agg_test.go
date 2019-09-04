@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/tsdb/field"
 )
 
 func TestFieldAggregator_Aggregate(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt := agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, uint16(15), fieldIt.ID())
+	assert.Equal(t, uint16(15), fieldIt.FieldID())
 	assert.Equal(t, field.SumField, fieldIt.FieldType())
 	assert.False(t, fieldIt.HasNext())
 
@@ -61,7 +61,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt = agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, uint16(15), fieldIt.ID())
+	assert.Equal(t, uint16(15), fieldIt.FieldID())
 	assert.Equal(t, field.SumField, fieldIt.FieldType())
 	assert.False(t, fieldIt.HasNext())
 

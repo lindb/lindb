@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/tsdb/series"
+
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -310,10 +312,26 @@ func Test_MemoryDatabase_Suggset(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().suggestTagKeys(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	mockMStore.EXPECT().suggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-	md.metricID2Hash.Store(fnv1a.HashString64("test"), uint64(3333))
 	md.getBucket(fnv1a.HashString64("test")).hash2MStore[fnv1a.HashString64("test")] = mockMStore
 
 	assert.Nil(t, md.SuggestTagKeys("test", "", 100))
 	assert.Nil(t, md.SuggestTagValues("test", "", "", 100))
+}
+
+func Test_MemoryDatabase_Scan(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mdINTF, _ := NewMemoryDatabase(ctx, cfg)
+	md := mdINTF.(*memoryDatabase)
+
+	assert.Nil(t, md.Scan(series.ScanContext{MetricID: 0}))
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().scan(gomock.Any()).Return(nil)
+	md.metricID2Hash.Store(uint32(3333), fnv1a.HashString64("test"))
+	md.getBucket(fnv1a.HashString64("test")).hash2MStore[fnv1a.HashString64("test")] = mockMStore
+	assert.Nil(t, md.Scan(series.ScanContext{MetricID: 3333}))
+
 }

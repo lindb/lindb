@@ -1,7 +1,6 @@
 package bit
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"testing"
@@ -51,22 +50,4 @@ func Test_Writer_Flush(t *testing.T) {
 	badWriter.count = 1
 	assert.NotNil(t, badWriter.Flush())
 	assert.NotNil(t, badWriter.Flush())
-}
-
-func Test_Reader(t *testing.T) {
-	var buffer bytes.Buffer
-	reader := NewReader(&buffer)
-
-	_, err := reader.ReadBit()
-	assert.NotNil(t, err)
-	_, err = reader.ReadByte()
-	assert.NotNil(t, err)
-	_, err = reader.ReadBits(10)
-	assert.NotNil(t, err)
-	_, err = reader.ReadBits(1)
-	assert.NotNil(t, err)
-
-	buffer.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8})
-	reader = NewReader(&buffer)
-	reader.ReadBits(10)
 }

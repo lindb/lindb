@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/pkg/field"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/tsdb/field"
 )
 
 //go:generate mockgen -source ./metrics_meta_reader.go -destination=./metrics_meta_reader_mock.go -package tblstore

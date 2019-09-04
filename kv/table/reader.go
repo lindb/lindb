@@ -93,7 +93,7 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("unmarshal keys data from file[%s] error:%s", r.path, err)
 	}
 	offset := r.readBytes(posOfOffset)
-	d := encoding.NewDeltaBitPackingDecoder(&offset)
+	d := encoding.NewDeltaBitPackingDecoder(offset)
 
 	for d.HasNext() {
 		r.offsets = append(r.offsets, d.Next())
