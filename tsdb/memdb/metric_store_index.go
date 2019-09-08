@@ -29,13 +29,13 @@ type tagIndexINTF interface {
 	getTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool)
 	// getTagKVEntrySets returns the kv-entrySets for flushing index data.
 	getTagKVEntrySets() []tagKVEntrySet
-	// getTStore get tStore from string tags
-	getTStore(tags string) (tStoreINTF, bool)
+	// getTStore get tStore from map tags
+	getTStore(tags map[string]string) (tStoreINTF, bool)
 	// getTStoreBySeriesID get tStore from seriesID
 	getTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool)
 	// getOrCreateTStore constructs the index and return a tStore,
 	// error of too may tag keys may be return
-	getOrCreateTStore(tags string) (tStoreINTF, error)
+	getOrCreateTStore(tags map[string]string) (tStoreINTF, error)
 	// removeTStores removes tStores from a list of seriesID
 	removeTStores(seriesIDs ...uint32)
 	// tagsUsed returns the count of all used tags, it is used for restricting write.
@@ -128,23 +128,25 @@ func (index *tagIndex) getTagKVEntrySets() []tagKVEntrySet {
 }
 
 // insertNewTStore binds a new tStore to the inverted index to the seriesID.
-func (index *tagIndex) insertNewTStore(tag string, newSeriesID uint32, tStore tStoreINTF) error {
+func (index *tagIndex) insertNewTStore(tags map[string]string, newSeriesID uint32, tStore tStoreINTF) error {
 	// insert to bitmap
-	tagPairs := models.NewTags(tag)
-	if len(tagPairs) == 0 {
-		tagPairs = []models.Tag{{Key: "", Value: ""}}
+	if tags == nil {
+		tags = make(map[string]string)
 	}
-	for _, tagPair := range tagPairs {
-		entrySet, err := index.getOrInsertTagKeyEntry(tagPair.Key)
+	if len(tags) == 0 {
+		tags[""] = ""
+	}
+	for tagKey, tagValue := range tags {
+		entrySet, err := index.getOrInsertTagKeyEntry(tagKey)
 		if err != nil {
 			return err
 		}
-		bitMap, ok := entrySet.values[tagPair.Value]
+		bitMap, ok := entrySet.values[tagValue]
 		if !ok {
 			bitMap = roaring.NewBitmap()
 		}
 		bitMap.Add(newSeriesID)
-		entrySet.values[tagPair.Value] = bitMap
+		entrySet.values[tagValue] = bitMap
 	}
 	// insert to the id mapping
 	index.seriesID2TStore[newSeriesID] = tStore
@@ -184,9 +186,9 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 	return &newEntry, nil
 }
 
-// getTStore returns a tStoreINTF from string tags.
-func (index *tagIndex) getTStore(tags string) (tStoreINTF, bool) {
-	hash := fnv1a.HashString64(tags)
+// getTStore returns a tStoreINTF from map tags.
+func (index *tagIndex) getTStore(tags map[string]string) (tStoreINTF, bool) {
+	hash := fnv1a.HashString64(models.TagsAsString(tags))
 	theTagID, ok := index.hash2SeriesID[hash]
 	if ok {
 		return index.seriesID2TStore[theTagID], true
@@ -202,8 +204,9 @@ func (index *tagIndex) getTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool) {
 
 // getOrCreateTStore get or creates the tStore from string tags,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (index *tagIndex) getOrCreateTStore(tags string) (tStoreINTF, error) {
-	hash := fnv1a.HashString64(tags)
+func (index *tagIndex) getOrCreateTStore(tags map[string]string) (tStoreINTF, error) {
+	tagsStr := models.TagsAsString(tags)
+	hash := fnv1a.HashString64(tagsStr)
 	seriesID, ok := index.hash2SeriesID[hash]
 	// hash is already existed before
 	if ok {
