@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/bufpool"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -302,8 +303,9 @@ func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
 	blockLengths := flusher.getSlice()
 	defer flusher.putSlice(blockLengths)
 	// get a stream writer to build string block
-	sw := stream.NewBufferWriter(nil)
-	defer sw.ReleaseBuffer()
+	buf := bufpool.GetBuffer()
+	sw := stream.NewBufferWriter(buf)
+	defer bufpool.PutBuffer(buf)
 
 	for i := 0; i < blockCount; i++ {
 		start := i * defaultStringBlockSize

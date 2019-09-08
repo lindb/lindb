@@ -15,7 +15,6 @@ func Test_Stream_ReaderWriter(t *testing.T) {
 
 	var buf bytes.Buffer
 	writer2 := stream.NewBufferWriter(&buf)
-	defer writer2.ReleaseBuffer()
 
 	writer2.PutUint64(1)
 	writer2.PutUint32(2)

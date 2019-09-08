@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/lindb/lindb/pkg/bufpool"
 )
 
 ////////////////////////////////////////////////////////
@@ -102,16 +100,9 @@ type BufferWriter struct {
 // NewBufferWriter creates a binary stream for writing with provided buffer(append write).
 func NewBufferWriter(buffer *bytes.Buffer) *BufferWriter {
 	if buffer == nil {
-		return &BufferWriter{writer{buf: bufpool.GetBuffer()}}
+		return &BufferWriter{writer{buf: &bytes.Buffer{}}}
 	}
 	return &BufferWriter{writer{buf: buffer}}
-}
-
-// ReleaseBuffer put back the underling bytes.Buffer to buf-pool.
-// Write to a buffer-released writer will panic.
-func (bw *BufferWriter) ReleaseBuffer() {
-	bufpool.PutBuffer(bw.buf)
-	bw.buf = nil
 }
 
 // Reset resets the underling buffer

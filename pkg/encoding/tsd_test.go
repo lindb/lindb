@@ -11,6 +11,10 @@ import (
 
 func TestCodec(t *testing.T) {
 	encoder := NewTSDEncoder(10)
+	data, _ := encoder.Bytes()
+	assert.Len(t, data, 4)
+	encoder.Reset()
+
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(uint64(10))
 	encoder.AppendTime(bit.One)
@@ -45,6 +49,11 @@ func TestCodec(t *testing.T) {
 	assert.Equal(t, uint64(50), decoder.Value())
 
 	assert.False(t, decoder.Next())
+
+	encoder.Reset()
+	data, _ = encoder.Bytes()
+	assert.Len(t, data, 4)
+
 }
 
 func TestHasValueWithSlot(t *testing.T) {
