@@ -44,25 +44,23 @@ func (el *EditLog) IsEmpty() bool {
 
 // marshal encodes edit log to binary data
 func (el *EditLog) marshal() ([]byte, error) {
-	writer := stream.NewBufferWriter(nil)
-	defer writer.ReleaseBuffer()
-
+	sw := stream.NewBufferWriter(nil)
 	// write family id
-	writer.PutVarint32(int32(el.familyID))
+	sw.PutVarint32(int32(el.familyID))
 	// write num of logs
-	writer.PutUvarint64(uint64(len(el.logs)))
+	sw.PutUvarint64(uint64(len(el.logs)))
 	// write detail log data
 	for _, log := range el.logs {
 		logType := logTypes[reflect.TypeOf(log)]
-		writer.PutVarint32(logType)
+		sw.PutVarint32(logType)
 		value, err := log.Encode()
 		if err != nil {
 			return nil, fmt.Errorf("edit logs encode error: %s", err)
 		}
-		writer.PutUvarint32(uint32(len(value))) // write log bytes length
-		writer.PutBytes(value)                  // write log bytes data
+		sw.PutUvarint32(uint32(len(value))) // write log bytes length
+		sw.PutBytes(value)                  // write log bytes data
 	}
-	return writer.Bytes()
+	return sw.Bytes()
 }
 
 // unmarshal create an edit log from its serialized in buf

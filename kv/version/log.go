@@ -77,7 +77,6 @@ func CreateNewFile(level int32, file *FileMeta) *NewFile {
 // Encode writes new file data to binary, if error return err
 func (n *NewFile) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
-	defer writer.ReleaseBuffer()
 
 	writer.PutVarint32(n.level)                // level
 	writer.PutVarint64(n.file.GetFileNumber()) // file number
@@ -120,7 +119,6 @@ func NewDeleteFile(level int32, fileNumber int64) *DeleteFile {
 // Encode writes delete file data into binary
 func (d *DeleteFile) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
-	defer writer.ReleaseBuffer()
 
 	writer.PutVarint32(d.level)
 	writer.PutVarint64(d.fileNumber)
@@ -157,7 +155,6 @@ func NewNextFileNumber(fileNumber int64) *NextFileNumber {
 // Encode writes next file number data into binary
 func (n *NextFileNumber) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
-	defer writer.ReleaseBuffer()
 
 	writer.PutVarint64(n.fileNumber)
 	return writer.Bytes()
