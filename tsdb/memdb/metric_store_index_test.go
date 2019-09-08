@@ -1,7 +1,7 @@
 package memdb
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -20,20 +20,20 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.NotZero(t, tagIdxInterface.getVersion())
 
 	// get empty key value tStore
-	tStore0, err := tagIdxInterface.getOrCreateTStore("")
+	tStore0, err := tagIdxInterface.getOrCreateTStore(nil)
 	assert.NotNil(t, tStore0)
 	assert.Nil(t, err)
 	// get not exist tStore
-	tStore1, ok := tagIdxInterface.getTStore("host=adca,ip=1.1.1.1")
+	tStore1, ok := tagIdxInterface.getTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
 	assert.Nil(t, tStore1)
 	assert.False(t, ok)
 	// get or create
-	tStore2, err := tagIdxInterface.getOrCreateTStore("host=adca,ip=1.1.1.1")
+	tStore2, err := tagIdxInterface.getOrCreateTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
 	assert.NotNil(t, tStore2)
 	assert.Nil(t, err)
-	tagIdxInterface.getOrCreateTStore("host=adca,ip=1.1.1.1")
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
 	// get existed
-	tStore3, ok := tagIdxInterface.getTStore("host=adca,ip=1.1.1.1")
+	tStore3, ok := tagIdxInterface.getTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
 	assert.NotNil(t, tStore3)
 	assert.True(t, ok)
 	// get tStore by seriesID
@@ -42,9 +42,9 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.NotNil(t, tStore4)
 	assert.True(t, ok)
 	// getOrInsertTagKeyEntry, present in the slice
-	tagIdxInterface.getOrCreateTStore("g=32")
-	tagIdxInterface.getOrCreateTStore("g=33")
-	tagIdxInterface.getOrCreateTStore("h=33")
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"g": "32"})
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"g": "33"})
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"h": "32"})
 
 	// getTagKVEntrySet test
 	assert.NotNil(t, tagIdxInterface.getTagKVEntrySets())
@@ -55,10 +55,10 @@ func Test_tagIndex_tStore_error(t *testing.T) {
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// too many tag keys
 	for i := 0; i < 1000; i++ {
-		_, _ = tagIdx.getOrCreateTStore(fmt.Sprintf("%d=%d", i, i))
+		_, _ = tagIdx.getOrCreateTStore(map[string]string{strconv.Itoa(i): strconv.Itoa(i)})
 	}
 	assert.Equal(t, 512, tagIdx.tagsUsed())
-	_, err := tagIdxInterface.getOrCreateTStore("zone=nj")
+	_, err := tagIdxInterface.getOrCreateTStore(map[string]string{"zone": "nj"})
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
 	assert.Equal(t, 512, tagIdx.tagsUsed())
 	// remove tStores
@@ -104,14 +104,14 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 
-	tagIdxInterface.getOrCreateTStore("host=a,zone=nj")   // seriesID: 1
-	tagIdxInterface.getOrCreateTStore("host=abc,zone=sh") // 2
-	tagIdxInterface.getOrCreateTStore("host=b,zone=nj")   // 3
-	tagIdxInterface.getOrCreateTStore("host=c,zone=bj")   // 4
-	tagIdxInterface.getOrCreateTStore("host=bc,zone=sz")  // 5
-	tagIdxInterface.getOrCreateTStore("host=b21,zone=nj") // 6
-	tagIdxInterface.getOrCreateTStore("host=b22,zone=sz") // 7
-	tagIdxInterface.getOrCreateTStore("host=bcd,zone=sh") // 8
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "a", "zone": "nj"})   // seriesID: 1
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "abc", "zone": "sh"}) // 2
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "b", "zone": "nj"})   // 3
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "c", "zone": "bj"})   // 4
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "bc", "zone": "sz"})  // 5
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "b21", "zone": "nj"}) // 6
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "b22", "zone": "sz"}) // 7
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "bcd", "zone": "sh"}) // 8
 
 	newMap := make(map[uint32]tStoreINTF)
 	for seriesID, tStore := range tagIdx.seriesID2TStore {
@@ -220,16 +220,16 @@ func Test_tagIndex_special_case(t *testing.T) {
 func Test_TagIndex_recreateEvictedTStores(t *testing.T) {
 	tagIdxInterface := newTagIndex()
 
-	tagIdxInterface.getOrCreateTStore("host=a")
-	tagIdxInterface.getOrCreateTStore("host=a")
-	tagIdxInterface.getOrCreateTStore("host=b")
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "a"})
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "a"})
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "b"})
 	assert.Equal(t, 2, tagIdxInterface.tagsInUse())
 	assert.Equal(t, 2, tagIdxInterface.tagsUsed())
 	// remove seriesID = 1
 	tagIdxInterface.removeTStores(0, 1)
 	assert.Equal(t, 1, tagIdxInterface.tagsInUse())
 	assert.Equal(t, 2, tagIdxInterface.tagsUsed())
-	tagIdxInterface.getOrCreateTStore("host=a")
+	_, _ = tagIdxInterface.getOrCreateTStore(map[string]string{"host": "a"})
 	assert.Equal(t, 2, tagIdxInterface.tagsInUse())
 	tagIdxInterface.removeTStores(1, 2)
 	assert.Equal(t, 0, tagIdxInterface.tagsInUse())

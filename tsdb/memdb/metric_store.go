@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
@@ -256,11 +255,10 @@ func (ms *metricStore) write(metric *pb.Metric, writeCtx writeContext) error {
 		return series.ErrTooManyTags
 	}
 	var err error
-	tagsStr := models.TagsAsString(metric.Tags)
-	tStore, ok := ms.getTStore(tagsStr)
+	tStore, ok := ms.getTStore(metric.Tags)
 	if !ok {
 		ms.mutex4Mutable.Lock()
-		tStore, err = ms.mutable.getOrCreateTStore(tagsStr)
+		tStore, err = ms.mutable.getOrCreateTStore(metric.Tags)
 		if err != nil {
 			ms.mutex4Mutable.Unlock()
 			return err
@@ -287,7 +285,7 @@ func (ms *metricStore) getMaxTagsLimit() uint32 {
 }
 
 // getTStore returns timeSeriesStore, return false when not exist.
-func (ms *metricStore) getTStore(tags string) (tStore tStoreINTF, ok bool) {
+func (ms *metricStore) getTStore(tags map[string]string) (tStore tStoreINTF, ok bool) {
 	ms.mutex4Mutable.RLock()
 	tStore, ok = ms.mutable.getTStore(tags)
 	ms.mutex4Mutable.RUnlock()
