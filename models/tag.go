@@ -13,21 +13,11 @@ type Tag struct {
 	Value string
 }
 
-// NewTags returns a Tag list from string.
-func NewTags(tagStr string) (theTags []Tag) {
-	pairs := strings.Split(tagStr, ",")
-	for _, pair := range pairs {
-		kv := strings.Split(pair, "=")
-		if len(kv) != 2 {
-			continue
-		}
-		theTags = append(theTags, Tag{Key: kv[0], Value: kv[1]})
-	}
-	return
-}
-
 // convert tags to string
 func TagsAsString(tags map[string]string) string {
+	if tags == nil {
+		return ""
+	}
 	tagKeyValues := make([]string, 0, len(tags))
 
 	totalLen := 0
