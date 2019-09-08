@@ -31,12 +31,21 @@ type XOREncoder struct {
 // NewXOREncoder creates xor encoder for compressing uint64 data
 func NewXOREncoder() *XOREncoder {
 	s := &XOREncoder{
-		first:   true,
-		leading: int(^uint8(0)),
+		bw: bit.NewWriter(nil),
 	}
-	// new bit writer
-	s.bw = bit.NewWriter(&s.buf)
+	s.Reset()
 	return s
+}
+
+func (e *XOREncoder) Reset() {
+	e.previousVal = 0
+	e.buf.Reset()
+	e.bw.Reset(&e.buf)
+	e.leading = int(^uint8(0))
+	e.trailing = 0
+	e.first = true
+	e.finish = false
+	e.err = nil
 }
 
 // Write writs uint64 v to underlying buffer, using xor compress

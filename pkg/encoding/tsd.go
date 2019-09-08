@@ -9,13 +9,14 @@ import (
 
 // TSDEncoder encodes time series data point
 type TSDEncoder struct {
-	startTime int
-	values    *XOREncoder
-	timeSlots *bit.Writer
-	count     int
-
-	buf bytes.Buffer
-	err error
+	startTime    int
+	values       *XOREncoder
+	bitBuffer    bytes.Buffer
+	timeSlots    *bit.Writer
+	count        int
+	streamBuffer bytes.Buffer
+	sw           *stream.BufferWriter
+	err          error
 }
 
 // NewTSDEncoder creates tsd encoder instance
@@ -24,8 +25,18 @@ func NewTSDEncoder(startTime int) *TSDEncoder {
 		startTime: startTime,
 		values:    NewXOREncoder(),
 	}
-	e.timeSlots = bit.NewWriter(&e.buf)
+	e.timeSlots = bit.NewWriter(&e.bitBuffer)
+	e.sw = stream.NewBufferWriter(&e.streamBuffer)
 	return e
+}
+
+// Reset resets the underlying bytes.Buffer
+func (e *TSDEncoder) Reset() {
+	e.bitBuffer.Reset()
+	e.timeSlots.Reset(&e.bitBuffer)
+
+	e.streamBuffer.Reset()
+	e.values.Reset()
 }
 
 // AppendTime appends time slot, marks time slot if has data point
@@ -62,18 +73,16 @@ func (e *TSDEncoder) Bytes() ([]byte, error) {
 		return nil, e.err
 	}
 
-	writer := stream.NewBufferWriter(nil)
-	defer writer.ReleaseBuffer()
-	writer.PutUvarint32(uint32(e.startTime))
-	writer.PutUvarint32(uint32(e.count))
+	e.sw.PutUvarint32(uint32(e.startTime))
+	e.sw.PutUvarint32(uint32(e.count))
 
-	windowBuf := e.buf.Bytes()
-	writer.PutUvarint32(uint32(len(windowBuf)))
-	writer.PutBytes(windowBuf)
-	writer.PutUvarint32(uint32(len(valueBuf)))
-	writer.PutBytes(valueBuf)
+	windowBuf := e.bitBuffer.Bytes()
+	e.sw.PutUvarint32(uint32(len(windowBuf)))
+	e.sw.PutBytes(windowBuf)
+	e.sw.PutUvarint32(uint32(len(valueBuf)))
+	e.sw.PutBytes(valueBuf)
 
-	return writer.Bytes()
+	return e.sw.Bytes()
 }
 
 // TSDDecoder decodes time series compress data
