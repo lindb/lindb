@@ -10,17 +10,6 @@ import (
 
 //go:generate mockgen -source ./metrics_meta_reader.go -destination=./metrics_meta_reader_mock.go -package tblstore
 
-const (
-	metricNameIDSequenceSize = 4 + // metricID sequence
-		4 // tagID sequence
-)
-
-// MetricsNameIDReader reads metricNameID info from the kv table
-type MetricsNameIDReader interface {
-	// ReadMetricNS read metricNameID data by the namespace-id
-	ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool)
-}
-
 // MetricsMetaReader reads metric meta info from the kv table
 type MetricsMetaReader interface {
 	// ReadTagID read tagIDs by metricID and tagKey
@@ -31,34 +20,6 @@ type MetricsMetaReader interface {
 	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, ok bool)
 	// SuggestTagKeys returns suggestion of tagKeys by prefix
 	SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string
-}
-
-// metricsNameIDReader implements MetricsNameIDReader
-type metricsNameIDReader struct {
-	readers []table.Reader
-}
-
-// NewMetricsNameIDReader returns a new MetricsNameIDReader
-func NewMetricsNameIDReader(readers []table.Reader) MetricsNameIDReader {
-	return &metricsNameIDReader{readers: readers}
-}
-
-// ReadMetricNS read metricNameID data by the namespace-id
-func (r *metricsNameIDReader) ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool) {
-	for _, reader := range r.readers {
-		block := reader.Get(nsID)
-		if len(block) < metricNameIDSequenceSize {
-			continue
-		}
-		idSequencePos := uint32(len(block) - metricNameIDSequenceSize)
-		data = append(data, block[:idSequencePos])
-		sr := stream.NewReader(block)
-		sr.ShiftAt(idSequencePos)
-		ok = true
-		metricIDSeq = sr.ReadUint32()
-		tagIDSeq = sr.ReadUint32()
-	}
-	return
 }
 
 // metricsMetaReader implements MetricsMetaReader

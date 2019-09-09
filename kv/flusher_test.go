@@ -125,3 +125,13 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func Test_NopFlusher(t *testing.T) {
+	nf := NewNopFlusher()
+	assert.Nil(t, nf.Commit())
+	assert.Nil(t, nf.Add(1, nil))
+	assert.Nil(t, nf.Bytes())
+
+	nf.Add(2, []byte{1, 2, 3})
+	assert.NotNil(t, nf.Bytes())
+}

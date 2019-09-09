@@ -11,33 +11,6 @@ import (
 	"github.com/lindb/lindb/tsdb/field"
 )
 
-func Test_MetricsNameIDReader(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockReader1 := table.NewMockReader(ctrl)
-	mockReader2 := table.NewMockReader(ctrl)
-
-	metricNameIDReader := NewMetricsNameIDReader([]table.Reader{mockReader1, mockReader2})
-	// mock readers return nil
-	mockReader1.EXPECT().Get(uint32(1)).Return(nil)
-	mockReader2.EXPECT().Get(uint32(1)).Return(nil)
-	data, metricIDSeq, tagIDSeq, ok := metricNameIDReader.ReadMetricNS(1)
-	assert.Nil(t, data)
-	assert.Zero(t, metricIDSeq)
-	assert.Zero(t, tagIDSeq)
-	assert.False(t, ok)
-	// mock ok
-	mockReader1.EXPECT().Get(uint32(2)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8})
-	mockReader2.EXPECT().Get(uint32(2)).Return(nil)
-	data, metricIDSeq, tagIDSeq, ok = metricNameIDReader.ReadMetricNS(2)
-	for _, d := range data {
-		assert.Len(t, d, 0)
-	}
-	assert.NotZero(t, metricIDSeq)
-	assert.NotZero(t, tagIDSeq)
-	assert.True(t, ok)
-}
-
 func prepareData(ctrl *gomock.Controller) ([]byte, []byte) {
 	mockFlusher := kv.NewMockFlusher(ctrl)
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()

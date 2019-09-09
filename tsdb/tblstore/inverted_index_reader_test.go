@@ -13,13 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
-	kvFlusher := kv.NewMockFlusher(ctrl)
-	kvFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	seriesFlusher := NewInvertedIndexFlusher(kvFlusher)
-	seriesFlusherImpl := seriesFlusher.(*invertedIndexFlusher)
+func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
+	nopKVFlusher := kv.NewNopFlusher()
+	seriesFlusher := NewInvertedIndexFlusher(nopKVFlusher)
 	// disable auto reset to pick the entrySetBuffer
-	seriesFlusherImpl.resetDisabled = true
 	/////////////////////////
 	// seriesID mapping relation
 	/////////////////////////
@@ -60,9 +57,7 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	}
 	// pick the zoneBlock buffer
 	_ = seriesFlusher.FlushTagID(20)
-	data, _ := seriesFlusherImpl.entrySetWriter.Bytes()
-	zoneBlock = append(zoneBlock, data...)
-	seriesFlusherImpl.reset()
+	zoneBlock = append(zoneBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
 	// flush ip tag, tagID: 21
@@ -77,9 +72,7 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	}
 	// pick the ipBlock buffer
 	_ = seriesFlusher.FlushTagID(21)
-	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
-	ipBlock = append(ipBlock, data...)
-	seriesFlusherImpl.reset()
+	ipBlock = append(ipBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
 	// flush host tag, tagID: 22
@@ -94,14 +87,12 @@ func buildInvertedIndexBlock(ctrl *gomock.Controller) (zoneBlock []byte, ipBlock
 	}
 	// pick the hostBlock buffer
 	_ = seriesFlusher.FlushTagID(22)
-	data, _ = seriesFlusherImpl.entrySetWriter.Bytes()
-	hostBlock = append(hostBlock, data...)
-	seriesFlusherImpl.reset()
+	hostBlock = append(hostBlock, nopKVFlusher.Bytes()...)
 	return zoneBlock, ipBlock, hostBlock
 }
 
 func buildSeriesIndexReader(ctrl *gomock.Controller) InvertedIndexReader {
-	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock(ctrl)
+	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(19)).Return(nil).AnyTimes()
@@ -270,7 +261,7 @@ func Test_InvertedIndexReader_entrySetBlockToIDSet_error_cases(t *testing.T) {
 			End:   1600000000 * 1000}, nil)
 	assert.NotNil(t, err)
 	// offsets is nil
-	_, _, hostBlock := buildInvertedIndexBlock(ctrl)
+	_, _, hostBlock := buildInvertedIndexBlock()
 	_, err = readerImpl.entrySetBlockToIDSet(
 		hostBlock,
 		timeutil.TimeRange{

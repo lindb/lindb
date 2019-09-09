@@ -1,6 +1,7 @@
 package kv
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/lindb/lindb/kv/table"
@@ -73,3 +74,26 @@ func (sf *storeFlusher) Commit() (err error) {
 	}
 	return nil
 }
+
+// NopFlusher implements Flusher, but does nothing.
+type NopFlusher struct {
+	buffer bytes.Buffer
+}
+
+// NewNopFlusher returns a new no-operation-flusher
+func NewNopFlusher() *NopFlusher {
+	return &NopFlusher{}
+}
+
+// Bytes returns last-flushed-value
+func (nf *NopFlusher) Bytes() []byte { return nf.buffer.Bytes() }
+
+// Add puts value to the buffer.
+func (nf *NopFlusher) Add(key uint32, value []byte) error {
+	nf.buffer.Reset()
+	nf.buffer.Write(value)
+	return nil
+}
+
+// Commit always return nil
+func (nf *NopFlusher) Commit() error { return nil }
