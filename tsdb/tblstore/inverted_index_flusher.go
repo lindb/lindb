@@ -51,8 +51,6 @@ type invertedIndexFlusher struct {
 	versionCount   int
 	tagValueWriter *stream.BufferWriter
 	tagValueBuffer *bytes.Buffer
-	// used for mock
-	resetDisabled bool
 }
 
 // FlushVersion writes a versioned bitmap to index table.
@@ -106,9 +104,7 @@ func (w *invertedIndexFlusher) FlushTagValue(tagValue string) {
 
 // FlushTagID ends writing entrySetBlock in index table.
 func (w *invertedIndexFlusher) FlushTagID(tagID uint32) error {
-	if !w.resetDisabled {
-		defer w.reset()
-	}
+	defer w.reset()
 
 	treeDataBlock := w.trie.MarshalBinary()
 	// write startTime

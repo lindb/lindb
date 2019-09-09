@@ -63,8 +63,6 @@ type forwardIndexFlusher struct {
 	intPool   sync.Pool            // storing *[]int
 	kvFlusher kv.Flusher           // real underlying flusher
 	bitArray  *collections.BitArray
-	// used for mock, default false
-	resetDisabled bool
 }
 
 // NewForwardIndexFlusher returns a new ForwardIndexFlusher.
@@ -358,9 +356,7 @@ func (flusher *forwardIndexFlusher) FlushMetricID(metricID uint32) error {
 	//////////////////////////////////////////////////
 	// Reset
 	//////////////////////////////////////////////////
-	if !flusher.resetDisabled {
-		defer flusher.resetMetricBlockContext()
-	}
+	defer flusher.resetMetricBlockContext()
 	//////////////////////////////////////////////////
 	// build Version Offsets Block
 	//////////////////////////////////////////////////

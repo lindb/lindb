@@ -3,7 +3,6 @@ package diskdb
 import (
 	"math"
 	"sync"
-	"sync/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
@@ -12,6 +11,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	art "github.com/plar/go-adaptive-radix-tree"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -39,10 +39,10 @@ type fieldIDAndType struct {
 
 // idSequencer implements IDSequencer
 type idSequencer struct {
-	metricIDSequence uint32       // counter from 1
-	tagKeyIDSequence uint32       // counter from 1
-	rwMux            sync.RWMutex // readwrite lock for art-tree and map
-	tree             artTreeINTF
+	metricIDSequence *atomic.Uint32 // counter from 1
+	tagKeyIDSequence *atomic.Uint32 // counter from 1
+	rwMux            sync.RWMutex   // readwrite lock for art-tree and map
+	tree             art.Tree
 	// unflushed generated id
 	youngMetricNameIDs map[string]uint32           // metricName -> metricID
 	youngTagKeyIDs     map[uint32][]tagKeyAndID    // metricID -> tagKey + tagKeyID
@@ -56,7 +56,9 @@ type idSequencer struct {
 func NewIDSequencer(nameIDsFamily, metaFamily kv.Family) IDSequencer {
 	once4IDSequencer.Do(func() {
 		idSequencerSingleton = &idSequencer{
-			tree:               newArtTree(),
+			metricIDSequence:   atomic.NewUint32(0),
+			tagKeyIDSequence:   atomic.NewUint32(0),
+			tree:               art.New(),
 			youngMetricNameIDs: make(map[string]uint32),
 			youngTagKeyIDs:     make(map[uint32][]tagKeyAndID),
 			youngFieldIDs:      make(map[uint32][]fieldIDAndType),
@@ -78,12 +80,13 @@ func (seq *idSequencer) Recover() error {
 	seq.rwMux.Lock()
 	defer seq.rwMux.Unlock()
 
-	data, metricIDSeq, tagIDSeq, ok := tblstore.NewMetricsNameIDReader(readers).ReadMetricNS(defaultNSID)
+	nameIDReader := tblstore.NewMetricsNameIDReader(readers)
+	data, metricIDSeq, tagIDSeq, ok := nameIDReader.ReadMetricNS(defaultNSID)
 	if ok {
-		seq.metricIDSequence = metricIDSeq
-		seq.tagKeyIDSequence = tagIDSeq
+		seq.metricIDSequence.Store(metricIDSeq)
+		seq.tagKeyIDSequence.Store(tagIDSeq)
 		for _, d := range data {
-			if err = seq.tree.UnmarshalBinary(d); err != nil {
+			if err = nameIDReader.UnmarshalBinaryToART(seq.tree, d); err != nil {
 				return err
 			}
 		}
@@ -147,7 +150,7 @@ func (seq *idSequencer) GenMetricID(metricName string) uint32 {
 	if ok {
 		return metricID
 	}
-	newMetricID := atomic.AddUint32(&seq.metricIDSequence, 1)
+	newMetricID := seq.metricIDSequence.Add(1)
 	seq.youngMetricNameIDs[metricName] = newMetricID
 	return newMetricID
 }
@@ -167,7 +170,7 @@ func (seq *idSequencer) GenTagID(metricID uint32, tagKey string) uint32 {
 		return tagKeyID
 	}
 	// case4: tagKeyID not exist, create a new one
-	newTagKeyID := atomic.AddUint32(&seq.tagKeyIDSequence, 1)
+	newTagKeyID := seq.tagKeyIDSequence.Add(1)
 	tagKeyAndIDList, ok := seq.youngTagKeyIDs[metricID]
 	newItem := tagKeyAndID{tagKeyID: newTagKeyID, tagKey: tagKey}
 	if ok {
@@ -374,17 +377,12 @@ func (seq *idSequencer) flushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) er
 	}
 	seq.rwMux.Unlock()
 
-	compressor := newNameIDCompressor()
 	for metricName, metricID := range unflushed {
-		compressor.AddNameID(metricName, metricID)
+		flusher.FlushNameID(metricName, metricID)
 	}
-	data, err := compressor.Close()
-	if err != nil {
-		return err
-	}
-	if err := flusher.FlushMetricsNS(defaultNSID, data,
-		atomic.LoadUint32(&seq.metricIDSequence),
-		atomic.LoadUint32(&seq.tagKeyIDSequence)); err != nil {
+	if err := flusher.FlushMetricsNS(defaultNSID,
+		seq.metricIDSequence.Load(),
+		seq.tagKeyIDSequence.Load()); err != nil {
 		return err
 	}
 	return flusher.Commit()

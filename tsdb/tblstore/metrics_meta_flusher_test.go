@@ -1,7 +1,6 @@
 package tblstore
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/lindb/lindb/kv"
@@ -10,20 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
-
-func Test_MetricsNameIDFlusher(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockFlusher := kv.NewMockFlusher(ctrl)
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).
-		Return(fmt.Errorf("write failure")).AnyTimes()
-	mockFlusher.EXPECT().Commit().Return(fmt.Errorf("commit failure")).AnyTimes()
-
-	nameIDFlusher := NewMetricsNameIDFlusher(mockFlusher)
-	assert.NotNil(t, nameIDFlusher.FlushMetricsNS(1, nil, 1, 2))
-	assert.NotNil(t, nameIDFlusher.Commit())
-}
 
 func Test_MetricsMetaFlusher(t *testing.T) {
 	ctrl := gomock.NewController(t)

@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	art "github.com/plar/go-adaptive-radix-tree"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 )
 
 // for test singleton
@@ -31,9 +32,9 @@ type mockedIDSequencer struct {
 }
 
 func (db *mockedIDSequencer) Clear() {
-	db.idSequencer.tree = newArtTree()
-	db.idSequencer.metricIDSequence = 0
-	db.idSequencer.tagKeyIDSequence = 0
+	db.idSequencer.tree = art.New()
+	db.idSequencer.metricIDSequence = atomic.NewUint32(0)
+	db.idSequencer.tagKeyIDSequence = atomic.NewUint32(0)
 	db.idSequencer.youngMetricNameIDs = make(map[string]uint32)
 	db.idSequencer.youngTagKeyIDs = make(map[uint32][]tagKeyAndID)
 	db.idSequencer.youngFieldIDs = make(map[uint32][]fieldIDAndType)
@@ -165,7 +166,7 @@ func Test_IDSequencer_GenMetricID(t *testing.T) {
 	mocked := mockIDSequencer(ctrl)
 	mocked.Clear()
 	// newly created
-	mocked.idSequencer.metricIDSequence = 2
+	mocked.idSequencer.metricIDSequence.Store(2)
 	mocked.idSequencer.youngMetricNameIDs = map[string]uint32{"docker": 2}
 	assert.Equal(t, uint32(2), mocked.idSequencer.GenMetricID("docker"))
 	// metricID sequence
@@ -381,8 +382,8 @@ func Test_IDSequencer_flushNameIDsTo(t *testing.T) {
 
 	mocked.idSequencer.youngMetricNameIDs["1"] = 1
 	mocked.idSequencer.youngMetricNameIDs["2"] = 2
-	mocked.idSequencer.metricIDSequence = 10
-	mocked.idSequencer.tagKeyIDSequence = 15
+	mocked.idSequencer.metricIDSequence.Store(10)
+	mocked.idSequencer.tagKeyIDSequence.Store(15)
 
 	assert.Nil(t, mocked.idSequencer.flushNameIDsTo(mockFlusher))
 	assert.Equal(t, 2, mocked.idSequencer.tree.Size())

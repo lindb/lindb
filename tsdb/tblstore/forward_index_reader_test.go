@@ -18,7 +18,7 @@ func Test_NewForwardIndexReader(t *testing.T) {
 	assert.NotNil(t, reader)
 }
 
-func buildForwardIndexBlock(ctrl *gomock.Controller) []byte {
+func buildForwardIndexBlock() []byte {
 	var (
 		ipMapping   = make(map[string]uint32)
 		zoneMapping = make(map[string]*roaring.Bitmap)
@@ -51,11 +51,9 @@ func buildForwardIndexBlock(ctrl *gomock.Controller) []byte {
 			hostMapping[host] = seriesID
 		}
 	}
-	mockKVFlusher := kv.NewMockFlusher(ctrl)
-	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	flusher := NewForwardIndexFlusher(mockKVFlusher)
-	flusherImpl := flusher.(*forwardIndexFlusher)
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher := NewForwardIndexFlusher(nopKVFlusher)
 	for v := 0; v < 3; v++ {
 		// flush tag ip
 		for ip, seriesID := range ipMapping {
@@ -79,14 +77,14 @@ func buildForwardIndexBlock(ctrl *gomock.Controller) []byte {
 		// flush version
 		flusher.FlushVersion(uint32(v), uint32(v*100), uint32(v+1)*100)
 	}
-	flusherImpl.resetDisabled = true
+
 	_ = flusher.FlushMetricID(1)
-	data, _ := flusherImpl.metricBlockWriter.Bytes()
+	data := nopKVFlusher.Bytes()
 	return data
 }
 
 func buildForwardIndexReader(ctrl *gomock.Controller) *forwardIndexReader {
-	data := buildForwardIndexBlock(ctrl)
+	data := buildForwardIndexBlock()
 	// build mock reader
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(0)).Return(nil).AnyTimes()
