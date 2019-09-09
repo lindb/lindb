@@ -36,7 +36,7 @@ func (db *indexDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix str
 	if err != nil {
 		return nil
 	}
-	tagID, err := db.idGetter.GetTagID(metricID, tagKey)
+	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
 	if err != nil {
 		return nil
 	}
@@ -47,7 +47,7 @@ func (db *indexDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix str
 	if err != nil {
 		return nil
 	}
-	return tblstore.NewInvertedIndexReader(readers).SuggestTagValues(tagID, tagValuePrefix, limit)
+	return tblstore.NewInvertedIndexReader(readers).SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
 // GetTagValues get tag values corresponding with the tagKeys
@@ -64,9 +64,15 @@ func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
-func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	tagID, err := db.idGetter.GetTagID(metricID, expr.TagKey())
+func (db *indexDatabase) FindSeriesIDsByExpr(
+	metricID uint32,
+	expr stmt.TagFilter,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, expr.TagKey())
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +83,19 @@ func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilte
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewInvertedIndexReader(readers).FindSeriesIDsByExprForTagID(tagID, expr, timeRange)
+	return tblstore.NewInvertedIndexReader(readers).FindSeriesIDsByExprForTagKeyID(tagKeyID, expr, timeRange)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key
-func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	tagID, err := db.idGetter.GetTagID(metricID, tagKey)
+func (db *indexDatabase) GetSeriesIDsForTag(
+	metricID uint32,
+	tagKey string,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
 	if err != nil {
 		return nil, err
 	}
@@ -94,5 +106,5 @@ func (db *indexDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewInvertedIndexReader(readers).GetSeriesIDsForTagID(tagID, timeRange)
+	return tblstore.NewInvertedIndexReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
 }

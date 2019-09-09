@@ -358,7 +358,7 @@ Level1(Metric NameID KVPair)
 ┌─────────────────────────────────────────────────────────────────┬─────────────────────┐
 │            Gzip Compressed Metric K/V pairs                     │  SequenceNumber     │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
-│MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │ MetricID │  TagID   │
+│MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │ MetricID │ TagKeyID │
 │  Length  │          │          │  Length  │          │          │ Sequence │ Sequence │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │ N Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
@@ -367,7 +367,7 @@ Level1(Metric NameID KVPair)
 
 ━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Meta Index Table━━━━━━━━━━━━━━━━━━━━━━━━
 Metric-Meta stores meta info for metric,
-such as tagKey, tagID, fieldID, fieldName and fieldType etc.
+such as tagKey, tagKeyID, fieldID, fieldName and fieldType etc.
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
@@ -389,7 +389,7 @@ Level2(TagKey Meta)
 ┌──────────┬─────────────────────────────────────────────────────────────────┐
 │  MetaLen │                       TagKey Meta                               │
 ├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│  TagKey  │  TagKey  │  TagKey  │  TagID   │  TagKey  │  TagKey  │  TagID   │
+│  TagKey  │  TagKey  │  TagKey  │ TagKeyID │  TagKey  │  TagKey  │  TagID   │
 │  MetaLen │   Len    │          │          │   Len    │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │  1 Byte  │ N Bytes  │ 4 Bytes  │  1 Byte  │ N Bytes  │ 4 Bytes  │

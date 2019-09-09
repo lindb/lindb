@@ -109,18 +109,18 @@ func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
 
 	reader := buildSeriesIndexReader(ctrl)
 	// read not tagID key
-	idSet, err := reader.GetSeriesIDsForTagID(19, timeutil.TimeRange{})
+	idSet, err := reader.GetSeriesIDsForTagKeyID(19, timeutil.TimeRange{})
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
 	// read zone block but not overlaps
-	idSet, err = reader.GetSeriesIDsForTagID(20,
+	idSet, err = reader.GetSeriesIDsForTagKeyID(20,
 		timeutil.TimeRange{
 			Start: 1400000000 * 1000,
 			End:   1500000000 * 1000})
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
 	// read zone block, overlaps
-	idSet, err = reader.GetSeriesIDsForTagID(20,
+	idSet, err = reader.GetSeriesIDsForTagKeyID(20,
 		timeutil.TimeRange{
 			Start: 1500000000 * 1000,
 			End:   1600000000 * 1000})
@@ -149,17 +149,17 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_badCase(t *testing.T) 
 	reader := buildSeriesIndexReader(ctrl)
 
 	// tagID not exist
-	idSet, err := reader.FindSeriesIDsByExprForTagID(19, nil, timeutil.TimeRange{})
+	idSet, err := reader.FindSeriesIDsByExprForTagKeyID(19, nil, timeutil.TimeRange{})
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
 
 	// find zone with bad expression
-	idSet, err = reader.FindSeriesIDsByExprForTagID(20, nil,
+	idSet, err = reader.FindSeriesIDsByExprForTagKeyID(20, nil,
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
 	// find zone with bad time range
-	idSet, err = reader.FindSeriesIDsByExprForTagID(20, nil,
+	idSet, err = reader.FindSeriesIDsByExprForTagKeyID(20, nil,
 		timeutil.TimeRange{Start: 12 * 1000, End: 13 * 1000})
 	assert.NotNil(t, err)
 	assert.Nil(t, idSet)
@@ -169,14 +169,14 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
 
-	idSet, err := reader.FindSeriesIDsByExprForTagID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-4"},
+	idSet, err := reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-4"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
 	assert.Contains(t, idSet.Versions(), uint32(1500000000))
 	assert.Equal(t, uint64(1), idSet.Versions()[1500000000].GetCardinality())
 	assert.True(t, idSet.Versions()[1500000000].Contains(4))
 	// find not existed host
-	_, err = reader.FindSeriesIDsByExprForTagID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-41"},
+	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-41"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.NotNil(t, err)
 }
@@ -187,7 +187,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
 	reader := buildSeriesIndexReader(ctrl)
 
 	// find existed host
-	idSet, err := reader.FindSeriesIDsByExprForTagID(22, &stmt.InExpr{
+	idSet, err := reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh-4", "eleme-dev-sh-5", "eleme-dev-sh-55"}},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
@@ -196,7 +196,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
 	assert.True(t, idSet.Versions()[1500000000].Contains(4))
 	assert.True(t, idSet.Versions()[1500000000].Contains(5))
 	// find not existed host
-	_, err = reader.FindSeriesIDsByExprForTagID(22, &stmt.InExpr{
+	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh-55"}},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.NotNil(t, err)
@@ -208,7 +208,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T)
 	reader := buildSeriesIndexReader(ctrl)
 
 	// find existed host
-	idSet, err := reader.FindSeriesIDsByExprForTagID(22, &stmt.LikeExpr{
+	idSet, err := reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.LikeExpr{
 		Key: "host", Value: "eleme-dev-sh-"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
@@ -217,7 +217,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T)
 	assert.Equal(t, uint32(4), idSet.Versions()[1500000000].Minimum())
 	assert.Equal(t, uint32(6), idSet.Versions()[1500000000].Maximum())
 	// find not existed host
-	_, err = reader.FindSeriesIDsByExprForTagID(22, &stmt.InExpr{
+	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh---"}},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.NotNil(t, err)
@@ -228,7 +228,7 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T
 	defer ctrl.Finish()
 	reader := buildSeriesIndexReader(ctrl)
 
-	_, err := reader.FindSeriesIDsByExprForTagID(22, &stmt.RegexExpr{
+	_, err := reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.RegexExpr{
 		Key: "host", Regexp: "eleme-dev-sh-"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)

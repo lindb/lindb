@@ -50,7 +50,7 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	// mock nil
 	mockReader1.EXPECT().Get(uint32(1)).Return(nil).Times(2)
 	mockReader2.EXPECT().Get(uint32(1)).Return(nil).Times(2)
-	metaReader.ReadTagID(1, "test-tag")
+	metaReader.ReadTagKeyID(1, "test-tag")
 	metaReader.ReadFieldID(1, "test-field")
 
 	// mockOK
@@ -58,13 +58,13 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	mockReader1.EXPECT().Get(uint32(2)).Return(data1).AnyTimes()
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2).AnyTimes()
 	// tag found
-	tagID, ok := metaReader.ReadTagID(2, "a2")
+	tagID, ok := metaReader.ReadTagKeyID(2, "a2")
 	assert.Equal(t, uint32(7), tagID)
 	assert.True(t, ok)
 	assert.Len(t, metaReader.SuggestTagKeys(2, "a", 100), 2)
 	assert.Len(t, metaReader.SuggestTagKeys(2, "a", 1), 1)
 	// tag not found
-	tagID, ok = metaReader.ReadTagID(2, "a3")
+	tagID, ok = metaReader.ReadTagKeyID(2, "a3")
 	assert.Zero(t, tagID)
 	assert.False(t, ok)
 
@@ -114,7 +114,7 @@ func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {
 	ret, _ := prepareData(ctrl)
 	ret = append(ret, byte(3))
 	mockReader.EXPECT().Get(uint32(1)).Return(ret)
-	data1, data2 := metaReader.readMetasBlock(mockReader, 1)
+	data1, data2 := metaReader.readMetasBlock(mockReader.Get(1))
 	assert.Nil(t, data1)
 	assert.Nil(t, data2)
 
@@ -122,7 +122,7 @@ func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {
 	ret, _ = prepareData(ctrl)
 	ret = ret[:5]
 	mockReader.EXPECT().Get(uint32(1)).Return(ret)
-	data1, data2 = metaReader.readMetasBlock(mockReader, 1)
+	data1, data2 = metaReader.readMetasBlock(mockReader.Get(1))
 	assert.Nil(t, data1)
 	assert.Nil(t, data2)
 }
