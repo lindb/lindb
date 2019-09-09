@@ -1,7 +1,6 @@
 package tblstore
 
 import (
-	"bytes"
 	"math"
 
 	"github.com/lindb/lindb/kv"
@@ -15,18 +14,8 @@ import (
 //go:generate mockgen -source ./metrics_meta_flusher.go -destination=./metrics_meta_flusher_mock.go -package tblstore
 
 var (
-	nameIDIndexFlusherLogger = logger.GetLogger("tsdb", "IndexTableFlusher")
+	metaFlusherLogger = logger.GetLogger("tsdb", "MetricsMetaFlusher")
 )
-
-// MetricsNameIDFlusher is a wrapper of kv.Builder, provides the ability to store metricNames and metricIDs to disk.
-// The layout is available in `tsdb/doc.go`(Metric NameID Table)
-type MetricsNameIDFlusher interface {
-	// FlushMetricsNS flushes a mapping relation of metric-name and metric-ID of a namespace to kv table.
-	// NameSpace is a concept for multi-tenancy, each value is a isolated index.
-	FlushMetricsNS(nsID uint32, data []byte, metricIDSeq, tagIDSeq uint32) error
-	// Commit closes the writer, this will be called after writing all namespaces.
-	Commit() error
-}
 
 // MetricsMetaFlusher is a wrapper of kv.Builder, provides the ability to store meta info of a metricID.
 // The layout is available in `tsdb/doc.go`(Metric Meta Table)
@@ -40,30 +29,6 @@ type MetricsMetaFlusher interface {
 	// Commit closes the writer, this will be called after writing all metric meta info.
 	Commit() error
 }
-
-// metricsNameIDFlusher implements MetricsNameIDFlusher
-type metricsNameIDFlusher struct {
-	flusher kv.Flusher
-}
-
-//NewMetricsNameIDFlusher returns a new MetricsNameIDFlusher
-func NewMetricsNameIDFlusher(flusher kv.Flusher) MetricsNameIDFlusher {
-	return &metricsNameIDFlusher{flusher: flusher}
-}
-
-// FlushMetricsNS flushes a mapping relation of metric-name and metric-ID to the underlying kv table.
-func (f *metricsNameIDFlusher) FlushMetricsNS(nsID uint32, data []byte, metricIDSeq, tagIDSeq uint32) error {
-	writer := stream.NewBufferWriter(bytes.NewBuffer(data))
-	// write metricIDSeq
-	writer.PutUint32(metricIDSeq)
-	// write tagIDSeq
-	writer.PutUint32(tagIDSeq)
-	block, _ := writer.Bytes()
-	return f.flusher.Add(nsID, block)
-}
-
-// Commit closes the writer, this will be called after writing all namespaces.
-func (f *metricsNameIDFlusher) Commit() error { return f.flusher.Commit() }
 
 // metricsMetaFlusher implements MetricsMetaFlusher
 type metricsMetaFlusher struct {
@@ -88,7 +53,7 @@ func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagID uint32) {
 		return
 	}
 	if len(tagKey) > math.MaxUint8 {
-		nameIDIndexFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
+		metaFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
 	}
 	// write tagKey
 	f.tagsBufWriter.PutByte(byte(len(tagKey)))
@@ -103,7 +68,7 @@ func (f *metricsMetaFlusher) FlushFieldID(fieldName string, fieldType field.Type
 		return
 	}
 	if len(fieldName) > math.MaxUint8 {
-		nameIDIndexFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
+		metaFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
 	}
 	// write field-name
 	f.fieldBufWriter.PutByte(byte(len(fieldName)))
