@@ -472,7 +472,7 @@ func (ms *metricStore) flushInvertedIndexTo(flusher tblstore.InvertedIndexFlushe
 			}
 			flusher.FlushTagValue(tagValue)
 		}
-		if err := flusher.FlushTagID(idGenerator.GenTagID(ms.metricID, tagKey)); err != nil {
+		if err := flusher.FlushTagID(idGenerator.GenTagKeyID(ms.metricID, tagKey)); err != nil {
 			return err
 		}
 	}

@@ -11,8 +11,8 @@ import (
 type IDGenerator interface {
 	// GenMetricID generates ID(uint32) from metricName
 	GenMetricID(metricName string) uint32
-	// GenTagID generates ID(uint32) from metricID + tagKey
-	GenTagID(metricID uint32, tagKey string) uint32
+	// GenTagKeyID generates ID(uint32) from metricID + tagKey
+	GenTagKeyID(metricID uint32, tagKey string) uint32
 	// GenFieldID generates ID(uint32) from metricID and fieldName
 	GenFieldID(metricID uint32, fieldName string, fieldType field.Type) (uint16, error)
 }
@@ -21,8 +21,8 @@ type IDGenerator interface {
 type IDGetter interface {
 	// GetMetricID returns metric ID(uint32), if not exist return ErrNotFound error
 	GetMetricID(metricName string) (uint32, error)
-	// GetTagID returns tag ID(uint32), return ErrNotFound if not exist
-	GetTagID(metricID uint32, tagKey string) (tagID uint32, err error)
+	// GetTagKeyID returns tag ID(uint32), return ErrNotFound if not exist
+	GetTagKeyID(metricID uint32, tagKey string) (tagKeyID uint32, err error)
 	// GetFieldID returns field id and type by given metricID and field name,
 	// if not exist return ErrNotFound error
 	GetFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, err error)

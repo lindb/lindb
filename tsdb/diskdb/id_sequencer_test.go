@@ -176,7 +176,7 @@ func Test_IDSequencer_GenMetricID(t *testing.T) {
 	assert.Equal(t, uint32(5), mocked.idSequencer.GenMetricID("cpu2"))
 }
 
-func Test_IDSequencer_GetTagID(t *testing.T) {
+func Test_IDSequencer_GetTagKeyID(t *testing.T) {
 	singletonLock.Lock()
 	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
@@ -186,36 +186,36 @@ func Test_IDSequencer_GetTagID(t *testing.T) {
 	mocked.Clear()
 	// case1: tagKeyID exist in memory
 	mocked.idSequencer.youngTagKeyIDs[uint32(1)] = []tagKeyAndID{{tagKey: "key", tagKeyID: uint32(2)}}
-	tagID, err := mocked.idSequencer.GetTagID(1, "key")
+	tagKeyID, err := mocked.idSequencer.GetTagKeyID(1, "key")
 	assert.Nil(t, err)
-	assert.Equal(t, tagID, uint32(2))
+	assert.Equal(t, tagKeyID, uint32(2))
 	// case2: snapShot FindReaders error
 	mocked.WithFindReadersError()
-	_, err = mocked.idSequencer.GetTagID(1, "key2")
+	_, err = mocked.idSequencer.GetTagKeyID(1, "key2")
 	assert.NotNil(t, err)
 	// case3: snapShot FindReaders ok
 	mocked.WithFindReadersOK()
 	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	_, err = mocked.idSequencer.GetTagID(1, "key3")
+	_, err = mocked.idSequencer.GetTagKeyID(1, "key3")
 	assert.NotNil(t, err)
 
 	///////////////////////////////////
-	// readTagID
+	// readTagKeyID
 	///////////////////////////////////
 	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
 	// mock exist
-	mockMetaReader.EXPECT().ReadTagID(gomock.Any(), gomock.Any()).Return(uint32(1), true)
-	tagID, err = mocked.idSequencer.readTagID(mockMetaReader, 1, "")
+	mockMetaReader.EXPECT().ReadTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), true)
+	tagKeyID, err = mocked.idSequencer.readTagKeyID(mockMetaReader, 1, "")
 	assert.Nil(t, err)
-	assert.Equal(t, uint32(1), tagID)
+	assert.Equal(t, uint32(1), tagKeyID)
 	// mock not exist
-	mockMetaReader.EXPECT().ReadTagID(gomock.Any(), gomock.Any()).Return(uint32(2), false)
-	tagID, err = mocked.idSequencer.readTagID(mockMetaReader, 2, "")
+	mockMetaReader.EXPECT().ReadTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(2), false)
+	tagKeyID, err = mocked.idSequencer.readTagKeyID(mockMetaReader, 2, "")
 	assert.NotNil(t, err)
-	assert.Zero(t, tagID)
+	assert.Zero(t, tagKeyID)
 }
 
-func Test_IDSequencer_GenTagID(t *testing.T) {
+func Test_IDSequencer_GenTagKeyID(t *testing.T) {
 	singletonLock.Lock()
 	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
@@ -226,18 +226,18 @@ func Test_IDSequencer_GenTagID(t *testing.T) {
 
 	// case1: tagKeyID exist in memory
 	mocked.idSequencer.youngTagKeyIDs[uint32(5)] = []tagKeyAndID{{tagKey: "key", tagKeyID: uint32(2)}}
-	tagID := mocked.idSequencer.GenTagID(5, "key")
-	assert.Equal(t, tagID, uint32(2))
+	tagKeyID := mocked.idSequencer.GenTagKeyID(5, "key")
+	assert.Equal(t, tagKeyID, uint32(2))
 	// case2: snapShot FindReaders ok
 	mocked.WithFindReadersOK()
 	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	tagID = mocked.idSequencer.GenTagID(6, "key3")
-	assert.Equal(t, uint32(1), tagID)
+	tagKeyID = mocked.idSequencer.GenTagKeyID(6, "key3")
+	assert.Equal(t, uint32(1), tagKeyID)
 	// case3: exist in memory
 	mocked.WithFindReadersOK()
 	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	tagID = mocked.idSequencer.GenTagID(6, "key4")
-	assert.Equal(t, uint32(2), tagID)
+	tagKeyID = mocked.idSequencer.GenTagKeyID(6, "key4")
+	assert.Equal(t, uint32(2), tagKeyID)
 }
 
 func Test_IDSequencer_GetFieldID(t *testing.T) {

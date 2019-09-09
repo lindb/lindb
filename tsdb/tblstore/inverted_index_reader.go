@@ -26,10 +26,10 @@ const (
 
 // InvertedIndexReader reads versioned seriesID bitmap from series-index-table
 type InvertedIndexReader interface {
-	// GetSeriesIDsForTagID get series ids for spec metric's keyID
-	GetSeriesIDsForTagID(tagID uint32, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
-	// FindSeriesIDsByExprForTagID finds series ids by tag filter expr and tagID
-	FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
+	// GetSeriesIDsForTagKeyID get series ids for spec metric's keyID
+	GetSeriesIDsForTagKeyID(tagID uint32, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	// FindSeriesIDsByExprForTagKeyID finds series ids by tag filter expr and tagKeyID
+	FindSeriesIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter,
 		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 	// SuggestTagValues finds tagValues by prefix search
 	SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string
@@ -45,8 +45,8 @@ func NewInvertedIndexReader(readers []table.Reader) InvertedIndexReader {
 	return &invertedIndexReader{readers: readers}
 }
 
-// FindSeriesIDsByExprForTagID finds series ids by tag filter expr for tagId
-func (r *invertedIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stmt.TagFilter,
+// FindSeriesIDsByExprForTagKeyID finds series ids by tag filter expr for tagId
+func (r *invertedIndexReader) FindSeriesIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
 	if len(entrySetBlocks) == 0 {
@@ -90,8 +90,8 @@ func (r *invertedIndexReader) FindSeriesIDsByExprForTagID(tagID uint32, expr stm
 	return unionIDSet, nil
 }
 
-// GetSeriesIDsForTagID get series ids for spec metric's tag keyID
-func (r *invertedIndexReader) GetSeriesIDsForTagID(tagID uint32,
+// GetSeriesIDsForTagKeyID get series ids for spec metric's tag keyID
+func (r *invertedIndexReader) GetSeriesIDsForTagKeyID(tagID uint32,
 	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
 	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
 	if len(entrySetBlocks) == 0 {

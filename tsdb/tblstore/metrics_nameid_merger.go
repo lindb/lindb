@@ -30,10 +30,10 @@ func (m *metricsNameIDMerger) Merge(key uint32, value [][]byte) ([]byte, error) 
 	var (
 		contents       [][]byte
 		maxMetricIDSeq uint32
-		maxTagIDSeq    uint32
+		maxTagKeyIDSeq uint32
 	)
 	for _, block := range value {
-		content, metricIDSeq, tagIDSeq, thisOK := m.reader.ReadBlock(block)
+		content, metricIDSeq, tagKeyIDSeq, thisOK := m.reader.ReadBlock(block)
 		if !thisOK {
 			return nil, fmt.Errorf("failed parsing block")
 		}
@@ -41,8 +41,8 @@ func (m *metricsNameIDMerger) Merge(key uint32, value [][]byte) ([]byte, error) 
 		if metricIDSeq > maxMetricIDSeq {
 			maxMetricIDSeq = metricIDSeq
 		}
-		if tagIDSeq > maxTagIDSeq {
-			maxTagIDSeq = tagIDSeq
+		if tagKeyIDSeq > maxTagKeyIDSeq {
+			maxTagKeyIDSeq = tagKeyIDSeq
 		}
 	}
 	if len(contents) == 0 {
@@ -66,6 +66,6 @@ func (m *metricsNameIDMerger) Merge(key uint32, value [][]byte) ([]byte, error) 
 			m.flusher.FlushNameID(string(metricName), metricID)
 		}
 	}
-	_ = m.flusher.FlushMetricsNS(key, maxMetricIDSeq, maxTagIDSeq)
+	_ = m.flusher.FlushMetricsNS(key, maxMetricIDSeq, maxTagKeyIDSeq)
 	return m.nopKVFlusher.Bytes(), nil
 }

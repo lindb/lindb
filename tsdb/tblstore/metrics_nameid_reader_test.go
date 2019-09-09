@@ -23,20 +23,20 @@ func Test_MetricsNameIDReader_ReadMetricNS(t *testing.T) {
 	// mock readers return nil
 	mockReader1.EXPECT().Get(uint32(1)).Return(nil)
 	mockReader2.EXPECT().Get(uint32(1)).Return(nil)
-	data, metricIDSeq, tagIDSeq, ok := metricNameIDReader.ReadMetricNS(1)
+	data, metricIDSeq, tagKeyIDSeq, ok := metricNameIDReader.ReadMetricNS(1)
 	assert.Nil(t, data)
 	assert.Zero(t, metricIDSeq)
-	assert.Zero(t, tagIDSeq)
+	assert.Zero(t, tagKeyIDSeq)
 	assert.False(t, ok)
 	// mock ok
 	mockReader1.EXPECT().Get(uint32(2)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8})
 	mockReader2.EXPECT().Get(uint32(2)).Return(nil)
-	data, metricIDSeq, tagIDSeq, ok = metricNameIDReader.ReadMetricNS(2)
+	data, metricIDSeq, tagKeyIDSeq, ok = metricNameIDReader.ReadMetricNS(2)
 	for _, d := range data {
 		assert.Len(t, d, 0)
 	}
 	assert.NotZero(t, metricIDSeq)
-	assert.NotZero(t, tagIDSeq)
+	assert.NotZero(t, tagKeyIDSeq)
 	assert.True(t, ok)
 }
 
