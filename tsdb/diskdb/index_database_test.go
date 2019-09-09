@@ -78,20 +78,20 @@ func Test_IndexDatabase_SuggestTagValues(t *testing.T) {
 	// case2: limit>max, GetMetricID failed
 	mockedDB.idGetter.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
 	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues("", "", "", 100000000))
-	// case3: GetTagID failed
+	// case3: GetTagKeyID failed
 	mockedDB.idGetter.EXPECT().GetMetricID(gomock.Any()).Return(uint32(1), nil)
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
 	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues("", "", "", 10000))
 	// case4: snapshot FindReaders error
 	mockedDB.WithFindReadersError()
 	mockedDB.idGetter.EXPECT().GetMetricID(gomock.Any()).Return(uint32(1), nil)
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues("", "", "", 10000))
 	// case4: snapshot FindReaders ok
 	mockedDB.WithFindReadersOK()
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	mockedDB.idGetter.EXPECT().GetMetricID(gomock.Any()).Return(uint32(1), nil)
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues("", "", "", 10000))
 }
 
@@ -108,18 +108,18 @@ func Test_IndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	defer ctrl.Finish()
 	mockedDB := mockIndexDatabase(ctrl)
 
-	// case1: GetTagID failed
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
+	// case1: GetTagKeyID failed
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
 	set, err := mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.NotNil(t, err)
 	// case2: snapshot FindReaders error
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	mockedDB.WithFindReadersError()
 	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
 	assert.NotNil(t, err)
 	// case3: snapshot FindReaders ok
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	mockedDB.WithFindReadersOK()
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
@@ -131,18 +131,18 @@ func Test_IndexDatabase_GetSeriesIDsForTag(t *testing.T) {
 	defer ctrl.Finish()
 	mockedDB := mockIndexDatabase(ctrl)
 
-	// case1: GetTagID failed
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
+	// case1: GetTagKeyID failed
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("error"))
 	set, err := mockedDB.indexDatabase.GetSeriesIDsForTag(0, "", timeutil.TimeRange{})
 	assert.Nil(t, set)
 	assert.NotNil(t, err)
 	// case2: snapshot FindReaders error
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	mockedDB.WithFindReadersError()
 	_, err = mockedDB.indexDatabase.GetSeriesIDsForTag(0, "", timeutil.TimeRange{})
 	assert.NotNil(t, err)
 	// case3: snapshot FindReaders ok
-	mockedDB.idGetter.EXPECT().GetTagID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	mockedDB.WithFindReadersOK()
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	_, err = mockedDB.indexDatabase.GetSeriesIDsForTag(0, "", timeutil.TimeRange{})

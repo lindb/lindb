@@ -21,7 +21,7 @@ var (
 // The layout is available in `tsdb/doc.go`(Metric Meta Table)
 type MetricsMetaFlusher interface {
 	// FlushTagKeyID flushes the relation of tagKey and tagID to buffer
-	FlushTagKeyID(tagKey string, tagID uint32)
+	FlushTagKeyID(tagKey string, tagKeyID uint32)
 	// FlushFieldID flushes the relation of fieldName and fieldID to buffer
 	FlushFieldID(fieldName string, fieldType field.Type, fieldID uint16)
 	// FlushMetricsMeta flushes meta info above to the underlying kv table
@@ -48,7 +48,7 @@ func NewMetricsMetaFlusher(flusher kv.Flusher) MetricsMetaFlusher {
 }
 
 // FlushTagKeyID flushes the relation of tagKey and tagID to buffer
-func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagID uint32) {
+func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagKeyID uint32) {
 	if tagKey == "" {
 		return
 	}
@@ -58,8 +58,8 @@ func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagID uint32) {
 	// write tagKey
 	f.tagsBufWriter.PutByte(byte(len(tagKey)))
 	f.tagsBufWriter.PutBytes([]byte(tagKey))
-	// write tagID
-	f.tagsBufWriter.PutUint32(tagID)
+	// write tagKeyID
+	f.tagsBufWriter.PutUint32(tagKeyID)
 }
 
 // FlushFieldID flushes the relation of fieldName and fieldID to buffer
@@ -81,11 +81,7 @@ func (f *metricsMetaFlusher) FlushFieldID(fieldName string, fieldType field.Type
 
 // FlushMetricsMeta flushes meta info above to the underlying kv table
 func (f *metricsMetaFlusher) FlushMetricMeta(metricID uint32) error {
-	defer func() {
-		f.valueBufWriter.Reset()
-		f.tagsBufWriter.Reset()
-		f.fieldBufWriter.Reset()
-	}()
+	defer f.Reset()
 	f.buildMetricMeta()
 	data, _ := f.valueBufWriter.Bytes()
 	return f.flusher.Add(metricID, data)
@@ -108,4 +104,11 @@ func (f *metricsMetaFlusher) buildMetricMeta() {
 // Commit closes the writer, this will be called after writing all metric meta info.
 func (f *metricsMetaFlusher) Commit() error {
 	return f.flusher.Commit()
+}
+
+// Reset resets the writers
+func (f *metricsMetaFlusher) Reset() {
+	f.valueBufWriter.Reset()
+	f.tagsBufWriter.Reset()
+	f.fieldBufWriter.Reset()
 }

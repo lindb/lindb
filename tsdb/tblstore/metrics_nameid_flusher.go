@@ -17,7 +17,7 @@ type MetricsNameIDFlusher interface {
 	FlushNameID(metricName string, metricID uint32)
 	// FlushMetricsNS flushes a mapping relation of metric-name and metric-ID of a namespace to kv table.
 	// NameSpace is a concept for multi-tenancy.
-	FlushMetricsNS(nsID uint32, metricIDSeq, tagIDSeq uint32) error
+	FlushMetricsNS(nsID uint32, metricIDSeq, tagKeyIDSeq uint32) error
 	// Commit closes the writer, this will be called after writing all namespaces.
 	Commit() error
 }
@@ -52,7 +52,7 @@ func (f *metricsNameIDFlusher) FlushNameID(metricName string, metricID uint32) {
 }
 
 // FlushMetricsNS flushes a mapping relation of metric-name and metric-ID to the underlying kv table.
-func (f *metricsNameIDFlusher) FlushMetricsNS(nsID uint32, metricIDSeq, tagIDSeq uint32) error {
+func (f *metricsNameIDFlusher) FlushMetricsNS(nsID uint32, metricIDSeq, tagKeyIDSeq uint32) error {
 	defer f.Reset()
 	unCompressed, _ := f.sw.Bytes()
 	_, _ = f.gw.Write(unCompressed)
@@ -63,8 +63,8 @@ func (f *metricsNameIDFlusher) FlushMetricsNS(nsID uint32, metricIDSeq, tagIDSeq
 	f.sw.SwitchBuffer(&f.gBuf)
 	// write metricIDSeq
 	f.sw.PutUint32(metricIDSeq)
-	// write tagIDSeq
-	f.sw.PutUint32(tagIDSeq)
+	// write tagKeyIDSeq
+	f.sw.PutUint32(tagKeyIDSeq)
 	// write back to stream buffer
 	f.sw.SwitchBuffer(&f.sBuf)
 	return f.flusher.Add(nsID, f.gBuf.Bytes())

@@ -24,7 +24,7 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *diskdb.MockIDGenerator {
 		Return(uint16(1111), nil).AnyTimes()
 	mockGen.EXPECT().GenMetricID(gomock.Any()).
 		Return(uint32(3333)).AnyTimes()
-	mockGen.EXPECT().GenTagID(gomock.Any(), gomock.Any()).Return(uint32(3333)).AnyTimes()
+	mockGen.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(3333)).AnyTimes()
 	return mockGen
 }
 

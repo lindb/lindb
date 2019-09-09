@@ -81,10 +81,10 @@ func (seq *idSequencer) Recover() error {
 	defer seq.rwMux.Unlock()
 
 	nameIDReader := tblstore.NewMetricsNameIDReader(readers)
-	data, metricIDSeq, tagIDSeq, ok := nameIDReader.ReadMetricNS(defaultNSID)
+	data, metricIDSeq, tagKeyIDSeq, ok := nameIDReader.ReadMetricNS(defaultNSID)
 	if ok {
 		seq.metricIDSequence.Store(metricIDSeq)
-		seq.tagKeyIDSequence.Store(tagIDSeq)
+		seq.tagKeyIDSequence.Store(tagKeyIDSeq)
 		for _, d := range data {
 			if err = nameIDReader.UnmarshalBinaryToART(seq.tree, d); err != nil {
 				return err
@@ -155,17 +155,20 @@ func (seq *idSequencer) GenMetricID(metricName string) uint32 {
 	return newMetricID
 }
 
-// GenTagID generates tagID(uint32) from metricName and tagKey
-func (seq *idSequencer) GenTagID(metricID uint32, tagKey string) uint32 {
+// GenTagKeyID generates tagKeyID(uint32) from metricName and tagKey
+func (seq *idSequencer) GenTagKeyID(
+	metricID uint32,
+	tagKey string,
+) (tagKeyID uint32) {
 	// case1, 2: check if it is in memory or on disk
-	tagID, err := seq.GetTagID(metricID, tagKey)
+	tagKeyID, err := seq.GetTagKeyID(metricID, tagKey)
 	if err == nil {
-		return tagID
+		return tagKeyID
 	}
 	// case3: double check
 	seq.rwMux.Lock()
 	defer seq.rwMux.Unlock()
-	tagKeyID, ok := seq.getTagIDInMem(metricID, tagKey)
+	tagKeyID, ok := seq.getTagKeyIDInMem(metricID, tagKey)
 	if ok {
 		return tagKeyID
 	}
@@ -182,7 +185,13 @@ func (seq *idSequencer) GenTagID(metricID uint32, tagKey string) uint32 {
 	return newTagKeyID
 }
 
-func (seq *idSequencer) getTagIDInMem(metricID uint32, tagKey string) (uint32, bool) {
+func (seq *idSequencer) getTagKeyIDInMem(
+	metricID uint32,
+	tagKey string,
+) (
+	tagKeyID uint32,
+	ok bool,
+) {
 	tagKeyAndIDList, ok := seq.youngTagKeyIDs[metricID]
 	if ok {
 		for _, tagKeyWithIDItem := range tagKeyAndIDList {
@@ -194,12 +203,18 @@ func (seq *idSequencer) getTagIDInMem(metricID uint32, tagKey string) (uint32, b
 	return 0, false
 }
 
-// GetTagID returns tag ID(uint32), return ErrNotFound if not exist
-func (seq *idSequencer) GetTagID(metricID uint32, tagKey string) (tagID uint32, err error) {
+// GetTagKeyID returns tag ID(uint32), return ErrNotFound if not exist
+func (seq *idSequencer) GetTagKeyID(
+	metricID uint32,
+	tagKey string,
+) (
+	tagKeyID uint32,
+	err error,
+) {
 	// case1: tagKeyID exist in memory
 	seq.rwMux.RLock()
 	defer seq.rwMux.RUnlock()
-	tagKeyID, ok := seq.getTagIDInMem(metricID, tagKey)
+	tagKeyID, ok := seq.getTagKeyIDInMem(metricID, tagKey)
 	if ok {
 		return tagKeyID, nil
 	}
@@ -211,21 +226,33 @@ func (seq *idSequencer) GetTagID(metricID uint32, tagKey string) (tagID uint32, 
 	if err != nil {
 		return 0, err
 	}
-	return seq.readTagID(tblstore.NewMetricsMetaReader(readers), metricID, tagKey)
+	return seq.readTagKeyID(tblstore.NewMetricsMetaReader(readers), metricID, tagKey)
 }
 
-// readTagID reads the tagID from reader.
-func (seq *idSequencer) readTagID(reader tblstore.MetricsMetaReader, metricID uint32, tagKey string) (
-	tagID uint32, err error) {
-
-	tagKeyID, ok := reader.ReadTagID(metricID, tagKey)
+// readTagKeyID reads the tagKeyID from reader.
+func (seq *idSequencer) readTagKeyID(
+	reader tblstore.MetricsMetaReader,
+	metricID uint32,
+	tagKey string,
+) (
+	tagKeyID uint32,
+	err error,
+) {
+	tagKeyID, ok := reader.ReadTagKeyID(metricID, tagKey)
 	if ok {
 		return tagKeyID, nil
 	}
 	return 0, series.ErrNotFound
 }
 
-func (seq *idSequencer) getFieldIDInMem(metricID uint32, fieldName string) (uint16, field.Type, bool) {
+func (seq *idSequencer) getFieldIDInMem(
+	metricID uint32,
+	fieldName string,
+) (
+	uint16,
+	field.Type,
+	bool,
+) {
 	fieldIDAndTypeList, ok := seq.youngFieldIDs[metricID]
 	if ok {
 		for _, item := range fieldIDAndTypeList {
@@ -247,7 +274,14 @@ func (seq *idSequencer) getMaxFieldIDInMem(metricID uint32) uint16 {
 
 // GenFieldID returns field ID(uint16), return error when fields-count exceed the limitation
 // or type mis-match with the old one
-func (seq *idSequencer) GenFieldID(metricID uint32, fieldName string, fieldType field.Type) (uint16, error) {
+func (seq *idSequencer) GenFieldID(
+	metricID uint32,
+	fieldName string,
+	fieldType field.Type,
+) (
+	uint16,
+	error,
+) {
 	// find from memory
 	seq.rwMux.RLock()
 	fID, fType, ok := seq.getFieldIDInMem(metricID, fieldName)
@@ -272,8 +306,15 @@ func (seq *idSequencer) GenFieldID(metricID uint32, fieldName string, fieldType 
 }
 
 // genFieldID generate fieldID from reader.
-func (seq *idSequencer) genFieldID(reader tblstore.MetricsMetaReader, metricID uint32, fieldName string,
-	fieldType field.Type) (uint16, error) {
+func (seq *idSequencer) genFieldID(
+	reader tblstore.MetricsMetaReader,
+	metricID uint32,
+	fieldName string,
+	fieldType field.Type,
+) (
+	uint16,
+	error,
+) {
 
 	// find from disk
 	fID, fType, err := seq.readFieldID(reader, metricID, fieldName)
@@ -330,8 +371,14 @@ func (seq *idSequencer) GetMetricID(metricName string) (uint32, error) {
 }
 
 // GetFieldID returns field ID(uint16), if not exist return ErrMetaDataNotExist error
-func (seq *idSequencer) GetFieldID(metricID uint32, fieldName string) (
-	fieldID uint16, fieldType field.Type, err error) {
+func (seq *idSequencer) GetFieldID(
+	metricID uint32,
+	fieldName string,
+) (
+	fieldID uint16,
+	fieldType field.Type,
+	err error,
+) {
 
 	seq.rwMux.RLock()
 	fID, fType, ok := seq.getFieldIDInMem(metricID, fieldName)
@@ -351,8 +398,15 @@ func (seq *idSequencer) GetFieldID(metricID uint32, fieldName string) (
 }
 
 // readFieldID read fieldID from the reader
-func (seq *idSequencer) readFieldID(reader tblstore.MetricsMetaReader, metricID uint32, fieldName string) (
-	fieldID uint16, fieldType field.Type, err error) {
+func (seq *idSequencer) readFieldID(
+	reader tblstore.MetricsMetaReader,
+	metricID uint32,
+	fieldName string,
+) (
+	fieldID uint16,
+	fieldType field.Type,
+	err error,
+) {
 	var ok bool
 	fieldID, fieldType, ok = reader.ReadFieldID(metricID, fieldName)
 	if !ok {

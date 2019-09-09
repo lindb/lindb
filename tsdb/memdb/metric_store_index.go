@@ -189,9 +189,9 @@ func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, er
 // getTStore returns a tStoreINTF from map tags.
 func (index *tagIndex) getTStore(tags map[string]string) (tStoreINTF, bool) {
 	hash := fnv1a.HashString64(models.TagsAsString(tags))
-	theTagID, ok := index.hash2SeriesID[hash]
+	seriesID, ok := index.hash2SeriesID[hash]
 	if ok {
-		return index.seriesID2TStore[theTagID], true
+		return index.seriesID2TStore[seriesID], true
 	}
 	return nil, false
 }

@@ -15,13 +15,13 @@ import (
 
 const (
 	metricNameIDSequenceSize = 4 + // metricID sequence
-		4 // tagID sequence
+		4 // tagKeyID sequence
 )
 
 // MetricsNameIDReader reads metricNameID info from the kv table
 type MetricsNameIDReader interface {
 	// ReadMetricNS read metricNameID data by the namespace-id
-	ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagIDSeq uint32, ok bool)
+	ReadMetricNS(nsID uint32) (data [][]byte, metricIDSeq, tagKeyIDSeq uint32, ok bool)
 	// UnmarshalBinaryToART de-compresses the compressed block, then insert the metricName-id pair to the tree
 	UnmarshalBinaryToART(tree art.Tree, data []byte) error
 }
@@ -90,18 +90,18 @@ func (r *metricsNameIDReader) ReadMetricNS(
 ) (
 	dataList [][]byte,
 	maxMetricIDSeq,
-	maxTagIDSeq uint32,
+	maxTagKeyIDSeq uint32,
 	ok bool,
 ) {
 	for _, reader := range r.readers {
 		block := reader.Get(nsID)
-		data, metricIDSeq, tagIDSeq, thisOK := r.ReadBlock(block)
+		data, metricIDSeq, tagKeyIDSeq, thisOK := r.ReadBlock(block)
 		if !thisOK {
 			continue
 		}
 		dataList = append(dataList, data)
 		maxMetricIDSeq = metricIDSeq
-		maxTagIDSeq = tagIDSeq
+		maxTagKeyIDSeq = tagKeyIDSeq
 		ok = true
 	}
 	return
@@ -113,7 +113,7 @@ func (r *metricsNameIDReader) ReadBlock(
 ) (
 	compressed []byte,
 	metricIDSeq,
-	tagIDSeq uint32,
+	tagKeyIDSeq uint32,
 	ok bool,
 ) {
 	if len(block) < metricNameIDSequenceSize {
@@ -125,6 +125,6 @@ func (r *metricsNameIDReader) ReadBlock(
 	r.sr.ShiftAt(idSequencePos)
 
 	metricIDSeq = r.sr.ReadUint32()
-	tagIDSeq = r.sr.ReadUint32()
-	return compressed, metricIDSeq, tagIDSeq, true
+	tagKeyIDSeq = r.sr.ReadUint32()
+	return compressed, metricIDSeq, tagKeyIDSeq, true
 }

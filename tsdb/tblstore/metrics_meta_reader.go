@@ -12,8 +12,8 @@ import (
 
 // MetricsMetaReader reads metric meta info from the kv table
 type MetricsMetaReader interface {
-	// ReadTagID read tagIDs by metricID and tagKey
-	ReadTagID(metricID uint32, tagKey string) (tagID uint32, ok bool)
+	// ReadTagKeyID read TagKeyID by metricID and tagKey
+	ReadTagKeyID(metricID uint32, tagKey string) (tagKeyID uint32, ok bool)
 	// ReadMaxFieldID return the max field-id of this metric, return 0 if not exist
 	ReadMaxFieldID(metricID uint32) (maxFieldID uint16)
 	// ReadFieldID read fieldID and fieldType from metricID and fieldName
@@ -25,106 +25,111 @@ type MetricsMetaReader interface {
 // metricsMetaReader implements MetricsMetaReader
 type metricsMetaReader struct {
 	readers []table.Reader
+	sr      *stream.Reader
 }
 
 // NewMetricsMetaReader returns a new MetricsMetaReader
 func NewMetricsMetaReader(readers []table.Reader) MetricsMetaReader {
-	return &metricsMetaReader{readers: readers}
+	return &metricsMetaReader{
+		readers: readers,
+		sr:      stream.NewReader(nil)}
 }
 
-// ReadTagID read tagIDs by metricID and tagKey
-func (r *metricsMetaReader) ReadTagID(metricID uint32, tagKey string) (tagID uint32, ok bool) {
+// ReadTagKeyID read tagKeyID by metricID and tagKey
+func (r *metricsMetaReader) ReadTagKeyID(
+	metricID uint32,
+	tagKey string,
+) (
+	tagKeyID uint32,
+	ok bool,
+) {
 	for _, reader := range r.readers {
-		tagMeta, _ := r.readMetasBlock(reader, metricID)
-		if tagMeta == nil {
+		tagMetaBlock, _ := r.readMetasBlock(reader.Get(metricID))
+		if tagMetaBlock == nil {
 			continue
 		}
-		sr := stream.NewReader(tagMeta)
-		for !sr.Empty() && sr.Error() == nil {
-			tagKeyLen := sr.ReadByte()
-			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
-			tagID = sr.ReadUint32()
-			if thisTagKey == tagKey && tagID != 0 {
-				return tagID, true
+		itr := newTagKeyIDIterator(tagMetaBlock)
+		for itr.HasNext() {
+			theTagKey, theTagKeyID := itr.Next()
+			if theTagKey == tagKey && theTagKeyID != 0 {
+				return theTagKeyID, true
 			}
 		}
 	}
 	return 0, false
 }
 
-// readTagFieldBlock reads the tagMeta and FieldMeta blocks from binary by metricID
-func (r *metricsMetaReader) readMetasBlock(reader table.Reader, metricID uint32) (tagMeta []byte, fieldMeta []byte) {
-	block := reader.Get(metricID)
+// readMetasBlock reads the tagMeta and FieldMeta blocks from binary by metricID
+func (r *metricsMetaReader) readMetasBlock(
+	block []byte,
+) (
+	tagMetaBlock []byte,
+	fieldMetaBlock []byte,
+) {
 	if block == nil {
 		return nil, nil
 	}
-	sr := stream.NewReader(block)
-
+	r.sr.Reset(block)
 	// read length of tagMeta
-	keyMetaLength := sr.ReadUvarint64()
-	startOfTagMeta := sr.Position()
+	keyMetaLength := r.sr.ReadUvarint64()
+	startOfTagMeta := r.sr.Position()
 	// jump to end of tagMeta block
-	sr.ShiftAt(uint32(keyMetaLength))
-	endOfTagMeta := sr.Position()
+	r.sr.ShiftAt(uint32(keyMetaLength))
+	endOfTagMeta := r.sr.Position()
 	// block size too small
-	if sr.Error() != nil {
+	if r.sr.Error() != nil {
 		return nil, nil
 	}
-	tagMeta = block[startOfTagMeta:endOfTagMeta]
+	tagMetaBlock = block[startOfTagMeta:endOfTagMeta]
 	// read length of fieldMeta
-	fieldMetaLen := sr.ReadUvarint64()
-	startOfFieldMeta := sr.Position()
-	sr.ShiftAt(uint32(fieldMetaLen))
-	endOfFieldMeta := sr.Position()
+	fieldMetaLen := r.sr.ReadUvarint64()
+	startOfFieldMeta := r.sr.Position()
+	r.sr.ShiftAt(uint32(fieldMetaLen))
+	endOfFieldMeta := r.sr.Position()
 	// failing assertion: the remaining block is field block
-	if sr.Error() != nil || !sr.Empty() {
+	if r.sr.Error() != nil || !r.sr.Empty() {
 		return nil, nil
 	}
-	return tagMeta, block[startOfFieldMeta:endOfFieldMeta]
+	return tagMetaBlock, block[startOfFieldMeta:endOfFieldMeta]
 }
 
 // ReadMaxFieldID return the max field-id of this metric
-func (r *metricsMetaReader) ReadMaxFieldID(metricID uint32) (maxFieldID uint16) {
+func (r *metricsMetaReader) ReadMaxFieldID(
+	metricID uint32,
+) (maxFieldID uint16) {
 	if len(r.readers) == 0 {
 		return 0
 	}
-	_, fieldMeta := r.readMetasBlock(r.readers[len(r.readers)-1], metricID)
-	if fieldMeta == nil {
+	_, fieldMetaBlock := r.readMetasBlock(r.readers[len(r.readers)-1].Get(metricID))
+	if fieldMetaBlock == nil {
 		return 0
 	}
-	sr := stream.NewReader(fieldMeta)
-	for !sr.Empty() {
-		thisFieldNameLen := sr.ReadByte()
-		// read field-name
-		sr.ReadBytes(int(thisFieldNameLen))
-		// read field-type
-		sr.ReadByte()
-		thisFieldID := sr.ReadUint16()
-		if sr.Error() != nil {
-			break
-		}
-		maxFieldID = thisFieldID
+	itr := newFieldIDIterator(fieldMetaBlock)
+	for itr.HasNext() {
+		_, _, fieldID := itr.Next()
+		maxFieldID = fieldID
 	}
 	return
 }
 
 // ReadFieldID read fieldID and fieldType from metricID and fieldName
-func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
-	fieldID uint16, fieldType field.Type, ok bool) {
+func (r *metricsMetaReader) ReadFieldID(
+	metricID uint32,
+	fieldName string,
+) (
+	fieldID uint16,
+	fieldType field.Type,
+	ok bool,
+) {
+	var thisFieldName string
 	for _, reader := range r.readers {
-		_, fieldMeta := r.readMetasBlock(reader, metricID)
-		if fieldMeta == nil {
+		_, fieldMetaBlock := r.readMetasBlock(reader.Get(metricID))
+		if fieldMetaBlock == nil {
 			continue
 		}
-		sr := stream.NewReader(fieldMeta)
-		for !sr.Empty() && sr.Error() == nil {
-			// read field-name
-			thisFieldNameLen := sr.ReadByte()
-			thisFieldName := string(sr.ReadBytes(int(thisFieldNameLen)))
-			// read field-type
-			fieldType = field.Type(sr.ReadByte())
-			// data corruption
-			fieldID = sr.ReadUint16()
+		itr := newFieldIDIterator(fieldMetaBlock)
+		for itr.HasNext() {
+			thisFieldName, fieldType, fieldID = itr.Next()
 			if thisFieldName == fieldName && fieldID != 0 && fieldType != 0 {
 				ok = true
 				return
@@ -135,27 +140,69 @@ func (r *metricsMetaReader) ReadFieldID(metricID uint32, fieldName string) (
 }
 
 // SuggestTagKeys returns suggestion of tagKeys by prefix
-func (r *metricsMetaReader) SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string {
+func (r *metricsMetaReader) SuggestTagKeys(
+	metricID uint32,
+	tagKeyPrefix string,
+	limit int,
+) []string {
 	var collectedTagKeys []string
 	for _, reader := range r.readers {
-		tagMeta, _ := r.readMetasBlock(reader, metricID)
-		if tagMeta == nil {
+		tagMetaBlock, _ := r.readMetasBlock(reader.Get(metricID))
+		if tagMetaBlock == nil {
 			continue
 		}
-		sr := stream.NewReader(tagMeta)
-		for !sr.Empty() && sr.Error() == nil {
+		itr := newTagKeyIDIterator(tagMetaBlock)
+		for itr.HasNext() {
 			// read tagKey
 			if limit <= len(collectedTagKeys) {
 				return collectedTagKeys
 			}
-			tagKeyLen := sr.ReadByte()
-			thisTagKey := string(sr.ReadBytes(int(tagKeyLen)))
-			// readTagID
-			_ = sr.ReadUint32()
-			if strings.HasPrefix(thisTagKey, tagKeyPrefix) {
-				collectedTagKeys = append(collectedTagKeys, thisTagKey)
+			theTagKey, _ := itr.Next()
+			if strings.HasPrefix(theTagKey, tagKeyPrefix) {
+				collectedTagKeys = append(collectedTagKeys, theTagKey)
 			}
 		}
 	}
 	return collectedTagKeys
+}
+
+type tagKeyIDIterator struct {
+	sr *stream.Reader
+}
+
+func newTagKeyIDIterator(block []byte) *tagKeyIDIterator {
+	return &tagKeyIDIterator{sr: stream.NewReader(block)}
+}
+func (ti *tagKeyIDIterator) HasNext() bool { return !ti.sr.Empty() && ti.sr.Error() == nil }
+func (ti *tagKeyIDIterator) Next() (
+	tagKey string,
+	tagKeyID uint32,
+) {
+	tagKeyLen := ti.sr.ReadByte()
+	tagKey = string(ti.sr.ReadBytes(int(tagKeyLen)))
+	tagKeyID = ti.sr.ReadUint32()
+	return
+}
+
+type fieldIDIterator struct {
+	sr *stream.Reader
+}
+
+func newFieldIDIterator(block []byte) *fieldIDIterator {
+	return &fieldIDIterator{sr: stream.NewReader(block)}
+}
+func (fi *fieldIDIterator) HasNext() bool { return !fi.sr.Empty() && fi.sr.Error() == nil }
+func (fi *fieldIDIterator) Next() (
+	fieldName string,
+	fieldType field.Type,
+	fieldID uint16,
+) {
+	// read field-name
+	thisFieldNameLen := fi.sr.ReadByte()
+	fieldName = string(fi.sr.ReadBytes(int(thisFieldNameLen)))
+	// read field-type
+	fieldType = field.Type(fi.sr.ReadByte())
+	// read field-ID
+	fieldID = fi.sr.ReadUint16()
+	return
 }

@@ -46,10 +46,10 @@ func Test_MetricsNameIDMerger(t *testing.T) {
 	data, err = m.Merge(1, blocks)
 	assert.Nil(t, err)
 	assert.NotNil(t, data)
-	content, metricIDSeq, tagIDSeq, _ := reader.ReadBlock(data)
+	content, metricIDSeq, tagKeyIDSeq, _ := reader.ReadBlock(data)
 	assert.NotNil(t, content)
 	assert.Equal(t, uint32(6), metricIDSeq)
-	assert.Equal(t, uint32(8), tagIDSeq)
+	assert.Equal(t, uint32(8), tagKeyIDSeq)
 
 	tree := art.New()
 	assert.Nil(t, reader.UnmarshalBinaryToART(tree, content))
