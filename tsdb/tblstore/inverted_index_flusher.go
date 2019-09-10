@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/bufpool"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -20,7 +21,7 @@ var invertedIndexFlusherLogger = logger.GetLogger("tsdb", "InvertedIndexFlusher"
 // The layout is available in `tsdb/doc.go`
 type InvertedIndexFlusher interface {
 	// FlushVersion writes a versioned bitmap to index table.
-	FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap)
+	FlushVersion(version series.Version, startTime, endTime uint32, bitmap *roaring.Bitmap)
 	// FlushTagValue ends writing VersionedTagValueBlock in index table.
 	FlushTagValue(tagValue string)
 	// FlushTagID ends writing entrySetBlock in index table.
@@ -54,7 +55,12 @@ type invertedIndexFlusher struct {
 }
 
 // FlushVersion writes a versioned bitmap to index table.
-func (w *invertedIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32, bitmap *roaring.Bitmap) {
+func (w *invertedIndexFlusher) FlushVersion(
+	version series.Version,
+	startTime,
+	endTime uint32,
+	bitmap *roaring.Bitmap,
+) {
 	if w.tagValueBuffer == nil {
 		w.tagValueBuffer = bufpool.GetBuffer()
 		w.tagValueWriter.SwitchBuffer(w.tagValueBuffer)
@@ -69,7 +75,7 @@ func (w *invertedIndexFlusher) FlushVersion(version uint32, startTime, endTime u
 		w.maxEndTime = endTime
 	}
 	// write version
-	w.tagValueWriter.PutUint32(version)
+	w.tagValueWriter.PutInt64(version.Int64())
 	// write startTime delta
 	startTimeDelta := int64(startTime) - int64(version)
 	w.tagValueWriter.PutVarint64(startTimeDelta)

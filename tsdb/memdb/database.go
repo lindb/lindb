@@ -440,8 +440,14 @@ func (md *memoryDatabase) FlushForwardIndexTo(flusher tblstore.ForwardIndexFlush
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id from mStore.
-func (md *memoryDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
+func (md *memoryDatabase) FindSeriesIDsByExpr(
+	metricID uint32,
+	expr stmt.TagFilter,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
 
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
@@ -451,8 +457,14 @@ func (md *memoryDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilt
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key from mStore.
-func (md *memoryDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
+func (md *memoryDatabase) GetSeriesIDsForTag(
+	metricID uint32,
+	tagKey string,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
 
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
@@ -462,7 +474,7 @@ func (md *memoryDatabase) GetSeriesIDsForTag(metricID uint32, tagKey string,
 }
 
 // GetTagValues returns tag values by tag keys and spec version for metric level from memory-database
-func (md *memoryDatabase) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
+func (md *memoryDatabase) GetTagValues(metricID uint32, tagKeys []string, version series.Version) (
 	tagValues [][]string, err error) {
 	// get hash of metricId
 	mStore, ok := md.getMStoreByMetricID(metricID)

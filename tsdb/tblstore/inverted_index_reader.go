@@ -256,7 +256,7 @@ func (r *invertedIndexReader) readTagValueDataBlock(block []byte, pos int,
 	)
 	for !sr.Empty() && readCounter < int(versionCount) {
 		// read version
-		version := sr.ReadUint32()
+		version := series.Version(sr.ReadInt64())
 		// read start-time delta
 		startTime := sr.ReadVarint64()*1000 + int64(version)*1000 // startTime in milliseconds
 		// read end-time delta

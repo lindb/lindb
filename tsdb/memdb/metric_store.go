@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/diskdb"
@@ -28,7 +27,7 @@ type mStoreINTF interface {
 	// suggestTagValues returns tagValues by prefix-search
 	suggestTagValues(tagKey, tagValuePrefix string, limit int) []string
 	// getTagValues get tagValues from the specified version and tagKeys
-	getTagValues(tagKeys []string, version uint32) (tagValues [][]string, err error)
+	getTagValues(tagKeys []string, version series.Version) (tagValues [][]string, err error)
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// setMaxTagsLimit sets the max tags-limit
@@ -216,7 +215,7 @@ func (ms *metricStore) suggestTagValues(tagKey, tagValuePrefix string, limit int
 }
 
 // getTagValues get tagValues from the specified version and tagKeys
-func (ms *metricStore) getTagValues(tagKeys []string, version uint32) (tagValues [][]string, err error) {
+func (ms *metricStore) getTagValues(tagKeys []string, version series.Version) (tagValues [][]string, err error) {
 	ms.mutex4Immutable.RLock()
 	ms.mutex4Mutable.RLock()
 	defer ms.mutex4Immutable.RUnlock()
@@ -350,7 +349,7 @@ func (ms *metricStore) evict() {
 // resetVersion moves the mutable index to immutable list, then creates a new active index.
 func (ms *metricStore) resetVersion() error {
 	ms.mutex4Mutable.Lock()
-	if ms.mutable.getVersion()+minIntervalForResetMetricStore > uint32(timeutil.Now()/1000) {
+	if ms.mutable.getVersion().Elapsed().Seconds() < float64(minIntervalForResetMetricStore) {
 		ms.mutex4Mutable.Unlock()
 		return fmt.Errorf("reset version too frequently")
 	}

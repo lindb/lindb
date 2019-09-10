@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -75,7 +76,7 @@ func buildForwardIndexBlock() []byte {
 		}
 		flusher.FlushTagKey("host")
 		// flush version
-		flusher.FlushVersion(uint32(v), uint32(v*100), uint32(v+1)*100)
+		flusher.FlushVersion(series.Version(v), uint32(v*100), uint32(v+1)*100)
 	}
 
 	_ = flusher.FlushMetricID(1)

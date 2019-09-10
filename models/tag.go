@@ -5,14 +5,6 @@ import (
 	"strings"
 )
 
-// Tag is the key/value tag pair of a metric point.
-type Tag struct {
-	// tag-key
-	Key string
-	// tag-value
-	Value string
-}
-
 // convert tags to string
 func TagsAsString(tags map[string]string) string {
 	if tags == nil {

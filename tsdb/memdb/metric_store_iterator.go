@@ -87,7 +87,7 @@ type mStoreIterator struct {
 	mStore      *metricStore
 	sCtx        series.ScanContext
 	tagIndexes  []tagIndexINTF
-	version     uint32
+	version     series.Version
 	tStoreItr   *tStoreIterator
 }
 
@@ -119,7 +119,7 @@ func (msi *mStoreIterator) Close() error {
 	return nil
 }
 
-func (msi *mStoreIterator) Version() uint32 {
+func (msi *mStoreIterator) Version() series.Version {
 	return msi.version
 }
 
