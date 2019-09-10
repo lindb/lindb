@@ -187,10 +187,12 @@ func (r *runtime) Run() error {
 	r.startGRPCServer()
 	r.startTCPServer()
 
+	nodeMap := r.buildActiveNodeMap(ip, hostName)
+
 	// register broker node info
 	//TODO TTL default value???
 	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
-	if err := r.registry.Register(r.node); err != nil {
+	if err := r.registry.Register(r.node, nodeMap); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
 	r.master.Start()
@@ -200,6 +202,23 @@ func (r *runtime) Run() error {
 
 	r.state = server.Running
 	return nil
+}
+
+func (r *runtime) buildActiveNodeMap(ip, hostname string) *models.ActiveNodeMap {
+	nodeMap := &models.ActiveNodeMap{NodeMap: make(map[models.NodeType]*models.Node, 0)}
+	nodeMap.NodeMap[models.NodeTypeRPC] = &models.Node{
+		IP:       ip,
+		Port:     r.config.GRPC.Port,
+		HostName: hostname,
+	}
+
+	nodeMap.NodeMap[models.NodeTypeTCP] = &models.Node{
+		IP:       ip,
+		Port:     r.config.TCP.Port,
+		HostName: hostname,
+	}
+
+	return nodeMap
 }
 
 // State returns current broker server state

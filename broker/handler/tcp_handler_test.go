@@ -53,7 +53,7 @@ func TestTcpHandler_Handle(t *testing.T) {
 
 	wg.Wait()
 	// wait for server handler go routine
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	tcpServer.Stop()
 
 }
@@ -196,7 +196,7 @@ func buildMetricList(value float64) *field.MetricList {
 //		t.Fatal(err)
 //	}
 //
-//	for i := 0; i < 1000; i++ {
+//	for i := 0; i < 1; i++ {
 //		ml := buildMetricList(float64(i))
 //
 //		metricListBytes, err := ml.Marshal()

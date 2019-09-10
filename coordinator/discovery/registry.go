@@ -15,7 +15,7 @@ import (
 // Registry represents server node register
 type Registry interface {
 	// Register registers node info, add it to active node list for discovery
-	Register(node models.Node) error
+	Register(node models.Node, activeNodeMap *models.ActiveNodeMap) error
 	// Deregister deregister node info, remove it from active list
 	Deregister(node models.Node) error
 	// Close closes registry, releases resources
@@ -48,11 +48,11 @@ func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
 }
 
 // Register registers node info, add it to active node list for discovery
-func (r *registry) Register(node models.Node) error {
+func (r *registry) Register(node models.Node, activeNodeMap *models.ActiveNodeMap) error {
 	// register node info
 	path := constants.GetNodePath(r.prefix, node.Indicator())
 	// register node if fail retry it
-	go r.register(path, node)
+	go r.register(path, activeNodeMap)
 	return nil
 }
 
@@ -68,13 +68,15 @@ func (r *registry) Close() error {
 }
 
 // register registers node info, if fail do retry
-func (r *registry) register(path string, node models.Node) {
+func (r *registry) register(path string, activeNodeMap *models.ActiveNodeMap) {
 	for {
 		// if ctx happen err, exit register loop
 		if r.ctx.Err() != nil {
 			return
 		}
-		nodeBytes, _ := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
+		//nodeBytes, _ := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
+		activeNodeMap.OnlineTime = timeutil.Now()
+		nodeBytes, _ := json.Marshal(activeNodeMap)
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, r.ttl)
 		if err != nil {

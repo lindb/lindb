@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -25,13 +27,17 @@ func TestRegistry(t *testing.T) {
 	closedCh := make(chan state.Closed)
 
 	node := models.Node{IP: "127.0.0.1", Port: 2080}
+	nodeMap := models.ActiveNodeMap{
+		OnlineTime: timeutil.Now(),
+		NodeMap:    map[models.NodeType]*models.Node{models.NodeTypeRPC: &node},
+	}
 	gomock.InOrder(
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, fmt.Errorf("err")),
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(closedCh, nil),
 	)
-	err := registry1.Register(node)
+	err := registry1.Register(node, &nodeMap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +64,7 @@ func TestRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := registry1.(*registry)
-	r.register("/data/pant", node)
+	r.register("/data/pant", &nodeMap)
 
 	registry1 = NewRegistry(repo, testRegistryPath, 100)
 	r = registry1.(*registry)
@@ -67,5 +73,5 @@ func TestRegistry(t *testing.T) {
 	time.AfterFunc(100*time.Millisecond, func() {
 		r.cancel()
 	})
-	r.register("/data/pant", node)
+	r.register("/data/pant", &nodeMap)
 }

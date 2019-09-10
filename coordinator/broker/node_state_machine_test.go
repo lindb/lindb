@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -50,8 +52,17 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
-	data, _ := json.Marshal(&activeNode)
+	activeNodeMap := models.ActiveNodeMap{
+		OnlineTime: timeutil.Now(),
+		NodeMap: map[models.NodeType]*models.Node{
+			models.NodeTypeRPC: {IP: "1.1.1.1", Port: 9000}},
+	}
+
+	activeNode := models.ActiveNode{
+		Node:       *activeNodeMap.NodeMap[models.NodeTypeRPC],
+		OnlineTime: activeNodeMap.OnlineTime,
+	}
+	data, _ := json.Marshal(&activeNodeMap)
 	stateMachine.OnCreate("/data/test", data)
 
 	assert.Equal(t, 1, len(stateMachine.GetActiveNodes()))

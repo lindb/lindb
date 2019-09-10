@@ -45,3 +45,9 @@ func TestNode_ParseNode(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestParseNodeType(t *testing.T) {
+	assert.Equal(t, NodeTypeRPC, ParseNodeType(string(NodeTypeRPC)))
+	assert.Equal(t, NodeTypeUnknown, ParseNodeType("xxx"))
+	assert.Equal(t, NodeTypeUnknown, NodeType("unknown"))
+}

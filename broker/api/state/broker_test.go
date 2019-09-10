@@ -20,13 +20,22 @@ func TestBrokerAPI_ListBrokerNodes(t *testing.T) {
 	nodes := []models.ActiveNode{node}
 
 	stateMachine := broker.NewMockNodeStateMachine(ctrl)
-	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
+	stateMachine.EXPECT().GetActiveNodesByType(models.NodeTypeRPC).Return(nodes)
+	stateMachine.EXPECT().GetActiveNodesByType(models.NodeTypeTCP).Return(nodes)
 	api := NewBrokerAPI(stateMachine)
 
 	// get success
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state",
+		HandlerFunc:    api.ListBrokerNodes,
+		ExpectHTTPCode: 200,
+		ExpectResponse: nodes,
+	})
+
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodGet,
+		URL:            "/broker/state?type=tcp",
 		HandlerFunc:    api.ListBrokerNodes,
 		ExpectHTTPCode: 200,
 		ExpectResponse: nodes,

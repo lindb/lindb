@@ -23,6 +23,8 @@ type NodeStateMachine interface {
 	GetCurrentNode() models.Node
 	// GetActiveNodes returns all active broker nodes
 	GetActiveNodes() []models.ActiveNode
+	// GetActiveNodesByType returns all active broker nodes for given NodeType
+	GetActiveNodesByType(nodeType models.NodeType) []models.ActiveNode
 	// Close closes state machine, then releases resource
 	Close() error
 }
@@ -38,7 +40,7 @@ type nodeStateMachine struct {
 
 	mutex sync.RWMutex
 	// brokers: broker node => replica list under this broker
-	nodes map[string]models.ActiveNode
+	nodes map[string]*models.ActiveNodeMap
 
 	log *logger.Logger
 }
@@ -50,7 +52,7 @@ func NewNodeStateMachine(ctx context.Context, currentNode models.Node, discovery
 		ctx:         c,
 		cancel:      cancel,
 		currentNode: currentNode,
-		nodes:       make(map[string]models.ActiveNode),
+		nodes:       make(map[string]*models.ActiveNodeMap),
 		log:         logger.GetLogger("coordinator", "BrokerNodeStateMachine"),
 	}
 	// new replica status discovery
@@ -68,10 +70,26 @@ func (s *nodeStateMachine) GetCurrentNode() models.Node {
 
 // GetActiveNodes returns all active broker nodes
 func (s *nodeStateMachine) GetActiveNodes() []models.ActiveNode {
+	return s.GetActiveNodesByType(models.NodeTypeRPC)
+}
+
+// GetActiveNodesByType returns all active broker nodes for given NodeType
+func (s *nodeStateMachine) GetActiveNodesByType(nodeType models.NodeType) []models.ActiveNode {
 	var result []models.ActiveNode
 	s.mutex.RLock()
-	for _, node := range s.nodes {
-		result = append(result, node)
+	for _, nodeMap := range s.nodes {
+		nodePtr, ok := nodeMap.NodeMap[nodeType]
+		if ok {
+			activeNode := models.ActiveNode{
+				OnlineTime: nodeMap.OnlineTime,
+				Node: models.Node{
+					IP:       nodePtr.IP,
+					Port:     nodePtr.Port,
+					HostName: nodePtr.HostName,
+				},
+			}
+			result = append(result, activeNode)
+		}
 	}
 	s.mutex.RUnlock()
 	return result
@@ -79,8 +97,8 @@ func (s *nodeStateMachine) GetActiveNodes() []models.ActiveNode {
 
 // OnCreate adds node into active node list when node online
 func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
-	node := models.ActiveNode{}
-	if err := json.Unmarshal(resource, &node); err != nil {
+	nodeMap := models.ActiveNodeMap{}
+	if err := json.Unmarshal(resource, &nodeMap); err != nil {
 		s.log.Error("discovery node online but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return
@@ -88,7 +106,7 @@ func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 	_, fileName := filepath.Split(key)
 	nodeID := fileName
 	s.mutex.Lock()
-	s.nodes[nodeID] = node
+	s.nodes[nodeID] = &nodeMap
 	s.mutex.Unlock()
 }
 
@@ -105,7 +123,7 @@ func (s *nodeStateMachine) OnDelete(key string) {
 func (s *nodeStateMachine) Close() error {
 	s.discovery.Close()
 	s.mutex.Lock()
-	s.nodes = make(map[string]models.ActiveNode)
+	s.nodes = make(map[string]*models.ActiveNodeMap)
 	s.mutex.Unlock()
 	s.cancel()
 	return nil

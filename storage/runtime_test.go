@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -55,10 +55,10 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	if err != nil {
 		c.Fatal(err)
 	}
-	nodeInfo := models.ActiveNode{}
-	_ = json.Unmarshal(nodeBytes, &nodeInfo)
+	activeNodeMap := models.ActiveNodeMap{}
+	_ = json.Unmarshal(nodeBytes, &activeNodeMap)
 
-	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
+	c.Assert(runtime.node, check.Equals, *activeNodeMap.NodeMap[models.NodeTypeRPC])
 	c.Assert("storage", check.Equals, storage.Name())
 
 	_ = storage.Stop()

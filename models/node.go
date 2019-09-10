@@ -49,8 +49,31 @@ type Master struct {
 	ElectTime int64 `json:"electTime"`
 }
 
+type NodeType string
+
+const (
+	NodeTypeUnknown NodeType = "unknown"
+	NodeTypeRPC     NodeType = "rpc"
+	NodeTypeTCP     NodeType = "tcp"
+)
+
+func ParseNodeType(typeStr string) NodeType {
+	switch typeStr {
+	case string(NodeTypeRPC), string(NodeTypeTCP):
+		return NodeType(typeStr)
+	default:
+	}
+	return NodeTypeUnknown
+}
+
 // ActiveNode represents active node include online time
 type ActiveNode struct {
 	Node       Node  `json:"node"`
 	OnlineTime int64 `json:"onlineTime"` // node online time(millisecond)
+}
+
+// ActiveNodeMap represents active nodes include online time
+type ActiveNodeMap struct {
+	OnlineTime int64              `json:"onlineTime"` // node online time(millisecond)
+	NodeMap    map[NodeType]*Node `json:"node_map"`
 }

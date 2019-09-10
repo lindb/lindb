@@ -67,6 +67,8 @@ func (s *tcpServer) Start() error {
 			s.logger.Error("TPCServer error when accepting", logger.Error(err))
 			return err
 		}
+		//s.logger.Info("accept")
+
 		// Handle connections in a new goroutine.
 		go func() {
 			defer func() {
