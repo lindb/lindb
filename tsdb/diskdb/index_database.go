@@ -51,8 +51,14 @@ func (db *indexDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix str
 }
 
 // GetTagValues get tag values corresponding with the tagKeys
-func (db *indexDatabase) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
-	tagValues [][]string, err error) {
+func (db *indexDatabase) GetTagValues(
+	metricID uint32,
+	tagKeys []string,
+	version series.Version,
+) (
+	tagValues [][]string,
+	err error,
+) {
 
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()

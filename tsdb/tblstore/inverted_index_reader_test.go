@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -51,7 +52,7 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.AddMany(ids)
-			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
+			seriesFlusher.FlushVersion(series.Version(v), v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(zone)
 	}
@@ -66,7 +67,7 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
+			seriesFlusher.FlushVersion(series.Version(v), v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(ip)
 	}
@@ -81,7 +82,7 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := uint32(1500000000); v < 1800000000; v += 100000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(v, v+10000, v+20000, bitmap)
+			seriesFlusher.FlushVersion(series.Version(v), v+10000, v+20000, bitmap)
 		}
 		seriesFlusher.FlushTagValue(host)
 	}
@@ -127,9 +128,9 @@ func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, idSet)
 
-	assert.Contains(t, idSet.Versions(), uint32(1500000000))
-	assert.Equal(t, uint32(1), idSet.Versions()[1500000000].Minimum())
-	assert.Equal(t, uint32(9), idSet.Versions()[1500000000].Maximum())
+	assert.Contains(t, idSet.Versions(), series.Version(1500000000))
+	assert.Equal(t, uint32(1), idSet.Versions()[series.Version(1500000000)].Minimum())
+	assert.Equal(t, uint32(9), idSet.Versions()[series.Version(1500000000)].Maximum())
 }
 
 func Test_intSliceContains(t *testing.T) {
@@ -172,9 +173,9 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T
 	idSet, err := reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-4"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
-	assert.Contains(t, idSet.Versions(), uint32(1500000000))
+	assert.Contains(t, idSet.Versions(), series.Version(1500000000))
 	assert.Equal(t, uint64(1), idSet.Versions()[1500000000].GetCardinality())
-	assert.True(t, idSet.Versions()[1500000000].Contains(4))
+	assert.True(t, idSet.Versions()[series.Version(1500000000)].Contains(4))
 	// find not existed host
 	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-41"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
@@ -191,10 +192,10 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_InExpr(t *testing.T) {
 		Key: "host", Values: []string{"eleme-dev-sh-4", "eleme-dev-sh-5", "eleme-dev-sh-55"}},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
-	assert.Contains(t, idSet.Versions(), uint32(1500000000))
+	assert.Contains(t, idSet.Versions(), series.Version(1500000000))
 	assert.Equal(t, uint64(2), idSet.Versions()[1500000000].GetCardinality())
-	assert.True(t, idSet.Versions()[1500000000].Contains(4))
-	assert.True(t, idSet.Versions()[1500000000].Contains(5))
+	assert.True(t, idSet.Versions()[series.Version(1500000000)].Contains(4))
+	assert.True(t, idSet.Versions()[series.Version(1500000000)].Contains(5))
 	// find not existed host
 	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh-55"}},
@@ -212,10 +213,10 @@ func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T)
 		Key: "host", Value: "eleme-dev-sh-"},
 		timeutil.TimeRange{Start: 1500000000 * 1000, End: 1600000000 * 1000})
 	assert.Nil(t, err)
-	assert.Contains(t, idSet.Versions(), uint32(1500000000))
-	assert.Equal(t, uint64(3), idSet.Versions()[1500000000].GetCardinality())
-	assert.Equal(t, uint32(4), idSet.Versions()[1500000000].Minimum())
-	assert.Equal(t, uint32(6), idSet.Versions()[1500000000].Maximum())
+	assert.Contains(t, idSet.Versions(), series.Version(1500000000))
+	assert.Equal(t, uint64(3), idSet.Versions()[series.Version(1500000000)].GetCardinality())
+	assert.Equal(t, uint32(4), idSet.Versions()[series.Version(1500000000)].Minimum())
+	assert.Equal(t, uint32(6), idSet.Versions()[series.Version(1500000000)].Maximum())
 	// find not existed host
 	_, err = reader.FindSeriesIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh---"}},

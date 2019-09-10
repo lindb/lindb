@@ -46,8 +46,8 @@ type tagIndexINTF interface {
 	allTStores() map[uint32]tStoreINTF
 	// flushMetricTo flush metric to the tableFlusher
 	flushMetricTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) error
-	// getVersion returns a version(uptime in seconds) of the index
-	getVersion() uint32
+	// getVersion returns a version(uptime in milliseconds) of the index
+	getVersion() series.Version
 	// findSeriesIDsByExpr finds series ids by tag filter expr
 	findSeriesIDsByExpr(expr stmt.TagFilter) *roaring.Bitmap
 	// getSeriesIDsForTag get series ids by tagKey
@@ -79,8 +79,8 @@ type tagIndex struct {
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idCounter     uint32
-	// version is the uptime in seconds
-	version   uint32
+	// version is the uptime in millseconds
+	version   series.Version
 	startTime uint32 // startTime, endTime of all data written
 	endTime   uint32
 }
@@ -90,7 +90,7 @@ func newTagIndex() tagIndexINTF {
 	return &tagIndex{
 		seriesID2TStore: make(map[uint32]tStoreINTF),
 		hash2SeriesID:   make(map[uint64]uint32),
-		version:         uint32(timeutil.Now() / 1000),
+		version:         series.NewVersion(),
 		startTime:       uint32(timeutil.Now() / 1000),
 		endTime:         uint32(timeutil.Now() / 1000)}
 }
@@ -273,7 +273,7 @@ func (index *tagIndex) flushMetricTo(tableFlusher tblstore.MetricsDataFlusher, f
 }
 
 // getVersion returns a version(uptime) of the index
-func (index *tagIndex) getVersion() uint32 {
+func (index *tagIndex) getVersion() series.Version {
 	return index.version
 }
 

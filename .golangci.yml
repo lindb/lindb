@@ -82,6 +82,7 @@ linters-settings:
 linters:
     enable-all: true
     disable:
+        - funlen
         - unused
         - ineffassign
         - maligned

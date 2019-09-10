@@ -11,7 +11,7 @@ import (
 // VersionIterator represents a multi-version iterator
 type VersionIterator interface {
 	// Version returns the version no.
-	Version() uint32
+	Version() Version
 	// HasNext returns if the iteration has more time-series's iterator
 	HasNext() bool
 	// Next returns the time-series's iterator
