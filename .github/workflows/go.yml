@@ -2,9 +2,28 @@ name: Go
 on: [push]
 jobs:
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Test
+      run: make test
+
+    - name: Upload Coverage report to CodeCov
+      run: bash <(curl -s https://codecov.io/bash)
+
+
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: [test]
     steps:
 
     - name: Set up Go 1.12
@@ -16,12 +35,5 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v1
 
-    - name: Test
-      run: make test
-
     - name: Build
       run: make build
-      
-    - name: after_success
-      run: bash <(curl -s https://codecov.io/bash)
-    
