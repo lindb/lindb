@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/snappy"
@@ -33,7 +34,7 @@ type ForwardIndexFlusher interface {
 	// FlushTagKey ends writing the tagValues
 	FlushTagKey(tagKey string)
 	// FlushVersion ends writes a version block
-	FlushVersion(version uint32, startTime, endTime uint32)
+	FlushVersion(version series.Version, startTime, endTime uint32)
 	// FlushMetricID ends write a full metric-block
 	FlushMetricID(metricID uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
@@ -56,7 +57,7 @@ type forwardIndexFlusher struct {
 	// build metric block
 	metricBlockWriter *stream.BufferWriter // writer for build metric-block
 	versionBlocksLen  []int                // length of all flushed version blocks
-	versions          []uint32             // all flushed versions
+	versions          []series.Version     // all flushed versions
 	// common elements
 	tmpWriter *stream.BufferWriter // temporary writer
 	dstSlice  []byte               // snappy dst slice
@@ -173,19 +174,13 @@ func (flusher *forwardIndexFlusher) resetVersionContext() {
 }
 
 // FlushVersion ends writes a version block
-func (flusher *forwardIndexFlusher) FlushVersion(version uint32, startTime, endTime uint32) {
+func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, startTime, endTime uint32) {
 	//////////////////////////////////////////////////
 	// Reset
 	//////////////////////////////////////////////////
 	defer flusher.resetVersionContext()
 	// record the start position of this entry
 	startPosOfThisEntry := flusher.metricBlockWriter.Len()
-	// record the length of this entry
-	defer func() {
-		endPosOfThisEntry := flusher.metricBlockWriter.Len()
-		flusher.versionBlocksLen = append(flusher.versionBlocksLen, endPosOfThisEntry-startPosOfThisEntry)
-		flusher.versions = append(flusher.versions, version)
-	}()
 	//////////////////////////////////////////////////
 	// build Time Range Block
 	//////////////////////////////////////////////////
@@ -238,6 +233,14 @@ func (flusher *forwardIndexFlusher) FlushVersion(version uint32, startTime, endT
 	// build offsets, keys, footer
 	//////////////////////////////////////////////////
 	flusher.finishVersion(startPosOfThisEntry, dictBlockOffsetPos, tagKeysLUTBlockPos)
+	// record the length of the entry
+	flusher.RecordVersionOffset(version, startPosOfThisEntry)
+}
+
+func (flusher *forwardIndexFlusher) RecordVersionOffset(version series.Version, startPos int) {
+	endPosOfThisEntry := flusher.metricBlockWriter.Len()
+	flusher.versionBlocksLen = append(flusher.versionBlocksLen, endPosOfThisEntry-startPos)
+	flusher.versions = append(flusher.versions, version)
 }
 
 // finishVersion writes the version
@@ -344,6 +347,7 @@ func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
 
 // resetMetricBlockContext resets the internal containers for build next metric block
 func (flusher *forwardIndexFlusher) resetMetricBlockContext() {
+	flusher.resetVersionContext()
 	// reset writer
 	flusher.metricBlockWriter.Reset()
 	// reset version block meta info
@@ -367,7 +371,7 @@ func (flusher *forwardIndexFlusher) FlushMetricID(metricID uint32) error {
 	// write all versions and version lengths
 	for idx, version := range flusher.versions {
 		// write version
-		flusher.metricBlockWriter.PutUint32(version)
+		flusher.metricBlockWriter.PutInt64(version.Int64())
 		// write version block length
 		flusher.metricBlockWriter.PutUvarint64(uint64(flusher.versionBlocksLen[idx]))
 	}

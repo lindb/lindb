@@ -72,7 +72,7 @@ func Test_mStore_scan(t *testing.T) {
 	tsItr2 := itr2.Next()
 	// default tStore value
 	assert.Zero(t, tsItr2.SeriesID())
-	assert.Equal(t, uint32(2), itr2.Version())
+	assert.Equal(t, series.Version(2), itr2.Version())
 	// next ts
 	assert.True(t, tsItr2.HasNext())
 	assert.Equal(t, uint32(5), tsItr2.SeriesID())

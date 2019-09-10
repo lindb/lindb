@@ -47,7 +47,7 @@ func NewForwardIndexReader(readers []table.Reader) ForwardIndexReader {
 }
 
 // GetTagValues returns tag values by tag keys and spec version for metric level
-func (r *forwardIndexReader) GetTagValues(metricID uint32, tagKeys []string, version uint32) (
+func (r *forwardIndexReader) GetTagValues(metricID uint32, tagKeys []string, version series.Version) (
 	tagValues [][]string, err error) {
 	if len(tagKeys) == 0 {
 		return nil, nil
@@ -104,7 +104,14 @@ func (r *forwardIndexReader) GetTagValues(metricID uint32, tagKeys []string, ver
 }
 
 // readKeysLUTBlock reads tagValue indexes from the specified tagKeys seq in the LUT block
-func (r *forwardIndexReader) readKeysLUTBlock(versionBlock []byte, tagKeysSeq []int) (map[int][]int, []int, error) {
+func (r *forwardIndexReader) readKeysLUTBlock(
+	versionBlock []byte,
+	tagKeysSeq []int,
+) (
+	map[int][]int,
+	[]int,
+	error,
+) {
 	_, posOfKeysLUT, _, _, err := r.readFooter(versionBlock)
 	if err != nil {
 		return nil, nil, err
@@ -162,10 +169,18 @@ func (r *forwardIndexReader) readTagKeysBlock(block []byte) (map[string]int, err
 }
 
 // readFooter reads the positions in version entry block
-func (r *forwardIndexReader) readFooter(block []byte) (posOfDictBlockOffset, posOfKeysLUT,
-	posOfOffsets, posOfBitmap uint32, err error) {
+func (r *forwardIndexReader) readFooter(
+	block []byte,
+) (
+	posOfDictBlockOffset,
+	posOfKeysLUT,
+	posOfOffsets,
+	posOfBitmap uint32,
+	err error,
+) {
 	if len(block) <= footerSizeOfVersionEntry+timeRangeSize {
-		return 0, 0, 0, 0, fmt.Errorf("validation of versionEntrySize failed")
+		err = fmt.Errorf("validation of versionEntrySize failed")
+		return
 	}
 	r.sr.Reset(block)
 	r.sr.ShiftAt(uint32(len(block) - footerSizeOfVersionEntry))
@@ -219,7 +234,12 @@ func (r *forwardIndexReader) readDictBlockByIndexes(block []byte, strIndexes []i
 
 // readStringBlockByOffsets reads different strings in different offsets from the string blocks
 // then updates them to the found map.
-func (r *forwardIndexReader) readStringBlockByOffsets(stringBlocks []byte, offsets, lengths, strIndexes []int) error {
+func (r *forwardIndexReader) readStringBlockByOffsets(
+	stringBlocks []byte,
+	offsets,
+	lengths,
+	strIndexes []int,
+) error {
 	sort.Slice(strIndexes, func(i, j int) bool { return strIndexes[i] < strIndexes[j] })
 	// read each block
 	lastDecodedBlockSeq := -1
@@ -263,50 +283,75 @@ func (r *forwardIndexReader) readStringBlockByOffsets(stringBlocks []byte, offse
 }
 
 // getVersionBlock gets the latest block from snapshot which matches the version in forward-index-table
-func (r *forwardIndexReader) getVersionBlock(metricID uint32, version uint32) (versionBlock []byte) {
+func (r *forwardIndexReader) getVersionBlock(metricID uint32, version series.Version) (versionBlock []byte) {
 	// if we get it from the latest reader, ignore the elder readers
 	for i := len(r.readers) - 1; i >= 0; i-- {
 		reader := r.readers[i]
-		block := reader.Get(metricID)
-		if len(block) <= footerSizeAfterVersionEntries {
-			continue
-		}
-		r.sr.Reset(block)
-		//////////////////////////////////////////////////
-		// Read VersionOffSetsBlock
-		//////////////////////////////////////////////////
-		r.sr.ShiftAt(uint32(len(block) - footerSizeAfterVersionEntries))
-		versionOffsetPos := r.sr.ReadUint32()
-		// shift to Start Position of the VersionOffsetsBlock
-		r.sr.Reset(block)
-		r.sr.ShiftAt(versionOffsetPos)
-		// read version count
-		versionCount := r.sr.ReadUvarint64()
-		var (
-			versionEntryStartPos = 0
-			versionEntryEndPos   = 0
-			found                = false
-		)
-		// read version offsets
-		for i := 0; i < int(versionCount); i++ {
-			// read version
-			thisVersion := r.sr.ReadUint32()
-			// read version length
-			versionLength := r.sr.ReadUvarint64()
-			if r.sr.Error() != nil {
-				forwardIndexReaderLogger.Error("read error occurred", logger.Error(r.sr.Error()))
-				break
-			}
-			versionEntryEndPos += int(versionLength)
+		versionBlockItr := newForwardIndexVersionBlockIterator(reader.Get(metricID))
+		for versionBlockItr.HasNext() {
+			thisVersion, thisVersionBlock := versionBlockItr.Next()
 			if thisVersion == version {
-				found = true
-				break
+				return thisVersionBlock
 			}
-			versionEntryStartPos += int(versionLength)
-		}
-		if found && versionEntryEndPos < len(block) {
-			versionBlock = block[versionEntryStartPos:versionEntryEndPos]
 		}
 	}
-	return versionBlock
+	return nil
+}
+
+type forwardIndexVersionBlockIterator struct {
+	block              []byte
+	sr                 *stream.Reader
+	totalVersions      int // total
+	haveReadVersions   int // accumulative
+	versionBlockCursor int
+}
+
+func newForwardIndexVersionBlockIterator(block []byte) *forwardIndexVersionBlockIterator {
+	itr := &forwardIndexVersionBlockIterator{
+		block: block,
+		sr:    stream.NewReader(block)}
+	itr.readTotalVersions()
+	return itr
+}
+
+func (fii *forwardIndexVersionBlockIterator) readTotalVersions() {
+	//////////////////////////////////////////////////
+	// Read VersionOffSetsBlock
+	//////////////////////////////////////////////////
+	fii.sr.ShiftAt(uint32(len(fii.block) - footerSizeAfterVersionEntries))
+	versionOffsetPos := fii.sr.ReadUint32()
+	// shift to Start Position of the VersionOffsetsBlock
+	fii.sr.Reset(fii.block)
+	fii.sr.ShiftAt(versionOffsetPos)
+	// read version count
+	fii.totalVersions = int(fii.sr.ReadUvarint64())
+}
+
+func (fii *forwardIndexVersionBlockIterator) HasNext() bool {
+	if len(fii.block) <= footerSizeAfterVersionEntries {
+		return false
+	}
+	if fii.haveReadVersions >= fii.totalVersions {
+		return false
+	}
+	return !fii.sr.Empty() && fii.sr.Error() == nil
+}
+
+func (fii *forwardIndexVersionBlockIterator) Next() (version series.Version, versionBlock []byte) {
+	defer func() { fii.haveReadVersions++ }()
+	// read version
+	thisVersion := series.Version(fii.sr.ReadInt64())
+	// read version length
+	versionLength := fii.sr.ReadUvarint64()
+	if fii.sr.Error() != nil {
+		forwardIndexReaderLogger.Error("read error occurred", logger.Error(fii.sr.Error()))
+		return thisVersion, nil
+	}
+	versionEntryStartPos := fii.versionBlockCursor
+	versionEntryEndPos := versionEntryStartPos + int(versionLength)
+	fii.versionBlockCursor += int(versionLength)
+	if versionEntryEndPos < len(fii.block) {
+		return thisVersion, fii.block[versionEntryStartPos:versionEntryEndPos]
+	}
+	return thisVersion, nil
 }

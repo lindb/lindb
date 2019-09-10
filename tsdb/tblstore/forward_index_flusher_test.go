@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/tsdb/series"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -38,7 +39,7 @@ func Test_ForwardIndexFlush(t *testing.T) {
 			}
 			mockFlusher.FlushTagKey(string(x))
 		}
-		mockFlusher.FlushVersion(uint32(v), 0, 10)
+		mockFlusher.FlushVersion(series.Version(v), 0, 10)
 	}
 	assert.Nil(t, mockFlusher.FlushMetricID(1))
 

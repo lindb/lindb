@@ -10,31 +10,31 @@ Each shard contains a MemoryDatabase, the Index Database is a global singleton
 a) Write Flow
 
 +-------------------------------------+
-|                                     |
-|               Engine                |
-|                                     |
+│                                     │
+│               Engine                │
+│                                     │
 +------+----------------------+-------+
-       |                      |
-       |                      |
-Shard  |               Shard  |
+       │                      │
+       │                      │
+Shard  │               Shard  │
 +------v-------+       +------v-------+
-| Data | Memory|       | Data | Memory+----------------------------------------------------+
-|  DB  |   DB  |       |  DB  |   DB  +--------------+                                     |
-+-----^-+------+       +-----^-+------+              |                                     |
-      | |                    | |                     |                                     |
-      | |                    | | ID                  |                                     |
-      | |                    | | Generator           |                                     |
-+-----+-v--------------------+-v------+              |                                     |
-|                                     |              |                                     |
-|            ID Sequencer             |              |                                     |
-|                                     |              +--------------+                      |
-+------+----------------------+-------+              |              |                      |
-       |                      |                      |              |                      |
-       |                      |                      | SeriesIndex- | ForwardIndex-        |
-       | NameIDIndexFlusher   | MetaIndexFlusher     | Flusher      | Flusher              | MetricDataFlusher
+│ Data │ Memory│       │ Data │ Memory+----------------------------------------------------+
+│  DB  │   DB  │       │  DB  │   DB  +--------------+                                     │
++-----^-+------+       +-----^-+------+              │                                     │
+      │ │                    │ │                     │                                     │
+      │ │                    │ │ ID                  │                                     │
+      │ │                    │ │ Generator           │                                     │
++-----+-v--------------------+-v------+              │                                     │
+│                                     │              │                                     │
+│            ID Sequencer             │              │                                     │
+│                                     │              +--------------+                      │
++------+----------------------+-------+              │              │                      │
+       │                      │                      │              │                      │
+       │                      │                      │ SeriesIndex- │ ForwardIndex-        │
+       │ NameIDIndexFlusher   │ MetaIndexFlusher     │ Flusher      │ Flusher              │ MetricDataFlusher
 +------v-------+       +------v-------+       +------v-------+------v-------+       +------v-------+
-| MetricNameID |       |  MetricMeta  |       |SeriesInverted| SeriesForward|       |  MetricData  |
-|  IndexTable  |       |  IndexTable  |       |  IndexTable  |  IndexTable  |       |    Table     |
+│ MetricNameID │       │  MetricMeta  │       │SeriesInverted│ SeriesForward│       │  MetricData  │
+│  IndexTable  │       │  IndexTable  │       │  IndexTable  │  IndexTable  │       │    Table     │
 +--------------+       +--------------+       +--------------+--------------+       +--------------+
 
 
@@ -42,23 +42,23 @@ b) Query flow
 
 Shard                  Shard
 +------+-------+       +-----+--------+                Suggester
-| Data | Memory|       | Data | Memory<--------------+ MetaGetter
-|  DB  |   DB  |       |  DB  |   DB  |              | Filter
-+-----^-+------+       +-----^-+------+              | DataGetter
-      | |                    | |                     +----------------------
-      | |                    | |
-      | |           IDGetter | |
+│ Data │ Memory│       │ Data │ Memory<--------------+ MetaGetter
+│  DB  │   DB  │       │  DB  │   DB  │              │ Filter
++-----^-+------+       +-----^-+------+              │ DataGetter
+      │ │                    │ │                     +----------------------
+      │ │                    │ │
+      │ │           IDGetter │ │
 +-----+-v--------------------+-v------+
-|                                     <----------------------------------------------------+
-|            ID Sequencer             |                                                    |
-|                                     <--------------+--------------+                      |
-+------^----------------------^-------+              |              |                      |
-       |                      |                      | Suggest-     |                      |
+│                                     <----------------------------------------------------+
+│            ID Sequencer             │                                                    │
+│                                     <--------------+--------------+                      │
++------^----------------------^-------+              │              │                      │
+       │                      │                      │ Suggest-     │                      │
        ^ SuggestMetrics       ^ SuggestTagKeys       ^ TagValues    ^                      ^
-       | NameIDIndexReader    | MetaIndexReader      | Filter       | MetaGetter           | DataGetter
+       │ NameIDIndexReader    │ MetaIndexReader      │ Filter       │ MetaGetter           │ DataGetter
 +------+-------+       +------+-------+       +------+-------+------+-------+       +------+-------+
-| MetricNameID |       |  MetricMeta  |       |SeriesInverted| SeriesForward|       |  MetricData  |
-|  IndexTable  |       |  IndexTable  |       |  IndexTable  |  IndexTable  |       |    Table     |
+│ MetricNameID │       │  MetricMeta  │       │SeriesInverted│ SeriesForward│       │  MetricData  │
+│  IndexTable  │       │  IndexTable  │       │  IndexTable  │  IndexTable  │       │    Table     │
 +--------------+       +--------------+       +--------------+--------------+       +--------------+
 
 
@@ -66,76 +66,76 @@ Shard                  Shard
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of MemoryDatabase━━━━━━━━━━━━━━━━━━━━━━━━
 
 +--------------+       +--------------+
-|              |------>|              |
-|              |-+     |              |-+
-|   Memory     | |     |  Metric      | |
-|   Database   | |-+   |  Store       | |-+
-|   RwMutex    | | |   |  RWMutex     | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-+-+------------+ | |   +--------------+ | |
-  +--------------+ |     +-----|--------+ |
-    +--------------+       +---|----------+
-                               |
+│              │------>│              │
+│              │-+     │              │-+
+│   Memory     │ │     │  Metric      │ │
+│   Database   │ │-+   │  Store       │ │-+
+│   RwMutex    │ │ │   │  RWMutex     │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
++-+------------+ │ │   +--------------+ │ │
+  +--------------+ │     +-----│--------+ │
+    +--------------+       +---│----------+
+                               │
                                V
 +--------------+       +--------------+
-|              |<------|              |
-|              |-+     |              |-+
-|              | |     |              | |
-|   Field      | |-+   |  TimeSeries  | |-+
-|   Store      | | |   |  Store       | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |              | | |
-|              | | |   |   SpinLock   | | |
-+--------------+ | |   +--------------+ | |
-  +----|---------+ |     +--------------+ |
-    +--|-----------+       +--------------+
-       |
+│              │<------│              │
+│              │-+     │              │-+
+│              │ │     │              │ │
+│   Field      │ │-+   │  TimeSeries  │ │-+
+│   Store      │ │ │   │  Store       │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │              │ │ │
+│              │ │ │   │   SpinLock   │ │ │
++--------------+ │ │   +--------------+ │ │
+  +----│---------+ │     +--------------+ │
+    +--│-----------+       +--------------+
+       │
        V
 +--------------+
-|              |
-|              |-+
-|              | |
-|   Segment    | |-+
-|   Store      | | |
-|              | | |
-|              | | |
-|              | | |
-|              | | |
-|              | | |
-+--------------+ | |
-  +--------------+ |
+│              │
+│              │-+
+│              │ │
+│   Segment    │ │-+
+│   Store      │ │ │
+│              │ │ │
+│              │ │ │
+│              │ │ │
+│              │ │ │
+│              │ │ │
++--------------+ │ │
+  +--------------+ │
     +--------------+
 
 ━━━━━━━━━━━━━━━━━━━━━━━Layout of Series Forward Index Table━━━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   | Metric  | Metric  | Metric  | Metric  | Metric  | Footer  |
-                   | Block   | Block   | Block   | Offset  | Index   |         |
+                   │ Metric  │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
+                   │ Block   │ Block   │ Block   │ Offset  │ Index   │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                  |          \         \
-                 /             \                 |           \         \
+                  /           \                  │          \         \
+                 /             \                 │           \         \
                 /               \                +            \         +------+
                /                 \                \            \                \
   +-----------+                   +--------+       \            +--------+       \
  /                 Level2                   \       \                     \       \
 v--------+--------+--------+--------+--------v       v--------+---+--------v-------v
-| Version| Version| Version| Version| Footer |       | Offset |...| Offset | Metric|
-| Entry1 | Entry2 | Entry3 | Offsets|        |       |        |   |        | Bitmap|
+│ Version│ Version│ Version│ Version│ Footer │       │ Offset │...│ Offset │ Metric│
+│ Entry1 │ Entry2 │ Entry3 │ Offsets│        │       │        │   │        │ Bitmap│
 +--------+--------+--------+--------+--------+       +--------+---+--------+-------+
-         |        |
-         |        |
+         │        │
+         │        │
   +------+        +---------------------------------------------------+
  /                 Level3                                              \
 v--------+--------+--------+--------+--------+--------+--------+--------v
-|  Time  | TagKeys| Dict   |TagKeys | Series |Offsets |SeriesID| Footer |
-|  Range | Block  | Block  |LUTBlock|LUTBlock| Block  | BitMap |        |
+│  Time  │ TagKeys│ Dict   │TagKeys │ Series │Offsets │SeriesID│ Footer │
+│  Range │ Block  │ Block  │LUTBlock│LUTBlock│ Block  │ BitMap │        │
 +--------+--------+--------+--------+--------+--------+--------+--------+
 
 Level1(KV table: MetricID -> MetricBlock)
@@ -147,23 +147,23 @@ Level2(Version Offsets Block)
 │          Version Entries       ││                     Version Offsets                  ││        Footer       │
 ├──────────┬──────────┬──────────┤├──────────┬──────────┬──────────┬──────────┬──────────┤├──────────┬──────────┤
 │  Version │  Version │  Version ││ Versions │ Version1 │ Version1 │ Version2 │ Version2 ││VersionOff│ CRC32    │
-│  Entry1  │  Entry2  │  Entry3  ││  Count   │  uint32  │  Length  │  uint32  │  Length  ││ setsPos  │ CheckSum │
+│  Entry1  │  Entry2  │  Entry3  ││  Count   │   int64  │  Length  │   int64  │  Length  ││ setsPos  │ CheckSum │
 ├──────────┼──────────┼──────────┤├──────────┼──────────┼──────────┼──────────┼──────────┤├──────────┼──────────┤
-│  N Bytes │  N Bytes │  N Bytes ││ uvariant │  4 Bytes │ uvariant │  4 Bytes │ uvariant ││ 4 Bytes  │ 4 Bytes  │
+│  N Bytes │  N Bytes │  N Bytes ││ uvariant │  8 Bytes │ uvariant │  8 Bytes │ uvariant ││ 4 Bytes  │ 4 Bytes  │
 └──────────┴──────────┴──────────┘└──────────┴──────────┴──────────┴──────────┴──────────┘└──────────┴──────────┘
 
 
 Level3(Version Entry Block)
 TagKeysBlock stores all tagKeys of the metric
 ┌─────────────────────┐┌──────────────────────────────────────────────────────┐┌──────────┐┌─────────────────────┐
-│  Time Range Block   ||                      TagKeys Block                   │|Dict Block||      Tags Blocks    │
+│  Time Range Block   ││                      TagKeys Block                   ││Dict Block││      Tags Blocks    │
 ├──────────┬──────────┤├──────────┬──────────┬──────────┬──────────┬──────────┤├──────────┤├──────────┬──────────┤
-│   Start  │   End    │|  TagKey  │  TagKey1 |  TagKey1 │  TagKey2 │  TagKey2 │|          │|TagsBlock1│TagsBlock2│
-│   Time   │   Time   ||  Count   │  Length  │          │  Length  │          │|  .....   │|          │          │
+│   Start  │   End    ││  TagKey  │  TagKey1 │  TagKey1 │  TagKey2 │  TagKey2 ││          ││TagsBlock1│TagsBlock2│
+│   Time   │   Time   ││  Count   │  Length  │          │  Length  │          ││  .....   ││          │          │
 ├──────────┼──────────┤├──────────┼──────────┼──────────┼──────────┼──────────┤├──────────┤├──────────┼──────────┤
-│  4 Bytes │  4 Bytes │| uvariant │ uvariant │  N Bytes │ uvariant │  N Bytes │|  N Bytes │|  N Bytes │  N Bytes │
+│  4 Bytes │  4 Bytes ││ uvariant │ uvariant │  N Bytes │ uvariant │  N Bytes ││  N Bytes ││  N Bytes │  N Bytes │
 └──────────┴──────────┘└──────────┴──────────┴──────────┴──────────┴──────────┘└──────────┘^──────────^──────────┘
-                                                                                           |          |
+                                                                                           │          │
                                                                                          PosOfTags1 PosOfTags2
 
 
@@ -176,15 +176,15 @@ Dict Block is composed of 2 parts:
    Theoretically, one compressed string block may cost 1-3 pages(4KB/page)
 
 ┌───────────────────────────────────────────┐┌──────────┐┌───────────────────────────────────────────┐
-│       Snappy Compressed String Block      │| StrBlocks|│             String Block Offsets          │
+│       Snappy Compressed String Block      ││ StrBlocks││             String Block Offsets          │
 ├──────────┬──────────┬──────────┬──────────┤├──────────┤├──────────┬──────────┬──────────┬──────────┤
-│ TagValue1│ TagValue1│ TagValue2│ TagValue2│|  ....... ││  Strings │ StrBlock1│ StrBlock2│ StrBlock3│
-│  Length  │          │  Length  │          │|          ││  Count   │  Length  │  Length  │  Length  │
+│ TagValue1│ TagValue1│ TagValue2│ TagValue2││  ....... ││  Strings │ StrBlock1│ StrBlock2│ StrBlock3│
+│  Length  │          │  Length  │          ││          ││  Count   │  Length  │  Length  │  Length  │
 ├──────────┼──────────┼──────────┼──────────┤├──────────┤├──────────┼──────────┼──────────┼──────────┤
-│ uvariant │  N Bytes │ uvariant │  N Bytes │|          ││ uvariant │ uvariant │ uvariant │ uvariant │
+│ uvariant │  N Bytes │ uvariant │  N Bytes ││          ││ uvariant │ uvariant │ uvariant │ uvariant │
 └──────────┴──────────┴──────────┴──────────┘└──────────┘^──────────┴──────────┴──────────┴──────────┘
- \____________________  ___________________/             |
-                      \/                                 |
+ \____________________  ___________________/             │
+                      \/                                 │
                 StrBlock1Length                      PosOfDictBlockOffsets
 
 
@@ -199,7 +199,7 @@ This block provides a ability to filter tagValues by a specified tagKeys
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │
 ^──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-|
+│
 PosOfKeysLUT
 
 
@@ -227,10 +227,10 @@ Level3(Footer)
 ┌───────────────────────────────────────────┐
 │                   Footer                  │
 ├──────────┬──────────┬──────────┬──────────┤
-│PosOfDictB│ PosOfKeys| PosOfOff │  PosOf   │
-│lockOffset│   LUT    | setBlock │  BitMap  │
+│PosOfDictB│ PosOfKeys│ PosOfOff │  PosOf   │
+│lockOffset│   LUT    │ setBlock │  BitMap  │
 ├──────────┼──────────┼──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  | 4 Bytes  │  4 Bytes │
+│ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │  4 Bytes │
 └──────────┴──────────┴──────────┴──────────┘
 
 
@@ -238,18 +238,18 @@ Level3(Footer)
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   |  TagKV  |  TagKV  |  TagKV  |  TagKV  |  TagKV  | Footer  |
-                   | EntrySet| EntrySet| EntrySet| Offset  |  Index  |         |
+                   │  TagKV  │  TagKV  │  TagKV  │  TagKV  │  TagKV  │ Footer  │
+                   │ EntrySet│ EntrySet│ EntrySet│ Offset  │  Index  │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                   \        |\        +-------------------------------+
-                 /             \                   \       | +--------------------------------+       \
+                  /           \                   \        │\        +-------------------------------+
+                 /             \                   \       │ +--------------------------------+       \
                 /               \                   \      +-----------------------------+     \       \
                /                 \                   +--------------+                     \     \       \
   +-----------+                   +-----------------+                \                     \     \       \
  /                 Level2                            \                \                     \     \       \
 v--------+--------+--------+--------+--------+--------v                v--------+---+--------v     v-------v
-|  Time  | LOUDS  |TagValue|TagValue|TagValue| CRC32  |                | Offset |...| Offset |     | TagKV |
-|  Range |TrieTree|  Info  | Data1  | Data2  |CheckSum|                |        |   |        |     | Bitmap|
+│  Time  │ LOUDS  │TagValue│TagValue│TagValue│ CRC32  │                │ Offset │...│ Offset │     │ TagKV │
+│  Range │TrieTree│  Info  │ Data1  │ Data2  │CheckSum│                │        │   │        │     │ Bitmap│
 +--------+--------+--------+--------+--------+--------+                +--------+---+--------+     +-------+
 
 
@@ -286,9 +286,9 @@ alias as TagValueDataBlock
 │          │                  VersionedTagValue                   │  VersionedTagValues │
 ├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
 │ Version  │ Version1 │StartTime1│ EndTime1 │ BitMap1  │ TagValue1│  Version │ Version  │
-│  Count   │  uint32  │ (Delta)  │  (Delta) │  Length  │  BitMap  │   Meta2  │  Meta3   │
+│  Count   │   int64  │ (Delta)  │  (Delta) │  Length  │  BitMap  │   Meta2  │  Meta3   │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ 4 Bytes  │ variant  │ variant  │ uvariant │ N Bytes  │ N Bytes  │  N Bytes │
+│ uvariant │ 8 Bytes  │ variant  │ variant  │ uvariant │ N Bytes  │ N Bytes  │  N Bytes │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Succinct trie tree(Example):
@@ -301,46 +301,46 @@ Values: [2, 1, 3]
 
 
                    +--------+
-                   |        | (pseudo root)
-                   |  10    | (node-0)
+                   │        │ (pseudo root)
+                   │  10    │ (node-0)
                    +--------+
-                       |
+                       │
                    +---v----+
-                   |        | (root)
-                   |  10    | (node-1)
+                   │        │ (root)
+                   │  10    │ (node-1)
                    +--------+
-                       |
+                       │
                    +---v----+
-                   |   e    |
-                   |  110   | (node-2)
+                   │   e    │
+                   │  110   │ (node-2)
                    +---+----+
                       / \
               +------+   +----+
              /                 \
         +---v----+          +---v----+
-        |   l    |          |   t    |
-        |   10   | (node-3) |   110  |(node-4)
+        │   l    │          │   t    │
+        │   10   │ (node-3) │   110  │(node-4)
         +---+----+          +---+----+
-            |                   |\_______________
-            |                   |                \
+            │                   │\_______________
+            │                   │                \
         +---v----+          +---v----+        +---v----+
-        |   e    |          |   c    |        |   r    |
-        |   10   | (node-5) |   10   |(node-6)|   10   | (node-7)
+        │   e    │          │   c    │        │   r    │
+        │   10   │ (node-5) │   10   │(node-6)│   10   │ (node-7)
         +---+----+          +---+----+        +---+----+
-            |                   |                 |
+            │                   │                 │
         +---v----+          +---v----+        +---v----+
-        |   m    |          |   d    |        |   a    |
-        |   10   | (node-8) |   0    |(node-9)|   10   | (node-10)
+        │   m    │          │   d    │        │   a    │
+        │   10   │ (node-8) │   0    │(node-9)│   10   │ (node-10)
         +---+----+          +--------+        +---+----+
-            |                 Value:2             |
+            │                 Value:2             │
         +---v----+                            +---v----+
-        |   e    |                            |   c    |
-        |   0    | (node-11)                  |   10   | (node-12)
+        │   e    │                            │   c    │
+        │   0    │ (node-11)                  │   10   │ (node-12)
         +--------+                            +---+----+
-          Value:1                                 |
+          Value:1                                 │
                                               +---v----+
-                                              |   e    |
-                                              |   0    | (node-13)
+                                              │   e    │
+                                              │   0    │ (node-13)
                                               +--------+
                                                Value:3
 
@@ -350,8 +350,8 @@ Metric-NameID-Table is a gzip compressed k/v pairs of metricNames and metricIDs 
 
                    Level1
                    +---------+---------+---------+---------+
-                   | Metric  |  Meta   | Index   | Footer  |
-                   | KVPair  |         |         |         |
+                   │ Metric  │  Meta   │ Index   │ Footer  │
+                   │ KVPair  │         │         │         │
                    +---------+---------+---------+---------+
 
 Level1(Metric NameID KVPair)
@@ -371,18 +371,18 @@ such as tagKey, tagKeyID, fieldID, fieldName and fieldType etc.
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   | Metric  | Metric  | Metric  | Metric  | Metric  | Footer  |
-                   | Meta    |  Meta   |  Meta   |  Meta   | Index   |         |
+                   │ Metric  │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
+                   │ Meta    │  Meta   │  Meta   │  Meta   │ Index   │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \        |         |\        +--------------+
-                 /             \       +         | +---------------+       \
+                  /           \        │         │\        +--------------+
+                 /             \       +         │ +---------------+       \
                 /               \       \        +------------+     \       \
                /                 \       \                     \     \       \
   +-----------+                   \       \                     \     \       \
  /                 Level2          \       \                     \     \       \
 v--------+--------+--------+--------v       v--------+---+--------v     v-------v
-|  Tag   | TagKey | Field  | Field  |       | Offset |...| Offset |     | Metric|
-| MetaLen|  Meta  | MetaLen| Meta   |       |        |   |        |     | Bitmap|
+│  Tag   │ TagKey │ Field  │ Field  │       │ Offset │...│ Offset │     │ Metric│
+│ MetaLen│  Meta  │ MetaLen│ Meta   │       │        │   │        │     │ Bitmap│
 +--------+--------+--------+--------+       +--------+---+--------+     +-------+
 
 Level2(TagKey Meta)
@@ -410,29 +410,29 @@ Level2(Field Meta)
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   | Metric  | Metric  | Metric  | Metric  | Metric  | Footer  |
-                   | Block   | Block   | Block   | Offset  | Index   |         |
+                   │ Metric  │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
+                   │ Block   │ Block   │ Block   │ Offset  │ Index   │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                   \        |\        +-------------------------------+
-                 /             \                   \       | +--------------------------------+       \
+                  /           \                   \        │\        +-------------------------------+
+                 /             \                   \       │ +--------------------------------+       \
                 /               \                   \      +-----------------------------+     \       \
                /                 \                   +--------------+                     \     \       \
   +-----------+                   +--------------------------+       \                     \     \       \
  /                 Level2                                     \       \                     \     \       \
 v--------+--------+--------+--------+--------+--------+--------v       v--------+---+--------v     v-------v
-| Series | Series | Series | Series | Series | Fields | Footer |       | Offset |...| Offset |     | Metric|
-| Entry  | Entry  | Entry  | Offset | Index  |  Meta  |        |       |        |   |        |     | Bitmap|
+│ Series │ Series │ Series │ Series │ Series │ Fields │ Footer │       │ Offset │...│ Offset │     │ Metric│
+│ Entry  │ Entry  │ Entry  │ Offset │ Index  │  Meta  │        │       │        │   │        │     │ Bitmap│
 +--------+--------+--------+--------+--------+--------+--------+       +--------+---+--------+     +-------+
-|         \                 \       |\        \
-|          \                 \      | \        +-----------------------------------------------+
-|           \                 \     |  +----------------------------------------------+         \
-|            \                 \    +---------------------------------------------+    \         \
-|             \                 +-----------------------------+                    \    \         \
-|              +------------------------------------+          \                    \    \         \
-|                  Level3                            \          \                    \    \         \
+│         \                 \       │\        \
+│          \                 \      │ \        +-----------------------------------------------+
+│           \                 \     │  +----------------------------------------------+         \
+│            \                 \    +---------------------------------------------+    \         \
+│             \                 +-----------------------------+                    \    \         \
+│              +------------------------------------+          \                    \    \         \
+│                  Level3                            \          \                    \    \         \
 v--------+--------+--------+--------+--------+--------v          v--------+---+-------v    v---------v
-| Fields | Data   |  Data  | Data   | Data   |  Data  |          | Offset |...| Offset|    |seriesID |
-| Info   |        |        |        |        |        |          |        |   |       |    | Bitmap  |
+│ Fields │ Data   │  Data  │ Data   │ Data   │  Data  │          │ Offset │...│ Offset│    │seriesID │
+│ Info   │        │        │        │        │        │          │        │   │       │    │ Bitmap  │
 +--------+--------+--------+--------+--------+--------+          +--------+---+-------+    +---------+
 
 
@@ -445,7 +445,7 @@ Level1(KV table: MetricBlocks, Offset, Keys)
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │  N Bytes │ uvariant │ N Bytes  │ uvariant │  N Bytes │ uvariant │  N Bytes │
 └──────────┴──────────┴──────────┴──────────^──────────┴──────────^──────────┴──────────┘
-                                            |                     |
+                                            │                     │
                                        posOfOffset             posOfKeys
 
 Level1(KV table: Footer)
