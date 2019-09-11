@@ -135,7 +135,7 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName}
+	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName, TCPPort: r.config.TCP.Port}
 
 	// start state repository
 	if err := r.startStateRepo(); err != nil {
