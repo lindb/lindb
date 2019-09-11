@@ -1,6 +1,8 @@
 package series
 
 import (
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -10,7 +12,8 @@ import (
 // MetaGetter represents the query ability for metric level metadata
 type MetaGetter interface {
 	// GetTagValues returns tag values by tag keys and spec version for metric level
-	GetTagValues(metricID uint32, tagKeys []string, version Version) (tagValues [][]string, err error)
+	GetTagValues(metricID uint32, tagKeys []string, version Version, seriesIDs *roaring.Bitmap) (
+		seriesID2TagValues map[uint32][]string, err error)
 }
 
 // Suggester represents the suggest ability for metricNames, tagKeys and tagValues.
@@ -34,6 +37,3 @@ type Filter interface {
 	GetSeriesIDsForTag(metricID uint32, tagKey string, timeRange timeutil.TimeRange) (
 		*MultiVerSeriesIDSet, error)
 }
-
-// DataGetter represents the query ability for querying data of the seriesIDs
-type DataGetter interface{}

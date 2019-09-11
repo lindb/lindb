@@ -58,9 +58,9 @@ func buildForwardIndexBlock() []byte {
 	for v := 0; v < 3; v++ {
 		// flush tag ip
 		for ip, seriesID := range ipMapping {
-			bitmap := roaring.NewBitmap()
-			bitmap.Add(seriesID)
-			flusher.FlushTagValue(ip, bitmap)
+			if seriesID < 10000 {
+				flusher.FlushTagValue(ip, roaring.BitmapOf(seriesID))
+			}
 		}
 		flusher.FlushTagKey("ip")
 		// flush tag zone
@@ -102,47 +102,88 @@ func Test_ForwardIndexReader(t *testing.T) {
 
 	// build forward index reader
 	indexReader := buildForwardIndexReader(ctrl)
-	// test not exist metricID
-	tagValues, err := indexReader.GetTagValues(0, []string{"host", "zone"}, 2)
-	assert.Len(t, tagValues, 0)
+
+	// test inexist version
+	seriesID2TagValues, err := indexReader.GetTagValues(
+		1,
+		[]string{"host", "zone"},
+		4,
+		roaring.BitmapOf(1, 2, 3))
+	assert.Len(t, seriesID2TagValues, 0)
 	assert.NotNil(t, err)
-	// test not exist tagKeys
-	_, err = indexReader.GetTagValues(1, []string{"notexisttag1", "notexisttag2"}, 2)
+
+	// test inexist metricID
+	seriesID2TagValues, err = indexReader.GetTagValues(
+		0,
+		[]string{"host", "zone"},
+		2,
+		roaring.BitmapOf(1, 2, 3))
+	assert.Len(t, seriesID2TagValues, 0)
 	assert.NotNil(t, err)
+
+	// test inexist tagKeys
+	_, err = indexReader.GetTagValues(
+		1,
+		[]string{"notexisttag1", "notexisttag2"},
+		2,
+		roaring.BitmapOf(1, 2, 3))
+	assert.NotNil(t, err)
+
 	// test no keys
-	_, err = indexReader.GetTagValues(1, nil, 2)
-	assert.Nil(t, err)
+	_, err = indexReader.GetTagValues(1, nil, 2, roaring.BitmapOf(1, 2, 3))
+	assert.NotNil(t, err)
+
 	// test existed tagKeys
-	tagValues, err = indexReader.GetTagValues(1, []string{"host", "not-exist-key", "zone"}, 2)
-	assert.Len(t, tagValues, 3)
-	assert.Len(t, tagValues[0], 65025)
-	assert.Len(t, tagValues[1], 0)
-	assert.Len(t, tagValues[2], 3)
+	seriesID2TagValues, err = indexReader.GetTagValues(
+		1, []string{"host", "zone"}, 2, roaring.BitmapOf(1, 501, 1002, 999999999))
 	assert.Nil(t, err)
+	assert.NotNil(t, seriesID2TagValues)
+	assert.Len(t, seriesID2TagValues, 3)
+	assert.Equal(t, []string{"lindb-test-nj-1", "nj"}, seriesID2TagValues[1])
+	assert.Equal(t, []string{"lindb-test-sh-501", "sh"}, seriesID2TagValues[501])
+	assert.Equal(t, []string{"lindb-test-nj-1002", "nj"}, seriesID2TagValues[1002])
+	// test empty tagKeys
+	seriesID2TagValues, err = indexReader.GetTagValues(
+		1, []string{"host", "ip", "zone"}, 2, roaring.BitmapOf(9999, 10000, 10001))
+	assert.Nil(t, err)
+	assert.NotNil(t, seriesID2TagValues)
+	assert.Len(t, seriesID2TagValues, 3)
+	assert.Equal(t, []string{"lindb-test-nj-9999", "192.168.39.54", "nj"}, seriesID2TagValues[9999])
+	assert.Equal(t, []string{"lindb-test-nj-10000", "", "nj"}, seriesID2TagValues[10000])
+	assert.Equal(t, []string{"lindb-test-nj-10001", "", "nj"}, seriesID2TagValues[10001])
 }
 
-func Test_ForwardIndexReader_errorCases(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func Test_forwardIndexVersionEntry_errorCases(t *testing.T) {
 
-	// build forward index reader
-	indexReader := buildForwardIndexReader(ctrl)
-	// versionBlock is invalid
-	_, _, err := indexReader.readKeysLUTBlock(nil, nil)
+	// read footer error
+	entry, err := newForwardIndexVersionEntry(nil)
 	assert.NotNil(t, err)
-	err = indexReader.readDictBlockByIndexes(nil, nil)
-	assert.NotNil(t, err)
-	// tagKeysBlock corrupt
-	_, err = indexReader.readTagKeysBlock([]byte{1, 2, 3, 4, 5, 6, 7, 8, 2}) // timeRange + count
-	assert.NotNil(t, err)
-	// index string block failure
-	err = indexReader.readStringBlockByOffsets(nil, []int{1, 2}, []int{1, 3}, []int{1, 2, 3})
-	assert.NotNil(t, err)
-	// index cannot be found in dict block
-	var strIndexes []int
-	for i := 0; i < 1000; i++ {
-		strIndexes = append(strIndexes, i)
+	assert.Nil(t, entry)
+	// red footer, position check failure
+	block := []byte{
+		1, 2, 3, 4, 5, 6, 7, 8, // time range
+		0,                                  // tagKey
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // footer
 	}
-	err = indexReader.readStringBlockByOffsets(nil, nil, nil, strIndexes)
+	entry, err = newForwardIndexVersionEntry(block)
 	assert.NotNil(t, err)
+	assert.Nil(t, entry)
+	// read tagKeys error
+	block = []byte{
+		1, 2, 3, 4, 5, 6, 7, 8, // time range
+		100,                                // tagKey
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // footer
+	}
+	entry, err = newForwardIndexVersionEntry(block)
+	assert.NotNil(t, err)
+	assert.Nil(t, entry)
+	// unmarshal bitmap error
+	block = []byte{
+		1, 2, 3, 4, 5, 6, 7, 8, // time range
+		0,                                  // tagKey
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // footer
+	}
+	entry, err = newForwardIndexVersionEntry(block)
+	assert.NotNil(t, err)
+	assert.Nil(t, entry)
 }
