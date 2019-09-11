@@ -7,8 +7,7 @@ import (
 )
 
 func Test_BitArray(t *testing.T) {
-	ba, err := NewBitArray(nil)
-	assert.Nil(t, err)
+	ba := NewBitArray(nil)
 	assert.Equal(t, "", ba.String())
 	assert.False(t, ba.GetBit(0))
 
@@ -36,21 +35,15 @@ func Test_BitArray(t *testing.T) {
 	assert.False(t, ba.GetBit(24))
 	assert.False(t, ba.GetBit(800))
 
-	ba.Reset()
+	ba.Reset(nil)
 	assert.False(t, ba.GetBit(0))
 
-	buf := make([]byte, 65537)
-	ba2, err := NewBitArray(buf)
-	assert.Nil(t, ba2)
-	assert.NotNil(t, err)
-
-	buf = make([]byte, 2)
-	ba2, err = NewBitArray(buf)
-	assert.Nil(t, err)
+	ba2 := NewBitArray(nil)
+	ba2.Reset([]byte{255, 255})
 	assert.NotNil(t, ba2)
+	assert.True(t, ba2.GetBit(0))
 
-	ba3, err := NewBitArray([]byte{})
-	assert.Nil(t, err)
+	ba3 := NewBitArray([]byte{})
 	assert.NotNil(t, ba3)
 	assert.False(t, ba3.GetBit(23))
 

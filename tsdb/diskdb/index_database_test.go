@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
 
+	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -58,14 +59,14 @@ func Test_IndexDatabase_GetTagValues(t *testing.T) {
 
 	// case1: snapshot FindReaders error
 	mockedDB.WithFindReadersError()
-	tagValues, err := mockedDB.indexDatabase.GetTagValues(1, nil, 1)
+	tagValues, err := mockedDB.indexDatabase.GetTagValues(1, nil, 1, roaring.New())
 	assert.Nil(t, tagValues)
 	assert.NotNil(t, err)
 	// case2: snapshot FindReaders ok
 	mockedDB.WithFindReadersOK()
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil).AnyTimes()
-	_, err = mockedDB.indexDatabase.GetTagValues(1, nil, 1)
-	assert.Nil(t, err)
+	_, err = mockedDB.indexDatabase.GetTagValues(1, nil, 1, roaring.New())
+	assert.NotNil(t, err)
 }
 
 func Test_IndexDatabase_SuggestTagValues(t *testing.T) {

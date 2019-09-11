@@ -211,9 +211,8 @@ type entryBuilder struct {
 
 // newSeriesEntryBuilder returns a new entryBuilder, default first 2 byte is the column count.
 func newSeriesEntryBuilder() *entryBuilder {
-	bitArray, _ := collections.NewBitArray(nil)
 	return &entryBuilder{
-		bitArray:   bitArray,
+		bitArray:   collections.NewBitArray(nil),
 		dataWriter: stream.NewBufferWriter(nil),
 		lenWriter:  stream.NewBufferWriter(nil),
 		fieldsData: make(map[uint16][]byte)}
@@ -277,7 +276,7 @@ func (entryBuilder *entryBuilder) bytes(metaFieldsID []uint16) []byte {
 func (entryBuilder *entryBuilder) reset() {
 	entryBuilder.dataWriter.Reset()
 	entryBuilder.lenWriter.Reset()
-	entryBuilder.bitArray.Reset()
+	entryBuilder.bitArray.Reset(nil)
 	entryBuilder.fieldsData = make(map[uint16][]byte)
 	entryBuilder.minStartTime = 0
 	entryBuilder.maxEndTime = 0

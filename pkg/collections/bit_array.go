@@ -11,21 +11,20 @@ import (
 // Not thread-safe.
 type BitArray struct {
 	payload []byte
-	builder strings.Builder
 }
 
 // NewBitArray returns a new BitArray from buf.
-func NewBitArray(buf []byte) (*BitArray, error) {
-	if len(buf) > math.MaxUint16 {
-		return nil, fmt.Errorf("%d is too long for a bit array", len(buf))
-	}
-	return &BitArray{payload: buf}, nil
+func NewBitArray(buf []byte) *BitArray {
+	return &BitArray{payload: buf}
 }
 
 // Reset resets all payload to zero.
-func (ba *BitArray) Reset() {
-	ba.payload = ba.payload[:0]
-	ba.builder.Reset()
+func (ba *BitArray) Reset(buf []byte) {
+	if buf == nil {
+		ba.payload = ba.payload[:0]
+		return
+	}
+	ba.payload = buf
 }
 
 // SetBit sets a bit at the given index.
@@ -61,14 +60,13 @@ func (ba *BitArray) Len() int {
 }
 
 // String implements stringer.
-// Inefficient function, just for test and debug
 func (ba *BitArray) String() string {
-	ba.builder.Reset()
+	var builder strings.Builder
 	for _, val := range ba.payload {
 		section := []byte(fmt.Sprintf("%08b", val))
 		for i := 0; i < len(section); i++ {
-			ba.builder.WriteByte(section[len(section)-i-1])
+			builder.WriteByte(section[len(section)-i-1])
 		}
 	}
-	return ba.builder.String()
+	return builder.String()
 }

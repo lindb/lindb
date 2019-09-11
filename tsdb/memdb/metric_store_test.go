@@ -262,17 +262,26 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *MocktagIndexINTF, *MocktagIndexINTF) {
 
 	fakeKVEntrySet1 := []tagKVEntrySet{
-		{key: "host", values: map[string]*roaring.Bitmap{"alpha": roaring.New(), "beta": roaring.New()}},
-		{key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "bj": roaring.New()}},
-	}
+		{key: "host", values: map[string]*roaring.Bitmap{
+			"alpha": roaring.BitmapOf(1, 2, 3, 4, 5),
+			"beta":  roaring.BitmapOf(6, 7, 8, 9, 10)}},
+		{key: "zone", values: map[string]*roaring.Bitmap{
+			"nj": roaring.BitmapOf(1, 2, 3, 4),
+			"bj": roaring.BitmapOf(7, 8, 9, 10)}}}
 	fakeKVEntrySet2 := []tagKVEntrySet{
-		{key: "ip", values: map[string]*roaring.Bitmap{"1.1.1.1": roaring.New(), "2.2.2.2": roaring.New()}},
-		{key: "zone", values: map[string]*roaring.Bitmap{"sh": roaring.New(), "bj": roaring.New()}},
-	}
+		{key: "ip", values: map[string]*roaring.Bitmap{
+			"1.1.1.1": roaring.BitmapOf(1, 2, 3, 4, 5),
+			"2.2.2.2": roaring.BitmapOf(6, 7, 8, 9, 10)}},
+		{key: "zone", values: map[string]*roaring.Bitmap{
+			"sh": roaring.BitmapOf(1, 2, 3, 4, 5),
+			"bj": roaring.BitmapOf(6, 7, 8, 9, 10)}}}
 	fakeKVEntrySet3 := []tagKVEntrySet{
-		{key: "usage", values: map[string]*roaring.Bitmap{"idle": roaring.New(), "system": roaring.New()}},
-		{key: "zone", values: map[string]*roaring.Bitmap{"nj": roaring.New(), "nt": roaring.New()}},
-	}
+		{key: "usage", values: map[string]*roaring.Bitmap{
+			"idle":   roaring.BitmapOf(1, 2, 3, 8, 9),
+			"system": roaring.BitmapOf(4, 5, 6, 7, 10)}},
+		{key: "zone", values: map[string]*roaring.Bitmap{
+			"nj": roaring.BitmapOf(1, 2, 3, 4, 5),
+			"nt": roaring.BitmapOf(6, 7, 8, 9, 10)}}}
 	// mock tag index interface
 	mockTagIdx1 := NewMocktagIndexINTF(ctrl)
 	mockTagIdx1.EXPECT().getTagKVEntrySets().Return(fakeKVEntrySet1).AnyTimes()
@@ -379,24 +388,33 @@ func Test_mStore_getTagValues(t *testing.T) {
 	// immutable part empty
 	//////////////////////////////////////////////
 	mStore.mutable = mockTagIdx3
-	tagValues, err := mStoreInterface.getTagValues([]string{"host", "zone", "ip", "usage"}, 3)
+	// host not exist
+	mappings, err := mStoreInterface.getTagValues(
+		[]string{"host", "zone", "usage"}, 3, roaring.BitmapOf(3, 4, 5, 6, 11))
+	assert.NotNil(t, err)
+	assert.Nil(t, mappings)
+
+	// zone, usage exist
+	mappings, err = mStoreInterface.getTagValues(
+		[]string{"zone", "usage"}, 3, roaring.BitmapOf(3, 4, 5, 6, 11))
 	assert.Nil(t, err)
-	assert.Len(t, tagValues, 4)
-	assert.Len(t, tagValues[0], 0)
-	assert.Len(t, tagValues[1], 2)
-	assert.Len(t, tagValues[2], 0)
-	assert.Len(t, tagValues[3], 2)
+	assert.Len(t, mappings, 5)
+	assert.Equal(t, []string{"nj", "idle"}, mappings[3])
+	assert.Equal(t, []string{"nj", "system"}, mappings[4])
+	assert.Equal(t, []string{"nj", "system"}, mappings[5])
+	assert.Equal(t, []string{"nt", "system"}, mappings[6])
+	assert.Equal(t, []string{"", ""}, mappings[11])
 	//////////////////////////////////////////////
 	// immutable part not empty
 	//////////////////////////////////////////////
 	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
 	mStore.mutable = mockTagIdx3
 	// version not match
-	_, err = mStoreInterface.getTagValues([]string{"ip"}, 4)
+	_, err = mStoreInterface.getTagValues([]string{"ip"}, 4, roaring.BitmapOf(1, 2, 3))
 	assert.NotNil(t, err)
-	// version match, found
-	_, err = mStoreInterface.getTagValues([]string{"ip"}, 1)
-	assert.Nil(t, err)
+	// version match, ip not exist
+	_, err = mStoreInterface.getTagValues([]string{"ip"}, 1, roaring.BitmapOf(1, 2, 3))
+	assert.NotNil(t, err)
 }
 
 func Test_mStore_suggest(t *testing.T) {

@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -471,14 +473,21 @@ func (md *memoryDatabase) GetSeriesIDsForTag(
 }
 
 // GetTagValues returns tag values by tag keys and spec version for metric level from memory-database
-func (md *memoryDatabase) GetTagValues(metricID uint32, tagKeys []string, version series.Version) (
-	tagValues [][]string, err error) {
+func (md *memoryDatabase) GetTagValues(
+	metricID uint32,
+	tagKeys []string,
+	version series.Version,
+	seriesIDs *roaring.Bitmap,
+) (
+	seriesID2TagValues map[uint32][]string,
+	err error,
+) {
 	// get hash of metricId
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
 		return nil, series.ErrNotFound
 	}
-	return mStore.getTagValues(tagKeys, version)
+	return mStore.getTagValues(tagKeys, version, seriesIDs)
 }
 
 // SuggestMetrics returns nil, as the index-db contains all metricNames

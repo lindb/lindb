@@ -131,12 +131,12 @@ v--------+--------+--------+--------+--------v       v--------+---+--------v----
 +--------+--------+--------+--------+--------+       +--------+---+--------+-------+
          │        │
          │        │
-  +------+        +---------------------------------------------------+
- /                 Level3                                              \
-v--------+--------+--------+--------+--------+--------+--------+--------v
-│  Time  │ TagKeys│ Dict   │TagKeys │ Series │Offsets │SeriesID│ Footer │
-│  Range │ Block  │ Block  │LUTBlock│LUTBlock│ Block  │ BitMap │        │
-+--------+--------+--------+--------+--------+--------+--------+--------+
+  +------+        +------------------------------------------+
+ /                 Level3                                     \
+v--------+--------+--------+--------+--------+--------+--------v
+│  Time  │ TagKeys│ Dict   │ Series │Offsets │SeriesID│ Footer │
+│  Range │ Block  │ Block  │LUTBlock│ Block  │ BitMap │        │
++--------+--------+--------+--------+--------+--------+--------+
 
 Level1(KV table: MetricID -> MetricBlock)
 Level1 is same as MetricDataTable as below
@@ -166,7 +166,6 @@ TagKeysBlock stores all tagKeys of the metric
                                                                                            │          │
                                                                                          PosOfTags1 PosOfTags2
 
-
 Level3(Dict Block)
 Dict Block is composed of 2 parts:
 1) String Block Offsets
@@ -188,21 +187,6 @@ Dict Block is composed of 2 parts:
                 StrBlock1Length                      PosOfDictBlockOffsets
 
 
-Level3(TagKeys LOOKUP-TABLE Block)
-This block provides a ability to filter tagValues by a specified tagKeys
-
-┌────────────────────────────────────────────────────────────────────────────┐
-│                          Keys LOOKUP-TABLE Block                           │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│  Key1    │Key1Values│ Value1Of │ Value2Of │  Key2    │Key2Values│ Value1Of │
-│  Length  │   Count  │   Key1   │   Key1   │  Length  │   Count  │   Key2   │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │ uvariant │
-^──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-│
-PosOfKeysLUT
-
-
 Level3(Series TagsKeyValue LOOKUP-TABLE Block)
 SeriesTagsBlock is composed of 2 parts:
 1) bit-array of tagKeys of this seriesID
@@ -216,7 +200,7 @@ SeriesTagsBlock is composed of 2 parts:
 ┌──────────────────────────────────────────────────────┐
 │             Series Tags LOOKUP-TABLE Block           │
 ├──────────┬──────────┬──────────┬──────────┬──────────┤
-│ TagsKey  │ StrBlock │ StrBlock │ StrBlock │ StrBlock │
+│ TagKeys  │ StrBlock │ StrBlock │ StrBlock │ StrBlock │
 │ BitArray │ Sequence1│ Sequence2│ Sequence3│ Sequence4│
 ├──────────┼──────────┼──────────┼──────────┼──────────┤
 │ N Bytes  │ uvariant │ uvariant │ uvariant │ uvariant │
@@ -224,14 +208,14 @@ SeriesTagsBlock is composed of 2 parts:
 
 
 Level3(Footer)
-┌───────────────────────────────────────────┐
-│                   Footer                  │
-├──────────┬──────────┬──────────┬──────────┤
-│PosOfDictB│ PosOfKeys│ PosOfOff │  PosOf   │
-│lockOffset│   LUT    │ setBlock │  BitMap  │
-├──────────┼──────────┼──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │  4 Bytes │
-└──────────┴──────────┴──────────┴──────────┘
+┌────────────────────────────────┐
+│              Footer            │
+├──────────┬──────────┬──────────┤
+│PosOfDictB│ PosOfOff │  PosOf   │
+│lockOffset│ setBlock │  BitMap  │
+├──────────┼──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │  4 Bytes │
+└──────────┴──────────┴──────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━Layout of Series Inverted Index Table━━━━━━━━━━━━━━━━━━━━━━━━

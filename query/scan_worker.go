@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 )
@@ -132,7 +134,7 @@ func (s *scanWorker) handleEvent(event *series.FieldEvent) error {
 
 // getGroupByTagValues gets group by tag values
 func (s *scanWorker) getGroupByTagValues(version series.Version, seriesID uint32) error {
-	_, err := s.metaGetter.GetTagValues(s.metricID, s.tagKeys, version)
+	_, err := s.metaGetter.GetTagValues(s.metricID, s.tagKeys, version, roaring.BitmapOf(seriesID))
 	fmt.Println(version)
 	fmt.Println(seriesID)
 	if err != nil {
