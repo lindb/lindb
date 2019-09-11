@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/constants"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
@@ -27,7 +29,8 @@ type mStoreINTF interface {
 	// suggestTagValues returns tagValues by prefix-search
 	suggestTagValues(tagKey, tagValuePrefix string, limit int) []string
 	// getTagValues get tagValues from the specified version and tagKeys
-	getTagValues(tagKeys []string, version series.Version) (tagValues [][]string, err error)
+	getTagValues(tagKeys []string, version series.Version, seriesID *roaring.Bitmap) (
+		seriesID2TagValues map[uint32][]string, err error)
 	// write writes the metric
 	write(metric *pb.Metric, writeCtx writeContext) error
 	// setMaxTagsLimit sets the max tags-limit
@@ -215,12 +218,20 @@ func (ms *metricStore) suggestTagValues(tagKey, tagValuePrefix string, limit int
 }
 
 // getTagValues get tagValues from the specified version and tagKeys
-func (ms *metricStore) getTagValues(tagKeys []string, version series.Version) (tagValues [][]string, err error) {
+func (ms *metricStore) getTagValues(
+	tagKeys []string,
+	version series.Version,
+	seriesID *roaring.Bitmap,
+) (
+	seriesID2TagValues map[uint32][]string,
+	err error,
+) {
+	seriesID2TagValues = make(map[uint32][]string)
+
 	ms.mutex4Immutable.RLock()
 	ms.mutex4Mutable.RLock()
 	defer ms.mutex4Immutable.RUnlock()
 	defer ms.mutex4Mutable.RUnlock()
-
 	var found tagIndexINTF
 	for _, indexINTF := range ms.immutable {
 		if indexINTF.getVersion() == version {
@@ -233,19 +244,39 @@ func (ms *metricStore) getTagValues(tagKeys []string, version series.Version) (t
 	if found == nil {
 		return nil, series.ErrNotFound
 	}
+	// validate tagKeys
 	for _, tagKey := range tagKeys {
-		entrySet, ok := found.getTagKVEntrySet(tagKey)
+		_, ok := found.getTagKVEntrySet(tagKey)
 		if !ok {
-			tagValues = append(tagValues, nil)
-			continue
+			return nil, fmt.Errorf("tagKey: %s not exist", tagKey)
 		}
-		var tagValueList []string
-		for tagValue := range entrySet.values {
-			tagValueList = append(tagValueList, tagValue)
-		}
-		tagValues = append(tagValues, tagValueList)
 	}
-	return tagValues, nil
+
+	itr := seriesID.Iterator()
+	for itr.HasNext() {
+		seriesID := itr.Next()
+		var tagValues []string
+		for _, tagKey := range tagKeys {
+			entrySet, ok := found.getTagKVEntrySet(tagKey)
+			if !ok {
+				tagValues = append(tagValues, "")
+				continue
+			}
+			var found bool
+			for tagValue, bitmap := range entrySet.values {
+				if bitmap.Contains(seriesID) {
+					found = true
+					tagValues = append(tagValues, tagValue)
+					break
+				}
+			}
+			if !found {
+				tagValues = append(tagValues, "")
+			}
+		}
+		seriesID2TagValues[seriesID] = tagValues
+	}
+	return seriesID2TagValues, nil
 }
 
 // write writes the metric to the tStore

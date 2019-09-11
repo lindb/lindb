@@ -3,10 +3,10 @@ package tblstore
 import (
 	"hash/crc32"
 	"math"
+	"sort"
 	"sync"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/bufpool"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -21,7 +21,7 @@ import (
 
 const (
 	// stringBlockSize is the size of a compressed string block
-	defaultStringBlockSize = 500
+	defaultStringBlockSize = 300
 )
 
 var forwardIndexFlusherLogger = logger.GetLogger("tsdb", "ForwardIndexFlusher")
@@ -52,12 +52,13 @@ type forwardIndexFlusher struct {
 	tagValuesMap      map[string]int                   // tagValue -> index in tagValuesList
 	seriesID2TagValue map[uint32]*[]int                // seriesID -> tagValue index in order
 	seriesID2TagKey   map[uint32]*[]int                // seriesID -> tagKey index in order
-	tagKeyValuesMap   map[string]*[]int                // tagKey -> tagValue indexes
-	tagValuesOfKey    map[int]struct{}                 // tagValue indexes of this tagKey in order
+	sortedSeriesIDs   []uint32                         // used for sort
 	// build metric block
 	metricBlockWriter *stream.BufferWriter // writer for build metric-block
-	versionBlocksLen  []int                // length of all flushed version blocks
-	versions          []series.Version     // all flushed versions
+	versionBlocks     []struct {
+		length  int            // length of flushed version blocks
+		version series.Version // flushed version
+	}
 	// common elements
 	tmpWriter *stream.BufferWriter // temporary writer
 	dstSlice  []byte               // snappy dst slice
@@ -68,31 +69,39 @@ type forwardIndexFlusher struct {
 
 // NewForwardIndexFlusher returns a new ForwardIndexFlusher.
 func NewForwardIndexFlusher(flusher kv.Flusher) ForwardIndexFlusher {
-	bitArray, _ := collections.NewBitArray(nil)
 	return &forwardIndexFlusher{
 		kvFlusher:         flusher,
 		tagKeysMap:        make(map[string]int),
 		tagValuesMap:      make(map[string]int),
 		seriesID2TagValue: make(map[uint32]*[]int),
 		seriesID2TagKey:   make(map[uint32]*[]int),
-		tagKeyValuesMap:   make(map[string]*[]int),
-		tagValuesOfKey:    make(map[int]struct{}),
 		intPool: sync.Pool{New: func() interface{} {
 			return &[]int{}
 		}},
-		tmpWriter:         stream.NewBufferWriter(nil),
 		metricBlockWriter: stream.NewBufferWriter(nil),
+		tmpWriter:         stream.NewBufferWriter(nil),
 		keys:              roaring.New(),
 		offsets:           encoding.NewDeltaBitPackingEncoder(),
-		bitArray:          bitArray}
+		bitArray:          collections.NewBitArray(nil)}
 }
 
 func (flusher *forwardIndexFlusher) getSlice() *[]int {
 	return flusher.intPool.Get().(*[]int)
 }
+
 func (flusher *forwardIndexFlusher) putSlice(s *[]int) {
 	*s = (*s)[:0]
 	flusher.intPool.Put(s)
+}
+
+func (flusher *forwardIndexFlusher) sortSeriesIDs() {
+	flusher.sortedSeriesIDs = flusher.sortedSeriesIDs[:0]
+	for seriesID := range flusher.seriesID2TagKey {
+		flusher.sortedSeriesIDs = append(flusher.sortedSeriesIDs, seriesID)
+	}
+	sort.Slice(flusher.sortedSeriesIDs, func(i, j int) bool {
+		return flusher.sortedSeriesIDs[i] < flusher.sortedSeriesIDs[j]
+	})
 }
 
 // FlushTagKey ends writing the tagValues
@@ -104,8 +113,6 @@ func (flusher *forwardIndexFlusher) FlushTagValue(tagValue string, bitmap *roari
 		flusher.tagValuesMap[tagValue] = idxOfTagValuesList
 		flusher.tagValuesList = append(flusher.tagValuesList, tagValue)
 	}
-	// record the newly tagValues of the tagKey
-	flusher.tagValuesOfKey[idxOfTagValuesList] = struct{}{}
 
 	iterator := bitmap.Iterator()
 	for iterator.HasNext() {
@@ -131,15 +138,6 @@ func (flusher *forwardIndexFlusher) FlushTagValue(tagValue string, bitmap *roari
 func (flusher *forwardIndexFlusher) FlushTagKey(tagKey string) {
 	flusher.tagKeysList = append(flusher.tagKeysList, tagKey)
 	flusher.tagKeysMap[tagKey] = len(flusher.tagKeysList) - 1
-
-	// record all tagValues of this Key
-	newSlice := flusher.getSlice()
-	for tagValueIndex := range flusher.tagValuesOfKey {
-		*newSlice = append(*newSlice, tagValueIndex)
-		// clear the container
-		delete(flusher.tagValuesOfKey, tagValueIndex)
-	}
-	flusher.tagKeyValuesMap[tagKey] = newSlice
 }
 
 // reset resets the internal containers for build next version block
@@ -162,11 +160,6 @@ func (flusher *forwardIndexFlusher) resetVersionContext() {
 	for seriesID, sl := range flusher.seriesID2TagKey {
 		flusher.putSlice(sl)
 		delete(flusher.seriesID2TagKey, seriesID)
-	}
-	// reset tagKeyValuesMap
-	for tagKey, tagValueIndexes := range flusher.tagKeyValuesMap {
-		flusher.putSlice(tagValueIndexes)
-		delete(flusher.tagValuesMap, tagKey)
 	}
 	// reset keys and offsets
 	flusher.offsets.Reset()
@@ -199,20 +192,17 @@ func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, startTi
 		flusher.metricBlockWriter.PutBytes([]byte(tagKey))
 	}
 	//////////////////////////////////////////////////
-	// build Dict Block
+	// write Dict Block
 	//////////////////////////////////////////////////
-	dictBlockOffsetPos := flusher.buildDictBlocks()
-	//////////////////////////////////////////////////
-	// TagKeys LUT Block
-	//////////////////////////////////////////////////
-	tagKeysLUTBlockPos := flusher.metricBlockWriter.Len()
-	flusher.buildKeysLUTBlock()
+	dictBlockOffsetPos := flusher.writeDictBlocks()
 	//////////////////////////////////////////////////
 	// build Series Tags Block's BitArray for TagKeys
 	//////////////////////////////////////////////////
-	for seriesID, tagKeyIndexes := range flusher.seriesID2TagKey {
+	flusher.sortSeriesIDs()
+	for _, seriesID := range flusher.sortedSeriesIDs {
+		tagKeyIndexes := flusher.seriesID2TagKey[seriesID]
 		tagsBlockPosition := flusher.metricBlockWriter.Len()
-		flusher.bitArray.Reset()
+		flusher.bitArray.Reset(nil)
 		for _, idx := range *tagKeyIndexes {
 			flusher.bitArray.SetBit(uint16(idx))
 		}
@@ -225,26 +215,28 @@ func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, startTi
 			flusher.metricBlockWriter.PutUvarint64(uint64(idx))
 		}
 		// write offset of tags block in the version block
-		flusher.offsets.Add(int32(tagsBlockPosition))
+		flusher.offsets.Add(int32(tagsBlockPosition - startPosOfThisEntry))
 		// write seriesID
 		flusher.keys.Add(seriesID)
 	}
 	//////////////////////////////////////////////////
 	// build offsets, keys, footer
 	//////////////////////////////////////////////////
-	flusher.finishVersion(startPosOfThisEntry, dictBlockOffsetPos, tagKeysLUTBlockPos)
+	flusher.finishVersion(startPosOfThisEntry, dictBlockOffsetPos)
 	// record the length of the entry
 	flusher.RecordVersionOffset(version, startPosOfThisEntry)
 }
 
 func (flusher *forwardIndexFlusher) RecordVersionOffset(version series.Version, startPos int) {
 	endPosOfThisEntry := flusher.metricBlockWriter.Len()
-	flusher.versionBlocksLen = append(flusher.versionBlocksLen, endPosOfThisEntry-startPos)
-	flusher.versions = append(flusher.versions, version)
+	flusher.versionBlocks = append(flusher.versionBlocks, struct {
+		length  int
+		version series.Version
+	}{length: endPosOfThisEntry - startPos, version: version})
 }
 
 // finishVersion writes the version
-func (flusher *forwardIndexFlusher) finishVersion(startPos, dictBlockOffsetPos, tagKeysLUTBlockPos int) {
+func (flusher *forwardIndexFlusher) finishVersion(startPos, dictBlockOffsetPos int) {
 	offsets := flusher.offsets.Bytes()
 	// position of the offset block
 	offsetsPosition := flusher.metricBlockWriter.Len()
@@ -265,36 +257,14 @@ func (flusher *forwardIndexFlusher) finishVersion(startPos, dictBlockOffsetPos, 
 	//////////////////////////////////////////////////
 	// write pos of dict block offset
 	flusher.metricBlockWriter.PutUint32(uint32(dictBlockOffsetPos - startPos))
-	// write pos of keys LUT
-	flusher.metricBlockWriter.PutUint32(uint32(tagKeysLUTBlockPos - startPos))
 	// write pos of offset blocks
 	flusher.metricBlockWriter.PutUint32(uint32(offsetsPosition - startPos))
 	// write pos of keys block
 	flusher.metricBlockWriter.PutUint32(uint32(keysPosition - startPos))
 }
 
-// buildKeysLUTBlock writes the keys LUT block to the writer
-func (flusher *forwardIndexFlusher) buildKeysLUTBlock() {
-	for _, tagKey := range flusher.tagKeysList {
-		flusher.tmpWriter.Reset()
-		valuesIndexes := flusher.tagKeyValuesMap[tagKey]
-		// write key values count
-		flusher.tmpWriter.PutUvarint64(uint64(len(*valuesIndexes)))
-		// write each tag value index
-		for _, tagValueIndex := range *valuesIndexes {
-			flusher.tmpWriter.PutUvarint64(uint64(tagValueIndex))
-		}
-		// write this keyBlock to the real writer
-		data, _ := flusher.tmpWriter.Bytes()
-		// write this keyBlock length
-		flusher.metricBlockWriter.PutUvarint64(uint64(len(data)))
-		// write this keyBlock
-		flusher.metricBlockWriter.PutBytes(data)
-	}
-}
-
-// buildDictBlocks writes the dict block to the writer
-func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
+// writeDictBlocks writes the dict block to the writer
+func (flusher *forwardIndexFlusher) writeDictBlocks() (offsetPos int) {
 	tagValuesCount := len(flusher.tagValuesList)
 	blockCount := int(math.Ceil(float64(tagValuesCount) / float64(defaultStringBlockSize)))
 	//////////////////////////////////////////////////
@@ -303,10 +273,6 @@ func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
 	// get a slice for writing all block length
 	blockLengths := flusher.getSlice()
 	defer flusher.putSlice(blockLengths)
-	// get a stream writer to build string block
-	buf := bufpool.GetBuffer()
-	sw := stream.NewBufferWriter(buf)
-	defer bufpool.PutBuffer(buf)
 
 	for i := 0; i < blockCount; i++ {
 		start := i * defaultStringBlockSize
@@ -315,15 +281,15 @@ func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
 			end = tagValuesCount
 		}
 		// clean the slice before use
-		sw.Reset()
+		flusher.tmpWriter.Reset()
 		flusher.dstSlice = flusher.dstSlice[:0]
 		// build src slice
 		for j := start; j < end; j++ {
 			data := []byte(flusher.tagValuesList[j])
-			sw.PutUvarint64(uint64(len(data)))
-			sw.PutBytes(data)
+			flusher.tmpWriter.PutUvarint64(uint64(len(data)))
+			flusher.tmpWriter.PutBytes(data)
 		}
-		thisBlock, _ := sw.Bytes()
+		thisBlock, _ := flusher.tmpWriter.Bytes()
 		// encode to dst slice
 		flusher.dstSlice = snappy.Encode(flusher.dstSlice, thisBlock)
 		// record the length
@@ -345,35 +311,32 @@ func (flusher *forwardIndexFlusher) buildDictBlocks() (offsetPos int) {
 	return offsetPos
 }
 
-// resetMetricBlockContext resets the internal containers for build next metric block
-func (flusher *forwardIndexFlusher) resetMetricBlockContext() {
+// Reset resets the all containers for build next metric block
+func (flusher *forwardIndexFlusher) Reset() {
 	flusher.resetVersionContext()
 	// reset writer
 	flusher.metricBlockWriter.Reset()
+	flusher.tmpWriter.Reset()
 	// reset version block meta info
-	flusher.versionBlocksLen = flusher.versionBlocksLen[:0]
-	flusher.versions = flusher.versions[:0]
+	flusher.versionBlocks = flusher.versionBlocks[:0]
 }
 
 // FlushMetricID ends write a full metric-block
 func (flusher *forwardIndexFlusher) FlushMetricID(metricID uint32) error {
-	//////////////////////////////////////////////////
-	// Reset
-	//////////////////////////////////////////////////
-	defer flusher.resetMetricBlockContext()
+	defer flusher.Reset()
 	//////////////////////////////////////////////////
 	// build Version Offsets Block
 	//////////////////////////////////////////////////
 	// start position of the offsets block
 	posOfVersionOffsets := flusher.metricBlockWriter.Len()
 	// write versions count
-	flusher.metricBlockWriter.PutUvarint64(uint64(len(flusher.versionBlocksLen)))
+	flusher.metricBlockWriter.PutUvarint64(uint64(len(flusher.versionBlocks)))
 	// write all versions and version lengths
-	for idx, version := range flusher.versions {
+	for _, versionBlock := range flusher.versionBlocks {
 		// write version
-		flusher.metricBlockWriter.PutInt64(version.Int64())
+		flusher.metricBlockWriter.PutInt64(versionBlock.version.Int64())
 		// write version block length
-		flusher.metricBlockWriter.PutUvarint64(uint64(flusher.versionBlocksLen[idx]))
+		flusher.metricBlockWriter.PutUvarint64(uint64(versionBlock.length))
 	}
 	//////////////////////////////////////////////////
 	// build Footer

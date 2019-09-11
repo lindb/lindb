@@ -273,15 +273,15 @@ func Test_MemoryDatabase_GetTagValues(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().getTagValues(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().getTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	md.getBucket(3333).hash2MStore[3333] = mockMStore
 	md.metricID2Hash.Store(uint32(3333), uint64(3333))
 
 	// existed metricID
-	_, err := mdINTF.GetTagValues(3333, nil, 1)
+	_, err := mdINTF.GetTagValues(3333, nil, 1, nil)
 	assert.Nil(t, err)
 	// inexisted metricID
-	_, err = mdINTF.GetTagValues(3334, nil, 1)
+	_, err = mdINTF.GetTagValues(3334, nil, 1, nil)
 	assert.NotNil(t, err)
 
 }

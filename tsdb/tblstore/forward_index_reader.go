@@ -2,21 +2,23 @@ package tblstore
 
 import (
 	"fmt"
-	"sort"
+	"math"
+
+	"github.com/RoaringBitmap/roaring"
+	"github.com/golang/snappy"
 
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
-
-	"github.com/golang/snappy"
 )
 
 const (
 	footerSizeAfterVersionEntries = 4 + // versionOffsetPos, uint32
 		4 // CRC32 checksum, uint32
 	footerSizeOfVersionEntry = 4 + // Offsets's Position of DictBlock of versionEntry
-		4 + // Keys Position of versionEntry
 		4 + // OffsetsBlock's Position of versionEntry
 		4 // bitmap's Position of versionEntry
 )
@@ -34,252 +36,350 @@ type ForwardIndexReader interface {
 type forwardIndexReader struct {
 	readers []table.Reader
 	sr      *stream.Reader
-	buffer  []byte
-	dict    map[int]string
 }
 
-// NewForwardIndexReader returns a new ForwardIndexReader
-func NewForwardIndexReader(readers []table.Reader) ForwardIndexReader {
-	return &forwardIndexReader{
-		readers: readers,
-		dict:    make(map[int]string),
-		sr:      stream.NewReader(nil)}
+type forwardIndexVersionEntry struct {
+	startTime           uint32
+	endTime             uint32
+	tagKeys             []string // tagKeySeq -> tagKey
+	tagKeysBitArraySize int
+	offsets             []int32
+	seriesIDOffsets     *encoding.DeltaBitPackingDecoder
+	seriesIDBitmap      *roaring.Bitmap
+	// positions
+	posOfDictBlock       int
+	posOfDictBlockOffset int
+	posOfOffsets         int
+	posOfSeriesIDBitmap  int
+	// tools
+	sr           *stream.Reader
+	versionBlock []byte
+	buffer       []byte
+	dict         map[int]string // string index -> string value
+	bitArray     *collections.BitArray
 }
 
-// GetTagValues returns tag values by tag keys and spec version for metric level
-func (r *forwardIndexReader) GetTagValues(metricID uint32, tagKeys []string, version series.Version) (
-	tagValues [][]string, err error) {
-	if len(tagKeys) == 0 {
-		return nil, nil
-	}
-	// get version Block
-	versionBlock := r.getVersionBlock(metricID, version)
-	if len(versionBlock) == 0 {
-		return nil, series.ErrNotFound
-	}
-	// {ip:0, zone:1, host:2}, tagKey -> sequence
-	tagKey2Seq, err := r.readTagKeysBlock(versionBlock)
-	if err != nil {
-		return nil, err
-	}
-	// indexes of tagKeys
-	var existedTagKeysSeq []int
-	for _, tagKey := range tagKeys {
-		if seq, ok := tagKey2Seq[tagKey]; ok {
-			existedTagKeysSeq = append(existedTagKeysSeq, seq)
-		}
-	}
-	// ip, cluster, zone -> 0, 1
-	if len(existedTagKeysSeq) == 0 {
-		return nil, series.ErrNotFound
-	}
-	//////////////////////////////////////////////////
-	// Read Keys LOOKUP-TABLE Block
-	//////////////////////////////////////////////////
-	// kvIndexes: {k1seq:[v1,v2,v3], k2Seq: [v2,v4,v6]
-	// allValueIndexes: [v1,v2,v3,v4,v6]
-	kvIndexes, allValueIndexes, err := r.readKeysLUTBlock(versionBlock, existedTagKeysSeq)
-	if err != nil {
-		return nil, err
-	}
-	//////////////////////////////////////////////////
-	// Read Dict Block
-	//////////////////////////////////////////////////
-	if err := r.readDictBlockByIndexes(versionBlock, allValueIndexes); err != nil {
-		return nil, err
-	}
-	// construct tagValues
-	for _, tagKey := range tagKeys {
-		var thisTagValues []string
-		if seq, ok := tagKey2Seq[tagKey]; ok {
-			for _, valueIndex := range kvIndexes[seq] {
-				if item, ok := r.dict[valueIndex]; ok {
-					thisTagValues = append(thisTagValues, item)
-				}
-			}
-		}
-		tagValues = append(tagValues, thisTagValues)
-	}
-	return tagValues, nil
-}
-
-// readKeysLUTBlock reads tagValue indexes from the specified tagKeys seq in the LUT block
-func (r *forwardIndexReader) readKeysLUTBlock(
+func newForwardIndexVersionEntry(
 	versionBlock []byte,
-	tagKeysSeq []int,
 ) (
-	map[int][]int,
-	[]int,
-	error,
+	versionEntry *forwardIndexVersionEntry,
+	err error,
 ) {
-	_, posOfKeysLUT, _, _, err := r.readFooter(versionBlock)
-	if err != nil {
-		return nil, nil, err
+	entry := &forwardIndexVersionEntry{
+		versionBlock: versionBlock,
+		sr:           stream.NewReader(nil),
+		dict:         make(map[int]string),
+		bitArray:     collections.NewBitArray(nil),
 	}
-	sort.Slice(tagKeysSeq, func(i, j int) bool { return tagKeysSeq[i] < tagKeysSeq[j] })
-	//////////////////////////////////////////////////
-	// Keys LOOKUP-TABLE Block
-	//////////////////////////////////////////////////
-	kvIndexes := make(map[int][]int)
-	r.sr.Reset(versionBlock)
-	r.sr.ShiftAt(posOfKeysLUT)
-	lastSeq := tagKeysSeq[len(tagKeysSeq)-1]
-	for seq := 0; seq <= lastSeq && r.sr.Error() == nil; seq++ {
-		// jump to the end if we do not need to maps this tagKey
-		thisKeyValuesBlockLength := r.sr.ReadUvarint64()
-		if !intSliceContains(tagKeysSeq, seq) {
-			r.sr.ShiftAt(uint32(thisKeyValuesBlockLength))
+	// Read Footer
+	if err := entry.readFooter(); err != nil {
+		return nil, err
+	}
+	// Read TimeRange Block
+	entry.sr.Reset(entry.versionBlock)
+	entry.startTime = entry.sr.ReadUint32()
+	entry.endTime = entry.sr.ReadUint32()
+	// Read TagKeys Block
+	if err := entry.readTagKeys(); err != nil {
+		return nil, err
+	}
+	// computeBitArraySize
+	entry.tagKeysBitArraySize = int(math.Ceil(float64(len(entry.tagKeys)) / float64(8)))
+	// Unmarshal offsets
+	entry.seriesIDOffsets = encoding.NewDeltaBitPackingDecoder(
+		entry.versionBlock[entry.posOfOffsets:entry.posOfSeriesIDBitmap])
+	for entry.seriesIDOffsets.HasNext() {
+		entry.offsets = append(entry.offsets, entry.seriesIDOffsets.Next())
+	}
+	// Unmarshal seriesIDBitmap
+	entry.seriesIDBitmap = roaring.New()
+	if err := entry.seriesIDBitmap.UnmarshalBinary(
+		entry.versionBlock[entry.posOfSeriesIDBitmap : len(versionBlock)-footerSizeOfVersionEntry]); err != nil {
+		return nil, err
+	}
+	if len(entry.offsets) != int(entry.seriesIDBitmap.GetCardinality()) {
+		return nil, fmt.Errorf("num of offsets does not equal to bitmap's cardinality")
+	}
+	return entry, nil
+}
+
+// seriesID-> {idx1, idx2, idx3}
+func (entry *forwardIndexVersionEntry) searchSeriesIDsTagValueIndexes(
+	tagKeyIndexes []int,
+	seriesIDs *roaring.Bitmap,
+) (
+	mappings map[uint32][]int,
+	err error,
+) {
+	mappings = make(map[uint32][]int)
+	itr := seriesIDs.Iterator()
+	for itr.HasNext() {
+		seriesID := itr.Next()
+		if !entry.seriesIDBitmap.Contains(seriesID) {
+			mappings[seriesID] = nil
 			continue
 		}
-		var thisIndexes []int
-		tagValueCount := r.sr.ReadUvarint64()
-		for i := 0; i < int(tagValueCount) && r.sr.Error() == nil; i++ {
-			thisIndexes = append(thisIndexes, int(r.sr.ReadUvarint64()))
+		idx := entry.seriesIDBitmap.Rank(seriesID)
+		offset := entry.offsets[idx-1]
+		indexes, err := entry.searchTagLUT(tagKeyIndexes, offset)
+		if err != nil {
+			return nil, err
 		}
-		kvIndexes[seq] = thisIndexes
+		mappings[seriesID] = indexes
 	}
-	// get all indexes of values
-	var indexesList []int
-	for _, tagValueIndexes := range kvIndexes {
-		indexesList = append(indexesList, tagValueIndexes...)
-	}
-	sort.Slice(indexesList, func(i, j int) bool { return indexesList[i] < indexesList[j] })
-	return kvIndexes, indexesList, r.sr.Error()
+	return mappings, nil
 }
 
-// readTagKeysBlock return a map mapping from tagKey -> tagKey sequence
-func (r *forwardIndexReader) readTagKeysBlock(block []byte) (map[string]int, error) {
-	r.sr.Reset(block)
-	// read time-range
-	_ = r.sr.ReadBytes(timeRangeSize)
-	//////////////////////////////////////////////////
-	// Read TagKeys Block
-	//////////////////////////////////////////////////
-	tagKey2Seq := make(map[string]int)
-	tagKeyCount := r.sr.ReadUvarint64()
-	for keySeq := 0; keySeq < int(tagKeyCount); keySeq++ {
-		thisTagKeyLength := r.sr.ReadUvarint64()
-		thisTagKey := r.sr.ReadBytes(int(thisTagKeyLength))
-		if r.sr.Error() != nil {
-			return nil, r.sr.Error()
-		}
-		tagKey2Seq[string(thisTagKey)] = keySeq
+func (entry *forwardIndexVersionEntry) searchTagLUT(
+	tagKeyIndexes []int,
+	offset int32,
+) (
+	indexes []int,
+	err error,
+) {
+	// jump to the tags LUT block
+	entry.sr.Reset(entry.versionBlock)
+	entry.sr.ShiftAt(uint32(offset))
+	// read bit-array
+	bitArrayBuf := entry.sr.ReadBytes(entry.tagKeysBitArraySize)
+	entry.bitArray.Reset(bitArrayBuf)
+	// pre allocate space
+	indexes = make([]int, len(tagKeyIndexes))
+	for i := 0; i < len(indexes); i++ {
+		indexes[i] = -1
 	}
-	return tagKey2Seq, nil
+	// helper function
+	searchTagKeyIndex := func(expectedTagKeyIndex int) (int, bool) {
+		for idx, tagKeyIndex := range tagKeyIndexes {
+			if tagKeyIndex == expectedTagKeyIndex {
+				return idx, true
+			}
+		}
+		return -1, false
+	}
+
+	for tagKeyIndex := range entry.tagKeys {
+		// this tagKey exist
+		if entry.bitArray.GetBit(uint16(tagKeyIndex)) {
+			stringBlockIndex := entry.sr.ReadUvarint64()
+			idx, found := searchTagKeyIndex(tagKeyIndex)
+			if found {
+				indexes[idx] = int(stringBlockIndex)
+			}
+		}
+	}
+	return indexes, entry.sr.Error()
+}
+
+// readTagKeys reads the tagKeys in order
+func (entry *forwardIndexVersionEntry) readTagKeys() error {
+	entry.sr.Reset(entry.versionBlock)
+	entry.sr.ShiftAt(uint32(timeRangeSize))
+	tagKeyCount := entry.sr.ReadUvarint64()
+	for i := 0; i < int(tagKeyCount); i++ {
+		thisTagKeyLength := entry.sr.ReadUvarint64()
+		thisTagKey := entry.sr.ReadBytes(int(thisTagKeyLength))
+		if entry.sr.Error() != nil {
+			return entry.sr.Error()
+		}
+		entry.tagKeys = append(entry.tagKeys, string(thisTagKey))
+	}
+	entry.posOfDictBlock = entry.sr.Position()
+	return nil
 }
 
 // readFooter reads the positions in version entry block
-func (r *forwardIndexReader) readFooter(
-	block []byte,
-) (
-	posOfDictBlockOffset,
-	posOfKeysLUT,
-	posOfOffsets,
-	posOfBitmap uint32,
-	err error,
-) {
-	if len(block) <= footerSizeOfVersionEntry+timeRangeSize {
-		err = fmt.Errorf("validation of versionEntrySize failed")
-		return
+func (entry *forwardIndexVersionEntry) readFooter() (err error) {
+	if len(entry.versionBlock) <= footerSizeOfVersionEntry+timeRangeSize {
+		return fmt.Errorf("validation of versionEntrySize failed")
 	}
-	r.sr.Reset(block)
-	r.sr.ShiftAt(uint32(len(block) - footerSizeOfVersionEntry))
-	posOfDictBlockOffset = r.sr.ReadUint32()
-	posOfKeysLUT = r.sr.ReadUint32()
-	posOfOffsets = r.sr.ReadUint32()
-	posOfBitmap = r.sr.ReadUint32()
-	return
+	entry.sr.Reset(entry.versionBlock)
+	entry.sr.ShiftAt(uint32(len(entry.versionBlock) - footerSizeOfVersionEntry))
+	entry.posOfDictBlockOffset = int(entry.sr.ReadUint32())
+	entry.posOfOffsets = int(entry.sr.ReadUint32())
+	entry.posOfSeriesIDBitmap = int(entry.sr.ReadUint32())
+	if entry.posOfSeriesIDBitmap >= len(entry.versionBlock) ||
+		entry.posOfOffsets >= len(entry.versionBlock) ||
+		entry.posOfDictBlockOffset >= len(entry.versionBlock) {
+		return fmt.Errorf("position out of index")
+	}
+	return nil
 }
 
-// readStringByIndexes reads string from the dict-block by specified indexes
-func (r *forwardIndexReader) readDictBlockByIndexes(block []byte, strIndexes []int) error {
-	// read PosOfDictBlock Offset in footer
-	posOfDictBlockOffset, _, _, _, err := r.readFooter(block)
-	if err != nil {
-		return err
-	}
-	//////////////////////////////////////////////////
+// loadDictByIndexes decodes compressed string to the dict-block by specified indexes
+func (entry *forwardIndexVersionEntry) loadDictByIndexes(strIndexes []int) error {
 	// Read String Block Offsets In DictBlock
-	//////////////////////////////////////////////////
-	r.sr.Reset(block)
-	r.sr.ShiftAt(posOfDictBlockOffset)
+	entry.sr.Reset(entry.versionBlock)
+	entry.sr.ShiftAt(uint32(entry.posOfDictBlockOffset))
 	// string block index -> offsets
 	var (
-		offsets     []int
-		lengths     []int
-		movedOffset int
+		offsets          []int
+		lengths          []int
+		movedOffset      int
+		decodedBlockSeqs = make(map[int]struct{})
 	)
 	// read string block offsets to StartPosition of DictBlock
 	// read stringBlock count
-	stringBlockCount := r.sr.ReadUvarint64()
+	stringBlockCount := entry.sr.ReadUvarint64()
 	for i := 0; i < int(stringBlockCount); i++ {
 		offsets = append(offsets, movedOffset)
-		length := r.sr.ReadUvarint64()
+		length := entry.sr.ReadUvarint64()
 		lengths = append(lengths, int(length))
-		if r.sr.Error() != nil {
-			return r.sr.Error()
+		if entry.sr.Error() != nil {
+			return entry.sr.Error()
 		}
 		movedOffset += int(length)
 	}
-	//////////////////////////////////////////////////
-	// Read Snappy Compressed String Blocks
-	//////////////////////////////////////////////////
-	stringBlockStartPos := int(posOfDictBlockOffset) - movedOffset
-	stringBlocsEndPos := int(posOfDictBlockOffset)
-	if len(block) <= stringBlocsEndPos || stringBlockStartPos < 0 {
-		return fmt.Errorf("get string blocks failure")
-	}
-	return r.readStringBlockByOffsets(block[stringBlockStartPos:stringBlocsEndPos], offsets, lengths, strIndexes)
-}
-
-// readStringBlockByOffsets reads different strings in different offsets from the string blocks
-// then updates them to the found map.
-func (r *forwardIndexReader) readStringBlockByOffsets(
-	stringBlocks []byte,
-	offsets,
-	lengths,
-	strIndexes []int,
-) error {
-	sort.Slice(strIndexes, func(i, j int) bool { return strIndexes[i] < strIndexes[j] })
-	// read each block
-	lastDecodedBlockSeq := -1
-	var err error
+	// stringBlocksSegment in dict block
+	stringBlocksSegment := entry.versionBlock[entry.posOfDictBlock:entry.posOfDictBlockOffset]
+	// pick each block
 	for _, strIndex := range strIndexes {
+		if strIndex < 0 {
+			continue
+		}
 		thisBlockSeq := strIndex / defaultStringBlockSize
 		// this block has been decoded before
-		if thisBlockSeq == lastDecodedBlockSeq {
+		if _, ok := decodedBlockSeqs[thisBlockSeq]; ok {
 			continue
 		}
 		// get a uncompressed string block
 		if thisBlockSeq >= len(offsets) {
 			return fmt.Errorf("index cannot be found in dict block")
 		}
-		// this block is decoded
-		lastDecodedBlockSeq = thisBlockSeq
+		// mark this block is decoded
+		decodedBlockSeqs[thisBlockSeq] = struct{}{}
 		thisBlockStartPos := offsets[thisBlockSeq]
 		thisBlockEndPos := thisBlockStartPos + lengths[thisBlockSeq]
-		if thisBlockEndPos > len(stringBlocks) {
+		if thisBlockEndPos > len(stringBlocksSegment) {
 			return fmt.Errorf("index string block failure")
 		}
-		// decode this string block
-		r.buffer = r.buffer[:0]
-		if r.buffer, err = snappy.Decode(r.buffer, stringBlocks[thisBlockStartPos:thisBlockEndPos]); err != nil {
+		// decode Snappy Compressed String Blocks
+		if err := entry.decodeStringBlock(thisBlockSeq,
+			stringBlocksSegment[thisBlockStartPos:thisBlockEndPos]); err != nil {
 			return err
-		}
-		// read this decode string block
-		r.sr.Reset(r.buffer)
-		var offset = 0
-		for !r.sr.Empty() {
-			tagValueLength := r.sr.ReadUvarint64()
-			tagValue := r.sr.ReadBytes(int(tagValueLength))
-			if r.sr.Error() != nil {
-				return r.sr.Error()
-			}
-			r.dict[thisBlockSeq*defaultStringBlockSize+offset] = string(tagValue)
-			offset++
 		}
 	}
 	return nil
+}
+
+// decodeStringBlock decodes the string block, then put it to the map.
+func (entry *forwardIndexVersionEntry) decodeStringBlock(
+	stringBlockSeq int,
+	stringBlock []byte,
+) (err error) {
+	entry.buffer = entry.buffer[:0]
+	if entry.buffer, err = snappy.Decode(entry.buffer, stringBlock); err != nil {
+		return err
+	}
+	// read this decode string block
+	entry.sr.Reset(entry.buffer)
+	var offset = 0
+	for !entry.sr.Empty() {
+		tagValueLength := entry.sr.ReadUvarint64()
+		tagValue := entry.sr.ReadBytes(int(tagValueLength))
+		if entry.sr.Error() != nil {
+			return entry.sr.Error()
+		}
+		entry.dict[stringBlockSeq*defaultStringBlockSize+offset] = string(tagValue)
+		offset++
+	}
+	return nil
+}
+
+func (entry *forwardIndexVersionEntry) getTagKeysOrder(
+	tagKeys []string,
+) (
+	tagKeyIndexes []int,
+	err error,
+) {
+	for _, tagKey := range tagKeys {
+		matched := false
+		for existedTagKeyIndex, existedTagKey := range entry.tagKeys {
+			if tagKey == existedTagKey {
+				tagKeyIndexes = append(tagKeyIndexes, existedTagKeyIndex)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return nil, fmt.Errorf("tagKey: %s not exist", tagKey)
+		}
+	}
+	return tagKeyIndexes, nil
+}
+
+// NewForwardIndexReader returns a new ForwardIndexReader
+func NewForwardIndexReader(readers []table.Reader) ForwardIndexReader {
+	return &forwardIndexReader{
+		readers: readers,
+		sr:      stream.NewReader(nil)}
+}
+
+// GetTagValues returns tag values by tag keys and spec version for metric level
+func (r *forwardIndexReader) GetTagValues(
+	metricID uint32,
+	tagKeys []string,
+	version series.Version,
+	seriesIDs *roaring.Bitmap,
+) (
+	seriesID2TagValues map[uint32][]string, // seriesID->
+	err error,
+) {
+	if len(tagKeys) == 0 || seriesIDs.IsEmpty() {
+		return nil, series.ErrNotFound
+	}
+	// get version Block
+	versionBlock := r.getVersionBlock(metricID, version)
+	if len(versionBlock) == 0 {
+		return nil, series.ErrNotFound
+	}
+	versionEntry, err := newForwardIndexVersionEntry(versionBlock)
+	if err != nil {
+		return nil, err
+	}
+	// check if this index does not contains any tagKey in the list
+	tagKeyIndexes, err := versionEntry.getTagKeysOrder(tagKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	mappings, err := versionEntry.searchSeriesIDsTagValueIndexes(tagKeyIndexes, seriesIDs)
+	if err != nil {
+		return nil, err
+	}
+	// get all string indexes
+	var strIndexes []int
+	for _, indexes := range mappings {
+		strIndexes = append(strIndexes, indexes...)
+	}
+	if err = versionEntry.loadDictByIndexes(strIndexes); err != nil {
+		return nil, err
+	}
+	seriesID2TagValues = make(map[uint32][]string)
+	// assemble the result
+	for seriesID, indexes := range mappings {
+		tagValues, ok := seriesID2TagValues[seriesID]
+		if !ok {
+			tagValues = []string{}
+		}
+		// length=0, means this seriesID inexist
+		if len(indexes) == 0 {
+			continue
+		}
+		for _, index := range indexes {
+			// index<0, means the tagValue inexist
+			if index >= 0 {
+				tagValue, ok := versionEntry.dict[index]
+				if ok {
+					tagValues = append(tagValues, tagValue)
+					continue
+				}
+			}
+			tagValues = append(tagValues, "")
+		}
+		seriesID2TagValues[seriesID] = tagValues
+	}
+	return seriesID2TagValues, nil
 }
 
 // getVersionBlock gets the latest block from snapshot which matches the version in forward-index-table

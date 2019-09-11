@@ -1,6 +1,8 @@
 package diskdb
 
 import (
+	"github.com/RoaringBitmap/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -55,18 +57,18 @@ func (db *indexDatabase) GetTagValues(
 	metricID uint32,
 	tagKeys []string,
 	version series.Version,
+	seriesIDs *roaring.Bitmap,
 ) (
-	tagValues [][]string,
+	seriesID2TagValues map[uint32][]string,
 	err error,
 ) {
-
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 	readers, err := snapShot.FindReaders(metricID)
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewForwardIndexReader(readers).GetTagValues(metricID, tagKeys, version)
+	return tblstore.NewForwardIndexReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id

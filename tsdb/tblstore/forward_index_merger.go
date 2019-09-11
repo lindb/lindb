@@ -29,7 +29,7 @@ func NewForwardIndexMerger(ttl time.Duration) kv.Merger {
 }
 
 func (m *forwardIndexMerger) Reset() {
-	m.flusher.resetMetricBlockContext()
+	m.flusher.Reset()
 	for version := range m.versionBlocksMap {
 		delete(m.versionBlocksMap, version)
 	}

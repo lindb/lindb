@@ -82,11 +82,11 @@ func TestScanWorker_GroupBy(t *testing.T) {
 	worker := createScanWorker(context.TODO(), uint32(10), []string{"host", "disk"}, metaGetter, aggWorker)
 	gomock.InOrder(
 		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any()).Return(nil, nil),
+		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
 		aggWorker.EXPECT().emit(gomock.Any()),
 		aggWorker.EXPECT().sendResult(gomock.Any()),
 		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any()).Return(nil, nil),
+		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
 		aggWorker.EXPECT().sendResult(gomock.Any()),
 		aggWorker.EXPECT().close(),
 	)
@@ -130,7 +130,7 @@ func TestScanWorker_GroupBy(t *testing.T) {
 	worker = createScanWorker(context.TODO(), uint32(10), []string{"host", "disk"}, metaGetter, aggWorker)
 	gomock.InOrder(
 		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
+		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
 		aggWorker.EXPECT().close().AnyTimes(),
 	)
 	worker.Emit(&series.FieldEvent{
