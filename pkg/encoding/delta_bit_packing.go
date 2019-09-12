@@ -73,7 +73,7 @@ func (p *DeltaBitPackingEncoder) Bytes() []byte {
 	)
 	p.buffer.Reset()
 
-	p.sw.PutVarint64(int64(len(p.deltas)))
+	p.sw.PutVarint32(int32(len(p.deltas))) // write deltas length
 	for _, v := range p.deltas {
 		deltaDelta := v - p.minDelta
 		if max < deltaDelta {
@@ -81,9 +81,9 @@ func (p *DeltaBitPackingEncoder) Bytes() []byte {
 		}
 	}
 	width := 32 - bits.LeadingZeros32(uint32(max))
-	p.sw.PutByte(byte(width))
-	p.sw.PutVarint64(int64(ZigZagEncode(int64(p.minDelta))))
-	p.sw.PutVarint64(int64(p.first))
+	p.sw.PutByte(byte(width))                                // width
+	p.sw.PutVarint64(int64(ZigZagEncode(int64(p.minDelta)))) // min delta
+	p.sw.PutVarint32(p.first)                                // first value
 
 	for _, v := range p.deltas {
 		deltaDelta := v - p.minDelta
@@ -98,8 +98,8 @@ func (p *DeltaBitPackingEncoder) Bytes() []byte {
 type DeltaBitPackingDecoder struct {
 	sr       *stream.Reader
 	br       *bit.Reader
-	count    int64
-	pos      int64
+	count    int32
+	pos      int32
 	width    int
 	previous int32
 	minDelta int32
@@ -117,14 +117,20 @@ func NewDeltaBitPackingDecoder(buf []byte) *DeltaBitPackingDecoder {
 
 func (d *DeltaBitPackingDecoder) Reset(buf []byte) {
 	d.sr.Reset(buf)
-	x := d.sr.ReadVarint64()
+	x := d.sr.ReadVarint32() // deltas length
 	d.count = x + 1
 	d.pos = d.count
-	w := d.sr.ReadByte()
+	w := d.sr.ReadByte() // width
 	d.width = int(w)
 	min := d.sr.ReadVarint64()
-	d.minDelta = int32(ZigZagDecode(uint64(min)))
+	d.minDelta = int32(ZigZagDecode(uint64(min))) // min delta
+
+	// need read first value
+	v := d.sr.ReadVarint32()
+	d.previous = v
 	pos := d.sr.Position()
+
+	// reset bit stream
 	d.br.Reset(buf[pos:])
 }
 
@@ -136,11 +142,8 @@ func (d *DeltaBitPackingDecoder) HasNext() bool {
 // Next returns next value if exist
 func (d *DeltaBitPackingDecoder) Next() int32 {
 	if d.pos == d.count {
-		x := d.sr.ReadVarint64()
 		d.pos--
-		v := int32(x)
-		d.previous = v
-		return v
+		return d.previous
 	}
 	x, _ := d.br.ReadBits(d.width)
 	d.pos--
