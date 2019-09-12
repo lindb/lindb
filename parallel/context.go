@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 
@@ -23,19 +24,29 @@ type JobContext interface {
 	Emit(event *series.TimeSeriesEvent)
 	Complete()
 	ResultSet() chan *series.TimeSeriesEvent
+	Context() context.Context
+	Completed() bool
 }
 
 type jobContext struct {
 	resultSet chan *series.TimeSeriesEvent
 	plan      *models.PhysicalPlan
 	query     *stmt.Query
+	ctx       context.Context
+	cancel    context.CancelFunc
+
+	completed int32
 }
 
-func NewJobContext(resultSet chan *series.TimeSeriesEvent, plan *models.PhysicalPlan, query *stmt.Query) JobContext {
+func NewJobContext(ctx context.Context, resultSet chan *series.TimeSeriesEvent, plan *models.PhysicalPlan, query *stmt.Query) JobContext {
+	c, cancel := context.WithCancel(ctx)
 	return &jobContext{
 		resultSet: resultSet,
 		plan:      plan,
 		query:     query,
+		ctx:       c,
+		cancel:    cancel,
+		completed: 1,
 	}
 }
 
@@ -51,12 +62,21 @@ func (c *jobContext) ResultSet() chan *series.TimeSeriesEvent {
 }
 
 func (c *jobContext) Complete() {
-	//TODO send result
-	close(c.resultSet)
+	if atomic.CompareAndSwapInt32(&c.completed, 1, 0) {
+		//TODO send result
+		close(c.resultSet)
+	}
+}
+func (c *jobContext) Completed() bool {
+	return atomic.LoadInt32(&c.completed) == 0
 }
 
 func (c *jobContext) Emit(event *series.TimeSeriesEvent) {
 	c.resultSet <- event
+}
+
+func (c *jobContext) Context() context.Context {
+	return c.ctx
 }
 
 // TaskContext represents the task context for distribution query and computing
@@ -129,13 +149,21 @@ func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
 		c.err = errors.New(resp.ErrMsg)
 		return
 	}
-
-	//FIXME stone1100 add lock????
-	c.merger.Merge(resp)
-
+	// task is completed need return it
+	if c.Completed() {
+		return
+	}
+	// merge the response
+	c.merger.merge(resp)
 	// if task is completed, reduces expect result count
 	if resp.Completed {
 		atomic.AddInt32(&c.expectResults, -1)
+	}
+
+	// check if task completed,
+	// if yes, closes the merger
+	if c.Completed() {
+		c.merger.close()
 	}
 }
 

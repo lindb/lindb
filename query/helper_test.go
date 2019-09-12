@@ -62,7 +62,6 @@ func MockSumFieldSeries(ctrl *gomock.Controller, fieldID uint16, primitiveFieldI
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(nil)
 	it.EXPECT().FieldMeta().Return(field.Meta{ID: fieldID})
-
 	// return hasNext=>false, finish primitive iterator
 	primitiveIt.EXPECT().HasNext().Return(false).AnyTimes()
 

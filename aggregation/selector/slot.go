@@ -3,28 +3,26 @@ package selector
 // SlotSelector represents a slot selector for aggregator value's index
 type SlotSelector interface {
 	// IndexOf returns the index of the specified element in aggregator values
-	IndexOf(timeSlot int) int
+	IndexOf(startSlot, timeSlot int) int
 }
 
 // indexSlotSelector represents an index slot selector based on start/ratio
 type indexSlotSelector struct {
-	startSlot     int
 	intervalRatio int
 }
 
-// NewIndexSlotSelector creates an index slot selector using given start and ratio
-func NewIndexSlotSelector(startSlot, intervalRatio int) SlotSelector {
+// NewIndexSlotSelector creates an index slot selector using given ratio
+func NewIndexSlotSelector(intervalRatio int) SlotSelector {
 	return &indexSlotSelector{
-		startSlot:     startSlot,
 		intervalRatio: intervalRatio,
 	}
 }
 
 // IndexOf returns the index of the specified element in aggregator values
 // index = (timeSlot - start)/ratio, if timeSlot < start return -1
-func (s *indexSlotSelector) IndexOf(timeSlot int) int {
-	if timeSlot < s.startSlot {
+func (s *indexSlotSelector) IndexOf(startSlot, timeSlot int) int {
+	if timeSlot < startSlot {
 		return -1
 	}
-	return (timeSlot - s.startSlot) / s.intervalRatio
+	return (timeSlot - startSlot) / s.intervalRatio
 }

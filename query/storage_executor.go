@@ -119,7 +119,7 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 		return
 	}
 
-	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.fields, e.resultCh)
+	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.getFields(), e.resultCh)
 	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, memoryDB, aggWorker)
 	defer worker.Close()
 	memoryDB.Scan(&series.ScanContext{
@@ -167,7 +167,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	}
 	// retain family task first
 	e.executorCtx.retainTask(int32(2 * len(families)))
-	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.fields, e.resultCh)
+	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.getFields(), e.resultCh)
 	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), aggWorker)
 	defer worker.Close()
 	for _, family := range families {

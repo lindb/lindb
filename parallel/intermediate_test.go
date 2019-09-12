@@ -79,7 +79,8 @@ func TestIntermediate_Receive(t *testing.T) {
 
 	// send task result error
 	merger := NewMockResultMerger(ctrl)
-	merger.EXPECT().Merge(gomock.Any())
+	merger.EXPECT().merge(gomock.Any())
+	merger.EXPECT().close()
 	taskManager.EXPECT().Complete("taskID")
 	taskManager.EXPECT().Get("taskID").
 		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1, merger))
@@ -88,7 +89,8 @@ func TestIntermediate_Receive(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// normal case
-	merger.EXPECT().Merge(gomock.Any())
+	merger.EXPECT().merge(gomock.Any())
+	merger.EXPECT().close()
 	taskManager.EXPECT().Complete("taskID")
 	taskManager.EXPECT().Get("taskID").
 		Return(newTaskContext("taskID", IntermediateTask, "parentTaskID", "parentNode", 1, merger))
