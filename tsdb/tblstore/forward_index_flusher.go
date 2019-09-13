@@ -24,7 +24,13 @@ const (
 	defaultStringBlockSize = 300
 )
 
-var forwardIndexFlusherLogger = logger.GetLogger("tsdb", "ForwardIndexFlusher")
+var (
+	forwardIndexFlusherLogger = logger.GetLogger("tsdb", "ForwardIndexFlusher")
+	intPool                   = sync.Pool{New: func() interface{} {
+		return &[]int{} // storing *[]int
+
+	}}
+)
 
 // FlushVersion is a wrapper of kv.Builder, provides the ability to build a forward-index table.
 // The layout is available in `tsdb/doc.go`
@@ -62,7 +68,6 @@ type forwardIndexFlusher struct {
 	// common elements
 	tmpWriter *stream.BufferWriter // temporary writer
 	dstSlice  []byte               // snappy dst slice
-	intPool   sync.Pool            // storing *[]int
 	kvFlusher kv.Flusher           // real underlying flusher
 	bitArray  *collections.BitArray
 }
@@ -75,9 +80,6 @@ func NewForwardIndexFlusher(flusher kv.Flusher) ForwardIndexFlusher {
 		tagValuesMap:      make(map[string]int),
 		seriesID2TagValue: make(map[uint32]*[]int),
 		seriesID2TagKey:   make(map[uint32]*[]int),
-		intPool: sync.Pool{New: func() interface{} {
-			return &[]int{}
-		}},
 		metricBlockWriter: stream.NewBufferWriter(nil),
 		tmpWriter:         stream.NewBufferWriter(nil),
 		keys:              roaring.New(),
@@ -86,12 +88,12 @@ func NewForwardIndexFlusher(flusher kv.Flusher) ForwardIndexFlusher {
 }
 
 func (flusher *forwardIndexFlusher) getSlice() *[]int {
-	return flusher.intPool.Get().(*[]int)
+	return intPool.Get().(*[]int)
 }
 
 func (flusher *forwardIndexFlusher) putSlice(s *[]int) {
 	*s = (*s)[:0]
-	flusher.intPool.Put(s)
+	intPool.Put(s)
 }
 
 func (flusher *forwardIndexFlusher) sortSeriesIDs() {

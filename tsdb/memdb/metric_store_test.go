@@ -207,8 +207,8 @@ func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 	returnNotNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(gomock.Any()).Return(roaring.New()).Times(2)
 	returnNil2 := mockTagIdx.EXPECT().getSeriesIDsForTag(gomock.Any()).Return(nil).Times(2)
 	gomock.InOrder(returnNotNil2, returnNil2)
-	mStoreInterface.getSeriesIDsForTag("")
-	mStoreInterface.getSeriesIDsForTag("")
+	_, _ = mStoreInterface.getSeriesIDsForTag("")
+	_, _ = mStoreInterface.getSeriesIDsForTag("")
 }
 
 func Test_getFieldIDOrGenerate(t *testing.T) {
@@ -254,9 +254,9 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "3", field.SumField).Return(uint16(3), nil).AnyTimes()
-	mStoreInterface.getFieldIDOrGenerate("3", field.SumField, mockGen)
-	mStoreInterface.getFieldIDOrGenerate("1", field.SumField, mockGen)
-	mStoreInterface.getFieldIDOrGenerate("2", field.SumField, mockGen)
+	_, _ = mStoreInterface.getFieldIDOrGenerate("3", field.SumField, mockGen)
+	_, _ = mStoreInterface.getFieldIDOrGenerate("1", field.SumField, mockGen)
+	_, _ = mStoreInterface.getFieldIDOrGenerate("2", field.SumField, mockGen)
 }
 
 func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *MocktagIndexINTF, *MocktagIndexINTF) {
@@ -331,10 +331,10 @@ func Test_mStore_flushInvertedIndexTo(t *testing.T) {
 	//////////////////////////////////////////////
 	mStore.mutable = mockTagIdx1
 	// flush ok
-	mockTableFlusher.EXPECT().FlushTagID(gomock.Any()).Return(nil).Times(2)
+	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).Times(2)
 	assert.Nil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush error
-	mockTableFlusher.EXPECT().FlushTagID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
 	assert.NotNil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 
 	//////////////////////////////////////////////
@@ -343,10 +343,10 @@ func Test_mStore_flushInvertedIndexTo(t *testing.T) {
 	mStore.immutable = []tagIndexINTF{mockTagIdx1, mockTagIdx2}
 	mStore.mutable = mockTagIdx3
 	// flush error
-	mockTableFlusher.EXPECT().FlushTagID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
+	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
 	assert.NotNil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush ok
-	mockTableFlusher.EXPECT().FlushTagID(gomock.Any()).Return(nil).Times(4)
+	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).Times(4)
 	assert.Nil(t, mStore.flushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
 }
 

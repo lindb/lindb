@@ -78,7 +78,7 @@ func (el *EditLog) unmarshal(buf []byte) error {
 		}
 		l := fn()
 		length := int(reader.ReadUvarint32())
-		logData := reader.ReadBytes(length)
+		logData := reader.ReadSlice(length)
 		if err := l.Decode(logData); err != nil {
 			return fmt.Errorf("unmarshal log data error, type is:[%d],error:%s", logType, err)
 		}

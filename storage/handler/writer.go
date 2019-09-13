@@ -132,7 +132,7 @@ func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
 	for !reader.Empty() {
 		bytesLen := reader.ReadUvarint32()
 
-		bytes := reader.ReadBytes(int(bytesLen))
+		bytes := reader.ReadSlice(int(bytesLen))
 
 		if err := reader.Error(); err != nil {
 			w.logger.Error("read metricList bytes from replica", logger.Error(err))
