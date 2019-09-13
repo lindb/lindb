@@ -44,7 +44,7 @@ Shard                  Shard
 +------+-------+       +-----+--------+                Suggester
 │ Data │ Memory│       │ Data │ Memory<--------------+ MetaGetter
 │  DB  │   DB  │       │  DB  │   DB  │              │ Filter
-+-----^-+------+       +-----^-+------+              │ DataGetter
++-----^-+------+       +-----^-+------+              │ Scanner
       │ │                    │ │                     +----------------------
       │ │                    │ │
       │ │           IDGetter │ │
@@ -55,7 +55,7 @@ Shard                  Shard
 +------^----------------------^-------+              │              │                      │
        │                      │                      │ Suggest-     │                      │
        ^ SuggestMetrics       ^ SuggestTagKeys       ^ TagValues    ^                      ^
-       │ NameIDIndexReader    │ MetaIndexReader      │ Filter       │ MetaGetter           │ DataGetter
+       │ NameIDIndexReader    │ MetaIndexReader      │ Filter       │ MetaGetter           │ Scanner
 +------+-------+       +------+-------+       +------+-------+------+-------+       +------+-------+
 │ MetricNameID │       │  MetricMeta  │       │SeriesInverted│ SeriesForward│       │  MetricData  │
 │  IndexTable  │       │  IndexTable  │       │  IndexTable  │  IndexTable  │       │    Table     │
@@ -232,8 +232,8 @@ Level3(Footer)
   +-----------+                   +-----------------+                \                     \     \       \
  /                 Level2                            \                \                     \     \       \
 v--------+--------+--------+--------+--------+--------v                v--------+---+--------v     v-------v
-│  Time  │ LOUDS  │TagValue│TagValue│TagValue│ CRC32  │                │ Offset │...│ Offset │     │ TagKV │
-│  Range │TrieTree│  Info  │ Data1  │ Data2  │CheckSum│                │        │   │        │     │ Bitmap│
+│  Time  │ LOUDS  │TagValue│TagValue│Offsets │ Footer │                │ Offset │...│ Offset │     │ TagKV │
+│  Range │TrieTree│ Data1  │ Data2  │        │        │                │        │   │        │     │ Bitmap│
 +--------+--------+--------+--------+--------+--------+                +--------+---+--------+     +-------+
 
 
@@ -252,18 +252,6 @@ This block is alias as TreeBlock
 │  4 Bytes │  4 Bytes │ uvariant │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
-Level2(TagValue Info)
-alias as OffsetsBlock
-┌────────────────────────────────┐
-│          TagValue Info         │
-├──────────┬──────────┬──────────┤
-│ TagValue │  Data1   │  Data2   │
-│  Count   │  Length  │  Length  │
-├──────────┼──────────┼──────────┤
-│ uvariant │ uvariant │ uvariant │
-└──────────┴──────────┴──────────┘
-
-
 Level2(Versioned TagValue Data)
 alias as TagValueDataBlock
 ┌──────────┬──────────────────────────────────────────────────────┬─────────────────────┐
@@ -274,6 +262,17 @@ alias as TagValueDataBlock
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │ uvariant │ 8 Bytes  │ variant  │ variant  │ uvariant │ N Bytes  │ N Bytes  │  N Bytes │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
+
+Level2(Footer)
+
+┌─────────────────────┐
+│         Footer      │
+├──────────┬──────────┤
+│ Offsets  │  CRC32   │
+│ Position │ CheckSum │
+├──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │
+└──────────┴──────────┘
 
 Succinct trie tree(Example):
 (KEY Value: eleme:1, etcd:2, etrace:3)

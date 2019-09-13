@@ -63,15 +63,15 @@ func Test_Stream_ReaderWriter(t *testing.T) {
 	reader.Reset(data)
 	assert.Nil(t, reader.Error())
 	assert.False(t, reader.Empty())
-	reader.ShiftAt(uint32(8))
-	reader.ShiftAt(uint32(0))
-	reader.ShiftAt(uint32(0))
+	_ = reader.ReadSlice(8)
+	_ = reader.ReadSlice(0)
+	_ = reader.ReadSlice(0)
 	assert.Equal(t, uint32(2), reader.ReadUint32())
 	// 12 bytes
 	assert.Equal(t, 12, reader.Position())
-	reader.ShiftAt(uint32(35))
+	_ = reader.ReadSlice(35)
 	assert.Nil(t, reader.Error())
-	reader.ShiftAt(uint32(1))
+	_ = reader.ReadSlice(1)
 	assert.NotNil(t, reader.Error())
 
 	// read failure
@@ -88,6 +88,58 @@ func Test_Stream_SliceWriter(t *testing.T) {
 
 	_, err := w.Bytes()
 	assert.NotNil(t, err)
+}
+
+func Test_Reader_ReadSlice(t *testing.T) {
+	sl := make([]byte, 200)
+	reader := stream.NewReader(nil)
+
+	for x := 0; x < 2; x++ {
+		reader.Reset(sl)
+
+		assert.Zero(t, reader.Position())
+		data := reader.ReadSlice(100)
+		assert.Len(t, data, 100)
+		assert.Equal(t, 100, reader.Position())
+
+		data = reader.ReadSlice(100)
+		assert.Len(t, data, 100)
+		assert.Nil(t, reader.Error())
+		assert.Equal(t, 200, reader.Position())
+
+		for i := 0; i < 3; i++ {
+			data = reader.ReadSlice(1)
+			assert.Len(t, data, 0)
+			assert.NotNil(t, reader.Error())
+			assert.Equal(t, 200, reader.Position())
+		}
+	}
+
+	reader.Reset(sl)
+	_ = reader.ReadSlice(-1)
+	assert.NotNil(t, reader.Error())
+
+	reader.Reset(sl)
+	_ = reader.ReadBytes(-1)
+	assert.NotNil(t, reader.Error())
+}
+
+func Test_Reader_SeekStart(t *testing.T) {
+	sl := make([]byte, 200)
+	reader := stream.NewReader(sl)
+
+	assert.Zero(t, reader.Position())
+	_ = reader.ReadByte()
+	reader.SeekStart()
+	assert.Zero(t, reader.Position())
+
+	reader.ReadSlice(300)
+	assert.NotNil(t, reader.Error())
+	assert.Equal(t, 200, reader.Position())
+
+	reader.SeekStart()
+	assert.Zero(t, reader.Position())
+	assert.Nil(t, reader.Error())
 }
 
 func Test_Stream_UvariantSize(t *testing.T) {
@@ -115,4 +167,22 @@ func Test_Stream_VariantSize(t *testing.T) {
 	assert.Equal(t, 3, stream.VariantSize(8192))
 	assert.Equal(t, 2, stream.VariantSize(-8192))
 	assert.Equal(t, 3, stream.VariantSize(-8193))
+}
+
+func Benchmark_Reader_ReadBytes(b *testing.B) {
+	sl := make([]byte, 1024*1024)
+	reader := stream.NewReader(sl)
+	for i := 0; i < b.N; i++ {
+		reader.Reset(sl)
+		_ = reader.ReadBytes(4096)
+	}
+}
+
+func Benchmark_Reader_ReadSlice(b *testing.B) {
+	sl := make([]byte, 1024*1024)
+	reader := stream.NewReader(sl)
+	for i := 0; i < b.N; i++ {
+		reader.Reset(sl)
+		_ = reader.ReadSlice(4096)
+	}
 }

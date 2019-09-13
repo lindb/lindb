@@ -74,7 +74,7 @@ func (r *metricsMetaReader) readMetasBlock(
 	keyMetaLength := r.sr.ReadUvarint64()
 	startOfTagMeta := r.sr.Position()
 	// jump to end of tagMeta block
-	r.sr.ShiftAt(uint32(keyMetaLength))
+	_ = r.sr.ReadSlice(int(keyMetaLength))
 	endOfTagMeta := r.sr.Position()
 	// block size too small
 	if r.sr.Error() != nil {
@@ -84,7 +84,7 @@ func (r *metricsMetaReader) readMetasBlock(
 	// read length of fieldMeta
 	fieldMetaLen := r.sr.ReadUvarint64()
 	startOfFieldMeta := r.sr.Position()
-	r.sr.ShiftAt(uint32(fieldMetaLen))
+	_ = r.sr.ReadSlice(int(fieldMetaLen))
 	endOfFieldMeta := r.sr.Position()
 	// failing assertion: the remaining block is field block
 	if r.sr.Error() != nil || !r.sr.Empty() {
@@ -179,7 +179,7 @@ func (ti *tagKeyIDIterator) Next() (
 	tagKeyID uint32,
 ) {
 	tagKeyLen := ti.sr.ReadByte()
-	tagKey = string(ti.sr.ReadBytes(int(tagKeyLen)))
+	tagKey = string(ti.sr.ReadSlice(int(tagKeyLen)))
 	tagKeyID = ti.sr.ReadUint32()
 	return
 }
@@ -199,7 +199,7 @@ func (fi *fieldIDIterator) Next() (
 ) {
 	// read field-name
 	thisFieldNameLen := fi.sr.ReadByte()
-	fieldName = string(fi.sr.ReadBytes(int(thisFieldNameLen)))
+	fieldName = string(fi.sr.ReadSlice(int(thisFieldNameLen)))
 	// read field-type
 	fieldType = field.Type(fi.sr.ReadByte())
 	// read field-ID

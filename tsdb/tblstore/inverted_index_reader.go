@@ -2,12 +2,14 @@ package tblstore
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/RoaringBitmap/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -20,19 +22,36 @@ var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
 //go:generate mockgen -source ./inverted_index_reader.go -destination=./inverted_index_reader_mock.go -package tblstore
 
 const (
-	timeRangeSize = 4 + // uint32, start-time
+	invertedIndexTimeRangeSize = 4 + // uint32, start-time
 		4 // uint32, end-time
+	invertedIndexFooterSize = 4 + // offsets position
+		4 // crc32 checksum
 )
 
 // InvertedIndexReader reads versioned seriesID bitmap from series-index-table
 type InvertedIndexReader interface {
 	// GetSeriesIDsForTagKeyID get series ids for spec metric's keyID
-	GetSeriesIDsForTagKeyID(tagID uint32, timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	GetSeriesIDsForTagKeyID(
+		tagID uint32,
+		timeRange timeutil.TimeRange,
+	) (
+		*series.MultiVerSeriesIDSet,
+		error)
+
 	// FindSeriesIDsByExprForTagKeyID finds series ids by tag filter expr and tagKeyID
-	FindSeriesIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter,
-		timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
+	FindSeriesIDsByExprForTagKeyID(
+		tagID uint32, expr stmt.TagFilter,
+		timeRange timeutil.TimeRange,
+	) (
+		*series.MultiVerSeriesIDSet,
+		error)
+
 	// SuggestTagValues finds tagValues by prefix search
-	SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string
+	SuggestTagValues(
+		tagID uint32,
+		tagValuePrefix string,
+		limit int,
+	) []string
 }
 
 // invertedIndexReader implements InvertedIndexReader
@@ -46,16 +65,22 @@ func NewInvertedIndexReader(readers []table.Reader) InvertedIndexReader {
 }
 
 // FindSeriesIDsByExprForTagKeyID finds series ids by tag filter expr for tagId
-func (r *invertedIndexReader) FindSeriesIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
-	if len(entrySetBlocks) == 0 {
+func (r *invertedIndexReader) FindSeriesIDsByExprForTagKeyID(
+	tagID uint32,
+	expr stmt.TagFilter,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	entrySets := r.filterEntrySets(tagID, timeRange)
+	if len(entrySets) == 0 {
 		return nil, series.ErrNotFound
 	}
 	unionIDSet := series.NewMultiVerSeriesIDSet()
-	for _, entrySetBlock := range entrySetBlocks {
+	for _, entrySet := range entrySets {
 		var offsets []int
-		q, err := r.entrySetBlockToTreeQuerier(entrySetBlock)
+		q, err := entrySet.TrieTree()
 		if err != nil {
 			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
@@ -75,12 +100,9 @@ func (r *invertedIndexReader) FindSeriesIDsByExprForTagKeyID(tagID uint32, expr 
 		if len(offsets) == 0 {
 			continue
 		}
-		idSet, err := r.entrySetBlockToIDSet(entrySetBlock, timeRange, offsets)
+		idSet, err := r.entrySetToIDSet(entrySet, timeRange, offsets)
 		if err != nil {
 			return nil, err
-		}
-		if idSet == nil {
-			continue
 		}
 		unionIDSet.Or(idSet)
 	}
@@ -91,215 +113,122 @@ func (r *invertedIndexReader) FindSeriesIDsByExprForTagKeyID(tagID uint32, expr 
 }
 
 // GetSeriesIDsForTagKeyID get series ids for spec metric's tag keyID
-func (r *invertedIndexReader) GetSeriesIDsForTagKeyID(tagID uint32,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	entrySetBlocks := r.filterEntrySetBlocks(tagID, timeRange)
-	if len(entrySetBlocks) == 0 {
+func (r *invertedIndexReader) GetSeriesIDsForTagKeyID(
+	tagID uint32,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	entrySets := r.filterEntrySets(tagID, timeRange)
+	if len(entrySets) == 0 {
 		return nil, series.ErrNotFound
 	}
 	unionIDSet := series.NewMultiVerSeriesIDSet()
-	for _, entrySetBlock := range entrySetBlocks {
-		idSet, err := r.entrySetBlockToIDSet(entrySetBlock, timeRange, nil)
+	for _, entrySet := range entrySets {
+		idSet, err := r.entrySetToIDSet(entrySet, timeRange, nil)
 		if err != nil {
 			return nil, err
-		}
-		if idSet == nil {
-			continue
 		}
 		unionIDSet.Or(idSet)
 	}
 	return unionIDSet, nil
 }
 
-// filterEntrySetBlocks filters the entry-set block which matches the time-range in the series-index-table
-func (r *invertedIndexReader) filterEntrySetBlocks(tagID uint32, timeRange timeutil.TimeRange) (entrySetBlocks [][]byte) {
-	sr := stream.NewReader(nil)
+// filterEntrySets filters the entry-sets which matches the time-range in the series-index-table
+func (r *invertedIndexReader) filterEntrySets(
+	tagID uint32,
+	timeRange timeutil.TimeRange,
+) (
+	entrySets []*tagKVEntrySet,
+) {
 	for _, reader := range r.readers {
-		block := reader.Get(tagID)
-		if len(block) <= timeRangeSize {
+		entrySet, err := newTagKVEntrySet(reader.Get(tagID))
+		if err != nil {
 			continue
 		}
-		// read time-range of the total entry-set
-		sr.Reset(block)
-		startTime := sr.ReadUint32()
-		endTime := sr.ReadUint32()
-		blockTimeRange := timeutil.TimeRange{
-			Start: int64(startTime) * 1000,
-			End:   int64(endTime) * 1000}
-		if !timeRange.Overlap(&blockTimeRange) {
+		entrySetTimeRange := entrySet.TimeRange()
+		if !timeRange.Overlap(&entrySetTimeRange) {
 			continue
 		}
-		entrySetBlocks = append(entrySetBlocks, block)
+		entrySets = append(entrySets, entrySet)
 	}
 	return
 }
 
-// entrySetBlockToTreeQuerier converts the binary block to a tire tree block querier
-func (r *invertedIndexReader) entrySetBlockToTreeQuerier(block []byte) (trieTreeQuerier, error) {
-	var tree trieTreeBlock
-	sr := stream.NewReader(block)
-	// read time-range
-	_ = sr.ReadBytes(timeRangeSize)
-	////////////////////////////////
-	// Block: LOUDS Trie-Tree
-	////////////////////////////////
-	// read trie-tree length
-	expectedTrieTreeLen := sr.ReadUvarint64()
-	startPosOfTree := sr.Position()
-	// read label length
-	labelsLen := sr.ReadUvarint64()
-	// read labels block
-	tree.labels = sr.ReadBytes(int(labelsLen))
-	// read isPrefix length
-	isPrefixKeyLen := sr.ReadUvarint64()
-	// read isPrefixKey bitmap
-	isPrefixBlock := sr.ReadBytes(int(isPrefixKeyLen))
-	// read LOUDS length
-	loudsLen := sr.ReadUvarint64()
-	// read LOUDS block
-	LOUDSBlock := sr.ReadBytes(int(loudsLen))
-	// validation of stream error
-	if sr.Error() != nil {
-		return nil, sr.Error()
-	}
-	// validation of length
-	if sr.Position()-startPosOfTree != int(expectedTrieTreeLen) {
-		return nil, fmt.Errorf("failed validation of trie-tree")
-	}
-	// unmarshal LOUDS block to rank-select
-	tree.LOUDS = NewRankSelect()
-	if err := tree.LOUDS.UnmarshalBinary(LOUDSBlock); err != nil {
+// entrySetToIDSet parses the entry-set block, then return the multi-versions seriesID bitmap
+func (r *invertedIndexReader) entrySetToIDSet(
+	entrySet *tagKVEntrySet,
+	timeRange timeutil.TimeRange,
+	offsets []int,
+) (
+	idSet *series.MultiVerSeriesIDSet,
+	err error,
+) {
+	positions, err := entrySet.OffsetsToPosition(offsets)
+	if err != nil {
 		return nil, err
 	}
-	// unmarshal isPrefixKey block to rank-select
-	tree.isPrefixKey = NewRankSelect()
-	if err := tree.isPrefixKey.UnmarshalBinary(isPrefixBlock); err != nil {
-		return nil, err
-	}
-	return &tree, nil
-}
-
-// entrySetBlockToIDSet parses the entry-set block, then return the multi-versions seriesID bitmap
-func (r *invertedIndexReader) entrySetBlockToIDSet(block []byte, timeRange timeutil.TimeRange,
-	offsets []int) (*series.MultiVerSeriesIDSet, error) {
-
-	// read trie-tree length
-	sr := stream.NewReader(block)
-	_ = sr.ReadBytes(timeRangeSize)
-	trieTreeLen := sr.ReadUvarint64()
-	// move to the end of trie tree block
-	sr.ShiftAt(uint32(trieTreeLen))
-	if sr.Empty() || sr.Error() != nil {
-		return nil, fmt.Errorf("entrySet block length validation failure")
-	}
-	////////////////////////////////
-	// Block: TagValue Info
-	////////////////////////////////
-	// read tag-value count
-	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
-	tagValueCount := sr.ReadUvarint64()
-	if tagValueCount == 0 {
-		return nil, fmt.Errorf("tagValueCount equals to 0")
-	}
+	// sort positions for continuously read
 	var (
-		// offsets to the end of tagValueInfo block
-		tagValueDataBlockOffsets []int
-		offsetCounter            = 0
+		count         = 0
+		positionsList = make([]int, len(positions))
 	)
-	for i := 0; i < int(tagValueCount); i++ {
-		dataLen := sr.ReadUvarint64()
-		if sr.Error() != nil {
-			return nil, sr.Error()
-		}
-		// offsets is nil means traversing all blocks of tagValueData
-		// offsets contains i mean that is specified offset will be searched
-		if len(offsets) == 0 || intSliceContains(offsets, i) {
-			tagValueDataBlockOffsets = append(tagValueDataBlockOffsets, offsetCounter)
-		}
-		offsetCounter += int(dataLen)
+	for _, position := range positions {
+		positionsList[count] = position
+		count++
 	}
-	////////////////////////////////
-	// Block: Versioned TagValue Data
-	////////////////////////////////
-	if len(tagValueDataBlockOffsets) == 0 {
-		return nil, series.ErrNotFound
-	}
-	idSet := series.NewMultiVerSeriesIDSet()
-	for _, offset := range tagValueDataBlockOffsets {
-		subIDSet, err := r.readTagValueDataBlock(block, offset+sr.Position(), timeRange)
+	sort.Slice(positionsList, func(i, j int) bool { return positionsList[i] < positionsList[j] })
+	// read in order
+	for _, position := range positions {
+		tagValueData, err := entrySet.ReadTagValueDataBlock(position)
 		if err != nil {
 			return nil, err
 		}
-		if subIDSet == nil {
-			continue
+		for _, data := range tagValueData {
+			dataTimeRange := data.TimeRange()
+			if !timeRange.Overlap(&dataTimeRange) {
+				continue
+			}
+			bitmap, err := data.Bitmap()
+			if err != nil {
+				return nil, err
+			}
+			if idSet == nil {
+				idSet = series.NewMultiVerSeriesIDSet()
+			}
+			theBitMap, ok := idSet.Versions()[data.version]
+			if ok {
+				theBitMap.Or(bitmap)
+			} else {
+				theBitMap = bitmap
+			}
+			idSet.Add(data.version, theBitMap)
 		}
-		idSet.Or(subIDSet)
 	}
-	return idSet, nil
-}
-
-// readTagValueDataBlock parses the tagValueDataBlock, and return the the multi-versions seriesID bitmap
-func (r *invertedIndexReader) readTagValueDataBlock(block []byte, pos int,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
-	// jump to target
-	sr := stream.NewReader(block)
-	sr.ShiftAt(uint32(pos))
-
-	// read VersionCount
-	versionCount := sr.ReadUvarint64()
-	if versionCount == 0 || sr.Empty() || sr.Error() != nil {
-		return nil, fmt.Errorf("versionCount equals to 0")
-	}
-	var (
-		idSet       *series.MultiVerSeriesIDSet
-		readCounter = 0
-	)
-	for !sr.Empty() && readCounter < int(versionCount) {
-		// read version
-		version := series.Version(sr.ReadInt64())
-		// read start-time delta
-		startTime := sr.ReadVarint64()*1000 + int64(version)*1000 // startTime in milliseconds
-		// read end-time delta
-		endTime := sr.ReadVarint64()*1000 + int64(version)*1000 // endTime in milliseconds
-		// read bitmap length
-		bitMapLen := int(sr.ReadUvarint64())
-		// read bitmap
-		bitMapBlock := sr.ReadBytes(bitMapLen)
-		if sr.Error() != nil {
-			return nil, sr.Error()
-		}
-		// finished read a full VersionedTagValue block
-		// check time range
-		if !timeRange.Overlap(&timeutil.TimeRange{Start: startTime, End: endTime}) {
-			readCounter++
-			continue
-		}
-		// unmarshal bitmap
-		bitMap := roaring.New()
-		if err := bitMap.UnmarshalBinary(bitMapBlock); err != nil {
-			return nil, err
-		}
-		if idSet == nil {
-			idSet = series.NewMultiVerSeriesIDSet()
-		}
-		idSet.Add(version, bitMap)
-		readCounter++
+	if idSet == nil {
+		return nil, series.ErrNotFound
 	}
 	return idSet, nil
 }
 
 // SuggestTagValues finds tagValues by prefix search
-func (r *invertedIndexReader) SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string {
+func (r *invertedIndexReader) SuggestTagValues(
+	tagID uint32,
+	tagValuePrefix string,
+	limit int,
+) (
+	tagValues []string,
+) {
 	if limit > constants.MaxSuggestions {
 		limit = constants.MaxSuggestions
 	}
-	var tagValues []string
 	for _, reader := range r.readers {
-		block := reader.Get(tagID)
-		if len(block) <= timeRangeSize {
+		entrySet, err := newTagKVEntrySet(reader.Get(tagID))
+		if err != nil {
 			continue
 		}
-		q, err := r.entrySetBlockToTreeQuerier(block)
+		q, err := entrySet.TrieTree()
 		if err != nil {
 			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
@@ -312,8 +241,192 @@ func (r *invertedIndexReader) SuggestTagValues(tagID uint32, tagValuePrefix stri
 	return tagValues
 }
 
+type tagKVEntrySet struct {
+	sr            *stream.Reader
+	startTime     uint32
+	endTime       uint32
+	tree          trieTreeQuerier
+	offsetsBlock  []byte
+	crc32CheckSum uint32
+	// buffer
+	tagValueData []versionedTagValueData
+}
+
+func newTagKVEntrySet(block []byte) (*tagKVEntrySet, error) {
+	if len(block) <= invertedIndexTimeRangeSize+invertedIndexFooterSize {
+		return nil, fmt.Errorf("block length no ok")
+	}
+	entrySet := &tagKVEntrySet{
+		sr: stream.NewReader(block)}
+	entrySet.startTime = entrySet.sr.ReadUint32()
+	entrySet.endTime = entrySet.sr.ReadUint32()
+	// read footer
+	offsetsEndPos := len(block) - invertedIndexFooterSize
+	_ = entrySet.sr.ReadSlice(offsetsEndPos - invertedIndexTimeRangeSize)
+	offsetsStartPos := int(entrySet.sr.ReadUint32())
+	entrySet.crc32CheckSum = entrySet.sr.ReadUint32()
+	// validate offsets
+	if !(invertedIndexTimeRangeSize < offsetsStartPos && offsetsStartPos < offsetsEndPos) {
+		return nil, fmt.Errorf("bad offsets")
+	}
+	entrySet.offsetsBlock = block[offsetsStartPos:offsetsEndPos]
+	return entrySet, nil
+}
+
+// TimeRange computes the timeRange from delta in seconds
+func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
+	return timeutil.TimeRange{
+		Start: int64(entrySet.startTime) * 1000,
+		End:   int64(entrySet.endTime) * 1000}
+}
+
+// TrieTree builds the trie-tree block for querying
+func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
+	var tree trieTreeBlock
+	entrySet.sr.SeekStart()
+	// read time-range
+	_ = entrySet.sr.ReadSlice(invertedIndexTimeRangeSize)
+	////////////////////////////////
+	// Block: LOUDS Trie-Tree
+	////////////////////////////////
+	// read trie-tree length
+	expectedTrieTreeLen := entrySet.sr.ReadUvarint64()
+	startPosOfTree := entrySet.sr.Position()
+	// read label length
+	labelsLen := entrySet.sr.ReadUvarint64()
+	// read labels block
+	tree.labels = entrySet.sr.ReadSlice(int(labelsLen))
+	// read isPrefix length
+	isPrefixKeyLen := entrySet.sr.ReadUvarint64()
+	// read isPrefixKey bitmap
+	isPrefixBlock := entrySet.sr.ReadSlice(int(isPrefixKeyLen))
+	// read LOUDS length
+	loudsLen := entrySet.sr.ReadUvarint64()
+	// read LOUDS block
+	LOUDSBlock := entrySet.sr.ReadSlice(int(loudsLen))
+	// validation of stream error
+	if entrySet.sr.Error() != nil {
+		return nil, entrySet.sr.Error()
+	}
+	// validation of length
+	if entrySet.sr.Position()-startPosOfTree != int(expectedTrieTreeLen) {
+		return nil, fmt.Errorf("failed validation of trie-tree")
+	}
+	// unmarshal LOUDS block to rank-select
+	tree.LOUDS = NewRankSelect()
+	if err := tree.LOUDS.UnmarshalBinary(LOUDSBlock); err != nil {
+		return nil, err
+	}
+	// unmarshal isPrefixKey block to rank-select
+	tree.isPrefixKey = NewRankSelect()
+	if err := tree.isPrefixKey.UnmarshalBinary(isPrefixBlock); err != nil {
+		return nil, err
+	}
+	entrySet.tree = &tree
+	return entrySet.tree, nil
+}
+
+// ReadTagValueDataBlock reads tagValueDataBlocks at specified position
+func (entrySet *tagKVEntrySet) ReadTagValueDataBlock(
+	pos int,
+) (
+	[]versionedTagValueData,
+	error,
+) {
+	// jump to target
+	entrySet.sr.SeekStart()
+	_ = entrySet.sr.ReadSlice(pos)
+	// clear data
+	entrySet.tagValueData = entrySet.tagValueData[:0]
+	// reset buffer
+	versionCount := entrySet.sr.ReadUvarint64()
+	var counter = 0
+	for !entrySet.sr.Empty() && counter < int(versionCount) {
+		// read version
+		version := series.Version(entrySet.sr.ReadInt64())
+		// read start-time delta
+		startTimeDelta := entrySet.sr.ReadVarint64()
+		// read end-time delta
+		endTimeDelta := entrySet.sr.ReadVarint64()
+		// read bitmap length
+		bitMapLen := int(entrySet.sr.ReadUvarint64())
+		// read bitmap
+		bitMapBlock := entrySet.sr.ReadSlice(bitMapLen)
+		if entrySet.sr.Error() != nil {
+			break
+		}
+		entrySet.tagValueData = append(entrySet.tagValueData, versionedTagValueData{
+			version:        version,
+			startTimeDelta: startTimeDelta,
+			endTimeDelta:   endTimeDelta,
+			bitMapData:     bitMapBlock})
+		counter++
+	}
+	return entrySet.tagValueData, entrySet.sr.Error()
+}
+
+// OffsetsToPosition converts different offsets to positions
+func (entrySet *tagKVEntrySet) OffsetsToPosition(
+	offsets []int,
+) (
+	offsetsPos map[int]int,
+	err error,
+) {
+	offsetsPos = make(map[int]int)
+	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
+	decoder := encoding.NewDeltaBitPackingDecoder(entrySet.offsetsBlock)
+	var (
+		maxOffset     = math.MaxInt32
+		offsetCounter = 0
+	)
+	if len(offsets) != 0 {
+		maxOffset = offsets[len(offsets)-1]
+	}
+	for decoder.HasNext() && offsetCounter <= maxOffset {
+		pos := decoder.Next()
+		if len(offsets) == 0 || intSliceContains(offsets, offsetCounter) {
+			offsetsPos[offsetCounter] = int(pos)
+		}
+		offsetCounter++
+	}
+	// validate offset
+	if len(offsets) != 0 {
+		err = fmt.Errorf("read positions of offsets failure")
+		if _, ok := offsetsPos[offsets[0]]; !ok {
+			return nil, err
+		}
+		if _, ok := offsetsPos[offsets[len(offsets)-1]]; !ok {
+			return nil, err
+		}
+	}
+	return offsetsPos, nil
+}
+
 // intSliceContains detects if item is in the slice
 func intSliceContains(slice []int, item int) bool {
 	idx := sort.Search(len(slice), func(i int) bool { return slice[i] >= item })
 	return idx < len(slice) && slice[idx] == item
+}
+
+type versionedTagValueData struct {
+	version        series.Version
+	startTimeDelta int64
+	endTimeDelta   int64
+	bitMapData     []byte
+}
+
+// TimeRange computes the timeRange from delta in seconds
+func (data *versionedTagValueData) TimeRange() timeutil.TimeRange {
+	return timeutil.TimeRange{
+		Start: data.startTimeDelta*1000 + data.version.Int64(),
+		End:   data.endTimeDelta*1000 + data.version.Int64()}
+}
+
+// Bitmap unmarshals the binary to bitmap
+func (data *versionedTagValueData) Bitmap() (*roaring.Bitmap, error) {
+	bitmap := roaring.New()
+	if err := bitmap.UnmarshalBinary(data.bitMapData); err != nil {
+		return nil, err
+	}
+	return bitmap, nil
 }

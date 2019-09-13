@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	forwardIndexTimeRangeSize = 4 + // startTime
+		4 // endTime
 	footerSizeAfterVersionEntries = 4 + // versionOffsetPos, uint32
 		4 // CRC32 checksum, uint32
 	footerSizeOfVersionEntry = 4 + // Offsets's Position of DictBlock of versionEntry
@@ -67,7 +69,7 @@ func newForwardIndexVersionEntry(
 ) {
 	entry := &forwardIndexVersionEntry{
 		versionBlock: versionBlock,
-		sr:           stream.NewReader(nil),
+		sr:           stream.NewReader(versionBlock),
 		dict:         make(map[int]string),
 		bitArray:     collections.NewBitArray(nil),
 	}
@@ -76,7 +78,7 @@ func newForwardIndexVersionEntry(
 		return nil, err
 	}
 	// Read TimeRange Block
-	entry.sr.Reset(entry.versionBlock)
+	entry.sr.SeekStart()
 	entry.startTime = entry.sr.ReadUint32()
 	entry.endTime = entry.sr.ReadUint32()
 	// Read TagKeys Block
@@ -138,10 +140,10 @@ func (entry *forwardIndexVersionEntry) searchTagLUT(
 	err error,
 ) {
 	// jump to the tags LUT block
-	entry.sr.Reset(entry.versionBlock)
-	entry.sr.ShiftAt(uint32(offset))
+	entry.sr.SeekStart()
+	_ = entry.sr.ReadSlice(int(offset))
 	// read bit-array
-	bitArrayBuf := entry.sr.ReadBytes(entry.tagKeysBitArraySize)
+	bitArrayBuf := entry.sr.ReadSlice(entry.tagKeysBitArraySize)
 	entry.bitArray.Reset(bitArrayBuf)
 	// pre allocate space
 	indexes = make([]int, len(tagKeyIndexes))
@@ -173,12 +175,12 @@ func (entry *forwardIndexVersionEntry) searchTagLUT(
 
 // readTagKeys reads the tagKeys in order
 func (entry *forwardIndexVersionEntry) readTagKeys() error {
-	entry.sr.Reset(entry.versionBlock)
-	entry.sr.ShiftAt(uint32(timeRangeSize))
+	entry.sr.SeekStart()
+	_ = entry.sr.ReadSlice(forwardIndexTimeRangeSize)
 	tagKeyCount := entry.sr.ReadUvarint64()
 	for i := 0; i < int(tagKeyCount); i++ {
 		thisTagKeyLength := entry.sr.ReadUvarint64()
-		thisTagKey := entry.sr.ReadBytes(int(thisTagKeyLength))
+		thisTagKey := entry.sr.ReadSlice(int(thisTagKeyLength))
 		if entry.sr.Error() != nil {
 			return entry.sr.Error()
 		}
@@ -190,11 +192,11 @@ func (entry *forwardIndexVersionEntry) readTagKeys() error {
 
 // readFooter reads the positions in version entry block
 func (entry *forwardIndexVersionEntry) readFooter() (err error) {
-	if len(entry.versionBlock) <= footerSizeOfVersionEntry+timeRangeSize {
+	if len(entry.versionBlock) <= footerSizeOfVersionEntry+forwardIndexTimeRangeSize {
 		return fmt.Errorf("validation of versionEntrySize failed")
 	}
-	entry.sr.Reset(entry.versionBlock)
-	entry.sr.ShiftAt(uint32(len(entry.versionBlock) - footerSizeOfVersionEntry))
+	entry.sr.SeekStart()
+	_ = entry.sr.ReadSlice(len(entry.versionBlock) - footerSizeOfVersionEntry)
 	entry.posOfDictBlockOffset = int(entry.sr.ReadUint32())
 	entry.posOfOffsets = int(entry.sr.ReadUint32())
 	entry.posOfSeriesIDBitmap = int(entry.sr.ReadUint32())
@@ -209,8 +211,8 @@ func (entry *forwardIndexVersionEntry) readFooter() (err error) {
 // loadDictByIndexes decodes compressed string to the dict-block by specified indexes
 func (entry *forwardIndexVersionEntry) loadDictByIndexes(strIndexes []int) error {
 	// Read String Block Offsets In DictBlock
-	entry.sr.Reset(entry.versionBlock)
-	entry.sr.ShiftAt(uint32(entry.posOfDictBlockOffset))
+	entry.sr.SeekStart()
+	_ = entry.sr.ReadSlice(entry.posOfDictBlockOffset)
 	// string block index -> offsets
 	var (
 		offsets          []int
@@ -276,7 +278,7 @@ func (entry *forwardIndexVersionEntry) decodeStringBlock(
 	var offset = 0
 	for !entry.sr.Empty() {
 		tagValueLength := entry.sr.ReadUvarint64()
-		tagValue := entry.sr.ReadBytes(int(tagValueLength))
+		tagValue := entry.sr.ReadSlice(int(tagValueLength))
 		if entry.sr.Error() != nil {
 			return entry.sr.Error()
 		}
@@ -418,11 +420,11 @@ func (fii *forwardIndexVersionBlockIterator) readTotalVersions() {
 	//////////////////////////////////////////////////
 	// Read VersionOffSetsBlock
 	//////////////////////////////////////////////////
-	fii.sr.ShiftAt(uint32(len(fii.block) - footerSizeAfterVersionEntries))
+	_ = fii.sr.ReadSlice(len(fii.block) - footerSizeAfterVersionEntries)
 	versionOffsetPos := fii.sr.ReadUint32()
 	// shift to Start Position of the VersionOffsetsBlock
-	fii.sr.Reset(fii.block)
-	fii.sr.ShiftAt(versionOffsetPos)
+	fii.sr.SeekStart()
+	_ = fii.sr.ReadSlice(int(versionOffsetPos))
 	// read version count
 	fii.totalVersions = int(fii.sr.ReadUvarint64())
 }

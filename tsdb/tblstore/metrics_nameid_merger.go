@@ -58,7 +58,7 @@ func (m *metricsNameIDMerger) Merge(key uint32, value [][]byte) ([]byte, error) 
 		for !m.sr.Empty() {
 			// read length of metricName
 			size := m.sr.ReadUvarint64()
-			metricName := m.sr.ReadBytes(int(size))
+			metricName := m.sr.ReadSlice(int(size))
 			metricID := m.sr.ReadUint32()
 			if m.sr.Error() != nil {
 				return nil, m.sr.Error()

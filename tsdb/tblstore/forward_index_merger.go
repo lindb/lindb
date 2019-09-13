@@ -6,59 +6,65 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 )
 
 type forwardIndexMerger struct {
-	flusher          *forwardIndexFlusher
-	reader           *forwardIndexReader
-	nopKVFlusher     *kv.NopFlusher
-	versionBlocksMap map[series.Version][][]byte // version->List<VersionBlock>
-	ttl              time.Duration
+	flusher      *forwardIndexFlusher
+	reader       *forwardIndexReader
+	nopKVFlusher *kv.NopFlusher
+	ttl          time.Duration
+	sr           *stream.Reader
 }
 
 func NewForwardIndexMerger(ttl time.Duration) kv.Merger {
-	m := &forwardIndexMerger{
-		reader:           NewForwardIndexReader(nil).(*forwardIndexReader),
-		nopKVFlusher:     kv.NewNopFlusher(),
-		versionBlocksMap: make(map[series.Version][][]byte),
-		ttl:              ttl,
-	}
-	m.flusher = NewForwardIndexFlusher(m.nopKVFlusher).(*forwardIndexFlusher)
-	return m
+	nopKVFlusher := kv.NewNopFlusher()
+	return &forwardIndexMerger{
+		reader:       NewForwardIndexReader(nil).(*forwardIndexReader),
+		nopKVFlusher: nopKVFlusher,
+		flusher:      NewForwardIndexFlusher(nopKVFlusher).(*forwardIndexFlusher),
+		ttl:          ttl,
+		sr:           stream.NewReader(nil)}
 }
 
 func (m *forwardIndexMerger) Reset() {
 	m.flusher.Reset()
-	for version := range m.versionBlocksMap {
-		delete(m.versionBlocksMap, version)
-	}
 }
 
-func (m *forwardIndexMerger) latestVersionBlock(version series.Version) []byte {
-	list := m.versionBlocksMap[version]
-	var longestBlock []byte
-	for _, block := range list {
-		if len(block) > len(longestBlock) {
-			longestBlock = block
+func (m *forwardIndexMerger) latestVersionBlock(versionBlocks [][]byte) []byte {
+	var (
+		latestIndex int
+		maxEndTime  uint32
+	)
+	for idx, block := range versionBlocks {
+		m.sr.Reset(block)
+		_, endTime := m.sr.ReadUint32(), m.sr.ReadUint32()
+		if endTime > maxEndTime {
+			maxEndTime = endTime
+			latestIndex = idx
 		}
 	}
-	return longestBlock
+	m.sr.Reset(nil)
+	return versionBlocks[latestIndex]
 }
 
 // AliveVersions deletes the expired versions
-func (m *forwardIndexMerger) AliveVersions() (alive []series.Version) {
+func (m *forwardIndexMerger) AliveVersions(
+	versionBlocksMap map[series.Version][][]byte,
+) (alive []series.Version,
+) {
 	var versions []series.Version
 	// collect a sorted versions list
-	for version := range m.versionBlocksMap {
+	for version := range versionBlocksMap {
 		versions = append(versions, version)
 	}
-	sort.Slice(versions, func(i, j int) bool { return versions[i] < versions[j] })
+	sort.Slice(versions, func(i, j int) bool { return versions[i].Before(versions[j]) })
 
 	var lastVersion series.Version
 	for _, version := range versions {
 		lastVersion = version
-		if version.Time().Add(m.ttl).After(time.Now()) {
+		if !version.IsExpired(m.ttl) {
 			alive = append(alive, version)
 		}
 	}
@@ -77,6 +83,8 @@ func (m *forwardIndexMerger) Merge(
 ) {
 	defer m.Reset()
 
+	// version->List<VersionBlock>
+	var versionBlocksMap = make(map[series.Version][][]byte)
 	for _, block := range value {
 		versionBlockItr := newForwardIndexVersionBlockIterator(block)
 		for versionBlockItr.HasNext() {
@@ -84,20 +92,20 @@ func (m *forwardIndexMerger) Merge(
 			if versionBlock == nil {
 				continue
 			}
-			list, ok := m.versionBlocksMap[version]
+			list, ok := versionBlocksMap[version]
 			if ok {
 				list = append(list, versionBlock)
 			} else {
 				list = [][]byte{versionBlock}
 			}
-			m.versionBlocksMap[version] = list
+			versionBlocksMap[version] = list
 		}
 	}
-	if len(m.versionBlocksMap) == 0 {
+	if len(versionBlocksMap) == 0 {
 		return nil, fmt.Errorf("no available blocks for compacting")
 	}
-	for _, version := range m.AliveVersions() {
-		latestVersionBlock := m.latestVersionBlock(version)
+	for _, version := range m.AliveVersions(versionBlocksMap) {
+		latestVersionBlock := m.latestVersionBlock(versionBlocksMap[version])
 		startPos := m.flusher.metricBlockWriter.Len()
 		m.flusher.metricBlockWriter.PutBytes(latestVersionBlock)
 		m.flusher.RecordVersionOffset(version, startPos)

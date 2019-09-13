@@ -6,6 +6,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bufpool"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
@@ -24,8 +25,8 @@ type InvertedIndexFlusher interface {
 	FlushVersion(version series.Version, startTime, endTime uint32, bitmap *roaring.Bitmap)
 	// FlushTagValue ends writing VersionedTagValueBlock in index table.
 	FlushTagValue(tagValue string)
-	// FlushTagID ends writing entrySetBlock in index table.
-	FlushTagID(tagID uint32) error
+	// FlushTagKeyID ends writing entrySetBlock in index table.
+	FlushTagKeyID(tagID uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
 	Commit() error
 }
@@ -37,6 +38,7 @@ func NewInvertedIndexFlusher(flusher kv.Flusher) InvertedIndexFlusher {
 		entrySetWriter: stream.NewBufferWriter(nil),
 		trie:           newTrieTree(),
 		tagValueWriter: stream.NewBufferWriter(nil),
+		offsets:        encoding.NewDeltaBitPackingEncoder(),
 	}
 }
 
@@ -45,6 +47,7 @@ type invertedIndexFlusher struct {
 	flusher        kv.Flusher
 	trie           trieTreeBuilder
 	entrySetWriter *stream.BufferWriter
+	offsets        *encoding.DeltaBitPackingEncoder
 	// time range
 	minStartTime uint32
 	maxEndTime   uint32
@@ -60,6 +63,20 @@ func (w *invertedIndexFlusher) FlushVersion(
 	startTime,
 	endTime uint32,
 	bitmap *roaring.Bitmap,
+) {
+	out, err := bitmap.MarshalBinary()
+	if err != nil {
+		invertedIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
+	}
+	w.flushVersion(version, startTime, endTime, out)
+}
+
+// real flush-version method
+func (w *invertedIndexFlusher) flushVersion(
+	version series.Version,
+	startTime uint32,
+	endTime uint32,
+	bitmapData []byte,
 ) {
 	if w.tagValueBuffer == nil {
 		w.tagValueBuffer = bufpool.GetBuffer()
@@ -77,19 +94,15 @@ func (w *invertedIndexFlusher) FlushVersion(
 	// write version
 	w.tagValueWriter.PutInt64(version.Int64())
 	// write startTime delta
-	startTimeDelta := int64(startTime) - int64(version)
+	startTimeDelta := int64(startTime) - version.Int64()/1000 // seconds
 	w.tagValueWriter.PutVarint64(startTimeDelta)
 	// write endTime delta
-	endTimeDelta := int64(endTime) - int64(version)
+	endTimeDelta := int64(endTime) - version.Int64()/1000 // seconds
 	w.tagValueWriter.PutVarint64(endTimeDelta)
 	// write bitmap length
-	out, err := bitmap.MarshalBinary()
-	if err != nil {
-		invertedIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
-	}
-	w.tagValueWriter.PutUvarint64(uint64(len(out)))
+	w.tagValueWriter.PutUvarint64(uint64(len(bitmapData)))
 	// write bitmap data
-	w.tagValueWriter.PutBytes(out)
+	w.tagValueWriter.PutBytes(bitmapData)
 }
 
 // bufferWithVersionCount is the value of trie-tree node
@@ -108,15 +121,30 @@ func (w *invertedIndexFlusher) FlushTagValue(tagValue string) {
 	w.versionCount = 0
 }
 
-// FlushTagID ends writing entrySetBlock in index table.
-func (w *invertedIndexFlusher) FlushTagID(tagID uint32) error {
+// FlushTagKeyID ends writing entrySetBlock in index table.
+func (w *invertedIndexFlusher) FlushTagKeyID(tagID uint32) error {
 	defer w.reset()
 
-	treeDataBlock := w.trie.MarshalBinary()
 	// write startTime
 	w.entrySetWriter.PutUint32(w.minStartTime)
 	// write endTime
 	w.entrySetWriter.PutUint32(w.maxEndTime)
+
+	treeDataBlock := w.trie.MarshalBinary()
+	// write tree
+	if err := w.writeTrieTree(treeDataBlock); err != nil {
+		return err
+	}
+	// write tagValueData list
+	w.writeTagValueData(treeDataBlock)
+	// write offsets, footer
+	w.writeOffsetsAndFooter()
+	// write all
+	data, _ := w.entrySetWriter.Bytes()
+	return w.flusher.Add(tagID, data)
+}
+
+func (w *invertedIndexFlusher) writeTrieTree(treeDataBlock *trieTreeData) error {
 	// build isPrefixKey
 	isPrefixBlock, err := treeDataBlock.isPrefixKey.MarshalBinary()
 	if err != nil {
@@ -144,39 +172,40 @@ func (w *invertedIndexFlusher) FlushTagID(tagID uint32) error {
 	// write LOUDS length & bitmap
 	w.entrySetWriter.PutUvarint64(uint64(len(LOUDSBlock)))
 	w.entrySetWriter.PutBytes(LOUDSBlock)
+	return nil
+}
+
+func (w *invertedIndexFlusher) writeTagValueData(treeDataBlock *trieTreeData) {
 	// write tagValueCount
 	w.entrySetWriter.PutUvarint64(uint64(len(treeDataBlock.values)))
 	// write all data length and versioned tagValue data blocks
-	w.writeTagValueDataBlockTo(w.entrySetWriter, treeDataBlock)
-
-	// write crc32 checksum
-	data, _ := w.entrySetWriter.Bytes()
-	w.entrySetWriter.PutUint32(crc32.ChecksumIEEE(data))
-	data, _ = w.entrySetWriter.Bytes()
-	return w.flusher.Add(tagID, data)
-}
-
-// writeTagValueDataBlockTo write tagValueDataBlocks to the writer.
-func (w *invertedIndexFlusher) writeTagValueDataBlockTo(writer *stream.BufferWriter, treeDataBlock *trieTreeData) {
-	// write lengths of all versioned tagValue data block
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
-		// write all data length
-		dataBlockLen := stream.UvariantSize(uint64(it.versionCount)) + // version count size
-			len(it.buffer.Bytes()) // versionedTagValue blocks
-		writer.PutUvarint64(uint64(dataBlockLen))
-	}
-	// write all versioned tagValue data block
-	for _, item := range treeDataBlock.values {
-		it := item.(bufferWithVersionCount)
+		// record this position
+		w.offsets.Add(int32(w.entrySetWriter.Len()))
 		// write version count
-		writer.PutUvarint64(uint64(it.versionCount))
+		w.entrySetWriter.PutUvarint64(uint64(it.versionCount))
 		// write all versions of tagValue bitmaps
-		writer.PutBytes(it.buffer.Bytes())
+		w.entrySetWriter.PutBytes(it.buffer.Bytes())
 		// put buffer back to pool
 		it.buffer.Reset()
 		bufpool.PutBuffer(it.buffer)
 	}
+}
+
+func (w *invertedIndexFlusher) writeOffsetsAndFooter() {
+	// offsets start position
+	offsetsStartPos := w.entrySetWriter.Len()
+	// write offsets
+	w.entrySetWriter.PutBytes(w.offsets.Bytes())
+	////////////////////////////////
+	// footer
+	////////////////////////////////
+	// write offsets start position
+	w.entrySetWriter.PutUint32(uint32(offsetsStartPos))
+	// write crc32 checksum
+	data, _ := w.entrySetWriter.Bytes()
+	w.entrySetWriter.PutUint32(crc32.ChecksumIEEE(data))
 }
 
 // Commit closes the writer, this will be called after writing all tagKeys.
@@ -188,5 +217,6 @@ func (w *invertedIndexFlusher) Commit() error {
 // reset resets the trie and buf
 func (w *invertedIndexFlusher) reset() {
 	w.trie.Reset()
+	w.offsets.Reset()
 	w.entrySetWriter.Reset()
 }
