@@ -104,7 +104,7 @@ func Benchmark_trie_MarshalBinary(b *testing.B) {
 	}
 }
 
-func Test_trieTreeQuerier(t *testing.T) {
+func buildTestTrieTreeData() *trieTreeData {
 	/*
 		c5   e      f
 		d6   l   t  i
@@ -125,8 +125,11 @@ func Test_trieTreeQuerier(t *testing.T) {
 	tree.Add("firefox", 4) // index: 5
 	tree.Add("c", 5)       // index: 0
 	tree.Add("cd", 6)      // index: 1
+	return tree.MarshalBinary()
+}
 
-	data := tree.MarshalBinary()
+func Test_trieTree_FindOffsetsByEqual(t *testing.T) {
+	data := buildTestTrieTreeData()
 	// test FindOffsetsByEqual
 	assert.Equal(t, []int{3}, data.FindOffsetsByEqual("eleme"))
 	assert.Equal(t, []int{2}, data.FindOffsetsByEqual("etcd"))
@@ -139,33 +142,100 @@ func Test_trieTreeQuerier(t *testing.T) {
 	assert.Len(t, data.FindOffsetsByEqual("etcd1"), 0)
 	assert.Len(t, data.FindOffsetsByEqual("fire"), 0)
 	assert.Len(t, data.FindOffsetsByEqual("etrac"), 0)
+}
 
+func Test_trieTree_walkTreeByValue(t *testing.T) {
+	data := buildTestTrieTreeData()
+
+	expects := []struct {
+		prefixValue string
+		exhausted   bool
+		nodeNumber  uint64
+	}{
+		{"", true, 1},
+		{"e", true, 3},
+		{"z", false, 22},
+		{"ellme", false, 22},
+		{"elome", false, 22},
+		{"elemee", false, 22},
+	}
+	for _, testCase := range expects {
+		exhausted, nodeNumber := data.walkTreeByValue(testCase.prefixValue)
+		assert.Equal(t, testCase.exhausted, exhausted)
+		assert.Equal(t, testCase.nodeNumber, nodeNumber)
+	}
+}
+
+func Test_trieTree_FindOffsetsByIn(t *testing.T) {
+	data := buildTestTrieTreeData()
 	// test FindOffsetsByIn
 	assert.Len(t, data.FindOffsetsByIn([]string{"d", "c"}), 1)
 	assert.Equal(t, []int{0}, data.FindOffsetsByIn([]string{"d", "c"}))
 	assert.Equal(t, []int{3, 2}, data.FindOffsetsByIn([]string{"eleme", "etcd"}))
 	assert.Equal(t, []int{4, 5}, data.FindOffsetsByIn([]string{"etrace", "etrace1", "firefox"}))
+}
 
+func Test_trieTree_FindOffsetsByLike(t *testing.T) {
+	data := buildTestTrieTreeData()
 	// test FindOffsetsByLike
 	assert.Equal(t, []int{0, 1}, data.FindOffsetsByLike("c"))
 	assert.Equal(t, []int{1}, data.FindOffsetsByLike("cd"))
-	assert.Equal(t, []int{2, 4}, data.FindOffsetsByLike("et"))
+	assert.Equal(t, []int{4, 2}, data.FindOffsetsByLike("et"))
 	assert.Equal(t, []int{5}, data.FindOffsetsByLike("fire"))
 	assert.Nil(t, data.FindOffsetsByLike(""))
 	assert.Nil(t, data.FindOffsetsByLike("etrace1"))
+}
 
+func Test_trieTree_FindOffsetsByRegex(t *testing.T) {
+	data := buildTestTrieTreeData()
 	// test FindOffsetsByRegex
 	assert.Len(t, data.FindOffsetsByRegex("et"), 2)
 	assert.Len(t, data.FindOffsetsByRegex("cd"), 1)
 	assert.Len(t, data.FindOffsetsByRegex("^c[a-d]?"), 2)
 	// bad pattern
 	assert.Nil(t, data.FindOffsetsByRegex("[a^-#]("))
+}
 
+func Test_trieTree_PrefixSearch(t *testing.T) {
+	data := buildTestTrieTreeData()
 	// test PrefixSearch
 	assert.Len(t, data.PrefixSearch("e", 3), 3)
 	assert.Len(t, data.PrefixSearch("e", 1), 1)
 	assert.Len(t, data.PrefixSearch("etcd1", 1), 0)
+}
 
+func Test_trieTree_Iterator(t *testing.T) {
+	data := buildTestTrieTreeData()
+	// test iterator with prefix
+	itr1 := data.Iterator("e")
+	assert.True(t, itr1.HasNext())
+	value, offset := itr1.Next()
+	assert.Equal(t, "etrace", value)
+	assert.Equal(t, 4, offset)
+
+	assert.True(t, itr1.HasNext())
+	value, offset = itr1.Next()
+	assert.Equal(t, "etcd", value)
+	assert.Equal(t, 2, offset)
+
+	assert.True(t, itr1.HasNext())
+	value, offset = itr1.Next()
+	assert.Equal(t, "eleme", value)
+	assert.Equal(t, 3, offset)
+	assert.False(t, itr1.HasNext())
+
+	// test iterator with no-prefix
+	itr2 := data.Iterator("")
+	var count = 0
+	for itr2.HasNext() {
+		count++
+	}
+	assert.Equal(t, 6, count)
+
+	// has Error
+	itr3 := data.Iterator("not-exist")
+	assert.False(t, itr3.HasNext())
+	assert.False(t, itr3.HasNext())
 }
 
 var (
@@ -223,6 +293,17 @@ func BenchmarkTrieTree_RegexSearch(b *testing.B) {
 func BenchmarkTrieTree_PrefixSearch(b *testing.B) {
 	data := prepareTrieTreeData()
 	for i := 0; i < b.N; i++ {
-		data.PrefixSearch("192.168.1.1", 100)
+		data.PrefixSearch("192.168", 200000)
+	}
+}
+
+func BenchmarkTrieTree_Iterator(b *testing.B) {
+	data := prepareTrieTreeData()
+
+	for i := 0; i < b.N; i++ {
+		itr := data.Iterator("192.168")
+		for itr.HasNext() {
+			itr.Next()
+		}
 	}
 }

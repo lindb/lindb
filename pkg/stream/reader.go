@@ -3,8 +3,12 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 )
+
+// ErrUnexpectedRead is raised when reading negative length
+var ErrUnexpectedRead = fmt.Errorf("unexpected read")
 
 // Reader is a stream reader
 type Reader struct {
@@ -95,6 +99,10 @@ func (r *Reader) ReadByte() byte {
 
 // ReadBytes reads n len bytes
 func (r *Reader) ReadBytes(n int) []byte {
+	if n < 0 {
+		r.err = ErrUnexpectedRead
+		return nil
+	}
 	block := make([]byte, n)
 	for i := 0; i < n; i++ {
 		block[i], r.err = r.reader.ReadByte()
@@ -103,6 +111,25 @@ func (r *Reader) ReadBytes(n int) []byte {
 		}
 	}
 	return block
+}
+
+// ReadSlice returns a sub-slice.
+// make sure that the sub-slice is not in use before calling Reset.
+func (r *Reader) ReadSlice(n int) []byte {
+	if n < 0 {
+		r.err = ErrUnexpectedRead
+		return nil
+	}
+	if r.err != nil {
+		return nil
+	}
+	startPos, endPos := r.Position(), r.Position()+n
+	if endPos > len(r.original) {
+		endPos = len(r.original)
+		r.err = io.EOF
+	}
+	r.reader.Reset(r.original[endPos:])
+	return r.original[startPos:endPos]
 }
 
 // Empty reports whether the unread portion of the buffer is empty.
@@ -115,22 +142,17 @@ func (r *Reader) Position() int {
 	return len(r.original) - r.reader.Len()
 }
 
-// ShiftAt shifts to a new position at a specific offset
-func (r *Reader) ShiftAt(offset uint32) {
-	newPos := r.Position() + int(offset)
-	if newPos > len(r.original) {
-		r.reader = bytes.NewReader(nil)
-		r.err = io.EOF
-		return
-	}
-	r.reader.Reset(r.original[newPos:])
-}
-
 // Reset resets the Reader, then reads from the buffer
 func (r *Reader) Reset(buf []byte) {
 	r.original = buf
 	r.reader.Reset(buf)
 	r.err = nil
+}
+
+// SeekStart seeks to the start of the underlying slice.
+func (r *Reader) SeekStart() {
+	r.err = nil
+	r.reader.Reset(r.original)
 }
 
 // Error return binary err

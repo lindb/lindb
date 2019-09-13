@@ -120,10 +120,10 @@ func (d *TSDDecoder) Reset(data []byte) {
 	d.endTime = d.startTime + d.count - 1
 
 	length := d.reader.ReadUvarint32()
-	d.timeSlots.Reset(d.reader.ReadBytes(int(length)))
+	d.timeSlots.Reset(d.reader.ReadSlice(int(length)))
 
 	length = d.reader.ReadUvarint32()
-	d.values.Reset(d.reader.ReadBytes(int(length)))
+	d.values.Reset(d.reader.ReadSlice(int(length)))
 }
 
 // Error returns decode error

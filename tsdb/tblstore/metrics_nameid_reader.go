@@ -54,7 +54,7 @@ func (r *metricsNameIDReader) UnmarshalBinaryToART(
 	for !r.sr.Empty() {
 		// read length of metricName
 		size := r.sr.ReadUvarint64()
-		metricName := r.sr.ReadBytes(int(size))
+		metricName := r.sr.ReadSlice(int(size))
 		metricID := r.sr.ReadUint32()
 		if r.sr.Error() != nil {
 			return r.sr.Error()
@@ -119,10 +119,10 @@ func (r *metricsNameIDReader) ReadBlock(
 	if len(block) < metricNameIDSequenceSize {
 		return nil, 0, 0, false
 	}
-	idSequencePos := uint32(len(block) - metricNameIDSequenceSize)
+	idSequencePos := len(block) - metricNameIDSequenceSize
 	compressed = block[:idSequencePos]
 	r.sr.Reset(block)
-	r.sr.ShiftAt(idSequencePos)
+	_ = r.sr.ReadSlice(idSequencePos)
 
 	metricIDSeq = r.sr.ReadUint32()
 	tagKeyIDSeq = r.sr.ReadUint32()
