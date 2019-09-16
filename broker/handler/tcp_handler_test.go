@@ -1,92 +1,40 @@
 package handler
 
 import (
-	"errors"
-	"fmt"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/field"
 )
 
-func TestTcpHandler_Handle(t *testing.T) {
+// 正常情况
+func TestTcpHandler_HandleConn_Normal(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
 	cm := replication.NewMockChannelManager(ctl)
 
 	h := NewTCPHandler(cm)
-	tcpServer := rpc.NewTCPServer(":9000", h)
+
+	in, out := net.Pipe()
+
+	done := make(chan struct{})
 
 	go func() {
-		if err := tcpServer.Start(); err != nil {
-			fmt.Printf("DEBUG IGNORE %v", err)
+		if err := h.Handle(out); err != nil {
+			t.Error(err)
 		}
+		done <- struct{}{}
 	}()
 
-	time.Sleep(20 * time.Millisecond)
-	wg := &sync.WaitGroup{}
-
-	wg.Add(5)
-	go func() {
-		testMetrics(wg, t, cm, 1, nil)
-	}()
-	go func() {
-		testMetrics(wg, t, cm, 2, errors.New("mock err"))
-	}()
-	go func() {
-		testMetrics2(wg, t, cm, 2, nil)
-	}()
-	go func() {
-		testWrongBytes1(wg, t, cm)
-	}()
-	go func() {
-		testWrongBytes2(wg, t, cm)
-	}()
-
-	wg.Wait()
-	// wait for server handler go routine
-	time.Sleep(200 * time.Millisecond)
-	tcpServer.Stop()
-
-}
-
-func testMetrics(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChannelManager, value float64, mockErr error) {
-	conn, err := net.Dial("tcp", ":9000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeMetricList(wg, t, cm, conn, value, mockErr)
-
-	if err := conn.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func testMetrics2(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChannelManager, value float64, mockErr error) {
-	conn, err := net.Dial("tcp", ":9000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	wg.Add(1)
-	writeMetricList(wg, t, cm, conn, value, nil)
-	writeMetricList(wg, t, cm, conn, value, mockErr)
-
-	if err := conn.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writeMetricList(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChannelManager, conn net.Conn, value float64, mockErr error) {
-	defer wg.Done()
-	metricList := buildMetricList(value)
+	// first metric list
+	metricList := buildMetricList(1)
 	metricListBytes, err := metricList.Marshal()
 	if err != nil {
 		t.Fatal(err)
@@ -96,14 +44,14 @@ func writeMetricList(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChann
 	writer.PutInt32(int32(len(metricListBytes)))
 	writer.PutBytes(metricListBytes)
 
+	cm.EXPECT().Write(metricList).Return(nil)
+
 	bytes, err := writer.Bytes()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cm.EXPECT().Write(gomock.Any()).Return(mockErr)
-
-	n, err := conn.Write(bytes)
+	n, err := in.Write(bytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,14 +59,57 @@ func writeMetricList(wg *sync.WaitGroup, t *testing.T, cm *replication.MockChann
 	if n != len(bytes) {
 		t.Fatal("should not happen")
 	}
-}
 
-func testWrongBytes1(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChannelManager) {
-	defer wg.Done()
-	conn, err := net.Dial("tcp", ":9000")
+	// second metric list
+	metricList2 := buildMetricList(1)
+	metricListBytes2, err := metricList2.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	writer.Reset()
+	writer.PutInt32(int32(len(metricListBytes2)))
+	writer.PutBytes(metricListBytes2)
+
+	cm.EXPECT().Write(metricList2).Return(nil)
+
+	bytes2, err := writer.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n2, err := in.Write(bytes2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n2 != len(bytes) {
+		t.Fatal("should not happen")
+	}
+
+	if err := in.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	<-done
+}
+
+// length bytes不足4字节
+func TestTcpHandler_SizeBytesNotEnough(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	cm := replication.NewMockChannelManager(ctl)
+
+	h := NewTCPHandler(cm)
+
+	in, out := net.Pipe()
+
+	go func() {
+		if err := h.Handle(out); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	writer := stream.NewBufferWriter(nil)
 	writer.PutByte(1)
@@ -128,7 +119,7 @@ func testWrongBytes1(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChanne
 		t.Fatal(err)
 	}
 
-	n, err := conn.Write(bytes)
+	n, err := in.Write(bytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,17 +128,27 @@ func testWrongBytes1(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChanne
 		t.Fatal("should not happen")
 	}
 
-	if err := conn.Close(); err != nil {
+	if err := in.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func testWrongBytes2(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChannelManager) {
-	defer wg.Done()
-	conn, err := net.Dial("tcp", ":9000")
-	if err != nil {
-		t.Fatal(err)
-	}
+// data bytes不足 length bytes表示的长度
+func TestTcpHandler_DataBytesNotEnough(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	cm := replication.NewMockChannelManager(ctl)
+
+	h := NewTCPHandler(cm)
+
+	in, out := net.Pipe()
+
+	go func() {
+		if err := h.Handle(out); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	writer := stream.NewBufferWriter(nil)
 	writer.PutInt32(2)
@@ -158,7 +159,7 @@ func testWrongBytes2(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChanne
 		t.Fatal(err)
 	}
 
-	n, err := conn.Write(bytes)
+	n, err := in.Write(bytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,9 +168,61 @@ func testWrongBytes2(wg *sync.WaitGroup, t *testing.T, _ *replication.MockChanne
 		t.Fatal("should not happen")
 	}
 
-	if err := conn.Close(); err != nil {
+	if err := in.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestTcpHandler_UnmarshalFail(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	cm := replication.NewMockChannelManager(ctl)
+
+	h := NewTCPHandler(cm)
+
+	in, out := net.Pipe()
+
+	done := make(chan struct{})
+
+	go func() {
+		err := h.Handle(out)
+		if err == nil {
+			t.Error("should be error")
+		}
+		logger.GetLogger("broker", "TCPHandler").Error("handler error", logger.Error(err))
+		done <- struct{}{}
+	}()
+
+	// first metric list
+	metricList := buildMetricList(1)
+	metricListBytes, err := metricList.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// fake bit error
+	metricListBytes[0]++
+
+	writer := stream.NewBufferWriter(nil)
+	writer.PutInt32(int32(len(metricListBytes)))
+	writer.PutBytes(metricListBytes)
+
+	bytes, err := writer.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := in.Write(bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n != len(bytes) {
+		t.Fatal("should not happen")
+	}
+
+	<-done
 }
 
 func buildMetricList(value float64) *field.MetricList {
