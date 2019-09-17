@@ -229,7 +229,7 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 		if !ok {
 			continue
 		}
-		mStore.setMaxTagsLimit(limit)
+		mStore.SetMaxTagsLimit(limit)
 	}
 }
 
@@ -261,8 +261,8 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	hash := fnv1a.HashString64(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
 
-	err = mStore.write(metric, writeContext{
-		metricID:            mStore.getMetricID(),
+	err = mStore.Write(metric, writeContext{
+		metricID:            mStore.GetMetricID(),
 		blockStore:          md.blockStore,
 		generator:           md.generator,
 		familyTime:          familyStartTime,
@@ -298,13 +298,13 @@ func (md *memoryDatabase) evict(bucket *mStoresBucket) {
 
 	for idx, mStore := range allMStores {
 		// delete tag of tStore which has not been used for a while
-		mStore.evict()
+		mStore.Evict()
 		// delete mStore whose tags is empty now.
-		if mStore.isEmpty() {
+		if mStore.IsEmpty() {
 			bucket.rwLock.Lock()
-			if mStore.isEmpty() {
+			if mStore.IsEmpty() {
 				delete(bucket.hash2MStore, metricHashes[idx])
-				md.metricID2Hash.Delete(mStore.getMetricID())
+				md.metricID2Hash.Delete(mStore.GetMetricID())
 			}
 			bucket.rwLock.Unlock()
 		}
@@ -317,7 +317,7 @@ func (md *memoryDatabase) ResetMetricStore(metricName string) error {
 	if !ok {
 		return fmt.Errorf("metric: %s doesn't exist", metricName)
 	}
-	return mStore.resetVersion()
+	return mStore.ResetVersion()
 }
 
 // CountMetrics returns count of metrics in all buckets.
@@ -337,7 +337,7 @@ func (md *memoryDatabase) CountTags(metricName string) int {
 	if !ok {
 		return -1
 	}
-	return mStore.getTagsUsed()
+	return mStore.GetTagsUsed()
 }
 
 // Families returns the families in memory which has not been flushed yet.
@@ -394,8 +394,8 @@ func (md *memoryDatabase) FlushFamilyTo(flusher tblstore.MetricsDataFlusher, fam
 
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushMetricsTo(flusher, flushContext{
-				metricID:     mStore.getMetricID(),
+			if err = mStore.FlushMetricsTo(flusher, flushContext{
+				metricID:     mStore.GetMetricID(),
 				familyTime:   familyTime,
 				timeInterval: md.interval,
 			}); err != nil {
@@ -415,7 +415,7 @@ func (md *memoryDatabase) FlushInvertedIndexTo(flusher tblstore.InvertedIndexFlu
 		bkt := md.mStoresList[bucketIndex]
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushInvertedIndexTo(flusher, md.generator); err != nil {
+			if err = mStore.FlushInvertedIndexTo(flusher, md.generator); err != nil {
 				return err
 			}
 		}
@@ -430,7 +430,7 @@ func (md *memoryDatabase) FlushForwardIndexTo(flusher tblstore.ForwardIndexFlush
 		bkt := md.mStoresList[bucketIndex]
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.flushForwardIndexTo(flusher); err != nil {
+			if err = mStore.FlushForwardIndexTo(flusher); err != nil {
 				return err
 			}
 		}
@@ -452,7 +452,7 @@ func (md *memoryDatabase) FindSeriesIDsByExpr(
 	if !ok {
 		return nil, series.ErrNotFound
 	}
-	return mStore.findSeriesIDsByExpr(expr)
+	return mStore.FindSeriesIDsByExpr(expr)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key from mStore.
@@ -469,7 +469,7 @@ func (md *memoryDatabase) GetSeriesIDsForTag(
 	if !ok {
 		return nil, series.ErrNotFound
 	}
-	return mStore.getSeriesIDsForTag(tagKey)
+	return mStore.GetSeriesIDsForTag(tagKey)
 }
 
 // GetTagValues returns tag values by tag keys and spec version for metric level from memory-database
@@ -487,7 +487,7 @@ func (md *memoryDatabase) GetTagValues(
 	if !ok {
 		return nil, series.ErrNotFound
 	}
-	return mStore.getTagValues(tagKeys, version, seriesIDs)
+	return mStore.GetTagValues(tagKeys, version, seriesIDs)
 }
 
 // SuggestMetrics returns nil, as the index-db contains all metricNames
@@ -501,7 +501,7 @@ func (md *memoryDatabase) SuggestTagKeys(metricName, tagKeyPrefix string, limit 
 	if !ok {
 		return nil
 	}
-	return mStore.suggestTagKeys(tagKeyPrefix, limit)
+	return mStore.SuggestTagKeys(tagKeyPrefix, limit)
 }
 
 // SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
@@ -510,7 +510,7 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 	if !ok {
 		return nil
 	}
-	return mStore.suggestTagValues(tagKey, tagValuePrefix, limit)
+	return mStore.SuggestTagValues(tagKey, tagValuePrefix, limit)
 }
 
 // Scan scans data from memory by scan-context

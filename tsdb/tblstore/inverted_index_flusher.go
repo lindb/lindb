@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 
 	"github.com/RoaringBitmap/roaring"
@@ -22,7 +23,7 @@ var invertedIndexFlusherLogger = logger.GetLogger("tsdb", "InvertedIndexFlusher"
 // The layout is available in `tsdb/doc.go`
 type InvertedIndexFlusher interface {
 	// FlushVersion writes a versioned bitmap to index table.
-	FlushVersion(version series.Version, startTime, endTime uint32, bitmap *roaring.Bitmap)
+	FlushVersion(version series.Version, timeRange timeutil.TimeRange, bitmap *roaring.Bitmap)
 	// FlushTagValue ends writing VersionedTagValueBlock in index table.
 	FlushTagValue(tagValue string)
 	// FlushTagKeyID ends writing entrySetBlock in index table.
@@ -49,8 +50,8 @@ type invertedIndexFlusher struct {
 	entrySetWriter *stream.BufferWriter
 	offsets        *encoding.DeltaBitPackingEncoder
 	// time range
-	minStartTime uint32
-	maxEndTime   uint32
+	minStartTime int64
+	maxEndTime   int64
 	// for tagValue data builder
 	versionCount   int
 	tagValueWriter *stream.BufferWriter
@@ -60,22 +61,20 @@ type invertedIndexFlusher struct {
 // FlushVersion writes a versioned bitmap to index table.
 func (w *invertedIndexFlusher) FlushVersion(
 	version series.Version,
-	startTime,
-	endTime uint32,
+	timeRange timeutil.TimeRange,
 	bitmap *roaring.Bitmap,
 ) {
 	out, err := bitmap.MarshalBinary()
 	if err != nil {
 		invertedIndexFlusherLogger.Error("marshal bitmap failure", logger.Error(err))
 	}
-	w.flushVersion(version, startTime, endTime, out)
+	w.flushVersion(version, timeRange, out)
 }
 
 // real flush-version method
 func (w *invertedIndexFlusher) flushVersion(
 	version series.Version,
-	startTime uint32,
-	endTime uint32,
+	timeRange timeutil.TimeRange,
 	bitmapData []byte,
 ) {
 	if w.tagValueBuffer == nil {
@@ -85,19 +84,19 @@ func (w *invertedIndexFlusher) flushVersion(
 	// count flushed versions
 	w.versionCount++
 	// update time range
-	if startTime < w.minStartTime || w.minStartTime == 0 {
-		w.minStartTime = startTime
+	if timeRange.Start < w.minStartTime || w.minStartTime == 0 {
+		w.minStartTime = timeRange.Start
 	}
-	if endTime > w.maxEndTime || w.maxEndTime == 0 {
-		w.maxEndTime = endTime
+	if timeRange.End > w.maxEndTime || w.maxEndTime == 0 {
+		w.maxEndTime = timeRange.End
 	}
 	// write version
 	w.tagValueWriter.PutInt64(version.Int64())
 	// write startTime delta
-	startTimeDelta := int64(startTime) - version.Int64()/1000 // seconds
+	startTimeDelta := (timeRange.Start - version.Int64()) / 1000 // seconds
 	w.tagValueWriter.PutVarint64(startTimeDelta)
 	// write endTime delta
-	endTimeDelta := int64(endTime) - version.Int64()/1000 // seconds
+	endTimeDelta := (timeRange.End - version.Int64()) / 1000 // seconds
 	w.tagValueWriter.PutVarint64(endTimeDelta)
 	// write bitmap length
 	w.tagValueWriter.PutUvarint64(uint64(len(bitmapData)))
@@ -126,9 +125,9 @@ func (w *invertedIndexFlusher) FlushTagKeyID(tagID uint32) error {
 	defer w.reset()
 
 	// write startTime
-	w.entrySetWriter.PutUint32(w.minStartTime)
+	w.entrySetWriter.PutInt64(w.minStartTime)
 	// write endTime
-	w.entrySetWriter.PutUint32(w.maxEndTime)
+	w.entrySetWriter.PutInt64(w.maxEndTime)
 
 	treeDataBlock := w.trie.MarshalBinary()
 	// write tree

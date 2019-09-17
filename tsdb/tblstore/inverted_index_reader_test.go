@@ -53,7 +53,8 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := series.Version(1500000000000); v < 1800000000000; v += 100000000000 {
 			bitmap := roaring.New()
 			bitmap.AddMany(ids)
-			seriesFlusher.FlushVersion(v, uint32(v/1000)+10000, uint32(v/1000)+20000, bitmap)
+			seriesFlusher.FlushVersion(v, timeutil.TimeRange{
+				Start: v.Int64() + 10000*1000, End: v.Int64() + 20000*10000}, bitmap)
 		}
 		seriesFlusher.FlushTagValue(zone)
 	}
@@ -68,7 +69,8 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := series.Version(1500000000000); v < 1800000000000; v += 100000000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(v, uint32(v/1000)+10000, uint32(v/1000)+20000, bitmap)
+			seriesFlusher.FlushVersion(v, timeutil.TimeRange{
+				Start: v.Int64() + 10000*1000, End: v.Int64() + 20000*10000}, bitmap)
 		}
 		seriesFlusher.FlushTagValue(ip)
 	}
@@ -83,7 +85,8 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for v := series.Version(1500000000000); v < 1800000000000; v += 100000000000 {
 			bitmap := roaring.New()
 			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(v, uint32(v/1000)+10000, uint32(v/1000)+20000, bitmap)
+			seriesFlusher.FlushVersion(v, timeutil.TimeRange{
+				Start: v.Int64() + 10000*1000, End: v.Int64() + 20000*10000}, bitmap)
 		}
 		seriesFlusher.FlushTagValue(host)
 	}

@@ -26,16 +26,16 @@ func buildForwardIndexBlockToCompact() (data [][]byte) {
 		flusher.FlushTagKey("ip")
 	}
 	flushVersion(10)
-	flusher.FlushVersion(series.Version(now-3600*1000*24*60), 1, 2)
+	flusher.FlushVersion(series.Version(now-3600*1000*24*60), timeutil.TimeRange{Start: 1, End: 2})
 	flushVersion(10)
-	flusher.FlushVersion(series.Version(now-3600*1000*24*20), 1, 2)
+	flusher.FlushVersion(series.Version(now-3600*1000*24*20), timeutil.TimeRange{Start: 1, End: 2})
 	_ = flusher.FlushMetricID(1)
 	data = append(data, append([]byte{}, nopKVFlusher.Bytes()...))
 
 	flushVersion(12)
-	flusher.FlushVersion(series.Version(now-3600*1000*24*35), 1, 2)
+	flusher.FlushVersion(series.Version(now-3600*1000*24*35), timeutil.TimeRange{Start: 1, End: 2})
 	flushVersion(12)
-	flusher.FlushVersion(series.Version(now-3600*1000*24*20), 1, 2)
+	flusher.FlushVersion(series.Version(now-3600*1000*24*20), timeutil.TimeRange{Start: 1, End: 2})
 	_ = flusher.FlushMetricID(1)
 	data = append(data, append([]byte{}, nopKVFlusher.Bytes()...))
 

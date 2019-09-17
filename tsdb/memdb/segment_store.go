@@ -13,11 +13,11 @@ import (
 // sStoreINTF represents segment-store,
 // which abstracts a store for storing field data based on family start time
 type sStoreINTF interface {
-	getFamilyTime() int64
-	slotRange() (startSlot, endSlot int, err error)
-	bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error)
-	writeInt(value int64, writeCtx writeContext)
-	writeFloat(value float64, writeCtx writeContext)
+	GetFamilyTime() int64
+	SlotRange() (startSlot, endSlot int, err error)
+	Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error)
+	WriteInt(value int64, writeCtx writeContext)
+	WriteFloat(value float64, writeCtx writeContext)
 }
 
 // singleFieldStore stores single field
@@ -35,7 +35,7 @@ func newSimpleFieldStore(familyTime int64, aggFunc field.AggFunc) sStoreINTF {
 	}
 }
 
-func (fs *simpleFieldStore) getFamilyTime() int64 {
+func (fs *simpleFieldStore) GetFamilyTime() int64 {
 	return fs.familyTime
 }
 
@@ -44,7 +44,7 @@ func (fs *simpleFieldStore) AggFunc() field.AggFunc {
 	return fs.aggFunc
 }
 
-func (fs *simpleFieldStore) writeFloat(value float64, writeCtx writeContext) {
+func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) {
 	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Float)
 	currentBlock := fs.block
 	if hasValue {
@@ -55,7 +55,7 @@ func (fs *simpleFieldStore) writeFloat(value float64, writeCtx writeContext) {
 	}
 }
 
-func (fs *simpleFieldStore) writeInt(value int64, writeCtx writeContext) {
+func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) {
 	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Integer)
 	currentBlock := fs.block
 	if hasValue {
@@ -107,7 +107,7 @@ func (fs *simpleFieldStore) calcTimeWindow(blockStore *blockStore, slotTime int,
 	return pos, needRollup
 }
 
-func (fs *simpleFieldStore) bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error) {
+func (fs *simpleFieldStore) Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error) {
 	if fs.block == nil {
 		err = fmt.Errorf("block is empty")
 		return
@@ -120,7 +120,7 @@ func (fs *simpleFieldStore) bytes(needSlotRange bool) (data []byte, startSlot, e
 	return
 }
 
-func (fs *simpleFieldStore) slotRange() (startSlot, endSlot int, err error) {
+func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
 	if fs.block == nil {
 		err = fmt.Errorf("block is empty")
 		return

@@ -53,9 +53,9 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().getMetricID().Return(uint32(1)).AnyTimes()
-	errCall1 := mockMStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
-	okCall2 := mockMStore.EXPECT().write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
+	errCall1 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	okCall2 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	gomock.InOrder(errCall1, okCall2)
 	// load mock
 	hash := fnv1a.HashString64("test1")
@@ -87,9 +87,9 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 	assert.Equal(t, 0, md.CountMetrics())
 
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().setMaxTagsLimit(gomock.Any()).Return().AnyTimes()
-	mockMStore.EXPECT().getTagsUsed().Return(1).AnyTimes()
-	mockMStore.EXPECT().resetVersion().Return(nil).AnyTimes()
+	mockMStore.EXPECT().SetMaxTagsLimit(gomock.Any()).Return().AnyTimes()
+	mockMStore.EXPECT().GetTagsUsed().Return(1).AnyTimes()
+	mockMStore.EXPECT().ResetVersion().Return(nil).AnyTimes()
 	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
 	hash := fnv1a.HashString64("cpu.load")
@@ -183,8 +183,8 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().findSeriesIDsByExpr(gomock.Any()).Return(nil, nil).AnyTimes()
-	mockMStore.EXPECT().getSeriesIDsForTag("").Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().FindSeriesIDsByExpr(gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().GetSeriesIDsForTag("").Return(nil, nil).AnyTimes()
 	// not exist
 	_, err := md.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
 	assert.NotNil(t, err)
@@ -220,12 +220,12 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().getMetricID().Return(uint32(1)).AnyTimes()
-	mockMStore.EXPECT().evict().Return().AnyTimes()
-	mockMStore.EXPECT().isEmpty().Return(false).AnyTimes()
+	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
+	mockMStore.EXPECT().Evict().Return().AnyTimes()
+	mockMStore.EXPECT().IsEmpty().Return(false).AnyTimes()
 
-	returnNil := mockMStore.EXPECT().flushMetricsTo(gomock.Any(), gomock.Any()).Return(nil)
-	returnError := mockMStore.EXPECT().flushMetricsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	returnNil := mockMStore.EXPECT().FlushMetricsTo(gomock.Any(), gomock.Any()).Return(nil)
+	returnError := mockMStore.EXPECT().FlushMetricsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 	gomock.InOrder(returnNil, returnError)
 
 	md.getBucket(4).hash2MStore[1] = mockMStore
@@ -249,10 +249,10 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	gomock.InOrder(
-		mockMStore.EXPECT().flushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(nil),
-		mockMStore.EXPECT().flushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
-		mockMStore.EXPECT().flushForwardIndexTo(gomock.Any()).Return(nil),
-		mockMStore.EXPECT().flushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(nil),
+		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil),
+		mockMStore.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error")),
 	)
 	// insert to bucket
 	md.getBucket(4).hash2MStore[1] = mockMStore
@@ -273,7 +273,7 @@ func Test_MemoryDatabase_GetTagValues(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().getTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().GetTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	md.getBucket(3333).hash2MStore[3333] = mockMStore
 	md.metricID2Hash.Store(uint32(3333), uint64(3333))
 
@@ -300,8 +300,8 @@ func Test_MemoryDatabase_Suggset(t *testing.T) {
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().suggestTagKeys(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	mockMStore.EXPECT().suggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMStore.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMStore.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	md.getBucket(fnv1a.HashString64("test")).hash2MStore[fnv1a.HashString64("test")] = mockMStore
 
 	assert.Nil(t, md.SuggestTagKeys("test", "", 100))
