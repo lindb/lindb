@@ -10,15 +10,14 @@ import (
 
 // findFieldMetas returns if query's fields are in store, if all query fields found returns true, else returns false
 func (ms *metricStore) findFieldMetas(fieldIDs []uint16) (map[uint16]*fieldMeta, bool) {
-	ms.mutex4Fields.RLock()
-	defer ms.mutex4Fields.RUnlock()
+	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
 	result := make(map[uint16]*fieldMeta)
 	for _, fieldID := range fieldIDs {
 		result[fieldID] = &fieldMeta{}
 	}
 
 	found := 0
-	for _, field := range ms.fieldsMetas {
+	for _, field := range *fmList {
 		fieldMeta, ok := result[field.fieldID]
 		if ok {
 			fieldMeta.fieldID = field.fieldID
@@ -40,39 +39,35 @@ func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 
 	// collect all tagIndexes whose version matches the idSet
 	collectOnVersionMatch := func(idx tagIndexINTF) {
-		if _, ok := sCtx.SeriesIDSet.Versions()[idx.getVersion()]; ok {
+		if _, ok := sCtx.SeriesIDSet.Versions()[idx.Version()]; ok {
 			ms.scan(sCtx, idx, fieldMetas)
 		}
 	}
-	// find from immutable store
-	ms.mutex4Immutable.RLock()
-	for _, idx := range ms.immutable {
-		collectOnVersionMatch(idx)
-	}
-	ms.mutex4Immutable.RUnlock()
-
-	// find from mutable store
-	ms.mutex4Mutable.RLock()
+	ms.mux.RLock()
 	collectOnVersionMatch(ms.mutable)
-	ms.mutex4Mutable.RUnlock()
+	immutable := ms.immutable.Load().(tagIndexINTF)
+	ms.mux.RUnlock()
+	if immutable != nil {
+		collectOnVersionMatch(immutable)
+	}
 }
 
 // scan finds time series store from tag index by series ids
 func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, fieldMetas map[uint16]*fieldMeta) {
 	// support multi-version
-	version := tagIndex.getVersion()
+	version := tagIndex.Version()
 	seriesIDs := sCtx.SeriesIDSet.Versions()[version]
 	seriesIDIt := seriesIDs.Iterator()
 
 	for seriesIDIt.HasNext() {
 		seriesID := seriesIDIt.Next()
-		tStore, ok := tagIndex.getTStoreBySeriesID(seriesID)
+		tStore, ok := tagIndex.GetTStoreBySeriesID(seriesID)
 		// if not found or no data
-		if !ok || tStore.isNoData() {
+		if !ok || tStore.IsNoData() {
 			continue
 		}
 
 		// scan time series store
-		tStore.scan(sCtx, version, seriesID, fieldMetas)
+		tStore.Scan(sCtx, version, seriesID, fieldMetas)
 	}
 }

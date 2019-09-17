@@ -14,16 +14,16 @@ import (
 func TestSimpleSegmentStore(t *testing.T) {
 	aggFunc := field.GetAggFunc(field.Sum)
 	store := newSimpleFieldStore(0, aggFunc)
-	assert.Equal(t, int64(0), store.getFamilyTime())
+	assert.Equal(t, int64(0), store.GetFamilyTime())
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)
 	assert.Equal(t, aggFunc, ss.AggFunc())
 
-	_, _, err := ss.slotRange()
+	_, _, err := ss.SlotRange()
 	assert.NotNil(t, err)
 
-	compress, startSlot, endSlot, err := store.bytes(true)
+	compress, startSlot, endSlot, err := store.Bytes(true)
 	assert.Nil(t, compress)
 	assert.NotNil(t, err)
 	assert.Equal(t, 0, startSlot)
@@ -37,29 +37,29 @@ func TestSimpleSegmentStore(t *testing.T) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.writeInt(110, writeCtx)
+	ss.WriteInt(110, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 40
-	ss.writeInt(20, writeCtx)
+	ss.WriteInt(20, writeCtx)
 	// compact before time window
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 41
-	ss.writeInt(50, writeCtx)
+	ss.WriteInt(50, writeCtx)
 
-	compress, startSlot, endSlot, err = store.bytes(true)
+	compress, startSlot, endSlot, err = store.Bytes(true)
 	assert.Nil(t, err)
 	assert.Equal(t, 10, startSlot)
 	assert.Equal(t, 41, endSlot)
 
-	startSlot, endSlot, err = store.slotRange()
+	startSlot, endSlot, err = store.SlotRange()
 	assert.Nil(t, err)
 	assert.Equal(t, 10, startSlot)
 	assert.Equal(t, 41, endSlot)
@@ -82,7 +82,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 
 	// write float test
 	writeCtx.slotIndex = 10
-	ss.writeFloat(10, writeCtx)
+	ss.WriteFloat(10, writeCtx)
 }
 
 func Test_sStore_error(t *testing.T) {
@@ -97,7 +97,7 @@ func Test_sStore_error(t *testing.T) {
 	mockBlock.EXPECT().getStartTime().Return(12).AnyTimes()
 	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()
 	ss.block = mockBlock
-	_, _, _, err := ss.bytes(false)
+	_, _, _, err := ss.Bytes(false)
 	assert.NotNil(t, err)
 
 	writeCtx := writeContext{
@@ -108,10 +108,10 @@ func Test_sStore_error(t *testing.T) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.writeInt(110, writeCtx)
+	ss.WriteInt(110, writeCtx)
 }
 
 func BenchmarkSimpleSegmentStore(b *testing.B) {
@@ -127,22 +127,22 @@ func BenchmarkSimpleSegmentStore(b *testing.B) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.writeInt(110, writeCtx)
+	ss.WriteInt(110, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 40
-	ss.writeInt(20, writeCtx)
+	ss.WriteInt(20, writeCtx)
 	// compact before time window
 	writeCtx.slotIndex = 10
-	ss.writeInt(100, writeCtx)
+	ss.WriteInt(100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 41
-	ss.writeInt(50, writeCtx)
+	ss.WriteInt(50, writeCtx)
 
-	_, _, _, _ = store.bytes(true)
+	_, _, _, _ = store.Bytes(true)
 }

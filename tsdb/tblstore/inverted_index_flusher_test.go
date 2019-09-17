@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv"
 
 	"github.com/RoaringBitmap/roaring"
@@ -70,15 +72,15 @@ func Test_SeriesIndexFlusher_OK(t *testing.T) {
 	indexFlusher := NewInvertedIndexFlusher(mockFlusher)
 
 	// flush versions of tagValue1
-	indexFlusher.FlushVersion(1, 3, 5, roaring.New())
-	indexFlusher.FlushVersion(2, 4, 6, roaring.New())
-	indexFlusher.FlushVersion(3, 1, 2, roaring.New())
+	indexFlusher.FlushVersion(1, timeutil.TimeRange{Start: 3, End: 5}, roaring.New())
+	indexFlusher.FlushVersion(2, timeutil.TimeRange{Start: 4, End: 6}, roaring.New())
+	indexFlusher.FlushVersion(3, timeutil.TimeRange{Start: 1, End: 2}, roaring.New())
 	// flush tagValue1
 	indexFlusher.FlushTagValue("1")
 	// flush versions of tagValue2
-	indexFlusher.FlushVersion(1, 12, 15, roaring.New())
-	indexFlusher.FlushVersion(2, 15, 20, roaring.New())
-	indexFlusher.FlushVersion(3, 22, 24, roaring.New())
+	indexFlusher.FlushVersion(1, timeutil.TimeRange{Start: 12, End: 15}, roaring.New())
+	indexFlusher.FlushVersion(2, timeutil.TimeRange{Start: 15, End: 20}, roaring.New())
+	indexFlusher.FlushVersion(3, timeutil.TimeRange{Start: 22, End: 24}, roaring.New())
 	// flush tagValue2
 	indexFlusher.FlushTagValue("2")
 	// flush tagKeyID

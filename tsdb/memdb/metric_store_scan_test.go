@@ -25,20 +25,21 @@ func Test_MetricStore_scan(t *testing.T) {
 
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
-	mStore.fieldsMetas = fieldsMetas{
+	mStore.fieldsMetas.Store(&fieldsMetas{
 		{"sum3", 3, field.SumField},
 		{"sum4", 4, field.SumField},
 		{"sum5", 5, field.SumField},
-		{"sum6", 6, field.SumField},
-	}
+		{"sum6", 6, field.SumField}})
 	// v1:
 	ti1 := newTagIndex().(*tagIndex)
 	ti1.version = 1
-	ti1.startTime, ti1.endTime = 100, 200
+	ti1.earliestTimeDelta.Store(100)
+	ti1.latestTimeDelta.Store(200)
 	// v2
 	ti2 := newTagIndex().(*tagIndex)
 	ti2.version = 2
-	ti2.startTime, ti2.endTime = 200, 300
+	ti2.earliestTimeDelta.Store(200)
+	ti2.latestTimeDelta.Store(300)
 	ts5 := newTimeSeriesStore(55)
 	ts6 := newTimeSeriesStore(66)
 	ts7 := newTimeSeriesStore(77)
@@ -62,7 +63,7 @@ func Test_MetricStore_scan(t *testing.T) {
 	idset.Add(2, bitmap)
 
 	// build mStore
-	mStore.immutable = []tagIndexINTF{ti1}
+	mStore.immutable.Store(ti1)
 	mStore.mutable = ti2
 	metric := &pb.Metric{
 		Name:      "cpu",
@@ -80,10 +81,10 @@ func Test_MetricStore_scan(t *testing.T) {
 
 	generator := diskdb.NewMockIDGenerator(ctrl)
 	idGet := NewMockmStoreFieldIDGetter(ctrl)
-	idGet.EXPECT().getFieldIDOrGenerate("sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
-	idGet.EXPECT().getFieldIDOrGenerate("sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
+	idGet.EXPECT().GetFieldIDOrGenerate("sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
+	idGet.EXPECT().GetFieldIDOrGenerate("sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
 	bs := newBlockStore(10)
-	err := mStore.write(metric,
+	err := mStore.Write(metric,
 		writeContext{
 			generator:           generator,
 			blockStore:          bs,

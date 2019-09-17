@@ -17,26 +17,45 @@ import (
 type fStoreINTF interface {
 	// GetSStore gets the sStore from list by familyTime.
 	GetSStore(familyTime int64) (sStoreINTF, bool)
+
 	// GetFieldID returns the fieldID
 	GetFieldID() uint16
+
 	// Write writes the metric's field with writeContext
 	Write(f *pb.Field, writeCtx writeContext)
+
 	// FlushFieldTo flushes field data of the specific familyTime
 	// return false if there is no data related of familyTime
-	FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool)
+	FlushFieldTo(
+		tableFlusher tblstore.MetricsDataFlusher,
+		familyTime int64,
+	) (flushed bool)
+
 	// TimeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
-	TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool)
+	TimeRange(
+		interval int64,
+	) (
+		timeRange timeutil.TimeRange,
+		ok bool)
 
-	// scan scans field store data
-	scan(sCtx *series.ScanContext, version series.Version, seriesID uint32, fieldMeta *fieldMeta, ts *timeSeriesStore)
+	// Scan scans field store data
+	Scan(
+		sCtx *series.ScanContext,
+		version series.Version,
+		seriesID uint32,
+		fieldMeta *fieldMeta,
+		ts *timeSeriesStore)
+
+	// SegmentsCount returns the count of segments
+	SegmentsCount() int
 }
 
 // sStoreNodes implements the sort.Interface
 type sStoreNodes []sStoreINTF
 
 func (s sStoreNodes) Len() int           { return len(s) }
-func (s sStoreNodes) Less(i, j int) bool { return s[i].getFamilyTime() < s[j].getFamilyTime() }
+func (s sStoreNodes) Less(i, j int) bool { return s[i].GetFamilyTime() < s[j].GetFamilyTime() }
 func (s sStoreNodes) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 // fieldStore holds the relation of familyStartTime and segmentStore.
@@ -54,12 +73,15 @@ func newFieldStore(fieldID uint16) fStoreINTF { return &fieldStore{fieldID: fiel
 // getFieldID returns the fieldID
 func (fs *fieldStore) GetFieldID() uint16 { return fs.fieldID }
 
+// SegmentsCount returns the count of segments
+func (fs *fieldStore) SegmentsCount() int { return len(fs.sStoreNodes) }
+
 // GetSStore gets the sStore from list by familyTime.
 func (fs *fieldStore) GetSStore(familyTime int64) (sStoreINTF, bool) {
 	idx := sort.Search(len(fs.sStoreNodes), func(i int) bool {
-		return fs.sStoreNodes[i].getFamilyTime() >= familyTime
+		return fs.sStoreNodes[i].GetFamilyTime() >= familyTime
 	})
-	if idx >= len(fs.sStoreNodes) || fs.sStoreNodes[idx].getFamilyTime() != familyTime {
+	if idx >= len(fs.sStoreNodes) || fs.sStoreNodes[idx].GetFamilyTime() != familyTime {
 		return nil, false
 	}
 	return fs.sStoreNodes[idx], true
@@ -68,14 +90,14 @@ func (fs *fieldStore) GetSStore(familyTime int64) (sStoreINTF, bool) {
 // removeSStore removes the sStore by familyTime.
 func (fs *fieldStore) removeSStore(familyTime int64) {
 	idx := sort.Search(len(fs.sStoreNodes), func(i int) bool {
-		return fs.sStoreNodes[i].getFamilyTime() >= familyTime
+		return fs.sStoreNodes[i].GetFamilyTime() >= familyTime
 	})
 	// familyTime greater than existed
 	if idx == len(fs.sStoreNodes) {
 		return
 	}
 	// not match
-	if fs.sStoreNodes[idx].getFamilyTime() != familyTime {
+	if fs.sStoreNodes[idx].GetFamilyTime() != familyTime {
 		return
 	}
 	copy(fs.sStoreNodes[idx:], fs.sStoreNodes[idx+1:])
@@ -100,7 +122,7 @@ func (fs *fieldStore) Write(f *pb.Field, writeCtx writeContext) {
 			sStore = newSimpleFieldStore(writeCtx.familyTime, field.GetAggFunc(field.Sum))
 			fs.insertSStore(sStore)
 		}
-		sStore.writeFloat(fields.Sum.Value, writeCtx)
+		sStore.WriteFloat(fields.Sum.Value, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}
@@ -115,7 +137,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, fam
 	}
 
 	fs.removeSStore(familyTime)
-	data, startSlot, endSlot, err := sStore.bytes(true)
+	data, startSlot, endSlot, err := sStore.Bytes(true)
 
 	if err != nil {
 		memDBLogger.Error("read segment data error:", logger.Error(err))
@@ -127,13 +149,13 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, fam
 
 func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
 	for _, sStore := range fs.sStoreNodes {
-		startSlot, endSlot, err := sStore.slotRange()
+		startSlot, endSlot, err := sStore.SlotRange()
 		if err != nil {
 			continue
 		}
 		ok = true
-		startTime := sStore.getFamilyTime() + int64(startSlot)*interval
-		endTime := sStore.getFamilyTime() + int64(endSlot)*interval
+		startTime := sStore.GetFamilyTime() + int64(startSlot)*interval
+		endTime := sStore.GetFamilyTime() + int64(endSlot)*interval
 		if timeRange.Start == 0 || startTime < timeRange.Start {
 			timeRange.Start = startTime
 		}

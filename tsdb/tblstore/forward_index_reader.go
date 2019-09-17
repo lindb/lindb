@@ -41,8 +41,8 @@ type forwardIndexReader struct {
 }
 
 type forwardIndexVersionEntry struct {
-	startTime           uint32
-	endTime             uint32
+	startTimeDelta      int32
+	endTimeDelta        int32
 	tagKeys             []string // tagKeySeq -> tagKey
 	tagKeysBitArraySize int
 	offsets             []int32
@@ -79,8 +79,8 @@ func newForwardIndexVersionEntry(
 	}
 	// Read TimeRange Block
 	entry.sr.SeekStart()
-	entry.startTime = entry.sr.ReadUint32()
-	entry.endTime = entry.sr.ReadUint32()
+	entry.startTimeDelta = entry.sr.ReadInt32()
+	entry.endTimeDelta = entry.sr.ReadInt32()
 	// Read TagKeys Block
 	if err := entry.readTagKeys(); err != nil {
 		return nil, err

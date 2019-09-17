@@ -138,8 +138,7 @@ func (m *invertedIndexMerger) flush(
 			timeRange := data.TimeRange()
 			m.flusher.flushVersion(
 				data.version,
-				uint32(timeRange.Start/1000),
-				uint32(timeRange.End/1000),
+				timeRange,
 				data.bitMapData)
 		}
 		m.flusher.FlushTagValue(tagValue)
