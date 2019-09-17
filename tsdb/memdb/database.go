@@ -394,7 +394,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher tblstore.MetricsDataFlusher, fam
 
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.FlushMetricsTo(flusher, flushContext{
+			if err = mStore.FlushMetricsDataTo(flusher, flushContext{
 				metricID:     mStore.GetMetricID(),
 				familyTime:   familyTime,
 				timeInterval: md.interval,

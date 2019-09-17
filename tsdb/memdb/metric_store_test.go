@@ -134,34 +134,21 @@ func Test_mStore_evict(t *testing.T) {
 	mStoreInterface.Evict()
 }
 
-func Test_mStore_flushMetricsTo_error(t *testing.T) {
+func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	// mock tagIndex
-	mockTagIdx := NewMocktagIndexINTF(ctrl)
-	mockTagIdx.EXPECT().FlushMetricTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")).AnyTimes()
-	mStore.mutable = mockTagIdx
-	assert.NotNil(t, mStoreInterface.FlushMetricsTo(nil, flushContext{}))
-}
-
-func Test_mStore_flushMetricsTo_withImmutable(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
-	mStore := mStoreInterface.(*metricStore)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
+	flusher := tblstore.NewMockMetricsDataFlusher(ctrl)
+	flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
 	// mock tagIndex
 	mStore.mutable = newTagIndex()
 	_ = mStore.ResetVersion()
-	assert.Nil(t, mStoreInterface.FlushMetricsTo(nil, flushContext{}))
+	assert.Nil(t, mStoreInterface.FlushMetricsDataTo(flusher, flushContext{}))
 }
 
-func Test_mStore_flushMetricsTo_OK(t *testing.T) {
+func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
 
@@ -171,16 +158,17 @@ func Test_mStore_flushMetricsTo_OK(t *testing.T) {
 	// mock tagIndex
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().Version().Return(series.Version(1)).AnyTimes()
-	mockTagIdx.EXPECT().FlushMetricTo(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockTagIdx.EXPECT().FlushVersionDataTo(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mStore.mutable = mockTagIdx
 
 	assert.Nil(t, mStore.atomicGetImmutable())
 	// mock flush field meta
 	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
 	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).AnyTimes()
+	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
 	mStore.fieldsMetas.Store(&fieldsMetas{fieldMeta{}, fieldMeta{}})
 
-	assert.Nil(t, mStoreInterface.FlushMetricsTo(mockTF, flushContext{}))
+	assert.Nil(t, mStoreInterface.FlushMetricsDataTo(mockTF, flushContext{}))
 	assert.Nil(t, mStore.atomicGetImmutable())
 }
 

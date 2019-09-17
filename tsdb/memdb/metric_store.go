@@ -58,8 +58,8 @@ type mStoreINTF interface {
 	// GetTagsUsed return count of all used tStores.
 	GetTagsUsed() int
 
-	// FlushMetricsTo flushes metric-block of mStore to the Writer.
-	FlushMetricsTo(
+	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
+	FlushMetricsDataTo(
 		tableFlusher tblstore.MetricsDataFlusher,
 		flushCtx flushContext,
 	) error
@@ -472,7 +472,7 @@ func (ms *metricStore) ResetVersion() error {
 // FlushMetricsTo Writes metric-data to the table.
 // immutable tagIndex will be removed after call,
 // index shall be flushed before flushing data.
-func (ms *metricStore) FlushMetricsTo(
+func (ms *metricStore) FlushMetricsDataTo(
 	flusher tblstore.MetricsDataFlusher,
 	flushCtx flushContext,
 ) error {
@@ -481,24 +481,18 @@ func (ms *metricStore) FlushMetricsTo(
 	for _, fm := range *fmList {
 		flusher.FlushFieldMeta(fm.fieldID, fm.fieldType)
 	}
-	var (
-		err error
-	)
 	// reset the mutable part
 	ms.mux.RLock()
-	if err = ms.mutable.FlushMetricTo(flusher, flushCtx); err != nil {
-		ms.mux.RUnlock()
-		return err
-	}
+	ms.mutable.FlushVersionDataTo(flusher, flushCtx)
 	immutable := ms.atomicGetImmutable()
 	// remove the immutable, put the nopTagIndex into it
 	ms.immutable.Store(staticNopTagIndex)
 	ms.mux.RUnlock()
 
 	if immutable != nil {
-		err = immutable.FlushMetricTo(flusher, flushCtx)
+		immutable.FlushVersionDataTo(flusher, flushCtx)
 	}
-	return err
+	return flusher.FlushMetric(flushCtx.metricID)
 }
 
 // FlushForwardIndexTo flushes metric-block of mStore to the Writer.
