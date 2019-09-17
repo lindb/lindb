@@ -13,7 +13,7 @@ import (
 
 func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
 	mockSStore := NewMocksStoreINTF(ctrl)
-	mockSStore.EXPECT().getFamilyTime().Return(familyTime).AnyTimes()
+	mockSStore.EXPECT().GetFamilyTime().Return(familyTime).AnyTimes()
 	return mockSStore
 }
 
@@ -50,13 +50,13 @@ func Test_fStore_timeRange(t *testing.T) {
 	theFieldStore := fStore.(*fieldStore)
 
 	mockSStore1 := getMockSStore(ctrl, 1564300800000)
-	mockSStore1.EXPECT().slotRange().Return(1, 10, nil).AnyTimes()
+	mockSStore1.EXPECT().SlotRange().Return(1, 10, nil).AnyTimes()
 	mockSStore2 := getMockSStore(ctrl, 1564304400000)
-	mockSStore2.EXPECT().slotRange().Return(3, 5, nil).AnyTimes()
+	mockSStore2.EXPECT().SlotRange().Return(3, 5, nil).AnyTimes()
 	mockSStore3 := getMockSStore(ctrl, 1564297200000)
-	mockSStore3.EXPECT().slotRange().Return(6, 13, fmt.Errorf("error")).AnyTimes()
+	mockSStore3.EXPECT().SlotRange().Return(6, 13, fmt.Errorf("error")).AnyTimes()
 	mockSStore4 := getMockSStore(ctrl, 1564308000000)
-	mockSStore4.EXPECT().slotRange().Return(4, 14, nil).AnyTimes()
+	mockSStore4.EXPECT().SlotRange().Return(4, 14, nil).AnyTimes()
 
 	// error case
 
@@ -89,9 +89,9 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 
 	mockTF := makeMockDataFlusher(ctrl)
 	mockSStore1 := getMockSStore(ctrl, 1564304400000)
-	mockSStore1.EXPECT().bytes(true).Return(nil, 0, 0, fmt.Errorf("error")).AnyTimes()
+	mockSStore1.EXPECT().Bytes(true).Return(nil, 0, 0, fmt.Errorf("error")).AnyTimes()
 	mockSStore2 := getMockSStore(ctrl, 1564308000000)
-	mockSStore2.EXPECT().bytes(true).Return(nil, 1, 212, nil).AnyTimes()
+	mockSStore2.EXPECT().Bytes(true).Return(nil, 1, 212, nil).AnyTimes()
 
 	theFieldStore.insertSStore(mockSStore1)
 	theFieldStore.insertSStore(mockSStore2)

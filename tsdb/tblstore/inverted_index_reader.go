@@ -22,8 +22,8 @@ var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
 //go:generate mockgen -source ./inverted_index_reader.go -destination=./inverted_index_reader_mock.go -package tblstore
 
 const (
-	invertedIndexTimeRangeSize = 4 + // uint32, start-time
-		4 // uint32, end-time
+	invertedIndexTimeRangeSize = 8 + // int64, start-time
+		8 // int64, end-time
 	invertedIndexFooterSize = 4 + // offsets position
 		4 // crc32 checksum
 )
@@ -243,8 +243,8 @@ func (r *invertedIndexReader) SuggestTagValues(
 
 type tagKVEntrySet struct {
 	sr            *stream.Reader
-	startTime     uint32
-	endTime       uint32
+	startTime     int64
+	endTime       int64
 	tree          trieTreeQuerier
 	offsetsBlock  []byte
 	crc32CheckSum uint32
@@ -258,8 +258,8 @@ func newTagKVEntrySet(block []byte) (*tagKVEntrySet, error) {
 	}
 	entrySet := &tagKVEntrySet{
 		sr: stream.NewReader(block)}
-	entrySet.startTime = entrySet.sr.ReadUint32()
-	entrySet.endTime = entrySet.sr.ReadUint32()
+	entrySet.startTime = entrySet.sr.ReadInt64()
+	entrySet.endTime = entrySet.sr.ReadInt64()
 	// read footer
 	offsetsEndPos := len(block) - invertedIndexFooterSize
 	_ = entrySet.sr.ReadSlice(offsetsEndPos - invertedIndexTimeRangeSize)
@@ -276,8 +276,8 @@ func newTagKVEntrySet(block []byte) (*tagKVEntrySet, error) {
 // TimeRange computes the timeRange from delta in seconds
 func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
 	return timeutil.TimeRange{
-		Start: int64(entrySet.startTime) * 1000,
-		End:   int64(entrySet.endTime) * 1000}
+		Start: entrySet.startTime,
+		End:   entrySet.endTime}
 }
 
 // TrieTree builds the trie-tree block for querying

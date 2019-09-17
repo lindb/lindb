@@ -8,15 +8,21 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-// scan scans field store for given series id
-func (fs *fieldStore) scan(sCtx *series.ScanContext, version series.Version, seriesID uint32, fieldMeta *fieldMeta, ts *timeSeriesStore) {
+// Scan scans field store for given series id
+func (fs *fieldStore) Scan(
+	sCtx *series.ScanContext,
+	version series.Version,
+	seriesID uint32,
+	fieldMeta *fieldMeta,
+	ts *timeSeriesStore,
+) {
 	queryTimeRange := &sCtx.TimeRange
 	worker := sCtx.Worker
 	calc := sCtx.IntervalCalc
 	interval := sCtx.Interval
 	for _, fsStore := range fs.sStoreNodes {
 		// check family time is in query time range
-		familyTime := fsStore.getFamilyTime()
+		familyTime := fsStore.GetFamilyTime()
 		timeRange := &timeutil.TimeRange{
 			Start: familyTime,
 			End:   calc.CalcFamilyEndTime(familyTime),
@@ -48,7 +54,12 @@ type fStoreIterator struct {
 	idx int
 }
 
-func newFStoreIterator(familyStartTime int64, fieldMeta *fieldMeta, sStore sStoreINTF, ts *timeSeriesStore) *fStoreIterator {
+func newFStoreIterator(
+	familyStartTime int64,
+	fieldMeta *fieldMeta,
+	sStore sStoreINTF,
+	ts *timeSeriesStore,
+) *fStoreIterator {
 	return &fStoreIterator{
 		familyStartTime: familyStartTime,
 		sStore:          sStore,
@@ -69,7 +80,7 @@ func (fsi *fStoreIterator) HasNext() bool {
 	fsi.idx++
 
 	fsi.ts.sl.Lock()
-	data, _, _, err := fsi.sStore.bytes(false)
+	data, _, _, err := fsi.sStore.Bytes(false)
 	fsi.ts.sl.Unlock()
 
 	if err != nil {

@@ -159,7 +159,7 @@ TagKeysBlock stores all tagKeys of the metric
 │  Time Range Block   ││                      TagKeys Block                   ││Dict Block││      Tags Blocks    │
 ├──────────┬──────────┤├──────────┬──────────┬──────────┬──────────┬──────────┤├──────────┤├──────────┬──────────┤
 │   Start  │   End    ││  TagKey  │  TagKey1 │  TagKey1 │  TagKey2 │  TagKey2 ││          ││TagsBlock1│TagsBlock2│
-│   Time   │   Time   ││  Count   │  Length  │          │  Length  │          ││  .....   ││          │          │
+│TimeDelta │TimeDelta ││  Count   │  Length  │          │  Length  │          ││  .....   ││          │          │
 ├──────────┼──────────┤├──────────┼──────────┼──────────┼──────────┼──────────┤├──────────┤├──────────┼──────────┤
 │  4 Bytes │  4 Bytes ││ uvariant │ uvariant │  N Bytes │ uvariant │  N Bytes ││  N Bytes ││  N Bytes │  N Bytes │
 └──────────┴──────────┘└──────────┴──────────┴──────────┴──────────┴──────────┘└──────────┘^──────────^──────────┘
@@ -247,9 +247,9 @@ This block is alias as TreeBlock
 │       TimeRange     │                        LOUDS Encoded Trie Tree                             │
 ├──────────┬──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
 │ StartTime│  EndTime │   Trie   │  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │
-│  uint32  │  uint32  │  TreeLen │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │
+│   int64  │   int64  │  TreeLen │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│  4 Bytes │  4 Bytes │ uvariant │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
+│  8 Bytes │  8 Bytes │ uvariant │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level2(Versioned TagValue Data)

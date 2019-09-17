@@ -40,7 +40,7 @@ func buildInvertedIndexBlockToCompact() (data [][]byte) {
 		flusher := NewInvertedIndexFlusher(nopKVFlusher).(*invertedIndexFlusher)
 		for tagValue, versions := range tagValueVersions {
 			for version, bitmap := range versions {
-				flusher.FlushVersion(version, 1, 1, bitmap)
+				flusher.FlushVersion(version, timeutil.TimeRange{Start: 1, End: 1}, bitmap)
 			}
 			flusher.FlushTagValue(tagValue)
 		}

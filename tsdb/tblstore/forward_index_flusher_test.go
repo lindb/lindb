@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 
 	"github.com/RoaringBitmap/roaring"
@@ -39,7 +40,7 @@ func Test_ForwardIndexFlush(t *testing.T) {
 			}
 			mockFlusher.FlushTagKey(string(x))
 		}
-		mockFlusher.FlushVersion(series.Version(v), 0, 10)
+		mockFlusher.FlushVersion(series.Version(v), timeutil.TimeRange{Start: 0, End: 10})
 	}
 	assert.Nil(t, mockFlusher.FlushMetricID(1))
 

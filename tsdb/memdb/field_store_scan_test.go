@@ -41,7 +41,7 @@ func TestFieldStore_Scan(t *testing.T) {
 	}, IntervalCalc: calc, Interval: 10000}
 	fieldMeta := &fieldMeta{fieldID: 1, fieldName: "f1", fieldType: field.SumField}
 	// no data
-	fStore.scan(sCtx, series.Version(10), uint32(10), fieldMeta, ts)
+	fStore.Scan(sCtx, series.Version(10), uint32(10), fieldMeta, ts)
 
 	// write data
 	fStore.Write(
@@ -59,7 +59,7 @@ func TestFieldStore_Scan(t *testing.T) {
 
 	// time range not match
 	now, _ = timeutil.ParseTimestamp("20190702 20:10:48", "20060102 15:04:05")
-	fStore.scan(&series.ScanContext{TimeRange: timeutil.TimeRange{
+	fStore.Scan(&series.ScanContext{TimeRange: timeutil.TimeRange{
 		Start: now - 100,
 		End:   now + 1000,
 	}, IntervalCalc: calc, Interval: 10000}, series.Version(10), uint32(10), fieldMeta, ts)
@@ -67,7 +67,7 @@ func TestFieldStore_Scan(t *testing.T) {
 	// found it
 	now, _ = timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	worker := &mockScanWorker{}
-	fStore.scan(&series.ScanContext{
+	fStore.Scan(&series.ScanContext{
 		TimeRange: timeutil.TimeRange{
 			Start: now - 100,
 			End:   now + 1000,
@@ -112,7 +112,7 @@ func TestFieldStore_Scan(t *testing.T) {
 	// found it
 	now, _ = timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	worker = &mockScanWorker{}
-	fStore.scan(&series.ScanContext{
+	fStore.Scan(&series.ScanContext{
 		TimeRange: timeutil.TimeRange{
 			Start: now - 100,
 			End:   now + 1000,

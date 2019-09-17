@@ -5,6 +5,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/series"
@@ -76,7 +78,7 @@ func buildForwardIndexBlock() []byte {
 		}
 		flusher.FlushTagKey("host")
 		// flush version
-		flusher.FlushVersion(series.Version(v), uint32(v*100), uint32(v+1)*100)
+		flusher.FlushVersion(series.Version(v), timeutil.TimeRange{Start: int64(v) * 100, End: (int64(v) + 1) * 100})
 	}
 
 	_ = flusher.FlushMetricID(1)

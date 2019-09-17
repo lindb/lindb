@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 
 	"github.com/RoaringBitmap/roaring"
@@ -21,14 +22,13 @@ import (
 
 const (
 	// stringBlockSize is the size of a compressed string block
-	defaultStringBlockSize = 300
+	defaultStringBlockSize = 200
 )
 
 var (
 	forwardIndexFlusherLogger = logger.GetLogger("tsdb", "ForwardIndexFlusher")
 	intPool                   = sync.Pool{New: func() interface{} {
 		return &[]int{} // storing *[]int
-
 	}}
 )
 
@@ -40,7 +40,7 @@ type ForwardIndexFlusher interface {
 	// FlushTagKey ends writing the tagValues
 	FlushTagKey(tagKey string)
 	// FlushVersion ends writes a version block
-	FlushVersion(version series.Version, startTime, endTime uint32)
+	FlushVersion(version series.Version, timeRange timeutil.TimeRange)
 	// FlushMetricID ends write a full metric-block
 	FlushMetricID(metricID uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
@@ -169,7 +169,7 @@ func (flusher *forwardIndexFlusher) resetVersionContext() {
 }
 
 // FlushVersion ends writes a version block
-func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, startTime, endTime uint32) {
+func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, timeRange timeutil.TimeRange) {
 	//////////////////////////////////////////////////
 	// Reset
 	//////////////////////////////////////////////////
@@ -179,10 +179,10 @@ func (flusher *forwardIndexFlusher) FlushVersion(version series.Version, startTi
 	//////////////////////////////////////////////////
 	// build Time Range Block
 	//////////////////////////////////////////////////
-	// write start-time
-	flusher.metricBlockWriter.PutUint32(startTime)
-	// write end-time
-	flusher.metricBlockWriter.PutUint32(endTime)
+	// write start-time delta
+	flusher.metricBlockWriter.PutInt32(int32((timeRange.Start - version.Int64()) / 1000))
+	// write end-time delta
+	flusher.metricBlockWriter.PutInt32(int32((timeRange.End - version.Int64()) / 1000))
 	//////////////////////////////////////////////////
 	// build TagKeys Block
 	//////////////////////////////////////////////////

@@ -20,3 +20,7 @@ var ErrTooManyFields = errors.New("too many fields")
 // ErrWrongFieldType is the error returned by tsdb when
 // field-type of new point is different from the type before.
 var ErrWrongFieldType = errors.New("field type is wrong")
+
+// ErrResetVersionUnavailable is the error returned by tsdb when
+// the immutable tagIndex has not been flushed yet.
+var ErrResetVersionUnavailable = errors.New("reset version unavailable")
