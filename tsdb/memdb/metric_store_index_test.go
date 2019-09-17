@@ -81,9 +81,10 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).MaxTimes(2)
+	mockTF.EXPECT().FlushVersion(gomock.Any()).Return().AnyTimes()
 
-	// tStores is empty
-	assert.Nil(t, tagIdxInterface.FlushMetricTo(mockTF, flushContext{}))
+	// no data flushed, tStores is empty
+	tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
@@ -96,8 +97,8 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 		1: mockTStore1,
 		2: mockTStore2,
 	}
-	// FlushMetric ok
-	assert.Nil(t, tagIdxInterface.FlushMetricTo(mockTF, flushContext{}))
+	// data flushed
+	tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
 }
 
 func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {

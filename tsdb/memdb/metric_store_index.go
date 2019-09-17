@@ -55,8 +55,8 @@ type tagIndexINTF interface {
 	// AllTStores returns the map of seriesID and tStores
 	AllTStores() map[uint32]tStoreINTF
 
-	// FlushMetricTo flush metric to the tableFlusher
-	FlushMetricTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext) error
+	// FlushVersionDataTo flush metric to the tableFlusher
+	FlushVersionDataTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext)
 
 	// Version returns a version(uptime in milliseconds) of the index
 	Version() series.Version
@@ -280,17 +280,19 @@ func (index *tagIndex) AllTStores() map[uint32]tStoreINTF {
 	return index.seriesID2TStore
 }
 
-// FlushMetricTo flushes metric-block of mStore to the writer.
-func (index *tagIndex) FlushMetricTo(tableFlusher tblstore.MetricsDataFlusher, flushCtx flushContext) error {
-	flushed := false
+// FlushVersionDataTo flushes metric-block of mStore to the writer.
+func (index *tagIndex) FlushVersionDataTo(
+	tableFlusher tblstore.MetricsDataFlusher,
+	flushCtx flushContext,
+) {
+	var flushed bool
 	for seriesID, tStore := range index.seriesID2TStore {
 		tStoreDataFlushed := tStore.FlushSeriesTo(tableFlusher, flushCtx, seriesID)
 		flushed = flushed || tStoreDataFlushed
 	}
-	if !flushed {
-		return nil
+	if flushed {
+		tableFlusher.FlushVersion(index.Version())
 	}
-	return tableFlusher.FlushMetric(flushCtx.metricID)
 }
 
 // Version returns a version(uptime) of the index
