@@ -224,8 +224,8 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	mockMStore.EXPECT().Evict().Return().AnyTimes()
 	mockMStore.EXPECT().IsEmpty().Return(false).AnyTimes()
 
-	returnNil := mockMStore.EXPECT().FlushMetricsTo(gomock.Any(), gomock.Any()).Return(nil)
-	returnError := mockMStore.EXPECT().FlushMetricsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	returnNil := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
+	returnError := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 	gomock.InOrder(returnNil, returnError)
 
 	md.getBucket(4).hash2MStore[1] = mockMStore
