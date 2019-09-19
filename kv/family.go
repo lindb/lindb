@@ -231,7 +231,7 @@ func (f *family) getMerger() Merger {
 	return f.merger
 }
 
-// deleteObsoleteFiles deletes obsolete file
+// deleteObsoleteFiles deletes obsolete files
 func (f *family) deleteObsoleteFiles() {
 	sstFiles, err := fileutil.ListDir(f.familyPath)
 	if err != nil {

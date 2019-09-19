@@ -3,7 +3,9 @@ package kv
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,6 +113,8 @@ func NewStore(name string, option StoreOption) (Store, error) {
 		ctx:       ctx,
 		cancel:    cancel,
 	}
+	// finally need try delete obsolete files
+	defer store.deleteObsoleteFiles()
 
 	// build store reader cache
 	store.cache = table.NewCache(store.option.Path)
@@ -247,6 +251,29 @@ func (s *store) compact() {
 	for _, family := range families {
 		if family.needCompat() {
 			family.compact()
+		}
+	}
+}
+
+// deleteObsoleteFiles deletes the obsolete files
+func (s *store) deleteObsoleteFiles() {
+	files, err := fileutil.ListDir(s.option.Path)
+	if err != nil {
+		s.logger.Error("list files fail when delete obsolete files", logger.String("kv", s.name))
+		return
+	}
+
+	currentManifest := version.ManifestFileName(s.versions.ManifestFileNumber())
+	for _, fileName := range files {
+		if !strings.HasPrefix(fileName, version.ManifestPrefix) {
+			continue
+		}
+		if fileName == currentManifest {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.option.Path, fileName)); err != nil {
+			s.logger.Error("delete obsolete manifest file fail",
+				logger.String("kv", s.name), logger.String("file", fileName))
 		}
 	}
 }

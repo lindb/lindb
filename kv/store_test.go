@@ -71,7 +71,6 @@ func TestReOpen(t *testing.T) {
 	_, e = NewStore("test_kv", option)
 	assert.NotNil(t, e)
 	assert.Nil(t, nil)
-
 }
 
 func TestCreateFamily(t *testing.T) {
@@ -95,8 +94,9 @@ func TestCreateFamily(t *testing.T) {
 	f11 := kv.GetFamily("f11")
 	assert.Nil(t, f11)
 
+	// cannot re-open
 	_, e := NewStore("test_kv", option)
-	assert.NotNil(t, e, "store re-open not allow")
+	assert.NotNil(t, e)
 }
 
 func TestStore_Compact(t *testing.T) {
