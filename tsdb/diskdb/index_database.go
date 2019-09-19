@@ -19,7 +19,11 @@ type indexDatabase struct {
 }
 
 // NewIndexDatabase returns a new IndexDatabase
-func NewIndexDatabase(idGetter IDGetter, invertedIndexFamily, forwardIndexFamily kv.Family) IndexDatabase {
+func NewIndexDatabase(
+	idGetter IDGetter,
+	invertedIndexFamily kv.Family,
+	forwardIndexFamily kv.Family,
+) IndexDatabase {
 	return &indexDatabase{
 		idGetter:            idGetter,
 		invertedIndexFamily: invertedIndexFamily,
@@ -27,7 +31,12 @@ func NewIndexDatabase(idGetter IDGetter, invertedIndexFamily, forwardIndexFamily
 }
 
 // SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
-func (db *indexDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string {
+func (db *indexDatabase) SuggestTagValues(
+	metricName string,
+	tagKey string,
+	tagValuePrefix string,
+	limit int,
+) []string {
 	if limit <= 0 {
 		return nil
 	}
@@ -72,8 +81,14 @@ func (db *indexDatabase) GetTagValues(
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
-func (db *indexDatabase) FindSeriesIDsByExpr(metricID uint32, expr stmt.TagFilter,
-	timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error) {
+func (db *indexDatabase) FindSeriesIDsByExpr(
+	metricID uint32,
+	expr stmt.TagFilter,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
 	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, expr.TagKey())
 	if err != nil {
 		return nil, err

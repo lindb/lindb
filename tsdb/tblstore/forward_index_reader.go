@@ -10,7 +10,6 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 )
@@ -18,14 +17,10 @@ import (
 const (
 	forwardIndexTimeRangeSize = 4 + // startTime
 		4 // endTime
-	footerSizeAfterVersionEntries = 4 + // versionOffsetPos, uint32
-		4 // CRC32 checksum, uint32
 	footerSizeOfVersionEntry = 4 + // Offsets's Position of DictBlock of versionEntry
 		4 + // OffsetsBlock's Position of versionEntry
 		4 // bitmap's Position of versionEntry
 )
-
-var forwardIndexReaderLogger = logger.GetLogger("tsdb", "ForwardIndexReader")
 
 //go:generate mockgen -source ./forward_index_reader.go -destination=./forward_index_reader_mock.go -package tblstore
 
@@ -389,7 +384,10 @@ func (r *forwardIndexReader) getVersionBlock(metricID uint32, version series.Ver
 	// if we get it from the latest reader, ignore the elder readers
 	for i := len(r.readers) - 1; i >= 0; i-- {
 		reader := r.readers[i]
-		versionBlockItr := newForwardIndexVersionBlockIterator(reader.Get(metricID))
+		versionBlockItr, err := newVersionBlockIterator(reader.Get(metricID))
+		if err != nil {
+			continue
+		}
 		for versionBlockItr.HasNext() {
 			thisVersion, thisVersionBlock := versionBlockItr.Next()
 			if thisVersion == version {
@@ -398,62 +396,4 @@ func (r *forwardIndexReader) getVersionBlock(metricID uint32, version series.Ver
 		}
 	}
 	return nil
-}
-
-type forwardIndexVersionBlockIterator struct {
-	block              []byte
-	sr                 *stream.Reader
-	totalVersions      int // total
-	haveReadVersions   int // accumulative
-	versionBlockCursor int
-}
-
-func newForwardIndexVersionBlockIterator(block []byte) *forwardIndexVersionBlockIterator {
-	itr := &forwardIndexVersionBlockIterator{
-		block: block,
-		sr:    stream.NewReader(block)}
-	itr.readTotalVersions()
-	return itr
-}
-
-func (fii *forwardIndexVersionBlockIterator) readTotalVersions() {
-	//////////////////////////////////////////////////
-	// Read VersionOffSetsBlock
-	//////////////////////////////////////////////////
-	_ = fii.sr.ReadSlice(len(fii.block) - footerSizeAfterVersionEntries)
-	versionOffsetPos := fii.sr.ReadUint32()
-	// shift to Start Position of the VersionOffsetsBlock
-	fii.sr.SeekStart()
-	_ = fii.sr.ReadSlice(int(versionOffsetPos))
-	// read version count
-	fii.totalVersions = int(fii.sr.ReadUvarint64())
-}
-
-func (fii *forwardIndexVersionBlockIterator) HasNext() bool {
-	if len(fii.block) <= footerSizeAfterVersionEntries {
-		return false
-	}
-	if fii.haveReadVersions >= fii.totalVersions {
-		return false
-	}
-	return !fii.sr.Empty() && fii.sr.Error() == nil
-}
-
-func (fii *forwardIndexVersionBlockIterator) Next() (version series.Version, versionBlock []byte) {
-	defer func() { fii.haveReadVersions++ }()
-	// read version
-	thisVersion := series.Version(fii.sr.ReadInt64())
-	// read version length
-	versionLength := fii.sr.ReadUvarint64()
-	if fii.sr.Error() != nil {
-		forwardIndexReaderLogger.Error("read error occurred", logger.Error(fii.sr.Error()))
-		return thisVersion, nil
-	}
-	versionEntryStartPos := fii.versionBlockCursor
-	versionEntryEndPos := versionEntryStartPos + int(versionLength)
-	fii.versionBlockCursor += int(versionLength)
-	if versionEntryEndPos < len(fii.block) {
-		return thisVersion, fii.block[versionEntryStartPos:versionEntryEndPos]
-	}
-	return thisVersion, nil
 }

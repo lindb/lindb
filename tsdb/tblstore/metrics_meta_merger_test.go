@@ -17,15 +17,15 @@ func buildMetaBlock() (data [][]byte) {
 	metaFlusher.FlushTagKeyID("tag1", 1)
 	metaFlusher.FlushTagKeyID("tag2", 2)
 	metaFlusher.FlushTagKeyID("tag3", 3)
-	metaFlusher.FlushFieldID("f1", field.SumField, 1)
-	metaFlusher.FlushFieldID("f2", field.SumField, 2)
+	metaFlusher.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: "f1"})
+	metaFlusher.FlushFieldMeta(field.Meta{ID: 2, Type: field.SumField, Name: "f2"})
 	_ = metaFlusher.FlushMetricMeta(1)
 	data = append(data, append([]byte{}, nopFlusher.Bytes()...))
 
 	metaFlusher.FlushTagKeyID("tag4", 4)
 	metaFlusher.FlushTagKeyID("tag5", 5)
-	metaFlusher.FlushFieldID("f3", field.SumField, 3)
-	metaFlusher.FlushFieldID("f4", field.SumField, 4)
+	metaFlusher.FlushFieldMeta(field.Meta{ID: 3, Type: field.SumField, Name: "f3"})
+	metaFlusher.FlushFieldMeta(field.Meta{ID: 4, Type: field.SumField, Name: "f4"})
 	_ = metaFlusher.FlushMetricMeta(1)
 	data = append(data, append([]byte{}, nopFlusher.Bytes()...))
 
@@ -56,13 +56,13 @@ func Test_MetricsMetaMerger(t *testing.T) {
 		assert.Equal(t, uint32(tagKeyIDCount), tagKeyID)
 	}
 
-	fieldItr := newFieldIDIterator(fieldMetaBlock)
+	fieldItr := newFieldMetaIterator(fieldMetaBlock)
 	var fieldIDCount = 0
 	for fieldItr.HasNext() {
 		fieldIDCount++
-		fieldName, fieldType, fieldID := fieldItr.Next()
-		assert.Equal(t, fmt.Sprintf("f%d", fieldIDCount), fieldName)
-		assert.Equal(t, field.SumField, fieldType)
-		assert.Equal(t, uint16(fieldIDCount), fieldID)
+		fieldMeta := fieldItr.Next()
+		assert.Equal(t, fmt.Sprintf("f%d", fieldIDCount), fieldMeta.Name)
+		assert.Equal(t, field.SumField, fieldMeta.Type)
+		assert.Equal(t, uint16(fieldIDCount), fieldMeta.ID)
 	}
 }

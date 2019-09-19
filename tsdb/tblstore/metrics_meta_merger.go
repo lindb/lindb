@@ -3,6 +3,8 @@ package tblstore
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/series/field"
+
 	"github.com/lindb/lindb/kv"
 )
 
@@ -10,6 +12,7 @@ type metricsMetaMerger struct {
 	flusher      *metricsMetaFlusher
 	reader       *metricsMetaReader
 	nopKVFlusher *kv.NopFlusher
+	fieldMetas   []field.Meta
 }
 
 // NewMetricsMetaMerger returns a new merger for compacting MetricsMetaTable
@@ -30,8 +33,11 @@ func (m *metricsMetaMerger) Merge(
 	error,
 ) {
 	var hasData bool
-	defer m.flusher.Reset()
-
+	defer func() {
+		m.flusher.Reset()
+		m.fieldMetas = m.fieldMetas[:0]
+	}()
+	// flush tag-key
 	for _, block := range value {
 		tagMetaBlock, fieldMetaBlock := m.reader.readMetasBlock(block)
 		tagItr := newTagKeyIDIterator(tagMetaBlock)
@@ -39,11 +45,15 @@ func (m *metricsMetaMerger) Merge(
 			hasData = true
 			m.flusher.FlushTagKeyID(tagItr.Next())
 		}
-		fieldItr := newFieldIDIterator(fieldMetaBlock)
+		fieldItr := newFieldMetaIterator(fieldMetaBlock)
 		for fieldItr.HasNext() {
 			hasData = true
-			m.flusher.FlushFieldID(fieldItr.Next())
+			m.fieldMetas = append(m.fieldMetas, fieldItr.Next())
 		}
+	}
+	// flush field-meta
+	for _, fm := range m.fieldMetas {
+		m.flusher.FlushFieldMeta(fm)
 	}
 	if !hasData {
 		return nil, fmt.Errorf("no available blocks for compacting")

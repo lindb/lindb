@@ -30,7 +30,7 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *diskdb.MockIDGenerator {
 
 func makeMockDataFlusher(ctrl *gomock.Controller) *tblstore.MockMetricsDataFlusher {
 	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
-	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
 	mockTF.EXPECT().FlushSeries(gomock.Any()).

@@ -87,7 +87,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 				if err != nil {
 					break
 				}
-				fields[field.FieldName()] = data
+				fields[field.FieldMeta().Name] = data
 			}
 			timeSeries := &pb.TimeSeries{
 				Tags:   series.Tags(),

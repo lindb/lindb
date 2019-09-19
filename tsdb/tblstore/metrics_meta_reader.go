@@ -51,7 +51,7 @@ func (r *metricsMetaReader) ReadTagKeyID(
 		itr := newTagKeyIDIterator(tagMetaBlock)
 		for itr.HasNext() {
 			theTagKey, theTagKeyID := itr.Next()
-			if theTagKey == tagKey && theTagKeyID != 0 {
+			if theTagKey == tagKey {
 				return theTagKeyID, true
 			}
 		}
@@ -66,31 +66,23 @@ func (r *metricsMetaReader) readMetasBlock(
 	tagMetaBlock []byte,
 	fieldMetaBlock []byte,
 ) {
-	if block == nil {
+	if len(block) <= 4 { // posOfFieldMeta
 		return nil, nil
 	}
+	// read pos of field-meta
 	r.sr.Reset(block)
-	// read length of tagMeta
-	keyMetaLength := r.sr.ReadUvarint64()
-	startOfTagMeta := r.sr.Position()
-	// jump to end of tagMeta block
-	_ = r.sr.ReadSlice(int(keyMetaLength))
-	endOfTagMeta := r.sr.Position()
-	// block size too small
-	if r.sr.Error() != nil {
-		return nil, nil
-	}
-	tagMetaBlock = block[startOfTagMeta:endOfTagMeta]
-	// read length of fieldMeta
-	fieldMetaLen := r.sr.ReadUvarint64()
-	startOfFieldMeta := r.sr.Position()
-	_ = r.sr.ReadSlice(int(fieldMetaLen))
-	endOfFieldMeta := r.sr.Position()
+	r.sr.ReadSlice(len(block) - 4)
+	posOfFieldMetaPos := int(r.sr.ReadUint32())
+	// read tag-meta and field-meta
+	r.sr.SeekStart()
+	tagMetaBlock = r.sr.ReadSlice(posOfFieldMetaPos)
+	fieldMetaBlock = r.sr.ReadSlice(len(block) - posOfFieldMetaPos - 4)
 	// failing assertion: the remaining block is field block
+	_ = r.sr.ReadSlice(4)
 	if r.sr.Error() != nil || !r.sr.Empty() {
 		return nil, nil
 	}
-	return tagMetaBlock, block[startOfFieldMeta:endOfFieldMeta]
+	return tagMetaBlock, fieldMetaBlock
 }
 
 // ReadMaxFieldID return the max field-id of this metric
@@ -104,10 +96,10 @@ func (r *metricsMetaReader) ReadMaxFieldID(
 	if fieldMetaBlock == nil {
 		return 0
 	}
-	itr := newFieldIDIterator(fieldMetaBlock)
+	itr := newFieldMetaIterator(fieldMetaBlock)
 	for itr.HasNext() {
-		_, _, fieldID := itr.Next()
-		maxFieldID = fieldID
+		meta := itr.Next()
+		maxFieldID = meta.ID
 	}
 	return
 }
@@ -121,18 +113,16 @@ func (r *metricsMetaReader) ReadFieldID(
 	fieldType field.Type,
 	ok bool,
 ) {
-	var thisFieldName string
 	for _, reader := range r.readers {
 		_, fieldMetaBlock := r.readMetasBlock(reader.Get(metricID))
 		if fieldMetaBlock == nil {
 			continue
 		}
-		itr := newFieldIDIterator(fieldMetaBlock)
+		itr := newFieldMetaIterator(fieldMetaBlock)
 		for itr.HasNext() {
-			thisFieldName, fieldType, fieldID = itr.Next()
-			if thisFieldName == fieldName && fieldID != 0 && fieldType != 0 {
-				ok = true
-				return
+			fieldMeta := itr.Next()
+			if fieldMeta.Name == fieldName {
+				return fieldMeta.ID, fieldMeta.Type, true
 			}
 		}
 	}
@@ -167,42 +157,51 @@ func (r *metricsMetaReader) SuggestTagKeys(
 }
 
 type tagKeyIDIterator struct {
-	sr *stream.Reader
+	sr       *stream.Reader
+	tagKey   string
+	tagKeyID uint32
 }
 
 func newTagKeyIDIterator(block []byte) *tagKeyIDIterator {
 	return &tagKeyIDIterator{sr: stream.NewReader(block)}
 }
-func (ti *tagKeyIDIterator) HasNext() bool { return !ti.sr.Empty() && ti.sr.Error() == nil }
+func (ti *tagKeyIDIterator) HasNext() bool {
+	tagKeyLen := ti.sr.ReadByte()
+	ti.tagKey = string(ti.sr.ReadSlice(int(tagKeyLen)))
+	ti.tagKeyID = ti.sr.ReadUint32()
+	return ti.sr.Error() == nil
+}
+
 func (ti *tagKeyIDIterator) Next() (
 	tagKey string,
 	tagKeyID uint32,
 ) {
-	tagKeyLen := ti.sr.ReadByte()
-	tagKey = string(ti.sr.ReadSlice(int(tagKeyLen)))
-	tagKeyID = ti.sr.ReadUint32()
-	return
+	return ti.tagKey, ti.tagKeyID
 }
 
-type fieldIDIterator struct {
-	sr *stream.Reader
+type fieldMetaIterator struct {
+	sr   *stream.Reader
+	meta field.Meta
 }
 
-func newFieldIDIterator(block []byte) *fieldIDIterator {
-	return &fieldIDIterator{sr: stream.NewReader(block)}
+func newFieldMetaIterator(block []byte) *fieldMetaIterator {
+	return &fieldMetaIterator{sr: stream.NewReader(block)}
 }
-func (fi *fieldIDIterator) HasNext() bool { return !fi.sr.Empty() && fi.sr.Error() == nil }
-func (fi *fieldIDIterator) Next() (
-	fieldName string,
-	fieldType field.Type,
-	fieldID uint16,
-) {
-	// read field-name
-	thisFieldNameLen := fi.sr.ReadByte()
-	fieldName = string(fi.sr.ReadSlice(int(thisFieldNameLen)))
-	// read field-type
-	fieldType = field.Type(fi.sr.ReadByte())
+func (fi *fieldMetaIterator) HasNext() bool {
+	var meta field.Meta
 	// read field-ID
-	fieldID = fi.sr.ReadUint16()
-	return
+	meta.ID = fi.sr.ReadUint16()
+	// read field-type
+	meta.Type = field.Type(fi.sr.ReadByte())
+	// read field-name
+	fieldNameLen := fi.sr.ReadUvarint64()
+	meta.Name = string(fi.sr.ReadSlice(int(fieldNameLen)))
+	fi.meta = meta
+	return fi.sr.Error() == nil
+}
+
+func (fi *fieldMetaIterator) Next() (
+	meta field.Meta,
+) {
+	return fi.meta
 }

@@ -38,8 +38,8 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt := agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, uint16(15), fieldIt.FieldID())
-	assert.Equal(t, field.SumField, fieldIt.FieldType())
+	assert.Equal(t, uint16(15), fieldIt.FieldMeta().ID)
+	assert.Equal(t, field.SumField, fieldIt.FieldMeta().Type)
 	assert.False(t, fieldIt.HasNext())
 
 	it = MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
@@ -61,8 +61,8 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt = agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, uint16(15), fieldIt.FieldID())
-	assert.Equal(t, field.SumField, fieldIt.FieldType())
+	assert.Equal(t, uint16(15), fieldIt.FieldMeta().ID)
+	assert.Equal(t, field.SumField, fieldIt.FieldMeta().Type)
 	assert.False(t, fieldIt.HasNext())
 
 	assert.Equal(t,

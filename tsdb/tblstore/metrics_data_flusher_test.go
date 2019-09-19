@@ -16,10 +16,12 @@ func Test_MetricsDataFlusher(t *testing.T) {
 
 	flush := func() []byte {
 		for version := 0; version < 10; version++ {
-			flusher.FlushFieldMeta(1, field.SumField)
-			flusher.FlushFieldMeta(2, field.SumField)
-			flusher.FlushFieldMeta(3, field.SumField)
-			flusher.FlushFieldMeta(4, field.SumField)
+			flusher.FlushFieldMetas([]field.Meta{
+				{ID: 1, Type: field.SumField, Name: "sum1"},
+				{ID: 2, Type: field.SumField, Name: "sum2"},
+				{ID: 3, Type: field.SumField, Name: "sum3"},
+				{ID: 4, Type: field.SumField, Name: "sum4"},
+			})
 
 			for seriesID := 0; seriesID < 100; seriesID++ {
 				flusher.FlushField(1, []byte{1, 2}, 0, 10)

@@ -19,7 +19,7 @@ import (
 func mockSingleIterator(ctrl *gomock.Controller, fieldType field.Type) series.FieldIterator {
 	it := series.NewMockFieldIterator(ctrl)
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-	it.EXPECT().FieldType().Return(fieldType)
+	it.EXPECT().FieldMeta().Return(field.Meta{Type: fieldType})
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	primitiveIt.EXPECT().HasNext().Return(true)

@@ -62,12 +62,8 @@ type Iterator interface {
 
 // FieldIterator represents a field's data iterator, support multi field for one series
 type FieldIterator interface {
-	// FieldID returns the field's id
-	FieldID() uint16
-	// FieldName return the field's name
-	FieldName() string
-	// FieldType returns the field's type
-	FieldType() field.Type
+	// FieldMeta returns the meta info of the field
+	FieldMeta() field.Meta
 	// HasNext returns if the iteration has more fields
 	HasNext() bool
 	// Next returns the primitive field iterator

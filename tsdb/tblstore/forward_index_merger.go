@@ -86,12 +86,12 @@ func (m *forwardIndexMerger) Merge(
 	// version->List<VersionBlock>
 	var versionBlocksMap = make(map[series.Version][][]byte)
 	for _, block := range value {
-		versionBlockItr := newForwardIndexVersionBlockIterator(block)
+		versionBlockItr, err := newVersionBlockIterator(block)
+		if err != nil {
+			continue
+		}
 		for versionBlockItr.HasNext() {
 			version, versionBlock := versionBlockItr.Next()
-			if versionBlock == nil {
-				continue
-			}
 			list, ok := versionBlocksMap[version]
 			if ok {
 				list = append(list, versionBlock)
