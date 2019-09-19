@@ -22,8 +22,9 @@ var (
 type MetricsMetaFlusher interface {
 	// FlushTagKeyID flushes the relation of tagKey and tagID to buffer
 	FlushTagKeyID(tagKey string, tagKeyID uint32)
-	// FlushFieldID flushes the relation of fieldName and fieldID to buffer
-	FlushFieldID(fieldName string, fieldType field.Type, fieldID uint16)
+	// FlushFieldMeta flushes the relation of fieldName and fieldID to buffer
+	// make sure tagKey are flushed before
+	FlushFieldMeta(fieldMeta field.Meta)
 	// FlushMetricsMeta flushes meta info above to the underlying kv table
 	FlushMetricMeta(metricID uint32) error
 	// Commit closes the writer, this will be called after writing all metric meta info.
@@ -32,19 +33,16 @@ type MetricsMetaFlusher interface {
 
 // metricsMetaFlusher implements MetricsMetaFlusher
 type metricsMetaFlusher struct {
-	flusher        kv.Flusher
-	valueBufWriter *stream.BufferWriter
-	tagsBufWriter  *stream.BufferWriter
-	fieldBufWriter *stream.BufferWriter
+	flusher      kv.Flusher
+	writer       *stream.BufferWriter
+	fieldMetaPos int
 }
 
 // NewMetricsMetaFlusher returns a new MetricsMetaFlusher
 func NewMetricsMetaFlusher(flusher kv.Flusher) MetricsMetaFlusher {
 	return &metricsMetaFlusher{
-		flusher:        flusher,
-		valueBufWriter: stream.NewBufferWriter(nil),
-		tagsBufWriter:  stream.NewBufferWriter(nil),
-		fieldBufWriter: stream.NewBufferWriter(nil)}
+		flusher: flusher,
+		writer:  stream.NewBufferWriter(nil)}
 }
 
 // FlushTagKeyID flushes the relation of tagKey and tagID to buffer
@@ -56,49 +54,38 @@ func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagKeyID uint32) {
 		metaFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
 	}
 	// write tagKey
-	f.tagsBufWriter.PutByte(byte(len(tagKey)))
-	f.tagsBufWriter.PutBytes([]byte(tagKey))
+	f.writer.PutByte(byte(len(tagKey)))
+	f.writer.PutBytes([]byte(tagKey))
 	// write tagKeyID
-	f.tagsBufWriter.PutUint32(tagKeyID)
+	f.writer.PutUint32(tagKeyID)
+
+	f.fieldMetaPos = f.writer.Len()
 }
 
-// FlushFieldID flushes the relation of fieldName and fieldID to buffer
-func (f *metricsMetaFlusher) FlushFieldID(fieldName string, fieldType field.Type, fieldID uint16) {
-	if fieldName == "" {
+// FlushFieldMeta flushes the relation of fieldName and fieldID to buffer
+func (f *metricsMetaFlusher) FlushFieldMeta(fieldMeta field.Meta) {
+	if fieldMeta.Name == "" {
 		return
 	}
-	if len(fieldName) > math.MaxUint8 {
-		metaFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldName)))
+	if len(fieldMeta.Name) > math.MaxUint8 {
+		metaFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldMeta.Name)))
 	}
-	// write field-name
-	f.fieldBufWriter.PutByte(byte(len(fieldName)))
-	f.fieldBufWriter.PutBytes([]byte(fieldName))
-	// write fieldType
-	f.fieldBufWriter.PutByte(byte(fieldType))
 	// write fieldID
-	f.fieldBufWriter.PutUInt16(fieldID)
+	f.writer.PutUInt16(fieldMeta.ID)
+	// write fieldType
+	f.writer.PutByte(byte(fieldMeta.Type))
+	// write field-name
+	f.writer.PutUvarint64(uint64(len(fieldMeta.Name)))
+	f.writer.PutBytes([]byte(fieldMeta.Name))
 }
 
 // FlushMetricsMeta flushes meta info above to the underlying kv table
 func (f *metricsMetaFlusher) FlushMetricMeta(metricID uint32) error {
 	defer f.Reset()
-	f.buildMetricMeta()
-	data, _ := f.valueBufWriter.Bytes()
+	// write pos of field-meta
+	f.writer.PutUint32(uint32(f.fieldMetaPos))
+	data, _ := f.writer.Bytes()
 	return f.flusher.Add(metricID, data)
-}
-
-// buildMetricMeta build the meta buffer
-func (f *metricsMetaFlusher) buildMetricMeta() {
-	// write tags meta length
-	f.valueBufWriter.PutUvarint64(uint64(f.tagsBufWriter.Len()))
-	// write tags meta
-	data, _ := f.tagsBufWriter.Bytes()
-	f.valueBufWriter.PutBytes(data)
-	// write fields meta length
-	f.valueBufWriter.PutUvarint64(uint64(f.fieldBufWriter.Len()))
-	data, _ = f.fieldBufWriter.Bytes()
-	// write fields meta
-	f.valueBufWriter.PutBytes(data)
 }
 
 // Commit closes the writer, this will be called after writing all metric meta info.
@@ -108,7 +95,6 @@ func (f *metricsMetaFlusher) Commit() error {
 
 // Reset resets the writers
 func (f *metricsMetaFlusher) Reset() {
-	f.valueBufWriter.Reset()
-	f.tagsBufWriter.Reset()
-	f.fieldBufWriter.Reset()
+	f.writer.Reset()
+	f.fieldMetaPos = 0
 }

@@ -39,7 +39,7 @@ func TestFieldStore_Scan(t *testing.T) {
 		Start: now - 100,
 		End:   now + 1000,
 	}, IntervalCalc: calc, Interval: 10000}
-	fieldMeta := &fieldMeta{fieldID: 1, fieldName: "f1", fieldType: field.SumField}
+	fieldMeta := &field.Meta{ID: 1, Name: "f1", Type: field.SumField}
 	// no data
 	fStore.Scan(sCtx, series.Version(10), uint32(10), fieldMeta, ts)
 
@@ -82,9 +82,9 @@ func TestFieldStore_Scan(t *testing.T) {
 	_, err := it.Bytes()
 	assert.NotNil(t, err)
 	assert.Equal(t, familyTime, it.SegmentStartTime())
-	assert.Equal(t, uint16(1), it.FieldID())
-	assert.Equal(t, "f1", it.FieldName())
-	assert.Equal(t, field.SumField, it.FieldType())
+	assert.Equal(t, uint16(1), it.FieldMeta().ID)
+	assert.Equal(t, "f1", it.FieldMeta().Name)
+	assert.Equal(t, field.SumField, it.FieldMeta().Type)
 	assert.True(t, it.HasNext())
 	pIt := it.Next()
 	assert.True(t, pIt.HasNext())

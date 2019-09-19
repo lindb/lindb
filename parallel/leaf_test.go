@@ -15,6 +15,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -127,7 +128,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	fieldIt := series.NewMockFieldIterator(ctrl)
 	it.EXPECT().Next().Return(fieldIt)
 	fieldIt.EXPECT().Bytes().Return([]byte{1, 2, 3}, nil)
-	fieldIt.EXPECT().FieldName().Return("f1")
+	fieldIt.EXPECT().FieldMeta().Return(field.Meta{Name: "f1"})
 	it.EXPECT().HasNext().Return(false)
 	go func() {
 		resultCh <- &series.TimeSeriesEvent{

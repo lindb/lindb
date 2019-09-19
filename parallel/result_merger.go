@@ -82,9 +82,12 @@ func newFieldIterator(fieldName string, data []byte) series.FieldIterator {
 	return it
 }
 
-func (fsi *fieldIterator) FieldID() uint16       { return 0 }
-func (fsi *fieldIterator) FieldName() string     { return fsi.fieldName }
-func (fsi *fieldIterator) FieldType() field.Type { return field.Unknown }
+func (fsi *fieldIterator) FieldMeta() field.Meta {
+	return field.Meta{
+		ID:   0,
+		Name: fsi.fieldName,
+		Type: field.Unknown}
+}
 
 func (fsi *fieldIterator) HasNext() bool {
 	return !fsi.reader.Empty()

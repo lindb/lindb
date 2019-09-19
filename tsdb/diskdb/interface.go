@@ -29,6 +29,7 @@ type IDGetter interface {
 }
 
 // IDSequencer contains the abilities for querying and generating ID numbers.
+// It is namespace level, and is used by all shards belong it.
 type IDSequencer interface {
 	// Recover loads metric-names and metricIDs from the index file to build the tree
 	Recover() error

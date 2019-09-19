@@ -22,8 +22,8 @@ import (
 // Level3: series entry
 // Level4: compressed field data
 type MetricsDataFlusher interface {
-	// FlushFieldMeta writes the meta info a field
-	FlushFieldMeta(fieldID uint16, fieldType field.Type)
+	// FlushFieldMetas writes the meta info a field
+	FlushFieldMetas([]field.Meta)
 	// FlushField writes a compressed field data to writer.
 	FlushField(fieldID uint16, data []byte, startSlot, endSlot int)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
@@ -43,9 +43,7 @@ func NewMetricsDataFlusher(flusher kv.Flusher, interval int64) MetricsDataFlushe
 		interval: interval,
 		flusher:  flusher,
 		// metric block context
-		writer:          stream.NewBufferWriter(nil),
-		metaFieldsIDMap: make(map[uint16]int),
-		metaFieldsType:  make(map[uint16]field.Type),
+		writer: stream.NewBufferWriter(nil),
 		// version entry context
 		seriesOffsets: encoding.NewDeltaBitPackingEncoder(),
 		seriesIDs:     roaring.New(),
@@ -65,9 +63,7 @@ type metricsDataFlusher struct {
 		length  int            // length of flushed version blocks
 		version series.Version // flushed version
 	}
-	metaFieldsID    []uint16              // fieldID list of fields-meta
-	metaFieldsIDMap map[uint16]int        // set
-	metaFieldsType  map[uint16]field.Type // field-id -> fieldType
+	fieldMetas []field.Meta
 	// context for building version block
 	versionStartPos  int   // start position of writer
 	versionStartTime int64 // startTime of all data
@@ -81,14 +77,9 @@ type metricsDataFlusher struct {
 	seriesEndTime   int64 // endTime of the series
 }
 
-// FlushFieldMeta writes the field-meta of the metric
-func (w *metricsDataFlusher) FlushFieldMeta(fieldID uint16, fieldType field.Type) {
-	if _, ok := w.metaFieldsIDMap[fieldID]; ok {
-		return
-	}
-	w.metaFieldsIDMap[fieldID] = len(w.metaFieldsID)
-	w.metaFieldsType[fieldID] = fieldType
-	w.metaFieldsID = append(w.metaFieldsID, fieldID)
+// FlushFieldMetas writes the field-meta of the metric
+func (w *metricsDataFlusher) FlushFieldMetas(fieldMetas []field.Meta) {
+	w.fieldMetas = fieldMetas
 }
 
 // FlushField writes a compressed field data to writer.
@@ -137,24 +128,24 @@ func (w *metricsDataFlusher) FlushSeries(seriesID uint32) {
 	// write end-time
 	w.writer.PutUvarint64(uint64(w.seriesEndTime))
 	// build and write bit-array
-	for idx, fieldID := range w.metaFieldsID {
-		if _, ok := w.fieldsData[fieldID]; !ok {
+	for idx, fm := range w.fieldMetas {
+		if _, ok := w.fieldsData[fm.ID]; !ok {
 			continue
 		}
 		w.bitArray.SetBit(uint16(idx))
 	}
 	w.writer.PutBytes(w.bitArray.Bytes())
 	// write data length
-	for _, fieldID := range w.metaFieldsID {
-		if data, ok := w.fieldsData[fieldID]; ok {
+	for _, fm := range w.fieldMetas {
+		if data, ok := w.fieldsData[fm.ID]; ok {
 			w.writer.PutUvarint64(uint64(len(data)))
 		}
 	}
 
 	// Fields Data Block
 	// write fields data
-	for _, fieldID := range w.metaFieldsID {
-		if data, ok := w.fieldsData[fieldID]; ok {
+	for _, fm := range w.fieldMetas {
+		if data, ok := w.fieldsData[fm.ID]; ok {
 			w.writer.PutBytes(data)
 		}
 	}
@@ -187,13 +178,16 @@ func (w *metricsDataFlusher) FlushVersion(version series.Version) {
 	w.writer.PutUvarint64(uint64(w.versionStartTime))
 	w.writer.PutUvarint64(uint64(w.versionEndTime))
 	// write fields count
-	w.writer.PutUvarint64(uint64(len(w.metaFieldsID)))
+	w.writer.PutUvarint64(uint64(len(w.fieldMetas)))
 	// write field-id, field-type list
-	for _, fieldID := range w.metaFieldsID {
+	for _, fm := range w.fieldMetas {
 		// write field-id
-		w.writer.PutUInt16(fieldID)
+		w.writer.PutUInt16(fm.ID)
 		// write field-type
-		w.writer.PutByte(byte(w.metaFieldsType[fieldID]))
+		w.writer.PutByte(byte(fm.Type))
+		// write field-name
+		w.writer.PutUvarint64(uint64(len(fm.Name)))
+		w.writer.PutBytes([]byte(fm.Name))
 	}
 	// write footer, length: 4+4+4
 	w.writer.PutUint32(uint32(seriesOffsetPos))
@@ -214,13 +208,7 @@ func (w *metricsDataFlusher) FlushVersion(version series.Version) {
 func (w *metricsDataFlusher) Reset() {
 	w.writer.Reset()
 	w.versionBlocks = w.versionBlocks[:0]
-	w.metaFieldsID = w.metaFieldsID[:0]
-	for k := range w.metaFieldsIDMap {
-		delete(w.metaFieldsIDMap, k)
-	}
-	for k := range w.metaFieldsType {
-		delete(w.metaFieldsType, k)
-	}
+	w.fieldMetas = w.fieldMetas[:0]
 	w.versionStartPos = 0
 }
 

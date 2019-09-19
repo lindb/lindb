@@ -77,7 +77,7 @@ func (e *expression) prepare() {
 		it := e.timeSeries.Next()
 		f := fields.NewSingleField(e.pointCount, it)
 		if f != nil {
-			e.fieldStore[it.FieldName()] = f
+			e.fieldStore[it.FieldMeta().Name] = f
 		}
 	}
 }

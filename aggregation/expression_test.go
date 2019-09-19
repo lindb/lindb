@@ -40,7 +40,7 @@ func TestExpression_prepare(t *testing.T) {
 	timeSeries1 := series.NewMockIterator(ctrl)
 	timeSeries1.EXPECT().HasNext().Return(true)
 	it3 := series.NewMockFieldIterator(ctrl)
-	it3.EXPECT().FieldType().Return(field.Unknown)
+	it3.EXPECT().FieldMeta().Return(field.Meta{Type: field.Unknown})
 	timeSeries1.EXPECT().Next().Return(it3)
 	timeSeries1.EXPECT().HasNext().Return(false)
 	expression = NewExpression(timeSeries1, 10, query.SelectItems)

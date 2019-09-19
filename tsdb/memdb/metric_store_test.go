@@ -142,6 +142,7 @@ func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
 	defer ctrl.Finish()
 	flusher := tblstore.NewMockMetricsDataFlusher(ctrl)
 	flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
+	flusher.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	// mock tagIndex
 	mStore.mutable = newTagIndex()
 	_ = mStore.ResetVersion()
@@ -164,9 +165,9 @@ func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 	assert.Nil(t, mStore.atomicGetImmutable())
 	// mock flush field meta
 	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
-	mockTF.EXPECT().FlushFieldMeta(gomock.Any(), gomock.Any()).AnyTimes()
+	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).AnyTimes()
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
-	mStore.fieldsMetas.Store(&fieldsMetas{fieldMeta{}, fieldMeta{}})
+	mStore.fieldsMetas.Store(&fieldsMetas{field.Meta{}, field.Meta{}})
 
 	assert.Nil(t, mStoreInterface.FlushMetricsDataTo(mockTF, flushContext{}))
 	assert.Nil(t, mStore.atomicGetImmutable())
@@ -235,7 +236,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	// mock too many fields
 	var fieldsMetasList fieldsMetas
 	for range [3000]struct{}{} {
-		fieldsMetasList = append(fieldsMetasList, fieldMeta{})
+		fieldsMetasList = append(fieldsMetasList, field.Meta{})
 	}
 	mStore.fieldsMetas.Store(&fieldsMetasList)
 	_, err = mStoreInterface.GetFieldIDOrGenerate("sum", field.SumField, mockGen)

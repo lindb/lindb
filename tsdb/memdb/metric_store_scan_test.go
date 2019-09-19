@@ -26,10 +26,10 @@ func Test_MetricStore_scan(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
 	mStore.fieldsMetas.Store(&fieldsMetas{
-		{"sum3", 3, field.SumField},
-		{"sum4", 4, field.SumField},
-		{"sum5", 5, field.SumField},
-		{"sum6", 6, field.SumField}})
+		{ID: 3, Type: field.SumField, Name: "sum3"},
+		{ID: 4, Type: field.SumField, Name: "sum4"},
+		{ID: 5, Type: field.SumField, Name: "sum5"},
+		{ID: 6, Type: field.SumField, Name: "sum6"}})
 	// v1:
 	ti1 := newTagIndex().(*tagIndex)
 	ti1.version = 1

@@ -15,7 +15,7 @@ type singleField struct {
 
 // NewSingleField creates a single field series
 func NewSingleField(capacity int, it series.FieldIterator) Field {
-	fieldType := it.FieldType()
+	fieldType := it.FieldMeta().Type
 	if fieldType == field.Unknown {
 		return nil
 	}

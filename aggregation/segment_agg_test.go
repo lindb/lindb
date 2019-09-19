@@ -39,7 +39,7 @@ func TestSegmentAggregator_Aggregate(t *testing.T) {
 		functions: map[function.FuncType]bool{function.Sum: true},
 	}})
 
-	it.EXPECT().FieldID().Return(uint16(1))
+	it.EXPECT().FieldMeta().Return(field.Meta{ID: 1})
 	agg.Aggregate(it)
 	agg.Aggregate(nil)
 	it = MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
@@ -49,7 +49,7 @@ func TestSegmentAggregator_Aggregate(t *testing.T) {
 		16: 5.5,
 		56: 5.5,
 	})
-	it.EXPECT().FieldID().Return(uint16(2))
+	it.EXPECT().FieldMeta().Return(field.Meta{ID: 2})
 	agg.Aggregate(it)
 
 	result := agg.Iterator(nil)
@@ -57,7 +57,7 @@ func TestSegmentAggregator_Aggregate(t *testing.T) {
 	f := make(map[string]bool)
 	assert.True(t, result.HasNext())
 	fIt := result.Next()
-	f[fIt.FieldName()] = true
+	f[fIt.FieldMeta().Name] = true
 	expect := map[int]float64{
 		2:  5.5,
 		7:  5.5,
@@ -68,7 +68,7 @@ func TestSegmentAggregator_Aggregate(t *testing.T) {
 	AssertPrimitiveIt(t, fIt.Next(), expect)
 	assert.True(t, result.HasNext())
 	fIt = result.Next()
-	f[fIt.FieldName()] = true
+	f[fIt.FieldMeta().Name] = true
 	expect = map[int]float64{
 		2:  5.5,
 		7:  5.5,

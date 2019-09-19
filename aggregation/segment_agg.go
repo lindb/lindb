@@ -64,7 +64,7 @@ func (fa *segmentAggregator) Aggregate(it series.FieldIterator) {
 	if it == nil {
 		return
 	}
-	fieldID := it.FieldID()
+	fieldID := it.FieldMeta().ID
 	var agg FieldAggregator
 	ok := false
 	agg, ok = fa.aggregates[fieldID]
