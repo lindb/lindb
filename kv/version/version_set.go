@@ -24,6 +24,8 @@ type StoreVersionSet interface {
 	Destroy() error
 	// NextFileNumber generates next file number
 	NextFileNumber() int64
+	// ManifestFileNumber returns the current manifest file number
+	ManifestFileNumber() int64
 	// CommitFamilyEditLog persists edit logs to manifest file, then apply new version to family version
 	CommitFamilyEditLog(family string, editLog *EditLog) error
 	// CreateFamilyVersion creates family version using family name,
@@ -102,6 +104,11 @@ func (vs *storeVersionSet) Destroy() error {
 func (vs *storeVersionSet) NextFileNumber() int64 {
 	nextNumber := atomic.AddInt64(&vs.nextFileNumber, 1)
 	return nextNumber - 1
+}
+
+// ManifestFileNumber returns the current manifest file number
+func (vs *storeVersionSet) ManifestFileNumber() int64 {
+	return atomic.LoadInt64(&vs.manifestFileNumber)
 }
 
 // CommitFamilyEditLog persists edit logs to manifest file, then apply new version to family version
@@ -259,7 +266,7 @@ func (vs *storeVersionSet) readManifestFileName() (string, error) {
 // 3. set version set's manifest writer
 func (vs *storeVersionSet) initJournal() error {
 	if vs.manifest == nil {
-		manifestFileName := manifestFileName(vs.manifestFileNumber) // manifest file name
+		manifestFileName := ManifestFileName(vs.manifestFileNumber) // manifest file name
 		manifestPath := vs.getManifestFilePath(manifestFileName)
 		writer, err := bufioutil.NewBufioWriter(manifestPath)
 		if err != nil {

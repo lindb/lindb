@@ -10,8 +10,8 @@ func Test_FileName(t *testing.T) {
 	assert.Equal(t, "000001.sst", Table(1))
 	assert.Equal(t, "1234567891011.sst", Table(1234567891011))
 
-	assert.Equal(t, "MANIFEST-000012", manifestFileName(12))
-	assert.Equal(t, "MANIFEST-123456789", manifestFileName(123456789))
+	assert.Equal(t, "MANIFEST-000012", ManifestFileName(12))
+	assert.Equal(t, "MANIFEST-123456789", ManifestFileName(123456789))
 }
 
 func Test_ParseFileName(t *testing.T) {

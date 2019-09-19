@@ -11,7 +11,7 @@ const TmpSuffix = "tmp"
 
 const Lock = "LOCK"
 const Options = "OPTIONS"
-const manifestPrefix = "MANIFEST-"
+const ManifestPrefix = "MANIFEST-"
 
 // FileType represents a file type.
 type FileType int
@@ -41,9 +41,9 @@ func Table(fileNumber int64) string {
 	return fmt.Sprintf("%06d.%s", fileNumber, sstSuffix)
 }
 
-// manifestFileName returns manifest file name
-func manifestFileName(fileNumber int64) string {
-	return fmt.Sprintf("%s%06d", manifestPrefix, fileNumber)
+// ManifestFileName returns manifest file name
+func ManifestFileName(fileNumber int64) string {
+	return fmt.Sprintf("%s%06d", ManifestPrefix, fileNumber)
 }
 
 // ParseFileName parses file name.
