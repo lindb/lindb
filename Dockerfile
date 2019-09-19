@@ -5,8 +5,8 @@ WORKDIR /bin/lindb
 
 COPY ./bin .
 
-RUN ./lind broker initialize-config \
-    && ./lind storage initialize-config \
+RUN ./lind broker init-config \
+    && ./lind storage init-config \
     && sed -i 's:localhost:etcd:g' broker.toml \
     && sed -i 's:localhost:etcd:g' storage.toml
 
