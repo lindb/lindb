@@ -11,19 +11,21 @@ const dummy bool = false
 type AggregatorStreamSpec struct{}
 
 type AggregatorSpec struct {
-	fieldID   uint16
 	fieldName string
 	fieldType field.Type
 	functions map[function.FuncType]bool
 }
 
-func NewAggregatorSpec(fieldID uint16, fieldName string, fieldType field.Type) *AggregatorSpec {
+func NewAggregatorSpec(fieldName string, fieldType field.Type) *AggregatorSpec {
 	return &AggregatorSpec{
-		fieldID:   fieldID,
 		fieldName: fieldName,
 		fieldType: fieldType,
 		functions: make(map[function.FuncType]bool),
 	}
+}
+
+func (a *AggregatorSpec) FieldName() string {
+	return a.fieldName
 }
 
 func (a *AggregatorSpec) AddFunctionType(funcType function.FuncType) {

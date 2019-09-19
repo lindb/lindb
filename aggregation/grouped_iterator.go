@@ -5,20 +5,20 @@ import "github.com/lindb/lindb/series"
 //FIXME stone1100 need refactor
 type groupedIterator struct {
 	tags       map[string]string
-	aggregates map[uint16]FieldAggregator
-	fieldIDs   []uint16
+	aggregates map[string]FieldAggregator
+	fieldNames []string
 
 	idx int
 }
 
-func newGroupedIterator(tags map[string]string, aggregates map[uint16]FieldAggregator) series.GroupedIterator {
-	fieldIDs := make([]uint16, len(aggregates))
+func newGroupedIterator(tags map[string]string, aggregates map[string]FieldAggregator) series.GroupedIterator {
+	fieldNames := make([]string, len(aggregates))
 	idx := 0
-	for fieldID := range aggregates {
-		fieldIDs[idx] = fieldID
+	for fieldName := range aggregates {
+		fieldNames[idx] = fieldName
 		idx++
 	}
-	return &groupedIterator{tags: tags, aggregates: aggregates, fieldIDs: fieldIDs}
+	return &groupedIterator{tags: tags, aggregates: aggregates, fieldNames: fieldNames}
 }
 
 func (g *groupedIterator) Tags() map[string]string {
@@ -26,7 +26,7 @@ func (g *groupedIterator) Tags() map[string]string {
 }
 
 func (g *groupedIterator) HasNext() bool {
-	if g.idx >= len(g.fieldIDs) {
+	if g.idx >= len(g.fieldNames) {
 		return false
 	}
 	g.idx++
@@ -34,5 +34,5 @@ func (g *groupedIterator) HasNext() bool {
 }
 
 func (g *groupedIterator) Next() series.FieldIterator {
-	return g.aggregates[g.fieldIDs[g.idx-1]].Iterator()
+	return g.aggregates[g.fieldNames[g.idx-1]].Iterator()
 }

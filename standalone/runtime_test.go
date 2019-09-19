@@ -6,11 +6,19 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/server"
 )
 
+var testPath = "./test_data"
+
 func TestRuntime_Run(t *testing.T) {
-	standalone := NewStandaloneRuntime(config.NewDefaultStandaloneCfg())
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	cfg := config.NewDefaultStandaloneCfg()
+	cfg.Storage.Engine.Dir = testPath
+	standalone := NewStandaloneRuntime(cfg)
 	err := standalone.Run()
 	if err != nil {
 		t.Fatal(err)

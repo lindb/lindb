@@ -12,33 +12,31 @@ import (
 )
 
 type fieldIterator struct {
-	id        uint16
 	name      string
 	fieldType field.Type
 
-	familyStartTime int64
-	startSlot       int
+	segmentStartTime int64
+	startSlot        int
 
 	length int
 	idx    int
 	its    []series.PrimitiveIterator
 }
 
-func newFieldIterator(id uint16, name string, fieldType field.Type,
-	familyStartTime int64, startSlot int, its []series.PrimitiveIterator) series.FieldIterator {
+func newFieldIterator(name string, fieldType field.Type,
+	segmentStartTime int64, startSlot int, its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
-		id:              id,
-		name:            name,
-		fieldType:       fieldType,
-		familyStartTime: familyStartTime,
-		startSlot:       startSlot,
-		its:             its,
-		length:          len(its),
+		name:             name,
+		fieldType:        fieldType,
+		segmentStartTime: segmentStartTime,
+		startSlot:        startSlot,
+		its:              its,
+		length:           len(its),
 	}
 }
 
 func (it *fieldIterator) FieldMeta() field.Meta {
-	return field.Meta{ID: it.id, Name: it.name, Type: it.fieldType}
+	return field.Meta{Name: it.name, Type: it.fieldType}
 }
 
 func (it *fieldIterator) HasNext() bool {
@@ -58,7 +56,7 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 func (it *fieldIterator) Bytes() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 
-	writer.PutVarint64(it.familyStartTime)
+	writer.PutVarint64(it.segmentStartTime)
 
 	for it.HasNext() {
 		primitiveIt := it.Next()
@@ -86,7 +84,7 @@ func (it *fieldIterator) Bytes() ([]byte, error) {
 }
 
 func (it *fieldIterator) SegmentStartTime() int64 {
-	return it.familyStartTime
+	return it.segmentStartTime
 }
 
 // primitiveIterator represents primitive iterator using array
