@@ -2,6 +2,7 @@ package memdb
 
 import (
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //////////////////////////////////////////////////////
@@ -9,20 +10,18 @@ import (
 //////////////////////////////////////////////////////
 
 // findFieldMetas returns if query's fields are in store, if all query fields found returns true, else returns false
-func (ms *metricStore) findFieldMetas(fieldIDs []uint16) (map[uint16]*fieldMeta, bool) {
+func (ms *metricStore) findFieldMetas(fieldIDs []uint16) (map[uint16]*field.Meta, bool) {
 	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
-	result := make(map[uint16]*fieldMeta)
+	result := make(map[uint16]*field.Meta)
 	for _, fieldID := range fieldIDs {
-		result[fieldID] = &fieldMeta{}
+		result[fieldID] = &field.Meta{}
 	}
 
 	found := 0
-	for _, field := range *fmList {
-		fieldMeta, ok := result[field.fieldID]
+	for _, fm := range *fmList {
+		fieldMeta, ok := result[fm.ID]
 		if ok {
-			fieldMeta.fieldID = field.fieldID
-			fieldMeta.fieldType = field.fieldType
-			fieldMeta.fieldName = field.fieldName
+			*fieldMeta = fm
 			found++
 		}
 	}
@@ -53,7 +52,7 @@ func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 }
 
 // scan finds time series store from tag index by series ids
-func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, fieldMetas map[uint16]*fieldMeta) {
+func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, fieldMetas map[uint16]*field.Meta) {
 	// support multi-version
 	version := tagIndex.Version()
 	seriesIDs := sCtx.SeriesIDSet.Versions()[version]

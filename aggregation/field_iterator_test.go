@@ -24,10 +24,10 @@ func TestFieldIterator(t *testing.T) {
 
 	assert.False(t, it.HasNext())
 	assert.Nil(t, it.Next())
-	assert.Equal(t, uint16(111), it.FieldID())
-	assert.Equal(t, field.SumField, it.FieldType())
+	assert.Equal(t, uint16(111), it.FieldMeta().ID)
+	assert.Equal(t, field.SumField, it.FieldMeta().Type)
 	assert.Equal(t, int64(10), it.SegmentStartTime())
-	assert.Equal(t, "f1", it.FieldName())
+	assert.Equal(t, "f1", it.FieldMeta().Name)
 
 	data, err := it.Bytes()
 	if err != nil {

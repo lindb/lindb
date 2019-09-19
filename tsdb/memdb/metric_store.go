@@ -112,32 +112,25 @@ type metricStore struct {
 	metricID     uint32        // persistent on the disk
 }
 
-// fieldMeta contains the meta info of field
-type fieldMeta struct {
-	fieldName string
-	fieldID   uint16
-	fieldType field.Type
-}
-
 // fieldsMetas implements sort.Interface
-type fieldsMetas []fieldMeta
+type fieldsMetas []field.Meta
 
 func (fm fieldsMetas) Len() int           { return len(fm) }
-func (fm fieldsMetas) Less(i, j int) bool { return fm[i].fieldName < fm[j].fieldName }
+func (fm fieldsMetas) Less(i, j int) bool { return fm[i].Name < fm[j].Name }
 func (fm fieldsMetas) Swap(i, j int)      { fm[i], fm[j] = fm[j], fm[i] }
 
 // getField get the fieldMeta from fieldName, return false when not exist
-func (fm fieldsMetas) getFieldMeta(fieldName string) (fieldMeta, bool) {
-	idx := sort.Search(len(fm), func(i int) bool { return fm[i].fieldName >= fieldName })
-	if idx >= len(fm) || fm[idx].fieldName != fieldName {
-		return fieldMeta{}, false
+func (fm fieldsMetas) getFieldMeta(fieldName string) (field.Meta, bool) {
+	idx := sort.Search(len(fm), func(i int) bool { return fm[i].Name >= fieldName })
+	if idx >= len(fm) || fm[idx].Name != fieldName {
+		return field.Meta{}, false
 	}
 	return fm[idx], true
 }
 
 // copy returns a new copy of fieldsMetas
 func (fm fieldsMetas) copy() (clone fieldsMetas) {
-	clone = make([]fieldMeta, fm.Len())
+	clone = make([]field.Meta, fm.Len())
 	for idx, fm := range fm {
 		clone[idx] = fm
 	}
@@ -168,8 +161,8 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	fm, ok := fmList.getFieldMeta(fieldName)
 	// exist, check fieldType
 	if ok {
-		if fm.fieldType == fieldType {
-			return fm.fieldID, nil
+		if fm.Type == fieldType {
+			return fm.ID, nil
 		}
 		return 0, series.ErrWrongFieldType
 	}
@@ -185,7 +178,7 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	fm, ok = fmList.getFieldMeta(fieldName)
 	// double check
 	if ok {
-		return fm.fieldID, nil
+		return fm.ID, nil
 	}
 	// generate and check fieldType
 	newFieldID, err := generator.GenFieldID(ms.metricID, fieldName, fieldType)
@@ -193,10 +186,10 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 		return 0, err
 	}
 	clone := fmList.copy()
-	clone = append(clone, fieldMeta{
-		fieldName: fieldName,
-		fieldID:   newFieldID,
-		fieldType: fieldType})
+	clone = append(clone, field.Meta{
+		Name: fieldName,
+		ID:   newFieldID,
+		Type: fieldType})
 	sort.Sort(clone)
 	// store the new clone
 	ms.fieldsMetas.Store(&clone)
@@ -478,9 +471,8 @@ func (ms *metricStore) FlushMetricsDataTo(
 ) error {
 	// flush field meta info
 	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
-	for _, fm := range *fmList {
-		flusher.FlushFieldMeta(fm.fieldID, fm.fieldType)
-	}
+	flusher.FlushFieldMetas(*fmList)
+
 	// reset the mutable part
 	ms.mux.RLock()
 	ms.mutable.FlushVersionDataTo(flusher, flushCtx)

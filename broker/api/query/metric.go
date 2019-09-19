@@ -67,10 +67,10 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 					for pIt.HasNext() {
 						var dataPoint DataPoint
 						ok := false
-						dataPoint, ok = resultsSet.Fields[field.FieldName()]
+						dataPoint, ok = resultsSet.Fields[field.FieldMeta().Name]
 						if !ok {
 							dataPoint = DataPoint{Points: make(map[int64]float64)}
-							resultsSet.Fields[field.FieldName()] = dataPoint
+							resultsSet.Fields[field.FieldMeta().Name] = dataPoint
 						}
 						slot, val := pIt.Next()
 						//TODO need fix it

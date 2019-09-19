@@ -17,12 +17,12 @@ func TestNewSingleField(t *testing.T) {
 
 	it := series.NewMockFieldIterator(ctrl)
 	it.EXPECT().HasNext().Return(false)
-	it.EXPECT().FieldType().Return(field.SumField)
+	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.SumField})
 	f := NewSingleField(10, it)
 	assert.Nil(t, f)
 
 	it = series.NewMockFieldIterator(ctrl)
-	it.EXPECT().FieldType().Return(field.Unknown)
+	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.Unknown})
 	f = NewSingleField(10, it)
 	assert.Nil(t, f)
 
@@ -30,7 +30,7 @@ func TestNewSingleField(t *testing.T) {
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	primitiveIt.EXPECT().HasNext().Return(false)
-	it.EXPECT().FieldType().Return(field.SumField).AnyTimes()
+	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.SumField}).AnyTimes()
 
 	f = NewSingleField(10, it)
 	assert.NotNil(t, f)

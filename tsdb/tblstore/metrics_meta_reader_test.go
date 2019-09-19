@@ -11,30 +11,26 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-func prepareData(ctrl *gomock.Controller) ([]byte, []byte) {
-	mockFlusher := kv.NewMockFlusher(ctrl)
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+func prepareData() ([]byte, []byte) {
+	nopKVFlusher := kv.NewNopFlusher()
 
-	metaFlusherINTF1 := NewMetricsMetaFlusher(mockFlusher)
-	metaFlusherINTF2 := NewMetricsMetaFlusher(mockFlusher)
-	metaFlusher1 := metaFlusherINTF1.(*metricsMetaFlusher)
-	metaFlusher2 := metaFlusherINTF2.(*metricsMetaFlusher)
+	metaFlusherINTF1 := NewMetricsMetaFlusher(nopKVFlusher)
+	metaFlusherINTF2 := NewMetricsMetaFlusher(nopKVFlusher)
 
-	metaFlusherINTF1.FlushFieldID("sum1", field.SumField, 1)
-	metaFlusherINTF1.FlushFieldID("min1", field.MinField, 2)
 	metaFlusherINTF1.FlushTagKeyID("a1", 3)
 	metaFlusherINTF1.FlushTagKeyID("b1", 4)
-	metaFlusher1.buildMetricMeta()
+	metaFlusherINTF1.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: "sum1"})
+	metaFlusherINTF1.FlushFieldMeta(field.Meta{ID: 2, Type: field.MinField, Name: "min1"})
+	_ = metaFlusherINTF1.FlushMetricMeta(2)
+	data1 := append([]byte{}, nopKVFlusher.Bytes()...)
 
-	metaFlusherINTF2.FlushFieldID("sum2", field.SumField, 5)
-	metaFlusherINTF2.FlushFieldID("min2", field.MinField, 6)
 	metaFlusherINTF2.FlushTagKeyID("a2", 7)
 	metaFlusherINTF2.FlushTagKeyID("b2", 8)
-	metaFlusher2.buildMetricMeta()
-
-	valueBufData1, _ := metaFlusher1.valueBufWriter.Bytes()
-	valueBufData2, _ := metaFlusher2.valueBufWriter.Bytes()
-	return valueBufData1, valueBufData2
+	metaFlusherINTF2.FlushFieldMeta(field.Meta{ID: 5, Type: field.SumField, Name: "sum2"})
+	metaFlusherINTF2.FlushFieldMeta(field.Meta{ID: 6, Type: field.MinField, Name: "min2"})
+	_ = metaFlusherINTF2.FlushMetricMeta(2)
+	data2 := append([]byte{}, nopKVFlusher.Bytes()...)
+	return data1, data2
 }
 
 func Test_MetricsMetaReader_ok(t *testing.T) {
@@ -54,7 +50,7 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	metaReader.ReadFieldID(1, "test-field")
 
 	// mockOK
-	data1, data2 := prepareData(ctrl)
+	data1, data2 := prepareData()
 	mockReader1.EXPECT().Get(uint32(2)).Return(data1).AnyTimes()
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2).AnyTimes()
 	// tag found
@@ -91,7 +87,7 @@ func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
 	// mock normal readers
 	mockReader2 := table.NewMockReader(ctrl)
 	metaReader := NewMetricsMetaReader([]table.Reader{mockReader2})
-	_, data2 := prepareData(ctrl)
+	_, data2 := prepareData()
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2)
 	assert.Equal(t, uint16(6), metaReader.ReadMaxFieldID(2))
 
@@ -111,7 +107,7 @@ func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {
 	mockReader := table.NewMockReader(ctrl)
 
 	// remainingBlock corrupt
-	ret, _ := prepareData(ctrl)
+	ret, _ := prepareData()
 	ret = append(ret, byte(3))
 	mockReader.EXPECT().Get(uint32(1)).Return(ret)
 	data1, data2 := metaReader.readMetasBlock(mockReader.Get(1))
@@ -119,7 +115,7 @@ func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {
 	assert.Nil(t, data2)
 
 	// block size not ok
-	ret, _ = prepareData(ctrl)
+	ret, _ = prepareData()
 	ret = ret[:5]
 	mockReader.EXPECT().Get(uint32(1)).Return(ret)
 	data1, data2 = metaReader.readMetasBlock(mockReader.Get(1))

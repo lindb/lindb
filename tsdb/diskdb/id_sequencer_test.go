@@ -37,7 +37,7 @@ func (db *mockedIDSequencer) Clear() {
 	db.idSequencer.tagKeyIDSequence = atomic.NewUint32(0)
 	db.idSequencer.youngMetricNameIDs = make(map[string]uint32)
 	db.idSequencer.youngTagKeyIDs = make(map[uint32][]tagKeyAndID)
-	db.idSequencer.youngFieldIDs = make(map[uint32][]fieldIDAndType)
+	db.idSequencer.youngFieldIDs = make(map[uint32][]field.Meta)
 }
 
 func (db *mockedIDSequencer) WithFindReadersError() {
@@ -261,8 +261,8 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 	_, _, err = mocked.idSequencer.GetFieldID(1, "f1")
 	assert.NotNil(t, err)
 	// case3: read existed fieldID
-	mocked.idSequencer.youngFieldIDs = map[uint32][]fieldIDAndType{3: {{
-		fieldType: field.SumField, fieldID: 1, fieldName: "sum"}}}
+	mocked.idSequencer.youngFieldIDs = map[uint32][]field.Meta{3: {{
+		Type: field.SumField, ID: 1, Name: "sum"}}}
 	fid, ftype, err := mocked.idSequencer.GetFieldID(3, "sum")
 	assert.Nil(t, err)
 	assert.Equal(t, uint16(1), fid)
@@ -298,8 +298,8 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 	mocked.Clear()
 
 	// case1: hit memory, type match
-	mocked.idSequencer.youngFieldIDs[1] = append(mocked.idSequencer.youngFieldIDs[1], fieldIDAndType{
-		fieldID: 1, fieldType: field.SumField, fieldName: "sum"})
+	mocked.idSequencer.youngFieldIDs[1] = append(mocked.idSequencer.youngFieldIDs[1], field.Meta{
+		ID: 1, Type: field.SumField, Name: "sum"})
 	fieldID, err := mocked.idSequencer.GenFieldID(1, "sum", field.SumField)
 	assert.Equal(t, uint16(1), fieldID)
 	assert.Nil(t, err)
@@ -408,11 +408,11 @@ func Test_IDSequencer_flushMetricsMetaTo(t *testing.T) {
 				{tagKey: "12", tagKeyID: 12}},
 			2: {{tagKey: "22", tagKeyID: 22},
 				{tagKey: "23", tagKeyID: 23}}}
-		mocked.idSequencer.youngFieldIDs = map[uint32][]fieldIDAndType{
-			2: {{fieldID: 22, fieldType: field.SumField},
-				{fieldID: 23, fieldType: field.MaxField}},
-			3: {{fieldID: 33, fieldType: field.MinField},
-				{fieldID: 34, fieldType: field.SumField}}}
+		mocked.idSequencer.youngFieldIDs = map[uint32][]field.Meta{
+			2: {{ID: 22, Type: field.SumField},
+				{ID: 23, Type: field.MaxField}},
+			3: {{ID: 33, Type: field.MinField},
+				{ID: 34, Type: field.SumField}}}
 	}
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
 	mockKVFlusher.EXPECT().Commit().Return(nil).AnyTimes()

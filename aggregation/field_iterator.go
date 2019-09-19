@@ -37,16 +37,8 @@ func newFieldIterator(id uint16, name string, fieldType field.Type,
 	}
 }
 
-func (it *fieldIterator) FieldName() string {
-	return it.name
-}
-
-func (it *fieldIterator) FieldID() uint16 {
-	return it.id
-}
-
-func (it *fieldIterator) FieldType() field.Type {
-	return it.fieldType
+func (it *fieldIterator) FieldMeta() field.Meta {
+	return field.Meta{ID: it.id, Name: it.name, Type: it.fieldType}
 }
 
 func (it *fieldIterator) HasNext() bool {

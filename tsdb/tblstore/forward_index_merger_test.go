@@ -46,8 +46,12 @@ func Test_ForwardIndexMerger(t *testing.T) {
 	m := NewForwardIndexMerger(time.Hour * 24 * 30).(*forwardIndexMerger)
 	assert.NotNil(t, m)
 
+	// merge invalid data
+	data, err := m.Merge(0, [][]byte{{1, 2}})
+	assert.Nil(t, data)
+	assert.NotNil(t, err)
 	// merge nil
-	data, err := m.Merge(0, nil)
+	data, err = m.Merge(0, nil)
 	assert.Nil(t, data)
 	assert.NotNil(t, err)
 	// merge normal
@@ -56,7 +60,8 @@ func Test_ForwardIndexMerger(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, data)
 
-	itr := newForwardIndexVersionBlockIterator(data)
+	itr, err := newVersionBlockIterator(data)
+	assert.Nil(t, err)
 	assert.True(t, itr.HasNext())
 	_, versionBlock := itr.Next()
 	assert.NotNil(t, versionBlock)
