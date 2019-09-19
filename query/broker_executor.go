@@ -72,7 +72,7 @@ func (e *brokerExecutor) Execute() <-chan *series.TimeSeriesEvent {
 	brokerPlan := plan.(*brokerPlan)
 	brokerPlan.physicalPlan.Database = e.database
 	e.resultSet = make(chan *series.TimeSeriesEvent)
-	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.resultSet, brokerPlan.physicalPlan, brokerPlan.query)); err != nil {
+	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx, e.resultSet, brokerPlan.physicalPlan, brokerPlan.query)); err != nil {
 		e.err = err
 		close(e.resultSet)
 		return nil

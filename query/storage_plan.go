@@ -79,6 +79,16 @@ func (p *storageExecutePlan) groupBy() error {
 	return nil
 }
 
+// getFields returns the aggregator spec for all fields
+func (p *storageExecutePlan) getFields() map[string]*aggregation.AggregatorSpec {
+	result := make(map[string]*aggregation.AggregatorSpec)
+	for _, field := range p.fields {
+		fieldName := field.FieldName()
+		result[fieldName] = field
+	}
+	return result
+}
+
 // getFieldIDs returns sorted slice of field ids
 func (p *storageExecutePlan) getFieldIDs() []uint16 {
 	var result []uint16
@@ -151,7 +161,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
-			downSampling = aggregation.NewAggregatorSpec(fieldID, e.Name, fieldType)
+			downSampling = aggregation.NewAggregatorSpec(e.Name, fieldType)
 			p.fields[fieldID] = downSampling
 		}
 		downSampling.AddFunctionType(funcType)

@@ -1,6 +1,7 @@
 package parallel
 
 import (
+	"context"
 	"testing"
 
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -9,11 +10,13 @@ import (
 
 func TestResultMerger_Merge(t *testing.T) {
 	ch := make(chan *series.TimeSeriesEvent)
-	merger := newResultMerger(ch)
+	merger := newResultMerger(context.TODO(), ch)
 	go func() {
 		for range ch {
 		}
 	}()
 
-	merger.Merge(&pb.TaskResponse{TaskID: "taskID"})
+	merger.merge(&pb.TaskResponse{TaskID: "taskID"})
+
+	merger.close()
 }

@@ -36,3 +36,8 @@ func TestIsSupportFunc(t *testing.T) {
 
 	assert.False(t, IsSupportFunc(field.Unknown, function.Histogram))
 }
+
+func TestAggregatorSpec_FieldName(t *testing.T) {
+	agg := NewAggregatorSpec("f1", field.SumField)
+	assert.Equal(t, "f1", agg.FieldName())
+}

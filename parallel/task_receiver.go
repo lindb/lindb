@@ -33,8 +33,7 @@ func (r *taskReceiver) Receive(resp *pb.TaskResponse) error {
 
 		if taskCtx.TaskType() == RootTask {
 			jobCtx := r.jobManager.GetJob(resp.JobID)
-			if jobCtx != nil {
-
+			if jobCtx != nil && !jobCtx.Completed() {
 				err := taskCtx.Error()
 				if err != nil {
 					jobCtx.Emit(&series.TimeSeriesEvent{Err: err})

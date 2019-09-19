@@ -76,7 +76,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		t.Fatal(err)
 	}
 	storagePlan := plan.(*storageExecutePlan)
-	downSampling := aggregation.NewAggregatorSpec(uint16(10), "f", field.SumField)
+	downSampling := aggregation.NewAggregatorSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, map[uint16]*aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
@@ -88,11 +88,11 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		t.Fatal(err)
 	}
 	storagePlan = plan.(*storageExecutePlan)
-	downSampling1 := aggregation.NewAggregatorSpec(uint16(11), "a", field.MinField)
+	downSampling1 := aggregation.NewAggregatorSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling2 := aggregation.NewAggregatorSpec(uint16(12), "b", field.MaxField)
+	downSampling2 := aggregation.NewAggregatorSpec("b", field.MaxField)
 	downSampling2.AddFunctionType(function.Max)
-	downSampling3 := aggregation.NewAggregatorSpec(uint16(13), "c", field.HistogramField)
+	downSampling3 := aggregation.NewAggregatorSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Histogram)
 	expect := map[uint16]*aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
@@ -110,12 +110,12 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	}
 	storagePlan = plan.(*storageExecutePlan)
 
-	downSampling1 = aggregation.NewAggregatorSpec(uint16(11), "a", field.MinField)
+	downSampling1 = aggregation.NewAggregatorSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling3 = aggregation.NewAggregatorSpec(uint16(13), "c", field.HistogramField)
+	downSampling3 = aggregation.NewAggregatorSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Sum)
 	downSampling3.AddFunctionType(function.Avg)
-	downSampling4 := aggregation.NewAggregatorSpec(uint16(14), "e", field.HistogramField)
+	downSampling4 := aggregation.NewAggregatorSpec("e", field.HistogramField)
 	downSampling4.AddFunctionType(function.Histogram)
 	expect = map[uint16]*aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
@@ -145,7 +145,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 		t.Fatal(err)
 	}
 	storagePlan := plan.(*storageExecutePlan)
-	downSampling := aggregation.NewAggregatorSpec(uint16(10), "f", field.SumField)
+	downSampling := aggregation.NewAggregatorSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, map[uint16]*aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
