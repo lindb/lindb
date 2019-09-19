@@ -21,6 +21,7 @@ func TestVersionSetRecover(t *testing.T) {
 	cache := table.NewMockCache(ctrl)
 
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
+	assert.Equal(t, int64(1), vs.ManifestFileNumber())
 	err := vs.Recover()
 	assert.Nil(t, err)
 	_ = vs.Destroy()
@@ -28,6 +29,7 @@ func TestVersionSetRecover(t *testing.T) {
 	vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	err2 := vs.Recover()
 	assert.Nil(t, err2)
+	assert.Equal(t, int64(2), vs.ManifestFileNumber())
 	_ = vs.Destroy()
 }
 
