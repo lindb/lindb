@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -62,7 +63,7 @@ type family struct {
 
 	pendingOutputs sync.Map
 
-	compacting int32
+	compacting atomic.Int32
 
 	logger *logger.Logger
 }
@@ -93,7 +94,7 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 		store:         store,
 		name:          name,
 		option:        option,
-		compacting:    0,
+		compacting:    *atomic.NewInt32(0),
 		merger:        merger,
 		maxFileSize:   maxFileSize,
 		familyVersion: store.versions.CreateFamilyVersion(name, option.ID),
@@ -148,7 +149,7 @@ func (f *family) commitEditLog(editLog *version.EditLog) bool {
 // needCompat returns level0 files if need do compact job
 func (f *family) needCompat() bool {
 	// has compaction job doing
-	if atomic.LoadInt32(&f.compacting) == 1 {
+	if f.compacting.Load() == 1 {
 		return false
 	}
 
@@ -166,9 +167,9 @@ func (f *family) needCompat() bool {
 
 // compact does compact job if hasn't compact job running
 func (f *family) compact() {
-	if atomic.CompareAndSwapInt32(&f.compacting, 0, 1) {
+	if f.compacting.CAS(0, 1) {
 		go func() {
-			defer atomic.StoreInt32(&f.compacting, 0)
+			defer f.compacting.Store(0)
 
 			if err := f.backgroundCompactionJob(); err != nil {
 				f.logger.Error("do compact job error", logger.String("family", f.name))

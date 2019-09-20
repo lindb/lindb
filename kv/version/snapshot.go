@@ -1,9 +1,9 @@
 package version
 
 import (
-	"sync/atomic"
-
 	"github.com/lindb/lindb/kv/table"
+
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./snapshot.go -destination=./snapshot_mock.go -package version
@@ -27,7 +27,7 @@ type snapshot struct {
 	cache      table.Cache
 
 	version *Version
-	closed  int32
+	closed  atomic.Int32
 }
 
 // newSnapshot new snapshot instance
@@ -69,7 +69,7 @@ func (s *snapshot) GetReader(fileNumber int64) (table.Reader, error) {
 // Close releases related resources
 func (s *snapshot) Close() {
 	// atomic set closed status, make sure only release once
-	if atomic.CompareAndSwapInt32(&s.closed, 0, 1) {
+	if s.closed.CAS(0, 1) {
 		s.version.release()
 	}
 }

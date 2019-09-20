@@ -42,9 +42,9 @@ func TestAssign_NextFileNumber(t *testing.T) {
 
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	vs1 := vs.(*storeVersionSet)
-	assert.Equal(t, int64(2), vs1.nextFileNumber, "wrong next file number")
+	assert.Equal(t, int64(2), vs1.nextFileNumber.Load(), "wrong next file number")
 	assert.Equal(t, int64(2), vs.NextFileNumber(), "assign wrong next file number")
-	assert.Equal(t, int64(3), vs1.nextFileNumber, "wrong next file number")
+	assert.Equal(t, int64(3), vs1.nextFileNumber.Load(), "wrong next file number")
 }
 
 func TestVersionID(t *testing.T) {
@@ -56,9 +56,9 @@ func TestVersionID(t *testing.T) {
 
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	vs1 := vs.(*storeVersionSet)
-	assert.Equal(t, int64(0), vs1.versionID, "wrong new version id")
+	assert.Equal(t, int64(0), vs1.versionID.Load(), "wrong new version id")
 	assert.Equal(t, int64(0), vs.newVersionID(), "assign wrong version id")
-	assert.Equal(t, int64(1), vs1.versionID, "wrong next version id")
+	assert.Equal(t, int64(1), vs1.versionID.Load(), "wrong next version id")
 }
 
 func TestCommitFamilyEditLog(t *testing.T) {
@@ -98,7 +98,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 		snapshot := familyVersion.GetSnapshot()
 		vs1 := vs.(*storeVersionSet)
 		assert.Equal(t, newFile.file, snapshot.GetCurrent().getAllFiles()[0], "cannot recover family version data")
-		assert.Equal(t, int64(3+i), vs1.nextFileNumber, "recover file number error")
+		assert.Equal(t, int64(3+i), vs1.nextFileNumber.Load(), "recover file number error")
 		snapshot.Close()
 
 		_ = vs.Destroy()

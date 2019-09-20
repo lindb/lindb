@@ -3,8 +3,8 @@ package rpc
 import (
 	"net"
 	"sync"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -31,8 +31,8 @@ type tcpServer struct {
 	lis         net.Listener
 	logger      *logger.Logger
 	onceClose   sync.Once
-	inWorking   int32
-	inShutDown  int32
+	inWorking   atomic.Int32
+	inShutDown  atomic.Int32
 }
 
 // NewTCPServer creates the tcp tcpServer
@@ -53,7 +53,7 @@ func (s *tcpServer) Start() error {
 
 	s.lis = lis
 	// working now
-	atomic.StoreInt32(&s.inWorking, 1)
+	s.inWorking.Store(1)
 	s.logger.Info("TCPServer start serving", logger.String("address", s.bindAddress))
 
 	for {
@@ -61,7 +61,7 @@ func (s *tcpServer) Start() error {
 		conn, err := lis.Accept()
 		if err != nil {
 			// has been shutdown
-			if atomic.LoadInt32(&s.inShutDown) != 0 {
+			if s.inShutDown.Load() != 0 {
 				return nil
 			}
 			s.logger.Error("TPCServer error when accepting", logger.Error(err))
@@ -87,11 +87,11 @@ func (s *tcpServer) Stop() {
 	s.onceClose.Do(
 		func() {
 			// not working
-			if atomic.LoadInt32(&s.inWorking) == 0 {
+			if s.inWorking.Load() == 0 {
 				return
 			}
 			// shutdown
-			atomic.StoreInt32(&s.inShutDown, 1)
+			s.inShutDown.Store(1)
 			err := s.lis.Close()
 			if err != nil {
 				s.logger.Error("close TCPServer error", logger.Error(err))

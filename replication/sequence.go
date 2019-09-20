@@ -4,7 +4,8 @@ import (
 	"path"
 	"strconv"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -43,47 +44,47 @@ type sequence struct {
 	// meta stores the ackSeq to page cache.
 	meta queue.Meta
 	// headSeq represents the the max sequence num of replica received.
-	headSeq int64
+	headSeq atomic.Int64
 	// ackSeq represents the the max sequence num of replica flushed to disk.
-	ackSeq int64
+	ackSeq atomic.Int64
 	// 0 -> not synced, 1 -> synced
-	synced int32
+	synced atomic.Int32
 }
 
 // ResetSynced resets Synced() to false.
 func (s *sequence) ResetSynced() {
-	atomic.StoreInt32(&s.synced, 0)
+	s.synced.Store(0)
 }
 
 // Synced checked if the Sequence has been synced.
 func (s *sequence) Synced() bool {
-	return atomic.LoadInt32(&s.synced) == 1
+	return s.synced.Load() == 1
 }
 
 // GetHeadSeq returns the head sequence which is the latest sequence of replica received.
 func (s *sequence) GetHeadSeq() int64 {
-	return atomic.LoadInt64(&s.headSeq)
+	return s.headSeq.Load()
 }
 
 // SetHeadSeq sets the head sequence which is the latest sequence of replica received.
 func (s *sequence) SetHeadSeq(seq int64) {
-	atomic.StoreInt64(&s.headSeq, seq)
+	s.headSeq.Store(seq)
 }
 
 // GetAckSeq returns the ack sequence which is the latest sequence of replica successfully flushed to disk.
 func (s *sequence) GetAckSeq() int64 {
-	return atomic.LoadInt64(&s.ackSeq)
+	return s.ackSeq.Load()
 }
 
 // GetAckSeq sets the ack sequence which is the latest sequence of replica successfully flushed to disk.
 func (s *sequence) SetAckSeq(seq int64) {
-	atomic.StoreInt64(&s.ackSeq, seq)
+	s.ackSeq.Store(seq)
 }
 
 // Sync syncs the Sequence to storage.
 func (s *sequence) Sync() error {
 	s.meta.WriteInt64(0, s.GetAckSeq())
-	atomic.StoreInt32(&s.synced, 1)
+	s.synced.Store(1)
 	return s.meta.Sync()
 }
 
@@ -99,8 +100,8 @@ func NewSequence(dirPath string) (Sequence, error) {
 	return &sequence{
 		dirPath: dirPath,
 		meta:    meta,
-		headSeq: ackSeq,
-		ackSeq:  ackSeq,
+		headSeq: *atomic.NewInt64(ackSeq),
+		ackSeq:  *atomic.NewInt64(ackSeq),
 	}, nil
 }
 
