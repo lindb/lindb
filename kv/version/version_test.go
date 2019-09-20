@@ -39,12 +39,12 @@ func TestVersion_Release(t *testing.T) {
 	fv.EXPECT().GetVersionSet().Return(vs).MaxTimes(2)
 	vs.EXPECT().numberOfLevels().Return(2)
 	v := newVersion(1, fv)
-	assert.Equal(t, int32(0), v.ref)
+	assert.Equal(t, int32(0), v.ref.Load())
 	v.retain()
-	assert.Equal(t, int32(1), v.ref)
+	assert.Equal(t, int32(1), v.ref.Load())
 	fv.EXPECT().removeVersion(v)
 	v.release()
-	assert.Equal(t, int32(0), v.ref)
+	assert.Equal(t, int32(0), v.ref.Load())
 }
 
 func TestVersion_Files(t *testing.T) {

@@ -6,7 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/bufioutil"
@@ -46,12 +47,12 @@ type StoreVersionSet interface {
 
 // storeVersionSet maintains all metadata for kv store
 type storeVersionSet struct {
-	manifestFileNumber int64
-	nextFileNumber     int64
+	manifestFileNumber atomic.Int64
+	nextFileNumber     atomic.Int64
 	storePath          string
 	familyVersions     map[string]FamilyVersion
 	familyIDs          map[int]string
-	versionID          int64 // unique in for increasing version id
+	versionID          atomic.Int64 // unique in for increasing version id
 	storeCache         table.Cache
 
 	numOfLevels int // num of levels
@@ -65,8 +66,8 @@ type storeVersionSet struct {
 // NewStoreVersionSet new VersionSet instance
 func NewStoreVersionSet(storePath string, storeCache table.Cache, numOfLevels int) StoreVersionSet {
 	return &storeVersionSet{
-		manifestFileNumber: 1, // default value for initialize store
-		nextFileNumber:     2, // default value
+		manifestFileNumber: *atomic.NewInt64(1), // default value for initialize store
+		nextFileNumber:     *atomic.NewInt64(2), // default value
 		storePath:          storePath,
 		storeCache:         storeCache,
 		numOfLevels:        numOfLevels,
@@ -102,13 +103,13 @@ func (vs *storeVersionSet) Destroy() error {
 
 // NextFileNumber generates next file number
 func (vs *storeVersionSet) NextFileNumber() int64 {
-	nextNumber := atomic.AddInt64(&vs.nextFileNumber, 1)
+	nextNumber := vs.nextFileNumber.Add(1)
 	return nextNumber - 1
 }
 
 // ManifestFileNumber returns the current manifest file number
 func (vs *storeVersionSet) ManifestFileNumber() int64 {
-	return atomic.LoadInt64(&vs.manifestFileNumber)
+	return vs.manifestFileNumber.Load()
 }
 
 // CommitFamilyEditLog persists edit logs to manifest file, then apply new version to family version
@@ -123,7 +124,7 @@ func (vs *storeVersionSet) CommitFamilyEditLog(family string, editLog *EditLog) 
 	defer vs.mutex.Unlock()
 
 	// add next file number init edit log for each delta edit log
-	editLog.Add(NewNextFileNumber(vs.nextFileNumber))
+	editLog.Add(NewNextFileNumber(vs.nextFileNumber.Load()))
 	// persist edit log
 	if err := vs.persistEditLogs(vs.manifest, []*EditLog{editLog}); err != nil {
 		return err
@@ -246,8 +247,8 @@ func (vs *storeVersionSet) applyFamilyVersion(familyID int, editLog *EditLog) er
 
 // setNextFileNumberWithoutLock set next file number, invoker must add lock
 func (vs *storeVersionSet) setNextFileNumberWithoutLock(newNextFileNumber int64) {
-	vs.manifestFileNumber = newNextFileNumber
-	vs.nextFileNumber = newNextFileNumber + 1
+	vs.manifestFileNumber.Store(newNextFileNumber)
+	vs.nextFileNumber.Store(newNextFileNumber + 1)
 }
 
 // readManifestFileName reads manifest file name from current file
@@ -266,7 +267,7 @@ func (vs *storeVersionSet) readManifestFileName() (string, error) {
 // 3. set version set's manifest writer
 func (vs *storeVersionSet) initJournal() error {
 	if vs.manifest == nil {
-		manifestFileName := ManifestFileName(vs.manifestFileNumber) // manifest file name
+		manifestFileName := ManifestFileName(vs.manifestFileNumber.Load()) // manifest file name
 		manifestPath := vs.getManifestFilePath(manifestFileName)
 		writer, err := bufioutil.NewBufioWriter(manifestPath)
 		if err != nil {
@@ -301,7 +302,7 @@ func (vs *storeVersionSet) getFamilyVersion(familyID int) FamilyVersion {
 
 // newVersionID generates new version id
 func (vs *storeVersionSet) newVersionID() int64 {
-	newID := atomic.AddInt64(&vs.versionID, 1)
+	newID := vs.versionID.Add(1)
 	return newID - 1
 }
 
@@ -365,7 +366,7 @@ func (vs *storeVersionSet) createFamilySnapshot(familyID int, familyVersion Fami
 func (vs *storeVersionSet) createStoreSnapshot() *EditLog {
 	editLog := NewEditLog(StoreFamilyID)
 	// save next file number
-	editLog.Add(NewNextFileNumber(vs.nextFileNumber))
+	editLog.Add(NewNextFileNumber(vs.nextFileNumber.Load()))
 	return editLog
 }
 

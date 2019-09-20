@@ -64,7 +64,7 @@ Contributions are welcomed and greatly appreciated. See [CONTRIBUTING](CONTRIBUT
 
 #### CI 
 Pull requests should be appropriately labeled, and linked to any relevant [bug or feature tracking issues](https://github.com/lindb/lindb/issues). 
-All pull requests will run through Travis-CI. Community contributors should be able to see the outcome of this process by looking at the checks on their PR and fix the build errors.
+All pull requests will run through GITHUB-Actions. Community contributors should be able to see the outcome of this process by looking at the checks on their PR and fix the build errors.
 
 #### Static Analysis 
 This project uses the following linters. Failure during the running of any of these tools results in a failed build. Generally, code must be adjusted to satisfy these tools.

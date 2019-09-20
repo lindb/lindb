@@ -13,18 +13,14 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v1
+      with:
+        fetch-depth: 1
 
     - name: Test
       run: |
         export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
         make test
-
-    - name: Upload Coverage report to CodeCov
-      uses: codecov/codecov-action@v1.0.2
-      with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        file: ./coverage.out
-
+        bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
 
   build:
     name: Build
@@ -37,6 +33,8 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v1
+      with:
+        fetch-depth: 1
 
     - name: Build
       run: |

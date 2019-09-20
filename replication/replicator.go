@@ -3,8 +3,9 @@ package replication
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -53,9 +54,9 @@ type replicator struct {
 	// lock to protect clients
 	lock4client sync.RWMutex
 	// 0 -> running, 1 -> stopped
-	stopped int32
+	stopped atomic.Int32
 	// 0 -> notReady, 1 -> ready
-	ready int32
+	ready atomic.Int32
 	//storage received cur sequence num
 	//storageCurSeq int64
 	logger *logger.Logger
@@ -111,23 +112,23 @@ func (r *replicator) AckIndex() int64 {
 
 // Stop stops the replication task.
 func (r *replicator) Stop() {
-	atomic.StoreInt32(&r.stopped, 1)
+	r.stopped.Store(1)
 }
 
 // isStopped atomic check if is stopped.
 func (r *replicator) isStopped() bool {
-	return atomic.LoadInt32(&r.stopped) == 1
+	return r.stopped.Load() == 1
 }
 
 func (r *replicator) isReady() bool {
-	return atomic.LoadInt32(&r.ready) == 1
+	return r.ready.Load() == 1
 }
 
 func (r *replicator) setReady(ready bool) {
 	if ready {
-		atomic.StoreInt32(&r.ready, 1)
+		r.ready.Store(1)
 	} else {
-		atomic.StoreInt32(&r.ready, 0)
+		r.ready.Store(0)
 	}
 }
 
