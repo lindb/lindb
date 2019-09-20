@@ -12,8 +12,7 @@ import (
 )
 
 type fieldIterator struct {
-	name      string
-	fieldType field.Type
+	name string
 
 	segmentStartTime int64
 	startSlot        int
@@ -23,11 +22,10 @@ type fieldIterator struct {
 	its    []series.PrimitiveIterator
 }
 
-func newFieldIterator(name string, fieldType field.Type,
-	segmentStartTime int64, startSlot int, its []series.PrimitiveIterator) series.FieldIterator {
+func newFieldIterator(name string, segmentStartTime int64, startSlot int,
+	its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
 		name:             name,
-		fieldType:        fieldType,
 		segmentStartTime: segmentStartTime,
 		startSlot:        startSlot,
 		its:              its,
@@ -36,7 +34,7 @@ func newFieldIterator(name string, fieldType field.Type,
 }
 
 func (it *fieldIterator) FieldMeta() field.Meta {
-	return field.Meta{Name: it.name, Type: it.fieldType}
+	return field.Meta{Name: it.name}
 }
 
 func (it *fieldIterator) HasNext() bool {
@@ -77,6 +75,7 @@ func (it *fieldIterator) Bytes() ([]byte, error) {
 			return nil, err
 		}
 		writer.PutUInt16(primitiveIt.FieldID())
+		writer.PutByte(byte(primitiveIt.AggType()))
 		writer.PutVarint32(int32(len(data)))
 		writer.PutBytes(data)
 	}
@@ -89,14 +88,16 @@ func (it *fieldIterator) SegmentStartTime() int64 {
 
 // primitiveIterator represents primitive iterator using array
 type primitiveIterator struct {
-	id uint16
-	it collections.FloatArrayIterator
+	id      uint16
+	aggType field.AggType
+	it      collections.FloatArrayIterator
 }
 
 // newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id uint16, values collections.FloatArray) series.PrimitiveIterator {
+func newPrimitiveIterator(id uint16, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
 	it := &primitiveIterator{
-		id: id,
+		id:      id,
+		aggType: aggType,
 	}
 	if values != nil {
 		it.it = values.Iterator()
@@ -107,6 +108,11 @@ func newPrimitiveIterator(id uint16, values collections.FloatArray) series.Primi
 // ID returns the primitive field id
 func (it *primitiveIterator) FieldID() uint16 {
 	return it.id
+}
+
+// AggType returns the primitive field's agg type
+func (it *primitiveIterator) AggType() field.AggType {
+	return it.aggType
 }
 
 // HasNext returns if the iteration has more data points

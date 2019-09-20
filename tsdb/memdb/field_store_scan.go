@@ -85,7 +85,7 @@ func (fsi *fStoreIterator) HasNext() bool {
 		return false
 	}
 	//FIXME stone1100 set fieldID
-	fsi.primitiveIt = series.NewPrimitiveIterator(1, data)
+	fsi.primitiveIt = series.NewPrimitiveIterator(1, fsi.sStore.AggType(), data)
 	return true
 }
 

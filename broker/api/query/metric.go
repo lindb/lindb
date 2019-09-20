@@ -8,8 +8,8 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // MetricAPI represents the metric query api
@@ -49,7 +49,12 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	exec := m.executorFactory.NewBrokerExecutor(ctx, db, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
 	results := exec.Execute()
-	resultsSet := ResultSet{Fields: make(map[string]DataPoint)}
+	if exec.Error() != nil {
+		api.Error(w, exec.Error())
+		return
+	}
+	stmt := exec.Statement()
+	resultSet := models.NewResultSet()
 	if results != nil {
 		for result := range results {
 			if result.Err != nil {
@@ -57,44 +62,30 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			ts := result.Series
+			series := models.NewSeries(ts.Tags())
+			resultSet.AddSeries(series)
 			for ts.HasNext() {
-				field := ts.Next()
+				fieldIt := ts.Next()
 
-				for field.HasNext() {
-					pIt := field.Next()
-					segmentStartTime := field.SegmentStartTime()
+				for fieldIt.HasNext() {
+					pIt := fieldIt.Next()
+					segmentStartTime := fieldIt.SegmentStartTime()
+					field := fieldIt.FieldMeta()
+					points := models.NewPoints()
+					series.AddField(field.Name, points)
 
 					for pIt.HasNext() {
-						var dataPoint DataPoint
-						ok := false
-						dataPoint, ok = resultsSet.Fields[field.FieldMeta().Name]
-						if !ok {
-							dataPoint = DataPoint{Points: make(map[int64]float64)}
-							resultsSet.Fields[field.FieldMeta().Name] = dataPoint
-						}
 						slot, val := pIt.Next()
-						//TODO need fix it
-						dataPoint.Points[int64(slot*10000)+segmentStartTime] = val
+						points.AddPoint(int64(slot)*stmt.Interval+segmentStartTime, val)
 					}
 				}
 			}
 		}
 	}
-	if exec.Error() != nil {
-		err = exec.Error()
-	}
 	if err != nil {
 		api.Error(w, err)
 		return
 	}
-	logger.GetLogger("re", "re").Info("result", logger.Any("R", resultsSet))
-	api.OK(w, resultsSet)
-}
-
-type ResultSet struct {
-	Fields map[string]DataPoint
-}
-
-type DataPoint struct {
-	Points map[int64]float64
+	resultSet.MetricName = stmt.MetricName
+	api.OK(w, resultSet)
 }

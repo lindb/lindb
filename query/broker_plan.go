@@ -2,6 +2,7 @@ package query
 
 import (
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -48,6 +49,12 @@ func (p *brokerPlan) Plan() error {
 	}
 	// set query statement
 	p.query = query
+
+	//FIXME need set interval based on db config if not set
+	interval := 10 * timeutil.OneSecond
+	p.query.Interval = interval
+	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, interval)
+	p.query.TimeRange.End = timeutil.Truncate(p.query.TimeRange.End, interval)
 
 	root := p.currentBrokerNode
 

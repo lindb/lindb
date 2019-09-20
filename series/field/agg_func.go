@@ -3,9 +3,10 @@ package field
 import "fmt"
 
 func init() {
-	registerFunc(Sum, &sumAgg{})
-	registerFunc(Min, &minAgg{})
-	registerFunc(Max, &maxAgg{})
+	registerFunc(Sum, &sumAgg{aggType: Sum})
+	registerFunc(Count, &sumAgg{aggType: Count})
+	registerFunc(Min, &minAgg{aggType: Min})
+	registerFunc(Max, &maxAgg{aggType: Max})
 }
 
 // FuncType represents field's aggregator function type
@@ -32,11 +33,16 @@ type AggFunc interface {
 	AggregateInt(a, b int64) int64
 	// AggregateInt aggregates two float64 values into one
 	AggregateFloat(a, b float64) float64
+	// AggType return aggregator type
+	AggType() AggType
 }
 
 // sumAgg represents sum aggregator
 type sumAgg struct {
+	aggType AggType
 }
+
+func (s *sumAgg) AggType() AggType { return s.aggType }
 
 // AggregateInt returns a+b for int64 value
 func (s *sumAgg) AggregateInt(a, b int64) int64 {
@@ -50,7 +56,10 @@ func (s *sumAgg) AggregateFloat(a, b float64) float64 {
 
 // minAgg represents min aggregator
 type minAgg struct {
+	aggType AggType
 }
+
+func (m *minAgg) AggType() AggType { return m.aggType }
 
 // AggregateInt returns the smaller of two int64 values
 func (m *minAgg) AggregateInt(a, b int64) int64 {
@@ -70,7 +79,10 @@ func (m *minAgg) AggregateFloat(a, b float64) float64 {
 
 // maxAgg represents max aggregator
 type maxAgg struct {
+	aggType AggType
 }
+
+func (m *maxAgg) AggType() AggType { return m.aggType }
 
 // AggregateInt returns the greater of two int64 values
 func (m *maxAgg) AggregateInt(a, b int64) int64 {

@@ -14,6 +14,7 @@ import (
 // which abstracts a store for storing field data based on family start time
 type sStoreINTF interface {
 	GetFamilyTime() int64
+	AggType() field.AggType
 	SlotRange() (startSlot, endSlot int, err error)
 	Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error)
 	WriteInt(value int64, writeCtx writeContext)
@@ -39,9 +40,8 @@ func (fs *simpleFieldStore) GetFamilyTime() int64 {
 	return fs.familyTime
 }
 
-func (fs *simpleFieldStore) AggFunc() field.AggFunc {
-	//TODO using type????
-	return fs.aggFunc
+func (fs *simpleFieldStore) AggType() field.AggType {
+	return fs.aggFunc.AggType()
 }
 
 func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) {

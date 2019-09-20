@@ -79,6 +79,8 @@ type FieldIterator interface {
 type PrimitiveIterator interface {
 	// FieldID returns the primitive field id
 	FieldID() uint16
+	// AggType returns the primitive field's agg type
+	AggType() field.AggType
 	// HasNext returns if the iteration has more data points
 	HasNext() bool
 	// Next returns the data point in the iteration

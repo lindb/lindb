@@ -115,6 +115,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec := newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
 	_ = exec.Execute()
 	assert.Nil(t, exec.Error())
+	assert.NotNil(t, exec.Statement())
 
 	// find series err
 	// mock data
@@ -138,6 +139,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 		count++
 	}
 	assert.Equal(t, 0, count)
+
 }
 
 func TestStorageExecutor_checkShards(t *testing.T) {

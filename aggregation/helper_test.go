@@ -25,6 +25,7 @@ func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[in
 	it.EXPECT().Next().Return(primitiveIt)
 
 	primitiveIt.EXPECT().FieldID().Return(fieldID)
+	primitiveIt.EXPECT().AggType().Return(field.Sum)
 
 	var keys []int
 	for timeSlot := range points {

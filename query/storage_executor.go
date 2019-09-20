@@ -104,6 +104,11 @@ func (e *storageExecutor) Execute() <-chan *series.TimeSeriesEvent {
 	return e.resultCh
 }
 
+// Statement returns the query statement
+func (e *storageExecutor) Statement() *stmt.Query {
+	return e.query
+}
+
 // Error returns the execution error
 func (e *storageExecutor) Error() error {
 	return e.err

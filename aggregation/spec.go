@@ -8,27 +8,46 @@ import (
 // dummy value to keep field name unique
 const dummy bool = false
 
-type AggregatorStreamSpec struct{}
+type AggregatorSpec interface {
+	FieldName() string
+	AddFunctionType(funcType function.FuncType)
+}
 
-type AggregatorSpec struct {
+type mergeAggregatorSpec struct {
+	fieldName string
+}
+
+func NewMergeAggregatorSpec(fieldName string) AggregatorSpec {
+	return &mergeAggregatorSpec{fieldName: fieldName}
+}
+
+func (a *mergeAggregatorSpec) FieldName() string {
+	return a.fieldName
+}
+
+func (a *mergeAggregatorSpec) AddFunctionType(funcType function.FuncType) {
+	// do nothing
+}
+
+type downSamplingSpec struct {
 	fieldName string
 	fieldType field.Type
 	functions map[function.FuncType]bool
 }
 
-func NewAggregatorSpec(fieldName string, fieldType field.Type) *AggregatorSpec {
-	return &AggregatorSpec{
+func NewDownSamplingSpec(fieldName string, fieldType field.Type) AggregatorSpec {
+	return &downSamplingSpec{
 		fieldName: fieldName,
 		fieldType: fieldType,
 		functions: make(map[function.FuncType]bool),
 	}
 }
 
-func (a *AggregatorSpec) FieldName() string {
+func (a *downSamplingSpec) FieldName() string {
 	return a.fieldName
 }
 
-func (a *AggregatorSpec) AddFunctionType(funcType function.FuncType) {
+func (a *downSamplingSpec) AddFunctionType(funcType function.FuncType) {
 	_, exist := a.functions[funcType]
 	if !exist {
 		a.functions[funcType] = dummy

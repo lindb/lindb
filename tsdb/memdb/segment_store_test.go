@@ -18,7 +18,7 @@ func TestSimpleSegmentStore(t *testing.T) {
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)
-	assert.Equal(t, aggFunc, ss.AggFunc())
+	assert.Equal(t, field.Sum, ss.AggType())
 
 	_, _, err := ss.SlotRange()
 	assert.NotNil(t, err)

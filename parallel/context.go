@@ -3,7 +3,8 @@ package parallel
 import (
 	"context"
 	"errors"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -35,7 +36,7 @@ type jobContext struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	completed int32
+	completed *atomic.Int32
 }
 
 func NewJobContext(ctx context.Context, resultSet chan *series.TimeSeriesEvent, plan *models.PhysicalPlan, query *stmt.Query) JobContext {
@@ -46,7 +47,7 @@ func NewJobContext(ctx context.Context, resultSet chan *series.TimeSeriesEvent, 
 		query:     query,
 		ctx:       c,
 		cancel:    cancel,
-		completed: 1,
+		completed: atomic.NewInt32(1),
 	}
 }
 
@@ -62,13 +63,13 @@ func (c *jobContext) ResultSet() chan *series.TimeSeriesEvent {
 }
 
 func (c *jobContext) Complete() {
-	if atomic.CompareAndSwapInt32(&c.completed, 1, 0) {
+	if c.completed.CAS(1, 0) {
 		//TODO send result
 		close(c.resultSet)
 	}
 }
 func (c *jobContext) Completed() bool {
-	return atomic.LoadInt32(&c.completed) == 0
+	return c.completed.Load() == 0
 }
 
 func (c *jobContext) Emit(event *series.TimeSeriesEvent) {
@@ -106,7 +107,7 @@ type taskContext struct {
 	merger       ResultMerger
 
 	err           error
-	expectResults int32
+	expectResults *atomic.Int32
 }
 
 // newTaskContext creates the task context based on params
@@ -118,7 +119,7 @@ func newTaskContext(taskID string, taskType TaskType, parentTaskID string, paren
 		parentTaskID:  parentTaskID,
 		parentNode:    parentNode,
 		merger:        merger,
-		expectResults: expectResults,
+		expectResults: atomic.NewInt32(expectResults),
 	}
 }
 
@@ -145,7 +146,7 @@ func (c *taskContext) TaskID() string {
 // if no pending task marks this task completed
 func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
 	if len(resp.ErrMsg) > 0 {
-		atomic.StoreInt32(&c.expectResults, 0)
+		c.expectResults.Store(0)
 		c.err = errors.New(resp.ErrMsg)
 		return
 	}
@@ -157,7 +158,7 @@ func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
 	c.merger.merge(resp)
 	// if task is completed, reduces expect result count
 	if resp.Completed {
-		atomic.AddInt32(&c.expectResults, -1)
+		c.expectResults.Dec()
 	}
 
 	// check if task completed,
@@ -174,5 +175,5 @@ func (c *taskContext) Error() error {
 
 // Completed returns if the task is completes
 func (c *taskContext) Completed() bool {
-	return atomic.LoadInt32(&c.expectResults) == 0
+	return c.expectResults.Load() == 0
 }
