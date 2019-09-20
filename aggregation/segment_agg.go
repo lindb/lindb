@@ -16,12 +16,13 @@ type SegmentAggregator interface {
 }
 
 type baseAggregator struct {
+	isMerge            bool
 	segmentStartTime   int64
 	startSlot, endSlot int64
 	intervalVal        int64
 	intervalRatio      int
 
-	aggSpecs   map[string]*AggregatorSpec // aggregator spec (down sampling/aggregator)
+	aggSpecs   map[string]AggregatorSpec // aggregator spec (down sampling/aggregator)
 	aggregates map[string]FieldAggregator
 }
 
@@ -36,7 +37,7 @@ func (ba *baseAggregator) Aggregate(it series.FieldIterator) {
 	agg, ok = ba.aggregates[fieldName]
 	if !ok {
 		agg = NewFieldAggregator(ba.segmentStartTime, ba.intervalVal, ba.startSlot, ba.endSlot,
-			ba.intervalRatio, ba.aggSpecs[fieldName])
+			ba.intervalRatio, ba.getAggSpec(fieldName))
 		ba.aggregates[fieldName] = agg
 	}
 	agg.Aggregate(it)
@@ -47,6 +48,16 @@ func (ba *baseAggregator) Iterator(tags map[string]string) series.GroupedIterato
 	return newGroupedIterator(tags, ba.aggregates)
 }
 
+// getAggSpec returns aggregator spec for field.
+// 1. down sampling phase: need init agg specs when aggregator create;
+// 2. merge phase: agg specs lazy create when do aggregate logic;
+func (ba *baseAggregator) getAggSpec(fieldName string) AggregatorSpec {
+	if ba.isMerge {
+		return NewMergeAggregatorSpec(fieldName)
+	}
+	return ba.aggSpecs[fieldName]
+}
+
 type segmentAggregator struct {
 	baseAggregator
 }
@@ -54,7 +65,7 @@ type segmentAggregator struct {
 // NewSegmentAggregator creates the segment aggregator based on family start time for one series,
 // aggSpecs is down sampling aggregator specs.
 func NewSegmentAggregator(queryInterval, storageInterval int64, queryTimeRange *timeutil.TimeRange, familyStartTime int64,
-	aggSpecs map[string]*AggregatorSpec) SegmentAggregator {
+	aggSpecs map[string]AggregatorSpec) SegmentAggregator {
 	// 1. calc interval, default use storageInterval's interval if user not input
 	intervalVal := storageInterval
 	intervalRatio := 1
@@ -94,18 +105,17 @@ type seriesSegmentAggregator struct {
 
 // NewSeriesSegmentAggregator creates the segment aggregator based on query start time for one series,
 // aggSpecs is aggregator specs.
-func NewSeriesSegmentAggregator(queryInterval int64, queryTimeRange *timeutil.TimeRange,
-	aggSpecs map[string]*AggregatorSpec) SegmentAggregator {
+func NewSeriesSegmentAggregator(queryInterval int64, queryTimeRange *timeutil.TimeRange) SegmentAggregator {
 	startIdx := 0
 	endIdx := timeutil.CalPointCount(queryTimeRange.Start, queryTimeRange.End, queryInterval)
 	return &seriesSegmentAggregator{
 		baseAggregator: baseAggregator{
+			isMerge:          true,
 			segmentStartTime: queryTimeRange.Start,
 			intervalVal:      queryInterval,
 			startSlot:        int64(startIdx),
 			endSlot:          int64(endIdx),
 			intervalRatio:    1,
-			aggSpecs:         aggSpecs,
 			aggregates:       make(map[string]FieldAggregator),
 		},
 	}

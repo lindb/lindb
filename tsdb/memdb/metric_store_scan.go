@@ -44,10 +44,11 @@ func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 	}
 	ms.mux.RLock()
 	collectOnVersionMatch(ms.mutable)
-	immutable := ms.immutable.Load().(tagIndexINTF)
+	immutable := ms.immutable.Load()
 	ms.mux.RUnlock()
 	if immutable != nil {
-		collectOnVersionMatch(immutable)
+		tagIndex := immutable.(tagIndexINTF)
+		collectOnVersionMatch(tagIndex)
 	}
 }
 

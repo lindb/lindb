@@ -26,7 +26,7 @@ type fieldAggregator struct {
 	aggregates       map[uint16]PrimitiveAggregator
 	pointCount       int
 
-	aggSpec  *AggregatorSpec
+	aggSpec  AggregatorSpec
 	selector selector.SlotSelector
 }
 
@@ -34,7 +34,7 @@ type fieldAggregator struct {
 // time range 's start and end is index based on base time and interval.
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewFieldAggregator(segmentStartTime, interval, startIdx, endIdx int64, intervalRatio int, aggSpec *AggregatorSpec) FieldAggregator {
+func NewFieldAggregator(segmentStartTime, interval, startIdx, endIdx int64, intervalRatio int, aggSpec AggregatorSpec) FieldAggregator {
 	agg := &fieldAggregator{
 		segmentStartTime: segmentStartTime,
 		interval:         interval,
@@ -47,13 +47,16 @@ func NewFieldAggregator(segmentStartTime, interval, startIdx, endIdx int64, inte
 	agg.timeRange = &timeutil.TimeRange{Start: segmentStartTime + interval*startIdx, End: segmentStartTime + interval*int64(agg.pointCount)}
 	agg.selector = selector.NewIndexSlotSelector(intervalRatio)
 
-	for funcType := range aggSpec.functions {
-		primitiveFields := field.GetPrimitiveFields(aggSpec.fieldType, funcType)
-		for id, aggType := range primitiveFields {
-			agg.aggregates[id] = newPrimitiveAggregator(id, agg.pointCount, field.GetAggFunc(aggType))
+	downSamplingSpec, ok := aggSpec.(*downSamplingSpec)
+	// if down sampling spec need init all aggregator
+	if ok {
+		for funcType := range downSamplingSpec.functions {
+			primitiveFields := field.GetPrimitiveFields(downSamplingSpec.fieldType, funcType)
+			for id, aggType := range primitiveFields {
+				agg.aggregates[id] = newPrimitiveAggregator(id, agg.pointCount, field.GetAggFunc(aggType))
+			}
 		}
 	}
-
 	return agg
 }
 
@@ -70,7 +73,7 @@ func (a *fieldAggregator) Iterator() series.FieldIterator {
 		its[idx] = it.Iterator()
 		idx++
 	}
-	return newFieldIterator(a.aggSpec.fieldName, a.aggSpec.fieldType, a.segmentStartTime, a.startSlot, its)
+	return newFieldIterator(a.aggSpec.FieldName(), a.segmentStartTime, a.startSlot, its)
 }
 
 // Aggregate aggregates the field series into current aggregator
@@ -98,7 +101,7 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 		}
 		primitiveFieldID := primitiveIt.FieldID()
 		//FIXME stone1100 multi-aggs
-		aggregator, ok := a.aggregates[primitiveFieldID]
+		aggregator, ok := a.getAggregator(primitiveFieldID, primitiveIt.AggType())
 		if !ok {
 			continue
 		}
@@ -115,4 +118,19 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 			aggregator.Aggregate(delta+idx, value)
 		}
 	}
+}
+
+func (a *fieldAggregator) getAggregator(primitiveFieldID uint16, aggType field.AggType) (agg PrimitiveAggregator, ok bool) {
+	agg, ok = a.aggregates[primitiveFieldID]
+	if ok {
+		return
+	}
+	_, isMerge := a.aggSpec.(*mergeAggregatorSpec)
+	if !isMerge {
+		return
+	}
+	ok = true
+	agg = newPrimitiveAggregator(primitiveFieldID, a.pointCount, field.GetAggFunc(aggType))
+	a.aggregates[primitiveFieldID] = agg
+	return
 }

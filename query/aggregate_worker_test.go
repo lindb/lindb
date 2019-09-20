@@ -26,7 +26,7 @@ func TestAggregateWorker_emit(t *testing.T) {
 	agg := createAggWorker(10000, &timeutil.TimeRange{
 		Start: 10,
 		End:   20,
-	}, map[string]*aggregation.AggregatorSpec{"f1": {}}, resultCh)
+	}, map[string]aggregation.AggregatorSpec{"f1": nil}, resultCh)
 	agg.emit(&series.FieldEvent{
 		Interval:        10000,
 		FamilyStartTime: 10,

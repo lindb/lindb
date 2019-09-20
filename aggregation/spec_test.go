@@ -38,6 +38,8 @@ func TestIsSupportFunc(t *testing.T) {
 }
 
 func TestAggregatorSpec_FieldName(t *testing.T) {
-	agg := NewAggregatorSpec("f1", field.SumField)
+	agg := NewDownSamplingSpec("f1", field.SumField)
 	assert.Equal(t, "f1", agg.FieldName())
+	agg = NewMergeAggregatorSpec("f1")
+	agg.AddFunctionType(function.Sum)
 }

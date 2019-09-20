@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
@@ -38,13 +38,14 @@ func TestTaskReceiver_Receive(t *testing.T) {
 	ch := make(chan *series.TimeSeriesEvent)
 	jobCtx := NewJobContext(context.TODO(), ch, nil, nil)
 	jobManager.EXPECT().GetJob(gomock.Any()).Return(jobCtx)
-	a := int32(0)
+	a := atomic.NewInt32(0)
+
 	var wait sync.WaitGroup
 	wait.Add(1)
 	go func() {
 		for r := range ch {
 			if r.Err != nil {
-				atomic.AddInt32(&a, 1)
+				a.Inc()
 			}
 			wait.Done()
 		}
@@ -53,7 +54,7 @@ func TestTaskReceiver_Receive(t *testing.T) {
 	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID", Completed: true})
 	assert.Nil(t, err)
 	wait.Wait()
-	assert.Equal(t, int32(1), atomic.LoadInt32(&a))
+	assert.Equal(t, int32(1), a.Load())
 }
 
 func TestTaskReceiver_Receive_Err(t *testing.T) {
@@ -72,13 +73,13 @@ func TestTaskReceiver_Receive_Err(t *testing.T) {
 	ch := make(chan *series.TimeSeriesEvent)
 	jobCtx := NewJobContext(context.TODO(), ch, nil, nil)
 	jobManager.EXPECT().GetJob(gomock.Any()).Return(jobCtx).MaxTimes(2)
-	a := int32(0)
+	a := atomic.NewInt32(0)
 	var wait sync.WaitGroup
 	wait.Add(1)
 	go func() {
 		for r := range ch {
 			if r.Err != nil {
-				atomic.AddInt32(&a, 1)
+				a.Inc()
 			}
 			wait.Done()
 		}
@@ -90,5 +91,5 @@ func TestTaskReceiver_Receive_Err(t *testing.T) {
 	err = receiver.Receive(&pb.TaskResponse{TaskID: "taskID", Completed: true})
 	assert.Nil(t, err)
 	wait.Wait()
-	assert.Equal(t, int32(1), atomic.LoadInt32(&a))
+	assert.Equal(t, int32(1), a.Load())
 }

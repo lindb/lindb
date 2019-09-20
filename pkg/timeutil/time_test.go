@@ -69,3 +69,11 @@ func Test_Now(t *testing.T) {
 func Test_FormatTimestamp(t *testing.T) {
 	t.Log(FormatTimestamp(Now()*1000, dataTimeFormat1))
 }
+
+func TestTruncate(t *testing.T) {
+	now, _ := ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
+	t1, _ := ParseTimestamp("20190702 19:10:40", "20060102 15:04:05")
+	assert.Equal(t, t1, Truncate(now, 10*OneSecond))
+	t1, _ = ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	assert.Equal(t, t1, Truncate(now, 10*OneMinute))
+}

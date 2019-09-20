@@ -3,8 +3,12 @@ package parallel
 import (
 	"context"
 
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./result_merger.go -destination=./result_merger_mock.go -package=parallel
@@ -17,22 +21,33 @@ type ResultMerger interface {
 	close()
 }
 
+type seriesAgg struct {
+	tags       map[string]string
+	aggregator aggregation.SegmentAggregator
+}
+
 type resultMerger struct {
+	query     *stmt.Query
 	resultSet chan *series.TimeSeriesEvent
 
-	events chan *pb.TaskResponse
+	aggregates map[string]seriesAgg
+	events     chan *pb.TaskResponse
 
 	closed chan struct{}
 	ctx    context.Context
+
+	err error
 }
 
 // newResultMerger create a result merger
-func newResultMerger(ctx context.Context, resultSet chan *series.TimeSeriesEvent) ResultMerger {
+func newResultMerger(ctx context.Context, query *stmt.Query, resultSet chan *series.TimeSeriesEvent) ResultMerger {
 	merger := &resultMerger{
-		resultSet: resultSet,
-		events:    make(chan *pb.TaskResponse),
-		closed:    make(chan struct{}),
-		ctx:       ctx,
+		query:      query,
+		resultSet:  resultSet,
+		aggregates: make(map[string]seriesAgg),
+		events:     make(chan *pb.TaskResponse),
+		closed:     make(chan struct{}),
+		ctx:        ctx,
 	}
 	go func() {
 		defer close(merger.closed)
@@ -48,9 +63,17 @@ func (m *resultMerger) merge(resp *pb.TaskResponse) {
 
 func (m *resultMerger) close() {
 	close(m.events)
-
 	// waiting process completed
 	<-m.closed
+	// send result set
+	if m.err != nil {
+		m.resultSet <- &series.TimeSeriesEvent{Err: m.err}
+	} else {
+		// send all series data
+		for _, agg := range m.aggregates {
+			m.resultSet <- &series.TimeSeriesEvent{Series: agg.aggregator.Iterator(agg.tags)}
+		}
+	}
 }
 
 func (m *resultMerger) process() {
@@ -60,9 +83,8 @@ func (m *resultMerger) process() {
 			if !ok {
 				return
 			}
-			err := m.handleEvent(event)
-			if err != nil {
-				m.resultSet <- &series.TimeSeriesEvent{Err: err}
+			// if handle event fail, return
+			if !m.handleEvent(event) {
 				return
 			}
 		case <-m.ctx.Done():
@@ -71,91 +93,44 @@ func (m *resultMerger) process() {
 	}
 }
 
-func (m *resultMerger) handleEvent(resp *pb.TaskResponse) error {
+func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 	data := resp.Payload
 	ts := &pb.TimeSeries{}
 	err := ts.Unmarshal(data)
 	if err != nil {
-		return err
+		m.err = err
+		return false
 	}
-
-	m.resultSet <- &series.TimeSeriesEvent{
-		//Series: newGroupedIterator(ts.Fields),
+	// if no field data, ignore this response
+	if len(ts.Fields) == 0 {
+		return true
 	}
-	return nil
+	// 1. prepare series tags
+	tagsStr := constants.EmptyGroupTagsStr
+	tags := constants.EmptyGroupTags
+	if m.query.HasGroupBy() {
+		tags := ts.Tags
+		// if time series hasn't tags of response, ignore this response
+		if len(tags) == 0 {
+			return true
+		}
+		tagsStr = models.TagsAsString(tags)
+	}
+	// 2. get series aggregator
+	var agg seriesAgg
+	ok := false
+	agg, ok = m.aggregates[tagsStr]
+	if !ok {
+		agg = seriesAgg{
+			tags:       tags,
+			aggregator: aggregation.NewSeriesSegmentAggregator(m.query.Interval, &m.query.TimeRange),
+		}
+		m.aggregates[tagsStr] = agg
+	}
+	// 3. aggregate field data
+	for name, data := range ts.Fields {
+		it := series.NewFieldIterator(name, data)
+		agg.aggregator.Aggregate(it)
+	}
+	return true
 }
-
-//type groupedIterator struct {
-//	fields     map[string][]byte
-//	fieldNames []string
-//
-//	idx int
-//}
-
-//func newGroupedIterator(fields map[string][]byte) series.GroupedIterator {
-//	it := &groupedIterator{fields: fields}
-//	for fieldName := range fields {
-//		it.fieldNames = append(it.fieldNames, fieldName)
-//	}
-//	return it
-//}
-//
-//func (g *groupedIterator) Tags() map[string]string {
-//	return nil
-//}
-//func (g *groupedIterator) HasNext() bool {
-//	if g.idx >= len(g.fieldNames) {
-//		return false
-//	}
-//	g.idx++
-//	return true
-//}
-//
-//func (g *groupedIterator) Next() series.FieldIterator {
-//	fieldName := g.fieldNames[g.idx-1]
-//	return newFieldIterator(fieldName, g.fields[fieldName])
-//}
-//
-//func (g *groupedIterator) SeriesID() uint32 {
-//	return 10
-//}
-//
-//type fieldIterator struct {
-//	fieldName string
-//	reader    *stream.Reader
-//
-//	segmentStartTime int64
-//}
-//
-//func newFieldIterator(fieldName string, data []byte) series.FieldIterator {
-//	it := &fieldIterator{
-//		fieldName: fieldName,
-//		reader:    stream.NewReader(data),
-//	}
-//	it.segmentStartTime = it.reader.ReadVarint64()
-//	return it
-//}
-//
-//func (fsi *fieldIterator) FieldName() string     { return fsi.fieldName }
-//func (fsi *fieldIterator) FieldType() field.Type { return field.Unknown }
-//
-//func (fsi *fieldIterator) HasNext() bool {
-//	return !fsi.reader.Empty()
-//}
-//
-//func (fsi *fieldIterator) Next() series.PrimitiveIterator {
-//	fieldID := fsi.reader.ReadUint16()
-//	length := fsi.reader.ReadVarint32()
-//	data := fsi.reader.ReadBytes(int(length))
-//
-//	return series.NewPrimitiveIterator(fieldID, data)
-//}
-//
-//func (fsi *fieldIterator) Bytes() ([]byte, error) {
-//	//FIXME stone1100
-//	return nil, nil
-//}
-//
-//func (fsi *fieldIterator) SegmentStartTime() int64 {
-//	return fsi.segmentStartTime
-//}

@@ -17,7 +17,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	defer ctrl.Finish()
 	baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
 
-	aggSpec := NewAggregatorSpec("f", field.SumField)
+	aggSpec := NewDownSamplingSpec("f", field.SumField)
 	aggSpec.AddFunctionType(function.Sum)
 
 	agg := NewFieldAggregator(baseTime, 10*timeutil.OneSecond, 10, 50, 1, aggSpec)
@@ -40,7 +40,6 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt := agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, field.SumField, fieldIt.FieldMeta().Type)
 	assert.False(t, fieldIt.HasNext())
 
 	it = MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
@@ -63,7 +62,6 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	fieldIt = agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, field.SumField, fieldIt.FieldMeta().Type)
 	assert.False(t, fieldIt.HasNext())
 
 	assert.Equal(t,
@@ -106,7 +104,7 @@ func TestFieldAggregator_Aggregate_2(t *testing.T) {
 	defer ctrl.Finish()
 	baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
 
-	aggSpec := NewAggregatorSpec("f", field.SumField)
+	aggSpec := NewDownSamplingSpec("f", field.SumField)
 	aggSpec.AddFunctionType(function.Sum)
 
 	// query time range 20190729 10:10:00 ~ 20190729 12:10:00
@@ -132,6 +130,5 @@ func TestFieldAggregator_Aggregate_2(t *testing.T) {
 	fieldIt := agg.Iterator()
 	assert.True(t, fieldIt.HasNext())
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
-	assert.Equal(t, field.SumField, fieldIt.FieldMeta().Type)
 	assert.False(t, fieldIt.HasNext())
 }

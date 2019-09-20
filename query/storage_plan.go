@@ -22,7 +22,7 @@ type storageExecutePlan struct {
 	idGetter diskdb.IDGetter
 
 	metricID       uint32
-	fields         map[uint16]*aggregation.AggregatorSpec
+	fields         map[uint16]aggregation.AggregatorSpec
 	groupByTagKeys map[string]uint32
 
 	err error
@@ -33,7 +33,7 @@ func newStorageExecutePlan(index diskdb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
 		idGetter:       index,
 		query:          query,
-		fields:         make(map[uint16]*aggregation.AggregatorSpec),
+		fields:         make(map[uint16]aggregation.AggregatorSpec),
 		groupByTagKeys: make(map[string]uint32),
 	}
 }
@@ -80,8 +80,8 @@ func (p *storageExecutePlan) groupBy() error {
 }
 
 // getFields returns the aggregator spec for all fields
-func (p *storageExecutePlan) getFields() map[string]*aggregation.AggregatorSpec {
-	result := make(map[string]*aggregation.AggregatorSpec)
+func (p *storageExecutePlan) getFields() map[string]aggregation.AggregatorSpec {
+	result := make(map[string]aggregation.AggregatorSpec)
 	for _, field := range p.fields {
 		fieldName := field.FieldName()
 		result[fieldName] = field
@@ -161,7 +161,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
-			downSampling = aggregation.NewAggregatorSpec(e.Name, fieldType)
+			downSampling = aggregation.NewDownSamplingSpec(e.Name, fieldType)
 			p.fields[fieldID] = downSampling
 		}
 		downSampling.AddFunctionType(funcType)
