@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./executor.go -destination=./executor_mock.go -package=parallel
@@ -20,6 +21,8 @@ type Executor interface {
 	// 1) plan query language
 	// 2) aggregator data from time series(memory/file/network)
 	Execute() <-chan *series.TimeSeriesEvent
+	// Statement returns the query statement
+	Statement() *stmt.Query
 
 	// Error returns the execution error
 	Error() error

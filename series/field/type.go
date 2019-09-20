@@ -5,7 +5,7 @@ import (
 )
 
 // ValueType represents primitive field's value type
-type ValueType int
+type ValueType uint8
 
 // Defines all value type of primitive field
 const (
@@ -14,11 +14,12 @@ const (
 )
 
 // AggType represents primitive field's aggregator type
-type AggType int
+type AggType uint8
 
 // Defines all aggregator types for primitive field
 const (
 	Sum AggType = iota + 1
+	Count
 	Min
 	Max
 )

@@ -57,6 +57,7 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 	jobManager.EXPECT().SubmitJob(gomock.Any())
 	_ = exec.Execute()
 	assert.Nil(t, exec.Error())
+	assert.NotNil(t, exec.Statement())
 
 	// submit job error
 	exec = newBrokerExecutor(context.TODO(), "test_db", "select f from cpu",

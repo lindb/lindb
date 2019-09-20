@@ -63,6 +63,11 @@ func Now() int64 {
 	return time.Now().UnixNano() / 1000000
 }
 
+// Truncate truncates timestamp based on interval
+func Truncate(timestamp, interval int64) int64 {
+	return timestamp / interval * interval
+}
+
 // CalPointCount calculates point counts between start time and end time by interval
 func CalPointCount(startTime, endTime, interval int64) int {
 	diff := endTime - startTime

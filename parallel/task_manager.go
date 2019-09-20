@@ -3,7 +3,8 @@ package parallel
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
@@ -32,7 +33,7 @@ type TaskManager interface {
 // taskManager implements the task manager interface, tracks all task of the current node
 type taskManager struct {
 	currentNodeID     string
-	seq               int64
+	seq               *atomic.Int64
 	taskClientFactory rpc.TaskClientFactory
 	taskServerFactory rpc.TaskServerFactory
 
@@ -46,12 +47,13 @@ func NewTaskManager(currentNode models.Node,
 		currentNodeID:     (&currentNode).Indicator(),
 		taskClientFactory: taskClientFactory,
 		taskServerFactory: taskServerFactory,
+		seq:               atomic.NewInt64(0),
 	}
 }
 
 // AllocTaskID allocates the task id for new task, before task submits
 func (t *taskManager) AllocTaskID() string {
-	seq := atomic.AddInt64(&t.seq, 1)
+	seq := t.seq.Inc()
 	return fmt.Sprintf("%s-%d", t.currentNodeID, seq)
 }
 

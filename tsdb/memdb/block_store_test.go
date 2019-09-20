@@ -90,7 +90,7 @@ func TestReset(t *testing.T) {
 func TestCompactIntBlock(t *testing.T) {
 	bs := newBlockStore(30)
 
-	assert.Nil(t, bs.allocBlock(field.ValueType(999)))
+	assert.Nil(t, bs.allocBlock(field.ValueType(uint8(9))))
 	// int block
 	b1 := bs.allocBlock(field.Integer)
 	start, end, err := b1.compact(field.GetAggFunc(field.Sum), true)

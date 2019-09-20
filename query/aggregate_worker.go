@@ -23,7 +23,7 @@ type aggregateWorker interface {
 type aggWorker struct {
 	queryInterval  int64
 	queryTimeRange *timeutil.TimeRange
-	aggSpecs       map[string]*aggregation.AggregatorSpec
+	aggSpecs       map[string]aggregation.AggregatorSpec
 
 	aggregates map[int64]aggregation.SegmentAggregator
 
@@ -36,7 +36,7 @@ type aggWorker struct {
 
 // createAggWorker creates series level aggregate worker
 func createAggWorker(queryInterval int64, queryTimeRange *timeutil.TimeRange,
-	appSpecs map[string]*aggregation.AggregatorSpec, resultCh chan *series.TimeSeriesEvent) aggregateWorker {
+	appSpecs map[string]aggregation.AggregatorSpec, resultCh chan *series.TimeSeriesEvent) aggregateWorker {
 	worker := &aggWorker{
 		queryTimeRange: queryTimeRange,
 		queryInterval:  queryInterval,

@@ -104,7 +104,6 @@ func (s *scanWorker) process() {
 				return
 			}
 		case <-s.ctx.Done():
-			log.Warn("scan worker timeout")
 			return
 		}
 	}

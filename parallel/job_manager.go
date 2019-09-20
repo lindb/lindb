@@ -2,7 +2,8 @@ package parallel
 
 import (
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -24,7 +25,7 @@ type JobManager interface {
 type jobManager struct {
 	taskManager TaskManager
 
-	seq  int64
+	seq  *atomic.Int64
 	jobs sync.Map
 }
 
@@ -32,6 +33,7 @@ type jobManager struct {
 func NewJobManager(taskManger TaskManager) JobManager {
 	return &jobManager{
 		taskManager: taskManger,
+		seq:         atomic.NewInt64(0),
 	}
 }
 
@@ -54,7 +56,7 @@ func (j *jobManager) GetJob(jobID int64) JobContext {
 func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	plan := ctx.Plan()
 	planPayload := encoding.JSONMarshal(plan)
-	jobID := atomic.AddInt64(&j.seq, 1)
+	jobID := j.seq.Inc()
 
 	defer func() {
 		if err == nil {
@@ -73,7 +75,7 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	}
 
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
-		newResultMerger(ctx.Context(), ctx.ResultSet()))
+		newResultMerger(ctx.Context(), ctx.Query(), ctx.ResultSet()))
 	j.taskManager.Submit(taskCtx)
 
 	if len(plan.Intermediates) > 0 {

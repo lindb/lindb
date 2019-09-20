@@ -40,7 +40,7 @@ func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) err
 			taskID := p.taskManager.AllocTaskID()
 			//TODO set task id
 			taskCtx := newTaskContext(taskID, IntermediateTask, req.ParentTaskID, intermediate.Parent,
-				intermediate.NumOfTask, newResultMerger(ctx, nil))
+				intermediate.NumOfTask, newResultMerger(ctx, nil, nil))
 			p.taskManager.Submit(taskCtx)
 			taskSubmitted = true
 			break

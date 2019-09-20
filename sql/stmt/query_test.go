@@ -1,7 +1,6 @@
 package stmt
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,13 +51,13 @@ func TestQuery_Marshal(t *testing.T) {
 	}
 
 	data := encoding.JSONMarshal(&query)
-	fmt.Println(string(data))
 	query1 := Query{}
 	err := encoding.JSONUnmarshal(data, &query1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, query, query1)
+	assert.True(t, query.HasGroupBy())
 }
 
 func TestQuery_Marshal_Fail(t *testing.T) {

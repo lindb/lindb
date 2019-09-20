@@ -16,8 +16,13 @@ type Query struct {
 	TimeRange timeutil.TimeRange // query time range
 	Interval  int64              // down sampling interval
 
-	GroupBy []string // group by
+	GroupBy []string // group by tag keys
 	Limit   int      // num. of time series list for result
+}
+
+// HasGroupBy returns whether query has group by tag keys
+func (q *Query) HasGroupBy() bool {
+	return len(q.GroupBy) > 0
 }
 
 // innerQuery represents a wrapper of query for json encoding

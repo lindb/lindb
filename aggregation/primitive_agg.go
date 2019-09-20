@@ -34,7 +34,7 @@ func newPrimitiveAggregator(id uint16, pointCount int, aggFunc field.AggFunc) Pr
 
 // Iterator returns an iterator for aggregator results
 func (agg *primitiveAggregator) Iterator() series.PrimitiveIterator {
-	return newPrimitiveIterator(agg.id, agg.values)
+	return newPrimitiveIterator(agg.id, agg.aggFunc.AggType(), agg.values)
 }
 
 // Aggregate aggregates value with time slot(index)

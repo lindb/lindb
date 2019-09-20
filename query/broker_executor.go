@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 // brokerExecutor represents the broker query executor,
@@ -24,6 +25,7 @@ import (
 type brokerExecutor struct {
 	database string
 	sql      string
+	query    *stmt.Query
 
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
@@ -71,13 +73,19 @@ func (e *brokerExecutor) Execute() <-chan *series.TimeSeriesEvent {
 	}
 	brokerPlan := plan.(*brokerPlan)
 	brokerPlan.physicalPlan.Database = e.database
+	e.query = brokerPlan.query
 	e.resultSet = make(chan *series.TimeSeriesEvent)
-	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx, e.resultSet, brokerPlan.physicalPlan, brokerPlan.query)); err != nil {
+	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx, e.resultSet, brokerPlan.physicalPlan, e.query)); err != nil {
 		e.err = err
 		close(e.resultSet)
 		return nil
 	}
 	return e.resultSet
+}
+
+// Statement returns the query statement
+func (e *brokerExecutor) Statement() *stmt.Query {
+	return e.query
 }
 
 // Error returns the execution error
