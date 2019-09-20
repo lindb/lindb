@@ -1,7 +1,7 @@
 package version
 
 import (
-	"sync/atomic"
+	"go.uber.org/atomic"
 )
 
 // Version is snapshot for current storage metadata includes levels/sst files
@@ -9,8 +9,7 @@ type Version struct {
 	id          int64 // unique id in kv store level
 	numOfLevels int   // num of levels
 	fv          FamilyVersion
-
-	ref int32 // current version ref count for using
+	ref         atomic.Int32 // current version ref count for using
 
 	levels []*level // each level sst files exclude level0
 }
@@ -40,13 +39,13 @@ func (v *Version) GetFamilyVersion() FamilyVersion {
 
 // retain increments version ref count
 func (v *Version) retain() {
-	atomic.AddInt32(&v.ref, 1)
+	v.ref.Add(1)
 }
 
 // release decrements version ref count,
 // if ref==0, then remove current version from list of family level.
 func (v *Version) release() {
-	newVal := atomic.AddInt32(&v.ref, -1)
+	newVal := v.ref.Sub(1)
 	if newVal == 0 {
 		v.fv.removeVersion(v)
 	}
@@ -54,7 +53,7 @@ func (v *Version) release() {
 
 // numOfRef returns the ref count
 func (v *Version) numOfRef() int32 {
-	return atomic.LoadInt32(&v.ref)
+	return v.ref.Load()
 }
 
 // NumberOfFilesInLevel returns the number of files by spec level,
