@@ -25,7 +25,7 @@ func Test_MetricStore_scan(t *testing.T) {
 
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
-	mStore.fieldsMetas.Store(&fieldsMetas{
+	mStore.fieldsMetas.Store(field.Metas{
 		{ID: 3, Type: field.SumField, Name: "sum3"},
 		{ID: 4, Type: field.SumField, Name: "sum4"},
 		{ID: 5, Type: field.SumField, Name: "sum5"},

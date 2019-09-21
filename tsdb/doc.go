@@ -462,12 +462,12 @@ Same as Level2 in ForwardIndexTable
 
 Level3(Fields Meta)
 ┌───────────────────────────────────────────────────────────────────────────────────────┐
-│               Fields Meta                                                             │
+│                                 Fields Meta                                           │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
 │StartTime │ EndTime  │ Count    │ FieldID  │  Field   │ FieldName│ FieldName│          │
 │ (delta)  │ (delta)  │          │ (uint16) │  Type    │  Length  │          │  ......  │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ uvariant │ uvariant │  2 Bytes │ 1 Byte   │ uvariant │ N Bytes  │          │
+│ variant  │ variant  │ uvariant │  2 Bytes │ 1 Byte   │ uvariant │ N Bytes  │          │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level3(Series Footer)
@@ -488,7 +488,7 @@ Level4(Fields Info, Fields Data)
 │StartTime │ EndTime  │ BitArray │  Data1   │  Data2   │  Data1   │ Data2    │
 │ (delta)  │ (delta)  │          │  Length  │  Length  │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ uvariant │ N Bytes  │ uvariant │ uvariant │ N Bytes  │ N Bytes  │
+│ variant  │ variant  │ N Bytes  │ uvariant │ uvariant │ N Bytes  │ N Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 bit array example(10101001, 1010100110101001)
 

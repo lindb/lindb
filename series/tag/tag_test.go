@@ -1,4 +1,4 @@
-package models
+package tag
 
 import (
 	"sort"
@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTagsAsString(t *testing.T) {
-	assert.Equal(t, "", TagsAsString(nil))
+func Test_Concat(t *testing.T) {
+	assert.Equal(t, "", Concat(nil))
 	tags := map[string]string{"t2": "v2", "t1": "v1"}
-	tagsStr := TagsAsString(tags)
+	tagsStr := Concat(tags)
 	assert.Equal(t, "t1=v1,t2=v2", tagsStr)
 }
 
@@ -46,6 +46,6 @@ func Benchmark_TagsAsString_old(b *testing.B) {
 
 func Benchmark_TagsAsString_new(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		TagsAsString(_testTags)
+		Concat(_testTags)
 	}
 }

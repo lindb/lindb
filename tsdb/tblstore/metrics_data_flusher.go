@@ -124,9 +124,9 @@ func (w *metricsDataFlusher) FlushSeries(seriesID uint32) {
 
 	// Fields Info Block
 	// write start-time
-	w.writer.PutUvarint64(uint64(w.seriesStartTime))
+	w.writer.PutVarint64(w.seriesStartTime)
 	// write end-time
-	w.writer.PutUvarint64(uint64(w.seriesEndTime))
+	w.writer.PutVarint64(w.seriesEndTime)
 	// build and write bit-array
 	for idx, fm := range w.fieldMetas {
 		if _, ok := w.fieldsData[fm.ID]; !ok {
@@ -175,8 +175,8 @@ func (w *metricsDataFlusher) FlushVersion(version series.Version) {
 	// write fields-meta
 	fieldsMetaPos := w.writer.Len() - w.versionStartPos
 	// write start-time, end-time of this version
-	w.writer.PutUvarint64(uint64(w.versionStartTime))
-	w.writer.PutUvarint64(uint64(w.versionEndTime))
+	w.writer.PutVarint64(w.versionStartTime)
+	w.writer.PutVarint64(w.versionEndTime)
 	// write fields count
 	w.writer.PutUvarint64(uint64(len(w.fieldMetas)))
 	// write field-id, field-type list

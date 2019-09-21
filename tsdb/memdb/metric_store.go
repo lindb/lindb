@@ -2,7 +2,6 @@ package memdb
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
@@ -107,34 +106,9 @@ type metricStore struct {
 	immutable    atomic.Value  // lock free immutable index that has not been flushed to disk
 	mutable      tagIndexINTF  // active mutable index in use
 	mux          sync.RWMutex  // read-Write lock for mutable index and fieldMetas
-	fieldsMetas  atomic.Value  // read only, storing (*[]fieldMeta), hold mux before storing new value
+	fieldsMetas  atomic.Value  // read only, storing (field.Metas), hold mux before storing new value
 	maxTagsLimit atomic.Uint32 // maximum number of combinations of tags
 	metricID     uint32        // persistent on the disk
-}
-
-// fieldsMetas implements sort.Interface
-type fieldsMetas []field.Meta
-
-func (fm fieldsMetas) Len() int           { return len(fm) }
-func (fm fieldsMetas) Less(i, j int) bool { return fm[i].Name < fm[j].Name }
-func (fm fieldsMetas) Swap(i, j int)      { fm[i], fm[j] = fm[j], fm[i] }
-
-// getField get the fieldMeta from fieldName, return false when not exist
-func (fm fieldsMetas) getFieldMeta(fieldName string) (field.Meta, bool) {
-	idx := sort.Search(len(fm), func(i int) bool { return fm[i].Name >= fieldName })
-	if idx >= len(fm) || fm[idx].Name != fieldName {
-		return field.Meta{}, false
-	}
-	return fm[idx], true
-}
-
-// copy returns a new copy of fieldsMetas
-func (fm fieldsMetas) copy() (clone fieldsMetas) {
-	clone = make([]field.Meta, fm.Len())
-	for idx, fm := range fm {
-		clone[idx] = fm
-	}
-	return clone
 }
 
 // newMetricStore returns a new mStoreINTF.
@@ -143,8 +117,8 @@ func newMetricStore(metricID uint32) mStoreINTF {
 		metricID:     metricID,
 		mutable:      newTagIndex(),
 		maxTagsLimit: *atomic.NewUint32(constants.DefaultMStoreMaxTagsCount)}
-	var fm fieldsMetas
-	ms.fieldsMetas.Store(&fm)
+	var fm field.Metas
+	ms.fieldsMetas.Store(fm)
 	return &ms
 }
 
@@ -157,8 +131,8 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	fieldID uint16,
 	err error,
 ) {
-	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
-	fm, ok := fmList.getFieldMeta(fieldName)
+	fmList := ms.fieldsMetas.Load().(field.Metas)
+	fm, ok := fmList.GetFromName(fieldName)
 	// exist, check fieldType
 	if ok {
 		if fm.Type == fieldType {
@@ -174,8 +148,8 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	ms.mux.Lock()
 	defer ms.mux.Unlock()
 
-	fmList = ms.fieldsMetas.Load().(*fieldsMetas)
-	fm, ok = fmList.getFieldMeta(fieldName)
+	fmList = ms.fieldsMetas.Load().(field.Metas)
+	fm, ok = fmList.GetFromName(fieldName)
 	// double check
 	if ok {
 		return fm.ID, nil
@@ -185,14 +159,13 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	if err != nil { // fieldType not matches to the existed
 		return 0, err
 	}
-	clone := fmList.copy()
-	clone = append(clone, field.Meta{
+	x2 := fmList.Clone()
+	x2 = x2.Insert(field.Meta{
 		Name: fieldName,
 		ID:   newFieldID,
 		Type: fieldType})
-	sort.Sort(clone)
 	// store the new clone
-	ms.fieldsMetas.Store(&clone)
+	ms.fieldsMetas.Store(x2)
 	return newFieldID, nil
 
 }
@@ -470,8 +443,8 @@ func (ms *metricStore) FlushMetricsDataTo(
 	flushCtx flushContext,
 ) error {
 	// flush field meta info
-	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
-	flusher.FlushFieldMetas(*fmList)
+	fmList := ms.fieldsMetas.Load().(field.Metas)
+	flusher.FlushFieldMetas(fmList)
 
 	// reset the mutable part
 	ms.mux.RLock()

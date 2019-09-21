@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 )
 
 func prepareData() ([]byte, []byte) {
@@ -17,15 +18,15 @@ func prepareData() ([]byte, []byte) {
 	metaFlusherINTF1 := NewMetricsMetaFlusher(nopKVFlusher)
 	metaFlusherINTF2 := NewMetricsMetaFlusher(nopKVFlusher)
 
-	metaFlusherINTF1.FlushTagKeyID("a1", 3)
-	metaFlusherINTF1.FlushTagKeyID("b1", 4)
+	metaFlusherINTF1.FlushTagMeta(tag.Meta{Key: "a1", ID: 3})
+	metaFlusherINTF1.FlushTagMeta(tag.Meta{Key: "b1", ID: 4})
 	metaFlusherINTF1.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: "sum1"})
 	metaFlusherINTF1.FlushFieldMeta(field.Meta{ID: 2, Type: field.MinField, Name: "min1"})
 	_ = metaFlusherINTF1.FlushMetricMeta(2)
 	data1 := append([]byte{}, nopKVFlusher.Bytes()...)
 
-	metaFlusherINTF2.FlushTagKeyID("a2", 7)
-	metaFlusherINTF2.FlushTagKeyID("b2", 8)
+	metaFlusherINTF2.FlushTagMeta(tag.Meta{Key: "a2", ID: 7})
+	metaFlusherINTF2.FlushTagMeta(tag.Meta{Key: "b2", ID: 8})
 	metaFlusherINTF2.FlushFieldMeta(field.Meta{ID: 5, Type: field.SumField, Name: "sum2"})
 	metaFlusherINTF2.FlushFieldMeta(field.Meta{ID: 6, Type: field.MinField, Name: "min2"})
 	_ = metaFlusherINTF2.FlushMetricMeta(2)

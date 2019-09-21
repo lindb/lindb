@@ -90,3 +90,9 @@ func (mv *MultiVerSeriesIDSet) AndNot(other *MultiVerSeriesIDSet) {
 func (mv *MultiVerSeriesIDSet) Versions() map[Version]*roaring.Bitmap {
 	return mv.versions
 }
+
+// Contains checks whether the version exists or not
+func (mv *MultiVerSeriesIDSet) Contains(v Version) bool {
+	_, ok := mv.versions[v]
+	return ok
+}

@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
@@ -230,7 +230,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(
 
 // GetTStore returns a tStoreINTF from map tags.
 func (index *tagIndex) GetTStore(tags map[string]string) (tStoreINTF, bool) {
-	hash := xxhash.Sum64String(models.TagsAsString(tags))
+	hash := xxhash.Sum64String(tag.Concat(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
 	if ok {
 		return index.seriesID2TStore[seriesID], true
@@ -253,7 +253,7 @@ func (index *tagIndex) GetOrCreateTStore(
 	tStoreINTF,
 	error,
 ) {
-	hash := xxhash.Sum64String(models.TagsAsString(tags))
+	hash := xxhash.Sum64String(tag.Concat(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
 	// hash is already existed before
 	if ok {
