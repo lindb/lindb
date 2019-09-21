@@ -39,7 +39,7 @@ func TestFieldStore_Scan(t *testing.T) {
 		Start: now - 100,
 		End:   now + 1000,
 	}, IntervalCalc: calc, Interval: 10000}
-	fieldMeta := &field.Meta{ID: 1, Name: "f1", Type: field.SumField}
+	fieldMeta := field.Meta{ID: 1, Name: "f1", Type: field.SumField}
 	// no data
 	fStore.Scan(sCtx, series.Version(10), uint32(10), fieldMeta, ts)
 

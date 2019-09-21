@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	art "github.com/plar/go-adaptive-radix-tree"
@@ -25,22 +26,16 @@ var (
 	idSequencerSingleton *idSequencer
 )
 
-// tagKeyAndID holds the relation of tagKey and its ID
-type tagKeyAndID struct {
-	tagKey   string
-	tagKeyID uint32
-}
-
 // idSequencer implements IDSequencer
 type idSequencer struct {
-	metricIDSequence *atomic.Uint32 // counter from 1
-	tagKeyIDSequence *atomic.Uint32 // counter from 1
-	rwMux            sync.RWMutex   // readwrite lock for art-tree and map
+	metricIDSequence atomic.Uint32 // counter from 1
+	tagKeyIDSequence atomic.Uint32 // counter from 1
+	rwMux            sync.RWMutex  // readwrite lock for art-tree and map
 	tree             art.Tree
 	// unflushed generated id
-	youngMetricNameIDs map[string]uint32        // metricName -> metricID
-	youngTagKeyIDs     map[uint32][]tagKeyAndID // metricID -> tagKey + tagKeyID
-	youngFieldIDs      map[uint32][]field.Meta  // metricID -> fieldName + fieldType
+	newNameIDs    map[string]uint32       // metricName -> metricID
+	newTagMetas   map[uint32][]tag.Meta   // metricID -> tagKey + tagKeyID
+	newFieldMetas map[uint32][]field.Meta // metricID -> fieldName + fieldType
 	// family files for id-generating
 	nameIDsFamily kv.Family
 	metaFamily    kv.Family
@@ -50,14 +45,14 @@ type idSequencer struct {
 func NewIDSequencer(nameIDsFamily, metaFamily kv.Family) IDSequencer {
 	once4IDSequencer.Do(func() {
 		idSequencerSingleton = &idSequencer{
-			metricIDSequence:   atomic.NewUint32(0),
-			tagKeyIDSequence:   atomic.NewUint32(0),
-			tree:               art.New(),
-			youngMetricNameIDs: make(map[string]uint32),
-			youngTagKeyIDs:     make(map[uint32][]tagKeyAndID),
-			youngFieldIDs:      make(map[uint32][]field.Meta),
-			nameIDsFamily:      nameIDsFamily,
-			metaFamily:         metaFamily}
+			metricIDSequence: *atomic.NewUint32(0),
+			tagKeyIDSequence: *atomic.NewUint32(0),
+			tree:             art.New(),
+			newNameIDs:       make(map[string]uint32),
+			newTagMetas:      make(map[uint32][]tag.Meta),
+			newFieldMetas:    make(map[uint32][]field.Meta),
+			nameIDsFamily:    nameIDsFamily,
+			metaFamily:       metaFamily}
 	})
 	return idSequencerSingleton
 }
@@ -140,12 +135,12 @@ func (seq *idSequencer) GenMetricID(metricName string) uint32 {
 	seq.rwMux.Lock()
 	defer seq.rwMux.Unlock()
 	// double check
-	metricID, ok := seq.youngMetricNameIDs[metricName]
+	metricID, ok := seq.newNameIDs[metricName]
 	if ok {
 		return metricID
 	}
 	newMetricID := seq.metricIDSequence.Add(1)
-	seq.youngMetricNameIDs[metricName] = newMetricID
+	seq.newNameIDs[metricName] = newMetricID
 	return newMetricID
 }
 
@@ -168,14 +163,14 @@ func (seq *idSequencer) GenTagKeyID(
 	}
 	// case4: tagKeyID not exist, create a new one
 	newTagKeyID := seq.tagKeyIDSequence.Add(1)
-	tagKeyAndIDList, ok := seq.youngTagKeyIDs[metricID]
-	newItem := tagKeyAndID{tagKeyID: newTagKeyID, tagKey: tagKey}
+	tagMetas, ok := seq.newTagMetas[metricID]
+	newTagMeta := tag.Meta{ID: newTagKeyID, Key: tagKey}
 	if ok {
-		tagKeyAndIDList = append(tagKeyAndIDList, newItem)
+		tagMetas = append(tagMetas, newTagMeta)
 	} else {
-		tagKeyAndIDList = []tagKeyAndID{newItem}
+		tagMetas = []tag.Meta{newTagMeta}
 	}
-	seq.youngTagKeyIDs[metricID] = tagKeyAndIDList
+	seq.newTagMetas[metricID] = tagMetas
 	return newTagKeyID
 }
 
@@ -186,11 +181,11 @@ func (seq *idSequencer) getTagKeyIDInMem(
 	tagKeyID uint32,
 	ok bool,
 ) {
-	tagKeyAndIDList, ok := seq.youngTagKeyIDs[metricID]
+	tagMetas, ok := seq.newTagMetas[metricID]
 	if ok {
-		for _, tagKeyWithIDItem := range tagKeyAndIDList {
-			if tagKeyWithIDItem.tagKey == tagKey {
-				return tagKeyWithIDItem.tagKeyID, true
+		for _, tagMeta := range tagMetas {
+			if tagMeta.Key == tagKey {
+				return tagMeta.ID, true
 			}
 		}
 	}
@@ -241,11 +236,11 @@ func (seq *idSequencer) getFieldIDInMem(
 	field.Type,
 	bool,
 ) {
-	fieldIDAndTypeList, ok := seq.youngFieldIDs[metricID]
+	fieldMetas, ok := seq.newFieldMetas[metricID]
 	if ok {
-		for _, item := range fieldIDAndTypeList {
-			if item.Name == fieldName {
-				return item.ID, item.Type, true
+		for _, fieldMeta := range fieldMetas {
+			if fieldMeta.Name == fieldName {
+				return fieldMeta.ID, fieldMeta.Type, true
 			}
 		}
 	}
@@ -253,9 +248,9 @@ func (seq *idSequencer) getFieldIDInMem(
 }
 
 func (seq *idSequencer) getMaxFieldIDInMem(metricID uint32) uint16 {
-	fieldIDAndTypeList, ok := seq.youngFieldIDs[metricID]
+	fieldMetas, ok := seq.newFieldMetas[metricID]
 	if ok {
-		return fieldIDAndTypeList[len(fieldIDAndTypeList)-1].ID
+		return fieldMetas[len(fieldMetas)-1].ID
 	}
 	return 0
 }
@@ -330,14 +325,14 @@ func (seq *idSequencer) genFieldID(
 		return 0, series.ErrTooManyFields
 	}
 
-	metaList, ok := seq.youngFieldIDs[metricID]
+	metaList, ok := seq.newFieldMetas[metricID]
 	newItem := field.Meta{ID: maxFieldID + 1, Type: fieldType, Name: fieldName}
 	if ok {
 		metaList = append(metaList, newItem)
 	} else {
 		metaList = []field.Meta{newItem}
 	}
-	seq.youngFieldIDs[metricID] = metaList
+	seq.newFieldMetas[metricID] = metaList
 	return newItem.ID, nil
 
 }
@@ -347,7 +342,7 @@ func (seq *idSequencer) GetMetricID(metricName string) (uint32, error) {
 	seq.rwMux.RLock()
 	defer seq.rwMux.RUnlock()
 	// read memory
-	metricID, ok := seq.youngMetricNameIDs[metricName]
+	metricID, ok := seq.newNameIDs[metricName]
 	if ok {
 		return metricID, nil
 	}
@@ -412,8 +407,8 @@ func (seq *idSequencer) FlushNameIDs() error {
 // flushNameIDsTo flushes metricName and metricID to flusher
 func (seq *idSequencer) flushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error {
 	seq.rwMux.Lock()
-	unflushed := seq.youngMetricNameIDs
-	seq.youngMetricNameIDs = make(map[string]uint32)
+	unflushed := seq.newNameIDs
+	seq.newNameIDs = make(map[string]uint32)
 	for metricName, metricID := range unflushed {
 		seq.tree.Insert([]byte(metricName), metricID)
 	}
@@ -438,38 +433,39 @@ func (seq *idSequencer) FlushMetricsMeta() error {
 
 // flushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
 func (seq *idSequencer) flushMetricsMetaTo(flusher tblstore.MetricsMetaFlusher) error {
-	seq.rwMux.Lock()
-	unflushedTagKeys := seq.youngTagKeyIDs
-	unflushedFields := seq.youngFieldIDs
-	seq.youngTagKeyIDs = make(map[uint32][]tagKeyAndID)
-	seq.youngFieldIDs = make(map[uint32][]field.Meta)
-	seq.rwMux.Unlock()
-
-	// union of metricID
 	metricIDs := make(map[uint32]struct{})
-	for metricID := range unflushedTagKeys {
+	emptyTagMetas := make(map[uint32][]tag.Meta)
+	emptyFieldMetas := make(map[uint32][]field.Meta)
+
+	seq.rwMux.Lock()
+	defer seq.rwMux.Unlock()
+	// union of metricID
+	for metricID := range seq.newTagMetas {
 		metricIDs[metricID] = struct{}{}
 	}
-	for metricID := range unflushedFields {
+	for metricID := range seq.newFieldMetas {
 		metricIDs[metricID] = struct{}{}
 	}
 	// flush process
 	for metricID := range metricIDs {
-		items1, ok := unflushedTagKeys[metricID]
+		tagMetas, ok := seq.newTagMetas[metricID]
 		if ok {
-			for _, item := range items1 {
-				flusher.FlushTagKeyID(item.tagKey, item.tagKeyID)
+			for _, tagMeta := range tagMetas {
+				flusher.FlushTagMeta(tagMeta)
 			}
 		}
-		items2, ok := unflushedFields[metricID]
+		fieldMetas, ok := seq.newFieldMetas[metricID]
 		if ok {
-			for _, item := range items2 {
-				flusher.FlushFieldMeta(item)
+			for _, fieldMeta := range fieldMetas {
+				flusher.FlushFieldMeta(fieldMeta)
 			}
 		}
 		if err := flusher.FlushMetricMeta(metricID); err != nil {
 			return err
 		}
 	}
+	// replace it only on success
+	seq.newTagMetas = emptyTagMetas
+	seq.newFieldMetas = emptyFieldMetas
 	return flusher.Commit()
 }

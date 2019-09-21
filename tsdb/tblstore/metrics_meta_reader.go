@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 )
 
 //go:generate mockgen -source ./metrics_meta_reader.go -destination=./metrics_meta_reader_mock.go -package tblstore
@@ -48,11 +49,11 @@ func (r *metricsMetaReader) ReadTagKeyID(
 		if tagMetaBlock == nil {
 			continue
 		}
-		itr := newTagKeyIDIterator(tagMetaBlock)
+		itr := newTagMetaIterator(tagMetaBlock)
 		for itr.HasNext() {
-			theTagKey, theTagKeyID := itr.Next()
-			if theTagKey == tagKey {
-				return theTagKeyID, true
+			tagMeta := itr.Next()
+			if tagMeta.Key == tagKey {
+				return tagMeta.ID, true
 			}
 		}
 	}
@@ -141,42 +142,41 @@ func (r *metricsMetaReader) SuggestTagKeys(
 		if tagMetaBlock == nil {
 			continue
 		}
-		itr := newTagKeyIDIterator(tagMetaBlock)
+		itr := newTagMetaIterator(tagMetaBlock)
 		for itr.HasNext() {
 			// read tagKey
 			if limit <= len(collectedTagKeys) {
 				return collectedTagKeys
 			}
-			theTagKey, _ := itr.Next()
-			if strings.HasPrefix(theTagKey, tagKeyPrefix) {
-				collectedTagKeys = append(collectedTagKeys, theTagKey)
+			tagMeta := itr.Next()
+			if strings.HasPrefix(tagMeta.Key, tagKeyPrefix) {
+				collectedTagKeys = append(collectedTagKeys, tagMeta.Key)
 			}
 		}
 	}
 	return collectedTagKeys
 }
 
-type tagKeyIDIterator struct {
+type tagMetaIterator struct {
 	sr       *stream.Reader
 	tagKey   string
 	tagKeyID uint32
 }
 
-func newTagKeyIDIterator(block []byte) *tagKeyIDIterator {
-	return &tagKeyIDIterator{sr: stream.NewReader(block)}
+func newTagMetaIterator(block []byte) *tagMetaIterator {
+	return &tagMetaIterator{sr: stream.NewReader(block)}
 }
-func (ti *tagKeyIDIterator) HasNext() bool {
+func (ti *tagMetaIterator) HasNext() bool {
 	tagKeyLen := ti.sr.ReadByte()
 	ti.tagKey = string(ti.sr.ReadSlice(int(tagKeyLen)))
 	ti.tagKeyID = ti.sr.ReadUint32()
 	return ti.sr.Error() == nil
 }
 
-func (ti *tagKeyIDIterator) Next() (
-	tagKey string,
-	tagKeyID uint32,
+func (ti *tagMetaIterator) Next() (
+	tagMeta tag.Meta,
 ) {
-	return ti.tagKey, ti.tagKeyID
+	return tag.Meta{Key: ti.tagKey, ID: ti.tagKeyID}
 }
 
 type fieldMetaIterator struct {

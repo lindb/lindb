@@ -1,12 +1,12 @@
-package models
+package tag
 
 import (
 	"sort"
 	"strings"
 )
 
-// convert tags to string
-func TagsAsString(tags map[string]string) string {
+// Concat concats map-tags to string
+func Concat(tags map[string]string) string {
 	if tags == nil {
 		return ""
 	}

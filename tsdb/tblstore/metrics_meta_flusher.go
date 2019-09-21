@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 
 	"go.uber.org/zap"
 )
@@ -20,8 +21,8 @@ var (
 // MetricsMetaFlusher is a wrapper of kv.Builder, provides the ability to store meta info of a metricID.
 // The layout is available in `tsdb/doc.go`(Metric Meta Table)
 type MetricsMetaFlusher interface {
-	// FlushTagKeyID flushes the relation of tagKey and tagID to buffer
-	FlushTagKeyID(tagKey string, tagKeyID uint32)
+	// FlushTagMeta flushes the relation of tagKey and tagID to buffer
+	FlushTagMeta(tagMeta tag.Meta)
 	// FlushFieldMeta flushes the relation of fieldName and fieldID to buffer
 	// make sure tagKey are flushed before
 	FlushFieldMeta(fieldMeta field.Meta)
@@ -45,19 +46,19 @@ func NewMetricsMetaFlusher(flusher kv.Flusher) MetricsMetaFlusher {
 		writer:  stream.NewBufferWriter(nil)}
 }
 
-// FlushTagKeyID flushes the relation of tagKey and tagID to buffer
-func (f *metricsMetaFlusher) FlushTagKeyID(tagKey string, tagKeyID uint32) {
-	if tagKey == "" {
+// FlushTagMeta flushes the relation of tagKey and tagID to buffer
+func (f *metricsMetaFlusher) FlushTagMeta(tagMeta tag.Meta) {
+	if tagMeta.Key == "" {
 		return
 	}
-	if len(tagKey) > math.MaxUint8 {
-		metaFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagKey)))
+	if len(tagMeta.Key) > math.MaxUint8 {
+		metaFlusherLogger.Error("tagKey too long", zap.Int("length", len(tagMeta.Key)))
 	}
 	// write tagKey
-	f.writer.PutByte(byte(len(tagKey)))
-	f.writer.PutBytes([]byte(tagKey))
+	f.writer.PutByte(byte(len(tagMeta.Key)))
+	f.writer.PutBytes([]byte(tagMeta.Key))
 	// write tagKeyID
-	f.writer.PutUint32(tagKeyID)
+	f.writer.PutUint32(tagMeta.ID)
 
 	f.fieldMetaPos = f.writer.Len()
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,8 +15,8 @@ func Test_MetricsMetaFlusher(t *testing.T) {
 
 	metaFlusher := NewMetricsMetaFlusher(nopKVFlusher)
 	// write only tags
-	metaFlusher.FlushTagKeyID("k1", 1)
-	metaFlusher.FlushTagKeyID("k2", 2)
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "k1", ID: 1})
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "k2", ID: 2})
 	metaFlusher.FlushMetricMeta(1)
 	assert.Equal(t, []byte{
 		0x2, 0x6b, 0x31, 0x1, 0x0, 0x0, 0x0, 0x2, 0x6b, 0x32, 0x2, 0x0, 0x0, 0x0, 0xe, 0x0, 0x0, 0x0},
@@ -30,7 +31,7 @@ func Test_MetricsMetaFlusher(t *testing.T) {
 		nopKVFlusher.Bytes())
 
 	// write tags fields
-	metaFlusher.FlushTagKeyID("k1", 1)
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "k1", ID: 1})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 3, Type: field.SumField, Name: "f3"})
 	metaFlusher.FlushMetricMeta(3)
 	assert.Equal(t, []byte{
@@ -46,8 +47,8 @@ func Test_flusher_invalid_input(t *testing.T) {
 	}
 
 	metaFlusher := NewMetricsMetaFlusher(nil)
-	metaFlusher.FlushTagKeyID("", 1)
-	metaFlusher.FlushTagKeyID(badKey, 1)
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "", ID: 1})
+	metaFlusher.FlushTagMeta(tag.Meta{Key: badKey, ID: 1})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: ""})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: badKey})
 }

@@ -13,7 +13,7 @@ func (fs *fieldStore) Scan(
 	sCtx *series.ScanContext,
 	version series.Version,
 	seriesID uint32,
-	fieldMeta *field.Meta,
+	fieldMeta field.Meta,
 	ts *timeSeriesStore,
 ) {
 	queryTimeRange := &sCtx.TimeRange
@@ -47,7 +47,7 @@ func (fs *fieldStore) Scan(
 type fStoreIterator struct {
 	familyStartTime int64
 	sStore          sStoreINTF
-	fieldMeta       *field.Meta
+	fieldMeta       field.Meta
 	primitiveIt     series.PrimitiveIterator
 	ts              *timeSeriesStore
 
@@ -56,7 +56,7 @@ type fStoreIterator struct {
 
 func newFStoreIterator(
 	familyStartTime int64,
-	fieldMeta *field.Meta,
+	fieldMeta field.Meta,
 	sStore sStoreINTF,
 	ts *timeSeriesStore,
 ) *fStoreIterator {
@@ -68,7 +68,7 @@ func newFStoreIterator(
 	}
 }
 
-func (fsi *fStoreIterator) FieldMeta() field.Meta { return *fsi.fieldMeta }
+func (fsi *fStoreIterator) FieldMeta() field.Meta { return fsi.fieldMeta }
 
 func (fsi *fStoreIterator) HasNext() bool {
 	//FIXME stone for complex field type

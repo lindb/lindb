@@ -44,7 +44,7 @@ type fStoreINTF interface {
 		sCtx *series.ScanContext,
 		version series.Version,
 		seriesID uint32,
-		fieldMeta *field.Meta,
+		fieldMeta field.Meta,
 		ts *timeSeriesStore)
 
 	// SegmentsCount returns the count of segments

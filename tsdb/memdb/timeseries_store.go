@@ -45,7 +45,7 @@ type tStoreINTF interface {
 		sCtx *series.ScanContext,
 		version series.Version,
 		seriesID uint32,
-		fieldMetas map[uint16]*field.Meta)
+		existedFieldMetas field.Metas)
 }
 
 // fStoreNodes implements sort.Interface
