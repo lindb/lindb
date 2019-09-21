@@ -9,51 +9,33 @@ import (
 // Scanner methods
 //////////////////////////////////////////////////////
 
-// findFieldMetas returns if query's fields are in store, if all query fields found returns true, else returns false
-func (ms *metricStore) findFieldMetas(fieldIDs []uint16) (map[uint16]*field.Meta, bool) {
-	fmList := ms.fieldsMetas.Load().(*fieldsMetas)
-	result := make(map[uint16]*field.Meta)
-	for _, fieldID := range fieldIDs {
-		result[fieldID] = &field.Meta{}
-	}
-
-	found := 0
-	for _, fm := range *fmList {
-		fieldMeta, ok := result[fm.ID]
-		if ok {
-			*fieldMeta = fm
-			found++
-		}
-	}
-	return result, found == len(fieldIDs)
-}
-
 // Scan scans metric store based on scan context
 func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 	// first need check query's fields is match store's fields, if not return.
-	fieldMetas, ok := ms.findFieldMetas(sCtx.FieldIDs)
+	fmList := ms.fieldsMetas.Load().(field.Metas)
+	subList, ok := fmList.Intersects(sCtx.FieldIDs)
 	if !ok {
 		return
 	}
 
-	// collect all tagIndexes whose version matches the idSet
-	collectOnVersionMatch := func(idx tagIndexINTF) {
+	// scan tagIndex when version matches the idSet
+	scanOnVersionMatch := func(idx tagIndexINTF) {
 		if _, ok := sCtx.SeriesIDSet.Versions()[idx.Version()]; ok {
-			ms.scan(sCtx, idx, fieldMetas)
+			ms.scan(sCtx, idx, subList)
 		}
 	}
 	ms.mux.RLock()
-	collectOnVersionMatch(ms.mutable)
+	scanOnVersionMatch(ms.mutable)
 	immutable := ms.immutable.Load()
 	ms.mux.RUnlock()
 	if immutable != nil {
 		tagIndex := immutable.(tagIndexINTF)
-		collectOnVersionMatch(tagIndex)
+		scanOnVersionMatch(tagIndex)
 	}
 }
 
 // scan finds time series store from tag index by series ids
-func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, fieldMetas map[uint16]*field.Meta) {
+func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, existedFieldMetas field.Metas) {
 	// support multi-version
 	version := tagIndex.Version()
 	seriesIDs := sCtx.SeriesIDSet.Versions()[version]
@@ -68,6 +50,6 @@ func (ms *metricStore) scan(sCtx *series.ScanContext, tagIndex tagIndexINTF, fie
 		}
 
 		// scan time series store
-		tStore.Scan(sCtx, version, seriesID, fieldMetas)
+		tStore.Scan(sCtx, version, seriesID, existedFieldMetas)
 	}
 }

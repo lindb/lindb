@@ -16,6 +16,7 @@ func TestMultiVerSeriesIDSet_IsEmpty(t *testing.T) {
 	multiVer1.Add(Version(12), roaring.BitmapOf(1, 2, 3, 4, 5))
 	assert.False(t, multiVer1.IsEmpty())
 	assert.Len(t, multiVer1.Versions(), 1)
+	assert.True(t, multiVer1.Contains(Version(12)))
 }
 
 func TestMultiVerSeriesIDSet_And(t *testing.T) {

@@ -8,22 +8,23 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 )
 
 func buildMetaBlock() (data [][]byte) {
 	nopFlusher := kv.NewNopFlusher()
 	metaFlusher := NewMetricsMetaFlusher(nopFlusher)
 
-	metaFlusher.FlushTagKeyID("tag1", 1)
-	metaFlusher.FlushTagKeyID("tag2", 2)
-	metaFlusher.FlushTagKeyID("tag3", 3)
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "tag1", ID: 1})
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "tag2", ID: 2})
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "tag3", ID: 3})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 1, Type: field.SumField, Name: "f1"})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 2, Type: field.SumField, Name: "f2"})
 	_ = metaFlusher.FlushMetricMeta(1)
 	data = append(data, append([]byte{}, nopFlusher.Bytes()...))
 
-	metaFlusher.FlushTagKeyID("tag4", 4)
-	metaFlusher.FlushTagKeyID("tag5", 5)
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "tag4", ID: 4})
+	metaFlusher.FlushTagMeta(tag.Meta{Key: "tag5", ID: 5})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 3, Type: field.SumField, Name: "f3"})
 	metaFlusher.FlushFieldMeta(field.Meta{ID: 4, Type: field.SumField, Name: "f4"})
 	_ = metaFlusher.FlushMetricMeta(1)
@@ -47,13 +48,13 @@ func Test_MetricsMetaMerger(t *testing.T) {
 	reader := NewMetricsMetaReader(nil).(*metricsMetaReader)
 	tagMetaBlock, fieldMetaBlock := reader.readMetasBlock(data)
 
-	tagKeyItr := newTagKeyIDIterator(tagMetaBlock)
+	tagMetaItr := newTagMetaIterator(tagMetaBlock)
 	var tagKeyIDCount = 0
-	for tagKeyItr.HasNext() {
+	for tagMetaItr.HasNext() {
 		tagKeyIDCount++
-		tagKey, tagKeyID := tagKeyItr.Next()
-		assert.Equal(t, fmt.Sprintf("tag%d", tagKeyIDCount), tagKey)
-		assert.Equal(t, uint32(tagKeyIDCount), tagKeyID)
+		tagMeta := tagMetaItr.Next()
+		assert.Equal(t, fmt.Sprintf("tag%d", tagKeyIDCount), tagMeta.Key)
+		assert.Equal(t, uint32(tagKeyIDCount), tagMeta.ID)
 	}
 
 	fieldItr := newFieldMetaIterator(fieldMetaBlock)

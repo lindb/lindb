@@ -10,18 +10,17 @@ func (ts *timeSeriesStore) Scan(
 	sCtx *series.ScanContext,
 	version series.Version,
 	seriesID uint32,
-	fieldMetas map[uint16]*field.Meta,
+	existedFieldMetas field.Metas,
 ) {
 	worker := sCtx.Worker
-	for _, fieldID := range sCtx.FieldIDs {
+	for _, fm := range existedFieldMetas {
 		ts.sl.Lock()
-		fStore, ok := ts.GetFStore(fieldID)
+		fStore, ok := ts.GetFStore(fm.ID)
 		ts.sl.Unlock()
 		if !ok {
 			continue
 		}
-		fieldMeta := fieldMetas[fieldID]
-		fStore.Scan(sCtx, version, seriesID, fieldMeta, ts)
+		fStore.Scan(sCtx, version, seriesID, fm, ts)
 	}
 
 	// send msg to notify current series scan completed

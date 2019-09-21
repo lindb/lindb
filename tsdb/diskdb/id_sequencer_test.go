@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
@@ -33,11 +34,11 @@ type mockedIDSequencer struct {
 
 func (db *mockedIDSequencer) Clear() {
 	db.idSequencer.tree = art.New()
-	db.idSequencer.metricIDSequence = atomic.NewUint32(0)
-	db.idSequencer.tagKeyIDSequence = atomic.NewUint32(0)
-	db.idSequencer.youngMetricNameIDs = make(map[string]uint32)
-	db.idSequencer.youngTagKeyIDs = make(map[uint32][]tagKeyAndID)
-	db.idSequencer.youngFieldIDs = make(map[uint32][]field.Meta)
+	db.idSequencer.metricIDSequence = *atomic.NewUint32(0)
+	db.idSequencer.tagKeyIDSequence = *atomic.NewUint32(0)
+	db.idSequencer.newNameIDs = make(map[string]uint32)
+	db.idSequencer.newTagMetas = make(map[uint32][]tag.Meta)
+	db.idSequencer.newFieldMetas = make(map[uint32][]field.Meta)
 }
 
 func (db *mockedIDSequencer) WithFindReadersError() {
@@ -146,7 +147,7 @@ func Test_IDSequencer_GetMetricID(t *testing.T) {
 	assert.Zero(t, metricID)
 	assert.NotNil(t, err)
 	// in map
-	mocked.idSequencer.youngMetricNameIDs["docker"] = 2
+	mocked.idSequencer.newNameIDs["docker"] = 2
 	metricID, err = mocked.idSequencer.GetMetricID("docker")
 	assert.Equal(t, uint32(2), metricID)
 	assert.Nil(t, err)
@@ -167,7 +168,7 @@ func Test_IDSequencer_GenMetricID(t *testing.T) {
 	mocked.Clear()
 	// newly created
 	mocked.idSequencer.metricIDSequence.Store(2)
-	mocked.idSequencer.youngMetricNameIDs = map[string]uint32{"docker": 2}
+	mocked.idSequencer.newNameIDs = map[string]uint32{"docker": 2}
 	assert.Equal(t, uint32(2), mocked.idSequencer.GenMetricID("docker"))
 	// metricID sequence
 	assert.Equal(t, uint32(3), mocked.idSequencer.GenMetricID("cpu"))
@@ -185,7 +186,7 @@ func Test_IDSequencer_GetTagKeyID(t *testing.T) {
 	mocked := mockIDSequencer(ctrl)
 	mocked.Clear()
 	// case1: tagKeyID exist in memory
-	mocked.idSequencer.youngTagKeyIDs[uint32(1)] = []tagKeyAndID{{tagKey: "key", tagKeyID: uint32(2)}}
+	mocked.idSequencer.newTagMetas[uint32(1)] = []tag.Meta{{Key: "key", ID: uint32(2)}}
 	tagKeyID, err := mocked.idSequencer.GetTagKeyID(1, "key")
 	assert.Nil(t, err)
 	assert.Equal(t, tagKeyID, uint32(2))
@@ -225,7 +226,7 @@ func Test_IDSequencer_GenTagKeyID(t *testing.T) {
 	mocked.Clear()
 
 	// case1: tagKeyID exist in memory
-	mocked.idSequencer.youngTagKeyIDs[uint32(5)] = []tagKeyAndID{{tagKey: "key", tagKeyID: uint32(2)}}
+	mocked.idSequencer.newTagMetas[uint32(5)] = []tag.Meta{{Key: "key", ID: uint32(2)}}
 	tagKeyID := mocked.idSequencer.GenTagKeyID(5, "key")
 	assert.Equal(t, tagKeyID, uint32(2))
 	// case2: snapShot FindReaders ok
@@ -261,7 +262,7 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 	_, _, err = mocked.idSequencer.GetFieldID(1, "f1")
 	assert.NotNil(t, err)
 	// case3: read existed fieldID
-	mocked.idSequencer.youngFieldIDs = map[uint32][]field.Meta{3: {{
+	mocked.idSequencer.newFieldMetas = map[uint32][]field.Meta{3: {{
 		Type: field.SumField, ID: 1, Name: "sum"}}}
 	fid, ftype, err := mocked.idSequencer.GetFieldID(3, "sum")
 	assert.Nil(t, err)
@@ -298,7 +299,7 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 	mocked.Clear()
 
 	// case1: hit memory, type match
-	mocked.idSequencer.youngFieldIDs[1] = append(mocked.idSequencer.youngFieldIDs[1], field.Meta{
+	mocked.idSequencer.newFieldMetas[1] = append(mocked.idSequencer.newFieldMetas[1], field.Meta{
 		ID: 1, Type: field.SumField, Name: "sum"})
 	fieldID, err := mocked.idSequencer.GenFieldID(1, "sum", field.SumField)
 	assert.Equal(t, uint16(1), fieldID)
@@ -380,8 +381,8 @@ func Test_IDSequencer_flushNameIDsTo(t *testing.T) {
 	mockFlusher := tblstore.NewMetricsNameIDFlusher(mockKVFlusher)
 	assert.Nil(t, mocked.idSequencer.flushNameIDsTo(mockFlusher))
 
-	mocked.idSequencer.youngMetricNameIDs["1"] = 1
-	mocked.idSequencer.youngMetricNameIDs["2"] = 2
+	mocked.idSequencer.newNameIDs["1"] = 1
+	mocked.idSequencer.newNameIDs["2"] = 2
 	mocked.idSequencer.metricIDSequence.Store(10)
 	mocked.idSequencer.tagKeyIDSequence.Store(15)
 
@@ -403,12 +404,12 @@ func Test_IDSequencer_flushMetricsMetaTo(t *testing.T) {
 	mocked.Clear()
 
 	set := func() {
-		mocked.idSequencer.youngTagKeyIDs = map[uint32][]tagKeyAndID{
-			1: {{tagKey: "11", tagKeyID: 11},
-				{tagKey: "12", tagKeyID: 12}},
-			2: {{tagKey: "22", tagKeyID: 22},
-				{tagKey: "23", tagKeyID: 23}}}
-		mocked.idSequencer.youngFieldIDs = map[uint32][]field.Meta{
+		mocked.idSequencer.newTagMetas = map[uint32][]tag.Meta{
+			1: {{Key: "11", ID: 11},
+				{Key: "12", ID: 12}},
+			2: {{Key: "22", ID: 22},
+				{Key: "23", ID: 23}}}
+		mocked.idSequencer.newFieldMetas = map[uint32][]field.Meta{
 			2: {{ID: 22, Type: field.SumField},
 				{ID: 23, Type: field.MaxField}},
 			3: {{ID: 33, Type: field.MinField},

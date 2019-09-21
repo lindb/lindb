@@ -5,9 +5,9 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -114,7 +114,7 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 		if len(tags) == 0 {
 			return true
 		}
-		tagsStr = models.TagsAsString(tags)
+		tagsStr = tag.Concat(tags)
 	}
 	// 2. get series aggregator
 	var agg seriesAgg

@@ -40,15 +40,15 @@ func (m *metricsMetaMerger) Merge(
 	// flush tag-key
 	for _, block := range value {
 		tagMetaBlock, fieldMetaBlock := m.reader.readMetasBlock(block)
-		tagItr := newTagKeyIDIterator(tagMetaBlock)
-		for tagItr.HasNext() {
+		tagMetaItr := newTagMetaIterator(tagMetaBlock)
+		for tagMetaItr.HasNext() {
 			hasData = true
-			m.flusher.FlushTagKeyID(tagItr.Next())
+			m.flusher.FlushTagMeta(tagMetaItr.Next())
 		}
-		fieldItr := newFieldMetaIterator(fieldMetaBlock)
-		for fieldItr.HasNext() {
+		fieldMetaItr := newFieldMetaIterator(fieldMetaBlock)
+		for fieldMetaItr.HasNext() {
 			hasData = true
-			m.fieldMetas = append(m.fieldMetas, fieldItr.Next())
+			m.fieldMetas = append(m.fieldMetas, fieldMetaItr.Next())
 		}
 	}
 	// flush field-meta
