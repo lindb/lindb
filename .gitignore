@@ -8,6 +8,7 @@ bin/
 # temp file during testing
 *.test
 .vscode/
+cpu_profile
 
 # config files
 *.toml

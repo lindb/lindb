@@ -5,53 +5,46 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-// dummy value to keep field name unique
-const dummy bool = false
+type AggregatorSpecs []AggregatorSpec
 
 type AggregatorSpec interface {
 	FieldName() string
+	FieldType() field.Type
 	AddFunctionType(funcType function.FuncType)
+	Functions() map[function.FuncType]function.FuncType
 }
 
-type mergeAggregatorSpec struct {
-	fieldName string
-}
-
-func NewMergeAggregatorSpec(fieldName string) AggregatorSpec {
-	return &mergeAggregatorSpec{fieldName: fieldName}
-}
-
-func (a *mergeAggregatorSpec) FieldName() string {
-	return a.fieldName
-}
-
-func (a *mergeAggregatorSpec) AddFunctionType(funcType function.FuncType) {
-	// do nothing
-}
-
-type downSamplingSpec struct {
+type aggregatorSpec struct {
 	fieldName string
 	fieldType field.Type
-	functions map[function.FuncType]bool
+	functions map[function.FuncType]function.FuncType
 }
 
-func NewDownSamplingSpec(fieldName string, fieldType field.Type) AggregatorSpec {
-	return &downSamplingSpec{
+func NewAggregatorSpec(fieldName string, fieldType field.Type) AggregatorSpec {
+	return &aggregatorSpec{
 		fieldName: fieldName,
 		fieldType: fieldType,
-		functions: make(map[function.FuncType]bool),
+		functions: make(map[function.FuncType]function.FuncType),
 	}
 }
 
-func (a *downSamplingSpec) FieldName() string {
+func (a *aggregatorSpec) FieldType() field.Type {
+	return a.fieldType
+}
+
+func (a *aggregatorSpec) FieldName() string {
 	return a.fieldName
 }
 
-func (a *downSamplingSpec) AddFunctionType(funcType function.FuncType) {
+func (a *aggregatorSpec) AddFunctionType(funcType function.FuncType) {
 	_, exist := a.functions[funcType]
 	if !exist {
-		a.functions[funcType] = dummy
+		a.functions[funcType] = funcType
 	}
+}
+
+func (a *aggregatorSpec) Functions() map[function.FuncType]function.FuncType {
+	return a.functions
 }
 
 func DownSamplingFunc(fieldType field.Type) function.FuncType {

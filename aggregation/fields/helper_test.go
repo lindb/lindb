@@ -8,7 +8,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 )
 
 //////////////////////////////////////////////////
@@ -16,10 +15,9 @@ import (
 ///////////////////////////////////////////////////
 
 // mockSingleIterator returns mock an iterator of single field
-func mockSingleIterator(ctrl *gomock.Controller, fieldType field.Type) series.FieldIterator {
+func mockSingleIterator(ctrl *gomock.Controller) series.FieldIterator {
 	it := series.NewMockFieldIterator(ctrl)
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-	it.EXPECT().FieldMeta().Return(field.Meta{Type: fieldType})
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	primitiveIt.EXPECT().HasNext().Return(true)

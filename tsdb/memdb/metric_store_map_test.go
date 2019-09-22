@@ -5,6 +5,8 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/series"
 )
 
 // hack test
@@ -39,9 +41,12 @@ func Test_metricMap_put(t *testing.T) {
 
 func Test_metricMap_get(t *testing.T) {
 	m := newMetricMap()
+	store, ok := m.get(uint32(10))
+	assert.Nil(t, store)
+	assert.False(t, ok)
 	m.put(1, _newTestTStore(1))
 	m.put(8, _newTestTStore(8))
-	_, ok := m.get(1)
+	_, ok = m.get(1)
 	assert.True(t, ok)
 	_, ok = m.get(2)
 	assert.False(t, ok)
@@ -49,6 +54,78 @@ func Test_metricMap_get(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = m.get(9)
 	assert.False(t, ok)
+}
+
+func Test_metricMap_iterator(t *testing.T) {
+	m := newMetricMap()
+	it := m.iterator()
+	assert.False(t, it.hasNext())
+	m.put(1, _newTestTStore(1))
+	m.put(8, _newTestTStore(8))
+	it = m.iterator()
+	assert.True(t, it.hasNext())
+	seriesID, tStore := it.next()
+	assert.Equal(t, uint32(1), seriesID)
+	assert.NotNil(t, tStore)
+	assert.True(t, it.hasNext())
+	seriesID, tStore = it.next()
+	assert.Equal(t, uint32(8), seriesID)
+	assert.NotNil(t, tStore)
+	assert.False(t, it.hasNext())
+}
+
+func Test_metricMap_scan(t *testing.T) {
+	m := newMetricMap()
+	for i := 100; i < 4199; i++ {
+		m.put(uint32(i), _newTestTStore(uint32(i)))
+	}
+	foundSeriesIDs := roaring.BitmapOf()
+	multiVer1 := series.NewMultiVerSeriesIDSet()
+	multiVer1.Add(series.Version(12), roaring.BitmapOf())
+	worker := &mockScanWorker{}
+	mCtx := &series.ScanContext{
+		SeriesIDSet: multiVer1,
+		HasGroupBy:  true,
+		Worker:      worker,
+	}
+	// not match
+	m.scan(series.Version(12), mCtx)
+	assert.Equal(t, 0, len(worker.events))
+
+	// find all series ids
+	multiVer1.Add(series.Version(13), m.seriesIDs.Clone())
+	m.scan(series.Version(13), mCtx)
+	assert.Equal(t, 2, len(worker.events))
+	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
+	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
+	assert.True(t, foundSeriesIDs.Equals(m.seriesIDs))
+
+	// find some series ids
+	seriesIDs := m.seriesIDs.Clone()
+	seriesIDs.Remove(uint32(300))
+	multiVer1.Add(series.Version(14), seriesIDs)
+	worker.events = nil
+	m.scan(series.Version(14), mCtx)
+	assert.Equal(t, 2, len(worker.events))
+	foundSeriesIDs.Clear()
+	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
+	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
+	seriesIDs = m.seriesIDs.Clone()
+	seriesIDs.Remove(uint32(300))
+	assert.True(t, foundSeriesIDs.Equals(seriesIDs))
+
+	seriesIDs = roaring.New()
+	seriesIDs.AddRange(uint64(30), uint64(10240))
+	multiVer1.Add(series.Version(15), seriesIDs)
+	worker.events = nil
+	m.scan(series.Version(15), mCtx)
+	assert.Equal(t, 2, len(worker.events))
+	foundSeriesIDs.Clear()
+	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
+	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
+	seriesIDs = roaring.New()
+	seriesIDs.AddRange(uint64(100), uint64(4199))
+	assert.True(t, foundSeriesIDs.Equals(seriesIDs))
 }
 
 func Benchmark_get(b *testing.B) {

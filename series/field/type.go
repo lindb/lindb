@@ -37,6 +37,22 @@ const (
 	Unknown
 )
 
+// String returns the field type's string value
+func (t Type) String() string {
+	switch t {
+	case SumField:
+		return "sum"
+	case MinField:
+		return "min"
+	case MaxField:
+		return "max"
+	case HistogramField:
+		return "histogram"
+	default:
+		return "unknown"
+	}
+}
+
 var schemas = map[Type]schema{}
 
 func init() {

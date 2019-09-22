@@ -56,3 +56,19 @@ func TestFloatArray(t *testing.T) {
 	assert.Equal(t, 10.10, fa.GetValue(8))
 	assert.Equal(t, 3, fa.Size())
 }
+
+func BenchmarkFloatArray_HasValue(b *testing.B) {
+	for x := 0; x < b.N; x++ {
+		pos := 1000
+		_ = pos / blockSize
+		_ = pos - pos/blockSize*blockSize
+	}
+}
+
+func BenchmarkFloatArray_HasValue_2(b *testing.B) {
+	for x := 0; x < b.N; x++ {
+		pos := 1000
+		_ = pos / blockSize
+		_ = pos % blockSize
+	}
+}

@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/sql"
 )
 
 func TestIntermediate_Process(t *testing.T) {
@@ -30,8 +32,13 @@ func TestIntermediate_Process(t *testing.T) {
 	plan, _ := json.Marshal(&models.PhysicalPlan{
 		Intermediates: []models.Intermediate{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
 	})
-	// wrong request
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan})
+	assert.Equal(t, errUnmarshalQuery, err)
+
+	// wrong request
+	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	data := encoding.JSONMarshal(query)
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.Equal(t, errWrongRequest, err)
 
 	plan2, _ := json.Marshal(&models.PhysicalPlan{
@@ -43,24 +50,20 @@ func TestIntermediate_Process(t *testing.T) {
 	taskManager.EXPECT().AllocTaskID().Return("taskID").AnyTimes()
 	// send request error
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2})
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2, Payload: data})
 	assert.NotNil(t, err)
 
 	// normal
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2})
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan2, Payload: data})
+	assert.NoError(t, err)
 
 	// normal
 	plan, _ = json.Marshal(&models.PhysicalPlan{
 		Intermediates: []models.Intermediate{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
-	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan})
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
+	assert.NoError(t, err)
 }
 
 func TestIntermediate_Receive(t *testing.T) {

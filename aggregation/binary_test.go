@@ -14,7 +14,7 @@ func TestBinary_eval(t *testing.T) {
 	assert.Equal(t, float64(10), eval(stmt.ADD, 4, 6))
 	assert.Equal(t, float64(-2), eval(stmt.SUB, 4, 6))
 	assert.Equal(t, float64(24), eval(stmt.MUL, 4, 6))
-	assert.Equal(t, float64(0.5), eval(stmt.DIV, 4, 8))
+	assert.Equal(t, 0.5, eval(stmt.DIV, 4, 8))
 	assert.Equal(t, float64(0), eval(stmt.DIV, 4, 0))
 
 	// wrong binary operator

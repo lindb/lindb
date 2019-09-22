@@ -61,22 +61,26 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 				err = result.Err
 				break
 			}
-			ts := result.Series
-			series := models.NewSeries(ts.Tags())
-			resultSet.AddSeries(series)
-			for ts.HasNext() {
-				fieldIt := ts.Next()
+			for _, ts := range result.SeriesList {
+				series := models.NewSeries(ts.Tags())
+				resultSet.AddSeries(series)
+				for ts.HasNext() {
+					it := ts.Next()
 
-				for fieldIt.HasNext() {
-					pIt := fieldIt.Next()
-					segmentStartTime := fieldIt.SegmentStartTime()
-					field := fieldIt.FieldMeta()
-					points := models.NewPoints()
-					series.AddField(field.Name, points)
-
-					for pIt.HasNext() {
-						slot, val := pIt.Next()
-						points.AddPoint(int64(slot)*stmt.Interval+segmentStartTime, val)
+					for it.HasNext() {
+						startTime, fieldIt := it.Next()
+						if fieldIt == nil {
+							continue
+						}
+						points := models.NewPoints()
+						for fieldIt.HasNext() {
+							pIt := fieldIt.Next()
+							for pIt.HasNext() {
+								slot, val := pIt.Next()
+								points.AddPoint(int64(slot)*stmt.Interval+startTime, val)
+							}
+						}
+						series.AddField(it.FieldName(), points)
 					}
 				}
 			}

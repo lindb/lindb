@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -125,14 +125,35 @@ func TestLeafProcessor_Process(t *testing.T) {
 	it := series.NewMockGroupedIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Tags().Return(nil)
-	fieldIt := series.NewMockFieldIterator(ctrl)
+	fieldIt := series.NewMockIterator(ctrl)
+	fieldIt.EXPECT().FieldName().Return("f1")
+	fieldIt.EXPECT().HasNext().Return(false)
 	it.EXPECT().Next().Return(fieldIt)
-	fieldIt.EXPECT().Bytes().Return([]byte{1, 2, 3}, nil)
-	fieldIt.EXPECT().FieldMeta().Return(field.Meta{Name: "f1"})
 	it.EXPECT().HasNext().Return(false)
 	go func() {
 		resultCh <- &series.TimeSeriesEvent{
-			Series: it,
+			SeriesList: []series.GroupedIterator{it},
+		}
+		time.AfterFunc(500*time.Millisecond, func() {
+			close(resultCh)
+		})
+	}()
+	exec.EXPECT().Execute().Return(resultCh)
+	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
+
+	// encode response error
+	resultCh = make(chan *series.TimeSeriesEvent)
+	it.EXPECT().HasNext().Return(true)
+	it.EXPECT().Tags().Return(nil)
+	fIt := series.NewMockFieldIterator(ctrl)
+	fieldIt.EXPECT().HasNext().Return(true)
+	fieldIt.EXPECT().Next().Return(int64(10), fIt)
+	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
+	it.EXPECT().Next().Return(fieldIt)
+	go func() {
+		resultCh <- &series.TimeSeriesEvent{
+			SeriesList: []series.GroupedIterator{it},
 		}
 		time.AfterFunc(500*time.Millisecond, func() {
 			close(resultCh)
@@ -143,18 +164,35 @@ func TestLeafProcessor_Process(t *testing.T) {
 	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 
 	resultCh = make(chan *series.TimeSeriesEvent)
-	it = series.NewMockGroupedIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Tags().Return(nil)
-	fieldIt = series.NewMockFieldIterator(ctrl)
+	fieldIt.EXPECT().HasNext().Return(true)
+	fieldIt.EXPECT().Next().Return(int64(10), fIt)
+	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
 	it.EXPECT().Next().Return(fieldIt)
-	fieldIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
+	var wait sync.WaitGroup
+	wait.Add(1)
 	go func() {
 		resultCh <- &series.TimeSeriesEvent{
-			Series: it,
+			SeriesList: []series.GroupedIterator{it},
 		}
 		resultCh <- &series.TimeSeriesEvent{
-			Series: it,
+			SeriesList: []series.GroupedIterator{it},
+		}
+		time.AfterFunc(500*time.Millisecond, func() {
+			close(resultCh)
+			wait.Done()
+		})
+	}()
+	exec.EXPECT().Execute().Return(resultCh)
+	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
+	wait.Wait()
+
+	resultCh = make(chan *series.TimeSeriesEvent)
+	go func() {
+		resultCh <- &series.TimeSeriesEvent{
+			Err: fmt.Errorf("err"),
 		}
 		time.AfterFunc(500*time.Millisecond, func() {
 			close(resultCh)

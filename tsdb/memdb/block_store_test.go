@@ -4,8 +4,10 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
 )
@@ -90,10 +92,12 @@ func TestReset(t *testing.T) {
 func TestCompactIntBlock(t *testing.T) {
 	bs := newBlockStore(30)
 
+	// alloc block err
 	assert.Nil(t, bs.allocBlock(field.ValueType(uint8(9))))
+
 	// int block
 	b1 := bs.allocBlock(field.Integer)
-	start, end, err := b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err := b1.compact(field.GetAggFunc(field.Sum))
 	assert.Nil(t, err)
 	assert.Equal(t, 0, start)
 	assert.Equal(t, 0, end)
@@ -107,13 +111,13 @@ func TestCompactIntBlock(t *testing.T) {
 	t.Log(b1.memsize())
 
 	// test compact [10,20] and no compress => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 10, start)
 	assert.Equal(t, 20, end)
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	assert.Nil(t, err)
 	assert.Equal(t, 10, start)
 	assert.Equal(t, 20, end)
@@ -131,7 +135,7 @@ func TestCompactIntBlock(t *testing.T) {
 	b1.setIntValue(10, int64(100))
 
 	// test compact [10,20] and compress[10,20] => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +156,7 @@ func TestCompactIntBlock(t *testing.T) {
 	b1.setIntValue(11, int64(100))
 
 	// test compact [10,21] and compress[10,20] => [10,21]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,11 +176,33 @@ func TestCompactIntBlock(t *testing.T) {
 	assert.True(t, tsd.HasValueWithSlot(11))
 	assert.Equal(t, int64(100), encoding.ZigZagDecode(tsd.Value()))
 
-	b1.setStartTime(40)
-	b1.setIntValue(11, int64(90))
+	// test compact [10,20]and compress[10,21] => [10,21]
+	b1.setStartTime(10)
+	b1.setIntValue(0, int64(50))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, 10, start)
+	assert.Equal(t, 21, end)
+
+	tsd = encoding.NewTSDDecoder(b1.bytes())
+	assert.Equal(t, 10, tsd.StartTime())
+	assert.Equal(t, 21, tsd.EndTime())
+	assert.True(t, tsd.HasValueWithSlot(0))
+	assert.Equal(t, int64(100), encoding.ZigZagDecode(tsd.Value()))
+	for i := 1; i < 10; i++ {
+		assert.False(t, tsd.HasValueWithSlot(i))
+	}
+	assert.True(t, tsd.HasValueWithSlot(10))
+	assert.Equal(t, int64(200), encoding.ZigZagDecode(tsd.Value()))
+	assert.True(t, tsd.HasValueWithSlot(11))
+	assert.Equal(t, int64(100), encoding.ZigZagDecode(tsd.Value()))
 
 	// test compact [40,51] and compress[10,21] => [10,51]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	b1.setStartTime(40)
+	b1.setIntValue(11, int64(90))
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +213,7 @@ func TestCompactIntBlock(t *testing.T) {
 	assert.Equal(t, 10, tsd.StartTime())
 	assert.Equal(t, 51, tsd.EndTime())
 	assert.True(t, tsd.HasValueWithSlot(0))
-	assert.Equal(t, int64(50), encoding.ZigZagDecode(tsd.Value()))
+	assert.Equal(t, int64(100), encoding.ZigZagDecode(tsd.Value()))
 	for i := 1; i < 10; i++ {
 		assert.False(t, tsd.HasValueWithSlot(i))
 	}
@@ -207,7 +233,7 @@ func TestCompactFloatBlock(t *testing.T) {
 
 	// float block
 	b1 := bs.allocBlock(field.Float)
-	start, end, err := b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err := b1.compact(field.GetAggFunc(field.Sum))
 	assert.Nil(t, err)
 	assert.Equal(t, 0, start)
 	assert.Equal(t, 0, end)
@@ -221,13 +247,13 @@ func TestCompactFloatBlock(t *testing.T) {
 	t.Log(b1.memsize())
 
 	// test compact [10,20] and no compress => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 10, start)
 	assert.Equal(t, 20, end)
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +275,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(10, 100.05)
 
 	// test compact [10,20] and compress[10,20] => [10,20]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +296,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(11, 100.0)
 
 	// test compact [10,21] and compress[10,20] => [10,21]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +320,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	b1.setFloatValue(11, 90.0)
 
 	// test compact [40,51] and compress[10,21] => [10,51]
-	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
+	start, end, err = b1.compact(field.GetAggFunc(field.Sum))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,4 +352,233 @@ func TestContainer_Get_Set(t *testing.T) {
 	assert.Equal(t, 0.0, c.getFloatValue(10))
 	c.setIntValue(10, 10)
 	assert.Equal(t, int64(0), c.getIntValue(10))
+}
+
+func TestIntBlock_scan(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	bs := newBlockStore(30)
+
+	// int block
+	b1 := bs.allocIntBlock()
+	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
+	// test no data
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+
+	// test only current buf has data
+	b1.setStartTime(10)
+	b1.setIntValue(10, int64(100))
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+	b1.setIntValue(15, int64(150))
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(true),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+
+	// test only has compress data
+	_, _, err := b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(true),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+
+	// test both has data(current/compress)
+	b1.setStartTime(10)
+	b1.setIntValue(10, int64(100))
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b1.setStartTime(40)
+	b1.setIntValue(10, int64(50))
+	b1.setIntValue(15, int64(55))
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(true),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b1.setStartTime(30)
+	b1.setIntValue(5, int64(35))
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(35, 35.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(35, 35.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+}
+
+func TestFloatBlock_scan(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	bs := newBlockStore(30)
+
+	// int block
+	b1 := bs.allocFloatBlock()
+	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
+	// test no data
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+
+	// test only current buf has data
+	b1.setStartTime(10)
+	b1.setFloatValue(10, 100.0)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+	b1.setFloatValue(15, 150.0)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(true),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, nil)
+
+	// test only has compress data
+	_, _, err := b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 100.0).Return(true),
+	)
+	b1.scan(nil, []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+
+	// test both has data(current/compress)
+	b1.setStartTime(10)
+	b1.setFloatValue(10, 100.0)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b1.setStartTime(40)
+	b1.setFloatValue(10, 50.0)
+	b1.setFloatValue(15, 55.0)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(true),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b1.setStartTime(30)
+	b1.setFloatValue(5, 35.0)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(35, 35.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
+	_, _, err = b1.compact(field.GetAggFunc(field.Sum))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(20, 200.0).Return(false),
+		pAgg.EXPECT().Aggregate(25, 150.0).Return(false),
+		pAgg.EXPECT().Aggregate(35, 35.0).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.0).Return(false),
+		pAgg.EXPECT().Aggregate(55, 55.0).Return(false),
+	)
+	b1.scan(field.GetAggFunc(field.Sum), []aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+		tsd: encoding.GetTSDDecoder(),
+	})
 }

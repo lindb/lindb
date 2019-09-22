@@ -3,11 +3,13 @@ package aggregation
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/series/field"
 )
 
 func TestPrimitiveSumFloatAgg(t *testing.T) {
-	agg := newPrimitiveAggregator(uint16(1), 5, field.GetAggFunc(field.Sum))
+	agg := NewPrimitiveAggregator(1, 5, field.GetAggFunc(field.Sum))
 	agg.Aggregate(1, 10.0)
 	agg.Aggregate(1, 30.0)
 	agg.Aggregate(-1, 30.0)
@@ -15,5 +17,15 @@ func TestPrimitiveSumFloatAgg(t *testing.T) {
 
 	expect := map[int]float64{1: 40.0}
 	it := agg.Iterator()
+	assert.Equal(t, uint16(1), agg.FieldID())
+	AssertPrimitiveIt(t, it, expect)
+
+	agg.reset()
+	it = agg.Iterator()
+	assert.False(t, it.HasNext())
+	agg.Aggregate(2, 20.0)
+	expect = map[int]float64{2: 20.0}
+	it = agg.Iterator()
+	assert.Equal(t, uint16(1), agg.FieldID())
 	AssertPrimitiveIt(t, it, expect)
 }

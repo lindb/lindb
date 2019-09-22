@@ -5,8 +5,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source=./job_manager.go -destination=./job_manager_mock.go -package=parallel
@@ -73,9 +75,13 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 		PhysicalPlan: planPayload,
 		Payload:      encoding.JSONMarshal(ctx.Query()),
 	}
+	query := ctx.Query()
+	//TODO fix me
+	groupAgg := aggregation.NewGroupByAggregator(query.Interval, &query.TimeRange, false, aggregation.AggregatorSpecs{
+		aggregation.NewAggregatorSpec("f1", field.SumField)})
 
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
-		newResultMerger(ctx.Context(), ctx.Query(), ctx.ResultSet()))
+		newResultMerger(ctx.Context(), groupAgg, ctx.ResultSet()))
 	j.taskManager.Submit(taskCtx)
 
 	if len(plan.Intermediates) > 0 {

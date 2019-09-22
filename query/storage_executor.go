@@ -3,10 +3,13 @@ package query
 import (
 	"context"
 	"fmt"
+	"sync"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -124,16 +127,30 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 		return
 	}
 
-	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.getFields(), e.resultCh)
-	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, memoryDB, aggWorker)
+	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(e.query.Interval, memoryDB.Interval(), e.query.TimeRange)
+	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
+	groupAgg := aggregation.NewGroupByAggregator(queryInterval, &timeRange, false, aggSpecs)
+
+	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.resultCh)
 	defer worker.Close()
 	memoryDB.Scan(&series.ScanContext{
 		MetricID:    e.metricID,
 		FieldIDs:    e.fieldIDs,
-		TimeRange:   e.query.TimeRange,
 		SeriesIDSet: seriesIDSet,
+		HasGroupBy:  e.storageExecutePlan.hasGroupBy(),
 		Worker:      worker,
+		Aggregates:  e.getAggregatorPool(queryInterval, intervalRatio, &timeRange),
 	})
+}
+
+// getAggregatorPool returns aggregator pool
+func (e *storageExecutor) getAggregatorPool(queryInterval int64, intervalRatio int, timeRange *timeutil.TimeRange) sync.Pool {
+	return sync.Pool{
+		New: func() interface{} {
+			return aggregation.NewFieldAggregates(queryInterval, intervalRatio, timeRange, true,
+				e.storageExecutePlan.getDownSamplingAggSpecs())
+		},
+	}
 }
 
 // searchSeriesIDs searches series ids from index
@@ -172,8 +189,12 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	}
 	// retain family task first
 	e.executorCtx.retainTask(int32(2 * len(families)))
-	aggWorker := createAggWorker(e.query.Interval, &e.query.TimeRange, e.storageExecutePlan.getFields(), e.resultCh)
-	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), aggWorker)
+	//FIXME get interval
+	timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
+	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
+	groupAgg := aggregation.NewGroupByAggregator(queryInterval, &timeRange, false, aggSpecs)
+
+	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, nil)
 	defer worker.Close()
 	for _, family := range families {
 		go e.familyLevelSearch(worker, family, seriesIDSet)
@@ -189,7 +210,6 @@ func (e *storageExecutor) familyLevelSearch(worker series.ScanWorker, family tsd
 	family.Scan(&series.ScanContext{
 		MetricID:    e.metricID,
 		FieldIDs:    e.fieldIDs,
-		TimeRange:   e.query.TimeRange,
 		SeriesIDSet: seriesIDSet,
 		Worker:      worker,
 	})

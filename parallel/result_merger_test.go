@@ -6,40 +6,45 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/aggregation"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestResultMerger_Merge(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)})
 	ch := make(chan *series.TimeSeriesEvent)
-	merger := newResultMerger(context.TODO(),
-		&stmt.Query{
-			Interval:  10000,
-			TimeRange: timeutil.TimeRange{Start: 10, End: 12},
-		}, ch)
+	merger := newResultMerger(context.TODO(), groupAgg, ch)
+	c := atomic.NewInt32(0)
+	var wait sync.WaitGroup
+	wait.Add(1)
 	go func() {
-		for range ch {
-		}
+		<-ch
+		c.Inc()
+		wait.Done()
 	}()
-
 	merger.merge(&pb.TaskResponse{TaskID: "taskID"})
-
 	merger.close()
+	wait.Wait()
+	assert.Equal(t, int32(1), c.Load())
 }
 
 func TestResultMerger_Cancel(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg.EXPECT().ResultSet().Return(nil)
 	ch := make(chan *series.TimeSeriesEvent)
 	ctx, cancel := context.WithCancel(context.TODO())
-	merger := newResultMerger(ctx,
-		&stmt.Query{
-			Interval:  10000,
-			TimeRange: timeutil.TimeRange{Start: 10, End: 12},
-		}, ch)
+	merger := newResultMerger(ctx, groupAgg, ch)
 	var wait sync.WaitGroup
 	wait.Add(1)
 	go func() {
@@ -52,12 +57,11 @@ func TestResultMerger_Cancel(t *testing.T) {
 }
 
 func TestResultMerger_Err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
 	ch := make(chan *series.TimeSeriesEvent)
-	merger := newResultMerger(context.TODO(),
-		&stmt.Query{
-			Interval:  10000,
-			TimeRange: timeutil.TimeRange{Start: 10, End: 12},
-		}, ch)
+	merger := newResultMerger(context.TODO(), groupAgg, ch)
 	c := atomic.NewInt32(0)
 	var wait sync.WaitGroup
 	wait.Add(1)
@@ -76,13 +80,13 @@ func TestResultMerger_Err(t *testing.T) {
 }
 
 func TestResultMerger_GroupBy(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
+	groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)})
 	ch := make(chan *series.TimeSeriesEvent)
-	merger := newResultMerger(context.TODO(),
-		&stmt.Query{
-			Interval:  10000,
-			TimeRange: timeutil.TimeRange{Start: 10, End: 12},
-			GroupBy:   []string{"host", "disk"},
-		}, ch)
+	merger := newResultMerger(context.TODO(), groupAgg, ch)
 	c := atomic.NewInt32(0)
 	var wait sync.WaitGroup
 	wait.Add(1)
@@ -97,17 +101,21 @@ func TestResultMerger_GroupBy(t *testing.T) {
 	fields := make(map[string][]byte)
 	fields["f1"] = []byte{}
 	timeSeries := &pb.TimeSeries{
-		Fields: fields,
-	}
-	data, _ := timeSeries.Marshal()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
-
-	timeSeries = &pb.TimeSeries{
 		Tags:   map[string]string{"host": "1.1.1.1"},
 		Fields: fields,
 	}
-	data, _ = timeSeries.Marshal()
+	seriesList := pb.TimeSeriesList{
+		TimeSeriesList: []*pb.TimeSeries{timeSeries},
+	}
+	data, _ := seriesList.Marshal()
 	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
+	timeSeries = &pb.TimeSeries{
+		Tags: map[string]string{"host": "1.1.1.1"},
+	}
+	seriesList = pb.TimeSeriesList{
+		TimeSeriesList: []*pb.TimeSeries{timeSeries},
+	}
+	data, _ = seriesList.Marshal()
 	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
 	merger.close()
 	wait.Wait()

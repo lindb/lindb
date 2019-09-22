@@ -146,9 +146,6 @@ func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
 			continue
 		}
 
-		//todo DEBUG level
-		w.logger.Info("receive metricList", logger.Any("metricList", metricList))
-
 		//TODO write metric, need handle panic
 		for _, metric := range metricList.Metrics {
 			err = shard.Write(metric)
