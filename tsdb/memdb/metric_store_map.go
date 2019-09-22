@@ -4,6 +4,8 @@ import (
 	"sort"
 
 	"github.com/RoaringBitmap/roaring"
+
+	"github.com/lindb/lindb/series"
 )
 
 // metricMap represents a map structure for storing time series data.
@@ -49,7 +51,8 @@ func (m *metricMap) put(seriesID uint32, tStore tStoreINTF) {
 	// insert operation
 	m.stores = append(m.stores, nil)
 	copy(m.stores[idx+1:], m.stores[idx:len(m.stores)-1])
-	m.stores[idx] = tStore
+	store := tStore.(*timeSeriesStore)
+	m.stores[idx] = store
 }
 
 // delete deletes the time series store by series id
@@ -141,6 +144,113 @@ func (m *metricMap) iterator() *mStoreIterator {
 	return &mStoreIterator{
 		it:     m.seriesIDs.Iterator(),
 		stores: m.stores,
+	}
+}
+
+// scan scans metric store map data based on series ids
+func (m *metricMap) scan(version series.Version, sCtx *series.ScanContext) {
+	// scan current version series ids, for supporting multi-version
+	seriesIDs := sCtx.SeriesIDSet.Versions()[version]
+	// after and operator, query bitmap is sub of store bitmap
+	matchSeriesIDs := roaring.FastAnd(seriesIDs, m.seriesIDs)
+	matchSize := int(matchSeriesIDs.GetCardinality())
+	// if match series size = 0, return it
+	if matchSize == 0 {
+		return
+	}
+	// if match series size = store size, need scan all data
+	if m.size() == matchSize {
+		m.scanAll(version, sCtx)
+		return
+	}
+
+	queryBuf := getSeriesIDs()
+	storeBuf := getSeriesIDs()
+	defer func() {
+		putSeriesIDs(queryBuf)
+		putSeriesIDs(storeBuf)
+	}()
+
+	queryIt := series.NewIDsIterator(matchSeriesIDs, queryBuf)
+	storeIt := series.NewIDsIterator(m.seriesIDs, storeBuf)
+	idx := 0
+	hasGroupBy := sCtx.HasGroupBy
+	var seriesIDBuf []uint32
+	var stores []tStoreINTF
+	var storeSeriesIDs, querySeriesIDs []uint32
+	var i1, i2 int
+	var n1, n2 int
+	worker := sCtx.Worker
+	for {
+		if i1 >= n1 || len(querySeriesIDs) == 0 {
+			if idx > 0 {
+				worker.Emit(newScanEvent(idx, stores, seriesIDBuf, version, sCtx))
+				idx = 0
+			}
+			n1, querySeriesIDs = queryIt.Next()
+			if n1 == 0 {
+				return
+			}
+
+			stores = getStores()
+			if hasGroupBy {
+				seriesIDBuf = getSeriesIDs()
+			}
+			i1 = 0
+		}
+		if i2 >= n2 || len(storeSeriesIDs) == 0 {
+			n2, storeSeriesIDs = storeIt.Next()
+			i2 = 0
+		}
+		storeSeriesID := storeSeriesIDs[i2]
+		querySeriesID := querySeriesIDs[i1]
+		// no case: storeSeriesID>querySeriesID, because does query bitmap and store bitmap
+		switch {
+		case storeSeriesID < querySeriesID:
+			i2++
+		case storeSeriesID == querySeriesID:
+			i1++
+			i2++
+			stores[idx] = m.stores[idx]
+			if hasGroupBy {
+				seriesIDBuf[idx] = querySeriesID
+			}
+			idx++
+		}
+	}
+}
+
+func (m *metricMap) scanAll(version series.Version, sCtx *series.ScanContext) {
+	var seriesIDs []uint32
+	stores := getStores()
+	hasGroupBy := sCtx.HasGroupBy
+	if hasGroupBy {
+		seriesIDs = getSeriesIDs()
+	}
+	length := m.size()
+	idx := 0
+	worker := sCtx.Worker
+	seriesIt := m.seriesIDs.ManyIterator()
+	for i := 0; i < length; i++ {
+		stores[idx] = m.stores[i]
+		idx++
+		if idx == scanBufSize {
+			if hasGroupBy {
+				seriesIt.NextMany(seriesIDs)
+			}
+			worker.Emit(newScanEvent(idx, stores, seriesIDs, version, sCtx))
+			stores = getStores()
+			if hasGroupBy {
+				seriesIDs = getSeriesIDs()
+			}
+			idx = 0
+		}
+	}
+	if idx > 0 {
+		if hasGroupBy {
+			seriesIt.NextMany(seriesIDs)
+		}
+		worker.Emit(newScanEvent(idx, stores, seriesIDs, version, sCtx))
 	}
 }
 

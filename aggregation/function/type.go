@@ -14,9 +14,9 @@ const (
 	Unknown
 )
 
-// FuncTypeString return the function's name
-func FuncTypeString(funcType FuncType) string {
-	switch funcType {
+// String return the function's name
+func (t FuncType) String() string {
+	switch t {
 	case Sum:
 		return "sum"
 	case Min:

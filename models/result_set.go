@@ -29,7 +29,14 @@ func NewSeries(tags map[string]string) *Series {
 
 // AddField adds a field
 func (s *Series) AddField(fieldName string, points *Points) {
-	s.Fields[fieldName] = points.Points
+	dataPoints, ok := s.Fields[fieldName]
+	if !ok {
+		s.Fields[fieldName] = points.Points
+		return
+	}
+	for t, v := range points.Points {
+		dataPoints[t] = v
+	}
 }
 
 // Points represents the data points of the field

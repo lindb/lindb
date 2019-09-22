@@ -115,9 +115,7 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
-	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(0).AnyTimes()
-	mockTStore2 := NewMocktStoreINTF(ctrl)
-	mockTStore2.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(10).AnyTimes()
+	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(10).AnyTimes()
 	tagIdx.seriesID2TStore = newMetricMap()
 	tagIdx.seriesID2TStore.put(1, mockTStore1)
 	tagIdx.seriesID2TStore.put(2, mockTStore1)

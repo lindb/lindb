@@ -1,6 +1,8 @@
 package encoding
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestZigZag(t *testing.T) {
 	var v = ZigZagEncode(1)

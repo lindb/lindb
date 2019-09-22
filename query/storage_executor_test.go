@@ -87,6 +87,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	filter := series.NewMockFilter(ctrl)
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
+	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
 
 	// mock data
 	engine.EXPECT().NumOfShards().Return(3)
@@ -114,8 +115,11 @@ func TestStorageExecute_Execute(t *testing.T) {
 	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
 	exec := newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
 	_ = exec.Execute()
-	assert.Nil(t, exec.Error())
+	assert.NoError(t, exec.Error())
 	assert.NotNil(t, exec.Statement())
+	e := exec.(*storageExecutor)
+	pool := e.getAggregatorPool(10, 1, &query.TimeRange)
+	assert.NotNil(t, pool.Get())
 
 	// find series err
 	// mock data
@@ -133,7 +137,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 		Return(nil, series.ErrNotFound)
 	exec = newStorageExecutor(context.TODO(), engine, []int32{1}, query)
 	rs := exec.Execute()
-	assert.NotNil(t, exec.Error())
+	assert.Error(t, exec.Error())
 	count := 0
 	for range rs {
 		count++

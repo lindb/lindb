@@ -17,25 +17,18 @@ func TestNewSingleField(t *testing.T) {
 
 	it := series.NewMockFieldIterator(ctrl)
 	it.EXPECT().HasNext().Return(false)
-	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.SumField})
-	f := NewSingleField(10, it)
-	assert.Nil(t, f)
-
-	it = series.NewMockFieldIterator(ctrl)
-	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.Unknown})
-	f = NewSingleField(10, it)
+	f := NewSingleField(10, field.SumField, it)
 	assert.Nil(t, f)
 
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	primitiveIt.EXPECT().HasNext().Return(false)
-	it.EXPECT().FieldMeta().Return(field.Meta{Type: field.SumField}).AnyTimes()
 
-	f = NewSingleField(10, it)
+	f = NewSingleField(10, field.SumField, it)
 	assert.NotNil(t, f)
 
-	f = NewSingleField(10, mockSingleIterator(ctrl, field.SumField))
+	f = NewSingleField(10, field.SumField, mockSingleIterator(ctrl))
 	assert.NotNil(t, f)
 }
 
@@ -43,9 +36,9 @@ func TestSingleField_Sum(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	it := mockSingleIterator(ctrl, field.SumField)
+	it := mockSingleIterator(ctrl)
 
-	f := NewSingleField(10, it)
+	f := NewSingleField(10, field.SumField, it)
 	assert.NotNil(t, f)
 	assert.Nil(t, f.GetValues(function.Avg))
 	assertFieldValues(t, f.GetDefaultValues())
@@ -56,9 +49,9 @@ func TestSingleField_Max(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	it := mockSingleIterator(ctrl, field.MaxField)
+	it := mockSingleIterator(ctrl)
 
-	f := NewSingleField(10, it)
+	f := NewSingleField(10, field.MaxField, it)
 	assert.NotNil(t, f)
 	assert.Nil(t, f.GetValues(function.Avg))
 	assert.Nil(t, f.GetValues(function.Sum))

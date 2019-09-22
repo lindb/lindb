@@ -73,13 +73,14 @@ func (e *expression) ResultSet() map[string]collections.FloatArray {
 
 // prepare prepares the field store
 func (e *expression) prepare() {
-	for e.timeSeries.HasNext() {
-		it := e.timeSeries.Next()
-		f := fields.NewSingleField(e.pointCount, it)
-		if f != nil {
-			e.fieldStore[it.FieldMeta().Name] = f
-		}
-	}
+	//FIXME stone1100
+	//for e.timeSeries.HasNext() {
+	//	it := e.timeSeries.Next()
+	//	f := fields.NewSingleField(e.pointCount, it)
+	//	if f != nil {
+	//		e.fieldStore[it.FieldMeta().Name] = f
+	//	}
+	//}
 }
 
 // eval evaluates the expression

@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -68,32 +69,60 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	if stream == nil {
 		return errNoSendStream
 	}
-
 	exec := p.executorFactory.NewStorageExecutor(ctx, engine, curLeaf.ShardIDs, &query)
 	groupedTimeSeries := exec.Execute()
+	err := exec.Error()
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+		_ = stream.Send(&pb.TaskResponse{
+			JobID:     req.JobID,
+			TaskID:    req.ParentTaskID,
+			Completed: true,
+			ErrMsg:    errMsg,
+		})
+		return nil
+	}
 
-	var err error
+	p.handleResultSet(groupedTimeSeries, stream, req)
+	return nil
+}
+
+func (p *leafTask) handleResultSet(groupedTimeSeries <-chan *series.TimeSeriesEvent, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
 	var data []byte
+	var err error
 	if groupedTimeSeries != nil {
 		for result := range groupedTimeSeries {
+			if result.Err != nil {
+				err = result.Err
+				break
+			}
 			if err != nil {
 				break
 			}
-			series := result.Series
-			fields := make(map[string][]byte)
-			for series.HasNext() {
-				field := series.Next()
-				data, err = field.Bytes()
-				if err != nil {
-					break
+			//TODO check
+			seriesList := pb.TimeSeriesList{
+				TimeSeriesList: make([]*pb.TimeSeries, len(result.SeriesList)),
+			}
+			idx := 0
+			for _, ts := range result.SeriesList {
+				fields := make(map[string][]byte)
+				for ts.HasNext() {
+					fieldIt := ts.Next()
+					data, err = series.EncodeSeries(fieldIt)
+					if err != nil {
+						break
+					}
+
+					fields[fieldIt.FieldName()] = data
 				}
-				fields[field.FieldMeta().Name] = data
+				seriesList.TimeSeriesList[idx] = &pb.TimeSeries{
+					Tags:   ts.Tags(),
+					Fields: fields,
+				}
+				idx++
 			}
-			timeSeries := &pb.TimeSeries{
-				Tags:   series.Tags(),
-				Fields: fields,
-			}
-			data, _ := timeSeries.Marshal()
+			data, _ := seriesList.Marshal()
 			_ = stream.Send(&pb.TaskResponse{
 				JobID:     req.JobID,
 				TaskID:    req.ParentTaskID,
@@ -102,8 +131,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 			})
 		}
 	}
-	err = exec.Error()
-	errMsg := ""
+	var errMsg string
 	if err != nil {
 		errMsg = err.Error()
 	}
@@ -113,6 +141,4 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 		Completed: true,
 		ErrMsg:    errMsg,
 	})
-
-	return nil
 }

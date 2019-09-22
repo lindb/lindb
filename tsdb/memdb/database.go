@@ -57,6 +57,8 @@ type MemoryDatabase interface {
 	series.Suggester
 	// series.Scanner scans metric-data
 	series.Scanner
+	// series.Storage returns the high level function of storage
+	series.Storage
 }
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
@@ -517,8 +519,12 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 func (md *memoryDatabase) Scan(sCtx *series.ScanContext) {
 	mStore, ok := md.getMStoreByMetricID(sCtx.MetricID)
 	if ok {
-		sCtx.Interval = md.interval
 		sCtx.IntervalCalc = md.intervalCalc
 		mStore.Scan(sCtx)
 	}
+}
+
+// Interval return the interval of memory database
+func (md *memoryDatabase) Interval() int64 {
+	return md.interval
 }

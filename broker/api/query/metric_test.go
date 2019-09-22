@@ -12,7 +12,6 @@ import (
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -29,20 +28,25 @@ func TestMetricAPI_Search(t *testing.T) {
 		it := series.NewMockGroupedIterator(ctrl)
 		it.EXPECT().Tags().Return(nil)
 		it.EXPECT().HasNext().Return(true)
+		sIt := series.NewMockIterator(ctrl)
+		it.EXPECT().Next().Return(sIt)
+		sIt.EXPECT().HasNext().Return(true)
+		sIt.EXPECT().Next().Return(int64(9), nil)
+		sIt.EXPECT().HasNext().Return(true)
+		fIt := series.NewMockFieldIterator(ctrl)
+		sIt.EXPECT().Next().Return(int64(10), fIt)
+		sIt.EXPECT().FieldName().Return("f1")
 		pIt := series.NewMockPrimitiveIterator(ctrl)
 		pIt.EXPECT().HasNext().Return(true)
 		pIt.EXPECT().Next().Return(10, 10.0)
 		pIt.EXPECT().HasNext().Return(false)
-		fIt := series.NewMockFieldIterator(ctrl)
-		fIt.EXPECT().SegmentStartTime().Return(int64(10))
 		fIt.EXPECT().HasNext().Return(true)
-		fIt.EXPECT().FieldMeta().Return(field.Meta{Name: "f1"})
 		fIt.EXPECT().Next().Return(pIt)
 		fIt.EXPECT().HasNext().Return(false)
-		it.EXPECT().Next().Return(fIt)
+		sIt.EXPECT().HasNext().Return(false)
 		it.EXPECT().HasNext().Return(false)
 		ch <- &series.TimeSeriesEvent{
-			Series: it,
+			SeriesList: []series.GroupedIterator{it},
 		}
 		close(ch)
 	})

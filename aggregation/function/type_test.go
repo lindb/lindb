@@ -7,11 +7,11 @@ import (
 )
 
 func TestFuncTypeString(t *testing.T) {
-	assert.Equal(t, "sum", FuncTypeString(Sum))
-	assert.Equal(t, "min", FuncTypeString(Min))
-	assert.Equal(t, "max", FuncTypeString(Max))
-	assert.Equal(t, "avg", FuncTypeString(Avg))
-	assert.Equal(t, "histogram", FuncTypeString(Histogram))
-	assert.Equal(t, "stddev", FuncTypeString(Stddev))
-	assert.Equal(t, "unknown", FuncTypeString(Unknown))
+	assert.Equal(t, "sum", Sum.String())
+	assert.Equal(t, "min", Min.String())
+	assert.Equal(t, "max", Max.String())
+	assert.Equal(t, "avg", Avg.String())
+	assert.Equal(t, "histogram", Histogram.String())
+	assert.Equal(t, "stddev", Stddev.String())
+	assert.Equal(t, "unknown", Unknown.String())
 }

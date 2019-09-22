@@ -1,29 +1,23 @@
 package memdb
 
-import (
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-)
-
-// Scan scans time series data, then finds field store by field id
-func (ts *timeSeriesStore) Scan(
-	sCtx *series.ScanContext,
-	version series.Version,
-	seriesID uint32,
-	existedFieldMetas field.Metas,
-) {
-	worker := sCtx.Worker
-
-	ts.sl.Lock()
-	for _, fm := range existedFieldMetas {
-		fStore, ok := ts.GetFStore(fm.ID)
-		if !ok {
-			continue
+// scan scans the time series data based on field ids.
+// NOTICE: field ids and fields aggregator must be in order.
+func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
+	idx := 0
+	for _, fieldStore := range ts.fStoreNodes {
+		fieldID := fieldStore.GetFieldID()
+		switch {
+		case fieldID > memScanCtx.fieldIDs[idx]:
+			// store field id > query field id, return it
+			return
+		case fieldID == memScanCtx.fieldIDs[idx]:
+			agg := memScanCtx.aggregates[idx]
+			fieldStore.scan(agg, memScanCtx)
+			idx++ // goto next query field id
+			// found all query fields return it
+			if memScanCtx.fieldCount == idx {
+				return
+			}
 		}
-		fStore.Scan(sCtx, version, seriesID, fm, ts)
 	}
-	ts.sl.Unlock()
-
-	// send msg to notify current series scan completed
-	worker.Complete(seriesID)
 }

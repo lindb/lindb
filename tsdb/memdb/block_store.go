@@ -5,6 +5,7 @@ import (
 	"math/bits"
 	"sync"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
@@ -12,8 +13,30 @@ import (
 
 //go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb
 
+type mergeType uint8
+
+// Defines all value type of primitive field
+const (
+	appendEmpty mergeType = iota + 1
+	appendOld
+	appendNew
+	merge
+)
+
 // the longest length of basic-variable on x64 platform
 const maxTimeWindow = 64
+
+// define aggregator func for scanning block store data
+type aggregator func(mergeType mergeType, idx int, oldValue uint64) (completed bool)
+
+// define getValue func for getting block store data
+type getValue func(idx int) (value uint64)
+
+// define mergeFunc func for merging block store value and compress value
+type mergeFunc func(mergeType mergeType, idx int, oldValue uint64)
+
+// define aggFunc for aggregating block store value and compress value
+type aggFunc func(idx int, oldValue uint64) (value uint64)
 
 // blockStore represents a pool of block for reuse
 type blockStore struct {
@@ -99,13 +122,15 @@ type block interface {
 	// getEndTime returns end time slot
 	getEndTime() int
 	// compact compress block data with agg func for rollup operation
-	compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error)
+	compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error)
 	// reset cleans block data, just reset container mark
 	reset()
 	// bytes returns compress data for block data
 	bytes() []byte
 	// memsize returns the memory size in bytes count
 	memsize() int
+	// scan scans block data, then aggregates the data
+	scan(aggFunc field.AggFunc, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
 }
 
 const (
@@ -168,6 +193,46 @@ func (c *container) setFloatValue(pos int, value float64) {
 	// do nothing
 }
 
+// scan scans the block store data and compress data
+func (c *container) scan(memScanCtx *memScanContext, aggregator aggregator) {
+	hasOld := len(c.compress) > 0
+	hasNew := c.container != 0
+	switch {
+	case !hasOld && hasNew: // scans current block store buffer data
+		end := c.getEndTime() - c.startTime
+		for i := 0; i <= end; i++ {
+			if !c.hasValue(i) {
+				continue
+			}
+			if aggregator(appendNew, i, 0) {
+				return
+			}
+		}
+	case hasOld && hasNew: // scans current buffer data and compress data, then merges them for same time slot
+		tsd := memScanCtx.tsd
+		tsd.Reset(c.compress)
+		scanner := newMergeScanner(c, tsd)
+		scanner.mergeFunc = func(mergeType mergeType, pos int, oldValue uint64) {
+			if aggregator(mergeType, pos, oldValue) {
+				scanner.complete = true
+			}
+		}
+		scanner.scan()
+	case hasOld: // scans compress data
+		tsd := memScanCtx.tsd
+		tsd.Reset(c.compress)
+		for tsd.Error() == nil && tsd.Next() {
+			if tsd.HasValue() {
+				timeSlot := tsd.Slot()
+				val := tsd.Value()
+				if aggregator(appendOld, timeSlot, val) {
+					return
+				}
+			}
+		}
+	}
+}
+
 // reset cleans block data, just reset container mark
 func (c *container) reset() {
 	c.container = 0
@@ -188,32 +253,66 @@ func (c *container) memsize() int {
 	return emptyContainerSize + cap(c.compress)
 }
 
-// DecodeTSDTime returns the start/end under compress tsd data
-func (c *container) DecodeTSDTime(needSlotRange bool) (startSlot, endSlot int, needCompact bool) {
-	if c.container == 0 {
-		if needSlotRange && len(c.compress) > 0 {
-			startSlot, endSlot = encoding.DecodeTSDTime(c.compress)
-		}
-		return
-	}
-	// block has value, need compact value
-	needCompact = true
-	return
-}
-
 // merge merges values and compress data of container based on value type nad agg func
-func (c *container) merge(valueType field.ValueType,
-	values []uint64, aggFunc field.AggFunc) (start, end int, err error) {
-	merger := newMerger(c, valueType, values, c.compress, aggFunc)
+func (c *container) merge(getValue getValue, aggFunc aggFunc) (start, end int, err error) {
+	hasOld := len(c.compress) > 0
+	hasNew := c.container != 0
+	var encode *encoding.TSDEncoder
+	switch {
+	case !hasOld && !hasNew: // no data
+		return 0, 0, nil
+	case !hasOld: // compact current buffer data
+		end = c.getEndTime()
+		start = c.startTime
+		encode = encoding.NewTSDEncoder(start)
+		for i := start; i <= end; i++ {
+			idx := i - start
+			if c.hasValue(idx) {
+				encode.AppendTime(bit.One)
+				encode.AppendValue(getValue(idx))
+			} else {
+				encode.AppendTime(bit.Zero)
+			}
+		}
+	case hasOld && !hasNew: // just decode time slot range for compress data
+		start, end = encoding.DecodeTSDTime(c.compress)
+		return
+	default: // merge current buffer data and compress data
+		tsd := encoding.GetTSDDecoder()
 
-	buf, err := merger.merge()
-	if err != nil {
-		return merger.startTime, merger.endTime, err
+		tsd.Reset(c.compress)
+		scanner := newMergeScanner(c, tsd)
+		encode = encoding.NewTSDEncoder(scanner.start)
+		scanner.mergeFunc = func(mergeType mergeType, idx int, oldValue uint64) {
+			switch mergeType {
+			case appendEmpty:
+				encode.AppendTime(bit.Zero)
+			case appendNew:
+				encode.AppendTime(bit.One)
+				encode.AppendValue(getValue(idx))
+			case appendOld:
+				encode.AppendTime(bit.One)
+				encode.AppendValue(oldValue)
+			case mergeType:
+				encode.AppendTime(bit.One)
+				encode.AppendValue(aggFunc(idx, oldValue))
+			}
+		}
+		scanner.scan()
+		encoding.ReleaseTSDDecoder(tsd)
+		start = scanner.start
+		end = scanner.end
 	}
-
-	c.compress = buf
-	c.container = 0
-	return merger.startTime, merger.endTime, nil
+	// reset compress data and clear current buffer
+	if encode != nil {
+		data, err := encode.Bytes()
+		if err != nil {
+			return 0, 0, err
+		}
+		c.compress = data
+		c.container = 0
+	}
+	return start, end, err
 }
 
 // intBlock represents a int block for storing metric point in memory
@@ -241,25 +340,43 @@ func (b *intBlock) getIntValue(pos int) int64 {
 }
 
 // compact compress block data
-func (b *intBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error) {
-	needCompact := false
-	startSlot, endSlot, needCompact = b.DecodeTSDTime(needSlotRange)
-	if !needCompact {
+func (b *intBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
+	return b.container.merge(func(idx int) (value uint64) {
+		value = encoding.ZigZagEncode(b.values[idx])
 		return
-	}
-
-	length := len(b.values)
-	values := make([]uint64, length)
-	for i := 0; i < length; i++ {
-		values[i] = encoding.ZigZagEncode(b.values[i])
-	}
-	startSlot, endSlot, err = b.merge(field.Integer, values, aggFunc)
-	return
+	}, func(idx int, oldValue uint64) (value uint64) {
+		return encoding.ZigZagEncode(aggFunc.AggregateInt(b.values[idx], encoding.ZigZagDecode(oldValue)))
+	})
 }
 
 // memsize returns the memory size in bytes count
 func (b *intBlock) memsize() int {
 	return b.container.memsize() + 24 + cap(b.values)*8
+}
+
+// scan scans block data, then aggregates the data
+func (b *intBlock) scan(aggFunc field.AggFunc, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext) {
+	b.container.scan(memScanCtx, func(mergeType mergeType, idx int, oldValue uint64) (completed bool) {
+		value := 0.0
+		// 1. get value and time slot
+		switch mergeType {
+		case appendOld:
+			value = float64(encoding.ZigZagDecode(oldValue))
+		case appendNew:
+			value = float64(b.values[idx])
+			idx += b.startTime
+		case merge:
+			value = float64(aggFunc.AggregateInt(b.values[idx], encoding.ZigZagDecode(oldValue)))
+			idx += b.startTime
+		default:
+			return
+		}
+		// 2. aggregate the value based on time slot
+		for _, a := range agg {
+			completed = a.Aggregate(idx, value)
+		}
+		return
+	})
 }
 
 // floatBlock represents a float block for storing metric point in memory
@@ -287,20 +404,13 @@ func (b *floatBlock) getFloatValue(pos int) float64 {
 }
 
 // compact compress block data
-func (b *floatBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot, endSlot int, err error) {
-	needCompact := false
-
-	startSlot, endSlot, needCompact = b.DecodeTSDTime(needSlotRange)
-	if !needCompact {
+func (b *floatBlock) compact(aggFunc field.AggFunc) (startSlot, endSlot int, err error) {
+	return b.container.merge(func(idx int) (value uint64) {
+		value = math.Float64bits(b.values[idx])
 		return
-	}
-	length := len(b.values)
-	values := make([]uint64, length)
-	for i := 0; i < length; i++ {
-		values[i] = math.Float64bits(b.values[i])
-	}
-	startSlot, endSlot, err = b.merge(field.Float, values, aggFunc)
-	return
+	}, func(idx int, oldValue uint64) (value uint64) {
+		return math.Float64bits(aggFunc.AggregateFloat(b.values[idx], math.Float64frombits(oldValue)))
+	})
 }
 
 // memsize returns the memory size in bytes count
@@ -308,174 +418,123 @@ func (b *floatBlock) memsize() int {
 	return b.container.memsize() + 24 + cap(b.values)*8
 }
 
-// merger is merge operation which provides compress block data.
-// 1) compress data not exist, just compress current block values
-// 2) compress data exist, merge compress data and block values
-type merger struct {
-	valueType    field.ValueType
-	block        *container
-	values       []uint64
-	compressData []byte
-	tsd          *encoding.TSDEncoder
-
-	oldData *encoding.TSDDecoder
-
-	startTime int
-	endTime   int
-
-	aggFunc field.AggFunc
-}
-
-// newMerger creates merge operation with given agg func based on block data and exist compress data
-func newMerger(block *container, valueType field.ValueType,
-	values []uint64, compressData []byte,
-	aggFunc field.AggFunc) *merger {
-	m := &merger{
-		valueType:    valueType,
-		block:        block,
-		values:       values,
-		compressData: compressData,
-		aggFunc:      aggFunc,
-	}
-	m.init()
-	return m
-}
-
-// init initializes merge context, such time range, tsd decoder if has compress data
-func (m *merger) init() {
-	curStartTime := m.block.getStartTime()
-	curEndTime := m.block.getEndTime()
-	if len(m.compressData) == 0 {
-		m.startTime = curStartTime
-		m.endTime = curEndTime
-	} else {
-		m.oldData = encoding.NewTSDDecoder(m.compressData)
-		// calc compress time window range
-		oldStartTime := m.oldData.StartTime()
-		oldEndTime := m.oldData.EndTime()
-
-		m.startTime = curStartTime
-		if m.startTime > oldStartTime {
-			m.startTime = oldStartTime
+// scan scans block data, then aggregates the data
+func (b *floatBlock) scan(aggFunc field.AggFunc, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext) {
+	b.container.scan(memScanCtx, func(mergeType mergeType, idx int, oldValue uint64) (completed bool) {
+		value := 0.0
+		// 1. get value and time slot
+		switch mergeType {
+		case appendOld:
+			value = math.Float64frombits(oldValue)
+		case appendNew:
+			value = b.values[idx]
+			idx += b.startTime
+		case merge:
+			value = aggFunc.AggregateFloat(b.values[idx], math.Float64frombits(oldValue))
+			idx += b.startTime
+		default:
+			return
 		}
-		m.endTime = curEndTime
-		if m.endTime < oldEndTime {
-			m.endTime = oldEndTime
+		// 2. aggregate the value based on time slot
+		for _, a := range agg {
+			completed = a.Aggregate(idx, value)
+		}
+		return
+	})
+}
+
+// mergeScanner represents the scanner which scans the block store current buffer data and compress data
+type mergeScanner struct {
+	container        *container           // current buffer
+	tsd              *encoding.TSDDecoder // old value
+	start, end       int                  // target time slot range
+	curStart, curEnd int                  // current buffer time slot range
+	oldStart, oldEnd int                  // compress data time slot range
+
+	complete  bool
+	mergeFunc mergeFunc
+}
+
+// newMergeScanner creates a merge scanner
+func newMergeScanner(container *container, tsd *encoding.TSDDecoder) *mergeScanner {
+	scanner := &mergeScanner{
+		container: container,
+		tsd:       tsd,
+	}
+	// init scanner time slot ranges
+	scanner.init()
+	return scanner
+}
+
+// init initializes the scanner's time slot ranges
+func (s *mergeScanner) init() {
+	// start time slot
+	s.curStart = s.container.startTime
+	s.oldStart = s.tsd.StartTime()
+	s.start = s.curStart
+	if s.start > s.oldStart {
+		s.start = s.oldStart
+	}
+	// end time slot
+	s.curEnd = s.container.getEndTime()
+	s.oldEnd = s.tsd.EndTime()
+	s.end = s.curEnd
+	if s.end < s.oldEnd {
+		s.end = s.oldEnd
+	}
+}
+
+// scan scans the block store current buffer data and compress data based on target time slot range
+func (s *mergeScanner) scan() {
+	for i := s.start; i <= s.end; i++ {
+		// if scanner is completed, return it
+		if s.complete {
+			return
+		}
+		inCurrentRange := isInRange(i, s.curStart, s.curEnd)
+		inOldRange := isInRange(i, s.oldStart, s.oldEnd)
+		newSlot := i - s.curStart
+		oldSlot := i - s.oldStart
+		hasValue := s.container.hasValue(newSlot)
+		hasOldValue := s.tsd.HasValueWithSlot(oldSlot)
+		switch {
+		case inCurrentRange && inOldRange:
+			s.merge(hasValue, hasOldValue, newSlot)
+		case inCurrentRange && hasValue:
+			// just compress current block value with pos
+			s.mergeFunc(appendNew, newSlot, 0)
+		case inCurrentRange && !hasValue:
+			s.mergeFunc(appendEmpty, newSlot, 0)
+		case inOldRange && hasOldValue:
+			// read compress data and compress it again with new pos
+			s.mergeFunc(appendOld, i, s.tsd.Value())
+		case inOldRange && !hasOldValue:
+			s.mergeFunc(appendEmpty, i, 0)
+		default:
+			s.mergeFunc(appendEmpty, i, 0)
 		}
 	}
-
-	// build tsd encoder
-	m.tsd = encoding.NewTSDEncoder(m.startTime)
 }
 
-// merge merges block's values and compress data based on agg func and value type
-func (m *merger) merge() ([]byte, error) {
-	if m.oldData == nil {
-		// compress data not exist, just compress block data
-		m.compress()
-	} else {
-		// has old compress data, need merge block data
-		curStartTime := m.block.getStartTime()
-		curEndTime := m.block.getEndTime()
-		oldStartTime := m.oldData.StartTime()
-		oldEndTime := m.oldData.EndTime()
-		//TODO add check start/end range????
-
-		// do merge and compress data
-		for i := m.startTime; i <= m.endTime; i++ {
-			newPos := i - curStartTime
-			oldPos := i - oldStartTime
-
-			inCurrentRange := m.isInRange(i, curStartTime, curEndTime)
-			inOldRange := m.isInRange(i, oldStartTime, oldEndTime)
-			switch {
-			case inCurrentRange && inOldRange:
-				// merge current block value and value in compress data with pos
-				m.mergeData(newPos, oldPos)
-			case inCurrentRange:
-				// just compress current block value with pos
-				m.appendNewData(newPos)
-			case inOldRange:
-				// read compress data and compress it again with new pos
-				m.appendOldData(oldPos)
-			default:
-				m.appendEmptyValue()
-			}
-		}
-	}
-
-	buf, err := m.tsd.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
-}
-
-// isInRange return slot if in range, yes return true
-func (m *merger) isInRange(slot, start, end int) bool {
-	return slot >= start && slot <= end
-}
-
-// mergeData merges current block values and compress data
-func (m *merger) mergeData(newPos, oldPos int) {
-	b := m.block
-	hasValue := b.hasValue(newPos)
-	hasOldValue := m.oldData.HasValueWithSlot(oldPos)
+func (s *mergeScanner) merge(hasValue bool, hasOldValue bool, newSlot int) {
+	// merge current block value and value in compress data with pos
 	switch {
 	case hasValue && hasOldValue:
 		// has value both in current and old, do rollup operation with agg func
-		switch m.valueType {
-		case field.Integer:
-			val := m.aggFunc.AggregateInt(encoding.ZigZagDecode(m.values[newPos]), encoding.ZigZagDecode(m.oldData.Value()))
-			m.appendValue(encoding.ZigZagEncode(val))
-		case field.Float:
-			val := m.aggFunc.AggregateFloat(math.Float64frombits(m.values[newPos]), math.Float64frombits(m.oldData.Value()))
-			m.appendValue(math.Float64bits(val))
-		}
+		s.mergeFunc(merge, newSlot, s.tsd.Value())
 	case hasValue:
 		// append current block block
-		m.appendValue(m.values[newPos])
+		s.mergeFunc(appendNew, newSlot, 0)
 	case hasOldValue:
 		// read old compress value then append value with new pos
-		m.appendValue(m.oldData.Value())
+		s.mergeFunc(appendOld, newSlot, s.tsd.Value())
 	default:
 		// just append empty value with pos
-		m.appendEmptyValue()
+		s.mergeFunc(appendEmpty, newSlot, 0)
 	}
 }
 
-// compress compress current block values
-func (m *merger) compress() {
-	for i := m.startTime; i <= m.endTime; i++ {
-		m.appendNewData(i - m.startTime)
-	}
-}
-
-// appendNewData appends current block value with pos
-func (m *merger) appendNewData(pos int) {
-	if m.block.hasValue(pos) {
-		m.appendValue(m.values[pos])
-	} else {
-		m.appendEmptyValue()
-	}
-}
-
-// appendOldData reads compress data then appends it with new pos
-func (m *merger) appendOldData(pos int) {
-	if m.oldData.HasValueWithSlot(pos) {
-		m.appendValue(m.oldData.Value())
-	} else {
-		m.appendEmptyValue()
-	}
-}
-
-// appendValue appends value with new pos
-func (m *merger) appendValue(val uint64) {
-	m.tsd.AppendTime(bit.One)
-	m.tsd.AppendValue(val)
-}
-
-// appendEmptyValue appends time slot only
-func (m *merger) appendEmptyValue() {
-	m.tsd.AppendTime(bit.Zero)
+// isInRange return slot if in range, yes return true
+func isInRange(slot, start, end int) bool {
+	return slot >= start && slot <= end
 }

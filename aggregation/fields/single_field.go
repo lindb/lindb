@@ -14,11 +14,7 @@ type singleField struct {
 }
 
 // NewSingleField creates a single field series
-func NewSingleField(capacity int, it series.FieldIterator) Field {
-	fieldType := it.FieldMeta().Type
-	if fieldType == field.Unknown {
-		return nil
-	}
+func NewSingleField(capacity int, fieldType field.Type, it series.FieldIterator) Field {
 	if it.HasNext() {
 		value := collections.NewFloatArray(capacity)
 		primitiveIt := it.Next()
@@ -26,7 +22,7 @@ func NewSingleField(capacity int, it series.FieldIterator) Field {
 			slot, val := primitiveIt.Next()
 			value.SetValue(slot, val)
 		}
-		return &singleField{fieldType: fieldType, value: value}
+		return &singleField{value: value, fieldType: fieldType}
 	}
 	return nil
 }

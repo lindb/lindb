@@ -63,6 +63,8 @@ type Calculator interface {
 	CalcFamilyEndTime(familyStartTime int64) int64
 	// CalcSlot calculates field store slot index based on given timestamp and base time
 	CalcSlot(timestamp, baseTime, interval int64) int
+	// CalcTimeWindows calculates the number of time window between start and end time
+	CalcTimeWindows(start, end int64) int
 }
 
 // day implements Calculator interface for day interval type
@@ -104,6 +106,13 @@ func (d *day) CalcFamilyStartTime(segmentTime int64, familyTime int) int64 {
 // CalcFamilyEndTime calculates family end time based on family start time for day interval type
 func (d *day) CalcFamilyEndTime(familyStartTime int64) int64 {
 	return familyStartTime + timeutil.OneHour - 1
+}
+
+// CalcTimeWindows calculates the number of time window between start and end time for day interval type
+func (d *day) CalcTimeWindows(start, end int64) int {
+	t1 := start / timeutil.OneHour * timeutil.OneHour
+	t2 := end / timeutil.OneHour * timeutil.OneHour
+	return int((t2-t1)/timeutil.OneHour) + 1
 }
 
 // month implements Calculator interface for month interval type
@@ -152,6 +161,15 @@ func (m *month) CalcFamilyEndTime(familyStartTime int64) int64 {
 	return t2.UnixNano()/1000000 - 1
 }
 
+// CalcTimeWindows calculates the number of time window between start and end time for month interval type
+func (m *month) CalcTimeWindows(start, end int64) int {
+	t1 := time.Unix(start/1000, 0)
+	t1 = time.Date(t1.Year(), t1.Month(), t1.Day(), 0, 0, 0, 0, time.Local)
+	t2 := time.Unix(end/1000, 0)
+	t2 = time.Date(t2.Year(), t2.Month(), t2.Day(), 0, 0, 0, 0, time.Local)
+	return int(t2.Sub(t1).Hours()/24) + 1
+}
+
 // year implements Calculator interface for year interval type
 type year struct {
 }
@@ -196,6 +214,15 @@ func (y *year) CalcFamilyEndTime(familyStartTime int64) int64 {
 	t := time.Unix(familyStartTime/1000, 0)
 	t2 := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, time.Local)
 	return t2.UnixNano()/1000000 - 1
+}
+
+// CalcTimeWindows calculates the number of time window between start and end time for year interval type
+func (y *year) CalcTimeWindows(start, end int64) int {
+	t1 := time.Unix(start/1000, 0)
+	t1 = time.Date(t1.Year(), t1.Month(), 0, 0, 0, 0, 0, time.Local)
+	t2 := time.Unix(end/1000, 0)
+	t2 = time.Date(t2.Year(), t2.Month(), 0, 0, 0, 0, 0, time.Local)
+	return int(t2.Sub(t1).Hours()/24/30) + 1
 }
 
 // CalcIntervalType calculates the interval type by interval

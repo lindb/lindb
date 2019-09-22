@@ -2,23 +2,15 @@ package aggregation
 
 import "github.com/lindb/lindb/series"
 
-//FIXME stone1100 need refactor
 type groupedIterator struct {
 	tags       map[string]string
-	aggregates map[string]FieldAggregator
-	fieldNames []string
-
-	idx int
+	aggregates FieldAggregates
+	len        int
+	idx        int
 }
 
-func newGroupedIterator(tags map[string]string, aggregates map[string]FieldAggregator) series.GroupedIterator {
-	fieldNames := make([]string, len(aggregates))
-	idx := 0
-	for fieldName := range aggregates {
-		fieldNames[idx] = fieldName
-		idx++
-	}
-	return &groupedIterator{tags: tags, aggregates: aggregates, fieldNames: fieldNames}
+func newGroupedIterator(tags map[string]string, aggregates FieldAggregates) series.GroupedIterator {
+	return &groupedIterator{tags: tags, aggregates: aggregates, len: len(aggregates)}
 }
 
 func (g *groupedIterator) Tags() map[string]string {
@@ -26,13 +18,13 @@ func (g *groupedIterator) Tags() map[string]string {
 }
 
 func (g *groupedIterator) HasNext() bool {
-	if g.idx >= len(g.fieldNames) {
+	if g.idx >= g.len {
 		return false
 	}
 	g.idx++
 	return true
 }
 
-func (g *groupedIterator) Next() series.FieldIterator {
-	return g.aggregates[g.fieldNames[g.idx-1]].Iterator()
+func (g *groupedIterator) Next() series.Iterator {
+	return g.aggregates[g.idx-1].ResultSet()
 }

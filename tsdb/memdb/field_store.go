@@ -3,10 +3,10 @@ package memdb
 import (
 	"sort"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
@@ -46,18 +46,13 @@ type fStoreINTF interface {
 		timeRange timeutil.TimeRange,
 		ok bool)
 
-	// Scan scans field store data
-	Scan(
-		sCtx *series.ScanContext,
-		version series.Version,
-		seriesID uint32,
-		fieldMeta field.Meta,
-		ts *timeSeriesStore)
-
 	// SegmentsCount returns the count of segments
 	SegmentsCount() int
 
 	MemSize() int
+
+	// scan scans the field store's data
+	scan(agg aggregation.SeriesAggregator, memScanCtx *memScanContext)
 }
 
 // sStoreNodes implements the sort.Interface

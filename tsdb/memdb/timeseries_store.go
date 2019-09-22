@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
@@ -46,14 +45,10 @@ type tStoreINTF interface {
 	// IsNoData symbols if all data of this tStore has been flushed
 	IsNoData() bool
 
-	// Scan scans time series store, then finds data by field id and time range
-	Scan(
-		sCtx *series.ScanContext,
-		version series.Version,
-		seriesID uint32,
-		existedFieldMetas field.Metas)
-
 	MemSize() int
+
+	// scan scans the time series data based on field ids
+	scan(memScanCtx *memScanContext)
 }
 
 // fStoreNodes implements sort.Interface

@@ -3,6 +3,7 @@ package memdb
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/field"
@@ -48,6 +49,9 @@ type sStoreINTF interface {
 	) int
 
 	MemSize() int
+
+	// scan scans segment store data based on query time range
+	scan(agg aggregation.SeriesAggregator, memScanCtx *memScanContext)
 }
 
 // singleFieldStore stores single field
@@ -120,7 +124,7 @@ func (fs *simpleFieldStore) calcTimeWindow(blockStore *blockStore, slotTime int,
 
 	// if current slot time out of current time window, need compress block data, start new time window
 	if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
-		_, _, err := currentBlock.compact(fs.aggFunc, false)
+		_, _, err := currentBlock.compact(fs.aggFunc)
 		if err != nil {
 			memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
 		} else {
@@ -145,7 +149,7 @@ func (fs *simpleFieldStore) Bytes(needSlotRange bool) (data []byte, startSlot, e
 		err = fmt.Errorf("block is empty")
 		return
 	}
-	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc, needSlotRange); err != nil {
+	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc); err != nil {
 		err = fmt.Errorf("compact block data in simple field store error:%s", err)
 		return
 	}

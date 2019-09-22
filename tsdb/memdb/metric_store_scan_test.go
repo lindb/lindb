@@ -101,16 +101,19 @@ func Test_MetricStore_scan(t *testing.T) {
 	worker := &mockScanWorker{}
 	mStore.Scan(&series.ScanContext{
 		SeriesIDSet:  idset,
-		TimeRange:    timeutil.TimeRange{Start: now - 100, End: now + 1000},
 		FieldIDs:     []uint16{3, 4, 5},
 		IntervalCalc: calc,
 		Worker:       worker,
 	})
-	assert.Equal(t, 2, len(worker.events))
+	assert.Equal(t, 1, len(worker.events))
 	// field not found
 	mStore.Scan(&series.ScanContext{
 		SeriesIDSet: idset,
-		TimeRange:   timeutil.TimeRange{Start: 0, End: 0},
 		FieldIDs:    []uint16{1, 2},
+	})
+	// field not match
+	mStore.Scan(&series.ScanContext{
+		SeriesIDSet: idset,
+		FieldIDs:    []uint16{1, 2, 3, 4},
 	})
 }
