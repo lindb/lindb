@@ -9,6 +9,8 @@ github.com/RoaringBitmap/roaring
 github.com/antlr/antlr4/runtime/Go/antlr
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
+# github.com/cespare/xxhash v1.1.0
+github.com/cespare/xxhash
 # github.com/coreos/bbolt v1.3.3
 github.com/coreos/bbolt
 # github.com/coreos/etcd v3.3.13+incompatible

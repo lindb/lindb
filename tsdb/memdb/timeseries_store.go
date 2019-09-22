@@ -18,7 +18,7 @@ import (
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetHash returns the FNV1a hash of the tags
+	// GetHash returns the xxhash of the tags
 	GetHash() uint64
 
 	// GetFStore returns the fStore in this list from field-id.
@@ -70,7 +70,7 @@ func newTimeSeriesStore(tagsHash uint64) tStoreINTF {
 		lastWroteTime: *atomic.NewUint32(uint32(timeutil.Now() / 1000))}
 }
 
-// GetHash returns the FNV1a hash of the tags
+// GetHash returns the xxhash of the tags
 func (ts *timeSeriesStore) GetHash() uint64 {
 	return ts.hash
 }
