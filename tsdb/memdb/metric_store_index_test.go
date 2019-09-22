@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
+	"github.com/cespare/xxhash"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -294,4 +295,51 @@ func Test_TagIndex_timeRange(t *testing.T) {
 	newTimeRange := tagIdxInterface.IndexTimeRange()
 	assert.True(t, newTimeRange.Start < timeRange.Start)
 	assert.True(t, newTimeRange.End > timeRange.End)
+}
+
+var _testHashString = "abcdefghijklmnopqrstuvwxzy1234567890"
+
+func Benchmark_Fnv1a(b *testing.B) {
+	const (
+		// FNV-1a
+		offset64 = uint64(14695981039346656037)
+		prime64  = uint64(1099511628211)
+
+		// Init64 is what 64 bits hash values should be initialized with.
+		Init64 = offset64
+	)
+	AddString64 := func(h uint64, s string) uint64 {
+		i := 0
+		n := (len(s) / 8) * 8
+
+		for i != n {
+			h = (h ^ uint64(s[i])) * prime64
+			h = (h ^ uint64(s[i+1])) * prime64
+			h = (h ^ uint64(s[i+2])) * prime64
+			h = (h ^ uint64(s[i+3])) * prime64
+			h = (h ^ uint64(s[i+4])) * prime64
+			h = (h ^ uint64(s[i+5])) * prime64
+			h = (h ^ uint64(s[i+6])) * prime64
+			h = (h ^ uint64(s[i+7])) * prime64
+			i += 8
+		}
+		for _, c := range s[i:] {
+			h = (h ^ uint64(c)) * prime64
+		}
+		return h
+	}
+	// HashString64 returns the hash of s.
+	HashString64 := func(s string) uint64 {
+		return AddString64(Init64, s)
+	}
+
+	for i := 0; i < b.N; i++ {
+		HashString64(_testHashString)
+	}
+}
+
+func Benchmark_xxhash(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		xxhash.Sum64String(_testHashString)
+	}
 }
