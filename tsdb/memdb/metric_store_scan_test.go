@@ -80,6 +80,8 @@ func Test_MetricStore_scan(t *testing.T) {
 	}
 
 	generator := diskdb.NewMockIDGenerator(ctrl)
+	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+
 	idGet := NewMockmStoreFieldIDGetter(ctrl)
 	idGet.EXPECT().GetFieldIDOrGenerate("sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
 	idGet.EXPECT().GetFieldIDOrGenerate("sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)

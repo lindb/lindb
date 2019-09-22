@@ -41,7 +41,7 @@ type mStoreINTF interface {
 		err error)
 
 	// Write Writes the metric
-	Write(metric *pb.Metric, WriteCtx writeContext) error
+	Write(metric *pb.Metric, writeCtx writeContext) error
 
 	// SetMaxTagsLimit sets the max tags-limit
 	SetMaxTagsLimit(limit uint32)
@@ -353,7 +353,7 @@ func (ms *metricStore) Write(
 	ms.mux.RUnlock()
 	if !ok {
 		ms.mux.Lock()
-		tStore, err = ms.mutable.GetOrCreateTStore(metric.Tags)
+		tStore, err = ms.mutable.GetOrCreateTStore(metric.Tags, writeCtx)
 		if err != nil {
 			ms.mux.Unlock()
 			return err
