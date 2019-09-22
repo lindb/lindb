@@ -368,8 +368,16 @@ func (index *tagIndex) findSeriesIDsByIn(entrySet *tagKVEntrySet, expr *stmt.InE
 
 func (index *tagIndex) findSeriesIDsByLike(entrySet *tagKVEntrySet, expr *stmt.LikeExpr) *roaring.Bitmap {
 	union := roaring.New()
+
+	likeTo := expr.Value
+	switch expr.Value {
+	case "":
+		return union
+	case "*":
+		likeTo = ""
+	}
 	for value, bitmap := range entrySet.values {
-		if strings.Contains(value, expr.Value) {
+		if strings.Contains(value, likeTo) {
 			union.Or(bitmap)
 		}
 	}

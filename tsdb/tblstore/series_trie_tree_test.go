@@ -183,6 +183,7 @@ func Test_trieTree_FindOffsetsByLike(t *testing.T) {
 	assert.Equal(t, []int{4, 2}, data.FindOffsetsByLike("et"))
 	assert.Equal(t, []int{5}, data.FindOffsetsByLike("fire"))
 	assert.Nil(t, data.FindOffsetsByLike(""))
+	assert.Len(t, data.FindOffsetsByLike("*"), 6)
 	assert.Nil(t, data.FindOffsetsByLike("etrace1"))
 }
 

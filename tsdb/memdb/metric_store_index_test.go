@@ -205,6 +205,13 @@ func Test_tagIndex_findSeriesIDsByLike(t *testing.T) {
 	// tag-value not exist
 	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "zone", Value: "not-exist"})
 	assert.Zero(t, bitmap.GetCardinality())
+
+	// tag-value is empty
+	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "host", Value: ""})
+	assert.Equal(t, uint64(0), bitmap.GetCardinality())
+	// tag-value is *
+	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "host", Value: "*"})
+	assert.Equal(t, uint64(8), bitmap.GetCardinality())
 }
 
 func Test_tagIndex_findSeriesIDsByRegex(t *testing.T) {
