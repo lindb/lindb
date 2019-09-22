@@ -46,7 +46,7 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().GetTStore(gomock.Any()).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any()).Return(nil, fmt.Errorf("error")).AnyTimes()
+	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error")).AnyTimes()
 	mockTagIdx.EXPECT().TagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
@@ -81,7 +81,7 @@ func Test_mStore_write_ok(t *testing.T) {
 	mockTagIdx.EXPECT().TagsUsed().Return(1).AnyTimes()
 	mockTagIdx.EXPECT().UpdateIndexTimeRange(gomock.Any()).Return().AnyTimes()
 	mockTagIdx.EXPECT().GetTStore(gomock.Any()).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any()).Return(mockTStore, nil).AnyTimes()
+	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(mockTStore, nil).AnyTimes()
 
 	mStore.mutable = mockTagIdx
 	assert.Nil(t, mStoreInterface.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
