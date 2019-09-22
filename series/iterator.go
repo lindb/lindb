@@ -10,22 +10,9 @@ import (
 
 // TimeSeriesEvent represents time series event for query
 type TimeSeriesEvent struct {
-	Series GroupedIterator
+	SeriesList []GroupedIterator
 
 	Err error
-}
-
-// FieldEvent represents the field event of one time series for query
-type FieldEvent struct {
-	// required fields
-	Version   Version
-	SeriesID  uint32
-	Completed bool // if current series data scan completed
-
-	// optional fields, if series scan completed, below fields haven't value
-	FieldIt         FieldIterator
-	Interval        int64
-	FamilyStartTime int64
 }
 
 // VersionIterator represents a multi-version iterator
@@ -45,25 +32,23 @@ type GroupedIterator interface {
 	// HasNext returns if the iteration has more field's iterator
 	HasNext() bool
 	// Next returns the field's iterator
-	Next() FieldIterator
+	Next() Iterator
 	// Tags returns group tags
 	Tags() map[string]string
 }
 
 // Iterator represents an iterator for the time series data
 type Iterator interface {
+	// FieldName return field name
+	FieldName() string
 	// HasNext returns if the iteration has more field's iterator
 	HasNext() bool
 	// Next returns the field's iterator
-	Next() FieldIterator
-	// SeriesID returns the time series id under current metric
-	SeriesID() uint32
+	Next() (startTime int64, fieldIt FieldIterator)
 }
 
 // FieldIterator represents a field's data iterator, support multi field for one series
 type FieldIterator interface {
-	// FieldMeta returns the meta info of the field
-	FieldMeta() field.Meta
 	// HasNext returns if the iteration has more fields
 	HasNext() bool
 	// Next returns the primitive field iterator
@@ -71,8 +56,6 @@ type FieldIterator interface {
 	Next() PrimitiveIterator
 	// Bytes returns the binary data for field iterator
 	Bytes() ([]byte, error)
-	// SegmentStartTime returns the segment start time
-	SegmentStartTime() int64
 }
 
 // PrimitiveIterator represents an iterator over a primitive field, iterator points data of primitive field

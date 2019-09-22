@@ -68,30 +68,3 @@ func generateFloatArray(values []float64) collections.FloatArray {
 	}
 	return floatArray
 }
-
-// mockSingleIterator returns mock an iterator of single field
-func mockSingleIterator(ctrl *gomock.Controller, fieldName string, fieldType field.Type) series.FieldIterator {
-	it := series.NewMockFieldIterator(ctrl)
-	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Next().Return(primitiveIt)
-	it.EXPECT().FieldMeta().Return(field.Meta{Type: fieldType, Name: fieldName}).AnyTimes()
-	primitiveIt.EXPECT().HasNext().Return(true)
-	primitiveIt.EXPECT().Next().Return(4, 1.1)
-	primitiveIt.EXPECT().HasNext().Return(true)
-	primitiveIt.EXPECT().Next().Return(112, 1.1)
-	primitiveIt.EXPECT().HasNext().Return(false)
-	return it
-}
-
-func mockTimeSeries(ctrl *gomock.Controller, fields map[string]field.Type) series.Iterator {
-	timeSeries := series.NewMockIterator(ctrl)
-	for fieldName, fieldType := range fields {
-		it := mockSingleIterator(ctrl, fieldName, fieldType)
-
-		timeSeries.EXPECT().HasNext().Return(true)
-		timeSeries.EXPECT().Next().Return(it)
-	}
-	timeSeries.EXPECT().HasNext().Return(false)
-	return timeSeries
-}

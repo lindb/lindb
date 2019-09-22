@@ -21,6 +21,8 @@ type storageExecutePlan struct {
 	query    *stmt.Query
 	idGetter diskdb.IDGetter
 
+	fieldIDs []uint16
+
 	metricID       uint32
 	fields         map[uint16]aggregation.AggregatorSpec
 	groupByTagKeys map[string]uint32
@@ -55,6 +57,17 @@ func (p *storageExecutePlan) Plan() error {
 	if p.err != nil {
 		return p.err
 	}
+	p.fieldIDs = make([]uint16, len(p.fields))
+	idx := 0
+	for fieldID := range p.fields {
+		p.fieldIDs[idx] = fieldID
+		idx++
+	}
+	// sort field ids
+	sort.Slice(p.fieldIDs, func(i, j int) bool {
+		return p.fieldIDs[i] < p.fieldIDs[j]
+	})
+
 	return nil
 }
 
@@ -79,27 +92,19 @@ func (p *storageExecutePlan) groupBy() error {
 	return nil
 }
 
-// getFields returns the aggregator spec for all fields
-func (p *storageExecutePlan) getFields() map[string]aggregation.AggregatorSpec {
-	result := make(map[string]aggregation.AggregatorSpec)
-	for _, field := range p.fields {
-		fieldName := field.FieldName()
-		result[fieldName] = field
+// getDownSamplingAggSpecs returns the down sampling aggregate specs
+func (p *storageExecutePlan) getDownSamplingAggSpecs() aggregation.AggregatorSpecs {
+	result := make(aggregation.AggregatorSpecs, len(p.fieldIDs))
+	for idx, fieldID := range p.fieldIDs {
+		result[idx] = p.fields[fieldID]
 	}
 	return result
+
 }
 
 // getFieldIDs returns sorted slice of field ids
 func (p *storageExecutePlan) getFieldIDs() []uint16 {
-	var result []uint16
-	for fieldID := range p.fields {
-		result = append(result, fieldID)
-	}
-	// sort field ids
-	sort.Slice(result, func(i, j int) bool {
-		return result[i] < result[j]
-	})
-	return result
+	return p.fieldIDs
 }
 
 // selectList plans the select list from down sampling aggregation specification
@@ -147,21 +152,20 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			// if not using field default down sampling func
 			funcType = aggregation.DownSamplingFunc(fieldType)
 			if funcType == function.Unknown {
-				p.err = fmt.Errorf("cannot get default down sampling func for filed type[%d]", fieldType)
+				p.err = fmt.Errorf("cannot get default down sampling func for filed type[%s]", fieldType)
 				return
 			}
 		} else {
 			// using use input, and check func is supported
 			if !aggregation.IsSupportFunc(fieldType, parentFunc.FuncType) {
-				//TODO format error msg
-				p.err = fmt.Errorf("field type[%d] not supprot function[%d]", fieldType, parentFunc.FuncType)
+				p.err = fmt.Errorf("field type[%s] not supprot function[%s]", fieldType, parentFunc.FuncType)
 				return
 			}
 			funcType = parentFunc.FuncType
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
-			downSampling = aggregation.NewDownSamplingSpec(e.Name, fieldType)
+			downSampling = aggregation.NewAggregatorSpec(e.Name, fieldType)
 			p.fields[fieldID] = downSampling
 		}
 		downSampling.AddFunctionType(funcType)

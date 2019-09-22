@@ -4,11 +4,8 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/constants"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./result_merger.go -destination=./result_merger_mock.go -package=parallel
@@ -21,17 +18,12 @@ type ResultMerger interface {
 	close()
 }
 
-type seriesAgg struct {
-	tags       map[string]string
-	aggregator aggregation.SegmentAggregator
-}
-
 type resultMerger struct {
-	query     *stmt.Query
 	resultSet chan *series.TimeSeriesEvent
 
-	aggregates map[string]seriesAgg
-	events     chan *pb.TaskResponse
+	groupAgg aggregation.GroupByAggregator
+
+	events chan *pb.TaskResponse
 
 	closed chan struct{}
 	ctx    context.Context
@@ -40,14 +32,13 @@ type resultMerger struct {
 }
 
 // newResultMerger create a result merger
-func newResultMerger(ctx context.Context, query *stmt.Query, resultSet chan *series.TimeSeriesEvent) ResultMerger {
+func newResultMerger(ctx context.Context, groupAgg aggregation.GroupByAggregator, resultSet chan *series.TimeSeriesEvent) ResultMerger {
 	merger := &resultMerger{
-		query:      query,
-		resultSet:  resultSet,
-		aggregates: make(map[string]seriesAgg),
-		events:     make(chan *pb.TaskResponse),
-		closed:     make(chan struct{}),
-		ctx:        ctx,
+		resultSet: resultSet,
+		groupAgg:  groupAgg,
+		events:    make(chan *pb.TaskResponse),
+		closed:    make(chan struct{}),
+		ctx:       ctx,
 	}
 	go func() {
 		defer close(merger.closed)
@@ -70,8 +61,11 @@ func (m *resultMerger) close() {
 		m.resultSet <- &series.TimeSeriesEvent{Err: m.err}
 	} else {
 		// send all series data
-		for _, agg := range m.aggregates {
-			m.resultSet <- &series.TimeSeriesEvent{Series: agg.aggregator.Iterator(agg.tags)}
+		resultSet := m.groupAgg.ResultSet()
+		if len(resultSet) > 0 {
+			m.resultSet <- &series.TimeSeriesEvent{
+				SeriesList: resultSet,
+			}
 		}
 	}
 }
@@ -95,42 +89,18 @@ func (m *resultMerger) process() {
 
 func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 	data := resp.Payload
-	ts := &pb.TimeSeries{}
-	err := ts.Unmarshal(data)
+	tsList := &pb.TimeSeriesList{}
+	err := tsList.Unmarshal(data)
 	if err != nil {
 		m.err = err
 		return false
 	}
-	// if no field data, ignore this response
-	if len(ts.Fields) == 0 {
-		return true
-	}
-	// 1. prepare series tags
-	tagsStr := constants.EmptyGroupTagsStr
-	tags := constants.EmptyGroupTags
-	if m.query.HasGroupBy() {
-		tags := ts.Tags
-		// if time series hasn't tags of response, ignore this response
-		if len(tags) == 0 {
+	for _, ts := range tsList.TimeSeriesList {
+		// if no field data, ignore this response
+		if len(ts.Fields) == 0 {
 			return true
 		}
-		tagsStr = tag.Concat(tags)
-	}
-	// 2. get series aggregator
-	var agg seriesAgg
-	ok := false
-	agg, ok = m.aggregates[tagsStr]
-	if !ok {
-		agg = seriesAgg{
-			tags:       tags,
-			aggregator: aggregation.NewSeriesSegmentAggregator(m.query.Interval, &m.query.TimeRange),
-		}
-		m.aggregates[tagsStr] = agg
-	}
-	// 3. aggregate field data
-	for name, data := range ts.Fields {
-		it := series.NewFieldIterator(name, data)
-		agg.aggregator.Aggregate(it)
+		m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, ts.Fields))
 	}
 	return true
 }

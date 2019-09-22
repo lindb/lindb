@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql"
 )
 
 func TestJobManager_SubmitJob(t *testing.T) {
@@ -29,11 +30,12 @@ func TestJobManager_SubmitJob(t *testing.T) {
 		ShardIDs: []int32{1, 2, 4},
 	})
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, nil))
+	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	assert.NotNil(t, err)
 
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, nil))
+	err = jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,12 +58,13 @@ func TestJobManager_SubmitJob_2(t *testing.T) {
 		},
 	})
 
+	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, nil))
+	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	assert.NotNil(t, err)
 
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
-	err = jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, nil))
+	err = jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	if err != nil {
 		t.Fatal(err)
 	}

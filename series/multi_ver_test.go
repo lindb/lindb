@@ -1,11 +1,20 @@
 package series
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/stretchr/testify/assert"
 )
+
+func Test_AAA(t *testing.T) {
+	r := roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7, 8, 9)
+	r.RemoveRange(0, 8)
+	//r1:=r.RemoveRange(0, 8)
+	//r1:=r.Flip(0,8)
+	fmt.Println(r)
+}
 
 func TestMultiVerSeriesIDSet_IsEmpty(t *testing.T) {
 	multiVer1 := NewMultiVerSeriesIDSet()

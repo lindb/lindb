@@ -28,9 +28,7 @@ func TestStoragePlan_Metric(t *testing.T) {
 	query, _ := sql.Parse("select f from cpu")
 	plan := newStorageExecutePlan(metadataIndex, query)
 	err := plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), series.ErrNotFound)
 	plan = newStorageExecutePlan(metadataIndex, query)
@@ -72,11 +70,10 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	query, _ = sql.Parse("select f from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	storagePlan := plan.(*storageExecutePlan)
-	downSampling := aggregation.NewDownSamplingSpec("f", field.SumField)
+	downSampling := aggregation.NewAggregatorSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, map[uint16]aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
@@ -84,15 +81,14 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	query, _ = sql.Parse("select a,b,c as d from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	storagePlan = plan.(*storageExecutePlan)
-	downSampling1 := aggregation.NewDownSamplingSpec("a", field.MinField)
+	downSampling1 := aggregation.NewAggregatorSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling2 := aggregation.NewDownSamplingSpec("b", field.MaxField)
+	downSampling2 := aggregation.NewAggregatorSpec("b", field.MaxField)
 	downSampling2.AddFunctionType(function.Max)
-	downSampling3 := aggregation.NewDownSamplingSpec("c", field.HistogramField)
+	downSampling3 := aggregation.NewAggregatorSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Histogram)
 	expect := map[uint16]aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
@@ -110,12 +106,12 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	}
 	storagePlan = plan.(*storageExecutePlan)
 
-	downSampling1 = aggregation.NewDownSamplingSpec("a", field.MinField)
+	downSampling1 = aggregation.NewAggregatorSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling3 = aggregation.NewDownSamplingSpec("c", field.HistogramField)
+	downSampling3 = aggregation.NewAggregatorSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Sum)
 	downSampling3.AddFunctionType(function.Avg)
-	downSampling4 := aggregation.NewDownSamplingSpec("e", field.HistogramField)
+	downSampling4 := aggregation.NewAggregatorSpec("e", field.HistogramField)
 	downSampling4.AddFunctionType(function.Histogram)
 	expect = map[uint16]aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
@@ -134,21 +130,22 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
 		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(10), nil),
 		idGetter.EXPECT().GetTagKeyID(uint32(10), "path").Return(uint32(11), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(12), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
 	)
 
 	// normal
-	query, _ := sql.Parse("select f from disk group by host,path")
+	query, _ := sql.Parse("select f,d from disk group by host,path")
 	plan := newStorageExecutePlan(idGetter, query)
 	err := plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	storagePlan := plan.(*storageExecutePlan)
-	downSampling := aggregation.NewDownSamplingSpec("f", field.SumField)
-	downSampling.AddFunctionType(function.Sum)
-	assert.Equal(t, map[uint16]aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
-	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
+	aggSpecs := storagePlan.getDownSamplingAggSpecs()
+	assert.Equal(t, "d", aggSpecs[0].FieldName())
+	assert.Equal(t, "f", aggSpecs[1].FieldName())
+
+	assert.Equal(t, []uint16{10, 12}, storagePlan.getFieldIDs())
 	assert.Equal(t, 2, len(storagePlan.groupByTagKeys))
 	assert.Equal(t, uint32(10), storagePlan.groupByTagKeys["host"])
 	assert.Equal(t, uint32(11), storagePlan.groupByTagKeys["path"])
@@ -162,7 +159,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	query, _ = sql.Parse("select f from disk group by host,path")
 	plan = newStorageExecutePlan(idGetter, query)
 	err = plan.Plan()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestStorageExecutePlan_empty_select_item(t *testing.T) {
@@ -188,7 +185,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	query, _ := sql.Parse("select f from disk")
 	plan := newStorageExecutePlan(idGetter, query)
 	err := plan.Plan()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
@@ -197,7 +194,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	query, _ = sql.Parse("select histogram(f) from disk")
 	plan = newStorageExecutePlan(idGetter, query)
 	err = plan.Plan()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
@@ -207,15 +204,15 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
 	plan = newStorageExecutePlan(idGetter, query)
 	err = plan.Plan()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(12), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(11), field.SumField, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
 	plan = newStorageExecutePlan(idGetter, query)
 	err = plan.Plan()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }

@@ -12,29 +12,20 @@ import (
 )
 
 type fieldIterator struct {
-	name string
-
-	segmentStartTime int64
-	startSlot        int
+	startSlot int
 
 	length int
 	idx    int
 	its    []series.PrimitiveIterator
 }
 
-func newFieldIterator(name string, segmentStartTime int64, startSlot int,
+func newFieldIterator(startSlot int,
 	its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
-		name:             name,
-		segmentStartTime: segmentStartTime,
-		startSlot:        startSlot,
-		its:              its,
-		length:           len(its),
+		startSlot: startSlot,
+		its:       its,
+		length:    len(its),
 	}
-}
-
-func (it *fieldIterator) FieldMeta() field.Meta {
-	return field.Meta{Name: it.name}
 }
 
 func (it *fieldIterator) HasNext() bool {
@@ -52,9 +43,10 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 
 //FIXME stone1100 need refactor
 func (it *fieldIterator) Bytes() ([]byte, error) {
+	if it.length == 0 {
+		return nil, nil
+	}
 	writer := stream.NewBufferWriter(nil)
-
-	writer.PutVarint64(it.segmentStartTime)
 
 	for it.HasNext() {
 		primitiveIt := it.Next()
@@ -80,10 +72,6 @@ func (it *fieldIterator) Bytes() ([]byte, error) {
 		writer.PutBytes(data)
 	}
 	return writer.Bytes()
-}
-
-func (it *fieldIterator) SegmentStartTime() int64 {
-	return it.segmentStartTime
 }
 
 // primitiveIterator represents primitive iterator using array

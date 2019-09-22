@@ -30,6 +30,7 @@ func Test_NewMemoryDatabase(t *testing.T) {
 
 	mdINTF := NewMemoryDatabase(ctx, cfg)
 	assert.NotNil(t, mdINTF)
+	assert.Equal(t, int64(10*1000), mdINTF.Interval())
 }
 
 func Test_MemoryDatabase_Write(t *testing.T) {

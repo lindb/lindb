@@ -5,6 +5,7 @@ import (
 	"math/bits"
 
 	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/stream"
 )
 
@@ -98,6 +99,7 @@ func (p *DeltaBitPackingEncoder) Bytes() []byte {
 type DeltaBitPackingDecoder struct {
 	sr       *stream.Reader
 	br       *bit.Reader
+	buf      *bufioutil.Buffer
 	count    int32
 	pos      int32
 	width    int
@@ -109,8 +111,10 @@ type DeltaBitPackingDecoder struct {
 func NewDeltaBitPackingDecoder(buf []byte) *DeltaBitPackingDecoder {
 	d := &DeltaBitPackingDecoder{
 		sr: stream.NewReader(nil),
-		br: bit.NewReader(nil),
 	}
+	d.buf = bufioutil.NewBuffer(buf)
+	d.br = bit.NewReader(d.buf)
+
 	d.Reset(buf)
 	return d
 }
@@ -130,8 +134,10 @@ func (d *DeltaBitPackingDecoder) Reset(buf []byte) {
 	d.previous = v
 	pos := d.sr.Position()
 
+	d.buf.SetBuf(buf[pos:])
+
 	// reset bit stream
-	d.br.Reset(buf[pos:])
+	d.br.Reset()
 }
 
 // HasNext tests if has more int32 value

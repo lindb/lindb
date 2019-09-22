@@ -124,7 +124,7 @@ func (e *CallExpr) Rewrite() string {
 	for _, param := range e.Params {
 		params = append(params, param.Rewrite())
 	}
-	return fmt.Sprintf("%s(%s)", function.FuncTypeString(e.FuncType), strings.Join(params, ","))
+	return fmt.Sprintf("%s(%s)", e.FuncType, strings.Join(params, ","))
 }
 
 // Rewrite rewrites the paren expr after parse

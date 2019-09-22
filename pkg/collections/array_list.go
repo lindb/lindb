@@ -21,6 +21,8 @@ type FloatArray interface {
 	Capacity() int
 	// Marks returns the marks of array
 	Marks() []uint8
+
+	Reset()
 }
 
 // floatArray represents a float array, support mark pos if has value
@@ -30,6 +32,8 @@ type floatArray struct {
 
 	capacity int
 	size     int
+
+	it *floatArrayIterator
 }
 
 // NewFloatArray creates a float array
@@ -73,7 +77,7 @@ func (f *floatArray) SetValue(pos int, value float64) {
 
 	if !f.HasValue(pos) {
 		blockIdx := pos / blockSize
-		idx := pos % blockSize
+		idx := pos - pos/blockSize*blockSize
 		mark := f.marks[blockIdx]
 		mark |= 1 << uint64(idx)
 		f.marks[blockIdx] = mark
@@ -94,7 +98,12 @@ func (f *floatArray) Size() int {
 
 // Iterator returns an iterator over the array
 func (f *floatArray) Iterator() FloatArrayIterator {
-	return newFloatArrayIterator(f)
+	if f.it == nil {
+		f.it = newFloatArrayIterator(f)
+	} else {
+		f.it.reset()
+	}
+	return f.it
 }
 
 // Capacity returns the capacity of array
@@ -113,6 +122,13 @@ func (f *floatArray) checkPos(pos int) bool {
 		return false
 	}
 	return true
+}
+
+func (f *floatArray) Reset() {
+	f.size = 0
+	for i := range f.marks {
+		f.marks[i] = 0
+	}
 }
 
 // FloatArrayIterator represents a float array iterator
@@ -135,12 +151,19 @@ type floatArrayIterator struct {
 }
 
 // newFloatArrayIterator creates a float array iterator
-func newFloatArrayIterator(fa FloatArray) FloatArrayIterator {
+func newFloatArrayIterator(fa FloatArray) *floatArrayIterator {
 	return &floatArrayIterator{
 		fa:       fa,
 		hasValue: true,
 		marks:    fa.Marks(),
 	}
+}
+
+func (it *floatArrayIterator) reset() {
+	it.idx = 0
+	it.count = 0
+	it.marks = it.fa.Marks()
+	it.hasValue = true
 }
 
 // HasNext returns if this iterator has more values

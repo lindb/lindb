@@ -79,8 +79,26 @@ func TestSimpleSegmentStore(t *testing.T) {
 
 	assert.True(t, tsd.HasValueWithSlot(31))
 	assert.Equal(t, int64(50), encoding.ZigZagDecode(tsd.Value()))
+}
 
+func TestSimpleSegmentStore_float(t *testing.T) {
+	writeCtx := writeContext{
+		blockStore:   newBlockStore(30),
+		timeInterval: 10,
+		metricID:     1,
+		familyTime:   0,
+	}
+
+	aggFunc := field.GetAggFunc(field.Sum)
+	store := newSimpleFieldStore(0, aggFunc)
+	assert.Equal(t, int64(0), store.GetFamilyTime())
+	assert.NotNil(t, store)
+	ss, ok := store.(*simpleFieldStore)
+	assert.True(t, ok)
 	// write float test
+	writeCtx.slotIndex = 10
+	ss.WriteFloat(10, writeCtx)
+	// auto rollup
 	writeCtx.slotIndex = 10
 	ss.WriteFloat(10, writeCtx)
 }
@@ -92,7 +110,7 @@ func Test_sStore_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockBlock := NewMockblock(ctrl)
-	mockBlock.EXPECT().compact(gomock.Any(), gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
+	mockBlock.EXPECT().compact(gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
 	mockBlock.EXPECT().setIntValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockBlock.EXPECT().getStartTime().Return(12).AnyTimes()
 	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()

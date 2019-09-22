@@ -85,6 +85,9 @@ type tagIndexINTF interface {
 
 	// MemSize returns the memory size in bytes
 	MemSize() int
+
+	// scan scans metric store data based on scanner context
+	scan(sCtx *series.ScanContext)
 }
 
 // tagKVEntrySet is a inverted mapping relation of tag-value and seriesID group.
@@ -442,6 +445,11 @@ func (index *tagIndex) GetSeriesIDsForTag(tagKey string) *roaring.Bitmap {
 		union.Or(bitMap)
 	}
 	return union
+}
+
+// scan scans metric store data based on scanner context
+func (index *tagIndex) scan(sCtx *series.ScanContext) {
+	index.seriesID2TStore.scan(index.version, sCtx)
 }
 
 // staticNopTagIndex is the static nop-tagIndex,

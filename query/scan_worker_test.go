@@ -2,11 +2,14 @@ package query
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/series"
 )
 
@@ -14,130 +17,77 @@ func TestScanWorker_Emit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	aggWorker := NewMockaggregateWorker(ctrl)
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
 
-	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, aggWorker)
+	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
+	event := series.NewMockScanEvent(ctrl)
 	gomock.InOrder(
-		aggWorker.EXPECT().emit(gomock.Any()),
-		aggWorker.EXPECT().close(),
-		aggWorker.EXPECT().sendResult(gomock.Any()),
+		event.EXPECT().Scan().Return(false),
+		groupAgg.EXPECT().ResultSet().Return(nil),
 	)
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FieldIt:         nil,
-		FamilyStartTime: 10,
-	})
-	w := worker.(*scanWorker)
+	worker.Emit(event)
 	worker.Emit(nil)
-
-	w.Close()
-}
-
-func TestScanWorker_Emit_Fail(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	aggWorker := NewMockaggregateWorker(ctrl)
-
-	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, aggWorker)
-	aggWorker.EXPECT().close()
-	aggWorker.EXPECT().sendResult(gomock.Any())
 	worker.Close()
-	worker.Complete(uint32(10))
-}
 
-func TestScanWorker_Complete(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	aggWorker := NewMockaggregateWorker(ctrl)
-
-	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, aggWorker)
+	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
 	gomock.InOrder(
-		aggWorker.EXPECT().emit(gomock.Any()),
-		aggWorker.EXPECT().close(),
-		aggWorker.EXPECT().sendResult(gomock.Any()),
+		groupAgg.EXPECT().ResultSet().Return(nil),
 	)
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FieldIt:         nil,
-		FamilyStartTime: 10,
-	})
-	worker.Complete(uint32(10))
-
+	w := worker.(*scanWorker)
+	w.events <- nil
 	worker.Close()
 }
 
-func TestScanWorker_GroupBy(t *testing.T) {
+func TestScanWorker_handle_event(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	aggWorker := NewMockaggregateWorker(ctrl)
-	metaGetter := series.NewMockMetaGetter(ctrl)
+	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
 
-	worker := createScanWorker(context.TODO(), uint32(10), []string{"host", "disk"}, metaGetter, aggWorker)
+	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
+	event := series.NewMockScanEvent(ctrl)
 	gomock.InOrder(
-		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
-		aggWorker.EXPECT().emit(gomock.Any()),
-		aggWorker.EXPECT().sendResult(gomock.Any()),
-		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
-		aggWorker.EXPECT().sendResult(gomock.Any()),
-		aggWorker.EXPECT().close(),
+		event.EXPECT().Scan().Return(true),
+		event.EXPECT().ResultSet().Return(nil),
+		event.EXPECT().Release(),
+		groupAgg.EXPECT().ResultSet().Return(nil),
 	)
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FamilyStartTime: 10,
-	})
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FamilyStartTime: 11,
-	})
-	worker.Complete(uint32(10))
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(11),
-		Completed:       false,
-		FamilyStartTime: 10,
-	})
-	worker.Complete(uint32(11))
+	worker.Emit(event)
 	worker.Close()
 
-	// test panic
-	worker = createScanWorker(context.TODO(), uint32(10), []string{"host", "disk"}, nil, aggWorker)
+	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
+	event = series.NewMockScanEvent(ctrl)
 	gomock.InOrder(
-		aggWorker.EXPECT().emit(gomock.Any()),
-		aggWorker.EXPECT().close().AnyTimes(),
+		event.EXPECT().Scan().Return(true),
+		event.EXPECT().ResultSet().Return("mock"),
+		event.EXPECT().Release(),
+		groupAgg.EXPECT().ResultSet().Return(nil),
 	)
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FamilyStartTime: 10,
-	})
+	worker.Emit(event)
 	worker.Close()
 
-	// test get group by tag values err
-	worker = createScanWorker(context.TODO(), uint32(10), []string{"host", "disk"}, metaGetter, aggWorker)
+	rs := make(chan *series.TimeSeriesEvent)
+	c := atomic.NewInt32(0)
+	var wait sync.WaitGroup
+	wait.Add(1)
+	go func() {
+		<-rs
+		c.Inc()
+		wait.Done()
+	}()
+
+	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, rs)
+	event = series.NewMockScanEvent(ctrl)
+	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 	gomock.InOrder(
-		aggWorker.EXPECT().emit(gomock.Any()),
-		metaGetter.EXPECT().GetTagValues(uint32(10), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
-		aggWorker.EXPECT().close().AnyTimes(),
+		event.EXPECT().Scan().Return(true),
+		event.EXPECT().ResultSet().Return(aggregation.FieldAggregates{seriesAgg}),
+		groupAgg.EXPECT().Merge(gomock.Any(), gomock.Any()),
+		event.EXPECT().Release(),
+		groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)}),
 	)
-	worker.Emit(&series.FieldEvent{
-		Version:         series.Version(10),
-		SeriesID:        uint32(10),
-		Completed:       false,
-		FamilyStartTime: 10,
-	})
+	worker.Emit(event)
 	worker.Close()
+	wait.Wait()
+	assert.Equal(t, int32(1), c.Load())
 }

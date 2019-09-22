@@ -112,5 +112,5 @@ func Test_Empty_TSDEncoderDecoder(t *testing.T) {
 	assert.NotNil(t, encoder.Error())
 
 	decoder := NewTSDDecoder(nil)
-	assert.NotNil(t, decoder.Error())
+	assert.Nil(t, decoder.Error())
 }

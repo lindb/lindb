@@ -57,6 +57,9 @@ func Test_tStore_write(t *testing.T) {
 			mStoreFieldIDGetter: mockFieldIDGetter})
 	assert.Nil(t, err)
 	assert.False(t, tStoreInterface.IsNoData())
+	fStore, ok := tStoreInterface.GetFStore(uint16(1))
+	assert.True(t, ok)
+	assert.NotNil(t, fStore)
 
 	// insert test
 	tStore.insertFStore(newFieldStore(3))

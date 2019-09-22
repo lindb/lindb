@@ -1,30 +1,31 @@
 package bit
 
 import (
-	"bytes"
 	"io"
-)
 
-// NewReader crate bit reader
-func NewReader(data []byte) *Reader {
-	return &Reader{
-		reader: bytes.NewReader(data),
-		count:  0}
-}
+	"github.com/lindb/lindb/pkg/bufioutil"
+)
 
 // Reader reads bits from buffer
 type Reader struct {
-	reader *bytes.Reader
-	b      byte
-	count  uint8
+	buf   *bufioutil.Buffer
+	b     byte
+	count uint8
 
 	err error
+}
+
+// NewReader crate bit reader
+func NewReader(buf *bufioutil.Buffer) *Reader {
+	return &Reader{
+		buf:   buf,
+		count: 0}
 }
 
 // ReadBit reads a bit, if failure return error
 func (r *Reader) ReadBit() (Bit, error) {
 	if r.count == 0 {
-		r.b, r.err = r.reader.ReadByte()
+		r.b, r.err = r.buf.GetByte()
 		r.count = 8
 	}
 	r.count--
@@ -66,21 +67,20 @@ func (r *Reader) ReadBits(numBits int) (uint64, error) {
 // ReadByte reads a byte
 func (r *Reader) ReadByte() (byte, error) {
 	if r.count == 0 {
-		r.b, r.err = r.reader.ReadByte()
+		r.b, r.err = r.buf.GetByte()
 		return r.b, r.err
 	}
 
 	byt := r.b
 
-	r.b, r.err = r.reader.ReadByte()
+	r.b, r.err = r.buf.GetByte()
 	byt |= r.b >> r.count
 	r.b <<= 8 - r.count
 	return byt, r.err
 }
 
 // Reset resets the reader to read from a new slice
-func (r *Reader) Reset(data []byte) {
-	r.reader.Reset(data)
+func (r *Reader) Reset() {
 	r.err = nil
 	r.count = 0
 	r.b = 0
