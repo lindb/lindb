@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/golang/mock/gomock"
@@ -14,13 +15,17 @@ import (
 )
 
 func Test_tagIndex_tStore_get(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// version
 	assert.NotZero(t, tagIdxInterface.Version())
-
 	// get empty key value tStore
-	tStore0, err := tagIdxInterface.GetOrCreateTStore(nil)
+	tStore0, err := tagIdxInterface.GetOrCreateTStore(nil, writeContext{generator: mockGenerator})
 	assert.NotNil(t, tStore0)
 	assert.Nil(t, err)
 	// get not exist tStore
@@ -28,12 +33,17 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.Nil(t, tStore1)
 	assert.False(t, ok)
 	// get or create
-	tStore2, err := tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
+	tStore2, err := tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "adca", "ip": "1.1.1.1"},
+		writeContext{generator: mockGenerator})
 	assert.NotNil(t, tStore2)
 	assert.Nil(t, err)
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "adca", "ip": "1.1.1.1"},
+		writeContext{generator: mockGenerator})
 	// get existed
-	tStore3, ok := tagIdxInterface.GetTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
+	tStore3, ok := tagIdxInterface.GetTStore(
+		map[string]string{"host": "adca", "ip": "1.1.1.1"})
 	assert.NotNil(t, tStore3)
 	assert.True(t, ok)
 	// get tStore by seriesID
@@ -42,23 +52,31 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.NotNil(t, tStore4)
 	assert.True(t, ok)
 	// getOrInsertTagKeyEntry, present in the slice
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "32"})
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "33"})
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"h": "32"})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "32"}, writeContext{generator: mockGenerator})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "33"}, writeContext{generator: mockGenerator})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"h": "32"}, writeContext{generator: mockGenerator})
 
 	// getTagKVEntrySet test
 	assert.NotNil(t, tagIdxInterface.GetTagKVEntrySets())
 }
 
 func Test_tagIndex_tStore_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// too many tag keys
 	for i := 0; i < 1000; i++ {
-		_, _ = tagIdx.GetOrCreateTStore(map[string]string{strconv.Itoa(i): strconv.Itoa(i)})
+		_, _ = tagIdx.GetOrCreateTStore(
+			map[string]string{strconv.Itoa(i): strconv.Itoa(i)}, writeContext{generator: mockGenerator})
 	}
 	assert.Equal(t, 512, tagIdx.TagsUsed())
-	_, err := tagIdxInterface.GetOrCreateTStore(map[string]string{"zone": "nj"})
+	_, err := tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"zone": "nj"},
+		writeContext{generator: mockGenerator})
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
 	assert.Equal(t, 512, tagIdx.TagsUsed())
 	// remove tStores
@@ -105,14 +123,33 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a", "zone": "nj"})   // seriesID: 1
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "abc", "zone": "sh"}) // 2
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b", "zone": "nj"})   // 3
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "c", "zone": "bj"})   // 4
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "bc", "zone": "sz"})  // 5
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b21", "zone": "nj"}) // 6
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b22", "zone": "sz"}) // 7
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "bcd", "zone": "sh"}) // 8
+	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "a", "zone": "nj"},
+		writeContext{generator: mockGenerator}) // seriesID: 1
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "abc", "zone": "sh"},
+		writeContext{generator: mockGenerator}) // 2
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "b", "zone": "nj"},
+		writeContext{generator: mockGenerator}) // 3
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "c", "zone": "bj"},
+		writeContext{generator: mockGenerator}) // 4
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "bc", "zone": "sz"},
+		writeContext{generator: mockGenerator}) // 5
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "b21", "zone": "nj"},
+		writeContext{generator: mockGenerator}) // 6
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "b22", "zone": "sz"},
+		writeContext{generator: mockGenerator}) // 7
+	_, _ = tagIdxInterface.GetOrCreateTStore(
+		map[string]string{"host": "bcd", "zone": "sh"},
+		writeContext{generator: mockGenerator}) // 8
 
 	newMap := make(map[uint32]tStoreINTF)
 	for seriesID, tStore := range tagIdx.seriesID2TStore {
@@ -220,17 +257,21 @@ func Test_tagIndex_special_case(t *testing.T) {
 
 func Test_TagIndex_recreateEvictedTStores(t *testing.T) {
 	tagIdxInterface := newTagIndex()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"})
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"})
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b"})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b"}, writeContext{generator: mockGenerator})
 	assert.Equal(t, 2, tagIdxInterface.TagsInUse())
 	assert.Equal(t, 2, tagIdxInterface.TagsUsed())
 	// remove seriesID = 1
 	tagIdxInterface.RemoveTStores(0, 1)
 	assert.Equal(t, 1, tagIdxInterface.TagsInUse())
 	assert.Equal(t, 2, tagIdxInterface.TagsUsed())
-	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"})
+	_, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
 	assert.Equal(t, 2, tagIdxInterface.TagsInUse())
 	tagIdxInterface.RemoveTStores(1, 2)
 	assert.Equal(t, 0, tagIdxInterface.TagsInUse())

@@ -41,7 +41,12 @@ type tagIndexINTF interface {
 
 	// GetOrCreateTStore constructs the index and return a tStore,
 	// error of too may tag keys may be return
-	GetOrCreateTStore(tags map[string]string) (tStoreINTF, error)
+	GetOrCreateTStore(
+		tags map[string]string,
+		writeCtx writeContext,
+	) (
+		tStoreINTF,
+		error)
 
 	// RemoveTStores removes tStores from a list of seriesID
 	RemoveTStores(seriesIDs ...uint32)
@@ -93,7 +98,7 @@ type tagIndex struct {
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idCounter     atomic.Uint32
-	// version is the uptime in millseconds
+	// version is the uptime in milliseconds
 	version series.Version
 	// index time-range
 	earliestTimeDelta atomic.Int32 // earliestTime = versionTime + earliestTimeDelta
@@ -149,7 +154,12 @@ func (index *tagIndex) GetTagKVEntrySets() []tagKVEntrySet {
 }
 
 // insertNewTStore binds a new tStore to the inverted index to the seriesID.
-func (index *tagIndex) insertNewTStore(tags map[string]string, newSeriesID uint32, tStore tStoreINTF) error {
+func (index *tagIndex) insertNewTStore(
+	tags map[string]string,
+	newSeriesID uint32,
+	tStore tStoreINTF,
+	writeCtx writeContext,
+) error {
 	// insert to bitmap
 	if tags == nil {
 		tags = make(map[string]string)
@@ -158,10 +168,15 @@ func (index *tagIndex) insertNewTStore(tags map[string]string, newSeriesID uint3
 		tags[""] = ""
 	}
 	for tagKey, tagValue := range tags {
-		entrySet, err := index.getOrInsertTagKeyEntry(tagKey)
+		entrySet, created, err := index.getOrInsertTagKeyEntry(tagKey)
 		if err != nil {
 			return err
 		}
+		if created {
+			// create the tagKeyID synchronously
+			_ = writeCtx.generator.GenTagKeyID(writeCtx.metricID, tagKey)
+		}
+		// create the tagKeyID
 		bitMap, ok := entrySet.values[tagValue]
 		if !ok {
 			bitMap = roaring.NewBitmap()
@@ -185,26 +200,32 @@ func (index *tagIndex) GetTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool) {
 }
 
 // getOrInsertTagKeyEntry get or insert a new entrySet, return error when tag keys exceeds the limit.
-func (index *tagIndex) getOrInsertTagKeyEntry(tagKey string) (*tagKVEntrySet, error) {
+func (index *tagIndex) getOrInsertTagKeyEntry(
+	tagKey string,
+) (
+	entrySet *tagKVEntrySet,
+	created bool,
+	err error,
+) {
 	length := len(index.tagKVEntrySet)
 	offset := sort.Search(length, func(i int) bool { return index.tagKVEntrySet[i].key >= tagKey })
 	// present in the slice
 	if offset < len(index.tagKVEntrySet) && index.tagKVEntrySet[offset].key == tagKey {
-		return &index.tagKVEntrySet[offset], nil
+		return &index.tagKVEntrySet[offset], false, nil
 	}
 	if length >= constants.MStoreMaxTagKeysCount {
-		return nil, series.ErrTooManyTagKeys
+		return nil, false, series.ErrTooManyTagKeys
 	}
 	// not present
 	newEntry := newTagKVEntrySet(tagKey)
 	index.tagKVEntrySet = append(index.tagKVEntrySet, newEntry)
-	// insert, not append at the tail
+	// insert, and sort
 	if offset < length {
 		sort.Slice(index.tagKVEntrySet, func(i, j int) bool {
 			return index.tagKVEntrySet[i].key < index.tagKVEntrySet[j].key
 		})
 	}
-	return &newEntry, nil
+	return &newEntry, true, nil
 }
 
 // GetTStore returns a tStoreINTF from map tags.
@@ -225,7 +246,13 @@ func (index *tagIndex) GetTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool) {
 
 // GetOrCreateTStore get or creates the tStore from string tags,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (index *tagIndex) GetOrCreateTStore(tags map[string]string) (tStoreINTF, error) {
+func (index *tagIndex) GetOrCreateTStore(
+	tags map[string]string,
+	writeCtx writeContext,
+) (
+	tStoreINTF,
+	error,
+) {
 	tagsStr := models.TagsAsString(tags)
 	hash := fnv1a.HashString64(tagsStr)
 	seriesID, ok := index.hash2SeriesID[hash]
@@ -243,7 +270,7 @@ func (index *tagIndex) GetOrCreateTStore(tags map[string]string) (tStoreINTF, er
 	incrSeriesID := index.idCounter.Add(1)
 	newTStore := newTimeSeriesStore(hash)
 	// bind relation of tag kv pairs to the tStore
-	err := index.insertNewTStore(tags, incrSeriesID, newTStore)
+	err := index.insertNewTStore(tags, incrSeriesID, newTStore, writeCtx)
 	if err != nil {
 		index.idCounter.Sub(1)
 		return nil, err
