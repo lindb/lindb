@@ -11,18 +11,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/lindb/pkg/stream"
-
 	"github.com/segmentio/fasthash/fnv1a"
-
-	"github.com/lindb/lindb/rpc/proto/field"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/service"
 )
 

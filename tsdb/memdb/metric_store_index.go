@@ -13,7 +13,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/RoaringBitmap/roaring"
-	"github.com/segmentio/fasthash/fnv1a"
+	"github.com/cespare/xxhash"
 	"go.uber.org/atomic"
 )
 
@@ -230,7 +230,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(
 
 // GetTStore returns a tStoreINTF from map tags.
 func (index *tagIndex) GetTStore(tags map[string]string) (tStoreINTF, bool) {
-	hash := fnv1a.HashString64(models.TagsAsString(tags))
+	hash := xxhash.Sum64String(models.TagsAsString(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
 	if ok {
 		return index.seriesID2TStore[seriesID], true
@@ -253,8 +253,7 @@ func (index *tagIndex) GetOrCreateTStore(
 	tStoreINTF,
 	error,
 ) {
-	tagsStr := models.TagsAsString(tags)
-	hash := fnv1a.HashString64(tagsStr)
+	hash := xxhash.Sum64String(models.TagsAsString(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
 	// hash is already existed before
 	if ok {

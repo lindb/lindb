@@ -96,8 +96,8 @@ func (t *tree) recursiveForEach(current *artNode, callback Callback) {
 }
 
 func (t *tree) forEachChildren(children []*artNode, callback Callback) {
-	nullChild := children[len(children)-1]
-	if nullChild != nil {
+	nullChild := children[len(children) - 1]
+	if  nullChild != nil {
 		t.recursiveForEach(nullChild, callback)
 	}
 
@@ -214,7 +214,7 @@ func (ti *iterator) Next() (Node, error) {
 const nullIdx = -1
 
 func nextChild(childIdx int, children []*artNode) ( /*nextChildIdx*/ int /*nextNode*/, *artNode) {
-	nullChild := children[len(children)-1]
+	nullChild := children[len(children) - 1]
 	if childIdx == nullIdx {
 		if nullChild != nil {
 			return 0, nullChild
@@ -253,7 +253,7 @@ func (ti *iterator) next() {
 			nullChild := node.children[curNode.maxChildren()]
 			if curChildIdx == nullIdx {
 				if nullChild == nil {
-					curChildIdx = 0 // try from 0 based child
+					curChildIdx = 0  // try from 0 based child
 				} else {
 					nextChildIdx = 0 // we have a child with null suffix
 					nextNode = nullChild

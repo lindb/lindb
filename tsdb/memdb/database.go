@@ -17,7 +17,7 @@ import (
 	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
-	"github.com/segmentio/fasthash/fnv1a"
+	"github.com/cespare/xxhash"
 )
 
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
@@ -159,7 +159,7 @@ func (md *memoryDatabase) getBucket(metricHash uint64) *mStoresBucket {
 
 // getMStore returns the mStore by metric-name.
 func (md *memoryDatabase) getMStore(metricName string) (mStore mStoreINTF, ok bool) {
-	return md.getMStoreByMetricHash(fnv1a.HashString64(metricName))
+	return md.getMStoreByMetricHash(xxhash.Sum64String(metricName))
 }
 
 // getMStoreByMetricHash returns the mStore by metric-hash.
@@ -258,7 +258,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	familyStartTime := md.intervalCalc.CalcFamilyStartTime(segmentTime, family)    // family timestamp
 	slotIndex := md.intervalCalc.CalcSlot(timestamp, familyStartTime, md.interval) // slot offset of family
 
-	hash := fnv1a.HashString64(metric.Name)
+	hash := xxhash.Sum64String(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
 
 	err = mStore.Write(metric, writeContext{
