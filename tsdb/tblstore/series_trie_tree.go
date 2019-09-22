@@ -280,9 +280,13 @@ func (block *trieTreeBlock) FindOffsetsByIn(values []string) (offsets []int) {
 }
 
 func (block *trieTreeBlock) FindOffsetsByLike(value string) (offsets []int) {
-	if value == "" {
+	switch value {
+	case "":
 		return nil
+	case "*":
+		value = ""
 	}
+
 	itr := block.Iterator(value)
 	for itr.HasNext() {
 		_, offset := itr.Next()
