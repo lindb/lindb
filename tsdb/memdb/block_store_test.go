@@ -104,6 +104,7 @@ func TestCompactIntBlock(t *testing.T) {
 	assert.Equal(t, int64(100), b1.getIntValue(10))
 	assert.Equal(t, 10, b1.getStartTime())
 	assert.Equal(t, 20, b1.getEndTime())
+	t.Log(b1.memsize())
 
 	// test compact [10,20] and no compress => [10,20]
 	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)
@@ -217,6 +218,7 @@ func TestCompactFloatBlock(t *testing.T) {
 	assert.Equal(t, 100.05, b1.getFloatValue(10))
 	assert.Equal(t, 10, b1.getStartTime())
 	assert.Equal(t, 20, b1.getEndTime())
+	t.Log(b1.memsize())
 
 	// test compact [10,20] and no compress => [10,20]
 	start, end, err = b1.compact(field.GetAggFunc(field.Sum), true)

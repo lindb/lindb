@@ -31,7 +31,7 @@ func TestFieldStore_Scan(t *testing.T) {
 
 	now, _ := timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
-	tStore := newTimeSeriesStore(100)
+	tStore := newTimeSeriesStore()
 	ts := tStore.(*timeSeriesStore)
 
 	fStore := newFieldStore(10)

@@ -40,10 +40,10 @@ func Test_MetricStore_scan(t *testing.T) {
 	ti2.version = 2
 	ti2.earliestTimeDelta.Store(200)
 	ti2.latestTimeDelta.Store(300)
-	ts5 := newTimeSeriesStore(55)
-	ts6 := newTimeSeriesStore(66)
-	ts7 := newTimeSeriesStore(77)
-	ts8 := newTimeSeriesStore(88)
+	ts5 := newTimeSeriesStore()
+	ts6 := newTimeSeriesStore()
+	ts7 := newTimeSeriesStore()
+	ts8 := newTimeSeriesStore()
 	ts5.(*timeSeriesStore).insertFStore(newFieldStore(1))
 	ts5.(*timeSeriesStore).insertFStore(newFieldStore(2))
 	ts5.(*timeSeriesStore).insertFStore(newFieldStore(3))
@@ -107,7 +107,6 @@ func Test_MetricStore_scan(t *testing.T) {
 		Worker:       worker,
 	})
 	assert.Equal(t, 2, len(worker.events))
-
 	// field not found
 	mStore.Scan(&series.ScanContext{
 		SeriesIDSet: idset,

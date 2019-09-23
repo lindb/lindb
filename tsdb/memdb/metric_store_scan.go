@@ -17,7 +17,6 @@ func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 	if !ok {
 		return
 	}
-
 	// scan tagIndex when version matches the idSet
 	scanOnVersionMatch := func(idx tagIndexINTF) {
 		if _, ok := sCtx.SeriesIDSet.Versions()[idx.Version()]; ok {
@@ -26,11 +25,10 @@ func (ms *metricStore) Scan(sCtx *series.ScanContext) {
 	}
 	ms.mux.RLock()
 	scanOnVersionMatch(ms.mutable)
-	immutable := ms.immutable.Load()
+	immutable := ms.atomicGetImmutable()
 	ms.mux.RUnlock()
 	if immutable != nil {
-		tagIndex := immutable.(tagIndexINTF)
-		scanOnVersionMatch(tagIndex)
+		scanOnVersionMatch(immutable)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
 	mockSStore := NewMocksStoreINTF(ctrl)
 	mockSStore.EXPECT().GetFamilyTime().Return(familyTime).AnyTimes()
+	mockSStore.EXPECT().MemSize().Return(emptySimpleFieldStoreSize).AnyTimes()
 	return mockSStore
 }
 
@@ -98,13 +99,13 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
-	assert.False(t, theFieldStore.FlushFieldTo(mockTF, 1564297200000))
+	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, 1564297200000))
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// mock error
-	assert.False(t, theFieldStore.FlushFieldTo(mockTF, 1564304400000))
+	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, 1564304400000))
 	assert.Len(t, theFieldStore.sStoreNodes, 1)
 	// mock ok
-	assert.True(t, theFieldStore.FlushFieldTo(mockTF, 1564308000000))
+	assert.NotZero(t, theFieldStore.FlushFieldTo(mockTF, 1564308000000))
 	assert.Len(t, theFieldStore.sStoreNodes, 0)
 }
 
@@ -113,6 +114,7 @@ func Test_fStore_removeSStore(t *testing.T) {
 	defer ctrl.Finish()
 
 	fsINTF := newFieldStore(1)
+	assert.Equal(t, emptyFieldStoreSize, fsINTF.MemSize())
 	fs := fsINTF.(*fieldStore)
 	// segments empty
 	fs.removeSStore(0)
@@ -125,6 +127,7 @@ func Test_fStore_removeSStore(t *testing.T) {
 	fs.insertSStore(getMockSStore(ctrl, 3))
 	fs.insertSStore(getMockSStore(ctrl, 7))
 	fs.insertSStore(getMockSStore(ctrl, 5))
+	assert.NotEqual(t, emptyFieldStoreSize, fsINTF.MemSize())
 	assert.True(t, sort.IsSorted(fs.sStoreNodes))
 	// remove greater
 	fs.removeSStore(10)
@@ -139,5 +142,4 @@ func Test_fStore_removeSStore(t *testing.T) {
 	fs.removeSStore(4)
 	fs.removeSStore(2)
 	fs.removeSStore(7)
-
 }
