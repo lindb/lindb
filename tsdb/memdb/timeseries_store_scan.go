@@ -13,15 +13,16 @@ func (ts *timeSeriesStore) Scan(
 	existedFieldMetas field.Metas,
 ) {
 	worker := sCtx.Worker
+
+	ts.sl.Lock()
 	for _, fm := range existedFieldMetas {
-		ts.sl.Lock()
 		fStore, ok := ts.GetFStore(fm.ID)
-		ts.sl.Unlock()
 		if !ok {
 			continue
 		}
 		fStore.Scan(sCtx, version, seriesID, fm, ts)
 	}
+	ts.sl.Unlock()
 
 	// send msg to notify current series scan completed
 	worker.Complete(seriesID)

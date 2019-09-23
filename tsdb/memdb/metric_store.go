@@ -19,6 +19,14 @@ import (
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock_test.go -package memdb
 
+const emptyMStoreSize = 8 + // immutable
+	8 + // mutable
+	24 + // rwmutex
+	8 + // atomic.Value
+	4 + // uint32
+	4 + // uint32
+	4 // int32
+
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
 	// GetMetricID returns the metricID
@@ -82,6 +90,9 @@ type mStoreINTF interface {
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
 
+	// MemSize returns the memory-size of this metric-store
+	MemSize() int
+
 	mStoreFieldIDGetter
 
 	series.Scanner
@@ -109,14 +120,17 @@ type metricStore struct {
 	fieldsMetas  atomic.Value  // read only, storing (field.Metas), hold mux before storing new value
 	maxTagsLimit atomic.Uint32 // maximum number of combinations of tags
 	metricID     uint32        // persistent on the disk
+	size         atomic.Int32  // memory-size
 }
 
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore(metricID uint32) mStoreINTF {
+	mutable := newTagIndex()
 	ms := metricStore{
 		metricID:     metricID,
-		mutable:      newTagIndex(),
-		maxTagsLimit: *atomic.NewUint32(constants.DefaultMStoreMaxTagsCount)}
+		mutable:      mutable,
+		maxTagsLimit: *atomic.NewUint32(constants.DefaultMStoreMaxTagsCount),
+		size:         *atomic.NewInt32(int32(mutable.MemSize()))}
 	var fm field.Metas
 	ms.fieldsMetas.Store(fm)
 	return &ms
@@ -320,25 +334,30 @@ func (ms *metricStore) Write(
 	if ms.isFull() {
 		return series.ErrTooManyTags
 	}
-	var err error
+	var (
+		err         error
+		writtenSize int
+	)
 	ms.mux.RLock()
 	tStore, ok := ms.mutable.GetTStore(metric.Tags)
 	ms.mux.RUnlock()
 	if !ok {
 		ms.mux.Lock()
-		tStore, err = ms.mutable.GetOrCreateTStore(metric.Tags, writeCtx)
+		tStore, writtenSize, err = ms.mutable.GetOrCreateTStore(metric.Tags, writeCtx)
 		if err != nil {
 			ms.mux.Unlock()
 			return err
 		}
 		ms.mux.Unlock()
+		ms.size.Add(int32(writtenSize))
 	}
-	err = tStore.Write(metric, writeCtx)
+	writtenSize, err = tStore.Write(metric, writeCtx)
 	if err == nil {
 		ms.mux.RLock()
 		ms.mutable.UpdateIndexTimeRange(writeCtx.PointTime())
 		ms.mux.RUnlock()
 	}
+	ms.size.Add(int32(writtenSize))
 	return err
 }
 
@@ -415,8 +434,12 @@ func (ms *metricStore) Evict() {
 			doubleCheckEvictList = append(doubleCheckEvictList, seriesID)
 		}
 	}
-	ms.mutable.RemoveTStores(doubleCheckEvictList...)
+	removedTStores := ms.mutable.RemoveTStores(doubleCheckEvictList...)
 	ms.mux.Unlock()
+
+	for _, tStore := range removedTStores {
+		ms.size.Sub(int32(tStore.MemSize()))
+	}
 }
 
 // ResetVersion marks the mutable index's status to immutable, then creates a new active index.
@@ -435,6 +458,7 @@ func (ms *metricStore) ResetVersion() error {
 	}
 	ms.immutable.Store(ms.mutable)
 	ms.mutable = newTagIndex()
+	ms.size.Store(int32(ms.mutable.MemSize()))
 	return nil
 }
 
@@ -451,12 +475,13 @@ func (ms *metricStore) FlushMetricsDataTo(
 
 	// reset the mutable part
 	ms.mux.RLock()
-	ms.mutable.FlushVersionDataTo(flusher, flushCtx)
+	flushedSize := ms.mutable.FlushVersionDataTo(flusher, flushCtx)
 	immutable := ms.atomicGetImmutable()
 	// remove the immutable, put the nopTagIndex into it
 	ms.immutable.Store(staticNopTagIndex)
 	ms.mux.RUnlock()
 
+	ms.size.Sub(int32(flushedSize))
 	if immutable != nil {
 		immutable.FlushVersionDataTo(flusher, flushCtx)
 	}
@@ -591,4 +616,13 @@ func (ms *metricStore) GetSeriesIDsForTag(
 		getSeriesIDsForTag(immutable)
 	}
 	return multiVerSeriesIDSet, nil
+}
+
+func (ms *metricStore) MemSize() int {
+	size := emptyMStoreSize + int(ms.size.Load())
+	immutable := ms.atomicGetImmutable()
+	if immutable != nil {
+		size += immutable.MemSize()
+	}
+	return size
 }

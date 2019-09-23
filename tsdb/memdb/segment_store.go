@@ -10,15 +10,44 @@ import (
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
 
+const (
+	emptySimpleFieldStoreSize = 8 + // familyTime
+		8 + // aggFunc
+		8 // block pointer
+)
+
 // sStoreINTF represents segment-store,
 // which abstracts a store for storing field data based on family start time
 type sStoreINTF interface {
 	GetFamilyTime() int64
+
 	AggType() field.AggType
-	SlotRange() (startSlot, endSlot int, err error)
-	Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error)
-	WriteInt(value int64, writeCtx writeContext)
-	WriteFloat(value float64, writeCtx writeContext)
+
+	SlotRange() (
+		startSlot,
+		endSlot int,
+		err error)
+
+	Bytes(
+		needSlotRange bool,
+	) (
+		data []byte,
+		startSlot,
+		endSlot int,
+		err error)
+
+	// WriteInt writes a int value, and returns the written length
+	WriteInt(
+		value int64,
+		writeCtx writeContext,
+	) int
+
+	// WriteFloat writes a float64 value, and returns the written length
+	WriteFloat(value float64,
+		writeCtx writeContext,
+	) int
+
+	MemSize() int
 }
 
 // singleFieldStore stores single field
@@ -44,7 +73,8 @@ func (fs *simpleFieldStore) AggType() field.AggType {
 	return fs.aggFunc.AggType()
 }
 
-func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) {
+func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) int {
+	oldSize := fs.MemSize()
 	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Float)
 	currentBlock := fs.block
 	if hasValue {
@@ -53,9 +83,11 @@ func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) {
 	} else {
 		currentBlock.setFloatValue(pos, value)
 	}
+	return fs.MemSize() - oldSize
 }
 
-func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) {
+func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) int {
+	oldSize := fs.MemSize()
 	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Integer)
 	currentBlock := fs.block
 	if hasValue {
@@ -64,6 +96,7 @@ func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) {
 	} else {
 		currentBlock.setIntValue(pos, value)
 	}
+	return fs.MemSize() - oldSize
 }
 
 // calcTimeWindow calculates time window's block for storing field data based on slot time and value type.
@@ -127,4 +160,11 @@ func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
 	}
 	startSlot, endSlot = encoding.DecodeTSDTime(fs.block.bytes())
 	return
+}
+
+func (fs *simpleFieldStore) MemSize() int {
+	if fs.block == nil {
+		return emptySimpleFieldStoreSize
+	}
+	return emptySimpleFieldStoreSize + fs.block.memsize()
 }

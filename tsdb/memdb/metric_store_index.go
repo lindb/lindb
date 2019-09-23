@@ -19,6 +19,13 @@ import (
 
 //go:generate mockgen -source ./metric_store_index.go -destination=./metric_store_index_mock_test.go -package memdb
 
+const emptyTagIndexSize = 24 + // tagKVEntrySet slice
+	24 + // metric-map slice
+	4 + // idCounter
+	8 + // version
+	4 + // earliestTimeDelta
+	4 // latestTimeDelta
+
 // tagIndexINTF abstracts the index of tStores, not thread-safe
 type tagIndexINTF interface {
 	// UpdateIndexTimeRange updates the start and endTime by CAS
@@ -31,7 +38,7 @@ type tagIndexINTF interface {
 	GetTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool)
 
 	// GetTagKVEntrySets returns the kv-entrySets for flushing index data.
-	GetTagKVEntrySets() []tagKVEntrySet
+	GetTagKVEntrySets() []*tagKVEntrySet
 
 	// GetTStore get tStore from map tags
 	GetTStore(tags map[string]string) (tStoreINTF, bool)
@@ -45,11 +52,12 @@ type tagIndexINTF interface {
 		tags map[string]string,
 		writeCtx writeContext,
 	) (
-		tStoreINTF,
-		error)
+		tStore tStoreINTF,
+		writtenSize int,
+		err error)
 
 	// RemoveTStores removes tStores from a list of seriesID
-	RemoveTStores(seriesIDs ...uint32)
+	RemoveTStores(seriesIDs ...uint32) (removedTStores []tStoreINTF)
 
 	// TagsUsed returns the count of all used tags, it is used for restricting write.
 	TagsUsed() int
@@ -61,7 +69,10 @@ type tagIndexINTF interface {
 	AllTStores() *metricMap
 
 	// FlushVersionDataTo flush metric to the tableFlusher
-	FlushVersionDataTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext)
+	FlushVersionDataTo(
+		flusher tblstore.MetricsDataFlusher,
+		flushCtx flushContext,
+	) (flushedSize int)
 
 	// Version returns a version(uptime in milliseconds) of the index
 	Version() series.Version
@@ -71,6 +82,9 @@ type tagIndexINTF interface {
 
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) *roaring.Bitmap
+
+	// MemSize returns the memory size in bytes
+	MemSize() int
 }
 
 // tagKVEntrySet is a inverted mapping relation of tag-value and seriesID group.
@@ -80,8 +94,8 @@ type tagKVEntrySet struct {
 }
 
 // newTagKVEntrySet returns a new tagKVEntrySet
-func newTagKVEntrySet(tagKey string) tagKVEntrySet {
-	return tagKVEntrySet{
+func newTagKVEntrySet(tagKey string) *tagKVEntrySet {
+	return &tagKVEntrySet{
 		key:    tagKey,
 		values: make(map[string]*roaring.Bitmap)}
 }
@@ -92,7 +106,7 @@ func newTagKVEntrySet(tagKey string) tagKVEntrySet {
 type tagIndex struct {
 	// invertedIndex part for storing a mapping from tag-keys to the tsStore list,
 	// the purpose of this index is to allow fast filtering and querying
-	tagKVEntrySet   []tagKVEntrySet
+	tagKVEntrySet   []*tagKVEntrySet
 	seriesID2TStore *metricMap
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
 	// purpose of this index is used for fast writing
@@ -149,7 +163,7 @@ func (index *tagIndex) IndexTimeRange() timeutil.TimeRange {
 }
 
 // GetTagKVEntrySets returns the kv-entrySet for flushing index data.
-func (index *tagIndex) GetTagKVEntrySets() []tagKVEntrySet {
+func (index *tagIndex) GetTagKVEntrySets() []*tagKVEntrySet {
 	return index.tagKVEntrySet
 }
 
@@ -196,7 +210,7 @@ func (index *tagIndex) GetTagKVEntrySet(tagKey string) (*tagKVEntrySet, bool) {
 	if offset >= len(index.tagKVEntrySet) || index.tagKVEntrySet[offset].key != tagKey {
 		return nil, false
 	}
-	return &index.tagKVEntrySet[offset], true
+	return index.tagKVEntrySet[offset], true
 }
 
 // getOrInsertTagKeyEntry get or insert a new entrySet, return error when tag keys exceeds the limit.
@@ -211,7 +225,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(
 	offset := sort.Search(length, func(i int) bool { return index.tagKVEntrySet[i].key >= tagKey })
 	// present in the slice
 	if offset < len(index.tagKVEntrySet) && index.tagKVEntrySet[offset].key == tagKey {
-		return &index.tagKVEntrySet[offset], false, nil
+		return index.tagKVEntrySet[offset], false, nil
 	}
 	if length >= constants.MStoreMaxTagKeysCount {
 		return nil, false, series.ErrTooManyTagKeys
@@ -225,7 +239,7 @@ func (index *tagIndex) getOrInsertTagKeyEntry(
 			return index.tagKVEntrySet[i].key < index.tagKVEntrySet[j].key
 		})
 	}
-	return &newEntry, true, nil
+	return newEntry, true, nil
 }
 
 // GetTStore returns a tStoreINTF from map tags.
@@ -249,8 +263,9 @@ func (index *tagIndex) GetOrCreateTStore(
 	tags map[string]string,
 	writeCtx writeContext,
 ) (
-	tStoreINTF,
-	error,
+	tStore tStoreINTF,
+	writtenSize int,
+	err error,
 ) {
 	hash := xxhash.Sum64String(tag.Concat(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
@@ -259,36 +274,38 @@ func (index *tagIndex) GetOrCreateTStore(
 		tStore, ok := index.seriesID2TStore.get(seriesID)
 		// has been evicted before, reuse the old seriesID
 		if !ok {
-			tStore = newTimeSeriesStore(seriesID)
+			tStore = newTimeSeriesStore()
 			index.seriesID2TStore.put(seriesID, tStore)
+			writtenSize += tStore.MemSize()
 		}
-		return tStore, nil
+		return tStore, writtenSize, nil
 	}
 	// seriesID is not allocated before, assign a new one.
-	incrSeriesID := index.idCounter.Add(1)
-	newTStore := newTimeSeriesStore(incrSeriesID)
+	incrSeriesID := index.idCounter.Inc()
+	newTStore := newTimeSeriesStore()
 	// bind relation of tag kv pairs to the tStore
-	err := index.insertNewTStore(tags, incrSeriesID, newTStore, writeCtx)
+	err = index.insertNewTStore(tags, incrSeriesID, newTStore, writeCtx)
 	if err != nil {
-		index.idCounter.Sub(1)
-		return nil, err
+		index.idCounter.Dec()
+		return nil, writtenSize, err
 	}
+	writtenSize += newTStore.MemSize()
 	// bind relation of hash and seriesID to the forward index
 	index.hash2SeriesID[hash] = incrSeriesID
-	return newTStore, nil
+	return newTStore, writtenSize, nil
 }
 
 // RemoveTStores removes the tStores from seriesIDs
 // RemoveTStores does not remove the mapping relation of hash and seriesID and keep the seriesID in bitmap
-func (index *tagIndex) RemoveTStores(seriesIDs ...uint32) {
+func (index *tagIndex) RemoveTStores(
+	seriesIDs ...uint32,
+) (
+	removedTStores []tStoreINTF,
+) {
 	if len(seriesIDs) == 0 {
-		return
+		return nil
 	}
-	// remove from seriesID2TStore
-	for _, id := range seriesIDs {
-		//TODO impl batch delete?
-		index.seriesID2TStore.delete(id)
-	}
+	return index.seriesID2TStore.deleteMany(seriesIDs...)
 }
 
 // TagsUsed returns the count of all used tStores
@@ -310,18 +327,18 @@ func (index *tagIndex) AllTStores() *metricMap {
 func (index *tagIndex) FlushVersionDataTo(
 	tableFlusher tblstore.MetricsDataFlusher,
 	flushCtx flushContext,
+) (
+	flushedSize int,
 ) {
-	var flushed bool
-
 	it := index.seriesID2TStore.iterator()
 	for it.hasNext() {
 		seriesID, tStore := it.next()
-		tStoreDataFlushed := tStore.FlushSeriesTo(tableFlusher, flushCtx, seriesID)
-		flushed = flushed || tStoreDataFlushed
+		flushedSize += tStore.FlushSeriesTo(tableFlusher, flushCtx, seriesID)
 	}
-	if flushed {
+	if flushedSize > 0 {
 		tableFlusher.FlushVersion(index.Version())
 	}
+	return flushedSize
 }
 
 // Version returns a version(uptime) of the index
@@ -385,6 +402,7 @@ func (index *tagIndex) findSeriesIDsByLike(entrySet *tagKVEntrySet, expr *stmt.L
 	}
 	return union
 }
+
 func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.RegexExpr) *roaring.Bitmap {
 	pattern, err := regexp.Compile(expr.Regexp)
 	if err != nil {
@@ -402,6 +420,15 @@ func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.
 		}
 	}
 	return union
+}
+
+func (index *tagIndex) MemSize() int {
+	// tagKVEntrySet, map is not calculated
+	size := emptyTagIndexSize
+	for _, tStore := range index.seriesID2TStore.stores {
+		size += tStore.MemSize()
+	}
+	return size
 }
 
 // GetSeriesIDsForTag get series ids by tagKey

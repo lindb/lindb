@@ -16,23 +16,29 @@ import (
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock_test.go -package memdb
 
+const emptyTimeSeriesStoreSize = 4 + // spin-lock
+	4 + // last-wrote_time
+	24 // fStores
+
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetSeriesID returns the time series id
-	GetSeriesID() uint32
-
 	// GetFStore returns the fStore in this list from field-id.
 	GetFStore(fieldID uint16) (fStoreINTF, bool)
 
 	// Write writes the metric
-	Write(metric *pb.Metric, writeCtx writeContext) error
+	Write(
+		metric *pb.Metric,
+		writeCtx writeContext,
+	) (
+		writtenSize int,
+		err error)
 
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(
 		flusher tblstore.MetricsDataFlusher,
 		flushCtx flushContext,
 		seriesID uint32,
-	) (flushed bool)
+	) (flushedSize int)
 
 	// IsExpired detects if this tStore has not been used for a TTL
 	IsExpired() bool
@@ -46,6 +52,8 @@ type tStoreINTF interface {
 		version series.Version,
 		seriesID uint32,
 		existedFieldMetas field.Metas)
+
+	MemSize() int
 }
 
 // fStoreNodes implements sort.Interface
@@ -58,21 +66,14 @@ func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
 	sl            lockers.SpinLock // spin-lock
-	seriesID      uint32           // seriesID
 	lastWroteTime atomic.Uint32    // last Write-time in seconds
 	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
-func newTimeSeriesStore(seriesID uint32) tStoreINTF {
+func newTimeSeriesStore() tStoreINTF {
 	return &timeSeriesStore{
-		seriesID:      seriesID,
 		lastWroteTime: *atomic.NewUint32(uint32(timeutil.Now() / 1000))}
-}
-
-// GetSeriesID returns the time series id
-func (ts *timeSeriesStore) GetSeriesID() uint32 {
-	return ts.seriesID
 }
 
 // GetFStore returns the fStore in this list from field-id.
@@ -132,7 +133,10 @@ func (ts *timeSeriesStore) IsExpired() bool {
 func (ts *timeSeriesStore) Write(
 	metric *pb.Metric,
 	writeCtx writeContext,
-) error {
+) (
+	writtenSize int,
+	err error,
+) {
 	ts.sl.Lock()
 	defer ts.sl.Unlock()
 
@@ -143,36 +147,24 @@ func (ts *timeSeriesStore) Write(
 			//TODO add log or metric
 			continue
 		}
-		if fStore, err := ts.getOrCreateFStore(f.Name, fieldType, writeCtx); err == nil {
-			fStore.Write(f, writeCtx)
-			ts.lastWroteTime.Store(uint32(timeutil.Now() / 1000))
-		} else {
-			return err // field type do not match before, too many fields
+
+		fieldID, err := writeCtx.GetFieldIDOrGenerate(f.Name, fieldType, writeCtx.generator)
+		// error-case1: field type doesn't matches to before
+		// error-case2: there are too many fields
+		if err != nil {
+			return 0, err
 		}
+		fStore, ok := ts.GetFStore(fieldID)
+		if !ok {
+			oldCap := cap(ts.fStoreNodes)
+			fStore = newFieldStore(fieldID)
+			ts.insertFStore(fStore)
+			writtenSize += (cap(ts.fStoreNodes)-oldCap)*8 + fStore.MemSize()
+		}
+		writtenSize += fStore.Write(f, writeCtx)
+		ts.lastWroteTime.Store(uint32(timeutil.Now() / 1000))
 	}
-	return nil
-}
-
-// getOrCreateFStore get a fieldStore by fieldName and fieldType
-func (ts *timeSeriesStore) getOrCreateFStore(
-	fieldName string,
-	fieldType field.Type,
-	writeCtx writeContext,
-) (
-	fStoreINTF,
-	error,
-) {
-	fieldID, err := writeCtx.GetFieldIDOrGenerate(fieldName, fieldType, writeCtx.generator)
-	if err != nil {
-		return nil, err
-	}
-
-	fStore, ok := ts.GetFStore(fieldID)
-	if !ok {
-		fStore = newFieldStore(fieldID)
-		ts.insertFStore(fStore)
-	}
-	return fStore, nil
+	return writtenSize, err
 }
 
 // FlushSeriesTo flushes the series data segment.
@@ -180,17 +172,26 @@ func (ts *timeSeriesStore) FlushSeriesTo(
 	flusher tblstore.MetricsDataFlusher,
 	flushCtx flushContext,
 	seriesID uint32,
-) (flushed bool) {
+) (
+	flushedSize int,
+) {
 	ts.sl.Lock()
 	for _, fStore := range ts.fStoreNodes {
-		fieldDataFlushed := fStore.FlushFieldTo(flusher, flushCtx.familyTime)
-		flushed = flushed || fieldDataFlushed
+		flushedSize += fStore.FlushFieldTo(flusher, flushCtx.familyTime)
 	}
-	if flushed {
+	if flushedSize > 0 {
 		flusher.FlushSeries(seriesID)
 		ts.afterFlush(flushCtx)
 	}
 	// update time range info
 	ts.sl.Unlock()
-	return
+	return flushedSize
+}
+
+func (ts *timeSeriesStore) MemSize() int {
+	size := emptyTimeSeriesStoreSize + 8*cap(ts.fStoreNodes)
+	for _, fStore := range ts.fStoreNodes {
+		size += fStore.MemSize()
+	}
+	return size
 }

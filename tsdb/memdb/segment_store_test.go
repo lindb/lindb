@@ -96,6 +96,7 @@ func Test_sStore_error(t *testing.T) {
 	mockBlock.EXPECT().setIntValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockBlock.EXPECT().getStartTime().Return(12).AnyTimes()
 	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()
+	mockBlock.EXPECT().memsize().Return(300).AnyTimes()
 	ss.block = mockBlock
 	_, _, _, err := ss.Bytes(false)
 	assert.NotNil(t, err)
