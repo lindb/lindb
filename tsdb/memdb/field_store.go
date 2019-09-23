@@ -13,6 +13,9 @@ import (
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock_test.go -package memdb
 
+const emptyFieldStoreSize = 2 + // fieldID
+	24 // sStoreNodes
+
 // fStoreINTF abstracts a field-store
 type fStoreINTF interface {
 	// GetSStore gets the sStore from list by familyTime.
@@ -22,14 +25,18 @@ type fStoreINTF interface {
 	GetFieldID() uint16
 
 	// Write writes the metric's field with writeContext
-	Write(f *pb.Field, writeCtx writeContext)
+	Write(
+		f *pb.Field,
+		writeCtx writeContext,
+	) (
+		writtenSize int)
 
 	// FlushFieldTo flushes field data of the specific familyTime
 	// return false if there is no data related of familyTime
 	FlushFieldTo(
 		tableFlusher tblstore.MetricsDataFlusher,
 		familyTime int64,
-	) (flushed bool)
+	) (flushedSize int)
 
 	// TimeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
@@ -49,6 +56,8 @@ type fStoreINTF interface {
 
 	// SegmentsCount returns the count of segments
 	SegmentsCount() int
+
+	MemSize() int
 }
 
 // sStoreNodes implements the sort.Interface
@@ -112,28 +121,41 @@ func (fs *fieldStore) insertSStore(sStore sStoreINTF) {
 	sort.Sort(fs.sStoreNodes)
 }
 
-func (fs *fieldStore) Write(f *pb.Field, writeCtx writeContext) {
+func (fs *fieldStore) Write(
+	f *pb.Field,
+	writeCtx writeContext,
+) (
+	writtenSize int,
+) {
 	sStore, ok := fs.GetSStore(writeCtx.familyTime)
 
 	switch fields := f.Field.(type) {
 	case *pb.Field_Sum:
 		if !ok {
 			//TODO ???
+			oldCap := cap(fs.sStoreNodes)
 			sStore = newSimpleFieldStore(writeCtx.familyTime, field.GetAggFunc(field.Sum))
 			fs.insertSStore(sStore)
+			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		sStore.WriteFloat(fields.Sum.Value, writeCtx)
+		writtenSize += sStore.WriteFloat(fields.Sum.Value, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}
+	return writtenSize
 }
 
 // FlushFieldTo flushes segments' data to writer and reset the segments-map.
-func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, familyTime int64) (flushed bool) {
+func (fs *fieldStore) FlushFieldTo(
+	tableFlusher tblstore.MetricsDataFlusher,
+	familyTime int64,
+) (
+	flushedSize int,
+) {
 	sStore, ok := fs.GetSStore(familyTime)
 
 	if !ok {
-		return false
+		return 0
 	}
 
 	fs.removeSStore(familyTime)
@@ -141,10 +163,10 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher tblstore.MetricsDataFlusher, fam
 
 	if err != nil {
 		memDBLogger.Error("read segment data error:", logger.Error(err))
-		return false
+		return 0
 	}
 	tableFlusher.FlushField(fs.fieldID, data, startSlot, endSlot)
-	return true
+	return sStore.MemSize()
 }
 
 func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
@@ -164,4 +186,12 @@ func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, o
 		}
 	}
 	return
+}
+
+func (fs *fieldStore) MemSize() int {
+	size := emptyFieldStoreSize + 8*cap(fs.sStoreNodes)
+	for _, sStore := range fs.sStoreNodes {
+		size += sStore.MemSize()
+	}
+	return size
 }

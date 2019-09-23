@@ -46,7 +46,8 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().GetTStore(gomock.Any()).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("error")).AnyTimes()
+	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).
+		Return(nil, 0, fmt.Errorf("error")).AnyTimes()
 	mockTagIdx.EXPECT().TagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
@@ -75,13 +76,13 @@ func Test_mStore_write_ok(t *testing.T) {
 	mStore := mStoreInterface.(*metricStore)
 
 	mockTStore := NewMocktStoreINTF(ctrl)
-	mockTStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockTStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(0, nil).AnyTimes()
 
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().TagsUsed().Return(1).AnyTimes()
 	mockTagIdx.EXPECT().UpdateIndexTimeRange(gomock.Any()).Return().AnyTimes()
 	mockTagIdx.EXPECT().GetTStore(gomock.Any()).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(mockTStore, nil).AnyTimes()
+	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(mockTStore, 0, nil).AnyTimes()
 
 	mStore.mutable = mockTagIdx
 	assert.Nil(t, mStoreInterface.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
@@ -89,10 +90,12 @@ func Test_mStore_write_ok(t *testing.T) {
 
 func Test_mStore_resetVersion(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
-
+	size1 := mStoreInterface.MemSize()
 	assert.Nil(t, mStoreInterface.ResetVersion())
 	assert.NotNil(t, mStoreInterface.ResetVersion())
 	assert.NotNil(t, mStoreInterface.ResetVersion())
+	size2 := mStoreInterface.MemSize()
+	assert.NotEqual(t, size1, size2)
 }
 
 func Test_mStore_evict(t *testing.T) {
@@ -128,7 +131,7 @@ func Test_mStore_evict(t *testing.T) {
 	mockTagIdx.EXPECT().AllTStores().Return(metricMap)
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(33)).Return(mockTStore3, true).AnyTimes()
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(44)).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().RemoveTStores(uint32(33)).Return().AnyTimes()
+	mockTagIdx.EXPECT().RemoveTStores(uint32(33)).Return(nil).AnyTimes()
 
 	mStore.mutable = mockTagIdx
 	mStoreInterface.Evict()
@@ -159,7 +162,7 @@ func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 	// mock tagIndex
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().Version().Return(series.Version(1)).AnyTimes()
-	mockTagIdx.EXPECT().FlushVersionDataTo(gomock.Any(), gomock.Any()).Return().AnyTimes()
+	mockTagIdx.EXPECT().FlushVersionDataTo(gomock.Any(), gomock.Any()).Return(10).AnyTimes()
 	mStore.mutable = mockTagIdx
 
 	assert.Nil(t, mStore.atomicGetImmutable())
@@ -260,21 +263,21 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 
 func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *MocktagIndexINTF, *MocktagIndexINTF) {
 
-	fakeKVEntrySet1 := []tagKVEntrySet{
+	fakeKVEntrySet1 := []*tagKVEntrySet{
 		{key: "host", values: map[string]*roaring.Bitmap{
 			"alpha": roaring.BitmapOf(1, 2, 3, 4, 5),
 			"beta":  roaring.BitmapOf(6, 7, 8, 9, 10)}},
 		{key: "zone", values: map[string]*roaring.Bitmap{
 			"nj": roaring.BitmapOf(1, 2, 3, 4),
 			"bj": roaring.BitmapOf(7, 8, 9, 10)}}}
-	fakeKVEntrySet2 := []tagKVEntrySet{
+	fakeKVEntrySet2 := []*tagKVEntrySet{
 		{key: "ip", values: map[string]*roaring.Bitmap{
 			"1.1.1.1": roaring.BitmapOf(1, 2, 3, 4, 5),
 			"2.2.2.2": roaring.BitmapOf(6, 7, 8, 9, 10)}},
 		{key: "zone", values: map[string]*roaring.Bitmap{
 			"sh": roaring.BitmapOf(1, 2, 3, 4, 5),
 			"bj": roaring.BitmapOf(6, 7, 8, 9, 10)}}}
-	fakeKVEntrySet3 := []tagKVEntrySet{
+	fakeKVEntrySet3 := []*tagKVEntrySet{
 		{key: "usage", values: map[string]*roaring.Bitmap{
 			"idle":   roaring.BitmapOf(1, 2, 3, 8, 9),
 			"system": roaring.BitmapOf(4, 5, 6, 7, 10)}},
@@ -286,8 +289,8 @@ func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *Mocktag
 	mockTagIdx1.EXPECT().GetTagKVEntrySets().Return(fakeKVEntrySet1).AnyTimes()
 	mockTagIdx1.EXPECT().IndexTimeRange().Return(timeutil.TimeRange{Start: 1, End: 2}).AnyTimes()
 	mockTagIdx1.EXPECT().Version().Return(series.Version(1)).AnyTimes()
-	mockTagIdx1.EXPECT().GetTagKVEntrySet("host").Return(&fakeKVEntrySet1[0], true).AnyTimes()
-	mockTagIdx1.EXPECT().GetTagKVEntrySet("zone").Return(&fakeKVEntrySet1[1], true).AnyTimes()
+	mockTagIdx1.EXPECT().GetTagKVEntrySet("host").Return(fakeKVEntrySet1[0], true).AnyTimes()
+	mockTagIdx1.EXPECT().GetTagKVEntrySet("zone").Return(fakeKVEntrySet1[1], true).AnyTimes()
 	mockTagIdx1.EXPECT().GetTagKVEntrySet("ip").Return(nil, false).AnyTimes()
 	mockTagIdx1.EXPECT().GetTagKVEntrySet("usage").Return(nil, false).AnyTimes()
 
@@ -295,19 +298,19 @@ func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *Mocktag
 	mockTagIdx2.EXPECT().GetTagKVEntrySets().Return(fakeKVEntrySet2).AnyTimes()
 	mockTagIdx2.EXPECT().IndexTimeRange().Return(timeutil.TimeRange{Start: 1, End: 2}).AnyTimes()
 	mockTagIdx2.EXPECT().Version().Return(series.Version(2)).AnyTimes()
-	mockTagIdx2.EXPECT().GetTagKVEntrySet("ip").Return(&fakeKVEntrySet2[0], true).AnyTimes()
+	mockTagIdx2.EXPECT().GetTagKVEntrySet("ip").Return(fakeKVEntrySet2[0], true).AnyTimes()
 	mockTagIdx2.EXPECT().GetTagKVEntrySet("host").Return(nil, false).AnyTimes()
 	mockTagIdx2.EXPECT().GetTagKVEntrySet("usage").Return(nil, false).AnyTimes()
-	mockTagIdx2.EXPECT().GetTagKVEntrySet("zone").Return(&fakeKVEntrySet2[1], true).AnyTimes()
+	mockTagIdx2.EXPECT().GetTagKVEntrySet("zone").Return(fakeKVEntrySet2[1], true).AnyTimes()
 
 	mockTagIdx3 := NewMocktagIndexINTF(ctrl)
 	mockTagIdx3.EXPECT().GetTagKVEntrySets().Return(fakeKVEntrySet3).AnyTimes()
 	mockTagIdx3.EXPECT().IndexTimeRange().Return(timeutil.TimeRange{Start: 1, End: 2}).AnyTimes()
 	mockTagIdx3.EXPECT().Version().Return(series.Version(3)).AnyTimes()
-	mockTagIdx3.EXPECT().GetTagKVEntrySet("usage").Return(&fakeKVEntrySet3[0], true).AnyTimes()
+	mockTagIdx3.EXPECT().GetTagKVEntrySet("usage").Return(fakeKVEntrySet3[0], true).AnyTimes()
 	mockTagIdx3.EXPECT().GetTagKVEntrySet("host").Return(nil, false).AnyTimes()
 	mockTagIdx3.EXPECT().GetTagKVEntrySet("ip").Return(nil, false).AnyTimes()
-	mockTagIdx3.EXPECT().GetTagKVEntrySet("zone").Return(&fakeKVEntrySet3[1], true).AnyTimes()
+	mockTagIdx3.EXPECT().GetTagKVEntrySet("zone").Return(fakeKVEntrySet3[1], true).AnyTimes()
 
 	return mockTagIdx1, mockTagIdx2, mockTagIdx3
 }

@@ -104,7 +104,15 @@ type block interface {
 	reset()
 	// bytes returns compress data for block data
 	bytes() []byte
+	// memsize returns the memory size in bytes count
+	memsize() int
 }
+
+const (
+	emptyContainerSize = 8 + // container
+		4 + // int
+		24 // empty byte
+)
 
 // container(bit array) is a mapping from 64 value to uint64 in big-endian,
 // it is a temporary data-structure for compressing data.
@@ -173,6 +181,11 @@ func (c *container) isEmpty() bool {
 // bytes returns compress data for block data
 func (c *container) bytes() []byte {
 	return c.compress
+}
+
+// memsize returns the memory size in bytes count
+func (c *container) memsize() int {
+	return emptyContainerSize + cap(c.compress)
 }
 
 // DecodeTSDTime returns the start/end under compress tsd data
@@ -244,6 +257,11 @@ func (b *intBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSlot
 	return
 }
 
+// memsize returns the memory size in bytes count
+func (b *intBlock) memsize() int {
+	return b.container.memsize() + 24 + cap(b.values)*8
+}
+
 // floatBlock represents a float block for storing metric point in memory
 type floatBlock struct {
 	container
@@ -283,6 +301,11 @@ func (b *floatBlock) compact(aggFunc field.AggFunc, needSlotRange bool) (startSl
 	}
 	startSlot, endSlot, err = b.merge(field.Float, values, aggFunc)
 	return
+}
+
+// memsize returns the memory size in bytes count
+func (b *floatBlock) memsize() int {
+	return b.container.memsize() + 24 + cap(b.values)*8
 }
 
 // merger is merge operation which provides compress block data.

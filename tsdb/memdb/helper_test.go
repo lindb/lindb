@@ -3,15 +3,16 @@ package memdb
 import (
 	"math/rand"
 	"runtime"
+	"sort"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/tblstore"
-
-	"github.com/golang/mock/gomock"
 )
 
 ///////////////////////////////////////////////////
@@ -175,5 +176,53 @@ func Benchmark_spinLockMap(b *testing.B) {
 		}()
 	}
 	wg.Wait()
+}
 
+func Benchmark_100000_get_map(b *testing.B) {
+	m := make(map[int]struct{})
+	for i := 0; i < 100000; i++ {
+		m[i] = struct{}{}
+	}
+
+	for x := 0; x < b.N; x++ {
+		_ = m[1]
+	}
+}
+
+func Benchmark_100000_get_slice(b *testing.B) {
+	var m []int
+	for i := 0; i < 100000; i++ {
+		m = append(m, i)
+	}
+	for x := 0; x < b.N; x++ {
+		idx := sort.Search(len(m), func(z int) bool {
+			return m[z] >= 1
+		})
+		_ = m[idx]
+	}
+}
+
+func Benchmark_100000_map_iterate(b *testing.B) {
+	m := make(map[int]struct{})
+	for i := 0; i < 100000; i++ {
+		m[i] = struct{}{}
+	}
+
+	for x := 0; x < b.N; x++ {
+		for k, v := range m {
+			_, _ = k, v
+		}
+	}
+}
+
+func Benchmark_100000_slice_iterate(b *testing.B) {
+	var m []int
+	for i := 0; i < 100000; i++ {
+		m = append(m, i)
+	}
+	for x := 0; x < b.N; x++ {
+		for k, v := range m {
+			_, _ = k, v
+		}
+	}
 }
