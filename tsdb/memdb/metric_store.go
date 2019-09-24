@@ -395,7 +395,10 @@ func (ms *metricStore) Evict() {
 	)
 	// first check
 	ms.mux.RLock()
-	for seriesID, tStore := range ms.mutable.AllTStores() {
+	metricMap := ms.mutable.AllTStores()
+	it := metricMap.iterator()
+	for it.hasNext() {
+		seriesID, tStore := it.next()
 		if tStore.IsExpired() && tStore.IsNoData() {
 			evictList = append(evictList, seriesID)
 		}

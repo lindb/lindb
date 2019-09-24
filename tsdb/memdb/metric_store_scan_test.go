@@ -49,12 +49,11 @@ func Test_MetricStore_scan(t *testing.T) {
 	ts5.(*timeSeriesStore).insertFStore(newFieldStore(3))
 	ts5.(*timeSeriesStore).insertFStore(newFieldStore(4))
 
-	ti2.seriesID2TStore = map[uint32]tStoreINTF{
-		5: ts5,
-		6: ts6,
-		7: ts7,
-		8: ts8,
-	}
+	ti2.seriesID2TStore = newMetricMap()
+	ti2.seriesID2TStore.put(5, ts5)
+	ti2.seriesID2TStore.put(6, ts6)
+	ti2.seriesID2TStore.put(7, ts7)
+	ti2.seriesID2TStore.put(8, ts8)
 	// build id-set
 	idset := series.NewMultiVerSeriesIDSet()
 	idset.Add(0, roaring.New())

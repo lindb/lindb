@@ -120,12 +120,12 @@ func Test_mStore_evict(t *testing.T) {
 	mockTStore4.EXPECT().IsExpired().Return(true).AnyTimes()
 	// mock tagIndex
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
-	mockTagIdx.EXPECT().AllTStores().Return(map[uint32]tStoreINTF{
-		11: mockTStore1,
-		22: mockTStore2,
-		33: mockTStore3,
-		44: mockTStore3,
-	})
+	metricMap := newMetricMap()
+	metricMap.put(11, mockTStore1)
+	metricMap.put(22, mockTStore2)
+	metricMap.put(33, mockTStore3)
+	metricMap.put(44, mockTStore4)
+	mockTagIdx.EXPECT().AllTStores().Return(metricMap)
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(33)).Return(mockTStore3, true).AnyTimes()
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(44)).Return(nil, false).AnyTimes()
 	mockTagIdx.EXPECT().RemoveTStores(uint32(33)).Return().AnyTimes()

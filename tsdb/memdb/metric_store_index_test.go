@@ -22,6 +22,11 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	tagIdxInterface := newTagIndex()
+	// test get empty map
+	tStore30, ok := tagIdxInterface.GetTStoreBySeriesID(uint32(10))
+	assert.False(t, ok)
+	assert.Nil(t, tStore30)
+
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// version
 	assert.NotZero(t, tagIdxInterface.Version())
@@ -48,7 +53,7 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.NotNil(t, tStore3)
 	assert.True(t, ok)
 	// get tStore by seriesID
-	assert.NotZero(t, len(tagIdx.seriesID2TStore))
+	assert.NotZero(t, tagIdx.seriesID2TStore.size())
 	tStore4, ok := tagIdxInterface.GetTStoreBySeriesID(1)
 	assert.NotNil(t, tStore4)
 	assert.True(t, ok)
@@ -107,15 +112,14 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
-	mockTStore1.EXPECT().GetHash().Return(uint64(1)).AnyTimes()
+	mockTStore1.EXPECT().GetSeriesID().Return(uint32(1)).AnyTimes()
 	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(false).AnyTimes()
 	mockTStore2 := NewMocktStoreINTF(ctrl)
 	mockTStore2.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(true).AnyTimes()
-	mockTStore1.EXPECT().GetHash().Return(uint64(2)).AnyTimes()
-	tagIdx.seriesID2TStore = map[uint32]tStoreINTF{
-		1: mockTStore1,
-		2: mockTStore2,
-	}
+	mockTStore1.EXPECT().GetSeriesID().Return(uint32(2)).AnyTimes()
+	tagIdx.seriesID2TStore = newMetricMap()
+	tagIdx.seriesID2TStore.put(1, mockTStore1)
+	tagIdx.seriesID2TStore.put(2, mockTStore1)
 	// data flushed
 	tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
 }
@@ -153,13 +157,15 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 		writeContext{generator: mockGenerator}) // 8
 
 	newMap := make(map[uint32]tStoreINTF)
-	for seriesID, tStore := range tagIdx.seriesID2TStore {
+	it := tagIdx.seriesID2TStore.iterator()
+	for it.hasNext() {
+		seriesID, tStore := it.next()
 		mockTStore := NewMocktStoreINTF(ctrl)
-		mockTStore.EXPECT().GetHash().Return(tStore.GetHash()).AnyTimes()
+		mockTStore.EXPECT().GetSeriesID().Return(tStore.GetSeriesID()).AnyTimes()
 		newMap[seriesID] = mockTStore
 	}
 
-	tagIdx.seriesID2TStore = newMap
+	tagIdx.seriesID2TStore = newMetricMap()
 	return tagIdxInterface
 }
 
