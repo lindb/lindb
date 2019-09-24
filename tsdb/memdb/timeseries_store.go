@@ -18,8 +18,8 @@ import (
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetHash returns the xxhash of the tags
-	GetHash() uint64
+	// GetSeriesID returns the time series id
+	GetSeriesID() uint32
 
 	// GetFStore returns the fStore in this list from field-id.
 	GetFStore(fieldID uint16) (fStoreINTF, bool)
@@ -58,21 +58,21 @@ func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
 	sl            lockers.SpinLock // spin-lock
-	hash          uint64           // hash of tags
+	seriesID      uint32           // seriesID
 	lastWroteTime atomic.Uint32    // last Write-time in seconds
 	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
-func newTimeSeriesStore(tagsHash uint64) tStoreINTF {
+func newTimeSeriesStore(seriesID uint32) tStoreINTF {
 	return &timeSeriesStore{
-		hash:          tagsHash,
+		seriesID:      seriesID,
 		lastWroteTime: *atomic.NewUint32(uint32(timeutil.Now() / 1000))}
 }
 
-// GetHash returns the xxhash of the tags
-func (ts *timeSeriesStore) GetHash() uint64 {
-	return ts.hash
+// GetSeriesID returns the time series id
+func (ts *timeSeriesStore) GetSeriesID() uint32 {
+	return ts.seriesID
 }
 
 // GetFStore returns the fStore in this list from field-id.
