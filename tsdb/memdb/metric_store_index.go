@@ -58,7 +58,7 @@ type tagIndexINTF interface {
 	TagsInUse() int
 
 	// AllTStores returns the map of seriesID and tStores
-	AllTStores() map[uint32]tStoreINTF
+	AllTStores() *metricMap
 
 	// FlushVersionDataTo flush metric to the tableFlusher
 	FlushVersionDataTo(flusher tblstore.MetricsDataFlusher, flushCtx flushContext)
@@ -93,7 +93,7 @@ type tagIndex struct {
 	// invertedIndex part for storing a mapping from tag-keys to the tsStore list,
 	// the purpose of this index is to allow fast filtering and querying
 	tagKVEntrySet   []tagKVEntrySet
-	seriesID2TStore map[uint32]tStoreINTF
+	seriesID2TStore *metricMap
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
@@ -108,7 +108,7 @@ type tagIndex struct {
 // newTagIndex returns a new tagIndexINTF with version.
 func newTagIndex() tagIndexINTF {
 	return &tagIndex{
-		seriesID2TStore:   make(map[uint32]tStoreINTF),
+		seriesID2TStore:   newMetricMap(),
 		hash2SeriesID:     make(map[uint64]uint32),
 		version:           series.NewVersion(),
 		idCounter:         *atomic.NewUint32(0), // first value is 1
@@ -185,7 +185,7 @@ func (index *tagIndex) insertNewTStore(
 		entrySet.values[tagValue] = bitMap
 	}
 	// insert to the id mapping
-	index.seriesID2TStore[newSeriesID] = tStore
+	index.seriesID2TStore.put(newSeriesID, tStore)
 	return nil
 }
 
@@ -233,15 +233,14 @@ func (index *tagIndex) GetTStore(tags map[string]string) (tStoreINTF, bool) {
 	hash := xxhash.Sum64String(tag.Concat(tags))
 	seriesID, ok := index.hash2SeriesID[hash]
 	if ok {
-		return index.seriesID2TStore[seriesID], true
+		return index.seriesID2TStore.get(seriesID)
 	}
 	return nil, false
 }
 
 // GetTStoreBySeriesID returns a tStoreINTF from series-id.
 func (index *tagIndex) GetTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool) {
-	tStore, ok := index.seriesID2TStore[seriesID]
-	return tStore, ok
+	return index.seriesID2TStore.get(seriesID)
 }
 
 // GetOrCreateTStore get or creates the tStore from string tags,
@@ -257,17 +256,17 @@ func (index *tagIndex) GetOrCreateTStore(
 	seriesID, ok := index.hash2SeriesID[hash]
 	// hash is already existed before
 	if ok {
-		tStore, ok := index.seriesID2TStore[seriesID]
+		tStore, ok := index.seriesID2TStore.get(seriesID)
 		// has been evicted before, reuse the old seriesID
 		if !ok {
-			tStore = newTimeSeriesStore(hash)
-			index.seriesID2TStore[seriesID] = tStore
+			tStore = newTimeSeriesStore(seriesID)
+			index.seriesID2TStore.put(seriesID, tStore)
 		}
 		return tStore, nil
 	}
 	// seriesID is not allocated before, assign a new one.
 	incrSeriesID := index.idCounter.Add(1)
-	newTStore := newTimeSeriesStore(hash)
+	newTStore := newTimeSeriesStore(incrSeriesID)
 	// bind relation of tag kv pairs to the tStore
 	err := index.insertNewTStore(tags, incrSeriesID, newTStore, writeCtx)
 	if err != nil {
@@ -287,7 +286,8 @@ func (index *tagIndex) RemoveTStores(seriesIDs ...uint32) {
 	}
 	// remove from seriesID2TStore
 	for _, id := range seriesIDs {
-		delete(index.seriesID2TStore, id)
+		//TODO impl batch delete?
+		index.seriesID2TStore.delete(id)
 	}
 }
 
@@ -298,11 +298,11 @@ func (index *tagIndex) TagsUsed() int {
 
 // TagsInUse returns how many tags are still in use, it is used for evicting
 func (index *tagIndex) TagsInUse() int {
-	return len(index.seriesID2TStore)
+	return index.seriesID2TStore.size()
 }
 
 // AllTStores returns the map of seriesID and tStores
-func (index *tagIndex) AllTStores() map[uint32]tStoreINTF {
+func (index *tagIndex) AllTStores() *metricMap {
 	return index.seriesID2TStore
 }
 
@@ -312,7 +312,10 @@ func (index *tagIndex) FlushVersionDataTo(
 	flushCtx flushContext,
 ) {
 	var flushed bool
-	for seriesID, tStore := range index.seriesID2TStore {
+
+	it := index.seriesID2TStore.iterator()
+	for it.hasNext() {
+		seriesID, tStore := it.next()
 		tStoreDataFlushed := tStore.FlushSeriesTo(tableFlusher, flushCtx, seriesID)
 		flushed = flushed || tStoreDataFlushed
 	}

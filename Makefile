@@ -23,7 +23,7 @@ build-linux: clean-build ## Build executable files. (Args: GOOS=$(go env GOOS) G
 
 build-all: build-frontend build  ## Build executable files with front-end files inside.
 
-GOLANGCI_LINT_VERSION ?= "latest"
+GOLANGCI_LINT_VERSION ?= "v1.18.0"
 
 pre-test: ## go generate mock file.
 	go install "./ci/mockgen"

@@ -17,7 +17,7 @@ func Test_newTimeSeriesStore(t *testing.T) {
 	assert.NotNil(t, tStore)
 	assert.True(t, tStore.IsNoData())
 	assert.False(t, tStore.IsExpired())
-	assert.Equal(t, uint64(100), tStore.GetHash())
+	assert.Equal(t, uint32(100), tStore.GetSeriesID())
 }
 
 func Test_tStore_expired(t *testing.T) {
