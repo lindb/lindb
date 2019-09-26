@@ -2,7 +2,6 @@ package lind
 
 import (
 	"fmt"
-	_ "net/http/pprof" // for profiling
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"

@@ -3,6 +3,7 @@ package stream
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -32,7 +33,7 @@ func (r *Reader) ReadVarint32() int32 {
 // ReadVarint64 reads int64 from buffer
 func (r *Reader) ReadVarint64() int64 {
 	var v int64
-	v, r.err = binary.ReadVarint(r.reader)
+	v, r.err = readVarint(r.reader)
 	return v
 }
 
@@ -44,13 +45,13 @@ func (r *Reader) ReadUvarint32() uint32 {
 // ReadUvarint64 reads uint64 from buffer
 func (r *Reader) ReadUvarint64() uint64 {
 	var v uint64
-	v, r.err = binary.ReadUvarint(r.reader)
+	v, r.err = readUvarint(r.reader)
 	return v
 }
 
 // ReadUint16 read 2 bytes from buf as uint16
 func (r *Reader) ReadUint16() uint16 {
-	buf := r.ReadBytes(2)
+	buf := r.ReadSlice(2)
 	if len(buf) != 2 {
 		return 0
 	}
@@ -64,7 +65,7 @@ func (r *Reader) ReadInt16() int16 {
 
 // ReadUint32 read 4 bytes from buf as uint32
 func (r *Reader) ReadUint32() uint32 {
-	buf := r.ReadBytes(4)
+	buf := r.ReadSlice(4)
 	if len(buf) != 4 {
 		return 0
 	}
@@ -73,7 +74,7 @@ func (r *Reader) ReadUint32() uint32 {
 
 // ReadUint64 read 8 bytes from buf as uint64
 func (r *Reader) ReadUint64() uint64 {
-	buf := r.ReadBytes(8)
+	buf := r.ReadSlice(8)
 	if len(buf) != 8 {
 		return 0
 	}
@@ -158,4 +159,38 @@ func (r *Reader) SeekStart() {
 // Error return binary err
 func (r *Reader) Error() error {
 	return r.err
+}
+
+var errOverflow = errors.New("varint overflows a 64-bit integer")
+
+// copy from binary
+// readUvarint reads an encoded unsigned integer from bytes.Reader and returns it as a uint64.
+func readUvarint(r *bytes.Reader) (uint64, error) {
+	var x uint64
+	var s uint
+	for i := 0; ; i++ {
+		b, err := r.ReadByte()
+		if err != nil {
+			return x, err
+		}
+		if b < 0x80 {
+			if i > 9 || i == 9 && b > 1 {
+				return x, errOverflow
+			}
+			return x | uint64(b)<<s, nil
+		}
+		x |= uint64(b&0x7f) << s
+		s += 7
+	}
+}
+
+// copy from binary
+// readVarint reads an encoded signed integer from bytes.Reader and returns it as an int64.
+func readVarint(r *bytes.Reader) (int64, error) {
+	ux, err := readUvarint(r) // ok to continue in presence of error
+	x := int64(ux >> 1)
+	if ux&1 != 0 {
+		x = ^x
+	}
+	return x, err
 }
