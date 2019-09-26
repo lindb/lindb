@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 
@@ -22,6 +25,10 @@ func run(ctx context.Context, service server.Service) error {
 	// enabled debug log level
 	if debug {
 		logger.RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
+		go func() {
+			http.ListenAndServe(":6060", nil)
+		}()
+		mainLogger.Info("pprof listening on 6060")
 	}
 
 	// start service

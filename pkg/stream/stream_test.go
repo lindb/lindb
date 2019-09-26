@@ -186,3 +186,30 @@ func Benchmark_Reader_ReadSlice(b *testing.B) {
 		_ = reader.ReadSlice(4096)
 	}
 }
+
+func Benchmark_readUvariant64(b *testing.B) {
+	var buf bytes.Buffer
+	w := stream.NewBufferWriter(&buf)
+	for i := 0; i < 1000; i++ {
+		w.PutUvarint64(uint64(i))
+	}
+
+	r := stream.NewReader(buf.Bytes())
+	for i := 0; i < b.N; i++ {
+		r.SeekStart()
+		for x := 0; x < 1000; x++ {
+			_ = r.ReadUvarint64()
+		}
+	}
+}
+
+func Test_readUvarint(t *testing.T) {
+	r := stream.NewReader(nil)
+	_ = r.ReadUvarint64()
+	assert.NotNil(t, r.Error())
+
+	data := []byte{0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x1, 0, 0}
+	r = stream.NewReader(data)
+	_ = r.ReadUvarint64()
+	assert.NotNil(t, r.Error())
+}
