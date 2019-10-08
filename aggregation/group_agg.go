@@ -9,72 +9,73 @@ import (
 
 //go:generate mockgen -source=./group_agg.go -destination=./group_agg_mock.go -package=aggregation
 
-type GroupByAggregator interface {
+// GroupingAggregator represents an aggregator which merges time series and does grouping if need
+type GroupingAggregator interface {
+	// Aggregate aggregates the time series data
 	Aggregate(it series.GroupedIterator)
-	Merge(tags map[string]string, agg FieldAggregates)
+	// ResultSet returns the result set of aggregator
 	ResultSet() []series.GroupedIterator
 }
 
-type SeriesAgg struct {
-	tags       map[string]string
-	aggregator FieldAggregates
+// timeSeriesAggregator represents the aggregator of a time series
+type timeSeriesAggregator struct {
+	tags       map[string]string // tags of time series
+	aggregator FieldAggregates   // fields aggregator
 }
 
-type groupByAggregator struct {
-	aggSpecs       AggregatorSpecs
-	isDownSampling bool
-	interval       int64
-	timeRange      *timeutil.TimeRange
-	aggregates     map[string]*SeriesAgg
+type groupingAggregator struct {
+	aggSpecs   AggregatorSpecs
+	interval   int64
+	timeRange  *timeutil.TimeRange
+	aggregates map[string]*timeSeriesAggregator
 }
 
-func NewGroupByAggregator(interval int64, timeRange *timeutil.TimeRange,
-	isDownSampling bool, aggSpecs AggregatorSpecs) GroupByAggregator {
-	return &groupByAggregator{
-		aggSpecs:       aggSpecs,
-		isDownSampling: isDownSampling,
-		interval:       interval,
-		timeRange:      timeRange,
-		aggregates:     make(map[string]*SeriesAgg),
+// NewGroupingAggregator creates a grouping aggregator
+func NewGroupingAggregator(interval int64, timeRange *timeutil.TimeRange,
+	aggSpecs AggregatorSpecs) GroupingAggregator {
+	return &groupingAggregator{
+		aggSpecs:   aggSpecs,
+		interval:   interval,
+		timeRange:  timeRange,
+		aggregates: make(map[string]*timeSeriesAggregator),
 	}
 }
 
-func (ga *groupByAggregator) Merge(tags map[string]string, agg FieldAggregates) {
-	seriesAgg := ga.getAggregator(tags)
-	for idx, aggregator := range seriesAgg.aggregator {
-		for _, segAgg := range agg[idx].Aggregates() {
-			if segAgg == nil {
-				continue
-			}
-			startTime, fieldIt := segAgg.ResultSet()
-			sAgg, ok := aggregator.GetAggregator(startTime)
-			if ok {
-				sAgg.Aggregate(fieldIt)
-			}
-		}
-	}
-}
-
-func (ga *groupByAggregator) Aggregate(it series.GroupedIterator) {
+// Aggregate aggregates the time series data
+func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 	tags := it.Tags()
 	seriesAgg := ga.getAggregator(tags)
-	for _, aggregator := range seriesAgg.aggregator {
-		for it.HasNext() {
-			seriesIt := it.Next()
-			for seriesIt.HasNext() {
-				startTime, fieldIt := seriesIt.Next()
-				if fieldIt == nil {
-					continue
-				}
-				sAgg, ok := aggregator.GetAggregator(startTime)
-				if ok {
-					sAgg.Aggregate(fieldIt)
-				}
+	var sAgg SeriesAggregator
+	for it.HasNext() {
+		seriesIt := it.Next()
+		fieldName := seriesIt.FieldName()
+		// 1. find field aggregator
+		sAgg = nil
+		for _, aggregator := range seriesAgg.aggregator {
+			if aggregator.FieldName() == fieldName {
+				sAgg = aggregator
+				break
+			}
+		}
+		if sAgg == nil {
+			continue
+		}
+		// 2. merge the field series data
+		for seriesIt.HasNext() {
+			startTime, fieldIt := seriesIt.Next()
+			if fieldIt == nil {
+				continue
+			}
+			fAgg, ok := sAgg.GetAggregator(startTime)
+			if ok {
+				fAgg.Aggregate(fieldIt)
 			}
 		}
 	}
 }
-func (ga *groupByAggregator) ResultSet() []series.GroupedIterator {
+
+// ResultSet returns the result set of aggregator
+func (ga *groupingAggregator) ResultSet() []series.GroupedIterator {
 	length := len(ga.aggregates)
 	if length == 0 {
 		return nil
@@ -88,7 +89,8 @@ func (ga *groupByAggregator) ResultSet() []series.GroupedIterator {
 	return seriesList
 }
 
-func (ga *groupByAggregator) getAggregator(tags map[string]string) (agg *SeriesAgg) {
+// getAggregator returns the time series aggregator by time series's tags
+func (ga *groupingAggregator) getAggregator(tags map[string]string) (agg *timeSeriesAggregator) {
 	// 1. prepare series tags
 	tagsStr := constants.EmptyGroupTagsStr
 	if len(tags) > 0 {
@@ -97,9 +99,9 @@ func (ga *groupByAggregator) getAggregator(tags map[string]string) (agg *SeriesA
 	// 2. get series aggregator
 	agg, ok := ga.aggregates[tagsStr]
 	if !ok {
-		agg = &SeriesAgg{
+		agg = &timeSeriesAggregator{
 			tags:       tags,
-			aggregator: NewFieldAggregates(ga.interval, 1, ga.timeRange, ga.isDownSampling, ga.aggSpecs),
+			aggregator: NewFieldAggregates(ga.interval, 1, ga.timeRange, false, ga.aggSpecs),
 		}
 		ga.aggregates[tagsStr] = agg
 	}

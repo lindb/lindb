@@ -1,5 +1,16 @@
 package aggregation
 
+//import (
+//	"github.com/golang/mock/gomock"
+//	"github.com/lindb/lindb/aggregation/function"
+//	"github.com/lindb/lindb/series"
+//	"github.com/lindb/lindb/series/field"
+//	"github.com/lindb/lindb/sql"
+//	"github.com/lindb/lindb/sql/stmt"
+//	"github.com/stretchr/testify/assert"
+//	"math"
+//	"testing"
+//)
 //
 //func TestExpression_prepare(t *testing.T) {
 //	ctrl := gomock.NewController(t)

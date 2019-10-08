@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/RoaringBitmap/roaring"
@@ -78,8 +77,6 @@ func (e *metricScanEvent) ResultSet() interface{} {
 
 // SeriesIDs returns the found series IDs
 func (e *metricScanEvent) SeriesIDs() *roaring.Bitmap {
-	//FIXME need remove
-	fmt.Println(e.length)
 	return roaring.BitmapOf(e.seriesIDs[:e.length]...)
 }
 

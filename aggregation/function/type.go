@@ -7,6 +7,7 @@ const (
 	Sum FuncType = iota + 1
 	Min
 	Max
+	Count
 	Avg
 	Histogram
 	Stddev
@@ -23,6 +24,8 @@ func (t FuncType) String() string {
 		return "min"
 	case Max:
 		return "max"
+	case Count:
+		return "count"
 	case Avg:
 		return "avg"
 	case Histogram:
