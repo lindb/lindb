@@ -32,6 +32,7 @@ const (
 	SumField Type = iota + 1
 	MinField
 	MaxField
+	SummaryField
 	HistogramField
 
 	Unknown
@@ -46,6 +47,8 @@ func (t Type) String() string {
 		return "min"
 	case MaxField:
 		return "max"
+	case SummaryField:
+		return "summary"
 	case HistogramField:
 		return "histogram"
 	default:
@@ -57,6 +60,7 @@ var schemas = map[Type]schema{}
 
 func init() {
 	schemas[SumField] = newSumSchema()
+	schemas[SummaryField] = newSummarySchema()
 }
 
 // GetPrimitiveFields returns the primitive fields for down sampling

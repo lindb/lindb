@@ -25,15 +25,17 @@ type PrimitiveAggregator interface {
 // primitiveAggregator implements primitive aggregator interface, using array for storing aggregation result
 type primitiveAggregator struct {
 	id         uint16
+	start      int
 	values     collections.FloatArray
 	pointCount int
 	aggFunc    field.AggFunc
 }
 
 // newPrimitiveAggregator creates primitive aggregator
-func NewPrimitiveAggregator(fieldID uint16, pointCount int, aggFunc field.AggFunc) PrimitiveAggregator {
+func NewPrimitiveAggregator(fieldID uint16, start int, pointCount int, aggFunc field.AggFunc) PrimitiveAggregator {
 	return &primitiveAggregator{
 		id:         fieldID,
+		start:      start,
 		pointCount: pointCount,
 		aggFunc:    aggFunc,
 	}
@@ -46,7 +48,7 @@ func (agg *primitiveAggregator) FieldID() uint16 {
 
 // Iterator returns an iterator for aggregator results
 func (agg *primitiveAggregator) Iterator() series.PrimitiveIterator {
-	return newPrimitiveIterator(agg.id, agg.aggFunc.AggType(), agg.values)
+	return newPrimitiveIterator(agg.id, agg.start, agg.aggFunc.AggType(), agg.values)
 }
 
 func (agg *primitiveAggregator) reset() {

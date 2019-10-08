@@ -19,7 +19,7 @@ func TestResultMerger_Merge(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)})
 	ch := make(chan *series.TimeSeriesEvent)
 	merger := newResultMerger(context.TODO(), groupAgg, ch)
@@ -40,7 +40,7 @@ func TestResultMerger_Merge(t *testing.T) {
 func TestResultMerger_Cancel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	groupAgg.EXPECT().ResultSet().Return(nil)
 	ch := make(chan *series.TimeSeriesEvent)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -59,7 +59,7 @@ func TestResultMerger_Cancel(t *testing.T) {
 func TestResultMerger_Err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	ch := make(chan *series.TimeSeriesEvent)
 	merger := newResultMerger(context.TODO(), groupAgg, ch)
 	c := atomic.NewInt32(0)
@@ -82,7 +82,7 @@ func TestResultMerger_Err(t *testing.T) {
 func TestResultMerger_GroupBy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	groupAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
 	groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)})
 	ch := make(chan *series.TimeSeriesEvent)

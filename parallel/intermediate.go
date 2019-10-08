@@ -43,7 +43,7 @@ func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) err
 		return errUnmarshalQuery
 	}
 	//fixme
-	groupAgg := aggregation.NewGroupByAggregator(query.Interval, &query.TimeRange, false, aggregation.AggregatorSpecs{
+	groupAgg := aggregation.NewGroupingAggregator(query.Interval, &query.TimeRange, aggregation.AggregatorSpecs{
 		aggregation.NewAggregatorSpec("f1", field.SumField)})
 	taskSubmitted := false
 	for _, intermediate := range physicalPlan.Intermediates {

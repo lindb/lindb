@@ -17,7 +17,7 @@ func TestScanWorker_Emit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 
 	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
 	event := series.NewMockScanEvent(ctrl)
@@ -42,7 +42,7 @@ func TestScanWorker_handle_event(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	groupAgg := aggregation.NewMockGroupByAggregator(ctrl)
+	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 
 	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
 	event := series.NewMockScanEvent(ctrl)
@@ -82,7 +82,7 @@ func TestScanWorker_handle_event(t *testing.T) {
 	gomock.InOrder(
 		event.EXPECT().Scan().Return(true),
 		event.EXPECT().ResultSet().Return(aggregation.FieldAggregates{seriesAgg}),
-		groupAgg.EXPECT().Merge(gomock.Any(), gomock.Any()),
+		groupAgg.EXPECT().Aggregate(gomock.Any()),
 		event.EXPECT().Release(),
 		groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)}),
 	)

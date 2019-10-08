@@ -77,7 +77,7 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	}
 	query := ctx.Query()
 	//TODO fix me
-	groupAgg := aggregation.NewGroupByAggregator(query.Interval, &query.TimeRange, false, aggregation.AggregatorSpecs{
+	groupAgg := aggregation.NewGroupingAggregator(query.Interval, &query.TimeRange, aggregation.AggregatorSpecs{
 		aggregation.NewAggregatorSpec("f1", field.SumField)})
 
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,

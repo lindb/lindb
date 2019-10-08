@@ -5,6 +5,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -73,14 +74,14 @@ func (e *expression) ResultSet() map[string]collections.FloatArray {
 
 // prepare prepares the field store
 func (e *expression) prepare() {
-	//FIXME stone1100
-	//for e.timeSeries.HasNext() {
-	//	it := e.timeSeries.Next()
-	//	f := fields.NewSingleField(e.pointCount, it)
-	//	if f != nil {
-	//		e.fieldStore[it.FieldMeta().Name] = f
-	//	}
-	//}
+	for e.timeSeries.HasNext() {
+		_, it := e.timeSeries.Next()
+		//FIXME stone1100
+		f := fields.NewSingleField(e.pointCount, field.SumField, it)
+		if f != nil {
+			e.fieldStore[e.timeSeries.FieldName()] = f
+		}
+	}
 }
 
 // eval evaluates the expression
