@@ -10,46 +10,48 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-//func TestFieldIterator(t *testing.T) {
-//	primitiveIt := newPrimitiveIterator(uint16(10), field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-//	primitiveIt1 := newPrimitiveIterator(uint16(10), field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-//
-//	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
-//
-//	expect := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
-//	assert.True(t, it.HasNext())
-//	AssertPrimitiveIt(t, it.Next(), expect)
-//	assert.True(t, it.HasNext())
-//	AssertPrimitiveIt(t, it.Next(), expect)
-//
-//	assert.False(t, it.HasNext())
-//	assert.Nil(t, it.Next())
-//
-//	data, err := it.Bytes()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//	assert.True(t, len(data) > 0)
-//}
+func TestFieldIterator(t *testing.T) {
+	it := newFieldIterator(10, []series.PrimitiveIterator{})
+	assert.False(t, it.HasNext())
+	data, err := it.Bytes()
+	assert.NoError(t, err)
+	assert.Nil(t, data)
+
+	primitiveIt := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	primitiveIt1 := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+
+	it = newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
+
+	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
+	assert.True(t, it.HasNext())
+	AssertPrimitiveIt(t, it.Next(), expect)
+	assert.True(t, it.HasNext())
+	AssertPrimitiveIt(t, it.Next(), expect)
+
+	assert.False(t, it.HasNext())
+	assert.Nil(t, it.Next())
+
+	data, err = it.Bytes()
+	assert.NoError(t, err)
+	assert.True(t, len(data) > 0)
+}
 
 func TestFieldIterator_Bytes(t *testing.T) {
 	floatArray := collections.NewFloatArray(5)
 	floatArray.SetValue(2, 10.0)
-	primitiveIt := newPrimitiveIterator(uint16(10), field.Sum, floatArray)
-	primitiveIt1 := newPrimitiveIterator(uint16(10), field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	primitiveIt := newPrimitiveIterator(uint16(10), 10, field.Sum, floatArray)
+	primitiveIt1 := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
 	data, err := it.Bytes()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
 }
 
 func TestPrimitiveIterator(t *testing.T) {
-	it := newPrimitiveIterator(uint16(10), field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	it := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
-	expect := map[int]float64{0: 0, 1: 10, 2: 10.0, 3: 100.4, 4: 50.0}
+	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
 	AssertPrimitiveIt(t, it, expect)
 
 	assert.False(t, it.HasNext())
@@ -58,7 +60,7 @@ func TestPrimitiveIterator(t *testing.T) {
 	assert.Equal(t, float64(0), value)
 	assert.Equal(t, uint16(10), it.FieldID())
 
-	it = newPrimitiveIterator(uint16(10), field.Sum, nil)
+	it = newPrimitiveIterator(uint16(10), 10, field.Sum, nil)
 	assert.False(t, it.HasNext())
 	timeSlot, value = it.Next()
 	assert.Equal(t, -1, timeSlot)

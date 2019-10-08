@@ -41,13 +41,13 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 	return primitiveIt
 }
 
-//FIXME stone1100 need refactor
 func (it *fieldIterator) Bytes() ([]byte, error) {
 	if it.length == 0 {
 		return nil, nil
 	}
+	//need reset idx
+	it.idx = 0
 	writer := stream.NewBufferWriter(nil)
-
 	for it.HasNext() {
 		primitiveIt := it.Next()
 		encoder := encoding.NewTSDEncoder(it.startSlot)
@@ -76,14 +76,16 @@ func (it *fieldIterator) Bytes() ([]byte, error) {
 
 // primitiveIterator represents primitive iterator using array
 type primitiveIterator struct {
+	start   int
 	id      uint16
 	aggType field.AggType
 	it      collections.FloatArrayIterator
 }
 
 // newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id uint16, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
+func newPrimitiveIterator(id uint16, start int, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
 	it := &primitiveIterator{
+		start:   start,
 		id:      id,
 		aggType: aggType,
 	}
@@ -116,5 +118,10 @@ func (it *primitiveIterator) Next() (timeSlot int, value float64) {
 	if it.it == nil {
 		return -1, 0
 	}
-	return it.it.Next()
+	timeSlot, value = it.it.Next()
+	if timeSlot == -1 {
+		return
+	}
+	timeSlot += it.start
+	return
 }

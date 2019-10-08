@@ -19,7 +19,7 @@ type scanWorker struct {
 	tagKeys    []string
 
 	metaGetter series.MetaGetter
-	groupAgg   aggregation.GroupByAggregator
+	groupAgg   aggregation.GroupingAggregator
 	resultCh   chan *series.TimeSeriesEvent
 
 	events chan series.ScanEvent
@@ -31,7 +31,7 @@ type scanWorker struct {
 
 // createScanWorker creates scan worker dispatcher event to aggregate worker
 func createScanWorker(ctx context.Context, metricID uint32,
-	groupByTagKeys []string, metaGetter series.MetaGetter, groupedAgg aggregation.GroupByAggregator,
+	groupByTagKeys []string, metaGetter series.MetaGetter, groupedAgg aggregation.GroupingAggregator,
 	resultCh chan *series.TimeSeriesEvent) series.ScanWorker {
 	c, cancel := context.WithCancel(ctx)
 	worker := &scanWorker{
@@ -101,7 +101,7 @@ func (s *scanWorker) process() {
 			if resultSet != nil {
 				agg, ok := resultSet.(aggregation.FieldAggregates)
 				if ok {
-					s.groupAgg.Merge(nil, agg)
+					s.groupAgg.Aggregate(agg.ResultSet(nil))
 				}
 			}
 			event.Release()

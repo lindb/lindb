@@ -21,7 +21,7 @@ type ResultMerger interface {
 type resultMerger struct {
 	resultSet chan *series.TimeSeriesEvent
 
-	groupAgg aggregation.GroupByAggregator
+	groupAgg aggregation.GroupingAggregator
 
 	events chan *pb.TaskResponse
 
@@ -32,7 +32,7 @@ type resultMerger struct {
 }
 
 // newResultMerger create a result merger
-func newResultMerger(ctx context.Context, groupAgg aggregation.GroupByAggregator, resultSet chan *series.TimeSeriesEvent) ResultMerger {
+func newResultMerger(ctx context.Context, groupAgg aggregation.GroupingAggregator, resultSet chan *series.TimeSeriesEvent) ResultMerger {
 	merger := &resultMerger{
 		resultSet: resultSet,
 		groupAgg:  groupAgg,

@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -11,6 +12,16 @@ import (
 	"github.com/lindb/lindb/series"
 )
 
+func Test_pool(t *testing.T) {
+	stores := getStores()
+	for idx := range stores {
+		stores[idx] = nil
+	}
+	putStores(stores)
+	stores = getStores()
+	fmt.Println(len(stores))
+}
+
 func TestMetricScanEvent_Scan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -19,11 +30,12 @@ func TestMetricScanEvent_Scan(t *testing.T) {
 	sCtx := &series.ScanContext{
 		FieldIDs: []uint16{3, 4, 5},
 	}
+	stores := getStores()
+	stores[0] = tStore
+	seriesIDs := getSeriesIDs()
+	seriesIDs[0] = uint32(1)
 	// test not match aggregator
-	event := newScanEvent(1,
-		[]tStoreINTF{tStore},
-		[]uint32{1}, series.Version(1),
-		sCtx)
+	event := newScanEvent(1, stores, seriesIDs, series.Version(1), sCtx)
 	ok := event.Scan()
 	assert.False(t, ok)
 	sAgg := aggregation.NewMockSeriesAggregator(ctrl)
@@ -37,10 +49,11 @@ func TestMetricScanEvent_Scan(t *testing.T) {
 	gomock.InOrder(
 		tStore.EXPECT().scan(gomock.Any()),
 	)
-	event = newScanEvent(1,
-		[]tStoreINTF{tStore},
-		[]uint32{1}, series.Version(1),
-		sCtx)
+	stores = getStores()
+	stores[0] = tStore
+	seriesIDs = getSeriesIDs()
+	seriesIDs[0] = uint32(1)
+	event = newScanEvent(1, stores, seriesIDs, series.Version(1), sCtx)
 	ok = event.Scan()
 	assert.True(t, ok)
 

@@ -129,7 +129,7 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 
 	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(e.query.Interval, memoryDB.Interval(), e.query.TimeRange)
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupByAggregator(queryInterval, &timeRange, false, aggSpecs)
+	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
 	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.resultCh)
 	defer worker.Close()
@@ -192,7 +192,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	//FIXME get interval
 	timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupByAggregator(queryInterval, &timeRange, false, aggSpecs)
+	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
 	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, nil)
 	defer worker.Close()
