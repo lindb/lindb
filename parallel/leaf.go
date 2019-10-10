@@ -110,7 +110,7 @@ func (p *leafTask) handleResultSet(groupedTimeSeries <-chan *series.TimeSeriesEv
 				for ts.HasNext() {
 					fieldIt := ts.Next()
 					data, err = series.EncodeSeries(fieldIt)
-					if err != nil {
+					if err != nil || len(data) == 0 {
 						break
 					}
 

@@ -64,7 +64,12 @@ func (q *TaskHandler) dispatch(req *common.TaskRequest) {
 	//TODO add timeout cfg, need cancel ctx??
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	go func() {
-		defer cancel()
+		defer func() {
+			if err := recover(); err != nil {
+				q.logger.Error("dispatch task request", logger.Any("err", err), logger.Stack())
+			}
+			cancel()
+		}()
 		q.dispatcher.Dispatch(ctx, req)
 	}()
 }

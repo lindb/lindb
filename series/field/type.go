@@ -1,8 +1,6 @@
 package field
 
-import (
-	"github.com/lindb/lindb/aggregation/function"
-)
+import "github.com/lindb/lindb/aggregation/function"
 
 // ValueType represents primitive field's value type
 type ValueType uint8
@@ -23,6 +21,14 @@ const (
 	Min
 	Max
 )
+
+var schemas = map[Type]schema{}
+
+func init() {
+	schemas[SumField] = newSumSchema()
+	schemas[MinField] = newMinSchema()
+	schemas[SummaryField] = newSummarySchema()
+}
 
 // Type represents field type for LinDB support
 type Type uint8
@@ -56,22 +62,20 @@ func (t Type) String() string {
 	}
 }
 
-var schemas = map[Type]schema{}
-
-func init() {
-	schemas[SumField] = newSumSchema()
-	schemas[SummaryField] = newSummarySchema()
-}
-
-// GetPrimitiveFields returns the primitive fields for down sampling
-func GetPrimitiveFields(fieldType Type, funcType function.FuncType) map[uint16]AggType {
-	schema := schemas[fieldType]
+// GetPrimitiveFields returns the primitive fields for aggregator
+func (t Type) GetPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
+	schema := schemas[t]
 	if schema == nil {
 		return nil
 	}
 	return schema.getPrimitiveFields(funcType)
 }
 
-func GetPrimitiveFieldsValue() {
-
+// GetDefaultPrimitiveFields returns the default primitive fields for aggregator
+func (t Type) GetDefaultPrimitiveFields() map[uint16]AggType {
+	schema := schemas[t]
+	if schema == nil {
+		return nil
+	}
+	return schema.getDefaultPrimitiveFields()
 }
