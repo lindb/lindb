@@ -6,5 +6,5 @@ web_build:
 	npm run build
 
 web_clean:
-	rm -rf web/build \
-    rm -rf web/node_modules
+	rm -rf build \
+    rm -rf node_modules
