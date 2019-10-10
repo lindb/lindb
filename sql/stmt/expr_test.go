@@ -10,6 +10,7 @@ import (
 
 func TestExpr_Rewrite(t *testing.T) {
 	assert.Equal(t, "f", (&SelectItem{Expr: &FieldExpr{Name: "f"}}).Rewrite())
+	assert.Equal(t, "1.90", (&SelectItem{Expr: &NumberLiteral{Val: 1.9}}).Rewrite())
 	assert.Equal(t, "f as f1", (&SelectItem{Expr: &FieldExpr{Name: "f"}, Alias: "f1"}).Rewrite())
 
 	assert.Equal(t, "f", (&FieldExpr{Name: "f"}).Rewrite())
@@ -71,6 +72,8 @@ func TestExpr_Unmarshal_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	_, err = Unmarshal([]byte("{\"type\":\"paren\",\"expr\":[\"213\"]}"))
 	assert.NotNil(t, err)
+	_, err = Unmarshal([]byte("{\"type\":\"number\",\"expr\":{\"val\":\"sf\"}}"))
+	assert.NotNil(t, err)
 	_, err = Unmarshal([]byte("{\"type\":\"not\",\"expr\":[\"213\"]}"))
 	assert.NotNil(t, err)
 	_, err = unmarshalSelectItem([]byte("324"))
@@ -131,6 +134,15 @@ func TestNotExpr_Marshal(t *testing.T) {
 	data := Marshal(expr)
 	exprData, _ := Unmarshal(data)
 	e := exprData.(*NotExpr)
+	assert.Equal(t, *expr, *e)
+}
+
+func TestNumberLiteral_Marshal(t *testing.T) {
+	expr := &SelectItem{Expr: &NumberLiteral{Val: 19.0}}
+	data := Marshal(expr)
+	exprData, err := Unmarshal(data)
+	assert.NoError(t, err)
+	e := exprData.(*SelectItem)
 	assert.Equal(t, *expr, *e)
 }
 

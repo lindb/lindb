@@ -140,7 +140,7 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	query, _ := sql.Parse("select f1+f2 from cpu")
+	query, _ := sql.Parse("select (f1+f2)*100 as f from cpu")
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -154,9 +154,9 @@ func TestExpression_BinaryEval(t *testing.T) {
 	)
 	expression.Eval(timeSeries)
 	resultSet := expression.ResultSet()
-	value := resultSet["f1+f2"]
+	value := resultSet["f"]
 	assert.Equal(t, 1, value.Size())
-	assert.Equal(t, 50.0+50.0, value.GetValue(50-10))
+	assert.Equal(t, (50.0+50.0)*100.0, value.GetValue(50-10))
 
 	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
 	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField)

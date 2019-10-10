@@ -11,6 +11,7 @@ func TestFloatArray(t *testing.T) {
 	assert.Equal(t, 10, fa.Capacity())
 	assert.Equal(t, 0, fa.Size())
 	assert.True(t, fa.IsEmpty())
+	assert.False(t, fa.IsSingle())
 	fa.SetValue(0, 1.1)
 	fa.SetValue(5, 5.5)
 	fa.SetValue(8, 9.9)
@@ -33,28 +34,44 @@ func TestFloatArray(t *testing.T) {
 
 	assert.Equal(t, 3, fa.Size())
 
-	it := fa.Iterator()
-	assert.True(t, it.HasNext())
-	idx, value := it.Next()
-	assert.Equal(t, 0, idx)
-	assert.Equal(t, 1.1, value)
-	assert.True(t, it.HasNext())
-	idx, value = it.Next()
-	assert.Equal(t, 5, idx)
-	assert.Equal(t, 5.5, value)
-	assert.True(t, it.HasNext())
-	idx, value = it.Next()
-	assert.Equal(t, 8, idx)
-	assert.Equal(t, 9.9, value)
-	assert.False(t, it.HasNext())
-	idx, value = it.Next()
-	assert.Equal(t, -1, idx)
-	assert.Equal(t, float64(0), value)
+	for i := 0; i < 3; i++ {
+		it := fa.Iterator()
+		assert.True(t, it.HasNext())
+		idx, value := it.Next()
+		assert.Equal(t, 0, idx)
+		assert.Equal(t, 1.1, value)
+		assert.True(t, it.HasNext())
+		idx, value = it.Next()
+		assert.Equal(t, 5, idx)
+		assert.Equal(t, 5.5, value)
+		assert.True(t, it.HasNext())
+		idx, value = it.Next()
+		assert.Equal(t, 8, idx)
+		assert.Equal(t, 9.9, value)
+		assert.False(t, it.HasNext())
+		idx, value = it.Next()
+		assert.Equal(t, -1, idx)
+		assert.Equal(t, float64(0), value)
+	}
 
 	// reset
 	fa.SetValue(8, 10.10)
 	assert.Equal(t, 10.10, fa.GetValue(8))
 	assert.Equal(t, 3, fa.Size())
+}
+
+func TestFloatArray_Single(t *testing.T) {
+	fa := NewFloatArray(10)
+	assert.False(t, fa.IsSingle())
+	for i := 0; i < 10; i++ {
+		fa.SetValue(i, 10)
+	}
+	assert.Equal(t, 10, fa.Size())
+	fa.SetSingle(true)
+	assert.True(t, fa.IsSingle())
+	fa.Reset()
+	assert.False(t, fa.IsSingle())
+	assert.True(t, fa.IsEmpty())
 }
 
 func BenchmarkFloatArray_HasValue(b *testing.B) {

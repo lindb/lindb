@@ -16,19 +16,23 @@ type FloatArray interface {
 	IsEmpty() bool
 	// Size returns size of array
 	Size() int
-
 	// Capacity returns the capacity of array
 	Capacity() int
 	// Marks returns the marks of array
 	Marks() []uint8
-
+	// Reset resets all values and mark for reusing
 	Reset()
+	// SetSingle sets is array is single value, mean all values is same
+	SetSingle(single bool)
+	// IsSingle return if is single value
+	IsSingle() bool
 }
 
 // floatArray represents a float array, support mark pos if has value
 type floatArray struct {
-	marks  []uint8
-	values []float64
+	marks    []uint8
+	values   []float64
+	isSingle bool
 
 	capacity int
 	size     int
@@ -124,11 +128,23 @@ func (f *floatArray) checkPos(pos int) bool {
 	return true
 }
 
+// Reset resets all values and mark for reusing
 func (f *floatArray) Reset() {
 	f.size = 0
+	f.isSingle = false
 	for i := range f.marks {
 		f.marks[i] = 0
 	}
+}
+
+// SetSingle sets is array is single value, mean all values is same
+func (f *floatArray) SetSingle(single bool) {
+	f.isSingle = single
+}
+
+// IsSingle return if is single value
+func (f *floatArray) IsSingle() bool {
+	return f.isSingle
 }
 
 // FloatArrayIterator represents a float array iterator
