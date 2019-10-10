@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("broker", "LoginAPI")
+var log = logger.GetLogger("broker", "api")
 
 // LoginAPI represents login param
 type LoginAPI struct {
