@@ -16,6 +16,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -127,6 +128,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	it.EXPECT().Tags().Return(nil)
 	fieldIt := series.NewMockIterator(ctrl)
 	fieldIt.EXPECT().FieldName().Return("f1")
+	fieldIt.EXPECT().FieldType().Return(field.SumField)
 	fieldIt.EXPECT().HasNext().Return(false)
 	it.EXPECT().Next().Return(fieldIt)
 	it.EXPECT().HasNext().Return(false)
@@ -148,6 +150,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	it.EXPECT().Tags().Return(nil)
 	fIt := series.NewMockFieldIterator(ctrl)
 	fieldIt.EXPECT().HasNext().Return(true)
+	fieldIt.EXPECT().FieldType().Return(field.SumField)
 	fieldIt.EXPECT().Next().Return(int64(10), fIt)
 	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
 	it.EXPECT().Next().Return(fieldIt)
@@ -167,6 +170,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Tags().Return(nil)
 	fieldIt.EXPECT().HasNext().Return(true)
+	fieldIt.EXPECT().FieldType().Return(field.SumField)
 	fieldIt.EXPECT().Next().Return(int64(10), fIt)
 	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
 	it.EXPECT().Next().Return(fieldIt)

@@ -25,7 +25,6 @@ func (r *taskReceiver) Receive(resp *pb.TaskResponse) error {
 		return nil
 	}
 
-	//TODO impl result handler
 	taskCtx.ReceiveResult(resp)
 
 	if taskCtx.Completed() {
@@ -41,7 +40,6 @@ func (r *taskReceiver) Receive(resp *pb.TaskResponse) error {
 				jobCtx.Complete()
 			}
 		}
-		//TODO need impl finally result build
 	}
 	return nil
 }

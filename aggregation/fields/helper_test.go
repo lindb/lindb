@@ -1,12 +1,8 @@
 package fields
 
 import (
-	"testing"
-
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
 )
 
@@ -15,23 +11,21 @@ import (
 ///////////////////////////////////////////////////
 
 // mockSingleIterator returns mock an iterator of single field
-func mockSingleIterator(ctrl *gomock.Controller) series.FieldIterator {
+func mockSingleIterator(ctrl *gomock.Controller) series.Iterator {
+	fIt := series.NewMockIterator(ctrl)
 	it := series.NewMockFieldIterator(ctrl)
+	fIt.EXPECT().HasNext().Return(true)
+	fIt.EXPECT().Next().Return(int64(10), it)
+	fIt.EXPECT().HasNext().Return(false)
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
+	primitiveIt.EXPECT().FieldID().Return(uint16(1))
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
+	it.EXPECT().HasNext().Return(false)
 	primitiveIt.EXPECT().HasNext().Return(true)
 	primitiveIt.EXPECT().Next().Return(4, 1.1)
 	primitiveIt.EXPECT().HasNext().Return(true)
 	primitiveIt.EXPECT().Next().Return(112, 1.1)
 	primitiveIt.EXPECT().HasNext().Return(false)
-	return it
-}
-
-func assertFieldValues(t *testing.T, values []collections.FloatArray) {
-	assert.Equal(t, 1, len(values))
-
-	list := values[0]
-	assert.Equal(t, 1, list.Size())
-	assert.Equal(t, 1.1, list.GetValue(4))
+	return fIt
 }

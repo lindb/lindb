@@ -70,25 +70,28 @@ func generateFloatArray(values []float64) collections.FloatArray {
 }
 
 // mockSingleIterator returns mock an iterator of single field
-//func mockSingleIterator(ctrl *gomock.Controller) series.FieldIterator {
-//	it := series.NewMockFieldIterator(ctrl)
-//	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-//	it.EXPECT().HasNext().Return(true)
-//	it.EXPECT().Next().Return(primitiveIt)
-//	primitiveIt.EXPECT().HasNext().Return(true)
-//	primitiveIt.EXPECT().Next().Return(4, 1.1)
-//	primitiveIt.EXPECT().HasNext().Return(true)
-//	primitiveIt.EXPECT().Next().Return(112, 1.1)
-//	primitiveIt.EXPECT().HasNext().Return(false)
-//	return it
-//}
+func mockSingleIterator(ctrl *gomock.Controller) series.FieldIterator {
+	it := series.NewMockFieldIterator(ctrl)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
+	it.EXPECT().HasNext().Return(true)
+	it.EXPECT().Next().Return(primitiveIt)
+	primitiveIt.EXPECT().FieldID().Return(uint16(1))
+	primitiveIt.EXPECT().HasNext().Return(true)
+	primitiveIt.EXPECT().Next().Return(4, 4.0)
+	primitiveIt.EXPECT().HasNext().Return(true)
+	primitiveIt.EXPECT().Next().Return(50, 50.0)
+	primitiveIt.EXPECT().HasNext().Return(false)
+	it.EXPECT().HasNext().Return(false)
+	return it
+}
 
-//func mockTimeSeries(ctrl *gomock.Controller) series.Iterator {
-//	timeSeries := series.NewMockIterator(ctrl)
-//	it := mockSingleIterator(ctrl)
-//
-//	timeSeries.EXPECT().HasNext().Return(true)
-//	timeSeries.EXPECT().Next().Return(it)
-//	timeSeries.EXPECT().HasNext().Return(false)
-//	return timeSeries
-//}
+func mockTimeSeries(ctrl *gomock.Controller, startTime int64, fieldName string, fieldType field.Type) series.Iterator {
+	timeSeries := series.NewMockIterator(ctrl)
+	timeSeries.EXPECT().FieldType().Return(fieldType)
+	timeSeries.EXPECT().FieldName().Return(fieldName)
+	it := mockSingleIterator(ctrl)
+	timeSeries.EXPECT().HasNext().Return(true)
+	timeSeries.EXPECT().Next().Return(startTime, it)
+	timeSeries.EXPECT().HasNext().Return(false)
+	return timeSeries
+}
