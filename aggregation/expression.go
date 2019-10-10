@@ -103,6 +103,13 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 		return e.eval(nil, ex.Expr)
 	case *stmt.BinaryExpr:
 		return e.binaryEval(ex)
+	case *stmt.NumberLiteral:
+		values := collections.NewFloatArray(e.pointCount)
+		for i := 0; i < e.pointCount; i++ {
+			values.SetValue(i, ex.Val)
+		}
+		values.SetSingle(true)
+		return []collections.FloatArray{values}
 	case *stmt.FieldExpr:
 		fieldName := ex.Name
 		fieldValues, ok := e.fieldStore[fieldName]

@@ -21,6 +21,31 @@ func TestBinary_eval(t *testing.T) {
 	assert.Equal(t, float64(0), eval(stmt.OR, 4, 8))
 }
 
+func TestBinary_Eval_Single(t *testing.T) {
+	left := collections.NewFloatArray(10)
+	left.SetValue(0, 1.1)
+	left.SetValue(5, 5.5)
+	left.SetValue(8, 9.9)
+
+	right := collections.NewFloatArray(10)
+	right.SetSingle(true)
+	for i := 0; i < 10; i++ {
+		right.SetValue(i, 10)
+	}
+
+	result := binaryEval(stmt.MUL, left, right)
+	assert.Equal(t, 3, result.Size())
+	assert.Equal(t, 11.0, result.GetValue(0))
+	assert.Equal(t, 55.0, result.GetValue(5))
+	assert.Equal(t, 99.0, result.GetValue(8))
+
+	result = binaryEval(stmt.MUL, right, left)
+	assert.Equal(t, 3, result.Size())
+	assert.Equal(t, 11.0, result.GetValue(0))
+	assert.Equal(t, 55.0, result.GetValue(5))
+	assert.Equal(t, 99.0, result.GetValue(8))
+}
+
 func TestBinaryEval(t *testing.T) {
 	assert.Nil(t, binaryEval(stmt.DIV, collections.NewFloatArray(10), collections.NewFloatArray(10)))
 

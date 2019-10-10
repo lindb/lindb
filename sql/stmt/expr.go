@@ -44,6 +44,11 @@ type FieldExpr struct {
 	Name string `json:"name"`
 }
 
+// NumberLiteral represents a number.
+type NumberLiteral struct {
+	Val float64 `json:"val"`
+}
+
 // CallExpr represents a function call expression
 type CallExpr struct {
 	FuncType function.FuncType
@@ -132,6 +137,11 @@ func (e *ParenExpr) Rewrite() string {
 	return fmt.Sprintf("(%s)", e.Expr.Rewrite())
 }
 
+// Rewrite rewrites the number literal after parse
+func (e *NumberLiteral) Rewrite() string {
+	return fmt.Sprintf("%.2f", e.Val)
+}
+
 // Rewrite rewrites the binary expr after parse
 func (e *BinaryExpr) Rewrite() string {
 	return fmt.Sprintf("%s%s%s", e.Left.Rewrite(), BinaryOPString(e.Operator), e.Right.Rewrite())
@@ -173,6 +183,8 @@ func Marshal(expr Expr) []byte {
 		return encoding.JSONMarshal(&exprData{Type: "in", Expr: encoding.JSONMarshal(expr)})
 	case *EqualsExpr:
 		return encoding.JSONMarshal(&exprData{Type: "equals", Expr: encoding.JSONMarshal(expr)})
+	case *NumberLiteral:
+		return encoding.JSONMarshal(&exprData{Type: "number", Expr: encoding.JSONMarshal(expr)})
 	case *FieldExpr:
 		return encoding.JSONMarshal(&exprData{Type: "field", Expr: encoding.JSONMarshal(expr)})
 	case *NotExpr:
@@ -226,6 +238,8 @@ func Unmarshal(value []byte) (Expr, error) {
 		return unmarshal(&exprData, &InExpr{})
 	case "equals":
 		return unmarshal(&exprData, &EqualsExpr{})
+	case "number":
+		return unmarshal(&exprData, &NumberLiteral{})
 	case "field":
 		return unmarshal(&exprData, &FieldExpr{})
 	case "paren":

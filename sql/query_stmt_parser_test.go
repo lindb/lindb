@@ -41,7 +41,21 @@ func TestSingleSelectItem(t *testing.T) {
 }
 
 func TestFieldExpression(t *testing.T) {
-	//TODO need add test
+	query, err := Parse("select f+100 from cpu")
+	assert.NoError(t, err)
+	num := ((query.SelectItems[0].(*stmt.SelectItem)).Expr.(*stmt.BinaryExpr)).Right.(*stmt.NumberLiteral)
+	assert.Equal(t, 100.0, num.Val)
+
+	query, err = Parse("select f+100.1 from cpu")
+	assert.NoError(t, err)
+	num = ((query.SelectItems[0].(*stmt.SelectItem)).Expr.(*stmt.BinaryExpr)).Right.(*stmt.NumberLiteral)
+	assert.Equal(t, 100.1, num.Val)
+
+	query, err = Parse("select sum(f+100.1) from cpu")
+	assert.NoError(t, err)
+	selectItem := query.SelectItems[0].(*stmt.SelectItem)
+	num = ((selectItem.Expr.(*stmt.CallExpr)).Params[0].(*stmt.BinaryExpr)).Right.(*stmt.NumberLiteral)
+	assert.Equal(t, 100.1, num.Val)
 }
 
 func TestComplexSelectItem(t *testing.T) {

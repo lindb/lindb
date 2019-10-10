@@ -385,6 +385,19 @@ func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
 		} else {
 			q.setExprParam(&stmt.FieldExpr{Name: val})
 		}
+	case ctx.DecNumber() != nil || ctx.IntNumber() != nil:
+		valStr := ""
+		switch {
+		case ctx.DecNumber() != nil:
+			valStr = ctx.DecNumber().GetText()
+		case ctx.IntNumber() != nil:
+			valStr = ctx.IntNumber().GetText()
+		}
+
+		val, _ := strconv.ParseFloat(valStr, 64)
+		if !q.exprStack.Empty() {
+			q.setExprParam(&stmt.NumberLiteral{Val: val})
+		}
 	default:
 	}
 }
