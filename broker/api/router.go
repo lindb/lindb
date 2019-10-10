@@ -8,7 +8,7 @@ import (
 	rice "github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 type route struct {
@@ -61,11 +61,13 @@ func NewRouter() *mux.Router {
 			Path(route.pattern)
 	}
 	// static server path exist, serve web console
-	webPath := "./web/build"
-	if fileutil.Exist(webPath) {
+	box, err := rice.FindBox("./../../web/build")
+	if err != nil {
+		log.Error("cannot find static resource", logger.Error(err))
+	} else {
 		router.PathPrefix("/static/").
 			Handler(http.StripPrefix("/static/",
-				http.FileServer(rice.MustFindBox("./../../web/build").HTTPBox())))
+				http.FileServer(box.HTTPBox())))
 	}
 	// add cors support
 	router.Use(
