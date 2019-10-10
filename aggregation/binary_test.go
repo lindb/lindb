@@ -31,6 +31,10 @@ func TestBinaryEval(t *testing.T) {
 	result := binaryEval(stmt.ADD, collections.NewFloatArray(10), fa)
 	assert.Equal(t, 3, result.Size())
 	assert.Equal(t, fa, result)
+	result = binaryEval(stmt.ADD, collections.NewFloatArray(10), nil)
+	assert.Nil(t, result)
+	result = binaryEval(stmt.ADD, nil, collections.NewFloatArray(10))
+	assert.Nil(t, result)
 
 	result = binaryEval(stmt.SUB, collections.NewFloatArray(10), fa)
 	assert.Equal(t, 3, result.Size())

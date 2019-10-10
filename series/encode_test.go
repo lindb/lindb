@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/series/field"
 )
 
 func TestEncodeSeries(t *testing.T) {
@@ -15,6 +16,7 @@ func TestEncodeSeries(t *testing.T) {
 	defer ctrl.Finish()
 
 	writer := stream.NewBufferWriter(nil)
+	writer.PutByte(byte(field.SumField))
 	writer.PutVarint64(10)
 	writer.PutVarint32(int32(2))
 	writer.PutBytes([]byte{1, 2})
@@ -26,6 +28,7 @@ func TestEncodeSeries(t *testing.T) {
 	it := NewMockIterator(ctrl)
 	fIt := NewMockFieldIterator(ctrl)
 	gomock.InOrder(
+		it.EXPECT().FieldType().Return(field.SumField),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
 		fIt.EXPECT().Bytes().Return([]byte{1, 2}, nil),
@@ -40,7 +43,12 @@ func TestEncodeSeries(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, data, data2)
 
+	data2, err = EncodeSeries(nil)
+	assert.NoError(t, err)
+	assert.Nil(t, data2)
+
 	gomock.InOrder(
+		it.EXPECT().FieldType().Return(field.SumField),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
 		fIt.EXPECT().Bytes().Return([]byte{1, 2}, nil),

@@ -39,6 +39,7 @@ func NewLeafTaskDispatcher(currentNode models.Node,
 
 // Dispatch dispatches the request to storage engine query processor
 func (d *leafTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
+	//TODO need handle error
 	_ = d.processor.Process(ctx, req)
 }
 

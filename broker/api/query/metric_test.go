@@ -12,8 +12,12 @@ import (
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
+
+var familyTime, _ = timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 func TestMetricAPI_Search(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -31,13 +35,15 @@ func TestMetricAPI_Search(t *testing.T) {
 		sIt := series.NewMockIterator(ctrl)
 		it.EXPECT().Next().Return(sIt)
 		sIt.EXPECT().HasNext().Return(true)
-		sIt.EXPECT().Next().Return(int64(9), nil)
+		sIt.EXPECT().Next().Return(familyTime, nil)
 		sIt.EXPECT().HasNext().Return(true)
 		fIt := series.NewMockFieldIterator(ctrl)
-		sIt.EXPECT().Next().Return(int64(10), fIt)
-		sIt.EXPECT().FieldName().Return("f1")
+		sIt.EXPECT().Next().Return(familyTime, fIt)
+		sIt.EXPECT().FieldName().Return("f")
+		sIt.EXPECT().FieldType().Return(field.SumField)
 		pIt := series.NewMockPrimitiveIterator(ctrl)
 		pIt.EXPECT().HasNext().Return(true)
+		pIt.EXPECT().FieldID().Return(uint16(1))
 		pIt.EXPECT().Next().Return(10, 10.0)
 		pIt.EXPECT().HasNext().Return(false)
 		fIt.EXPECT().HasNext().Return(true)
@@ -56,7 +62,13 @@ func TestMetricAPI_Search(t *testing.T) {
 		NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	exec.EXPECT().Execute().Return(ch)
 	exec.EXPECT().Error().Return(nil).MaxTimes(2)
-	exec.EXPECT().Statement().Return(&stmt.Query{MetricName: "test.metric.name", Interval: 10 * timeutil.OneSecond})
+	query, _ := sql.Parse("select f from cpu")
+	query.TimeRange = timeutil.TimeRange{
+		Start: familyTime,
+		End:   familyTime + timeutil.OneHour,
+	}
+	query.Interval = 10 * timeutil.OneSecond
+	exec.EXPECT().Statement().Return(query)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state?db=test&sql=select f from cpu",

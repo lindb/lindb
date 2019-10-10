@@ -4,8 +4,8 @@ import (
 	"github.com/lindb/lindb/aggregation/fields"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -14,9 +14,11 @@ import (
 // Expression represents expression eval like math calc, function call etc.
 type Expression interface {
 	// Eval evaluates the select item's expression
-	Eval()
+	Eval(timeSeries series.GroupedIterator)
 	// ResultSet returns the eval result
 	ResultSet() map[string]collections.FloatArray
+	// Reset resets the expression context for reusing
+	Reset()
 }
 
 // expression implement Expression interface, operator as below:
@@ -24,19 +26,21 @@ type Expression interface {
 // 2. eval the expression
 // 3. build result set
 type expression struct {
-	timeSeries  series.Iterator
+	pointCount  int
+	interval    int64
+	timeRange   timeutil.TimeRange
 	selectItems []stmt.Expr
 
 	fieldStore map[string]fields.Field
 	resultSet  map[string]collections.FloatArray
-	pointCount int
 }
 
 // NewExpression creates an expression
-func NewExpression(timeSeries series.Iterator, pointCount int, selectItems []stmt.Expr) Expression {
+func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []stmt.Expr) Expression {
 	return &expression{
-		timeSeries:  timeSeries,
-		pointCount:  pointCount,
+		pointCount:  timeutil.CalPointCount(timeRange.Start, timeRange.End, interval),
+		interval:    interval,
+		timeRange:   timeRange,
 		selectItems: selectItems,
 		fieldStore:  make(map[string]fields.Field),
 		resultSet:   make(map[string]collections.FloatArray),
@@ -44,12 +48,13 @@ func NewExpression(timeSeries series.Iterator, pointCount int, selectItems []stm
 }
 
 // Eval evaluates the select item's expression
-func (e *expression) Eval() {
+func (e *expression) Eval(timeSeries series.GroupedIterator) {
 	if len(e.selectItems) == 0 {
 		return
 	}
 	// prepare expression context
-	e.prepare()
+	e.prepare(timeSeries)
+
 	if len(e.fieldStore) == 0 {
 		return
 	}
@@ -73,14 +78,17 @@ func (e *expression) ResultSet() map[string]collections.FloatArray {
 }
 
 // prepare prepares the field store
-func (e *expression) prepare() {
-	for e.timeSeries.HasNext() {
-		_, it := e.timeSeries.Next()
-		//FIXME stone1100
-		f := fields.NewSingleField(e.pointCount, field.SumField, it)
-		if f != nil {
-			e.fieldStore[e.timeSeries.FieldName()] = f
-		}
+func (e *expression) prepare(timeSeries series.GroupedIterator) {
+	if timeSeries == nil {
+		return
+	}
+	for timeSeries.HasNext() {
+		fieldSeries := timeSeries.Next()
+		fieldName := fieldSeries.FieldName()
+		fieldType := fieldSeries.FieldType()
+		f := fields.NewDynamicField(fieldType, e.timeRange.Start, e.interval, e.pointCount)
+		e.fieldStore[fieldName] = f
+		f.SetValue(fieldSeries)
 	}
 }
 
@@ -146,4 +154,12 @@ func (e *expression) binaryEval(expr *stmt.BinaryExpr) []collections.FloatArray 
 	}
 
 	return nil
+}
+
+// Reset resets the expression context for reusing
+func (e *expression) Reset() {
+	for _, f := range e.fieldStore {
+		f.Reset()
+	}
+	e.resultSet = make(map[string]collections.FloatArray)
 }

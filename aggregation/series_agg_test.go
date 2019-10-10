@@ -20,6 +20,8 @@ func TestNewFieldAggregates(t *testing.T) {
 		})
 	assert.Equal(t, "b", agg[0].FieldName())
 	assert.Equal(t, "a", agg[1].FieldName())
+	assert.Equal(t, field.SumField, agg[0].FieldType())
+	assert.Equal(t, field.SumField, agg[1].FieldType())
 
 	agg = NewFieldAggregates(timeutil.OneSecond, 1, &timeutil.TimeRange{
 		Start: 10,
@@ -36,9 +38,11 @@ func TestNewFieldAggregates(t *testing.T) {
 	assert.True(t, it.HasNext())
 	sIt := it.Next()
 	assert.Equal(t, "a", sIt.FieldName())
+	assert.Equal(t, field.SumField, sIt.FieldType())
 	assert.True(t, it.HasNext())
 	sIt = it.Next()
 	assert.Equal(t, "b", sIt.FieldName())
+	assert.Equal(t, field.SumField, sIt.FieldType())
 	assert.False(t, it.HasNext())
 
 	agg.Reset()

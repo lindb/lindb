@@ -5,14 +5,18 @@ import (
 )
 
 func EncodeSeries(it Iterator) ([]byte, error) {
+	if it == nil {
+		return nil, nil
+	}
 	writer := stream.NewBufferWriter(nil)
+	writer.PutByte(byte(it.FieldType()))
 	for it.HasNext() {
-		startTime, it := it.Next()
-		if it == nil {
+		startTime, fIt := it.Next()
+		if fIt == nil {
 			continue
 		}
 		writer.PutVarint64(startTime)
-		data, err := it.Bytes()
+		data, err := fIt.Bytes()
 		if err != nil {
 			return nil, err
 		}

@@ -56,22 +56,29 @@ func (g *binaryGroupedIterator) Next() Iterator {
 //////////////////////////////////////////////////////
 type BinaryIterator struct {
 	fieldName string
+	fieldType field.Type
 	reader    *stream.Reader
 	fieldIt   *BinaryFieldIterator
 }
 
 func NewIterator(fieldName string, data []byte) *BinaryIterator {
 	it := &BinaryIterator{fieldName: fieldName, reader: stream.NewReader(data)}
+	it.fieldType = field.Type(it.reader.ReadByte())
 	return it
 }
 
 func (b *BinaryIterator) Reset(fieldName string, data []byte) {
 	b.fieldName = fieldName
 	b.reader.Reset(data)
+	b.fieldType = field.Type(b.reader.ReadByte())
 }
 
 func (b *BinaryIterator) FieldName() string {
 	return b.fieldName
+}
+
+func (b *BinaryIterator) FieldType() field.Type {
+	return b.fieldType
 }
 
 func (b *BinaryIterator) HasNext() bool {

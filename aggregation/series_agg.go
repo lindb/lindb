@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source=./series_agg.go -destination=./series_agg_mock.go -package=aggregation
@@ -46,6 +47,8 @@ func NewFieldAggregates(queryInterval int64, ratio int, queryTimeRange *timeutil
 type SeriesAggregator interface {
 	// FieldName returns field name
 	FieldName() string
+	// FieldType returns field type
+	FieldType() field.Type
 	// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
 	GetAggregator(segmentStartTime int64) (FieldAggregator, bool)
 	// Aggregates returns all field aggregates
@@ -96,6 +99,11 @@ func NewSeriesAggregator(queryInterval int64, ratio int, queryTimeRange *timeuti
 // FieldName returns field name
 func (a *seriesAggregator) FieldName() string {
 	return a.fieldName
+}
+
+// FieldType returns the field type
+func (a *seriesAggregator) FieldType() field.Type {
+	return a.aggSpec.FieldType()
 }
 
 // Aggregates returns all field aggregates

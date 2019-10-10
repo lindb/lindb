@@ -15,6 +15,7 @@ import (
 func TestBinaryGroupedIterator(t *testing.T) {
 	writer := stream.NewBufferWriter(nil)
 	d := buildFieldIterator()
+	writer.PutByte(byte(field.SumField))
 	writer.PutVarint64(10)
 	writer.PutVarint32(int32(len(d)))
 	writer.PutBytes(d)
@@ -28,6 +29,7 @@ func TestBinaryGroupedIterator(t *testing.T) {
 	assert.Nil(t, it.Tags())
 	assert.True(t, it.HasNext())
 	fIt := it.Next()
+	assert.Equal(t, field.SumField, fIt.FieldType())
 	assert.True(t, fIt.HasNext())
 	result[fIt.FieldName()] = fIt.FieldName()
 	startTime, fIt1 := fIt.Next()
@@ -36,6 +38,7 @@ func TestBinaryGroupedIterator(t *testing.T) {
 
 	assert.True(t, it.HasNext())
 	fIt = it.Next()
+	assert.Equal(t, field.SumField, fIt.FieldType())
 	assert.True(t, fIt.HasNext())
 	result[fIt.FieldName()] = fIt.FieldName()
 	startTime, fIt1 = fIt.Next()
@@ -49,6 +52,7 @@ func TestBinaryGroupedIterator(t *testing.T) {
 
 func TestBinaryIterator(t *testing.T) {
 	writer := stream.NewBufferWriter(nil)
+	writer.PutByte(byte(field.SumField))
 	d := buildFieldIterator()
 	writer.PutVarint64(10)
 	writer.PutVarint32(int32(len(d)))
@@ -61,6 +65,7 @@ func TestBinaryIterator(t *testing.T) {
 	assert.NoError(t, err)
 	it := NewIterator("f1", data)
 	assert.Equal(t, "f1", it.FieldName())
+	assert.Equal(t, field.SumField, it.fieldType)
 	assert.True(t, it.HasNext())
 	startTime, fIt := it.Next()
 	assert.Equal(t, int64(10), startTime)
@@ -72,6 +77,7 @@ func TestBinaryIterator(t *testing.T) {
 	assert.False(t, it.HasNext())
 
 	writer = stream.NewBufferWriter(nil)
+	writer.PutByte(byte(field.SumField))
 	writer.PutVarint64(10)
 	writer.PutVarint32(int32(0))
 	data, _ = writer.Bytes()

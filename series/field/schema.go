@@ -6,6 +6,7 @@ import (
 
 type schema interface {
 	getPrimitiveFields(funcType function.FuncType) map[uint16]AggType
+	getDefaultPrimitiveFields() map[uint16]AggType
 }
 
 type sumSchema struct {
@@ -25,6 +26,33 @@ func (s *sumSchema) getPrimitiveFields(funcType function.FuncType) map[uint16]Ag
 	default:
 		return nil
 	}
+}
+
+func (s *sumSchema) getDefaultPrimitiveFields() map[uint16]AggType {
+	return map[uint16]AggType{s.primitiveFieldID: Sum}
+}
+
+type minSchema struct {
+	primitiveFieldID uint16
+}
+
+func newMinSchema() schema {
+	return &minSchema{
+		primitiveFieldID: uint16(1),
+	}
+}
+
+func (s *minSchema) getPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
+	switch funcType {
+	case function.Min:
+		return map[uint16]AggType{s.primitiveFieldID: Min}
+	default:
+		return nil
+	}
+}
+
+func (s *minSchema) getDefaultPrimitiveFields() map[uint16]AggType {
+	return map[uint16]AggType{s.primitiveFieldID: Min}
 }
 
 type summarySchema struct {
@@ -55,4 +83,8 @@ func (s *summarySchema) getPrimitiveFields(funcType function.FuncType) map[uint1
 	default:
 		return nil
 	}
+}
+
+func (s *summarySchema) getDefaultPrimitiveFields() map[uint16]AggType {
+	return map[uint16]AggType{s.countFieldID: Sum}
 }

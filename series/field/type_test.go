@@ -18,7 +18,8 @@ func TestType_String(t *testing.T) {
 }
 
 func Test_GetPrimitiveFields(t *testing.T) {
-	assert.NotNil(t, GetPrimitiveFields(SumField, function.Sum))
-	assert.Nil(t, GetPrimitiveFields(Type(128), function.FuncType(128)))
-	GetPrimitiveFieldsValue()
+	assert.NotNil(t, SumField.GetPrimitiveFields(function.Sum))
+	assert.NotNil(t, SumField.GetDefaultPrimitiveFields())
+	assert.Nil(t, Unknown.GetPrimitiveFields(function.FuncType(128)))
+	assert.Nil(t, Unknown.GetDefaultPrimitiveFields())
 }

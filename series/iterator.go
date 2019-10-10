@@ -39,8 +39,10 @@ type GroupedIterator interface {
 
 // Iterator represents an iterator for the time series data
 type Iterator interface {
-	// FieldName return field name
+	// FieldName returns the field name
 	FieldName() string
+	// FieldType returns the field type
+	FieldType() field.Type
 	// HasNext returns if the iteration has more field's iterator
 	HasNext() bool
 	// Next returns the field's iterator
