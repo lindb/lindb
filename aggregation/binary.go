@@ -21,7 +21,12 @@ func binaryEval(binaryOp stmt.BinaryOP, left, right collections.FloatArray) coll
 	result := collections.NewFloatArray(capacity)
 
 	for i := 0; i < capacity; i++ {
-		if left.HasValue(i) || right.HasValue(i) {
+		leftHasValue := left.HasValue(i)
+		rightHasValue := right.HasValue(i)
+		switch {
+		case !leftHasValue && right.IsSingle():
+		case left.IsSingle() && !rightHasValue:
+		case left.HasValue(i) || right.HasValue(i):
 			result.SetValue(i, eval(binaryOp, left.GetValue(i), right.GetValue(i)))
 		}
 	}
