@@ -354,6 +354,10 @@ func (r *runtime) buildMiddlewareDependency() {
 	r.middleware = &middlewareHandler{
 		authentication: middleware.NewAuthentication(r.config.User),
 	}
+	httpAPI, err := regexp.Compile("/*")
+	if err == nil {
+		api.AddMiddleware(middleware.AccessLogMiddleware, httpAPI)
+	}
 	validate, err := regexp.Compile("/check/*")
 	if err == nil {
 		api.AddMiddleware(r.middleware.authentication.Validate, validate)

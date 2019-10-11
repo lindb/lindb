@@ -12,6 +12,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const HTTPModule = "http"
+
+var AccessLog = GetLogger(HTTPModule, "access")
+
 // SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
@@ -23,6 +27,13 @@ func SimpleLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(LevelString(l))
 }
 
+// SimpleAccessLevelEncoder serializes access log level
+func SimpleAccessLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	if isTerminal {
+		enc.AppendString(LevelString(l))
+	}
+}
+
 // LevelString returns a upper-case ASCII representation of the log level.
 func LevelString(l zapcore.Level) string {
 	if !isTerminal {
@@ -30,15 +41,15 @@ func LevelString(l zapcore.Level) string {
 	}
 	switch l {
 	case zapcore.DebugLevel:
-		return Magenta.Add("DEBUG")
+		return Magenta.Add(l.CapitalString())
 	case zapcore.InfoLevel:
-		return Green.Add("INFO")
+		return Green.Add(l.CapitalString())
 	case zapcore.WarnLevel:
-		return Yellow.Add("WARN")
+		return Yellow.Add(l.CapitalString())
 	case zapcore.ErrorLevel:
-		return Red.Add("ERROR")
+		return Red.Add(l.CapitalString())
 	default:
-		return Red.Add(fmt.Sprintf("LEVEL(%d)", l))
+		return Red.Add(l.CapitalString())
 	}
 }
 
@@ -64,7 +75,13 @@ func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {
 	if l.logger != nil {
 		return l.logger
 	}
-	item := logger.Load()
+	var item interface{}
+	switch {
+	case l.module == HTTPModule:
+		item = accessLogger.Load()
+	default:
+		item = lindLogger.Load()
+	}
 	if item == nil {
 		return defaultLogger
 	}
@@ -98,6 +115,9 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 
 // formatMsg formats msg using module name
 func (l *Logger) formatMsg(msg string) string {
+	if !isTerminal && l.module == HTTPModule {
+		return msg
+	}
 	moduleName := fmt.Sprintf("[%*s]", atomic.LoadUint32(&maxModuleNameLen), l.module)
 	if isTerminal {
 		moduleName = Cyan.Add(moduleName)
