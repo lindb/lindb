@@ -16,7 +16,8 @@ var (
 	isTerminal = IsTerminal(os.Stdout)
 	// max length of all modules
 	maxModuleNameLen uint32
-	logger           atomic.Value
+	lindLogger       atomic.Value
+	accessLogger     atomic.Value
 	// uninitialized logger for default usage
 	defaultLogger = newDefaultLogger()
 	// RunningAtomicLevel supports changing level on the fly
@@ -24,7 +25,8 @@ var (
 )
 
 const (
-	lindLogFilename = "lind.log"
+	lindLogFilename   = "lind.log"
+	accessLogFileName = "access.log"
 )
 
 // GetLogger return logger with module name
@@ -59,8 +61,19 @@ func newDefaultLogger() *zap.Logger {
 
 // InitLogger initializes a zap logger from user config
 func InitLogger(cfg config.Logging) error {
+	if err := initLogger(lindLogFilename, cfg); err != nil {
+		return err
+	}
+	if err := initLogger(accessLogFileName, cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
+// initLogger initializes a zap logger for different module
+func initLogger(logFilename string, cfg config.Logging) error {
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   filepath.Join(cfg.Dir, lindLogFilename),
+		Filename:   filepath.Join(cfg.Dir, logFilename),
 		MaxSize:    int(cfg.MaxSize),
 		MaxBackups: int(cfg.MaxBackups),
 		MaxAge:     int(cfg.MaxAge),
@@ -75,12 +88,22 @@ func InitLogger(cfg config.Logging) error {
 	}
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = SimpleTimeEncoder
-	encoderConfig.EncodeLevel = SimpleLevelEncoder
+	switch {
+	case logFilename == accessLogFileName:
+		encoderConfig.EncodeLevel = SimpleAccessLevelEncoder
+	default:
+		encoderConfig.EncodeLevel = SimpleLevelEncoder
+	}
 	// check format
 	core := zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderConfig),
 		w,
 		RunningAtomicLevel)
-	logger.Store(zap.New(core))
+	switch {
+	case logFilename == accessLogFileName:
+		accessLogger.Store(zap.New(core))
+	default:
+		lindLogger.Store(zap.New(core))
+	}
 	return nil
 }

@@ -29,6 +29,31 @@ func Test_Logger(t *testing.T) {
 	logger3.Error("error test")
 }
 
+func Test_Access_logger(t *testing.T) {
+	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}))
+	logger1 := GetLogger(HTTPModule, "access")
+	logger1.Info("access log")
+	isTerminal = true
+	defer func() {
+		isTerminal = false
+	}()
+	logger1.Info("access log")
+}
+
+func Test_Level_String(t *testing.T) {
+	isTerminal = true
+	defer func() {
+		isTerminal = false
+	}()
+	assert.Equal(t, "[35mDEBUG[0m", LevelString(zapcore.DebugLevel))
+	assert.Equal(t, "[31mDPANIC[0m", LevelString(zapcore.DPanicLevel))
+	assert.Equal(t, "[32mINFO[0m", LevelString(zapcore.InfoLevel))
+	assert.Equal(t, "[33mWARN[0m", LevelString(zapcore.WarnLevel))
+	assert.Equal(t, "[31mERROR[0m", LevelString(zapcore.ErrorLevel))
+	isTerminal = false
+	assert.Equal(t, "ERROR", LevelString(zapcore.ErrorLevel))
+}
+
 func Test_Logger_Stack(t *testing.T) {
 	panicFunc := func() {
 		defer func() {
@@ -62,5 +87,11 @@ func Test_InitLogger(t *testing.T) {
 	assert.Nil(t, InitLogger(cfg3))
 
 	cfg4 := config.Logging{Level: "debug"}
+	assert.Nil(t, InitLogger(cfg4))
+
+	isTerminal = true
+	defer func() {
+		isTerminal = false
+	}()
 	assert.Nil(t, InitLogger(cfg4))
 }

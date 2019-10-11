@@ -52,9 +52,7 @@ func TestUserAuthentication_Validate(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
 	req, err = http.NewRequest("GET", "/health-check", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	req.Header.Set("Authorization", tokenStr)
 	rr = httptest.NewRecorder()
 
