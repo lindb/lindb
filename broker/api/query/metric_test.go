@@ -9,66 +9,37 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/sql"
-	"github.com/lindb/lindb/sql/stmt"
 )
-
-var familyTime, _ = timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 func TestMetricAPI_Search(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	executorFactory := parallel.NewMockExecutorFactory(ctrl)
+	brokerExecutor := parallel.NewMockBrokerExecutor(ctrl)
+	executeCtx := parallel.NewMockBrokerExecuteContext(ctrl)
+	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
+	brokerExecutor.EXPECT().Execute()
+
+	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(brokerExecutor)
+
 	api := NewMetricAPI(nil, nil, executorFactory, nil)
 
 	ch := make(chan *series.TimeSeriesEvent)
 
-	time.AfterFunc(10*time.Millisecond, func() {
-		it := series.NewMockGroupedIterator(ctrl)
-		it.EXPECT().Tags().Return(nil)
-		it.EXPECT().HasNext().Return(true)
-		sIt := series.NewMockIterator(ctrl)
-		it.EXPECT().Next().Return(sIt)
-		sIt.EXPECT().HasNext().Return(true)
-		sIt.EXPECT().Next().Return(familyTime, nil)
-		sIt.EXPECT().HasNext().Return(true)
-		fIt := series.NewMockFieldIterator(ctrl)
-		sIt.EXPECT().Next().Return(familyTime, fIt)
-		sIt.EXPECT().FieldName().Return("f")
-		sIt.EXPECT().FieldType().Return(field.SumField)
-		pIt := series.NewMockPrimitiveIterator(ctrl)
-		pIt.EXPECT().HasNext().Return(true)
-		pIt.EXPECT().FieldID().Return(uint16(1))
-		pIt.EXPECT().Next().Return(10, 10.0)
-		pIt.EXPECT().HasNext().Return(false)
-		fIt.EXPECT().HasNext().Return(true)
-		fIt.EXPECT().Next().Return(pIt)
-		fIt.EXPECT().HasNext().Return(false)
-		sIt.EXPECT().HasNext().Return(false)
-		it.EXPECT().HasNext().Return(false)
-		ch <- &series.TimeSeriesEvent{
-			SeriesList: []series.GroupedIterator{it},
-		}
+	executeCtx.EXPECT().ResultCh().Return(ch)
+	executeCtx.EXPECT().Emit(gomock.Any())
+	executeCtx.EXPECT().ResultSet().Return(&models.ResultSet{}, nil)
+
+	time.AfterFunc(100*time.Millisecond, func() {
+		ch <- nil
 		close(ch)
 	})
 
-	exec := parallel.NewMockExecutor(ctrl)
-	executorFactory.EXPECT().
-		NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	exec.EXPECT().Execute().Return(ch)
-	exec.EXPECT().Error().Return(nil).MaxTimes(2)
-	query, _ := sql.Parse("select f from cpu")
-	query.TimeRange = timeutil.TimeRange{
-		Start: familyTime,
-		End:   familyTime + timeutil.OneHour,
-	}
-	query.Interval = 10 * timeutil.OneSecond
-	exec.EXPECT().Statement().Return(query)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state?db=test&sql=select f from cpu",
@@ -100,32 +71,22 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	exec := parallel.NewMockExecutor(ctrl)
-	executorFactory.EXPECT().
-		NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	exec.EXPECT().Execute().Return(nil)
-	exec.EXPECT().Error().Return(fmt.Errorf("err")).MaxTimes(2)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state?db=test&sql=select f from cpu",
-		HandlerFunc:    api.Search,
-		ExpectHTTPCode: 500,
-	})
+	brokerExecutor := parallel.NewMockBrokerExecutor(ctrl)
+	executeCtx := parallel.NewMockBrokerExecuteContext(ctrl)
+	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
+	brokerExecutor.EXPECT().Execute()
+
+	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 
 	ch := make(chan *series.TimeSeriesEvent)
 
-	time.AfterFunc(10*time.Millisecond, func() {
-		ch <- &series.TimeSeriesEvent{
-			Err: fmt.Errorf("err"),
-		}
+	executeCtx.EXPECT().ResultCh().Return(ch)
+	executeCtx.EXPECT().ResultSet().Return(&models.ResultSet{}, fmt.Errorf("err"))
+
+	time.AfterFunc(100*time.Millisecond, func() {
 		close(ch)
 	})
-
-	executorFactory.EXPECT().
-		NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	exec.EXPECT().Execute().Return(ch)
-	exec.EXPECT().Error().Return(nil).MaxTimes(2)
-	exec.EXPECT().Statement().Return(&stmt.Query{MetricName: "test.metric.name", Interval: 10 * timeutil.OneSecond})
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state?db=test&sql=select f from cpu",

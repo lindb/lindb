@@ -19,10 +19,10 @@ func TestNew(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
+
 	factory, err := NewEngineFactory(engineCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	engine, _ := factory.CreateEngine("test_db")
 	assert.NotNil(t, engine)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
@@ -48,14 +48,14 @@ func TestNew(t *testing.T) {
 
 	assert.Nil(t, factory.GetEngine("no_exist"))
 	assert.NotNil(t, engine.GetIDGetter())
+	assert.NotNil(t, engine.GetExecutePool())
 
 	factory.Close()
 
 	// re-open factory
 	factory, err = NewEngineFactory(engineCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	engine = factory.GetEngine("test_db")
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db", "OPTIONS")))

@@ -6,22 +6,10 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-// brokerExecutor represents the broker query executor,
-// 1) chooses the storage nodes that the data is relatively complete
-// 2) chooses broker nodes for root and intermediate computing from all available broker nodes
-// 3) storage node as leaf computing node does filtering and atomic compute
-// 4) intermediate computing nodes are optional, only need if has group by query, does order by for grouping
-// 4) root computing node does function and expression computing ???? //TODO  need?
-// 5) finally returns result set to user  ???? //TODO  need?
-//
-// NOTICE: there are some scenarios:
-// 1) some assignment shards not in query replica shards,
-//    maybe some expectant results are lost in data in offline shard, WHY can query not completely data,
-//    because of for the system availability.
+// brokerExecutor implements parallel.BrokerExecutor
 type brokerExecutor struct {
 	database string
 	sql      string
@@ -30,18 +18,17 @@ type brokerExecutor struct {
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 
-	resultSet chan *series.TimeSeriesEvent
-
 	jobManager parallel.JobManager
 
 	ctx context.Context
-	err error
+
+	executeCtx parallel.BrokerExecuteContext
 }
 
 // newBrokerExecutor creates the execution which executes the job of parallel query
 func newBrokerExecutor(ctx context.Context, database string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
-	jobManager parallel.JobManager) parallel.Executor {
+	jobManager parallel.JobManager) parallel.BrokerExecutor {
 	exec := &brokerExecutor{
 		sql:                 sql,
 		database:            database,
@@ -57,38 +44,38 @@ func newBrokerExecutor(ctx context.Context, database string, sql string,
 // 1) get metadata based on params
 // 2) build execute plan
 // 3) run distribution query job
-func (e *brokerExecutor) Execute() <-chan *series.TimeSeriesEvent {
+func (e *brokerExecutor) Execute() {
 	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
-	if len(storageNodes) == 0 {
-		e.err = errNoAvailableStorageNode
-		return nil
-	}
-
 	brokerNodes := e.nodeStateMachine.GetActiveNodes()
 	plan := newBrokerPlan(e.sql, storageNodes, e.nodeStateMachine.GetCurrentNode(), brokerNodes)
-	if err := plan.Plan(); err != nil {
-		e.err = err
-		return nil
+
+	var err error
+	if len(storageNodes) == 0 {
+		err = errNoAvailableStorageNode
+	} else {
+		err = plan.Plan()
 	}
+
 	brokerPlan := plan.(*brokerPlan)
+	e.executeCtx = parallel.NewBrokerExecuteContext(brokerPlan.query)
+
+	if err != nil {
+		e.executeCtx.Complete(err)
+		return
+	}
+
 	brokerPlan.physicalPlan.Database = e.database
 	e.query = brokerPlan.query
-	e.resultSet = make(chan *series.TimeSeriesEvent)
-	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx, e.resultSet, brokerPlan.physicalPlan, e.query)); err != nil {
-		e.err = err
-		close(e.resultSet)
-		return nil
+
+	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx,
+		e.executeCtx.ResultCh(), brokerPlan.physicalPlan, e.query),
+	); err != nil {
+		e.executeCtx.Complete(err)
+		return
 	}
-	return e.resultSet
 }
 
-// Statement returns the query statement
-func (e *brokerExecutor) Statement() *stmt.Query {
-	return e.query
-}
-
-// Error returns the execution error
-func (e *brokerExecutor) Error() error {
-	return e.err
+func (e *brokerExecutor) ExecuteContext() parallel.BrokerExecuteContext {
+	return e.executeCtx
 }

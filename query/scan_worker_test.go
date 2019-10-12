@@ -1,40 +1,38 @@
 package query
 
 import (
-	"context"
-	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/tsdb"
 )
+
+var execPool = &tsdb.ExecutePool{
+	Scan:  concurrent.NewPool("test-pool1", 10 /*nRoutines*/, 10 /*queueSize*/),
+	Merge: concurrent.NewPool("test-pool2", 10 /*nRoutines*/, 10 /*queueSize*/),
+}
 
 func TestScanWorker_Emit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
 
-	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
+	worker := createScanWorker(exeCtx, uint32(10), nil, nil, groupAgg, execPool)
 	event := series.NewMockScanEvent(ctrl)
 	gomock.InOrder(
 		event.EXPECT().Scan().Return(false),
-		groupAgg.EXPECT().ResultSet().Return(nil),
 	)
 	worker.Emit(event)
 	worker.Emit(nil)
-	worker.Close()
-
-	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
-	gomock.InOrder(
-		groupAgg.EXPECT().ResultSet().Return(nil),
-	)
-	w := worker.(*scanWorker)
-	w.events <- nil
+	time.Sleep(100 * time.Millisecond)
 	worker.Close()
 }
 
@@ -42,52 +40,23 @@ func TestScanWorker_handle_event(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
+	agg := aggregation.NewMockSeriesAggregator(ctrl)
+	fieldAggregates := aggregation.FieldAggregates{agg}
 
-	worker := createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
+	worker := createScanWorker(exeCtx, uint32(10), nil, nil, groupAgg, execPool)
 	event := series.NewMockScanEvent(ctrl)
 	gomock.InOrder(
 		event.EXPECT().Scan().Return(true),
-		event.EXPECT().ResultSet().Return(nil),
-		event.EXPECT().Release(),
-		groupAgg.EXPECT().ResultSet().Return(nil),
-	)
-	worker.Emit(event)
-	worker.Close()
-
-	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, nil)
-	event = series.NewMockScanEvent(ctrl)
-	gomock.InOrder(
-		event.EXPECT().Scan().Return(true),
-		event.EXPECT().ResultSet().Return("mock"),
-		event.EXPECT().Release(),
-		groupAgg.EXPECT().ResultSet().Return(nil),
-	)
-	worker.Emit(event)
-	worker.Close()
-
-	rs := make(chan *series.TimeSeriesEvent)
-	c := atomic.NewInt32(0)
-	var wait sync.WaitGroup
-	wait.Add(1)
-	go func() {
-		<-rs
-		c.Inc()
-		wait.Done()
-	}()
-
-	worker = createScanWorker(context.TODO(), uint32(10), nil, nil, groupAgg, rs)
-	event = series.NewMockScanEvent(ctrl)
-	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
-	gomock.InOrder(
-		event.EXPECT().Scan().Return(true),
-		event.EXPECT().ResultSet().Return(aggregation.FieldAggregates{seriesAgg}),
+		event.EXPECT().ResultSet().Return(fieldAggregates),
 		groupAgg.EXPECT().Aggregate(gomock.Any()),
 		event.EXPECT().Release(),
-		groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{series.NewMockGroupedIterator(ctrl)}),
+		groupAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{nil}),
+		exeCtx.EXPECT().Emit(gomock.Any()),
+		exeCtx.EXPECT().Complete(nil),
 	)
 	worker.Emit(event)
 	worker.Close()
-	wait.Wait()
-	assert.Equal(t, int32(1), c.Load())
+	time.Sleep(100 * time.Millisecond)
 }
