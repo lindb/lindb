@@ -1,10 +1,5 @@
 package parallel
 
-import (
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/sql/stmt"
-)
-
 //go:generate mockgen -source=./executor.go -destination=./executor_mock.go -package=parallel
 
 // Executor represents a query executor both storage/broker side.
@@ -20,10 +15,22 @@ type Executor interface {
 	// Execute execute query
 	// 1) plan query language
 	// 2) aggregator data from time series(memory/file/network)
-	Execute() <-chan *series.TimeSeriesEvent
-	// Statement returns the query statement
-	Statement() *stmt.Query
+	Execute()
+}
 
-	// Error returns the execution error
-	Error() error
+// BrokerExecutor represents the broker query executor,
+// 1) chooses the storage nodes that the data is relatively complete
+// 2) chooses broker nodes for root and intermediate computing from all available broker nodes
+// 3) storage node as leaf computing node does filtering and atomic compute
+// 4) intermediate computing nodes are optional, only need if has group by query, does order by for grouping
+// 4) root computing node does function and expression computing ???? //TODO  need?
+// 5) finally returns result set to user  ???? //TODO  need?
+//
+// NOTICE: there are some scenarios:
+// 1) some assignment shards not in query replica shards,
+//    maybe some expectant results are lost in data in offline shard, WHY can query not completely data,
+//    because of for the system availability.
+type BrokerExecutor interface {
+	Executor
+	ExecuteContext() BrokerExecuteContext
 }

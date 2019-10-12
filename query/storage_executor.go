@@ -1,21 +1,17 @@
 package query
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/interval"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
-
-var log = logger.GetLogger("query", "StorageExecutor")
 
 // storageExecutor represents execution search logic in storage level,
 // does query task async, then merge result, such as map-reduce job.
@@ -37,20 +33,19 @@ type storageExecutor struct {
 	storageExecutePlan *storageExecutePlan
 	intervalType       interval.Type
 
-	resultCh    chan *series.TimeSeriesEvent
-	executorCtx *storageExecutorContext
+	executePool *tsdb.ExecutePool
 
-	ctx context.Context
-	err error
+	executeCtx parallel.ExecuteContext
 }
 
 // newStorageExecutor creates the execution which queries the data of storage engine
-func newStorageExecutor(ctx context.Context, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
+func newStorageExecutor(ctx parallel.ExecuteContext, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
 	return &storageExecutor{
-		engine:   engine,
-		shardIDs: shardIDs,
-		query:    query,
-		ctx:      ctx,
+		engine:      engine,
+		shardIDs:    shardIDs,
+		query:       query,
+		executePool: engine.GetExecutePool(),
+		executeCtx:  ctx,
 	}
 }
 
@@ -59,11 +54,11 @@ func newStorageExecutor(ctx context.Context, engine tsdb.Engine, shardIDs []int3
 // 2) build execute plan
 // 3) build execute pipeline
 // 4) run pipeline
-func (e *storageExecutor) Execute() <-chan *series.TimeSeriesEvent {
+func (e *storageExecutor) Execute() {
 	// do query validation
 	if err := e.validation(); err != nil {
-		e.err = err
-		return nil
+		e.executeCtx.Complete(err)
+		return
 	}
 
 	// get shard by given query shard id list
@@ -77,53 +72,46 @@ func (e *storageExecutor) Execute() <-chan *series.TimeSeriesEvent {
 
 	// check got shards if valid
 	if err := e.checkShards(); err != nil {
-		e.err = err
-		return nil
+		e.executeCtx.Complete(err)
+		return
 	}
 
 	plan := newStorageExecutePlan(e.engine.GetIDGetter(), e.query)
 	if err := plan.Plan(); err != nil {
-		e.err = err
-		return nil
+		e.executeCtx.Complete(err)
+		return
 	}
 	storageExecutePlan := plan.(*storageExecutePlan)
 
 	e.metricID = storageExecutePlan.metricID
 	e.intervalType = interval.CalcIntervalType(e.query.Interval)
 
-	//TODO set size
-	e.resultCh = make(chan *series.TimeSeriesEvent, 10)
-	e.executorCtx = newStorageExecutorContext(e.resultCh)
-
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.storageExecutePlan = storageExecutePlan
 
 	// need retain total memory and shard search
-	e.executorCtx.retainTask(int32(len(e.shards) * 2))
-	for _, shard := range e.shards {
-		go e.memoryDBSearch(shard)
+	e.executeCtx.RetainTask(1)
+	for idx := range e.shards {
+		shard := e.shards[idx]
+		// execute memory db search in background goroutine
+		e.executeCtx.RetainTask(1)
+		e.executePool.Scan.Execute(func() {
+			e.memoryDBSearch(shard)
+		})
+
+		e.executeCtx.RetainTask(1)
 		e.shardLevelSearch(shard)
 	}
-	return e.resultCh
-}
-
-// Statement returns the query statement
-func (e *storageExecutor) Statement() *stmt.Query {
-	return e.query
-}
-
-// Error returns the execution error
-func (e *storageExecutor) Error() error {
-	return e.err
+	e.executeCtx.Complete(nil)
 }
 
 // memoryDBSearch searches data from memory database
 func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
-	defer e.executorCtx.completeTask()
-
 	memoryDB := shard.GetMemoryDatabase()
 	seriesIDSet := e.searchSeriesIDs(memoryDB)
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
+		// if series ids not found, complete the search task
+		e.executeCtx.Complete(nil)
 		return
 	}
 
@@ -131,7 +119,8 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
 	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
-	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.resultCh)
+	// scan data and complete task in scan worker after scan worker completed
+	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.executePool)
 	defer worker.Close()
 	memoryDB.Scan(&series.ScanContext{
 		MetricID:    e.metricID,
@@ -162,7 +151,7 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 		idSet, err := seriesSearch.Search()
 		if err != nil {
 			if err != series.ErrNotFound {
-				e.err = err
+				e.executeCtx.Complete(err)
 			}
 			return
 		}
@@ -174,28 +163,26 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 
 // shardLevelSearch searches data from shard
 func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
-	// must complete task
-	defer e.executorCtx.completeTask()
-
 	// find data family
 	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
 	if len(families) == 0 {
+		e.executeCtx.Complete(nil)
 		return
 	}
 
 	seriesIDSet := e.searchSeriesIDs(shard.GetSeriesIDsFilter())
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
+		e.executeCtx.Complete(nil)
 		return
 	}
 	// retain family task first
-	e.executorCtx.retainTask(int32(2 * len(families)))
+	e.executeCtx.RetainTask(int32(2 * len(families)))
 	//FIXME get interval
 	timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
 	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
-	worker := createScanWorker(e.ctx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, nil)
-	defer worker.Close()
+	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, e.executePool)
 	for _, family := range families {
 		go e.familyLevelSearch(worker, family, seriesIDSet)
 	}
@@ -205,7 +192,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 func (e *storageExecutor) familyLevelSearch(worker series.ScanWorker, family tsdb.DataFamily,
 	seriesIDSet *series.MultiVerSeriesIDSet) {
 	// must complete task
-	defer e.executorCtx.completeTask()
+	defer e.executeCtx.Complete(nil)
 
 	family.Scan(&series.ScanContext{
 		MetricID:    e.metricID,

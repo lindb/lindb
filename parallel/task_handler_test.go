@@ -10,10 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 )
+
+var cfg = config.Query{
+	NumOfTasks:    10,
+	QueueCapacity: 10,
+	Timeout:       10,
+}
 
 func TestTaskHandler_Handle(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -23,7 +30,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	taskServerFactory.EXPECT().Register(gomock.Any(), gomock.Any())
 	taskServerFactory.EXPECT().Deregister(gomock.Any())
-	handler := NewTaskHandler(taskServerFactory, dispatcher)
+	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher)
 
 	server := pb.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())

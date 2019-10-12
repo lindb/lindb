@@ -114,8 +114,10 @@ func (f *taskClientFactory) handleTaskResponse(cli common.TaskService_HandleClie
 			continue
 		}
 
-		log.Info("receive task response", logger.Any("rep", resp))
-		_ = f.taskReceiver.Receive(resp)
+		err = f.taskReceiver.Receive(resp)
+		if err != nil {
+			log.Error("receive task response", logger.Any("rep", resp), logger.Error(err))
+		}
 	}
 }
 

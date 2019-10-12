@@ -20,13 +20,16 @@ func NewExecutorFactory() parallel.ExecutorFactory {
 }
 
 // NewStorageExecutor creates storage executor
-func (*executorFactory) NewStorageExecutor(ctx context.Context, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
+func (*executorFactory) NewStorageExecutor(ctx parallel.ExecuteContext,
+	engine tsdb.Engine, shardIDs []int32, query *stmt.Query,
+) parallel.Executor {
 	return newStorageExecutor(ctx, engine, shardIDs, query)
 }
 
 // NewStorageExecutor creates broker executor
 func (*executorFactory) NewBrokerExecutor(ctx context.Context, database string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
-	jobManager parallel.JobManager) parallel.Executor {
+	jobManager parallel.JobManager,
+) parallel.BrokerExecutor {
 	return newBrokerExecutor(ctx, database, sql, replicaStateMachine, nodeStateMachine, jobManager)
 }

@@ -65,8 +65,8 @@ func NewRouter() *mux.Router {
 	if err != nil {
 		log.Error("cannot find static resource", logger.Error(err))
 	} else {
-		router.PathPrefix("/static/").
-			Handler(http.StripPrefix("/static/",
+		router.PathPrefix("/console").
+			Handler(http.StripPrefix("/console",
 				http.FileServer(box.HTTPBox())))
 	}
 	// add cors support
