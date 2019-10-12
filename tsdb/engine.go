@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -41,6 +42,8 @@ type Engine interface {
 	GetShard(shardID int32) Shard
 	// GetIDGetter returns id getter for metric level metadata
 	GetIDGetter() diskdb.IDGetter
+	// GetExecutePool returns the query task execute pool
+	GetExecutePool() *ExecutePool
 	// Close closed engine then release resource
 	Close() error
 
@@ -61,6 +64,8 @@ type engine struct {
 	shards sync.Map
 	info   *info
 	index  Index
+
+	executePool *ExecutePool // execute query task
 
 	numOfShards int
 
@@ -114,6 +119,11 @@ func (f *engineFactory) CreateEngine(name string) (Engine, error) {
 		path:  enginePath,
 		info:  info,
 		index: index,
+		//TODO add pool config
+		executePool: &ExecutePool{
+			Scan:  concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
+			Merge: concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
+		},
 	}
 	// load shards if engine is exist
 	if len(e.info.ShardIDs) > 0 {
@@ -236,6 +246,11 @@ func (e *engine) GetShard(shardID int32) Shard {
 // GetIDGetter returns id getter for metric level metadata
 func (e *engine) GetIDGetter() diskdb.IDGetter {
 	return e.index.GetIDSequencer()
+}
+
+// GetExecutePool returns the query task execute pool
+func (e *engine) GetExecutePool() *ExecutePool {
+	return e.executePool
 }
 
 // Close closed engine then release resource

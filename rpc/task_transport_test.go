@@ -84,20 +84,24 @@ func TestTaskClientFactory(t *testing.T) {
 	conn, _ = grpc.Dial(target.Indicator(), grpc.WithInsecure())
 	mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil)
 	err = fct.CreateTaskClient(target)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	// not create new one if exist
 	target = models.Node{IP: "127.0.0.1", Port: 9000}
 	err = fct.CreateTaskClient(target)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	cli := fct.GetTaskClient((&target).Indicator())
 	assert.NotNil(t, cli)
 
 	fct.CloseTaskClient((&target).Indicator())
+
+	fct1 := fct.(*taskClientFactory)
+	mockTaskClient := common.NewMockTaskService_HandleClient(ctl)
+	fct1.taskStreams["mock_client"] = mockTaskClient
+
+	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err"))
+	fct1.CloseTaskClient("mock_client")
 }
 
 func TestTaskClientFactory_handler(t *testing.T) {
@@ -114,6 +118,8 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		cli.EXPECT().Recv().Return(nil, fmt.Errorf("err")),
 		cli.EXPECT().Recv().Return(nil, nil),
 		receiver.EXPECT().Receive(gomock.Any()).Return(nil),
+		cli.EXPECT().Recv().Return(nil, nil),
+		receiver.EXPECT().Receive(gomock.Any()).Return(fmt.Errorf("err")),
 		cli.EXPECT().Recv().Return(nil, io.EOF),
 	)
 	factory.handleTaskResponse(cli)

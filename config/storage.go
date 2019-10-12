@@ -10,6 +10,7 @@ type StorageKernel struct {
 	GRPC        GRPC        `toml:"grpc"`
 	Engine      Engine      `toml:"engine"`
 	Replication Replication `toml:"replication"`
+	Query       Query       `toml:"query"`
 }
 
 // Storage represents a storage configuration with common settings
@@ -48,7 +49,9 @@ func NewDefaultStorageCfg() Storage {
 			Engine: Engine{
 				Dir: filepath.Join(defaultParentDir, "storage/data")},
 			Replication: Replication{
-				Dir: filepath.Join(defaultParentDir, "storage/replication")}},
+				Dir: filepath.Join(defaultParentDir, "storage/replication")},
+			Query: NewDefaultQueryCfg(),
+		},
 		Logging: NewDefaultLoggingCfg(),
 	}
 }

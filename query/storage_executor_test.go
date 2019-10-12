@@ -1,14 +1,15 @@
 package query
 
 import (
-	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -23,46 +24,52 @@ func TestStorageExecute_validation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
+	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
+	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
+
 	engine := tsdb.NewMockEngine(ctrl)
+	engine.EXPECT().GetExecutePool().Return(execPool).AnyTimes()
 	engine.EXPECT().Name().Return("mock_tsdb").AnyTimes()
 	query := &stmt.Query{Interval: timeutil.OneSecond}
 
 	// query shards is empty
-	exec := newStorageExecutor(context.TODO(), engine, nil, query)
-	_ = exec.Execute()
-	assert.NotNil(t, exec.Error())
+	exec := newStorageExecutor(exeCtx, engine, nil, query)
+	exec.Execute()
 
 	// shards of engine is empty
 	engine.EXPECT().NumOfShards().Return(0)
-	exec = newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.NotNil(t, exec.Error())
+	exec = newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
 
 	// num. of shard not match
 	engine.EXPECT().NumOfShards().Return(2)
-	exec = newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.NotNil(t, exec.Error())
+	exec = newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
 
 	engine.EXPECT().NumOfShards().Return(3).AnyTimes()
 	engine.EXPECT().GetShard(gomock.Any()).Return(nil).MaxTimes(3)
-	exec = newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.NotNil(t, exec.Error())
+	exec = newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
 
 	// normal case
 	query, _ = sql.Parse("select f from cpu")
 	engine1 := MockTSDBEngine(ctrl)
+	engine1.EXPECT().GetExecutePool().Return(execPool)
 
-	exec = newStorageExecutor(context.TODO(), engine1, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.Nil(t, exec.Error())
+	exec = newStorageExecutor(exeCtx, engine1, []int32{1, 2, 3}, query)
+	exec.Execute()
 }
 
 func TestStorageExecute_Plan_Fail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
+	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
+
 	engine := tsdb.NewMockEngine(ctrl)
+	engine.EXPECT().GetExecutePool().Return(execPool).AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	engine.EXPECT().GetShard(gomock.Any()).Return(shard).MaxTimes(3)
 	engine.EXPECT().NumOfShards().Return(3)
@@ -72,16 +79,20 @@ func TestStorageExecute_Plan_Fail(t *testing.T) {
 
 	// find metric name err
 	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.NotNil(t, exec.Error())
-
+	exec := newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
 }
 
 func TestStorageExecute_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
+	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
+	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
+
 	engine := tsdb.NewMockEngine(ctrl)
+	engine.EXPECT().GetExecutePool().Return(execPool).AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	idGetter := diskdb.NewMockIDGetter(ctrl)
 	family := tsdb.NewMockDataFamily(ctrl)
@@ -113,10 +124,9 @@ func TestStorageExecute_Execute(t *testing.T) {
 
 	// normal case
 	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.NoError(t, exec.Error())
-	assert.NotNil(t, exec.Statement())
+	exec := newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
+	time.Sleep(100 * time.Millisecond)
 	e := exec.(*storageExecutor)
 	pool := e.getAggregatorPool(10, 1, &query.TimeRange)
 	assert.NotNil(t, pool.Get())
@@ -135,25 +145,24 @@ func TestStorageExecute_Execute(t *testing.T) {
 		Return(nil, fmt.Errorf("err"))
 	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
 		Return(nil, series.ErrNotFound)
-	exec = newStorageExecutor(context.TODO(), engine, []int32{1}, query)
-	rs := exec.Execute()
-	assert.Error(t, exec.Error())
-	count := 0
-	for range rs {
-		count++
-	}
-	assert.Equal(t, 0, count)
-
+	exec = newStorageExecutor(exeCtx, engine, []int32{1}, query)
+	exec.Execute()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestStorageExecutor_checkShards(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	exeCtx := parallel.NewMockExecuteContext(ctrl)
+	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
+	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
+
 	engine := MockTSDBEngine(ctrl)
+	engine.EXPECT().GetExecutePool().Return(execPool).AnyTimes()
 	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(context.TODO(), engine, []int32{1, 2, 3}, query)
-	_ = exec.Execute()
-	assert.Nil(t, exec.Error())
+	exec := newStorageExecutor(exeCtx, engine, []int32{1, 2, 3}, query)
+	exec.Execute()
 
 	execImpl := exec.(*storageExecutor)
 	// check shards error

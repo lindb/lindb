@@ -13,7 +13,7 @@ import (
 //                mock interface				 //
 ///////////////////////////////////////////////////
 
-func MockTSDBEngine(ctrl *gomock.Controller) tsdb.Engine {
+func MockTSDBEngine(ctrl *gomock.Controller) *tsdb.MockEngine {
 	shard := tsdb.NewMockShard(ctrl)
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
 	shard.EXPECT().GetMemoryDatabase().Return(memDB).AnyTimes()

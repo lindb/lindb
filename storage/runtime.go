@@ -219,7 +219,7 @@ func (r *runtime) bindRPCHandlers() {
 
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
-		task:   taskHandler.NewTaskHandler(r.factory.taskServer, dispatcher),
+		task:   taskHandler.NewTaskHandler(r.config.Query, r.factory.taskServer, dispatcher),
 	}
 
 	//TODO add task service ??????

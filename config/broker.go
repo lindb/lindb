@@ -12,6 +12,7 @@ type BrokerKernel struct {
 	GRPC               GRPC               `toml:"grpc"`
 	TCP                TCP                `toml:"tcp"`
 	ReplicationChannel ReplicationChannel `toml:"replicationChannel"`
+	Query              Query              `toml:"query"`
 }
 
 // Broker represents a broker configuration with common settings
@@ -80,7 +81,9 @@ func NewDefaultBrokerCfg() Broker {
 				CheckFlushIntervalInSecond: 1,
 				FlushIntervalInSecond:      5,
 				BufferSizeLimit:            128 * 1024,
-			}},
+			},
+			Query: NewDefaultQueryCfg(),
+		},
 		Logging: NewDefaultLoggingCfg(),
 	}
 }

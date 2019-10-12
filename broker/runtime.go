@@ -396,11 +396,10 @@ func (r *runtime) bindGRPCHandlers() {
 	//FIXME: (stone1100) need close
 	dispatcher := parallel.NewIntermediateTaskDispatcher()
 	r.rpcHandler = &rpcHandler{
-		task: parallel.NewTaskHandler(r.factory.taskServer, dispatcher),
+		task: parallel.NewTaskHandler(r.config.Query, r.factory.taskServer, dispatcher),
 	}
 
 	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
-
 }
 
 //buildTCPHandlers builds tcp handlers

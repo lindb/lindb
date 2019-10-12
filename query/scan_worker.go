@@ -1,16 +1,15 @@
 package query
 
 import (
-	"context"
 	"sync"
 
-	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/pool"
-	"github.com/lindb/lindb/series"
-)
+	"go.uber.org/atomic"
 
-var Pool = pool.NewPool(200, 10)
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/tsdb"
+)
 
 // scanWorker represents dispatch the event of scanner
 type scanWorker struct {
@@ -20,43 +19,31 @@ type scanWorker struct {
 
 	metaGetter series.MetaGetter
 	groupAgg   aggregation.GroupingAggregator
-	resultCh   chan *series.TimeSeriesEvent
 
-	events chan series.ScanEvent
-	wait   sync.WaitGroup
+	executePool *tsdb.ExecutePool
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx     parallel.ExecuteContext
+	pending atomic.Int32
+
+	done atomic.Bool
+
+	mutex sync.Mutex
 }
 
 // createScanWorker creates scan worker dispatcher event to aggregate worker
-func createScanWorker(ctx context.Context, metricID uint32,
+func createScanWorker(ctx parallel.ExecuteContext, metricID uint32,
 	groupByTagKeys []string, metaGetter series.MetaGetter, groupedAgg aggregation.GroupingAggregator,
-	resultCh chan *series.TimeSeriesEvent) series.ScanWorker {
-	c, cancel := context.WithCancel(ctx)
+	executePool *tsdb.ExecutePool,
+) series.ScanWorker {
 	worker := &scanWorker{
-		resultCh:   resultCh,
-		metricID:   metricID,
-		tagKeys:    groupByTagKeys,
-		hasGroupBy: len(groupByTagKeys) > 0,
-		metaGetter: metaGetter,
-		events:     make(chan series.ScanEvent),
-		groupAgg:   groupedAgg,
-		ctx:        c,
-		cancel:     cancel,
+		metricID:    metricID,
+		executePool: executePool,
+		tagKeys:     groupByTagKeys,
+		hasGroupBy:  len(groupByTagKeys) > 0,
+		metaGetter:  metaGetter,
+		groupAgg:    groupedAgg,
+		ctx:         ctx,
 	}
-
-	//FIXME add goroutine pool or add timeout/if need goroutine?
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Error("process scan event panic", logger.Any("err", err), logger.Stack())
-			}
-			worker.cancel()
-		}()
-		worker.process()
-	}()
-
 	return worker
 }
 
@@ -65,55 +52,45 @@ func (s *scanWorker) Emit(event series.ScanEvent) {
 	if event == nil {
 		return
 	}
-	s.wait.Add(1)
-	Pool.JobQueue <- func() {
+	s.pending.Inc()
+	s.executePool.Scan.Execute(func() {
 		if event.Scan() {
-			s.events <- event
-		} else {
-			s.wait.Done()
-		}
-	}
-}
+			s.executePool.Merge.Execute(func() {
+				defer s.complete()
 
-// Close waits handle finish, then closes the event chan
-func (s *scanWorker) Close() {
-	go func() {
-		s.wait.Wait()
-		s.cancel()
-	}()
-
-	s.waitComplete()
-	// if no group by tag keys, need send result after scan completed
-	resultSet := s.groupAgg.ResultSet()
-	if len(resultSet) > 0 {
-		s.resultCh <- &series.TimeSeriesEvent{
-			SeriesList: resultSet,
-		}
-	}
-}
-
-// process consumes event from chan, then handles the event
-func (s *scanWorker) process() {
-	for {
-		select {
-		case event := <-s.events:
-			resultSet := event.ResultSet()
-			if resultSet != nil {
-				agg, ok := resultSet.(aggregation.FieldAggregates)
-				if ok {
-					s.groupAgg.Aggregate(agg.ResultSet(nil))
+				resultSet := event.ResultSet()
+				if resultSet != nil {
+					agg, ok := resultSet.(aggregation.FieldAggregates)
+					if ok {
+						s.mutex.Lock()
+						s.groupAgg.Aggregate(agg.ResultSet(nil))
+						s.mutex.Unlock()
+					}
 				}
-			}
-			event.Release()
-			s.wait.Done()
-		case <-s.ctx.Done():
-			return
+				event.Release()
+			})
+		} else {
+			s.complete()
 		}
-	}
+	})
 }
 
-// waitComplete waits worker process complete
-func (s *scanWorker) waitComplete() {
-	// if ctx isn't done need wait, else timeout do not wait
-	<-s.ctx.Done()
+// Close marks scan worker can be done
+func (s *scanWorker) Close() {
+	s.done.Store(true)
+}
+
+// complete completes the worker if all pending events is done
+func (s *scanWorker) complete() {
+	pending := s.pending.Dec()
+	if pending == 0 && s.done.Load() {
+		resultSet := s.groupAgg.ResultSet()
+		if len(resultSet) > 0 {
+			s.ctx.Emit(&series.TimeSeriesEvent{
+				SeriesList: resultSet,
+			})
+		}
+		// complete the scan task
+		s.ctx.Complete(nil)
+	}
 }

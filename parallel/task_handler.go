@@ -5,6 +5,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/common"
@@ -12,15 +14,22 @@ import (
 
 // TaskHandler represents the task rpc handler
 type TaskHandler struct {
+	cfg        config.Query
 	fct        rpc.TaskServerFactory
 	dispatcher TaskDispatcher
+	timeout    time.Duration
+
+	taskPool concurrent.Pool
 
 	logger *logger.Logger
 }
 
 // NewTaskHandler creates the task rpc handler
-func NewTaskHandler(fct rpc.TaskServerFactory, dispatcher TaskDispatcher) *TaskHandler {
+func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher TaskDispatcher) *TaskHandler {
 	return &TaskHandler{
+		cfg:        cfg,
+		timeout:    time.Duration(int64(time.Second) * cfg.Timeout),
+		taskPool:   concurrent.NewPool("query_rpc_task_handlers", cfg.NumOfTasks, cfg.QueueCapacity),
 		fct:        fct,
 		dispatcher: dispatcher,
 		logger:     logger.GetLogger("parallel", "TaskHandler"),
@@ -61,9 +70,8 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
 
 // dispatch dispatches request with timeout
 func (q *TaskHandler) dispatch(req *common.TaskRequest) {
-	//TODO add timeout cfg, need cancel ctx??
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
-	go func() {
+	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
+	q.taskPool.Execute(func() {
 		defer func() {
 			if err := recover(); err != nil {
 				q.logger.Error("dispatch task request", logger.Any("err", err), logger.Stack())
@@ -71,5 +79,5 @@ func (q *TaskHandler) dispatch(req *common.TaskRequest) {
 			cancel()
 		}()
 		q.dispatcher.Dispatch(ctx, req)
-	}()
+	})
 }

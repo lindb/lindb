@@ -3,10 +3,7 @@ package parallel
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -15,8 +12,6 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -60,29 +55,27 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	})
 	query := stmt.Query{MetricName: "cpu"}
 	data := encoding.JSONMarshal(&query)
+
 	// db not exist
 	storageService.EXPECT().GetEngine(gomock.Any()).Return(nil)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.Equal(t, errNoDatabase, err)
 
-	storageService.EXPECT().GetEngine(gomock.Any()).Return(engine).MaxTimes(2)
+	// test get upstream err
+	storageService.EXPECT().GetEngine(gomock.Any()).Return(engine)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.Equal(t, errNoSendStream, err)
 
 	// test executor fail
-	storageService.EXPECT().GetEngine(gomock.Any()).Return(engine).AnyTimes()
-	exec := NewMockExecutor(ctrl)
-	exec.EXPECT().Execute().Return(nil)
-	exec.EXPECT().Error().Return(fmt.Errorf("err"))
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	serverStream := pb.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	serverStream.EXPECT().Send(gomock.Any()).Return(nil)
+	storageService.EXPECT().GetEngine(gomock.Any()).Return(engine).AnyTimes()
+	exec := NewMockExecutor(ctrl)
+	exec.EXPECT().Execute()
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestLeafProcessor_Process(t *testing.T) {
@@ -107,105 +100,9 @@ func TestLeafProcessor_Process(t *testing.T) {
 
 	serverStream := pb.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	serverStream.EXPECT().Send(gomock.Any()).Return(nil)
 	exec := NewMockExecutor(ctrl)
-	exec.EXPECT().Execute().Return(nil)
-	exec.EXPECT().Error().Return(nil)
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	exec.EXPECT().Execute()
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	err := processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	storageService.EXPECT().GetEngine(gomock.Any()).Return(engine).AnyTimes()
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream).AnyTimes()
-	serverStream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	exec.EXPECT().Error().Return(nil).AnyTimes()
-
-	resultCh := make(chan *series.TimeSeriesEvent)
-	it := series.NewMockGroupedIterator(ctrl)
-	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Tags().Return(nil)
-	fieldIt1 := series.NewMockIterator(ctrl)
-	fieldIt1.EXPECT().FieldName().Return("f1").AnyTimes()
-	fieldIt1.EXPECT().FieldType().Return(field.SumField).AnyTimes()
-	fieldIt1.EXPECT().HasNext().Return(false).AnyTimes()
-	fieldIt1.EXPECT().MarshalBinary().Return([]byte{1, 2}, nil).AnyTimes()
-	it.EXPECT().Next().Return(fieldIt1)
-	it.EXPECT().HasNext().Return(false)
-	go func() {
-		resultCh <- &series.TimeSeriesEvent{
-			SeriesList: []series.GroupedIterator{it},
-		}
-		time.AfterFunc(500*time.Millisecond, func() {
-			close(resultCh)
-		})
-	}()
-	exec.EXPECT().Execute().Return(resultCh)
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
-
-	// encode response error
-	resultCh = make(chan *series.TimeSeriesEvent)
-	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Tags().Return(nil).AnyTimes()
-	fIt := series.NewMockFieldIterator(ctrl)
-	fieldIt2 := series.NewMockIterator(ctrl)
-	fieldIt2.EXPECT().HasNext().Return(true).AnyTimes()
-	fieldIt2.EXPECT().FieldType().Return(field.SumField).AnyTimes()
-	fieldIt2.EXPECT().Next().Return(int64(10), fIt).AnyTimes()
-	fieldIt2.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err")).AnyTimes()
-	it.EXPECT().Next().Return(fieldIt2)
-	go func() {
-		resultCh <- &series.TimeSeriesEvent{
-			SeriesList: []series.GroupedIterator{it},
-		}
-		time.AfterFunc(500*time.Millisecond, func() {
-			close(resultCh)
-		})
-	}()
-	exec.EXPECT().Execute().Return(resultCh)
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
-
-	resultCh = make(chan *series.TimeSeriesEvent)
-	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Tags().Return(nil).AnyTimes()
-	fieldIt3 := series.NewMockIterator(ctrl)
-	fieldIt3.EXPECT().HasNext().Return(true).AnyTimes()
-	fieldIt3.EXPECT().FieldType().Return(field.SumField).AnyTimes()
-	fieldIt3.EXPECT().Next().Return(int64(10), fIt).AnyTimes()
-	fieldIt3.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
-	it.EXPECT().Next().Return(fieldIt3)
-	var wait sync.WaitGroup
-	wait.Add(1)
-	go func() {
-		resultCh <- &series.TimeSeriesEvent{
-			SeriesList: []series.GroupedIterator{it},
-		}
-		resultCh <- &series.TimeSeriesEvent{
-			SeriesList: []series.GroupedIterator{it},
-		}
-		time.AfterFunc(500*time.Millisecond, func() {
-			close(resultCh)
-			wait.Done()
-		})
-	}()
-	exec.EXPECT().Execute().Return(resultCh)
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
-	wait.Wait()
-
-	resultCh = make(chan *series.TimeSeriesEvent)
-	go func() {
-		resultCh <- &series.TimeSeriesEvent{
-			Err: fmt.Errorf("err"),
-		}
-		time.AfterFunc(500*time.Millisecond, func() {
-			close(resultCh)
-		})
-	}()
-	exec.EXPECT().Execute().Return(resultCh)
-	executorFactory.EXPECT().NewStorageExecutor(context.TODO(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
-	_ = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
+	assert.NoError(t, err)
 }
