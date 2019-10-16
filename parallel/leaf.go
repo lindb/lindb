@@ -24,9 +24,12 @@ type leafTask struct {
 }
 
 // newLeafTask creates the leaf task
-func newLeafTask(currentNode models.Node,
+func newLeafTask(
+	currentNode models.Node,
 	storageService service.StorageService,
-	executorFactory ExecutorFactory, taskServerFactory rpc.TaskServerFactory) TaskProcessor {
+	executorFactory ExecutorFactory,
+	taskServerFactory rpc.TaskServerFactory,
+) TaskProcessor {
 	return &leafTask{
 		currentNodeID:     (&currentNode).Indicator(),
 		storageService:    storageService,
@@ -88,8 +91,11 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	return nil
 }
 
-func (p *leafTask) handleResultSet(groupedTimeSeries <-chan *series.TimeSeriesEvent, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
-	var data []byte
+func (p *leafTask) handleResultSet(
+	groupedTimeSeries <-chan *series.TimeSeriesEvent,
+	stream pb.TaskService_HandleServer,
+	req *pb.TaskRequest,
+) {
 	var err error
 	if groupedTimeSeries != nil {
 		for result := range groupedTimeSeries {
@@ -109,7 +115,8 @@ func (p *leafTask) handleResultSet(groupedTimeSeries <-chan *series.TimeSeriesEv
 				fields := make(map[string][]byte)
 				for ts.HasNext() {
 					fieldIt := ts.Next()
-					data, err = series.EncodeSeries(fieldIt)
+					var data []byte
+					data, err = fieldIt.MarshalBinary()
 					if err != nil || len(data) == 0 {
 						break
 					}

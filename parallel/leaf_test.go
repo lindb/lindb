@@ -126,11 +126,12 @@ func TestLeafProcessor_Process(t *testing.T) {
 	it := series.NewMockGroupedIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Tags().Return(nil)
-	fieldIt := series.NewMockIterator(ctrl)
-	fieldIt.EXPECT().FieldName().Return("f1")
-	fieldIt.EXPECT().FieldType().Return(field.SumField)
-	fieldIt.EXPECT().HasNext().Return(false)
-	it.EXPECT().Next().Return(fieldIt)
+	fieldIt1 := series.NewMockIterator(ctrl)
+	fieldIt1.EXPECT().FieldName().Return("f1").AnyTimes()
+	fieldIt1.EXPECT().FieldType().Return(field.SumField).AnyTimes()
+	fieldIt1.EXPECT().HasNext().Return(false).AnyTimes()
+	fieldIt1.EXPECT().MarshalBinary().Return([]byte{1, 2}, nil).AnyTimes()
+	it.EXPECT().Next().Return(fieldIt1)
 	it.EXPECT().HasNext().Return(false)
 	go func() {
 		resultCh <- &series.TimeSeriesEvent{
@@ -147,13 +148,14 @@ func TestLeafProcessor_Process(t *testing.T) {
 	// encode response error
 	resultCh = make(chan *series.TimeSeriesEvent)
 	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Tags().Return(nil)
+	it.EXPECT().Tags().Return(nil).AnyTimes()
 	fIt := series.NewMockFieldIterator(ctrl)
-	fieldIt.EXPECT().HasNext().Return(true)
-	fieldIt.EXPECT().FieldType().Return(field.SumField)
-	fieldIt.EXPECT().Next().Return(int64(10), fIt)
-	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it.EXPECT().Next().Return(fieldIt)
+	fieldIt2 := series.NewMockIterator(ctrl)
+	fieldIt2.EXPECT().HasNext().Return(true).AnyTimes()
+	fieldIt2.EXPECT().FieldType().Return(field.SumField).AnyTimes()
+	fieldIt2.EXPECT().Next().Return(int64(10), fIt).AnyTimes()
+	fieldIt2.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err")).AnyTimes()
+	it.EXPECT().Next().Return(fieldIt2)
 	go func() {
 		resultCh <- &series.TimeSeriesEvent{
 			SeriesList: []series.GroupedIterator{it},
@@ -168,12 +170,13 @@ func TestLeafProcessor_Process(t *testing.T) {
 
 	resultCh = make(chan *series.TimeSeriesEvent)
 	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Tags().Return(nil)
-	fieldIt.EXPECT().HasNext().Return(true)
-	fieldIt.EXPECT().FieldType().Return(field.SumField)
-	fieldIt.EXPECT().Next().Return(int64(10), fIt)
-	fIt.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it.EXPECT().Next().Return(fieldIt)
+	it.EXPECT().Tags().Return(nil).AnyTimes()
+	fieldIt3 := series.NewMockIterator(ctrl)
+	fieldIt3.EXPECT().HasNext().Return(true).AnyTimes()
+	fieldIt3.EXPECT().FieldType().Return(field.SumField).AnyTimes()
+	fieldIt3.EXPECT().Next().Return(int64(10), fIt).AnyTimes()
+	fieldIt3.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
+	it.EXPECT().Next().Return(fieldIt3)
 	var wait sync.WaitGroup
 	wait.Add(1)
 	go func() {

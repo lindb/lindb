@@ -52,7 +52,7 @@ func TestFieldStore_Scan(t *testing.T) {
 	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
 	gomock.InOrder(
 		agg.EXPECT().GetAggregator(familyTime).Return(fieldAgg, true),
-		fieldAgg.EXPECT().GetAllAggregates().Return([]aggregation.PrimitiveAggregator{pAgg}),
+		fieldAgg.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg}),
 		pAgg.EXPECT().Aggregate(20, 1.0).Return(false),
 	)
 	fStore.scan(agg, sCtx)

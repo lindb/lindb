@@ -31,7 +31,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 		56: 5.9,
 	})
 	agg.Aggregate(it)
-	assert.Equal(t, 1, len(agg.GetAllAggregates()))
+	assert.Equal(t, 1, len(agg.GetAllAggregators()))
 
 	expect := map[int]float64{
 		15: 5.6,
@@ -94,7 +94,7 @@ func TestDownSamplingFieldAggregator(t *testing.T) {
 	// query time range 20190729 10:10:00 ~ 20190729 12:10:00
 	selector1 := selector.NewIndexSlotSelector(0, 60, 1)
 	agg := NewDownSamplingFieldAggregator(baseTime, selector1, aggSpec)
-	assert.Equal(t, 3, len(agg.GetAllAggregates()))
+	assert.Equal(t, 3, len(agg.GetAllAggregators()))
 	agg.Aggregate(nil)
 	it := series.NewMockFieldIterator(ctrl)
 	agg.Aggregate(it)

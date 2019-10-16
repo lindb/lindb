@@ -150,14 +150,14 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		// tests if has func with field
 		if parentFunc == nil {
 			// if not using field default down sampling func
-			funcType = aggregation.DownSamplingFunc(fieldType)
+			funcType = fieldType.DownSamplingFunc()
 			if funcType == function.Unknown {
 				p.err = fmt.Errorf("cannot get default down sampling func for filed type[%s]", fieldType)
 				return
 			}
 		} else {
 			// using use input, and check func is supported
-			if !aggregation.IsSupportFunc(fieldType, parentFunc.FuncType) {
+			if !fieldType.IsFuncSupported(parentFunc.FuncType) {
 				p.err = fmt.Errorf("field type[%s] not supprot function[%s]", fieldType, parentFunc.FuncType)
 				return
 			}

@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-func TestEncodeSeries(t *testing.T) {
+func Test_MarshalBinary(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -31,19 +31,19 @@ func TestEncodeSeries(t *testing.T) {
 		it.EXPECT().FieldType().Return(field.SumField),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
-		fIt.EXPECT().Bytes().Return([]byte{1, 2}, nil),
+		fIt.EXPECT().MarshalBinary().Return([]byte{1, 2}, nil),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), nil),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
-		fIt.EXPECT().Bytes().Return([]byte{}, nil),
+		fIt.EXPECT().MarshalBinary().Return([]byte{}, nil),
 		it.EXPECT().HasNext().Return(false),
 	)
-	data2, err := EncodeSeries(it)
+	data2, err := MarshalIterator(it)
 	assert.NoError(t, err)
 	assert.Equal(t, data, data2)
 
-	data2, err = EncodeSeries(nil)
+	data2, err = MarshalIterator(nil)
 	assert.NoError(t, err)
 	assert.Nil(t, data2)
 
@@ -51,13 +51,13 @@ func TestEncodeSeries(t *testing.T) {
 		it.EXPECT().FieldType().Return(field.SumField),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
-		fIt.EXPECT().Bytes().Return([]byte{1, 2}, nil),
+		fIt.EXPECT().MarshalBinary().Return([]byte{1, 2}, nil),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), nil),
 		it.EXPECT().HasNext().Return(true),
 		it.EXPECT().Next().Return(int64(10), fIt),
-		fIt.EXPECT().Bytes().Return([]byte{}, fmt.Errorf("err")),
+		fIt.EXPECT().MarshalBinary().Return([]byte{}, fmt.Errorf("err")),
 	)
-	_, err = EncodeSeries(it)
+	_, err = MarshalIterator(it)
 	assert.Error(t, err)
 }

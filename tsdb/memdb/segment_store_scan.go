@@ -9,6 +9,6 @@ func (fs *simpleFieldStore) scan(agg aggregation.SeriesAggregator, memScanCtx *m
 	if !ok {
 		return
 	}
-	aggregates := segmentAgg.GetAllAggregates()
-	fs.block.scan(fs.aggFunc, aggregates, memScanCtx)
+	aggregators := segmentAgg.GetAllAggregators()
+	fs.block.scan(fs.aggFunc, aggregators, memScanCtx)
 }

@@ -1,6 +1,8 @@
 package field
 
-import "github.com/lindb/lindb/aggregation/function"
+import (
+	"github.com/lindb/lindb/aggregation/function"
+)
 
 // ValueType represents primitive field's value type
 type ValueType uint8
@@ -59,6 +61,51 @@ func (t Type) String() string {
 		return "histogram"
 	default:
 		return "unknown"
+	}
+}
+
+func (t Type) DownSamplingFunc() function.FuncType {
+	switch t {
+	case SumField:
+		return function.Sum
+	case MinField:
+		return function.Min
+	case MaxField:
+		return function.Max
+	case HistogramField:
+		return function.Histogram
+	default:
+		return function.Unknown
+	}
+}
+
+func (t Type) IsFuncSupported(funcType function.FuncType) bool {
+	switch t {
+	case SumField:
+		switch funcType {
+		case function.Sum, function.Min, function.Max:
+			return true
+		default:
+			return false
+		}
+	case MinField:
+		switch funcType {
+		case function.Min:
+			return true
+		default:
+			return false
+		}
+	case MaxField:
+		switch funcType {
+		case function.Max:
+			return true
+		default:
+			return false
+		}
+	case HistogramField:
+		return true
+	default:
+		return false
 	}
 }
 

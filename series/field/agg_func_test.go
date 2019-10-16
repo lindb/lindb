@@ -7,21 +7,21 @@ import (
 )
 
 func TestGetAggFunc(t *testing.T) {
-	assert.NotNil(t, GetAggFunc(Sum))
-	assert.NotNil(t, GetAggFunc(Min))
-	assert.NotNil(t, GetAggFunc(Max))
-	assert.Nil(t, GetAggFunc(AggType(99)))
+	assert.NotNil(t, Sum.AggFunc())
+	assert.NotNil(t, Min.AggFunc())
+	assert.NotNil(t, Max.AggFunc())
+	assert.Nil(t, AggType(99).AggFunc())
 }
 
 func TestSumAgg(t *testing.T) {
-	agg := GetAggFunc(Sum)
+	agg := Sum.AggFunc()
 	assert.Equal(t, Sum, agg.AggType())
 	assert.Equal(t, int64(100), agg.AggregateInt(1, 99))
 	assert.Equal(t, 100.0, agg.AggregateFloat(1, 99.0))
 }
 
 func TestMinAgg(t *testing.T) {
-	agg := GetAggFunc(Min)
+	agg := Min.AggFunc()
 	assert.Equal(t, Min, agg.AggType())
 	assert.Equal(t, int64(1), agg.AggregateInt(1, 99))
 	assert.Equal(t, int64(1), agg.AggregateInt(99, 1))
@@ -30,16 +30,10 @@ func TestMinAgg(t *testing.T) {
 }
 
 func TestMaxAgg(t *testing.T) {
-	agg := GetAggFunc(Max)
+	agg := Max.AggFunc()
 	assert.Equal(t, Max, agg.AggType())
 	assert.Equal(t, int64(99), agg.AggregateInt(1, 99))
 	assert.Equal(t, int64(99), agg.AggregateInt(99, 1))
 	assert.Equal(t, 99.0, agg.AggregateFloat(1, 99.0))
 	assert.Equal(t, 99.0, agg.AggregateFloat(99.0, 1))
-}
-
-func Test_registerPanic(t *testing.T) {
-	assert.Panics(t, func() {
-		registerFunc(Sum, &sumAgg{})
-	})
 }
