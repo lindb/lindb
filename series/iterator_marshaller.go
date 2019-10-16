@@ -4,7 +4,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-func EncodeSeries(it Iterator) ([]byte, error) {
+func MarshalIterator(it Iterator) ([]byte, error) {
 	if it == nil {
 		return nil, nil
 	}
@@ -16,13 +16,12 @@ func EncodeSeries(it Iterator) ([]byte, error) {
 			continue
 		}
 		writer.PutVarint64(startTime)
-		data, err := fIt.Bytes()
+		data, err := fIt.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
-		length := len(data)
-		writer.PutVarint32(int32(length))
-		if length > 0 {
+		writer.PutVarint32(int32(len(data)))
+		if len(data) > 0 {
 			writer.PutBytes(data)
 		}
 	}

@@ -116,7 +116,7 @@ func TestBinaryFieldIterator(t *testing.T) {
 	it := NewFieldIterator(d)
 	assertFieldIterator(t, it)
 
-	_, err := it.Bytes()
+	_, err := it.MarshalBinary()
 	assert.Error(t, err)
 }
 

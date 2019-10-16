@@ -14,8 +14,8 @@ import (
 type FieldAggregator interface {
 	// Aggregate aggregates the field series into current aggregator
 	Aggregate(it series.FieldIterator)
-	// GetAllAggregates returns all primitive aggregates
-	GetAllAggregates() []PrimitiveAggregator
+	// GetAllAggregators returns all primitive aggregates
+	GetAllAggregators() []PrimitiveAggregator
 	// ResultSet returns the result set of field aggregator
 	ResultSet() (startTime int64, it series.FieldIterator)
 	// reset resets the context for reusing
@@ -30,15 +30,18 @@ type aggKey struct {
 type downSamplingFieldAggregator struct {
 	segmentStartTime int64
 	start            int
-	aggregates       []PrimitiveAggregator
+	aggregators      []PrimitiveAggregator
 }
 
 // NewDownSamplingFieldAggregator creates a field aggregator for down sampling,
 // time range 's start and end is index based on segment start time and interval.
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewDownSamplingFieldAggregator(segmentStartTime int64, selector selector.SlotSelector,
-	aggSpec AggregatorSpec) FieldAggregator {
+func NewDownSamplingFieldAggregator(
+	segmentStartTime int64,
+	selector selector.SlotSelector,
+	aggSpec AggregatorSpec,
+) FieldAggregator {
 	start, _ := selector.Range()
 	agg := &downSamplingFieldAggregator{
 		segmentStartTime: segmentStartTime,
@@ -53,19 +56,19 @@ func NewDownSamplingFieldAggregator(segmentStartTime int64, selector selector.Sl
 				primitiveID: id,
 				aggType:     aggType,
 			}
-			aggregatorMap[key] = NewPrimitiveAggregator(id, start, selector.PointCount(), field.GetAggFunc(aggType))
+			aggregatorMap[key] = NewPrimitiveAggregator(id, start, selector.PointCount(), aggType.AggFunc())
 		}
 	}
 	length := len(aggregatorMap)
-	agg.aggregates = make([]PrimitiveAggregator, length)
+	agg.aggregators = make([]PrimitiveAggregator, length)
 	idx := 0
 	for _, pAgg := range aggregatorMap {
-		agg.aggregates[idx] = pAgg
+		agg.aggregators[idx] = pAgg
 		idx++
 	}
 	// sort field ids
-	sort.Slice(agg.aggregates, func(i, j int) bool {
-		return agg.aggregates[i].FieldID() < agg.aggregates[j].FieldID()
+	sort.Slice(agg.aggregators, func(i, j int) bool {
+		return agg.aggregators[i].FieldID() < agg.aggregators[j].FieldID()
 	})
 	return agg
 }
@@ -74,14 +77,14 @@ func (agg *downSamplingFieldAggregator) Aggregate(it series.FieldIterator) {
 	// do nothing for down sampling
 }
 
-func (agg *downSamplingFieldAggregator) GetAllAggregates() []PrimitiveAggregator {
-	return agg.aggregates
+func (agg *downSamplingFieldAggregator) GetAllAggregators() []PrimitiveAggregator {
+	return agg.aggregators
 }
 
 func (agg *downSamplingFieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
-	its := make([]series.PrimitiveIterator, len(agg.aggregates))
+	its := make([]series.PrimitiveIterator, len(agg.aggregators))
 	idx := 0
-	for _, it := range agg.aggregates {
+	for _, it := range agg.aggregators {
 		its[idx] = it.Iterator()
 		idx++
 	}
@@ -89,7 +92,7 @@ func (agg *downSamplingFieldAggregator) ResultSet() (startTime int64, it series.
 }
 
 func (agg *downSamplingFieldAggregator) reset() {
-	for _, aggregator := range agg.aggregates {
+	for _, aggregator := range agg.aggregators {
 		aggregator.reset()
 	}
 }
@@ -132,7 +135,7 @@ func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator)
 	return a.segmentStartTime, newFieldIterator(a.start, its)
 }
 
-func (a *fieldAggregator) GetAllAggregates() []PrimitiveAggregator {
+func (a *fieldAggregator) GetAllAggregators() []PrimitiveAggregator {
 	result := make([]PrimitiveAggregator, len(a.aggregateMap))
 	idx := 0
 	for _, agg := range a.aggregateMap {
@@ -181,7 +184,7 @@ func (a *fieldAggregator) getAggregator(primitiveFieldID uint16, aggType field.A
 		return agg
 	}
 	start, _ := a.selector.Range()
-	agg = NewPrimitiveAggregator(primitiveFieldID, start, a.selector.PointCount(), field.GetAggFunc(aggType))
+	agg = NewPrimitiveAggregator(primitiveFieldID, start, a.selector.PointCount(), aggType.AggFunc())
 	a.aggregateMap[key] = agg
 	return agg
 }

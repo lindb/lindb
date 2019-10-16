@@ -1,6 +1,7 @@
 package series
 
 import (
+	enc "encoding"
 	"io"
 
 	"github.com/lindb/lindb/series/field"
@@ -47,6 +48,8 @@ type Iterator interface {
 	HasNext() bool
 	// Next returns the field's iterator
 	Next() (startTime int64, fieldIt FieldIterator)
+	// MarshalBinary marshals the data
+	enc.BinaryMarshaler
 }
 
 // FieldIterator represents a field's data iterator, support multi field for one series
@@ -56,8 +59,8 @@ type FieldIterator interface {
 	// Next returns the primitive field iterator
 	// because there are some primitive fields if field type is complex
 	Next() PrimitiveIterator
-	// Bytes returns the binary data for field iterator
-	Bytes() ([]byte, error)
+	// MarshalBinary marshals the data
+	enc.BinaryMarshaler
 }
 
 // PrimitiveIterator represents an iterator over a primitive field, iterator points data of primitive field

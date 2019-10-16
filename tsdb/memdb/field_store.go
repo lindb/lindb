@@ -129,7 +129,7 @@ func (fs *fieldStore) Write(
 		if !ok {
 			//TODO ???
 			oldCap := cap(fs.sStoreNodes)
-			sStore = newSimpleFieldStore(writeCtx.familyTime, field.GetAggFunc(field.Sum))
+			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Sum.AggFunc())
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}

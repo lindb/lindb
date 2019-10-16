@@ -41,7 +41,7 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 	return primitiveIt
 }
 
-func (it *fieldIterator) Bytes() ([]byte, error) {
+func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	if it.length == 0 {
 		return nil, nil
 	}

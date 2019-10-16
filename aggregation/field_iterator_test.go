@@ -13,7 +13,7 @@ import (
 func TestFieldIterator(t *testing.T) {
 	it := newFieldIterator(10, []series.PrimitiveIterator{})
 	assert.False(t, it.HasNext())
-	data, err := it.Bytes()
+	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 
@@ -31,19 +31,19 @@ func TestFieldIterator(t *testing.T) {
 	assert.False(t, it.HasNext())
 	assert.Nil(t, it.Next())
 
-	data, err = it.Bytes()
+	data, err = it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
 }
 
-func TestFieldIterator_Bytes(t *testing.T) {
+func TestFieldIterator_MarshalBinary(t *testing.T) {
 	floatArray := collections.NewFloatArray(5)
 	floatArray.SetValue(2, 10.0)
 	primitiveIt := newPrimitiveIterator(uint16(10), 10, field.Sum, floatArray)
 	primitiveIt1 := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
-	data, err := it.Bytes()
+	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
 }
