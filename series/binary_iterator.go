@@ -33,6 +33,7 @@ func NewGroupedIterator(tags map[string]string, fields map[string][]byte) Groupe
 func (g *binaryGroupedIterator) Tags() map[string]string {
 	return g.tags
 }
+
 func (g *binaryGroupedIterator) HasNext() bool {
 	if g.idx >= len(g.fieldNames) {
 		return false
@@ -101,6 +102,10 @@ func (b *BinaryIterator) Next() (startTime int64, fieldIt FieldIterator) {
 	return
 }
 
+func (b *BinaryIterator) MarshalBinary() ([]byte, error) {
+	return MarshalIterator(b)
+}
+
 //////////////////////////////////////////////////////
 // binaryFieldIterator implements FieldIterator
 //////////////////////////////////////////////////////
@@ -137,7 +142,7 @@ func (it *BinaryFieldIterator) Next() PrimitiveIterator {
 	return it.pIt
 }
 
-func (it *BinaryFieldIterator) Bytes() ([]byte, error) {
+func (it *BinaryFieldIterator) MarshalBinary() ([]byte, error) {
 	return nil, fmt.Errorf("not support")
 }
 

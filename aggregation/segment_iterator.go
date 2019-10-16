@@ -48,3 +48,7 @@ func (s *seriesIterator) Next() (startTime int64, fieldIt series.FieldIterator) 
 	agg := s.aggregates[s.idx-1]
 	return agg.ResultSet()
 }
+
+func (s *seriesIterator) MarshalBinary() ([]byte, error) {
+	return series.MarshalIterator(s)
+}

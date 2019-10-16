@@ -9,7 +9,7 @@ import (
 )
 
 func TestPrimitiveSumFloatAgg(t *testing.T) {
-	agg := NewPrimitiveAggregator(1, 10, 5, field.GetAggFunc(field.Sum))
+	agg := NewPrimitiveAggregator(1, 10, 5, field.Sum.AggFunc())
 	agg.Aggregate(1, 10.0)
 	agg.Aggregate(1, 30.0)
 	agg.Aggregate(-1, 30.0)
