@@ -208,7 +208,8 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	s.families.Range(func(k, v interface{}) bool {
 		family, ok := v.(DataFamily)
 		if ok {
-			if familyQueryTimeRange.Overlap(family.TimeRange()) {
+			timeRange := family.TimeRange()
+			if familyQueryTimeRange.Overlap(&timeRange) {
 				result = append(result, family)
 			}
 		}
@@ -244,7 +245,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 			}
 			// create data family
 			familyStartTime := s.calc.CalcFamilyStartTime(s.baseTime, familyTime)
-			dataFamily := newDataFamily(s.interval, &timeutil.TimeRange{
+			dataFamily := newDataFamily(s.interval, timeutil.TimeRange{
 				Start: familyStartTime,
 				End:   s.calc.CalcFamilyEndTime(familyStartTime),
 			}, f)

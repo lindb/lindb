@@ -50,17 +50,17 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		sAgg.EXPECT().GetAggregator(int64(10)).Return(nil, false).MaxTimes(2),
 	)
 	mCtx = &memScanContext{
-		fieldIDs:   []uint16{12, 13},
-		aggregates: fieldsAgg,
-		fieldCount: 2,
+		fieldIDs:    []uint16{12, 13},
+		aggregators: fieldsAgg,
+		fieldCount:  2,
 	}
 	tStore.scan(mCtx)
 
 	// not match field
 	mCtx = &memScanContext{
-		fieldIDs:   []uint16{2, 3},
-		aggregates: fieldsAgg,
-		fieldCount: 2,
+		fieldIDs:    []uint16{2, 3},
+		aggregators: fieldsAgg,
+		fieldCount:  2,
 	}
 	tStore.scan(mCtx)
 }

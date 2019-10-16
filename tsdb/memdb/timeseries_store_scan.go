@@ -11,7 +11,7 @@ func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
 			// store field id > query field id, return it
 			return
 		case fieldID == memScanCtx.fieldIDs[idx]:
-			agg := memScanCtx.aggregates[idx]
+			agg := memScanCtx.aggregators[idx]
 			fieldStore.scan(agg, memScanCtx)
 			idx++ // goto next query field id
 			// found all query fields return it

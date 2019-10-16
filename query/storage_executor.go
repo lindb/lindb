@@ -133,7 +133,7 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 		SeriesIDSet: seriesIDSet,
 		HasGroupBy:  e.storageExecutePlan.hasGroupBy(),
 		Worker:      worker,
-		Aggregates:  e.getAggregatorPool(queryInterval, intervalRatio, &timeRange),
+		Aggregators: e.getAggregatorPool(queryInterval, intervalRatio, &timeRange),
 	})
 }
 

@@ -355,7 +355,11 @@ func (b *intBlock) memsize() int {
 }
 
 // scan scans block data, then aggregates the data
-func (b *intBlock) scan(aggFunc field.AggFunc, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext) {
+func (b *intBlock) scan(
+	aggFunc field.AggFunc,
+	agg []aggregation.PrimitiveAggregator,
+	memScanCtx *memScanContext,
+) {
 	b.container.scan(memScanCtx, func(mergeType mergeType, idx int, oldValue uint64) (completed bool) {
 		value := 0.0
 		// 1. get value and time slot
@@ -419,7 +423,11 @@ func (b *floatBlock) memsize() int {
 }
 
 // scan scans block data, then aggregates the data
-func (b *floatBlock) scan(aggFunc field.AggFunc, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext) {
+func (b *floatBlock) scan(
+	aggFunc field.AggFunc,
+	agg []aggregation.PrimitiveAggregator,
+	memScanCtx *memScanContext,
+) {
 	b.container.scan(memScanCtx, func(mergeType mergeType, idx int, oldValue uint64) (completed bool) {
 		value := 0.0
 		// 1. get value and time slot

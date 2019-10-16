@@ -12,7 +12,7 @@ import (
 
 func Test_MetricsDataFlusher(t *testing.T) {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher, 10)
+	flusher := NewFlusher(nopKVFlusher)
 
 	flush := func() []byte {
 		for version := 0; version < 10; version++ {
@@ -24,9 +24,9 @@ func Test_MetricsDataFlusher(t *testing.T) {
 			})
 
 			for seriesID := 0; seriesID < 100; seriesID++ {
-				flusher.FlushField(1, []byte{1, 2}, 0, 10)
-				flusher.FlushField(2, []byte{2, 3}, 10, 20)
-				flusher.FlushField(3, []byte{3, 4}, 20, 30)
+				flusher.FlushField(1, []byte{1, 2})
+				flusher.FlushField(2, []byte{2, 3})
+				flusher.FlushField(3, []byte{3, 4})
 				flusher.FlushSeries(uint32(seriesID))
 			}
 			flusher.FlushVersion(series.Version(version))
@@ -42,7 +42,7 @@ func Test_MetricsDataFlusher(t *testing.T) {
 
 func Test_MetricsDataFlusher_Commit(t *testing.T) {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher, 10)
+	flusher := NewFlusher(nopKVFlusher)
 	assert.Nil(t, flusher.Commit())
 
 	assert.Nil(t, flusher.FlushMetric(1))

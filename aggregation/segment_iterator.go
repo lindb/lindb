@@ -7,17 +7,17 @@ import (
 
 // seriesIterator implements series.Iterator
 type seriesIterator struct {
-	fieldName  string
-	fieldType  field.Type
-	aggregates []FieldAggregator
-	idx        int
-	len        int
+	fieldName   string
+	fieldType   field.Type
+	aggregators []FieldAggregator
+	idx         int
+	len         int
 }
 
 // newSeriesIterator creates the time series iterator
 func newSeriesIterator(agg SeriesAggregator) series.Iterator {
-	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.FieldType(), aggregates: agg.Aggregates()}
-	it.len = len(it.aggregates)
+	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.FieldType(), aggregators: agg.Aggregators()}
+	it.len = len(it.aggregators)
 	return it
 }
 
@@ -34,7 +34,7 @@ func (s *seriesIterator) FieldType() field.Type {
 // HasNext returns if the iteration has more field's iterator
 func (s *seriesIterator) HasNext() bool {
 	for s.idx < s.len {
-		if s.aggregates[s.idx] != nil {
+		if s.aggregators[s.idx] != nil {
 			s.idx++
 			return true
 		}
@@ -45,7 +45,7 @@ func (s *seriesIterator) HasNext() bool {
 
 // Next returns the field's iterator and segment start time
 func (s *seriesIterator) Next() (startTime int64, fieldIt series.FieldIterator) {
-	agg := s.aggregates[s.idx-1]
+	agg := s.aggregators[s.idx-1]
 	return agg.ResultSet()
 }
 

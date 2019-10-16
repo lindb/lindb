@@ -163,7 +163,7 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	assert.Equal(t, timeutil.TimeRange{
 		Start: familyBaseTime,
 		End:   familyEndTime - 1,
-	}, *dataFamily.TimeRange())
+	}, dataFamily.TimeRange())
 	dataFamily1, _ := seg.GetDataFamily(now)
 	assert.Equal(t, dataFamily, dataFamily1)
 

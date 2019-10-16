@@ -25,17 +25,27 @@ type ScanContext struct {
 	// runtime, required for memory scan
 	IntervalCalc interval.Calculator
 
-	Aggregates sync.Pool
+	Aggregators sync.Pool
+}
+
+// ContainsFieldID checks if fieldID is in search
+func (sCtx *ScanContext) ContainsFieldID(fieldID uint16) bool {
+	for _, id := range sCtx.FieldIDs {
+		if id == fieldID {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAggregator gets aggregator from the pool of scanner context
 func (sCtx *ScanContext) GetAggregator() interface{} {
-	return sCtx.Aggregates.Get()
+	return sCtx.Aggregators.Get()
 }
 
 // Release puts back aggregator to the pool of scanner context
 func (sCtx *ScanContext) Release(agg interface{}) {
-	sCtx.Aggregates.Put(agg)
+	sCtx.Aggregators.Put(agg)
 }
 
 // Scanner represents the scan ability over memory database and files under data family.

@@ -51,8 +51,8 @@ type SeriesAggregator interface {
 	FieldType() field.Type
 	// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
 	GetAggregator(segmentStartTime int64) (FieldAggregator, bool)
-	// Aggregates returns all field aggregates
-	Aggregates() []FieldAggregator
+	// Aggregators returns all field aggregates
+	Aggregators() []FieldAggregator
 	// ResultSet returns the result set of series aggregator
 	ResultSet() series.Iterator
 	// Reset resets the aggregator's context for reusing
@@ -106,8 +106,8 @@ func (a *seriesAggregator) FieldType() field.Type {
 	return a.aggSpec.FieldType()
 }
 
-// Aggregates returns all field aggregates
-func (a *seriesAggregator) Aggregates() []FieldAggregator {
+// Aggregators returns all field aggregates
+func (a *seriesAggregator) Aggregators() []FieldAggregator {
 	return a.aggregates
 }
 

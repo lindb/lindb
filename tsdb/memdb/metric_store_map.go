@@ -164,15 +164,15 @@ func (m *metricMap) scan(version series.Version, sCtx *series.ScanContext) {
 		return
 	}
 
-	queryBuf := getSeriesIDs()
-	storeBuf := getSeriesIDs()
+	queryBuf := series.Uint32Pool.Get()
+	storeBuf := series.Uint32Pool.Get()
 	defer func() {
-		putSeriesIDs(queryBuf)
-		putSeriesIDs(storeBuf)
+		series.Uint32Pool.Put(queryBuf)
+		series.Uint32Pool.Put(storeBuf)
 	}()
 
-	queryIt := series.NewIDsIterator(matchSeriesIDs, queryBuf)
-	storeIt := series.NewIDsIterator(m.seriesIDs, storeBuf)
+	queryIt := series.NewIDsIterator(matchSeriesIDs, *queryBuf)
+	storeIt := series.NewIDsIterator(m.seriesIDs, *storeBuf)
 	idx := 0
 	hasGroupBy := sCtx.HasGroupBy
 	var seriesIDBuf []uint32
@@ -194,7 +194,7 @@ func (m *metricMap) scan(version series.Version, sCtx *series.ScanContext) {
 
 			stores = getStores()
 			if hasGroupBy {
-				seriesIDBuf = getSeriesIDs()
+				seriesIDBuf = *series.Uint32Pool.Get()
 			}
 			i1 = 0
 		}
@@ -225,7 +225,7 @@ func (m *metricMap) scanAll(version series.Version, sCtx *series.ScanContext) {
 	stores := getStores()
 	hasGroupBy := sCtx.HasGroupBy
 	if hasGroupBy {
-		seriesIDs = getSeriesIDs()
+		seriesIDs = *series.Uint32Pool.Get()
 	}
 	length := m.size()
 	idx := 0
@@ -234,14 +234,14 @@ func (m *metricMap) scanAll(version series.Version, sCtx *series.ScanContext) {
 	for i := 0; i < length; i++ {
 		stores[idx] = m.stores[i]
 		idx++
-		if idx == scanBufSize {
+		if idx == series.ScanBufSize {
 			if hasGroupBy {
 				seriesIt.NextMany(seriesIDs)
 			}
 			worker.Emit(newScanEvent(idx, stores, seriesIDs, version, sCtx))
 			stores = getStores()
 			if hasGroupBy {
-				seriesIDs = getSeriesIDs()
+				seriesIDs = *series.Uint32Pool.Get()
 			}
 			idx = 0
 		}
