@@ -11,7 +11,7 @@ func TestScanContext_GetAggregator(t *testing.T) {
 	sCtx := &ScanContext{
 		FieldIDs: []uint16{3, 4, 5},
 	}
-	sCtx.Aggregates = sync.Pool{
+	sCtx.Aggregators = sync.Pool{
 		New: func() interface{} {
 			return "mock_agg"
 		},

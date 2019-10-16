@@ -23,9 +23,9 @@ import (
 // Level4: compressed field data
 type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
-	FlushFieldMetas([]field.Meta)
+	FlushFieldMetas(fieldMetas []field.Meta)
 	// FlushField writes a compressed field data to writer.
-	FlushField(fieldID uint16, data []byte, startSlot, endSlot int)
+	FlushField(fieldID uint16, data []byte)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
 	FlushSeries(seriesID uint32)
 	// FlushVersion writes a version of the metric
@@ -38,9 +38,8 @@ type Flusher interface {
 
 // NewFlusher returns a new Flusher,
 // interval is used to calculate the time-range of field data slots.`
-func NewFlusher(kvFlusher kv.Flusher, interval int64) Flusher {
+func NewFlusher(kvFlusher kv.Flusher) Flusher {
 	return &flusher{
-		interval:  interval,
 		kvFlusher: kvFlusher,
 		// metric block context
 		writer: stream.NewBufferWriter(nil),
@@ -54,7 +53,6 @@ func NewFlusher(kvFlusher kv.Flusher, interval int64) Flusher {
 
 // flusher implements Flusher.
 type flusher struct {
-	interval  int64
 	kvFlusher kv.Flusher
 
 	writer *stream.BufferWriter
@@ -65,16 +63,12 @@ type flusher struct {
 	}
 	fieldMetas []field.Meta
 	// context for building version block
-	versionStartPos  int   // start position of writer
-	versionStartTime int64 // startTime of all data
-	versionEndTime   int64 // endTime of all data
-	seriesOffsets    *encoding.DeltaBitPackingEncoder
-	seriesIDs        *roaring.Bitmap
+	versionStartPos int // start position of writer
+	seriesOffsets   *encoding.DeltaBitPackingEncoder
+	seriesIDs       *roaring.Bitmap
 	// context for building series entry
-	fieldsData      map[uint16][]byte
-	bitArray        *collections.BitArray
-	seriesStartTime int64 // startTime of the series
-	seriesEndTime   int64 // endTime of the series
+	fieldsData map[uint16][]byte
+	bitArray   *collections.BitArray
 }
 
 // FlushFieldMetas writes the field-meta of the metric
@@ -83,24 +77,8 @@ func (w *flusher) FlushFieldMetas(fieldMetas []field.Meta) {
 }
 
 // FlushField writes a compressed field data to writer.
-func (w *flusher) FlushField(fieldID uint16, data []byte, startSlot, endSlot int) {
-	startTime := int64(startSlot) * w.interval
-	endTime := int64(endSlot) * w.interval
+func (w *flusher) FlushField(fieldID uint16, data []byte) {
 
-	// collect min-startTime and max-endTime of the the version.
-	if w.versionStartTime > startTime || w.versionStartTime == 0 {
-		w.versionStartTime = startTime
-	}
-	if w.versionEndTime < endTime {
-		w.versionEndTime = endTime
-	}
-	// collect min-startTime and min-endTime of the series
-	if w.seriesStartTime > startTime || w.seriesStartTime == 0 {
-		w.seriesStartTime = startTime
-	}
-	if w.seriesEndTime < endTime {
-		w.seriesEndTime = endTime
-	}
 	// record mapping of fieldID and field-data
 	w.fieldsData[fieldID] = data
 }
@@ -110,8 +88,6 @@ func (w *flusher) ResetSeriesContext() {
 		delete(w.fieldsData, fieldID)
 	}
 	w.bitArray.Reset(nil)
-	w.seriesStartTime = 0
-	w.seriesEndTime = 0
 }
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
@@ -123,10 +99,6 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	w.seriesIDs.Add(seriesID)
 
 	// Fields Info Block
-	// write start-time
-	w.writer.PutVarint64(w.seriesStartTime)
-	// write end-time
-	w.writer.PutVarint64(w.seriesEndTime)
 	// build and write bit-array
 	for idx, fm := range w.fieldMetas {
 		if _, ok := w.fieldsData[fm.ID]; !ok {
@@ -152,8 +124,6 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 }
 
 func (w *flusher) ResetVersionContext() {
-	w.versionStartTime = 0
-	w.versionEndTime = 0
 	w.seriesOffsets.Reset()
 	w.seriesIDs.Clear()
 }
@@ -174,9 +144,6 @@ func (w *flusher) FlushVersion(version series.Version) {
 
 	// write fields-meta
 	fieldsMetaPos := w.writer.Len() - w.versionStartPos
-	// write start-time, end-time of this version
-	w.writer.PutVarint64(w.versionStartTime)
-	w.writer.PutVarint64(w.versionEndTime)
 	// write fields count
 	w.writer.PutUvarint64(uint64(len(w.fieldMetas)))
 	// write field-id, field-type list
