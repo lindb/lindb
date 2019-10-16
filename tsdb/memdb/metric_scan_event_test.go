@@ -32,14 +32,14 @@ func TestMetricScanEvent_Scan(t *testing.T) {
 	}
 	stores := getStores()
 	stores[0] = tStore
-	seriesIDs := getSeriesIDs()
+	seriesIDs := *series.Uint32Pool.Get()
 	seriesIDs[0] = uint32(1)
 	// test not match aggregator
 	event := newScanEvent(1, stores, seriesIDs, series.Version(1), sCtx)
 	ok := event.Scan()
 	assert.False(t, ok)
 	sAgg := aggregation.NewMockSeriesAggregator(ctrl)
-	sCtx.Aggregates = sync.Pool{
+	sCtx.Aggregators = sync.Pool{
 		New: func() interface{} {
 			return aggregation.FieldAggregates{sAgg}
 		},
@@ -51,7 +51,7 @@ func TestMetricScanEvent_Scan(t *testing.T) {
 	)
 	stores = getStores()
 	stores[0] = tStore
-	seriesIDs = getSeriesIDs()
+	seriesIDs = *series.Uint32Pool.Get()
 	seriesIDs[0] = uint32(1)
 	event = newScanEvent(1, stores, seriesIDs, series.Version(1), sCtx)
 	ok = event.Scan()

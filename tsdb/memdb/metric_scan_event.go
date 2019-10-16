@@ -10,31 +10,11 @@ import (
 	"github.com/lindb/lindb/series"
 )
 
-const scanBufSize = 4096
-
-// define series IDs pool which reuses for scanning data
-var seriesIDsPool = sync.Pool{
-	New: func() interface{} {
-		return make([]uint32, scanBufSize)
-	},
-}
-
 // define time series store pool which reuses for scanning data
 var storePool = sync.Pool{
 	New: func() interface{} {
-		return make([]tStoreINTF, scanBufSize)
+		return make([]tStoreINTF, series.ScanBufSize)
 	},
-}
-
-// getSeriesIDs gets series IDs from pool
-func getSeriesIDs() []uint32 {
-	IDs := seriesIDsPool.Get()
-	return IDs.([]uint32)
-}
-
-// putSeriesIDs puts back series IDs to pool
-func putSeriesIDs(seriesIDs interface{}) {
-	seriesIDsPool.Put(seriesIDs)
 }
 
 // getStores gets time series store from pool
@@ -50,17 +30,22 @@ func putStores(stores interface{}) {
 
 // metricScanEvent represents the metric level scan event,includes found time series stores, IDs etc.
 type metricScanEvent struct {
-	stores     []tStoreINTF
-	seriesIDs  []uint32
-	version    series.Version
-	sCtx       *series.ScanContext
-	length     int
-	aggregates aggregation.FieldAggregates
+	stores      []tStoreINTF
+	seriesIDs   []uint32
+	version     series.Version
+	sCtx        *series.ScanContext
+	length      int
+	aggregators aggregation.FieldAggregates
 }
 
 // newScanEvent creates a new metric scan event
-func newScanEvent(length int, stores []tStoreINTF, seriesIDs []uint32, version series.Version,
-	sCtx *series.ScanContext) *metricScanEvent {
+func newScanEvent(
+	length int,
+	stores []tStoreINTF,
+	seriesIDs []uint32,
+	version series.Version,
+	sCtx *series.ScanContext,
+) *metricScanEvent {
 	return &metricScanEvent{
 		stores:    stores,
 		seriesIDs: seriesIDs,
@@ -72,7 +57,7 @@ func newScanEvent(length int, stores []tStoreINTF, seriesIDs []uint32, version s
 
 // ResultSet returns the result set of scanner
 func (e *metricScanEvent) ResultSet() interface{} {
-	return e.aggregates
+	return e.aggregators
 }
 
 // SeriesIDs returns the found series IDs
@@ -82,9 +67,9 @@ func (e *metricScanEvent) SeriesIDs() *roaring.Bitmap {
 
 // Release releases the scan resource for reusing
 func (e *metricScanEvent) Release() {
-	if e.aggregates != nil {
-		e.aggregates.Reset()
-		e.sCtx.Release(e.aggregates)
+	if e.aggregators != nil {
+		e.aggregators.Reset()
+		e.sCtx.Release(e.aggregators)
 	}
 }
 
@@ -95,7 +80,7 @@ func (e *metricScanEvent) release() {
 	}
 	putStores(e.stores)
 	if e.seriesIDs != nil {
-		putSeriesIDs(e.seriesIDs)
+		series.Uint32Pool.Put(&e.seriesIDs)
 	}
 }
 
@@ -103,16 +88,16 @@ func (e *metricScanEvent) release() {
 func (e *metricScanEvent) Scan() bool {
 	defer e.release()
 	//FIXME add lock?????
-	aggregates, ok := e.sCtx.GetAggregator().(aggregation.FieldAggregates)
+	aggregators, ok := e.sCtx.GetAggregator().(aggregation.FieldAggregates)
 	if !ok {
 		return false
 	}
-	e.aggregates = aggregates
+	e.aggregators = aggregators
 	memScanCtx := &memScanContext{
-		fieldIDs:   e.sCtx.FieldIDs,
-		aggregates: aggregates,
-		tsd:        encoding.GetTSDDecoder(),
-		fieldCount: len(e.sCtx.FieldIDs),
+		fieldIDs:    e.sCtx.FieldIDs,
+		aggregators: aggregators,
+		tsd:         encoding.GetTSDDecoder(),
+		fieldCount:  len(e.sCtx.FieldIDs),
 	}
 
 	for i := 0; i < e.length; i++ {
@@ -127,9 +112,9 @@ func (e *metricScanEvent) Scan() bool {
 
 // memScanContext represents the memory metric store scan context
 type memScanContext struct {
-	fieldIDs   []uint16
-	aggregates aggregation.FieldAggregates
-	tsd        *encoding.TSDDecoder
+	fieldIDs    []uint16
+	aggregators aggregation.FieldAggregates
+	tsd         *encoding.TSDDecoder
 
 	fieldCount int
 }

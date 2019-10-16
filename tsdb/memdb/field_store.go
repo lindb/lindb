@@ -154,13 +154,13 @@ func (fs *fieldStore) FlushFieldTo(
 	}
 
 	fs.removeSStore(familyTime)
-	data, startSlot, endSlot, err := sStore.Bytes(true)
+	data, _, _, err := sStore.Bytes(true)
 
 	if err != nil {
 		memDBLogger.Error("read segment data error:", logger.Error(err))
 		return 0
 	}
-	tableFlusher.FlushField(fs.fieldID, data, startSlot, endSlot)
+	tableFlusher.FlushField(fs.fieldID, data)
 	return sStore.MemSize()
 }
 
