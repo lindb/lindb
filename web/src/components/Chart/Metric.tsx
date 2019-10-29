@@ -1,20 +1,16 @@
-import * as React from 'react'
+import { autobind } from 'core-decorators'
 import { observable } from 'mobx'
 import { observer } from 'mobx-react'
-import { autobind } from 'core-decorators'
-import { search } from '../../service/metric'
-import StoreManager from '../../store/StoreManager'
-import { LineChart } from '../../utils/ProcessChartData'
+import * as React from 'react'
 import { ChartTooltipData, ResultSet, UnitEnum } from '../../model/Metric'
-
+import StoreManager from '../../store/StoreManager'
 import Chart from './Chart'
-import ChartLegend from './ChartLegend'
+
 
 const uuidv4 = require('uuid/v4')
 
 interface MetricProps {
-  db: string
-  ql: string
+  id: string
   unit: UnitEnum
   group?: object
   showQL?: boolean
@@ -27,7 +23,7 @@ interface MetricStatus {
 
 @observer
 export default class Metric extends React.Component<MetricProps, MetricStatus> {
-  @observable chartResult: ResultSet | null = null
+  chartResult: ResultSet | null = null
   @observable loading: boolean = false
   private readonly uuid: string
 
@@ -35,18 +31,6 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
     super(props)
 
     this.uuid = uuidv4() // Set unique ID
-  }
-
-  async componentDidMount() {
-    const { db, ql } = this.props
-
-    this.loading = false
-    const result = await search(db, ql)
-    this.loading = true
-
-    if (result) {
-      this.chartResult = result
-    }
   }
 
   // Clean up
@@ -70,26 +54,19 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
   }
 
   render() {
-    const { unit } = this.props
-    const { data, options, plugins } = LineChart(this.chartResult, unit)
-
+    const { unit, id } = this.props
     return (
       <div className="lindb-metric">
-        {this.chartResult && (
           <React.Fragment>
             <Chart
               type="line"
               unit={unit}
-              data={data}
-              uuid={this.uuid}
-              options={options}
-              plugins={plugins}
+              uuid={id}
               onMouseMove={this.handleChartMouseMove}
               onMouseOut={this.handleChartMouseOut}
             />
-            <ChartLegend data={data} onLegendClick={this.handleLegendClick}/>
+            {/* <ChartLegend data={data} onLegendClick={this.handleLegendClick} /> */}
           </React.Fragment>
-        )}
       </div>
     )
   }

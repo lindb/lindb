@@ -7,7 +7,7 @@ import Footer from '../../components/Layout/Footer'
 import SiderMenu from '../../components/Layout/SiderMenu'
 import ChartTooltip from '../../components/Chart/ChartTooltip'
 
-import SearchPage from '../Search'
+import SearchPage from '../Search/DataSearch'
 import HomePage from '../Home/Home'
 import Cluster from '../Setting/Cluster'
 import Database from '../Setting/Database'
@@ -35,7 +35,7 @@ export default class Content extends React.Component<ContentProps, ContentStatus
         <SiderMenu/>
 
         {/* Content Area */}
-        <Layout>
+        <Layout className="lindb-layout">
           <AntDContent className="lindb-content-container">
             <Header/>
 

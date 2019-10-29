@@ -1,6 +1,7 @@
-import { getChartColor, toRGBA } from './util'
 import { getOptions } from '../config/chartConfig'
 import { ChartDatasets, ResultSet, UnitEnum } from '../model/Metric'
+import { getChartColor, toRGBA } from './util'
+import { set } from "lodash";
 
 /**
  * Generate Line Chart data and options
@@ -8,13 +9,13 @@ import { ChartDatasets, ResultSet, UnitEnum } from '../model/Metric'
  * @param {UnitEnum} unit Current chart Y-axes unit
  */
 export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
-  if (!resultSet || !resultSet.result) {
+  if (!resultSet) {
     return {}
   }
 
-  const { result: { interval, groups, startTime } } = resultSet
+  const { series, startTime, endTime, interval } = resultSet
 
-  if (!groups || groups.length === 0 || !startTime || !interval) {
+  if (!series || series.length === 0) {
     return {}
   }
 
@@ -23,14 +24,14 @@ export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
   const datasets: ChartDatasets[] = []
   let colorIdx = 0
 
-  groups.forEach(item => {
-    const { group, fields } = item
+  series.forEach(item => {
+    const { tags, fields } = item
 
-    if (!group || !fields) {
+    if (!fields) {
       return
     }
 
-    const groupName = Object.keys(group).map(key => group[ key ]).join('/')
+    const groupName = JSON.stringify(tags)
 
     for (let key of Object.keys(fields)) {
       const bgColor = getChartColor(colorIdx++)
@@ -41,20 +42,29 @@ export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
       const label = groupName ? groupName : key
       const pointBackgroundColor = toRGBA(bgColor, 0.25)
 
-      const data = fields[ key ].map((value, index) => ({
-        x: new Date(startTime + index * interval),
-        y: value ? Math.floor(value * 1000) / 1000 : 0,
-      }))
-
+      let data: any[] = []
+      const points: { [timestamp: string]: number } = fields[key]
+      let i = 0;
+      let timestamp = startTime! + i * interval!
+      for (; timestamp <= endTime!; i++) {
+        console.log("i", i)
+        const value = points[`${timestamp}`];
+        data.push({
+          x: new Date(timestamp),
+          y: value ? Math.floor(value * 1000) / 1000 : 0,
+        })
+        i++
+        timestamp = startTime! + i * interval!
+      }
       datasets.push({ label, data, fill, backgroundColor, borderColor, pointBackgroundColor })
     }
   })
-
   const plugins: any[] = [] // Line Plugins
-
+  const options = getOptions(unit)
   return {
+    type: "line",
     data: { datasets },
-    options: getOptions(unit),
+    options: options,
     plugins,
   }
 }

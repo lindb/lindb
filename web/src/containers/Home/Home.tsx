@@ -62,43 +62,48 @@ class Home extends React.Component<HomeProps, HomeState> {
       <div>
         {/* Master */}
         <Card size="small" title="Master" loading={false}>
-          {ip}:{port} <Tag color="green">Elect Time: {dateFormatter(electTime)}</Tag>
+          {ip}:{port}
+          <Tag color="green" style={{ color: "#fff", background: "#353535", padding: "2px", marginLeft: "8px" }}>
+            <span style={{ margin: "4px" }}>
+              Elect Time: {dateFormatter(electTime)}
+            </span>
+          </Tag>
         </Card>
 
         {/* Node */}
         <Card size="small" title="Node">
-          <NodeInfo brokers={brokers}/>
+          <NodeInfo brokers={brokers} />
         </Card>
 
         {/* Dead Node */}
         <Card size="small" title="Dead Node" loading={false}>
           <Table dataSource={[]} size="small">
-            <Column title="ID" dataIndex="id" key="id"/>
-            <Column title="Host Name" dataIndex="hostname" key="hostname"/>
-            <Column title="IP" dataIndex="ip" key="ip"/>
-            <Column title="TCP Port" dataIndex="tcpPort" key="tcpPort"/>
-            <Column title="Dead Time" dataIndex="deadTime" key="deadTime"/>
+            <Column title="ID" dataIndex="id" key="id" />
+            <Column title="Host Name" dataIndex="hostname" key="hostname" />
+            <Column title="IP" dataIndex="ip" key="ip" />
+            <Column title="TCP Port" dataIndex="tcpPort" key="tcpPort" />
+            <Column title="Dead Time" dataIndex="deadTime" key="deadTime" />
           </Table>
         </Card>
 
         {/* Database */}
         <Card size="small" title="Database" loading={false}>
           <Table dataSource={[]} size="small">
-            <Column title="Name" dataIndex="Name" key="Name"/>
-            <Column title="Num. Shard" dataIndex="Shard" key="Shard"/>
-            <Column title="Num. Leader" dataIndex="Leader" key="Leader"/>
-            <Column title="Num. Live Replica" dataIndex="Live" key="Live"/>
-            <Column title="Num. ISR Replica" dataIndex="ISR" key="ISR"/>
-            <Column title="Num. Replica" dataIndex="Replica" key="Replica"/>
-            <Column title="Description" dataIndex="Description" key="Description"/>
+            <Column title="Name" dataIndex="Name" key="Name" />
+            <Column title="Num. Shard" dataIndex="Shard" key="Shard" />
+            <Column title="Num. Leader" dataIndex="Leader" key="Leader" />
+            <Column title="Num. Live Replica" dataIndex="Live" key="Live" />
+            <Column title="Num. ISR Replica" dataIndex="ISR" key="ISR" />
+            <Column title="Num. Replica" dataIndex="Replica" key="Replica" />
+            <Column title="Description" dataIndex="Description" key="Description" />
           </Table>
         </Card>
 
         {/* Software Attributes */}
         <Card size="small" title="Software Attributes" loading={false}>
           <Table dataSource={[]} size="small">
-            <Column title="Name" dataIndex="Name" key="Name"/>
-            <Column title="Value" dataIndex="Value" key="Value"/>
+            <Column title="Name" dataIndex="Name" key="Name" />
+            <Column title="Value" dataIndex="Value" key="Value" />
           </Table>
         </Card>
       </div>

@@ -25,23 +25,16 @@ export enum UnitEnum {
 
 /* Result Set */
 export class ResultSet {
-  queryType?: string
-  result?: Result
-}
-
-export class Result {
-  data?: any
+  metricName?: string
+  series?: Series[]
+  startTime?: number
   endTime?: number
   interval?: number
-  startTime?: number
-  pointCount?: number
-  measurementName?: string
-  groups?: Group[]
 }
 
-export class Group {
-  group?: { [ propName: string ]: string }
-  fields?: { [ propName: string ]: number[] }
+export class Series {
+  tags?: { [propName: string]: string }
+  fields?: { [propName: string]: { [timestamp: string]: number } }
 }
 
 export interface ChartDatasets {

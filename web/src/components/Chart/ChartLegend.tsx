@@ -3,7 +3,7 @@ import classNames from 'classnames'
 import { autobind } from 'core-decorators'
 
 interface ChartLegendProps {
-  data: any
+  data?: any
   onLegendClick?: (index: number, status: boolean[]) => void
 }
 

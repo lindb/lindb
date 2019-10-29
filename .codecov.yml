@@ -1,0 +1,14 @@
+# Coverage configuration
+# ----------------------
+coverage:
+  range: 70..90     # First number represents red, and second represents green
+  # (default is 70..100)
+  round: down       # up, down, or nearest
+  precision: 2      # Number of decimal places, between 0 and 5
+
+# Ignoring Paths
+# --------------
+# which folders/files to ignore
+ignore:
+  - "web"        # ignore web folders
+  - "mock"       # ignore mock folders

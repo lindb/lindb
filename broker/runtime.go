@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
 	masterAPI "github.com/lindb/lindb/broker/api/cluster"
+	"github.com/lindb/lindb/broker/api/metadata"
 	writeAPI "github.com/lindb/lindb/broker/api/metric"
 	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
@@ -63,6 +64,7 @@ type apiHandler struct {
 	masterAPI         *masterAPI.MasterAPI
 	metricAPI         *queryAPI.MetricAPI
 	writeAPI          *writeAPI.WriteAPI
+	metaDatabaseAPI   *metadata.DatabaseAPI
 }
 
 type rpcHandler struct {
@@ -324,28 +326,32 @@ func (r *runtime) buildAPIDependency() {
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
+
+		metaDatabaseAPI: metadata.NewDatabaseAPI(r.srv.databaseService),
 	}
 
-	api.AddRoutes("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
-	api.AddRoutes("Check", http.MethodGet, "/check/1", handlers.loginAPI.Check)
+	api.AddRoute("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
+	api.AddRoute("Check", http.MethodGet, "/check/1", handlers.loginAPI.Check)
 
-	api.AddRoutes("SaveStorageCluster", http.MethodPost, "/storage/cluster", handlers.storageClusterAPI.Create)
-	api.AddRoutes("GetStorageCluster", http.MethodGet, "/storage/cluster", handlers.storageClusterAPI.GetByName)
-	api.AddRoutes("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handlers.storageClusterAPI.DeleteByName)
-	api.AddRoutes("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handlers.storageClusterAPI.List)
+	api.AddRoute("SaveStorageCluster", http.MethodPost, "/storage/cluster", handlers.storageClusterAPI.Create)
+	api.AddRoute("GetStorageCluster", http.MethodGet, "/storage/cluster", handlers.storageClusterAPI.GetByName)
+	api.AddRoute("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handlers.storageClusterAPI.DeleteByName)
+	api.AddRoute("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handlers.storageClusterAPI.List)
 
-	api.AddRoutes("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
-	api.AddRoutes("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
-	api.AddRoutes("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
+	api.AddRoute("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
+	api.AddRoute("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
+	api.AddRoute("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
 
-	api.AddRoutes("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
-	api.AddRoutes("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
+	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
+	api.AddRoute("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
 
-	api.AddRoutes("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
+	api.AddRoute("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
 
-	api.AddRoutes("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
+	api.AddRoute("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
 
-	api.AddRoutes("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
+	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
+
+	api.AddRoute("ListDatabaseNodes", http.MethodGet, "/metadata/database/names", handlers.metaDatabaseAPI.ListDatabaseNames)
 }
 
 // buildMiddlewareDependency builds middleware dependency

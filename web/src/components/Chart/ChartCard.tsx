@@ -22,8 +22,7 @@ export default class ChartCard extends React.Component<ChartCardProps, ChartCard
         <LazyLoad height={300} once={true} resize={true}>
           {(ql && unit) ? (
             <Metric
-              db="_internal"
-              ql={ql}
+              id="fkdsjfksj"
               unit={unit}
               group={group}
             />

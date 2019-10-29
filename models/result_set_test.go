@@ -13,9 +13,15 @@ func TestResultSet(t *testing.T) {
 	points := NewPoints()
 	points.AddPoint(int64(10), 10.0)
 	series.AddField("f1", points)
+	points = NewPoints()
+	points.AddPoint(int64(20), 10.0)
+	series.AddField("f1", points)
 
 	assert.Equal(t, 1, len(rs.Series))
 	s := rs.Series[0]
 	assert.Equal(t, map[string]string{"key": "value"}, s.Tags)
-	assert.Equal(t, map[int64]float64{int64(10): 10.0}, s.Fields["f1"])
+	assert.Equal(t, map[int64]float64{
+		int64(10): 10.0,
+		int64(20): 10.0},
+		s.Fields["f1"])
 }
