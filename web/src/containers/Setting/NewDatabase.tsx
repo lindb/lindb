@@ -183,7 +183,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Time Window" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_TIMEWINDOW, {
                   initialValue: 0,
-                  rules: [ { required: true } ],
                 })(<InputNumber style={{ width: '100%' }}/>)}
               </Form.Item>
 
@@ -200,7 +199,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Behind" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_BEHIND, {
                   initialValue: '',
-                  rules: [ { required: true } ],
                 })(<Input placeholder="Behind"/>)}
               </Form.Item>
 
@@ -208,7 +206,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Ahead" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_AHEAD, {
                   initialValue: '',
-                  rules: [ { required: true } ],
                 })(<Input placeholder="Ahead"/>)}
               </Form.Item>
 
@@ -216,7 +213,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Index Time Threshold" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_INDEX_TIME_THRESHOLD, {
                   // initialValue: ,
-                  rules: [ { required: true } ],
                 })(<InputNumber style={{ width: '100%' }}/>)}
               </Form.Item>
 
@@ -224,7 +220,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Index Size Threshold" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_INDEX_SIZE_THRESHOLD, {
                   // initialValue: ,
-                  rules: [ { required: true } ],
                 })(<InputNumber style={{ width: '100%' }}/>)}
               </Form.Item>
 
@@ -232,7 +227,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Data Time Threshold" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_DATA_TIME_THRESHOLD, {
                   // initialValue: ,
-                  rules: [ { required: true } ],
                 })(<InputNumber style={{ width: '100%' }}/>)}
               </Form.Item>
 
@@ -240,7 +234,6 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
               <Form.Item label="Data Size Threshold" help={null}>
                 {getFieldDecorator(CreateDatabaseConfig.CLUSTER_ENGINE_DATA_SIZE_THRESHOLD, {
                   // initialValue: ,
-                  rules: [ { required: true } ],
                 })(<InputNumber style={{ width: '100%' }}/>)}
               </Form.Item>
 

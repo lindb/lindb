@@ -28,6 +28,16 @@ func TestDatabaseAPI(t *testing.T) {
 		ReplicaFactor: 3,
 		Engine:        option.EngineOption{Interval: "10s"},
 	}
+
+	// get request error
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/database",
+		RequestBody:    []byte{1, 3, 4},
+		HandlerFunc:    api.Save,
+		ExpectHTTPCode: http.StatusInternalServerError,
+	})
+
 	// create success
 	databaseService.EXPECT().Save(gomock.Any()).Return(nil)
 	mock.DoRequest(t, &mock.HTTPHandler{

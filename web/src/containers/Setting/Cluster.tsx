@@ -63,16 +63,16 @@ export default class Cluster extends React.Component<ClusterProps, ClusterStatus
         <Table
           dataSource={this.storageClusterList}
           size="small"
+          pagination={false}
           loading={this.listLoading}
           rowKey="name"
         >
-          <Column title="Name" dataIndex="name"/>
-          <Column title="Namespace" dataIndex="config.namespace"/>
+          <Column title="Name" dataIndex="name" />
+          <Column title="Namespace" dataIndex="config.namespace" />
           <Column
             title="EndPoints"
             dataIndex="config.endpoints"
             render={(points: string[]) => JSON.stringify(points)}
-            // render={(points: string[]) => <ReactJson src={points} enableClipboard={false} displayDataTypes={false}/>}
           />
         </Table>
       </React.Fragment>
@@ -115,9 +115,9 @@ class CreateClusterModal extends React.Component<CreateClusterModalProps> {
       }
 
       const {
-        [ CreateClusterConfig.CLUSTER_NAME ]: name,
-        [ CreateClusterConfig.NAMESPACE ]: namespace,
-        [ CreateClusterConfig.ENDPOINTS ]: endpoints,
+        [CreateClusterConfig.CLUSTER_NAME]: name,
+        [CreateClusterConfig.NAMESPACE]: namespace,
+        [CreateClusterConfig.ENDPOINTS]: endpoints,
       } = value
 
       const config = { namespace, endpoints }
@@ -151,21 +151,21 @@ class CreateClusterModal extends React.Component<CreateClusterModalProps> {
           {/* Cluster Name */}
           <Form.Item label="Name">
             {getFieldDecorator(CreateClusterConfig.CLUSTER_NAME, {
-              rules: [ { required: true, message: 'Please input cluster name' } ],
-            })(<Input placeholder="Cluster Name"/>)}
+              rules: [{ required: true, message: 'Please input cluster name' }],
+            })(<Input placeholder="Cluster Name" autoComplete="off" />)}
           </Form.Item>
 
           {/* Namespace */}
           <Form.Item label="Namespace">
             {getFieldDecorator(CreateClusterConfig.NAMESPACE, {
-              rules: [ { required: true, message: 'Please input cluster namespace' } ],
-            })(<Input placeholder="Namespace"/>)}
+              rules: [{ required: true, message: 'Please input cluster namespace' }],
+            })(<Input placeholder="Namespace" autoComplete="off" />)}
           </Form.Item>
 
           {/* Endpoints */}
           <Form.Item label="Endpoints">
             {getFieldDecorator(CreateClusterConfig.ENDPOINTS, {
-              rules: [ { type: 'array', required: true, message: 'Please input cluster endpoints' } ],
+              rules: [{ type: 'array', required: true, message: 'Please input cluster endpoints' }],
             })(
               <Select mode="tags" style={{ width: '100%' }} placeholder="Endpoints">
                 <Select.Option key="http://localhost:2379">http://localhost:2379</Select.Option>

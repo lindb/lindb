@@ -109,6 +109,9 @@ func (c *brokerExecuteContext) ResultCh() chan *series.TimeSeriesEvent {
 
 func (c *brokerExecuteContext) ResultSet() (*models.ResultSet, error) {
 	c.resultSet.MetricName = c.query.MetricName
+	c.resultSet.StartTime = c.query.TimeRange.Start
+	c.resultSet.EndTime = c.query.TimeRange.End
+	c.resultSet.Interval = c.query.Interval
 	return c.resultSet, c.err
 }
 

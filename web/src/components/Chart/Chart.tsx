@@ -1,14 +1,14 @@
-import * as React from 'react'
+import { autobind } from 'core-decorators'
 import { reaction } from 'mobx'
 import { observer } from 'mobx-react'
-import { autobind } from 'core-decorators'
-import StoreManager from '../../store/StoreManager'
+import * as React from 'react'
 import { ChartTooltipData, UnitEnum } from '../../model/Metric'
+import StoreManager from '../../store/StoreManager'
 
 const ChartJS = require('chart.js')
 
 interface ChartProps {
-  data: any
+  data?: any
   uuid: string
   type: string
   unit: UnitEnum
@@ -42,12 +42,17 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
         () => StoreManager.ChartEventStore.tooltipData,
         this.handleCrosshairMove,
       ),
+      reaction(
+        () => StoreManager.ChartStore.chartStatusMap.get(props.uuid),
+        chartStatus => {
+          this.renderChart()
+          this.addEventListener()
+        },
+        {
+          delay: 100
+        }
+      )
     ]
-  }
-
-  componentDidMount(): void {
-    this.renderChart()
-    this.addEventListener()
   }
 
   componentWillUnmount(): void {
@@ -58,15 +63,14 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
    * init Chart
    */
   renderChart() {
-    const { type, data, options, plugins } = this.props
+    const reportData = StoreManager.ChartStore.seriesCache.get(this.props.uuid);
     const canvas = this.chartCanvas.current
     if (!canvas) {
       return
     }
 
     const ctx = canvas.getContext('2d')
-
-    this.chartInstance = new ChartJS(ctx, { type, data, options, plugins })
+    this.chartInstance = new ChartJS(ctx, reportData)
   }
 
   addEventListener() {
@@ -88,8 +92,8 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
     // Get all vertical points
     const points = this.chartInstance.getElementsAtXAxis(e) // vertical Points
-    const index = points.length > 0 ? points[ 0 ]._index : 0  // current mouseover index
-    const data = points.length > 0 ? points[ 0 ]._chart.data : []
+    const index = points.length > 0 ? points[0]._index : 0  // current mouseover index
+    const data = points.length > 0 ? points[0]._chart.data : []
     const { datasets } = data
 
     if (!datasets) {
@@ -98,17 +102,17 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
     // Get all vertical series information
     const series = datasets
-    .filter((_: any, idx: number) => {
-      // filter series(hidden)
-      const meta = this.chartInstance.getDatasetMeta(idx)
-      return meta ? !meta.hidden : true
-    })
-    .map((item: any) => ({
-      color: item.borderColor,
-      name: item.label,
-      value: item.data[ index ].y,
-      time: +item.data[ index ].x,
-    }))
+      .filter((_: any, idx: number) => {
+        // filter series(hidden)
+        const meta = this.chartInstance.getDatasetMeta(idx)
+        return meta ? !meta.hidden : true
+      })
+      .map((item: any) => ({
+        color: item.borderColor,
+        name: item.label,
+        value: item.data[index].y,
+        time: +item.data[index].x,
+      }))
 
     /**
      *  calculate size info
@@ -149,7 +153,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
       series,
       border,
       unit: this.props.unit,
-      time: series.length > 0 ? series[ 0 ].time : 0,
+      time: series.length > 0 ? series[0].time : 0,
     }
 
     const { onMouseMove } = this.props
@@ -220,9 +224,9 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
   render() {
     // Canvas Wrapped By a div element to avoid invoke `.resize` many times
     return (
-      <div className="lindb-chart-canvas">
-        <div className="lindb-chart-canvas__crosshair" ref={this.crosshair}/>
-        <canvas ref={this.chartCanvas}/>
+      <div className="lindb-chart-canvas" >
+        <div className="lindb-chart-canvas__crosshair" ref={this.crosshair} />
+        <canvas ref={this.chartCanvas} />
       </div>
     )
   }

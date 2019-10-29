@@ -9,7 +9,7 @@ import { Button, Icon, Input, Layout, message } from 'antd'
 import { getQueryValueOf, redirectTo } from '../../utils/URLUtil'
 
 const { Content } = Layout
-const Logo = require('../../assets/images/logo_title_subtitle.png')
+const Logo = require('../../assets/images/logo_title_subtitle_dark.png')
 
 interface LoginProps {
 }

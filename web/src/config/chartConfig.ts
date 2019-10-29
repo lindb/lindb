@@ -23,17 +23,18 @@ export function getOptions(unit?: UnitEnum) {
   }
 
   // Generate Options
-  const color = { border: '#d2d2d2' }
+  const color = { border: '#E3E3E3' }
 
   const scales = {
-    yAxes: [ {
+    yAxes: [{
       ticks: {
-        fontSize: 10,
+        fontColor: color.border,
+        fontSize: 12,
         mirror: true, // tick in chart
         maxTicksLimit: 6,
         beginAtZero: true,
         tickMarkLength: 0,
-        callback: function(value: number) {
+        callback: function (value: number) {
           return DataFormatter.formatter(value, unit)
         },
       },
@@ -43,12 +44,13 @@ export function getOptions(unit?: UnitEnum) {
         color: color.border,
         zeroLineColor: color.border,
       },
-    } ],
-    xAxes: [ {
+    }],
+    xAxes: [{
       type: 'time',
       distribution: 'series',
       ticks: {
-        fontSize: 10,
+        fontColor: color.border,
+        fontSize: 12,
       },
       gridLines: {
         lineWidth: 0.5,
@@ -63,7 +65,7 @@ export function getOptions(unit?: UnitEnum) {
           hour: 'Do.H',
         },
       },
-    } ],
+    }],
   }
 
   const elements = {

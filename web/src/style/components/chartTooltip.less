@@ -1,6 +1,6 @@
 .lindb-chart-tooltip {
-  @tooltip-border-radius: 5px;
-  @tooltip-base-background-color: #fff;
+  @tooltip-border-radius: 3px;
+  @tooltip-base-background-color: #444444;
   @tooltip-base-shadow: rgba(0, 0, 0, .15);
 
   position: absolute;
@@ -15,10 +15,12 @@
     background-color: inherit;
     text-align: center;
     padding: 0.7em 0 0.5em;
-    border-bottom: 1px solid @border-color-split;
+    border-bottom: 1px solid @border-color-base;
     font-family: monospace;
     font-size: 12px;
     font-weight: bold;
+    margin-left: 12px;
+    margin-right: 12px;
     border-top-left-radius: @tooltip-border-radius;
     border-top-right-radius: @tooltip-border-radius;
     position: relative;
@@ -36,6 +38,7 @@
     list-style: none;
     padding: 5px 10px;
     margin: 0;
+    width: 100%;
     display: table;
     border-bottom-left-radius: @tooltip-border-radius;
     border-bottom-right-radius: @tooltip-border-radius;
@@ -70,7 +73,7 @@
 
       .lindb-chart-tooltip__list-item__value {
         font-family: monospace;
-        padding: 0 5px 0 10px;
+        padding: 0 5px 0 5px;
         text-align: right;
       }
     }

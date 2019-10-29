@@ -1,31 +1,41 @@
 .lindb-sider-layout {
   flex: 1;
 
+  .ant-menu-dark {
+    background: #181818;
+    box-shadow: none;
+  }
+
+  .ant-menu-dark .ant-menu-inline.ant-menu-sub {
+    background: #181818;
+    box-shadow: none;
+  }
+
   .lindb-sider {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    overflow: auto;
+    position        : fixed;
+    left            : 0;
+    top             : 0;
+    bottom          : 0;
+    overflow        : auto;
     background-color: #fff;
-    z-index: 4;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
+    z-index         : 4;
+    box-shadow      : 0 2px 12px 0 rgba(0, 0, 0, .1);
 
     .lindb-sider__menu {
-      height: 100%;
+      height     : 100%;
       padding-top: @sider-logo-height;
     }
 
     .lindb-sider__logo {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      padding: @sider-logo-height * 0.1 0;
-      text-align: center;
-      height: @sider-logo-height + 1;
-      border-right: @border-width-base @border-style-base @border-color-split;
-      border-bottom: 1px solid @border-color-split;
+      position        : absolute;
+      top             : 0;
+      left            : 0;
+      width           : 100%;
+      padding         : @sider-logo-height * 0.1 0;
+      text-align      : center;
+      height          : @sider-logo-height + 1;
+      // border-right : @border-width-base @border-style-base @border-color-split;
+      // border-bottom: 1px solid @border-color-split;
 
       img {
         height: 100%;
@@ -34,54 +44,63 @@
   }
 
   .lindb-content-container {
-    padding: @block-spacing @block-spacing 0;
+    padding    : @block-spacing @block-spacing 0;
     margin-left: @sider-base-width;
-    margin-top: @header-base-height;
+    margin-top : @header-base-height;
 
     .lindb-header {
-      position: fixed;
-      top: 0;
-      left: @sider-base-width;
-      right: 0;
-      z-index: 3;
-      background-color: #fff;
-      height: @header-base-height;
-      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
-      padding: 0 20px;
+      position        : fixed;
+      top             : 0;
+      left            : @sider-base-width;
+      right           : 0;
+      z-index         : 3;
+      background-color: #191919;
+      height          : @header-base-height;
+      box-shadow      : 0 2px 12px 0 rgba(0, 0, 0, .1);
+      padding         : 0 20px;
 
       .lindb-header__breadcrumb {
-        float: left;
-        height: 100%;
-        display: flex;
+        float      : left;
+        height     : 100%;
+        display    : flex;
         align-items: center;
 
         .anticon {
-          margin-right: 10px;
-          font-size: 16px;
-          //float: left;
+          margin-right : 10px;
+          color        : white;
+          font-size    : 14px;
+          //float      : left;
           //line-height: @header-base-height;
         }
 
         .ant-breadcrumb {
-          font-size: 16px;
+          font-size: 14px;
+
+          .ant-breadcrumb-link {
+            color: white;
+          }
+
+          .ant-breadcrumb-separator {
+            color: white;
+          }
         }
       }
 
       .lindb-header__menu {
-        float: right;
+        float     : right;
         list-style: none;
-        padding: 0;
-        margin: 0;
+        padding   : 0;
+        margin    : 0;
 
         .lindb-header__menu-item {
-          float: right;
+          float      : right;
           user-select: none;
-          cursor: pointer;
-          transition: all 0.25s;
+          cursor     : pointer;
+          transition : all 0.25s;
 
           &:hover {
-            background: #F2F6FC;
-            //background: #f0feff;
+            background: #242424;
+            color     : #fff;
           }
 
           &.bold {
@@ -89,14 +108,15 @@
           }
 
           .anticon {
+            color       : #d8d9da;
             margin-right: 8px;
           }
 
-          & > * {
-            padding: 0 15px;
-            display: block;
-            color: rgba(0, 0, 0, 0.65);
-            vertical-align: middle;
+          &>* {
+            padding          : 0 15px;
+            display          : block;
+            color            : white;
+            // vertical-align: middle;
           }
         }
       }

@@ -72,6 +72,9 @@
     "webpack": "4.29.6",
     "webpack-dev-server": "3.2.1",
     "webpack-manifest-plugin": "2.0.4",
+    "ramda": "0.25.0",
+    "lodash": "^4.17.15",
+    "react-moment": "^0.9.6",
     "workbox-webpack-plugin": "4.2.0"
   },
   "devDependencies": {
@@ -79,6 +82,7 @@
     "@types/jest": "24.0.17",
     "@types/lodash-es": "^4.17.3",
     "@types/node": "12.7.1",
+    "@types/ramda": "0.25.0",
     "@types/react": "16.9.0",
     "@types/react-dom": "16.8.5",
     "@types/react-lazyload": "^2.5.0",

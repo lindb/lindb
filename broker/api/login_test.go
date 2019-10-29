@@ -25,6 +25,13 @@ func TestLogin(t *testing.T) {
 
 	user := config.User{UserName: "admin", Password: "admin123"}
 	api := NewLoginAPI(user, auth)
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/user",
+		RequestBody:    []byte{1, 2, 3},
+		HandlerFunc:    api.Login,
+		ExpectHTTPCode: 200,
+	})
 
 	//create success
 	auth.EXPECT().CreateToken(gomock.Any()).Return(tokenStr, nil)

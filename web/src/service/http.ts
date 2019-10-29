@@ -1,5 +1,5 @@
-import axios from 'axios'
 import { message } from 'antd'
+import axios, { AxiosResponse } from 'axios'
 import { API_URL, LOCALSTORAGE_TOKEN } from '../config/config'
 import { redirectTo } from '../utils/URLUtil'
 
@@ -21,54 +21,59 @@ message.config({
   maxCount: 3,
 })
 
+export function get<T>(url: string, params?: { [index: string]: any } | undefined): Promise<AxiosResponse<T | undefined>> {
+  const target = url + (params ? '?' + Object.keys(params).map(k => `${k}=${params[k]}`).join('&') : '')
+  return axios.get<T>(target)
+}
+
 /* package */
-export function GET<T>(url: string, params?: {[index: string]: any} | undefined, msg?: { success?: string, error?: string}): Promise<T | undefined> {
+export function GET<T>(url: string, params?: { [index: string]: any } | undefined, msg?: { success?: string, error?: string }): Promise<T | undefined> {
   const target = url + (params ? '?' + Object.keys(params).map(k => `${k}=${params[k]}`).join('&') : '')
   return axios
-  .get<T>(target)
-  .then((result) => {
-    return Promise.resolve(processData(result, msg && msg.success))
-  })
-  .catch((err) => {
-    message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
-    return Promise.reject(err)
-  })
+    .get<T>(target)
+    .then((result) => {
+      return Promise.resolve(processData(result, msg && msg.success))
+    })
+    .catch((err) => {
+      message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
+      return Promise.reject(err)
+    })
 }
 
-export function POST<T>(url: string, params?: object | undefined, msg?: { success?: string, error?: string}): Promise<T | undefined> {
+export function POST<T>(url: string, params?: object | undefined, msg?: { success?: string, error?: string }): Promise<T | undefined> {
   return axios
-  .post<T>(url, params)
-  .then((result) => {
-    return Promise.resolve(processData(result, msg && msg.success))
-  })
-  .catch((err) => {
-    message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
-    return Promise.reject(err)
-  })
+    .post<T>(url, params)
+    .then((result) => {
+      return Promise.resolve(processData(result, msg && msg.success))
+    })
+    .catch((err) => {
+      message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
+      return Promise.reject(err)
+    })
 }
 
-export function PUT<T>(url: string, params?: object | undefined, msg?: { success?: string, error?: string}): Promise<T | undefined> {
+export function PUT<T>(url: string, params?: object | undefined, msg?: { success?: string, error?: string }): Promise<T | undefined> {
   return axios
-  .put<T>(url, params)
-  .then((result) => {
-    return Promise.resolve(processData(result, msg && msg.success))
-  })
-  .catch((err) => {
-    message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
-    return Promise.reject(err)
-  })
+    .put<T>(url, params)
+    .then((result) => {
+      return Promise.resolve(processData(result, msg && msg.success))
+    })
+    .catch((err) => {
+      message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
+      return Promise.reject(err)
+    })
 }
 
-export async function DELETE<T>(url: string, msg?: { success?: string, error?: string}): Promise<T | undefined> {
+export async function DELETE<T>(url: string, msg?: { success?: string, error?: string }): Promise<T | undefined> {
   return axios
-  .delete(url)
-  .then((result) => {
-    return Promise.resolve(processData(result, msg && msg.success))
-  })
-  .catch((err) => {
-    message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
-    return Promise.reject(err)
-  })
+    .delete(url)
+    .then((result) => {
+      return Promise.resolve(processData(result, msg && msg.success))
+    })
+    .catch((err) => {
+      message.error((msg && msg.error) || (err.response && err.response.data) || err.message)
+      return Promise.reject(err)
+    })
 }
 
 function processData(result: any, msg?: string) {

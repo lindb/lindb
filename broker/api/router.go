@@ -11,6 +11,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+var staticPath = "./../../web/build"
+
 type route struct {
 	name    string
 	method  string
@@ -27,11 +29,13 @@ var routes []route
 
 var middlewareHandlers []middlewareHandler
 
+// AddMiddleware adds middleware func base on url path pattern
 func AddMiddleware(middleware mux.MiddlewareFunc, regexp *regexp.Regexp) {
 	middlewareHandlers = append(middlewareHandlers, middlewareHandler{middleware: middleware, regexp: regexp})
 }
 
-func AddRoutes(name, method, pattern string, handler http.HandlerFunc) {
+// AddRoute adds http route handle func for urp pattern
+func AddRoute(name, method, pattern string, handler http.HandlerFunc) {
 	routes = append(routes, route{name: name, method: method, pattern: pattern, handler: handler})
 }
 
@@ -45,11 +49,7 @@ func NewRouter() *mux.Router {
 		// this route.pattern set middleware
 		if len(mds) > 0 {
 			for _, md := range mds {
-				if handler != nil {
-					handler = md.Middleware(handler)
-				} else {
-					handler = md.Middleware(route.handler)
-				}
+				handler = md.Middleware(route.handler)
 			}
 		} else {
 			handler = route.handler
@@ -61,12 +61,13 @@ func NewRouter() *mux.Router {
 			Path(route.pattern)
 	}
 	// static server path exist, serve web console
-	box, err := rice.FindBox("./../../web/build")
+	box, err := rice.FindBox(staticPath)
 	if err != nil {
 		log.Error("cannot find static resource", logger.Error(err))
 	} else {
-		router.PathPrefix("/console").
-			Handler(http.StripPrefix("/console",
+		router.Path("/").Handler(http.HandlerFunc(redirectToConsole))
+		router.PathPrefix("/console/").
+			Handler(http.StripPrefix("/console/",
 				http.FileServer(box.HTTPBox())))
 	}
 	// add cors support
@@ -88,6 +89,11 @@ func NewRouter() *mux.Router {
 			})
 		})
 	return router
+}
+
+// redirectToConsole redirects to admin console
+func redirectToConsole(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/console/", http.StatusFound)
 }
 
 // getMiddleware returns suited middleware by pattern
