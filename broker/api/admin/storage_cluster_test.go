@@ -20,6 +20,15 @@ func TestStorageClusterAPI(t *testing.T) {
 
 	api := NewStorageClusterAPI(storageClusterService)
 
+	// get request error
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPost,
+		URL:            "/storage/cluster",
+		RequestBody:    []byte{1, 2, 3},
+		HandlerFunc:    api.Create,
+		ExpectHTTPCode: http.StatusInternalServerError,
+	})
+
 	cfg := config.StorageCluster{
 		Name: "test1",
 	}

@@ -45,7 +45,7 @@ class BreadcrumbHeader extends React.Component<BreadcrumbHeaderProps, Breadcrumb
 
     return (
       <div className="lindb-header__breadcrumb">
-        {breadcrumbItems.length > 0 && (<Icon type="compass"/>)}
+        {breadcrumbItems.length > 0 && (<Icon type="home"/>)}
         <Breadcrumb>
           {breadcrumbItems}
         </Breadcrumb>

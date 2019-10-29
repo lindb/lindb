@@ -5,7 +5,7 @@ import { Layout, Icon, Menu } from 'antd'
 import { MENUS } from '../../config/menu'
 
 const { Sider } = Layout
-const Logo = require('../../assets/images/logo_title.png')
+const Logo = require('../../assets/images/logo_title_dark.png')
 
 interface SiderMenuProps {
 }
@@ -48,6 +48,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         {/* Menu */}
         <Menu
           mode="inline"
+          theme="dark"
           className="lindb-sider__menu"
           defaultOpenKeys={[ '/monitoring', '/setting' ]}
           selectedKeys={[ path ]}

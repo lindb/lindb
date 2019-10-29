@@ -6,6 +6,7 @@ import { observable, reaction } from 'mobx'
 import StoreManager from '../../store/StoreManager'
 import { DataFormatter } from '../../utils/dataFormatter'
 import { ChartBorderInfo, ChartTooltipData } from '../../model/Metric'
+import Moment from "react-moment";
 
 interface ChartTooltipProps {
 }
@@ -111,7 +112,7 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
       >
         {/* Timestamp */}
         <div className="lindb-chart-tooltip__timestamp">
-          {/*{moment(data.time).format('YYYY-MM-DD HH:mm:ss')}*/}{data.time}
+          <Moment format="YYYY-MM-DD HH:mm:ss">{data.time}</Moment>
         </div>
 
         {/* Data Source */}

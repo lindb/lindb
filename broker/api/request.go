@@ -9,11 +9,7 @@ import (
 // GetJSONBodyFromRequest gets json from request body and then parses into specified struct
 func GetJSONBodyFromRequest(r *http.Request, t interface{}) error {
 	decoder := json.NewDecoder(r.Body)
-	if decoder != nil {
-		err := decoder.Decode(&t)
-		return err
-	}
-	return fmt.Errorf("could not parse request body")
+	return decoder.Decode(&t)
 }
 
 // GetParamsFromRequest gets parameter value from the request。

@@ -38,10 +38,10 @@ export default class Header extends React.Component<HeaderProps, HeaderStatus> {
           <li className="lindb-header__menu-item bold">{user}</li>
           <div style={{float: 'right'}}><Divider type="vertical" /></div>
           <li className="lindb-header__menu-item">
-            <a href="https://github.com/eleme/lindb/wiki" rel="noopener noreferrer" target="_blank"><Icon type="read" />Help</a>
+            <a href="https://lindb.io" rel="noopener noreferrer" target="_blank"><Icon type="question-circle" />Help</a>
           </li>
           <li className="lindb-header__menu-item">
-            <a href="https://github.com/eleme/lindb" rel="noopener noreferrer" target="_blank"><Icon type="github" />GitHub</a>
+            <a href="https://github.com/lindb/lindb" rel="noopener noreferrer" target="_blank"><Icon type="github" />GitHub</a>
           </li>
         </ul>
       </AntDHeader>
