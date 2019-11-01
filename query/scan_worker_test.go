@@ -13,9 +13,9 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
-var execPool = &tsdb.ExecutePool{
-	Scan:  concurrent.NewPool("test-pool1", 10 /*nRoutines*/, 10 /*queueSize*/),
-	Merge: concurrent.NewPool("test-pool2", 10 /*nRoutines*/, 10 /*queueSize*/),
+var execPool = &tsdb.ExecutorPool{
+	Scanners: concurrent.NewPool("test-pool1", 10 /*nRoutines*/, 10 /*queueSize*/),
+	Mergers:  concurrent.NewPool("test-pool2", 10 /*nRoutines*/, 10 /*queueSize*/),
 }
 
 func TestScanWorker_Emit(t *testing.T) {

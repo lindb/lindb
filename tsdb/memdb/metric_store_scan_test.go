@@ -12,7 +12,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func Test_MetricStore_scan(t *testing.T) {
@@ -78,7 +78,7 @@ func Test_MetricStore_scan(t *testing.T) {
 		Tags: map[string]string{"host": "1.1.1.1", "disk": "/tmp"},
 	}
 
-	generator := diskdb.NewMockIDGenerator(ctrl)
+	generator := metadb.NewMockIDGenerator(ctrl)
 	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	idGet := NewMockmStoreFieldIDGetter(ctrl)

@@ -1,4 +1,4 @@
-package diskdb
+package metadb
 
 import (
 	"fmt"

@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
@@ -41,9 +41,9 @@ type Engine interface {
 	// GetShard returns shard by given shard id, if not exist returns nil
 	GetShard(shardID int32) Shard
 	// GetIDGetter returns id getter for metric level metadata
-	GetIDGetter() diskdb.IDGetter
-	// GetExecutePool returns the query task execute pool
-	GetExecutePool() *ExecutePool
+	GetIDGetter() metadb.IDGetter
+	// GetExecutorPool returns the pool for querying tasks
+	GetExecutorPool() *ExecutorPool
 	// Close closed engine then release resource
 	Close() error
 
@@ -65,7 +65,7 @@ type engine struct {
 	info   *info
 	index  Index
 
-	executePool *ExecutePool // execute query task
+	executorPool *ExecutorPool // execute query task
 
 	numOfShards int
 
@@ -120,9 +120,9 @@ func (f *engineFactory) CreateEngine(name string) (Engine, error) {
 		info:  info,
 		index: index,
 		//TODO add pool config
-		executePool: &ExecutePool{
-			Scan:  concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
-			Merge: concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
+		executorPool: &ExecutorPool{
+			Scanners: concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
+			Mergers:  concurrent.NewPool(name+"-"+"executor-pool", 100 /*nRoutines*/, 10 /*queueSize*/),
 		},
 	}
 	// load shards if engine is exist
@@ -244,13 +244,13 @@ func (e *engine) GetShard(shardID int32) Shard {
 }
 
 // GetIDGetter returns id getter for metric level metadata
-func (e *engine) GetIDGetter() diskdb.IDGetter {
+func (e *engine) GetIDGetter() metadb.IDGetter {
 	return e.index.GetIDSequencer()
 }
 
 // GetExecutePool returns the query task execute pool
-func (e *engine) GetExecutePool() *ExecutePool {
-	return e.executePool
+func (e *engine) GetExecutorPool() *ExecutorPool {
+	return e.executorPool
 }
 
 // Close closed engine then release resource

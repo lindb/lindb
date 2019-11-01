@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 //go:generate mockgen -source=./index.go -destination=./index_mock.go -package=tsdb
@@ -15,9 +15,9 @@ import (
 // Index represents an index include id sequencer and index creation for shard level
 type Index interface {
 	// GetIDSequencer returns id sequencer for metric level
-	GetIDSequencer() diskdb.IDSequencer
+	GetIDSequencer() metadb.IDSequencer
 	// CreateIndexDatabase creates index database for shard level
-	CreateIndexDatabase(shardID int32) (diskdb.IndexDatabase, error)
+	CreateIndexDatabase(shardID int32) (metadb.IndexDatabase, error)
 	// Close closes index kv store
 	Close()
 }
@@ -25,7 +25,7 @@ type Index interface {
 // index implements Index interface, using common kv store for index storage
 type index struct {
 	indexStore kv.Store
-	sequencer  diskdb.IDSequencer
+	sequencer  metadb.IDSequencer
 }
 
 // newIndex creates an index
@@ -50,17 +50,17 @@ func newIndex(name string, cfg config.Engine) (Index, error) {
 
 	return &index{
 		indexStore: indexStore,
-		sequencer:  diskdb.NewIDSequencer(metricIDsFamily, metricMetaFamily),
+		sequencer:  metadb.NewIDSequencer(metricIDsFamily, metricMetaFamily),
 	}, err
 }
 
 // GetIDSequencer returns id sequencer for metric level
-func (i *index) GetIDSequencer() diskdb.IDSequencer {
+func (i *index) GetIDSequencer() metadb.IDSequencer {
 	return i.sequencer
 }
 
 // CreateIndexDatabase creates index database for shard level
-func (i *index) CreateIndexDatabase(shardID int32) (diskdb.IndexDatabase, error) {
+func (i *index) CreateIndexDatabase(shardID int32) (metadb.IndexDatabase, error) {
 	familyOption := kv.FamilyOption{
 		CompactThreshold: 0,
 		Merger:           "mock_merger", //FIXME codingcrush
@@ -73,7 +73,7 @@ func (i *index) CreateIndexDatabase(shardID int32) (diskdb.IndexDatabase, error)
 	if err != nil {
 		return nil, err
 	}
-	return diskdb.NewIndexDatabase(i.sequencer, invertedFamily, forwardFamily), nil
+	return metadb.NewIndexDatabase(i.sequencer, invertedFamily, forwardFamily), nil
 }
 
 // Close closes index kv store
