@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
+
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 ///////////////////////////////////////////////////
@@ -29,8 +30,8 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *metadb.MockIDGenerator {
 	return mockGen
 }
 
-func makeMockDataFlusher(ctrl *gomock.Controller) *tblstore.MockMetricsDataFlusher {
-	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
+func makeMockDataFlusher(ctrl *gomock.Controller) *metricsdata.MockFlusher {
+	mockTF := metricsdata.NewMockFlusher(ctrl)
 	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()

@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock_test.go -package memdb
@@ -34,7 +34,7 @@ type fStoreINTF interface {
 	// FlushFieldTo flushes field data of the specific familyTime
 	// return false if there is no data related of familyTime
 	FlushFieldTo(
-		tableFlusher tblstore.MetricsDataFlusher,
+		tableFlusher metricsdata.Flusher,
 		familyTime int64,
 	) (flushedSize int)
 
@@ -142,7 +142,7 @@ func (fs *fieldStore) Write(
 
 // FlushFieldTo flushes segments' data to writer and reset the segments-map.
 func (fs *fieldStore) FlushFieldTo(
-	tableFlusher tblstore.MetricsDataFlusher,
+	tableFlusher metricsdata.Flusher,
 	familyTime int64,
 ) (
 	flushedSize int,

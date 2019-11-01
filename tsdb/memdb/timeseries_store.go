@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock_test.go -package memdb
@@ -34,7 +34,7 @@ type tStoreINTF interface {
 
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(
-		flusher tblstore.MetricsDataFlusher,
+		flusher metricsdata.Flusher,
 		flushCtx flushContext,
 		seriesID uint32,
 	) (flushedSize int)
@@ -164,7 +164,7 @@ func (ts *timeSeriesStore) Write(
 
 // FlushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) FlushSeriesTo(
-	flusher tblstore.MetricsDataFlusher,
+	flusher metricsdata.Flusher,
 	flushCtx flushContext,
 	seriesID uint32,
 ) (
