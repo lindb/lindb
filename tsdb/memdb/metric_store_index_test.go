@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/cespare/xxhash"
@@ -18,7 +18,7 @@ import (
 func Test_tagIndex_tStore_get(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator := metadb.NewMockIDGenerator(ctrl)
 	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	tagIdxInterface := newTagIndex()
@@ -72,7 +72,7 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 func Test_tagIndex_tStore_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator := metadb.NewMockIDGenerator(ctrl)
 	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	tagIdxInterface := newTagIndex()
@@ -127,7 +127,7 @@ func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 
-	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator := metadb.NewMockIDGenerator(ctrl)
 	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	_, _, _ = tagIdxInterface.GetOrCreateTStore(
@@ -271,7 +271,7 @@ func Test_TagIndex_recreateEvictedTStores(t *testing.T) {
 	tagIdxInterface := newTagIndex()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGenerator := diskdb.NewMockIDGenerator(ctrl)
+	mockGenerator := metadb.NewMockIDGenerator(ctrl)
 	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})

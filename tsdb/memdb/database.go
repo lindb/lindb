@@ -14,7 +14,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/cespare/xxhash"
@@ -115,7 +115,7 @@ type MemoryDatabaseCfg struct {
 	TimeWindow    int
 	IntervalValue int64
 	IntervalType  interval.Type
-	Generator     diskdb.IDGenerator
+	Generator     metadb.IDGenerator
 }
 
 // memoryDatabase implements MemoryDatabase.
@@ -130,7 +130,7 @@ type memoryDatabase struct {
 	once4Syncer   sync.Once                              // once for tags-limitation syncer
 	metricID2Hash sync.Map                               // key: metric-id(uint32), value: hash(uint64)
 	mStoresList   [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
-	generator     diskdb.IDGenerator                     // the generator for generating ID of metric, field
+	generator     metadb.IDGenerator                     // the generator for generating ID of metric, field
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -238,7 +238,7 @@ func (md *memoryDatabase) setLimitations(limitations map[string]uint32) {
 // writeContext holds the context for writing
 type writeContext struct {
 	blockStore   *blockStore
-	generator    diskdb.IDGenerator
+	generator    metadb.IDGenerator
 	metricID     uint32
 	familyTime   int64
 	slotIndex    int

@@ -8,7 +8,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/RoaringBitmap/roaring"
@@ -218,7 +218,7 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockGen := diskdb.NewMockIDGenerator(ctrl)
+	mockGen := metadb.NewMockIDGenerator(ctrl)
 	// mock generate ok
 	mockGen.EXPECT().GenFieldID(uint32(100), "sum", field.SumField).Return(uint16(1), nil).AnyTimes()
 	fieldID, err := mStoreInterface.GetFieldIDOrGenerate("sum", field.SumField, mockGen)
@@ -251,7 +251,7 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockGen := diskdb.NewMockIDGenerator(ctrl)
+	mockGen := metadb.NewMockIDGenerator(ctrl)
 	// fields meta sort
 	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()

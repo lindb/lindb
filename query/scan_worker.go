@@ -20,7 +20,7 @@ type scanWorker struct {
 	metaGetter series.MetaGetter
 	groupAgg   aggregation.GroupingAggregator
 
-	executePool *tsdb.ExecutePool
+	executorPool *tsdb.ExecutorPool
 
 	ctx     parallel.ExecuteContext
 	pending atomic.Int32
@@ -31,18 +31,22 @@ type scanWorker struct {
 }
 
 // createScanWorker creates scan worker dispatcher event to aggregate worker
-func createScanWorker(ctx parallel.ExecuteContext, metricID uint32,
-	groupByTagKeys []string, metaGetter series.MetaGetter, groupedAgg aggregation.GroupingAggregator,
-	executePool *tsdb.ExecutePool,
+func createScanWorker(
+	ctx parallel.ExecuteContext,
+	metricID uint32,
+	groupByTagKeys []string,
+	metaGetter series.MetaGetter,
+	groupedAgg aggregation.GroupingAggregator,
+	executorPool *tsdb.ExecutorPool,
 ) series.ScanWorker {
 	worker := &scanWorker{
-		metricID:    metricID,
-		executePool: executePool,
-		tagKeys:     groupByTagKeys,
-		hasGroupBy:  len(groupByTagKeys) > 0,
-		metaGetter:  metaGetter,
-		groupAgg:    groupedAgg,
-		ctx:         ctx,
+		metricID:     metricID,
+		executorPool: executorPool,
+		tagKeys:      groupByTagKeys,
+		hasGroupBy:   len(groupByTagKeys) > 0,
+		metaGetter:   metaGetter,
+		groupAgg:     groupedAgg,
+		ctx:          ctx,
 	}
 	return worker
 }
@@ -53,9 +57,9 @@ func (s *scanWorker) Emit(event series.ScanEvent) {
 		return
 	}
 	s.pending.Inc()
-	s.executePool.Scan.Execute(func() {
+	s.executorPool.Scanners.Execute(func() {
 		if event.Scan() {
-			s.executePool.Merge.Execute(func() {
+			s.executorPool.Mergers.Execute(func() {
 				defer s.complete()
 
 				resultSet := event.ResultSet()

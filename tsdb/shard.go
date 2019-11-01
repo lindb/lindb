@@ -11,8 +11,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/tsdb/diskdb"
 	"github.com/lindb/lindb/tsdb/memdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -42,7 +42,7 @@ type shard struct {
 	path     string
 	option   option.EngineOption
 	memDB    memdb.MemoryDatabase
-	indexDB  diskdb.IndexDatabase
+	indexDB  metadb.IndexDatabase
 	interval int64
 
 	//TODO codingcrush add kv store for data storage

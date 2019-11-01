@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
 	query    *stmt.Query
-	idGetter diskdb.IDGetter
+	idGetter metadb.IDGetter
 
 	fieldIDs []uint16
 
@@ -31,7 +31,7 @@ type storageExecutePlan struct {
 }
 
 // newStorageExecutePlan creates a storage execute plan
-func newStorageExecutePlan(index diskdb.IDGetter, query *stmt.Query) Plan {
+func newStorageExecutePlan(index metadb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
 		idGetter:       index,
 		query:          query,

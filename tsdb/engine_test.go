@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 
 	assert.Nil(t, factory.GetEngine("no_exist"))
 	assert.NotNil(t, engine.GetIDGetter())
-	assert.NotNil(t, engine.GetExecutePool())
+	assert.NotNil(t, engine.GetExecutorPool())
 
 	factory.Close()
 

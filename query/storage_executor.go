@@ -33,19 +33,24 @@ type storageExecutor struct {
 	storageExecutePlan *storageExecutePlan
 	intervalType       interval.Type
 
-	executePool *tsdb.ExecutePool
+	executorPool *tsdb.ExecutorPool
 
 	executeCtx parallel.ExecuteContext
 }
 
 // newStorageExecutor creates the execution which queries the data of storage engine
-func newStorageExecutor(ctx parallel.ExecuteContext, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) parallel.Executor {
+func newStorageExecutor(
+	ctx parallel.ExecuteContext,
+	engine tsdb.Engine,
+	shardIDs []int32,
+	query *stmt.Query,
+) parallel.Executor {
 	return &storageExecutor{
-		engine:      engine,
-		shardIDs:    shardIDs,
-		query:       query,
-		executePool: engine.GetExecutePool(),
-		executeCtx:  ctx,
+		engine:       engine,
+		shardIDs:     shardIDs,
+		query:        query,
+		executorPool: engine.GetExecutorPool(),
+		executeCtx:   ctx,
 	}
 }
 
@@ -95,7 +100,7 @@ func (e *storageExecutor) Execute() {
 		shard := e.shards[idx]
 		// execute memory db search in background goroutine
 		e.executeCtx.RetainTask(1)
-		e.executePool.Scan.Execute(func() {
+		e.executorPool.Scanners.Execute(func() {
 			e.memoryDBSearch(shard)
 		})
 
@@ -120,7 +125,7 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
 	// scan data and complete task in scan worker after scan worker completed
-	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.executePool)
+	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.executorPool)
 	defer worker.Close()
 	memoryDB.Scan(&series.ScanContext{
 		MetricID:    e.metricID,
@@ -182,7 +187,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
 	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
-	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, e.executePool)
+	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, e.executorPool)
 	for _, family := range families {
 		go e.familyLevelSearch(worker, family, seriesIDSet)
 	}
