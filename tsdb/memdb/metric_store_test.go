@@ -9,7 +9,9 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -143,7 +145,7 @@ func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	flusher := tblstore.NewMockMetricsDataFlusher(ctrl)
+	flusher := metricsdata.NewMockFlusher(ctrl)
 	flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
 	flusher.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	// mock tagIndex
@@ -167,7 +169,7 @@ func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 
 	assert.Nil(t, mStore.atomicGetImmutable())
 	// mock flush field meta
-	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
+	mockTF := metricsdata.NewMockFlusher(ctrl)
 	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).AnyTimes()
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
 	mStore.fieldsMetas.Store(field.Metas{field.Meta{}, field.Meta{}})
@@ -323,7 +325,7 @@ func Test_mStore_flushInvertedIndexTo(t *testing.T) {
 	mockTagIdx1, _, mockTagIdx3 := prepareMockTagIndexes(ctrl)
 
 	// mock index-table series flusher
-	mockTableFlusher := tblstore.NewMockInvertedIndexFlusher(ctrl)
+	mockTableFlusher := invertedindex.NewMockFlusher(ctrl)
 	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
 	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any()).Return().AnyTimes()
@@ -360,7 +362,7 @@ func Test_mStore_flushForwardIndexTo(t *testing.T) {
 	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
 
 	// mock index-table series flusher
-	mockTableFlusher := tblstore.NewMockForwardIndexFlusher(ctrl)
+	mockTableFlusher := forwardindex.NewMockFlusher(ctrl)
 	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
 	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return().AnyTimes()
 	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any()).Return().AnyTimes()

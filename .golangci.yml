@@ -8,7 +8,6 @@ run:
         - bin
         - ci
         - cmd
-    # modules-download-mode: readonly
 
 
 output:

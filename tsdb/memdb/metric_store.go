@@ -11,7 +11,9 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
 	"github.com/RoaringBitmap/roaring"
 	"go.uber.org/atomic"
@@ -67,16 +69,16 @@ type mStoreINTF interface {
 
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
 	FlushMetricsDataTo(
-		tableFlusher tblstore.MetricsDataFlusher,
+		tableFlusher metricsdata.Flusher,
 		flushCtx flushContext,
 	) error
 
 	// FlushForwardIndexTo flushes metric-block of mStore to the Writer.
-	FlushForwardIndexTo(tableFlusher tblstore.ForwardIndexFlusher) error
+	FlushForwardIndexTo(tableFlusher forwardindex.Flusher) error
 
 	// FlushInvertedIndexTo flushes series-index of mStore to the Writer
 	FlushInvertedIndexTo(
-		tableFlusher tblstore.InvertedIndexFlusher,
+		tableFlusher invertedindex.Flusher,
 		idGenerator metadb.IDGenerator,
 	) error
 
@@ -466,7 +468,7 @@ func (ms *metricStore) ResetVersion() error {
 // immutable tagIndex will be removed after call,
 // index shall be flushed before flushing data.
 func (ms *metricStore) FlushMetricsDataTo(
-	flusher tblstore.MetricsDataFlusher,
+	flusher metricsdata.Flusher,
 	flushCtx flushContext,
 ) error {
 	// flush field meta info
@@ -490,7 +492,7 @@ func (ms *metricStore) FlushMetricsDataTo(
 
 // FlushForwardIndexTo flushes metric-block of mStore to the Writer.
 func (ms *metricStore) FlushForwardIndexTo(
-	flusher tblstore.ForwardIndexFlusher,
+	flusher forwardindex.Flusher,
 ) error {
 	flushForwardIndex := func(tagIndex tagIndexINTF) {
 		for _, entrySet := range tagIndex.GetTagKVEntrySets() {
@@ -515,7 +517,7 @@ func (ms *metricStore) FlushForwardIndexTo(
 
 // FlushInvertedIndexTo flushes the inverted-index of mStore to the Writer
 func (ms *metricStore) FlushInvertedIndexTo(
-	flusher tblstore.InvertedIndexFlusher,
+	flusher invertedindex.Flusher,
 	idGenerator metadb.IDGenerator,
 ) error {
 	// build relation of tagKey -> {tagValue1...}

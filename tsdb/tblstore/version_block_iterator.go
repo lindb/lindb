@@ -12,7 +12,7 @@ const footerSizeAfterVersionEntries = 4 + // versionOffsetPos, uint32
 
 // versionBlockIterator a iterator for iterating version-block in common-use.
 // see Level2 of MetricDataTable & Level2 of ForwardIndexTable in `tsdb/doc`
-type versionBlockIterator struct {
+type VersionBlockIterator struct {
 	block            []byte
 	offsetsReader    *stream.Reader // reading version offsets
 	blockReader      *stream.Reader // reading blocks
@@ -22,11 +22,11 @@ type versionBlockIterator struct {
 	lastVersionBlock []byte         // last read
 }
 
-func newVersionBlockIterator(block []byte) (*versionBlockIterator, error) {
+func NewVersionBlockIterator(block []byte) (*VersionBlockIterator, error) {
 	if len(block) <= footerSizeAfterVersionEntries {
 		return nil, fmt.Errorf("block length too short")
 	}
-	itr := &versionBlockIterator{
+	itr := &VersionBlockIterator{
 		block:         block,
 		offsetsReader: stream.NewReader(block),
 		blockReader:   stream.NewReader(block)}
@@ -34,7 +34,7 @@ func newVersionBlockIterator(block []byte) (*versionBlockIterator, error) {
 	return itr, itr.offsetsReader.Error()
 }
 
-func (itr *versionBlockIterator) readVersionsCount() {
+func (itr *VersionBlockIterator) readVersionsCount() {
 	//////////////////////////////////////////////////
 	// Read VersionOffSetsBlock
 	//////////////////////////////////////////////////
@@ -47,7 +47,7 @@ func (itr *versionBlockIterator) readVersionsCount() {
 	itr.versionsCount = int(itr.offsetsReader.ReadUvarint64())
 }
 
-func (itr *versionBlockIterator) HasNext() bool {
+func (itr *VersionBlockIterator) HasNext() bool {
 	// read all versions
 	if itr.versionsRead >= itr.versionsCount {
 		return false
@@ -61,6 +61,6 @@ func (itr *versionBlockIterator) HasNext() bool {
 	return itr.blockReader.Error() == nil || itr.offsetsReader.Error() == nil
 }
 
-func (itr *versionBlockIterator) Next() (version series.Version, versionBlock []byte) {
+func (itr *VersionBlockIterator) Next() (version series.Version, versionBlock []byte) {
 	return itr.lastVersion, itr.lastVersionBlock
 }

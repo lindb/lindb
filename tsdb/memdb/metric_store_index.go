@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/cespare/xxhash"
@@ -70,7 +70,7 @@ type tagIndexINTF interface {
 
 	// FlushVersionDataTo flush metric to the tableFlusher
 	FlushVersionDataTo(
-		flusher tblstore.MetricsDataFlusher,
+		flusher metricsdata.Flusher,
 		flushCtx flushContext,
 	) (flushedSize int)
 
@@ -328,7 +328,7 @@ func (index *tagIndex) AllTStores() *metricMap {
 
 // FlushVersionDataTo flushes metric-block of mStore to the writer.
 func (index *tagIndex) FlushVersionDataTo(
-	tableFlusher tblstore.MetricsDataFlusher,
+	tableFlusher metricsdata.Flusher,
 	flushCtx flushContext,
 ) (
 	flushedSize int,

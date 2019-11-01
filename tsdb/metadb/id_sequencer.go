@@ -9,7 +9,8 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsnameid"
 
 	art "github.com/plar/go-adaptive-radix-tree"
 	"go.uber.org/atomic"
@@ -69,7 +70,7 @@ func (seq *idSequencer) Recover() error {
 	seq.rwMux.Lock()
 	defer seq.rwMux.Unlock()
 
-	nameIDReader := tblstore.NewMetricsNameIDReader(readers)
+	nameIDReader := metricsnameid.NewReader(readers)
 	data, metricIDSeq, tagKeyIDSeq, ok := nameIDReader.ReadMetricNS(defaultNSID)
 	if ok {
 		seq.metricIDSequence.Store(metricIDSeq)
@@ -122,7 +123,7 @@ func (seq *idSequencer) SuggestTagKeys(metricName, tagKeyPrefix string, limit in
 	if err != nil {
 		return nil
 	}
-	metaReader := tblstore.NewMetricsMetaReader(readers)
+	metaReader := metricsmeta.NewReader(readers)
 	return metaReader.SuggestTagKeys(metricID, tagKeyPrefix, limit)
 }
 
@@ -209,12 +210,12 @@ func (seq *idSequencer) GetTagKeyID(metricID uint32, tagKey string) (tagID uint3
 	if err != nil {
 		return 0, err
 	}
-	return seq.readTagKeyID(tblstore.NewMetricsMetaReader(readers), metricID, tagKey)
+	return seq.readTagKeyID(metricsmeta.NewReader(readers), metricID, tagKey)
 }
 
 // readTagKeyID reads the tagKeyID from reader.
 func (seq *idSequencer) readTagKeyID(
-	reader tblstore.MetricsMetaReader,
+	reader metricsmeta.Reader,
 	metricID uint32,
 	tagKey string,
 ) (
@@ -284,13 +285,13 @@ func (seq *idSequencer) GenFieldID(
 	if err != nil {
 		return 0, err
 	}
-	metaReader := tblstore.NewMetricsMetaReader(readers)
+	metaReader := metricsmeta.NewReader(readers)
 	return seq.genFieldID(metaReader, metricID, fieldName, fieldType)
 }
 
 // genFieldID generate fieldID from reader.
 func (seq *idSequencer) genFieldID(
-	reader tblstore.MetricsMetaReader,
+	reader metricsmeta.Reader,
 	metricID uint32,
 	fieldName string,
 	fieldType field.Type,
@@ -377,12 +378,12 @@ func (seq *idSequencer) GetFieldID(
 	if err != nil {
 		return 0, 0, err
 	}
-	return seq.readFieldID(tblstore.NewMetricsMetaReader(readers), metricID, fieldName)
+	return seq.readFieldID(metricsmeta.NewReader(readers), metricID, fieldName)
 }
 
 // readFieldID read fieldID from the reader
 func (seq *idSequencer) readFieldID(
-	reader tblstore.MetricsMetaReader,
+	reader metricsmeta.Reader,
 	metricID uint32,
 	fieldName string,
 ) (
@@ -401,11 +402,11 @@ func (seq *idSequencer) readFieldID(
 // FlushNameIDs flushes metricName and metricID to family
 func (seq *idSequencer) FlushNameIDs() error {
 	kvFlusher := seq.nameIDsFamily.NewFlusher()
-	return seq.flushNameIDsTo(tblstore.NewMetricsNameIDFlusher(kvFlusher))
+	return seq.flushNameIDsTo(metricsnameid.NewFlusher(kvFlusher))
 }
 
 // flushNameIDsTo flushes metricName and metricID to flusher
-func (seq *idSequencer) flushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) error {
+func (seq *idSequencer) flushNameIDsTo(flusher metricsnameid.Flusher) error {
 	seq.rwMux.Lock()
 	unflushed := seq.newNameIDs
 	seq.newNameIDs = make(map[string]uint32)
@@ -428,11 +429,11 @@ func (seq *idSequencer) flushNameIDsTo(flusher tblstore.MetricsNameIDFlusher) er
 // FlushMetricsMeta flushes tagKey, tagKeyId, fieldName, fieldID to family
 func (seq *idSequencer) FlushMetricsMeta() error {
 	kvFlusher := seq.metaFamily.NewFlusher()
-	return seq.flushMetricsMetaTo(tblstore.NewMetricsMetaFlusher(kvFlusher))
+	return seq.flushMetricsMetaTo(metricsmeta.NewFlusher(kvFlusher))
 }
 
 // flushMetricsMetaTo flushes tagKey, tagKeyId, fieldName, fieldID to flusher
-func (seq *idSequencer) flushMetricsMetaTo(flusher tblstore.MetricsMetaFlusher) error {
+func (seq *idSequencer) flushMetricsMetaTo(flusher metricsmeta.Flusher) error {
 	metricIDs := make(map[uint32]struct{})
 	emptyTagMetas := make(map[uint32][]tag.Meta)
 	emptyFieldMetas := make(map[uint32][]field.Meta)
