@@ -8,7 +8,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
 // indexDatabase implements IndexDatabase
@@ -58,7 +59,7 @@ func (db *indexDatabase) SuggestTagValues(
 	if err != nil {
 		return nil
 	}
-	return tblstore.NewInvertedIndexReader(readers).SuggestTagValues(tagKeyID, tagValuePrefix, limit)
+	return invertedindex.NewReader(readers).SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
 // GetTagValues get tag values corresponding with the tagKeys
@@ -77,7 +78,7 @@ func (db *indexDatabase) GetTagValues(
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewForwardIndexReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
+	return forwardindex.NewReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
@@ -100,7 +101,7 @@ func (db *indexDatabase) FindSeriesIDsByExpr(
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewInvertedIndexReader(readers).FindSeriesIDsByExprForTagKeyID(tagKeyID, expr, timeRange)
+	return invertedindex.NewReader(readers).FindSeriesIDsByExprForTagKeyID(tagKeyID, expr, timeRange)
 }
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key
@@ -123,5 +124,5 @@ func (db *indexDatabase) GetSeriesIDsForTag(
 	if err != nil {
 		return nil, err
 	}
-	return tblstore.NewInvertedIndexReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
+	return invertedindex.NewReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
 	"github.com/cespare/xxhash"
 	"github.com/golang/mock/gomock"
@@ -106,7 +106,7 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 	tagIdxInterface := newTagIndex()
 	tagIdx := tagIdxInterface.(*tagIndex)
 
-	mockTF := tblstore.NewMockMetricsDataFlusher(ctrl)
+	mockTF := metricsdata.NewMockFlusher(ctrl)
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).MaxTimes(2)
 	mockTF.EXPECT().FlushVersion(gomock.Any()).Return().AnyTimes()
 

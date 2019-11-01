@@ -11,7 +11,8 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsnameid"
 
 	"github.com/golang/mock/gomock"
 	art "github.com/plar/go-adaptive-radix-tree"
@@ -203,7 +204,7 @@ func Test_IDSequencer_GetTagKeyID(t *testing.T) {
 	///////////////////////////////////
 	// readTagKeyID
 	///////////////////////////////////
-	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
+	mockMetaReader := metricsmeta.NewMockReader(ctrl)
 	// mock exist
 	mockMetaReader.EXPECT().ReadTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), true)
 	tagKeyID, err = mocked.idSequencer.readTagKeyID(mockMetaReader, 1, "")
@@ -272,7 +273,7 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 	///////////////////////////////////
 	// readFieldID
 	///////////////////////////////////
-	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
+	mockMetaReader := metricsmeta.NewMockReader(ctrl)
 	// mock ok
 	mockMetaReader.EXPECT().ReadFieldID(gomock.Any(), gomock.Any()).Return(
 		uint16(1), field.SumField, true)
@@ -323,7 +324,7 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 	// genFieldID
 	///////////////////////////////////
 	// case5: hit disk, type match
-	mockMetaReader := tblstore.NewMockMetricsMetaReader(ctrl)
+	mockMetaReader := metricsmeta.NewMockReader(ctrl)
 	mockMetaReader.EXPECT().ReadFieldID(gomock.Any(), gomock.Any()).
 		Return(uint16(2), field.MinField, true).Times(2)
 	fieldID, err = mocked.idSequencer.genFieldID(mockMetaReader, 1, "min", field.MinField)
@@ -378,7 +379,7 @@ func Test_IDSequencer_flushNameIDsTo(t *testing.T) {
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
 	mockKVFlusher.EXPECT().Commit().Return(nil).AnyTimes()
 	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	mockFlusher := tblstore.NewMetricsNameIDFlusher(mockKVFlusher)
+	mockFlusher := metricsnameid.NewFlusher(mockKVFlusher)
 	assert.Nil(t, mocked.idSequencer.flushNameIDsTo(mockFlusher))
 
 	mocked.idSequencer.newNameIDs["1"] = 1
@@ -419,7 +420,7 @@ func Test_IDSequencer_flushMetricsMetaTo(t *testing.T) {
 	mockKVFlusher.EXPECT().Commit().Return(nil).AnyTimes()
 	set()
 	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(3)
-	mockMetaFlusher := tblstore.NewMetricsMetaFlusher(mockKVFlusher)
+	mockMetaFlusher := metricsmeta.NewFlusher(mockKVFlusher)
 	assert.Nil(t, mocked.idSequencer.flushMetricsMetaTo(mockMetaFlusher))
 
 	// map empty

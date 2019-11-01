@@ -27,12 +27,13 @@ GOLANGCI_LINT_VERSION ?= "v1.18.0"
 pre-test: ## go generate mock file.
 	go install "./ci/mockgen"
 	go list ./... | grep -v '/vendor/' | xargs go generate
+
 	if [[ "$$(uname)" == "Darwin" ]]; then \
 		find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
-		sed -i '' -e 's#x\.##g; s#x "\."##g' {} +; \
+		sed -i '' -e 's#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
 	else \
 		find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
-		sed -i 's#x\.##g; s#x "\."##g' {} +; \
+		sed -i 's#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
 	fi
 
 	if [ ! -e ./bin/golangci-lint ]; then \
