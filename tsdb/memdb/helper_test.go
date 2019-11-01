@@ -11,7 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/pkg/lockers"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -19,8 +19,8 @@ import (
 //                mock interface
 ///////////////////////////////////////////////////
 
-func makeMockIDGenerator(ctrl *gomock.Controller) *diskdb.MockIDGenerator {
-	mockGen := diskdb.NewMockIDGenerator(ctrl)
+func makeMockIDGenerator(ctrl *gomock.Controller) *metadb.MockIDGenerator {
+	mockGen := metadb.NewMockIDGenerator(ctrl)
 	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(uint16(1111), nil).AnyTimes()
 	mockGen.EXPECT().GenMetricID(gomock.Any()).

@@ -13,14 +13,14 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestStoragePlan_Metric(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := diskdb.NewMockIDGetter(ctrl)
+	metadataIndex := metadb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil)
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).
 		Return(uint16(10), field.SumField, nil).AnyTimes()
@@ -40,7 +40,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := diskdb.NewMockIDGetter(ctrl)
+	metadataIndex := metadb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "f").
 		Return(uint16(10), field.SumField, nil).AnyTimes()
@@ -125,7 +125,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 func TestStorageExecutePlan_groupBy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := diskdb.NewMockIDGetter(ctrl)
+	idGetter := metadb.NewMockIDGetter(ctrl)
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
 		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(10), nil),
@@ -165,7 +165,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := diskdb.NewMockIDGetter(ctrl)
+	idGetter := metadb.NewMockIDGetter(ctrl)
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
 	)
@@ -177,7 +177,7 @@ func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := diskdb.NewMockIDGetter(ctrl)
+	idGetter := metadb.NewMockIDGetter(ctrl)
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
 		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.Unknown, nil),

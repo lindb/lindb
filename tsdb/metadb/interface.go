@@ -1,11 +1,11 @@
-package diskdb
+package metadb
 
 import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
-//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=diskdb
+//go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=metadb
 
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {

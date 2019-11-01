@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/diskdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore"
 
 	"github.com/RoaringBitmap/roaring"
@@ -77,7 +77,7 @@ type mStoreINTF interface {
 	// FlushInvertedIndexTo flushes series-index of mStore to the Writer
 	FlushInvertedIndexTo(
 		tableFlusher tblstore.InvertedIndexFlusher,
-		idGenerator diskdb.IDGenerator,
+		idGenerator metadb.IDGenerator,
 	) error
 
 	// ResetVersion moves the current running mutable index to immutable list,
@@ -104,7 +104,7 @@ type mStoreFieldIDGetter interface {
 	GetFieldIDOrGenerate(
 		fieldName string,
 		fieldType field.Type,
-		generator diskdb.IDGenerator,
+		generator metadb.IDGenerator,
 	) (
 		fieldID uint16, err error)
 }
@@ -140,7 +140,7 @@ func newMetricStore(metricID uint32) mStoreINTF {
 func (ms *metricStore) GetFieldIDOrGenerate(
 	fieldName string,
 	fieldType field.Type,
-	generator diskdb.IDGenerator,
+	generator metadb.IDGenerator,
 ) (
 	fieldID uint16,
 	err error,
@@ -516,7 +516,7 @@ func (ms *metricStore) FlushForwardIndexTo(
 // FlushInvertedIndexTo flushes the inverted-index of mStore to the Writer
 func (ms *metricStore) FlushInvertedIndexTo(
 	flusher tblstore.InvertedIndexFlusher,
-	idGenerator diskdb.IDGenerator,
+	idGenerator metadb.IDGenerator,
 ) error {
 	// build relation of tagKey -> {tagValue1...}
 	tagKeyValues := make(map[string]map[string]struct{})
