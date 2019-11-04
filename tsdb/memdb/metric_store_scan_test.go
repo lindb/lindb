@@ -85,7 +85,7 @@ func Test_MetricStore_scan(t *testing.T) {
 	idGet.EXPECT().GetFieldIDOrGenerate("sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
 	idGet.EXPECT().GetFieldIDOrGenerate("sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
 	bs := newBlockStore(10)
-	err := mStore.Write(metric,
+	writtenSize, err := mStore.Write(metric,
 		writeContext{
 			generator:           generator,
 			blockStore:          bs,
@@ -94,6 +94,7 @@ func Test_MetricStore_scan(t *testing.T) {
 			metricID:            uint32(10),
 			mStoreFieldIDGetter: idGet,
 		})
+	assert.NotZero(t, writtenSize)
 	if err != nil {
 		t.Fatal(err)
 	}
