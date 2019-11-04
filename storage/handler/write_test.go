@@ -188,14 +188,14 @@ func TestWriter_Write_Fail(t *testing.T) {
 	s := replication.NewMockSequence(ctl)
 	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true)
 	stream.EXPECT().Context().Return(mockContext(database, shardID, node))
-	storageSRV.EXPECT().GetShard(database, shardID).Return(nil)
+	storageSRV.EXPECT().GetShard(database, shardID).Return(nil, false)
 	err = writer.Write(stream)
 	assert.NotNil(t, err)
 
 	shard := tsdb.NewMockShard(ctl)
 	stream.EXPECT().Context().Return(mockContext(database, shardID, node)).AnyTimes()
 	sm.EXPECT().GetSequence(database, shardID, node).Return(s, true).AnyTimes()
-	storageSRV.EXPECT().GetShard(database, shardID).Return(shard).AnyTimes()
+	storageSRV.EXPECT().GetShard(database, shardID).Return(shard, true).AnyTimes()
 	stream.EXPECT().Recv().Return(nil, io.EOF)
 	_ = writer.Write(stream)
 	assert.Nil(t, nil)
@@ -311,7 +311,7 @@ func TestWrite_parse_ctx(t *testing.T) {
 
 func mockStorage(ctl *gomock.Controller, db string, shardID int32, shard tsdb.Shard) service.StorageService {
 	mockStorage := service.NewMockStorageService(ctl)
-	mockStorage.EXPECT().GetShard(db, shardID).Return(shard)
+	mockStorage.EXPECT().GetShard(db, shardID).Return(shard, true)
 	return mockStorage
 }
 

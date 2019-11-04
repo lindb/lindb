@@ -22,7 +22,7 @@ func TestStorageCluster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	engineOption := option.EngineOption{
+	databaseOption := option.DatabaseOption{
 		Interval: "10s",
 	}
 	factory := NewClusterFactory()
@@ -103,17 +103,17 @@ func TestStorageCluster(t *testing.T) {
 	shardAssign.Nodes[2] = &models.Node{IP: "1.1.1.2", Port: 8000}
 	// save shard assign err
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
+	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.NotNil(t, err)
 	// submit task err
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
+	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.NotNil(t, err)
 	// success
 	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	err = cluster.SaveShardAssign("test", shardAssign, engineOption)
+	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.Nil(t, err)
 
 	// test submit task

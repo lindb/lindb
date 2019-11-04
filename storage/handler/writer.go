@@ -77,8 +77,8 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		return status.Error(codes.Internal, err.Error())
 	}
 
-	shard := w.storageService.GetShard(database, shardID)
-	if shard == nil {
+	shard, ok := w.storageService.GetShard(database, shardID)
+	if !ok {
 		return status.Errorf(codes.NotFound, "shard %d for database %s not exists", shardID, database)
 	}
 

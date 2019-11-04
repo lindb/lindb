@@ -14,10 +14,20 @@ import (
 // ExecutorFactory represents the executor factory that creates storage/broker executor
 type ExecutorFactory interface {
 	// NewStorageExecutor creates the storage executor based on params
-	NewStorageExecutor(ctx ExecuteContext, engine tsdb.Engine, shardIDs []int32, query *stmt.Query) Executor
+	NewStorageExecutor(
+		ctx ExecuteContext,
+		database tsdb.Database,
+		shardIDs []int32,
+		query *stmt.Query,
+	) Executor
+
 	// NewBrokerExecutor creates the broker executor based on params
-	NewBrokerExecutor(ctx context.Context, database string, sql string,
-		replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
+	NewBrokerExecutor(
+		ctx context.Context,
+		databaseName string,
+		sql string,
+		replicaStateMachine replica.StatusStateMachine,
+		nodeStateMachine broker.NodeStateMachine,
 		jobManager JobManager,
 	) BrokerExecutor
 }

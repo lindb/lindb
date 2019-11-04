@@ -16,13 +16,18 @@ type MetaGetter interface {
 		seriesID2TagValues map[uint32][]string, err error)
 }
 
-// Suggester represents the suggest ability for metricNames, tagKeys and tagValues.
+// MetricMetaSuggester represents the suggest ability for metricNames and tagKeys.
 // default max limit of suggestions is set in constants
-type Suggester interface {
+type MetricMetaSuggester interface {
 	// SuggestMetrics returns suggestions from a given prefix of metricName
 	SuggestMetrics(metricPrefix string, limit int) []string
 	// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
 	SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string
+}
+
+// TagValueSuggester represents the suggest ability for tagValues.
+// default max limit of suggestions is set in constants
+type TagValueSuggester interface {
 	// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
 	SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string
 }

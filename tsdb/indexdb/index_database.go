@@ -1,4 +1,4 @@
-package metadb
+package indexdb
 
 import (
 	"github.com/RoaringBitmap/roaring"
@@ -8,20 +8,21 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
 // indexDatabase implements IndexDatabase
 type indexDatabase struct {
-	idGetter            IDGetter
+	idGetter            metadb.IDGetter
 	invertedIndexFamily kv.Family
 	forwardIndexFamily  kv.Family
 }
 
 // NewIndexDatabase returns a new IndexDatabase
 func NewIndexDatabase(
-	idGetter IDGetter,
+	idGetter metadb.IDGetter,
 	invertedIndexFamily kv.Family,
 	forwardIndexFamily kv.Family,
 ) IndexDatabase {

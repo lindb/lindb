@@ -7,9 +7,9 @@ import (
 
 // CreateShardTask represents the create shard task param
 type CreateShardTask struct {
-	Database string              `json:"database"` // database's name
-	ShardIDs []int32             `json:"shardIDs"` // shard ids
-	Engine   option.EngineOption `json:"engine"`   // time series engine
+	DatabaseName   string                `json:"databaseName"`   // database's name
+	ShardIDs       []int32               `json:"shardIDs"`       // shard ids
+	DatabaseOption option.DatabaseOption `json:"databaseOption"` // time series database
 }
 
 // Bytes returns the create shard task binary data using json

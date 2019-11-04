@@ -15,7 +15,7 @@ type invertedIndexMerger struct {
 	ttl          time.Duration
 }
 
-func NewInvertedIndexMerger(ttl time.Duration) kv.Merger {
+func NewMerger(ttl time.Duration) kv.Merger {
 	nopKVFlusher := kv.NewNopFlusher()
 	return &invertedIndexMerger{
 		flusher:      NewFlusher(nopKVFlusher).(*flusher),

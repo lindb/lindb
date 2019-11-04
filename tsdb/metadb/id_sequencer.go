@@ -21,12 +21,6 @@ const (
 	defaultNSID = 0
 )
 
-// todo: @codingcrush fix it, not singleton
-var (
-	once4IDSequencer     sync.Once
-	idSequencerSingleton *idSequencer
-)
-
 // idSequencer implements IDSequencer
 type idSequencer struct {
 	metricIDSequence atomic.Uint32 // counter from 1
@@ -44,18 +38,15 @@ type idSequencer struct {
 
 // NewIDSequencer returns a new IDSequencer
 func NewIDSequencer(nameIDsFamily, metaFamily kv.Family) IDSequencer {
-	once4IDSequencer.Do(func() {
-		idSequencerSingleton = &idSequencer{
-			metricIDSequence: *atomic.NewUint32(0),
-			tagKeyIDSequence: *atomic.NewUint32(0),
-			tree:             art.New(),
-			newNameIDs:       make(map[string]uint32),
-			newTagMetas:      make(map[uint32][]tag.Meta),
-			newFieldMetas:    make(map[uint32][]field.Meta),
-			nameIDsFamily:    nameIDsFamily,
-			metaFamily:       metaFamily}
-	})
-	return idSequencerSingleton
+	return &idSequencer{
+		metricIDSequence: *atomic.NewUint32(0),
+		tagKeyIDSequence: *atomic.NewUint32(0),
+		tree:             art.New(),
+		newNameIDs:       make(map[string]uint32),
+		newTagMetas:      make(map[uint32][]tag.Meta),
+		newFieldMetas:    make(map[uint32][]field.Meta),
+		nameIDsFamily:    nameIDsFamily,
+		metaFamily:       metaFamily}
 }
 
 // Recover loads metric-names and metricIDs from the index file to build the tree
