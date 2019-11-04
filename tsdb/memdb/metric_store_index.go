@@ -53,7 +53,7 @@ type tagIndexINTF interface {
 		writeCtx writeContext,
 	) (
 		tStore tStoreINTF,
-		writtenSize int,
+		createdSize int,
 		err error)
 
 	// RemoveTStores removes tStores from a list of seriesID
@@ -267,7 +267,7 @@ func (index *tagIndex) GetOrCreateTStore(
 	writeCtx writeContext,
 ) (
 	tStore tStoreINTF,
-	writtenSize int,
+	createdSize int,
 	err error,
 ) {
 	hash := xxhash.Sum64String(tag.Concat(tags))
@@ -279,9 +279,9 @@ func (index *tagIndex) GetOrCreateTStore(
 		if !ok {
 			tStore = newTimeSeriesStore()
 			index.seriesID2TStore.put(seriesID, tStore)
-			writtenSize += tStore.MemSize()
+			createdSize += tStore.MemSize()
 		}
-		return tStore, writtenSize, nil
+		return tStore, createdSize, nil
 	}
 	// seriesID is not allocated before, assign a new one.
 	incrSeriesID := index.idCounter.Inc()
@@ -290,12 +290,12 @@ func (index *tagIndex) GetOrCreateTStore(
 	err = index.insertNewTStore(tags, incrSeriesID, newTStore, writeCtx)
 	if err != nil {
 		index.idCounter.Dec()
-		return nil, writtenSize, err
+		return nil, createdSize, err
 	}
-	writtenSize += newTStore.MemSize()
+	createdSize += newTStore.MemSize()
 	// bind relation of hash and seriesID to the forward index
 	index.hash2SeriesID[hash] = incrSeriesID
-	return newTStore, writtenSize, nil
+	return newTStore, createdSize, nil
 }
 
 // RemoveTStores removes the tStores from seriesIDs

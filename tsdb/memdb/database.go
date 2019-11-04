@@ -19,6 +19,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/cespare/xxhash"
+	"go.uber.org/atomic"
 )
 
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
@@ -50,6 +51,8 @@ type MemoryDatabase interface {
 	FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error
 	// FlushForwardIndexTo flushes the forward-index of series to the kv builder
 	FlushForwardIndexTo(flusher forwardindex.Flusher) error
+	// MemSize returns the memory-size of this metric-store
+	MemSize() int
 	// series.Filter contains the methods for filtering seriesIDs from memDB
 	series.Filter
 	// series.MetaGetter returns tag values by tag keys and spec version for metric level
@@ -132,6 +135,7 @@ type memoryDatabase struct {
 	metricID2Hash sync.Map                               // key: metric-id(uint32), value: hash(uint64)
 	mStoresList   [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
 	generator     metadb.IDGenerator                     // the generator for generating ID of metric, field
+	size          atomic.Int32                           // memdb's size
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -145,7 +149,9 @@ func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) MemoryDatabas
 		intervalCalc:  timeCalc,
 		blockStore:    newBlockStore(cfg.TimeWindow),
 		ctx:           ctx,
-		evictNotifier: make(chan struct{})}
+		evictNotifier: make(chan struct{}),
+		size:          *atomic.NewInt32(0),
+	}
 	for i := range md.mStoresList {
 		md.mStoresList[i] = &mStoresBucket{
 			familyTimes: make(map[int64]struct{}),
@@ -195,6 +201,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) mSto
 		mStore, ok = bucket.hash2MStore[hash]
 		if !ok {
 			mStore = newMetricStore(metricID)
+			md.size.Add(int32(mStore.MemSize()))
 			bucket.hash2MStore[hash] = mStore
 			md.metricID2Hash.Store(metricID, hash)
 		}
@@ -253,7 +260,7 @@ func (writeCtx writeContext) PointTime() int64 {
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
+func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	timestamp := metric.Timestamp
 	// calculate family start time and slot index
 	segmentTime := md.intervalCalc.CalcSegmentTime(timestamp)                      // day
@@ -264,7 +271,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 	hash := xxhash.Sum64String(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
 
-	err = mStore.Write(metric, writeContext{
+	writtenSize, err := mStore.Write(metric, writeContext{
 		metricID:            mStore.GetMetricID(),
 		blockStore:          md.blockStore,
 		generator:           md.generator,
@@ -276,7 +283,8 @@ func (md *memoryDatabase) Write(metric *pb.Metric) (err error) {
 		bkt := md.getBucket(hash)
 		bkt.addFamilyTime(familyStartTime)
 	}
-	return
+	md.size.Add(int32(writtenSize))
+	return err
 }
 
 // evictor do evict periodically.
@@ -301,7 +309,9 @@ func (md *memoryDatabase) evict(bucket *mStoresBucket) {
 
 	for idx, mStore := range allMStores {
 		// delete tag of tStore which has not been used for a while
-		mStore.Evict()
+		evictedSize := mStore.Evict()
+		// reduce evicted size
+		md.size.Sub(int32(evictedSize))
 		// delete mStore whose tags is empty now.
 		if mStore.IsEmpty() {
 			bucket.rwLock.Lock()
@@ -309,6 +319,8 @@ func (md *memoryDatabase) evict(bucket *mStoresBucket) {
 				delete(bucket.hash2MStore, metricHashes[idx])
 				md.metricID2Hash.Delete(mStore.GetMetricID())
 			}
+			// reduce empty mstore size
+			md.size.Sub(int32(mStore.MemSize()))
 			bucket.rwLock.Unlock()
 		}
 	}
@@ -320,7 +332,9 @@ func (md *memoryDatabase) ResetMetricStore(metricName string) error {
 	if !ok {
 		return fmt.Errorf("metric: %s doesn't exist", metricName)
 	}
-	return mStore.ResetVersion()
+	createdSize, err := mStore.ResetVersion()
+	md.size.Add(int32(createdSize))
+	return err
 }
 
 // CountMetrics returns count of metrics in all buckets.
@@ -387,7 +401,6 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 		}
 	}()
 
-	var err error
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
 		bkt := md.mStoresList[bucketIndex]
 		bkt.rwLock.Lock()
@@ -397,11 +410,13 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
-			if err = mStore.FlushMetricsDataTo(flusher, flushContext{
+			flushedSize, err := mStore.FlushMetricsDataTo(flusher, flushContext{
 				metricID:     mStore.GetMetricID(),
 				familyTime:   familyTime,
 				timeInterval: md.interval,
-			}); err != nil {
+			})
+			md.size.Sub(int32(flushedSize))
+			if err != nil {
 				return err
 			}
 		}
@@ -528,4 +543,8 @@ func (md *memoryDatabase) Scan(sCtx *series.ScanContext) {
 // Interval return the interval of memory database
 func (md *memoryDatabase) Interval() int64 {
 	return md.interval
+}
+
+func (md *memoryDatabase) MemSize() int {
+	return int(md.size.Load())
 }

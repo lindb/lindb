@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lindb/lindb/pkg/hostutil"
-
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	taskHandler "github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"

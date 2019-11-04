@@ -49,29 +49,17 @@ type mStoreINTF interface {
 		seriesID2TagValues map[uint32][]string,
 		err error)
 
-	// Write Writes the metric
-	Write(metric *pb.Metric, writeCtx writeContext) error
-
 	// SetMaxTagsLimit sets the max tags-limit
 	SetMaxTagsLimit(limit uint32)
 
 	// IsEmpty detects whether if tags number is empty or not.
 	IsEmpty() bool
 
-	// Evict scans all tsStore and removes which are not in use for a while.
-	Evict()
-
 	// GetTagsInUse return the in-use tStores count.
 	GetTagsInUse() int
 
 	// GetTagsUsed return count of all used tStores.
 	GetTagsUsed() int
-
-	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
-	FlushMetricsDataTo(
-		tableFlusher metricsdata.Flusher,
-		flushCtx flushContext,
-	) error
 
 	// FlushForwardIndexTo flushes metric-block of mStore to the Writer.
 	FlushForwardIndexTo(tableFlusher forwardindex.Flusher) error
@@ -82,22 +70,44 @@ type mStoreINTF interface {
 		idGenerator metadb.IDGenerator,
 	) error
 
-	// ResetVersion moves the current running mutable index to immutable list,
-	// then creates a new mutable map.
-	ResetVersion() error
-
 	// FindSeriesIDsByExpr finds series ids by tag filter expr
 	FindSeriesIDsByExpr(expr stmt.TagFilter) (*series.MultiVerSeriesIDSet, error)
 
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
 
-	// MemSize returns the memory-size of this metric-store
-	MemSize() int
-
 	mStoreFieldIDGetter
 
 	series.Scanner
+
+	// MemSize returns the memory-size of this metric-store
+	MemSize() int
+
+	///////////////////////////////////
+	// Methods below will change the memory size
+	///////////////////////////////////
+	// Write Writes the metric
+	Write(
+		metric *pb.Metric,
+		writeCtx writeContext,
+	) (
+		writtenSize int,
+		err error)
+
+	// Evict scans all tsStore and removes which are not in use for a while.
+	Evict() (evictedSize int)
+
+	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
+	FlushMetricsDataTo(
+		tableFlusher metricsdata.Flusher,
+		flushCtx flushContext,
+	) (
+		flushedSize int,
+		err error)
+
+	// ResetVersion moves the current running mutable index to immutable list,
+	// then creates a new mutable map.
+	ResetVersion() (createdSize int, err error)
 }
 
 type mStoreFieldIDGetter interface {
@@ -332,27 +342,28 @@ func (ms *metricStore) GetTagValues(
 func (ms *metricStore) Write(
 	metric *pb.Metric,
 	writeCtx writeContext,
-) error {
+) (
+	writtenSize int,
+	err error,
+) {
 	if ms.isFull() {
-		return series.ErrTooManyTags
+		return 0, series.ErrTooManyTags
 	}
-	var (
-		err         error
-		writtenSize int
-	)
+	var createdSize int
 	ms.mux.RLock()
 	tStore, ok := ms.mutable.GetTStore(metric.Tags)
 	ms.mux.RUnlock()
 	if !ok {
 		ms.mux.Lock()
-		tStore, writtenSize, err = ms.mutable.GetOrCreateTStore(metric.Tags, writeCtx)
+		tStore, createdSize, err = ms.mutable.GetOrCreateTStore(metric.Tags, writeCtx)
 		if err != nil {
 			ms.mux.Unlock()
-			return err
+			return 0, err
 		}
 		ms.mux.Unlock()
-		ms.size.Add(int32(writtenSize))
+		ms.size.Add(int32(createdSize))
 	}
+
 	writtenSize, err = tStore.Write(metric, writeCtx)
 	if err == nil {
 		ms.mux.RLock()
@@ -360,7 +371,7 @@ func (ms *metricStore) Write(
 		ms.mux.RUnlock()
 	}
 	ms.size.Add(int32(writtenSize))
-	return err
+	return writtenSize + createdSize, err
 }
 
 // SetMaxTagsLimit sets the max tags-limit of the metricStore
@@ -376,17 +387,17 @@ func (ms *metricStore) getMaxTagsLimit() uint32 {
 // GetTagsInUse return the tStores count.
 func (ms *metricStore) GetTagsInUse() int {
 	ms.mux.RLock()
-	size := ms.mutable.TagsInUse()
+	count := ms.mutable.TagsInUse()
 	ms.mux.RUnlock()
-	return size
+	return count
 }
 
 // GetTagsUsed return count of all used tStores.
 func (ms *metricStore) GetTagsUsed() int {
 	ms.mux.RLock()
-	size := ms.mutable.TagsUsed()
+	count := ms.mutable.TagsUsed()
 	ms.mux.RUnlock()
-	return size
+	return count
 }
 
 // isFull detects if timeSeriesMap exceeds the tagsID limitation.
@@ -409,7 +420,7 @@ func (ms *metricStore) atomicGetImmutable() tagIndexINTF {
 }
 
 // Evict scans all tsStore and removes which are not in use for a while.
-func (ms *metricStore) Evict() {
+func (ms *metricStore) Evict() (evictedSize int) {
 	var (
 		evictList            []uint32
 		doubleCheckEvictList []uint32
@@ -440,15 +451,17 @@ func (ms *metricStore) Evict() {
 	ms.mux.Unlock()
 
 	for _, tStore := range removedTStores {
-		ms.size.Sub(int32(tStore.MemSize()))
+		evictedSize += tStore.MemSize()
 	}
+	ms.size.Sub(int32(evictedSize))
+	return evictedSize
 }
 
 // ResetVersion marks the mutable index's status to immutable, then creates a new active index.
-func (ms *metricStore) ResetVersion() error {
+func (ms *metricStore) ResetVersion() (createdSize int, err error) {
 	immutable := ms.atomicGetImmutable()
 	if immutable != nil {
-		return series.ErrResetVersionUnavailable
+		return 0, series.ErrResetVersionUnavailable
 	}
 
 	ms.mux.Lock()
@@ -456,12 +469,13 @@ func (ms *metricStore) ResetVersion() error {
 	// double check
 	immutable = ms.atomicGetImmutable()
 	if immutable != nil {
-		return series.ErrResetVersionUnavailable
+		return 0, series.ErrResetVersionUnavailable
 	}
 	ms.immutable.Store(ms.mutable)
 	ms.mutable = newTagIndex()
-	ms.size.Store(int32(ms.mutable.MemSize()))
-	return nil
+	createdSize = ms.mutable.MemSize()
+	ms.size.Store(int32(createdSize))
+	return createdSize, nil
 }
 
 // FlushMetricsTo Writes metric-data to the table.
@@ -470,24 +484,27 @@ func (ms *metricStore) ResetVersion() error {
 func (ms *metricStore) FlushMetricsDataTo(
 	flusher metricsdata.Flusher,
 	flushCtx flushContext,
-) error {
+) (
+	flushedSize int,
+	err error,
+) {
 	// flush field meta info
 	fmList := ms.fieldsMetas.Load().(field.Metas)
 	flusher.FlushFieldMetas(fmList)
 
 	// reset the mutable part
 	ms.mux.RLock()
-	flushedSize := ms.mutable.FlushVersionDataTo(flusher, flushCtx)
+	flushedSize = ms.mutable.FlushVersionDataTo(flusher, flushCtx)
 	immutable := ms.atomicGetImmutable()
 	// remove the immutable, put the nopTagIndex into it
 	ms.immutable.Store(staticNopTagIndex)
 	ms.mux.RUnlock()
 
-	ms.size.Sub(int32(flushedSize))
 	if immutable != nil {
-		immutable.FlushVersionDataTo(flusher, flushCtx)
+		flushedSize += immutable.FlushVersionDataTo(flusher, flushCtx)
 	}
-	return flusher.FlushMetric(flushCtx.metricID)
+	ms.size.Sub(int32(flushedSize))
+	return flushedSize, flusher.FlushMetric(flushCtx.metricID)
 }
 
 // FlushForwardIndexTo flushes metric-block of mStore to the Writer.
