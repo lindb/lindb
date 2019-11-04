@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
@@ -23,7 +24,7 @@ type AdminStateMachine interface {
 	discovery.Listener
 
 	// Close closes admin state machine, stops watch change event
-	Close() error
+	io.Closer
 }
 
 // adminStateMachine implement admin state machine interface.
@@ -140,7 +141,7 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	shardAssign.Nodes = nodes
 
 	// save shard assignment into related storage cluster
-	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Engine); err != nil {
+	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Option); err != nil {
 		return err
 	}
 	return nil

@@ -58,7 +58,8 @@ type MemoryDatabase interface {
 	// series.MetaGetter returns tag values by tag keys and spec version for metric level
 	series.MetaGetter
 	// series.Suggester returns the suggestions from prefix string
-	series.Suggester
+	series.MetricMetaSuggester
+	series.TagValueSuggester
 	// series.Scanner scans metric-data
 	series.Scanner
 	// series.Storage returns the high level function of storage

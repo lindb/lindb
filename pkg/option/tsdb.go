@@ -6,8 +6,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-// EngineOption represents a engine option include shard ids and shard's option
-type EngineOption struct {
+// DatabaseOption represents a database option include shard ids and shard's option
+type DatabaseOption struct {
 	Interval string `toml:"interval" json:"interval,omitempty"` // write interval(the number of second)
 	// rollup intervals(like seconds->minute->hour->day)
 	Rollup []string `toml:"rollup" json:"rollup,omitempty"`
@@ -30,7 +30,7 @@ type FlusherOption struct {
 }
 
 // Validation validates engine option if valid
-func (e EngineOption) Validation() error {
+func (e DatabaseOption) Validation() error {
 	if err := validateInterval(e.Interval, true); err != nil {
 		return err
 	}

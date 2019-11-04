@@ -38,7 +38,11 @@ func (p *createShardProcessor) Process(ctx context.Context, task task.Task) erro
 	}
 	logger.GetLogger("coordinator", "StorageCreateShardProcessor").
 		Info("process create shard task", logger.String("params", string(task.Params)))
-	if err := p.storageService.CreateShards(param.Database, param.Engine, param.ShardIDs...); err != nil {
+	if err := p.storageService.CreateShards(
+		param.DatabaseName,
+		param.DatabaseOption,
+		param.ShardIDs...,
+	); err != nil {
 		return err
 	}
 	return nil

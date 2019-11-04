@@ -21,7 +21,7 @@ import (
 // 4) Down sampling
 // 5) Sample aggregation
 type storageExecutor struct {
-	engine   tsdb.Engine
+	database tsdb.Database
 	query    *stmt.Query
 	shardIDs []int32
 
@@ -41,15 +41,15 @@ type storageExecutor struct {
 // newStorageExecutor creates the execution which queries the data of storage engine
 func newStorageExecutor(
 	ctx parallel.ExecuteContext,
-	engine tsdb.Engine,
+	database tsdb.Database,
 	shardIDs []int32,
 	query *stmt.Query,
 ) parallel.Executor {
 	return &storageExecutor{
-		engine:       engine,
+		database:     database,
 		shardIDs:     shardIDs,
 		query:        query,
-		executorPool: engine.GetExecutorPool(),
+		executorPool: database.ExecutorPool(),
 		executeCtx:   ctx,
 	}
 }
@@ -68,9 +68,9 @@ func (e *storageExecutor) Execute() {
 
 	// get shard by given query shard id list
 	for _, shardID := range e.shardIDs {
-		shard := e.engine.GetShard(shardID)
+		shard, ok := e.database.GetShard(shardID)
 		// if shard exist, add shard to query list
-		if shard != nil {
+		if ok {
 			e.shards = append(e.shards, shard)
 		}
 	}
@@ -81,7 +81,7 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 
-	plan := newStorageExecutePlan(e.engine.GetIDGetter(), e.query)
+	plan := newStorageExecutePlan(e.database.IDGetter(), e.query)
 	if err := plan.Plan(); err != nil {
 		e.executeCtx.Complete(err)
 		return
@@ -112,7 +112,7 @@ func (e *storageExecutor) Execute() {
 
 // memoryDBSearch searches data from memory database
 func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
-	memoryDB := shard.GetMemoryDatabase()
+	memoryDB := shard.MemoryDatabase()
 	seriesIDSet := e.searchSeriesIDs(memoryDB)
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
 		// if series ids not found, complete the search task
@@ -175,7 +175,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 		return
 	}
 
-	seriesIDSet := e.searchSeriesIDs(shard.GetSeriesIDsFilter())
+	seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
 		e.executeCtx.Complete(nil)
 		return
@@ -187,7 +187,14 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
 	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
 
-	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, shard.GetMetaGetter(), groupAgg, e.executorPool)
+	worker := createScanWorker(
+		e.executeCtx,
+		e.metricID,
+		e.query.GroupBy,
+		shard.IndexMetaGetter(),
+		groupAgg,
+		e.executorPool,
+	)
 	for _, family := range families {
 		go e.familyLevelSearch(worker, family, seriesIDSet)
 	}
@@ -213,10 +220,10 @@ func (e *storageExecutor) validation() error {
 	if len(e.shardIDs) == 0 {
 		return fmt.Errorf("there is no shard id in search condition")
 	}
-	numOfShards := e.engine.NumOfShards()
+	numOfShards := e.database.NumOfShards()
 	// check engine has shard
 	if numOfShards == 0 {
-		return fmt.Errorf("tsdb engine[%s] hasn't shard", e.engine.Name())
+		return fmt.Errorf("tsdb database[%s] hasn't shard", e.database.Name())
 	}
 	if numOfShards != len(e.shardIDs) {
 		return fmt.Errorf("storage's num. of shard not match search condition")

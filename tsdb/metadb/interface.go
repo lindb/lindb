@@ -35,22 +35,9 @@ type IDSequencer interface {
 	Recover() error
 	IDGenerator
 	IDGetter
-	// SuggestMetrics returns suggestions from a given prefix of metricName
-	SuggestMetrics(metricPrefix string, limit int) []string
-	// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
-	SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string
+	series.MetricMetaSuggester
 	// FlushNameIDs flushes metricName and metricID to family
 	FlushNameIDs() error
 	// FlushMetricsMeta flushes tagKey, tagKeyId, fieldName, fieldID to family
 	FlushMetricsMeta() error
-}
-
-// IndexDatabase represents a database of index files, it is shard-level
-// it provides the abilities to filter seriesID from the index.
-// See `tsdb/doc` for index file layout.
-type IndexDatabase interface {
-	series.MetaGetter
-	series.Filter
-	// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
-	SuggestTagValues(metricName, tagKey, tagValuePrefix string, limit int) []string
 }

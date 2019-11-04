@@ -63,16 +63,30 @@ func NewClusterFactory() ClusterFactory {
 // 3) generate coordinator task
 type Cluster interface {
 	discovery.Listener
+
 	// GetActiveNodes returns all active nodes
 	GetActiveNodes() []*models.ActiveNode
+
 	// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 	GetShardAssign(databaseName string) (*models.ShardAssignment, error)
+
 	// SaveShardAssign saves shard assignment
-	SaveShardAssign(databaseName string, shardAssign *models.ShardAssignment, engine option.EngineOption) error
+	SaveShardAssign(
+		databaseName string,
+		shardAssign *models.ShardAssignment,
+		databaseOption option.DatabaseOption,
+	) error
+
 	// SubmitTask generates coordinator task
-	SubmitTask(kind task.Kind, name string, params []task.ControllerTaskParam) error
+	SubmitTask(
+		kind task.Kind,
+		name string,
+		params []task.ControllerTaskParam,
+	) error
+
 	// GetRepo returns current storage cluster's state repo
 	GetRepo() state.Repository
+
 	// Close closes cluster controller
 	Close()
 }
@@ -158,8 +172,11 @@ func (c *cluster) GetShardAssign(databaseName string) (*models.ShardAssignment, 
 }
 
 // SaveShardAssign saves shard assignment, generates create shard task after saving successfully
-func (c *cluster) SaveShardAssign(databaseName string,
-	shardAssign *models.ShardAssignment, engine option.EngineOption) error {
+func (c *cluster) SaveShardAssign(
+	databaseName string,
+	shardAssign *models.ShardAssignment,
+	databaseOption option.DatabaseOption,
+) error {
 	if err := c.cfg.shardAssignService.Save(databaseName, shardAssign); err != nil {
 		return err
 	}
@@ -169,11 +186,11 @@ func (c *cluster) SaveShardAssign(databaseName string,
 		for _, replicaID := range shard.Replicas {
 			taskParam, ok := tasks[replicaID]
 			if !ok {
-				taskParam = &models.CreateShardTask{Database: databaseName}
+				taskParam = &models.CreateShardTask{DatabaseName: databaseName}
 				tasks[replicaID] = taskParam
 			}
 			taskParam.ShardIDs = append(taskParam.ShardIDs, int32(ID))
-			taskParam.Engine = engine
+			taskParam.DatabaseOption = databaseOption
 		}
 	}
 	var params []task.ControllerTaskParam

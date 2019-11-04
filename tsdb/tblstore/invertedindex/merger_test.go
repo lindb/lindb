@@ -52,8 +52,8 @@ func buildInvertedIndexBlockToCompact() (data [][]byte) {
 	return data
 }
 
-func TestInvertedIndexMerger_Merge_TTL_30Day(t *testing.T) {
-	m := NewInvertedIndexMerger(time.Hour * 24 * 30).(*invertedIndexMerger)
+func Test_Merge_TTL_30Day(t *testing.T) {
+	m := NewMerger(time.Hour * 24 * 30).(*invertedIndexMerger)
 	compacted, err := m.Merge(1, buildInvertedIndexBlockToCompact())
 	assert.Nil(t, err)
 	assert.NotNil(t, compacted)
@@ -68,7 +68,7 @@ func TestInvertedIndexMerger_Merge_TTL_30Day(t *testing.T) {
 }
 
 func TestInvertedIndexMerger_Merge_TTL_10Day(t *testing.T) {
-	m := NewInvertedIndexMerger(time.Hour * 24 * 10).(*invertedIndexMerger)
+	m := NewMerger(time.Hour * 24 * 10).(*invertedIndexMerger)
 	compacted, err := m.Merge(1, buildInvertedIndexBlockToCompact())
 	assert.Nil(t, err)
 	assert.NotNil(t, compacted)
@@ -82,7 +82,7 @@ func TestInvertedIndexMerger_Merge_TTL_10Day(t *testing.T) {
 }
 
 func TestInvertedIndexMerger_Merge_BadBlock(t *testing.T) {
-	m := NewInvertedIndexMerger(time.Hour * 24 * 10).(*invertedIndexMerger)
+	m := NewMerger(time.Hour * 24 * 10).(*invertedIndexMerger)
 	compacted, err := m.Merge(1, [][]byte{{1, 2, 3, 4}, {1, 2, 3, 4}})
 	assert.NotNil(t, err)
 	assert.Nil(t, compacted)

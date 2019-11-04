@@ -4,11 +4,11 @@ import "github.com/lindb/lindb/pkg/option"
 
 // Database defines database config, database can include multi-cluster
 type Database struct {
-	Name          string              `json:"name"`          // database's name
-	Cluster       string              `json:"cluster"`       // storage cluster's name
-	NumOfShard    int                 `json:"numOfShard"`    // num. of shard
-	ReplicaFactor int                 `json:"replicaFactor"` // replica refactor
-	Engine        option.EngineOption `json:"engine"`        // time series engine option
+	Name          string                `json:"name"`          // database's name
+	Cluster       string                `json:"cluster"`       // storage cluster's name
+	NumOfShard    int                   `json:"numOfShard"`    // num. of shard
+	ReplicaFactor int                   `json:"replicaFactor"` // replica refactor
+	Option        option.DatabaseOption `json:"option"`        // time series databae option
 }
 
 // Replica defines replica list for spec shard of database
