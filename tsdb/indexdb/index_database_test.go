@@ -1,4 +1,4 @@
-package metadb
+package indexdb
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/tsdb/metadb"
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
@@ -23,7 +24,7 @@ type mockedIndexDatabase struct {
 	family        *kv.MockFamily
 	snapShot      *version.MockSnapshot
 	reader        *table.MockReader
-	idGetter      *MockIDGetter
+	idGetter      *metadb.MockIDGetter
 }
 
 func (db *mockedIndexDatabase) WithFindReadersError() {
@@ -43,7 +44,7 @@ func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
 	mockFamily := kv.NewMockFamily(ctrl)
 	mockFamily.EXPECT().GetSnapshot().Return(mockSnapShot).AnyTimes()
 
-	mockIDGetter := NewMockIDGetter(ctrl)
+	mockIDGetter := metadb.NewMockIDGetter(ctrl)
 	return &mockedIndexDatabase{
 		indexDatabase: NewIndexDatabase(mockIDGetter, mockFamily, mockFamily).(*indexDatabase),
 		family:        mockFamily,

@@ -56,8 +56,8 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	if !foundTask {
 		return errWrongRequest
 	}
-	engine := p.storageService.GetEngine(physicalPlan.Database)
-	if engine == nil {
+	db, ok := p.storageService.GetDatabase(physicalPlan.Database)
+	if !ok {
 		return errNoDatabase
 	}
 
@@ -74,7 +74,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 
 	// execute leaf task
 	exeCtx := newStorageExecutorContext(ctx, req, stream)
-	exec := p.executorFactory.NewStorageExecutor(exeCtx, engine, curLeaf.ShardIDs, &query)
+	exec := p.executorFactory.NewStorageExecutor(exeCtx, db, curLeaf.ShardIDs, &query)
 	exec.Execute()
 	return nil
 }

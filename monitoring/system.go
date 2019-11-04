@@ -9,7 +9,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-var log = logger.GetLogger("monitoring", "system")
+var log = logger.GetLogger("monitoring", "System")
 var cpus = 0
 
 func init() {

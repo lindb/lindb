@@ -3,7 +3,6 @@ package metadb
 import (
 	"fmt"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/lindb/lindb/kv"
@@ -18,11 +17,6 @@ import (
 	art "github.com/plar/go-adaptive-radix-tree"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
-)
-
-// for test singleton
-var (
-	singletonLock sync.Mutex
 )
 
 type mockedIDSequencer struct {
@@ -74,8 +68,6 @@ func mockIDSequencer(ctrl *gomock.Controller) *mockedIDSequencer {
 }
 
 func Test_NewIDSequencer_Recover(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -95,8 +87,6 @@ func Test_NewIDSequencer_Recover(t *testing.T) {
 }
 
 func Test_IDSequencer_SuggestMetrics(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -114,8 +104,6 @@ func Test_IDSequencer_SuggestMetrics(t *testing.T) {
 }
 
 func Test_IDSequencer_SuggestTagKeys(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -137,8 +125,6 @@ func Test_IDSequencer_SuggestTagKeys(t *testing.T) {
 }
 
 func Test_IDSequencer_GetMetricID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -160,8 +146,6 @@ func Test_IDSequencer_GetMetricID(t *testing.T) {
 }
 
 func Test_IDSequencer_GenMetricID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -179,8 +163,6 @@ func Test_IDSequencer_GenMetricID(t *testing.T) {
 }
 
 func Test_IDSequencer_GetTagKeyID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -218,8 +200,6 @@ func Test_IDSequencer_GetTagKeyID(t *testing.T) {
 }
 
 func Test_IDSequencer_GenTagKeyID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -243,8 +223,6 @@ func Test_IDSequencer_GenTagKeyID(t *testing.T) {
 }
 
 func Test_IDSequencer_GetFieldID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -291,8 +269,6 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 }
 
 func Test_IndexDatabase_GenFieldID(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -353,8 +329,6 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 }
 
 func Test_IDSequencer_FlushNameIDs_FlushMetricsMeta(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -368,8 +342,6 @@ func Test_IDSequencer_FlushNameIDs_FlushMetricsMeta(t *testing.T) {
 }
 
 func Test_IDSequencer_flushNameIDsTo(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -396,8 +368,6 @@ func Test_IDSequencer_flushNameIDsTo(t *testing.T) {
 }
 
 func Test_IDSequencer_flushMetricsMetaTo(t *testing.T) {
-	singletonLock.Lock()
-	defer singletonLock.Unlock()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

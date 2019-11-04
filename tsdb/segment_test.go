@@ -16,7 +16,7 @@ import (
 	"github.com/lindb/lindb/series"
 )
 
-var segPath = filepath.Join(testPath, shardPath, "1", segmentPath, string(interval.Day))
+var segPath = filepath.Join(testPath, shardDir, "2", segmentDir, interval.Day.String())
 
 func TestNewIntervalSegment(t *testing.T) {
 	defer func() {

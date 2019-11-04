@@ -26,7 +26,7 @@ func TestDatabaseAPI(t *testing.T) {
 		Cluster:       "test",
 		NumOfShard:    12,
 		ReplicaFactor: 3,
-		Engine:        option.EngineOption{Interval: "10s"},
+		Option:        option.DatabaseOption{Interval: "10s"},
 	}
 
 	// get request error

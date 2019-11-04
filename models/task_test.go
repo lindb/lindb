@@ -11,9 +11,9 @@ import (
 
 func TestCreateShardTask_Bytes(t *testing.T) {
 	task := CreateShardTask{
-		Database: "test",
-		ShardIDs: []int32{1, 4, 6},
-		Engine:   option.EngineOption{TimeWindow: 100},
+		DatabaseName:   "test",
+		ShardIDs:       []int32{1, 4, 6},
+		DatabaseOption: option.DatabaseOption{TimeWindow: 100},
 	}
 	data := task.Bytes()
 	task1 := CreateShardTask{}

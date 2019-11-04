@@ -38,7 +38,14 @@ type intervalSegment struct {
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
-func newIntervalSegment(intervalVal int64, intervalType interval.Type, path string) (segment IntervalSegment, err error) {
+func newIntervalSegment(
+	intervalVal int64,
+	intervalType interval.Type,
+	path string,
+) (
+	segment IntervalSegment,
+	err error,
+) {
 	calc := interval.GetCalculator(intervalType)
 	if err = fileutil.MkDirIfNotExist(path); err != nil {
 		return segment, err
@@ -236,7 +243,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 			//FIXME codingcrush need impl merger
 			familyOption := kv.FamilyOption{
 				CompactThreshold: 0,
-				Merger:           "mock_merger",
+				Merger:           nopMerger,
 			}
 			// create kv family
 			f, err := s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)

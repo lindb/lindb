@@ -10,6 +10,11 @@ import (
 // Type defines interval type
 type Type string
 
+// String implements stringer
+func (t Type) String() string {
+	return string(t)
+}
+
 // Interval types.
 const (
 	Day   Type = "day"

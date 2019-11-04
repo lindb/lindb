@@ -11,8 +11,7 @@ import (
 )
 
 // executorFactory implements parallel.ExecutorFactory
-type executorFactory struct {
-}
+type executorFactory struct{}
 
 // NewExecutorFactory creates executor factory
 func NewExecutorFactory() parallel.ExecutorFactory {
@@ -20,16 +19,23 @@ func NewExecutorFactory() parallel.ExecutorFactory {
 }
 
 // NewStorageExecutor creates storage executor
-func (*executorFactory) NewStorageExecutor(ctx parallel.ExecuteContext,
-	engine tsdb.Engine, shardIDs []int32, query *stmt.Query,
+func (*executorFactory) NewStorageExecutor(
+	ctx parallel.ExecuteContext,
+	database tsdb.Database,
+	shardIDs []int32,
+	query *stmt.Query,
 ) parallel.Executor {
-	return newStorageExecutor(ctx, engine, shardIDs, query)
+	return newStorageExecutor(ctx, database, shardIDs, query)
 }
 
 // NewStorageExecutor creates broker executor
-func (*executorFactory) NewBrokerExecutor(ctx context.Context, database string, sql string,
-	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
+func (*executorFactory) NewBrokerExecutor(
+	ctx context.Context,
+	databaseName string,
+	sql string,
+	replicaStateMachine replica.StatusStateMachine,
+	nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager,
 ) parallel.BrokerExecutor {
-	return newBrokerExecutor(ctx, database, sql, replicaStateMachine, nodeStateMachine, jobManager)
+	return newBrokerExecutor(ctx, databaseName, sql, replicaStateMachine, nodeStateMachine, jobManager)
 }

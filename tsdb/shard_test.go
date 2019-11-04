@@ -1,6 +1,7 @@
 package tsdb
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
@@ -18,7 +20,7 @@ import (
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-var path = filepath.Join(testPath, shardPath, "1")
+var _testShard1Path = filepath.Join(testPath, shardDir, "1")
 
 func TestNewShard(t *testing.T) {
 	defer func() {
@@ -26,27 +28,22 @@ func TestNewShard(t *testing.T) {
 	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	index := NewMockIndex(ctrl)
-	index.EXPECT().GetIDSequencer().Return(metadb.NewMockIDSequencer(ctrl))
-	shard, err := newShard(1, path, index, option.EngineOption{})
-	assert.NotNil(t, err)
-	assert.Nil(t, shard)
 
-	shard, err = newShard(1, path, index, option.EngineOption{Interval: "as"})
+	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
+	thisShard, err := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{})
 	assert.NotNil(t, err)
-	assert.Nil(t, shard)
+	assert.Nil(t, thisShard)
 
-	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	shard, err = newShard(1, path, index, option.EngineOption{Interval: "10s"})
+	thisShard, err = newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "as"})
 	assert.NotNil(t, err)
-	assert.Nil(t, shard)
+	assert.Nil(t, thisShard)
 
-	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(nil, nil)
-	shard, err = newShard(1, path, index, option.EngineOption{Interval: "10s"})
+	thisShard, err = newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	assert.Nil(t, err)
-	assert.NotNil(t, shard)
+	assert.NotNil(t, thisShard)
+	assert.NotNil(t, thisShard.IndexDatabase())
 
-	assert.True(t, fileutil.Exist(path))
+	assert.True(t, fileutil.Exist(_testShard1Path))
 }
 
 func TestGetSegments(t *testing.T) {
@@ -55,13 +52,12 @@ func TestGetSegments(t *testing.T) {
 	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	index := NewMockIndex(ctrl)
-	index.EXPECT().GetIDSequencer().Return(metadb.NewMockIDSequencer(ctrl))
-	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(nil, nil)
-	shard, _ := newShard(1, path, index, option.EngineOption{Interval: "10s"})
-	assert.Nil(t, shard.GetDataFamilies(interval.Month, timeutil.TimeRange{}))
-	assert.Nil(t, shard.GetDataFamilies(interval.Day, timeutil.TimeRange{}))
-	assert.Equal(t, 0, len(shard.GetDataFamilies(interval.Day, timeutil.TimeRange{})))
+
+	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
+	s, _ := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
+	assert.Nil(t, s.GetDataFamilies(interval.Month, timeutil.TimeRange{}))
+	assert.Nil(t, s.GetDataFamilies(interval.Day, timeutil.TimeRange{}))
+	assert.Equal(t, 0, len(s.GetDataFamilies(interval.Day, timeutil.TimeRange{})))
 }
 
 func TestWrite(t *testing.T) {
@@ -73,15 +69,13 @@ func TestWrite(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
-	index := NewMockIndex(ctrl)
-	index.EXPECT().GetIDSequencer().Return(metadb.NewMockIDSequencer(ctrl))
-	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(metadb.NewMockIndexDatabase(ctrl), nil)
+	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 	gomock.InOrder(
 		mockMemDB.EXPECT().Write(gomock.Any()).Return(nil),
 		mockMemDB.EXPECT().Write(gomock.Any()).Return(series.ErrTooManyTags),
 	)
 
-	shardINTF, _ := newShard(1, path, index, option.EngineOption{Interval: "10s"})
+	shardINTF, _ := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	shardIns := shardINTF.(*shard)
 	shardIns.memDB = mockMemDB
 
@@ -106,9 +100,7 @@ func TestWrite(t *testing.T) {
 		},
 	}))
 
-	assert.NotNil(t, shardINTF.GetMemoryDatabase())
-	assert.NotNil(t, shardINTF.GetSeriesIDsFilter())
-	assert.NotNil(t, shardINTF.GetMetaGetter())
+	assert.NotNil(t, shardINTF.MemoryDatabase())
 	shardINTF.Close()
 }
 
@@ -120,11 +112,18 @@ func TestShard_Write_Accept(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	index := NewMockIndex(ctrl)
-	index.EXPECT().GetIDSequencer().Return(metadb.NewMockIDSequencer(ctrl))
-	index.EXPECT().CreateIndexDatabase(gomock.Any()).Return(metadb.NewMockIndexDatabase(ctrl), nil)
+	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 
-	shardINTF, _ := newShard(1, path, index, option.EngineOption{Interval: "10s", Ahead: "1h", Behind: "1h"})
+	shardINTF, _ := newShard(
+		1,
+		_testShard1Path,
+		mockIDSequencer,
+		option.DatabaseOption{Interval: "10s", Ahead: "1h", Behind: "1h"})
+	assert.NotNil(t, shardINTF.IndexFilter())
+	assert.NotNil(t, shardINTF.IndexMetaGetter())
+	assert.NotNil(t, shardINTF.MemoryFilter())
+	assert.NotNil(t, shardINTF.MemoryMetaGetter())
+
 	assert.Nil(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now() + timeutil.OneHour + 10000,
@@ -140,4 +139,17 @@ func TestShard_Write_Accept(t *testing.T) {
 		},
 	}))
 	shardINTF.Close()
+}
+
+func Test_Shard_Close_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := kv.NewMockStore(ctrl)
+
+	s := &shard{}
+	_, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+
+	s.indexStore = mockStore
+	mockStore.EXPECT().Close().Return(fmt.Errorf("error")).AnyTimes()
+	s.Close()
 }
