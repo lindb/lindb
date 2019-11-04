@@ -53,7 +53,9 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	mockTagIdx.EXPECT().TagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.NotNil(t, mStore.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
+	writtenSize, err := mStore.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+	assert.Zero(t, writtenSize)
+	assert.NotNil(t, err)
 }
 
 func Test_mStore_isFull(t *testing.T) {
@@ -66,8 +68,11 @@ func Test_mStore_isFull(t *testing.T) {
 	mockTagIdx.EXPECT().TagsUsed().Return(10000000).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.Equal(t, series.ErrTooManyTags,
-		mStoreInterface.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
+
+	writtenSize, err := mStoreInterface.Write(
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+	assert.Equal(t, series.ErrTooManyTags, err)
+	assert.Zero(t, writtenSize)
 }
 
 func Test_mStore_write_ok(t *testing.T) {
@@ -84,18 +89,29 @@ func Test_mStore_write_ok(t *testing.T) {
 	mockTagIdx.EXPECT().TagsUsed().Return(1).AnyTimes()
 	mockTagIdx.EXPECT().UpdateIndexTimeRange(gomock.Any()).Return().AnyTimes()
 	mockTagIdx.EXPECT().GetTStore(gomock.Any()).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(mockTStore, 0, nil).AnyTimes()
+	mockTagIdx.EXPECT().GetOrCreateTStore(gomock.Any(), gomock.Any()).Return(mockTStore, 30, nil).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	assert.Nil(t, mStoreInterface.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{}))
+	writtenSize, err := mStoreInterface.Write(
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+	assert.Nil(t, err)
+	assert.NotZero(t, writtenSize)
 }
 
 func Test_mStore_resetVersion(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	size1 := mStoreInterface.MemSize()
-	assert.Nil(t, mStoreInterface.ResetVersion())
-	assert.NotNil(t, mStoreInterface.ResetVersion())
-	assert.NotNil(t, mStoreInterface.ResetVersion())
+	createdSize, err := mStoreInterface.ResetVersion()
+	assert.Nil(t, err)
+	assert.NotZero(t, createdSize)
+
+	createdSize, err = mStoreInterface.ResetVersion()
+	assert.NotNil(t, err)
+	assert.Zero(t, createdSize)
+
+	createdSize, err = mStoreInterface.ResetVersion()
+	assert.NotNil(t, err)
+	assert.Zero(t, createdSize)
 	size2 := mStoreInterface.MemSize()
 	assert.NotEqual(t, size1, size2)
 }
@@ -150,8 +166,10 @@ func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
 	flusher.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	// mock tagIndex
 	mStore.mutable = newTagIndex()
-	_ = mStore.ResetVersion()
-	assert.Nil(t, mStoreInterface.FlushMetricsDataTo(flusher, flushContext{}))
+	_, _ = mStore.ResetVersion()
+	flushedSize, err := mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
+	assert.Nil(t, err)
+	assert.Zero(t, flushedSize)
 }
 
 func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
@@ -174,7 +192,9 @@ func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).AnyTimes()
 	mStore.fieldsMetas.Store(field.Metas{field.Meta{}, field.Meta{}})
 
-	assert.Nil(t, mStoreInterface.FlushMetricsDataTo(mockTF, flushContext{}))
+	flushedSize, err := mStoreInterface.FlushMetricsDataTo(mockTF, flushContext{})
+	assert.NotZero(t, flushedSize)
+	assert.Nil(t, err)
 	assert.Nil(t, mStore.atomicGetImmutable())
 }
 

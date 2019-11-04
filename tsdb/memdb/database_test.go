@@ -55,8 +55,8 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
-	errCall1 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
-	okCall2 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	errCall1 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error"))
+	okCall2 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes()
 	gomock.InOrder(errCall1, okCall2)
 	// load mock
 	hash := xxhash.Sum64String("test1")
@@ -90,7 +90,7 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().SetMaxTagsLimit(gomock.Any()).Return().AnyTimes()
 	mockMStore.EXPECT().GetTagsUsed().Return(1).AnyTimes()
-	mockMStore.EXPECT().ResetVersion().Return(nil).AnyTimes()
+	mockMStore.EXPECT().ResetVersion().Return(100, nil).AnyTimes()
 	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
 	hash := xxhash.Sum64String("cpu.load")
@@ -222,11 +222,11 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
-	mockMStore.EXPECT().Evict().Return().AnyTimes()
+	mockMStore.EXPECT().Evict().Return(100).AnyTimes()
 	mockMStore.EXPECT().IsEmpty().Return(false).AnyTimes()
 
-	returnNil := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
-	returnError := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	returnNil := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(100, nil)
+	returnError := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error"))
 	gomock.InOrder(returnNil, returnError)
 
 	md.getBucket(4).hash2MStore[1] = mockMStore
@@ -327,4 +327,15 @@ func Test_MemoryDatabase_Scan(t *testing.T) {
 	md.metricID2Hash.Store(uint32(3333), xxhash.Sum64String("test"))
 	md.getBucket(xxhash.Sum64String("test")).hash2MStore[xxhash.Sum64String("test")] = mockMStore
 	md.Scan(sCtx)
+}
+
+func Test_MemoryDatabase_MemSize(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mdINTF := NewMemoryDatabase(ctx, cfg)
+	md := mdINTF.(*memoryDatabase)
+
+	assert.Zero(t, md.MemSize())
 }
