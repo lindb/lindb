@@ -1,6 +1,6 @@
 export const MENUS = [
   {
-    title: 'Home',
+    title: 'Overview',
     icon: 'home',
     path: '/',
   }, {
