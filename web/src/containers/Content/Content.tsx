@@ -8,7 +8,7 @@ import SiderMenu from '../../components/Layout/SiderMenu'
 import ChartTooltip from '../../components/Chart/ChartTooltip'
 
 import SearchPage from '../Search/DataSearch'
-import HomePage from '../Home/Home'
+import OverviewPage from '../Overview/Overview'
 import Cluster from '../Setting/Cluster'
 import Database from '../Setting/Database'
 import MonitoringSystem from '../Monitoring/System'
@@ -42,7 +42,7 @@ export default class Content extends React.Component<ContentProps, ContentStatus
             <ChartTooltip/>
 
             <Switch>
-              <Route exact={true} path="/" component={HomePage}/>
+              <Route exact={true} path="/" component={OverviewPage}/>
               <Route exact={true} path="/search" component={SearchPage}/>
               <Route exact={true} path="/monitoring/system" component={MonitoringSystem}/>
               <Route exact={true} path="/setting/cluster" component={Cluster}/>

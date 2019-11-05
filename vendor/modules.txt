@@ -5,6 +5,8 @@ github.com/GeertJohan/go.rice
 github.com/GeertJohan/go.rice/embedded
 # github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 github.com/RoaringBitmap/roaring
+# github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
+github.com/StackExchange/wmi
 # github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
 github.com/antlr/antlr4/runtime/Go/antlr
 # github.com/beorn7/perks v1.0.0
@@ -107,6 +109,9 @@ github.com/dgrijalva/jwt-go
 github.com/ghodss/yaml
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
+# github.com/go-ole/go-ole v1.2.4
+github.com/go-ole/go-ole
+github.com/go-ole/go-ole/oleutil
 # github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
@@ -192,6 +197,11 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 # github.com/segmentio/fasthash v1.0.0
 github.com/segmentio/fasthash/fnv1a
+# github.com/shirou/gopsutil v2.19.9+incompatible
+github.com/shirou/gopsutil/cpu
+github.com/shirou/gopsutil/disk
+github.com/shirou/gopsutil/mem
+github.com/shirou/gopsutil/internal/common
 # github.com/sirupsen/logrus v1.2.0
 github.com/sirupsen/logrus
 # github.com/soheilhy/cmux v0.1.4
@@ -200,7 +210,7 @@ github.com/soheilhy/cmux
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.3.0
+# github.com/stretchr/testify v1.4.0
 github.com/stretchr/testify/assert
 # github.com/tinylib/msgp v1.1.0
 github.com/tinylib/msgp/msgp
@@ -212,11 +222,13 @@ github.com/ugorji/go/codec
 github.com/willf/bitset
 # github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
 github.com/xiang90/probing
-# go.uber.org/atomic v1.4.0
+# go.uber.org/atomic v1.5.0
 go.uber.org/atomic
-# go.uber.org/multierr v0.0.0-20190429210458-bd075f90b08f
+# go.uber.org/multierr v1.3.0
 go.uber.org/multierr
-# go.uber.org/zap v0.0.0-20190430155229-8a2ee5670ced
+# go.uber.org/tools v0.0.0-20190618225709-2cfd321de3ee
+go.uber.org/tools/update-license
+# go.uber.org/zap v1.12.0
 go.uber.org/zap/zapcore
 go.uber.org/zap
 go.uber.org/zap/buffer
@@ -227,6 +239,9 @@ go.uber.org/zap/internal/exit
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/blowfish
+# golang.org/x/lint v0.0.0-20190930215403-16217165b5de
+golang.org/x/lint/golint
+golang.org/x/lint
 # golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 golang.org/x/net/context
 golang.org/x/net/trace
@@ -245,6 +260,22 @@ golang.org/x/text/unicode/norm
 golang.org/x/text/transform
 # golang.org/x/time v0.0.0-20190513212739-9d24e82272b4
 golang.org/x/time/rate
+# golang.org/x/tools v0.0.0-20191029190741-b9c20aec41a5
+golang.org/x/tools/go/analysis
+golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/gcexportdata
+golang.org/x/tools/go/packages
+golang.org/x/tools/go/types/objectpath
+golang.org/x/tools/go/buildutil
+golang.org/x/tools/go/analysis/passes/inspect
+golang.org/x/tools/go/ast/inspector
+golang.org/x/tools/go/types/typeutil
+golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/internal/gopathwalk
+golang.org/x/tools/internal/semver
+golang.org/x/tools/internal/span
+golang.org/x/tools/internal/fastwalk
 # google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/googleapis/api/httpbody
@@ -290,3 +321,29 @@ gopkg.in/check.v1
 gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
+# honnef.co/go/tools v0.0.1-2019.2.3
+honnef.co/go/tools/cmd/staticcheck
+honnef.co/go/tools/lint
+honnef.co/go/tools/lint/lintutil
+honnef.co/go/tools/simple
+honnef.co/go/tools/staticcheck
+honnef.co/go/tools/stylecheck
+honnef.co/go/tools/unused
+honnef.co/go/tools/config
+honnef.co/go/tools/facts
+honnef.co/go/tools/internal/cache
+honnef.co/go/tools/loader
+honnef.co/go/tools/lint/lintutil/format
+honnef.co/go/tools/version
+honnef.co/go/tools/arg
+honnef.co/go/tools/internal/passes/buildssa
+honnef.co/go/tools/internal/sharedcheck
+honnef.co/go/tools/lint/lintdsl
+honnef.co/go/tools/deprecated
+honnef.co/go/tools/functions
+honnef.co/go/tools/printf
+honnef.co/go/tools/ssa
+honnef.co/go/tools/ssautil
+honnef.co/go/tools/staticcheck/vrp
+honnef.co/go/tools/go/types/typeutil
+honnef.co/go/tools/internal/renameio
