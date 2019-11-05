@@ -10,6 +10,8 @@ import (
 const (
 	// ActiveNodesPath represents active nodes prefix path for node register
 	ActiveNodesPath = "/active/nodes"
+	// StateNodesPath represents the state of node that node will report runtime status
+	StateNodesPath = "/status/nodes"
 )
 
 // defines storage level constants will be used in storage
@@ -66,4 +68,9 @@ func GetNodePath(prefix, node string) string {
 // GetReplicaStatePath returns replica's state path
 func GetReplicaStatePath(node string) string {
 	return fmt.Sprintf("%s/%s", ReplicaStatePath, node)
+}
+
+// GetNodeMonitoringStatPath returns the node monitoring stat's path
+func GetNodeMonitoringStatPath(node string) string {
+	return fmt.Sprintf("%s/%s", StateNodesPath, node)
 }

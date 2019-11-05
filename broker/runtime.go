@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
@@ -200,6 +201,9 @@ func (r *runtime) Run() error {
 	// start http server
 	r.startHTTPServer()
 
+	// start stat monitoring
+	r.monitoring()
+
 	r.state = server.Running
 	return nil
 }
@@ -321,7 +325,7 @@ func (r *runtime) buildAPIDependency() {
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User, r.middleware.authentication),
 		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachines.StorageSM),
-		brokerStateAPI:    stateAPI.NewBrokerAPI(r.stateMachines.NodeSM),
+		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
@@ -344,6 +348,7 @@ func (r *runtime) buildAPIDependency() {
 
 	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
 	api.AddRoute("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
+	api.AddRoute("ListBrokerClusterState", http.MethodGet, "/broker/cluster/state", handlers.brokerStateAPI.ListBrokersStat)
 
 	api.AddRoute("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
 
@@ -411,4 +416,10 @@ func (r *runtime) bindGRPCHandlers() {
 //buildTCPHandlers builds tcp handlers
 func (r *runtime) buildTCPHandlers() {
 	r.tcpHandler = &tcpHandler{handler: handler.NewTCPHandler(r.srv.channelManager)}
+}
+
+func (r *runtime) monitoring() {
+	report := monitoring.NewHeartbeatReporter(r.ctx, r.repo, constants.GetNodeMonitoringStatPath(r.node.Indicator()))
+	//TODO ?? stop?? and config interval??
+	_ = monitoring.NewStatCollect(r.ctx, 30*time.Second, r.config.ReplicationChannel.Dir, report)
 }

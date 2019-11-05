@@ -42,9 +42,9 @@ export class DataFormatter {
     } else if (input > 60) {
       return (input / 60).toFixed(2) + ' minutes'
     } else if (!input) {
-      return '0 seconds'
+      return '0 sec'
     } else {
-      return input.toFixed(2) + ' seconds'
+      return input.toFixed(2) + ' sec'
     }
   }
 
@@ -70,7 +70,7 @@ export class DataFormatter {
     if (!input) {
       return '0%'
     } else {
-      return input.toString() + '%'
+      return input.toFixed(2).toString() + '%'
     }
   }
 
