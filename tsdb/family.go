@@ -17,6 +17,8 @@ type DataFamily interface {
 	Interval() int64
 	// TimeRange returns the data family's base time range
 	TimeRange() timeutil.TimeRange
+	// Family returns the raw kv family
+	Family() kv.Family
 }
 
 // dataFamily represents a wrapper of kv's family with basic info
@@ -60,4 +62,8 @@ func (f *dataFamily) Interval() int64 {
 // TimeRange returns the data family's base time range
 func (f *dataFamily) TimeRange() timeutil.TimeRange {
 	return f.timeRange
+}
+
+func (f *dataFamily) Family() kv.Family {
+	return f.family
 }

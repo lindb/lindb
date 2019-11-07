@@ -51,7 +51,7 @@ func (db *databaseService) Save(database *models.Database) error {
 		return fmt.Errorf("replica factor must be > 0")
 	}
 	// validate time series engine option
-	if err := database.Option.Validation(); err != nil {
+	if err := database.Option.Validate(); err != nil {
 		return err
 	}
 	data, _ := json.Marshal(database)
