@@ -31,6 +31,18 @@ func Test_NewMemoryDatabase(t *testing.T) {
 	assert.Equal(t, int64(10*1000), mdINTF.Interval())
 }
 
+func Test_MemoryDatabase_addFamilyTime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mdINTF := NewMemoryDatabase(ctx, cfg)
+	md := mdINTF.(*memoryDatabase)
+
+	md.addFamilyTime(1)
+	md.addFamilyTime(1)
+	md.addFamilyTime(1)
+	md.addFamilyTime(2)
+}
+
 func Test_MemoryDatabase_Write(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -228,7 +240,6 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	gomock.InOrder(returnNil, returnError)
 
 	md.getBucket(4).hash2MStore[1] = mockMStore
-	md.getBucket(4).familyTimes = map[int64]struct{}{33: {}}
 	assert.Nil(t, md.FlushFamilyTo(nil, 10))
 	assert.NotNil(t, md.FlushFamilyTo(nil, 10))
 }

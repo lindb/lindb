@@ -6,6 +6,8 @@ import (
 	"io"
 	"path/filepath"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
@@ -15,6 +17,9 @@ import (
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -38,12 +43,15 @@ type Shard interface {
 	Write(metric *pb.Metric) error
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
+	// Flush index and memory data to disk
+	Flush() error
+	// IsFlushing checks if this shard is in flushing
+	IsFlushing() bool
 
 	MemoryFilter() series.Filter
 	IndexFilter() series.Filter
 	MemoryMetaGetter() series.MetaGetter
 	IndexMetaGetter() series.MetaGetter
-
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
 }
@@ -58,21 +66,24 @@ type Shard interface {
 type shard struct {
 	id          int32
 	path        string
-	interval    timeutil.Interval
 	option      option.DatabaseOption
 	memDB       memdb.MemoryDatabase
 	indexDB     indexdb.IndexDatabase
 	idSequencer metadb.IDSequencer
 	// write accept time range
-	ahead  int64
-	behind int64
-
+	interval timeutil.Interval
+	ahead    timeutil.Interval
+	behind   timeutil.Interval
 	// segments keeps all interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
 	segments   map[timeutil.IntervalType]IntervalSegment
-	segment    IntervalSegment    // smallest interval for writing data
-	cancel     context.CancelFunc // cancel function
-	indexStore kv.Store           // kv stores
+	segment    IntervalSegment // smallest interval for writing data
+	isFlushing atomic.Bool     // restrict flusher concurrency
+
+	cancel         context.CancelFunc // cancel function
+	indexStore     kv.Store           // kv stores
+	invertedFamily kv.Family
+	forwardFamily  kv.Family
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -86,7 +97,7 @@ func newShard(
 	s Shard,
 	err error,
 ) {
-	if err = option.Validation(); err != nil {
+	if err = option.Validate(); err != nil {
 		return nil, fmt.Errorf("engine option is invalid, err: %s", err)
 	}
 	var interval timeutil.Interval
@@ -102,16 +113,18 @@ func newShard(
 		interval:    interval,
 		idSequencer: idSequencer,
 		segments:    make(map[timeutil.IntervalType]IntervalSegment),
+		isFlushing:  *atomic.NewBool(false),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegment(
 		interval,
 		filepath.Join(shardPath, segmentDir, interval.Type().String()))
+
 	if err != nil {
 		return nil, err
 	}
-	createdShard.ahead, _ = timeutil.ParseInterval(option.Ahead)
-	createdShard.behind, _ = timeutil.ParseInterval(option.Behind)
+	_ = createdShard.ahead.ValueOf(option.Ahead)
+	_ = createdShard.behind.ValueOf(option.Behind)
 	// add writing segment into segment list
 	createdShard.segments[interval.Type()] = createdShard.segment
 
@@ -155,8 +168,8 @@ func (s *shard) Write(metric *pb.Metric) error {
 	now := timeutil.Now()
 
 	// check metric timestamp if in acceptable time range
-	if (s.behind > 0 && timestamp < now-s.behind) ||
-		(s.ahead > 0 && timestamp > now+s.ahead) {
+	if (s.behind.Int64() > 0 && timestamp < now-s.behind.Int64()) ||
+		(s.ahead.Int64() > 0 && timestamp > now+s.ahead.Int64()) {
 		return nil
 	}
 	// write metric point into memory db
@@ -164,18 +177,21 @@ func (s *shard) Write(metric *pb.Metric) error {
 }
 
 func (s *shard) Close() error {
+	if err := s.Flush(); err != nil {
+		return err
+	}
 	defer s.cancel()
 	return s.indexStore.Close()
 }
 
 func (s *shard) initIndexDatabase() error {
+	var err error
 	storeOption := kv.DefaultStoreOption(filepath.Join(s.path, indexParDir))
-	indexStore, err := kv.NewStore(storeOption.Path, storeOption)
+	s.indexStore, err = kv.NewStore(storeOption.Path, storeOption)
 	if err != nil {
 		return err
 	}
-
-	invertedFamily, err := indexStore.CreateFamily(
+	s.invertedFamily, err = s.indexStore.CreateFamily(
 		forwardIndexDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
@@ -183,7 +199,7 @@ func (s *shard) initIndexDatabase() error {
 	if err != nil {
 		return err
 	}
-	forwardFamily, err := indexStore.CreateFamily(
+	s.forwardFamily, err = s.indexStore.CreateFamily(
 		invertedIndexDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
@@ -191,8 +207,7 @@ func (s *shard) initIndexDatabase() error {
 	if err != nil {
 		return err
 	}
-	s.indexDB = indexdb.NewIndexDatabase(s.idSequencer, invertedFamily, forwardFamily)
-	s.indexStore = indexStore
+	s.indexDB = indexdb.NewIndexDatabase(s.idSequencer, s.invertedFamily, s.forwardFamily)
 	return nil
 }
 
@@ -200,3 +215,38 @@ func (s *shard) MemoryFilter() series.Filter         { return s.memDB }
 func (s *shard) IndexFilter() series.Filter          { return s.indexDB }
 func (s *shard) MemoryMetaGetter() series.MetaGetter { return s.memDB }
 func (s *shard) IndexMetaGetter() series.MetaGetter  { return s.indexDB }
+func (s *shard) IsFlushing() bool                    { return s.isFlushing.Load() }
+
+func (s *shard) Flush() (err error) {
+	// another flush process is running
+	if !s.isFlushing.CAS(false, true) {
+		return nil
+	}
+	defer s.isFlushing.Store(false)
+
+	if err = s.memDB.FlushForwardIndexTo(
+		forwardindex.NewFlusher(s.forwardFamily.NewFlusher())); err != nil {
+		return err
+	}
+	if err = s.memDB.FlushInvertedIndexTo(
+		invertedindex.NewFlusher(s.invertedFamily.NewFlusher())); err != nil {
+		return err
+	}
+
+	for _, familyTime := range s.memDB.Families() {
+		segmentName := s.interval.Calculator().GetSegment(familyTime)
+		segment, err := s.segment.GetOrCreateSegment(segmentName)
+		if err != nil {
+			return err
+		}
+		thisDataFamily, err := segment.GetDataFamily(familyTime)
+		if err != nil {
+			continue
+		}
+		if err := s.memDB.FlushFamilyTo(
+			metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
+			return err
+		}
+	}
+	return nil
+}

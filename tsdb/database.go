@@ -43,6 +43,10 @@ type Database interface {
 	io.Closer
 	// IDGetter returns the id getter
 	IDGetter() metadb.IDGetter
+	// Flush flushes meta to disk
+	FlushMeta() error
+	// Range is the proxy method for iterating shards
+	Range(f func(key, value interface{}) bool)
 
 	// initIDSequencer loads the meta store to initialize id sequencer
 	initIDSequencer() error
@@ -64,8 +68,9 @@ type database struct {
 	shards       sync.Map           // shardID(int32)->shard(Shard)
 	numOfShards  atomic.Int32       // counter
 	mutex        sync.Mutex         // mutex for creating shards
-	metaStore    kv.Store           // underlying meta kv store
 	idSequencer  metadb.IDSequencer // database-level reused object
+	metaStore    kv.Store           // underlying meta kv store
+	isFlushing   atomic.Bool        // restrict flusher concurrency
 }
 
 func newDatabase(
@@ -91,6 +96,7 @@ func newDatabase(
 				100, /*nRoutines*/
 				10 /*queueSize*/),
 		},
+		isFlushing: *atomic.NewBool(false),
 	}
 	if err = db.initIDSequencer(); err != nil {
 		return nil, err
@@ -172,9 +178,11 @@ func (db *database) CreateShards(
 
 // GetShard returns shard by given shard id,
 func (db *database) GetShard(shardID int32) (Shard, bool) {
-	shard, _ := db.shards.Load(shardID)
-	s, ok := shard.(Shard)
-	return s, ok
+	item, ok := db.shards.Load(shardID)
+	if !ok {
+		return nil, false
+	}
+	return item.(Shard), true
 }
 
 // ExecutorPool returns the query task execute pool
@@ -185,15 +193,17 @@ func (db *database) ExecutorPool() *ExecutorPool {
 // Close closes database's underlying resource
 func (db *database) Close() error {
 	db.shards.Range(func(key, value interface{}) bool {
-		thisShard, ok := value.(Shard)
-		if ok {
-			if err := thisShard.Close(); err != nil {
-				engineLogger.Error(fmt.Sprintf(
-					"close shard[%d] of database[%s]", key.(int32), db.name), logger.Error(err))
-			}
+		thisShard := value.(Shard)
+		if err := thisShard.Close(); err != nil {
+			engineLogger.Error(fmt.Sprintf(
+				"close shard[%d] of database[%s]", key.(int32), db.name), logger.Error(err))
 		}
 		return true
 	})
+	if err := db.FlushMeta(); err != nil {
+		engineLogger.Error(fmt.Sprintf(
+			"flush meta database[%s]", db.name), logger.Error(err))
+	}
 	return db.metaStore.Close()
 }
 
@@ -233,6 +243,26 @@ func (db *database) initIDSequencer() error {
 	db.metaStore = metaStore
 	db.idSequencer = metadb.NewIDSequencer(metricNameIDsFamily, metricMetaFamily)
 	return db.idSequencer.Recover()
+}
+
+func (db *database) FlushMeta() (err error) {
+	// another flush process is running
+	if !db.isFlushing.CAS(false, true) {
+		return nil
+	}
+	defer db.isFlushing.Store(false)
+
+	if err = db.idSequencer.FlushMetricsMeta(); err != nil {
+		return err
+	}
+	if err = db.idSequencer.FlushNameIDs(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *database) Range(f func(key, value interface{}) bool) {
+	db.shards.Range(f)
 }
 
 // optionsPath returns options file path

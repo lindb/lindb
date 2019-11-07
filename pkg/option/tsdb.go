@@ -29,8 +29,8 @@ type FlusherOption struct {
 	SizeThreshold int64 `toml:"sizeThreshold" json:"sizeThreshold"` // size level flush threshold, unit(MB)
 }
 
-// Validation validates engine option if valid
-func (e DatabaseOption) Validation() error {
+// Validate validates engine option if valid
+func (e DatabaseOption) Validate() error {
 	if err := validateInterval(e.Interval, true); err != nil {
 		return err
 	}
@@ -45,10 +45,12 @@ func (e DatabaseOption) Validation() error {
 	if err := validateInterval(e.Behind, false); err != nil {
 		return err
 	}
-	interval, _ := timeutil.ParseInterval(e.Interval)
+	var interval timeutil.Interval
+	_ = interval.ValueOf(e.Interval)
 	for _, intervalStr := range e.Rollup {
-		rollupInterval, _ := timeutil.ParseInterval(intervalStr)
-		if interval >= rollupInterval {
+		var rollupInterval timeutil.Interval
+		_ = rollupInterval.ValueOf(intervalStr)
+		if interval.Int64() >= rollupInterval.Int64() {
 			return fmt.Errorf("rollup interval must be large than write interval")
 		}
 	}
@@ -60,8 +62,8 @@ func validateInterval(intervalStr string, require bool) error {
 	if !require && intervalStr == "" {
 		return nil
 	}
-	interval, err := timeutil.ParseInterval(intervalStr)
-	if err != nil {
+	var interval timeutil.Interval
+	if err := interval.ValueOf(intervalStr); err != nil {
 		return err
 	}
 	if interval <= 0 {
