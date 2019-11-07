@@ -100,7 +100,7 @@ func TestWrite(t *testing.T) {
 	}))
 
 	assert.NotNil(t, shardINTF.MemoryDatabase())
-	shardINTF.Close()
+	shardINTF.(*shard).cancel()
 }
 
 func TestShard_Write_Accept(t *testing.T) {
@@ -137,18 +137,74 @@ func TestShard_Write_Accept(t *testing.T) {
 			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
-	shardINTF.Close()
+	shardINTF.(*shard).cancel()
 }
 
-func Test_Shard_Close_error(t *testing.T) {
+func Test_Shard_Close_Flush_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	mockStore := kv.NewMockStore(ctrl)
 
-	s := &shard{}
+	// prepare mocked segment
+	mockIntervalSegment := NewMockIntervalSegment(ctrl)
+	s := &shard{
+		segment:  mockIntervalSegment,
+		interval: timeutil.Interval(timeutil.OneSecond * 10),
+	}
 	_, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
 	s.indexStore = mockStore
+	mockFlusher := kv.NewMockFlusher(ctrl)
+	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockFlusher.EXPECT().Commit().Return(nil).AnyTimes()
+
+	mockFamily := kv.NewMockFamily(ctrl)
+	mockFamily.EXPECT().NewFlusher().Return(mockFlusher).AnyTimes()
+	s.forwardFamily = mockFamily
+	s.invertedFamily = mockFamily
+
+	mockMemdb := memdb.NewMockMemoryDatabase(ctrl)
+	s.memDB = mockMemdb
+	// mock flush ok
+	mockMemdb.EXPECT().Families().Return(nil)
+	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil)
+	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
 	mockStore.EXPECT().Close().Return(fmt.Errorf("error")).AnyTimes()
-	s.Close()
+	assert.NotNil(t, s.Close())
+	// mock flush forward index error
+	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
+	assert.NotNil(t, s.Close())
+	// mock flush inverted index error
+	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
+	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
+	assert.NotNil(t, s.Close())
+
+	// mock flush families error
+	mockMemdb.EXPECT().Families().Return([]int64{1}).AnyTimes()
+	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil).AnyTimes()
+	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil).AnyTimes()
+	// mock GetOrCreateSegment error
+	mockIntervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("error"))
+	assert.NotNil(t, s.Close())
+	// mock GetDataFamily error
+	mockSegment := NewMockSegment(ctrl)
+	mockIntervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(mockSegment, nil).AnyTimes()
+	mockSegment.EXPECT().GetDataFamily(gomock.Any()).Return(nil, fmt.Errorf("error"))
+	assert.NotNil(t, s.Close())
+	// mock FlushFamilyTo ok
+	mockDataFamily := NewMockDataFamily(ctrl)
+	mockDataFamily.EXPECT().Family().Return(mockFamily).AnyTimes()
+	mockMemdb.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(nil)
+	mockSegment.EXPECT().GetDataFamily(gomock.Any()).Return(mockDataFamily, nil).AnyTimes()
+	assert.NotNil(t, s.Close())
+	// mock FlushFamilyTo error
+	mockMemdb.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	assert.NotNil(t, s.Close())
+
+	// mock isFlushing CAS false
+	assert.False(t, s.IsFlushing())
+	s.isFlushing.Store(true)
+	assert.Nil(t, s.Flush())
 }

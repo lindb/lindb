@@ -67,34 +67,13 @@ type MemoryDatabase interface {
 
 // mStoresBucket is a simple rwMutex locked map of metricStore.
 type mStoresBucket struct {
-	rwLock      sync.RWMutex
-	familyTimes map[int64]struct{}    // familyTimes unions all mStores
+	rwLock      sync.RWMutex          // read-write lock of hash2MStore
 	hash2MStore map[uint64]mStoreINTF // key: FNV64a(metric-name)
 }
 
-// addFamilyTime adds a family-time to the map
-func (bkt *mStoresBucket) addFamilyTime(familyTime int64) {
-	bkt.rwLock.RLock()
-	bkt.familyTimes[familyTime] = struct{}{}
-	bkt.rwLock.RUnlock()
-}
-
-// unionFamilyTimesTo unions the internal familyTime to the input map.
-func (bkt *mStoresBucket) unionFamilyTimesTo(segments map[int64]struct{}) {
-	bkt.rwLock.RLock()
-	for familyTime := range bkt.familyTimes {
-		segments[familyTime] = struct{}{}
-	}
-	bkt.rwLock.RUnlock()
-}
-
-// unionFamilyTimesFrom unions the familyTimes map to the internal map.
-func (bkt *mStoresBucket) unionFamilyTimesFrom(familyTimes map[int64]struct{}) {
-	bkt.rwLock.RLock()
-	for familyTime := range familyTimes {
-		bkt.familyTimes[familyTime] = struct{}{}
-	}
-	bkt.rwLock.RUnlock()
+func newMStoreBucket() *mStoresBucket {
+	return &mStoresBucket{
+		hash2MStore: make(map[uint64]mStoreINTF)}
 }
 
 // allMetricStores returns a clone of metric-hashes and pointer of mStores in bucket.
@@ -123,33 +102,34 @@ type MemoryDatabaseCfg struct {
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
-	timeWindow    int                                    // rollup window of memory-database
-	interval      timeutil.Interval                      // time interval of rollup
-	blockStore    *blockStore                            // reusable pool
-	ctx           context.Context                        // used for exiting goroutines
-	evictNotifier chan struct{}                          // notifying evictor to evict
-	once4Syncer   sync.Once                              // once for tags-limitation syncer
-	metricID2Hash sync.Map                               // key: metric-id(uint32), value: hash(uint64)
-	mStoresList   [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
-	generator     metadb.IDGenerator                     // the generator for generating ID of metric, field
-	size          atomic.Int32                           // memdb's size
+	timeWindow          int                                    // rollup window of memory-database
+	interval            timeutil.Interval                      // time interval of rollup
+	blockStore          *blockStore                            // reusable pool
+	ctx                 context.Context                        // used for exiting goroutines
+	evictNotifier       chan struct{}                          // notifying evictor to evict
+	once4Syncer         sync.Once                              // once for tags-limitation syncer
+	metricID2Hash       sync.Map                               // key: metric-id(uint32), value: hash(uint64)
+	mStoresList         [shardingCountOfMStores]*mStoresBucket // metric-name -> *metricStore
+	generator           metadb.IDGenerator                     // the generator for generating ID of metric, field
+	size                atomic.Int32                           // memdb's size
+	lastWroteFamilyTime atomic.Int64                           // prevents familyTime inserting repeatedly
+	familyTimes         sync.Map                               // familyTime(int64) -> struct{}
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
 func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) MemoryDatabase {
 	md := memoryDatabase{
-		timeWindow:    cfg.TimeWindow,
-		interval:      cfg.Interval,
-		generator:     cfg.Generator,
-		blockStore:    newBlockStore(cfg.TimeWindow),
-		ctx:           ctx,
-		evictNotifier: make(chan struct{}),
-		size:          *atomic.NewInt32(0),
+		timeWindow:          cfg.TimeWindow,
+		interval:            cfg.Interval,
+		generator:           cfg.Generator,
+		blockStore:          newBlockStore(cfg.TimeWindow),
+		ctx:                 ctx,
+		evictNotifier:       make(chan struct{}),
+		size:                *atomic.NewInt32(0),
+		lastWroteFamilyTime: *atomic.NewInt64(0),
 	}
 	for i := range md.mStoresList {
-		md.mStoresList[i] = &mStoresBucket{
-			familyTimes: make(map[int64]struct{}),
-			hash2MStore: make(map[uint64]mStoreINTF)}
+		md.mStoresList[i] = newMStoreBucket()
 	}
 	go md.evictor(ctx)
 	return &md
@@ -253,15 +233,22 @@ func (writeCtx writeContext) PointTime() int64 {
 	return writeCtx.familyTime + writeCtx.timeInterval*int64(writeCtx.slotIndex)
 }
 
+func (md *memoryDatabase) addFamilyTime(familyTime int64) {
+	if md.lastWroteFamilyTime.Swap(familyTime) == familyTime {
+		return
+	}
+	md.familyTimes.Store(familyTime, struct{}{})
+}
+
 // Write writes metric-point to database.
 func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	timestamp := metric.Timestamp
 	// calculate family start time and slot index
 	intervalCalc := md.interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                              // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)                           // hours
-	familyStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)            // family timestamp
-	slotIndex := intervalCalc.CalcSlot(timestamp, familyStartTime, md.interval.Int64()) // slot offset of family
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                         // day
+	family := intervalCalc.CalcFamily(timestamp, segmentTime)                      // hours
+	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)            // family timestamp
+	slotIndex := intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64()) // slot offset of family
 
 	hash := xxhash.Sum64String(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
@@ -270,13 +257,12 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 		metricID:            mStore.GetMetricID(),
 		blockStore:          md.blockStore,
 		generator:           md.generator,
-		familyTime:          familyStartTime,
+		familyTime:          familyTime,
 		slotIndex:           slotIndex,
 		timeInterval:        md.interval.Int64(),
 		mStoreFieldIDGetter: mStore})
 	if err == nil {
-		bkt := md.getBucket(hash)
-		bkt.addFamilyTime(familyStartTime)
+		md.addFamilyTime(familyTime)
 	}
 	md.size.Add(int32(writtenSize))
 	return err
@@ -354,19 +340,16 @@ func (md *memoryDatabase) CountTags(metricName string) int {
 
 // Families returns the families in memory which has not been flushed yet.
 func (md *memoryDatabase) Families() []int64 {
-	families := make(map[int64]struct{})
-	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
-		bkt := md.mStoresList[bucketIndex]
-		bkt.unionFamilyTimesTo(families)
-	}
-	var list []int64
-	for familyTime := range families {
-		list = append(list, familyTime)
-	}
-	sort.Slice(list, func(i, j int) bool {
-		return list[i] < list[j]
+	var families []int64
+	md.familyTimes.Range(func(key, value interface{}) bool {
+		familyTime := key.(int64)
+		families = append(families, familyTime)
+		return true
 	})
-	return list
+	sort.Slice(families, func(i, j int) bool {
+		return families[i] < families[j]
+	})
+	return families
 }
 
 // flushContext holds the context for flushing
@@ -377,7 +360,6 @@ type flushContext struct {
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
-// this method must be called before the cancellation.
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error {
 	defer func() {
 		// non-block notifying evictor
@@ -387,21 +369,12 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 			memDBLogger.Warn("flusher is working, concurrently flushing is not allowed")
 		}
 	}()
-	// union the familyTimes back whatever error is raised
-	var oldFamilyTimesList []map[int64]struct{}
-	defer func() {
-		for bucketIndex, familyTimes := range oldFamilyTimesList {
-			bkt := md.mStoresList[bucketIndex]
-			bkt.unionFamilyTimesFrom(familyTimes)
-		}
-	}()
+
+	md.familyTimes.Delete(familyTime)
+	md.lastWroteFamilyTime.Store(0)
 
 	for bucketIndex := 0; bucketIndex < shardingCountOfMStores; bucketIndex++ {
 		bkt := md.mStoresList[bucketIndex]
-		bkt.rwLock.Lock()
-		oldFamilyTimesList = append(oldFamilyTimesList, bkt.familyTimes)
-		bkt.familyTimes = make(map[int64]struct{})
-		bkt.rwLock.Unlock()
 
 		_, allMetricStores := bkt.allMetricStores()
 		for _, mStore := range allMetricStores {
@@ -415,8 +388,6 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 				return err
 			}
 		}
-		// remove familyTime from oldFamilyTimesList
-		delete(oldFamilyTimesList[bucketIndex], familyTime)
 	}
 	return nil
 }

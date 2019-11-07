@@ -1,14 +1,21 @@
 package tsdb
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/tsdb/memdb"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 )
 
 var testPath = "test_data"
@@ -74,4 +81,223 @@ func TestNew(t *testing.T) {
 	_, ok = db.GetShard(10)
 	assert.False(t, ok)
 	assert.Equal(t, 3, db.NumOfShards())
+}
+
+func Test_Engine_Close(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	mockDatabase := NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().Close().Return(fmt.Errorf("error")).AnyTimes()
+	engineImpl.databases.Store("1", mockDatabase)
+	engineImpl.databases.Store("2", mockDatabase)
+
+	e.Close()
+}
+
+func Test_Engine_Flush(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	engineImpl.isFullFlushing.Store(true)
+	e.Flush()
+
+	engineImpl.isFullFlushing.Store(false)
+	e.Flush()
+}
+
+func Test_Engine_globalMemoryUsageChecker_LowerThanHighWaterMark(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	engineImpl, _ := newEngine(engineCfg)
+	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
+		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark - 0.1}
+	}
+	engineImpl.run()
+	defer engineImpl.cancel()
+
+	globalMemoryUsageCheckInterval.Store(time.Millisecond)
+
+	go engineImpl.globalMemoryUsageChecker(engineImpl.ctx)
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_globalMemoryUsageChecker_HigherThan_MemoryHighWaterMark(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	engineImpl, _ := newEngine(engineCfg)
+	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
+		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}
+	}
+	engineImpl.run()
+	defer engineImpl.cancel()
+
+	globalMemoryUsageCheckInterval.Store(time.Millisecond)
+
+	go engineImpl.globalMemoryUsageChecker(engineImpl.ctx)
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_watermarkFlusher_LowerThan_MemoryLowWaterMark(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	engineImpl, _ := newEngine(engineCfg)
+	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
+		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark - 0.1}
+	}
+	engineImpl.run()
+	defer engineImpl.cancel()
+
+	go engineImpl.watermarkFlusher(engineImpl.ctx)
+
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_watermarkFlusher_HigherThan_MemoryLowWaterMark(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	engineImpl, _ := newEngine(engineCfg)
+	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
+		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark + 0.1}
+	}
+	engineImpl.run()
+	defer engineImpl.cancel()
+
+	go engineImpl.watermarkFlusher(engineImpl.ctx)
+
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_databaseMetaFlusher_shardMemoryUsageChecker(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	flushMetaInterval.Store(time.Millisecond)
+	shardMemoryUsageCheckInterval.Store(time.Millisecond)
+
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_flushBiggestMemoryUsageShard(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	mockMemoryDatabase := memdb.NewMockMemoryDatabase(ctrl)
+	mockMemoryDatabase.EXPECT().MemSize().Return(1024 * 1024 * 1024).AnyTimes()
+	mockShard := NewMockShard(ctrl)
+	mockShard.EXPECT().Close().Return(nil).AnyTimes()
+	mockShard.EXPECT().MemoryDatabase().Return(mockMemoryDatabase).AnyTimes()
+	mockShard.EXPECT().Flush().Return(nil).AnyTimes()
+	mockDatabase := &database{isFlushing: *atomic.NewBool(true)}
+	mockDatabase.shards.Store(int32(1), mockShard)
+	engineImpl.databases.Store("1", mockDatabase)
+
+	// mock all shards is flushing
+	mockShard.EXPECT().IsFlushing().Return(true).Times(1)
+	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
+
+	// mock engine is full flushing
+	mockShard.EXPECT().IsFlushing().Return(false).Times(1)
+	engineImpl.isFullFlushing.Store(true)
+	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
+
+	// mock biggest-shard available
+	mockShard.EXPECT().IsFlushing().Return(false).AnyTimes()
+	engineImpl.isFullFlushing.Store(false)
+	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
+
+	time.Sleep(time.Second)
+}
+
+func Test_Engine_flushShardAboveMemoryUsageThreshold_flushAllDatabasesAndShards(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	mockMemoryDatabase := memdb.NewMockMemoryDatabase(ctrl)
+	mockShard := NewMockShard(ctrl)
+	mockShard.EXPECT().Close().Return(nil).AnyTimes()
+	mockShard.EXPECT().MemoryDatabase().Return(mockMemoryDatabase).AnyTimes()
+	mockShard.EXPECT().Flush().Return(nil).AnyTimes()
+	mockDatabase := &database{isFlushing: *atomic.NewBool(true)}
+	mockDatabase.shards.Store(int32(1), mockShard)
+	engineImpl.databases.Store("1", mockDatabase)
+
+	// mock isFullFlushing
+	engineImpl.isFullFlushing.Store(true)
+	engineImpl.flushShardAboveMemoryUsageThreshold(engineImpl.ctx)
+
+	engineImpl.isFullFlushing.Store(false)
+
+	// mock no available shard to flush
+	mockMemoryDatabase.EXPECT().MemSize().Return(0).Times(1)
+	engineImpl.flushShardAboveMemoryUsageThreshold(engineImpl.ctx)
+
+	// mock shard available to flush
+	mockMemoryDatabase.EXPECT().MemSize().Return(1024 * 1024 * 1024).Times(1)
+	engineImpl.flushShardAboveMemoryUsageThreshold(engineImpl.ctx)
+
+	// flushAllDatabasesAndShards
+	engineImpl.flushAllDatabasesAndShards(engineImpl.ctx)
+}
+
+func Test_Engine_flushWorker_error(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+
+	mockShard := NewMockShard(ctrl)
+	mockShard.EXPECT().Close().Return(nil).AnyTimes()
+	mockShard.EXPECT().Flush().Return(fmt.Errorf("error")).AnyTimes()
+
+	mockDatabase := NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().FlushMeta().Return(fmt.Errorf("error")).AnyTimes()
+
+	engineImpl.shardToFlushCh <- mockShard
+	engineImpl.databaseToFlushCh <- mockDatabase
+
 }
