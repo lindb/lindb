@@ -128,7 +128,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec.Execute()
 	time.Sleep(100 * time.Millisecond)
 	e := exec.(*storageExecutor)
-	pool := e.getAggregatorPool(10, 1, &query.TimeRange)
+	pool := e.getAggregatorPool(10, 1, query.TimeRange)
 	assert.NotNil(t, pool.Get())
 
 	// find series err

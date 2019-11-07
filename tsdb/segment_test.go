@@ -4,25 +4,23 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 )
 
-var segPath = filepath.Join(testPath, shardDir, "2", segmentDir, interval.Day.String())
+var segPath = filepath.Join(testPath, shardDir, "2", segmentDir, timeutil.Day.String())
 
 func TestNewIntervalSegment(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, err := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, err := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,25 +29,22 @@ func TestNewIntervalSegment(t *testing.T) {
 	s.Close()
 
 	// create fail
-	_, err = newSegment("20190903", int64(10000), interval.Day, filepath.Join(segPath, "20190903"))
+	_, err = newSegment("20190903", timeutil.Interval(timeutil.OneSecond*10), filepath.Join(segPath, "20190903"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	// cannot re-open kv-store
-	s, err = newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Nil(t, s)
 	assert.NotNil(t, err)
 
-	s, err = newIntervalSegment(int64(time.Second*10), interval.Unknown, segPath)
-	assert.Nil(t, s)
-	assert.NotNil(t, err)
 }
 
 func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
 	assert.NotNil(t, seg)
@@ -68,7 +63,7 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 
 	s.Close()
 
-	s, _ = newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, _ = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 
 	s1, ok := s.(*intervalSegment)
 	if ok {
@@ -84,7 +79,7 @@ func TestIntervalSegment_getDataFamilies(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	segment1, _ := s.GetOrCreateSegment("20190902")
 	now, _ := timeutil.ParseTimestamp("20190902 19:10:48", "20060102 15:04:05")
 	_, _ = segment1.GetDataFamily(now)
@@ -133,7 +128,7 @@ func TestSegment_Close(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	seg, _ := s.GetOrCreateSegment("20190702")
 	seg1 := seg.(*segment)
 
@@ -150,7 +145,7 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, _ := newIntervalSegment(int64(time.Second*10), interval.Day, segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	seg, _ := s.GetOrCreateSegment("20190904")
 	now, _ := timeutil.ParseTimestamp("20190904 19:10:48", "20060102 15:04:05")
 	familyBaseTime, _ := timeutil.ParseTimestamp("20190904 19:00:00", "20060102 15:04:05")
@@ -200,12 +195,12 @@ func TestSegment_New(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	s, err := newSegment("20190904", int64(10000), interval.Day, testPath)
+	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.NotNil(t, s)
-	s, err = newSegment("20190904", int64(10000), interval.Day, testPath)
+	s, err = newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
 	assert.NotNil(t, err)
 	assert.Nil(t, s)
 }

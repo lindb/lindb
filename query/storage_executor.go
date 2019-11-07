@@ -6,7 +6,6 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
@@ -31,7 +30,7 @@ type storageExecutor struct {
 
 	fieldIDs           []uint16
 	storageExecutePlan *storageExecutePlan
-	intervalType       interval.Type
+	intervalType       timeutil.IntervalType
 
 	executorPool *tsdb.ExecutorPool
 
@@ -89,7 +88,7 @@ func (e *storageExecutor) Execute() {
 	storageExecutePlan := plan.(*storageExecutePlan)
 
 	e.metricID = storageExecutePlan.metricID
-	e.intervalType = interval.CalcIntervalType(e.query.Interval)
+	e.intervalType = timeutil.Interval(e.query.Interval).Type()
 
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.storageExecutePlan = storageExecutePlan
@@ -122,7 +121,7 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 
 	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(e.query.Interval, memoryDB.Interval(), e.query.TimeRange)
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
+	groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
 
 	// scan data and complete task in scan worker after scan worker completed
 	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.executorPool)
@@ -133,12 +132,16 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 		SeriesIDSet: seriesIDSet,
 		HasGroupBy:  e.storageExecutePlan.hasGroupBy(),
 		Worker:      worker,
-		Aggregators: e.getAggregatorPool(queryInterval, intervalRatio, &timeRange),
+		Aggregators: e.getAggregatorPool(queryInterval, intervalRatio, timeRange),
 	})
 }
 
 // getAggregatorPool returns aggregator pool
-func (e *storageExecutor) getAggregatorPool(queryInterval int64, intervalRatio int, timeRange *timeutil.TimeRange) sync.Pool {
+func (e *storageExecutor) getAggregatorPool(
+	queryInterval timeutil.Interval,
+	intervalRatio int,
+	timeRange timeutil.TimeRange,
+) sync.Pool {
 	return sync.Pool{
 		New: func() interface{} {
 			return aggregation.NewFieldAggregates(queryInterval, intervalRatio, timeRange, true,
@@ -185,7 +188,7 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 	//FIXME get interval
 	timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
 	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupingAggregator(queryInterval, &timeRange, aggSpecs)
+	groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
 
 	worker := createScanWorker(
 		e.executeCtx,

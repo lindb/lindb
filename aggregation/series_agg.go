@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	"github.com/lindb/lindb/aggregation/selector"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -29,8 +28,13 @@ func (agg FieldAggregates) Reset() {
 
 // NewFieldAggregates creates the field aggregates based on aggregator specs and query time range.
 // NOTICE: if do down sampling aggregator, aggregator specs must be in order by field id.
-func NewFieldAggregates(queryInterval int64, ratio int, queryTimeRange *timeutil.TimeRange,
-	isDownSampling bool, aggSpecs AggregatorSpecs) FieldAggregates {
+func NewFieldAggregates(
+	queryInterval timeutil.Interval,
+	ratio int,
+	queryTimeRange timeutil.TimeRange,
+	isDownSampling bool,
+	aggSpecs AggregatorSpecs,
+) FieldAggregates {
 	aggregates := make(FieldAggregates, len(aggSpecs))
 	for idx, aggSpec := range aggSpecs {
 		aggregates[idx] = NewSeriesAggregator(queryInterval, ratio, queryTimeRange, isDownSampling, aggSpec)
@@ -64,18 +68,23 @@ type seriesAggregator struct {
 	ratio          int
 	isDownSampling bool
 	aggregates     []FieldAggregator
-	queryInterval  int64
-	queryTimeRange *timeutil.TimeRange
+	queryInterval  timeutil.Interval
+	queryTimeRange timeutil.TimeRange
 	aggSpec        AggregatorSpec
-	calc           interval.Calculator
+	calc           timeutil.Calculator
 
 	startTime int64
 }
 
 // NewSeriesAggregator creates a series aggregator
-func NewSeriesAggregator(queryInterval int64, ratio int, queryTimeRange *timeutil.TimeRange, isDownSampling bool,
-	aggSpec AggregatorSpec) SeriesAggregator {
-	calc := interval.GetCalculator(interval.CalcIntervalType(queryInterval))
+func NewSeriesAggregator(
+	queryInterval timeutil.Interval,
+	ratio int,
+	queryTimeRange timeutil.TimeRange,
+	isDownSampling bool,
+	aggSpec AggregatorSpec,
+) SeriesAggregator {
+	calc := queryInterval.Calculator()
 	segmentTime := calc.CalcSegmentTime(queryTimeRange.Start)
 	startTime := calc.CalcFamilyStartTime(segmentTime, calc.CalcFamily(queryTimeRange.Start, segmentTime))
 
@@ -145,7 +154,7 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
 		}
 		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
-		storageInterval := a.queryInterval / int64(a.ratio)
+		storageInterval := a.queryInterval.Int64() / int64(a.ratio)
 		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
 		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval)
 		if a.isDownSampling {
