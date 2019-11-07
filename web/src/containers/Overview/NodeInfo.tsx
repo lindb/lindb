@@ -110,6 +110,10 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
           )
         },
       },
+      {
+        title: 'Version',
+        dataIndex: 'version',
+      },
     ];
     return (
       <Table dataSource={nodes} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />

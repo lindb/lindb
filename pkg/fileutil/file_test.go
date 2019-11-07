@@ -51,3 +51,7 @@ func TestFileUtil_errors(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.NotNil(t, EncodeToml(filepath.Join(os.TempDir(), "/tmp/test.toml"), []byte{}))
 }
+
+func TestGetExistPath(t *testing.T) {
+	assert.Equal(t, "/tmp", GetExistPath("/tmp/test1/test333"))
+}

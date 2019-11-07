@@ -32,7 +32,7 @@ func TestScanWorker_Emit(t *testing.T) {
 	)
 	worker.Emit(event)
 	worker.Emit(nil)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	worker.Close()
 }
 
@@ -58,5 +58,5 @@ func TestScanWorker_handle_event(t *testing.T) {
 	)
 	worker.Emit(event)
 	worker.Close()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 }

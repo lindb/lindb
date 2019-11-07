@@ -69,7 +69,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	}
 
 	// start broker server
-	brokerRuntime := broker.NewBrokerRuntime(brokerCfg)
+	brokerRuntime := broker.NewBrokerRuntime(getVersion(), brokerCfg)
 	if err := run(ctx, brokerRuntime); err != nil {
 		return err
 	}

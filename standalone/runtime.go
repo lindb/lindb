@@ -18,22 +18,33 @@ import (
 	"github.com/lindb/lindb/storage"
 )
 
+func init() {
+	// config ectd server info level
+	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+}
+
 var log = logger.GetLogger("standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {
-	state   server.State
-	cfg     config.Standalone
-	etcd    *embed.Etcd
-	broker  server.Service
-	storage server.Service
+	version     string
+	state       server.State
+	repoFactory state.RepositoryFactory
+	cfg         config.Standalone
+	etcd        *embed.Etcd
+	broker      server.Service
+	storage     server.Service
 }
 
 // NewStandaloneRuntime creates the runtime
-func NewStandaloneRuntime(cfg config.Standalone) server.Service {
+func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service {
 	return &runtime{
-		state: server.New,
-		cfg:   cfg,
+		version:     version,
+		state:       server.New,
+		repoFactory: state.NewRepositoryFactory("standalone"),
+		broker:      broker.NewBrokerRuntime(version, config.Broker{BrokerKernel: cfg.Broker}),
+		storage:     storage.NewStorageRuntime(config.Storage{StorageKernel: cfg.Storage}),
+		cfg:         cfg,
 	}
 }
 
@@ -53,20 +64,24 @@ func (r *runtime) Run() error {
 	if err := r.cleanupState(); err != nil {
 		return err
 	}
+	if err := r.runServer(); err != nil {
+		return err
+	}
+	r.state = server.Running
+	return nil
+}
 
+func (r *runtime) runServer() error {
 	// start storage server
-	storageRuntime := storage.NewStorageRuntime(config.Storage{StorageKernel: r.cfg.Storage})
-	if err := storageRuntime.Run(); err != nil {
+	if err := r.storage.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
 	// start broker server
-	brokerRuntime := broker.NewBrokerRuntime(config.Broker{BrokerKernel: r.cfg.Broker})
-	if err := brokerRuntime.Run(); err != nil {
+	if err := r.broker.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
-	r.state = server.Running
 	return nil
 }
 
@@ -77,10 +92,6 @@ func (r *runtime) State() server.State {
 
 // Stop stops the cluster
 func (r *runtime) Stop() error {
-	if r.etcd != nil {
-		r.etcd.Close()
-		log.Info("etcd server stopped")
-	}
 	if r.broker != nil {
 		if err := r.broker.Stop(); err != nil {
 			log.Error("stop broker server", logger.Error(err))
@@ -93,24 +104,25 @@ func (r *runtime) Stop() error {
 		}
 		log.Info("storage server stopped")
 	}
+	if r.etcd != nil {
+		r.etcd.Close()
+		log.Info("etcd server stopped")
+	}
 	r.state = server.Terminated
 	return nil
 }
 
 // startETCD starts embed etcd server
 func (r *runtime) startETCD() error {
-	// config ectd server info level
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
-
 	cfg := embed.NewConfig()
 	lcurl, _ := url.Parse(r.cfg.ETCD.URL)
 	cfg.LCUrls = []url.URL{*lcurl}
 	cfg.Dir = r.cfg.ETCD.Dir
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {
-		r.etcd = e
 		return err
 	}
+	r.etcd = e
 	select {
 	case <-e.Server.ReadyNotify():
 		log.Info("etcd server is ready")
@@ -126,8 +138,7 @@ func (r *runtime) startETCD() error {
 // cleanupState cleans the state of previous standalone process.
 // 1. master node in etcd, because etcd will trigger master node expire event
 func (r *runtime) cleanupState() error {
-	repoFactory := state.NewRepositoryFactory("standalone")
-	repo, err := repoFactory.CreateRepo(r.cfg.Broker.Coordinator)
+	repo, err := r.repoFactory.CreateRepo(r.cfg.Broker.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
