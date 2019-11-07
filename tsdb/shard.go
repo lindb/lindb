@@ -8,7 +8,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -30,7 +29,7 @@ const (
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
-	GetDataFamilies(intervalType interval.Type, timeRange timeutil.TimeRange) []DataFamily
+	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// MemoryDatabase returns memory database
 	MemoryDatabase() memdb.MemoryDatabase
 	// IndexDatabase returns the index-database
@@ -59,7 +58,7 @@ type Shard interface {
 type shard struct {
 	id          int32
 	path        string
-	interval    int64
+	interval    timeutil.Interval
 	option      option.DatabaseOption
 	memDB       memdb.MemoryDatabase
 	indexDB     indexdb.IndexDatabase
@@ -70,7 +69,7 @@ type shard struct {
 
 	// segments keeps all interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
-	segments   map[interval.Type]IntervalSegment
+	segments   map[timeutil.IntervalType]IntervalSegment
 	segment    IntervalSegment    // smallest interval for writing data
 	cancel     context.CancelFunc // cancel function
 	indexStore kv.Store           // kv stores
@@ -90,8 +89,9 @@ func newShard(
 	if err = option.Validation(); err != nil {
 		return nil, fmt.Errorf("engine option is invalid, err: %s", err)
 	}
-	intervalVal, _ := timeutil.ParseInterval(option.Interval)
-	intervalType := interval.CalcIntervalType(intervalVal)
+	var interval timeutil.Interval
+	_ = interval.ValueOf(option.Interval)
+
 	if err := fileutil.MkDirIfNotExist(shardPath); err != nil {
 		return nil, err
 	}
@@ -99,22 +99,21 @@ func newShard(
 		id:          shardID,
 		path:        shardPath,
 		option:      option,
-		interval:    intervalVal,
+		interval:    interval,
 		idSequencer: idSequencer,
-		segments:    make(map[interval.Type]IntervalSegment),
+		segments:    make(map[timeutil.IntervalType]IntervalSegment),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegment(
-		intervalVal,
-		intervalType,
-		filepath.Join(shardPath, segmentDir, string(intervalType)))
+		interval,
+		filepath.Join(shardPath, segmentDir, interval.Type().String()))
 	if err != nil {
 		return nil, err
 	}
 	createdShard.ahead, _ = timeutil.ParseInterval(option.Ahead)
 	createdShard.behind, _ = timeutil.ParseInterval(option.Behind)
 	// add writing segment into segment list
-	createdShard.segments[intervalType] = createdShard.segment
+	createdShard.segments[interval.Type()] = createdShard.segment
 
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
@@ -122,10 +121,9 @@ func newShard(
 	var ctx context.Context
 	ctx, createdShard.cancel = context.WithCancel(context.Background())
 	createdShard.memDB = memdb.NewMemoryDatabase(ctx, memdb.MemoryDatabaseCfg{
-		TimeWindow:    option.TimeWindow,
-		IntervalValue: intervalVal,
-		IntervalType:  intervalType,
-		Generator:     idSequencer,
+		TimeWindow: option.TimeWindow,
+		Interval:   interval,
+		Generator:  idSequencer,
 	})
 	return createdShard, nil
 }
@@ -134,7 +132,7 @@ func (s *shard) IndexDatabase() indexdb.IndexDatabase {
 	return s.indexDB
 }
 
-func (s *shard) GetDataFamilies(intervalType interval.Type, timeRange timeutil.TimeRange) []DataFamily {
+func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
 	segment, ok := s.segments[intervalType]
 	if ok {
 		return segment.getDataFamilies(timeRange)

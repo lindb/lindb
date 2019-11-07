@@ -10,10 +10,13 @@ import (
 )
 
 func TestNewFieldAggregates(t *testing.T) {
-	agg := NewFieldAggregates(timeutil.OneSecond, 1, &timeutil.TimeRange{
-		Start: 10,
-		End:   20,
-	}, true,
+	agg := NewFieldAggregates(
+		timeutil.Interval(timeutil.OneSecond),
+		1,
+		timeutil.TimeRange{
+			Start: 10,
+			End:   20,
+		}, true,
 		AggregatorSpecs{
 			NewAggregatorSpec("b", field.SumField),
 			NewAggregatorSpec("a", field.SumField),
@@ -23,10 +26,13 @@ func TestNewFieldAggregates(t *testing.T) {
 	assert.Equal(t, field.SumField, agg[0].FieldType())
 	assert.Equal(t, field.SumField, agg[1].FieldType())
 
-	agg = NewFieldAggregates(timeutil.OneSecond, 1, &timeutil.TimeRange{
-		Start: 10,
-		End:   20,
-	}, false,
+	agg = NewFieldAggregates(
+		timeutil.Interval(timeutil.OneSecond),
+		1,
+		timeutil.TimeRange{
+			Start: 10,
+			End:   20,
+		}, false,
 		AggregatorSpecs{
 			NewAggregatorSpec("b", field.SumField),
 			NewAggregatorSpec("a", field.SumField),
@@ -51,10 +57,13 @@ func TestNewFieldAggregates(t *testing.T) {
 func TestNewSeriesAggregator(t *testing.T) {
 	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
-	agg := NewSeriesAggregator(timeutil.OneSecond, 1, &timeutil.TimeRange{
-		Start: now,
-		End:   now + 3*timeutil.OneHour,
-	}, true,
+	agg := NewSeriesAggregator(
+		timeutil.Interval(timeutil.OneSecond),
+		1,
+		timeutil.TimeRange{
+			Start: now,
+			End:   now + 3*timeutil.OneHour,
+		}, true,
 		NewAggregatorSpec("b", field.SumField),
 	)
 
@@ -86,10 +95,13 @@ func TestNewSeriesAggregator(t *testing.T) {
 
 	agg.Reset()
 
-	agg = NewSeriesAggregator(timeutil.OneSecond, 1, &timeutil.TimeRange{
-		Start: now,
-		End:   now - 3*timeutil.OneHour,
-	}, true,
+	agg = NewSeriesAggregator(
+		timeutil.Interval(timeutil.OneSecond),
+		1,
+		timeutil.TimeRange{
+			Start: now,
+			End:   now - 3*timeutil.OneHour,
+		}, true,
 		NewAggregatorSpec("b", field.SumField),
 	)
 	fAgg, ok = agg.GetAggregator(familyTime)

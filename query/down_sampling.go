@@ -8,18 +8,22 @@ import (
 func downSamplingTimeRange(queryInterval,
 	storageInterval int64,
 	queryTimeRange timeutil.TimeRange,
-) (timeRange timeutil.TimeRange, intervalRatio int, interval int64) {
+) (
+	timeRange timeutil.TimeRange,
+	intervalRatio int,
+	interval timeutil.Interval,
+) {
 	// 1. calc interval, default use storage interval's interval if user not input
-	interval = storageInterval
+	interval = timeutil.Interval(storageInterval)
 	intervalRatio = 1
 	if queryInterval > 0 {
-		intervalRatio = timeutil.CalIntervalRatio(queryInterval, interval)
-		interval = queryInterval
+		intervalRatio = timeutil.CalIntervalRatio(queryInterval, interval.Int64())
+		interval = timeutil.Interval(queryInterval)
 	}
 	// 2. truncate time range
 	timeRange = timeutil.TimeRange{
-		Start: timeutil.Truncate(queryTimeRange.Start, interval),
-		End:   timeutil.Truncate(queryTimeRange.End, interval),
+		Start: timeutil.Truncate(queryTimeRange.Start, interval.Int64()),
+		End:   timeutil.Truncate(queryTimeRange.End, interval.Int64()),
 	}
 	return
 }

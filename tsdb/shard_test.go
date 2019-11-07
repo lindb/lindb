@@ -11,7 +11,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -55,9 +54,9 @@ func TestGetSegments(t *testing.T) {
 
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 	s, _ := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
-	assert.Nil(t, s.GetDataFamilies(interval.Month, timeutil.TimeRange{}))
-	assert.Nil(t, s.GetDataFamilies(interval.Day, timeutil.TimeRange{}))
-	assert.Equal(t, 0, len(s.GetDataFamilies(interval.Day, timeutil.TimeRange{})))
+	assert.Nil(t, s.GetDataFamilies(timeutil.Month, timeutil.TimeRange{}))
+	assert.Nil(t, s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{}))
+	assert.Equal(t, 0, len(s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{})))
 }
 
 func TestWrite(t *testing.T) {

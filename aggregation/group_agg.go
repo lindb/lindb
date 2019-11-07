@@ -25,14 +25,17 @@ type timeSeriesAggregator struct {
 
 type groupingAggregator struct {
 	aggSpecs   AggregatorSpecs
-	interval   int64
-	timeRange  *timeutil.TimeRange
+	interval   timeutil.Interval
+	timeRange  timeutil.TimeRange
 	aggregates map[string]*timeSeriesAggregator
 }
 
 // NewGroupingAggregator creates a grouping aggregator
-func NewGroupingAggregator(interval int64, timeRange *timeutil.TimeRange,
-	aggSpecs AggregatorSpecs) GroupingAggregator {
+func NewGroupingAggregator(
+	interval timeutil.Interval,
+	timeRange timeutil.TimeRange,
+	aggSpecs AggregatorSpecs,
+) GroupingAggregator {
 	return &groupingAggregator{
 		aggSpecs:   aggSpecs,
 		interval:   interval,

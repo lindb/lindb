@@ -21,13 +21,17 @@ type DataFamily interface {
 
 // dataFamily represents a wrapper of kv's family with basic info
 type dataFamily struct {
-	interval  int64
+	interval  timeutil.Interval
 	timeRange timeutil.TimeRange
 	family    kv.Family
 }
 
 // newDataFamily creates a data family storage unit
-func newDataFamily(interval int64, timeRange timeutil.TimeRange, family kv.Family) DataFamily {
+func newDataFamily(
+	interval timeutil.Interval,
+	timeRange timeutil.TimeRange,
+	family kv.Family,
+) DataFamily {
 	return &dataFamily{
 		interval:  interval,
 		timeRange: timeRange,
@@ -50,7 +54,7 @@ func (f *dataFamily) Scan(sCtx *series.ScanContext) {
 
 // Interval returns the data family's interval
 func (f *dataFamily) Interval() int64 {
-	return f.interval
+	return f.interval.Int64()
 }
 
 // TimeRange returns the data family's base time range

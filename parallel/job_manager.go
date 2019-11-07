@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series/field"
 )
@@ -77,8 +78,12 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	}
 	query := ctx.Query()
 	//TODO fix me
-	groupAgg := aggregation.NewGroupingAggregator(query.Interval, &query.TimeRange, aggregation.AggregatorSpecs{
-		aggregation.NewAggregatorSpec("f1", field.SumField)})
+	groupAgg := aggregation.NewGroupingAggregator(
+		timeutil.Interval(query.Interval),
+		query.TimeRange,
+		aggregation.AggregatorSpecs{
+			aggregation.NewAggregatorSpec("f1", field.SumField),
+		})
 
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
 		newResultMerger(ctx.Context(), groupAgg, ctx.ResultSet()))

@@ -23,7 +23,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 		Start: 10,
 		End:   50,
 	}
-	dataFamily := newDataFamily(int64(10000), timeRange, family)
+	dataFamily := newDataFamily(timeutil.Interval(timeutil.OneSecond*10), timeRange, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
 	assert.Equal(t, int64(10000), dataFamily.Interval())
 }
@@ -33,7 +33,7 @@ func TestDataFamily_Scan(t *testing.T) {
 	defer ctrl.Finish()
 
 	family := kv.NewMockFamily(ctrl)
-	dataFamily := newDataFamily(int64(1000), timeutil.TimeRange{
+	dataFamily := newDataFamily(timeutil.Interval(timeutil.OneSecond*10), timeutil.TimeRange{
 		Start: 10,
 		End:   50,
 	}, family)

@@ -3,9 +3,9 @@ package series
 import (
 	"sync"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/lindb/pkg/timeutil"
 
-	"github.com/lindb/lindb/pkg/interval"
+	"github.com/RoaringBitmap/roaring"
 )
 
 //go:generate mockgen -source=./scanner.go -destination=./scanner_mock.go -package=series
@@ -23,7 +23,7 @@ type ScanContext struct {
 	SeriesIDSet *MultiVerSeriesIDSet
 
 	// runtime, required for memory scan
-	IntervalCalc interval.Calculator
+	IntervalCalc timeutil.Calculator
 
 	Aggregators sync.Pool
 }

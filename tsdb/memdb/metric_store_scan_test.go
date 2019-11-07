@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
@@ -18,7 +17,7 @@ import (
 func Test_MetricStore_scan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	calc := interval.GetCalculator(interval.Day)
+	calc := timeutil.Interval(timeutil.OneDay).Calculator()
 
 	now, _ := timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")

@@ -20,10 +20,12 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 
 	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
-	agg := NewGroupingAggregator(timeutil.OneSecond, &timeutil.TimeRange{
-		Start: now,
-		End:   now + 3*timeutil.OneHour,
-	},
+	agg := NewGroupingAggregator(
+		timeutil.Interval(timeutil.OneSecond),
+		timeutil.TimeRange{
+			Start: now,
+			End:   now + 3*timeutil.OneHour,
+		},
 		AggregatorSpecs{
 			NewAggregatorSpec("b", field.SumField),
 			NewAggregatorSpec("a", field.SumField),
@@ -78,10 +80,12 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 	rs = agg.ResultSet()
 	assert.Equal(t, 2, len(rs))
 
-	agg = NewGroupingAggregator(timeutil.OneSecond, &timeutil.TimeRange{
-		Start: now,
-		End:   now + 3*timeutil.OneHour,
-	},
+	agg = NewGroupingAggregator(
+		timeutil.Interval(timeutil.OneSecond),
+		timeutil.TimeRange{
+			Start: now,
+			End:   now + 3*timeutil.OneHour,
+		},
 		AggregatorSpecs{})
 	rs = agg.ResultSet()
 	assert.Nil(t, rs)
