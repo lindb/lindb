@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
@@ -19,9 +18,8 @@ import (
 )
 
 var cfg = MemoryDatabaseCfg{
-	TimeWindow:    32,
-	IntervalValue: 10 * 1000,
-	IntervalType:  interval.Day,
+	TimeWindow: 32,
+	Interval:   timeutil.Interval(10 * timeutil.OneSecond),
 }
 
 func Test_NewMemoryDatabase(t *testing.T) {

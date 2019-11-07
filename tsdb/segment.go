@@ -7,7 +7,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -27,34 +26,26 @@ type IntervalSegment interface {
 
 // intervalSegment implements IntervalSegment interface
 type intervalSegment struct {
-	path         string
-	interval     int64
-	intervalType interval.Type
-	calc         interval.Calculator
-
+	path     string
+	interval timeutil.Interval
 	segments sync.Map
-
-	mutex sync.Mutex
+	mutex    sync.Mutex
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
 func newIntervalSegment(
-	intervalVal int64,
-	intervalType interval.Type,
+	interval timeutil.Interval,
 	path string,
 ) (
 	segment IntervalSegment,
 	err error,
 ) {
-	calc := interval.GetCalculator(intervalType)
 	if err = fileutil.MkDirIfNotExist(path); err != nil {
 		return segment, err
 	}
 	intervalSegment := &intervalSegment{
-		path:         path,
-		interval:     intervalVal,
-		intervalType: intervalType,
-		calc:         calc,
+		path:     path,
+		interval: interval,
 	}
 
 	defer func() {
@@ -71,7 +62,7 @@ func newIntervalSegment(
 		return segment, err
 	}
 	for _, segmentName := range segmentNames {
-		seg, err := newSegment(segmentName, intervalSegment.interval, intervalType, filepath.Join(path, segmentName))
+		seg, err := newSegment(segmentName, intervalSegment.interval, filepath.Join(path, segmentName))
 		if err != nil {
 			err = fmt.Errorf("create segmenet error:%s", err)
 			return segment, err
@@ -93,7 +84,7 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 		defer s.mutex.Unlock()
 		segment = s.getSegment(segmentName)
 		if segment == nil {
-			seg, err := newSegment(segmentName, s.interval, s.intervalType, filepath.Join(s.path, segmentName))
+			seg, err := newSegment(segmentName, s.interval, filepath.Join(s.path, segmentName))
 			if err != nil {
 				return nil, fmt.Errorf("create segmenet error:%s", err)
 			}
@@ -107,8 +98,10 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 // getDataFamilies returns data family list by time range, return nil if not match
 func (s *intervalSegment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	var result []DataFamily
+	var calc = s.interval.Calculator()
+
 	segmentQueryTimeRange := &timeutil.TimeRange{
-		Start: s.calc.CalcSegmentTime(timeRange.Start), // need truncate start timestamp, e.g. 20190902 19:05:48 => 20190902 00:00:00
+		Start: calc.CalcSegmentTime(timeRange.Start), // need truncate start timestamp, e.g. 20190902 19:05:48 => 20190902 00:00:00
 		End:   timeRange.End,
 	}
 	s.segments.Range(func(k, v interface{}) bool {
@@ -165,12 +158,10 @@ type Segment interface {
 
 // segment implements Segment interface
 type segment struct {
-	baseTime     int64
-	kvStore      kv.Store
-	interval     int64
-	intervalType interval.Type
-	calc         interval.Calculator
-	families     sync.Map
+	baseTime int64
+	kvStore  kv.Store
+	interval timeutil.Interval
+	families sync.Map
 
 	mutex sync.Mutex
 
@@ -178,9 +169,16 @@ type segment struct {
 }
 
 // newSegment returns segment, segment is wrapper of kv store
-func newSegment(segmentName string, intervalVal int64, intervalType interval.Type, path string) (Segment, error) {
+func newSegment(
+	segmentName string,
+	interval timeutil.Interval,
+	path string,
+) (
+	Segment,
+	error,
+) {
 	// parse base time from segment name
-	calc := interval.GetCalculator(intervalType)
+	calc := interval.Calculator()
 	baseTime, err := calc.ParseSegmentTime(segmentName)
 	if err != nil {
 		return nil, fmt.Errorf("parse segment[%s] base time error", path)
@@ -191,12 +189,10 @@ func newSegment(segmentName string, intervalVal int64, intervalType interval.Typ
 	}
 
 	return &segment{
-		baseTime:     baseTime,
-		kvStore:      kvStore,
-		interval:     intervalVal,
-		intervalType: intervalType,
-		calc:         calc,
-		logger:       logger.GetLogger("tsdb", "Segment"),
+		baseTime: baseTime,
+		kvStore:  kvStore,
+		interval: interval,
+		logger:   logger.GetLogger("tsdb", "Segment"),
 	}, nil
 }
 
@@ -208,9 +204,11 @@ func (s *segment) BaseTime() int64 {
 // GetDataFamilies returns data family list by time range, return nil if not match
 func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	var result []DataFamily
+	calc := s.interval.Calculator()
+
 	familyQueryTimeRange := timeutil.TimeRange{
-		Start: s.calc.CalcFamilyStartTime(s.baseTime, s.calc.CalcFamily(timeRange.Start, s.baseTime)),
-		End:   s.calc.CalcFamilyStartTime(s.baseTime, s.calc.CalcFamily(timeRange.End, s.baseTime)),
+		Start: calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.Start, s.baseTime)),
+		End:   calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.End, s.baseTime)),
 	}
 	s.families.Range(func(k, v interface{}) bool {
 		family, ok := v.(DataFamily)
@@ -227,12 +225,14 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 
 // GetDataFamily returns the data family based on timestamp
 func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
-	segmentTime := s.calc.CalcSegmentTime(timestamp)
+	calc := s.interval.Calculator()
+
+	segmentTime := calc.CalcSegmentTime(timestamp)
 	if segmentTime != s.baseTime {
 		return nil, fmt.Errorf("segment base time not match")
 	}
 
-	familyTime := s.calc.CalcFamily(timestamp, s.baseTime)
+	familyTime := calc.CalcFamily(timestamp, s.baseTime)
 	family, ok := s.families.Load(familyTime)
 	if !ok {
 		// double check
@@ -251,10 +251,10 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 				return nil, fmt.Errorf("create data family error:%s", err)
 			}
 			// create data family
-			familyStartTime := s.calc.CalcFamilyStartTime(s.baseTime, familyTime)
+			familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
 			dataFamily := newDataFamily(s.interval, timeutil.TimeRange{
 				Start: familyStartTime,
-				End:   s.calc.CalcFamilyEndTime(familyStartTime),
+				End:   calc.CalcFamilyEndTime(familyStartTime),
 			}, f)
 			s.families.Store(familyTime, dataFamily)
 			return dataFamily, nil

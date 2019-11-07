@@ -6,7 +6,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/lindb/lindb/pkg/interval"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -117,18 +116,15 @@ func (bkt *mStoresBucket) allMetricStores() (metricHashes []uint64, stores []mSt
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
-	TimeWindow    int
-	IntervalValue int64
-	IntervalType  interval.Type
-	Generator     metadb.IDGenerator
+	TimeWindow int
+	Interval   timeutil.Interval
+	Generator  metadb.IDGenerator
 }
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
 	timeWindow    int                                    // rollup window of memory-database
-	interval      int64                                  // time interval of rollup
-	intervalType  interval.Type                          // month, day, hour
-	intervalCalc  interval.Calculator                    // helper function for calculating interval
+	interval      timeutil.Interval                      // time interval of rollup
 	blockStore    *blockStore                            // reusable pool
 	ctx           context.Context                        // used for exiting goroutines
 	evictNotifier chan struct{}                          // notifying evictor to evict
@@ -141,13 +137,10 @@ type memoryDatabase struct {
 
 // NewMemoryDatabase returns a new MemoryDatabase.
 func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) MemoryDatabase {
-	timeCalc := interval.GetCalculator(cfg.IntervalType)
 	md := memoryDatabase{
 		timeWindow:    cfg.TimeWindow,
-		interval:      cfg.IntervalValue,
-		intervalType:  cfg.IntervalType,
+		interval:      cfg.Interval,
 		generator:     cfg.Generator,
-		intervalCalc:  timeCalc,
 		blockStore:    newBlockStore(cfg.TimeWindow),
 		ctx:           ctx,
 		evictNotifier: make(chan struct{}),
@@ -264,10 +257,11 @@ func (writeCtx writeContext) PointTime() int64 {
 func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	timestamp := metric.Timestamp
 	// calculate family start time and slot index
-	segmentTime := md.intervalCalc.CalcSegmentTime(timestamp)                      // day
-	family := md.intervalCalc.CalcFamily(timestamp, segmentTime)                   // hours
-	familyStartTime := md.intervalCalc.CalcFamilyStartTime(segmentTime, family)    // family timestamp
-	slotIndex := md.intervalCalc.CalcSlot(timestamp, familyStartTime, md.interval) // slot offset of family
+	intervalCalc := md.interval.Calculator()
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                              // day
+	family := intervalCalc.CalcFamily(timestamp, segmentTime)                           // hours
+	familyStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)            // family timestamp
+	slotIndex := intervalCalc.CalcSlot(timestamp, familyStartTime, md.interval.Int64()) // slot offset of family
 
 	hash := xxhash.Sum64String(metric.Name)
 	mStore := md.getOrCreateMStore(metric.Name, hash)
@@ -278,7 +272,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 		generator:           md.generator,
 		familyTime:          familyStartTime,
 		slotIndex:           slotIndex,
-		timeInterval:        md.interval,
+		timeInterval:        md.interval.Int64(),
 		mStoreFieldIDGetter: mStore})
 	if err == nil {
 		bkt := md.getBucket(hash)
@@ -414,7 +408,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 			flushedSize, err := mStore.FlushMetricsDataTo(flusher, flushContext{
 				metricID:     mStore.GetMetricID(),
 				familyTime:   familyTime,
-				timeInterval: md.interval,
+				timeInterval: md.interval.Int64(),
 			})
 			md.size.Sub(int32(flushedSize))
 			if err != nil {
@@ -536,14 +530,14 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 func (md *memoryDatabase) Scan(sCtx *series.ScanContext) {
 	mStore, ok := md.getMStoreByMetricID(sCtx.MetricID)
 	if ok {
-		sCtx.IntervalCalc = md.intervalCalc
+		sCtx.IntervalCalc = md.interval.Calculator()
 		mStore.Scan(sCtx)
 	}
 }
 
 // Interval return the interval of memory database
 func (md *memoryDatabase) Interval() int64 {
-	return md.interval
+	return md.interval.Int64()
 }
 
 func (md *memoryDatabase) MemSize() int {
