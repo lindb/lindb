@@ -17,46 +17,55 @@ type hostInfo struct {
 	err    error
 }
 
+// just for testing
+var netInterfaces = net.Interfaces
+
 // extractHostInfo extracts host info, just do it once
 func extractHostInfo() {
 	once.Do(func() {
-		ifaces, err := net.Interfaces()
+		host = getHostInfo()
+	})
+}
+
+// getHostInfo returns host info like ip
+func getHostInfo() (host hostInfo) {
+	ifaces, err := netInterfaces()
+	if err != nil {
+		host.err = err
+		return
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			// interface is down or loopback
+			continue
+		}
+		addrs, err := iface.Addrs()
 		if err != nil {
 			host.err = err
 			return
 		}
-		for _, iface := range ifaces {
-			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-				// interface is down or loopback
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
 				continue
 			}
-			addrs, err := iface.Addrs()
-			if err != nil {
-				host.err = err
-				return
+			ip = ip.To4()
+			if ip == nil {
+				// not an ipv4 address
+				continue
 			}
-			for _, addr := range addrs {
-				var ip net.IP
-				switch v := addr.(type) {
-				case *net.IPNet:
-					ip = v.IP
-				case *net.IPAddr:
-					ip = v.IP
-				}
-				if ip == nil || ip.IsLoopback() {
-					continue
-				}
-				ip = ip.To4()
-				if ip == nil {
-					// not an ipv4 address
-					continue
-				}
-				host.hostIP = ip.String()
-				return
-			}
+			host.hostIP = ip.String()
+			return
 		}
-		host.err = errors.New("cannot extract host info")
-	})
+	}
+	host.err = errors.New("cannot extract host info")
+	return host
 }
 
 // GetHostIP returns current host ip address

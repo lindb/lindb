@@ -1,6 +1,7 @@
 package series
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,5 +20,5 @@ func Test_Version(t *testing.T) {
 	assert.False(t, v1.After(v2))
 	assert.False(t, v1.Equal(v2))
 
-	t.Log(v2.String())
+	fmt.Println(v2.String())
 }

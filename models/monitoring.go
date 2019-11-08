@@ -2,8 +2,9 @@ package models
 
 // NodeStat represents the node monitoring stat
 type NodeStat struct {
-	Node   ActiveNode `json:"node,omitempty"`
-	System SystemStat `json:"system,omitempty"`
+	Version string     `json:"version"`
+	Node    ActiveNode `json:"node,omitempty"`
+	System  SystemStat `json:"system,omitempty"`
 }
 
 // SystemStat represents the system statistics

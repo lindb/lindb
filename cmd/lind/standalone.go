@@ -73,7 +73,7 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	}
 
 	// run cluster as standalone mode
-	runtime := standalone.NewStandaloneRuntime(standaloneCfg)
+	runtime := standalone.NewStandaloneRuntime(getVersion(), standaloneCfg)
 	if err := run(ctx, runtime); err != nil {
 		return err
 	}

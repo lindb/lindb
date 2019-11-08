@@ -42,6 +42,10 @@ type rpcHandler struct {
 	task   *taskHandler.TaskHandler
 }
 
+// just for testing
+var getHostIP = hostutil.GetHostIP
+var hostName = os.Hostname
+
 // runtime represents storage runtime dependency
 type runtime struct {
 	state  server.State
@@ -52,6 +56,7 @@ type runtime struct {
 
 	node         models.Node
 	server       rpc.GRPCServer
+	repoFactory  state.RepositoryFactory
 	repo         state.Repository
 	registry     discovery.Registry
 	taskExecutor *task.TaskExecutor
@@ -66,10 +71,11 @@ type runtime struct {
 func NewStorageRuntime(config config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		state:  server.New,
-		config: config,
-		ctx:    ctx,
-		cancel: cancel,
+		state:       server.New,
+		repoFactory: state.NewRepositoryFactory("storage"),
+		config:      config,
+		ctx:         ctx,
+		cancel:      cancel,
 
 		log: logger.GetLogger("storage", "Runtime"),
 	}
@@ -82,8 +88,7 @@ func (r *runtime) Name() string {
 
 // Run runs storage server
 func (r *runtime) Run() error {
-
-	ip, err := hostutil.GetHostIP()
+	ip, err := getHostIP()
 	if err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("cannot get server ip address, error:%s", err)
@@ -94,7 +99,7 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return err
 	}
-	hostName, err := os.Hostname()
+	hostName, err := hostName()
 	if err != nil {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
@@ -133,8 +138,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	factory := state.NewRepositoryFactory("storage")
-	repo, err := factory.CreateRepo(r.config.Coordinator)
+	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}
@@ -156,7 +160,7 @@ func (r *runtime) Stop() error {
 	// close registry, deregister storage node from active list
 	if r.registry != nil {
 		if err := r.registry.Close(); err != nil {
-			r.log.Error("unregister storage error", logger.Error(err))
+			r.log.Error("unregister storage node error", logger.Error(err))
 		}
 	}
 

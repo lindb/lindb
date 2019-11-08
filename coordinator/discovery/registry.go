@@ -12,6 +12,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
+//go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
+
 // Registry represents server node register
 type Registry interface {
 	// Register registers node info, add it to active node list for discovery
