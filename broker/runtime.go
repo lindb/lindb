@@ -37,6 +37,10 @@ import (
 	"github.com/lindb/lindb/service"
 )
 
+// just for testing
+var getHostIP = hostutil.GetHostIP
+var hostName = os.Hostname
+
 // srv represents all services for broker
 type srv struct {
 	storageClusterService service.StorageClusterService
@@ -82,9 +86,10 @@ type middlewareHandler struct {
 
 // runtime represents broker runtime dependency
 type runtime struct {
-	state  server.State
-	config config.Broker
-	node   models.Node
+	version string
+	state   server.State
+	config  config.Broker
+	node    models.Node
 	// init value when runtime
 	repo          state.Repository
 	repoFactory   state.RepositoryFactory
@@ -109,14 +114,16 @@ type runtime struct {
 }
 
 // NewBrokerRuntime creates broker runtime
-func NewBrokerRuntime(config config.Broker) server.Service {
+func NewBrokerRuntime(version string, config config.Broker) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		state:  server.New,
-		config: config,
-		ctx:    ctx,
-		cancel: cancel,
-		log:    logger.GetLogger("broker", "Runtime"),
+		version:     version,
+		state:       server.New,
+		config:      config,
+		repoFactory: state.NewRepositoryFactory("broker"),
+		ctx:         ctx,
+		cancel:      cancel,
+		log:         logger.GetLogger("broker", "Runtime"),
 	}
 }
 
@@ -127,13 +134,13 @@ func (r *runtime) Name() string {
 
 // Run runs broker server based on config file
 func (r *runtime) Run() error {
-	ip, err := hostutil.GetHostIP()
+	ip, err := getHostIP()
 	if err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("cannot get server ip address, error:%s", err)
 	}
 
-	hostName, err := os.Hostname()
+	hostName, err := hostName()
 	if err != nil {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
@@ -225,6 +232,13 @@ func (r *runtime) Stop() error {
 		}
 	}
 
+	// close registry, deregister broker node from active list
+	if r.registry != nil {
+		if err := r.registry.Close(); err != nil {
+			r.log.Error("unregister broker node error", logger.Error(err))
+		}
+	}
+
 	if r.master != nil {
 		r.master.Stop()
 	}
@@ -280,7 +294,6 @@ func (r *runtime) startHTTPServer() {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	r.repoFactory = state.NewRepositoryFactory("broker")
 	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
@@ -325,7 +338,7 @@ func (r *runtime) buildAPIDependency() {
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User, r.middleware.authentication),
 		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachines.StorageSM),
-		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
+		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.version, r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),

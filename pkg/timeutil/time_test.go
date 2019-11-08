@@ -1,6 +1,7 @@
 package timeutil
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -67,7 +68,7 @@ func Test_Now(t *testing.T) {
 }
 
 func Test_FormatTimestamp(t *testing.T) {
-	t.Log(FormatTimestamp(Now()*1000, dataTimeFormat1))
+	fmt.Println(FormatTimestamp(Now()*1000, dataTimeFormat2))
 }
 
 func TestTruncate(t *testing.T) {

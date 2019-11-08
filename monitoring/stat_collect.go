@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 type ReportFunc func(stat interface{})
@@ -30,7 +31,7 @@ func NewStatCollect(ctx context.Context, interval time.Duration,
 ) *StatCollect {
 	r := &StatCollect{
 		interval:   interval,
-		storage:    storage,
+		storage:    fileutil.GetExistPath(storage),
 		reporter:   reporter,
 		timer:      time.NewTimer(interval),
 		systemStat: &models.SystemStat{},

@@ -27,7 +27,7 @@ func TestBrokerAPI_ListBrokerNodes(t *testing.T) {
 
 	stateMachine := broker.NewMockNodeStateMachine(ctrl)
 	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
-	api := NewBrokerAPI(context.TODO(), repo, stateMachine)
+	api := NewBrokerAPI(context.TODO(), repo, "test-version", stateMachine)
 
 	// get success
 	mock.DoRequest(t, &mock.HTTPHandler{
@@ -45,7 +45,7 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	stateMachine := broker.NewMockNodeStateMachine(ctrl)
-	api := NewBrokerAPI(context.TODO(), repo, stateMachine)
+	api := NewBrokerAPI(context.TODO(), repo, "test-version", stateMachine)
 
 	// get stat list err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -92,8 +92,9 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 		HandlerFunc:    api.ListBrokersStat,
 		ExpectHTTPCode: 200,
 		ExpectResponse: []models.NodeStat{{
-			Node:   node,
-			System: system,
+			Node:    node,
+			System:  system,
+			Version: "test-version",
 		}},
 	})
 }

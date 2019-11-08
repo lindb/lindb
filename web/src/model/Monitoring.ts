@@ -1,6 +1,7 @@
 export type NodeList = Node[]
 
 export interface Node {
+  version:string,
   node: {
     node: { ip: string, port: number, hostName: string },
     onlineTime: number,

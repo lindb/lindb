@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
@@ -56,6 +57,19 @@ func Exist(file string) bool {
 		return false
 	}
 	return true
+}
+
+// GetExistPath get exist path based on given path
+func GetExistPath(path string) string {
+	if Exist(path) {
+		return path
+	}
+	dir, _ := filepath.Split(path)
+	length := len(dir)
+	if length > 0 && os.IsPathSeparator(dir[length-1]) {
+		dir = dir[:length-1]
+	}
+	return GetExistPath(dir)
 }
 
 // EncodeToml encodes data into file using toml format,

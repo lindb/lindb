@@ -16,15 +16,17 @@ import (
 // BrokerAPI represents query broker state api from broker state machine
 type BrokerAPI struct {
 	ctx          context.Context
+	version      string
 	repo         state.Repository
 	stateMachine broker.NodeStateMachine
 }
 
 // NewBrokerAPI creates the broker state api
-func NewBrokerAPI(ctx context.Context, repo state.Repository, stateMachine broker.NodeStateMachine) *BrokerAPI {
+func NewBrokerAPI(ctx context.Context, repo state.Repository, version string, stateMachine broker.NodeStateMachine) *BrokerAPI {
 	return &BrokerAPI{
 		ctx:          ctx,
 		repo:         repo,
+		version:      version,
 		stateMachine: stateMachine,
 	}
 }
@@ -62,8 +64,9 @@ func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
 		nodeID := node.Node.Indicator()
 		stat := nodesStat[nodeID]
 		result = append(result, models.NodeStat{
-			Node:   node,
-			System: stat,
+			Version: s.version,
+			Node:    node,
+			System:  stat,
 		})
 	}
 	api.OK(w, result)
