@@ -1,13 +1,11 @@
-import * as React from 'react'
-import NodeInfo from './NodeInfo'
+import { Card, Tag } from 'antd'
 import { observer } from 'mobx-react'
-import { Card, Table, Tag, Divider } from 'antd'
-import { getBrokerCluster, getMaster } from '../../service/monitoring'
-import { NodeList } from '../../model/Monitoring'
+import * as React from 'react'
+import { NodeList, StorageCluster } from '../../model/Monitoring'
+import { getBrokerCluster, getMaster, listStorageCluster } from '../../service/monitoring'
 import { dateFormatter } from '../../utils/util'
-import StorageCluster from './StorageCluster'
-
-const { Column } = Table
+import NodeInfo from './NodeInfo'
+import StorageClusterInfo from './StorageClusterInfo'
 
 interface OverviewProps {
 }
@@ -17,6 +15,7 @@ interface OverviewState {
   port: number
   electTime: number
   brokers: NodeList
+  storageClusters: Array<StorageCluster>
 }
 
 @observer
@@ -29,6 +28,7 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
       port: 0,
       electTime: 0,
       brokers: [],
+      storageClusters: [],
     }
   }
 
@@ -39,6 +39,7 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
   init() {
     this.getMaster()
     this.getBrokersList()
+    this.listStorageCluster()
   }
 
   async getMaster() {
@@ -56,8 +57,15 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
     }
   }
 
+  async listStorageCluster() {
+    const storageClusters: any = await listStorageCluster()
+    if (storageClusters) {
+      this.setState({ storageClusters })
+    }
+  }
+
   render() {
-    const { ip, port, electTime, brokers } = this.state
+    const { ip, port, electTime, brokers, storageClusters } = this.state
 
     return (
       <div>
@@ -72,41 +80,12 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
         </Card>
 
         {/* Node */}
-        <Card size="small" title="Node">
+        <Card size="small" title="Broker Node List">
           <NodeInfo nodes={brokers} />
         </Card>
         {/* Storage Cluster Overview*/}
-        <Card size="small" title="Storeage Cluster">
-          <Divider orientation="left">Storage Cluster 1</Divider>
-          <StorageCluster />
-          <Divider orientation="left" style={{ paddingTop: 10 }}>Storage Cluster 2</Divider>
-          <StorageCluster />
-          <Divider orientation="left" style={{ paddingTop: 10 }}>Storage Cluster 3</Divider>
-          <StorageCluster />
-        </Card>
-
-        {/* Dead Node */}
-        <Card size="small" title="Dead Node" loading={false}>
-          <Table dataSource={[]} size="small">
-            <Column title="ID" dataIndex="id" key="id" />
-            <Column title="Host Name" dataIndex="hostname" key="hostname" />
-            <Column title="IP" dataIndex="ip" key="ip" />
-            <Column title="TCP Port" dataIndex="tcpPort" key="tcpPort" />
-            <Column title="Dead Time" dataIndex="deadTime" key="deadTime" />
-          </Table>
-        </Card>
-
-        {/* Database */}
-        <Card size="small" title="Database" loading={false}>
-          <Table dataSource={[]} size="small">
-            <Column title="Name" dataIndex="Name" key="Name" />
-            <Column title="Num. Shard" dataIndex="Shard" key="Shard" />
-            <Column title="Num. Leader" dataIndex="Leader" key="Leader" />
-            <Column title="Num. Live Replica" dataIndex="Live" key="Live" />
-            <Column title="Num. ISR Replica" dataIndex="ISR" key="ISR" />
-            <Column title="Num. Replica" dataIndex="Replica" key="Replica" />
-            <Column title="Description" dataIndex="Description" key="Description" />
-          </Table>
+        <Card size="small" title="Storeage Cluster List">
+          <StorageClusterInfo storageClusterList={storageClusters} />
         </Card>
       </div>
     )

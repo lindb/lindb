@@ -57,7 +57,7 @@ func NewStorageStateMachine(ctx context.Context,
 		log:               log,
 	}
 	repo := discoveryFactory.GetRepo()
-	clusterList, err := repo.List(c, constants.StorageClusterStatePath)
+	clusterList, err := repo.List(c, constants.StorageClusterNodeStatePath)
 	if err != nil {
 		return nil, fmt.Errorf("get storage cluster state list error:%s", err)
 	}
@@ -67,7 +67,7 @@ func NewStorageStateMachine(ctx context.Context,
 		stateMachine.addCluster(cluster.Value)
 	}
 	// new storage config discovery
-	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterStatePath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterNodeStatePath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery storage cluster state error:%s", err)
 	}

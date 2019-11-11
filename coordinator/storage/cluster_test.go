@@ -129,4 +129,66 @@ func TestStorageCluster(t *testing.T) {
 	discovery1.EXPECT().Close()
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
 	cluster.Close()
+
+}
+
+func TestCluster_CollectStat(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	factory := NewClusterFactory()
+	storage := config.StorageCluster{
+		Config: config.RepoState{Namespace: "storage"},
+	}
+	discoveryFactory := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+
+	storageService := service.NewMockStorageStateService(ctrl)
+	repo := state.NewMockRepository(ctrl)
+	discovery1.EXPECT().Discovery().Return(nil)
+
+	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	controller := task.NewMockController(ctrl)
+	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
+	controllerFactory := task.NewMockControllerFactory(ctrl)
+	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
+	cfg := clusterCfg{
+		storageStateService: storageService,
+		cfg:                 storage,
+		repo:                repo,
+		factory:             discoveryFactory,
+		controllerFactory:   controllerFactory,
+	}
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
+	cluster1, err := factory.newCluster(cfg)
+	assert.Nil(t, err)
+	assert.NotNil(t, cluster1)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	stat, err := cluster1.CollectStat()
+	assert.Error(t, err)
+	assert.Nil(t, stat)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/test/test", Value: []byte{1, 1}}}, nil)
+	stat, err = cluster1.CollectStat()
+	assert.Error(t, err)
+	assert.Nil(t, stat)
+
+	activeNode := models.ActiveNode{
+		Node: models.Node{IP: "1.1.1.1", Port: 9000},
+	}
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Key: "/test/1.1.1.1:9000", Value: encoding.JSONMarshal(&models.NodeStat{Node: activeNode})},
+		{Key: "/test/test-2", Value: encoding.JSONMarshal(&models.NodeStat{Node: models.ActiveNode{
+			Node: models.Node{IP: "1.1.1.2", Port: 9000},
+		}})},
+	}, nil)
+	cluster2 := cluster1.(*cluster)
+	cluster2.clusterState = &models.StorageState{
+		Name:        "/test",
+		ActiveNodes: map[string]*models.ActiveNode{"1.1.1.1:9000": &activeNode},
+	}
+	stat, err = cluster1.CollectStat()
+	assert.NoError(t, err)
+	assert.NotNil(t, stat)
 }

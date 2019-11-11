@@ -41,7 +41,7 @@ func (s *storageStateService) Save(clusterName string, storageState *models.Stor
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if err := s.repo.Put(ctx, constants.GetStorageClusterStatePath(clusterName), data); err != nil {
+	if err := s.repo.Put(ctx, constants.GetStorageClusterNodeStatePath(clusterName), data); err != nil {
 		return err
 	}
 	return nil
@@ -52,7 +52,7 @@ func (s *storageStateService) Get(clusterName string) (*models.StorageState, err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	data, err := s.repo.Get(ctx, constants.GetStorageClusterStatePath(clusterName))
+	data, err := s.repo.Get(ctx, constants.GetStorageClusterNodeStatePath(clusterName))
 	if err != nil {
 		return nil, err
 	}

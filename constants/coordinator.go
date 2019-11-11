@@ -11,7 +11,7 @@ const (
 	// ActiveNodesPath represents active nodes prefix path for node register
 	ActiveNodesPath = "/active/nodes"
 	// StateNodesPath represents the state of node that node will report runtime status
-	StateNodesPath = "/status/nodes"
+	StateNodesPath = "/state/nodes"
 )
 
 // defines storage level constants will be used in storage
@@ -28,10 +28,12 @@ const (
 	// DatabaseConfigPath represents database config path
 	DatabaseConfigPath = "/database/config"
 
-	// StorageClusterStatePath represents storage cluster state
-	StorageClusterStatePath = "/state/storage/cluster"
+	// StorageClusterNodeStatePath represents storage cluster's node state
+	StorageClusterNodeStatePath = "/state/storage/nodes/cluster"
 	// ReplicaStatePath represents the replica's state
 	ReplicaStatePath = "/state/replica"
+	// StorageClusterStatPath represents storage cluster's node monitoring stat
+	StorageClusterStatPath = "/state/storage/stat/cluster"
 )
 
 // defines all task kinds
@@ -45,9 +47,14 @@ func GetStorageClusterConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", StorageClusterConfigPath, name)
 }
 
-// GetStorageClusterStatePath returns path whine storing state of storage cluster
-func GetStorageClusterStatePath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageClusterStatePath, name)
+// GetStorageClusterNodeStatePath returns path whine storing state of storage cluster
+func GetStorageClusterNodeStatePath(name string) string {
+	return fmt.Sprintf("%s/%s", StorageClusterNodeStatePath, name)
+}
+
+// GetStorageClusterStatPath returns path whine storing monitoring stat of storage cluster
+func GetStorageClusterStatPath(name string) string {
+	return fmt.Sprintf("%s/%s", StorageClusterStatPath, name)
 }
 
 // GetDatabaseConfigPath returns path which storing config of database
