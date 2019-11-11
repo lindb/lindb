@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/lindb/lindb/models"
 )
 
 type mockReport struct {
@@ -22,6 +24,6 @@ func TestNewStatusReporter(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	_ = NewStatCollect(ctx, 10*time.Millisecond, "/tmp", &mockReport{wg: &wg, cancel: cancel})
+	_ = NewStatCollect(ctx, 10*time.Millisecond, "/tmp", &mockReport{wg: &wg, cancel: cancel}, models.ActiveNode{})
 	wg.Wait()
 }

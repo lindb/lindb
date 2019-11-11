@@ -43,7 +43,7 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("standalone"),
 		broker:      broker.NewBrokerRuntime(version, config.Broker{BrokerKernel: cfg.Broker}),
-		storage:     storage.NewStorageRuntime(config.Storage{StorageKernel: cfg.Storage}),
+		storage:     storage.NewStorageRuntime(version, config.Storage{StorageKernel: cfg.Storage}),
 		cfg:         cfg,
 	}
 }

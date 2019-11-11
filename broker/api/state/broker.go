@@ -16,25 +16,17 @@ import (
 // BrokerAPI represents query broker state api from broker state machine
 type BrokerAPI struct {
 	ctx          context.Context
-	version      string
 	repo         state.Repository
 	stateMachine broker.NodeStateMachine
 }
 
 // NewBrokerAPI creates the broker state api
-func NewBrokerAPI(ctx context.Context, repo state.Repository, version string, stateMachine broker.NodeStateMachine) *BrokerAPI {
+func NewBrokerAPI(ctx context.Context, repo state.Repository, stateMachine broker.NodeStateMachine) *BrokerAPI {
 	return &BrokerAPI{
 		ctx:          ctx,
 		repo:         repo,
-		version:      version,
 		stateMachine: stateMachine,
 	}
-}
-
-// ListBrokerNodes lists all alive broker nodes
-func (s *BrokerAPI) ListBrokerNodes(w http.ResponseWriter, r *http.Request) {
-	nodes := s.stateMachine.GetActiveNodes()
-	api.OK(w, nodes)
 }
 
 func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
@@ -43,31 +35,27 @@ func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	// decoding system stat
-	nodesStat := make(map[string]models.SystemStat)
+	// get active nodes
+	nodes := s.stateMachine.GetActiveNodes()
+	nodeIDs := make(map[string]string)
+	for _, node := range nodes {
+		id := node.Node.Indicator()
+		nodeIDs[id] = id
+	}
+	// build result
+	var result []models.NodeStat
 	for _, kv := range kvs {
 		_, nodeID := filepath.Split(kv.Key)
-		stat := models.SystemStat{}
+		stat := models.NodeStat{}
 		if err := encoding.JSONUnmarshal(kv.Value, &stat); err != nil {
 			api.Error(w, err)
 			return
 		}
-		nodesStat[nodeID] = stat
-	}
-
-	// get active nodes
-	nodes := s.stateMachine.GetActiveNodes()
-
-	// build result
-	var result []models.NodeStat
-	for _, node := range nodes {
-		nodeID := node.Node.Indicator()
-		stat := nodesStat[nodeID]
-		result = append(result, models.NodeStat{
-			Version: s.version,
-			Node:    node,
-			System:  stat,
-		})
+		_, ok := nodeIDs[nodeID]
+		if !ok {
+			stat.IsDead = true
+		}
+		result = append(result, stat)
 	}
 	api.OK(w, result)
 }

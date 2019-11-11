@@ -23,7 +23,11 @@ func TestGetStorageClusterConfigPath(t *testing.T) {
 
 }
 func TestGetStorageClusterStatePath(t *testing.T) {
-	assert.Equal(t, StorageClusterStatePath+"/name", GetStorageClusterStatePath("name"))
+	assert.Equal(t, StorageClusterNodeStatePath+"/name", GetStorageClusterNodeStatePath("name"))
+}
+
+func TestGetStorageClusterStatPath(t *testing.T) {
+	assert.Equal(t, StorageClusterStatPath+"/name", GetStorageClusterStatPath("name"))
 }
 
 func TestGetReplicaStatePath(t *testing.T) {

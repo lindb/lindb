@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
@@ -337,8 +338,8 @@ func (r *runtime) buildAPIDependency() {
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
 		loginAPI:          api.NewLoginAPI(r.config.User, r.middleware.authentication),
-		storageStateAPI:   stateAPI.NewStorageAPI(r.stateMachines.StorageSM),
-		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.version, r.stateMachines.NodeSM),
+		storageStateAPI:   stateAPI.NewStorageAPI(r.ctx, r.repo, r.stateMachines.StorageSM, r.srv.shardAssignService, r.srv.databaseService),
+		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
@@ -359,8 +360,8 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
 	api.AddRoute("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
 
-	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/state/list", handlers.storageStateAPI.ListStorageCluster)
-	api.AddRoute("ListBrokerNodesState", http.MethodGet, "/broker/node/state", handlers.brokerStateAPI.ListBrokerNodes)
+	api.AddRoute("ListStorageClusterNodesState", http.MethodGet, "/storage/cluster/state", handlers.storageStateAPI.GetStorageClusterState)
+	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/cluster/state/list", handlers.storageStateAPI.ListStorageClusterState)
 	api.AddRoute("ListBrokerClusterState", http.MethodGet, "/broker/cluster/state", handlers.brokerStateAPI.ListBrokersStat)
 
 	api.AddRoute("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
@@ -434,5 +435,9 @@ func (r *runtime) buildTCPHandlers() {
 func (r *runtime) monitoring() {
 	report := monitoring.NewHeartbeatReporter(r.ctx, r.repo, constants.GetNodeMonitoringStatPath(r.node.Indicator()))
 	//TODO ?? stop?? and config interval??
-	_ = monitoring.NewStatCollect(r.ctx, 30*time.Second, r.config.ReplicationChannel.Dir, report)
+	_ = monitoring.NewStatCollect(r.ctx, 30*time.Second, r.config.ReplicationChannel.Dir, report, models.ActiveNode{
+		Version:    r.version,
+		Node:       r.node,
+		OnlineTime: timeutil.Now(),
+	})
 }

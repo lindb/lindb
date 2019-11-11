@@ -1,12 +1,9 @@
+import { Badge, Col, Progress, Row, Table } from 'antd'
 import * as React from 'react'
-import { Icon, Table, Tabs, Progress, Row, Col, Badge } from 'antd'
 import { NodeList } from '../../model/Monitoring'
 import { DataFormatter } from '../../utils/dataFormatter'
 
 const uuidv4 = require('uuid/v4')
-
-const { TabPane } = Tabs
-const { Column } = Table
 
 interface NodeInfoProps extends NodeListTableProps {
 }
@@ -21,19 +18,20 @@ export default class NodeInfo extends React.Component<NodeInfoProps, NodeInfoSta
   }
 
   render() {
-    const { nodes } = this.props
+    const { nodes, isStorage } = this.props
 
-    return (<BrokersListTable nodes={nodes} />)
+    return (<BrokersListTable nodes={nodes} isStorage={isStorage} />)
   }
 }
 
 interface NodeListTableProps {
   nodes: NodeList
+  isStorage?: boolean
 }
 
 class BrokersListTable extends React.Component<NodeListTableProps> {
   render() {
-    const { nodes } = this.props
+    const { nodes, isStorage } = this.props
     const columns = [
       {
         title: 'Address',
@@ -112,9 +110,17 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
       },
       {
         title: 'Version',
-        dataIndex: 'version',
+        dataIndex: 'node.version',
       },
     ];
+    if (isStorage) {
+      console.log("ssssss", columns)
+      columns.splice(2, 0, {
+        title: 'Replicas',
+        dataIndex: 'replicas',
+      })
+    }
+    console.log("after", columns)
     return (
       <Table dataSource={nodes} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />
     )

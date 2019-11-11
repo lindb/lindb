@@ -16,36 +16,13 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-func TestBrokerAPI_ListBrokerNodes(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	repo := state.NewMockRepository(ctrl)
-
-	node := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 2080}, OnlineTime: timeutil.Now()}
-	nodes := []models.ActiveNode{node}
-
-	stateMachine := broker.NewMockNodeStateMachine(ctrl)
-	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
-	api := NewBrokerAPI(context.TODO(), repo, "test-version", stateMachine)
-
-	// get success
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state",
-		HandlerFunc:    api.ListBrokerNodes,
-		ExpectHTTPCode: 200,
-		ExpectResponse: nodes,
-	})
-}
-
 func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
 	stateMachine := broker.NewMockNodeStateMachine(ctrl)
-	api := NewBrokerAPI(context.TODO(), repo, "test-version", stateMachine)
+	api := NewBrokerAPI(context.TODO(), repo, stateMachine)
 
 	// get stat list err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -56,15 +33,19 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	// get stat list err
+	// decoding stat err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
 		{
 			Key:   "/test/1.1.1.1:2080",
 			Value: []byte{1, 2, 3},
 		},
 	}, nil)
-
-	// decoding stat err
+	node := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 2080}, OnlineTime: timeutil.Now()}
+	nodes := []models.ActiveNode{node}
+	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
+	system := models.SystemStat{
+		CPUs: 100,
+	}
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state",
@@ -72,29 +53,36 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	node := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 2080}, OnlineTime: timeutil.Now()}
-	nodes := []models.ActiveNode{node}
+	// success
 	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
-	system := models.SystemStat{
-		CPUs: 100,
-	}
-	// get stat list err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
 		{
-			Key:   "/test/1.1.1.1:2080",
-			Value: encoding.JSONMarshal(&system),
+			Key: "/test/1.1.1.1:2080",
+			Value: encoding.JSONMarshal(&models.NodeStat{
+				Node:   node,
+				System: system,
+			}),
+		},
+		{
+			Key: "/test/1.1.1.2:2080",
+			Value: encoding.JSONMarshal(&models.NodeStat{
+				Node:   node,
+				System: system,
+			}),
 		},
 	}, nil)
-	// success
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
 		URL:            "/broker/state",
 		HandlerFunc:    api.ListBrokersStat,
 		ExpectHTTPCode: 200,
 		ExpectResponse: []models.NodeStat{{
-			Node:    node,
-			System:  system,
-			Version: "test-version",
+			Node:   node,
+			System: system,
+		}, {
+			Node:   node,
+			System: system,
+			IsDead: true,
 		}},
 	})
 }

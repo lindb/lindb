@@ -19,6 +19,7 @@ type StatCollect struct {
 	timer    *time.Timer
 
 	systemStat *models.SystemStat
+	nodeStat   *models.NodeStat
 
 	ctx context.Context
 
@@ -27,7 +28,7 @@ type StatCollect struct {
 
 // NewStatCollect creates a stat collector
 func NewStatCollect(ctx context.Context, interval time.Duration,
-	storage string, reporter Reporter,
+	storage string, reporter Reporter, node models.ActiveNode,
 ) *StatCollect {
 	r := &StatCollect{
 		interval:   interval,
@@ -35,7 +36,10 @@ func NewStatCollect(ctx context.Context, interval time.Duration,
 		reporter:   reporter,
 		timer:      time.NewTimer(interval),
 		systemStat: &models.SystemStat{},
-		ctx:        ctx,
+		nodeStat: &models.NodeStat{
+			Node: node,
+		},
+		ctx: ctx,
 	}
 	go r.start()
 	return r
@@ -44,6 +48,11 @@ func NewStatCollect(ctx context.Context, interval time.Duration,
 // start starts a background goroutine that collects the monitoring stat
 func (r *StatCollect) start() {
 	defer r.timer.Stop()
+	// collect system status
+	r.collect()
+	// report system status
+	r.report()
+
 	for {
 		select {
 		case <-r.timer.C:
@@ -75,5 +84,6 @@ func (r *StatCollect) report() {
 	r.mux.RLock()
 	defer r.mux.RUnlock()
 
-	r.reporter.Report(r.systemStat)
+	r.nodeStat.System = *r.systemStat
+	r.reporter.Report(r.nodeStat)
 }

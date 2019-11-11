@@ -1,6 +1,10 @@
 package models
 
-import "github.com/lindb/lindb/pkg/option"
+import (
+	"fmt"
+
+	"github.com/lindb/lindb/pkg/option"
+)
 
 // Database defines database config, database can include multi-cluster
 type Database struct {
@@ -8,7 +12,16 @@ type Database struct {
 	Cluster       string                `json:"cluster"`       // storage cluster's name
 	NumOfShard    int                   `json:"numOfShard"`    // num. of shard
 	ReplicaFactor int                   `json:"replicaFactor"` // replica refactor
-	Option        option.DatabaseOption `json:"option"`        // time series databae option
+	Option        option.DatabaseOption `json:"option"`        // time series database option
+	Desc          string                `json:"desc,omitempty"`
+}
+
+// String returns the database's description
+func (db Database) String() string {
+	result := "create database " + db.Name + " with "
+	result += "shard " + fmt.Sprintf("%d", db.NumOfShard) + ", replica " + fmt.Sprintf("%d", db.ReplicaFactor)
+	result += ", interval " + db.Option.Interval
+	return result
 }
 
 // Replica defines replica list for spec shard of database

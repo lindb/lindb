@@ -2,9 +2,41 @@ package models
 
 // NodeStat represents the node monitoring stat
 type NodeStat struct {
-	Version string     `json:"version"`
-	Node    ActiveNode `json:"node,omitempty"`
-	System  SystemStat `json:"system,omitempty"`
+	Node     ActiveNode `json:"node,omitempty"`
+	System   SystemStat `json:"system,omitempty"`
+	Replicas int        `json:"replicas"` // the number of replica under the node
+	IsDead   bool       `json:"isDead"`
+}
+
+// StorageClusterStat represents the storage cluster's stat
+type StorageClusterStat struct {
+	Name               string           `json:"name,omitempty"`
+	Nodes              []*NodeStat      `json:"nodes,omitempty"`
+	NodeStatus         NodeStatus       `json:"nodeStatus,omitempty"`
+	ReplicaStatus      ReplicaStatus    `json:"replicaStatus,omitempty"`
+	Capacity           DiskStat         `json:"capacity,omitempty"`
+	DatabaseStatusList []DatabaseStatus `json:"databaseStatusList,omitempty"`
+}
+
+// DatabaseStatus represents the database's status
+type DatabaseStatus struct {
+	Config        Database      `json:"config,omitempty"`
+	ReplicaStatus ReplicaStatus `json:"replicaStatus,omitempty"`
+}
+
+// NodeStatus represents the status of cluster node
+type NodeStatus struct {
+	Total   int `json:"total"`
+	Alive   int `json:"alive"`
+	Suspect int `json:"suspect"`
+	Dead    int `json:"dead"`
+}
+
+// ReplicaStatus represents the status of replica
+type ReplicaStatus struct {
+	Total           int `json:"total"`
+	UnderReplicated int `json:"underReplicated"`
+	Unavailable     int `json:"unavailable"`
 }
 
 // SystemStat represents the system statistics

@@ -12,8 +12,8 @@ const (
 
 	// Check if the global memory usage is greater than the limit,
 	// If so, engine will flush the biggest shard's memdb until we are down to the lower mark.
-	MemoryHighWaterMark = 0.8
-	MemoryLowWaterMark  = 0.6
+	MemoryHighWaterMark = 80
+	MemoryLowWaterMark  = 60
 	// Check if shard's memory usage is greater than this limit,
 	// If so, engine will flush this shard to disk
 	ShardMemoryUsedThreshold = 500 * 1024 * 1024

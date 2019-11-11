@@ -4,17 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/monitoring"
 	taskHandler "github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
@@ -48,8 +51,9 @@ var hostName = os.Hostname
 
 // runtime represents storage runtime dependency
 type runtime struct {
-	state  server.State
-	config config.Storage
+	state   server.State
+	version string
+	config  config.Storage
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -68,11 +72,12 @@ type runtime struct {
 }
 
 // NewStorageRuntime creates storage runtime
-func NewStorageRuntime(config config.Storage) server.Service {
+func NewStorageRuntime(version string, config config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("storage"),
+		version:     version,
 		config:      config,
 		ctx:         ctx,
 		cancel:      cancel,
@@ -127,6 +132,8 @@ func (r *runtime) Run() error {
 	r.taskExecutor = task.NewTaskExecutor(r.ctx, &r.node, r.repo, r.srv.storageService)
 	r.taskExecutor.Run()
 
+	// start stat monitoring
+	r.monitoring()
 	r.state = server.Running
 	return nil
 }
@@ -228,4 +235,14 @@ func (r *runtime) bindRPCHandlers() {
 	//TODO add task service ??????
 	storage.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
 	common.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
+}
+
+func (r *runtime) monitoring() {
+	report := monitoring.NewHeartbeatReporter(r.ctx, r.repo, constants.GetNodeMonitoringStatPath(r.node.Indicator()))
+	//TODO ?? stop?? and config interval??
+	_ = monitoring.NewStatCollect(r.ctx, 30*time.Second, r.config.Engine.Dir, report, models.ActiveNode{
+		Version:    r.version,
+		Node:       r.node,
+		OnlineTime: timeutil.Now(),
+	})
 }

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
@@ -47,6 +49,9 @@ type clusterStateMachine struct {
 
 	clusters map[string]Cluster
 
+	interval time.Duration
+	timer    *time.Timer
+
 	mutex sync.RWMutex
 	log   *logger.Logger
 }
@@ -74,6 +79,7 @@ func NewClusterStateMachine(
 		controllerFactory:   controllerFactory,
 		shardAssignService:  shardAssignService,
 		clusters:            make(map[string]Cluster),
+		interval:            30 * time.Second, //TODO add config ?
 		log:                 log,
 	}
 	clusterList, err := repo.List(c, constants.StorageClusterConfigPath)
@@ -90,6 +96,9 @@ func NewClusterStateMachine(
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery storage cluster config error:%s", err)
 	}
+	// start collect cluster stat goroutine
+	stateMachine.timer = time.NewTimer(stateMachine.interval)
+	go stateMachine.collectStat()
 	log.Info("storage cluster state machine started")
 	return stateMachine, nil
 }
@@ -137,8 +146,42 @@ func (c *clusterStateMachine) Close() error {
 	c.cleanupCluster()
 	c.mutex.Unlock()
 
+	c.timer.Stop()
 	c.cancel()
 	return nil
+}
+
+func (c *clusterStateMachine) collectStat() {
+	for {
+		select {
+		case <-c.timer.C:
+			c.collect()
+			// reset time interval
+			c.timer.Reset(c.interval)
+		case <-c.ctx.Done():
+			return
+		}
+	}
+}
+
+func (c *clusterStateMachine) collect() {
+	c.log.Info("start collect storage cluster stat")
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	for name, cluster := range c.clusters {
+		stat, err := cluster.CollectStat()
+		if err != nil {
+			c.log.Warn("collect storage cluster stat", logger.String("cluster", name), logger.Error(err))
+			continue
+		}
+		stat.Name = name
+		if err := c.repo.Put(c.ctx, constants.GetStorageClusterStatPath(name), encoding.JSONMarshal(stat)); err != nil {
+			c.log.Warn("save storage cluster stat", logger.String("cluster", name), logger.Error(err))
+			continue
+		}
+	}
 }
 
 // cleanupCluster cleanups cluster controller

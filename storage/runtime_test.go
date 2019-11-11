@@ -50,7 +50,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	// test normal storage run
 	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
 	cfg.GRPC.Port = 9999
-	storage := NewStorageRuntime(cfg)
+	storage := NewStorageRuntime("test-version", cfg)
 	err := storage.Run()
 	assert.NoError(ts.t, err)
 	c.Assert(server.Running, check.Equals, storage.State())
@@ -79,7 +79,7 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 		hostName = os.Hostname
 	}()
 	cfg.GRPC.Port = 8889
-	storage := NewStorageRuntime(cfg)
+	storage := NewStorageRuntime("test-version", cfg)
 	getHostIP = func() (string, error) {
 		return "test-ip", fmt.Errorf("err")
 	}
@@ -94,7 +94,7 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 	}
 	cfg.GRPC.Port = 8887
 	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
-	storage = NewStorageRuntime(cfg)
+	storage = NewStorageRuntime("test-version", cfg)
 	err = storage.Run()
 	assert.Nil(ts.t, err)
 	err = storage.Stop()
@@ -105,7 +105,7 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_Err(c *check.C) {
 	defer ctrl.Finish()
 
 	cfg.GRPC.Port = 8886
-	storage := NewStorageRuntime(cfg)
+	storage := NewStorageRuntime("test-version", cfg)
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
