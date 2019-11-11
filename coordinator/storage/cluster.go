@@ -67,6 +67,9 @@ type Cluster interface {
 	// GetActiveNodes returns all active nodes
 	GetActiveNodes() []*models.ActiveNode
 
+	// CollectStat collects storage cluster's stat
+	CollectStat() (*models.StorageClusterStat, error)
+
 	// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 	GetShardAssign(databaseName string) (*models.ShardAssignment, error)
 
@@ -98,7 +101,6 @@ type cluster struct {
 	taskController task.Controller
 
 	clusterState *models.StorageState
-	databases    map[string]*models.Database
 
 	mutex sync.RWMutex
 }
@@ -108,7 +110,6 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster := &cluster{
 		cfg:          cfg,
 		clusterState: models.NewStorageState(),
-		databases:    make(map[string]*models.Database),
 	}
 	// init active nodes if exist
 	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
@@ -164,6 +165,27 @@ func (c *cluster) GetActiveNodes() []*models.ActiveNode {
 	activeNodes := c.clusterState.GetActiveNodes()
 	c.mutex.RUnlock()
 	return activeNodes
+}
+
+func (c *cluster) CollectStat() (*models.StorageClusterStat, error) {
+	kvs, err := c.GetRepo().List(c.cfg.ctx, constants.StateNodesPath)
+	if err != nil {
+		return nil, err
+	}
+	// build result
+	var result []*models.NodeStat
+	for _, kv := range kvs {
+		_, nodeID := filepath.Split(kv.Key)
+		stat := &models.NodeStat{}
+		if err := encoding.JSONUnmarshal(kv.Value, stat); err != nil {
+			return nil, err
+		}
+		_, ok := c.clusterState.ActiveNodes[nodeID]
+		if ok {
+			result = append(result, stat)
+		}
+	}
+	return &models.StorageClusterStat{Nodes: result}, err
 }
 
 // GetShardAssign returns shard assignment by database name, return not exist err if it not exist

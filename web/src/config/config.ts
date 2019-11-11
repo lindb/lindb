@@ -13,6 +13,8 @@ export const PATH = {
   database: '/database',
   master: '/cluster/master',
   brokerClusterState: '/broker/cluster/state',
+  listStorageClusterState: '/storage/cluster/state/list',
+  getStorageClusterState: '/storage/cluster/state',
   databaseList: '/database/list',
   storageCluster: '/storage/cluster',
   storageClusterList: '/storage/cluster/list',
