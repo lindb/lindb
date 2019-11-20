@@ -433,11 +433,29 @@ func (r *runtime) buildTCPHandlers() {
 }
 
 func (r *runtime) monitoring() {
-	report := monitoring.NewHeartbeatReporter(r.ctx, r.repo, constants.GetNodeMonitoringStatPath(r.node.Indicator()))
-	//TODO ?? stop?? and config interval??
-	_ = monitoring.NewStatCollect(r.ctx, 30*time.Second, r.config.ReplicationChannel.Dir, report, models.ActiveNode{
-		Version:    r.version,
-		Node:       r.node,
-		OnlineTime: timeutil.Now(),
-	})
+	systemStatMonitorEnabled := r.config.Monitor.SystemReportIntervalInSeconds > 0
+	if systemStatMonitorEnabled {
+		go monitoring.NewSystemCollector(
+			r.ctx,
+			r.config.Monitor.SystemReportInterval(),
+			r.config.ReplicationChannel.Dir,
+			r.repo,
+			constants.GetNodeMonitoringStatPath(r.node.Indicator()),
+			models.ActiveNode{
+				Version:    r.version,
+				Node:       r.node,
+				OnlineTime: timeutil.Now(),
+			}).Run()
+	}
+
+	// todo: @stone1100, broker metric http post url is not implemented
+	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportIntervalInSeconds > 0
+	if runtimeStatMonitorEnabled {
+		go monitoring.NewRunTimeCollector(
+			r.ctx,
+			fmt.Sprintf("http://localhost:%d/", r.config.BrokerKernel.HTTP), // todo
+			r.config.Monitor.RuntimeReportInterval(),
+			map[string]string{"role": "broker", "version": r.version},
+		)
+	}
 }

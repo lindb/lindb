@@ -30,6 +30,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.9.2 // indirect
 	github.com/hillbig/rsdic v0.0.0-20150805052524-6158e7a2d824
 	github.com/jonboulle/clockwork v0.1.0 // indirect
+	github.com/json-iterator/go v1.1.6
 	github.com/mattn/go-isatty v0.0.8
 	github.com/pkg/errors v0.8.1
 	github.com/plar/go-adaptive-radix-tree v1.0.1
@@ -40,6 +41,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
+	github.com/uber-go/tally v3.3.13+incompatible
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	go.etcd.io/bbolt v1.3.3 // indirect
 	go.uber.org/atomic v1.5.0

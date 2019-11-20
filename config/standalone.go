@@ -10,6 +10,7 @@ type Standalone struct {
 	Broker  BrokerKernel  `toml:"broker"`
 	Storage StorageKernel `toml:"storage"`
 	Logging Logging       `toml:"logging"`
+	Monitor Monitor       `toml:"monitor"`
 }
 
 // ETCD represents embed etcd's configuration
@@ -27,5 +28,6 @@ func NewDefaultStandaloneCfg() Standalone {
 		ETCD: ETCD{
 			Dir: filepath.Join(defaultParentDir, "standalone"),
 			URL: "http://localhost:2379"},
+		Monitor: NewDefaultMonitorCfg(),
 	}
 }
