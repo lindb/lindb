@@ -1,12 +1,15 @@
 package encoding
 
 import (
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("pkg/encoding", "JSONMarshaller")
+var (
+	log  = logger.GetLogger("pkg/encoding", "JSONMarshaller")
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 // JSONMarshal returns the JSON encoding of v.
 func JSONMarshal(v interface{}) []byte {
