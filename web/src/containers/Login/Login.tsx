@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { autobind } from 'core-decorators'
-import { login } from '../../service/login'
+import { login } from '../../service/Login'
 import LoginBackground from './LoginBackground'
 import Footer from '../../components/Layout/Footer'
 import { LOCALSTORAGE_TOKEN } from '../../config/config'

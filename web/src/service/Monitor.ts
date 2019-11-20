@@ -1,4 +1,4 @@
-import { GET } from './http'
+import { GET } from './APIUtils'
 import { PATH } from '../config/config'
 import { NodeList, StorageCluster } from '../model/Monitoring'
 

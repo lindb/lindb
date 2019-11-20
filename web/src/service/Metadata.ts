@@ -1,5 +1,5 @@
 import { METADATA_PATH } from '../config/config'
-import { GET } from './http'
+import { GET } from './APIUtils'
 
 /* get database names */
 export function getDatabaseNames() {

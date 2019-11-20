@@ -12,7 +12,7 @@ import OverviewPage from '../Overview/Overview'
 import StorageClusterDetailPage from '../Overview/StorageClusterDetail'
 import Cluster from '../Setting/Cluster'
 import Database from '../Setting/Database'
-import MonitoringSystem from '../Monitoring/System'
+import MonitoringSystem from '../Monitor/System'
 import { CreateDatabaseWithForm } from '../Setting/NewDatabase'
 
 const { Content: AntDContent } = Layout

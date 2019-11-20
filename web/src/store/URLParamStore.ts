@@ -1,8 +1,8 @@
-import { action, observable } from "mobx";
-import * as R from 'ramda';
-import { isEmpty } from "../utils/URLUtil";
+import { action, observable } from 'mobx'
+import * as R from 'ramda'
+import { isEmpty } from '../utils/URLUtil'
 
-const createHashHistory = require("history").createHashHistory
+const createHashHistory = require('history').createHashHistory
 const hashHistory = createHashHistory()
 
 export class URLParamStore {
@@ -12,10 +12,10 @@ export class URLParamStore {
 
     constructor() { // tslint:disable-line
         this.applyURLChange();
-        window.addEventListener("hashchange", () => {
+        window.addEventListener('hashchange', () => {
             this.applyURLChange();
         });
-        window.addEventListener("popstate", () => {
+        window.addEventListener('popstate', () => {
             this.applyURLChange();
         });
     }
@@ -25,7 +25,7 @@ export class URLParamStore {
         if (value) {
             return value
         }
-        return ""
+        return ''
     }
 
     public getValues(key: string): string[] {
@@ -73,11 +73,11 @@ export class URLParamStore {
         const oldSearchParams = this.getSearchParams();
         const searchParams = clearAll ? new URLSearchParams() : this.getSearchParams();
         let pathname = hash
-        if (hash.startsWith("#")) {
+        if (hash.startsWith('#')) {
             pathname = hash.substring(1, hash.length)
         }
-        if (pathname.indexOf("?") > -1) {
-            pathname = pathname.split("?")[0]
+        if (pathname.indexOf('?') > -1) {
+            pathname = pathname.split('?')[0]
         }
 
         if (!clearAll) {
@@ -87,11 +87,11 @@ export class URLParamStore {
             }
         } else {
             if (!clearTime) {
-                if (oldSearchParams.has("from")) {
-                    searchParams.set("from", oldSearchParams.get("from")!);
+                if (oldSearchParams.has('from')) {
+                    searchParams.set('from', oldSearchParams.get('from')!);
                 }
-                if (oldSearchParams.has("to")) {
-                    searchParams.set("to", oldSearchParams.get("to")!);
+                if (oldSearchParams.has('to')) {
+                    searchParams.set('to', oldSearchParams.get('to')!);
                 }
             }
         }
@@ -109,8 +109,8 @@ export class URLParamStore {
     }
 
     private getSearchParams(): URLSearchParams {
-        if (window.location.href.indexOf("?") > -1) {
-            return new URLSearchParams(window.location.href.split("?")[1]);
+        if (window.location.href.indexOf('?') > -1) {
+            return new URLSearchParams(window.location.href.split('?')[1]);
         } else {
             return new URLSearchParams();
         }

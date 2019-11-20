@@ -5,7 +5,7 @@ import { autobind } from 'core-decorators'
 import { redirectTo } from '../../utils/URLUtil'
 import { FormComponentProps } from 'antd/es/form'
 import { Button, Card, Col, Form, Input, InputNumber, message, Row, Select, Switch } from 'antd'
-import { createDatabase, DatabaseCluster, getStorageClusterList, StorageClusterInfo } from '../../service/storage'
+import { createDatabase, DatabaseCluster, getStorageClusterList, StorageClusterInfo } from '../../service/Storage'
 
 interface CreateDatabaseProps extends FormComponentProps {
 }

@@ -1,5 +1,5 @@
 import * as H from 'history'
-import * as R from "ramda";
+import * as R from 'ramda'
 
 export const history = H.createHashHistory()
 
