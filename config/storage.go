@@ -16,6 +16,7 @@ type StorageKernel struct {
 // Storage represents a storage configuration with common settings
 type Storage struct {
 	StorageKernel
+	Monitor Monitor `toml:"monitor"`
 	Logging Logging `toml:"logging"`
 }
 
@@ -52,6 +53,7 @@ func NewDefaultStorageCfg() Storage {
 				Dir: filepath.Join(defaultParentDir, "storage/replication")},
 			Query: NewDefaultQueryCfg(),
 		},
+		Monitor: NewDefaultMonitorCfg(),
 		Logging: NewDefaultLoggingCfg(),
 	}
 }

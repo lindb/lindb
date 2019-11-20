@@ -18,6 +18,7 @@ type BrokerKernel struct {
 // Broker represents a broker configuration with common settings
 type Broker struct {
 	BrokerKernel
+	Monitor Monitor `toml:"monitor"`
 	Logging Logging `toml:"logging"`
 }
 
@@ -84,6 +85,7 @@ func NewDefaultBrokerCfg() Broker {
 			},
 			Query: NewDefaultQueryCfg(),
 		},
+		Monitor: NewDefaultMonitorCfg(),
 		Logging: NewDefaultLoggingCfg(),
 	}
 }

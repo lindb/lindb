@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -16,26 +15,26 @@ func TestGetCPUs(t *testing.T) {
 }
 
 func TestGetMemoryStat(t *testing.T) {
-	stat := GetMemoryStat()
-	assert.NotNil(t, stat)
+	stat, err := GetMemoryStat()
+	assert.Nil(t, err)
 	assert.True(t, stat.Total > 0)
 	assert.True(t, stat.Used > 0)
 	assert.True(t, stat.UsedPercent > 0)
 }
 
 func TestGetDiskStat(t *testing.T) {
-	fmt.Println(filepath.VolumeName("/tmp/test/test11111"))
-	stat := GetDiskStat("/tmp/test/test111")
-	assert.Nil(t, stat)
+	t.Log(filepath.VolumeName("/tmp/test/test11111"))
+	_, err := GetDiskStat("/tmp/test/test111")
+	assert.NotNil(t, err)
 
-	stat = GetDiskStat(fileutil.GetExistPath("/tmp/test/test11111"))
-	assert.NotNil(t, stat)
+	stat, err := GetDiskStat(fileutil.GetExistPath("/tmp/test/test11111"))
+	assert.Nil(t, err)
 	assert.True(t, stat.Total > 0)
 	assert.True(t, stat.Used > 0)
 	assert.True(t, stat.UsedPercent > 0)
 }
 
 func TestGetCPUStat(t *testing.T) {
-	stat := GetCPUStat()
-	assert.NotNil(t, stat)
+	_, err := GetCPUStat()
+	assert.Nil(t, err)
 }

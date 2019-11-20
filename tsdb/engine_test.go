@@ -124,8 +124,8 @@ func Test_Engine_globalMemoryUsageChecker_LowerThanHighWaterMark(t *testing.T) {
 	}()
 
 	engineImpl, _ := newEngine(engineCfg)
-	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
-		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark - 0.1}
+	engineImpl.memoryStatGetterFunc = func() (*models.MemoryStat, error) {
+		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark - 0.1}, nil
 	}
 	engineImpl.run()
 	defer engineImpl.cancel()
@@ -142,8 +142,8 @@ func Test_Engine_globalMemoryUsageChecker_HigherThan_MemoryHighWaterMark(t *test
 	}()
 
 	engineImpl, _ := newEngine(engineCfg)
-	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
-		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}
+	engineImpl.memoryStatGetterFunc = func() (*models.MemoryStat, error) {
+		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
 	}
 	engineImpl.run()
 	defer engineImpl.cancel()
@@ -160,8 +160,8 @@ func Test_Engine_watermarkFlusher_LowerThan_MemoryLowWaterMark(t *testing.T) {
 	}()
 
 	engineImpl, _ := newEngine(engineCfg)
-	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
-		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark - 0.1}
+	engineImpl.memoryStatGetterFunc = func() (*models.MemoryStat, error) {
+		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark - 0.1}, nil
 	}
 	engineImpl.run()
 	defer engineImpl.cancel()
@@ -177,8 +177,8 @@ func Test_Engine_watermarkFlusher_HigherThan_MemoryLowWaterMark(t *testing.T) {
 	}()
 
 	engineImpl, _ := newEngine(engineCfg)
-	engineImpl.memoryStatGetterFunc = func() *models.MemoryStat {
-		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark + 0.1}
+	engineImpl.memoryStatGetterFunc = func() (*models.MemoryStat, error) {
+		return &models.MemoryStat{UsedPercent: constants.MemoryLowWaterMark + 0.1}, nil
 	}
 	engineImpl.run()
 	defer engineImpl.cancel()

@@ -11,13 +11,10 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 )
-
-type MemoryStatGetter func() *models.MemoryStat
 
 var (
 	globalMemoryUsageCheckInterval = *atomic.NewDuration(time.Second * 1)
@@ -83,15 +80,15 @@ type Engine interface {
 
 // engine implements Engine
 type engine struct {
-	cfg                  config.Engine      // the common cfg of time series database
-	databases            sync.Map           // databaseName -> Database
-	ctx                  context.Context    // context
-	cancel               context.CancelFunc // cancel function of flusher
-	shardToFlushCh       chan Shard         // shard to flush
-	memoryStatGetterFunc MemoryStatGetter   // used for mocking
-	databaseToFlushCh    chan Database      // database to flush
-	isFullFlushing       atomic.Bool        // this flag symbols if engine is in full-flushing process
-	isWatermarkFlushing  atomic.Bool        // this flag symbols if engine is in water-mark flushing
+	cfg                  config.Engine               // the common cfg of time series database
+	databases            sync.Map                    // databaseName -> Database
+	ctx                  context.Context             // context
+	cancel               context.CancelFunc          // cancel function of flusher
+	shardToFlushCh       chan Shard                  // shard to flush
+	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
+	databaseToFlushCh    chan Database               // database to flush
+	isFullFlushing       atomic.Bool                 // this flag symbols if engine is in full-flushing process
+	isWatermarkFlushing  atomic.Bool                 // this flag symbols if engine is in water-mark flushing
 }
 
 // NewEngine creates an engine for manipulating the databases
@@ -208,7 +205,8 @@ func (e *engine) globalMemoryUsageChecker(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// memory is lower than the high-watermark
-			if e.memoryStatGetterFunc().UsedPercent < constants.MemoryHighWaterMark {
+			stat, _ := e.memoryStatGetterFunc()
+			if stat.UsedPercent < constants.MemoryHighWaterMark {
 				continue
 			}
 			// restrict watermarkFlusher concurrency thread-safe
@@ -222,6 +220,11 @@ func (e *engine) globalMemoryUsageChecker(ctx context.Context) {
 func (e *engine) watermarkFlusher(ctx context.Context) {
 	// if watermarkFlusher cancels, marks the flag to false
 	defer e.isWatermarkFlushing.Store(false)
+	// sleep interval between flushing last shard
+	const sleepInterval = time.Millisecond * 50
+	timer := time.NewTimer(sleepInterval)
+	defer timer.Stop()
+
 	for {
 		select {
 		// cancel-case1
@@ -229,10 +232,18 @@ func (e *engine) watermarkFlusher(ctx context.Context) {
 			return
 		default:
 			// cancel-case2: memory is lower than MemoryLowWaterMark
-			if e.memoryStatGetterFunc().UsedPercent < constants.MemoryLowWaterMark {
+			stat, _ := e.memoryStatGetterFunc()
+			if stat.UsedPercent < constants.MemoryLowWaterMark {
 				return
 			}
-			e.flushBiggestMemoryUsageShard(ctx)
+			// prevent entering dead loop
+			select {
+			case <-timer.C:
+				e.flushBiggestMemoryUsageShard(ctx)
+				timer.Reset(sleepInterval)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }

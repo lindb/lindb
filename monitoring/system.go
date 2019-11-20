@@ -1,6 +1,9 @@
 package monitoring
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 
@@ -10,31 +13,39 @@ import (
 )
 
 var log = logger.GetLogger("monitoring", "System")
-var cpus = 0
 
-func init() {
-	cores, err := cpu.Counts(true)
-	if err != nil {
-		log.Error("get cpu cores", logger.Error(err))
-	}
-	cpus = cores
-}
+var (
+	cpuCount      = 0
+	once4CpuCount sync.Once
+)
+
+type (
+	MemoryStatGetter func() (*models.MemoryStat, error)
+	CPUStatGetter    func() (*models.CPUStat, error)
+	DiskStatGetter   func(path string) (*models.DiskStat, error)
+)
 
 // GetCPUs returns the number of logical cores in the system
 func GetCPUs() int {
-	return cpus
+	once4CpuCount.Do(
+		func() {
+			count, err := cpu.Counts(true)
+			if err != nil {
+				log.Error("get cpu cores", logger.Error(err))
+			}
+			cpuCount = count
+		})
+	return cpuCount
 }
 
 // GetCPUStat return the cpu time statistics
-func GetCPUStat() *models.CPUStat {
+func GetCPUStat() (*models.CPUStat, error) {
 	s, err := cpu.Times(false)
 	if err != nil {
-		log.Error("get cpu stat", logger.Error(err))
-		return nil
+		return nil, err
 	}
 	if len(s) == 0 {
-		log.Error("cannot get cpu stat")
-		return nil
+		return nil, fmt.Errorf("cannot get cpu stat")
 	}
 	allStat := s[0]
 	return &models.CPUStat{
@@ -42,34 +53,32 @@ func GetCPUStat() *models.CPUStat {
 		System: allStat.System,
 		Idle:   allStat.Idle,
 		Nice:   allStat.Nice,
-	}
+	}, nil
 }
 
 // GetDiskStat returns a file system usage. path is a filesystem path such
 // as "/", not device file path like "/dev/vda1".
-func GetDiskStat(path string) *models.DiskStat {
+func GetDiskStat(path string) (*models.DiskStat, error) {
 	s, err := disk.Usage(path)
 	if err != nil {
-		log.Error("get disk stat", logger.Error(err))
-		return nil
+		return nil, err
 	}
 	return &models.DiskStat{
 		Total:       s.Total,
 		Used:        s.Used,
 		UsedPercent: s.UsedPercent,
-	}
+	}, nil
 }
 
 // GetMemoryStat return the memory usage statistics
-func GetMemoryStat() *models.MemoryStat {
+func GetMemoryStat() (*models.MemoryStat, error) {
 	v, err := mem.VirtualMemory()
 	if err != nil {
-		log.Error("get memory stat", logger.Error(err))
-		return nil
+		return nil, err
 	}
 	return &models.MemoryStat{
 		Total:       v.Total,
 		Used:        v.Used,
 		UsedPercent: v.UsedPercent,
-	}
+	}, nil
 }
