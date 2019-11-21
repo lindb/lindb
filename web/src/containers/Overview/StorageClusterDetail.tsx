@@ -1,7 +1,7 @@
 import { Card } from 'antd'
 import * as React from 'react'
 import { StorageCluster } from '../../model/Monitoring'
-import { getStorageCluster } from '../../service/monitoring'
+import { getStorageCluster } from '../../service/Monitor'
 import DatabaseStatusList from './DatabaseStatusList'
 import NodeInfo from './NodeInfo'
 import StorageClusterInfo from './StorageClusterInfo'

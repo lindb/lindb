@@ -4,9 +4,9 @@ import { observer } from 'mobx-react'
 import { autobind } from 'core-decorators'
 import { observable, reaction } from 'mobx'
 import StoreManager from '../../store/StoreManager'
-import { DataFormatter } from '../../utils/dataFormatter'
+import { DataFormatter } from '../../utils/DataFormatter'
 import { ChartBorderInfo, ChartTooltipData } from '../../model/Metric'
-import Moment from "react-moment";
+import Moment from 'react-moment';
 
 interface ChartTooltipProps {
 }

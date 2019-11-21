@@ -1,5 +1,5 @@
 import { PATH } from '../config/config'
-import { GET, POST } from './http'
+import { GET, POST } from './APIUtils'
 
 export interface StorageClusterConfig {
   namespace: string

@@ -1,7 +1,7 @@
 import { Badge, Col, Progress, Row, Table } from 'antd'
 import * as React from 'react'
 import { NodeList } from '../../model/Monitoring'
-import { DataFormatter } from '../../utils/dataFormatter'
+import { DataFormatter } from '../../utils/DataFormatter'
 
 const uuidv4 = require('uuid/v4')
 
@@ -114,13 +114,11 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
       },
     ];
     if (isStorage) {
-      console.log("ssssss", columns)
       columns.splice(2, 0, {
         title: 'Replicas',
         dataIndex: 'replicas',
       })
     }
-    console.log("after", columns)
     return (
       <Table dataSource={nodes} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />
     )
