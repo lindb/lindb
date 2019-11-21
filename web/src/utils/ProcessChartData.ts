@@ -1,6 +1,6 @@
 import { getOptions } from '../config/chartConfig';
 import { ChartDatasets, ResultSet, UnitEnum } from '../model/Metric';
-import { getChartColor, toRGBA } from './util';
+import { getChartColor, toRGBA } from './Util';
 
 /**
  * Generate Line Chart data and options

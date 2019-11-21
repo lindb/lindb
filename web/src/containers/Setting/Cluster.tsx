@@ -4,7 +4,7 @@ import { observer } from 'mobx-react'
 import { autobind } from 'core-decorators'
 import { FormComponentProps } from 'antd/es/form'
 import { Button, Table, Modal, Form, Input, Select, Card, message } from 'antd'
-import { createStorage, getStorageClusterList, StorageClusterInfo } from '../../service/storage'
+import { createStorage, getStorageClusterList, StorageClusterInfo } from '../../service/Storage'
 
 const { Column } = Table
 

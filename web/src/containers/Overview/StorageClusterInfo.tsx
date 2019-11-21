@@ -2,7 +2,7 @@ import { Badge, Col, Progress, Row, Table } from 'antd'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
 import { StorageCluster } from '../../model/Monitoring'
-import { DataFormatter } from '../../utils/dataFormatter'
+import { DataFormatter } from '../../utils/DataFormatter'
 import ReplicaStatusInfo from '../../components/ReplicaStatusInfo'
 
 const uuidv4 = require('uuid/v4')
