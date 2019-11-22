@@ -77,8 +77,8 @@ func Test_InitLogger(t *testing.T) {
 	cfg1 := config.Logging{Level: "LLL"}
 	assert.NotNil(t, InitLogger(cfg1))
 
-	cfg2 := config.NewDefaultLoggingCfg()
-	assert.Nil(t, InitLogger(cfg2))
+	cfg2 := config.NewDefaultLogging()
+	assert.Nil(t, InitLogger(*cfg2))
 	thisLogger := GetLogger("test", "test")
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())

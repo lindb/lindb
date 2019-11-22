@@ -108,7 +108,7 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName}
+	r.node = models.Node{IP: ip, Port: r.config.StorageBase.GRPC.Port, HostName: hostName}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 
@@ -123,7 +123,7 @@ func (r *runtime) Run() error {
 
 	// register storage node info
 	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.GRPC.TTL)
+	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.StorageBase.GRPC.TTL.Duration())
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
@@ -144,7 +144,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
+	repo, err := r.repoFactory.CreateRepo(r.config.StorageBase.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}
@@ -190,11 +190,11 @@ func (r *runtime) Stop() error {
 
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() error {
-	sm, err := replication.NewSequenceManager(r.config.Replication.Dir)
+	sm, err := replication.NewSequenceManager(r.config.StorageBase.Replication.Dir)
 	if err != nil {
 		return err
 	}
-	engine, err := tsdb.NewEngine(r.config.Engine)
+	engine, err := tsdb.NewEngine(r.config.StorageBase.TSDB)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (r *runtime) bindRPCHandlers() {
 
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
-		task:   taskHandler.NewTaskHandler(r.config.Query, r.factory.taskServer, dispatcher),
+		task:   taskHandler.NewTaskHandler(r.config.StorageBase.Query, r.factory.taskServer, dispatcher),
 	}
 
 	//TODO add task service ??????
@@ -237,12 +237,12 @@ func (r *runtime) bindRPCHandlers() {
 }
 
 func (r *runtime) monitoring() {
-	systemStatMonitorEnabled := r.config.Monitor.SystemReportIntervalInSeconds > 0
+	systemStatMonitorEnabled := r.config.Monitor.SystemReportInterval > 0
 	if systemStatMonitorEnabled {
 		go monitoring.NewSystemCollector(
 			r.ctx,
-			r.config.Monitor.SystemReportInterval(),
-			r.config.Engine.Dir,
+			r.config.Monitor.SystemReportInterval.Duration(),
+			r.config.StorageBase.TSDB.Dir,
 			r.repo,
 			constants.GetNodeMonitoringStatPath(r.node.Indicator()),
 			models.ActiveNode{
@@ -253,12 +253,12 @@ func (r *runtime) monitoring() {
 	}
 
 	// todo: @stone1100, how to retrieve the broker port?
-	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportIntervalInSeconds > 0
+	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.config.GRPC),
-			r.config.Monitor.RuntimeReportInterval(),
+			fmt.Sprintf("http://localhost:%d/", r.config.StorageBase.GRPC),
+			r.config.Monitor.RuntimeReportInterval.Duration(),
 			map[string]string{"role": "broker", "version": r.version},
 		)
 	}

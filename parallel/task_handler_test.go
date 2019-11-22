@@ -17,9 +17,9 @@ import (
 )
 
 var cfg = config.Query{
-	NumOfTasks:    10,
-	QueueCapacity: 10,
-	Timeout:       10,
+	MaxWorkers: 10,
+	Capacity:   10,
+	Timeout:    10,
 }
 
 func TestTaskHandler_Handle(t *testing.T) {

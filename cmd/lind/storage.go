@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/storage"
 
 	"github.com/spf13/cobra"
@@ -52,8 +52,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 		if err := checkExistenceOf(path); err != nil {
 			return err
 		}
-		defaultCfg := config.NewDefaultStorageCfg()
-		return fileutil.EncodeToml(path, &defaultCfg)
+		return ltoml.WriteConfig(path, config.NewDefaultStorageTOML())
 	},
 }
 
@@ -61,7 +60,7 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	storageCfg := config.Storage{}
-	if err := fileutil.LoadConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
+	if err := ltoml.LoadConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
 	if err := logger.InitLogger(storageCfg.Logging); err != nil {

@@ -8,12 +8,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/check.v1"
+	check "gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/pkg/hostutil"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -28,7 +29,7 @@ func TestBrokerRuntime(t *testing.T) {
 	check.TestingT(t)
 }
 
-var cfg = config.Broker{BrokerKernel: config.BrokerKernel{
+var cfg = config.Broker{BrokerBase: config.BrokerBase{
 	HTTP: config.HTTP{
 		Port: 9999,
 	},
@@ -41,18 +42,17 @@ var cfg = config.Broker{BrokerKernel: config.BrokerKernel{
 	},
 	TCP: config.TCP{Port: 2882},
 	ReplicationChannel: config.ReplicationChannel{
-		Dir:                        "/tmp/broker/replication",
-		BufferSize:                 32,
-		SegmentFileSize:            128 * 1024 * 1024,
-		RemoveTaskIntervalInSecond: 60,
-		CheckFlushIntervalInSecond: 1,
-		FlushIntervalInSecond:      5,
-		BufferSizeLimit:            128 * 1024,
+		Dir:                "/tmp/broker/replication",
+		SegmentFileSize:    128,
+		RemoveTaskInterval: ltoml.Duration(time.Minute),
+		CheckFlushInterval: ltoml.Duration(time.Second),
+		FlushInterval:      ltoml.Duration(time.Second * 5),
+		BufferSize:         128,
 	},
 }}
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	cfg.BrokerKernel.Coordinator.Endpoints = ts.Cluster.Endpoints
+	cfg.BrokerBase.Coordinator.Endpoints = ts.Cluster.Endpoints
 
 	broker := NewBrokerRuntime("test-version", cfg)
 	err := broker.Run()

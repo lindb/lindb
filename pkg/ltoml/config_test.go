@@ -1,8 +1,10 @@
-package fileutil
+package ltoml
 
 import (
 	"os"
 	"testing"
+
+	"github.com/lindb/lindb/pkg/fileutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,7 +18,7 @@ var defaultCfgFile = "./test.test"
 
 func TestLoadConfig(t *testing.T) {
 	defer func() {
-		_ = RemoveDir(cfgFile)
+		_ = fileutil.RemoveDir(cfgFile)
 	}()
 	assert.NotNil(t, LoadConfig(cfgFile, defaultCfgFile, &TestCfg{}))
 

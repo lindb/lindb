@@ -8,26 +8,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/rpc/proto/field"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 )
 
 var replicationConfig = config.ReplicationChannel{
-	Dir:                        "/tmp/broker/replication",
-	BufferSize:                 32,
-	SegmentFileSize:            128 * 1024 * 1024,
-	RemoveTaskIntervalInSecond: 60,
-	ReportInterval:             1,
-	FlushIntervalInSecond:      0,
-	CheckFlushIntervalInSecond: 1,
-	BufferSizeLimit:            0,
+	Dir:                "/tmp/broker/replication",
+	SegmentFileSize:    uint16(128),
+	RemoveTaskInterval: ltoml.Duration(time.Minute),
+	ReportInterval:     ltoml.Duration(time.Second),
+	FlushInterval:      ltoml.Duration(0),
+	CheckFlushInterval: ltoml.Duration(time.Second),
+	BufferSize:         uint16(0),
 }
 
 func TestChannelManager_GetChannel(t *testing.T) {

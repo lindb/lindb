@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/lockers"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 //go:generate mockgen -source ./store.go -destination=./store_mock.go -package kv
@@ -72,7 +73,7 @@ func NewStore(name string, option StoreOption) (Store, error) {
 	if fileutil.Exist(option.Path) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		if err := fileutil.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
+		if err := ltoml.DecodeToml(filepath.Join(option.Path, version.Options), info); err != nil {
 			return nil, fmt.Errorf("load store info error:%s", err)
 		}
 	} else {
@@ -212,7 +213,7 @@ func (s *store) Close() error {
 func (s *store) dumpStoreInfo() error {
 	infoPath := filepath.Join(s.option.Path, version.Options)
 	// write store info using toml format
-	if err := fileutil.EncodeToml(infoPath, s.storeInfo); err != nil {
+	if err := ltoml.EncodeToml(infoPath, s.storeInfo); err != nil {
 		return fmt.Errorf("write store info to file[%s] error:%s", infoPath, err)
 	}
 	return nil

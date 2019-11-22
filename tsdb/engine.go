@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (
@@ -80,7 +81,7 @@ type Engine interface {
 
 // engine implements Engine
 type engine struct {
-	cfg                  config.Engine               // the common cfg of time series database
+	cfg                  config.TSDB                 // the common cfg of time series database
 	databases            sync.Map                    // databaseName -> Database
 	ctx                  context.Context             // context
 	cancel               context.CancelFunc          // cancel function of flusher
@@ -92,7 +93,7 @@ type engine struct {
 }
 
 // NewEngine creates an engine for manipulating the databases
-func NewEngine(cfg config.Engine) (Engine, error) {
+func NewEngine(cfg config.TSDB) (Engine, error) {
 	engine, err := newEngine(cfg)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func NewEngine(cfg config.Engine) (Engine, error) {
 	return engine, nil
 }
 
-func newEngine(cfg config.Engine) (*engine, error) {
+func newEngine(cfg config.TSDB) (*engine, error) {
 	// create time series storage path
 	if err := fileutil.MkDirIfNotExist(cfg.Dir); err != nil {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Dir, err)
@@ -140,7 +141,7 @@ func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 	cfgPath := optionsPath(dbPath)
 	cfg := &databaseConfig{}
 	if fileutil.Exist(cfgPath) {
-		if err := fileutil.DecodeToml(cfgPath, cfg); err != nil {
+		if err := ltoml.DecodeToml(cfgPath, cfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
 		}

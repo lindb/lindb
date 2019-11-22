@@ -28,8 +28,8 @@ type TaskHandler struct {
 func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher TaskDispatcher) *TaskHandler {
 	return &TaskHandler{
 		cfg:        cfg,
-		timeout:    time.Duration(int64(time.Second) * cfg.Timeout),
-		taskPool:   concurrent.NewPool("query_rpc_task_handlers", cfg.NumOfTasks, cfg.QueueCapacity),
+		timeout:    cfg.Timeout.Duration(),
+		taskPool:   concurrent.NewPool("query_rpc_task_handlers", cfg.MaxWorkers, cfg.Capacity),
 		fct:        fct,
 		dispatcher: dispatcher,
 		logger:     logger.GetLogger("parallel", "TaskHandler"),

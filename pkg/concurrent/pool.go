@@ -39,16 +39,16 @@ type pool struct {
 }
 
 // NewPool creates a pool
-func NewPool(name string, nRoutines int, queueSize int) Pool {
+func NewPool(name string, maxWorkers int, capacity int) Pool {
 	pool := &pool{
 		name:    name,
-		tasks:   make(chan Task, queueSize),
-		workers: make(chan *worker, nRoutines),
+		tasks:   make(chan Task, capacity),
+		workers: make(chan *worker, maxWorkers),
 		stop:    make(chan struct{}),
 	}
-	pool.worker.Add(int64(nRoutines))
+	pool.worker.Add(int64(maxWorkers))
 	// init worker pool
-	for i := 0; i < nRoutines; i++ {
+	for i := 0; i < maxWorkers; i++ {
 		_ = newWorker(pool)
 	}
 	// start task dispatch routine
