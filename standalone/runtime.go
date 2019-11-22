@@ -46,8 +46,8 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 		version:     version,
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("standalone"),
-		broker:      broker.NewBrokerRuntime(version, config.Broker{BrokerKernel: cfg.Broker}),
-		storage:     storage.NewStorageRuntime(version, config.Storage{StorageKernel: cfg.Storage}),
+		broker:      broker.NewBrokerRuntime(version, config.Broker{BrokerBase: cfg.BrokerBase}),
+		storage:     storage.NewStorageRuntime(version, config.Storage{StorageBase: cfg.StorageBase}),
 		cfg:         cfg,
 		ctx:         ctx,
 		cancel:      cancel,
@@ -149,7 +149,7 @@ func (r *runtime) startETCD() error {
 // cleanupState cleans the state of previous standalone process.
 // 1. master node in etcd, because etcd will trigger master node expire event
 func (r *runtime) cleanupState() error {
-	repo, err := r.repoFactory.CreateRepo(r.cfg.Broker.Coordinator)
+	repo, err := r.repoFactory.CreateRepo(r.cfg.BrokerBase.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
@@ -166,12 +166,12 @@ func (r *runtime) cleanupState() error {
 
 func (r *runtime) monitoring() {
 	// todo: @stone1100, broker metric http post url is not implemented
-	runtimeStatMonitorEnabled := r.cfg.Monitor.RuntimeReportIntervalInSeconds > 0
+	runtimeStatMonitorEnabled := r.cfg.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.cfg.Broker.HTTP), // todo
-			r.cfg.Monitor.RuntimeReportInterval(),
+			fmt.Sprintf("http://localhost:%d/", r.cfg.BrokerBase.HTTP), // todo
+			r.cfg.Monitor.RuntimeReportInterval.Duration(),
 			map[string]string{"role": "standalone", "version": r.version},
 		)
 	}

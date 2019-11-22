@@ -5,8 +5,8 @@ import (
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 
 	"github.com/spf13/cobra"
 )
@@ -51,8 +51,7 @@ var initializeBrokerConfigCmd = &cobra.Command{
 		if err := checkExistenceOf(path); err != nil {
 			return err
 		}
-		defaultCfg := config.NewDefaultBrokerCfg()
-		return fileutil.EncodeToml(path, &defaultCfg)
+		return ltoml.WriteConfig(path, config.NewDefaultBrokerTOML())
 	},
 }
 
@@ -61,7 +60,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	brokerCfg := config.Broker{}
-	if err := fileutil.LoadConfig(cfg, defaultBrokerCfgFile, &brokerCfg); err != nil {
+	if err := ltoml.LoadConfig(cfg, defaultBrokerCfgFile, &brokerCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
 	if err := logger.InitLogger(brokerCfg.Logging); err != nil {

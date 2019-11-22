@@ -32,12 +32,12 @@ func TestStorageRuntime(t *testing.T) {
 	check.TestingT(t)
 }
 
-var cfg = config.Storage{StorageKernel: config.StorageKernel{
+var cfg = config.Storage{StorageBase: config.StorageBase{
 	GRPC: config.GRPC{
 		Port: 9999,
 		TTL:  1,
 	},
-	Engine: config.Engine{Dir: "/tmp/storage/data"},
+	TSDB: config.TSDB{Dir: "/tmp/storage/data"},
 	Coordinator: config.RepoState{
 		Namespace: "/test/storage",
 	},
@@ -48,8 +48,8 @@ var cfg = config.Storage{StorageKernel: config.StorageKernel{
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	// test normal storage run
-	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
-	cfg.GRPC.Port = 9999
+	cfg.StorageBase.Coordinator.Endpoints = ts.Cluster.Endpoints
+	cfg.StorageBase.GRPC.Port = 9999
 	storage := NewStorageRuntime("test-version", cfg)
 	err := storage.Run()
 	assert.NoError(ts.t, err)
@@ -78,7 +78,7 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 		getHostIP = hostutil.GetHostIP
 		hostName = os.Hostname
 	}()
-	cfg.GRPC.Port = 8889
+	cfg.StorageBase.GRPC.Port = 8889
 	storage := NewStorageRuntime("test-version", cfg)
 	getHostIP = func() (string, error) {
 		return "test-ip", fmt.Errorf("err")
@@ -92,8 +92,8 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 	hostName = func() (string, error) {
 		return "host", fmt.Errorf("err")
 	}
-	cfg.GRPC.Port = 8887
-	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
+	cfg.StorageBase.GRPC.Port = 8887
+	cfg.StorageBase.Coordinator.Endpoints = ts.Cluster.Endpoints
 	storage = NewStorageRuntime("test-version", cfg)
 	err = storage.Run()
 	assert.Nil(ts.t, err)
@@ -104,7 +104,7 @@ func (ts *testStorageRuntimeSuite) TestBrokerRun_Err(c *check.C) {
 	ctrl := gomock.NewController(ts.t)
 	defer ctrl.Finish()
 
-	cfg.GRPC.Port = 8886
+	cfg.StorageBase.GRPC.Port = 8886
 	storage := NewStorageRuntime("test-version", cfg)
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)

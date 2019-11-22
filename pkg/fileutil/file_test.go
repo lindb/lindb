@@ -2,7 +2,6 @@ package fileutil
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -24,21 +23,8 @@ func TestFileUtil(t *testing.T) {
 
 	assert.True(t, Exist(testPath))
 
-	user := User{Name: "LinDB"}
-	file := path.Join(testPath, "toml")
-	err := EncodeToml(file, &user)
-	if err != nil {
-		t.Fatal(err)
-	}
-	user2 := User{}
-	err = DecodeToml(file, &user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, user, user2)
-
 	files, _ := ListDir(testPath)
-	assert.Equal(t, "toml", files[0])
+	assert.Len(t, files, 0)
 
 	assert.Nil(t, MkDir(filepath.Join(os.TempDir(), "tmp/test.toml")))
 }
@@ -49,7 +35,6 @@ func TestFileUtil_errors(t *testing.T) {
 
 	// encode toml failure
 	assert.NotNil(t, err)
-	assert.NotNil(t, EncodeToml(filepath.Join(os.TempDir(), "/tmp/test.toml"), []byte{}))
 }
 
 func TestGetExistPath(t *testing.T) {

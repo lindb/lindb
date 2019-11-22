@@ -27,7 +27,7 @@ type Registry interface {
 // registry implements registry interface for server node register with prefix
 type registry struct {
 	prefix string
-	ttl    int64
+	ttl    time.Duration
 	repo   state.Repository
 
 	ctx    context.Context
@@ -37,7 +37,11 @@ type registry struct {
 }
 
 // NewRegistry returns a new registry with prefix and ttl
-func NewRegistry(repo state.Repository, prefix string, ttl int64) Registry {
+func NewRegistry(
+	repo state.Repository,
+	prefix string,
+	ttl time.Duration,
+) Registry {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &registry{
 		prefix: prefix,
@@ -78,7 +82,7 @@ func (r *registry) register(path string, node models.Node) {
 		}
 		nodeBytes, _ := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
 
-		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, r.ttl)
+		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, int64(r.ttl.Seconds()))
 		if err != nil {
 			r.log.Error("register node error", logger.Error(err))
 			time.Sleep(500 * time.Millisecond)
