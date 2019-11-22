@@ -20,7 +20,7 @@ import (
 
 var testPath = "test_data"
 var validOption = option.DatabaseOption{Interval: "10s"}
-var engineCfg = config.Engine{Dir: testPath}
+var engineCfg = config.TSDB{Dir: testPath}
 
 func TestNew(t *testing.T) {
 	defer func() {

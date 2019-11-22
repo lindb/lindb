@@ -11,8 +11,8 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/concurrent"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
@@ -211,7 +211,7 @@ func (db *database) Close() error {
 func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 	cfgPath := optionsPath(db.path)
 	// write store info using toml format
-	if err := fileutil.EncodeToml(cfgPath, newConfig); err != nil {
+	if err := ltoml.EncodeToml(cfgPath, newConfig); err != nil {
 		return fmt.Errorf("write engine info to file[%s] error:%s", cfgPath, err)
 	}
 	db.config = newConfig

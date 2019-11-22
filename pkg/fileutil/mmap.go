@@ -2,13 +2,7 @@ package fileutil
 
 import (
 	"os"
-
-	"go.uber.org/zap"
-
-	"github.com/lindb/lindb/pkg/logger"
 )
-
-var log = logger.GetLogger("pkg/fileutil", "MMAP")
 
 const (
 	read = 1 << iota
@@ -21,11 +15,7 @@ func Map(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Error("mmap map close file error", zap.Error(err))
-		}
-	}()
+	defer f.Close()
 
 	fs, err := f.Stat()
 	if err != nil {
@@ -53,11 +43,7 @@ func RWMap(filePath string, size int) ([]byte, error) {
 		return nil, err
 	}
 
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Error("mmap rwmap close file error", zap.Error(err))
-		}
-	}()
+	defer f.Close()
 
 	fstat, err := f.Stat()
 

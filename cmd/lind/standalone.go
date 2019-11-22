@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/standalone"
 )
 
@@ -55,8 +55,7 @@ var initializeStandaloneConfigCmd = &cobra.Command{
 		if err := checkExistenceOf(path); err != nil {
 			return err
 		}
-		defaultCfg := config.NewDefaultStandaloneCfg()
-		return fileutil.EncodeToml(path, &defaultCfg)
+		return ltoml.WriteConfig(path, config.NewDefaultStandaloneTOML())
 	},
 }
 
@@ -65,7 +64,7 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if err := fileutil.LoadConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
+	if err := ltoml.LoadConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
 	if err := logger.InitLogger(standaloneCfg.Logging); err != nil {

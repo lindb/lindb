@@ -146,7 +146,12 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.GRPC.Port, HostName: hostName, TCPPort: r.config.TCP.Port}
+	r.node = models.Node{
+		IP:       ip,
+		Port:     r.config.BrokerBase.GRPC.Port,
+		HostName: hostName,
+		TCPPort:  r.config.BrokerBase.TCP.Port,
+	}
 
 	// start state repository
 	if err := r.startStateRepo(); err != nil {
@@ -154,7 +159,6 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	//time.Sleep(10*time.Second)
 	r.factory = factory{
 		taskClient: rpc.NewTaskClientFactory(r.node),
 		taskServer: rpc.NewTaskServerFactory(),
@@ -273,7 +277,7 @@ func (r *runtime) Stop() error {
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
-	port := r.config.HTTP.Port
+	port := r.config.BrokerBase.HTTP.Port
 
 	r.log.Info("starting http server", logger.Uint16("port", port))
 	router := api.NewRouter()
@@ -295,7 +299,7 @@ func (r *runtime) startHTTPServer() {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateRepo(r.config.Coordinator)
+	repo, err := r.repoFactory.CreateRepo(r.config.BrokerBase.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}
@@ -311,7 +315,7 @@ func (r *runtime) buildServiceDependency() {
 	replicatorService := service.NewReplicatorService(r.node, r.repo)
 
 	// hard code create channel first.
-	cm := replication.NewChannelManager(r.config.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorService)
+	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorService)
 	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
 	jobManager := parallel.NewJobManager(taskManager)
 
@@ -337,7 +341,7 @@ func (r *runtime) buildAPIDependency() {
 	handlers := apiHandler{
 		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
 		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
-		loginAPI:          api.NewLoginAPI(r.config.User, r.middleware.authentication),
+		loginAPI:          api.NewLoginAPI(r.config.BrokerBase.User, r.middleware.authentication),
 		storageStateAPI:   stateAPI.NewStorageAPI(r.ctx, r.repo, r.stateMachines.StorageSM, r.srv.shardAssignService, r.srv.databaseService),
 		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
 		masterAPI:         masterAPI.NewMasterAPI(r.master),
@@ -377,7 +381,7 @@ func (r *runtime) buildAPIDependency() {
 // pattern support regexp matching
 func (r *runtime) buildMiddlewareDependency() {
 	r.middleware = &middlewareHandler{
-		authentication: middleware.NewAuthentication(r.config.User),
+		authentication: middleware.NewAuthentication(r.config.BrokerBase.User),
 	}
 	httpAPI, err := regexp.Compile("/*")
 	if err == nil {
@@ -392,7 +396,7 @@ func (r *runtime) buildMiddlewareDependency() {
 // startTCPServer starts the TCP server
 func (r *runtime) startTCPServer() {
 	r.buildTCPHandlers()
-	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.TCP.Port), r.tcpHandler.handler)
+	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.BrokerBase.TCP.Port), r.tcpHandler.handler)
 
 	go func() {
 		if err := r.tcpServer.Start(); err != nil {
@@ -404,7 +408,7 @@ func (r *runtime) startTCPServer() {
 
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
-	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.GRPC.Port))
+	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.BrokerBase.GRPC.Port))
 
 	// bind grpc handlers
 	r.bindGRPCHandlers()
@@ -421,7 +425,7 @@ func (r *runtime) bindGRPCHandlers() {
 	//FIXME: (stone1100) need close
 	dispatcher := parallel.NewIntermediateTaskDispatcher()
 	r.rpcHandler = &rpcHandler{
-		task: parallel.NewTaskHandler(r.config.Query, r.factory.taskServer, dispatcher),
+		task: parallel.NewTaskHandler(r.config.BrokerBase.Query, r.factory.taskServer, dispatcher),
 	}
 
 	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
@@ -433,28 +437,29 @@ func (r *runtime) buildTCPHandlers() {
 }
 
 func (r *runtime) monitoring() {
-	systemStatMonitorEnabled := r.config.Monitor.SystemReportIntervalInSeconds > 0
+	systemStatMonitorEnabled := r.config.Monitor.SystemReportInterval > 0
+	node := models.ActiveNode{
+		Version:    r.version,
+		Node:       r.node,
+		OnlineTime: timeutil.Now(),
+	}
 	if systemStatMonitorEnabled {
 		go monitoring.NewSystemCollector(
 			r.ctx,
-			r.config.Monitor.SystemReportInterval(),
-			r.config.ReplicationChannel.Dir,
+			r.config.Monitor.SystemReportInterval.Duration(),
+			r.config.BrokerBase.ReplicationChannel.Dir,
 			r.repo,
 			constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-			models.ActiveNode{
-				Version:    r.version,
-				Node:       r.node,
-				OnlineTime: timeutil.Now(),
-			}).Run()
+			node).Run()
 	}
 
 	// todo: @stone1100, broker metric http post url is not implemented
-	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportIntervalInSeconds > 0
+	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.config.BrokerKernel.HTTP), // todo
-			r.config.Monitor.RuntimeReportInterval(),
+			fmt.Sprintf("http://localhost:%d/", r.config.BrokerBase.HTTP), // todo
+			r.config.Monitor.RuntimeReportInterval.Duration(),
 			map[string]string{"role": "broker", "version": r.version},
 		)
 	}

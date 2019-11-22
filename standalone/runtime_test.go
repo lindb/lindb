@@ -14,13 +14,20 @@ import (
 )
 
 var testPath = "./test_data"
+var defaultStandaloneConfig = config.Standalone{
+	StorageBase: *config.NewDefaultStorageBase(),
+	BrokerBase:  *config.NewDefaultBrokerBase(),
+	Logging:     *config.NewDefaultLogging(),
+	ETCD:        *config.NewDefaultETCD(),
+	Monitor:     *config.NewDefaultMonitor(),
+}
 
 func TestRuntime_Run(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	cfg := config.NewDefaultStandaloneCfg()
-	cfg.Storage.Engine.Dir = testPath
+	cfg := defaultStandaloneConfig
+	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
 	err := standalone.Run()
 	assert.NoError(t, err)
@@ -38,8 +45,8 @@ func TestRuntime_Run_Err(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	cfg := config.NewDefaultStandaloneCfg()
-	cfg.Storage.Engine.Dir = testPath
+	cfg := defaultStandaloneConfig
+	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
@@ -63,7 +70,7 @@ func TestRuntime_runServer(t *testing.T) {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	cfg := config.NewDefaultStandaloneCfg()
+	cfg := defaultStandaloneConfig
 	standalone := NewStandaloneRuntime("test-version", cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
@@ -87,8 +94,8 @@ func TestRuntime_cleanupState(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	cfg := config.NewDefaultStandaloneCfg()
-	cfg.Storage.Engine.Dir = testPath
+	cfg := defaultStandaloneConfig
+	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
 	s := standalone.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)

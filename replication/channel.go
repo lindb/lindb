@@ -29,7 +29,10 @@ import (
 // ErrCanceled is the error returned when writing data ctx canceled.
 var ErrCanceled = errors.New("write data ctx done")
 
-const defaultReportInterval = 30
+const (
+	defaultReportInterval = 30 * time.Second
+	defaultBufferSize     = 32
+)
 
 var log = logger.GetLogger("replication", "ChannelManager")
 
@@ -184,9 +187,9 @@ func (cm *channelManager) Close() {
 func (cm *channelManager) scheduleStateReport() {
 	interval := defaultReportInterval
 	if cm.cfg.ReportInterval > 0 {
-		interval = cm.cfg.ReportInterval
+		interval = time.Duration(cm.cfg.ReportInterval)
 	}
-	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
@@ -308,12 +311,17 @@ type channel struct {
 }
 
 // newChannel returns a new channel with specific attribution.
-func newChannel(cxt context.Context, cfg config.ReplicationChannel, database string, shardID int32,
-	fct rpc.ClientStreamFactory) (Channel, error) {
+func newChannel(
+	cxt context.Context,
+	cfg config.ReplicationChannel,
+	database string,
+	shardID int32,
+	fct rpc.ClientStreamFactory,
+) (Channel, error) {
 	dirPath := path.Join(cfg.Dir, database, strconv.Itoa(int(shardID)))
-	interval := time.Duration(cfg.RemoveTaskIntervalInSecond) * time.Second
+	interval := cfg.RemoveTaskInterval.Duration()
 
-	q, err := queue.NewFanOutQueue(dirPath, cfg.SegmentFileSize, interval)
+	q, err := queue.NewFanOutQueue(dirPath, cfg.SegmentFileSizeInBytes(), interval)
 	if err != nil {
 		return nil, err
 	}
@@ -325,11 +333,11 @@ func newChannel(cxt context.Context, cfg config.ReplicationChannel, database str
 		database:           database,
 		shardID:            shardID,
 		q:                  q,
-		ch:                 make(chan []byte, cfg.BufferSize),
+		ch:                 make(chan []byte, defaultBufferSize),
 		lastFlushTime:      time.Now(),
-		checkFlushInterval: time.Duration(cfg.CheckFlushIntervalInSecond) * time.Second,
-		flushInterval:      time.Duration(cfg.FlushIntervalInSecond) * time.Second,
-		bufferSizeLimit:    cfg.BufferSizeLimit,
+		checkFlushInterval: cfg.CheckFlushInterval.Duration(),
+		flushInterval:      cfg.FlushInterval.Duration(),
+		bufferSizeLimit:    cfg.BufferSizeInBytes(),
 		logger:             logger.GetLogger("replication", "Channel"),
 	}
 
