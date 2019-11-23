@@ -20,7 +20,6 @@ export default class ViewBoard extends React.Component<ViewBoardProps, ViewBoard
 
   render() {
     const { board } = this.props
-
     return (
       <React.Fragment>
         {board.map((rows, index) => (
