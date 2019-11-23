@@ -11,10 +11,10 @@ interface StorageClusterInfoProps {
     storageClusterList: Array<StorageCluster>
 }
 
-interface StoreageClusterInfoStatus {
+interface StorageClusterInfoStatus {
 }
 
-export default class StorageClusterInfo extends React.Component<StorageClusterInfoProps, StoreageClusterInfoStatus> {
+export default class StorageClusterInfo extends React.Component<StorageClusterInfoProps, StorageClusterInfoStatus> {
 
     /**
      * render capacity usage
