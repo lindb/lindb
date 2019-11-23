@@ -1,0 +1,22 @@
+[
+    {
+        "Name":"Int",
+        "Type":"int",
+        "type":"int64",
+        "valueDecode":"encoding.ZigZagDecode",
+        "valueEncode":"encoding.ZigZagEncode",
+        "appendOld":"float64(encoding.ZigZagDecode(oldValue))",
+        "appendNew":"float64(b.values[idx])",
+        "merge":"float64(aggFunc.AggregateInt(b.values[idx], encoding.ZigZagDecode(oldValue)))"
+    },
+    {
+        "Name":"Float",
+        "Type":"float",
+        "type":"float64",
+        "valueDecode":"math.Float64frombits",
+        "valueEncode":"math.Float64bits",
+        "appendOld":"math.Float64frombits(oldValue)",
+        "appendNew":"b.values[idx]",
+        "merge":"aggFunc.AggregateFloat(b.values[idx], math.Float64frombits(oldValue))"
+    }
+]
