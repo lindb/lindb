@@ -16,7 +16,6 @@ export class ChartStore {
 
     @observable chartStatusMap: Map<string, ChartStatus> = new Map(); // observe chart status
 
-
     constructor(urlParamStore: URLParamStore) {
         this.urlParamStore = urlParamStore
 
