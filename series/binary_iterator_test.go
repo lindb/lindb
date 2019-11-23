@@ -22,11 +22,11 @@ func TestBinaryGroupedIterator(t *testing.T) {
 	data, err := writer.Bytes()
 	assert.NoError(t, err)
 	result := make(map[string]string)
-	it := NewGroupedIterator(nil, map[string][]byte{
+	it := NewGroupedIterator("1.1.1.1", map[string][]byte{
 		"f1": data,
 		"f2": data,
 	})
-	assert.Nil(t, it.Tags())
+	assert.Equal(t, "1.1.1.1", it.Tags())
 	assert.True(t, it.HasNext())
 	fIt := it.Next()
 	assert.Equal(t, field.SumField, fIt.FieldType())
@@ -75,6 +75,12 @@ func TestBinaryIterator(t *testing.T) {
 	assert.Equal(t, int64(11), startTime)
 	assertFieldIterator(t, fIt)
 	assert.False(t, it.HasNext())
+
+	// test marshal binary
+	it = NewIterator("f1", data)
+	data2, err := it.MarshalBinary()
+	assert.NoError(t, err)
+	assert.Equal(t, data, data2)
 
 	writer = stream.NewBufferWriter(nil)
 	writer.PutByte(byte(field.SumField))

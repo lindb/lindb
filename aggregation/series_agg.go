@@ -15,7 +15,7 @@ import (
 type FieldAggregates []SeriesAggregator
 
 // ResultSet returns the result set of aggregator
-func (agg FieldAggregates) ResultSet(tags map[string]string) series.GroupedIterator {
+func (agg FieldAggregates) ResultSet(tags string) series.GroupedIterator {
 	return newGroupedIterator(tags, agg)
 }
 
@@ -162,8 +162,7 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 				selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio),
 				a.aggSpec)
 		} else {
-			agg = NewFieldAggregator(segmentStartTime, selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio),
-				a.aggSpec)
+			agg = NewFieldAggregator(segmentStartTime, selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio))
 		}
 		a.aggregates[idx] = agg
 	}

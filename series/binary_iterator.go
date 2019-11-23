@@ -13,7 +13,7 @@ import (
 // binaryGroupedIterator implements GroupedIterator
 //////////////////////////////////////////////////////
 type binaryGroupedIterator struct {
-	tags       map[string]string
+	tags       string
 	fields     map[string][]byte
 	fieldNames []string
 
@@ -22,7 +22,7 @@ type binaryGroupedIterator struct {
 	idx int
 }
 
-func NewGroupedIterator(tags map[string]string, fields map[string][]byte) GroupedIterator {
+func NewGroupedIterator(tags string, fields map[string][]byte) GroupedIterator {
 	it := &binaryGroupedIterator{tags: tags, fields: fields}
 	for fieldName := range fields {
 		it.fieldNames = append(it.fieldNames, fieldName)
@@ -30,7 +30,7 @@ func NewGroupedIterator(tags map[string]string, fields map[string][]byte) Groupe
 	return it
 }
 
-func (g *binaryGroupedIterator) Tags() map[string]string {
+func (g *binaryGroupedIterator) Tags() string {
 	return g.tags
 }
 
@@ -60,10 +60,11 @@ type BinaryIterator struct {
 	fieldType field.Type
 	reader    *stream.Reader
 	fieldIt   *BinaryFieldIterator
+	data      []byte
 }
 
 func NewIterator(fieldName string, data []byte) *BinaryIterator {
-	it := &BinaryIterator{fieldName: fieldName, reader: stream.NewReader(data)}
+	it := &BinaryIterator{fieldName: fieldName, reader: stream.NewReader(data), data: data}
 	it.fieldType = field.Type(it.reader.ReadByte())
 	return it
 }
@@ -103,7 +104,7 @@ func (b *BinaryIterator) Next() (startTime int64, fieldIt FieldIterator) {
 }
 
 func (b *BinaryIterator) MarshalBinary() ([]byte, error) {
-	return MarshalIterator(b)
+	return b.data, nil
 }
 
 //////////////////////////////////////////////////////

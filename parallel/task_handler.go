@@ -29,7 +29,7 @@ func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher Task
 	return &TaskHandler{
 		cfg:        cfg,
 		timeout:    cfg.Timeout.Duration(),
-		taskPool:   concurrent.NewPool(cfg.MaxWorkers, time.Second*5),
+		taskPool:   concurrent.NewPool("task-handle-pool", cfg.MaxWorkers, time.Second*5),
 		fct:        fct,
 		dispatcher: dispatcher,
 		logger:     logger.GetLogger("parallel", "TaskHandler"),

@@ -6,10 +6,15 @@ import (
 	"path/filepath"
 )
 
+var (
+	mkdirAllFunc  = os.MkdirAll
+	removeAllFunc = os.RemoveAll
+)
+
 // MkDirIfNotExist creates given dir if it not exist
 func MkDirIfNotExist(path string) error {
 	if !Exist(path) {
-		if e := os.MkdirAll(path, os.ModePerm); e != nil {
+		if e := mkdirAllFunc(path, os.ModePerm); e != nil {
 			return e
 		}
 	}
@@ -19,7 +24,7 @@ func MkDirIfNotExist(path string) error {
 // RemoveDir deletes dir include children if exist
 func RemoveDir(path string) error {
 	if Exist(path) {
-		if e := os.RemoveAll(path); e != nil {
+		if e := removeAllFunc(path); e != nil {
 			return e
 		}
 	}
@@ -28,7 +33,7 @@ func RemoveDir(path string) error {
 
 // MkDir create dir
 func MkDir(path string) error {
-	if e := os.MkdirAll(path, os.ModePerm); e != nil {
+	if e := mkdirAllFunc(path, os.ModePerm); e != nil {
 		return e
 	}
 	return nil

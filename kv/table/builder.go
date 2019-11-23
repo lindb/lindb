@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"

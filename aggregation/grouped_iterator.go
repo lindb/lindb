@@ -6,19 +6,19 @@ import "github.com/lindb/lindb/series"
 // binaryGroupedIterator implements GroupedIterator
 //////////////////////////////////////////////////////
 type groupedIterator struct {
-	tags       map[string]string
+	tags       string // tag values
 	aggregates FieldAggregates
 	len        int
 	idx        int
 }
 
 // newGroupedIterator creates a grouped iterator for field aggregates
-func newGroupedIterator(tags map[string]string, aggregates FieldAggregates) series.GroupedIterator {
+func newGroupedIterator(tags string, aggregates FieldAggregates) series.GroupedIterator {
 	return &groupedIterator{tags: tags, aggregates: aggregates, len: len(aggregates)}
 }
 
 // Tags returns the tags of series
-func (g *groupedIterator) Tags() map[string]string {
+func (g *groupedIterator) Tags() string {
 	return g.tags
 }
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/snappy"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/collections"
@@ -312,6 +312,12 @@ func NewReader(readers []table.Reader) Reader {
 		readers: readers,
 		sr:      stream.NewReader(nil)}
 }
+func (r *reader) GetGroupingContext(metricID uint32, tagKeys []string,
+	version series.Version,
+) (series.GroupingContext, error) {
+	//TODO
+	return nil, nil
+}
 
 // GetTagValues returns tag values by tag keys and spec version for metric level
 func (r *reader) GetTagValues(
@@ -320,7 +326,7 @@ func (r *reader) GetTagValues(
 	version series.Version,
 	seriesIDs *roaring.Bitmap,
 ) (
-	seriesID2TagValues map[uint32][]string, // seriesID->
+	seriesID2TagValues [][]string, // seriesID->
 	err error,
 ) {
 	if len(tagKeys) == 0 || seriesIDs.IsEmpty() {
@@ -353,19 +359,23 @@ func (r *reader) GetTagValues(
 	if err = versionEntry.loadDictByIndexes(strIndexes); err != nil {
 		return nil, err
 	}
-	seriesID2TagValues = make(map[uint32][]string)
 	// assemble the result
-	for seriesID, indexes := range mappings {
-		tagValues, ok := seriesID2TagValues[seriesID]
+	seriesID2TagValues = make([][]string, seriesIDs.GetCardinality())
+	itr := seriesIDs.Iterator()
+	idx := 0
+	for itr.HasNext() {
+		seriesID := itr.Next()
+		indexes, ok := mappings[seriesID]
 		if !ok {
-			tagValues = []string{}
+			continue
 		}
 		// length=0, means this seriesID inexist
 		if len(indexes) == 0 {
 			continue
 		}
+		var tagValues []string
 		for _, index := range indexes {
-			// index<0, means the tagValue inexist
+			// index<0, means the tagValue not exist
 			if index >= 0 {
 				tagValue, ok := versionEntry.dict[index]
 				if ok {
@@ -375,7 +385,8 @@ func (r *reader) GetTagValues(
 			}
 			tagValues = append(tagValues, "")
 		}
-		seriesID2TagValues[seriesID] = tagValues
+		seriesID2TagValues[idx] = tagValues
+		idx++
 	}
 	return seriesID2TagValues, nil
 }

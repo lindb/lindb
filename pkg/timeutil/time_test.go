@@ -30,6 +30,7 @@ func TestCalPointCount(t *testing.T) {
 
 func TestCalIntervalRatio(t *testing.T) {
 	assert.Equal(t, 1, CalIntervalRatio(10, 100))
+	assert.Equal(t, 1, CalIntervalRatio(10, 0))
 	assert.Equal(t, 5, CalIntervalRatio(55, 10))
 	assert.Equal(t, 10, CalIntervalRatio(1000, 100))
 }

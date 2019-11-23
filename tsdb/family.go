@@ -3,16 +3,14 @@ package tsdb
 import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./family.go -destination=./family_mock.go -package=tsdb
 
 // DataFamily represents a storage unit for time series data, support multi-version.
 type DataFamily interface {
-	// series.Scanner scans files under kv store based on query condition
-	series.Scanner
+	// flow.Scanner scans files under kv store based on query condition
+	//flow.Scanner
 	// Interval returns the interval data family's interval
 	Interval() int64
 	// TimeRange returns the data family's base time range
@@ -42,17 +40,17 @@ func newDataFamily(
 }
 
 // Scan scans time series data based on query condition
-func (f *dataFamily) Scan(sCtx *series.ScanContext) {
-	snapShot := f.family.GetSnapshot()
-	defer snapShot.Close()
-
-	readers, err := snapShot.FindReaders(sCtx.MetricID)
-	if err != nil {
-		return
-	}
-	scanner := metricsdata.NewScanner(readers)
-	scanner.Scan(sCtx)
-}
+//func (f *dataFamily) Scan(qCtx *flow.StorageQueryContext) {
+//	snapShot := f.family.GetSnapshot()
+//	defer snapShot.Close()
+//
+//	readers, err := snapShot.FindReaders(qCtx.MetricID)
+//	if err != nil {
+//		return
+//	}
+//	scanner := metricsdata.NewScanner(readers)
+//	scanner.Scan(qCtx)
+//}
 
 // Interval returns the data family's interval
 func (f *dataFamily) Interval() int64 {

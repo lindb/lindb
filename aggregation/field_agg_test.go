@@ -22,7 +22,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	aggSpec.AddFunctionType(function.Sum)
 
 	selector1 := selector.NewIndexSlotSelector(15, 55, 1)
-	agg := NewFieldAggregator(baseTime, selector1, aggSpec)
+	agg := NewFieldAggregator(baseTime, selector1)
 	it := MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
 		5:  5.5,
 		15: 5.6,

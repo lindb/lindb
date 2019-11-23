@@ -9,8 +9,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 

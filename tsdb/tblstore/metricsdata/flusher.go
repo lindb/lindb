@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package metricsdata

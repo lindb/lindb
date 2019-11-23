@@ -6,7 +6,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
@@ -45,7 +44,7 @@ func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) err
 	}
 	//fixme
 	groupAgg := aggregation.NewGroupingAggregator(
-		timeutil.Interval(query.Interval),
+		query.Interval,
 		query.TimeRange,
 		aggregation.AggregatorSpecs{
 			aggregation.NewAggregatorSpec("f1", field.SumField)})

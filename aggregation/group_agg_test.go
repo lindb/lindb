@@ -32,7 +32,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		})
 
 	gomock.InOrder(
-		gIt.EXPECT().Tags().Return(map[string]string{"host": "1.1.1.1"}),
+		gIt.EXPECT().Tags().Return("1.1.1.1"),
 		gIt.EXPECT().HasNext().Return(true),
 		gIt.EXPECT().Next().Return(sIt),
 		// series it
@@ -56,7 +56,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 	assert.Equal(t, 1, len(rs))
 
 	gomock.InOrder(
-		gIt.EXPECT().Tags().Return(map[string]string{"host": "1.1.1.2"}),
+		gIt.EXPECT().Tags().Return("1.1.1.2"),
 		gIt.EXPECT().HasNext().Return(true),
 		gIt.EXPECT().Next().Return(sIt),
 		// series it
@@ -89,5 +89,4 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		AggregatorSpecs{})
 	rs = agg.ResultSet()
 	assert.Nil(t, rs)
-
 }

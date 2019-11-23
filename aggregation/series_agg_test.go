@@ -40,7 +40,7 @@ func TestNewFieldAggregates(t *testing.T) {
 	assert.Equal(t, "a", agg[0].FieldName())
 	assert.Equal(t, "b", agg[1].FieldName())
 
-	it := agg.ResultSet(nil)
+	it := agg.ResultSet("")
 	assert.True(t, it.HasNext())
 	sIt := it.Next()
 	assert.Equal(t, "a", sIt.FieldName())
@@ -92,6 +92,10 @@ func TestNewSeriesAggregator(t *testing.T) {
 	assert.Equal(t, familyTime+3*timeutil.OneHour, startTime)
 	assert.NotNil(t, fIt)
 	assert.False(t, rs.HasNext())
+	rs = agg.ResultSet()
+	d, err := rs.MarshalBinary()
+	assert.NoError(t, err)
+	assert.True(t, len(d) > 0)
 
 	agg.Reset()
 

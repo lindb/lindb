@@ -7,9 +7,6 @@ func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
 	for _, fieldStore := range ts.fStoreNodes {
 		fieldID := fieldStore.GetFieldID()
 		switch {
-		case fieldID > memScanCtx.fieldIDs[idx]:
-			// store field id > query field id, return it
-			return
 		case fieldID == memScanCtx.fieldIDs[idx]:
 			agg := memScanCtx.aggregators[idx]
 			fieldStore.scan(agg, memScanCtx)
@@ -18,6 +15,9 @@ func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
 			if memScanCtx.fieldCount == idx {
 				return
 			}
+		case fieldID > memScanCtx.fieldIDs[idx]:
+			// store field id > query field id, return it
+			return
 		}
 	}
 }

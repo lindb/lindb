@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
 //go:generate mockgen -source ./scanner.go -destination=./scanner_mock.go -package metricsdata
@@ -26,59 +24,61 @@ const (
 
 // Scanner implements metrics from sstable.
 type Scanner interface {
-	series.Scanner
+	//flow.Scanner
 }
-type metricsDataScanner struct {
+
+/*type metricsDataScanner struct {
 	readers []table.Reader
 	sr      *stream.Reader
 }
-
-func NewScanner(readers []table.Reader) Scanner {
-	return &metricsDataScanner{
-		readers: readers,
-		sr:      stream.NewReader(nil)}
-}
-
-func (r *metricsDataScanner) Scan(sCtx *series.ScanContext) {
-	version2Blocks := r.pickVersion2Blocks(sCtx)
-	for _, mdtVersionBlocks := range version2Blocks {
-		for _, mdt := range mdtVersionBlocks {
-			sCtx.Worker.Emit(mdt)
-		}
-	}
-}
-
-func (r *metricsDataScanner) pickVersion2Blocks(
-	sCtx *series.ScanContext,
-) (
-	version2Blocks map[series.Version][]*mdtVersionBlock,
-) {
-	version2Blocks = make(map[series.Version][]*mdtVersionBlock)
-	for _, reader := range r.readers {
-		itr, err := tblstore.NewVersionBlockIterator(reader.Get(sCtx.MetricID))
-		if err != nil {
-			continue
-		}
-		for itr.HasNext() {
-			version, block := itr.Next()
-			if !sCtx.SeriesIDSet.Contains(version) {
-				continue
-			}
-			structuredBlock, err := newMDTVersionBlock(version, block, sCtx)
-			if err != nil {
-				continue
-			}
-			blockList, ok := version2Blocks[version]
-			if ok {
-				blockList = append(blockList, structuredBlock)
-			} else {
-				blockList = []*mdtVersionBlock{structuredBlock}
-			}
-			version2Blocks[version] = blockList
-		}
-	}
-	return version2Blocks
-}
+*/
+//func NewScanner(readers []table.Reader) flow.Scanner {
+//	return &metricsDataScanner{
+//		readers: readers,
+//		sr:      stream.NewReader(nil)}
+//}
+//
+//func (r *metricsDataScanner) Scan(qCtx *flow.StorageQueryContext) {
+//version2Blocks := r.pickVersion2Blocks(qCtx)
+//for _, mdtVersionBlocks := range version2Blocks {
+//	for _, mdt := range mdtVersionBlocks {
+//		//qCtx.Worker.Emit(mdt)
+//	}
+//}
+//}
+//
+//func (r *metricsDataScanner) pickVersion2Blocks(
+//	qCtx *flow.StorageQueryContext,
+//) (
+//	version2Blocks map[series.Version][]*mdtVersionBlock,
+//) {
+//version2Blocks = make(map[series.Version][]*mdtVersionBlock)
+//for _, reader := range r.readers {
+//	itr, err := tblstore.NewVersionBlockIterator(reader.Get(sCtx.MetricID))
+//	if err != nil {
+//		continue
+//	}
+//	for itr.HasNext() {
+//		version, block := itr.Next()
+//		if !sCtx.SeriesIDSet.Contains(version) {
+//			continue
+//		}
+//		structuredBlock, err := newMDTVersionBlock(version, block, sCtx)
+//		if err != nil {
+//			continue
+//		}
+//		blockList, ok := version2Blocks[version]
+//		if ok {
+//			blockList = append(blockList, structuredBlock)
+//		} else {
+//			blockList = []*mdtVersionBlock{structuredBlock}
+//		}
+//		version2Blocks[version] = blockList
+//	}
+//}
+//return version2Blocks
+//	return
+//}
 
 // mdt is short for metric-data-table
 // mdtVersionBlock implements ScanEvent
@@ -90,7 +90,7 @@ type mdtVersionBlock struct {
 	seriesOffsets *encoding.DeltaBitPackingDecoder
 	seriesBitmap  *roaring.Bitmap
 	fieldMetas    field.Metas
-	sCtx          *series.ScanContext
+	//qCtx          *flow.StorageQueryContext
 	// position
 	seriesOffsetPos int
 	seriesBitmapPos int
@@ -100,39 +100,37 @@ type mdtVersionBlock struct {
 	aggregators aggregation.FieldAggregates
 }
 
-func newMDTVersionBlock(
-	version series.Version,
-	block []byte,
-	sCtx *series.ScanContext,
-) (
-	*mdtVersionBlock,
-	error,
-) {
-	if len(block) <= mdtLevel3FooterSize {
-		return nil, fmt.Errorf("failed validating version-block length")
-	}
-	vb := &mdtVersionBlock{
-		version:  version,
-		block:    block,
-		sCtx:     sCtx,
-		sr1:      stream.NewReader(block),
-		sr2:      stream.NewReader(block),
-		bitArray: collections.NewBitArray(nil),
-	}
-	// read footer
-	if err := vb.readFooter(); err != nil {
-		return nil, err
-	}
-	// read field-meta and time-range
-	if err := vb.readFieldMetas(); err != nil {
-		return nil, err
-	}
-	// read offsets
-	if err := vb.readOffsetsAndBitmap(); err != nil {
-		return nil, err
-	}
-	return vb, nil
-}
+//func newMDTVersionBlock(
+//	version series.Version,
+//	block []byte,
+//) (
+//	*mdtVersionBlock,
+//	error,
+//) {
+//	if len(block) <= mdtLevel3FooterSize {
+//		return nil, fmt.Errorf("failed validating version-block length")
+//	}
+//	vb := &mdtVersionBlock{
+//		version:  version,
+//		block:    block,
+//		sr1:      stream.NewReader(block),
+//		sr2:      stream.NewReader(block),
+//		bitArray: collections.NewBitArray(nil),
+//	}
+//	// read footer
+//	if err := vb.readFooter(); err != nil {
+//		return nil, err
+//	}
+//	// read field-meta and time-range
+//	if err := vb.readFieldMetas(); err != nil {
+//		return nil, err
+//	}
+//	// read offsets
+//	if err := vb.readOffsetsAndBitmap(); err != nil {
+//		return nil, err
+//	}
+//	return vb, nil
+//}
 
 // initialize step1
 func (vb *mdtVersionBlock) readFooter() error {
@@ -189,6 +187,14 @@ func (vb *mdtVersionBlock) SeriesIDs() *roaring.Bitmap {
 	return vb.seriesBitmap
 }
 
+func (vb *mdtVersionBlock) TotalSeriesIDs() *roaring.Bitmap {
+	return nil
+}
+
+func (vb *mdtVersionBlock) Version() series.Version {
+	return vb.version
+}
+
 func (vb *mdtVersionBlock) Release() {
 	// todo
 	if vb.aggregators == nil {
@@ -203,6 +209,10 @@ func (vb *mdtVersionBlock) ResultSet() interface{} {
 	return nil
 }
 
+func (vb *mdtVersionBlock) SetGroupedSeries(highKey uint16, groupedSeries map[string][]uint16) {
+
+}
+
 /*
 1. Scan version block -> Worker pool
 2. Scan series entry
@@ -210,30 +220,30 @@ func (vb *mdtVersionBlock) ResultSet() interface{} {
 
 */
 
-func (vb *mdtVersionBlock) Scan() bool {
-	scanned := false
-	expectedSeriesIDs := vb.sCtx.SeriesIDSet.Versions()[vb.version]
-	var (
-		currentPosition int32
-		currentSeriesID uint32
-	)
-	itr := vb.seriesBitmap.Iterator()
-	for itr.HasNext() {
-		currentSeriesID = itr.Next()
-		if vb.seriesOffsets.HasNext() {
-			currentPosition = vb.seriesOffsets.Next()
-		} else {
-			return scanned
-		}
-		scanned = true
-		if !expectedSeriesIDs.Contains(currentSeriesID) {
-			continue
-		}
-		if vb.readFieldsData(currentPosition) != nil {
-			return scanned
-		}
-	}
-	return scanned
+func (vb *mdtVersionBlock) Scan(highKey uint16, groupedSeries map[string][]uint16) {
+	//expectedSeriesIDs := vb.qCtx.SeriesIDSet.Versions()[vb.version]
+	//var (
+	//	currentPosition int32
+	//	currentSeriesID uint32
+	//)
+	//itr := vb.seriesBitmap.Iterator()
+	//for itr.HasNext() {
+	//	currentSeriesID = itr.Next()
+	//	if vb.seriesOffsets.HasNext() {
+	//		currentPosition = vb.seriesOffsets.Next()
+	//	} else {
+	//		//FIXME
+	//		return
+	//	}
+	//	//if !expectedSeriesIDs.Contains(currentSeriesID) {
+	//	//	continue
+	//	//}
+	//	if vb.readFieldsData(currentPosition) != nil {
+	//		//FIXME
+	//		return
+	//	}
+	//}
+	//return
 }
 
 func (vb *mdtVersionBlock) readFieldsData(position int32) error {
@@ -263,21 +273,22 @@ func (vb *mdtVersionBlock) readFieldsData(position int32) error {
 	_ = vb.sr1.ReadSlice(endPosOfBitArray)
 
 	// jump to fields-data
-	for idx, fm := range vb.fieldMetas {
-		dataLength := vb.sr1.ReadUvarint64()
-		if vb.sCtx.ContainsFieldID(fm.ID) {
-			if !vb.bitArray.GetBit(uint16(idx)) {
-				continue
-			}
-			data := vb.sr2.ReadSlice(int(dataLength))
-			if vb.sr2.Error() != nil {
-				return vb.sr2.Error()
-			}
-			if err := vb.readData(data); err != nil {
-				return err
-			}
-		}
-	}
+	// TODO???
+	//for idx, fm := range vb.fieldMetas {
+	//	dataLength := vb.sr1.ReadUvarint64()
+	//	if vb.sCtx.ContainsFieldID(fm.ID) {
+	//		if !vb.bitArray.GetBit(uint16(idx)) {
+	//			continue
+	//		}
+	//		data := vb.sr2.ReadSlice(int(dataLength))
+	//		if vb.sr2.Error() != nil {
+	//			return vb.sr2.Error()
+	//		}
+	//		if err := vb.readData(data); err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
 	return nil
 }
 

@@ -4,15 +4,16 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cespare/xxhash"
+	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-
-	"github.com/cespare/xxhash"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_tagIndex_tStore_get(t *testing.T) {
@@ -67,6 +68,25 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 
 	// getTagKVEntrySet test
 	assert.NotNil(t, tagIdxInterface.GetTagKVEntrySets())
+}
+
+func Test_tagIndex_filter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockGenerator := metadb.NewMockIDGenerator(ctrl)
+	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+
+	tagIdxInterface := newTagIndex()
+	tagIdx := tagIdxInterface.(*tagIndex)
+	// too many tag keys
+	for i := 0; i < 1000; i++ {
+		_, _, _ = tagIdx.GetOrCreateTStore(
+			map[string]string{strconv.Itoa(i): strconv.Itoa(i)}, writeContext{generator: mockGenerator})
+	}
+	assert.True(t, tagIdx.filter(roaring.BitmapOf(1)))
+	assert.False(t, tagIdx.filter(roaring.BitmapOf(3000)))
+
+	tagIdx.loadData(nil, nil, 0, nil)
 }
 
 func Test_tagIndex_tStore_error(t *testing.T) {

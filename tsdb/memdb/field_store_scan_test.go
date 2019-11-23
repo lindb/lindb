@@ -8,17 +8,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 )
-
-type mockScanWorker struct {
-	events []series.ScanEvent
-}
-
-func (w *mockScanWorker) Emit(event series.ScanEvent) {
-	w.events = append(w.events, event)
-}
-func (w *mockScanWorker) Close() {}
 
 func TestFieldStore_Scan(t *testing.T) {
 	ctrl := gomock.NewController(t)

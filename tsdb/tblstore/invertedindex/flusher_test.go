@@ -8,8 +8,8 @@ import (
 
 	"github.com/lindb/lindb/kv"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 

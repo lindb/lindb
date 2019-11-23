@@ -8,15 +8,13 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./context.go -destination=./context_mock.go -package=parallel
-
-var execLogger = logger.GetLogger("parallel", "execute")
 
 // TaskType represents the distribution query task type
 type TaskType int
@@ -28,8 +26,6 @@ const (
 
 // ExecuteContext represents the execute context
 type ExecuteContext interface {
-	// RetainTask adds the task count
-	RetainTask(tasks int32)
 	// Emit emits the time series event, and merges the events
 	Emit(event *series.TimeSeriesEvent)
 	// Complete completes the task with err if task execute fail
@@ -61,12 +57,9 @@ func NewBrokerExecuteContext(query *stmt.Query) BrokerExecuteContext {
 		query:     query,
 	}
 	if query != nil {
-		ctx.expression = aggregation.NewExpression(query.TimeRange, query.Interval, query.SelectItems)
+		ctx.expression = aggregation.NewExpression(query.TimeRange, query.Interval.Int64(), query.SelectItems)
 	}
 	return ctx
-}
-
-func (c *brokerExecuteContext) RetainTask(tasks int32) {
 }
 
 func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
@@ -74,9 +67,24 @@ func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
 		c.err = event.Err
 		return
 	}
+	groupByKeys := c.query.GroupBy
+	groupByKeysLength := len(groupByKeys)
 
 	for _, ts := range event.SeriesList {
-		timeSeries := models.NewSeries(ts.Tags())
+		var tags map[string]string
+		if groupByKeysLength > 0 {
+			tagValues := tag.SplitTagValues(ts.Tags())
+			if groupByKeysLength != len(tagValues) {
+				// if tag values not match group by tag keys, ignore this time series
+				continue
+			}
+			// build group by tags for final result
+			tags = make(map[string]string)
+			for idx, tagKey := range groupByKeys {
+				tags[tagKey] = tagValues[idx]
+			}
+		}
+		timeSeries := models.NewSeries(tags)
 		c.resultSet.AddSeries(timeSeries)
 		c.expression.Eval(ts)
 		rs := c.expression.ResultSet()
@@ -88,7 +96,7 @@ func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
 			it := values.Iterator()
 			for it.HasNext() {
 				slot, val := it.Next()
-				points.AddPoint(int64(slot)*c.query.Interval+c.query.TimeRange.Start, val)
+				points.AddPoint(int64(slot)*c.query.Interval.Int64()+c.query.TimeRange.Start, val)
 			}
 			timeSeries.AddField(fieldName, points)
 		}
@@ -111,99 +119,8 @@ func (c *brokerExecuteContext) ResultSet() (*models.ResultSet, error) {
 	c.resultSet.MetricName = c.query.MetricName
 	c.resultSet.StartTime = c.query.TimeRange.Start
 	c.resultSet.EndTime = c.query.TimeRange.End
-	c.resultSet.Interval = c.query.Interval
+	c.resultSet.Interval = c.query.Interval.Int64()
 	return c.resultSet, c.err
-}
-
-// storageExecuteContext represents the storage query executor context
-type storageExecuteContext struct {
-	ctx         context.Context
-	taskCounter atomic.Int32 // pending task ref counter
-	stream      pb.TaskService_HandleServer
-	req         *pb.TaskRequest
-
-	timeSeriesList []*pb.TimeSeries
-
-	completed atomic.Bool
-
-	err error
-}
-
-func newStorageExecutorContext(ctx context.Context,
-	req *pb.TaskRequest,
-	stream pb.TaskService_HandleServer,
-) ExecuteContext {
-	return &storageExecuteContext{
-		ctx:    ctx,
-		req:    req,
-		stream: stream,
-	}
-}
-
-func (c *storageExecuteContext) RetainTask(tasks int32) {
-	c.taskCounter.Add(tasks)
-}
-
-func (c *storageExecuteContext) Emit(event *series.TimeSeriesEvent) {
-	if c.completed.Load() {
-		return
-	}
-	if event.Err != nil {
-		c.err = event.Err
-		return
-	}
-
-	for _, ts := range event.SeriesList {
-		fields := make(map[string][]byte)
-		for ts.HasNext() {
-			fieldIt := ts.Next()
-			data, err := series.MarshalIterator(fieldIt)
-			if err != nil || len(data) == 0 {
-				continue
-			}
-
-			fields[fieldIt.FieldName()] = data
-		}
-		if len(fields) > 0 {
-			c.timeSeriesList = append(c.timeSeriesList, &pb.TimeSeries{
-				Tags:   ts.Tags(),
-				Fields: fields,
-			})
-		}
-	}
-}
-
-func (c *storageExecuteContext) Complete(err error) {
-	newVal := c.taskCounter.Dec()
-	if err != nil {
-		c.err = err
-	}
-	// if all tasks completed, close result channel
-	if newVal == 0 {
-		c.completed.Store(true)
-		errMsg := ""
-		var data []byte
-		if c.err != nil {
-			errMsg = c.err.Error()
-		} else {
-			seriesList := pb.TimeSeriesList{
-				TimeSeriesList: c.timeSeriesList,
-			}
-			// no error
-			data, _ = seriesList.Marshal()
-		}
-
-		// send result to upstream
-		if err := c.stream.Send(&pb.TaskResponse{
-			JobID:     c.req.JobID,
-			TaskID:    c.req.ParentTaskID,
-			Completed: true,
-			Payload:   data,
-			ErrMsg:    errMsg,
-		}); err != nil {
-			execLogger.Error("send storage execute result", logger.Error(err))
-		}
-	}
 }
 
 type JobContext interface {
