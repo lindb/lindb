@@ -13,8 +13,8 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -149,9 +149,10 @@ func Test_mStore_evict(t *testing.T) {
 	mockTagIdx.EXPECT().AllTStores().Return(metricMap)
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(33)).Return(mockTStore3, true).AnyTimes()
 	mockTagIdx.EXPECT().GetTStoreBySeriesID(uint32(44)).Return(nil, false).AnyTimes()
-	mockTagIdx.EXPECT().RemoveTStores(uint32(33)).Return(nil).AnyTimes()
+	mockTagIdx.EXPECT().RemoveTStores(uint32(33)).Return([]tStoreINTF{mockTStore3}).AnyTimes()
 
 	mStore.mutable = mockTagIdx
+	mockTStore3.EXPECT().MemSize().Return(10)
 	mStoreInterface.Evict()
 }
 
@@ -401,7 +402,7 @@ func Test_mStore_flushForwardIndexTo(t *testing.T) {
 	assert.Nil(t, mStoreInterface.FlushForwardIndexTo(mockTableFlusher))
 }
 
-func Test_mStore_getTagValues(t *testing.T) {
+func Test_mStore_GetGroupingContext(t *testing.T) {
 	mStoreInterface := newMetricStore(100)
 	mStore := mStoreInterface.(*metricStore)
 	ctrl := gomock.NewController(t)
@@ -413,31 +414,29 @@ func Test_mStore_getTagValues(t *testing.T) {
 	//////////////////////////////////////////////
 	mStore.mutable = mockTagIdx3
 	// host not exist
-	mappings, err := mStoreInterface.GetTagValues(
-		[]string{"host", "zone", "usage"}, 3, roaring.BitmapOf(3, 4, 5, 6, 11))
+	mappings, err := mStoreInterface.GetGroupingContext(
+		[]string{"host", "zone", "usage"}, 3)
 	assert.NotNil(t, err)
 	assert.Nil(t, mappings)
 
 	// zone, usage exist
-	mappings, err = mStoreInterface.GetTagValues(
-		[]string{"zone", "usage"}, 3, roaring.BitmapOf(3, 4, 5, 6, 11))
+	mappings, err = mStoreInterface.GetGroupingContext(
+		[]string{"zone", "usage"}, 3)
 	assert.Nil(t, err)
-	assert.Len(t, mappings, 5)
-	assert.Equal(t, []string{"nj", "idle"}, mappings[3])
-	assert.Equal(t, []string{"nj", "system"}, mappings[4])
-	assert.Equal(t, []string{"nj", "system"}, mappings[5])
-	assert.Equal(t, []string{"nt", "system"}, mappings[6])
-	assert.Equal(t, []string{"", ""}, mappings[11])
+	assert.NotNil(t, mappings)
+	m := mappings.(*groupingContext)
+	assert.Len(t, m.tagKVEntrySets, 2)
+
 	//////////////////////////////////////////////
 	// immutable part not empty
 	//////////////////////////////////////////////
 	mStore.immutable.Store(mockTagIdx2)
 	mStore.mutable = mockTagIdx3
 	// version not match
-	_, err = mStoreInterface.GetTagValues([]string{"ip"}, 4, roaring.BitmapOf(1, 2, 3))
+	_, err = mStoreInterface.GetGroupingContext([]string{"ip"}, 4)
 	assert.NotNil(t, err)
 	// version match, ip not exist
-	_, err = mStoreInterface.GetTagValues([]string{"ip"}, 1, roaring.BitmapOf(1, 2, 3))
+	_, err = mStoreInterface.GetGroupingContext([]string{"ip"}, 1)
 	assert.NotNil(t, err)
 }
 

@@ -22,6 +22,10 @@ var defaultStandaloneConfig = config.Standalone{
 	Monitor:     *config.NewDefaultMonitor(),
 }
 
+func init() {
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
+}
+
 func TestRuntime_Run(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)

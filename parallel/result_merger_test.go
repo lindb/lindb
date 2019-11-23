@@ -100,8 +100,9 @@ func TestResultMerger_GroupBy(t *testing.T) {
 	}()
 	fields := make(map[string][]byte)
 	fields["f1"] = []byte{}
+	tagValues := "1.1.1.1"
 	timeSeries := &pb.TimeSeries{
-		Tags:   map[string]string{"host": "1.1.1.1"},
+		Tags:   tagValues,
 		Fields: fields,
 	}
 	seriesList := pb.TimeSeriesList{
@@ -110,7 +111,7 @@ func TestResultMerger_GroupBy(t *testing.T) {
 	data, _ := seriesList.Marshal()
 	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
 	timeSeries = &pb.TimeSeries{
-		Tags: map[string]string{"host": "1.1.1.1"},
+		Tags: tagValues,
 	}
 	seriesList = pb.TimeSeriesList{
 		TimeSeriesList: []*pb.TimeSeries{timeSeries},

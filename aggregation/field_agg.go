@@ -104,7 +104,6 @@ type fieldAggregator struct {
 
 	aggregateMap map[aggKey]PrimitiveAggregator
 
-	aggSpec  AggregatorSpec
 	selector selector.SlotSelector
 }
 
@@ -112,13 +111,12 @@ type fieldAggregator struct {
 // time range 's start and end is index based on segment start time and interval.
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewFieldAggregator(segmentStartTime int64, selector selector.SlotSelector, aggSpec AggregatorSpec) FieldAggregator {
+func NewFieldAggregator(segmentStartTime int64, selector selector.SlotSelector) FieldAggregator {
 	start, _ := selector.Range()
 	agg := &fieldAggregator{
 		segmentStartTime: segmentStartTime,
 		start:            start,
 		selector:         selector,
-		aggSpec:          aggSpec,
 		aggregateMap:     make(map[aggKey]PrimitiveAggregator),
 	}
 

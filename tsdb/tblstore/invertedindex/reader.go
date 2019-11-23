@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"

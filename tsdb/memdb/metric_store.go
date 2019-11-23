@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -15,7 +16,6 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
-	"github.com/RoaringBitmap/roaring"
 	"go.uber.org/atomic"
 )
 
@@ -39,15 +39,6 @@ type mStoreINTF interface {
 
 	// SuggestTagValues returns tagValues by prefix-search
 	SuggestTagValues(tagKey, tagValuePrefix string, limit int) []string
-
-	// GetTagValues get tagValues from the specified version and tagKeys
-	GetTagValues(
-		tagKeys []string,
-		version series.Version,
-		seriesID *roaring.Bitmap,
-	) (
-		seriesID2TagValues map[uint32][]string,
-		err error)
 
 	// SetMaxTagsLimit sets the max tags-limit
 	SetMaxTagsLimit(limit uint32)
@@ -76,9 +67,13 @@ type mStoreINTF interface {
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
 
+	// GetGroupingContext returns the context of group by from the specified version and tagKeys
+	GetGroupingContext(tagKeys []string, version series.Version) (series.GroupingContext, error)
+
 	mStoreFieldIDGetter
 
-	series.Scanner
+	// flow.DataFilter filters the data based on condition
+	flow.DataFilter
 
 	// MemSize returns the memory-size of this metric-store
 	MemSize() int
@@ -277,16 +272,9 @@ func (ms *metricStore) SuggestTagValues(
 	return tagValuesList
 }
 
-// GetTagValues get tagValues from the specified version and tagKeys
-func (ms *metricStore) GetTagValues(
-	tagKeys []string,
+func (ms *metricStore) GetGroupingContext(tagKeys []string,
 	version series.Version,
-	seriesID *roaring.Bitmap,
-) (
-	seriesID2TagValues map[uint32][]string,
-	err error,
-) {
-	seriesID2TagValues = make(map[uint32][]string)
+) (series.GroupingContext, error) {
 	var found tagIndexINTF
 
 	ms.mux.RLock()
@@ -304,38 +292,21 @@ func (ms *metricStore) GetTagValues(
 	if found == nil {
 		return nil, series.ErrNotFound
 	}
+
+	tagKeysLen := len(tagKeys)
+	tagKVEntries := make([]*tagKVEntrySet, tagKeysLen)
 	// validate tagKeys
-	for _, tagKey := range tagKeys {
-		_, ok := found.GetTagKVEntrySet(tagKey)
+	for idx, tagKey := range tagKeys {
+		tagKVEntry, ok := found.GetTagKVEntrySet(tagKey)
 		if !ok {
 			return nil, fmt.Errorf("tagKey: %s not exist", tagKey)
 		}
+		tagKVEntries[idx] = tagKVEntry
 	}
-	itr := seriesID.Iterator()
-	for itr.HasNext() {
-		seriesID := itr.Next()
-		var tagValues []string
-		for _, tagKey := range tagKeys {
-			entrySet, ok := found.GetTagKVEntrySet(tagKey)
-			if !ok {
-				tagValues = append(tagValues, "")
-				continue
-			}
-			var found bool
-			for tagValue, bitmap := range entrySet.values {
-				if bitmap.Contains(seriesID) {
-					found = true
-					tagValues = append(tagValues, tagValue)
-					break
-				}
-			}
-			if !found {
-				tagValues = append(tagValues, "")
-			}
-		}
-		seriesID2TagValues[seriesID] = tagValues
-	}
-	return seriesID2TagValues, nil
+	return &groupingContext{
+		ms:             ms,
+		tagKVEntrySets: tagKVEntries,
+	}, nil
 }
 
 // Write Writes the metric to the tStore

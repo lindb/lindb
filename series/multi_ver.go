@@ -1,7 +1,7 @@
 package series
 
 import (
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 )
 
 // Refs:

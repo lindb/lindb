@@ -10,8 +10,8 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 

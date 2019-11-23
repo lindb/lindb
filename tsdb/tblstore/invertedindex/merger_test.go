@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"

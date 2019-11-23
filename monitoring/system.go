@@ -17,6 +17,9 @@ var log = logger.GetLogger("monitoring", "System")
 var (
 	cpuCount      = 0
 	once4CpuCount sync.Once
+	cpuCountsFunc = cpu.Counts
+	cpuTimesFunc  = cpu.Times
+	memFunc       = mem.VirtualMemory
 )
 
 type (
@@ -29,18 +32,23 @@ type (
 func GetCPUs() int {
 	once4CpuCount.Do(
 		func() {
-			count, err := cpu.Counts(true)
-			if err != nil {
-				log.Error("get cpu cores", logger.Error(err))
-			}
-			cpuCount = count
+			cpuCount = getCPUs()
 		})
 	return cpuCount
 }
 
+// getCPUs returns the number of logical cores in the system
+func getCPUs() int {
+	count, err := cpuCountsFunc(true)
+	if err != nil {
+		log.Error("get cpu cores", logger.Error(err))
+	}
+	return count
+}
+
 // GetCPUStat return the cpu time statistics
 func GetCPUStat() (*models.CPUStat, error) {
-	s, err := cpu.Times(false)
+	s, err := cpuTimesFunc(false)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +80,7 @@ func GetDiskStat(path string) (*models.DiskStat, error) {
 
 // GetMemoryStat return the memory usage statistics
 func GetMemoryStat() (*models.MemoryStat, error) {
-	v, err := mem.VirtualMemory()
+	v, err := memFunc()
 	if err != nil {
 		return nil, err
 	}

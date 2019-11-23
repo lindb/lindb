@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -16,8 +17,8 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/cespare/xxhash"
+	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 )
 
@@ -59,8 +60,8 @@ type MemoryDatabase interface {
 	// series.Suggester returns the suggestions from prefix string
 	series.MetricMetaSuggester
 	series.TagValueSuggester
-	// series.Scanner scans metric-data
-	series.Scanner
+	// flow.DataFilter filters the data based on condition
+	flow.DataFilter
 	// series.Storage returns the high level function of storage
 	series.Storage
 }
@@ -456,22 +457,15 @@ func (md *memoryDatabase) GetSeriesIDsForTag(
 	return mStore.GetSeriesIDsForTag(tagKey)
 }
 
-// GetTagValues returns tag values by tag keys and spec version for metric level from memory-database
-func (md *memoryDatabase) GetTagValues(
-	metricID uint32,
-	tagKeys []string,
+// GetGroupingContext returns the context of group by from memory database
+func (md *memoryDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	version series.Version,
-	seriesIDs *roaring.Bitmap,
-) (
-	seriesID2TagValues map[uint32][]string,
-	err error,
-) {
-	// get hash of metricId
+) (series.GroupingContext, error) {
 	mStore, ok := md.getMStoreByMetricID(metricID)
 	if !ok {
 		return nil, series.ErrNotFound
 	}
-	return mStore.GetTagValues(tagKeys, version, seriesIDs)
+	return mStore.GetGroupingContext(tagKeys, version)
 }
 
 // SuggestMetrics returns nil, as the index-db contains all metricNames
@@ -497,13 +491,16 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 	return mStore.SuggestTagValues(tagKey, tagValuePrefix, limit)
 }
 
-// Scan scans data from memory by scan-context
-func (md *memoryDatabase) Scan(sCtx *series.ScanContext) {
-	mStore, ok := md.getMStoreByMetricID(sCtx.MetricID)
-	if ok {
-		sCtx.IntervalCalc = md.interval.Calculator()
-		mStore.Scan(sCtx)
+// Filter filters the data based on metric/version/seriesIDs,
+// if finds data then returns the FilterResultSet, else returns nil
+func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []uint16,
+	version series.Version, seriesIDs *roaring.Bitmap,
+) []flow.FilterResultSet {
+	mStore, ok := md.getMStoreByMetricID(metricID)
+	if !ok {
+		return nil
 	}
+	return mStore.Filter(metricID, fieldIDs, version, seriesIDs)
 }
 
 // Interval return the interval of memory database

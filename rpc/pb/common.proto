@@ -28,7 +28,7 @@ message TimeSeriesList {
 }
 
 message TimeSeries {
-    map<string, string> tags = 1;
+    string tags = 1; // tag values contact string
     map<string, bytes> fields = 2;
 }
 

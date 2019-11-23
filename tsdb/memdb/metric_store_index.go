@@ -5,16 +5,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cespare/xxhash"
+	"github.com/lindb/roaring"
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-
-	"github.com/RoaringBitmap/roaring"
-	"github.com/cespare/xxhash"
-	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./metric_store_index.go -destination=./metric_store_index_mock_test.go -package memdb
@@ -86,8 +87,10 @@ type tagIndexINTF interface {
 	// MemSize returns the memory size in bytes
 	MemSize() int
 
-	// scan scans metric store data based on scanner context
-	scan(sCtx *series.ScanContext)
+	// filter filters if seriesIDSs exist in data storage
+	filter(seriesIDs *roaring.Bitmap) bool
+
+	loadData(flow flow.StorageQueryFlow, fieldIDs []uint16, highKey uint16, groupedSeries map[string][]uint16)
 }
 
 // tagKVEntrySet is a inverted mapping relation of tag-value and seriesID group.
@@ -428,8 +431,10 @@ func (index *tagIndex) findSeriesIDsByRegex(entrySet *tagKVEntrySet, expr *stmt.
 func (index *tagIndex) MemSize() int {
 	// tagKVEntrySet, map is not calculated
 	size := emptyTagIndexSize
-	for _, tStore := range index.seriesID2TStore.stores {
-		size += tStore.MemSize()
+	for _, tStores := range index.seriesID2TStore.stores {
+		for _, tStore := range tStores {
+			size += tStore.MemSize()
+		}
 	}
 	return size
 }
@@ -447,9 +452,16 @@ func (index *tagIndex) GetSeriesIDsForTag(tagKey string) *roaring.Bitmap {
 	return union
 }
 
-// scan scans metric store data based on scanner context
-func (index *tagIndex) scan(sCtx *series.ScanContext) {
-	index.seriesID2TStore.scan(index.version, sCtx)
+// filter filters if seriesIDSs exist in data storage
+func (index *tagIndex) filter(seriesIDs *roaring.Bitmap) bool {
+	return index.seriesID2TStore.filter(seriesIDs)
+}
+
+// loadData loads the data points data from storage based on high series key and grouped low series ids
+func (index *tagIndex) loadData(flow flow.StorageQueryFlow, fieldIDs []uint16,
+	highKey uint16, groupedSeries map[string][]uint16,
+) {
+	index.seriesID2TStore.loadData(flow, fieldIDs, highKey, groupedSeries)
 }
 
 // staticNopTagIndex is the static nop-tagIndex,

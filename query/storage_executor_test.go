@@ -3,13 +3,15 @@ package query
 import (
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/RoaringBitmap/roaring"
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -20,44 +22,81 @@ import (
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
+type mockQueryFlow struct {
+}
+
+func (m *mockQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpecs) {
+}
+
+func (m *mockQueryFlow) Filtering(task concurrent.Task) {
+	task()
+}
+
+func (m *mockQueryFlow) Grouping(task concurrent.Task) {
+	task()
+}
+
+func (m *mockQueryFlow) Scanner(task concurrent.Task) {
+	task()
+}
+
+func (m *mockQueryFlow) GetAggregator() (agg aggregation.FieldAggregates) {
+	return nil
+}
+
+func (m *mockQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates) {
+}
+
+func (m *mockQueryFlow) Complete(err error) {
+}
+
+func newMockQueryFlow() flow.StorageQueryFlow {
+	return &mockQueryFlow{}
+}
+
 func TestStorageExecute_validation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	queryFlow := flow.NewMockStorageQueryFlow(ctrl)
 	exeCtx := parallel.NewMockExecuteContext(ctrl)
 	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
-	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
 
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	mockDatabase.EXPECT().ExecutorPool().Return(execPool).AnyTimes()
 	mockDatabase.EXPECT().Name().Return("mock_tsdb").AnyTimes()
-	query := &stmt.Query{Interval: timeutil.OneSecond}
+	query := &stmt.Query{Interval: timeutil.Interval(timeutil.OneSecond)}
 
 	// query shards is empty
-	exec := newStorageExecutor(exeCtx, mockDatabase, nil, query)
+	exec := newStorageExecutor(queryFlow, mockDatabase, nil, query)
+	queryFlow.EXPECT().Complete(errNoShardID)
 	exec.Execute()
 
 	// shards of engine is empty
 	mockDatabase.EXPECT().NumOfShards().Return(0)
-	exec = newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
+	queryFlow.EXPECT().Complete(errNoShardInDatabase)
 	exec.Execute()
 
 	// num. of shard not match
 	mockDatabase.EXPECT().NumOfShards().Return(2)
-	exec = newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
+	queryFlow.EXPECT().Complete(errShardNotMatch)
 	exec.Execute()
 
 	mockDatabase.EXPECT().NumOfShards().Return(3).AnyTimes()
 	mockDatabase.EXPECT().GetShard(gomock.Any()).Return(nil, false).MaxTimes(3)
-	exec = newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
+	queryFlow.EXPECT().Complete(errShardNotFound)
 	exec.Execute()
 
 	// normal case
 	query, _ = sql.Parse("select f from cpu")
 	mockDB1 := newMockDatabase(ctrl)
-	mockDB1.EXPECT().ExecutorPool().Return(execPool)
-
-	exec = newStorageExecutor(exeCtx, mockDB1, []int32{1, 2, 3}, query)
+	exec = newStorageExecutor(queryFlow, mockDB1, []int32{1, 2, 3}, query)
+	gomock.InOrder(
+		queryFlow.EXPECT().Prepare(gomock.Any()),
+		queryFlow.EXPECT().Filtering(gomock.Any()).MaxTimes(3),
+	)
 	exec.Execute()
 }
 
@@ -65,11 +104,10 @@ func TestStorageExecute_Plan_Fail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	exeCtx := parallel.NewMockExecuteContext(ctrl)
-	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
+	queryFlow := flow.NewMockStorageQueryFlow(ctrl)
+	queryFlow.EXPECT().Complete(gomock.Any()).AnyTimes()
 
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	mockDatabase.EXPECT().ExecutorPool().Return(execPool).AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	mockDatabase.EXPECT().GetShard(gomock.Any()).Return(shard, true).MaxTimes(3)
 	mockDatabase.EXPECT().NumOfShards().Return(3)
@@ -79,7 +117,7 @@ func TestStorageExecute_Plan_Fail(t *testing.T) {
 
 	// find metric name err
 	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec := newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
 	exec.Execute()
 }
 
@@ -87,16 +125,11 @@ func TestStorageExecute_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	exeCtx := parallel.NewMockExecuteContext(ctrl)
-	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
-	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
+	queryFlow := newMockQueryFlow()
 
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	mockDatabase.EXPECT().ExecutorPool().Return(execPool).AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	idGetter := metadb.NewMockIDGetter(ctrl)
-	family := tsdb.NewMockDataFamily(ctrl)
-	filter := series.NewMockFilter(ctrl)
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
 	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
 
@@ -108,28 +141,100 @@ func TestStorageExecute_Execute(t *testing.T) {
 	mockDatabase.EXPECT().IDGetter().Return(idGetter)
 	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
 	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
-	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family, family}).MaxTimes(3)
 	shard.EXPECT().MemoryDatabase().Return(memDB).MaxTimes(3)
-	shard.EXPECT().IndexFilter().Return(filter).MaxTimes(3)
 	shard.EXPECT().IndexMetaGetter().Return(nil).MaxTimes(3)
-	filter.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
-		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
-	filter.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
-		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf()), nil)
-	filter.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).Return(nil, nil)
 	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil).MaxTimes(3)
-	memDB.EXPECT().Scan(gomock.Any()).MaxTimes(3)
-	family.EXPECT().Scan(gomock.Any()).MaxTimes(2 * 3)
+	filterRS := flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(3)
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]flow.FilterResultSet{filterRS}).MaxTimes(3)
 
 	// normal case
 	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec := newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
 	exec.Execute()
-	time.Sleep(100 * time.Millisecond)
-	e := exec.(*storageExecutor)
-	pool := e.getAggregatorPool(10, 1, query.TimeRange)
-	assert.NotNil(t, pool.Get())
+
+	mockDatabase.EXPECT().NumOfShards().Return(1)
+	mockDatabase.EXPECT().GetShard(int32(1)).Return(shard, true)
+	mockDatabase.EXPECT().IDGetter().Return(idGetter)
+	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
+	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
+	shard.EXPECT().MemoryDatabase().Return(memDB)
+	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
+		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil).MaxTimes(3)
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
+	exec.Execute()
+}
+
+func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	queryFlow := newMockQueryFlow()
+
+	mockDatabase := tsdb.NewMockDatabase(ctrl)
+	shard := tsdb.NewMockShard(ctrl)
+	idGetter := metadb.NewMockIDGetter(ctrl)
+	memDB := memdb.NewMockMemoryDatabase(ctrl)
+	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
+
+	// mock data
+	mockDatabase.EXPECT().NumOfShards().Return(1)
+	mockDatabase.EXPECT().GetShard(int32(1)).Return(shard, true)
+	mockDatabase.EXPECT().IDGetter().Return(idGetter)
+	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
+	idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(20), nil)
+	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
+	shard.EXPECT().MemoryDatabase().Return(memDB)
+	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
+		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
+	groupingCtx := series.NewMockGroupingContext(ctrl)
+	groupingCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"1.1.1.1": {1, 2, 3}})
+	memDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(groupingCtx, nil)
+	filterRS := flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]flow.FilterResultSet{filterRS})
+
+	// normal case
+	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' " +
+		"and time>'20190729 11:00:00' and time<'20190729 12:00:00' group by type")
+	exec := newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
+	exec.Execute()
+
+	// get grouping context err
+	// mock data
+	mockDatabase.EXPECT().NumOfShards().Return(1)
+	mockDatabase.EXPECT().GetShard(int32(1)).Return(shard, true)
+	mockDatabase.EXPECT().IDGetter().Return(idGetter)
+	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
+	idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(20), nil)
+	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
+	shard.EXPECT().MemoryDatabase().Return(memDB)
+	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
+		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
+	memDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]flow.FilterResultSet{filterRS})
+
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
+	exec.Execute()
+}
+
+func TestStorageExecutor_Execute_Find_Series_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	queryFlow := newMockQueryFlow()
+
+	mockDatabase := tsdb.NewMockDatabase(ctrl)
+	shard := tsdb.NewMockShard(ctrl)
+	idGetter := metadb.NewMockIDGetter(ctrl)
+	memDB := memdb.NewMockMemoryDatabase(ctrl)
+	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
 
 	// find series err
 	// mock data
@@ -138,30 +243,39 @@ func TestStorageExecute_Execute(t *testing.T) {
 	mockDatabase.EXPECT().IDGetter().Return(idGetter)
 	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
 	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
-	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family, family})
 	shard.EXPECT().MemoryDatabase().Return(memDB)
-	shard.EXPECT().IndexFilter().Return(filter)
-	filter.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
-		Return(nil, fmt.Errorf("err"))
 	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
 		Return(nil, series.ErrNotFound)
-	exec = newStorageExecutor(exeCtx, mockDatabase, []int32{1}, query)
+
+	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	exec := newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
 	exec.Execute()
-	time.Sleep(100 * time.Millisecond)
+
+	// mock data
+	mockDatabase.EXPECT().NumOfShards().Return(1)
+	mockDatabase.EXPECT().GetShard(int32(1)).Return(shard, true)
+	mockDatabase.EXPECT().IDGetter().Return(idGetter)
+	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
+	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
+	shard.EXPECT().MemoryDatabase().Return(memDB)
+	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
+		Return(nil, fmt.Errorf("err"))
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
+	exec.Execute()
 }
 
 func TestStorageExecutor_checkShards(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	exeCtx := parallel.NewMockExecuteContext(ctrl)
-	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
-	exeCtx.EXPECT().RetainTask(gomock.Any()).AnyTimes()
+	queryFlow := flow.NewMockStorageQueryFlow(ctrl)
+	queryFlow.EXPECT().Complete(gomock.Any()).AnyTimes()
+	queryFlow.EXPECT().Prepare(gomock.Any()).AnyTimes()
+	queryFlow.EXPECT().Filtering(gomock.Any()).AnyTimes()
 
 	mockDatabase := newMockDatabase(ctrl)
-	mockDatabase.EXPECT().ExecutorPool().Return(execPool).AnyTimes()
 	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
-	exec := newStorageExecutor(exeCtx, mockDatabase, []int32{1, 2, 3}, query)
+	exec := newStorageExecutor(queryFlow, mockDatabase, []int32{1, 2, 3}, query)
 	exec.Execute()
 
 	execImpl := exec.(*storageExecutor)

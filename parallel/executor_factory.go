@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -15,7 +16,7 @@ import (
 type ExecutorFactory interface {
 	// NewStorageExecutor creates the storage executor based on params
 	NewStorageExecutor(
-		ctx ExecuteContext,
+		queryFlow flow.StorageQueryFlow,
 		database tsdb.Database,
 		shardIDs []int32,
 		query *stmt.Query,
