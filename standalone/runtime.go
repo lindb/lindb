@@ -12,7 +12,6 @@ import (
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
@@ -46,11 +45,19 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 		version:     version,
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("standalone"),
-		broker:      broker.NewBrokerRuntime(version, config.Broker{BrokerBase: cfg.BrokerBase}),
-		storage:     storage.NewStorageRuntime(version, config.Storage{StorageBase: cfg.StorageBase}),
-		cfg:         cfg,
-		ctx:         ctx,
-		cancel:      cancel,
+		broker: broker.NewBrokerRuntime(version,
+			config.Broker{
+				BrokerBase: cfg.BrokerBase,
+				Monitor:    cfg.Monitor,
+			}),
+		storage: storage.NewStorageRuntime(version,
+			config.Storage{
+				StorageBase: cfg.StorageBase,
+				Monitor:     cfg.Monitor,
+			}),
+		cfg:    cfg,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -73,10 +80,6 @@ func (r *runtime) Run() error {
 	if err := r.runServer(); err != nil {
 		return err
 	}
-
-	// start monitor
-	r.monitoring()
-
 	r.state = server.Running
 	return nil
 }
@@ -162,17 +165,4 @@ func (r *runtime) cleanupState() error {
 		return fmt.Errorf("delete old master error")
 	}
 	return nil
-}
-
-func (r *runtime) monitoring() {
-	// todo: @stone1100, broker metric http post url is not implemented
-	runtimeStatMonitorEnabled := r.cfg.Monitor.RuntimeReportInterval > 0
-	if runtimeStatMonitorEnabled {
-		go monitoring.NewRunTimeCollector(
-			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.cfg.BrokerBase.HTTP), // todo
-			r.cfg.Monitor.RuntimeReportInterval.Duration(),
-			map[string]string{"role": "standalone", "version": r.version},
-		)
-	}
 }

@@ -444,6 +444,7 @@ func (r *runtime) monitoring() {
 		OnlineTime: timeutil.Now(),
 	}
 	if systemStatMonitorEnabled {
+		r.log.Info("SystemStatMonitor is running")
 		go monitoring.NewSystemCollector(
 			r.ctx,
 			r.config.Monitor.SystemReportInterval.Duration(),
@@ -456,6 +457,7 @@ func (r *runtime) monitoring() {
 	// todo: @stone1100, broker metric http post url is not implemented
 	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
+		r.log.Info("RuntimeStatMonitor is running")
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
 			fmt.Sprintf("http://localhost:%d/", r.config.BrokerBase.HTTP), // todo
