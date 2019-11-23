@@ -84,7 +84,7 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
           <NodeInfo nodes={brokers} />
         </Card>
         {/* Storage Cluster Overview*/}
-        <Card size="small" title="Storeage Cluster List">
+        <Card size="small" title="Storage Cluster List">
           <StorageClusterInfo storageClusterList={storageClusters} />
         </Card>
       </div>

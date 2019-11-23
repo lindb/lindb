@@ -10,11 +10,11 @@ interface StorageClusterDetailProps {
     match?: any
 }
 
-interface StoreageClusterDetailStatus {
+interface StorageClusterDetailStatus {
     storageCluster?: StorageCluster
 }
 
-export default class StorageClusterDetail extends React.Component<StorageClusterDetailProps, StoreageClusterDetailStatus> {
+export default class StorageClusterDetail extends React.Component<StorageClusterDetailProps, StorageClusterDetailStatus> {
     private clusterName: string
 
     constructor(props: StorageClusterDetailProps) {

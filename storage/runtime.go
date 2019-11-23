@@ -239,6 +239,7 @@ func (r *runtime) bindRPCHandlers() {
 func (r *runtime) monitoring() {
 	systemStatMonitorEnabled := r.config.Monitor.SystemReportInterval > 0
 	if systemStatMonitorEnabled {
+		r.log.Info("SystemStatMonitor is running")
 		go monitoring.NewSystemCollector(
 			r.ctx,
 			r.config.Monitor.SystemReportInterval.Duration(),
@@ -255,6 +256,7 @@ func (r *runtime) monitoring() {
 	// todo: @stone1100, how to retrieve the broker port?
 	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
+		r.log.Info("RuntimeStatMonitor is running")
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
 			fmt.Sprintf("http://localhost:%d/", r.config.StorageBase.GRPC),
