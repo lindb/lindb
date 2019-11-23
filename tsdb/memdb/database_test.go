@@ -9,7 +9,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 
 	"github.com/cespare/xxhash"
@@ -274,7 +273,7 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	assert.NotNil(t, md.FlushForwardIndexTo(nil))
 }
 
-func Test_MemoryDatabase_GetTagValues(t *testing.T) {
+func Test_MemoryDatabase_GetGroupingContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctrl := gomock.NewController(t)
@@ -283,20 +282,20 @@ func Test_MemoryDatabase_GetTagValues(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().GetTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockMStore.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	md.getBucket(3333).hash2MStore[3333] = mockMStore
 	md.metricID2Hash.Store(uint32(3333), uint64(3333))
 
 	// existed metricID
-	_, err := mdINTF.GetTagValues(3333, nil, 1, nil)
-	assert.Nil(t, err)
-	// inexisted metricID
-	_, err = mdINTF.GetTagValues(3334, nil, 1, nil)
-	assert.NotNil(t, err)
+	_, err := mdINTF.GetGroupingContext(3333, nil, 1)
+	assert.NoError(t, err)
+	// not existed metricID
+	_, err = mdINTF.GetGroupingContext(3334, nil, 1)
+	assert.Error(t, err)
 
 }
 
-func Test_MemoryDatabase_Suggset(t *testing.T) {
+func Test_MemoryDatabase_Suggest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctrl := gomock.NewController(t)
@@ -318,7 +317,7 @@ func Test_MemoryDatabase_Suggset(t *testing.T) {
 	assert.Nil(t, md.SuggestTagValues("test", "", "", 100))
 }
 
-func Test_MemoryDatabase_Scan(t *testing.T) {
+func Test_MemoryDatabase_Filter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctrl := gomock.NewController(t)
@@ -327,15 +326,14 @@ func Test_MemoryDatabase_Scan(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	// not found
-	md.Scan(&series.ScanContext{MetricID: 0})
+	md.Filter(0, []uint16{1}, 1, nil)
 
 	// mock mStore
-	sCtx := &series.ScanContext{MetricID: 3333}
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Scan(sCtx)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	md.metricID2Hash.Store(uint32(3333), xxhash.Sum64String("test"))
 	md.getBucket(xxhash.Sum64String("test")).hash2MStore[xxhash.Sum64String("test")] = mockMStore
-	md.Scan(sCtx)
+	md.Filter(uint32(3333), []uint16{1}, 1, nil)
 }
 
 func Test_MemoryDatabase_MemSize(t *testing.T) {

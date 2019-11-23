@@ -14,7 +14,7 @@ type Query struct {
 	Condition   Expr   // tag filter condition expression
 
 	TimeRange timeutil.TimeRange // query time range
-	Interval  int64              // down sampling interval
+	Interval  timeutil.Interval  // down sampling interval
 
 	GroupBy []string // group by tag keys
 	Limit   int      // num. of time series list for result
@@ -32,7 +32,7 @@ type innerQuery struct {
 	Condition   json.RawMessage   `json:"condition,omitempty"`
 
 	TimeRange timeutil.TimeRange `json:"timeRange,omitempty"`
-	Interval  int64              `json:"interval,omitempty"`
+	Interval  timeutil.Interval  `json:"interval,omitempty"`
 
 	GroupBy []string `json:"groupBy,omitempty"`
 	Limit   int      `json:"limit,omitempty"`

@@ -228,15 +228,15 @@ func TestInterval(t *testing.T) {
 	sql := "select f from cpu where region='sh'"
 	query, err := Parse(sql)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), query.Interval)
+	assert.Equal(t, timeutil.Interval(int64(0)), query.Interval)
 	sql = "select f from cpu group by time(100s)"
 	query, err = Parse(sql)
 	assert.Nil(t, err)
-	assert.Equal(t, 100*timeutil.OneSecond, query.Interval)
+	assert.Equal(t, timeutil.Interval(100*timeutil.OneSecond), query.Interval)
 	sql = "select f from cpu group by time(1m)"
 	query, err = Parse(sql)
 	assert.Nil(t, err)
-	assert.Equal(t, timeutil.OneMinute, query.Interval)
+	assert.Equal(t, timeutil.Interval(timeutil.OneMinute), query.Interval)
 }
 
 func TestGroupBy(t *testing.T) {

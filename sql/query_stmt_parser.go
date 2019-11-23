@@ -66,7 +66,7 @@ func (q *queryStmtParse) build() (*stmt.Query, error) {
 		return nil, fmt.Errorf("start time cannot be larger than end time")
 	}
 
-	query.Interval = q.interval
+	query.Interval = timeutil.Interval(q.interval)
 	query.GroupBy = q.groupBy
 	query.Limit = q.limit
 	return query, nil

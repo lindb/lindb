@@ -12,7 +12,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package invertedindex

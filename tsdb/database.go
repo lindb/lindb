@@ -35,6 +35,8 @@ type Database interface {
 	Name() string
 	// NumOfShards returns number of shards in time series database
 	NumOfShards() int
+	// GetOption returns the data base options
+	GetOption() option.DatabaseOption
 	// CreateShards creates shards for data partition
 	CreateShards(option option.DatabaseOption, shardIDs ...int32) error
 	// GetShard returns shard by given shard id
@@ -89,11 +91,17 @@ func newDatabase(
 		config:      cfg,
 		numOfShards: *atomic.NewInt32(0),
 		executorPool: &ExecutorPool{
-			Scanners: concurrent.NewPool(
+			Filtering: concurrent.NewPool(
+				databaseName+"-filtering-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5),
-			Mergers: concurrent.NewPool(
-				runtime.NumCPU(),
+			Grouping: concurrent.NewPool(
+				databaseName+"-grouping-pool",
+				runtime.NumCPU(), /*nRoutines*/
+				time.Second*5),
+			Scanner: concurrent.NewPool(
+				databaseName+"-scanner-pool",
+				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5),
 		},
 		isFlushing: *atomic.NewBool(false),
@@ -126,6 +134,10 @@ func (db *database) Name() string {
 
 func (db *database) NumOfShards() int {
 	return int(db.numOfShards.Load())
+}
+
+func (db *database) GetOption() option.DatabaseOption {
+	return db.config.Option
 }
 
 func (db *database) IDGetter() metadb.IDGetter {

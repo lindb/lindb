@@ -52,7 +52,7 @@ func (p *brokerPlan) Plan() error {
 
 	//FIXME need set interval based on db config if not set
 	interval := 10 * timeutil.OneSecond
-	p.query.Interval = interval
+	p.query.Interval = timeutil.Interval(interval)
 	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, interval)
 	p.query.TimeRange.End = timeutil.Truncate(p.query.TimeRange.End, interval)
 

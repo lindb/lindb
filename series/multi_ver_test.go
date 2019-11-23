@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 

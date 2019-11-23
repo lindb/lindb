@@ -4,8 +4,6 @@ import (
 	"errors"
 )
 
-//FIXME stone1100
-
 var errOutOfRange = errors.New("index out of range")
 
 // A Buffer is a buffer manager for marshaling and unmarshaling

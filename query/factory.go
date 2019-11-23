@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -20,12 +21,12 @@ func NewExecutorFactory() parallel.ExecutorFactory {
 
 // NewStorageExecutor creates storage executor
 func (*executorFactory) NewStorageExecutor(
-	ctx parallel.ExecuteContext,
+	queryFlow flow.StorageQueryFlow,
 	database tsdb.Database,
 	shardIDs []int32,
 	query *stmt.Query,
 ) parallel.Executor {
-	return newStorageExecutor(ctx, database, shardIDs, query)
+	return newStorageExecutor(queryFlow, database, shardIDs, query)
 }
 
 // NewStorageExecutor creates broker executor

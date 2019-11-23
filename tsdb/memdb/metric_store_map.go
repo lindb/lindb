@@ -3,16 +3,17 @@ package memdb
 import (
 	"sort"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 // metricMap represents a map structure for storing time series data.
 // keys => bitmap, values => slice
 type metricMap struct {
 	seriesIDs *roaring.Bitmap
-	stores    []tStoreINTF
+	stores    [][]tStoreINTF
 }
 
 // newMetricMap creates a metric map
@@ -27,45 +28,63 @@ func (m *metricMap) get(seriesID uint32) (tStoreINTF, bool) {
 	if len(m.stores) == 0 {
 		return nil, false
 	}
-	idx := int(m.seriesIDs.Rank(seriesID))
-	if !m.seriesIDs.Contains(seriesID) {
+	found, highIdx, lowIdx := m.seriesIDs.ContainsAndRank(seriesID)
+	if !found {
 		return nil, false
 	}
-	return m.stores[idx-1], true
+	return m.stores[highIdx][lowIdx-1], true
 }
 
 // put puts the time series store
 func (m *metricMap) put(seriesID uint32, tStore tStoreINTF) {
 	if len(m.stores) == 0 {
 		m.seriesIDs.Add(seriesID)
-		m.stores = append(m.stores, tStore)
+		m.stores = append(m.stores, []tStoreINTF{tStore})
 		return
 	}
-	idx := int(m.seriesIDs.Rank(seriesID))
-	m.seriesIDs.Add(seriesID)
-	// append operation
-	if idx == len(m.stores) {
-		m.stores = append(m.stores, tStore)
-		return
+
+	found, highIdx, lowIdx := m.seriesIDs.ContainsAndRank(seriesID)
+	if !found {
+		m.seriesIDs.Add(seriesID)
+		if highIdx < 0 {
+			// high container not exist, append operation
+			m.stores = append(m.stores, []tStoreINTF{tStore})
+		} else {
+			// high container exist
+			stores := m.stores[highIdx]
+			// insert operation
+			stores = append(stores, nil)
+			copy(stores[lowIdx+1:], stores[lowIdx:len(stores)-1])
+			stores[lowIdx] = tStore
+			m.stores[highIdx] = stores
+		}
 	}
-	// insert operation
-	m.stores = append(m.stores, nil)
-	copy(m.stores[idx+1:], m.stores[idx:len(m.stores)-1])
-	store := tStore.(*timeSeriesStore)
-	m.stores[idx] = store
 }
 
 // delete deletes the time series store by series id
 func (m *metricMap) delete(seriesID uint32) tStoreINTF {
-	if !m.seriesIDs.Contains(seriesID) {
+	found, highIdx, lowIdx := m.seriesIDs.ContainsAndRank(seriesID)
+	if !found {
 		return nil
 	}
-	idx := m.seriesIDs.Rank(seriesID)
-	tStore := m.stores[idx-1]
+	// get high container
+	stores := m.stores[highIdx]
+	// get tStore
+	tStore := stores[lowIdx-1]
+	// remove series id
 	m.seriesIDs.Remove(seriesID)
-	copy(m.stores[idx-1:], m.stores[idx:])
-	m.stores[len(m.stores)-1] = nil
-	m.stores = m.stores[:len(m.stores)-1]
+
+	if len(stores) > 1 {
+		// remove tStore from high container
+		copy(stores[lowIdx-1:], stores[lowIdx:])
+		stores[len(stores)-1] = nil
+		// reset high container
+		m.stores[highIdx] = stores[:len(stores)-1]
+	} else {
+		// remove high container
+		copy(m.stores[highIdx:], m.stores[highIdx+1:])
+		m.stores = m.stores[:len(m.stores)-1]
+	}
 	return tStore
 }
 
@@ -76,201 +95,121 @@ func (m *metricMap) deleteMany(
 	removedTStores []tStoreINTF,
 ) {
 	if len(seriesIDs) == 0 {
-		return nil
+		return
 	}
 	sort.Slice(seriesIDs, func(i, j int) bool {
 		return seriesIDs[i] < seriesIDs[j]
 	})
-	removedTStores = make([]tStoreINTF, len(seriesIDs))[:0]
-	var (
-		nextRemoveIndex = 0
-		manyItrLen      = 0
-		buffer          = make([]uint32, 4096)
-		exhausted       = false
-		n               = 0
-		counter         = 0
-	)
-	keep := func(seriesID uint32) bool {
-		if exhausted {
-			return true
-		}
-		if int(seriesID) > int(seriesIDs[nextRemoveIndex]) {
-			nextRemoveIndex++
-			if nextRemoveIndex >= len(seriesIDs) {
-				exhausted = true
-				return true
-			}
-		}
-		if int(seriesID) == int(seriesIDs[nextRemoveIndex]) {
-			return false
-		}
-		return true
-	}
-	manyItr := m.seriesIDs.ManyIterator()
-	for {
-		manyItrLen = manyItr.NextMany(buffer)
-		if manyItrLen == 0 {
-			break
-		}
-		for idx := 0; idx < manyItrLen; idx++ {
-			thisSeriesID := buffer[idx]
-			if keep(thisSeriesID) {
-				m.stores[n] = m.stores[counter]
-				n++
-			} else {
-				removedTStores = append(removedTStores, m.stores[counter])
-			}
-			counter++
-		}
-	}
-
-	for idx := n; idx < counter; idx++ {
-		m.stores[idx] = nil
-	}
 	for _, seriesID := range seriesIDs {
-		m.seriesIDs.Remove(seriesID)
+		tStore := m.delete(seriesID)
+		if tStore != nil {
+			removedTStores = append(removedTStores, tStore)
+		}
 	}
-	m.stores = m.stores[:n]
-	return removedTStores
+	return
 }
 
 // size returns the size of map
 func (m *metricMap) size() int {
-	return len(m.stores)
+	return int(m.seriesIDs.GetCardinality())
 }
 
 // iterator returns an iterator for iterating the map data
 func (m *metricMap) iterator() *mStoreIterator {
-	return &mStoreIterator{
-		it:     m.seriesIDs.Iterator(),
-		stores: m.stores,
-	}
+	return newStoreIterator(m)
 }
 
-// scan scans metric store map data based on series ids
-func (m *metricMap) scan(version series.Version, sCtx *series.ScanContext) {
-	// scan current version series ids, for supporting multi-version
-	seriesIDs := sCtx.SeriesIDSet.Versions()[version]
+func (m *metricMap) loadData(flow flow.StorageQueryFlow, fieldIDs []uint16,
+	highKey uint16, groupedSeries map[string][]uint16,
+) {
+	//FIXME need add lock?????
+
+	// 1. get high container index by the high key of series ID
+	highContainerIdx := m.seriesIDs.GetContainerIndex(highKey)
+	if highContainerIdx < 0 {
+		// if high container index < 0(series ID not exist) return it
+		return
+	}
+	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
+	lowContainer := m.seriesIDs.GetContainerAtIndex(highContainerIdx)
+
+	memScanCtx := &memScanContext{
+		fieldIDs:   fieldIDs,
+		tsd:        encoding.GetTSDDecoder(),
+		fieldCount: len(fieldIDs),
+	}
+	for groupByTags, lowSeriesIDs := range groupedSeries {
+		aggregator := flow.GetAggregator()
+		memScanCtx.aggregators = aggregator
+		for _, lowSeriesID := range lowSeriesIDs {
+			// check low series id if exist
+			if !lowContainer.Contains(lowSeriesID) {
+				continue
+			}
+			// get the index of low series id in container
+			idx := lowContainer.Rank(lowSeriesID)
+			// scan the data and aggregate the values
+			store := m.stores[highContainerIdx][idx-1]
+			store.scan(memScanCtx)
+		}
+		flow.Reduce(groupByTags, aggregator)
+	}
+	encoding.ReleaseTSDDecoder(memScanCtx.tsd)
+}
+
+// filter filters if seriesIDSs exist in data storage
+func (m *metricMap) filter(seriesIDs *roaring.Bitmap) bool {
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, m.seriesIDs)
-	matchSize := int(matchSeriesIDs.GetCardinality())
-	// if match series size = 0, return it
-	if matchSize == 0 {
-		return
-	}
-	// if match series size = store size, need scan all data
-	if m.size() == matchSize {
-		m.scanAll(version, sCtx)
-		return
-	}
-
-	queryBuf := series.Uint32Pool.Get()
-	storeBuf := series.Uint32Pool.Get()
-	defer func() {
-		series.Uint32Pool.Put(queryBuf)
-		series.Uint32Pool.Put(storeBuf)
-	}()
-
-	queryIt := series.NewIDsIterator(matchSeriesIDs, *queryBuf)
-	storeIt := series.NewIDsIterator(m.seriesIDs, *storeBuf)
-	idx := 0
-	hasGroupBy := sCtx.HasGroupBy
-	var seriesIDBuf []uint32
-	var stores []tStoreINTF
-	var storeSeriesIDs, querySeriesIDs []uint32
-	var i1, i2 int
-	var n1, n2 int
-	worker := sCtx.Worker
-	for {
-		if i1 >= n1 || len(querySeriesIDs) == 0 {
-			if idx > 0 {
-				worker.Emit(newScanEvent(idx, stores, seriesIDBuf, version, sCtx))
-				idx = 0
-			}
-			n1, querySeriesIDs = queryIt.Next()
-			if n1 == 0 {
-				return
-			}
-
-			stores = getStores()
-			if hasGroupBy {
-				seriesIDBuf = *series.Uint32Pool.Get()
-			}
-			i1 = 0
-		}
-		if i2 >= n2 || len(storeSeriesIDs) == 0 {
-			n2, storeSeriesIDs = storeIt.Next()
-			i2 = 0
-		}
-		storeSeriesID := storeSeriesIDs[i2]
-		querySeriesID := querySeriesIDs[i1]
-		// no case: storeSeriesID>querySeriesID, because does query bitmap and store bitmap
-		switch {
-		case storeSeriesID < querySeriesID:
-			i2++
-		case storeSeriesID == querySeriesID:
-			i1++
-			i2++
-			stores[idx] = m.stores[idx]
-			if hasGroupBy {
-				seriesIDBuf[idx] = querySeriesID
-			}
-			idx++
-		}
-	}
-}
-
-func (m *metricMap) scanAll(version series.Version, sCtx *series.ScanContext) {
-	var seriesIDs []uint32
-	stores := getStores()
-	hasGroupBy := sCtx.HasGroupBy
-	if hasGroupBy {
-		seriesIDs = *series.Uint32Pool.Get()
-	}
-	length := m.size()
-	idx := 0
-	worker := sCtx.Worker
-	seriesIt := m.seriesIDs.ManyIterator()
-	for i := 0; i < length; i++ {
-		stores[idx] = m.stores[i]
-		idx++
-		if idx == series.ScanBufSize {
-			if hasGroupBy {
-				seriesIt.NextMany(seriesIDs)
-			}
-			worker.Emit(newScanEvent(idx, stores, seriesIDs, version, sCtx))
-			stores = getStores()
-			if hasGroupBy {
-				seriesIDs = *series.Uint32Pool.Get()
-			}
-			idx = 0
-		}
-	}
-	if idx > 0 {
-		if hasGroupBy {
-			seriesIt.NextMany(seriesIDs)
-		}
-		worker.Emit(newScanEvent(idx, stores, seriesIDs, version, sCtx))
-	}
+	return !matchSeriesIDs.IsEmpty()
 }
 
 // mStoreIterator represents an iterator over the metric map
 type mStoreIterator struct {
-	it     roaring.IntIterable
-	stores []tStoreINTF
+	mStore      *metricMap
+	highKeys    []uint16
+	highKeysLen int
 
-	idx int
+	highKey                     uint32
+	lowIt                       roaring.PeekableShortIterator
+	highIdx, lowIdx, curHighIdx int
+}
+
+func newStoreIterator(mStore *metricMap) *mStoreIterator {
+	highKeys := mStore.seriesIDs.GetHighKeys()
+	return &mStoreIterator{
+		mStore:      mStore,
+		highKeys:    highKeys,
+		highKeysLen: len(highKeys),
+	}
 }
 
 // hasNext returns if the iteration has more time series store
 func (it *mStoreIterator) hasNext() bool {
-	return it.it.HasNext()
+	if it.highKeysLen == 0 {
+		return false
+	}
+
+	notFound := it.lowIt == nil || !it.lowIt.HasNext()
+	if notFound {
+		if it.highIdx == it.highKeysLen {
+			return false
+		}
+		it.curHighIdx = it.highIdx
+		it.highKey = uint32(it.highKeys[it.curHighIdx]) << 16
+		it.lowIt = it.mStore.seriesIDs.GetContainerAtIndex(it.curHighIdx).PeekableIterator()
+
+		// for next loop
+		it.highIdx++
+		it.lowIdx = 0 // reset low index
+	}
+	return it.lowIt.HasNext()
 }
 
 // next returns the series id and store
 func (it *mStoreIterator) next() (seriesID uint32, store tStoreINTF) {
-	seriesID = it.it.Next()
-	store = it.stores[it.idx]
-	it.idx++
+	seriesID = uint32(it.lowIt.Next()) | it.highKey
+	store = it.mStore.stores[it.curHighIdx][it.lowIdx]
+	it.lowIdx++
 	return
 }

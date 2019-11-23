@@ -165,7 +165,7 @@ func (c *clusterStateMachine) collectStat() {
 }
 
 func (c *clusterStateMachine) collect() {
-	c.log.Warn("collecting storage cluster stat")
+	c.log.Debug("collecting storage cluster stat")
 
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()

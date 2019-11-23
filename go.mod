@@ -5,7 +5,6 @@ go 1.12
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/GeertJohan/go.rice v1.0.0
-	github.com/RoaringBitmap/roaring v0.0.0-20190528123335-bb10301c98ba
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
 	github.com/benbjohnson/tmpl v1.0.0 // indirect
@@ -32,12 +31,14 @@ require (
 	github.com/hillbig/rsdic v0.0.0-20150805052524-6158e7a2d824
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/json-iterator/go v1.1.6
+	github.com/lindb/roaring v0.0.0-00010101000000-000000000000
 	github.com/mattn/go-isatty v0.0.8
 	github.com/pkg/errors v0.8.1
 	github.com/plar/go-adaptive-radix-tree v1.0.1
 	github.com/prometheus/client_golang v1.0.0 // indirect
 	github.com/segmentio/fasthash v1.0.0
 	github.com/shirou/gopsutil v2.19.9+incompatible
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
@@ -56,3 +57,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
+
+// just redirect to local repo for local debug
+// replace github.com/lindb/roaring => /Users/jie.huang/go/src/github.com/lindb/roaring
+replace github.com/lindb/roaring => github.com/lindb/roaring v0.0.0-20191203023710-160cbe24e4c7

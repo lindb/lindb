@@ -44,6 +44,7 @@ type Pool interface {
 
 // workerPool is a pool for goroutines.
 type workerPool struct {
+	name                string
 	maxWorkers          int
 	tasks               chan Task     // tasks channel
 	readyWorkers        chan *worker  // available worker
@@ -60,12 +61,13 @@ type workerPool struct {
 
 // NewPool returns a new worker pool,
 // maxWorkers parameter specifies the maximum number workers that will execute tasks concurrently.
-func NewPool(maxWorkers int, idleTimeout time.Duration) Pool {
+func NewPool(name string, maxWorkers int, idleTimeout time.Duration) Pool {
 	if maxWorkers < 1 {
 		maxWorkers = 1
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := &workerPool{
+		name:                name,
 		maxWorkers:          maxWorkers,
 		tasks:               make(chan Task, tasksCapacity),
 		readyWorkers:        make(chan *worker, readyWorkerQueueSize),

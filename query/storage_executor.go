@@ -1,55 +1,56 @@
 package query
 
 import (
-	"fmt"
-	"sync"
+	"errors"
 
-	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
+var (
+	errNoShardID         = errors.New("there is no shard id in search condition")
+	errNoShardInDatabase = errors.New("there is no shard in database storage engine")
+	errShardNotFound     = errors.New("shard not found in database storage engine")
+	errShardNotMatch     = errors.New("storage's num. of shard not match search condition")
+	errShardNumNotMatch  = errors.New("got shard size not equals input shard size")
+)
+
 // storageExecutor represents execution search logic in storage level,
 // does query task async, then merge result, such as map-reduce job.
 // 1) Filtering
-// 2) Scanning
-// 3) Grouping if need
+// 2) Grouping if need
+// 3) Scanning and Loading
 // 4) Down sampling
 // 5) Sample aggregation
 type storageExecutor struct {
 	database tsdb.Database
 	query    *stmt.Query
+
 	shardIDs []int32
+	shards   []tsdb.Shard
 
-	shards []tsdb.Shard
-
-	metricID uint32
-
+	metricID           uint32
 	fieldIDs           []uint16
 	storageExecutePlan *storageExecutePlan
-	intervalType       timeutil.IntervalType
 
-	executorPool *tsdb.ExecutorPool
-
-	executeCtx parallel.ExecuteContext
+	queryFlow flow.StorageQueryFlow
 }
 
 // newStorageExecutor creates the execution which queries the data of storage engine
 func newStorageExecutor(
-	ctx parallel.ExecuteContext,
+	queryFlow flow.StorageQueryFlow,
 	database tsdb.Database,
 	shardIDs []int32,
 	query *stmt.Query,
 ) parallel.Executor {
 	return &storageExecutor{
-		database:     database,
-		shardIDs:     shardIDs,
-		query:        query,
-		executorPool: database.ExecutorPool(),
-		executeCtx:   ctx,
+		database:  database,
+		shardIDs:  shardIDs,
+		query:     query,
+		queryFlow: queryFlow,
 	}
 }
 
@@ -61,7 +62,7 @@ func newStorageExecutor(
 func (e *storageExecutor) Execute() {
 	// do query validation
 	if err := e.validation(); err != nil {
-		e.executeCtx.Complete(err)
+		e.queryFlow.Complete(err)
 		return
 	}
 
@@ -76,77 +77,91 @@ func (e *storageExecutor) Execute() {
 
 	// check got shards if valid
 	if err := e.checkShards(); err != nil {
-		e.executeCtx.Complete(err)
+		e.queryFlow.Complete(err)
 		return
 	}
 
 	plan := newStorageExecutePlan(e.database.IDGetter(), e.query)
 	if err := plan.Plan(); err != nil {
-		e.executeCtx.Complete(err)
+		e.queryFlow.Complete(err)
 		return
 	}
 	storageExecutePlan := plan.(*storageExecutePlan)
+	// prepare storage query flow
+	e.queryFlow.Prepare(storageExecutePlan.getDownSamplingAggSpecs())
 
 	e.metricID = storageExecutePlan.metricID
-	e.intervalType = timeutil.Interval(e.query.Interval).Type()
-
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.storageExecutePlan = storageExecutePlan
 
-	// need retain total memory and shard search
-	e.executeCtx.RetainTask(1)
 	for idx := range e.shards {
 		shard := e.shards[idx]
 		// execute memory db search in background goroutine
-		e.executeCtx.RetainTask(1)
-		e.executorPool.Scanners.Submit(func() {
+		e.queryFlow.Filtering(func() {
 			e.memoryDBSearch(shard)
 		})
 
-		e.executeCtx.RetainTask(1)
 		e.shardLevelSearch(shard)
 	}
-	e.executeCtx.Complete(nil)
 }
 
 // memoryDBSearch searches data from memory database
 func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 	memoryDB := shard.MemoryDatabase()
 	seriesIDSet := e.searchSeriesIDs(memoryDB)
+	// if series ids not found
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
-		// if series ids not found, complete the search task
-		e.executeCtx.Complete(nil)
 		return
 	}
+	hasGroupBy := e.query.HasGroupBy()
 
-	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(e.query.Interval, memoryDB.Interval(), e.query.TimeRange)
-	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
+	for kVersion, vSeriesIDs := range seriesIDSet.Versions() {
+		version := kVersion
+		seriesIDs := vSeriesIDs
 
-	// scan data and complete task in scan worker after scan worker completed
-	worker := createScanWorker(e.executeCtx, e.metricID, e.query.GroupBy, memoryDB, groupAgg, e.executorPool)
-	defer worker.Close()
-	memoryDB.Scan(&series.ScanContext{
-		MetricID:    e.metricID,
-		FieldIDs:    e.fieldIDs,
-		SeriesIDSet: seriesIDSet,
-		HasGroupBy:  e.storageExecutePlan.hasGroupBy(),
-		Worker:      worker,
-		Aggregators: e.getAggregatorPool(queryInterval, intervalRatio, timeRange),
-	})
-}
+		// 1. filtering, check series ids if exist in storage
+		e.queryFlow.Filtering(func() {
+			resultSet := memoryDB.Filter(e.metricID, e.fieldIDs, version, seriesIDs)
+			if len(resultSet) == 0 {
+				// not found in storage, return it
+				return
+			}
+			// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch
+			// first, get grouping context if need
+			var groupingCtx series.GroupingContext
+			if hasGroupBy {
+				gCtx, err := memoryDB.GetGroupingContext(e.metricID, e.query.GroupBy, version)
+				if err != nil {
+					e.queryFlow.Complete(err)
+					return
+				}
+				groupingCtx = gCtx
+			}
+			keys := seriesIDs.GetHighKeys()
 
-// getAggregatorPool returns aggregator pool
-func (e *storageExecutor) getAggregatorPool(
-	queryInterval timeutil.Interval,
-	intervalRatio int,
-	timeRange timeutil.TimeRange,
-) sync.Pool {
-	return sync.Pool{
-		New: func() interface{} {
-			return aggregation.NewFieldAggregates(queryInterval, intervalRatio, timeRange, true,
-				e.storageExecutePlan.getDownSamplingAggSpecs())
-		},
+			for idx, key := range keys {
+				// be carefully, need use new variable for variable scope problem
+				highKey := key
+				container := seriesIDs.GetContainerAtIndex(idx)
+				// grouping based on group by tag keys for each container
+				e.queryFlow.Grouping(func() {
+					var groupedSeries map[string][]uint16
+					if hasGroupBy {
+						// build group by data, grouped series: tags => series IDs
+						groupedSeries = groupingCtx.BuildGroup(highKey, container)
+					} else {
+						groupedSeries = map[string][]uint16{"": container.ToArray()}
+					}
+					for _, rs := range resultSet {
+						// 3.load data by grouped seriesIDs
+						filteringRS := rs
+						e.queryFlow.Scanner(func() {
+							filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
+						})
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -159,7 +174,7 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 		idSet, err := seriesSearch.Search()
 		if err != nil {
 			if err != series.ErrNotFound {
-				e.executeCtx.Complete(err)
+				e.queryFlow.Complete(err)
 			}
 			return
 		}
@@ -171,65 +186,65 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 
 // shardLevelSearch searches data from shard
 func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
-	// find data family
-	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
-	if len(families) == 0 {
-		e.executeCtx.Complete(nil)
-		return
-	}
-
-	seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
-	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
-		e.executeCtx.Complete(nil)
-		return
-	}
-	// retain family task first
-	e.executeCtx.RetainTask(int32(2 * len(families)))
 	//FIXME get interval
-	timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
-	aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
-
-	worker := createScanWorker(
-		e.executeCtx,
-		e.metricID,
-		e.query.GroupBy,
-		shard.IndexMetaGetter(),
-		groupAgg,
-		e.executorPool,
-	)
-	for _, family := range families {
-		go e.familyLevelSearch(worker, family, seriesIDSet)
-	}
+	//// find data family
+	//families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
+	//if len(families) == 0 {
+	//	e.executeCtx.Complete(nil)
+	//	return
+	//}
+	//
+	//seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
+	//if seriesIDSet == nil || seriesIDSet.IsEmpty() {
+	//	e.executeCtx.Complete(nil)
+	//	return
+	//}
+	//// retain family task first
+	//e.executeCtx.RetainTask(int32(2 * len(families)))
+	////FIXME get interval
+	//timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
+	//aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
+	//groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
+	//
+	//worker := createScanWorker(
+	//	e.executeCtx,
+	//	e.metricID,
+	//	e.query.GroupBy,
+	//	shard.IndexMetaGetter(),
+	//	groupAgg,
+	//	e.executorPool,
+	//)
+	//for _, family := range families {
+	//	go e.familyLevelSearch(worker, family, seriesIDSet)
+	//}
 }
 
 // familyLevelSearch searches data from data family, do down sampling and aggregation
-func (e *storageExecutor) familyLevelSearch(worker series.ScanWorker, family tsdb.DataFamily,
-	seriesIDSet *series.MultiVerSeriesIDSet) {
-	// must complete task
-	defer e.executeCtx.Complete(nil)
-
-	family.Scan(&series.ScanContext{
-		MetricID:    e.metricID,
-		FieldIDs:    e.fieldIDs,
-		SeriesIDSet: seriesIDSet,
-		Worker:      worker,
-	})
-}
+//func (e *storageExecutor) familyLevelSearch(worker series.ScanWorker, family tsdb.DataFamily,
+//	seriesIDSet *series.MultiVerSeriesIDSet) {
+//	// must complete task
+//	//defer e.queryFlow.Complete(nil)
+//
+//	//family.Scan(&flow.StorageQueryContext{
+//	//	MetricID:    e.metricID,
+//	//	FieldIDs:    e.fieldIDs,
+//	//	SeriesIDSet: seriesIDSet,
+//	//})
+//}
 
 // validation validates query input params are valid
 func (e *storageExecutor) validation() error {
 	// check input shardIDs if empty
 	if len(e.shardIDs) == 0 {
-		return fmt.Errorf("there is no shard id in search condition")
+		return errNoShardID
 	}
 	numOfShards := e.database.NumOfShards()
 	// check engine has shard
 	if numOfShards == 0 {
-		return fmt.Errorf("tsdb database[%s] hasn't shard", e.database.Name())
+		return errNoShardInDatabase
 	}
 	if numOfShards != len(e.shardIDs) {
-		return fmt.Errorf("storage's num. of shard not match search condition")
+		return errShardNotMatch
 	}
 	return nil
 }
@@ -238,11 +253,11 @@ func (e *storageExecutor) validation() error {
 func (e *storageExecutor) checkShards() error {
 	numOfShards := len(e.shards)
 	if numOfShards == 0 {
-		return fmt.Errorf("cannot find shard by given shard id")
+		return errShardNotFound
 	}
 	numOfShardIDs := len(e.shardIDs)
 	if numOfShards != numOfShardIDs {
-		return fmt.Errorf("got shard size[%d] not eqauls input shard size[%d]", numOfShards, numOfShardIDs)
+		return errShardNumNotMatch
 	}
 	return nil
 }

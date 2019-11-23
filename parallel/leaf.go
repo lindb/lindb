@@ -6,6 +6,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
@@ -72,9 +73,14 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 		return errNoSendStream
 	}
 
+	option := db.GetOption()
+	var interval timeutil.Interval
+	_ = interval.ValueOf(option.Interval)
+	//TODO need get storage interval by query time if has rollup config
+	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(query.Interval, interval, query.TimeRange)
 	// execute leaf task
-	exeCtx := newStorageExecutorContext(ctx, req, stream)
-	exec := p.executorFactory.NewStorageExecutor(exeCtx, db, curLeaf.ShardIDs, &query)
+	queryFlow := NewStorageQueryFlow(ctx, req, stream, db.ExecutorPool(), timeRange, queryInterval, intervalRatio)
+	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, curLeaf.ShardIDs, &query)
 	exec.Execute()
 	return nil
 }

@@ -3,19 +3,23 @@ package memdb
 import (
 	"testing"
 
-	"github.com/RoaringBitmap/roaring"
+	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/flow"
 )
 
 // hack test
 func _assertSortedOrder(t *testing.T, m *metricMap) {
-	for idx, tStore := range m.stores {
-		seriesID := tStore.(*timeSeriesStore).lastWroteTime.Load()
-		assert.True(t, m.seriesIDs.Contains(seriesID))
-		expectedIdx := m.seriesIDs.Rank(seriesID) - 1
-		assert.Equal(t, idx, int(expectedIdx))
+	for highIndex, tStores := range m.stores {
+		for lowIndex, tStore := range tStores {
+			seriesID := tStore.(*timeSeriesStore).lastWroteTime.Load()
+			found, highIdx, lowIdx := m.seriesIDs.ContainsAndRank(seriesID)
+			assert.True(t, found)
+			assert.Equal(t, highIdx, highIndex)
+			assert.Equal(t, lowIndex, lowIdx-1)
+		}
 	}
 }
 
@@ -74,58 +78,38 @@ func Test_metricMap_iterator(t *testing.T) {
 	assert.False(t, it.hasNext())
 }
 
-func Test_metricMap_scan(t *testing.T) {
+func Test_metricMap_loadData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	m := newMetricMap()
 	for i := 100; i < 4199; i++ {
 		m.put(uint32(i), _newTestTStore(uint32(i)))
 	}
-	foundSeriesIDs := roaring.BitmapOf()
-	multiVer1 := series.NewMultiVerSeriesIDSet()
-	multiVer1.Add(series.Version(12), roaring.BitmapOf())
-	worker := &mockScanWorker{}
-	mCtx := &series.ScanContext{
-		SeriesIDSet: multiVer1,
-		HasGroupBy:  true,
-		Worker:      worker,
+	queryFlow := flow.NewMockStorageQueryFlow(ctrl)
+	gomock.InOrder(
+		queryFlow.EXPECT().GetAggregator().Return(nil),
+		queryFlow.EXPECT().Reduce("1.1.1.1", gomock.Any()),
+	)
+	m.loadData(queryFlow, nil, 0, map[string][]uint16{"1.1.1.1": {1, 2, 3, 4}})
+
+	// high key not exist
+	m.loadData(queryFlow, nil, 1, map[string][]uint16{"1.1.1.1": {1, 2, 3, 4}})
+
+	gomock.InOrder(
+		queryFlow.EXPECT().GetAggregator().Return(nil),
+		queryFlow.EXPECT().Reduce("1.1.1.1", gomock.Any()),
+	)
+	m.loadData(queryFlow, nil, 0, map[string][]uint16{"1.1.1.1": {100, 101}})
+}
+
+func TestMetricStore_Filter(t *testing.T) {
+	m := newMetricMap()
+	for i := 100; i < 4199; i++ {
+		m.put(uint32(i), _newTestTStore(uint32(i)))
 	}
-	// not match
-	m.scan(series.Version(12), mCtx)
-	assert.Equal(t, 0, len(worker.events))
-
-	// find all series ids
-	multiVer1.Add(series.Version(13), m.seriesIDs.Clone())
-	m.scan(series.Version(13), mCtx)
-	assert.Equal(t, 2, len(worker.events))
-	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
-	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
-	assert.True(t, foundSeriesIDs.Equals(m.seriesIDs))
-
-	// find some series ids
-	seriesIDs := m.seriesIDs.Clone()
-	seriesIDs.Remove(uint32(300))
-	multiVer1.Add(series.Version(14), seriesIDs)
-	worker.events = nil
-	m.scan(series.Version(14), mCtx)
-	assert.Equal(t, 2, len(worker.events))
-	foundSeriesIDs.Clear()
-	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
-	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
-	seriesIDs = m.seriesIDs.Clone()
-	seriesIDs.Remove(uint32(300))
-	assert.True(t, foundSeriesIDs.Equals(seriesIDs))
-
-	seriesIDs = roaring.New()
-	seriesIDs.AddRange(uint64(30), uint64(10240))
-	multiVer1.Add(series.Version(15), seriesIDs)
-	worker.events = nil
-	m.scan(series.Version(15), mCtx)
-	assert.Equal(t, 2, len(worker.events))
-	foundSeriesIDs.Clear()
-	foundSeriesIDs.Or(worker.events[0].SeriesIDs())
-	foundSeriesIDs.Or(worker.events[1].SeriesIDs())
-	seriesIDs = roaring.New()
-	seriesIDs.AddRange(uint64(100), uint64(4199))
-	assert.True(t, foundSeriesIDs.Equals(seriesIDs))
+	assert.False(t, m.filter(roaring.BitmapOf(1, 3)))
+	assert.True(t, m.filter(roaring.BitmapOf(100, 40000)))
 }
 
 func Benchmark_get(b *testing.B) {
@@ -162,6 +146,11 @@ func Test_metricMap_delete(t *testing.T) {
 	m.delete(8)
 	_assertSortedOrder(t, m)
 	assert.Equal(t, m.size(), int(m.seriesIDs.GetCardinality()))
+
+	for i := 0; i < 10; i++ {
+		m.delete(uint32(i))
+	}
+	assert.Len(t, m.stores, 0)
 }
 
 func Test_metricMap_deleteMany(t *testing.T) {
@@ -174,7 +163,7 @@ func Test_metricMap_deleteMany(t *testing.T) {
 		seriesIDs = append(seriesIDs, i)
 	}
 	assert.Len(t, m.deleteMany(seriesIDs...), 2500)
-	assert.Len(t, m.stores, 100000-2500)
+	assert.Equal(t, 100000-2500, m.size())
 	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
 	_assertSortedOrder(t, m)
 
@@ -182,7 +171,7 @@ func Test_metricMap_deleteMany(t *testing.T) {
 	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
 
 	m.deleteMany(0, 100001, 100002, 100003)
-	assert.Len(t, m.stores, 100000-2500)
+	assert.Equal(t, 100000-2500, m.size())
 	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
 	_assertSortedOrder(t, m)
 }

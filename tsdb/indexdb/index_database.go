@@ -1,15 +1,12 @@
 package indexdb
 
 import (
-	"github.com/RoaringBitmap/roaring"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
@@ -63,24 +60,30 @@ func (db *indexDatabase) SuggestTagValues(
 	return invertedindex.NewReader(readers).SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
-// GetTagValues get tag values corresponding with the tagKeys
-func (db *indexDatabase) GetTagValues(
-	metricID uint32,
-	tagKeys []string,
+func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	version series.Version,
-	seriesIDs *roaring.Bitmap,
-) (
-	seriesID2TagValues map[uint32][]string,
-	err error,
-) {
-	snapShot := db.invertedIndexFamily.GetSnapshot()
-	defer snapShot.Close()
-	readers, err := snapShot.FindReaders(metricID)
-	if err != nil {
-		return nil, err
-	}
-	return forwardindex.NewReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
+) (series.GroupingContext, error) {
+	return nil, nil
 }
+
+// GetTagValues get tag values corresponding with the tagKeys
+//func (db *indexDatabase) GetTagValues(
+//	metricID uint32,
+//	tagKeys []string,
+//	version series.Version,
+//	seriesIDs *roaring.Bitmap,
+//) (
+//	seriesID2TagValues [][]string,
+//	err error,
+//) {
+//	snapShot := db.invertedIndexFamily.GetSnapshot()
+//	defer snapShot.Close()
+//	readers, err := snapShot.FindReaders(metricID)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return forwardindex.NewReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
+//}
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
 func (db *indexDatabase) FindSeriesIDsByExpr(

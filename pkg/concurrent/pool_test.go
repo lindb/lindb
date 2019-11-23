@@ -11,7 +11,7 @@ import (
 
 func Test_Pool_Submit(t *testing.T) {
 	grNum := runtime.NumGoroutine()
-	pool := NewPool(2, time.Second*5)
+	pool := NewPool("test", 2, time.Second*5)
 	// num. of pool + 1 dispatcher, workers has not been spawned
 	assert.Equal(t, grNum+1, runtime.NumGoroutine())
 
@@ -28,7 +28,7 @@ func Test_Pool_Submit(t *testing.T) {
 	}
 	go do(100)
 	<-finished
-	assert.Equal(t, grNum+2+1, runtime.NumGoroutine())
+	assert.True(t, grNum+2+1 <= runtime.NumGoroutine())
 	pool.Stop()
 	pool.Stop()
 	// reject all task
@@ -40,7 +40,7 @@ func Test_Pool_Submit(t *testing.T) {
 }
 
 func Test_Pool_Statistics(t *testing.T) {
-	p := NewPool(0, time.Millisecond*100)
+	p := NewPool("test", 0, time.Millisecond*100)
 	s := p.Statistics()
 	assert.Zero(t, s.AliveWorkers)
 	assert.Zero(t, s.CreatedWorkers)

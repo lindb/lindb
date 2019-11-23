@@ -10,6 +10,7 @@ func TestGetAggFunc(t *testing.T) {
 	assert.NotNil(t, Sum.AggFunc())
 	assert.NotNil(t, Min.AggFunc())
 	assert.NotNil(t, Max.AggFunc())
+	assert.NotNil(t, Count.AggFunc())
 	assert.Nil(t, AggType(99).AggFunc())
 }
 

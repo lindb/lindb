@@ -3,6 +3,7 @@ package rpc
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc/proto/common"
 )
+
+const testGRPCPort = 9999
 
 type mockTaskHandle struct {
 }
@@ -52,7 +55,7 @@ func TestTaskClientFactory(t *testing.T) {
 	oldClientConnFct := clientConnFct
 	mockClientConnFct := NewMockClientConnFactory(ctl)
 	clientConnFct = mockClientConnFct
-	grpcServer := NewGRPCServer(":9000")
+	grpcServer := NewGRPCServer(":" + strconv.Itoa(testGRPCPort))
 	common.RegisterTaskServiceServer(grpcServer.GetServer(), &mockTaskHandle{})
 
 	go func() {
@@ -80,14 +83,14 @@ func TestTaskClientFactory(t *testing.T) {
 	err = fct.CreateTaskClient(target)
 	assert.NotNil(t, err)
 
-	target = models.Node{IP: "127.0.0.1", Port: 9000}
+	target = models.Node{IP: "127.0.0.1", Port: testGRPCPort}
 	conn, _ = grpc.Dial(target.Indicator(), grpc.WithInsecure())
 	mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil)
 	err = fct.CreateTaskClient(target)
 	assert.NoError(t, err)
 
 	// not create new one if exist
-	target = models.Node{IP: "127.0.0.1", Port: 9000}
+	target = models.Node{IP: "127.0.0.1", Port: testGRPCPort}
 	err = fct.CreateTaskClient(target)
 	assert.NoError(t, err)
 
@@ -102,6 +105,8 @@ func TestTaskClientFactory(t *testing.T) {
 
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err"))
 	fct1.CloseTaskClient("mock_client")
+
+	grpcServer.Stop()
 }
 
 func TestTaskClientFactory_handler(t *testing.T) {

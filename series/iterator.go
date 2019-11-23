@@ -34,8 +34,8 @@ type GroupedIterator interface {
 	HasNext() bool
 	// Next returns the field's iterator
 	Next() Iterator
-	// Tags returns group tags
-	Tags() map[string]string
+	// Tags returns group tags, tags is tag values concat string
+	Tags() string
 }
 
 // Iterator represents an iterator for the time series data
