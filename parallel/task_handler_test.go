@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -12,14 +13,15 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 var cfg = config.Query{
-	MaxWorkers: 10,
-	Capacity:   10,
-	Timeout:    10,
+	MaxWorkers:  10,
+	IdleTimeout: ltoml.Duration(time.Second * 5),
+	Timeout:     ltoml.Duration(time.Second * 10),
 }
 
 func TestTaskHandler_Handle(t *testing.T) {

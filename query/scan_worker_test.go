@@ -14,8 +14,8 @@ import (
 )
 
 var execPool = &tsdb.ExecutorPool{
-	Scanners: concurrent.NewPool("test-pool1", 10 /*nRoutines*/, 10 /*queueSize*/),
-	Mergers:  concurrent.NewPool("test-pool2", 10 /*nRoutines*/, 10 /*queueSize*/),
+	Scanners: concurrent.NewPool(10, 10*time.Second),
+	Mergers:  concurrent.NewPool(10, 10*time.Second),
 }
 
 func TestScanWorker_Emit(t *testing.T) {

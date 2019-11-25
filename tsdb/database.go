@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
@@ -88,13 +90,11 @@ func newDatabase(
 		numOfShards: *atomic.NewInt32(0),
 		executorPool: &ExecutorPool{
 			Scanners: concurrent.NewPool(
-				databaseName+"-executor-pool",
-				100, /*nRoutines*/
-				10 /*queueSize*/),
+				runtime.NumCPU(), /*nRoutines*/
+				time.Second*5),
 			Mergers: concurrent.NewPool(
-				databaseName+"-executor-pool",
-				100, /*nRoutines*/
-				10 /*queueSize*/),
+				runtime.NumCPU(),
+				time.Second*5),
 		},
 		isFlushing: *atomic.NewBool(false),
 	}

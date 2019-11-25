@@ -57,9 +57,9 @@ func (s *scanWorker) Emit(event series.ScanEvent) {
 		return
 	}
 	s.pending.Inc()
-	s.executorPool.Scanners.Execute(func() {
+	s.executorPool.Scanners.Submit(func() {
 		if event.Scan() {
-			s.executorPool.Mergers.Execute(func() {
+			s.executorPool.Mergers.Submit(func() {
 				defer s.complete()
 
 				resultSet := event.ResultSet()
