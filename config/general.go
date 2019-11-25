@@ -55,35 +55,33 @@ type StorageCluster struct {
 
 // Query represents query rpc config
 type Query struct {
-	MaxWorkers int            `toml:"max-workers"`
-	Capacity   int            `toml:"capacity"`
-	Timeout    ltoml.Duration `toml:"timeout"`
+	MaxWorkers  int            `toml:"max-workers"`
+	IdleTimeout ltoml.Duration `toml:"idle-timeout"`
+	Timeout     ltoml.Duration `toml:"timeout"`
 }
 
 func (q *Query) TOML() string {
 	return fmt.Sprintf(`
     ## max concurrentcy number of workers in the executor pool,
     ## each worker is only responsible for execting querying task,
-    ## and free workers will be recycled.
+    ## and idle workers will be recycled.
     max-workers = %d
 
-	## fixed size of tasks queue in the query pool, 
-    ## if the number of unconsumerd tasks' exceeds this capacity,
-    ## the task producer will be blocked
-    capacity = %d
-	
+    ## idle worker will be canceled in this duration
+	idle-timeout = "%s"
+
     ## maximum timeout threshold for the task performed
     timeout = "%s"`,
 		q.MaxWorkers,
-		q.Capacity,
+		q.IdleTimeout,
 		q.Timeout,
 	)
 }
 
 func NewDefaultQuery() *Query {
 	return &Query{
-		MaxWorkers: 30,
-		Capacity:   30,
-		Timeout:    ltoml.Duration(30 * time.Second),
+		MaxWorkers:  30,
+		IdleTimeout: ltoml.Duration(5 * time.Second),
+		Timeout:     ltoml.Duration(30 * time.Second),
 	}
 }

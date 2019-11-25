@@ -29,7 +29,7 @@ func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher Task
 	return &TaskHandler{
 		cfg:        cfg,
 		timeout:    cfg.Timeout.Duration(),
-		taskPool:   concurrent.NewPool("query_rpc_task_handlers", cfg.MaxWorkers, cfg.Capacity),
+		taskPool:   concurrent.NewPool(cfg.MaxWorkers, time.Second*5),
 		fct:        fct,
 		dispatcher: dispatcher,
 		logger:     logger.GetLogger("parallel", "TaskHandler"),
@@ -71,7 +71,7 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
 // dispatch dispatches request with timeout
 func (q *TaskHandler) dispatch(req *common.TaskRequest) {
 	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
-	q.taskPool.Execute(func() {
+	q.taskPool.Submit(func() {
 		defer func() {
 			if err := recover(); err != nil {
 				q.logger.Error("dispatch task request", logger.Any("err", err), logger.Stack())
