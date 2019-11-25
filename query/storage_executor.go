@@ -99,7 +99,7 @@ func (e *storageExecutor) Execute() {
 		shard := e.shards[idx]
 		// execute memory db search in background goroutine
 		e.executeCtx.RetainTask(1)
-		e.executorPool.Scanners.Execute(func() {
+		e.executorPool.Scanners.Submit(func() {
 			e.memoryDBSearch(shard)
 		})
 
