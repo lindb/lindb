@@ -36,6 +36,8 @@ type Engine interface {
 	GetDatabase(databaseName string) (Database, bool)
 	// Close closes the cached time series databases
 	Close()
+	// FLushDatabase produces a signal to workers for flushing memory database by name
+	FlushDatabase(ctx context.Context, databaseName string) bool
 
 	// There are 4 flush policies of the Engine as below:
 	// 1. FullFlush
@@ -170,6 +172,33 @@ func (e *engine) Close() {
 		}
 		return true
 	})
+}
+
+func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
+	item, ok := e.databases.Load(name)
+	if !ok {
+		return false
+	}
+	db, ok := item.(Database)
+	if !ok {
+		return false
+	}
+	select {
+	case <-ctx.Done():
+		return false
+	case e.databaseToFlushCh <- db:
+	}
+	// iterate shards
+	db.Range(func(key, value interface{}) bool {
+		theShard := value.(Shard)
+		select {
+		case <-ctx.Done():
+			return false
+		case e.shardToFlushCh <- theShard:
+		}
+		return true
+	})
+	return true
 }
 
 // load loads the time series engines if exist

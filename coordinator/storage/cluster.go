@@ -73,6 +73,9 @@ type Cluster interface {
 	// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 	GetShardAssign(databaseName string) (*models.ShardAssignment, error)
 
+	// FLushDatabase submits the coordinator task for flushing memory database by name
+	FlushDatabase(databaseName string) error
+
 	// SaveShardAssign saves shard assignment
 	SaveShardAssign(
 		databaseName string,
@@ -167,6 +170,7 @@ func (c *cluster) GetActiveNodes() []*models.ActiveNode {
 	return activeNodes
 }
 
+// CollectStat collects storage cluster's stat
 func (c *cluster) CollectStat() (*models.StorageClusterStat, error) {
 	kvs, err := c.GetRepo().List(c.cfg.ctx, constants.StateNodesPath)
 	if err != nil {
@@ -186,6 +190,23 @@ func (c *cluster) CollectStat() (*models.StorageClusterStat, error) {
 		}
 	}
 	return &models.StorageClusterStat{Nodes: result}, err
+}
+
+// FLushDatabase submits the coordinator task for flushing memory database by name
+func (c *cluster) FlushDatabase(databaseName string) error {
+	var params []task.ControllerTaskParam
+	taskParam := &models.DatabaseFlushTask{DatabaseName: databaseName}
+	for _, node := range c.clusterState.ActiveNodes {
+		params = append(params, task.ControllerTaskParam{
+			NodeID: node.Node.Indicator(),
+			Params: taskParam,
+		})
+	}
+	// create create shard coordinator tasks
+	if err := c.SubmitTask(constants.FlushDatabase, databaseName, params); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetShardAssign returns shard assignment by database name, return not exist err if it not exist

@@ -62,15 +62,16 @@ type factory struct {
 
 // apiHandler represents all api handlers for broker
 type apiHandler struct {
-	storageClusterAPI *admin.StorageClusterAPI
-	databaseAPI       *admin.DatabaseAPI
-	loginAPI          *api.LoginAPI
-	storageStateAPI   *stateAPI.StorageAPI
-	brokerStateAPI    *stateAPI.BrokerAPI
-	masterAPI         *masterAPI.MasterAPI
-	metricAPI         *queryAPI.MetricAPI
-	writeAPI          *writeAPI.WriteAPI
-	metaDatabaseAPI   *metadata.DatabaseAPI
+	storageClusterAPI  *admin.StorageClusterAPI
+	databaseAPI        *admin.DatabaseAPI
+	databaseFlusherAPI *admin.DatabaseFlusherAPI
+	loginAPI           *api.LoginAPI
+	storageStateAPI    *stateAPI.StorageAPI
+	brokerStateAPI     *stateAPI.BrokerAPI
+	masterAPI          *masterAPI.MasterAPI
+	metricAPI          *queryAPI.MetricAPI
+	writeAPI           *writeAPI.WriteAPI
+	metaDatabaseAPI    *metadata.DatabaseAPI
 }
 
 type rpcHandler struct {
@@ -339,12 +340,13 @@ func (r *runtime) buildServiceDependency() {
 // buildAPIDependency builds broker api dependency
 func (r *runtime) buildAPIDependency() {
 	handlers := apiHandler{
-		storageClusterAPI: admin.NewStorageClusterAPI(r.srv.storageClusterService),
-		databaseAPI:       admin.NewDatabaseAPI(r.srv.databaseService),
-		loginAPI:          api.NewLoginAPI(r.config.BrokerBase.User, r.middleware.authentication),
-		storageStateAPI:   stateAPI.NewStorageAPI(r.ctx, r.repo, r.stateMachines.StorageSM, r.srv.shardAssignService, r.srv.databaseService),
-		brokerStateAPI:    stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
-		masterAPI:         masterAPI.NewMasterAPI(r.master),
+		storageClusterAPI:  admin.NewStorageClusterAPI(r.srv.storageClusterService),
+		databaseAPI:        admin.NewDatabaseAPI(r.srv.databaseService),
+		databaseFlusherAPI: admin.NewDatabaseFlusherAPI(r.master),
+		loginAPI:           api.NewLoginAPI(r.config.BrokerBase.User, r.middleware.authentication),
+		storageStateAPI:    stateAPI.NewStorageAPI(r.ctx, r.repo, r.stateMachines.StorageSM, r.srv.shardAssignService, r.srv.databaseService),
+		brokerStateAPI:     stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
+		masterAPI:          masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
@@ -363,6 +365,7 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
 	api.AddRoute("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
 	api.AddRoute("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
+	api.AddRoute("FLushDatabase", http.MethodGet, "/database/flush", handlers.databaseFlusherAPI.SubmitFlushTask)
 
 	api.AddRoute("ListStorageClusterNodesState", http.MethodGet, "/storage/cluster/state", handlers.storageStateAPI.GetStorageClusterState)
 	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/cluster/state/list", handlers.storageStateAPI.ListStorageClusterState)

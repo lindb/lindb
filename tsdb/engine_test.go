@@ -1,6 +1,7 @@
 package tsdb
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -101,6 +102,30 @@ func Test_Engine_Close(t *testing.T) {
 	engineImpl.databases.Store("2", mockDatabase)
 
 	e.Close()
+}
+
+func Test_Engine_Flush_Database(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	e, _ := NewEngine(engineCfg)
+	engineImpl := e.(*engine)
+	defer engineImpl.cancel()
+	engineImpl.databases.Store("test_db_2", e)
+	ok := e.FlushDatabase(context.TODO(), "test_db_2")
+	assert.False(t, ok)
+	ok = e.FlushDatabase(context.TODO(), "test_db_3")
+	assert.False(t, ok)
+
+	mockDatabase := NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().FlushMeta()
+	mockDatabase.EXPECT().Range(gomock.Any())
+	engineImpl.databases.Store("test_db_1", mockDatabase)
+	ok = e.FlushDatabase(context.TODO(), "test_db_1")
+	assert.True(t, ok)
 }
 
 func Test_Engine_Flush(t *testing.T) {

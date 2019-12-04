@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -62,4 +63,19 @@ func TestCreateShards(t *testing.T) {
 	mockDatabase.EXPECT().CreateShards(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = service.CreateShards("test_db", validOption, 5)
 	assert.NotNil(t, err)
+}
+
+func TestStorageService_FlushDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	mockEngine := tsdb.NewMockEngine(ctrl)
+
+	service := NewStorageService(mockEngine)
+	mockEngine.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(true)
+	ok := service.FlushDatabase(context.TODO(), "db")
+	assert.True(t, ok)
 }
