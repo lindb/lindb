@@ -114,10 +114,7 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	e, _ := NewEngine(engineCfg)
 	engineImpl := e.(*engine)
 	defer engineImpl.cancel()
-	engineImpl.databases.Store("test_db_2", e)
-	ok := e.FlushDatabase(context.TODO(), "test_db_2")
-	assert.False(t, ok)
-	ok = e.FlushDatabase(context.TODO(), "test_db_3")
+	ok := e.FlushDatabase(context.TODO(), "test_db_3")
 	assert.False(t, ok)
 
 	mockDatabase := NewMockDatabase(ctrl)
@@ -128,7 +125,7 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func Test_Engine_Flush(t *testing.T) {
+func Test_Engine_FlushAll(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
@@ -137,10 +134,10 @@ func Test_Engine_Flush(t *testing.T) {
 	defer engineImpl.cancel()
 
 	engineImpl.isFullFlushing.Store(true)
-	e.Flush()
+	e.FlushAll()
 
 	engineImpl.isFullFlushing.Store(false)
-	e.Flush()
+	e.FlushAll()
 }
 
 func Test_Engine_globalMemoryUsageChecker_LowerThanHighWaterMark(t *testing.T) {

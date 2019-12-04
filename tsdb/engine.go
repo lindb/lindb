@@ -36,8 +36,6 @@ type Engine interface {
 	GetDatabase(databaseName string) (Database, bool)
 	// Close closes the cached time series databases
 	Close()
-	// FLushDatabase produces a signal to workers for flushing memory database by name
-	FlushDatabase(ctx context.Context, databaseName string) bool
 
 	// There are 4 flush policies of the Engine as below:
 	// 1. FullFlush
@@ -57,8 +55,13 @@ type Engine interface {
 	// b). The flush workers runs concurrently;
 	// c). All unit will be flushed when closing;
 
-	// Flush produces a signal to workers for flushing all
-	Flush()
+	// FLushDatabase produces a signal to workers for flushing memory database by name
+	FlushDatabase(ctx context.Context, databaseName string) bool
+	// FlushAll produces a signal to workers for flushing all
+	FlushAll()
+	// flushDatabase is the real method for flushing certain database
+	// called by FlushDatabase and flushAllDatabasesAndShards
+	flushDatabase(ctx context.Context, db Database) bool
 	// globalMemoryUsageChecker checks global memory usage periodically,
 	// The biggest shard's will be flushed until memory usage is down MemoryLowWaterMark.
 	globalMemoryUsageChecker(ctx context.Context)
@@ -179,10 +182,10 @@ func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
 	if !ok {
 		return false
 	}
-	db, ok := item.(Database)
-	if !ok {
-		return false
-	}
+	return e.flushDatabase(ctx, item.(Database))
+}
+
+func (e *engine) flushDatabase(ctx context.Context, db Database) bool {
 	select {
 	case <-ctx.Done():
 		return false
@@ -216,7 +219,7 @@ func (e *engine) load() error {
 	return nil
 }
 
-func (e *engine) Flush() {
+func (e *engine) FlushAll() {
 	if e.isFullFlushing.CAS(false, true) {
 		e.flushAllDatabasesAndShards(e.ctx)
 	} else {
@@ -382,23 +385,7 @@ func (e *engine) flushShardAboveMemoryUsageThreshold(ctx context.Context) {
 func (e *engine) flushAllDatabasesAndShards(ctx context.Context) {
 	// iterate databases
 	e.databases.Range(func(key, value interface{}) bool {
-		db := value.(Database)
-		select {
-		case <-ctx.Done():
-			return false
-		case e.databaseToFlushCh <- db:
-		}
-		// iterate shards
-		db.Range(func(key, value interface{}) bool {
-			theShard := value.(Shard)
-			select {
-			case <-ctx.Done():
-				return false
-			case e.shardToFlushCh <- theShard:
-			}
-			return true
-		})
-		return true
+		return e.flushDatabase(ctx, value.(Database))
 	})
 }
 
