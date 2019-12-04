@@ -29,7 +29,7 @@ linters-settings:
     goimports:
         local-prefixes: github.com/lindb/lindb
     gocyclo:
-        min-complexity: 16
+        min-complexity: 60
     maligned:
         suggest-new: true
     dupl:

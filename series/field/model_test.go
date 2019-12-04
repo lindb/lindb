@@ -1,46 +1,23 @@
 package field
 
 import (
-	"strconv"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Metas(t *testing.T) {
-	var metas = Metas{}
-	ids := make(map[uint16]struct{})
-	for i := uint16(0); i < 1000; i++ {
-		ids[i] = struct{}{}
-	}
+func Test_Fields(t *testing.T) {
+	var fs Fields
+	fs = append(fs,
+		Field{Name: []byte("a"), Type: SumField, Value: float64(0)},
+		Field{Name: []byte("c"), Type: HistogramField, Value: float64(0)},
+		Field{Name: []byte("b"), Type: SummaryField, Value: float64(0)})
+	sort.Sort(fs)
 
-	for i := range ids {
-		metas = metas.Insert(Meta{ID: i, Type: SumField, Name: strconv.Itoa(int(i))})
-	}
+	fs = fs.Insert(Field{Name: []byte("b"), Type: MaxField, Value: float64(0)})
+	assert.Equal(t, MaxField, fs[1].Type)
 
-	// GetFromName
-	m, ok := metas.GetFromName("304")
-	assert.True(t, ok)
-	assert.Equal(t, uint16(304), m.ID)
-	clone := metas.Clone()
-	m, ok = clone.GetFromName("304")
-	assert.True(t, ok)
-	assert.Equal(t, uint16(304), m.ID)
-	_, ok = metas.GetFromName("1001")
-	assert.False(t, ok)
-
-	// GetFromID
-	m, ok = metas.GetFromID(304)
-	assert.True(t, ok)
-	assert.Equal(t, uint16(304), m.ID)
-	_, ok = metas.GetFromID(1001)
-	assert.False(t, ok)
-
-	// Intersects
-	ml, ok := metas.Intersects([]uint16{1, 303, 1001})
-	assert.False(t, ok)
-	assert.Len(t, ml, 2)
-	ml, ok = metas.Intersects([]uint16{1, 303, 304})
-	assert.True(t, ok)
-	assert.Len(t, ml, 3)
+	fs = fs.Insert(Field{Name: []byte("d"), Type: MinField, Value: float64(0)})
+	assert.Equal(t, MinField, fs[3].Type)
 }
