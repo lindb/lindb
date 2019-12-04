@@ -14,7 +14,7 @@ import (
 
 const HTTPModule = "http"
 
-var AccessLog = GetLogger(HTTPModule, "access")
+var AccessLog = GetLogger(HTTPModule, "Access")
 
 // SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

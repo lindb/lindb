@@ -15,6 +15,8 @@ type HTTP struct {
 
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
+	## Controls how HTTP endpoints are configured.
+    ##
     ## which port broker's HTTP Server is listening on 
     port = %d`,
 		h.Port,

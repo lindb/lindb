@@ -139,7 +139,7 @@ func (r *runtime) Run() error {
 	ip, err := getHostIP()
 	if err != nil {
 		r.state = server.Failed
-		return fmt.Errorf("cannot get server ip address, error:%s", err)
+		return fmt.Errorf("cannot get server's ip address, error: %s", err)
 	}
 
 	hostName, err := hostName()
@@ -180,7 +180,7 @@ func (r *runtime) Run() error {
 	// finally start all state machine
 	r.stateMachines = coordinator.NewBrokerStateMachines(smFactory)
 	if err := r.stateMachines.Start(); err != nil {
-		return fmt.Errorf("start state machines error:%s", err)
+		return fmt.Errorf("start state machines error: %s", err)
 	}
 
 	masterCfg := &coordinator.MasterCfg{
@@ -282,7 +282,7 @@ func (r *runtime) startHTTPServer() {
 
 	r.log.Info("starting http server", logger.Uint16("port", port))
 	router := api.NewRouter()
-	//TODO add timeout config???
+
 	r.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		WriteTimeout: time.Second * 15,
@@ -292,9 +292,9 @@ func (r *runtime) startHTTPServer() {
 	}
 	go func() {
 		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {
-			panic(fmt.Sprintf("start http server error:%s", err))
+			panic(fmt.Sprintf("start http server with error: %s", err))
 		}
-		r.log.Info("http server stop complete")
+		r.log.Info("http server stopped successfully")
 	}()
 }
 

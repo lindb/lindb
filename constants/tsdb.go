@@ -4,7 +4,7 @@ const (
 	// use this limit of metric-store when maxTagsLimit is not set
 	DefaultMStoreMaxTagsCount = 10000000
 	// max tag keys limitation of a metric-store
-	MStoreMaxTagKeysCount = 512
+	MStoreMaxTagKeysCount = 32
 	// max fields limitation of a tsStore.
 	TStoreMaxFieldsCount = 1024
 	// the max number of suggestions count

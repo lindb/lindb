@@ -101,7 +101,7 @@ func Test_Bytes(t *testing.T) {
 
 		{
 			[]byte(""),
-			[]byte(nil),
+			[]byte(""),
 		},
 
 		{
