@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
@@ -102,19 +103,19 @@ func Test_tagIndex_tStore_error(t *testing.T) {
 		_, _, _ = tagIdx.GetOrCreateTStore(
 			map[string]string{strconv.Itoa(i): strconv.Itoa(i)}, writeContext{generator: mockGenerator})
 	}
-	assert.Equal(t, 512, tagIdx.TagsUsed())
+	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
 	_, _, err := tagIdxInterface.GetOrCreateTStore(
 		map[string]string{"zone": "nj"},
 		writeContext{generator: mockGenerator})
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
-	assert.Equal(t, 512, tagIdx.TagsUsed())
+	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
 	// remove tStores
 	tagIdx.RemoveTStores()
 	tagIdx.RemoveTStores(1, 2, 3, 4, 1003)
 	// used tags won't change
-	assert.Equal(t, 512, tagIdx.TagsUsed())
+	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
 	// in use tags was removed
-	assert.Equal(t, 508, tagIdx.TagsInUse())
+	assert.Equal(t, 28, tagIdx.TagsInUse())
 	// allTStores
 	assert.NotNil(t, tagIdxInterface.AllTStores())
 }

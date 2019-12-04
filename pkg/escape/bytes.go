@@ -25,7 +25,9 @@ var escapeMappings = []escapeItem{
 // Bytes escape characters on the input slice
 func Bytes(in []byte) (to []byte) {
 	for _, mapping := range escapeMappings {
-		in = bytes.Replace(in, []byte{mapping.From}, mapping.To, -1)
+		if bytes.IndexByte(in, mapping.From) != -1 {
+			in = bytes.Replace(in, []byte{mapping.From}, mapping.To, -1)
+		}
 	}
 	return in
 }
