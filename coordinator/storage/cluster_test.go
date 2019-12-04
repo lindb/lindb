@@ -192,3 +192,50 @@ func TestCluster_CollectStat(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, stat)
 }
+
+func TestCluster_FlushDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	factory := NewClusterFactory()
+	storage := config.StorageCluster{
+		Config: config.RepoState{Namespace: "storage"},
+	}
+	discoveryFactory := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+
+	storageService := service.NewMockStorageStateService(ctrl)
+	repo := state.NewMockRepository(ctrl)
+	discovery1.EXPECT().Discovery().Return(nil)
+
+	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	controller := task.NewMockController(ctrl)
+	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
+	controllerFactory := task.NewMockControllerFactory(ctrl)
+	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
+	cfg := clusterCfg{
+		storageStateService: storageService,
+		cfg:                 storage,
+		repo:                repo,
+		factory:             discoveryFactory,
+		controllerFactory:   controllerFactory,
+	}
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
+	cluster1, err := factory.newCluster(cfg)
+	assert.Nil(t, err)
+	assert.NotNil(t, cluster1)
+
+	cluster2 := cluster1.(*cluster)
+	cluster2.mutex.Lock()
+	cluster2.clusterState.AddActiveNode(&models.ActiveNode{
+		Node: models.Node{IP: "1.1.1.1", Port: 9000},
+	})
+	cluster2.mutex.Unlock()
+	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	err = cluster1.FlushDatabase("test")
+	assert.NoError(t, err)
+
+	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = cluster1.FlushDatabase("test")
+	assert.Error(t, err)
+}

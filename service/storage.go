@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -26,6 +27,9 @@ type StorageService interface {
 
 	// GetShard returns shard by given db and shard id
 	GetShard(databaseName string, shardID int32) (tsdb.Shard, bool)
+
+	// FLush produces a signal to workers for flushing memory database by name
+	FlushDatabase(ctx context.Context, databaseName string) bool
 }
 
 // storageService implements StorageService interface
@@ -82,4 +86,8 @@ func (s *storageService) GetShard(databaseName string, shardID int32) (tsdb.Shar
 
 func (s *storageService) GetDatabase(databaseName string) (tsdb.Database, bool) {
 	return s.engine.GetDatabase(databaseName)
+}
+
+func (s *storageService) FlushDatabase(ctx context.Context, databaseName string) bool {
+	return s.engine.FlushDatabase(ctx, databaseName)
 }

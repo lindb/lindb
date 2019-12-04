@@ -30,6 +30,7 @@ func NewTaskExecutor(ctx context.Context,
 
 	// register task processor
 	executor.Register(newCreateShardProcessor(storageService))
+	executor.Register(newDatabaseFlushProcessor(storageService))
 	return &TaskExecutor{
 		ctx:            ctx,
 		repo:           repo,
