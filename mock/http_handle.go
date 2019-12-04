@@ -36,6 +36,7 @@ func DoRequest(t *testing.T, httpHandler *HTTPHandler) {
 	}
 	reader := bytes.NewReader(requestBodyBytes)
 	req, err := http.NewRequest(httpHandler.Method, httpHandler.URL, reader)
+	req.RequestURI = httpHandler.URL
 	if err != nil {
 		t.Fatal(err)
 		return

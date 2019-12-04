@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -20,6 +21,10 @@ import (
 //go:generate mockgen -source=./master.go -destination=./master_mock.go -package=coordinator
 
 var log = logger.GetLogger("coordinator", "Master")
+
+var (
+	errNoCluster = errors.New("cluster not exist")
+)
 
 // MasterCfg represents the config for master creating
 type MasterCfg struct {
@@ -52,6 +57,8 @@ type Master interface {
 	GetMaster() *models.Master
 	// Stop stops master if current node is master, cleanup master context and stops state machine
 	Stop()
+	// FLushDatabase submits the coordinator task for flushing memory database by cluster and database name
+	FlushDatabase(cluster string, databaseName string) error
 }
 
 // master implements master interface
@@ -147,4 +154,18 @@ func (m *master) Stop() {
 	m.elect.Close()
 
 	m.cancel()
+}
+
+// FLushDatabase submits the coordinator task for flushing memory database by cluster and database name
+func (m *master) FlushDatabase(cluster string, databaseName string) error {
+	if m.IsMaster() {
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
+		cluster := m.masterCtx.StateMachine.StorageCluster.GetCluster(cluster)
+		if cluster == nil {
+			return errNoCluster
+		}
+		return cluster.FlushDatabase(databaseName)
+	}
+	return nil
 }
