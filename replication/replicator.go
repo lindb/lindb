@@ -14,6 +14,8 @@ import (
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
+//go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replication
+
 const (
 	batchReplicaSize = 10
 	//maxPendingSeqSize = 100
@@ -53,10 +55,10 @@ type replicator struct {
 	serviceClient storage.WriteServiceClient
 	// lock to protect clients
 	lock4client sync.RWMutex
-	// 0 -> running, 1 -> stopped
-	stopped atomic.Int32
-	// 0 -> notReady, 1 -> ready
-	ready atomic.Int32
+	// false -> running, true -> stopped
+	stopped atomic.Bool
+	// false -> notReady, true -> ready
+	ready atomic.Bool
 	//storage received cur sequence num
 	//storageCurSeq int64
 	logger *logger.Logger
@@ -112,24 +114,20 @@ func (r *replicator) AckIndex() int64 {
 
 // Stop stops the replication task.
 func (r *replicator) Stop() {
-	r.stopped.Store(1)
+	r.stopped.Store(true)
 }
 
 // isStopped atomic check if is stopped.
 func (r *replicator) isStopped() bool {
-	return r.stopped.Load() == 1
+	return r.stopped.Load()
 }
 
 func (r *replicator) isReady() bool {
-	return r.ready.Load() == 1
+	return r.ready.Load()
 }
 
 func (r *replicator) setReady(ready bool) {
-	if ready {
-		r.ready.Store(1)
-	} else {
-		r.ready.Store(0)
-	}
+	r.ready.Store(ready)
 }
 
 // recvLoop is a loop to receive message from rpc stream.
@@ -159,7 +157,6 @@ func (r *replicator) recvLoop() {
 			r.logger.Info("end recvLoop")
 			return
 		}
-
 		// when connection is stopped, replicator.streamClient.Recv() returns error.
 		resp, err := r.streamClient.Recv()
 		if err != nil {
@@ -302,8 +299,7 @@ func (r *replicator) sendLoop() {
 			Replicas: replicas,
 		}
 
-		//todo debug level
-		r.logger.Info("send replicas",
+		r.logger.Debug("send replicas",
 			logger.Int64("begin", replicas[0].Seq),
 			logger.Int64("end", replicas[len(replicas)-1].Seq))
 

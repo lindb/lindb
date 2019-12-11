@@ -42,7 +42,7 @@ func (etcd *ETCD) TOML() string {
 // NewDefaultETCD returns a default ETCD
 func NewDefaultETCD() *ETCD {
 	return &ETCD{
-		Dir: filepath.Join(defaultParentDir, "standalone"),
+		Dir: filepath.Join(defaultParentDir, "coordinator"),
 		URL: "http://localhost:2379",
 	}
 }

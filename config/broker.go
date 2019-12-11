@@ -54,7 +54,7 @@ type ReplicationChannel struct {
 	ReportInterval     ltoml.Duration `toml:"report-interval"` // replicator state report interval
 	CheckFlushInterval ltoml.Duration `toml:"check-flush-interval"`
 	FlushInterval      ltoml.Duration `toml:"flush-interval"`
-	BufferSize         uint16         `toml:"buffer-size"`
+	BufferSize         int            `toml:"buffer-size"`
 }
 
 func (rc *ReplicationChannel) SegmentFileSizeInBytes() int {
@@ -68,7 +68,7 @@ func (rc *ReplicationChannel) SegmentFileSizeInBytes() int {
 }
 
 func (rc *ReplicationChannel) BufferSizeInBytes() int {
-	return int(rc.BufferSize) * 1024
+	return rc.BufferSize
 }
 
 func (rc *ReplicationChannel) TOML() string {

@@ -3,7 +3,6 @@ syntax = "proto3";
 package field;
 
 message MetricList {
-    string database = 1;
     repeated Metric metrics = 2;
 }
 

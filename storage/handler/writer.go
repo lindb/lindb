@@ -1,16 +1,18 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 
+	"github.com/golang/snappy"
 	"google.golang.org/grpc/codes"
-
 	"google.golang.org/grpc/status"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	streamIO "github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/field"
@@ -22,15 +24,13 @@ import (
 // Writer implements the stream write service.
 type Writer struct {
 	storageService service.StorageService
-	sm             replication.SequenceManager
 	logger         *logger.Logger
 }
 
 // NewWriter returns a new Writer.
-func NewWriter(storageService service.StorageService, sm replication.SequenceManager) *Writer {
+func NewWriter(storageService service.StorageService) *Writer {
 	return &Writer{
 		storageService: storageService,
-		sm:             sm,
 		logger:         logger.GetLogger("storage", "Writer"),
 	}
 }
@@ -72,14 +72,14 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sequence, err := w.getSequence(database, shardID, *logicNode)
-	if err != nil {
-		return status.Error(codes.Internal, err.Error())
-	}
-
 	shard, ok := w.storageService.GetShard(database, shardID)
 	if !ok {
 		return status.Errorf(codes.NotFound, "shard %d for database %s not exists", shardID, database)
+	}
+
+	sequence, err := shard.GetOrCreateSequence(logicNode.Indicator())
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	for {
@@ -109,7 +109,6 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			w.handleReplica(shard, replica)
 
 			sequence.SetHeadSeq(hs + 1)
-
 		}
 
 		resp := &storage.WriteResponse{
@@ -128,32 +127,26 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 }
 
 func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
-	reader := streamIO.NewReader(replica.Data)
-	for !reader.Empty() {
-		bytesLen := reader.ReadUvarint32()
+	reader := snappy.NewReader(bytes.NewReader(replica.Data))
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		w.logger.Error("decompress replica data error", logger.Error(err))
+		return
+	}
+	var metricList field.MetricList
+	err = metricList.Unmarshal(data)
+	if err != nil {
+		w.logger.Error("unmarshal metricList", logger.Error(err))
+		return
+	}
 
-		bytes := reader.ReadSlice(int(bytesLen))
-
-		if err := reader.Error(); err != nil {
-			w.logger.Error("read metricList bytes from replica", logger.Error(err))
-			break
-		}
-
-		var metricList field.MetricList
-		err := metricList.Unmarshal(bytes)
-		if err != nil {
-			w.logger.Error("unmarshal metricList", logger.Error(err))
-			continue
-		}
-
-		//TODO write metric, need handle panic
-		for _, metric := range metricList.Metrics {
-			err = shard.Write(metric)
-		}
-		if err != nil {
-			w.logger.Error("write metric", logger.Error(err))
-			continue
-		}
+	//TODO write metric, need handle panic
+	for _, metric := range metricList.Metrics {
+		err = shard.Write(metric)
+	}
+	if err != nil {
+		w.logger.Error("write metric", logger.Error(err))
+		return
 	}
 }
 
@@ -177,13 +170,13 @@ func parseCtx(ctx context.Context) (database string, shardID int32, logicNode *m
 }
 
 func (w *Writer) getSequence(database string, shardID int32, logicNode models.Node) (replication.Sequence, error) {
-	sequence, ok := w.sm.GetSequence(database, shardID, logicNode)
+	db, ok := w.storageService.GetDatabase(database)
 	if !ok {
-		var err error
-		sequence, err = w.sm.CreateSequence(database, shardID, logicNode)
-		if err != nil {
-			return nil, err
-		}
+		return nil, constants.ErrDatabaseNotFound
 	}
-	return sequence, nil
+	shard, ok := db.GetShard(shardID)
+	if !ok {
+		return nil, constants.ErrShardNotFound
+	}
+	return shard.GetOrCreateSequence(logicNode.Indicator())
 }
