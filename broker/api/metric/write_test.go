@@ -25,7 +25,7 @@ func TestWriteAPI_Sum(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	cm.EXPECT().Write(gomock.Any()).Return(errors.New("err"))
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(errors.New("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
 		URL:            "/metric/sum?db=dal&cluster=dal&c=1",
@@ -33,7 +33,7 @@ func TestWriteAPI_Sum(t *testing.T) {
 		ExpectHTTPCode: 500,
 	})
 
-	cm.EXPECT().Write(gomock.Any()).Return(nil)
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
 		URL:            "/metric/sum?db=dal&cluster=dal&c=1",

@@ -118,7 +118,7 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	assert.False(t, ok)
 
 	mockDatabase := NewMockDatabase(ctrl)
-	mockDatabase.EXPECT().FlushMeta()
+	mockDatabase.EXPECT().FlushMeta().AnyTimes()
 	mockDatabase.EXPECT().Range(gomock.Any())
 	engineImpl.databases.Store("test_db_1", mockDatabase)
 	ok = e.FlushDatabase(context.TODO(), "test_db_1")

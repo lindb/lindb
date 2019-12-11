@@ -13,7 +13,7 @@ import (
 	"github.com/lindb/lindb/rpc/proto/field"
 )
 
-// 正常情况
+// normal case
 func TestTcpHandler_HandleConn_Normal(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
@@ -44,7 +44,7 @@ func TestTcpHandler_HandleConn_Normal(t *testing.T) {
 	writer.PutInt32(int32(len(metricListBytes)))
 	writer.PutBytes(metricListBytes)
 
-	cm.EXPECT().Write(metricList).Return(nil)
+	cm.EXPECT().Write(gomock.Any(), metricList).Return(nil)
 
 	bytes, err := writer.Bytes()
 	if err != nil {
@@ -71,7 +71,7 @@ func TestTcpHandler_HandleConn_Normal(t *testing.T) {
 	writer.PutInt32(int32(len(metricListBytes2)))
 	writer.PutBytes(metricListBytes2)
 
-	cm.EXPECT().Write(metricList2).Return(nil)
+	cm.EXPECT().Write(gomock.Any(), metricList2).Return(nil)
 
 	bytes2, err := writer.Bytes()
 	if err != nil {
@@ -226,7 +226,7 @@ func TestTcpHandler_UnmarshalFail(t *testing.T) {
 }
 
 func buildMetricList(value float64) *field.MetricList {
-	return &field.MetricList{Database: "dal",
+	return &field.MetricList{
 		Metrics: []*field.Metric{{
 			Name:      "name",
 			Timestamp: time.Now().Unix() * 1000,
@@ -241,37 +241,3 @@ func buildMetricList(value float64) *field.MetricList {
 			}},
 		}}}
 }
-
-//// 发送数据用
-//func TestWriteToBroker(t *testing.T) {
-//	conn, err := net.Dial("tcp", ":9002")
-//	if err != nil {
-//		t.Fatal(err)
-//	}
-//
-//	for i := 0; i < 1000; i++ {
-//		ml := buildMetricList(float64(i))
-//
-//		metricListBytes, err := ml.Marshal()
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//
-//		writer := stream.NewBufferWriter(nil)
-//		writer.PutInt32(int32(len(metricListBytes)))
-//		writer.PutBytes(metricListBytes)
-//
-//		bytes, err := writer.Bytes()
-//		if err != nil {
-//			t.Fatal(err)
-//		}
-//
-//		if _, err := conn.Write(bytes); err != nil {
-//			t.Fatal(err)
-//		}
-//	}
-//
-//	if err := conn.Close(); err != nil {
-//		t.Fatal(err)
-//	}
-//}

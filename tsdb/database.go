@@ -113,6 +113,7 @@ func newDatabase(
 	if len(db.config.ShardIDs) > 0 {
 		for _, shardID := range db.config.ShardIDs {
 			shard, err := newShard(
+				databaseName,
 				shardID,
 				filepath.Join(databasePath, shardDir, strconv.Itoa(int(shardID))),
 				db.idSequencer,
@@ -165,6 +166,7 @@ func (db *database) CreateShards(
 		}
 		// new shard
 		createdShard, err := newShard(
+			db.name,
 			shardID,
 			filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
 			db.idSequencer,

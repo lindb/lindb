@@ -15,7 +15,7 @@ import (
 )
 
 // internal metrics will be stored in this database
-const internalDatabase = "_internal"
+//const internalDatabase = "_internal"
 
 // httpReporter implements tally.StatsReporter
 type httpReporter struct {
@@ -50,12 +50,12 @@ func (ir *httpReporter) Flush() {
 	}
 
 	data := encoding.JSONMarshal(field.MetricList{
-		Database: internalDatabase,
-		Metrics:  ir.metrics,
+		Metrics: ir.metrics,
 	})
 	ir.metrics = ir.metrics[:0]
 	ir.mux.Unlock()
 
+	//TODO set database name
 	resp, err := http.Post(ir.endpoint, "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		log.Error("post error: %s", logger.Error(err))

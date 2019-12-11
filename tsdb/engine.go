@@ -413,11 +413,11 @@ func (e *engine) flushWorker(ctx context.Context) {
 			return
 		case theShard := <-e.shardToFlushCh:
 			if err := theShard.Flush(); err != nil {
-				engineLogger.Error("flush shard with error: %s", logger.Error(err))
+				engineLogger.Error("flush shard with error", logger.Error(err))
 			}
 		case theDatabase := <-e.databaseToFlushCh:
 			if err := theDatabase.FlushMeta(); err != nil {
-				engineLogger.Error("flush database with error: %s", logger.Error(err))
+				engineLogger.Error("flush database metadata with error", logger.Error(err))
 			}
 		}
 	}

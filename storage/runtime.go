@@ -18,7 +18,6 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
-	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/rpc/proto/storage"
@@ -29,8 +28,7 @@ import (
 
 // srv represents all dependency services
 type srv struct {
-	storageService  service.StorageService
-	sequenceManager replication.SequenceManager
+	storageService service.StorageService
 }
 
 // factory represents all factories for storage
@@ -183,6 +181,12 @@ func (r *runtime) Stop() error {
 		r.log.Info("stopping grpc server")
 		r.server.Stop()
 	}
+
+	// close the storage engine
+	if r.srv.storageService != nil {
+		r.srv.storageService.Close()
+	}
+
 	r.log.Info("storage server stop complete")
 	r.state = server.Terminated
 	return nil
@@ -190,17 +194,12 @@ func (r *runtime) Stop() error {
 
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() error {
-	sm, err := replication.NewSequenceManager(r.config.StorageBase.Replication.Dir)
-	if err != nil {
-		return err
-	}
 	engine, err := tsdb.NewEngine(r.config.StorageBase.TSDB)
 	if err != nil {
 		return err
 	}
 	srv := srv{
-		storageService:  service.NewStorageService(engine),
-		sequenceManager: sm,
+		storageService: service.NewStorageService(engine),
 	}
 	r.srv = srv
 	return nil
@@ -227,7 +226,7 @@ func (r *runtime) bindRPCHandlers() {
 		query.NewExecutorFactory(), r.factory.taskServer)
 
 	r.handler = &rpcHandler{
-		writer: handler.NewWriter(r.srv.storageService, r.srv.sequenceManager),
+		writer: handler.NewWriter(r.srv.storageService),
 		task:   taskHandler.NewTaskHandler(r.config.StorageBase.Query, r.factory.taskServer, dispatcher),
 	}
 

@@ -1,14 +1,8 @@
 package replication
 
 import (
-	"path"
-	"strconv"
-	"sync"
-
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/queue"
 )
 
@@ -36,6 +30,8 @@ type Sequence interface {
 	Synced() bool
 	// ResetSynced resets Synced() to false.
 	ResetSynced()
+
+	//TODO need add close method??
 }
 
 // sequence implements Sequence.
@@ -102,78 +98,5 @@ func NewSequence(dirPath string) (Sequence, error) {
 		meta:    meta,
 		headSeq: *atomic.NewInt64(ackSeq),
 		ackSeq:  *atomic.NewInt64(ackSeq),
-	}, nil
-}
-
-// SequenceManager manages the Sequences.
-type SequenceManager interface {
-	// GetSequence returns a sequence for given parameters.
-	GetSequence(db string, shardID int32, node models.Node) (Sequence, bool)
-	// CreateSequence creates a sequence for given parameters,
-	// if the sequence already exists, directly return the existed one.
-	// Concurrent safe.
-	CreateSequence(db string, shardID int32, node models.Node) (Sequence, error)
-}
-
-// sequenceManager implements SequenceManager.
-type sequenceManager struct {
-	dirPath     string
-	sequenceMap sync.Map
-	lock4map    sync.Mutex
-}
-
-// GetSequence returns a sequence for given parameters.
-func (sm *sequenceManager) GetSequence(db string, shardID int32, node models.Node) (Sequence, bool) {
-	key := sm.buildKey(db, shardID, node)
-	val, _ := sm.sequenceMap.Load(key)
-
-	seq, ok := val.(Sequence)
-	return seq, ok
-}
-
-// CreateSequence creates a sequence for given parameters,
-// if the sequence already exists, directly return the existed one.
-// Concurrent safe.
-func (sm *sequenceManager) CreateSequence(db string, shardID int32, node models.Node) (Sequence, error) {
-	key := sm.buildKey(db, shardID, node)
-	val, ok := sm.sequenceMap.Load(key)
-	if !ok {
-		sm.lock4map.Lock()
-
-		val, ok = sm.sequenceMap.Load(key)
-		if !ok {
-			dir := path.Join(sm.dirPath, db, strconv.Itoa(int(shardID)))
-			if err := fileutil.MkDir(dir); err != nil {
-				return nil, err
-			}
-
-			filePath := path.Join(dir, node.IP+"-"+strconv.Itoa(int(node.Port)))
-			seq, err := NewSequence(filePath)
-			if err != nil {
-				sm.lock4map.Unlock()
-				return nil, err
-			}
-
-			sm.sequenceMap.Store(key, seq)
-			sm.lock4map.Unlock()
-			return seq, nil
-		}
-	}
-
-	seq := val.(Sequence)
-	return seq, nil
-}
-
-func (sm *sequenceManager) buildKey(db string, shardID int32, node models.Node) string {
-	return db + "/" + strconv.Itoa(int(shardID)) +
-		"/" + node.IP + "-" + strconv.Itoa(int(node.Port))
-}
-
-func NewSequenceManager(dirPath string) (SequenceManager, error) {
-	if err := fileutil.MkDir(dirPath); err != nil {
-		return nil, err
-	}
-	return &sequenceManager{
-		dirPath: dirPath,
 	}, nil
 }
