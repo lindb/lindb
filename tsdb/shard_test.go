@@ -29,18 +29,23 @@ func TestNewShard(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
-	thisShard, err := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{})
+	thisShard, err := newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{})
 	assert.NotNil(t, err)
 	assert.Nil(t, thisShard)
 
-	thisShard, err = newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "as"})
+	thisShard, err = newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "as"})
 	assert.NotNil(t, err)
 	assert.Nil(t, thisShard)
 
-	thisShard, err = newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
+	thisShard, err = newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	assert.Nil(t, err)
 	assert.NotNil(t, thisShard)
 	assert.NotNil(t, thisShard.IndexDatabase())
+	assert.Equal(t, "db", thisShard.DatabaseName())
+	assert.Equal(t, int32(1), thisShard.ShardID())
+	s, err := thisShard.GetOrCreateSequence("tes")
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
 
 	assert.True(t, fileutil.Exist(_testShard1Path))
 }
@@ -53,7 +58,7 @@ func TestGetSegments(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
-	s, _ := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
+	s, _ := newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	assert.Nil(t, s.GetDataFamilies(timeutil.Month, timeutil.TimeRange{}))
 	assert.Nil(t, s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{}))
 	assert.Equal(t, 0, len(s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{})))
@@ -74,7 +79,7 @@ func TestWrite(t *testing.T) {
 		mockMemDB.EXPECT().Write(gomock.Any()).Return(series.ErrTooManyTags),
 	)
 
-	shardINTF, _ := newShard(1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
+	shardINTF, _ := newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	shardIns := shardINTF.(*shard)
 	shardIns.memDB = mockMemDB
 
@@ -114,6 +119,7 @@ func TestShard_Write_Accept(t *testing.T) {
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 
 	shardINTF, _ := newShard(
+		"db",
 		1,
 		_testShard1Path,
 		mockIDSequencer,
@@ -143,14 +149,19 @@ func TestShard_Write_Accept(t *testing.T) {
 func Test_Shard_Close_Flush_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 	mockStore := kv.NewMockStore(ctrl)
 
 	// prepare mocked segment
 	mockIntervalSegment := NewMockIntervalSegment(ctrl)
+	replicaSequence, err := newReplicaSequence(filepath.Join(testPath, replicaDir))
+	assert.NoError(t, err)
 	s := &shard{
 		segment:  mockIntervalSegment,
 		interval: timeutil.Interval(timeutil.OneSecond * 10),
+		sequence: replicaSequence,
 	}
 	_, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
@@ -165,26 +176,26 @@ func Test_Shard_Close_Flush_error(t *testing.T) {
 	s.forwardFamily = mockFamily
 	s.invertedFamily = mockFamily
 
-	mockMemdb := memdb.NewMockMemoryDatabase(ctrl)
-	s.memDB = mockMemdb
+	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
+	s.memDB = mockMemDB
 	// mock flush ok
-	mockMemdb.EXPECT().Families().Return(nil)
-	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil)
-	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
+	mockMemDB.EXPECT().Families().Return(nil)
+	mockMemDB.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil)
+	mockMemDB.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
 	mockStore.EXPECT().Close().Return(fmt.Errorf("error")).AnyTimes()
 	assert.NotNil(t, s.Close())
 	// mock flush forward index error
-	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
+	mockMemDB.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
 	assert.NotNil(t, s.Close())
 	// mock flush inverted index error
-	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
-	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
+	mockMemDB.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil)
+	mockMemDB.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(fmt.Errorf("error"))
 	assert.NotNil(t, s.Close())
 
 	// mock flush families error
-	mockMemdb.EXPECT().Families().Return([]int64{1}).AnyTimes()
-	mockMemdb.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil).AnyTimes()
-	mockMemdb.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil).AnyTimes()
+	mockMemDB.EXPECT().Families().Return([]int64{1}).AnyTimes()
+	mockMemDB.EXPECT().FlushInvertedIndexTo(gomock.Any()).Return(nil).AnyTimes()
+	mockMemDB.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil).AnyTimes()
 	// mock GetOrCreateSegment error
 	mockIntervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("error"))
 	assert.NotNil(t, s.Close())
@@ -196,11 +207,11 @@ func Test_Shard_Close_Flush_error(t *testing.T) {
 	// mock FlushFamilyTo ok
 	mockDataFamily := NewMockDataFamily(ctrl)
 	mockDataFamily.EXPECT().Family().Return(mockFamily).AnyTimes()
-	mockMemdb.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(nil)
+	mockMemDB.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(nil)
 	mockSegment.EXPECT().GetDataFamily(gomock.Any()).Return(mockDataFamily, nil).AnyTimes()
 	assert.NotNil(t, s.Close())
 	// mock FlushFamilyTo error
-	mockMemdb.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+	mockMemDB.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 	assert.NotNil(t, s.Close())
 
 	// mock isFlushing CAS false

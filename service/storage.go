@@ -30,6 +30,9 @@ type StorageService interface {
 
 	// FLush produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
+
+	// Close closes the time series engine
+	Close()
 }
 
 // storageService implements StorageService interface
@@ -90,4 +93,8 @@ func (s *storageService) GetDatabase(databaseName string) (tsdb.Database, bool) 
 
 func (s *storageService) FlushDatabase(ctx context.Context, databaseName string) bool {
 	return s.engine.FlushDatabase(ctx, databaseName)
+}
+
+func (s *storageService) Close() {
+	s.engine.Close()
 }

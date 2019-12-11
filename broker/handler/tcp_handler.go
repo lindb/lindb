@@ -59,7 +59,8 @@ func (h *tcpHandler) Handle(conn net.Conn) error {
 			return err
 		}
 
-		if err := h.channelManager.Write(&metricList); err != nil {
+		//TODO set database name???
+		if err := h.channelManager.Write("test", &metricList); err != nil {
 			return err
 		}
 

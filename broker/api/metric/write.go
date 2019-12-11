@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -31,6 +32,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 	count1, _ := strconv.ParseInt(c, 10, 64)
 	count := int(count1)
 	var err2 error
+	n := 0
 	//count := 12500
 	for i := 0; i < count; i++ {
 		var metrics []*field.Metric
@@ -46,15 +48,15 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 					},
 					Tags: map[string]string{"host": "1.1.1." + strconv.Itoa(i), "disk": "/tmp" + strconv.Itoa(j), "partition": "partition" + strconv.Itoa(k)},
 				}
+				n++
 				metrics = append(metrics, metric)
 			}
 		}
 		//TODO mock data for test
 		metricList := &field.MetricList{
-			Database: databaseName,
-			Metrics:  metrics,
+			Metrics: metrics,
 		}
-		if e := m.cm.Write(metricList); e != nil {
+		if e := m.cm.Write(databaseName, metricList); e != nil {
 			err2 = e
 		}
 	}
@@ -62,5 +64,5 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err2)
 		return
 	}
-	api.OK(w, "ok")
+	api.OK(w, fmt.Sprintf("ok,written=%d", n))
 }

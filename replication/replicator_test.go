@@ -121,12 +121,19 @@ func TestSimple(t *testing.T) {
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
 	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error")).AnyTimes()
+	fanOut := queue.NewMockFanOut(ctl)
+	fanOut.EXPECT().Pending().Return(int64(0))
+	fanOut.EXPECT().HeadSeq().Return(int64(0))
+	fanOut.EXPECT().TailSeq().Return(int64(0))
 
-	rep := newReplicator(node, database, shardID, nil, mockFct)
+	rep := newReplicator(node, database, shardID, fanOut, mockFct)
 
 	assert.Equal(t, database, rep.Database())
 	assert.Equal(t, shardID, rep.ShardID())
 	assert.Equal(t, node, rep.Target())
+	assert.True(t, rep.Pending() == 0)
+	assert.True(t, rep.AckIndex() == 0)
+	assert.True(t, rep.ReplicaIndex() == 0)
 
 	rep.Stop()
 }
@@ -425,4 +432,74 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 	time.Sleep(time.Second * 4)
 	rep.Stop()
 	close(done2)
+}
+
+func TestReplicator_Ack(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 5,
+	}, nil).AnyTimes()
+
+	done1 := make(chan struct{})
+	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done1
+		time.Sleep(10 * time.Millisecond)
+		return &storage.WriteResponse{
+			Ack: &storage.WriteResponse_AckSeq{AckSeq: int64(1000)},
+		}, nil
+	})
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil).AnyTimes()
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFct.EXPECT().LogicNode().Return(node).AnyTimes()
+	nextSeq := int64(5)
+	mockFanOut.EXPECT().Consume().Return(int64(10)).AnyTimes()
+	mockFanOut.EXPECT().Get(int64(10)).Return(nil, fmt.Errorf("err")).AnyTimes()
+	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil).AnyTimes()
+	mockFanOut.EXPECT().Ack(int64(1000)).AnyTimes()
+	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	time.Sleep(2 * time.Second)
+	rep.Stop()
+	close(done1)
+}
+
+func TestReplicator_Loop_panic(t *testing.T) {
+	ctl := gomock.NewController(t)
+	defer ctl.Finish()
+
+	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+		Seq: 5,
+	}, nil).AnyTimes()
+
+	done1 := make(chan struct{})
+	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Send(gomock.Any()).DoAndReturn(func() error {
+		panic("send")
+	}).AnyTimes()
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+		<-done1
+		panic("recv")
+	})
+
+	mockFct := rpc.NewMockClientStreamFactory(ctl)
+	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil).AnyTimes()
+	mockFanOut := queue.NewMockFanOut(ctl)
+	mockFct.EXPECT().LogicNode().Return(node).AnyTimes()
+	nextSeq := int64(5)
+	mockFanOut.EXPECT().Consume().Return(int64(10)).AnyTimes()
+	mockFanOut.EXPECT().Get(int64(10)).Return(buildMessageBytes(10), nil).AnyTimes()
+	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil).AnyTimes()
+	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	time.Sleep(time.Second)
+	rep.Stop()
+	close(done1)
 }

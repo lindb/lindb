@@ -41,9 +41,6 @@ var cfg = config.Storage{StorageBase: config.StorageBase{
 	Coordinator: config.RepoState{
 		Namespace: "/test/storage",
 	},
-	Replication: config.Replication{
-		Dir: "/tmp/storage/replication",
-	},
 }}
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {

@@ -48,7 +48,7 @@ type srv struct {
 	storageStateService   service.StorageStateService
 	shardAssignService    service.ShardAssignService
 	databaseService       service.DatabaseService
-	replicatorService     service.ReplicatorService
+	replicatorStateReport replication.ReplicatorStateReport
 	channelManager        replication.ChannelManager
 	taskManager           parallel.TaskManager
 	jobManager            parallel.JobManager
@@ -313,10 +313,10 @@ func (r *runtime) startStateRepo() error {
 func (r *runtime) buildServiceDependency() {
 	// todo watch stateMachine states change.
 
-	replicatorService := service.NewReplicatorService(r.node, r.repo)
+	replicatorStateReport := replication.NewReplicatorStateReport(r.node, r.repo)
 
 	// hard code create channel first.
-	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorService)
+	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorStateReport)
 	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
 	jobManager := parallel.NewJobManager(taskManager)
 
@@ -329,7 +329,7 @@ func (r *runtime) buildServiceDependency() {
 		databaseService:       service.NewDatabaseService(r.repo),
 		storageStateService:   service.NewStorageStateService(r.repo),
 		shardAssignService:    service.NewShardAssignService(r.repo),
-		replicatorService:     replicatorService,
+		replicatorStateReport: replicatorStateReport,
 		channelManager:        cm,
 		taskManager:           taskManager,
 		jobManager:            jobManager,

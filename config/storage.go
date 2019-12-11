@@ -8,18 +8,6 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-// Replication represents replication config
-type Replication struct {
-	Dir string `toml:"dir"`
-}
-
-func (r *Replication) TOML() string {
-	return fmt.Sprintf(`
-    ## Where the WAL log is stored
-    dir = "%s"`,
-		r.Dir)
-}
-
 // TSDB represents the tsdb configuration
 type TSDB struct {
 	Dir string `toml:"dir"`
@@ -35,11 +23,10 @@ func (t *TSDB) TOML() string {
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	Coordinator RepoState   `toml:"coordinator"`
-	GRPC        GRPC        `toml:"grpc"`
-	TSDB        TSDB        `toml:"tsdb"`
-	Replication Replication `toml:"replication"`
-	Query       Query       `toml:"query"`
+	Coordinator RepoState `toml:"coordinator"`
+	GRPC        GRPC      `toml:"grpc"`
+	TSDB        TSDB      `toml:"tsdb"`
+	Query       Query     `toml:"query"`
 }
 
 // TOML returns StorageBase's toml config string
@@ -53,14 +40,11 @@ func (s *StorageBase) TOML() string {
   [storage.grpc]%s
 
   [storage.tsdb]%s
-	
-  [storage.replication]%s
 `,
 		s.Coordinator.TOML(),
 		s.Query.TOML(),
 		s.GRPC.TOML(),
 		s.TSDB.TOML(),
-		s.Replication.TOML(),
 	)
 }
 
@@ -83,8 +67,6 @@ func NewDefaultStorageBase() *StorageBase {
 			TTL:  ltoml.Duration(time.Second)},
 		TSDB: TSDB{
 			Dir: filepath.Join(defaultParentDir, "storage/data")},
-		Replication: Replication{
-			Dir: filepath.Join(defaultParentDir, "storage/replication")},
 		Query: *NewDefaultQuery(),
 	}
 }

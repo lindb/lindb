@@ -1,4 +1,4 @@
-package service
+package replication
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ func TestReplicatorService_Report(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	srv := NewReplicatorService(models.Node{IP: "1.1.1.1", Port: 9000}, repo)
+	srv := NewReplicatorStateReport(models.Node{IP: "1.1.1.1", Port: 9000}, repo)
 
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := srv.Report(&models.BrokerReplicaState{})
