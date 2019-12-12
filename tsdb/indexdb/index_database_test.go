@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 ////////////////////////////////
@@ -34,6 +35,10 @@ func (db *mockedIndexDatabase) WithFindReadersOK() {
 	db.snapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{db.reader}, nil)
 }
 
+func (db *mockedIndexDatabase) WithFindReadersEmpty() {
+	db.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
+}
+
 func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
 	mockReader := table.NewMockReader(ctrl)
 
@@ -52,22 +57,13 @@ func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
 		idGetter:      mockIDGetter}
 }
 
-func Test_IndexDatabase_GetTagValues(t *testing.T) {
-	//TODO
-	//ctrl := gomock.NewController(t)
-	//defer ctrl.Finish()
-	//mockedDB := mockIndexDatabase(ctrl)
-	//
-	//// case1: snapshot FindReaders error
-	//mockedDB.WithFindReadersError()
-	//tagValues, err := mockedDB.indexDatabase.GetTagValues(1, nil, 1, roaring.New())
-	//assert.Nil(t, tagValues)
-	//assert.NotNil(t, err)
-	//// case2: snapshot FindReaders ok
-	//mockedDB.WithFindReadersOK()
-	//mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil).AnyTimes()
-	//_, err = mockedDB.indexDatabase.GetTagValues(1, nil, 1, roaring.New())
-	//assert.NotNil(t, err)
+func Test_IndexDatabase_GetGroupingContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedDB := mockIndexDatabase(ctrl)
+	g, err := mockedDB.indexDatabase.GetGroupingContext(1, nil, series.NewVersion())
+	assert.NoError(t, err)
+	assert.Nil(t, g)
 }
 
 func Test_IndexDatabase_SuggestTagValues(t *testing.T) {
@@ -124,6 +120,12 @@ func Test_IndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
 	mockedDB.WithFindReadersOK()
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
+	assert.NotNil(t, err)
+
+	// case4: snapshot FindReaders is nil
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1), nil)
+	mockedDB.WithFindReadersEmpty()
 	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
 	assert.NotNil(t, err)
 }

@@ -48,6 +48,7 @@ func (s *snapshot) GetCurrent() *Version {
 // FindReaders finds all files include key
 func (s *snapshot) FindReaders(key uint32) ([]table.Reader, error) {
 	// find files related given key
+	//FIXME stone1100, need add lock for find files or clone version when new snapshot
 	files := s.version.findFiles(key)
 	var readers []table.Reader
 	for _, fileMeta := range files {

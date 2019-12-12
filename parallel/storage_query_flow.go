@@ -23,7 +23,8 @@ var storageQueryFlowLogger = logger.GetLogger("parallel", "storageQueryFlow")
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
 	aggPool      chan aggregation.FieldAggregates // use aggregator for request scope
-	stages       map[Stage]int                    // pending task ref counter for each stage
+	pendingTasks map[int32]Stage                  // pending task ref counter for each stage
+	taskIDSeq    atomic.Int32                     // task id gen sequence
 	executorPool *tsdb.ExecutorPool
 	reduceAgg    aggregation.GroupingAggregator
 	stream       pb.TaskService_HandleServer
@@ -55,7 +56,7 @@ func NewStorageQueryFlow(ctx context.Context,
 		req:                req,
 		stream:             stream,
 		executorPool:       executorPool,
-		stages:             make(map[Stage]int),
+		pendingTasks:       make(map[int32]Stage),
 		queryTimeRange:     queryTimeRange,
 		queryInterval:      queryInterval,
 		queryIntervalRatio: queryIntervalRatio,
@@ -102,6 +103,7 @@ func (qf *storageQueryFlow) Complete(err error) {
 		qf.mux.Lock()
 		defer qf.mux.Unlock()
 		qf.err = err
+		qf.completed.Store(true)
 	}
 }
 
@@ -134,21 +136,13 @@ func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates)
 	qf.reduceAgg.Aggregate(agg.ResultSet(tags))
 }
 
-func (qf *storageQueryFlow) completeTask(stage Stage) {
+func (qf *storageQueryFlow) completeTask(taskID int32) {
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 
-	count, ok := qf.stages[stage]
-	if ok {
-		count--
-	}
-	qf.stages[stage] = count
-	// if this stage's all tasks are completed, remove this stage
-	if count == 0 {
-		delete(qf.stages, stage)
-	}
+	delete(qf.pendingTasks, taskID)
 
-	if len(qf.stages) == 0 {
+	if len(qf.pendingTasks) == 0 {
 		// if all tasks of all stages completed
 		qf.completed.Store(true)
 
@@ -205,6 +199,10 @@ func (qf *storageQueryFlow) completeTask(stage Stage) {
 
 // execute executes the query task by stage
 func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
+	if qf.completed.Load() {
+		// query flow is completed, reject new task execute
+		return
+	}
 	var executePool concurrent.Pool
 	switch stage {
 	case Filtering:
@@ -216,11 +214,15 @@ func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
 	}
 	if executePool != nil {
 		// 1. retain the task pending count before submit task
-		qf.retainTask(stage)
+		qf.mux.Lock()
+		taskID := qf.taskIDSeq.Inc()
+		qf.pendingTasks[taskID] = stage
+		qf.mux.Unlock()
+
 		executePool.Submit(func() {
 			defer func() {
 				// 3. complete task and dec task pending after task handle
-				qf.completeTask(stage)
+				qf.completeTask(taskID)
 				var err error
 				r := recover()
 				if r != nil {
@@ -242,18 +244,4 @@ func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
 			task()
 		})
 	}
-}
-
-// retainTask adds the task execute ref count
-func (qf *storageQueryFlow) retainTask(stage Stage) {
-	qf.mux.Lock()
-	defer qf.mux.Unlock()
-
-	count, ok := qf.stages[stage]
-	if ok {
-		count++
-	} else {
-		count = 1
-	}
-	qf.stages[stage] = count
 }

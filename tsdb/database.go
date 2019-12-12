@@ -157,36 +157,43 @@ func (db *database) CreateShards(
 		if ok {
 			continue
 		}
-		// be careful need do mutex unlock
-		db.mutex.Lock()
-		// double check
-		_, ok = db.GetShard(shardID)
-		if ok {
-			continue
-		}
-		// new shard
-		createdShard, err := newShard(
-			db.name,
-			shardID,
-			filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
-			db.idSequencer,
-			option)
-		if err != nil {
-			db.mutex.Unlock()
-			return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
-		}
-		// using new engine option
-		newCfg := &databaseConfig{Option: option, ShardIDs: db.config.ShardIDs}
-		// add new shard id
-		newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
-		if err := db.dumpDatabaseConfig(newCfg); err != nil {
-			db.mutex.Unlock()
+		if err := db.createShard(shardID, option); err != nil {
 			return err
 		}
-		db.shards.Store(shardID, createdShard)
-		db.numOfShards.Inc()
-		db.mutex.Unlock()
 	}
+	return nil
+}
+
+// createShard creates a new shard based on option
+func (db *database) createShard(shardID int32, option option.DatabaseOption) error {
+	// be careful need do mutex unlock
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	// double check
+	_, ok := db.GetShard(shardID)
+	if ok {
+		return nil
+	}
+	// new shard
+	createdShard, err := newShard(
+		db.name,
+		shardID,
+		filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
+		db.idSequencer,
+		option)
+	if err != nil {
+		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
+	}
+	// using new engine option
+	newCfg := &databaseConfig{Option: option, ShardIDs: db.config.ShardIDs}
+	// add new shard id
+	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
+	if err := db.dumpDatabaseConfig(newCfg); err != nil {
+		return err
+	}
+	db.shards.Store(shardID, createdShard)
+	db.numOfShards.Inc()
 	return nil
 }
 

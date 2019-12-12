@@ -334,14 +334,14 @@ func Test_MemoryDatabase_Filter(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	// not found
-	md.Filter(0, []uint16{1}, 1, nil)
+	_, _ = md.Filter(0, []uint16{1}, 1, nil)
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	md.mStores.put(uint32(3333), mockMStore)
 
-	md.Filter(uint32(3333), []uint16{1}, 1, nil)
+	_, _ = md.Filter(uint32(3333), []uint16{1}, 1, nil)
 }
 
 func Test_MemoryDatabase_MemSize(t *testing.T) {

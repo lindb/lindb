@@ -1,6 +1,7 @@
 package metricsdata
 
 import (
+	"fmt"
 	"hash/crc32"
 
 	"github.com/lindb/roaring"
@@ -157,13 +158,14 @@ func (w *flusher) FlushVersion(version series.Version, seriesIDs *roaring.Bitmap
 	seriesPos := w.writer.Len() - w.versionStartPos
 	data, _ := seriesIDs.MarshalBinary()
 	w.writer.PutBytes(data)
+	seriesBucketPos := w.writer.Len() - w.versionStartPos
 	// write bitmap container offsets
 	w.writer.PutBytes(w.seriesBucketOffsets.MarshalBinary())
 
 	// write fields-meta
 	fieldsMetaPos := w.writer.Len() - w.versionStartPos
 	// write fields count
-	w.writer.PutUvarint64(uint64(len(w.fieldMetas)))
+	w.writer.PutUInt16(uint16(len(w.fieldMetas)))
 	// write field-id, field-type list
 	for _, fm := range w.fieldMetas {
 		// write field-id
@@ -171,9 +173,10 @@ func (w *flusher) FlushVersion(version series.Version, seriesIDs *roaring.Bitmap
 		// write field-type
 		w.writer.PutByte(byte(fm.Type))
 	}
-	// write footer, length: 4+4
-	w.writer.PutUint32(uint32(seriesPos))
-	w.writer.PutUint32(uint32(fieldsMetaPos))
+	// write footer, length: 4+4+4
+	w.writer.PutUint32(uint32(seriesPos))       // series bitmap position
+	w.writer.PutUint32(uint32(seriesBucketPos)) // bucket offset position
+	w.writer.PutUint32(uint32(fieldsMetaPos))   // field metadata position
 	// record version length
 	w.versionBlocks = append(w.versionBlocks, struct {
 		length  int
@@ -196,6 +199,8 @@ func (w *flusher) Reset() {
 
 // FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
 func (w *flusher) FlushMetric(metricID uint32) error {
+	fmt.Printf("flush data metricID:%d\n", metricID)
+
 	defer w.Reset()
 	// no version was flushed before
 	if len(w.versionBlocks) == 0 {

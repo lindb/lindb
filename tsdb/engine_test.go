@@ -26,15 +26,62 @@ var engineCfg = config.TSDB{Dir: testPath}
 func TestNew(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
+		listDir = fileutil.ListDir
 	}()
 
+	// test new error
+	mkDirIfNotExist = func(path string) error {
+		return fmt.Errorf("err")
+	}
 	e, err := NewEngine(engineCfg)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+	mkDirIfNotExist = fileutil.MkDirIfNotExist
+
+	// test new err when load engine err
+	listDir = func(path string) (strings []string, e error) {
+		return nil, fmt.Errorf("err")
+	}
+	e, err = NewEngine(engineCfg)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+	listDir = fileutil.ListDir
+
+	e, err = NewEngine(engineCfg)
 	assert.NoError(t, err)
 
 	db, _ := e.CreateDatabase("test_db")
 	assert.NotNil(t, db)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
+	assert.Equal(t, 0, db.NumOfShards())
+	e.Close()
 
+	// test load db error
+	mkDirIfNotExist = func(path string) error {
+		if path == filepath.Join(testPath, "test_db") {
+			return fmt.Errorf("err")
+		}
+		return fileutil.MkDirIfNotExist(path)
+	}
+	e, err = NewEngine(engineCfg)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+}
+
+func TestEngine_CreateDatabase(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
+	}()
+
+	e, err := NewEngine(engineCfg)
+	assert.NoError(t, err)
+
+	db, err := e.CreateDatabase("test_db")
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 	assert.Equal(t, 0, db.NumOfShards())
 
 	err = db.CreateShards(option.DatabaseOption{})
@@ -82,6 +129,15 @@ func TestNew(t *testing.T) {
 	_, ok = db.GetShard(10)
 	assert.False(t, ok)
 	assert.Equal(t, 3, db.NumOfShards())
+
+	// test new error
+	mkDirIfNotExist = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	// create db err
+	db, err = e.CreateDatabase("test_db_err")
+	assert.Error(t, err)
+	assert.Nil(t, db)
 }
 
 func Test_Engine_Close(t *testing.T) {

@@ -18,6 +18,13 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
+type mockTaskDispatcher struct {
+}
+
+func (d *mockTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
+	panic("err")
+}
+
 var cfg = config.Query{
 	MaxWorkers:  10,
 	IdleTimeout: ltoml.Duration(time.Second * 5),
@@ -47,4 +54,10 @@ func TestTaskHandler_Handle(t *testing.T) {
 	server.EXPECT().Recv().Return(nil, io.EOF)
 	dispatcher.EXPECT().Dispatch(gomock.Any(), gomock.Any()).AnyTimes()
 	_ = handler.Handle(server)
+}
+
+func TestTaskHandler_dispatch(t *testing.T) {
+	handler := NewTaskHandler(cfg, nil, &mockTaskDispatcher{})
+	// test dispatch panic
+	handler.dispatch(nil)
 }

@@ -35,8 +35,6 @@ func Test_Pool_Submit(t *testing.T) {
 	go do(100)
 	<-finished
 	assert.Equal(t, int32(100), c.Load())
-	// all goroutines of pool exited
-	assert.Equal(t, grNum, runtime.NumGoroutine())
 }
 
 func Test_Pool_Statistics(t *testing.T) {

@@ -43,9 +43,8 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	familyBaseTime, _ := timeutil.ParseTimestamp("20190904 19:00:00", "20060102 15:04:05")
 	assert.NotNil(t, seg)
 	dataFamily, err := seg.GetDataFamily(now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	familyEndTime, _ := timeutil.ParseTimestamp("20190904 20:00:00", "20060102 15:04:05")
 	assert.Equal(t, timeutil.TimeRange{
 		Start: familyBaseTime,
@@ -88,11 +87,45 @@ func TestSegment_New(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.NotNil(t, s)
+	now, _ := timeutil.ParseTimestamp("20190904 19:10:40", "20060102 15:04:05")
+	f, err := s.GetDataFamily(now)
+	assert.NoError(t, err)
+	assert.NotNil(t, f)
+	s.Close()
+
+	// reopen
 	s, err = newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
-	assert.NotNil(t, err)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	f, err = s.GetDataFamily(now)
+	assert.NoError(t, err)
+	assert.NotNil(t, f)
+
+	// cannot reopen
+	s2, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, s2)
+
+	// close
+	s.Close()
+}
+
+func TestSegment_loadFamily_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newStore = kv.NewStore
+	}()
+	kvStore := kv.NewMockStore(ctrl)
+	newStore = func(name string, option kv.StoreOption) (store kv.Store, e error) {
+		return kvStore, nil
+	}
+	kvStore.EXPECT().ListFamilyNames().Return([]string{"abc"})
+	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	assert.Error(t, err)
 	assert.Nil(t, s)
 }

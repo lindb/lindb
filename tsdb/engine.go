@@ -25,6 +25,13 @@ var (
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
 
+// for testing
+var (
+	mkDirIfNotExist = fileutil.MkDirIfNotExist
+	listDir         = fileutil.ListDir
+	decodeToml      = ltoml.DecodeToml
+)
+
 var engineLogger = logger.GetLogger("tsdb", "Engine")
 
 // Engine represents a time series engine
@@ -95,6 +102,7 @@ type engine struct {
 	databaseToFlushCh    chan Database               // database to flush
 	isFullFlushing       atomic.Bool                 // this flag symbols if engine is in full-flushing process
 	isWatermarkFlushing  atomic.Bool                 // this flag symbols if engine is in water-mark flushing
+	running              atomic.Bool                 // this flag symbols if engine background job is running successfully
 }
 
 // NewEngine creates an engine for manipulating the databases
@@ -109,7 +117,7 @@ func NewEngine(cfg config.TSDB) (Engine, error) {
 
 func newEngine(cfg config.TSDB) (*engine, error) {
 	// create time series storage path
-	if err := fileutil.MkDirIfNotExist(cfg.Dir); err != nil {
+	if err := mkDirIfNotExist(cfg.Dir); err != nil {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Dir, err)
 	}
 	e := &engine{
@@ -121,8 +129,10 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 		memoryStatGetterFunc: monitoring.GetMemoryStat,
 	}
 	if err := e.load(); err != nil {
+		engineLogger.Error("load engine data error when create a new engine", logger.Error(err))
 		// close opened engine
 		e.Close()
+		return nil, err
 	}
 	return e, nil
 }
@@ -136,17 +146,18 @@ func (e *engine) run() {
 	go e.globalMemoryUsageChecker(e.ctx)
 	go e.shardMemoryUsageChecker(e.ctx)
 	go e.databaseMetaFlusher(e.ctx)
+	e.running.Store(true)
 }
 
 func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 	dbPath := filepath.Join(e.cfg.Dir, databaseName)
-	if err := fileutil.MkDirIfNotExist(dbPath); err != nil {
+	if err := mkDirIfNotExist(dbPath); err != nil {
 		return nil, fmt.Errorf("create database[%s]'s path with error: %s", databaseName, err)
 	}
 	cfgPath := optionsPath(dbPath)
 	cfg := &databaseConfig{}
 	if fileutil.Exist(cfgPath) {
-		if err := ltoml.DecodeToml(cfgPath, cfg); err != nil {
+		if err := decodeToml(cfgPath, cfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
 		}
@@ -166,8 +177,11 @@ func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 }
 
 func (e *engine) Close() {
-	e.isFullFlushing.Store(true)
-	e.cancel()
+	if e.running.Load() {
+		e.isFullFlushing.Store(true)
+		e.cancel()
+	}
+
 	e.databases.Range(func(key, value interface{}) bool {
 		db := value.(Database)
 		if err := db.Close(); err != nil {
@@ -206,7 +220,7 @@ func (e *engine) flushDatabase(ctx context.Context, db Database) bool {
 
 // load loads the time series engines if exist
 func (e *engine) load() error {
-	databaseNames, err := fileutil.ListDir(e.cfg.Dir)
+	databaseNames, err := listDir(e.cfg.Dir)
 	if err != nil {
 		return err
 	}

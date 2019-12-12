@@ -40,6 +40,8 @@ type Store interface {
 	CreateFamily(familyName string, option FamilyOption) (Family, error)
 	// GetFamily gets family based on name, return nil if not exist.
 	GetFamily(familyName string) Family
+	// ListFamilyNames returns the all family's name
+	ListFamilyNames() []string
 	// Close closes store, then release some resource
 	Close() error
 }
@@ -194,6 +196,17 @@ func (s *store) GetFamily(familyName string) Family {
 	family := s.families[familyName]
 	s.rwMutex.RUnlock()
 	return family
+}
+
+// ListFamilyNames returns the all family's name
+func (s *store) ListFamilyNames() []string {
+	var result []string
+	s.rwMutex.RLock()
+	defer s.rwMutex.RUnlock()
+	for name := range s.families {
+		result = append(result, name)
+	}
+	return result
 }
 
 // Close closes store, then release some resource
