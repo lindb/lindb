@@ -19,6 +19,13 @@ func init() {
 	RegisterMerger(mergerStr, &mockAppendMerger{})
 }
 
+func TestRegisterMerger(t *testing.T) {
+	assert.Panics(t, func() {
+		RegisterMerger("test", &mockAppendMerger{})
+		RegisterMerger("test", &mockAppendMerger{})
+	})
+}
+
 func TestReOpen(t *testing.T) {
 	option := DefaultStoreOption(testKVPath)
 	defer func() {
@@ -34,6 +41,9 @@ func TestReOpen(t *testing.T) {
 
 	f1, _ := kv.CreateFamily("f", FamilyOption{Merger: mergerStr})
 	assert.NotNil(t, f1, "cannot create family")
+	names := kv.ListFamilyNames()
+	assert.Len(t, names, 1)
+	assert.Equal(t, "f", names[0])
 
 	kvStore, ok := kv.(*store)
 	if ok {
@@ -44,12 +54,14 @@ func TestReOpen(t *testing.T) {
 	_ = kv.Close()
 
 	kv2, e := NewStore("test_kv", option)
-	if e != nil {
-		t.Fatal(e)
-	}
+	assert.NoError(t, e)
 	assert.NotNil(t, kv2, "cannot re-open kv store")
 	f2 := kv.GetFamily("f")
 	assert.Equal(t, f1.Name(), f2.Name(), "family diff when store reopen")
+	names = kv.ListFamilyNames()
+	assert.Len(t, names, 1)
+	assert.Equal(t, "f", names[0])
+
 	family, flag := f1.(*family)
 	if flag {
 		assert.Equal(t, family.option.ID, family.option.ID, "family id diff")
@@ -69,7 +81,7 @@ func TestReOpen(t *testing.T) {
 
 	_ = ioutil.WriteFile(filepath.Join(testKVPath, version.Options), []byte("err"), 0644)
 	_, e = NewStore("test_kv", option)
-	assert.NotNil(t, e)
+	assert.Error(t, e)
 	assert.Nil(t, nil)
 }
 

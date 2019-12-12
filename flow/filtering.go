@@ -12,7 +12,7 @@ import (
 type DataFilter interface {
 	// Filter filters the data based on metricIDs/fieldIDs/version/seriesIDs,
 	// if finds data then returns filter result set, else returns nil.
-	Filter(metricID uint32, fieldIDs []uint16, version series.Version, seriesIDs *roaring.Bitmap) []FilterResultSet
+	Filter(metricID uint32, fieldIDs []uint16, version series.Version, seriesIDs *roaring.Bitmap) ([]FilterResultSet, error)
 }
 
 // FilterResultSet represents the filter result set, loads data and does down sampling need based on this interface.

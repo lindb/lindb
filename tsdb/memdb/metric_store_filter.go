@@ -12,12 +12,12 @@ import (
 // if finds data then returns the FilterResultSet, else returns nil
 func (ms *metricStore) Filter(metricID uint32, fieldIDs []uint16,
 	version series.Version, seriesIDs *roaring.Bitmap,
-) []flow.FilterResultSet {
+) ([]flow.FilterResultSet, error) {
 	// first need check query's fields is match store's fields, if not return.
 	fmList := ms.fieldsMetas.Load().(field.Metas)
 	_, ok := fmList.Intersects(fieldIDs)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	// scan tagIndex when version matches the idSet
 	var resultSet []flow.FilterResultSet
@@ -35,7 +35,7 @@ func (ms *metricStore) Filter(metricID uint32, fieldIDs []uint16,
 	if immutable != nil {
 		scanOnVersionMatch(immutable)
 	}
-	return resultSet
+	return resultSet, nil
 }
 
 type memFilterResultSet struct {

@@ -5,9 +5,11 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 var (
@@ -24,7 +26,7 @@ var (
 // 2) Grouping if need
 // 3) Scanning and Loading
 // 4) Down sampling
-// 5) Sample aggregation
+// 5) Simple aggregation
 type storageExecutor struct {
 	database tsdb.Database
 	query    *stmt.Query
@@ -35,6 +37,7 @@ type storageExecutor struct {
 	metricID           uint32
 	fieldIDs           []uint16
 	storageExecutePlan *storageExecutePlan
+	intervalType       timeutil.IntervalType
 
 	queryFlow flow.StorageQueryFlow
 }
@@ -87,6 +90,8 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 	storageExecutePlan := plan.(*storageExecutePlan)
+	e.intervalType = e.query.Interval.Type()
+
 	// prepare storage query flow
 	e.queryFlow.Prepare(storageExecutePlan.getDownSamplingAggSpecs())
 
@@ -101,7 +106,9 @@ func (e *storageExecutor) Execute() {
 			e.memoryDBSearch(shard)
 		})
 
-		e.shardLevelSearch(shard)
+		e.queryFlow.Filtering(func() {
+			e.shardLevelSearch(shard)
+		})
 	}
 }
 
@@ -113,6 +120,52 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
 		return
 	}
+	e.executeQueryFlow(memoryDB, memoryDB, seriesIDSet)
+}
+
+// searchSeriesIDs searches series ids from index
+func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *series.MultiVerSeriesIDSet) {
+	condition := e.query.Condition
+	metricID := e.metricID
+	if condition != nil {
+		seriesSearch := newSeriesSearch(metricID, filter, e.query)
+		idSet, err := seriesSearch.Search()
+		if err != nil {
+			if err != series.ErrNotFound {
+				e.queryFlow.Complete(err)
+			}
+			return
+		}
+		seriesIDSet = idSet
+	}
+	//TODO add metric level search for no condition
+	return
+}
+
+// shardLevelSearch searches data from shard
+func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
+	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
+	if len(families) == 0 {
+		return
+	}
+	seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
+	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
+		return
+	}
+	for idx := range families {
+		family := families[idx]
+		// execute data family search in background goroutine
+		e.queryFlow.Filtering(func() {
+			e.executeQueryFlow(shard.IndexDatabase(), family, seriesIDSet)
+		})
+	}
+}
+
+// executeQueryFlow executes the query flow, step as below:
+// 1. filtering
+// 2. grouping
+// 3. loading
+func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter flow.DataFilter, seriesIDSet *series.MultiVerSeriesIDSet) {
 	hasGroupBy := e.query.HasGroupBy()
 
 	for kVersion, vSeriesIDs := range seriesIDSet.Versions() {
@@ -121,16 +174,20 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 
 		// 1. filtering, check series ids if exist in storage
 		e.queryFlow.Filtering(func() {
-			resultSet := memoryDB.Filter(e.metricID, e.fieldIDs, version, seriesIDs)
+			resultSet, err := filter.Filter(e.metricID, e.fieldIDs, version, seriesIDs)
+			if err != nil {
+				e.queryFlow.Complete(err)
+				return
+			}
 			if len(resultSet) == 0 {
 				// not found in storage, return it
 				return
 			}
-			// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch
-			// first, get grouping context if need
+			// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
+			// get grouping context if need
 			var groupingCtx series.GroupingContext
 			if hasGroupBy {
-				gCtx, err := memoryDB.GetGroupingContext(e.metricID, e.query.GroupBy, version)
+				gCtx, err := indexDB.GetGroupingContext(e.metricID, e.query.GroupBy, version)
 				if err != nil {
 					e.queryFlow.Complete(err)
 					return
@@ -164,73 +221,6 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 		})
 	}
 }
-
-// searchSeriesIDs searches series ids from index
-func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *series.MultiVerSeriesIDSet) {
-	condition := e.query.Condition
-	metricID := e.metricID
-	if condition != nil {
-		seriesSearch := newSeriesSearch(metricID, filter, e.query)
-		idSet, err := seriesSearch.Search()
-		if err != nil {
-			if err != series.ErrNotFound {
-				e.queryFlow.Complete(err)
-			}
-			return
-		}
-		seriesIDSet = idSet
-	}
-	//TODO add metric level search for no condition
-	return
-}
-
-// shardLevelSearch searches data from shard
-func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
-	//FIXME get interval
-	//// find data family
-	//families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
-	//if len(families) == 0 {
-	//	e.executeCtx.Complete(nil)
-	//	return
-	//}
-	//
-	//seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
-	//if seriesIDSet == nil || seriesIDSet.IsEmpty() {
-	//	e.executeCtx.Complete(nil)
-	//	return
-	//}
-	//// retain family task first
-	//e.executeCtx.RetainTask(int32(2 * len(families)))
-	////FIXME get interval
-	//timeRange, _, queryInterval := downSamplingTimeRange(e.query.Interval, 10, e.query.TimeRange)
-	//aggSpecs := e.storageExecutePlan.getDownSamplingAggSpecs()
-	//groupAgg := aggregation.NewGroupingAggregator(queryInterval, timeRange, aggSpecs)
-	//
-	//worker := createScanWorker(
-	//	e.executeCtx,
-	//	e.metricID,
-	//	e.query.GroupBy,
-	//	shard.IndexMetaGetter(),
-	//	groupAgg,
-	//	e.executorPool,
-	//)
-	//for _, family := range families {
-	//	go e.familyLevelSearch(worker, family, seriesIDSet)
-	//}
-}
-
-// familyLevelSearch searches data from data family, do down sampling and aggregation
-//func (e *storageExecutor) familyLevelSearch(worker series.ScanWorker, family tsdb.DataFamily,
-//	seriesIDSet *series.MultiVerSeriesIDSet) {
-//	// must complete task
-//	//defer e.queryFlow.Complete(nil)
-//
-//	//family.Scan(&flow.StorageQueryContext{
-//	//	MetricID:    e.metricID,
-//	//	FieldIDs:    e.fieldIDs,
-//	//	SeriesIDSet: seriesIDSet,
-//	//})
-//}
 
 // validation validates query input params are valid
 func (e *storageExecutor) validation() error {

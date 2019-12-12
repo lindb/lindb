@@ -123,11 +123,17 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		wait.Done()
 	})
 	wait.Wait()
+	queryFlow.Complete(fmt.Errorf("err"))
+
+	queryFlow.Filtering(func() {
+		assert.Fail(t, "exec err")
+	})
 
 	// test reduce result send
-	qf.mux.Lock()
-	qf.err = nil
-	qf.mux.Unlock()
+	queryFlow = NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
+	queryFlow.Prepare(nil)
+	qf = queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
 	groupIt := series.NewMockGroupedIterator(ctrl)

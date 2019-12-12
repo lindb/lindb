@@ -2,6 +2,7 @@ package tsdb
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/lindb/lindb/kv"
@@ -11,6 +12,11 @@ import (
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
+
+// for testing
+var (
+	newStore = kv.NewStore
+)
 
 // Segment represents a time based segment, there are some segments in a interval segment.
 // A segment use k/v store for storing time series data.
@@ -53,17 +59,25 @@ func newSegment(
 	if err != nil {
 		return nil, fmt.Errorf("parse segment[%s] base time error", path)
 	}
-	kvStore, err := kv.NewStore(segmentName, kv.DefaultStoreOption(path))
+	kvStore, err := newStore(segmentName, kv.DefaultStoreOption(path))
 	if err != nil {
 		return nil, fmt.Errorf("create kv store for segment error:%s", err)
 	}
-
-	return &segment{
+	familyNames := kvStore.ListFamilyNames()
+	s := &segment{
 		baseTime: baseTime,
 		kvStore:  kvStore,
 		interval: interval,
 		logger:   logger.GetLogger("tsdb", "Segment"),
-	}, nil
+	}
+	for _, familyName := range familyNames {
+		familyTime, err := strconv.Atoi(familyName)
+		if err != nil {
+			return nil, fmt.Errorf("load data family error:%s", err)
+		}
+		_ = s.initDataFamily(familyTime, kvStore.GetFamily(familyName))
+	}
+	return s, nil
 }
 
 // BaseTime returns segment base time
@@ -120,13 +134,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 			if err != nil {
 				return nil, fmt.Errorf("create data family error: %s", err)
 			}
-			// create data family
-			familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
-			dataFamily := newDataFamily(s.interval, timeutil.TimeRange{
-				Start: familyStartTime,
-				End:   calc.CalcFamilyEndTime(familyStartTime),
-			}, f)
-			s.families.Store(familyTime, dataFamily)
+			dataFamily := s.initDataFamily(familyTime, f)
 			return dataFamily, nil
 		}
 	}
@@ -142,4 +150,16 @@ func (s *segment) Close() {
 	if err := s.kvStore.Close(); err != nil {
 		s.logger.Error("close kv store error", logger.Error(err))
 	}
+}
+
+func (s *segment) initDataFamily(familyTime int, family kv.Family) DataFamily {
+	calc := s.interval.Calculator()
+	// create data family
+	familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
+	dataFamily := newDataFamily(s.interval, timeutil.TimeRange{
+		Start: familyStartTime,
+		End:   calc.CalcFamilyEndTime(familyStartTime),
+	}, family)
+	s.families.Store(familyTime, dataFamily)
+	return dataFamily
 }

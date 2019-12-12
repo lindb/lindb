@@ -10,7 +10,7 @@ import (
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package kv
 
-// Flusher flushes data into kv store, for big data will be split into many sstable
+// Flusher flushes data into kv store, for big data will be split into many sst files
 type Flusher interface {
 	// Add puts k/v pair
 	Add(key uint32, value []byte) error

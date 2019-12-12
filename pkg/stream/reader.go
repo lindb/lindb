@@ -18,7 +18,7 @@ type Reader struct {
 	err      error
 }
 
-// NewReader read data from binary stream
+// NewReader reads data from binary stream
 func NewReader(data []byte) *Reader {
 	return &Reader{
 		original: data,
@@ -49,7 +49,7 @@ func (r *Reader) ReadUvarint64() uint64 {
 	return v
 }
 
-// ReadUint16 read 2 bytes from buf as uint16
+// ReadUint16 reads 2 bytes from buf as uint16
 func (r *Reader) ReadUint16() uint16 {
 	buf := r.ReadSlice(2)
 	if len(buf) != 2 {
@@ -58,12 +58,12 @@ func (r *Reader) ReadUint16() uint16 {
 	return binary.LittleEndian.Uint16(buf)
 }
 
-// ReadInt16 read 2 bytes from buf as int16
+// ReadInt16 reads 2 bytes from buf as int16
 func (r *Reader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
 }
 
-// ReadUint32 read 4 bytes from buf as uint32
+// ReadUint32 reads 4 bytes from buf as uint32
 func (r *Reader) ReadUint32() uint32 {
 	buf := r.ReadSlice(4)
 	if len(buf) != 4 {
@@ -72,7 +72,7 @@ func (r *Reader) ReadUint32() uint32 {
 	return binary.LittleEndian.Uint32(buf)
 }
 
-// ReadUint64 read 8 bytes from buf as uint64
+// ReadUint64 reads 8 bytes from buf as uint64
 func (r *Reader) ReadUint64() uint64 {
 	buf := r.ReadSlice(8)
 	if len(buf) != 8 {
@@ -81,12 +81,12 @@ func (r *Reader) ReadUint64() uint64 {
 	return binary.LittleEndian.Uint64(buf)
 }
 
-// ReadInt32 read 4 bytes from buf as int32
+// ReadInt32 reads 4 bytes from buf as int32
 func (r *Reader) ReadInt32() int32 {
 	return int32(r.ReadUint32())
 }
 
-// ReadInt64 read 8 bytes from buf as int64
+// ReadInt64 reads 8 bytes from buf as int64
 func (r *Reader) ReadInt64() int64 {
 	return int64(r.ReadUint64())
 }

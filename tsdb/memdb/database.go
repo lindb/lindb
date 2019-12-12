@@ -431,10 +431,10 @@ func (md *memoryDatabase) SuggestTagValues(metricName, tagKey, tagValuePrefix st
 // if finds data then returns the FilterResultSet, else returns nil
 func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []uint16,
 	version series.Version, seriesIDs *roaring.Bitmap,
-) []flow.FilterResultSet {
+) ([]flow.FilterResultSet, error) {
 	mStore, ok := md.mStores.get(metricID)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	return mStore.Filter(metricID, fieldIDs, version, seriesIDs)
 }
