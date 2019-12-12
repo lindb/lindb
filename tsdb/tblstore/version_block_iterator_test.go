@@ -36,8 +36,12 @@ func Test_VersionBlockIterator(t *testing.T) {
 	assert.NotNil(t, itr)
 
 	assert.True(t, itr.HasNext())
-	_, _ = itr.Next()
+	_, block := itr.Peek()
+	// need not goto next
 	assert.True(t, itr.HasNext())
-	_, _ = itr.Next()
+	assert.NotNil(t, block)
+	itr.Next()
+	assert.True(t, itr.HasNext())
+	itr.Next()
 	assert.False(t, itr.HasNext())
 }

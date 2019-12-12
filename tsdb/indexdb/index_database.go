@@ -51,7 +51,7 @@ func (db *indexDatabase) SuggestTagValues(
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 
-	readers, err := snapShot.FindReaders(metricID)
+	readers, err := snapShot.FindReaders(tagKeyID)
 	if err != nil {
 		return nil
 	}
@@ -61,27 +61,19 @@ func (db *indexDatabase) SuggestTagValues(
 func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	version series.Version,
 ) (series.GroupingContext, error) {
+	//FIXME need impl
+	//tagKeyIDs := make([]uint32, len(tagKeys))
+	//// get tag key ids
+	//for idx, tagKey := range tagKeys {
+	//	//TODO need opt, plan has got tag key ids
+	//	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	tagKeyIDs[idx] = tagKeyID
+	//}
 	return nil, nil
 }
-
-// GetTagValues get tag values corresponding with the tagKeys
-//func (db *indexDatabase) GetTagValues(
-//	metricID uint32,
-//	tagKeys []string,
-//	version series.Version,
-//	seriesIDs *roaring.Bitmap,
-//) (
-//	seriesID2TagValues [][]string,
-//	err error,
-//) {
-//	snapShot := db.invertedIndexFamily.GetSnapshot()
-//	defer snapShot.Close()
-//	readers, err := snapShot.FindReaders(metricID)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return forwardindex.NewReader(readers).GetTagValues(metricID, tagKeys, version, seriesIDs)
-//}
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
 func (db *indexDatabase) FindSeriesIDsByExpr(
@@ -99,9 +91,12 @@ func (db *indexDatabase) FindSeriesIDsByExpr(
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 
-	readers, err := snapShot.FindReaders(metricID)
+	readers, err := snapShot.FindReaders(tagKeyID)
 	if err != nil {
 		return nil, err
+	}
+	if len(readers) == 0 {
+		return nil, series.ErrNotFound
 	}
 	return invertedindex.NewReader(readers).FindSeriesIDsByExprForTagKeyID(tagKeyID, expr, timeRange)
 }
@@ -122,7 +117,7 @@ func (db *indexDatabase) GetSeriesIDsForTag(
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 
-	readers, err := snapShot.FindReaders(metricID)
+	readers, err := snapShot.FindReaders(tagKeyID)
 	if err != nil {
 		return nil, err
 	}

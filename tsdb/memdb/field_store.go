@@ -153,6 +153,7 @@ func (fs *fieldStore) FlushFieldTo(
 		return 0
 	}
 
+	//FIXME maybe data lost if marshal err
 	fs.removeSStore(familyTime)
 	data, _, _, err := sStore.Bytes(true)
 
