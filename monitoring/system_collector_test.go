@@ -21,7 +21,6 @@ func Test_NewSystemCollector(t *testing.T) {
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
 
 	collector := NewSystemCollector(
 		ctx,
@@ -32,9 +31,13 @@ func Test_NewSystemCollector(t *testing.T) {
 		models.ActiveNode{},
 	)
 
-	go collector.Run()
+	go func() {
+		time.Sleep(time.Second)
+		cancel()
+	}()
 
-	time.Sleep(time.Second)
+	// collect system monitoring stat
+	collector.Run()
 }
 
 func Test_SystemCollector_Collect(t *testing.T) {

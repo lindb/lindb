@@ -30,21 +30,20 @@ func TestGetCPUs(t *testing.T) {
 }
 
 func TestGetMemoryStat(t *testing.T) {
+	defer func() {
+		memFunc = mem.VirtualMemory
+	}()
+
 	stat, err := GetMemoryStat()
 	assert.Nil(t, err)
 	assert.True(t, stat.Total > 0)
 	assert.True(t, stat.Used > 0)
 	assert.True(t, stat.UsedPercent > 0)
-}
 
-func TestGetMemoryStat2(t *testing.T) {
-	defer func() {
-		memFunc = mem.VirtualMemory
-	}()
 	memFunc = func() (stat *mem.VirtualMemoryStat, e error) {
 		return nil, fmt.Errorf("err")
 	}
-	stat, err := GetMemoryStat()
+	stat, err = GetMemoryStat()
 	assert.Nil(t, stat)
 	assert.Error(t, err)
 }
