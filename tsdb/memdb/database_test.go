@@ -7,13 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/metadb"
-
 	"github.com/cespare/xxhash"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/timeutil"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 var cfg = MemoryDatabaseCfg{
@@ -64,12 +67,14 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
-	errCall1 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error"))
-	okCall2 := mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes()
-	gomock.InOrder(errCall1, okCall2)
+	gomock.InOrder(
+		mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error")),
+		mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
+	)
 	// load mock
 	hash := xxhash.Sum64String("test1")
-	md.getBucket(hash).hash2MStore[hash] = mockMStore
+	md.metricHash2ID.Store(hash, uint32(1))
+	md.mStores.put(uint32(1), mockMStore)
 	// write error
 	err := md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
 	assert.NotNil(t, err)
@@ -103,8 +108,8 @@ func Test_MemoryDatabase_setLimitations_countTags_countMetrics_resetMStore(t *te
 	// setLimitations
 	limitations := map[string]uint32{"cpu.load": 10, "memory": 100}
 	hash := xxhash.Sum64String("cpu.load")
-	md.getOrCreateMStore("cpu.load", hash)
-	md.getBucket(hash).hash2MStore[hash] = mockMStore
+	md.metricHash2ID.Store(hash, uint32(1))
+	md.mStores.put(uint32(1), mockMStore)
 	md.setLimitations(limitations)
 
 	// countTags
@@ -165,10 +170,11 @@ func Test_MemoryDatabase_evict(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		md.getOrCreateMStore(strconv.Itoa(i), xxhash.Sum64String(strconv.Itoa(i)))
 	}
+	metricIDs := md.mStores.getAllMetricIDs()
+	// delete one metric id
+	md.mStores.delete(uint32(100))
 	// evict all
-	for _, store := range md.mStoresList {
-		md.evict(store)
-	}
+	md.evict(metricIDs)
 }
 
 func Test_MemoryDatabase_evictor(t *testing.T) {
@@ -201,8 +207,8 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 	_, err = md.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
 	assert.NotNil(t, err)
 	// exist
-	md.getBucket(3333).hash2MStore[3333] = mockMStore
-	md.metricID2Hash.Store(uint32(1), uint64(3333))
+	md.mStores.put(uint32(1), mockMStore)
+	md.metricHash2ID.Store(uint64(3333), uint32(1))
 	_, err = md.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
 	assert.Nil(t, err)
 	_, err = md.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
@@ -212,11 +218,14 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	fluster := metricsdata.NewMockFlusher(ctrl)
+	fluster.EXPECT().Commit().AnyTimes()
 	mdINTF := NewMemoryDatabase(ctx, cfg)
-	_ = mdINTF.FlushFamilyTo(nil, 10)
-	_ = mdINTF.FlushFamilyTo(nil, 10)
-	_ = mdINTF.FlushFamilyTo(nil, 10)
+	_ = mdINTF.FlushFamilyTo(fluster, 10)
+	_ = mdINTF.FlushFamilyTo(fluster, 10)
+	_ = mdINTF.FlushFamilyTo(fluster, 10)
 	time.Sleep(time.Millisecond * 10)
 }
 
@@ -225,6 +234,9 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	defer cancel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	fluster := metricsdata.NewMockFlusher(ctrl)
+	fluster.EXPECT().Commit().AnyTimes()
 
 	mdINTF := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
@@ -238,9 +250,10 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	returnError := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error"))
 	gomock.InOrder(returnNil, returnError)
 
-	md.getBucket(4).hash2MStore[1] = mockMStore
-	assert.Nil(t, md.FlushFamilyTo(nil, 10))
-	assert.NotNil(t, md.FlushFamilyTo(nil, 10))
+	md.metricHash2ID.Store(uint64(4), uint32(1))
+	md.mStores.put(uint32(1), mockMStore)
+	assert.Nil(t, md.FlushFamilyTo(fluster, 10))
+	assert.NotNil(t, md.FlushFamilyTo(fluster, 10))
 }
 
 func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
@@ -248,12 +261,17 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	defer cancel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	invertedFlusher := invertedindex.NewMockFlusher(ctrl)
+	invertedFlusher.EXPECT().Commit().AnyTimes()
+
+	forwardFlusher := forwardindex.NewMockFlusher(ctrl)
+	forwardFlusher.EXPECT().Commit().AnyTimes()
 
 	mdINTF := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	// test FlushIndexTo
-	assert.Nil(t, mdINTF.FlushInvertedIndexTo(nil))
-	assert.Nil(t, mdINTF.FlushForwardIndexTo(nil))
+	assert.Nil(t, mdINTF.FlushInvertedIndexTo(invertedFlusher))
+	assert.Nil(t, mdINTF.FlushForwardIndexTo(forwardFlusher))
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
@@ -264,13 +282,14 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 		mockMStore.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error")),
 	)
 	// insert to bucket
-	md.getBucket(4).hash2MStore[1] = mockMStore
+	md.metricHash2ID.Store(uint64(4), uint32(1))
+	md.mStores.put(uint32(1), mockMStore)
 	// test flushInvertedIndexTo
-	assert.Nil(t, md.FlushInvertedIndexTo(nil))
-	assert.NotNil(t, md.FlushInvertedIndexTo(nil))
+	assert.Nil(t, md.FlushInvertedIndexTo(invertedFlusher))
+	assert.NotNil(t, md.FlushInvertedIndexTo(invertedFlusher))
 	// test flushForwardIndexTo
-	assert.Nil(t, md.FlushForwardIndexTo(nil))
-	assert.NotNil(t, md.FlushForwardIndexTo(nil))
+	assert.Nil(t, md.FlushForwardIndexTo(forwardFlusher))
+	assert.NotNil(t, md.FlushForwardIndexTo(forwardFlusher))
 }
 
 func Test_MemoryDatabase_GetGroupingContext(t *testing.T) {
@@ -283,16 +302,15 @@ func Test_MemoryDatabase_GetGroupingContext(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	md.getBucket(3333).hash2MStore[3333] = mockMStore
-	md.metricID2Hash.Store(uint32(3333), uint64(3333))
+	md.mStores.put(uint32(1), mockMStore)
+	md.metricHash2ID.Store(uint64(3333), uint32(1))
 
 	// existed metricID
-	_, err := mdINTF.GetGroupingContext(3333, nil, 1)
+	_, err := mdINTF.GetGroupingContext(uint32(1), nil, 1)
 	assert.NoError(t, err)
 	// not existed metricID
-	_, err = mdINTF.GetGroupingContext(3334, nil, 1)
+	_, err = mdINTF.GetGroupingContext(uint32(2), nil, 1)
 	assert.Error(t, err)
-
 }
 
 func Test_MemoryDatabase_Suggest(t *testing.T) {
@@ -311,7 +329,9 @@ func Test_MemoryDatabase_Suggest(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	mockMStore.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	md.getBucket(xxhash.Sum64String("test")).hash2MStore[xxhash.Sum64String("test")] = mockMStore
+	hash := xxhash.Sum64String("test")
+	md.metricHash2ID.Store(hash, uint32(11))
+	md.mStores.put(uint32(11), mockMStore)
 
 	assert.Nil(t, md.SuggestTagKeys("test", "", 100))
 	assert.Nil(t, md.SuggestTagValues("test", "", "", 100))
@@ -331,8 +351,8 @@ func Test_MemoryDatabase_Filter(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	md.metricID2Hash.Store(uint32(3333), xxhash.Sum64String("test"))
-	md.getBucket(xxhash.Sum64String("test")).hash2MStore[xxhash.Sum64String("test")] = mockMStore
+	md.mStores.put(uint32(3333), mockMStore)
+
 	md.Filter(uint32(3333), []uint16{1}, 1, nil)
 }
 
