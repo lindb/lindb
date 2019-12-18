@@ -14,19 +14,17 @@ import (
 type indexDatabase struct {
 	idGetter            metadb.IDGetter
 	invertedIndexFamily kv.Family
-	forwardIndexFamily  kv.Family
 }
 
 // NewIndexDatabase returns a new IndexDatabase
 func NewIndexDatabase(
 	idGetter metadb.IDGetter,
 	invertedIndexFamily kv.Family,
-	forwardIndexFamily kv.Family,
 ) IndexDatabase {
 	return &indexDatabase{
 		idGetter:            idGetter,
 		invertedIndexFamily: invertedIndexFamily,
-		forwardIndexFamily:  forwardIndexFamily}
+	}
 }
 
 // SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue

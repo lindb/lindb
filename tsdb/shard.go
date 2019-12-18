@@ -20,7 +20,6 @@ import (
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -31,7 +30,6 @@ const (
 	replicaDir       = "replica"
 	segmentDir       = "segment"
 	indexParDir      = "index"
-	forwardIndexDir  = "forward"
 	invertedIndexDir = "inverted"
 )
 
@@ -97,7 +95,6 @@ type shard struct {
 	cancel         context.CancelFunc // cancel function
 	indexStore     kv.Store           // kv stores
 	invertedFamily kv.Family
-	forwardFamily  kv.Family
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -233,22 +230,14 @@ func (s *shard) initIndexDatabase() error {
 		return err
 	}
 	s.invertedFamily, err = s.indexStore.CreateFamily(
-		forwardIndexDir,
+		invertedIndexDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
 			Merger:           invertedIndexMerger})
 	if err != nil {
 		return err
 	}
-	s.forwardFamily, err = s.indexStore.CreateFamily(
-		invertedIndexDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           forwardIndexMerger})
-	if err != nil {
-		return err
-	}
-	s.indexDB = indexdb.NewIndexDatabase(s.idSequencer, s.invertedFamily, s.forwardFamily)
+	s.indexDB = indexdb.NewIndexDatabase(s.idSequencer, s.invertedFamily)
 	return nil
 }
 
@@ -279,10 +268,6 @@ func (s *shard) Flush() (err error) {
 		s.isFlushing.Store(false)
 	}()
 
-	if err = s.memDB.FlushForwardIndexTo(
-		forwardindex.NewFlusher(s.forwardFamily.NewFlusher())); err != nil {
-		return err
-	}
 	if err = s.memDB.FlushInvertedIndexTo(
 		invertedindex.NewFlusher(s.invertedFamily.NewFlusher())); err != nil {
 		return err

@@ -58,6 +58,9 @@ func Test_metricMap_get(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = m.get(9)
 	assert.False(t, ok)
+
+	s := m.getAtIndex(0, 0)
+	assert.NotNil(t, s)
 }
 
 func Test_metricMap_iterator(t *testing.T) {
@@ -174,6 +177,13 @@ func Test_metricMap_deleteMany(t *testing.T) {
 	assert.Equal(t, 100000-2500, m.size())
 	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
 	_assertSortedOrder(t, m)
+}
+
+func Test_metricMap_getSeriesIDs(t *testing.T) {
+	m := newMetricMap()
+	m.put(1, _newTestTStore(1))
+	m.put(8, _newTestTStore(8))
+	assert.Equal(t, m.seriesIDs, m.getAllSeriesIDs())
 }
 
 func Benchmark_deleteMany(b *testing.B) {

@@ -3,6 +3,7 @@ package metricsdata
 import (
 	"testing"
 
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
@@ -23,13 +24,16 @@ func Test_MetricsDataFlusher(t *testing.T) {
 				{ID: 4, Type: field.SumField, Name: "sum4"},
 			})
 
+			seriesIDs := roaring.New()
+
 			for seriesID := 0; seriesID < 100; seriesID++ {
 				flusher.FlushField(1, []byte{1, 2})
 				flusher.FlushField(2, []byte{2, 3})
 				flusher.FlushField(3, []byte{3, 4})
-				flusher.FlushSeries(uint32(seriesID))
+				flusher.FlushSeries()
+				seriesIDs.Add(uint32(seriesID))
 			}
-			flusher.FlushVersion(series.Version(version))
+			flusher.FlushVersion(series.Version(version), seriesIDs)
 		}
 		assert.Nil(t, flusher.FlushMetric(1))
 		return append([]byte{}, nopKVFlusher.Bytes()...)

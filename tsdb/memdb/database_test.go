@@ -14,7 +14,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -66,7 +65,6 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
 	gomock.InOrder(
 		mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error")),
 		mockMStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
@@ -242,7 +240,6 @@ func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().GetMetricID().Return(uint32(1)).AnyTimes()
 	mockMStore.EXPECT().Evict().Return(100).AnyTimes()
 	mockMStore.EXPECT().IsEmpty().Return(false).AnyTimes()
 
@@ -264,22 +261,16 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	invertedFlusher := invertedindex.NewMockFlusher(ctrl)
 	invertedFlusher.EXPECT().Commit().AnyTimes()
 
-	forwardFlusher := forwardindex.NewMockFlusher(ctrl)
-	forwardFlusher.EXPECT().Commit().AnyTimes()
-
 	mdINTF := NewMemoryDatabase(ctx, cfg)
 	md := mdINTF.(*memoryDatabase)
 	// test FlushIndexTo
 	assert.Nil(t, mdINTF.FlushInvertedIndexTo(invertedFlusher))
-	assert.Nil(t, mdINTF.FlushForwardIndexTo(forwardFlusher))
 
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	gomock.InOrder(
-		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(nil),
-		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
-		mockMStore.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(nil),
-		mockMStore.EXPECT().FlushForwardIndexTo(gomock.Any()).Return(fmt.Errorf("error")),
+		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		mockMStore.EXPECT().FlushInvertedIndexTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("error")),
 	)
 	// insert to bucket
 	md.metricHash2ID.Store(uint64(4), uint32(1))
@@ -287,9 +278,6 @@ func Test_MemoryDatabase_flushIndexTo(t *testing.T) {
 	// test flushInvertedIndexTo
 	assert.Nil(t, md.FlushInvertedIndexTo(invertedFlusher))
 	assert.NotNil(t, md.FlushInvertedIndexTo(invertedFlusher))
-	// test flushForwardIndexTo
-	assert.Nil(t, md.FlushForwardIndexTo(forwardFlusher))
-	assert.NotNil(t, md.FlushForwardIndexTo(forwardFlusher))
 }
 
 func Test_MemoryDatabase_GetGroupingContext(t *testing.T) {
