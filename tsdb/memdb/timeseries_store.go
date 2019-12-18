@@ -36,7 +36,6 @@ type tStoreINTF interface {
 	FlushSeriesTo(
 		flusher metricsdata.Flusher,
 		flushCtx flushContext,
-		seriesID uint32,
 	) (flushedSize int)
 
 	// IsExpired detects if this tStore has not been used for a TTL
@@ -143,7 +142,7 @@ func (ts *timeSeriesStore) Write(
 			continue
 		}
 
-		fieldID, err := writeCtx.GetFieldIDOrGenerate(f.Name, fieldType, writeCtx.generator)
+		fieldID, err := writeCtx.GetFieldIDOrGenerate(writeCtx.metricID, f.Name, fieldType, writeCtx.generator)
 		// error-case1: field type doesn't matches to before
 		// error-case2: there are too many fields
 		if err != nil {
@@ -166,7 +165,6 @@ func (ts *timeSeriesStore) Write(
 func (ts *timeSeriesStore) FlushSeriesTo(
 	flusher metricsdata.Flusher,
 	flushCtx flushContext,
-	seriesID uint32,
 ) (
 	flushedSize int,
 ) {
@@ -175,7 +173,7 @@ func (ts *timeSeriesStore) FlushSeriesTo(
 		flushedSize += fStore.FlushFieldTo(flusher, flushCtx.familyTime)
 	}
 	if flushedSize > 0 {
-		flusher.FlushSeries(seriesID)
+		flusher.FlushSeries()
 		ts.afterFlush(flushCtx)
 	}
 	// update time range info

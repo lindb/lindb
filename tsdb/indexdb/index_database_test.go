@@ -45,7 +45,7 @@ func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
 
 	mockIDGetter := metadb.NewMockIDGetter(ctrl)
 	return &mockedIndexDatabase{
-		indexDatabase: NewIndexDatabase(mockIDGetter, mockFamily, mockFamily).(*indexDatabase),
+		indexDatabase: NewIndexDatabase(mockIDGetter, mockFamily).(*indexDatabase),
 		family:        mockFamily,
 		snapShot:      mockSnapShot,
 		reader:        mockReader,

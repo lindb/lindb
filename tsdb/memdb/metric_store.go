@@ -12,7 +12,6 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
@@ -31,9 +30,6 @@ const emptyMStoreSize = 8 + // immutable
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// GetMetricID returns the metricID
-	GetMetricID() uint32
-
 	// SuggestTagKeys returns tagKeys by prefix-search
 	SuggestTagKeys(tagKeyPrefix string, limit int) []string
 
@@ -52,11 +48,9 @@ type mStoreINTF interface {
 	// GetTagsUsed return count of all used tStores.
 	GetTagsUsed() int
 
-	// FlushForwardIndexTo flushes metric-block of mStore to the Writer.
-	FlushForwardIndexTo(tableFlusher forwardindex.Flusher) error
-
 	// FlushInvertedIndexTo flushes series-index of mStore to the Writer
 	FlushInvertedIndexTo(
+		metricID uint32,
 		tableFlusher invertedindex.Flusher,
 		idGenerator metadb.IDGenerator,
 	) error
@@ -109,6 +103,7 @@ type mStoreFieldIDGetter interface {
 	// GetFieldIDOrGenerate gets fieldID from fieldsMeta
 	// and calls the id-generator when it's not exist
 	GetFieldIDOrGenerate(
+		metricID uint32,
 		fieldName string,
 		fieldType field.Type,
 		generator metadb.IDGenerator,
@@ -126,15 +121,13 @@ type metricStore struct {
 	mux          sync.RWMutex  // read-Write lock for mutable index and fieldMetas
 	fieldsMetas  atomic.Value  // read only, storing (field.Metas), hold mux before storing new value
 	maxTagsLimit atomic.Uint32 // maximum number of combinations of tags
-	metricID     uint32        // persistent on the disk
 	size         atomic.Int32  // memory-size
 }
 
 // newMetricStore returns a new mStoreINTF.
-func newMetricStore(metricID uint32) mStoreINTF {
+func newMetricStore() mStoreINTF {
 	mutable := newTagIndex()
 	ms := metricStore{
-		metricID:     metricID,
 		mutable:      mutable,
 		maxTagsLimit: *atomic.NewUint32(constants.DefaultMStoreMaxTagsCount),
 		size:         *atomic.NewInt32(int32(mutable.MemSize()))}
@@ -145,6 +138,7 @@ func newMetricStore(metricID uint32) mStoreINTF {
 
 // getFieldIDOrGenerate gets fieldID from fieldsMeta, and calls the id-generator when not exist
 func (ms *metricStore) GetFieldIDOrGenerate(
+	metricID uint32,
 	fieldName string,
 	fieldType field.Type,
 	generator metadb.IDGenerator,
@@ -176,7 +170,7 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 		return fm.ID, nil
 	}
 	// generate and check fieldType
-	newFieldID, err := generator.GenFieldID(ms.metricID, fieldName, fieldType)
+	newFieldID, err := generator.GenFieldID(metricID, fieldName, fieldType)
 	if err != nil { // fieldType not matches to the existed
 		return 0, err
 	}
@@ -189,11 +183,6 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 	ms.fieldsMetas.Store(x2)
 	return newFieldID, nil
 
-}
-
-// GetMetricID returns the metricID
-func (ms *metricStore) GetMetricID() uint32 {
-	return ms.metricID
 }
 
 // SuggestTagKeys returns tagKeys by prefix-search
@@ -478,33 +467,9 @@ func (ms *metricStore) FlushMetricsDataTo(
 	return flushedSize, flusher.FlushMetric(flushCtx.metricID)
 }
 
-// FlushForwardIndexTo flushes metric-block of mStore to the Writer.
-func (ms *metricStore) FlushForwardIndexTo(
-	flusher forwardindex.Flusher,
-) error {
-	flushForwardIndex := func(tagIndex tagIndexINTF) {
-		for _, entrySet := range tagIndex.GetTagKVEntrySets() {
-			for tagValue, bitmap := range entrySet.values {
-				flusher.FlushTagValue(tagValue, bitmap)
-			}
-			flusher.FlushTagKey(entrySet.key)
-		}
-		flusher.FlushVersion(tagIndex.Version(), tagIndex.IndexTimeRange())
-	}
-
-	ms.mux.RLock()
-	immutable := ms.atomicGetImmutable()
-	flushForwardIndex(ms.mutable)
-	ms.mux.RUnlock()
-
-	if immutable != nil {
-		flushForwardIndex(immutable)
-	}
-	return flusher.FlushMetricID(ms.metricID)
-}
-
 // FlushInvertedIndexTo flushes the inverted-index of mStore to the Writer
 func (ms *metricStore) FlushInvertedIndexTo(
+	metricID uint32,
 	flusher invertedindex.Flusher,
 	idGenerator metadb.IDGenerator,
 ) error {
@@ -552,7 +517,7 @@ func (ms *metricStore) FlushInvertedIndexTo(
 			flushInvertedIndex(ms.mutable, tagKey, tagValue)
 			flusher.FlushTagValue(tagValue)
 		}
-		if err := flusher.FlushTagKeyID(idGenerator.GenTagKeyID(ms.metricID, tagKey)); err != nil {
+		if err := flusher.FlushTagKeyID(idGenerator.GenTagKeyID(metricID, tagKey)); err != nil {
 			return err
 		}
 	}

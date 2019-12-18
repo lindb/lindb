@@ -13,7 +13,6 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
@@ -49,8 +48,6 @@ type MemoryDatabase interface {
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
 	FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error
-	// FlushForwardIndexTo flushes the forward-index of series to the kv builder
-	FlushForwardIndexTo(flusher forwardindex.Flusher) error
 	// MemSize returns the memory-size of this metric-store
 	MemSize() int
 	// series.Filter contains the methods for filtering seriesIDs from memDB
@@ -119,8 +116,7 @@ func (md *memoryDatabase) getMStore(metricName string) (mStore mStoreINTF, ok bo
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
-func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) (mStore mStoreINTF) {
-	var metricID uint32
+func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) (metricID uint32, mStore mStoreINTF) {
 	metricIDINTF, ok := md.metricHash2ID.Load(hash)
 	if !ok {
 		// gen new metric id
@@ -137,7 +133,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricName string, hash uint64) (mSt
 		// double check mStore if exist
 		mStore, ok = md.mStores.get(metricID)
 		if !ok {
-			mStore = newMetricStore(metricID)
+			mStore = newMetricStore()
 			md.size.Add(int32(mStore.MemSize()))
 			md.mStores.put(metricID, mStore)
 		}
@@ -214,10 +210,10 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	slotIndex := intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64()) // slot offset of family
 
 	hash := xxhash.Sum64String(metric.Name)
-	mStore := md.getOrCreateMStore(metric.Name, hash)
+	metricID, mStore := md.getOrCreateMStore(metric.Name, hash)
 
 	writtenSize, err := mStore.Write(metric, writeContext{
-		metricID:            mStore.GetMetricID(),
+		metricID:            metricID,
 		blockStore:          md.blockStore,
 		generator:           md.generator,
 		familyTime:          familyTime,
@@ -335,7 +331,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 		mStore, ok := md.mStores.get(metricID)
 		if ok {
 			flushedSize, err := mStore.FlushMetricsDataTo(flusher, flushContext{
-				metricID:     mStore.GetMetricID(),
+				metricID:     metricID,
 				familyTime:   familyTime,
 				timeInterval: md.interval.Int64(),
 			})
@@ -357,23 +353,7 @@ func (md *memoryDatabase) FlushInvertedIndexTo(flusher invertedindex.Flusher) (e
 		metricID := it.Next()
 		mStore, ok := md.mStores.get(metricID)
 		if ok {
-			if err = mStore.FlushInvertedIndexTo(flusher, md.generator); err != nil {
-				return
-			}
-		}
-	}
-	return flusher.Commit()
-}
-
-// FlushForwardIndexTo flushes the forward-index of series to a forward-index file
-func (md *memoryDatabase) FlushForwardIndexTo(flusher forwardindex.Flusher) (err error) {
-	metricIDs := md.mStores.getAllMetricIDs()
-	it := metricIDs.Iterator()
-	for it.HasNext() {
-		metricID := it.Next()
-		mStore, ok := md.mStores.get(metricID)
-		if ok {
-			if err = mStore.FlushForwardIndexTo(flusher); err != nil {
+			if err = mStore.FlushInvertedIndexTo(metricID, flusher, md.generator); err != nil {
 				return
 			}
 		}

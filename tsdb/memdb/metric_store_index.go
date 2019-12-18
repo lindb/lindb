@@ -333,16 +333,30 @@ func (index *tagIndex) AllTStores() *metricMap {
 func (index *tagIndex) FlushVersionDataTo(
 	tableFlusher metricsdata.Flusher,
 	flushCtx flushContext,
-) (
-	flushedSize int,
-) {
-	it := index.seriesID2TStore.iterator()
-	for it.hasNext() {
-		seriesID, tStore := it.next()
-		flushedSize += tStore.FlushSeriesTo(tableFlusher, flushCtx, seriesID)
+) (flushedSize int) {
+	seriesIDs := index.seriesID2TStore.getAllSeriesIDs()
+	if seriesIDs.IsEmpty() {
+		// if no series data, returns it
+		return
+	}
+
+	// get the all high key of series ids, flush data by roaring.Bitmap's container
+	highKeys := seriesIDs.GetHighKeys()
+
+	for highIdx := range highKeys {
+		lowContainer := seriesIDs.GetContainerAtIndex(highIdx)
+		it := lowContainer.PeekableIterator()
+		lowIdx := 0
+		for it.HasNext() {
+			_ = it.Next() //skip to next value
+			tStore := index.seriesID2TStore.getAtIndex(highIdx, lowIdx)
+			flushedSize += tStore.FlushSeriesTo(tableFlusher, flushCtx)
+			lowIdx++
+		}
+		tableFlusher.FlushSeriesBucket()
 	}
 	if flushedSize > 0 {
-		tableFlusher.FlushVersion(index.Version())
+		tableFlusher.FlushVersion(index.Version(), seriesIDs)
 	}
 	return flushedSize
 }

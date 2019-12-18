@@ -3,14 +3,14 @@ package metricsdata
 import (
 	"hash/crc32"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package metricsdata
@@ -21,15 +21,25 @@ import (
 // Level2: version entry
 // Level3: series entry
 // Level4: compressed field data
+//
+// flush step:
+// 1. flush field store of one series
+// 2. flush series bucket data based on one container of roaring bitmap
+// 3. flush series bucket info such as series data's offsets
+// 4. flush metric's version data
+// 5. flush metric data include field metadata and all version data
 type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
 	FlushFieldMetas(fieldMetas []field.Meta)
 	// FlushField writes a compressed field data to writer.
 	FlushField(fieldID uint16, data []byte)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
-	FlushSeries(seriesID uint32)
+	FlushSeries()
+	// FlushSeriesBucket writes a suit series data in one container(roaring.Bitmap),
+	// this will be called after writing a suit series data.
+	FlushSeriesBucket()
 	// FlushVersion writes a version of the metric
-	FlushVersion(version series.Version)
+	FlushVersion(version series.Version, seriesIDs *roaring.Bitmap)
 	// FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
 	FlushMetric(metricID uint32) error
 	// Commit closes the writer, this will be called after writing all metric-blocks.
@@ -44,8 +54,8 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 		// metric block context
 		writer: stream.NewBufferWriter(nil),
 		// version entry context
-		seriesOffsets: encoding.NewDeltaBitPackingEncoder(),
-		seriesIDs:     roaring.New(),
+		seriesOffsets:       encoding.NewFixedOffsetEncoder(),
+		seriesBucketOffsets: encoding.NewFixedOffsetEncoder(),
 		// series entry context
 		fieldsData: make(map[uint16][]byte),
 		bitArray:   collections.NewBitArray(nil)}
@@ -63,9 +73,10 @@ type flusher struct {
 	}
 	fieldMetas []field.Meta
 	// context for building version block
-	versionStartPos int // start position of writer
-	seriesOffsets   *encoding.DeltaBitPackingEncoder
-	seriesIDs       *roaring.Bitmap
+	versionStartPos     int // start position of writer
+	seriesOffsets       *encoding.FixedOffsetEncoder
+	seriesBucketOffsets *encoding.FixedOffsetEncoder
+
 	// context for building series entry
 	fieldsData map[uint16][]byte
 	bitArray   *collections.BitArray
@@ -78,11 +89,11 @@ func (w *flusher) FlushFieldMetas(fieldMetas []field.Meta) {
 
 // FlushField writes a compressed field data to writer.
 func (w *flusher) FlushField(fieldID uint16, data []byte) {
-
 	// record mapping of fieldID and field-data
 	w.fieldsData[fieldID] = data
 }
 
+// ResetSeriesContext resets the series context for reuse
 func (w *flusher) ResetSeriesContext() {
 	for fieldID := range w.fieldsData {
 		delete(w.fieldsData, fieldID)
@@ -91,12 +102,11 @@ func (w *flusher) ResetSeriesContext() {
 }
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
-func (w *flusher) FlushSeries(seriesID uint32) {
+func (w *flusher) FlushSeries() {
 	defer w.ResetSeriesContext()
 
 	seriesEntryStartPos := w.writer.Len() - w.versionStartPos
-	w.seriesOffsets.Add(int32(seriesEntryStartPos))
-	w.seriesIDs.Add(seriesID)
+	w.seriesOffsets.Add(seriesEntryStartPos)
 
 	// Fields Info Block
 	// build and write bit-array
@@ -110,7 +120,7 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	// write data length
 	for _, fm := range w.fieldMetas {
 		if data, ok := w.fieldsData[fm.ID]; ok {
-			w.writer.PutUvarint64(uint64(len(data)))
+			w.writer.PutUvarint32(uint32(len(data)))
 		}
 	}
 
@@ -123,24 +133,32 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	}
 }
 
+// FlushSeriesBucket flushes a suit series data in one container(roaring.Bitmap)
+func (w *flusher) FlushSeriesBucket() {
+	defer w.seriesOffsets.Reset()
+
+	// write series bucket offset
+	seriesBucketOffsetPos := w.writer.Len() - w.versionStartPos
+	w.writer.PutBytes(w.seriesOffsets.MarshalBinary())
+	w.seriesBucketOffsets.Add(seriesBucketOffsetPos)
+}
+
+// ResetVersionContext resets the version context for reuse
 func (w *flusher) ResetVersionContext() {
-	w.seriesOffsets.Reset()
-	w.seriesIDs.Clear()
+	w.seriesBucketOffsets.Reset()
 }
 
 // FlushVersion writes a version of the metric
-func (w *flusher) FlushVersion(version series.Version) {
+func (w *flusher) FlushVersion(version series.Version, seriesIDs *roaring.Bitmap) {
 	defer w.ResetVersionContext()
 
-	// write series offset
-	seriesOffsetPos := w.writer.Len() - w.versionStartPos
-	w.writer.PutBytes(w.seriesOffsets.Bytes())
-
 	// write series bitmap
-	w.seriesIDs.RunOptimize()
-	seriesBitmapPos := w.writer.Len() - w.versionStartPos
-	data, _ := w.seriesIDs.MarshalBinary()
+	seriesIDs.RunOptimize()
+	seriesPos := w.writer.Len() - w.versionStartPos
+	data, _ := seriesIDs.MarshalBinary()
 	w.writer.PutBytes(data)
+	// write bitmap container offsets
+	w.writer.PutBytes(w.seriesBucketOffsets.MarshalBinary())
 
 	// write fields-meta
 	fieldsMetaPos := w.writer.Len() - w.versionStartPos
@@ -152,13 +170,9 @@ func (w *flusher) FlushVersion(version series.Version) {
 		w.writer.PutUInt16(fm.ID)
 		// write field-type
 		w.writer.PutByte(byte(fm.Type))
-		// write field-name
-		w.writer.PutUvarint64(uint64(len(fm.Name)))
-		w.writer.PutBytes([]byte(fm.Name))
 	}
-	// write footer, length: 4+4+4
-	w.writer.PutUint32(uint32(seriesOffsetPos))
-	w.writer.PutUint32(uint32(seriesBitmapPos))
+	// write footer, length: 4+4
+	w.writer.PutUint32(uint32(seriesPos))
 	w.writer.PutUint32(uint32(fieldsMetaPos))
 	// record version length
 	w.versionBlocks = append(w.versionBlocks, struct {
@@ -168,6 +182,7 @@ func (w *flusher) FlushVersion(version series.Version) {
 		length:  w.writer.Len() - w.versionStartPos,
 		version: version,
 	})
+	// next version start pos
 	w.versionStartPos = w.writer.Len()
 }
 

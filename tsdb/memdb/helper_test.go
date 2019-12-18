@@ -35,7 +35,7 @@ func makeMockDataFlusher(ctrl *gomock.Controller) *metricsdata.MockFlusher {
 	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
 	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any()).
 		Return().AnyTimes()
-	mockTF.EXPECT().FlushSeries(gomock.Any()).
+	mockTF.EXPECT().FlushSeries().
 		Return().AnyTimes()
 	mockTF.EXPECT().FlushMetric(gomock.Any()).
 		Return(nil).AnyTimes()

@@ -45,7 +45,7 @@ func TestGroupingContext_Build(t *testing.T) {
 		}
 	}
 
-	mStore := newMetricStore(uint32(2222))
+	mStore := newMetricStore()
 	ms := mStore.(*metricStore)
 
 	// test single group by tag keys

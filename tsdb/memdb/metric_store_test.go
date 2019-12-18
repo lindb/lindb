@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
@@ -19,11 +18,10 @@ import (
 )
 
 func Test_mStore_GetMetricID(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	assert.NotNil(t, mStoreInterface)
-	assert.Equal(t, uint32(100), mStoreInterface.GetMetricID())
 	assert.True(t, mStoreInterface.IsEmpty())
 	assert.False(t, mStore.isFull())
 	assert.Zero(t, mStoreInterface.GetTagsUsed())
@@ -31,7 +29,7 @@ func Test_mStore_GetMetricID(t *testing.T) {
 }
 
 func Test_mStore_setMaxTagsLimit(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	assert.NotZero(t, mStore.getMaxTagsLimit())
@@ -43,7 +41,7 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
@@ -53,7 +51,7 @@ func Test_mStore_write_getOrCreateTStore_error(t *testing.T) {
 	mockTagIdx.EXPECT().TagsUsed().Return(10).AnyTimes()
 
 	mStore.mutable = mockTagIdx
-	writtenSize, err := mStore.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+	writtenSize, err := mStore.Write(&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1})
 	assert.Zero(t, writtenSize)
 	assert.NotNil(t, err)
 }
@@ -62,7 +60,7 @@ func Test_mStore_isFull(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	mockTagIdx := NewMocktagIndexINTF(ctrl)
 	mockTagIdx.EXPECT().TagsUsed().Return(10000000).AnyTimes()
@@ -70,7 +68,7 @@ func Test_mStore_isFull(t *testing.T) {
 	mStore.mutable = mockTagIdx
 
 	writtenSize, err := mStoreInterface.Write(
-		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1})
 	assert.Equal(t, series.ErrTooManyTags, err)
 	assert.Zero(t, writtenSize)
 }
@@ -79,7 +77,7 @@ func Test_mStore_write_ok(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	mockTStore := NewMocktStoreINTF(ctrl)
@@ -93,13 +91,13 @@ func Test_mStore_write_ok(t *testing.T) {
 
 	mStore.mutable = mockTagIdx
 	writtenSize, err := mStoreInterface.Write(
-		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{})
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1})
 	assert.Nil(t, err)
 	assert.NotZero(t, writtenSize)
 }
 
 func Test_mStore_resetVersion(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	size1 := mStoreInterface.MemSize()
 	createdSize, err := mStoreInterface.ResetVersion()
 	assert.Nil(t, err)
@@ -117,7 +115,7 @@ func Test_mStore_resetVersion(t *testing.T) {
 }
 
 func Test_mStore_evict(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	// evict on empty
 	mStore.Evict()
@@ -157,7 +155,7 @@ func Test_mStore_evict(t *testing.T) {
 }
 
 func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
@@ -174,7 +172,7 @@ func Test_mStore_FlushMetricsDataTo_withImmutable(t *testing.T) {
 }
 
 func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
@@ -200,7 +198,7 @@ func Test_mStore_FlushMetricsDataTo_OK(t *testing.T) {
 }
 
 func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
@@ -235,7 +233,7 @@ func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 }
 
 func Test_getFieldIDOrGenerate(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 
 	ctrl := gomock.NewController(t)
@@ -244,19 +242,19 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 	mockGen := metadb.NewMockIDGenerator(ctrl)
 	// mock generate ok
 	mockGen.EXPECT().GenFieldID(uint32(100), "sum", field.SumField).Return(uint16(1), nil).AnyTimes()
-	fieldID, err := mStoreInterface.GetFieldIDOrGenerate("sum", field.SumField, mockGen)
+	fieldID, err := mStoreInterface.GetFieldIDOrGenerate(uint32(100), "sum", field.SumField, mockGen)
 	assert.Equal(t, uint16(1), fieldID)
 	assert.Nil(t, err)
 	// exist case
-	_, err = mStoreInterface.GetFieldIDOrGenerate("sum", field.SumField, mockGen)
+	_, err = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "sum", field.SumField, mockGen)
 	// field not matches to the existed
 	assert.Nil(t, err)
-	_, err = mStoreInterface.GetFieldIDOrGenerate("sum", field.MinField, mockGen)
+	_, err = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "sum", field.MinField, mockGen)
 	assert.NotNil(t, err)
 	// mock generate failure
 	mockGen.EXPECT().GenFieldID(uint32(100), "gen-error", field.SumField).
 		Return(uint16(1), series.ErrWrongFieldType)
-	_, err = mStoreInterface.GetFieldIDOrGenerate("gen-error", field.SumField, mockGen)
+	_, err = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "gen-error", field.SumField, mockGen)
 	assert.NotNil(t, err)
 
 	// mock too many fields
@@ -265,12 +263,12 @@ func Test_getFieldIDOrGenerate(t *testing.T) {
 		fieldsMetasList = append(fieldsMetasList, field.Meta{})
 	}
 	mStore.fieldsMetas.Store(fieldsMetasList)
-	_, err = mStoreInterface.GetFieldIDOrGenerate("sum", field.SumField, mockGen)
+	_, err = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "sum", field.SumField, mockGen)
 	assert.NotNil(t, err)
 }
 
 func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -279,9 +277,9 @@ func Test_getFieldIDOrGenerate_special_case(t *testing.T) {
 	mockGen.EXPECT().GenFieldID(uint32(100), "1", field.SumField).Return(uint16(1), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "2", field.SumField).Return(uint16(2), nil).AnyTimes()
 	mockGen.EXPECT().GenFieldID(uint32(100), "3", field.SumField).Return(uint16(3), nil).AnyTimes()
-	_, _ = mStoreInterface.GetFieldIDOrGenerate("3", field.SumField, mockGen)
-	_, _ = mStoreInterface.GetFieldIDOrGenerate("1", field.SumField, mockGen)
-	_, _ = mStoreInterface.GetFieldIDOrGenerate("2", field.SumField, mockGen)
+	_, _ = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "3", field.SumField, mockGen)
+	_, _ = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "1", field.SumField, mockGen)
+	_, _ = mStoreInterface.GetFieldIDOrGenerate(uint32(100), "2", field.SumField, mockGen)
 }
 
 func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *MocktagIndexINTF, *MocktagIndexINTF) {
@@ -339,7 +337,7 @@ func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *Mocktag
 }
 
 func Test_mStore_flushInvertedIndexTo(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -357,10 +355,10 @@ func Test_mStore_flushInvertedIndexTo(t *testing.T) {
 	mStore.mutable = mockTagIdx1
 	// flush ok
 	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).Times(2)
-	assert.Nil(t, mStore.FlushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.Nil(t, mStore.FlushInvertedIndexTo(uint32(100), mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush error
 	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
-	assert.NotNil(t, mStore.FlushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.NotNil(t, mStore.FlushInvertedIndexTo(uint32(100), mockTableFlusher, makeMockIDGenerator(ctrl)))
 
 	//////////////////////////////////////////////
 	// neither mutable nor immutable part is empty
@@ -369,41 +367,14 @@ func Test_mStore_flushInvertedIndexTo(t *testing.T) {
 	mStore.mutable = mockTagIdx3
 	// flush error
 	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("error")).Times(1)
-	assert.NotNil(t, mStore.FlushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
+	assert.NotNil(t, mStore.FlushInvertedIndexTo(uint32(100), mockTableFlusher, makeMockIDGenerator(ctrl)))
 	// flush ok
 	mockTableFlusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).Times(3)
-	assert.Nil(t, mStore.FlushInvertedIndexTo(mockTableFlusher, makeMockIDGenerator(ctrl)))
-}
-
-func Test_mStore_flushForwardIndexTo(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
-	mStore := mStoreInterface.(*metricStore)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockTagIdx1, mockTagIdx2, mockTagIdx3 := prepareMockTagIndexes(ctrl)
-
-	// mock index-table series flusher
-	mockTableFlusher := forwardindex.NewMockFlusher(ctrl)
-	mockTableFlusher.EXPECT().FlushTagValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
-	mockTableFlusher.EXPECT().FlushTagKey(gomock.Any()).Return().AnyTimes()
-	mockTableFlusher.EXPECT().FlushVersion(gomock.Any(), gomock.Any()).Return().AnyTimes()
-	mockTableFlusher.EXPECT().FlushMetricID(gomock.Any()).Return(nil).AnyTimes()
-
-	//////////////////////////////////////////////
-	// immutable part empty
-	//////////////////////////////////////////////
-	mStore.mutable = mockTagIdx1
-	assert.Nil(t, mStoreInterface.FlushForwardIndexTo(mockTableFlusher))
-	//////////////////////////////////////////////
-	// neither mutable nor immutable part is empty
-	//////////////////////////////////////////////
-	mStore.immutable.Store(mockTagIdx2)
-	mStore.mutable = mockTagIdx3
-	assert.Nil(t, mStoreInterface.FlushForwardIndexTo(mockTableFlusher))
+	assert.Nil(t, mStore.FlushInvertedIndexTo(uint32(100), mockTableFlusher, makeMockIDGenerator(ctrl)))
 }
 
 func Test_mStore_GetGroupingContext(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -441,7 +412,7 @@ func Test_mStore_GetGroupingContext(t *testing.T) {
 }
 
 func Test_mStore_suggest(t *testing.T) {
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
