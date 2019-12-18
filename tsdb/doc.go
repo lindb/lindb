@@ -471,14 +471,14 @@ Level3(Fields Meta)
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level3(Series Footer)
-┌────────────────────────────────┐
-│           Series Footer        │
-├──────────┬──────────┬──────────┤
-│ Series   │  Series  │FieldsMeta│
-│ OffsetPos│ BitMapPos│   Pos    │
-├──────────┼──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
-└──────────┴──────────┴──────────┘
+┌─────────────────────┐
+│   Series Footer     │
+├──────────┬──────────┤
+│  Series  │FieldsMeta│
+│ BitMapPos│   Pos    │
+├──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │
+└──────────┴──────────┘
 
 
 Level4(Fields Info, Fields Data)

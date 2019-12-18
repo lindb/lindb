@@ -128,14 +128,15 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	mockTF := metricsdata.NewMockFlusher(ctrl)
 	mockTF.EXPECT().FlushMetric(gomock.Any()).Return(nil).MaxTimes(2)
-	mockTF.EXPECT().FlushVersion(gomock.Any()).Return().AnyTimes()
+	mockTF.EXPECT().FlushSeriesBucket()
+	mockTF.EXPECT().FlushVersion(gomock.Any(), gomock.Any()).Return().AnyTimes()
 
 	// no data flushed, tStores is empty
 	tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
-	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(10).AnyTimes()
+	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()).Return(10).AnyTimes()
 	tagIdx.seriesID2TStore = newMetricMap()
 	tagIdx.seriesID2TStore.put(1, mockTStore1)
 	tagIdx.seriesID2TStore.put(2, mockTStore1)

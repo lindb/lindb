@@ -37,7 +37,7 @@ func Test_tStore_write(t *testing.T) {
 	tStore := tStoreInterface.(*timeSeriesStore)
 	// mock fieldID getter
 	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(),
+	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
@@ -74,14 +74,15 @@ func Test_tStore_GenFieldID_error(t *testing.T) {
 	tStore := tStoreInterface.(*timeSeriesStore)
 	// mock id generator
 	mockGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(), gomock.Any()).
+	mockGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(uint16(1), series.ErrWrongFieldType).AnyTimes()
 	// error field type from generator
 	tStore.fStoreNodes = nil
-	_, err := tStore.Write(&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
-		metricID:            1,
-		blockStore:          newBlockStore(30),
-		mStoreFieldIDGetter: mockGetter})
+	_, err := tStore.Write(
+		&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
+			metricID:            1,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockGetter})
 	assert.Equal(t, series.ErrWrongFieldType, err)
 }
 
@@ -123,14 +124,14 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	tStore.insertFStore(mockFStore2)
 	tStore.insertFStore(mockFStore3)
 	assert.NotEqual(t, emptyTimeSeriesStoreSize, tStore.MemSize())
-	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}, 100))
+	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 	assert.False(t, tStoreInterface.IsNoData())
 
 	// flush error
 	tStore.fStoreNodes = nil
 	tStore.insertFStore(mockFStore3)
 
-	assert.Zero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}, 100))
+	assert.Zero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 
 	// no-data
 	mockFStore4 := NewMockfStoreINTF(ctrl)
@@ -140,5 +141,5 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	tStore.fStoreNodes = nil
 	tStore.insertFStore(mockFStore3)
 	tStore.insertFStore(mockFStore4)
-	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}, 100))
+	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
 }

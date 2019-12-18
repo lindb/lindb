@@ -4,14 +4,12 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/tsdb/tblstore/forwardindex"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsnameid"
 )
 
 const (
-	forwardIndexMerger  = "forward_index_merger"
 	invertedIndexMerger = "inverted_index_merger"
 	metricNameIDsMerger = "metric_name_ids_merger"
 	metricMetaMerger    = "metric_meta_merger"
@@ -20,10 +18,6 @@ const (
 )
 
 func init() {
-	kv.RegisterMerger(
-		forwardIndexMerger,
-		forwardindex.NewMerger(defaultTTLDuration))
-
 	kv.RegisterMerger(
 		invertedIndexMerger,
 		invertedindex.NewMerger(defaultTTLDuration))

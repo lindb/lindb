@@ -21,7 +21,7 @@ func Test_MetricStore_scan(t *testing.T) {
 	now, _ := timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
-	mStoreInterface := newMetricStore(100)
+	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	mStore.fieldsMetas.Store(field.Metas{
 		{ID: 3, Type: field.SumField, Name: "sum3"},
@@ -80,8 +80,8 @@ func Test_MetricStore_scan(t *testing.T) {
 	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
 
 	idGet := NewMockmStoreFieldIDGetter(ctrl)
-	idGet.EXPECT().GetFieldIDOrGenerate("sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
-	idGet.EXPECT().GetFieldIDOrGenerate("sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
+	idGet.EXPECT().GetFieldIDOrGenerate(gomock.Any(), "sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
+	idGet.EXPECT().GetFieldIDOrGenerate(gomock.Any(), "sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
 	bs := newBlockStore(10)
 	writtenSize, err := mStore.Write(metric,
 		writeContext{

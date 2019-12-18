@@ -35,6 +35,11 @@ func (m *metricMap) get(seriesID uint32) (tStoreINTF, bool) {
 	return m.stores[highIdx][lowIdx-1], true
 }
 
+// getAtIndex gets by given high/low index, make sure index exist
+func (m *metricMap) getAtIndex(highIdx, lowIdx int) tStoreINTF {
+	return m.stores[highIdx][lowIdx]
+}
+
 // put puts the time series store
 func (m *metricMap) put(seriesID uint32, tStore tStoreINTF) {
 	if len(m.stores) == 0 {
@@ -117,6 +122,11 @@ func (m *metricMap) size() int {
 // iterator returns an iterator for iterating the map data
 func (m *metricMap) iterator() *mStoreIterator {
 	return newStoreIterator(m)
+}
+
+// getAllSeriesIDs gets all series ids
+func (m *metricMap) getAllSeriesIDs() *roaring.Bitmap {
+	return m.seriesIDs.Clone()
 }
 
 func (m *metricMap) loadData(flow flow.StorageQueryFlow, fieldIDs []uint16,

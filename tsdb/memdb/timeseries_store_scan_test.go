@@ -27,7 +27,7 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	// mock fieldID getter
 	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
 	for i := 0; i < 10; i++ {
-		mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(),
+		mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return(uint16(i+10), nil)
 		_, err := tStore.Write(
 			&pb.Metric{
