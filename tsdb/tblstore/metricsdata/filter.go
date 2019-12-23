@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	f "github.com/lindb/lindb/tsdb/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -34,6 +35,13 @@ const (
 		4 + // series bitmap position
 		4 //  field-meta position
 )
+
+// fieldIndex represents need read field index based on metric field metas
+type fieldIndex struct {
+	fieldType field.Type
+	need      bool // if need read
+	idx       int  // search field's index
+}
 
 // Filter implements filtering metrics from sst files.
 type Filter interface {
@@ -104,7 +112,7 @@ type mdtVersionBlock struct {
 	seriesBucketOffset *encoding.FixedOffsetDecoder
 	seriesBitmap       *roaring.Bitmap
 	fieldMetas         field.Metas
-	fieldIndexes       []int
+	fieldIndexes       []fieldIndex
 	// position
 	seriesBucketOffsetPos int
 	seriesBitmapPos       int
@@ -129,15 +137,19 @@ func newMDTVersionBlock(familyTime int64, fieldIDs []uint16, block []byte) (metr
 	vb.readFieldMetas()
 	// check query fields is match
 	needFieldCount := len(fieldIDs)
-	vb.fieldIndexes = make([]int, needFieldCount)
+	vb.fieldIndexes = make([]fieldIndex, len(vb.fieldMetas))
 	found := 0
 	for idx, fieldMeta := range vb.fieldMetas {
-		for _, fieldID := range fieldIDs {
+		fieldIdx := fieldIndex{}
+		for needIdx, fieldID := range fieldIDs {
 			if fieldMeta.ID == fieldID {
-				vb.fieldIndexes[found] = idx
+				fieldIdx.fieldType = fieldMeta.Type
+				fieldIdx.need = true
+				fieldIdx.idx = needIdx
 				found++
 			}
 		}
+		vb.fieldIndexes[idx] = fieldIdx
 	}
 	// check query fields if found
 	if found != needFieldCount {
@@ -232,56 +244,46 @@ func (vb *mdtVersionBlock) load(flow flow.StorageQueryFlow, highKey uint16, grou
 }
 
 func (vb *mdtVersionBlock) readFieldsData(tsd *encoding.TSDDecoder, agg aggregation.FieldAggregates, position int) {
-	// read series entry
-
 	// read bit-array
 	offset := position + vb.bitArrayLen
 	bitArray := collections.NewBitArray(vb.block[position:offset])
 
-	var lens []int
+	lens := make([]int, len(vb.fieldIndexes))
 	// preparing 2 stream readers
-	for idx := range vb.fieldMetas {
+	for idx := range vb.fieldIndexes {
 		if bitArray.GetBit(uint16(idx)) {
 			l, length, _ := stream.ReadUvarint(vb.block, offset)
 			offset += length
-			lens = append(lens, int(l))
+			lens[idx] = int(l)
 		}
-	}
-	if len(lens) == 0 {
-		return
 	}
 
 	// jump to fields-data
-	for idx := range vb.fieldMetas {
-		//FIXME need read data
+	for idx, fieldIdx := range vb.fieldIndexes {
 		if !bitArray.GetBit(uint16(idx)) {
 			continue
 		}
 		dataLength := lens[idx]
 		end := offset + dataLength
-		data := vb.block[offset:end]
+		// if field need, read the field data and aggregate the values
+		if fieldIdx.need {
+			data := vb.block[offset:end]
+			a := agg[fieldIdx.idx]
+			vb.readData(fieldIdx.fieldType, a, tsd, data)
+		}
+		// goto next field's offset
 		offset = end
-		a := agg[idx]
-		vb.readData(tsd, a, data)
 	}
 }
 
-func (vb *mdtVersionBlock) readData(tsd *encoding.TSDDecoder, agg aggregation.SeriesAggregator, data []byte) {
+func (vb *mdtVersionBlock) readData(fieldType field.Type, agg aggregation.SeriesAggregator,
+	tsd *encoding.TSDDecoder, data []byte,
+) {
 	segmentAgg, ok := agg.GetAggregator(vb.familyTime)
 	if !ok {
 		return
 	}
-	aggregators := segmentAgg.GetAllAggregators()
-	tsd.Reset(data)
-	for tsd.Next() {
-		if tsd.HasValue() {
-			timeSlot := tsd.Slot()
-			val := tsd.Value()
-			for _, a := range aggregators {
-				a.Aggregate(timeSlot, math.Float64frombits(val))
-			}
-		}
-	}
+	f.Aggregate(fieldType, segmentAgg, tsd, data)
 }
 
 type fileFilterResultSet struct {
