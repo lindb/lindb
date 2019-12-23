@@ -60,7 +60,7 @@ class CreateDatabase extends React.Component<CreateDatabaseProps> {
         cluster,
         numOfShard,
         replicaFactor,
-        engine: {
+        option: {
           interval,
           timeWindow,
           autoCreateNS,
