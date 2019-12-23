@@ -99,10 +99,11 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		})
 	})
 	queryFlow.Complete(nil)
-	wait.Wait()
 	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 	seriesAgg.EXPECT().Reset()
+	wait.Wait()
 	queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestStorageQueryFlow_completeTask(t *testing.T) {
