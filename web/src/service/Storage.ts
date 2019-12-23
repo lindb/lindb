@@ -17,7 +17,7 @@ export interface DatabaseCluster {
   cluster?: string
   numOfShard?: number
   replicaFactor?: number
-  engine: {
+  option: {
     interval?: string
     timeWindow?: number
     autoCreateNS?: boolean

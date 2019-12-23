@@ -78,9 +78,9 @@ func (c *chunk) MarshalBinary() ([]byte, error) {
 	defer func() {
 		// if error, will ignore buffer data
 		c.size = 0
-		// reset for reusing
+		// reset for re-use
 		c.buffer.Metrics = make([]*field.Metric, c.capacity)
-		c.buf.Reset()
+		c.buf = &bytes.Buffer{}
 		c.writer.Reset(c.buf)
 	}()
 
