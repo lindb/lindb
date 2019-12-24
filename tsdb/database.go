@@ -16,6 +16,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -47,6 +48,8 @@ type Database interface {
 	io.Closer
 	// IDGetter returns the id getter
 	IDGetter() metadb.IDGetter
+	// MetricMetaSuggester returns the metric metadata suggester
+	MetricMetaSuggester() series.MetricMetaSuggester
 	// Flush flushes meta to disk
 	FlushMeta() error
 	// Range is the proxy method for iterating shards
@@ -139,6 +142,10 @@ func (db *database) NumOfShards() int {
 
 func (db *database) GetOption() option.DatabaseOption {
 	return db.config.Option
+}
+
+func (db *database) MetricMetaSuggester() series.MetricMetaSuggester {
+	return db.idSequencer
 }
 
 func (db *database) IDGetter() metadb.IDGetter {

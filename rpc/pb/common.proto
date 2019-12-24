@@ -7,12 +7,19 @@ enum TaskType {
     Intermediate = 1;
     Leaf = 2;
 }
+
+enum RequestType {
+    Data = 0;
+    Metadata = 1;
+}
+
 message TaskRequest {
     int64 jobID = 1;
     string parentTaskID = 2;
-    int32 type = 3;
-    bytes physicalPlan = 4;
-    bytes payload = 5;
+    TaskType type = 3;
+    RequestType requestType = 4;
+    bytes physicalPlan = 5;
+    bytes payload = 6;
 }
 
 message TaskResponse {

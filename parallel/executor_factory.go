@@ -22,6 +22,13 @@ type ExecutorFactory interface {
 		query *stmt.Query,
 	) Executor
 
+	// NewMetadataStorageExecutor creates the metadata executor in storage side
+	NewMetadataStorageExecutor(
+		database tsdb.Database,
+		shardIDs []int32,
+		request *stmt.Metadata,
+	) MetadataExecutor
+
 	// NewBrokerExecutor creates the broker executor based on params
 	NewBrokerExecutor(
 		ctx context.Context,
@@ -31,4 +38,14 @@ type ExecutorFactory interface {
 		nodeStateMachine broker.NodeStateMachine,
 		jobManager JobManager,
 	) BrokerExecutor
+
+	// NewMetadataBrokerExecutor creates the metadata executor in broker side
+	NewMetadataBrokerExecutor(
+		ctx context.Context,
+		databaseName string,
+		request *stmt.Metadata,
+		replicaStateMachine replica.StatusStateMachine,
+		nodeStateMachine broker.NodeStateMachine,
+		jobManager JobManager,
+	) MetadataExecutor
 }

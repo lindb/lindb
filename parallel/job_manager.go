@@ -1,14 +1,17 @@
 package parallel
 
 import (
+	"context"
 	"sync"
 
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./job_manager.go -destination=./job_manager_mock.go -package=parallel
@@ -17,6 +20,10 @@ import (
 type JobManager interface {
 	// SubmitJob submits the distribution query job based on physical plan
 	SubmitJob(ctx JobContext) error
+	// SubmitMetadataJob submits the distribution metadata query job on physical plan
+	SubmitMetadataJob(ctx context.Context, plan *models.PhysicalPlan,
+		suggest *stmt.Metadata, resultSet chan []string,
+	) (err error)
 	// GetJob returns job context by job id
 	GetJob(jobID int64) JobContext
 	// GetTaskManager return the task manager
@@ -104,6 +111,44 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 		}
 	}
 	return err
+}
+
+// SubmitMetadataJob submits the distribution metadata query job on physical plan
+func (j *jobManager) SubmitMetadataJob(ctx context.Context, plan *models.PhysicalPlan,
+	suggest *stmt.Metadata, resultSet chan []string,
+) (err error) {
+	planPayload := encoding.JSONMarshal(plan)
+	jobID := j.seq.Inc()
+
+	defer func() {
+		if err == nil {
+			j.jobs.Store(jobID, ctx)
+		}
+	}()
+
+	taskID := j.taskManager.AllocTaskID()
+
+	req := &pb.TaskRequest{
+		JobID:        jobID,
+		RequestType:  pb.RequestType_Metadata,
+		ParentTaskID: taskID,
+		PhysicalPlan: planPayload,
+		Payload:      encoding.JSONMarshal(suggest),
+	}
+
+	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
+		newSuggestResultMerger(resultSet))
+	j.taskManager.Submit(taskCtx)
+
+	if len(plan.Leafs) > 0 {
+		for _, leaf := range plan.Leafs {
+			if err = j.taskManager.SendRequest(leaf.Indicator, req); err != nil {
+				//TODO kill sent leaf task???
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // GetTaskManager return the task manager
