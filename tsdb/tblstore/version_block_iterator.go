@@ -54,11 +54,11 @@ func (itr *versionBlockIterator) readVersionsCount() {
 	//////////////////////////////////////////////////
 	// Read VersionOffSetsBlock
 	//////////////////////////////////////////////////
-	_ = itr.offsetsReader.ReadSlice(len(itr.block) - footerSizeAfterVersionEntries)
+	itr.offsetsReader.ReadAt(len(itr.block) - footerSizeAfterVersionEntries)
 	versionOffsetPos := itr.offsetsReader.ReadUint32()
-	// shift to Start Position of the VersionOffsetsBlock
-	itr.offsetsReader.SeekStart()
-	_ = itr.offsetsReader.ReadSlice(int(versionOffsetPos))
+
+	// move to Start Position of the VersionOffsetsBlock
+	itr.offsetsReader.ReadAt(int(versionOffsetPos))
 	// read version count
 	itr.versionsCount = int(itr.offsetsReader.ReadUvarint64())
 }

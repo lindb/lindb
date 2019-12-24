@@ -122,7 +122,7 @@ func (r *reader) ReadBlock(
 	idSequencePos := len(block) - metricNameIDSequenceSize
 	compressed = block[:idSequencePos]
 	r.sr.Reset(block)
-	_ = r.sr.ReadSlice(idSequencePos)
+	r.sr.ReadAt(idSequencePos)
 
 	metricIDSeq = r.sr.ReadUint32()
 	tagKeyIDSeq = r.sr.ReadUint32()

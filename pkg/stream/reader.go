@@ -133,6 +133,22 @@ func (r *Reader) ReadSlice(n int) []byte {
 	return r.original[startPos:endPos]
 }
 
+// ReadAt moves the cursor to the specified position,
+// this operation is a combination of SeekStart() + _ = ReadSlice(pos)
+func (r *Reader) ReadAt(pos int) {
+	r.err = nil
+	if pos < 0 {
+		r.err = ErrUnexpectedRead
+		return
+	}
+	if pos > len(r.original) {
+		r.reader.Reset(nil)
+		r.err = io.EOF
+		return
+	}
+	r.reader.Reset(r.original[pos:])
+}
+
 // Empty reports whether the unread portion of the buffer is empty.
 func (r *Reader) Empty() bool {
 	return r.reader.Len() <= 0
@@ -152,8 +168,7 @@ func (r *Reader) Reset(buf []byte) {
 
 // SeekStart seeks to the start of the underlying slice.
 func (r *Reader) SeekStart() {
-	r.err = nil
-	r.reader.Reset(r.original)
+	r.ReadAt(0)
 }
 
 // Error return binary err

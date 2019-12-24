@@ -72,7 +72,7 @@ func (r *reader) readMetasBlock(
 	}
 	// read pos of field-meta
 	r.sr.Reset(block)
-	r.sr.ReadSlice(len(block) - 4)
+	r.sr.ReadAt(len(block) - 4)
 	posOfFieldMetaPos := int(r.sr.ReadUint32())
 	// read tag-meta and field-meta
 	r.sr.SeekStart()
