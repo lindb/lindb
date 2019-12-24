@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 )
 
@@ -37,12 +38,11 @@ func (m *invertedIndexMerger) Merge(
 ) {
 	defer m.reset()
 	var (
-		tagValueData = make(map[string]*[]versionedTagValueData)
+		tagValueData = make(map[string][]*versionedTagValueData)
 	)
 	// extract
 	for _, block := range value {
 		var (
-			offsets         []int
 			offsetTagValues = make(map[int]string)
 		)
 		entrySet, err := newTagKVEntrySet(block)
@@ -57,27 +57,23 @@ func (m *invertedIndexMerger) Merge(
 		itr := tree.Iterator("")
 		for itr.HasNext() {
 			value, offset := itr.Next()
-			offsetTagValues[offset] = value
-			offsets = append(offsets, offset)
-		}
-		// read all positions
-		offsetPositions, err := entrySet.OffsetsToPosition(offsets)
-		if err != nil {
-			return nil, err
-		}
-		for offset, pos := range offsetPositions {
-			dataList, err := entrySet.ReadTagValueDataBlock(pos)
+			offsetTagValues[offset] = string(value)
+			dataItr, err := entrySet.ReadTagValueDataBlock(offset)
 			if err != nil {
 				return nil, err
 			}
 			tagValue := offsetTagValues[offset]
 
 			dataUnionList, ok := tagValueData[tagValue]
-			if ok {
-				*dataUnionList = append(*dataUnionList, dataList...)
-			} else {
-				dataUnionList = &[]versionedTagValueData{}
-				*dataUnionList = append(*dataUnionList, dataList...)
+			if !ok {
+				dataUnionList = []*versionedTagValueData{}
+			}
+			for dataItr.HasNext() {
+				dataUnionList = append(dataUnionList, &versionedTagValueData{
+					version:   dataItr.DataVersion(),
+					timeRange: dataItr.DataTimeRange(),
+					data:      dataItr.Next(),
+				})
 			}
 			tagValueData[tagValue] = dataUnionList
 		}
@@ -90,24 +86,24 @@ func (m *invertedIndexMerger) Merge(
 }
 
 func (m *invertedIndexMerger) evictOldVersion(
-	tagValueData map[string]*[]versionedTagValueData,
+	tagValueData map[string][]*versionedTagValueData,
 ) {
 	var latestVersion series.Version
 	// sort and pick the latestVersion
 	for _, dataList := range tagValueData {
 		// desc order
 		dataList := dataList
-		sort.Slice(*dataList, func(i, j int) bool {
-			return (*dataList)[i].version.After((*dataList)[j].version)
+		sort.Slice(dataList, func(i, j int) bool {
+			return dataList[i].version.After(dataList[j].version)
 		})
-		thisLatestVersion := (*dataList)[0].version
+		thisLatestVersion := (dataList)[0].version
 		if thisLatestVersion.After(latestVersion) {
 			latestVersion = thisLatestVersion
 		}
 	}
 	for tagValue, dataList := range tagValueData {
-		var lastAliveIndex = len(*dataList)
-		for index, data := range *dataList {
+		var lastAliveIndex = len(dataList)
+		for index, data := range dataList {
 			// expire
 			if data.version.IsExpired(m.ttl) {
 				lastAliveIndex = index
@@ -115,7 +111,7 @@ func (m *invertedIndexMerger) evictOldVersion(
 			}
 		}
 		// case1: all versions expired, but it's the latest version in use
-		if lastAliveIndex == 0 && (*dataList)[0].version.Equal(latestVersion) {
+		if lastAliveIndex == 0 && dataList[0].version.Equal(latestVersion) {
 			// remove expired versions
 			lastAliveIndex = 1
 		}
@@ -125,23 +121,29 @@ func (m *invertedIndexMerger) evictOldVersion(
 			continue
 		}
 		// remove expired versions
-		*dataList = (*dataList)[:lastAliveIndex]
+		dataList = dataList[:lastAliveIndex]
+		tagValueData[tagValue] = dataList
 	}
 }
 
 func (m *invertedIndexMerger) flush(
-	tagValueData map[string]*[]versionedTagValueData,
+	tagValueData map[string][]*versionedTagValueData,
 	tagKeyID uint32,
 ) {
 	for tagValue, dataList := range tagValueData {
-		for _, data := range *dataList {
-			timeRange := data.TimeRange()
+		for _, data := range dataList {
 			m.flusher.flushVersion(
 				data.version,
-				timeRange,
-				data.bitMapData)
+				data.timeRange,
+				data.data)
 		}
 		m.flusher.FlushTagValue(tagValue)
 	}
 	_ = m.flusher.FlushTagKeyID(tagKeyID)
+}
+
+type versionedTagValueData struct {
+	version   series.Version
+	timeRange timeutil.TimeRange
+	data      []byte
 }

@@ -160,7 +160,7 @@ func Test_trieTree_walkTreeByValue(t *testing.T) {
 		{"elemee", false, 22},
 	}
 	for _, testCase := range expects {
-		exhausted, nodeNumber := data.walkTreeByValue(testCase.prefixValue)
+		exhausted, nodeNumber := data.walkTreeByValue([]byte(testCase.prefixValue))
 		assert.Equal(t, testCase.exhausted, exhausted)
 		assert.Equal(t, testCase.nodeNumber, nodeNumber)
 	}
@@ -211,17 +211,17 @@ func Test_trieTree_Iterator(t *testing.T) {
 	itr1 := data.Iterator("e")
 	assert.True(t, itr1.HasNext())
 	value, offset := itr1.Next()
-	assert.Equal(t, "etrace", value)
+	assert.Equal(t, "etrace", string(value))
 	assert.Equal(t, 4, offset)
 
 	assert.True(t, itr1.HasNext())
 	value, offset = itr1.Next()
-	assert.Equal(t, "etcd", value)
+	assert.Equal(t, "etcd", string(value))
 	assert.Equal(t, 2, offset)
 
 	assert.True(t, itr1.HasNext())
 	value, offset = itr1.Next()
-	assert.Equal(t, "eleme", value)
+	assert.Equal(t, "eleme", string(value))
 	assert.Equal(t, 3, offset)
 	assert.False(t, itr1.HasNext())
 
