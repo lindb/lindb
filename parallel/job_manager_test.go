@@ -10,6 +10,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestJobManager_SubmitJob(t *testing.T) {
@@ -86,4 +87,38 @@ func TestJobManager_GetTaskManager(t *testing.T) {
 	manager.jobs.Store(int64(2), "test")
 	job = jobManager1.GetJob(2)
 	assert.Nil(t, job)
+}
+
+func TestJobManager_SubmitMetadataJob(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	taskManager := NewMockTaskManager(ctrl)
+	taskManager.EXPECT().AllocTaskID().Return("abc").AnyTimes()
+	taskManager.EXPECT().Submit(gomock.Any()).AnyTimes()
+	jobManager := NewJobManager(taskManager)
+
+	// send task err
+	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := jobManager.SubmitMetadataJob(context.TODO(),
+		&models.PhysicalPlan{
+			Leafs: []models.Leaf{
+				{BaseNode: models.BaseNode{
+					Indicator: "abc",
+				}},
+			},
+		}, &stmt.Metadata{}, nil)
+	assert.Error(t, err)
+
+	// normal case
+	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
+	err = jobManager.SubmitMetadataJob(context.TODO(),
+		&models.PhysicalPlan{
+			Leafs: []models.Leaf{
+				{BaseNode: models.BaseNode{
+					Indicator: "abc",
+				}},
+			},
+		}, &stmt.Metadata{}, nil)
+	assert.NoError(t, err)
 }

@@ -110,7 +110,7 @@ func (seq *idSequencer) SuggestTagKeys(metricName, tagKeyPrefix string, limit in
 	snapShot := seq.metaFamily.GetSnapshot()
 	defer snapShot.Close()
 
-	readers, err := snapShot.FindReaders(defaultNSID)
+	readers, err := snapShot.FindReaders(metricID)
 	if err != nil {
 		return nil
 	}

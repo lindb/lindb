@@ -72,6 +72,7 @@ type apiHandler struct {
 	metricAPI          *queryAPI.MetricAPI
 	writeAPI           *writeAPI.WriteAPI
 	metaDatabaseAPI    *metadata.DatabaseAPI
+	metaMetricAPI      *metadata.MetricAPI
 }
 
 type rpcHandler struct {
@@ -352,6 +353,8 @@ func (r *runtime) buildAPIDependency() {
 		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
 
 		metaDatabaseAPI: metadata.NewDatabaseAPI(r.srv.databaseService),
+		metaMetricAPI: metadata.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
+			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 	}
 
 	api.AddRoute("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -378,6 +381,9 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
 
 	api.AddRoute("ListDatabaseNodes", http.MethodGet, "/metadata/database/names", handlers.metaDatabaseAPI.ListDatabaseNames)
+	api.AddRoute("SuggestMetric", http.MethodGet, "/metadata/suggest/metric", handlers.metaMetricAPI.SuggestMetrics)
+	api.AddRoute("SuggestTagKey", http.MethodGet, "/metadata/suggest/tagKey", handlers.metaMetricAPI.SuggestTagKeys)
+	api.AddRoute("SuggestTagValue", http.MethodGet, "/metadata/suggest/tagValue", handlers.metaMetricAPI.SuggestTagValues)
 }
 
 // buildMiddlewareDependency builds middleware dependency

@@ -11,6 +11,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
 )
 
 // leafTask represents the leaf node's task, the leaf node is always storage node
@@ -61,16 +62,57 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	if !ok {
 		return errNoDatabase
 	}
+	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
+	if stream == nil {
+		return errNoSendStream
+	}
 
+	switch req.RequestType {
+	case pb.RequestType_Data:
+		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, stream); err != nil {
+			return err
+		}
+	case pb.RequestType_Metadata:
+		if err := p.processMetadataSuggest(db, curLeaf.ShardIDs, req, stream); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
+	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
+) error {
+	payload := req.Payload
+	query := &stmt.Metadata{}
+	if err := encoding.JSONUnmarshal(payload, query); err != nil {
+		return errUnmarshalSuggest
+	}
+	exec := p.executorFactory.NewMetadataStorageExecutor(db, shardIDs, query)
+	result, err := exec.Execute()
+	if err != nil {
+		return err
+	}
+	// send result to upstream
+	if err := stream.Send(&pb.TaskResponse{
+		JobID:     req.JobID,
+		TaskID:    req.ParentTaskID,
+		Completed: true,
+		Payload:   encoding.JSONMarshal(&models.SuggestResult{Values: result}),
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, shardIDs []int32,
+	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
+) error {
 	payload := req.Payload
 	query := stmt.Query{}
 	if err := encoding.JSONUnmarshal(payload, &query); err != nil {
 		return errUnmarshalQuery
-	}
-
-	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
-	if stream == nil {
-		return errNoSendStream
 	}
 
 	option := db.GetOption()
@@ -80,7 +122,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(query.Interval, interval, query.TimeRange)
 	// execute leaf task
 	queryFlow := NewStorageQueryFlow(ctx, req, stream, db.ExecutorPool(), timeRange, queryInterval, intervalRatio)
-	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, curLeaf.ShardIDs, &query)
+	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, shardIDs, &query)
 	exec.Execute()
 	return nil
 }

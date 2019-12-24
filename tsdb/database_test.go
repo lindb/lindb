@@ -39,6 +39,7 @@ func Test_Database_Close(t *testing.T) {
 	assert.Nil(t, db.Close())
 
 	assert.NotNil(t, db.IDGetter())
+	assert.NotNil(t, db.MetricMetaSuggester())
 }
 
 func Test_Database_FlushMeta(t *testing.T) {
