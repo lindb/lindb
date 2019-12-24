@@ -99,9 +99,8 @@ func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
 
 func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
 	var tree trieTreeBlock
-	entrySet.sr.SeekStart()
 	// read time-range
-	_ = entrySet.sr.ReadSlice(invertedIndexTimeRangeSize)
+	entrySet.sr.ReadAt(invertedIndexTimeRangeSize)
 	////////////////////////////////
 	// Block: LOUDS Trie-Tree
 	////////////////////////////////
@@ -153,9 +152,7 @@ func (entrySet *tagKVEntrySet) ReadTagValueDataBlock(
 		return nil, fmt.Errorf("read position failure")
 	}
 	// jump to target
-	entrySet.sr.SeekStart()
-	_ = entrySet.sr.ReadSlice(pos)
-
+	entrySet.sr.ReadAt(pos)
 	// reset buffer
 	entrySet.versionTotal = int(entrySet.sr.ReadUvarint64())
 	entrySet.versionRead = 0

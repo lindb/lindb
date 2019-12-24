@@ -142,6 +142,20 @@ func Test_Reader_SeekStart(t *testing.T) {
 	assert.Nil(t, reader.Error())
 }
 
+func Test_Reader_ReadAt(t *testing.T) {
+	sl := make([]byte, 200)
+	reader := stream.NewReader(sl)
+	_ = reader.ReadByte()
+	assert.NotZero(t, reader.Position())
+
+	reader.ReadAt(-1)
+	assert.NotNil(t, reader.Error())
+	reader.ReadAt(201)
+	assert.NotNil(t, reader.Error())
+	reader.ReadAt(0)
+	assert.Zero(t, reader.Position())
+}
+
 func Test_Stream_UvariantSize(t *testing.T) {
 	assert.Equal(t, 1, stream.UvariantSize(0))
 	assert.Equal(t, 1, stream.UvariantSize(1))
@@ -172,18 +186,31 @@ func Test_Stream_VariantSize(t *testing.T) {
 func Benchmark_Reader_ReadBytes(b *testing.B) {
 	sl := make([]byte, 1024*1024)
 	reader := stream.NewReader(sl)
+	reader.Reset(sl)
 	for i := 0; i < b.N; i++ {
-		reader.Reset(sl)
+		reader.SeekStart()
 		_ = reader.ReadBytes(4096)
 	}
 }
 
+// 11.4ns/op
 func Benchmark_Reader_ReadSlice(b *testing.B) {
 	sl := make([]byte, 1024*1024)
 	reader := stream.NewReader(sl)
+	reader.Reset(sl)
 	for i := 0; i < b.N; i++ {
-		reader.Reset(sl)
+		reader.SeekStart()
 		_ = reader.ReadSlice(4096)
+	}
+}
+
+// 2.68ns/op
+func Benchmark_Reader_ReadAt(b *testing.B) {
+	sl := make([]byte, 1024*1024)
+	reader := stream.NewReader(sl)
+	reader.Reset(sl)
+	for i := 0; i < b.N; i++ {
+		reader.ReadAt(4096)
 	}
 }
 
