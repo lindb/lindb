@@ -138,16 +138,6 @@ func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
 	assert.Equal(t, uint32(9), idSet.Versions()[series.Version(1500000000000)].Maximum())
 }
 
-func Test_intSliceContains(t *testing.T) {
-	assert.False(t, intSliceContains(nil, 1))
-	assert.False(t, intSliceContains([]int{1, 3, 4, 5, 8}, 0))
-	assert.True(t, intSliceContains([]int{1, 3, 4, 5, 8}, 1))
-	assert.False(t, intSliceContains([]int{1, 3, 4, 5, 8}, 2))
-	assert.True(t, intSliceContains([]int{1, 3, 4, 5, 8}, 3))
-	assert.True(t, intSliceContains([]int{1, 3, 4, 5, 8}, 8))
-	assert.False(t, intSliceContains([]int{1, 3, 4, 5, 8}, 9))
-}
-
 func Test_InvertedIndexReader_FindSeriesIDsByExprForTagID_badCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -280,8 +270,8 @@ func Test_InvertedIndexReader_entrySetToIDSet_error_cases(t *testing.T) {
 
 func Test_tagKVEntrySet_TrieTree_error_cases(t *testing.T) {
 	zoneBlock, _, _ := buildInvertedIndexBlock()
-	entrySet, _ := newTagKVEntrySet(zoneBlock)
-
+	entrySetIntf, _ := newTagKVEntrySet(zoneBlock)
+	entrySet := entrySetIntf.(*tagKVEntrySet)
 	// read stream eof
 	entrySet.sr.Reset([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 1, 1, 1, 1})
 	// read stream eof
@@ -312,12 +302,6 @@ func Test_tagKVEntrySet_TrieTree_error_cases(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func Test_tagKVEntrySet_Bitmap(t *testing.T) {
-	data := versionedTagValueData{}
-	_, err := data.Bitmap()
-	assert.NotNil(t, err)
-}
-
 func Test_InvertedIndexReader_SuggestTagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -334,4 +318,42 @@ func Test_InvertedIndexReader_SuggestTagValues(t *testing.T) {
 	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}).AnyTimes()
 	corruptedReader := NewReader([]table.Reader{mockReader})
 	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
+}
+
+func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	reader := buildSeriesIndexReader(ctrl)
+
+	// tagID not exist
+	assert.NotPanics(t, func() {
+		_ = reader.WalkTagValues(
+			19,
+			"",
+			func(tagValue []byte, dataIterator tagValueIterator) bool {
+				panic("tagID doesn't exist!")
+			})
+	})
+
+	// search ip
+	var ipCount1 int
+	assert.Nil(t, reader.WalkTagValues(
+		21,
+		"192",
+		func(tagValue []byte, dataIterator tagValueIterator) bool {
+			ipCount1++
+			return true
+		}))
+	assert.Equal(t, 9, ipCount1)
+
+	// break case
+	var ipCount2 int
+	assert.Nil(t, reader.WalkTagValues(
+		21,
+		"192",
+		func(tagValue []byte, dataIterator tagValueIterator) bool {
+			ipCount2++
+			return ipCount2 != 3
+		}))
+	assert.Equal(t, 3, ipCount2)
 }

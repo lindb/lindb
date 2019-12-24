@@ -1,20 +1,16 @@
 package invertedindex
 
 import (
-	"fmt"
-	"math"
 	"sort"
-
-	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
+
+	"github.com/lindb/roaring"
 )
 
 var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
@@ -52,6 +48,15 @@ type Reader interface {
 		tagValuePrefix string,
 		limit int,
 	) []string
+
+	// WalkTagValues walks each tag value and bitmap via fn.
+	// If fn returns false, the iteration is stopped.
+	// The values are the raw byte slices and not the converted types.
+	WalkTagValues(
+		tagID uint32,
+		tagValuePrefix string,
+		fn func(tagValue []byte, dataIterator tagValueIterator) bool,
+	) error
 }
 
 // reader implements Reader
@@ -140,7 +145,7 @@ func (r *reader) filterEntrySets(
 	tagID uint32,
 	timeRange timeutil.TimeRange,
 ) (
-	entrySets []*tagKVEntrySet,
+	entrySets []tagKVEntrySetINTF,
 ) {
 	for _, reader := range r.readers {
 		entrySet, err := newTagKVEntrySet(reader.Get(tagID))
@@ -158,52 +163,56 @@ func (r *reader) filterEntrySets(
 
 // entrySetToIDSet parses the entry-set block, then return the multi-versions seriesID bitmap
 func (r *reader) entrySetToIDSet(
-	entrySet *tagKVEntrySet,
+	entrySet tagKVEntrySetINTF,
 	timeRange timeutil.TimeRange,
 	offsets []int,
 ) (
 	idSet *series.MultiVerSeriesIDSet,
 	err error,
 ) {
-	positions, err := entrySet.OffsetsToPosition(offsets)
-	if err != nil {
-		return nil, err
-	}
-	// sort positions for continuously read
-	var (
-		count         = 0
-		positionsList = make([]int, len(positions))
-	)
-	for _, position := range positions {
-		positionsList[count] = position
-		count++
-	}
-	sort.Slice(positionsList, func(i, j int) bool { return positionsList[i] < positionsList[j] })
-	// read in order
-	for _, position := range positions {
-		tagValueData, err := entrySet.ReadTagValueDataBlock(position)
+	bitmap := roaring.New()
+
+	retrieve := func(offset int) error {
+		dataItr, err := entrySet.ReadTagValueDataBlock(offset)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		for _, data := range tagValueData {
-			dataTimeRange := data.TimeRange()
+		for dataItr.HasNext() {
+			dataTimeRange := dataItr.DataTimeRange()
 			if !timeRange.Overlap(&dataTimeRange) {
-				continue
+				return nil
 			}
-			bitmap, err := data.Bitmap()
-			if err != nil {
-				return nil, err
+			if err := bitmap.UnmarshalBinary(dataItr.Next()); err != nil {
+				return err
 			}
 			if idSet == nil {
 				idSet = series.NewMultiVerSeriesIDSet()
 			}
-			theBitMap, ok := idSet.Versions()[data.version]
+			theBitMap, ok := idSet.Versions()[dataItr.DataVersion()]
 			if ok {
 				theBitMap.Or(bitmap)
 			} else {
-				theBitMap = bitmap
+				theBitMap = bitmap.Clone()
 			}
-			idSet.Add(data.version, theBitMap)
+			idSet.Add(dataItr.DataVersion(), theBitMap)
+		}
+		return nil
+	}
+	// nil means reads data at all positions
+	if len(offsets) == 0 {
+		posItr := entrySet.PositionIterator()
+		for posItr.HasNext() {
+			offset, _ := posItr.Next()
+			if err = retrieve(offset); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
+		for _, offset := range offsets {
+			if err = retrieve(offset); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if idSet == nil {
@@ -241,192 +250,31 @@ func (r *reader) SuggestTagValues(
 	return tagValues
 }
 
-type tagKVEntrySet struct {
-	sr            *stream.Reader
-	startTime     int64
-	endTime       int64
-	tree          trieTreeQuerier
-	offsetsBlock  []byte
-	crc32CheckSum uint32
-	// buffer
-	tagValueData []versionedTagValueData
-}
-
-func newTagKVEntrySet(block []byte) (*tagKVEntrySet, error) {
-	if len(block) <= invertedIndexTimeRangeSize+invertedIndexFooterSize {
-		return nil, fmt.Errorf("block length no ok")
-	}
-	entrySet := &tagKVEntrySet{
-		sr: stream.NewReader(block)}
-	entrySet.startTime = entrySet.sr.ReadInt64()
-	entrySet.endTime = entrySet.sr.ReadInt64()
-	// read footer
-	offsetsEndPos := len(block) - invertedIndexFooterSize
-	_ = entrySet.sr.ReadSlice(offsetsEndPos - invertedIndexTimeRangeSize)
-	offsetsStartPos := int(entrySet.sr.ReadUint32())
-	entrySet.crc32CheckSum = entrySet.sr.ReadUint32()
-	// validate offsets
-	if !(invertedIndexTimeRangeSize < offsetsStartPos && offsetsStartPos < offsetsEndPos) {
-		return nil, fmt.Errorf("bad offsets")
-	}
-	entrySet.offsetsBlock = block[offsetsStartPos:offsetsEndPos]
-	return entrySet, nil
-}
-
-// TimeRange computes the timeRange from delta in seconds
-func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
-	return timeutil.TimeRange{
-		Start: entrySet.startTime,
-		End:   entrySet.endTime}
-}
-
-// TrieTree builds the trie-tree block for querying
-func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
-	var tree trieTreeBlock
-	entrySet.sr.SeekStart()
-	// read time-range
-	_ = entrySet.sr.ReadSlice(invertedIndexTimeRangeSize)
-	////////////////////////////////
-	// Block: LOUDS Trie-Tree
-	////////////////////////////////
-	// read trie-tree length
-	expectedTrieTreeLen := entrySet.sr.ReadUvarint64()
-	startPosOfTree := entrySet.sr.Position()
-	// read label length
-	labelsLen := entrySet.sr.ReadUvarint64()
-	// read labels block
-	tree.labels = entrySet.sr.ReadSlice(int(labelsLen))
-	// read isPrefix length
-	isPrefixKeyLen := entrySet.sr.ReadUvarint64()
-	// read isPrefixKey bitmap
-	isPrefixBlock := entrySet.sr.ReadSlice(int(isPrefixKeyLen))
-	// read LOUDS length
-	loudsLen := entrySet.sr.ReadUvarint64()
-	// read LOUDS block
-	LOUDSBlock := entrySet.sr.ReadSlice(int(loudsLen))
-	// validation of stream error
-	if entrySet.sr.Error() != nil {
-		return nil, entrySet.sr.Error()
-	}
-	// validation of length
-	if entrySet.sr.Position()-startPosOfTree != int(expectedTrieTreeLen) {
-		return nil, fmt.Errorf("failed validation of trie-tree")
-	}
-	// unmarshal LOUDS block to rank-select
-	tree.LOUDS = NewRankSelect()
-	if err := tree.LOUDS.UnmarshalBinary(LOUDSBlock); err != nil {
-		return nil, err
-	}
-	// unmarshal isPrefixKey block to rank-select
-	tree.isPrefixKey = NewRankSelect()
-	if err := tree.isPrefixKey.UnmarshalBinary(isPrefixBlock); err != nil {
-		return nil, err
-	}
-	entrySet.tree = &tree
-	return entrySet.tree, nil
-}
-
-// ReadTagValueDataBlock reads tagValueDataBlocks at specified position
-func (entrySet *tagKVEntrySet) ReadTagValueDataBlock(
-	pos int,
-) (
-	[]versionedTagValueData,
-	error,
-) {
-	// jump to target
-	entrySet.sr.SeekStart()
-	_ = entrySet.sr.ReadSlice(pos)
-	// clear data
-	entrySet.tagValueData = entrySet.tagValueData[:0]
-	// reset buffer
-	versionCount := entrySet.sr.ReadUvarint64()
-	var counter = 0
-	for !entrySet.sr.Empty() && counter < int(versionCount) {
-		// read version
-		version := series.Version(entrySet.sr.ReadInt64())
-		// read start-time delta
-		startTimeDelta := entrySet.sr.ReadVarint64()
-		// read end-time delta
-		endTimeDelta := entrySet.sr.ReadVarint64()
-		// read bitmap length
-		bitMapLen := int(entrySet.sr.ReadUvarint64())
-		// read bitmap
-		bitMapBlock := entrySet.sr.ReadSlice(bitMapLen)
-		if entrySet.sr.Error() != nil {
-			break
+func (r *reader) WalkTagValues(
+	tagID uint32,
+	tagValuePrefix string,
+	fn func(tagValue []byte, dataIterator tagValueIterator) bool,
+) error {
+	for _, reader := range r.readers {
+		entrySet, err := newTagKVEntrySet(reader.Get(tagID))
+		if err != nil {
+			continue
 		}
-		entrySet.tagValueData = append(entrySet.tagValueData, versionedTagValueData{
-			version:        version,
-			startTimeDelta: startTimeDelta,
-			endTimeDelta:   endTimeDelta,
-			bitMapData:     bitMapBlock})
-		counter++
-	}
-	return entrySet.tagValueData, entrySet.sr.Error()
-}
-
-// OffsetsToPosition converts different offsets to positions
-func (entrySet *tagKVEntrySet) OffsetsToPosition(
-	offsets []int,
-) (
-	offsetsPos map[int]int,
-	err error,
-) {
-	offsetsPos = make(map[int]int)
-	sort.Slice(offsets, func(i, j int) bool { return offsets[i] < offsets[j] })
-	decoder := encoding.NewDeltaBitPackingDecoder(entrySet.offsetsBlock)
-	var (
-		maxOffset     = math.MaxInt32
-		offsetCounter = 0
-	)
-	if len(offsets) != 0 {
-		maxOffset = offsets[len(offsets)-1]
-	}
-	for decoder.HasNext() && offsetCounter <= maxOffset {
-		pos := decoder.Next()
-		if len(offsets) == 0 || intSliceContains(offsets, offsetCounter) {
-			offsetsPos[offsetCounter] = int(pos)
+		q, err := entrySet.TrieTree()
+		if err != nil {
+			continue
 		}
-		offsetCounter++
-	}
-	// validate offset
-	if len(offsets) != 0 {
-		err = fmt.Errorf("read positions of offsets failure")
-		if _, ok := offsetsPos[offsets[0]]; !ok {
-			return nil, err
-		}
-		if _, ok := offsetsPos[offsets[len(offsets)-1]]; !ok {
-			return nil, err
+		offsetsItr := q.Iterator(tagValuePrefix)
+		for offsetsItr.HasNext() {
+			tagValue, offset := offsetsItr.Next()
+			dataItr, err := entrySet.ReadTagValueDataBlock(offset)
+			if err != nil {
+				return err
+			}
+			if !fn(tagValue, dataItr) {
+				return nil
+			}
 		}
 	}
-	return offsetsPos, nil
-}
-
-// intSliceContains detects if item is in the slice
-func intSliceContains(slice []int, item int) bool {
-	idx := sort.Search(len(slice), func(i int) bool { return slice[i] >= item })
-	return idx < len(slice) && slice[idx] == item
-}
-
-type versionedTagValueData struct {
-	version        series.Version
-	startTimeDelta int64
-	endTimeDelta   int64
-	bitMapData     []byte
-}
-
-// TimeRange computes the timeRange from delta in seconds
-func (data *versionedTagValueData) TimeRange() timeutil.TimeRange {
-	return timeutil.TimeRange{
-		Start: data.startTimeDelta*1000 + data.version.Int64(),
-		End:   data.endTimeDelta*1000 + data.version.Int64()}
-}
-
-// Bitmap unmarshals the binary to bitmap
-func (data *versionedTagValueData) Bitmap() (*roaring.Bitmap, error) {
-	bitmap := roaring.New()
-	if err := bitmap.UnmarshalBinary(data.bitMapData); err != nil {
-		return nil, err
-	}
-	return bitmap, nil
+	return nil
 }

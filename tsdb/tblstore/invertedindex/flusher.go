@@ -39,7 +39,7 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 		entrySetWriter: stream.NewBufferWriter(nil),
 		trie:           newTrieTree(),
 		tagValueWriter: stream.NewBufferWriter(nil),
-		offsets:        encoding.NewDeltaBitPackingEncoder(),
+		offsets:        encoding.NewFixedOffsetEncoder(),
 	}
 }
 
@@ -48,7 +48,7 @@ type flusher struct {
 	kvFlusher      kv.Flusher
 	trie           trieTreeBuilder
 	entrySetWriter *stream.BufferWriter
-	offsets        *encoding.DeltaBitPackingEncoder
+	offsets        *encoding.FixedOffsetEncoder
 	// time range
 	minStartTime int64
 	maxEndTime   int64
@@ -181,7 +181,7 @@ func (w *flusher) writeTagValueData(treeDataBlock *trieTreeData) {
 	for _, item := range treeDataBlock.values {
 		it := item.(bufferWithVersionCount)
 		// record this position
-		w.offsets.Add(int32(w.entrySetWriter.Len()))
+		w.offsets.Add(w.entrySetWriter.Len())
 		// write version count
 		w.entrySetWriter.PutUvarint64(uint64(it.versionCount))
 		// write all versions of tagValue bitmaps
@@ -196,7 +196,7 @@ func (w *flusher) writeOffsetsAndFooter() {
 	// offsets start position
 	offsetsStartPos := w.entrySetWriter.Len()
 	// write offsets
-	w.entrySetWriter.PutBytes(w.offsets.Bytes())
+	w.entrySetWriter.PutBytes(w.offsets.MarshalBinary())
 	////////////////////////////////
 	// footer
 	////////////////////////////////
