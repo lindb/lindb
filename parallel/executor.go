@@ -32,5 +32,16 @@ type Executor interface {
 //    because of for the system availability.
 type BrokerExecutor interface {
 	Executor
+	// ExecuteContext returns the broker execute context
 	ExecuteContext() BrokerExecuteContext
+}
+
+// MetadataExecutor represents the metadata query executor, includes:
+// 1. suggest metric name
+// 2. suggest tag keys by spec metric name
+// 3. suggest tag values by spec metric name and tag key
+// 4. suggest fields by spec metric name
+type MetadataExecutor interface {
+	// Execute executes metadata query logic, (both broker and storage need implement it)
+	Execute() ([]string, error)
 }

@@ -1,5 +1,10 @@
 package models
 
+// SuggestResult represents the suggest result set
+type SuggestResult struct {
+	Values []string `json:"values"`
+}
+
 // ResultSet represents the query result set
 type ResultSet struct {
 	MetricName string    `json:"metricName,omitempty"`

@@ -11,6 +11,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
 )
@@ -121,4 +123,33 @@ func TestResultMerger_GroupBy(t *testing.T) {
 	merger.close()
 	wait.Wait()
 	assert.Equal(t, int32(1), c.Load())
+}
+
+func TestSuggestMerge_merge(t *testing.T) {
+	ch := make(chan []string)
+	merger := newSuggestResultMerger(ch)
+	var wait sync.WaitGroup
+	wait.Add(2)
+
+	go func() {
+		merger.merge(&pb.TaskResponse{
+			Payload: []byte{1, 2, 3},
+		})
+		merger.merge(&pb.TaskResponse{
+			Payload: encoding.JSONMarshal(&models.SuggestResult{Values: []string{"a"}}),
+		})
+		merger.merge(&pb.TaskResponse{
+			Payload: encoding.JSONMarshal(&models.SuggestResult{Values: []string{"a"}}),
+		})
+		// close result chan
+		merger.close()
+	}()
+
+	for rs := range ch {
+		for _, value := range rs {
+			assert.Equal(t, "a", value)
+			wait.Done()
+		}
+	}
+	wait.Wait()
 }

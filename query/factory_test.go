@@ -19,4 +19,7 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 	assert.NotNil(t, factory.NewStorageExecutor(nil, mockDatabase, nil, nil))
 	assert.NotNil(t, factory.NewBrokerExecutor(
 		context.TODO(), "db", "sql", nil, nil, nil))
+	assert.NotNil(t, factory.NewMetadataStorageExecutor(nil, nil, nil))
+	assert.NotNil(t, factory.NewMetadataBrokerExecutor(
+		context.TODO(), "db", nil, nil, nil, nil))
 }
