@@ -216,7 +216,7 @@ type trieTreeBlock struct {
 }
 
 func (block *trieTreeBlock) FindOffsetsByEqual(value string) (offsets []int) {
-	exhausted, nodeNumber := block.walkTreeByValue(value)
+	exhausted, nodeNumber := block.walkTreeByValue([]byte(value))
 	if exhausted && block.isPrefixKey.Bit(nodeNumber) {
 		return []int{int(block.isPrefixKey.Rank1(nodeNumber) - 1)}
 	}
@@ -225,10 +225,10 @@ func (block *trieTreeBlock) FindOffsetsByEqual(value string) (offsets []int) {
 
 // walkTreeByValue walks on the tree and exhaust the char in the value
 // if all chars are exhausted, it will return true
-func (block *trieTreeBlock) walkTreeByValue(value string) (exhausted bool, nodeNumber uint64) {
+func (block *trieTreeBlock) walkTreeByValue(value []byte) (exhausted bool, nodeNumber uint64) {
 	// first available node sequence is 1
 	nodeNumber = 1
-	if value == "" {
+	if len(value) == 0 {
 		return true, nodeNumber
 	}
 	var (
@@ -236,7 +236,7 @@ func (block *trieTreeBlock) walkTreeByValue(value string) (exhausted bool, nodeN
 		// maxNodeNumber + 1
 		invalidNodeNumber = block.LOUDS.NodeNumber(block.LOUDS.Num())
 	)
-	for idx, v := range []byte(value) {
+	for idx, v := range value {
 		firstChildNumber, ok := block.LOUDS.FirstChild(nodeNumber)
 		if !ok {
 			break
@@ -311,21 +311,21 @@ func (block *trieTreeBlock) FindOffsetsByRegex(pattern string) (offsets []int) {
 	itr := block.Iterator(literalPrefix)
 	for itr.HasNext() {
 		value, offset := itr.Next()
-		if rp.MatchString(value) {
+		if rp.Match(value) {
 			offsets = append(offsets, offset)
 		}
 	}
 	return offsets
 }
 
-func (block *trieTreeBlock) PrefixSearch(value string, limit int) (founds []string) {
-	itr := block.Iterator(value)
+func (block *trieTreeBlock) PrefixSearch(prefixValue string, limit int) (founds []string) {
+	itr := block.Iterator(prefixValue)
 	for itr.HasNext() {
 		if len(founds) >= limit {
 			break
 		}
 		value, _ := itr.Next()
-		founds = append(founds, value)
+		founds = append(founds, string(value))
 	}
 	return founds
 }
@@ -334,17 +334,17 @@ func (block *trieTreeBlock) PrefixSearch(value string, limit int) (founds []stri
 func (block *trieTreeBlock) Iterator(prefixValue string) *TrieTreeIterator {
 	return &TrieTreeIterator{
 		block:       block,
-		prefixValue: prefixValue}
+		prefixValue: []byte(prefixValue)}
 }
 
 // TrieTreeIterator implements TrieTreeIterator
 type TrieTreeIterator struct {
 	block       *trieTreeBlock
-	prefixValue string
+	prefixValue []byte
 	hasError    bool
 	initialized bool
 	prefixes    []_triePrefix
-	value       string
+	value       []byte
 	offset      int
 }
 
@@ -355,7 +355,7 @@ func (itr *TrieTreeIterator) HasNext() bool {
 	if !itr.initialized {
 		itr.initialized = true
 		var startNodeNumber = 1
-		if itr.prefixValue != "" {
+		if len(itr.prefixValue) != 0 {
 			exhausted, nodeNumber := itr.block.walkTreeByValue(itr.prefixValue)
 			if !exhausted {
 				itr.hasError = true
@@ -364,7 +364,7 @@ func (itr *TrieTreeIterator) HasNext() bool {
 			// exhausted
 			startNodeNumber = int(nodeNumber)
 		}
-		itr.prefixes = []_triePrefix{{nodeNumber: startNodeNumber, payload: []byte(itr.prefixValue)}}
+		itr.prefixes = []_triePrefix{{nodeNumber: startNodeNumber, payload: itr.prefixValue}}
 	}
 	hasNext := false
 	for len(itr.prefixes) > 0 {
@@ -375,7 +375,7 @@ func (itr *TrieTreeIterator) HasNext() bool {
 			// gotcha
 			hasNext = true
 			itr.offset = int(itr.block.isPrefixKey.Rank1(uint64(thisPrefix.nodeNumber)) - 1)
-			itr.value = string(thisPrefix.payload)
+			itr.value = thisPrefix.payload
 		}
 		var (
 			firstChildNumber, lastChildNumber uint64
@@ -411,6 +411,6 @@ func (itr *TrieTreeIterator) HasNext() bool {
 	return hasNext
 }
 
-func (itr *TrieTreeIterator) Next() (value string, offset int) {
+func (itr *TrieTreeIterator) Next() (value []byte, offset int) {
 	return itr.value, itr.offset
 }
