@@ -73,11 +73,11 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	reduceAgg.EXPECT().ResultSet().Return(nil)
 
 	var wait sync.WaitGroup
-	wait.Add(2)
+	wait.Add(6)
 	queryFlow.Filtering(func() {
-		time.Sleep(10 * time.Millisecond)
+		wait.Done()
 		queryFlow.Grouping(func() {
-			time.Sleep(10 * time.Millisecond)
+			wait.Done()
 			queryFlow.Scanner(func() {
 				seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 				seriesAgg.EXPECT().Reset()
@@ -90,9 +90,9 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		})
 	})
 	queryFlow.Filtering(func() {
-		time.Sleep(10 * time.Millisecond)
+		wait.Done()
 		queryFlow.Grouping(func() {
-			time.Sleep(10 * time.Millisecond)
+			wait.Done()
 			queryFlow.Scanner(func() {
 				wait.Done()
 			})
@@ -103,7 +103,6 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	seriesAgg.EXPECT().Reset()
 	wait.Wait()
 	queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestStorageQueryFlow_completeTask(t *testing.T) {
