@@ -5,6 +5,8 @@ import (
 	"io"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc/proto/common"
@@ -26,12 +28,17 @@ type TaskClientFactory interface {
 	SetTaskReceiver(taskReceiver TaskReceiver)
 }
 
+type taskClient struct {
+	cli     common.TaskService_HandleClient
+	running atomic.Bool
+}
+
 // taskClientFactory implements TaskClientFactory interface
 type taskClientFactory struct {
 	currentNode  models.Node
 	taskReceiver TaskReceiver
 	// target node ID => client stream
-	taskStreams map[string]common.TaskService_HandleClient
+	taskStreams map[string]*taskClient
 	mutex       sync.RWMutex
 
 	connFct ClientConnFactory
@@ -42,7 +49,7 @@ func NewTaskClientFactory(currentNode models.Node) TaskClientFactory {
 	return &taskClientFactory{
 		currentNode: currentNode,
 		connFct:     GetClientConnFactory(),
-		taskStreams: make(map[string]common.TaskService_HandleClient),
+		taskStreams: make(map[string]*taskClient),
 	}
 }
 
@@ -54,7 +61,7 @@ func (f *taskClientFactory) SetTaskReceiver(taskReceiver TaskReceiver) {
 func (f *taskClientFactory) GetTaskClient(target string) common.TaskService_HandleClient {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
-	return f.taskStreams[target]
+	return f.taskStreams[target].cli
 }
 
 // CreateTaskClient creates a stream task client if not exist,
@@ -81,10 +88,13 @@ func (f *taskClientFactory) CreateTaskClient(target models.Node) error {
 		return err
 	}
 
-	go f.handleTaskResponse(cli)
-
+	taskClient := &taskClient{
+		cli: cli,
+	}
+	taskClient.running.Store(true)
+	go f.handleTaskResponse(taskClient)
 	// cache task client stream
-	f.taskStreams[targetNodeID] = cli
+	f.taskStreams[targetNodeID] = taskClient
 	return nil
 }
 
@@ -94,18 +104,19 @@ func (f *taskClientFactory) CloseTaskClient(targetNodeID string) {
 	defer f.mutex.Unlock()
 	client, ok := f.taskStreams[targetNodeID]
 	if ok {
-		if err := client.CloseSend(); err != nil {
+		if err := client.cli.CloseSend(); err != nil {
 			log.Error("close task client stream", logger.String("target", targetNodeID), logger.Error(err))
 		}
+		client.running.Store(false)
 		delete(f.taskStreams, targetNodeID)
 		log.Info("close task client stream", logger.String("target", targetNodeID))
 	}
 }
 
 // handleTaskResponse handles task response loop, if stream closed exist loop
-func (f *taskClientFactory) handleTaskResponse(cli common.TaskService_HandleClient) {
-	for {
-		resp, err := cli.Recv()
+func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
+	for client.running.Load() {
+		resp, err := client.cli.Recv()
 		if err == io.EOF {
 			return
 		}

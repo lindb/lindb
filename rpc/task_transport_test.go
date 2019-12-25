@@ -52,6 +52,7 @@ func TestTaskServerFactory(t *testing.T) {
 func TestTaskClientFactory(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
+
 	oldClientConnFct := clientConnFct
 	mockClientConnFct := NewMockClientConnFactory(ctl)
 	clientConnFct = mockClientConnFct
@@ -61,7 +62,7 @@ func TestTaskClientFactory(t *testing.T) {
 	go func() {
 		err := grpcServer.Start()
 		if err != nil {
-			fmt.Print(err)
+			assert.Error(t, err)
 		}
 	}()
 	time.Sleep(100 * time.Millisecond)
@@ -101,7 +102,11 @@ func TestTaskClientFactory(t *testing.T) {
 
 	fct1 := fct.(*taskClientFactory)
 	mockTaskClient := common.NewMockTaskService_HandleClient(ctl)
-	fct1.taskStreams["mock_client"] = mockTaskClient
+	taskClient := &taskClient{
+		cli: mockTaskClient,
+	}
+	taskClient.running.Store(true)
+	fct1.taskStreams["mock_client"] = taskClient
 
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err"))
 	fct1.CloseTaskClient("mock_client")
@@ -127,5 +132,9 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		receiver.EXPECT().Receive(gomock.Any()).Return(fmt.Errorf("err")),
 		cli.EXPECT().Recv().Return(nil, io.EOF),
 	)
-	factory.handleTaskResponse(cli)
+	taskClient := &taskClient{
+		cli: cli,
+	}
+	taskClient.running.Store(true)
+	factory.handleTaskResponse(taskClient)
 }
