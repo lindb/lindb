@@ -11,7 +11,7 @@ import (
 
 func TestStoreNew_Fail(t *testing.T) {
 	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, builder)
 }
 
@@ -22,9 +22,7 @@ func TestReader(t *testing.T) {
 	}()
 
 	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))
 	_ = builder.Add(10, []byte("test10"))
@@ -34,19 +32,16 @@ func TestReader(t *testing.T) {
 
 	cache := NewCache(testKVPath)
 
-	var reader, err2 = cache.GetReader("", "000010.sst")
-	if err2 != nil {
-		t.Fatal(err2)
-	}
+	reader, err := cache.GetReader("", "000010.sst")
+	assert.NoError(t, err)
 	defer func() {
 		_ = reader.Close()
 	}()
+	assert.Equal(t, testKVPath+"/000010.sst", reader.Path())
 
 	// get from store cache
-	reader, err2 = cache.GetReader("", "000010.sst")
-	if err2 != nil {
-		t.Fatal(err2)
-	}
+	reader, err = cache.GetReader("", "000010.sst")
+	assert.NoError(t, err)
 	defer func() {
 		_ = reader.Close()
 	}()
@@ -66,9 +61,7 @@ func TestStoreCache_Close(t *testing.T) {
 	}()
 
 	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))
 	_ = builder.Add(10, []byte("test10"))
@@ -78,10 +71,8 @@ func TestStoreCache_Close(t *testing.T) {
 
 	cache := NewCache(testKVPath)
 
-	var reader, err2 = cache.GetReader("", "000010.sst")
-	if err2 != nil {
-		t.Fatal(err2)
-	}
+	reader, err := cache.GetReader("", "000010.sst")
+	assert.NoError(t, err)
 	_ = reader.Close()
 	_ = cache.Close()
 }
@@ -92,9 +83,7 @@ func TestStoreIterator(t *testing.T) {
 		_ = os.RemoveAll(testKVPath)
 	}()
 	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))
 	_ = builder.Add(10, []byte("test10"))
@@ -103,10 +92,9 @@ func TestStoreIterator(t *testing.T) {
 	assert.Nil(t, err)
 
 	cache := NewCache(testKVPath)
-	var reader, err2 = cache.GetReader("", "000010.sst")
-	if err2 != nil {
-		t.Error(err2)
-	}
+	reader, err := cache.GetReader("", "000010.sst")
+	assert.NoError(t, err)
+
 	defer func() {
 		_ = reader.Close()
 	}()

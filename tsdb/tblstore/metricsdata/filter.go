@@ -14,7 +14,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	f "github.com/lindb/lindb/tsdb/field"
+	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -283,7 +283,7 @@ func (vb *mdtVersionBlock) readData(fieldType field.Type, agg aggregation.Series
 	if !ok {
 		return
 	}
-	f.Aggregate(fieldType, segmentAgg, tsd, data)
+	query.Aggregate(fieldType, segmentAgg, tsd, data)
 }
 
 type fileFilterResultSet struct {
