@@ -192,6 +192,9 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 					e.queryFlow.Complete(err)
 					return
 				}
+				if gCtx == nil {
+					return
+				}
 				groupingCtx = gCtx
 			}
 			keys := seriesIDs.GetHighKeys()

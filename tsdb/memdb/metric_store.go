@@ -12,6 +12,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
@@ -283,18 +284,20 @@ func (ms *metricStore) GetGroupingContext(tagKeys []string,
 	}
 
 	tagKeysLen := len(tagKeys)
-	tagKVEntries := make([]*tagKVEntrySet, tagKeysLen)
+	gCtx := query.NewGroupContext(tagKeysLen)
 	// validate tagKeys
 	for idx, tagKey := range tagKeys {
 		tagKVEntry, ok := found.GetTagKVEntrySet(tagKey)
 		if !ok {
 			return nil, fmt.Errorf("tagKey: %s not exist", tagKey)
 		}
-		tagKVEntries[idx] = tagKVEntry
+		tagValuesEntrySet := query.NewTagValuesEntrySet()
+		gCtx.SetTagValuesEntrySet(idx, tagValuesEntrySet)
+		tagValuesEntrySet.SetTagValues(tagKVEntry.values)
 	}
 	return &groupingContext{
-		ms:             ms,
-		tagKVEntrySets: tagKVEntries,
+		ms:   ms,
+		gCtx: gCtx,
 	}, nil
 }
 

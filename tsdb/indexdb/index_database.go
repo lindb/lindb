@@ -1,13 +1,22 @@
 package indexdb
 
 import (
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+)
+
+// for testing
+var (
+	newReader = invertedindex.NewReader
 )
 
 // indexDatabase implements IndexDatabase
@@ -61,18 +70,63 @@ func (db *indexDatabase) SuggestTagValues(
 func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	version series.Version,
 ) (series.GroupingContext, error) {
-	//FIXME need impl
-	//tagKeyIDs := make([]uint32, len(tagKeys))
-	//// get tag key ids
-	//for idx, tagKey := range tagKeys {
-	//	//TODO need opt, plan has got tag key ids
-	//	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	tagKeyIDs[idx] = tagKeyID
-	//}
-	return nil, nil
+	tagKeysLength := len(tagKeys)
+	tagKeyIDs := make([]uint32, tagKeysLength)
+	// get tag key ids
+	for idx, tagKey := range tagKeys {
+		//TODO need opt, plan has got tag key ids
+		tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
+		if err != nil {
+			return nil, err
+		}
+		tagKeyIDs[idx] = tagKeyID
+	}
+
+	snapShot := db.invertedIndexFamily.GetSnapshot()
+	//FIXME need close snapshot after query completed
+	//defer snapShot.Close()
+
+	var err error
+	defer func() {
+		if err != nil {
+			snapShot.Close()
+		}
+	}()
+	var readers []table.Reader
+	gCtx := query.NewGroupContext(tagKeysLength)
+	for idx, tagKeyID := range tagKeyIDs {
+		readers, err = snapShot.FindReaders(tagKeyID)
+		if err != nil {
+			return nil, err
+		}
+		reader := newReader(readers)
+		tagValuesEntrySet := query.NewTagValuesEntrySet()
+		gCtx.SetTagValuesEntrySet(idx, tagValuesEntrySet)
+		err1 := reader.WalkTagValues(
+			tagKeyID,
+			"",
+			func(tagValue []byte, it invertedindex.TagValueIterator) bool {
+				for it.HasNext() {
+					if it.DataVersion() == version {
+						bitmapData := it.Next()
+						seriesBitmap := roaring.New()
+						err = seriesBitmap.UnmarshalBinary(bitmapData)
+						if err != nil {
+							return false
+						}
+						tagValuesEntrySet.AddTagValue(string(tagValue), seriesBitmap)
+					}
+				}
+				return true
+			})
+		if err1 != nil {
+			err = err1
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return gCtx, nil
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr for metric id

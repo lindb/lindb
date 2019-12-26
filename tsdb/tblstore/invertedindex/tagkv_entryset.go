@@ -28,7 +28,7 @@ type tagKVEntrySetINTF interface {
 	ReadTagValueDataBlock(
 		offset int,
 	) (
-		tagValueIterator,
+		TagValueIterator,
 		error,
 	)
 
@@ -36,7 +36,7 @@ type tagKVEntrySetINTF interface {
 	PositionIterator() positionIteratorINTF
 }
 
-type tagValueIterator interface {
+type TagValueIterator interface {
 	// DataTimeRange computes the timeRange from delta in seconds
 	DataTimeRange() timeutil.TimeRange
 
@@ -144,7 +144,7 @@ func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
 func (entrySet *tagKVEntrySet) ReadTagValueDataBlock(
 	offset int,
 ) (
-	tagValueIterator,
+	TagValueIterator,
 	error,
 ) {
 	pos := entrySet.decoder.Get(offset)

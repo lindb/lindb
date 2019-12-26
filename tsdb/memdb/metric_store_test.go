@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
@@ -396,7 +397,8 @@ func Test_mStore_GetGroupingContext(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, mappings)
 	m := mappings.(*groupingContext)
-	assert.Len(t, m.tagKVEntrySets, 2)
+	m2 := m.gCtx.(*query.GroupingContext)
+	assert.Equal(t, 2, m2.Len())
 
 	//////////////////////////////////////////////
 	// immutable part not empty

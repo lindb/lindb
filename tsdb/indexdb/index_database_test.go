@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
@@ -13,6 +14,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
 ////////////////////////////////
@@ -60,10 +62,46 @@ func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
 func Test_IndexDatabase_GetGroupingContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer func() {
+		newReader = invertedindex.NewReader
+	}()
 	mockedDB := mockIndexDatabase(ctrl)
-	g, err := mockedDB.indexDatabase.GetGroupingContext(1, nil, series.NewVersion())
-	assert.NoError(t, err)
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
+	// case1: get tag key err
+	g, err := mockedDB.indexDatabase.GetGroupingContext(1, []string{"host"}, series.NewVersion())
+	assert.Error(t, err)
 	assert.Nil(t, g)
+	// case2: get reader err
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
+	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("rer"))
+	g, err = mockedDB.indexDatabase.GetGroupingContext(1, []string{"host"}, series.NewVersion())
+	assert.Error(t, err)
+	assert.Nil(t, g)
+	// case3: index reader walk tag value err
+	indexReader := invertedindex.NewMockReader(ctrl)
+	newReader = func(readers []table.Reader) invertedindex.Reader {
+		return indexReader
+	}
+	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockedDB.reader}, nil).AnyTimes()
+	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
+	indexReader.EXPECT().WalkTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	g, err = mockedDB.indexDatabase.GetGroupingContext(1, []string{"host"}, series.NewVersion())
+	assert.Error(t, err)
+	assert.Nil(t, g)
+	newReader = invertedindex.NewReader
+	// case4: unmarshal series ids err
+	ipBlock := buildInvertedIndexBlock()
+	ipBlock[908] = 99
+	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(ipBlock)
+	g, err = mockedDB.indexDatabase.GetGroupingContext(1, []string{"host"}, series.Version(1500000000000))
+	assert.Error(t, err)
+	assert.Nil(t, g)
+	// case4: normal
+	ipBlock = buildInvertedIndexBlock()
+	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(ipBlock)
+	g, err = mockedDB.indexDatabase.GetGroupingContext(1, []string{"host"}, series.Version(1500000000000))
+	assert.NoError(t, err)
+	assert.NotNil(t, g)
 }
 
 func Test_IndexDatabase_SuggestTagValues(t *testing.T) {
@@ -151,4 +189,40 @@ func Test_IndexDatabase_GetSeriesIDsForTag(t *testing.T) {
 	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	_, err = mockedDB.indexDatabase.GetSeriesIDsForTag(0, "", timeutil.TimeRange{})
 	assert.NotNil(t, err)
+}
+
+func buildInvertedIndexBlock() (ipBlock []byte) {
+	nopKVFlusher := kv.NewNopFlusher()
+	seriesFlusher := invertedindex.NewFlusher(nopKVFlusher)
+	// disable auto reset to pick the entrySetBuffer
+	/////////////////////////
+	// seriesID mapping relation
+	/////////////////////////
+	ipMapping := map[uint32]string{
+		1: "192.168.1.1",
+		2: "192.168.1.2",
+		3: "192.168.1.3",
+		4: "192.168.2.4",
+		5: "192.168.2.5",
+		6: "192.168.2.6",
+		7: "192.168.3.7",
+		8: "192.168.3.8",
+		9: "192.168.3.9"}
+	/////////////////////////
+	// flush ip tag, tagID: 21
+	/////////////////////////
+	for seriesID, ip := range ipMapping {
+		for v := series.Version(1500000000000); v < 1800000000000; v += 100000000000 {
+			bitmap := roaring.New()
+			bitmap.Add(seriesID)
+			seriesFlusher.FlushVersion(v, timeutil.TimeRange{
+				Start: v.Int64() + 10000*1000, End: v.Int64() + 20000*10000}, bitmap)
+		}
+		seriesFlusher.FlushTagValue(ip)
+	}
+	// pick the ipBlock buffer
+	_ = seriesFlusher.FlushTagKeyID(21)
+	ipBlock = append(ipBlock, nopKVFlusher.Bytes()...)
+
+	return ipBlock
 }
