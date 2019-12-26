@@ -29,6 +29,8 @@ var log = logger.GetLogger("kv", "reader")
 
 // Reader reads k/v pair from store file
 type Reader interface {
+	// Path returns the file path
+	Path() string
 	// Get returns value for giving key
 	Get(key uint32) []byte
 	// Iterator iterates over a store's key/value pairs in key order.
@@ -103,6 +105,11 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("num. of keys != num. of offsets in file[%s]", r.path)
 	}
 	return nil
+}
+
+// Path returns the file path
+func (r *storeMMapReader) Path() string {
+	return r.path
 }
 
 // Get return value for key, if not exist return nil

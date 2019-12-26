@@ -55,7 +55,7 @@ type Reader interface {
 	WalkTagValues(
 		tagID uint32,
 		tagValuePrefix string,
-		fn func(tagValue []byte, dataIterator tagValueIterator) bool,
+		fn func(tagValue []byte, dataIterator TagValueIterator) bool,
 	) error
 }
 
@@ -253,7 +253,7 @@ func (r *reader) SuggestTagValues(
 func (r *reader) WalkTagValues(
 	tagID uint32,
 	tagValuePrefix string,
-	fn func(tagValue []byte, dataIterator tagValueIterator) bool,
+	fn func(tagValue []byte, dataIterator TagValueIterator) bool,
 ) error {
 	for _, reader := range r.readers {
 		entrySet, err := newTagKVEntrySet(reader.Get(tagID))

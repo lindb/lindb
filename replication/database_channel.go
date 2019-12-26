@@ -75,10 +75,10 @@ func newDatabaseChannel(ctx context.Context,
 // Write writes the metric data into channel's buffer
 func (dc *databaseChannel) Write(metricList *field.MetricList) (err error) {
 	// sharding metrics to shards
-	numOfShard := dc.numOfShard.Load()
+	numOfShard := uint32(dc.numOfShard.Load())
 	for _, metric := range metricList.Metrics {
 		hash := metricHash(metric)
-		shardID := int32(hash) % numOfShard
+		shardID := int32(hash % numOfShard)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
 			err = errChannelNotFound

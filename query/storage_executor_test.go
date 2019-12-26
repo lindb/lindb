@@ -225,6 +225,24 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 
 	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
 	exec.Execute()
+
+	// get grouping context nil
+	// mock data
+	mockDatabase.EXPECT().NumOfShards().Return(1)
+	mockDatabase.EXPECT().GetShard(int32(1)).Return(shard, true)
+	mockDatabase.EXPECT().IDGetter().Return(idGetter)
+	idGetter.EXPECT().GetMetricID("cpu").Return(uint32(10), nil)
+	idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(20), nil)
+	idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil)
+	shard.EXPECT().MemoryDatabase().Return(memDB)
+	memDB.EXPECT().FindSeriesIDsByExpr(uint32(10), gomock.Any(), gomock.Any()).
+		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
+	memDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]flow.FilterResultSet{filterRS}, nil)
+
+	exec = newStorageExecutor(queryFlow, mockDatabase, []int32{1}, query)
+	exec.Execute()
 }
 
 func TestStorageExecutor_Execute_Find_Series_err(t *testing.T) {

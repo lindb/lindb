@@ -330,7 +330,7 @@ func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
 		_ = reader.WalkTagValues(
 			19,
 			"",
-			func(tagValue []byte, dataIterator tagValueIterator) bool {
+			func(tagValue []byte, dataIterator TagValueIterator) bool {
 				panic("tagID doesn't exist!")
 			})
 	})
@@ -340,7 +340,7 @@ func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
 	assert.Nil(t, reader.WalkTagValues(
 		21,
 		"192",
-		func(tagValue []byte, dataIterator tagValueIterator) bool {
+		func(tagValue []byte, dataIterator TagValueIterator) bool {
 			ipCount1++
 			return true
 		}))
@@ -351,7 +351,7 @@ func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
 	assert.Nil(t, reader.WalkTagValues(
 		21,
 		"192",
-		func(tagValue []byte, dataIterator tagValueIterator) bool {
+		func(tagValue []byte, dataIterator TagValueIterator) bool {
 			ipCount2++
 			return ipCount2 != 3
 		}))
