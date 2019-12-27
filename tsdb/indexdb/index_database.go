@@ -177,3 +177,27 @@ func (db *indexDatabase) GetSeriesIDsForTag(
 	}
 	return invertedindex.NewReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
 }
+
+// GetSeriesIDsForTag get series ids for spec metric's tag key
+func (db *indexDatabase) GetSeriesIDsForMetric(
+	metricID uint32,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	//FIXME stone1100 need impl
+	return nil, nil
+	//tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//snapShot := db.invertedIndexFamily.GetSnapshot()
+	//defer snapShot.Close()
+	//
+	//readers, err := snapShot.FindReaders(tagKeyID)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//return invertedindex.NewReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
+}

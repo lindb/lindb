@@ -191,6 +191,16 @@ func Test_IndexDatabase_GetSeriesIDsForTag(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestIndexDatabase_GetSeriesIDsForMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedDB := mockIndexDatabase(ctrl)
+
+	set, err := mockedDB.indexDatabase.GetSeriesIDsForMetric(0, timeutil.TimeRange{})
+	assert.Nil(t, set)
+	assert.Nil(t, err)
+}
+
 func buildInvertedIndexBlock() (ipBlock []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
 	seriesFlusher := invertedindex.NewFlusher(nopKVFlusher)

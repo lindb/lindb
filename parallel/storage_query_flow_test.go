@@ -71,6 +71,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
 	reduceAgg.EXPECT().ResultSet().Return(nil)
+	reduceAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
 
 	var wait sync.WaitGroup
 	wait.Add(6)
@@ -81,8 +82,6 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 			queryFlow.Scanner(func() {
 				seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 				seriesAgg.EXPECT().Reset()
-
-				reduceAgg.EXPECT().Aggregate(gomock.Any())
 
 				queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
 				wait.Done()
@@ -98,10 +97,10 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 			})
 		})
 	})
+	wait.Wait()
 	queryFlow.Complete(nil)
 	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 	seriesAgg.EXPECT().Reset()
-	wait.Wait()
 	queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
 }
 

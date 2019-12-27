@@ -13,6 +13,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -211,6 +212,25 @@ func Test_FindSeriesIDsByExpr_GetSeriesIDsForTag(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = md.GetSeriesIDsForTag(1, "", timeutil.TimeRange{})
 	assert.Nil(t, err)
+}
+
+func TestMemoryDatabase_GetSeriesIDsForMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mdINTF := NewMemoryDatabase(context.TODO(), cfg)
+	md := mdINTF.(*memoryDatabase)
+	// mock mStore
+	mockMStore := NewMockmStoreINTF(ctrl)
+	md.mStores.put(uint32(1), mockMStore)
+	md.metricHash2ID.Store(uint64(3333), uint32(1))
+	_, err := md.GetSeriesIDsForMetric(100, timeutil.TimeRange{})
+	assert.Error(t, err)
+
+	mockMStore.EXPECT().GetSeriesIDsForMetric(gomock.Any()).Return(series.NewMultiVerSeriesIDSet(), nil)
+	rs, err := md.GetSeriesIDsForMetric(1, timeutil.TimeRange{})
+	assert.NoError(t, err)
+	assert.NotNil(t, rs)
 }
 
 func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
