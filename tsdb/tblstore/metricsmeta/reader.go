@@ -1,8 +1,6 @@
 package metricsmeta
 
 import (
-	"strings"
-
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
@@ -19,8 +17,8 @@ type Reader interface {
 	ReadMaxFieldID(metricID uint32) (maxFieldID uint16)
 	// ReadFieldID read fieldID and fieldType from metricID and fieldName
 	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, ok bool)
-	// SuggestTagKeys returns suggestion of tagKeys by prefix
-	SuggestTagKeys(metricID uint32, tagKeyPrefix string, limit int) []string
+	// ReadTagKeys returns all tag metas by metric id
+	ReadTagKeys(metricID uint32) []tag.Meta
 }
 
 // reader implements Reader
@@ -130,13 +128,10 @@ func (r *reader) ReadFieldID(
 	return 0, field.Type(0), false
 }
 
-// SuggestTagKeys returns suggestion of tagKeys by prefix
-func (r *reader) SuggestTagKeys(
+// ReadTagKeys returns all tag metas by metric id
+func (r *reader) ReadTagKeys(
 	metricID uint32,
-	tagKeyPrefix string,
-	limit int,
-) []string {
-	var collectedTagKeys []string
+) (tagKeys []tag.Meta) {
 	for _, reader := range r.readers {
 		tagMetaBlock, _ := r.readMetasBlock(reader.Get(metricID))
 		if tagMetaBlock == nil {
@@ -144,17 +139,11 @@ func (r *reader) SuggestTagKeys(
 		}
 		itr := newTagMetaIterator(tagMetaBlock)
 		for itr.HasNext() {
-			// read tagKey
-			if limit <= len(collectedTagKeys) {
-				return collectedTagKeys
-			}
 			tagMeta := itr.Next()
-			if strings.HasPrefix(tagMeta.Key, tagKeyPrefix) {
-				collectedTagKeys = append(collectedTagKeys, tagMeta.Key)
-			}
+			tagKeys = append(tagKeys, tagMeta)
 		}
 	}
-	return collectedTagKeys
+	return
 }
 
 type tagMetaIterator struct {

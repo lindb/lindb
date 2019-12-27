@@ -106,6 +106,9 @@ func Test_IDSequencer_SuggestMetrics(t *testing.T) {
 func Test_IDSequencer_SuggestTagKeys(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer func() {
+		newReader = metricsmeta.NewReader
+	}()
 
 	mocked := mockIDSequencer(ctrl)
 	mocked.Clear()
@@ -122,6 +125,50 @@ func Test_IDSequencer_SuggestTagKeys(t *testing.T) {
 	mocked.idSequencer.tree.Insert([]byte("a"), uint32(1))
 	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
 	assert.Len(t, mocked.idSequencer.SuggestTagKeys("a", "", 100), 0)
+
+	reader := metricsmeta.NewMockReader(ctrl)
+	newReader = func(readers []table.Reader) metricsmeta.Reader {
+		return reader
+	}
+	mocked.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
+	reader.EXPECT().ReadTagKeys(gomock.Any()).Return([]tag.Meta{
+		{Key: "abc", ID: uint32(1)},
+		{Key: "abc1", ID: uint32(2)},
+		{Key: "abc2", ID: uint32(3)},
+	})
+	assert.Len(t, mocked.idSequencer.SuggestTagKeys("a", "", 2), 2)
+}
+
+func TestMockIDGetter_GetTagKeyIDs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer func() {
+		newReader = metricsmeta.NewReader
+	}()
+
+	mocked := mockIDSequencer(ctrl)
+	mocked.Clear()
+
+	// case1: snapshot find reader err
+	mocked.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	tagKeyIDs, err := mocked.idSequencer.GetTagKeyIDs(10)
+	assert.Error(t, err)
+	assert.Nil(t, tagKeyIDs)
+
+	// case2: normal case
+	reader := metricsmeta.NewMockReader(ctrl)
+	newReader = func(readers []table.Reader) metricsmeta.Reader {
+		return reader
+	}
+	mocked.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
+	reader.EXPECT().ReadTagKeys(gomock.Any()).Return([]tag.Meta{
+		{Key: "abc", ID: uint32(1)},
+		{Key: "abc1", ID: uint32(2)},
+		{Key: "abc2", ID: uint32(3)},
+	})
+	tagKeyIDs, err = mocked.idSequencer.GetTagKeyIDs(10)
+	assert.NoError(t, err)
+	assert.Len(t, tagKeyIDs, 3)
 }
 
 func Test_IDSequencer_GetMetricID(t *testing.T) {

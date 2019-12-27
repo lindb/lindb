@@ -67,6 +67,11 @@ func NewFixedOffsetDecoder(buf []byte) *FixedOffsetDecoder {
 	}
 }
 
+// Size returns the size of  offset values
+func (d *FixedOffsetDecoder) Size() int {
+	return (d.length - 1) / d.valueLength
+}
+
 // Get gets the offset value by index, if offset > buffer length or index <0 returns -1
 func (d *FixedOffsetDecoder) Get(index int) int {
 	if index < 0 {

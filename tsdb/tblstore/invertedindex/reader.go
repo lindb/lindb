@@ -34,6 +34,8 @@ type Reader interface {
 		*series.MultiVerSeriesIDSet,
 		error)
 
+	GetTagKVEntries(tagID uint32, timeRange timeutil.TimeRange) TagKVEntries
+
 	// FindSeriesIDsByExprForTagKeyID finds series ids by tag filter expr and tagKeyID
 	FindSeriesIDsByExprForTagKeyID(
 		tagID uint32, expr stmt.TagFilter,
@@ -105,7 +107,7 @@ func (r *reader) FindSeriesIDsByExprForTagKeyID(
 		if len(offsets) == 0 {
 			continue
 		}
-		idSet, err := r.entrySetToIDSet(entrySet, timeRange, offsets)
+		idSet, err := entrySetToIDSet(entrySet, timeRange, offsets)
 		if err != nil {
 			return nil, err
 		}
@@ -115,6 +117,10 @@ func (r *reader) FindSeriesIDsByExprForTagKeyID(
 		return nil, series.ErrNotFound
 	}
 	return unionIDSet, nil
+}
+
+func (r *reader) GetTagKVEntries(tagID uint32, timeRange timeutil.TimeRange) TagKVEntries {
+	return r.filterEntrySets(tagID, timeRange)
 }
 
 // GetSeriesIDsForTagKeyID get series ids for spec metric's tag keyID
@@ -129,15 +135,7 @@ func (r *reader) GetSeriesIDsForTagKeyID(
 	if len(entrySets) == 0 {
 		return nil, series.ErrNotFound
 	}
-	unionIDSet := series.NewMultiVerSeriesIDSet()
-	for _, entrySet := range entrySets {
-		idSet, err := r.entrySetToIDSet(entrySet, timeRange, nil)
-		if err != nil {
-			return nil, err
-		}
-		unionIDSet.Or(idSet)
-	}
-	return unionIDSet, nil
+	return entrySets.GetSeriesIDs(timeRange)
 }
 
 // filterEntrySets filters the entry-sets which matches the time-range in the series-index-table
@@ -145,7 +143,7 @@ func (r *reader) filterEntrySets(
 	tagID uint32,
 	timeRange timeutil.TimeRange,
 ) (
-	entrySets []tagKVEntrySetINTF,
+	entrySets TagKVEntries,
 ) {
 	for _, reader := range r.readers {
 		entrySet, err := newTagKVEntrySet(reader.Get(tagID))
@@ -162,8 +160,8 @@ func (r *reader) filterEntrySets(
 }
 
 // entrySetToIDSet parses the entry-set block, then return the multi-versions seriesID bitmap
-func (r *reader) entrySetToIDSet(
-	entrySet tagKVEntrySetINTF,
+func entrySetToIDSet(
+	entrySet TagKVEntrySetINTF,
 	timeRange timeutil.TimeRange,
 	offsets []int,
 ) (

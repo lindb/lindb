@@ -9,6 +9,13 @@ import (
 	"github.com/lindb/lindb/series"
 )
 
+//go:generate mockgen -source ./tagkv_entryset.go -destination=./tagkv_entryset_mock.go -package invertedindex
+
+// for testing
+var (
+	entrySetToIDSetFunc = entrySetToIDSet
+)
+
 type positionIteratorINTF interface {
 	// HasNext checks if there are any remaining positions unread
 	HasNext() bool
@@ -17,9 +24,12 @@ type positionIteratorINTF interface {
 	Next() (offset, position int)
 }
 
-type tagKVEntrySetINTF interface {
+type TagKVEntrySetINTF interface {
 	// TimeRange computes the timeRange from delta in milliseconds
 	TimeRange() timeutil.TimeRange
+
+	// TagValuesCount returns the count of tag values under this tag key
+	TagValuesCount() int
 
 	// TrieTree builds the trie-tree block for querying
 	TrieTree() (trieTreeQuerier, error)
@@ -50,6 +60,33 @@ type TagValueIterator interface {
 	Next() (bitmapData []byte)
 }
 
+type TagKVEntries []TagKVEntrySetINTF
+
+func (entries TagKVEntries) TagValuesCount() (count int) {
+	for _, entry := range entries {
+		count += entry.TagValuesCount()
+	}
+	return
+}
+
+// GetSeriesIDs get series ids
+func (entries TagKVEntries) GetSeriesIDs(
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	unionIDSet := series.NewMultiVerSeriesIDSet()
+	for _, entrySet := range entries {
+		idSet, err := entrySetToIDSetFunc(entrySet, timeRange, nil)
+		if err != nil {
+			return nil, err
+		}
+		unionIDSet.Or(idSet)
+	}
+	return unionIDSet, nil
+}
+
 // tagKVEntrySet implements tagKVEntrySetINTF
 type tagKVEntrySet struct {
 	sr            *stream.Reader
@@ -68,7 +105,7 @@ type tagKVEntrySet struct {
 	bitmapData                   []byte
 }
 
-func newTagKVEntrySet(block []byte) (tagKVEntrySetINTF, error) {
+func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
 	if len(block) <= invertedIndexTimeRangeSize+invertedIndexFooterSize {
 		return nil, fmt.Errorf("block length no ok")
 	}
@@ -95,6 +132,10 @@ func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
 	return timeutil.TimeRange{
 		Start: entrySet.startTime,
 		End:   entrySet.endTime}
+}
+
+func (entrySet *tagKVEntrySet) TagValuesCount() int {
+	return entrySet.decoder.Size()
 }
 
 func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
