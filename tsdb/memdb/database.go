@@ -393,6 +393,21 @@ func (md *memoryDatabase) GetSeriesIDsForTag(
 	return mStore.GetSeriesIDsForTag(tagKey)
 }
 
+// GetSeriesIDsForMetric get series ids for spec metric's id from mStore.
+func (md *memoryDatabase) GetSeriesIDsForMetric(
+	metricID uint32,
+	timeRange timeutil.TimeRange,
+) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	mStore, ok := md.mStores.get(metricID)
+	if !ok {
+		return nil, series.ErrNotFound
+	}
+	return mStore.GetSeriesIDsForMetric(timeRange)
+}
+
 // GetGroupingContext returns the context of group by from memory database
 func (md *memoryDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	version series.Version,

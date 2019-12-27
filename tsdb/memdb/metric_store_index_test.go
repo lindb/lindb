@@ -274,6 +274,32 @@ func Test_tagIndex_getSeriesIDsForTag(t *testing.T) {
 	assert.Equal(t, uint64(8), bitmap.GetCardinality())
 }
 
+func TestTagIndex_GetSeriesIDsForMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	tagIdxInterface := newTagIndex()
+	tagIdx := tagIdxInterface.(*tagIndex)
+	// tag no value
+	bitmap := tagIdx.GetSeriesIDsForMetric()
+	assert.Nil(t, bitmap)
+
+	tagIdx.tagKVEntrySet = append(tagIdx.tagKVEntrySet, &tagKVEntrySet{
+		values: map[string]*roaring.Bitmap{
+			"a": roaring.BitmapOf(1),
+			"b": roaring.BitmapOf(2),
+			"c": roaring.BitmapOf(3),
+		},
+	}, &tagKVEntrySet{
+		values: map[string]*roaring.Bitmap{
+			"e": roaring.BitmapOf(1),
+			"f": roaring.BitmapOf(3),
+		},
+	})
+
+	bitmap = tagIdx.GetSeriesIDsForMetric()
+	assert.Equal(t, roaring.BitmapOf(1, 3), bitmap)
+}
+
 type mockTagKey struct {
 }
 
