@@ -23,6 +23,8 @@ type IDGetter interface {
 	GetMetricID(metricName string) (uint32, error)
 	// GetTagKeyID returns tag ID(uint32), return ErrNotFound if not exist
 	GetTagKeyID(metricID uint32, tagKey string) (tagKeyID uint32, err error)
+	// GetTagKeyIDs returns tag IDs([]uint32), return ErrNotFound if not exist
+	GetTagKeyIDs(metricID uint32) (tagKeyIDs []uint32, err error)
 	// GetFieldID returns field id and type by given metricID and field name,
 	// if not exist return ErrNotFound error
 	GetFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, err error)

@@ -58,8 +58,7 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	tagID, ok := metaReader.ReadTagKeyID(2, "a2")
 	assert.Equal(t, uint32(7), tagID)
 	assert.True(t, ok)
-	assert.Len(t, metaReader.SuggestTagKeys(2, "a", 100), 2)
-	assert.Len(t, metaReader.SuggestTagKeys(2, "a", 1), 1)
+	assert.Len(t, metaReader.ReadTagKeys(2), 4)
 	// tag not found
 	tagID, ok = metaReader.ReadTagKeyID(2, "a3")
 	assert.Zero(t, tagID)
@@ -96,7 +95,7 @@ func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
 	data2 = append(data2, byte(32))
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2).Times(2)
 	assert.Equal(t, uint16(0), metaReader.ReadMaxFieldID(2))
-	assert.Nil(t, metaReader.SuggestTagKeys(2, "", 100))
+	assert.Nil(t, metaReader.ReadTagKeys(2))
 }
 
 func Test_MetricsMetaReader_readBlock_corrupt(t *testing.T) {

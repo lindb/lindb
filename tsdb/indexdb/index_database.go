@@ -1,6 +1,8 @@
 package indexdb
 
 import (
+	"math"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -186,18 +188,33 @@ func (db *indexDatabase) GetSeriesIDsForMetric(
 	*series.MultiVerSeriesIDSet,
 	error,
 ) {
-	//FIXME stone1100 need impl
-	return nil, nil
-	//tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//snapShot := db.invertedIndexFamily.GetSnapshot()
-	//defer snapShot.Close()
-	//
-	//readers, err := snapShot.FindReaders(tagKeyID)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return invertedindex.NewReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
+	tagKeyIDs, err := db.idGetter.GetTagKeyIDs(metricID)
+	if err != nil {
+		return nil, err
+	}
+	snapShot := db.invertedIndexFamily.GetSnapshot()
+	defer snapShot.Close()
+
+	var minTagKVEntries invertedindex.TagKVEntries
+	min := math.MaxInt32
+	for _, tagKeyID := range tagKeyIDs {
+		readers, err := snapShot.FindReaders(tagKeyID)
+		if err != nil {
+			return nil, err
+		}
+		if len(readers) == 0 {
+			continue
+		}
+		tagKVEntries := newReader(readers).GetTagKVEntries(tagKeyID, timeRange)
+		if len(tagKVEntries) == 0 {
+			continue
+		}
+		if tagKVEntries.TagValuesCount() < min {
+			minTagKVEntries = tagKVEntries
+		}
+	}
+	if minTagKVEntries == nil {
+		return nil, series.ErrNotFound
+	}
+	return minTagKVEntries.GetSeriesIDs(timeRange)
 }

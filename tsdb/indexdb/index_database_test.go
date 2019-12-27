@@ -195,10 +195,42 @@ func TestIndexDatabase_GetSeriesIDsForMetric(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockedDB := mockIndexDatabase(ctrl)
-
+	// case1: get tag key ids err
+	mockedDB.idGetter.EXPECT().GetTagKeyIDs(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	set, err := mockedDB.indexDatabase.GetSeriesIDsForMetric(0, timeutil.TimeRange{})
+	assert.Error(t, err)
 	assert.Nil(t, set)
-	assert.Nil(t, err)
+	// case2: snapshot get reader err
+	mockedDB.idGetter.EXPECT().GetTagKeyIDs(gomock.Any()).Return([]uint32{1, 2}, nil).AnyTimes()
+	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	set, err = mockedDB.indexDatabase.GetSeriesIDsForMetric(0, timeutil.TimeRange{})
+	assert.Error(t, err)
+	assert.Nil(t, set)
+	// case3: snapshot get reader nil
+	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil).Times(2)
+	set, err = mockedDB.indexDatabase.GetSeriesIDsForMetric(0, timeutil.TimeRange{})
+	assert.Error(t, err)
+	assert.Nil(t, set)
+	// case4: get value
+	defer func() {
+		newReader = invertedindex.NewReader
+	}()
+	reader := invertedindex.NewMockReader(ctrl)
+	newReader = func(readers []table.Reader) invertedindex.Reader {
+		return reader
+	}
+	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockedDB.reader}, nil).Times(2)
+	reader.EXPECT().GetTagKVEntries(gomock.Any(), gomock.Any()).Return(nil)
+	tagKVEntry := invertedindex.NewMockTagKVEntrySetINTF(ctrl)
+	tagKVEntry.EXPECT().TagValuesCount().Return(10)
+	pIt := invertedindex.NewMockpositionIteratorINTF(ctrl)
+	pIt.EXPECT().HasNext().Return(false)
+	tagKVEntry.EXPECT().PositionIterator().Return(pIt)
+	reader.EXPECT().GetTagKVEntries(gomock.Any(), gomock.Any()).Return(invertedindex.TagKVEntries{tagKVEntry})
+	set, err = mockedDB.indexDatabase.GetSeriesIDsForMetric(0, timeutil.TimeRange{})
+	assert.Error(t, err)
+	assert.Nil(t, set)
+
 }
 
 func buildInvertedIndexBlock() (ipBlock []byte) {

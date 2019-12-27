@@ -108,6 +108,19 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) Reader {
 	return NewReader([]table.Reader{mockReader})
 }
 
+func TestReader_GetTagKVEntries(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	reader := buildSeriesIndexReader(ctrl)
+	idSet := reader.GetTagKVEntries(uint32(20),
+		timeutil.TimeRange{
+			Start: 1500000000 * 1000,
+			End:   1600000000 * 1000})
+	assert.True(t, idSet.TagValuesCount() > 0)
+	assert.NotNil(t, idSet)
+}
+
 func Test_InvertedIndexReader_GetSeriesIDsForTagID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -247,20 +260,18 @@ func Test_newTagKVEntrySet_error_cases(t *testing.T) {
 func Test_InvertedIndexReader_entrySetToIDSet_error_cases(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	readerIntf := buildSeriesIndexReader(ctrl)
-	readerImpl := readerIntf.(*reader)
 
 	zoneBlock, _, _ := buildInvertedIndexBlock()
 	zoneEntrySet, _ := newTagKVEntrySet(zoneBlock)
 	// first offset not exist
-	idSet, err := readerImpl.entrySetToIDSet(
+	idSet, err := entrySetToIDSet(
 		zoneEntrySet,
 		timeutil.TimeRange{Start: 0, End: math.MaxInt64},
 		[]int{1000, 1200})
 	assert.Nil(t, idSet)
 	assert.NotNil(t, err)
 	// last offset not exist
-	idSet, err = readerImpl.entrySetToIDSet(
+	idSet, err = entrySetToIDSet(
 		zoneEntrySet,
 		timeutil.TimeRange{Start: 0, End: math.MaxInt64},
 		[]int{0, 1200})
