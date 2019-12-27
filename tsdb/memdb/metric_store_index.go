@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -83,6 +84,8 @@ type tagIndexINTF interface {
 
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) *roaring.Bitmap
+	// GetSeriesIDsForMetric get series ids by tagKey with min tag values
+	GetSeriesIDsForMetric() *roaring.Bitmap
 
 	// MemSize returns the memory size in bytes
 	MemSize() int
@@ -459,6 +462,28 @@ func (index *tagIndex) GetSeriesIDsForTag(tagKey string) *roaring.Bitmap {
 	if !ok {
 		return nil
 	}
+	union := roaring.New()
+	for _, bitMap := range entrySet.values {
+		union.Or(bitMap)
+	}
+	return union
+}
+
+// GetSeriesIDsForMetric get series ids by tagKey with min tag values
+func (index *tagIndex) GetSeriesIDsForMetric() *roaring.Bitmap {
+	if len(index.tagKVEntrySet) == 0 {
+		return nil
+	}
+	min := math.MaxInt32
+	minIdx := 0
+	for idx, entrySet := range index.tagKVEntrySet {
+		tagValuesLength := len(entrySet.values)
+		if min > tagValuesLength {
+			min = tagValuesLength
+			minIdx = idx
+		}
+	}
+	entrySet := index.tagKVEntrySet[minIdx]
 	union := roaring.New()
 	for _, bitMap := range entrySet.values {
 		union.Or(bitMap)

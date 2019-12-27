@@ -233,6 +233,44 @@ func Test_mStore_findSeriesIDsByExpr_getSeriesIDsForTag(t *testing.T) {
 	_, _ = mStoreInterface.GetSeriesIDsForTag("")
 }
 
+func TestMetricStore_GetSeriesIDsForMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mStoreInterface := newMetricStore()
+	mStore := mStoreInterface.(*metricStore)
+
+	mockTagIdx := NewMocktagIndexINTF(ctrl)
+	count := int64(1)
+	mockTagIdx.EXPECT().Version().DoAndReturn(func() series.Version {
+		count++
+		return series.Version(count)
+	}).AnyTimes()
+	mStore.mutable = mockTagIdx
+	mStore.immutable.Store(mockTagIdx)
+
+	rs, err := mStoreInterface.GetSeriesIDsForMetric(timeutil.TimeRange{})
+	assert.NoError(t, err)
+	assert.True(t, rs.IsEmpty())
+
+	mockTagIdx.EXPECT().GetSeriesIDsForMetric().Return(nil).Times(2)
+	rs, err = mStoreInterface.GetSeriesIDsForMetric(timeutil.TimeRange{
+		Start: 0,
+		End:   100})
+	assert.NoError(t, err)
+	assert.True(t, rs.IsEmpty())
+
+	// mock GetSeriesIDsForMetric
+	returnNotNil2 := mockTagIdx.EXPECT().GetSeriesIDsForMetric().Return(roaring.BitmapOf(1))
+	returnNil2 := mockTagIdx.EXPECT().GetSeriesIDsForMetric().Return(nil)
+	gomock.InOrder(returnNotNil2, returnNil2)
+	rs, err = mStoreInterface.GetSeriesIDsForMetric(timeutil.TimeRange{
+		Start: 0,
+		End:   100})
+	assert.NoError(t, err)
+	assert.False(t, rs.IsEmpty())
+}
+
 func Test_getFieldIDOrGenerate(t *testing.T) {
 	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
@@ -408,8 +446,8 @@ func Test_mStore_GetGroupingContext(t *testing.T) {
 	// version not match
 	_, err = mStoreInterface.GetGroupingContext([]string{"ip"}, 4)
 	assert.NotNil(t, err)
-	// version match, ip not exist
-	_, err = mStoreInterface.GetGroupingContext([]string{"ip"}, 1)
+	// version match, host not exist
+	_, err = mStoreInterface.GetGroupingContext([]string{"host"}, 2)
 	assert.NotNil(t, err)
 }
 

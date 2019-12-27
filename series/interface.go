@@ -38,4 +38,7 @@ type Filter interface {
 	// GetSeriesIDsForTag get series ids for spec metric's tag key
 	GetSeriesIDsForTag(metricID uint32, tagKey string, timeRange timeutil.TimeRange) (
 		*MultiVerSeriesIDSet, error)
+	// GetSeriesIDsForMetric get series ids for spec metric's id
+	GetSeriesIDsForMetric(metricID uint32, timeRange timeutil.TimeRange) (
+		*MultiVerSeriesIDSet, error)
 }

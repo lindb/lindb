@@ -127,18 +127,19 @@ func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
 func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *series.MultiVerSeriesIDSet) {
 	condition := e.query.Condition
 	metricID := e.metricID
+	var err error
 	if condition != nil {
 		seriesSearch := newSeriesSearch(metricID, filter, e.query)
-		idSet, err := seriesSearch.Search()
-		if err != nil {
-			if err != series.ErrNotFound {
-				e.queryFlow.Complete(err)
-			}
-			return
-		}
-		seriesIDSet = idSet
+		seriesIDSet, err = seriesSearch.Search()
+	} else {
+		seriesIDSet, err = filter.GetSeriesIDsForMetric(metricID, e.query.TimeRange)
 	}
-	//TODO add metric level search for no condition
+	if err != nil {
+		if err != series.ErrNotFound {
+			e.queryFlow.Complete(err)
+		}
+		return
+	}
 	return
 }
 

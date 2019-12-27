@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -61,6 +62,8 @@ type mStoreINTF interface {
 
 	// GetSeriesIDsForTag get series ids by tagKey
 	GetSeriesIDsForTag(tagKey string) (*series.MultiVerSeriesIDSet, error)
+	// GetSeriesIDsForMetric get series ids by tagKey with min tag values
+	GetSeriesIDsForMetric(timeRange timeutil.TimeRange) (*series.MultiVerSeriesIDSet, error)
 
 	// GetGroupingContext returns the context of group by from the specified version and tagKeys
 	GetGroupingContext(tagKeys []string, version series.Version) (series.GroupingContext, error)
@@ -572,6 +575,32 @@ func (ms *metricStore) GetSeriesIDsForTag(
 
 	if immutable != nil {
 		getSeriesIDsForTag(immutable)
+	}
+	return multiVerSeriesIDSet, nil
+}
+
+// GetSeriesIDsForMetric get series ids by tagKey with min tag values
+func (ms *metricStore) GetSeriesIDsForMetric(timeRange timeutil.TimeRange) (
+	*series.MultiVerSeriesIDSet,
+	error,
+) {
+	multiVerSeriesIDSet := series.NewMultiVerSeriesIDSet()
+	getSeriesIDsForMetric := func(tagIdx tagIndexINTF) {
+		if !timeRange.Contains(tagIdx.Version().Int64()) {
+			return
+		}
+		if bitMap := tagIdx.GetSeriesIDsForMetric(); bitMap != nil && !bitMap.IsEmpty() {
+			multiVerSeriesIDSet.Add(ms.mutable.Version(), bitMap)
+		}
+	}
+
+	ms.mux.RLock()
+	getSeriesIDsForMetric(ms.mutable)
+	immutable := ms.atomicGetImmutable()
+	ms.mux.RUnlock()
+
+	if immutable != nil {
+		getSeriesIDsForMetric(immutable)
 	}
 	return multiVerSeriesIDSet, nil
 }
