@@ -2,6 +2,7 @@ package metadb
 
 import (
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
@@ -19,6 +20,11 @@ import (
 const (
 	// reserved for multi nameSpaces
 	defaultNSID = 0
+)
+
+// for testing
+var (
+	newReader = metricsmeta.NewReader
 )
 
 // idSequencer implements IDSequencer
@@ -114,8 +120,20 @@ func (seq *idSequencer) SuggestTagKeys(metricName, tagKeyPrefix string, limit in
 	if err != nil {
 		return nil
 	}
-	metaReader := metricsmeta.NewReader(readers)
-	return metaReader.SuggestTagKeys(metricID, tagKeyPrefix, limit)
+	metaReader := newReader(readers)
+	// read tag keys
+	tagKeys := metaReader.ReadTagKeys(metricID)
+	var collectedTagKeys []string
+	for _, tagKey := range tagKeys {
+		// read tagKey
+		if limit <= len(collectedTagKeys) {
+			return collectedTagKeys
+		}
+		if strings.HasPrefix(tagKey.Key, tagKeyPrefix) {
+			collectedTagKeys = append(collectedTagKeys, tagKey.Key)
+		}
+	}
+	return collectedTagKeys
 }
 
 // GenMetricID generates ID(uint32) from metricName
@@ -164,6 +182,24 @@ func (seq *idSequencer) GenTagKeyID(
 	}
 	seq.newTagMetas[metricID] = tagMetas
 	return newTagKeyID
+}
+
+// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+func (seq *idSequencer) GetTagKeyIDs(metricID uint32) (tagKeyIDs []uint32, err error) {
+	snapShot := seq.metaFamily.GetSnapshot()
+	defer snapShot.Close()
+
+	readers, err := snapShot.FindReaders(metricID)
+	if err != nil {
+		return nil, err
+	}
+	metaReader := newReader(readers)
+	// read tag keys
+	tagKeys := metaReader.ReadTagKeys(metricID)
+	for _, tagKey := range tagKeys {
+		tagKeyIDs = append(tagKeyIDs, tagKey.ID)
+	}
+	return
 }
 
 func (seq *idSequencer) getTagKeyIDInMem(
