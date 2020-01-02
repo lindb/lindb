@@ -22,6 +22,7 @@ const (
 	Count
 	Min
 	Max
+	Replace
 )
 
 var schemas = map[Type]schema{}
@@ -29,6 +30,8 @@ var schemas = map[Type]schema{}
 func init() {
 	schemas[SumField] = newSumSchema()
 	schemas[MinField] = newMinSchema()
+	schemas[MaxField] = newMaxSchema()
+	schemas[GaugeField] = newGaugeSchema()
 	schemas[SummaryField] = newSummarySchema()
 }
 
@@ -40,6 +43,7 @@ const (
 	SumField Type = iota + 1
 	MinField
 	MaxField
+	GaugeField
 	SummaryField
 	HistogramField
 
@@ -55,6 +59,8 @@ func (t Type) String() string {
 		return "min"
 	case MaxField:
 		return "max"
+	case GaugeField:
+		return "gauge"
 	case SummaryField:
 		return "summary"
 	case HistogramField:
@@ -72,6 +78,8 @@ func (t Type) DownSamplingFunc() function.FuncType {
 		return function.Min
 	case MaxField:
 		return function.Max
+	case GaugeField:
+		return function.Replace
 	case HistogramField:
 		return function.Histogram
 	default:
@@ -98,6 +106,13 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 	case MaxField:
 		switch funcType {
 		case function.Max:
+			return true
+		default:
+			return false
+		}
+	case GaugeField:
+		switch funcType {
+		case function.Sum, function.Min, function.Max, function.Replace:
 			return true
 		default:
 			return false

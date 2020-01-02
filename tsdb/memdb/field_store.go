@@ -134,6 +134,15 @@ func (fs *fieldStore) Write(
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
 		writtenSize += sStore.WriteFloat(fields.Sum.Value, writeCtx)
+	case *pb.Field_Gauge:
+		if !ok {
+			//TODO ???
+			oldCap := cap(fs.sStoreNodes)
+			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Replace.AggFunc())
+			fs.insertSStore(sStore)
+			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+		}
+		writtenSize += sStore.WriteFloat(fields.Gauge.Value, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}

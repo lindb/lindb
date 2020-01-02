@@ -55,6 +55,52 @@ func (s *minSchema) getDefaultPrimitiveFields() map[uint16]AggType {
 	return map[uint16]AggType{s.primitiveFieldID: Min}
 }
 
+type maxSchema struct {
+	primitiveFieldID uint16
+}
+
+func newMaxSchema() schema {
+	return &maxSchema{
+		primitiveFieldID: uint16(1),
+	}
+}
+
+func (s *maxSchema) getPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
+	switch funcType {
+	case function.Max:
+		return map[uint16]AggType{s.primitiveFieldID: Max}
+	default:
+		return nil
+	}
+}
+
+func (s *maxSchema) getDefaultPrimitiveFields() map[uint16]AggType {
+	return map[uint16]AggType{s.primitiveFieldID: Max}
+}
+
+type gaugeSchema struct {
+	primitiveFieldID uint16
+}
+
+func newGaugeSchema() schema {
+	return &gaugeSchema{
+		primitiveFieldID: uint16(1),
+	}
+}
+
+func (s *gaugeSchema) getPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
+	switch funcType {
+	case function.Replace:
+		return map[uint16]AggType{s.primitiveFieldID: Replace}
+	default:
+		return nil
+	}
+}
+
+func (s *gaugeSchema) getDefaultPrimitiveFields() map[uint16]AggType {
+	return map[uint16]AggType{s.primitiveFieldID: Replace}
+}
+
 type summarySchema struct {
 	sumFieldID, countFieldID, minFieldID, maxFieldID uint16
 }

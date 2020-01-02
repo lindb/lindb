@@ -2,6 +2,7 @@ package memdb
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -515,7 +516,25 @@ func (ms *metricStore) FlushInvertedIndexTo(
 			flusher.FlushVersion(tagIndex.Version(), tagIndex.IndexTimeRange(), bitmap)
 		}
 	}
-	for tagKey, tagValues := range tagKeyValues {
+
+	// gen tag key id and build tag key id to tag key mapping, then sort by tag key id
+	tagKeyIDs := make([]uint32, len(tagKeyValues))
+	tagKeyID2Name := make(map[uint32]string)
+	idx := 0
+	for tagKey := range tagKeyValues {
+		tagKeyID := idGenerator.GenTagKeyID(metricID, tagKey)
+		tagKeyIDs[idx] = tagKeyID
+		tagKeyID2Name[tagKeyID] = tagKey
+		idx++
+	}
+	sort.Slice(tagKeyIDs, func(i, j int) bool {
+		return tagKeyIDs[i] < tagKeyIDs[j]
+	})
+
+	// flush tag key inverted index data
+	for _, tagKeyID := range tagKeyIDs {
+		tagKey := tagKeyID2Name[tagKeyID]
+		tagValues := tagKeyValues[tagKey]
 		for tagValue := range tagValues {
 			if immutable != nil {
 				flushInvertedIndex(immutable, tagKey, tagValue)
@@ -523,7 +542,7 @@ func (ms *metricStore) FlushInvertedIndexTo(
 			flushInvertedIndex(ms.mutable, tagKey, tagValue)
 			flusher.FlushTagValue(tagValue)
 		}
-		if err := flusher.FlushTagKeyID(idGenerator.GenTagKeyID(metricID, tagKey)); err != nil {
+		if err := flusher.FlushTagKeyID(tagKeyID); err != nil {
 			return err
 		}
 	}
