@@ -240,12 +240,13 @@ func (ms *metricStore) SuggestTagValues(
 	}
 	var tagValuesMap = make(map[string]struct{})
 	prefixSearchTagValue := func(tagIndex tagIndexINTF) {
-		for _, entrySet := range tagIndex.GetTagKVEntrySets() {
-			if len(tagValuesMap) >= limit {
-				return
-			}
+		entrySet, ok := tagIndex.GetTagKVEntrySet(tagKey)
+		if ok {
 			for tagValue := range entrySet.values {
 				if strings.HasPrefix(tagValue, tagValuePrefix) {
+					if len(tagValuesMap) >= limit {
+						return
+					}
 					tagValuesMap[tagValue] = struct{}{}
 				}
 			}

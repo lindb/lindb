@@ -340,6 +340,7 @@ func prepareMockTagIndexes(ctrl *gomock.Controller) (*MocktagIndexINTF, *Mocktag
 	fakeKVEntrySet3 := []*tagKVEntrySet{
 		{key: "usage", values: map[string]*roaring.Bitmap{
 			"idle":   roaring.BitmapOf(1, 2, 3, 8, 9),
+			"nj":     roaring.BitmapOf(11),
 			"system": roaring.BitmapOf(4, 5, 6, 7, 10)}},
 		{key: "zone", values: map[string]*roaring.Bitmap{
 			"nj": roaring.BitmapOf(1, 2, 3, 4, 5),
@@ -467,6 +468,7 @@ func Test_mStore_suggest(t *testing.T) {
 
 	assert.Len(t, mStoreInterface.SuggestTagKeys("host", 1), 1)
 	assert.Len(t, mStoreInterface.SuggestTagKeys("host", 3), 1)
-	assert.Len(t, mStoreInterface.SuggestTagValues("host", "a", 1), 1)
+	assert.Len(t, mStoreInterface.SuggestTagValues("zone", "n", 1), 1)
+	assert.Len(t, mStoreInterface.SuggestTagValues("zone", "n", 100), 2)
 	assert.Len(t, mStoreInterface.SuggestTagValues("host", "a", 100000), 1)
 }
