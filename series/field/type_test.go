@@ -12,6 +12,7 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Sum, SumField.DownSamplingFunc())
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
+	assert.Equal(t, function.Replace, GaugeField.DownSamplingFunc())
 	assert.Equal(t, function.Histogram, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Unknown, Unknown.DownSamplingFunc())
 }
@@ -20,6 +21,7 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "sum", SumField.String())
 	assert.Equal(t, "max", MaxField.String())
 	assert.Equal(t, "min", MinField.String())
+	assert.Equal(t, "gauge", GaugeField.String())
 	assert.Equal(t, "summary", SummaryField.String())
 	assert.Equal(t, "histogram", HistogramField.String())
 	assert.Equal(t, "unknown", Unknown.String())
@@ -40,6 +42,9 @@ func TestIsSupportFunc(t *testing.T) {
 
 	assert.True(t, MaxField.IsFuncSupported(function.Max))
 	assert.False(t, MaxField.IsFuncSupported(function.Histogram))
+
+	assert.True(t, GaugeField.IsFuncSupported(function.Replace))
+	assert.False(t, GaugeField.IsFuncSupported(function.Histogram))
 
 	assert.True(t, MinField.IsFuncSupported(function.Min))
 	assert.False(t, MinField.IsFuncSupported(function.Histogram))

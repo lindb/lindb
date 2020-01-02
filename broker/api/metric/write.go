@@ -42,7 +42,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 					Name:      "cpu",
 					Timestamp: timeutil.Now(),
 					Fields: []*field.Field{
-						{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
+						{Name: "f1", Field: &field.Field_Gauge{Gauge: &field.Gauge{
 							Value: 1.0,
 						}}},
 					},

@@ -14,16 +14,16 @@ var aggLogger = logger.GetLogger("tsdb", "fieldAgg")
 // Aggregate aggregates the field data for query aggregator
 func Aggregate(fieldType field.Type, agg aggregation.FieldAggregator, tsd *encoding.TSDDecoder, data []byte) {
 	switch fieldType {
-	case field.SumField:
+	case field.SumField, field.GaugeField:
 		tsd.Reset(data)
-		aggSumField(agg, tsd)
+		aggSimpleField(agg, tsd)
 	default:
 		aggLogger.Error("unknown field type when does query aggregate")
 	}
 }
 
-// aggSumField aggregates the sum field data by sum store layout
-func aggSumField(agg aggregation.FieldAggregator, tsd *encoding.TSDDecoder) {
+// aggSimpleField aggregates the simple field data by simple field store layout
+func aggSimpleField(agg aggregation.FieldAggregator, tsd *encoding.TSDDecoder) {
 	aggregators := agg.GetAllAggregators()
 	for tsd.Next() {
 		if tsd.HasValue() {

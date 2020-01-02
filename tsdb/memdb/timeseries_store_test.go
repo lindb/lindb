@@ -29,7 +29,7 @@ func Test_tStore_expired(t *testing.T) {
 	assert.True(t, tStore.IsExpired())
 }
 
-func Test_tStore_write(t *testing.T) {
+func Test_tStore_write_sum(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -64,6 +64,39 @@ func Test_tStore_write(t *testing.T) {
 	// insert test
 	tStore.insertFStore(newFieldStore(3))
 	tStore.insertFStore(newFieldStore(2))
+}
+
+func Test_tStore_write_gauge(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tStoreInterface := newTimeSeriesStore()
+	tStore := tStoreInterface.(*timeSeriesStore)
+	// mock fieldID getter
+	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
+	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
+	// mock field-store
+	mockFStore := NewMockfStoreINTF(ctrl)
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
+	// get existed fStore
+	_, err := tStore.Write(
+		&pb.Metric{
+			Fields: []*pb.Field{
+				{Name: "gauge", Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
+					Value: 1.0,
+				}}},
+				{Name: "unknown", Field: nil}},
+		}, writeContext{
+			metricID:            1,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockFieldIDGetter})
+	assert.NoError(t, err)
+	assert.False(t, tStoreInterface.IsNoData())
+	fStore, ok := tStoreInterface.GetFStore(uint16(1))
+	assert.True(t, ok)
+	assert.NotNil(t, fStore)
 }
 
 func Test_tStore_GenFieldID_error(t *testing.T) {

@@ -3,10 +3,11 @@ package field
 import "math"
 
 var (
-	sumAggregator   = sumAgg{aggType: Sum}
-	countAggregator = sumAgg{aggType: Count}
-	minAggregator   = minAgg{aggType: Min}
-	maxAggregator   = maxAgg{aggType: Max}
+	sumAggregator     = sumAgg{aggType: Sum}
+	countAggregator   = sumAgg{aggType: Count}
+	minAggregator     = minAgg{aggType: Min}
+	maxAggregator     = maxAgg{aggType: Max}
+	replaceAggregator = replaceAgg{aggType: Replace}
 )
 
 // AggFunc returns aggregator function by given func type
@@ -20,6 +21,8 @@ func (t AggType) AggFunc() AggFunc {
 		return minAggregator
 	case Max:
 		return maxAggregator
+	case Replace:
+		return replaceAggregator
 	default:
 		return nil
 	}
@@ -71,3 +74,14 @@ func (m maxAgg) AggregateInt(a, b int64) int64 {
 	return b
 }
 func (m maxAgg) AggregateFloat(a, b float64) float64 { return math.Max(a, b) }
+
+// replaceAgg represents replace aggregator
+type replaceAgg struct {
+	aggType AggType
+}
+
+func (m replaceAgg) AggType() AggType { return m.aggType }
+func (m replaceAgg) AggregateInt(a, b int64) int64 {
+	return b
+}
+func (m replaceAgg) AggregateFloat(a, b float64) float64 { return b }
