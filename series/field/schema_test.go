@@ -17,6 +17,7 @@ func Test_Sum_getPrimitiveFields(t *testing.T) {
 
 	assert.Nil(t, newSumSchema().getPrimitiveFields(function.FuncType(128)))
 }
+
 func Test_Min_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[uint16(1)] == Min)
 	assert.Equal(t, 1, len(newMinSchema().getPrimitiveFields(function.Min)))
@@ -25,6 +26,26 @@ func Test_Min_getPrimitiveFields(t *testing.T) {
 	assert.Equal(t, 1, len(newMinSchema().getDefaultPrimitiveFields()))
 
 	assert.Nil(t, newMinSchema().getPrimitiveFields(function.FuncType(128)))
+}
+
+func Test_Max_getPrimitiveFields(t *testing.T) {
+	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[uint16(1)] == Max)
+	assert.Equal(t, 1, len(newMaxSchema().getPrimitiveFields(function.Max)))
+
+	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[uint16(1)] == Max)
+	assert.Equal(t, 1, len(newMaxSchema().getDefaultPrimitiveFields()))
+
+	assert.Nil(t, newMaxSchema().getPrimitiveFields(function.FuncType(128)))
+}
+
+func Test_Gauge_getPrimitiveFields(t *testing.T) {
+	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[uint16(1)] == Replace)
+	assert.Equal(t, 1, len(newGaugeSchema().getPrimitiveFields(function.Replace)))
+
+	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[uint16(1)] == Replace)
+	assert.Equal(t, 1, len(newGaugeSchema().getDefaultPrimitiveFields()))
+
+	assert.Nil(t, newGaugeSchema().getPrimitiveFields(function.FuncType(128)))
 }
 
 func Test_Summary_getPrimitiveFields(t *testing.T) {

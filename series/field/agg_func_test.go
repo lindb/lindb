@@ -11,6 +11,7 @@ func TestGetAggFunc(t *testing.T) {
 	assert.NotNil(t, Min.AggFunc())
 	assert.NotNil(t, Max.AggFunc())
 	assert.NotNil(t, Count.AggFunc())
+	assert.NotNil(t, Replace.AggFunc())
 	assert.Nil(t, AggType(99).AggFunc())
 }
 
@@ -37,4 +38,11 @@ func TestMaxAgg(t *testing.T) {
 	assert.Equal(t, int64(99), agg.AggregateInt(99, 1))
 	assert.Equal(t, 99.0, agg.AggregateFloat(1, 99.0))
 	assert.Equal(t, 99.0, agg.AggregateFloat(99.0, 1))
+}
+
+func TestReplaceAgg(t *testing.T) {
+	agg := Replace.AggFunc()
+	assert.Equal(t, Replace, agg.AggType())
+	assert.Equal(t, int64(99), agg.AggregateInt(1, 99))
+	assert.Equal(t, 99.0, agg.AggregateFloat(1, 99.0))
 }

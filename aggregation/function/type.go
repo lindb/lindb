@@ -9,6 +9,7 @@ const (
 	Max
 	Count
 	Avg
+	Replace
 	Histogram
 	Stddev
 
@@ -28,6 +29,8 @@ func (t FuncType) String() string {
 		return "count"
 	case Avg:
 		return "avg"
+	case Replace:
+		return "replace"
 	case Histogram:
 		return "histogram"
 	case Stddev:
