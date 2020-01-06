@@ -18,7 +18,6 @@ func TestSimpleSegmentStore(t *testing.T) {
 	assert.NotNil(t, store)
 	ss, ok := store.(*simpleFieldStore)
 	assert.True(t, ok)
-	assert.Equal(t, field.Sum, ss.AggType())
 
 	_, _, err := ss.SlotRange()
 	assert.NotNil(t, err)
@@ -37,22 +36,22 @@ func TestSimpleSegmentStore(t *testing.T) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.WriteInt(110, writeCtx)
+	ss.WriteInt(uint16(1), 110, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 40
-	ss.WriteInt(20, writeCtx)
+	ss.WriteInt(uint16(1), 20, writeCtx)
 	// compact before time window
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 41
-	ss.WriteInt(50, writeCtx)
+	ss.WriteInt(uint16(1), 50, writeCtx)
 
 	compress, startSlot, endSlot, err = store.Bytes(true)
 	assert.Nil(t, err)
@@ -97,10 +96,10 @@ func TestSimpleSegmentStore_float(t *testing.T) {
 	assert.True(t, ok)
 	// write float test
 	writeCtx.slotIndex = 10
-	ss.WriteFloat(10, writeCtx)
+	ss.WriteFloat(uint16(1), 10, writeCtx)
 	// auto rollup
 	writeCtx.slotIndex = 10
-	ss.WriteFloat(10, writeCtx)
+	ss.WriteFloat(uint16(1), 10, writeCtx)
 }
 
 func Test_sStore_error(t *testing.T) {
@@ -127,10 +126,10 @@ func Test_sStore_error(t *testing.T) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.WriteInt(110, writeCtx)
+	ss.WriteInt(uint16(1), 110, writeCtx)
 }
 
 func BenchmarkSimpleSegmentStore(b *testing.B) {
@@ -146,22 +145,22 @@ func BenchmarkSimpleSegmentStore(b *testing.B) {
 	}
 
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 11
-	ss.WriteInt(110, writeCtx)
+	ss.WriteInt(uint16(1), 110, writeCtx)
 	// memory auto rollup
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 40
-	ss.WriteInt(20, writeCtx)
+	ss.WriteInt(uint16(1), 20, writeCtx)
 	// compact before time window
 	writeCtx.slotIndex = 10
-	ss.WriteInt(100, writeCtx)
+	ss.WriteInt(uint16(1), 100, writeCtx)
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 41
-	ss.WriteInt(50, writeCtx)
+	ss.WriteInt(uint16(1), 50, writeCtx)
 
 	_, _, _, _ = store.Bytes(true)
 }

@@ -51,8 +51,10 @@ func NewFieldAggregates(
 type SeriesAggregator interface {
 	// FieldName returns field name
 	FieldName() string
-	// FieldType returns field type
-	FieldType() field.Type
+	// GetFieldType returns field type
+	GetFieldType() field.Type
+	// SetFieldType sets field type
+	SetFieldType(fieldType field.Type)
 	// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
 	GetAggregator(segmentStartTime int64) (FieldAggregator, bool)
 	// Aggregators returns all field aggregates
@@ -65,6 +67,7 @@ type SeriesAggregator interface {
 
 type seriesAggregator struct {
 	fieldName      string
+	fieldType      field.Type
 	ratio          int
 	isDownSampling bool
 	aggregates     []FieldAggregator
@@ -91,6 +94,7 @@ func NewSeriesAggregator(
 	length := calc.CalcTimeWindows(queryTimeRange.Start, queryTimeRange.End)
 	agg := &seriesAggregator{
 		fieldName:      aggSpec.FieldName(),
+		fieldType:      aggSpec.GetFieldType(),
 		startTime:      startTime,
 		ratio:          ratio,
 		isDownSampling: isDownSampling,
@@ -110,9 +114,14 @@ func (a *seriesAggregator) FieldName() string {
 	return a.fieldName
 }
 
-// FieldType returns the field type
-func (a *seriesAggregator) FieldType() field.Type {
-	return a.aggSpec.FieldType()
+// GetFieldType returns the field type
+func (a *seriesAggregator) GetFieldType() field.Type {
+	return a.fieldType
+}
+
+// SetFieldType sets field type
+func (a *seriesAggregator) SetFieldType(fieldType field.Type) {
+	a.fieldType = fieldType
 }
 
 // Aggregators returns all field aggregates

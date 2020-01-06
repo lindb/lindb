@@ -31,6 +31,7 @@ func TestQuery_Marshal(t *testing.T) {
 				},
 			},
 		},
+		FieldNames: []string{"a", "b", "c"},
 		Condition: &BinaryExpr{
 			Left: &ParenExpr{Expr: &BinaryExpr{
 				Left:     &InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}},

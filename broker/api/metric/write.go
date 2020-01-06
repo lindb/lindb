@@ -42,8 +42,9 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 					Name:      "cpu",
 					Timestamp: timeutil.Now(),
 					Fields: []*field.Field{
-						{Name: "f1", Field: &field.Field_Max{Max: &field.Max{
-							Value: float64(n),
+						{Name: "f2", Field: &field.Field_Summary{Summary: &field.Summary{
+							Sum:   2.0,
+							Count: 1,
 						}}},
 					},
 					Tags: map[string]string{"host": "1.1.1." + strconv.Itoa(i), "disk": "/tmp" + strconv.Itoa(j), "partition": "partition" + strconv.Itoa(k)},

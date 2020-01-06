@@ -2,6 +2,7 @@ package sql
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/lindb/lindb/aggregation/function"
@@ -17,6 +18,7 @@ type queryStmtParse struct {
 	metricName string
 
 	selectItems []stmt.Expr
+	fieldNames  map[string]struct{}
 
 	startTime int64
 	endTime   int64
@@ -37,9 +39,10 @@ type queryStmtParse struct {
 // newQueryStmtParse create a query statement parser
 func newQueryStmtParse() *queryStmtParse {
 	return &queryStmtParse{
-		limit:     20,
-		fieldID:   1,
-		exprStack: collections.NewStack(),
+		fieldNames: make(map[string]struct{}),
+		limit:      20,
+		fieldID:    1,
+		exprStack:  collections.NewStack(),
 	}
 }
 
@@ -53,6 +56,17 @@ func (q *queryStmtParse) build() (*stmt.Query, error) {
 	query.MetricName = q.metricName
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
+
+	fieldNames := make([]string, len(q.fieldNames))
+	idx := 0
+	for fieldName := range q.fieldNames {
+		fieldNames[idx] = fieldName
+		idx++
+	}
+	sort.Slice(fieldNames, func(i, j int) bool {
+		return fieldNames[i] < fieldNames[j]
+	})
+	query.FieldNames = fieldNames
 
 	now := timeutil.Now()
 	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
@@ -352,6 +366,8 @@ func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
 		callExpr.FuncType = function.Min
 	case ctx.T_MAX() != nil:
 		callExpr.FuncType = function.Max
+	case ctx.T_COUNT() != nil:
+		callExpr.FuncType = function.Count
 	case ctx.T_AVG() != nil:
 		callExpr.FuncType = function.Avg
 	case ctx.T_STDDEV() != nil:
@@ -385,6 +401,7 @@ func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
 		} else {
 			q.setExprParam(&stmt.FieldExpr{Name: val})
 		}
+		q.fieldNames[val] = struct{}{}
 	case ctx.DecNumber() != nil || ctx.IntNumber() != nil:
 		valStr := ""
 		switch {

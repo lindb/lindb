@@ -13,6 +13,7 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
 	assert.Equal(t, function.Replace, GaugeField.DownSamplingFunc())
+	assert.Equal(t, function.Count, SummaryField.DownSamplingFunc())
 	assert.Equal(t, function.Histogram, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Unknown, Unknown.DownSamplingFunc())
 }
@@ -49,10 +50,23 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, MinField.IsFuncSupported(function.Min))
 	assert.False(t, MinField.IsFuncSupported(function.Histogram))
 
+	assert.True(t, SummaryField.IsFuncSupported(function.Count))
+
 	assert.True(t, HistogramField.IsFuncSupported(function.Min))
 	assert.True(t, HistogramField.IsFuncSupported(function.Sum))
 	assert.True(t, HistogramField.IsFuncSupported(function.Max))
 	assert.True(t, HistogramField.IsFuncSupported(function.Histogram))
 
 	assert.False(t, Unknown.IsFuncSupported(function.Histogram))
+}
+
+func TestType_GetSchema(t *testing.T) {
+	assert.NotNil(t, SumField.GetSchema())
+	assert.NotNil(t, MinField.GetSchema())
+	assert.NotNil(t, MaxField.GetSchema())
+	assert.NotNil(t, GaugeField.GetSchema())
+	assert.NotNil(t, SummaryField.GetSchema())
+	//FIXME need test
+	//assert.NotNil(t, HistogramField.GetSchema())
+	assert.Nil(t, Unknown.GetSchema())
 }

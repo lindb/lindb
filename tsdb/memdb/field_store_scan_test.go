@@ -10,7 +10,7 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 )
 
-func TestFieldStore_Scan(t *testing.T) {
+func TestFieldStore_simple_Scan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	agg := aggregation.NewMockSeriesAggregator(ctrl)
@@ -44,6 +44,45 @@ func TestFieldStore_Scan(t *testing.T) {
 		agg.EXPECT().GetAggregator(familyTime).Return(fieldAgg, true),
 		fieldAgg.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg}),
 		pAgg.EXPECT().Aggregate(20, 1.0).Return(false),
+	)
+	fStore.scan(agg, sCtx)
+}
+func TestFieldStore_complex_Scan(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	agg := aggregation.NewMockSeriesAggregator(ctrl)
+
+	bs := newBlockStore(10)
+
+	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
+
+	fStore := newFieldStore(10)
+	sCtx := &memScanContext{}
+	// no data
+	fStore.scan(agg, sCtx)
+
+	// write data
+	fStore.Write(
+		&pb.Field{
+			Name: "f1",
+			Field: &pb.Field_Summary{Summary: &pb.Summary{
+				Sum:   10.0,
+				Count: 2,
+			}}},
+		writeContext{
+			blockStore: bs,
+			familyTime: familyTime,
+			slotIndex:  20,
+			metricID:   uint32(10),
+		})
+
+	fieldAgg := aggregation.NewMockFieldAggregator(ctrl)
+	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
+	gomock.InOrder(
+		agg.EXPECT().GetAggregator(familyTime).Return(fieldAgg, true),
+		fieldAgg.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg}),
+		pAgg.EXPECT().FieldID().Return(uint16(2)),
+		pAgg.EXPECT().Aggregate(20, 2.0).Return(false),
 	)
 	fStore.scan(agg, sCtx)
 }
