@@ -49,7 +49,6 @@ func (e *brokerExecutor) Execute() {
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	brokerNodes := e.nodeStateMachine.GetActiveNodes()
 	plan := newBrokerPlan(e.sql, storageNodes, e.nodeStateMachine.GetCurrentNode(), brokerNodes)
-
 	var err error
 	if len(storageNodes) == 0 {
 		err = errNoAvailableStorageNode
@@ -57,6 +56,7 @@ func (e *brokerExecutor) Execute() {
 		err = plan.Plan()
 	}
 
+	// maybe plan doesn't execute(query statement is nil), because storage nodes is empty
 	brokerPlan := plan.(*brokerPlan)
 	e.executeCtx = parallel.NewBrokerExecuteContext(brokerPlan.query)
 

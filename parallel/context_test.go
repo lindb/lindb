@@ -99,3 +99,11 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, rs.Series, 0)
 }
+
+func TestBrokerExecuteContext_ResultSet(t *testing.T) {
+	ctx := NewBrokerExecuteContext(nil)
+	ctx.Complete(fmt.Errorf("err"))
+	rs, err := ctx.ResultSet()
+	assert.Error(t, err)
+	assert.NotNil(t, rs)
+}
