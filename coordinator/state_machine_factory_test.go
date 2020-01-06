@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/service"
 )
 
@@ -24,12 +25,15 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	discoveryFactory.EXPECT().GetRepo().Return(repo).AnyTimes()
 	shardAssignSVR := service.NewMockShardAssignService(ctrl)
+	cm := replication.NewMockChannelManager(ctrl)
+	cm.EXPECT().SyncReplicatorState().AnyTimes()
 
 	factory := NewStateMachineFactory(&StateMachineCfg{
 		Ctx:              context.TODO(),
 		CurrentNode:      models.Node{IP: "1.1.1.1", Port: 9000},
 		DiscoveryFactory: discoveryFactory,
 		ShardAssignSRV:   shardAssignSVR,
+		ChannelManager:   cm,
 	})
 
 	// test node state machine

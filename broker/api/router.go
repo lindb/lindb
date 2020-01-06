@@ -124,6 +124,7 @@ func panicHandler(h http.Handler) http.Handler {
 					err = errors.New("UnKnow ERROR")
 				}
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				log.Error("serve http func panic", logger.Error(err), logger.Stack())
 			}
 		}()
 		h.ServeHTTP(w, r)
