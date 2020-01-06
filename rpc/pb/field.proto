@@ -17,6 +17,14 @@ message Sum {
     double value = 1;
 }
 
+message Min {
+    double value = 1;
+}
+
+message Max {
+    double value = 1;
+}
+
 message Gauge {
     double value = 1;
 }
@@ -43,13 +51,14 @@ message Bucket {
     double value = 2;
 }
 
-
 message Field {
     string name = 1;
     oneof field {
         Sum sum = 2;
-        Gauge gauge = 3;
-        Summary summary = 4;
-        Histogram histogram = 5;
+        Max max = 3;
+        Min min = 4;
+        Gauge gauge = 5;
+        Summary summary = 6;
+        Histogram histogram = 7;
     }
 }

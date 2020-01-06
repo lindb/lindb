@@ -14,7 +14,7 @@ var aggLogger = logger.GetLogger("tsdb", "fieldAgg")
 // Aggregate aggregates the field data for query aggregator
 func Aggregate(fieldType field.Type, agg aggregation.FieldAggregator, tsd *encoding.TSDDecoder, data []byte) {
 	switch fieldType {
-	case field.SumField, field.GaugeField:
+	case field.SumField, field.GaugeField, field.MinField, field.MaxField:
 		tsd.Reset(data)
 		aggSimpleField(agg, tsd)
 	default:
