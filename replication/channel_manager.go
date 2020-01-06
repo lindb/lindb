@@ -35,6 +35,8 @@ type ChannelManager interface {
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
 	CreateChannel(database string, numOfShard, shardID int32) (Channel, error)
+	// SyncReplicatorState syncs replicator state
+	SyncReplicatorState()
 
 	// Close closes all the channel.
 	Close()
@@ -55,8 +57,9 @@ type channelManager struct {
 	// channelID(database name)  -> Channel
 	databaseChannelMap sync.Map
 	// lock for channelMap
-	lock4map sync.Mutex
-	logger   *logger.Logger
+	lock4map  sync.Mutex
+	syncState chan struct{}
+	logger    *logger.Logger
 }
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
@@ -70,6 +73,7 @@ func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactor
 		cfg:                   cfg,
 		fct:                   fct,
 		replicatorStateReport: replicatorStateReport,
+		syncState:             make(chan struct{}),
 		logger:                logger.GetLogger("replication", "channelManager"),
 	}
 	cm.scheduleStateReport()
@@ -113,6 +117,11 @@ func (cm *channelManager) CreateChannel(database string, numOfShard, shardID int
 	return ch.CreateChannel(numOfShard, shardID)
 }
 
+// SyncReplicatorState syncs replicator state
+func (cm *channelManager) SyncReplicatorState() {
+	cm.syncState <- struct{}{}
+}
+
 // Close closes all the channel.
 func (cm *channelManager) Close() {
 	cm.cancel()
@@ -142,6 +151,8 @@ func (cm *channelManager) scheduleStateReport() {
 		for {
 			select {
 			case <-ticker.C:
+				cm.reportState()
+			case <-cm.syncState:
 				cm.reportState()
 			case <-cm.ctx.Done():
 				ticker.Stop()

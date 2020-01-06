@@ -123,3 +123,28 @@ func TestChannelManager_ReportState(t *testing.T) {
 	dbChannel.EXPECT().ReplicaState().Return([]models.ReplicaState{{}}).AnyTimes()
 	cm1.reportState()
 }
+
+func TestChannelManager_SyncReplicatorState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	defer func() {
+		if err := os.RemoveAll(dirPath); err != nil {
+			t.Error(err)
+		}
+		ctrl.Finish()
+	}()
+
+	replicatorStateReport := NewMockReplicatorStateReport(ctrl)
+	replicatorStateReport.EXPECT().Report(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+
+	replicationConfig.Dir = dirPath
+	cm := NewChannelManager(replicationConfig, nil, replicatorStateReport)
+	cm.SyncReplicatorState()
+
+	dbChannel := NewMockDatabaseChannel(ctrl)
+	cm1 := cm.(*channelManager)
+	cm1.databaseChannelMap.Store("database", dbChannel)
+	dbChannel.EXPECT().ReplicaState().Return([]models.ReplicaState{{}}).AnyTimes()
+	cm1.reportState()
+	cm.Close()
+}

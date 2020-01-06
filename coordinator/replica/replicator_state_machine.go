@@ -60,6 +60,8 @@ func NewReplicatorStateMachine(ctx context.Context,
 	for _, shardAssign := range shardAssigns {
 		stateMachine.buildShardAssign(shardAssign)
 	}
+	// final sync new replicator state
+	stateMachine.cm.SyncReplicatorState()
 	// new database's shard assign discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseAssignPath, stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
@@ -79,6 +81,8 @@ func (sm *replicatorStateMachine) OnCreate(key string, resource []byte) {
 	defer sm.mutex.Unlock()
 
 	sm.buildShardAssign(shardAssign)
+	// final sync new replicator state
+	sm.cm.SyncReplicatorState()
 }
 
 // OnDelete trigger on database deletion, destroy related replicators for deletion database

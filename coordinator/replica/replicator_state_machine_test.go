@@ -20,6 +20,7 @@ func TestReplicatorStateMachine(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
+	cm.EXPECT().SyncReplicatorState().AnyTimes()
 	shardAssignSRV := service.NewMockShardAssignService(ctrl)
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
