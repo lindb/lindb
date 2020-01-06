@@ -25,7 +25,7 @@ const (
 	Replace
 )
 
-var schemas = map[Type]schema{}
+var schemas = map[Type]Schema{}
 
 func init() {
 	schemas[SumField] = newSumSchema()
@@ -80,6 +80,8 @@ func (t Type) DownSamplingFunc() function.FuncType {
 		return function.Max
 	case GaugeField:
 		return function.Replace
+	case SummaryField:
+		return function.Count
 	case HistogramField:
 		return function.Histogram
 	default:
@@ -117,6 +119,8 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		default:
 			return false
 		}
+	case SummaryField:
+		return true
 	case HistogramField:
 		return true
 	default:
@@ -131,6 +135,10 @@ func (t Type) GetPrimitiveFields(funcType function.FuncType) map[uint16]AggType 
 		return nil
 	}
 	return schema.getPrimitiveFields(funcType)
+}
+
+func (t Type) GetSchema() Schema {
+	return schemas[t]
 }
 
 // GetDefaultPrimitiveFields returns the default primitive fields for aggregator

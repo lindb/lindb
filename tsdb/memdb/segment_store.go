@@ -22,8 +22,6 @@ const (
 type sStoreINTF interface {
 	GetFamilyTime() int64
 
-	AggType() field.AggType
-
 	SlotRange() (
 		startSlot,
 		endSlot int,
@@ -39,12 +37,15 @@ type sStoreINTF interface {
 
 	// WriteInt writes a int value, and returns the written length
 	WriteInt(
+		pFieldID uint16,
 		value int64,
 		writeCtx writeContext,
 	) int
 
 	// WriteFloat writes a float64 value, and returns the written length
-	WriteFloat(value float64,
+	WriteFloat(
+		pFieldID uint16,
+		value float64,
 		writeCtx writeContext,
 	) int
 
@@ -52,6 +53,46 @@ type sStoreINTF interface {
 
 	// scan scans segment store data based on query time range
 	scan(agg aggregation.SeriesAggregator, memScanCtx *memScanContext)
+}
+
+// calcTimeWindow calculates time window's block for storing field data based on slot time and value type.
+// return int=>pos(slot in time window), bool=>needRollup(if rollup with old value)
+// 1) block is nil, create new block, return newBlock, 0, false
+// 2) slot time out of current time window, need compress time window then create new one, return block, 0, false
+// 3) in current time window, if has old value return pos, true, else return block, pos, false
+func calcTimeWindow(block block, blockStore *blockStore, slotTime int,
+	valueType field.ValueType, aggFunc field.AggFunc) (block, int, bool) {
+	currentBlock := block
+
+	// block is nil
+	if currentBlock == nil {
+		currentBlock = blockStore.allocBlock(valueType)
+		currentBlock.setStartTime(slotTime)
+		return currentBlock, 0, false
+	}
+
+	startTime := currentBlock.getStartTime()
+
+	// if current slot time out of current time window, need compress block data, start new time window
+	if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
+		_, _, err := currentBlock.compact(aggFunc)
+		if err != nil {
+			memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
+		} else {
+			// reset start time using slot time
+			currentBlock.setStartTime(slotTime)
+		}
+		return currentBlock, 0, false
+	}
+
+	// in current time window, do rollup value
+	pos := slotTime - startTime
+	needRollup := false
+	if currentBlock.hasValue(pos) {
+		// has old value, need do rollup
+		needRollup = true
+	}
+	return currentBlock, pos, needRollup
 }
 
 // singleFieldStore stores single field
@@ -73,14 +114,10 @@ func (fs *simpleFieldStore) GetFamilyTime() int64 {
 	return fs.familyTime
 }
 
-func (fs *simpleFieldStore) AggType() field.AggType {
-	return fs.aggFunc.AggType()
-}
-
-func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) int {
+func (fs *simpleFieldStore) WriteFloat(pFieldID uint16, value float64, writeCtx writeContext) int {
 	oldSize := fs.MemSize()
-	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Float)
-	currentBlock := fs.block
+	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Float, fs.aggFunc)
+	fs.block = currentBlock
 	if hasValue {
 		// do rollup using agg func
 		currentBlock.setFloatValue(pos, fs.aggFunc.AggregateFloat(currentBlock.getFloatValue(pos), value))
@@ -90,10 +127,10 @@ func (fs *simpleFieldStore) WriteFloat(value float64, writeCtx writeContext) int
 	return fs.MemSize() - oldSize
 }
 
-func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) int {
+func (fs *simpleFieldStore) WriteInt(pFieldID uint16, value int64, writeCtx writeContext) int {
 	oldSize := fs.MemSize()
-	pos, hasValue := fs.calcTimeWindow(writeCtx.blockStore, writeCtx.slotIndex, field.Integer)
-	currentBlock := fs.block
+	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Integer, fs.aggFunc)
+	fs.block = currentBlock
 	if hasValue {
 		// do rollup using agg func
 		currentBlock.setIntValue(pos, fs.aggFunc.AggregateInt(currentBlock.getIntValue(pos), value))
@@ -101,47 +138,6 @@ func (fs *simpleFieldStore) WriteInt(value int64, writeCtx writeContext) int {
 		currentBlock.setIntValue(pos, value)
 	}
 	return fs.MemSize() - oldSize
-}
-
-// calcTimeWindow calculates time window's block for storing field data based on slot time and value type.
-// return int=>pos(slot in time window), bool=>needRollup(if rollup with old value)
-// 1) block is nil, create new block, return 0, false
-// 2) slot time out of current time window, need compress time window then create new one, return 0, false
-// 3) in current time window, if has old value return pos, true, else return pos, false
-func (fs *simpleFieldStore) calcTimeWindow(blockStore *blockStore, slotTime int,
-	valueType field.ValueType) (int, bool) {
-	currentBlock := fs.block
-
-	// block is nil
-	if currentBlock == nil {
-		currentBlock = blockStore.allocBlock(valueType)
-		currentBlock.setStartTime(slotTime)
-		fs.block = currentBlock
-		return 0, false
-	}
-
-	startTime := currentBlock.getStartTime()
-
-	// if current slot time out of current time window, need compress block data, start new time window
-	if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
-		_, _, err := currentBlock.compact(fs.aggFunc)
-		if err != nil {
-			memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
-		} else {
-			// reset start time using slot time
-			currentBlock.setStartTime(slotTime)
-		}
-		return 0, false
-	}
-
-	// in current time window, do rollup value
-	pos := slotTime - startTime
-	needRollup := false
-	if currentBlock.hasValue(pos) {
-		// has old value, need do rollup
-		needRollup = true
-	}
-	return pos, needRollup
 }
 
 func (fs *simpleFieldStore) Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error) {
@@ -162,6 +158,7 @@ func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
 		err = fmt.Errorf("block is empty")
 		return
 	}
+	//FIXME need fix slot range cal, need add current slot range
 	startSlot, endSlot = encoding.DecodeTSDTime(fs.block.bytes())
 	return
 }

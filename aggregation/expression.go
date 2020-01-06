@@ -132,11 +132,12 @@ func (e *expression) funcCall(expr *stmt.CallExpr) []collections.FloatArray {
 	var params []collections.FloatArray
 	for _, param := range expr.Params {
 		paramValues := e.eval(expr, param)
-		if len(paramValues) != 1 {
+		if len(paramValues) == 0 {
 			return nil
 		}
-		params = append(params, paramValues[0])
+		params = append(params, paramValues...)
 	}
+	//FIXME need add pFieldID
 	result := function.FuncCall(expr.FuncType, params...)
 	if result == nil {
 		return nil

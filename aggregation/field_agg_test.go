@@ -18,7 +18,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	defer ctrl.Finish()
 	baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
 
-	aggSpec := NewAggregatorSpec("f", field.SumField)
+	aggSpec := NewDownSamplingSpec("f", field.SumField)
 	aggSpec.AddFunctionType(function.Sum)
 
 	selector1 := selector.NewIndexSlotSelector(15, 55, 1)
@@ -86,7 +86,7 @@ func TestDownSamplingFieldAggregator(t *testing.T) {
 	defer ctrl.Finish()
 	baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
 
-	aggSpec := NewAggregatorSpec("f", field.SummaryField)
+	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
 	aggSpec.AddFunctionType(function.Sum)
 	aggSpec.AddFunctionType(function.Max)
 	aggSpec.AddFunctionType(function.Avg)

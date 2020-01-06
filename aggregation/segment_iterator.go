@@ -16,7 +16,7 @@ type seriesIterator struct {
 
 // newSeriesIterator creates the time series iterator
 func newSeriesIterator(agg SeriesAggregator) series.Iterator {
-	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.FieldType(), aggregators: agg.Aggregators()}
+	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.GetFieldType(), aggregators: agg.Aggregators()}
 	it.len = len(it.aggregators)
 	return it
 }

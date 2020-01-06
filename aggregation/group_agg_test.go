@@ -27,8 +27,8 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 			End:   now + 3*timeutil.OneHour,
 		},
 		AggregatorSpecs{
-			NewAggregatorSpec("b", field.SumField),
-			NewAggregatorSpec("a", field.SumField),
+			NewDownSamplingSpec("b", field.SumField),
+			NewDownSamplingSpec("a", field.SumField),
 		})
 
 	gomock.InOrder(
@@ -37,6 +37,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		gIt.EXPECT().Next().Return(sIt),
 		// series it
 		sIt.EXPECT().FieldName().Return("a"),
+		sIt.EXPECT().FieldType().Return(field.SumField),
 		sIt.EXPECT().HasNext().Return(true),
 		sIt.EXPECT().Next().Return(familyTime, fIt),
 		fIt.EXPECT().HasNext().Return(false),
@@ -48,6 +49,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		gIt.EXPECT().HasNext().Return(true),
 		gIt.EXPECT().Next().Return(sIt),
 		sIt.EXPECT().FieldName().Return("c"),
+		sIt.EXPECT().FieldType().Return(field.SumField),
 
 		gIt.EXPECT().HasNext().Return(false),
 	)
@@ -61,6 +63,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		gIt.EXPECT().Next().Return(sIt),
 		// series it
 		sIt.EXPECT().FieldName().Return("a"),
+		sIt.EXPECT().FieldType().Return(field.SumField),
 		sIt.EXPECT().HasNext().Return(true),
 		sIt.EXPECT().Next().Return(familyTime, fIt),
 		fIt.EXPECT().HasNext().Return(false),
@@ -72,6 +75,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		gIt.EXPECT().HasNext().Return(true),
 		gIt.EXPECT().Next().Return(sIt),
 		sIt.EXPECT().FieldName().Return("c"),
+		sIt.EXPECT().FieldType().Return(field.SumField),
 
 		gIt.EXPECT().HasNext().Return(false),
 	)

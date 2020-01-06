@@ -73,7 +73,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.NoError(t, err)
 
 	storagePlan := plan.(*storageExecutePlan)
-	downSampling := aggregation.NewAggregatorSpec("f", field.SumField)
+	downSampling := aggregation.NewDownSamplingSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, map[uint16]aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
 	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
@@ -84,11 +84,11 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.NoError(t, err)
 
 	storagePlan = plan.(*storageExecutePlan)
-	downSampling1 := aggregation.NewAggregatorSpec("a", field.MinField)
+	downSampling1 := aggregation.NewDownSamplingSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling2 := aggregation.NewAggregatorSpec("b", field.MaxField)
+	downSampling2 := aggregation.NewDownSamplingSpec("b", field.MaxField)
 	downSampling2.AddFunctionType(function.Max)
-	downSampling3 := aggregation.NewAggregatorSpec("c", field.HistogramField)
+	downSampling3 := aggregation.NewDownSamplingSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Histogram)
 	expect := map[uint16]aggregation.AggregatorSpec{
 		uint16(11): downSampling1,
@@ -106,12 +106,12 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	}
 	storagePlan = plan.(*storageExecutePlan)
 
-	downSampling1 = aggregation.NewAggregatorSpec("a", field.MinField)
+	downSampling1 = aggregation.NewDownSamplingSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling3 = aggregation.NewAggregatorSpec("c", field.HistogramField)
+	downSampling3 = aggregation.NewDownSamplingSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Sum)
 	downSampling3.AddFunctionType(function.Avg)
-	downSampling4 := aggregation.NewAggregatorSpec("e", field.HistogramField)
+	downSampling4 := aggregation.NewDownSamplingSpec("e", field.HistogramField)
 	downSampling4.AddFunctionType(function.Histogram)
 	expect = map[uint16]aggregation.AggregatorSpec{
 		uint16(11): downSampling1,

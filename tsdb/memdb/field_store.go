@@ -133,7 +133,7 @@ func (fs *fieldStore) Write(
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		writtenSize += sStore.WriteFloat(fields.Sum.Value, writeCtx)
+		writtenSize += sStore.WriteFloat(uint16(1), fields.Sum.Value, writeCtx)
 	case *pb.Field_Min:
 		if !ok {
 			//TODO ???
@@ -142,7 +142,7 @@ func (fs *fieldStore) Write(
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		writtenSize += sStore.WriteFloat(fields.Min.Value, writeCtx)
+		writtenSize += sStore.WriteFloat(uint16(1), fields.Min.Value, writeCtx)
 	case *pb.Field_Max:
 		if !ok {
 			//TODO ???
@@ -151,7 +151,7 @@ func (fs *fieldStore) Write(
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		writtenSize += sStore.WriteFloat(fields.Max.Value, writeCtx)
+		writtenSize += sStore.WriteFloat(uint16(1), fields.Max.Value, writeCtx)
 	case *pb.Field_Gauge:
 		if !ok {
 			//TODO ???
@@ -160,7 +160,18 @@ func (fs *fieldStore) Write(
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		writtenSize += sStore.WriteFloat(fields.Gauge.Value, writeCtx)
+		writtenSize += sStore.WriteFloat(uint16(1), fields.Gauge.Value, writeCtx)
+	case *pb.Field_Summary:
+		if !ok {
+			//TODO ???
+			oldCap := cap(fs.sStoreNodes)
+			sStore = newComplexFieldStore(writeCtx.familyTime, field.SummaryField)
+			fs.insertSStore(sStore)
+			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+		}
+		//FIXME need opt
+		writtenSize += sStore.WriteFloat(uint16(1), fields.Summary.Sum, writeCtx)
+		writtenSize += sStore.WriteInt(uint16(2), fields.Summary.Count, writeCtx)
 	default:
 		memDBLogger.Warn("convert field error, unknown field type")
 	}

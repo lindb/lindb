@@ -18,13 +18,13 @@ func TestNewFieldAggregates(t *testing.T) {
 			End:   20,
 		}, true,
 		AggregatorSpecs{
-			NewAggregatorSpec("b", field.SumField),
-			NewAggregatorSpec("a", field.SumField),
+			NewDownSamplingSpec("b", field.SumField),
+			NewDownSamplingSpec("a", field.SumField),
 		})
 	assert.Equal(t, "b", agg[0].FieldName())
 	assert.Equal(t, "a", agg[1].FieldName())
-	assert.Equal(t, field.SumField, agg[0].FieldType())
-	assert.Equal(t, field.SumField, agg[1].FieldType())
+	assert.Equal(t, field.SumField, agg[0].GetFieldType())
+	assert.Equal(t, field.SumField, agg[1].GetFieldType())
 
 	agg = NewFieldAggregates(
 		timeutil.Interval(timeutil.OneSecond),
@@ -34,8 +34,8 @@ func TestNewFieldAggregates(t *testing.T) {
 			End:   20,
 		}, false,
 		AggregatorSpecs{
-			NewAggregatorSpec("b", field.SumField),
-			NewAggregatorSpec("a", field.SumField),
+			NewDownSamplingSpec("b", field.SumField),
+			NewDownSamplingSpec("a", field.SumField),
 		})
 	assert.Equal(t, "a", agg[0].FieldName())
 	assert.Equal(t, "b", agg[1].FieldName())
@@ -64,7 +64,7 @@ func TestNewSeriesAggregator(t *testing.T) {
 			Start: now,
 			End:   now + 3*timeutil.OneHour,
 		}, true,
-		NewAggregatorSpec("b", field.SumField),
+		NewDownSamplingSpec("b", field.SumField),
 	)
 
 	fAgg, ok := agg.GetAggregator(familyTime)
@@ -106,7 +106,7 @@ func TestNewSeriesAggregator(t *testing.T) {
 			Start: now,
 			End:   now - 3*timeutil.OneHour,
 		}, true,
-		NewAggregatorSpec("b", field.SumField),
+		NewDownSamplingSpec("b", field.SumField),
 	)
 	fAgg, ok = agg.GetAggregator(familyTime)
 	assert.False(t, ok)
