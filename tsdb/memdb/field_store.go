@@ -134,6 +134,24 @@ func (fs *fieldStore) Write(
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
 		writtenSize += sStore.WriteFloat(fields.Sum.Value, writeCtx)
+	case *pb.Field_Min:
+		if !ok {
+			//TODO ???
+			oldCap := cap(fs.sStoreNodes)
+			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Min.AggFunc())
+			fs.insertSStore(sStore)
+			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+		}
+		writtenSize += sStore.WriteFloat(fields.Min.Value, writeCtx)
+	case *pb.Field_Max:
+		if !ok {
+			//TODO ???
+			oldCap := cap(fs.sStoreNodes)
+			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Max.AggFunc())
+			fs.insertSStore(sStore)
+			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+		}
+		writtenSize += sStore.WriteFloat(fields.Max.Value, writeCtx)
 	case *pb.Field_Gauge:
 		if !ok {
 			//TODO ???

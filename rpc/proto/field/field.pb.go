@@ -188,6 +188,100 @@ func (m *Sum) GetValue() float64 {
 	return 0
 }
 
+type Min struct {
+	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Min) Reset()         { *m = Min{} }
+func (m *Min) String() string { return proto.CompactTextString(m) }
+func (*Min) ProtoMessage()    {}
+func (*Min) Descriptor() ([]byte, []int) {
+	return fileDescriptor_04234ff7fdd53e6e, []int{3}
+}
+func (m *Min) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Min) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Min.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Min) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Min.Merge(m, src)
+}
+func (m *Min) XXX_Size() int {
+	return m.Size()
+}
+func (m *Min) XXX_DiscardUnknown() {
+	xxx_messageInfo_Min.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Min proto.InternalMessageInfo
+
+func (m *Min) GetValue() float64 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type Max struct {
+	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Max) Reset()         { *m = Max{} }
+func (m *Max) String() string { return proto.CompactTextString(m) }
+func (*Max) ProtoMessage()    {}
+func (*Max) Descriptor() ([]byte, []int) {
+	return fileDescriptor_04234ff7fdd53e6e, []int{4}
+}
+func (m *Max) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Max) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Max.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Max) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Max.Merge(m, src)
+}
+func (m *Max) XXX_Size() int {
+	return m.Size()
+}
+func (m *Max) XXX_DiscardUnknown() {
+	xxx_messageInfo_Max.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Max proto.InternalMessageInfo
+
+func (m *Max) GetValue() float64 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
 type Gauge struct {
 	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -199,7 +293,7 @@ func (m *Gauge) Reset()         { *m = Gauge{} }
 func (m *Gauge) String() string { return proto.CompactTextString(m) }
 func (*Gauge) ProtoMessage()    {}
 func (*Gauge) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{3}
+	return fileDescriptor_04234ff7fdd53e6e, []int{5}
 }
 func (m *Gauge) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -248,7 +342,7 @@ func (m *Summary) Reset()         { *m = Summary{} }
 func (m *Summary) String() string { return proto.CompactTextString(m) }
 func (*Summary) ProtoMessage()    {}
 func (*Summary) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{4}
+	return fileDescriptor_04234ff7fdd53e6e, []int{6}
 }
 func (m *Summary) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -310,7 +404,7 @@ func (m *Quantile) Reset()         { *m = Quantile{} }
 func (m *Quantile) String() string { return proto.CompactTextString(m) }
 func (*Quantile) ProtoMessage()    {}
 func (*Quantile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{5}
+	return fileDescriptor_04234ff7fdd53e6e, []int{7}
 }
 func (m *Quantile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -366,7 +460,7 @@ func (m *Histogram) Reset()         { *m = Histogram{} }
 func (m *Histogram) String() string { return proto.CompactTextString(m) }
 func (*Histogram) ProtoMessage()    {}
 func (*Histogram) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{6}
+	return fileDescriptor_04234ff7fdd53e6e, []int{8}
 }
 func (m *Histogram) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -428,7 +522,7 @@ func (m *Bucket) Reset()         { *m = Bucket{} }
 func (m *Bucket) String() string { return proto.CompactTextString(m) }
 func (*Bucket) ProtoMessage()    {}
 func (*Bucket) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{7}
+	return fileDescriptor_04234ff7fdd53e6e, []int{9}
 }
 func (m *Bucket) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -475,6 +569,8 @@ type Field struct {
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are valid to be assigned to Field:
 	//	*Field_Sum
+	//	*Field_Max
+	//	*Field_Min
 	//	*Field_Gauge
 	//	*Field_Summary
 	//	*Field_Histogram
@@ -488,7 +584,7 @@ func (m *Field) Reset()         { *m = Field{} }
 func (m *Field) String() string { return proto.CompactTextString(m) }
 func (*Field) ProtoMessage()    {}
 func (*Field) Descriptor() ([]byte, []int) {
-	return fileDescriptor_04234ff7fdd53e6e, []int{8}
+	return fileDescriptor_04234ff7fdd53e6e, []int{10}
 }
 func (m *Field) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -526,17 +622,25 @@ type isField_Field interface {
 type Field_Sum struct {
 	Sum *Sum `protobuf:"bytes,2,opt,name=sum,proto3,oneof"`
 }
+type Field_Max struct {
+	Max *Max `protobuf:"bytes,3,opt,name=max,proto3,oneof"`
+}
+type Field_Min struct {
+	Min *Min `protobuf:"bytes,4,opt,name=min,proto3,oneof"`
+}
 type Field_Gauge struct {
-	Gauge *Gauge `protobuf:"bytes,3,opt,name=gauge,proto3,oneof"`
+	Gauge *Gauge `protobuf:"bytes,5,opt,name=gauge,proto3,oneof"`
 }
 type Field_Summary struct {
-	Summary *Summary `protobuf:"bytes,4,opt,name=summary,proto3,oneof"`
+	Summary *Summary `protobuf:"bytes,6,opt,name=summary,proto3,oneof"`
 }
 type Field_Histogram struct {
-	Histogram *Histogram `protobuf:"bytes,5,opt,name=histogram,proto3,oneof"`
+	Histogram *Histogram `protobuf:"bytes,7,opt,name=histogram,proto3,oneof"`
 }
 
 func (*Field_Sum) isField_Field()       {}
+func (*Field_Max) isField_Field()       {}
+func (*Field_Min) isField_Field()       {}
 func (*Field_Gauge) isField_Field()     {}
 func (*Field_Summary) isField_Field()   {}
 func (*Field_Histogram) isField_Field() {}
@@ -558,6 +662,20 @@ func (m *Field) GetName() string {
 func (m *Field) GetSum() *Sum {
 	if x, ok := m.GetField().(*Field_Sum); ok {
 		return x.Sum
+	}
+	return nil
+}
+
+func (m *Field) GetMax() *Max {
+	if x, ok := m.GetField().(*Field_Max); ok {
+		return x.Max
+	}
+	return nil
+}
+
+func (m *Field) GetMin() *Min {
+	if x, ok := m.GetField().(*Field_Min); ok {
+		return x.Min
 	}
 	return nil
 }
@@ -587,6 +705,8 @@ func (m *Field) GetHistogram() *Histogram {
 func (*Field) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
 	return _Field_OneofMarshaler, _Field_OneofUnmarshaler, _Field_OneofSizer, []interface{}{
 		(*Field_Sum)(nil),
+		(*Field_Max)(nil),
+		(*Field_Min)(nil),
 		(*Field_Gauge)(nil),
 		(*Field_Summary)(nil),
 		(*Field_Histogram)(nil),
@@ -602,18 +722,28 @@ func _Field_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		if err := b.EncodeMessage(x.Sum); err != nil {
 			return err
 		}
-	case *Field_Gauge:
+	case *Field_Max:
 		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Max); err != nil {
+			return err
+		}
+	case *Field_Min:
+		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Min); err != nil {
+			return err
+		}
+	case *Field_Gauge:
+		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Gauge); err != nil {
 			return err
 		}
 	case *Field_Summary:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Summary); err != nil {
 			return err
 		}
 	case *Field_Histogram:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Histogram); err != nil {
 			return err
 		}
@@ -635,7 +765,23 @@ func _Field_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Field = &Field_Sum{msg}
 		return true, err
-	case 3: // field.gauge
+	case 3: // field.max
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Max)
+		err := b.DecodeMessage(msg)
+		m.Field = &Field_Max{msg}
+		return true, err
+	case 4: // field.min
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Min)
+		err := b.DecodeMessage(msg)
+		m.Field = &Field_Min{msg}
+		return true, err
+	case 5: // field.gauge
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -643,7 +789,7 @@ func _Field_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Field = &Field_Gauge{msg}
 		return true, err
-	case 4: // field.summary
+	case 6: // field.summary
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -651,7 +797,7 @@ func _Field_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) 
 		err := b.DecodeMessage(msg)
 		m.Field = &Field_Summary{msg}
 		return true, err
-	case 5: // field.histogram
+	case 7: // field.histogram
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -670,6 +816,16 @@ func _Field_OneofSizer(msg proto.Message) (n int) {
 	switch x := m.Field.(type) {
 	case *Field_Sum:
 		s := proto.Size(x.Sum)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Field_Max:
+		s := proto.Size(x.Max)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *Field_Min:
+		s := proto.Size(x.Min)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -700,6 +856,8 @@ func init() {
 	proto.RegisterType((*Metric)(nil), "field.Metric")
 	proto.RegisterMapType((map[string]string)(nil), "field.Metric.TagsEntry")
 	proto.RegisterType((*Sum)(nil), "field.Sum")
+	proto.RegisterType((*Min)(nil), "field.Min")
+	proto.RegisterType((*Max)(nil), "field.Max")
 	proto.RegisterType((*Gauge)(nil), "field.Gauge")
 	proto.RegisterType((*Summary)(nil), "field.Summary")
 	proto.RegisterType((*Quantile)(nil), "field.Quantile")
@@ -711,36 +869,39 @@ func init() {
 func init() { proto.RegisterFile("field.proto", fileDescriptor_04234ff7fdd53e6e) }
 
 var fileDescriptor_04234ff7fdd53e6e = []byte{
-	// 461 bytes of a gzipped FileDescriptorProto
+	// 499 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0xdf, 0x8a, 0x13, 0x31,
-	0x14, 0xc6, 0x9b, 0x4e, 0xa7, 0xdd, 0x39, 0xf5, 0x4f, 0x09, 0x82, 0x61, 0xd5, 0xa1, 0x0c, 0x0b,
-	0x16, 0xc5, 0x22, 0x2b, 0xa2, 0x88, 0x78, 0x51, 0x50, 0xe7, 0x42, 0x2f, 0x4c, 0xbd, 0xf4, 0xc2,
-	0x6c, 0x37, 0x8e, 0xc3, 0x36, 0x33, 0x75, 0x92, 0x08, 0x7d, 0x13, 0x9f, 0x48, 0xf6, 0xd2, 0x47,
-	0x90, 0xfa, 0x22, 0x92, 0x93, 0x4c, 0xc7, 0x05, 0x17, 0xf6, 0x66, 0xc8, 0x39, 0xe7, 0x3b, 0x39,
-	0xbf, 0xc9, 0x97, 0xc0, 0xf8, 0x4b, 0x29, 0xd7, 0xa7, 0xf3, 0x4d, 0x53, 0x9b, 0x9a, 0xc6, 0x18,
-	0x64, 0x4f, 0x01, 0xde, 0x4b, 0xd3, 0x94, 0xab, 0x77, 0xa5, 0x36, 0xf4, 0x3e, 0x8c, 0x14, 0x46,
-	0x9a, 0xf5, 0xa7, 0xd1, 0x6c, 0x7c, 0x7c, 0x7d, 0xee, 0x7b, 0xbc, 0x86, 0xb7, 0xd5, 0xec, 0x27,
-	0x81, 0xa1, 0xcf, 0x51, 0x0a, 0x83, 0x4a, 0x28, 0xc9, 0xc8, 0x94, 0xcc, 0x12, 0x8e, 0x6b, 0x7a,
-	0x17, 0x12, 0x53, 0x2a, 0xa9, 0x8d, 0x50, 0x1b, 0xd6, 0x9f, 0x92, 0x59, 0xc4, 0xbb, 0x04, 0x7d,
-	0x08, 0x03, 0x23, 0x0a, 0xcd, 0x22, 0x1c, 0x71, 0xfb, 0xc2, 0x88, 0xf9, 0x47, 0x51, 0xe8, 0xd7,
-	0x95, 0x69, 0xb6, 0x1c, 0x45, 0xf4, 0x08, 0x86, 0x58, 0xd7, 0x6c, 0x80, 0xf2, 0x6b, 0x41, 0xfe,
-	0xc6, 0x7d, 0x79, 0xa8, 0x1d, 0x3e, 0x83, 0x64, 0xdf, 0x48, 0x27, 0x10, 0x9d, 0xc9, 0x6d, 0x00,
-	0x72, 0x4b, 0x7a, 0x0b, 0xe2, 0xef, 0x62, 0x6d, 0x25, 0xb2, 0x24, 0xdc, 0x07, 0x2f, 0xfa, 0xcf,
-	0x49, 0x76, 0x07, 0xa2, 0xa5, 0x55, 0x9d, 0xc0, 0x35, 0x91, 0x20, 0xc8, 0xee, 0x41, 0xfc, 0x56,
-	0xd8, 0x42, 0x5e, 0x52, 0xfe, 0x0c, 0xa3, 0xa5, 0x55, 0x4a, 0x34, 0x5b, 0xfa, 0x08, 0x92, 0x6f,
-	0x56, 0x54, 0xa6, 0x5c, 0x4b, 0xcd, 0x08, 0x82, 0xde, 0x0c, 0xa0, 0x1f, 0x42, 0x9e, 0x77, 0x0a,
-	0x47, 0xa8, 0xad, 0x42, 0x1a, 0xc2, 0xdd, 0xd2, 0x4d, 0x58, 0xd5, 0xb6, 0x32, 0x2c, 0xf2, 0x13,
-	0x30, 0xc8, 0x5e, 0xc2, 0x41, 0xdb, 0x4e, 0x0f, 0xe1, 0xa0, 0xdd, 0x20, 0x60, 0xec, 0xe3, 0x8b,
-	0xff, 0xb7, 0xe7, 0xfb, 0x04, 0x49, 0x5e, 0x6a, 0x53, 0x17, 0x8d, 0x50, 0xce, 0xda, 0x13, 0xbb,
-	0x3a, 0x93, 0xa6, 0xe5, 0x6b, 0xad, 0x5d, 0x60, 0x96, 0xb7, 0xd5, 0x2b, 0xb3, 0xbd, 0x82, 0xa1,
-	0x6f, 0xa5, 0x29, 0x80, 0xdd, 0x6c, 0x64, 0xb3, 0xa8, 0x6d, 0x75, 0x1a, 0xd8, 0xfe, 0xc9, 0x5c,
-	0x42, 0x77, 0x4e, 0x20, 0x46, 0x13, 0xff, 0x7b, 0x83, 0xd2, 0x8e, 0x62, 0x7c, 0x0c, 0x01, 0x75,
-	0x69, 0x55, 0xde, 0xf3, 0x4c, 0x47, 0x10, 0x17, 0xce, 0x1a, 0x64, 0xea, 0x6e, 0x05, 0xda, 0x95,
-	0xf7, 0xb8, 0x2f, 0xd2, 0x07, 0x30, 0xd2, 0xde, 0x21, 0x36, 0x40, 0xdd, 0x8d, 0x6e, 0x27, 0x97,
-	0xcd, 0x7b, 0xbc, 0x15, 0xd0, 0xc7, 0x90, 0x7c, 0x6d, 0x4f, 0x8b, 0xc5, 0xa8, 0x9e, 0x04, 0xf5,
-	0xfe, 0x14, 0xf3, 0x1e, 0xef, 0x44, 0x8b, 0x11, 0xf8, 0x47, 0xb4, 0x98, 0x9c, 0xef, 0x52, 0xf2,
-	0x6b, 0x97, 0x92, 0xdf, 0xbb, 0x94, 0xfc, 0xf8, 0x93, 0xf6, 0x4e, 0x86, 0xf8, 0xc8, 0x9e, 0xfc,
-	0x0d, 0x00, 0x00, 0xff, 0xff, 0x1b, 0xb6, 0x5a, 0x3f, 0x73, 0x03, 0x00, 0x00,
+	0x14, 0xc6, 0x9b, 0x4e, 0xa7, 0xdd, 0x39, 0xf5, 0x4f, 0x09, 0x82, 0x61, 0xd5, 0xa1, 0x94, 0x05,
+	0x8b, 0x62, 0x91, 0x15, 0x51, 0x44, 0xbc, 0x28, 0xa8, 0xbd, 0xb0, 0x17, 0xa6, 0x5e, 0x7a, 0x61,
+	0xb6, 0x3b, 0xd6, 0xb0, 0xcd, 0x4c, 0x9d, 0x24, 0xd2, 0xbe, 0x81, 0x8f, 0xe0, 0x13, 0x89, 0x97,
+	0x3e, 0x82, 0xd4, 0x17, 0x91, 0x9c, 0x64, 0x3a, 0x16, 0xac, 0xec, 0x4d, 0xc9, 0x39, 0xbf, 0xef,
+	0x34, 0xdf, 0x99, 0x73, 0x02, 0xdd, 0x8f, 0x32, 0x5b, 0x9e, 0x8f, 0x56, 0x65, 0x61, 0x0a, 0x1a,
+	0x63, 0x30, 0x78, 0x0c, 0x30, 0xcd, 0x4c, 0x29, 0xe7, 0x6f, 0xa4, 0x36, 0xf4, 0x2e, 0x74, 0x14,
+	0x46, 0x9a, 0x35, 0xfb, 0xd1, 0xb0, 0x7b, 0x7a, 0x75, 0xe4, 0x6b, 0xbc, 0x86, 0x57, 0x74, 0xf0,
+	0x9d, 0x40, 0xdb, 0xe7, 0x28, 0x85, 0x56, 0x2e, 0x54, 0xc6, 0x48, 0x9f, 0x0c, 0x13, 0x8e, 0x67,
+	0x7a, 0x1b, 0x12, 0x23, 0x55, 0xa6, 0x8d, 0x50, 0x2b, 0xd6, 0xec, 0x93, 0x61, 0xc4, 0xeb, 0x04,
+	0xbd, 0x0f, 0x2d, 0x23, 0x16, 0x9a, 0x45, 0x78, 0xc5, 0xcd, 0xbd, 0x2b, 0x46, 0xef, 0xc4, 0x42,
+	0xbf, 0xcc, 0x4d, 0xb9, 0xe1, 0x28, 0xa2, 0x27, 0xd0, 0x46, 0xae, 0x59, 0x0b, 0xe5, 0x57, 0x82,
+	0xfc, 0x95, 0xfb, 0xe5, 0x81, 0x1d, 0x3f, 0x81, 0x64, 0x57, 0x48, 0x7b, 0x10, 0x5d, 0x64, 0x9b,
+	0x60, 0xc8, 0x1d, 0xe9, 0x0d, 0x88, 0xbf, 0x88, 0xa5, 0xcd, 0xd0, 0x4b, 0xc2, 0x7d, 0xf0, 0xac,
+	0xf9, 0x94, 0x0c, 0x6e, 0x41, 0x34, 0xb3, 0xaa, 0x16, 0xb8, 0x22, 0x12, 0x04, 0x0e, 0x4e, 0x65,
+	0xfe, 0x1f, 0x28, 0xd6, 0x07, 0xe0, 0x1d, 0x88, 0x5f, 0x0b, 0xbb, 0xc8, 0x0e, 0xe0, 0x0f, 0xd0,
+	0x99, 0x59, 0xa5, 0x44, 0xb9, 0xa1, 0x0f, 0x20, 0xf9, 0x6c, 0x45, 0x6e, 0xe4, 0x32, 0xd3, 0x8c,
+	0x60, 0x8b, 0xd7, 0x43, 0x8b, 0x6f, 0x43, 0x9e, 0xd7, 0x0a, 0xd7, 0x9b, 0xb6, 0x0a, 0xfb, 0x20,
+	0xdc, 0x1d, 0xdd, 0x0d, 0xf3, 0xc2, 0xe6, 0x86, 0x45, 0xfe, 0x06, 0x0c, 0x06, 0xcf, 0xe1, 0xa8,
+	0x2a, 0xa7, 0xc7, 0x70, 0x54, 0xfd, 0x41, 0xb0, 0xb1, 0x8b, 0xf7, 0xbf, 0xcc, 0xce, 0xdf, 0x7b,
+	0x48, 0x26, 0x52, 0x9b, 0x62, 0x51, 0x0a, 0xe5, 0x96, 0xe2, 0xcc, 0xce, 0x2f, 0x32, 0x53, 0xf9,
+	0xab, 0x96, 0x62, 0x8c, 0x59, 0x5e, 0xd1, 0x4b, 0x7b, 0x7b, 0x01, 0x6d, 0x5f, 0x4a, 0x53, 0x00,
+	0xbb, 0x5a, 0x65, 0xe5, 0xb8, 0xb0, 0xf9, 0x79, 0xf0, 0xf6, 0x57, 0xe6, 0x80, 0xbb, 0xaf, 0x4d,
+	0x88, 0x71, 0xfc, 0xff, 0xdc, 0xbd, 0xb4, 0x76, 0xd1, 0x3d, 0x85, 0x60, 0x75, 0x66, 0xd5, 0xa4,
+	0xe1, 0x3d, 0xa5, 0x10, 0x29, 0xb1, 0x46, 0x47, 0x35, 0x9f, 0x8a, 0xb5, 0xe3, 0x4a, 0xac, 0x91,
+	0xcb, 0x9c, 0xb5, 0xf6, 0xb9, 0xcc, 0x91, 0xcb, 0x9c, 0x9e, 0x40, 0xbc, 0x70, 0xa3, 0x65, 0x31,
+	0x2a, 0xaa, 0x7d, 0xc4, 0x71, 0x4f, 0x1a, 0xdc, 0x43, 0x7a, 0x0f, 0x3a, 0xda, 0x4f, 0x98, 0xb5,
+	0x51, 0x77, 0xad, 0x76, 0xe2, 0xb2, 0x93, 0x06, 0xaf, 0x04, 0xf4, 0x21, 0x24, 0x9f, 0xaa, 0xaf,
+	0xcd, 0x3a, 0xa8, 0xee, 0x05, 0xf5, 0x6e, 0x0a, 0x93, 0x06, 0xaf, 0x45, 0xe3, 0x0e, 0xf8, 0xe7,
+	0x3b, 0xee, 0xfd, 0xd8, 0xa6, 0xe4, 0xe7, 0x36, 0x25, 0xbf, 0xb6, 0x29, 0xf9, 0xf6, 0x3b, 0x6d,
+	0x9c, 0xb5, 0xf1, 0x79, 0x3f, 0xfa, 0x13, 0x00, 0x00, 0xff, 0xff, 0x24, 0xd2, 0x50, 0x49, 0xed,
+	0x03, 0x00, 0x00,
 }
 
 func (m *MetricList) Marshal() (dAtA []byte, err error) {
@@ -872,6 +1033,72 @@ func (m *Sum) MarshalTo(dAtA []byte) (int, error) {
 }
 
 func (m *Sum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Value != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Min) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Min) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Min) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Value != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
+		i--
+		dAtA[i] = 0x9
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *Max) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Max) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Max) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1169,6 +1396,46 @@ func (m *Field_Sum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
+func (m *Field_Max) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Field_Max) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Max != nil {
+		{
+			size, err := m.Max.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintField(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Field_Min) MarshalTo(dAtA []byte) (int, error) {
+	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+}
+
+func (m *Field_Min) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.Min != nil {
+		{
+			size, err := m.Min.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintField(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	return len(dAtA) - i, nil
+}
 func (m *Field_Gauge) MarshalTo(dAtA []byte) (int, error) {
 	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
@@ -1185,7 +1452,7 @@ func (m *Field_Gauge) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintField(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x2a
 	}
 	return len(dAtA) - i, nil
 }
@@ -1205,7 +1472,7 @@ func (m *Field_Summary) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintField(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x22
+		dAtA[i] = 0x32
 	}
 	return len(dAtA) - i, nil
 }
@@ -1225,7 +1492,7 @@ func (m *Field_Histogram) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintField(dAtA, i, uint64(size))
 		}
 		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x3a
 	}
 	return len(dAtA) - i, nil
 }
@@ -1292,6 +1559,36 @@ func (m *Metric) Size() (n int) {
 }
 
 func (m *Sum) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Value != 0 {
+		n += 9
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Min) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Value != 0 {
+		n += 9
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Max) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1432,6 +1729,30 @@ func (m *Field_Sum) Size() (n int) {
 	_ = l
 	if m.Sum != nil {
 		l = m.Sum.Size()
+		n += 1 + l + sovField(uint64(l))
+	}
+	return n
+}
+func (m *Field_Max) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Max != nil {
+		l = m.Max.Size()
+		n += 1 + l + sovField(uint64(l))
+	}
+	return n
+}
+func (m *Field_Min) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Min != nil {
+		l = m.Min.Size()
 		n += 1 + l + sovField(uint64(l))
 	}
 	return n
@@ -1860,6 +2181,136 @@ func (m *Sum) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: Sum: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.Value = float64(math.Float64frombits(v))
+		default:
+			iNdEx = preIndex
+			skippy, err := skipField(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthField
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthField
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Min) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowField
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Min: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Min: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 1 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var v uint64
+			if (iNdEx + 8) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			iNdEx += 8
+			m.Value = float64(math.Float64frombits(v))
+		default:
+			iNdEx = preIndex
+			skippy, err := skipField(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthField
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthField
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Max) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowField
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Max: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Max: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2433,6 +2884,76 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Max", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowField
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthField
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthField
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Max{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Field = &Field_Max{v}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Min", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowField
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthField
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthField
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &Min{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Field = &Field_Min{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Gauge", wireType)
 			}
 			var msglen int
@@ -2466,7 +2987,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 			}
 			m.Field = &Field_Gauge{v}
 			iNdEx = postIndex
-		case 4:
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Summary", wireType)
 			}
@@ -2501,7 +3022,7 @@ func (m *Field) Unmarshal(dAtA []byte) error {
 			}
 			m.Field = &Field_Summary{v}
 			iNdEx = postIndex
-		case 5:
+		case 7:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Histogram", wireType)
 			}

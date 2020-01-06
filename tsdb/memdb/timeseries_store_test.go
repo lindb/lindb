@@ -99,6 +99,72 @@ func Test_tStore_write_gauge(t *testing.T) {
 	assert.NotNil(t, fStore)
 }
 
+func Test_tStore_write_max(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tStoreInterface := newTimeSeriesStore()
+	tStore := tStoreInterface.(*timeSeriesStore)
+	// mock fieldID getter
+	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
+	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
+	// mock field-store
+	mockFStore := NewMockfStoreINTF(ctrl)
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
+	// get existed fStore
+	_, err := tStore.Write(
+		&pb.Metric{
+			Fields: []*pb.Field{
+				{Name: "max", Field: &pb.Field_Max{Max: &pb.Max{
+					Value: 1.0,
+				}}},
+				{Name: "unknown", Field: nil}},
+		}, writeContext{
+			metricID:            1,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockFieldIDGetter})
+	assert.NoError(t, err)
+	assert.False(t, tStoreInterface.IsNoData())
+	fStore, ok := tStoreInterface.GetFStore(uint16(1))
+	assert.True(t, ok)
+	assert.NotNil(t, fStore)
+}
+
+func Test_tStore_write_min(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tStoreInterface := newTimeSeriesStore()
+	tStore := tStoreInterface.(*timeSeriesStore)
+	// mock fieldID getter
+	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
+	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
+	// mock field-store
+	mockFStore := NewMockfStoreINTF(ctrl)
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
+	// get existed fStore
+	_, err := tStore.Write(
+		&pb.Metric{
+			Fields: []*pb.Field{
+				{Name: "min", Field: &pb.Field_Min{Min: &pb.Min{
+					Value: 1.0,
+				}}},
+				{Name: "unknown", Field: nil}},
+		}, writeContext{
+			metricID:            1,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockFieldIDGetter})
+	assert.NoError(t, err)
+	assert.False(t, tStoreInterface.IsNoData())
+	fStore, ok := tStoreInterface.GetFStore(uint16(1))
+	assert.True(t, ok)
+	assert.NotNil(t, fStore)
+}
+
 func Test_tStore_GenFieldID_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
