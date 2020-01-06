@@ -38,6 +38,31 @@ func TestSingleSelectItem(t *testing.T) {
 	assert.Equal(t, 1, len(query.SelectItems))
 	selectItem = (query.SelectItems[0]).(*stmt.SelectItem)
 	assert.Equal(t, stmt.SelectItem{Expr: &stmt.FieldExpr{Name: "f"}, Alias: "f1"}, *selectItem)
+
+	sql = "select f,a,sum(d),avg(a) as f1 from cpu"
+	query, _ = Parse(sql)
+	assert.Len(t, query.FieldNames, 3)
+	assert.Equal(t, []string{"a", "d", "f"}, query.FieldNames)
+}
+
+func TestSelectFuncItem(t *testing.T) {
+	sql := "select count(f) from memory"
+	query, err := Parse(sql)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(query.SelectItems))
+	selectItem := (query.SelectItems[0]).(*stmt.SelectItem)
+	assert.Equal(t, stmt.SelectItem{
+		Expr: &stmt.CallExpr{FuncType: function.Count, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+	}, *selectItem)
+
+	sql = "select histogram(f) from memory"
+	query, err = Parse(sql)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(query.SelectItems))
+	selectItem = (query.SelectItems[0]).(*stmt.SelectItem)
+	assert.Equal(t, stmt.SelectItem{
+		Expr: &stmt.CallExpr{FuncType: function.Histogram, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+	}, *selectItem)
 }
 
 func TestFieldExpression(t *testing.T) {

@@ -165,7 +165,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
-			downSampling = aggregation.NewAggregatorSpec(e.Name, fieldType)
+			downSampling = aggregation.NewDownSamplingSpec(e.Name, fieldType)
 			p.fields[fieldID] = downSampling
 		}
 		downSampling.AddFunctionType(funcType)

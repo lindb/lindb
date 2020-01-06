@@ -10,7 +10,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -83,14 +82,8 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 		Payload:      encoding.JSONMarshal(ctx.Query()),
 	}
 	query := ctx.Query()
-	//TODO fix me
-	groupAgg := aggregation.NewGroupingAggregator(
-		query.Interval,
-		query.TimeRange,
-		aggregation.AggregatorSpecs{
-			aggregation.NewAggregatorSpec("f1", field.SumField),
-		})
 
+	groupAgg := aggregation.NewGroupingAggregator(query.Interval, query.TimeRange, buildAggregatorSpecs(query.FieldNames))
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
 		newResultMerger(ctx.Context(), groupAgg, ctx.ResultSet()))
 	j.taskManager.Submit(taskCtx)
@@ -154,4 +147,13 @@ func (j *jobManager) SubmitMetadataJob(ctx context.Context, plan *models.Physica
 // GetTaskManager return the task manager
 func (j *jobManager) GetTaskManager() TaskManager {
 	return j.taskManager
+}
+
+// buildAggregatorSpecs builds aggregator specs based on field names
+func buildAggregatorSpecs(fieldNames []string) aggregation.AggregatorSpecs {
+	aggSpecs := make(aggregation.AggregatorSpecs, len(fieldNames))
+	for idx, fieldName := range fieldNames {
+		aggSpecs[idx] = aggregation.NewAggregatorSpec(fieldName)
+	}
+	return aggSpecs
 }

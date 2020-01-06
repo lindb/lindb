@@ -88,7 +88,7 @@ intervalItem            :
                          | T_YEAR
                          ;
 exprFunc                : funcName T_OPEN_P exprFuncParams? T_CLOSE_P ;
-funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_STDDEV | T_HISTOGRAM;
+funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_COUNT | T_STDDEV | T_HISTOGRAM;
 exprFuncParams          : funcParam (T_COMMA funcParam)* ;
 funcParam               :
                            fieldExpr
@@ -167,6 +167,7 @@ nonReservedWords      :
                         | T_SUM
                         | T_MIN
                         | T_MAX
+                        | T_COUNT
                         | T_AVG
                         | T_STDDEV
                         | T_HISTOGRAM
@@ -237,6 +238,7 @@ T_PROFILE            : P R O F I L E                    ;
 T_SUM                : S U M                            ;
 T_MIN                : M I N                            ;
 T_MAX                : M A X                            ;
+T_COUNT              : C O U N T                        ;
 T_AVG                : A V G                            ;
 T_STDDEV             : S T D D E V                      ;
 T_HISTOGRAM          : H I S T O G R A M                ;

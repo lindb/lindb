@@ -1,4 +1,4 @@
-// Code generated from /Users/huangjie/Documents/github/lindb/sql/grammar/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
+// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
 
 package grammar // SQL
 import (
@@ -16,7 +16,7 @@ var _ = strconv.Itoa
 
 
 var parserATN = []uint16{
-	3, 24715, 42794, 33075, 47597, 16764, 15335, 30598, 22884, 3, 101, 412, 
+	3, 24715, 42794, 33075, 47597, 16764, 15335, 30598, 22884, 3, 102, 412, 
 	4, 2, 9, 2, 4, 3, 9, 3, 4, 4, 9, 4, 4, 5, 9, 5, 4, 6, 9, 6, 4, 7, 9, 7, 
 	4, 8, 9, 8, 4, 9, 9, 9, 4, 10, 9, 10, 4, 11, 9, 11, 4, 12, 9, 12, 4, 13, 
 	9, 13, 4, 14, 9, 14, 4, 15, 9, 15, 4, 16, 9, 16, 4, 17, 9, 17, 4, 18, 9, 
@@ -63,9 +63,9 @@ var parserATN = []uint16{
 	3, 47, 2, 5, 22, 50, 60, 48, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 
 	26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 
 	62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 2, 10, 
-	3, 2, 40, 41, 4, 2, 43, 44, 99, 100, 3, 2, 46, 47, 4, 2, 48, 48, 84, 84, 
-	3, 2, 68, 74, 3, 2, 62, 67, 3, 2, 93, 94, 11, 2, 3, 3, 7, 7, 9, 11, 15, 
-	24, 26, 29, 31, 35, 38, 52, 54, 57, 61, 74, 2, 424, 2, 94, 3, 2, 2, 2, 
+	3, 2, 40, 41, 4, 2, 43, 44, 100, 101, 3, 2, 46, 47, 4, 2, 48, 48, 85, 85, 
+	3, 2, 69, 75, 3, 2, 62, 68, 3, 2, 94, 95, 11, 2, 3, 3, 7, 7, 9, 11, 15, 
+	24, 26, 29, 31, 35, 38, 52, 54, 57, 61, 75, 2, 424, 2, 94, 3, 2, 2, 2, 
 	4, 97, 3, 2, 2, 2, 6, 100, 3, 2, 2, 2, 8, 119, 3, 2, 2, 2, 10, 122, 3, 
 	2, 2, 2, 12, 130, 3, 2, 2, 2, 14, 134, 3, 2, 2, 2, 16, 137, 3, 2, 2, 2, 
 	18, 140, 3, 2, 2, 2, 20, 153, 3, 2, 2, 2, 22, 183, 3, 2, 2, 2, 24, 193, 
@@ -89,7 +89,7 @@ var parserATN = []uint16{
 	5, 82, 42, 2, 114, 113, 3, 2, 2, 2, 114, 115, 3, 2, 2, 2, 115, 117, 3, 
 	2, 2, 2, 116, 118, 7, 37, 2, 2, 117, 116, 3, 2, 2, 2, 117, 118, 3, 2, 2, 
 	2, 118, 7, 3, 2, 2, 2, 119, 120, 7, 38, 2, 2, 120, 121, 5, 10, 6, 2, 121, 
-	9, 3, 2, 2, 2, 122, 127, 5, 12, 7, 2, 123, 124, 7, 86, 2, 2, 124, 126, 
+	9, 3, 2, 2, 2, 122, 127, 5, 12, 7, 2, 123, 124, 7, 87, 2, 2, 124, 126, 
 	5, 12, 7, 2, 125, 123, 3, 2, 2, 2, 126, 129, 3, 2, 2, 2, 127, 125, 3, 2, 
 	2, 2, 127, 128, 3, 2, 2, 2, 128, 11, 3, 2, 2, 2, 129, 127, 3, 2, 2, 2, 
 	130, 132, 5, 60, 31, 2, 131, 133, 5, 14, 8, 2, 132, 131, 3, 2, 2, 2, 132, 
@@ -101,22 +101,22 @@ var parserATN = []uint16{
 	148, 151, 5, 26, 14, 2, 149, 150, 7, 40, 2, 2, 150, 152, 5, 22, 12, 2, 
 	151, 149, 3, 2, 2, 2, 151, 152, 3, 2, 2, 2, 152, 154, 3, 2, 2, 2, 153, 
 	143, 3, 2, 2, 2, 153, 144, 3, 2, 2, 2, 153, 148, 3, 2, 2, 2, 154, 21, 3, 
-	2, 2, 2, 155, 156, 8, 12, 1, 2, 156, 157, 7, 91, 2, 2, 157, 158, 5, 22, 
-	12, 2, 158, 159, 7, 92, 2, 2, 159, 184, 3, 2, 2, 2, 160, 169, 5, 86, 44, 
-	2, 161, 170, 7, 77, 2, 2, 162, 170, 7, 48, 2, 2, 163, 164, 7, 49, 2, 2, 
-	164, 170, 7, 48, 2, 2, 165, 170, 7, 84, 2, 2, 166, 170, 7, 85, 2, 2, 167, 
-	170, 7, 78, 2, 2, 168, 170, 7, 79, 2, 2, 169, 161, 3, 2, 2, 2, 169, 162, 
+	2, 2, 2, 155, 156, 8, 12, 1, 2, 156, 157, 7, 92, 2, 2, 157, 158, 5, 22, 
+	12, 2, 158, 159, 7, 93, 2, 2, 159, 184, 3, 2, 2, 2, 160, 169, 5, 86, 44, 
+	2, 161, 170, 7, 78, 2, 2, 162, 170, 7, 48, 2, 2, 163, 164, 7, 49, 2, 2, 
+	164, 170, 7, 48, 2, 2, 165, 170, 7, 85, 2, 2, 166, 170, 7, 86, 2, 2, 167, 
+	170, 7, 79, 2, 2, 168, 170, 7, 80, 2, 2, 169, 161, 3, 2, 2, 2, 169, 162, 
 	3, 2, 2, 2, 169, 163, 3, 2, 2, 2, 169, 165, 3, 2, 2, 2, 169, 166, 3, 2, 
 	2, 2, 169, 167, 3, 2, 2, 2, 169, 168, 3, 2, 2, 2, 170, 171, 3, 2, 2, 2, 
 	171, 172, 5, 88, 45, 2, 172, 184, 3, 2, 2, 2, 173, 177, 5, 86, 44, 2, 174, 
 	178, 7, 59, 2, 2, 175, 176, 7, 49, 2, 2, 176, 178, 7, 59, 2, 2, 177, 174, 
-	3, 2, 2, 2, 177, 175, 3, 2, 2, 2, 178, 179, 3, 2, 2, 2, 179, 180, 7, 91, 
-	2, 2, 180, 181, 5, 24, 13, 2, 181, 182, 7, 92, 2, 2, 182, 184, 3, 2, 2, 
+	3, 2, 2, 2, 177, 175, 3, 2, 2, 2, 178, 179, 3, 2, 2, 2, 179, 180, 7, 92, 
+	2, 2, 180, 181, 5, 24, 13, 2, 181, 182, 7, 93, 2, 2, 182, 184, 3, 2, 2, 
 	2, 183, 155, 3, 2, 2, 2, 183, 160, 3, 2, 2, 2, 183, 173, 3, 2, 2, 2, 184, 
 	190, 3, 2, 2, 2, 185, 186, 12, 3, 2, 2, 186, 187, 9, 2, 2, 2, 187, 189, 
 	5, 22, 12, 4, 188, 185, 3, 2, 2, 2, 189, 192, 3, 2, 2, 2, 190, 188, 3, 
 	2, 2, 2, 190, 191, 3, 2, 2, 2, 191, 23, 3, 2, 2, 2, 192, 190, 3, 2, 2, 
-	2, 193, 198, 5, 88, 45, 2, 194, 195, 7, 86, 2, 2, 195, 197, 5, 88, 45, 
+	2, 193, 198, 5, 88, 45, 2, 194, 195, 7, 87, 2, 2, 195, 197, 5, 88, 45, 
 	2, 196, 194, 3, 2, 2, 2, 197, 200, 3, 2, 2, 2, 198, 196, 3, 2, 2, 2, 198, 
 	199, 3, 2, 2, 2, 199, 25, 3, 2, 2, 2, 200, 198, 3, 2, 2, 2, 201, 204, 5, 
 	28, 15, 2, 202, 203, 7, 40, 2, 2, 203, 205, 5, 28, 15, 2, 204, 202, 3, 
@@ -124,57 +124,57 @@ var parserATN = []uint16{
 	2, 207, 210, 5, 58, 30, 2, 208, 211, 5, 30, 16, 2, 209, 211, 5, 90, 46, 
 	2, 210, 208, 3, 2, 2, 2, 210, 209, 3, 2, 2, 2, 211, 29, 3, 2, 2, 2, 212, 
 	214, 5, 32, 17, 2, 213, 215, 5, 62, 32, 2, 214, 213, 3, 2, 2, 2, 214, 215, 
-	3, 2, 2, 2, 215, 31, 3, 2, 2, 2, 216, 217, 7, 58, 2, 2, 217, 219, 7, 91, 
+	3, 2, 2, 2, 215, 31, 3, 2, 2, 2, 216, 217, 7, 58, 2, 2, 217, 219, 7, 92, 
 	2, 2, 218, 220, 5, 70, 36, 2, 219, 218, 3, 2, 2, 2, 219, 220, 3, 2, 2, 
-	2, 220, 221, 3, 2, 2, 2, 221, 222, 7, 92, 2, 2, 222, 33, 3, 2, 2, 2, 223, 
+	2, 220, 221, 3, 2, 2, 2, 221, 222, 7, 93, 2, 2, 222, 33, 3, 2, 2, 2, 223, 
 	224, 7, 52, 2, 2, 224, 225, 7, 54, 2, 2, 225, 231, 5, 36, 19, 2, 226, 227, 
-	7, 42, 2, 2, 227, 228, 7, 91, 2, 2, 228, 229, 5, 40, 21, 2, 229, 230, 7, 
-	92, 2, 2, 230, 232, 3, 2, 2, 2, 231, 226, 3, 2, 2, 2, 231, 232, 3, 2, 2, 
+	7, 42, 2, 2, 227, 228, 7, 92, 2, 2, 228, 229, 5, 40, 21, 2, 229, 230, 7, 
+	93, 2, 2, 230, 232, 3, 2, 2, 2, 231, 226, 3, 2, 2, 2, 231, 232, 3, 2, 2, 
 	2, 232, 234, 3, 2, 2, 2, 233, 235, 5, 48, 25, 2, 234, 233, 3, 2, 2, 2, 
 	234, 235, 3, 2, 2, 2, 235, 35, 3, 2, 2, 2, 236, 241, 5, 38, 20, 2, 237, 
-	238, 7, 86, 2, 2, 238, 240, 5, 38, 20, 2, 239, 237, 3, 2, 2, 2, 240, 243, 
+	238, 7, 87, 2, 2, 238, 240, 5, 38, 20, 2, 239, 237, 3, 2, 2, 2, 240, 243, 
 	3, 2, 2, 2, 241, 239, 3, 2, 2, 2, 241, 242, 3, 2, 2, 2, 242, 37, 3, 2, 
 	2, 2, 243, 241, 3, 2, 2, 2, 244, 251, 5, 90, 46, 2, 245, 246, 7, 57, 2, 
-	2, 246, 247, 7, 91, 2, 2, 247, 248, 5, 62, 32, 2, 248, 249, 7, 92, 2, 2, 
+	2, 246, 247, 7, 92, 2, 2, 247, 248, 5, 62, 32, 2, 248, 249, 7, 93, 2, 2, 
 	249, 251, 3, 2, 2, 2, 250, 244, 3, 2, 2, 2, 250, 245, 3, 2, 2, 2, 251, 
 	39, 3, 2, 2, 2, 252, 253, 9, 3, 2, 2, 253, 41, 3, 2, 2, 2, 254, 255, 7, 
 	45, 2, 2, 255, 256, 7, 54, 2, 2, 256, 257, 5, 46, 24, 2, 257, 43, 3, 2, 
 	2, 2, 258, 262, 5, 60, 31, 2, 259, 261, 9, 4, 2, 2, 260, 259, 3, 2, 2, 
 	2, 261, 264, 3, 2, 2, 2, 262, 260, 3, 2, 2, 2, 262, 263, 3, 2, 2, 2, 263, 
 	45, 3, 2, 2, 2, 264, 262, 3, 2, 2, 2, 265, 270, 5, 44, 23, 2, 266, 267, 
-	7, 86, 2, 2, 267, 269, 5, 44, 23, 2, 268, 266, 3, 2, 2, 2, 269, 272, 3, 
+	7, 87, 2, 2, 267, 269, 5, 44, 23, 2, 268, 266, 3, 2, 2, 2, 269, 272, 3, 
 	2, 2, 2, 270, 268, 3, 2, 2, 2, 270, 271, 3, 2, 2, 2, 271, 47, 3, 2, 2, 
 	2, 272, 270, 3, 2, 2, 2, 273, 274, 7, 53, 2, 2, 274, 275, 5, 50, 26, 2, 
-	275, 49, 3, 2, 2, 2, 276, 277, 8, 26, 1, 2, 277, 278, 7, 91, 2, 2, 278, 
-	279, 5, 50, 26, 2, 279, 280, 7, 92, 2, 2, 280, 283, 3, 2, 2, 2, 281, 283, 
+	275, 49, 3, 2, 2, 2, 276, 277, 8, 26, 1, 2, 277, 278, 7, 92, 2, 2, 278, 
+	279, 5, 50, 26, 2, 279, 280, 7, 93, 2, 2, 280, 283, 3, 2, 2, 2, 281, 283, 
 	5, 54, 28, 2, 282, 276, 3, 2, 2, 2, 282, 281, 3, 2, 2, 2, 283, 290, 3, 
 	2, 2, 2, 284, 285, 12, 4, 2, 2, 285, 286, 5, 52, 27, 2, 286, 287, 5, 50, 
 	26, 5, 287, 289, 3, 2, 2, 2, 288, 284, 3, 2, 2, 2, 289, 292, 3, 2, 2, 2, 
 	290, 288, 3, 2, 2, 2, 290, 291, 3, 2, 2, 2, 291, 51, 3, 2, 2, 2, 292, 290, 
 	3, 2, 2, 2, 293, 294, 9, 2, 2, 2, 294, 53, 3, 2, 2, 2, 295, 296, 5, 56, 
 	29, 2, 296, 55, 3, 2, 2, 2, 297, 298, 5, 60, 31, 2, 298, 299, 5, 58, 30, 
-	2, 299, 300, 5, 60, 31, 2, 300, 57, 3, 2, 2, 2, 301, 310, 7, 77, 2, 2, 
-	302, 310, 7, 78, 2, 2, 303, 310, 7, 79, 2, 2, 304, 310, 7, 82, 2, 2, 305, 
-	310, 7, 83, 2, 2, 306, 310, 7, 80, 2, 2, 307, 310, 7, 81, 2, 2, 308, 310, 
+	2, 299, 300, 5, 60, 31, 2, 300, 57, 3, 2, 2, 2, 301, 310, 7, 78, 2, 2, 
+	302, 310, 7, 79, 2, 2, 303, 310, 7, 80, 2, 2, 304, 310, 7, 83, 2, 2, 305, 
+	310, 7, 84, 2, 2, 306, 310, 7, 81, 2, 2, 307, 310, 7, 82, 2, 2, 308, 310, 
 	9, 5, 2, 2, 309, 301, 3, 2, 2, 2, 309, 302, 3, 2, 2, 2, 309, 303, 3, 2, 
 	2, 2, 309, 304, 3, 2, 2, 2, 309, 305, 3, 2, 2, 2, 309, 306, 3, 2, 2, 2, 
 	309, 307, 3, 2, 2, 2, 309, 308, 3, 2, 2, 2, 310, 59, 3, 2, 2, 2, 311, 312, 
-	8, 31, 1, 2, 312, 313, 7, 91, 2, 2, 313, 314, 5, 60, 31, 2, 314, 315, 7, 
-	92, 2, 2, 315, 320, 3, 2, 2, 2, 316, 320, 5, 66, 34, 2, 317, 320, 5, 74, 
+	8, 31, 1, 2, 312, 313, 7, 92, 2, 2, 313, 314, 5, 60, 31, 2, 314, 315, 7, 
+	93, 2, 2, 315, 320, 3, 2, 2, 2, 316, 320, 5, 66, 34, 2, 317, 320, 5, 74, 
 	38, 2, 318, 320, 5, 62, 32, 2, 319, 311, 3, 2, 2, 2, 319, 316, 3, 2, 2, 
 	2, 319, 317, 3, 2, 2, 2, 319, 318, 3, 2, 2, 2, 320, 335, 3, 2, 2, 2, 321, 
-	322, 12, 10, 2, 2, 322, 323, 7, 96, 2, 2, 323, 334, 5, 60, 31, 11, 324, 
-	325, 12, 9, 2, 2, 325, 326, 7, 95, 2, 2, 326, 334, 5, 60, 31, 10, 327, 
-	328, 12, 8, 2, 2, 328, 329, 7, 93, 2, 2, 329, 334, 5, 60, 31, 9, 330, 331, 
-	12, 7, 2, 2, 331, 332, 7, 94, 2, 2, 332, 334, 5, 60, 31, 8, 333, 321, 3, 
+	322, 12, 10, 2, 2, 322, 323, 7, 97, 2, 2, 323, 334, 5, 60, 31, 11, 324, 
+	325, 12, 9, 2, 2, 325, 326, 7, 96, 2, 2, 326, 334, 5, 60, 31, 10, 327, 
+	328, 12, 8, 2, 2, 328, 329, 7, 94, 2, 2, 329, 334, 5, 60, 31, 9, 330, 331, 
+	12, 7, 2, 2, 331, 332, 7, 95, 2, 2, 332, 334, 5, 60, 31, 8, 333, 321, 3, 
 	2, 2, 2, 333, 324, 3, 2, 2, 2, 333, 327, 3, 2, 2, 2, 333, 330, 3, 2, 2, 
 	2, 334, 337, 3, 2, 2, 2, 335, 333, 3, 2, 2, 2, 335, 336, 3, 2, 2, 2, 336, 
 	61, 3, 2, 2, 2, 337, 335, 3, 2, 2, 2, 338, 339, 5, 78, 40, 2, 339, 340, 
 	5, 64, 33, 2, 340, 63, 3, 2, 2, 2, 341, 342, 9, 6, 2, 2, 342, 65, 3, 2, 
-	2, 2, 343, 344, 5, 68, 35, 2, 344, 346, 7, 91, 2, 2, 345, 347, 5, 70, 36, 
+	2, 2, 343, 344, 5, 68, 35, 2, 344, 346, 7, 92, 2, 2, 345, 347, 5, 70, 36, 
 	2, 346, 345, 3, 2, 2, 2, 346, 347, 3, 2, 2, 2, 347, 348, 3, 2, 2, 2, 348, 
-	349, 7, 92, 2, 2, 349, 67, 3, 2, 2, 2, 350, 351, 9, 7, 2, 2, 351, 69, 3, 
-	2, 2, 2, 352, 357, 5, 72, 37, 2, 353, 354, 7, 86, 2, 2, 354, 356, 5, 72, 
+	349, 7, 93, 2, 2, 349, 67, 3, 2, 2, 2, 350, 351, 9, 7, 2, 2, 351, 69, 3, 
+	2, 2, 2, 352, 357, 5, 72, 37, 2, 353, 354, 7, 87, 2, 2, 354, 356, 5, 72, 
 	37, 2, 355, 353, 3, 2, 2, 2, 356, 359, 3, 2, 2, 2, 357, 355, 3, 2, 2, 2, 
 	357, 358, 3, 2, 2, 2, 358, 71, 3, 2, 2, 2, 359, 357, 3, 2, 2, 2, 360, 363, 
 	5, 60, 31, 2, 361, 363, 5, 22, 12, 2, 362, 360, 3, 2, 2, 2, 362, 361, 3, 
@@ -182,16 +182,16 @@ var parserATN = []uint16{
 	39, 2, 366, 365, 3, 2, 2, 2, 366, 367, 3, 2, 2, 2, 367, 371, 3, 2, 2, 2, 
 	368, 371, 5, 80, 41, 2, 369, 371, 5, 78, 40, 2, 370, 364, 3, 2, 2, 2, 370, 
 	368, 3, 2, 2, 2, 370, 369, 3, 2, 2, 2, 371, 75, 3, 2, 2, 2, 372, 373, 7, 
-	89, 2, 2, 373, 374, 5, 22, 12, 2, 374, 375, 7, 90, 2, 2, 375, 77, 3, 2, 
+	90, 2, 2, 373, 374, 5, 22, 12, 2, 374, 375, 7, 91, 2, 2, 375, 77, 3, 2, 
 	2, 2, 376, 378, 9, 8, 2, 2, 377, 376, 3, 2, 2, 2, 377, 378, 3, 2, 2, 2, 
-	378, 379, 3, 2, 2, 2, 379, 380, 7, 99, 2, 2, 380, 79, 3, 2, 2, 2, 381, 
+	378, 379, 3, 2, 2, 2, 379, 380, 7, 100, 2, 2, 380, 79, 3, 2, 2, 2, 381, 
 	383, 9, 8, 2, 2, 382, 381, 3, 2, 2, 2, 382, 383, 3, 2, 2, 2, 383, 384, 
-	3, 2, 2, 2, 384, 385, 7, 100, 2, 2, 385, 81, 3, 2, 2, 2, 386, 387, 7, 33, 
-	2, 2, 387, 388, 7, 99, 2, 2, 388, 83, 3, 2, 2, 2, 389, 390, 5, 90, 46, 
+	3, 2, 2, 2, 384, 385, 7, 101, 2, 2, 385, 81, 3, 2, 2, 2, 386, 387, 7, 33, 
+	2, 2, 387, 388, 7, 100, 2, 2, 388, 83, 3, 2, 2, 2, 389, 390, 5, 90, 46, 
 	2, 390, 85, 3, 2, 2, 2, 391, 392, 5, 90, 46, 2, 392, 87, 3, 2, 2, 2, 393, 
-	394, 5, 90, 46, 2, 394, 89, 3, 2, 2, 2, 395, 398, 7, 98, 2, 2, 396, 398, 
+	394, 5, 90, 46, 2, 394, 89, 3, 2, 2, 2, 395, 398, 7, 99, 2, 2, 396, 398, 
 	5, 92, 47, 2, 397, 395, 3, 2, 2, 2, 397, 396, 3, 2, 2, 2, 398, 406, 3, 
-	2, 2, 2, 399, 402, 7, 75, 2, 2, 400, 403, 7, 98, 2, 2, 401, 403, 5, 92, 
+	2, 2, 2, 399, 402, 7, 76, 2, 2, 400, 403, 7, 99, 2, 2, 401, 403, 5, 92, 
 	47, 2, 402, 400, 3, 2, 2, 2, 402, 401, 3, 2, 2, 2, 403, 405, 3, 2, 2, 2, 
 	404, 399, 3, 2, 2, 2, 405, 408, 3, 2, 2, 2, 406, 404, 3, 2, 2, 2, 406, 
 	407, 3, 2, 2, 2, 407, 91, 3, 2, 2, 2, 408, 406, 3, 2, 2, 2, 409, 410, 9, 
@@ -207,10 +207,10 @@ var literalNames = []string{
 	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
 	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
 	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
-	"", "", "", "", "", "", "", "", "", "", "", "", "", "'m'", "", "", "", 
-	"'M'", "", "'.'", "':'", "'='", "'<>'", "'!='", "'>'", "'>='", "'<'", "'<='", 
-	"'=~'", "'!~'", "','", "'{'", "'}'", "'['", "']'", "'('", "')'", "'+'", 
-	"'-'", "'/'", "'*'", "'%'",
+	"", "", "", "", "", "", "", "", "", "", "", "", "", "", "'m'", "", "", 
+	"", "'M'", "", "'.'", "':'", "'='", "'<>'", "'!='", "'>'", "'>='", "'<'", 
+	"'<='", "'=~'", "'!~'", "','", "'{'", "'}'", "'['", "']'", "'('", "')'", 
+	"'+'", "'-'", "'/'", "'*'", "'%'",
 }
 var symbolicNames = []string{
 	"", "T_CREATE", "T_UPDATE", "T_SET", "T_DROP", "T_INTERVAL", "T_INTERVAL_NAME", 
@@ -222,9 +222,9 @@ var symbolicNames = []string{
 	"T_NULL", "T_PREVIOUS", "T_ORDER", "T_ASC", "T_DESC", "T_LIKE", "T_NOT", 
 	"T_BETWEEN", "T_IS", "T_GROUP", "T_HAVING", "T_BY", "T_FOR", "T_STATS", 
 	"T_TIME", "T_NOW", "T_IN", "T_LOG", "T_PROFILE", "T_SUM", "T_MIN", "T_MAX", 
-	"T_AVG", "T_STDDEV", "T_HISTOGRAM", "T_SECOND", "T_MINUTE", "T_HOUR", "T_DAY", 
-	"T_WEEK", "T_MONTH", "T_YEAR", "T_DOT", "T_COLON", "T_EQUAL", "T_NOTEQUAL", 
-	"T_NOTEQUAL2", "T_GREATER", "T_GREATEREQUAL", "T_LESS", "T_LESSEQUAL", 
+	"T_COUNT", "T_AVG", "T_STDDEV", "T_HISTOGRAM", "T_SECOND", "T_MINUTE", 
+	"T_HOUR", "T_DAY", "T_WEEK", "T_MONTH", "T_YEAR", "T_DOT", "T_COLON", "T_EQUAL", 
+	"T_NOTEQUAL", "T_NOTEQUAL2", "T_GREATER", "T_GREATEREQUAL", "T_LESS", "T_LESSEQUAL", 
 	"T_REGEXP", "T_NEQREGEXP", "T_COMMA", "T_OPEN_B", "T_CLOSE_B", "T_OPEN_SB", 
 	"T_CLOSE_SB", "T_OPEN_P", "T_CLOSE_P", "T_ADD", "T_SUB", "T_DIV", "T_MUL", 
 	"T_MOD", "L_ID", "L_INT", "L_DEC", "WS",
@@ -332,43 +332,44 @@ const (
 	SQLParserT_SUM = 60
 	SQLParserT_MIN = 61
 	SQLParserT_MAX = 62
-	SQLParserT_AVG = 63
-	SQLParserT_STDDEV = 64
-	SQLParserT_HISTOGRAM = 65
-	SQLParserT_SECOND = 66
-	SQLParserT_MINUTE = 67
-	SQLParserT_HOUR = 68
-	SQLParserT_DAY = 69
-	SQLParserT_WEEK = 70
-	SQLParserT_MONTH = 71
-	SQLParserT_YEAR = 72
-	SQLParserT_DOT = 73
-	SQLParserT_COLON = 74
-	SQLParserT_EQUAL = 75
-	SQLParserT_NOTEQUAL = 76
-	SQLParserT_NOTEQUAL2 = 77
-	SQLParserT_GREATER = 78
-	SQLParserT_GREATEREQUAL = 79
-	SQLParserT_LESS = 80
-	SQLParserT_LESSEQUAL = 81
-	SQLParserT_REGEXP = 82
-	SQLParserT_NEQREGEXP = 83
-	SQLParserT_COMMA = 84
-	SQLParserT_OPEN_B = 85
-	SQLParserT_CLOSE_B = 86
-	SQLParserT_OPEN_SB = 87
-	SQLParserT_CLOSE_SB = 88
-	SQLParserT_OPEN_P = 89
-	SQLParserT_CLOSE_P = 90
-	SQLParserT_ADD = 91
-	SQLParserT_SUB = 92
-	SQLParserT_DIV = 93
-	SQLParserT_MUL = 94
-	SQLParserT_MOD = 95
-	SQLParserL_ID = 96
-	SQLParserL_INT = 97
-	SQLParserL_DEC = 98
-	SQLParserWS = 99
+	SQLParserT_COUNT = 63
+	SQLParserT_AVG = 64
+	SQLParserT_STDDEV = 65
+	SQLParserT_HISTOGRAM = 66
+	SQLParserT_SECOND = 67
+	SQLParserT_MINUTE = 68
+	SQLParserT_HOUR = 69
+	SQLParserT_DAY = 70
+	SQLParserT_WEEK = 71
+	SQLParserT_MONTH = 72
+	SQLParserT_YEAR = 73
+	SQLParserT_DOT = 74
+	SQLParserT_COLON = 75
+	SQLParserT_EQUAL = 76
+	SQLParserT_NOTEQUAL = 77
+	SQLParserT_NOTEQUAL2 = 78
+	SQLParserT_GREATER = 79
+	SQLParserT_GREATEREQUAL = 80
+	SQLParserT_LESS = 81
+	SQLParserT_LESSEQUAL = 82
+	SQLParserT_REGEXP = 83
+	SQLParserT_NEQREGEXP = 84
+	SQLParserT_COMMA = 85
+	SQLParserT_OPEN_B = 86
+	SQLParserT_CLOSE_B = 87
+	SQLParserT_OPEN_SB = 88
+	SQLParserT_CLOSE_SB = 89
+	SQLParserT_OPEN_P = 90
+	SQLParserT_CLOSE_P = 91
+	SQLParserT_ADD = 92
+	SQLParserT_SUB = 93
+	SQLParserT_DIV = 94
+	SQLParserT_MUL = 95
+	SQLParserT_MOD = 96
+	SQLParserL_ID = 97
+	SQLParserL_INT = 98
+	SQLParserL_DEC = 99
+	SQLParserWS = 100
 )
 
 // SQLParser rules.
@@ -2565,7 +2566,7 @@ func (p *SQLParser) TimeExpr() (localctx ITimeExprContext) {
 		}
 
 
-	case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR, SQLParserL_ID:
+	case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR, SQLParserL_ID:
 		{
 			p.SetState(207)
 			p.Ident()
@@ -2697,7 +2698,7 @@ func (p *SQLParser) NowExpr() (localctx INowExprContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if ((((_la - 91)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 91))) & ((1 << (SQLParserT_ADD - 91)) | (1 << (SQLParserT_SUB - 91)) | (1 << (SQLParserL_INT - 91)))) != 0) {
+	if ((((_la - 92)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 92))) & ((1 << (SQLParserT_ADD - 92)) | (1 << (SQLParserT_SUB - 92)) | (1 << (SQLParserL_INT - 92)))) != 0) {
 		{
 			p.SetState(211)
 			p.DurationLit()
@@ -2831,7 +2832,7 @@ func (p *SQLParser) NowFunc() (localctx INowFuncContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_AVG - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)) | (1 << (SQLParserT_OPEN_P - 64)) | (1 << (SQLParserT_ADD - 64)) | (1 << (SQLParserT_SUB - 64)))) != 0) || ((((_la - 96)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 96))) & ((1 << (SQLParserL_ID - 96)) | (1 << (SQLParserL_INT - 96)) | (1 << (SQLParserL_DEC - 96)))) != 0) {
+	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_COUNT - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)) | (1 << (SQLParserT_OPEN_P - 64)) | (1 << (SQLParserT_ADD - 64)) | (1 << (SQLParserT_SUB - 64)))) != 0) || ((((_la - 97)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 97))) & ((1 << (SQLParserL_ID - 97)) | (1 << (SQLParserL_INT - 97)) | (1 << (SQLParserL_DEC - 97)))) != 0) {
 		{
 			p.SetState(216)
 			p.ExprFuncParams()
@@ -5291,7 +5292,7 @@ func (p *SQLParser) IntervalItem() (localctx IIntervalItemContext) {
 		p.SetState(339)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(((((_la - 66)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 66))) & ((1 << (SQLParserT_SECOND - 66)) | (1 << (SQLParserT_MINUTE - 66)) | (1 << (SQLParserT_HOUR - 66)) | (1 << (SQLParserT_DAY - 66)) | (1 << (SQLParserT_WEEK - 66)) | (1 << (SQLParserT_MONTH - 66)) | (1 << (SQLParserT_YEAR - 66)))) != 0)) {
+		if !(((((_la - 67)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 67))) & ((1 << (SQLParserT_SECOND - 67)) | (1 << (SQLParserT_MINUTE - 67)) | (1 << (SQLParserT_HOUR - 67)) | (1 << (SQLParserT_DAY - 67)) | (1 << (SQLParserT_WEEK - 67)) | (1 << (SQLParserT_MONTH - 67)) | (1 << (SQLParserT_YEAR - 67)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -5431,7 +5432,7 @@ func (p *SQLParser) ExprFunc() (localctx IExprFuncContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_AVG - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)) | (1 << (SQLParserT_OPEN_P - 64)) | (1 << (SQLParserT_ADD - 64)) | (1 << (SQLParserT_SUB - 64)))) != 0) || ((((_la - 96)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 96))) & ((1 << (SQLParserL_ID - 96)) | (1 << (SQLParserL_INT - 96)) | (1 << (SQLParserL_DEC - 96)))) != 0) {
+	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_COUNT - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)) | (1 << (SQLParserT_OPEN_P - 64)) | (1 << (SQLParserT_ADD - 64)) | (1 << (SQLParserT_SUB - 64)))) != 0) || ((((_la - 97)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 97))) & ((1 << (SQLParserL_ID - 97)) | (1 << (SQLParserL_INT - 97)) | (1 << (SQLParserL_DEC - 97)))) != 0) {
 		{
 			p.SetState(343)
 			p.ExprFuncParams()
@@ -5503,6 +5504,10 @@ func (s *FuncNameContext) T_AVG() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_AVG, 0)
 }
 
+func (s *FuncNameContext) T_COUNT() antlr.TerminalNode {
+	return s.GetToken(SQLParserT_COUNT, 0)
+}
+
 func (s *FuncNameContext) T_STDDEV() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_STDDEV, 0)
 }
@@ -5562,7 +5567,7 @@ func (p *SQLParser) FuncName() (localctx IFuncNameContext) {
 		p.SetState(348)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(((((_la - 60)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 60))) & ((1 << (SQLParserT_SUM - 60)) | (1 << (SQLParserT_MIN - 60)) | (1 << (SQLParserT_MAX - 60)) | (1 << (SQLParserT_AVG - 60)) | (1 << (SQLParserT_STDDEV - 60)) | (1 << (SQLParserT_HISTOGRAM - 60)))) != 0)) {
+		if !(((((_la - 60)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 60))) & ((1 << (SQLParserT_SUM - 60)) | (1 << (SQLParserT_MIN - 60)) | (1 << (SQLParserT_MAX - 60)) | (1 << (SQLParserT_COUNT - 60)) | (1 << (SQLParserT_AVG - 60)) | (1 << (SQLParserT_STDDEV - 60)) | (1 << (SQLParserT_HISTOGRAM - 60)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -6944,7 +6949,7 @@ func (p *SQLParser) Ident() (localctx IIdentContext) {
 		}
 
 
-	case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
+	case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
 		{
 			p.SetState(394)
 			p.NonReservedWords()
@@ -6976,7 +6981,7 @@ func (p *SQLParser) Ident() (localctx IIdentContext) {
 				}
 
 
-			case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
+			case SQLParserT_CREATE, SQLParserT_INTERVAL, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NODE, SQLParserT_MEASUREMENTS, SQLParserT_MEASUREMENT, SQLParserT_FIELD, SQLParserT_TAG, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_HISTOGRAM, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
 				{
 					p.SetState(399)
 					p.NonReservedWords()
@@ -7255,6 +7260,10 @@ func (s *NonReservedWordsContext) T_MAX() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_MAX, 0)
 }
 
+func (s *NonReservedWordsContext) T_COUNT() antlr.TerminalNode {
+	return s.GetToken(SQLParserT_COUNT, 0)
+}
+
 func (s *NonReservedWordsContext) T_AVG() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_AVG, 0)
 }
@@ -7318,7 +7327,7 @@ func (p *SQLParser) NonReservedWords() (localctx INonReservedWordsContext) {
 		p.SetState(407)
 		_la = p.GetTokenStream().LA(1)
 
-		if !((((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_AVG - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)))) != 0)) {
+		if !((((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_DATASBAE) | (1 << SQLParserT_DATASBAES) | (1 << SQLParserT_NODE) | (1 << SQLParserT_MEASUREMENTS) | (1 << SQLParserT_MEASUREMENT) | (1 << SQLParserT_FIELD) | (1 << SQLParserT_TAG) | (1 << SQLParserT_KEYS) | (1 << SQLParserT_KEY) | (1 << SQLParserT_WITH) | (1 << SQLParserT_VALUES) | (1 << SQLParserT_FROM) | (1 << SQLParserT_WHERE) | (1 << SQLParserT_LIMIT))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)) | (1 << (SQLParserT_ASC - 32)) | (1 << (SQLParserT_DESC - 32)) | (1 << (SQLParserT_LIKE - 32)) | (1 << (SQLParserT_NOT - 32)) | (1 << (SQLParserT_BETWEEN - 32)) | (1 << (SQLParserT_IS - 32)) | (1 << (SQLParserT_GROUP - 32)) | (1 << (SQLParserT_BY - 32)) | (1 << (SQLParserT_FOR - 32)) | (1 << (SQLParserT_STATS - 32)) | (1 << (SQLParserT_TIME - 32)) | (1 << (SQLParserT_PROFILE - 32)) | (1 << (SQLParserT_SUM - 32)) | (1 << (SQLParserT_MIN - 32)) | (1 << (SQLParserT_MAX - 32)) | (1 << (SQLParserT_COUNT - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_HISTOGRAM - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
