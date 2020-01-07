@@ -9,10 +9,12 @@ import (
 )
 
 func Test_Sum_getPrimitiveFields(t *testing.T) {
-	assert.True(t, newSumSchema().getPrimitiveFields(function.Sum)[uint16(1)] == Sum)
+	assert.True(t, newSumSchema().getPrimitiveFields(function.Sum)[0].AggType == Sum)
+	assert.True(t, newSumSchema().getPrimitiveFields(function.Sum)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newSumSchema().getPrimitiveFields(function.Sum)))
 
-	assert.True(t, newSumSchema().getDefaultPrimitiveFields()[uint16(1)] == Sum)
+	assert.True(t, newSumSchema().getDefaultPrimitiveFields()[0].AggType == Sum)
+	assert.True(t, newSumSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
 	assert.Equal(t, sumAggregator, newSumSchema().GetAggFunc(uint16(1)))
 	assert.Equal(t, 1, len(newSumSchema().getDefaultPrimitiveFields()))
 
@@ -20,10 +22,12 @@ func Test_Sum_getPrimitiveFields(t *testing.T) {
 }
 
 func Test_Min_getPrimitiveFields(t *testing.T) {
-	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[uint16(1)] == Min)
+	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].AggType == Min)
+	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newMinSchema().getPrimitiveFields(function.Min)))
 
-	assert.True(t, newMinSchema().getDefaultPrimitiveFields()[uint16(1)] == Min)
+	assert.True(t, newMinSchema().getDefaultPrimitiveFields()[0].AggType == Min)
+	assert.True(t, newMinSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
 	assert.Equal(t, minAggregator, newMinSchema().GetAggFunc(uint16(1)))
 	assert.Equal(t, 1, len(newMinSchema().getDefaultPrimitiveFields()))
 
@@ -31,10 +35,12 @@ func Test_Min_getPrimitiveFields(t *testing.T) {
 }
 
 func Test_Max_getPrimitiveFields(t *testing.T) {
-	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[uint16(1)] == Max)
+	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[0].AggType == Max)
+	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newMaxSchema().getPrimitiveFields(function.Max)))
 
-	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[uint16(1)] == Max)
+	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[0].AggType == Max)
+	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
 	assert.Equal(t, maxAggregator, newMaxSchema().GetAggFunc(uint16(1)))
 	assert.Equal(t, 1, len(newMaxSchema().getDefaultPrimitiveFields()))
 
@@ -42,10 +48,12 @@ func Test_Max_getPrimitiveFields(t *testing.T) {
 }
 
 func Test_Gauge_getPrimitiveFields(t *testing.T) {
-	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[uint16(1)] == Replace)
+	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[0].AggType == Replace)
+	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newGaugeSchema().getPrimitiveFields(function.Replace)))
 
-	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[uint16(1)] == Replace)
+	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[0].AggType == Replace)
+	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
 	assert.Equal(t, replaceAggregator, newGaugeSchema().GetAggFunc(uint16(1)))
 	assert.Equal(t, 1, len(newGaugeSchema().getDefaultPrimitiveFields()))
 
@@ -53,7 +61,8 @@ func Test_Gauge_getPrimitiveFields(t *testing.T) {
 }
 
 func Test_Summary_getPrimitiveFields(t *testing.T) {
-	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[uint16(2)] == Sum)
+	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].AggType == Sum)
+	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].FieldID == uint16(2))
 	assert.Equal(t, 1, len(newSummarySchema().getDefaultPrimitiveFields()))
 
 	assert.Equal(t, sumAggregator, newSummarySchema().GetAggFunc(uint16(1)))
@@ -63,16 +72,22 @@ func Test_Summary_getPrimitiveFields(t *testing.T) {
 	assert.Equal(t, replaceAggregator, newSummarySchema().GetAggFunc(uint16(5)))
 
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Sum)))
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Sum)[uint16(1)] == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Sum)[0].AggType == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Sum)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Count)))
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Count)[uint16(2)] == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Count)[0].AggType == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Count)[0].FieldID == uint16(2))
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Max)))
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[uint16(3)] == Max)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[0].AggType == Max)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[0].FieldID == uint16(3))
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Min)))
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[uint16(4)] == Min)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[0].AggType == Min)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[0].FieldID == uint16(4))
 	assert.Equal(t, 2, len(newSummarySchema().getPrimitiveFields(function.Avg)))
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[uint16(1)] == Sum)
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[uint16(2)] == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[0].AggType == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[0].FieldID == uint16(1))
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[1].AggType == Sum)
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[1].FieldID == uint16(2))
 
 	assert.Nil(t, newSummarySchema().getPrimitiveFields(function.FuncType(128)))
 }

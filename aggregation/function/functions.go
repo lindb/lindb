@@ -11,15 +11,20 @@ func FuncCall(funcType FuncType, params ...collections.FloatArray) collections.F
 		}
 		return params[0]
 	case Avg:
+		// params: 0=>sum, 1=>count
 		if len(params) < 2 {
 			return nil
 		}
-		//FIXME need get params by pFieldID
 		result := collections.NewFloatArray(params[0].Capacity())
 		it := params[0].Iterator()
 		for it.HasNext() {
-			idx, value := it.Next()
-			result.SetValue(idx, value/params[1].GetValue(idx))
+			idx, sum := it.Next()
+			if params[1].HasValue(idx) {
+				count := params[1].GetValue(idx)
+				if count != 0 {
+					result.SetValue(idx, sum/count)
+				}
+			}
 		}
 		return result
 	default:

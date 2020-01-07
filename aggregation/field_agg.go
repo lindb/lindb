@@ -51,12 +51,12 @@ func NewDownSamplingFieldAggregator(
 	// if down sampling spec need init all aggregator
 	for funcType := range aggSpec.Functions() {
 		primitiveFields := aggSpec.GetFieldType().GetPrimitiveFields(funcType)
-		for id, aggType := range primitiveFields {
+		for _, pField := range primitiveFields {
 			key := aggKey{
-				primitiveID: id,
-				aggType:     aggType,
+				primitiveID: pField.FieldID,
+				aggType:     pField.AggType,
 			}
-			aggregatorMap[key] = NewPrimitiveAggregator(id, start, selector.PointCount(), aggType.AggFunc())
+			aggregatorMap[key] = NewPrimitiveAggregator(pField.FieldID, start, selector.PointCount(), pField.AggType.AggFunc())
 		}
 	}
 	length := len(aggregatorMap)

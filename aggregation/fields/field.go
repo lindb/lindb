@@ -88,12 +88,12 @@ func (f *dynamicField) Reset() {
 }
 
 // getFieldValues returns the values by primitive field ids
-func (f *dynamicField) getFieldValues(pFields map[uint16]field.AggType) (result []collections.FloatArray) {
+func (f *dynamicField) getFieldValues(pFields field.PrimitiveFields) (result []collections.FloatArray) {
 	if len(pFields) == 0 {
 		return
 	}
-	for pID := range pFields {
-		pField, ok := f.fields[pID]
+	for _, pField := range pFields {
+		pField, ok := f.fields[pField.FieldID]
 		if ok {
 			result = append(result, pField)
 		}
