@@ -127,7 +127,7 @@ func Test_newMDTVersionBlock(t *testing.T) {
 
 	// UnmarshalBinary bitmap err
 	// set err bitmap data
-	data[13]++
+	data[6]++
 	vb, err = newMDTVersionBlock(1, []uint16{2}, data)
 	assert.Error(t, err)
 	assert.Nil(t, vb)
@@ -191,8 +191,8 @@ func buildMetricVersionBlockData() []byte {
 		{ID: 2, Type: field.MinField, Name: "min"},
 		{ID: 3, Type: field.MaxField, Name: "max"},
 	})
-	flusherImpl.FlushField(1, []byte{1, 1, 1, 1})
-	flusherImpl.FlushField(2, []byte{1, 1, 1, 1})
+	flusherImpl.FlushField(1)
+	flusherImpl.FlushField(2)
 	flusherImpl.FlushSeries()
 	flusherImpl.FlushSeriesBucket()
 	flusherImpl.FlushVersion(series.NewVersion(), roaring.BitmapOf(1, 2, 3))

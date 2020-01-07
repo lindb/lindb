@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
@@ -169,7 +168,7 @@ func (fs *fieldStore) Write(
 			fs.insertSStore(sStore)
 			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
 		}
-		//FIXME need opt
+		//FIXME stone1100 need use field schema
 		writtenSize += sStore.WriteFloat(uint16(1), fields.Summary.Sum, writeCtx)
 		writtenSize += sStore.WriteInt(uint16(2), fields.Summary.Count, writeCtx)
 	default:
@@ -193,13 +192,15 @@ func (fs *fieldStore) FlushFieldTo(
 
 	//FIXME maybe data lost if marshal err
 	fs.removeSStore(familyTime)
-	data, _, _, err := sStore.Bytes(true)
-
-	if err != nil {
-		memDBLogger.Error("read segment data error:", logger.Error(err))
+	fieldMeta, ok := tableFlusher.GetFieldMeta(fs.fieldID)
+	if !ok {
+		memDBLogger.Warn("field meta not found in metric level, when flush field data")
 		return 0
 	}
-	tableFlusher.FlushField(fs.fieldID, data)
+
+	sStore.FlushFieldTo(tableFlusher, fieldMeta)
+
+	tableFlusher.FlushField(fs.fieldID)
 	return sStore.MemSize()
 }
 

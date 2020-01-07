@@ -32,15 +32,14 @@ func TestRegistry(t *testing.T) {
 			Return(closedCh, nil),
 	)
 	err := registry1.Register(node)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	time.Sleep(600 * time.Millisecond)
 
 	// maybe retry do heartbeat after close chan
 	repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	close(closedCh)
+	time.Sleep(600 * time.Millisecond)
 
 	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
 	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
@@ -48,15 +47,12 @@ func TestRegistry(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = registry1.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	registry1 = NewRegistry(repo, testRegistryPath, 100)
 	err = registry1.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	r := registry1.(*registry)
 	r.register("/data/pant", node)
 
