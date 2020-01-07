@@ -129,7 +129,7 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 }
 
 // GetPrimitiveFields returns the primitive fields for aggregator
-func (t Type) GetPrimitiveFields(funcType function.FuncType) map[uint16]AggType {
+func (t Type) GetPrimitiveFields(funcType function.FuncType) PrimitiveFields {
 	schema := schemas[t]
 	if schema == nil {
 		return nil
@@ -142,7 +142,7 @@ func (t Type) GetSchema() Schema {
 }
 
 // GetDefaultPrimitiveFields returns the default primitive fields for aggregator
-func (t Type) GetDefaultPrimitiveFields() map[uint16]AggType {
+func (t Type) GetDefaultPrimitiveFields() PrimitiveFields {
 	schema := schemas[t]
 	if schema == nil {
 		return nil

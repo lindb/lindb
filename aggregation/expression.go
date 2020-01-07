@@ -121,6 +121,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 		if parentFunc == nil {
 			return fieldValues.GetDefaultValues()
 		}
+		// get primitive field data by function type
 		return fieldValues.GetValues(parentFunc.FuncType)
 	default:
 		return nil
@@ -137,7 +138,6 @@ func (e *expression) funcCall(expr *stmt.CallExpr) []collections.FloatArray {
 		}
 		params = append(params, paramValues...)
 	}
-	//FIXME need add pFieldID
 	result := function.FuncCall(expr.FuncType, params...)
 	if result == nil {
 		return nil
