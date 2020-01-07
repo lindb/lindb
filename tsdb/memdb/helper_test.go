@@ -33,7 +33,7 @@ func makeMockIDGenerator(ctrl *gomock.Controller) *metadb.MockIDGenerator {
 func makeMockDataFlusher(ctrl *gomock.Controller) *metricsdata.MockFlusher {
 	mockTF := metricsdata.NewMockFlusher(ctrl)
 	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
-	mockTF.EXPECT().FlushField(gomock.Any(), gomock.Any()).
+	mockTF.EXPECT().FlushField(gomock.Any()).
 		Return().AnyTimes()
 	mockTF.EXPECT().FlushSeries().
 		Return().AnyTimes()

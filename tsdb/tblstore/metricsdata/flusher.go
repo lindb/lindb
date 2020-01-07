@@ -32,8 +32,9 @@ import (
 type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
 	FlushFieldMetas(fieldMetas []field.Meta)
+	FlushPrimitiveField(pFieldID uint16, data []byte)
 	// FlushField writes a compressed field data to writer.
-	FlushField(fieldID uint16, data []byte)
+	FlushField(fieldID uint16)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
 	FlushSeries()
 	// FlushSeriesBucket writes a suit series data in one container(roaring.Bitmap),
@@ -45,6 +46,8 @@ type Flusher interface {
 	FlushMetric(metricID uint32) error
 	// Commit closes the writer, this will be called after writing all metric-blocks.
 	Commit() error
+
+	GetFieldMeta(fieldID uint16) (field.Meta, bool)
 }
 
 // NewFlusher returns a new Flusher,
@@ -58,8 +61,21 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 		seriesOffsets:       encoding.NewFixedOffsetEncoder(),
 		seriesBucketOffsets: encoding.NewFixedOffsetEncoder(),
 		// series entry context
-		fieldsData: make(map[uint16][]byte),
-		bitArray:   collections.NewBitArray(nil)}
+		fieldsData:            make(map[uint16]*fieldData),
+		primitiveFieldsData:   make(map[uint16][]byte),
+		primitiveFieldOffsets: encoding.NewFixedOffsetEncoder(),
+		fieldWriter:           stream.NewBufferWriter(nil),
+		bitArray:              collections.NewBitArray(nil),
+		bitArray1:             collections.NewBitArray(nil),
+	}
+}
+
+type fieldData struct {
+	fieldIDs, offset, data []byte
+}
+
+func (f *fieldData) Len() int {
+	return len(f.fieldIDs) + len(f.offset) + len(f.data)
 }
 
 // flusher implements Flusher.
@@ -72,14 +88,20 @@ type flusher struct {
 		length  int            // length of flushed version blocks
 		version series.Version // flushed version
 	}
-	fieldMetas []field.Meta
+	fieldMetas field.Metas
 	// context for building version block
 	versionStartPos     int // start position of writer
 	seriesOffsets       *encoding.FixedOffsetEncoder
 	seriesBucketOffsets *encoding.FixedOffsetEncoder
 
+	// context for building field entry
+	primitiveFieldsData   map[uint16][]byte
+	primitiveFieldOffsets *encoding.FixedOffsetEncoder
+	fieldWriter           *stream.BufferWriter
+	bitArray1             *collections.BitArray
+
 	// context for building series entry
-	fieldsData map[uint16][]byte
+	fieldsData map[uint16]*fieldData
 	bitArray   *collections.BitArray
 }
 
@@ -88,10 +110,59 @@ func (w *flusher) FlushFieldMetas(fieldMetas []field.Meta) {
 	w.fieldMetas = fieldMetas
 }
 
+func (w *flusher) FlushPrimitiveField(pFieldID uint16, data []byte) {
+	// record mapping of primitive field id and field-data
+	w.primitiveFieldsData[pFieldID] = data
+}
+
+func (w *flusher) resetFieldContext() {
+	for fieldID := range w.primitiveFieldsData {
+		delete(w.primitiveFieldsData, fieldID)
+	}
+	w.fieldWriter.Reset()
+	w.primitiveFieldOffsets.Reset()
+	w.bitArray1.Reset(nil)
+}
+
 // FlushField writes a compressed field data to writer.
-func (w *flusher) FlushField(fieldID uint16, data []byte) {
-	// record mapping of fieldID and field-data
-	w.fieldsData[fieldID] = data
+func (w *flusher) FlushField(fieldID uint16) {
+	defer w.resetFieldContext()
+	fieldMeta, ok := w.fieldMetas.GetFromID(fieldID)
+	if !ok {
+		return
+	}
+	fieldType := fieldMeta.Type
+	primitiveFields := fieldType.GetSchema().GetAllPrimitiveFields()
+	switch fieldType {
+	case field.SummaryField: //complex field
+		for _, pFieldID := range primitiveFields {
+			offset := w.fieldWriter.Len()
+			data, ok := w.primitiveFieldsData[pFieldID]
+			if !ok {
+				continue
+			}
+			w.fieldWriter.PutBytes(data)
+			w.primitiveFieldOffsets.Add(offset)
+			w.bitArray1.SetBit(pFieldID)
+		}
+		// ignore err
+		data, _ := w.fieldWriter.Bytes()
+		w.setFieldData(fieldID, w.bitArray1.Bytes(), w.primitiveFieldOffsets.MarshalBinary(), data)
+	default: //simple field
+		// record mapping of fieldID and field-data
+		w.setFieldData(fieldID, nil, nil, w.primitiveFieldsData[primitiveFields[0]])
+	}
+}
+
+func (w *flusher) setFieldData(fieldID uint16, fieldIDs, offset, data []byte) {
+	fieldValue, ok := w.fieldsData[fieldID]
+	if !ok {
+		fieldValue = &fieldData{}
+		w.fieldsData[fieldID] = fieldValue
+	}
+	fieldValue.fieldIDs = fieldIDs
+	fieldValue.offset = offset
+	fieldValue.data = data
 }
 
 // ResetSeriesContext resets the series context for reuse
@@ -121,7 +192,7 @@ func (w *flusher) FlushSeries() {
 	// write data length
 	for _, fm := range w.fieldMetas {
 		if data, ok := w.fieldsData[fm.ID]; ok {
-			w.writer.PutUvarint32(uint32(len(data)))
+			w.writer.PutUvarint32(uint32(data.Len()))
 		}
 	}
 
@@ -129,7 +200,15 @@ func (w *flusher) FlushSeries() {
 	// write fields data
 	for _, fm := range w.fieldMetas {
 		if data, ok := w.fieldsData[fm.ID]; ok {
-			w.writer.PutBytes(data)
+			if len(data.fieldIDs) > 0 {
+				w.writer.PutBytes(data.fieldIDs)
+			}
+			if len(data.offset) > 0 {
+				w.writer.PutBytes(data.offset)
+			}
+			if len(data.data) > 0 {
+				w.writer.PutBytes(data.data)
+			}
 		}
 	}
 }
@@ -236,4 +315,8 @@ func (w *flusher) FlushMetric(metricID uint32) error {
 // Commit adds the footer and then closes the kv builder, this will be called after writing all metric-blocks.
 func (w *flusher) Commit() error {
 	return w.kvFlusher.Commit()
+}
+
+func (w *flusher) GetFieldMeta(fieldID uint16) (field.Meta, bool) {
+	return w.fieldMetas.GetFromID(fieldID)
 }

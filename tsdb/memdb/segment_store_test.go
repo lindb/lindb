@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleSegmentStore(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	flusher := metricsdata.NewMockFlusher(ctrl)
+
 	aggFunc := field.Sum.AggFunc()
 	store := newSimpleFieldStore(0, aggFunc)
 	assert.Equal(t, int64(0), store.GetFamilyTime())
@@ -22,11 +27,12 @@ func TestSimpleSegmentStore(t *testing.T) {
 	_, _, err := ss.SlotRange()
 	assert.NotNil(t, err)
 
-	compress, startSlot, endSlot, err := store.Bytes(true)
-	assert.Nil(t, compress)
-	assert.NotNil(t, err)
-	assert.Equal(t, 0, startSlot)
-	assert.Equal(t, 0, endSlot)
+	flushSize := store.FlushFieldTo(flusher, field.Meta{
+		ID:   10,
+		Type: field.SumField,
+		Name: "f1",
+	})
+	assert.True(t, flushSize == 0)
 
 	writeCtx := writeContext{
 		blockStore:   newBlockStore(30),
@@ -53,31 +59,18 @@ func TestSimpleSegmentStore(t *testing.T) {
 	writeCtx.slotIndex = 41
 	ss.WriteInt(uint16(1), 50, writeCtx)
 
-	compress, startSlot, endSlot, err = store.Bytes(true)
+	flusher.EXPECT().FlushPrimitiveField(gomock.Any(), gomock.Any())
+	flushSize = store.FlushFieldTo(flusher, field.Meta{
+		ID:   10,
+		Type: field.SumField,
+		Name: "f1",
+	})
+	assert.True(t, flushSize > 0)
+
+	startSlot, endSlot, err := store.SlotRange()
 	assert.Nil(t, err)
 	assert.Equal(t, 10, startSlot)
 	assert.Equal(t, 41, endSlot)
-
-	startSlot, endSlot, err = store.SlotRange()
-	assert.Nil(t, err)
-	assert.Equal(t, 10, startSlot)
-	assert.Equal(t, 41, endSlot)
-
-	tsd := encoding.NewTSDDecoder(compress)
-	assert.Equal(t, 10, tsd.StartTime())
-	assert.Equal(t, 41, tsd.EndTime())
-	assert.True(t, tsd.HasValueWithSlot(0))
-	assert.Equal(t, int64(300), encoding.ZigZagDecode(tsd.Value()))
-	assert.True(t, tsd.HasValueWithSlot(1))
-	assert.Equal(t, int64(110), encoding.ZigZagDecode(tsd.Value()))
-	for i := 1; i < 30; i++ {
-		assert.False(t, tsd.HasValueWithSlot(i))
-	}
-	assert.True(t, tsd.HasValueWithSlot(30))
-	assert.Equal(t, int64(20), encoding.ZigZagDecode(tsd.Value()))
-
-	assert.True(t, tsd.HasValueWithSlot(31))
-	assert.Equal(t, int64(50), encoding.ZigZagDecode(tsd.Value()))
 }
 
 func TestSimpleSegmentStore_float(t *testing.T) {
@@ -108,6 +101,8 @@ func Test_sStore_error(t *testing.T) {
 	// compact error test
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	flusher := metricsdata.NewMockFlusher(ctrl)
+
 	mockBlock := NewMockblock(ctrl)
 	mockBlock.EXPECT().compact(gomock.Any()).Return(0, 0, fmt.Errorf("compat error")).AnyTimes()
 	mockBlock.EXPECT().setIntValue(gomock.Any(), gomock.Any()).Return().AnyTimes()
@@ -115,8 +110,12 @@ func Test_sStore_error(t *testing.T) {
 	mockBlock.EXPECT().getEndTime().Return(40).AnyTimes()
 	mockBlock.EXPECT().memsize().Return(300).AnyTimes()
 	ss.block = mockBlock
-	_, _, _, err := ss.Bytes(false)
-	assert.NotNil(t, err)
+	flushSize := store.FlushFieldTo(flusher, field.Meta{
+		ID:   10,
+		Type: field.SumField,
+		Name: "f1",
+	})
+	assert.True(t, flushSize == 0)
 
 	writeCtx := writeContext{
 		blockStore:   newBlockStore(30),
@@ -161,6 +160,4 @@ func BenchmarkSimpleSegmentStore(b *testing.B) {
 	// compact because slot out of current time window
 	writeCtx.slotIndex = 41
 	ss.WriteInt(uint16(1), 50, writeCtx)
-
-	_, _, _, _ = store.Bytes(true)
 }

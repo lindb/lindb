@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
@@ -27,13 +27,13 @@ type sStoreINTF interface {
 		endSlot int,
 		err error)
 
-	Bytes(
-		needSlotRange bool,
+	// FlushFieldTo flushes segment's data to writer
+	FlushFieldTo(
+		tableFlusher metricsdata.Flusher,
+		fieldMeta field.Meta,
 	) (
-		data []byte,
-		startSlot,
-		endSlot int,
-		err error)
+		flushedSize int,
+	)
 
 	// WriteInt writes a int value, and returns the written length
 	WriteInt(
@@ -114,43 +114,23 @@ func (fs *simpleFieldStore) GetFamilyTime() int64 {
 	return fs.familyTime
 }
 
-func (fs *simpleFieldStore) WriteFloat(pFieldID uint16, value float64, writeCtx writeContext) int {
-	oldSize := fs.MemSize()
-	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Float, fs.aggFunc)
-	fs.block = currentBlock
-	if hasValue {
-		// do rollup using agg func
-		currentBlock.setFloatValue(pos, fs.aggFunc.AggregateFloat(currentBlock.getFloatValue(pos), value))
-	} else {
-		currentBlock.setFloatValue(pos, value)
-	}
-	return fs.MemSize() - oldSize
-}
-
-func (fs *simpleFieldStore) WriteInt(pFieldID uint16, value int64, writeCtx writeContext) int {
-	oldSize := fs.MemSize()
-	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Integer, fs.aggFunc)
-	fs.block = currentBlock
-	if hasValue {
-		// do rollup using agg func
-		currentBlock.setIntValue(pos, fs.aggFunc.AggregateInt(currentBlock.getIntValue(pos), value))
-	} else {
-		currentBlock.setIntValue(pos, value)
-	}
-	return fs.MemSize() - oldSize
-}
-
-func (fs *simpleFieldStore) Bytes(needSlotRange bool) (data []byte, startSlot, endSlot int, err error) {
+func (fs *simpleFieldStore) FlushFieldTo(
+	tableFlusher metricsdata.Flusher,
+	fieldMeta field.Meta,
+) (
+	flushedSize int,
+) {
 	if fs.block == nil {
-		err = fmt.Errorf("block is empty")
 		return
 	}
-	if startSlot, endSlot, err = fs.block.compact(fs.aggFunc); err != nil {
-		err = fmt.Errorf("compact block data in simple field store error:%s", err)
+	if _, _, err := fs.block.compact(fs.aggFunc); err != nil {
+		memDBLogger.Error("flush simple segment store data err", logger.Error(err))
 		return
 	}
-	data = fs.block.bytes()
-	return
+	data := fs.block.bytes()
+	tableFlusher.FlushPrimitiveField(fieldMeta.Type.GetSchema().GetAllPrimitiveFields()[0], data)
+
+	return fs.MemSize()
 }
 
 func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
@@ -158,8 +138,7 @@ func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
 		err = fmt.Errorf("block is empty")
 		return
 	}
-	//FIXME need fix slot range cal, need add current slot range
-	startSlot, endSlot = encoding.DecodeTSDTime(fs.block.bytes())
+	startSlot, endSlot = fs.block.slotRange()
 	return
 }
 

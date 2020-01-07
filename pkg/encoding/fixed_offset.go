@@ -67,6 +67,10 @@ func NewFixedOffsetDecoder(buf []byte) *FixedOffsetDecoder {
 	}
 }
 
+func (d *FixedOffsetDecoder) ValueWidth() int {
+	return d.valueLength
+}
+
 // Size returns the size of  offset values
 func (d *FixedOffsetDecoder) Size() int {
 	return (d.length - 1) / d.valueLength

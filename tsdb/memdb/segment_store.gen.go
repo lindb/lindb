@@ -31,6 +31,19 @@ func (fs *complexFieldStore) WriteInt(
 	return fs.MemSize() - oldSize
 }
 
+func (fs *simpleFieldStore) WriteInt(pFieldID uint16, value int64, writeCtx writeContext) int {
+	oldSize := fs.MemSize()
+	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Integer, fs.aggFunc)
+	fs.block = currentBlock
+	if hasValue {
+		// do rollup using agg func
+		currentBlock.setIntValue(pos, fs.aggFunc.AggregateInt(currentBlock.getIntValue(pos), value))
+	} else {
+		currentBlock.setIntValue(pos, value)
+	}
+	return fs.MemSize() - oldSize
+}
+
 func (fs *complexFieldStore) WriteFloat(
 	pFieldID uint16,
 	value float64,
@@ -46,6 +59,19 @@ func (fs *complexFieldStore) WriteFloat(
 	if hasValue {
 		// do rollup using agg func
 		currentBlock.setFloatValue(pos, aggFunc.AggregateFloat(currentBlock.getFloatValue(pos), value))
+	} else {
+		currentBlock.setFloatValue(pos, value)
+	}
+	return fs.MemSize() - oldSize
+}
+
+func (fs *simpleFieldStore) WriteFloat(pFieldID uint16, value float64, writeCtx writeContext) int {
+	oldSize := fs.MemSize()
+	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.Float, fs.aggFunc)
+	fs.block = currentBlock
+	if hasValue {
+		// do rollup using agg func
+		currentBlock.setFloatValue(pos, fs.aggFunc.AggregateFloat(currentBlock.getFloatValue(pos), value))
 	} else {
 		currentBlock.setFloatValue(pos, value)
 	}
