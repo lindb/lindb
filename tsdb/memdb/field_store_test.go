@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -89,10 +90,15 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	theFieldStore := fStore.(*fieldStore)
 
 	mockTF := makeMockDataFlusher(ctrl)
+	mockTF.EXPECT().GetFieldMeta(gomock.Any()).Return(field.Meta{}, false)
+	mockTF.EXPECT().GetFieldMeta(gomock.Any()).Return(field.Meta{
+		ID:   10,
+		Type: field.SumField,
+		Name: "f1",
+	}, true).MaxTimes(2)
 	mockSStore1 := getMockSStore(ctrl, 1564304400000)
-	mockSStore1.EXPECT().Bytes(true).Return(nil, 0, 0, fmt.Errorf("error")).AnyTimes()
 	mockSStore2 := getMockSStore(ctrl, 1564308000000)
-	mockSStore2.EXPECT().Bytes(true).Return(nil, 1, 212, nil).AnyTimes()
+	mockSStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(0)
 
 	theFieldStore.insertSStore(mockSStore1)
 	theFieldStore.insertSStore(mockSStore2)

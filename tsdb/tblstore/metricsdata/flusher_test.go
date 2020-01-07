@@ -27,9 +27,9 @@ func Test_MetricsDataFlusher(t *testing.T) {
 			seriesIDs := roaring.New()
 
 			for seriesID := 0; seriesID < 100; seriesID++ {
-				flusher.FlushField(1, []byte{1, 2})
-				flusher.FlushField(2, []byte{2, 3})
-				flusher.FlushField(3, []byte{3, 4})
+				flusher.FlushField(1)
+				flusher.FlushField(2)
+				flusher.FlushField(3)
 				flusher.FlushSeries()
 				seriesIDs.Add(uint32(seriesID))
 			}
@@ -50,4 +50,57 @@ func Test_MetricsDataFlusher_Commit(t *testing.T) {
 	assert.Nil(t, flusher.Commit())
 
 	assert.Nil(t, flusher.FlushMetric(1))
+}
+
+func TestFlusher_GetFieldMeta(t *testing.T) {
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher := NewFlusher(nopKVFlusher)
+	_, ok := flusher.GetFieldMeta(uint16(10))
+	assert.False(t, ok)
+	flusher.FlushFieldMetas(field.Metas{
+		{
+			ID:   10,
+			Type: field.SumField,
+			Name: "1",
+		},
+		{
+			ID:   11,
+			Type: field.SumField,
+			Name: "2",
+		},
+		{
+			ID:   12,
+			Type: field.SumField,
+			Name: "3",
+		},
+	})
+	_, ok = flusher.GetFieldMeta(uint16(10))
+	assert.True(t, ok)
+}
+
+func TestFlusher_FlushPrimitiveField(t *testing.T) {
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher := NewFlusher(nopKVFlusher)
+	flusher.FlushPrimitiveField(uint16(1), []byte{1, 2, 3})
+	flusher.FlushPrimitiveField(uint16(3), []byte{1, 2, 3})
+	flusher.FlushFieldMetas(field.Metas{
+		{
+			ID:   8,
+			Type: field.SumField,
+			Name: "1",
+		},
+		{
+			ID:   10,
+			Type: field.SummaryField,
+			Name: "2",
+		},
+		{
+			ID:   12,
+			Type: field.SumField,
+			Name: "3",
+		},
+	})
+	flusher.FlushField(uint16(10))
+	flusher.FlushField(uint16(20))
+	flusher.FlushSeries()
 }

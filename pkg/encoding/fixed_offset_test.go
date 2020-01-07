@@ -31,6 +31,7 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	assert.Equal(t, -1, decoder.Get(8))
 	assert.Equal(t, -1, decoder.Get(-8))
 	assert.Equal(t, 8, decoder.Size())
+	assert.Equal(t, 4, decoder.ValueWidth())
 }
 
 func TestFixedOffsetEncoder_Reset(t *testing.T) {

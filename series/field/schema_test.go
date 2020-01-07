@@ -12,6 +12,7 @@ func Test_Sum_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newSumSchema().getPrimitiveFields(function.Sum)[0].AggType == Sum)
 	assert.True(t, newSumSchema().getPrimitiveFields(function.Sum)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newSumSchema().getPrimitiveFields(function.Sum)))
+	assert.Equal(t, []uint16{1}, newSumSchema().GetAllPrimitiveFields())
 
 	assert.True(t, newSumSchema().getDefaultPrimitiveFields()[0].AggType == Sum)
 	assert.True(t, newSumSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
@@ -25,6 +26,7 @@ func Test_Min_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].AggType == Min)
 	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newMinSchema().getPrimitiveFields(function.Min)))
+	assert.Equal(t, []uint16{1}, newMinSchema().GetAllPrimitiveFields())
 
 	assert.True(t, newMinSchema().getDefaultPrimitiveFields()[0].AggType == Min)
 	assert.True(t, newMinSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
@@ -38,6 +40,7 @@ func Test_Max_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[0].AggType == Max)
 	assert.True(t, newMaxSchema().getPrimitiveFields(function.Max)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newMaxSchema().getPrimitiveFields(function.Max)))
+	assert.Equal(t, []uint16{1}, newMaxSchema().GetAllPrimitiveFields())
 
 	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[0].AggType == Max)
 	assert.True(t, newMaxSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
@@ -51,6 +54,7 @@ func Test_Gauge_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[0].AggType == Replace)
 	assert.True(t, newGaugeSchema().getPrimitiveFields(function.Replace)[0].FieldID == uint16(1))
 	assert.Equal(t, 1, len(newGaugeSchema().getPrimitiveFields(function.Replace)))
+	assert.Equal(t, []uint16{1}, newGaugeSchema().GetAllPrimitiveFields())
 
 	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[0].AggType == Replace)
 	assert.True(t, newGaugeSchema().getDefaultPrimitiveFields()[0].FieldID == uint16(1))
@@ -64,6 +68,7 @@ func Test_Summary_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].AggType == Sum)
 	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].FieldID == uint16(2))
 	assert.Equal(t, 1, len(newSummarySchema().getDefaultPrimitiveFields()))
+	assert.Equal(t, []uint16{1, 2, 3, 4}, newSummarySchema().GetAllPrimitiveFields())
 
 	assert.Equal(t, sumAggregator, newSummarySchema().GetAggFunc(uint16(1)))
 	assert.Equal(t, sumAggregator, newSummarySchema().GetAggFunc(uint16(2)))

@@ -1,10 +1,12 @@
 package memdb
 
 import (
+	"math"
 	"math/bits"
 	"sync"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -105,6 +107,8 @@ type block interface {
 	getFloatValue(pos int) float64
 	// setStartTime sets start time slot
 	setStartTime(startTime int)
+	// slotRange returns the block store time slot range
+	slotRange() (start, end int)
 	// getStartTime returns start time slot
 	getStartTime() int
 	// getEndTime returns end time slot
@@ -155,6 +159,28 @@ func (c *container) setStartTime(startTime int) {
 // getStartTime returns start time slot
 func (c *container) getStartTime() int {
 	return c.startTime
+}
+
+func (c *container) slotRange() (start, end int) {
+	start = math.MaxInt32
+	if len(c.compress) > 0 {
+		oldStart, oldEnd := encoding.DecodeTSDTime(c.compress)
+		if oldStart < start {
+			start = oldStart
+		}
+		if oldEnd > end {
+			end = oldEnd
+		}
+	}
+	curStart := c.getStartTime()
+	curEnd := c.getEndTime()
+	if curStart < start {
+		start = curStart
+	}
+	if curEnd > end {
+		end = curEnd
+	}
+	return
 }
 
 // getEndTime returns end time slot

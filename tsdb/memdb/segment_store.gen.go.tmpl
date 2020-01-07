@@ -27,4 +27,19 @@ func (fs *complexFieldStore) Write{{.Name}}(
 	return fs.MemSize() - oldSize
 }
 
+
+func (fs *simpleFieldStore) Write{{.Name}}(pFieldID uint16, value {{.type}}, writeCtx writeContext) int {
+	oldSize := fs.MemSize()
+	currentBlock, pos, hasValue := calcTimeWindow(fs.block, writeCtx.blockStore, writeCtx.slotIndex, field.{{.Type}}, fs.aggFunc)
+	fs.block = currentBlock
+	if hasValue {
+		// do rollup using agg func
+		currentBlock.set{{.Name}}Value(pos, fs.aggFunc.Aggregate{{.Name}}(currentBlock.get{{.Name}}Value(pos), value))
+	} else {
+		currentBlock.set{{.Name}}Value(pos, value)
+	}
+	return fs.MemSize() - oldSize
+}
+
+
 {{end}}

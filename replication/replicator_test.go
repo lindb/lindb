@@ -500,7 +500,7 @@ func TestReplicator_Loop_panic(t *testing.T) {
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil).AnyTimes()
 	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
 	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
-	time.Sleep(time.Second)
+	time.Sleep(1500 * time.Millisecond)
 	rep.Stop()
 	close(done1)
 }
