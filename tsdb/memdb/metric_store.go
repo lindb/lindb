@@ -102,6 +102,9 @@ type mStoreINTF interface {
 	// ResetVersion moves the current running mutable index to immutable list,
 	// then creates a new mutable map.
 	ResetVersion() (createdSize int, err error)
+
+	// TimeSlotRange returns the metric store time slot range
+	TimeSlotRange() (start, end uint16)
 }
 
 type mStoreFieldIDGetter interface {
@@ -127,6 +130,7 @@ type metricStore struct {
 	fieldsMetas  atomic.Value  // read only, storing (field.Metas), hold mux before storing new value
 	maxTagsLimit atomic.Uint32 // maximum number of combinations of tags
 	size         atomic.Int32  // memory-size
+	start, end   uint16        // time slot range
 }
 
 // newMetricStore returns a new mStoreINTF.
@@ -334,9 +338,17 @@ func (ms *metricStore) Write(
 
 	writtenSize, err = tStore.Write(metric, writeCtx)
 	if err == nil {
-		ms.mux.RLock()
+		slot := writeCtx.slotIndex
+		ms.mux.Lock()
+		// set metric level slot range
+		if slot < ms.start {
+			ms.start = slot
+		}
+		if slot > ms.end {
+			ms.end = slot
+		}
 		ms.mutable.UpdateIndexTimeRange(writeCtx.PointTime())
-		ms.mux.RUnlock()
+		ms.mux.Unlock()
 	}
 	ms.size.Add(int32(writtenSize))
 	return writtenSize + createdSize, err
@@ -459,6 +471,8 @@ func (ms *metricStore) FlushMetricsDataTo(
 	// flush field meta info
 	fmList := ms.fieldsMetas.Load().(field.Metas)
 	flusher.FlushFieldMetas(fmList)
+	//FIXME stone1100, need refactor index/data store
+	flushCtx.start, flushCtx.end = ms.start, ms.end
 
 	// reset the mutable part
 	ms.mux.RLock()
@@ -623,6 +637,10 @@ func (ms *metricStore) GetSeriesIDsForMetric(timeRange timeutil.TimeRange) (
 		getSeriesIDsForMetric(immutable)
 	}
 	return multiVerSeriesIDSet, nil
+}
+
+func (ms *metricStore) TimeSlotRange() (start, end uint16) {
+	return ms.start, ms.end
 }
 
 func (ms *metricStore) MemSize() int {

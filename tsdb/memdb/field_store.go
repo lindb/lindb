@@ -25,6 +25,7 @@ type fStoreINTF interface {
 
 	// Write writes the metric's field with writeContext
 	Write(
+		fieldType field.Type,
 		f *pb.Field,
 		writeCtx writeContext,
 	) (
@@ -34,7 +35,7 @@ type fStoreINTF interface {
 	// return false if there is no data related of familyTime
 	FlushFieldTo(
 		tableFlusher metricsdata.Flusher,
-		familyTime int64,
+		flushCtx flushContext,
 	) (flushedSize int)
 
 	// TimeRange returns the start-time and end-time of fStore's data
@@ -116,89 +117,66 @@ func (fs *fieldStore) insertSStore(sStore sStoreINTF) {
 }
 
 func (fs *fieldStore) Write(
+	fieldType field.Type,
 	f *pb.Field,
 	writeCtx writeContext,
 ) (
 	writtenSize int,
 ) {
 	sStore, ok := fs.GetSStore(writeCtx.familyTime)
-
-	switch fields := f.Field.(type) {
-	case *pb.Field_Sum:
-		if !ok {
-			//TODO ???
-			oldCap := cap(fs.sStoreNodes)
-			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Sum.AggFunc())
-			fs.insertSStore(sStore)
-			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
-		}
-		writtenSize += sStore.WriteFloat(uint16(1), fields.Sum.Value, writeCtx)
-	case *pb.Field_Min:
-		if !ok {
-			//TODO ???
-			oldCap := cap(fs.sStoreNodes)
-			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Min.AggFunc())
-			fs.insertSStore(sStore)
-			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
-		}
-		writtenSize += sStore.WriteFloat(uint16(1), fields.Min.Value, writeCtx)
-	case *pb.Field_Max:
-		if !ok {
-			//TODO ???
-			oldCap := cap(fs.sStoreNodes)
-			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Max.AggFunc())
-			fs.insertSStore(sStore)
-			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
-		}
-		writtenSize += sStore.WriteFloat(uint16(1), fields.Max.Value, writeCtx)
-	case *pb.Field_Gauge:
-		if !ok {
-			//TODO ???
-			oldCap := cap(fs.sStoreNodes)
-			sStore = newSimpleFieldStore(writeCtx.familyTime, field.Replace.AggFunc())
-			fs.insertSStore(sStore)
-			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
-		}
-		writtenSize += sStore.WriteFloat(uint16(1), fields.Gauge.Value, writeCtx)
-	case *pb.Field_Summary:
-		if !ok {
-			//TODO ???
-			oldCap := cap(fs.sStoreNodes)
-			sStore = newComplexFieldStore(writeCtx.familyTime, field.SummaryField)
-			fs.insertSStore(sStore)
-			writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
-		}
-		//FIXME stone1100 need use field schema
-		writtenSize += sStore.WriteFloat(uint16(1), fields.Summary.Sum, writeCtx)
-		writtenSize += sStore.WriteInt(uint16(2), fields.Summary.Count, writeCtx)
-	default:
-		memDBLogger.Warn("convert field error, unknown field type")
+	if !ok {
+		ss, wSize := fs.createFieldStore(fieldType, writeCtx.familyTime)
+		writtenSize += wSize
+		sStore = ss
+	} else {
+		// check if time slot is out of current time window,
+		// yes: compact the values of current time window then compress them
+		writtenSize += sStore.CheckAndCompact(fieldType, writeCtx)
 	}
-	return writtenSize
+	writtenSize += sStore.Write(fieldType, f, writeCtx)
+	return
+}
+
+func (fs *fieldStore) createFieldStore(fieldType field.Type,
+	familyTime int64,
+) (sStore sStoreINTF, writtenSize int) {
+	switch fieldType {
+	case field.SummaryField, field.HistogramField:
+		oldCap := cap(fs.sStoreNodes)
+		sStore = newComplexFieldStore(familyTime)
+		fs.insertSStore(sStore)
+		writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+	default:
+		oldCap := cap(fs.sStoreNodes)
+		sStore = newSimpleFieldStore(familyTime)
+		fs.insertSStore(sStore)
+		writtenSize += (cap(fs.sStoreNodes)-oldCap)*8 + sStore.MemSize()
+	}
+	return
 }
 
 // FlushFieldTo flushes segments' data to writer and reset the segments-map.
 func (fs *fieldStore) FlushFieldTo(
 	tableFlusher metricsdata.Flusher,
-	familyTime int64,
+	flushCtx flushContext,
 ) (
 	flushedSize int,
 ) {
-	sStore, ok := fs.GetSStore(familyTime)
+	sStore, ok := fs.GetSStore(flushCtx.familyTime)
 
 	if !ok {
 		return 0
 	}
 
 	//FIXME maybe data lost if marshal err
-	fs.removeSStore(familyTime)
+	fs.removeSStore(flushCtx.familyTime)
 	fieldMeta, ok := tableFlusher.GetFieldMeta(fs.fieldID)
 	if !ok {
 		memDBLogger.Warn("field meta not found in metric level, when flush field data")
 		return 0
 	}
 
-	sStore.FlushFieldTo(tableFlusher, fieldMeta)
+	sStore.FlushFieldTo(tableFlusher, fieldMeta, flushCtx)
 
 	tableFlusher.FlushField(fs.fieldID)
 	return sStore.MemSize()
@@ -206,10 +184,7 @@ func (fs *fieldStore) FlushFieldTo(
 
 func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
 	for _, sStore := range fs.sStoreNodes {
-		startSlot, endSlot, err := sStore.SlotRange()
-		if err != nil {
-			continue
-		}
+		startSlot, endSlot := sStore.SlotRange()
 		ok = true
 		startTime := sStore.GetFamilyTime() + int64(startSlot)*interval
 		endTime := sStore.GetFamilyTime() + int64(endSlot)*interval

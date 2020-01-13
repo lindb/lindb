@@ -155,7 +155,7 @@ func (ts *timeSeriesStore) Write(
 			ts.insertFStore(fStore)
 			writtenSize += (cap(ts.fStoreNodes)-oldCap)*8 + fStore.MemSize()
 		}
-		writtenSize += fStore.Write(f, writeCtx)
+		writtenSize += fStore.Write(fieldType, f, writeCtx)
 		ts.lastWroteTime.Store(uint32(timeutil.Now() / 1000))
 	}
 	return writtenSize, err
@@ -170,7 +170,7 @@ func (ts *timeSeriesStore) FlushSeriesTo(
 ) {
 	ts.sl.Lock()
 	for _, fStore := range ts.fStoreNodes {
-		flushedSize += fStore.FlushFieldTo(flusher, flushCtx.familyTime)
+		flushedSize += fStore.FlushFieldTo(flusher, flushCtx)
 	}
 	if flushedSize > 0 {
 		flusher.FlushSeries()

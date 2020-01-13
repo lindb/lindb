@@ -65,14 +65,14 @@ type MemoryDatabase interface {
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
-	TimeWindow int
+	TimeWindow uint16
 	Interval   timeutil.Interval
 	Generator  metadb.IDGenerator
 }
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
-	timeWindow          int                // rollup window of memory-database
+	timeWindow          uint16             // rollup window of memory-database
 	interval            timeutil.Interval  // time interval of rollup
 	blockStore          *blockStore        // reusable pool
 	ctx                 context.Context    // used for exiting goroutines
@@ -81,7 +81,7 @@ type memoryDatabase struct {
 	metricHash2ID       sync.Map           // key: FNV64a(metric-name), value: metric global unique id(metric-id)
 	mStores             *metricBucket      // metric-id -> *metricStore
 	generator           metadb.IDGenerator // the generator for generating ID of metric, field
-	size                atomic.Int32       // memdb's size
+	size                atomic.Int32       // memory database's size
 	lastWroteFamilyTime atomic.Int64       // prevents familyTime inserting repeatedly
 	familyTimes         sync.Map           // familyTime(int64) -> struct{}
 
@@ -182,7 +182,7 @@ type writeContext struct {
 	generator    metadb.IDGenerator
 	metricID     uint32
 	familyTime   int64
-	slotIndex    int
+	slotIndex    uint16
 	timeInterval int64
 	mStoreFieldIDGetter
 }
@@ -217,7 +217,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 		blockStore:          md.blockStore,
 		generator:           md.generator,
 		familyTime:          familyTime,
-		slotIndex:           slotIndex,
+		slotIndex:           uint16(slotIndex), //FIXME
 		timeInterval:        md.interval.Int64(),
 		mStoreFieldIDGetter: mStore})
 	if err == nil {
@@ -308,6 +308,8 @@ type flushContext struct {
 	metricID     uint32
 	familyTime   int64
 	timeInterval int64
+
+	start, end uint16 // start/end time slot, metric level flush context
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,

@@ -39,6 +39,7 @@ func Test_Stream_ReaderWriter(t *testing.T) {
 	assert.Equal(t, 0, writer2.Len())
 
 	reader := stream.NewReader(data)
+	assert.False(t, reader.Empty())
 	assert.Equal(t, uint64(1), reader.ReadUint64())
 	assert.Equal(t, uint32(2), reader.ReadUint32())
 	assert.Equal(t, int32(-3), reader.ReadInt32())

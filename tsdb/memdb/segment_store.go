@@ -1,18 +1,26 @@
 package memdb
 
 import (
-	"fmt"
+	"math"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/pkg/encoding"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
 
+// for testing
+var (
+	encodeFunc = encoding.NewTSDEncoder
+)
+
 const (
 	emptySimpleFieldStoreSize = 8 + // familyTime
+		2 + // start time slot
 		8 + // aggFunc
 		8 // block pointer
 )
@@ -22,129 +30,112 @@ const (
 type sStoreINTF interface {
 	GetFamilyTime() int64
 
-	SlotRange() (
-		startSlot,
-		endSlot int,
-		err error)
+	SlotRange() (startSlot, endSlot uint16)
 
 	// FlushFieldTo flushes segment's data to writer
 	FlushFieldTo(
 		tableFlusher metricsdata.Flusher,
 		fieldMeta field.Meta,
+		flushCtx flushContext,
 	) (
 		flushedSize int,
 	)
 
-	// WriteInt writes a int value, and returns the written length
-	WriteInt(
-		pFieldID uint16,
-		value int64,
+	// Write writes the metric's field with writeContext
+	// 1) block is nil, create new block
+	// 2) in current time window, if has old value need do rollup
+	Write(
+		fieldType field.Type,
+		f *pb.Field,
 		writeCtx writeContext,
-	) int
+	) (writtenSize int)
 
-	// WriteFloat writes a float64 value, and returns the written length
-	WriteFloat(
-		pFieldID uint16,
-		value float64,
-		writeCtx writeContext,
-	) int
+	// CheckAndCompact checks current time window's block for storing field data based on slot time and value type.
+	// returns memSize that is compress data's length.
+	// if slot time out of current time window, need compress time window then create new one
+	CheckAndCompact(fieldType field.Type, writeCtx writeContext) (memSize int)
 
+	// MemSize returns the segment store memory size
 	MemSize() int
 
 	// scan scans segment store data based on query time range
 	scan(agg aggregation.SeriesAggregator, memScanCtx *memScanContext)
 }
 
-// calcTimeWindow calculates time window's block for storing field data based on slot time and value type.
-// return int=>pos(slot in time window), bool=>needRollup(if rollup with old value)
-// 1) block is nil, create new block, return newBlock, 0, false
-// 2) slot time out of current time window, need compress time window then create new one, return block, 0, false
-// 3) in current time window, if has old value return pos, true, else return block, pos, false
-func calcTimeWindow(block block, blockStore *blockStore, slotTime int,
-	valueType field.ValueType, aggFunc field.AggFunc) (block, int, bool) {
-	currentBlock := block
-
-	// block is nil
-	if currentBlock == nil {
-		currentBlock = blockStore.allocBlock(valueType)
-		currentBlock.setStartTime(slotTime)
-		return currentBlock, 0, false
-	}
-
-	startTime := currentBlock.getStartTime()
-
-	// if current slot time out of current time window, need compress block data, start new time window
-	if slotTime < startTime || slotTime >= startTime+blockStore.timeWindow {
-		_, _, err := currentBlock.compact(aggFunc)
-		if err != nil {
-			memDBLogger.Error("compress block data error, data will lost", logger.Error(err))
-		} else {
-			// reset start time using slot time
-			currentBlock.setStartTime(slotTime)
-		}
-		return currentBlock, 0, false
-	}
-
-	// in current time window, do rollup value
-	pos := slotTime - startTime
-	needRollup := false
-	if currentBlock.hasValue(pos) {
-		// has old value, need do rollup
-		needRollup = true
-	}
-	return currentBlock, pos, needRollup
+// isInCurrentTimeWindow returns the current time slot is in current time window
+func isInCurrentTimeWindow(start, end uint16, current uint16) bool {
+	return current >= start && current <= end
 }
 
-// singleFieldStore stores single field
-type simpleFieldStore struct {
-	familyTime int64
-	aggFunc    field.AggFunc
-	block      block
-}
-
-// newSingleFieldStore returns a new segment store for simple field store
-func newSimpleFieldStore(familyTime int64, aggFunc field.AggFunc) sStoreINTF {
-	return &simpleFieldStore{
-		familyTime: familyTime,
-		aggFunc:    aggFunc,
+// getTimeSlotRange returns the final time slot range based on start/end
+func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) (start, end uint16) {
+	start = startSlot1
+	end = endSlot1
+	if end < endSlot2 {
+		end = endSlot2
 	}
-}
-
-func (fs *simpleFieldStore) GetFamilyTime() int64 {
-	return fs.familyTime
-}
-
-func (fs *simpleFieldStore) FlushFieldTo(
-	tableFlusher metricsdata.Flusher,
-	fieldMeta field.Meta,
-) (
-	flushedSize int,
-) {
-	if fs.block == nil {
-		return
+	if start > startSlot2 {
+		start = startSlot2
 	}
-	if _, _, err := fs.block.compact(fs.aggFunc); err != nil {
-		memDBLogger.Error("flush simple segment store data err", logger.Error(err))
-		return
-	}
-	data := fs.block.bytes()
-	tableFlusher.FlushPrimitiveField(fieldMeta.Type.GetSchema().GetAllPrimitiveFields()[0], data)
-
-	return fs.MemSize()
-}
-
-func (fs *simpleFieldStore) SlotRange() (startSlot, endSlot int, err error) {
-	if fs.block == nil {
-		err = fmt.Errorf("block is empty")
-		return
-	}
-	startSlot, endSlot = fs.block.slotRange()
 	return
 }
 
-func (fs *simpleFieldStore) MemSize() int {
-	if fs.block == nil {
-		return emptySimpleFieldStoreSize
+// compactInt compress block data
+func compact(aggFunc field.AggFunc, tsd *encoding.TSDDecoder, block block,
+	startTime, startSlot, endSlot uint16, withTimeRange bool,
+) (compress []byte, err error) {
+	if block == nil && tsd == nil {
+		return
 	}
-	return emptySimpleFieldStoreSize + fs.block.memsize()
+	encode := encodeFunc(startSlot)
+	for i := startSlot; i <= endSlot; i++ {
+		newValue, hasNewValue := getCurrentFloatValue(block, startTime, i)
+		oldValue, hasOldValue := getOldFloatValue(tsd, i)
+		switch {
+		case hasNewValue && !hasOldValue:
+			// just compress current block value with pos
+			encode.AppendTime(bit.One)
+			encode.AppendValue(math.Float64bits(newValue))
+		case hasNewValue && hasOldValue:
+			// merge and compress
+			encode.AppendTime(bit.One)
+			encode.AppendValue(math.Float64bits(aggFunc.AggregateFloat(newValue, oldValue)))
+		case !hasNewValue && hasOldValue:
+			// compress old value
+			encode.AppendTime(bit.One)
+			encode.AppendValue(math.Float64bits(oldValue))
+		default:
+			// append empty value
+			encode.AppendTime(bit.Zero)
+		}
+	}
+	if withTimeRange {
+		return encode.Bytes()
+	}
+	// get compress data without time slot range
+	return encode.BytesWithoutTime()
+}
+
+func getOldFloatValue(tsd *encoding.TSDDecoder, timeSlot uint16) (value float64, hasValue bool) {
+	if tsd == nil {
+		return
+	}
+	if !tsd.HasValueWithSlot(timeSlot) {
+		return
+	}
+	hasValue = true
+	value = math.Float64frombits(tsd.Value())
+	return
+}
+
+func getCurrentFloatValue(block block, startTime uint16, timeSlot uint16) (value float64, hasValue bool) {
+	if block == nil {
+		return
+	}
+	if timeSlot < startTime || timeSlot > startTime+block.getSize() {
+		return
+	}
+	hasValue = true
+	value = block.getFloatValue(timeSlot - startTime)
+	return
 }

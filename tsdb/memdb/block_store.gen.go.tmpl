@@ -1,266 +1,62 @@
 package memdb
 
-import (
-	"math"
-
-	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/bit"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series/field"
-)
+import "math/bits"
 
 {{range .}}
 
 // {{.Type}}Block represents a {{.Type}} block for storing metric point in memory
 type {{.Type}}Block struct {
-    container
-	values []{{.type}}
+	// container(bit array) is a mapping from 64 value to uint64 in big-endian,
+	// it is a temporary data-structure for compressing data.
+	container uint64
+	values    []{{.type}}
 }
 
 // new{{.Name}}Block returns {{.Type}} block with fixed time window
-func new{{.Name}}Block(size int) *{{.Type}}Block {
+func new{{.Name}}Block(size uint16) *{{.Type}}Block {
 	return &{{.Type}}Block{
 		values: make([]{{.type}}, size),
 	}
 }
 
-// set{{.Name}}Value updates {{.type}} value with pos
-func (b *{{.Type}}Block) set{{.Name}}Value(pos int, value {{.type}}) {
-	b.setValue(pos)
+// getSize returns the size of values
+func (b *{{.Type}}Block) getSize() uint16 {
+	if b.container == 0 {
+		return 0
+	}
+	// get trailing zeros for container
+	trailing := bits.TrailingZeros64(b.container)
+	return uint16(maxTimeWindow - trailing - 1)
+}
+
+// hasValue returns whether value is absent or present at pos, if present return true
+func (b *{{.Type}}Block) hasValue(pos uint16) bool {
+	return b.container&(1<<uint64(maxTimeWindow-pos-1)) != 0
+}
+
+// set{{.Name}}Value updates int64 value with pos
+func (b *{{.Type}}Block) set{{.Name}}Value(pos uint16, value {{.type}}) {
+	b.container |= 1 << uint64(maxTimeWindow-pos-1)
 	b.values[pos] = value
 }
 
-// get{{.Name}}Value return {{.type}} value for pos
-func (b *{{.Type}}Block) get{{.Name}}Value(pos int) {{.type}} {
+// get{{.Name}}Value return int64 value for pos
+func (b *{{.Type}}Block) get{{.Name}}Value(pos uint16) {{.type}} {
 	return b.values[pos]
 }
 
 // memsize returns the memory size in bytes count
 func (b *{{.Type}}Block) memsize() int {
-	return b.container.memsize() + 24 + cap(b.values)*8
+	return emptyContainerSize + cap(b.values)*8
 }
 
-// compact compress block data
-func (b *{{.Type}}Block) compact(aggFunc field.AggFunc) (start, end int, err error) {
-	hasOld := len(b.compress) > 0
-	hasNew := b.container.container != 0
-	var encode *encoding.TSDEncoder
-	switch {
-	case !hasOld && !hasNew: // no data
-		return 0, 0, nil
-	case !hasOld: // compact current buffer data
-		end = b.getEndTime()
-		start = b.startTime
-		encode = encoding.NewTSDEncoder(start)
-		for i := start; i <= end; i++ {
-			idx := i - start
-			if b.hasValue(idx) {
-				encode.AppendTime(bit.One)
-				encode.AppendValue({{.valueEncode}}(b.values[idx]))
-			} else {
-				encode.AppendTime(bit.Zero)
-			}
-		}
-	case hasOld && !hasNew: // just decode time slot range for compress data
-		start, end = encoding.DecodeTSDTime(b.compress)
-		return
-	default: // merge current buffer data and compress data
-		tsd := encoding.GetTSDDecoder()
-
-		tsd.Reset(b.compress)
-		scanner := new{{.Name}}BlockMergeScanner(b, tsd)
-		encode = encoding.NewTSDEncoder(scanner.start)
-		scanner.mergeFunc = func(mergeType mergeType, idx int, oldValue uint64) {
-			switch mergeType {
-			case appendEmpty:
-				encode.AppendTime(bit.Zero)
-			case appendNew:
-				encode.AppendTime(bit.One)
-				encode.AppendValue({{.valueEncode}}(b.values[idx]))
-			case appendOld:
-				encode.AppendTime(bit.One)
-				encode.AppendValue(oldValue)
-			case mergeType:
-				encode.AppendTime(bit.One)
-				encode.AppendValue({{.valueEncode}}(aggFunc.Aggregate{{.Name}}(b.values[idx], {{.valueDecode}}(oldValue))))
-			}
-		}
-		scanner.scan()
-		encoding.ReleaseTSDDecoder(tsd)
-		start = scanner.start
-		end = scanner.end
-	}
-	// reset compress data and clear current buffer
-	if encode != nil {
-		data, err := encode.Bytes()
-		if err != nil {
-			return 0, 0, err
-		}
-		b.compress = data
-		b.container.container = 0
-	}
-	return start, end, err
+// reset cleans block data, just reset container mark
+func (b *{{.Type}}Block) reset() {
+	b.container = 0
 }
 
-// scan scans block data, then aggregates the data
-func (b *{{.Type}}Block) scan(
-	aggFunc field.AggFunc,
-	agg []aggregation.PrimitiveAggregator,
-	memScanCtx *memScanContext,
-) {
-	hasOld := len(b.compress) > 0
-	hasNew := b.container.container != 0
-	switch {
-	case !hasOld && hasNew: // scans current block store buffer data
-		end := b.getEndTime() - b.startTime
-		for i := 0; i <= end; i++ {
-			if !b.hasValue(i) {
-				continue
-			}
-			if b.aggregate(appendNew, i, 0, aggFunc, agg) {
-				return
-			}
-		}
-	case hasOld && hasNew: // scans current buffer data and compress data, then merges them for same time slot
-		tsd := memScanCtx.tsd
-		tsd.Reset(b.compress)
-		scanner := new{{.Name}}BlockMergeScanner(b, tsd)
-		scanner.mergeFunc = func(mergeType mergeType, pos int, oldValue uint64) {
-			if b.aggregate(mergeType, pos, oldValue, aggFunc, agg) {
-				scanner.complete = true
-			}
-		}
-		scanner.scan()
-	case hasOld: // scans compress data
-		tsd := memScanCtx.tsd
-		tsd.Reset(b.compress)
-		for tsd.Error() == nil && tsd.Next() {
-			if tsd.HasValue() {
-				timeSlot := tsd.Slot()
-				val := tsd.Value()
-				if b.aggregate(appendOld, timeSlot, val, aggFunc, agg) {
-					return
-				}
-			}
-		}
-	}
-}
-
-// aggregate aggregates the value with index
-func (b *{{.Type}}Block) aggregate(mergeType mergeType, idx int, oldValue uint64,
-	aggFunc field.AggFunc,
-	agg []aggregation.PrimitiveAggregator,
-) (completed bool) {
-	value := 0.0
-	// 1. get value and time slot
-	switch mergeType {
-	case appendOld:
-		value = {{.appendOld}}
-	case appendNew:
-		value = {{.appendNew}}
-		idx += b.startTime
-	case merge:
-		value = {{.merge}}
-		idx += b.startTime
-	default:
-		return
-	}
-	// 2. aggregate the value based on time slot
-	for _, a := range agg {
-		completed = a.Aggregate(idx, value)
-	}
-	return
-}
-
-// {{.Type}}BlockMergeScanner represents the scanner which scans the block store current buffer data and compress data
-type {{.Type}}BlockMergeScanner struct {
-	block            *{{.Type}}Block            // current block
-	tsd              *encoding.TSDDecoder // old value
-	start, end       int                  // target time slot range
-	curStart, curEnd int                  // current buffer time slot range
-	oldStart, oldEnd int                  // compress data time slot range
-
-	complete  bool
-	mergeFunc mergeFunc
-}
-
-// new{{.Name}}BlockMergeScanner creates a merge scanner
-func new{{.Name}}BlockMergeScanner(block *{{.Type}}Block, tsd *encoding.TSDDecoder) *{{.Type}}BlockMergeScanner {
-	scanner := &{{.Type}}BlockMergeScanner{
-		block: block,
-		tsd:   tsd,
-	}
-	// init scanner time slot ranges
-	scanner.init()
-	return scanner
-}
-
-// init initializes the scanner's time slot ranges
-func (s *{{.Type}}BlockMergeScanner) init() {
-	// start time slot
-	s.curStart = s.block.startTime
-	s.oldStart = s.tsd.StartTime()
-	s.start = s.curStart
-	if s.start > s.oldStart {
-		s.start = s.oldStart
-	}
-	// end time slot
-	s.curEnd = s.block.getEndTime()
-	s.oldEnd = s.tsd.EndTime()
-	s.end = s.curEnd
-	if s.end < s.oldEnd {
-		s.end = s.oldEnd
-	}
-}
-
-// scan scans the block store current buffer data and compress data based on target time slot range
-func (s *{{.Type}}BlockMergeScanner) scan() {
-	for i := s.start; i <= s.end; i++ {
-		// if scanner is completed, return it
-		if s.complete {
-			return
-		}
-		inCurrentRange := isInRange(i, s.curStart, s.curEnd)
-		inOldRange := isInRange(i, s.oldStart, s.oldEnd)
-		newSlot := i - s.curStart
-		oldSlot := i - s.oldStart
-		hasValue := s.block.hasValue(newSlot)
-		hasOldValue := s.tsd.HasValueWithSlot(oldSlot)
-		switch {
-		case inCurrentRange && inOldRange:
-			s.merge(hasValue, hasOldValue, newSlot)
-		case inCurrentRange && hasValue:
-			// just compress current block value with pos
-			s.mergeFunc(appendNew, newSlot, 0)
-		case inCurrentRange && !hasValue:
-			s.mergeFunc(appendEmpty, newSlot, 0)
-		case inOldRange && hasOldValue:
-			// read compress data and compress it again with new pos
-			s.mergeFunc(appendOld, i, s.tsd.Value())
-		case inOldRange && !hasOldValue:
-			s.mergeFunc(appendEmpty, i, 0)
-		default:
-			s.mergeFunc(appendEmpty, i, 0)
-		}
-	}
-}
-
-func (s *{{.Type}}BlockMergeScanner) merge(hasValue bool, hasOldValue bool, newSlot int) {
-	// merge current block value and value in compress data with pos
-	switch {
-	case hasValue && hasOldValue:
-		// has value both in current and old, do rollup operation with agg func
-		s.mergeFunc(merge, newSlot, s.tsd.Value())
-	case hasValue:
-		// append current block block
-		s.mergeFunc(appendNew, newSlot, 0)
-	case hasOldValue:
-		// read old compress value then append value with new pos
-		s.mergeFunc(appendOld, newSlot, s.tsd.Value())
-	default:
-		// just append empty value with pos
-		s.mergeFunc(appendEmpty, newSlot, 0)
-	}
+func (b *{{.Type}}Block) isEmpty() bool {
+	return b.container == 0
 }
 
 {{end}}
