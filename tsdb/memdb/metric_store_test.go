@@ -92,8 +92,13 @@ func Test_mStore_write_ok(t *testing.T) {
 
 	mStore.mutable = mockTagIdx
 	writtenSize, err := mStoreInterface.Write(
-		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1})
-	assert.Nil(t, err)
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1, slotIndex: 10})
+	assert.NoError(t, err)
+	assert.NotZero(t, writtenSize)
+	// test metric slot range
+	writtenSize, err = mStoreInterface.Write(
+		&pb.Metric{Name: "metric", Tags: map[string]string{"type": "test"}}, writeContext{metricID: 1, slotIndex: 9})
+	assert.NoError(t, err)
 	assert.NotZero(t, writtenSize)
 }
 

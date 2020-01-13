@@ -32,7 +32,8 @@ func aggSimpleField(agg aggregation.FieldAggregator, tsd *encoding.TSDDecoder) {
 			timeSlot := tsd.Slot()
 			val := tsd.Value()
 			for _, a := range aggregators {
-				a.Aggregate(timeSlot, math.Float64frombits(val))
+				//FIXME
+				a.Aggregate(int(timeSlot), math.Float64frombits(val))
 			}
 		}
 	}
@@ -52,9 +53,11 @@ func aggComplexField(agg aggregation.FieldAggregator, data []byte, tsd *encoding
 				timeSlot := tsd.Slot()
 				val := tsd.Value()
 				if i == 0 {
-					aggregators[i].Aggregate(timeSlot, math.Float64frombits(val))
+					//FIXME
+					aggregators[i].Aggregate(int(timeSlot), math.Float64frombits(val))
 				} else {
-					aggregators[i].Aggregate(timeSlot, float64(encoding.ZigZagDecode(val)))
+					//FIXME
+					aggregators[i].Aggregate(int(timeSlot), float64(encoding.ZigZagDecode(val)))
 				}
 			}
 		}

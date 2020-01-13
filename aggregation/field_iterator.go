@@ -50,7 +50,8 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 	for it.HasNext() {
 		primitiveIt := it.Next()
-		encoder := encoding.NewTSDEncoder(it.startSlot)
+		//FIXME
+		encoder := encoding.NewTSDEncoder(uint16(it.startSlot))
 		idx := 0
 		for primitiveIt.HasNext() {
 			slot, value := primitiveIt.Next()

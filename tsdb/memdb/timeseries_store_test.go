@@ -41,7 +41,7 @@ func Test_tStore_write_sum(t *testing.T) {
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
 	_, err := tStore.Write(
@@ -78,7 +78,7 @@ func Test_tStore_write_gauge(t *testing.T) {
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
 	_, err := tStore.Write(
@@ -111,7 +111,7 @@ func Test_tStore_write_max(t *testing.T) {
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
 	_, err := tStore.Write(
@@ -144,7 +144,7 @@ func Test_tStore_write_min(t *testing.T) {
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
 	_, err := tStore.Write(
@@ -177,7 +177,7 @@ func Test_tStore_write_summary(t *testing.T) {
 		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
 	// mock field-store
 	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any()).Return(1).AnyTimes()
+	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
 	for i := 0; i < 2; i++ {

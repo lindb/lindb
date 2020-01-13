@@ -15,7 +15,7 @@ type DatabaseOption struct {
 	// auto create namespace
 	AutoCreateNS bool `toml:"autoCreateNS" json:"autoCreateNS,omitempty"`
 
-	TimeWindow int    `toml:"timeWindow" json:"timeWindow"`   // time window of memory database block
+	TimeWindow uint16 `toml:"timeWindow" json:"timeWindow"`   // time window of memory database block
 	Behind     string `toml:"behind" json:"behind,omitempty"` // allowed timestamp write behind
 	Ahead      string `toml:"ahead" json:"ahead,omitempty"`   // allowed timestamp write ahead
 

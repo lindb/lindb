@@ -1,0 +1,54 @@
+package memdb
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+{{range .}}
+
+func Test{{.Name}}BlockAlloc(t *testing.T) {
+	bs := newBlockStore(0)
+	assert.NotNil(t, bs)
+
+	// {{.Type}} block
+	b1 := bs.alloc{{.Name}}Block()
+	assert.NotNil(t, b1)
+	bs.freeBlock(b1)
+	b2 := bs.alloc{{.Name}}Block()
+	assert.NotNil(t, b2)
+	b3 := bs.alloc{{.Name}}Block()
+	assert.True(t, b1 != b3)
+}
+
+func Test{{.Name}}TimeWindowRange(t *testing.T) {
+	bs := newBlockStore(30)
+
+	// {{.Type}} block
+	b1 := bs.alloc{{.Name}}Block()
+	assert.True(t, b1.isEmpty())
+	b1.set{{.Name}}Value(10, {{.type}}(100))
+	assert.True(t, b1.hasValue(10))
+	assert.Equal(t, {{.type}}(100), b1.get{{.Name}}Value(10))
+	assert.True(t, b1.memsize() > 0)
+	assert.Equal(t, uint16(10), b1.getSize())
+}
+
+func Test{{.Name}}Reset(t *testing.T) {
+ 	bs := newBlockStore(30)
+
+ 	// {{.Type}} block
+ 	b1 := bs.alloc{{.Name}}Block()
+ 	b1.set{{.Name}}Value(11, {{.type}}(100))
+ 	assert.True(t, b1.hasValue(11))
+ 	assert.Equal(t, {{.type}}(100), b1.get{{.Name}}Value(11))
+	assert.Equal(t, uint16(11), b1.getSize())
+	b1.set{{.Name}}Value(20, {{.type}}(100))
+	assert.Equal(t, uint16(20), b1.getSize())
+ 	b1.reset()
+ 	assert.False(t, b1.hasValue(11))
+ 	assert.Equal(t, uint16(0), b1.getSize())
+}
+
+{{end}}
