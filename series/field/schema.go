@@ -4,6 +4,8 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 )
 
+const SimpleFieldPFieldID = uint16(1)
+
 // Schema represents the field schema internal definition
 type Schema interface {
 	// GetAggFunc gets agg func type by primitive field id
@@ -23,8 +25,8 @@ type sumSchema struct {
 
 func newSumSchema() Schema {
 	return &sumSchema{
-		primitiveFieldID: uint16(1),
-		fieldIDs:         []uint16{1},
+		primitiveFieldID: SimpleFieldPFieldID,
+		fieldIDs:         []uint16{SimpleFieldPFieldID},
 	}
 }
 
@@ -58,8 +60,8 @@ type minSchema struct {
 
 func newMinSchema() Schema {
 	return &minSchema{
-		primitiveFieldID: uint16(1),
-		fieldIDs:         []uint16{1},
+		primitiveFieldID: SimpleFieldPFieldID,
+		fieldIDs:         []uint16{SimpleFieldPFieldID},
 	}
 }
 
@@ -93,8 +95,8 @@ type maxSchema struct {
 
 func newMaxSchema() Schema {
 	return &maxSchema{
-		primitiveFieldID: uint16(1),
-		fieldIDs:         []uint16{1},
+		primitiveFieldID: SimpleFieldPFieldID,
+		fieldIDs:         []uint16{SimpleFieldPFieldID},
 	}
 }
 
@@ -128,8 +130,8 @@ type gaugeSchema struct {
 
 func newGaugeSchema() Schema {
 	return &gaugeSchema{
-		primitiveFieldID: uint16(1),
-		fieldIDs:         []uint16{1},
+		primitiveFieldID: SimpleFieldPFieldID,
+		fieldIDs:         []uint16{SimpleFieldPFieldID},
 	}
 }
 

@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 
@@ -35,9 +34,9 @@ func Test_fStore_write(t *testing.T) {
 	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
 
 	//unknown field
-	theFieldStore.Write(&pb.Field{Name: "unknown"}, writeCtx)
+	theFieldStore.Write(field.Unknown, &pb.Field{Name: "unknown"}, writeCtx)
 	// sum field
-	theFieldStore.Write(&pb.Field{Name: "sum", Field: &pb.Field_Sum{
+	theFieldStore.Write(field.SumField, &pb.Field{Name: "sum", Field: &pb.Field_Sum{
 		Sum: &pb.Sum{
 			Value: 1.0,
 		},
@@ -52,24 +51,16 @@ func Test_fStore_timeRange(t *testing.T) {
 	theFieldStore := fStore.(*fieldStore)
 
 	mockSStore1 := getMockSStore(ctrl, 1564300800000)
-	mockSStore1.EXPECT().SlotRange().Return(1, 10, nil).AnyTimes()
+	mockSStore1.EXPECT().SlotRange().Return(uint16(1), uint16(10)).AnyTimes()
 	mockSStore2 := getMockSStore(ctrl, 1564304400000)
-	mockSStore2.EXPECT().SlotRange().Return(3, 5, nil).AnyTimes()
+	mockSStore2.EXPECT().SlotRange().Return(uint16(3), uint16(5)).AnyTimes()
 	mockSStore3 := getMockSStore(ctrl, 1564297200000)
-	mockSStore3.EXPECT().SlotRange().Return(6, 13, fmt.Errorf("error")).AnyTimes()
+	mockSStore3.EXPECT().SlotRange().Return(uint16(6), uint16(13)).AnyTimes()
 	mockSStore4 := getMockSStore(ctrl, 1564308000000)
-	mockSStore4.EXPECT().SlotRange().Return(4, 14, nil).AnyTimes()
-
-	// error case
-
-	theFieldStore.insertSStore(mockSStore3)
-	timeRange, ok := theFieldStore.TimeRange(10 * 1000)
-	assert.Equal(t, int64(0), timeRange.Start)
-	assert.Equal(t, int64(0), timeRange.End)
-	assert.False(t, ok)
+	mockSStore4.EXPECT().SlotRange().Return(uint16(4), uint16(14)).AnyTimes()
 
 	theFieldStore.insertSStore(mockSStore1)
-	timeRange, ok = theFieldStore.TimeRange(10 * 1000)
+	timeRange, ok := theFieldStore.TimeRange(10 * 1000)
 	assert.Equal(t, int64(1564300810000), timeRange.Start)
 	assert.Equal(t, int64(1564300900000), timeRange.End)
 	assert.True(t, ok)
@@ -98,20 +89,20 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 	}, true).MaxTimes(2)
 	mockSStore1 := getMockSStore(ctrl, 1564304400000)
 	mockSStore2 := getMockSStore(ctrl, 1564308000000)
-	mockSStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(0)
+	mockSStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(0)
 
 	theFieldStore.insertSStore(mockSStore1)
 	theFieldStore.insertSStore(mockSStore2)
 
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
-	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, 1564297200000))
+	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564297200000}))
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// mock error
-	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, 1564304400000))
+	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564304400000}))
 	assert.Len(t, theFieldStore.sStoreNodes, 1)
 	// mock ok
-	assert.NotZero(t, theFieldStore.FlushFieldTo(mockTF, 1564308000000))
+	assert.NotZero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564308000000}))
 	assert.Len(t, theFieldStore.sStoreNodes, 0)
 }
 

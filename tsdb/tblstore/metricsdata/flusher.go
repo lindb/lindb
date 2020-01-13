@@ -32,6 +32,7 @@ import (
 type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
 	FlushFieldMetas(fieldMetas []field.Meta)
+	// FlushPrimitiveField writes a compressed primitive field data.
 	FlushPrimitiveField(pFieldID uint16, data []byte)
 	// FlushField writes a compressed field data to writer.
 	FlushField(fieldID uint16)

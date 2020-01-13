@@ -10,6 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+//go:generate mockgen -source ./tsd.go -destination=./tsd_mock.go -package encoding
+
 var decoderPool = sync.Pool{
 	New: func() interface{} {
 		return NewTSDDecoder(nil)
@@ -26,32 +28,46 @@ func ReleaseTSDDecoder(decoder *TSDDecoder) {
 }
 
 // TSDEncoder encodes time series data point
-type TSDEncoder struct {
-	startTime int
+type TSDEncoder interface {
+	// AppendTime appends time slot, marks time slot if has data point
+	AppendTime(slot bit.Bit)
+	// AppendValue appends data point value
+	AppendValue(value uint64)
+	// Reset resets the underlying bytes.Buffer
+	Reset()
+	// Bytes returns binary which compress time series data point
+	Bytes() ([]byte, error)
+	// BytesWithoutTime returns binary which compress time series data point without time slot range
+	BytesWithoutTime() ([]byte, error)
+}
+
+// TSDEncoder encodes time series data point
+type tsdEncoder struct {
+	startTime uint16
 	bitBuffer bytes.Buffer
 	bitWriter *bit.Writer
 	values    *XOREncoder
-	count     int
+	count     uint16
 	err       error
 }
 
 // NewTSDEncoder creates tsd encoder instance
-func NewTSDEncoder(startTime int) *TSDEncoder {
-	e := &TSDEncoder{startTime: startTime}
+func NewTSDEncoder(startTime uint16) TSDEncoder {
+	e := &tsdEncoder{startTime: startTime}
 	e.bitWriter = bit.NewWriter(&e.bitBuffer)
 	e.values = NewXOREncoder(e.bitWriter)
 	return e
 }
 
 // Reset resets the underlying bytes.Buffer
-func (e *TSDEncoder) Reset() {
+func (e *tsdEncoder) Reset() {
 	e.bitBuffer.Reset()
 	e.bitWriter.Reset(&e.bitBuffer)
 	e.values.Reset()
 }
 
 // AppendTime appends time slot, marks time slot if has data point
-func (e *TSDEncoder) AppendTime(slot bit.Bit) {
+func (e *tsdEncoder) AppendTime(slot bit.Bit) {
 	if e.err != nil {
 		return
 	}
@@ -60,43 +76,45 @@ func (e *TSDEncoder) AppendTime(slot bit.Bit) {
 }
 
 // AppendValue appends data point value
-func (e *TSDEncoder) AppendValue(value uint64) {
+func (e *tsdEncoder) AppendValue(value uint64) {
 	if e.err != nil {
 		return
 	}
 	e.err = e.values.Write(value)
 }
 
-// Error returns tsd encode error
-func (e *TSDEncoder) Error() error {
-	return e.err
-}
-
 // Bytes returns binary which compress time series data point
-func (e *TSDEncoder) Bytes() ([]byte, error) {
+func (e *tsdEncoder) Bytes() ([]byte, error) {
 	e.err = e.bitWriter.Flush()
 	if e.err != nil {
 		return nil, e.err
 	}
 	var buf bytes.Buffer
 	writer := stream.NewBufferWriter(&buf)
-	writer.PutUInt16(uint16(e.startTime))
-	writer.PutUInt16(uint16(e.count))
+	writer.PutUInt16(e.startTime)
+	writer.PutUInt16(e.startTime + e.count - 1)
 	writer.PutBytes(e.bitBuffer.Bytes())
 	return writer.Bytes()
 }
 
+// BytesWithoutTime returns binary which compress time series data point without time slot range
+func (e *tsdEncoder) BytesWithoutTime() ([]byte, error) {
+	e.err = e.bitWriter.Flush()
+	if e.err != nil {
+		return nil, e.err
+	}
+	return e.bitBuffer.Bytes(), nil
+}
+
 // TSDDecoder decodes time series compress data
 type TSDDecoder struct {
-	startTime int
-	endTime   int
-	count     int
+	startTime, endTime uint16
 
 	reader *bit.Reader
 	values *XORDecoder
 	buf    *bufioutil.Buffer
 
-	idx int
+	idx uint16
 
 	err error
 }
@@ -110,8 +128,27 @@ func NewTSDDecoder(data []byte) *TSDDecoder {
 	return decoder
 }
 
-// readMeta reads the meta info from the data
+func (d *TSDDecoder) ResetWithTimeRange(data []byte, start, end uint16) {
+	d.reset(data)
+
+	d.startTime = start
+	d.endTime = end
+
+	d.reader.Reset()
+}
+
+// Reset resets tsd data and reads the meta info from the data
 func (d *TSDDecoder) Reset(data []byte) {
+	d.reset(data)
+
+	d.startTime = binary.LittleEndian.Uint16(data[0:2])
+	d.endTime = binary.LittleEndian.Uint16(data[2:4])
+	d.buf.SetIdx(4)
+
+	d.reader.Reset()
+}
+
+func (d *TSDDecoder) reset(data []byte) {
 	if d.buf == nil {
 		d.buf = bufioutil.NewBuffer(data)
 		d.reader = bit.NewReader(d.buf)
@@ -122,13 +159,6 @@ func (d *TSDDecoder) Reset(data []byte) {
 	}
 	d.idx = 0
 	d.err = nil
-
-	d.startTime = int(binary.LittleEndian.Uint16(data[0:2]))
-	d.count = int(binary.LittleEndian.Uint16(data[2:4]))
-	d.endTime = d.startTime + d.count - 1
-	d.buf.SetIdx(4)
-
-	d.reader.Reset()
 }
 
 // Error returns decode error
@@ -137,18 +167,18 @@ func (d *TSDDecoder) Error() error {
 }
 
 // StartTime returns tsd start time slot
-func (d *TSDDecoder) StartTime() int {
+func (d *TSDDecoder) StartTime() uint16 {
 	return d.startTime
 }
 
 // EndTime returns tsd end time slot
-func (d *TSDDecoder) EndTime() int {
+func (d *TSDDecoder) EndTime() uint16 {
 	return d.endTime
 }
 
 // Next returns if has next slot data
 func (d *TSDDecoder) Next() bool {
-	if d.count > d.idx {
+	if d.startTime+d.idx <= d.endTime {
 		d.idx++
 		return true
 	}
@@ -169,18 +199,18 @@ func (d *TSDDecoder) HasValue() bool {
 }
 
 // HasValueWithSlot returns value if exist by given time slot
-func (d *TSDDecoder) HasValueWithSlot(slot int) bool {
-	if slot < 0 || slot > d.count {
+func (d *TSDDecoder) HasValueWithSlot(slot uint16) bool {
+	if slot < d.startTime || slot > d.endTime {
 		return false
 	}
-	if slot == d.idx {
+	if slot == d.idx+d.startTime {
 		d.idx++
 		return d.HasValue()
 	}
 	return false
 }
 
-func (d *TSDDecoder) Slot() int {
+func (d *TSDDecoder) Slot() uint16 {
 	return d.startTime + d.idx - 1
 }
 
@@ -194,10 +224,8 @@ func (d *TSDDecoder) Value() uint64 {
 
 // DecodeTSDTime decodes start-time-slot and end-time-slot of tsd.
 // a simple method extracted from NewTSDDecoder to reduce gc pressure.
-func DecodeTSDTime(data []byte) (startTime, endTime int) {
-	reader := stream.NewReader(data)
-	startTime = int(reader.ReadUint16())
-	count := int(reader.ReadUint16())
-	endTime = startTime + count - 1
+func DecodeTSDTime(data []byte) (startTime, endTime uint16) {
+	startTime = binary.LittleEndian.Uint16(data[0:2])
+	endTime = binary.LittleEndian.Uint16(data[2:4])
 	return
 }
