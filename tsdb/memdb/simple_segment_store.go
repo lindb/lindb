@@ -14,7 +14,7 @@ type simpleFieldStore struct {
 	familyTime int64
 	startTime  uint16
 
-	block    block
+	block    *block
 	compress []byte
 }
 
@@ -53,18 +53,18 @@ func (fs *simpleFieldStore) Write(
 	current := writeCtx.slotIndex
 	value := fs.getFieldValue(fieldType, f)
 	if fs.block == nil {
-		fs.block = writeCtx.blockStore.allocFloatBlock()
+		fs.block = writeCtx.blockStore.allocBlock()
 		fs.startTime = current
-		fs.block.setFloatValue(0, value)
+		fs.block.setValue(0, value)
 		return fs.block.memsize()
 	}
 	pos := current - fs.startTime
 	if fs.block.hasValue(pos) {
 		// do rollup using agg func
 		aggFunc := fieldType.GetSchema().GetAggFunc(field.SimpleFieldPFieldID)
-		fs.block.setFloatValue(pos, aggFunc.AggregateFloat(fs.block.getFloatValue(pos), value))
+		fs.block.setValue(pos, aggFunc.Aggregate(fs.block.getValue(pos), value))
 	} else {
-		fs.block.setFloatValue(pos, value)
+		fs.block.setValue(pos, value)
 	}
 	return
 }
@@ -156,7 +156,7 @@ func (fs *simpleFieldStore) load(
 	completed := false
 	value := 0.0
 	for i := startSlot; i <= endSlot; i++ {
-		newValue, hasNewValue := getCurrentFloatValue(fs.block, fs.startTime, i)
+		newValue, hasNewValue := getCurrentValue(fs.block, fs.startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 
 		switch {
@@ -165,7 +165,7 @@ func (fs *simpleFieldStore) load(
 			value = newValue
 		case hasNewValue && hasOldValue:
 			// merge data from new and old
-			value = aggFunc.AggregateFloat(newValue, oldValue)
+			value = aggFunc.Aggregate(newValue, oldValue)
 		case !hasNewValue && hasOldValue:
 			// get old value from compress data
 			value = oldValue

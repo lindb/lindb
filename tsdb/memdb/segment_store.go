@@ -81,7 +81,7 @@ func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) 
 }
 
 // compactInt compress block data
-func compact(aggFunc field.AggFunc, tsd *encoding.TSDDecoder, block block,
+func compact(aggFunc field.AggFunc, tsd *encoding.TSDDecoder, block *block,
 	startTime, startSlot, endSlot uint16, withTimeRange bool,
 ) (compress []byte, err error) {
 	if block == nil && tsd == nil {
@@ -89,7 +89,7 @@ func compact(aggFunc field.AggFunc, tsd *encoding.TSDDecoder, block block,
 	}
 	encode := encodeFunc(startSlot)
 	for i := startSlot; i <= endSlot; i++ {
-		newValue, hasNewValue := getCurrentFloatValue(block, startTime, i)
+		newValue, hasNewValue := getCurrentValue(block, startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 		switch {
 		case hasNewValue && !hasOldValue:
@@ -99,7 +99,7 @@ func compact(aggFunc field.AggFunc, tsd *encoding.TSDDecoder, block block,
 		case hasNewValue && hasOldValue:
 			// merge and compress
 			encode.AppendTime(bit.One)
-			encode.AppendValue(math.Float64bits(aggFunc.AggregateFloat(newValue, oldValue)))
+			encode.AppendValue(math.Float64bits(aggFunc.Aggregate(newValue, oldValue)))
 		case !hasNewValue && hasOldValue:
 			// compress old value
 			encode.AppendTime(bit.One)
@@ -128,7 +128,7 @@ func getOldFloatValue(tsd *encoding.TSDDecoder, timeSlot uint16) (value float64,
 	return
 }
 
-func getCurrentFloatValue(block block, startTime uint16, timeSlot uint16) (value float64, hasValue bool) {
+func getCurrentValue(block *block, startTime uint16, timeSlot uint16) (value float64, hasValue bool) {
 	if block == nil {
 		return
 	}
@@ -136,6 +136,6 @@ func getCurrentFloatValue(block block, startTime uint16, timeSlot uint16) (value
 		return
 	}
 	hasValue = true
-	value = block.getFloatValue(timeSlot - startTime)
+	value = block.getValue(timeSlot - startTime)
 	return
 }
