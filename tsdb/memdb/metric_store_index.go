@@ -43,7 +43,7 @@ type tagIndexINTF interface {
 	GetTagKVEntrySets() []*tagKVEntrySet
 
 	// GetTStore get tStore from map tags
-	GetTStore(tags map[string]string) (tStoreINTF, bool)
+	GetTStore(tagsHash uint64) (tStoreINTF, bool)
 
 	// GetTStoreBySeriesID get tStore from seriesID
 	GetTStoreBySeriesID(seriesID uint32) (tStoreINTF, bool)
@@ -252,9 +252,8 @@ func (index *tagIndex) getOrInsertTagKeyEntry(
 }
 
 // GetTStore returns a tStoreINTF from map tags.
-func (index *tagIndex) GetTStore(tags map[string]string) (tStoreINTF, bool) {
-	hash := xxhash.Sum64String(tag.Concat(tags))
-	seriesID, ok := index.hash2SeriesID[hash]
+func (index *tagIndex) GetTStore(tagsHash uint64) (tStoreINTF, bool) {
+	seriesID, ok := index.hash2SeriesID[tagsHash]
 	if ok {
 		return index.seriesID2TStore.get(seriesID)
 	}

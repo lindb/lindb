@@ -12,6 +12,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -39,7 +40,9 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotZero(t, writtenSize)
 	// get not exist tStore
-	tStore1, ok := tagIdxInterface.GetTStore(map[string]string{"host": "adca", "ip": "1.1.1.1"})
+	tStore1, ok := tagIdxInterface.GetTStore(xxhash.Sum64String(
+		tag.Concat(map[string]string{"host": "adca", "ip": "1.1.1.1"}),
+	))
 	assert.Nil(t, tStore1)
 	assert.False(t, ok)
 	// get or create
@@ -53,7 +56,7 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 		writeContext{generator: mockGenerator})
 	// get existed
 	tStore3, ok := tagIdxInterface.GetTStore(
-		map[string]string{"host": "adca", "ip": "1.1.1.1"})
+		xxhash.Sum64String(tag.Concat(map[string]string{"host": "adca", "ip": "1.1.1.1"})))
 	assert.NotNil(t, tStore3)
 	assert.True(t, ok)
 	// get tStore by seriesID

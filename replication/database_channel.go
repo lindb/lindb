@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"path"
-	"sort"
 	"sync"
 
-	"github.com/segmentio/fasthash/fnv1a"
+	"github.com/cespare/xxhash"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
@@ -16,6 +15,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/tag"
 )
 
 //go:generate mockgen -source=./database_channel.go -destination=./database_channel_mock.go -package=replication
@@ -75,9 +75,12 @@ func newDatabaseChannel(ctx context.Context,
 // Write writes the metric data into channel's buffer
 func (dc *databaseChannel) Write(metricList *field.MetricList) (err error) {
 	// sharding metrics to shards
-	numOfShard := uint32(dc.numOfShard.Load())
+	numOfShard := uint64(dc.numOfShard.Load())
 	for _, metric := range metricList.Metrics {
-		hash := metricHash(metric)
+		hash := xxhash.Sum64String(tag.Concat(metric.Tags))
+		// set tags hash code for storage side reuse
+		// !!!IMPORTANT: storage side will use this hash for write
+		metric.TagsHash = hash
 		shardID := int32(hash % numOfShard)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
@@ -163,26 +166,4 @@ func (dc *databaseChannel) getChannelByShardID(shardID int32) (Channel, bool) {
 		return nil, ok
 	}
 	return ch, true
-}
-
-func metricHash(metric *field.Metric) uint32 {
-	tagsLen := len(metric.Tags)
-	if tagsLen == 0 {
-		return 0
-	}
-
-	tagValues := make([]string, 0, tagsLen)
-	for _, val := range metric.Tags {
-		tagValues = append(tagValues, val)
-	}
-
-	if tagsLen > 1 {
-		sort.Strings(tagValues)
-	}
-
-	hash := fnv1a.HashString32(tagValues[0])
-	for i := 1; i < tagsLen; i++ {
-		hash = fnv1a.AddString32(hash, tagValues[i])
-	}
-	return hash
 }
