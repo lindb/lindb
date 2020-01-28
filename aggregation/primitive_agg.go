@@ -71,7 +71,7 @@ func (agg *primitiveAggregator) Aggregate(idx int, value float64) (completed boo
 	}
 
 	if agg.values.HasValue(idx) {
-		agg.values.SetValue(idx, agg.aggFunc.AggregateFloat(agg.values.GetValue(idx), value))
+		agg.values.SetValue(idx, agg.aggFunc.Aggregate(agg.values.GetValue(idx), value))
 	} else {
 		agg.values.SetValue(idx, value)
 	}

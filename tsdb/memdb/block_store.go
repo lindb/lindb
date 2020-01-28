@@ -1,21 +1,22 @@
 package memdb
 
 import (
+	"math/bits"
 	"sync"
-
-	"github.com/lindb/lindb/series/field"
 )
-
-//go:generate mockgen -source ./block_store.go -destination=./block_store_mock_test.go -package memdb
 
 // the longest length of basic-variable on x64 platform
 const maxTimeWindow = 64
 
+const (
+	emptyContainerSize = 8 + // container
+		24 // empty byte
+)
+
 // blockStore represents a pool of block for reuse
 type blockStore struct {
-	timeWindow     uint16
-	intBlockPool   sync.Pool
-	floatBlockPool sync.Pool
+	timeWindow uint16
+	pool       sync.Pool
 }
 
 // newBlockStore returns a pool of block with fixed time window
@@ -26,92 +27,79 @@ func newBlockStore(timeWindow uint16) *blockStore {
 	}
 	return &blockStore{
 		timeWindow: tw,
-		intBlockPool: sync.Pool{
+		pool: sync.Pool{
 			New: func() interface{} {
-				return newIntBlock(tw)
-			},
-		},
-		floatBlockPool: sync.Pool{
-			New: func() interface{} {
-				return newFloatBlock(tw)
+				return newBlock(tw)
 			},
 		},
 	}
 }
 
 // freeBlock resets block data and free it, puts it into pool for reusing
-func (bs *blockStore) freeBlock(block block) {
+func (bs *blockStore) freeBlock(block *block) {
 	block.reset()
-	switch b := block.(type) {
-	case *intBlock:
-		bs.intBlockPool.Put(b)
-	case *floatBlock:
-		bs.floatBlockPool.Put(b)
-	}
+	bs.pool.Put(block)
 }
 
-func (bs *blockStore) allocBlock(valueType field.ValueType) block {
-	switch valueType {
-	case field.Integer:
-		return bs.allocIntBlock()
-	case field.Float:
-		return bs.allocFloatBlock()
-	default:
-		return nil
-	}
-}
-
-// allocIntBlock alloc int block from pool
-func (bs *blockStore) allocIntBlock() *intBlock {
-	block := bs.intBlockPool.Get()
-	return block.(*intBlock)
-}
-
-// allocIntBlock alloc float block from pool
-func (bs *blockStore) allocFloatBlock() *floatBlock {
-	block := bs.floatBlockPool.Get()
-	return block.(*floatBlock)
+// allocBlock alloc block from pool
+func (bs *blockStore) allocBlock() *block {
+	b := bs.pool.Get()
+	return b.(*block)
 }
 
 // block represents a fixed size time window of metric data.
 // All block implementations need provide fast random access to data.
-type block interface {
-	// hasValue returns if has value with pos, if has value return true
-	hasValue(pos uint16) bool
-	// setIntValue sets int64 value with pos
-	setIntValue(pos uint16, value int64)
-	// getIntValue returns int64 value for pos
-	getIntValue(pos uint16) int64
-	// setFloatValue sets float64 value with pos
-	setFloatValue(pos uint16, value float64)
-	// getFloatValue returns float64 value for pos
-	getFloatValue(pos uint16) float64
-	// getSize returns the size of values
-	getSize() uint16
-	// reset cleans block data, just reset container mark
-	reset()
-	// memsize returns the memory size in bytes count
-	memsize() int
+type block struct {
+	// container(bit array) is a mapping from 64 value to uint64 in big-endian,
+	// it is a temporary data-structure for compressing data.
+	container uint64
+	values    []float64
 }
 
-const (
-	emptyContainerSize = 8 + // container
-		24 // empty byte
-)
-
-func (b *floatBlock) getIntValue(pos uint16) int64 {
-	// do nothing
-	return 0
-}
-func (b *floatBlock) setIntValue(pos uint16, value int64) {
-	// do nothing
+// newBlock returns block with fixed time window
+func newBlock(size uint16) *block {
+	return &block{
+		values: make([]float64, size),
+	}
 }
 
-func (b *intBlock) getFloatValue(pos uint16) float64 {
-	// do nothing
-	return 0
+// getSize returns the size of values
+func (b *block) getSize() uint16 {
+	if b.container == 0 {
+		return 0
+	}
+	// get trailing zeros for container
+	trailing := bits.TrailingZeros64(b.container)
+	return uint16(maxTimeWindow - trailing - 1)
 }
 
-func (b *intBlock) setFloatValue(pos uint16, value float64) {
-	// do nothing
+// hasValue returns whether value is absent or present at pos, if present return true
+func (b *block) hasValue(pos uint16) bool {
+	return b.container&(1<<uint64(maxTimeWindow-pos-1)) != 0
+}
+
+// setValue updates value with pos
+func (b *block) setValue(pos uint16, value float64) {
+	b.container |= 1 << uint64(maxTimeWindow-pos-1)
+	b.values[pos] = value
+}
+
+// getValue returns value for pos
+func (b *block) getValue(pos uint16) float64 {
+	return b.values[pos]
+}
+
+// memsize returns the memory size in bytes count
+func (b *block) memsize() int {
+	return emptyContainerSize + cap(b.values)*8
+}
+
+// reset cleans block data, just reset container mark
+func (b *block) reset() {
+	b.container = 0
+}
+
+// isEmpty returns the block if empty
+func (b *block) isEmpty() bool {
+	return b.container == 0
 }
