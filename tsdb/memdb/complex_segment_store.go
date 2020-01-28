@@ -21,18 +21,19 @@ const (
 		8 // compress pointer
 )
 
+// complexFieldStore represents the complex field's segment store
 type complexFieldStore struct {
 	familyTime int64
 	startTime  uint16
 
-	blocks   map[uint16]block
+	blocks   map[uint16]*block
 	compress []byte
 }
 
 func newComplexFieldStore(familyTime int64) sStoreINTF {
 	return &complexFieldStore{
 		familyTime: familyTime,
-		blocks:     make(map[uint16]block),
+		blocks:     make(map[uint16]*block),
 	}
 }
 
@@ -56,9 +57,9 @@ func (fs *complexFieldStore) write(fieldType field.Type, pFieldID uint16, value 
 	block, ok := fs.blocks[pFieldID]
 	current := writeCtx.slotIndex
 	if !ok {
-		block = writeCtx.blockStore.allocFloatBlock()
+		block = writeCtx.blockStore.allocBlock()
 		fs.startTime = current
-		block.setFloatValue(0, value)
+		block.setValue(0, value)
 		fs.blocks[pFieldID] = block
 		return block.memsize()
 	}
@@ -66,9 +67,9 @@ func (fs *complexFieldStore) write(fieldType field.Type, pFieldID uint16, value 
 	if block.hasValue(pos) {
 		// do rollup using agg func
 		aggFunc := fieldType.GetSchema().GetAggFunc(pFieldID)
-		block.setFloatValue(pos, aggFunc.AggregateFloat(block.getFloatValue(pos), value))
+		block.setValue(pos, aggFunc.Aggregate(block.getValue(pos), value))
 	} else {
-		block.setFloatValue(pos, value)
+		block.setValue(pos, value)
 	}
 	return
 }
