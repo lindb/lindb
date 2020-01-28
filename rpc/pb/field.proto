@@ -10,7 +10,8 @@ message Metric {
     string name = 1;
     int64 timestamp = 2;
     map<string, string> tags = 3;
-    repeated Field fields = 4;
+    uint64 tagsHash = 4; // xxhash.Sum64String(tags), broker side generate before write wal
+    repeated Field fields = 5;
 }
 
 message Sum {
