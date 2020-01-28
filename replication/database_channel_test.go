@@ -140,29 +140,3 @@ func TestDatabaseChannel_ReplicaState(t *testing.T) {
 	replicaState := ch.ReplicaState()
 	assert.Len(t, replicaState, 1)
 }
-
-func TestDatabaseChannel_metricHash(t *testing.T) {
-	metric := &field.Metric{
-		Name:      "cpu",
-		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
-	}
-	hash := metricHash(metric)
-	assert.Equal(t, uint32(0), hash)
-
-	metric = &field.Metric{
-		Name:      "cpu",
-		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
-		Tags: map[string]string{"host": "1.1.1.1", "disk": "/tmp"},
-	}
-	_ = metricHash(metric)
-}

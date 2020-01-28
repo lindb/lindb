@@ -323,7 +323,7 @@ func (ms *metricStore) Write(
 	}
 	var createdSize int
 	ms.mux.RLock()
-	tStore, ok := ms.mutable.GetTStore(metric.Tags)
+	tStore, ok := ms.mutable.GetTStore(metric.TagsHash)
 	ms.mux.RUnlock()
 	if !ok {
 		ms.mux.Lock()
