@@ -2,7 +2,6 @@ package memdb
 
 import (
 	"sort"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
-//go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock_test.go -package memdb
+//go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock.go -package memdb
 
 const emptyTimeSeriesStoreSize = 4 + // spin-lock
 	4 + // last-wrote_time
@@ -26,23 +25,14 @@ type tStoreINTF interface {
 
 	// Write writes the metric
 	Write(
-		metric *pb.Metric,
+		fields []*pb.Field,
 		writeCtx writeContext,
 	) (
 		writtenSize int,
 		err error)
 
 	// FlushSeriesTo flushes the series data segment.
-	FlushSeriesTo(
-		flusher metricsdata.Flusher,
-		flushCtx flushContext,
-	) (flushedSize int)
-
-	// IsExpired detects if this tStore has not been used for a TTL
-	IsExpired() bool
-
-	// IsNoData symbols if all data of this tStore has been flushed
-	IsNoData() bool
+	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 
 	MemSize() int
 
@@ -87,45 +77,9 @@ func (ts *timeSeriesStore) insertFStore(fStore fStoreINTF) {
 	sort.Sort(ts.fStoreNodes)
 }
 
-// IsNoData symbols if all data of this tStore has been flushed
-func (ts *timeSeriesStore) IsNoData() bool {
-	ts.sl.Lock()
-	defer ts.sl.Unlock()
-
-	for _, fStore := range ts.fStoreNodes {
-		if fStore.SegmentsCount() != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-// afterFlush checks if the tStore contains any data after flushing
-func (ts *timeSeriesStore) afterFlush(flushCtx flushContext) {
-	// update hasData flag
-	var startTime, endTime int64
-	for _, fStore := range ts.fStoreNodes {
-		timeRange, ok := fStore.TimeRange(flushCtx.timeInterval)
-		if !ok {
-			continue
-		}
-		if startTime == 0 || timeRange.Start < startTime {
-			startTime = timeRange.Start
-		}
-		if endTime == 0 || endTime < timeRange.End {
-			endTime = timeRange.End
-		}
-	}
-}
-
-// IsExpired detects if this tStore has not been used for a TTL
-func (ts *timeSeriesStore) IsExpired() bool {
-	return time.Unix(int64(ts.lastWroteTime.Load()), 0).Add(seriesTTL.Load()).Before(time.Now())
-}
-
 // Write Write the data of metric to the fStore.
 func (ts *timeSeriesStore) Write(
-	metric *pb.Metric,
+	fields []*pb.Field,
 	writeCtx writeContext,
 ) (
 	writtenSize int,
@@ -134,7 +88,7 @@ func (ts *timeSeriesStore) Write(
 	ts.sl.Lock()
 	defer ts.sl.Unlock()
 
-	for _, f := range metric.Fields {
+	for _, f := range fields {
 		// todo FieldType
 		fieldType := getFieldType(f)
 		if fieldType == field.Unknown {
@@ -165,20 +119,14 @@ func (ts *timeSeriesStore) Write(
 func (ts *timeSeriesStore) FlushSeriesTo(
 	flusher metricsdata.Flusher,
 	flushCtx flushContext,
-) (
-	flushedSize int,
 ) {
 	ts.sl.Lock()
 	for _, fStore := range ts.fStoreNodes {
-		flushedSize += fStore.FlushFieldTo(flusher, flushCtx)
+		fStore.FlushFieldTo(flusher, flushCtx)
 	}
-	if flushedSize > 0 {
-		flusher.FlushSeries()
-		ts.afterFlush(flushCtx)
-	}
+	flusher.FlushSeries()
 	// update time range info
 	ts.sl.Unlock()
-	return flushedSize
 }
 
 func (ts *timeSeriesStore) MemSize() int {

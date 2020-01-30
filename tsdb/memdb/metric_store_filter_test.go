@@ -18,7 +18,6 @@ func Test_MetricStore_scan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	now, _ := timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
 	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 	mStoreInterface := newMetricStore()
@@ -31,13 +30,9 @@ func Test_MetricStore_scan(t *testing.T) {
 	// v1:
 	ti1 := newTagIndex().(*tagIndex)
 	ti1.version = 1
-	ti1.earliestTimeDelta.Store(100)
-	ti1.latestTimeDelta.Store(200)
 	// v2
 	ti2 := newTagIndex().(*tagIndex)
 	ti2.version = 2
-	ti2.earliestTimeDelta.Store(200)
-	ti2.latestTimeDelta.Store(300)
 	ts5 := newTimeSeriesStore()
 	ts6 := newTimeSeriesStore()
 	ts7 := newTimeSeriesStore()
@@ -62,18 +57,9 @@ func Test_MetricStore_scan(t *testing.T) {
 	// build mStore
 	mStore.immutable.Store(ti1)
 	mStore.mutable = ti2
-	metric := &pb.Metric{
-		Name:      "cpu",
-		Timestamp: now,
-		Fields: []*pb.Field{
-			{Name: "sum3", Field: &pb.Field_Sum{Sum: &pb.Sum{
-				Value: 1.0,
-			}}},
-			{Name: "sum4", Field: &pb.Field_Sum{Sum: &pb.Sum{
-				Value: 1.0,
-			}}},
-		},
-		Tags: map[string]string{"host": "1.1.1.1", "disk": "/tmp"},
+	fields := []*pb.Field{
+		{Name: "sum3", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
+		{Name: "sum4", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 	}
 
 	generator := metadb.NewMockIDGenerator(ctrl)
@@ -83,7 +69,7 @@ func Test_MetricStore_scan(t *testing.T) {
 	idGet.EXPECT().GetFieldIDOrGenerate(gomock.Any(), "sum3", gomock.Any(), gomock.Any()).Return(uint16(3), nil)
 	idGet.EXPECT().GetFieldIDOrGenerate(gomock.Any(), "sum4", gomock.Any(), gomock.Any()).Return(uint16(4), nil)
 	bs := newBlockStore(10)
-	writtenSize, err := mStore.Write(metric,
+	writtenSize, err := mStore.Write(uint32(10), fields,
 		writeContext{
 			generator:           generator,
 			blockStore:          bs,

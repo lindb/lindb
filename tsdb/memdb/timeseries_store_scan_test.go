@@ -29,18 +29,14 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return(uint16(i+10), nil)
-		_, err := tStore.Write(
-			&pb.Metric{
-				Fields: []*pb.Field{
-					{Name: fmt.Sprintf("sum-%d", i), Field: &pb.Field_Sum{Sum: &pb.Sum{
-						Value: 1.0,
-					}}},
-					{Name: "unknown", Field: nil}},
-			}, writeContext{
-				metricID:            1,
-				familyTime:          10,
-				blockStore:          newBlockStore(30),
-				mStoreFieldIDGetter: mockFieldIDGetter})
+		_, err := tStore.Write([]*pb.Field{
+			{Name: fmt.Sprintf("sum-%d", i), Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
+			{Name: "unknown", Field: nil},
+		}, writeContext{
+			metricID:            1,
+			familyTime:          10,
+			blockStore:          newBlockStore(30),
+			mStoreFieldIDGetter: mockFieldIDGetter})
 		assert.NoError(t, err)
 	}
 	// find data
@@ -84,13 +80,9 @@ func TestTimeSeriesStore_complex_field_scan(t *testing.T) {
 		mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return(uint16(i+10), nil)
 		_, err := tStore.Write(
-			&pb.Metric{
-				Fields: []*pb.Field{
-					{Name: fmt.Sprintf("sum-%d", i), Field: &pb.Field_Summary{Summary: &pb.Summary{
-						Sum:   10.0,
-						Count: 3,
-					}}},
-					{Name: "unknown", Field: nil}},
+			[]*pb.Field{
+				{Name: fmt.Sprintf("sum-%d", i), Field: &pb.Field_Summary{Summary: &pb.Summary{Sum: 10.0, Count: 3}}},
+				{Name: "unknown", Field: nil},
 			}, writeContext{
 				metricID:            1,
 				familyTime:          10,

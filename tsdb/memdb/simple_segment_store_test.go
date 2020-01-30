@@ -28,10 +28,9 @@ func TestSimpleSegmentStore(t *testing.T) {
 	assert.True(t, ok)
 
 	writeCtx := writeContext{
-		blockStore:   newBlockStore(30),
-		timeInterval: 10,
-		metricID:     1,
-		familyTime:   0,
+		blockStore: newBlockStore(30),
+		metricID:   1,
+		familyTime: 0,
 	}
 	times := []uint16{
 		10,
@@ -114,10 +113,9 @@ func TestSimpleFieldStore_compact_err(t *testing.T) {
 	store := newSimpleFieldStore(0)
 
 	writeCtx := writeContext{
-		blockStore:   newBlockStore(30),
-		timeInterval: 10,
-		metricID:     1,
-		familyTime:   0,
+		blockStore: newBlockStore(30),
+		metricID:   1,
+		familyTime: 0,
 	}
 
 	writeCtx.slotIndex = 10
@@ -157,10 +155,9 @@ func TestSimpleFieldStore_load(t *testing.T) {
 	ss := store.(*simpleFieldStore)
 
 	writeCtx := writeContext{
-		blockStore:   newBlockStore(30),
-		timeInterval: 10,
-		metricID:     1,
-		familyTime:   0,
+		blockStore: newBlockStore(30),
+		metricID:   1,
+		familyTime: 0,
 	}
 
 	writeCtx.slotIndex = 10

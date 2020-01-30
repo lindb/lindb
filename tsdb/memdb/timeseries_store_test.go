@@ -2,32 +2,14 @@ package memdb
 
 import (
 	"testing"
-	"time"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
-
-func Test_newTimeSeriesStore(t *testing.T) {
-	tStore := newTimeSeriesStore()
-	assert.NotNil(t, tStore)
-	assert.True(t, tStore.IsNoData())
-	assert.False(t, tStore.IsExpired())
-}
-
-func Test_tStore_expired(t *testing.T) {
-	tStore := newTimeSeriesStore()
-	time.Sleep(time.Millisecond * 1)
-	assert.False(t, tStore.IsExpired())
-
-	seriesTTL.Store(time.Nanosecond)
-	time.Sleep(time.Millisecond * 1)
-	assert.True(t, tStore.IsExpired())
-}
 
 func Test_tStore_write_sum(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -44,19 +26,14 @@ func Test_tStore_write_sum(t *testing.T) {
 	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
 	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	// get existed fStore
-	_, err := tStore.Write(
-		&pb.Metric{
-			Fields: []*pb.Field{
-				{Name: "sum", Field: &pb.Field_Sum{Sum: &pb.Sum{
-					Value: 1.0,
-				}}},
-				{Name: "unknown", Field: nil}},
-		}, writeContext{
-			metricID:            1,
-			blockStore:          newBlockStore(30),
-			mStoreFieldIDGetter: mockFieldIDGetter})
+	_, err := tStore.Write([]*pb.Field{
+		{Name: "sum", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
+		{Name: "unknown", Field: nil},
+	}, writeContext{
+		metricID:            1,
+		blockStore:          newBlockStore(30),
+		mStoreFieldIDGetter: mockFieldIDGetter})
 	assert.Nil(t, err)
-	assert.False(t, tStoreInterface.IsNoData())
 	fStore, ok := tStoreInterface.GetFStore(uint16(1))
 	assert.True(t, ok)
 	assert.NotNil(t, fStore)
@@ -64,141 +41,6 @@ func Test_tStore_write_sum(t *testing.T) {
 	// insert test
 	tStore.insertFStore(newFieldStore(3))
 	tStore.insertFStore(newFieldStore(2))
-}
-
-func Test_tStore_write_gauge(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tStoreInterface := newTimeSeriesStore()
-	tStore := tStoreInterface.(*timeSeriesStore)
-	// mock fieldID getter
-	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
-	// mock field-store
-	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
-	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
-	// get existed fStore
-	_, err := tStore.Write(
-		&pb.Metric{
-			Fields: []*pb.Field{
-				{Name: "gauge", Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
-					Value: 1.0,
-				}}},
-				{Name: "unknown", Field: nil}},
-		}, writeContext{
-			metricID:            1,
-			blockStore:          newBlockStore(30),
-			mStoreFieldIDGetter: mockFieldIDGetter})
-	assert.NoError(t, err)
-	assert.False(t, tStoreInterface.IsNoData())
-	fStore, ok := tStoreInterface.GetFStore(uint16(1))
-	assert.True(t, ok)
-	assert.NotNil(t, fStore)
-}
-
-func Test_tStore_write_max(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tStoreInterface := newTimeSeriesStore()
-	tStore := tStoreInterface.(*timeSeriesStore)
-	// mock fieldID getter
-	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
-	// mock field-store
-	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
-	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
-	// get existed fStore
-	_, err := tStore.Write(
-		&pb.Metric{
-			Fields: []*pb.Field{
-				{Name: "max", Field: &pb.Field_Max{Max: &pb.Max{
-					Value: 1.0,
-				}}},
-				{Name: "unknown", Field: nil}},
-		}, writeContext{
-			metricID:            1,
-			blockStore:          newBlockStore(30),
-			mStoreFieldIDGetter: mockFieldIDGetter})
-	assert.NoError(t, err)
-	assert.False(t, tStoreInterface.IsNoData())
-	fStore, ok := tStoreInterface.GetFStore(uint16(1))
-	assert.True(t, ok)
-	assert.NotNil(t, fStore)
-}
-
-func Test_tStore_write_min(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tStoreInterface := newTimeSeriesStore()
-	tStore := tStoreInterface.(*timeSeriesStore)
-	// mock fieldID getter
-	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
-	// mock field-store
-	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
-	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
-	// get existed fStore
-	_, err := tStore.Write(
-		&pb.Metric{
-			Fields: []*pb.Field{
-				{Name: "min", Field: &pb.Field_Min{Min: &pb.Min{
-					Value: 1.0,
-				}}},
-				{Name: "unknown", Field: nil}},
-		}, writeContext{
-			metricID:            1,
-			blockStore:          newBlockStore(30),
-			mStoreFieldIDGetter: mockFieldIDGetter})
-	assert.NoError(t, err)
-	assert.False(t, tStoreInterface.IsNoData())
-	fStore, ok := tStoreInterface.GetFStore(uint16(1))
-	assert.True(t, ok)
-	assert.NotNil(t, fStore)
-}
-
-func Test_tStore_write_summary(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tStoreInterface := newTimeSeriesStore()
-	tStore := tStoreInterface.(*timeSeriesStore)
-	// mock fieldID getter
-	mockFieldIDGetter := NewMockmStoreFieldIDGetter(ctrl)
-	mockFieldIDGetter.EXPECT().GetFieldIDOrGenerate(gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(uint16(1), nil).AnyTimes()
-	// mock field-store
-	mockFStore := NewMockfStoreINTF(ctrl)
-	mockFStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(1).AnyTimes()
-	mockFStore.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
-	// get existed fStore
-	for i := 0; i < 2; i++ {
-		_, err := tStore.Write(
-			&pb.Metric{
-				Fields: []*pb.Field{
-					{Name: "summary", Field: &pb.Field_Summary{Summary: &pb.Summary{
-						Sum:   10.0,
-						Count: 5,
-					}}},
-					{Name: "unknown", Field: nil}},
-			}, writeContext{
-				metricID:            1,
-				blockStore:          newBlockStore(30),
-				mStoreFieldIDGetter: mockFieldIDGetter})
-		assert.NoError(t, err)
-		assert.False(t, tStoreInterface.IsNoData())
-		fStore, ok := tStoreInterface.GetFStore(uint16(1))
-		assert.True(t, ok)
-		assert.NotNil(t, fStore)
-	}
 }
 
 func Test_tStore_GenFieldID_error(t *testing.T) {
@@ -214,7 +56,7 @@ func Test_tStore_GenFieldID_error(t *testing.T) {
 	// error field type from generator
 	tStore.fStoreNodes = nil
 	_, err := tStore.Write(
-		&pb.Metric{Fields: []*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}}, writeContext{
+		[]*pb.Field{{Name: "field1", Field: &pb.Field_Sum{}}}, writeContext{
 			metricID:            1,
 			blockStore:          newBlockStore(30),
 			mStoreFieldIDGetter: mockGetter})
@@ -237,19 +79,19 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	mockFStore1.EXPECT().SegmentsCount().Return(1).AnyTimes()
 	mockFStore1.EXPECT().GetFieldID().Return(uint16(1)).AnyTimes()
 	mockFStore1.EXPECT().MemSize().Return(emptyFieldStoreSize).AnyTimes()
-	mockFStore1.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(100).AnyTimes()
+	mockFStore1.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).AnyTimes()
 	mockFStore1.EXPECT().TimeRange(gomock.Any()).Return(timeutil.TimeRange{
 		Start: familyTime + 1000*60, End: familyTime + 1000*120}, true).AnyTimes()
 	mockFStore2 := NewMockfStoreINTF(ctrl)
 	mockFStore2.EXPECT().SegmentsCount().Return(1).AnyTimes()
-	mockFStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(100).AnyTimes()
+	mockFStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).AnyTimes()
 	mockFStore2.EXPECT().GetFieldID().Return(uint16(2)).AnyTimes()
 	mockFStore2.EXPECT().MemSize().Return(emptyFieldStoreSize).AnyTimes()
 	mockFStore2.EXPECT().TimeRange(gomock.Any()).Return(timeutil.TimeRange{
 		Start: familyTime + 1000*70, End: familyTime + 1000*130}, true).AnyTimes()
 	mockFStore3 := NewMockfStoreINTF(ctrl)
 	mockFStore3.EXPECT().SegmentsCount().Return(1).AnyTimes()
-	mockFStore3.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(0).AnyTimes()
+	mockFStore3.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).AnyTimes()
 	mockFStore3.EXPECT().MemSize().Return(emptyFieldStoreSize).AnyTimes()
 	mockFStore3.EXPECT().TimeRange(gomock.Any()).Return(
 		timeutil.TimeRange{Start: 100, End: 200}, false).AnyTimes()
@@ -259,22 +101,21 @@ func Test_tStore_flushSeriesTo(t *testing.T) {
 	tStore.insertFStore(mockFStore2)
 	tStore.insertFStore(mockFStore3)
 	assert.NotEqual(t, emptyTimeSeriesStoreSize, tStore.MemSize())
-	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
-	assert.False(t, tStoreInterface.IsNoData())
+	tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000})
 
 	// flush error
 	tStore.fStoreNodes = nil
 	tStore.insertFStore(mockFStore3)
 
-	assert.Zero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
+	tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000})
 
 	// no-data
 	mockFStore4 := NewMockfStoreINTF(ctrl)
-	mockFStore4.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).Return(10).AnyTimes()
+	mockFStore4.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()).AnyTimes()
 	mockFStore4.EXPECT().TimeRange(gomock.Any()).Return(timeutil.TimeRange{Start: 0, End: 0}, false).AnyTimes()
 	mockFStore4.EXPECT().GetFieldID().Return(uint16(4)).AnyTimes()
 	tStore.fStoreNodes = nil
 	tStore.insertFStore(mockFStore3)
 	tStore.insertFStore(mockFStore4)
-	assert.NotZero(t, tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000}))
+	tStore.FlushSeriesTo(mockTF, flushContext{timeInterval: 10 * 1000})
 }

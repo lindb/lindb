@@ -71,15 +71,16 @@ func TestSampleCondition(t *testing.T) {
 func TestNotCondition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	mockFilter := series.NewMockFilter(ctrl)
 
 	query, _ := sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(3, 4)), nil)
 
 	mockFilter.EXPECT().
-		GetSeriesIDsForTag(uint32(1), "ip", query.TimeRange).
+		GetSeriesIDsForTag(gomock.Any(), query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 3, 4)), nil)
 	search := newSeriesSearch(1, mockFilter, query)
 	resultSet, _ := search.Search()
@@ -88,11 +89,10 @@ func TestNotCondition(t *testing.T) {
 	// error
 	query, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(1), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(3, 4)), nil)
 
-	mockFilter.EXPECT().
-		GetSeriesIDsForTag(uint32(1), "ip", query.TimeRange).
+	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1), query.TimeRange).
 		Return(nil, errors.New("get series ids error"))
 	search = newSeriesSearch(1, mockFilter, query)
 	resultSet, err := search.Search()
@@ -165,19 +165,19 @@ func TestComplexCondition(t *testing.T) {
 	query, _ := sql.Parse("select f from cpu" +
 		" where (ip not in ('1.1.1.1','2.2.2.2') and region='sh') and (path='/data' or path='/home')")
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
 	mockFilter.EXPECT().
-		GetSeriesIDsForTag(uint32(10), "ip", query.TimeRange).
+		GetSeriesIDsForTag(gomock.Any(), query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 3, 4, 6, 7, 8)), nil)
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(2, 3, 4, 7)), nil)
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "path", Value: "/data"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "path", Value: "/data"}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(3, 5)), nil)
 	mockFilter.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "path", Value: "/home"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "path", Value: "/home"}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1)), nil)
 	search := newSeriesSearch(10, mockFilter, query)
 	resultSet, _ := search.Search()
@@ -190,13 +190,13 @@ func TestComplexCondition(t *testing.T) {
 	// error
 	mockFilter1 := series.NewMockFilter(ctrl)
 	mockFilter1.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}, query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 4)), nil)
 	mockFilter1.EXPECT().
-		GetSeriesIDsForTag(uint32(10), "ip", query.TimeRange).
+		GetSeriesIDsForTag(gomock.Any(), query.TimeRange).
 		Return(mockSeriesIDSet(series.Version(11), roaring.BitmapOf(1, 2, 3, 4, 6, 7, 8)), nil)
 	mockFilter1.EXPECT().
-		FindSeriesIDsByExpr(uint32(10), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
+		FindSeriesIDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "region", Value: "sh"}, query.TimeRange).
 		Return(nil, errors.New("complex error"))
 	search = newSeriesSearch(10, mockFilter1, query)
 	resultSet, err := search.Search()

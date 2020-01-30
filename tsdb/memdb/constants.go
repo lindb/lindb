@@ -1,13 +1,8 @@
 package memdb
 
-import (
-	"time"
-
-	"go.uber.org/atomic"
-)
-
+//FIXME stone1100
 // use var for mocking
-var (
-	// series will be purged if have not been used in this TTL
-	seriesTTL = atomic.NewDuration(5 * time.Minute)
-)
+//var (
+//	// series will be purged if have not been used in this TTL
+//	seriesTTL = atomic.NewDuration(5 * time.Minute)
+//)

@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/cespare/xxhash"
@@ -9,11 +8,6 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -26,52 +20,18 @@ func Test_tagIndex_tStore_get(t *testing.T) {
 
 	tagIdxInterface := newTagIndex()
 	// test get empty map
-	tStore30, ok := tagIdxInterface.GetTStoreBySeriesID(uint32(10))
-	assert.False(t, ok)
-	assert.Nil(t, tStore30)
-	assert.Equal(t, emptyTagIndexSize, tagIdxInterface.MemSize())
+	tStore30, createdSize := tagIdxInterface.GetOrCreateTStore(uint32(10))
+	assert.True(t, createdSize > 0)
+	assert.NotNil(t, tStore30)
 
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// version
 	assert.NotZero(t, tagIdxInterface.Version())
 	// get empty key value tStore
-	tStore0, writtenSize, err := tagIdxInterface.GetOrCreateTStore(nil, writeContext{generator: mockGenerator})
-	assert.NotNil(t, tStore0)
-	assert.Nil(t, err)
-	assert.NotZero(t, writtenSize)
-	// get not exist tStore
-	tStore1, ok := tagIdxInterface.GetTStore(xxhash.Sum64String(
-		tag.Concat(map[string]string{"host": "adca", "ip": "1.1.1.1"}),
-	))
-	assert.Nil(t, tStore1)
-	assert.False(t, ok)
-	// get or create
-	tStore2, _, err := tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "adca", "ip": "1.1.1.1"},
-		writeContext{generator: mockGenerator})
-	assert.NotNil(t, tStore2)
-	assert.Nil(t, err)
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "adca", "ip": "1.1.1.1"},
-		writeContext{generator: mockGenerator})
-	// get existed
-	tStore3, ok := tagIdxInterface.GetTStore(
-		xxhash.Sum64String(tag.Concat(map[string]string{"host": "adca", "ip": "1.1.1.1"})))
-	assert.NotNil(t, tStore3)
-	assert.True(t, ok)
-	// get tStore by seriesID
-	assert.NotZero(t, tagIdx.seriesID2TStore.size())
-	tStore4, ok := tagIdxInterface.GetTStoreBySeriesID(1)
-	assert.NotNil(t, tStore4)
-	assert.True(t, ok)
-	// getOrInsertTagKeyEntry, present in the slice
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "32"}, writeContext{generator: mockGenerator})
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"g": "33"}, writeContext{generator: mockGenerator})
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"h": "32"}, writeContext{generator: mockGenerator})
-	assert.NotEqual(t, emptyTagIndexSize, tagIdxInterface.MemSize())
-
-	// getTagKVEntrySet test
-	assert.NotNil(t, tagIdxInterface.GetTagKVEntrySets())
+	tStore30, createdSize = tagIdxInterface.GetOrCreateTStore(uint32(10))
+	assert.True(t, createdSize == 0)
+	assert.NotNil(t, tStore30)
+	assert.Equal(t, 1, tagIdx.seriesID2TStore.size())
 }
 
 func Test_tagIndex_filter(t *testing.T) {
@@ -84,43 +44,12 @@ func Test_tagIndex_filter(t *testing.T) {
 	tagIdx := tagIdxInterface.(*tagIndex)
 	// too many tag keys
 	for i := 0; i < 1000; i++ {
-		_, _, _ = tagIdx.GetOrCreateTStore(
-			map[string]string{strconv.Itoa(i): strconv.Itoa(i)}, writeContext{generator: mockGenerator})
+		_, _ = tagIdx.GetOrCreateTStore(uint32(i))
 	}
 	assert.True(t, tagIdx.filter(roaring.BitmapOf(1)))
 	assert.False(t, tagIdx.filter(roaring.BitmapOf(3000)))
 
 	tagIdx.loadData(nil, nil, 0, nil)
-}
-
-func Test_tagIndex_tStore_error(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockGenerator := metadb.NewMockIDGenerator(ctrl)
-	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-
-	tagIdxInterface := newTagIndex()
-	tagIdx := tagIdxInterface.(*tagIndex)
-	// too many tag keys
-	for i := 0; i < 1000; i++ {
-		_, _, _ = tagIdx.GetOrCreateTStore(
-			map[string]string{strconv.Itoa(i): strconv.Itoa(i)}, writeContext{generator: mockGenerator})
-	}
-	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
-	_, _, err := tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"zone": "nj"},
-		writeContext{generator: mockGenerator})
-	assert.Equal(t, series.ErrTooManyTagKeys, err)
-	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
-	// remove tStores
-	tagIdx.RemoveTStores()
-	tagIdx.RemoveTStores(1, 2, 3, 4, 1003)
-	// used tags won't change
-	assert.Equal(t, constants.MStoreMaxTagKeysCount, tagIdx.TagsUsed())
-	// in use tags was removed
-	assert.Equal(t, 28, tagIdx.TagsInUse())
-	// allTStores
-	assert.NotNil(t, tagIdxInterface.AllTStores())
 }
 
 func Test_tagIndex_flushMetricTo(t *testing.T) {
@@ -140,167 +69,12 @@ func Test_tagIndex_flushMetricTo(t *testing.T) {
 
 	// tStore is not empty
 	mockTStore1 := NewMocktStoreINTF(ctrl)
-	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()).Return(10).AnyTimes()
+	mockTStore1.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()).AnyTimes()
 	tagIdx.seriesID2TStore = newMetricMap()
 	tagIdx.seriesID2TStore.put(1, mockTStore1)
 	tagIdx.seriesID2TStore.put(2, mockTStore1)
 	// data flushed
-	_ = tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
-}
-
-func prepareTagIdx(ctrl *gomock.Controller) tagIndexINTF {
-	tagIdxInterface := newTagIndex()
-	tagIdx := tagIdxInterface.(*tagIndex)
-
-	mockGenerator := metadb.NewMockIDGenerator(ctrl)
-	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "a", "zone": "nj"},
-		writeContext{generator: mockGenerator}) // seriesID: 1
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "abc", "zone": "sh"},
-		writeContext{generator: mockGenerator}) // 2
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "b", "zone": "nj"},
-		writeContext{generator: mockGenerator}) // 3
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "c", "zone": "bj"},
-		writeContext{generator: mockGenerator}) // 4
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "bc", "zone": "sz"},
-		writeContext{generator: mockGenerator}) // 5
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "b21", "zone": "nj"},
-		writeContext{generator: mockGenerator}) // 6
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "b22", "zone": "sz"},
-		writeContext{generator: mockGenerator}) // 7
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(
-		map[string]string{"host": "bcd", "zone": "sh"},
-		writeContext{generator: mockGenerator}) // 8
-
-	newMap := make(map[uint32]tStoreINTF)
-	it := tagIdx.seriesID2TStore.iterator()
-	for it.hasNext() {
-		seriesID, _ := it.next()
-		mockTStore := NewMocktStoreINTF(ctrl)
-		newMap[seriesID] = mockTStore
-	}
-
-	tagIdx.seriesID2TStore = newMetricMap()
-	return tagIdxInterface
-}
-
-func Test_tagIndex_findSeriesIDsByEqual(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-
-	// tag-key not exist
-	bitmap := tagIdxInterface.FindSeriesIDsByExpr(&stmt.EqualsExpr{Key: "not-exist-key", Value: "alpha"})
-	assert.Nil(t, bitmap)
-	// tag-value not exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.EqualsExpr{Key: "host", Value: "alpha"})
-	assert.Nil(t, bitmap)
-	// tag-value exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.EqualsExpr{Key: "host", Value: "c"})
-	assert.NotNil(t, bitmap)
-	assert.Equal(t, uint64(1), bitmap.GetCardinality())
-	// tag-value exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.EqualsExpr{Key: "host", Value: "bc"})
-	assert.Equal(t, uint64(1), bitmap.GetCardinality())
-}
-
-func Test_tagIndex_findSeriesIDsByIn(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-
-	// tag-value exist
-	bitmap := tagIdxInterface.FindSeriesIDsByExpr(&stmt.InExpr{Key: "host", Values: []string{"b", "bc", "bcd", "ahi"}})
-	assert.Equal(t, uint64(3), bitmap.GetCardinality())
-}
-
-func Test_tagIndex_findSeriesIDsByLike(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-
-	// tag-value exist
-	bitmap := tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "host", Value: "bc"})
-	assert.Equal(t, uint64(3), bitmap.GetCardinality())
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "zone", Value: "s"})
-	assert.Equal(t, uint64(4), bitmap.GetCardinality())
-	// tag-value not exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "zone", Value: "not-exist"})
-	assert.Zero(t, bitmap.GetCardinality())
-
-	// tag-value is empty
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "host", Value: ""})
-	assert.Equal(t, uint64(0), bitmap.GetCardinality())
-	// tag-value is *
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.LikeExpr{Key: "host", Value: "*"})
-	assert.Equal(t, uint64(8), bitmap.GetCardinality())
-}
-
-func Test_tagIndex_findSeriesIDsByRegex(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-
-	// pattern not match
-	bitmap := tagIdxInterface.FindSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: "bbbbbbbbbbb"})
-	assert.Zero(t, bitmap.GetCardinality())
-	// pattern error
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: "b.32*++++\n"})
-	assert.Nil(t, bitmap)
-	// tag-value exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: `b2[0-9]+`})
-	assert.Equal(t, uint64(2), bitmap.GetCardinality())
-	// literal prefix:22 not exist
-	bitmap = tagIdxInterface.FindSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: `22+`})
-	assert.Equal(t, uint64(0), bitmap.GetCardinality())
-
-}
-
-func Test_tagIndex_getSeriesIDsForTag(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-
-	// not-exist
-	bitmap := tagIdxInterface.GetSeriesIDsForTag("not-exist-key")
-	assert.Nil(t, bitmap)
-	// overlap
-	bitmap = tagIdxInterface.GetSeriesIDsForTag("host")
-	assert.Equal(t, uint64(8), bitmap.GetCardinality())
-}
-
-func TestTagIndex_GetSeriesIDsForMetric(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := newTagIndex()
-	tagIdx := tagIdxInterface.(*tagIndex)
-	// tag no value
-	bitmap := tagIdx.GetSeriesIDsForMetric()
-	assert.Nil(t, bitmap)
-
-	tagIdx.tagKVEntrySet = append(tagIdx.tagKVEntrySet, &tagKVEntrySet{
-		values: map[string]*roaring.Bitmap{
-			"a": roaring.BitmapOf(1),
-			"b": roaring.BitmapOf(2),
-			"c": roaring.BitmapOf(3),
-		},
-	}, &tagKVEntrySet{
-		values: map[string]*roaring.Bitmap{
-			"e": roaring.BitmapOf(1),
-			"f": roaring.BitmapOf(3),
-		},
-	})
-
-	bitmap = tagIdx.GetSeriesIDsForMetric()
-	assert.Equal(t, roaring.BitmapOf(1, 3), bitmap)
+	tagIdxInterface.FlushVersionDataTo(mockTF, flushContext{})
 }
 
 type mockTagKey struct {
@@ -308,48 +82,6 @@ type mockTagKey struct {
 
 func (mockTagKey) TagKey() string {
 	return "host"
-}
-
-func Test_tagIndex_special_case(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	tagIdxInterface := prepareTagIdx(ctrl)
-	// test expr type assertion failure
-	assert.Nil(t, tagIdxInterface.FindSeriesIDsByExpr(mockTagKey{}))
-}
-
-func Test_TagIndex_recreateEvictedTStores(t *testing.T) {
-	tagIdxInterface := newTagIndex()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockGenerator := metadb.NewMockIDGenerator(ctrl)
-	mockGenerator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "b"}, writeContext{generator: mockGenerator})
-	assert.Equal(t, 2, tagIdxInterface.TagsInUse())
-	assert.Equal(t, 2, tagIdxInterface.TagsUsed())
-	// remove seriesID = 1
-	tagIdxInterface.RemoveTStores(0, 1)
-	assert.Equal(t, 1, tagIdxInterface.TagsInUse())
-	assert.Equal(t, 2, tagIdxInterface.TagsUsed())
-	_, _, _ = tagIdxInterface.GetOrCreateTStore(map[string]string{"host": "a"}, writeContext{generator: mockGenerator})
-	assert.Equal(t, 2, tagIdxInterface.TagsInUse())
-	tagIdxInterface.RemoveTStores(1, 2)
-	assert.Equal(t, 0, tagIdxInterface.TagsInUse())
-	assert.Equal(t, 2, tagIdxInterface.TagsUsed())
-}
-
-func Test_TagIndex_timeRange(t *testing.T) {
-	tagIdxInterface := newTagIndex()
-	timeRange := tagIdxInterface.IndexTimeRange()
-	tagIdxInterface.UpdateIndexTimeRange(timeutil.Now() - 10*1000)
-	tagIdxInterface.UpdateIndexTimeRange(timeutil.Now() + 10*1000)
-
-	newTimeRange := tagIdxInterface.IndexTimeRange()
-	assert.True(t, newTimeRange.Start < timeRange.Start)
-	assert.True(t, newTimeRange.End > timeRange.End)
 }
 
 var _testHashString = "abcdefghijklmnopqrstuvwxzy1234567890"

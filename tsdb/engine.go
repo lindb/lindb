@@ -345,16 +345,17 @@ func (e *engine) flushBiggestMemoryUsageShard(ctx context.Context) {
 		db := value.(Database)
 		// iterate shards
 		db.Range(func(key, value interface{}) bool {
-			theShard := value.(Shard)
-			// skip shard in flushing
-			if theShard.IsFlushing() {
-				return true
-			}
-			theShardSize := theShard.MemoryDatabase().MemSize()
-			if theShardSize > biggestMemSize {
-				biggestMemSize = theShardSize
-				biggestShard = theShard
-			}
+			//theShard := value.(Shard)
+			//// skip shard in flushing
+			//if theShard.IsFlushing() {
+			//	return true
+			//}
+			//FIXME stone1100
+			//theShardSize := theShard.MemoryDatabase().MemSize()
+			//if theShardSize > biggestMemSize {
+			//	biggestMemSize = theShardSize
+			//	biggestShard = theShard
+			//}
 			return true
 		})
 		return true
