@@ -64,36 +64,6 @@ func (m *metricBucket) put(metricID uint32, mStore mStoreINTF) {
 	}
 }
 
-// delete deletes the metric store by metric id
-func (m *metricBucket) delete(metricID uint32) mStoreINTF {
-	m.rwLock.Lock()
-	defer m.rwLock.Unlock()
-
-	found, highIdx, lowIdx := m.metricsIDs.ContainsAndRank(metricID)
-	if !found {
-		return nil
-	}
-	// get high container
-	stores := m.stores[highIdx]
-	// get mStore
-	mStore := stores[lowIdx-1]
-	// remove metric id
-	m.metricsIDs.Remove(metricID)
-
-	if len(stores) > 1 {
-		// remove mStore from high container
-		copy(stores[lowIdx-1:], stores[lowIdx:])
-		stores[len(stores)-1] = nil
-		// reset high container
-		m.stores[highIdx] = stores[:len(stores)-1]
-	} else {
-		// remove high container
-		copy(m.stores[highIdx:], m.stores[highIdx+1:])
-		m.stores = m.stores[:len(m.stores)-1]
-	}
-	return mStore
-}
-
 // size returns the size of metric store
 func (m *metricBucket) size() int {
 	m.rwLock.RLock()
@@ -104,8 +74,5 @@ func (m *metricBucket) size() int {
 
 // getAllMetricIDs gets all metric ids
 func (m *metricBucket) getAllMetricIDs() *roaring.Bitmap {
-	m.rwLock.RLock()
-	defer m.rwLock.RUnlock()
-
-	return m.metricsIDs.Clone()
+	return m.metricsIDs
 }

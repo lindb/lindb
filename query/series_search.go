@@ -69,7 +69,8 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (series *series.
 		matchResult, tagKey := s.findSeriesIDsByExpr(expr.Expr)
 		if len(tagKey) > 0 {
 			// get all series ids for tag key
-			all, err := s.filter.GetSeriesIDsForTag(s.metricID, tagKey, s.query.TimeRange)
+			// FIXME stone1100
+			all, err := s.filter.GetSeriesIDsForTag(uint32(1), s.query.TimeRange)
 			if err != nil {
 				s.err = err
 				return nil, tagKey

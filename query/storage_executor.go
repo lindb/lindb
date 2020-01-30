@@ -114,13 +114,14 @@ func (e *storageExecutor) Execute() {
 
 // memoryDBSearch searches data from memory database
 func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
-	memoryDB := shard.MemoryDatabase()
-	seriesIDSet := e.searchSeriesIDs(memoryDB)
-	// if series ids not found
-	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
-		return
-	}
-	e.executeQueryFlow(memoryDB, memoryDB, seriesIDSet)
+	//FIXME
+	//memoryDB := shard.MemoryDatabase()
+	//seriesIDSet := e.searchSeriesIDs(memoryDB)
+	//// if series ids not found
+	//if seriesIDSet == nil || seriesIDSet.IsEmpty() {
+	//	return
+	//}
+	//e.executeQueryFlow(memoryDB, memoryDB, seriesIDSet)
 }
 
 // searchSeriesIDs searches series ids from index
@@ -131,8 +132,9 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 	if condition != nil {
 		seriesSearch := newSeriesSearch(metricID, filter, e.query)
 		seriesIDSet, err = seriesSearch.Search()
-	} else {
-		seriesIDSet, err = filter.GetSeriesIDsForMetric(metricID, e.query.TimeRange)
+
+		//} else {
+		//	seriesIDSet, err = filter.GetSeriesIDsForMetric(metricID, e.query.TimeRange)
 	}
 	if err != nil {
 		if err != series.ErrNotFound {
@@ -188,7 +190,8 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 			// get grouping context if need
 			var groupingCtx series.GroupingContext
 			if hasGroupBy {
-				gCtx, err := indexDB.GetGroupingContext(e.metricID, e.query.GroupBy, version)
+				//FIXME
+				gCtx, err := indexDB.GetGroupingContext(nil, version)
 				if err != nil {
 					e.queryFlow.Complete(err)
 					return

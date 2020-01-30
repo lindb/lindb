@@ -36,7 +36,7 @@ type fStoreINTF interface {
 	FlushFieldTo(
 		tableFlusher metricsdata.Flusher,
 		flushCtx flushContext,
-	) (flushedSize int)
+	)
 
 	// TimeRange returns the start-time and end-time of fStore's data
 	// ok means data is available
@@ -159,13 +159,11 @@ func (fs *fieldStore) createFieldStore(fieldType field.Type,
 func (fs *fieldStore) FlushFieldTo(
 	tableFlusher metricsdata.Flusher,
 	flushCtx flushContext,
-) (
-	flushedSize int,
 ) {
 	sStore, ok := fs.GetSStore(flushCtx.familyTime)
 
 	if !ok {
-		return 0
+		return
 	}
 
 	//FIXME maybe data lost if marshal err
@@ -173,13 +171,12 @@ func (fs *fieldStore) FlushFieldTo(
 	fieldMeta, ok := tableFlusher.GetFieldMeta(fs.fieldID)
 	if !ok {
 		memDBLogger.Warn("field meta not found in metric level, when flush field data")
-		return 0
+		return
 	}
 
 	sStore.FlushFieldTo(tableFlusher, fieldMeta, flushCtx)
 
 	tableFlusher.FlushField(fs.fieldID)
-	return sStore.MemSize()
 }
 
 func (fs *fieldStore) TimeRange(interval int64) (timeRange timeutil.TimeRange, ok bool) {
