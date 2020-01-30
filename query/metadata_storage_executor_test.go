@@ -47,7 +47,7 @@ func TestMetadataStorageExecutor_Execute(t *testing.T) {
 	db.EXPECT().GetShard(int32(2)).Return(shard, true)
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB)
-	indexDB.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"})
+	indexDB.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"})
 	result, err = exec.Execute()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)

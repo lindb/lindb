@@ -96,13 +96,13 @@ func Test_fStore_flushFieldTo(t *testing.T) {
 
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// familyTime not exist
-	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564297200000}))
+	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564297200000})
 	assert.Len(t, theFieldStore.sStoreNodes, 2)
 	// mock error
-	assert.Zero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564304400000}))
+	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564304400000})
 	assert.Len(t, theFieldStore.sStoreNodes, 1)
 	// mock ok
-	assert.NotZero(t, theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564308000000}))
+	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564308000000})
 	assert.Len(t, theFieldStore.sStoreNodes, 0)
 }
 

@@ -40,6 +40,8 @@ func Test_metricMap_put(t *testing.T) {
 	m.put(4, _newTestTStore(4))
 	m.put(2, _newTestTStore(2))
 
+	assert.Equal(t, uint64(8), m.getAllSeriesIDs().GetCardinality())
+
 	_assertSortedOrder(t, m)
 }
 
@@ -61,24 +63,6 @@ func Test_metricMap_get(t *testing.T) {
 
 	s := m.getAtIndex(0, 0)
 	assert.NotNil(t, s)
-}
-
-func Test_metricMap_iterator(t *testing.T) {
-	m := newMetricMap()
-	it := m.iterator()
-	assert.False(t, it.hasNext())
-	m.put(1, _newTestTStore(1))
-	m.put(8, _newTestTStore(8))
-	it = m.iterator()
-	assert.True(t, it.hasNext())
-	seriesID, tStore := it.next()
-	assert.Equal(t, uint32(1), seriesID)
-	assert.NotNil(t, tStore)
-	assert.True(t, it.hasNext())
-	seriesID, tStore = it.next()
-	assert.Equal(t, uint32(8), seriesID)
-	assert.NotNil(t, tStore)
-	assert.False(t, it.hasNext())
 }
 
 func Test_metricMap_loadData(t *testing.T) {
@@ -122,98 +106,6 @@ func Benchmark_get(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, _ = m.get(8)
-	}
-}
-
-func Test_metricMap_delete(t *testing.T) {
-	m := newMetricMap()
-	m.put(1, _newTestTStore(1))
-	m.put(8, _newTestTStore(8))
-	m.put(3, _newTestTStore(3))
-	m.put(5, _newTestTStore(5))
-	m.put(6, _newTestTStore(6))
-	m.put(7, _newTestTStore(7))
-	m.put(4, _newTestTStore(4))
-	m.put(2, _newTestTStore(2))
-
-	_assertSortedOrder(t, m)
-
-	m.delete(0)
-	m.delete(2)
-	_assertSortedOrder(t, m)
-
-	m.delete(1)
-	m.delete(10)
-	_assertSortedOrder(t, m)
-
-	m.delete(8)
-	_assertSortedOrder(t, m)
-	assert.Equal(t, m.size(), int(m.seriesIDs.GetCardinality()))
-
-	for i := 0; i < 10; i++ {
-		m.delete(uint32(i))
-	}
-	assert.Len(t, m.stores, 0)
-}
-
-func Test_metricMap_deleteMany(t *testing.T) {
-	m := newMetricMap()
-	for i := uint32(1); i <= 100000; i++ {
-		m.put(i, _newTestTStore(i))
-	}
-	var seriesIDs []uint32
-	for i := uint32(1); i < 5000; i += 2 {
-		seriesIDs = append(seriesIDs, i)
-	}
-	assert.Len(t, m.deleteMany(seriesIDs...), 2500)
-	assert.Equal(t, 100000-2500, m.size())
-	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
-	_assertSortedOrder(t, m)
-
-	m.deleteMany()
-	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
-
-	m.deleteMany(0, 100001, 100002, 100003)
-	assert.Equal(t, 100000-2500, m.size())
-	assert.Equal(t, 100000-2500, int(m.seriesIDs.GetCardinality()))
-	_assertSortedOrder(t, m)
-}
-
-func Test_metricMap_getSeriesIDs(t *testing.T) {
-	m := newMetricMap()
-	m.put(1, _newTestTStore(1))
-	m.put(8, _newTestTStore(8))
-	assert.Equal(t, m.seriesIDs, m.getAllSeriesIDs())
-}
-
-func Benchmark_deleteMany(b *testing.B) {
-	var seriesIDs []uint32
-	for i := uint32(1); i < 5000; i += 2 {
-		seriesIDs = append(seriesIDs, i)
-	}
-
-	for x := 0; x < b.N; x++ {
-		b.StopTimer()
-		m := newMetricMap()
-		for i := uint32(1); i <= 100000; i++ {
-			m.put(i, _newTestTStore(i))
-		}
-		b.StartTimer()
-		m.deleteMany(seriesIDs...)
-	}
-}
-
-func Benchmark_delete(b *testing.B) {
-	for x := 0; x < b.N; x++ {
-		b.StopTimer()
-		m := newMetricMap()
-		for i := uint32(1); i <= 100000; i++ {
-			m.put(i, _newTestTStore(i))
-		}
-		b.StartTimer()
-		for i := uint32(1); i < 5000; i += 2 {
-			m.delete(i)
-		}
 	}
 }
 

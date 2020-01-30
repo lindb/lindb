@@ -11,6 +11,7 @@ import (
 type IDGenerator interface {
 	// GenMetricID generates ID(uint32) from metricName
 	GenMetricID(metricName string) uint32
+	//FIXME need check max tag key id????
 	// GenTagKeyID generates ID(uint32) from metricID + tagKey
 	GenTagKeyID(metricID uint32, tagKey string) uint32
 	// GenFieldID generates ID(uint32) from metricID and fieldName

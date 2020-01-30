@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
-//go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock_test.go -package memdb
+//go:generate mockgen -source ./segment_store.go -destination=./segment_store_mock.go -package memdb
 
 // for testing
 var (

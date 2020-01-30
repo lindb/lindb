@@ -20,7 +20,6 @@ import (
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -58,8 +57,6 @@ type Shard interface {
 
 	MemoryFilter() series.Filter
 	IndexFilter() series.Filter
-	MemoryMetaGetter() series.MetaGetter
-	IndexMetaGetter() series.MetaGetter
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
 }
@@ -241,11 +238,10 @@ func (s *shard) initIndexDatabase() error {
 	return nil
 }
 
-func (s *shard) MemoryFilter() series.Filter         { return s.memDB }
-func (s *shard) IndexFilter() series.Filter          { return s.indexDB }
-func (s *shard) MemoryMetaGetter() series.MetaGetter { return s.memDB }
-func (s *shard) IndexMetaGetter() series.MetaGetter  { return s.indexDB }
-func (s *shard) IsFlushing() bool                    { return s.isFlushing.Load() }
+//FIXME
+func (s *shard) MemoryFilter() series.Filter { return nil }
+func (s *shard) IndexFilter() series.Filter  { return s.indexDB }
+func (s *shard) IsFlushing() bool            { return s.isFlushing.Load() }
 
 func (s *shard) Flush() (err error) {
 	// another flush process is running
@@ -268,10 +264,11 @@ func (s *shard) Flush() (err error) {
 		s.isFlushing.Store(false)
 	}()
 
-	if err = s.memDB.FlushInvertedIndexTo(
-		invertedindex.NewFlusher(s.invertedFamily.NewFlusher())); err != nil {
-		return err
-	}
+	//FIXME stone1100
+	//if err = s.memDB.FlushInvertedIndexTo(
+	//	invertedindex.NewFlusher(s.invertedFamily.NewFlusher())); err != nil {
+	//	return err
+	//}
 
 	for _, familyTime := range s.memDB.Families() {
 		segmentName := s.interval.Calculator().GetSegment(familyTime)

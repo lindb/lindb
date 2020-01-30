@@ -41,7 +41,8 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 			shard, ok := e.database.GetShard(shardID)
 			// if shard exist, add shard to query list
 			if ok {
-				tagValues := shard.IndexDatabase().SuggestTagValues(req.MetricName, req.TagKey, req.TagValue, limit)
+				//FIXME stone1100
+				tagValues := shard.IndexDatabase().SuggestTagValues(uint32(10), req.TagValue, limit)
 				for _, tagValue := range tagValues {
 					tagValueMap[tagValue] = struct{}{}
 				}

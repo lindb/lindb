@@ -52,37 +52,6 @@ func Test_metricBucket_gut(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func Test_metricBucket_delete(t *testing.T) {
-	m := newMetricBucket()
-	m.put(1, _newTestMStore())
-	m.put(8, _newTestMStore())
-	m.put(3, _newTestMStore())
-	m.put(5, _newTestMStore())
-	m.put(6, _newTestMStore())
-	m.put(7, _newTestMStore())
-	m.put(4, _newTestMStore())
-	m.put(2, _newTestMStore())
-
-	_assertSortedOrderBucket(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8}, m)
-
-	m.delete(0)
-	m.delete(2)
-	_assertSortedOrderBucket(t, []uint32{1, 3, 4, 5, 6, 7, 8}, m)
-
-	m.delete(1)
-	m.delete(10)
-	_assertSortedOrderBucket(t, []uint32{3, 4, 5, 6, 7, 8}, m)
-
-	m.delete(8)
-	_assertSortedOrderBucket(t, []uint32{3, 4, 5, 6, 7}, m)
-	assert.Equal(t, m.size(), int(m.metricsIDs.GetCardinality()))
-
-	for i := 0; i < 10; i++ {
-		m.delete(uint32(i))
-	}
-	assert.Len(t, m.stores, 0)
-}
-
 func Test_metricBucket_getAllMetricIDs(t *testing.T) {
 	m := newMetricBucket()
 	m.put(1, _newTestMStore())

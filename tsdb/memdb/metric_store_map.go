@@ -1,8 +1,6 @@
 package memdb
 
 import (
-	"sort"
-
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -66,67 +64,14 @@ func (m *metricMap) put(seriesID uint32, tStore tStoreINTF) {
 	}
 }
 
-// delete deletes the time series store by series id
-func (m *metricMap) delete(seriesID uint32) tStoreINTF {
-	found, highIdx, lowIdx := m.seriesIDs.ContainsAndRank(seriesID)
-	if !found {
-		return nil
-	}
-	// get high container
-	stores := m.stores[highIdx]
-	// get tStore
-	tStore := stores[lowIdx-1]
-	// remove series id
-	m.seriesIDs.Remove(seriesID)
-
-	if len(stores) > 1 {
-		// remove tStore from high container
-		copy(stores[lowIdx-1:], stores[lowIdx:])
-		stores[len(stores)-1] = nil
-		// reset high container
-		m.stores[highIdx] = stores[:len(stores)-1]
-	} else {
-		// remove high container
-		copy(m.stores[highIdx:], m.stores[highIdx+1:])
-		m.stores = m.stores[:len(m.stores)-1]
-	}
-	return tStore
-}
-
-// deleteMany deletes the time series store by multi seriesIDs
-func (m *metricMap) deleteMany(
-	seriesIDs ...uint32,
-) (
-	removedTStores []tStoreINTF,
-) {
-	if len(seriesIDs) == 0 {
-		return
-	}
-	sort.Slice(seriesIDs, func(i, j int) bool {
-		return seriesIDs[i] < seriesIDs[j]
-	})
-	for _, seriesID := range seriesIDs {
-		tStore := m.delete(seriesID)
-		if tStore != nil {
-			removedTStores = append(removedTStores, tStore)
-		}
-	}
-	return
-}
-
 // size returns the size of map
 func (m *metricMap) size() int {
 	return int(m.seriesIDs.GetCardinality())
 }
 
-// iterator returns an iterator for iterating the map data
-func (m *metricMap) iterator() *mStoreIterator {
-	return newStoreIterator(m)
-}
-
 // getAllSeriesIDs gets all series ids
 func (m *metricMap) getAllSeriesIDs() *roaring.Bitmap {
-	return m.seriesIDs.Clone()
+	return m.seriesIDs
 }
 
 func (m *metricMap) loadData(flow flow.StorageQueryFlow, fieldIDs []uint16,
@@ -172,54 +117,4 @@ func (m *metricMap) filter(seriesIDs *roaring.Bitmap) bool {
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, m.seriesIDs)
 	return !matchSeriesIDs.IsEmpty()
-}
-
-// mStoreIterator represents an iterator over the metric map
-type mStoreIterator struct {
-	mStore      *metricMap
-	highKeys    []uint16
-	highKeysLen int
-
-	highKey                     uint32
-	lowIt                       roaring.PeekableShortIterator
-	highIdx, lowIdx, curHighIdx int
-}
-
-func newStoreIterator(mStore *metricMap) *mStoreIterator {
-	highKeys := mStore.seriesIDs.GetHighKeys()
-	return &mStoreIterator{
-		mStore:      mStore,
-		highKeys:    highKeys,
-		highKeysLen: len(highKeys),
-	}
-}
-
-// hasNext returns if the iteration has more time series store
-func (it *mStoreIterator) hasNext() bool {
-	if it.highKeysLen == 0 {
-		return false
-	}
-
-	notFound := it.lowIt == nil || !it.lowIt.HasNext()
-	if notFound {
-		if it.highIdx == it.highKeysLen {
-			return false
-		}
-		it.curHighIdx = it.highIdx
-		it.highKey = uint32(it.highKeys[it.curHighIdx]) << 16
-		it.lowIt = it.mStore.seriesIDs.GetContainerAtIndex(it.curHighIdx).PeekableIterator()
-
-		// for next loop
-		it.highIdx++
-		it.lowIdx = 0 // reset low index
-	}
-	return it.lowIt.HasNext()
-}
-
-// next returns the series id and store
-func (it *mStoreIterator) next() (seriesID uint32, store tStoreINTF) {
-	seriesID = uint32(it.lowIt.Next()) | it.highKey
-	store = it.mStore.stores[it.curHighIdx][it.lowIdx]
-	it.lowIdx++
-	return
 }

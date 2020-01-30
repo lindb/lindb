@@ -1,8 +1,6 @@
 package indexdb
 
 import (
-	"math"
-
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -38,10 +36,9 @@ func NewIndexDatabase(
 	}
 }
 
-// SuggestTagValues returns suggestions from given metricName, tagKey and prefix of tagValue
+// SuggestTagValues returns suggestions from given tag key id and prefix of tagValue
 func (db *indexDatabase) SuggestTagValues(
-	metricName string,
-	tagKey string,
+	tagKeyID uint32,
 	tagValuePrefix string,
 	limit int,
 ) []string {
@@ -50,14 +47,6 @@ func (db *indexDatabase) SuggestTagValues(
 	}
 	if limit > constants.MaxSuggestions {
 		limit = constants.MaxSuggestions
-	}
-	metricID, err := db.idGetter.GetMetricID(metricName)
-	if err != nil {
-		return nil
-	}
-	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
-	if err != nil {
-		return nil
 	}
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
@@ -69,21 +58,9 @@ func (db *indexDatabase) SuggestTagValues(
 	return invertedindex.NewReader(readers).SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
-func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
+func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32,
 	version series.Version,
 ) (series.GroupingContext, error) {
-	tagKeysLength := len(tagKeys)
-	tagKeyIDs := make([]uint32, tagKeysLength)
-	// get tag key ids
-	for idx, tagKey := range tagKeys {
-		//TODO need opt, plan has got tag key ids
-		tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
-		if err != nil {
-			return nil, err
-		}
-		tagKeyIDs[idx] = tagKeyID
-	}
-
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	//FIXME need close snapshot after query completed
 	//defer snapShot.Close()
@@ -95,7 +72,7 @@ func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 		}
 	}()
 	var readers []table.Reader
-	gCtx := query.NewGroupContext(tagKeysLength)
+	gCtx := query.NewGroupContext(len(tagKeyIDs))
 	for idx, tagKeyID := range tagKeyIDs {
 		readers, err = snapShot.FindReaders(tagKeyID)
 		if err != nil {
@@ -131,19 +108,15 @@ func (db *indexDatabase) GetGroupingContext(metricID uint32, tagKeys []string,
 	return gCtx, nil
 }
 
-// FindSeriesIDsByExpr finds series ids by tag filter expr for metric id
+// FindSeriesIDsByExpr finds series ids by tag filter expr for tag key id
 func (db *indexDatabase) FindSeriesIDsByExpr(
-	metricID uint32,
+	tagKeyID uint32,
 	expr stmt.TagFilter,
 	timeRange timeutil.TimeRange,
 ) (
 	*series.MultiVerSeriesIDSet,
 	error,
 ) {
-	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, expr.TagKey())
-	if err != nil {
-		return nil, err
-	}
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 
@@ -159,17 +132,12 @@ func (db *indexDatabase) FindSeriesIDsByExpr(
 
 // GetSeriesIDsForTag get series ids for spec metric's tag key
 func (db *indexDatabase) GetSeriesIDsForTag(
-	metricID uint32,
-	tagKey string,
+	tagKeyID uint32,
 	timeRange timeutil.TimeRange,
 ) (
 	*series.MultiVerSeriesIDSet,
 	error,
 ) {
-	tagKeyID, err := db.idGetter.GetTagKeyID(metricID, tagKey)
-	if err != nil {
-		return nil, err
-	}
 	snapShot := db.invertedIndexFamily.GetSnapshot()
 	defer snapShot.Close()
 
@@ -178,43 +146,4 @@ func (db *indexDatabase) GetSeriesIDsForTag(
 		return nil, err
 	}
 	return invertedindex.NewReader(readers).GetSeriesIDsForTagKeyID(tagKeyID, timeRange)
-}
-
-// GetSeriesIDsForTag get series ids for spec metric's tag key
-func (db *indexDatabase) GetSeriesIDsForMetric(
-	metricID uint32,
-	timeRange timeutil.TimeRange,
-) (
-	*series.MultiVerSeriesIDSet,
-	error,
-) {
-	tagKeyIDs, err := db.idGetter.GetTagKeyIDs(metricID)
-	if err != nil {
-		return nil, err
-	}
-	snapShot := db.invertedIndexFamily.GetSnapshot()
-	defer snapShot.Close()
-
-	var minTagKVEntries invertedindex.TagKVEntries
-	min := math.MaxInt32
-	for _, tagKeyID := range tagKeyIDs {
-		readers, err := snapShot.FindReaders(tagKeyID)
-		if err != nil {
-			return nil, err
-		}
-		if len(readers) == 0 {
-			continue
-		}
-		tagKVEntries := newReader(readers).GetTagKVEntries(tagKeyID, timeRange)
-		if len(tagKVEntries) == 0 {
-			continue
-		}
-		if tagKVEntries.TagValuesCount() < min {
-			minTagKVEntries = tagKVEntries
-		}
-	}
-	if minTagKVEntries == nil {
-		return nil, series.ErrNotFound
-	}
-	return minTagKVEntries.GetSeriesIDs(timeRange)
 }

@@ -26,10 +26,9 @@ func TestComplexFieldStore_FlushFieldTo(t *testing.T) {
 	assert.True(t, ok)
 
 	writeCtx := writeContext{
-		blockStore:   newBlockStore(30),
-		timeInterval: 10,
-		metricID:     1,
-		familyTime:   0,
+		blockStore: newBlockStore(30),
+		metricID:   1,
+		familyTime: 0,
 	}
 	times := []uint16{
 		10,
@@ -120,10 +119,9 @@ func TestComplexFieldStore_FlushFieldTo(t *testing.T) {
 func TestComplexFieldStore_GetFamilyTime(t *testing.T) {
 	store := newComplexFieldStore(10)
 	writeCtx := writeContext{
-		blockStore:   newBlockStore(30),
-		timeInterval: 10,
-		metricID:     1,
-		familyTime:   0,
+		blockStore: newBlockStore(30),
+		metricID:   1,
+		familyTime: 0,
 	}
 	store.Write(field.HistogramField, &pb.Field{Name: "test", Field: &pb.Field_Histogram{
 		Histogram: &pb.Histogram{

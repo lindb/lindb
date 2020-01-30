@@ -9,6 +9,8 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
+//go:generate mockgen -source ./expr.go -destination=./expr_mock.go -package=stmt
+
 // exprData represents inner wrapper of expr for json marshal
 type exprData struct {
 	Type string          `json:"type"`

@@ -13,22 +13,11 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/pkg/lockers"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 ///////////////////////////////////////////////////
 //                mock interface
 ///////////////////////////////////////////////////
-
-func makeMockIDGenerator(ctrl *gomock.Controller) *metadb.MockIDGenerator {
-	mockGen := metadb.NewMockIDGenerator(ctrl)
-	mockGen.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(uint16(1111), nil).AnyTimes()
-	mockGen.EXPECT().GenMetricID(gomock.Any()).
-		Return(uint32(3333)).AnyTimes()
-	mockGen.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(3333)).AnyTimes()
-	return mockGen
-}
 
 func makeMockDataFlusher(ctrl *gomock.Controller) *metricsdata.MockFlusher {
 	mockTF := metricsdata.NewMockFlusher(ctrl)

@@ -293,7 +293,7 @@ func Test_Engine_flushBiggestMemoryUsageShard(t *testing.T) {
 	defer engineImpl.cancel()
 
 	mockMemoryDatabase := memdb.NewMockMemoryDatabase(ctrl)
-	mockMemoryDatabase.EXPECT().MemSize().Return(1024 * 1024 * 1024).AnyTimes()
+	mockMemoryDatabase.EXPECT().MemSize().Return(int32(1024 * 1024 * 1024)).AnyTimes()
 	mockShard := NewMockShard(ctrl)
 	mockShard.EXPECT().Close().Return(nil).AnyTimes()
 	mockShard.EXPECT().MemoryDatabase().Return(mockMemoryDatabase).AnyTimes()
@@ -303,16 +303,16 @@ func Test_Engine_flushBiggestMemoryUsageShard(t *testing.T) {
 	engineImpl.databases.Store("1", mockDatabase)
 
 	// mock all shards is flushing
-	mockShard.EXPECT().IsFlushing().Return(true).Times(1)
+	//mockShard.EXPECT().IsFlushing().Return(true).Times(1)
 	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
 
 	// mock engine is full flushing
-	mockShard.EXPECT().IsFlushing().Return(false).Times(1)
+	//mockShard.EXPECT().IsFlushing().Return(false).Times(1)
 	engineImpl.isFullFlushing.Store(true)
 	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
 
 	// mock biggest-shard available
-	mockShard.EXPECT().IsFlushing().Return(false).AnyTimes()
+	//mockShard.EXPECT().IsFlushing().Return(false).AnyTimes()
 	engineImpl.isFullFlushing.Store(false)
 	e.flushBiggestMemoryUsageShard(engineImpl.ctx)
 
@@ -346,11 +346,11 @@ func Test_Engine_flushShardAboveMemoryUsageThreshold_flushAllDatabasesAndShards(
 	engineImpl.isFullFlushing.Store(false)
 
 	// mock no available shard to flush
-	mockMemoryDatabase.EXPECT().MemSize().Return(0).Times(1)
+	mockMemoryDatabase.EXPECT().MemSize().Return(int32(0)).Times(1)
 	engineImpl.flushShardAboveMemoryUsageThreshold(engineImpl.ctx)
 
 	// mock shard available to flush
-	mockMemoryDatabase.EXPECT().MemSize().Return(1024 * 1024 * 1024).Times(1)
+	mockMemoryDatabase.EXPECT().MemSize().Return(int32(1024 * 1024 * 1024)).Times(1)
 	engineImpl.flushShardAboveMemoryUsageThreshold(engineImpl.ctx)
 
 	// flushAllDatabasesAndShards
