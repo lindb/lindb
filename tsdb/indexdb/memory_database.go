@@ -41,7 +41,7 @@ func (db *memoryIndexDatabase) GetTimeSeriesID(metricName string,
 			// gen new metric id for new metric id mapping
 			metricID := db.generator.GenMetricID(metricName)
 
-			metricIDMappingINTF = newMetricIDMapping(metricID)
+			metricIDMappingINTF = newMetricIDMapping(metricID, 0)
 			db.metricHash2Index.Store(hash, metricIDMappingINTF)
 		}
 	}

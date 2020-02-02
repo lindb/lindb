@@ -31,11 +31,11 @@ type metricIDMapping struct {
 }
 
 // newMetricIDMapping returns a new metric id mapping
-func newMetricIDMapping(metricID uint32) MetricIDMapping {
+func newMetricIDMapping(metricID, sequence uint32) MetricIDMapping {
 	return &metricIDMapping{
 		metricID:          metricID,
 		hash2SeriesID:     make(map[uint64]uint32),
-		idSequence:        *atomic.NewUint32(0), // first value is 1
+		idSequence:        *atomic.NewUint32(sequence), // first value is 1
 		maxSeriesIDsLimit: *atomic.NewUint32(constants.DefaultMaxSeriesIDsCount),
 	}
 }
