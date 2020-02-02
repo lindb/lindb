@@ -11,6 +11,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -22,7 +23,10 @@ const MetaDB = "meta.db"
 
 // for testing
 var (
-	mkDir = fileutil.MkDirIfNotExist
+	mkDir            = fileutil.MkDirIfNotExist
+	closeFunc        = closeDB
+	setSequenceFunc  = setSequence
+	createBucketFunc = createBucket
 )
 
 var (
@@ -104,11 +108,13 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 		}
 		// load tag key id sequence
 		tagKeyIDSequence.Store(uint32(metricBucket.Sequence()))
-		return err
+		return nil
 	})
 	if err != nil {
 		// close bbolt.DB if init metadata err
-		_ = db.Close()
+		if e := closeFunc(db); e != nil {
+			metaLogger.Error("close bbolt.db err when create metadata backend fail", logger.Error(e))
+		}
 		return nil, err
 	}
 	return &metadataBackend{
@@ -360,7 +366,7 @@ func saveNamespaceAndMetric(nsRootBucket *bbolt.Bucket, event *metadataUpdateEve
 	}
 	// final set metric id sequence
 	if event.metricSeqID > 0 {
-		if err = nsRootBucket.SetSequence(uint64(event.metricSeqID)); err != nil {
+		if err = setSequenceFunc(nsRootBucket, uint64(event.metricSeqID)); err != nil {
 			return err
 		}
 	}
@@ -378,7 +384,7 @@ func saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEve
 		var tBucket *bbolt.Bucket
 		if metricBucket == nil {
 			// if metric meta not exist, initialize metric bucket
-			metricBucket, err = metricRootBucket.CreateBucket(mID)
+			metricBucket, err = createBucketFunc(metricRootBucket, mID)
 			if err != nil {
 				return err
 			}
@@ -415,8 +421,7 @@ func saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEve
 
 	// final set tag key id sequence
 	if event.tagKeySeqID > 0 {
-		err = metricRootBucket.SetSequence(uint64(event.tagKeySeqID))
-		if err != nil {
+		if err = setSequenceFunc(metricRootBucket, uint64(event.tagKeySeqID)); err != nil {
 			return err
 		}
 	}
@@ -434,7 +439,7 @@ func saveFields(fieldBucket *bbolt.Bucket, fieldIDSeq uint16, fields []field.Met
 		}
 	}
 	// save field id sequence
-	if err = fieldBucket.SetSequence(uint64(fieldIDSeq)); err != nil {
+	if err = setSequenceFunc(fieldBucket, uint64(fieldIDSeq)); err != nil {
 		return err
 	}
 	return
@@ -450,4 +455,19 @@ func saveTagKeys(tagKeyBucket *bbolt.Bucket, tagKeys []tag.Meta) (err error) {
 		}
 	}
 	return
+}
+
+// closeDB closes the bbolt.DB
+func closeDB(db *bbolt.DB) error {
+	return db.Close()
+}
+
+// setSequence sets the bucket's sequence
+func setSequence(bucket *bbolt.Bucket, seq uint64) error {
+	return bucket.SetSequence(seq)
+}
+
+// createBucket creates the bucket with name
+func createBucket(parentBucket *bbolt.Bucket, name []byte) (*bbolt.Bucket, error) {
+	return parentBucket.CreateBucket(name)
 }

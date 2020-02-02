@@ -2,8 +2,10 @@ package metadb
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
+	"github.com/coreos/bbolt"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -20,6 +22,7 @@ func TestMetadataBackend_new(t *testing.T) {
 		mkDir = fileutil.MkDirIfNotExist
 		nsBucketName = []byte("ns")
 		metricBucketName = []byte("m")
+		closeFunc = closeDB
 	}()
 
 	// test: new success
@@ -38,14 +41,18 @@ func TestMetadataBackend_new(t *testing.T) {
 
 	// test: create namespace bucket err
 	nsBucketName = []byte("")
+	closeFunc = func(db *bbolt.DB) error {
+		return fmt.Errorf("err")
+	}
 	db1, err = newMetadataBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
 	// test: create metric bucket err
+	closeFunc = closeDB
 	nsBucketName = []byte("ns")
 	metricBucketName = []byte("")
-	db1, err = newMetadataBackend(testPath)
+	db1, err = newMetadataBackend(filepath.Join(testPath, "test"))
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -276,6 +283,47 @@ func TestMetadataBackend_save_err(t *testing.T) {
 	fieldBucketName = []byte("")
 	e = newMetadataUpdateEvent()
 	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.SummaryField})
+	err = db.saveMetadata(e)
+	assert.Error(t, err)
+}
+
+func TestMetadataBackend_save_db_err(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		tagBucketName = []byte("t")
+		fieldBucketName = []byte("f")
+		setSequenceFunc = setSequence
+		createBucketFunc = createBucket
+	}()
+	db := newMockMetadataBackend(t)
+
+	e := newMetadataUpdateEvent()
+	e.addField(1, field.Meta{ID: 1, Name: "aa", Type: field.SummaryField})
+	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
+		return fmt.Errorf("err")
+	}
+	err := db.saveMetadata(e)
+	assert.Error(t, err)
+
+	e = newMetadataUpdateEvent()
+	e.addTagKey(1, tag.Meta{Key: "empty_tag_key", ID: 1})
+	err = db.saveMetadata(e)
+	assert.Error(t, err)
+
+	e = newMetadataUpdateEvent()
+	e.addMetric("ns", "name", 10)
+	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
+		return fmt.Errorf("err")
+	}
+	err = db.saveMetadata(e)
+	assert.Error(t, err)
+
+	setSequenceFunc = setSequence
+	createBucketFunc = func(parentBucket *bbolt.Bucket, name []byte) (bucket *bbolt.Bucket, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	e = newMetadataUpdateEvent()
+	e.addTagKey(1, tag.Meta{Key: "empty_tag_key", ID: 1})
 	err = db.saveMetadata(e)
 	assert.Error(t, err)
 }

@@ -9,12 +9,12 @@ import (
 )
 
 func TestMetricIDMapping_GetMetricID(t *testing.T) {
-	idMapping := newMetricIDMapping(10)
+	idMapping := newMetricIDMapping(10, 0)
 	assert.Equal(t, uint32(10), idMapping.GetMetricID())
 }
 
 func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {
-	idMapping := newMetricIDMapping(10)
+	idMapping := newMetricIDMapping(10, 0)
 	seriesID, created := idMapping.GetOrCreateSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
 	assert.True(t, created)
@@ -25,7 +25,7 @@ func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {
 }
 
 func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
-	idMapping := newMetricIDMapping(10)
+	idMapping := newMetricIDMapping(10, 0)
 	seriesID, created := idMapping.GetOrCreateSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
 	assert.True(t, created)
