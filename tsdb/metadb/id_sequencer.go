@@ -349,7 +349,7 @@ func (seq *idSequencer) genFieldID(
 	maxFieldIDInMem := seq.getMaxFieldIDInMem(metricID)
 	maxFieldID := uint16(math.Max(float64(maxFieldIDInMem), float64(maxFieldIDOnDisk)))
 
-	if maxFieldID >= constants.TStoreMaxFieldsCount {
+	if maxFieldID >= constants.DefaultMaxFieldsCount {
 		return 0, series.ErrTooManyFields
 	}
 

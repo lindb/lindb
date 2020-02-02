@@ -99,7 +99,7 @@ func (ms *metricStore) GetFieldIDOrGenerate(
 		return 0, series.ErrWrongFieldType
 	}
 	// forbid creating new fStore when full
-	if fmList.Len() >= constants.TStoreMaxFieldsCount {
+	if fmList.Len() >= constants.DefaultMaxFieldsCount {
 		return 0, series.ErrTooManyFields
 	}
 	// not exist, create a new one
