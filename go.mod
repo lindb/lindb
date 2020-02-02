@@ -7,9 +7,8 @@ require (
 	github.com/GeertJohan/go.rice v1.0.0
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
-	github.com/benbjohnson/tmpl v1.0.0 // indirect
 	github.com/cespare/xxhash v1.1.0
-	github.com/coreos/bbolt v1.3.3 // indirect
+	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
@@ -36,7 +35,6 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/plar/go-adaptive-radix-tree v1.0.1
 	github.com/prometheus/client_golang v1.0.0 // indirect
-	github.com/segmentio/fasthash v1.0.0
 	github.com/shirou/gopsutil v2.19.9+incompatible
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
@@ -50,9 +48,9 @@ require (
 	go.uber.org/zap v1.12.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
-	golang.org/x/sys v0.0.0-20190730174312-6a60838ec25
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d
 	golang.org/x/text v0.3.2 // indirect
-	golang.org/x/time v0.0.0-20190513212739-9d24e82272b4 // indirect
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	google.golang.org/grpc v1.21.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

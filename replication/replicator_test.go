@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/pkg/stream"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
@@ -480,10 +480,16 @@ func TestReplicator_Loop_panic(t *testing.T) {
 		Seq: 5,
 	}, nil).AnyTimes()
 
+	var panicCount atomic.Int32
+	panicCount.Store(2)
 	done1 := make(chan struct{})
 	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
-	mockClientStream.EXPECT().Send(gomock.Any()).DoAndReturn(func() error {
-		panic("send")
+	mockClientStream.EXPECT().Send(gomock.Any()).DoAndReturn(func(req *storage.WriteRequest) error {
+		if panicCount.Load() > 0 {
+			panicCount.Dec()
+			panic("send")
+		}
+		return nil
 	}).AnyTimes()
 	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
 		<-done1
