@@ -82,7 +82,7 @@ type metadataBackend struct {
 }
 
 // newMetadataBackend creates a new metadata backend storage
-func newMetadataBackend(parent string) (MetadataBackend, error) {
+func newMetadataBackend(name, parent string) (MetadataBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
@@ -113,7 +113,8 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 	if err != nil {
 		// close bbolt.DB if init metadata err
 		if e := closeFunc(db); e != nil {
-			metaLogger.Error("close bbolt.db err when create metadata backend fail", logger.Error(e))
+			metaLogger.Error("close bbolt.db err when create metadata backend fail",
+				logger.String("db", name), logger.Error(e))
 		}
 		return nil, err
 	}

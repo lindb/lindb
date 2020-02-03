@@ -11,9 +11,12 @@ import (
 type MetricIDMapping interface {
 	// GetMetricID return the metric id
 	GetMetricID() uint32
-	// GetOrCreateSeriesID gets or creates series id by tags hash,
-	// if is new series id return created is true
-	GetOrCreateSeriesID(tagsHash uint64) (seriesID uint32, created bool)
+	// GetSeriesID gets series id by tags hash, if exist return true
+	GetSeriesID(tagsHash uint64) (seriesID uint32, ok bool)
+	// GenSeriesID generates series id by tags hash, then cache new series id
+	GenSeriesID(tagsHash uint64) (seriesID uint32)
+	// AddSeriesID adds the series id init cache
+	AddSeriesID(tagsHash uint64, seriesID uint32)
 	// SetMaxSeriesIDsLimit sets the max series ids limit
 	SetMaxSeriesIDsLimit(limit uint32)
 	// GetMaxSeriesIDsLimit returns the max series ids limit
@@ -41,33 +44,41 @@ func newMetricIDMapping(metricID, sequence uint32) MetricIDMapping {
 }
 
 // GetMetricID return the metric id
-func (index *metricIDMapping) GetMetricID() uint32 {
-	return index.metricID
+func (mim *metricIDMapping) GetMetricID() uint32 {
+	return mim.metricID
 }
 
-// GetOrCreateSeriesID gets or creates series id by tags hash
-func (index *metricIDMapping) GetOrCreateSeriesID(tagsHash uint64) (seriesID uint32, created bool) {
-	seriesID, ok := index.hash2SeriesID[tagsHash]
-	if ok {
-		return seriesID, false
-	}
+// GetSeriesID gets series id by tags hash, if exist return true
+func (mim *metricIDMapping) GetSeriesID(tagsHash uint64) (seriesID uint32, ok bool) {
+	seriesID, ok = mim.hash2SeriesID[tagsHash]
+	return
+}
 
-	if index.maxSeriesIDsLimit.Load() == index.idSequence.Load() {
+// AddSeriesID adds the series id init cache
+func (mim *metricIDMapping) AddSeriesID(tagsHash uint64, seriesID uint32) {
+	mim.hash2SeriesID[tagsHash] = seriesID
+}
+
+// GenSeriesID generates series id by tags hash, then cache new series id
+func (mim *metricIDMapping) GenSeriesID(tagsHash uint64) (seriesID uint32) {
+	// generate new series id
+	if mim.maxSeriesIDsLimit.Load() == mim.idSequence.Load() {
 		//FIXME too many series id, use max limit????
-		seriesID = index.maxSeriesIDsLimit.Load()
+		seriesID = mim.maxSeriesIDsLimit.Load()
 	} else {
-		seriesID = index.idSequence.Inc()
+		seriesID = mim.idSequence.Inc()
 	}
-	index.hash2SeriesID[tagsHash] = seriesID
-	return seriesID, true
+	// cache it
+	mim.hash2SeriesID[tagsHash] = seriesID
+	return seriesID
 }
 
 // SetMaxSeriesIDsLimit sets the max series ids limit
-func (index *metricIDMapping) SetMaxSeriesIDsLimit(limit uint32) {
-	index.maxSeriesIDsLimit.Store(limit)
+func (mim *metricIDMapping) SetMaxSeriesIDsLimit(limit uint32) {
+	mim.maxSeriesIDsLimit.Store(limit)
 }
 
 // GetMaxSeriesIDsLimit return the max series ids limit without race condition.
-func (index *metricIDMapping) GetMaxSeriesIDsLimit() uint32 {
-	return index.maxSeriesIDsLimit.Load()
+func (mim *metricIDMapping) GetMaxSeriesIDsLimit() uint32 {
+	return mim.maxSeriesIDsLimit.Load()
 }

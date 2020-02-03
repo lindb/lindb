@@ -26,12 +26,12 @@ func TestMetadataBackend_new(t *testing.T) {
 	}()
 
 	// test: new success
-	db, err := newMetadataBackend(testPath)
+	db, err := newMetadataBackend("test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	// test: can't re-open
-	db1, err := newMetadataBackend(testPath)
+	db1, err := newMetadataBackend("test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -44,7 +44,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = func(db *bbolt.DB) error {
 		return fmt.Errorf("err")
 	}
-	db1, err = newMetadataBackend(testPath)
+	db1, err = newMetadataBackend("test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -52,7 +52,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = closeDB
 	nsBucketName = []byte("ns")
 	metricBucketName = []byte("")
-	db1, err = newMetadataBackend(filepath.Join(testPath, "test"))
+	db1, err = newMetadataBackend("test", filepath.Join(testPath, "test"))
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -60,7 +60,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	mkDir = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	db, err = newMetadataBackend(testPath)
+	db, err = newMetadataBackend("test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -340,7 +340,7 @@ func TestMetadataBackend_sync(t *testing.T) {
 }
 
 func newMockMetadataBackend(t *testing.T) MetadataBackend {
-	db, err := newMetadataBackend(testPath)
+	db, err := newMetadataBackend("test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
