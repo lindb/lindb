@@ -15,26 +15,30 @@ func TestMetricIDMapping_GetMetricID(t *testing.T) {
 
 func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {
 	idMapping := newMetricIDMapping(10, 0)
-	seriesID, created := idMapping.GetOrCreateSeriesID(100)
+	seriesID, ok := idMapping.GetSeriesID(100)
+	assert.False(t, ok)
+	assert.Equal(t, uint32(0), seriesID)
+	seriesID = idMapping.GenSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
-	assert.True(t, created)
 	// get exist series id
-	seriesID, created = idMapping.GetOrCreateSeriesID(100)
+	seriesID, ok = idMapping.GetSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
-	assert.False(t, created)
+	assert.True(t, ok)
+
+	// add series id
+	idMapping.AddSeriesID(300, 4)
+	seriesID, ok = idMapping.GetSeriesID(300)
+	assert.Equal(t, uint32(4), seriesID)
+	assert.True(t, ok)
 }
 
 func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
 	idMapping := newMetricIDMapping(10, 0)
-	seriesID, created := idMapping.GetOrCreateSeriesID(100)
+	seriesID := idMapping.GenSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
-	assert.True(t, created)
 	assert.Equal(t, uint32(constants.DefaultMaxSeriesIDsCount), idMapping.GetMaxSeriesIDsLimit())
 	idMapping.SetMaxSeriesIDsLimit(2)
-	seriesID, created = idMapping.GetOrCreateSeriesID(102)
+	_ = idMapping.GenSeriesID(102)
+	seriesID = idMapping.GenSeriesID(1020)
 	assert.Equal(t, uint32(2), seriesID)
-	assert.True(t, created)
-	seriesID, created = idMapping.GetOrCreateSeriesID(1020)
-	assert.Equal(t, uint32(2), seriesID)
-	assert.True(t, created)
 }

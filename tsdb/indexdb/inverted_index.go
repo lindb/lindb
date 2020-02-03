@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/tsdb/query"
 )
 
+// InvertedIndex represents the tag's inverted index (tag values => series id list)
 type InvertedIndex interface {
 	series.TagValueSuggester
 	// FindSeriesIDsByExpr finds series ids by tag filter expr for tag key id

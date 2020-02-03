@@ -42,7 +42,7 @@ type metadataDatabase struct {
 
 // NewMetadataDatabase creates new metadata database
 func NewMetadataDatabase(ctx context.Context, name, parent string) (MetadataDatabase, error) {
-	backend, err := createMetadataBackend(parent)
+	backend, err := createMetadataBackend(name, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ func (mdb *metadataDatabase) checkSync() {
 			mdb.notifySyncWithLock(false)
 		case <-mdb.ctx.Done():
 			ticker.Stop()
-			metaLogger.Info("check event update goroutine exit...", logger.String("db", mdb.name))
+			metaLogger.Info("check metadata event update goroutine exit...", logger.String("db", mdb.name))
 			return
 		}
 	}
