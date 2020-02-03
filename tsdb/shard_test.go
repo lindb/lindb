@@ -37,7 +37,7 @@ func TestNewShard(t *testing.T) {
 	thisShard, err = newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
 	assert.Nil(t, err)
 	assert.NotNil(t, thisShard)
-	assert.NotNil(t, thisShard.IndexDatabase())
+	assert.Nil(t, thisShard.IndexDatabase())
 	assert.Equal(t, "db", thisShard.DatabaseName())
 	assert.Equal(t, int32(1), thisShard.ShardID())
 	s, err := thisShard.GetOrCreateSequence("tes")
@@ -121,7 +121,7 @@ func TestShard_Write_Accept(t *testing.T) {
 		_testShard1Path,
 		mockIDSequencer,
 		option.DatabaseOption{Interval: "10s", Ahead: "1h", Behind: "1h"})
-	assert.NotNil(t, shardINTF.IndexFilter())
+	assert.Nil(t, shardINTF.IndexFilter())
 	assert.Nil(t, shardINTF.MemoryFilter())
 
 	assert.Nil(t, shardINTF.Write(&pb.Metric{

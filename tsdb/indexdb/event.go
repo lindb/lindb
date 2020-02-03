@@ -1,5 +1,7 @@
 package indexdb
 
+const full = 10000
+
 // seriesEvent represents the series data(tags hash=>series id)
 type seriesEvent struct {
 	tagsHash uint64
@@ -15,6 +17,8 @@ type metricEvent struct {
 // mappingEvent represents the pending persist id mapping events
 type mappingEvent struct {
 	events map[uint32]*metricEvent
+
+	pending int
 }
 
 // newMappingEvent creates a id mapping event
@@ -37,4 +41,15 @@ func (event *mappingEvent) addSeriesID(metricID uint32, tagsHash uint64, seriesI
 	})
 	// set id sequence directly, because gen series id in order
 	e.metricIDSeq = seriesID
+	event.pending++
+}
+
+// isFull returns if events is full
+func (event *mappingEvent) isFull() bool {
+	return event.pending > full
+}
+
+// isEmpty returns if evens is empty
+func (event *mappingEvent) isEmpty() bool {
+	return event.pending == 0
 }

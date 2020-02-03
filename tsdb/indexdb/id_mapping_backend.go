@@ -13,6 +13,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source ./id_mapping_backend.go -destination=./id_mapping_backend_mock.go -package=indexdb
+
 const MappingDB = "mapping.db"
 
 // for testing
@@ -46,7 +48,7 @@ type idMappingBackend struct {
 }
 
 // newIDMappingBackend creates new id mapping backend storage
-func newIDMappingBackend(parent string) (IDMappingBackend, error) {
+func newIDMappingBackend(name, parent string) (IDMappingBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
@@ -66,7 +68,8 @@ func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	if err != nil {
 		// close bbolt.DB if init mapping backend err
 		if e := closeFunc(db); e != nil {
-			indexLogger.Error("close bbolt.db err when create mapping backend fail", logger.Error(e))
+			indexLogger.Error("close bbolt.db err when create mapping backend fail",
+				logger.String("db", name), logger.Error(e))
 		}
 		return nil, err
 	}

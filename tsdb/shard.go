@@ -234,7 +234,8 @@ func (s *shard) initIndexDatabase() error {
 	if err != nil {
 		return err
 	}
-	s.indexDB = indexdb.NewIndexDatabase(s.idSequencer, s.invertedFamily)
+	//FIXME
+	s.indexDB, _ = indexdb.NewIndexDatabase(context.TODO(), "", "", s.idSequencer, nil)
 	return nil
 }
 

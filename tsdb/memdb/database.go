@@ -45,7 +45,7 @@ type MemoryDatabaseCfg struct {
 	TimeWindow uint16
 	Interval   timeutil.Interval
 	Generator  metadb.IDGenerator
-	Index      indexdb.MemoryIndexDatabase
+	Index      indexdb.IndexDatabase
 }
 
 // memoryDatabase implements MemoryDatabase.
@@ -53,7 +53,7 @@ type memoryDatabase struct {
 	timeWindow uint16            // rollup window of memory-database
 	interval   timeutil.Interval // time interval of rollup
 	generator  metadb.IDGenerator
-	index      indexdb.MemoryIndexDatabase // memory index database for assign metric id/series id
+	index      indexdb.IndexDatabase // memory index database for assign metric id/series id
 	ctx        context.Context
 
 	blockStore  *blockStore   // reusable pool
@@ -117,8 +117,9 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	family := intervalCalc.CalcFamily(timestamp, segmentTime)                      // hours
 	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)            // family timestamp
 	slotIndex := intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64()) // slot offset of family
-
-	metricID, seriesID := md.index.GetTimeSeriesID(metric.Name, metric.Tags, metric.TagsHash)
+	metricID := md.generator.GenMetricID(metric.Name)
+	//FIXME stone1100
+	seriesID, _ := md.index.GetOrCreateSeriesID(metricID, metric.Tags, metric.TagsHash)
 	mStore := md.getOrCreateMStore(metricID)
 
 	writtenSize, err := mStore.Write(seriesID, metric.Fields, writeContext{

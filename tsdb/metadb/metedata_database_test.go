@@ -43,7 +43,7 @@ func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -64,7 +64,7 @@ func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -85,7 +85,7 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -119,7 +119,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -187,7 +187,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -255,7 +255,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
@@ -300,7 +300,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
@@ -353,7 +353,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
@@ -402,7 +402,7 @@ func TestMetadataDatabase_Close(t *testing.T) {
 		createMetadataBackend = newMetadataBackend
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)

@@ -1,196 +1,265 @@
 package indexdb
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
-////////////////////////////////
-// helper methods
-////////////////////////////////
-
-type mockedIndexDatabase struct {
-	indexDatabase *indexDatabase
-	family        *kv.MockFamily
-	snapShot      *version.MockSnapshot
-	reader        *table.MockReader
-	idGetter      *metadb.MockIDGetter
-}
-
-func (db *mockedIndexDatabase) WithFindReadersError() {
-	db.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("error"))
-}
-
-func (db *mockedIndexDatabase) WithFindReadersOK() {
-	db.snapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{db.reader}, nil)
-}
-
-func (db *mockedIndexDatabase) WithFindReadersEmpty() {
-	db.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-}
-
-func mockIndexDatabase(ctrl *gomock.Controller) *mockedIndexDatabase {
-	mockReader := table.NewMockReader(ctrl)
-
-	mockSnapShot := version.NewMockSnapshot(ctrl)
-	mockSnapShot.EXPECT().Close().Return().AnyTimes()
-
-	mockFamily := kv.NewMockFamily(ctrl)
-	mockFamily.EXPECT().GetSnapshot().Return(mockSnapShot).AnyTimes()
-
-	mockIDGetter := metadb.NewMockIDGetter(ctrl)
-	return &mockedIndexDatabase{
-		indexDatabase: NewIndexDatabase(mockIDGetter, mockFamily).(*indexDatabase),
-		family:        mockFamily,
-		snapShot:      mockSnapShot,
-		reader:        mockReader,
-		idGetter:      mockIDGetter}
-}
-
-func Test_IndexDatabase_GetGroupingContext(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestNewIndexDatabase(t *testing.T) {
 	defer func() {
-		newReader = invertedindex.NewReader
+		_ = fileutil.RemoveDir(testPath)
 	}()
-	mockedDB := mockIndexDatabase(ctrl)
-	// case1: get reader err
-	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("rer"))
-	g, err := mockedDB.indexDatabase.GetGroupingContext([]uint32{10}, series.NewVersion())
-	assert.Error(t, err)
-	assert.Nil(t, g)
-	// case3: index reader walk tag value err
-	indexReader := invertedindex.NewMockReader(ctrl)
-	newReader = func(readers []table.Reader) invertedindex.Reader {
-		return indexReader
-	}
-	mockedDB.snapShot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{mockedDB.reader}, nil).AnyTimes()
-	mockedDB.idGetter.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
-	indexReader.EXPECT().WalkTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	g, err = mockedDB.indexDatabase.GetGroupingContext([]uint32{10}, series.NewVersion())
-	assert.Error(t, err)
-	assert.Nil(t, g)
-	newReader = invertedindex.NewReader
-	// case4: unmarshal series ids err
-	ipBlock := buildInvertedIndexBlock()
-	ipBlock[908] = 99
-	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(ipBlock)
-	g, err = mockedDB.indexDatabase.GetGroupingContext([]uint32{20}, series.Version(1500000000000))
-	assert.Error(t, err)
-	assert.Nil(t, g)
-	// case4: normal
-	ipBlock = buildInvertedIndexBlock()
-	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(ipBlock)
-	g, err = mockedDB.indexDatabase.GetGroupingContext([]uint32{20}, series.Version(1500000000000))
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
-	assert.NotNil(t, g)
+	assert.NotNil(t, db)
+	// can't new duplicate
+	db2, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.Error(t, err)
+	assert.Nil(t, db2)
+	err = db.Close()
+	assert.NoError(t, err)
 }
 
-func Test_IndexDatabase_SuggestTagValues(t *testing.T) {
+func TestMemoryDatabase_GetOrCreateSeriesID(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockedDB := mockIndexDatabase(ctrl)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
-	// case1: invalid limit
-	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues(10, "", 0))
-	// case2: snapshot FindReaders error
-	mockedDB.WithFindReadersError()
-	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues(10, "", 10000))
-	// case3: snapshot FindReaders ok
-	mockedDB.WithFindReadersOK()
-	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	assert.Nil(t, mockedDB.indexDatabase.SuggestTagValues(10, "", 100000))
+	generator := metadb.NewMockIDGenerator(ctrl)
+	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	assert.NoError(t, err)
+	// case 1: generate new series id and create new metric id mapping
+	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.1",
+	}, 10)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(1), seriesID)
+	// case 2: get series id from memory
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.1",
+	}, 10)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(1), seriesID)
+	// case 3: generate new series id from memory
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.2",
+	}, 20)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(2), seriesID)
+	// close db
+	err = db.Close()
+	assert.NoError(t, err)
+
+	// reopen
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	assert.NoError(t, err)
+	// case 4: get series id from backend
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.2",
+	}, 20)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(2), seriesID)
+	// case 5: gen series id, id sequence reset from backend
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.3",
+	}, 30)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(3), seriesID)
+	// close db
+	err = db.Close()
+	assert.NoError(t, err)
 }
 
-type mockTagKey struct {
-	key string
-}
-
-func (k mockTagKey) TagKey() string {
-	return k.key
-}
-
-func Test_IndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
+func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockedDB := mockIndexDatabase(ctrl)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+		createBackend = newIDMappingBackend
+	}()
 
-	// case1: snapshot FindReaders error
-	mockedDB.WithFindReadersError()
-	_, err := mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
-	assert.NotNil(t, err)
-	// case2: snapshot FindReaders ok
-	mockedDB.WithFindReadersOK()
-	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
-	assert.NotNil(t, err)
-
-	// case3: snapshot FindReaders is nil
-	mockedDB.WithFindReadersEmpty()
-	_, err = mockedDB.indexDatabase.FindSeriesIDsByExpr(0, &mockTagKey{key: ""}, timeutil.TimeRange{})
-	assert.NotNil(t, err)
-}
-
-func Test_IndexDatabase_GetSeriesIDsForTag(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockedDB := mockIndexDatabase(ctrl)
-
-	// case1: snapshot FindReaders error
-	mockedDB.WithFindReadersError()
-	_, err := mockedDB.indexDatabase.GetSeriesIDsForTag(0, timeutil.TimeRange{})
-	assert.NotNil(t, err)
-	// case2: snapshot FindReaders ok
-	mockedDB.WithFindReadersOK()
-	mockedDB.reader.EXPECT().Get(gomock.Any()).Return(nil)
-	_, err = mockedDB.indexDatabase.GetSeriesIDsForTag(0, timeutil.TimeRange{})
-	assert.NotNil(t, err)
-}
-
-func buildInvertedIndexBlock() (ipBlock []byte) {
-	nopKVFlusher := kv.NewNopFlusher()
-	seriesFlusher := invertedindex.NewFlusher(nopKVFlusher)
-	// disable auto reset to pick the entrySetBuffer
-	/////////////////////////
-	// seriesID mapping relation
-	/////////////////////////
-	ipMapping := map[uint32]string{
-		1: "192.168.1.1",
-		2: "192.168.1.2",
-		3: "192.168.1.3",
-		4: "192.168.2.4",
-		5: "192.168.2.5",
-		6: "192.168.2.6",
-		7: "192.168.3.7",
-		8: "192.168.3.8",
-		9: "192.168.3.9"}
-	/////////////////////////
-	// flush ip tag, tagID: 21
-	/////////////////////////
-	for seriesID, ip := range ipMapping {
-		for v := series.Version(1500000000000); v < 1800000000000; v += 100000000000 {
-			bitmap := roaring.New()
-			bitmap.Add(seriesID)
-			seriesFlusher.FlushVersion(v, timeutil.TimeRange{
-				Start: v.Int64() + 10000*1000, End: v.Int64() + 20000*10000}, bitmap)
-		}
-		seriesFlusher.FlushTagValue(ip)
+	backend := NewMockIDMappingBackend(ctrl)
+	createBackend = func(name, parent string) (IDMappingBackend, error) {
+		return backend, nil
 	}
-	// pick the ipBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(21)
-	ipBlock = append(ipBlock, nopKVFlusher.Bytes()...)
+	generator := metadb.NewMockIDGenerator(ctrl)
+	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	assert.NoError(t, err)
+	// case 1: load metric mapping err
+	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(nil, fmt.Errorf("err"))
+	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.3",
+	}, 30)
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), seriesID)
 
-	return ipBlock
+	// case 2: load series err
+	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(newMetricIDMapping(1, 0), nil)
+	backend.EXPECT().getSeriesID(uint32(1), uint64(30)).Return(uint32(0), fmt.Errorf("err"))
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.3",
+	}, 30)
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), seriesID)
+
+	backend.EXPECT().Close().Return(nil)
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	//FIXME stone1100 need impl
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+	assert.Panics(t, func() {
+		_, _ = db.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
+	})
+	assert.Panics(t, func() {
+		_, _ = db.GetSeriesIDsForTag(1, timeutil.TimeRange{})
+	})
+	assert.Panics(t, func() {
+		_, _ = db.GetGroupingContext(nil, series.NewVersion())
+	})
+	assert.Panics(t, func() {
+		_ = db.SuggestTagValues(1, "ss", 100)
+	})
+}
+
+func TestMemoryIndexDatabase_FlushInvertedIndexTo(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	//FIXME stone1100 need impl
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+
+	err = db.FlushInvertedIndexTo(nil)
+	assert.NoError(t, err)
+}
+
+func TestIndexDatabase_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+		createBackend = newIDMappingBackend
+	}()
+
+	backend := NewMockIDMappingBackend(ctrl)
+	createBackend = func(name, parent string) (IDMappingBackend, error) {
+		return backend, nil
+	}
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+
+	// case 1: save mutable event err
+	db2 := db.(*indexDatabase)
+	db2.rwMutex.Lock()
+	db2.mutable.addSeriesID(1, 1, 1)
+	db2.rwMutex.Unlock()
+	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
+	err = db.Close()
+	assert.Error(t, err)
+
+	// case 2: save immutable event err
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+	db2 = db.(*indexDatabase)
+	db2.rwMutex.Lock()
+	db2.immutable = newMappingEvent()
+	db2.immutable.addSeriesID(1, 1, 1)
+	db2.rwMutex.Unlock()
+	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
+	err = db.Close()
+	assert.Error(t, err)
+}
+
+func TestIndexDatabase_checkSync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+		syncInterval = 2 * timeutil.OneSecond
+	}()
+
+	syncInterval = 100
+	generator := metadb.NewMockIDGenerator(ctrl)
+	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	assert.NoError(t, err)
+	// mock one metric event
+	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.3",
+	}, 30)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(1), seriesID)
+	time.Sleep(400 * time.Millisecond)
+
+	// mock one metric event, save event err
+	backend := NewMockIDMappingBackend(ctrl)
+	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+	db2 := db.(*indexDatabase)
+	db2.rwMutex.Lock()
+	db2.backend = backend
+	db2.rwMutex.Unlock()
+
+	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+		"host": "1.1.1.4",
+	}, 40)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(2), seriesID)
+	time.Sleep(400 * time.Millisecond)
+	_ = db.Close()
+}
+
+func TestMetadataDatabase_notify_timeout(t *testing.T) {
+	defer func() {
+		syncInterval = 2 * timeutil.OneSecond
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	syncInterval = 100
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+	db1 := db.(*indexDatabase)
+	// mock notify
+	db1.syncSignal <- struct{}{}
+	time.Sleep(400 * time.Millisecond)
+
+	// close it mock goroutine exit, no goroutine consume event
+	_ = db.Close()
+
+	// mock goroutine consume event
+	go func() {
+		time.Sleep(2 * time.Second)
+		<-db1.syncSignal
+	}()
+	// add chan item
+	db1.syncSignal <- struct{}{}
+	// mock mutable isn't empty
+	db1.rwMutex.Lock()
+	db1.mutable = newMappingEvent()
+	db1.mutable.addSeriesID(1, 1, 1)
+	db1.rwMutex.Unlock()
+	// test notify timeout
+	db1.notifySyncWithLock(true)
 }
