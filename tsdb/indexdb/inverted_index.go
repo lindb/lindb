@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/query"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
@@ -89,4 +90,28 @@ func (index *invertedIndex) buildInvertIndex(metricID uint32, tags map[string]st
 		}
 		tagIndex.buildInvertedIndex(tagValue, seriesID)
 	}
+}
+
+// FlushInvertedIndexTo flushes the inverted-index of mStore to the Writer
+func (index *invertedIndex) FlushInvertedIndexTo(flusher invertedindex.TagFlusher) error {
+	//seriesIDBitmap := index.store.tagKeyIDs
+	//for idx, highKey := range seriesIDBitmap.GetHighKeys() {
+	//	container := seriesIDBitmap.GetContainer(highKey)
+	//	tagIndexes := index.store.indexes[idx]
+	//	it := container.PeekableIterator()
+	//	i := 0
+	//	for it.HasNext() {
+	//		lowKeyID := it.Next()
+	//		tagIndex := tagIndexes[i]
+	//		tagValues := tagIndex.getValues()
+	//		for tagValue, seriesIDs := range tagValues {
+	//			flusher.FlushTagValue(tagValue, seriesIDs)
+	//		}
+	//		tagKeyID := uint32(lowKeyID) | uint32(highKey)
+	//		if err := flusher.FlushTagKeyID(tagKeyID); err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
+	return nil
 }

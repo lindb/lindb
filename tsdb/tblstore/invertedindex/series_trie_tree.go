@@ -280,6 +280,7 @@ func (block *trieTreeBlock) FindOffsetsByIn(values []string) (offsets []int) {
 }
 
 func (block *trieTreeBlock) FindOffsetsByLike(value string) (offsets []int) {
+	//FIXME stone1100
 	switch value {
 	case "":
 		return nil
