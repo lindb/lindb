@@ -144,7 +144,7 @@ func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string
 }
 
 // FlushInvertedIndexTo flushes the series data to a inverted-index file.
-func (db *indexDatabase) FlushInvertedIndexTo(flusher invertedindex.Flusher) (err error) {
+func (db *indexDatabase) FlushInvertedIndexTo(flusher invertedindex.TagFlusher) (err error) {
 	//db.metricHash2Index.Range(func(key, value interface{}) bool {
 	//	metricIDMapping := value.(MetricIDMapping)
 	//	if err = metricIDMapping.FlushInvertedIndexTo(flusher, db.generator); err != nil {

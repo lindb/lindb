@@ -32,5 +32,5 @@ type IndexDatabase interface {
 	GetOrCreateSeriesID(metricID uint32, tags map[string]string, tagsHash uint64) (seriesID uint32, err error)
 
 	// FlushInvertedIndexTo flushes the series data to a inverted-index file.
-	FlushInvertedIndexTo(flusher invertedindex.Flusher) (err error)
+	FlushInvertedIndexTo(flusher invertedindex.TagFlusher) (err error)
 }

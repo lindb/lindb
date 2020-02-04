@@ -1,6 +1,8 @@
 package indexdb
 
-import "github.com/lindb/roaring"
+import (
+	"github.com/lindb/roaring"
+)
 
 // tagIndexStore represents all tag indexes storage
 type tagIndexStore struct {
