@@ -10,8 +10,6 @@ import (
 
 //go:generate mockgen -source ./tag_flusher.go -destination=./tag_flusher_mock.go -package invertedindex
 
-//var invertedIndexFlusherLogger = logger.GetLogger("tsdb", "InvertedIndexFlusher")
-
 // TagFlusher is a wrapper of kv.Builder, provides the ability to build a tag index table.
 // The layout is available in `tsdb/doc.go`
 type TagFlusher interface {

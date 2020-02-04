@@ -19,4 +19,7 @@ const (
 	ShardMemoryUsedThreshold = 500 * 1024 * 1024
 	// FlushConcurrency controls the concurrent number of flushers
 	FlushConcurrency = 4
+
+	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag
+	TagValueIDForTag = uint32(0)
 )

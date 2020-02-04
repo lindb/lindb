@@ -17,7 +17,7 @@ func NewMerger(ttl time.Duration) kv.Merger {
 	nopKVFlusher := kv.NewNopFlusher()
 	return &invertedIndexMerger{
 		flusher:      NewTagFlusher(nopKVFlusher).(*tagFlusher),
-		reader:       NewReader(nil).(*tagReader),
+		reader:       NewTagReader(nil).(*tagReader),
 		nopKVFlusher: nopKVFlusher,
 		ttl:          ttl}
 }
