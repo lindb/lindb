@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/timeutil"
-
 	"github.com/lindb/lindb/kv"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +15,7 @@ func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewFlusher(mockFlusher)
+	indexFlusher := NewTagFlusher(mockFlusher)
 	assert.NotNil(t, indexFlusher)
 
 	// mock commit error
@@ -36,7 +33,7 @@ func Test_InvertedIndexFlusher_RS_error(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewFlusher(mockFlusher).(*flusher)
+	indexFlusher := NewTagFlusher(mockFlusher).(*tagFlusher)
 
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	// mock trie tree
@@ -69,20 +66,12 @@ func Test_SeriesIndexFlusher_OK(t *testing.T) {
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
-	indexFlusher := NewFlusher(mockFlusher)
+	indexFlusher := NewTagFlusher(mockFlusher)
 
-	// flush versions of tagValue1
-	indexFlusher.FlushVersion(1, timeutil.TimeRange{Start: 3, End: 5}, roaring.New())
-	indexFlusher.FlushVersion(2, timeutil.TimeRange{Start: 4, End: 6}, roaring.New())
-	indexFlusher.FlushVersion(3, timeutil.TimeRange{Start: 1, End: 2}, roaring.New())
 	// flush tagValue1
-	indexFlusher.FlushTagValue("1")
-	// flush versions of tagValue2
-	indexFlusher.FlushVersion(1, timeutil.TimeRange{Start: 12, End: 15}, roaring.New())
-	indexFlusher.FlushVersion(2, timeutil.TimeRange{Start: 15, End: 20}, roaring.New())
-	indexFlusher.FlushVersion(3, timeutil.TimeRange{Start: 22, End: 24}, roaring.New())
+	indexFlusher.FlushTagValue("1", 1)
 	// flush tagValue2
-	indexFlusher.FlushTagValue("2")
+	indexFlusher.FlushTagValue("2", 2)
 	// flush tagKeyID
 	assert.Nil(t, indexFlusher.FlushTagKeyID(0))
 }

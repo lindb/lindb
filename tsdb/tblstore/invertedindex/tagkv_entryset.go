@@ -1,63 +1,26 @@
 package invertedindex
 
 import (
+	"encoding/binary"
 	"fmt"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 )
 
 //go:generate mockgen -source ./tagkv_entryset.go -destination=./tagkv_entryset_mock.go -package invertedindex
 
-// for testing
-var (
-	entrySetToIDSetFunc = entrySetToIDSet
-)
-
-type positionIteratorINTF interface {
-	// HasNext checks if there are any remaining positions unread
-	HasNext() bool
-
-	// Next returns the offset and position read last time
-	Next() (offset, position int)
-}
-
 type TagKVEntrySetINTF interface {
-	// TimeRange computes the timeRange from delta in milliseconds
-	TimeRange() timeutil.TimeRange
-
 	// TagValuesCount returns the count of tag values under this tag key
 	TagValuesCount() int
-
+	// TagValueIDs returns all tag value ids under this tag key
+	TagValueIDs() *roaring.Bitmap
 	// TrieTree builds the trie-tree block for querying
 	TrieTree() (trieTreeQuerier, error)
-
-	// ReadTagValueDataBlock iterate on tagValue with specified offset
-	ReadTagValueDataBlock(
-		offset int,
-	) (
-		TagValueIterator,
-		error,
-	)
-
-	// PositionIterator iterates all positions without conditions
-	PositionIterator() positionIteratorINTF
-}
-
-type TagValueIterator interface {
-	// DataTimeRange computes the timeRange from delta in seconds
-	DataTimeRange() timeutil.TimeRange
-
-	// DataVersion returns the version of this data
-	DataVersion() series.Version
-
-	// HasNext returns if there are any version remaining
-	HasNext() bool
-
-	// Next returns the bitmap underlying data.
-	Next() (bitmapData []byte)
+	// GetTagValueID gets tag value id by offset
+	GetTagValueID(offset int) uint32
 }
 
 type TagKVEntries []TagKVEntrySetINTF
@@ -69,79 +32,64 @@ func (entries TagKVEntries) TagValuesCount() (count int) {
 	return
 }
 
-// GetSeriesIDs get series ids
-func (entries TagKVEntries) GetSeriesIDs(
-	timeRange timeutil.TimeRange,
-) (
-	*series.MultiVerSeriesIDSet,
-	error,
-) {
-	unionIDSet := series.NewMultiVerSeriesIDSet()
+// GetTagValueIDs gets all tag value ids under tag key entries
+func (entries TagKVEntries) GetTagValueIDs() *roaring.Bitmap {
+	unionIDSet := roaring.New()
 	for _, entrySet := range entries {
-		idSet, err := entrySetToIDSetFunc(entrySet, timeRange, nil)
-		if err != nil {
-			return nil, err
-		}
-		unionIDSet.Or(idSet)
+		unionIDSet.Or(entrySet.TagValueIDs())
 	}
-	return unionIDSet, nil
+	return unionIDSet
 }
 
 // tagKVEntrySet implements tagKVEntrySetINTF
 type tagKVEntrySet struct {
 	sr            *stream.Reader
-	startTime     int64
-	endTime       int64
 	tree          trieTreeQuerier
-	offsetsBlock  []byte
 	crc32CheckSum uint32
-	// offsets to positions
-	decoder *encoding.FixedOffsetDecoder // decoder for offset
-	// tag value data iterator
-	versionTotal                 int
-	versionRead                  int
-	version                      series.Version
-	startTimeDelta, endTimeDelta int64
-	bitmapData                   []byte
+	tagValueIDs   *encoding.FixedOffsetDecoder
 }
 
 func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
-	if len(block) <= invertedIndexTimeRangeSize+invertedIndexFooterSize {
+	if len(block) <= invertedIndexFooterSize {
 		return nil, fmt.Errorf("block length no ok")
 	}
 	entrySet := &tagKVEntrySet{
 		sr: stream.NewReader(block),
 	}
-	entrySet.startTime = entrySet.sr.ReadInt64()
-	entrySet.endTime = entrySet.sr.ReadInt64()
-	// read footer
-	offsetsEndPos := len(block) - invertedIndexFooterSize
-	_ = entrySet.sr.ReadSlice(offsetsEndPos - invertedIndexTimeRangeSize)
-	offsetsStartPos := int(entrySet.sr.ReadUint32())
-	entrySet.crc32CheckSum = entrySet.sr.ReadUint32()
+	// read footer(4+4)
+	footerPos := len(block) - invertedIndexFooterSize
+	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(block[footerPos : footerPos+4]))
+	entrySet.crc32CheckSum = binary.LittleEndian.Uint32(block[footerPos+4 : footerPos+8])
 	// validate offsets
-	if !(invertedIndexTimeRangeSize < offsetsStartPos && offsetsStartPos < offsetsEndPos) {
+	if !(tagValueIDsStartPos < footerPos) {
 		return nil, fmt.Errorf("bad offsets")
 	}
-	entrySet.offsetsBlock = block[offsetsStartPos:offsetsEndPos]
-	entrySet.decoder = encoding.NewFixedOffsetDecoder(entrySet.offsetsBlock)
+	entrySet.tagValueIDs = encoding.NewFixedOffsetDecoder(block[tagValueIDsStartPos:footerPos])
 	return entrySet, nil
 }
 
-func (entrySet *tagKVEntrySet) TimeRange() timeutil.TimeRange {
-	return timeutil.TimeRange{
-		Start: entrySet.startTime,
-		End:   entrySet.endTime}
+// TagValuesCount returns the count of tag values under this tag key
+func (entrySet *tagKVEntrySet) TagValuesCount() int {
+	return entrySet.tagValueIDs.Size()
 }
 
-func (entrySet *tagKVEntrySet) TagValuesCount() int {
-	return entrySet.decoder.Size()
+// TagValueIDs returns all tag value ids under this tag key
+func (entrySet *tagKVEntrySet) TagValueIDs() *roaring.Bitmap {
+	size := entrySet.tagValueIDs.Size()
+	tagValueIDs := roaring.New()
+	for i := 0; i < size; i++ {
+		tagValueIDs.Add(uint32(entrySet.tagValueIDs.Get(i)))
+	}
+	return tagValueIDs
+}
+
+// GetTagValueID gets tag value id by offset
+func (entrySet *tagKVEntrySet) GetTagValueID(offset int) uint32 {
+	return uint32(entrySet.tagValueIDs.Get(offset))
 }
 
 func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
 	var tree trieTreeBlock
-	// read time-range
-	entrySet.sr.ReadAt(invertedIndexTimeRangeSize)
 	////////////////////////////////
 	// Block: LOUDS Trie-Tree
 	////////////////////////////////
@@ -180,72 +128,4 @@ func (entrySet *tagKVEntrySet) TrieTree() (trieTreeQuerier, error) {
 	}
 	entrySet.tree = &tree
 	return entrySet.tree, nil
-}
-
-func (entrySet *tagKVEntrySet) ReadTagValueDataBlock(
-	offset int,
-) (
-	TagValueIterator,
-	error,
-) {
-	pos := entrySet.decoder.Get(offset)
-	if pos < 0 {
-		return nil, fmt.Errorf("read position failure")
-	}
-	// jump to target
-	entrySet.sr.ReadAt(pos)
-	// reset buffer
-	entrySet.versionTotal = int(entrySet.sr.ReadUvarint64())
-	entrySet.versionRead = 0
-	entrySet.version = 0
-	entrySet.startTimeDelta = 0
-	entrySet.endTimeDelta = 0
-	return entrySet, nil
-}
-
-func (entrySet *tagKVEntrySet) DataTimeRange() timeutil.TimeRange {
-	return timeutil.TimeRange{
-		Start: entrySet.startTimeDelta*1000 + entrySet.version.Int64(),
-		End:   entrySet.endTimeDelta*1000 + entrySet.version.Int64()}
-}
-func (entrySet *tagKVEntrySet) DataVersion() series.Version { return entrySet.version }
-func (entrySet *tagKVEntrySet) Next() (bitmapData []byte)   { return entrySet.bitmapData }
-func (entrySet *tagKVEntrySet) HasNext() bool {
-	if entrySet.sr.Empty() {
-		return false
-	}
-	if entrySet.versionRead >= entrySet.versionTotal {
-		return false
-	}
-	// read version
-	entrySet.version = series.Version(entrySet.sr.ReadInt64())
-	// read start-time delta
-	entrySet.startTimeDelta = entrySet.sr.ReadVarint64()
-	// read end-time delta
-	entrySet.endTimeDelta = entrySet.sr.ReadVarint64()
-	// read bitmap length
-	bitMapLen := int(entrySet.sr.ReadUvarint64())
-	// read bitmap data
-	entrySet.bitmapData = entrySet.sr.ReadSlice(bitMapLen)
-	entrySet.versionRead++
-	return entrySet.sr.Error() == nil
-}
-
-func (entrySet *tagKVEntrySet) PositionIterator() positionIteratorINTF {
-	return &positionIterator{decoder: entrySet.decoder}
-}
-
-type positionIterator struct {
-	decoder  *encoding.FixedOffsetDecoder
-	offset   int
-	position int
-}
-
-func (itr *positionIterator) HasNext() bool {
-	itr.position = itr.decoder.Get(itr.offset)
-	itr.offset++
-	return itr.position >= 0
-}
-func (itr *positionIterator) Next() (offset, pos int) {
-	return itr.offset - 1, itr.position
 }
