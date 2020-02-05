@@ -8,8 +8,8 @@ import (
 	"github.com/coreos/bbolt"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -139,7 +139,7 @@ func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
 	}()
 	db := mockMetadataBackend(t)
 	_, err := db.loadMetricMetadata("ns1", "name2")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 
 	meta, err := db.loadMetricMetadata("ns-1", "name2")
 	assert.NoError(t, err)
@@ -167,9 +167,9 @@ func TestMetadataBackend_getTagKeyID(t *testing.T) {
 	db := mockMetadataBackend(t)
 	metricID, _ := db.getMetricID("ns-1", "name2")
 	_, err := db.getTagKeyID(metricID, "ggg")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	_, err = db.getTagKeyID(99, "tagKey-3")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 
 	tagKeyID, err := db.getTagKeyID(metricID, "tagKey-3")
 	assert.NoError(t, err)
@@ -182,7 +182,7 @@ func TestMetadataBackend_getAllTagKeys(t *testing.T) {
 	}()
 	db := mockMetadataBackend(t)
 	_, err := db.getAllTagKeys(88)
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	values, err := db.getAllTagKeys(2)
 	assert.NoError(t, err)
 	assert.Equal(t, []tag.Meta{{Key: "tagKey-2", ID: 4}, {Key: "tagKey-3", ID: 3}}, values)
@@ -194,9 +194,9 @@ func TestMetadataBackend_getField(t *testing.T) {
 	}()
 	db := mockMetadataBackend(t)
 	_, err := db.getField(99, "f3")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	_, err = db.getField(2, "f33")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	f, err := db.getField(2, "f3")
 	assert.NoError(t, err)
 	assert.Equal(t, field.Meta{ID: 1, Name: "f3", Type: field.MaxField}, f)
@@ -208,7 +208,7 @@ func TestMetadataBackend_getAllFields(t *testing.T) {
 	}()
 	db := mockMetadataBackend(t)
 	_, err := db.getAllFields(99)
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	fields, err := db.getAllFields(2)
 	assert.Equal(t, []field.Meta{
 		{ID: 1, Name: "f3", Type: field.MaxField},
@@ -237,7 +237,7 @@ func TestMetadataBackend_saveMetadata(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = db.getMetricID("ns-2", "name5")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 }
 
 func TestMetadataBackend_save_err(t *testing.T) {

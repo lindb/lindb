@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -91,7 +92,7 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
-		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, series.ErrNotFound),
+		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
 		mockBackend.EXPECT().genMetricID().Return(uint32(1)),
 	)
 	metricID, err := db.GenMetricID("ns-1", "name1")
@@ -140,13 +141,13 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	// case 2: from memory not exist
 	meta.EXPECT().getTagKeyID("tag-key").Return(uint32(10), false)
 	tagKeyID, err = db.GetTagKeyID("ns-1", "name1", "tag-key")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Equal(t, uint32(0), tagKeyID)
 
 	// case 4: backend, metric not exist
-	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), series.ErrNotFound)
+	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	tagKeyID, err = db.GetTagKeyID("ns-1", "name2", "tag-key")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Equal(t, uint32(0), tagKeyID)
 
 	// case 4: backend exist
@@ -163,9 +164,9 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	assert.Equal(t, []tag.Meta{{ID: 10, Key: "tag-key"}}, tagKeys)
 
 	// case 6: backend, metric not exist
-	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), series.ErrNotFound)
+	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	tagKeys, err = db.GetAllTagKeys("ns-1", "name2")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, tagKeys)
 
 	// case 7: backend, tag keys exist
@@ -208,13 +209,13 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	// case 2: from memory not exist
 	meta.EXPECT().getField("f1").Return(field.Meta{}, false)
 	f, err = db.GetField("ns-1", "name1", "f1")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Equal(t, field.Meta{}, f)
 
 	// case 4: backend, metric not exist
-	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), series.ErrNotFound)
+	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	f, err = db.GetField("ns-1", "name2", "f1")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Equal(t, field.Meta{}, f)
 
 	// case 4: backend exist
@@ -231,9 +232,9 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	assert.Equal(t, []field.Meta{{ID: 19, Type: field.SumField}}, fields)
 
 	// case 6: backend, metric not exist
-	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), series.ErrNotFound)
+	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	fields, err = db.GetAllFields("ns-1", "name2")
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, fields)
 
 	// case 7: backend, tag keys exist
@@ -261,7 +262,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
-		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, series.ErrNotFound),
+		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
 		mockBackend.EXPECT().genMetricID().Return(uint32(1)),
 	)
 	// case 1: gen new metric id

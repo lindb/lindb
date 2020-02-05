@@ -9,7 +9,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
@@ -30,10 +30,10 @@ func TestStoragePlan_Metric(t *testing.T) {
 	err := plan.Plan()
 	assert.NoError(t, err)
 
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), series.ErrNotFound)
+	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), constants.ErrNotFound)
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 }
 
 func TestStoragePlan_SelectList(t *testing.T) {
@@ -54,7 +54,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		Return(uint16(14), field.HistogramField, nil).AnyTimes()
 
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "no_f").
-		Return(uint16(99), field.HistogramField, series.ErrNotFound).AnyTimes()
+		Return(uint16(99), field.HistogramField, constants.ErrNotFound).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
@@ -64,7 +64,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	query, _ = sql.Parse("select no_f from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 
 	// normal
 	query, _ = sql.Parse("select f from cpu")

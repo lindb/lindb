@@ -3,6 +3,7 @@ package indexdb
 import (
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -38,7 +39,7 @@ func newInvertedIndex(generator metadb.IDGenerator) InvertedIndex {
 func (index *invertedIndex) FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
 	tagIndex, ok := index.store.get(tagKeyID)
 	if !ok {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	return tagIndex.findSeriesIDsByExpr(expr), nil
 }
@@ -47,7 +48,7 @@ func (index *invertedIndex) FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFi
 func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
 	tagIndex, ok := index.store.get(tagKeyID)
 	if !ok {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	return tagIndex.getAllSeriesIDs(), nil
 }
@@ -59,7 +60,7 @@ func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.Group
 	for idx, tagKeyID := range tagKeyIDs {
 		tagIndex, ok := index.store.get(tagKeyID)
 		if !ok {
-			return nil, series.ErrNotFound
+			return nil, constants.ErrNotFound
 		}
 		tagValuesEntrySet := query.NewTagValuesEntrySet()
 		gCtx.SetTagValuesEntrySet(idx, tagValuesEntrySet)
