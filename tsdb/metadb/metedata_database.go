@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -73,7 +74,7 @@ func (mdb *metadataDatabase) SuggestMetricName(namespace, prefix string, limit i
 	return mdb.backend.suggestMetricName(namespace, prefix, limit)
 }
 
-// GetMetricID gets the metric id by namespace and metric name, if not exist return series.ErrNotFound
+// GetMetricID gets the metric id by namespace and metric name, if not exist return constants.ErrNotFound
 func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID uint32, err error) {
 	mdb.rwMux.RLock()
 	// read from memory
@@ -89,7 +90,7 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 	return mdb.backend.getMetricID(namespace, metricName)
 }
 
-// GetTagKeyID gets the tag key id by namespace/metric name/tag key key, if not exist return series.ErrNotFound
+// GetTagKeyID gets the tag key id by namespace/metric name/tag key key, if not exist return constants.ErrNotFound
 func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey string) (tagKeyID uint32, err error) {
 	key := namespace + metricName
 
@@ -101,7 +102,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey st
 		if ok {
 			return
 		}
-		return 0, series.ErrNotFound
+		return 0, constants.ErrNotFound
 	}
 	mdb.rwMux.RUnlock()
 
@@ -113,7 +114,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey st
 	return mdb.backend.getTagKeyID(metricID, tagKey)
 }
 
-// GetAllTagKeys returns the all tag keys by namespace/metric name, if not exist return series.ErrNotFound
+// GetAllTagKeys returns the all tag keys by namespace/metric name, if not exist return constants.ErrNotFound
 func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error) {
 	key := namespace + metricName
 	mdb.rwMux.RLock()
@@ -132,7 +133,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags [
 	return mdb.backend.getAllTagKeys(metricID)
 }
 
-// GetField gets the field meta by namespace/metric name/field name, if not exist return series.ErrNotFound
+// GetField gets the field meta by namespace/metric name/field name, if not exist return constants.ErrNotFound
 func (mdb *metadataDatabase) GetField(namespace, metricName, fieldName string) (f field.Meta, err error) {
 	key := namespace + metricName
 	mdb.rwMux.RLock()
@@ -143,7 +144,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName, fieldName string) (
 		if ok {
 			return f, nil
 		}
-		return field.Meta{}, series.ErrNotFound
+		return field.Meta{}, constants.ErrNotFound
 	}
 	mdb.rwMux.RUnlock()
 	metricID, err := mdb.GetMetricID(namespace, metricName)
@@ -202,7 +203,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 		return metricMetadata.getMetricID(), nil
 	}
 	// isn't not found, return err
-	if err != series.ErrNotFound {
+	if err != constants.ErrNotFound {
 		return
 	}
 	// assign new metric id

@@ -253,7 +253,7 @@ func (seq *idSequencer) readTagKeyID(
 	if ok {
 		return tagKeyID, nil
 	}
-	return 0, series.ErrNotFound
+	return 0, constants.ErrNotFound
 }
 
 func (seq *idSequencer) getFieldIDInMem(
@@ -378,7 +378,7 @@ func (seq *idSequencer) GetMetricID(metricName string) (uint32, error) {
 	if ok {
 		return val.(uint32), nil
 	}
-	return 0, series.ErrNotFound
+	return 0, constants.ErrNotFound
 }
 
 // GetFieldID returns field ID(uint16), if not exist return ErrMetaDataNotExist error
@@ -421,7 +421,7 @@ func (seq *idSequencer) readFieldID(
 	var ok bool
 	fieldID, fieldType, ok = reader.ReadFieldID(metricID, fieldName)
 	if !ok {
-		return 0, 0, series.ErrNotFound
+		return 0, 0, constants.ErrNotFound
 	}
 	return fieldID, fieldType, nil
 }

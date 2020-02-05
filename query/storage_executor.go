@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -137,7 +138,7 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *se
 		//	seriesIDSet, err = filter.GetSeriesIDsForMetric(metricID, e.query.TimeRange)
 	}
 	if err != nil {
-		if err != series.ErrNotFound {
+		if err != constants.ErrNotFound {
 			e.queryFlow.Complete(err)
 		}
 		return

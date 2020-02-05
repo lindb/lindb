@@ -16,7 +16,7 @@ import (
 // [2] Fast, Small, Simple Rank/Select on Bitmaps:
 //     https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
 
-//go:generate mockgen -source ./series_trie_tree.go -destination=./series_trie_tree_mock.go -package invertedindex
+//go:generate mockgen -source ./trie_tree.go -destination=./trie_tree_mock.go -package invertedindex
 
 // trieTreeBuilder abstract a trie tree in memory.
 // All the descendants of a trieTreeNode have a common prefix of the string associated with that trieTreeNode,
@@ -207,7 +207,7 @@ type trieTreeQuerier interface {
 	Iterator(prefixValue string) *TrieTreeIterator
 }
 
-// trieTreeBlock is the structured trie-tree-block of series-index-table
+// trieTreeBlock is the structured trie-tree-block of index-table
 // trieTreeBlock implements trieTreeQuerier
 type trieTreeBlock struct {
 	labels      []byte
