@@ -78,11 +78,11 @@ func Test_NewIDSequencer_Recover(t *testing.T) {
 	assert.NotNil(t, mocked.idSequencer.Recover())
 	// case2: mock read ns ok
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8})
+	mocked.reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8}, true)
 	assert.Nil(t, mocked.idSequencer.Recover())
 	// case3: mock unmarshal error
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+	mocked.reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, true)
 	assert.NotNil(t, mocked.idSequencer.Recover())
 }
 
@@ -123,7 +123,7 @@ func Test_IDSequencer_SuggestTagKeys(t *testing.T) {
 	// case4: snapshot FindReaders ok
 	mocked.WithFindReadersOK()
 	mocked.idSequencer.tree.Insert([]byte("a"), uint32(1))
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, false)
 	assert.Len(t, mocked.idSequencer.SuggestTagKeys("a", "", 100), 0)
 
 	reader := metricsmeta.NewMockReader(ctrl)
@@ -226,7 +226,7 @@ func Test_IDSequencer_GetTagKeyID(t *testing.T) {
 	assert.NotNil(t, err)
 	// case3: snapShot FindReaders ok
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, false)
 	_, err = mocked.idSequencer.GetTagKeyID(1, "key3")
 	assert.NotNil(t, err)
 
@@ -259,12 +259,12 @@ func Test_IDSequencer_GenTagKeyID(t *testing.T) {
 	assert.Equal(t, tagKeyID, uint32(2))
 	// case2: snapShot FindReaders ok
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, true)
 	tagKeyID = mocked.idSequencer.GenTagKeyID(6, "key3")
 	assert.Equal(t, uint32(1), tagKeyID)
 	// case3: exist in memory
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, true)
 	tagKeyID = mocked.idSequencer.GenTagKeyID(6, "key4")
 	assert.Equal(t, uint32(2), tagKeyID)
 }
@@ -284,7 +284,7 @@ func Test_IDSequencer_GetFieldID(t *testing.T) {
 	assert.NotNil(t, err)
 	// case2: snapShot FindReaders ok
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, true)
 	_, _, err = mocked.idSequencer.GetFieldID(1, "f1")
 	assert.NotNil(t, err)
 	// case3: read existed fieldID
@@ -339,7 +339,7 @@ func Test_IndexDatabase_GenFieldID(t *testing.T) {
 	assert.NotNil(t, err)
 	// case4: snapshot findReaders ok
 	mocked.WithFindReadersOK()
-	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil).Times(2)
+	mocked.reader.EXPECT().Get(gomock.Any()).Return(nil, false).Times(2)
 	fieldID, err = mocked.idSequencer.GenFieldID(3, "sum", field.SumField)
 	assert.Equal(t, uint16(1), fieldID)
 	assert.Nil(t, err)

@@ -79,10 +79,11 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) TagReader {
 	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(19)).Return(nil).AnyTimes()
-	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock).AnyTimes()
-	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock).AnyTimes()
-	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock).AnyTimes()
+	mockReader.EXPECT().Get(uint32(10)).Return(nil, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(19)).Return(nil, false).AnyTimes()
+	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, true).AnyTimes()
 	// build series index reader
 	return NewReader([]table.Reader{mockReader})
 }
@@ -94,12 +95,15 @@ func TestTagReader_FindValueIDsForTagKeyID(t *testing.T) {
 	reader := buildSeriesIndexReader(ctrl)
 	// read not tagID key
 	idSet, err := reader.GetTagValueIDsForTagKeyID(19)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
+	assert.Nil(t, idSet)
+	idSet, err = reader.GetTagValueIDsForTagKeyID(10)
+	assert.Error(t, err)
 	assert.Nil(t, idSet)
 
 	// read zone block
 	idSet, err = reader.GetTagValueIDsForTagKeyID(20)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, idSet)
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), idSet)
 }
@@ -210,7 +214,7 @@ func TestTagReader_SuggestTagValues(t *testing.T) {
 
 	// mock corruption
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}).AnyTimes()
+	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}, true).AnyTimes()
 	corruptedReader := NewReader([]table.Reader{mockReader})
 	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
 
@@ -231,6 +235,14 @@ func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
 	assert.NotPanics(t, func() {
 		_ = reader.WalkTagValues(
 			19,
+			"",
+			func(tagValue []byte, tagValueID uint32) bool {
+				panic("tagID doesn't exist!")
+			})
+	})
+	assert.NotPanics(t, func() {
+		_ = reader.WalkTagValues(
+			10,
 			"",
 			func(tagValue []byte, tagValueID uint32) bool {
 				panic("tagID doesn't exist!")

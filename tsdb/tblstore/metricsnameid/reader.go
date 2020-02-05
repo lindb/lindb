@@ -94,7 +94,10 @@ func (r *reader) ReadMetricNS(
 	ok bool,
 ) {
 	for _, reader := range r.readers {
-		block := reader.Get(nsID)
+		block, exist := reader.Get(nsID)
+		if !exist {
+			continue
+		}
 		data, metricIDSeq, tagKeyIDSeq, thisOK := r.ReadBlock(block)
 		if !thisOK {
 			continue

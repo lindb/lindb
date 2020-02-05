@@ -31,8 +31,8 @@ var log = logger.GetLogger("kv", "reader")
 type Reader interface {
 	// Path returns the file path
 	Path() string
-	// Get returns value for giving key
-	Get(key uint32) []byte
+	// Get returns value for giving key, if key not exist, return nil, false
+	Get(key uint32) ([]byte, bool)
 	// Iterator iterates over a store's key/value pairs in key order.
 	Iterator() Iterator
 	// Close closes reader, release related resources
@@ -112,15 +112,15 @@ func (r *storeMMapReader) Path() string {
 	return r.path
 }
 
-// Get return value for key, if not exist return nil
-func (r *storeMMapReader) Get(key uint32) []byte {
+// Get return value for key, if not exist return nil,false
+func (r *storeMMapReader) Get(key uint32) ([]byte, bool) {
 	if !r.keys.Contains(key) {
-		return nil
+		return nil, false
 	}
 	// bitmap data's index from 1, so idx=get index -1
 	idx := r.keys.Rank(key)
 	offset := r.offsets[idx-1]
-	return r.readBytes(int(offset))
+	return r.readBytes(int(offset)), true
 }
 
 // Iterator iterates over a store's key/value pairs in key order.

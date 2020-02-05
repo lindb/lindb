@@ -106,7 +106,11 @@ func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, er
 // filterEntrySets filters the entry-sets by tag key id
 func (r *tagReader) filterEntrySets(tagID uint32) (entrySets TagKVEntries) {
 	for _, reader := range r.readers {
-		entrySet, err := newTagKVEntrySetFunc(reader.Get(tagID))
+		value, ok := reader.Get(tagID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
 		if err != nil {
 			continue
 		}
@@ -127,7 +131,11 @@ func (r *tagReader) SuggestTagValues(
 		limit = constants.MaxSuggestions
 	}
 	for _, reader := range r.readers {
-		entrySet, err := newTagKVEntrySetFunc(reader.Get(tagID))
+		value, ok := reader.Get(tagID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
 		if err != nil {
 			continue
 		}
@@ -150,7 +158,11 @@ func (r *tagReader) WalkTagValues(
 	fn func(tagValue []byte, tagValueID uint32) bool,
 ) error {
 	for _, reader := range r.readers {
-		entrySet, err := newTagKVEntrySetFunc(reader.Get(tagID))
+		value, ok := reader.Get(tagID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
 		if err != nil {
 			continue
 		}

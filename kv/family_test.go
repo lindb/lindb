@@ -36,8 +36,10 @@ func Test_Data_Write_Read(t *testing.T) {
 	snapshot := f.GetSnapshot()
 	readers, _ := snapshot.FindReaders(10)
 	assert.Equal(t, 1, len(readers))
-	assert.Equal(t, []byte("test"), readers[0].Get(1))
-	assert.Equal(t, []byte("test10"), readers[0].Get(10))
+	value, _ := readers[0].Get(1)
+	assert.Equal(t, []byte("test"), value)
+	value, _ = readers[0].Get(10)
+	assert.Equal(t, []byte("test10"), value)
 	snapshot.Close()
 }
 
