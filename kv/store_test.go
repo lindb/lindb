@@ -147,7 +147,9 @@ func TestStore_Compact(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, 1, len(readers))
-	assert.Equal(t, []byte("testtest"), readers[0].Get(1))
-	assert.Equal(t, []byte("test10test10"), readers[0].Get(10))
+	value, _ := readers[0].Get(1)
+	assert.Equal(t, []byte("testtest"), value)
+	value, _ = readers[0].Get(10)
+	assert.Equal(t, []byte("test10test10"), value)
 	snapshot.Close()
 }
