@@ -50,14 +50,14 @@ type tagKVEntrySet struct {
 }
 
 func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
-	if len(block) <= invertedIndexFooterSize {
+	if len(block) <= tagFooterSize {
 		return nil, fmt.Errorf("block length no ok")
 	}
 	entrySet := &tagKVEntrySet{
 		sr: stream.NewReader(block),
 	}
 	// read footer(4+4)
-	footerPos := len(block) - invertedIndexFooterSize
+	footerPos := len(block) - tagFooterSize
 	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(block[footerPos : footerPos+4]))
 	entrySet.crc32CheckSum = binary.LittleEndian.Uint32(block[footerPos+4 : footerPos+8])
 	// validate offsets

@@ -20,7 +20,7 @@ var (
 )
 
 const (
-	invertedIndexFooterSize = 4 + // tag value ids position
+	tagFooterSize = 4 + // tag value ids position
 		4 // crc32 checksum
 )
 
@@ -51,7 +51,7 @@ type tagReader struct {
 }
 
 // NewReader returns a new TagReader
-func NewReader(readers []table.Reader) TagReader {
+func NewTagReader(readers []table.Reader) TagReader {
 	return &tagReader{readers: readers}
 }
 

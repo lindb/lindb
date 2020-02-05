@@ -13,7 +13,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
+func buildTagTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
 	seriesFlusher := NewTagFlusher(nopKVFlusher)
 	// disable auto reset to pick the entrySetBuffer
@@ -76,7 +76,7 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 }
 
 func buildSeriesIndexReader(ctrl *gomock.Controller) TagReader {
-	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock()
+	zoneBlock, ipBlock, hostBlock := buildTagTrieBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(10)).Return(nil, true).AnyTimes()
@@ -85,7 +85,7 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) TagReader {
 	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, true).AnyTimes()
 	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, true).AnyTimes()
 	// build series index reader
-	return NewReader([]table.Reader{mockReader})
+	return NewTagReader([]table.Reader{mockReader})
 }
 
 func TestTagReader_FindValueIDsForTagKeyID(t *testing.T) {
@@ -215,7 +215,7 @@ func TestTagReader_SuggestTagValues(t *testing.T) {
 	// mock corruption
 	mockReader := table.NewMockReader(ctrl)
 	mockReader.EXPECT().Get(uint32(18)).Return([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}, true).AnyTimes()
-	corruptedReader := NewReader([]table.Reader{mockReader})
+	corruptedReader := NewTagReader([]table.Reader{mockReader})
 	assert.Nil(t, corruptedReader.SuggestTagValues(18, "", 10000000))
 
 	mockEntry := NewMockTagKVEntrySetINTF(ctrl)

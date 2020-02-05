@@ -73,6 +73,9 @@ func (d *FixedOffsetDecoder) ValueWidth() int {
 
 // Size returns the size of  offset values
 func (d *FixedOffsetDecoder) Size() int {
+	if d.valueLength == 0 {
+		return 0
+	}
 	return (d.length - 1) / d.valueLength
 }
 
