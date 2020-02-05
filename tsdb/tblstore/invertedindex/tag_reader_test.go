@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/sql/stmt"
@@ -88,6 +89,54 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) TagReader {
 	return NewTagReader([]table.Reader{mockReader})
 }
 
+func TestTagReader_GetTagValueID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		newTagKVEntrySetFunc = newTagKVEntrySet
+	}()
+
+	reader := buildSeriesIndexReader(ctrl)
+	// case 1: tag key id not exist
+	id, err := reader.GetTagValueID(19, "eleme-dev-sh-5")
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Equal(t, uint32(0), id)
+	// case 2: get value
+	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5")
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(5), id)
+
+	// case 3: tag value not exist
+	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5999")
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Equal(t, uint32(0), id)
+
+	// case 4: new tag kv entry err
+	newTagKVEntrySetFunc = func(block []byte) (intf TagKVEntrySetINTF, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5")
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), id)
+
+	tagKVEntry := NewMockTagKVEntrySetINTF(ctrl)
+	newTagKVEntrySetFunc = func(block []byte) (intf TagKVEntrySetINTF, err error) {
+		return tagKVEntry, nil
+	}
+	// case 5: get trie err
+	tagKVEntry.EXPECT().TrieTree().Return(nil, fmt.Errorf("err"))
+	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5")
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), id)
+	// case 6: get too many offsets
+	trie := NewMocktrieTreeQuerier(ctrl)
+	tagKVEntry.EXPECT().TrieTree().Return(trie, nil)
+	trie.EXPECT().FindOffsetsByEqual("eleme-dev-sh-5").Return([]int{21, 1})
+	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5")
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), id)
+}
+
 func TestTagReader_FindValueIDsForTagKeyID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -135,7 +184,6 @@ func TestTagReader_FindValueIDsByExprForTagKeyID_bad_case(t *testing.T) {
 	idSet, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-4"})
 	assert.Error(t, err)
 	assert.Nil(t, idSet)
-
 }
 
 func TestTagReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) {

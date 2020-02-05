@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
@@ -140,7 +140,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 	}
 	f, ok := family.(DataFamily)
 	if !ok {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	return f, nil
 }

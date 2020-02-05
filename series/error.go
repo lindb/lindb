@@ -2,9 +2,6 @@ package series
 
 import "errors"
 
-// ErrNotFound is returned by index-database when the data does not exists on disk
-var ErrNotFound = errors.New("data not found")
-
 // ErrTooManyTags is the error returned by tsdb when
 // writes exceed the max limit of tag identifiers.
 var ErrTooManyTags = errors.New("too many tags")

@@ -10,9 +10,9 @@ import (
 	"github.com/coreos/bbolt"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -194,7 +194,7 @@ func (mb *metadataBackend) getMetricMetadata(metricID uint32) (metadata MetricMe
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(metricBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		tags = loadTagKeys(metricBucket.Bucket(tagBucketName))
 		fBucket := metricBucket.Bucket(fieldBucketName)
@@ -217,11 +217,11 @@ func (mb *metadataBackend) getMetricID(namespace string, metricName string) (met
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		nsBucket := tx.Bucket(nsBucketName).Bucket([]byte(namespace))
 		if nsBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		value := nsBucket.Get([]byte(metricName))
 		if len(value) == 0 {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		metricID = binary.LittleEndian.Uint32(value)
 		return nil
@@ -236,11 +236,11 @@ func (mb *metadataBackend) getTagKeyID(metricID uint32, tagKey string) (tagKeyID
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(metricBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		value := metricBucket.Bucket(tagBucketName).Get([]byte(tagKey))
 		if len(value) == 0 {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		tagKeyID = binary.LittleEndian.Uint32(value)
 		return nil
@@ -255,7 +255,7 @@ func (mb *metadataBackend) getAllTagKeys(metricID uint32) (tags []tag.Meta, err 
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(metricBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		tags = loadTagKeys(metricBucket.Bucket(tagBucketName))
 		return nil
@@ -270,11 +270,11 @@ func (mb *metadataBackend) getField(metricID uint32, fieldName string) (f field.
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(metricBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		value := metricBucket.Bucket(fieldBucketName).Get([]byte(fieldName))
 		if len(value) == 0 {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		f.Name = fieldName
 		f.Type = field.Type(value[0])
@@ -291,7 +291,7 @@ func (mb *metadataBackend) getAllFields(metricID uint32) (fields []field.Meta, e
 	err = mb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(metricBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return series.ErrNotFound
+			return constants.ErrNotFound
 		}
 		fields = loadFields(metricBucket.Bucket(fieldBucketName))
 		return nil

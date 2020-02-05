@@ -1,12 +1,13 @@
 package invertedindex
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -26,6 +27,9 @@ const (
 
 // TagReader reads tag value data from tag-index-table
 type TagReader interface {
+	// GetTagValueID returns the tag value id for spec metric's tag key id, if not exist return constants.ErrNotFound
+	GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error)
+
 	// GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
 	GetTagValueIDsForTagKeyID(tagID uint32) (tagValueIDs *roaring.Bitmap, err error)
 
@@ -55,11 +59,38 @@ func NewTagReader(readers []table.Reader) TagReader {
 	return &tagReader{readers: readers}
 }
 
+// GetTagValueID returns the tag value id for spec metric's tag key id, if not exist return constants.ErrNotFound
+func (r *tagReader) GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error) {
+	for _, reader := range r.readers {
+		value, ok := reader.Get(tagID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
+		if err != nil {
+			return 0, err
+		}
+		q, err := entrySet.TrieTree()
+		if err != nil {
+			return 0, err
+		}
+		offsets := q.FindOffsetsByEqual(tagValue)
+		if len(offsets) == 0 {
+			continue
+		}
+		if len(offsets) > 1 {
+			return 0, fmt.Errorf("found too many offsets for tag value")
+		}
+		return entrySet.GetTagValueID(offsets[0]), nil
+	}
+	return 0, constants.ErrNotFound
+}
+
 // FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
 func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
 	entrySets := r.filterEntrySets(tagID)
 	if len(entrySets) == 0 {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	tagValueIDs := roaring.New()
 	for _, entrySet := range entrySets {
@@ -79,7 +110,7 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 		case *stmt.RegexExpr:
 			offsets = q.FindOffsetsByRegex(expression.Regexp)
 		default:
-			return nil, series.ErrNotFound
+			return nil, constants.ErrNotFound
 		}
 		if len(offsets) == 0 {
 			continue
@@ -89,7 +120,7 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 		}
 	}
 	if tagValueIDs.IsEmpty() {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	return tagValueIDs, nil
 }
@@ -98,7 +129,7 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, error) {
 	entrySets := r.filterEntrySets(tagID)
 	if len(entrySets) == 0 {
-		return nil, series.ErrNotFound
+		return nil, constants.ErrNotFound
 	}
 	return entrySets.GetTagValueIDs(), nil
 }

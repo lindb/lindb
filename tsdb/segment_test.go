@@ -8,10 +8,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 )
 
 var segPath = filepath.Join(testPath, shardDir, "2", segmentDir, timeutil.Day.String())
@@ -68,7 +68,7 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	seg1 := seg.(*segment)
 	seg1.families.Store(23, "err data family")
 	result, err := seg.GetDataFamily(wrongTime)
-	assert.Equal(t, series.ErrNotFound, err)
+	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, result)
 
 	ctrl := gomock.NewController(t)
