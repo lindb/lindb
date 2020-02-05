@@ -19,7 +19,7 @@ func TestTagKVEntries(t *testing.T) {
 	entries = TagKVEntries{tagKVEntry}
 	assert.Equal(t, 10, entries.TagValuesCount())
 
-	zone, _, _ := buildInvertedIndexBlock()
+	zone, _, _ := buildTagTrieBlock()
 	entry, err := newTagKVEntrySet(zone)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, entry.TagValuesCount())
@@ -40,7 +40,7 @@ func Test_newTagKVEntrySet_error_cases(t *testing.T) {
 }
 
 func Test_tagKVEntrySet_TrieTree_error_cases(t *testing.T) {
-	zoneBlock, _, _ := buildInvertedIndexBlock()
+	zoneBlock, _, _ := buildTagTrieBlock()
 	entrySetIntf, _ := newTagKVEntrySet(zoneBlock)
 	entrySet := entrySetIntf.(*tagKVEntrySet)
 	// read stream eof
