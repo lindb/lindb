@@ -62,14 +62,14 @@ func TestDataFamily_Filter(t *testing.T) {
 	// test not find in reader
 	reader := table.NewMockReader(ctrl)
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return(nil)
+	reader.EXPECT().Get(gomock.Any()).Return(nil, false)
 	rs, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
 	// test new version block err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3})
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
 	// create version block iterator err
 	newVersionBlockIterator = func(block []byte) (iterator tblstore.VersionBlockIterator, e error) {
 		return nil, fmt.Errorf("err")
@@ -84,7 +84,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	newVersionBlockIterator = func(block []byte) (iterator tblstore.VersionBlockIterator, e error) {
 		return blockIt, nil
 	}
-	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3})
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
 	blockIt.EXPECT().HasNext().Return(false)
 	_, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
 	assert.NoError(t, err)

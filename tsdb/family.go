@@ -89,9 +89,9 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []uint16,
 	}
 	var blockIts []tblstore.VersionBlockIterator
 	for _, reader := range readers {
-		value := reader.Get(metricID)
+		value, ok := reader.Get(metricID)
 		// metric data not found
-		if len(value) == 0 {
+		if !ok {
 			continue
 		}
 		var it tblstore.VersionBlockIterator

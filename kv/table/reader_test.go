@@ -45,9 +45,14 @@ func TestReader(t *testing.T) {
 	defer func() {
 		_ = reader.Close()
 	}()
+	value, ok := reader.Get(100)
+	assert.False(t, ok)
+	assert.Nil(t, value)
 
-	assert.Equal(t, []byte("test"), reader.Get(1))
-	assert.Equal(t, []byte("test10"), reader.Get(10))
+	value, _ = reader.Get(1)
+	assert.Equal(t, []byte("test"), value)
+	value, _ = reader.Get(10)
+	assert.Equal(t, []byte("test10"), value)
 	cache.Evict("", "000100.sst")
 	_ = reader.Close()
 	cache.Evict("", "000010.sst")

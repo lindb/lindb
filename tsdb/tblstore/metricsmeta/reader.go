@@ -43,7 +43,11 @@ func (r *reader) ReadTagKeyID(
 	ok bool,
 ) {
 	for _, reader := range r.readers {
-		tagMetaBlock, _ := r.readMetasBlock(reader.Get(metricID))
+		value, ok := reader.Get(metricID)
+		if !ok {
+			continue
+		}
+		tagMetaBlock, _ := r.readMetasBlock(value)
 		if tagMetaBlock == nil {
 			continue
 		}
@@ -91,7 +95,11 @@ func (r *reader) ReadMaxFieldID(
 	if len(r.readers) == 0 {
 		return 0
 	}
-	_, fieldMetaBlock := r.readMetasBlock(r.readers[len(r.readers)-1].Get(metricID))
+	value, ok := r.readers[len(r.readers)-1].Get(metricID)
+	if !ok {
+		return 0
+	}
+	_, fieldMetaBlock := r.readMetasBlock(value)
 	if fieldMetaBlock == nil {
 		return 0
 	}
@@ -113,7 +121,11 @@ func (r *reader) ReadFieldID(
 	ok bool,
 ) {
 	for _, reader := range r.readers {
-		_, fieldMetaBlock := r.readMetasBlock(reader.Get(metricID))
+		value, ok := reader.Get(metricID)
+		if !ok {
+			continue
+		}
+		_, fieldMetaBlock := r.readMetasBlock(value)
 		if fieldMetaBlock == nil {
 			continue
 		}
@@ -133,7 +145,11 @@ func (r *reader) ReadTagKeys(
 	metricID uint32,
 ) (tagKeys []tag.Meta) {
 	for _, reader := range r.readers {
-		tagMetaBlock, _ := r.readMetasBlock(reader.Get(metricID))
+		value, ok := reader.Get(metricID)
+		if !ok {
+			continue
+		}
+		tagMetaBlock, _ := r.readMetasBlock(value)
 		if tagMetaBlock == nil {
 			continue
 		}
