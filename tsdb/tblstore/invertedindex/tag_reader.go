@@ -21,23 +21,27 @@ var (
 )
 
 const (
-	tagFooterSize = 4 + // tag value ids position
+	tagFooterSize = 4 + // tag value id sequence
+		4 + // tag value ids position
 		4 // crc32 checksum
 )
 
 // TagReader reads tag value data from tag-index-table
 type TagReader interface {
+	// GetTagValueSeq returns the auto sequence of tag value under the tag key, if not exist return constants.ErrNotFound
+	GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error)
+
 	// GetTagValueID returns the tag value id for spec metric's tag key id, if not exist return constants.ErrNotFound
-	GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error)
+	GetTagValueID(tagKeyID uint32, tagValue string) (tagValueID uint32, err error)
 
 	// GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
-	GetTagValueIDsForTagKeyID(tagID uint32) (tagValueIDs *roaring.Bitmap, err error)
+	GetTagValueIDsForTagKeyID(tagKeyID uint32) (tagValueIDs *roaring.Bitmap, err error)
 
 	// FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
-	FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter) (tagValueIDs *roaring.Bitmap, err error)
+	FindValueIDsByExprForTagKeyID(tagKeyID uint32, expr stmt.TagFilter) (tagValueIDs *roaring.Bitmap, err error)
 
 	// SuggestTagValues finds tag values by prefix search
-	SuggestTagValues(tagID uint32, tagValuePrefix string, limit int) []string
+	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
 
 	// WalkTagValues walks each tag value and bitmap via fn.
 	// If fn returns false, the iteration is stopped.
@@ -57,6 +61,24 @@ type tagReader struct {
 // NewReader returns a new TagReader
 func NewTagReader(readers []table.Reader) TagReader {
 	return &tagReader{readers: readers}
+}
+
+// GetTagValueSeq returns the auto sequence of tag value under the tag key, if not exist return constants.ErrNotFound
+// kv store returns the table.readers in order,
+// so the max sequence will be stored in the first table.reader that is tag key store.
+func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error) {
+	for _, reader := range r.readers {
+		value, ok := reader.Get(tagKeyID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
+		if err != nil {
+			return 0, err
+		}
+		return entrySet.TagValueSeq(), nil
+	}
+	return 0, constants.ErrNotFound
 }
 
 // GetTagValueID returns the tag value id for spec metric's tag key id, if not exist return constants.ErrNotFound
