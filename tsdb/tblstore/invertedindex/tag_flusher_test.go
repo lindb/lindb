@@ -24,7 +24,7 @@ func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 
 	// mock commit ok
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	err := indexFlusher.FlushTagKeyID(333)
+	err := indexFlusher.FlushTagKeyID(333, 100)
 	assert.Nil(t, err)
 }
 
@@ -53,11 +53,11 @@ func Test_InvertedIndexFlusher_RS_error(t *testing.T) {
 
 	// mock isPrefixKey error
 	mockRS.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("error1"))
-	assert.NotNil(t, indexFlusher.FlushTagKeyID(11))
+	assert.NotNil(t, indexFlusher.FlushTagKeyID(11, 10))
 	// mock LOUDS error
 	mockRS.EXPECT().MarshalBinary().Return([]byte("12345"), nil)
 	mockRS.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("error2"))
-	assert.NotNil(t, indexFlusher.FlushTagKeyID(11))
+	assert.NotNil(t, indexFlusher.FlushTagKeyID(11, 10))
 }
 
 func Test_SeriesIndexFlusher_OK(t *testing.T) {
@@ -73,5 +73,5 @@ func Test_SeriesIndexFlusher_OK(t *testing.T) {
 	// flush tagValue2
 	indexFlusher.FlushTagValue("2", 2)
 	// flush tagKeyID
-	assert.Nil(t, indexFlusher.FlushTagKeyID(0))
+	assert.Nil(t, indexFlusher.FlushTagKeyID(0, 10))
 }

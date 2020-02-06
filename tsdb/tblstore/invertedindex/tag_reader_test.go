@@ -55,7 +55,7 @@ func buildTagTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	/////////////////////////
 	flush(zoneMapping)
 	// pick the zoneBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(20)
+	_ = seriesFlusher.FlushTagKeyID(20, 20)
 	zoneBlock = append(zoneBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
@@ -63,7 +63,7 @@ func buildTagTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	/////////////////////////
 	flush(ipMapping)
 	// pick the ipBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(21)
+	_ = seriesFlusher.FlushTagKeyID(21, 21)
 	ipBlock = append(ipBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
@@ -71,7 +71,7 @@ func buildTagTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	/////////////////////////
 	flush(hostMapping)
 	// pick the hostBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(22)
+	_ = seriesFlusher.FlushTagKeyID(22, 22)
 	hostBlock = append(hostBlock, nopKVFlusher.Bytes()...)
 	return zoneBlock, ipBlock, hostBlock
 }
@@ -87,6 +87,32 @@ func buildSeriesIndexReader(ctrl *gomock.Controller) TagReader {
 	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, true).AnyTimes()
 	// build series index reader
 	return NewTagReader([]table.Reader{mockReader})
+}
+
+func TestTagReader_GetTagValueSeq(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		newTagKVEntrySetFunc = newTagKVEntrySet
+	}()
+
+	reader := buildSeriesIndexReader(ctrl)
+	// case 1: tag key id not exist
+	id, err := reader.GetTagValueSeq(19)
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Equal(t, uint32(0), id)
+	// case 2: get value
+	id, err = reader.GetTagValueSeq(22)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(22), id)
+
+	// case 3: new tag kv entry err
+	newTagKVEntrySetFunc = func(block []byte) (intf TagKVEntrySetINTF, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	id, err = reader.GetTagValueSeq(22)
+	assert.Error(t, err)
+	assert.Equal(t, uint32(0), id)
 }
 
 func TestTagReader_GetTagValueID(t *testing.T) {
