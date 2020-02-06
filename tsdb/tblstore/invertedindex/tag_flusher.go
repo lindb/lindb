@@ -16,7 +16,7 @@ type TagFlusher interface {
 	// FlushTagValue ends writing trie tree in tag index table.
 	FlushTagValue(tagValue string, tagValueID uint32)
 	// FlushTagKeyID ends writing trie tree data in tag index table.
-	FlushTagKeyID(tagID uint32) error
+	FlushTagKeyID(tagID uint32, tagValueSeq uint32) error
 	// Commit closes the writer, this will be called after writing all tagKeys.
 	Commit() error
 }
@@ -45,7 +45,7 @@ func (w *tagFlusher) FlushTagValue(tagValue string, tagValueID uint32) {
 }
 
 // FlushTagKeyID ends writing prefix trie in tag index table.
-func (w *tagFlusher) FlushTagKeyID(tagID uint32) error {
+func (w *tagFlusher) FlushTagKeyID(tagID uint32, tagValueSeq uint32) error {
 	defer w.reset()
 
 	treeDataBlock := w.trie.MarshalBinary()
@@ -56,7 +56,7 @@ func (w *tagFlusher) FlushTagKeyID(tagID uint32) error {
 	// write tagValueData list
 	w.writeTagValueData(treeDataBlock)
 	// write offsets, footer
-	w.writeOffsetsAndFooter()
+	w.writeOffsetsAndFooter(tagValueSeq)
 	// write all
 	data, _ := w.entrySetWriter.Bytes()
 	return w.kvFlusher.Add(tagID, data)
@@ -102,14 +102,15 @@ func (w *tagFlusher) writeTagValueData(treeDataBlock *trieTreeData) {
 	}
 }
 
-func (w *tagFlusher) writeOffsetsAndFooter() {
+func (w *tagFlusher) writeOffsetsAndFooter(tagValueSeq uint32) {
 	// offsets start position
 	offsetsStartPos := w.entrySetWriter.Len()
 	// write all tag value ids
 	w.entrySetWriter.PutBytes(w.tagValueIDs.MarshalBinary())
 	////////////////////////////////
-	// footer (tag value ids' offset+crc32 checksum)(4 bytes+4 bytes)
+	// footer (tag value seq+tag value ids' offset+crc32 checksum)(4 bytes+4 bytes+4 bytes)
 	////////////////////////////////
+	w.entrySetWriter.PutUint32(tagValueSeq)
 	// write tag value ids' start position
 	w.entrySetWriter.PutUint32(uint32(offsetsStartPos))
 	// write crc32 checksum

@@ -13,8 +13,8 @@ import (
 //go:generate mockgen -source ./tagkv_entryset.go -destination=./tagkv_entryset_mock.go -package invertedindex
 
 type TagKVEntrySetINTF interface {
-	// TagValuesCount returns the count of tag values under this tag key
-	TagValuesCount() int
+	// TagValueSeq returns the auto sequence of tag value id under this tag key
+	TagValueSeq() uint32
 	// TagValueIDs returns all tag value ids under this tag key
 	TagValueIDs() *roaring.Bitmap
 	// TrieTree builds the trie-tree block for querying
@@ -24,13 +24,6 @@ type TagKVEntrySetINTF interface {
 }
 
 type TagKVEntries []TagKVEntrySetINTF
-
-func (entries TagKVEntries) TagValuesCount() (count int) {
-	for _, entry := range entries {
-		count += entry.TagValuesCount()
-	}
-	return
-}
 
 // GetTagValueIDs gets all tag value ids under tag key entries
 func (entries TagKVEntries) GetTagValueIDs() *roaring.Bitmap {
@@ -46,6 +39,7 @@ type tagKVEntrySet struct {
 	sr            *stream.Reader
 	tree          trieTreeQuerier
 	crc32CheckSum uint32
+	tagValueSeq   uint32
 	tagValueIDs   *encoding.FixedOffsetDecoder
 }
 
@@ -56,10 +50,11 @@ func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
 	entrySet := &tagKVEntrySet{
 		sr: stream.NewReader(block),
 	}
-	// read footer(4+4)
+	// read footer(4+4+4)
 	footerPos := len(block) - tagFooterSize
-	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(block[footerPos : footerPos+4]))
-	entrySet.crc32CheckSum = binary.LittleEndian.Uint32(block[footerPos+4 : footerPos+8])
+	entrySet.tagValueSeq = binary.LittleEndian.Uint32(block[footerPos : footerPos+4])
+	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(block[footerPos+4 : footerPos+8]))
+	entrySet.crc32CheckSum = binary.LittleEndian.Uint32(block[footerPos+8 : footerPos+12])
 	// validate offsets
 	if !(tagValueIDsStartPos < footerPos) {
 		return nil, fmt.Errorf("bad offsets")
@@ -68,9 +63,9 @@ func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
 	return entrySet, nil
 }
 
-// TagValuesCount returns the count of tag values under this tag key
-func (entrySet *tagKVEntrySet) TagValuesCount() int {
-	return entrySet.tagValueIDs.Size()
+// TagValueSeq returns the auto sequence of tag value id under this tag key
+func (entrySet *tagKVEntrySet) TagValueSeq() uint32 {
+	return entrySet.tagValueSeq
 }
 
 // TagValueIDs returns all tag value ids under this tag key

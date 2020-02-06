@@ -3,27 +3,8 @@ package invertedindex
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestTagKVEntries(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	entries := TagKVEntries{}
-	assert.Equal(t, 0, entries.TagValuesCount())
-
-	tagKVEntry := NewMockTagKVEntrySetINTF(ctrl)
-	tagKVEntry.EXPECT().TagValuesCount().Return(10)
-	entries = TagKVEntries{tagKVEntry}
-	assert.Equal(t, 10, entries.TagValuesCount())
-
-	zone, _, _ := buildTagTrieBlock()
-	entry, err := newTagKVEntrySet(zone)
-	assert.NoError(t, err)
-	assert.Equal(t, 3, entry.TagValuesCount())
-}
 
 func Test_newTagKVEntrySet_error_cases(t *testing.T) {
 	// block length too short, 8 bytes
