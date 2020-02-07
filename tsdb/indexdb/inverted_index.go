@@ -4,8 +4,8 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
@@ -13,40 +13,43 @@ import (
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
 type InvertedIndex interface {
-	series.TagValueSuggester
-	// FindSeriesIDsByExpr finds series ids by tag filter expr for tag key id
-	FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error)
+	// GetSeriesIDsByTagValueIDs returns series ids by tag value ids for spec metric's tag key
+	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 	// GetSeriesIDsForTag get series ids for spec metric's tag key
 	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
 	GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error)
-	buildInvertIndex(metricID uint32, tags map[string]string, seriesID uint32)
+	// buildInvertIndex builds the inverted index for tag value => series ids,
+	// the tags is considered as a empty key-value pair while tags is nil.
+	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
+	// FlushInvertedIndexTo flushes the inverted-index of tag value id=>series ids under tag key
+	FlushInvertedIndexTo(flusher invertedindex.Flusher) error
 }
 
 type invertedIndex struct {
-	store     *tagIndexStore
-	generator metadb.IDGenerator
+	store    *TagIndexStore
+	metadata metadb.Metadata
 }
 
-func newInvertedIndex(generator metadb.IDGenerator) InvertedIndex {
+func newInvertedIndex(metadata metadb.Metadata) InvertedIndex {
 	return &invertedIndex{
-		generator: generator,
-		store:     newTagIndexStore(),
+		metadata: metadata,
+		store:    NewTagIndexStore(),
 	}
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr
-func (index *invertedIndex) FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
-	tagIndex, ok := index.store.get(tagKeyID)
+func (index *invertedIndex) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
+	tagIndex, ok := index.store.Get(tagKeyID)
 	if !ok {
 		return nil, constants.ErrNotFound
 	}
-	return tagIndex.findSeriesIDsByExpr(expr), nil
+	return tagIndex.getSeriesIDsByTagValueIDs(tagValueIDs), nil
 }
 
 // GetSeriesIDsForTag get series ids by tagKeyId
 func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
-	tagIndex, ok := index.store.get(tagKeyID)
+	tagIndex, ok := index.store.Get(tagKeyID)
 	if !ok {
 		return nil, constants.ErrNotFound
 	}
@@ -58,43 +61,51 @@ func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.Group
 	gCtx := query.NewGroupContext(tagKeysLen)
 	// validate tagKeys
 	for idx, tagKeyID := range tagKeyIDs {
-		tagIndex, ok := index.store.get(tagKeyID)
+		_, ok := index.store.Get(tagKeyID)
 		if !ok {
 			return nil, constants.ErrNotFound
 		}
 		tagValuesEntrySet := query.NewTagValuesEntrySet()
 		gCtx.SetTagValuesEntrySet(idx, tagValuesEntrySet)
-		tagValuesEntrySet.SetTagValues(tagIndex.getValues())
+		//FIXME stone1100
+		//tagValuesEntrySet.SetTagValues(tagIndex.getValues())
 	}
 	return &groupingContext{
 		gCtx: gCtx,
 	}, nil
 }
 
-func (index *invertedIndex) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
-	tagIndex, ok := index.store.get(tagKeyID)
-	if !ok {
-		return nil
-	}
-	return tagIndex.suggestTagValues(tagValuePrefix, limit)
-}
-
 // buildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (index *invertedIndex) buildInvertIndex(metricID uint32, tags map[string]string, seriesID uint32) {
+func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
+	metadataDB := index.metadata.MetadataDatabase()
+	tagMetadata := index.metadata.TagMetadata()
 	for tagKey, tagValue := range tags {
-		tagKeyID := index.generator.GenTagKeyID(metricID, tagKey)
-		tagIndex, ok := index.store.get(tagKeyID)
+		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey)
+		if err != nil {
+			//FIXME stone1100 add metric???
+			indexLogger.Error("gen tag key id fail, ignore index build for this tag key",
+				logger.String("key", tagKey), logger.Error(err))
+			continue
+		}
+		tagIndex, ok := index.store.Get(tagKeyID)
 		if !ok {
 			tagIndex = newTagIndex()
-			index.store.put(tagKeyID, tagIndex)
+			index.store.Put(tagKeyID, tagIndex)
 		}
-		tagIndex.buildInvertedIndex(tagValue, seriesID)
+		tagValueID, err := tagMetadata.GenTagValueID(tagKeyID, tagValue)
+		if err != nil {
+			//FIXME stone1100 add metric???
+			indexLogger.Error("gen tag value id fail, ignore index build for this tag key",
+				logger.String("key", tagKey), logger.String("value", tagValue), logger.Error(err))
+			continue
+		}
+		tagIndex.buildInvertedIndex(tagValueID, seriesID)
 	}
 }
 
-// FlushInvertedIndexTo flushes the inverted-index of mStore to the Writer
-func (index *invertedIndex) FlushInvertedIndexTo(flusher invertedindex.TagFlusher) error {
+// FlushInvertedIndexTo flushes the inverted-index of tag value id=>series ids under tag key
+func (index *invertedIndex) FlushInvertedIndexTo(flusher invertedindex.Flusher) error {
 	//seriesIDBitmap := index.store.tagKeyIDs
 	//for idx, highKey := range seriesIDBitmap.GetHighKeys() {
 	//	container := seriesIDBitmap.GetContainer(highKey)
@@ -114,5 +125,7 @@ func (index *invertedIndex) FlushInvertedIndexTo(flusher invertedindex.TagFlushe
 	//		}
 	//	}
 	//}
-	return nil
+	//return nil
+	//FIXME stone1100
+	panic("need to impl")
 }

@@ -1,4 +1,4 @@
-package invertedindex
+package metricsmeta
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-var invertedIndexReaderLogger = logger.GetLogger("tsdb", "InvertedIndexReader")
+var tagReaderLogger = logger.GetLogger("tsdb", "TagReader")
 
-//go:generate mockgen -source ./tag_reader.go -destination=./tag_reader_mock.go -package invertedindex
+//go:generate mockgen -source ./tag_reader.go -destination=./tag_reader_mock.go -package metricsmeta
 
 // for testing
 var (
@@ -72,6 +72,7 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 		if !ok {
 			continue
 		}
+		//FIXME stone1100 opt need cache entry set
 		entrySet, err := newTagKVEntrySetFunc(value)
 		if err != nil {
 			return 0, err
@@ -119,7 +120,7 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 		var offsets []int
 		q, err := entrySet.TrieTree()
 		if err != nil {
-			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
+			tagReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
 		}
 		switch expression := expr.(type) {
@@ -194,7 +195,7 @@ func (r *tagReader) SuggestTagValues(
 		}
 		q, err := entrySet.TrieTree()
 		if err != nil {
-			invertedIndexReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
+			tagReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
 		}
 		tagValues = append(tagValues, q.PrefixSearch(tagValuePrefix, limit-len(tagValues))...)

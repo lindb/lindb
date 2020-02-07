@@ -1,0 +1,65 @@
+{{range .}}
+
+package {{.package}}
+
+import (
+	"testing"
+
+	"github.com/lindb/roaring"
+	"github.com/stretchr/testify/assert"
+)
+
+// hack test
+func _assert{{.type}}StoreData(t *testing.T, keys []uint32, m *{{.type}}Store) {
+	for _, key := range keys {
+		found, highIdx, lowIdx := m.keys.ContainsAndRank(key)
+		assert.True(t, found)
+		assert.NotNil(t, m.values[highIdx][lowIdx-1])
+	}
+}
+
+func Test{{.type}}Store_Put(t *testing.T) {
+	m := New{{.type}}Store()
+	m.Put(1, {{.value}})
+	m.Put(8, {{.value}})
+	m.Put(3, {{.value}})
+	m.Put(5, {{.value}})
+	m.Put(6, {{.value}})
+	m.Put(7, {{.value}})
+	m.Put(4, {{.value}})
+	m.Put(2, {{.value}})
+	// test insert new high
+	m.Put(2000000, {{.value}})
+	// test insert new high
+	m.Put(200000, {{.value}})
+
+	_assert{{.type}}StoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000}, m)
+	assert.Equal(t, 10, m.Size())
+	assert.Len(t, m.Values(), 3)
+}
+
+func Test{{.type}}Store_Get(t *testing.T) {
+	m := New{{.type}}Store()
+	store, ok := m.Get(uint32(10))
+	assert.Nil(t, store)
+	assert.False(t, ok)
+	m.Put(1, {{.value}})
+	m.Put(8, {{.value}})
+	_, ok = m.Get(1)
+	assert.True(t, ok)
+	_, ok = m.Get(2)
+	assert.False(t, ok)
+	_, ok = m.Get(0)
+	assert.False(t, ok)
+	_, ok = m.Get(9)
+	assert.False(t, ok)
+}
+
+func Test{{.type}}Store_Keys(t *testing.T) {
+	m := New{{.type}}Store()
+	m.Put(1, {{.value}})
+	m.Put(8, {{.value}})
+	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
+}
+
+{{end}}

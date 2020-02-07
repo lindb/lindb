@@ -40,7 +40,7 @@ linters-settings:
     misspell:
         locale: US
     lll:
-        line-length: 150
+        line-length: 170
         tab-width: 1
     unused:
         check-exported: false

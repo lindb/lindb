@@ -1,0 +1,7 @@
+[
+    {
+        "package":"indexdb",
+        "type":"TagIndex",
+        "value":"newTagIndex()"
+    }
+]
