@@ -1,4 +1,4 @@
-package invertedindex
+package metricsmeta
 
 import (
 	"testing"

@@ -50,7 +50,8 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	// write error
 	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(10), nil),
+		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(10), nil),
 		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error")),
 	)
 	// load mock
@@ -61,19 +62,22 @@ func Test_MemoryDatabase_Write(t *testing.T) {
 	assert.Nil(t, md.Families())
 	// write ok
 	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(10), nil),
+		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(10), nil),
 		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
 	)
 	err = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
 	assert.NoError(t, err)
 	// test families
 	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(10), nil),
+		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(10), nil),
 		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
 	)
 	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564297200000})
 	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(10), nil),
+		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(10), nil),
 		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
 	)
 	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564308000000})

@@ -119,7 +119,7 @@ func (md *memoryDatabase) Write(metric *pb.Metric) error {
 	slotIndex := intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64()) // slot offset of family
 	metricID := md.generator.GenMetricID(metric.Name)
 	//FIXME stone1100
-	seriesID, _ := md.index.GetOrCreateSeriesID(metricID, metric.Tags, metric.TagsHash)
+	seriesID, _ := md.index.GetOrCreateSeriesID(metricID, "ns", metric.Name, metric.Tags, metric.TagsHash)
 	mStore := md.getOrCreateMStore(metricID)
 
 	writtenSize, err := mStore.Write(seriesID, metric.Fields, writeContext{

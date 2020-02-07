@@ -1,4 +1,4 @@
-package invertedindex
+package metricsmeta
 
 import (
 	"hash/crc32"
@@ -8,7 +8,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./tag_flusher.go -destination=./tag_flusher_mock.go -package invertedindex
+//go:generate mockgen -source ./tag_flusher.go -destination=./tag_flusher_mock.go -package metricsmeta
 
 // TagFlusher is a wrapper of kv.Builder, provides the ability to build a tag index table.
 // The layout is available in `tsdb/doc.go`

@@ -1,4 +1,4 @@
-package invertedindex
+package metricsmeta
 
 import (
 	"regexp"
@@ -16,7 +16,7 @@ import (
 // [2] Fast, Small, Simple Rank/Select on Bitmaps:
 //     https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
 
-//go:generate mockgen -source ./trie_tree.go -destination=./trie_tree_mock.go -package invertedindex
+//go:generate mockgen -source ./trie_tree.go -destination=./trie_tree_mock.go -package metricsmeta
 
 // trieTreeBuilder abstract a trie tree in memory.
 // All the descendants of a trieTreeNode have a common prefix of the string associated with that trieTreeNode,
