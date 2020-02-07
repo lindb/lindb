@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
 )
 
 // for testing
@@ -31,7 +32,7 @@ type indexDatabase struct {
 	backend          IDMappingBackend // id mapping backend storage
 	fileIndex        FileIndexDatabase
 	metricID2Mapping map[uint32]MetricIDMapping // key: metric id, value: metric id mapping
-	generator        metadb.IDGenerator         // the generator for generating ID of metric, field
+	metadata         metadb.Metadata            // the metadata for generating ID of metric, field
 	index            InvertedIndex
 
 	mutable      *mappingEvent // pending update events
@@ -44,8 +45,16 @@ type indexDatabase struct {
 	rwMutex sync.RWMutex // lock of create metric index
 }
 
+func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
+	panic("implement me")
+}
+
+func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, version series.Version) (series.GroupingContext, error) {
+	panic("implement me")
+}
+
 // NewIndexDatabase creates a new index database
-func NewIndexDatabase(ctx context.Context, name, parent string, generator metadb.IDGenerator, fileIndex FileIndexDatabase) (IndexDatabase, error) {
+func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata, fileIndex FileIndexDatabase) (IndexDatabase, error) {
 	backend, err := createBackend(name, parent)
 	if err != nil {
 		return nil, err
@@ -57,9 +66,9 @@ func NewIndexDatabase(ctx context.Context, name, parent string, generator metadb
 		cancel:           cancel,
 		backend:          backend,
 		fileIndex:        fileIndex,
-		generator:        generator,
+		metadata:         metadata,
 		metricID2Mapping: make(map[uint32]MetricIDMapping),
-		index:            newInvertedIndex(generator),
+		index:            newInvertedIndex(metadata),
 		mutable:          newMappingEvent(),
 		lastSyncTime:     timeutil.Now(),
 		syncSignal:       make(chan struct{}),
@@ -73,6 +82,7 @@ func NewIndexDatabase(ctx context.Context, name, parent string, generator metadb
 // GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory, then
 // builds inverted index for tags => series id, if generate fail return err
 func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
+	namespace, metricName string,
 	tags map[string]string, tagsHash uint64,
 ) (seriesID uint32, err error) {
 	db.rwMutex.Lock()
@@ -121,30 +131,20 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
 	db.notifySyncWithoutLock(false)
 
 	//FIXME stone100 need add goroutine
-	db.index.buildInvertIndex(metricID, tags, seriesID)
+	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
 	return seriesID, nil
 }
 
-func (db *indexDatabase) FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFilter, timeRange timeutil.TimeRange) (
-	*series.MultiVerSeriesIDSet, error) {
+func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
 	panic("implement me")
 }
 
-func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32, timeRange timeutil.TimeRange) (
-	*series.MultiVerSeriesIDSet, error) {
-	panic("implement me")
-}
-
-func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, version series.Version) (series.GroupingContext, error) {
-	panic("implement me")
-}
-
-func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
+func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
 	panic("implement me")
 }
 
 // FlushInvertedIndexTo flushes the series data to a inverted-index file.
-func (db *indexDatabase) FlushInvertedIndexTo(flusher invertedindex.TagFlusher) (err error) {
+func (db *indexDatabase) FlushInvertedIndexTo(flusher metricsmeta.TagFlusher) (err error) {
 	//db.metricHash2Index.Range(func(key, value interface{}) bool {
 	//	metricIDMapping := value.(MetricIDMapping)
 	//	if err = metricIDMapping.FlushInvertedIndexTo(flusher, db.generator); err != nil {

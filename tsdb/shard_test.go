@@ -27,15 +27,15 @@ func TestNewShard(t *testing.T) {
 
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 	thisShard, err := newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, thisShard)
 
 	thisShard, err = newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "as"})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, thisShard)
 
 	thisShard, err = newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, thisShard)
 	assert.Nil(t, thisShard.IndexDatabase())
 	assert.Equal(t, "db", thisShard.DatabaseName())

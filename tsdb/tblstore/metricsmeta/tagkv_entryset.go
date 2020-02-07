@@ -1,4 +1,4 @@
-package invertedindex
+package metricsmeta
 
 import (
 	"encoding/binary"
@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./tagkv_entryset.go -destination=./tagkv_entryset_mock.go -package invertedindex
+//go:generate mockgen -source ./tagkv_entryset.go -destination=./tagkv_entryset_mock.go -package metricsmeta
 
 type TagKVEntrySetINTF interface {
 	// TagValueSeq returns the auto sequence of tag value id under this tag key

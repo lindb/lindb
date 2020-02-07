@@ -235,13 +235,13 @@ func (s *shard) initIndexDatabase() error {
 		return err
 	}
 	//FIXME
-	s.indexDB, _ = indexdb.NewIndexDatabase(context.TODO(), "", "", s.idSequencer, nil)
+	s.indexDB, _ = indexdb.NewIndexDatabase(context.TODO(), "", "", nil, nil)
 	return nil
 }
 
 //FIXME
 func (s *shard) MemoryFilter() series.Filter { return nil }
-func (s *shard) IndexFilter() series.Filter  { return s.indexDB }
+func (s *shard) IndexFilter() series.Filter  { return nil }
 func (s *shard) IsFlushing() bool            { return s.isFlushing.Load() }
 
 func (s *shard) Flush() (err error) {

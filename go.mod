@@ -7,6 +7,7 @@ require (
 	github.com/GeertJohan/go.rice v1.0.0
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/antlr/antlr4 v0.0.0-20190623224521-a770ff26ccc4
+	github.com/benbjohnson/tmpl v1.0.0 // indirect
 	github.com/cespare/xxhash v1.1.0
 	github.com/coreos/bbolt v1.3.3
 	github.com/coreos/etcd v3.3.13+incompatible

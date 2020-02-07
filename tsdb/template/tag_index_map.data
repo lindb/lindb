@@ -1,0 +1,7 @@
+[
+    {
+        "package":"indexdb",
+        "type":"Tag",
+        "value":"*roaring.Bitmap"
+    }
+]

@@ -50,6 +50,14 @@ type IDSequencer interface {
 	FlushMetricsMeta() error
 }
 
+// Metadata represents all metadata of tsdb, like metric/tag metadata
+type Metadata interface {
+	// MetadataDatabase returns the metric level metadata
+	MetadataDatabase() MetadataDatabase
+	// TagMetadata returns the tag metadata
+	TagMetadata() TagMetadata
+}
+
 // MetadataDatabase represents the metadata storage includes namespace/metric metadata
 type MetadataDatabase interface {
 	io.Closer

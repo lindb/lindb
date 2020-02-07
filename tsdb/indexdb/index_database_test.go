@@ -11,7 +11,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -30,31 +29,37 @@ func TestNewIndexDatabase(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMemoryDatabase_GetOrCreateSeriesID(t *testing.T) {
+func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	generator := metadb.NewMockIDGenerator(ctrl)
-	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
+	tagMetadata := metadb.NewMockTagMetadata(ctrl)
+	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
 	assert.NoError(t, err)
 	// case 1: generate new series id and create new metric id mapping
-	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.1").Return(uint32(1), nil)
+	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.1",
 	}, 10)
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(1), seriesID)
 	// case 2: get series id from memory
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.1",
 	}, 10)
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(1), seriesID)
 	// case 3: generate new series id from memory
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.2").Return(uint32(2), nil)
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.2",
 	}, 20)
 	assert.NoError(t, err)
@@ -64,16 +69,17 @@ func TestMemoryDatabase_GetOrCreateSeriesID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// reopen
-	db, err = NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
 	assert.NoError(t, err)
 	// case 4: get series id from backend
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.2",
 	}, 20)
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(2), seriesID)
 	// case 5: gen series id, id sequence reset from backend
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.3").Return(uint32(3), nil)
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.3",
 	}, 30)
 	assert.NoError(t, err)
@@ -95,13 +101,15 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	createBackend = func(name, parent string) (IDMappingBackend, error) {
 		return backend, nil
 	}
-	generator := metadb.NewMockIDGenerator(ctrl)
-	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
 	assert.NoError(t, err)
 	// case 1: load metric mapping err
 	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(nil, fmt.Errorf("err"))
-	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.3",
 	}, 30)
 	assert.Error(t, err)
@@ -110,7 +118,7 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	// case 2: load series err
 	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(newMetricIDMapping(1, 0), nil)
 	backend.EXPECT().getSeriesID(uint32(1), uint64(30)).Return(uint32(0), fmt.Errorf("err"))
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.3",
 	}, 30)
 	assert.Error(t, err)
@@ -130,16 +138,10 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
 	assert.Panics(t, func() {
-		_, _ = db.FindSeriesIDsByExpr(1, nil, timeutil.TimeRange{})
+		_, _ = db.GetSeriesIDsForTag(1)
 	})
 	assert.Panics(t, func() {
-		_, _ = db.GetSeriesIDsForTag(1, timeutil.TimeRange{})
-	})
-	assert.Panics(t, func() {
-		_, _ = db.GetGroupingContext(nil, series.NewVersion())
-	})
-	assert.Panics(t, func() {
-		_ = db.SuggestTagValues(1, "ss", 100)
+		_, _ = db.GetSeriesIDsByTagValueIDs(1, nil)
 	})
 }
 
@@ -202,12 +204,17 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	}()
 
 	syncInterval = 100
-	generator := metadb.NewMockIDGenerator(ctrl)
-	generator.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(uint32(1)).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, generator, nil)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
+	tagMetadata := metadb.NewMockTagMetadata(ctrl)
+	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
 	assert.NoError(t, err)
 	// mock one metric event
-	seriesID, err := db.GetOrCreateSeriesID(1, map[string]string{
+	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.3").Return(uint32(3), nil)
+	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.3",
 	}, 30)
 	assert.NoError(t, err)
@@ -222,7 +229,8 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	db2.backend = backend
 	db2.rwMutex.Unlock()
 
-	seriesID, err = db.GetOrCreateSeriesID(1, map[string]string{
+	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.4").Return(uint32(4), nil)
+	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
 		"host": "1.1.1.4",
 	}, 40)
 	assert.NoError(t, err)
