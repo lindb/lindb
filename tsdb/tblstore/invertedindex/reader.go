@@ -10,6 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
+//go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package invertedindex
+
 const (
 	invertedIndexFooterSize = 4 + // tag value ids position
 		4 + // high offsets position

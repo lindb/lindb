@@ -2,6 +2,7 @@
     {
         "package":"indexdb",
         "type":"Tag",
-        "value":"roaring.New()"
+        "value":"roaring.New()",
+        "valueType":"*roaring.Bitmap"
     }
 ]

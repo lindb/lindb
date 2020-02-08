@@ -7,6 +7,7 @@
 package metadb
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/lindb/roaring"
@@ -40,6 +41,20 @@ func TestTagStore_Put(t *testing.T) {
 	_assertTagStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000}, m)
 	assert.Equal(t, 10, m.Size())
 	assert.Len(t, m.Values(), 3)
+
+	err := m.WalkEntry(func(key uint32, value TagEntry) error {
+		return fmt.Errorf("err")
+	})
+	assert.Error(t, err)
+
+	keys := []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000}
+	idx := 0
+	err = m.WalkEntry(func(key uint32, value TagEntry) error {
+		assert.Equal(t, keys[idx], key)
+		idx++
+		return nil
+	})
+	assert.NoError(t, err)
 }
 
 func TestTagStore_Get(t *testing.T) {

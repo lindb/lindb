@@ -78,3 +78,26 @@ func (m *TagIndexStore) Values() [][]TagIndex {
 func (m *TagIndexStore) Size() int {
 	return int(m.keys.GetCardinality())
 }
+
+// WalkEntry walks each kv entry via fn.
+func (m *TagIndexStore) WalkEntry(fn func(key uint32, value TagIndex) error) error {
+	values := m.values
+	keys := m.keys
+	highKeys := keys.GetHighKeys()
+	for highIdx, highKey := range highKeys {
+		hk := uint32(highKey) << 16
+		lowValues := values[highIdx]
+		lowContainer := keys.GetContainerAtIndex(highIdx)
+		it := lowContainer.PeekableIterator()
+		idx := 0
+		for it.HasNext() {
+			lowKey := it.Next()
+			value := lowValues[idx]
+			idx++
+			if err := fn(uint32(lowKey&0xFFFF)|hk, value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

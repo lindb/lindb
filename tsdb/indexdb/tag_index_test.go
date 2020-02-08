@@ -1,10 +1,14 @@
 package indexdb
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
 func TestTagIndex_buildInvertedIndex(t *testing.T) {
@@ -35,6 +39,27 @@ func TestTagIndex_getSeriesIDsByTagValueIDs(t *testing.T) {
 func TestTagIndex_getAllSeriesIDs(t *testing.T) {
 	tagIndex := prepareTagIdx()
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7, 8), tagIndex.getAllSeriesIDs())
+}
+
+func TestTagIndex_flush(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tagIndex := prepareTagIdx()
+	flusher := invertedindex.NewMockFlusher(ctrl)
+	// case 1: flush tag level series ids err
+	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := tagIndex.flush(flusher)
+	assert.Error(t, err)
+	// case 2: flush tag value series ids
+	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil)
+	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = tagIndex.flush(flusher)
+	assert.Error(t, err)
+	// case 3: flush success
+	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	err = tagIndex.flush(flusher)
+	assert.NoError(t, err)
 }
 
 func prepareTagIdx() TagIndex {

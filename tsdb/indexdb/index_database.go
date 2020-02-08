@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -29,8 +30,7 @@ type indexDatabase struct {
 	name             string
 	ctx              context.Context
 	cancel           context.CancelFunc
-	backend          IDMappingBackend // id mapping backend storage
-	fileIndex        FileIndexDatabase
+	backend          IDMappingBackend           // id mapping backend storage
 	metricID2Mapping map[uint32]MetricIDMapping // key: metric id, value: metric id mapping
 	metadata         metadb.Metadata            // the metadata for generating ID of metric, field
 	index            InvertedIndex
@@ -54,7 +54,7 @@ func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, version series.V
 }
 
 // NewIndexDatabase creates a new index database
-func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata, fileIndex FileIndexDatabase) (IndexDatabase, error) {
+func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata, family kv.Family) (IndexDatabase, error) {
 	backend, err := createBackend(name, parent)
 	if err != nil {
 		return nil, err
@@ -65,10 +65,9 @@ func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.
 		ctx:              c,
 		cancel:           cancel,
 		backend:          backend,
-		fileIndex:        fileIndex,
 		metadata:         metadata,
 		metricID2Mapping: make(map[uint32]MetricIDMapping),
-		index:            newInvertedIndex(metadata),
+		index:            newInvertedIndex(metadata, family),
 		mutable:          newMappingEvent(),
 		lastSyncTime:     timeutil.Now(),
 		syncSignal:       make(chan struct{}),

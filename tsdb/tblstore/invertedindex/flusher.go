@@ -18,8 +18,6 @@ type Flusher interface {
 	// FlushInvertedIndex ends writing trie tree in tag index table.
 	// !!!!NOTICE: need add tag value id in order. tag value id=0 store all series ids under this tag
 	FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error
-	// FLushTagValueBucket flushes the tag values based on bucket, saves high level offsets
-	FlushTagValueBucket()
 	// FlushTagKeyID ends writing trie tree data in tag index table.
 	FlushTagKeyID(tagID uint32) error
 	// Commit closes the writer, this will be called after writing all tag keys.
@@ -44,6 +42,7 @@ type flusher struct {
 	writer      *stream.BufferWriter
 	highOffsets *encoding.FixedOffsetEncoder
 	lowOffsets  *encoding.FixedOffsetEncoder
+	highKey     uint16
 }
 
 // FlushInvertedIndex writes tag value id->series ids inverted index data
@@ -52,8 +51,13 @@ func (w *flusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitma
 	if err != nil {
 		return err
 	}
-	pos := w.writer.Len()
+	highKey := encoding.HighBits(tagValueID)
+	if highKey != w.highKey {
+		// flush data by diff high key
+		w.flushTagValueBucket()
+	}
 
+	pos := w.writer.Len()
 	// write series ids into data block
 	w.writer.PutBytes(seriesData)
 	w.lowOffsets.Add(pos)
@@ -62,7 +66,12 @@ func (w *flusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitma
 	return nil
 }
 
-func (w *flusher) FlushTagValueBucket() {
+// flushTagValueBucket flushes data by bucket based on bitmap container
+func (w *flusher) flushTagValueBucket() {
+	if w.tagValueIDs.IsEmpty() {
+		return
+	}
+
 	defer w.lowOffsets.Reset()
 
 	pos := w.writer.Len()
@@ -73,6 +82,9 @@ func (w *flusher) FlushTagValueBucket() {
 // FlushTagKeyID ends writing tag inverted index data in index table.
 func (w *flusher) FlushTagKeyID(tagID uint32) error {
 	defer w.reset()
+
+	// check if has pending tag value bucket not flush
+	w.flushTagValueBucket()
 
 	tagValueIDsBlock, err := encoding.BitmapMarshal(w.tagValueIDs)
 	if err != nil {
