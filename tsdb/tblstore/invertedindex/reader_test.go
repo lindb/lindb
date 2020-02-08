@@ -38,7 +38,6 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 		for _, tagValueID := range tagValueIDs {
 			_ = seriesFlusher.FlushInvertedIndex(tagValueID, mapping[tagValueID])
 		}
-		seriesFlusher.FlushTagValueBucket()
 	}
 	/////////////////////////
 	// flush zone tag, tagID: 20
@@ -57,19 +56,12 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 	_ = seriesFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1))
 	_ = seriesFlusher.FlushInvertedIndex(2, roaring.BitmapOf(2))
 	_ = seriesFlusher.FlushInvertedIndex(3, roaring.BitmapOf(3))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(4000000, roaring.BitmapOf(4000000))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(5000000, roaring.BitmapOf(5000000))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(6000000, roaring.BitmapOf(6000000))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(7000000, roaring.BitmapOf(7000000))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(8000000, roaring.BitmapOf(8000000))
-	seriesFlusher.FlushTagValueBucket()
 	_ = seriesFlusher.FlushInvertedIndex(9000000, roaring.BitmapOf(9000000))
-	seriesFlusher.FlushTagValueBucket()
 
 	// pick the ipBlock buffer
 	_ = seriesFlusher.FlushTagKeyID(21)

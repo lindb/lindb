@@ -1,14 +1,23 @@
 package indexdb
 
 import (
+	"sync"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+)
+
+// for testing
+var (
+	newFlusherFunc = invertedindex.NewFlusher
+	newReaderFunc  = invertedindex.NewReader
 )
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
@@ -22,38 +31,73 @@ type InvertedIndex interface {
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
 	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
-	// FlushInvertedIndexTo flushes the inverted-index of tag value id=>series ids under tag key
-	FlushInvertedIndexTo(flusher invertedindex.Flusher) error
+	// Flush flushes the inverted-index of tag value id=>series ids under tag key
+	Flush() error
 }
 
 type invertedIndex struct {
-	store    *TagIndexStore
+	family   kv.Family // store tag value inverted index
 	metadata metadb.Metadata
+
+	mutable   *TagIndexStore
+	immutable *TagIndexStore
+
+	rwMutex sync.RWMutex
 }
 
-func newInvertedIndex(metadata metadb.Metadata) InvertedIndex {
+func newInvertedIndex(metadata metadb.Metadata, family kv.Family) InvertedIndex {
 	return &invertedIndex{
+		family:   family,
 		metadata: metadata,
-		store:    NewTagIndexStore(),
+		mutable:  NewTagIndexStore(),
 	}
 }
 
 // FindSeriesIDsByExpr finds series ids by tag filter expr
 func (index *invertedIndex) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
-	tagIndex, ok := index.store.Get(tagKeyID)
-	if !ok {
-		return nil, constants.ErrNotFound
+	result := roaring.New()
+	// read data from mem
+	index.loadSeriesIDsInMem(tagKeyID, func(tagIndex TagIndex) {
+		seriesIDs := tagIndex.getSeriesIDsByTagValueIDs(tagValueIDs)
+		if seriesIDs != nil {
+			result.Or(seriesIDs)
+		}
+	})
+
+	// read data from kv store
+	if err := index.loadSeriesIDsInKV(tagKeyID, func(reader invertedindex.Reader) error {
+		seriesIDs, err := reader.FindSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
+		if err != nil {
+			return err
+		}
+		result.Or(seriesIDs)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return tagIndex.getSeriesIDsByTagValueIDs(tagValueIDs), nil
+	return result, nil
 }
 
 // GetSeriesIDsForTag get series ids by tagKeyId
 func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
-	tagIndex, ok := index.store.Get(tagKeyID)
-	if !ok {
-		return nil, constants.ErrNotFound
+	result := roaring.New()
+	// read data from mem
+	index.loadSeriesIDsInMem(tagKeyID, func(tagIndex TagIndex) {
+		result.Or(tagIndex.getAllSeriesIDs())
+	})
+
+	// read data from kv store
+	if err := index.loadSeriesIDsInKV(tagKeyID, func(reader invertedindex.Reader) error {
+		seriesIDs, err := reader.GetSeriesIDsForTagKeyID(tagKeyID)
+		if err != nil {
+			return err
+		}
+		result.Or(seriesIDs)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	return tagIndex.getAllSeriesIDs(), nil
+	return result, nil
 }
 
 func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error) {
@@ -61,7 +105,7 @@ func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.Group
 	gCtx := query.NewGroupContext(tagKeysLen)
 	// validate tagKeys
 	for idx, tagKeyID := range tagKeyIDs {
-		_, ok := index.store.Get(tagKeyID)
+		_, ok := index.mutable.Get(tagKeyID)
 		if !ok {
 			return nil, constants.ErrNotFound
 		}
@@ -78,6 +122,9 @@ func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.Group
 // buildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as a empty key-value pair while tags is nil.
 func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
+	index.rwMutex.Lock()
+	defer index.rwMutex.Unlock()
+
 	metadataDB := index.metadata.MetadataDatabase()
 	tagMetadata := index.metadata.TagMetadata()
 	for tagKey, tagValue := range tags {
@@ -88,10 +135,10 @@ func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags 
 				logger.String("key", tagKey), logger.Error(err))
 			continue
 		}
-		tagIndex, ok := index.store.Get(tagKeyID)
+		tagIndex, ok := index.mutable.Get(tagKeyID)
 		if !ok {
 			tagIndex = newTagIndex()
-			index.store.Put(tagKeyID, tagIndex)
+			index.mutable.Put(tagKeyID, tagIndex)
 		}
 		tagValueID, err := tagMetadata.GenTagValueID(tagKeyID, tagValue)
 		if err != nil {
@@ -104,28 +151,92 @@ func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags 
 	}
 }
 
-// FlushInvertedIndexTo flushes the inverted-index of tag value id=>series ids under tag key
-func (index *invertedIndex) FlushInvertedIndexTo(flusher invertedindex.Flusher) error {
-	//seriesIDBitmap := index.store.tagKeyIDs
-	//for idx, highKey := range seriesIDBitmap.GetHighKeys() {
-	//	container := seriesIDBitmap.GetContainer(highKey)
-	//	tagIndexes := index.store.indexes[idx]
-	//	it := container.PeekableIterator()
-	//	i := 0
-	//	for it.HasNext() {
-	//		lowKeyID := it.Next()
-	//		tagIndex := tagIndexes[i]
-	//		tagValues := tagIndex.getValues()
-	//		for tagValue, seriesIDs := range tagValues {
-	//			flusher.FlushTagValue(tagValue, seriesIDs)
-	//		}
-	//		tagKeyID := uint32(lowKeyID) | uint32(highKey)
-	//		if err := flusher.FlushTagKeyID(tagKeyID); err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-	//return nil
-	//FIXME stone1100
-	panic("need to impl")
+// Flush flushes the inverted-index of tag value id=>series ids under tag key
+func (index *invertedIndex) Flush() error {
+	if !index.checkFlush() {
+		return nil
+	}
+
+	// flush immutable data into kv store
+	flusher := index.family.NewFlusher()
+	indexFlusher := newFlusherFunc(flusher)
+	if err := index.immutable.WalkEntry(func(key uint32, value TagIndex) error {
+		if err := value.flush(indexFlusher); err != nil {
+			return err
+		}
+		if err := indexFlusher.FlushTagKeyID(key); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	// commit kv stone meta
+	if err := indexFlusher.Commit(); err != nil {
+		return err
+	}
+	// finally clear immutable
+	index.rwMutex.Lock()
+	index.immutable = nil
+	index.rwMutex.Unlock()
+	return nil
+}
+
+// checkFlush checks if need do flush job, if need, do switch mutable/immutable
+func (index *invertedIndex) checkFlush() bool {
+	index.rwMutex.Lock()
+	defer index.rwMutex.Unlock()
+
+	if index.mutable.Size() == 0 && index.immutable == nil {
+		// no new data or immutable is not nil
+		return false
+	}
+	if index.mutable.Size() > 0 && index.immutable == nil {
+		// reset mutable, if flush fail immutable is not nil
+		index.immutable = index.mutable
+		index.mutable = NewTagIndexStore()
+	}
+	return true
+}
+
+// loadTagValueIDsInKV loads series ids in kv store
+func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID uint32, fn func(reader invertedindex.Reader) error) error {
+	// try get tag key id from kv store
+	snapshot := index.family.GetSnapshot()
+	defer snapshot.Close()
+
+	readers, err := snapshot.FindReaders(tagKeyID)
+	if err != nil {
+		// find table.Reader err, return it
+		return err
+	}
+	var reader invertedindex.Reader
+	if len(readers) > 0 {
+		// found tag data in kv store, try load series ids data
+		reader = newReaderFunc(readers)
+		if err := fn(reader); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// loadSeriesIDsInMem loads series ids from mutable/immutable store
+func (index *invertedIndex) loadSeriesIDsInMem(tagKeyID uint32, fn func(tagIndex TagIndex)) {
+	// define get tag series ids func
+	getSeriesIDsIDs := func(tagIndexStore *TagIndexStore) {
+		tag, ok := tagIndexStore.Get(tagKeyID)
+		if ok {
+			fn(tag)
+		}
+	}
+
+	// read data with read lock
+	index.rwMutex.RLock()
+	defer index.rwMutex.RUnlock()
+
+	getSeriesIDsIDs(index.mutable)
+	if index.immutable != nil {
+		getSeriesIDsIDs(index.immutable)
+	}
 }

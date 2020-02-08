@@ -27,8 +27,6 @@ func TestFlusher_FlushInvertedIndex(t *testing.T) {
 	assert.NoError(t, err)
 	err = indexFlusher.FlushInvertedIndex(3, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
-	indexFlusher.FlushTagValueBucket()
-	assert.NoError(t, err)
 	err = indexFlusher.FlushInvertedIndex(5, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	err = indexFlusher.FlushInvertedIndex(6, roaring.BitmapOf(1, 2, 3))

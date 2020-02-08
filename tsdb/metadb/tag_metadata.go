@@ -134,7 +134,12 @@ func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, l
 // if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
 	result := roaring.New()
-	result.Or(m.findTagValueIDsByExprTagInMem(tagKeyID, expr))
+	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
+		ids := tagEntry.findSeriesIDsByExpr(expr)
+		if ids != nil {
+			result.Or(ids)
+		}
+	})
 
 	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
 		tagValueIDs, err := reader.FindValueIDsByExprForTagKeyID(tagKeyID, expr)
@@ -154,7 +159,12 @@ func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter)
 // if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
 	result := roaring.New()
-	result.Or(m.getTagValueIDsForTagInMem(tagKeyID))
+	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
+		ids := tagEntry.getTagValueIDs()
+		if ids != nil {
+			result.Or(ids)
+		}
+	})
 
 	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
 		tagValueIDs, err := reader.GetTagValueIDsForTagKeyID(tagKeyID)
@@ -172,43 +182,24 @@ func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, er
 
 // Flush flushes the memory tag metadata into kv store
 func (m *tagMetadata) Flush() error {
-	m.rwMutex.Lock()
-	if m.mutable.Size() == 0 && m.immutable == nil {
-		// no new data or immutable is not nil
-		m.rwMutex.Unlock()
+	if !m.checkFlush() {
 		return nil
 	}
-	if m.mutable.Size() > 0 && m.immutable == nil {
-		// reset mutable, if flush fail immutable is not nil
-		m.immutable = m.mutable
-		m.mutable = NewTagStore()
-	}
-	m.rwMutex.Unlock()
 
 	// flush immutable data into kv store
 	fluster := m.family.NewFlusher()
 	tagFluster := newTagFlusherFunc(fluster)
-	keys := m.immutable.Keys()
-	values := m.immutable.Values()
-	highKeys := keys.GetHighKeys()
-	for highIdx, highKey := range highKeys {
-		hk := uint32(highKey) << 16
-		lowValues := values[highIdx]
-		lowContainer := keys.GetContainerAtIndex(highIdx)
-		it := lowContainer.PeekableIterator()
-		idx := 0
-		for it.HasNext() {
-			lowKey := it.Next()
-			tag := lowValues[idx]
-			idx++
-			tagValues := tag.getTagValues()
-			for tagValue, tagValueID := range tagValues {
-				tagFluster.FlushTagValue(tagValue, tagValueID)
-			}
-			if err := tagFluster.FlushTagKeyID(uint32(lowKey&0xFFFF)|hk, tag.getTagValueIDSeq()); err != nil {
-				return err
-			}
+	if err := m.immutable.WalkEntry(func(key uint32, value TagEntry) error {
+		tagValues := value.getTagValues()
+		for tagValue, tagValueID := range tagValues {
+			tagFluster.FlushTagValue(tagValue, tagValueID)
 		}
+		if err := tagFluster.FlushTagKeyID(key, value.getTagValueIDSeq()); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	if err := tagFluster.Commit(); err != nil {
 		return err
@@ -220,38 +211,24 @@ func (m *tagMetadata) Flush() error {
 	return nil
 }
 
-// findTagValueIDsByExprTagInMem finds tag value ids by expr from mutable/immutable store
-func (m *tagMetadata) findTagValueIDsByExprTagInMem(tagKeyID uint32, expr stmt.TagFilter) *roaring.Bitmap {
-	result := roaring.New()
+// checkFlush checks if need do flush job, if need, do switch mutable/immutable
+func (m *tagMetadata) checkFlush() bool {
+	m.rwMutex.Lock()
+	defer m.rwMutex.Unlock()
 
-	m.rwMutex.RLock()
-	defer m.rwMutex.RUnlock()
-
-	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
-		ids := tagEntry.findSeriesIDsByExpr(expr)
-		if ids != nil {
-			result.Or(ids)
-		}
-	})
-	return result
+	if m.mutable.Size() == 0 && m.immutable == nil {
+		// no new data or immutable is not nil
+		return false
+	}
+	if m.mutable.Size() > 0 && m.immutable == nil {
+		// reset mutable, if flush fail immutable is not nil
+		m.immutable = m.mutable
+		m.mutable = NewTagStore()
+	}
+	return true
 }
 
-// getTagValueIDsForTagInMem gets tag value ids from mutable/immutable store
-func (m *tagMetadata) getTagValueIDsForTagInMem(tagKeyID uint32) *roaring.Bitmap {
-	result := roaring.New()
-
-	m.rwMutex.RLock()
-	defer m.rwMutex.RUnlock()
-
-	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
-		ids := tagEntry.getTagValueIDs()
-		if ids != nil {
-			result.Or(ids)
-		}
-	})
-	return result
-}
-
+// loadTagValueIDsInKV loads tag value ids in kv store
 func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader metricsmeta.TagReader) error) error {
 	// try load tag value id from kv store
 	snapshot := m.family.GetSnapshot()
@@ -275,9 +252,6 @@ func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader metric
 
 // loadTagValueIDsInMem loads tag value ids from mutable/immutable store
 func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID uint32, fn func(tagEntry TagEntry)) {
-	m.rwMutex.RLock()
-	defer m.rwMutex.RUnlock()
-
 	// define get tag value ids func
 	getTagValueIDs := func(tagStore *TagStore) {
 		tag, ok := tagStore.Get(tagKeyID)
@@ -285,6 +259,9 @@ func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID uint32, fn func(tagEntry Tag
 			fn(tag)
 		}
 	}
+
+	m.rwMutex.RLock()
+	defer m.rwMutex.RUnlock()
 
 	getTagValueIDs(m.mutable)
 	if m.immutable != nil {

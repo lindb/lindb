@@ -2,7 +2,12 @@ package indexdb
 
 import (
 	"github.com/lindb/roaring"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
+
+//go:generate mockgen -source ./tag_index.go -destination=./tag_index_mock.go -package=indexdb
 
 // TagIndex represents the tag inverted index
 type TagIndex interface {
@@ -14,6 +19,9 @@ type TagIndex interface {
 	getValues() *TagStore
 	// getAllSeriesIDs returns all series ids
 	getAllSeriesIDs() *roaring.Bitmap
+	// flush flushes tag index under spec tag key,
+	// write series ids of tag key level with constants.TagValueIDForTag
+	flush(flusher invertedindex.Flusher) error
 }
 
 // tagIndex is a inverted mapping relation of tag-value and seriesID group.
@@ -73,4 +81,16 @@ func (index *tagIndex) getAllSeriesIDs() *roaring.Bitmap {
 // getValues returns the all tag values and series ids
 func (index *tagIndex) getValues() *TagStore {
 	return index.values
+}
+
+// flush flushes tag index under spec tag key,
+// write series ids of tag key level with constants.TagValueIDForTag
+func (index *tagIndex) flush(flusher invertedindex.Flusher) error {
+	// write tag level series ids
+	if err := flusher.FlushInvertedIndex(constants.TagValueIDForTag, index.seriesIDs); err != nil {
+		return err
+	}
+
+	// write each tag value series ids
+	return index.values.WalkEntry(flusher.FlushInvertedIndex)
 }
