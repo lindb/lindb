@@ -2,6 +2,7 @@
     {
         "package":"metadb",
         "type":"Tag",
-        "value":"newTagEntry(0)"
+        "value":"newTagEntry(0)",
+        "valueType":"TagEntry"
     }
 ]

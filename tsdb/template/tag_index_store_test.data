@@ -2,6 +2,7 @@
     {
         "package":"indexdb",
         "type":"TagIndex",
-        "value":"newTagIndex()"
+        "value":"newTagIndex()",
+        "valueType":"TagIndex"
     }
 ]
