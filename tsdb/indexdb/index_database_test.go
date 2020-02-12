@@ -11,6 +11,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -36,53 +37,39 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	metadata := metadb.NewMockMetadata(ctrl)
-	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
-	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
-	tagMetadata := metadb.NewMockTagMetadata(ctrl)
-	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
 	// case 1: generate new series id and create new metric id mapping
-	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.1").Return(uint32(1), nil)
-	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.1",
-	}, 10)
+	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 10)
 	assert.NoError(t, err)
+	assert.True(t, isCreated)
 	assert.Equal(t, uint32(1), seriesID)
 	// case 2: get series id from memory
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.1",
-	}, 10)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 10)
 	assert.NoError(t, err)
+	assert.False(t, isCreated)
 	assert.Equal(t, uint32(1), seriesID)
 	// case 3: generate new series id from memory
-	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.2").Return(uint32(2), nil)
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.2",
-	}, 20)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
 	assert.NoError(t, err)
+	assert.True(t, isCreated)
 	assert.Equal(t, uint32(2), seriesID)
 	// close db
 	err = db.Close()
 	assert.NoError(t, err)
 
 	// reopen
-	db, err = NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
 	// case 4: get series id from backend
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.2",
-	}, 20)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
 	assert.NoError(t, err)
+	assert.False(t, isCreated)
 	assert.Equal(t, uint32(2), seriesID)
 	// case 5: gen series id, id sequence reset from backend
-	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.3").Return(uint32(3), nil)
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.3",
-	}, 30)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 30)
 	assert.NoError(t, err)
+	assert.True(t, isCreated)
 	assert.Equal(t, uint32(3), seriesID)
 	// close db
 	err = db.Close()
@@ -109,19 +96,17 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	assert.NoError(t, err)
 	// case 1: load metric mapping err
 	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(nil, fmt.Errorf("err"))
-	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.3",
-	}, 30)
+	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 30)
 	assert.Error(t, err)
+	assert.False(t, isCreated)
 	assert.Equal(t, uint32(0), seriesID)
 
 	// case 2: load series err
 	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(newMetricIDMapping(1, 0), nil)
 	backend.EXPECT().getSeriesID(uint32(1), uint64(30)).Return(uint32(0), fmt.Errorf("err"))
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.3",
-	}, 30)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 30)
 	assert.Error(t, err)
+	assert.False(t, isCreated)
 	assert.Equal(t, uint32(0), seriesID)
 
 	backend.EXPECT().Close().Return(nil)
@@ -143,19 +128,12 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	assert.Panics(t, func() {
 		_, _ = db.GetSeriesIDsByTagValueIDs(1, nil)
 	})
-}
-
-func TestMemoryIndexDatabase_FlushInvertedIndexTo(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
-	//FIXME stone1100 need impl
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
-	assert.NoError(t, err)
-
-	err = db.FlushInvertedIndexTo(nil)
-	assert.NoError(t, err)
+	assert.Panics(t, func() {
+		_ = db.SuggestTagValues(1, "11", 100)
+	})
+	assert.Panics(t, func() {
+		_, _ = db.GetGroupingContext(nil, series.NewVersion())
+	})
 }
 
 func TestIndexDatabase_Close(t *testing.T) {
@@ -204,20 +182,12 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	}()
 
 	syncInterval = 100
-	metadata := metadb.NewMockMetadata(ctrl)
-	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
-	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
-	tagMetadata := metadb.NewMockTagMetadata(ctrl)
-	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
 	// mock one metric event
-	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.3").Return(uint32(3), nil)
-	seriesID, err := db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.3",
-	}, 30)
+	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 30)
 	assert.NoError(t, err)
+	assert.True(t, isCreated)
 	assert.Equal(t, uint32(1), seriesID)
 	time.Sleep(400 * time.Millisecond)
 
@@ -229,11 +199,9 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	db2.backend = backend
 	db2.rwMutex.Unlock()
 
-	tagMetadata.EXPECT().GenTagValueID(gomock.Any(), "1.1.1.4").Return(uint32(4), nil)
-	seriesID, err = db.GetOrCreateSeriesID(1, "ns", "name", map[string]string{
-		"host": "1.1.1.4",
-	}, 40)
+	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 40)
 	assert.NoError(t, err)
+	assert.True(t, isCreated)
 	assert.Equal(t, uint32(2), seriesID)
 	time.Sleep(400 * time.Millisecond)
 	_ = db.Close()

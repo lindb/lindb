@@ -4,7 +4,7 @@
 // DO NOT EDIT!
 // Source: int_map_test.tmpl
 
-package indexdb
+package memdb
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 )
 
 // hack test
-func _assertTagStoreData(t *testing.T, keys []uint32, m *TagStore) {
+func _assertMetricBucketStoreData(t *testing.T, keys []uint32, m *MetricBucketStore) {
 	for _, key := range keys {
 		found, highIdx := m.keys.ContainsAndRankForHigh(key)
 		assert.True(t, found)
@@ -25,34 +25,34 @@ func _assertTagStoreData(t *testing.T, keys []uint32, m *TagStore) {
 	}
 }
 
-func TestTagStore_Put(t *testing.T) {
-	m := NewTagStore()
-	m.Put(1, roaring.New())
-	m.Put(8, roaring.New())
-	m.Put(3, roaring.New())
-	m.Put(5, roaring.New())
-	m.Put(6, roaring.New())
-	m.Put(7, roaring.New())
-	m.Put(4, roaring.New())
-	m.Put(2, roaring.New())
+func TestMetricBucketStore_Put(t *testing.T) {
+	m := NewMetricBucketStore()
+	m.Put(1, newMetricStore())
+	m.Put(8, newMetricStore())
+	m.Put(3, newMetricStore())
+	m.Put(5, newMetricStore())
+	m.Put(6, newMetricStore())
+	m.Put(7, newMetricStore())
+	m.Put(4, newMetricStore())
+	m.Put(2, newMetricStore())
 	// test insert new high
-	m.Put(2000000, roaring.New())
-	m.Put(2000001, roaring.New())
+	m.Put(2000000, newMetricStore())
+	m.Put(2000001, newMetricStore())
 	// test insert new high
-	m.Put(200000, roaring.New())
+	m.Put(200000, newMetricStore())
 
-	_assertTagStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
+	_assertMetricBucketStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
 	assert.Equal(t, 11, m.Size())
 	assert.Len(t, m.Values(), 3)
 
-	err := m.WalkEntry(func(key uint32, value *roaring.Bitmap) error {
+	err := m.WalkEntry(func(key uint32, value mStoreINTF) error {
 		return fmt.Errorf("err")
 	})
 	assert.Error(t, err)
 
 	keys := []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}
 	idx := 0
-	err = m.WalkEntry(func(key uint32, value *roaring.Bitmap) error {
+	err = m.WalkEntry(func(key uint32, value mStoreINTF) error {
 		assert.Equal(t, keys[idx], key)
 		idx++
 		return nil
@@ -60,13 +60,13 @@ func TestTagStore_Put(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestTagStore_Get(t *testing.T) {
-	m := NewTagStore()
+func TestMetricBucketStore_Get(t *testing.T) {
+	m := NewMetricBucketStore()
 	store, ok := m.Get(uint32(10))
 	assert.Nil(t, store)
 	assert.False(t, ok)
-	m.Put(1, roaring.New())
-	m.Put(8, roaring.New())
+	m.Put(1, newMetricStore())
+	m.Put(8, newMetricStore())
 	_, ok = m.Get(1)
 	assert.True(t, ok)
 	_, ok = m.Get(2)
@@ -79,9 +79,9 @@ func TestTagStore_Get(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestTagStore_Keys(t *testing.T) {
-	m := NewTagStore()
-	m.Put(1, roaring.New())
-	m.Put(8, roaring.New())
+func TestMetricBucketStore_Keys(t *testing.T) {
+	m := NewMetricBucketStore()
+	m.Put(1, newMetricStore())
+	m.Put(8, newMetricStore())
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }

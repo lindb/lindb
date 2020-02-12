@@ -7,7 +7,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
@@ -30,14 +29,12 @@ type IndexDatabase interface {
 	series.TagValueSuggester
 	//FIXME
 	GetGroupingContext(tagKeyIDs []uint32, version series.Version) (series.GroupingContext, error)
-	// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory, then
-	// builds inverted index for tags => series id, if generate fail return err
-	GetOrCreateSeriesID(metricID uint32, namespace, metricName string,
-		tags map[string]string, tagsHash uint64) (seriesID uint32, err error)
+	// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
+	// if generate a new series id returns isCreate is true
+	// if generate fail return err
+	GetOrCreateSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, isCreated bool, err error)
 	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
 	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 	// GetSeriesIDsForTag gets series ids for spec metric's tag key
 	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
-	// FlushInvertedIndexTo flushes the series data to a inverted-index file.
-	FlushInvertedIndexTo(flusher metricsmeta.TagFlusher) (err error)
 }

@@ -89,8 +89,7 @@ type shard struct {
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition sync.WaitGroup  // flush condition
 
-	cancel         context.CancelFunc // cancel function
-	indexStore     kv.Store           // kv stores
+	indexStore     kv.Store // kv stores
 	invertedFamily kv.Family
 }
 
@@ -146,12 +145,8 @@ func newShard(
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	var ctx context.Context
-	ctx, createdShard.cancel = context.WithCancel(context.Background())
-	createdShard.memDB = memdb.NewMemoryDatabase(ctx, memdb.MemoryDatabaseCfg{
-		TimeWindow: option.TimeWindow,
-		Interval:   interval,
-		Generator:  idSequencer,
+	createdShard.memDB = memdb.NewMemoryDatabase(memdb.MemoryDatabaseCfg{
+		Interval: interval,
 	})
 	return createdShard, nil
 }
@@ -208,14 +203,14 @@ func (s *shard) Write(metric *pb.Metric) error {
 	}
 
 	// write metric point into memory db
-	return s.memDB.Write(metric)
+	//FIXME stone1100
+	return s.memDB.Write(metric.Namespace, metric.Name, 1, 1, metric.Timestamp, metric.Fields)
 }
 
 func (s *shard) Close() error {
 	if err := s.Flush(); err != nil {
 		return err
 	}
-	defer s.cancel()
 	return s.indexStore.Close()
 }
 

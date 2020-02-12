@@ -81,6 +81,8 @@ type MetadataDatabase interface {
 	// GenMetricID generates the metric id in the memory
 	GenMetricID(namespace, metricName string) (metricID uint32, err error)
 	// GenFieldID generates the field id in the memory
+	// error-case1: field type doesn't matches to before
+	// error-case2: there are too many fields
 	GenFieldID(namespace, metricName, fieldName string, fieldType field.Type) (uint16, error)
 	// GenTagKeyID generates the tag key id in the memory
 	GenTagKeyID(namespace, metricName, tagKey string) (uint32, error)

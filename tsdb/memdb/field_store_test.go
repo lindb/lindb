@@ -1,142 +1,168 @@
 package memdb
 
 import (
-	"sort"
+	"encoding/binary"
+	"fmt"
 	"testing"
-
-	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series/field"
 )
 
-func getMockSStore(ctrl *gomock.Controller, familyTime int64) *MocksStoreINTF {
-	mockSStore := NewMocksStoreINTF(ctrl)
-	mockSStore.EXPECT().GetFamilyTime().Return(familyTime).AnyTimes()
-	mockSStore.EXPECT().MemSize().Return(emptySimpleFieldStoreSize).AnyTimes()
-	return mockSStore
+func TestFieldStore_New(t *testing.T) {
+	buf := make([]byte, pageSize)
+
+	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	assert.NotNil(t, store)
+	assert.Equal(t, familyID(12), store.GetFamilyID())
+	assert.Equal(t, field.ID(1), store.GetFieldID())
+	assert.Equal(t, field.PrimitiveID(10), store.GetPrimitiveID())
+	s := store.(*fieldStore)
+	assert.Equal(t, uint16(0), s.getStart())
+	assert.Equal(t, uint16(15), s.timeWindow())
+	assert.Equal(t, field.Key(binary.LittleEndian.Uint16([]byte{1, 10})), s.GetFieldKey())
+	key := uint32(10) | uint32(1)<<8 | uint32(12)<<16
+	assert.Equal(t, key, s.GetKey())
 }
 
-func Test_newFieldStore(t *testing.T) {
-	fStore := newFieldStore(1)
-	assert.NotNil(t, fStore)
-	assert.Equal(t, uint16(1), fStore.GetFieldID())
-	timeRange, ok := fStore.TimeRange(10)
+func TestFieldStore_Write(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	buf := make([]byte, pageSize)
+	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	assert.NotNil(t, store)
+	s := store.(*fieldStore)
+
+	writtenSize := store.Write(field.SumField, 10, 10.1)
+	assert.Equal(t, valueSize+headLen, writtenSize)
+	// case 1: get write value
+	value, ok := s.getCurrentValue(10, 10)
+	assert.True(t, ok)
+	assert.InDelta(t, 10.1, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// case 2: get not exist value, out of time slot range
+	value, ok = s.getCurrentValue(10, 12)
 	assert.False(t, ok)
-	assert.Equal(t, int64(0), timeRange.Start)
-	assert.Equal(t, int64(0), timeRange.End)
-}
+	assert.Equal(t, 0.0, value)
+	value, ok = s.getCurrentValue(10, 0)
+	assert.False(t, ok)
+	assert.Equal(t, 0.0, value)
+	// case 3: write exist value, need rollup
+	writtenSize = store.Write(field.SumField, 10, 10.1)
+	assert.Zero(t, writtenSize)
+	value, ok = s.getCurrentValue(10, 10)
+	assert.True(t, ok)
+	assert.InDelta(t, 20.2, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// case 3: write new value
+	writtenSize = store.Write(field.SumField, 12, 12.1)
+	assert.Equal(t, valueSize, writtenSize)
+	value, ok = s.getCurrentValue(10, 12)
+	assert.True(t, ok)
+	assert.InDelta(t, 12.1, value, 0)
+	assert.Equal(t, uint16(2), s.getEnd())
+	// case 4: get value in time slot range
+	value, ok = s.getCurrentValue(10, 11)
+	assert.False(t, ok)
+	assert.Equal(t, 0.0, value)
+	// case 5: test slot range [10,12]
+	start, end := s.slotRange(s.getStart())
+	assert.Equal(t, uint16(10), start)
+	assert.Equal(t, uint16(12), end)
+	// case 6: compact for slot < start time, time range[5,12]
+	writtenSize = store.Write(field.SumField, 5, 5.3)
+	assert.True(t, valueSize < writtenSize)
+	start, end = s.slotRange(s.getStart())
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(12), end)
+	value, ok = s.getCurrentValue(5, 5)
+	assert.True(t, ok)
+	assert.InDelta(t, 5.3, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// case 7: write old value
+	writtenSize = store.Write(field.SumField, 10, 10.1)
+	assert.Equal(t, valueSize, writtenSize)
+	assert.Equal(t, uint16(5), s.getEnd())
+	// case 8: compact for slot > end time, time range[5,12]
+	writtenSize = store.Write(field.SumField, 50, 50.1)
+	assert.True(t, valueSize < writtenSize)
+	start, end = s.slotRange(s.getStart())
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(50), end)
+	value, ok = s.getCurrentValue(50, 50)
+	assert.True(t, ok)
+	assert.InDelta(t, 50.1, value, 0.0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// case 9: write 10 slot, compact old value
+	writtenSize = store.Write(field.SumField, 10, 10.1)
+	assert.True(t, valueSize < writtenSize)
+	assert.Equal(t, uint16(0), s.getEnd())
+	value, ok = s.getCurrentValue(10, 10)
+	assert.True(t, ok)
+	assert.InDelta(t, 10.1, value, 0)
 
-func Test_fStore_write(t *testing.T) {
-	fStore := newFieldStore(10)
-	theFieldStore := fStore.(*fieldStore)
-	writeCtx := writeContext{familyTime: 15, blockStore: newBlockStore(30)}
-
-	//unknown field
-	theFieldStore.Write(field.Unknown, &pb.Field{Name: "unknown"}, writeCtx)
-	// sum field
-	theFieldStore.Write(field.SumField, &pb.Field{Name: "sum", Field: &pb.Field_Sum{
-		Sum: &pb.Sum{
-			Value: 1.0,
+	// case 10: test final data by load
+	writtenSize = store.Write(field.SumField, 15, 15.1)
+	assert.Equal(t, valueSize, writtenSize)
+	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
+	gomock.InOrder(
+		pAgg.EXPECT().Aggregate(5, 5.3).Return(false),
+		pAgg.EXPECT().Aggregate(10, 40.4).Return(false),
+		pAgg.EXPECT().Aggregate(12, 12.1).Return(false),
+		pAgg.EXPECT().Aggregate(15, 15.1).Return(false),
+		pAgg.EXPECT().Aggregate(50, 50.1).Return(true),
+	)
+	s.Load(field.SumField, 0, 100,
+		[]aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+			tsd: encoding.GetTSDDecoder(),
 		},
-	}}, writeCtx)
+	)
 }
 
-func Test_fStore_timeRange(t *testing.T) {
+func TestFieldStore_Write_Compact_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		encodeFunc = encoding.NewTSDEncoder
+		ctrl.Finish()
+	}()
 
-	fStore := newFieldStore(10)
-	theFieldStore := fStore.(*fieldStore)
+	encode := encoding.NewMockTSDEncoder(ctrl)
+	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
+		return encode
+	}
 
-	mockSStore1 := getMockSStore(ctrl, 1564300800000)
-	mockSStore1.EXPECT().SlotRange().Return(uint16(1), uint16(10)).AnyTimes()
-	mockSStore2 := getMockSStore(ctrl, 1564304400000)
-	mockSStore2.EXPECT().SlotRange().Return(uint16(3), uint16(5)).AnyTimes()
-	mockSStore3 := getMockSStore(ctrl, 1564297200000)
-	mockSStore3.EXPECT().SlotRange().Return(uint16(6), uint16(13)).AnyTimes()
-	mockSStore4 := getMockSStore(ctrl, 1564308000000)
-	mockSStore4.EXPECT().SlotRange().Return(uint16(4), uint16(14)).AnyTimes()
+	buf := make([]byte, pageSize)
+	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	assert.NotNil(t, store)
+	s := store.(*fieldStore)
 
-	theFieldStore.insertSStore(mockSStore1)
-	timeRange, ok := theFieldStore.TimeRange(10 * 1000)
-	assert.Equal(t, int64(1564300810000), timeRange.Start)
-	assert.Equal(t, int64(1564300900000), timeRange.End)
+	writtenSize := store.Write(field.SumField, 10, 10.1)
+	assert.Equal(t, valueSize+headLen, writtenSize)
+	// test compress err
+	encode.EXPECT().AppendTime(gomock.Any())
+	encode.EXPECT().AppendValue(gomock.Any())
+	encode.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
+	writtenSize = store.Write(field.SumField, 100, 100.1)
+	assert.Equal(t, valueSize+headLen, writtenSize)
+	value, ok := s.getCurrentValue(100, 100)
 	assert.True(t, ok)
-
-	theFieldStore.insertSStore(mockSStore2)
-	theFieldStore.insertSStore(mockSStore4)
-	timeRange, ok = theFieldStore.TimeRange(10 * 1000)
-	assert.Equal(t, int64(1564300810000), timeRange.Start)
-	assert.Equal(t, int64(1564308140000), timeRange.End)
-	assert.True(t, ok)
+	assert.InDelta(t, 100.1, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// compress data is nil
+	assert.Nil(t, s.compress)
 }
 
-func Test_fStore_flushFieldTo(t *testing.T) {
+func TestFieldStore_FlushFieldTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	fStore := newFieldStore(10)
-	theFieldStore := fStore.(*fieldStore)
-
-	mockTF := makeMockDataFlusher(ctrl)
-	mockTF.EXPECT().GetFieldMeta(gomock.Any()).Return(field.Meta{}, false)
-	mockTF.EXPECT().GetFieldMeta(gomock.Any()).Return(field.Meta{
-		ID:   10,
-		Type: field.SumField,
-		Name: "f1",
-	}, true).MaxTimes(2)
-	mockSStore1 := getMockSStore(ctrl, 1564304400000)
-	mockSStore2 := getMockSStore(ctrl, 1564308000000)
-	mockSStore2.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(0)
-
-	theFieldStore.insertSStore(mockSStore1)
-	theFieldStore.insertSStore(mockSStore2)
-
-	assert.Len(t, theFieldStore.sStoreNodes, 2)
-	// familyTime not exist
-	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564297200000})
-	assert.Len(t, theFieldStore.sStoreNodes, 2)
-	// mock error
-	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564304400000})
-	assert.Len(t, theFieldStore.sStoreNodes, 1)
-	// mock ok
-	theFieldStore.FlushFieldTo(mockTF, flushContext{familyTime: 1564308000000})
-	assert.Len(t, theFieldStore.sStoreNodes, 0)
-}
-
-func Test_fStore_removeSStore(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	fsINTF := newFieldStore(1)
-	assert.Equal(t, emptyFieldStoreSize, fsINTF.MemSize())
-	fs := fsINTF.(*fieldStore)
-	// segments empty
-	fs.removeSStore(0)
-	fs.removeSStore(1)
-
-	// assert sorted
-	fs.insertSStore(getMockSStore(ctrl, 1))
-	fs.insertSStore(getMockSStore(ctrl, 9))
-	fs.insertSStore(getMockSStore(ctrl, 2))
-	fs.insertSStore(getMockSStore(ctrl, 3))
-	fs.insertSStore(getMockSStore(ctrl, 7))
-	fs.insertSStore(getMockSStore(ctrl, 5))
-	assert.NotEqual(t, emptyFieldStoreSize, fsINTF.MemSize())
-	assert.True(t, sort.IsSorted(fs.sStoreNodes))
-	// remove greater
-	fs.removeSStore(10)
-	// remove not exist
-	fs.removeSStore(8)
-	// remove smaller
-	fs.removeSStore(0)
-	// remove existed
-	fs.removeSStore(9)
-	fs.removeSStore(1)
-	fs.removeSStore(3)
-	fs.removeSStore(4)
-	fs.removeSStore(2)
-	fs.removeSStore(7)
+	buf := make([]byte, pageSize)
+	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	assert.NotNil(t, store)
+	store.FlushFieldTo(nil, field.Meta{}, flushContext{})
 }

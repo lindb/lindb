@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"context"
 	"sort"
 	"sync"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -22,11 +22,13 @@ import (
 
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
 
+type familyID uint8
+
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(metric *pb.Metric) error
+	Write(namespace, metricName string, metricID, seriesID uint32, timestamp int64, fields []*pb.Field) (err error)
 	// Families returns the families in memory which has not been flushed yet
 	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -42,146 +44,146 @@ type MemoryDatabase interface {
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
-	TimeWindow uint16
-	Interval   timeutil.Interval
-	Generator  metadb.IDGenerator
-	Index      indexdb.IndexDatabase
+	Interval timeutil.Interval
+	Metadata metadb.Metadata
+	Index    indexdb.IndexDatabase
+	TempPath string
 }
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
-	timeWindow uint16            // rollup window of memory-database
-	interval   timeutil.Interval // time interval of rollup
-	generator  metadb.IDGenerator
-	index      indexdb.IndexDatabase // memory index database for assign metric id/series id
-	ctx        context.Context
+	interval timeutil.Interval // time interval of rollup
+	metadata metadb.Metadata   // metadata for assign metric id/field id
 
-	blockStore  *blockStore   // reusable pool
-	mStores     *metricBucket // metric-id -> *metricStore
-	size        atomic.Int32  // memory database's size
-	familyTimes sync.Map      // familyTime(int64) -> struct{}
+	mStores *MetricBucketStore // metric id => mStoreINTF
+	buf     DataPointBuffer
 
-	lock sync.Mutex //lock of create metric store
+	size        atomic.Int32    // memory database's size
+	familyTimes map[int64]uint8 // familyTime(int64) -> family time id
+	familyIDSeq uint8
+
+	rwMutex sync.RWMutex //lock of create metric store
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
-func NewMemoryDatabase(ctx context.Context, cfg MemoryDatabaseCfg) MemoryDatabase {
+func NewMemoryDatabase(cfg MemoryDatabaseCfg) MemoryDatabase {
+	//FIXME check temp path is empty
+	buf := newDataPointBuffer(cfg.TempPath)
 	return &memoryDatabase{
-		timeWindow: cfg.TimeWindow,
-		interval:   cfg.Interval,
-		generator:  cfg.Generator,
-		index:      cfg.Index,
-		ctx:        ctx,
-		blockStore: newBlockStore(cfg.TimeWindow),
-		mStores:    newMetricBucket(),
-		size:       *atomic.NewInt32(0),
+		interval:    cfg.Interval,
+		metadata:    cfg.Metadata,
+		buf:         buf,
+		mStores:     NewMetricBucketStore(),
+		size:        *atomic.NewInt32(0),
+		familyTimes: make(map[int64]uint8),
 	}
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
 func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF) {
-	mStore, ok := md.mStores.get(metricID)
-
+	mStore, ok := md.mStores.Get(metricID)
 	if !ok {
 		// not found need create new metric store
-		md.lock.Lock()
-		// double check mStore if exist
-		mStore, ok = md.mStores.get(metricID)
-		if !ok {
-			mStore = newMetricStore()
-			md.size.Add(emptyMStoreSize)
-			md.mStores.put(metricID, mStore)
-		}
-		md.lock.Unlock()
+		mStore = newMetricStore()
+		md.size.Add(emptyMStoreSize)
+		md.mStores.Put(metricID, mStore)
 	}
 	// found metric store in current memory database
 	return
 }
 
-// writeContext holds the context for writing
-type writeContext struct {
-	blockStore *blockStore
-	generator  metadb.IDGenerator
-	familyTime int64
-	metricID   uint32
-	slotIndex  uint16
-	mStoreFieldIDGetter
+// flushContext holds the context for flushing
+type flushContext struct {
+	metricID     uint32
+	familyID     uint8
+	timeInterval int64
+
+	start, end uint16 // start/end time slot, metric level flush context
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(metric *pb.Metric) error {
-	timestamp := metric.Timestamp
+func (md *memoryDatabase) Write(namespace, metricName string, metricID,
+	seriesID uint32,
+	timestamp int64, fields []*pb.Field,
+) (err error) {
 	// calculate family start time and slot index
 	intervalCalc := md.interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                         // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)                      // hours
-	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)            // family timestamp
-	slotIndex := intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64()) // slot offset of family
-	metricID := md.generator.GenMetricID(metric.Name)
-	//FIXME stone1100
-	seriesID, _ := md.index.GetOrCreateSeriesID(metricID, "ns", metric.Name, metric.Tags, metric.TagsHash)
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                                 // day
+	family := intervalCalc.CalcFamily(timestamp, segmentTime)                              // hours
+	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)                    // family timestamp
+	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64())) // slot offset of family
+
+	md.rwMutex.Lock()
+	defer md.rwMutex.Unlock()
+
 	mStore := md.getOrCreateMStore(metricID)
+	// assign family id for family time
+	fi := md.assignFamilyID(familyTime)
+	fID := familyID(fi)
 
-	writtenSize, err := mStore.Write(seriesID, metric.Fields, writeContext{
-		metricID:            metricID,
-		familyTime:          familyTime,
-		blockStore:          md.blockStore,
-		generator:           md.generator,
-		slotIndex:           uint16(slotIndex), //FIXME
-		mStoreFieldIDGetter: mStore})
-	if err == nil {
-		// set family times
-		md.familyTimes.Store(familyTime, struct{}{})
+	tStore, size := mStore.GetOrCreateTStore(seriesID)
+	written := false
+	for _, f := range fields {
+		fieldType := getFieldType(f)
+		if fieldType == field.Unknown {
+			//FIXME add log or metric
+			continue
+		}
+		fieldID, err := md.metadata.MetadataDatabase().GenFieldID(namespace, metricName, f.Name, fieldType)
+		if err != nil {
+			//FIXME stone1100 add metric
+			continue
+		}
+		//fStore, writtenSize := tStore.GetFStore(fieldID)
+		pStore, ok := tStore.GetFStore(fID, field.ID(fieldID), field.PrimitiveID(1))
+		if !ok {
+			buf, err := md.buf.AllocPage()
+			if err != nil {
+				return err
+			}
+			pStore = newFieldStore(buf, fID, field.ID(fieldID), field.PrimitiveID(1))
+			size += emptyPrimitiveFieldStoreSize + 8
+			tStore.InsertFStore(pStore)
+		}
+		value := md.getFieldValue(fieldType, f)
+		size += pStore.Write(fieldType, slotIndex, value)
+
+		// if write data success, add field into metric level for cache
+		mStore.AddField(fieldID, fieldType)
+		written = true
 	}
-	md.size.Add(int32(writtenSize))
-	return err
-}
-
-// CountMetrics returns count of metrics in all buckets.
-func (md *memoryDatabase) CountMetrics() int {
-	return md.mStores.size()
+	if written {
+		mStore.SetTimestamp(fi, slotIndex)
+	}
+	md.size.Add(int32(size))
+	return nil
 }
 
 // Families returns the families in memory which has not been flushed yet.
 func (md *memoryDatabase) Families() []int64 {
 	var families []int64
-	md.familyTimes.Range(func(key, value interface{}) bool {
-		familyTime := key.(int64)
+	for familyTime := range md.familyTimes {
 		families = append(families, familyTime)
-		return true
-	})
+	}
 	sort.Slice(families, func(i, j int) bool {
 		return families[i] < families[j]
 	})
 	return families
 }
 
-// flushContext holds the context for flushing
-type flushContext struct {
-	metricID     uint32
-	familyTime   int64
-	timeInterval int64
-
-	start, end uint16 // start/end time slot, metric level flush context
-}
-
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error {
-	metricIDs := md.mStores.getAllMetricIDs()
-	it := metricIDs.Iterator()
-	for it.HasNext() {
-		metricID := it.Next()
-		mStore, ok := md.mStores.get(metricID)
-		if ok {
-			err := mStore.FlushMetricsDataTo(flusher, flushContext{
-				metricID:     metricID,
-				familyTime:   familyTime,
-				timeInterval: md.interval.Int64(),
-			})
-			if err != nil {
-				return err
-			}
+	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
+		if err := value.FlushMetricsDataTo(flusher, flushContext{
+			metricID:     key,
+			familyID:     md.familyTimes[familyTime],
+			timeInterval: md.interval.Int64(),
+		}); err != nil {
+			return err
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	//FIXME stone1100 remove it, and test family.deleteObsoleteFiles
 	return flusher.Commit()
@@ -192,7 +194,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []uint16,
 	version series.Version, seriesIDs *roaring.Bitmap,
 ) ([]flow.FilterResultSet, error) {
-	mStore, ok := md.mStores.get(metricID)
+	mStore, ok := md.mStores.Get(metricID)
 	if !ok {
 		return nil, nil
 	}
@@ -207,4 +209,32 @@ func (md *memoryDatabase) Interval() int64 {
 // MemSize returns the time series database memory size
 func (md *memoryDatabase) MemSize() int32 {
 	return md.size.Load()
+}
+
+// assignFamily assigns family id for family time
+func (md *memoryDatabase) assignFamilyID(familyTime int64) uint8 {
+	familyID, ok := md.familyTimes[familyTime]
+	if ok {
+		return familyID
+	}
+	familyID = md.familyIDSeq
+	md.familyIDSeq++
+	md.familyTimes[familyTime] = familyID
+	return familyID
+}
+
+// getFieldValue returns the field value based on field type
+func (md *memoryDatabase) getFieldValue(fieldType field.Type, f *pb.Field) float64 {
+	switch fieldType {
+	case field.SumField:
+		return f.GetSum().Value
+	case field.MinField:
+		return f.GetMin().Value
+	case field.MaxField:
+		return f.GetMax().Value
+	case field.GaugeField:
+		return f.GetGauge().Value
+	default:
+		return 0
+	}
 }

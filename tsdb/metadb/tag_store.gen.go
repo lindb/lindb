@@ -28,40 +28,51 @@ func (m *TagStore) Get(key uint32) (TagEntry, bool) {
 	if len(m.values) == 0 {
 		return nil, false
 	}
-	found, highIdx, lowIdx := m.keys.ContainsAndRank(key)
+	// get high index
+	found, highIdx := m.keys.ContainsAndRankForHigh(key)
 	if !found {
 		return nil, false
 	}
-	return m.values[highIdx][lowIdx-1], true
+	// get log index
+	found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
+	if !found {
+		return nil, false
+	}
+	return m.values[highIdx-1][lowIdx-1], true
 }
 
 // Put puts the value by key
 func (m *TagStore) Put(key uint32, value TagEntry) {
 	if len(m.values) == 0 {
 		// if values is empty, append new low container directly
-		m.keys.Add(key)
 		m.values = append(m.values, []TagEntry{value})
+
+		m.keys.Add(key)
 		return
 	}
-
-	// try find key if exist
-	found, highIdx, lowIdx := m.keys.ContainsAndRank(key)
+	found, highIdx := m.keys.ContainsAndRankForHigh(key)
 	if !found {
-		// not found
+		// high container not exist, insert it
+		stores := m.values
+		// insert operation
+		stores = append(stores, nil)
+		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
+		stores[highIdx] = []TagEntry{value}
+		m.values = stores
+
 		m.keys.Add(key)
-		if highIdx >= 0 {
-			// high container exist
-			stores := m.values[highIdx]
-			// insert operation
-			stores = append(stores, nil)
-			copy(stores[lowIdx+1:], stores[lowIdx:len(stores)-1])
-			stores[lowIdx] = value
-			m.values[highIdx] = stores
-		} else {
-			// high container not exist, append operation
-			m.values = append(m.values, []TagEntry{value})
-		}
+		return
 	}
+	// high container exist
+	lowIdx := m.keys.RankForLow(key, highIdx-1)
+	stores := m.values[highIdx-1]
+	// insert operation
+	stores = append(stores, nil)
+	copy(stores[lowIdx+1:], stores[lowIdx:len(stores)-1])
+	stores[lowIdx] = value
+	m.values[highIdx-1] = stores
+
+	m.keys.Add(key)
 }
 
 // Keys returns the all keys

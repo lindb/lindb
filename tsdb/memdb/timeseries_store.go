@@ -3,39 +3,22 @@ package memdb
 import (
 	"sort"
 
-	"go.uber.org/atomic"
-
-	"github.com/lindb/lindb/pkg/lockers"
-	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock.go -package memdb
 
-const emptyTimeSeriesStoreSize = 4 + // spin-lock
-	4 + // last-wrote_time
-	24 // fStores
+const emptyTimeSeriesStoreSize = 24 // fStores
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetFStore returns the fStore in this list from field-id.
-	GetFStore(fieldID uint16) (fStoreINTF, bool)
-
-	// Write writes the metric
-	Write(
-		fields []*pb.Field,
-		writeCtx writeContext,
-	) (
-		writtenSize int,
-		err error)
-
+	// GetFStore returns the fStore in field list by family/field/primitive
+	GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool)
+	// InsertFStore inserts a new fStore to field list.
+	InsertFStore(fStore fStoreINTF)
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
-
-	MemSize() int
-
 	// scan scans the time series data based on field ids
 	scan(memScanCtx *memScanContext)
 }
@@ -44,75 +27,47 @@ type tStoreINTF interface {
 type fStoreNodes []fStoreINTF
 
 func (f fStoreNodes) Len() int           { return len(f) }
-func (f fStoreNodes) Less(i, j int) bool { return f[i].GetFieldID() < f[j].GetFieldID() }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].GetKey() < f[j].GetKey() }
 func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {
-	sl            lockers.SpinLock // spin-lock
-	lastWroteTime atomic.Uint32    // last Write-time in seconds
-	fStoreNodes   fStoreNodes      // key: sorted fStore list by field-name, insert-only
+	fStoreNodes fStoreNodes // key: sorted fStore list by field-name, insert-only
 }
 
 // newTimeSeriesStore returns a new tStoreINTF.
 func newTimeSeriesStore() tStoreINTF {
-	return &timeSeriesStore{
-		lastWroteTime: *atomic.NewUint32(uint32(timeutil.Now() / 1000))}
+	return &timeSeriesStore{}
 }
 
 // GetFStore returns the fStore in this list from field-id.
-func (ts *timeSeriesStore) GetFStore(fieldID uint16) (fStoreINTF, bool) {
-	idx := sort.Search(len(ts.fStoreNodes), func(i int) bool {
-		return ts.fStoreNodes[i].GetFieldID() >= fieldID
+func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool) {
+	fieldKey := uint32(pField) | uint32(fieldID)<<8 | uint32(familyID)<<16
+	fieldLength := len(ts.fStoreNodes)
+	if fieldLength == 1 {
+		if ts.fStoreNodes[0].GetKey() != fieldKey {
+			return nil, false
+		}
+		return ts.fStoreNodes[0], true
+
+	}
+	idx := sort.Search(fieldLength, func(i int) bool {
+		return ts.fStoreNodes[i].GetKey() >= fieldKey
 	})
-	if idx >= len(ts.fStoreNodes) || ts.fStoreNodes[idx].GetFieldID() != fieldID {
+	if idx >= fieldLength || ts.fStoreNodes[idx].GetKey() != fieldKey {
 		return nil, false
 	}
 	return ts.fStoreNodes[idx], true
 }
 
-// insertFStore inserts a new fStore to field list.
-func (ts *timeSeriesStore) insertFStore(fStore fStoreINTF) {
+// InsertFStore inserts a new fStore to field list.
+func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
+	if ts.fStoreNodes == nil {
+		ts.fStoreNodes = []fStoreINTF{fStore}
+		return
+	}
 	ts.fStoreNodes = append(ts.fStoreNodes, fStore)
 	sort.Sort(ts.fStoreNodes)
-}
-
-// Write Write the data of metric to the fStore.
-func (ts *timeSeriesStore) Write(
-	fields []*pb.Field,
-	writeCtx writeContext,
-) (
-	writtenSize int,
-	err error,
-) {
-	ts.sl.Lock()
-	defer ts.sl.Unlock()
-
-	for _, f := range fields {
-		// todo FieldType
-		fieldType := getFieldType(f)
-		if fieldType == field.Unknown {
-			//TODO add log or metric
-			continue
-		}
-
-		fieldID, err := writeCtx.GetFieldIDOrGenerate(writeCtx.metricID, f.Name, fieldType, writeCtx.generator)
-		// error-case1: field type doesn't matches to before
-		// error-case2: there are too many fields
-		if err != nil {
-			return 0, err
-		}
-		fStore, ok := ts.GetFStore(fieldID)
-		if !ok {
-			oldCap := cap(ts.fStoreNodes)
-			fStore = newFieldStore(fieldID)
-			ts.insertFStore(fStore)
-			writtenSize += (cap(ts.fStoreNodes)-oldCap)*8 + fStore.MemSize()
-		}
-		writtenSize += fStore.Write(fieldType, f, writeCtx)
-		ts.lastWroteTime.Store(uint32(timeutil.Now() / 1000))
-	}
-	return writtenSize, err
 }
 
 // FlushSeriesTo flushes the series data segment.
@@ -120,19 +75,9 @@ func (ts *timeSeriesStore) FlushSeriesTo(
 	flusher metricsdata.Flusher,
 	flushCtx flushContext,
 ) {
-	ts.sl.Lock()
-	for _, fStore := range ts.fStoreNodes {
-		fStore.FlushFieldTo(flusher, flushCtx)
-	}
-	flusher.FlushSeries()
-	// update time range info
-	ts.sl.Unlock()
-}
-
-func (ts *timeSeriesStore) MemSize() int {
-	size := emptyTimeSeriesStoreSize + 8*cap(ts.fStoreNodes)
-	for _, fStore := range ts.fStoreNodes {
-		size += fStore.MemSize()
-	}
-	return size
+	// FIXME stone100
+	//for _, fStore := range ts.fStoreNodes {
+	//	fStore.FlushFieldTo(flusher, flushCtx)
+	//}
+	//flusher.FlushSeries()
 }

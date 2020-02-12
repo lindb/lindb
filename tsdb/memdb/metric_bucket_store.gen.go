@@ -4,27 +4,27 @@
 // DO NOT EDIT!
 // Source: int_map.tmpl
 
-package indexdb
+package memdb
 
 import (
 	"github.com/lindb/roaring"
 )
 
-// TagStore represents int map using roaring bitmap
-type TagStore struct {
-	keys   *roaring.Bitmap     // store all keys
-	values [][]*roaring.Bitmap // store all values by high/low key
+// MetricBucketStore represents int map using roaring bitmap
+type MetricBucketStore struct {
+	keys   *roaring.Bitmap // store all keys
+	values [][]mStoreINTF  // store all values by high/low key
 }
 
-// NewTagStore creates a int map
-func NewTagStore() *TagStore {
-	return &TagStore{
+// NewMetricBucketStore creates a int map
+func NewMetricBucketStore() *MetricBucketStore {
+	return &MetricBucketStore{
 		keys: roaring.New(),
 	}
 }
 
 // Get returns value by key, if exist returns it, else returns nil, false
-func (m *TagStore) Get(key uint32) (*roaring.Bitmap, bool) {
+func (m *MetricBucketStore) Get(key uint32) (mStoreINTF, bool) {
 	if len(m.values) == 0 {
 		return nil, false
 	}
@@ -42,10 +42,10 @@ func (m *TagStore) Get(key uint32) (*roaring.Bitmap, bool) {
 }
 
 // Put puts the value by key
-func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
+func (m *MetricBucketStore) Put(key uint32, value mStoreINTF) {
 	if len(m.values) == 0 {
 		// if values is empty, append new low container directly
-		m.values = append(m.values, []*roaring.Bitmap{value})
+		m.values = append(m.values, []mStoreINTF{value})
 
 		m.keys.Add(key)
 		return
@@ -57,7 +57,7 @@ func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
 		// insert operation
 		stores = append(stores, nil)
 		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
-		stores[highIdx] = []*roaring.Bitmap{value}
+		stores[highIdx] = []mStoreINTF{value}
 		m.values = stores
 
 		m.keys.Add(key)
@@ -76,22 +76,22 @@ func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
 }
 
 // Keys returns the all keys
-func (m *TagStore) Keys() *roaring.Bitmap {
+func (m *MetricBucketStore) Keys() *roaring.Bitmap {
 	return m.keys
 }
 
 // Values returns the all values
-func (m *TagStore) Values() [][]*roaring.Bitmap {
+func (m *MetricBucketStore) Values() [][]mStoreINTF {
 	return m.values
 }
 
 // size returns the size of keys
-func (m *TagStore) Size() int {
+func (m *MetricBucketStore) Size() int {
 	return int(m.keys.GetCardinality())
 }
 
 // WalkEntry walks each kv entry via fn.
-func (m *TagStore) WalkEntry(fn func(key uint32, value *roaring.Bitmap) error) error {
+func (m *MetricBucketStore) WalkEntry(fn func(key uint32, value mStoreINTF) error) error {
 	values := m.values
 	keys := m.keys
 	highKeys := keys.GetHighKeys()
