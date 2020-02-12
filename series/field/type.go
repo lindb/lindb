@@ -4,17 +4,11 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 )
 
-// ValueType represents primitive field's value type
-type ValueType uint8
-
-// Defines all value type of primitive field
-const (
-	Integer ValueType = iota + 1
-	Float
-)
-
 // AggType represents primitive field's aggregator type
 type AggType uint8
+type PrimitiveID uint8
+type ID uint8
+type Key uint16
 
 // Defines all aggregator types for primitive field
 const (

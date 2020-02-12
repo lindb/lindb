@@ -1,133 +1,188 @@
 package memdb
 
 import (
-	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
+const testDBPath = "test_db"
+
 var cfg = MemoryDatabaseCfg{
-	TimeWindow: 32,
-	Interval:   timeutil.Interval(10 * timeutil.OneSecond),
+	Interval: timeutil.Interval(10 * timeutil.OneSecond),
 }
 
-func Test_NewMemoryDatabase(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	mdINTF := NewMemoryDatabase(ctx, cfg)
+func TestNewMemoryDatabase(t *testing.T) {
+	mdINTF := NewMemoryDatabase(cfg)
 	assert.NotNil(t, mdINTF)
-	assert.Equal(t, int64(10*1000), mdINTF.Interval())
+	assert.Equal(t, 10*timeutil.OneSecond, mdINTF.Interval())
 }
 
-func Test_MemoryDatabase_Write(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func TestMemoryDatabase_Write(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testDBPath)
+		defer ctrl.Finish()
+	}()
+	_ = fileutil.MkDirIfNotExist(testDBPath)
+	cfg.TempPath = testDBPath
+
+	// mock
+	mockMetadata := metadb.NewMockMetadata(ctrl)
+	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
+	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
+	mockIndex := indexdb.NewMockIndexDatabase(ctrl)
+	mockMStore := NewMockmStoreINTF(ctrl)
+	tStore := NewMocktStoreINTF(ctrl)
+	fStore := NewMockfStoreINTF(ctrl)
+	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
+	// build memory-database
+	cfg.Index = mockIndex
+	cfg.Metadata = mockMetadata
+	mdINTF := NewMemoryDatabase(cfg)
+	md := mdINTF.(*memoryDatabase)
+	assert.Zero(t, md.MemSize())
+
+	// load mock
+	md.mStores.Put(uint32(1), mockMStore)
+	// case 1: write ok
+	gomock.InOrder(
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(fStore, true),
+		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
+		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+	)
+	err := md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+		Name:  "f1",
+		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+	}})
+	assert.NoError(t, err)
+	assert.Len(t, md.Families(), 1)
+	// case 2: field type unknown
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+		Name:  "f1",
+		Field: nil,
+	}})
+	assert.NoError(t, err)
+	// case 3: generate field err
+	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1-err", field.SumField).Return(uint16(0), fmt.Errorf("err"))
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+		Name:  "f1-err",
+		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+	}})
+	assert.NoError(t, err)
+	// case 4: new family times
+	gomock.InOrder(
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(fStore, true),
+		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
+		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+	)
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
+		Name:  "f1",
+		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+	}})
+	assert.NoError(t, err)
+	assert.Len(t, md.Families(), 2)
+	assert.True(t, md.MemSize() > 0)
+	// case 5: new metric store
+	err = md.Write("ns", "test1", uint32(20), uint32(20), 1564300800000, []*pb.Field{{
+		Name: "f1",
+	}})
+	assert.NoError(t, err)
+	// case 6: create new field store
+	gomock.InOrder(
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f4", field.SumField).Return(uint16(1), nil),
+		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false),
+		tStore.EXPECT().InsertFStore(gomock.Any()),
+		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+	)
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
+		Name:  "f4",
+		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+	}})
+	assert.NoError(t, err)
+	assert.Len(t, md.Families(), 2)
+	assert.True(t, md.MemSize() > 0)
+}
+
+func TestMemoryDatabase_Write_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testDBPath)
+		defer ctrl.Finish()
+	}()
+	cfg.TempPath = testDBPath
+
+	// mock
+	mockMetadata := metadb.NewMockMetadata(ctrl)
+	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
+	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
+	mockIndex := indexdb.NewMockIndexDatabase(ctrl)
+	mockMStore := NewMockmStoreINTF(ctrl)
+	tStore := NewMocktStoreINTF(ctrl)
+	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
+	// build memory-database
+	cfg.Index = mockIndex
+	cfg.Metadata = mockMetadata
+	mdINTF := NewMemoryDatabase(cfg)
+	buf := NewMockDataPointBuffer(ctrl)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	md := mdINTF.(*memoryDatabase)
+	md.buf = buf
+
+	// load mock
+	md.mStores.Put(uint32(1), mockMStore)
+	// case 1: write ok
+	gomock.InOrder(
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false),
+	)
+	err := md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+		Name:  "f1",
+		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+	}})
+	assert.Error(t, err)
+}
+
+func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	// mock generator
-	mockGen := metadb.NewMockIDGenerator(ctrl)
-	mockGen.EXPECT().GenMetricID("test1").Return(uint32(1)).AnyTimes()
-	mockIndex := indexdb.NewMockIndexDatabase(ctrl)
-	// build memory-database
-	cfg.Generator = mockGen
-	cfg.Index = mockIndex
-	mdINTF := NewMemoryDatabase(ctx, cfg)
+	mdINTF := NewMemoryDatabase(cfg)
 	md := mdINTF.(*memoryDatabase)
-
+	flusher := metricsdata.NewMockFlusher(ctrl)
+	flusher.EXPECT().Commit().Return(nil).AnyTimes()
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	// write error
-	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(uint32(10), nil),
-		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(0, fmt.Errorf("error")),
-	)
-	// load mock
-	md.mStores.put(uint32(1), mockMStore)
-	// write error
-	err := md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
-	assert.Error(t, err)
-	assert.Nil(t, md.Families())
-	// write ok
-	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(uint32(10), nil),
-		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
-	)
-	err = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564300800000})
+	md.mStores.Put(uint32(3333), mockMStore)
+
+	// case 1: flusher ok
+	mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
+	err := md.FlushFamilyTo(flusher, 10)
 	assert.NoError(t, err)
-	// test families
-	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(uint32(10), nil),
-		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
-	)
-	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564297200000})
-	gomock.InOrder(
-		mockIndex.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(uint32(10), nil),
-		mockMStore.EXPECT().Write(uint32(10), gomock.Any(), gomock.Any()).Return(20, nil).AnyTimes(),
-	)
-	_ = md.Write(&pb.Metric{Name: "test1", Timestamp: 1564308000000})
-	assert.NotNil(t, md.Families())
-	assert.Len(t, md.Families(), 3)
+	// case 2: flusher err
+	mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = md.FlushFamilyTo(flusher, 10)
+	assert.Error(t, err)
 }
 
-func Test_MemoryDatabase_FlushFamilyTo(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func TestMemoryDatabase_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	fluster := metricsdata.NewMockFlusher(ctrl)
-	fluster.EXPECT().Commit().AnyTimes()
-	mdINTF := NewMemoryDatabase(ctx, cfg)
-	_ = mdINTF.FlushFamilyTo(fluster, 10)
-	_ = mdINTF.FlushFamilyTo(fluster, 10)
-	_ = mdINTF.FlushFamilyTo(fluster, 10)
-	time.Sleep(time.Millisecond * 10)
-}
-
-func Test_MemoryDatabase_flushFamilyTo_ok(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	fluster := metricsdata.NewMockFlusher(ctrl)
-	fluster.EXPECT().Commit().AnyTimes()
-
-	mdINTF := NewMemoryDatabase(ctx, cfg)
-	md := mdINTF.(*memoryDatabase)
-
-	mockMStore := NewMockmStoreINTF(ctrl)
-
-	returnNil := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
-	returnError := mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
-	gomock.InOrder(returnNil, returnError)
-
-	md.mStores.put(uint32(1), mockMStore)
-	assert.Nil(t, md.FlushFamilyTo(fluster, 10))
-	assert.NotNil(t, md.FlushFamilyTo(fluster, 10))
-}
-
-func Test_MemoryDatabase_Filter(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mdINTF := NewMemoryDatabase(ctx, cfg)
+	mdINTF := NewMemoryDatabase(cfg)
 	md := mdINTF.(*memoryDatabase)
 
 	// not found
@@ -136,18 +191,37 @@ func Test_MemoryDatabase_Filter(t *testing.T) {
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
-	md.mStores.put(uint32(3333), mockMStore)
+	md.mStores.Put(uint32(3333), mockMStore)
 
 	_, _ = md.Filter(uint32(3333), []uint16{1}, 1, nil)
 }
 
-func Test_MemoryDatabase_MemSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mdINTF := NewMemoryDatabase(ctx, cfg)
+func TestMemoryDatabase_getFieldValue(t *testing.T) {
+	mdINTF := NewMemoryDatabase(cfg)
 	md := mdINTF.(*memoryDatabase)
-
-	assert.Zero(t, md.MemSize())
+	assert.Equal(t, 10.1, md.getFieldValue(field.SumField, &pb.Field{
+		Field: &pb.Field_Sum{Sum: &pb.Sum{
+			Value: 10.1,
+		}},
+	}))
+	assert.Equal(t, 10.1, md.getFieldValue(field.MinField, &pb.Field{
+		Field: &pb.Field_Min{Min: &pb.Min{
+			Value: 10.1,
+		}},
+	}))
+	assert.Equal(t, 10.1, md.getFieldValue(field.MaxField, &pb.Field{
+		Field: &pb.Field_Max{Max: &pb.Max{
+			Value: 10.1,
+		}},
+	}))
+	assert.Equal(t, 10.1, md.getFieldValue(field.GaugeField, &pb.Field{
+		Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
+			Value: 10.1,
+		}},
+	}))
+	assert.Equal(t, 0.0, md.getFieldValue(field.Unknown, &pb.Field{
+		Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
+			Value: 10.1,
+		}},
+	}))
 }

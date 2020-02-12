@@ -22,4 +22,6 @@ const (
 
 	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag
 	TagValueIDForTag = uint32(0)
+	// DefaultNamespace represents default namespace if not set
+	DefaultNamespace = "default-ns"
 )

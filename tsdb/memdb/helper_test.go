@@ -8,30 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-
-	"github.com/golang/mock/gomock"
-
 	"github.com/lindb/lindb/pkg/lockers"
 )
-
-///////////////////////////////////////////////////
-//                mock interface
-///////////////////////////////////////////////////
-
-func makeMockDataFlusher(ctrl *gomock.Controller) *metricsdata.MockFlusher {
-	mockTF := metricsdata.NewMockFlusher(ctrl)
-	mockTF.EXPECT().FlushFieldMetas(gomock.Any()).Return().AnyTimes()
-	mockTF.EXPECT().FlushField(gomock.Any()).
-		Return().AnyTimes()
-	mockTF.EXPECT().FlushSeries().
-		Return().AnyTimes()
-	mockTF.EXPECT().FlushMetric(gomock.Any()).
-		Return(nil).AnyTimes()
-	mockTF.EXPECT().Commit().Return(nil).AnyTimes()
-
-	return mockTF
-}
 
 ///////////////////////////////////////////////////
 //                benchmark test

@@ -172,6 +172,7 @@ func newSummarySchema() Schema {
 		fieldIDs:     []uint16{1, 2, 3, 4},
 	}
 }
+
 func (s *summarySchema) GetAggFunc(pFieldID uint16) AggFunc {
 	switch pFieldID {
 	case uint16(1), uint16(2):

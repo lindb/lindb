@@ -72,8 +72,8 @@ func TestWrite(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	mockIDSequencer := metadb.NewMockIDSequencer(ctrl)
 	gomock.InOrder(
-		mockMemDB.EXPECT().Write(gomock.Any()).Return(nil),
-		mockMemDB.EXPECT().Write(gomock.Any()).Return(series.ErrTooManyTags),
+		mockMemDB.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		mockMemDB.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(series.ErrTooManyTags),
 	)
 
 	shardINTF, _ := newShard("db", 1, _testShard1Path, mockIDSequencer, option.DatabaseOption{Interval: "10s"})
@@ -102,7 +102,6 @@ func TestWrite(t *testing.T) {
 	}))
 
 	assert.NotNil(t, shardINTF.MemoryDatabase())
-	shardINTF.(*shard).cancel()
 }
 
 func TestShard_Write_Accept(t *testing.T) {
@@ -138,7 +137,6 @@ func TestShard_Write_Accept(t *testing.T) {
 			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
 		},
 	}))
-	shardINTF.(*shard).cancel()
 }
 
 //

@@ -1556,17 +1556,29 @@ func (rb *Bitmap) GetContainerAtIndex(index int) Container {
 	return &containerWrapper{container: container}
 }
 
-// ContainsAndRank returns the high/low index if key container
-func (rb *Bitmap) ContainsAndRank(key uint32) (found bool, highIdx int, lowInx int) {
+// ContainsAndRankForHigh returns the high index if key exist
+func (rb *Bitmap) ContainsAndRankForHigh(key uint32) (found bool, highIdx int) {
 	hb := highbits(key)
-	highIdx = rb.highlowcontainer.getIndex(hb)
-	if highIdx < 0 {
-		return false, highIdx, -1
+	highKeys := rb.highlowcontainer.keys
+	answer := binarySearch(highKeys, hb)
+	if answer >= 0 {
+		return true, answer + 1
 	}
+	return false, -answer - 1
+}
+
+// ContainsAndRankForHigh returns the high index if key exist
+func (rb *Bitmap) ContainsAndRankForLow(key uint32, highIdx int) (found bool, lowInx int) {
 	c := rb.highlowcontainer.getContainerAtIndex(highIdx)
 	lb := lowbits(key)
 	if !c.contains(lb) {
-		return false, highIdx, c.rank(lb)
+		return false, c.rank(lb)
 	}
-	return true, highIdx, c.rank(lb)
+	return true, c.rank(lb)
+}
+
+// RankForLow returns the low index if key exist, else returns smaller index
+func (rb *Bitmap) RankForLow(key uint32, highIdx int) (lowInx int) {
+	c := rb.highlowcontainer.getContainerAtIndex(highIdx)
+	return c.rank(lowbits(key))
 }
