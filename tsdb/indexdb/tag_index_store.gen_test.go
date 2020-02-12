@@ -17,9 +17,11 @@ import (
 // hack test
 func _assertTagIndexStoreData(t *testing.T, keys []uint32, m *TagIndexStore) {
 	for _, key := range keys {
-		found, highIdx, lowIdx := m.keys.ContainsAndRank(key)
+		found, highIdx := m.keys.ContainsAndRankForHigh(key)
 		assert.True(t, found)
-		assert.NotNil(t, m.values[highIdx][lowIdx-1])
+		lowIdx := m.keys.RankForLow(key, highIdx-1)
+		assert.True(t, found)
+		assert.NotNil(t, m.values[highIdx-1][lowIdx-1])
 	}
 }
 
@@ -35,11 +37,12 @@ func TestTagIndexStore_Put(t *testing.T) {
 	m.Put(2, newTagIndex())
 	// test insert new high
 	m.Put(2000000, newTagIndex())
+	m.Put(2000001, newTagIndex())
 	// test insert new high
 	m.Put(200000, newTagIndex())
 
-	_assertTagIndexStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000}, m)
-	assert.Equal(t, 10, m.Size())
+	_assertTagIndexStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
+	assert.Equal(t, 11, m.Size())
 	assert.Len(t, m.Values(), 3)
 
 	err := m.WalkEntry(func(key uint32, value TagIndex) error {
@@ -47,7 +50,7 @@ func TestTagIndexStore_Put(t *testing.T) {
 	})
 	assert.Error(t, err)
 
-	keys := []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000}
+	keys := []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}
 	idx := 0
 	err = m.WalkEntry(func(key uint32, value TagIndex) error {
 		assert.Equal(t, keys[idx], key)
@@ -71,6 +74,8 @@ func TestTagIndexStore_Get(t *testing.T) {
 	_, ok = m.Get(0)
 	assert.False(t, ok)
 	_, ok = m.Get(9)
+	assert.False(t, ok)
+	_, ok = m.Get(999999)
 	assert.False(t, ok)
 }
 

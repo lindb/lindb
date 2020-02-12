@@ -13,7 +13,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
 )
 
 // for testing
@@ -78,12 +77,11 @@ func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.
 	return db, nil
 }
 
-// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory, then
-// builds inverted index for tags => series id, if generate fail return err
-func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
-	namespace, metricName string,
-	tags map[string]string, tagsHash uint64,
-) (seriesID uint32, err error) {
+// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
+// if generate a new series id returns isCreate is true
+// if generate fail return err
+func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32, tagsHash uint64,
+) (seriesID uint32, isCreated bool, err error) {
 	db.rwMutex.Lock()
 	defer db.rwMutex.Unlock()
 
@@ -92,13 +90,13 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
 		// get series id from memory cache
 		seriesID, ok = metricIDMapping.GetSeriesID(tagsHash)
 		if ok {
-			return seriesID, nil
+			return seriesID, false, nil
 		}
 	} else {
 		// metric mapping not exist, need load from backend storage
 		metricIDMapping, err = db.backend.loadMetricIDMapping(metricID)
 		if err != nil && err != constants.ErrNotFound {
-			return 0, err
+			return 0, false, err
 		}
 		// if metric id not exist in backend storage
 		if err == constants.ErrNotFound {
@@ -114,13 +112,13 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
 			if err == nil {
 				// cache load series id
 				metricIDMapping.AddSeriesID(tagsHash, seriesID)
-				return seriesID, nil
+				return seriesID, false, nil
 			}
 		}
 	}
 	// throw err in backend storage
 	if err != nil && err != constants.ErrNotFound {
-		return 0, err
+		return 0, false, err
 	}
 	// generate new series id
 	seriesID = metricIDMapping.GenSeriesID(tagsHash)
@@ -128,10 +126,7 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32,
 	// add pending event
 	db.mutable.addSeriesID(metricID, tagsHash, seriesID)
 	db.notifySyncWithoutLock(false)
-
-	//FIXME stone100 need add goroutine
-	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
-	return seriesID, nil
+	return seriesID, true, nil
 }
 
 func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
@@ -140,20 +135,6 @@ func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs 
 
 func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
 	panic("implement me")
-}
-
-// FlushInvertedIndexTo flushes the series data to a inverted-index file.
-func (db *indexDatabase) FlushInvertedIndexTo(flusher metricsmeta.TagFlusher) (err error) {
-	//db.metricHash2Index.Range(func(key, value interface{}) bool {
-	//	metricIDMapping := value.(MetricIDMapping)
-	//	if err = metricIDMapping.FlushInvertedIndexTo(flusher, db.generator); err != nil {
-	//		//FIXME need add log
-	//		return true
-	//	}
-	//	return true
-	//})
-	//return flusher.Commit()
-	return nil
 }
 
 // Close closes the database, releases the resources

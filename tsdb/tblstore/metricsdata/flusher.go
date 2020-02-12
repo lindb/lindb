@@ -1,7 +1,6 @@
 package metricsdata
 
 import (
-	"fmt"
 	"hash/crc32"
 
 	"github.com/lindb/roaring"
@@ -279,8 +278,6 @@ func (w *flusher) Reset() {
 
 // FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
 func (w *flusher) FlushMetric(metricID uint32) error {
-	fmt.Printf("flush data metricID:%d\n", metricID)
-
 	defer w.Reset()
 	// no version was flushed before
 	if len(w.versionBlocks) == 0 {
