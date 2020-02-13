@@ -23,7 +23,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 
 	selector1 := selector.NewIndexSlotSelector(15, 55, 1)
 	agg := NewFieldAggregator(baseTime, selector1)
-	it := MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
+	it := MockSumFieldIterator(ctrl, field.PrimitiveID(1), map[int]interface{}{
 		5:  5.5,
 		15: 5.6,
 		17: 5.7,
@@ -45,7 +45,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	AssertPrimitiveIt(t, fieldIt.Next(), expect)
 	assert.False(t, fieldIt.HasNext())
 
-	it = MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
+	it = MockSumFieldIterator(ctrl, field.PrimitiveID(1), map[int]interface{}{
 		5:  5.5,
 		15: 5.5,
 		19: 5.5,
@@ -69,7 +69,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 
 	// not match query time range case 1
 	agg.reset()
-	it = MockSumFieldIterator(ctrl, uint16(1), map[int]interface{}{
+	it = MockSumFieldIterator(ctrl, field.PrimitiveID(1), map[int]interface{}{
 		4:  1.1,
 		56: 5.5,
 	})

@@ -17,7 +17,7 @@ func TestPrimitiveSumFloatAgg(t *testing.T) {
 
 	expect := map[int]float64{11: 40.0}
 	it := agg.Iterator()
-	assert.Equal(t, uint16(1), agg.FieldID())
+	assert.Equal(t, field.PrimitiveID(1), agg.FieldID())
 	AssertPrimitiveIt(t, it, expect)
 
 	agg.reset()
@@ -26,6 +26,6 @@ func TestPrimitiveSumFloatAgg(t *testing.T) {
 	agg.Aggregate(2, 20.0)
 	expect = map[int]float64{12: 20.0}
 	it = agg.Iterator()
-	assert.Equal(t, uint16(1), agg.FieldID())
+	assert.Equal(t, field.PrimitiveID(1), agg.FieldID())
 	AssertPrimitiveIt(t, it, expect)
 }

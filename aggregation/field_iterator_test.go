@@ -17,8 +17,8 @@ func TestFieldIterator(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 
-	primitiveIt := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-	primitiveIt1 := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	primitiveIt := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	primitiveIt1 := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	it = newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
 
@@ -39,8 +39,8 @@ func TestFieldIterator(t *testing.T) {
 func TestFieldIterator_MarshalBinary(t *testing.T) {
 	floatArray := collections.NewFloatArray(5)
 	floatArray.SetValue(2, 10.0)
-	primitiveIt := newPrimitiveIterator(uint16(10), 10, field.Sum, floatArray)
-	primitiveIt1 := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	primitiveIt := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, floatArray)
+	primitiveIt1 := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
 	data, err := it.MarshalBinary()
@@ -49,7 +49,7 @@ func TestFieldIterator_MarshalBinary(t *testing.T) {
 }
 
 func TestPrimitiveIterator(t *testing.T) {
-	it := newPrimitiveIterator(uint16(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	it := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
 	AssertPrimitiveIt(t, it, expect)
@@ -58,9 +58,9 @@ func TestPrimitiveIterator(t *testing.T) {
 	timeSlot, value := it.Next()
 	assert.Equal(t, -1, timeSlot)
 	assert.Equal(t, float64(0), value)
-	assert.Equal(t, uint16(10), it.FieldID())
+	assert.Equal(t, field.PrimitiveID(10), it.FieldID())
 
-	it = newPrimitiveIterator(uint16(10), 10, field.Sum, nil)
+	it = newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, nil)
 	assert.False(t, it.HasNext())
 	timeSlot, value = it.Next()
 	assert.Equal(t, -1, timeSlot)

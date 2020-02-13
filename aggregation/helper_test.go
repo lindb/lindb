@@ -17,7 +17,7 @@ import (
 ///////////////////////////////////////////////////
 
 // MockSumFieldIterator returns mock an iterator of sum field
-func MockSumFieldIterator(ctrl *gomock.Controller, fieldID uint16, points map[int]interface{}) *series.MockFieldIterator {
+func MockSumFieldIterator(ctrl *gomock.Controller, fieldID field.PrimitiveID, points map[int]interface{}) *series.MockFieldIterator {
 	it := series.NewMockFieldIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 
@@ -75,7 +75,7 @@ func mockSingleIterator(ctrl *gomock.Controller) series.FieldIterator {
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
-	primitiveIt.EXPECT().FieldID().Return(uint16(1))
+	primitiveIt.EXPECT().FieldID().Return(field.PrimitiveID(1))
 	primitiveIt.EXPECT().HasNext().Return(true)
 	primitiveIt.EXPECT().Next().Return(4, 4.0)
 	primitiveIt.EXPECT().HasNext().Return(true)
