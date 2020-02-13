@@ -7,7 +7,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -68,8 +68,8 @@ func (f *dataFamily) Family() kv.Family {
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if finds data then returns the FilterResultSet, else returns nil
-func (f *dataFamily) Filter(metricID uint32, fieldIDs []uint16,
-	version series.Version, seriesIDs *roaring.Bitmap,
+func (f *dataFamily) Filter(metricID uint32, fieldIDs []field.ID,
+	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 ) (resultSet []flow.FilterResultSet, err error) {
 	snapShot := f.family.GetSnapshot()
 	defer func() {
@@ -78,7 +78,6 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []uint16,
 			snapShot.Close()
 		}
 	}()
-
 	readers, err := snapShot.FindReaders(metricID)
 	if len(readers) == 0 {
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -58,8 +59,8 @@ type memoryDatabase struct {
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
 
-	size        atomic.Int32    // memory database's size
-	familyTimes map[int64]uint8 // familyTime(int64) -> family time id
+	size        atomic.Int32       // memory database's size
+	familyTimes map[int64]familyID // familyTime(int64) -> family time id
 	familyIDSeq uint8
 
 	rwMutex sync.RWMutex //lock of create metric store
@@ -75,7 +76,7 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) MemoryDatabase {
 		buf:         buf,
 		mStores:     NewMetricBucketStore(),
 		size:        *atomic.NewInt32(0),
-		familyTimes: make(map[int64]uint8),
+		familyTimes: make(map[int64]familyID),
 	}
 }
 
@@ -95,7 +96,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF)
 // flushContext holds the context for flushing
 type flushContext struct {
 	metricID     uint32
-	familyID     uint8
+	familyID     familyID
 	timeInterval int64
 
 	start, end uint16 // start/end time slot, metric level flush context
@@ -108,9 +109,7 @@ func (md *memoryDatabase) Write(namespace, metricName string, metricID,
 ) (err error) {
 	// calculate family start time and slot index
 	intervalCalc := md.interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)                                 // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)                              // hours
-	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)                    // family timestamp
+	familyTime := md.getFamilyTime(timestamp)
 	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64())) // slot offset of family
 
 	md.rwMutex.Lock()
@@ -119,7 +118,7 @@ func (md *memoryDatabase) Write(namespace, metricName string, metricID,
 	mStore := md.getOrCreateMStore(metricID)
 	// assign family id for family time
 	fi := md.assignFamilyID(familyTime)
-	fID := familyID(fi)
+	fID := fi
 
 	tStore, size := mStore.GetOrCreateTStore(seriesID)
 	written := false
@@ -191,14 +190,34 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if finds data then returns the FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []uint16,
-	version series.Version, seriesIDs *roaring.Bitmap,
+func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
+	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 ) ([]flow.FilterResultSet, error) {
+	// get family tine query range
+	familyTimeRange := timeutil.TimeRange{
+		Start: md.getFamilyTime(timeRange.Start),
+		End:   md.getFamilyTime(timeRange.End),
+	}
+
+	md.rwMutex.RLock()
+	defer md.rwMutex.RUnlock()
+
+	// find if has match family id based on family time range
+	familyIDs := make(map[familyID]int64)
+	for fTime, fID := range md.familyTimes {
+		if familyTimeRange.Contains(fTime) {
+			familyIDs[fID] = fTime
+		}
+	}
+	if len(familyIDs) == 0 {
+		return nil, constants.ErrNotFound
+	}
+
 	mStore, ok := md.mStores.Get(metricID)
 	if !ok {
-		return nil, nil
+		return nil, constants.ErrNotFound
 	}
-	return mStore.Filter(metricID, fieldIDs, version, seriesIDs)
+	return mStore.Filter(fieldIDs, seriesIDs, familyIDs)
 }
 
 // Interval return the interval of memory database
@@ -212,15 +231,22 @@ func (md *memoryDatabase) MemSize() int32 {
 }
 
 // assignFamily assigns family id for family time
-func (md *memoryDatabase) assignFamilyID(familyTime int64) uint8 {
-	familyID, ok := md.familyTimes[familyTime]
+func (md *memoryDatabase) assignFamilyID(familyTime int64) familyID {
+	fID, ok := md.familyTimes[familyTime]
 	if ok {
-		return familyID
+		return fID
 	}
-	familyID = md.familyIDSeq
+	fID = familyID(md.familyIDSeq)
 	md.familyIDSeq++
-	md.familyTimes[familyTime] = familyID
-	return familyID
+	md.familyTimes[familyTime] = fID
+	return fID
+}
+func (md *memoryDatabase) getFamilyTime(timestamp int64) (familyTime int64) {
+	intervalCalc := md.interval.Calculator()
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)             // day
+	family := intervalCalc.CalcFamily(timestamp, segmentTime)          // hours
+	familyTime = intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
+	return
 }
 
 // getFieldValue returns the field value based on field type

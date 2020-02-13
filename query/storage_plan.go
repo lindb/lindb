@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
@@ -21,10 +22,10 @@ type storageExecutePlan struct {
 	query    *stmt.Query
 	idGetter metadb.IDGetter
 
-	fieldIDs []uint16
+	fieldIDs []field.ID
 
 	metricID       uint32
-	fields         map[uint16]aggregation.AggregatorSpec
+	fields         map[field.ID]aggregation.AggregatorSpec
 	groupByTagKeys map[string]uint32
 
 	err error
@@ -35,7 +36,7 @@ func newStorageExecutePlan(index metadb.IDGetter, query *stmt.Query) Plan {
 	return &storageExecutePlan{
 		idGetter:       index,
 		query:          query,
-		fields:         make(map[uint16]aggregation.AggregatorSpec),
+		fields:         make(map[field.ID]aggregation.AggregatorSpec),
 		groupByTagKeys: make(map[string]uint32),
 	}
 }
@@ -57,7 +58,7 @@ func (p *storageExecutePlan) Plan() error {
 	if p.err != nil {
 		return p.err
 	}
-	p.fieldIDs = make([]uint16, len(p.fields))
+	p.fieldIDs = make([]field.ID, len(p.fields))
 	idx := 0
 	for fieldID := range p.fields {
 		p.fieldIDs[idx] = fieldID
@@ -103,7 +104,7 @@ func (p *storageExecutePlan) getDownSamplingAggSpecs() aggregation.AggregatorSpe
 }
 
 // getFieldIDs returns sorted slice of field ids
-func (p *storageExecutePlan) getFieldIDs() []uint16 {
+func (p *storageExecutePlan) getFieldIDs() []field.ID {
 	return p.fieldIDs
 }
 

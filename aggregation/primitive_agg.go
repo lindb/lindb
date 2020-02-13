@@ -54,7 +54,6 @@ func (agg *primitiveAggregator) Iterator() series.PrimitiveIterator {
 func (agg *primitiveAggregator) reset() {
 	if agg.values != nil {
 		agg.values.Reset()
-		//agg.values = collections.NewFloatArray(agg.pointCount)
 	}
 }
 

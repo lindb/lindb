@@ -76,7 +76,7 @@ func (qf *storageQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpec
 func (qf *storageQueryFlow) GetAggregator() (agg aggregation.FieldAggregates) {
 	select {
 	case agg = <-qf.aggPool:
-	// reuse existing aggregator
+		// reuse existing aggregator
 	default:
 		// create new field aggregator
 		agg = qf.allocAgg(qf.downSamplingSpecs)
