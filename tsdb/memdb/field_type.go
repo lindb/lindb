@@ -22,3 +22,8 @@ func getFieldType(f *pb.Field) field.Type {
 		return field.Unknown
 	}
 }
+
+// buildFieldKeys returns field key with family/field/primitive
+func buildFieldKey(familyID familyID, fieldID field.ID, primitiveID field.PrimitiveID) uint32 {
+	return uint32(primitiveID) | uint32(fieldID)<<8 | uint32(familyID)<<16
+}

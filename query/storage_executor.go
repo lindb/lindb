@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -36,7 +37,7 @@ type storageExecutor struct {
 	shards   []tsdb.Shard
 
 	metricID           uint32
-	fieldIDs           []uint16
+	fieldIDs           []field.ID
 	storageExecutePlan *storageExecutePlan
 	intervalType       timeutil.IntervalType
 
@@ -178,7 +179,7 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 
 		// 1. filtering, check series ids if exist in storage
 		e.queryFlow.Filtering(func() {
-			resultSet, err := filter.Filter(e.metricID, e.fieldIDs, version, seriesIDs)
+			resultSet, err := filter.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
 			if err != nil {
 				e.queryFlow.Complete(err)
 				return

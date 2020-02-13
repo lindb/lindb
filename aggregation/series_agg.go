@@ -11,7 +11,7 @@ import (
 
 //go:generate mockgen -source=./series_agg.go -destination=./series_agg_mock.go -package=aggregation
 
-// defines series aggregates which aggregates fields of a time series
+// FieldAggregates represents aggregator which aggregates fields of a time series
 type FieldAggregates []SeriesAggregator
 
 // ResultSet returns the result set of aggregator

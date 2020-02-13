@@ -33,7 +33,7 @@ type IDGetter interface {
 	GetTagKeyIDs(metricID uint32) (tagKeyIDs []uint32, err error)
 	// GetFieldID returns field id and type by given metricID and field name,
 	// if not exist return ErrNotFound error
-	GetFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, err error)
+	GetFieldID(metricID uint32, fieldName string) (fieldID field.ID, fieldType field.Type, err error)
 }
 
 // IDSequencer contains the abilities for querying and generating ID numbers.

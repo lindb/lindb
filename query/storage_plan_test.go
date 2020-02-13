@@ -23,7 +23,7 @@ func TestStoragePlan_Metric(t *testing.T) {
 	metadataIndex := metadb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil)
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).
-		Return(uint16(10), field.SumField, nil).AnyTimes()
+		Return(field.ID(10), field.SumField, nil).AnyTimes()
 
 	query, _ := sql.Parse("select f from cpu")
 	plan := newStorageExecutePlan(metadataIndex, query)
@@ -43,18 +43,18 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	metadataIndex := metadb.NewMockIDGetter(ctrl)
 	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "f").
-		Return(uint16(10), field.SumField, nil).AnyTimes()
+		Return(field.ID(10), field.SumField, nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "a").
-		Return(uint16(11), field.MinField, nil).AnyTimes()
+		Return(field.ID(11), field.MinField, nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "b").
-		Return(uint16(12), field.MaxField, nil).AnyTimes()
+		Return(field.ID(12), field.MaxField, nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "c").
-		Return(uint16(13), field.HistogramField, nil).AnyTimes()
+		Return(field.ID(13), field.HistogramField, nil).AnyTimes()
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "e").
-		Return(uint16(14), field.HistogramField, nil).AnyTimes()
+		Return(field.ID(14), field.HistogramField, nil).AnyTimes()
 
 	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "no_f").
-		Return(uint16(99), field.HistogramField, constants.ErrNotFound).AnyTimes()
+		Return(field.ID(99), field.HistogramField, constants.ErrNotFound).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
@@ -75,8 +75,8 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	storagePlan := plan.(*storageExecutePlan)
 	downSampling := aggregation.NewDownSamplingSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
-	assert.Equal(t, map[uint16]aggregation.AggregatorSpec{uint16(10): downSampling}, storagePlan.fields)
-	assert.Equal(t, []uint16{uint16(10)}, storagePlan.getFieldIDs())
+	assert.Equal(t, map[field.ID]aggregation.AggregatorSpec{field.ID(10): downSampling}, storagePlan.fields)
+	assert.Equal(t, []field.ID{10}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select a,b,c as d from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
@@ -90,20 +90,18 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling2.AddFunctionType(function.Max)
 	downSampling3 := aggregation.NewDownSamplingSpec("c", field.HistogramField)
 	downSampling3.AddFunctionType(function.Histogram)
-	expect := map[uint16]aggregation.AggregatorSpec{
-		uint16(11): downSampling1,
-		uint16(12): downSampling2,
-		uint16(13): downSampling3,
+	expect := map[field.ID]aggregation.AggregatorSpec{
+		field.ID(11): downSampling1,
+		field.ID(12): downSampling2,
+		field.ID(13): downSampling3,
 	}
 	assert.Equal(t, expect, storagePlan.fields)
-	assert.Equal(t, []uint16{uint16(11), uint16(12), uint16(13)}, storagePlan.getFieldIDs())
+	assert.Equal(t, []field.ID{11, 12, 13}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
 	plan = newStorageExecutePlan(metadataIndex, query)
 	err = plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	storagePlan = plan.(*storageExecutePlan)
 
 	downSampling1 = aggregation.NewDownSamplingSpec("a", field.MinField)
@@ -113,13 +111,13 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling3.AddFunctionType(function.Avg)
 	downSampling4 := aggregation.NewDownSamplingSpec("e", field.HistogramField)
 	downSampling4.AddFunctionType(function.Histogram)
-	expect = map[uint16]aggregation.AggregatorSpec{
-		uint16(11): downSampling1,
-		uint16(13): downSampling3,
-		uint16(14): downSampling4,
+	expect = map[field.ID]aggregation.AggregatorSpec{
+		field.ID(11): downSampling1,
+		field.ID(13): downSampling3,
+		field.ID(14): downSampling4,
 	}
 	assert.Equal(t, expect, storagePlan.fields)
-	assert.Equal(t, []uint16{uint16(11), uint16(13), uint16(14)}, storagePlan.getFieldIDs())
+	assert.Equal(t, []field.ID{11, 13, 14}, storagePlan.getFieldIDs())
 }
 
 func TestStorageExecutePlan_groupBy(t *testing.T) {
@@ -130,8 +128,8 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
 		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(10), nil),
 		idGetter.EXPECT().GetTagKeyID(uint32(10), "path").Return(uint32(11), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(12), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(12), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(10), field.SumField, nil),
 	)
 
 	// normal
@@ -145,7 +143,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	assert.Equal(t, "d", aggSpecs[0].FieldName())
 	assert.Equal(t, "f", aggSpecs[1].FieldName())
 
-	assert.Equal(t, []uint16{10, 12}, storagePlan.getFieldIDs())
+	assert.Equal(t, []field.ID{10, 12}, storagePlan.getFieldIDs())
 	assert.Equal(t, 2, len(storagePlan.groupByTagKeys))
 	assert.Equal(t, uint32(10), storagePlan.groupByTagKeys["host"])
 	assert.Equal(t, uint32(11), storagePlan.groupByTagKeys["path"])
@@ -180,7 +178,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	idGetter := metadb.NewMockIDGetter(ctrl)
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.Unknown, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.Unknown, nil),
 	)
 	query, _ := sql.Parse("select f from disk")
 	plan := newStorageExecutePlan(idGetter, query)
@@ -189,7 +187,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.SumField, nil),
 	)
 	query, _ = sql.Parse("select histogram(f) from disk")
 	plan = newStorageExecutePlan(idGetter, query)
@@ -198,8 +196,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(10), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(10), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.SumField, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
 	plan = newStorageExecutePlan(idGetter, query)
@@ -208,8 +206,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 
 	gomock.InOrder(
 		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(uint16(12), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(uint16(11), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(12), field.SumField, nil),
+		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(11), field.SumField, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
 	plan = newStorageExecutePlan(idGetter, query)

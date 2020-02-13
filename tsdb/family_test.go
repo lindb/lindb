@@ -11,7 +11,6 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
 )
 
@@ -49,13 +48,13 @@ func TestDataFamily_Filter(t *testing.T) {
 
 	// test find kv readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	rs, err := dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
+	rs, err := dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
 	// test find kv readers nil
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	rs, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
+	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -63,7 +62,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader := table.NewMockReader(ctrl)
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return(nil, false)
-	rs, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
+	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -74,7 +73,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	newVersionBlockIterator = func(block []byte) (iterator tblstore.VersionBlockIterator, e error) {
 		return nil, fmt.Errorf("err")
 	}
-	rs, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
+	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
@@ -85,6 +84,6 @@ func TestDataFamily_Filter(t *testing.T) {
 		return blockIt, nil
 	}
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
-	_, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
+	_, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.NoError(t, err)
 }

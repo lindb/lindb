@@ -120,8 +120,9 @@ func TestFieldStore_Write(t *testing.T) {
 		pAgg.EXPECT().Aggregate(15, 15.1).Return(false),
 		pAgg.EXPECT().Aggregate(50, 50.1).Return(true),
 	)
-	s.Load(field.SumField, 0, 100,
-		[]aggregation.PrimitiveAggregator{pAgg}, &memScanContext{
+	s.Load(field.SumField,
+		pAgg,
+		&memScanContext{
 			tsd: encoding.GetTSDDecoder(),
 		},
 	)
