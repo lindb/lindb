@@ -72,7 +72,7 @@ func (f *flusher) FlushFieldMeta(fieldMeta field.Meta) {
 		metaFlusherLogger.Error("fieldName too long", zap.Int("length", len(fieldMeta.Name)))
 	}
 	// write fieldID
-	f.writer.PutUInt16(fieldMeta.ID)
+	f.writer.PutByte(byte(fieldMeta.ID))
 	// write fieldType
 	f.writer.PutByte(byte(fieldMeta.Type))
 	// write field-name
