@@ -67,11 +67,11 @@ func Test_MetricsMetaReader_ok(t *testing.T) {
 	// field found
 	fieldID, fieldType, ok := metaReader.ReadFieldID(2, "sum2")
 	assert.True(t, ok)
-	assert.Equal(t, uint16(5), fieldID)
+	assert.Equal(t, field.ID(5), fieldID)
 	assert.Equal(t, field.SumField, fieldType)
 	// field not found
 	fieldID, fieldType, ok = metaReader.ReadFieldID(2, "sum3")
-	assert.Equal(t, uint16(0), fieldID)
+	assert.Equal(t, field.ID(0), fieldID)
 	assert.False(t, ok)
 	assert.Equal(t, field.Type(0), fieldType)
 }
@@ -89,17 +89,17 @@ func Test_MetricsMetaReader_ReadMaxFieldID(t *testing.T) {
 	metaReader := NewReader([]table.Reader{mockReader2})
 	_, data2 := prepareData()
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2, true)
-	assert.Equal(t, uint16(6), metaReader.ReadMaxFieldID(2))
+	assert.Equal(t, field.ID(6), metaReader.ReadMaxFieldID(2))
 
 	// metric not exist
 	mockReader2.EXPECT().Get(uint32(2)).Return(nil, false).Times(2)
-	assert.Equal(t, uint16(0), metaReader.ReadMaxFieldID(2))
+	assert.Equal(t, field.ID(0), metaReader.ReadMaxFieldID(2))
 	assert.Nil(t, metaReader.ReadTagKeys(2))
 
 	// mock corrupt data
 	data2 = append(data2, byte(32))
 	mockReader2.EXPECT().Get(uint32(2)).Return(data2, true).Times(2)
-	assert.Equal(t, uint16(0), metaReader.ReadMaxFieldID(2))
+	assert.Equal(t, field.ID(0), metaReader.ReadMaxFieldID(2))
 	assert.Nil(t, metaReader.ReadTagKeys(2))
 }
 

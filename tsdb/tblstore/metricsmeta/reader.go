@@ -14,9 +14,9 @@ type Reader interface {
 	// ReadTagKeyID read TagKeyID by metricID and tagKey
 	ReadTagKeyID(metricID uint32, tagKey string) (tagKeyID uint32, ok bool)
 	// ReadMaxFieldID return the max field-id of this metric, return 0 if not exist
-	ReadMaxFieldID(metricID uint32) (maxFieldID uint16)
+	ReadMaxFieldID(metricID uint32) (maxFieldID field.ID)
 	// ReadFieldID read fieldID and fieldType from metricID and fieldName
-	ReadFieldID(metricID uint32, fieldName string) (fieldID uint16, fieldType field.Type, ok bool)
+	ReadFieldID(metricID uint32, fieldName string) (fieldID field.ID, fieldType field.Type, ok bool)
 	// ReadTagKeys returns all tag metas by metric id
 	ReadTagKeys(metricID uint32) []tag.Meta
 }
@@ -91,7 +91,7 @@ func (r *reader) readMetasBlock(
 // ReadMaxFieldID return the max field-id of this metric
 func (r *reader) ReadMaxFieldID(
 	metricID uint32,
-) (maxFieldID uint16) {
+) (maxFieldID field.ID) {
 	if len(r.readers) == 0 {
 		return 0
 	}
@@ -116,7 +116,7 @@ func (r *reader) ReadFieldID(
 	metricID uint32,
 	fieldName string,
 ) (
-	fieldID uint16,
+	fieldID field.ID,
 	fieldType field.Type,
 	ok bool,
 ) {
@@ -192,10 +192,11 @@ type fieldMetaIterator struct {
 func newFieldMetaIterator(block []byte) *fieldMetaIterator {
 	return &fieldMetaIterator{sr: stream.NewReader(block)}
 }
+
 func (fi *fieldMetaIterator) HasNext() bool {
 	var meta field.Meta
 	// read field-ID
-	meta.ID = fi.sr.ReadUint16()
+	meta.ID = field.ID(fi.sr.ReadByte())
 	// read field-type
 	meta.Type = field.Type(fi.sr.ReadByte())
 	// read field-name

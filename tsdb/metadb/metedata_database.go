@@ -219,7 +219,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 // !!!!! NOTICE: metric metadata must be exist in memory, because gen metric has been saved
 func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 	fieldName string, fieldType field.Type,
-) (fieldID uint16, err error) {
+) (fieldID field.ID, err error) {
 	key := namespace + metricName
 
 	mdb.rwMux.Lock()

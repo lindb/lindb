@@ -32,7 +32,7 @@ type MetricMetadata interface {
 	checkTagKeyCount() error
 
 	// createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-	createField(fieldName string, fieldType field.Type) (uint16, error)
+	createField(fieldName string, fieldType field.Type) (field.ID, error)
 	// createTagKey creates the tag key
 	createTagKey(tagKey string, tagKeyID uint32)
 }
@@ -96,13 +96,13 @@ func (mm *metricMetadata) getAllTagKeys() (tagKeys []tag.Meta) {
 }
 
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-func (mm *metricMetadata) createField(fieldName string, fieldType field.Type) (uint16, error) {
+func (mm *metricMetadata) createField(fieldName string, fieldType field.Type) (field.ID, error) {
 	// check fields count
 	if mm.fieldIDSeq.Load() >= constants.DefaultMaxFieldsCount {
 		return 0, series.ErrTooManyFields
 	}
 	// create new field
-	fieldID := uint16(mm.fieldIDSeq.Inc())
+	fieldID := field.ID(mm.fieldIDSeq.Inc())
 	mm.fields = append(mm.fields, field.Meta{ID: fieldID, Name: fieldName, Type: fieldType})
 	return fieldID, nil
 }

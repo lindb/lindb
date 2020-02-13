@@ -27,7 +27,7 @@ func TestFlusher_flush_metric(t *testing.T) {
 
 	f, ok := flusher.GetFieldMeta(field.ID(2))
 	assert.True(t, ok)
-	assert.Equal(t, uint16(2), f.ID)
+	assert.Equal(t, field.ID(2), f.ID)
 	_, ok = flusher.GetFieldMeta(field.ID(20))
 	assert.False(t, ok)
 

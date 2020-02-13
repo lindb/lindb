@@ -16,31 +16,31 @@ func TestMetricMetadata_createField(t *testing.T) {
 	// test: create field id
 	fieldID, err := mm.createField("f", field.SumField)
 	assert.NoError(t, err)
-	assert.Equal(t, uint16(1), fieldID)
+	assert.Equal(t, field.ID(1), fieldID)
 
 	// test: re-open metric metadata
 	mm = newMetricMetadata(1, 1)
 	fieldID, err = mm.createField("f", field.SumField)
 	assert.NoError(t, err)
-	assert.Equal(t, uint16(2), fieldID)
+	assert.Equal(t, field.ID(2), fieldID)
 
 	// test: too many fields
 	mm = newMetricMetadata(1, 0)
 	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
 		fieldID, err = mm.createField(fmt.Sprintf("f-%d", i), field.SumField)
 		assert.NoError(t, err)
-		assert.Equal(t, uint16(i), fieldID)
+		assert.Equal(t, field.ID(i), fieldID)
 	}
 	fieldID, err = mm.createField("max-f", field.SumField)
 	assert.Equal(t, series.ErrTooManyFields, err)
-	assert.Equal(t, uint16(0), fieldID)
+	assert.Equal(t, field.ID(0), fieldID)
 
-	assert.Len(t, mm.getAllFields(), 1024)
+	assert.Len(t, mm.getAllFields(), constants.DefaultMaxFieldsCount)
 
 	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
 		f, ok := mm.getField(fmt.Sprintf("f-%d", i))
 		assert.True(t, ok)
-		assert.Equal(t, uint16(i), f.ID)
+		assert.Equal(t, field.ID(i), f.ID)
 	}
 	_, ok := mm.getField("no-f")
 	assert.False(t, ok)

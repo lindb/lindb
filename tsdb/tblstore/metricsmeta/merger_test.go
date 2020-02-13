@@ -64,6 +64,6 @@ func Test_MetricsMetaMerger(t *testing.T) {
 		fieldMeta := fieldItr.Next()
 		assert.Equal(t, fmt.Sprintf("f%d", fieldIDCount), fieldMeta.Name)
 		assert.Equal(t, field.SumField, fieldMeta.Type)
-		assert.Equal(t, uint16(fieldIDCount), fieldMeta.ID)
+		assert.Equal(t, field.ID(fieldIDCount), fieldMeta.ID)
 	}
 }

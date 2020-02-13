@@ -192,5 +192,5 @@ func (w *flusher) Commit() error {
 }
 
 func (w *flusher) GetFieldMeta(fieldID field.ID) (field.Meta, bool) {
-	return w.fieldMetas.GetFromID(uint16(fieldID))
+	return w.fieldMetas.GetFromID(fieldID)
 }
