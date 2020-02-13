@@ -57,7 +57,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	md.mStores.Put(uint32(1), mockMStore)
 	// case 1: write ok
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
@@ -76,7 +76,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	}})
 	assert.NoError(t, err)
 	// case 3: generate field err
-	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1-err", field.SumField).Return(uint16(0), fmt.Errorf("err"))
+	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1-err", field.SumField).Return(field.ID(0), fmt.Errorf("err"))
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
 		Name:  "f1-err",
 		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
@@ -84,7 +84,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	assert.NoError(t, err)
 	// case 4: new family times
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
@@ -104,7 +104,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	assert.NoError(t, err)
 	// case 6: create new field store
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f4", field.SumField).Return(uint16(1), nil),
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f4", field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false),
 		tStore.EXPECT().InsertFStore(gomock.Any()),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
@@ -148,7 +148,7 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	md.mStores.Put(uint32(1), mockMStore)
 	// case 1: write ok
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(uint16(1), nil),
+		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1", field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false),
 	)
 	err := md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{

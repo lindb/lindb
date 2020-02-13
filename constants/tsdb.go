@@ -1,12 +1,14 @@
 package constants
 
+import "math"
+
 const (
 	// use this limit of metric-level when maxSeriesIDsLimit is not set
 	DefaultMaxSeriesIDsCount = 10000000
 	//max tag keys limitation of a metric
 	DefaultMaxTagKeysCount = 32
 	// max fields limitation of a tsStore.
-	DefaultMaxFieldsCount = 1024
+	DefaultMaxFieldsCount = math.MaxUint8
 	// the max number of suggestions count
 	MaxSuggestions = 10000
 

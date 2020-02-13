@@ -152,7 +152,7 @@ func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
 	m := meta.(*metricMetadata)
 	assert.Equal(t, int32(3), m.fieldIDSeq.Load())
 	fID, err := meta.createField("f5", field.SumField)
-	assert.Equal(t, uint16(4), fID)
+	assert.Equal(t, field.ID(4), fID)
 	assert.NoError(t, err)
 
 	// test: metric id not exist

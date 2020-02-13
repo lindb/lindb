@@ -78,7 +78,7 @@ func (e *metadataUpdateEvent) addField(metricID uint32, f field.Meta) {
 		e.metrics[metricID] = metricMeta
 	}
 	// set field seq id directly, because gen field id in order
-	metricMeta.fieldIDSeq = f.ID
+	metricMeta.fieldIDSeq = uint16(f.ID)
 
 	metricMeta.fields = append(metricMeta.fields, f)
 	e.pending++

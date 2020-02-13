@@ -23,16 +23,7 @@ func Test_Database_Close(t *testing.T) {
 		metaStore:   mockStore}
 	mockStore.EXPECT().Close().Return(nil).AnyTimes()
 
-	// mock flush metrics-meta error
-	mockIDSequencer.EXPECT().FlushMetricsMeta().Return(fmt.Errorf("error"))
-	assert.Nil(t, db.Close())
-	// mock flush nameids error
-	mockIDSequencer.EXPECT().FlushMetricsMeta().Return(nil)
-	mockIDSequencer.EXPECT().FlushNameIDs().Return(fmt.Errorf("error"))
-	assert.Nil(t, db.Close())
 	// mock shard close error
-	mockIDSequencer.EXPECT().FlushMetricsMeta().Return(nil)
-	mockIDSequencer.EXPECT().FlushNameIDs().Return(nil)
 	mockShard := NewMockShard(ctrl)
 	mockShard.EXPECT().Close().Return(fmt.Errorf("error"))
 	db.shards.Store(int32(1), mockShard)

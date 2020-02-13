@@ -23,11 +23,8 @@ import (
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
 
 const (
-	options          = "OPTIONS"
-	shardDir         = "shard"
-	metaDir          = "meta"
-	metricNameIDsDir = "metric_nameid"
-	metricMetaDir    = "metric_meta"
+	options  = "OPTIONS"
+	shardDir = "shard"
 )
 
 // Database represents an abstract time series database
@@ -54,9 +51,6 @@ type Database interface {
 	FlushMeta() error
 	// Range is the proxy method for iterating shards
 	Range(f func(key, value interface{}) bool)
-
-	// initIDSequencer loads the meta store to initialize id sequencer
-	initIDSequencer() error
 }
 
 // databaseConfig represents a database configuration about config and shards
@@ -108,9 +102,6 @@ func newDatabase(
 				time.Second*5),
 		},
 		isFlushing: *atomic.NewBool(false),
-	}
-	if err = db.initIDSequencer(); err != nil {
-		return nil, err
 	}
 	// load shards if engine is exist
 	if len(db.config.ShardIDs) > 0 {
@@ -232,7 +223,7 @@ func (db *database) Close() error {
 		engineLogger.Error(fmt.Sprintf(
 			"flush meta database[%s]", db.name), logger.Error(err))
 	}
-	return db.metaStore.Close()
+	return nil
 }
 
 // dumpDatabaseConfig persists option info to OPTIONS file
@@ -246,33 +237,6 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 	return nil
 }
 
-func (db *database) initIDSequencer() error {
-	metaStoreOption := kv.DefaultStoreOption(filepath.Join(db.path, metaDir))
-	metaStore, err := kv.NewStore(metaStoreOption.Path, metaStoreOption)
-	if err != nil {
-		return err
-	}
-	metricMetaFamily, err := metaStore.CreateFamily(
-		metricMetaDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           metricMetaMerger})
-	if err != nil {
-		return err
-	}
-	metricNameIDsFamily, err := metaStore.CreateFamily(
-		metricNameIDsDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           metricNameIDsMerger})
-	if err != nil {
-		return err
-	}
-	db.metaStore = metaStore
-	db.idSequencer = metadb.NewIDSequencer(metricNameIDsFamily, metricMetaFamily)
-	return db.idSequencer.Recover()
-}
-
 func (db *database) FlushMeta() (err error) {
 	// another flush process is running
 	if !db.isFlushing.CAS(false, true) {
@@ -280,12 +244,6 @@ func (db *database) FlushMeta() (err error) {
 	}
 	defer db.isFlushing.Store(false)
 
-	if err = db.idSequencer.FlushMetricsMeta(); err != nil {
-		return err
-	}
-	if err = db.idSequencer.FlushNameIDs(); err != nil {
-		return err
-	}
 	return nil
 }
 

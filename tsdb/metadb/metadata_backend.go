@@ -277,8 +277,8 @@ func (mb *metadataBackend) getField(metricID uint32, fieldName string) (f field.
 			return constants.ErrNotFound
 		}
 		f.Name = fieldName
-		f.Type = field.Type(value[0])
-		f.ID = binary.LittleEndian.Uint16(value[1:])
+		f.ID = field.ID(value[0])
+		f.Type = field.Type(value[1])
 		return nil
 	})
 	return
@@ -329,8 +329,8 @@ func loadFields(fieldBucket *bbolt.Bucket) (fields []field.Meta) {
 	for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 		fields = append(fields, field.Meta{
 			Name: string(k),
-			Type: field.Type(v[0]),
-			ID:   binary.LittleEndian.Uint16(v[1:]),
+			ID:   field.ID(v[0]),
+			Type: field.Type(v[1]),
 		})
 	}
 	return
@@ -432,9 +432,9 @@ func saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEve
 // saveFields saves fields for metric with field bucket
 func saveFields(fieldBucket *bbolt.Bucket, fieldIDSeq uint16, fields []field.Meta) (err error) {
 	for _, f := range fields {
-		var fieldValue [3]byte
-		fieldValue[0] = byte(f.Type)
-		binary.LittleEndian.PutUint16(fieldValue[1:], f.ID)
+		var fieldValue [2]byte
+		fieldValue[0] = byte(f.ID)
+		fieldValue[1] = byte(f.Type)
 		if err = fieldBucket.Put([]byte(f.Name), fieldValue[:]); err != nil {
 			return err
 		}

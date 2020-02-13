@@ -6,8 +6,8 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID   uint16 // query not use ID, don't get id in query phase
-	Type Type   // query not user type
+	ID   ID   // query not use ID, don't get id in query phase
+	Type Type // query not user type
 	Name string
 }
 
@@ -28,7 +28,7 @@ func (fms Metas) GetFromName(fieldName string) (Meta, bool) {
 }
 
 // GetFromID searches the meta by fieldID, returns false when not exist
-func (fms Metas) GetFromID(fieldID uint16) (Meta, bool) {
+func (fms Metas) GetFromID(fieldID ID) (Meta, bool) {
 	for _, fm := range fms {
 		if fm.ID == fieldID {
 			return fm, true
@@ -54,7 +54,7 @@ func (fms Metas) Insert(m Meta) Metas {
 
 // Intersects checks whether each fieldID is in the list,
 // and returns the new meta-list corresponding with the fieldID-list.
-func (fms Metas) Intersects(fieldIDs []uint16) (x2 Metas, isSubSet bool) {
+func (fms Metas) Intersects(fieldIDs []ID) (x2 Metas, isSubSet bool) {
 	isSubSet = true
 	for _, fieldID := range fieldIDs {
 		fm, ok := fms.GetFromID(fieldID)

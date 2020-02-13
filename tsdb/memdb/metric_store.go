@@ -30,7 +30,7 @@ type mStoreINTF interface {
 	// SetTimestamp sets the current write timestamp
 	SetTimestamp(familyID uint8, slot uint16)
 	// AddField adds field meta into metric level
-	AddField(fieldID uint16, fieldType field.Type)
+	AddField(fieldID field.ID, fieldType field.Type)
 	// GetOrCreateTStore constructs the index and return a tStore
 	GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, createdSize int)
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
@@ -65,7 +65,7 @@ func (ms *metricStore) SetTimestamp(familyID uint8, slot uint16) {
 }
 
 // AddField adds field meta into metric level
-func (ms *metricStore) AddField(fieldID uint16, fieldType field.Type) {
+func (ms *metricStore) AddField(fieldID field.ID, fieldType field.Type) {
 	_, ok := ms.fields.GetFromID(fieldID)
 	if !ok {
 		ms.fields = ms.fields.Insert(field.Meta{

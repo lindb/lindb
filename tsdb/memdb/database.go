@@ -134,14 +134,14 @@ func (md *memoryDatabase) Write(namespace, metricName string, metricID,
 			//FIXME stone1100 add metric
 			continue
 		}
-		//fStore, writtenSize := tStore.GetFStore(fieldID)
-		pStore, ok := tStore.GetFStore(fID, field.ID(fieldID), field.PrimitiveID(1))
+		//FIXME stone1100 using primitive field id
+		pStore, ok := tStore.GetFStore(fID, fieldID, field.PrimitiveID(1))
 		if !ok {
 			buf, err := md.buf.AllocPage()
 			if err != nil {
 				return err
 			}
-			pStore = newFieldStore(buf, fID, field.ID(fieldID), field.PrimitiveID(1))
+			pStore = newFieldStore(buf, fID, fieldID, field.PrimitiveID(1))
 			size += emptyPrimitiveFieldStoreSize + 8
 			tStore.InsertFStore(pStore)
 		}
