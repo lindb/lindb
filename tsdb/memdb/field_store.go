@@ -62,7 +62,7 @@ type fStoreINTF interface {
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx flushContext)
 	// Load loads field store data based on query time range, then aggregate the result
-	Load(fieldType field.Type, startSlot, endSlot uint16, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
+	Load(fieldType field.Type, agg aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
 }
 
 // fieldStore implements fStoreINTF interface
@@ -286,8 +286,7 @@ func (fs *fieldStore) merge(aggFunc field.AggFunc, tsd *encoding.TSDDecoder,
 // Load loads the field data based on query time range, then aggregates the data
 func (fs *fieldStore) Load(
 	fieldType field.Type,
-	startSlot, endSlot uint16,
-	agg []aggregation.PrimitiveAggregator,
+	agg aggregation.PrimitiveAggregator,
 	memScanCtx *memScanContext,
 ) {
 	hasOld := len(fs.compress) > 0
@@ -299,10 +298,10 @@ func (fs *fieldStore) Load(
 		tsd = memScanCtx.tsd
 		tsd.Reset(fs.compress)
 	}
-	completed := false
-	value := 0.0
 	startTime := fs.getStart()
-	for i := startSlot; i <= endSlot; i++ {
+	start, end := fs.slotRange(startTime)
+	value := 0.0
+	for i := start; i <= end; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 
@@ -318,15 +317,10 @@ func (fs *fieldStore) Load(
 			value = oldValue
 		}
 		if hasNewValue || hasOldValue {
-			//FIXME stone1100
-			idx := int(i)
-			for _, a := range agg {
-				// aggregate the data
-				completed = a.Aggregate(idx, value)
+			// aggregate the data
+			if agg.Aggregate(int(i), value) {
+				return
 			}
-		}
-		if completed {
-			return
 		}
 	}
 }

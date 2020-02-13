@@ -42,7 +42,7 @@ func newTimeSeriesStore() tStoreINTF {
 
 // GetFStore returns the fStore in this list from field-id.
 func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool) {
-	fieldKey := uint32(pField) | uint32(fieldID)<<8 | uint32(familyID)<<16
+	fieldKey := buildFieldKey(familyID, fieldID, pField)
 	fieldLength := len(ts.fStoreNodes)
 	if fieldLength == 1 {
 		if ts.fStoreNodes[0].GetKey() != fieldKey {
@@ -73,6 +73,37 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
 // FlushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
 	for _, fStore := range ts.fStoreNodes {
+		//FIXME need flush by family id
 		fStore.FlushFieldTo(flusher, flushCtx)
+	}
+}
+
+// scan scans the time series data based on key(family+field+primitive).
+// NOTICE: field ids and fields aggregator must be in order.
+func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
+	fieldLength := len(ts.fStoreNodes)
+	fieldAggs := memScanCtx.fieldAggs
+	// find small/equals family id index
+	idx := sort.Search(fieldLength, func(i int) bool {
+		return ts.fStoreNodes[i].GetFamilyID() >= fieldAggs[0].familyID
+	})
+	fieldCount := len(fieldAggs)
+	j := 0
+	for i := idx; i < fieldLength; i++ {
+		fieldStore := ts.fStoreNodes[i]
+		agg := fieldAggs[j]
+		key := fieldStore.GetKey()
+		switch {
+		case key == agg.fieldKey:
+			fieldStore.Load(agg.fieldMeta.Type, agg.aggregator, memScanCtx)
+			j++ // goto next query field id
+			// found all query fields return it
+			if fieldCount == j {
+				return
+			}
+		case key > agg.fieldKey:
+			// store key > query key, return it
+			return
+		}
 	}
 }

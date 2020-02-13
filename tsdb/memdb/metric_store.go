@@ -25,10 +25,13 @@ const emptyMStoreSize = 8 + // mutable
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// flow.DataFilter filters the data based on condition
-	flow.DataFilter
+	// Filter filters the data based on fieldIDs/seriesIDs/familyIDs,
+	// if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
+	Filter(fieldIDs []field.ID,
+		seriesIDs *roaring.Bitmap, familyIDs map[familyID]int64,
+	) ([]flow.FilterResultSet, error)
 	// SetTimestamp sets the current write timestamp
-	SetTimestamp(familyID uint8, slot uint16)
+	SetTimestamp(familyID familyID, slot uint16)
 	// AddField adds field meta into metric level
 	AddField(fieldID field.ID, fieldType field.Type)
 	// GetOrCreateTStore constructs the index and return a tStore
@@ -41,21 +44,21 @@ type mStoreINTF interface {
 type metricStore struct {
 	MetricStore
 
-	families map[uint8]*familySlotRange // time slot range
-	fields   field.Metas                // field metadata
+	families map[familyID]*familySlotRange // time slot range
+	fields   field.Metas                   // field metadata
 }
 
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore() mStoreINTF {
 	ms := metricStore{
-		families: make(map[uint8]*familySlotRange),
+		families: make(map[familyID]*familySlotRange),
 	}
 	ms.keys = roaring.New() // init keys
 	return &ms
 }
 
 // SetTimestamp sets the current write timestamp
-func (ms *metricStore) SetTimestamp(familyID uint8, slot uint16) {
+func (ms *metricStore) SetTimestamp(familyID familyID, slot uint16) {
 	slotRange, ok := ms.families[familyID]
 	if !ok {
 		ms.families[familyID] = newFamilySlotRange(slot, slot)

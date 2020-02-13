@@ -7,6 +7,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -185,15 +187,24 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	mdINTF := NewMemoryDatabase(cfg)
 	md := mdINTF.(*memoryDatabase)
 
-	// not found
-	_, _ = md.Filter(0, []uint16{1}, 1, nil)
-
+	// case 1: family not found
+	rs, err := md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{})
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Nil(t, rs)
+	now := timeutil.Now()
+	md.assignFamilyID(md.getFamilyTime(now))
+	// case 2: metric store not found
+	rs, err = md.Filter(0, []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Nil(t, rs)
+	// case 3: filter success
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
-
-	_, _ = md.Filter(uint32(3333), []uint16{1}, 1, nil)
+	rs, err = md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
+	assert.NoError(t, err)
+	assert.NotNil(t, rs)
 }
 
 func TestMemoryDatabase_getFieldValue(t *testing.T) {
