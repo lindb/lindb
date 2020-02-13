@@ -12,6 +12,11 @@ import (
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock.go -package memdb
 
+// for testing
+var (
+	flushFunc = flush
+)
+
 const emptyMStoreSize = 8 + // mutable
 	8 + // atomic.Value
 	4 + // uint32
@@ -37,14 +42,13 @@ type metricStore struct {
 	MetricStore
 
 	families map[uint8]*familySlotRange // time slot range
-	fields   map[uint16]field.Type
+	fields   field.Metas                // field metadata
 }
 
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore() mStoreINTF {
 	ms := metricStore{
 		families: make(map[uint8]*familySlotRange),
-		fields:   make(map[uint16]field.Type),
 	}
 	ms.keys = roaring.New() // init keys
 	return &ms
@@ -62,7 +66,15 @@ func (ms *metricStore) SetTimestamp(familyID uint8, slot uint16) {
 
 // AddField adds field meta into metric level
 func (ms *metricStore) AddField(fieldID uint16, fieldType field.Type) {
-	ms.fields[fieldID] = fieldType
+	_, ok := ms.fields.GetFromID(fieldID)
+	if !ok {
+		ms.fields = ms.fields.Insert(field.Meta{
+			ID:   fieldID,
+			Type: fieldType,
+		})
+		// sort by field id
+		sort.Slice(ms.fields, func(i, j int) bool { return ms.fields[i].ID < ms.fields[j].ID })
+	}
 }
 
 // GetOrCreateTStore constructs the index and return a tStore
@@ -77,12 +89,7 @@ func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, cr
 }
 
 // FlushMetricsTo Writes metric-data to the table.
-// immutable tagIndex will be removed after call,
-// index shall be flushed before flushing data.
-func (ms *metricStore) FlushMetricsDataTo(
-	flusher metricsdata.Flusher,
-	flushCtx flushContext,
-) (err error) {
+func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx flushContext) (err error) {
 	// family time not exist, return
 	slotRange, ok := ms.families[flushCtx.familyID]
 	if !ok {
@@ -94,25 +101,20 @@ func (ms *metricStore) FlushMetricsDataTo(
 		return
 	}
 	// flush field meta info
-	fmList := make(field.Metas, fieldLen)
-	idx := 0
-	for fieldID, fieldType := range ms.fields {
-		fmList[idx] = field.Meta{
-			ID:   fieldID,
-			Type: fieldType,
-		}
-		idx++
-	}
-	// sort by field id
-	sort.Slice(fmList, func(i, j int) bool { return fmList[i].ID < fmList[j].ID })
-	flusher.FlushFieldMetas(fmList)
+	flusher.FlushFieldMetas(ms.fields)
 	// set current family's slot range
 	flushCtx.start, flushCtx.end = slotRange.getSlotRange()
 	if err := ms.WalkEntry(func(key uint32, value tStoreINTF) error {
-		value.FlushSeriesTo(flusher, flushCtx)
-		return nil
+		return flushFunc(flusher, flushCtx, key, value)
 	}); err != nil {
 		return err
 	}
 	return flusher.FlushMetric(flushCtx.metricID)
+}
+
+// flush flushes series data
+func flush(flusher metricsdata.Flusher, flushCtx flushContext, key uint32, value tStoreINTF) error {
+	value.FlushSeriesTo(flusher, flushCtx)
+	flusher.FlushSeries(key)
+	return nil
 }

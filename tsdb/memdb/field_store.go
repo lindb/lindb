@@ -59,8 +59,8 @@ type fStoreINTF interface {
 	// if time slot out of current time window, need compress time window then resets the current buffer
 	// if has same time slot in current buffer, need do rollup operation by field type
 	Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int)
-	// FlushFieldTo flushes field store data into kv store
-	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
+	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
+	FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx flushContext)
 	// Load loads field store data based on query time range, then aggregate the result
 	Load(fieldType field.Type, startSlot, endSlot uint16, agg []aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
 }
@@ -147,6 +147,32 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	return writtenSize
 }
 
+// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
+func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx flushContext) {
+	fieldMeta, ok := tableFlusher.GetFieldMeta(fs.GetFieldID())
+	if !ok {
+		memDBLogger.Error("field meta not exist in flush context when flush field store data")
+		return
+	}
+	aggFunc := fieldMeta.Type.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
+	var tsd *encoding.TSDDecoder
+	size := len(fs.compress)
+	if size > 0 {
+		// calc new start/end based on old compress values
+		tsd = encoding.GetTSDDecoder()
+		defer encoding.ReleaseTSDDecoder(tsd)
+		tsd.Reset(fs.compress)
+	}
+	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.start, flushCtx.end, false)
+	if err != nil {
+		//FIXME stone100 add metric
+		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
+		return
+	}
+
+	tableFlusher.FlushField(fs.GetFieldKey(), data)
+}
+
 // writeFirstPoint writes first point in current write buffer
 func (fs *fieldStore) writeFirstPoint(slotIndex uint16, value float64) (writtenSize int) {
 	pos, markIdx, flagIdx := fs.position(0)
@@ -178,7 +204,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (memSize i
 	aggFunc := fieldType.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
 	var tsd *encoding.TSDDecoder
 	if size > 0 {
-		// calc new start/end based on old compress values
+		// if has compress data, create tsd decoder for merge compress
 		tsd = encoding.GetTSDDecoder()
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
@@ -210,20 +236,9 @@ func (fs *fieldStore) getEnd() uint16 {
 	return uint16(fs.buf[endOffset])
 }
 
-// FlushFieldTo flushes field store data into kv store
-func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
-	//size := len(fs.compress)
-	//data := fs.compact(flushCtx.buf, fieldMeta.Type, flushCtx.start, flushCtx.end)
-	//if data == nil {
-	//	return
-	//}
-	//fs.compress = data
-	//tableFlusher.FlushPrimitiveField(field.SimpleFieldPFieldID, fs.compress)
-
-	//return fs.MemSize() + size
-}
-
-// merge merges the current and compress data based on primitive field aggregate function
+// merge merges the current and compress data based on primitive field aggregate function,
+// startTime => current write start time
+// start/end slot => target compact time slot
 func (fs *fieldStore) merge(aggFunc field.AggFunc, tsd *encoding.TSDDecoder,
 	startTime, startSlot, endSlot uint16, withTimeRange bool,
 ) (compress []byte, freeSize int, err error) {

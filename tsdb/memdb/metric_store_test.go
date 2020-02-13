@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -31,8 +32,8 @@ func TestMetricStore_AddField(t *testing.T) {
 	mStoreInterface.AddField(1, field.SumField)
 	mStoreInterface.AddField(2, field.MinField)
 	assert.Len(t, mStore.fields, 2)
-	assert.Equal(t, field.SumField, mStore.fields[1])
-	assert.Equal(t, field.MinField, mStore.fields[2])
+	assert.Equal(t, field.Meta{ID: 1, Type: field.SumField}, mStore.fields[0])
+	assert.Equal(t, field.Meta{ID: 2, Type: field.MinField}, mStore.fields[1])
 }
 
 func TestMetricStore_SetTimestamp(t *testing.T) {
@@ -54,7 +55,10 @@ func TestMetricStore_SetTimestamp(t *testing.T) {
 
 func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		flushFunc = flush
+	}()
 
 	flusher := metricsdata.NewMockFlusher(ctrl)
 
@@ -70,12 +74,24 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	mStoreInterface.SetTimestamp(1, 10)
 	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
 	assert.NoError(t, err)
-	// case 3: flush err
+	// case 3: flush success
 	mStoreInterface.AddField(1, field.SumField)
 	mStoreInterface.AddField(2, field.MinField)
-	flusher.EXPECT().FlushFieldMetas(gomock.Any())
-	tStore.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any())
-	flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil)
+	gomock.InOrder(
+		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
+		tStore.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()),
+		flusher.EXPECT().FlushSeries(uint32(10)),
+		flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil),
+	)
 	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
 	assert.NoError(t, err)
+	// case 4: flush err
+	flushFunc = func(flusher metricsdata.Flusher, flushCtx flushContext, key uint32, value tStoreINTF) error {
+		return fmt.Errorf("err")
+	}
+	gomock.InOrder(
+		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
+	)
+	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
+	assert.Error(t, err)
 }
