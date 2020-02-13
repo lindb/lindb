@@ -133,7 +133,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	pos, markIdx, flagIdx := fs.position(delta)
 	if fs.buf[markOffset+markIdx]&flagIdx != 0 {
 		// has same point of same time slot
-		aggFunc := fieldType.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
+		aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
 		oldValue := math.Float64frombits(binary.LittleEndian.Uint64(fs.buf[pos:]))
 		value = aggFunc.Aggregate(oldValue, value)
 	} else {
@@ -154,7 +154,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx fl
 		memDBLogger.Error("field meta not exist in flush context when flush field store data")
 		return
 	}
-	aggFunc := fieldMeta.Type.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
+	aggFunc := fieldMeta.Type.GetSchema().GetAggFunc(fs.GetPrimitiveID())
 	var tsd *encoding.TSDDecoder
 	size := len(fs.compress)
 	if size > 0 {
@@ -201,7 +201,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (memSize i
 	size := len(fs.compress)
 	start, end := fs.slotRange(startTime)
 
-	aggFunc := fieldType.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
+	aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
 	var tsd *encoding.TSDDecoder
 	if size > 0 {
 		// if has compress data, create tsd decoder for merge compress
@@ -291,8 +291,7 @@ func (fs *fieldStore) Load(
 	memScanCtx *memScanContext,
 ) {
 	hasOld := len(fs.compress) > 0
-	//FIXME stone1100
-	aggFunc := fieldType.GetSchema().GetAggFunc(uint16(fs.GetPrimitiveID()))
+	aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
 
 	var tsd *encoding.TSDDecoder
 	if hasOld {

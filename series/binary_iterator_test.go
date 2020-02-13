@@ -105,7 +105,7 @@ func TestPrimitiveIterator(t *testing.T) {
 	decoder := encoding.GetTSDDecoder()
 	decoder.Reset(data)
 	it := NewPrimitiveIterator(10, field.Sum, decoder)
-	assert.Equal(t, uint16(10), it.FieldID())
+	assert.Equal(t, field.PrimitiveID(10), it.FieldID())
 	assert.True(t, it.HasNext())
 	slot, val := it.Next()
 	assert.Equal(t, 10, slot)
@@ -130,7 +130,7 @@ func assertFieldIterator(t *testing.T, it FieldIterator) {
 	for i := 0; i < 2; i++ {
 		assert.True(t, it.HasNext())
 		pIt := it.Next()
-		assert.Equal(t, uint16(10), pIt.FieldID())
+		assert.Equal(t, field.PrimitiveID(10), pIt.FieldID())
 		assert.Equal(t, field.Sum, pIt.AggType())
 		assert.True(t, pIt.HasNext())
 		s, v := pIt.Next()
@@ -149,7 +149,7 @@ func buildFieldIterator() []byte {
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.Bytes()
 	for i := 0; i < 2; i++ {
-		writer.PutUInt16(uint16(10))
+		writer.PutByte(byte(field.PrimitiveID(10)))
 		writer.PutByte(byte(field.Sum))
 		writer.PutVarint32(int32(len(data)))
 		writer.PutBytes(data)

@@ -4,6 +4,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //////////////////////////////////////////////////
@@ -18,7 +19,7 @@ func mockSingleIterator(ctrl *gomock.Controller) series.Iterator {
 	fIt.EXPECT().Next().Return(int64(10), it)
 	fIt.EXPECT().HasNext().Return(false)
 	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-	primitiveIt.EXPECT().FieldID().Return(uint16(1))
+	primitiveIt.EXPECT().FieldID().Return(field.PrimitiveID(1))
 	it.EXPECT().HasNext().Return(true)
 	it.EXPECT().Next().Return(primitiveIt)
 	it.EXPECT().HasNext().Return(false)

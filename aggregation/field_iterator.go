@@ -67,7 +67,7 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		writer.PutUInt16(primitiveIt.FieldID())
+		writer.PutByte(byte(primitiveIt.FieldID()))
 		writer.PutByte(byte(primitiveIt.AggType()))
 		writer.PutVarint32(int32(len(data)))
 		writer.PutBytes(data)
@@ -78,13 +78,13 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 // primitiveIterator represents primitive iterator using array
 type primitiveIterator struct {
 	start   int
-	id      uint16
+	id      field.PrimitiveID
 	aggType field.AggType
 	it      collections.FloatArrayIterator
 }
 
 // newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id uint16, start int, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
+func newPrimitiveIterator(id field.PrimitiveID, start int, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
 	it := &primitiveIterator{
 		start:   start,
 		id:      id,
@@ -97,7 +97,7 @@ func newPrimitiveIterator(id uint16, start int, aggType field.AggType, values co
 }
 
 // ID returns the primitive field id
-func (it *primitiveIterator) FieldID() uint16 {
+func (it *primitiveIterator) FieldID() field.PrimitiveID {
 	return it.id
 }
 

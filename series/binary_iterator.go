@@ -130,15 +130,15 @@ func (it *BinaryFieldIterator) reset(data []byte) {
 func (it *BinaryFieldIterator) HasNext() bool { return !it.reader.Empty() }
 
 func (it *BinaryFieldIterator) Next() PrimitiveIterator {
-	fieldID := it.reader.ReadUint16()
+	pFieldID := it.reader.ReadByte() // read primitive field id
 	aggType := field.AggType(it.reader.ReadByte())
 	length := it.reader.ReadVarint32()
 	data := it.reader.ReadBytes(int(length))
 
 	if it.pIt == nil {
-		it.pIt = NewPrimitiveIterator(fieldID, aggType, encoding.NewTSDDecoder(data))
+		it.pIt = NewPrimitiveIterator(field.PrimitiveID(pFieldID), aggType, encoding.NewTSDDecoder(data))
 	} else {
-		it.pIt.Reset(fieldID, aggType, data)
+		it.pIt.Reset(field.PrimitiveID(pFieldID), aggType, data)
 	}
 	return it.pIt
 }
@@ -151,12 +151,12 @@ func (it *BinaryFieldIterator) MarshalBinary() ([]byte, error) {
 // primitiveIterator implements PrimitiveIterator
 //////////////////////////////////////////////////////
 type BinaryPrimitiveIterator struct {
-	fieldID uint16
+	fieldID field.PrimitiveID
 	aggType field.AggType
 	tsd     *encoding.TSDDecoder
 }
 
-func NewPrimitiveIterator(fieldID uint16, aggType field.AggType, tsd *encoding.TSDDecoder) *BinaryPrimitiveIterator {
+func NewPrimitiveIterator(fieldID field.PrimitiveID, aggType field.AggType, tsd *encoding.TSDDecoder) *BinaryPrimitiveIterator {
 	return &BinaryPrimitiveIterator{
 		fieldID: fieldID,
 		aggType: aggType,
@@ -164,13 +164,13 @@ func NewPrimitiveIterator(fieldID uint16, aggType field.AggType, tsd *encoding.T
 	}
 }
 
-func (pi *BinaryPrimitiveIterator) Reset(fieldID uint16, aggType field.AggType, data []byte) {
+func (pi *BinaryPrimitiveIterator) Reset(fieldID field.PrimitiveID, aggType field.AggType, data []byte) {
 	pi.fieldID = fieldID
 	pi.aggType = aggType
 	pi.tsd.Reset(data)
 }
 
-func (pi *BinaryPrimitiveIterator) FieldID() uint16 {
+func (pi *BinaryPrimitiveIterator) FieldID() field.PrimitiveID {
 	return pi.fieldID
 }
 
