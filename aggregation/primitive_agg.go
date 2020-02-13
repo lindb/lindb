@@ -12,7 +12,7 @@ import (
 // NOTICE: not-safe for goroutine concurrently
 type PrimitiveAggregator interface {
 	// FieldID returns the primitive field id
-	FieldID() uint16
+	FieldID() field.PrimitiveID
 	// Aggregate aggregates value with time slot(index)
 	// true: aggregate completed
 	Aggregate(idx int, value float64) (completed bool)
@@ -24,7 +24,7 @@ type PrimitiveAggregator interface {
 
 // primitiveAggregator implements primitive aggregator interface, using array for storing aggregation result
 type primitiveAggregator struct {
-	id         uint16
+	id         field.PrimitiveID
 	start      int
 	values     collections.FloatArray
 	pointCount int
@@ -32,7 +32,7 @@ type primitiveAggregator struct {
 }
 
 // newPrimitiveAggregator creates primitive aggregator
-func NewPrimitiveAggregator(fieldID uint16, start int, pointCount int, aggFunc field.AggFunc) PrimitiveAggregator {
+func NewPrimitiveAggregator(fieldID field.PrimitiveID, start int, pointCount int, aggFunc field.AggFunc) PrimitiveAggregator {
 	return &primitiveAggregator{
 		id:         fieldID,
 		start:      start,
@@ -42,7 +42,7 @@ func NewPrimitiveAggregator(fieldID uint16, start int, pointCount int, aggFunc f
 }
 
 // FieldID returns the primitive field id
-func (agg *primitiveAggregator) FieldID() uint16 {
+func (agg *primitiveAggregator) FieldID() field.PrimitiveID {
 	return agg.id
 }
 

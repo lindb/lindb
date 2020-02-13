@@ -23,7 +23,7 @@ type FieldAggregator interface {
 }
 
 type aggKey struct {
-	primitiveID uint16
+	primitiveID field.PrimitiveID
 	aggType     field.AggType
 }
 
@@ -172,7 +172,7 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	}
 }
 
-func (a *fieldAggregator) getAggregator(primitiveFieldID uint16, aggType field.AggType) PrimitiveAggregator {
+func (a *fieldAggregator) getAggregator(primitiveFieldID field.PrimitiveID, aggType field.AggType) PrimitiveAggregator {
 	key := aggKey{
 		primitiveID: primitiveFieldID,
 		aggType:     aggType,

@@ -4,14 +4,14 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 )
 
-const SimpleFieldPFieldID = uint16(1)
+const SimpleFieldPFieldID = PrimitiveID(1)
 
 // Schema represents the field schema internal definition
 type Schema interface {
 	// GetAggFunc gets agg func type by primitive field id
-	GetAggFunc(pFieldID uint16) AggFunc
+	GetAggFunc(pFieldID PrimitiveID) AggFunc
 	// GetAllPrimitiveFields returns all primitive field ids, sort by field id
-	GetAllPrimitiveFields() []uint16
+	GetAllPrimitiveFields() []PrimitiveID
 	// getPrimitiveFields gets need extract primitive fields
 	getPrimitiveFields(funcType function.FuncType) PrimitiveFields
 	// getDefaultPrimitiveFields gets the default extract primitive fields
@@ -19,22 +19,22 @@ type Schema interface {
 }
 
 type sumSchema struct {
-	primitiveFieldID uint16
-	fieldIDs         []uint16
+	primitiveFieldID PrimitiveID
+	fieldIDs         []PrimitiveID
 }
 
 func newSumSchema() Schema {
 	return &sumSchema{
 		primitiveFieldID: SimpleFieldPFieldID,
-		fieldIDs:         []uint16{SimpleFieldPFieldID},
+		fieldIDs:         []PrimitiveID{SimpleFieldPFieldID},
 	}
 }
 
-func (s *sumSchema) GetAggFunc(pFieldID uint16) AggFunc {
+func (s *sumSchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	return sumAggregator
 }
 
-func (s *sumSchema) GetAllPrimitiveFields() []uint16 {
+func (s *sumSchema) GetAllPrimitiveFields() []PrimitiveID {
 	return s.fieldIDs
 }
 
@@ -54,22 +54,22 @@ func (s *sumSchema) getDefaultPrimitiveFields() PrimitiveFields {
 }
 
 type minSchema struct {
-	primitiveFieldID uint16
-	fieldIDs         []uint16
+	primitiveFieldID PrimitiveID
+	fieldIDs         []PrimitiveID
 }
 
 func newMinSchema() Schema {
 	return &minSchema{
 		primitiveFieldID: SimpleFieldPFieldID,
-		fieldIDs:         []uint16{SimpleFieldPFieldID},
+		fieldIDs:         []PrimitiveID{SimpleFieldPFieldID},
 	}
 }
 
-func (s *minSchema) GetAggFunc(pFieldID uint16) AggFunc {
+func (s *minSchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	return minAggregator
 }
 
-func (s *minSchema) GetAllPrimitiveFields() []uint16 {
+func (s *minSchema) GetAllPrimitiveFields() []PrimitiveID {
 	return s.fieldIDs
 }
 
@@ -89,22 +89,22 @@ func (s *minSchema) getDefaultPrimitiveFields() PrimitiveFields {
 }
 
 type maxSchema struct {
-	primitiveFieldID uint16
-	fieldIDs         []uint16
+	primitiveFieldID PrimitiveID
+	fieldIDs         []PrimitiveID
 }
 
 func newMaxSchema() Schema {
 	return &maxSchema{
 		primitiveFieldID: SimpleFieldPFieldID,
-		fieldIDs:         []uint16{SimpleFieldPFieldID},
+		fieldIDs:         []PrimitiveID{SimpleFieldPFieldID},
 	}
 }
 
-func (s *maxSchema) GetAggFunc(pFieldID uint16) AggFunc {
+func (s *maxSchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	return maxAggregator
 }
 
-func (s *maxSchema) GetAllPrimitiveFields() []uint16 {
+func (s *maxSchema) GetAllPrimitiveFields() []PrimitiveID {
 	return s.fieldIDs
 }
 
@@ -124,22 +124,22 @@ func (s *maxSchema) getDefaultPrimitiveFields() PrimitiveFields {
 }
 
 type gaugeSchema struct {
-	primitiveFieldID uint16
-	fieldIDs         []uint16
+	primitiveFieldID PrimitiveID
+	fieldIDs         []PrimitiveID
 }
 
 func newGaugeSchema() Schema {
 	return &gaugeSchema{
 		primitiveFieldID: SimpleFieldPFieldID,
-		fieldIDs:         []uint16{SimpleFieldPFieldID},
+		fieldIDs:         []PrimitiveID{SimpleFieldPFieldID},
 	}
 }
 
-func (s *gaugeSchema) GetAggFunc(pFieldID uint16) AggFunc {
+func (s *gaugeSchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	return replaceAggregator
 }
 
-func (s *gaugeSchema) GetAllPrimitiveFields() []uint16 {
+func (s *gaugeSchema) GetAllPrimitiveFields() []PrimitiveID {
 	return s.fieldIDs
 }
 
@@ -159,34 +159,34 @@ func (s *gaugeSchema) getDefaultPrimitiveFields() PrimitiveFields {
 }
 
 type summarySchema struct {
-	sumFieldID, countFieldID, minFieldID, maxFieldID uint16
-	fieldIDs                                         []uint16
+	sumFieldID, countFieldID, minFieldID, maxFieldID PrimitiveID
+	fieldIDs                                         []PrimitiveID
 }
 
 func newSummarySchema() Schema {
 	return &summarySchema{
-		sumFieldID:   uint16(1),
-		countFieldID: uint16(2),
-		maxFieldID:   uint16(3),
-		minFieldID:   uint16(4),
-		fieldIDs:     []uint16{1, 2, 3, 4},
+		sumFieldID:   PrimitiveID(1),
+		countFieldID: PrimitiveID(2),
+		maxFieldID:   PrimitiveID(3),
+		minFieldID:   PrimitiveID(4),
+		fieldIDs:     []PrimitiveID{1, 2, 3, 4},
 	}
 }
 
-func (s *summarySchema) GetAggFunc(pFieldID uint16) AggFunc {
+func (s *summarySchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	switch pFieldID {
-	case uint16(1), uint16(2):
+	case PrimitiveID(1), PrimitiveID(2):
 		return sumAggregator
-	case uint16(3):
+	case PrimitiveID(3):
 		return maxAggregator
-	case uint16(4):
+	case PrimitiveID(4):
 		return minAggregator
 	default:
 		return replaceAggregator
 	}
 }
 
-func (s *summarySchema) GetAllPrimitiveFields() []uint16 {
+func (s *summarySchema) GetAllPrimitiveFields() []PrimitiveID {
 	return s.fieldIDs
 }
 

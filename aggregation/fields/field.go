@@ -27,7 +27,7 @@ type dynamicField struct {
 	interval  int64
 	capacity  int
 
-	fields map[uint16]collections.FloatArray
+	fields map[field.PrimitiveID]collections.FloatArray
 }
 
 // NewDynamicField creates a dynamic field series
@@ -37,7 +37,7 @@ func NewDynamicField(fieldType field.Type, startTime int64, interval int64, capa
 		startTime: startTime,
 		interval:  interval,
 		capacity:  capacity,
-		fields:    make(map[uint16]collections.FloatArray),
+		fields:    make(map[field.PrimitiveID]collections.FloatArray),
 	}
 }
 
