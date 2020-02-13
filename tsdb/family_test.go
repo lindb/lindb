@@ -85,7 +85,6 @@ func TestDataFamily_Filter(t *testing.T) {
 		return blockIt, nil
 	}
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
-	blockIt.EXPECT().HasNext().Return(false)
 	_, err = dataFamily.Filter(uint32(10), nil, series.NewVersion(), nil)
 	assert.NoError(t, err)
 }

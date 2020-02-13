@@ -39,13 +39,11 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 
 	flusher := metricsdata.NewMockFlusher(ctrl)
 	tStore := newTimeSeriesStore()
-	//FIXME stone1100
-	//s := tStore.(*timeSeriesStore)
-	//fStore := NewMockfStoreINTF(ctrl)
-	//s.InsertFStore(fStore)
-	//gomock.InOrder(
-	//	fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()),
-	//	flusher.EXPECT().FlushSeries(),
-	//)
+	s := tStore.(*timeSeriesStore)
+	fStore := NewMockfStoreINTF(ctrl)
+	s.InsertFStore(fStore)
+	gomock.InOrder(
+		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()),
+	)
 	tStore.FlushSeriesTo(flusher, flushContext{})
 }

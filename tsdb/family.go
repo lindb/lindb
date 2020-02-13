@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/tblstore"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./family.go -destination=./family_mock.go -package=tsdb
@@ -105,6 +104,8 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []uint16,
 	if len(blockIts) == 0 {
 		return
 	}
-	filter := metricsdata.NewFilter(f.timeRange.Start, snapShot, blockIts)
-	return filter.Filter(fieldIDs, version, seriesIDs)
+	return nil, nil
+	//FIXME stone1100
+	//filter := metricsdata.NewFilter(f.timeRange.Start, snapShot, blockIts)
+	//return filter.Filter(fieldIDs, version, seriesIDs)
 }

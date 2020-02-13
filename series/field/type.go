@@ -8,6 +8,8 @@ import (
 type AggType uint8
 type PrimitiveID uint8
 type ID uint8
+
+// Field key represents field id[1byte] + primitive field id[1byte]
 type Key uint16
 
 // Defines all aggregator types for primitive field
