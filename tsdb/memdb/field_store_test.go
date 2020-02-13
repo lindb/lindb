@@ -3,14 +3,17 @@ package memdb
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 func TestFieldStore_New(t *testing.T) {
@@ -159,10 +162,51 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 
 func TestFieldStore_FlushFieldTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		encodeFunc = encoding.NewTSDEncoder
+		ctrl.Finish()
+	}()
+
+	flusher := metricsdata.NewMockFlusher(ctrl)
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	store := newFieldStore(buf, familyID(12), field.ID(2), field.PrimitiveID(1))
+	_ = store.Write(field.SumField, 10, 10.1)
+	_ = store.Write(field.SumField, 5, 5.1)
+
 	assert.NotNil(t, store)
-	store.FlushFieldTo(nil, field.Meta{}, flushContext{})
+	// case 1: field meta not exist
+	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{}, false)
+	store.FlushFieldTo(flusher, flushContext{})
+	// case 2: flush success
+	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{Type: field.SumField}, true).AnyTimes()
+	flusher.EXPECT().FlushField(field.Key(binary.LittleEndian.Uint16([]byte{2, 1})), mockFlushData())
+	store.FlushFieldTo(flusher, flushContext{start: 2, end: 20})
+	// case 3: flush err
+	encode := encoding.NewMockTSDEncoder(ctrl)
+	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
+		return encode
+	}
+	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()
+	encode.EXPECT().AppendValue(gomock.Any()).AnyTimes()
+	encode.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
+	store.FlushFieldTo(flusher, flushContext{start: 2, end: 20})
+}
+
+func mockFlushData() []byte {
+	encode := encoding.NewTSDEncoder(2)
+	for i := 2; i <= 20; i++ {
+		if i == 5 || i == 10 {
+			encode.AppendTime(bit.One)
+			if i == 5 {
+				encode.AppendValue(math.Float64bits(5.1))
+			} else {
+				encode.AppendValue(math.Float64bits(10.1))
+			}
+		} else {
+			encode.AppendTime(bit.Zero)
+		}
+	}
+	d, _ := encode.BytesWithoutTime()
+	return d
 }

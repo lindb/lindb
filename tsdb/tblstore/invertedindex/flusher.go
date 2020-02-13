@@ -69,6 +69,7 @@ func (w *flusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitma
 // flushTagValueBucket flushes data by bucket based on bitmap container
 func (w *flusher) flushTagValueBucket() {
 	if w.tagValueIDs.IsEmpty() {
+		// maybe first high key not start with 0
 		return
 	}
 
@@ -85,17 +86,19 @@ func (w *flusher) FlushTagKeyID(tagID uint32) error {
 
 	// check if has pending tag value bucket not flush
 	w.flushTagValueBucket()
-
+	// write high offsets
+	offsetPos := w.writer.Len()
+	w.writer.PutBytes(w.highOffsets.MarshalBinary())
+	// write tag value ids bitmap
 	tagValueIDsBlock, err := encoding.BitmapMarshal(w.tagValueIDs)
 	if err != nil {
 		return err
 	}
-	offsetPos := w.writer.Len()
-	w.writer.PutBytes(w.highOffsets.MarshalBinary())
 	tagValueIDsPos := w.writer.Len()
 	w.writer.PutBytes(tagValueIDsBlock)
 	////////////////////////////////
-	// footer (tag value ids' offset+high level offsets+crc32 checksum)(4 bytes+4 bytes+4 bytes)
+	// footer (tag value ids' offset+high level offsets+crc32 checksum)
+	// (4 bytes + 4 bytes + 4 bytes)
 	////////////////////////////////
 	// write tag value ids' start position
 	w.writer.PutUint32(uint32(tagValueIDsPos))
@@ -121,4 +124,5 @@ func (w *flusher) reset() {
 	w.lowOffsets.Reset()
 	w.highOffsets.Reset()
 	w.writer.Reset()
+	w.highKey = 0
 }

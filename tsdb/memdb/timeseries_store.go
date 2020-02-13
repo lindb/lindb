@@ -71,13 +71,8 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
 }
 
 // FlushSeriesTo flushes the series data segment.
-func (ts *timeSeriesStore) FlushSeriesTo(
-	flusher metricsdata.Flusher,
-	flushCtx flushContext,
-) {
-	// FIXME stone100
-	//for _, fStore := range ts.fStoreNodes {
-	//	fStore.FlushFieldTo(flusher, flushCtx)
-	//}
-	//flusher.FlushSeries()
+func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
+	for _, fStore := range ts.fStoreNodes {
+		fStore.FlushFieldTo(flusher, flushCtx)
+	}
 }

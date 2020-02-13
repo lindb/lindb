@@ -23,6 +23,11 @@ func NewFixedOffsetEncoder() *FixedOffsetEncoder {
 	}
 }
 
+// IsEmpty returns if is empty
+func (e *FixedOffsetEncoder) IsEmpty() bool {
+	return len(e.values) == 0
+}
+
 // Reset resets the encoder context for reuse
 func (e *FixedOffsetEncoder) Reset() {
 	e.bw.Reset()

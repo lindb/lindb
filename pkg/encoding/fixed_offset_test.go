@@ -6,6 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestFixedOffsetEncoder_IsEmpty(t *testing.T) {
+	encoder := NewFixedOffsetEncoder()
+	assert.True(t, encoder.IsEmpty())
+	encoder.Add(10)
+	assert.False(t, encoder.IsEmpty())
+}
+
 func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	encoder := NewFixedOffsetEncoder()
 	data := encoder.MarshalBinary()
