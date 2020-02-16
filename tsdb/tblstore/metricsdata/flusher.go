@@ -32,7 +32,7 @@ type Flusher interface {
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
 	FlushSeries(seriesID uint32)
 	// FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
-	FlushMetric(metricID uint32) error
+	FlushMetric(metricID uint32, start, end uint16) error
 	// Commit closes the writer, this will be called after writing all metric-blocks.
 	Commit() error
 	// GetFieldMeta
@@ -98,6 +98,8 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	}
 
 	pos := w.writer.Len() // field offset block start position
+	// write fields count
+	w.writer.PutUInt16(uint16(w.fieldOffsets.Size()))
 	// write field offsets into offset block of series level
 	w.writer.PutBytes(w.fieldOffsets.MarshalBinary())
 	w.lowOffsets.Add(pos) // add field offset's position
@@ -135,7 +137,7 @@ func (w *flusher) reset() {
 }
 
 // FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
-func (w *flusher) FlushMetric(metricID uint32) error {
+func (w *flusher) FlushMetric(metricID uint32, start, end uint16) error {
 	defer w.reset()
 
 	if w.seriesIDs.IsEmpty() {
@@ -170,8 +172,11 @@ func (w *flusher) FlushMetric(metricID uint32) error {
 
 	//////////////////////////////////////////////////
 	// build footer (field meta's offset+series ids' offset+high level offsets+crc32 checksum)
-	// (4 bytes + 4 bytes + 4 bytes + 4 bytes)
+	// (2 bytes + 2 bytes +4 bytes + 4 bytes + 4 bytes + 4 bytes)
 	//////////////////////////////////////////////////
+	// write time range of metric level
+	w.writer.PutUInt16(start)
+	w.writer.PutUInt16(end)
 	// write field metas' start position
 	w.writer.PutUint32(uint32(fieldsMetaPos))
 	// write series ids' start position

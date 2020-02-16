@@ -146,7 +146,7 @@ func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx 
 	}); err != nil {
 		return err
 	}
-	return flusher.FlushMetric(flushCtx.metricID)
+	return flusher.FlushMetric(flushCtx.metricID, slotRange.start, slotRange.end)
 }
 
 // flush flushes series data
