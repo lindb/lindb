@@ -17,6 +17,7 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	encoder := NewFixedOffsetEncoder()
 	data := encoder.MarshalBinary()
 	assert.Len(t, data, 0)
+	assert.Equal(t, 0, encoder.Size())
 	encoder.Add(0)             //0
 	encoder.Add(1)             //1
 	encoder.Add(1 << 8)        //2
@@ -25,6 +26,7 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	encoder.Add((1 << 16) + 1) //5
 	encoder.Add(1 << 24)       //6
 	encoder.Add((1 << 24) + 1) //7
+	assert.Equal(t, 8, encoder.Size())
 	data = encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
 	decoder := NewFixedOffsetDecoder(data)

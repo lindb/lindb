@@ -8,14 +8,15 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./family.go -destination=./family_mock.go -package=tsdb
 
 // for testing
 var (
-	newVersionBlockIterator = tblstore.NewVersionBlockIterator
+	newReaderFunc = metricsdata.NewReader
+	newFilterFunc = metricsdata.NewFilter
 )
 
 // DataFamily represents a storage unit for time series data, support multi-version.
@@ -79,32 +80,26 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []field.ID,
 		}
 	}()
 	readers, err := snapShot.FindReaders(metricID)
-	if len(readers) == 0 {
-		if err != nil {
-			engineLogger.Error("filter data family error", logger.Error(err))
-		}
+	if err != nil {
+		engineLogger.Error("filter data family error", logger.Error(err))
 		return
 	}
-	var blockIts []tblstore.VersionBlockIterator
+	var metricReaders []metricsdata.Reader
 	for _, reader := range readers {
 		value, ok := reader.Get(metricID)
 		// metric data not found
 		if !ok {
 			continue
 		}
-		var it tblstore.VersionBlockIterator
-		it, err = newVersionBlockIterator(value)
+		r, err := newReaderFunc(value)
 		if err != nil {
-			engineLogger.Error("filter data family error", logger.Error(err))
-			return
+			return nil, err
 		}
-		blockIts = append(blockIts, it)
+		metricReaders = append(metricReaders, r)
 	}
-	if len(blockIts) == 0 {
+	if len(metricReaders) == 0 {
 		return
 	}
-	return nil, nil
-	//FIXME stone1100
-	//filter := metricsdata.NewFilter(f.timeRange.Start, snapShot, blockIts)
-	//return filter.Filter(fieldIDs, version, seriesIDs)
+	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
+	return filter.Filter(fieldIDs, seriesIDs)
 }

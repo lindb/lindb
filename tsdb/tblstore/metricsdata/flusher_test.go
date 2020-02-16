@@ -31,11 +31,11 @@ func TestFlusher_flush_metric(t *testing.T) {
 	_, ok = flusher.GetFieldMeta(field.ID(20))
 	assert.False(t, ok)
 
-	err := flusher.FlushMetric(39)
+	err := flusher.FlushMetric(39, 10, 13)
 	assert.NoError(t, err)
 
 	// metric hasn't series ids
-	err = flusher.FlushMetric(40)
+	err = flusher.FlushMetric(40, 10, 13)
 	assert.NoError(t, err)
 
 	// field not exist not flush metric
@@ -52,7 +52,7 @@ func TestFlusher_flush_big_series_id(t *testing.T) {
 	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
 	flusher.FlushField(field.Key(10), []byte{1, 2, 3})
 	flusher.FlushSeries(100000)
-	err := flusher.FlushMetric(39)
+	err := flusher.FlushMetric(39, 10, 13)
 	assert.NoError(t, err)
 	err = flusher.Commit()
 	assert.NoError(t, err)
@@ -70,7 +70,7 @@ func TestFlusher_flush_err(t *testing.T) {
 	encoding.BitmapMarshal = func(bitmap *roaring.Bitmap) (bytes []byte, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	err := flusher.FlushMetric(39)
+	err := flusher.FlushMetric(39, 10, 13)
 	assert.Error(t, err)
 	_, ok := flusher.GetFieldMeta(field.ID(2))
 	assert.False(t, ok)

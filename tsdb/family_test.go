@@ -11,7 +11,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/tblstore"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 func TestDataFamily_BaseTime(t *testing.T) {
@@ -33,7 +33,8 @@ func TestDataFamily_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
-		newVersionBlockIterator = tblstore.NewVersionBlockIterator
+		newReaderFunc = metricsdata.NewReader
+		newFilterFunc = metricsdata.NewFilter
 	}()
 
 	family := kv.NewMockFamily(ctrl)
@@ -52,13 +53,13 @@ func TestDataFamily_Filter(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
-	// test find kv readers nil
+	// case 1: find kv readers nil
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
 	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
-	// test not find in reader
+	// case 2: not find in reader
 	reader := table.NewMockReader(ctrl)
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return(nil, false)
@@ -66,24 +67,27 @@ func TestDataFamily_Filter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
-	// test new version block err
-	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
-	// create version block iterator err
-	newVersionBlockIterator = func(block []byte) (iterator tblstore.VersionBlockIterator, e error) {
+	// case 3: new metric reader err
+	newReaderFunc = func(buf []byte) (reader metricsdata.Reader, err error) {
 		return nil, fmt.Errorf("err")
 	}
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
 	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
-	// test normal case
-	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	blockIt := tblstore.NewMockVersionBlockIterator(ctrl)
-	newVersionBlockIterator = func(block []byte) (iterator tblstore.VersionBlockIterator, e error) {
-		return blockIt, nil
+	// case 4: normal case
+	newReaderFunc = func(buf []byte) (reader metricsdata.Reader, err error) {
+		return nil, nil
 	}
+	filter := metricsdata.NewMockFilter(ctrl)
+	newFilterFunc = func(familyTime int64, snapshot version.Snapshot, readers []metricsdata.Reader) metricsdata.Filter {
+		return filter
+	}
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
+	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
 	assert.NoError(t, err)
 }
