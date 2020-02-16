@@ -236,3 +236,11 @@ func TestMemoryDatabase_getFieldValue(t *testing.T) {
 		}},
 	}))
 }
+
+func TestFamilyTimeIDEntries_AddID(t *testing.T) {
+	var entries familyTimeIDEntries
+	entries = entries.AddID(1, 1)
+	entries = entries.AddID(3, 3)
+	entries = entries.AddID(2, 2)
+	assert.Equal(t, int64(2), entries[1].time)
+}
