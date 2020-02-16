@@ -26,11 +26,11 @@ func (ms *metricStore) Filter(fieldIDs []field.ID,
 	resultFamilyIDMap := make(map[familyID]int64)
 	var resultFamilyIDs []familyID // sort by family id
 
-	for fID := range ms.families {
-		fTime, ok := familyIDs[fID]
+	for _, entry := range ms.families {
+		fTime, ok := familyIDs[entry.id]
 		if ok {
-			resultFamilyIDMap[fID] = fTime
-			resultFamilyIDs = append(resultFamilyIDs, fID)
+			resultFamilyIDMap[entry.id] = fTime
+			resultFamilyIDs = append(resultFamilyIDs, entry.id)
 		}
 	}
 	if len(resultFamilyIDMap) == 0 {

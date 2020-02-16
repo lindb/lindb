@@ -6,8 +6,8 @@ type familySlotRange struct {
 }
 
 // newFamilySlotRange creates a new family slot range with start/end
-func newFamilySlotRange(start, end uint16) *familySlotRange {
-	return &familySlotRange{
+func newFamilySlotRange(start, end uint16) familySlotRange {
+	return familySlotRange{
 		start: start,
 		end:   end,
 	}

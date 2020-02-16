@@ -182,7 +182,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	// case 2: flush success
 	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{Type: field.SumField}, true).AnyTimes()
 	flusher.EXPECT().FlushField(field.Key(binary.LittleEndian.Uint16([]byte{2, 1})), mockFlushData())
-	store.FlushFieldTo(flusher, flushContext{start: 2, end: 20})
+	store.FlushFieldTo(flusher, flushContext{familySlotRange: familySlotRange{start: 2, end: 20}})
 	// case 3: flush err
 	encode := encoding.NewMockTSDEncoder(ctrl)
 	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
@@ -191,7 +191,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encode.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encode.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
-	store.FlushFieldTo(flusher, flushContext{start: 2, end: 20})
+	store.FlushFieldTo(flusher, flushContext{familySlotRange: familySlotRange{start: 2, end: 20}})
 }
 
 func mockFlushData() []byte {
