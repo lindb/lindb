@@ -1,13 +1,13 @@
 package invertedindex
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package invertedindex
@@ -143,9 +143,9 @@ func (r *invertedIndexReader) initReader() error {
 	}
 	// read footer(4+4+4)
 	footerPos := len(r.buf) - invertedIndexFooterSize
-	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(r.buf[footerPos : footerPos+4]))
-	highOffsetsPos := int(binary.LittleEndian.Uint32(r.buf[footerPos+4 : footerPos+8]))
-	r.crc32CheckSum = binary.LittleEndian.Uint32(r.buf[footerPos+8 : footerPos+12])
+	tagValueIDsStartPos := int(stream.ReadUint32(r.buf, footerPos))
+	highOffsetsPos := int(stream.ReadUint32(r.buf, footerPos+4))
+	r.crc32CheckSum = stream.ReadUint32(r.buf, footerPos+8)
 	// validate offsets
 	if tagValueIDsStartPos > footerPos || highOffsetsPos > tagValueIDsStartPos {
 		return fmt.Errorf("bad offsets")

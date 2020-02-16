@@ -128,6 +128,7 @@ func NewTSDDecoder(data []byte) *TSDDecoder {
 	return decoder
 }
 
+// ResetWithTimeRange resets tsd data and reads the meta info from the data with time range
 func (d *TSDDecoder) ResetWithTimeRange(data []byte, start, end uint16) {
 	d.reset(data)
 

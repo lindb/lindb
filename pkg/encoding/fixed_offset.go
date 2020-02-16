@@ -28,6 +28,11 @@ func (e *FixedOffsetEncoder) IsEmpty() bool {
 	return len(e.values) == 0
 }
 
+// Size returns the size
+func (e *FixedOffsetEncoder) Size() int {
+	return len(e.values)
+}
+
 // Reset resets the encoder context for reuse
 func (e *FixedOffsetEncoder) Reset() {
 	e.bw.Reset()

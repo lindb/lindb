@@ -1,7 +1,6 @@
 package metricsmeta
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/lindb/roaring"
@@ -52,9 +51,9 @@ func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
 	}
 	// read footer(4+4+4)
 	footerPos := len(block) - tagFooterSize
-	entrySet.tagValueSeq = binary.LittleEndian.Uint32(block[footerPos : footerPos+4])
-	tagValueIDsStartPos := int(binary.LittleEndian.Uint32(block[footerPos+4 : footerPos+8]))
-	entrySet.crc32CheckSum = binary.LittleEndian.Uint32(block[footerPos+8 : footerPos+12])
+	entrySet.tagValueSeq = stream.ReadUint32(block, footerPos)
+	tagValueIDsStartPos := int(stream.ReadUint32(block, footerPos+4))
+	entrySet.crc32CheckSum = stream.ReadUint32(block, footerPos+8)
 	// validate offsets
 	if !(tagValueIDsStartPos < footerPos) {
 		return nil, fmt.Errorf("bad offsets")

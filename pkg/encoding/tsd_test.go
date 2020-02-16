@@ -46,6 +46,27 @@ func TestCodec(t *testing.T) {
 	assert.Equal(t, uint64(50), decoder.Value())
 
 	assert.False(t, decoder.Next())
+	data, err = encoder.BytesWithoutTime()
+	assert.Nil(t, err)
+	assert.True(t, len(data) > 0)
+
+	decoder.ResetWithTimeRange(data, 10, 13)
+	assert.Equal(t, uint16(10), decoder.StartTime())
+	assert.Equal(t, uint16(13), decoder.EndTime())
+
+	assert.True(t, decoder.Next())
+	assert.True(t, decoder.HasValue())
+	assert.Equal(t, uint64(10), decoder.Value())
+	assert.True(t, decoder.Next())
+	assert.True(t, decoder.HasValue())
+	assert.Equal(t, uint64(100), decoder.Value())
+	assert.True(t, decoder.Next())
+	assert.False(t, decoder.HasValue())
+	assert.True(t, decoder.Next())
+	assert.True(t, decoder.HasValue())
+	assert.Equal(t, uint64(50), decoder.Value())
+
+	assert.False(t, decoder.Next())
 
 	encoder.Reset()
 	data, _ = encoder.Bytes()

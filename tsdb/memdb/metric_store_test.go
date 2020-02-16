@@ -89,7 +89,7 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
 		tStore.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()),
 		flusher.EXPECT().FlushSeries(uint32(10)),
-		flusher.EXPECT().FlushMetric(gomock.Any()).Return(nil),
+		flusher.EXPECT().FlushMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
 	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
 	assert.NoError(t, err)
