@@ -51,6 +51,34 @@ type MemoryDatabaseCfg struct {
 	TempPath string
 }
 
+// familyTimeIDEntry keeps the mapping of familyTime and familyID
+type familyTimeIDEntry struct {
+	time int64
+	id   familyID
+}
+
+// familyTimeIDEntries implements sort.Interface
+type familyTimeIDEntries []familyTimeIDEntry
+
+func (e familyTimeIDEntries) Len() int           { return len(e) }
+func (e familyTimeIDEntries) Less(i, j int) bool { return e[i].time < e[j].time }
+func (e familyTimeIDEntries) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+func (e familyTimeIDEntries) GetID(time int64) (familyID, bool) {
+	idx := sort.Search(e.Len(), func(i int) bool {
+		return e[i].time >= time
+	})
+	if idx >= e.Len() || e[idx].time != time {
+		return 0, false
+	}
+	return e[idx].id, true
+}
+
+func (e familyTimeIDEntries) AddID(time int64, id familyID) familyTimeIDEntries {
+	newE := append(e, familyTimeIDEntry{id: id, time: time})
+	sort.Sort(newE)
+	return newE
+}
+
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
 	interval timeutil.Interval // time interval of rollup
@@ -59,11 +87,11 @@ type memoryDatabase struct {
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
 
-	size        atomic.Int32       // memory database's size
-	familyTimes map[int64]familyID // familyTime(int64) -> family time id
-	familyIDSeq uint8
+	size                atomic.Int32        // memory database's size
+	familyTimeIDEntries familyTimeIDEntries // familyTime(int64) -> family time id
+	familyIDSeq         uint8
 
-	rwMutex sync.RWMutex //lock of create metric store
+	rwMutex sync.RWMutex // lock of create metric store
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -71,12 +99,11 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) MemoryDatabase {
 	//FIXME check temp path is empty
 	buf := newDataPointBuffer(cfg.TempPath)
 	return &memoryDatabase{
-		interval:    cfg.Interval,
-		metadata:    cfg.Metadata,
-		buf:         buf,
-		mStores:     NewMetricBucketStore(),
-		size:        *atomic.NewInt32(0),
-		familyTimes: make(map[int64]familyID),
+		interval: cfg.Interval,
+		metadata: cfg.Metadata,
+		buf:      buf,
+		mStores:  NewMetricBucketStore(),
+		size:     *atomic.NewInt32(0),
 	}
 }
 
@@ -99,13 +126,15 @@ type flushContext struct {
 	familyID     familyID
 	timeInterval int64
 
-	start, end uint16 // start/end time slot, metric level flush context
+	familySlotRange // start/end time slot, metric level flush context
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(namespace, metricName string, metricID,
-	seriesID uint32,
-	timestamp int64, fields []*pb.Field,
+func (md *memoryDatabase) Write(
+	namespace, metricName string,
+	metricID, seriesID uint32,
+	timestamp int64,
+	fields []*pb.Field,
 ) (err error) {
 	// calculate family start time and slot index
 	intervalCalc := md.interval.Calculator()
@@ -161,21 +190,19 @@ func (md *memoryDatabase) Write(namespace, metricName string, metricID,
 // Families returns the families in memory which has not been flushed yet.
 func (md *memoryDatabase) Families() []int64 {
 	var families []int64
-	for familyTime := range md.familyTimes {
-		families = append(families, familyTime)
+	for _, entry := range md.familyTimeIDEntries {
+		families = append(families, entry.time)
 	}
-	sort.Slice(families, func(i, j int) bool {
-		return families[i] < families[j]
-	})
 	return families
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error {
+	familyID, _ := md.familyTimeIDEntries.GetID(familyTime)
 	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
 		if err := value.FlushMetricsDataTo(flusher, flushContext{
 			metricID:     key,
-			familyID:     md.familyTimes[familyTime],
+			familyID:     familyID,
 			timeInterval: md.interval.Int64(),
 		}); err != nil {
 			return err
@@ -204,9 +231,9 @@ func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
 
 	// find if has match family id based on family time range
 	familyIDs := make(map[familyID]int64)
-	for fTime, fID := range md.familyTimes {
-		if familyTimeRange.Contains(fTime) {
-			familyIDs[fID] = fTime
+	for _, entry := range md.familyTimeIDEntries {
+		if familyTimeRange.Contains(entry.time) {
+			familyIDs[entry.id] = entry.time
 		}
 	}
 	if len(familyIDs) == 0 {
@@ -232,15 +259,16 @@ func (md *memoryDatabase) MemSize() int32 {
 
 // assignFamily assigns family id for family time
 func (md *memoryDatabase) assignFamilyID(familyTime int64) familyID {
-	fID, ok := md.familyTimes[familyTime]
+	fID, ok := md.familyTimeIDEntries.GetID(familyTime)
 	if ok {
 		return fID
 	}
 	fID = familyID(md.familyIDSeq)
 	md.familyIDSeq++
-	md.familyTimes[familyTime] = fID
+	md.familyTimeIDEntries = md.familyTimeIDEntries.AddID(familyTime, fID)
 	return fID
 }
+
 func (md *memoryDatabase) getFamilyTime(timestamp int64) (familyTime int64) {
 	intervalCalc := md.interval.Calculator()
 	segmentTime := intervalCalc.CalcSegmentTime(timestamp)             // day

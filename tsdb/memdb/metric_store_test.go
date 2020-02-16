@@ -40,17 +40,25 @@ func TestMetricStore_SetTimestamp(t *testing.T) {
 	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
 	mStoreInterface.SetTimestamp(1, 10)
-	slotRange := mStore.families[1]
-	assert.Equal(t, uint16(10), slotRange.start)
-	assert.Equal(t, uint16(10), slotRange.end)
+	slotRange, _ := mStore.families.GetRange(1)
+	start, end := slotRange.getSlotRange()
+	assert.Equal(t, uint16(10), start)
+	assert.Equal(t, uint16(10), end)
 	mStoreInterface.SetTimestamp(1, 5)
-	slotRange = mStore.families[1]
-	assert.Equal(t, uint16(5), slotRange.start)
-	assert.Equal(t, uint16(10), slotRange.end)
+	slotRange, _ = mStore.families.GetRange(1)
+	start, end = slotRange.getSlotRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(10), end)
+	fmt.Println(start, end)
 	mStoreInterface.SetTimestamp(1, 50)
-	slotRange = mStore.families[1]
-	assert.Equal(t, uint16(5), slotRange.start)
-	assert.Equal(t, uint16(50), slotRange.end)
+	slotRange, _ = mStore.families.GetRange(1)
+	start, end = slotRange.getSlotRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(50), end)
+
+	mStoreInterface.SetTimestamp(2, 50)
+	mStoreInterface.SetTimestamp(4, 50)
+	mStoreInterface.SetTimestamp(3, 50)
 }
 
 func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
