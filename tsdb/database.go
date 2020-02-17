@@ -1,6 +1,7 @@
 package tsdb
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -22,9 +23,17 @@ import (
 
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
 
+// for testing
+var (
+	newMetadataFunc = metadb.NewMetadata
+	newShardFunc    = newShard
+)
+
 const (
-	options  = "OPTIONS"
-	shardDir = "shard"
+	options       = "OPTIONS"
+	shardDir      = "shard"
+	metricMetaDir = "metric_meta"
+	tagMetaDir    = "tag_meta"
 )
 
 // Database represents an abstract time series database
@@ -45,6 +54,8 @@ type Database interface {
 	io.Closer
 	// IDGetter returns the id getter
 	IDGetter() metadb.IDGetter
+	// Metadata returns the metadata include metric/tag
+	Metadata() metadb.Metadata
 	// MetricMetaSuggester returns the metric metadata suggester
 	MetricMetaSuggester() series.MetricMetaSuggester
 	// Flush flushes meta to disk
@@ -62,16 +73,16 @@ type databaseConfig struct {
 // database implements Database for storing shards,
 // each shard represents a time series storage
 type database struct {
-	name         string             // database-name
-	path         string             // database root path
-	config       *databaseConfig    // meta configuration
-	executorPool *ExecutorPool      // executor pool for querying task
-	shards       sync.Map           // shardID(int32)->shard(Shard)
-	numOfShards  atomic.Int32       // counter
-	mutex        sync.Mutex         // mutex for creating shards
-	idSequencer  metadb.IDSequencer // database-level reused object
-	metaStore    kv.Store           // underlying meta kv store
-	isFlushing   atomic.Bool        // restrict flusher concurrency
+	name         string          // database-name
+	path         string          // database root path
+	config       *databaseConfig // meta configuration
+	executorPool *ExecutorPool   // executor pool for querying task
+	shards       sync.Map        // shardID(int32)->shard(Shard)
+	numOfShards  atomic.Int32    // counter
+	mutex        sync.Mutex      // mutex for creating shards
+	metadata     metadb.Metadata // underlying metric metadata
+	metaStore    kv.Store        // underlying meta kv store
+	isFlushing   atomic.Bool     // restrict flusher concurrency
 }
 
 func newDatabase(
@@ -79,10 +90,10 @@ func newDatabase(
 	databasePath string,
 	cfg *databaseConfig,
 ) (
-	db *database,
-	err error,
+	*database,
+	error,
 ) {
-	db = &database{
+	db := &database{
 		name:        databaseName,
 		path:        databasePath,
 		config:      cfg,
@@ -103,14 +114,26 @@ func newDatabase(
 		},
 		isFlushing: *atomic.NewBool(false),
 	}
+	if err := db.initMetadata(); err != nil {
+		return nil, err
+	}
+	var err error
+	defer func() {
+		if err != nil && db.metadata != nil {
+			if e := db.metadata.Close(); e != nil {
+				engineLogger.Error("close metadata err will create database",
+					logger.Error(e), logger.String("db", databaseName))
+			}
+		}
+	}()
 	// load shards if engine is exist
+	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
 		for _, shardID := range db.config.ShardIDs {
-			shard, err := newShard(
-				databaseName,
+			shard, err = newShardFunc(
+				db,
 				shardID,
 				filepath.Join(databasePath, shardDir, strconv.Itoa(int(shardID))),
-				db.idSequencer,
 				db.config.Option)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create shard[%d] of database[%s] with error: %s",
@@ -121,6 +144,10 @@ func newDatabase(
 		}
 	}
 	return db, nil
+}
+
+func (db *database) Metadata() metadb.Metadata {
+	return db.metadata
 }
 
 func (db *database) Name() string {
@@ -136,11 +163,11 @@ func (db *database) GetOption() option.DatabaseOption {
 }
 
 func (db *database) MetricMetaSuggester() series.MetricMetaSuggester {
-	return db.idSequencer
+	return nil
 }
 
 func (db *database) IDGetter() metadb.IDGetter {
-	return db.idSequencer
+	return nil
 }
 
 func (db *database) CreateShards(
@@ -175,10 +202,9 @@ func (db *database) createShard(shardID int32, option option.DatabaseOption) err
 	}
 	// new shard
 	createdShard, err := newShard(
-		db.name,
+		db,
 		shardID,
 		filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
-		db.idSequencer,
 		option)
 	if err != nil {
 		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
@@ -211,6 +237,9 @@ func (db *database) ExecutorPool() *ExecutorPool {
 
 // Close closes database's underlying resource
 func (db *database) Close() error {
+	if err := db.metadata.Close(); err != nil {
+		return err
+	}
 	db.shards.Range(func(key, value interface{}) bool {
 		thisShard := value.(Shard)
 		if err := thisShard.Close(); err != nil {
@@ -237,6 +266,31 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 	return nil
 }
 
+// initMetadata initializes metadata backend storage
+func (db *database) initMetadata() error {
+	metaStoreOption := kv.DefaultStoreOption(filepath.Join(db.path, metaDir))
+	//FIXME close kv store if err??
+	metaStore, err := newKVStoreFunc(metaStoreOption.Path, metaStoreOption)
+	if err != nil {
+		return err
+	}
+	tagMetaFamily, err := metaStore.CreateFamily(
+		tagMetaDir,
+		kv.FamilyOption{
+			CompactThreshold: 0,
+			Merger:           metricMetaMerger})
+	if err != nil {
+		return err
+	}
+	db.metaStore = metaStore
+	metadata, err := newMetadataFunc(context.TODO(), db.name, filepath.Join(db.path, metaDir, metricMetaDir), tagMetaFamily)
+	if err != nil {
+		return err
+	}
+	db.metadata = metadata
+	return nil
+}
+
 func (db *database) FlushMeta() (err error) {
 	// another flush process is running
 	if !db.isFlushing.CAS(false, true) {
@@ -244,7 +298,7 @@ func (db *database) FlushMeta() (err error) {
 	}
 	defer db.isFlushing.Store(false)
 
-	return nil
+	return db.metaStore.Close()
 }
 
 func (db *database) Range(f func(key, value interface{}) bool) {

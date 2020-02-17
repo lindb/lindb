@@ -30,6 +30,22 @@ func TestNewIndexDatabase(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	db1 := db.(*indexDatabase)
+	index := NewMockInvertedIndex(ctrl)
+	db1.index = index
+	index.EXPECT().buildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	db.BuildInvertIndex("ns", "cpu", map[string]string{"ip": "1.1.1.1"}, 10)
+}
+
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {

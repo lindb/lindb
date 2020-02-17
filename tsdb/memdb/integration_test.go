@@ -16,7 +16,6 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -34,14 +33,10 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	metadata, err := metadb.NewMetadata(context.TODO(), "test", filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
 	assert.NoError(b, err)
 
-	index, err := indexdb.NewIndexDatabase(context.TODO(), "test", testPath, metadata, kvStore.GetFamily("index"))
-	assert.NoError(b, err)
-
 	metricID, err := metadata.MetadataDatabase().GenMetricID("ns", "test")
 	assert.NoError(b, err)
 	var cfg = MemoryDatabaseCfg{
 		Interval: timeutil.Interval(10 * timeutil.OneSecond),
-		Index:    index,
 		Metadata: metadata,
 		TempPath: filepath.Join(testPath, "data_temp"),
 	}
@@ -81,15 +76,11 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 	metadata, err := metadb.NewMetadata(context.TODO(), "test", filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
 	assert.NoError(b, err)
 
-	index, err := indexdb.NewIndexDatabase(context.TODO(), "test", testPath, metadata, kvStore.GetFamily("index"))
-	assert.NoError(b, err)
-
 	metricID, err := metadata.MetadataDatabase().GenMetricID("ns", "test")
 	assert.NoError(b, err)
 	run := func(n int) {
 		var cfg = MemoryDatabaseCfg{
 			Interval: timeutil.Interval(10 * timeutil.OneSecond),
-			Index:    index,
 			Metadata: metadata,
 			TempPath: filepath.Join(testPath, "data_temp", fmt.Sprintf("%d", n)),
 		}
