@@ -132,7 +132,8 @@ func TestSequence_ack(t *testing.T) {
 	err = seq.ack(map[string]int64{"no": int64(10)})
 	assert.NoError(t, err)
 
-	seq.sequenceMap.Store("not-match", "test")
+	seq1 := seq.(*replicaSequence)
+	seq1.sequenceMap.Store("not-match", "test")
 	err = seq.ack(map[string]int64{"not-match": int64(10)})
 	assert.NoError(t, err)
 }

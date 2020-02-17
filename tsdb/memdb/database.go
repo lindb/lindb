@@ -14,7 +14,6 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -47,7 +46,6 @@ type MemoryDatabase interface {
 type MemoryDatabaseCfg struct {
 	Interval timeutil.Interval
 	Metadata metadb.Metadata
-	Index    indexdb.IndexDatabase
 	TempPath string
 }
 

@@ -37,4 +37,7 @@ type IndexDatabase interface {
 	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 	// GetSeriesIDsForTag gets series ids for spec metric's tag key
 	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
+	// BuildInvertIndex builds the inverted index for tag value => series ids,
+	// the tags is considered as a empty key-value pair while tags is nil.
+	BuildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
 }

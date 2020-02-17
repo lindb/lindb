@@ -13,7 +13,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -43,13 +42,11 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	mockMetadata := metadb.NewMockMetadata(ctrl)
 	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
 	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
-	mockIndex := indexdb.NewMockIndexDatabase(ctrl)
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
 	fStore := NewMockfStoreINTF(ctrl)
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
 	// build memory-database
-	cfg.Index = mockIndex
 	cfg.Metadata = mockMetadata
 	mdINTF := NewMemoryDatabase(cfg)
 	md := mdINTF.(*memoryDatabase)
@@ -133,12 +130,10 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	mockMetadata := metadb.NewMockMetadata(ctrl)
 	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
 	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
-	mockIndex := indexdb.NewMockIndexDatabase(ctrl)
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
 	// build memory-database
-	cfg.Index = mockIndex
 	cfg.Metadata = mockMetadata
 	mdINTF := NewMemoryDatabase(cfg)
 	buf := NewMockDataPointBuffer(ctrl)

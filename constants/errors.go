@@ -8,4 +8,11 @@ var (
 
 	// ErrNotFound represents the data not found
 	ErrNotFound = errors.New("not found")
+
+	// ErrNilMetric represents write nil metric error
+	ErrNilMetric = errors.New("metric is nil")
+	// ErrEmptyMetricName represents metric name is empty when write data
+	ErrEmptyMetricName = errors.New("metric name is empty")
+	// ErrEmptyField represents field is empty when write data
+	ErrEmptyField = errors.New("field is empty")
 )
