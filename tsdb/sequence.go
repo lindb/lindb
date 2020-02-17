@@ -10,6 +10,8 @@ import (
 	"github.com/lindb/lindb/replication"
 )
 
+//go:generate mockgen -source=./sequence.go -destination=./sequence_mock.go -package=tsdb
+
 // for testing
 var (
 	mkdirFunc       = fileutil.MkDirIfNotExist
@@ -17,7 +19,17 @@ var (
 	newSequenceFunc = replication.NewSequence
 )
 
-// replicaSequence represents the shard level replica sequence
+// ReplicaSequence represents the shard level replica sequence
+type ReplicaSequence interface {
+	// getOrCreateSequence gets the replica sequence by remote replica peer if exist, else creates a new sequence
+	getOrCreateSequence(remotePeer string) (replication.Sequence, error)
+	// getAllHeads gets the current replica indexes for all replica remote peers
+	getAllHeads() map[string]int64
+	// ack acks the replica index that the data is persistent
+	ack(heads map[string]int64) error
+}
+
+// replicaSequence implements ReplicaSequence
 type replicaSequence struct {
 	dirPath     string
 	sequenceMap sync.Map
@@ -26,7 +38,7 @@ type replicaSequence struct {
 }
 
 // newReplicaSequence creates shard level replica sequence by dir path
-func newReplicaSequence(dirPath string) (*replicaSequence, error) {
+func newReplicaSequence(dirPath string) (ReplicaSequence, error) {
 	if fileutil.Exist(dirPath) {
 		// if replica dir exist, load all exist replica sequences
 		remotePeers, err := listDirFunc(dirPath)

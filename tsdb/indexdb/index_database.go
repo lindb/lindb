@@ -137,6 +137,12 @@ func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, e
 	panic("implement me")
 }
 
+// BuildInvertIndex builds the inverted index for tag value => series ids,
+// the tags is considered as a empty key-value pair while tags is nil.
+func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
+	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
+}
+
 // Close closes the database, releases the resources
 func (db *indexDatabase) Close() error {
 	db.cancel()

@@ -14,6 +14,8 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
+//go:generate mockgen -source ./inverted_index.go -destination=./inverted_index_mock.go -package=indexdb
+
 // for testing
 var (
 	newFlusherFunc = invertedindex.NewFlusher

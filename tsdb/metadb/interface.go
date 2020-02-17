@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=metadb
+
 var metaLogger = logger.GetLogger("tsdb", "MetaDB")
 
 // IDGenerator generates unique ID numbers for metric, tag and field.
@@ -52,6 +53,7 @@ type IDSequencer interface {
 
 // Metadata represents all metadata of tsdb, like metric/tag metadata
 type Metadata interface {
+	io.Closer
 	// MetadataDatabase returns the metric level metadata
 	MetadataDatabase() MetadataDatabase
 	// TagMetadata returns the tag metadata

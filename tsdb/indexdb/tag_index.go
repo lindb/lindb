@@ -26,7 +26,7 @@ type TagIndex interface {
 
 // tagIndex is a inverted mapping relation of tag-value and seriesID group.
 type tagIndex struct {
-	seriesIDs *roaring.Bitmap // store all series ids of teg level
+	seriesIDs *roaring.Bitmap // store all series ids of tag level
 	values    *TagStore       // store all tag value id=>series ids of tag level
 }
 
