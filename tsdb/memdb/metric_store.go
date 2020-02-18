@@ -17,18 +17,23 @@ var (
 	flushFunc = flush
 )
 
-const emptyMStoreSize = 8 + // mutable
-	8 + // atomic.Value
-	4 + // uint32
-	4 + // uint32
-	4 // int32
+const (
+	emptyMStoreSize = 8 +
+		24 + // families slice
+		24 + // familyIDSlotRangeEntries slice
+		8 + // pointer in metricStore
+		24 // slice in metricStore
+	// keys in metricStore are ignored
+)
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
 	// Filter filters the data based on fieldIDs/seriesIDs/familyIDs,
 	// if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
-	Filter(fieldIDs []field.ID,
-		seriesIDs *roaring.Bitmap, familyIDs map[familyID]int64,
+	Filter(
+		fieldIDs []field.ID,
+		seriesIDs *roaring.Bitmap,
+		familyIDs map[familyID]int64,
 	) ([]flow.FilterResultSet, error)
 	// SetTimestamp sets the current write timestamp
 	SetTimestamp(familyID familyID, slot uint16)
@@ -42,7 +47,7 @@ type mStoreINTF interface {
 
 type familyIDSlotRangeEntry struct {
 	id        familyID
-	slotRange familySlotRange
+	slotRange slotRange
 }
 
 // familyIDSlotRangeEntries implements sort.Interface
@@ -52,17 +57,17 @@ type familyIDSlotRangeEntries []familyIDSlotRangeEntry
 func (e familyIDSlotRangeEntries) Len() int           { return len(e) }
 func (e familyIDSlotRangeEntries) Less(i, j int) bool { return e[i].id < e[j].id }
 func (e familyIDSlotRangeEntries) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-func (e familyIDSlotRangeEntries) GetRange(id familyID) (familySlotRange, bool) {
+func (e familyIDSlotRangeEntries) GetRange(id familyID) (slotRange, bool) {
 	idx := sort.Search(e.Len(), func(i int) bool {
 		return e[i].id >= id
 	})
 	if idx >= e.Len() || e[idx].id != id {
-		return familySlotRange{}, false
+		return slotRange{}, false
 	}
 	return e[idx].slotRange, true
 }
 
-func (e familyIDSlotRangeEntries) SetRange(id familyID, slotRange familySlotRange) familyIDSlotRangeEntries {
+func (e familyIDSlotRangeEntries) SetRange(id familyID, slotRange slotRange) familyIDSlotRangeEntries {
 	idx := sort.Search(e.Len(), func(i int) bool {
 		return e[i].id >= id
 	})
@@ -96,7 +101,7 @@ func (ms *metricStore) SetTimestamp(familyID familyID, slot uint16) {
 	if ok {
 		slotRange.setSlot(slot)
 	} else {
-		slotRange = newFamilySlotRange(slot, slot)
+		slotRange = newSlotRange(slot, slot)
 	}
 	ms.families = ms.families.SetRange(familyID, slotRange)
 }
@@ -120,7 +125,7 @@ func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, cr
 	if !ok {
 		tStore = newTimeSeriesStore()
 		ms.Put(seriesID, tStore)
-		createdSize += emptyTimeSeriesStoreSize
+		createdSize += emptyTimeSeriesStoreSize + 8 // pointer size
 	}
 	return tStore, createdSize
 }
@@ -140,7 +145,7 @@ func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx 
 	// flush field meta info
 	flusher.FlushFieldMetas(ms.fields)
 	// set current family's slot range
-	flushCtx.start, flushCtx.end = slotRange.getSlotRange()
+	flushCtx.start, flushCtx.end = slotRange.getRange()
 	if err := ms.WalkEntry(func(key uint32, value tStoreINTF) error {
 		return flushFunc(flusher, flushCtx, key, value)
 	}); err != nil {

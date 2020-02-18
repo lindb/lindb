@@ -36,8 +36,8 @@ const (
 	headLen         = 8
 	valueSize       = 8
 
-	emptyPrimitiveFieldStoreSize = 8 + // buf pointer
-		8 // compress pointer
+	emptyPrimitiveFieldStoreSize = 24 + // empty buf slice cost
+		24 // empty compress slice cost
 )
 
 // fStoreINTF represents field-store,
@@ -163,7 +163,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx fl
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.start, flushCtx.end, false)
+	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.slotRange, false)
 	if err != nil {
 		//FIXME stone100 add metric
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
@@ -196,26 +196,27 @@ func (fs *fieldStore) resetBuf() {
 	fs.buf[markOffset+2] = 0
 }
 
-// compact compacts the current write buffer, if has compress need do merge operation generate new compress data
-func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (memSize int) {
-	size := len(fs.compress)
-	start, end := fs.slotRange(startTime)
+// compact compacts the current write buffer,
+// new compress operation will be executed when it's necessary
+func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int) {
+	length := len(fs.compress)
+	thisSlotRange := fs.slotRange(startTime)
 
 	aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
 	var tsd *encoding.TSDDecoder
-	if size > 0 {
+	if length > 0 {
 		// if has compress data, create tsd decoder for merge compress
 		tsd = encoding.GetTSDDecoder()
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, freeSize, err := fs.merge(aggFunc, tsd, startTime, start, end, true)
+	data, freeSize, err := fs.merge(aggFunc, tsd, startTime, thisSlotRange, true)
 	if err != nil {
 		memDBLogger.Error("compact primitive field store data err", logger.Error(err))
 	}
 
 	fs.compress = data
-	return len(fs.compress) - size - freeSize
+	return len(fs.compress) - length - freeSize
 }
 
 // position returns the point write position/mark index/flag index
@@ -239,11 +240,15 @@ func (fs *fieldStore) getEnd() uint16 {
 // merge merges the current and compress data based on primitive field aggregate function,
 // startTime => current write start time
 // start/end slot => target compact time slot
-func (fs *fieldStore) merge(aggFunc field.AggFunc, tsd *encoding.TSDDecoder,
-	startTime, startSlot, endSlot uint16, withTimeRange bool,
+func (fs *fieldStore) merge(
+	aggFunc field.AggFunc,
+	tsd *encoding.TSDDecoder,
+	startTime uint16,
+	thisSlotRange slotRange,
+	withTimeRange bool,
 ) (compress []byte, freeSize int, err error) {
-	encode := encodeFunc(startSlot)
-	for i := startSlot; i <= endSlot; i++ {
+	encode := encodeFunc(thisSlotRange.start)
+	for i := thisSlotRange.start; i <= thisSlotRange.end; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 		switch {
@@ -299,9 +304,9 @@ func (fs *fieldStore) Load(
 		tsd.Reset(fs.compress)
 	}
 	startTime := fs.getStart()
-	start, end := fs.slotRange(startTime)
+	thisSlotRange := fs.slotRange(startTime)
 	value := 0.0
-	for i := start; i <= end; i++ {
+	for i := thisSlotRange.start; i <= thisSlotRange.end; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 
@@ -326,27 +331,28 @@ func (fs *fieldStore) Load(
 }
 
 // slotRange returns time slot range in current/compress buffer
-func (fs *fieldStore) slotRange(currentStart uint16) (startSlot, endSlot uint16) {
-	startSlot = currentStart
-	endSlot = currentStart + fs.getEnd()
+func (fs *fieldStore) slotRange(currentStart uint16) slotRange {
+	startSlot := currentStart
+	endSlot := currentStart + fs.getEnd()
 	if len(fs.compress) == 0 {
-		return
+		return slotRange{start: startSlot, end: endSlot}
 	}
 	start, end := encoding.DecodeTSDTime(fs.compress)
 	return getTimeSlotRange(start, end, startSlot, endSlot)
 }
 
 // getTimeSlotRange returns the final time slot range based on start/end
-func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) (start, end uint16) {
-	start = startSlot1
-	end = endSlot1
-	if end < endSlot2 {
-		end = endSlot2
+func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) slotRange {
+	var sr slotRange
+	sr.start = startSlot1
+	sr.end = endSlot1
+	if sr.end < endSlot2 {
+		sr.end = endSlot2
 	}
-	if start > startSlot2 {
-		start = startSlot2
+	if sr.start > startSlot2 {
+		sr.start = startSlot2
 	}
-	return
+	return sr
 }
 
 // getCurrentValue returns the value in current write buffer

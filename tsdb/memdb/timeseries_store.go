@@ -9,14 +9,14 @@ import (
 
 //go:generate mockgen -source ./timeseries_store.go -destination=./timeseries_store_mock.go -package memdb
 
-const emptyTimeSeriesStoreSize = 24 // fStores
+const emptyTimeSeriesStoreSize = 24 // fStores slice
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
 	// GetFStore returns the fStore in field list by family/field/primitive
 	GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool)
 	// InsertFStore inserts a new fStore to field list.
-	InsertFStore(fStore fStoreINTF)
+	InsertFStore(fStore fStoreINTF) (createdSize int)
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 	// scan scans the time series data based on field ids
@@ -61,13 +61,15 @@ func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID, pField
 }
 
 // InsertFStore inserts a new fStore to field list.
-func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
+func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
+	createdSize = emptyPrimitiveFieldStoreSize + 8
 	if ts.fStoreNodes == nil {
 		ts.fStoreNodes = []fStoreINTF{fStore}
 		return
 	}
 	ts.fStoreNodes = append(ts.fStoreNodes, fStore)
 	sort.Sort(ts.fStoreNodes)
+	return createdSize
 }
 
 // FlushSeriesTo flushes the series data segment.
