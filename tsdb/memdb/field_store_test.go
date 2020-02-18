@@ -74,15 +74,15 @@ func TestFieldStore_Write(t *testing.T) {
 	assert.False(t, ok)
 	assert.Equal(t, 0.0, value)
 	// case 5: test slot range [10,12]
-	start, end := s.slotRange(s.getStart())
-	assert.Equal(t, uint16(10), start)
-	assert.Equal(t, uint16(12), end)
+	thisSlotRange := s.slotRange(s.getStart())
+	assert.Equal(t, uint16(10), thisSlotRange.start)
+	assert.Equal(t, uint16(12), thisSlotRange.end)
 	// case 6: compact for slot < start time, time range[5,12]
 	writtenSize = store.Write(field.SumField, 5, 5.3)
 	assert.True(t, valueSize < writtenSize)
-	start, end = s.slotRange(s.getStart())
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(12), end)
+	thisSlotRange = s.slotRange(s.getStart())
+	assert.Equal(t, uint16(5), thisSlotRange.start)
+	assert.Equal(t, uint16(12), thisSlotRange.end)
 	value, ok = s.getCurrentValue(5, 5)
 	assert.True(t, ok)
 	assert.InDelta(t, 5.3, value, 0)
@@ -94,9 +94,9 @@ func TestFieldStore_Write(t *testing.T) {
 	// case 8: compact for slot > end time, time range[5,12]
 	writtenSize = store.Write(field.SumField, 50, 50.1)
 	assert.True(t, valueSize < writtenSize)
-	start, end = s.slotRange(s.getStart())
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(50), end)
+	thisSlotRange = s.slotRange(s.getStart())
+	assert.Equal(t, uint16(5), thisSlotRange.start)
+	assert.Equal(t, uint16(50), thisSlotRange.end)
 	value, ok = s.getCurrentValue(50, 50)
 	assert.True(t, ok)
 	assert.InDelta(t, 50.1, value, 0.0)
@@ -182,7 +182,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	// case 2: flush success
 	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{Type: field.SumField}, true).AnyTimes()
 	flusher.EXPECT().FlushField(field.Key(binary.LittleEndian.Uint16([]byte{2, 1})), mockFlushData())
-	store.FlushFieldTo(flusher, flushContext{familySlotRange: familySlotRange{start: 2, end: 20}})
+	store.FlushFieldTo(flusher, flushContext{slotRange: slotRange{start: 2, end: 20}})
 	// case 3: flush err
 	encode := encoding.NewMockTSDEncoder(ctrl)
 	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
@@ -191,7 +191,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encode.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encode.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
-	store.FlushFieldTo(flusher, flushContext{familySlotRange: familySlotRange{start: 2, end: 20}})
+	store.FlushFieldTo(flusher, flushContext{slotRange: slotRange{start: 2, end: 20}})
 }
 
 func mockFlushData() []byte {

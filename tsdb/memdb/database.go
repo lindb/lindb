@@ -85,7 +85,7 @@ type memoryDatabase struct {
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
 
-	size                atomic.Int32        // memory database's size
+	allocSize           atomic.Int32        // allocated size
 	familyTimeIDEntries familyTimeIDEntries // familyTime(int64) -> family time id
 	familyIDSeq         uint8
 
@@ -97,11 +97,11 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) MemoryDatabase {
 	//FIXME check temp path is empty
 	buf := newDataPointBuffer(cfg.TempPath)
 	return &memoryDatabase{
-		interval: cfg.Interval,
-		metadata: cfg.Metadata,
-		buf:      buf,
-		mStores:  NewMetricBucketStore(),
-		size:     *atomic.NewInt32(0),
+		interval:  cfg.Interval,
+		metadata:  cfg.Metadata,
+		buf:       buf,
+		mStores:   NewMetricBucketStore(),
+		allocSize: *atomic.NewInt32(0),
 	}
 }
 
@@ -111,7 +111,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF)
 	if !ok {
 		// not found need create new metric store
 		mStore = newMetricStore()
-		md.size.Add(emptyMStoreSize)
+		md.allocSize.Add(emptyMStoreSize)
 		md.mStores.Put(metricID, mStore)
 	}
 	// found metric store in current memory database
@@ -124,7 +124,7 @@ type flushContext struct {
 	familyID     familyID
 	timeInterval int64
 
-	familySlotRange // start/end time slot, metric level flush context
+	slotRange // start/end time slot, metric level flush context
 }
 
 // Write writes metric-point to database.
@@ -168,8 +168,8 @@ func (md *memoryDatabase) Write(
 				return err
 			}
 			pStore = newFieldStore(buf, fID, fieldID, field.PrimitiveID(1))
-			size += emptyPrimitiveFieldStoreSize + 8
-			tStore.InsertFStore(pStore)
+			createdFStoreSize := tStore.InsertFStore(pStore)
+			size += createdFStoreSize
 		}
 		value := md.getFieldValue(fieldType, f)
 		size += pStore.Write(fieldType, slotIndex, value)
@@ -181,7 +181,7 @@ func (md *memoryDatabase) Write(
 	if written {
 		mStore.SetTimestamp(fi, slotIndex)
 	}
-	md.size.Add(int32(size))
+	md.allocSize.Add(int32(size))
 	return nil
 }
 
@@ -252,7 +252,7 @@ func (md *memoryDatabase) Interval() int64 {
 
 // MemSize returns the time series database memory size
 func (md *memoryDatabase) MemSize() int32 {
-	return md.size.Load()
+	return md.allocSize.Load()
 }
 
 // assignFamily assigns family id for family time
