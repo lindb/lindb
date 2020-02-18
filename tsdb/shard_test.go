@@ -110,8 +110,6 @@ func TestShard_New(t *testing.T) {
 	assert.NotNil(t, s)
 
 	assert.True(t, fileutil.Exist(_testShard1Path))
-	assert.Nil(t, thisShard.MemoryFilter())
-	assert.Nil(t, thisShard.IndexFilter())
 	assert.False(t, thisShard.IsFlushing())
 }
 

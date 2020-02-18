@@ -48,7 +48,7 @@ func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string
 	panic("implement me")
 }
 
-func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, version series.Version) (series.GroupingContext, error) {
+func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error) {
 	panic("implement me")
 }
 
