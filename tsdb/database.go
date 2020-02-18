@@ -52,8 +52,6 @@ type Database interface {
 	ExecutorPool() *ExecutorPool
 	// Close closes database's underlying resource
 	io.Closer
-	// IDGetter returns the id getter
-	IDGetter() metadb.IDGetter
 	// Metadata returns the metadata include metric/tag
 	Metadata() metadb.Metadata
 	// MetricMetaSuggester returns the metric metadata suggester
@@ -163,10 +161,6 @@ func (db *database) GetOption() option.DatabaseOption {
 }
 
 func (db *database) MetricMetaSuggester() series.MetricMetaSuggester {
-	return nil
-}
-
-func (db *database) IDGetter() metadb.IDGetter {
 	return nil
 }
 

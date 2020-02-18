@@ -113,7 +113,6 @@ func Test_Database_Close(t *testing.T) {
 	db.shards.Store(int32(1), mockShard)
 	assert.Nil(t, db.Close())
 
-	assert.Nil(t, db.IDGetter())
 	assert.Nil(t, db.MetricMetaSuggester())
 }
 

@@ -63,14 +63,14 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
-	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
+	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	queryFlow := NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf := queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
-	reduceAgg.EXPECT().ResultSet().Return(nil)
+	reduceAgg.EXPECT().ResultSet().Return(nil).AnyTimes()
 	reduceAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
 
 	var wait sync.WaitGroup

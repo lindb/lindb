@@ -191,7 +191,6 @@ func (pi *BinaryPrimitiveIterator) HasNext() bool {
 }
 
 func (pi *BinaryPrimitiveIterator) Next() (timeSlot int, value float64) {
-	//FIXME
 	timeSlot = int(pi.tsd.Slot())
 	val := pi.tsd.Value()
 	value = math.Float64frombits(val)

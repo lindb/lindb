@@ -8,6 +8,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
@@ -99,7 +100,7 @@ func (qf *storageQueryFlow) releaseAgg(agg aggregation.FieldAggregates) {
 }
 
 func (qf *storageQueryFlow) Complete(err error) {
-	if err != nil {
+	if err != nil && err != constants.ErrNotFound {
 		qf.mux.Lock()
 		defer qf.mux.Unlock()
 		qf.err = err

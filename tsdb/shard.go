@@ -16,7 +16,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/replication"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -64,9 +63,6 @@ type Shard interface {
 	Flush() error
 	// IsFlushing checks if this shard is in flushing
 	IsFlushing() bool
-
-	MemoryFilter() series.Filter
-	IndexFilter() series.Filter
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
 }
@@ -278,10 +274,7 @@ func (s *shard) initIndexDatabase() error {
 	return nil
 }
 
-//FIXME
-func (s *shard) MemoryFilter() series.Filter { return nil }
-func (s *shard) IndexFilter() series.Filter  { return nil }
-func (s *shard) IsFlushing() bool            { return s.isFlushing.Load() }
+func (s *shard) IsFlushing() bool { return s.isFlushing.Load() }
 
 func (s *shard) Flush() (err error) {
 	// another flush process is running

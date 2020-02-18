@@ -36,8 +36,5 @@ func (m *metadata) TagMetadata() TagMetadata {
 
 // Close closes the metadata backend storage
 func (m *metadata) Close() error {
-	if err := m.metadataDatabase.Close(); err != nil {
-		return err
-	}
-	return nil
+	return m.metadataDatabase.Close()
 }
