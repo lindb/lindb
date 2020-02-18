@@ -3,6 +3,8 @@ package query
 import (
 	"errors"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
@@ -12,6 +14,13 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
+)
+
+// for testing
+var (
+	newTagSearchFunc          = newTagSearch
+	newStorageExecutePlanFunc = newStorageExecutePlan
+	newSeriesSearchFunc       = newSeriesSearch
 )
 
 var (
@@ -40,6 +49,8 @@ type storageExecutor struct {
 	fieldIDs           []field.ID
 	storageExecutePlan *storageExecutePlan
 	intervalType       timeutil.IntervalType
+
+	filterResult map[string]*filterResult
 
 	queryFlow flow.StorageQueryFlow
 }
@@ -86,11 +97,28 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 
-	plan := newStorageExecutePlan(e.database.IDGetter(), e.query)
+	plan := newStorageExecutePlanFunc(e.database.Metadata(), e.query)
 	if err := plan.Plan(); err != nil {
 		e.queryFlow.Complete(err)
 		return
 	}
+
+	condition := e.query.Condition
+	var err error
+	if condition != nil {
+		tagSearch := newTagSearchFunc(e.query, e.database.Metadata())
+		e.filterResult, err = tagSearch.Filter()
+		if err != nil {
+			e.queryFlow.Complete(err)
+			return
+		}
+		if len(e.filterResult) == 0 {
+			// filter not match, return not found
+			e.queryFlow.Complete(constants.ErrNotFound)
+			return
+		}
+	}
+
 	storageExecutePlan := plan.(*storageExecutePlan)
 	e.intervalType = e.query.Interval.Type()
 
@@ -103,65 +131,52 @@ func (e *storageExecutor) Execute() {
 
 	for idx := range e.shards {
 		shard := e.shards[idx]
+		seriesIDs := e.searchSeriesIDs(shard.IndexDatabase())
+		// if series ids not found
+		if seriesIDs == nil || seriesIDs.IsEmpty() {
+			continue
+		}
+
 		// execute memory db search in background goroutine
 		e.queryFlow.Filtering(func() {
-			e.memoryDBSearch(shard)
+			e.executeQueryFlow(shard.IndexDatabase(), shard.MemoryDatabase(), seriesIDs)
 		})
 
 		e.queryFlow.Filtering(func() {
-			e.shardLevelSearch(shard)
+			e.shardLevelSearch(shard, seriesIDs)
 		})
 	}
-}
-
-// memoryDBSearch searches data from memory database
-func (e *storageExecutor) memoryDBSearch(shard tsdb.Shard) {
-	//FIXME
-	//memoryDB := shard.MemoryDatabase()
-	//seriesIDSet := e.searchSeriesIDs(memoryDB)
-	//// if series ids not found
-	//if seriesIDSet == nil || seriesIDSet.IsEmpty() {
-	//	return
-	//}
-	//e.executeQueryFlow(memoryDB, memoryDB, seriesIDSet)
 }
 
 // searchSeriesIDs searches series ids from index
-func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDSet *series.MultiVerSeriesIDSet) {
+func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roaring.Bitmap) {
 	condition := e.query.Condition
-	metricID := e.metricID
 	var err error
 	if condition != nil {
-		seriesSearch := newSeriesSearch(metricID, filter, e.query)
-		seriesIDSet, err = seriesSearch.Search()
-
+		// if get tag filter result do series ids searching
+		seriesSearch := newSeriesSearchFunc(filter, e.filterResult, e.query)
+		seriesIDs, err = seriesSearch.Search()
+		//FIXME
 		//} else {
-		//	seriesIDSet, err = filter.GetSeriesIDsForMetric(metricID, e.query.TimeRange)
+		//	seriesIDs, err = filter.(metricID, e.query.TimeRange)
 	}
 	if err != nil {
-		if err != constants.ErrNotFound {
-			e.queryFlow.Complete(err)
-		}
-		return
+		e.queryFlow.Complete(err)
 	}
 	return
 }
 
 // shardLevelSearch searches data from shard
-func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
+func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard, seriesIDs *roaring.Bitmap) {
 	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
 	if len(families) == 0 {
-		return
-	}
-	seriesIDSet := e.searchSeriesIDs(shard.IndexFilter())
-	if seriesIDSet == nil || seriesIDSet.IsEmpty() {
 		return
 	}
 	for idx := range families {
 		family := families[idx]
 		// execute data family search in background goroutine
 		e.queryFlow.Filtering(func() {
-			e.executeQueryFlow(shard.IndexDatabase(), family, seriesIDSet)
+			e.executeQueryFlow(shard.IndexDatabase(), family, seriesIDs)
 		})
 	}
 }
@@ -170,65 +185,59 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard) {
 // 1. filtering
 // 2. grouping
 // 3. loading
-func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter flow.DataFilter, seriesIDSet *series.MultiVerSeriesIDSet) {
+func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter flow.DataFilter, seriesIDs *roaring.Bitmap) {
 	hasGroupBy := e.query.HasGroupBy()
-
-	for kVersion, vSeriesIDs := range seriesIDSet.Versions() {
-		version := kVersion
-		seriesIDs := vSeriesIDs
-
-		// 1. filtering, check series ids if exist in storage
-		e.queryFlow.Filtering(func() {
-			resultSet, err := filter.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+	// 1. filtering, check series ids if exist in storage
+	e.queryFlow.Filtering(func() {
+		resultSet, err := filter.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+		if err != nil {
+			e.queryFlow.Complete(err)
+			return
+		}
+		if len(resultSet) == 0 {
+			// not found in storage, return it
+			return
+		}
+		// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
+		// get grouping context if need
+		var groupingCtx series.GroupingContext
+		if hasGroupBy {
+			//FIXME
+			gCtx, err := indexDB.GetGroupingContext(nil)
 			if err != nil {
 				e.queryFlow.Complete(err)
 				return
 			}
-			if len(resultSet) == 0 {
-				// not found in storage, return it
+			if gCtx == nil {
 				return
 			}
-			// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
-			// get grouping context if need
-			var groupingCtx series.GroupingContext
-			if hasGroupBy {
-				//FIXME
-				gCtx, err := indexDB.GetGroupingContext(nil, version)
-				if err != nil {
-					e.queryFlow.Complete(err)
-					return
-				}
-				if gCtx == nil {
-					return
-				}
-				groupingCtx = gCtx
-			}
-			keys := seriesIDs.GetHighKeys()
+			groupingCtx = gCtx
+		}
+		keys := seriesIDs.GetHighKeys()
 
-			for idx, key := range keys {
-				// be carefully, need use new variable for variable scope problem
-				highKey := key
-				container := seriesIDs.GetContainerAtIndex(idx)
-				// grouping based on group by tag keys for each container
-				e.queryFlow.Grouping(func() {
-					var groupedSeries map[string][]uint16
-					if hasGroupBy {
-						// build group by data, grouped series: tags => series IDs
-						groupedSeries = groupingCtx.BuildGroup(highKey, container)
-					} else {
-						groupedSeries = map[string][]uint16{"": container.ToArray()}
-					}
-					for _, rs := range resultSet {
-						// 3.load data by grouped seriesIDs
-						filteringRS := rs
-						e.queryFlow.Scanner(func() {
-							filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
-						})
-					}
-				})
-			}
-		})
-	}
+		for idx, key := range keys {
+			// be carefully, need use new variable for variable scope problem
+			highKey := key
+			container := seriesIDs.GetContainerAtIndex(idx)
+			// grouping based on group by tag keys for each container
+			e.queryFlow.Grouping(func() {
+				var groupedSeries map[string][]uint16
+				if hasGroupBy {
+					// build group by data, grouped series: tags => series IDs
+					groupedSeries = groupingCtx.BuildGroup(highKey, container)
+				} else {
+					groupedSeries = map[string][]uint16{"": container.ToArray()}
+				}
+				for _, rs := range resultSet {
+					// 3.load data by grouped seriesIDs
+					filteringRS := rs
+					e.queryFlow.Scanner(func() {
+						filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
+					})
+				}
+			})
+		}
+	})
 }
 
 // validation validates query input params are valid

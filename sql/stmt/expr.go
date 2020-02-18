@@ -25,6 +25,7 @@ type Expr interface {
 
 // TagFilter represents tag filter for searching time series
 type TagFilter interface {
+	Expr
 	// TagKey returns the filter's tag key
 	TagKey() string
 }

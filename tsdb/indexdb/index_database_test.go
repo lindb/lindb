@@ -11,7 +11,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -148,7 +147,7 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 		_ = db.SuggestTagValues(1, "11", 100)
 	})
 	assert.Panics(t, func() {
-		_, _ = db.GetGroupingContext(nil, series.NewVersion())
+		_, _ = db.GetGroupingContext(nil)
 	})
 }
 

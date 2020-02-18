@@ -2,7 +2,6 @@ package series
 
 import (
 	enc "encoding"
-	"io"
 
 	"github.com/lindb/lindb/series/field"
 )
@@ -14,18 +13,6 @@ type TimeSeriesEvent struct {
 	SeriesList []GroupedIterator
 
 	Err error
-}
-
-// VersionIterator represents a multi-version iterator
-type VersionIterator interface {
-	// Version returns the version no.
-	Version() Version
-	// HasNext returns if the iteration has more time-series's iterator
-	HasNext() bool
-	// Next returns the time-series's iterator
-	Next() Iterator
-	// Close closes the underlying resource
-	io.Closer
 }
 
 // GroupedIterator represents a iterator for the grouped time series data

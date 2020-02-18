@@ -1,22 +1,27 @@
 package query
 
 import (
+	"github.com/lindb/roaring"
+
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+//go:generate mockgen -source ./series_search.go -destination=./series_search_mock.go -package=query
+
 // SeriesSearch represents a series search by condition expression
 type SeriesSearch interface {
-	// Search searches series ids base on condition, if search fail return nil, else return multi-version series ids
-	Search() (*series.MultiVerSeriesIDSet, error)
+	// Search searches series ids base on condition, if search fail return nil, else return series ids
+	Search() (*roaring.Bitmap, error)
 }
 
 // seriesSearch represents a series search by condition expression,
 // only do tag filter, return series ids.
-// return multi-version series id set for condition
+// return series id set for condition
 type seriesSearch struct {
-	metricID uint32
-	query    *stmt.Query
+	query        *stmt.Query
+	filterResult map[string]*filterResult
 
 	filter series.Filter
 
@@ -24,21 +29,17 @@ type seriesSearch struct {
 }
 
 // newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(metricID uint32, filter series.Filter, query *stmt.Query) *seriesSearch {
+func newSeriesSearch(filter series.Filter, filterResult map[string]*filterResult, query *stmt.Query) SeriesSearch {
 	return &seriesSearch{
-		metricID: metricID,
-		filter:   filter,
-		query:    query,
+		filterResult: filterResult,
+		filter:       filter,
+		query:        query,
 	}
 }
 
-// Search searches series ids base on condition, if search fail return nil, else return multi-version series ids
-func (s *seriesSearch) Search() (*series.MultiVerSeriesIDSet, error) {
-	condition := s.query.Condition
-	if condition == nil {
-		return nil, nil
-	}
-	seriesIDs, _ := s.findSeriesIDsByExpr(condition)
+// Search searches series ids base on condition, if search fail return nil, else return series ids
+func (s *seriesSearch) Search() (*roaring.Bitmap, error) {
+	_, seriesIDs := s.findSeriesIDsByExpr(s.query.Condition)
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -46,59 +47,57 @@ func (s *seriesSearch) Search() (*series.MultiVerSeriesIDSet, error) {
 }
 
 // findSeriesIDsByExpr finds series ids by expr, recursion filter for expr
-func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (series *series.MultiVerSeriesIDSet, tagKey string) {
+func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (uint32, *roaring.Bitmap) {
 	if condition == nil {
-		return series, tagKey
+		return 0, roaring.New() // create a empty series ids for parent expr
 	}
 	if s.err != nil {
-		return series, tagKey
+		return 0, roaring.New() // create a empty series ids for parent expr
 	}
 	switch expr := condition.(type) {
 	case stmt.TagFilter:
-		result, err := s.filter.FindSeriesIDsByExpr(s.metricID, expr, s.query.TimeRange)
+		tagKey, seriesIDs, err := s.getSeriesIDsByExpr(expr)
 		if err != nil {
 			s.err = err
-			return
+			return tagKey, roaring.New() // create a empty series ids for parent expr
 		}
-		series = result
-		tagKey = expr.TagKey()
+		return tagKey, seriesIDs
 	case *stmt.ParenExpr:
-		series, tagKey = s.findSeriesIDsByExpr(expr.Expr)
+		return s.findSeriesIDsByExpr(expr.Expr)
 	case *stmt.NotExpr:
-		// find series ids by expr => a
-		matchResult, tagKey := s.findSeriesIDsByExpr(expr.Expr)
-		if len(tagKey) > 0 {
-			// get all series ids for tag key
-			// FIXME stone1100
-			all, err := s.filter.GetSeriesIDsForTag(uint32(1), s.query.TimeRange)
-			if err != nil {
-				s.err = err
-				return nil, tagKey
-			}
-			// do and not got series ids not in 'a' list
-			all.AndNot(matchResult)
-			series = all
-			return series, tagKey
+		// get filter series ids
+		tagKey, matchResult := s.findSeriesIDsByExpr(expr.Expr)
+		// get all series ids for tag key
+		all, err := s.filter.GetSeriesIDsForTag(tagKey)
+		if err != nil {
+			s.err = err
+			return tagKey, roaring.New() // create a empty series ids for parent expr
 		}
+		// do and not got series ids not in 'a' list
+		all.AndNot(matchResult)
+		return 0, all
 	case *stmt.BinaryExpr:
-		if expr.Operator != stmt.AND && expr.Operator != stmt.OR {
-			return series, tagKey
-		}
-		left, _ := s.findSeriesIDsByExpr(expr.Left)
-		if left == nil {
-			return series, tagKey
-		}
-		right, _ := s.findSeriesIDsByExpr(expr.Right)
-		if right == nil {
-			return series, tagKey
-		}
-
+		_, left := s.findSeriesIDsByExpr(expr.Left)
+		_, right := s.findSeriesIDsByExpr(expr.Right)
 		if expr.Operator == stmt.AND {
 			left.And(right)
 		} else {
 			left.Or(right)
 		}
-		series = left
+		return 0, left
 	}
-	return series, tagKey
+	return 0, roaring.New() // create a empty series ids for parent expr
+}
+
+// getTagKeyID returns the tag key id by tag key
+func (s *seriesSearch) getSeriesIDsByExpr(expr stmt.Expr) (uint32, *roaring.Bitmap, error) {
+	tagValues, ok := s.filterResult[expr.Rewrite()]
+	if !ok {
+		return 0, nil, constants.ErrNotFound
+	}
+	seriesIDs, err := s.filter.GetSeriesIDsByTagValueIDs(tagValues.tagKey, tagValues.tagValueIDs)
+	if err != nil {
+		return 0, nil, err
+	}
+	return tagValues.tagKey, seriesIDs, nil
 }

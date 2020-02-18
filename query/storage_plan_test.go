@@ -20,18 +20,24 @@ func TestStoragePlan_Metric(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := metadb.NewMockIDGetter(ctrl)
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil)
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), gomock.Any()).
-		Return(field.ID(10), field.SumField, nil).AnyTimes()
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+
+	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil)
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(field.Meta{
+			ID:   10,
+			Type: field.SumField,
+		}, nil).AnyTimes()
 
 	query, _ := sql.Parse("select f from cpu")
-	plan := newStorageExecutePlan(metadataIndex, query)
+	plan := newStorageExecutePlan(metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(0), constants.ErrNotFound)
-	plan = newStorageExecutePlan(metadataIndex, query)
+	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(0), constants.ErrNotFound)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 }
@@ -40,35 +46,38 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metadataIndex := metadb.NewMockIDGetter(ctrl)
-	metadataIndex.EXPECT().GetMetricID(gomock.Any()).Return(uint32(10), nil).AnyTimes()
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "f").
-		Return(field.ID(10), field.SumField, nil).AnyTimes()
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "a").
-		Return(field.ID(11), field.MinField, nil).AnyTimes()
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "b").
-		Return(field.ID(12), field.MaxField, nil).AnyTimes()
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "c").
-		Return(field.ID(13), field.HistogramField, nil).AnyTimes()
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "e").
-		Return(field.ID(14), field.HistogramField, nil).AnyTimes()
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
-	metadataIndex.EXPECT().GetFieldID(gomock.Any(), "no_f").
-		Return(field.ID(99), field.HistogramField, constants.ErrNotFound).AnyTimes()
+	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "a").
+		Return(field.Meta{ID: 11, Type: field.MinField}, nil).AnyTimes()
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "b").
+		Return(field.Meta{ID: 12, Type: field.MaxField}, nil).AnyTimes()
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "c").
+		Return(field.Meta{ID: 13, Type: field.HistogramField}, nil).AnyTimes()
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "e").
+		Return(field.Meta{ID: 14, Type: field.HistogramField}, nil).AnyTimes()
+
+	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "no_f").
+		Return(field.Meta{ID: 99, Type: field.HistogramField}, constants.ErrNotFound).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
-	plan := newStorageExecutePlan(metadataIndex, query)
+	plan := newStorageExecutePlan(metadata, query)
 	err := plan.Plan()
 	assert.NotNil(t, err)
 	query, _ = sql.Parse("select no_f from cpu")
-	plan = newStorageExecutePlan(metadataIndex, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 
 	// normal
 	query, _ = sql.Parse("select f from cpu")
-	plan = newStorageExecutePlan(metadataIndex, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 
@@ -79,7 +88,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, []field.ID{10}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select a,b,c as d from cpu")
-	plan = newStorageExecutePlan(metadataIndex, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 
@@ -99,7 +108,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, []field.ID{11, 12, 13}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
-	plan = newStorageExecutePlan(metadataIndex, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 	storagePlan = plan.(*storageExecutePlan)
@@ -123,18 +132,23 @@ func TestStoragePlan_SelectList(t *testing.T) {
 func TestStorageExecutePlan_groupBy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := metadb.NewMockIDGetter(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(10), nil),
-		idGetter.EXPECT().GetTagKeyID(uint32(10), "path").Return(uint32(11), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(12), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(10), field.SumField, nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "path").Return(uint32(11), nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+			Return(field.Meta{ID: 12, Type: field.SumField}, nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "d").
+			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
 
 	// normal
 	query, _ := sql.Parse("select f,d from disk group by host,path")
-	plan := newStorageExecutePlan(idGetter, query)
+	plan := newStorageExecutePlan(metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
@@ -151,11 +165,11 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 
 	// get tag key err
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetTagKeyID(uint32(10), "host").Return(uint32(0), fmt.Errorf("err")),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(0), fmt.Errorf("err")),
 	)
 	query, _ = sql.Parse("select f from disk group by host,path")
-	plan = newStorageExecutePlan(idGetter, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 }
@@ -163,11 +177,14 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := metadb.NewMockIDGetter(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
 	)
-	plan := newStorageExecutePlan(idGetter, &stmt.Query{MetricName: "disk"})
+	plan := newStorageExecutePlan(metadata, &stmt.Query{MetricName: "disk"})
 	err := plan.Plan()
 	assert.Equal(t, errEmptySelectList, err)
 }
@@ -175,42 +192,51 @@ func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	idGetter := metadb.NewMockIDGetter(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.Unknown, nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+			Return(field.Meta{ID: 10, Type: field.Unknown}, nil),
 	)
 	query, _ := sql.Parse("select f from disk")
-	plan := newStorageExecutePlan(idGetter, query)
+	plan := newStorageExecutePlan(metadata, query)
 	err := plan.Plan()
 	assert.Error(t, err)
 
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.SumField, nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select histogram(f) from disk")
-	plan = newStorageExecutePlan(idGetter, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(10), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(10), field.SumField, nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "d").
+			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
-	plan = newStorageExecutePlan(idGetter, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 
 	gomock.InOrder(
-		idGetter.EXPECT().GetMetricID("disk").Return(uint32(10), nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "d").Return(field.ID(12), field.SumField, nil),
-		idGetter.EXPECT().GetFieldID(uint32(10), "f").Return(field.ID(11), field.SumField, nil),
+		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "d").
+			Return(field.Meta{ID: 12, Type: field.SumField}, nil),
+		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+			Return(field.Meta{ID: 11, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
-	plan = newStorageExecutePlan(idGetter, query)
+	plan = newStorageExecutePlan(metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 }

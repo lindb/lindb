@@ -32,6 +32,5 @@ func Test_NewRuntimeCollector(t *testing.T) {
 
 	go runtimeCollector.Run()
 
-	time.Sleep(time.Second * 1)
-
+	time.Sleep(time.Second * 2)
 }

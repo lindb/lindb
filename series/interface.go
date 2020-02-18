@@ -1,8 +1,7 @@
 package series
 
 import (
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=series
@@ -26,16 +25,10 @@ type TagValueSuggester interface {
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
 // to support multi-version based on timestamp, time range for filtering spec version is necessary
 type Filter interface {
-	// FindSeriesIDsByExpr finds series ids by tag filter expr for tag key id
-	FindSeriesIDsByExpr(tagKeyID uint32, expr stmt.TagFilter, timeRange timeutil.TimeRange) (
-		*MultiVerSeriesIDSet, error)
-	// GetSeriesIDsForTag get series ids for spec metric's tag key
-	GetSeriesIDsForTag(tagKeyID uint32, timeRange timeutil.TimeRange) (
-		*MultiVerSeriesIDSet, error)
-	//FIXME stone1100
-	//// GetSeriesIDsForMetric get series ids for spec metric's id
-	//GetSeriesIDsForMetric(tagKeyID uint32, timeRange timeutil.TimeRange) (
-	//	*MultiVerSeriesIDSet, error)
+	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
+	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
+	// GetSeriesIDsForTag gets series ids for spec metric's tag key
+	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
-	GetGroupingContext(tagKeyIDs []uint32, version Version) (GroupingContext, error)
+	GetGroupingContext(tagKeyIDs []uint32) (GroupingContext, error)
 }
