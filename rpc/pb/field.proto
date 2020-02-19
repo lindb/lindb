@@ -3,7 +3,7 @@ syntax = "proto3";
 package field;
 
 message MetricList {
-    repeated Metric metrics = 2;
+    repeated Metric metrics = 1;
 }
 
 message Metric {
@@ -15,52 +15,23 @@ message Metric {
     repeated Field fields = 6;
 }
 
-message Sum {
-    double value = 1;
-}
-
-message Min {
-    double value = 1;
-}
-
-message Max {
-    double value = 1;
-}
-
-message Gauge {
-    double value = 1;
-}
-
-message Summary {
-    repeated Quantile quantiles = 1;
-    double sum = 2;
-    double count = 3;
-}
-
-message Quantile {
-    double quantile = 1;
-    double value = 2;
-}
-
-message Histogram {
-    repeated Bucket buckets = 1;
-    double sum = 2;
-    double count = 3;
-}
-
-message Bucket {
-    double upperBound = 1;
-    double value = 2;
+enum FieldType {
+    UNKNOWN = 0;
+    Sum = 1;
+    Min = 2;
+    Max = 3;
+    Gauge = 4;
+    Summary = 5;
+    Histogram = 6;
 }
 
 message Field {
     string name = 1;
-    oneof field {
-        Sum sum = 2;
-        Max max = 3;
-        Min min = 4;
-        Gauge gauge = 5;
-        Summary summary = 6;
-        Histogram histogram = 7;
-    }
+    FieldType type = 2;
+    repeated PrimitiveField fields = 3;
+}
+
+message PrimitiveField {
+    int32 primitiveID = 1;
+    double value = 2;
 }

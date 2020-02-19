@@ -16,6 +16,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -44,8 +45,9 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	now := timeutil.Now()
 	for i := 0; i < 3200000; i++ {
 		db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
-			Name:  "f1",
-			Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 		}})
 	}
 	runtime.GC()
@@ -53,8 +55,9 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	now = timeutil.Now()
 	for i := 0; i < 3200000; i++ {
 		db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
-			Name:  "f1",
-			Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 		}})
 	}
 	runtime.GC()
@@ -88,8 +91,9 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		now := timeutil.Now()
 		for i := 0; i < 400000; i++ {
 			db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
-				Name:  "f1",
-				Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+				Name:   "f1",
+				Type:   pb.FieldType_Sum,
+				Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 			}})
 		}
 		fmt.Printf("n:=%d, cost:=%d\n", n, timeutil.Now()-now)
