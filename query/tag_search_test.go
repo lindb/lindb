@@ -27,14 +27,14 @@ func TestTagSearch_Filter(t *testing.T) {
 
 	// case 1: condition is empty
 	query, _ := sql.Parse("select f from cpu")
-	search := newTagSearch(query, metadata)
+	search := newTagSearch("ns", query, metadata)
 	resultSet, err := search.Filter()
 	assert.NoError(t, err)
 	assert.Empty(t, resultSet)
 	// case 2: equal tag filter
 	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Return(tagValueIDs, nil)
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	resultSet, err = search.Filter()
 	assert.NoError(t, err)
 	assert.Len(t, resultSet, 1)
@@ -42,7 +42,7 @@ func TestTagSearch_Filter(t *testing.T) {
 	// case 3: not tag filter
 	query, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Return(tagValueIDs, nil)
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	resultSet, err = search.Filter()
 	assert.NoError(t, err)
 	assert.Len(t, resultSet, 1)
@@ -50,7 +50,7 @@ func TestTagSearch_Filter(t *testing.T) {
 	// case 4: paren expr
 	query, _ = sql.Parse("select f from cpu where (ip!='1.1.1.1')")
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Return(tagValueIDs, nil)
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	resultSet, err = search.Filter()
 	assert.NoError(t, err)
 	assert.Len(t, resultSet, 1)
@@ -60,7 +60,7 @@ func TestTagSearch_Filter(t *testing.T) {
 		"where ip='1.1.1.1' and path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Return(tagValueIDs, nil)
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "path", Value: "/data"}).Return(roaring.BitmapOf(10, 20), nil)
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	resultSet, err = search.Filter()
 	assert.NoError(t, err)
 	assert.Len(t, resultSet, 2)
@@ -80,13 +80,13 @@ func TestTagSearch_Filter_err(t *testing.T) {
 
 	// case 1: get tag key err
 	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
-	search := newTagSearch(query, metadata)
+	search := newTagSearch("ns", query, metadata)
 	metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), fmt.Errorf("err"))
 	resultSet, err := search.Filter()
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
 	// case 2: get tag value ids err
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	resultSet, err = search.Filter()
@@ -97,13 +97,13 @@ func TestTagSearch_Filter_err(t *testing.T) {
 		"where ip='1.1.1.1' and path='/data'")
 	binary := query.Condition.(*stmt.BinaryExpr)
 	binary.Operator = stmt.ADD
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	resultSet, err = search.Filter()
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
 	// case 4: recursion err
 	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1' or ip='1.1.1.1'")
-	search = newTagSearch(query, metadata)
+	search = newTagSearch("ns", query, metadata)
 	metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(uint32(1), fmt.Errorf("err")).AnyTimes()
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
@@ -126,7 +126,7 @@ func TestTagSearch_Filter_Complex(t *testing.T) {
 
 	query, _ := sql.Parse("select f from cpu" +
 		" where (ip not in ('1.1.1.1','2.2.2.2') and region='sh') and (path='/data' or path='/home')")
-	search := newTagSearch(query, metadata)
+	search := newTagSearch("ns", query, metadata)
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}).
 		Return(tagValueIDs, nil)
 	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "region", Value: "sh"}).

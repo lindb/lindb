@@ -25,7 +25,7 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 	replicaStateMachine := replica.NewMockStatusStateMachine(ctrl)
 	jobManager := parallel.NewMockJobManager(ctrl)
 
-	exec := newBrokerExecutor(context.TODO(), "test_db", "select f from cpu",
+	exec := newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
 		replicaStateMachine, nodeStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(nil)
 	exec.Execute()
@@ -44,13 +44,13 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 		currentNode,
 		generateBrokerActiveNode("1.1.1.4", 8000),
 	}
-	exec = newBrokerExecutor(context.TODO(), "test_db", "select f fro",
+	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f fro",
 		replicaStateMachine, nodeStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)
 	exec.Execute()
 
-	exec = newBrokerExecutor(context.TODO(), "test_db", "select f from cpu",
+	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
 		replicaStateMachine, nodeStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)
@@ -58,7 +58,7 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 	exec.Execute()
 
 	// submit job error
-	exec = newBrokerExecutor(context.TODO(), "test_db", "select f from cpu",
+	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
 		replicaStateMachine, nodeStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)

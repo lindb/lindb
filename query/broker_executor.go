@@ -11,9 +11,10 @@ import (
 
 // brokerExecutor implements parallel.BrokerExecutor
 type brokerExecutor struct {
-	database string
-	sql      string
-	query    *stmt.Query
+	database  string
+	namespace string
+	sql       string
+	query     *stmt.Query
 
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
@@ -26,12 +27,13 @@ type brokerExecutor struct {
 }
 
 // newBrokerExecutor creates the execution which executes the job of parallel query
-func newBrokerExecutor(ctx context.Context, database string, sql string,
+func newBrokerExecutor(ctx context.Context, database string, namespace string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager) parallel.BrokerExecutor {
 	exec := &brokerExecutor{
 		sql:                 sql,
 		database:            database,
+		namespace:           namespace,
 		replicaStateMachine: replicaStateMachine,
 		nodeStateMachine:    nodeStateMachine,
 		jobManager:          jobManager,
@@ -66,6 +68,7 @@ func (e *brokerExecutor) Execute() {
 	}
 
 	brokerPlan.physicalPlan.Database = e.database
+	brokerPlan.physicalPlan.Namespace = e.namespace
 	e.query = brokerPlan.query
 
 	if err := e.jobManager.SubmitJob(parallel.NewJobContext(e.ctx,

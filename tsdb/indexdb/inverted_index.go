@@ -24,12 +24,7 @@ var (
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
 type InvertedIndex interface {
-	// GetSeriesIDsByTagValueIDs returns series ids by tag value ids for spec metric's tag key
-	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
-	// GetSeriesIDsForTag get series ids for spec metric's tag key
-	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
-	// GetGroupingContext returns the context of group by
-	GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error)
+	series.Filter
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
 	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)

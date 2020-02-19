@@ -48,8 +48,8 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
 	}()
 
 	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
@@ -94,9 +94,9 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 		createBackend = newIDMappingBackend
+		ctrl.Finish()
 	}()
 
 	backend := NewMockIDMappingBackend(ctrl)
@@ -154,19 +154,19 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 func TestIndexDatabase_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 		createBackend = newIDMappingBackend
+		ctrl.Finish()
 	}()
 
 	backend := NewMockIDMappingBackend(ctrl)
 	createBackend = func(name, parent string) (IDMappingBackend, error) {
 		return backend, nil
 	}
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
-	assert.NoError(t, err)
 
 	// case 1: save mutable event err
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
 	db2 := db.(*indexDatabase)
 	db2.rwMutex.Lock()
 	db2.mutable.addSeriesID(1, 1, 1)
@@ -186,14 +186,21 @@ func TestIndexDatabase_Close(t *testing.T) {
 	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
 	err = db.Close()
 	assert.Error(t, err)
+
+	// case 3: save backend err
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	assert.NoError(t, err)
+	backend.EXPECT().Close().Return(fmt.Errorf("err"))
+	err = db.Close()
+	assert.Error(t, err)
 }
 
 func TestIndexDatabase_checkSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 		syncInterval = 2 * timeutil.OneSecond
+		ctrl.Finish()
 	}()
 
 	syncInterval = 100
