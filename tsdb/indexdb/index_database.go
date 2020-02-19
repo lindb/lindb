@@ -134,8 +134,28 @@ func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs 
 	return db.index.GetSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
 }
 
+// GetSeriesIDsForTag gets series ids for spec metric's tag key
 func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
-	panic("implement me")
+	return db.index.GetSeriesIDsForTag(tagKeyID)
+}
+
+// GetSeriesIDsForMetric gets series ids for spec metric name
+func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*roaring.Bitmap, error) {
+	// get all tags under metric
+	tags, err := db.metadata.MetadataDatabase().GetAllTagKeys(namespace, metricName)
+	if err != nil {
+		return nil, err
+	}
+	tagLength := len(tags)
+	if tagLength == 0 {
+		return nil, constants.ErrNotFound
+	}
+	tagKeyIDs := make([]uint32, tagLength)
+	for idx, tag := range tags {
+		tagKeyIDs[idx] = tag.ID
+	}
+	// get series ids under all tag key ids
+	return db.index.GetSeriesIDsForTags(tagKeyIDs)
 }
 
 // BuildInvertIndex builds the inverted index for tag value => series ids,
