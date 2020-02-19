@@ -17,6 +17,7 @@ import (
 // 3. merges the result from distribution task execute result set
 type metadataBrokerExecutor struct {
 	database            string
+	namespace           string
 	suggest             *stmt.Metadata
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
@@ -26,12 +27,13 @@ type metadataBrokerExecutor struct {
 }
 
 // newMetadataBrokerExecutor creates a metadata suggest executor in broker side
-func newMetadataBrokerExecutor(ctx context.Context, database string, suggest *stmt.Metadata,
+func newMetadataBrokerExecutor(ctx context.Context, database string, namespace string, suggest *stmt.Metadata,
 	nodeStateMachine broker.NodeStateMachine, replicaStateMachine replica.StatusStateMachine,
 	jobManager parallel.JobManager) parallel.MetadataExecutor {
 	return &metadataBrokerExecutor{
 		ctx:                 ctx,
 		database:            database,
+		namespace:           namespace,
 		suggest:             suggest,
 		replicaStateMachine: replicaStateMachine,
 		nodeStateMachine:    nodeStateMachine,
@@ -83,7 +85,8 @@ func (e *metadataBrokerExecutor) buildPhysicalPlan() (*models.PhysicalPlan, erro
 	curBroker := e.nodeStateMachine.GetCurrentNode()
 	curBrokerIndicator := (&curBroker).Indicator()
 	physicalPlan := &models.PhysicalPlan{
-		Database: e.database,
+		Database:  e.database,
+		Namespace: e.namespace,
 		Root: models.Root{
 			Indicator: curBrokerIndicator,
 			NumOfTask: int32(storageNodesLen),

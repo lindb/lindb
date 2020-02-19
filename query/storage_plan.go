@@ -19,8 +19,9 @@ var (
 // storageExecutePlan represents a storage level execute plan for data search,
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
-	query    *stmt.Query
-	metadata metadb.Metadata
+	namespace string
+	query     *stmt.Query
+	metadata  metadb.Metadata
 
 	fieldIDs []field.ID
 
@@ -32,8 +33,9 @@ type storageExecutePlan struct {
 }
 
 // newStorageExecutePlan creates a storage execute plan
-func newStorageExecutePlan(metadata metadb.Metadata, query *stmt.Query) Plan {
+func newStorageExecutePlan(namespace string, metadata metadb.Metadata, query *stmt.Query) Plan {
 	return &storageExecutePlan{
+		namespace:      namespace,
 		metadata:       metadata,
 		query:          query,
 		fields:         make(map[field.ID]aggregation.AggregatorSpec),
@@ -44,7 +46,7 @@ func newStorageExecutePlan(metadata metadb.Metadata, query *stmt.Query) Plan {
 // Plan plans the query language, generates the execute plan for storage query
 func (p *storageExecutePlan) Plan() error {
 	// metric name => id, like table name
-	metricID, err := p.metadata.MetadataDatabase().GetMetricID(p.query.Namespace, p.query.MetricName)
+	metricID, err := p.metadata.MetadataDatabase().GetMetricID(p.namespace, p.query.MetricName)
 	if err != nil {
 		return err
 	}
@@ -84,7 +86,7 @@ func (p *storageExecutePlan) groupBy() error {
 	}
 
 	for _, tagKey := range p.query.GroupBy {
-		tagKeyID, err := p.metadata.MetadataDatabase().GetTagKeyID(p.query.Namespace, p.query.MetricName, tagKey)
+		tagKeyID, err := p.metadata.MetadataDatabase().GetTagKeyID(p.namespace, p.query.MetricName, tagKey)
 		if err != nil {
 			return err
 		}
@@ -142,7 +144,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		p.field(nil, e.Left)
 		p.field(nil, e.Right)
 	case *stmt.FieldExpr:
-		fieldMeta, err := p.metadata.MetadataDatabase().GetField(p.query.Namespace, p.query.MetricName, e.Name)
+		fieldMeta, err := p.metadata.MetadataDatabase().GetField(p.namespace, p.query.MetricName, e.Name)
 		if err != nil {
 			p.err = err
 			return

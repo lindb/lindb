@@ -32,8 +32,9 @@ var (
 const (
 	options       = "OPTIONS"
 	shardDir      = "shard"
-	metricMetaDir = "metric_meta"
-	tagMetaDir    = "tag_meta"
+	metricMetaDir = "metric"
+	tagMetaDir    = "tag"
+	tagValueDir   = "tag_value"
 )
 
 // Database represents an abstract time series database
@@ -262,14 +263,14 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	metaStoreOption := kv.DefaultStoreOption(filepath.Join(db.path, metaDir))
+	metaStoreOption := kv.DefaultStoreOption(filepath.Join(db.path, metaDir, tagMetaDir))
 	//FIXME close kv store if err??
 	metaStore, err := newKVStoreFunc(metaStoreOption.Path, metaStoreOption)
 	if err != nil {
 		return err
 	}
 	tagMetaFamily, err := metaStore.CreateFamily(
-		tagMetaDir,
+		tagValueDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
 			Merger:           metricMetaMerger})

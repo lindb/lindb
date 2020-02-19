@@ -129,8 +129,9 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32, tagsHash uint64,
 	return seriesID, true, nil
 }
 
+// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
 func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
-	panic("implement me")
+	return db.index.GetSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
 }
 
 func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
@@ -165,7 +166,10 @@ func (db *indexDatabase) Close() error {
 	if err := saveMapping(db.immutable); err != nil {
 		return err
 	}
-	return db.backend.Close()
+	if err := db.backend.Close(); err != nil {
+		return err
+	}
+	return db.index.Flush()
 }
 
 // checkSync checks if need sync pending series event in period

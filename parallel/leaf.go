@@ -69,7 +69,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 
 	switch req.RequestType {
 	case pb.RequestType_Data:
-		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, stream); err != nil {
+		if err := p.processDataSearch(ctx, db, physicalPlan.Namespace, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
 	case pb.RequestType_Metadata:
@@ -106,7 +106,7 @@ func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
 	return nil
 }
 
-func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, shardIDs []int32,
+func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, namespace string, shardIDs []int32,
 	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
 ) error {
 	payload := req.Payload
@@ -122,7 +122,7 @@ func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, shar
 	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(query.Interval, interval, query.TimeRange)
 	// execute leaf task
 	queryFlow := NewStorageQueryFlow(ctx, req, stream, db.ExecutorPool(), timeRange, queryInterval, intervalRatio)
-	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, shardIDs, &query)
+	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, namespace, shardIDs, &query)
 	exec.Execute()
 	return nil
 }

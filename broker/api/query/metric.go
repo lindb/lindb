@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
@@ -37,21 +38,23 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
+	namespace, _ := api.GetParamsFromRequest("ns", r, constants.DefaultNamespace, false)
 	sql, err := api.GetParamsFromRequest("sql", r, "", true)
 	if err != nil {
 		api.Error(w, err)
 		return
 	}
-	//TODO add timeout cfg
+	//FIXME add timeout cfg
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.executorFactory.NewBrokerExecutor(ctx, db, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	exec := m.executorFactory.NewBrokerExecutor(ctx, db, namespace, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
 	exec.Execute()
 
 	brokerExecutor := exec.(parallel.BrokerExecutor)
 	exeCtx := brokerExecutor.ExecuteContext()
 
+	//FIXME timeout logic use select
 	resultCh := exeCtx.ResultCh()
 	for result := range resultCh {
 		exeCtx.Emit(result)
