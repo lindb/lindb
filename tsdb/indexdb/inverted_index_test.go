@@ -104,6 +104,38 @@ func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(10, 200, 3000), seriesIDs)
 }
 
+func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newReaderFunc = invertedindex.NewReader
+		ctrl.Finish()
+	}()
+	reader := invertedindex.NewMockReader(ctrl)
+	newReaderFunc = func(readers []table.Reader) invertedindex.Reader {
+		return reader
+	}
+
+	index := prepareInvertedIndex(ctrl)
+	family := kv.NewMockFamily(ctrl)
+	idx := index.(*invertedIndex)
+	idx.family = family
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close().AnyTimes()
+	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
+
+	// case 1: get reader err
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seriesIDs, err := index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	assert.Error(t, err)
+	assert.Nil(t, seriesIDs)
+	// case 2: reader get data success
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).Times(3)
+	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
+	seriesIDs, err = index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	assert.NoError(t, err)
+	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
+}
+
 func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

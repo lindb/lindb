@@ -24,7 +24,14 @@ var (
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
 type InvertedIndex interface {
-	series.Filter
+	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
+	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
+	// GetSeriesIDsForTag gets series ids for spec metric's tag key
+	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
+	// GetSeriesIDsForTags gets series ids for spec metric's tag keys
+	GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error)
+	// GetGroupingContext returns the context of group by
+	GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error)
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
 	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
@@ -93,6 +100,20 @@ func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+// GetSeriesIDsForTags gets series ids for spec metric's tag keys
+func (index *invertedIndex) GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error) {
+	result := roaring.New()
+	for _, tagKeyID := range tagKeyIDs {
+		//FIXME maybe opt for lock and kv store load using same snapshot
+		seriesIDs, err := index.GetSeriesIDsForTag(tagKeyID)
+		if err != nil {
+			return nil, err
+		}
+		result.Or(seriesIDs)
 	}
 	return result, nil
 }

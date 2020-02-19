@@ -33,7 +33,7 @@ func (m *MetricStore) Get(key uint32) (tStoreINTF, bool) {
 	if !found {
 		return nil, false
 	}
-	// get low index
+	// get log index
 	found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
 	if !found {
 		return nil, false
@@ -85,7 +85,7 @@ func (m *MetricStore) Values() [][]tStoreINTF {
 	return m.values
 }
 
-// Size returns the size of keys
+// size returns the size of keys
 func (m *MetricStore) Size() int {
 	return int(m.keys.GetCardinality())
 }

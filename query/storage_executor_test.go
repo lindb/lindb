@@ -160,9 +160,9 @@ func TestStorageExecutor_TagSearch(t *testing.T) {
 func TestStorageExecute_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		newSeriesSearchFunc = newSeriesSearch
 		newTagSearchFunc = newTagSearch
+		ctrl.Finish()
 	}()
 
 	tagSearch := NewMockTagSearch(ctrl)
@@ -183,8 +183,10 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 
+	index := indexdb.NewMockIndexDatabase(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	shard.EXPECT().IndexDatabase().Return(index).AnyTimes()
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
 	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
 
@@ -205,21 +207,33 @@ func TestStorageExecute_Execute(t *testing.T) {
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err")).Times(3)
 	exec := newStorageExecutor(queryFlow, mockDatabase, "ns", []int32{1, 2, 3}, query)
 	exec.Execute()
-	// case 2: normal case with filter
+	// case 3: normal case without filter
+	query, _ = sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	index.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).DoAndReturn(func(a, b string) (*roaring.Bitmap, error) {
+		return roaring.BitmapOf(1, 2, 3), nil
+	}).AnyTimes()
 	filterRS := flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(3)
+	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return([]flow.FilterResultSet{filterRS}, nil).MaxTimes(3)
+	exec = newStorageExecutor(queryFlow, mockDatabase, "ns", []int32{1, 2, 3}, query)
+	exec.Execute()
+	// case 3: normal case with filter
+	query, _ = sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	filterRS = flow.NewMockFilterResultSet(ctrl)
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(3)
 	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, nil).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, "ns", []int32{1, 2, 3}, query)
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
-	// case 3: filter data err
+	// case 4: filter data err
 	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, fmt.Errorf("err")).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, "ns", []int32{1, 2, 3}, query)
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
-	// case 4: filter result is nil
+	// case 5: filter result is nil
 	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, "ns", []int32{1, 2, 3}, query)
