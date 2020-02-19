@@ -29,6 +29,8 @@ type Filter interface {
 	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 	// GetSeriesIDsForTag gets series ids for spec metric's tag key
 	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
+	// GetSeriesIDsForMetric gets series ids for spec metric name
+	GetSeriesIDsForMetric(namespace, metricName string) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
 	GetGroupingContext(tagKeyIDs []uint32) (GroupingContext, error)
 }

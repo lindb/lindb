@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -138,17 +141,56 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
 	assert.NoError(t, err)
 	assert.Panics(t, func() {
-		_, _ = db.GetSeriesIDsForTag(1)
-	})
-	assert.Panics(t, func() {
-		_, _ = db.GetSeriesIDsByTagValueIDs(1, nil)
-	})
-	assert.Panics(t, func() {
 		_ = db.SuggestTagValues(1, "11", 100)
 	})
 	assert.Panics(t, func() {
 		_, _ = db.GetGroupingContext(nil)
 	})
+}
+
+func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+
+	index := NewMockInvertedIndex(ctrl)
+	metaDB := metadb.NewMockMetadataDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db2 := db.(*indexDatabase)
+	db2.index = index
+	db2.metadata = meta
+	assert.NoError(t, err)
+
+	// case 1: get series ids by tag key
+	index.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(1, 2), nil)
+	seriesIDs, err := db.GetSeriesIDsForTag(1)
+	assert.NoError(t, err)
+	assert.NotNil(t, seriesIDs)
+	// case 2: get series ids by tag value ids
+	index.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), roaring.BitmapOf(1, 2, 3)).Return(roaring.BitmapOf(1, 2), nil)
+	seriesIDs, err = db.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	assert.NotNil(t, seriesIDs)
+	// case 3: get tags err
+	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seriesIDs, err = db.GetSeriesIDsForMetric("ns", "name")
+	assert.Equal(t, fmt.Errorf("err"), err)
+	assert.Nil(t, seriesIDs)
+	// case 4: get empty tags
+	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(nil, nil)
+	seriesIDs, err = db.GetSeriesIDsForMetric("ns", "name")
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Nil(t, seriesIDs)
+	// case 5: get series ids for metric
+	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return([]tag.Meta{{ID: 1}}, nil)
+	index.EXPECT().GetSeriesIDsForTags([]uint32{1}).Return(roaring.BitmapOf(1, 2, 3), nil)
+	seriesIDs, err = db.GetSeriesIDsForMetric("ns", "name")
+	assert.NoError(t, err)
+	assert.NotNil(t, seriesIDs)
 }
 
 func TestIndexDatabase_Close(t *testing.T) {

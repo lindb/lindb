@@ -161,10 +161,9 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roar
 		// if get tag filter result do series ids searching
 		seriesSearch := newSeriesSearchFunc(filter, e.filterResult, e.query)
 		seriesIDs, err = seriesSearch.Search()
-
-		//FIXME
-		//} else {
-		//	seriesIDs, err = filter.(metricID, e.query.TimeRange)
+	} else {
+		// get series ids for metric level
+		seriesIDs, err = filter.GetSeriesIDsForMetric(e.namespace, e.query.MetricName)
 	}
 	if err != nil {
 		e.queryFlow.Complete(err)
