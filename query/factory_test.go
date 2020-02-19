@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -16,10 +17,10 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 
 	factory := NewExecutorFactory()
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	assert.NotNil(t, factory.NewStorageExecutor(nil, mockDatabase, nil, nil))
+	assert.NotNil(t, factory.NewStorageExecutor(nil, mockDatabase, "ns", nil, &stmt.Query{}))
 	assert.NotNil(t, factory.NewBrokerExecutor(
-		context.TODO(), "db", "sql", nil, nil, nil))
+		context.TODO(), "db", "ns", "sql", nil, nil, nil))
 	assert.NotNil(t, factory.NewMetadataStorageExecutor(nil, nil, nil))
 	assert.NotNil(t, factory.NewMetadataBrokerExecutor(
-		context.TODO(), "db", nil, nil, nil, nil))
+		context.TODO(), "db", "ns", nil, nil, nil, nil))
 }

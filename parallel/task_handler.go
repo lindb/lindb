@@ -70,6 +70,7 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
 
 // dispatch dispatches request with timeout
 func (q *TaskHandler) dispatch(req *common.TaskRequest) {
+	//FIXME add timeout????
 	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
 	q.taskPool.Submit(func() {
 		defer func() {

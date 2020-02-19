@@ -32,12 +32,12 @@ func TestStoragePlan_Metric(t *testing.T) {
 		}, nil).AnyTimes()
 
 	query, _ := sql.Parse("select f from cpu")
-	plan := newStorageExecutePlan(metadata, query)
+	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
 	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(0), constants.ErrNotFound)
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 }
@@ -67,17 +67,17 @@ func TestStoragePlan_SelectList(t *testing.T) {
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
-	plan := newStorageExecutePlan(metadata, query)
+	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NotNil(t, err)
 	query, _ = sql.Parse("select no_f from cpu")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 
 	// normal
 	query, _ = sql.Parse("select f from cpu")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 
@@ -88,7 +88,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, []field.ID{10}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select a,b,c as d from cpu")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 
@@ -108,7 +108,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, []field.ID{11, 12, 13}, storagePlan.getFieldIDs())
 
 	query, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
 	storagePlan = plan.(*storageExecutePlan)
@@ -148,7 +148,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 
 	// normal
 	query, _ := sql.Parse("select f,d from disk group by host,path")
-	plan := newStorageExecutePlan(metadata, query)
+	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
@@ -169,7 +169,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(0), fmt.Errorf("err")),
 	)
 	query, _ = sql.Parse("select f from disk group by host,path")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 }
@@ -184,7 +184,7 @@ func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 	gomock.InOrder(
 		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
 	)
-	plan := newStorageExecutePlan(metadata, &stmt.Query{MetricName: "disk"})
+	plan := newStorageExecutePlan("ns", metadata, &stmt.Query{MetricName: "disk"})
 	err := plan.Plan()
 	assert.Equal(t, errEmptySelectList, err)
 }
@@ -202,7 +202,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 			Return(field.Meta{ID: 10, Type: field.Unknown}, nil),
 	)
 	query, _ := sql.Parse("select f from disk")
-	plan := newStorageExecutePlan(metadata, query)
+	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.Error(t, err)
 
@@ -212,7 +212,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select histogram(f) from disk")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 
@@ -224,7 +224,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 
@@ -236,7 +236,7 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 			Return(field.Meta{ID: 11, Type: field.SumField}, nil),
 	)
 	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
-	plan = newStorageExecutePlan(metadata, query)
+	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
 }

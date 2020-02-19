@@ -73,7 +73,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	exec := NewMockExecutor(ctrl)
 	exec.EXPECT().Execute()
-	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }
@@ -104,7 +104,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 	exec := NewMockExecutor(ctrl)
 	exec.EXPECT().Execute()
-	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	err := processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }

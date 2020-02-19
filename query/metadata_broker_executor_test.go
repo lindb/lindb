@@ -23,7 +23,7 @@ func TestMetadataBrokerExecutor_Execute(t *testing.T) {
 	replicaStateMachine := replica.NewMockStatusStateMachine(ctrl)
 	jobManager := parallel.NewMockJobManager(ctrl)
 
-	exec := newMetadataBrokerExecutor(context.TODO(), "test_db", &stmt.Metadata{},
+	exec := newMetadataBrokerExecutor(context.TODO(), "test_db", "ns", &stmt.Metadata{},
 		nodeStateMachine, replicaStateMachine, jobManager)
 
 	// no storage node

@@ -14,18 +14,19 @@ import (
 
 func TestMetricAPI_getCommonParams(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/metadata/suggest", nil)
-	_, _, _, err := getCommonParams(req)
+	_, _, _, _, err := getCommonParams(req)
 	assert.Error(t, err)
 
-	req, _ = http.NewRequest("GET", "/metadata/suggest?db=test", nil)
-	db, prefix, limit, err := getCommonParams(req)
+	req, _ = http.NewRequest("GET", "/metadata/suggest?db=test&ns=ns", nil)
+	db, ns, prefix, limit, err := getCommonParams(req)
 	assert.NoError(t, err)
 	assert.Equal(t, "test", db)
+	assert.Equal(t, "ns", ns)
 	assert.Equal(t, "", prefix)
 	assert.Equal(t, 100, limit)
 
 	req, _ = http.NewRequest("GET", "/metadata/suggest?db=test&limit=avc", nil)
-	_, _, _, err = getCommonParams(req)
+	_, _, _, _, err = getCommonParams(req)
 	assert.Error(t, err)
 }
 
@@ -36,7 +37,7 @@ func TestMetricAPI_SuggestMetrics(t *testing.T) {
 	factory := parallel.NewMockExecutorFactory(ctrl)
 	exec := parallel.NewMockMetadataExecutor(ctrl)
 
-	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
 
 	api := NewMetricAPI(nil, nil, factory, nil)
@@ -71,7 +72,7 @@ func TestMetricAPI_SuggestTagKeys(t *testing.T) {
 	factory := parallel.NewMockExecutorFactory(ctrl)
 	exec := parallel.NewMockMetadataExecutor(ctrl)
 
-	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
 
 	api := NewMetricAPI(nil, nil, factory, nil)
@@ -113,7 +114,7 @@ func TestMetricAPI_SuggestTagValues(t *testing.T) {
 	factory := parallel.NewMockExecutorFactory(ctrl)
 	exec := parallel.NewMockMetadataExecutor(ctrl)
 
-	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
 
 	api := NewMetricAPI(nil, nil, factory, nil)

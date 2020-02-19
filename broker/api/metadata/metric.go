@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
@@ -35,12 +36,12 @@ func NewMetricAPI(replicaStateMachine replica.StatusStateMachine, nodeStateMachi
 
 // SuggestMetrics suggests metric names based on prefix
 func (m *MetricAPI) SuggestMetrics(w http.ResponseWriter, r *http.Request) {
-	db, metricNamePrefix, limit, err := getCommonParams(r)
+	db, namespace, metricNamePrefix, limit, err := getCommonParams(r)
 	if err != nil {
 		api.Error(w, err)
 		return
 	}
-	m.suggest(w, db, &stmt.Metadata{
+	m.suggest(w, db, namespace, &stmt.Metadata{
 		Type:       stmt.Metric,
 		MetricName: metricNamePrefix,
 		Limit:      limit,
@@ -49,7 +50,7 @@ func (m *MetricAPI) SuggestMetrics(w http.ResponseWriter, r *http.Request) {
 
 // SuggestTagKeys suggests tag keys based on prefix
 func (m *MetricAPI) SuggestTagKeys(w http.ResponseWriter, r *http.Request) {
-	db, tagKeyPrefix, limit, err := getCommonParams(r)
+	db, namespace, tagKeyPrefix, limit, err := getCommonParams(r)
 	if err != nil {
 		api.Error(w, err)
 		return
@@ -59,7 +60,7 @@ func (m *MetricAPI) SuggestTagKeys(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	m.suggest(w, db, &stmt.Metadata{
+	m.suggest(w, db, namespace, &stmt.Metadata{
 		Type:       stmt.TagKey,
 		MetricName: metricName,
 		TagKey:     tagKeyPrefix,
@@ -69,7 +70,7 @@ func (m *MetricAPI) SuggestTagKeys(w http.ResponseWriter, r *http.Request) {
 
 // SuggestTagValues suggests tag values based on prefix
 func (m *MetricAPI) SuggestTagValues(w http.ResponseWriter, r *http.Request) {
-	db, tagValuePrefix, limit, err := getCommonParams(r)
+	db, namespace, tagValuePrefix, limit, err := getCommonParams(r)
 	if err != nil {
 		api.Error(w, err)
 		return
@@ -84,7 +85,7 @@ func (m *MetricAPI) SuggestTagValues(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	m.suggest(w, db, &stmt.Metadata{
+	m.suggest(w, db, namespace, &stmt.Metadata{
 		Type:       stmt.TagValue,
 		MetricName: metricName,
 		TagKey:     tagKey,
@@ -94,12 +95,12 @@ func (m *MetricAPI) SuggestTagValues(w http.ResponseWriter, r *http.Request) {
 }
 
 // suggest executes the suggest query
-func (m *MetricAPI) suggest(w http.ResponseWriter, database string, request *stmt.Metadata) {
+func (m *MetricAPI) suggest(w http.ResponseWriter, database string, namespace string, request *stmt.Metadata) {
 	//TODO add timeout cfg
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.executorFactory.NewMetadataBrokerExecutor(ctx, database, request, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	exec := m.executorFactory.NewMetadataBrokerExecutor(ctx, database, namespace, request, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
 	values, err := exec.Execute()
 	if err != nil {
 		api.Error(w, err)
@@ -109,11 +110,12 @@ func (m *MetricAPI) suggest(w http.ResponseWriter, database string, request *stm
 }
 
 // getCommonParams gets the common params from http request
-func getCommonParams(r *http.Request) (db, prefix string, limit int, err error) {
+func getCommonParams(r *http.Request) (db, namespace, prefix string, limit int, err error) {
 	db, err = api.GetParamsFromRequest("db", r, "", true)
 	if err != nil {
 		return
 	}
+	namespace, _ = api.GetParamsFromRequest("ns", r, constants.DefaultNamespace, false)
 	prefix, _ = api.GetParamsFromRequest("prefix", r, "", false)
 	limitStr, _ := api.GetParamsFromRequest("limit", r, "100", false)
 	l, err := strconv.ParseInt(limitStr, 10, 64)

@@ -239,7 +239,7 @@ func (s *shard) Write(metric *pb.Metric) error {
 	// set write completed
 	defer s.writing.Store(false)
 	// write metric point into memory db
-	return db.Write(metric.Namespace, metric.Name, metricID, seriesID, metric.Timestamp, metric.Fields)
+	return db.Write(ns, metric.Name, metricID, seriesID, metric.Timestamp, metric.Fields)
 }
 
 func (s *shard) Close() error {

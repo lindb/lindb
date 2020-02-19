@@ -18,6 +18,7 @@ type ExecutorFactory interface {
 	NewStorageExecutor(
 		queryFlow flow.StorageQueryFlow,
 		database tsdb.Database,
+		namespace string,
 		shardIDs []int32,
 		query *stmt.Query,
 	) Executor
@@ -33,6 +34,7 @@ type ExecutorFactory interface {
 	NewBrokerExecutor(
 		ctx context.Context,
 		databaseName string,
+		namespace string,
 		sql string,
 		replicaStateMachine replica.StatusStateMachine,
 		nodeStateMachine broker.NodeStateMachine,
@@ -43,6 +45,7 @@ type ExecutorFactory interface {
 	NewMetadataBrokerExecutor(
 		ctx context.Context,
 		databaseName string,
+		namespace string,
 		request *stmt.Metadata,
 		replicaStateMachine replica.StatusStateMachine,
 		nodeStateMachine broker.NodeStateMachine,

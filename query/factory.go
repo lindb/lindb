@@ -23,10 +23,11 @@ func NewExecutorFactory() parallel.ExecutorFactory {
 func (*executorFactory) NewStorageExecutor(
 	queryFlow flow.StorageQueryFlow,
 	database tsdb.Database,
+	namespace string,
 	shardIDs []int32,
 	query *stmt.Query,
 ) parallel.Executor {
-	return newStorageExecutor(queryFlow, database, shardIDs, query)
+	return newStorageExecutor(queryFlow, database, namespace, shardIDs, query)
 }
 
 // NewMetadataStorageExecutor creates the metadata executor in storage side
@@ -42,22 +43,24 @@ func (*executorFactory) NewMetadataStorageExecutor(
 func (*executorFactory) NewBrokerExecutor(
 	ctx context.Context,
 	databaseName string,
+	namespace string,
 	sql string,
 	replicaStateMachine replica.StatusStateMachine,
 	nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager,
 ) parallel.BrokerExecutor {
-	return newBrokerExecutor(ctx, databaseName, sql, replicaStateMachine, nodeStateMachine, jobManager)
+	return newBrokerExecutor(ctx, databaseName, namespace, sql, replicaStateMachine, nodeStateMachine, jobManager)
 }
 
 // NewMetadataBrokerExecutor creates the metadata executor in broker side
 func (*executorFactory) NewMetadataBrokerExecutor(
 	ctx context.Context,
 	databaseName string,
+	namespace string,
 	request *stmt.Metadata,
 	replicaStateMachine replica.StatusStateMachine,
 	nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager,
 ) parallel.MetadataExecutor {
-	return newMetadataBrokerExecutor(ctx, databaseName, request, nodeStateMachine, replicaStateMachine, jobManager)
+	return newMetadataBrokerExecutor(ctx, databaseName, namespace, request, nodeStateMachine, replicaStateMachine, jobManager)
 }

@@ -12,7 +12,6 @@ import (
 
 func TestQuery_Marshal(t *testing.T) {
 	query := Query{
-		Namespace:  "ns",
 		MetricName: "test",
 		SelectItems: []Expr{
 			&SelectItem{Expr: &FieldExpr{Name: "a"}},

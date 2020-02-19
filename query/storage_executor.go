@@ -2,6 +2,7 @@ package query
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/lindb/roaring"
 
@@ -39,8 +40,9 @@ var (
 // 4) Down sampling
 // 5) Simple aggregation
 type storageExecutor struct {
-	database tsdb.Database
-	query    *stmt.Query
+	database  tsdb.Database
+	namespace string
+	query     *stmt.Query
 
 	shardIDs []int32
 	shards   []tsdb.Shard
@@ -59,11 +61,13 @@ type storageExecutor struct {
 func newStorageExecutor(
 	queryFlow flow.StorageQueryFlow,
 	database tsdb.Database,
+	namespace string,
 	shardIDs []int32,
 	query *stmt.Query,
 ) parallel.Executor {
 	return &storageExecutor{
 		database:  database,
+		namespace: namespace,
 		shardIDs:  shardIDs,
 		query:     query,
 		queryFlow: queryFlow,
@@ -97,7 +101,7 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 
-	plan := newStorageExecutePlanFunc(e.database.Metadata(), e.query)
+	plan := newStorageExecutePlanFunc(e.namespace, e.database.Metadata(), e.query)
 	if err := plan.Plan(); err != nil {
 		e.queryFlow.Complete(err)
 		return
@@ -106,7 +110,7 @@ func (e *storageExecutor) Execute() {
 	condition := e.query.Condition
 	var err error
 	if condition != nil {
-		tagSearch := newTagSearchFunc(e.query, e.database.Metadata())
+		tagSearch := newTagSearchFunc(e.namespace, e.query, e.database.Metadata())
 		e.filterResult, err = tagSearch.Filter()
 		if err != nil {
 			e.queryFlow.Complete(err)
@@ -131,19 +135,20 @@ func (e *storageExecutor) Execute() {
 
 	for idx := range e.shards {
 		shard := e.shards[idx]
-		seriesIDs := e.searchSeriesIDs(shard.IndexDatabase())
-		// if series ids not found
-		if seriesIDs == nil || seriesIDs.IsEmpty() {
-			continue
-		}
-
-		// execute memory db search in background goroutine
 		e.queryFlow.Filtering(func() {
-			e.executeQueryFlow(shard.IndexDatabase(), shard.MemoryDatabase(), seriesIDs)
-		})
+			seriesIDs := e.searchSeriesIDs(shard.IndexDatabase())
+			// if series ids not found
+			if seriesIDs == nil || seriesIDs.IsEmpty() {
+				return
+			}
+			// execute memory db search in background goroutine
+			e.queryFlow.Filtering(func() {
+				e.executeQueryFlow(shard.IndexDatabase(), shard.MemoryDatabase(), seriesIDs)
+			})
 
-		e.queryFlow.Filtering(func() {
-			e.shardLevelSearch(shard, seriesIDs)
+			e.queryFlow.Filtering(func() {
+				e.shardLevelSearch(shard, seriesIDs)
+			})
 		})
 	}
 }
@@ -156,6 +161,7 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roar
 		// if get tag filter result do series ids searching
 		seriesSearch := newSeriesSearchFunc(filter, e.filterResult, e.query)
 		seriesIDs, err = seriesSearch.Search()
+
 		//FIXME
 		//} else {
 		//	seriesIDs, err = filter.(metricID, e.query.TimeRange)
@@ -214,6 +220,7 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 			groupingCtx = gCtx
 		}
 		keys := seriesIDs.GetHighKeys()
+		fmt.Println("get high key")
 
 		for idx, key := range keys {
 			// be carefully, need use new variable for variable scope problem
