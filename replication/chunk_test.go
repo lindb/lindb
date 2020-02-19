@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/rpc/proto/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 type mockIOWriter struct {
@@ -25,27 +26,27 @@ func TestChunk_Append(t *testing.T) {
 	assert.False(t, chunk.IsFull())
 	assert.True(t, chunk.IsEmpty())
 	assert.Equal(t, 0, chunk.Size())
-	chunk.Append(&field.Metric{
+	chunk.Append(&pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 		Tags: map[string]string{"host": "1.1.1.1"},
 	})
 	assert.False(t, chunk.IsEmpty())
 	assert.False(t, chunk.IsFull())
 	assert.Equal(t, 1, chunk.Size())
-	chunk.Append(&field.Metric{
+	chunk.Append(&pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 		Tags: map[string]string{"host": "1.1.1.1"},
 	})
 	assert.False(t, chunk.IsEmpty())
@@ -64,14 +65,14 @@ func TestChunk_MarshalBinary(t *testing.T) {
 	c2 := c1.(*chunk)
 	c2.writer = snappy.NewBufferedWriter(&mockIOWriter{})
 
-	c2.Append(&field.Metric{
+	c2.Append(&pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 		Tags: map[string]string{"host": "1.1.1.1"},
 	})
 	data, err = c2.MarshalBinary()
@@ -84,14 +85,14 @@ func TestChunk_MarshalBinary(t *testing.T) {
 	assert.NoError(t, err)
 	err = c2.writer.Flush()
 	assert.Error(t, err)
-	c2.Append(&field.Metric{
+	c2.Append(&pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 		Tags: map[string]string{"host": "1.1.1.1"},
 	})
 	data, err = c2.MarshalBinary()
@@ -100,16 +101,16 @@ func TestChunk_MarshalBinary(t *testing.T) {
 }
 
 func testMarshal(chunk Chunk, size int, t *testing.T) {
-	rs := field.MetricList{}
+	rs := pb.MetricList{}
 	for i := 0; i < size; i++ {
-		metric := &field.Metric{
+		metric := &pb.Metric{
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
-			Fields: []*field.Field{
-				{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-					Value: 1.0,
-				}}},
-			},
+			Fields: []*pb.Field{{
+				Name:   "f1",
+				Type:   pb.FieldType_Sum,
+				Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			}},
 			Tags: map[string]string{"host": "1.1.1.1"},
 		}
 		chunk.Append(metric)
@@ -121,7 +122,7 @@ func testMarshal(chunk Chunk, size int, t *testing.T) {
 	reader := snappy.NewReader(bytes.NewReader(data))
 	data, err = ioutil.ReadAll(reader)
 	assert.NoError(t, err)
-	var metricList field.MetricList
+	var metricList pb.MetricList
 	err = metricList.Unmarshal(data)
 	assert.NoError(t, err)
 	assert.Equal(t, rs, metricList)
