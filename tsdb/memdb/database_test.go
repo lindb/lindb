@@ -63,22 +63,23 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
 	)
 	err := md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
-		Name:  "f1",
-		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+		Name:   "f1",
+		Type:   pb.FieldType_Sum,
+		Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 	}})
 	assert.NoError(t, err)
 	assert.Len(t, md.Families(), 1)
 	// case 2: field type unknown
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
-		Name:  "f1",
-		Field: nil,
+		Name: "f1",
 	}})
 	assert.NoError(t, err)
 	// case 3: generate field err
 	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", "f1-err", field.SumField).Return(field.ID(0), fmt.Errorf("err"))
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
-		Name:  "f1-err",
-		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+		Name:   "f1-err",
+		Type:   pb.FieldType_Sum,
+		Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 	}})
 	assert.NoError(t, err)
 	// case 4: new family times
@@ -90,8 +91,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
-		Name:  "f1",
-		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+		Name:   "f1",
+		Type:   pb.FieldType_Sum,
+		Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 	}})
 	assert.NoError(t, err)
 	assert.Len(t, md.Families(), 2)
@@ -110,8 +112,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
-		Name:  "f4",
-		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+		Name:   "f4",
+		Type:   pb.FieldType_Sum,
+		Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 	}})
 	assert.NoError(t, err)
 	assert.Len(t, md.Families(), 2)
@@ -149,8 +152,9 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false),
 	)
 	err := md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
-		Name:  "f1",
-		Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 10.0}},
+		Name:   "f1",
+		Type:   pb.FieldType_Sum,
+		Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 	}})
 	assert.Error(t, err)
 }
@@ -200,36 +204,6 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	rs, err = md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
-}
-
-func TestMemoryDatabase_getFieldValue(t *testing.T) {
-	mdINTF := NewMemoryDatabase(cfg)
-	md := mdINTF.(*memoryDatabase)
-	assert.Equal(t, 10.1, md.getFieldValue(field.SumField, &pb.Field{
-		Field: &pb.Field_Sum{Sum: &pb.Sum{
-			Value: 10.1,
-		}},
-	}))
-	assert.Equal(t, 10.1, md.getFieldValue(field.MinField, &pb.Field{
-		Field: &pb.Field_Min{Min: &pb.Min{
-			Value: 10.1,
-		}},
-	}))
-	assert.Equal(t, 10.1, md.getFieldValue(field.MaxField, &pb.Field{
-		Field: &pb.Field_Max{Max: &pb.Max{
-			Value: 10.1,
-		}},
-	}))
-	assert.Equal(t, 10.1, md.getFieldValue(field.GaugeField, &pb.Field{
-		Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
-			Value: 10.1,
-		}},
-	}))
-	assert.Equal(t, 0.0, md.getFieldValue(field.Unknown, &pb.Field{
-		Field: &pb.Field_Gauge{Gauge: &pb.Gauge{
-			Value: 10.1,
-		}},
-	}))
 }
 
 func TestFamilyTimeIDEntries_AddID(t *testing.T) {

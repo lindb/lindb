@@ -12,7 +12,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/rpc/proto/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 func TestChannel_New(t *testing.T) {
@@ -77,14 +78,14 @@ func TestChannel_Write(t *testing.T) {
 	fanout.EXPECT().Append(gomock.Any()).Return(int64(0), fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
-	metric := &field.Metric{
+	metric := &pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -124,14 +125,14 @@ func TestChannel_checkFlush(t *testing.T) {
 	fanout.EXPECT().Append(gomock.Any()).Return(int64(0), fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
-	metric := &field.Metric{
+	metric := &pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -147,14 +148,14 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 
 	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
 	assert.NoError(t, err)
-	metric := &field.Metric{
+	metric := &pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -177,14 +178,14 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	ch1 := ch.(*channel)
 	ch1.chunk = chunk
 
-	metric := &field.Metric{
+	metric := &pb.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*field.Field{
-			{Name: "f1", Field: &field.Field_Sum{Sum: &field.Sum{
-				Value: 1.0,
-			}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}
 	chunk.EXPECT().Append(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)

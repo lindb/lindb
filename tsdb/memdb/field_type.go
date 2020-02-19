@@ -7,16 +7,16 @@ import (
 
 // getFieldType return field type by given field
 func getFieldType(f *pb.Field) field.Type {
-	switch f.Field.(type) {
-	case *pb.Field_Sum:
+	switch f.Type {
+	case pb.FieldType_Sum:
 		return field.SumField
-	case *pb.Field_Max:
+	case pb.FieldType_Max:
 		return field.MaxField
-	case *pb.Field_Min:
+	case pb.FieldType_Min:
 		return field.MinField
-	case *pb.Field_Gauge:
+	case pb.FieldType_Gauge:
 		return field.GaugeField
-	case *pb.Field_Summary:
+	case pb.FieldType_Summary:
 		return field.SummaryField
 	default:
 		return field.Unknown

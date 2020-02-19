@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/uber-go/tally"
+
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/rpc/proto/field"
-
-	"github.com/uber-go/tally"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 // internal metrics will be stored in this database
@@ -19,9 +20,9 @@ import (
 
 // httpReporter implements tally.StatsReporter
 type httpReporter struct {
-	endpoint string          // HTTP endpoint
-	metrics  []*field.Metric // buffer
-	mux      sync.Mutex      // mutex for metrics
+	endpoint string       // HTTP endpoint
+	metrics  []*pb.Metric // buffer
+	mux      sync.Mutex   // mutex for metrics
 }
 
 func NewHTTPReporter(endpoint string) tally.StatsReporter {
@@ -49,7 +50,7 @@ func (ir *httpReporter) Flush() {
 		return
 	}
 
-	data := encoding.JSONMarshal(field.MetricList{
+	data := encoding.JSONMarshal(pb.MetricList{
 		Metrics: ir.metrics,
 	})
 	ir.metrics = ir.metrics[:0]
@@ -70,17 +71,14 @@ func (ir *httpReporter) ReportCounter(
 	tags map[string]string,
 	value int64,
 ) {
-	newMetric := &field.Metric{
+	newMetric := &pb.Metric{
 		Name:      name,
 		Timestamp: timeutil.Now(),
 		Tags:      tags,
-		Fields: []*field.Field{{
-			Name: "count",
-			Field: &field.Field_Sum{
-				Sum: &field.Sum{
-					Value: float64(value),
-				},
-			},
+		Fields: []*pb.Field{{
+			Name:   "count",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: float64(value), PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 		}}}
 
 	ir.mux.Lock()
@@ -94,17 +92,14 @@ func (ir *httpReporter) ReportGauge(
 	tags map[string]string,
 	value float64,
 ) {
-	newMetric := &field.Metric{
+	newMetric := &pb.Metric{
 		Name:      name,
 		Timestamp: timeutil.Now(),
 		Tags:      tags,
-		Fields: []*field.Field{{
-			Name: "gauge",
-			Field: &field.Field_Gauge{
-				Gauge: &field.Gauge{
-					Value: value,
-				},
-			},
+		Fields: []*pb.Field{{
+			Name:   "gauge",
+			Type:   pb.FieldType_Gauge,
+			Fields: []*pb.PrimitiveField{{Value: value, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 		}}}
 
 	ir.mux.Lock()

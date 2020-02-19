@@ -15,6 +15,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -168,26 +169,30 @@ func TestShard_Write(t *testing.T) {
 	assert.NoError(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now() - 2*timeutil.OneMinute,
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Type:   pb.FieldType_Sum,
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 	// case 5: reject ahead
 	assert.NoError(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now() + 2*timeutil.OneMinute,
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 	// case 6: gen metric id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
 	assert.Error(t, shardINTF.Write(&pb.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 	// case 7: gen series id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
@@ -197,9 +202,10 @@ func TestShard_Write(t *testing.T) {
 		Timestamp: timeutil.Now(),
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 	// case 7: get old series id
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), false, nil)
@@ -208,9 +214,10 @@ func TestShard_Write(t *testing.T) {
 		Timestamp: timeutil.Now(),
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 	// case 8: create new series id
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), true, nil)
@@ -220,9 +227,10 @@ func TestShard_Write(t *testing.T) {
 		Timestamp: timeutil.Now(),
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{
-			{Name: "f1", Field: &pb.Field_Sum{Sum: &pb.Sum{Value: 1.0}}},
-		},
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
 	}))
 
 	assert.NotNil(t, shardINTF.MemoryDatabase())

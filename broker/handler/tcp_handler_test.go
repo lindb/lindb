@@ -10,7 +10,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/rpc/proto/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 )
 
 // normal case
@@ -225,19 +226,16 @@ func TestTcpHandler_UnmarshalFail(t *testing.T) {
 	<-done
 }
 
-func buildMetricList(value float64) *field.MetricList {
-	return &field.MetricList{
-		Metrics: []*field.Metric{{
+func buildMetricList(value float64) *pb.MetricList {
+	return &pb.MetricList{
+		Metrics: []*pb.Metric{{
 			Name:      "name",
 			Timestamp: time.Now().Unix() * 1000,
 			Tags:      map[string]string{"tagKey": "tagVal"},
-			Fields: []*field.Field{{
-				Name: "sum",
-				Field: &field.Field_Sum{
-					Sum: &field.Sum{
-						Value: value,
-					},
-				},
+			Fields: []*pb.Field{{
+				Name:   "sum",
+				Type:   pb.FieldType_Sum,
+				Fields: []*pb.PrimitiveField{{Value: value, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 			}},
 		}}}
 }

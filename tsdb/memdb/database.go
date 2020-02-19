@@ -160,19 +160,20 @@ func (md *memoryDatabase) Write(
 			//FIXME stone1100 add metric
 			continue
 		}
-		//FIXME stone1100 using primitive field id
-		pStore, ok := tStore.GetFStore(fID, fieldID, field.PrimitiveID(1))
-		if !ok {
-			buf, err := md.buf.AllocPage()
-			if err != nil {
-				return err
+		for _, pField := range f.Fields {
+			pFieldID := field.PrimitiveID(pField.PrimitiveID)
+			pStore, ok := tStore.GetFStore(fID, fieldID, pFieldID)
+			if !ok {
+				buf, err := md.buf.AllocPage()
+				if err != nil {
+					return err
+				}
+				pStore = newFieldStore(buf, fID, fieldID, pFieldID)
+				size += emptyPrimitiveFieldStoreSize + 8
+				tStore.InsertFStore(pStore)
 			}
-			pStore = newFieldStore(buf, fID, fieldID, field.PrimitiveID(1))
-			createdFStoreSize := tStore.InsertFStore(pStore)
-			size += createdFStoreSize
+			size += pStore.Write(fieldType, slotIndex, pField.Value)
 		}
-		value := md.getFieldValue(fieldType, f)
-		size += pStore.Write(fieldType, slotIndex, value)
 
 		// if write data success, add field into metric level for cache
 		mStore.AddField(fieldID, fieldType)
@@ -273,20 +274,4 @@ func (md *memoryDatabase) getFamilyTime(timestamp int64) (familyTime int64) {
 	family := intervalCalc.CalcFamily(timestamp, segmentTime)          // hours
 	familyTime = intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
 	return
-}
-
-// getFieldValue returns the field value based on field type
-func (md *memoryDatabase) getFieldValue(fieldType field.Type, f *pb.Field) float64 {
-	switch fieldType {
-	case field.SumField:
-		return f.GetSum().Value
-	case field.MinField:
-		return f.GetMin().Value
-	case field.MaxField:
-		return f.GetMax().Value
-	case field.GaugeField:
-		return f.GetGauge().Value
-	default:
-		return 0
-	}
 }
