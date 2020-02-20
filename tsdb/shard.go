@@ -36,6 +36,7 @@ const (
 	replicaDir       = "replica"
 	segmentDir       = "segment"
 	indexParentDir   = "index"
+	forwardIndexDir  = "forward"
 	invertedIndexDir = "inverted"
 	metaDir          = "meta"
 	tempDir          = "temp"
@@ -98,8 +99,9 @@ type shard struct {
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition sync.WaitGroup  // flush condition
 
-	indexStore     kv.Store // kv stores
-	invertedFamily kv.Family
+	indexStore     kv.Store  // kv stores
+	forwardFamily  kv.Family // forward store
+	invertedFamily kv.Family // inverted store
 
 	writing atomic.Bool
 	rwMutex sync.RWMutex
@@ -259,6 +261,14 @@ func (s *shard) initIndexDatabase() error {
 	if err != nil {
 		return err
 	}
+	s.forwardFamily, err = s.indexStore.CreateFamily(
+		forwardIndexDir,
+		kv.FamilyOption{
+			CompactThreshold: 0,
+			Merger:           invertedIndexMerger})
+	if err != nil {
+		return err
+	}
 	s.invertedFamily, err = s.indexStore.CreateFamily(
 		invertedIndexDir,
 		kv.FamilyOption{
@@ -267,7 +277,12 @@ func (s *shard) initIndexDatabase() error {
 	if err != nil {
 		return err
 	}
-	s.indexDB, err = newIndexDBFunc(context.TODO(), s.databaseName, filepath.Join(s.path, metaDir), s.metadata, s.invertedFamily)
+	s.indexDB, err = newIndexDBFunc(
+		context.TODO(),
+		s.databaseName,
+		filepath.Join(s.path, metaDir),
+		s.metadata, s.forwardFamily,
+		s.invertedFamily)
 	if err != nil {
 		return err
 	}

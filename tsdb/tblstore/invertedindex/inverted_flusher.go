@@ -10,11 +10,11 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package invertedindex
+//go:generate mockgen -source ./inverted_flusher.go -destination=./inverted_flusher_mock.go -package invertedindex
 
-// Flusher is a wrapper of kv.Builder, provides the ability to build a inverted index table.
+// InvertedFlusher is a wrapper of kv.Builder, provides the ability to build a inverted index table.
 // The layout is available in `tsdb/doc.go`
-type Flusher interface {
+type InvertedFlusher interface {
 	// FlushInvertedIndex ends writing trie tree in tag index table.
 	// !!!!NOTICE: need add tag value id in order. tag value id=0 store all series ids under this tag
 	FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error
@@ -24,9 +24,9 @@ type Flusher interface {
 	Commit() error
 }
 
-// NewFlusher returns a new Flusher
-func NewFlusher(kvFlusher kv.Flusher) Flusher {
-	return &flusher{
+// NewInvertedFlusher returns a new InvertedFlusher
+func NewInvertedFlusher(kvFlusher kv.Flusher) InvertedFlusher {
+	return &invertedFlusher{
 		kvFlusher:   kvFlusher,
 		writer:      stream.NewBufferWriter(nil),
 		tagValueIDs: roaring.New(),
@@ -35,8 +35,8 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 	}
 }
 
-// flusher implements Flusher.
-type flusher struct {
+// invertedFlusher implements InvertedFlusher.
+type invertedFlusher struct {
 	kvFlusher   kv.Flusher
 	tagValueIDs *roaring.Bitmap
 	writer      *stream.BufferWriter
@@ -46,7 +46,7 @@ type flusher struct {
 }
 
 // FlushInvertedIndex writes tag value id->series ids inverted index data
-func (w *flusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error {
+func (w *invertedFlusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error {
 	seriesData, err := encoding.BitmapMarshal(seriesIDs)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (w *flusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitma
 }
 
 // flushTagValueBucket flushes data by bucket based on bitmap container
-func (w *flusher) flushTagValueBucket() {
+func (w *invertedFlusher) flushTagValueBucket() {
 	if w.tagValueIDs.IsEmpty() {
 		// maybe first high key not start with 0
 		return
@@ -81,7 +81,7 @@ func (w *flusher) flushTagValueBucket() {
 }
 
 // FlushTagKeyID ends writing tag inverted index data in index table.
-func (w *flusher) FlushTagKeyID(tagID uint32) error {
+func (w *invertedFlusher) FlushTagKeyID(tagID uint32) error {
 	defer w.reset()
 
 	// check if has pending tag value bucket not flush
@@ -113,13 +113,13 @@ func (w *flusher) FlushTagKeyID(tagID uint32) error {
 }
 
 // Commit closes the writer, this will be called after writing all tagKeys.
-func (w *flusher) Commit() error {
+func (w *invertedFlusher) Commit() error {
 	w.reset()
 	return w.kvFlusher.Commit()
 }
 
 // reset resets the trie and buf
-func (w *flusher) reset() {
+func (w *invertedFlusher) reset() {
 	w.tagValueIDs.Clear()
 	w.lowOffsets.Reset()
 	w.highOffsets.Reset()

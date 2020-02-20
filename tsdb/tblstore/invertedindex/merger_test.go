@@ -38,14 +38,14 @@ package invertedindex
 //		"192.168.1.4": {
 //			series.Version(now - 36*timeutil.OneDay): roaring.BitmapOf(1, 2, 3)}}
 //	getFlushedData := func(tagValueVersions map[string]map[series.Version]*roaring.Bitmap) []byte {
-//		flusher := NewFlusher(nopKVFlusher).(*flusher)
+//		invertedFlusher := NewFlusher(nopKVFlusher).(*invertedFlusher)
 //		for tagValue, versions := range tagValueVersions {
 //			for version, bitmap := range versions {
-//				flusher.FlushVersion(version, timeutil.TimeRange{Start: 1, End: 1}, bitmap)
+//				invertedFlusher.FlushVersion(version, timeutil.TimeRange{Start: 1, End: 1}, bitmap)
 //			}
-//			flusher.FlushTagValue(tagValue)
+//			invertedFlusher.FlushTagValue(tagValue)
 //		}
-//		_ = flusher.FlushTagKeyID(1)
+//		_ = invertedFlusher.FlushTagKeyID(1)
 //		return append([]byte{}, nopKVFlusher.Bytes()...)
 //	}
 //

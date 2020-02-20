@@ -33,7 +33,7 @@ func (m *MetricBucketStore) Get(key uint32) (mStoreINTF, bool) {
 	if !found {
 		return nil, false
 	}
-	// get log index
+	// get low index
 	found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
 	if !found {
 		return nil, false
@@ -54,7 +54,7 @@ func (m *MetricBucketStore) Put(key uint32, value mStoreINTF) {
 	if !found {
 		// high container not exist, insert it
 		stores := m.values
-		// insert operation
+		// insert operation, insert high values
 		stores = append(stores, nil)
 		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
 		stores[highIdx] = []mStoreINTF{value}

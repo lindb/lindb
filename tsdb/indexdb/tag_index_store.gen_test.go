@@ -62,8 +62,7 @@ func TestTagIndexStore_Put(t *testing.T) {
 
 func TestTagIndexStore_Get(t *testing.T) {
 	m := NewTagIndexStore()
-	store, ok := m.Get(uint32(10))
-	assert.Nil(t, store)
+	_, ok := m.Get(uint32(10))
 	assert.False(t, ok)
 	m.Put(1, newTagIndex())
 	m.Put(8, newTagIndex())
