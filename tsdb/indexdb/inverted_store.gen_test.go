@@ -15,7 +15,7 @@ import (
 )
 
 // hack test
-func _assertTagStoreData(t *testing.T, keys []uint32, m *TagStore) {
+func _assertInvertedStoreData(t *testing.T, keys []uint32, m *InvertedStore) {
 	for _, key := range keys {
 		found, highIdx := m.keys.ContainsAndRankForHigh(key)
 		assert.True(t, found)
@@ -25,8 +25,8 @@ func _assertTagStoreData(t *testing.T, keys []uint32, m *TagStore) {
 	}
 }
 
-func TestTagStore_Put(t *testing.T) {
-	m := NewTagStore()
+func TestInvertedStore_Put(t *testing.T) {
+	m := NewInvertedStore()
 	m.Put(1, roaring.New())
 	m.Put(8, roaring.New())
 	m.Put(3, roaring.New())
@@ -41,7 +41,7 @@ func TestTagStore_Put(t *testing.T) {
 	// test insert new high
 	m.Put(200000, roaring.New())
 
-	_assertTagStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
+	_assertInvertedStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
 	assert.Equal(t, 11, m.Size())
 	assert.Len(t, m.Values(), 3)
 
@@ -60,10 +60,9 @@ func TestTagStore_Put(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestTagStore_Get(t *testing.T) {
-	m := NewTagStore()
-	store, ok := m.Get(uint32(10))
-	assert.Nil(t, store)
+func TestInvertedStore_Get(t *testing.T) {
+	m := NewInvertedStore()
+	_, ok := m.Get(uint32(10))
 	assert.False(t, ok)
 	m.Put(1, roaring.New())
 	m.Put(8, roaring.New())
@@ -79,8 +78,8 @@ func TestTagStore_Get(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestTagStore_Keys(t *testing.T) {
-	m := NewTagStore()
+func TestInvertedStore_Keys(t *testing.T) {
+	m := NewInvertedStore()
 	m.Put(1, roaring.New())
 	m.Put(8, roaring.New())
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())

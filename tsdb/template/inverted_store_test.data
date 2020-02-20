@@ -1,7 +1,7 @@
 [
     {
         "package":"indexdb",
-        "type":"Tag",
+        "type":"Inverted",
         "value":"roaring.New()",
         "valueType":"*roaring.Bitmap"
     }

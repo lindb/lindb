@@ -53,7 +53,9 @@ func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32) (series.Grouping
 }
 
 // NewIndexDatabase creates a new index database
-func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata, family kv.Family) (IndexDatabase, error) {
+func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata,
+	forwardFamily kv.Family, invertedFamily kv.Family,
+) (IndexDatabase, error) {
 	backend, err := createBackend(name, parent)
 	if err != nil {
 		return nil, err
@@ -66,7 +68,7 @@ func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.
 		backend:          backend,
 		metadata:         metadata,
 		metricID2Mapping: make(map[uint32]MetricIDMapping),
-		index:            newInvertedIndex(metadata, family),
+		index:            newInvertedIndex(metadata, invertedFamily, forwardFamily),
 		mutable:          newMappingEvent(),
 		lastSyncTime:     timeutil.Now(),
 		syncSignal:       make(chan struct{}),

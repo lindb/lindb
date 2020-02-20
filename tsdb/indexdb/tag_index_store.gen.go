@@ -33,7 +33,7 @@ func (m *TagIndexStore) Get(key uint32) (TagIndex, bool) {
 	if !found {
 		return nil, false
 	}
-	// get log index
+	// get low index
 	found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
 	if !found {
 		return nil, false
@@ -54,7 +54,7 @@ func (m *TagIndexStore) Put(key uint32, value TagIndex) {
 	if !found {
 		// high container not exist, insert it
 		stores := m.values
-		// insert operation
+		// insert operation, insert high values
 		stores = append(stores, nil)
 		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
 		stores[highIdx] = []TagIndex{value}

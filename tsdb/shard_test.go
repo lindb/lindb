@@ -77,20 +77,26 @@ func TestShard_New(t *testing.T) {
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 7: create index family err
+	// case 7: create forward family err
 	kvStore := kv.NewMockStore(ctrl)
 	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
 		return kvStore, nil
 	}
-	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	kvStore.EXPECT().CreateFamily(forwardIndexDir, gomock.Any()).Return(nil, fmt.Errorf("err"))
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 8: create index db err
+	// case 8: create forward family err
 	family := kv.NewMockFamily(ctrl)
+	kvStore.EXPECT().CreateFamily(forwardIndexDir, gomock.Any()).Return(family, nil)
+	kvStore.EXPECT().CreateFamily(invertedIndexDir, gomock.Any()).Return(nil, fmt.Errorf("err"))
+	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	assert.Error(t, err)
+	assert.Nil(t, thisShard)
+	// case 9: create index db err
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
 	newIndexDBFunc = func(ctx context.Context, name, parent string,
-		metadata metadb.Metadata, family kv.Family,
+		metadata metadb.Metadata, forward kv.Family, inverted kv.Family,
 	) (indexDatabase indexdb.IndexDatabase, err error) {
 		return nil, fmt.Errorf("err")
 	}
@@ -98,7 +104,7 @@ func TestShard_New(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
 
-	// case 9: create shard success
+	// case 10: create shard success
 	newIndexDBFunc = indexdb.NewIndexDatabase
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.NoError(t, err)

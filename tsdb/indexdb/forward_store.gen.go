@@ -10,42 +10,42 @@ import (
 	"github.com/lindb/roaring"
 )
 
-// TagStore represents int map using roaring bitmap
-type TagStore struct {
-	keys   *roaring.Bitmap     // store all keys
-	values [][]*roaring.Bitmap // store all values by high/low key
+// ForwardStore represents int map using roaring bitmap
+type ForwardStore struct {
+	keys   *roaring.Bitmap // store all keys
+	values [][]uint32      // store all values by high/low key
 }
 
-// NewTagStore creates a int map
-func NewTagStore() *TagStore {
-	return &TagStore{
+// NewForwardStore creates a int map
+func NewForwardStore() *ForwardStore {
+	return &ForwardStore{
 		keys: roaring.New(),
 	}
 }
 
-// Get returns value by key, if exist returns it, else returns nil, false
-func (m *TagStore) Get(key uint32) (*roaring.Bitmap, bool) {
+// Get returns value by key, if exist returns it, else returns 0, false
+func (m *ForwardStore) Get(key uint32) (uint32, bool) {
 	if len(m.values) == 0 {
-		return nil, false
+		return 0, false
 	}
 	// get high index
 	found, highIdx := m.keys.ContainsAndRankForHigh(key)
 	if !found {
-		return nil, false
+		return 0, false
 	}
-	// get log index
+	// get low index
 	found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
 	if !found {
-		return nil, false
+		return 0, false
 	}
 	return m.values[highIdx-1][lowIdx-1], true
 }
 
 // Put puts the value by key
-func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
+func (m *ForwardStore) Put(key uint32, value uint32) {
 	if len(m.values) == 0 {
 		// if values is empty, append new low container directly
-		m.values = append(m.values, []*roaring.Bitmap{value})
+		m.values = append(m.values, []uint32{value})
 
 		m.keys.Add(key)
 		return
@@ -54,10 +54,10 @@ func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
 	if !found {
 		// high container not exist, insert it
 		stores := m.values
-		// insert operation
+		// insert operation, insert high values
 		stores = append(stores, nil)
 		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
-		stores[highIdx] = []*roaring.Bitmap{value}
+		stores[highIdx] = []uint32{value}
 		m.values = stores
 
 		m.keys.Add(key)
@@ -67,7 +67,7 @@ func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
 	lowIdx := m.keys.RankForLow(key, highIdx-1)
 	stores := m.values[highIdx-1]
 	// insert operation
-	stores = append(stores, nil)
+	stores = append(stores, 0)
 	copy(stores[lowIdx+1:], stores[lowIdx:len(stores)-1])
 	stores[lowIdx] = value
 	m.values[highIdx-1] = stores
@@ -76,22 +76,22 @@ func (m *TagStore) Put(key uint32, value *roaring.Bitmap) {
 }
 
 // Keys returns the all keys
-func (m *TagStore) Keys() *roaring.Bitmap {
+func (m *ForwardStore) Keys() *roaring.Bitmap {
 	return m.keys
 }
 
 // Values returns the all values
-func (m *TagStore) Values() [][]*roaring.Bitmap {
+func (m *ForwardStore) Values() [][]uint32 {
 	return m.values
 }
 
 // size returns the size of keys
-func (m *TagStore) Size() int {
+func (m *ForwardStore) Size() int {
 	return int(m.keys.GetCardinality())
 }
 
 // WalkEntry walks each kv entry via fn.
-func (m *TagStore) WalkEntry(fn func(key uint32, value *roaring.Bitmap) error) error {
+func (m *ForwardStore) WalkEntry(fn func(key uint32, value uint32) error) error {
 	values := m.values
 	keys := m.keys
 	highKeys := keys.GetHighKeys()

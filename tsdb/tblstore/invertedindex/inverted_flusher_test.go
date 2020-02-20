@@ -19,7 +19,7 @@ func TestFlusher_FlushInvertedIndex(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewFlusher(mockFlusher)
+	indexFlusher := NewInvertedFlusher(mockFlusher)
 	assert.NotNil(t, indexFlusher)
 	err := indexFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
@@ -43,15 +43,15 @@ func TestFlusher_FlushInvertedIndex(t *testing.T) {
 func TestFlusher_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		encoding.BitmapMarshal = bitMapMarshal
+		ctrl.Finish()
 	}()
 	encoding.BitmapMarshal = func(bitmap *roaring.Bitmap) (bytes []byte, err error) {
 		return nil, fmt.Errorf("err")
 	}
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewFlusher(mockFlusher)
+	indexFlusher := NewInvertedFlusher(mockFlusher)
 	assert.NotNil(t, indexFlusher)
 	err := indexFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1, 2, 3))
 	assert.Error(t, err)

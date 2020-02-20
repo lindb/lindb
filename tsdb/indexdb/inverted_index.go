@@ -18,8 +18,10 @@ import (
 
 // for testing
 var (
-	newFlusherFunc = invertedindex.NewFlusher
-	newReaderFunc  = invertedindex.NewReader
+	newForwardReaderFunc   = invertedindex.NewForwardReader
+	newInvertedReaderFunc  = invertedindex.NewInvertedReader
+	newForwardFlusherFunc  = invertedindex.NewForwardFlusher
+	newInvertedFlusherFunc = invertedindex.NewInvertedFlusher
 )
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
@@ -40,8 +42,9 @@ type InvertedIndex interface {
 }
 
 type invertedIndex struct {
-	family   kv.Family // store tag value inverted index
-	metadata metadb.Metadata
+	invertedFamily kv.Family // store tag value inverted index(tag value id=> series ids)
+	forwardFamily  kv.Family // store tag value forward index(series id=>tag value id)
+	metadata       metadb.Metadata
 
 	mutable   *TagIndexStore
 	immutable *TagIndexStore
@@ -49,11 +52,12 @@ type invertedIndex struct {
 	rwMutex sync.RWMutex
 }
 
-func newInvertedIndex(metadata metadb.Metadata, family kv.Family) InvertedIndex {
+func newInvertedIndex(metadata metadb.Metadata, forwardFamily kv.Family, invertedFamily kv.Family) InvertedIndex {
 	return &invertedIndex{
-		family:   family,
-		metadata: metadata,
-		mutable:  NewTagIndexStore(),
+		invertedFamily: invertedFamily,
+		forwardFamily:  forwardFamily,
+		metadata:       metadata,
+		mutable:        NewTagIndexStore(),
 	}
 }
 
@@ -69,8 +73,8 @@ func (index *invertedIndex) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueI
 	})
 
 	// read data from kv store
-	if err := index.loadSeriesIDsInKV(tagKeyID, func(reader invertedindex.Reader) error {
-		seriesIDs, err := reader.FindSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
+	if err := index.loadSeriesIDsInKV(tagKeyID, func(reader invertedindex.InvertedReader) error {
+		seriesIDs, err := reader.GetSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
 		if err != nil {
 			return err
 		}
@@ -91,15 +95,24 @@ func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap
 	})
 
 	// read data from kv store
-	if err := index.loadSeriesIDsInKV(tagKeyID, func(reader invertedindex.Reader) error {
+	// try get tag key id from kv store
+	snapshot := index.forwardFamily.GetSnapshot()
+	defer snapshot.Close()
+
+	readers, err := snapshot.FindReaders(tagKeyID)
+	if err != nil {
+		// find table.Reader err, return it
+		return nil, err
+	}
+	var reader invertedindex.ForwardReader
+	if len(readers) > 0 {
+		// found tag data in kv store, try load series ids data
+		reader = newForwardReaderFunc(readers)
 		seriesIDs, err := reader.GetSeriesIDsForTagKeyID(tagKeyID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		result.Or(seriesIDs)
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return result, nil
 }
@@ -176,13 +189,12 @@ func (index *invertedIndex) Flush() error {
 	}
 
 	// flush immutable data into kv store
-	flusher := index.family.NewFlusher()
-	indexFlusher := newFlusherFunc(flusher)
+	forwardFlusher := index.forwardFamily.NewFlusher()
+	forward := newForwardFlusherFunc(forwardFlusher)
+	invertedFlusher := index.invertedFamily.NewFlusher()
+	inverted := newInvertedFlusherFunc(invertedFlusher)
 	if err := index.immutable.WalkEntry(func(key uint32, value TagIndex) error {
-		if err := value.flush(indexFlusher); err != nil {
-			return err
-		}
-		if err := indexFlusher.FlushTagKeyID(key); err != nil {
+		if err := value.flush(key, forward, inverted); err != nil {
 			return err
 		}
 		return nil
@@ -190,7 +202,10 @@ func (index *invertedIndex) Flush() error {
 		return err
 	}
 	// commit kv stone meta
-	if err := indexFlusher.Commit(); err != nil {
+	if err := forward.Commit(); err != nil {
+		return err
+	}
+	if err := inverted.Commit(); err != nil {
 		return err
 	}
 	// finally clear immutable
@@ -218,9 +233,9 @@ func (index *invertedIndex) checkFlush() bool {
 }
 
 // loadTagValueIDsInKV loads series ids in kv store
-func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID uint32, fn func(reader invertedindex.Reader) error) error {
+func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID uint32, fn func(reader invertedindex.InvertedReader) error) error {
 	// try get tag key id from kv store
-	snapshot := index.family.GetSnapshot()
+	snapshot := index.invertedFamily.GetSnapshot()
 	defer snapshot.Close()
 
 	readers, err := snapshot.FindReaders(tagKeyID)
@@ -228,10 +243,10 @@ func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID uint32, fn func(reader in
 		// find table.Reader err, return it
 		return err
 	}
-	var reader invertedindex.Reader
+	var reader invertedindex.InvertedReader
 	if len(readers) > 0 {
 		// found tag data in kv store, try load series ids data
-		reader = newReaderFunc(readers)
+		reader = newInvertedReaderFunc(readers)
 		if err := fn(reader); err != nil {
 			return err
 		}

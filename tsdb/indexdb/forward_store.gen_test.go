@@ -4,7 +4,7 @@
 // DO NOT EDIT!
 // Source: int_map_test.tmpl
 
-package memdb
+package indexdb
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 )
 
 // hack test
-func _assertMetricBucketStoreData(t *testing.T, keys []uint32, m *MetricBucketStore) {
+func _assertForwardStoreData(t *testing.T, keys []uint32, m *ForwardStore) {
 	for _, key := range keys {
 		found, highIdx := m.keys.ContainsAndRankForHigh(key)
 		assert.True(t, found)
@@ -25,34 +25,34 @@ func _assertMetricBucketStoreData(t *testing.T, keys []uint32, m *MetricBucketSt
 	}
 }
 
-func TestMetricBucketStore_Put(t *testing.T) {
-	m := NewMetricBucketStore()
-	m.Put(1, newMetricStore())
-	m.Put(8, newMetricStore())
-	m.Put(3, newMetricStore())
-	m.Put(5, newMetricStore())
-	m.Put(6, newMetricStore())
-	m.Put(7, newMetricStore())
-	m.Put(4, newMetricStore())
-	m.Put(2, newMetricStore())
+func TestForwardStore_Put(t *testing.T) {
+	m := NewForwardStore()
+	m.Put(1, 0)
+	m.Put(8, 0)
+	m.Put(3, 0)
+	m.Put(5, 0)
+	m.Put(6, 0)
+	m.Put(7, 0)
+	m.Put(4, 0)
+	m.Put(2, 0)
 	// test insert new high
-	m.Put(2000000, newMetricStore())
-	m.Put(2000001, newMetricStore())
+	m.Put(2000000, 0)
+	m.Put(2000001, 0)
 	// test insert new high
-	m.Put(200000, newMetricStore())
+	m.Put(200000, 0)
 
-	_assertMetricBucketStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
+	_assertForwardStoreData(t, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}, m)
 	assert.Equal(t, 11, m.Size())
 	assert.Len(t, m.Values(), 3)
 
-	err := m.WalkEntry(func(key uint32, value mStoreINTF) error {
+	err := m.WalkEntry(func(key uint32, value uint32) error {
 		return fmt.Errorf("err")
 	})
 	assert.Error(t, err)
 
 	keys := []uint32{1, 2, 3, 4, 5, 6, 7, 8, 200000, 2000000, 2000001}
 	idx := 0
-	err = m.WalkEntry(func(key uint32, value mStoreINTF) error {
+	err = m.WalkEntry(func(key uint32, value uint32) error {
 		assert.Equal(t, keys[idx], key)
 		idx++
 		return nil
@@ -60,12 +60,12 @@ func TestMetricBucketStore_Put(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMetricBucketStore_Get(t *testing.T) {
-	m := NewMetricBucketStore()
+func TestForwardStore_Get(t *testing.T) {
+	m := NewForwardStore()
 	_, ok := m.Get(uint32(10))
 	assert.False(t, ok)
-	m.Put(1, newMetricStore())
-	m.Put(8, newMetricStore())
+	m.Put(1, 0)
+	m.Put(8, 0)
 	_, ok = m.Get(1)
 	assert.True(t, ok)
 	_, ok = m.Get(2)
@@ -78,9 +78,9 @@ func TestMetricBucketStore_Get(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestMetricBucketStore_Keys(t *testing.T) {
-	m := NewMetricBucketStore()
-	m.Put(1, newMetricStore())
-	m.Put(8, newMetricStore())
+func TestForwardStore_Keys(t *testing.T) {
+	m := NewForwardStore()
+	m.Put(1, 0)
+	m.Put(8, 0)
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }

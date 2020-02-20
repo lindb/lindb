@@ -21,11 +21,11 @@ func TestNewIndexDatabase(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	// can't new duplicate
-	db2, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db2, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db2)
 	err = db.Close()
@@ -38,7 +38,7 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 		ctrl.Finish()
 	}()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	db1 := db.(*indexDatabase)
@@ -55,7 +55,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	// case 1: generate new series id and create new metric id mapping
 	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 10)
@@ -77,7 +77,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// reopen
-	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	// case 4: get series id from backend
 	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
@@ -110,7 +110,7 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, metadata, nil, nil)
 	assert.NoError(t, err)
 	// case 1: load metric mapping err
 	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(nil, fmt.Errorf("err"))
@@ -138,7 +138,7 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	}()
 
 	//FIXME stone1100 need impl
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	assert.Panics(t, func() {
 		_ = db.SuggestTagValues(1, "11", 100)
@@ -159,7 +159,7 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	metaDB := metadb.NewMockMetadataDatabase(ctrl)
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	db2 := db.(*indexDatabase)
 	db2.index = index
 	db2.metadata = meta
@@ -207,7 +207,7 @@ func TestIndexDatabase_Close(t *testing.T) {
 	}
 
 	// case 1: save mutable event err
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	db2 := db.(*indexDatabase)
 	db2.rwMutex.Lock()
@@ -218,7 +218,7 @@ func TestIndexDatabase_Close(t *testing.T) {
 	assert.Error(t, err)
 
 	// case 2: save immutable event err
-	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	db2 = db.(*indexDatabase)
 	db2.rwMutex.Lock()
@@ -230,7 +230,7 @@ func TestIndexDatabase_Close(t *testing.T) {
 	assert.Error(t, err)
 
 	// case 3: save backend err
-	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	backend.EXPECT().Close().Return(fmt.Errorf("err"))
 	err = db.Close()
@@ -246,7 +246,7 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	}()
 
 	syncInterval = 100
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	// mock one metric event
 	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 30)
@@ -278,7 +278,7 @@ func TestMetadataDatabase_notify_timeout(t *testing.T) {
 	}()
 
 	syncInterval = 100
-	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
 	assert.NoError(t, err)
 	db1 := db.(*indexDatabase)
 	// mock notify

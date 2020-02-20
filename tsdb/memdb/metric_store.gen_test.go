@@ -62,8 +62,7 @@ func TestMetricStore_Put(t *testing.T) {
 
 func TestMetricStore_Get(t *testing.T) {
 	m := NewMetricStore()
-	store, ok := m.Get(uint32(10))
-	assert.Nil(t, store)
+	_, ok := m.Get(uint32(10))
 	assert.False(t, ok)
 	m.Put(1, newTimeSeriesStore())
 	m.Put(8, newTimeSeriesStore())
