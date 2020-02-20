@@ -18,18 +18,18 @@ import (
 func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newReaderFunc = invertedindex.NewReader
+		newInvertedReaderFunc = invertedindex.NewInvertedReader
 		ctrl.Finish()
 	}()
-	reader := invertedindex.NewMockReader(ctrl)
-	newReaderFunc = func(readers []table.Reader) invertedindex.Reader {
+	reader := invertedindex.NewMockInvertedReader(ctrl)
+	newInvertedReaderFunc = func(readers []table.Reader) invertedindex.InvertedReader {
 		return reader
 	}
 
 	index := prepareInvertedIndex(ctrl)
 	family := kv.NewMockFamily(ctrl)
 	idx := index.(*invertedIndex)
-	idx.family = family
+	idx.invertedFamily = family
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().Close().AnyTimes()
 	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
@@ -57,49 +57,38 @@ func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 	assert.Equal(t, roaring.New(), seriesIDs)
 	// case 4: tag key not exist
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	seriesIDs, err = index.GetSeriesIDsForTag(4)
+	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(4, roaring.BitmapOf(10, 20))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.New(), seriesIDs)
-	// case 5: get all series ids under tag key
+	// case 5: get series ids, get empty reader
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	seriesIDs, err = index.GetSeriesIDsForTag(1)
+	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(10, 20))
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(1, 2), seriesIDs)
+	assert.Equal(t, roaring.New(), seriesIDs)
 	// case 6: get kv readers err
-	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err")).Times(2)
-	seriesIDs, err = index.GetSeriesIDsForTag(1)
-	assert.Error(t, err)
-	assert.Nil(t, seriesIDs)
-	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(1, 2, 3))
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(10, 20))
 	assert.Error(t, err)
 	assert.Nil(t, seriesIDs)
 	// case 6: reader get data err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
-	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	seriesIDs, err = index.GetSeriesIDsForTag(1)
-	assert.Error(t, err)
-	assert.Nil(t, seriesIDs)
-	reader.EXPECT().FindSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(1, 2, 3))
+	reader.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(10, 20))
 	assert.Error(t, err)
 	assert.Nil(t, seriesIDs)
 	// case 6: reader get data success
-	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
-	seriesIDs, err = index.GetSeriesIDsForTag(1)
-	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
-	reader.EXPECT().FindSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
+	reader.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
 	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
 
-	// mock immutable data
+	//case 7: get immutable data
 	tagIndex := NewMockTagIndex(ctrl)
 	idx.immutable = NewTagIndexStore()
 	idx.immutable.Put(50, tagIndex)
-	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.New(), nil)
-	tagIndex.EXPECT().getAllSeriesIDs().Return(roaring.BitmapOf(10, 200, 3000))
-	seriesIDs, err = index.GetSeriesIDsForTag(50)
+	reader.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(), nil)
+	tagIndex.EXPECT().getSeriesIDsByTagValueIDs(gomock.Any()).Return(roaring.BitmapOf(10, 200, 3000))
+	seriesIDs, err = index.GetSeriesIDsByTagValueIDs(50, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(10, 200, 3000), seriesIDs)
 }
@@ -107,18 +96,18 @@ func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newReaderFunc = invertedindex.NewReader
+		newForwardReaderFunc = invertedindex.NewForwardReader
 		ctrl.Finish()
 	}()
-	reader := invertedindex.NewMockReader(ctrl)
-	newReaderFunc = func(readers []table.Reader) invertedindex.Reader {
+	reader := invertedindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
 		return reader
 	}
 
 	index := prepareInvertedIndex(ctrl)
 	family := kv.NewMockFamily(ctrl)
 	idx := index.(*invertedIndex)
-	idx.family = family
+	idx.forwardFamily = family
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().Close().AnyTimes()
 	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
@@ -129,11 +118,16 @@ func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, seriesIDs)
 	// case 2: reader get data success
-	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).Times(3)
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
 	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	seriesIDs, err = index.GetSeriesIDsForTags([]uint32{1, 2, 3})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
+	// case 3: reader get series ids err
+	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seriesIDs, err = index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	assert.Error(t, err)
+	assert.Nil(t, seriesIDs)
 }
 
 func TestInvertedIndex_GetGroupingContext(t *testing.T) {
@@ -157,15 +151,22 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newFlusherFunc = invertedindex.NewFlusher
+		newInvertedFlusherFunc = invertedindex.NewInvertedFlusher
+		newForwardFlusherFunc = invertedindex.NewForwardFlusher
 		ctrl.Finish()
 	}()
-	family := kv.NewMockFamily(ctrl)
-	flusher := invertedindex.NewMockFlusher(ctrl)
-	newFlusherFunc = func(kvFlusher kv.Flusher) invertedindex.Flusher {
-		return flusher
+	invertedFamily := kv.NewMockFamily(ctrl)
+	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
+	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) invertedindex.InvertedFlusher {
+		return inverted
 	}
-	index := newInvertedIndex(nil, family)
+	forwardFamily := kv.NewMockFamily(ctrl)
+	forward := invertedindex.NewMockForwardFlusher(ctrl)
+	newForwardFlusherFunc = func(kvFlusher kv.Flusher) invertedindex.ForwardFlusher {
+		return forward
+	}
+
+	index := newInvertedIndex(nil, forwardFamily, invertedFamily)
 	// case 1: flush not tiger
 	err := index.Flush()
 	assert.NoError(t, err)
@@ -175,39 +176,43 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	tagIndex := NewMockTagIndex(ctrl)
 	idx.mutable.Put(5, tagIndex)
 
-	// case 2: flush tag key err, immutable cannot set nil
+	// case 1: flush tag index flush err, immutable cannot set nil
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
-		tagIndex.EXPECT().flush(gomock.Any()).Return(nil),
-		flusher.EXPECT().FlushTagKeyID(uint32(5)).Return(fmt.Errorf("err")),
+		forwardFamily.EXPECT().NewFlusher().Return(nil),
+		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
 	assert.Error(t, err)
 	assert.NotNil(t, idx.immutable)
-	// case 3: flush tag index flush err, immutable cannot set nil
+	// case 2: commit forward err
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
-		tagIndex.EXPECT().flush(gomock.Any()).Return(fmt.Errorf("err")),
+		forwardFamily.EXPECT().NewFlusher().Return(nil),
+		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		forward.EXPECT().Commit().Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
 	assert.Error(t, err)
 	assert.NotNil(t, idx.immutable)
-	// case 4: commit err
+	// case 3: commit inverted err
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
-		tagIndex.EXPECT().flush(gomock.Any()).Return(nil),
-		flusher.EXPECT().FlushTagKeyID(uint32(5)).Return(nil),
-		flusher.EXPECT().Commit().Return(fmt.Errorf("err")),
+		forwardFamily.EXPECT().NewFlusher().Return(nil),
+		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		forward.EXPECT().Commit().Return(nil),
+		inverted.EXPECT().Commit().Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
 	assert.Error(t, err)
 	assert.NotNil(t, idx.immutable)
 	// case 4: commit success
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
-		tagIndex.EXPECT().flush(gomock.Any()).Return(nil),
-		flusher.EXPECT().FlushTagKeyID(uint32(5)).Return(nil),
-		flusher.EXPECT().Commit().Return(nil),
+		forwardFamily.EXPECT().NewFlusher().Return(nil),
+		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		forward.EXPECT().Commit().Return(nil),
+		inverted.EXPECT().Commit().Return(nil),
 	)
 	err = index.Flush()
 	assert.NoError(t, err)
@@ -227,7 +232,7 @@ func prepareInvertedIndex(ctrl *gomock.Controller) InvertedIndex {
 	tagMetadata.EXPECT().GenTagValueID(uint32(1), "1.1.1.5").Return(uint32(0), fmt.Errorf("err"))
 	tagMetadata.EXPECT().GenTagValueID(uint32(2), "sh").Return(uint32(1), nil)
 	tagMetadata.EXPECT().GenTagValueID(uint32(2), "bj").Return(uint32(2), nil)
-	index := newInvertedIndex(metadata, nil)
+	index := newInvertedIndex(metadata, nil, nil)
 	index.buildInvertIndex("ns", "name", map[string]string{
 		"host": "1.1.1.1",
 		"zone": "sh",

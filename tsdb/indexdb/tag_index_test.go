@@ -46,19 +46,31 @@ func TestTagIndex_flush(t *testing.T) {
 	defer ctrl.Finish()
 
 	tagIndex := prepareTagIdx()
-	flusher := invertedindex.NewMockFlusher(ctrl)
-	// case 1: flush tag level series ids err
-	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err := tagIndex.flush(flusher)
+	forward := invertedindex.NewMockForwardFlusher(ctrl)
+	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
+	// case 1: flush forward err
+	forward.EXPECT().FlushForwardIndex(gomock.Any()).AnyTimes()
+	forward.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := tagIndex.flush(12, forward, inverted)
 	assert.Error(t, err)
-	// case 2: flush tag value series ids
-	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil)
-	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = tagIndex.flush(flusher)
+	// case 2: flush tag level series ids err
+	forward.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = tagIndex.flush(12, forward, inverted)
 	assert.Error(t, err)
-	// case 3: flush success
-	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	err = tagIndex.flush(flusher)
+	// case 3: flush tag value series ids
+	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil)
+	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = tagIndex.flush(13, forward, inverted)
+	assert.Error(t, err)
+	// case 4: flush tag key err
+	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("err"))
+	err = tagIndex.flush(14, forward, inverted)
+	assert.Error(t, err)
+	// case 3: flush tag key err
+	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil)
+	err = tagIndex.flush(14, forward, inverted)
 	assert.NoError(t, err)
 }
 

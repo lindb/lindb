@@ -18,20 +18,20 @@ func New{{.type}}Store() *{{.type}}Store {
 	}
 }
 
-// Get returns value by key, if exist returns it, else returns nil, false
+// Get returns value by key, if exist returns it, else returns {{.nil}}, false
 func (m *{{.type}}Store) Get(key uint32) ({{.value}}, bool) {
 	if len(m.values) == 0 {
-		return nil, false
+		return {{.nil}}, false
 	}
 	// get high index
     found, highIdx := m.keys.ContainsAndRankForHigh(key)
     if !found {
-    	return nil, false
+    	return {{.nil}}, false
     }
-    // get log index
+    // get low index
     found, lowIdx := m.keys.ContainsAndRankForLow(key, highIdx-1)
     if !found {
-    	return nil, false
+    	return {{.nil}}, false
     }
     return m.values[highIdx-1][lowIdx-1], true
 }
@@ -49,7 +49,7 @@ func (m *{{.type}}Store) Put(key uint32, value {{.value}}) {
 	if !found {
 		// high container not exist, insert it
 		stores := m.values
-		// insert operation
+		// insert operation, insert high values
 		stores = append(stores, nil)
 		copy(stores[highIdx+1:], stores[highIdx:len(stores)-1])
 		stores[highIdx] = []{{.value}}{value}
@@ -62,7 +62,7 @@ func (m *{{.type}}Store) Put(key uint32, value {{.value}}) {
 	lowIdx := m.keys.RankForLow(key, highIdx-1)
 	stores := m.values[highIdx-1]
 	// insert operation
-	stores = append(stores, nil)
+	stores = append(stores, {{.nil}})
 	copy(stores[lowIdx+1:], stores[lowIdx:len(stores)-1])
 	stores[lowIdx] = value
 	m.values[highIdx-1] = stores

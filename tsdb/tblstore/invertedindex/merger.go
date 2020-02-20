@@ -9,8 +9,8 @@ package invertedindex
 //)
 //
 //type invertedIndexMerger struct {
-//	flusher      *metricsmeta.tagFlusher
-//	reader       *metricsmeta.tagReader
+//	invertedFlusher      *metricsmeta.tagFlusher
+//	inverterReader       *metricsmeta.tagReader
 //	nopKVFlusher *kv.NopFlusher
 //	ttl          time.Duration
 //}
@@ -18,14 +18,14 @@ package invertedindex
 //func NewMerger(ttl time.Duration) kv.Merger {
 //	nopKVFlusher := kv.NewNopFlusher()
 //	return &invertedIndexMerger{
-//		flusher:      metricsmeta.NewTagFlusher(nopKVFlusher).(*metricsmeta.tagFlusher),
-//		reader:       metricsmeta.NewTagReader(nil).(*metricsmeta.tagReader),
+//		invertedFlusher:      metricsmeta.NewTagFlusher(nopKVFlusher).(*metricsmeta.tagFlusher),
+//		inverterReader:       metricsmeta.NewTagReader(nil).(*metricsmeta.tagReader),
 //		nopKVFlusher: nopKVFlusher,
 //		ttl:          ttl}
 //}
 //
 //func (m *invertedIndexMerger) reset() {
-//	m.flusher.reset()
+//	m.invertedFlusher.reset()
 //}
 //
 //func (m *invertedIndexMerger) Merge(
@@ -133,14 +133,14 @@ package invertedindex
 ////) {
 ////	for tagValue, dataList := range tagValueData {
 ////		for _, data := range dataList {
-////			m.flusher.flushVersion(
+////			m.invertedFlusher.flushVersion(
 ////				data.version,
 ////				data.timeRange,
 ////				data.data)
 ////		}
-////		m.flusher.FlushTagValue(tagValue,)
+////		m.invertedFlusher.FlushTagValue(tagValue,)
 ////	}
-////	_ = m.flusher.FlushTagKeyID(tagKeyID)
+////	_ = m.invertedFlusher.FlushTagKeyID(tagKeyID)
 ////}
 ////
 ////type versionedTagValueData struct {

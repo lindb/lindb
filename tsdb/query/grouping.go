@@ -125,7 +125,7 @@ func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container
 // buildSeriesIDs2Tags builds for multi group by keys
 func (g *GroupingContext) buildSeriesIDs2Tags(highKey uint16, container roaring.Container) []*SeriesID2Tags {
 	groupTagKeysCount := len(g.tagValuesEntrySets)
-	// new seriesIDs2Tags array based on range of max ~ min
+	// new seriesIDs2Tags array based on range of min ~ max
 	min := container.Minimum()
 	max := container.Maximum()
 	seriesIDs2Tags := make([]*SeriesID2Tags, int(max-min)+1)
