@@ -3,6 +3,7 @@ package indexdb
 import (
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
 
@@ -10,6 +11,8 @@ import (
 
 // TagIndex represents the tag inverted index
 type TagIndex interface {
+	// GetGroupingScanner returns the grouping scanners based on series ids
+	GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.GroupingScanner, error)
 	// buildInvertedIndex builds inverted index for tag value id
 	buildInvertedIndex(tagValueID uint32, seriesID uint32)
 	// getSeriesIDsByTagValueIDs returns series ids by tag value ids
@@ -21,6 +24,21 @@ type TagIndex interface {
 	// flush flushes tag index under spec tag key,
 	// write series ids of tag key level with constants.TagValueIDForTag
 	flush(tagKeyID uint32, forward invertedindex.ForwardFlusher, inverted invertedindex.InvertedFlusher) error
+}
+
+// memGroupingScanner implements series.GroupingScanner for memory tag index
+type memGroupingScanner struct {
+	forward *ForwardStore
+}
+
+// GetSeriesAndTagValue returns group by container and tag value ids
+func (g *memGroupingScanner) GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32) {
+	index := g.forward.keys.GetContainerIndex(highKey)
+	if index < 0 {
+		// data not found
+		return nil, nil
+	}
+	return g.forward.keys.GetContainerAtIndex(index), g.forward.values[index]
 }
 
 // tagIndex is a inverted mapping relation of tag-value and seriesID group.
@@ -35,6 +53,17 @@ func newTagIndex() TagIndex {
 		inverted: NewInvertedStore(),
 		forward:  NewForwardStore(),
 	}
+}
+
+// GetGroupingScanner returns the grouping scanners based on series ids
+func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.GroupingScanner, error) {
+	// check reader if has series ids(after filtering)
+	finalSeriesIDs := roaring.FastAnd(seriesIDs, index.forward.Keys())
+	if finalSeriesIDs.IsEmpty() {
+		// not found
+		return nil, nil
+	}
+	return []series.GroupingScanner{&memGroupingScanner{index.forward}}, nil
 }
 
 // buildInvertedIndex builds inverted index for tag value id
