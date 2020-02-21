@@ -2,7 +2,6 @@ package query
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/lindb/roaring"
 
@@ -208,7 +207,7 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 		var groupingCtx series.GroupingContext
 		if hasGroupBy {
 			//FIXME
-			gCtx, err := indexDB.GetGroupingContext(nil)
+			gCtx, err := indexDB.GetGroupingContext(nil, seriesIDs)
 			if err != nil {
 				e.queryFlow.Complete(err)
 				return
@@ -219,7 +218,6 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 			groupingCtx = gCtx
 		}
 		keys := seriesIDs.GetHighKeys()
-		fmt.Println("get high key")
 
 		for idx, key := range keys {
 			// be carefully, need use new variable for variable scope problem

@@ -23,7 +23,6 @@ type TagValueSuggester interface {
 }
 
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
-// to support multi-version based on timestamp, time range for filtering spec version is necessary
 type Filter interface {
 	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
 	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
@@ -32,5 +31,5 @@ type Filter interface {
 	// GetSeriesIDsForMetric gets series ids for spec metric name
 	GetSeriesIDsForMetric(namespace, metricName string) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
-	GetGroupingContext(tagKeyIDs []uint32) (GroupingContext, error)
+	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (GroupingContext, error)
 }

@@ -48,8 +48,9 @@ func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string
 	panic("implement me")
 }
 
-func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error) {
-	panic("implement me")
+// GetGroupingContext returns the context of group by
+func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error) {
+	return db.index.GetGroupingContext(tagKeyIDs, seriesIDs)
 }
 
 // NewIndexDatabase creates a new index database
