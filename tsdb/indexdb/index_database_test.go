@@ -143,9 +143,25 @@ func TestIndexDatabase_FindSeriesIDsByExpr(t *testing.T) {
 	assert.Panics(t, func() {
 		_ = db.SuggestTagValues(1, "11", 100)
 	})
-	assert.Panics(t, func() {
-		_, _ = db.GetGroupingContext(nil)
-	})
+}
+
+func TestIndexDatabase_GetGroupingContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	index := NewMockInvertedIndex(ctrl)
+	db1 := db.(*indexDatabase)
+	db1.index = index
+	index.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+	ctx, err := db.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	assert.Nil(t, ctx)
 }
 
 func TestIndexDatabase_GetSeriesIDs(t *testing.T) {

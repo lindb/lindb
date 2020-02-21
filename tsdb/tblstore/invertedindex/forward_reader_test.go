@@ -31,7 +31,7 @@ func TestForwardReader_GetSeriesIDsForTagKeyID(t *testing.T) {
 	assert.Nil(t, idSet)
 	// case 3: read series ids
 	idSet, err = reader.GetSeriesIDsForTagKeyID(20)
-	a := roaring.BitmapOf(1, 2, 3, 65535+10, 65535+20, 65535+30, 65535+40)
+	a := roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40)
 	assert.NoError(t, err)
 	assert.EqualValues(t, a.ToArray(), idSet.ToArray())
 	// case 4: unmarshal series ids err
@@ -44,6 +44,35 @@ func TestForwardReader_GetSeriesIDsForTagKeyID(t *testing.T) {
 	assert.Nil(t, idSet)
 }
 
+func TestForwardReader_GetGroupingScanner(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		encoding.BitmapUnmarshal = bitmapUnmarshal
+		ctrl.Finish()
+	}()
+
+	reader := buildForwardReader(ctrl)
+	// case 1: read not tagID key
+	scanners, err := reader.GetGroupingScanner(19, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, scanners)
+	// case 2: series ids not match
+	scanners, err = reader.GetGroupingScanner(20, roaring.BitmapOf(100, 200))
+	assert.NoError(t, err)
+	assert.Empty(t, scanners)
+	// case 3: series ids not match
+	scanners, err = reader.GetGroupingScanner(20, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	assert.Len(t, scanners, 1)
+	// case 4: unmarshal series ids err
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
+		return fmt.Errorf("err")
+	}
+	scanners, err = reader.GetGroupingScanner(20, roaring.BitmapOf(1, 2, 3))
+	assert.Error(t, err)
+	assert.Nil(t, scanners)
+}
+
 func TestForwardReader_offset_err(t *testing.T) {
 	reader, err := newTagForwardReader([]byte{
 		1, 1, 1, 1,
@@ -53,6 +82,26 @@ func TestForwardReader_offset_err(t *testing.T) {
 		5})
 	assert.Error(t, err)
 	assert.Nil(t, reader)
+}
+
+func TestTagForwardReader_GetGroupingScanner2(t *testing.T) {
+	allSeriesIDs := roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40)
+	block := buildForwardBlock()
+	reader, err := newTagForwardReader(block)
+	assert.NoError(t, err)
+	assert.NotNil(t, reader)
+	// case 1: data not found
+	seriesIDs, tagValueIDs := reader.GetSeriesAndTagValue(10)
+	assert.Nil(t, seriesIDs)
+	assert.Nil(t, tagValueIDs)
+	// case 2: get container 0 data
+	seriesIDs, tagValueIDs = reader.GetSeriesAndTagValue(0)
+	assert.EqualValues(t, seriesIDs.ToArray(), allSeriesIDs.GetContainerAtIndex(0).ToArray())
+	assert.Equal(t, []uint32{1, 2, 3, 4}, tagValueIDs)
+	// case 3: get container 1 data
+	seriesIDs, tagValueIDs = reader.GetSeriesAndTagValue(1)
+	assert.EqualValues(t, seriesIDs.ToArray(), allSeriesIDs.GetContainerAtIndex(1).ToArray())
+	assert.Equal(t, []uint32{10, 20, 30, 40}, tagValueIDs)
 }
 
 func buildForwardReader(ctrl *gomock.Controller) ForwardReader {
@@ -71,6 +120,6 @@ func buildForwardBlock() (block []byte) {
 	forwardFlusher := NewForwardFlusher(nopKVFlusher)
 	forwardFlusher.FlushForwardIndex([]uint32{1, 2, 3, 4})
 	forwardFlusher.FlushForwardIndex([]uint32{10, 20, 30, 40})
-	_ = forwardFlusher.FlushTagKeyID(10, roaring.BitmapOf(1, 2, 3, 65535+10, 65535+20, 65535+30, 65535+40))
+	_ = forwardFlusher.FlushTagKeyID(10, roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40))
 	return nopKVFlusher.Bytes()
 }

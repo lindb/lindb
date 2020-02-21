@@ -2,14 +2,37 @@ package indexdb
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 )
+
+func TestTagIndex_GetGroupingScanner(t *testing.T) {
+	index := prepareTagIdx()
+	// case 1: series ids not match
+	scanners, err := index.GetGroupingScanner(roaring.BitmapOf(1000, 2000))
+	assert.NoError(t, err)
+	assert.Nil(t, scanners)
+	// case 2: get scanner
+	scanners, err = index.GetGroupingScanner(roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	assert.Len(t, scanners, 1)
+	container, tagValueIDs := scanners[0].GetSeriesAndTagValue(0)
+	assert.Equal(t, 8, container.GetCardinality())
+	assert.Len(t, tagValueIDs, 8)
+	container, tagValueIDs = scanners[0].GetSeriesAndTagValue(1)
+	assert.Nil(t, container)
+	assert.Nil(t, tagValueIDs)
+}
 
 func TestTagIndex_buildInvertedIndex(t *testing.T) {
 	index := newTagIndex()
@@ -85,4 +108,72 @@ func prepareTagIdx() TagIndex {
 	tagIndex.buildInvertedIndex(7, 7)
 	tagIndex.buildInvertedIndex(8, 8)
 	return tagIndex
+}
+
+type groupingScanner struct {
+	forward *ForwardStore
+}
+
+func (g *groupingScanner) GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32) {
+	idx := g.forward.Keys().GetContainerIndex(highKey)
+	if idx == -1 {
+		return nil, nil
+	}
+	return g.forward.Keys().GetContainerAtIndex(idx), g.forward.Values()[idx]
+}
+
+func newScanner() series.GroupingScanner {
+	return &groupingScanner{
+		forward: NewForwardStore(),
+	}
+}
+
+func BenchmarkForwardStore_Grouping(b *testing.B) {
+	hosts := newScanner()
+	disks := newScanner()
+	partitions := newScanner()
+	h := hosts.(*groupingScanner)
+	d := disks.(*groupingScanner)
+	p := partitions.(*groupingScanner)
+	id := uint32(1)
+	count := uint32(40000)
+	for i := uint32(1); i <= count; i++ {
+		for j := uint32(1); j <= 4; j++ {
+			for k := uint32(1); k <= 20; k++ {
+				id++
+				h.forward.Put(id, i)
+				d.forward.Put(id, j)
+				p.forward.Put(id, k)
+			}
+		}
+	}
+
+	fmt.Println(id)
+	seriesIDs := roaring.New()
+	seriesIDs.AddRange(0, uint64(1000000))
+	keys := seriesIDs.GetHighKeys()
+	// test single group by tag keys
+	scanners := make(map[uint32][]series.GroupingScanner)
+	scanners[1] = []series.GroupingScanner{partitions}
+	scanners[2] = []series.GroupingScanner{hosts}
+	ctx := query.NewGroupContext([]uint32{1, 2}, scanners)
+
+	now := timeutil.Now()
+	var wait sync.WaitGroup
+	var c atomic.Int32
+	for idx, key := range keys {
+		container := seriesIDs.GetContainerAtIndex(idx)
+		//i += container.GetCardinality()
+		k := key
+		wait.Add(1)
+		go func() {
+			rs := ctx.BuildGroup(k, container)
+			c.Add(int32(len(rs)))
+			wait.Done()
+		}()
+		//assert.Len(t, rs, 80)
+	}
+	wait.Wait()
+	fmt.Println(c.Load())
+	fmt.Println(timeutil.Now() - now)
 }

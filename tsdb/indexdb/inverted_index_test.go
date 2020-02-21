@@ -130,20 +130,72 @@ func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 	assert.Nil(t, seriesIDs)
 }
 
-func TestInvertedIndex_GetGroupingContext(t *testing.T) {
+func TestInvertedIndex_GetSeriesIDsForTag(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		newForwardReaderFunc = invertedindex.NewForwardReader
+		ctrl.Finish()
+	}()
+	reader := invertedindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
+		return reader
+	}
 
 	index := prepareInvertedIndex(ctrl)
-	ctx, err := index.GetGroupingContext([]uint32{3, 4})
+	family := kv.NewMockFamily(ctrl)
+	idx := index.(*invertedIndex)
+	idx.forwardFamily = family
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close().AnyTimes()
+	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
+
+	// case 1: reader get data success
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
+	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
+	seriesIDs, err := index.GetSeriesIDsForTag(1)
+	assert.NoError(t, err)
+	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
+}
+
+func TestInvertedIndex_GetGroupingContext(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newForwardReaderFunc = invertedindex.NewForwardReader
+		ctrl.Finish()
+	}()
+
+	index := prepareInvertedIndex(ctrl)
+	idx := index.(*invertedIndex)
+	family := kv.NewMockFamily(ctrl)
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close().AnyTimes()
+	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
+	idx.forwardFamily = family
+
+	// case 1: get sst file reader err
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	ctx, err := index.GetGroupingContext([]uint32{3, 4}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, ctx)
-
-	ctx, err = index.GetGroupingContext([]uint32{1, 2})
+	// case 2: get empty reader
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil).Times(2)
+	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.NotNil(t, ctx)
-
-	ctx, err = index.GetGroupingContext([]uint32{1})
+	// case 3: get scanner from file err
+	reader := invertedindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
+		return reader
+	}
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
+	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	assert.Error(t, err)
+	assert.Nil(t, ctx)
+	// case 4: get scanner from file err
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).Times(2)
+	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
+	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.NotNil(t, ctx)
 }

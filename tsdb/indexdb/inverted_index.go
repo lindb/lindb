@@ -5,8 +5,8 @@ import (
 
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -33,7 +33,7 @@ type InvertedIndex interface {
 	// GetSeriesIDsForTags gets series ids for spec metric's tag keys
 	GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
-	GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error)
+	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error)
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
 	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
@@ -88,6 +88,14 @@ func (index *invertedIndex) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueI
 
 // GetSeriesIDsForTag get series ids by tagKeyId
 func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
+	// get snapshot for getting data
+	snapshot := index.forwardFamily.GetSnapshot()
+	defer snapshot.Close()
+	return index.getSeriesIDsForTag(tagKeyID, snapshot)
+}
+
+// getSeriesIDsForTag get series ids by tagKeyId and kv snapshot
+func (index *invertedIndex) getSeriesIDsForTag(tagKeyID uint32, snapshot version.Snapshot) (*roaring.Bitmap, error) {
 	result := roaring.New()
 	// read data from mem
 	index.loadSeriesIDsInMem(tagKeyID, func(tagIndex TagIndex) {
@@ -96,9 +104,6 @@ func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap
 
 	// read data from kv store
 	// try get tag key id from kv store
-	snapshot := index.forwardFamily.GetSnapshot()
-	defer snapshot.Close()
-
 	readers, err := snapshot.FindReaders(tagKeyID)
 	if err != nil {
 		// find table.Reader err, return it
@@ -119,10 +124,13 @@ func (index *invertedIndex) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap
 
 // GetSeriesIDsForTags gets series ids for spec metric's tag keys
 func (index *invertedIndex) GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error) {
+	// get kv store snapshot
+	snapshot := index.forwardFamily.GetSnapshot()
+	defer snapshot.Close()
+
 	result := roaring.New()
 	for _, tagKeyID := range tagKeyIDs {
-		//FIXME maybe opt for lock and kv store load using same snapshot
-		seriesIDs, err := index.GetSeriesIDsForTag(tagKeyID)
+		seriesIDs, err := index.getSeriesIDsForTag(tagKeyID, snapshot)
 		if err != nil {
 			return nil, err
 		}
@@ -131,23 +139,58 @@ func (index *invertedIndex) GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bi
 	return result, nil
 }
 
-func (index *invertedIndex) GetGroupingContext(tagKeyIDs []uint32) (series.GroupingContext, error) {
-	tagKeysLen := len(tagKeyIDs)
-	gCtx := query.NewGroupContext(tagKeysLen)
-	// validate tagKeys
-	for idx, tagKeyID := range tagKeyIDs {
-		_, ok := index.mutable.Get(tagKeyID)
-		if !ok {
-			return nil, constants.ErrNotFound
+func (index *invertedIndex) GetGroupingContext(
+	tagKeyIDs []uint32,
+	seriesIDs *roaring.Bitmap,
+) (series.GroupingContext, error) {
+	// get kv store snapshot
+	snapshot := index.forwardFamily.GetSnapshot()
+	defer snapshot.Close()
+
+	scannerMap := make(map[uint32][]series.GroupingScanner)
+	for _, tagKeyID := range tagKeyIDs {
+		// get grouping scanners by tag key
+		scanners, err := index.getGroupingScanners(tagKeyID, seriesIDs, snapshot)
+		if err != nil {
+			return nil, err
 		}
-		tagValuesEntrySet := query.NewTagValuesEntrySet()
-		gCtx.SetTagValuesEntrySet(idx, tagValuesEntrySet)
-		//FIXME stone1100
-		//tagValuesEntrySet.SetTagValues(tagIndex.getValues())
+		scannerMap[tagKeyID] = scanners
 	}
-	return &groupingContext{
-		gCtx: gCtx,
-	}, nil
+	return query.NewGroupContext(tagKeyIDs, scannerMap), nil
+}
+
+// getGroupingScanners returns the grouping scanner list for tag key, need match series ids
+func (index *invertedIndex) getGroupingScanners(
+	tagKeyID uint32,
+	seriesIDs *roaring.Bitmap,
+	snapshot version.Snapshot,
+) ([]series.GroupingScanner, error) {
+	var result []series.GroupingScanner
+	// read data from mem
+	index.loadSeriesIDsInMem(tagKeyID, func(tagIndex TagIndex) {
+		// get grouping scanner in memory, no err throw
+		scanners, _ := tagIndex.GetGroupingScanner(seriesIDs)
+		result = append(result, scanners...)
+	})
+
+	// read data from kv store
+	// try get tag key id from kv store
+	readers, err := snapshot.FindReaders(tagKeyID)
+	if err != nil {
+		// find table.Reader err, return it
+		return nil, err
+	}
+	var reader invertedindex.ForwardReader
+	if len(readers) > 0 {
+		// found tag data in kv store, try get grouping scanner
+		reader = newForwardReaderFunc(readers)
+		scanners, err := reader.GetGroupingScanner(tagKeyID, seriesIDs)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, scanners...)
+	}
+	return result, nil
 }
 
 // buildInvertIndex builds the inverted index for tag value => series ids,
