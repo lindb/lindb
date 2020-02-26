@@ -34,6 +34,6 @@ func init() {
 // nopMerger does nothing
 type _nopMerger struct{}
 
-func (m *_nopMerger) Merge(key uint32, value [][]byte) ([]byte, error) {
+func (m *_nopMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 	return nil, nil
 }

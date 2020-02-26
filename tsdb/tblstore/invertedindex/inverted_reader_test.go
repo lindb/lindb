@@ -2,6 +2,7 @@ package invertedindex
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -118,6 +119,20 @@ func TestReader_FindSeriesIDsByTagValueIDs(t *testing.T) {
 	idSet, err = reader.GetSeriesIDsByTagValueIDs(20, roaring.BitmapOf(1, 2))
 	assert.NoError(t, err)
 	assert.EqualValues(t, roaring.BitmapOf(1, 2).ToArray(), idSet.ToArray())
+
+	// unmarshal series ids err
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
+		d, _ := roaring.BitmapOf(1).ToBytes()
+		if reflect.DeepEqual(d, data[:len(d)]) {
+			// mock scan data err
+			return fmt.Errorf("err")
+		}
+		// for other unmarshal
+		return bitmap.UnmarshalBinary(data)
+	}
+	idSet, err = reader.GetSeriesIDsByTagValueIDs(20, roaring.BitmapOf(1, 2))
+	assert.Error(t, err)
+	assert.Nil(t, idSet)
 }
 
 func TestReader_InvertedIndex_reader_err(t *testing.T) {
@@ -128,31 +143,63 @@ func TestReader_InvertedIndex_reader_err(t *testing.T) {
 	}()
 
 	zoneBlock, _, _ := buildInvertedIndexBlock()
-	reader := newTagInvertedReader(zoneBlock)
-
-	idSet, err := reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1, 2))
+	reader, err := newTagInvertedReader(zoneBlock)
 	assert.NoError(t, err)
-	assert.EqualValues(t, roaring.BitmapOf(1, 2).ToArray(), idSet.ToArray())
+	assert.NotNil(t, reader)
+
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
 	}
 	// case 1: unmarshal series id err
-	idSet, err = reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1, 2))
+	idSet, err := reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1, 2))
 	assert.Error(t, err)
 	assert.Nil(t, idSet)
 	// case 2: init inverted inverterReader err
-	reader = newTagInvertedReader(zoneBlock)
-	idSet, err = reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1, 2))
+	reader, err = newTagInvertedReader(zoneBlock)
 	assert.Error(t, err)
-	assert.Nil(t, idSet)
+	assert.Nil(t, reader)
 	// case 3: validation offset err
-	reader = newTagInvertedReader([]byte{
+	reader, err = newTagInvertedReader([]byte{
 		1, 1, 1, 1,
 		2, 2, 2, 2,
 		3, 3, 3, 3,
 		4, 4, 4, 4,
 		5})
-	idSet, err = reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1, 2))
 	assert.Error(t, err)
-	assert.Nil(t, idSet)
+	assert.Nil(t, reader)
+}
+
+func TestTagInvertedReader_scan(t *testing.T) {
+	defer func() {
+		encoding.BitmapUnmarshal = bitmapUnmarshal
+	}()
+
+	zoneBlock, ipBlock, _ := buildInvertedIndexBlock()
+	reader, _ := newTagInvertedReader(ipBlock)
+	scanner := newTagInvertedScanner(reader)
+	seriesIDs := roaring.New()
+	// case 1: not match
+	err := scanner.scan(10, 10, seriesIDs)
+	assert.NoError(t, err)
+	assert.Equal(t, roaring.New(), seriesIDs)
+	// case 2: merge data
+	scanner = newTagInvertedScanner(reader)
+	err = scanner.scan(0, 1, seriesIDs)
+	assert.NoError(t, err)
+	assert.EqualValues(t, roaring.BitmapOf(1).ToArray(), seriesIDs.ToArray())
+	// case 3: unmarshal series data err
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
+		return fmt.Errorf("err")
+	}
+	scanner = newTagInvertedScanner(reader)
+	err = scanner.scan(0, 1, seriesIDs)
+	assert.Error(t, err)
+	// case 4: scanner is completed
+	encoding.BitmapUnmarshal = bitmapUnmarshal
+	reader, _ = newTagInvertedReader(zoneBlock)
+	scanner = newTagInvertedScanner(reader)
+	seriesIDs.Clear()
+	err = scanner.scan(10, 1, seriesIDs)
+	assert.NoError(t, err)
+	assert.EqualValues(t, roaring.New().ToArray(), seriesIDs.ToArray())
 }
