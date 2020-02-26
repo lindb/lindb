@@ -2,14 +2,14 @@ package tsdb
 
 import (
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsnameid"
 )
 
 const (
+	forwardIndexMerger  = "forward_index_merger"
 	invertedIndexMerger = "inverted_index_merger"
-	metricNameIDsMerger = "metric_name_ids_merger"
-	metricMetaMerger    = "metric_meta_merger"
+	tagMetaMerger       = "tag_meta_merger"
 	//defaultTTLDuration  = time.Hour * 24 * 30
 	nopMerger = "nop_merger"
 )
@@ -18,15 +18,13 @@ func init() {
 	// FIXME stone1100
 	kv.RegisterMerger(
 		invertedIndexMerger,
-		metricsnameid.NewMerger())
-
+		invertedindex.NewInvertedMerger())
 	kv.RegisterMerger(
-		metricNameIDsMerger,
-		metricsnameid.NewMerger())
-
+		forwardIndexMerger,
+		invertedindex.NewForwardMerge())
 	kv.RegisterMerger(
-		metricMetaMerger,
-		metricsmeta.NewMerger())
+		tagMetaMerger,
+		metricsmeta.NewTagMerger())
 
 	kv.RegisterMerger(nopMerger, &_nopMerger{})
 }
