@@ -273,7 +273,7 @@ func (db *database) initMetadata() error {
 		tagValueDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
-			Merger:           metricMetaMerger})
+			Merger:           tagMetaMerger})
 	if err != nil {
 		return err
 	}
