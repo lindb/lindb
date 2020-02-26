@@ -15,10 +15,10 @@ import (
 // InvertedFlusher is a wrapper of kv.Builder, provides the ability to build a inverted index table.
 // The layout is available in `tsdb/doc.go`
 type InvertedFlusher interface {
-	// FlushInvertedIndex ends writing trie tree in tag index table.
-	// !!!!NOTICE: need add tag value id in order. tag value id=0 store all series ids under this tag
+	// FlushInvertedIndex writes tag value id->series ids inverted index data,
+	// !!!!! NOTICE: need add tag value id in order.
 	FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error
-	// FlushTagKeyID ends writing trie tree data in tag index table.
+	// FlushTagKeyID ends writing tag inverted index data in index table.
 	FlushTagKeyID(tagID uint32) error
 	// Commit closes the writer, this will be called after writing all tag keys.
 	Commit() error

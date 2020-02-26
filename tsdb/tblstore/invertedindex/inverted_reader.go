@@ -46,7 +46,10 @@ func (r *inverterReader) loadSeriesIDs(tagKeyID uint32, fn func(indexReader *tag
 		if !ok {
 			continue
 		}
-		indexReader := newTagInvertedReader(value)
+		indexReader, err := newTagInvertedReader(value)
+		if err != nil {
+			return nil, err
+		}
 		ids, err := fn(indexReader)
 		if err != nil {
 			return nil, err
@@ -59,26 +62,21 @@ func (r *inverterReader) loadSeriesIDs(tagKeyID uint32, fn func(indexReader *tag
 // tagInvertedReader represents the inverted index inverterReader for one tag(tag value ids=>series ids)
 type tagInvertedReader struct {
 	baseReader
-	init bool
 }
 
 // newTagInvertedReader creates an inverted index tagInvertedReader
-func newTagInvertedReader(buf []byte) *tagInvertedReader {
+func newTagInvertedReader(buf []byte) (*tagInvertedReader, error) {
 	r := &tagInvertedReader{
 		baseReader: baseReader{buf: buf},
 	}
-	return r
+	if err := r.initReader(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // getSeriesIDsByTagValueIDs finds series ids by tag value ids under this tag key
 func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
-	if !r.init {
-		// if not init, init read
-		if err := r.initReader(); err != nil {
-			return nil, err
-		}
-		r.init = true
-	}
 	result := roaring.New()
 	// get final tag value ids need to load
 	finalTagValueIDs := roaring.And(tagValueIDs, r.keys)
@@ -103,4 +101,60 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 		}
 	}
 	return result, nil
+}
+
+// tagInvertedScanner represents the tag inverted index scanner which scans the index data when merge operation
+type tagInvertedScanner struct {
+	reader        *tagInvertedReader
+	container     roaring.Container
+	seriesOffsets *encoding.FixedOffsetDecoder
+	highKeys      []uint16
+	highKey       uint16
+	keyPos        int
+}
+
+// newTagInvertedScanner creates a tag inverted index scanner
+func newTagInvertedScanner(reader *tagInvertedReader) *tagInvertedScanner {
+	s := &tagInvertedScanner{
+		reader:   reader,
+		highKeys: reader.keys.GetHighKeys(),
+	}
+	s.nextContainer()
+	return s
+}
+
+// nextContainer goes next container context for scanner
+func (s *tagInvertedScanner) nextContainer() {
+	s.highKey = s.highKeys[s.keyPos]
+	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
+	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+	s.keyPos++
+}
+
+// scan scans the data then merges the series ids into target series ids
+func (s *tagInvertedScanner) scan(highKey, lowTagValueID uint16, targetSeriesIDs *roaring.Bitmap) error {
+	if s.highKey < highKey {
+		if s.keyPos >= len(s.highKeys) {
+			// current tag inverted no data can read
+			return nil
+		}
+		s.nextContainer()
+	}
+	if highKey != s.highKey {
+		// high key not match, return it
+		return nil
+	}
+	// find data by low tag value id
+	if s.container.Contains(lowTagValueID) {
+		lowIdx := s.container.Rank(lowTagValueID)
+		seriesPos := s.seriesOffsets.Get(lowIdx - 1)
+		// unmarshal series ids
+		seriesIDs := roaring.New()
+		if err := encoding.BitmapUnmarshal(seriesIDs, s.reader.buf[seriesPos:]); err != nil {
+			return err
+		}
+		// merge the data into target series ids
+		targetSeriesIDs.Or(seriesIDs)
+	}
+	return nil
 }
