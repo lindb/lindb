@@ -51,7 +51,8 @@ func TestNew(t *testing.T) {
 	e, err = NewEngine(engineCfg)
 	assert.NoError(t, err)
 
-	db, _ := e.CreateDatabase("test_db")
+	db, err := e.CreateDatabase("test_db")
+	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
 	assert.Equal(t, 0, db.NumOfShards())

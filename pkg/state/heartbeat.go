@@ -83,11 +83,11 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 			h.logger.Error("do heartbeat keepalive error, retry.", logger.Error(err), logger.String("key", h.key))
 			time.Sleep(gap)
 			if h.isElect {
-				// retry put if not exist.if failed closes the heartbeat
+				// retry put if not exist. if failed closes the heartbeat
 				isSuccess, e := h.grantKeepAliveLease(ctx)
 				err = e
 				if !isSuccess {
-					// put if not exist failed ,close heartbeat
+					// put if not exist failed, close heartbeat
 					return
 				}
 			} else {
