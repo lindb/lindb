@@ -205,6 +205,8 @@ type trieTreeQuerier interface {
 	PrefixSearch(value string, limit int) (founds []string)
 	// Iterator returns the trie-tree iterator
 	Iterator(prefixValue string) *TrieTreeIterator
+	// GetValuesByOffsets picks the values at specified offsets
+	GetValuesByOffsets(offsets []int) (values []string)
 }
 
 // trieTreeBlock is the structured trie-tree-block of index-table
@@ -233,8 +235,7 @@ func (block *trieTreeBlock) walkTreeByValue(value []byte) (exhausted bool, nodeN
 	}
 	var (
 		lastWalkedIndex = 0
-		// maxNodeNumber + 1
-		invalidNodeNumber = block.LOUDS.NodeNumber(block.LOUDS.Num())
+		maxNodeNumber   = block.LOUDS.MaxNodeNumber()
 	)
 	for idx, v := range value {
 		firstChildNumber, ok := block.LOUDS.FirstChild(nodeNumber)
@@ -250,7 +251,7 @@ func (block *trieTreeBlock) walkTreeByValue(value []byte) (exhausted bool, nodeN
 		for childNumber := firstChildNumber; childNumber <= lastChildNumber; childNumber++ {
 			// validate labels length
 			if int(childNumber) >= len(block.labels) {
-				return false, invalidNodeNumber
+				return false, maxNodeNumber + 1
 			}
 			if block.labels[int(childNumber)] == v {
 				found = true
@@ -259,14 +260,14 @@ func (block *trieTreeBlock) walkTreeByValue(value []byte) (exhausted bool, nodeN
 			}
 		}
 		if !found {
-			return false, invalidNodeNumber
+			return false, maxNodeNumber + 1
 		}
 	}
 	// exhaust all
 	if lastWalkedIndex == len(value)-1 {
 		return true, nodeNumber
 	}
-	return false, invalidNodeNumber
+	return false, maxNodeNumber + 1
 }
 
 func (block *trieTreeBlock) FindOffsetsByIn(values []string) (offsets []int) {
@@ -336,6 +337,39 @@ func (block *trieTreeBlock) Iterator(prefixValue string) *TrieTreeIterator {
 	return &TrieTreeIterator{
 		block:       block,
 		prefixValue: []byte(prefixValue)}
+}
+
+func reverseBytes(s []byte) {
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+}
+
+func (block *trieTreeBlock) GetValuesByOffsets(offsets []int) (values []string) {
+	var buf []byte // combine the values
+	maxNodeNumber := block.LOUDS.MaxNodeNumber()
+	// validate labels count and node-numbers
+	if maxNodeNumber+1 != uint64(len(block.labels)) {
+		return nil
+	}
+	for _, offset := range offsets {
+		buf = buf[:0]
+		thisNodeNumber := block.isPrefixKey.Select1(uint64(offset) + 1)
+		// combines the prefixKey path
+		for 0 < thisNodeNumber && thisNodeNumber <= maxNodeNumber {
+			buf = append(buf, block.labels[int(thisNodeNumber)])
+			thisNodeNumber = block.LOUDS.Parent(thisNodeNumber)
+			if thisNodeNumber >= maxNodeNumber {
+				break
+			}
+		}
+		if len(buf) == 0 {
+			continue
+		}
+		reverseBytes(buf)
+		values = append(values, string(buf[1:]))
+	}
+	return values
 }
 
 // TrieTreeIterator implements TrieTreeIterator
