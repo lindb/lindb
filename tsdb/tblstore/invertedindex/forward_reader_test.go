@@ -104,6 +104,27 @@ func TestTagForwardReader_GetGroupingScanner2(t *testing.T) {
 	assert.Equal(t, []uint32{10, 20, 30, 40}, tagValueIDs)
 }
 
+func TestTagForwardReader_scan(t *testing.T) {
+	block := buildForwardBlock()
+	reader, _ := newTagForwardReader(block)
+	scanner := newTagForwardScanner(reader)
+	var tagValueIDs []uint32
+	// case 1: not match
+	tagValueIDs = scanner.scan(10, 10, tagValueIDs)
+	assert.Len(t, tagValueIDs, 0)
+	// case 2: merge data
+	scanner = newTagForwardScanner(reader)
+	tagValueIDs = scanner.scan(0, 1, tagValueIDs)
+	tagValueIDs = scanner.scan(0, 2, tagValueIDs)
+	tagValueIDs = scanner.scan(0, 3, tagValueIDs)
+	tagValueIDs = scanner.scan(0, 4, tagValueIDs)
+	tagValueIDs = scanner.scan(1, 9, tagValueIDs)
+	assert.Equal(t, []uint32{1, 2, 3, 4, 10}, tagValueIDs)
+	// case 3: scan completed
+	tagValueIDs = scanner.scan(3, 9, tagValueIDs)
+	assert.Equal(t, []uint32{1, 2, 3, 4, 10}, tagValueIDs)
+}
+
 func buildForwardReader(ctrl *gomock.Controller) ForwardReader {
 	block := buildForwardBlock()
 	// mock readers
