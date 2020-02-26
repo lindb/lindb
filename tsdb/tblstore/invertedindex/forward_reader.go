@@ -126,3 +126,58 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Contain
 func (r *tagForwardReader) getSeriesIDs() *roaring.Bitmap {
 	return r.keys
 }
+
+// tagForwardScanner represents the tag forward index scanner which scans the index data when merge operation
+type tagForwardScanner struct {
+	reader          *tagForwardReader
+	container       roaring.Container
+	tagValueOffsets *encoding.FixedOffsetDecoder
+	highKeys        []uint16
+	highKey         uint16
+	keyPos          int
+	tagValueIDs     *encoding.DeltaBitPackingDecoder
+}
+
+// newTagForwardScanner creates a tag forward index scanner
+func newTagForwardScanner(reader TagForwardReader) *tagForwardScanner {
+	forwardReader := reader.(*tagForwardReader)
+	s := &tagForwardScanner{
+		reader:   forwardReader,
+		highKeys: forwardReader.keys.GetHighKeys(),
+	}
+	s.nextContainer()
+	return s
+}
+
+// nextContainer goes next container context for scanner
+func (s *tagForwardScanner) nextContainer() {
+	s.highKey = s.highKeys[s.keyPos]
+	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
+	s.tagValueOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+	if s.tagValueIDs == nil {
+		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+	} else {
+		s.tagValueIDs.Reset(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+	}
+	s.keyPos++
+}
+
+// scan scans the data then merges the tag value ids into target tag value ids
+func (s *tagForwardScanner) scan(highKey, lowSeriesID uint16, tagValueIDs []uint32) []uint32 {
+	if s.highKey < highKey {
+		if s.keyPos >= len(s.highKeys) {
+			// current tag inverted no data can read
+			return tagValueIDs
+		}
+		s.nextContainer()
+	}
+	if highKey != s.highKey {
+		// high key not match, return it
+		return tagValueIDs
+	}
+	// find data by low tag value id
+	if s.container.Contains(lowSeriesID) {
+		tagValueIDs = append(tagValueIDs, uint32(s.tagValueIDs.Next()))
+	}
+	return tagValueIDs
+}
