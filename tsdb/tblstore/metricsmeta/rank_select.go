@@ -51,6 +51,8 @@ type RSINTF interface {
 	fmt.Stringer
 	// NodeNumber returns the node number from position
 	NodeNumber(pos uint64) uint64
+	// MaxNodeNumber returns the max node number
+	MaxNodeNumber() uint64
 	// Position returns the position from a given nodeNumber
 	Position(nodeNumber uint64) uint64
 	// FirstChild returns the first-child from the given nodeNumber
@@ -105,6 +107,7 @@ func (rs *rankSelect) String() string {
 }
 
 func (rs *rankSelect) NodeNumber(pos uint64) uint64      { return rs.Rank1(pos) }
+func (rs *rankSelect) MaxNodeNumber() uint64             { return rs.NodeNumber(rs.Num()) }
 func (rs *rankSelect) Position(nodeNumber uint64) uint64 { return rs.Select1(nodeNumber) }
 
 func (rs *rankSelect) FirstChild(nodeNumber uint64) (childNodeNumber uint64, ok bool) {

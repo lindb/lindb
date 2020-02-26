@@ -44,7 +44,7 @@ type tagKVEntrySet struct {
 
 func newTagKVEntrySet(block []byte) (TagKVEntrySetINTF, error) {
 	if len(block) <= tagFooterSize {
-		return nil, fmt.Errorf("block length no ok")
+		return nil, fmt.Errorf("block length not ok")
 	}
 	entrySet := &tagKVEntrySet{
 		sr: stream.NewReader(block),

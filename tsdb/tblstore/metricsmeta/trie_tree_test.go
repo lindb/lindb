@@ -144,6 +144,24 @@ func Test_trieTree_FindOffsetsByEqual(t *testing.T) {
 	assert.Len(t, data.FindOffsetsByEqual("etrac"), 0)
 }
 
+func Test_trieTree_GetValuesByOffsets(t *testing.T) {
+	data := buildTestTrieTreeData()
+	values := data.GetValuesByOffsets([]int{0, 1, 2, 3, 4, 5, 6})
+	assert.Equal(t, "c", values[0])
+	assert.Equal(t, "cd", values[1])
+	assert.Equal(t, "etcd", values[2])
+	assert.Equal(t, "eleme", values[3])
+	assert.Equal(t, "etrace", values[4])
+	assert.Equal(t, "firefox", values[5])
+	assert.Len(t, values, 6)
+
+	// validation failure
+	data.labels = append(data.labels, byte(1))
+	values = data.GetValuesByOffsets([]int{1})
+	assert.Len(t, values, 0)
+
+}
+
 func Test_trieTree_walkTreeByValue(t *testing.T) {
 	data := buildTestTrieTreeData()
 
@@ -154,10 +172,10 @@ func Test_trieTree_walkTreeByValue(t *testing.T) {
 	}{
 		{"", true, 1},
 		{"e", true, 3},
-		{"z", false, 22},
-		{"ellme", false, 22},
-		{"elome", false, 22},
-		{"elemee", false, 22},
+		{"z", false, 23},
+		{"ellme", false, 23},
+		{"elome", false, 23},
+		{"elemee", false, 23},
 	}
 	for _, testCase := range expects {
 		exhausted, nodeNumber := data.walkTreeByValue([]byte(testCase.prefixValue))
