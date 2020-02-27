@@ -250,7 +250,7 @@ func TestTagReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
 	reader := buildSeriesIndexReader(ctrl)
 
 	// find existed host
-	idSet, err := reader.FindValueIDsByExprForTagKeyID(22, &stmt.LikeExpr{Key: "host", Value: "eleme-dev-sh-"})
+	idSet, err := reader.FindValueIDsByExprForTagKeyID(22, &stmt.LikeExpr{Key: "host", Value: "eleme-dev-sh-*"})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(4, 5, 6), idSet)
 	// find not existed host

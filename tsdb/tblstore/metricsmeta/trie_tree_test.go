@@ -196,13 +196,17 @@ func Test_trieTree_FindOffsetsByIn(t *testing.T) {
 func Test_trieTree_FindOffsetsByLike(t *testing.T) {
 	data := buildTestTrieTreeData()
 	// test FindOffsetsByLike
-	assert.Equal(t, []int{0, 1}, data.FindOffsetsByLike("c"))
+	assert.Equal(t, []int{0}, data.FindOffsetsByLike("c"))
 	assert.Equal(t, []int{1}, data.FindOffsetsByLike("cd"))
-	assert.Equal(t, []int{4, 2}, data.FindOffsetsByLike("et"))
-	assert.Equal(t, []int{5}, data.FindOffsetsByLike("fire"))
+	assert.Len(t, data.FindOffsetsByLike("et"), 0)
+	assert.Len(t, data.FindOffsetsByLike("fire"), 0)
 	assert.Nil(t, data.FindOffsetsByLike(""))
 	assert.Len(t, data.FindOffsetsByLike("*"), 6)
 	assert.Nil(t, data.FindOffsetsByLike("etrace1"))
+
+	assert.Equal(t, []int{2, 1}, data.FindOffsetsByLike("*cd"))
+	assert.Equal(t, []int{4, 2}, data.FindOffsetsByLike("et*"))
+	assert.Equal(t, []int{4, 2}, data.FindOffsetsByLike("*t*"))
 }
 
 func Test_trieTree_FindOffsetsByRegex(t *testing.T) {
