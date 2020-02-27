@@ -1,8 +1,10 @@
 package metricsmeta
 
 import (
+	"bytes"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -281,17 +283,39 @@ func (block *trieTreeBlock) FindOffsetsByIn(values []string) (offsets []int) {
 }
 
 func (block *trieTreeBlock) FindOffsetsByLike(value string) (offsets []int) {
-	//FIXME stone1100
-	switch value {
-	case "":
+	var prefix, middle, suffix []byte
+	hashPrefix := strings.HasPrefix(value, "*")
+	hasSuffix := strings.HasSuffix(value, "*")
+	switch {
+	case value == "":
 		return nil
-	case "*":
-		value = ""
+	case value == "*":
+	// only endswith *
+	case !hashPrefix && hasSuffix:
+		prefix = []byte(value[:len(value)-1])
+	// only startswith *
+	case hashPrefix && !hasSuffix:
+		suffix = []byte(value[1:])
+	// startswith and endswith *
+	case hashPrefix && hasSuffix:
+		middle = []byte(value[1 : len(value)-1])
+	default:
+		return block.FindOffsetsByEqual(value)
 	}
 
-	itr := block.Iterator(value)
+	itr := block.Iterator(string(prefix))
 	for itr.HasNext() {
-		_, offset := itr.Next()
+		key, offset := itr.Next()
+		switch {
+		case len(middle) > 0:
+			if !bytes.Contains(key, middle) {
+				continue
+			}
+		case len(suffix) > 0:
+			if !bytes.HasSuffix(key, suffix) {
+				continue
+			}
+		}
 		offsets = append(offsets, offset)
 	}
 	return offsets

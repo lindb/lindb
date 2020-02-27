@@ -1,6 +1,10 @@
 package strutil
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+	"unsafe"
+)
 
 // GetStringValue aggregation format function name
 func GetStringValue(rawString string) string {
@@ -12,4 +16,12 @@ func GetStringValue(rawString string) string {
 		return rawString
 	}
 	return ""
+}
+
+func ByteSlice2String(bytes []byte) string {
+	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&bytes))
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{
+		Data: sliceHeader.Data,
+		Len:  sliceHeader.Len,
+	}))
 }
