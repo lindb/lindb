@@ -90,6 +90,8 @@ func (c *compactJob) doMerge() error {
 			needMerge = append(needMerge, value)
 			start = false
 		case key != previousKey:
+			//FIXME stone1100 merge data maybe is one block
+
 			// 1. if new key != previous key do merge logic based on user define
 			mergedValue, err := c.merger.Merge(previousKey, needMerge)
 			if err != nil {

@@ -36,9 +36,9 @@ func TestNewReader(t *testing.T) {
 	r, err = NewReader(mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	r1 := r.(*reader)
-	assert.Equal(t, uint16(5), r1.start)
-	assert.Equal(t, uint16(5), r1.end)
+	start, end := r.GetTimeRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(5), end)
 	assert.Equal(t, field.Metas{
 		{ID: 2, Type: field.SumField},
 		{ID: 10, Type: field.MinField},
@@ -49,7 +49,7 @@ func TestNewReader(t *testing.T) {
 	for j := 0; j < 10; j++ {
 		seriesIDs.Add(uint32(j * 4096))
 	}
-	seriesIDs.Add(10 * 4096)
+	seriesIDs.Add(65536 + 10)
 	assert.EqualValues(t, seriesIDs.ToArray(), r.GetSeriesIDs().ToArray())
 	// case 4: unmarshal series ids err
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
@@ -95,7 +95,7 @@ func TestReader_Load(t *testing.T) {
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
-	//// case 3: series ids not found
+	// case 3: series ids not found
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
@@ -113,7 +113,33 @@ func TestReader_Load(t *testing.T) {
 		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(20)),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
-	r.Load(qFlow, 10, []field.ID{100}, 0, map[string][]uint16{"host": {40960}})
+	r.Load(qFlow, 10, []field.ID{100}, 1, map[string][]uint16{"host": {10}})
+}
+
+func TestReader_scan(t *testing.T) {
+	r, err := NewReader(mockMetricBlock())
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+	scanner := newDataScanner(r)
+	start, end := scanner.slotRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(5), end)
+	// case 1: not match
+	seriesPos := scanner.scan(10, 10)
+	assert.True(t, seriesPos < 0)
+	// case 2: merge data
+	scanner = newDataScanner(r)
+	seriesPos = scanner.scan(0, 0)
+	assert.True(t, seriesPos >= 0)
+	seriesPos = scanner.scan(1, 10)
+	assert.True(t, seriesPos >= 0)
+	// case 3: scan completed
+	seriesPos = scanner.scan(3, 10)
+	assert.True(t, seriesPos < 0)
+	// case 4: not match
+	scanner = newDataScanner(r)
+	seriesPos = scanner.scan(0, 10)
+	assert.True(t, seriesPos < 0)
 }
 
 func mockMetricBlock() []byte {
@@ -144,7 +170,7 @@ func mockMetricBlock() []byte {
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.BytesWithoutTime()
 	flusher.FlushField(field.Key(stream.ReadUint16([]byte{100, 200}, 0)), data)
-	flusher.FlushSeries(uint32(10 * 4096))
+	flusher.FlushSeries(uint32(65536 + 10))
 
 	_ = flusher.FlushMetric(uint32(10), 5, 5)
 	return nopKVFlusher.Bytes()

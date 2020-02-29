@@ -24,7 +24,9 @@ func GetTSDDecoder() *TSDDecoder {
 }
 
 func ReleaseTSDDecoder(decoder *TSDDecoder) {
-	decoderPool.Put(decoder)
+	if decoder != nil {
+		decoderPool.Put(decoder)
+	}
 }
 
 // TSDEncoder encodes time series data point
