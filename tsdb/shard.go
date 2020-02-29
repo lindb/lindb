@@ -245,10 +245,10 @@ func (s *shard) Write(metric *pb.Metric) error {
 }
 
 func (s *shard) Close() error {
-	if err := s.indexDB.Close(); err != nil {
+	if err := s.Flush(); err != nil {
 		return err
 	}
-	if err := s.Flush(); err != nil {
+	if err := s.indexDB.Close(); err != nil {
 		return err
 	}
 	return s.indexStore.Close()
@@ -314,10 +314,9 @@ func (s *shard) Flush() (err error) {
 
 	//FIXME stone1100
 	// index flush
-	//if err = s.memDB.FlushInvertedIndexTo(
-	//	invertedindex.NewFlusher(s.invertedFamily.NewFlusher())); err != nil {
-	//	return err
-	//}
+	if err = s.indexDB.Flush(); err != nil {
+		return err
+	}
 
 	for _, familyTime := range s.mutable.Families() {
 		segmentName := s.interval.Calculator().GetSegment(familyTime)

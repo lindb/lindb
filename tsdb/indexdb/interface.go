@@ -33,4 +33,6 @@ type IndexDatabase interface {
 	// BuildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
 	BuildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
+	// Flush flushes index data to disk
+	Flush() error
 }

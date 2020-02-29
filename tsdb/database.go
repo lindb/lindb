@@ -235,6 +235,13 @@ func (db *database) Close() error {
 	if err := db.metadata.Close(); err != nil {
 		return err
 	}
+	if err := db.FlushMeta(); err != nil {
+		engineLogger.Error(fmt.Sprintf(
+			"flush meta database[%s]", db.name), logger.Error(err))
+	}
+	if err := db.metaStore.Close(); err != nil {
+		return err
+	}
 	db.shards.Range(func(key, value interface{}) bool {
 		thisShard := value.(Shard)
 		if err := thisShard.Close(); err != nil {
@@ -243,10 +250,6 @@ func (db *database) Close() error {
 		}
 		return true
 	})
-	if err := db.FlushMeta(); err != nil {
-		engineLogger.Error(fmt.Sprintf(
-			"flush meta database[%s]", db.name), logger.Error(err))
-	}
 	return nil
 }
 
@@ -293,7 +296,7 @@ func (db *database) FlushMeta() (err error) {
 	}
 	defer db.isFlushing.Store(false)
 
-	return db.metaStore.Close()
+	return db.metadata.Flush()
 }
 
 func (db *database) Range(f func(key, value interface{}) bool) {

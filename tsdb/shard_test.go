@@ -256,11 +256,17 @@ func TestShard_Close(t *testing.T) {
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	s1 := s.(*shard)
 	s1.indexDB = index
-	// case 1: close index db err
-	index.EXPECT().Close().Return(fmt.Errorf("err"))
+
+	// case 1: flush index err
+	index.EXPECT().Flush().Return(fmt.Errorf("err"))
 	err := s.Close()
 	assert.Error(t, err)
-	// case 2: flush family err
+	// case 2: close index db err
+	index.EXPECT().Flush().Return(nil).AnyTimes()
+	index.EXPECT().Close().Return(fmt.Errorf("err"))
+	err = s.Close()
+	assert.Error(t, err)
+	// case 3: flush family err
 	index.EXPECT().Close().Return(nil).AnyTimes()
 	mutable := memdb.NewMockMemoryDatabase(ctrl)
 	s1.mutable = mutable
@@ -268,7 +274,7 @@ func TestShard_Close(t *testing.T) {
 	mutable.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = s.Close()
 	assert.Error(t, err)
-	// case 3: close success
+	// case 4: close success
 	mutable.EXPECT().Families().Return(nil)
 	err = s.Close()
 	assert.NoError(t, err)

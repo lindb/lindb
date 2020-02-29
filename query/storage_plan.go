@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
@@ -25,9 +26,9 @@ type storageExecutePlan struct {
 
 	fieldIDs []field.ID
 
-	metricID       uint32
-	fields         map[field.ID]aggregation.AggregatorSpec
-	groupByTagKeys map[string]uint32
+	metricID    uint32
+	fields      map[field.ID]aggregation.AggregatorSpec
+	groupByTags []tag.Meta
 
 	err error
 }
@@ -35,11 +36,10 @@ type storageExecutePlan struct {
 // newStorageExecutePlan creates a storage execute plan
 func newStorageExecutePlan(namespace string, metadata metadb.Metadata, query *stmt.Query) Plan {
 	return &storageExecutePlan{
-		namespace:      namespace,
-		metadata:       metadata,
-		query:          query,
-		fields:         make(map[field.ID]aggregation.AggregatorSpec),
-		groupByTagKeys: make(map[string]uint32),
+		namespace: namespace,
+		metadata:  metadata,
+		query:     query,
+		fields:    make(map[field.ID]aggregation.AggregatorSpec),
 	}
 }
 
@@ -74,23 +74,32 @@ func (p *storageExecutePlan) Plan() error {
 	return nil
 }
 
-// hasGroupBy returns if query has group by tag keys
-func (p *storageExecutePlan) hasGroupBy() bool {
-	return len(p.query.GroupBy) > 0
+// groupByKeyIDs returns group by tag key ids
+func (p *storageExecutePlan) groupByKeyIDs() []uint32 {
+	tagKeyIDs := make([]uint32, len(p.groupByTags))
+	for idx, t := range p.groupByTags {
+		tagKeyIDs[idx] = t.ID
+	}
+	return tagKeyIDs
 }
 
 // groupBy parses group by tag keys
 func (p *storageExecutePlan) groupBy() error {
-	if len(p.query.GroupBy) == 0 {
+	groupByTags := len(p.query.GroupBy)
+	if groupByTags == 0 {
 		return nil
 	}
+	p.groupByTags = make([]tag.Meta, groupByTags)
 
-	for _, tagKey := range p.query.GroupBy {
+	for idx, tagKey := range p.query.GroupBy {
 		tagKeyID, err := p.metadata.MetadataDatabase().GetTagKeyID(p.namespace, p.query.MetricName, tagKey)
 		if err != nil {
 			return err
 		}
-		p.groupByTagKeys[tagKey] = tagKeyID
+		p.groupByTags[idx] = tag.Meta{
+			Key: tagKey,
+			ID:  tagKeyID,
+		}
 	}
 	return nil
 }

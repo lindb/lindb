@@ -74,10 +74,12 @@ func (s *tagSearch) findTagValueIDsByExpr(expr stmt.Expr) {
 			s.err = err
 			return
 		}
-		// save atomic tag filter result
-		s.result[expr.Rewrite()] = &filterResult{
-			tagKey:      tagKeyID,
-			tagValueIDs: tagValueIDs,
+		if tagValueIDs != nil && !tagValueIDs.IsEmpty() {
+			// save atomic tag filter result
+			s.result[expr.Rewrite()] = &filterResult{
+				tagKey:      tagKeyID,
+				tagValueIDs: tagValueIDs,
+			}
 		}
 	case *stmt.ParenExpr:
 		s.findTagValueIDsByExpr(expr.Expr)
