@@ -27,7 +27,6 @@ type Segment interface {
 	GetDataFamily(timestamp int64) (DataFamily, error)
 	// Close closes segment, include kv store
 	Close()
-
 	// getDataFamilies returns data family list by time range, return nil if not match
 	getDataFamilies(timeRange timeutil.TimeRange) []DataFamily
 }
@@ -124,10 +123,9 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 		defer s.mutex.Unlock()
 		family, ok = s.families.Load(familyTime)
 		if !ok {
-			//FIXME codingcrush need impl merger
 			familyOption := kv.FamilyOption{
 				CompactThreshold: 0,
-				Merger:           nopMerger,
+				Merger:           dataMerger,
 			}
 			// create kv family
 			f, err := s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)

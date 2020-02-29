@@ -20,13 +20,13 @@ import (
 // Level3: compressed field data
 //
 // flush step:
-// 1. flush field store of one series
-// 2. flush series bucket data based on one container of roaring bitmap
-// 3. flush series bucket info such as series data's offsets
+// 1. flush field metas of metric level
+// 2. flush field store of one series
+// 3. flush series id
 // 4. flush metric data include field metadata and all series ids data
 type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
-	FlushFieldMetas(fieldMetas []field.Meta)
+	FlushFieldMetas(fieldMetas field.Metas)
 	// FlushField writes a compressed field data to writer.
 	FlushField(fieldKey field.Key, data []byte)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
@@ -71,7 +71,7 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 }
 
 // FlushFieldMetas writes the field-meta of the metric
-func (w *flusher) FlushFieldMetas(fieldMetas []field.Meta) {
+func (w *flusher) FlushFieldMetas(fieldMetas field.Metas) {
 	w.fieldMetas = fieldMetas
 }
 

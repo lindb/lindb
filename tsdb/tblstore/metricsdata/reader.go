@@ -31,6 +31,8 @@ type Reader interface {
 	GetSeriesIDs() *roaring.Bitmap
 	// GetFields returns the field metas in this sst file
 	GetFields() field.Metas
+	// GetTimeRange returns the time range in this sst file
+	GetTimeRange() (start, end uint16)
 	// Load loads the data from sst file, then aggregates the data
 	Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []field.ID, highKey uint16, groupedSeries map[string][]uint16)
 }
@@ -82,6 +84,11 @@ func (r *reader) GetSeriesIDs() *roaring.Bitmap {
 // GetFields returns the field metas in this sst file
 func (r *reader) GetFields() field.Metas {
 	return r.fields
+}
+
+// GetTimeRange returns the time range in this sst file
+func (r *reader) GetTimeRange() (start, end uint16) {
+	return r.start, r.end
 }
 
 // prepare prepares the field aggregator based on query condition
@@ -146,15 +153,15 @@ func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []f
 
 // readSeriesData reads series data with position
 func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator) {
-	fieldLength := int(stream.ReadUint16(r.buf, position))
+	fieldCount := int(stream.ReadUint16(r.buf, position))
 	fieldOffsets := encoding.NewFixedOffsetDecoder(r.buf[position+2:])
 	// find small/equals family id index
-	idx := sort.Search(fieldLength, func(i int) bool {
+	idx := sort.Search(fieldCount, func(i int) bool {
 		return field.Key(stream.ReadUint16(r.buf, fieldOffsets.Get(i))) >= fieldAggs[0].fieldKey
 	})
-	fieldCount := len(fieldAggs)
+	aggFieldCount := len(fieldAggs)
 	j := 0
-	for i := idx; i < fieldLength; i++ {
+	for i := idx; i < fieldCount; i++ {
 		agg := fieldAggs[j]
 		offset := fieldOffsets.Get(i)
 		key := field.Key(stream.ReadUint16(r.buf, offset))
@@ -165,7 +172,7 @@ func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAgg
 			r.readField(agg.aggregator, tsd)
 			j++ // goto next query field id
 			// found all query fields return it
-			if fieldCount == j {
+			if aggFieldCount == j {
 				return
 			}
 		case key > agg.fieldKey:
@@ -189,7 +196,7 @@ func (r *reader) readField(agg aggregation.PrimitiveAggregator, tsd *encoding.TS
 // initReader initializes the reader context includes tag value ids/high offsets
 func (r *reader) initReader() error {
 	if len(r.buf) <= dataFooterSize {
-		return fmt.Errorf("block length no ok")
+		return fmt.Errorf("block length not ok")
 	}
 	// read footer(2+2+4+4+4+4)
 	footerPos := len(r.buf) - dataFooterSize
@@ -227,4 +234,62 @@ func (r *reader) initReader() error {
 	// read high offsets
 	r.highOffsets = encoding.NewFixedOffsetDecoder(r.buf[highOffsetsPos:])
 	return nil
+}
+
+// dataScanner represents the metric data scanner which scans the series data when merge operation
+type dataScanner struct {
+	reader        *reader
+	container     roaring.Container
+	seriesOffsets *encoding.FixedOffsetDecoder
+
+	highKeys  []uint16
+	highKey   uint16
+	seriesPos int
+}
+
+// newDataScanner creates a data scanner for data merge
+func newDataScanner(r Reader) *dataScanner {
+	reader := r.(*reader)
+	s := &dataScanner{
+		reader:   reader,
+		highKeys: reader.seriesIDs.GetHighKeys(),
+	}
+	s.nextContainer()
+	return s
+}
+
+// nextContainer goes next container context for scanner
+func (s *dataScanner) nextContainer() {
+	s.highKey = s.highKeys[s.seriesPos]
+	s.container = s.reader.seriesIDs.GetContainerAtIndex(s.seriesPos)
+	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[s.reader.highOffsets.Get(s.seriesPos):])
+	s.seriesPos++
+}
+
+// slotRange returns the slot range of metric level in current sst file
+func (s *dataScanner) slotRange() (start, end uint16) {
+	return s.reader.GetTimeRange()
+}
+
+// scan scans the data and returns series position if series id exist, else returns -1
+func (s *dataScanner) scan(highKey, lowSeriesID uint16) int {
+	if s.highKey < highKey {
+		if s.seriesPos >= len(s.highKeys) {
+			// current tag inverted no data can read
+			return -1
+		}
+		s.nextContainer()
+	}
+	if highKey != s.highKey {
+		// high key not match, return it
+		return -1
+	}
+	// find data by low series id
+	if s.container.Contains(lowSeriesID) {
+		// get the index of low series id in container
+		idx := s.container.Rank(lowSeriesID)
+		// get series data data position
+		return s.seriesOffsets.Get(idx - 1)
+	}
+	return -1
 }

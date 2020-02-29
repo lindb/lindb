@@ -4,6 +4,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 // invertedMerger implements kv.Merger for merging inverted index data for each tag key
@@ -53,7 +54,7 @@ func (m *invertedMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			hk := uint32(highKey) << 16
 			// flush tag value id=>series ids mapping
 			if err := m.invertedFlusher.
-				FlushInvertedIndex(uint32(lowTagValueID&0xFFFF)|hk, seriesIDs); err != nil {
+				FlushInvertedIndex(encoding.ValueWithHighLowBits(hk, lowTagValueID), seriesIDs); err != nil {
 				return nil, err
 			}
 			seriesIDs.Clear() // clear target series ids
