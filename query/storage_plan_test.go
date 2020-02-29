@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -158,10 +159,9 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	assert.Equal(t, "f", aggSpecs[1].FieldName())
 
 	assert.Equal(t, []field.ID{10, 12}, storagePlan.getFieldIDs())
-	assert.Equal(t, 2, len(storagePlan.groupByTagKeys))
-	assert.Equal(t, uint32(10), storagePlan.groupByTagKeys["host"])
-	assert.Equal(t, uint32(11), storagePlan.groupByTagKeys["path"])
-	assert.True(t, storagePlan.hasGroupBy())
+	assert.Equal(t, 2, len(storagePlan.groupByTags))
+	assert.Equal(t, []tag.Meta{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, storagePlan.groupByTags)
+	assert.Equal(t, []uint32{10, 11}, storagePlan.groupByKeyIDs())
 
 	// get tag key err
 	gomock.InOrder(

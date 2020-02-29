@@ -66,6 +66,13 @@ func TestTagSearch_Filter(t *testing.T) {
 	assert.Len(t, resultSet, 2)
 	assert.Equal(t, tagValueIDs, resultSet[(&stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Rewrite()].tagValueIDs)
 	assert.Equal(t, roaring.BitmapOf(10, 20), resultSet[(&stmt.EqualsExpr{Key: "path", Value: "/data"}).Rewrite()].tagValueIDs)
+	// case 6: filter get empty
+	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
+	tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), &stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Return(nil, nil)
+	search = newTagSearch("ns", query, metadata)
+	resultSet, err = search.Filter()
+	assert.NoError(t, err)
+	assert.Len(t, resultSet, 0)
 }
 
 func TestTagSearch_Filter_err(t *testing.T) {

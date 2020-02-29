@@ -41,3 +41,11 @@ func (m *metadata) Close() error {
 	}
 	return m.tagMetadata.Flush()
 }
+
+// Flush flushes the metadata to disk
+func (m *metadata) Flush() error {
+	if err := m.metadataDatabase.Sync(); err != nil {
+		return err
+	}
+	return m.tagMetadata.Flush()
+}

@@ -319,3 +319,15 @@ func TestMetadataDatabase_notify_timeout(t *testing.T) {
 	// test notify timeout
 	db1.notifySyncWithLock(true)
 }
+
+func TestIndexDatabase_Flush(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	syncInterval = 100
+	db, err := NewIndexDatabase(context.TODO(), "test", testPath, nil, nil, nil)
+	assert.NoError(t, err)
+	err = db.Flush()
+	assert.NoError(t, err)
+}
