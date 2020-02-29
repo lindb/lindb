@@ -44,6 +44,8 @@ func TestCodec(t *testing.T) {
 	assert.True(t, decoder.Next())
 	assert.True(t, decoder.HasValue())
 	assert.Equal(t, uint64(50), decoder.Value())
+	assert.False(t, decoder.HasValueWithSlot(10))
+	assert.False(t, decoder.HasValueWithSlot(13))
 
 	assert.False(t, decoder.Next())
 	data, err = encoder.BytesWithoutTime()
@@ -122,4 +124,10 @@ func TestHasValueWithSlot(t *testing.T) {
 func Test_Empty_TSDDecoder(t *testing.T) {
 	decoder := NewTSDDecoder(nil)
 	assert.Nil(t, decoder.Error())
+}
+
+func TestGetTSDDecoder(t *testing.T) {
+	decoder := GetTSDDecoder()
+	assert.NotNil(t, decoder)
+	ReleaseTSDDecoder(decoder)
 }

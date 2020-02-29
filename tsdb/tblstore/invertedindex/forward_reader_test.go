@@ -84,7 +84,7 @@ func TestForwardReader_offset_err(t *testing.T) {
 	assert.Nil(t, reader)
 }
 
-func TestTagForwardReader_GetGroupingScanner2(t *testing.T) {
+func TestTagForwardReader_GetGroupingScanner(t *testing.T) {
 	allSeriesIDs := roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40)
 	block := buildForwardBlock()
 	reader, err := newTagForwardReader(block)
