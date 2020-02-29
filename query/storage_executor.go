@@ -191,6 +191,8 @@ func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard, seriesIDs *roaring.
 // 3. loading
 func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter flow.DataFilter, seriesIDs *roaring.Bitmap) {
 	hasGroupBy := e.query.HasGroupBy()
+	groupByTagKeyIDs := e.storageExecutePlan.groupByKeyIDs()
+
 	// 1. filtering, check series ids if exist in storage
 	e.queryFlow.Filtering(func() {
 		resultSet, err := filter.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
@@ -206,8 +208,7 @@ func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter
 		// get grouping context if need
 		var groupingCtx series.GroupingContext
 		if hasGroupBy {
-			//FIXME
-			gCtx, err := indexDB.GetGroupingContext(nil, seriesIDs)
+			gCtx, err := indexDB.GetGroupingContext(groupByTagKeyIDs, seriesIDs)
 			if err != nil {
 				e.queryFlow.Complete(err)
 				return

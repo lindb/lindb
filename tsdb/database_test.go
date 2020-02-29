@@ -73,6 +73,7 @@ func TestDatabase_New(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
+	assert.Equal(t, option.DatabaseOption{Interval: "10s"}, db.GetOption())
 	assert.Equal(t, 3, db.NumOfShards())
 	kvStore.EXPECT().Close().Return(nil).AnyTimes() // include shard close
 	err = db.Close()
@@ -101,11 +102,21 @@ func Test_Database_Close(t *testing.T) {
 
 	mockStore := kv.NewMockStore(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
-	metadata.EXPECT().Close().Return(nil)
+	metadata.EXPECT().Flush().Return(nil).AnyTimes()
 	db := &database{
 		metadata:  metadata,
 		metaStore: mockStore}
-	mockStore.EXPECT().Close().Return(nil).AnyTimes()
+	// case 1: close metadata err
+	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
+	err := db.Close()
+	assert.Error(t, err)
+	// case 2: close meta store err
+	metadata.EXPECT().Close().Return(nil).AnyTimes()
+	mockStore.EXPECT().Close().Return(fmt.Errorf("err"))
+	err = db.Close()
+	assert.Error(t, err)
+
+	mockStore.EXPECT().Close().Return(nil)
 
 	// mock shard close error
 	mockShard := NewMockShard(ctrl)

@@ -14,8 +14,8 @@ import (
 func TestNewMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
 	}()
 	metadata1, err := NewMetadata(context.TODO(), "test", testPath, nil)
 	assert.NoError(t, err)
@@ -35,4 +35,24 @@ func TestNewMetadata(t *testing.T) {
 	db.EXPECT().Close().Return(fmt.Errorf("err"))
 	err = m.Close()
 	assert.Error(t, err)
+}
+
+func TestMetadata_Flush(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+	metadata1, err := NewMetadata(context.TODO(), "test", testPath, nil)
+	assert.NoError(t, err)
+	db := NewMockMetadataDatabase(ctrl)
+	m := metadata1.(*metadata)
+	m.metadataDatabase = db
+	db.EXPECT().Sync().Return(fmt.Errorf("err"))
+	err = metadata1.Flush()
+	assert.Error(t, err)
+
+	db.EXPECT().Sync().Return(nil)
+	err = metadata1.Flush()
+	assert.NoError(t, err)
 }

@@ -167,6 +167,13 @@ func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags map
 	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
 }
 
+// Flush flushes index data to disk
+func (db *indexDatabase) Flush() error {
+	//fixme flush mapping data
+	//fixme inverted index need add wal???
+	return db.index.Flush()
+}
+
 // Close closes the database, releases the resources
 func (db *indexDatabase) Close() error {
 	db.cancel()

@@ -45,6 +45,8 @@ type Metadata interface {
 	MetadataDatabase() MetadataDatabase
 	// TagMetadata returns the tag metadata
 	TagMetadata() TagMetadata
+	// Flush flushes the metadata to disk
+	Flush() error
 }
 
 // MetadataDatabase represents the metadata storage includes namespace/metric metadata

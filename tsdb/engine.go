@@ -205,6 +205,9 @@ func (e *engine) flushDatabase(ctx context.Context, db Database) bool {
 		return false
 	case e.databaseToFlushCh <- db:
 	}
+
+	//FIXME flush shard need after meta flush success
+
 	// iterate shards
 	db.Range(func(key, value interface{}) bool {
 		theShard := value.(Shard)

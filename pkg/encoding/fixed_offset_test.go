@@ -1,9 +1,14 @@
 package encoding
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestFixedOffsetEncoder_IsEmpty(t *testing.T) {
@@ -110,4 +115,21 @@ func TestFixedOffset_codec_int32(t *testing.T) {
 	buf = make([]byte, 4)
 	putInt32(buf, 1+(1<<24), 4)
 	assert.Equal(t, 1+(1<<24), getInt(buf, 0, 4))
+}
+
+func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
+	encoder := NewFixedOffsetEncoder()
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < 100000; i++ {
+		x := rand.Intn(100000)
+		encoder.Add(x)
+	}
+	data := encoder.MarshalBinary()
+	fmt.Println(len(data))
+	decoder := NewFixedOffsetDecoder(data)
+	now := timeutil.Now()
+	for i := 0; i < 100000; i++ {
+		_ = decoder.Get(i)
+	}
+	fmt.Printf("cost:%d\n", timeutil.Now()-now)
 }
