@@ -29,4 +29,9 @@ func TestGroupingContext_Build(t *testing.T) {
 	binary.LittleEndian.PutUint32(tagValueIDs[0:], 20)
 	seriesIDs = result[string(tagValueIDs)]
 	assert.Equal(t, []uint16{2}, seriesIDs)
+
+	// case: get group by tag value ids
+	groupByTagValueIDs := ctx.GetGroupByTagValueIDs()
+	assert.Len(t, groupByTagValueIDs, 1)
+	assert.EqualValues(t, roaring.BitmapOf(10, 20).ToArray(), groupByTagValueIDs[0].ToArray())
 }
