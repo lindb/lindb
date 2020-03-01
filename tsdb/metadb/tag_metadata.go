@@ -23,17 +23,19 @@ var (
 type TagMetadata interface {
 	// GenTagValueID generates the tag value id for spec tag key
 	GenTagValueID(tagKeyID uint32, tagValue string) (uint32, error)
-
 	// SuggestTagValues returns suggestions from given tag key id and prefix of tag value
 	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
-
 	// FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 	FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error)
 	// GetTagValueIDsForTag get tag value ids for spec metric's tag key,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 	GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
-
+	// CollectTagValues collects the tag values by tag value ids,
+	CollectTagValues(tagKeyID uint32,
+		tagValueIDs *roaring.Bitmap,
+		tagValues map[uint32]string,
+	) error
 	// Flush flushes the memory tag metadata into kv store
 	Flush() error
 }
@@ -111,7 +113,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 			}
 			tag = newTagEntry(seq)
 		} else {
-			// for new tag, auto sequence start with 0
+			// for new tag, auto sequence start with 1
 			tag = newTagEntry(0)
 		}
 		// cache tag entry
@@ -178,6 +180,32 @@ func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, er
 		return nil, err
 	}
 	return result, nil
+}
+
+// CollectTagValues collects the tag values by tag value ids for spec tag key,
+func (m *tagMetadata) CollectTagValues(tagKeyID uint32,
+	tagValueIDs *roaring.Bitmap,
+	tagValues map[uint32]string,
+) error {
+	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
+		if tagValueIDs.IsEmpty() {
+			// if found all tag value in memory, return it(maybe load immutable memory)
+			return
+		}
+		tagEntry.collectTagValues(tagValueIDs, tagValues)
+	})
+
+	if tagValueIDs.IsEmpty() {
+		// no need collect tag value ids, returns it
+		return nil
+	}
+	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
+		return reader.CollectTagValues(tagKeyID, tagValueIDs, tagValues)
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Flush flushes the memory tag metadata into kv store

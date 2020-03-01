@@ -207,8 +207,8 @@ type trieTreeQuerier interface {
 	PrefixSearch(value string, limit int) (founds []string)
 	// Iterator returns the trie-tree iterator
 	Iterator(prefixValue string) *TrieTreeIterator
-	// GetValuesByOffsets picks the values at specified offsets
-	GetValuesByOffsets(offsets []int) (values []string)
+	// GetValueByOffset picks the value at specified offset
+	GetValueByOffset(offset int) (value string, ok bool)
 }
 
 // trieTreeBlock is the structured trie-tree-block of index-table
@@ -369,31 +369,28 @@ func reverseBytes(s []byte) {
 	}
 }
 
-func (block *trieTreeBlock) GetValuesByOffsets(offsets []int) (values []string) {
+func (block *trieTreeBlock) GetValueByOffset(offset int) (values string, ok bool) {
 	var buf []byte // combine the values
 	maxNodeNumber := block.LOUDS.MaxNodeNumber()
 	// validate labels count and node-numbers
 	if maxNodeNumber+1 != uint64(len(block.labels)) {
-		return nil
+		return
 	}
-	for _, offset := range offsets {
-		buf = buf[:0]
-		thisNodeNumber := block.isPrefixKey.Select1(uint64(offset) + 1)
-		// combines the prefixKey path
-		for 0 < thisNodeNumber && thisNodeNumber <= maxNodeNumber {
-			buf = append(buf, block.labels[int(thisNodeNumber)])
-			thisNodeNumber = block.LOUDS.Parent(thisNodeNumber)
-			if thisNodeNumber >= maxNodeNumber {
-				break
-			}
+	buf = buf[:0]
+	thisNodeNumber := block.isPrefixKey.Select1(uint64(offset) + 1)
+	// combines the prefixKey path
+	for 0 < thisNodeNumber && thisNodeNumber <= maxNodeNumber {
+		buf = append(buf, block.labels[int(thisNodeNumber)])
+		thisNodeNumber = block.LOUDS.Parent(thisNodeNumber)
+		if thisNodeNumber >= maxNodeNumber {
+			break
 		}
-		if len(buf) == 0 {
-			continue
-		}
-		reverseBytes(buf)
-		values = append(values, string(buf[1:]))
 	}
-	return values
+	if len(buf) == 0 {
+		return
+	}
+	reverseBytes(buf)
+	return string(buf[1:]), true
 }
 
 // TrieTreeIterator implements TrieTreeIterator

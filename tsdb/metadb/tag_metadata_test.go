@@ -190,6 +190,38 @@ func TestTagMetadata_GetTagValueIDsForTag(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(20, 30, 40), ids)
 }
 
+func TestTagMetadata_CollectTagValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newTagReaderFunc = metricsmeta.NewTagReader
+		ctrl.Finish()
+	}()
+
+	meta, _, snapshot := mockTagMetadata(ctrl)
+
+	tagReader := metricsmeta.NewMockTagReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) metricsmeta.TagReader {
+		return tagReader
+	}
+	mockTagMetadataMemData(meta)
+
+	// case 1: collect from mutable
+	err := meta.CollectTagValues(5, roaring.BitmapOf(10), make(map[uint32]string))
+	assert.NoError(t, err)
+	// case 2: tag value ids is empty
+	err = meta.CollectTagValues(5, roaring.BitmapOf(), make(map[uint32]string))
+	assert.NoError(t, err)
+	// case 3: collect from kv err
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
+	tagReader.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = meta.CollectTagValues(5, roaring.BitmapOf(1, 1000), make(map[uint32]string))
+	assert.Error(t, err)
+	// case 4: collect from kv success
+	tagReader.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	err = meta.CollectTagValues(5, roaring.BitmapOf(1000), make(map[uint32]string))
+	assert.NoError(t, err)
+}
+
 func TestTagMetadata_Flush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {

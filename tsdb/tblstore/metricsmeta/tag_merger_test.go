@@ -25,7 +25,8 @@ func TestTagMerger_Merge(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(200), tReader.TagValueSeq())
 	tagValueIDs := roaring.BitmapOf(1, 2, 3, 4, 6, 7, 8, 9)
-	assert.EqualValues(t, tagValueIDs.ToArray(), tReader.TagValueIDs().ToArray())
+	result, _ := tReader.TagValueIDs()
+	assert.EqualValues(t, tagValueIDs.ToArray(), result.ToArray())
 	trie, _ := tReader.TrieTree()
 	it := tagValueIDs.Iterator()
 	c := 0

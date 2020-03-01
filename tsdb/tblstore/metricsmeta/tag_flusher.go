@@ -1,7 +1,10 @@
 package metricsmeta
 
 import (
+	"encoding/binary"
 	"hash/crc32"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -27,7 +30,8 @@ func NewTagFlusher(kvFlusher kv.Flusher) TagFlusher {
 		kvFlusher:      kvFlusher,
 		entrySetWriter: stream.NewBufferWriter(nil),
 		trie:           newTrieTree(),
-		tagValueIDs:    encoding.NewFixedOffsetEncoder(),
+		tagValueIDs:    roaring.New(),
+		scratch:        make([]byte, 4),
 	}
 }
 
@@ -36,12 +40,18 @@ type tagFlusher struct {
 	kvFlusher      kv.Flusher
 	trie           trieTreeBuilder
 	entrySetWriter *stream.BufferWriter
-	tagValueIDs    *encoding.FixedOffsetEncoder
+	tagValueIDs    *roaring.Bitmap
+	maxTagValueID  uint32
+	scratch        []byte
 }
 
 // FlushTagValue writes the tag value into tag value prefix trie
 func (w *tagFlusher) FlushTagValue(tagValue string, tagValueID uint32) {
 	w.trie.Add(tagValue, tagValueID)
+	// set max tag value ids
+	if tagValueID > w.maxTagValueID {
+		w.maxTagValueID = tagValueID
+	}
 }
 
 // FlushTagKeyID ends writing prefix trie in tag index table.
@@ -53,10 +63,10 @@ func (w *tagFlusher) FlushTagKeyID(tagID uint32, tagValueSeq uint32) error {
 	if err := w.writeTrieTree(treeDataBlock); err != nil {
 		return err
 	}
-	// write tagValueData list
-	w.writeTagValueData(treeDataBlock)
 	// write offsets, footer
-	w.writeOffsetsAndFooter(tagValueSeq)
+	if err := w.writeOffsetsAndFooter(tagValueSeq, treeDataBlock); err != nil {
+		return err
+	}
 	// write all
 	data, _ := w.entrySetWriter.Bytes()
 	return w.kvFlusher.Add(tagID, data)
@@ -93,29 +103,65 @@ func (w *tagFlusher) writeTrieTree(treeDataBlock *trieTreeData) error {
 	return nil
 }
 
-func (w *tagFlusher) writeTagValueData(treeDataBlock *trieTreeData) {
-	// write all data length and versioned tagValue data blocks
-	for _, item := range treeDataBlock.values {
+func (w *tagFlusher) writeTagValueInverted(treeDataBlock *trieTreeData) ([]int, int) {
+	length := encoding.GetMinLength(int(w.maxTagValueID))
+	w.entrySetWriter.PutByte(byte(length))
+	tagValueCount := len(treeDataBlock.values)
+	offsets := make([]int, len(treeDataBlock.values))
+	// write all data length and tagValue data blocks
+	for i, item := range treeDataBlock.values {
 		tagValueID := item.(uint32)
+		binary.LittleEndian.PutUint32(w.scratch, tagValueID)
+		// get index of tag value id in bitmap, must get idx first
+		idx := w.tagValueIDs.Rank(tagValueID)
+		offsets[idx] = i
+		w.tagValueIDs.Add(tagValueID)
 		// record tag value id
-		w.tagValueIDs.Add(int(tagValueID))
+		w.entrySetWriter.PutBytes(w.scratch[:length])
 	}
+	return offsets, tagValueCount
 }
 
-func (w *tagFlusher) writeOffsetsAndFooter(tagValueSeq uint32) {
-	// offsets start position
-	offsetsStartPos := w.entrySetWriter.Len()
+func (w *tagFlusher) writeTagValueForward(offsets []int, tagValueCount int) error {
+	length := encoding.GetMinLength(tagValueCount)
+	w.entrySetWriter.PutByte(byte(length))
+	// write all data length and tagValue data blocks
+	for _, nodeNO := range offsets {
+		binary.LittleEndian.PutUint32(w.scratch, uint32(nodeNO))
+		// record tag value id
+		w.entrySetWriter.PutBytes(w.scratch[:length])
+	}
+	data, err := encoding.BitmapMarshal(w.tagValueIDs)
+	if err != nil {
+		return err
+	}
+	w.entrySetWriter.PutBytes(data)
+	return nil
+}
+
+func (w *tagFlusher) writeOffsetsAndFooter(tagValueSeq uint32, treeDataBlock *trieTreeData) error {
+	// tag value ids start position
+	tagValueIDsPos := w.entrySetWriter.Len()
 	// write all tag value ids
-	w.entrySetWriter.PutBytes(w.tagValueIDs.MarshalBinary())
+	offsets, tagValueCount := w.writeTagValueInverted(treeDataBlock)
+	// write tag value ids=>offsets
+	forwardPos := w.entrySetWriter.Len()
+	if err := w.writeTagValueForward(offsets, tagValueCount); err != nil {
+		return err
+	}
+	// forward(tag value ids=>offsets(node no.))
 	////////////////////////////////
-	// footer (tag value seq+tag value ids' offset+crc32 checksum)(4 bytes+4 bytes+4 bytes)
+	// footer (tag value seq+tag value ids' offset+forward offset+crc32 checksum)(4 bytes+4 bytes+4 bytes+4 bytes)
 	////////////////////////////////
 	w.entrySetWriter.PutUint32(tagValueSeq)
 	// write tag value ids' start position
-	w.entrySetWriter.PutUint32(uint32(offsetsStartPos))
+	w.entrySetWriter.PutUint32(uint32(tagValueIDsPos))
+	// tag value ids=>offset position
+	w.entrySetWriter.PutUint32(uint32(forwardPos))
 	// write crc32 checksum
 	data, _ := w.entrySetWriter.Bytes()
 	w.entrySetWriter.PutUint32(crc32.ChecksumIEEE(data))
+	return nil
 }
 
 // Commit closes the writer, this will be called after writing all tagKeys.
@@ -126,7 +172,8 @@ func (w *tagFlusher) Commit() error {
 
 // reset resets the trie and buf
 func (w *tagFlusher) reset() {
+	w.maxTagValueID = 0
 	w.trie.Reset()
-	w.tagValueIDs.Reset()
+	w.tagValueIDs.Clear()
 	w.entrySetWriter.Reset()
 }
