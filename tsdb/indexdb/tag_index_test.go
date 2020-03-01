@@ -175,5 +175,5 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 	}
 	wait.Wait()
 	fmt.Println(c.Load())
-	fmt.Println(timeutil.Now() - now)
+	fmt.Printf("cost:%d\n", timeutil.Now()-now)
 }
