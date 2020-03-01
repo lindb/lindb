@@ -146,20 +146,17 @@ func Test_trieTree_FindOffsetsByEqual(t *testing.T) {
 
 func Test_trieTree_GetValuesByOffsets(t *testing.T) {
 	data := buildTestTrieTreeData()
-	values := data.GetValuesByOffsets([]int{0, 1, 2, 3, 4, 5, 6})
-	assert.Equal(t, "c", values[0])
-	assert.Equal(t, "cd", values[1])
-	assert.Equal(t, "etcd", values[2])
-	assert.Equal(t, "eleme", values[3])
-	assert.Equal(t, "etrace", values[4])
-	assert.Equal(t, "firefox", values[5])
-	assert.Len(t, values, 6)
+	value, ok := data.GetValueByOffset(3)
+	assert.True(t, ok)
+	assert.Equal(t, "eleme", value)
+
+	_, ok = data.GetValueByOffset(8)
+	assert.False(t, ok)
 
 	// validation failure
 	data.labels = append(data.labels, byte(1))
-	values = data.GetValuesByOffsets([]int{1})
-	assert.Len(t, values, 0)
-
+	_, ok = data.GetValueByOffset(1)
+	assert.False(t, ok)
 }
 
 func Test_trieTree_walkTreeByValue(t *testing.T) {

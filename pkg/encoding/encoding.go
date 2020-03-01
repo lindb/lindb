@@ -27,3 +27,17 @@ func LowBits(x uint32) uint16 {
 func ValueWithHighLowBits(high uint32, low uint16) uint32 {
 	return uint32(low&maxLowBit) | high
 }
+
+// GetMinLength returns the min length of value
+func GetMinLength(value int) int {
+	switch {
+	case value < 1<<8:
+		return 1
+	case value < 1<<16:
+		return 2
+	case value < 1<<24:
+		return 3
+	default:
+		return 4
+	}
+}

@@ -12,7 +12,7 @@ import (
 
 // TagEntry represents the tag value=>id under tag key
 type TagEntry interface {
-	// genTagValueID generates a new tag value id for new tag value
+	// genTagValueID generates a new tag value id for new tag value, start with 1
 	genTagValueID() uint32
 	// getTagValueIDSeq returns the current tag value id sequence
 	getTagValueIDSeq() uint32
@@ -26,6 +26,8 @@ type TagEntry interface {
 	getTagValueIDs() *roaring.Bitmap
 	// getTagValues returns the all tag values
 	getTagValues() map[string]uint32
+	// collectTagValues collects the tag values by tag value ids,
+	collectTagValues(tagValueIDs *roaring.Bitmap, tagValues map[uint32]string)
 }
 
 // tagEntry implements TagEntry interface
@@ -43,7 +45,7 @@ func newTagEntry(tagValueSeq uint32) TagEntry {
 	return t
 }
 
-// genTagValueID generates a new tag value id for new tag value
+// genTagValueID generates a new tag value id for new tag value, start with 1
 func (t *tagEntry) genTagValueID() uint32 {
 	return t.tagValueSeq.Inc()
 }
@@ -182,4 +184,17 @@ func (t *tagEntry) findSeriesIDsByRegex(expr *stmt.RegexExpr) *roaring.Bitmap {
 		}
 	}
 	return result
+}
+
+// collectTagValues collects the tag values by tag value ids,
+func (t *tagEntry) collectTagValues(tagValueIDs *roaring.Bitmap, tagValues map[uint32]string) {
+	for value, tagValueID := range t.tagValues {
+		if tagValueIDs.IsEmpty() {
+			break
+		}
+		if tagValueIDs.Contains(tagValueID) {
+			tagValueIDs.Remove(tagValueID)
+			tagValues[tagValueID] = value
+		}
+	}
 }

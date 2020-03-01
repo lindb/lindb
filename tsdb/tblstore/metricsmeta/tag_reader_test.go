@@ -36,15 +36,15 @@ func buildTagTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 		2: "sh",
 		3: "bj"}
 	hostMapping := map[uint32]string{
-		1: "eleme-dev-nj-1",
-		2: "eleme-dev-nj-2",
-		3: "eleme-dev-nj-3",
-		4: "eleme-dev-sh-4",
-		5: "eleme-dev-sh-5",
-		6: "eleme-dev-sh-6",
-		7: "eleme-dev-bj-7",
-		8: "eleme-dev-bj-8",
-		9: "eleme-dev-bj-9"}
+		1:    "eleme-dev-nj-1",
+		2:    "eleme-dev-nj-2",
+		3:    "eleme-dev-nj-3",
+		4:    "eleme-dev-sh-4",
+		5:    "eleme-dev-sh-5",
+		6000: "eleme-dev-sh-6000",
+		7:    "eleme-dev-bj-7",
+		8:    "eleme-dev-bj-8",
+		9:    "eleme-dev-bj-9"}
 	flush := func(mapping map[uint32]string) {
 		for id, value := range mapping {
 			seriesFlusher.FlushTagValue(value, id)
@@ -180,7 +180,7 @@ func TestTagReader_FindValueIDsForTagKeyID(t *testing.T) {
 	idSet, err = reader.GetTagValueIDsForTagKeyID(20)
 	assert.NoError(t, err)
 	assert.NotNil(t, idSet)
-	assert.Equal(t, roaring.BitmapOf(1, 2, 3), idSet)
+	assert.EqualValues(t, roaring.BitmapOf(1, 2, 3).ToArray(), idSet.ToArray())
 }
 
 func TestTagReader_FindValueIDsByExprForTagKeyID_bad_case(t *testing.T) {
@@ -252,7 +252,7 @@ func TestTagReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
 	// find existed host
 	idSet, err := reader.FindValueIDsByExprForTagKeyID(22, &stmt.LikeExpr{Key: "host", Value: "eleme-dev-sh-*"})
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(4, 5, 6), idSet)
+	assert.Equal(t, roaring.BitmapOf(4, 5, 6000), idSet)
 	// find not existed host
 	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.InExpr{Key: "host", Values: []string{"eleme-dev-sh---"}})
 	assert.Error(t, err)
@@ -265,7 +265,7 @@ func TestTagReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) {
 
 	idSet, err := reader.FindValueIDsByExprForTagKeyID(22, &stmt.RegexExpr{Key: "host", Regexp: "eleme-dev-sh-"})
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(4, 5, 6), idSet)
+	assert.Equal(t, roaring.BitmapOf(4, 5, 6000), idSet)
 
 	// find not existed host
 	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.RegexExpr{Key: "host", Regexp: "eleme-prod-sh-"})
@@ -348,9 +348,9 @@ func Test_InvertedIndexReader_WalkTagValues(t *testing.T) {
 
 func TestTagReader_WalkTagValues_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	defer func() {
 		newTagKVEntrySetFunc = newTagKVEntrySet
+		defer ctrl.Finish()
 	}()
 	reader := buildSeriesIndexReader(ctrl)
 
@@ -368,4 +368,34 @@ func TestTagReader_WalkTagValues_err(t *testing.T) {
 			return true
 		}))
 	assert.Equal(t, 0, ipCount2)
+}
+
+func TestTagReader_CollectTagValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newTagKVEntrySetFunc = newTagKVEntrySet
+		defer ctrl.Finish()
+	}()
+	reader := buildSeriesIndexReader(ctrl)
+
+	// case 1: new tag entry err
+	newTagKVEntrySetFunc = func(block []byte) (intf TagKVEntrySetINTF, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	err := reader.CollectTagValues(21, roaring.BitmapOf(1, 2, 3), nil)
+	assert.Error(t, err)
+	// case 2: tag value ids is empty
+	err = reader.CollectTagValues(21, roaring.New(), nil)
+	assert.NoError(t, err)
+	// case 3: tag key not found
+	err = reader.CollectTagValues(19, roaring.BitmapOf(1, 2, 3), nil)
+	assert.NoError(t, err)
+	// case 4: tag entry collect err
+	mockEntry := NewMockTagKVEntrySetINTF(ctrl)
+	newTagKVEntrySetFunc = func(block []byte) (intf TagKVEntrySetINTF, err error) {
+		return mockEntry, nil
+	}
+	mockEntry.EXPECT().CollectTagValues(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = reader.CollectTagValues(21, roaring.BitmapOf(1, 2, 3), nil)
+	assert.Error(t, err)
 }

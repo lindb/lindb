@@ -23,6 +23,7 @@ var (
 const (
 	tagFooterSize = 4 + // tag value id sequence
 		4 + // tag value ids position
+		4 + // tag value ids=>offsets position
 		4 // crc32 checksum
 )
 
@@ -43,14 +44,17 @@ type TagReader interface {
 	// SuggestTagValues finds tag values by prefix search
 	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
 
-	// WalkTagValues walks each tag value and bitmap via fn.
+	// WalkTagValues walks each tag value and tag value id via fn.
 	// If fn returns false, the iteration is stopped.
 	// The values are the raw byte slices and not the converted types.
 	WalkTagValues(
-		tagID uint32,
+		tagKeyID uint32,
 		tagValuePrefix string,
 		fn func(tagValue []byte, tagValueID uint32) bool,
 	) error
+
+	// CollectTagValues collects the tag values by tag value ids,
+	CollectTagValues(tagKeyID uint32, tagValueIDs *roaring.Bitmap, tagValues map[uint32]string) error
 }
 
 // tagReader implements TagReader
@@ -154,7 +158,7 @@ func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, er
 	if len(entrySets) == 0 {
 		return nil, constants.ErrNotFound
 	}
-	return entrySets.GetTagValueIDs(), nil
+	return entrySets.GetTagValueIDs()
 }
 
 // filterEntrySets filters the entry-sets by tag key id
@@ -206,13 +210,16 @@ func (r *tagReader) SuggestTagValues(
 	return tagValues
 }
 
+// WalkTagValues walks each tag value and tag value id via fn.
+// If fn returns false, the iteration is stopped.
+// The values are the raw byte slices and not the converted types.
 func (r *tagReader) WalkTagValues(
-	tagID uint32,
+	tagKeyID uint32,
 	tagValuePrefix string,
 	fn func(tagValue []byte, tagValueID uint32) bool,
 ) error {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagID)
+		value, ok := reader.Get(tagKeyID)
 		if !ok {
 			continue
 		}
@@ -230,6 +237,29 @@ func (r *tagReader) WalkTagValues(
 			if fn != nil && !fn(tagValue, entrySet.GetTagValueID(offset)) {
 				return nil
 			}
+		}
+	}
+	return nil
+}
+
+// CollectTagValues collects the tag values by tag value ids,
+func (r *tagReader) CollectTagValues(tagKeyID uint32, tagValueIDs *roaring.Bitmap,
+	tagValues map[uint32]string,
+) error {
+	for _, reader := range r.readers {
+		if tagValueIDs.IsEmpty() {
+			return nil
+		}
+		value, ok := reader.Get(tagKeyID)
+		if !ok {
+			continue
+		}
+		entrySet, err := newTagKVEntrySetFunc(value)
+		if err != nil {
+			return err
+		}
+		if err := entrySet.CollectTagValues(tagValueIDs, tagValues); err != nil {
+			return err
 		}
 	}
 	return nil

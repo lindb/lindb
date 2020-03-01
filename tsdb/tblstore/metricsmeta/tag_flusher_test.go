@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/kv"
-
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/encoding"
 )
+
+var bitmapMarshal = encoding.BitmapMarshal
 
 func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -26,6 +30,23 @@ func Test_InvertedIndexFlusher_Commit(t *testing.T) {
 	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	err := indexFlusher.FlushTagKeyID(333, 100)
 	assert.Nil(t, err)
+}
+
+func TestTagFlusher_Marshal_TagValue_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		encoding.BitmapMarshal = bitmapMarshal
+		ctrl.Finish()
+	}()
+
+	mockFlusher := kv.NewMockFlusher(ctrl)
+	indexFlusher := NewTagFlusher(mockFlusher)
+	indexFlusher.FlushTagValue("test", 1)
+	encoding.BitmapMarshal = func(bitmap *roaring.Bitmap) (bytes []byte, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	err := indexFlusher.FlushTagKeyID(10, 10)
+	assert.Error(t, err)
 }
 
 func Test_InvertedIndexFlusher_RS_error(t *testing.T) {

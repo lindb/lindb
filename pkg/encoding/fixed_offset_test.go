@@ -75,14 +75,14 @@ func TestFixedOffsetEncoder_Reset(t *testing.T) {
 }
 
 func TestFixedOffset_codec_int32(t *testing.T) {
-	assert.Equal(t, 1, getValueLen(0))
-	assert.Equal(t, 1, getValueLen(1))
-	assert.Equal(t, 2, getValueLen(1<<8))
-	assert.Equal(t, 2, getValueLen((1<<8)+1))
-	assert.Equal(t, 3, getValueLen(1<<16))
-	assert.Equal(t, 3, getValueLen((1<<16)+1))
-	assert.Equal(t, 4, getValueLen(1<<24))
-	assert.Equal(t, 4, getValueLen((1<<24)+1))
+	assert.Equal(t, 1, GetMinLength(0))
+	assert.Equal(t, 1, GetMinLength(1))
+	assert.Equal(t, 2, GetMinLength(1<<8))
+	assert.Equal(t, 2, GetMinLength((1<<8)+1))
+	assert.Equal(t, 3, GetMinLength(1<<16))
+	assert.Equal(t, 3, GetMinLength((1<<16)+1))
+	assert.Equal(t, 4, GetMinLength(1<<24))
+	assert.Equal(t, 4, GetMinLength((1<<24)+1))
 
 	buf := make([]byte, 1)
 	putInt32(buf, 0, 1)

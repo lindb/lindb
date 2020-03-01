@@ -88,6 +88,29 @@ func TestTagEntry_findSeriesIDsByRegex(t *testing.T) {
 	assert.Equal(t, roaring.New(), tagIndex.findSeriesIDsByExpr(&stmt.RegexExpr{Key: "host", Regexp: `22+`}))
 }
 
+func TestTagEntry_collectTagValues(t *testing.T) {
+	tagIndex := prepareTagEntry()
+	tagValueIDs := roaring.BitmapOf(1, 2, 3, 100)
+	result := make(map[uint32]string)
+	// case 1: collect tag value
+	tagIndex.collectTagValues(tagValueIDs, result)
+	assert.Len(t, result, 3)
+	assert.Equal(t, "a", result[1])
+	assert.Equal(t, "abc", result[2])
+	assert.Equal(t, "b", result[3])
+	assert.EqualValues(t, tagValueIDs.ToArray(), roaring.BitmapOf(100).ToArray())
+	tagIndex.collectTagValues(tagValueIDs, result)
+	assert.Len(t, result, 3)
+	assert.EqualValues(t, tagValueIDs.ToArray(), roaring.BitmapOf(100).ToArray())
+	// case 2: collect tag value ids empty
+	result = make(map[uint32]string)
+	tagValueIDs = roaring.BitmapOf(2, 3)
+	tagIndex.collectTagValues(tagValueIDs, result)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "abc", result[2])
+	assert.Equal(t, "b", result[3])
+}
+
 func prepareTagEntry() TagEntry {
 	tagIndex := newTagEntry(0)
 	tagIndex.addTagValue("a", 1)
