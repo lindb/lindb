@@ -12,16 +12,23 @@ import (
 // builds tags => series ids mapping, using such as counting sort
 // https://en.wikipedia.org/wiki/Counting_sort
 type GroupingContext struct {
-	tagKeys  []uint32
-	scanners map[uint32][]series.GroupingScanner
+	tagKeys     []uint32
+	scanners    map[uint32][]series.GroupingScanner
+	tagValueIDs []*roaring.Bitmap // collect tag value ids for each group by tag key
 }
 
 // NewGroupContext creates a GroupingContext
 func NewGroupContext(tagKeys []uint32, scanners map[uint32][]series.GroupingScanner) series.GroupingContext {
 	return &GroupingContext{
-		tagKeys:  tagKeys,
-		scanners: scanners,
+		tagKeys:     tagKeys,
+		scanners:    scanners,
+		tagValueIDs: make([]*roaring.Bitmap, len(tagKeys)),
 	}
+}
+
+// GetGroupByTagValueIDs returns the group by tag value ids for each tag key
+func (g *GroupingContext) GetGroupByTagValueIDs() []*roaring.Bitmap {
+	return g.tagValueIDs
 }
 
 // BuildGroup builds the grouped series ids by the high key of series id
@@ -45,6 +52,14 @@ func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container
 				found = false
 				break
 			}
+			// collect group by tag value id
+			groupByTagValueIDs := g.tagValueIDs[idx]
+			if groupByTagValueIDs == nil {
+				groupByTagValueIDs = roaring.New()
+				g.tagValueIDs[idx] = groupByTagValueIDs
+			}
+			groupByTagValueIDs.Add(tagValueID)
+			// build group key with group by tag value ids
 			offset := idx * 4
 			binary.LittleEndian.PutUint32(tagValueIDs[offset:], tagValueID)
 		}
@@ -79,8 +94,8 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(highKey uint16, container r
 				seriesID := it.Next()
 				if seriesID >= min && seriesID <= max {
 					v[seriesID-min] = tagValueIDs[idx] // put tag value by index(series ids)
-					idx++
 				}
+				idx++
 			}
 		}
 		tagValueIDsForTags[i] = v
