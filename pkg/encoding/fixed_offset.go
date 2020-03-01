@@ -51,7 +51,7 @@ func (e *FixedOffsetEncoder) MarshalBinary() []byte {
 	if length == 0 {
 		return nil
 	}
-	maxLength := getValueLen(e.values[length-1])
+	maxLength := GetMinLength(e.values[length-1])
 	e.bw.PutByte(byte(maxLength)) // max fixed length
 	// put all values with fixed length
 	buf := make([]byte, maxLength)
@@ -142,19 +142,5 @@ func putInt32(buf []byte, value int, length int) {
 		buf[1] = uint8(x >> 8)
 		buf[2] = uint8(x >> 16)
 		buf[3] = uint8(x >> 24)
-	}
-}
-
-// getValueLen returns the value of store min length
-func getValueLen(value int) int {
-	switch {
-	case value < 1<<8:
-		return 1
-	case value < 1<<16:
-		return 2
-	case value < 1<<24:
-		return 3
-	default:
-		return 4
 	}
 }
