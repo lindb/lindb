@@ -1,14 +1,19 @@
 package aggregation
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
+
+var encodeFunc = encoding.NewTSDEncoder
 
 func TestFieldIterator(t *testing.T) {
 	it := newFieldIterator(10, []series.PrimitiveIterator{})
@@ -31,9 +36,10 @@ func TestFieldIterator(t *testing.T) {
 	assert.False(t, it.HasNext())
 	assert.Nil(t, it.Next())
 
+	// marshal empty primitive iterator, because primitive iterator already read
 	data, err = it.MarshalBinary()
 	assert.NoError(t, err)
-	assert.True(t, len(data) > 0)
+	assert.Nil(t, data)
 }
 
 func TestFieldIterator_MarshalBinary(t *testing.T) {
@@ -46,6 +52,28 @@ func TestFieldIterator_MarshalBinary(t *testing.T) {
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
+}
+
+func TestFieldIterator_MarshalBinary_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		encoding.TSDEncodeFunc = encodeFunc
+		ctrl.Finish()
+	}()
+	encoder := encoding.NewMockTSDEncoder(ctrl)
+	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
+		return encoder
+	}
+	floatArray := collections.NewFloatArray(5)
+	floatArray.SetValue(2, 10.0)
+	primitiveIt := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, floatArray)
+	encoder.EXPECT().AppendTime(gomock.Any()).AnyTimes()
+	encoder.EXPECT().AppendValue(gomock.Any()).AnyTimes()
+	encoder.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
+	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt})
+	data, err := it.MarshalBinary()
+	assert.Error(t, err)
+	assert.Nil(t, data)
 }
 
 func TestPrimitiveIterator(t *testing.T) {

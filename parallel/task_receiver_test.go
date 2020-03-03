@@ -67,6 +67,7 @@ func TestTaskReceiver_Receive_Err(t *testing.T) {
 	receiver := NewTaskReceiver(jobManager)
 
 	merger := NewMockResultMerger(ctrl)
+	merger.EXPECT().close()
 	taskCtx := newTaskContext("taskID", RootTask, "parentTaskID", "parentNode", 1, merger)
 	taskManager.EXPECT().Complete("taskID").MaxTimes(2)
 	taskManager.EXPECT().Get("taskID").Return(taskCtx).MaxTimes(2)

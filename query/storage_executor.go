@@ -2,8 +2,10 @@ package query
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/lindb/roaring"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
@@ -54,6 +56,14 @@ type storageExecutor struct {
 	filterResult map[string]*filterResult
 
 	queryFlow flow.StorageQueryFlow
+
+	// group by query need
+	mutex              sync.Mutex
+	groupByTagKeyIDs   []uint32
+	tagValueIDs        []*roaring.Bitmap // for group by query store tag value ids for each group tag key
+	pendingForShard    atomic.Int32
+	pendingForGrouping atomic.Int32
+	collecting         atomic.Bool
 }
 
 // newStorageExecutor creates the execution which queries the data of storage engine
@@ -132,21 +142,61 @@ func (e *storageExecutor) Execute() {
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.storageExecutePlan = storageExecutePlan
 
+	// execute query flow
+	e.executeQuery()
+}
+
+// executeQuery executes query flow for each shard
+func (e *storageExecutor) executeQuery() {
+	e.pendingForShard.Store(int32(len(e.shards)))
 	for idx := range e.shards {
 		shard := e.shards[idx]
 		e.queryFlow.Filtering(func() {
+			defer func() {
+				// finish shard query
+				e.pendingForShard.Dec()
+				// try start collect tag values
+				e.collectGroupByTagValues()
+			}()
+			// 1. get series ids by query condition
 			seriesIDs := e.searchSeriesIDs(shard.IndexDatabase())
 			// if series ids not found
 			if seriesIDs == nil || seriesIDs.IsEmpty() {
 				return
 			}
-			// execute memory db search in background goroutine
-			e.queryFlow.Filtering(func() {
-				e.executeQueryFlow(shard.IndexDatabase(), shard.MemoryDatabase(), seriesIDs)
-			})
-
-			e.queryFlow.Filtering(func() {
-				e.shardLevelSearch(shard, seriesIDs)
+			var rs []flow.FilterResultSet
+			// 2. filter data in memory database
+			resultSet, err := shard.MemoryDatabase().Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+			if err != nil && err != constants.ErrNotFound {
+				e.queryFlow.Complete(err)
+				return
+			}
+			rs = append(rs, resultSet...)
+			// 3. filter data each data family in shard
+			resultSet, err = e.filterForShard(shard, seriesIDs)
+			if err != nil && err != constants.ErrNotFound {
+				e.queryFlow.Complete(err)
+				return
+			}
+			rs = append(rs, resultSet...)
+			if len(rs) == 0 {
+				// data not found
+				return
+			}
+			// 4. merge all series ids after filtering => final series ids
+			seriesIDsAfterFilter := roaring.New()
+			for _, result := range rs {
+				seriesIDsAfterFilter.Or(result.SeriesIDs())
+			}
+			// 5. execute group by
+			e.pendingForGrouping.Inc()
+			e.queryFlow.Grouping(func() {
+				defer func() {
+					e.pendingForGrouping.Dec()
+					// try start collect tag values
+					e.collectGroupByTagValues()
+				}()
+				e.executeGroupBy(shard.IndexDatabase(), rs, seriesIDs)
 			})
 		})
 	}
@@ -170,79 +220,124 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roar
 	return
 }
 
-// shardLevelSearch searches data from shard
-func (e *storageExecutor) shardLevelSearch(shard tsdb.Shard, seriesIDs *roaring.Bitmap) {
+// filterForShard filtering data in shard
+func (e *storageExecutor) filterForShard(shard tsdb.Shard, seriesIDs *roaring.Bitmap) (rs []flow.FilterResultSet, err error) {
 	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
 	if len(families) == 0 {
-		return
+		return nil, nil
 	}
 	for idx := range families {
 		family := families[idx]
 		// execute data family search in background goroutine
-		e.queryFlow.Filtering(func() {
-			e.executeQueryFlow(shard.IndexDatabase(), family, seriesIDs)
-		})
+		resultSet, err := family.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+		if err != nil {
+			return nil, err
+		}
+		rs = append(rs, resultSet...)
 	}
+	return rs, nil
 }
 
-// executeQueryFlow executes the query flow, step as below:
-// 1. filtering
-// 2. grouping
-// 3. loading
-func (e *storageExecutor) executeQueryFlow(indexDB indexdb.IndexDatabase, filter flow.DataFilter, seriesIDs *roaring.Bitmap) {
-	hasGroupBy := e.query.HasGroupBy()
-	groupByTagKeyIDs := e.storageExecutePlan.groupByKeyIDs()
-
-	// 1. filtering, check series ids if exist in storage
-	e.queryFlow.Filtering(func() {
-		resultSet, err := filter.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+// executeGroupBy executes the query flow, step as below:
+// 1. grouping
+// 2. loading
+func (e *storageExecutor) executeGroupBy(indexDB indexdb.IndexDatabase, rs []flow.FilterResultSet, seriesIDs *roaring.Bitmap) {
+	var groupingCtx series.GroupingContext
+	// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
+	// get grouping context if need
+	if e.query.HasGroupBy() {
+		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
+		gCtx, err := indexDB.GetGroupingContext(e.storageExecutePlan.groupByKeyIDs(), seriesIDs)
 		if err != nil {
 			e.queryFlow.Complete(err)
 			return
 		}
-		if len(resultSet) == 0 {
-			// not found in storage, return it
+		if gCtx == nil {
 			return
 		}
-		// 2. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
-		// get grouping context if need
-		var groupingCtx series.GroupingContext
-		if hasGroupBy {
-			gCtx, err := indexDB.GetGroupingContext(groupByTagKeyIDs, seriesIDs)
-			if err != nil {
-				e.queryFlow.Complete(err)
-				return
-			}
-			if gCtx == nil {
-				return
-			}
-			groupingCtx = gCtx
-		}
-		keys := seriesIDs.GetHighKeys()
+		groupingCtx = gCtx
+	}
+	keys := seriesIDs.GetHighKeys()
+	e.pendingForGrouping.Add(int32(len(keys)))
+	var groupWait atomic.Int32
+	groupWait.Add(int32(len(keys)))
 
-		for idx, key := range keys {
-			// be carefully, need use new variable for variable scope problem
-			highKey := key
-			container := seriesIDs.GetContainerAtIndex(idx)
-			// grouping based on group by tag keys for each container
-			e.queryFlow.Grouping(func() {
-				var groupedSeries map[string][]uint16
-				if hasGroupBy {
-					// build group by data, grouped series: tags => series IDs
-					groupedSeries = groupingCtx.BuildGroup(highKey, container)
-				} else {
-					groupedSeries = map[string][]uint16{"": container.ToArray()}
+	for idx, key := range keys {
+		// be carefully, need use new variable for variable scope problem
+		highKey := key
+		container := seriesIDs.GetContainerAtIndex(idx)
+		// grouping based on group by tag keys for each container
+		e.queryFlow.Grouping(func() {
+			defer func() {
+				groupWait.Dec()
+				if groupingCtx != nil && groupWait.Load() == 0 {
+					// current group by query completed, need merge group by tag value ids
+					e.mergeGroupByTagValueIDs(groupingCtx.GetGroupByTagValueIDs())
 				}
-				for _, rs := range resultSet {
-					// 3.load data by grouped seriesIDs
-					filteringRS := rs
-					e.queryFlow.Scanner(func() {
-						filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
-					})
-				}
-			})
+				e.pendingForGrouping.Dec()
+				// try start collect tag values for group by query
+				e.collectGroupByTagValues()
+			}()
+			var groupedSeries map[string][]uint16
+			if groupingCtx != nil {
+				// build group by data, grouped series: tags => series IDs
+				groupedSeries = groupingCtx.BuildGroup(highKey, container)
+			} else {
+				groupedSeries = map[string][]uint16{"": container.ToArray()}
+			}
+			for _, resultSet := range rs {
+				// 3.load data by grouped seriesIDs
+				filteringRS := resultSet
+				e.queryFlow.Scanner(func() {
+					filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
+				})
+			}
+		})
+	}
+}
+
+// mergeGroupByTagValueIDs merges group by tag value ids for each shard
+func (e *storageExecutor) mergeGroupByTagValueIDs(tagValueIDs []*roaring.Bitmap) {
+	if tagValueIDs == nil {
+		return
+	}
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if e.tagValueIDs == nil {
+		e.tagValueIDs = make([]*roaring.Bitmap, len(e.groupByTagKeyIDs))
+	}
+
+	for idx, tagVIDs := range e.tagValueIDs {
+		if tagVIDs == nil {
+			e.tagValueIDs[idx] = tagValueIDs[idx]
+		} else {
+			tagVIDs.Or(tagValueIDs[idx])
 		}
-	})
+	}
+}
+
+// collectGroupByTagValues collects group tag values
+func (e *storageExecutor) collectGroupByTagValues() {
+	// all shard pending query tasks and grouping task completed, start collect tag values
+	if e.pendingForShard.Load() == 0 && e.pendingForGrouping.Load() == 0 {
+		if e.collecting.CAS(false, true) {
+			for idx, tagKeyID := range e.groupByTagKeyIDs {
+				tagKey := tagKeyID
+				tagValueIDs := e.tagValueIDs[idx]
+				tagIndex := idx
+				e.queryFlow.Scanner(func() {
+					//FIXME need check group by tag value ids is nil???
+					tagValues := make(map[uint32]string)
+					if err := e.database.Metadata().TagMetadata().CollectTagValues(tagKey, tagValueIDs, tagValues); err != nil {
+						e.queryFlow.Complete(err)
+						return
+					}
+					e.queryFlow.ReduceTagValues(tagIndex, tagValues)
+				})
+			}
+		}
+	}
 }
 
 // validation validates query input params are valid

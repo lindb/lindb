@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/query"
@@ -95,6 +96,53 @@ func TestTagIndex_flush(t *testing.T) {
 	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil)
 	err = tagIndex.flush(14, forward, inverted)
 	assert.NoError(t, err)
+}
+
+func TestTagIndex_GetData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	host := newTagIndex()
+	disk := newTagIndex()
+	partition := newTagIndex()
+	seriesIDs := roaring.New()
+	id := uint32(1)
+	count := uint32(4000)
+	for i := uint32(1); i <= count; i++ {
+		for j := uint32(1); j <= 4; j++ {
+			for k := uint32(1); k <= 20; k++ {
+				host.buildInvertedIndex(i, id)
+				disk.buildInvertedIndex(j, id)
+				partition.buildInvertedIndex(j, id)
+				seriesIDs.Add(id)
+				id++
+			}
+		}
+	}
+	nopKVFlusher := kv.NewNopFlusher()
+	forwardFlusher := invertedindex.NewForwardFlusher(nopKVFlusher)
+	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
+	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).AnyTimes()
+	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	err := host.flush(10, forwardFlusher, inverted)
+	assert.NoError(t, err)
+	err = disk.flush(11, forwardFlusher, inverted)
+	assert.NoError(t, err)
+	data := nopKVFlusher.Bytes()
+	err = partition.flush(12, forwardFlusher, inverted)
+	assert.NoError(t, err)
+
+	r, err := invertedindex.NewTagForwardReader(data)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+	keys := seriesIDs.GetHighKeys()
+	for _, key := range keys {
+		r.GetSeriesAndTagValue(key)
+		fmt.Println(key)
+		//fmt.Println(tagValueIDs)
+	}
+	_, t3 := r.GetSeriesAndTagValue(4)
+	fmt.Println(t3)
 }
 
 func prepareTagIdx() TagIndex {

@@ -78,7 +78,7 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			encoding.ReleaseTSDDecoder(stream)
 		}
 	}()
-	encodeStream := encoding.NewTSDEncoder(targetStart)
+	encodeStream := encoding.TSDEncodeFunc(targetStart)
 	fieldReaders := make([]FieldReader, blockCount)
 	for idx, highKey := range highKeys {
 		container := seriesIDs.GetContainerAtIndex(idx)

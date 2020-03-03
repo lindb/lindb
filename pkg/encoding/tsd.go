@@ -12,6 +12,12 @@ import (
 
 //go:generate mockgen -source ./tsd.go -destination=./tsd_mock.go -package encoding
 
+// for testing
+var (
+	TSDEncodeFunc = NewTSDEncoder
+	flushFunc     = flush
+)
+
 var decoderPool = sync.Pool{
 	New: func() interface{} {
 		return NewTSDDecoder(nil)
@@ -87,9 +93,16 @@ func (e *tsdEncoder) AppendValue(value uint64) {
 
 // Bytes returns binary which compress time series data point
 func (e *tsdEncoder) Bytes() ([]byte, error) {
-	e.err = e.bitWriter.Flush()
 	if e.err != nil {
 		return nil, e.err
+	}
+	if err := flushFunc(e.bitWriter); err != nil {
+		return nil, err
+	}
+	if e.count == 0 {
+		// if no data add in tsd stream, return nil,
+		// if return data with empty data, will get wrong start/end time range(because end is negative)
+		return nil, nil
 	}
 	var buf bytes.Buffer
 	writer := stream.NewBufferWriter(&buf)
@@ -101,11 +114,17 @@ func (e *tsdEncoder) Bytes() ([]byte, error) {
 
 // BytesWithoutTime returns binary which compress time series data point without time slot range
 func (e *tsdEncoder) BytesWithoutTime() ([]byte, error) {
-	e.err = e.bitWriter.Flush()
 	if e.err != nil {
 		return nil, e.err
 	}
+	if err := flushFunc(e.bitWriter); err != nil {
+		return nil, err
+	}
 	return e.bitBuffer.Bytes(), nil
+}
+
+func flush(writer *bit.Writer) error {
+	return writer.Flush()
 }
 
 // TSDDecoder decodes time series compress data
@@ -219,6 +238,9 @@ func (d *TSDDecoder) Slot() uint16 {
 
 // Value returns value of time slot
 func (d *TSDDecoder) Value() uint64 {
+	if d.values == nil {
+		return 0
+	}
 	if d.values.Next() {
 		return d.values.Value()
 	}

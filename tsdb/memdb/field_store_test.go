@@ -16,6 +16,8 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
+var encodeFunc = encoding.NewTSDEncoder
+
 func TestFieldStore_New(t *testing.T) {
 	buf := make([]byte, pageSize)
 
@@ -131,12 +133,12 @@ func TestFieldStore_Write(t *testing.T) {
 func TestFieldStore_Write_Compact_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		encodeFunc = encoding.NewTSDEncoder
+		encoding.TSDEncodeFunc = encodeFunc
 		ctrl.Finish()
 	}()
 
 	encode := encoding.NewMockTSDEncoder(ctrl)
-	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
+	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
 		return encode
 	}
 
@@ -164,7 +166,7 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 func TestFieldStore_FlushFieldTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		encodeFunc = encoding.NewTSDEncoder
+		encoding.TSDEncodeFunc = encodeFunc
 		ctrl.Finish()
 	}()
 
@@ -185,7 +187,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	store.FlushFieldTo(flusher, flushContext{slotRange: slotRange{start: 2, end: 20}})
 	// case 3: flush err
 	encode := encoding.NewMockTSDEncoder(ctrl)
-	encodeFunc = func(startTime uint16) encoding.TSDEncoder {
+	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
 		return encode
 	}
 	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()

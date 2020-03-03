@@ -3,7 +3,6 @@ package encoding
 import (
 	"math"
 	"math/rand"
-	"sort"
 	"testing"
 	"time"
 
@@ -67,6 +66,7 @@ func Test_DeltaBitPackingEncoder_Decoder(t *testing.T) {
 			assert.Equal(t, list[count], value)
 			count++
 		}
+		assert.Equal(t, count, len(list))
 	}
 }
 
@@ -74,11 +74,8 @@ func getRandomList() []int32 {
 	var list []int32
 
 	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < math.MaxUint16; i++ {
 		list = append(list, rand.Int31n(math.MaxInt32))
 	}
-	sort.Slice(list, func(i, j int) bool {
-		return list[i] < list[j]
-	})
 	return list
 }

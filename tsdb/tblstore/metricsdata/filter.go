@@ -51,7 +51,7 @@ func (f *metricsDataFilter) Filter(fieldIDs []field.ID,
 			// series ids not found
 			continue
 		}
-		rs = append(rs, newFileFilterResultSet(f.familyTime, fieldMetas, reader))
+		rs = append(rs, newFileFilterResultSet(f.familyTime, fieldMetas, matchSeriesIDs, reader))
 	}
 	// not founds
 	if len(rs) == 0 {
@@ -65,15 +65,24 @@ type fileFilterResultSet struct {
 	reader     Reader
 	familyTime int64
 	fieldMetas field.Metas
+	seriesIDs  *roaring.Bitmap
 }
 
 // newFileFilterResultSet creates the file filter result set
-func newFileFilterResultSet(familyTime int64, fieldMetas field.Metas, reader Reader) flow.FilterResultSet {
+func newFileFilterResultSet(familyTime int64, fieldMetas field.Metas,
+	seriesIDs *roaring.Bitmap, reader Reader,
+) flow.FilterResultSet {
 	return &fileFilterResultSet{
 		familyTime: familyTime,
 		reader:     reader,
 		fieldMetas: fieldMetas,
+		seriesIDs:  seriesIDs,
 	}
+}
+
+// SeriesIDs returns the series ids which matches with query series ids
+func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
+	return f.seriesIDs
 }
 
 // Load reads data from sst files, finds series data based on grouped series IDs and does down sampling,
