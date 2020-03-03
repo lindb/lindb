@@ -74,7 +74,7 @@ func TestForwardReader_GetGroupingScanner(t *testing.T) {
 }
 
 func TestForwardReader_offset_err(t *testing.T) {
-	reader, err := newTagForwardReader([]byte{
+	reader, err := NewTagForwardReader([]byte{
 		1, 1, 1, 1,
 		2, 2, 2, 2,
 		3, 3, 3, 3,
@@ -87,7 +87,7 @@ func TestForwardReader_offset_err(t *testing.T) {
 func TestTagForwardReader_GetGroupingScanner(t *testing.T) {
 	allSeriesIDs := roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40)
 	block := buildForwardBlock()
-	reader, err := newTagForwardReader(block)
+	reader, err := NewTagForwardReader(block)
 	assert.NoError(t, err)
 	assert.NotNil(t, reader)
 	// case 1: data not found
@@ -106,7 +106,7 @@ func TestTagForwardReader_GetGroupingScanner(t *testing.T) {
 
 func TestTagForwardReader_scan(t *testing.T) {
 	block := buildForwardBlock()
-	reader, _ := newTagForwardReader(block)
+	reader, _ := NewTagForwardReader(block)
 	scanner := newTagForwardScanner(reader)
 	var tagValueIDs []uint32
 	// case 1: not match

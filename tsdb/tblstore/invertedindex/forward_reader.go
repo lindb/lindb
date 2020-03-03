@@ -65,7 +65,7 @@ func (r *forwardReader) findReader(tagKeyID uint32, callback func(reader TagForw
 		if !ok {
 			continue
 		}
-		indexReader, err := newTagForwardReader(value)
+		indexReader, err := NewTagForwardReader(value)
 		if err != nil {
 			return err
 		}
@@ -85,11 +85,10 @@ type TagForwardReader interface {
 // tagForwardReader implements TagForwardReader interface
 type tagForwardReader struct {
 	baseReader
-	tagValueIDs *encoding.DeltaBitPackingDecoder
 }
 
-// newTagForwardReader creates a forward index inverterReader
-func newTagForwardReader(buf []byte) (TagForwardReader, error) {
+// NewTagForwardReader creates a forward index inverterReader
+func NewTagForwardReader(buf []byte) (TagForwardReader, error) {
 	r := &tagForwardReader{baseReader: baseReader{
 		buf: buf,
 	}}
@@ -106,17 +105,15 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Contain
 		// data not found
 		return nil, nil
 	}
-	if r.tagValueIDs == nil {
-		r.tagValueIDs = encoding.NewDeltaBitPackingDecoder(r.buf[r.offsets.Get(index):])
-	} else {
-		r.tagValueIDs.Reset(r.buf[r.offsets.Get(index):])
-	}
+	// tag value ids cannot reuse, because
+	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[r.offsets.Get(index):])
+
 	container := r.keys.GetContainerAtIndex(index)
 	tagValueIDsCount := container.GetCardinality()
 	tagValueIDs := make([]uint32, tagValueIDsCount)
 	i := 0
-	for r.tagValueIDs.HasNext() {
-		tagValueIDs[i] = uint32(r.tagValueIDs.Next())
+	for tagValueIDsFromFile.HasNext() {
+		tagValueIDs[i] = uint32(tagValueIDsFromFile.Next())
 		i++
 	}
 	return container, tagValueIDs

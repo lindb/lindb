@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"sync"
 
@@ -14,7 +15,13 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
+)
+
+const (
+	tagValueNotFound = "tag_value_not_found"
 )
 
 type allocAgg func(aggSpecs aggregation.AggregatorSpecs) aggregation.FieldAggregates
@@ -23,6 +30,7 @@ var storageQueryFlowLogger = logger.GetLogger("parallel", "storageQueryFlow")
 
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
+	query        *stmt.Query
 	aggPool      chan aggregation.FieldAggregates // use aggregator for request scope
 	pendingTasks map[int32]Stage                  // pending task ref counter for each stage
 	taskIDSeq    atomic.Int32                     // task id gen sequence
@@ -38,6 +46,11 @@ type storageQueryFlow struct {
 	queryIntervalRatio int
 	downSamplingSpecs  aggregation.AggregatorSpecs
 
+	tagsMap      map[string]string   // tag value ids => tag values
+	tagValuesMap []map[uint32]string // tag value id=> tag value for each group by tag key
+	tagValues    []string
+	signal       sync.WaitGroup
+
 	mux       sync.Mutex
 	completed atomic.Bool
 
@@ -45,6 +58,7 @@ type storageQueryFlow struct {
 }
 
 func NewStorageQueryFlow(ctx context.Context,
+	query *stmt.Query,
 	req *pb.TaskRequest,
 	stream pb.TaskService_HandleServer,
 	executorPool *tsdb.ExecutorPool,
@@ -54,6 +68,7 @@ func NewStorageQueryFlow(ctx context.Context,
 ) flow.StorageQueryFlow {
 	return &storageQueryFlow{
 		ctx:                ctx,
+		query:              query,
 		req:                req,
 		stream:             stream,
 		executorPool:       executorPool,
@@ -71,6 +86,15 @@ func (qf *storageQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpec
 	qf.allocAgg = func(aggSpecs aggregation.AggregatorSpecs) aggregation.FieldAggregates {
 		return aggregation.NewFieldAggregates(qf.queryInterval, qf.queryIntervalRatio, qf.queryTimeRange,
 			true, aggSpecs)
+	}
+
+	// for group by
+	groupByKenLen := len(qf.query.GroupBy)
+	if groupByKenLen > 0 {
+		qf.tagValuesMap = make([]map[uint32]string, groupByKenLen)
+		qf.tagsMap = make(map[string]string)
+		qf.tagValues = make([]string, groupByKenLen)
+		qf.signal.Add(groupByKenLen)
 	}
 }
 
@@ -127,7 +151,8 @@ func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates)
 	}()
 
 	if qf.completed.Load() {
-		storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
+		//FIXME stone1100
+		//storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
 		return
 	}
 
@@ -137,21 +162,57 @@ func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates)
 	qf.reduceAgg.Aggregate(agg.ResultSet(tags))
 }
 
-func (qf *storageQueryFlow) completeTask(taskID int32) {
+// ReduceTagValues reduces the group by tag values
+func (qf *storageQueryFlow) ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string) {
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
+	qf.tagValuesMap[tagKeyIndex] = tagValues
+	qf.signal.Done()
+}
 
+func (qf *storageQueryFlow) getTagValues(tags string) string {
+	tagValues, ok := qf.tagsMap[tags]
+	if ok {
+		return tagValues
+	}
+	tagsData := []byte(tags)
+	for idx := range qf.tagValues {
+		tagValuesForKey := qf.tagValuesMap[idx]
+		offset := idx * 4
+		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
+		tagValue, ok := tagValuesForKey[tagValueID]
+		if ok {
+			qf.tagValues[idx] = tagValue
+		} else {
+			qf.tagValues[idx] = tagValueNotFound
+		}
+	}
+	tagsOfStr := tag.ConcatTagValues(qf.tagValues)
+	qf.tagsMap[tags] = tagsOfStr
+	return tagsOfStr
+}
+
+func (qf *storageQueryFlow) completeTask(taskID int32) {
+	completed := false
+	var err error
+	// get complete execute result
+	qf.mux.Lock()
 	delete(qf.pendingTasks, taskID)
+	completed = len(qf.pendingTasks) == 0
+	err = qf.err
+	qf.mux.Unlock()
 
-	if len(qf.pendingTasks) == 0 {
+	if completed && qf.completed.CAS(false, true) {
 		// if all tasks of all stages completed
-		qf.completed.Store(true)
-
 		errMsg := ""
 		var data []byte
-		if qf.err != nil {
-			errMsg = qf.err.Error()
+		if err != nil {
+			errMsg = err.Error()
 		} else if qf.reduceAgg != nil {
+			hasGroupBy := qf.query.HasGroupBy()
+			if hasGroupBy {
+				qf.signal.Wait() // wait collect group by tag value complete
+			}
 			// 1. get reduce aggregator result set
 			groupedSeriesList := qf.reduceAgg.ResultSet()
 			// 2. build rpc response data
@@ -171,8 +232,12 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 					fields[fieldIt.FieldName()] = data
 				}
 				if len(fields) > 0 {
+					tags := ""
+					if hasGroupBy {
+						tags = qf.getTagValues(ts.Tags())
+					}
 					timeSeriesList = append(timeSeriesList, &pb.TimeSeries{
-						Tags:   ts.Tags(),
+						Tags:   tags,
 						Fields: fields,
 					})
 				}
@@ -233,7 +298,7 @@ func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
 					case error:
 						err = t
 					default:
-						err = errors.New("UnKnow ERROR")
+						err = errors.New("unknown error")
 					}
 					storageQueryFlowLogger.Error("do task fail when execute storage query flow",
 						logger.Error(err), logger.Stack())

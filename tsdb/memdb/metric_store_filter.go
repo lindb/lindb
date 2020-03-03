@@ -55,6 +55,7 @@ func (ms *metricStore) Filter(fieldIDs []field.ID,
 			fields:      fields,
 			familyIDs:   resultFamilyIDs,
 			familyIDMap: resultFamilyIDMap,
+			seriesIDs:   matchSeriesIDs,
 		},
 	}, nil
 }
@@ -85,6 +86,8 @@ type memFilterResultSet struct {
 	fields      field.Metas // sort by field id
 	familyIDs   []familyID  // sort by family id
 	familyIDMap map[familyID]int64
+
+	seriesIDs *roaring.Bitmap
 }
 
 // prepare prepares the field aggregator based on query condition
@@ -107,6 +110,11 @@ func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregatio
 		}
 	}
 	return
+}
+
+// SeriesIDs returns the series ids which matches with query series ids
+func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
+	return rs.seriesIDs
 }
 
 // Load loads the data from storage, then does down sampling, finally reduces the down sampling results.

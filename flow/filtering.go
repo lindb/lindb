@@ -22,4 +22,6 @@ type DataFilter interface {
 type FilterResultSet interface {
 	// Load loads the data from storage, then does down sampling, finally reduces the down sampling results.
 	Load(flow StorageQueryFlow, fieldIDs []field.ID, highKey uint16, groupedSeries map[string][]uint16)
+	// SeriesIDs returns the series ids which matches with query series ids
+	SeriesIDs() *roaring.Bitmap
 }

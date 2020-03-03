@@ -18,7 +18,7 @@ func TestForwardMerger_Merge(t *testing.T) {
 	// case 1: merge data success
 	data, err := merge.Merge(1, mockMergeForwardBlock())
 	assert.NoError(t, err)
-	reader, err := newTagForwardReader(data)
+	reader, err := NewTagForwardReader(data)
 	assert.NoError(t, err)
 	assert.EqualValues(t,
 		roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40).ToArray(),

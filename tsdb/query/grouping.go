@@ -2,6 +2,7 @@ package query
 
 import (
 	"encoding/binary"
+	"sync"
 
 	"github.com/lindb/roaring"
 
@@ -15,6 +16,8 @@ type GroupingContext struct {
 	tagKeys     []uint32
 	scanners    map[uint32][]series.GroupingScanner
 	tagValueIDs []*roaring.Bitmap // collect tag value ids for each group by tag key
+
+	mutex sync.Mutex
 }
 
 // NewGroupContext creates a GroupingContext
@@ -40,6 +43,11 @@ func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container
 	min := container.Minimum()
 	result := make(map[string][]uint16)
 	tagValueIDs := make([]byte, len(g.tagKeys)*4)
+	groupByTagValueIDs := make([]*roaring.Bitmap, len(g.tagValueIDs))
+	for idx := range groupByTagValueIDs {
+		groupByTagValueIDs[idx] = roaring.New()
+	}
+
 	// iterator all series ids after filtering
 	it := container.PeekableIterator()
 	for it.HasNext() {
@@ -53,12 +61,8 @@ func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container
 				break
 			}
 			// collect group by tag value id
-			groupByTagValueIDs := g.tagValueIDs[idx]
-			if groupByTagValueIDs == nil {
-				groupByTagValueIDs = roaring.New()
-				g.tagValueIDs[idx] = groupByTagValueIDs
-			}
-			groupByTagValueIDs.Add(tagValueID)
+			groupByTagValueIDs[idx].Add(tagValueID)
+
 			// build group key with group by tag value ids
 			offset := idx * 4
 			binary.LittleEndian.PutUint32(tagValueIDs[offset:], tagValueID)
@@ -73,6 +77,18 @@ func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container
 			}
 		}
 	}
+
+	// need add lock, because build group concurrent
+	g.mutex.Lock()
+	for idx, tagValueIDs := range groupByTagValueIDs {
+		tIDs := g.tagValueIDs[idx]
+		if tIDs == nil {
+			g.tagValueIDs[idx] = tagValueIDs
+		} else {
+			g.tagValueIDs[idx].Or(tagValueIDs)
+		}
+	}
+	g.mutex.Unlock()
 	return result
 }
 
@@ -88,6 +104,10 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(highKey uint16, container r
 		v := make([]uint32, seriesIDsLength)
 		for _, scanner := range scanners {
 			lowContainer, tagValueIDs := scanner.GetSeriesAndTagValue(highKey)
+			if lowContainer == nil {
+				// high key not exist
+				continue
+			}
 			it := lowContainer.PeekableIterator()
 			idx := 0
 			for it.HasNext() {

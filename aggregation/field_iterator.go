@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+// fieldIterator implements series.FieldIterator interface
 type fieldIterator struct {
 	startSlot int
 
@@ -19,6 +20,7 @@ type fieldIterator struct {
 	its    []series.PrimitiveIterator
 }
 
+// newFieldIterator creates a field iterator
 func newFieldIterator(startSlot int,
 	its []series.PrimitiveIterator) series.FieldIterator {
 	return &fieldIterator{
@@ -28,10 +30,12 @@ func newFieldIterator(startSlot int,
 	}
 }
 
+// HasNext returns if the iteration has more fields
 func (it *fieldIterator) HasNext() bool {
 	return it.idx < it.length
 }
 
+// Next returns the primitive field iterator
 func (it *fieldIterator) Next() series.PrimitiveIterator {
 	if it.idx >= it.length {
 		return nil
@@ -41,6 +45,7 @@ func (it *fieldIterator) Next() series.PrimitiveIterator {
 	return primitiveIt
 }
 
+// MarshalBinary marshals the data
 func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	if it.length == 0 {
 		return nil, nil
@@ -50,8 +55,8 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 	for it.HasNext() {
 		primitiveIt := it.Next()
-		//FIXME
-		encoder := encoding.NewTSDEncoder(uint16(it.startSlot))
+		//FIXME reuse encoder???
+		encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
 		idx := 0
 		for primitiveIt.HasNext() {
 			slot, value := primitiveIt.Next()
@@ -66,6 +71,10 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 		data, err := encoder.Bytes()
 		if err != nil {
 			return nil, err
+		}
+		if len(data) == 0 {
+			// maybe primitive field is empty
+			continue
 		}
 		writer.PutByte(byte(primitiveIt.FieldID()))
 		writer.PutByte(byte(primitiveIt.AggType()))

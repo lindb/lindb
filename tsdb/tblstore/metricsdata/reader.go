@@ -122,7 +122,6 @@ func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []f
 	lowContainer := r.seriesIDs.GetContainerAtIndex(highContainerIdx)
 	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[r.highOffsets.Get(highContainerIdx):])
 
-	//var aggregators aggregation.FieldAggregates
 	tsd := encoding.GetTSDDecoder()
 	defer encoding.ReleaseTSDDecoder(tsd)
 

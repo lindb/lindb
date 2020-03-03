@@ -30,8 +30,14 @@ func TestGroupingContext_Build(t *testing.T) {
 	seriesIDs = result[string(tagValueIDs)]
 	assert.Equal(t, []uint16{2}, seriesIDs)
 
+	scanner.EXPECT().GetSeriesAndTagValue(uint16(2)).
+		Return(roaring.BitmapOf(1, 2).GetContainerAtIndex(0), []uint32{30, 10})
+	_ = ctx.BuildGroup(2, roaring.BitmapOf(1, 2).GetContainerAtIndex(0))
+	// container not found
+	scanner.EXPECT().GetSeriesAndTagValue(uint16(3)).Return(nil, nil)
+	_ = ctx.BuildGroup(3, roaring.BitmapOf(1, 2).GetContainerAtIndex(0))
 	// case: get group by tag value ids
 	groupByTagValueIDs := ctx.GetGroupByTagValueIDs()
 	assert.Len(t, groupByTagValueIDs, 1)
-	assert.EqualValues(t, roaring.BitmapOf(10, 20).ToArray(), groupByTagValueIDs[0].ToArray())
+	assert.EqualValues(t, roaring.BitmapOf(10, 20, 30).ToArray(), groupByTagValueIDs[0].ToArray())
 }

@@ -19,6 +19,8 @@ type StorageQueryFlow interface {
 	Scanner(task concurrent.Task)
 	// Reduce reduces the down sampling aggregator's result
 	Reduce(tags string, agg aggregation.FieldAggregates)
+	// ReduceTagValues reduces the group by tag values
+	ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string)
 	// GetAggregator gets the down sampling filed aggregator
 	GetAggregator() (agg aggregation.FieldAggregates)
 	// Complete completes the query flow with error

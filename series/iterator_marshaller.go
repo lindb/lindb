@@ -4,6 +4,8 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+// MarshalIterator represents marshal series data of one field.
+// format: 1byte(field type) + vint64(start time) + vint32(data length) + data
 func MarshalIterator(it Iterator) ([]byte, error) {
 	if it == nil {
 		return nil, nil

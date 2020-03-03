@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,10 +9,13 @@ import (
 	"github.com/lindb/lindb/pkg/bit"
 )
 
+var f = flushFunc
+
 func TestCodec(t *testing.T) {
 	encoder := NewTSDEncoder(10)
-	data, _ := encoder.Bytes()
-	assert.Len(t, data, 4)
+	data, err := encoder.Bytes()
+	assert.NoError(t, err)
+	assert.Nil(t, data)
 	encoder.Reset()
 
 	encoder.AppendTime(bit.One)
@@ -22,7 +26,7 @@ func TestCodec(t *testing.T) {
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(uint64(50))
 
-	data, err := encoder.Bytes()
+	data, err = encoder.Bytes()
 	assert.Nil(t, err)
 	assert.True(t, len(data) > 0)
 
@@ -75,6 +79,37 @@ func TestCodec(t *testing.T) {
 	assert.Len(t, data, 4)
 }
 
+func TestTsdEncoder_Err(t *testing.T) {
+	defer func() {
+		flushFunc = f
+	}()
+	encoder := NewTSDEncoder(10)
+	e := encoder.(*tsdEncoder)
+	// case 1: encode with err
+	e.err = fmt.Errorf("err")
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(uint64(10))
+	data, err := encoder.Bytes()
+	assert.Error(t, err)
+	assert.Nil(t, data)
+	data, err = encoder.BytesWithoutTime()
+	assert.Error(t, err)
+	assert.Nil(t, data)
+	// case 2: flush err
+	encoder = NewTSDEncoder(10)
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(uint64(10))
+	flushFunc = func(writer *bit.Writer) error {
+		return fmt.Errorf("err")
+	}
+	data, err = encoder.Bytes()
+	assert.Error(t, err)
+	assert.Nil(t, data)
+	data, err = encoder.BytesWithoutTime()
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
 func TestHasValueWithSlot(t *testing.T) {
 	encoder := NewTSDEncoder(10)
 	encoder.AppendTime(bit.One)
@@ -124,6 +159,8 @@ func TestHasValueWithSlot(t *testing.T) {
 func Test_Empty_TSDDecoder(t *testing.T) {
 	decoder := NewTSDDecoder(nil)
 	assert.Nil(t, decoder.Error())
+	assert.Equal(t, uint64(0), decoder.Value())
+	assert.False(t, decoder.HasValue())
 }
 
 func TestGetTSDDecoder(t *testing.T) {

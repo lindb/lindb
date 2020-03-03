@@ -2,6 +2,7 @@ package parallel
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"sync"
@@ -16,6 +17,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -37,9 +40,9 @@ var testExecPool = &tsdb.ExecutorPool{
 func TestStorageQueryFlow_GetAggregator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
-	queryFlow := NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{GroupBy: []string{"host"}},
+		&pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 
@@ -64,7 +67,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf := queryFlow.(*storageQueryFlow)
@@ -110,11 +113,12 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{},
+		&pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf := queryFlow.(*storageQueryFlow)
-	// test error
+	// case 1: test error
 	qf.err = fmt.Errorf("err")
 	var wait sync.WaitGroup
 	wait.Add(1)
@@ -128,8 +132,8 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		assert.Fail(t, "exec err")
 	})
 
-	// test reduce result send
-	queryFlow = NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+	// case 2: test reduce result send
+	queryFlow = NewStorageQueryFlow(context.TODO(), &stmt.Query{GroupBy: []string{"host"}}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf = queryFlow.(*storageQueryFlow)
@@ -156,7 +160,30 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		wait1.Done()
 	})
 	wait1.Wait()
-	time.Sleep(100 * time.Millisecond)
+	go func() {
+		queryFlow.ReduceTagValues(0, map[uint32]string{100: "1.1.1.1"})
+	}()
+	time.Sleep(300 * time.Millisecond)
+}
+
+func TestStorageQueryFlow_getValues(t *testing.T) {
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{},
+		&pb.TaskRequest{}, nil, nil,
+		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
+	queryFlow.Prepare(nil)
+	qf := queryFlow.(*storageQueryFlow)
+	qf.tagValues = make([]string, 2)
+	qf.tagsMap = make(map[string]string)
+	qf.tagValuesMap = []map[uint32]string{{100: "1.1.1.1"}, {200: "1.1.1.2"}}
+	// case 1: build new tag values str
+	tagValueIDs := make([]byte, 2*4)
+	binary.LittleEndian.PutUint32(tagValueIDs[0:], 100)
+	binary.LittleEndian.PutUint32(tagValueIDs[4:], 200)
+	tags := qf.getTagValues(string(tagValueIDs))
+	assert.Equal(t, tag.ConcatTagValues([]string{"1.1.1.1", "1.1.1.2"}), tags)
+	// case 2: get from cache
+	tags = qf.getTagValues(string(tagValueIDs))
+	assert.Equal(t, tag.ConcatTagValues([]string{"1.1.1.1", "1.1.1.2"}), tags)
 }
 
 func TestStorageQueryFlow_Task_panic(t *testing.T) {
@@ -165,7 +192,7 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	var wait sync.WaitGroup
