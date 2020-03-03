@@ -27,7 +27,7 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 	seriesIDs := roaring.New() // target merged series ids
 	// 1. prepare tag forward scanner
 	for _, value := range values {
-		reader, err := newTagForwardReader(value)
+		reader, err := NewTagForwardReader(value)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +43,7 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 		var tagValueIDs []uint32
 		for it.HasNext() {
 			lowSeriesID := it.Next()
-			// scan index data then merge tag value ids
+			// scan index data then merge tag value ids, sort by series id
 			for _, scanner := range scanners {
 				tagValueIDs = scanner.scan(highKey, lowSeriesID, tagValueIDs)
 			}

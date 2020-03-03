@@ -58,7 +58,6 @@ func (f *forwardFlusher) FlushForwardIndex(tagValueIDs []uint32) {
 func (f *forwardFlusher) FlushTagKeyID(tagID uint32, seriesIDs *roaring.Bitmap) error {
 	defer f.reset()
 
-	// check if has pending tag value bucket not flush
 	// write offsets
 	offsetPos := f.writer.Len()
 	f.writer.PutBytes(f.offsets.MarshalBinary())

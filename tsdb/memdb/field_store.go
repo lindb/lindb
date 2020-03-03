@@ -14,11 +14,6 @@ import (
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock.go -package memdb
 
-// for testing
-var (
-	encodeFunc = encoding.NewTSDEncoder
-)
-
 // memory layout as below:
 // header: family[1byte] + field id[1byte] + primitive id[1byte]
 //        + start time[2byte] + end time(delta of start time)[1byte] + mark container[2byte]
@@ -247,7 +242,7 @@ func (fs *fieldStore) merge(
 	thisSlotRange slotRange,
 	withTimeRange bool,
 ) (compress []byte, freeSize int, err error) {
-	encode := encodeFunc(thisSlotRange.start)
+	encode := encoding.TSDEncodeFunc(thisSlotRange.start)
 	for i := thisSlotRange.start; i <= thisSlotRange.end; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)

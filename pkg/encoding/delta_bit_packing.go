@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"bytes"
+	"math"
 	"math/bits"
 
 	"github.com/lindb/lindb/pkg/bit"
@@ -44,7 +45,7 @@ func (p *DeltaBitPackingEncoder) Reset() {
 	p.hasFirst = false
 	p.first = 0
 	p.previous = 0
-	p.minDelta = 0
+	p.minDelta = int32(math.MaxInt32)
 	p.deltas = p.deltas[:0]
 }
 
@@ -69,19 +70,17 @@ func (p *DeltaBitPackingEncoder) Add(v int32) {
 
 // Bytes returns binary data
 func (p *DeltaBitPackingEncoder) Bytes() []byte {
-	var (
-		max int32
-	)
+	max := uint32(0)
 	p.buffer.Reset()
 
 	p.sw.PutVarint32(int32(len(p.deltas))) // write deltas length
 	for _, v := range p.deltas {
-		deltaDelta := v - p.minDelta
+		deltaDelta := uint32(v - p.minDelta)
 		if max < deltaDelta {
 			max = deltaDelta
 		}
 	}
-	width := 32 - bits.LeadingZeros32(uint32(max))
+	width := 32 - bits.LeadingZeros32(max)
 	p.sw.PutByte(byte(width))                                // width
 	p.sw.PutVarint64(int64(ZigZagEncode(int64(p.minDelta)))) // min delta
 	p.sw.PutVarint32(p.first)                                // first value
@@ -130,8 +129,7 @@ func (d *DeltaBitPackingDecoder) Reset(buf []byte) {
 	d.minDelta = int32(ZigZagDecode(uint64(min))) // min delta
 
 	// need read first value
-	v := d.sr.ReadVarint32()
-	d.previous = v
+	d.previous = d.sr.ReadVarint32()
 	pos := d.sr.Position()
 
 	d.buf.SetBuf(buf[pos:])

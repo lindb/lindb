@@ -172,7 +172,8 @@ func (f *family) compact() {
 			defer f.compacting.Store(0)
 
 			if err := f.backgroundCompactionJob(); err != nil {
-				f.logger.Error("do compact job error", logger.String("family", f.name))
+				f.logger.Error("do compact job error",
+					logger.String("family", f.name), logger.Error(err), logger.Stack())
 			}
 		}()
 	}

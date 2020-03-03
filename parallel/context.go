@@ -213,6 +213,7 @@ type taskContext struct {
 
 	err           error
 	expectResults *atomic.Int32
+	completed     atomic.Bool
 }
 
 // newTaskContext creates the task context based on params
@@ -250,6 +251,13 @@ func (c *taskContext) TaskID() string {
 // ReceiveResult marks receive result, decreases the num. of task tracking,
 // if no pending task marks this task completed
 func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
+	defer func() {
+		// check if task completed,
+		// if yes, closes the merger
+		if c.Completed() && c.completed.CAS(false, true) {
+			c.merger.close()
+		}
+	}()
 	if len(resp.ErrMsg) > 0 {
 		c.expectResults.Store(0)
 		c.err = errors.New(resp.ErrMsg)
@@ -264,12 +272,6 @@ func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
 	// if task is completed, reduces expect result count
 	if resp.Completed {
 		c.expectResults.Dec()
-	}
-
-	// check if task completed,
-	// if yes, closes the merger
-	if c.Completed() {
-		c.merger.close()
 	}
 }
 
