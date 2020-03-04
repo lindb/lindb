@@ -6,6 +6,13 @@ import (
 	"github.com/lindb/lindb/kv"
 )
 
+var SeriesForwardMerger kv.MergerType = "SeriesForwardMerger"
+
+// init registers series forward merger create function
+func init() {
+	kv.RegisterMerger(SeriesForwardMerger, NewForwardMerger)
+}
+
 // forwardMerger implements kv.Merger for merging forward index data for each tag key
 type forwardMerger struct {
 	forwardFlusher ForwardFlusher

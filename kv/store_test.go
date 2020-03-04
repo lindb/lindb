@@ -15,14 +15,18 @@ import (
 var testKVPath = "./test_data"
 var mergerStr = "mockMergerAppend"
 
+func newMockMerger() Merger {
+	return &mockAppendMerger{}
+}
+
 func init() {
-	RegisterMerger(mergerStr, &mockAppendMerger{})
+	RegisterMerger(MergerType(mergerStr), newMockMerger)
 }
 
 func TestRegisterMerger(t *testing.T) {
 	assert.Panics(t, func() {
-		RegisterMerger("test", &mockAppendMerger{})
-		RegisterMerger("test", &mockAppendMerger{})
+		RegisterMerger("test", newMockMerger)
+		RegisterMerger("test", newMockMerger)
 	})
 }
 
@@ -73,11 +77,11 @@ func TestReOpen(t *testing.T) {
 	}
 	assert.True(t, ok)
 	_ = kv2.Close()
-	delete(mergers, mergerStr)
+	delete(mergers, MergerType(mergerStr))
 	_, e = NewStore("test_kv", option)
 	assert.NotNil(t, e)
 	assert.Nil(t, nil)
-	RegisterMerger(mergerStr, &mockAppendMerger{})
+	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
 	_ = ioutil.WriteFile(filepath.Join(testKVPath, version.Options), []byte("err"), 0644)
 	_, e = NewStore("test_kv", option)
