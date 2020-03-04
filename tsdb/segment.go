@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
@@ -125,7 +126,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 		if !ok {
 			familyOption := kv.FamilyOption{
 				CompactThreshold: 0,
-				Merger:           dataMerger,
+				Merger:           string(metricsdata.MetricDataMerger),
 			}
 			// create kv family
 			f, err := s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)

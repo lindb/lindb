@@ -10,6 +10,13 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+var MetricDataMerger kv.MergerType = "MetricDataMerger"
+
+// init registers metric data merger create function
+func init() {
+	kv.RegisterMerger(MetricDataMerger, NewMerger)
+}
+
 // merger implements kv.Merger for merging series data for each metric
 type merger struct {
 	dataFlusher  Flusher

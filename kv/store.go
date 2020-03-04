@@ -21,18 +21,6 @@ import (
 
 var defaultCompactCheckInterval = 60
 
-var mergers = make(map[string]Merger)
-
-// RegisterMerger registers family merger
-// NOTICE: must register before create family
-func RegisterMerger(name string, merger Merger) {
-	_, ok := mergers[name]
-	if ok {
-		panic("merger already register")
-	}
-	mergers[name] = merger
-}
-
 // Store is kv store, supporting column family, but is different from other LSM implementation.
 // Current implementation doesn't contain memory table write logic.
 type Store interface {

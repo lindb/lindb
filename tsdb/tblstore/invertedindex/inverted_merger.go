@@ -7,6 +7,13 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
+var SeriesInvertedMerger kv.MergerType = "SeriesInvertedMerger"
+
+// init registers series inverted merger create function
+func init() {
+	kv.RegisterMerger(SeriesInvertedMerger, NewInvertedMerger)
+}
+
 // invertedMerger implements kv.Merger for merging inverted index data for each tag key
 type invertedMerger struct {
 	invertedFlusher InvertedFlusher
