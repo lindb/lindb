@@ -30,6 +30,7 @@ func TestRuntime_Run(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
@@ -49,6 +50,7 @@ func TestRuntime_Run_Err(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3902
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
@@ -74,6 +76,7 @@ func TestRuntime_runServer(t *testing.T) {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3903
 	cfg := defaultStandaloneConfig
 	standalone := NewStandaloneRuntime("test-version", cfg)
 	s := standalone.(*runtime)
@@ -98,6 +101,7 @@ func TestRuntime_cleanupState(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3904
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
