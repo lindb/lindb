@@ -4,6 +4,13 @@ import (
 	"github.com/lindb/lindb/kv"
 )
 
+var TagMetaMerger kv.MergerType = "TagMetaMerger"
+
+// init registers tag meta merger create function
+func init() {
+	kv.RegisterMerger(TagMetaMerger, NewTagMerger)
+}
+
 // tagMerger implements kv.Merger for merging tag trie meta data for each metric
 type tagMerger struct {
 	tagFlusher TagFlusher

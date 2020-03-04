@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	RegisterMerger("mockMerger", &mockAppendMerger{})
+	RegisterMerger("mockMerger", newMockMerger)
 }
 
 func Test_Data_Write_Read(t *testing.T) {

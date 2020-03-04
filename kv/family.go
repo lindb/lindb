@@ -80,7 +80,7 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 			return nil, fmt.Errorf("mkdir family path error:%s", err)
 		}
 	}
-	merger, ok := mergers[option.Merger]
+	merger, ok := mergers[MergerType(option.Merger)]
 	if !ok {
 		return nil, fmt.Errorf("merger of option not impelement Merger interface, merger is [%s]", option.Merger)
 	}
@@ -95,7 +95,7 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 		name:          name,
 		option:        option,
 		compacting:    *atomic.NewInt32(0),
-		merger:        merger,
+		merger:        merger(),
 		maxFileSize:   maxFileSize,
 		familyVersion: store.versions.CreateFamilyVersion(name, option.ID),
 		logger:        log,
