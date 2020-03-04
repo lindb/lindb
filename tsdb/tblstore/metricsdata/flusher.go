@@ -49,10 +49,11 @@ type flusher struct {
 	// context for building field entry
 	fieldOffsets *encoding.FixedOffsetEncoder
 
-	seriesIDs   *roaring.Bitmap
-	highOffsets *encoding.FixedOffsetEncoder // high value of series ids
-	lowOffsets  *encoding.FixedOffsetEncoder // low container of series ids
-	highKey     uint16
+	seriesIDs           *roaring.Bitmap
+	highOffsets         *encoding.FixedOffsetEncoder // high value of series ids
+	lowOffsets          *encoding.FixedOffsetEncoder // low container of series ids
+	highKey             uint16
+	seriesCountOfBucket int
 }
 
 // NewFlusher returns a new Flusher,
@@ -95,6 +96,7 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	if highKey != w.highKey {
 		// flush data by diff high key
 		w.flushSeriesBucket()
+		w.highKey = highKey // set high key, for next container storage
 	}
 
 	pos := w.writer.Len() // field offset block start position
@@ -106,16 +108,20 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 
 	// add series id into metric's index block
 	w.seriesIDs.Add(seriesID)
+	w.seriesCountOfBucket++
 }
 
 // flushSeriesBucket flushes a suit series data in one container(roaring.Bitmap)
 func (w *flusher) flushSeriesBucket() {
-	if w.seriesIDs.IsEmpty() {
-		// maybe first high key not start with 0
+	if w.seriesCountOfBucket == 0 {
+		// if no series data in bucket, return it
 		return
 	}
 
-	defer w.lowOffsets.Reset()
+	defer func() {
+		w.lowOffsets.Reset()
+		w.seriesCountOfBucket = 0
+	}()
 
 	pos := w.writer.Len() // low container's start position
 	// write low offsets into offset block of high container
