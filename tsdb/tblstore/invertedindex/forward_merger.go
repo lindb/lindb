@@ -19,6 +19,10 @@ type forwardMerger struct {
 	flusher        *kv.NopFlusher
 }
 
+func (m *forwardMerger) Init(params map[string]interface{}) {
+	// do nothing
+}
+
 // NewForwardMerger creates a forward merger
 func NewForwardMerger() kv.Merger {
 	flusher := kv.NewNopFlusher()

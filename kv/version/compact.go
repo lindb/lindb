@@ -1,5 +1,7 @@
 package version
 
+import "github.com/lindb/lindb/kv/table"
+
 // Compaction represents the compaction job context
 type Compaction struct {
 	level int
@@ -8,11 +10,11 @@ type Compaction struct {
 	levelInputs   []*FileMeta
 	levelUpInputs []*FileMeta
 
-	editLog *EditLog
+	editLog EditLog
 }
 
 // NewCompaction create a compaction job context
-func NewCompaction(familyID, level int, levelInputs, levelUpInputs []*FileMeta) *Compaction {
+func NewCompaction(familyID FamilyID, level int, levelInputs, levelUpInputs []*FileMeta) *Compaction {
 	return &Compaction{
 		level:         level,
 		inputs:        [][]*FileMeta{levelInputs, levelUpInputs},
@@ -35,7 +37,7 @@ func (c *Compaction) GetLevelFiles() []*FileMeta {
 }
 
 // DeleteFile deletes a old file which compaction input file
-func (c *Compaction) DeleteFile(level int, fileNumber int64) {
+func (c *Compaction) DeleteFile(level int, fileNumber table.FileNumber) {
 	c.editLog.Add(NewDeleteFile(int32(level), fileNumber))
 }
 
@@ -60,7 +62,7 @@ func (c *Compaction) GetLevel() int {
 }
 
 // GetEditLog returns edit log
-func (c *Compaction) GetEditLog() *EditLog {
+func (c *Compaction) GetEditLog() EditLog {
 	return c.editLog
 }
 

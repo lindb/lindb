@@ -4,46 +4,75 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 )
+
+//go:generate mockgen -source=./edit_log.go -destination=./edit_log_mock.go -package=version
 
 // StoreFamilyID is store level edit log,
 // actually store family is not actual family just store store level edit log for metadata.
 const StoreFamilyID = -99999999
 
-// EditLog contains all metadata edit log
-type EditLog struct {
-	logs     []Log
-	familyID int
-	logger   *logger.Logger
+// EditLog represents the version metadata edit log
+type EditLog interface {
+	// FamilyID return family id
+	FamilyID() FamilyID
+	// Add adds edit log into log list
+	Add(log Log)
+	// GetLogs return the logs under edit log
+	GetLogs() []Log
+	// IsEmpty returns edit logs is empty or not.
+	IsEmpty() bool
+	// marshal encodes edit log to binary data
+	marshal() ([]byte, error)
+	// unmarshal create an edit log from its serialized in buf
+	unmarshal(buf []byte) error
+	// apply applies family edit logs into version metadata
+	apply(version Version)
+	// applyVersionSet applies store edit logs into version set
+	applyVersionSet(versionSet StoreVersionSet)
 }
 
-// NewEditLog new EditLog instance
-func NewEditLog(familyID int) *EditLog {
-	return &EditLog{
+// editLog contains all metadata edit log
+type editLog struct {
+	logs     []Log
+	familyID FamilyID
+}
+
+// NewEditLog new editLog instance
+func NewEditLog(familyID FamilyID) EditLog {
+	return &editLog{
 		familyID: familyID,
-		logger:   logger.GetLogger("kv", "EditLog"),
 	}
 }
 
+// newEmptyEditLog create empty edit log without family id for unmarshal
+func newEmptyEditLog() EditLog {
+	return &editLog{}
+}
+
+// FamilyID return family id
+func (el *editLog) FamilyID() FamilyID {
+	return el.familyID
+}
+
 // GetLogs return the logs under edit log
-func (el *EditLog) GetLogs() []Log {
+func (el *editLog) GetLogs() []Log {
 	return el.logs
 }
 
 // Add adds edit log into log list
-func (el *EditLog) Add(log Log) {
+func (el *editLog) Add(log Log) {
 	el.logs = append(el.logs, log)
 }
 
 // IsEmpty returns edit logs is empty or not.
-func (el *EditLog) IsEmpty() bool {
+func (el *editLog) IsEmpty() bool {
 	return len(el.logs) == 0
 }
 
 // marshal encodes edit log to binary data
-func (el *EditLog) marshal() ([]byte, error) {
+func (el *editLog) marshal() ([]byte, error) {
 	sw := stream.NewBufferWriter(nil)
 	// write family id
 	sw.PutVarint32(int32(el.familyID))
@@ -52,7 +81,7 @@ func (el *EditLog) marshal() ([]byte, error) {
 	// write detail log data
 	for _, log := range el.logs {
 		logType := logTypes[reflect.TypeOf(log)]
-		sw.PutVarint32(logType)
+		sw.PutVarint32(int32(logType))
 		value, err := log.Encode()
 		if err != nil {
 			return nil, fmt.Errorf("edit logs encode error: %s", err)
@@ -64,15 +93,15 @@ func (el *EditLog) marshal() ([]byte, error) {
 }
 
 // unmarshal create an edit log from its serialized in buf
-func (el *EditLog) unmarshal(buf []byte) error {
+func (el *editLog) unmarshal(buf []byte) error {
 	reader := stream.NewReader(buf)
-	el.familyID = int(reader.ReadVarint32())
+	el.familyID = FamilyID(reader.ReadVarint32())
 	// read num of logs
 	count := reader.ReadUvarint64()
 	// read detail log data
 	for ; count > 0; count-- {
 		logType := reader.ReadVarint32()
-		fn, ok := newLogFuncMap[logType]
+		fn, ok := newLogFuncMap[LogType(logType)]
 		if !ok {
 			return fmt.Errorf("cannot get log type new func, type is:[%d]", logType)
 		}
@@ -87,26 +116,26 @@ func (el *EditLog) unmarshal(buf []byte) error {
 	return reader.Error()
 }
 
-// apply family edit logs into version metadata
-func (el *EditLog) apply(version *Version) {
+// apply applies family edit logs into version metadata
+func (el *editLog) apply(version Version) {
 	for _, log := range el.logs {
 		log.apply(version)
 
 		if v, ok := log.(StoreLog); ok {
 			// if log is store log, need to apply version set
-			v.applyVersionSet(version.fv.GetVersionSet())
+			v.applyVersionSet(version.GetFamilyVersion().GetVersionSet())
 		}
 	}
 }
 
-// apply store edit logs into version set
-func (el *EditLog) applyVersionSet(versionSet StoreVersionSet) {
+// applyVersionSet applies store edit logs into version set
+func (el *editLog) applyVersionSet(versionSet StoreVersionSet) {
 	for _, log := range el.logs {
 		switch v := log.(type) {
 		case StoreLog:
 			v.applyVersionSet(versionSet)
 		default:
-			el.logger.Warn("cannot apply family edit log to version set")
+			versionLogger.Warn("cannot apply family edit log to version set")
 		}
 	}
 }

@@ -21,6 +21,7 @@ func TestInvertedMerger_Merge(t *testing.T) {
 	}()
 
 	merge := NewInvertedMerger()
+	merge.Init(nil)
 	// case 1: merge data success
 	data, err := merge.Merge(1, mockInvertedMergeData())
 	assert.NoError(t, err)

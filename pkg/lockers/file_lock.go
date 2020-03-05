@@ -8,23 +8,33 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-// FileLock is file lock
-type FileLock struct {
+//go:generate mockgen -source ./file_lock.go -destination=./file_lock_mock.go -package lockers
+
+// FileLock represents file lock
+type FileLock interface {
+	// Lock try locking file, return err if fails.
+	Lock() error
+	// Unlock unlock file lock, if fail return err
+	Unlock() error
+}
+
+// fileLock is file lock
+type fileLock struct {
 	fileName string
 	file     *os.File
 	logger   *logger.Logger
 }
 
 // NewFileLock create new file lock instance
-func NewFileLock(fileName string) *FileLock {
-	return &FileLock{
+func NewFileLock(fileName string) FileLock {
+	return &fileLock{
 		fileName: fileName,
 		logger:   logger.GetLogger("pkg/lockers", fmt.Sprintf("FileLock[%s]", fileName)),
 	}
 }
 
 // Lock try locking file, return err if fails.
-func (l *FileLock) Lock() error {
+func (l *fileLock) Lock() error {
 	f, err := os.Create(l.fileName)
 	if nil != err {
 		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
@@ -39,7 +49,7 @@ func (l *FileLock) Lock() error {
 }
 
 // Unlock unlock file lock, if fail return err
-func (l *FileLock) Unlock() error {
+func (l *fileLock) Unlock() error {
 	defer func() {
 		if err := os.Remove(l.fileName); nil != err {
 			l.logger.Error("remove file lock error", logger.Error(err))

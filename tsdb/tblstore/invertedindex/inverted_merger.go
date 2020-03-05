@@ -29,6 +29,10 @@ func NewInvertedMerger() kv.Merger {
 	}
 }
 
+func (m *invertedMerger) Init(params map[string]interface{}) {
+	// do nothing
+}
+
 // Merge merges the multi inverted index data into a inverted index for same tag key id
 func (m *invertedMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 	var scanners []*tagInvertedScanner

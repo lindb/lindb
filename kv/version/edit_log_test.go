@@ -14,6 +14,7 @@ import (
 func TestEditLogCodec(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	mockLog := NewMockLog(ctrl)
 	RegisterLogType(1000, func() Log {
 		return mockLog
@@ -21,6 +22,10 @@ func TestEditLogCodec(t *testing.T) {
 	defer func() {
 		delete(newLogFuncMap, 1000)
 	}()
+
+	empty := newEmptyEditLog()
+	assert.True(t, empty.IsEmpty())
+	assert.Equal(t, FamilyID(0), empty.FamilyID())
 
 	editLog := NewEditLog(1)
 	assert.True(t, editLog.IsEmpty())
@@ -96,19 +101,19 @@ func TestEditLog_apply(t *testing.T) {
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	familyVersion := vs.CreateFamilyVersion("family", 1)
 	editLog := NewEditLog(1)
-	newFile := &NewFile{level: 1, file: NewFileMeta(12, 1, 100, 2014)}
+	newFile := &newFile{level: 1, file: NewFileMeta(12, 1, 100, 2014)}
 	editLog.Add(newFile)
 	version := newVersion(1, familyVersion)
 	editLog.apply(version)
 
-	assert.Equal(t, 1, len(version.getAllFiles()), "cannot add file into version")
+	assert.Equal(t, 1, len(version.GetAllFiles()), "cannot add file into version")
 	//delete file
 	editLog2 := NewEditLog(1)
 	editLog2.Add(NewDeleteFile(1, 12))
-	editLog2.Add(NewNextFileNumber(int64(120)))
+	editLog2.Add(NewNextFileNumber(table.FileNumber(120)))
 	editLog2.apply(version)
 	assert.Equal(t, 2, len(editLog2.GetLogs()))
-	assert.Equal(t, 0, len(version.getAllFiles()), "cannot delete file from version")
+	assert.Equal(t, 0, len(version.GetAllFiles()), "cannot delete file from version")
 }
 
 func TestEditLog_applyVersionSet(t *testing.T) {
@@ -116,11 +121,11 @@ func TestEditLog_applyVersionSet(t *testing.T) {
 	defer ctrl.Finish()
 
 	vs := NewMockStoreVersionSet(ctrl)
-	vs.EXPECT().setNextFileNumberWithoutLock(int64(120))
+	vs.EXPECT().setNextFileNumberWithoutLock(table.FileNumber(120))
 
 	editLog := NewEditLog(1)
 	mockLog := NewMockLog(ctrl)
 	editLog.Add(mockLog)
-	editLog.Add(NewNextFileNumber(int64(120)))
+	editLog.Add(NewNextFileNumber(table.FileNumber(120)))
 	editLog.applyVersionSet(vs)
 }
