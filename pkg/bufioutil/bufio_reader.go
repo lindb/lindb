@@ -9,6 +9,8 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+//go:generate mockgen -source=./bufio_reader.go -destination=./bufio_reader_mock.go -package=bufioutil
+
 const (
 	defaultReadBufferSize = 256 * 1024 // 256KB
 )

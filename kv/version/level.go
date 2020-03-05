@@ -1,14 +1,16 @@
 package version
 
+import "github.com/lindb/lindb/kv/table"
+
 // level stores sst files of level
 type level struct {
-	files map[int64]*FileMeta
+	files map[table.FileNumber]*FileMeta
 }
 
 // newLevel new level instance
 func newLevel() *level {
 	return &level{
-		files: make(map[int64]*FileMeta),
+		files: make(map[table.FileNumber]*FileMeta),
 	}
 }
 
@@ -25,7 +27,7 @@ func (l *level) addFiles(files ...*FileMeta) {
 }
 
 // deleteFile removes file from file list
-func (l *level) deleteFile(fileNumber int64) {
+func (l *level) deleteFile(fileNumber table.FileNumber) {
 	delete(l.files, fileNumber)
 }
 

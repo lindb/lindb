@@ -11,6 +11,8 @@ const (
 	defaultWriteBufferSize = 256 * 1024 // 256KB
 )
 
+//go:generate mockgen -source=./bufio_writer.go -destination=./bufio_writer_mock.go -package=bufioutil
+
 // BufioWriter writes entries to a specified file by buffered I/O. Not thread-safe.
 type BufioWriter interface {
 	// Write writes a new entry containing logs in order.

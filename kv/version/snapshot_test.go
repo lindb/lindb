@@ -13,34 +13,45 @@ import (
 func TestSnapshot_FindReaders(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	fv := NewMockFamilyVersion(ctrl)
 	vs := NewMockStoreVersionSet(ctrl)
 	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
-	v := newVersion(1, fv)
+	v := NewMockVersion(ctrl)
+	v.EXPECT().Retain().AnyTimes()
 	cache := table.NewMockCache(ctrl)
 	snapshot := newSnapshot("test", v, cache)
-	gomock.InOrder(
-		cache.EXPECT().GetReader("test", Table(int64(10))).Return(nil, fmt.Errorf("err")),
-		cache.EXPECT().GetReader("test", Table(int64(11))).Return(table.NewMockReader(ctrl), nil),
-	)
-	_, err := snapshot.GetReader(int64(10))
-	assert.NotNil(t, err)
-	reader, err := snapshot.GetReader(int64(11))
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	// case 1: get reader err
+	cache.EXPECT().GetReader("test", Table(table.FileNumber(10))).Return(nil, fmt.Errorf("err"))
+	_, err := snapshot.GetReader(table.FileNumber(10))
+	assert.Error(t, err)
+	// case 2: get reader ok
+	cache.EXPECT().GetReader("test", Table(table.FileNumber(11))).Return(table.NewMockReader(ctrl), nil)
+	reader, err := snapshot.GetReader(table.FileNumber(11))
+	assert.NoError(t, err)
 	assert.NotNil(t, reader)
-
-	v.addFile(0, NewFileMeta(int64(10), 1, 30, 30))
-	readers, _ := snapshot.FindReaders(uint32(80))
-	assert.Equal(t, 0, len(readers))
-	cache.EXPECT().GetReader("test", Table(int64(10))).Return(table.NewMockReader(ctrl), nil)
-	readers, _ = snapshot.FindReaders(uint32(20))
-	assert.Equal(t, 1, len(readers))
-
-	cache.EXPECT().GetReader("test", Table(int64(10))).Return(nil, fmt.Errorf("err"))
-	readers, err = snapshot.FindReaders(uint32(20))
-	assert.NotNil(t, err)
+	// case 3: get version
+	assert.NotNil(t, snapshot.GetCurrent())
+	// case 4: get reader by key
+	v.EXPECT().FindFiles(uint32(80)).Return([]*FileMeta{{fileNumber: 10}}).AnyTimes()
+	cache.EXPECT().GetReader("test", Table(table.FileNumber(10))).Return(table.NewMockReader(ctrl), nil)
+	readers, err := snapshot.FindReaders(uint32(80))
+	assert.NoError(t, err)
+	assert.Len(t, readers, 1)
+	// case 5: cannot get reader by key
+	cache.EXPECT().GetReader("test", Table(table.FileNumber(10))).Return(nil, nil)
+	readers, err = snapshot.FindReaders(uint32(80))
+	assert.NoError(t, err)
+	assert.Empty(t, readers)
+	// case 6: get reader by key err
+	cache.EXPECT().GetReader("test", Table(table.FileNumber(10))).Return(nil, fmt.Errorf("err"))
+	readers, err = snapshot.FindReaders(uint32(80))
+	assert.Error(t, err)
 	assert.Nil(t, readers)
+	// case 7: close snapshot
+	v.EXPECT().Release()
+	snapshot.Close()
+	snapshot.Close() // test version release only once
 }

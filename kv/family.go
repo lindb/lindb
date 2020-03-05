@@ -13,70 +13,71 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-const dummy = ""
-const defaultMaxFileSize = int32(256 * 1024 * 1024)
-
 //go:generate mockgen -source ./family.go -destination=./family_mock.go -package kv
+
+// for testing
+var (
+	newCompactJobFunc = newCompactJob
+	removeDirFunc     = fileutil.RemoveDir
+)
 
 // Family implements column family for data isolation each family.
 type Family interface {
 	// ID return family's id
-	ID() int
+	ID() version.FamilyID
 	// Name return family's name
 	Name() string
 	// NewFlusher creates flusher for saving data to family.
 	NewFlusher() Flusher
 	// GetSnapshot returns current version's snapshot
 	GetSnapshot() version.Snapshot
+	// familyInfo return family info
+	familyInfo() string
 
 	// getFamilyVersion returns the family version
 	getFamilyVersion() version.FamilyVersion
 	// commitEditLog persists edit logs into manifest file.
-	commitEditLog(editLog *version.EditLog) bool
+	commitEditLog(editLog version.EditLog) bool
 	// newTableBuilder creates table builder instance for storing kv data.
 	newTableBuilder() (table.Builder, error)
 	// needCompat returns level0 files if need do compact job
 	needCompat() bool
 	// compact does compaction job
 	compact()
-	// getMerger returns user implement merger
-	getMerger() Merger
+	// getNewMerger returns new merger function, merger need implement Merger interface
+	getNewMerger() NewMerger
 	// addPendingOutput add a file which current writing file number
-	addPendingOutput(fileNumber int64)
+	addPendingOutput(fileNumber table.FileNumber)
 	// removePendingOutput removes pending output file after compact or flush
-	removePendingOutput(fileNumber int64)
-	// deleteSST deletes the temp sst file, if flush or compact fail
-	deleteSST(fileNumber int64) error
-	// getLogger returns the logger under family
-	getLogger() *logger.Logger
+	removePendingOutput(fileNumber table.FileNumber)
+	// doRollupWork does rollup job, merge source family data to target family
+	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
 }
 
 // family implements Family interface
 type family struct {
-	store         *store
+	store         Store
 	name          string
 	familyPath    string
 	option        FamilyOption
-	merger        Merger
+	merger        NewMerger
 	familyVersion version.FamilyVersion
 	maxFileSize   int32
 
 	pendingOutputs sync.Map
 
-	compacting atomic.Int32
-
-	logger *logger.Logger
+	rolluping  atomic.Bool
+	compacting atomic.Bool
 }
 
 // newFamily creates new family or open existed family.
-func newFamily(store *store, option FamilyOption) (Family, error) {
+func newFamily(store Store, option FamilyOption) (Family, error) {
 	name := option.Name
 
-	familyPath := filepath.Join(store.option.Path, name)
-	log := logger.GetLogger("kv", fmt.Sprintf("Family[%s]", familyPath))
+	familyPath := filepath.Join(store.Option().Path, name)
 
 	if !fileutil.Exist(familyPath) {
-		if err := fileutil.MkDir(familyPath); err != nil {
+		if err := mkDirFunc(familyPath); err != nil {
 			return nil, fmt.Errorf("mkdir family path error:%s", err)
 		}
 	}
@@ -94,19 +95,18 @@ func newFamily(store *store, option FamilyOption) (Family, error) {
 		store:         store,
 		name:          name,
 		option:        option,
-		compacting:    *atomic.NewInt32(0),
-		merger:        merger(),
+		merger:        merger,
 		maxFileSize:   maxFileSize,
-		familyVersion: store.versions.CreateFamilyVersion(name, option.ID),
-		logger:        log,
+		familyVersion: store.createFamilyVersion(name, version.FamilyID(option.ID)),
 	}
 
-	log.Info("new family success")
+	kvLogger.Info("new family success", logger.String("family", f.familyInfo()))
 	return f, nil
 }
 
-func (f *family) ID() int {
-	return f.option.ID
+// ID return family's id
+func (f *family) ID() version.FamilyID {
+	return version.FamilyID(f.option.ID)
 }
 
 // Name return family's name
@@ -124,41 +124,49 @@ func (f *family) GetSnapshot() version.Snapshot {
 	return f.familyVersion.GetSnapshot()
 }
 
+// familyInfo return family info
+func (f *family) familyInfo() string {
+	return f.familyPath
+}
+
 // newTableBuilder creates table builder instance for storing kv data.
 func (f *family) newTableBuilder() (table.Builder, error) {
-	fileNumber := f.store.versions.NextFileNumber()
+	fileNumber := f.store.nextFileNumber()
 	fileName := filepath.Join(f.familyPath, version.Table(fileNumber))
 	return table.NewStoreBuilder(fileNumber, fileName)
 }
 
 // commitEditLog persists edit logs into manifest file.
 // returns true on committing successfully and false on failure
-func (f *family) commitEditLog(editLog *version.EditLog) bool {
-	if editLog.IsEmpty() {
-		f.logger.Warn("edit log is empty")
+func (f *family) commitEditLog(editLog version.EditLog) bool {
+	if editLog == nil || editLog.IsEmpty() {
+		kvLogger.Warn("edit log is empty", logger.String("family", f.familyInfo()))
 		return true
 	}
-	if err := f.store.versions.CommitFamilyEditLog(f.name, editLog); err != nil {
-		f.logger.Error("commit edit log error:", logger.Error(err))
+	if err := f.store.commitFamilyEditLog(f.name, editLog); err != nil {
+		kvLogger.Error("commit edit log error:", logger.String("family", f.familyInfo()), logger.Error(err))
 		return false
 	}
-	//FIXME deleteObsoleteFiles
 	return true
 }
 
 // needCompat returns level0 files if need do compact job
 func (f *family) needCompat() bool {
 	// has compaction job doing
-	if f.compacting.Load() == 1 {
+	if f.compacting.Load() {
 		return false
 	}
 
 	snapshot := f.GetSnapshot()
 	defer snapshot.Close()
+	threshold := f.option.CompactThreshold
+	if threshold <= 0 {
+		threshold = defaultCompactThreshold
+	}
 
 	numberOfFiles := snapshot.GetCurrent().NumberOfFilesInLevel(0)
-	if numberOfFiles > 0 && numberOfFiles >= f.option.CompactThreshold {
-		f.logger.Info("need to compact level0 files",
+	if numberOfFiles > 0 && numberOfFiles >= threshold {
+		kvLogger.Info("need to compact level0 files", logger.String("family", f.familyInfo()),
 			logger.Any("numOfFiles", numberOfFiles), logger.Any("threshold", f.option.CompactThreshold))
 		return true
 	}
@@ -167,18 +175,19 @@ func (f *family) needCompat() bool {
 
 // compact does compact job if hasn't compact job running
 func (f *family) compact() {
-	if f.compacting.CAS(0, 1) {
+	if f.compacting.CAS(false, true) {
 		go func() {
-			defer f.compacting.Store(0)
+			defer f.compacting.Store(false)
 
 			if err := f.backgroundCompactionJob(); err != nil {
-				f.logger.Error("do compact job error",
-					logger.String("family", f.name), logger.Error(err), logger.Stack())
+				kvLogger.Error("do compact job error",
+					logger.String("family", f.familyInfo()), logger.Error(err), logger.Stack())
 			}
 		}()
 	}
 }
 
+// backgroundCompactionJob runs compact job in background goroutine
 func (f *family) backgroundCompactionJob() error {
 	snapshot := f.GetSnapshot()
 	defer func() {
@@ -193,34 +202,29 @@ func (f *family) backgroundCompactionJob() error {
 		return nil
 	}
 	compactionState := newCompactionState(f.maxFileSize, snapshot, compaction)
-	compactJob := newCompactJob(f, compactionState)
-	if err := compactJob.run(); err != nil {
+	compactJob := newCompactJobFunc(f, compactionState, nil)
+	if err := compactJob.Run(); err != nil {
 		return err
 	}
 	return nil
 }
 
 // addPendingOutput add a file which current writing file number
-func (f *family) addPendingOutput(fileNumber int64) {
+func (f *family) addPendingOutput(fileNumber table.FileNumber) {
 	f.pendingOutputs.Store(fileNumber, dummy)
 }
 
 // removePendingOutput removes pending output file after compact or flush
-func (f *family) removePendingOutput(fileNumber int64) {
+func (f *family) removePendingOutput(fileNumber table.FileNumber) {
 	f.pendingOutputs.Delete(fileNumber)
 }
 
 // deleteSST deletes the temp sst file, if flush or compact fail
-func (f *family) deleteSST(fileNumber int64) error {
-	if err := fileutil.RemoveDir(filepath.Join(f.familyPath, version.Table(fileNumber))); err != nil {
+func (f *family) deleteSST(fileNumber table.FileNumber) error {
+	if err := removeDirFunc(filepath.Join(f.familyPath, version.Table(fileNumber))); err != nil {
 		return err
 	}
 	return nil
-}
-
-// getLogger returns the logger under family
-func (f *family) getLogger() *logger.Logger {
-	return f.logger
 }
 
 // getFamilyVersion returns the family version
@@ -228,22 +232,22 @@ func (f *family) getFamilyVersion() version.FamilyVersion {
 	return f.familyVersion
 }
 
-// getMerger returns user implement merger
-func (f *family) getMerger() Merger {
+// getNewMerger returns new merger function, merger need implement Merger interface
+func (f *family) getNewMerger() NewMerger {
 	return f.merger
 }
 
 // deleteObsoleteFiles deletes obsolete files
 func (f *family) deleteObsoleteFiles() {
-	sstFiles, err := fileutil.ListDir(f.familyPath)
+	sstFiles, err := listDirFunc(f.familyPath)
 	if err != nil {
-		f.logger.Error("list sst file fail when delete obsolete files", logger.String("family", f.name))
+		kvLogger.Error("list sst file fail when delete obsolete files", logger.String("family", f.familyInfo()))
 		return
 	}
 	// make a map for all live files
-	liveFiles := make(map[int64]string)
+	liveFiles := make(map[table.FileNumber]string)
 	f.pendingOutputs.Range(func(key, value interface{}) bool {
-		k, ok := key.(int64)
+		k, ok := key.(table.FileNumber)
 		if ok {
 			liveFiles[k] = dummy
 		}
@@ -254,8 +258,12 @@ func (f *family) deleteObsoleteFiles() {
 	for idx := range allLiveSSTFiles {
 		liveFiles[allLiveSSTFiles[idx].GetFileNumber()] = dummy
 	}
-	//TODO add rollup file ref??
-
+	// add live rollup files, maybe some rollup files is not alive in current family version,
+	// but those files cannot delete, because need read those files when do rollup job
+	rollupFiles := f.familyVersion.GetLiveRollupFiles()
+	for file := range rollupFiles {
+		liveFiles[file] = dummy
+	}
 	for _, fileName := range sstFiles {
 		fileDesc := version.ParseFileName(fileName)
 		if fileDesc == nil {
@@ -267,13 +275,14 @@ func (f *family) deleteObsoleteFiles() {
 			_, keep = liveFiles[fileNumber]
 		}
 		if !keep {
-			f.store.cache.Evict(f.name, version.Table(fileNumber))
+			f.store.evictFamilyFile(f.name, fileNumber)
 			if err := f.deleteSST(fileNumber); err != nil {
-				f.logger.Error("delete sst file fail",
-					logger.String("family", f.name), logger.Int64("fileNumber", fileNumber))
+				kvLogger.Error("delete sst file fail",
+					logger.String("family", f.familyInfo()), logger.Any("fileNumber", fileNumber))
+			} else {
+				kvLogger.Info("delete sst file successfully",
+					logger.String("family", f.familyInfo()), logger.Any("fileNumber", fileNumber))
 			}
-			f.logger.Info("delete sst file successfully",
-				logger.String("family", f.name), logger.Int64("fileNumber", fileNumber))
 		}
 	}
 }

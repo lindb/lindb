@@ -5,6 +5,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv/table"
 )
 
 func TestVersion_New(t *testing.T) {
@@ -23,6 +25,8 @@ func TestVersion_New(t *testing.T) {
 	fv.EXPECT().GetVersionSet().Return(vs).MaxTimes(2)
 	vs.EXPECT().numberOfLevels().Return(2)
 	v := newVersion(1, fv)
+	assert.Len(t, v.Levels(), 2)
+	assert.Equal(t, int64(1), v.ID())
 	assert.NotNil(t, v)
 	assert.Equal(t, fv, v.GetFamilyVersion())
 	// test new panic
@@ -39,12 +43,12 @@ func TestVersion_Release(t *testing.T) {
 	fv.EXPECT().GetVersionSet().Return(vs).MaxTimes(2)
 	vs.EXPECT().numberOfLevels().Return(2)
 	v := newVersion(1, fv)
-	assert.Equal(t, int32(0), v.ref.Load())
-	v.retain()
-	assert.Equal(t, int32(1), v.ref.Load())
+	assert.Equal(t, int32(0), v.NumOfRef())
+	v.Retain()
+	assert.Equal(t, int32(1), v.NumOfRef())
 	fv.EXPECT().removeVersion(v)
-	v.release()
-	assert.Equal(t, int32(0), v.ref.Load())
+	v.Release()
+	assert.Equal(t, int32(0), v.NumOfRef())
 }
 
 func TestVersion_Files(t *testing.T) {
@@ -56,30 +60,30 @@ func TestVersion_Files(t *testing.T) {
 	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
 	v := newVersion(1, fv)
-	v.addFile(0, &FileMeta{fileNumber: 1})
-	v.addFile(-10, &FileMeta{fileNumber: 2})
-	v.addFile(2, &FileMeta{fileNumber: 3})
-	v.addFiles(1, []*FileMeta{{fileNumber: 4}})
-	assert.Equal(t, 2, len(v.getAllFiles()))
+	v.AddFile(0, &FileMeta{fileNumber: 1})
+	v.AddFile(-10, &FileMeta{fileNumber: 2})
+	v.AddFile(2, &FileMeta{fileNumber: 3})
+	v.AddFiles(1, []*FileMeta{{fileNumber: 4}})
+	assert.Equal(t, 2, len(v.GetAllFiles()))
 	assert.Equal(t, 0, v.NumberOfFilesInLevel(-1))
 	assert.Equal(t, 0, v.NumberOfFilesInLevel(10))
 	assert.Equal(t, 1, v.NumberOfFilesInLevel(0))
 	assert.Equal(t, 1, v.NumberOfFilesInLevel(1))
 
 	vs.EXPECT().newVersionID().Return(int64(2))
-	v2 := v.cloneVersion()
+	v2 := v.Clone()
 	assert.Equal(t, 1, v2.NumberOfFilesInLevel(0))
 	assert.Equal(t, 1, v2.NumberOfFilesInLevel(1))
 
-	assert.Nil(t, v.getFiles(-1))
-	assert.Nil(t, v.getFiles(3))
-	assert.Equal(t, 1, len(v.getFiles(0)))
-	assert.Equal(t, 1, len(v.getFiles(1)))
-	v.deleteFile(-1, int64(4))
-	assert.Equal(t, 2, len(v.getAllFiles()))
-	v.deleteFile(1, int64(4))
-	assert.Equal(t, 1, len(v.getAllFiles()))
-	assert.Nil(t, v.getFiles(1))
+	assert.Nil(t, v.GetFiles(-1))
+	assert.Nil(t, v.GetFiles(3))
+	assert.Equal(t, 1, len(v.GetFiles(0)))
+	assert.Equal(t, 1, len(v.GetFiles(1)))
+	v.DeleteFile(-1, table.FileNumber(4))
+	assert.Equal(t, 2, len(v.GetAllFiles()))
+	v.DeleteFile(1, table.FileNumber(4))
+	assert.Equal(t, 1, len(v.GetAllFiles()))
+	assert.Nil(t, v.GetFiles(1))
 }
 
 func TestVersion_Find_Files(t *testing.T) {
@@ -93,24 +97,24 @@ func TestVersion_Find_Files(t *testing.T) {
 	v := newVersion(1, fv)
 	f1 := FileMeta{fileNumber: 1, minKey: 10, maxKey: 200}
 	f2 := FileMeta{fileNumber: 2, minKey: 50, maxKey: 400}
-	v.addFile(0, &f1)
-	v.addFile(1, &f2)
-	files := v.findFiles(100)
+	v.AddFile(0, &f1)
+	v.AddFile(1, &f2)
+	files := v.FindFiles(100)
 	assert.Equal(t, 2, len(files))
 	assert.Equal(t, f1, *files[0])
 	assert.Equal(t, f2, *files[1])
 
-	files = v.findFiles(20)
+	files = v.FindFiles(20)
 	assert.Equal(t, 1, len(files))
 	assert.Equal(t, f1, *files[0])
 
-	files = v.findFiles(300)
+	files = v.FindFiles(300)
 	assert.Equal(t, 1, len(files))
 	assert.Equal(t, f2, *files[0])
 
-	files = v.findFiles(3000)
+	files = v.FindFiles(3000)
 	assert.Equal(t, 0, len(files))
-	files = v.findFiles(5)
+	files = v.FindFiles(5)
 	assert.Equal(t, 0, len(files))
 }
 
@@ -121,7 +125,7 @@ func TestVersion_PickL0Compaction(t *testing.T) {
 	fv := NewMockFamilyVersion(ctrl)
 	vs := NewMockStoreVersionSet(ctrl)
 	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
-	fv.EXPECT().GetID().Return(1).AnyTimes()
+	fv.EXPECT().GetID().Return(FamilyID(1)).AnyTimes()
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
 	v := newVersion(1, fv)
 	/*
@@ -131,7 +135,7 @@ func TestVersion_PickL0Compaction(t *testing.T) {
 	 */
 	f1 := FileMeta{fileNumber: 1, minKey: 10, maxKey: 100}
 	f2 := FileMeta{fileNumber: 2, minKey: 1000, maxKey: 1001}
-	v.addFiles(0, []*FileMeta{&f1, &f2})
+	v.AddFiles(0, []*FileMeta{&f1, &f2})
 	/*
 	* Level 1:
 	* file 3: 1~5
@@ -141,7 +145,7 @@ func TestVersion_PickL0Compaction(t *testing.T) {
 	f3 := FileMeta{fileNumber: 3, minKey: 1, maxKey: 5}
 	f4 := FileMeta{fileNumber: 4, minKey: 100, maxKey: 200}
 	f5 := FileMeta{fileNumber: 5, minKey: 400, maxKey: 500}
-	v.addFiles(1, []*FileMeta{&f3, &f4, &f5})
+	v.AddFiles(1, []*FileMeta{&f3, &f4, &f5})
 
 	compaction := v.PickL0Compaction(5)
 	assert.Nil(t, compaction)
@@ -153,7 +157,26 @@ func TestVersion_PickL0Compaction(t *testing.T) {
 	assert.Equal(t, f4, *compaction.levelUpInputs[0])
 
 	f6 := FileMeta{fileNumber: 6, minKey: 1, maxKey: 1000}
-	v.addFiles(0, []*FileMeta{&f6})
+	v.AddFiles(0, []*FileMeta{&f6})
 	compaction = v.PickL0Compaction(1)
 	assert.Equal(t, 3, len(compaction.levelUpInputs))
+}
+
+func TestVersion_RollupJob(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fv := NewMockFamilyVersion(ctrl)
+	vs := NewMockStoreVersionSet(ctrl)
+	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
+	fv.EXPECT().GetID().Return(FamilyID(1)).AnyTimes()
+	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
+	v := newVersion(1, fv)
+	v.AddRollupFile(10, 3)
+	v.DeleteRollupFile(10)
+	assert.Empty(t, v.GetRollupFiles())
+	v.AddReferenceFile(10, 100)
+	v.AddReferenceFile(10, 10)
+	v.DeleteReferenceFile(10, 10)
+	assert.Equal(t, map[FamilyID][]table.FileNumber{10: {100}}, v.GetReferenceFiles())
 }

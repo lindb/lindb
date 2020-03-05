@@ -15,6 +15,7 @@ func TestForwardMerger_Merge(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	merge := NewForwardMerger()
+	merge.Init(nil)
 	// case 1: merge data success
 	data, err := merge.Merge(1, mockMergeForwardBlock())
 	assert.NoError(t, err)
