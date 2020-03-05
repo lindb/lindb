@@ -11,30 +11,33 @@ import (
 
 //go:generate mockgen -source ./series_merger.go -destination=./series_merger_mock.go -package metricsdata
 
+// SeriesMerger represents series data merger which merge multi fields under same series id
 type SeriesMerger interface {
-	merge(fields field.Metas,
+	// merge merges the multi fields data with same series id
+	merge(mergeCtx *mergerContext,
 		decodeStreams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 		fieldReaders []FieldReader,
-		start, end uint16,
 	) error
 }
 
+// seriesMerger implements SeriesMerger interface
 type seriesMerger struct {
 	flusher Flusher
 }
 
+// newSeriesMerger creates a series merger
 func newSeriesMerger(flusher Flusher) SeriesMerger {
 	return &seriesMerger{
 		flusher: flusher,
 	}
 }
 
-func (sm *seriesMerger) merge(fields field.Metas,
+// merge merges the multi fields data with same series id
+func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 	fieldReaders []FieldReader,
-	start, end uint16,
 ) error {
-	for _, f := range fields {
+	for _, f := range mergeCtx.targetFields {
 		schema := f.Type.GetSchema()
 		fieldID := f.ID
 		primitiveFields := schema.GetAllPrimitiveFields()
@@ -52,7 +55,8 @@ func (sm *seriesMerger) merge(fields field.Metas,
 					streams[idx].ResetWithTimeRange(fieldData, oldStart, oldEnd)
 				}
 			}
-			sm.mergeField(aggFunc, encodeStream, streams, start, end)
+			// merge field data
+			sm.mergeField(mergeCtx, aggFunc, encodeStream, streams)
 			data, err := encodeStream.BytesWithoutTime()
 			if err != nil {
 				return err
@@ -66,32 +70,42 @@ func (sm *seriesMerger) merge(fields field.Metas,
 	return nil
 }
 
-func (sm *seriesMerger) mergeField(aggFunc field.AggFunc,
+// mergeField merges field data from source time range => target time range,
+// compact merge: source range = target range and ratio = 1
+// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
+func (sm *seriesMerger) mergeField(mergeCtx *mergerContext, aggFunc field.AggFunc,
 	stream encoding.TSDEncoder, values []*encoding.TSDDecoder,
-	start, end uint16,
 ) {
 	hasValue := false
-	target := 0.0
-	for i := start; i <= end; i++ {
-		// 1. merge data by time slot
-		for _, value := range values {
-			if value.HasValueWithSlot(i) {
-				if !hasValue {
-					// if target value not exist, set it
-					target = math.Float64frombits(value.Value())
-					hasValue = true
-				} else {
-					// if target value exist, do aggregate
-					target = aggFunc.Aggregate(target, math.Float64frombits(value.Value()))
+	pos := mergeCtx.sourceStart
+	result := 0.0
+	// first loop: target slot range
+	for j := mergeCtx.targetStart; j <= mergeCtx.targetEnd; j++ {
+		// second loop: source slot range and ratio(target interval/source interval)
+		intervalEnd := mergeCtx.ratio * (j + 1)
+		for pos <= mergeCtx.sourceEnd && pos < intervalEnd {
+			// 1. merge data by time slot
+			for _, value := range values {
+				if value.HasValueWithSlot(pos) {
+					if !hasValue {
+						// if target value not exist, set it
+						result = math.Float64frombits(value.Value())
+						hasValue = true
+					} else {
+						// if target value exist, do aggregate
+						result = aggFunc.Aggregate(result, math.Float64frombits(value.Value()))
+					}
 				}
 			}
+			pos++
 		}
 		// 2. add data into tsd stream
 		if hasValue {
 			stream.AppendTime(bit.One)
-			stream.AppendValue(math.Float64bits(target))
+			stream.AppendValue(math.Float64bits(result))
 			// reset has value for next loop
 			hasValue = false
+			result = 0.0
 		} else {
 			stream.AppendTime(bit.Zero)
 		}

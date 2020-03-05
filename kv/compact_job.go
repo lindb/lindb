@@ -8,27 +8,34 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source ./compact_job.go -destination=./compact_job_mock.go -package kv
+
+// CompactJob represents the compact job which does merge sst files
+type CompactJob interface {
+	// Run runs compact logic
+	Run() error
+}
+
 // compactJob represents the compaction job, merges input files
 type compactJob struct {
 	family Family
 	state  *compactionState
-	merger Merger
-
-	logger *logger.Logger
+	merger NewMerger
+	rollup Rollup
 }
 
 // newCompactJob creates a compaction job
-func newCompactJob(family Family, state *compactionState) *compactJob {
+func newCompactJob(family Family, state *compactionState, rollup Rollup) CompactJob {
 	return &compactJob{
 		family: family,
-		merger: family.getMerger(),
+		merger: family.getNewMerger(),
 		state:  state,
-		logger: family.getLogger(),
+		rollup: rollup,
 	}
 }
 
 // run runs compact job
-func (c *compactJob) run() error {
+func (c *compactJob) Run() error {
 	compaction := c.state.compaction
 	switch {
 	case compaction.IsTrivialMove():
@@ -44,7 +51,7 @@ func (c *compactJob) run() error {
 // moveCompaction moves low level file to  up level, just does metadata change
 func (c *compactJob) moveCompaction() {
 	compaction := c.state.compaction
-	c.logger.Info("starting compaction job, just move file to next level")
+	kvLogger.Info("starting compaction job, just move file to next level", logger.String("family", c.family.familyInfo()))
 	//move file to next level
 	fileMeta := compaction.GetLevelFiles()[0]
 	level := compaction.GetLevel()
@@ -52,12 +59,12 @@ func (c *compactJob) moveCompaction() {
 	compaction.AddFile(level+1, fileMeta)
 	c.family.commitEditLog(compaction.GetEditLog())
 	// TODO add cost ?????
-	c.logger.Info("finish move file compaction")
+	kvLogger.Info("finish move file compaction", logger.String("family", c.family.familyInfo()))
 }
 
 // mergeCompaction merges input files to up level
 func (c *compactJob) mergeCompaction() (err error) {
-	c.logger.Info("starting compaction job, do merge compaction")
+	kvLogger.Info("starting compaction job, do merge compaction", logger.String("family", c.family.familyInfo()))
 	defer func() {
 		// cleanup compaction context, include temp pending output files
 		c.cleanupCompaction()
@@ -78,6 +85,11 @@ func (c *compactJob) doMerge() error {
 	if err != nil {
 		return err
 	}
+	merger := c.merger()
+	if c.rollup != nil {
+		merger.Init(map[string]interface{}{RollupContext: c.rollup})
+	}
+
 	var needMerge [][]byte
 	var previousKey uint32
 	start := true
@@ -93,7 +105,7 @@ func (c *compactJob) doMerge() error {
 			//FIXME stone1100 merge data maybe is one block
 
 			// 1. if new key != previous key do merge logic based on user define
-			mergedValue, err := c.merger.Merge(previousKey, needMerge)
+			mergedValue, err := merger.Merge(previousKey, needMerge)
 			if err != nil {
 				return err
 			}
@@ -113,7 +125,7 @@ func (c *compactJob) doMerge() error {
 
 	// if has pending merge values after iterator, need do merge
 	if len(needMerge) > 0 {
-		mergedValue, err := c.merger.Merge(previousKey, needMerge)
+		mergedValue, err := merger.Merge(previousKey, needMerge)
 		if err != nil {
 			return err
 		}
@@ -233,8 +245,9 @@ func (c *compactJob) finishCompactionOutputFile() (err error) {
 func (c *compactJob) cleanupCompaction() {
 	if c.state.builder != nil {
 		if err := c.state.builder.Abandon(); err != nil {
-			c.logger.Warn("abandon store build error when do compact job",
-				logger.Int64("file", c.state.currentFileNumber))
+			kvLogger.Warn("abandon store build error when do compact job",
+				logger.String("family", c.family.familyInfo()),
+				logger.Int64("file", c.state.currentFileNumber.Int64()))
 		}
 		c.family.removePendingOutput(c.state.currentFileNumber)
 	}

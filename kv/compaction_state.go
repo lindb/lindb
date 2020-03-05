@@ -11,7 +11,7 @@ type compactionState struct {
 	builder           table.Builder
 	compaction        *version.Compaction
 	snapshot          version.Snapshot
-	currentFileNumber int64
+	currentFileNumber table.FileNumber
 	maxFileSize       int32
 }
 

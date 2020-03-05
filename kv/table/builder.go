@@ -13,17 +13,23 @@ import (
 
 //go:generate mockgen -source ./builder.go -destination=./builder_mock.go -package table
 
-const (
-	// magic-number in the footer of sst file
-	magicNumberOffsetFile uint64 = 0x69632d656d656c65
-	// current file layout version
-	version0 = 0
+// for testing
+var (
+	newBufioWriterFunc = bufioutil.NewBufioWriter
 )
 
-// Builder builds sst file
+// FileNumber represents sst file number
+type FileNumber int64
+
+// Int64 returns the int64 value of file number
+func (i FileNumber) Int64() int64 {
+	return int64(i)
+}
+
+// Builder represents sst file builder
 type Builder interface {
 	// FileNumber returns file name for store builder
-	FileNumber() int64
+	FileNumber() FileNumber
 	// Add puts k/v pair init sst file write buffer
 	// NOTICE: key must key in sort by desc
 	Add(key uint32, value []byte) error
@@ -43,10 +49,10 @@ type Builder interface {
 
 // storeBuilder builds store file
 type storeBuilder struct {
-	fileNumber int64
+	fileNumber FileNumber
 	fileName   string
 	writer     bufioutil.BufioWriter
-	offset     *encoding.DeltaBitPackingEncoder
+	offset     *encoding.FixedOffsetEncoder
 
 	// see paper of roaring bitmap: https://arxiv.org/pdf/1603.06549.pdf
 	keys   *roaring.Bitmap
@@ -54,14 +60,11 @@ type storeBuilder struct {
 	maxKey uint32
 
 	first bool
-
-	logger *logger.Logger
 }
 
 // NewStoreBuilder creates store builder instance for building store file
-func NewStoreBuilder(fileNumber int64, fileName string) (Builder, error) {
-	log := logger.GetLogger("kv", fmt.Sprintf("Builder[%s]", fileName))
-	writer, err := bufioutil.NewBufioWriter(fileName)
+func NewStoreBuilder(fileNumber FileNumber, fileName string) (Builder, error) {
+	writer, err := newBufioWriterFunc(fileName)
 	if err != nil {
 		return nil, fmt.Errorf("create file write for store builder error:%s", err)
 	}
@@ -69,22 +72,22 @@ func NewStoreBuilder(fileNumber int64, fileName string) (Builder, error) {
 		fileNumber: fileNumber,
 		fileName:   fileName,
 		keys:       roaring.New(),
-		logger:     log,
 		writer:     writer,
 		first:      true,
-		offset:     encoding.NewDeltaBitPackingEncoder(),
+		offset:     encoding.NewFixedOffsetEncoder(),
 	}, nil
 }
 
 // FileNumber returns file name of store builder.
-func (b *storeBuilder) FileNumber() int64 {
+func (b *storeBuilder) FileNumber() FileNumber {
 	return b.fileNumber
 }
 
 // Add adds key/value pair into store file, if write failure return error
 func (b *storeBuilder) Add(key uint32, value []byte) error {
 	if !b.first && key <= b.maxKey {
-		b.logger.Warn("key is smaller then last key ignore current options.",
+		tableLogger.Warn("key is smaller then last key ignore current options.",
+			logger.String("file", b.fileName),
 			logger.Uint32("last", b.maxKey), logger.Uint32("cur", key))
 		return nil
 	}
@@ -95,7 +98,7 @@ func (b *storeBuilder) Add(key uint32, value []byte) error {
 		return fmt.Errorf("write data into store file error:%s", err)
 	}
 	// add offset into offset buffer
-	b.offset.Add(int32(offset))
+	b.offset.Add(int(offset))
 	// add key into index block
 	b.keys.Add(key)
 
@@ -136,14 +139,17 @@ func (b *storeBuilder) Abandon() error {
 
 // Close writes file footer before closing resources
 func (b *storeBuilder) Close() error {
+	if b.keys.IsEmpty() {
+		return ErrEmptyKeys
+	}
 	posOfOffset := b.writer.Size()
-	offset := b.offset.Bytes()
+	offset := b.offset.MarshalBinary()
 	if _, err := b.writer.Write(offset); err != nil {
 		return err
 	}
 
 	b.keys.RunOptimize()
-	keys, err := b.keys.MarshalBinary()
+	keys, err := encoding.BitmapMarshal(b.keys)
 	if err != nil {
 		return err
 	}

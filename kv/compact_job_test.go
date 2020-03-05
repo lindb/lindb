@@ -10,10 +10,17 @@ import (
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 type mockAppendMerger struct {
+}
+
+func newMockAppendMerger() Merger {
+	return &mockAppendMerger{}
+}
+
+func (m *mockAppendMerger) Init(params map[string]interface{}) {
+
 }
 
 func (m *mockAppendMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
@@ -30,19 +37,24 @@ func TestCompactJob_move_compact(t *testing.T) {
 
 	snapshot := version.NewMockSnapshot(ctrl)
 	merge := NewMockMerger(ctrl)
-	family := generateMockFamily(ctrl, merge)
+	family := generateMockFamily(ctrl, func() Merger {
+		return merge
+	})
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, nil)
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.run()
+	compact := newCompactJob(family, state, nil)
+	err := compact.Run()
+	assert.NoError(t, err)
 	if err != nil {
 		t.Fatal(err)
 	}
-	logs := compactJob.state.compaction.GetEditLog().GetLogs()
+	compact2 := compact.(*compactJob)
+	logs := compact2.state.compaction.GetEditLog().GetLogs()
 	assert.Equal(t, 2, len(logs))
-	assert.Equal(t, *version.NewDeleteFile(0, 1), *(logs[0].(*version.DeleteFile)))
-	assert.Equal(t, *version.CreateNewFile(1, f1), *(logs[1].(*version.NewFile)))
+	assert.Equal(t, version.NewDeleteFile(0, 1), logs[0])
+	assert.Equal(t, version.CreateNewFile(1, f1), logs[1])
 }
 
 func TestCompactJob_merge_compact_get_read_fail(t *testing.T) {
@@ -52,15 +64,18 @@ func TestCompactJob_merge_compact_get_read_fail(t *testing.T) {
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	merge := NewMockMerger(ctrl)
-	family := generateMockFamily(ctrl, merge)
+	family := generateMockFamily(ctrl, func() Merger {
+		return merge
+	})
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f2 := version.NewFileMeta(2, 20, 50, 100)
 	f3 := version.NewFileMeta(3, 1, 30, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1, f2}, []*version.FileMeta{f3, f4})
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.run()
+	compactJob := newCompactJob(family, state, nil)
+	err := compactJob.Run()
 	assert.NotNil(t, err)
 }
 
@@ -79,13 +94,16 @@ func TestCompactJob_merge_compact_merge_fail(t *testing.T) {
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(reader, nil).MaxTimes(2)
 	merge := NewMockMerger(ctrl)
 	merge.EXPECT().Merge(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	family := generateMockFamily(ctrl, merge)
+	family := generateMockFamily(ctrl, func() Merger {
+		return merge
+	})
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, []*version.FileMeta{f4})
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.run()
+	compactJob := newCompactJob(family, state, nil)
+	err := compactJob.Run()
 	assert.NotNil(t, err)
 
 	gomock.InOrder(
@@ -96,8 +114,8 @@ func TestCompactJob_merge_compact_merge_fail(t *testing.T) {
 	)
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(reader, nil).MaxTimes(2)
 	merge.EXPECT().Merge(uint32(1), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	compactJob = newCompactJob(family, state)
-	err = compactJob.run()
+	compactJob = newCompactJob(family, state, nil)
+	err = compactJob.Run()
 	assert.NotNil(t, err)
 }
 
@@ -123,16 +141,19 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 		merge.EXPECT().Merge(gomock.Any(), gomock.Any()).Return([]byte{}, nil),
 		merge.EXPECT().Merge(gomock.Any(), gomock.Any()).Return([]byte{1, 2, 3}, nil),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
-	family := generateMockFamily(ctrl, merge)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
+	family := generateMockFamily(ctrl, func() Merger {
+		return merge
+	})
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err"))
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, []*version.FileMeta{f4})
 	state := newCompactionState(10000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.run()
+	compactJob := newCompactJob(family, state, nil)
+	err := compactJob.Run()
 	assert.NotNil(t, err)
 
 	// test add result k/v pair fail
@@ -151,19 +172,19 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
-		family.EXPECT().addPendingOutput(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
+		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), gomock.Any()).Return(nil),
 		builder.EXPECT().Size().Return(int32(100)),
 		builder.EXPECT().Add(uint32(2), gomock.Any()).Return(fmt.Errorf("err")),
 		builder.EXPECT().Abandon().Return(fmt.Errorf("err")),
-		family.EXPECT().removePendingOutput(int64(10)),
+		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
 	state = newCompactionState(10000, snapshot, compaction)
-	compactJob = newCompactJob(family, state)
-	err = compactJob.run()
+	compactJob = newCompactJob(family, state, nil)
+	err = compactJob.Run()
 	assert.NotNil(t, err)
 
 	// test add k/v pair when iterator
@@ -182,32 +203,32 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 	)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
-		family.EXPECT().addPendingOutput(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
+		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), gomock.Any()).Return(nil),
 		// finish first build start, mock output a file
 		builder.EXPECT().Size().Return(int32(100)),
 		builder.EXPECT().Count().Return(uint64(3)),
 		builder.EXPECT().Close().Return(nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
 		builder.EXPECT().MaxKey().Return(uint32(10)),
 		builder.EXPECT().Size().Return(int32(100)),
 		// finish first build end
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(11)),
-		family.EXPECT().addPendingOutput(int64(11)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(11)),
+		family.EXPECT().addPendingOutput(table.FileNumber(11)),
 
 		builder.EXPECT().Add(uint32(2), gomock.Any()).Return(fmt.Errorf("err")),
 		builder.EXPECT().Abandon().Return(fmt.Errorf("err")),
-		family.EXPECT().removePendingOutput(int64(11)),
-		family.EXPECT().removePendingOutput(int64(10)),
+		family.EXPECT().removePendingOutput(table.FileNumber(11)),
+		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
 	state = newCompactionState(10, snapshot, compaction)
-	compactJob = newCompactJob(family, state)
-	err = compactJob.run()
+	compactJob = newCompactJob(family, state, nil)
+	err = compactJob.Run()
 	assert.NotNil(t, err)
 
 	// test finish store build fail
@@ -224,8 +245,8 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 	)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
-		family.EXPECT().addPendingOutput(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
+		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), gomock.Any()).Return(nil),
 		// finish first build start, mock output a file
 		builder.EXPECT().Size().Return(int32(100)),
@@ -233,13 +254,13 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 		builder.EXPECT().Close().Return(fmt.Errorf("err")),
 		// finish first build end
 		builder.EXPECT().Abandon().Return(fmt.Errorf("err")),
-		family.EXPECT().removePendingOutput(int64(10)),
+		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
 	state = newCompactionState(10, snapshot, compaction)
-	compactJob = newCompactJob(family, state)
-	err = compactJob.run()
+	compactJob = newCompactJob(family, state, nil)
+	err = compactJob.Run()
 	assert.NotNil(t, err)
 }
 
@@ -264,14 +285,17 @@ func TestCompactJob_output_fail(t *testing.T) {
 	gomock.InOrder(
 		merge.EXPECT().Merge(uint32(1), gomock.Any()).Return([]byte{1, 2, 3}, nil),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
-	family := generateMockFamily(ctrl, merge)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
+	family := generateMockFamily(ctrl, func() Merger {
+		return merge
+	})
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
-		family.EXPECT().addPendingOutput(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
+		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
 		builder.EXPECT().Size().Return(int32(100)),
 		// no output
@@ -281,11 +305,9 @@ func TestCompactJob_output_fail(t *testing.T) {
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, []*version.FileMeta{f4})
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.run()
-	if err != nil {
-		t.Fatal(err)
-	}
+	compact := newCompactJob(family, state, nil)
+	err := compact.Run()
+	assert.NoError(t, err)
 	assert.Equal(t, 2, len(state.compaction.GetEditLog().GetLogs()))
 	assert.Equal(t, 0, len(state.outputs))
 
@@ -301,28 +323,29 @@ func TestCompactJob_output_fail(t *testing.T) {
 	gomock.InOrder(
 		merge.EXPECT().Merge(uint32(1), gomock.Any()).Return([]byte{1, 2, 3}, nil),
 	)
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader2, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(10)),
-		family.EXPECT().addPendingOutput(int64(10)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
+		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
 		builder.EXPECT().Size().Return(int32(100)),
 		builder.EXPECT().Count().Return(uint64(10)),
 		builder.EXPECT().Close().Return(fmt.Errorf("err")),
 		builder.EXPECT().Abandon().Return(fmt.Errorf("err")),
-		family.EXPECT().removePendingOutput(int64(10)),
+		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
 	state = newCompactionState(1000, snapshot, compaction)
-	compactJob = newCompactJob(family, state)
-	err = compactJob.run()
+	compact = newCompactJob(family, state, nil)
+	err = compact.Run()
 	assert.NotNil(t, err)
 
 	// test build is nil, when finish output
 	state = newCompactionState(1000, snapshot, compaction)
-	compactJob = newCompactJob(family, state)
-	err = compactJob.finishCompactionOutputFile()
+	compact = newCompactJob(family, state, nil)
+	compact2 := compact.(*compactJob)
+	err = compact2.finishCompactionOutputFile()
 	assert.NotNil(t, err)
 }
 
@@ -332,12 +355,12 @@ func TestCompactJob_finish_output_fail(t *testing.T) {
 
 	snapshot := version.NewMockSnapshot(ctrl)
 	family := NewMockFamily(ctrl)
-	family.EXPECT().getLogger().Return(nil)
-	family.EXPECT().getMerger().Return(nil)
+	family.EXPECT().getNewMerger().Return(nil)
 	compaction := version.NewCompaction(1, 0, nil, nil)
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
-	err := compactJob.finishCompactionOutputFile()
+	compact := newCompactJob(family, state, nil)
+	compact2 := compact.(*compactJob)
+	err := compact2.finishCompactionOutputFile()
 	assert.NotNil(t, err)
 }
 
@@ -369,24 +392,24 @@ func TestCompactJob_merge_compact(t *testing.T) {
 		30:  []byte("value30"),
 		100: []byte("value100"),
 	}))
-	snapshot.EXPECT().GetReader(int64(1)).Return(reader1, nil)
-	snapshot.EXPECT().GetReader(int64(2)).Return(reader2, nil)
-	snapshot.EXPECT().GetReader(int64(3)).Return(reader3, nil)
-	snapshot.EXPECT().GetReader(int64(4)).Return(reader4, nil)
-	merge := &mockAppendMerger{}
-	family := generateMockFamily(ctrl, merge)
+	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(2)).Return(reader2, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(3)).Return(reader3, nil)
+	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader4, nil)
+	family := generateMockFamily(ctrl, newMockAppendMerger)
+	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f2 := version.NewFileMeta(2, 10, 50, 100)
 	f3 := version.NewFileMeta(3, 1, 30, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1, f2}, []*version.FileMeta{f3, f4})
 	state := newCompactionState(10000000, snapshot, compaction)
-	compactJob := newCompactJob(family, state)
+	compactJob := newCompactJob(family, state, NewMockRollup(ctrl))
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(int64(5)),
-		family.EXPECT().addPendingOutput(int64(5)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(5)),
+		family.EXPECT().addPendingOutput(table.FileNumber(5)),
 		builder.EXPECT().Add(uint32(1), []byte("value1value1")).Return(nil),
 		builder.EXPECT().Size().Return(int32(10)),
 		builder.EXPECT().Add(uint32(3), []byte("value3")).Return(nil),
@@ -401,33 +424,30 @@ func TestCompactJob_merge_compact(t *testing.T) {
 		builder.EXPECT().Size().Return(int32(10)),
 		builder.EXPECT().Count().Return(uint64(6)),
 		builder.EXPECT().Close().Return(nil),
-		builder.EXPECT().FileNumber().Return(int64(5)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(5)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
 		builder.EXPECT().MaxKey().Return(uint32(100)),
 		builder.EXPECT().Size().Return(int32(10)),
-		family.EXPECT().removePendingOutput(int64(5)),
+		family.EXPECT().removePendingOutput(table.FileNumber(5)),
 	)
-	err := compactJob.run()
-	if err != nil {
-		t.Fatal(err)
-	}
-	newFile := version.NewFileMeta(int64(5), uint32(1), uint32(100), int32(10))
+	err := compactJob.Run()
+	assert.NoError(t, err)
+	newFile := version.NewFileMeta(table.FileNumber(5), uint32(1), uint32(100), int32(10))
 	assert.Equal(t, 1, len(state.outputs))
 	assert.Equal(t, *newFile, *(state.outputs[0]))
 	editLog := state.compaction.GetEditLog()
 	logs := editLog.GetLogs()
 	assert.Equal(t, 5, len(logs))
-	assert.Equal(t, *version.NewDeleteFile(0, 1), *(logs[0].(*version.DeleteFile)))
-	assert.Equal(t, *version.NewDeleteFile(0, 2), *(logs[1].(*version.DeleteFile)))
-	assert.Equal(t, *version.NewDeleteFile(1, 3), *(logs[2].(*version.DeleteFile)))
-	assert.Equal(t, *version.NewDeleteFile(1, 4), *(logs[3].(*version.DeleteFile)))
-	assert.Equal(t, *version.CreateNewFile(1, newFile), *(logs[4].(*version.NewFile)))
+	assert.Equal(t, version.NewDeleteFile(0, 1), logs[0])
+	assert.Equal(t, version.NewDeleteFile(0, 2), logs[1])
+	assert.Equal(t, version.NewDeleteFile(1, 3), logs[2])
+	assert.Equal(t, version.NewDeleteFile(1, 4), logs[3])
+	assert.Equal(t, version.CreateNewFile(1, newFile), logs[4])
 }
 
-func generateMockFamily(ctrl *gomock.Controller, merger Merger) *MockFamily {
+func generateMockFamily(ctrl *gomock.Controller, merger NewMerger) *MockFamily {
 	family := NewMockFamily(ctrl)
-	family.EXPECT().getLogger().Return(logger.GetLogger("test", "compact-job")).AnyTimes()
-	family.EXPECT().getMerger().Return(merger).AnyTimes()
+	family.EXPECT().getNewMerger().Return(merger).AnyTimes()
 	family.EXPECT().Name().Return("test-family").AnyTimes()
 	family.EXPECT().commitEditLog(gomock.Any()).Return(true).AnyTimes()
 	return family

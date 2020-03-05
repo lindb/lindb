@@ -22,7 +22,7 @@ type Flusher interface {
 type storeFlusher struct {
 	family  Family
 	builder table.Builder
-	editLog *version.EditLog
+	editLog version.EditLog
 }
 
 // newStoreFlusher create family store flusher

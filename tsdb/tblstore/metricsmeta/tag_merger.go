@@ -26,6 +26,10 @@ func NewTagMerger() kv.Merger {
 	}
 }
 
+func (t *tagMerger) Init(params map[string]interface{}) {
+	// do nothing
+}
+
 // Merge merges the multi tag trie meta data into a trie for same metric
 func (t *tagMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 	maxSequenceID := uint32(0) // target sequence of tag value id

@@ -29,12 +29,12 @@ pre-test: ## go generate mock file.
 	go list ./... | grep -v '/vendor/' | xargs go generate
 
 	if [[ "$$(uname)" == "Darwin" ]]; then \
-		find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
-		sed -i '' -e 's#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
-	else \
-		find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
-		sed -i 's#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
-	fi
+       find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
+       sed -i '' -e 's#\[x\.#\[#g; s#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
+    else \
+       find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
+       sed -i 's#\[x\.#\[#g; s#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
+    fi
 
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \

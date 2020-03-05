@@ -18,6 +18,7 @@ func TestTagMerger_Merge(t *testing.T) {
 		ctrl.Finish()
 	}()
 	merger := NewTagMerger()
+	merger.Init(nil)
 	// case 1: merge success
 	data, err := merger.Merge(20, mockMergeData())
 	assert.NoError(t, err)

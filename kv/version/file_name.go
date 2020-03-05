@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/lindb/lindb/kv/table"
 )
 
 const sstSuffix = "sst"
@@ -28,7 +30,7 @@ const (
 // FileDesc represents file type and file number
 type FileDesc struct {
 	FileType   FileType
-	FileNumber int64
+	FileNumber table.FileNumber
 }
 
 // current returns current file name for saving manifest file name
@@ -37,12 +39,12 @@ func current() string {
 }
 
 // Table returns the sst's file name
-func Table(fileNumber int64) string {
+func Table(fileNumber table.FileNumber) string {
 	return fmt.Sprintf("%06d.%s", fileNumber, sstSuffix)
 }
 
 // ManifestFileName returns manifest file name
-func ManifestFileName(fileNumber int64) string {
+func ManifestFileName(fileNumber table.FileNumber) string {
 	return fmt.Sprintf("%s%06d", ManifestPrefix, fileNumber)
 }
 
@@ -56,7 +58,7 @@ func ParseFileName(fileName string) *FileDesc {
 		}
 		return &FileDesc{
 			FileType:   TypeTable,
-			FileNumber: n,
+			FileNumber: table.FileNumber(n),
 		}
 	}
 	return nil
