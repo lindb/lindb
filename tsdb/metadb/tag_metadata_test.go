@@ -13,20 +13,20 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
+	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
 
 func TestTagMetadata_GenTagValueID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newTagReaderFunc = metricsmeta.NewTagReader
+		newTagReaderFunc = tagkeymeta.NewReader
 		ctrl.Finish()
 	}()
 
 	meta, _, snapshot := mockTagMetadata(ctrl)
 
-	tagReader := metricsmeta.NewMockTagReader(ctrl)
-	newTagReaderFunc = func(readers []table.Reader) metricsmeta.TagReader {
+	tagReader := tagkeymeta.NewMockReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) tagkeymeta.Reader {
 		return tagReader
 	}
 
@@ -95,14 +95,14 @@ func TestTagMetadata_SuggestTagValues(t *testing.T) {
 func TestTagMetadata_FindTagValueDsByExpr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newTagReaderFunc = metricsmeta.NewTagReader
+		newTagReaderFunc = tagkeymeta.NewReader
 		ctrl.Finish()
 	}()
 
 	meta, _, snapshot := mockTagMetadata(ctrl)
 
-	tagReader := metricsmeta.NewMockTagReader(ctrl)
-	newTagReaderFunc = func(readers []table.Reader) metricsmeta.TagReader {
+	tagReader := tagkeymeta.NewMockReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) tagkeymeta.Reader {
 		return tagReader
 	}
 	mockTagMetadataMemData(meta)
@@ -144,14 +144,14 @@ func TestTagMetadata_FindTagValueDsByExpr(t *testing.T) {
 func TestTagMetadata_GetTagValueIDsForTag(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newTagReaderFunc = metricsmeta.NewTagReader
+		newTagReaderFunc = tagkeymeta.NewReader
 		ctrl.Finish()
 	}()
 
 	meta, _, snapshot := mockTagMetadata(ctrl)
 
-	tagReader := metricsmeta.NewMockTagReader(ctrl)
-	newTagReaderFunc = func(readers []table.Reader) metricsmeta.TagReader {
+	tagReader := tagkeymeta.NewMockReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) tagkeymeta.Reader {
 		return tagReader
 	}
 	mockTagMetadataMemData(meta)
@@ -193,14 +193,14 @@ func TestTagMetadata_GetTagValueIDsForTag(t *testing.T) {
 func TestTagMetadata_CollectTagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newTagReaderFunc = metricsmeta.NewTagReader
+		newTagReaderFunc = tagkeymeta.NewReader
 		ctrl.Finish()
 	}()
 
 	meta, _, snapshot := mockTagMetadata(ctrl)
 
-	tagReader := metricsmeta.NewMockTagReader(ctrl)
-	newTagReaderFunc = func(readers []table.Reader) metricsmeta.TagReader {
+	tagReader := tagkeymeta.NewMockReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) tagkeymeta.Reader {
 		return tagReader
 	}
 	mockTagMetadataMemData(meta)
@@ -225,13 +225,13 @@ func TestTagMetadata_CollectTagValues(t *testing.T) {
 func TestTagMetadata_Flush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newTagFlusherFunc = metricsmeta.NewTagFlusher
+		newTagFlusherFunc = tagkeymeta.NewFlusher
 		ctrl.Finish()
 	}()
 
 	meta, family, _ := mockTagMetadata(ctrl)
-	flusher := metricsmeta.NewMockTagFlusher(ctrl)
-	newTagFlusherFunc = func(kvFlusher kv.Flusher) metricsmeta.TagFlusher {
+	flusher := tagkeymeta.NewMockFlusher(ctrl)
+	newTagFlusherFunc = func(kvFlusher kv.Flusher) tagkeymeta.Flusher {
 		return flusher
 	}
 	// case 1: flush not tiger
@@ -248,7 +248,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	// case 2: flush tag key err, immutable cannot set nil
 	gomock.InOrder(
 		family.EXPECT().NewFlusher().Return(nil),
-		flusher.EXPECT().FlushTagValue("tag-value-5", uint32(10)),
+		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(fmt.Errorf("err")),
 	)
 	err = meta.Flush()
@@ -259,7 +259,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	// case 3: commit err, immutable cannot set nil
 	gomock.InOrder(
 		family.EXPECT().NewFlusher().Return(nil),
-		flusher.EXPECT().FlushTagValue("tag-value-5", uint32(10)),
+		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
 		flusher.EXPECT().Commit().Return(fmt.Errorf("err")),
 	)
@@ -271,7 +271,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	// case 4: flush success, immutable is nil
 	gomock.InOrder(
 		family.EXPECT().NewFlusher().Return(nil),
-		flusher.EXPECT().FlushTagValue("tag-value-5", uint32(10)),
+		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
 		flusher.EXPECT().Commit().Return(nil),
 	)

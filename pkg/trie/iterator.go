@@ -284,3 +284,37 @@ func (it *Iterator) moveToLeftInNextSubTrie(pos, nodeID, nodeSize uint32, label 
 		it.Next()
 	}
 }
+
+type PrefixIterator struct {
+	prefix []byte
+	it     *Iterator
+	key    []byte
+}
+
+func (itr *PrefixIterator) Valid() bool {
+	if len(itr.prefix) == 0 {
+		return itr.it.Valid()
+	}
+	if !itr.it.Valid() {
+		return false
+	}
+	// buffer key
+	itr.key = itr.it.Key()
+	return bytes.HasPrefix(itr.key, itr.prefix)
+}
+
+func (itr *PrefixIterator) Next() {
+	itr.key = nil
+	itr.it.Next()
+}
+
+func (itr *PrefixIterator) Key() []byte {
+	if len(itr.key) == 0 {
+		itr.key = itr.it.Key()
+	}
+	return itr.key
+}
+
+func (itr *PrefixIterator) Value() []byte {
+	return itr.it.Value()
+}

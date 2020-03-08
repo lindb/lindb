@@ -591,14 +591,14 @@ func (v *prefixVector) MarshalSize() int64 {
 	return align(v.rawMarshalSize())
 }
 
-// SuffixKeyVector stores all remaining key-suffixes.
-type SuffixKeyVector struct {
+// suffixKeyVector stores all remaining key-suffixes.
+type suffixKeyVector struct {
 	decoder         *encoding.FixedOffsetDecoder
 	suffixesOffsets []byte
 	suffixesBlock   []byte
 }
 
-func (v *SuffixKeyVector) Init(offsetsPerLevel [][]uint32, data []byte) {
+func (v *suffixKeyVector) Init(offsetsPerLevel [][]uint32, data []byte) {
 	v.suffixesBlock = data
 
 	var size int
@@ -615,14 +615,14 @@ func (v *SuffixKeyVector) Init(offsetsPerLevel [][]uint32, data []byte) {
 	v.suffixesOffsets = encoder.MarshalBinary()
 }
 
-func (v *SuffixKeyVector) getDecoder() *encoding.FixedOffsetDecoder {
+func (v *suffixKeyVector) getDecoder() *encoding.FixedOffsetDecoder {
 	if v.decoder == nil {
 		v.decoder = encoding.NewFixedOffsetDecoder(v.suffixesOffsets)
 	}
 	return v.decoder
 }
 
-func (v *SuffixKeyVector) GetSuffix(valPos uint32) []byte {
+func (v *suffixKeyVector) GetSuffix(valPos uint32) []byte {
 	decoder := v.getDecoder()
 	start, ok := decoder.Get(int(valPos))
 	if !ok || start >= uint32(len(v.suffixesBlock)) {
@@ -642,7 +642,7 @@ func (v *SuffixKeyVector) GetSuffix(valPos uint32) []byte {
 	return v.suffixesBlock[start:end]
 }
 
-func (v *SuffixKeyVector) CheckSuffix(valPos uint32, key []byte, depth uint32) bool {
+func (v *suffixKeyVector) CheckSuffix(valPos uint32, key []byte, depth uint32) bool {
 	suffix := v.GetSuffix(valPos)
 	if depth >= uint32(len(key)) {
 		return len(suffix) == 0
@@ -650,15 +650,15 @@ func (v *SuffixKeyVector) CheckSuffix(valPos uint32, key []byte, depth uint32) b
 	return bytes.Equal(suffix, key[depth:])
 }
 
-func (v *SuffixKeyVector) rawMarshalSize() int64 {
+func (v *suffixKeyVector) rawMarshalSize() int64 {
 	return int64(8 + len(v.suffixesOffsets) + len(v.suffixesBlock))
 }
 
-func (v *SuffixKeyVector) MarshalSize() int64 {
+func (v *suffixKeyVector) MarshalSize() int64 {
 	return align(v.rawMarshalSize())
 }
 
-func (v *SuffixKeyVector) WriteTo(w io.Writer) error {
+func (v *suffixKeyVector) WriteTo(w io.Writer) error {
 	var length [8]byte
 	endian.PutUint32(length[:4], uint32(len(v.suffixesOffsets)))
 	endian.PutUint32(length[4:], uint32(len(v.suffixesBlock)))
@@ -679,7 +679,7 @@ func (v *SuffixKeyVector) WriteTo(w io.Writer) error {
 	return err
 }
 
-func (v *SuffixKeyVector) Unmarshal(b []byte) ([]byte, error) {
+func (v *suffixKeyVector) Unmarshal(b []byte) ([]byte, error) {
 	sr := stream.NewReader(b)
 
 	offsetsLen := sr.ReadUint32()

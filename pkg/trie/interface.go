@@ -18,10 +18,15 @@ type Builder interface {
 
 // SuccinctTrie represents a succinct trie
 type SuccinctTrie interface {
+	// Get gets the value from trie
 	Get(key []byte) ([]byte, bool)
+	// MarshalSize is the size after padding
 	MarshalSize() int64
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 	WriteTo(w io.Writer) error
+	// NewIterator returns a iterator for arbitrarily iterating the trie
 	NewIterator() *Iterator
+	// NewPrefixIterator returns a iterator for prefix-iterating the trie
+	NewPrefixIterator(prefix []byte) *PrefixIterator
 }

@@ -28,6 +28,12 @@ func (w *writer) PutByte(v byte) {
 	w.err = w.buf.WriteByte(v)
 }
 
+// Write implements io.Writer
+func (w *writer) Write(p []byte) (n int, err error) {
+	n, w.err = w.buf.Write(p)
+	return n, w.err
+}
+
 // PutVarint32 encodes a int32 into buf
 func (w *writer) PutVarint32(v int32) {
 	w.PutVarint64(int64(v))

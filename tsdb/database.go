@@ -19,7 +19,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
+	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
 
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
@@ -277,7 +277,7 @@ func (db *database) initMetadata() error {
 		tagValueDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
-			Merger:           string(metricsmeta.TagMetaMerger)})
+			Merger:           string(tagkeymeta.MergerName)})
 	if err != nil {
 		return err
 	}

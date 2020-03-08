@@ -123,6 +123,27 @@ func TestIterator_Seek(t *testing.T) {
 	itr.Seek(nil)
 }
 
+func TestPrefixIterator(t *testing.T) {
+	tree := newHostNameTrie()
+	getKeys := func(prefix []byte) []string {
+		var keys []string
+		itr := tree.NewPrefixIterator(prefix)
+		for itr.Valid() {
+			keys = append(keys, string(itr.Key()))
+			_ = itr.Value()
+			itr.Next()
+		}
+		itr.Next()
+		assert.False(t, itr.Valid())
+		return keys
+	}
+	assert.Len(t, getKeys(nil), 11)
+	assert.Len(t, getKeys([]byte("b")), 3)
+	assert.Len(t, getKeys([]byte("bj")), 2)
+	assert.Len(t, getKeys([]byte("n")), 3)
+	assert.Len(t, getKeys([]byte("abcde")), 2)
+}
+
 func TestBitVector_String(t *testing.T) {
 	_ = hasBMI2
 	var bv bitVector
