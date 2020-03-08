@@ -15,7 +15,6 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1
 	github.com/gorilla/mux v1.7.4
-	github.com/hillbig/rsdic v0.0.0-20150805052524-6158e7a2d824
 	github.com/json-iterator/go v1.1.7
 	github.com/lindb/roaring v0.0.0-00010101000000-000000000000
 	github.com/mattn/go-isatty v0.0.4
@@ -23,11 +22,9 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.4.1
 	github.com/shirou/gopsutil v2.20.2+incompatible
-	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.4.0
 	github.com/uber-go/tally v3.3.15+incompatible
-	github.com/ugorji/go v1.1.7 // indirect
 	go.etcd.io/bbolt v1.3.4
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200320040136-0eee733220fc
 	go.uber.org/atomic v1.6.0

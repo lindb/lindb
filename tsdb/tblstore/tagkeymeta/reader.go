@@ -1,34 +1,19 @@
-package metricsmeta
+package tagkeymeta
 
 import (
-	"fmt"
-
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
+
+	"github.com/lindb/roaring"
 )
 
-var tagReaderLogger = logger.GetLogger("tsdb", "TagReader")
+//go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package tagkeymeta
 
-//go:generate mockgen -source ./tag_reader.go -destination=./tag_reader_mock.go -package metricsmeta
-
-// for testing
-var (
-	newTagKVEntrySetFunc = newTagKVEntrySet
-)
-
-const (
-	tagFooterSize = 4 + // tag value id sequence
-		4 + // tag value ids position
-		4 + // tag value ids=>offsets position
-		4 // crc32 checksum
-)
-
-// TagReader reads tag value data from tag-index-table
-type TagReader interface {
+// Reader reads tag value data from tag-index-table
+type Reader interface {
 	// GetTagValueSeq returns the auto sequence of tag value under the tag key, if not exist return constants.ErrNotFound
 	GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error)
 
@@ -63,7 +48,7 @@ type tagReader struct {
 }
 
 // NewReader returns a new TagReader
-func NewTagReader(readers []table.Reader) TagReader {
+func NewReader(readers []table.Reader) Reader {
 	return &tagReader{readers: readers}
 }
 
@@ -72,16 +57,16 @@ func NewTagReader(readers []table.Reader) TagReader {
 // so the max sequence will be stored in the first table.reader that is tag key store.
 func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error) {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagKeyID)
+		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
 		if !ok {
 			continue
 		}
 		//FIXME stone1100 opt need cache entry set
-		entrySet, err := newTagKVEntrySetFunc(value)
+		meta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			return 0, err
 		}
-		return entrySet.TagValueSeq(), nil
+		return meta.TagValueIDSeq(), nil
 	}
 	return 0, constants.ErrNotFound
 }
@@ -89,61 +74,42 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 // GetTagValueID returns the tag value id for spec metric's tag key id, if not exist return constants.ErrNotFound
 func (r *tagReader) GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error) {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagID)
+		tagKeyMetaBlock, ok := reader.Get(tagID)
 		if !ok {
 			continue
 		}
-		entrySet, err := newTagKVEntrySetFunc(value)
+		meta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			return 0, err
 		}
-		q, err := entrySet.TrieTree()
-		if err != nil {
-			return 0, err
-		}
-		offsets := q.FindOffsetsByEqual(tagValue)
-		if len(offsets) == 0 {
+		tagValueIDs := meta.FindTagValueID(tagValue)
+		if len(tagValueIDs) == 0 {
 			continue
 		}
-		if len(offsets) > 1 {
-			return 0, fmt.Errorf("found too many offsets for tag value")
-		}
-		return entrySet.GetTagValueID(offsets[0]), nil
+		return tagValueIDs[0], nil
 	}
 	return 0, constants.ErrNotFound
 }
 
 // FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
 func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
-	entrySets := r.filterEntrySets(tagID)
-	if len(entrySets) == 0 {
+	tagKeyMetas := r.filterTagKeyMetas(tagID)
+	if len(tagKeyMetas) == 0 {
 		return nil, constants.ErrNotFound
 	}
 	tagValueIDs := roaring.New()
-	for _, entrySet := range entrySets {
-		var offsets []int
-		q, err := entrySet.TrieTree()
-		if err != nil {
-			tagReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
-			continue
-		}
+	for _, tagKeyMeta := range tagKeyMetas {
 		switch expression := expr.(type) {
 		case *stmt.EqualsExpr:
-			offsets = q.FindOffsetsByEqual(expression.Value)
+			tagValueIDs.AddMany(tagKeyMeta.FindTagValueID(expression.Value))
 		case *stmt.InExpr:
-			offsets = q.FindOffsetsByIn(expression.Values)
+			tagValueIDs.AddMany(tagKeyMeta.FindTagValueIDs(expression.Values))
 		case *stmt.LikeExpr:
-			offsets = q.FindOffsetsByLike(expression.Value)
+			tagValueIDs.AddMany(tagKeyMeta.FindTagValueIDsByLike(expression.Value))
 		case *stmt.RegexExpr:
-			offsets = q.FindOffsetsByRegex(expression.Regexp)
+			tagValueIDs.AddMany(tagKeyMeta.FindTagValueIDsByRegex(expression.Regexp))
 		default:
 			return nil, constants.ErrNotFound
-		}
-		if len(offsets) == 0 {
-			continue
-		}
-		for _, offset := range offsets {
-			tagValueIDs.Add(entrySet.GetTagValueID(offset))
 		}
 	}
 	if tagValueIDs.IsEmpty() {
@@ -154,32 +120,32 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 
 // GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
 func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, error) {
-	entrySets := r.filterEntrySets(tagID)
-	if len(entrySets) == 0 {
+	tagKeyMetas := r.filterTagKeyMetas(tagID)
+	if len(tagKeyMetas) == 0 {
 		return nil, constants.ErrNotFound
 	}
-	return entrySets.GetTagValueIDs()
+	return tagKeyMetas.GetTagValueIDs()
 }
 
-// filterEntrySets filters the entry-sets by tag key id
-func (r *tagReader) filterEntrySets(tagID uint32) (entrySets TagKVEntries) {
+// filterTagKeyMetas filters the tag-key-metas by tag key id
+func (r *tagReader) filterTagKeyMetas(tagID uint32) (metas TagKeyMetas) {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagID)
+		tagKeyMetaBlock, ok := reader.Get(tagID)
 		if !ok {
 			continue
 		}
-		entrySet, err := newTagKVEntrySetFunc(value)
+		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
-		entrySets = append(entrySets, entrySet)
+		metas = append(metas, tagKeyMeta)
 	}
 	return
 }
 
 // SuggestTagValues finds tagValues by prefix search
 func (r *tagReader) SuggestTagValues(
-	tagID uint32,
+	tagKeyID uint32,
 	tagValuePrefix string,
 	limit int,
 ) (
@@ -189,22 +155,24 @@ func (r *tagReader) SuggestTagValues(
 		limit = constants.MaxSuggestions
 	}
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagID)
+		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
 		if !ok {
 			continue
 		}
-		entrySet, err := newTagKVEntrySetFunc(value)
+		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
-		q, err := entrySet.TrieTree()
+		itr, err := tagKeyMeta.PrefixIterator(strutil.String2ByteSlice(tagValuePrefix))
 		if err != nil {
-			tagReaderLogger.Error("failed reading trie-tree block", logger.Error(err))
 			continue
 		}
-		tagValues = append(tagValues, q.PrefixSearch(tagValuePrefix, limit-len(tagValues))...)
-		if len(tagValues) >= limit {
-			return tagValues
+		for itr.Valid() {
+			tagValues = append(tagValues, string(itr.Key()))
+			if len(tagValues) >= limit {
+				return tagValues
+			}
+			itr.Next()
 		}
 	}
 	return tagValues
@@ -219,46 +187,48 @@ func (r *tagReader) WalkTagValues(
 	fn func(tagValue []byte, tagValueID uint32) bool,
 ) error {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagKeyID)
+		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
 		if !ok {
 			continue
 		}
-		entrySet, err := newTagKVEntrySetFunc(value)
+		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
-		q, err := entrySet.TrieTree()
+		itr, err := tagKeyMeta.PrefixIterator(strutil.String2ByteSlice(tagValuePrefix))
 		if err != nil {
 			continue
 		}
-		offsetsItr := q.Iterator(tagValuePrefix)
-		for offsetsItr.HasNext() {
-			tagValue, offset := offsetsItr.Next()
-			if fn != nil && !fn(tagValue, entrySet.GetTagValueID(offset)) {
+		for itr.Valid() {
+			tagValue, tagValueID := itr.Key(), encoding.ByteSlice2Uint32(itr.Value())
+			if fn != nil && !fn(tagValue, tagValueID) {
 				return nil
 			}
+			itr.Next()
 		}
 	}
 	return nil
 }
 
-// CollectTagValues collects the tag values by tag value ids,
-func (r *tagReader) CollectTagValues(tagKeyID uint32, tagValueIDs *roaring.Bitmap,
+// CollectTagValues collects the tag values by tag value ids
+func (r *tagReader) CollectTagValues(
+	tagKeyID uint32,
+	tagValueIDs *roaring.Bitmap,
 	tagValues map[uint32]string,
 ) error {
 	for _, reader := range r.readers {
 		if tagValueIDs.IsEmpty() {
 			return nil
 		}
-		value, ok := reader.Get(tagKeyID)
+		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
 		if !ok {
 			continue
 		}
-		entrySet, err := newTagKVEntrySetFunc(value)
+		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
-			return err
+			continue
 		}
-		if err := entrySet.CollectTagValues(tagValueIDs, tagValues); err != nil {
+		if err := tagKeyMeta.CollectTagValues(tagValueIDs, tagValues); err != nil {
 			return err
 		}
 	}

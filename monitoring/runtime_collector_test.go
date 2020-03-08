@@ -2,7 +2,6 @@ package monitoring
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,8 +13,7 @@ import (
 func Test_NewRuntimeCollector(t *testing.T) {
 	ts := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			data, _ := ioutil.ReadAll(r.Body)
-			fmt.Println(string(data))
+			_, _ = ioutil.ReadAll(r.Body)
 		}))
 	defer ts.Close()
 

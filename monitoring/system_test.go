@@ -2,7 +2,6 @@ package monitoring
 
 import (
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -49,7 +48,6 @@ func TestGetMemoryStat(t *testing.T) {
 }
 
 func TestGetDiskStat(t *testing.T) {
-	fmt.Println(filepath.VolumeName("/tmp/test/test11111"))
 	_, err := GetDiskStat("/tmp/test/test111")
 	assert.NotNil(t, err)
 
