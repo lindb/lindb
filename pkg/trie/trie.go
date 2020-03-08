@@ -11,7 +11,7 @@ type trie struct {
 	labelVec    labelVector
 	hasChildVec rankVectorSparse
 	loudsVec    selectVector
-	suffixes    SuffixKeyVector
+	suffixes    suffixKeyVector
 	values      valueVector
 	prefixVec   prefixVector
 }
@@ -182,6 +182,12 @@ func (tree *trie) NewIterator() *Iterator {
 	itr := new(Iterator)
 	itr.init(tree)
 	return itr
+}
+
+func (tree *trie) NewPrefixIterator(prefix []byte) *PrefixIterator {
+	rawItr := tree.NewIterator()
+	rawItr.Seek(prefix)
+	return &PrefixIterator{prefix: prefix, it: rawItr}
 }
 
 func (tree *trie) suffixPos(pos uint32) uint32 {

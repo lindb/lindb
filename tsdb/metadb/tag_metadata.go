@@ -7,16 +7,17 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsmeta"
+	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
 
 //go:generate mockgen -source ./tag_metadata.go -destination=./tag_metadata_mock.go -package metadb
 
 // for testing
 var (
-	newTagReaderFunc  = metricsmeta.NewTagReader
-	newTagFlusherFunc = metricsmeta.NewTagFlusher
+	newTagReaderFunc  = tagkeymeta.NewReader
+	newTagFlusherFunc = tagkeymeta.NewFlusher
 )
 
 // TagMetadata represents the tag metadata, stores all tag values under spec tag key
@@ -78,7 +79,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 		// find table.Reader err, return it
 		return
 	}
-	var reader metricsmeta.TagReader
+	var reader tagkeymeta.Reader
 	if len(readers) > 0 {
 		// found tag data in kv store, try load tag value data
 		reader = newTagReaderFunc(readers)
@@ -143,7 +144,7 @@ func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter)
 		}
 	})
 
-	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
+	err := m.loadTagValueIDsInKV(tagKeyID, func(reader tagkeymeta.Reader) error {
 		tagValueIDs, err := reader.FindValueIDsByExprForTagKeyID(tagKeyID, expr)
 		if err != nil {
 			return err
@@ -168,7 +169,7 @@ func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, er
 		}
 	})
 
-	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
+	err := m.loadTagValueIDsInKV(tagKeyID, func(reader tagkeymeta.Reader) error {
 		tagValueIDs, err := reader.GetTagValueIDsForTagKeyID(tagKeyID)
 		if err != nil {
 			return err
@@ -199,7 +200,7 @@ func (m *tagMetadata) CollectTagValues(tagKeyID uint32,
 		// no need collect tag value ids, returns it
 		return nil
 	}
-	err := m.loadTagValueIDsInKV(tagKeyID, func(reader metricsmeta.TagReader) error {
+	err := m.loadTagValueIDsInKV(tagKeyID, func(reader tagkeymeta.Reader) error {
 		return reader.CollectTagValues(tagKeyID, tagValueIDs, tagValues)
 	})
 	if err != nil {
@@ -220,7 +221,7 @@ func (m *tagMetadata) Flush() error {
 	if err := m.immutable.WalkEntry(func(key uint32, value TagEntry) error {
 		tagValues := value.getTagValues()
 		for tagValue, tagValueID := range tagValues {
-			tagFluster.FlushTagValue(tagValue, tagValueID)
+			tagFluster.FlushTagValue(strutil.String2ByteSlice(tagValue), tagValueID)
 		}
 		if err := tagFluster.FlushTagKeyID(key, value.getTagValueIDSeq()); err != nil {
 			return err
@@ -257,7 +258,7 @@ func (m *tagMetadata) checkFlush() bool {
 }
 
 // loadTagValueIDsInKV loads tag value ids in kv store
-func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader metricsmeta.TagReader) error) error {
+func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader tagkeymeta.Reader) error) error {
 	// try load tag value id from kv store
 	snapshot := m.family.GetSnapshot()
 	defer snapshot.Close()
@@ -267,7 +268,7 @@ func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader metric
 		// find table.Reader err, return it
 		return err
 	}
-	var reader metricsmeta.TagReader
+	var reader tagkeymeta.Reader
 	if len(readers) > 0 {
 		// found tag data in kv store, try load tag value data
 		reader = newTagReaderFunc(readers)

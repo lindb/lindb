@@ -15,4 +15,7 @@ var (
 	ErrEmptyMetricName = errors.New("metric name is empty")
 	// ErrEmptyField represents field is empty when write data
 	ErrEmptyField = errors.New("field is empty")
+
+	// ErrDataFileCorruption represents data in tsdb's file is corrupted
+	ErrDataFileCorruption = errors.New("data corruption")
 )

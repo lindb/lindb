@@ -113,114 +113,38 @@ Shard                  Shard
     +--------------+
 
 
-━━━━━━━━━━━━━━━━━━━━━━━Layout of Series Inverted Index Table━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━Layout of TagKeys Meta Table━━━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   │  TagKV  │  TagKV  │  TagKV  │  TagKV  │  TagKV  │ Footer  │
-                   │ EntrySet│ EntrySet│ EntrySet│ Offset  │  Index  │         │
+                   │ TagKey  │ TagKey  │ TagKey  │ Offsets │ Bitmap  │ Footer  │
+                   │  Meta   │  Meta   │  Meta   │         │         │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                   \        │\        +-------------------------------+
-                 /             \                   \       │ +--------------------------------+       \
-                /               \                   \      +-----------------------------+     \       \
-               /                 \                   +--------------+                     \     \       \
-  +-----------+                   +-----------------+                \                     \     \       \
- /                 Level2                            \                \                     \     \       \
-v--------+--------+--------+--------+--------+--------v                v--------+---+--------v     v-------v
-│  Time  │ LOUDS  │TagValue│TagValue│Offsets │ Footer │                │ Offset │...│ Offset │     │ TagKV │
-│  Range │TrieTree│ Data1  │ Data2  │        │        │                │        │   │        │     │ Bitmap│
-+--------+--------+--------+--------+--------+--------+                +--------+---+--------+     +-------+
+                  /           \                  |         |         |         |
+                 /             \                 |          \        |         |
+                /                \              /            \       |         |
+               /                   \           /               \     |         |
+  +-----------+                     |        /                   \    \         \
+ /                     Level2       |       |                     |    \         |
+v--------+--------+--------+--------v       v--------+---+--------v     v--------v
+│  Trie  │TagValue│ Offsets│ Footer │       │ Offset │...│ Offset │     │ TagKV  │
+│  Tree  │IDBitmap│        │        │       │        │   │        │     │ Bitmap │
++--------+--------+--------+--------+       +--------+---+--------+     +--------+
 
 
-Level1(KV table: TagKeyID -> EntrySetBlock)
+Level1(KV table: TagKeyID -> TagKeyMeta data)
 Level1 is same as MetricDataTable as below
-This block is alias as EntrySetBlock
-
-Level2(TimeRange & LOUDS Encoded Trie Tree)
-This block is alias as TreeBlock
-┌─────────────────────┬────────────────────────────────────────────────────────────────────────────┐
-│       TimeRange     │                        LOUDS Encoded Trie Tree                             │
-├──────────┬──────────┼──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│ StartTime│  EndTime │   Trie   │  Labels  │  labels  │ isPrefix │ isPrefix │  LOUDS   │  LOUDS   │
-│   int64  │   int64  │  TreeLen │  Length  │  Block   │ Key Len  │Key BitMap│  Length  │  BitMap  │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│  8 Bytes │  8 Bytes │ uvariant │ uvariant │ N Bytes  │ uvariant │ N Bytes  │ uvariant │ N Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-
-Level2(Versioned TagValue Data)
-alias as TagValueDataBlock
-┌──────────┬──────────────────────────────────────────────────────┬─────────────────────┐
-│          │                  VersionedTagValue                   │  VersionedTagValues │
-├──────────┼──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
-│ Version  │ Version1 │StartTime1│ EndTime1 │ BitMap1  │ TagValue1│  Version │ Version  │
-│  Count   │   int64  │ (Delta)  │  (Delta) │  Length  │  BitMap  │   Meta2  │  Meta3   │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ 8 Bytes  │ variant  │ variant  │ uvariant │ N Bytes  │ N Bytes  │  N Bytes │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Level2(Footer)
 
-┌─────────────────────┐
-│         Footer      │
-├──────────┬──────────┤
-│ Offsets  │  CRC32   │
-│ Position │ CheckSum │
-├──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │
-└──────────┴──────────┘
-
-Succinct trie tree(Example):
-(KEY Value: eleme:1, etcd:2, etrace:3)
-
-Labels: eltecrmdaece
-isPrefixKey: 0000000010101
-LOUDS: 1011010110101010100100100
-Values: [2, 1, 3]
-
-
-                   +--------+
-                   │        │ (pseudo root)
-                   │  10    │ (node-0)
-                   +--------+
-                       │
-                   +---v----+
-                   │        │ (root)
-                   │  10    │ (node-1)
-                   +--------+
-                       │
-                   +---v----+
-                   │   e    │
-                   │  110   │ (node-2)
-                   +---+----+
-                      / \
-              +------+   +----+
-             /                 \
-        +---v----+          +---v----+
-        │   l    │          │   t    │
-        │   10   │ (node-3) │   110  │(node-4)
-        +---+----+          +---+----+
-            │                   │\_______________
-            │                   │                \
-        +---v----+          +---v----+        +---v----+
-        │   e    │          │   c    │        │   r    │
-        │   10   │ (node-5) │   10   │(node-6)│   10   │ (node-7)
-        +---+----+          +---+----+        +---+----+
-            │                   │                 │
-        +---v----+          +---v----+        +---v----+
-        │   m    │          │   d    │        │   a    │
-        │   10   │ (node-8) │   0    │(node-9)│   10   │ (node-10)
-        +---+----+          +--------+        +---+----+
-            │                 Value:2             │
-        +---v----+                            +---v----+
-        │   e    │                            │   c    │
-        │   0    │ (node-11)                  │   10   │ (node-12)
-        +--------+                            +---+----+
-          Value:1                                 │
-                                              +---v----+
-                                              │   e    │
-                                              │   0    │ (node-13)
-                                              +--------+
-                                               Value:3
+┌───────────────────────────────────────────┐
+│                 Footer                    │
+├──────────┬──────────┬──────────┬──────────┤
+│  BitMap  │  Offsets │ TagValue │  CRC32   │
+│ Position │ Position │ Sequence │ CheckSum │
+├──────────┼──────────┼──────────┼──────────┤
+│ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
+└──────────┴──────────┴──────────┴──────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric NameID Index Table━━━━━━━━━━━━━━━━━━━━━━━━

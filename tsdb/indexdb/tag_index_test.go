@@ -139,8 +139,7 @@ func TestTagIndex_GetData(t *testing.T) {
 	for _, key := range keys {
 		r.GetSeriesAndTagValue(key)
 	}
-	_, t3 := r.GetSeriesAndTagValue(4)
-	fmt.Println(t3)
+	_, _ = r.GetSeriesAndTagValue(4)
 }
 
 func prepareTagIdx() TagIndex {
