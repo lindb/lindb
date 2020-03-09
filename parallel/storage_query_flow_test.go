@@ -118,16 +118,8 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf := queryFlow.(*storageQueryFlow)
-	// case 1: test error
-	qf.err = fmt.Errorf("err")
-	var wait sync.WaitGroup
-	wait.Add(1)
-	queryFlow.Filtering(func() {
-		wait.Done()
-	})
-	wait.Wait()
-	queryFlow.Complete(fmt.Errorf("err"))
-
+	// case 1: test execute task after completed
+	qf.completed.Store(true)
 	queryFlow.Filtering(func() {
 		assert.Fail(t, "exec err")
 	})
@@ -211,4 +203,17 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 	})
 	wait.Wait()
 	time.Sleep(100 * time.Millisecond)
+}
+
+func TestStorageQueryFlow_Complete(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
+	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
+		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
+	queryFlow.Complete(nil) // err is nil, need not send err result
+	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
+	queryFlow.Complete(fmt.Errorf("err")) // send err result
+	queryFlow.Complete(fmt.Errorf("err")) // no send err result
 }

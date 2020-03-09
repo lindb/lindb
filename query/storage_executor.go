@@ -168,6 +168,7 @@ func (e *storageExecutor) executeQuery() {
 			// 2. filter data in memory database
 			resultSet, err := shard.MemoryDatabase().Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
 			if err != nil && err != constants.ErrNotFound {
+				// maybe data not exist in memory database, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
 			}
@@ -175,6 +176,7 @@ func (e *storageExecutor) executeQuery() {
 			// 3. filter data each data family in shard
 			resultSet, err = e.filterForShard(shard, seriesIDs)
 			if err != nil && err != constants.ErrNotFound {
+				// maybe data not exist in shard, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
 			}
@@ -214,7 +216,8 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roar
 		// get series ids for metric level
 		seriesIDs, err = filter.GetSeriesIDsForMetric(e.namespace, e.query.MetricName)
 	}
-	if err != nil {
+	if err != nil && err != constants.ErrNotFound {
+		// maybe series ids not found in shard, so ignore not found err
 		e.queryFlow.Complete(err)
 	}
 	return
@@ -248,7 +251,8 @@ func (e *storageExecutor) executeGroupBy(indexDB indexdb.IndexDatabase, rs []flo
 	if e.query.HasGroupBy() {
 		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
 		gCtx, err := indexDB.GetGroupingContext(e.storageExecutePlan.groupByKeyIDs(), seriesIDs)
-		if err != nil {
+		if err != nil && err != constants.ErrNotFound {
+			// maybe group by not found, so ignore not found
 			e.queryFlow.Complete(err)
 			return
 		}
