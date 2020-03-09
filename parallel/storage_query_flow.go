@@ -9,7 +9,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
@@ -53,8 +52,6 @@ type storageQueryFlow struct {
 
 	mux       sync.Mutex
 	completed atomic.Bool
-
-	err error
 }
 
 func NewStorageQueryFlow(ctx context.Context,
@@ -123,12 +120,18 @@ func (qf *storageQueryFlow) releaseAgg(agg aggregation.FieldAggregates) {
 	}
 }
 
+// Complete completes the query flow with error
 func (qf *storageQueryFlow) Complete(err error) {
-	if err != nil && err != constants.ErrNotFound {
-		qf.mux.Lock()
-		defer qf.mux.Unlock()
-		qf.err = err
-		qf.completed.Store(true)
+	if err != nil && qf.completed.CAS(false, true) {
+		// if complete with err, need send err msg directly and mark task completed
+		if err := qf.stream.Send(&pb.TaskResponse{
+			JobID:     qf.req.JobID,
+			TaskID:    qf.req.ParentTaskID,
+			Completed: true,
+			ErrMsg:    err.Error(),
+		}); err != nil {
+			storageQueryFlowLogger.Error("send storage execute result", logger.Error(err))
+		}
 	}
 }
 
@@ -151,8 +154,7 @@ func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates)
 	}()
 
 	if qf.completed.Load() {
-		//FIXME stone1100
-		//storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
+		storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
 		return
 	}
 
@@ -194,21 +196,16 @@ func (qf *storageQueryFlow) getTagValues(tags string) string {
 
 func (qf *storageQueryFlow) completeTask(taskID int32) {
 	completed := false
-	var err error
 	// get complete execute result
 	qf.mux.Lock()
 	delete(qf.pendingTasks, taskID)
 	completed = len(qf.pendingTasks) == 0
-	err = qf.err
 	qf.mux.Unlock()
 
 	if completed && qf.completed.CAS(false, true) {
 		// if all tasks of all stages completed
-		errMsg := ""
 		var data []byte
-		if err != nil {
-			errMsg = err.Error()
-		} else if qf.reduceAgg != nil {
+		if qf.reduceAgg != nil {
 			hasGroupBy := qf.query.HasGroupBy()
 			if hasGroupBy {
 				qf.signal.Wait() // wait collect group by tag value complete
@@ -256,7 +253,6 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 			TaskID:    qf.req.ParentTaskID,
 			Completed: true,
 			Payload:   data,
-			ErrMsg:    errMsg,
 		}); err != nil {
 			storageQueryFlowLogger.Error("send storage execute result", logger.Error(err))
 		}
