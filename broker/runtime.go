@@ -15,6 +15,7 @@ import (
 	writeAPI "github.com/lindb/lindb/broker/api/metric"
 	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
+	"github.com/lindb/lindb/broker/api/write"
 	"github.com/lindb/lindb/broker/handler"
 	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/config"
@@ -73,6 +74,7 @@ type apiHandler struct {
 	writeAPI           *writeAPI.WriteAPI
 	metaDatabaseAPI    *metadata.DatabaseAPI
 	metaMetricAPI      *metadata.MetricAPI
+	prometheusWriter   *write.PrometheusWrite
 }
 
 type rpcHandler struct {
@@ -350,7 +352,8 @@ func (r *runtime) buildAPIDependency() {
 		masterAPI:          masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
-		writeAPI: writeAPI.NewWriteAPI(r.srv.channelManager),
+		writeAPI:         writeAPI.NewWriteAPI(r.srv.channelManager),
+		prometheusWriter: write.NewPrometheusWrite(r.srv.channelManager),
 
 		metaDatabaseAPI: metadata.NewDatabaseAPI(r.srv.databaseService),
 		metaMetricAPI: metadata.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
@@ -379,6 +382,7 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
 
 	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
+	api.AddRoute("PrometheusWriter", http.MethodPut, "/metric/prometheus", handlers.prometheusWriter.Write)
 
 	api.AddRoute("ListDatabaseNodes", http.MethodGet, "/metadata/database/names", handlers.metaDatabaseAPI.ListDatabaseNames)
 	api.AddRoute("SuggestMetric", http.MethodGet, "/metadata/suggest/metric", handlers.metaMetricAPI.SuggestMetrics)

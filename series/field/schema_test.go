@@ -22,6 +22,20 @@ func Test_Sum_getPrimitiveFields(t *testing.T) {
 	assert.Nil(t, newSumSchema().getPrimitiveFields(function.FuncType(128)))
 }
 
+func Test_Increase_getPrimitiveFields(t *testing.T) {
+	assert.True(t, newIncreaseSchema().getPrimitiveFields(function.Sum)[0].AggType == Sum)
+	assert.True(t, newIncreaseSchema().getPrimitiveFields(function.Sum)[0].FieldID == PrimitiveID(1))
+	assert.Equal(t, 1, len(newIncreaseSchema().getPrimitiveFields(function.Sum)))
+	assert.Equal(t, []PrimitiveID{1}, newIncreaseSchema().GetAllPrimitiveFields())
+
+	assert.True(t, newIncreaseSchema().getDefaultPrimitiveFields()[0].AggType == Sum)
+	assert.True(t, newIncreaseSchema().getDefaultPrimitiveFields()[0].FieldID == PrimitiveID(1))
+	assert.Equal(t, sumAggregator, newIncreaseSchema().GetAggFunc(PrimitiveID(1)))
+	assert.Equal(t, 1, len(newIncreaseSchema().getDefaultPrimitiveFields()))
+
+	assert.Nil(t, newIncreaseSchema().getPrimitiveFields(function.FuncType(128)))
+}
+
 func Test_Min_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].AggType == Min)
 	assert.True(t, newMinSchema().getPrimitiveFields(function.Min)[0].FieldID == PrimitiveID(1))
@@ -68,12 +82,12 @@ func Test_Summary_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].AggType == Sum)
 	assert.True(t, newSummarySchema().getDefaultPrimitiveFields()[0].FieldID == PrimitiveID(2))
 	assert.Equal(t, 1, len(newSummarySchema().getDefaultPrimitiveFields()))
-	assert.Equal(t, []PrimitiveID{1, 2, 3, 4}, newSummarySchema().GetAllPrimitiveFields())
+	assert.Equal(t, []PrimitiveID{1, 2, 3, 4, 50, 75, 90, 95, 99, 39, 49}, newSummarySchema().GetAllPrimitiveFields())
 
 	assert.Equal(t, sumAggregator, newSummarySchema().GetAggFunc(PrimitiveID(1)))
 	assert.Equal(t, sumAggregator, newSummarySchema().GetAggFunc(PrimitiveID(2)))
-	assert.Equal(t, maxAggregator, newSummarySchema().GetAggFunc(PrimitiveID(3)))
-	assert.Equal(t, minAggregator, newSummarySchema().GetAggFunc(PrimitiveID(4)))
+	assert.Equal(t, minAggregator, newSummarySchema().GetAggFunc(PrimitiveID(3)))
+	assert.Equal(t, maxAggregator, newSummarySchema().GetAggFunc(PrimitiveID(4)))
 	assert.Equal(t, replaceAggregator, newSummarySchema().GetAggFunc(PrimitiveID(5)))
 
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Sum)))
@@ -84,10 +98,10 @@ func Test_Summary_getPrimitiveFields(t *testing.T) {
 	assert.True(t, newSummarySchema().getPrimitiveFields(function.Count)[0].FieldID == PrimitiveID(2))
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Max)))
 	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[0].AggType == Max)
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[0].FieldID == PrimitiveID(3))
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Max)[0].FieldID == PrimitiveID(4))
 	assert.Equal(t, 1, len(newSummarySchema().getPrimitiveFields(function.Min)))
 	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[0].AggType == Min)
-	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[0].FieldID == PrimitiveID(4))
+	assert.True(t, newSummarySchema().getPrimitiveFields(function.Min)[0].FieldID == PrimitiveID(3))
 	assert.Equal(t, 2, len(newSummarySchema().getPrimitiveFields(function.Avg)))
 	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[0].AggType == Sum)
 	assert.True(t, newSummarySchema().getPrimitiveFields(function.Avg)[0].FieldID == PrimitiveID(1))

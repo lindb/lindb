@@ -14,6 +14,7 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
 	assert.Equal(t, function.Replace, GaugeField.DownSamplingFunc())
 	assert.Equal(t, function.Count, SummaryField.DownSamplingFunc())
+	assert.Equal(t, function.Sum, IncreaseField.DownSamplingFunc())
 	assert.Equal(t, function.Histogram, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Unknown, Unknown.DownSamplingFunc())
 }
@@ -23,6 +24,7 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "max", MaxField.String())
 	assert.Equal(t, "min", MinField.String())
 	assert.Equal(t, "gauge", GaugeField.String())
+	assert.Equal(t, "increase", IncreaseField.String())
 	assert.Equal(t, "summary", SummaryField.String())
 	assert.Equal(t, "histogram", HistogramField.String())
 	assert.Equal(t, "unknown", Unknown.String())

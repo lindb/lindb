@@ -158,18 +158,62 @@ func (s *gaugeSchema) getDefaultPrimitiveFields() PrimitiveFields {
 	}
 }
 
+type increaseSchema struct {
+	primitiveFieldID PrimitiveID
+	fieldIDs         []PrimitiveID
+}
+
+func newIncreaseSchema() Schema {
+	return &increaseSchema{
+		primitiveFieldID: SimpleFieldPFieldID,
+		fieldIDs:         []PrimitiveID{SimpleFieldPFieldID},
+	}
+}
+
+func (s *increaseSchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
+	return sumAggregator
+}
+
+func (s *increaseSchema) GetAllPrimitiveFields() []PrimitiveID {
+	return s.fieldIDs
+}
+
+func (s *increaseSchema) getPrimitiveFields(funcType function.FuncType) PrimitiveFields {
+	switch funcType {
+	case function.Sum:
+		return s.getDefaultPrimitiveFields()
+	default:
+		return nil
+	}
+}
+
+func (s *increaseSchema) getDefaultPrimitiveFields() PrimitiveFields {
+	return PrimitiveFields{
+		{FieldID: s.primitiveFieldID, AggType: Sum},
+	}
+}
+
 type summarySchema struct {
-	sumFieldID, countFieldID, minFieldID, maxFieldID PrimitiveID
-	fieldIDs                                         []PrimitiveID
+	sumFieldID, countFieldID, minFieldID, maxFieldID                                      PrimitiveID
+	p50FieldID, p75FieldID, p90FieldID, p95FieldID, p99FieldID, p999FieldID, p9999FieldID PrimitiveID
+	fieldIDs                                                                              []PrimitiveID
 }
 
 func newSummarySchema() Schema {
 	return &summarySchema{
 		sumFieldID:   PrimitiveID(1),
 		countFieldID: PrimitiveID(2),
-		maxFieldID:   PrimitiveID(3),
-		minFieldID:   PrimitiveID(4),
-		fieldIDs:     []PrimitiveID{1, 2, 3, 4},
+		minFieldID:   PrimitiveID(3),
+		maxFieldID:   PrimitiveID(4),
+		p50FieldID:   PrimitiveID(50),
+		p75FieldID:   PrimitiveID(75),
+		p90FieldID:   PrimitiveID(90),
+		p95FieldID:   PrimitiveID(95),
+		p99FieldID:   PrimitiveID(99),
+		p999FieldID:  PrimitiveID(39),
+		p9999FieldID: PrimitiveID(49),
+
+		fieldIDs: []PrimitiveID{1, 2, 3, 4, 50, 75, 90, 95, 99, 39, 49},
 	}
 }
 
@@ -178,9 +222,9 @@ func (s *summarySchema) GetAggFunc(pFieldID PrimitiveID) AggFunc {
 	case PrimitiveID(1), PrimitiveID(2):
 		return sumAggregator
 	case PrimitiveID(3):
-		return maxAggregator
-	case PrimitiveID(4):
 		return minAggregator
+	case PrimitiveID(4):
+		return maxAggregator
 	default:
 		return replaceAggregator
 	}

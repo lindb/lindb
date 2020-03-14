@@ -29,6 +29,7 @@ func init() {
 	schemas[MaxField] = newMaxSchema()
 	schemas[GaugeField] = newGaugeSchema()
 	schemas[SummaryField] = newSummarySchema()
+	schemas[IncreaseField] = newIncreaseSchema()
 }
 
 // Type represents field type for LinDB support
@@ -40,6 +41,7 @@ const (
 	MinField
 	MaxField
 	GaugeField
+	IncreaseField
 	SummaryField
 	HistogramField
 
@@ -57,6 +59,8 @@ func (t Type) String() string {
 		return "max"
 	case GaugeField:
 		return "gauge"
+	case IncreaseField:
+		return "increase"
 	case SummaryField:
 		return "summary"
 	case HistogramField:
@@ -76,6 +80,8 @@ func (t Type) DownSamplingFunc() function.FuncType {
 		return function.Max
 	case GaugeField:
 		return function.Replace
+	case IncreaseField:
+		return function.Sum
 	case SummaryField:
 		return function.Count
 	case HistogramField:
