@@ -24,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Replica struct {
 	Seq                  int64    `protobuf:"varint,1,opt,name=seq,proto3" json:"seq,omitempty"`
@@ -184,7 +184,7 @@ type isWriteResponse_Ack interface {
 }
 
 type WriteResponse_AckSeq struct {
-	AckSeq int64 `protobuf:"varint,2,opt,name=ackSeq,proto3,oneof"`
+	AckSeq int64 `protobuf:"varint,2,opt,name=ackSeq,proto3,oneof" json:"ackSeq,omitempty"`
 }
 
 func (*WriteResponse_AckSeq) isWriteResponse_Ack() {}
@@ -210,54 +210,11 @@ func (m *WriteResponse) GetAckSeq() int64 {
 	return 0
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*WriteResponse) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _WriteResponse_OneofMarshaler, _WriteResponse_OneofUnmarshaler, _WriteResponse_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*WriteResponse) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*WriteResponse_AckSeq)(nil),
 	}
-}
-
-func _WriteResponse_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*WriteResponse)
-	// ack
-	switch x := m.Ack.(type) {
-	case *WriteResponse_AckSeq:
-		_ = b.EncodeVarint(2<<3 | proto.WireVarint)
-		_ = b.EncodeVarint(uint64(x.AckSeq))
-	case nil:
-	default:
-		return fmt.Errorf("WriteResponse.Ack has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _WriteResponse_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*WriteResponse)
-	switch tag {
-	case 2: // ack.ackSeq
-		if wire != proto.WireVarint {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeVarint()
-		m.Ack = &WriteResponse_AckSeq{int64(x)}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _WriteResponse_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*WriteResponse)
-	// ack
-	switch x := m.Ack.(type) {
-	case *WriteResponse_AckSeq:
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(x.AckSeq))
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 type ResetSeqRequest struct {
@@ -809,7 +766,8 @@ func (m *WriteResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 }
 
 func (m *WriteResponse_AckSeq) MarshalTo(dAtA []byte) (int, error) {
-	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
 func (m *WriteResponse_AckSeq) MarshalToSizedBuffer(dAtA []byte) (int, error) {
@@ -1757,6 +1715,7 @@ func (m *NextSeqResponse) Unmarshal(dAtA []byte) error {
 func skipStorage(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -1788,10 +1747,8 @@ func skipStorage(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -1812,55 +1769,30 @@ func skipStorage(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthStorage
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthStorage
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowStorage
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipStorage(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthStorage
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupStorage
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthStorage
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthStorage = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowStorage   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthStorage        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowStorage          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupStorage = fmt.Errorf("proto: unexpected end of group")
 )
