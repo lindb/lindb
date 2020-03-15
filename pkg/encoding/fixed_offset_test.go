@@ -1,14 +1,12 @@
 package encoding
 
 import (
-	"fmt"
+	"io"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestFixedOffsetEncoder_IsEmpty(t *testing.T) {
@@ -23,34 +21,58 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	data := encoder.MarshalBinary()
 	assert.Len(t, data, 0)
 	assert.Equal(t, 0, encoder.Size())
-	encoder.Add(0)             //0
-	encoder.Add(1)             //1
-	encoder.Add(1 << 8)        //2
-	encoder.Add((1 << 8) + 1)  //3
-	encoder.Add(1 << 16)       //4
-	encoder.Add((1 << 16) + 1) //5
-	encoder.Add(1 << 24)       //6
-	encoder.Add((1 << 24) + 1) //7
+
+	encoder.FromValues([]uint32{
+		0,
+		1,
+		1 << 8,
+		(1 << 8) + 1,
+		1 << 16,
+		(1 << 16) + 1,
+		1 << 24,
+		1<<24 + 1,
+	})
 	assert.Equal(t, 8, encoder.Size())
 	data = encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
 	decoder := NewFixedOffsetDecoder(data)
-	assert.Equal(t, 4, decoder.valueLength)
+	assert.Equal(t, 4, decoder.width)
 
-	assert.Equal(t, (1<<24)+1, decoder.Get(7))
-	assert.Equal(t, (1<<16)+1, decoder.Get(5))
-	assert.Equal(t, (1<<8)+1, decoder.Get(3))
-	assert.Equal(t, 1<<8, decoder.Get(2))
-	assert.Equal(t, 0, decoder.Get(0))
-	assert.Equal(t, -1, decoder.Get(8))
-	assert.Equal(t, -1, decoder.Get(-8))
+	var ok bool
+	var value uint32
+	value, _ = decoder.Get(7)
+	assert.Equal(t, uint32((1<<24)+1), value)
+	value, _ = decoder.Get(5)
+	assert.Equal(t, uint32((1<<16)+1), value)
+	value, _ = decoder.Get(3)
+	assert.Equal(t, uint32((1<<8)+1), value)
+	value, _ = decoder.Get(2)
+	assert.Equal(t, uint32(1<<8), value)
+	value, _ = decoder.Get(0)
+	assert.Equal(t, uint32(0), value)
+	_, ok = decoder.Get(8)
+	assert.False(t, ok)
+	_, ok = decoder.Get(-8)
+	assert.False(t, ok)
 	assert.Equal(t, 8, decoder.Size())
 	assert.Equal(t, 4, decoder.ValueWidth())
 
 	// test empty
 	decoder = NewFixedOffsetDecoder([]byte{0})
-	assert.Equal(t, 0, decoder.valueLength)
+	assert.Equal(t, 0, decoder.width)
 	assert.Zero(t, decoder.Size())
+}
+
+type mockWriter struct{}
+
+func (w *mockWriter) Write(p []byte) (int, error) {
+	return 0, io.ErrShortBuffer
+}
+
+func TestFixedOffsetEncoder_WriteTo(t *testing.T) {
+	encoder := NewFixedOffsetEncoder()
+	encoder.FromValues([]uint32{1, 2, 3})
+	assert.NotNil(t, encoder.WriteTo(&mockWriter{}))
 }
 
 func TestFixedOffsetEncoder_Reset(t *testing.T) {
@@ -68,68 +90,85 @@ func TestFixedOffsetEncoder_Reset(t *testing.T) {
 	assert.True(t, len(data) > 1)
 
 	decoder := NewFixedOffsetDecoder(data)
-	assert.Equal(t, 4, decoder.valueLength)
+	assert.Equal(t, 4, decoder.width)
 
-	assert.Equal(t, (1<<24)+1, decoder.Get(1))
-	assert.Equal(t, 1<<24, decoder.Get(0))
+	value, _ := decoder.Get(1)
+	assert.Equal(t, uint32((1<<24)+1), value)
+	value, _ = decoder.Get(0)
+	assert.Equal(t, uint32(1<<24), value)
 }
 
 func TestFixedOffset_codec_int32(t *testing.T) {
-	assert.Equal(t, 1, GetMinLength(0))
-	assert.Equal(t, 1, GetMinLength(1))
-	assert.Equal(t, 2, GetMinLength(1<<8))
-	assert.Equal(t, 2, GetMinLength((1<<8)+1))
-	assert.Equal(t, 3, GetMinLength(1<<16))
-	assert.Equal(t, 3, GetMinLength((1<<16)+1))
-	assert.Equal(t, 4, GetMinLength(1<<24))
-	assert.Equal(t, 4, GetMinLength((1<<24)+1))
+	assert.Equal(t, 1, Uint32MinWidth(0))
+	assert.Equal(t, 1, Uint32MinWidth(1))
+	assert.Equal(t, 2, Uint32MinWidth(1<<8))
+	assert.Equal(t, 2, Uint32MinWidth((1<<8)+1))
+	assert.Equal(t, 3, Uint32MinWidth(1<<16))
+	assert.Equal(t, 3, Uint32MinWidth((1<<16)+1))
+	assert.Equal(t, 4, Uint32MinWidth(1<<24))
+	assert.Equal(t, 4, Uint32MinWidth((1<<24)+1))
 
-	buf := make([]byte, 1)
-	putInt32(buf, 0, 1)
-	assert.Equal(t, 0, getInt(buf, 0, 1))
+	assertGet := func(buf []byte, index int, value uint32, ok bool) {
+		decoder := NewFixedOffsetDecoder(buf)
+		v, exist := decoder.Get(index)
+		assert.Equal(t, value, v)
+		assert.Equal(t, ok, exist)
+	}
 
-	buf = make([]byte, 1)
-	putInt32(buf, 1, 1)
-	assert.Equal(t, 1, getInt(buf, 0, 1))
+	assertGet(nil, 0, 0, false)
+	// width:1
+	assertGet([]byte{1}, 0, 0, false)
+	assertGet([]byte{1, 0xff}, -1, 0, false)
+	assertGet([]byte{1, 0xff}, 0, 255, true)
+	assertGet([]byte{1, 0xff}, 1, 0, false)
+	// width: 4
+	assertGet([]byte{2, 0xff}, 0, 0, false)
+	// width: 4
+	assertGet([]byte{4, 0xff}, 0, 0, false)
+	assertGet([]byte{4, 0xff, 0xff, 0xff, 0xff}, 0, 0xffffffff, true)
 
-	buf = make([]byte, 2)
-	putInt32(buf, 1<<8, 2)
-	assert.Equal(t, 1<<8, getInt(buf, 0, 2))
+	// data corruption
+	assertGet([]byte{5, 0xff, 0xff, 0xff, 0xff}, 0, 0, false)
 
-	buf = make([]byte, 2)
-	putInt32(buf, 1+(1<<8), 2)
-	assert.Equal(t, 1+(1<<8), getInt(buf, 0, 2))
+}
 
-	buf = make([]byte, 3)
-	putInt32(buf, 1<<16, 3)
-	assert.Equal(t, 1<<16, getInt(buf, 0, 3))
+func TestByteSlice2Uint32(t *testing.T) {
+	assert.Equal(t, uint32(1), ByteSlice2Uint32([]byte{1}))
+	assert.Equal(t, uint32(0xffffffff), ByteSlice2Uint32([]byte{0xff, 0xff, 0xff, 0xff}))
+	assert.Equal(t, uint32(0xffffffff), ByteSlice2Uint32([]byte{0xff, 0xff, 0xff, 0xff, 0xff}))
+	assert.Equal(t, uint32(0), ByteSlice2Uint32(nil))
+}
 
-	buf = make([]byte, 3)
-	putInt32(buf, 1+(1<<16), 3)
-	assert.Equal(t, 1+(1<<16), getInt(buf, 0, 3))
+func Test_GetAdd_Consistency(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	var expects []uint32
+	for i := 0; i < 100000; i++ {
+		expects = append(expects, rand.Uint32())
+	}
+	encoder := NewFixedOffsetEncoder()
+	encoder.FromValues(expects)
+	decoder := NewFixedOffsetDecoder(encoder.MarshalBinary())
 
-	buf = make([]byte, 4)
-	putInt32(buf, 1<<24, 4)
-	assert.Equal(t, 1<<24, getInt(buf, 0, 4))
-
-	buf = make([]byte, 4)
-	putInt32(buf, 1+(1<<24), 4)
-	assert.Equal(t, 1+(1<<24), getInt(buf, 0, 4))
+	for i := 0; i < 100000; i++ {
+		value, ok := decoder.Get(i)
+		assert.Equal(t, expects[i], value)
+		assert.True(t, ok)
+	}
 }
 
 func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 	encoder := NewFixedOffsetEncoder()
 	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < 100000; i++ {
-		x := rand.Intn(100000)
+		x := rand.Uint32()
 		encoder.Add(x)
 	}
 	data := encoder.MarshalBinary()
-	fmt.Println(len(data))
 	decoder := NewFixedOffsetDecoder(data)
-	now := timeutil.Now()
-	for i := 0; i < 100000; i++ {
-		_ = decoder.Get(i)
+	b.ResetTimer()
+	for round := 0; round < b.N; round++ {
+		for i := 0; i < 100000; i++ {
+			_, _ = decoder.Get(i)
+		}
 	}
-	fmt.Printf("cost:%d\n", timeutil.Now()-now)
 }

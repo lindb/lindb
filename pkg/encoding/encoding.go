@@ -28,8 +28,8 @@ func ValueWithHighLowBits(high uint32, low uint16) uint32 {
 	return uint32(low&maxLowBit) | high
 }
 
-// GetMinLength returns the min length of value
-func GetMinLength(value int) int {
+// Uint32MinWidth returns the min length of uint32
+func Uint32MinWidth(value uint32) int {
 	switch {
 	case value < 1<<8:
 		return 1

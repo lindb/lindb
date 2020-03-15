@@ -3,11 +3,11 @@ package invertedindex
 import (
 	"hash/crc32"
 
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
+
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./forward_flusher.go -destination=./forward_flusher_mock.go -package invertedindex
@@ -51,7 +51,7 @@ func (f *forwardFlusher) FlushForwardIndex(tagValueIDs []uint32) {
 	}
 	offset := f.writer.Len()
 	f.writer.PutBytes(f.tagValueIDs.Bytes()) // write tag value ids
-	f.offsets.Add(offset)                    // add tag value ids' offset
+	f.offsets.Add(uint32(offset))            // add tag value ids' offset
 }
 
 // FlushTagKeyID ends writing series ids in tag index table.

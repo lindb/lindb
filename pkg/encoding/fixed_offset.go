@@ -2,14 +2,17 @@ package encoding
 
 import (
 	"bytes"
+	"encoding/binary"
+	"io"
 
 	"github.com/lindb/lindb/pkg/stream"
 )
 
 // FixedOffsetEncoder represents the offset encoder with fixed length
 type FixedOffsetEncoder struct {
-	values []int
+	values []uint32
 	buf    *bytes.Buffer
+	max    uint32
 	bw     *stream.BufferWriter
 }
 
@@ -36,111 +39,104 @@ func (e *FixedOffsetEncoder) Size() int {
 // Reset resets the encoder context for reuse
 func (e *FixedOffsetEncoder) Reset() {
 	e.bw.Reset()
+	e.max = 0
 	e.values = e.values[:0]
 }
 
 // Add adds the offset value,
-// NOTICE: value need keep in sort
-func (e *FixedOffsetEncoder) Add(v int) {
+func (e *FixedOffsetEncoder) Add(v uint32) {
 	e.values = append(e.values, v)
+	if e.max < v {
+		e.max = v
+	}
+}
+
+// FromValues resets the encoder, then init it with multi values.
+func (e *FixedOffsetEncoder) FromValues(values []uint32) {
+	e.Reset()
+	e.values = values
+	for _, value := range values {
+		if e.max < value {
+			e.max = value
+		}
+	}
 }
 
 // MarshalBinary marshals the values to binary
 func (e *FixedOffsetEncoder) MarshalBinary() []byte {
-	length := len(e.values)
-	if length == 0 {
+	_ = e.WriteTo(e.buf)
+	return e.buf.Bytes()
+}
+
+// WriteTo writes the data to the writer.
+func (e *FixedOffsetEncoder) WriteTo(writer io.Writer) error {
+	if len(e.values) == 0 {
 		return nil
 	}
-	maxLength := GetMinLength(e.values[length-1])
-	e.bw.PutByte(byte(maxLength)) // max fixed length
+	width := Uint32MinWidth(e.max)
+	// fixed value width
+	e.bw.PutByte(byte(width))
 	// put all values with fixed length
-	buf := make([]byte, maxLength)
-	for i := 0; i < length; i++ {
-		putInt32(buf, e.values[i], maxLength)
-		e.bw.PutBytes(buf)
+	buf := make([]byte, 4)
+	for _, value := range e.values {
+		binary.LittleEndian.PutUint32(buf, value)
+		if _, err := writer.Write(buf[:width]); err != nil {
+			return err
+		}
 	}
-	return e.buf.Bytes()
+	return nil
 }
 
 // FixedOffsetDecoder represents the fixed offset decoder, supports random reads offset by index
 type FixedOffsetDecoder struct {
-	buf                 []byte
-	valueLength, length int
+	buf     []byte
+	width   int
+	scratch []byte
 }
 
 // NewFixedOffsetDecoder creates the fixed offset decoder
 func NewFixedOffsetDecoder(buf []byte) *FixedOffsetDecoder {
+	if len(buf) == 0 {
+		return &FixedOffsetDecoder{
+			buf: nil,
+		}
+	}
 	return &FixedOffsetDecoder{
-		buf:         buf,
-		valueLength: int(buf[0]),
-		length:      len(buf),
+		buf:     buf[1:],
+		width:   int(buf[0]),
+		scratch: make([]byte, 4),
 	}
 }
 
+// ValueWidth returns the width of all stored values
 func (d *FixedOffsetDecoder) ValueWidth() int {
-	return d.valueLength
+	return d.width
 }
 
 // Size returns the size of  offset values
 func (d *FixedOffsetDecoder) Size() int {
-	if d.valueLength == 0 {
+	if d.width == 0 {
 		return 0
 	}
-	return (d.length - 1) / d.valueLength
+	return len(d.buf) / d.width
 }
 
-// Get gets the offset value by index, if offset > buffer length or index <0 returns -1
-func (d *FixedOffsetDecoder) Get(index int) int {
-	if index < 0 {
-		return -1
+// Get gets the offset value by index
+func (d *FixedOffsetDecoder) Get(index int) (uint32, bool) {
+	start := index * d.width
+	if start < 0 || len(d.buf) == 0 || start >= len(d.buf) || d.width > 4 {
+		return 0, false
 	}
-	// offset = index * length + 1 (1 is max length)
-	offset := index*d.valueLength + 1
-	if offset+d.valueLength > d.length {
-		return -1
+	end := start + d.width
+	if end > len(d.buf) {
+		return 0, false
 	}
-	return getInt(d.buf, index*d.valueLength+1, d.valueLength)
+	copy(d.scratch, d.buf[start:end])
+	return binary.LittleEndian.Uint32(d.scratch), true
 }
 
-// getInt32 gets value from buf with fixed length
-func getInt(buf []byte, offset, length int) int {
-	var x uint32
-	switch {
-	case length == 1:
-		x = uint32(buf[offset])
-	case length == 2:
-		x = uint32(buf[offset])
-		x |= uint32(buf[offset+1]) << 8
-	case length == 3:
-		x = uint32(buf[offset])
-		x |= uint32(buf[offset+1]) << 8
-		x |= uint32(buf[offset+2]) << 16
-	case length == 4:
-		x = uint32(buf[offset])
-		x |= uint32(buf[offset+1]) << 8
-		x |= uint32(buf[offset+2]) << 16
-		x |= uint32(buf[offset+3]) << 24
-	}
-	return int(x)
-}
-
-// putInt32 puts the value into buf with fixed length
-func putInt32(buf []byte, value int, length int) {
-	x := uint32(value)
-	switch {
-	case length == 1:
-		buf[0] = uint8(x & 0xff)
-	case length == 2:
-		buf[0] = uint8(x)
-		buf[1] = uint8(x >> 8)
-	case length == 3:
-		buf[0] = uint8(x)
-		buf[1] = uint8(x >> 8)
-		buf[2] = uint8(x >> 16)
-	case length == 4:
-		buf[0] = uint8(x)
-		buf[1] = uint8(x >> 8)
-		buf[2] = uint8(x >> 16)
-		buf[3] = uint8(x >> 24)
-	}
+func ByteSlice2Uint32(slice []byte) uint32 {
+	var buf = make([]byte, 4)
+	copy(buf, slice)
+	return binary.LittleEndian.Uint32(buf)
 }

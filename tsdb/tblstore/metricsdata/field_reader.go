@@ -27,7 +27,8 @@ type fieldReader struct {
 	fieldCount   int
 	fieldOffsets *encoding.FixedOffsetDecoder
 
-	offset    int
+	offset    uint32
+	ok        bool
 	idx       int
 	completed bool // !!!!NOTICE: need reset completed
 }
@@ -46,7 +47,7 @@ func (r *fieldReader) reset(buf []byte, position int, start, end uint16) {
 	r.fieldCount = int(stream.ReadUint16(buf, position))
 	r.fieldOffsets = encoding.NewFixedOffsetDecoder(buf[position+2:])
 	r.buf = buf
-	r.offset = -1
+	r.ok = false
 	r.completed = false
 }
 
@@ -61,7 +62,7 @@ func (r *fieldReader) getPrimitiveData(fieldID field.ID, primitiveID field.Primi
 	if r.completed {
 		return nil
 	}
-	if r.offset == -1 {
+	if !r.ok {
 		if !r.nextField() {
 			return nil
 		}
@@ -94,7 +95,7 @@ func (r *fieldReader) nextField() bool {
 		r.completed = true
 		return false
 	}
-	r.offset = r.fieldOffsets.Get(r.idx)
+	r.offset, r.ok = r.fieldOffsets.Get(r.idx)
 	r.idx++
 	return true
 }
