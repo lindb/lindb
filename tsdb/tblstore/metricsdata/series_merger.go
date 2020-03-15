@@ -44,6 +44,10 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 		for _, primitiveID := range primitiveFields {
 			aggFunc := schema.GetAggFunc(primitiveID)
 			for idx, reader := range fieldReaders {
+				if reader == nil {
+					// if series id not exist, reader is nil
+					continue
+				}
 				fieldData := reader.getPrimitiveData(fieldID, primitiveID)
 				if len(fieldData) > 0 {
 					if streams[idx] == nil {
@@ -86,6 +90,10 @@ func (sm *seriesMerger) mergeField(mergeCtx *mergerContext, aggFunc field.AggFun
 		for pos <= mergeCtx.sourceEnd && pos < intervalEnd {
 			// 1. merge data by time slot
 			for _, value := range values {
+				if value == nil {
+					// if series id not exist, value maybe nil
+					continue
+				}
 				if value.HasValueWithSlot(pos) {
 					if !hasValue {
 						// if target value not exist, set it

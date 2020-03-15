@@ -233,12 +233,12 @@ func (db *database) ExecutorPool() *ExecutorPool {
 
 // Close closes database's underlying resource
 func (db *database) Close() error {
-	if err := db.metadata.Close(); err != nil {
-		return err
-	}
 	if err := db.FlushMeta(); err != nil {
 		engineLogger.Error(fmt.Sprintf(
 			"flush meta database[%s]", db.name), logger.Error(err))
+	}
+	if err := db.metadata.Close(); err != nil {
+		return err
 	}
 	if err := db.metaStore.Close(); err != nil {
 		return err

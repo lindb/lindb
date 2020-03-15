@@ -46,4 +46,6 @@ func TestMetricsDataFilter_Filter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, rs, 1)
 	assert.EqualValues(t, roaring.BitmapOf(200).ToArray(), rs[0].SeriesIDs().ToArray())
+	reader.EXPECT().Path().Return("1.sst")
+	assert.Equal(t, "1.sst", rs[0].Identifier())
 }

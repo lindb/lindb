@@ -27,6 +27,8 @@ const (
 
 // Reader represents the metric block reader
 type Reader interface {
+	// Path returns file path
+	Path() string
 	// GetSeriesIDs returns the series ids in this sst file
 	GetSeriesIDs() *roaring.Bitmap
 	// GetFields returns the field metas in this sst file
@@ -57,6 +59,7 @@ func newFieldAggregator(fieldMeta field.Meta, aggregator aggregation.PrimitiveAg
 
 // reader implements Reader interface that reads metric block
 type reader struct {
+	path          string
 	buf           []byte
 	highOffsets   *encoding.FixedOffsetDecoder
 	seriesIDs     *roaring.Bitmap
@@ -66,14 +69,20 @@ type reader struct {
 }
 
 // NewReader creates a metric block reader
-func NewReader(buf []byte) (Reader, error) {
+func NewReader(path string, buf []byte) (Reader, error) {
 	r := &reader{
-		buf: buf,
+		path: path,
+		buf:  buf,
 	}
 	if err := r.initReader(); err != nil {
 		return nil, err
 	}
 	return r, nil
+}
+
+// Path returns the file path
+func (r *reader) Path() string {
+	return r.path
 }
 
 // GetSeriesIDs returns the series ids in this sst file

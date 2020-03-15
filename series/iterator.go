@@ -3,6 +3,8 @@ package series
 import (
 	enc "encoding"
 
+	"github.com/lindb/lindb/models"
+
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -12,7 +14,8 @@ import (
 type TimeSeriesEvent struct {
 	SeriesList []GroupedIterator
 
-	Err error
+	Stats *models.QueryStats
+	Err   error
 }
 
 // GroupedIterator represents a iterator for the grouped time series data

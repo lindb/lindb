@@ -15,6 +15,7 @@ import (
 
 // queryStmtParse represents query statement parser using visitor
 type queryStmtParse struct {
+	explain    bool
 	metricName string
 
 	selectItems []stmt.Expr
@@ -37,8 +38,9 @@ type queryStmtParse struct {
 }
 
 // newQueryStmtParse create a query statement parser
-func newQueryStmtParse() *queryStmtParse {
+func newQueryStmtParse(explain bool) *queryStmtParse {
 	return &queryStmtParse{
+		explain:    explain,
 		fieldNames: make(map[string]struct{}),
 		limit:      20,
 		fieldID:    1,
@@ -53,6 +55,7 @@ func (q *queryStmtParse) build() (*stmt.Query, error) {
 	}
 
 	query := &stmt.Query{}
+	query.Explain = q.explain
 	query.MetricName = q.metricName
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition

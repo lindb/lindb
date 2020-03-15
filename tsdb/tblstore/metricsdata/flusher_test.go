@@ -100,7 +100,7 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	err := flusher.FlushMetric(39, 5, 5)
 	assert.NoError(t, err)
 	data = nopKVFlusher.Bytes()
-	r, err := NewReader(data)
+	r, err := NewReader("1.sst", data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)

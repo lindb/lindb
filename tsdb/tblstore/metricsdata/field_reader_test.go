@@ -8,7 +8,7 @@ import (
 
 func TestField_read(t *testing.T) {
 	block := mockMetricMergeBlock([]uint32{1}, 5, 5)
-	r, err := NewReader(block)
+	r, err := NewReader("1.sst", block)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	scanner := newDataScanner(r)

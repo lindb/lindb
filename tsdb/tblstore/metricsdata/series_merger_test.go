@@ -19,10 +19,10 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 
 	flusher := NewMockFlusher(ctrl)
 	merger := newSeriesMerger(flusher)
-	decodeStreams := make([]*encoding.TSDDecoder, 2)
+	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
-	readers := []FieldReader{reader1, reader2}
+	readers := []FieldReader{reader1, nil, reader2}
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
@@ -108,10 +108,10 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 
 	flusher := NewMockFlusher(ctrl)
 	merger := newSeriesMerger(flusher)
-	decodeStreams := make([]*encoding.TSDDecoder, 2)
+	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
-	readers := []FieldReader{reader1, reader2}
+	readers := []FieldReader{reader1, reader2, nil}
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup

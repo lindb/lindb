@@ -75,12 +75,8 @@ func (p *storageExecutePlan) Plan() error {
 }
 
 // groupByKeyIDs returns group by tag key ids
-func (p *storageExecutePlan) groupByKeyIDs() []uint32 {
-	tagKeyIDs := make([]uint32, len(p.groupByTags))
-	for idx, t := range p.groupByTags {
-		tagKeyIDs[idx] = t.ID
-	}
-	return tagKeyIDs
+func (p *storageExecutePlan) groupByKeyIDs() []tag.Meta {
+	return p.groupByTags
 }
 
 // groupBy parses group by tag keys

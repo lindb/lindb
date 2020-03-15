@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
 )
@@ -20,9 +21,11 @@ type ResultMerger interface {
 	// merge merges the task response and aggregates the result
 	merge(resp *pb.TaskResponse)
 
+	// close closes merger
 	close()
 }
 
+// resultMerger implements ResultMerger interface
 type resultMerger struct {
 	resultSet chan *series.TimeSeriesEvent
 
@@ -33,7 +36,8 @@ type resultMerger struct {
 	closed chan struct{}
 	ctx    context.Context
 
-	err error
+	stats *models.QueryStats
+	err   error
 }
 
 // newResultMerger create a result merger
@@ -57,24 +61,27 @@ func (m *resultMerger) merge(resp *pb.TaskResponse) {
 	m.events <- resp
 }
 
+// close closes merger
 func (m *resultMerger) close() {
 	close(m.events)
 	// waiting process completed
 	<-m.closed
 	// send result set
 	if m.err != nil {
-		m.resultSet <- &series.TimeSeriesEvent{Err: m.err}
+		m.resultSet <- &series.TimeSeriesEvent{Err: m.err, Stats: m.stats}
 	} else {
 		// send all series data
 		resultSet := m.groupAgg.ResultSet()
 		if len(resultSet) > 0 {
 			m.resultSet <- &series.TimeSeriesEvent{
 				SeriesList: resultSet,
+				Stats:      m.stats,
 			}
 		}
 	}
 }
 
+// process consumes response event, then handles response
 func (m *resultMerger) process() {
 	for {
 		select {
@@ -92,7 +99,11 @@ func (m *resultMerger) process() {
 	}
 }
 
+// handleEvent merges the task response
 func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
+	// handle query stats
+	m.handleQueryStats(resp)
+
 	data := resp.Payload
 	tsList := &pb.TimeSeriesList{}
 	err := tsList.Unmarshal(data)
@@ -108,6 +119,21 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 		m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, ts.Fields))
 	}
 	return true
+}
+
+// handleQueryStats handles query stats if need
+func (m *resultMerger) handleQueryStats(resp *pb.TaskResponse) {
+	if len(resp.Stats) > 0 {
+		// if has query stats, need merge task query stats
+		if m.stats == nil {
+			m.stats = models.NewQueryStats()
+		}
+		storageStats := models.NewStorageStats()
+		_ = encoding.JSONUnmarshal(resp.Stats, storageStats)
+		storageStats.NetCost = timeutil.NowNano() - resp.SendTime
+		storageStats.NetPayload = len(resp.Stats) + len(resp.Payload)
+		m.stats.MergeStorageTaskStats(resp.TaskID, storageStats)
+	}
 }
 
 // suggestResultMerger represents the merger which merges the distribution suggest query task's result set
@@ -133,6 +159,7 @@ func (m *suggestResultMerger) merge(resp *pb.TaskResponse) {
 	m.resultSet <- result.Values
 }
 
+// close closes the suggest result merge
 func (m *suggestResultMerger) close() {
 	close(m.resultSet)
 }

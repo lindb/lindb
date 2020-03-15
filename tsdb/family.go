@@ -91,7 +91,7 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []field.ID,
 		if !ok {
 			continue
 		}
-		r, err := newReaderFunc(value)
+		r, err := newReaderFunc(reader.Path(), value)
 		if err != nil {
 			return nil, err
 		}

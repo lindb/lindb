@@ -50,6 +50,7 @@ func TestMetricStore_Filter(t *testing.T) {
 			ID:   20,
 			Type: field.SumField,
 		}}, mrs.fields)
+	assert.Equal(t, "memory", rs[0].Identifier())
 }
 
 func TestMemFilterResultSet_Load(t *testing.T) {
