@@ -75,7 +75,7 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 
 	// case 1: expr not exist
 	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
-	search := newSeriesSearch(mockFilter, make(map[string]*filterResult), query)
+	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query)
 	resultSet, err := search.Search()
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
@@ -109,7 +109,7 @@ func TestSeriesSearch_Search_expr_not_match(t *testing.T) {
 
 	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
 	query.Condition = &stmt.CallExpr{}
-	search := newSeriesSearch(mockFilter, make(map[string]*filterResult), query)
+	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query)
 	resultSet, err := search.Search()
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), resultSet.GetCardinality())
@@ -133,25 +133,25 @@ func TestSeriesSearch_Search_complex(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(5, 7), resultSet)
 }
 
-func mockFilterResult() map[string]*filterResult {
-	result := make(map[string]*filterResult)
-	result[(&stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Rewrite()] = &filterResult{
+func mockFilterResult() map[string]*tagFilterResult {
+	result := make(map[string]*tagFilterResult)
+	result[(&stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Rewrite()] = &tagFilterResult{
 		tagKey:      1,
 		tagValueIDs: roaring.BitmapOf(1),
 	}
-	result[(&stmt.EqualsExpr{Key: "path", Value: "/data"}).Rewrite()] = &filterResult{
+	result[(&stmt.EqualsExpr{Key: "path", Value: "/data"}).Rewrite()] = &tagFilterResult{
 		tagKey:      2,
 		tagValueIDs: roaring.BitmapOf(2),
 	}
-	result[(&stmt.EqualsExpr{Key: "path", Value: "/home"}).Rewrite()] = &filterResult{
+	result[(&stmt.EqualsExpr{Key: "path", Value: "/home"}).Rewrite()] = &tagFilterResult{
 		tagKey:      2,
 		tagValueIDs: roaring.BitmapOf(3),
 	}
-	result[(&stmt.EqualsExpr{Key: "region", Value: "sh"}).Rewrite()] = &filterResult{
+	result[(&stmt.EqualsExpr{Key: "region", Value: "sh"}).Rewrite()] = &tagFilterResult{
 		tagKey:      3,
 		tagValueIDs: roaring.BitmapOf(4),
 	}
-	result[(&stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}).Rewrite()] = &filterResult{
+	result[(&stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}).Rewrite()] = &tagFilterResult{
 		tagKey:      1,
 		tagValueIDs: roaring.BitmapOf(5),
 	}

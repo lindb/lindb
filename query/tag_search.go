@@ -11,8 +11,8 @@ import (
 
 //go:generate mockgen -source ./tag_search.go -destination=./tag_search_mock.go -package=query
 
-// filterResult represents the tag filter result, include tag key id and tag value ids
-type filterResult struct {
+// tagFilterResult represents the tag filter result, include tag key id and tag value ids
+type tagFilterResult struct {
 	tagKey      uint32
 	tagValueIDs *roaring.Bitmap
 }
@@ -20,7 +20,7 @@ type filterResult struct {
 // TagSearch represents the tag filtering by tag filter expr
 type TagSearch interface {
 	// Filter filters tag value ids base on tag filter expr, if fail return nil, else return tag value ids
-	Filter() (map[string]*filterResult, error)
+	Filter() (map[string]*tagFilterResult, error)
 }
 
 // tagSearch implements TagSearch
@@ -29,7 +29,7 @@ type tagSearch struct {
 	query     *stmt.Query
 	metadata  metadb.Metadata
 
-	result map[string]*filterResult
+	result map[string]*tagFilterResult
 	tags   map[string]uint32 // for cache tag key
 	err    error
 }
@@ -41,12 +41,12 @@ func newTagSearch(namespace string, query *stmt.Query, metadata metadb.Metadata)
 		query:     query,
 		metadata:  metadata,
 		tags:      make(map[string]uint32),
-		result:    make(map[string]*filterResult),
+		result:    make(map[string]*tagFilterResult),
 	}
 }
 
 // Filter filters tag value ids base on tag filter expr, if fail return nil, else return tag value ids
-func (s *tagSearch) Filter() (map[string]*filterResult, error) {
+func (s *tagSearch) Filter() (map[string]*tagFilterResult, error) {
 	s.findTagValueIDsByExpr(s.query.Condition)
 	if s.err != nil {
 		return nil, s.err
@@ -76,7 +76,7 @@ func (s *tagSearch) findTagValueIDsByExpr(expr stmt.Expr) {
 		}
 		if tagValueIDs != nil && !tagValueIDs.IsEmpty() {
 			// save atomic tag filter result
-			s.result[expr.Rewrite()] = &filterResult{
+			s.result[expr.Rewrite()] = &tagFilterResult{
 				tagKey:      tagKeyID,
 				tagValueIDs: tagValueIDs,
 			}

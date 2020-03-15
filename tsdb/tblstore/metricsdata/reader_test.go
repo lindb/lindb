@@ -25,17 +25,18 @@ func TestNewReader(t *testing.T) {
 		encoding.BitmapUnmarshal = bitmapUnmarshal
 	}()
 	// case 1: footer err
-	r, err := NewReader([]byte{1, 2, 3})
+	r, err := NewReader("1.sst", []byte{1, 2, 3})
 	assert.Error(t, err)
 	assert.Nil(t, r)
 	// case 2: offset err
-	r, err = NewReader([]byte{0, 0, 0, 1, 2, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 1, 2, 3, 4})
+	r, err = NewReader("1.sst", []byte{0, 0, 0, 1, 2, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 1, 2, 3, 4})
 	assert.Error(t, err)
 	assert.Nil(t, r)
 	// case 3: new reader success
-	r, err = NewReader(mockMetricBlock())
+	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
+	assert.Equal(t, "1.sst", r.Path())
 	start, end := r.GetTimeRange()
 	assert.Equal(t, uint16(5), start)
 	assert.Equal(t, uint16(5), end)
@@ -55,7 +56,7 @@ func TestNewReader(t *testing.T) {
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
 	}
-	r, err = NewReader(mockMetricBlock())
+	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.Error(t, err)
 	assert.Nil(t, r)
 }
@@ -65,7 +66,7 @@ func TestReader_Load(t *testing.T) {
 	defer ctrl.Finish()
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
 
-	r, err := NewReader(mockMetricBlock())
+	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	// case 1: series high key not found
@@ -117,7 +118,7 @@ func TestReader_Load(t *testing.T) {
 }
 
 func TestReader_scan(t *testing.T) {
-	r, err := NewReader(mockMetricBlock())
+	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	scanner := newDataScanner(r)

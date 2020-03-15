@@ -15,7 +15,6 @@ import (
 	"github.com/lindb/lindb/rpc"
 	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	pb "github.com/lindb/lindb/rpc/proto/common"
-
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -75,7 +74,8 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	exec := NewMockExecutor(ctrl)
 	exec.EXPECT().Execute()
-	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	executorFactory.EXPECT().NewStorageExecuteContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }
@@ -106,7 +106,8 @@ func TestLeafProcessor_Process(t *testing.T) {
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 	exec := NewMockExecutor(ctrl)
 	exec.EXPECT().Execute()
-	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	executorFactory.EXPECT().NewStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any()).Return(exec)
+	executorFactory.EXPECT().NewStorageExecuteContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := processor.Process(context.TODO(), &pb.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }

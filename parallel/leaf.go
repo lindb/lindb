@@ -121,8 +121,9 @@ func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, name
 	//TODO need get storage interval by query time if has rollup config
 	timeRange, intervalRatio, queryInterval := downSamplingTimeRange(query.Interval, interval, query.TimeRange)
 	// execute leaf task
-	queryFlow := NewStorageQueryFlow(ctx, &query, req, stream, db.ExecutorPool(), timeRange, queryInterval, intervalRatio)
-	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, namespace, shardIDs, &query)
+	storageExecuteCtx := p.executorFactory.NewStorageExecuteContext(namespace, shardIDs, &query)
+	queryFlow := NewStorageQueryFlow(ctx, storageExecuteCtx, &query, req, stream, db.ExecutorPool(), timeRange, queryInterval, intervalRatio)
+	exec := p.executorFactory.NewStorageExecutor(queryFlow, db, storageExecuteCtx)
 	exec.Execute()
 	return nil
 }

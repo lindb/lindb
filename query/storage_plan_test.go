@@ -160,8 +160,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 
 	assert.Equal(t, []field.ID{10, 12}, storagePlan.getFieldIDs())
 	assert.Equal(t, 2, len(storagePlan.groupByTags))
-	assert.Equal(t, []tag.Meta{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, storagePlan.groupByTags)
-	assert.Equal(t, []uint32{10, 11}, storagePlan.groupByKeyIDs())
+	assert.Equal(t, []tag.Meta{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, storagePlan.groupByKeyIDs())
 
 	// get tag key err
 	gomock.InOrder(

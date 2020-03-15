@@ -78,6 +78,7 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 		it := container.PeekableIterator()
 		for it.HasNext() {
 			lowSeriesID := it.Next()
+			// maybe series id not exist in some value block
 			for blockIdx, scanner := range mergeCtx.scanners {
 				seriesPos := scanner.scan(highKey, lowSeriesID)
 				if seriesPos >= 0 {
@@ -89,7 +90,6 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 					}
 				}
 			}
-
 			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, encodeStream, fieldReaders); err != nil {
 				return nil, err
 			}
@@ -111,7 +111,7 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 		targetFields: field.Metas{},
 	}
 	for idx, value := range values {
-		reader, err := NewReader(value)
+		reader, err := NewReader("merge_operation", value)
 		if err != nil {
 			return nil, err
 		}

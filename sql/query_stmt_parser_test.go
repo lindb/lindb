@@ -10,6 +10,17 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+func TestExplainStatement(t *testing.T) {
+	sql := "explain select f from cpu where host='1.1.1.1'"
+	query, err := Parse(sql)
+	assert.Nil(t, err)
+	assert.True(t, query.Explain)
+	sql = "select f from cpu where host='2.2.2.2'"
+	query, err = Parse(sql)
+	assert.Nil(t, err)
+	assert.False(t, query.Explain)
+}
+
 func TestMetricName(t *testing.T) {
 	sql := "select f from cpu where host='1.1.1.1'"
 	query, err := Parse(sql)

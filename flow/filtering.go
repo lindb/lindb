@@ -20,6 +20,8 @@ type DataFilter interface {
 
 // FilterResultSet represents the filter result set, loads data and does down sampling need based on this interface.
 type FilterResultSet interface {
+	// Identifier identifies the source of result set(mem/kv etc.)
+	Identifier() string
 	// Load loads the data from storage, then does down sampling, finally reduces the down sampling results.
 	Load(flow StorageQueryFlow, fieldIDs []field.ID, highKey uint16, groupedSeries map[string][]uint16)
 	// SeriesIDs returns the series ids which matches with query series ids

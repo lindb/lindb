@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/timeutil"
 	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	pb "github.com/lindb/lindb/rpc/proto/common"
-
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
@@ -43,7 +43,7 @@ func TestStorageQueryFlow_GetAggregator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{GroupBy: []string{"host"}},
+	queryFlow := NewStorageQueryFlow(context.TODO(), nil, &stmt.Query{GroupBy: []string{"host"}},
 		&pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
@@ -67,9 +67,11 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
+	storageExecuteCtx.EXPECT().QueryStats().Return(models.NewStorageStats()).AnyTimes()
 	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf := queryFlow.(*storageQueryFlow)
@@ -104,8 +106,10 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	})
 	wait.Wait()
 	queryFlow.Complete(nil)
+	time.Sleep(100 * time.Millisecond)
 	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 	seriesAgg.EXPECT().Reset()
+	// reduce after query flow complete
 	queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
 }
 
@@ -113,9 +117,11 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
+	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
 	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{},
+	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{},
 		&pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
@@ -127,7 +133,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	})
 
 	// case 2: test reduce result send
-	queryFlow = NewStorageQueryFlow(context.TODO(), &stmt.Query{GroupBy: []string{"host"}}, &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow = NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{GroupBy: []string{"host"}}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	qf = queryFlow.(*storageQueryFlow)
@@ -161,7 +167,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 }
 
 func TestStorageQueryFlow_getValues(t *testing.T) {
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{},
+	queryFlow := NewStorageQueryFlow(context.TODO(), nil, &stmt.Query{},
 		&pb.TaskRequest{}, nil, nil,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
@@ -184,9 +190,11 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
+	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
 	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Prepare(nil)
 	var wait sync.WaitGroup
@@ -211,8 +219,10 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
+	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
 	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
-	queryFlow := NewStorageQueryFlow(context.TODO(), &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
+	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool,
 		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
 	queryFlow.Complete(nil) // err is nil, need not send err result
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
