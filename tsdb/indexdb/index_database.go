@@ -151,7 +151,8 @@ func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*r
 	}
 	tagLength := len(tags)
 	if tagLength == 0 {
-		return nil, constants.ErrNotFound
+		// if metric hasn't any tags, returns default series id(0)
+		return roaring.BitmapOf(constants.SeriesIDWithoutTags), nil
 	}
 	tagKeyIDs := make([]uint32, tagLength)
 	for idx, tag := range tags {
