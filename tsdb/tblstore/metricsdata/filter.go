@@ -80,6 +80,11 @@ func newFileFilterResultSet(familyTime int64, fieldMetas field.Metas,
 	}
 }
 
+// Identifier identifies the source of result set from kv store
+func (f *fileFilterResultSet) Identifier() string {
+	return f.reader.Path()
+}
+
 // SeriesIDs returns the series ids which matches with query series ids
 func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
 	return f.seriesIDs

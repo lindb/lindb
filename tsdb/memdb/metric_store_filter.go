@@ -112,6 +112,11 @@ func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregatio
 	return
 }
 
+// Identifier identifies the source of result set from memory storage
+func (rs *memFilterResultSet) Identifier() string {
+	return "memory"
+}
+
 // SeriesIDs returns the series ids which matches with query series ids
 func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 	return rs.seriesIDs

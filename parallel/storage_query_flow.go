@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -29,16 +30,17 @@ var storageQueryFlowLogger = logger.GetLogger("parallel", "storageQueryFlow")
 
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
-	query        *stmt.Query
-	aggPool      chan aggregation.FieldAggregates // use aggregator for request scope
-	pendingTasks map[int32]Stage                  // pending task ref counter for each stage
-	taskIDSeq    atomic.Int32                     // task id gen sequence
-	executorPool *tsdb.ExecutorPool
-	reduceAgg    aggregation.GroupingAggregator
-	stream       pb.TaskService_HandleServer
-	req          *pb.TaskRequest
-	ctx          context.Context
-	allocAgg     allocAgg
+	storageExecuteCtx StorageExecuteContext
+	query             *stmt.Query
+	aggPool           chan aggregation.FieldAggregates // use aggregator for request scope
+	pendingTasks      map[int32]Stage                  // pending task ref counter for each stage
+	taskIDSeq         atomic.Int32                     // task id gen sequence
+	executorPool      *tsdb.ExecutorPool
+	reduceAgg         aggregation.GroupingAggregator
+	stream            pb.TaskService_HandleServer
+	req               *pb.TaskRequest
+	ctx               context.Context
+	allocAgg          allocAgg
 
 	queryTimeRange     timeutil.TimeRange
 	queryInterval      timeutil.Interval
@@ -55,6 +57,7 @@ type storageQueryFlow struct {
 }
 
 func NewStorageQueryFlow(ctx context.Context,
+	storageExecuteCtx StorageExecuteContext,
 	query *stmt.Query,
 	req *pb.TaskRequest,
 	stream pb.TaskService_HandleServer,
@@ -65,6 +68,7 @@ func NewStorageQueryFlow(ctx context.Context,
 ) flow.StorageQueryFlow {
 	return &storageQueryFlow{
 		ctx:                ctx,
+		storageExecuteCtx:  storageExecuteCtx,
 		query:              query,
 		req:                req,
 		stream:             stream,
@@ -247,12 +251,18 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 			data, _ = seriesList.Marshal()
 		}
 
+		var stats []byte
+		if qf.storageExecuteCtx.QueryStats() != nil {
+			stats = encoding.JSONMarshal(qf.storageExecuteCtx.QueryStats())
+		}
 		// send result to upstream
 		if err := qf.stream.Send(&pb.TaskResponse{
 			JobID:     qf.req.JobID,
 			TaskID:    qf.req.ParentTaskID,
 			Completed: true,
+			SendTime:  timeutil.NowNano(),
 			Payload:   data,
+			Stats:     stats,
 		}); err != nil {
 			storageQueryFlowLogger.Error("send storage execute result", logger.Error(err))
 		}

@@ -12,7 +12,7 @@ type listener struct {
 
 // EnterQueryStmt is called when production queryStmt is entered.
 func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
-	l.stmt = newQueryStmtParse()
+	l.stmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
 }
 
 // EnterMetricName is called when production metricName is entered.

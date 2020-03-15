@@ -8,6 +8,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
@@ -32,6 +33,12 @@ type ExecuteContext interface {
 	Complete(err error)
 }
 
+// StorageExecuteContext represents the storage execute context
+type StorageExecuteContext interface {
+	// QueryStats returns the storage query stats
+	QueryStats() *models.StorageStats
+}
+
 // BrokerExecuteContext represents the broker execute context
 type BrokerExecuteContext interface {
 	ExecuteContext
@@ -48,6 +55,8 @@ type brokerExecuteContext struct {
 	query      *stmt.Query
 	expression aggregation.Expression
 	resultSet  *models.ResultSet
+
+	stats *models.QueryStats
 }
 
 func NewBrokerExecuteContext(query *stmt.Query) BrokerExecuteContext {
@@ -63,13 +72,15 @@ func NewBrokerExecuteContext(query *stmt.Query) BrokerExecuteContext {
 }
 
 func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
+	//TODO merge stats for cross idc query?
+	c.stats = event.Stats
 	if event.Err != nil {
 		c.err = event.Err
 		return
 	}
+	start := timeutil.NowNano()
 	groupByKeys := c.query.GroupBy
 	groupByKeysLength := len(groupByKeys)
-
 	for _, ts := range event.SeriesList {
 		var tags map[string]string
 		if groupByKeysLength > 0 {
@@ -102,6 +113,9 @@ func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
 		}
 		c.expression.Reset()
 	}
+	if c.stats != nil {
+		c.stats.ExpressCost = timeutil.NowNano() - start
+	}
 }
 
 func (c *brokerExecuteContext) Complete(err error) {
@@ -122,6 +136,7 @@ func (c *brokerExecuteContext) ResultSet() (*models.ResultSet, error) {
 		c.resultSet.EndTime = c.query.TimeRange.End
 		c.resultSet.Interval = c.query.Interval.Int64()
 	}
+	c.resultSet.Stats = c.stats
 	return c.resultSet, c.err
 }
 

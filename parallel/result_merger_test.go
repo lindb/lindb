@@ -33,7 +33,7 @@ func TestResultMerger_Merge(t *testing.T) {
 		c.Inc()
 		wait.Done()
 	}()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID"})
+	merger.merge(&pb.TaskResponse{TaskID: "taskID", Stats: encoding.JSONMarshal(models.NewStorageStats())})
 	merger.close()
 	wait.Wait()
 	assert.Equal(t, int32(1), c.Load())

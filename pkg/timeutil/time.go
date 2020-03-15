@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+var (
+	parseTimeFunc = time.ParseInLocation
+)
+
 const (
 	// OneSecond is the number of millisecond for a second
 	OneSecond int64 = 1000
@@ -47,7 +51,7 @@ func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
 			format = dataTimeFormat1
 		}
 	}
-	tm, err := time.ParseInLocation(format, timestampStr, time.Local)
+	tm, err := parseTimeFunc(format, timestampStr, time.Local)
 	if err != nil {
 		return 0, err
 	}
@@ -59,6 +63,11 @@ func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
 // location associated with t.
 func Now() int64 {
 	return time.Now().UnixNano() / 1000000
+}
+
+// NowNano returns t as a unix time, the number of nanoseconds elapsed
+func NowNano() int64 {
+	return time.Now().UnixNano()
 }
 
 // Truncate truncates timestamp based on interval

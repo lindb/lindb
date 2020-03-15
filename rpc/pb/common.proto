@@ -27,7 +27,9 @@ message TaskResponse {
     string TaskID = 2;
     bool completed = 3;
     string errMsg = 4;
-    bytes payload = 5;
+    int64 sendTime = 5;
+    bytes payload = 6;
+    bytes stats = 7;
 }
 
 message TimeSeriesList {

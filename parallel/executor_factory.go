@@ -18,9 +18,7 @@ type ExecutorFactory interface {
 	NewStorageExecutor(
 		queryFlow flow.StorageQueryFlow,
 		database tsdb.Database,
-		namespace string,
-		shardIDs []int32,
-		query *stmt.Query,
+		storageExecuteCtx StorageExecuteContext,
 	) Executor
 
 	// NewMetadataStorageExecutor creates the metadata executor in storage side
@@ -51,4 +49,7 @@ type ExecutorFactory interface {
 		nodeStateMachine broker.NodeStateMachine,
 		jobManager JobManager,
 	) MetadataExecutor
+
+	// NewStorageExecuteContext creates the storage execute context in storage side
+	NewStorageExecuteContext(namespace string, shardIDs []int32, query *stmt.Query) StorageExecuteContext
 }

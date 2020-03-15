@@ -26,3 +26,13 @@ type StorageQueryFlow interface {
 	// Complete completes the query flow with error
 	Complete(err error)
 }
+
+// QueryTask represents query task for data search flow
+type QueryTask interface {
+	// BeforeRun invokes before task run
+	BeforeRun()
+	// Run executes task query logic
+	Run() error
+	// AfterRun invokes after task run
+	AfterRun()
+}

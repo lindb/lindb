@@ -10,12 +10,10 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 // for testing
@@ -23,6 +21,8 @@ var (
 	newTagSearchFunc          = newTagSearch
 	newStorageExecutePlanFunc = newStorageExecutePlan
 	newSeriesSearchFunc       = newSeriesSearch
+	newBuildGroupTaskFunc     = newBuildGroupTask
+	newDataLoadTaskFunc       = newDataLoadTask
 )
 
 var (
@@ -33,6 +33,21 @@ var (
 	errShardNumNotMatch  = errors.New("got shard size not equals input shard size")
 )
 
+// filterResultSet represents data filter result set
+type filterResultSet struct {
+	rs []flow.FilterResultSet
+}
+
+// groupingResult represents the grouping context result
+type groupingResult struct {
+	groupingCtx series.GroupingContext
+}
+
+// groupedSeriesResult represents grouped series for group by query
+type groupedSeriesResult struct {
+	groupedSeries map[string][]uint16
+}
+
 // storageExecutor represents execution search logic in storage level,
 // does query task async, then merge result, such as map-reduce job.
 // 1) Filtering
@@ -41,25 +56,19 @@ var (
 // 4) Down sampling
 // 5) Simple aggregation
 type storageExecutor struct {
-	database  tsdb.Database
-	namespace string
-	query     *stmt.Query
-
-	shardIDs []int32
+	database tsdb.Database
+	ctx      *storageExecuteContext
 	shards   []tsdb.Shard
 
 	metricID           uint32
 	fieldIDs           []field.ID
 	storageExecutePlan *storageExecutePlan
-	intervalType       timeutil.IntervalType
-
-	filterResult map[string]*filterResult
 
 	queryFlow flow.StorageQueryFlow
 
 	// group by query need
 	mutex              sync.Mutex
-	groupByTagKeyIDs   []uint32
+	groupByTagKeyIDs   []tag.Meta
 	tagValueIDs        []*roaring.Bitmap // for group by query store tag value ids for each group tag key
 	pendingForShard    atomic.Int32
 	pendingForGrouping atomic.Int32
@@ -70,15 +79,12 @@ type storageExecutor struct {
 func newStorageExecutor(
 	queryFlow flow.StorageQueryFlow,
 	database tsdb.Database,
-	namespace string,
-	shardIDs []int32,
-	query *stmt.Query,
+	storageExecuteCtx parallel.StorageExecuteContext,
 ) parallel.Executor {
+	ctx := storageExecuteCtx.(*storageExecuteContext)
 	return &storageExecutor{
 		database:  database,
-		namespace: namespace,
-		shardIDs:  shardIDs,
-		query:     query,
+		ctx:       ctx,
 		queryFlow: queryFlow,
 	}
 }
@@ -96,7 +102,7 @@ func (e *storageExecutor) Execute() {
 	}
 
 	// get shard by given query shard id list
-	for _, shardID := range e.shardIDs {
+	for _, shardID := range e.ctx.shardIDs {
 		shard, ok := e.database.GetShard(shardID)
 		// if shard exist, add shard to query list
 		if ok {
@@ -110,30 +116,24 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 
-	plan := newStorageExecutePlanFunc(e.namespace, e.database.Metadata(), e.query)
-	if err := plan.Plan(); err != nil {
+	plan := newStorageExecutePlanFunc(e.ctx.namespace, e.database.Metadata(), e.ctx.query)
+	t := newStoragePlanTask(e.ctx, plan)
+
+	if err := t.Run(); err != nil {
 		e.queryFlow.Complete(err)
 		return
 	}
-
-	condition := e.query.Condition
-	var err error
+	condition := e.ctx.query.Condition
 	if condition != nil {
-		tagSearch := newTagSearchFunc(e.namespace, e.query, e.database.Metadata())
-		e.filterResult, err = tagSearch.Filter()
-		if err != nil {
+		tagSearch := newTagSearchFunc(e.ctx.namespace, e.ctx.query, e.database.Metadata())
+		t = newTagFilterTask(e.ctx, tagSearch)
+		if err := t.Run(); err != nil {
 			e.queryFlow.Complete(err)
-			return
-		}
-		if len(e.filterResult) == 0 {
-			// filter not match, return not found
-			e.queryFlow.Complete(constants.ErrNotFound)
 			return
 		}
 	}
 
 	storageExecutePlan := plan.(*storageExecutePlan)
-	e.intervalType = e.query.Interval.Type()
 
 	// prepare storage query flow
 	e.queryFlow.Prepare(storageExecutePlan.getDownSamplingAggSpecs())
@@ -159,35 +159,42 @@ func (e *storageExecutor) executeQuery() {
 				e.collectGroupByTagValues()
 			}()
 			// 1. get series ids by query condition
-			seriesIDs := e.searchSeriesIDs(shard.IndexDatabase())
+			seriesIDs := roaring.New()
+			t := newSeriesIDsSearchTask(e.ctx, shard, seriesIDs)
+			err := t.Run()
+			if err != nil && err != constants.ErrNotFound {
+				// maybe series ids not found in shard, so ignore not found err
+				e.queryFlow.Complete(err)
+			}
 			// if series ids not found
-			if seriesIDs == nil || seriesIDs.IsEmpty() {
+			if seriesIDs.IsEmpty() {
 				return
 			}
-			var rs []flow.FilterResultSet
+
+			rs := &filterResultSet{}
 			// 2. filter data in memory database
-			resultSet, err := shard.MemoryDatabase().Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
+			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fieldIDs, seriesIDs, rs)
+			err = t.Run()
 			if err != nil && err != constants.ErrNotFound {
 				// maybe data not exist in memory database, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
 			}
-			rs = append(rs, resultSet...)
 			// 3. filter data each data family in shard
-			resultSet, err = e.filterForShard(shard, seriesIDs)
+			t = newFileDataFilterTask(e.ctx, shard, e.metricID, e.fieldIDs, seriesIDs, rs)
+			err = t.Run()
 			if err != nil && err != constants.ErrNotFound {
 				// maybe data not exist in shard, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
 			}
-			rs = append(rs, resultSet...)
-			if len(rs) == 0 {
+			if len(rs.rs) == 0 {
 				// data not found
 				return
 			}
 			// 4. merge all series ids after filtering => final series ids
 			seriesIDsAfterFilter := roaring.New()
-			for _, result := range rs {
+			for _, result := range rs.rs {
 				seriesIDsAfterFilter.Or(result.SeriesIDs())
 			}
 			// 5. execute group by
@@ -198,72 +205,37 @@ func (e *storageExecutor) executeQuery() {
 					// try start collect tag values
 					e.collectGroupByTagValues()
 				}()
-				e.executeGroupBy(shard.IndexDatabase(), rs, seriesIDs)
+				e.executeGroupBy(shard, rs.rs, seriesIDs)
 			})
 		})
 	}
 }
 
-// searchSeriesIDs searches series ids from index
-func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roaring.Bitmap) {
-	condition := e.query.Condition
-	var err error
-	if condition != nil {
-		// if get tag filter result do series ids searching
-		seriesSearch := newSeriesSearchFunc(filter, e.filterResult, e.query)
-		seriesIDs, err = seriesSearch.Search()
-	} else {
-		// get series ids for metric level
-		seriesIDs, err = filter.GetSeriesIDsForMetric(e.namespace, e.query.MetricName)
-		if err == nil && !e.query.HasGroupBy() {
-			// add series id without tags, maybe one metric has too many series, but one series without tags
-			seriesIDs.Add(constants.SeriesIDWithoutTags)
-		}
-	}
-	if err != nil && err != constants.ErrNotFound {
-		// maybe series ids not found in shard, so ignore not found err
-		e.queryFlow.Complete(err)
-	}
-	return
-}
-
-// filterForShard filtering data in shard
-func (e *storageExecutor) filterForShard(shard tsdb.Shard, seriesIDs *roaring.Bitmap) (rs []flow.FilterResultSet, err error) {
-	families := shard.GetDataFamilies(e.intervalType, e.query.TimeRange)
-	if len(families) == 0 {
-		return nil, nil
-	}
-	for idx := range families {
-		family := families[idx]
-		// execute data family search in background goroutine
-		resultSet, err := family.Filter(e.metricID, e.fieldIDs, seriesIDs, e.query.TimeRange)
-		if err != nil {
-			return nil, err
-		}
-		rs = append(rs, resultSet...)
-	}
-	return rs, nil
-}
-
 // executeGroupBy executes the query flow, step as below:
 // 1. grouping
 // 2. loading
-func (e *storageExecutor) executeGroupBy(indexDB indexdb.IndexDatabase, rs []flow.FilterResultSet, seriesIDs *roaring.Bitmap) {
+func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResultSet, seriesIDs *roaring.Bitmap) {
+	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
 	// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
 	// get grouping context if need
-	if e.query.HasGroupBy() {
+	if e.ctx.query.HasGroupBy() {
 		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
-		gCtx, err := indexDB.GetGroupingContext(e.storageExecutePlan.groupByKeyIDs(), seriesIDs)
+		tagKeys := make([]uint32, len(e.groupByTagKeyIDs))
+		for idx, tagKeyID := range e.groupByTagKeyIDs {
+			tagKeys[idx] = tagKeyID.ID
+		}
+		t := newGroupingContextFindTask(e.ctx, shard, tagKeys, seriesIDs, groupingResult)
+		err := t.Run()
 		if err != nil && err != constants.ErrNotFound {
 			// maybe group by not found, so ignore not found
 			e.queryFlow.Complete(err)
 			return
 		}
-		if gCtx == nil {
+		if groupingResult.groupingCtx == nil {
 			return
 		}
-		groupingCtx = gCtx
+		groupingCtx = groupingResult.groupingCtx
 	}
 	keys := seriesIDs.GetHighKeys()
 	e.pendingForGrouping.Add(int32(len(keys)))
@@ -286,18 +258,21 @@ func (e *storageExecutor) executeGroupBy(indexDB indexdb.IndexDatabase, rs []flo
 				// try start collect tag values for group by query
 				e.collectGroupByTagValues()
 			}()
-			var groupedSeries map[string][]uint16
-			if groupingCtx != nil {
-				// build group by data, grouped series: tags => series IDs
-				groupedSeries = groupingCtx.BuildGroup(highKey, container)
-			} else {
-				groupedSeries = map[string][]uint16{"": container.ToArray()}
+			groupedResult := &groupedSeriesResult{}
+			t := newBuildGroupTaskFunc(e.ctx, shard, groupingCtx, highKey, container, groupedResult)
+			if err := t.Run(); err != nil {
+				e.queryFlow.Complete(err)
+				return
 			}
 			for _, resultSet := range rs {
 				// 3.load data by grouped seriesIDs
 				filteringRS := resultSet
 				e.queryFlow.Scanner(func() {
-					filteringRS.Load(e.queryFlow, e.fieldIDs, highKey, groupedSeries)
+					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, filteringRS, e.fieldIDs, highKey, groupedResult.groupedSeries)
+					if err := t.Run(); err != nil {
+						e.queryFlow.Complete(err)
+						return
+					}
 				})
 			}
 		})
@@ -337,7 +312,8 @@ func (e *storageExecutor) collectGroupByTagValues() {
 				e.queryFlow.Scanner(func() {
 					//FIXME need check group by tag value ids is nil???
 					tagValues := make(map[uint32]string)
-					if err := e.database.Metadata().TagMetadata().CollectTagValues(tagKey, tagValueIDs, tagValues); err != nil {
+					t := newCollectTagValuesTask(e.ctx, e.database.Metadata(), tagKey, tagValueIDs, tagValues)
+					if err := t.Run(); err != nil {
 						e.queryFlow.Complete(err)
 						return
 					}
@@ -351,7 +327,7 @@ func (e *storageExecutor) collectGroupByTagValues() {
 // validation validates query input params are valid
 func (e *storageExecutor) validation() error {
 	// check input shardIDs if empty
-	if len(e.shardIDs) == 0 {
+	if len(e.ctx.shardIDs) == 0 {
 		return errNoShardID
 	}
 	numOfShards := e.database.NumOfShards()
@@ -359,7 +335,7 @@ func (e *storageExecutor) validation() error {
 	if numOfShards == 0 {
 		return errNoShardInDatabase
 	}
-	if numOfShards != len(e.shardIDs) {
+	if numOfShards != len(e.ctx.shardIDs) {
 		return errShardNotMatch
 	}
 	return nil
@@ -371,7 +347,7 @@ func (e *storageExecutor) checkShards() error {
 	if numOfShards == 0 {
 		return errShardNotFound
 	}
-	numOfShardIDs := len(e.shardIDs)
+	numOfShardIDs := len(e.ctx.shardIDs)
 	if numOfShards != numOfShardIDs {
 		return errShardNumNotMatch
 	}

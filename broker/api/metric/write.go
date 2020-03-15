@@ -43,7 +43,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 					Name:      "cpu",
 					Timestamp: timeutil.Now(),
 					Fields: []*pb.Field{
-						{Name: "f2", Type: pb.FieldType_Sum, Fields: []*pb.PrimitiveField{{PrimitiveID: int32(field.SimpleFieldPFieldID), Value: 2.0}}},
+						{Name: "f2", Type: pb.FieldType_Sum, Fields: []*pb.PrimitiveField{{PrimitiveID: int32(field.SimpleFieldPFieldID), Value: 1.0}}},
 					},
 					Tags: map[string]string{"host": "1.1.1." + strconv.Itoa(i), "disk": "/tmp" + strconv.Itoa(j), "partition": "partition" + strconv.Itoa(k)},
 				}

@@ -110,6 +110,7 @@ func (index *invertedIndex) getSeriesIDsForTag(tagKeyID uint32, snapshot version
 		return nil, err
 	}
 	var reader invertedindex.ForwardReader
+
 	if len(readers) > 0 {
 		// found tag data in kv store, try load series ids data
 		reader = newForwardReaderFunc(readers)

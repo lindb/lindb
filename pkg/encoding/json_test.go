@@ -25,4 +25,5 @@ func TestJSONCodec(t *testing.T) {
 
 func Test_JSONMarshal(t *testing.T) {
 	assert.Len(t, JSONMarshal(make(chan struct{}, 1)), 0)
+	assert.True(t, len(JSONMarshal(nil)) > 0)
 }

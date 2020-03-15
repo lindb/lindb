@@ -21,7 +21,7 @@ type SeriesSearch interface {
 // return series id set for condition
 type seriesSearch struct {
 	query        *stmt.Query
-	filterResult map[string]*filterResult
+	filterResult map[string]*tagFilterResult
 
 	filter series.Filter
 
@@ -29,7 +29,7 @@ type seriesSearch struct {
 }
 
 // newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(filter series.Filter, filterResult map[string]*filterResult, query *stmt.Query) SeriesSearch {
+func newSeriesSearch(filter series.Filter, filterResult map[string]*tagFilterResult, query *stmt.Query) SeriesSearch {
 	return &seriesSearch{
 		filterResult: filterResult,
 		filter:       filter,

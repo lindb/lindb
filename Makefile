@@ -28,7 +28,7 @@ pre-test: ## go generate mock file.
 	go install "./ci/mockgen"
 
 	go list ./... | grep -v '/vendor' |grep -v '/gomock' | xargs go generate
-	# pb mock is not compatable, so this sciprt is used to mock them via reflect mode
+	# pb mock is not compatable, so this script is used to mock them via reflect mode
 	# notice: https://github.com/golang/mock/issues/401
 	#         https://github.com/golang/mock/pull/163/files
 	sh rpc/pbmock/mock.sh
@@ -41,12 +41,11 @@ pre-test: ## go generate mock file.
        sed -i 's#\[x\.#\[#g; s#\]x\.#\]#g; s#\*x\.#\*#g; s#(x\.#(#g; s# x\.# #g; s#x "\."##g' {} +; \
     fi
 
+test: ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
 	fi
 	./bin/golangci-lint run
-
-test: pre-test ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 	go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
 deps:  ## Update vendor.
