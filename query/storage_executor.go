@@ -215,6 +215,10 @@ func (e *storageExecutor) searchSeriesIDs(filter series.Filter) (seriesIDs *roar
 	} else {
 		// get series ids for metric level
 		seriesIDs, err = filter.GetSeriesIDsForMetric(e.namespace, e.query.MetricName)
+		if err == nil && !e.query.HasGroupBy() {
+			// add series id without tags, maybe one metric has too many series, but one series without tags
+			seriesIDs.Add(constants.SeriesIDWithoutTags)
+		}
 	}
 	if err != nil && err != constants.ErrNotFound {
 		// maybe series ids not found in shard, so ignore not found err
