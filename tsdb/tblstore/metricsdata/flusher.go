@@ -81,7 +81,7 @@ func (w *flusher) FlushField(fieldKey field.Key, data []byte) {
 	pos := w.writer.Len()                // field start position
 	w.writer.PutUInt16(uint16(fieldKey)) // write field key
 	w.writer.PutBytes(data)              // write field data
-	w.fieldOffsets.Add(pos)              // add field start position
+	w.fieldOffsets.Add(uint32(pos))      // add field start position
 }
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
@@ -104,7 +104,7 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 	w.writer.PutUInt16(uint16(w.fieldOffsets.Size()))
 	// write field offsets into offset block of series level
 	w.writer.PutBytes(w.fieldOffsets.MarshalBinary())
-	w.lowOffsets.Add(pos) // add field offset's position
+	w.lowOffsets.Add(uint32(pos)) // add field offset's position
 
 	// add series id into metric's index block
 	w.seriesIDs.Add(seriesID)
@@ -126,7 +126,7 @@ func (w *flusher) flushSeriesBucket() {
 	pos := w.writer.Len() // low container's start position
 	// write low offsets into offset block of high container
 	w.writer.PutBytes(w.lowOffsets.MarshalBinary())
-	w.highOffsets.Add(pos)
+	w.highOffsets.Add(uint32(pos))
 }
 
 // reset resets the context for flushing metric block

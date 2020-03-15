@@ -113,8 +113,8 @@ func (r *storeMMapReader) Get(key uint32) ([]byte, bool) {
 	}
 	// bitmap data's index from 1, so idx=get index -1
 	idx := r.keys.Rank(key)
-	offset := r.offsets.Get(int(idx) - 1)
-	return r.readBytes(offset), true
+	offset, _ := r.offsets.Get(int(idx) - 1)
+	return r.readBytes(int(offset)), true
 }
 
 // Iterator iterates over a store's key/value pairs in key order.
@@ -172,7 +172,7 @@ func (it *storeMMapIterator) Key() uint32 {
 
 // Value returns the value of the current key/value pair
 func (it *storeMMapIterator) Value() []byte {
-	offset := it.reader.offsets.Get(it.idx)
+	offset, _ := it.reader.offsets.Get(it.idx)
 	it.idx++
-	return it.reader.readBytes(offset)
+	return it.reader.readBytes(int(offset))
 }

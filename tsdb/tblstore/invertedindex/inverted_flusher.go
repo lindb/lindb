@@ -60,7 +60,7 @@ func (w *invertedFlusher) FlushInvertedIndex(tagValueID uint32, seriesIDs *roari
 	pos := w.writer.Len()
 	// write series ids into data block
 	w.writer.PutBytes(seriesData)
-	w.lowOffsets.Add(pos)
+	w.lowOffsets.Add(uint32(pos))
 	// add tag value id into index block
 	w.tagValueIDs.Add(tagValueID)
 	return nil
@@ -77,7 +77,7 @@ func (w *invertedFlusher) flushTagValueBucket() {
 
 	pos := w.writer.Len()
 	w.writer.PutBytes(w.lowOffsets.MarshalBinary())
-	w.highOffsets.Add(pos)
+	w.highOffsets.Add(uint32(pos))
 }
 
 // FlushTagKeyID ends writing tag inverted index data in index table.

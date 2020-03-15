@@ -104,7 +104,7 @@ func (w *tagFlusher) writeTrieTree(treeDataBlock *trieTreeData) error {
 }
 
 func (w *tagFlusher) writeTagValueInverted(treeDataBlock *trieTreeData) ([]int, int) {
-	length := encoding.GetMinLength(int(w.maxTagValueID))
+	length := encoding.Uint32MinWidth(w.maxTagValueID)
 	w.entrySetWriter.PutByte(byte(length))
 	tagValueCount := len(treeDataBlock.values)
 	offsets := make([]int, len(treeDataBlock.values))
@@ -123,7 +123,7 @@ func (w *tagFlusher) writeTagValueInverted(treeDataBlock *trieTreeData) ([]int, 
 }
 
 func (w *tagFlusher) writeTagValueForward(offsets []int, tagValueCount int) error {
-	length := encoding.GetMinLength(tagValueCount)
+	length := encoding.Uint32MinWidth(uint32(tagValueCount))
 	w.entrySetWriter.PutByte(byte(length))
 	// write all data length and tagValue data blocks
 	for _, nodeNO := range offsets {
