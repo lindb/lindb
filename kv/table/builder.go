@@ -98,7 +98,7 @@ func (b *storeBuilder) Add(key uint32, value []byte) error {
 		return fmt.Errorf("write data into store file error:%s", err)
 	}
 	// add offset into offset buffer
-	b.offset.Add(int(offset))
+	b.offset.Add(uint32(offset))
 	// add key into index block
 	b.keys.Add(key)
 

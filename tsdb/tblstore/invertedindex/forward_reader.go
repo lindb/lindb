@@ -106,7 +106,8 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Contain
 		return nil, nil
 	}
 	// tag value ids cannot reuse, because
-	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[r.offsets.Get(index):])
+	offset, _ := r.offsets.Get(index)
+	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[int(offset):])
 
 	container := r.keys.GetContainerAtIndex(index)
 	tagValueIDsCount := container.GetCardinality()
@@ -150,11 +151,14 @@ func newTagForwardScanner(reader TagForwardReader) *tagForwardScanner {
 func (s *tagForwardScanner) nextContainer() {
 	s.highKey = s.highKeys[s.keyPos]
 	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
-	s.tagValueOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+	offset, _ := s.reader.offsets.Get(s.keyPos)
+	s.tagValueOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
 	if s.tagValueIDs == nil {
-		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+		offset, _ := s.reader.offsets.Get(s.keyPos)
+		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[int(offset):])
 	} else {
-		s.tagValueIDs.Reset(s.reader.buf[s.reader.offsets.Get(s.keyPos):])
+		offset, _ := s.reader.offsets.Get(s.keyPos)
+		s.tagValueIDs.Reset(s.reader.buf[offset:])
 	}
 	s.keyPos++
 }
