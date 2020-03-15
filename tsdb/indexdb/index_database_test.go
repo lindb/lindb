@@ -10,7 +10,6 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/tag"
@@ -199,8 +198,8 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	// case 4: get empty tags
 	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(nil, nil)
 	seriesIDs, err = db.GetSeriesIDsForMetric("ns", "name")
-	assert.Equal(t, constants.ErrNotFound, err)
-	assert.Nil(t, seriesIDs)
+	assert.NoError(t, err)
+	assert.Equal(t, roaring.BitmapOf(0), seriesIDs)
 	// case 5: get series ids for metric
 	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return([]tag.Meta{{ID: 1}}, nil)
 	index.EXPECT().GetSeriesIDsForTags([]uint32{1}).Return(roaring.BitmapOf(1, 2, 3), nil)

@@ -238,6 +238,16 @@ func TestShard_Write(t *testing.T) {
 			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
 		}},
 	}))
+	// case 9: write metric without tags
+	assert.NoError(t, shardINTF.Write(&pb.Metric{
+		Name:      "test",
+		Timestamp: timeutil.Now(),
+		TagsHash:  10,
+		Fields: []*pb.Field{{
+			Name:   "f1",
+			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+		}},
+	}))
 
 	assert.NotNil(t, shardINTF.MemoryDatabase())
 }

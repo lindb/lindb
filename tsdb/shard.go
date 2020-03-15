@@ -223,9 +223,16 @@ func (s *shard) Write(metric *pb.Metric) error {
 	if err != nil {
 		return err
 	}
-	seriesID, isCreated, err := s.indexDB.GetOrCreateSeriesID(metricID, metric.TagsHash)
-	if err != nil {
-		return err
+	var seriesID uint32
+	isCreated := false
+	if len(metric.Tags) == 0 {
+		// if metric without tags, uses default series id(0)
+		seriesID = constants.SeriesIDWithoutTags
+	} else {
+		seriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(metricID, metric.TagsHash)
+		if err != nil {
+			return err
+		}
 	}
 
 	if isCreated {
