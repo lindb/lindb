@@ -138,8 +138,6 @@ func TestTagIndex_GetData(t *testing.T) {
 	keys := seriesIDs.GetHighKeys()
 	for _, key := range keys {
 		r.GetSeriesAndTagValue(key)
-		fmt.Println(key)
-		//fmt.Println(tagValueIDs)
 	}
 	_, t3 := r.GetSeriesAndTagValue(4)
 	fmt.Println(t3)

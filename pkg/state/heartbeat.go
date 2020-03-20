@@ -7,7 +7,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/logger"
 
-	etcd "github.com/coreos/etcd/clientv3"
+	etcd "go.etcd.io/etcd/clientv3"
 )
 
 const defaultTTL = 10 // default ttl => 10 seconds

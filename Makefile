@@ -1,4 +1,4 @@
-.PHONY: help build test deps pb clean
+.PHONY: help build test deps generate clean
 
 # use the latest git tag as release-version
 GIT_TAG_NAME=$(shell git tag --sort=-creatordate|head -n 1)
@@ -26,7 +26,12 @@ GOLANGCI_LINT_VERSION ?= "v1.18.0"
 
 pre-test: ## go generate mock file.
 	go install "./ci/mockgen"
-	go list ./... | grep -v '/vendor/' | xargs go generate
+
+	go list ./... | grep -v '/vendor' |grep -v '/gomock' | xargs go generate
+	# pb mock is not compatable, so this sciprt is used to mock them via reflect mode
+	# notice: https://github.com/golang/mock/issues/401
+	#         https://github.com/golang/mock/pull/163/files
+	sh rpc/pbmock/mock.sh
 
 	if [[ "$$(uname)" == "Darwin" ]]; then \
        find . -path vendor -prune -o -type f \( -name '*_mock.go' -o -name '*_mock.pb.go' \) -exec \
@@ -47,11 +52,14 @@ test: pre-test ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 deps:  ## Update vendor.
 	go mod verify
 	go mod tidy -v
-	rm -rf vendor
-	go mod vendor -v
+#	rm -rf vendor
+#	go mod vendor -v
 
-pb:  ## generate pb file.
-	./ci/generate_pb.sh
+generate:  ## generate pb file.
+	# go get github.com/benbjohnson/tmpl
+	# go install github.com/benbjohnson/tmpl
+	sh ./ci/generate_pb.sh
+	cd tsdb/template && sh generate_tmpl.sh
 
 clean-build:
 	rm -f bin/lind

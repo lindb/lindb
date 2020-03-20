@@ -15,8 +15,10 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	storagemock "github.com/lindb/lindb/rpc/pbmock/storage"
 	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
+
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -130,7 +132,7 @@ func TestWriter_Write_Fail(t *testing.T) {
 	writer := NewWriter(srv)
 
 	// metadata err
-	writeServer := storage.NewMockWriteService_WriteServer(ctl)
+	writeServer := storagemock.NewMockWriteService_WriteServer(ctl)
 	writeServer.EXPECT().Context().Return(context.TODO())
 	err := writer.Write(writeServer)
 	assert.Error(t, err)

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/coreos/bbolt"
 	"github.com/stretchr/testify/assert"
+	"go.etcd.io/bbolt"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
