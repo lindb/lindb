@@ -6,7 +6,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/coreos/bbolt"
+	"go.etcd.io/bbolt"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"

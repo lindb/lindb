@@ -7,7 +7,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/coreos/bbolt"
+	"go.etcd.io/bbolt"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"

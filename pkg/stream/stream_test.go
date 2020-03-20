@@ -241,3 +241,15 @@ func Test_readUvarint(t *testing.T) {
 	_ = r.ReadUvarint64()
 	assert.NotNil(t, r.Error())
 }
+
+func Test_UnreadSlice(t *testing.T) {
+	sl := make([]byte, 1024)
+	r := stream.NewReader(sl)
+	r.ReadSlice(1)
+	assert.Len(t, r.UnreadSlice(), 1023)
+
+	r.ReadSlice(1023)
+	assert.Len(t, r.UnreadSlice(), 0)
+	r.ReadSlice(1000)
+	assert.Len(t, r.UnreadSlice(), 0)
+}
