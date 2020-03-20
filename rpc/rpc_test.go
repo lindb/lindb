@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	"github.com/lindb/lindb/rpc/proto/common"
 )
 
@@ -98,7 +99,7 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	go ctrl.Finish()
 
-	handler := common.NewMockTaskServiceServer(ctrl)
+	handler := commonmock.NewMockTaskServiceServer(ctrl)
 
 	factory := NewClientStreamFactory(models.Node{IP: "127.0.0.2", Port: 9000})
 	target := models.Node{IP: "127.0.0.1", Port: 9000}

@@ -14,8 +14,6 @@ import (
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
-//go:generate mockgen -source ./proto/storage/storage.pb.go -destination=./proto/storage/storage_mock.pb.go -package=storage
-//go:generate mockgen -source ./proto/common/common.pb.go -destination=./proto/common/common_mock.pb.go -package=common
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
 
 const (

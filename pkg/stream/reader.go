@@ -133,6 +133,14 @@ func (r *Reader) ReadSlice(n int) []byte {
 	return r.original[startPos:endPos]
 }
 
+// UnreadSlice returns the unread sub-slice
+func (r *Reader) UnreadSlice() []byte {
+	if r.err != nil {
+		return nil
+	}
+	return r.original[r.Position():]
+}
+
 // ReadAt moves the cursor to the specified position,
 // this operation is a combination of SeekStart() + _ = ReadSlice(pos)
 func (r *Reader) ReadAt(pos int) {

@@ -9,7 +9,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
+	etcdcliv3 "go.etcd.io/etcd/clientv3"
 )
 
 // etcdRepository is repository based on etcd storage

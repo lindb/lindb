@@ -6,8 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/coreos/etcd/embed"
-	"github.com/coreos/pkg/capnslog"
+	"go.etcd.io/etcd/embed"
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
@@ -17,11 +16,6 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/storage"
 )
-
-func init() {
-	// config ectd server info level
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
-}
 
 var log = logger.GetLogger("standalone", "Runtime")
 

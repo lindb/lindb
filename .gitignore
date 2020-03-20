@@ -9,6 +9,8 @@ bin/
 *.test
 .vscode/
 cpu_profile
+*gomock*
+*.db
 
 # config files
 *.toml

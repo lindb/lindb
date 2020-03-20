@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
+	etcdcliv3 "go.etcd.io/etcd/clientv3"
 	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/mock"

@@ -3,8 +3,8 @@ package state
 import (
 	"fmt"
 
-	etcdcliv3 "github.com/coreos/etcd/clientv3"
 	"github.com/pkg/errors"
+	etcdcliv3 "go.etcd.io/etcd/clientv3"
 )
 
 var (

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/models"
+	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	"github.com/lindb/lindb/rpc/proto/common"
 )
 
@@ -32,7 +33,7 @@ func TestTaskServerFactory(t *testing.T) {
 	stream := fct.GetStream((&node).Indicator())
 	assert.Nil(t, stream)
 
-	mockServerStream := common.NewMockTaskService_HandleServer(ctl)
+	mockServerStream := commonmock.NewMockTaskService_HandleServer(ctl)
 
 	fct.Register((&node).Indicator(), mockServerStream)
 	stream = fct.GetStream((&node).Indicator())
@@ -101,7 +102,7 @@ func TestTaskClientFactory(t *testing.T) {
 	fct.CloseTaskClient((&target).Indicator())
 
 	fct1 := fct.(*taskClientFactory)
-	mockTaskClient := common.NewMockTaskService_HandleClient(ctl)
+	mockTaskClient := commonmock.NewMockTaskService_HandleClient(ctl)
 	taskClient := &taskClient{
 		cli: mockTaskClient,
 	}
@@ -121,7 +122,7 @@ func TestTaskClientFactory_handler(t *testing.T) {
 	receiver := NewMockTaskReceiver(ctrl)
 	fct := NewTaskClientFactory(models.Node{IP: "127.0.0.1", Port: 123})
 	fct.SetTaskReceiver(receiver)
-	cli := common.NewMockTaskService_HandleClient(ctrl)
+	cli := commonmock.NewMockTaskService_HandleClient(ctrl)
 
 	factory := fct.(*taskClientFactory)
 	gomock.InOrder(

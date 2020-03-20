@@ -13,7 +13,9 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/rpc"
+	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -26,7 +28,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	storageService := service.NewMockStorageService(ctrl)
 	executorFactory := NewMockExecutorFactory(ctrl)
-	serverStream := pb.NewMockTaskService_HandleServer(ctrl)
+	serverStream := commonmock.NewMockTaskService_HandleServer(ctrl)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
@@ -100,7 +102,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 
-	serverStream := pb.NewMockTaskService_HandleServer(ctrl)
+	serverStream := commonmock.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 	exec := NewMockExecutor(ctrl)
 	exec.EXPECT().Execute()
@@ -127,7 +129,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
-	serverStream := pb.NewMockTaskService_HandleServer(ctrl)
+	serverStream := commonmock.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream).AnyTimes()
 
 	// test unmarshal err
