@@ -348,6 +348,8 @@ func (f *fanOut) Get(seq int64) ([]byte, error) {
 func (f *fanOut) Ack(ackSeq int64) {
 	ts := f.TailSeq()
 	hs := f.HeadSeq()
+	// In the initial condition, ts == 0, if the first ackSeq == 0, it would be ignore.
+	// Since ack is always in batch mode and the following ack will ack the previous data, it's not big problem.
 	if ackSeq > ts && ackSeq < hs {
 		f.setTailSeq(ackSeq)
 		ts = ackSeq

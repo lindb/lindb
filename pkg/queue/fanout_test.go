@@ -27,13 +27,10 @@ func randomString(length int) string {
 
 func TestOneFanOut(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanOut")
-
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Error(err)
-		}
-
-	}()
+	// remove dir to avoid influence of the previous run of test
+	if err := os.RemoveAll(dir); err != nil {
+		t.Error(err)
+	}
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	if err != nil {
@@ -140,13 +137,10 @@ func TestOneFanOut(t *testing.T) {
 
 func TestFanOut_SetHeadSeq(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanOut")
-
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Error(err)
-		}
-
-	}()
+	// remove dir to avoid influence of the previous run of test
+	if err := os.RemoveAll(dir); err != nil {
+		t.Error(err)
+	}
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	if err != nil {
@@ -195,13 +189,10 @@ func TestFanOut_SetHeadSeq(t *testing.T) {
 
 func TestMultipleFanOut(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanOut")
-
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Error(err)
-		}
-
-	}()
+	// remove dir to avoid influence of the previous run of test
+	if err := os.RemoveAll(dir); err != nil {
+		t.Error(err)
+	}
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	if err != nil {
@@ -257,17 +248,16 @@ func TestMultipleFanOut(t *testing.T) {
 
 func TestConcurrentRead(t *testing.T) {
 	dir := path.Join(os.TempDir(), "fanout_concurrent")
-	err := os.MkdirAll(dir, 0755)
+	// remove dir to avoid influence of the previous run of test
+	err := os.RemoveAll(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
-		err := os.RemoveAll(dir)
-		if err != nil {
-			t.Error(err)
-		}
-	}()
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	msgSize := 1024
 	dataFileSize := 512
@@ -283,16 +273,22 @@ func TestConcurrentRead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	conc := 10
+	readConcurrent := 10
 	wg := &sync.WaitGroup{}
-	wg.Add(conc)
-	wg.Add(1)
 
-	for i := 0; i < conc; i++ {
-		go read(t, bytesSli, fq, "fo-"+strconv.Itoa(i), wg)
+	for i := 0; i < readConcurrent; i++ {
+		wg.Add(1)
+		go func(seq int) {
+			defer wg.Done()
+			read(t, bytesSli, fq, "fo-"+strconv.Itoa(seq))
+		}(i)
 	}
 
-	go write(t, bytesSli, fq, wg)
+	wg.Add(1)
+	go func() {
+		wg.Done()
+		write(t, bytesSli, fq)
+	}()
 
 	wg.Wait()
 
@@ -322,9 +318,8 @@ func TestConcurrentRead(t *testing.T) {
 	assert.Equal(t, fq2.HeadSeq(), int64(msgSize))
 	assert.Equal(t, fq2.TailSeq(), int64(msgSize-1))
 
-	assert.Equal(t, len(fq2.FanOutNames()), conc)
-	for i := 0; i < conc; i++ {
-		//go read(t, bytesSli, fq, "fo-"+strconv.Itoa(i), wg)
+	assert.Equal(t, len(fq2.FanOutNames()), readConcurrent)
+	for i := 0; i < readConcurrent; i++ {
 		fo, err := fq2.GetOrCreateFanOut("fo-" + strconv.Itoa(i))
 		if err != nil {
 			t.Fatal(err)
@@ -338,21 +333,20 @@ func TestConcurrentRead(t *testing.T) {
 
 }
 
-func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string, wg *sync.WaitGroup) {
-	defer wg.Done()
+func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string) {
 	fo, err := fq.GetOrCreateFanOut(name)
 	if err != nil {
 		t.Error(err)
 	}
 
 	counter := fo.TailSeq()
-	//t.Logf("fanout %s consume from %d", fo.Name(), counter)
 	for {
 
 		if counter == int64(len(raw)) {
 			return
 		}
 		seq := fo.Consume()
+		//fmt.Printf("fanout:%s, seq:%d\n", name, seq)
 		if seq == SeqNoNewMessageAvailable {
 			time.Sleep(time.Millisecond)
 			continue
@@ -373,8 +367,7 @@ func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string, wg *sync.Wait
 	}
 }
 
-func write(t *testing.T, raw [][]byte, fq FanOutQueue, wg *sync.WaitGroup) {
-	defer wg.Done()
+func write(t *testing.T, raw [][]byte, fq FanOutQueue) {
 	for i, bys := range raw {
 		seq, err := fq.Append(bys)
 		if err != nil {
