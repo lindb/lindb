@@ -2,6 +2,7 @@ package metadb
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,7 +71,7 @@ func (mdb *metadataDatabase) SuggestNamespace(prefix string, limit int) (namespa
 }
 
 // SuggestMetricName suggests the metric name by name's prefix
-func (mdb *metadataDatabase) SuggestMetricName(namespace, prefix string, limit int) (namespaces []string, err error) {
+func (mdb *metadataDatabase) SuggestMetricName(namespace, prefix string, limit int) (metricNames []string, err error) {
 	return mdb.backend.suggestMetricName(namespace, prefix, limit)
 }
 
@@ -368,4 +369,35 @@ func (mdb *metadataDatabase) syncPendingEvent() {
 			return
 		}
 	}
+}
+
+// SuggestMetrics returns suggestions from a given prefix of metricName
+func (mdb *metadataDatabase) SuggestMetrics(metricPrefix string, limit int) []string {
+	metricNames, err := mdb.SuggestMetricName(constants.DefaultNamespace, metricPrefix, limit)
+	if err != nil {
+		metaLogger.Info("SuggestMetrics err...", logger.Error(err))
+		return nil
+	}
+	return metricNames
+}
+
+// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
+func (mdb *metadataDatabase) SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string {
+	tags, err := mdb.GetAllTagKeys(constants.DefaultNamespace, metricName)
+	if err != nil {
+		metaLogger.Info("SuggestTagKeys err...", logger.Error(err))
+		return nil
+	}
+	keys := make([]string, 0)
+	num := 0
+	for _, tag := range tags {
+		if limit != 0 && num >= limit {
+			break
+		}
+		if tag.Key != "" && strings.HasPrefix(tag.Key, tagKeyPrefix) {
+			keys = append(keys, tag.Key)
+			num++
+		}
+	}
+	return keys
 }
