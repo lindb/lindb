@@ -6,10 +6,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestMetadataStorageExecutor_Execute(t *testing.T) {
@@ -17,14 +17,17 @@ func TestMetadataStorageExecutor_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	metricMetaSuggester := series.NewMockMetricMetaSuggester(ctrl)
-	db.EXPECT().MetricMetaSuggester().Return(metricMetaSuggester).AnyTimes()
+
+	metadata := metadb.NewMockMetadata(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
+	metadataIndex := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
 
 	// suggest metric name
 	exec := newMetadataStorageExecutor(db, nil, &stmt.Metadata{
 		Type: stmt.Metric,
 	})
-	metricMetaSuggester.EXPECT().SuggestMetrics(gomock.Any(), gomock.Any()).Return([]string{"a"})
+	metadataIndex.EXPECT().SuggestMetrics(gomock.Any(), gomock.Any()).Return([]string{"a"})
 	result, err := exec.Execute()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)
@@ -33,7 +36,7 @@ func TestMetadataStorageExecutor_Execute(t *testing.T) {
 	exec = newMetadataStorageExecutor(db, nil, &stmt.Metadata{
 		Type: stmt.TagKey,
 	})
-	metricMetaSuggester.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"})
+	metadataIndex.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"})
 	result, err = exec.Execute()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)
@@ -45,6 +48,7 @@ func TestMetadataStorageExecutor_Execute(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	db.EXPECT().GetShard(int32(1)).Return(nil, false)
 	db.EXPECT().GetShard(int32(2)).Return(shard, true)
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(2), nil).AnyTimes()
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB)
 	indexDB.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"})

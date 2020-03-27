@@ -1,6 +1,7 @@
 package query
 
 import (
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -31,26 +32,16 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 
 	switch req.Type {
 	case stmt.Metric:
-		result = e.database.MetricMetaSuggester().SuggestMetrics(req.MetricName, limit)
+		result = e.database.Metadata().MetadataDatabase().SuggestMetrics(req.MetricName, limit)
 	case stmt.TagKey:
-		result = e.database.MetricMetaSuggester().SuggestTagKeys(req.MetricName, req.TagKey, limit)
+		result = e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.MetricName, req.TagKey, limit)
 	case stmt.TagValue:
-		tagValueMap := make(map[string]struct{})
-		// get shard by given query shard id list
-		for _, shardID := range e.shardIDs {
-			shard, ok := e.database.GetShard(shardID)
-			// if shard exist, add shard to query list
-			if ok {
-				//FIXME stone1100
-				tagValues := shard.IndexDatabase().SuggestTagValues(uint32(10), req.TagValue, limit)
-				for _, tagValue := range tagValues {
-					tagValueMap[tagValue] = struct{}{}
-				}
-			}
+		tagKeyID, err := e.database.Metadata().
+			MetadataDatabase().GetTagKeyID(constants.DefaultNamespace, req.MetricName, req.TagKey)
+		if err != nil {
+			break
 		}
-		for tagValue := range tagValueMap {
-			result = append(result, tagValue)
-		}
+		result = e.database.Metadata().TagMetadata().SuggestTagValues(tagKeyID, req.TagValue, limit)
 	}
-	return
+	return result, nil
 }
