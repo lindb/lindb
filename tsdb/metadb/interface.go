@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -54,6 +55,7 @@ type MetadataDatabase interface {
 	io.Closer
 	IDGetter
 	IDGenerator
+	series.MetricMetaSuggester
 
 	// SuggestNamespace suggests the namespace by namespace's prefix
 	SuggestNamespace(prefix string, limit int) (namespaces []string, err error)
