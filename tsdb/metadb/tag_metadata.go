@@ -130,7 +130,31 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 // SuggestTagValues returns suggestions from given tag key id and prefix of tag value
 func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
 	//FIXME stone1100
-	panic("implement me")
+	//panic("implement me")
+
+	result := make([]string, 0)
+	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
+		for value := range tagEntry.getTagValues() {
+			result = append(result, value)
+		}
+	})
+
+	snapshot := m.family.GetSnapshot()
+	defer snapshot.Close()
+
+	readers, err := snapshot.FindReaders(tagKeyID)
+	if err != nil {
+		// find table.Reader err, return it
+		return nil
+	}
+	var reader tagkeymeta.Reader
+	if len(readers) > 0 {
+		// found tag data in kv store, try load tag value data
+		reader = newTagReaderFunc(readers)
+		readerValues := reader.SuggestTagValues(tagKeyID, tagValuePrefix, limit)
+		result = append(result, readerValues...)
+	}
+	return result
 }
 
 // FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
