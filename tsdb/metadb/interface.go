@@ -1,6 +1,7 @@
 package metadb
 
 import (
+	"github.com/lindb/lindb/series"
 	"io"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -54,6 +55,7 @@ type MetadataDatabase interface {
 	io.Closer
 	IDGetter
 	IDGenerator
+	series.MetricMetaSuggester
 
 	// SuggestNamespace suggests the namespace by namespace's prefix
 	SuggestNamespace(prefix string, limit int) (namespaces []string, err error)
