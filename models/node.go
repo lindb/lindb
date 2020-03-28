@@ -11,7 +11,7 @@ import (
 type Node struct {
 	IP       string `json:"ip"`
 	Port     uint16 `json:"port"`
-	TCPPort  uint16 `json:"tcp_port"`
+	HTTPPort uint16 `json:"httpPort"`
 	HostName string `json:"hostName"`
 }
 

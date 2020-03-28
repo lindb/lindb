@@ -24,7 +24,7 @@ func TestRegistry(t *testing.T) {
 
 	closedCh := make(chan state.Closed)
 
-	node := models.Node{IP: "127.0.0.1", Port: 2080, TCPPort: 9002}
+	node := models.Node{IP: "127.0.0.1", Port: 2080, HTTPPort: 9002}
 	gomock.InOrder(
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, fmt.Errorf("err")),

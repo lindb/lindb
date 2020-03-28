@@ -29,27 +29,31 @@ func TestBrokerRuntime(t *testing.T) {
 	check.TestingT(t)
 }
 
-var cfg = config.Broker{BrokerBase: config.BrokerBase{
-	HTTP: config.HTTP{
-		Port: 9999,
+var cfg = config.Broker{
+	Monitor: config.Monitor{
+		RuntimeReportInterval: ltoml.Duration(10 * time.Second),
 	},
-	Coordinator: config.RepoState{
-		Namespace: "/test/broker",
-	},
-	GRPC: config.GRPC{
-		Port: 2881,
-		TTL:  1,
-	},
-	TCP: config.TCP{Port: 2882},
-	ReplicationChannel: config.ReplicationChannel{
-		Dir:                "/tmp/broker/replication",
-		SegmentFileSize:    128,
-		RemoveTaskInterval: ltoml.Duration(time.Minute),
-		CheckFlushInterval: ltoml.Duration(time.Second),
-		FlushInterval:      ltoml.Duration(time.Second * 5),
-		BufferSize:         128,
-	},
-}}
+	BrokerBase: config.BrokerBase{
+		HTTP: config.HTTP{
+			Port: 9999,
+		},
+		Coordinator: config.RepoState{
+			Namespace: "/test/broker",
+		},
+		GRPC: config.GRPC{
+			Port: 2881,
+			TTL:  1,
+		},
+
+		ReplicationChannel: config.ReplicationChannel{
+			Dir:                "/tmp/broker/replication",
+			SegmentFileSize:    128,
+			RemoveTaskInterval: ltoml.Duration(time.Minute),
+			CheckFlushInterval: ltoml.Duration(time.Second),
+			FlushInterval:      ltoml.Duration(time.Second * 5),
+			BufferSize:         128,
+		},
+	}}
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 	cfg.BrokerBase.Coordinator.Endpoints = ts.Cluster.Endpoints

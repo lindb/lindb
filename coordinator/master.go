@@ -43,6 +43,9 @@ type MasterCfg struct {
 	// service
 	StorageStateService service.StorageStateService
 	ShardAssignService  service.ShardAssignService
+
+	// broker state machine
+	BrokerSM *BrokerStateMachines
 }
 
 // Master represents all metadata/state controller, only has one active master in broker cluster.
@@ -57,7 +60,7 @@ type Master interface {
 	GetMaster() *models.Master
 	// Stop stops master if current node is master, cleanup master context and stops state machine
 	Stop()
-	// FLushDatabase submits the coordinator task for flushing memory database by cluster and database name
+	// FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
 	FlushDatabase(cluster string, databaseName string) error
 }
 
@@ -116,6 +119,9 @@ func (m *master) OnFailOver() error {
 		return fmt.Errorf("start database admin state machine error:%s", err)
 	}
 
+	// start collect broker monitoring data
+	m.cfg.BrokerSM.NodeSM.StartMonitoring()
+
 	return nil
 }
 
@@ -125,6 +131,9 @@ func (m *master) OnResignation() {
 	if m.masterCtx != nil {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
+
+		// stop collect broker monitoring data
+		m.cfg.BrokerSM.NodeSM.StopMonitoring()
 
 		m.masterCtx.Close()
 		m.masterCtx = nil

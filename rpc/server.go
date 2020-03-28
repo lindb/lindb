@@ -2,9 +2,7 @@ package rpc
 
 import (
 	"net"
-	"sync"
 
-	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -12,96 +10,12 @@ import (
 
 //go:generate mockgen -source ./server.go -destination=./server_mock.go -package=rpc
 
-// TCPServer represents a tcp tcpServer using grpc
-type TCPServer interface {
-	// Start starts tcp tcpServer
-	Start() error
-	// Stops stops tpc tcpServer
-	Stop()
-}
-
-type TCPHandler interface {
-	Handle(conn net.Conn) error
-}
-
-// tcpServer represents grpc tcpServer
-type tcpServer struct {
-	bindAddress string
-	handler     TCPHandler
-	lis         net.Listener
-	logger      *logger.Logger
-	onceClose   sync.Once
-	inWorking   atomic.Int32
-	inShutDown  atomic.Int32
-}
-
-// NewTCPServer creates the tcp tcpServer
-func NewTCPServer(bindAddress string, handler TCPHandler) TCPServer {
-	return &tcpServer{
-		bindAddress: bindAddress,
-		handler:     handler,
-		logger:      logger.GetLogger("rpc", "TCPServer"),
-	}
-}
-
-// Start listens the bind address and serves grpc tcpServer, block the caller
-func (s *tcpServer) Start() error {
-	lis, err := net.Listen("tcp", s.bindAddress)
-	if err != nil {
-		return err
-	}
-
-	s.lis = lis
-	// working now
-	s.inWorking.Store(1)
-	s.logger.Info("TCPServer start serving", logger.String("address", s.bindAddress))
-
-	for {
-		// Listen for an incoming connection.
-		conn, err := lis.Accept()
-		if err != nil {
-			// has been shutdown
-			if s.inShutDown.Load() != 0 {
-				return nil
-			}
-			s.logger.Error("TPCServer error when accepting", logger.Error(err))
-			return err
-		}
-		// Handle connections in a new goroutine.
-		go func() {
-			defer func() {
-				if err := conn.Close(); err != nil {
-					s.logger.Error("close tcp conn err", logger.Error(err))
-				}
-			}()
-
-			if err := s.handler.Handle(conn); err != nil {
-				s.logger.Error("handler tcp conn err", logger.Error(err))
-			}
-		}()
-	}
-}
-
-// Stop stops the grpc tcpServer
-func (s *tcpServer) Stop() {
-	s.onceClose.Do(
-		func() {
-			// not working
-			if s.inWorking.Load() == 0 {
-				return
-			}
-			// shutdown
-			s.inShutDown.Store(1)
-			err := s.lis.Close()
-			if err != nil {
-				s.logger.Error("close TCPServer error", logger.Error(err))
-			}
-		})
-}
-
 type GRPCServer interface {
-	TCPServer
-	// GetServer returns the grpc tcpServer
+	// Start starts grpc server
+	Start() error
+	// Stops stops grpc server
+	Stop()
+	// GetServer returns the grpc server
 	GetServer() *grpc.Server
 }
 
