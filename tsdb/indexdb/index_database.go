@@ -45,7 +45,6 @@ type indexDatabase struct {
 }
 
 func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
-	//panic("implement me")
 	return db.metadata.TagMetadata().SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
