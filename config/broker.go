@@ -113,7 +113,6 @@ type BrokerBase struct {
 	HTTP               HTTP               `toml:"http"`
 	User               User               `toml:"user"`
 	GRPC               GRPC               `toml:"grpc"`
-	TCP                TCP                `toml:"tcp"`
 	ReplicationChannel ReplicationChannel `toml:"replication_channel"`
 }
 
@@ -130,15 +129,12 @@ func (bb *BrokerBase) TOML() string {
 
   [broker.grpc]%s
 
-  [broker.tcp]%s
-
   [broker.replication_channel]%s`,
 		bb.Coordinator.TOML(),
 		bb.Query.TOML(),
 		bb.HTTP.TOML(),
 		bb.User.TOML(),
 		bb.GRPC.TOML(),
-		bb.TCP.TOML(),
 		bb.ReplicationChannel.TOML(),
 	)
 }
@@ -150,9 +146,6 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		GRPC: GRPC{
 			Port: 9001,
-		},
-		TCP: TCP{
-			Port: 9002,
 		},
 		Coordinator: RepoState{
 			Namespace:   "/lindb/broker",
