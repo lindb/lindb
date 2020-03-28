@@ -18,6 +18,10 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/json-iterator/go v1.1.7
 	github.com/lindb/roaring v0.0.0-00010101000000-000000000000
+	github.com/m3db/prometheus_client_golang v0.8.1 // indirect
+	github.com/m3db/prometheus_client_model v0.1.0 // indirect
+	github.com/m3db/prometheus_common v0.1.0 // indirect
+	github.com/m3db/prometheus_procfs v0.8.1 // indirect
 	github.com/mattn/go-isatty v0.0.4
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4

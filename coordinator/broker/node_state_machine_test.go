@@ -23,16 +23,14 @@ func TestNodeStateMachine(t *testing.T) {
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
-	assert.NotNil(t, err)
+	_, err := NewNodeStateMachine(context.TODO(), currentNode, nil, factory)
+	assert.Error(t, err)
 
 	// normal case
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
-	if err != nil {
-		t.Fatal(err)
-	}
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, nil, factory)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
 	assert.Equal(t, currentNode, stateMachine.GetCurrentNode())
 }
@@ -46,10 +44,9 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	// normal case
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
-	if err != nil {
-		t.Fatal(err)
-	}
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, nil, factory)
+	assert.NoError(t, err)
+
 	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
 	data, _ := json.Marshal(&activeNode)
 	stateMachine.OnCreate("/data/test", data)
@@ -71,4 +68,37 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
+}
+
+func TestNodeStateMachine_Monitoring(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	factory := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	monitoring := NewMockMonitoringStateMachine(ctrl)
+
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery().Return(nil)
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, monitoring, factory)
+	assert.NoError(t, err)
+
+	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
+	data, _ := json.Marshal(&activeNode)
+	stateMachine.OnCreate("/data/test", data)
+
+	// case 1: start monitoring
+	monitoring.EXPECT().Start(gomock.Any())
+	stateMachine.StartMonitoring()
+	// case 2: add new node
+	activeNode = models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 9000}}
+	data, _ = json.Marshal(&activeNode)
+	monitoring.EXPECT().Start(gomock.Any())
+	stateMachine.OnCreate("/data/test2", data)
+	// case 3: delete old
+	monitoring.EXPECT().Stop(gomock.Any())
+	stateMachine.OnDelete("/data/test")
+	// case 4: stop all
+	monitoring.EXPECT().StopAll()
+	stateMachine.StopMonitoring()
 }

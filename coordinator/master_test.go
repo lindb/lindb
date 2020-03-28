@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
@@ -35,6 +36,10 @@ func TestMaster(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
+	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM.EXPECT().StartMonitoring().AnyTimes()
+	nodeSM.EXPECT().StopMonitoring().AnyTimes()
+
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
@@ -42,6 +47,9 @@ func TestMaster(t *testing.T) {
 		Node:             node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
+		BrokerSM: &BrokerStateMachines{
+			NodeSM: nodeSM,
+		},
 	})
 	master1.Start()
 	data := encoding.JSONMarshal(&models.Master{Node: node1})
@@ -92,6 +100,10 @@ func TestMaster_Fail(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
+	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM.EXPECT().StartMonitoring().AnyTimes()
+	nodeSM.EXPECT().StopMonitoring().AnyTimes()
+
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
@@ -99,6 +111,9 @@ func TestMaster_Fail(t *testing.T) {
 		Node:             node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
+		BrokerSM: &BrokerStateMachines{
+			NodeSM: nodeSM,
+		},
 	})
 	master1.Start()
 
@@ -144,6 +159,10 @@ func TestMaster_FlushDatabase(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
+	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM.EXPECT().StartMonitoring().AnyTimes()
+	nodeSM.EXPECT().StopMonitoring().AnyTimes()
+
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
@@ -151,6 +170,9 @@ func TestMaster_FlushDatabase(t *testing.T) {
 		Node:             node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
+		BrokerSM: &BrokerStateMachines{
+			NodeSM: nodeSM,
+		},
 	})
 	err := master1.FlushDatabase("test", "test")
 	assert.NoError(t, err)

@@ -3,7 +3,12 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
+
+	"github.com/gorilla/mux"
+	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -64,6 +69,7 @@ type runtime struct {
 	factory      factory
 	srv          srv
 	handler      *rpcHandler
+	httpServer   *http.Server
 
 	log *logger.Logger
 }
@@ -106,12 +112,19 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{IP: ip, Port: r.config.StorageBase.GRPC.Port, HostName: hostName}
+	r.node = models.Node{
+		IP:       ip,
+		Port:     r.config.StorageBase.GRPC.Port,
+		HostName: hostName,
+		HTTPPort: r.config.StorageBase.GRPC.Port + 1,
+	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 
 	// start tcp server
 	r.startTCPServer()
+	// start http server
+	r.startHTTPServer()
 
 	// start state repo
 	if err := r.startStateRepo(); err != nil {
@@ -176,6 +189,13 @@ func (r *runtime) Stop() error {
 		}
 	}
 
+	if r.httpServer != nil {
+		r.log.Info("starting shutdown http server")
+		if err := r.httpServer.Shutdown(r.ctx); err != nil {
+			r.log.Error("shutdown http server error", logger.Error(err))
+		}
+	}
+
 	// finally shutdown rpc server
 	if r.server != nil {
 		r.log.Info("stopping grpc server")
@@ -203,6 +223,31 @@ func (r *runtime) buildServiceDependency() error {
 	}
 	r.srv = srv
 	return nil
+}
+
+// startHTTPServer starts http server for api rpcHandler
+func (r *runtime) startHTTPServer() {
+	port := r.node.Port + 1
+	r.log.Info("starting http server", logger.Uint16("port", port))
+
+	// add prometheus metric report
+	reporter := promreporter.NewReporter(promreporter.Options{})
+	router := mux.NewRouter().StrictSlash(true)
+	router.Handle("/metrics", reporter.HTTPHandler())
+
+	r.httpServer = &http.Server{
+		Addr:         fmt.Sprintf(":%d", port),
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
+		Handler:      router,
+	}
+	go func() {
+		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			panic(fmt.Sprintf("start http server with error: %s", err))
+		}
+		r.log.Info("http server stopped successfully")
+	}()
 }
 
 // startTCPServer starts tcp server
@@ -258,7 +303,6 @@ func (r *runtime) monitoring() {
 		r.log.Info("RuntimeStatMonitor is running")
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.config.StorageBase.GRPC),
 			r.config.Monitor.RuntimeReportInterval.Duration(),
 			map[string]string{"role": "broker", "version": r.version},
 		)

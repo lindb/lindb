@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"time"
 
+	promreporter "github.com/uber-go/tally/prometheus"
+
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
 	masterAPI "github.com/lindb/lindb/broker/api/cluster"
@@ -16,11 +18,11 @@ import (
 	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
 	"github.com/lindb/lindb/broker/api/write"
-	"github.com/lindb/lindb/broker/handler"
 	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
@@ -81,10 +83,6 @@ type rpcHandler struct {
 	task *parallel.TaskHandler
 }
 
-type tcpHandler struct {
-	handler rpc.TCPHandler
-}
-
 type middlewareHandler struct {
 	authentication middleware.Authentication
 }
@@ -106,9 +104,7 @@ type runtime struct {
 	stateMachines *coordinator.BrokerStateMachines
 
 	grpcServer rpc.GRPCServer
-	tcpServer  rpc.TCPServer
 	rpcHandler *rpcHandler
-	tcpHandler *tcpHandler
 
 	middleware *middlewareHandler
 
@@ -154,7 +150,7 @@ func (r *runtime) Run() error {
 		IP:       ip,
 		Port:     r.config.BrokerBase.GRPC.Port,
 		HostName: hostName,
-		TCPPort:  r.config.BrokerBase.TCP.Port,
+		HTTPPort: r.config.BrokerBase.HTTP.Port,
 	}
 
 	// start state repository
@@ -178,6 +174,13 @@ func (r *runtime) Run() error {
 		ShardAssignSRV:    r.srv.shardAssignService,
 		DiscoveryFactory:  discoveryFactory,
 		TaskClientFactory: r.factory.taskClient,
+		MonitoringSM: broker.NewMonitoringStateMachine(
+			r.ctx,
+			fmt.Sprintf("http://localhost:%d/metric/prometheus?db=%s",
+				r.config.BrokerBase.HTTP.Port,
+				constants.InternalMonitoringDB),
+			r.config.Monitor.RuntimeReportInterval.Duration(),
+		),
 	})
 
 	// finally start all state machine
@@ -197,6 +200,7 @@ func (r *runtime) Run() error {
 		RepoFactory:         r.repoFactory,
 		StorageStateService: r.srv.storageStateService,
 		ShardAssignService:  r.srv.shardAssignService,
+		BrokerSM:            r.stateMachines,
 	}
 	r.master = coordinator.NewMaster(masterCfg)
 
@@ -204,7 +208,6 @@ func (r *runtime) Run() error {
 	r.buildAPIDependency()
 	// start tcp server
 	r.startGRPCServer()
-	r.startTCPServer()
 
 	// register broker node info
 	//TODO TTL default value???
@@ -269,11 +272,6 @@ func (r *runtime) Stop() error {
 		r.grpcServer.Stop()
 	}
 
-	if r.tcpServer != nil {
-		r.log.Info("stopping tcp server")
-		r.tcpServer.Stop()
-	}
-
 	r.log.Info("broker server stop complete")
 	r.state = server.Terminated
 	return nil
@@ -285,6 +283,10 @@ func (r *runtime) startHTTPServer() {
 
 	r.log.Info("starting http server", logger.Uint16("port", port))
 	router := api.NewRouter()
+
+	// add prometheus metric report
+	reporter := promreporter.NewReporter(promreporter.Options{})
+	router.Handle("/metrics", reporter.HTTPHandler())
 
 	r.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
@@ -406,19 +408,6 @@ func (r *runtime) buildMiddlewareDependency() {
 	}
 }
 
-// startTCPServer starts the TCP server
-func (r *runtime) startTCPServer() {
-	r.buildTCPHandlers()
-	r.tcpServer = rpc.NewTCPServer(fmt.Sprintf(":%d", r.config.BrokerBase.TCP.Port), r.tcpHandler.handler)
-
-	go func() {
-		if err := r.tcpServer.Start(); err != nil {
-			r.log.Error("broker tcp server", logger.Error(err))
-			panic(err)
-		}
-	}()
-}
-
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
 	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.BrokerBase.GRPC.Port))
@@ -442,11 +431,6 @@ func (r *runtime) bindGRPCHandlers() {
 	}
 
 	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
-}
-
-//buildTCPHandlers builds tcp handlers
-func (r *runtime) buildTCPHandlers() {
-	r.tcpHandler = &tcpHandler{handler: handler.NewTCPHandler(r.srv.channelManager)}
 }
 
 func (r *runtime) monitoring() {
@@ -473,7 +457,6 @@ func (r *runtime) monitoring() {
 		r.log.Info("RuntimeStatMonitor is running")
 		go monitoring.NewRunTimeCollector(
 			r.ctx,
-			fmt.Sprintf("http://localhost:%d/", r.config.BrokerBase.HTTP), // todo
 			r.config.Monitor.RuntimeReportInterval.Duration(),
 			map[string]string{"role": "broker", "version": r.version},
 		)

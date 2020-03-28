@@ -22,7 +22,6 @@ type RunTimeCollector struct {
 // NewRunTimeCollector returns a new collector to retrieve runtime metrics
 func NewRunTimeCollector(
 	ctx context.Context,
-	brokerEndpoint string,
 	interval time.Duration,
 	tags map[string]string,
 ) *RunTimeCollector {
@@ -32,11 +31,9 @@ func NewRunTimeCollector(
 	}
 	tags["host"] = host
 
-	reporter := NewHTTPReporter(brokerEndpoint)
 	scope, closer := tally.NewRootScope(tally.ScopeOptions{
-		Tags:     tags,
-		Prefix:   "runtime",
-		Reporter: reporter,
+		Tags:   tags,
+		Prefix: "runtime",
 	}, interval)
 
 	return &RunTimeCollector{
