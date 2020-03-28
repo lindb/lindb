@@ -101,7 +101,6 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 
 func (sm *adminStateMachine) OnDelete(key string) {
 	//TODO impl delete database???
-	//panic("implement me")
 }
 
 // Close closes admin state machine, stops watch change event

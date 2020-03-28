@@ -141,6 +141,10 @@ func (e *storageExecutor) Execute() {
 	e.metricID = storageExecutePlan.metricID
 	e.fieldIDs = storageExecutePlan.getFieldIDs()
 	e.storageExecutePlan = storageExecutePlan
+	if e.ctx.query.HasGroupBy() {
+		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
+		e.tagValueIDs = make([]*roaring.Bitmap, len(e.groupByTagKeyIDs))
+	}
 
 	// execute query flow
 	e.executeQuery()
@@ -220,7 +224,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 	// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
 	// get grouping context if need
 	if e.ctx.query.HasGroupBy() {
-		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
 		tagKeys := make([]uint32, len(e.groupByTagKeyIDs))
 		for idx, tagKeyID := range e.groupByTagKeyIDs {
 			tagKeys[idx] = tagKeyID.ID
@@ -287,10 +290,6 @@ func (e *storageExecutor) mergeGroupByTagValueIDs(tagValueIDs []*roaring.Bitmap)
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	if e.tagValueIDs == nil {
-		e.tagValueIDs = make([]*roaring.Bitmap, len(e.groupByTagKeyIDs))
-	}
-
 	for idx, tagVIDs := range e.tagValueIDs {
 		if tagVIDs == nil {
 			e.tagValueIDs[idx] = tagValueIDs[idx]
@@ -309,8 +308,11 @@ func (e *storageExecutor) collectGroupByTagValues() {
 				tagKey := tagKeyID
 				tagValueIDs := e.tagValueIDs[idx]
 				tagIndex := idx
+				if tagValueIDs == nil || tagValueIDs.IsEmpty() {
+					e.queryFlow.ReduceTagValues(tagIndex, nil)
+					continue
+				}
 				e.queryFlow.Scanner(func() {
-					//FIXME need check group by tag value ids is nil???
 					tagValues := make(map[uint32]string)
 					t := newCollectTagValuesTask(e.ctx, e.database.Metadata(), tagKey, tagValueIDs, tagValues)
 					if err := t.Run(); err != nil {
