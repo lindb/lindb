@@ -95,7 +95,7 @@ export default class TimePicker extends React.Component<TimePickerProps, TimePic
             showTime={true}
           />
         </Row>
-        <Row type="flex" justify="center">
+        <Row justify="center">
           <Button type="primary">Apply Range</Button>
         </Row>
       </div>
@@ -103,7 +103,6 @@ export default class TimePicker extends React.Component<TimePickerProps, TimePic
   }
 
   render() {
-    const { children } = this.props
     const timepicker = this.renderTimePicker()
     const defaultBtn = this.renderDefaultBtn()
 
@@ -114,7 +113,7 @@ export default class TimePicker extends React.Component<TimePickerProps, TimePic
         content={timepicker}
         overlayClassName={`${this.timepickerCls}-popover`}
       >
-        {children ? children : defaultBtn}
+        {defaultBtn}
       </Popover>
     )
   }

@@ -9,6 +9,7 @@ import (
 // QueryStats represents the query stats when need explain query flow stat
 type QueryStats struct {
 	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
+	Cost         int64                    `json:"cost"` // total query cost
 	ExpressCost  int64                    `json:"expressCost"`
 }
 
@@ -193,7 +194,7 @@ func (s *ShardStats) SetGroupBuildStats(cost int64) {
 
 // Stats represents the time stats
 type Stats struct {
-	Min   int64
-	Max   int64
-	Count int
+	Min   int64 `json:"min"`
+	Max   int64 `json:"max"`
+	Count int   `json:"count"`
 }

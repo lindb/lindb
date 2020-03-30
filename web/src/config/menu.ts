@@ -13,20 +13,20 @@ export const MENUS = [
     path: '/monitoring',
     children: [
       {
-        title: 'System',
-        icon: 'share-alt',
-        path: '/system',
+        title: 'Runtime',
+        icon: 'runtime',
+        path: '/Runtime',
       },
     ],
   }, {
-    title: 'Setting',
+    title: 'Admin',
     icon: 'setting',
-    path: '/setting',
+    path: '/admin',
     children: [
       {
-        title: 'Cluster',
+        title: 'Storage',
         icon: 'share-alt',
-        path: '/cluster',
+        path: '/storage',
       },
       {
         title: 'Database',

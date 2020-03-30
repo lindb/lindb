@@ -56,11 +56,13 @@ type brokerExecuteContext struct {
 	expression aggregation.Expression
 	resultSet  *models.ResultSet
 
-	stats *models.QueryStats
+	stats     *models.QueryStats
+	startTime int64
 }
 
-func NewBrokerExecuteContext(query *stmt.Query) BrokerExecuteContext {
+func NewBrokerExecuteContext(startTime int64, query *stmt.Query) BrokerExecuteContext {
 	ctx := &brokerExecuteContext{
+		startTime: startTime,
 		resultCh:  make(chan *series.TimeSeriesEvent),
 		resultSet: models.NewResultSet(),
 		query:     query,
@@ -136,7 +138,11 @@ func (c *brokerExecuteContext) ResultSet() (*models.ResultSet, error) {
 		c.resultSet.EndTime = c.query.TimeRange.End
 		c.resultSet.Interval = c.query.Interval.Int64()
 	}
+	if c.stats != nil {
+		c.stats.Cost = timeutil.NowNano() - c.startTime
+	}
 	c.resultSet.Stats = c.stats
+
 	return c.resultSet, c.err
 }
 

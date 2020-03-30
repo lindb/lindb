@@ -1,18 +1,17 @@
 import { isEmpty } from "../utils/URLUtil";
-import { ResultSet } from "./Metric";
+import { ResultSet, UnitEnum } from "./Metric";
 
 export class Chart {
     loading?: boolean = false;
+    unit?: UnitEnum
     title?: string;
     description?: string;
-    config?: any;
     from?: string;
     to?: string;
     timeShift?: string;
     target?: Target;
     series?: Array<ResultSet>;
 }
-
 
 export class Target {
     db?: string;

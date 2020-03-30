@@ -1,6 +1,6 @@
 import * as React from 'react'
 import Login from './containers/Login/Login'
-import Content from './containers/Content/Content'
+import Content from './containers/layout/Content'
 import { Route, Switch } from 'react-router-dom'
 
 interface AppProps {

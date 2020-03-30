@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -47,6 +48,7 @@ func newBrokerExecutor(ctx context.Context, database string, namespace string, s
 // 2) build execute plan
 // 3) run distribution query job
 func (e *brokerExecutor) Execute() {
+	startTime := timeutil.NowNano()
 	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	brokerNodes := e.nodeStateMachine.GetActiveNodes()
@@ -60,7 +62,7 @@ func (e *brokerExecutor) Execute() {
 
 	// maybe plan doesn't execute(query statement is nil), because storage nodes is empty
 	brokerPlan := plan.(*brokerPlan)
-	e.executeCtx = parallel.NewBrokerExecuteContext(brokerPlan.query)
+	e.executeCtx = parallel.NewBrokerExecuteContext(startTime, brokerPlan.query)
 
 	if err != nil {
 		e.executeCtx.Complete(err)
