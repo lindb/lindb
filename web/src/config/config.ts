@@ -10,15 +10,18 @@ export const API_URL = ''
 
 export const PATH = {
   login: '/login',
-  database: '/database',
   master: '/cluster/master',
   brokerClusterState: '/broker/cluster/state',
   listStorageClusterState: '/storage/cluster/state/list',
   getStorageClusterState: '/storage/cluster/state',
-  databaseList: '/database/list',
+  storageStateList: '/storage/state/list',
+}
+
+export const ADMIN_PATH = {
   storageCluster: '/storage/cluster',
   storageClusterList: '/storage/cluster/list',
-  storageStateList: '/storage/state/list',
+  database: '/database',
+  databaseList: '/database/list',
 }
 
 export const METADATA_PATH = {

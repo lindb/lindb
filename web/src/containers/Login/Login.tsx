@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom'
 import { autobind } from 'core-decorators'
 import { login } from '../../service/Login'
 import LoginBackground from './LoginBackground'
-import Footer from '../../components/Layout/Footer'
+import Footer from '../layout/Footer'
 import { LOCALSTORAGE_TOKEN } from '../../config/config'
-import { Button, Icon, Input, Layout, message } from 'antd'
+import { Button, Input, Layout, message } from 'antd'
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { getQueryValueOf, redirectTo } from '../../utils/URLUtil'
+import Logo from '../../assets/images/logo_title_subtitle_dark.png'
 
 const { Content } = Layout
-const Logo = require('../../assets/images/logo_title_subtitle_dark.png')
 
 interface LoginProps {
 }
@@ -60,7 +61,7 @@ export default class Login extends React.Component<LoginProps, LoginStatus> {
 
     // redirect
     const from = getQueryValueOf('from')
-    setTimeout(() => {redirectTo(from || '/')}, 1000)
+    setTimeout(() => { redirectTo(from || '/') }, 1000)
   }
 
   render() {
@@ -68,15 +69,15 @@ export default class Login extends React.Component<LoginProps, LoginStatus> {
 
     return (
       <Layout className="lindb-login">
-        <LoginBackground/>
+        <LoginBackground />
 
         <Content>
 
           <div className="lindb-login__content">
-            <Link to="/"><img className="lindb-login__content__logo" src={Logo} alt=""/></Link>
+            <Link to="/"><img className="lindb-login__content__logo" src={Logo} alt="" /></Link>
             <Input
               className="lindb-login__content__input"
-              prefix={<Icon type="user" style={{ color: 'rgba(0,0,0,.25)' }}/>}
+              prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
               placeholder="Enter Username"
               value={username}
               onChange={this.handleUsernameChange}
@@ -84,7 +85,7 @@ export default class Login extends React.Component<LoginProps, LoginStatus> {
 
             <Input.Password
               className="lindb-login__content__input"
-              prefix={<Icon type="lock" style={{ color: 'rgba(0,0,0,.25)' }}/>}
+              prefix={<LockOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
               placeholder="Enter Password"
               value={password}
               onChange={this.handlePasswordChange}
@@ -103,7 +104,7 @@ export default class Login extends React.Component<LoginProps, LoginStatus> {
           </div>
         </Content>
 
-        <Footer/>
+        <Footer />
       </Layout>
     )
   }

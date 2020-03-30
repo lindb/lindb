@@ -1,12 +1,15 @@
 import { Card } from 'antd'
 import * as React from 'react'
-import { Chart } from '../../model/Metric'
+import { Chart } from '../../model/Chart'
 
 import Metric from './Metric'
 import LazyLoad from 'react-lazyload'
 
 interface ChartCardProps {
   chart: Chart
+  id: string
+  type: string
+  height?: number
 }
 
 interface ChartCardStatus {
@@ -14,17 +17,19 @@ interface ChartCardStatus {
 
 export default class ChartCard extends React.Component<ChartCardProps, ChartCardStatus> {
   render() {
-    const { chart } = this.props
-    const { title, ql, unit, group } = chart
+    const { id, type, chart, height } = this.props
+    const { title, target, unit } = chart
 
     return (
       <Card title={title} size="small">
         <LazyLoad height={300} once={true} resize={true}>
-          {(ql && unit) ? (
+          {(target && unit) ? (
             <Metric
-              id="fkdsjfksj"
+              id={id}
+              height={height}
               unit={unit}
-              group={group}
+              chart={chart}
+              type={type}
             />
           ) : null}
         </LazyLoad>

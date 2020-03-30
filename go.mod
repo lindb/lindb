@@ -1,5 +1,3 @@
-module github.com/lindb/lindb
-
 go 1.14
 
 require (
@@ -44,3 +42,5 @@ require (
 // just redirect to local repo for local debug
 // replace github.com/lindb/roaring => /Users/jie.huang/go/src/github.com/lindb/roaring
 replace github.com/lindb/roaring => github.com/lindb/roaring v0.4.22-0.20200211075929-6661b4a242fa
+
+module github.com/lindb/lindb

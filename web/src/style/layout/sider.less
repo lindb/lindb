@@ -2,38 +2,43 @@
   flex: 1;
 
   .ant-menu-dark {
-    background: #181818;
+    background: #394b59;
     box-shadow: none;
   }
 
   .ant-menu-dark .ant-menu-inline.ant-menu-sub {
-    background: #181818;
+    background: #394b59;
     box-shadow: none;
   }
 
   .lindb-sider {
-    position        : fixed;
-    left            : 0;
-    top             : 0;
-    bottom          : 0;
-    overflow        : auto;
-    background-color: #fff;
-    z-index         : 4;
-    box-shadow      : 0 2px 12px 0 rgba(0, 0, 0, .1);
+    position           : fixed;
+    left               : 0;
+    top                : 0;
+    bottom             : 0;
+    overflow           : auto;
+    background-color   : #fff;
+    border-bottom      : 1px solid #1e2730;
+    z-index            : 4;
+    // box-shadow      : 0 2px 12px 0 rgba(0, 0, 0, .1);
 
     .lindb-sider__menu {
-      height     : 100%;
-      padding-top: @sider-logo-height;
+      height      : 100%;
+      padding-top : @sider-logo-height;
+      background  : #394b59;
+      border-right: 1px solid #1e2730;
     }
 
     .lindb-sider__logo {
+      background      : #394b59;
+      border-right    : 0px;
       position        : absolute;
       top             : 0;
       left            : 0;
       width           : 100%;
       padding         : @sider-logo-height * 0.1 0;
       text-align      : center;
-      height          : @sider-logo-height + 1;
+      height          : 63px;
       // border-right : @border-width-base @border-style-base @border-color-split;
       // border-bottom: 1px solid @border-color-split;
 
@@ -49,15 +54,17 @@
     margin-top : @header-base-height;
 
     .lindb-header {
-      position  : fixed;
-      top       : 0;
-      left      : @sider-base-width;
-      right     : 0;
-      z-index   : 3;
-      background: linear-gradient(90deg, #181818, #292a2d);
-      height    : @header-base-height;
-      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
-      padding   : 0 20px;
+      position     : fixed;
+      top          : 0;
+      left         : @sider-base-width;
+      right        : 0;
+      z-index      : 3;
+      background   : #394b59;
+      height       : @header-base-height;
+      // box-shadow: 0 2px 12px 0 rgba(0, 0, 0, .1);
+      padding      : 0 20px;
+      border-bottom: 1px solid #1e2730;
+      border-left  : 0px;
 
       .lindb-header__breadcrumb {
         float      : left;
@@ -99,7 +106,7 @@
           transition : all 0.25s;
 
           &:hover {
-            background: #242424;
+            background: #293742;
             color     : #fff;
           }
 

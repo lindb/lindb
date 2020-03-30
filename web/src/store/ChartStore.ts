@@ -13,6 +13,7 @@ export class ChartStore {
     charts: Map<string, Chart> = new Map(); // for chart config
     chartTrackingMap: Map<string, Chart> = new Map(); // tracking chart config change 
     seriesCache: Map<string, any> = new Map(); // for chart series data
+    statsCache: Map<string, any> = new Map(); // for explain stats data
 
     @observable chartStatusMap: Map<string, ChartStatus> = new Map(); // observe chart status
 
@@ -67,6 +68,7 @@ export class ChartStore {
         this.seriesCache.delete(uniqueId);
         this.chartTrackingMap.delete(uniqueId);
         this.chartStatusMap.delete(uniqueId);
+        this.statsCache.delete(uniqueId);
     }
 
 
@@ -99,11 +101,11 @@ export class ChartStore {
             chartStatus!.status = ChartStatusEnum.Loading
             this.setChartStatus(uniqueId, chartStatus!)
             LinDBService.query({ db: target!.db, sql: target!.ql }).then(response => {
-                const series:ResultSet|undefined = response.data
+                const series: ResultSet | undefined = response.data
 
                 let reportData: any = ProcessChartData.LineChart(series!, UnitEnum.None)
                 this.seriesCache.set(uniqueId, reportData)
-                const dataSet = get(reportData, "data.datasets", [])
+                const dataSet = get(reportData, "datasets", [])
                 if (dataSet.length > 0) {
                     const limit = 50;
                     if (dataSet.length >= limit) {
@@ -114,6 +116,8 @@ export class ChartStore {
                 } else {
                     chartStatus!.status = ChartStatusEnum.NoData
                 }
+                console.log("sss",uniqueId,series!.stats,response.data)
+                this.statsCache.set(uniqueId, series!.stats)
                 this.setChartStatus(uniqueId, chartStatus!)
             }).catch((err) => {
                 chartStatus!.status = ChartStatusEnum.LoadError

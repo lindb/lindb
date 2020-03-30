@@ -103,7 +103,7 @@ func (c *RunTimeCollector) collect() {
 	gcScope.Gauge("next").Update(float64(stat.NextGC))
 	gcScope.Gauge("last_interval").Update(float64(stat.LastGC))
 	gcScope.Gauge("pause_total_ns").Update(float64(stat.PauseTotalNs))
-	gcScope.Counter("count").Inc(int64(500 + stat.NumGC - c.lastGCCount))
+	gcScope.Counter("count").Inc(int64(stat.NumGC - c.lastGCCount))
 	c.lastGCCount = stat.NumGC
 
 	// Goroutines statistics

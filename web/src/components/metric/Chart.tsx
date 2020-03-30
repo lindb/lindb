@@ -1,19 +1,18 @@
 import { autobind } from 'core-decorators'
 import { reaction } from 'mobx'
-import { observer } from 'mobx-react'
+import { cloneDeep, get } from 'lodash';
 import * as React from 'react'
 import { ChartTooltipData, UnitEnum } from '../../model/Metric'
+import { ChartStatusEnum } from '../../model/Chart'
 import StoreManager from '../../store/StoreManager'
-
+import { CANVAS_CHART_CONFIG, getVisibleInterval,getyAxesConfig } from './ChartConfig'
 const ChartJS = require('chart.js')
 
 interface ChartProps {
-  data?: any
+  height?: number
   uuid: string
   type: string
   unit: UnitEnum
-  options?: any
-  plugins?: any
   onMouseMove?: (data: ChartTooltipData) => void
   onMouseOut?: () => void
 }
@@ -21,17 +20,20 @@ interface ChartProps {
 interface ChartStatus {
 }
 
-@observer
 export default class Chart extends React.Component<ChartProps, ChartStatus> {
-  chartCanvas: React.RefObject<HTMLCanvasElement> // Chart Canvas Ref
+  chartCanvas: any // Chart Canvas Ref
   crosshair: React.RefObject<HTMLDivElement> // Chart Crosshair Ref
   chartInstance: any // ChartJS instance
   disposers: any[]
+  chartConfig: any
+  series: any = {}
+  chartStatus: any
 
   constructor(props: ChartProps) {
     super(props)
     this.chartCanvas = React.createRef()
     this.crosshair = React.createRef()
+    this.buildChartConfig()
 
     this.disposers = [
       reaction(
@@ -45,11 +47,12 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
       reaction(
         () => StoreManager.ChartStore.chartStatusMap.get(props.uuid),
         chartStatus => {
+          if (chartStatus!.status !== ChartStatusEnum.Loaded) {
+            return
+          }
+          this.series = StoreManager.ChartStore.seriesCache.get(props.uuid) || {};
           this.renderChart()
           this.addEventListener()
-        },
-        {
-          delay: 100
         }
       )
     ]
@@ -59,18 +62,80 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
     this.disposers.map(handle => handle())
   }
 
+  shouldComponentUpdate(nextProps: Readonly<ChartProps>, nextState: Readonly<ChartStatus>, nextContext: any): boolean {
+    return false;
+  }
+
+  buildChartConfig() {
+    if (this.chartConfig) {
+      return;
+    }
+    const { type } = this.props
+    const chartConfig: any = cloneDeep(CANVAS_CHART_CONFIG);
+    chartConfig.type = type;
+    this.chartConfig = chartConfig
+  }
+
+  @autobind
+  setData(chart: any) {
+    const labels = this.series.labels || [];
+    if (labels.length > 0) {
+      const times = get(this.series, "times", []);
+      const interval = get(this.series, "interval", 10000);
+      const width = this.chartCanvas.width;
+      const visibleInterval = getVisibleInterval(times, interval, width);
+
+      const perTickPX = width / (times.length - 1);
+      let idx = 0;
+      let firstIdx = -1;
+      times.map((item: any, index: number) => {
+        if (item % visibleInterval === 0) {
+          if (firstIdx === -1) {
+            firstIdx = index;
+          }
+          idx = index;
+        }
+      });
+      if ((labels.length - idx) * perTickPX > 15) {
+        labels[labels.length - 1] = "";
+      }
+      if (firstIdx * perTickPX < 20) {
+        labels[firstIdx] = "";
+      }
+    }
+
+    // chart.options.status = this.chartStatus;
+    chart.options.interval = this.series.interval;
+    chart.options.times = this.series.times;
+    chart.data = this.series;
+    chart.options.scales.yAxes[0].ticks.suggestedMax = this.series.leftMax * 1.05;
+    chart.options.scales.yAxes[0] = getyAxesConfig(chart.options.scales.yAxes[0], this.props.unit);
+  }
+
+  @autobind
+  getShowSeries(reportData: any): any {
+    const datasets: Array<any> = reportData.datasets;
+    let series: any = [];
+    datasets.forEach(dataset => {
+      let display = dataset.seriesDisplay;
+      if (display === undefined || display === true) {
+        series.push(dataset);
+      }
+    });
+    return series;
+  }
   /**
    * init Chart
    */
   renderChart() {
-    const reportData = StoreManager.ChartStore.seriesCache.get(this.props.uuid);
-    const canvas = this.chartCanvas.current
-    if (!canvas) {
-      return
+    this.setData(this.chartConfig)
+    if (this.chartInstance) {
+      this.chartInstance.update()
+    } else {
+      const canvas = this.chartCanvas.current
+      const ctx = canvas.getContext('2d')
+      this.chartInstance = new ChartJS(ctx, this.chartConfig)
     }
-
-    const ctx = canvas.getContext('2d')
-    this.chartInstance = new ChartJS(ctx, reportData)
   }
 
   addEventListener() {
@@ -110,8 +175,8 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
       .map((item: any) => ({
         color: item.borderColor,
         name: item.label,
-        value: item.data[index].y,
-        time: +item.data[index].x,
+        value: item.data[index],
+        time: this.series.times[index],
       }))
 
     /**
@@ -215,18 +280,22 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
         : percentage * currChartWidth + chartArea.left // when different width, percentage * valid area width + chart offsetLeft
 
       crosshair.style.height = `${height}px`
-
       crosshair.style.transform = `translate(${left}px, ${top}px)`
-
     }
   }
 
   render() {
+    const { height } = this.props
+    let h = height
+    if (height! <= 0) {
+      h = 280
+    }
+    console.log("xxxx",h,height)
     // Canvas Wrapped By a div element to avoid invoke `.resize` many times
     return (
-      <div className="lindb-chart-canvas" >
+      <div className="lindb-chart-canvas" style={{ height: h }}>
         <div className="lindb-chart-canvas__crosshair" ref={this.crosshair} />
-        <canvas ref={this.chartCanvas} />
+        <canvas ref={this.chartCanvas} height="280px" />
       </div>
     )
   }

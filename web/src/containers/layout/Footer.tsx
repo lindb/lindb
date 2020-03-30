@@ -25,7 +25,7 @@ export default class Footer extends React.Component<FooterProps, FooterStatus> {
 
     return (
       <AntDFooter className={cls}>
-        Copyright &copy; 2019 LinDB
+        Copyright &copy; 2020 LinDB
       </AntDFooter>
     )
   }

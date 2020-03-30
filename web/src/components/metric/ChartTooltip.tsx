@@ -1,5 +1,4 @@
 import * as React from 'react'
-// import moment from 'moment-es6'
 import { observer } from 'mobx-react'
 import { autobind } from 'core-decorators'
 import { observable, reaction } from 'mobx'
