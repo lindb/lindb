@@ -130,6 +130,25 @@ func TestFieldStore_Write(t *testing.T) {
 	)
 }
 
+func TestFieldStore_Write2(t *testing.T) {
+	buf := make([]byte, pageSize)
+	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	s := store.(*fieldStore)
+	writtenSize := store.Write(field.SumField, 10, 178)
+	assert.Equal(t, valueSize+headLen, writtenSize)
+	value, ok := s.getCurrentValue(10, 10)
+	assert.True(t, ok)
+	assert.InDelta(t, 178.0, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+	// write with old slot
+	writtenSize = store.Write(field.SumField, 10, 178)
+	assert.Equal(t, 0, writtenSize)
+	value, ok = s.getCurrentValue(10, 10)
+	assert.True(t, ok)
+	assert.InDelta(t, 178.0*2, value, 0)
+	assert.Equal(t, uint16(0), s.getEnd())
+}
+
 func TestFieldStore_Write_Compact_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {

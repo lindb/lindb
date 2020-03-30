@@ -107,7 +107,7 @@ func (fs *fieldStore) GetPrimitiveID() field.PrimitiveID {
 // if time slot out of current time window, need compress time window then resets the current buffer
 // if has same time slot in current buffer, need do rollup operation by field type
 func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int) {
-	if fs.buf[markOffset+2] == 0 {
+	if fs.buf[markOffset+1] == 0 {
 		// no data written before
 		return fs.writeFirstPoint(slotIndex, value)
 	}
@@ -174,7 +174,7 @@ func (fs *fieldStore) writeFirstPoint(slotIndex uint16, value float64) (writtenS
 	binary.LittleEndian.PutUint16(fs.buf[startOffset:], slotIndex) // write start time
 	fs.buf[endOffset] = 0
 	fs.buf[markOffset+markIdx] |= flagIdx // mark value exist
-	fs.buf[markOffset+2] |= 1             // last mark flag marks if buf has data written
+	fs.buf[markOffset+1] |= 1             // last mark flag marks if buf has data written
 	binary.LittleEndian.PutUint64(fs.buf[pos:], math.Float64bits(value))
 	return valueSize + headLen
 }
@@ -188,7 +188,6 @@ func (fs *fieldStore) timeWindow() uint16 {
 func (fs *fieldStore) resetBuf() {
 	fs.buf[markOffset] = 0
 	fs.buf[markOffset+1] = 0
-	fs.buf[markOffset+2] = 0
 }
 
 // compact compacts the current write buffer,
