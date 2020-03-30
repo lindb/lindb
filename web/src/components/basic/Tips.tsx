@@ -1,4 +1,4 @@
-import { Icon } from 'antd'
+import { WarningOutlined } from '@ant-design/icons';
 import * as React from 'react'
 import classNames from 'classnames'
 import { PREFIXCLS } from '../../config/config'
@@ -24,7 +24,7 @@ export default class Tips extends React.Component<TipsProps, TipsStatus> {
 
         return (
             <div className={classes}>
-                {icon && <span className={`${prefixCls}__icon`}><Icon type="warning"/></span>}
+                {icon && <span className={`${prefixCls}__icon`}><WarningOutlined /></span>}
                 <span className={`${prefixCls}__content`}>{tip}</span>
             </div>
         )

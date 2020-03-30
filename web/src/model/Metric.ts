@@ -1,18 +1,12 @@
+import { Chart } from './Chart'
+
 export type Board = ChartRow[]
 export type ChartRow = Metric[]
 
 export interface Metric {
   span?: number
+  id: string
   chart: Chart
-}
-
-export interface Chart {
-  id?: number
-  ql?: string
-  title?: string
-  group?: object
-  series?: Array<any>
-  unit?: UnitEnum
 }
 
 export enum UnitEnum {
@@ -21,6 +15,7 @@ export enum UnitEnum {
   Percent = 'percent',
   Seconds = 'seconds(s)',
   Milliseconds = 'milliseconds(ms)',
+  Nanoseconds = "nanoseconds(ns)",
 }
 
 /* Result Set */
@@ -30,6 +25,7 @@ export class ResultSet {
   startTime?: number
   endTime?: number
   interval?: number
+  stats?: any
 }
 
 export class Series {
@@ -40,15 +36,10 @@ export class Series {
 export interface ChartDatasets {
   fill: boolean
   label: string
-  data: ChartDatasetsData[]
+  data: any
   backgroundColor: string
   borderColor: string
   pointBackgroundColor: string
-}
-
-export interface ChartDatasetsData {
-  x: Date,
-  y: number
 }
 
 /* Tooltip Data Source */

@@ -18,6 +18,8 @@ export default class ViewBoard extends React.Component<ViewBoardProps, ViewBoard
     this.state = {}
   }
 
+
+
   render() {
     const { board } = this.props
     return (
@@ -25,8 +27,8 @@ export default class ViewBoard extends React.Component<ViewBoardProps, ViewBoard
         {board.map((rows, index) => (
           <Row key={index} gutter={SPACING}>
             {rows.map(metric => (
-              <Col key={metric.chart.id} span={metric.span}>
-                <ChartCard chart={metric.chart}/>
+              <Col key={metric.id} span={metric.span}>
+                <ChartCard chart={metric.chart} type="line" id={metric.id}/>
               </Col>
             ))}
           </Row>

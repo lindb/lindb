@@ -1,14 +1,15 @@
+import { DatabaseOutlined, HomeOutlined, SearchOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons'
+import { Layout, Menu } from 'antd'
+import { autobind } from 'core-decorators'
 import * as React from 'react'
-import {Link} from 'react-router-dom'
-import {Layout, Icon, Menu} from 'antd'
-
-import {MENUS} from '../../config/menu'
+import { Link } from 'react-router-dom'
+import Logo from '../../assets/images/logo_title_dark.png'
+import { BizIcon } from '../../components/basic/BizIcon'
+import { MENUS } from '../../config/menu'
+import { BreadcrumbStatus } from '../../model/Breadcrumb'
 import StoreManager from '../../store/StoreManager'
-import {BreadcrumbStatus} from '../../model/Breadcrumb'
-import {autobind} from 'core-decorators'
 
-const {Sider} = Layout
-const Logo = require('../../assets/images/logo_title_dark.png')
+const { Sider } = Layout
 
 interface SiderMenuProps {
 }
@@ -20,17 +21,24 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
     breadcrumbStore: any
     flatMenu: Array<any>
     currentBreadcrumbPath: Array<any>
+    iconMap: Map<String, any>;
 
     constructor(props: SiderMenuProps) {
         super(props)
         this.breadcrumbStore = StoreManager.BreadcrumbStore
         this.flatMenu = this.getFlatMenu()
         this.currentBreadcrumbPath = []
+        this.iconMap = new Map()
+        this.iconMap.set("home", <HomeOutlined />)
+        this.iconMap.set("search", <SearchOutlined />)
+        this.iconMap.set("share-alt", <ShareAltOutlined />)
+        this.iconMap.set("database", <DatabaseOutlined />)
+        this.iconMap.set("setting", <SettingOutlined />)
+        this.iconMap.set("runtime",<BizIcon type={"icongo"}  style={{ fontSize: '16px'}}/>)
     }
 
     renderMenu(menus: Array<any>, parentPath?: string) {
-        const IconTitle = (icon: string, title: string) => <span><Icon type={icon}/>{title}</span>
-
+        const IconTitle = (icon: string, title: string) => (<span>{this.iconMap.get(icon)}{title}</span>)
         return menus.map(menu => {
             const path = parentPath ? parentPath + menu.path : menu.path
 
@@ -64,7 +72,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         this.currentBreadcrumbPath.forEach((path: string) => (
             this.flatMenu.forEach(item => {
                 if (path === item.path) {
-                  breadcrumbs.push(item)
+                    breadcrumbs.push(item)
                 }
             })
         ))
@@ -80,12 +88,12 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         let flatMenu: Array<BreadcrumbStatus> = []
         MENUS.forEach(item => {
             if (item.children) {
-                flatMenu.push({path: item.path, label: item.title})
+                flatMenu.push({ path: item.path, label: item.title })
                 item.children.forEach(child => {
-                    flatMenu.push({path: item.path + child.path, label: child.title});
+                    flatMenu.push({ path: item.path + child.path, label: child.title });
                 })
             } else {
-                flatMenu.push({path: item.path, label: item.title})
+                flatMenu.push({ path: item.path, label: item.title })
             }
         })
         return flatMenu
@@ -113,7 +121,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
      */
     @autobind
     getPath() {
-        const {location: {hash}} = window;
+        const { location: { hash } } = window;
         const path = hash.replace('#', '')
         return path
     }
@@ -128,7 +136,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
             <Sider className="lindb-sider" collapsible={true} trigger={null}>
                 {/* Logo */}
                 <div className="lindb-sider__logo">
-                    <Link to="/"><img src={Logo} alt="LinDB"/></Link>
+                    <Link to="/"><img src={Logo} alt="LinDB" /></Link>
                 </div>
 
                 {/* Menu */}
@@ -136,7 +144,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
                     mode="inline"
                     theme="dark"
                     className="lindb-sider__menu"
-                    defaultOpenKeys={['/monitoring', '/setting']}
+                    defaultOpenKeys={['/monitoring', '/admin']}
                     selectedKeys={[path]}
                     onClick={this.handleMenuClick}
                 >

@@ -90,6 +90,7 @@ func (db *databaseService) List() ([]*models.Database, error) {
 				Warn("unmarshal data error",
 					logger.String("data", string(val.Value)))
 		} else {
+			db.Desc = db.String()
 			result = append(result, db)
 		}
 	}

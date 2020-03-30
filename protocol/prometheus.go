@@ -87,10 +87,10 @@ func getFieldType(metricType dto.MetricType, metric *dto.Metric) *pb.Field {
 		count := float64(*metric.Summary.SampleCount)
 		f.Fields = append(f.Fields, &pb.PrimitiveField{
 			PrimitiveID: int32(1),
-			Value:       count,
+			Value:       *metric.Summary.SampleSum,
 		}, &pb.PrimitiveField{
 			PrimitiveID: int32(2),
-			Value:       *metric.Summary.SampleSum,
+			Value:       count,
 		})
 		quantile := metric.Summary.Quantile
 		for _, q := range quantile {

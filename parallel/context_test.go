@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -24,7 +25,7 @@ func TestBrokerExecuteContext(t *testing.T) {
 	assert.NoError(t, err)
 	query.Interval = timeutil.Interval(10 * timeutil.OneSecond)
 
-	ctx := NewBrokerExecuteContext(query)
+	ctx := NewBrokerExecuteContext(timeutil.NowNano(), query)
 	brokerCtx := ctx.(*brokerExecuteContext)
 	brokerCtx.expression = expression
 	assert.NotNil(t, brokerCtx.expression)
@@ -39,7 +40,8 @@ func TestBrokerExecuteContext(t *testing.T) {
 		SeriesList: []series.GroupedIterator{it},
 	})
 	ctx.Emit(&series.TimeSeriesEvent{
-		Err: fmt.Errorf("err"),
+		Err:   fmt.Errorf("err"),
+		Stats: &models.QueryStats{},
 	})
 
 	rs, err := ctx.ResultSet()
@@ -59,7 +61,7 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 	assert.NoError(t, err)
 	query.Interval = timeutil.Interval(10 * timeutil.OneSecond)
 
-	ctx := NewBrokerExecuteContext(query)
+	ctx := NewBrokerExecuteContext(timeutil.NowNano(), query)
 	brokerCtx := ctx.(*brokerExecuteContext)
 	brokerCtx.expression = expression
 	assert.NotNil(t, brokerCtx.expression)
@@ -73,6 +75,7 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 	expression.EXPECT().Reset()
 	ctx.Emit(&series.TimeSeriesEvent{
 		SeriesList: []series.GroupedIterator{it},
+		Stats:      &models.QueryStats{},
 	})
 	ctx.Emit(&series.TimeSeriesEvent{
 		Err: fmt.Errorf("err"),
@@ -84,7 +87,7 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 	assert.Error(t, err)
 	assert.NotNil(t, rs.Series[0].Fields["f"])
 
-	ctx = NewBrokerExecuteContext(query)
+	ctx = NewBrokerExecuteContext(timeutil.NowNano(), query)
 	brokerCtx = ctx.(*brokerExecuteContext)
 	brokerCtx.expression = expression
 	assert.NotNil(t, brokerCtx.expression)
@@ -101,7 +104,7 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 }
 
 func TestBrokerExecuteContext_ResultSet(t *testing.T) {
-	ctx := NewBrokerExecuteContext(nil)
+	ctx := NewBrokerExecuteContext(timeutil.NowNano(), nil)
 	ctx.Complete(fmt.Errorf("err"))
 	rs, err := ctx.ResultSet()
 	assert.Error(t, err)

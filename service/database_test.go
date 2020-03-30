@@ -107,6 +107,7 @@ func TestDatabaseService_List(t *testing.T) {
 		NumOfShard:    12,
 		ReplicaFactor: 3,
 	}
+	database.Desc = database.String()
 	data, _ := json.Marshal(&database)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
 		{Key: "db", Value: data},

@@ -42,7 +42,7 @@ export default class DatabaseNameSelect extends React.Component<DatabaseNameSele
         return (
             <Select value={value} style={{ width: 150 }} onSelect={this.selectDatabase}>
                 {this.databaseNames && this.databaseNames.map(item => (
-                    <Option key={item}>{item}</Option>
+                    <Option key={item} value={item}>{item}</Option>
                 ))}
             </Select>
         )

@@ -1,10 +1,11 @@
 import * as React from 'react'
-import { Breadcrumb, Icon } from 'antd'
+import { Breadcrumb } from 'antd'
+import { HomeOutlined } from '@ant-design/icons';
 import { withRouter } from 'react-router-dom'
-import {observer} from 'mobx-react'
+import { observer } from 'mobx-react'
 import StoreManager from '../store/StoreManager'
-import {BreadcrumbStatus} from '../model/Breadcrumb'
-import {Link} from 'react-router-dom'
+import { BreadcrumbStatus } from '../model/Breadcrumb'
+import { Link } from 'react-router-dom'
 
 interface BreadcrumbHeaderProps {
   location: any
@@ -29,7 +30,7 @@ class BreadcrumbHeader extends React.Component<BreadcrumbHeaderProps, Breadcrumb
     })
     return (
       <div className="lindb-header__breadcrumb">
-        {this.breadcrumbStore.breadcrumbList.length > 0 && (<Icon type="home"/>)}
+        {this.breadcrumbStore.breadcrumbList.length > 0 && (<HomeOutlined />)}
         <Breadcrumb>
           {breadcrumbItems}
         </Breadcrumb>

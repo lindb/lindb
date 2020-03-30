@@ -1,19 +1,16 @@
 import { Layout } from 'antd'
 import * as React from 'react'
 import { Route, Switch } from 'react-router-dom'
-
-import Header from '../../components/Layout/Header'
-import Footer from '../../components/Layout/Footer'
-import SiderMenu from '../../components/Layout/SiderMenu'
-import ChartTooltip from '../../components/Chart/ChartTooltip'
-
-import SearchPage from '../Search/DataSearch'
-import OverviewPage from '../Overview/Overview'
-import StorageClusterDetailPage from '../Overview/StorageClusterDetail'
-import Cluster from '../Setting/Cluster'
-import Database from '../Setting/Database'
-import MonitoringSystem from '../Monitor/System'
-import { CreateDatabaseWithForm } from '../Setting/NewDatabase'
+import ChartTooltip from '../../components/metric/ChartTooltip'
+import Footer from './Footer'
+import Header from './Header'
+import SiderMenu from './SiderMenu'
+import Database from '../admin/Database'
+import Storage from '../admin/Storage'
+import Runtime from '../monitoring/Runtime'
+import OverviewPage from '../home/Overview'
+import StorageClusterDetailPage from '../home/StorageClusterDetail'
+import SearchPage from '../query/MetricDataSearch'
 
 const { Content: AntDContent } = Layout
 
@@ -46,10 +43,9 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/" component={OverviewPage}/>
               <Route exact={true} path="/storage/cluster/:clusterName" component={StorageClusterDetailPage}/>
               <Route exact={true} path="/search" component={SearchPage}/>
-              <Route exact={true} path="/monitoring/system" component={MonitoringSystem}/>
-              <Route exact={true} path="/setting/cluster" component={Cluster}/>
-              <Route exact={true} path="/setting/database" component={Database}/>
-              <Route exact={true} path="/setting/database/new" component={CreateDatabaseWithForm}/>
+              <Route exact={true} path="/monitoring/runtime" component={Runtime}/>
+              <Route exact={true} path="/admin/storage" component={Storage}/>
+              <Route exact={true} path="/admin/database" component={Database}/>
             </Switch>
           </AntDContent>
 

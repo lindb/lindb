@@ -19,7 +19,7 @@ interface OverviewState {
 }
 
 @observer
-class Overview extends React.Component<OverviewProps, OverviewState> {
+export default class Overview extends React.Component<OverviewProps, OverviewState> {
   constructor(props: OverviewProps) {
     super(props)
 
@@ -72,7 +72,7 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
         {/* Master */}
         <Card size="small" title="Master" loading={false}>
           {ip}:{port}
-          <Tag color="green" style={{ color: "#fff", background: "#353535", padding: "2px", marginLeft: "8px" }}>
+          <Tag color="lime" style={{ padding: "2px", marginLeft: "8px" }}>
             <span style={{ margin: "4px" }}>
               Elect Time: {dateFormatter(electTime)}
             </span>
@@ -91,5 +91,3 @@ class Overview extends React.Component<OverviewProps, OverviewState> {
     )
   }
 }
-
-export default Overview 

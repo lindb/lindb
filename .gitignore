@@ -4,6 +4,7 @@ bin/
 .vscode/
 .DS_Store
 *.log
+.history
 
 # temp file during testing
 *.test

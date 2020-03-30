@@ -1,7 +1,7 @@
 import { Card } from 'antd'
 import * as React from 'react'
-import ViewBoard from '../../components/Chart/ViewBoard'
-import { SystemStorageBoard } from '../../config/monitoring/system'
+import ViewBoard from '../../components/metric/ViewBoard'
+import { SystemStorageBoard } from '../../config/monitoring/Runtime'
 
 interface MonitoringSystemProps {
 }

@@ -1,8 +1,11 @@
 import { UnitEnum } from '../model/Metric'
+const convert = require('convert-units')
 
 export class DataFormatter {
   public static formatter(point: number, unit: UnitEnum) {
     switch (unit) {
+      case UnitEnum.Nanoseconds:
+        return this.transformNanoSeconds(point);
       case UnitEnum.Milliseconds:
         return this.transformMilliseconds(point)
       case UnitEnum.Seconds:
@@ -13,6 +16,19 @@ export class DataFormatter {
         return this.transformPercent(point)
       default:
         return this.transformNone(point)
+    }
+  }
+
+  public static transformNanoSeconds(input: number, decimals?: number): string {
+    if (!input) {
+      return "0";
+    }
+    const best = convert(input).from("ns").toBest();
+    const value = convert(input).from("ns").to(best.unit);
+    if (decimals !== undefined) {
+      return value.toFixed(decimals) + best.unit;
+    } else {
+      return Math.floor(value * 100) / 100 + best.unit;
     }
   }
 
