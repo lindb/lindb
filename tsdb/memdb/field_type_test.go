@@ -16,4 +16,5 @@ func TestFieldType_getFieldType(t *testing.T) {
 	assert.Equal(t, field.MaxField, getFieldType(&pb.Field{Type: pb.FieldType_Max}))
 	assert.Equal(t, field.GaugeField, getFieldType(&pb.Field{Type: pb.FieldType_Gauge}))
 	assert.Equal(t, field.SummaryField, getFieldType(&pb.Field{Type: pb.FieldType_Summary}))
+	assert.Equal(t, field.IncreaseField, getFieldType(&pb.Field{Type: pb.FieldType_Increase}))
 }
