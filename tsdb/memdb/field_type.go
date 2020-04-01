@@ -18,6 +18,8 @@ func getFieldType(f *pb.Field) field.Type {
 		return field.GaugeField
 	case pb.FieldType_Summary:
 		return field.SummaryField
+	case pb.FieldType_Increase:
+		return field.IncreaseField
 	default:
 		return field.Unknown
 	}
