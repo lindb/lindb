@@ -128,7 +128,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags [
 
 	metricID, err := mdb.backend.getMetricID(namespace, metricName)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return mdb.backend.getAllTagKeys(metricID)
@@ -372,32 +372,26 @@ func (mdb *metadataDatabase) syncPendingEvent() {
 }
 
 // SuggestMetrics returns suggestions from a given prefix of metricName
-func (mdb *metadataDatabase) SuggestMetrics(metricPrefix string, limit int) []string {
-	metricNames, err := mdb.SuggestMetricName(constants.DefaultNamespace, metricPrefix, limit)
-	if err != nil {
-		metaLogger.Info("SuggestMetrics err...", logger.Error(err))
-		return nil
-	}
-	return metricNames
+func (mdb *metadataDatabase) SuggestMetrics(namespace, metricPrefix string, limit int) ([]string, error) {
+	return mdb.SuggestMetricName(namespace, metricPrefix, limit)
 }
 
 // SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
-func (mdb *metadataDatabase) SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string {
-	tags, err := mdb.GetAllTagKeys(constants.DefaultNamespace, metricName)
+func (mdb *metadataDatabase) SuggestTagKeys(namespace, metricName, tagKeyPrefix string, limit int) ([]string, error) {
+	tags, err := mdb.GetAllTagKeys(namespace, metricName)
 	if err != nil {
-		metaLogger.Info("SuggestTagKeys err...", logger.Error(err))
-		return nil
+		return nil, err
 	}
 	keys := make([]string, 0)
 	num := 0
-	for _, tag := range tags {
+	for _, tagMeta := range tags {
 		if limit != 0 && num >= limit {
 			break
 		}
-		if tag.Key != "" && strings.HasPrefix(tag.Key, tagKeyPrefix) {
-			keys = append(keys, tag.Key)
+		if tagMeta.Key != "" && strings.HasPrefix(tagMeta.Key, tagKeyPrefix) {
+			keys = append(keys, tagMeta.Key)
 			num++
 		}
 	}
-	return keys
+	return keys, nil
 }

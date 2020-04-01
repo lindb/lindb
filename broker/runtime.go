@@ -387,9 +387,11 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("PrometheusWriter", http.MethodPut, "/metric/prometheus", handlers.prometheusWriter.Write)
 
 	api.AddRoute("ListDatabaseNodes", http.MethodGet, "/metadata/database/names", handlers.metaDatabaseAPI.ListDatabaseNames)
-	api.AddRoute("SuggestMetric", http.MethodGet, "/metadata/suggest/metric", handlers.metaMetricAPI.SuggestMetrics)
-	api.AddRoute("SuggestTagKey", http.MethodGet, "/metadata/suggest/tagKey", handlers.metaMetricAPI.SuggestTagKeys)
-	api.AddRoute("SuggestTagValue", http.MethodGet, "/metadata/suggest/tagValue", handlers.metaMetricAPI.SuggestTagValues)
+	api.AddRoute("SuggestNamespace", http.MethodGet, "/metadata/namespace", handlers.metaMetricAPI.SuggestNamespace)
+	api.AddRoute("SuggestMetric", http.MethodGet, "/metadata/metric", handlers.metaMetricAPI.SuggestMetrics)
+	api.AddRoute("SuggestField", http.MethodGet, "/metadata/field", handlers.metaMetricAPI.GetAllFields)
+	api.AddRoute("SuggestTagKey", http.MethodGet, "/metadata/tagKey", handlers.metaMetricAPI.SuggestTagKeys)
+	api.AddRoute("SuggestTagValue", http.MethodGet, "/metadata/tagValue", handlers.metaMetricAPI.SuggestTagValues)
 }
 
 // buildMiddlewareDependency builds middleware dependency

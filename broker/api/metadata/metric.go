@@ -11,6 +11,8 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -34,6 +36,27 @@ func NewMetricAPI(replicaStateMachine replica.StatusStateMachine, nodeStateMachi
 	}
 }
 
+// SuggestNamespace suggest namespace based on prefix
+func (m *MetricAPI) SuggestNamespace(w http.ResponseWriter, r *http.Request) {
+	db, err := api.GetParamsFromRequest("db", r, "", true)
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	prefix, _ := api.GetParamsFromRequest("prefix", r, "", false)
+	limitStr, _ := api.GetParamsFromRequest("limit", r, "100", false)
+	l, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	m.suggest(w, db, prefix, &stmt.Metadata{
+		Namespace: prefix,
+		Type:      stmt.Namespace,
+		Limit:     int(l),
+	})
+}
+
 // SuggestMetrics suggests metric names based on prefix
 func (m *MetricAPI) SuggestMetrics(w http.ResponseWriter, r *http.Request) {
 	db, namespace, metricNamePrefix, limit, err := getCommonParams(r)
@@ -42,6 +65,7 @@ func (m *MetricAPI) SuggestMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.suggest(w, db, namespace, &stmt.Metadata{
+		Namespace:  namespace,
 		Type:       stmt.Metric,
 		MetricName: metricNamePrefix,
 		Limit:      limit,
@@ -61,11 +85,54 @@ func (m *MetricAPI) SuggestTagKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.suggest(w, db, namespace, &stmt.Metadata{
+		Namespace:  namespace,
 		Type:       stmt.TagKey,
 		MetricName: metricName,
 		TagKey:     tagKeyPrefix,
 		Limit:      limit,
 	})
+}
+
+// GetAllFields returns all fields for spec metric name
+func (m *MetricAPI) GetAllFields(w http.ResponseWriter, r *http.Request) {
+	db, namespace, _, limit, err := getCommonParams(r)
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	metricName, err := api.GetParamsFromRequest("metric", r, "", true)
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	//TODO add timeout cfg
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	defer cancel()
+
+	exec := m.executorFactory.NewMetadataBrokerExecutor(ctx, db, namespace, &stmt.Metadata{
+		Namespace:  namespace,
+		Type:       stmt.Field,
+		MetricName: metricName,
+		Limit:      limit,
+	}, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	values, err := exec.Execute()
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	result := make(map[string]string)
+	fields := field.Metas{}
+	for _, value := range values {
+		err = encoding.JSONUnmarshal([]byte(value), &fields)
+		if err != nil {
+			api.Error(w, err)
+			return
+		}
+		for _, f := range fields {
+			result[f.Name] = f.Type.String()
+		}
+	}
+	api.OK(w, result)
 }
 
 // SuggestTagValues suggests tag values based on prefix
@@ -86,6 +153,7 @@ func (m *MetricAPI) SuggestTagValues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.suggest(w, db, namespace, &stmt.Metadata{
+		Namespace:  namespace,
 		Type:       stmt.TagValue,
 		MetricName: metricName,
 		TagKey:     tagKey,

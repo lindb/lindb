@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
@@ -120,7 +121,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	storageService := service.NewMockStorageService(ctrl)
 	executorFactory := NewMockExecutorFactory(ctrl)
 	exec := NewMockMetadataExecutor(ctrl)
-	executorFactory.EXPECT().NewMetadataStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
+	executorFactory.EXPECT().NewMetadataStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
 	processor := newLeafTask(currentNode, storageService, executorFactory, taskServerFactory)
@@ -160,6 +161,14 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 
 	// normal case
 	exec.EXPECT().Execute().Return([]string{"a"}, nil)
+	serverStream.EXPECT().Send(gomock.Any()).Return(nil)
+	err = processor.Process(context.TODO(), &pb.TaskRequest{
+		PhysicalPlan: plan,
+		RequestType:  pb.RequestType_Metadata,
+		Payload:      data})
+	assert.NoError(t, err)
+	// test not found
+	exec.EXPECT().Execute().Return(nil, constants.ErrNotFound)
 	serverStream.EXPECT().Send(gomock.Any()).Return(nil)
 	err = processor.Process(context.TODO(), &pb.TaskRequest{
 		PhysicalPlan: plan,
