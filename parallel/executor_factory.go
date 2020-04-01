@@ -24,6 +24,7 @@ type ExecutorFactory interface {
 	// NewMetadataStorageExecutor creates the metadata executor in storage side
 	NewMetadataStorageExecutor(
 		database tsdb.Database,
+		namespace string,
 		shardIDs []int32,
 		request *stmt.Metadata,
 	) MetadataExecutor

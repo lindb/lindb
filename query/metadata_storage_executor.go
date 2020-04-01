@@ -1,27 +1,29 @@
 package query
 
 import (
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
 // metadataStorageExecutor represents the executor which executes metric metadata suggest in storage side
 type metadataStorageExecutor struct {
-	database tsdb.Database
-	request  *stmt.Metadata
-	shardIDs []int32
+	database  tsdb.Database
+	namespace string
+	request   *stmt.Metadata
+	shardIDs  []int32
 }
 
 // newMetadataStorageExecutor creates a metadata suggest executor in storage side
-func newMetadataStorageExecutor(database tsdb.Database, shardIDs []int32,
+func newMetadataStorageExecutor(database tsdb.Database, namespace string, shardIDs []int32,
 	request *stmt.Metadata,
 ) parallel.MetadataExecutor {
 	return &metadataStorageExecutor{
-		database: database,
-		request:  request,
-		shardIDs: shardIDs,
+		database:  database,
+		namespace: namespace,
+		request:   request,
+		shardIDs:  shardIDs,
 	}
 }
 
@@ -31,15 +33,23 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 	limit := req.Limit
 
 	switch req.Type {
+	case stmt.Namespace:
+		return e.database.Metadata().MetadataDatabase().SuggestNamespace(req.Namespace, limit)
 	case stmt.Metric:
-		result = e.database.Metadata().MetadataDatabase().SuggestMetrics(req.MetricName, limit)
+		return e.database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.MetricName, limit)
 	case stmt.TagKey:
-		result = e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.MetricName, req.TagKey, limit)
-	case stmt.TagValue:
-		tagKeyID, err := e.database.Metadata().
-			MetadataDatabase().GetTagKeyID(constants.DefaultNamespace, req.MetricName, req.TagKey)
+		return e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.Namespace, req.MetricName, req.TagKey, limit)
+	case stmt.Field:
+		fields, err := e.database.Metadata().MetadataDatabase().GetAllFields(req.Namespace, req.MetricName)
 		if err != nil {
-			break
+			return nil, err
+		}
+		result = append(result, string(encoding.JSONMarshal(fields)))
+		return result, nil
+	case stmt.TagValue:
+		tagKeyID, err := e.database.Metadata().MetadataDatabase().GetTagKeyID(req.Namespace, req.MetricName, req.TagKey)
+		if err != nil {
+			return nil, err
 		}
 		result = e.database.Metadata().TagMetadata().SuggestTagValues(tagKeyID, req.TagValue, limit)
 	}
