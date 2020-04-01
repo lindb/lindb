@@ -71,7 +71,7 @@ func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().suggestMetricName(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
-	values, err := db.SuggestMetricName("ns", "pp", 10)
+	values, err := db.SuggestMetrics("ns", "pp", 10)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, values)
 
@@ -179,6 +179,36 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	mockBackend.EXPECT().saveMetadata(gomock.Any()).AnyTimes()
 	mockBackend.EXPECT().Close().Return(nil)
 	_ = db.Close()
+}
+
+func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		createMetadataBackend = newMetadataBackend
+	}()
+	mockBackend := NewMockMetadataBackend(ctrl)
+	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+		return mockBackend, nil
+	}
+	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	assert.NoError(t, err)
+	mockBackend.EXPECT().getMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
+	// case 1: suggest tag keys
+	mockBackend.EXPECT().getAllTagKeys(gomock.Any()).Return([]tag.Meta{{ID: 10, Key: "tag-key"}}, nil)
+	tagKeys, err := db.SuggestTagKeys("ns-1", "name1", "tag", 100)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"tag-key"}, tagKeys)
+	// case 2: get tag values err
+	mockBackend.EXPECT().getAllTagKeys(gomock.Any()).Return([]tag.Meta{{ID: 10, Key: "tag-key"}}, fmt.Errorf("err"))
+	tagKeys, err = db.SuggestTagKeys("ns-1", "name1", "tag", 100)
+	assert.Error(t, err)
+	assert.Nil(t, tagKeys)
+	// case 2: get tag values limit
+	mockBackend.EXPECT().getAllTagKeys(gomock.Any()).Return([]tag.Meta{{ID: 10, Key: "tag-key"}, {ID: 10, Key: "tag-key1"}}, nil)
+	tagKeys, err = db.SuggestTagKeys("ns-1", "name1", "tag", 1)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"tag-key"}, tagKeys)
 }
 
 func TestMetadataDatabase_GetField(t *testing.T) {

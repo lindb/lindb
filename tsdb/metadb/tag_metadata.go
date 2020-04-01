@@ -1,6 +1,7 @@
 package metadb
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/lindb/roaring"
@@ -129,12 +130,12 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 
 // SuggestTagValues returns suggestions from given tag key id and prefix of tag value
 func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
-	//FIXME stone1100
-
 	result := make([]string, 0)
 	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
 		for value := range tagEntry.getTagValues() {
-			result = append(result, value)
+			if strings.HasPrefix(value, tagValuePrefix) {
+				result = append(result, value)
+			}
 		}
 	})
 

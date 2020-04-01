@@ -59,8 +59,6 @@ type MetadataDatabase interface {
 
 	// SuggestNamespace suggests the namespace by namespace's prefix
 	SuggestNamespace(prefix string, limit int) (namespaces []string, err error)
-	// SuggestMetricName suggests the metric name by name's prefix
-	SuggestMetricName(namespace, prefix string, limit int) (namespaces []string, err error)
 	// Sync syncs the pending metadata update event
 	Sync() error
 }

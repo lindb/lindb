@@ -10,9 +10,9 @@ import (
 // default max limit of suggestions is set in constants
 type MetricMetaSuggester interface {
 	// SuggestMetrics returns suggestions from a given prefix of metricName
-	SuggestMetrics(metricPrefix string, limit int) []string
+	SuggestMetrics(namespace, metricPrefix string, limit int) ([]string, error)
 	// SuggestTagKeys returns suggestions from given metricName and prefix of tagKey
-	SuggestTagKeys(metricName, tagKeyPrefix string, limit int) []string
+	SuggestTagKeys(namespace, metricName, tagKeyPrefix string, limit int) ([]string, error)
 }
 
 // TagValueSuggester represents the suggest ability for tagValues.

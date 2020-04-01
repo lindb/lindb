@@ -6,9 +6,9 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID   ID   // query not use ID, don't get id in query phase
-	Type Type // query not user type
-	Name string
+	ID   ID     `json:"id"`   // query not use ID, don't get id in query phase
+	Type Type   `json:"type"` // query not user type
+	Name string `json:"name"`
 }
 
 // Metas implements sort.Interface, it's sorted by name

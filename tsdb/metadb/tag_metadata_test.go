@@ -86,10 +86,42 @@ func TestTagMetadata_GenTagValueID(t *testing.T) {
 }
 
 func TestTagMetadata_SuggestTagValues(t *testing.T) {
-	meta := NewTagMetadata(nil)
-	assert.Panics(t, func() {
-		_ = meta.SuggestTagValues(1, "11", 10)
-	})
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newTagReaderFunc = tagkeymeta.NewReader
+		ctrl.Finish()
+	}()
+
+	meta, _, snapshot := mockTagMetadata(ctrl)
+	m := meta.(*tagMetadata)
+	m.rwMutex.Lock()
+	m.immutable = NewTagStore()
+	tagEntry := newTagEntry(10)
+	tagEntry.addTagValue("tag-value-5", 10)
+	m.immutable.Put(5, tagEntry)
+	m.rwMutex.Unlock()
+
+	// case 1: not match in memory
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
+	values := meta.SuggestTagValues(5, "11", 10)
+	assert.Empty(t, values)
+	// case 2: match in memory
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
+	values = meta.SuggestTagValues(5, "tag-value", 10)
+	assert.Equal(t, []string{"tag-value-5"}, values)
+	// case 3: find readers err
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	values = meta.SuggestTagValues(5, "tag-value", 10)
+	assert.Empty(t, values)
+	// case 4: find in kv store
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
+	r := tagkeymeta.NewMockReader(ctrl)
+	newTagReaderFunc = func(readers []table.Reader) tagkeymeta.Reader {
+		return r
+	}
+	r.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"tag-value-8"})
+	values = meta.SuggestTagValues(5, "tag-key", 10)
+	assert.Equal(t, []string{"tag-value-8"}, values)
 }
 
 func TestTagMetadata_FindTagValueDsByExpr(t *testing.T) {
