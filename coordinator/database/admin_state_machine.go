@@ -89,14 +89,16 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 	}
 	// build shard assignment for creation database, generate related coordinator task
 	if shardAssign == nil {
-		if err := sm.createShardAssignment(cfg.Name, cluster, &cfg); err != nil {
+		if err := sm.createShardAssignment(cfg.Name, cluster, &cfg, -1, -1); err != nil {
 			sm.log.Error("create shard assignment error",
 				logger.String("data", string(resource)), logger.Error(err))
 		}
+	} else if len(shardAssign.Shards) != cfg.NumOfShard {
+		if err := sm.modifyShardAssignment(cfg.Name, shardAssign, cluster, &cfg); err != nil {
+			sm.log.Error("modify shard assignment error",
+				logger.String("data", string(resource)), logger.Error(err))
+		}
 	}
-
-	//} else if len(shardAssign.Shards) != cfg.NumOfShard {
-	//TODO need implement modify database shard num.
 }
 
 func (sm *adminStateMachine) OnDelete(key string) {
@@ -115,7 +117,7 @@ func (sm *adminStateMachine) Close() error {
 // 2) save shard assignment into related storage cluster
 // 3) submit create shard coordinator task(storage node will execute it when receive task event)
 func (sm *adminStateMachine) createShardAssignment(databaseName string,
-	cluster storage.Cluster, cfg *models.Database) error {
+	cluster storage.Cluster, cfg *models.Database, fixedStartIndex, startShardID int) error {
 	activeNodes := cluster.GetActiveNodes()
 	if len(activeNodes) == 0 {
 		return fmt.Errorf("active node not found")
@@ -132,13 +134,47 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	}
 
 	// generate shard assignment based on node ids and config
-	shardAssign, err := ShardAssignment(nodeIDs, cfg)
+	shardAssign, err := ShardAssignment(nodeIDs, cfg, fixedStartIndex, startShardID)
 	if err != nil {
 		return err
 	}
 	// set nodes and config, storage node will use it when execute create shard task
 	shardAssign.Nodes = nodes
 
+	// save shard assignment into related storage cluster
+	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Option); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sm *adminStateMachine) modifyShardAssignment(databaseName string, shardAssign *models.ShardAssignment,
+	cluster storage.Cluster, cfg *models.Database) error {
+	if len(shardAssign.Shards) > cfg.NumOfShard { //reduce shardAssign's shards
+		//TODO implement the reduce shards, is needed?
+		panic("not implemented")
+	} else if len(shardAssign.Shards) < cfg.NumOfShard { //add shardAssign's shards
+		activeNodes := cluster.GetActiveNodes()
+		if len(activeNodes) == 0 {
+			return fmt.Errorf("active node not found")
+		}
+		//TODO need calc resource and pick related node for store data
+		var nodes = make(map[int]*models.Node)
+		for idx, node := range activeNodes {
+			nodes[idx] = &node.Node
+		}
+
+		var nodeIDs []int
+		for idx := range nodes {
+			nodeIDs = append(nodeIDs, idx)
+		}
+
+		// generate shard assignment based on node ids and config
+		err := ModifyShardAssignment(nodeIDs, cfg, shardAssign, -1, len(shardAssign.Shards))
+		if err != nil {
+			return err
+		}
+	}
 	// save shard assignment into related storage cluster
 	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Option); err != nil {
 		return err

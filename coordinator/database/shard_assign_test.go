@@ -16,7 +16,7 @@ func TestShardAssign(t *testing.T) {
 			Name:          "test",
 			NumOfShard:    0,
 			ReplicaFactor: 3,
-		})
+		}, -1, -1)
 	assert.NotNil(t, err1)
 
 	_, err1 = ShardAssignment(storageNodeIDs,
@@ -24,7 +24,7 @@ func TestShardAssign(t *testing.T) {
 			Name:          "test",
 			NumOfShard:    3,
 			ReplicaFactor: 0,
-		})
+		}, -1, -1)
 	assert.NotNil(t, err1)
 
 	_, err2 := ShardAssignment(storageNodeIDs,
@@ -32,7 +32,7 @@ func TestShardAssign(t *testing.T) {
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 6,
-		})
+		}, -1, -1)
 	assert.NotNil(t, err2)
 
 	shardAssignment, _ := ShardAssignment(storageNodeIDs,
@@ -40,7 +40,7 @@ func TestShardAssign(t *testing.T) {
 			Name:          "test",
 			NumOfShard:    10,
 			ReplicaFactor: 3,
-		})
+		}, -1, -1)
 	checkShardAssignResult(shardAssignment, t)
 }
 
