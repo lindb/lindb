@@ -28,7 +28,7 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []int, cfg *models.Database) (*models.ShardAssignment, error) {
+func ShardAssignment(storageNodeIDs []int, cfg *models.Database, fixedStartIndex, startShardID int) (*models.ShardAssignment, error) {
 	numOfShard := cfg.NumOfShard
 	replicaFactor := cfg.ReplicaFactor
 	if numOfShard <= 0 {
@@ -44,9 +44,29 @@ func ShardAssignment(storageNodeIDs []int, cfg *models.Database) (*models.ShardA
 	}
 
 	shardAssignment := models.NewShardAssignment(cfg.Name)
-	assignReplicasToStorageNodes(storageNodeIDs, numOfShard, replicaFactor, -1, -1, shardAssignment)
+	assignReplicasToStorageNodes(storageNodeIDs, numOfShard, replicaFactor, fixedStartIndex, startShardID, shardAssignment)
 
 	return shardAssignment, nil
+}
+
+func ModifyShardAssignment(storageNodeIDs []int, cfg *models.Database, shardAssignment *models.ShardAssignment,
+	fixedStartIndex, startShardID int) error {
+	numOfShard := cfg.NumOfShard - len(shardAssignment.Shards)
+	replicaFactor := cfg.ReplicaFactor
+	if numOfShard <= 0 {
+		return fmt.Errorf("shard assign error for databaes[%s], because add num. of shard <=0", cfg.Name)
+	}
+	if replicaFactor <= 0 {
+		return fmt.Errorf("shard assign error for databaes[%s], bacause replica factor <=0", cfg.Name)
+	}
+	if replicaFactor > len(storageNodeIDs) {
+		return fmt.Errorf("shard assign error for databaes[%s], bacause replica factor > num. of storage nodes",
+			cfg.Name)
+	}
+
+	assignReplicasToStorageNodes(storageNodeIDs, numOfShard, replicaFactor, fixedStartIndex, startShardID, shardAssignment)
+
+	return nil
 }
 
 // assignReplicasToStorageNodes assigns replica list for storage cluster
