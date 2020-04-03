@@ -1,11 +1,11 @@
 import { autobind } from 'core-decorators'
 import { reaction } from 'mobx'
-import { cloneDeep, get } from 'lodash';
+import { cloneDeep } from 'lodash';
 import * as React from 'react'
 import { ChartTooltipData, UnitEnum } from '../../model/Metric'
 import { ChartStatusEnum } from '../../model/Chart'
 import StoreManager from '../../store/StoreManager'
-import { CANVAS_CHART_CONFIG, getVisibleInterval,getyAxesConfig } from './ChartConfig'
+import { CANVAS_CHART_CONFIG, getyAxesConfig } from './ChartConfig'
 const ChartJS = require('chart.js')
 
 interface ChartProps {
@@ -78,33 +78,6 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
   @autobind
   setData(chart: any) {
-    const labels = this.series.labels || [];
-    if (labels.length > 0) {
-      const times = get(this.series, "times", []);
-      const interval = get(this.series, "interval", 10000);
-      const width = this.chartCanvas.width;
-      const visibleInterval = getVisibleInterval(times, interval, width);
-
-      const perTickPX = width / (times.length - 1);
-      let idx = 0;
-      let firstIdx = -1;
-      times.map((item: any, index: number) => {
-        if (item % visibleInterval === 0) {
-          if (firstIdx === -1) {
-            firstIdx = index;
-          }
-          idx = index;
-        }
-      });
-      if ((labels.length - idx) * perTickPX > 15) {
-        labels[labels.length - 1] = "";
-      }
-      if (firstIdx * perTickPX < 20) {
-        labels[firstIdx] = "";
-      }
-    }
-
-    // chart.options.status = this.chartStatus;
     chart.options.interval = this.series.interval;
     chart.options.times = this.series.times;
     chart.data = this.series;

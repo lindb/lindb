@@ -73,7 +73,7 @@ func (s *storageService) CreateShards(
 	}
 
 	// create shards for database
-	if err := db.CreateShards(databaseOption, shardIDs...); err != nil {
+	if err := db.CreateShards(databaseOption, shardIDs); err != nil {
 		return err
 	}
 	return nil

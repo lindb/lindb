@@ -14,8 +14,6 @@ import (
 
 // for testing
 var (
-	mkdirFunc       = fileutil.MkDirIfNotExist
-	listDirFunc     = fileutil.ListDir
 	newSequenceFunc = replication.NewSequence
 )
 
@@ -41,7 +39,7 @@ type replicaSequence struct {
 func newReplicaSequence(dirPath string) (ReplicaSequence, error) {
 	if fileutil.Exist(dirPath) {
 		// if replica dir exist, load all exist replica sequences
-		remotePeers, err := listDirFunc(dirPath)
+		remotePeers, err := listDir(dirPath)
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +60,7 @@ func newReplicaSequence(dirPath string) (ReplicaSequence, error) {
 		return ss, nil
 	}
 	// create new sequence for creating shard
-	if err := mkdirFunc(dirPath); err != nil {
+	if err := mkDirIfNotExist(dirPath); err != nil {
 		return nil, err
 	}
 	return &replicaSequence{dirPath: dirPath}, nil

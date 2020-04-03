@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -38,7 +37,7 @@ func newIntervalSegment(
 	segment IntervalSegment,
 	err error,
 ) {
-	if err = fileutil.MkDirIfNotExist(path); err != nil {
+	if err = mkDirIfNotExist(path); err != nil {
 		return segment, err
 	}
 	intervalSegment := &intervalSegment{
@@ -55,7 +54,7 @@ func newIntervalSegment(
 
 	// load segments if exist
 	//TODO too many kv store load???
-	segmentNames, err := fileutil.ListDir(path)
+	segmentNames, err := listDir(path)
 	if err != nil {
 		return segment, err
 	}

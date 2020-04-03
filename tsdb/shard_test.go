@@ -26,7 +26,7 @@ var _testShard1Path = filepath.Join(testPath, shardDir, "1")
 func TestShard_New(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
-		mkdirFunc = fileutil.MkDirIfNotExist
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		newReplicaSequenceFunc = newReplicaSequence
 		newIntervalSegmentFunc = newIntervalSegment
 		newKVStoreFunc = kv.NewStore
@@ -47,14 +47,14 @@ func TestShard_New(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
 	// case 3: create path err
-	mkdirFunc = func(path string) error {
+	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
 	// case 4: new replica sequence err
-	mkdirFunc = fileutil.MkDirIfNotExist
+	mkDirIfNotExist = fileutil.MkDirIfNotExist
 	newReplicaSequenceFunc = func(dirPath string) (sequence ReplicaSequence, err error) {
 		return nil, fmt.Errorf("err")
 	}
@@ -296,29 +296,26 @@ func TestShard_Flush(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(nil).AnyTimes()
-	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	s1 := s.(*shard)
+
+	s1 := mockShard(ctrl)
 	mutable := memdb.NewMockMemoryDatabase(ctrl)
 	s1.mutable = mutable
 	// case 1: flush is doing
 	s1.isFlushing.Store(true)
-	err := s.Flush()
+	err := s1.Flush()
 	assert.NoError(t, err)
 	// case 2: flush err
 	s1.isFlushing.Store(false)
 	mutable.EXPECT().Families().Return([]int64{1, 2})
 	mutable.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = s.Flush()
+	err = s1.Flush()
 	assert.Error(t, err)
 	// case 3: get segment err
 	intervalSegment := NewMockIntervalSegment(ctrl)
 	s1.segment = intervalSegment
 	mutable.EXPECT().Families().Return([]int64{1, 2}).AnyTimes()
 	intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err = s.Flush()
+	err = s1.Flush()
 	assert.Error(t, err)
 	// case 4: ack replica sequence err
 	seq := NewMockReplicaSequence(ctrl)
@@ -326,12 +323,42 @@ func TestShard_Flush(t *testing.T) {
 	seq.EXPECT().getAllHeads().Return(nil).AnyTimes()
 	seq.EXPECT().ack(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err = s.Flush()
+	err = s1.Flush()
 	assert.Error(t, err)
 	// case 5: get family err
 	segment := NewMockSegment(ctrl)
 	intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil).AnyTimes()
 	segment.EXPECT().GetDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err")).Times(2)
-	err = s.Flush()
+	err = s1.Flush()
 	assert.NoError(t, err)
+}
+
+func TestShard_NeedFlush(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	mutable := memdb.NewMockMemoryDatabase(ctrl)
+	s1 := mockShard(ctrl)
+	s1.mutable = mutable
+	// case 1: flush doing
+	s1.isFlushing.Store(true)
+	assert.False(t, s1.NeedFlush())
+	// case 2: need flush
+	s1.isFlushing.Store(false)
+	mutable.EXPECT().MemSize().Return(int32(constants.ShardMemoryUsedThreshold + 10))
+	assert.True(t, s1.NeedFlush())
+	// case 3: mem size < threshold
+	mutable.EXPECT().MemSize().Return(int32(10))
+	assert.False(t, s1.NeedFlush())
+}
+
+func mockShard(ctrl *gomock.Controller) *shard {
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test-db").AnyTimes()
+	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	s1 := s.(*shard)
+	return s1
 }
