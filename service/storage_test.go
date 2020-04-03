@@ -16,7 +16,7 @@ import (
 var testPath = "test_data"
 var validOption = option.DatabaseOption{Interval: "10s"}
 
-func TestCreateShards(t *testing.T) {
+func TestStorageService_CreateShards(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
@@ -78,4 +78,18 @@ func TestStorageService_FlushDatabase(t *testing.T) {
 	mockEngine.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(true)
 	ok := service.FlushDatabase(context.TODO(), "db")
 	assert.True(t, ok)
+
+}
+
+func TestStorageService_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	mockEngine := tsdb.NewMockEngine(ctrl)
+	service := NewStorageService(mockEngine)
+	mockEngine.EXPECT().Close()
+	service.Close()
 }

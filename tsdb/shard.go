@@ -49,6 +49,8 @@ type Shard interface {
 	DatabaseName() string
 	// ShardID returns the shard id
 	ShardID() int32
+	// ShardInfo returns the unique shard info
+	ShardInfo() string
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// MemoryDatabase returns memory database
@@ -61,8 +63,10 @@ type Shard interface {
 	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
 	// Close releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
-	// Flush index and memory data to disk
+	// Flush flushes index and memory data to disk
 	Flush() error
+	// NeedFlush checks if shard need to flush memory data
+	NeedFlush() bool
 	// IsFlushing checks if this shard is in flushing
 	IsFlushing() bool
 	// initIndexDatabase initializes index database
@@ -73,7 +77,7 @@ type Shard interface {
 // directory tree:
 //    xx/shard/1/ (path)
 //    xx/shard/1/replica
-//    xx/shard/1/temp/123213123131 // time of ms
+//    xx/shard/1/temp/123213123131 // time of ns
 //    xx/shard/1/meta/
 //    xx/shard/1/index/inverted/
 //    xx/shard/1/data/20191012/
@@ -125,7 +129,7 @@ func newShard(
 	var interval timeutil.Interval
 	_ = interval.ValueOf(option.Interval)
 
-	if err := mkdirFunc(shardPath); err != nil {
+	if err := mkDirIfNotExist(shardPath); err != nil {
 		return nil, err
 	}
 	replicaSequence, err := newReplicaSequenceFunc(filepath.Join(shardPath, replicaDir))
@@ -164,6 +168,8 @@ func newShard(
 		Metadata: createdShard.metadata,
 		TempPath: filepath.Join(shardPath, tempDir),
 	})
+	// add shard into global shard manager
+	GetShardManager().AddShard(createdShard)
 	return createdShard, nil
 }
 
@@ -175,6 +181,11 @@ func (s *shard) DatabaseName() string {
 // ShardID returns the shard id
 func (s *shard) ShardID() int32 {
 	return s.id
+}
+
+// ShardInfo returns the unique shard info
+func (s *shard) ShardInfo() string {
+	return s.path
 }
 
 func (s *shard) GetOrCreateSequence(replicaPeer string) (replication.Sequence, error) {
@@ -193,10 +204,16 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 	return nil
 }
 
+// MemoryDatabase returns memory database
 func (s *shard) MemoryDatabase() memdb.MemoryDatabase {
-	return s.mutable
+	var memDB memdb.MemoryDatabase
+	s.rwMutex.RLock()
+	memDB = s.mutable
+	s.rwMutex.RUnlock()
+	return memDB
 }
 
+// Write writes the metric-point into memory-database.
 func (s *shard) Write(metric *pb.Metric) error {
 	if metric == nil {
 		return constants.ErrNilMetric
@@ -239,12 +256,8 @@ func (s *shard) Write(metric *pb.Metric) error {
 		// if series id is new, need build inverted index
 		s.indexDB.BuildInvertIndex(ns, metric.Name, metric.Tags, seriesID)
 	}
-
-	var db memdb.MemoryDatabase
-	s.rwMutex.Lock()
+	db := s.MemoryDatabase()
 	s.writing.Store(true)
-	db = s.mutable
-	s.rwMutex.Unlock()
 
 	// set write completed
 	defer s.writing.Store(false)
@@ -253,6 +266,7 @@ func (s *shard) Write(metric *pb.Metric) error {
 }
 
 func (s *shard) Close() error {
+	GetShardManager().RemoveShard(s)
 	if err := s.Flush(); err != nil {
 		return err
 	}
@@ -297,7 +311,19 @@ func (s *shard) initIndexDatabase() error {
 	return nil
 }
 
+// IsFlushing checks if this shard is in flushing
 func (s *shard) IsFlushing() bool { return s.isFlushing.Load() }
+
+// NeedFlush checks if shard need to flush memory data
+func (s *shard) NeedFlush() bool {
+	if s.IsFlushing() {
+		return false
+	}
+	memDB := s.MemoryDatabase()
+
+	//TODO add time threshold???
+	return memDB.MemSize() > constants.ShardMemoryUsedThreshold
+}
 
 func (s *shard) Flush() (err error) {
 	// another flush process is running

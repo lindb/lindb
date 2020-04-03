@@ -17,7 +17,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
@@ -28,6 +27,7 @@ import (
 var (
 	newMetadataFunc = metadb.NewMetadata
 	newShardFunc    = newShard
+	encodeToml      = ltoml.EncodeToml
 )
 
 const (
@@ -47,7 +47,7 @@ type Database interface {
 	// GetOption returns the data base options
 	GetOption() option.DatabaseOption
 	// CreateShards creates shards for data partition
-	CreateShards(option option.DatabaseOption, shardIDs ...int32) error
+	CreateShards(option option.DatabaseOption, shardIDs []int32) error
 	// GetShard returns shard by given shard id
 	GetShard(shardID int32) (Shard, bool)
 	// ExecutorPool returns the pool for querying tasks
@@ -56,18 +56,16 @@ type Database interface {
 	io.Closer
 	// Metadata returns the metadata include metric/tag
 	Metadata() metadb.Metadata
-	// MetricMetaSuggester returns the metric metadata suggester
-	MetricMetaSuggester() series.MetricMetaSuggester
-	// Flush flushes meta to disk
+	// FlushMeta flushes meta to disk
 	FlushMeta() error
-	// Range is the proxy method for iterating shards
-	Range(f func(key, value interface{}) bool)
+	// FLush flushes data to disk
+	Flush() error
 }
 
 // databaseConfig represents a database configuration about config and shards
 type databaseConfig struct {
 	ShardIDs []int32               `toml:"shardIDs"`
-	Option   option.DatabaseOption `toml:"databaseOption"`
+	Option   option.DatabaseOption `toml:"option"`
 }
 
 // database implements Database for storing shards,
@@ -85,14 +83,8 @@ type database struct {
 	isFlushing   atomic.Bool     // restrict flusher concurrency
 }
 
-func newDatabase(
-	databaseName string,
-	databasePath string,
-	cfg *databaseConfig,
-) (
-	*database,
-	error,
-) {
+// newDatabase creates the database instance
+func newDatabase(databaseName string, databasePath string, cfg *databaseConfig) (*database, error) {
 	db := &database{
 		name:        databaseName,
 		path:        databasePath,
@@ -113,6 +105,9 @@ func newDatabase(
 				time.Second*5),
 		},
 		isFlushing: *atomic.NewBool(false),
+	}
+	if err := db.dumpDatabaseConfig(cfg); err != nil {
+		return nil, err
 	}
 	if err := db.initMetadata(); err != nil {
 		return nil, err
@@ -143,6 +138,7 @@ func newDatabase(
 			db.numOfShards.Inc()
 		}
 	}
+
 	return db, nil
 }
 
@@ -162,13 +158,10 @@ func (db *database) GetOption() option.DatabaseOption {
 	return db.config.Option
 }
 
-func (db *database) MetricMetaSuggester() series.MetricMetaSuggester {
-	return nil
-}
-
+// CreateShards creates shards for data partition
 func (db *database) CreateShards(
 	option option.DatabaseOption,
-	shardIDs ...int32,
+	shardIDs []int32,
 ) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("shardIDs list is empty")
@@ -197,7 +190,7 @@ func (db *database) createShard(shardID int32, option option.DatabaseOption) err
 		return nil
 	}
 	// new shard
-	createdShard, err := newShard(
+	createdShard, err := newShardFunc(
 		db,
 		shardID,
 		filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
@@ -233,10 +226,6 @@ func (db *database) ExecutorPool() *ExecutorPool {
 
 // Close closes database's underlying resource
 func (db *database) Close() error {
-	if err := db.FlushMeta(); err != nil {
-		engineLogger.Error(fmt.Sprintf(
-			"flush meta database[%s]", db.name), logger.Error(err))
-	}
 	if err := db.metadata.Close(); err != nil {
 		return err
 	}
@@ -258,7 +247,7 @@ func (db *database) Close() error {
 func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 	cfgPath := optionsPath(db.path)
 	// write store info using toml format
-	if err := ltoml.EncodeToml(cfgPath, newConfig); err != nil {
+	if err := encodeToml(cfgPath, newConfig); err != nil {
 		return fmt.Errorf("write engine info to file[%s] error:%s", cfgPath, err)
 	}
 	db.config = newConfig
@@ -300,8 +289,9 @@ func (db *database) FlushMeta() (err error) {
 	return db.metadata.Flush()
 }
 
-func (db *database) Range(f func(key, value interface{}) bool) {
-	db.shards.Range(f)
+func (db *database) Flush() error {
+	//FIXME stone1100
+	panic("need to impl")
 }
 
 // optionsPath returns options file path

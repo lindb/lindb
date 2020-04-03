@@ -1,40 +1,58 @@
 package tsdb
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestNewIntervalSegment(t *testing.T) {
+func TestIntervalSegment_New(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
 	}()
-	s, err := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
-	if err != nil {
-		t.Fatal(err)
+
+	// case 1: mkdir err
+	mkDirIfNotExist = func(path string) error {
+		return fmt.Errorf("err")
 	}
+	s, err := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	assert.Error(t, err)
+	assert.Nil(t, s)
+	mkDirIfNotExist = fileutil.MkDirIfNotExist
+
+	// case 2: list dir err
+	listDir = func(path string) (strings []string, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	assert.Error(t, err)
+	assert.Nil(t, s)
+	listDir = fileutil.ListDir
+
+	// case 3: create segment success
+	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	assert.True(t, fileutil.Exist(segPath))
 	s.Close()
 
-	// create fail
-	_, err = newSegment(
+	// case 4: reopen success
+	s1, err := newSegment(
 		"20190903",
 		timeutil.Interval(timeutil.OneSecond*10),
 		filepath.Join(segPath, "20190903"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// cannot re-open kv-store
+	assert.NoError(t, err)
+	assert.NotNil(t, s1)
+	// case 5: cannot re-open kv-store
 	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Nil(t, s)
-	assert.NotNil(t, err)
-
+	assert.Error(t, err)
 }
 
 func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
