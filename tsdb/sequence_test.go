@@ -19,21 +19,21 @@ func TestSequence_new(t *testing.T) {
 	defer ctrl.Finish()
 
 	defer func() {
-		mkdirFunc = fileutil.MkDirIfNotExist
-		listDirFunc = fileutil.ListDir
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
+		listDir = fileutil.ListDir
 		newSequenceFunc = replication.NewSequence
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	// create dir err
-	mkdirFunc = func(path string) error {
+	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
 	seq, err := newReplicaSequence(_testSequencePath)
 	assert.Error(t, err)
 	assert.Nil(t, seq)
 
-	mkdirFunc = fileutil.MkDirIfNotExist
+	mkDirIfNotExist = fileutil.MkDirIfNotExist
 
 	// create seq success
 	seq, err = newReplicaSequence(_testSequencePath)
@@ -44,7 +44,7 @@ func TestSequence_new(t *testing.T) {
 	assert.NotNil(t, s)
 
 	// reopen list err
-	listDirFunc = func(path string) (strings []string, e error) {
+	listDir = func(path string) (strings []string, e error) {
 		return nil, fmt.Errorf("err")
 	}
 	seq, err = newReplicaSequence(_testSequencePath)
@@ -52,7 +52,7 @@ func TestSequence_new(t *testing.T) {
 	assert.Nil(t, seq)
 
 	// reopen new sequence err
-	listDirFunc = fileutil.ListDir
+	listDir = fileutil.ListDir
 	newSequenceFunc = func(dirPath string) (sequence replication.Sequence, e error) {
 		return nil, fmt.Errorf("err")
 	}
