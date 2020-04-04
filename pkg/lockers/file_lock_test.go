@@ -13,6 +13,20 @@ func TestFileLock(t *testing.T) {
 	assert.Nil(t, err, "lock error")
 
 	err = lock.Lock()
+	assert.Error(t, err)
+
+	ch := make(chan error, 2)
+	go func(ch chan<- error) {
+		ch <- nil
+		ch <- lock.Lock()
+		close(ch)
+	}(ch)
+	err, ok := <-ch
+	assert.True(t, ok)
+	assert.NoError(t, err)
+
+	err, ok = <-ch
+	assert.True(t, ok)
 	assert.NotNil(t, err, "cannot lock again for locked file")
 
 	err = lock.Unlock()
@@ -22,7 +36,7 @@ func TestFileLock(t *testing.T) {
 	err = lock.Lock()
 	assert.Nil(t, err, "lock error")
 
-	lock.Unlock()
+	_ = lock.Unlock()
 
 	fileInfo, _ := os.Stat("t.lock")
 	assert.Nil(t, fileInfo, "lock file exist")

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gofrs/flock"
+
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -20,7 +22,7 @@ type FileLock interface {
 // fileLock is file lock
 type fileLock struct {
 	fileName string
-	file     *os.File
+	lock     *flock.Flock
 	logger   *logger.Logger
 }
 
@@ -28,17 +30,20 @@ type fileLock struct {
 func NewFileLock(fileName string) FileLock {
 	return &fileLock{
 		fileName: fileName,
+		lock:     flock.New(fileName),
 		logger:   logger.GetLogger("pkg/lockers", fmt.Sprintf("FileLock[%s]", fileName)),
 	}
 }
 
 // Lock try locking file, return err if fails.
 func (l *fileLock) Lock() error {
-	f, err := lockFile(l.fileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC)
-	if err != nil {
-		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
+	if l.lock.Locked() {
+		return fmt.Errorf("file: %s is already locked", l.fileName)
 	}
-	l.file = f
+	locked, err := l.lock.TryLock()
+	if err != nil || !locked {
+		return fmt.Errorf("cannot flock file: %s - %s", l.fileName, err)
+	}
 	return nil
 }
 
@@ -51,10 +56,5 @@ func (l *fileLock) Unlock() error {
 		l.logger.Info("remove file lock successfully")
 	}()
 
-	defer func() {
-		if err := l.file.Close(); nil != err {
-			l.logger.Error("close file lock error", logger.Error(err))
-		}
-	}()
-	return unlockFile(l.file)
+	return l.lock.Unlock()
 }
