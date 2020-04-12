@@ -27,9 +27,13 @@ type familyID uint8
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
+	// AcquireWrite acquires writing data points
+	AcquireWrite()
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
 	Write(namespace, metricName string, metricID, seriesID uint32, timestamp int64, fields []*pb.Field) (err error)
+	// CompleteWrite completes writing data points
+	CompleteWrite()
 	// Families returns the families in memory which has not been flushed yet
 	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -50,6 +54,15 @@ type MemoryDatabaseCfg struct {
 	Interval timeutil.Interval
 	Metadata metadb.Metadata
 	TempPath string
+}
+
+// flushContext holds the context for flushing
+type flushContext struct {
+	metricID     uint32
+	familyID     familyID
+	timeInterval int64
+
+	slotRange // start/end time slot, metric level flush context
 }
 
 // familyTimeIDEntry keeps the mapping of familyTime and familyID
@@ -92,7 +105,8 @@ type memoryDatabase struct {
 	familyTimeIDEntries familyTimeIDEntries // familyTime(int64) -> family time id
 	familyIDSeq         uint8
 
-	rwMutex sync.RWMutex // lock of create metric store
+	writeCondition sync.WaitGroup
+	rwMutex        sync.RWMutex // lock of create metric store
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -123,13 +137,14 @@ func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF)
 	return
 }
 
-// flushContext holds the context for flushing
-type flushContext struct {
-	metricID     uint32
-	familyID     familyID
-	timeInterval int64
+// AcquireWrite acquires writing data points
+func (md *memoryDatabase) AcquireWrite() {
+	md.writeCondition.Add(1)
+}
 
-	slotRange // start/end time slot, metric level flush context
+// CompleteWrite completes writing data points
+func (md *memoryDatabase) CompleteWrite() {
+	md.writeCondition.Done()
 }
 
 // Write writes metric-point to database.
@@ -202,6 +217,9 @@ func (md *memoryDatabase) Families() []int64 {
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error {
+	// waiting current writing complete
+	md.writeCondition.Wait()
+
 	familyID, _ := md.familyTimeIDEntries.GetID(familyTime)
 	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
 		if err := value.FlushMetricsDataTo(flusher, flushContext{
