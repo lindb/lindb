@@ -3,6 +3,7 @@ package memdb
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,24 @@ func TestMemoryDatabase_New(t *testing.T) {
 	mdINTF, err = NewMemoryDatabase(cfg)
 	assert.Error(t, err)
 	assert.Nil(t, mdINTF)
+}
+
+func TestMemoryDatabase_AcquireWrite(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mdINTF, err := NewMemoryDatabase(cfg)
+	assert.NoError(t, err)
+	assert.NotNil(t, mdINTF)
+	mdINTF.AcquireWrite()
+	a := time.After(100 * time.Millisecond)
+	go func() {
+		<-a
+		mdINTF.CompleteWrite()
+	}()
+	flusher := metricsdata.NewMockFlusher(ctrl)
+	flusher.EXPECT().Commit().Return(nil)
+	err = mdINTF.FlushFamilyTo(flusher, 100)
+	assert.NoError(t, err)
 }
 
 func TestMemoryDatabase_Write(t *testing.T) {
