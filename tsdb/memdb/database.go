@@ -1,6 +1,7 @@
 package memdb
 
 import (
+	"io"
 	"sort"
 	"sync"
 
@@ -40,6 +41,8 @@ type MemoryDatabase interface {
 	flow.DataFilter
 	// series.Storage returns the high level function of storage
 	series.Storage
+	// io.Closer closes the memory database resource
+	io.Closer
 }
 
 // MemoryDatabaseCfg represents the memory database config
@@ -93,16 +96,18 @@ type memoryDatabase struct {
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
-func NewMemoryDatabase(cfg MemoryDatabaseCfg) MemoryDatabase {
-	//FIXME check temp path is empty
-	buf := newDataPointBuffer(cfg.TempPath)
+func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
+	buf, err := newDataPointBuffer(cfg.TempPath)
+	if err != nil {
+		return nil, err
+	}
 	return &memoryDatabase{
 		interval:  cfg.Interval,
 		metadata:  cfg.Metadata,
 		buf:       buf,
 		mStores:   NewMetricBucketStore(),
 		allocSize: *atomic.NewInt32(0),
-	}
+	}, err
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
@@ -254,6 +259,11 @@ func (md *memoryDatabase) Interval() int64 {
 // MemSize returns the time series database memory size
 func (md *memoryDatabase) MemSize() int32 {
 	return md.allocSize.Load()
+}
+
+// Close closes memory data point buffer
+func (md *memoryDatabase) Close() error {
+	return md.buf.Close()
 }
 
 // assignFamily assigns family id for family time

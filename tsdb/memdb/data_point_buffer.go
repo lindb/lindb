@@ -41,11 +41,14 @@ type dataPointBuffer struct {
 }
 
 // newDataPointBuffer creates data point buffer for writing metric's point
-func newDataPointBuffer(path string) DataPointBuffer {
+func newDataPointBuffer(path string) (DataPointBuffer, error) {
+	if err := mkdirFunc(path); err != nil {
+		return nil, err
+	}
 	return &dataPointBuffer{
 		path:      path,
 		pageIDSeq: *atomic.NewInt32(-1),
-	}
+	}, nil
 }
 
 // AllocPage allocates the page buffer for writing data point
@@ -71,15 +74,14 @@ func (d *dataPointBuffer) AllocPage() (buf []byte, err error) {
 
 // Close closes data point buffer, unmap memory map file
 func (d *dataPointBuffer) Close() error {
-	pageID := d.pageIDSeq.Load()
-	c := pageID / pageCount
-	for i := int32(0); i <= c; i++ {
-		filePath := filepath.Join(d.path, fmt.Sprintf("%d.tmp", c))
-		if err := removeFunc(filePath); err != nil {
-			memDBLogger.Error("remove temp file in memory database err", logger.String("file", filePath))
-		}
-		if err := unmapFunc(d.buf[i]); err != nil {
-			memDBLogger.Error("unmap file in memory database err", logger.String("file", filePath))
+	if err := removeFunc(d.path); err != nil {
+		memDBLogger.Error("remove temp file in memory database err",
+			logger.String("file", d.path), logger.Error(err))
+	}
+	for _, buf := range d.buf {
+		if err := unmapFunc(buf); err != nil {
+			memDBLogger.Error("unmap file in memory database err",
+				logger.String("file", d.path), logger.Error(err))
 		}
 	}
 	return nil

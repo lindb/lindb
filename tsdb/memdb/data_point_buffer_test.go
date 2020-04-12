@@ -11,19 +11,27 @@ import (
 
 const testPath = "test_dp_buf"
 
-func TestDataPointBuffer_AllocPage(t *testing.T) {
+func TestDataPointBuffer_New_err(t *testing.T) {
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
+		mkdirFunc = fileutil.MkDirIfNotExist
 	}()
-	_ = fileutil.MkDirIfNotExist(testPath)
+	mkdirFunc = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	buf, err := newDataPointBuffer(testPath)
+	assert.Error(t, err)
+	assert.Nil(t, buf)
+}
 
-	buf := newDataPointBuffer(testPath)
+func TestDataPointBuffer_AllocPage(t *testing.T) {
+	buf, err := newDataPointBuffer(testPath)
+	assert.NoError(t, err)
 	for i := 0; i < 10000; i++ {
 		b, err := buf.AllocPage()
 		assert.NoError(t, err)
 		assert.NotNil(t, b)
 	}
-	err := buf.Close()
+	err = buf.Close()
 	assert.NoError(t, err)
 }
 
@@ -31,9 +39,9 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 	defer func() {
 		mkdirFunc = fileutil.MkDirIfNotExist
 		mapFunc = fileutil.RWMap
-		_ = fileutil.RemoveDir(testPath)
 	}()
-	buf := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(testPath)
+	assert.NoError(t, err)
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
@@ -52,19 +60,23 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	// case 3: map file err
-	buf = newDataPointBuffer(testPath)
+	buf, err = newDataPointBuffer(testPath)
+	assert.NoError(t, err)
 	b, err = buf.AllocPage()
 	assert.Error(t, err)
 	assert.Nil(t, b)
+
+	err = buf.Close()
+	assert.NoError(t, err)
 }
 
 func TestDataPointBuffer_Close_err(t *testing.T) {
 	defer func() {
 		removeFunc = fileutil.RemoveDir
 		unmapFunc = fileutil.Unmap
-		_ = fileutil.RemoveDir(testPath)
 	}()
-	buf := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(testPath)
+	assert.NoError(t, err)
 	b, err := buf.AllocPage()
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
@@ -81,5 +93,4 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	}
 	err = buf.Close()
 	assert.NoError(t, err)
-
 }
