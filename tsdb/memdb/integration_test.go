@@ -41,10 +41,13 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 		Metadata: metadata,
 		TempPath: filepath.Join(testPath, "data_temp"),
 	}
-	db := NewMemoryDatabase(cfg)
+	db, err := NewMemoryDatabase(cfg)
+	if err != nil {
+		b.Fatal(err)
+	}
 	now := timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
 			Name:   "f1",
 			Type:   pb.FieldType_Sum,
 			Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
@@ -54,7 +57,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
 	now = timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
 			Name:   "f1",
 			Type:   pb.FieldType_Sum,
 			Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
@@ -62,7 +65,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	}
 	runtime.GC()
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
-	http.ListenAndServe("0.0.0.0:6060", nil)
+	_ = http.ListenAndServe("0.0.0.0:6060", nil)
 }
 
 func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
@@ -87,10 +90,13 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 			Metadata: metadata,
 			TempPath: filepath.Join(testPath, "data_temp", fmt.Sprintf("%d", n)),
 		}
-		db := NewMemoryDatabase(cfg)
+		db, err := NewMemoryDatabase(cfg)
+		if err != nil {
+			b.Fatal(err)
+		}
 		now := timeutil.Now()
 		for i := 0; i < 400000; i++ {
-			db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+			_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
 				Name:   "f1",
 				Type:   pb.FieldType_Sum,
 				Fields: []*pb.PrimitiveField{{Value: 10.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},

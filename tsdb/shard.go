@@ -31,6 +31,7 @@ var (
 	newIntervalSegmentFunc = newIntervalSegment
 	newKVStoreFunc         = kv.NewStore
 	newIndexDBFunc         = indexdb.NewIndexDatabase
+	newMemoryDBFunc        = memdb.NewMemoryDatabase
 )
 
 const (
@@ -89,7 +90,8 @@ type shard struct {
 	option       option.DatabaseOption
 	sequence     ReplicaSequence
 
-	mutable memdb.MemoryDatabase
+	mutable memdb.MemoryDatabase // current accept user write data points
+	//immutable memdb.MemoryDatabase // need flush data to disk persist
 
 	indexDB  indexdb.IndexDatabase
 	metadata metadb.Metadata
@@ -119,10 +121,8 @@ func newShard(
 	shardID int32,
 	shardPath string,
 	option option.DatabaseOption,
-) (
-	s Shard,
-	err error,
-) {
+) (Shard, error) {
+	var err error
 	if err = option.Validate(); err != nil {
 		return nil, fmt.Errorf("engine option is invalid, err: %s", err)
 	}
@@ -160,14 +160,25 @@ func newShard(
 	// add writing segment into segment list
 	createdShard.segments[interval.Type()] = createdShard.segment
 
+	defer func() {
+		if err != nil {
+			if err := createdShard.Close(); err != nil {
+				engineLogger.Error("close shard error when create shard fail",
+					logger.String("shard", createdShard.path), logger.Error(err))
+			}
+		}
+	}()
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	createdShard.mutable = memdb.NewMemoryDatabase(memdb.MemoryDatabaseCfg{
+	createdShard.mutable, err = newMemoryDBFunc(memdb.MemoryDatabaseCfg{
 		Interval: interval,
 		Metadata: createdShard.metadata,
-		TempPath: filepath.Join(shardPath, tempDir),
+		TempPath: filepath.Join(shardPath, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
 	})
+	if err != nil {
+		return nil, err
+	}
 	// add shard into global shard manager
 	GetShardManager().AddShard(createdShard)
 	return createdShard, nil
@@ -270,10 +281,17 @@ func (s *shard) Close() error {
 	if err := s.Flush(); err != nil {
 		return err
 	}
-	if err := s.indexDB.Close(); err != nil {
-		return err
+	if s.indexDB != nil {
+		if err := s.indexDB.Close(); err != nil {
+			return err
+		}
 	}
-	return s.indexStore.Close()
+	if s.indexStore != nil {
+		if err := s.indexStore.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *shard) initIndexDatabase() error {
@@ -337,7 +355,7 @@ func (s *shard) Flush() (err error) {
 	defer func() {
 		// if ack fail, maybe data will write duplicate if system restart
 		if err := s.sequence.ack(allHeads); err != nil {
-			engineLogger.Error("ack replica sequence error", logger.Error(err))
+			engineLogger.Error("ack replica sequence error", logger.String("shard", s.path), logger.Error(err))
 		}
 		//TODO add commit kv meta after ack successfully
 
@@ -348,22 +366,29 @@ func (s *shard) Flush() (err error) {
 
 	//FIXME stone1100
 	// index flush
-	if err = s.indexDB.Flush(); err != nil {
-		return err
-	}
-
-	for _, familyTime := range s.mutable.Families() {
-		segmentName := s.interval.Calculator().GetSegment(familyTime)
-		segment, err := s.segment.GetOrCreateSegment(segmentName)
-		if err != nil {
+	if s.indexDB != nil {
+		if err = s.indexDB.Flush(); err != nil {
 			return err
 		}
-		thisDataFamily, err := segment.GetDataFamily(familyTime)
-		if err != nil {
-			continue
+	}
+
+	if s.mutable != nil {
+		for _, familyTime := range s.mutable.Families() {
+			segmentName := s.interval.Calculator().GetSegment(familyTime)
+			segment, err := s.segment.GetOrCreateSegment(segmentName)
+			if err != nil {
+				return err
+			}
+			thisDataFamily, err := segment.GetDataFamily(familyTime)
+			if err != nil {
+				continue
+			}
+			if err := s.mutable.FlushFamilyTo(
+				metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
+				return err
+			}
 		}
-		if err := s.mutable.FlushFamilyTo(
-			metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
+		if err := s.mutable.Close(); err != nil {
 			return err
 		}
 	}

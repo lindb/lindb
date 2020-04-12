@@ -24,6 +24,7 @@ import (
 var _testShard1Path = filepath.Join(testPath, shardDir, "1")
 
 func TestShard_New(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -31,9 +32,10 @@ func TestShard_New(t *testing.T) {
 		newIntervalSegmentFunc = newIntervalSegment
 		newKVStoreFunc = kv.NewStore
 		newIndexDBFunc = indexdb.NewIndexDatabase
+		newMemoryDBFunc = memdb.NewMemoryDatabase
+
+		ctrl.Finish()
 	}()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("db").AnyTimes()
@@ -79,6 +81,7 @@ func TestShard_New(t *testing.T) {
 	assert.Nil(t, thisShard)
 	// case 7: create forward family err
 	kvStore := kv.NewMockStore(ctrl)
+	kvStore.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
 		return kvStore, nil
 	}
@@ -103,9 +106,18 @@ func TestShard_New(t *testing.T) {
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-
-	// case 10: create shard success
 	newIndexDBFunc = indexdb.NewIndexDatabase
+
+	// case 10: create memory database err
+	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memoryDatabase memdb.MemoryDatabase, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	assert.Error(t, err)
+	assert.Nil(t, thisShard)
+	newMemoryDBFunc = memdb.NewMemoryDatabase
+
+	// case 11: create shard success
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.NoError(t, err)
 	assert.NotNil(t, thisShard)
@@ -285,9 +297,15 @@ func TestShard_Close(t *testing.T) {
 	err = s.Close()
 	assert.Error(t, err)
 	// case 4: close success
+	mutable.EXPECT().Close().Return(nil)
 	mutable.EXPECT().Families().Return(nil)
 	err = s.Close()
 	assert.NoError(t, err)
+	// case 5: close memory database err
+	mutable.EXPECT().Close().Return(fmt.Errorf("err"))
+	mutable.EXPECT().Families().Return(nil)
+	err = s.Close()
+	assert.Error(t, err)
 }
 
 func TestShard_Flush(t *testing.T) {
@@ -299,6 +317,7 @@ func TestShard_Flush(t *testing.T) {
 
 	s1 := mockShard(ctrl)
 	mutable := memdb.NewMockMemoryDatabase(ctrl)
+	mutable.EXPECT().Close().Return(nil).AnyTimes()
 	s1.mutable = mutable
 	// case 1: flush is doing
 	s1.isFlushing.Store(true)

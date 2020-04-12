@@ -109,6 +109,7 @@ func TestChannel_Write(t *testing.T) {
 	chunk.EXPECT().MarshalBinary().Return([]byte{1, 2, 3}, nil)
 	err = ch.Write(metric)
 	assert.Error(t, err)
+	time.Sleep(time.Millisecond * 500)
 }
 
 func TestChannel_checkFlush(t *testing.T) {
