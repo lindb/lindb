@@ -1,5 +1,5 @@
 import { observable } from 'mobx'
-import { ChartTooltipData } from '../model/Metric'
+import { ChartTooltipData } from 'model/Metric'
 
 export default class ChartEventStore {
   @observable public hiddenSeries: Map<string, boolean[]> = new Map()

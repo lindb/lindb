@@ -1,4 +1,4 @@
-import { Chart } from './Chart'
+import { Chart } from 'model/Chart'
 
 export type Board = ChartRow[]
 export type ChartRow = Metric[]

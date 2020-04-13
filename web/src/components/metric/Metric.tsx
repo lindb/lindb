@@ -1,9 +1,9 @@
+import Chart from 'components/metric/Chart'
 import { autobind } from 'core-decorators'
 import { observer } from 'mobx-react'
+import { ChartTooltipData, UnitEnum } from 'model/Metric'
 import * as React from 'react'
-import { ChartTooltipData, UnitEnum } from '../../model/Metric'
-import StoreManager from '../../store/StoreManager'
-import Chart from './Chart'
+import StoreManager from 'store/StoreManager'
 interface MetricProps {
   id: string
   type: string

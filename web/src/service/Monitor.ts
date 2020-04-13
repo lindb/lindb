@@ -1,6 +1,6 @@
-import { GET } from './APIUtils'
-import { PATH } from '../config/config'
-import { NodeList, StorageCluster } from '../model/Monitoring'
+import { PATH } from 'config/config'
+import { NodeList, StorageCluster } from 'model/Monitoring'
+import { GET } from 'service/APIUtils'
 
 export function getMaster() {
   const url = PATH.master

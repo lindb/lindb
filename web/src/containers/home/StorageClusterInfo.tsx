@@ -1,11 +1,10 @@
 import { Badge, Col, Progress, Row, Table } from 'antd'
+import ReplicaStatusInfo from 'components/ReplicaStatusInfo'
+import { StorageCluster } from 'model/Monitoring'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
-import { StorageCluster } from '../../model/Monitoring'
-import { DataFormatter } from '../../utils/DataFormatter'
-import ReplicaStatusInfo from '../../components/ReplicaStatusInfo'
-
-const uuidv4 = require('uuid/v4')
+import { DataFormatter } from 'utils/DataFormatter'
+import { uuid } from 'uuidv4'
 
 interface StorageClusterInfoProps {
     storageClusterList: Array<StorageCluster>
@@ -150,7 +149,7 @@ export default class StorageClusterInfo extends React.Component<StorageClusterIn
             },
         ]
         return (
-            <Table dataSource={storageClusterList} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />
+            <Table dataSource={storageClusterList} bordered={true} rowKey={(record: any) => { return uuid() }} size="small" columns={columns} pagination={false} />
         )
     }
 }

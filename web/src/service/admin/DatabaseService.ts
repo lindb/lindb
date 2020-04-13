@@ -1,6 +1,6 @@
-import { ADMIN_PATH } from '../../config/config'
-import { DatabaseConfig } from '../../model/admin/Database'
-import { GET, POST } from '../APIUtils'
+import { ADMIN_PATH } from 'config/config'
+import { DatabaseConfig } from 'model/admin/Database'
+import { GET, POST } from 'service/APIUtils'
 
 /**
  *  create database config

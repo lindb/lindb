@@ -1,9 +1,9 @@
-import { DatabaseStore } from './admin/DatabaseStore';
-import { StorageStore } from './admin/StorageStore';
-import { BreadcrumbStore } from './BreadcrumbStore';
-import ChartEventStore from './ChartEventStore';
-import { ChartStore } from './ChartStore';
-import { URLParamStore } from './URLParamStore';
+import { DatabaseStore } from 'store/admin/DatabaseStore';
+import { StorageStore } from 'store/admin/StorageStore';
+import { BreadcrumbStore } from 'store/BreadcrumbStore';
+import ChartEventStore from 'store/ChartEventStore';
+import { ChartStore } from 'store/ChartStore';
+import { URLParamStore } from 'store/URLParamStore';
 
 class StoreManager {
   public ChartEventStore: ChartEventStore = new ChartEventStore();

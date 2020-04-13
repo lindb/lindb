@@ -1,9 +1,8 @@
-import { Badge, Col, Progress, Row, Table } from 'antd'
-import * as React from 'react'
-import { NodeList } from '../../model/Monitoring'
-import { DataFormatter } from '../../utils/DataFormatter'
-
-const uuidv4 = require('uuid/v4')
+import { Badge, Col, Progress, Row, Table } from 'antd';
+import { NodeList } from 'model/Monitoring';
+import * as React from 'react';
+import { DataFormatter } from 'utils/DataFormatter';
+import { uuid } from 'uuidv4';
 
 interface NodeInfoProps extends NodeListTableProps {
 }
@@ -120,7 +119,7 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
       })
     }
     return (
-      <Table dataSource={nodes} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />
+      <Table dataSource={nodes} bordered={true} rowKey={(record: any) => { return uuid() }} size="small" columns={columns} pagination={false} />
     )
   }
 }

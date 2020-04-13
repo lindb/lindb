@@ -1,9 +1,8 @@
-import * as React from 'react'
 import { Col, Row } from 'antd'
-import { Board } from '../../model/Metric'
-import { SPACING } from '../../config/config'
-
-import ChartCard from './ChartCard'
+import ChartCard from 'components/metric/ChartCard'
+import { SPACING } from 'config/config'
+import { Board } from 'model/Metric'
+import * as React from 'react'
 
 interface ViewBoardProps {
   board: Board

@@ -1,14 +1,14 @@
+import { LockOutlined, UserOutlined } from '@ant-design/icons'
+import { Button, Input, Layout, message } from 'antd'
+import Logo from 'assets/images/logo_title_subtitle_dark.png'
+import { LOCALSTORAGE_TOKEN } from 'config/config'
+import Footer from 'containers/layout/Footer'
+import LoginBackground from 'containers/Login/LoginBackground'
+import { autobind } from 'core-decorators'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
-import { autobind } from 'core-decorators'
-import { login } from '../../service/Login'
-import LoginBackground from './LoginBackground'
-import Footer from '../layout/Footer'
-import { LOCALSTORAGE_TOKEN } from '../../config/config'
-import { Button, Input, Layout, message } from 'antd'
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { getQueryValueOf, redirectTo } from '../../utils/URLUtil'
-import Logo from '../../assets/images/logo_title_subtitle_dark.png'
+import { login } from 'service/Login'
+import { getQueryValueOf, redirectTo } from 'utils/URLUtil'
 
 const { Content } = Layout
 

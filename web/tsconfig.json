@@ -18,9 +18,20 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "baseUrl": "src",
+    "paths": {
+      "store/*":["store/*"],
+      "config/*":["config/*"],
+      "service/*":["service/*"],
+      "util/*":["util/*"],
+      "components/*":["components/*"],
+      "assets/*":["assets/*"],
+      "containers/*":["containers/*"],
+      "model/*":["model/*"]
+    }
   },
   "include": [
-    "src"
+    "src/**/*"
   ]
 }

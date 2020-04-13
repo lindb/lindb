@@ -1,6 +1,6 @@
 import { Col, Row } from 'antd'
+import { ReplicaStatus } from 'model/Monitoring'
 import * as React from 'react'
-import { ReplicaStatus } from '../model/Monitoring'
 
 interface ReplicaStatusInfoProps {
     replicaStatus: ReplicaStatus,

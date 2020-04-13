@@ -1,6 +1,6 @@
 import { observable } from 'mobx'
-import { DatabaseConfig } from '../../model/admin/Database'
-import { getDatabaseList, createDatabase } from '../../service/admin/DatabaseService'
+import { DatabaseConfig } from 'model/admin/Database'
+import { createDatabase, getDatabaseList } from 'service/admin/DatabaseService'
 
 export class DatabaseStore {
     @observable public loading: boolean = false

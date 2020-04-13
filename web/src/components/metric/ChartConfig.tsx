@@ -1,8 +1,8 @@
 
 import { get } from 'lodash';
-import { ChartStatus, ChartStatusEnum } from '../../model/Chart';
-import { UnitEnum } from '../../model/Metric';
-import { DataFormatter } from '../../utils/DataFormatter';
+import { ChartStatus, ChartStatusEnum } from 'model/Chart';
+import { UnitEnum } from 'model/Metric';
+import { DataFormatter } from 'utils/DataFormatter';
 
 const ChartJS = require('chart.js')
 
