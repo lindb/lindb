@@ -3,8 +3,8 @@ import { autobind } from 'core-decorators'
 import { observable } from 'mobx'
 import { observer } from 'mobx-react'
 import * as React from 'react'
-import { getDatabaseNames } from '../../service/Metadata'
-import StoreManager from '../../store/StoreManager'
+import { getDatabaseNames } from 'service/Metadata'
+import StoreManager from 'store/StoreManager'
 
 const { Option } = Select
 

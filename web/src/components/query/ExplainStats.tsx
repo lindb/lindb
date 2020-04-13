@@ -1,8 +1,8 @@
 import { CloudServerOutlined, HddOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { Tree } from 'antd'
+import { UnitEnum } from 'model/Metric'
 import * as React from 'react'
-import { UnitEnum } from '../../model/Metric'
-import { DataFormatter } from '../../utils/DataFormatter'
+import { DataFormatter } from 'utils/DataFormatter'
 
 interface ExplainStatsProps {
     stats?: any

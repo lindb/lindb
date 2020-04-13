@@ -1,5 +1,5 @@
 /*eslint no-template-curly-in-string: "off"*/
-import { Metric, UnitEnum } from '../../model/Metric'
+import { Metric, UnitEnum } from 'model/Metric';
 import { uuid } from 'uuidv4';
 
 function metric(title: string, ql: string, span: number = 24, unit: UnitEnum = UnitEnum.None): Metric {

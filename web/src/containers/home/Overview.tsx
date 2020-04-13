@@ -1,11 +1,11 @@
 import { Card, Tag } from 'antd'
+import NodeInfo from 'containers/home/NodeInfo'
+import StorageClusterInfo from 'containers/home/StorageClusterInfo'
 import { observer } from 'mobx-react'
+import { NodeList, StorageCluster } from 'model/Monitoring'
 import * as React from 'react'
-import { NodeList, StorageCluster } from '../../model/Monitoring'
-import { getBrokerCluster, getMaster, listStorageCluster } from '../../service/Monitor'
-import { dateFormatter } from '../../utils/Util'
-import NodeInfo from './NodeInfo'
-import StorageClusterInfo from './StorageClusterInfo'
+import { getBrokerCluster, getMaster, listStorageCluster } from 'service/Monitor'
+import { dateFormatter } from 'utils/Util'
 
 interface OverviewProps {
 }

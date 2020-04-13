@@ -1,5 +1,5 @@
-import { isEmpty } from "../utils/URLUtil";
-import { ResultSet, UnitEnum } from "./Metric";
+import { ResultSet, UnitEnum } from "model/Metric";
+import { isEmpty } from "utils/URLUtil";
 
 export class Chart {
     loading?: boolean = false;

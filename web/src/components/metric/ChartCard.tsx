@@ -1,8 +1,7 @@
 import { Card } from 'antd'
+import Metric from 'components/metric/Metric'
+import { Chart } from 'model/Chart'
 import * as React from 'react'
-import { Chart } from '../../model/Chart'
-
-import Metric from './Metric'
 import LazyLoad from 'react-lazyload'
 
 interface ChartCardProps {

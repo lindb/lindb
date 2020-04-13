@@ -1,11 +1,10 @@
-import * as React from 'react'
-import { Breadcrumb } from 'antd'
 import { HomeOutlined } from '@ant-design/icons';
-import { withRouter } from 'react-router-dom'
-import { observer } from 'mobx-react'
-import StoreManager from '../store/StoreManager'
-import { BreadcrumbStatus } from '../model/Breadcrumb'
-import { Link } from 'react-router-dom'
+import { Breadcrumb } from 'antd';
+import { observer } from 'mobx-react';
+import { BreadcrumbStatus } from 'model/Breadcrumb';
+import * as React from 'react';
+import { Link, withRouter } from 'react-router-dom';
+import StoreManager from 'store/StoreManager';
 
 interface BreadcrumbHeaderProps {
   location: any

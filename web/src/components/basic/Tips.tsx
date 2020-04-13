@@ -1,7 +1,7 @@
 import { WarningOutlined } from '@ant-design/icons';
-import * as React from 'react'
-import classNames from 'classnames'
-import { PREFIXCLS } from '../../config/config'
+import classNames from 'classnames';
+import { PREFIXCLS } from 'config/config';
+import * as React from 'react';
 
 interface TipsProps {
     tip: string

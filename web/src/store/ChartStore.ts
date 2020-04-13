@@ -1,11 +1,11 @@
 import { get } from "lodash";
 import { action, observable, reaction, toJS } from "mobx";
+import { Chart, ChartStatus, ChartStatusEnum, Target } from "model/Chart";
+import { ResultSet, UnitEnum } from "model/Metric";
 import * as R from 'ramda';
-import { Chart, ChartStatus, ChartStatusEnum, Target } from "../model/Chart";
-import { ResultSet, UnitEnum } from "../model/Metric";
-import * as LinDBService from "../service/LinQLService";
-import * as ProcessChartData from "../utils/ProcessChartData";
-import { URLParamStore } from "./URLParamStore";
+import * as LinDBService from "service/LinQLService";
+import { URLParamStore } from "store/URLParamStore";
+import * as ProcessChartData from "utils/ProcessChartData";
 
 export class ChartStore {
     urlParamStore: URLParamStore;

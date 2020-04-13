@@ -1,9 +1,8 @@
-import { Badge, Table } from 'antd'
-import * as React from 'react'
-import ReplicaStatusInfo from '../../components/ReplicaStatusInfo'
-import { DatabaseStatus } from '../../model/Monitoring'
-
-const uuidv4 = require('uuid/v4')
+import { Badge, Table } from 'antd';
+import ReplicaStatusInfo from 'components/ReplicaStatusInfo';
+import { DatabaseStatus } from 'model/Monitoring';
+import * as React from 'react';
+import { uuid } from 'uuidv4';
 
 interface DatabaseStatusListProps {
     databaseStatusList: Array<DatabaseStatus>
@@ -50,7 +49,7 @@ export default class DatabaseStatusList extends React.Component<DatabaseStatusLi
             },
         ]
         return (
-            <Table dataSource={databaseStatusList} bordered={true} rowKey={(record: any) => { return uuidv4() }} size="small" columns={columns} pagination={false} />
+            <Table dataSource={databaseStatusList} bordered={true} rowKey={(record: any) => { return uuid() }} size="small" columns={columns} pagination={false} />
         )
     }
 }

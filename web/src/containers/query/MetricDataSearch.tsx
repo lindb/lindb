@@ -1,14 +1,14 @@
 import { CloseOutlined, LoadingOutlined, SearchOutlined } from '@ant-design/icons';
 import { Alert, Button, Card, Col, Form, Input, Row, Tabs } from 'antd';
+import DatabaseNameSelect from 'components/Metadata/DatabaseNames';
+import Metric from 'components/metric/Metric';
+import ExplainStats from 'components/query/ExplainStats';
 import { autobind } from 'core-decorators';
 import { observer } from 'mobx-react';
+import { ChartStatusEnum } from 'model/Chart';
+import { UnitEnum } from 'model/Metric';
 import * as React from 'react';
-import Metric from '../../components/metric/Metric';
-import DatabaseNameSelect from '../../components/Metadata/DatabaseNames';
-import ExplainStats from '../../components/query/ExplainStats';
-import { ChartStatusEnum } from '../../model/Chart';
-import { UnitEnum } from '../../model/Metric';
-import StoreManager from '../../store/StoreManager';
+import StoreManager from 'store/StoreManager';
 
 const { TextArea } = Input;
 const { TabPane } = Tabs;

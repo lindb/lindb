@@ -1,10 +1,10 @@
 import { Card } from 'antd'
+import DatabaseStatusList from 'containers/home/DatabaseStatusList'
+import NodeInfo from 'containers/home/NodeInfo'
+import StorageClusterInfo from 'containers/home/StorageClusterInfo'
+import { StorageCluster } from 'model/Monitoring'
 import * as React from 'react'
-import { StorageCluster } from '../../model/Monitoring'
-import { getStorageCluster } from '../../service/Monitor'
-import DatabaseStatusList from './DatabaseStatusList'
-import NodeInfo from './NodeInfo'
-import StorageClusterInfo from './StorageClusterInfo'
+import { getStorageCluster } from 'service/Monitor'
 
 interface StorageClusterDetailProps {
     match?: any

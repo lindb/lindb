@@ -1,7 +1,7 @@
 import { message } from 'antd'
 import axios, { AxiosResponse } from 'axios'
-import { API_URL, LOCALSTORAGE_TOKEN } from '../config/config'
-import { redirectTo } from '../utils/URLUtil'
+import { API_URL, LOCALSTORAGE_TOKEN } from 'config/config'
+import { redirectTo } from 'utils/URLUtil'
 
 // env control
 const env = process.env.NODE_ENV

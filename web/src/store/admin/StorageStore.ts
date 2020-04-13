@@ -1,6 +1,6 @@
 import { observable } from 'mobx'
-import { StorageCluster } from '../../model/admin/Storage'
-import { getStorageList, createStorageConfig } from '../../service/admin/StorageService'
+import { StorageCluster } from 'model/admin/Storage'
+import { createStorageConfig, getStorageList } from 'service/admin/StorageService'
 
 export class StorageStore {
     @observable public loading: boolean = false

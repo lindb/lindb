@@ -1,6 +1,6 @@
-import { ADMIN_PATH } from '../../config/config'
-import { StorageCluster } from '../../model/admin/Storage'
-import { GET, POST } from '../APIUtils'
+import { ADMIN_PATH } from 'config/config'
+import { StorageCluster } from 'model/admin/Storage'
+import { GET, POST } from 'service/APIUtils'
 
 /**
  *  get storage cluster list
