@@ -1,6 +1,6 @@
-import * as React from 'react'
 import { Layout } from 'antd'
 import classNames from 'classnames'
+import * as React from 'react'
 
 const { Footer: AntDFooter } = Layout
 

@@ -4,10 +4,10 @@ import { FormInstance } from 'antd/lib/form'
 import { autobind } from 'core-decorators'
 import { observable } from 'mobx'
 import { observer } from 'mobx-react'
+import { DatabaseConfig, DefaultDatabaseConfig } from 'model/admin/Database'
+import { StorageCluster } from 'model/admin/Storage'
 import * as React from 'react'
-import { DatabaseConfig, DefaultDatabaseConfig } from '../../model/admin/Database'
-import { StorageCluster } from '../../model/admin/Storage'
-import StoreManager from '../../store/StoreManager'
+import StoreManager from 'store/StoreManager'
 
 
 interface DatabaseProps {

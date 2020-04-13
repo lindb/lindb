@@ -1,4 +1,4 @@
-import { UnitEnum } from '../model/Metric'
+import { UnitEnum } from 'model/Metric';
 const convert = require('convert-units')
 
 export class DataFormatter {

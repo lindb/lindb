@@ -1,5 +1,5 @@
-import { ChartDatasets, ResultSet, UnitEnum } from '../model/Metric';
-import { getChartColor, toRGBA } from './Util';
+import { ChartDatasets, ResultSet, UnitEnum } from 'model/Metric';
+import { getChartColor, toRGBA } from 'utils/Util';
 // import * as moment from 'moment'
 const moment = require('moment');
 

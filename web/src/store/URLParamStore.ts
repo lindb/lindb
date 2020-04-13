@@ -1,6 +1,6 @@
 import { action, observable } from 'mobx'
 import * as R from 'ramda'
-import { isEmpty } from '../utils/URLUtil'
+import { isEmpty } from 'utils/URLUtil'
 
 const createHashHistory = require('history').createHashHistory
 const hashHistory = createHashHistory()

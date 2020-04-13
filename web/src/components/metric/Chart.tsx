@@ -1,11 +1,11 @@
-import { autobind } from 'core-decorators'
-import { reaction } from 'mobx'
+import { CANVAS_CHART_CONFIG, getyAxesConfig } from 'components/metric/ChartConfig';
+import { autobind } from 'core-decorators';
 import { cloneDeep } from 'lodash';
-import * as React from 'react'
-import { ChartTooltipData, UnitEnum } from '../../model/Metric'
-import { ChartStatusEnum } from '../../model/Chart'
-import StoreManager from '../../store/StoreManager'
-import { CANVAS_CHART_CONFIG, getyAxesConfig } from './ChartConfig'
+import { reaction } from 'mobx';
+import { ChartStatusEnum } from 'model/Chart';
+import { ChartTooltipData, UnitEnum } from 'model/Metric';
+import * as React from 'react';
+import StoreManager from 'store/StoreManager';
 const ChartJS = require('chart.js')
 
 interface ChartProps {

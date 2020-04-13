@@ -1,13 +1,13 @@
 import { DatabaseOutlined, HomeOutlined, SearchOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
+import Logo from 'assets/images/logo_title_dark.png'
+import { BizIcon } from 'components/basic/BizIcon'
+import { MENUS } from 'config/menu'
 import { autobind } from 'core-decorators'
+import { BreadcrumbStatus } from 'model/Breadcrumb'
 import * as React from 'react'
 import { Link } from 'react-router-dom'
-import Logo from '../../assets/images/logo_title_dark.png'
-import { BizIcon } from '../../components/basic/BizIcon'
-import { MENUS } from '../../config/menu'
-import { BreadcrumbStatus } from '../../model/Breadcrumb'
-import StoreManager from '../../store/StoreManager'
+import StoreManager from 'store/StoreManager'
 
 const { Sider } = Layout
 

@@ -1,5 +1,5 @@
+import { TIME_FORMAT } from 'config/config'
 import moment from 'moment-es6'
-import { TIME_FORMAT } from '../config/config'
 
 /**
  * hex to rgba

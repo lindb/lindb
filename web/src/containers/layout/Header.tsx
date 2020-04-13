@@ -1,10 +1,10 @@
-import * as React from 'react'
-import { Layout, Menu, Dropdown, Divider } from 'antd'
-import { UserOutlined, LogoutOutlined, GithubOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom'
-import BreadcrumbHeader from '../../components/BreadcrumbHeader'
-import { LOCALSTORAGE_TOKEN } from '../../config/config'
-import { redirectTo } from '../../utils/URLUtil'
+import { GithubOutlined, LogoutOutlined, QuestionCircleOutlined, UserOutlined } from '@ant-design/icons';
+import { Divider, Dropdown, Layout, Menu } from 'antd';
+import BreadcrumbHeader from 'components/BreadcrumbHeader';
+import { LOCALSTORAGE_TOKEN } from 'config/config';
+import * as React from 'react';
+import { Link } from 'react-router-dom';
+import { redirectTo } from 'utils/URLUtil';
 
 const { Header: AntDHeader } = Layout
 

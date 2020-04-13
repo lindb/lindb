@@ -1,12 +1,12 @@
-import { PlusOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons'
+import { CloseOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons'
 import { Button, Card, Form, Input, message, Modal, Select, Table } from 'antd'
 import { FormInstance } from 'antd/lib/form'
 import { autobind } from 'core-decorators'
 import { observable } from 'mobx'
 import { observer } from 'mobx-react'
+import { StorageCluster, StorageConfig } from 'model/admin/Storage'
 import * as React from 'react'
-import { StorageCluster, StorageConfig } from '../../model/admin/Storage'
-import StoreManager from '../../store/StoreManager'
+import StoreManager from 'store/StoreManager'
 
 const columns = [
   {

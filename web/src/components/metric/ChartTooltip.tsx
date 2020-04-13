@@ -1,11 +1,11 @@
-import * as React from 'react'
-import { observer } from 'mobx-react'
 import { autobind } from 'core-decorators'
 import { observable, reaction } from 'mobx'
-import StoreManager from '../../store/StoreManager'
-import { DataFormatter } from '../../utils/DataFormatter'
-import { ChartBorderInfo, ChartTooltipData } from '../../model/Metric'
-import Moment from 'react-moment';
+import { observer } from 'mobx-react'
+import { ChartBorderInfo, ChartTooltipData } from 'model/Metric'
+import * as React from 'react'
+import Moment from 'react-moment'
+import StoreManager from 'store/StoreManager'
+import { DataFormatter } from 'utils/DataFormatter'
 
 interface ChartTooltipProps {
 }

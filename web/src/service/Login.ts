@@ -1,5 +1,5 @@
-import { POST } from './APIUtils'
-import { PATH } from '../config/config'
+import { POST } from 'service/APIUtils'
+import { PATH } from 'config/config'
 
 export function login(username: string, password: string) {
   const url = PATH.login
