@@ -1,27 +1,43 @@
 package page
 
 import (
-	"sync/atomic"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
-// MappedPage represents a holder for mmap bytes.
-// One MappedPage corresponds to a mapped file.
+//go:generate mockgen -source ./mpage.go -destination ./mpage_mock.go -package page
+
+// for testing
+var (
+	mapFileFunc = fileutil.RWMap
+)
+
+// MappedPage represents a holder for mmap bytes,
+// one MappedPage corresponds to a mapped file.
 type MappedPage interface {
-	// FilePath returns mapped filePath.
+	// FilePath returns mapped filePath
 	FilePath() string
-	// Buffer returns remaining mmap bytes starting from position.
-	Buffer(position int) []byte
-	// Data returns mmap bytes starting from position with length bytes.
-	Data(position, length int) []byte
-	// Sync syncs page to persist storage.
+	// WriteBytes writes bytes data into buffer
+	WriteBytes(data []byte, offset int)
+	// ReadBytes reads bytes data from buffer
+	ReadBytes(offset, length int) []byte
+	// PutUint64 puts uint64 into buffer
+	PutUint64(value uint64, offset int)
+	// ReadUint64 reads uint64 from buffer
+	ReadUint64(offset int) uint64
+	// PutUint32 puts uint32 into buffer
+	PutUint32(value uint32, offset int)
+	// ReadUint32 reads uint32 from buffer
+	ReadUint32(offset int) uint32
+	// Sync syncs page to persist storage
 	Sync() error
-	// Close releases underlying bytes.
+	// Close releases underlying bytes
 	Close() error
-	// Closed returns if the mmap bytes is closed.
+	// Closed returns if the mmap bytes is closed
 	Closed() bool
-	// Size returns the size of underlying bytes.
+	// Size returns the size of underlying bytes
 	Size() int
 }
 
@@ -43,21 +59,23 @@ var MMapSyncFunc SyncFunc = fileutil.Sync
 type mappedPage struct {
 	fileName    string
 	mappedBytes []byte
-	// 0 -> opened, 1 -> closed
-	closed    int32
-	closeFunc CloseFunc
-	syncFunc  SyncFunc
+	size        int
+	// false -> opened, true -> closed
+	closed atomic.Bool
 }
 
 // NewMappedPage returns a new MappedPage wrapping the give bytes.
-func NewMappedPage(fileName string, bytes []byte, closeFunc CloseFunc, syncFunc SyncFunc) MappedPage {
+func NewMappedPage(fileName string, size int) (MappedPage, error) {
+	bytes, err := mapFileFunc(fileName, size)
+	if err != nil {
+		return nil, err
+	}
+
 	return &mappedPage{
 		fileName:    fileName,
 		mappedBytes: bytes,
-		closed:      0,
-		closeFunc:   closeFunc,
-		syncFunc:    syncFunc,
-	}
+		size:        size,
+	}, nil
 }
 
 // FilePath returns mapped filePath.
@@ -65,35 +83,56 @@ func (mp *mappedPage) FilePath() string {
 	return mp.fileName
 }
 
-// Buffer returns remaining mmap bytes starting from position.
-func (mp *mappedPage) Buffer(position int) []byte {
-	return mp.mappedBytes[position:]
+// WriteBytes writes bytes data into buffer
+func (mp *mappedPage) WriteBytes(data []byte, offset int) {
+	copy(mp.mappedBytes[offset:], data)
 }
 
-// Data returns length mmap bytes starting from position.
-func (mp *mappedPage) Data(position, length int) []byte {
-	return mp.mappedBytes[position : position+length]
+// ReadBytes reads bytes data from buffer
+func (mp *mappedPage) ReadBytes(offset, length int) []byte {
+	return mp.mappedBytes[offset : offset+length]
+}
+
+// PutUint64 puts uint64 into buffer
+func (mp *mappedPage) PutUint64(value uint64, offset int) {
+	stream.PutUint64(mp.mappedBytes, offset, value)
+}
+
+// PutUint64 puts uint64 into buffer
+func (mp *mappedPage) ReadUint64(offset int) uint64 {
+	return stream.ReadUint64(mp.mappedBytes, offset)
+}
+
+// PutUint32 puts uint32 into buffer
+func (mp *mappedPage) PutUint32(value uint32, offset int) {
+	stream.PutUint32(mp.mappedBytes, offset, value)
+}
+
+// ReadUint32 reads uint32 from buffer
+func (mp *mappedPage) ReadUint32(offset int) uint32 {
+	return stream.ReadUint32(mp.mappedBytes, offset)
 }
 
 // Sync syncs page to persist storage.
 func (mp *mappedPage) Sync() error {
-	return mp.syncFunc(mp.mappedBytes)
+	return MMapSyncFunc(mp.mappedBytes)
 }
 
 // Close releases underlying bytes.
 func (mp *mappedPage) Close() error {
-	if atomic.CompareAndSwapInt32(&mp.closed, 0, 1) {
-		return mp.closeFunc(mp.mappedBytes)
+	if mp.closed.CAS(false, true) {
+		return MMapCloseFunc(mp.mappedBytes)
 	}
+
 	return nil
 }
 
 // Closed returns if the mmap bytes is closed.
 func (mp *mappedPage) Closed() bool {
-	return atomic.LoadInt32(&mp.closed) == 1
+	return mp.closed.Load()
 }
 
 // Size returns the size of underlying bytes.
 func (mp *mappedPage) Size() int {
-	return cap(mp.mappedBytes)
+	return mp.size
 }

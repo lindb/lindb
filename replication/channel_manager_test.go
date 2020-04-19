@@ -18,7 +18,7 @@ import (
 
 var replicationConfig = config.ReplicationChannel{
 	Dir:                "/tmp/broker/replication",
-	SegmentFileSize:    uint16(128),
+	DataSizeLimit:      int64(128),
 	RemoveTaskInterval: ltoml.Duration(time.Minute),
 	ReportInterval:     ltoml.Duration(time.Second),
 	FlushInterval:      ltoml.Duration(0),

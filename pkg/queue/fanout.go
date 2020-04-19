@@ -3,66 +3,54 @@ package queue
 import (
 	"fmt"
 	"path"
-	"strings"
+	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/queue/segment"
+	"github.com/lindb/lindb/pkg/queue/page"
 )
 
 //go:generate mockgen -source ./fanout.go -destination ./fanout_mock.go -package queue
 
-const (
-	fanOutDirName    = "fanOut"
-	fanOutMetaSuffix = ".meta"
-	// headSeq(int64), tailSeq(int64)
-	fanOutMetaSize      = 8 + 8
-	fanOutHeadSeqOffset = 0
-	fanOutTailSeqOffset = 8
-	// SeqNoNewMessageAvailable is the seqNum returned when no new message available
-	SeqNoNewMessageAvailable = int64(-1)
+// for testing
+var (
+	newQueueFunc  = NewQueue
+	listDirFunc   = fileutil.ListDir
+	newFanOutFunc = NewFanOut
 )
 
 // FanOutQueue represents a queue "produce once, consume multiple times".
 // FanOut represents a individual consumer with own consume seq and ack seq.
 type FanOutQueue interface {
-	// Append appends data to tail of the queue,
-	// if successes returns the seq to retrieve the data, otherwise returns err.
-	// Concurrent unsafe.
-	Append(data []byte) (int64, error)
-
+	// Put puts data to tail of the queue,
+	Put(data []byte) error
 	// GetOrCreateFanOut returns the FanOut if exists,
 	// otherwise creates a new FanOut with consume seq and ack seq == queue tail seq.
 	GetOrCreateFanOut(name string) (FanOut, error)
-
 	// FanOutNames returns all fanOut names.
 	FanOutNames() []string
-
 	// Sync checks all the FanOuts tailSeqs, update the tailSeq as the smallest one.
 	// Then syncs meta data to storage.
 	Sync()
-
 	// HeadSeq returns the headSeq which is the next seq for appending data.
 	HeadSeq() int64
-
 	// TailSeq returns the tailSeq which is the smallest seq among all the fanOut tailSeq.
 	TailSeq() int64
-
-	// GetSegment returns the segment contains seq.
-	GetSegment(seq int64) (segment.Segment, error)
-
 	// Close persists Seq meta, FanOut seq meta, release resources.
 	Close()
+	// get gets the message data by spec consume sequence
+	get(sequence int64) ([]byte, error)
 }
 
 // fanOutQueue implements FanOutQueue.
 type fanOutQueue struct {
 	// dir path for persistence file
 	dirPath string
-	// dir path for fanOut seqs
+	// dir path for storing fanOut consume sequence
 	fanOutDir string
 	// underlying queue
 	queue Queue
@@ -70,55 +58,43 @@ type fanOutQueue struct {
 	fanOutMap map[string]FanOut
 	// lock for fanOutMap
 	lock4map sync.RWMutex
-	// 0 -> running, 1 -> closed
-	closed int32
+	// false -> running, true -> closed
+	closed atomic.Bool
 }
 
 // NewFanOutQueue returns a FanOutQueue persisted in dirPath.
-func NewFanOutQueue(dirPath string, dataFileSize int, removeTaskInterval time.Duration) (FanOutQueue, error) {
-	// loads queue
-	q, err := NewQueue(dirPath, dataFileSize, removeTaskInterval)
-	if err != nil {
-		return nil, err
-	}
-
-	foDir := path.Join(dirPath, fanOutDirName)
-	if err := fileutil.MkDir(foDir); err != nil {
-		return nil, err
-	}
-
-	fileNames, err := fileutil.ListDir(foDir)
-	if err != nil {
-		return nil, err
-	}
+func NewFanOutQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (FanOutQueue, error) {
+	var err error
 
 	fq := &fanOutQueue{
 		dirPath:   dirPath,
-		fanOutDir: foDir,
-		queue:     q,
+		fanOutDir: path.Join(dirPath, fanOutDirName),
 		fanOutMap: make(map[string]FanOut),
 	}
 
-	// restores fanOut map
-	for _, fn := range fileNames {
-		if path.Ext(fn) == fanOutMetaSuffix {
-			name := removeSuffix(fn)
-			fo, err := NewFanOut(path.Join(foDir, fn), fq)
-			if err != nil {
-				return nil, err
-			}
-			fq.fanOutMap[name] = fo
+	defer func() {
+		if err != nil {
+			// if initialize fanOut queue failure, need release the resource
+			fq.Close()
 		}
+	}()
+
+	// create underlying queue
+	fq.queue, err = newQueueFunc(dirPath, dataSizeLimit, removeTaskInterval)
+	if err != nil {
+		return nil, err
+	}
+	// init fanOut sequence
+	if err = fq.initFanOut(); err != nil {
+		return nil, err
 	}
 
 	return fq, nil
 }
 
-// Append appends data to tail of the queue,
-// if successes returns the seq to retrieve the data, otherwise returns err.
-// Concurrent unsafe.
-func (fq *fanOutQueue) Append(data []byte) (int64, error) {
-	return fq.queue.Append(data)
+// Put puts data to tail of the queue,
+func (fq *fanOutQueue) Put(data []byte) error {
+	return fq.queue.Put(data)
 }
 
 // GetOrCreateFanOut returns the FanOut if exists,
@@ -132,7 +108,7 @@ func (fq *fanOutQueue) GetOrCreateFanOut(name string) (FanOut, error) {
 		return fo, nil
 	}
 
-	fo, err := NewFanOut(path.Join(fq.fanOutDir, name+fanOutMetaSuffix), fq)
+	fo, err := newFanOutFunc(fq.fanOutDir, name, fq)
 	if err != nil {
 		return nil, err
 	}
@@ -146,10 +122,13 @@ func (fq *fanOutQueue) GetOrCreateFanOut(name string) (FanOut, error) {
 func (fq *fanOutQueue) FanOutNames() []string {
 	fq.lock4map.RLock()
 	defer fq.lock4map.RUnlock()
+
 	names := make([]string, 0, len(fq.fanOutMap))
+
 	for name := range fq.fanOutMap {
 		names = append(names, name)
 	}
+
 	return names
 }
 
@@ -176,23 +155,22 @@ func (fq *fanOutQueue) Sync() {
 
 	// use the queue headSeq as the init value
 	ackSeq := fq.queue.HeadSeq()
+
 	for _, fo := range fq.fanOutMap {
 		ts := fo.TailSeq()
 		if ts < ackSeq {
 			ackSeq = ts
 		}
 	}
-	fq.queue.Ack(ackSeq)
-}
 
-// GetSegment returns the segment contains seq.
-func (fq *fanOutQueue) GetSegment(index int64) (segment.Segment, error) {
-	return fq.queue.GetSegment(index)
+	if ackSeq >= 0 {
+		fq.queue.Ack(ackSeq)
+	}
 }
 
 // Close persists Seq meta, FanOut seq meta, release resources.
 func (fq *fanOutQueue) Close() {
-	if atomic.CompareAndSwapInt32(&fq.closed, 0, 1) {
+	if fq.closed.CAS(false, true) {
 		fq.lock4map.RLock()
 		defer fq.lock4map.RUnlock()
 
@@ -200,12 +178,39 @@ func (fq *fanOutQueue) Close() {
 			fo.Close()
 		}
 
-		fq.queue.Close()
+		if fq.queue != nil {
+			fq.queue.Close()
+		}
 	}
 }
 
-func removeSuffix(base string) string {
-	return base[:strings.LastIndex(base, fanOutMetaSuffix)]
+// get gets the message data by spec consume sequence
+func (fq *fanOutQueue) get(sequence int64) ([]byte, error) {
+	return fq.queue.Get(sequence)
+}
+
+// initFanOut initializes exist fanOut consume sequence
+func (fq *fanOutQueue) initFanOut() error {
+	if err := mkDirFunc(fq.fanOutDir); err != nil {
+		return err
+	}
+
+	fileNames, err := listDirFunc(fq.fanOutDir)
+	if err != nil {
+		return err
+	}
+
+	// load exist fanOut consume sequence
+	for _, fn := range fileNames {
+		fo, err := newFanOutFunc(fq.fanOutDir, fn, fq)
+		if err != nil {
+			return err
+		}
+
+		fq.fanOutMap[fn] = fo
+	}
+
+	return nil
 }
 
 // FanOut represents a individual consumer with own consume seq and ack seq.
@@ -242,51 +247,57 @@ type fanOut struct {
 	// unique name
 	name string
 	// underlying queue for retrieving data
-	q FanOutQueue
+	q           FanOutQueue
+	metaPageFct page.Factory
 	// persists meta
-	meta Meta
-	// the current segment for reading
-	seg segment.Segment
+	metaPage page.MappedPage
 	// consume seq
-	headSeq int64
+	headSeq *atomic.Int64
 	// ack seq
-	tailSeq int64
-	// 0 -> running, 1 -> closed
-	closed int32
+	tailSeq *atomic.Int64
+	// false -> running, true -> closed
+	closed atomic.Bool
 	// lock to protect headSeq
 	lock4headSeq sync.RWMutex
-	logger       *logger.Logger
 }
 
 // NewFanOut builds a FanOut from metaPath.
-func NewFanOut(metaPath string, q FanOutQueue) (FanOut, error) {
-	meta, err := NewMeta(metaPath, fanOutMetaSize)
+func NewFanOut(parent, path string, q FanOutQueue) (FanOut, error) {
+	name := filepath.Join(parent, path)
+	var err error
+	metaPageFct, err := newPageFactoryFunc(name, fanOutMetaSize)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			if err1 := metaPageFct.Close(); err1 != nil {
+				queueLogger.Error("close meta page factory when create fanOut",
+					logger.String("fanOut", name), logger.Error(err))
+			}
+		}
+	}()
+
+	metaPage, err := metaPageFct.AcquirePage(metaPageIndex)
 	if err != nil {
 		return nil, err
 	}
 
-	base := path.Base(metaPath)
-	name := removeSuffix(base)
-
-	headSeq, tailSeq := meta.ReadInt64(fanOutHeadSeqOffset), meta.ReadInt64(fanOutTailSeqOffset)
-	//reset to queue tailSeq
+	headSeq := int64(metaPage.ReadUint64(fanOutHeadSeqOffset))
+	tailSeq := int64(metaPage.ReadUint64(fanOutTailSeqOffset))
+	// reset to queue tailSeq
 	if headSeq == 0 && tailSeq == 0 {
 		tailSeq = q.TailSeq()
 		headSeq = tailSeq
 	}
-	seg, err := q.GetSegment(headSeq)
-	if err != nil {
-		return nil, err
-	}
 
 	return &fanOut{
-		name:    name,
-		q:       q,
-		meta:    meta,
-		seg:     seg,
-		headSeq: headSeq,
-		tailSeq: tailSeq,
-		logger:  logger.GetLogger("pkg/queue", "FanOut"),
+		name:        name,
+		q:           q,
+		metaPageFct: metaPageFct,
+		metaPage:    metaPage,
+		headSeq:     atomic.NewInt64(headSeq),
+		tailSeq:     atomic.NewInt64(tailSeq),
 	}, nil
 }
 
@@ -301,11 +312,12 @@ func (f *fanOut) Consume() int64 {
 	f.lock4headSeq.Lock()
 	defer f.lock4headSeq.Unlock()
 
-	headSeq := f.headSeq
-	if headSeq < f.q.HeadSeq() {
-		f.headSeq = headSeq + 1
+	headSeq := f.headSeq.Load() + 1
+	if headSeq <= f.q.HeadSeq() {
+		f.headSeq.Store(headSeq)
 		return headSeq
 	}
+
 	return SeqNoNewMessageAvailable
 }
 
@@ -321,7 +333,8 @@ func (f *fanOut) SetHeadSeq(seq int64) error {
 		return fmt.Errorf("set headSeq failed, %d not in the range [%d,%d]", seq, ts, hs)
 	}
 
-	f.headSeq = seq
+	f.headSeq.Store(seq)
+
 	return nil
 }
 
@@ -330,37 +343,29 @@ func (f *fanOut) SetHeadSeq(seq int64) error {
 // Call with seq less than ackSeq has undefined result.
 // Concurrent unsafe.
 func (f *fanOut) Get(seq int64) ([]byte, error) {
-	bys, err := f.seg.Read(seq)
-	if err == segment.ErrOutOfRange {
-		var newSeg segment.Segment
-		// try to locate segment
-		newSeg, err = f.q.GetSegment(seq)
-		if err != nil {
-			return nil, err
-		}
-		f.seg = newSeg
-		bys, err = f.seg.Read(seq)
-	}
-	return bys, err
+	return f.q.get(seq)
 }
 
 // Ack mark the data with seq less than or equals to ackSeq.
 func (f *fanOut) Ack(ackSeq int64) {
+	f.lock4headSeq.RLock()
+	defer f.lock4headSeq.RUnlock()
+
 	ts := f.TailSeq()
 	hs := f.HeadSeq()
 	// In the initial condition, ts == 0, if the first ackSeq == 0, it would be ignore.
 	// Since ack is always in batch mode and the following ack will ack the previous data, it's not big problem.
-	if ackSeq > ts && ackSeq < hs {
+	if ackSeq > ts && ackSeq <= hs {
 		f.setTailSeq(ackSeq)
-		ts = ackSeq
-		f.meta.WriteInt64(fanOutHeadSeqOffset, hs)
-		f.meta.WriteInt64(fanOutTailSeqOffset, ts)
-		if err := f.meta.Sync(); err != nil {
-			f.logger.Error("sync fanOut meta error", logger.Error(err))
-		}
 
-		// update FanOutQueue ackSeq
-		f.q.Sync()
+		ts = ackSeq
+
+		f.metaPage.PutUint64(uint64(hs), fanOutHeadSeqOffset)
+		f.metaPage.PutUint64(uint64(ts), fanOutTailSeqOffset)
+
+		if err := f.metaPage.Sync(); err != nil {
+			queueLogger.Error("sync fanOut meta page error", logger.String("fanOut", f.name), logger.Error(err))
+		}
 	}
 }
 
@@ -368,30 +373,32 @@ func (f *fanOut) Ack(ackSeq int64) {
 func (f *fanOut) HeadSeq() int64 {
 	f.lock4headSeq.RLock()
 	defer f.lock4headSeq.RUnlock()
-	return f.headSeq
+
+	return f.headSeq.Load()
 }
 
 // TailSeq returns the seq acked.
 func (f *fanOut) TailSeq() int64 {
-	return atomic.LoadInt64(&f.tailSeq)
+	return f.tailSeq.Load()
 }
 
 func (f *fanOut) setTailSeq(seq int64) {
-	atomic.StoreInt64(&f.tailSeq, seq)
+	f.tailSeq.Store(seq)
 }
 
 // Pending returns the offset between FanOut HeadSeq and FanOutQueue HeadSeq.
 func (f *fanOut) Pending() int64 {
 	fh := f.HeadSeq()
 	qh := f.q.HeadSeq()
+
 	return qh - fh
 }
 
-// Close persists  headSeq, tailSeq.
+// Close persists headSeq, tailSeq.
 func (f *fanOut) Close() {
-	if atomic.CompareAndSwapInt32(&f.closed, 0, 1) {
-		if err := f.meta.Close(); err != nil {
-			f.logger.Error("close fanOut meta error", logger.String("fanOut", f.name), logger.Error(err))
+	if f.closed.CAS(false, true) {
+		if err := f.metaPageFct.Close(); err != nil {
+			queueLogger.Error("close fanOut meta error", logger.String("fanOut", f.name), logger.Error(err))
 		}
 	}
 }

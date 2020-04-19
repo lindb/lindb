@@ -86,7 +86,7 @@ func newChannel(
 	dirPath := path.Join(cfg.Dir, database, strconv.Itoa(int(shardID)))
 	interval := cfg.RemoveTaskInterval.Duration()
 
-	q, err := newFanOutQueue(dirPath, cfg.SegmentFileSizeInBytes(), interval)
+	q, err := newFanOutQueue(dirPath, cfg.GetDataSizeLimit(), interval)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (c *channel) writePendingBeforeClose() {
 	go func() {
 		// try to drain data from chan
 		for data := range c.ch {
-			_, err := c.q.Append(data)
+			err := c.q.Put(data)
 			if err != nil {
 				c.logger.Error("append to queue err", logger.Error(err))
 			}
@@ -247,7 +247,7 @@ func (c *channel) flushChunk() {
 	if len(data) == 0 {
 		return
 	}
-	_, err = c.q.Append(data)
+	err = c.q.Put(data)
 	if err != nil {
 		c.logger.Error("append to queue err", logger.Error(err))
 	}
@@ -263,7 +263,7 @@ func (c *channel) writeWAL() {
 		case <-c.ctx.Done():
 			return
 		case data := <-c.ch:
-			_, err := c.q.Append(data)
+			err := c.q.Put(data)
 			if err != nil {
 				c.logger.Error("append to queue err", logger.Error(err))
 			}

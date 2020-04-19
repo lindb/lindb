@@ -7,16 +7,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestPutUint64(t *testing.T) {
+	buf := make([]byte, 16)
+	PutUint64(buf, 0, 20)
+	PutUint64(buf, 8, 40)
+	assert.Equal(t, uint64(20), ReadUint64(buf, 0))
+	assert.Equal(t, uint64(40), ReadUint64(buf, 8))
+}
+
 func Test_ReadUint32(t *testing.T) {
-	var buf bytes.Buffer
-	writer2 := NewBufferWriter(&buf)
-	writer2.PutUint32(2)
-	writer2.PutUint32(999)
-	data, err := writer2.Bytes()
-	assert.NoError(t, err)
-	assert.Len(t, data, 8)
-	assert.Equal(t, uint32(999), ReadUint32(data, 4))
-	assert.Equal(t, uint32(2), ReadUint32(data, 0))
+	buf := make([]byte, 8)
+	PutUint32(buf, 0, 20)
+	PutUint32(buf, 4, 40)
+	assert.Equal(t, uint32(20), ReadUint32(buf, 0))
+	assert.Equal(t, uint32(40), ReadUint32(buf, 4))
 }
 
 func Test_ReadUint16(t *testing.T) {
