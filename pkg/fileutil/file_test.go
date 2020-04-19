@@ -77,3 +77,30 @@ func TestListDir(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 }
+
+func TestRemoveFile(t *testing.T) {
+	_ = MkDirIfNotExist(testPath)
+
+	defer func() {
+		_ = RemoveDir(testPath)
+		removeFunc = os.Remove
+	}()
+	_, _ = os.Create(testPath + "/file1")
+	err := RemoveFile(testPath + "/file1")
+	assert.NoError(t, err)
+	files, err := ListDir(testPath)
+	assert.NoError(t, err)
+	assert.Len(t, files, 0)
+
+	_, _ = os.Create(testPath + "/file1")
+	removeFunc = func(name string) error {
+		return fmt.Errorf("err")
+	}
+	err = RemoveFile(testPath + "/file1")
+	assert.Error(t, err)
+	err = RemoveFile(testPath + "/file2")
+	assert.NoError(t, err)
+	files, err = ListDir(testPath)
+	assert.NoError(t, err)
+	assert.Len(t, files, 1)
+}

@@ -1,40 +1,47 @@
 package queue
 
 import (
-	"path"
-	"sync/atomic"
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/queue/segment"
+	"github.com/lindb/lindb/pkg/queue/page"
 )
 
-const (
-	segmentDirName = "segment"
-	metaFileName   = "queue.meta"
-	// headSeq(int64), tailSeq(int64)
-	queueMetaSize      = 8 + 8
-	queueHeadSeqOffset = 0
-	queueTailSeqOffset = 8
+//go:generate mockgen -source ./queue.go -destination ./queue_mock.go -package queue
+
+// for testing
+var (
+	mkDirFunc          = fileutil.MkDirIfNotExist
+	newPageFactoryFunc = page.NewFactory
 )
 
 // ErrExceedingMessageSizeLimit returns when appending message exceeds the max size limit.
-var ErrExceedingMessageSizeLimit = errors.New("message exceeds the max size limit")
+var ErrExceedingMessageSizeLimit = errors.New("message exceeds the max page size limit")
+var ErrOutOfSequenceRange = errors.New("out of sequence range")
+var ErrExceedingTotalSizeLimit = errors.New("queue data size exceeds the max size limit")
+var ErrMsgNotFound = errors.New("message not found")
+
+var queueLogger = logger.GetLogger("queue", "fan_out")
 
 // Queue represents a sequence of segments, new data is appended at headSeq.
 // Segments with all message seqNum < tailSeq will be removed by ticker task.
 type Queue interface {
-	// Append appends data to the end of the queue,
-	// if successes, returns the seq to retrieve data, otherwise returns err.
-	// Concurrent unsafe.
-	Append(message []byte) (int64, error)
-	// GetSegment returns segment containing seq, returns error when not found.
-	GetSegment(seq int64) (segment.Segment, error)
+	// Put puts data to the end of the queue, if puts failure return err
+	Put(message []byte) error
+	// Get gets the message data at specific index
+	Get(sequence int64) (message []byte, err error)
 	// Size returns the total size of message.
 	Size() int64
+	// IsEmpty returns if queue is empty
+	IsEmpty() bool
 	// HeadSeq returns the head seq which stands for the latest read barrier.
 	// New message is appended at head seq.
 	HeadSeq() int64
@@ -49,170 +56,436 @@ type Queue interface {
 
 // queue implements queue.
 type queue struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 	// dirPath for queue file
 	dirPath string
 	// the max size limit in bytes for data file
-	dataFileSizeLimit int
-	// segment factory
-	fct segment.Factory
-	// head segment for writing
-	headSeg segment.Segment
-	// queue meta, headSeq and tailSeq
-	meta    Meta
-	headSeq int64
-	tailSeq int64
-	// ticker to remove segments
-	rmSegmentsTicker *time.Ticker
-	logger           *logger.Logger
+	dataSizeLimit int64
+
+	indexPageFct page.Factory // index page factory
+	dataPageFct  page.Factory // data page factory
+	metaPageFct  page.Factory // meta page factory
+
+	// queue meta with headSeq and tailSeq
+	metaPage page.MappedPage // meta buffer
+	headSeq  atomic.Int64    // current written sequence
+	tailSeq  atomic.Int64    // current acked sequence
+
+	indexPage      page.MappedPage // index buffer
+	indexPageIndex int64
+
+	// message data write context
+	dataPageIndex int64
+	dataPage      page.MappedPage
+	messageOffset int
+
+	// ticker to remove acked data/index page
+	removeTaskTicker *time.Ticker
+	expireDataPage   atomic.Int64
+	expireIndexPage  atomic.Int64
+	closed           atomic.Bool
+	rwMutex          sync.RWMutex
 }
 
-// NewQueue returns Queue based on dirPath, dataFileSizeLimit is used to limit the segment file size,
+// NewQueue returns Queue based on dirPath, dataSizeLimit is used to limit the total data/index size,
 // removeTaskInterval specifics the interval to remove expired segments.
-func NewQueue(dirPath string, dataFileSizeLimit int, removeTaskInterval time.Duration) (Queue, error) {
-	if err := fileutil.MkDir(dirPath); err != nil {
+func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (Queue, error) {
+	var err error
+	if err = mkDirFunc(dirPath); err != nil {
 		return nil, err
 	}
-
-	metaPath := path.Join(dirPath, metaFileName)
-	meta, err := loadOrCreateMeta(metaPath)
-	if err != nil {
-		return nil, err
-	}
-
-	headSeq, tailSeq := meta.ReadInt64(queueHeadSeqOffset), meta.ReadInt64(queueTailSeqOffset)
-	fct, err := segment.NewFactory(path.Join(dirPath, segmentDirName), dataFileSizeLimit, headSeq, tailSeq)
-	if err != nil {
-		return nil, err
-	}
-
-	headSeg, err := fct.GetSegment(headSeq)
-	if err == segment.ErrSegmentNotFound {
-		// only occurs when inits new queue
-		headSeg, err = fct.NewSegment(headSeq)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
+	ctx, cancel := context.WithCancel(context.Background())
 	q := &queue{
-		dirPath:           dirPath,
-		dataFileSizeLimit: dataFileSizeLimit,
-		fct:               fct,
-		headSeg:           headSeg,
-		meta:              meta,
-		headSeq:           headSeq,
-		tailSeq:           tailSeq,
-		rmSegmentsTicker:  time.NewTicker(removeTaskInterval),
-		logger:            logger.GetLogger("pkg/queue", "Queue"),
+		ctx:           ctx,
+		cancel:        cancel,
+		dirPath:       dirPath,
+		dataSizeLimit: dataSizeLimit,
 	}
 
-	q.initRemoveSegmentsTask()
+	// if data size limit < default limit, need reset
+	if q.dataSizeLimit < defaultDataSizeLimit {
+		q.dataSizeLimit = defaultDataSizeLimit
+	}
+
+	defer func() {
+		// if init queue failure, need release resource(like file/map file etc.)
+		if err != nil {
+			q.Close()
+		}
+	}()
+
+	// init data page factory
+	fct, err := newPageFactoryFunc(filepath.Join(dirPath, dataPath), dataPageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	q.dataPageFct = fct
+
+	// init index page factory
+	fct, err = newPageFactoryFunc(filepath.Join(dirPath, indexPath), indexPageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	q.indexPageFct = fct
+
+	hasMeta := false
+	if fileutil.Exist(filepath.Join(dirPath, metaPath, fmt.Sprintf("%d.bat", metaPageIndex))) {
+		hasMeta = true
+	}
+
+	// init meta page factory
+	fct, err = newPageFactoryFunc(filepath.Join(dirPath, metaPath), metaPageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	q.metaPageFct = fct
+
+	q.metaPage, err = q.metaPageFct.AcquirePage(metaPageIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	if hasMeta {
+		// initialize sequence
+		q.initSequence()
+	} else {
+		q.headSeq.Store(-1)
+		q.tailSeq.Store(-1)
+		q.expireDataPage.Store(-1)
+		q.expireIndexPage.Store(-1)
+		// persist metadata
+		q.metaPage.PutUint64(uint64(q.HeadSeq()), queueHeadSeqOffset)
+		q.metaPage.PutUint64(uint64(q.TailSeq()), queueTailSeqOffset)
+		q.metaPage.PutUint64(uint64(q.expireDataPage.Load()), queueExpireDataOffset)
+		q.metaPage.PutUint64(uint64(q.expireIndexPage.Load()), queueExpireIndexOffset)
+		if err = q.metaPage.Sync(); err != nil {
+			return nil, err
+		}
+	}
+
+	// initialize data page indexes
+	if err = q.initDataPageIndex(); err != nil {
+		return nil, err
+	}
+
+	q.removeTaskTicker = time.NewTicker(removeTaskInterval)
+	q.initRemoveTask()
 
 	return q, nil
 }
 
-// Append appends data to the end of the queue,
-// if successes, returns the seq to retrieve data, otherwise returns err.
-// Concurrent unsafe.
-func (q *queue) Append(data []byte) (int64, error) {
-	if len(data) > q.dataFileSizeLimit {
-		return -1, ErrExceedingMessageSizeLimit
+// Put puts data to the end of the queue, if puts failure return err
+func (q *queue) Put(data []byte) error {
+	dataLength := len(data)
+	if dataLength > dataPageSize {
+		// if message size > data page size, return err
+		return ErrExceedingMessageSizeLimit
 	}
 
-	seq, err := q.headSeg.Append(data)
-	if err == segment.ErrExceedPageSize {
-		// rotate
-		var newHeadSeg segment.Segment
-		newHeadSeg, err = q.fct.NewSegment(q.HeadSeq())
-		if err != nil {
-			return -1, err
-		}
+	q.rwMutex.Lock()
+	defer q.rwMutex.Unlock()
 
-		q.headSeg = newHeadSeg
-		seq, err = q.headSeg.Append(data)
-		if err != nil {
-			return -1, err
-		}
+	dataPage, offset, err := q.alloc(dataLength)
+	if err != nil {
+		return err
 	}
+	// write message data
+	dataPage.WriteBytes(data, offset)
 
-	// assert
-	if seq != q.headSeq {
-		q.logger.Error("seq num and head seq not equal",
-			logger.Int64("seq", seq), logger.Int64("headSeq", q.headSeq))
-		panic("append error")
-	}
-
-	atomic.AddInt64(&q.headSeq, 1)
-
-	q.meta.WriteInt64(queueHeadSeqOffset, q.HeadSeq())
-	q.meta.WriteInt64(queueTailSeqOffset, q.TailSeq())
-
-	return seq, nil
+	return nil
 }
 
-// GetSegment returns segment containing seq, returns error when not found.
-func (q *queue) GetSegment(index int64) (segment.Segment, error) {
-	return q.fct.GetSegment(index)
+// Get gets the message data at specific index
+func (q *queue) Get(sequence int64) (data []byte, err error) {
+	if err = q.validateSequence(sequence); err != nil {
+		return
+	}
+
+	indexPageID := sequence / indexItemsPerPage
+	indexPage, ok := q.indexPageFct.GetPage(indexPageID)
+
+	if !ok {
+		return nil, ErrMsgNotFound
+	}
+
+	// calculate index offset of previous sequence
+	indexOffset := int((sequence % indexItemsPerPage) * indexItemLength)
+	dataPageID := int64(indexPage.ReadUint64(indexOffset + queueDataPageIndexOffset))
+
+	dataPage, ok := q.dataPageFct.GetPage(dataPageID)
+	if !ok {
+		return nil, ErrMsgNotFound
+	}
+
+	messageOffset := int(indexPage.ReadUint32(indexOffset + messageOffsetOffset))
+	messageLength := int(indexPage.ReadUint32(indexOffset + messageLengthOffset))
+
+	return dataPage.ReadBytes(messageOffset, messageLength), nil
 }
 
 // Size returns the total size of message.
 func (q *queue) Size() int64 {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
 	return q.HeadSeq() - q.TailSeq()
 }
 
 // HeadSeq returns the head seq which stands for the latest read barrier.
 // New message is appended at head seq.
 func (q *queue) HeadSeq() int64 {
-	return atomic.LoadInt64(&q.headSeq)
+	return q.headSeq.Load()
 }
 
 // TailSeq returns the tail seq which stands for the oldest read barrier.
 // Message with req less than tailSeq would be deleted at some point.
 func (q *queue) TailSeq() int64 {
-	return atomic.LoadInt64(&q.tailSeq)
-}
-
-func (q *queue) setTailSeq(seq int64) {
-	atomic.StoreInt64(&q.tailSeq, seq)
+	return q.tailSeq.Load()
 }
 
 // Ack advances the tailSeq to seq.
 func (q *queue) Ack(seq int64) {
-	if seq > q.TailSeq() && seq < q.HeadSeq() {
-		q.setTailSeq(seq)
-		q.meta.WriteInt64(queueTailSeqOffset, seq)
-		if err := q.meta.Sync(); err != nil {
-			q.logger.Error("sync queue meta error", logger.Error(err))
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
+	if seq > q.TailSeq() && seq <= q.HeadSeq() {
+		q.tailSeq.Store(seq)
+		q.metaPage.PutUint64(uint64(seq), queueTailSeqOffset)
+
+		if err := q.metaPage.Sync(); err != nil {
+			queueLogger.Error("sync queue meta page error",
+				logger.String("path", q.dirPath), logger.Error(err))
 		}
 	}
 }
 
+// IsEmpty returns if queue is empty
+func (q *queue) IsEmpty() bool {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
+	return q.HeadSeq() == q.TailSeq()
+}
+
 // Close closes the queue.
 func (q *queue) Close() {
-	if q.rmSegmentsTicker != nil {
-		q.rmSegmentsTicker.Stop()
-	}
+	if q.closed.CAS(false, true) {
+		q.rwMutex.RLock()
+		defer q.rwMutex.RUnlock()
 
-	q.fct.Close()
-	if err := q.meta.Close(); err != nil {
-		q.logger.Error("close queue meta error", logger.Error(err))
+		q.cancel()
+		if q.removeTaskTicker != nil {
+			q.removeTaskTicker.Stop()
+		}
+
+		if q.dataPageFct != nil {
+			if err := q.dataPageFct.Close(); err != nil {
+				queueLogger.Error("close data page factory error",
+					logger.String("queue", q.dirPath), logger.Error(err))
+			}
+		}
+
+		if q.indexPageFct != nil {
+			if err := q.indexPageFct.Close(); err != nil {
+				queueLogger.Error("close index page factory error",
+					logger.String("queue", q.dirPath), logger.Error(err))
+			}
+		}
+
+		if q.metaPageFct != nil {
+			if err := q.metaPageFct.Close(); err != nil {
+				queueLogger.Error("close meta page factory error",
+					logger.String("queue", q.dirPath), logger.Error(err))
+			}
+		}
 	}
 }
 
 // RemoveSegments removes segments before TailSeq.
-func (q *queue) initRemoveSegmentsTask() {
+func (q *queue) initRemoveTask() {
 	go func() {
-		q.logger.Info("initRemoveSegmentsTask")
-		for range q.rmSegmentsTicker.C {
-			if err := q.fct.RemoveSegments(q.TailSeq()); err != nil {
-				q.logger.Error("remove segments error", logger.String("dirPath", q.dirPath), logger.Error(err))
+		defer queueLogger.Info("exist remove ack queue task")
+		queueLogger.Info("start remove ack queue task")
+		for {
+			select {
+			case <-q.removeTaskTicker.C:
+				q.removeExpirePage()
+			case <-q.ctx.Done():
+				return
 			}
 		}
 	}()
 }
 
-// loadOrCreateMeta returns queueMeta, loads if metaFile exists, otherwise creates metaFile.
-func loadOrCreateMeta(metaPath string) (Meta, error) {
-	return NewMeta(metaPath, queueMetaSize)
+func (q *queue) removeExpirePage() {
+	ackSeq := q.TailSeq() // get current acked sequence
+	if ackSeq < 0 {
+		return
+	}
+	indexPageID := ackSeq / indexItemsPerPage
+	indexPage, ok := q.indexPageFct.GetPage(indexPageID)
+	if !ok {
+		return
+	}
+	// calculate index offset of ack sequence
+	indexOffset := int((ackSeq % indexItemsPerPage) * indexItemLength)
+	dataPageID := int64(indexPage.ReadUint64(indexOffset + queueDataPageIndexOffset))
+	lastDataPageID := q.expireDataPage.Load()
+	for i := lastDataPageID + 1; i < dataPageID; i++ {
+		if err := q.dataPageFct.ReleasePage(i); err != nil {
+			queueLogger.Error("remove expire data page error",
+				logger.String("queue", q.dirPath), logger.Any("page", i), logger.Error(err))
+			break
+		}
+		queueLogger.Info("remove expire data page",
+			logger.String("queue", q.dirPath), logger.Any("page", i))
+		q.expireDataPage.Store(i)
+		q.metaPage.PutUint64(uint64(q.expireDataPage.Load()), queueExpireDataOffset)
+	}
+	lastIndexPageID := q.expireIndexPage.Load()
+	for i := lastIndexPageID + 1; i < indexPageID; i++ {
+		if err := q.indexPageFct.ReleasePage(i); err != nil {
+			queueLogger.Error("remove expire index page error",
+				logger.String("queue", q.dirPath), logger.Any("page", i), logger.Error(err))
+			break
+		}
+		queueLogger.Info("remove expire index page",
+			logger.String("queue", q.dirPath), logger.Any("page", i))
+		q.expireIndexPage.Store(i)
+		q.metaPage.PutUint64(uint64(q.expireIndexPage.Load()), queueExpireIndexOffset)
+	}
+
+	if err := q.metaPage.Sync(); err != nil {
+		queueLogger.Error("sync meta page error when do expire page",
+			logger.String("queue", q.dirPath), logger.Error(err))
+	}
+}
+
+// alloc allocates the data page and offset for message writing
+func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err error) {
+	// prepare the data pointer
+	if q.messageOffset+dataLen > dataPageSize {
+		// check size limit before data page acquire
+		if err = q.checkDataSize(); err != nil {
+			return nil, 0, err
+		}
+		// sync previous data page
+		if err = q.dataPage.Sync(); err != nil {
+			queueLogger.Error("sync data page err when alloc",
+				logger.String("queue", q.dirPath), logger.Error(err))
+		}
+		// not enough space in current data page, need create new page
+		if q.dataPage, err = q.dataPageFct.AcquirePage(q.dataPageIndex + 1); err != nil {
+			return nil, 0, err
+		}
+		q.dataPageIndex++
+		q.messageOffset = 0 // need reset message offset for
+	}
+
+	seq := q.headSeq.Load() + 1
+	indexPageIndex := seq / indexItemsPerPage
+	if indexPageIndex != q.indexPageIndex {
+		// check size limit before index page acquire
+		if err = q.checkDataSize(); err != nil {
+			return nil, 0, err
+		}
+		// sync previous data page
+		if err = q.indexPage.Sync(); err != nil {
+			queueLogger.Error("sync index page err when alloc",
+				logger.String("queue", q.dirPath), logger.Error(err))
+		}
+		if q.indexPage, err = q.indexPageFct.AcquirePage(indexPageIndex); err != nil {
+			return nil, 0, err
+		}
+		q.indexPageIndex++
+	}
+	// advance dataOffset
+	messageOffset := q.messageOffset
+
+	// save index data
+	indexOffset := int((seq % indexItemsPerPage) * indexItemLength)
+	q.indexPage.PutUint64(uint64(q.dataPageIndex), indexOffset+queueDataPageIndexOffset)
+	q.indexPage.PutUint32(uint32(messageOffset), indexOffset+messageOffsetOffset)
+	q.indexPage.PutUint32(uint32(dataLen), indexOffset+messageLengthOffset)
+
+	q.messageOffset += dataLen
+
+	// save metadata
+	q.headSeq.Store(seq)
+	q.metaPage.PutUint64(uint64(q.HeadSeq()), queueHeadSeqOffset)
+	q.metaPage.PutUint64(uint64(q.TailSeq()), queueTailSeqOffset)
+
+	return q.dataPage, messageOffset, nil
+}
+
+// initSequence initializes head/tail from the meta data
+func (q *queue) initSequence() {
+	q.headSeq.Store(int64(q.metaPage.ReadUint64(queueHeadSeqOffset)))
+	q.tailSeq.Store(int64(q.metaPage.ReadUint64(queueTailSeqOffset)))
+	q.expireDataPage.Store(int64(q.metaPage.ReadUint64(queueExpireDataOffset)))
+	q.expireIndexPage.Store(int64(q.metaPage.ReadUint64(queueExpireIndexOffset)))
+}
+
+// initDataPageIndex finds out data page head index and message offset
+func (q *queue) initDataPageIndex() (err error) {
+	if q.IsEmpty() {
+		// if queue is empty, start with new empty queue
+		q.dataPageIndex = 0
+		q.messageOffset = 0
+
+		if q.dataPage, err = q.dataPageFct.AcquirePage(0); err != nil {
+			return err
+		}
+
+		if q.indexPage, err = q.indexPageFct.AcquirePage(0); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	previousSeq := q.HeadSeq() // get previous sequence
+	q.indexPageIndex = previousSeq / indexItemsPerPage
+
+	if q.indexPage, err = q.indexPageFct.AcquirePage(q.indexPageIndex); err != nil {
+		return err
+	}
+
+	// calculate index offset of previous sequence
+	indexOffset := int((previousSeq % indexItemsPerPage) * indexItemLength)
+	q.dataPageIndex = int64(q.indexPage.ReadUint64(indexOffset + queueDataPageIndexOffset))
+	previousMessageOffset := q.indexPage.ReadUint32(indexOffset + messageOffsetOffset)
+	previousMessageLength := q.indexPage.ReadUint32(indexOffset + messageLengthOffset)
+	// calculate next message offset
+	q.messageOffset = int(previousMessageOffset + previousMessageLength)
+
+	if q.dataPage, err = q.dataPageFct.AcquirePage(q.dataPageIndex); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateSequence validates the sequence if in range
+func (q *queue) validateSequence(sequence int64) error {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
+	if sequence <= q.TailSeq() || sequence > q.HeadSeq() {
+		return ErrOutOfSequenceRange
+	}
+
+	return nil
+}
+
+// checkDataSize checks the data size if exceeds the size limit
+func (q *queue) checkDataSize() error {
+	if q.dataPageFct.Size()+q.indexPageFct.Size() > q.dataSizeLimit {
+		return ErrExceedingTotalSizeLimit
+	}
+	return nil
 }

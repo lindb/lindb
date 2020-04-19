@@ -9,6 +9,7 @@ import (
 var (
 	mkdirAllFunc  = os.MkdirAll
 	removeAllFunc = os.RemoveAll
+	removeFunc    = os.Remove
 )
 
 // MkDirIfNotExist creates given dir if it not exist
@@ -25,6 +26,16 @@ func MkDirIfNotExist(path string) error {
 func RemoveDir(path string) error {
 	if Exist(path) {
 		if e := removeAllFunc(path); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// RemoveFile removes the file if exist
+func RemoveFile(file string) error {
+	if Exist(file) {
+		if e := removeFunc(file); e != nil {
 			return e
 		}
 	}

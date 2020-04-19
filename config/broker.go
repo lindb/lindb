@@ -51,7 +51,7 @@ func (t *TCP) TOML() string {
 // ReplicationChannel represents config for data replication in broker.
 type ReplicationChannel struct {
 	Dir                string         `toml:"dir"`
-	SegmentFileSize    uint16         `toml:"segment-file-size"`
+	DataSizeLimit      int64          `toml:"data-size-limit"`
 	RemoveTaskInterval ltoml.Duration `toml:"remove-task-interval"`
 	ReportInterval     ltoml.Duration `toml:"report-interval"` // replicator state report interval
 	CheckFlushInterval ltoml.Duration `toml:"check-flush-interval"`
@@ -59,14 +59,14 @@ type ReplicationChannel struct {
 	BufferSize         int            `toml:"buffer-size"`
 }
 
-func (rc *ReplicationChannel) SegmentFileSizeInBytes() int {
-	if rc.SegmentFileSize <= 1 {
+func (rc *ReplicationChannel) GetDataSizeLimit() int64 {
+	if rc.DataSizeLimit <= 1 {
 		return 1024 * 1024 // 1MB
 	}
-	if rc.SegmentFileSize >= 1024 {
+	if rc.DataSizeLimit >= 1024 {
 		return 1024 * 1024 * 1024 // 1GB
 	}
-	return int(rc.SegmentFileSize) * 1024 * 1024
+	return rc.DataSizeLimit * 1024 * 1024
 }
 
 func (rc *ReplicationChannel) BufferSizeInBytes() int {
@@ -78,9 +78,9 @@ func (rc *ReplicationChannel) TOML() string {
     ## WAL mmaped log directory
     dir = "%s"
     
-    ## segment-file-size is the maximum size in megabytes of the segment file before a new
-    ## file is created. It defaults to 128 megabytes, available size is in [1MB, 1GB]
-    segment-file-size = %d
+    ##  data-size-limit is the maximum size in megabytes of the page file before a new
+    ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+    data-size-limit = %d
 	
     ## interval for how often a new segment will be created
     remove-task-interval = "%s"
@@ -97,7 +97,7 @@ func (rc *ReplicationChannel) TOML() string {
     ## will flush if this size of data in kegabytes get buffered
     buffer-size = %d`,
 		rc.Dir,
-		rc.SegmentFileSize,
+		rc.DataSizeLimit,
 		rc.RemoveTaskInterval.String(),
 		rc.ReportInterval.String(),
 		rc.CheckFlushInterval.String(),
@@ -158,7 +158,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		ReplicationChannel: ReplicationChannel{
 			Dir:                filepath.Join(defaultParentDir, "broker/replication"),
-			SegmentFileSize:    128,
+			DataSizeLimit:      512,
 			RemoveTaskInterval: ltoml.Duration(time.Minute),
 			CheckFlushInterval: ltoml.Duration(time.Second),
 			FlushInterval:      ltoml.Duration(5 * time.Second),

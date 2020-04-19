@@ -25,7 +25,7 @@ func TestChannel_New(t *testing.T) {
 	defer func() {
 		newFanOutQueue = queue.NewFanOutQueue
 	}()
-	newFanOutQueue = func(dirPath string, dataFileSize int, removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
+	newFanOutQueue = func(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
 		return nil, fmt.Errorf("err")
 	}
 	ch, err = newChannel(context.TODO(), replicationConfig, "database", 1, nil)
@@ -75,7 +75,7 @@ func TestChannel_Write(t *testing.T) {
 
 	ch1 := ch.(*channel)
 	fanout := queue.NewMockFanOutQueue(ctrl)
-	fanout.EXPECT().Append(gomock.Any()).Return(int64(0), fmt.Errorf("err")).AnyTimes()
+	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
 	metric := &pb.Metric{
@@ -123,7 +123,7 @@ func TestChannel_checkFlush(t *testing.T) {
 
 	ch1 := ch.(*channel)
 	fanout := queue.NewMockFanOutQueue(ctrl)
-	fanout.EXPECT().Append(gomock.Any()).Return(int64(0), fmt.Errorf("err")).AnyTimes()
+	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
 	metric := &pb.Metric{
@@ -164,7 +164,7 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	ch1 := ch.(*channel)
 	ch1.ch <- []byte{1, 2, 3}
 	fanOut := queue.NewMockFanOutQueue(ctrl)
-	fanOut.EXPECT().Append(gomock.Any()).Return(int64(0), fmt.Errorf("err")).AnyTimes()
+	fanOut.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanOut
 	ch1.writePendingBeforeClose()
 }

@@ -1,46 +1,73 @@
 package page
 
 import (
+	"fmt"
+	"path/filepath"
 	"testing"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
-type pageTestSuite struct {
+var testPath = "test"
+var fileName = "fileName"
+
+func TestMappedPage_err(t *testing.T) {
+	_ = fileutil.MkDirIfNotExist(testPath)
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		mapFileFunc = fileutil.RWMap
+	}()
+
+	mapFileFunc = func(filePath string, size int) ([]byte, error) {
+		return nil, fmt.Errorf("err")
+	}
+	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	assert.Error(t, err)
+	assert.Nil(t, mp)
 }
 
-var _ = check.Suite(&pageTestSuite{})
+func TestMappedPage(t *testing.T) {
+	_ = fileutil.MkDirIfNotExist(testPath)
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
-func (ts *pageTestSuite) TestMethods(c *check.C) {
-	fileName := "fileName"
 	bytes := []byte("12345")
-	mp := NewMappedPage(fileName, bytes,
-		func(mappedBytes []byte) error {
-			return nil
-		}, func(mappedBytes []byte) error {
-			return nil
-		})
 
-	c.Check(mp.FilePath(), check.Equals, fileName)
+	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	assert.NoError(t, err)
 
-	c.Check(mp.Size(), check.Equals, len(bytes))
+	// copy data
+	mp.WriteBytes(bytes, 0)
 
-	c.Check(mp.Buffer(0), check.DeepEquals, bytes[0:])
-	c.Check(mp.Buffer(3), check.DeepEquals, bytes[3:])
+	assert.NoError(t, mp.Sync())
+	assert.Equal(t, filepath.Join(testPath, fileName), mp.FilePath())
+	assert.NotNil(t, 128, mp.Size())
+	assert.Equal(t, bytes, mp.ReadBytes(0, 5))
+	assert.False(t, mp.Closed())
+	assert.NoError(t, mp.Close())
+	assert.True(t, mp.Closed())
+	assert.NoError(t, mp.Close())
+}
 
-	c.Check(mp.Data(0, 2), check.DeepEquals, bytes[0:2])
-	c.Check(mp.Data(3, 2), check.DeepEquals, bytes[3:5])
+func TestMappedPage_Write_number(t *testing.T) {
+	_ = fileutil.MkDirIfNotExist(testPath)
 
-	c.Check(mp.Closed(), check.Equals, false)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
-	c.Check(mp.Close(), check.IsNil)
+	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	assert.NoError(t, err)
+	mp.PutUint32(10, 0)
+	mp.PutUint64(999, 8)
+	assert.Equal(t, uint32(999), mp.ReadUint32(8))
+	assert.Equal(t, uint64(10), mp.ReadUint64(0))
 
-	c.Check(mp.Closed(), check.Equals, true)
-
-	c.Check(mp.Close(), check.IsNil)
-
+	err = mp.Close()
+	assert.NoError(t, err)
 }
