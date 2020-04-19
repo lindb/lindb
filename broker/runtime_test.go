@@ -47,7 +47,7 @@ var cfg = config.Broker{
 
 		ReplicationChannel: config.ReplicationChannel{
 			Dir:                "/tmp/broker/replication",
-			SegmentFileSize:    128,
+			DataSizeLimit:      128,
 			RemoveTaskInterval: ltoml.Duration(time.Minute),
 			CheckFlushInterval: ltoml.Duration(time.Second),
 			FlushInterval:      ltoml.Duration(time.Second * 5),

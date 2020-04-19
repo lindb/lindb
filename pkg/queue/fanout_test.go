@@ -1,15 +1,20 @@
 package queue
 
 import (
+	"fmt"
 	"math/rand"
-	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/queue/page"
 )
 
 const (
@@ -19,248 +24,376 @@ const (
 func randomString(length int) string {
 	bytes := make([]byte, length)
 	l := len(chars)
+
 	for i := range bytes {
 		bytes[i] = chars[rand.Intn(l)]
 	}
+
 	return string(bytes)
 }
 
-func TestOneFanOut(t *testing.T) {
-	dir := path.Join(os.TempDir(), "fanOut")
-	// remove dir to avoid influence of the previous run of test
-	if err := os.RemoveAll(dir); err != nil {
-		t.Error(err)
+func TestFanOutQueue_New(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newQueueFunc = NewQueue
+		mkDirFunc = fileutil.MkDirIfNotExist
+		listDirFunc = fileutil.ListDir
+		newFanOutFunc = NewFanOut
+
+		ctrl.Finish()
+	}()
+
+	// case 1: create underlying queue err
+	newQueueFunc = func(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (Queue, error) {
+		return nil, fmt.Errorf("err")
 	}
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.Error(t, err)
+	assert.Nil(t, fq)
+
+	newQueueFunc = NewQueue
+	// case 2: create fanOut path err
+	queue := NewMockQueue(ctrl)
+	queue.EXPECT().Close().AnyTimes()
+
+	newQueueFunc = func(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (Queue, error) {
+		return queue, nil
+	}
+	mkDirFunc = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	fq, err = NewFanOutQueue(dir, 1024, time.Minute)
+	assert.Error(t, err)
+	assert.Nil(t, fq)
+
+	mkDirFunc = fileutil.MkDirIfNotExist
+	// case 3: list fanOut consumer group err
+	listDirFunc = func(path string) ([]string, error) {
+		return nil, fmt.Errorf("err")
+	}
+	fq, err = NewFanOutQueue(dir, 1024, time.Minute)
+	assert.Error(t, err)
+	assert.Nil(t, fq)
+
+	listDirFunc = fileutil.ListDir
+
+	// case 4: create success
+	queue.EXPECT().TailSeq().Return(int64(0))
+
+	fq, err = NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+	assert.NotNil(t, fq)
+	fo, err := fq.GetOrCreateFanOut("group-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+	fq.Close()
+	// case 5: init fanOut consumer group err
+	newFanOutFunc = func(parent, path string, q FanOutQueue) (FanOut, error) {
+		return nil, fmt.Errorf("err")
+	}
+	fq, err = NewFanOutQueue(dir, 1024, time.Minute)
+	assert.Error(t, err)
+	assert.Nil(t, fq)
+}
+
+func TestFanOutQueue_GetOrCreateFanOut(t *testing.T) {
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newFanOutFunc = NewFanOut
+	}()
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
-	if err != nil {
-		t.Fatal(err)
+	assert.NoError(t, err)
+	assert.NotNil(t, fq)
+	// case 1: create consumer group err
+	newFanOutFunc = func(parent, path string, q FanOutQueue) (FanOut, error) {
+		return nil, fmt.Errorf("err")
+	}
+	fo, err := fq.GetOrCreateFanOut("group-1")
+	assert.Error(t, err)
+	assert.Nil(t, fo)
+
+	newFanOutFunc = NewFanOut
+
+	// case 2: create consumer group success
+	fo, err = fq.GetOrCreateFanOut("group-1")
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+
+	foNames := fq.FanOutNames()
+	assert.Equal(t, "group-1", foNames[0])
+}
+
+func TestFanOutQueue_Sync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		err := fq.Put([]byte("12345"))
+		assert.NoError(t, err)
 	}
 
-	assert.Equal(t, len(fq.FanOutNames()), 0, "len(m)")
+	assert.Equal(t, int64(-1), fq.TailSeq())
+	// case 1: sync with empty consume group
+	fq.Sync()
+	assert.Equal(t, int64(-1), fq.TailSeq())
+	fo1, err := fq.GetOrCreateFanOut("group-1")
+	assert.NoError(t, err)
+	fo1.Consume()       //0
+	fo1.Consume()       //1
+	s1 := fo1.Consume() //2
+	fo2, err := fq.GetOrCreateFanOut("group-2")
+	assert.NoError(t, err)
+
+	s2 := fo2.Consume() //0
+
+	// case 2: sync and ack min consume sequence, but consumer not ack
+	fq.Sync()
+	assert.Equal(t, int64(-1), fq.TailSeq())
+	// case 3: ack and sync
+	fo1.Ack(s1)
+	fo2.Ack(s2)
+	fq.Sync()
+	assert.Equal(t, int64(0), fq.TailSeq())
+	// case 3: sync err
+	s2 = fo2.Consume() //1
+	fo3 := fo2.(*fanOut)
+	metaPage := page.NewMockMappedPage(ctrl)
+	fo3.metaPage = metaPage
+	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(2)
+	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
+	fo2.Ack(s2)
+}
+
+func TestFanOut_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+	fo, err := fq.GetOrCreateFanOut("f1")
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+
+	fo1 := fo.(*fanOut)
+	pageFct := page.NewMockFactory(ctrl)
+	fo1.metaPageFct = pageFct
+	pageFct.EXPECT().Close().Return(fmt.Errorf("err"))
+
+	fq.Close()
+}
+
+func TestFanOut_new_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newPageFactoryFunc = page.NewFactory
+		ctrl.Finish()
+	}()
+
+	// case 1: new meta page factory
+	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+		return nil, fmt.Errorf("err")
+	}
+	fo, err := NewFanOut(dir, "f1", nil)
+	assert.Error(t, err)
+	assert.Nil(t, fo)
+	// case 2: acquire meta page err
+	pageFct := page.NewMockFactory(ctrl)
+	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+		return pageFct, nil
+	}
+	pageFct.EXPECT().Close().Return(fmt.Errorf("err"))
+	pageFct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	fo, err = NewFanOut(dir, "f1", nil)
+	assert.Error(t, err)
+	assert.Nil(t, fo)
+}
+
+func TestFanOutQueue_one_consumer(t *testing.T) {
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+	assert.Empty(t, fq.FanOutNames())
+	assert.Equal(t, int64(-1), fq.HeadSeq())
+	assert.Equal(t, int64(-1), fq.TailSeq())
 
 	f1, err := fq.GetOrCreateFanOut("f1")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, f1.Name(), "f1")
-	assert.Equal(t, f1.HeadSeq(), int64(0))
-	assert.Equal(t, f1.TailSeq(), int64(0))
-	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
-	assert.Equal(t, f1.Pending(), int64(0))
-
-	assert.Equal(t, fq.HeadSeq(), int64(0))
-	assert.Equal(t, fq.TailSeq(), int64(0))
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, fanOutDirName, "f1"), f1.Name())
+	assert.Equal(t, int64(-1), f1.HeadSeq())
+	assert.Equal(t, int64(-1), f1.TailSeq())
+	assert.Equal(t, SeqNoNewMessageAvailable, f1.Consume())
+	assert.Equal(t, int64(0), f1.Pending())
 
 	// msg 0
 	msg := []byte("123")
-	seq, err := fq.Append(msg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, seq, int64(0))
-	assert.Equal(t, f1.Pending(), int64(1))
+	err = fq.Put(msg)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), f1.Pending())
 
 	fseq := f1.Consume()
-	assert.Equal(t, fseq, int64(0))
-	assert.Equal(t, f1.HeadSeq(), int64(1))
-	assert.Equal(t, f1.TailSeq(), int64(0))
-	assert.Equal(t, f1.Pending(), int64(0))
-
-	assert.Equal(t, f1.HeadSeq(), int64(1))
-	assert.Equal(t, f1.TailSeq(), int64(0))
+	assert.Equal(t, int64(0), fseq)
+	assert.Equal(t, int64(0), f1.HeadSeq())
+	assert.Equal(t, int64(-1), f1.TailSeq())
+	assert.Equal(t, int64(0), f1.Pending())
 
 	fmsg, err := f1.Get(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, fmsg, msg)
-
-	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
+	assert.NoError(t, err)
+	assert.Equal(t, msg, fmsg)
+	assert.Equal(t, SeqNoNewMessageAvailable, f1.Consume())
 
 	// msg1, msg2
 	msg1 := []byte("456")
 	msg2 := []byte("789")
 
-	seq, err = fq.Append(msg1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	err = fq.Put(msg1)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), fq.HeadSeq())
+	assert.Equal(t, int64(1), f1.Pending())
 
-	assert.Equal(t, seq, int64(1))
-
-	assert.Equal(t, fq.HeadSeq(), int64(2))
-
-	seq, err = fq.Append(msg2)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, seq, int64(2))
-	assert.Equal(t, fq.HeadSeq(), int64(3))
-
-	assert.Equal(t, f1.Pending(), int64(2))
+	err = fq.Put(msg2)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), fq.HeadSeq())
+	assert.Equal(t, int64(2), f1.Pending())
 
 	fseq = f1.Consume()
-	assert.Equal(t, fseq, int64(1))
-	assert.Equal(t, f1.HeadSeq(), int64(2))
+	assert.Equal(t, int64(1), fseq)
+	assert.Equal(t, int64(1), f1.HeadSeq())
+	assert.Equal(t, int64(1), f1.Pending())
 
 	fmsg, err = f1.Get(fseq)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, msg1, fmsg)
 
-	assert.Equal(t, fmsg, msg1)
-
-	f1.Ack(fseq)
-	assert.Equal(t, f1.TailSeq(), fseq)
-
-	assert.Equal(t, fq.TailSeq(), fseq)
+	f1.Ack(fseq) // ack 1
+	assert.Equal(t, fseq, f1.TailSeq())
 
 	fseq = f1.Consume()
-	assert.Equal(t, fseq, int64(2))
+	assert.Equal(t, int64(2), fseq)
 
 	fmsg, err = f1.Get(fseq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, fmsg, msg2)
-	f1.Ack(fseq)
-	assert.Equal(t, f1.TailSeq(), fseq)
-	assert.Equal(t, fq.TailSeq(), fseq)
-	assert.Equal(t, f1.Pending(), int64(0))
+	assert.NoError(t, err)
+	assert.Equal(t, msg2, fmsg)
+	f1.Ack(fseq) // akc 2
+	assert.Equal(t, fseq, f1.TailSeq())
+	assert.Equal(t, int64(0), f1.Pending())
 
 	fq.Close()
-
+	// reopen
+	fq, err = NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+	f1, err = fq.GetOrCreateFanOut("f1")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), f1.TailSeq())
+	assert.Equal(t, int64(2), f1.HeadSeq())
+	assert.Equal(t, int64(0), f1.Pending())
+	fq.Close()
 }
 
-func TestFanOut_SetHeadSeq(t *testing.T) {
-	dir := path.Join(os.TempDir(), "fanOut")
-	// remove dir to avoid influence of the previous run of test
-	if err := os.RemoveAll(dir); err != nil {
-		t.Error(err)
-	}
+func TestFanOutQueue_SetHeadSeq(t *testing.T) {
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	f1, err := fq.GetOrCreateFanOut("f1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	if err := f1.SetHeadSeq(1); err == nil {
-		t.Fatal("should be error")
-	}
+	err = f1.SetHeadSeq(1)
+	assert.Error(t, err)
 
-	if _, err := fq.Append([]byte("123")); err != nil {
-		t.Fatal(err)
-	}
+	err = fq.Put([]byte("123"))
+	assert.NoError(t, err)
 
-	if _, err := fq.Append([]byte("456")); err != nil {
-		t.Fatal(err)
-	}
+	err = fq.Put([]byte("456"))
+	assert.NoError(t, err)
 
 	seq := f1.Consume()
-	assert.Equal(t, seq, int64(0))
+	assert.Equal(t, int64(0), seq)
 
 	seq = f1.Consume()
-	assert.Equal(t, seq, int64(1))
+	assert.Equal(t, int64(1), seq)
 
-	if err := f1.SetHeadSeq(0); err != nil {
-		t.Fatal(err)
-	}
-
-	seq = f1.Consume()
-	assert.Equal(t, seq, int64(0))
+	// reset head consume sequence
+	err = f1.SetHeadSeq(-1)
+	assert.NoError(t, err)
 
 	seq = f1.Consume()
-	assert.Equal(t, seq, int64(1))
+	assert.Equal(t, int64(0), seq)
+
+	seq = f1.Consume()
+	assert.Equal(t, int64(1), seq)
 
 	f1.Ack(1)
 
-	if err := f1.SetHeadSeq(0); err == nil {
-		t.Fatal("should be error")
-	}
+	err = f1.SetHeadSeq(0)
+	assert.Error(t, err)
+	fq.Close()
 }
 
-func TestMultipleFanOut(t *testing.T) {
-	dir := path.Join(os.TempDir(), "fanOut")
-	// remove dir to avoid influence of the previous run of test
-	if err := os.RemoveAll(dir); err != nil {
-		t.Error(err)
-	}
+func TestFanOutQueue_multiple_consumer(t *testing.T) {
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
-	if err != nil {
-		t.Fatal(err)
+	assert.NoError(t, err)
+	// put data
+	for i := 0; i < 100; i++ {
+		msg := []byte(fmt.Sprintf("msg-%d", i))
+		err = fq.Put(msg)
+		assert.NoError(t, err)
 	}
 
-	f1, err := fq.GetOrCreateFanOut("f1")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, f1.Consume(), SeqNoNewMessageAvailable)
-
-	f2, err := fq.GetOrCreateFanOut("f2")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, f2.Consume(), SeqNoNewMessageAvailable)
-
-	msg := []byte("123")
-
-	seq, err := fq.Append(msg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, seq, int64(0))
-
-	fseq := f1.Consume()
-	assert.Equal(t, fseq, int64(0))
-
-	fmsg, err := f1.Get(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, fmsg, msg)
-
-	fseq = f2.Consume()
-	assert.Equal(t, fseq, int64(0))
-
-	fmsg, err = f2.Get(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, fmsg, msg)
+	// consumer group 1
+	consumeMsg(t, fq, "f1", 100)
+	// consumer group 2
+	consumeMsg(t, fq, "f2", 100)
 
 	fq.Close()
-
 }
 
-func TestConcurrentRead(t *testing.T) {
-	dir := path.Join(os.TempDir(), "fanout_concurrent")
-	// remove dir to avoid influence of the previous run of test
-	err := os.RemoveAll(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestFanOutQueue_concurrent_read(t *testing.T) {
+	dir := path.Join(testPath, "fanout_concurrent")
 
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
 
 	msgSize := 1024
-	dataFileSize := 512
+	dataFileSize := int64(512)
 	// random text
 	bytesSli := make([][]byte, msgSize)
 
@@ -269,15 +402,13 @@ func TestConcurrentRead(t *testing.T) {
 	}
 
 	fq, err := NewFanOutQueue(dir, dataFileSize, time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	readConcurrent := 10
 	wg := &sync.WaitGroup{}
+	wg.Add(readConcurrent)
 
 	for i := 0; i < readConcurrent; i++ {
-		wg.Add(1)
 		go func(seq int) {
 			defer wg.Done()
 			read(t, bytesSli, fq, "fo-"+strconv.Itoa(seq))
@@ -285,81 +416,62 @@ func TestConcurrentRead(t *testing.T) {
 	}
 
 	wg.Add(1)
+
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		write(t, bytesSli, fq)
 	}()
 
 	wg.Wait()
 
-	assert.Equal(t, fq.HeadSeq(), int64(msgSize))
-	assert.Equal(t, fq.TailSeq(), int64(msgSize-1))
+	assert.Equal(t, int64(msgSize)-1, fq.HeadSeq())
 
 	// wait for background deleting
 	time.Sleep(2 * time.Second)
-	seg, err := fq.GetSegment(fq.TailSeq())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = fq.GetSegment(seg.Begin() - 1)
-	if err == nil {
-		t.Fatal(err, "should be deleted")
-	}
 
 	fq.Close()
 
 	// reload
 	fq2, err := NewFanOutQueue(dir, dataFileSize, time.Second)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
-	assert.Equal(t, fq2.HeadSeq(), int64(msgSize))
-	assert.Equal(t, fq2.TailSeq(), int64(msgSize-1))
+	assert.Equal(t, int64(msgSize)-1, fq2.HeadSeq())
 
 	assert.Equal(t, len(fq2.FanOutNames()), readConcurrent)
+
 	for i := 0; i < readConcurrent; i++ {
 		fo, err := fq2.GetOrCreateFanOut("fo-" + strconv.Itoa(i))
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 
-		assert.Equal(t, fo.HeadSeq(), int64(msgSize))
-		assert.Equal(t, fo.TailSeq(), int64(msgSize-1))
+		assert.Equal(t, int64(msgSize)-1, fo.HeadSeq())
+		assert.Equal(t, int64(msgSize)-1, fo.TailSeq())
 	}
-
 	fq2.Close()
-
 }
 
 func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string) {
 	fo, err := fq.GetOrCreateFanOut(name)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 
-	counter := fo.TailSeq()
+	counter := 0
+
 	for {
-
-		if counter == int64(len(raw)) {
+		if counter == len(raw) {
 			return
 		}
+
 		seq := fo.Consume()
-		//fmt.Printf("fanout:%s, seq:%d\n", name, seq)
+
 		if seq == SeqNoNewMessageAvailable {
-			time.Sleep(time.Millisecond)
+			time.Sleep(time.Microsecond * 10)
 			continue
 		}
 
-		assert.Equal(t, seq, counter)
+		assert.Equal(t, seq, int64(counter))
 
 		bys, err := fo.Get(seq)
-		if err != nil {
-			t.Error(err)
-		}
-
-		assert.Equal(t, bys, raw[int(seq)])
+		assert.NoError(t, err)
+		assert.Equal(t, raw[int(seq)], bys)
 
 		counter++
 
@@ -368,11 +480,21 @@ func read(t *testing.T, raw [][]byte, fq FanOutQueue, name string) {
 }
 
 func write(t *testing.T, raw [][]byte, fq FanOutQueue) {
-	for i, bys := range raw {
-		seq, err := fq.Append(bys)
-		if err != nil {
-			t.Error(err)
-		}
-		assert.Equal(t, int64(i), seq)
+	for _, bys := range raw {
+		err := fq.Put(bys)
+		assert.NoError(t, err)
+	}
+}
+
+func consumeMsg(t *testing.T, fq FanOutQueue, consumerGroup string, msgCount int) {
+	f1, err := fq.GetOrCreateFanOut(consumerGroup)
+	assert.NoError(t, err)
+
+	for i := 0; i < msgCount; i++ {
+		fseq := f1.Consume()
+		assert.Equal(t, fseq, int64(i))
+		fmsg, err := f1.Get(int64(i))
+		assert.NoError(t, err)
+		assert.Equal(t, []byte(fmt.Sprintf("msg-%d", i)), fmsg)
 	}
 }
