@@ -53,7 +53,54 @@ The GO version is not only a simple translation of the JAVA version, but has bee
 
 Once we implement the final feature and replace the LinDB under production environment with the Golang version, LinDB 0.1.0 will be released. At that point, we will move into the stable phase, our intention is to avoid breaking changes to the API and storage file format.
 
-## Build(TODO)
+## Build
+
+### Prerequisites
+
+To build LinDB from source you require the following on your system.
+
+- [Go](https://golang.org/doc/install)
+- [Make tool](https://www.gnu.org/software/make/)
+
+### Setup environment
+
+Export GO path and system PATH to your environment. GOPATH typically defaults to `$HOME/go`.
+
+```
+# Add these to your ~/.bashrc or ~/.bash_profile file and save file.
+export GOPATH=$HOME/go
+export PATH=$PATH:$GOPATH/bin
+
+# Source bashrc to export to environment
+$ source ~/.bashrc
+```
+
+### Get the code
+
+```
+git clone https://github.com/lindb/lindb.git
+cd lindb
+```
+
+### Build from source
+
+To build only LinDB core.
+
+```
+make build
+```
+
+To build both LinDB core and frontend.
+
+```
+make build-all
+```
+
+### Test
+
+```
+make test
+```
 
 ## Architecture
 
@@ -83,5 +130,3 @@ This project uses the following linters. Failure during the running of any of th
 ## License
 
 LinDB is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
-
-
