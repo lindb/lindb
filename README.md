@@ -61,6 +61,7 @@ To build LinDB from source you require the following on your system.
 
 - [Go](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
+- [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
 ### Setup environment
 
@@ -101,6 +102,17 @@ make build-all
 ```
 make test
 ```
+
+### Access web interface
+
+Start the node.js app to view LinDB web interface.
+
+```
+cd web
+yarn start
+```
+
+You can access the LinDB web interface on your [localhost port 3000](http://localhost:3000/)
 
 ## Architecture
 
