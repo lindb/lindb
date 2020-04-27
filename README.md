@@ -114,6 +114,24 @@ yarn start
 
 You can access the LinDB web interface on your [localhost port 3000](http://localhost:3000/)
 
+
+## Deploy
+
+LinDB can be deployed in both cluster mode and standalone mode.
+
+### Standalone mode
+
+You can try out fully functional LinDB on your local system via the standalone mode. In standalone mode LinDB will be deployed with embedded broker, storage and etcd.
+
+```
+./bin/lind standalone init-config
+./bin/lind standalone run
+```
+
+You can access the LinDB web console on your [localhost port 9000](http://localhost:9000)
+
+### Cluster mode (todo)
+
 ## Architecture
 
 ![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
