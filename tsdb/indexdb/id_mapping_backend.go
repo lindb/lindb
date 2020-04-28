@@ -48,7 +48,7 @@ type idMappingBackend struct {
 }
 
 // newIDMappingBackend creates new id mapping backend storage
-func newIDMappingBackend(name, parent string) (IDMappingBackend, error) {
+func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func newIDMappingBackend(name, parent string) (IDMappingBackend, error) {
 		// close bbolt.DB if init mapping backend err
 		if e := closeFunc(db); e != nil {
 			indexLogger.Error("close bbolt.db err when create mapping backend fail",
-				logger.String("db", name), logger.Error(e))
+				logger.String("db", parent), logger.Error(e))
 		}
 		return nil, err
 	}

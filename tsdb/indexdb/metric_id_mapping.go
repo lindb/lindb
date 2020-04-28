@@ -15,6 +15,8 @@ type MetricIDMapping interface {
 	GetSeriesID(tagsHash uint64) (seriesID uint32, ok bool)
 	// GenSeriesID generates series id by tags hash, then cache new series id
 	GenSeriesID(tagsHash uint64) (seriesID uint32)
+	// RemoveSeriesID removes series id by tags hash
+	RemoveSeriesID(tagsHash uint64)
 	// AddSeriesID adds the series id init cache
 	AddSeriesID(tagsHash uint64, seriesID uint32)
 	// SetMaxSeriesIDsLimit sets the max series ids limit
@@ -71,6 +73,17 @@ func (mim *metricIDMapping) GenSeriesID(tagsHash uint64) (seriesID uint32) {
 	// cache it
 	mim.hash2SeriesID[tagsHash] = seriesID
 	return seriesID
+}
+
+// RemoveSeriesID removes series id by tags hash
+func (mim *metricIDMapping) RemoveSeriesID(tagsHash uint64) {
+	seriesID, ok := mim.hash2SeriesID[tagsHash]
+	if ok {
+		if seriesID == mim.idSequence.Load() {
+			mim.idSequence.Dec() // recycle series id
+		}
+		delete(mim.hash2SeriesID, tagsHash)
+	}
 }
 
 // SetMaxSeriesIDsLimit sets the max series ids limit

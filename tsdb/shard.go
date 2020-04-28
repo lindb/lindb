@@ -387,7 +387,6 @@ func (s *shard) initIndexDatabase() error {
 	}
 	s.indexDB, err = newIndexDBFunc(
 		context.TODO(),
-		s.databaseName,
 		filepath.Join(s.path, metaDir),
 		s.metadata, s.forwardFamily,
 		s.invertedFamily)
