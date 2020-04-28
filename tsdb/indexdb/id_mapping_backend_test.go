@@ -22,11 +22,11 @@ func TestIdMappingBackend_new(t *testing.T) {
 		mkDir = fileutil.MkDirIfNotExist
 	}()
 	// case 1: new backend
-	backend, err := newIDMappingBackend("test", testPath)
+	backend, err := newIDMappingBackend(testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, backend)
 	// case 2: cannot reopen
-	backend2, err := newIDMappingBackend("test", testPath)
+	backend2, err := newIDMappingBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, backend2)
 	err = backend.Close()
@@ -34,21 +34,21 @@ func TestIdMappingBackend_new(t *testing.T) {
 
 	// case 3: mock create root bucket
 	seriesBucketName = []byte("")
-	backend2, err = newIDMappingBackend("test", testPath)
+	backend2, err = newIDMappingBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, backend2)
 	closeFunc = func(db *bbolt.DB) error {
 		return fmt.Errorf("err")
 	}
 	seriesBucketName = []byte("")
-	backend2, err = newIDMappingBackend("test", testPath)
+	backend2, err = newIDMappingBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, backend2)
 	// case 4: create parent err
 	mkDir = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	backend, err = newIDMappingBackend("test", testPath)
+	backend, err = newIDMappingBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, backend)
 }
@@ -57,7 +57,7 @@ func TestIdMappingBackend_mapping(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	backend, err := newIDMappingBackend("test", filepath.Join(testPath, "test"))
+	backend, err := newIDMappingBackend(filepath.Join(testPath, "test"))
 	assert.NoError(t, err)
 	event := newMappingEvent()
 	event.addSeriesID(1, 20, 200)
@@ -93,7 +93,7 @@ func TestIdMappingBackend_mapping(t *testing.T) {
 	assert.NoError(t, err)
 
 	//reopen
-	backend, _ = newIDMappingBackend("test", filepath.Join(testPath, "test"))
+	backend, _ = newIDMappingBackend(filepath.Join(testPath, "test"))
 	mapping, err = backend.loadMetricIDMapping(2)
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(2), mapping.GetMetricID())
@@ -108,7 +108,7 @@ func TestIdMappingBackend_save_err(t *testing.T) {
 		createBucketFunc = createBucket
 		putFunc = put
 	}()
-	backend, err := newIDMappingBackend("test", testPath)
+	backend, err := newIDMappingBackend(testPath)
 	assert.NoError(t, err)
 	event := newMappingEvent()
 	event.addSeriesID(1, 20, 200)

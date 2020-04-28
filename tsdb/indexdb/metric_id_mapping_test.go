@@ -42,3 +42,13 @@ func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
 	seriesID = idMapping.GenSeriesID(1020)
 	assert.Equal(t, uint32(2), seriesID)
 }
+
+func TestMetricIDMapping_RemoveSeriesID(t *testing.T) {
+	idMapping := newMetricIDMapping(10, 0)
+	seriesID := idMapping.GenSeriesID(100)
+	assert.Equal(t, uint32(1), seriesID)
+	idMapping.RemoveSeriesID(100)
+	seriesID = idMapping.GenSeriesID(100)
+	assert.Equal(t, uint32(1), seriesID)
+	idMapping.RemoveSeriesID(1200)
+}

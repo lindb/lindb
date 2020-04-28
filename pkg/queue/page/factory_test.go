@@ -111,6 +111,20 @@ func TestFactory_AcquirePage(t *testing.T) {
 	assert.Equal(t, errFactoryClosed, err)
 }
 
+func TestFactory_GetPageIDs(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	fct, err := NewFactory(testPath, 128)
+	assert.NoError(t, err)
+	_, _ = fct.AcquirePage(0)
+	_, _ = fct.AcquirePage(4)
+	_, _ = fct.AcquirePage(1)
+	pageIDs := fct.GetPageIDs()
+	assert.Len(t, pageIDs, 3)
+	assert.Equal(t, []int64{0, 1, 4}, pageIDs)
+}
+
 func TestFactory_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
