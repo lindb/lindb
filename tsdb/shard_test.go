@@ -98,7 +98,7 @@ func TestShard_New(t *testing.T) {
 	assert.Nil(t, thisShard)
 	// case 9: create index db err
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
-	newIndexDBFunc = func(ctx context.Context, name, parent string,
+	newIndexDBFunc = func(ctx context.Context, parent string,
 		metadata metadb.Metadata, forward kv.Family, inverted kv.Family,
 	) (indexDatabase indexdb.IndexDatabase, err error) {
 		return nil, fmt.Errorf("err")

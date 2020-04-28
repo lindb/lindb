@@ -379,11 +379,14 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 				logger.String("queue", q.dirPath), logger.Error(err))
 		}
 		// not enough space in current data page, need create new page
-		if q.dataPage, err = q.dataPageFct.AcquirePage(q.dataPageIndex + 1); err != nil {
+		dataPage, err := q.dataPageFct.AcquirePage(q.dataPageIndex + 1)
+		if err != nil {
 			return nil, 0, err
 		}
+
+		q.dataPage = dataPage
 		q.dataPageIndex++
-		q.messageOffset = 0 // need reset message offset for
+		q.messageOffset = 0 // need reset message offset for new data page
 	}
 
 	seq := q.headSeq.Load() + 1
@@ -398,9 +401,12 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 			queueLogger.Error("sync index page err when alloc",
 				logger.String("queue", q.dirPath), logger.Error(err))
 		}
-		if q.indexPage, err = q.indexPageFct.AcquirePage(indexPageIndex); err != nil {
+		indexPage, err := q.indexPageFct.AcquirePage(indexPageIndex)
+		if err != nil {
 			return nil, 0, err
 		}
+
+		q.indexPage = indexPage
 		q.indexPageIndex++
 	}
 	// advance dataOffset

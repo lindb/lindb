@@ -2,6 +2,8 @@ package indexdb
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,20 +15,28 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/wal"
 )
 
 // for testing
 var (
-	createBackend = newIDMappingBackend
+	createBackend   = newIDMappingBackend
+	createSeriesWAL = wal.NewSeriesWAL
+)
+
+const (
+	walPath       = "wal"
+	seriesWALPath = "series"
 )
 
 var (
-	syncInterval = 2 * timeutil.OneSecond
+	syncInterval       = 2 * timeutil.OneSecond
+	ErrNeedRecoveryWAL = errors.New("need recovery series wal")
 )
 
 // indexDatabase implements IndexDatabase interface
 type indexDatabase struct {
-	name             string
+	path             string
 	ctx              context.Context
 	cancel           context.CancelFunc
 	backend          IDMappingBackend           // id mapping backend storage
@@ -34,16 +44,63 @@ type indexDatabase struct {
 	metadata         metadb.Metadata            // the metadata for generating ID of metric, field
 	index            InvertedIndex
 
-	mutable      *mappingEvent // pending update events
-	immutable    *mappingEvent // syncing pending update events
-	lastSyncTime int64
-	syncSignal   chan struct{}
+	seriesWAL wal.SeriesWAL
 
 	syncInterval int64
 
 	rwMutex sync.RWMutex // lock of create metric index
 }
 
+// NewIndexDatabase creates a new index database
+func NewIndexDatabase(ctx context.Context, parent string, metadata metadb.Metadata,
+	forwardFamily kv.Family, invertedFamily kv.Family,
+) (IndexDatabase, error) {
+	var err error
+	backend, err := createBackend(parent)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// if init index database err, need close backend
+		if err != nil {
+			if err1 := backend.Close(); err1 != nil {
+				indexLogger.Info("close series id mapping backend error when init index database",
+					logger.String("db", parent), logger.Error(err))
+			}
+		}
+	}()
+	seriesWAL, err := createSeriesWAL(filepath.Join(parent, walPath, seriesWALPath))
+	if err != nil {
+		return nil, err
+	}
+	c, cancel := context.WithCancel(ctx)
+	db := &indexDatabase{
+		path:             parent,
+		ctx:              c,
+		cancel:           cancel,
+		backend:          backend,
+		metadata:         metadata,
+		metricID2Mapping: make(map[uint32]MetricIDMapping),
+		index:            newInvertedIndex(metadata, invertedFamily, forwardFamily),
+		seriesWAL:        seriesWAL,
+		syncInterval:     syncInterval,
+	}
+
+	// series recovery
+	db.seriesRecovery()
+
+	// if recovery series wal fail, need return err
+	if db.seriesWAL.NeedRecovery() {
+		err = ErrNeedRecoveryWAL
+		return nil, err
+	}
+
+	go db.checkSync()
+
+	return db, nil
+}
+
+// SuggestTagValues returns suggestions from given tag key id and prefix of tagValue
 func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
 	return db.metadata.TagMetadata().SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
@@ -51,33 +108,6 @@ func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string
 // GetGroupingContext returns the context of group by
 func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error) {
 	return db.index.GetGroupingContext(tagKeyIDs, seriesIDs)
-}
-
-// NewIndexDatabase creates a new index database
-func NewIndexDatabase(ctx context.Context, name, parent string, metadata metadb.Metadata,
-	forwardFamily kv.Family, invertedFamily kv.Family,
-) (IndexDatabase, error) {
-	backend, err := createBackend(name, parent)
-	if err != nil {
-		return nil, err
-	}
-	c, cancel := context.WithCancel(ctx)
-	db := &indexDatabase{
-		name:             name,
-		ctx:              c,
-		cancel:           cancel,
-		backend:          backend,
-		metadata:         metadata,
-		metricID2Mapping: make(map[uint32]MetricIDMapping),
-		index:            newInvertedIndex(metadata, invertedFamily, forwardFamily),
-		mutable:          newMappingEvent(),
-		lastSyncTime:     timeutil.Now(),
-		syncSignal:       make(chan struct{}),
-		syncInterval:     syncInterval,
-	}
-	go db.checkSync()
-	go db.syncPendingEvent()
-	return db, nil
 }
 
 // GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
@@ -126,9 +156,12 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32, tagsHash uint64,
 	// generate new series id
 	seriesID = metricIDMapping.GenSeriesID(tagsHash)
 
-	// add pending event
-	db.mutable.addSeriesID(metricID, tagsHash, seriesID)
-	db.notifySyncWithoutLock(false)
+	// append to wal
+	if err = db.seriesWAL.Append(metricID, tagsHash, seriesID); err != nil {
+		// if append wal fail, need rollback assigned series id, then returns err
+		metricIDMapping.RemoveSeriesID(tagsHash)
+		return 0, false, err
+	}
 	return seriesID, true, nil
 }
 
@@ -170,7 +203,10 @@ func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags map
 
 // Flush flushes index data to disk
 func (db *indexDatabase) Flush() error {
-	//fixme flush mapping data
+	if err := db.seriesWAL.Sync(); err != nil {
+		indexLogger.Error("sync series wal err when invoke flush",
+			logger.String("db", db.path), logger.Error(err))
+	}
 	//fixme inverted index need add wal???
 	return db.index.Flush()
 }
@@ -180,22 +216,10 @@ func (db *indexDatabase) Close() error {
 	db.cancel()
 	db.rwMutex.Lock()
 	defer db.rwMutex.Unlock()
-	saveMapping := func(event *mappingEvent) error {
-		if event == nil {
-			return nil
-		}
-		if !event.isEmpty() {
-			if err := db.backend.saveMapping(event); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := saveMapping(db.mutable); err != nil {
-		return err
-	}
-	if err := saveMapping(db.immutable); err != nil {
-		return err
+
+	if err := db.seriesWAL.Close(); err != nil {
+		indexLogger.Error("sync series wal err when close index database",
+			logger.String("db", db.path), logger.Error(err))
 	}
 	if err := db.backend.Close(); err != nil {
 		return err
@@ -209,66 +233,35 @@ func (db *indexDatabase) checkSync() {
 	for {
 		select {
 		case <-ticker.C:
-			db.notifySyncWithLock(false)
+			if db.seriesWAL.NeedRecovery() {
+				db.seriesRecovery()
+			}
 		case <-db.ctx.Done():
 			ticker.Stop()
-			indexLogger.Info("check series event update goroutine exit...", logger.String("db", db.name))
+			indexLogger.Info("check series event update goroutine exit...", logger.String("db", db.path))
 			return
 		}
 	}
 }
 
-// notifySyncWithoutLock notifies sync goroutine need save pending series events without lock
-func (db *indexDatabase) notifySyncWithoutLock(force bool) {
-	if (!db.mutable.isFull() || !force) && timeutil.Now()-db.lastSyncTime < db.syncInterval {
-		return
-	}
-
-	if !db.mutable.isEmpty() && db.immutable == nil {
-		db.immutable = db.mutable
-		db.mutable = newMappingEvent()
-		// notify with time out
-		select {
-		case <-time.After(time.Second):
-			//FIXME add metric
-			indexLogger.Error("notify sync series save timeout", logger.String("db", db.name))
-		case db.syncSignal <- struct{}{}:
-		}
-	}
-}
-
-// notifySyncWithoutLock notifies sync goroutine need save pending series events with lock
-func (db *indexDatabase) notifySyncWithLock(force bool) {
-	db.rwMutex.Lock()
-	defer db.rwMutex.Unlock()
-
-	db.notifySyncWithoutLock(force)
-}
-
-// syncPendingEvent syncs the pending series event
-func (db *indexDatabase) syncPendingEvent() {
-	for {
-		select {
-		case <-db.ctx.Done():
-			indexLogger.Info("sync update event goroutine exit...", logger.String("db", db.name))
-			return
-		case <-db.syncSignal:
-			var event *mappingEvent
-			db.rwMutex.RLock()
-			event = db.immutable
-			db.rwMutex.RUnlock()
-			if event == nil {
-				continue
-			}
+// seriesRecovery recovers series wal data
+func (db *indexDatabase) seriesRecovery() {
+	event := newMappingEvent()
+	db.seriesWAL.Recovery(func(metricID uint32, tagsHash uint64, seriesID uint32) error {
+		event.addSeriesID(metricID, tagsHash, seriesID)
+		if event.isFull() {
 			if err := db.backend.saveMapping(event); err != nil {
-				//FIXME stone1100 add metric
-				indexLogger.Error("save mapping err", logger.String("db", db.name), logger.Error(err))
-				continue
+				return err
 			}
-			db.rwMutex.Lock()
-			db.immutable = nil
-			db.lastSyncTime = timeutil.Now()
-			db.rwMutex.Unlock()
+			event = newMappingEvent()
 		}
-	}
+		return nil
+	}, func() error {
+		if !event.isEmpty() {
+			if err := db.backend.saveMapping(event); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

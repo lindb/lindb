@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +38,8 @@ type Factory interface {
 	AcquirePage(index int64) (MappedPage, error)
 	// GetPage returns a mapped page with specific index
 	GetPage(index int64) (MappedPage, bool)
+	// GetPageIDs returns all page ids in order
+	GetPageIDs() []int64
 	// ReleasePage releases the page and recycle the memory
 	ReleasePage(index int64) error
 	// Size returns the total page size
@@ -51,7 +54,8 @@ type factory struct {
 	pages  map[int64]MappedPage // store all acquire pages
 	closed atomic.Bool
 	size   atomic.Int64 // current total queue data size
-	mutex  sync.RWMutex
+
+	mutex sync.RWMutex
 }
 
 // NewFactory creates page factory based on page size
@@ -113,6 +117,20 @@ func (f *factory) GetPage(index int64) (MappedPage, bool) {
 
 	page, ok := f.pages[index]
 	return page, ok
+}
+
+// GetPageIDs returns all page ids in order
+func (f *factory) GetPageIDs() (pageIDs []int64) {
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
+
+	for pageID := range f.pages {
+		pageIDs = append(pageIDs, pageID)
+	}
+
+	sort.Slice(pageIDs, func(i, j int) bool { return pageIDs[i] < pageIDs[j] })
+
+	return
 }
 
 // ReleasePage releases the page and recycle the memory
