@@ -271,7 +271,7 @@ func (db *database) initMetadata() error {
 		return err
 	}
 	db.metaStore = metaStore
-	metadata, err := newMetadataFunc(context.TODO(), db.name, filepath.Join(db.path, metaDir, metricMetaDir), tagMetaFamily)
+	metadata, err := newMetadataFunc(context.TODO(), filepath.Join(db.path, metaDir, metricMetaDir), tagMetaFamily)
 	if err != nil {
 		return err
 	}

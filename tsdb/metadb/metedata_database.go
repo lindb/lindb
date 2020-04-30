@@ -2,6 +2,8 @@ package metadb
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -12,30 +14,34 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/tsdb/wal"
 )
 
 // for testing
 var (
 	createMetadataBackend = newMetadataBackend
+	createMetaWAL         = wal.NewMetricMetaWAL
 )
 
 var (
-	syncInterval = 2 * timeutil.OneSecond
+	syncInterval       = 2 * timeutil.OneSecond
+	ErrNeedRecoveryWAL = errors.New("need recovery meta wal")
+)
+
+const (
+	walPath = "wal"
 )
 
 // metadataDatabase implements the MetadataDatabase interface,
 // !!!!NOTICE: need cache all tag keys/fields of metric
 type metadataDatabase struct {
-	name    string // tsdb's name
+	path    string
 	ctx     context.Context
 	cancel  context.CancelFunc
 	backend MetadataBackend
 	metrics map[string]MetricMetadata // metadata cache(key: namespace + metric-name, value: metric metadata)
 
-	mutable      *metadataUpdateEvent // pending update events
-	immutable    *metadataUpdateEvent // syncing pending update events
-	lastSyncTime int64
-	syncSignal   chan struct{}
+	metaWAL wal.MetricMetaWAL
 
 	syncInterval int64
 
@@ -43,25 +49,45 @@ type metadataDatabase struct {
 }
 
 // NewMetadataDatabase creates new metadata database
-func NewMetadataDatabase(ctx context.Context, name, parent string) (MetadataDatabase, error) {
-	backend, err := createMetadataBackend(name, parent)
+func NewMetadataDatabase(ctx context.Context, parent string) (MetadataDatabase, error) {
+	var err error
+	backend, err := createMetadataBackend(parent)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// if init metadata database err, need close backend
+		if err != nil {
+			if err1 := backend.Close(); err1 != nil {
+				metaLogger.Info("close metadata backend error when init metadata database",
+					logger.String("db", parent), logger.Error(err))
+			}
+		}
+	}()
+
+	metaWAL, err := createMetaWAL(filepath.Join(parent, walPath))
 	if err != nil {
 		return nil, err
 	}
 	c, cancel := context.WithCancel(ctx)
 	mdb := &metadataDatabase{
-		name:         name,
+		path:         parent,
 		ctx:          c,
 		cancel:       cancel,
 		backend:      backend,
-		mutable:      newMetadataUpdateEvent(),
 		metrics:      make(map[string]MetricMetadata),
-		syncSignal:   make(chan struct{}),
+		metaWAL:      metaWAL,
 		syncInterval: syncInterval,
-		lastSyncTime: timeutil.Now(),
+	}
+	// meta recovery
+	mdb.metaRecovery()
+
+	// if recovery meta wal fail, need return err
+	if mdb.metaWAL.NeedRecovery() {
+		err = ErrNeedRecoveryWAL
+		return nil, err
 	}
 	go mdb.checkSync()
-	go mdb.syncPendingEvent()
 	return mdb, nil
 }
 
@@ -209,10 +235,15 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	}
 	// assign new metric id
 	metricID = mdb.backend.genMetricID()
-	mdb.metrics[key] = newMetricMetadata(metricID, 0)
-	mdb.mutable.addMetric(namespace, metricName, metricID)
 
-	mdb.notifySyncWithoutLock(false)
+	// append to wal
+	if err = mdb.metaWAL.AppendMetric(namespace, metricName, metricID); err != nil {
+		// if append wal fail, need rollback assigned metric id, then returns err
+		mdb.backend.rollbackMetricID(metricID)
+		return 0, err
+	}
+
+	mdb.metrics[key] = newMetricMetadata(metricID, 0)
 	return metricID, nil
 }
 
@@ -239,13 +270,21 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 	if err != nil {
 		return 0, err
 	}
-	mdb.mutable.addField(metricMetadata.getMetricID(), field.Meta{
+
+	// append wal
+	if err = mdb.metaWAL.AppendField(metricMetadata.getMetricID(), fieldID, fieldName, fieldType); err != nil {
+		// if append wal fail, need rollback field id
+		metricMetadata.rollbackFieldID(fieldID)
+		return 0, err
+	}
+	// add field into metric metadata
+	metricMetadata.addField(field.Meta{
 		ID:   fieldID,
 		Type: fieldType,
 		Name: fieldName,
 	})
-	mdb.notifySyncWithoutLock(false)
-	return
+
+	return fieldID, nil
 }
 
 // GenTagKeyID generates the tag key id in the memory
@@ -267,108 +306,40 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 	}
 	// assign new tag key id
 	tagKeyID = mdb.backend.genTagKeyID()
+
+	// append wal
+	if err = mdb.metaWAL.AppendTagKey(metricMetadata.getMetricID(), tagKeyID, tagKey); err != nil {
+		// if append wal fail, need rollback tag key id
+		mdb.backend.rollbackTagKeyID(tagKeyID)
+		return 0, err
+	}
+
 	metricMetadata.createTagKey(tagKey, tagKeyID)
-	mdb.mutable.addTagKey(metricMetadata.getMetricID(), tag.Meta{
-		Key: tagKey,
-		ID:  tagKeyID,
-	})
-	mdb.notifySyncWithoutLock(false)
 	return
 }
 
-// Sync syncs the bbolt.DB's data file
+// Sync syncs the bbolt.DB's data file and metadata write ahead log
 func (mdb *metadataDatabase) Sync() error {
-	//FIXME stone100 need impl sync force when flush metric data
-	return mdb.backend.sync()
+	if err := mdb.metaWAL.Sync(); err != nil {
+		metaLogger.Error("sync meta wal err when invoke sync",
+			logger.String("db", mdb.path), logger.Error(err))
+	}
+	return nil
 }
 
 // Close closes the resources
 func (mdb *metadataDatabase) Close() error {
 	mdb.cancel()
+
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
 
-	if mdb.mutable != nil && !mdb.mutable.isEmpty() {
-		if err := mdb.backend.saveMetadata(mdb.mutable); err != nil {
-			return err
-		}
+	if err := mdb.metaWAL.Close(); err != nil {
+		metaLogger.Error("sync meta wal err when close metadata database",
+			logger.String("db", mdb.path), logger.Error(err))
 	}
-	if mdb.immutable != nil && !mdb.mutable.isEmpty() {
-		if err := mdb.backend.saveMetadata(mdb.immutable); err != nil {
-			return err
-		}
-	}
+
 	return mdb.backend.Close()
-}
-
-// checkSync checks if need sync pending metadata event in period
-func (mdb *metadataDatabase) checkSync() {
-	ticker := time.NewTicker(time.Duration(mdb.syncInterval * 1000000))
-	for {
-		select {
-		case <-ticker.C:
-			mdb.notifySyncWithLock(false)
-		case <-mdb.ctx.Done():
-			ticker.Stop()
-			metaLogger.Info("check metadata event update goroutine exit...", logger.String("db", mdb.name))
-			return
-		}
-	}
-}
-
-// notifySyncWithoutLock notifies sync goroutine need save pending metadata events with lock
-func (mdb *metadataDatabase) notifySyncWithLock(force bool) {
-	mdb.rwMux.Lock()
-	defer mdb.rwMux.Unlock()
-
-	mdb.notifySyncWithoutLock(force)
-}
-
-// notifySyncWithoutLock notifies sync goroutine need save pending metadata events without lock
-func (mdb *metadataDatabase) notifySyncWithoutLock(force bool) {
-	if (!mdb.mutable.isFull() || !force) && timeutil.Now()-mdb.lastSyncTime < mdb.syncInterval {
-		return
-	}
-
-	if !mdb.mutable.isEmpty() && mdb.immutable == nil {
-		mdb.immutable = mdb.mutable
-		mdb.mutable = newMetadataUpdateEvent()
-		// notify with time out
-		select {
-		case mdb.syncSignal <- struct{}{}:
-		case <-time.After(time.Second):
-			//FIXME add metric
-			metaLogger.Error("notify sync metadata save timeout", logger.String("db", mdb.name))
-		}
-	}
-}
-
-// syncPendingEvent syncs the pending metadata event
-func (mdb *metadataDatabase) syncPendingEvent() {
-	for {
-		select {
-		case <-mdb.syncSignal:
-			var event *metadataUpdateEvent
-			mdb.rwMux.RLock()
-			event = mdb.immutable
-			mdb.rwMux.RUnlock()
-			if event == nil {
-				continue
-			}
-			if err := mdb.backend.saveMetadata(event); err != nil {
-				//FIXME stone1100 add metric
-				metaLogger.Error("save metadata err", logger.String("db", mdb.name), logger.Error(err))
-				continue
-			}
-			mdb.rwMux.Lock()
-			mdb.immutable = nil
-			mdb.lastSyncTime = timeutil.Now()
-			mdb.rwMux.Unlock()
-		case <-mdb.ctx.Done():
-			metaLogger.Info("sync update event goroutine exit...", logger.String("db", mdb.name))
-			return
-		}
-	}
 }
 
 // SuggestMetrics returns suggestions from a given prefix of metricName
@@ -394,4 +365,71 @@ func (mdb *metadataDatabase) SuggestTagKeys(namespace, metricName, tagKeyPrefix 
 		}
 	}
 	return keys, nil
+}
+
+// checkSync checks if need sync pending metadata event in period
+func (mdb *metadataDatabase) checkSync() {
+	ticker := time.NewTicker(time.Duration(mdb.syncInterval * 1000000))
+	for {
+		select {
+		case <-ticker.C:
+			if mdb.metaWAL.NeedRecovery() {
+				mdb.metaRecovery()
+			}
+		case <-mdb.ctx.Done():
+			ticker.Stop()
+			metaLogger.Info("check metadata event update goroutine exit...", logger.String("db", mdb.path))
+			return
+		}
+	}
+}
+
+// metaRecovery recovers meta wal data
+func (mdb *metadataDatabase) metaRecovery() {
+	event := newMetadataUpdateEvent()
+	mdb.metaWAL.Recovery(func(namespace, metricName string, metricID uint32) error {
+		event.addMetric(namespace, metricName, metricID)
+
+		if event.isFull() {
+			if err := mdb.backend.saveMetadata(event); err != nil {
+				return err
+			}
+			event = newMetadataUpdateEvent()
+		}
+		return nil
+	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+		event.addField(metricID, field.Meta{
+			ID:   fID,
+			Type: fType,
+			Name: fieldName,
+		})
+
+		if event.isFull() {
+			if err := mdb.backend.saveMetadata(event); err != nil {
+				return err
+			}
+			event = newMetadataUpdateEvent()
+		}
+		return nil
+	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
+		event.addTagKey(metricID, tag.Meta{
+			Key: tagKey,
+			ID:  tagKeyID,
+		})
+
+		if event.isFull() {
+			if err := mdb.backend.saveMetadata(event); err != nil {
+				return err
+			}
+			event = newMetadataUpdateEvent()
+		}
+		return nil
+	}, func() error {
+		if !event.isEmpty() {
+			if err := mdb.backend.saveMetadata(event); err != nil {
+				return err
+			}
+		}
+		return mdb.backend.sync()
+	})
 }

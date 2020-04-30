@@ -23,6 +23,11 @@ func TestMetricMetadata_createField(t *testing.T) {
 	fieldID, err = mm.createField("f", field.SumField)
 	assert.NoError(t, err)
 	assert.Equal(t, field.ID(2), fieldID)
+	mm.addField(field.Meta{
+		ID:   fieldID,
+		Type: field.SumField,
+		Name: "f",
+	})
 
 	// test: too many fields
 	mm = newMetricMetadata(1, 0)
@@ -30,6 +35,11 @@ func TestMetricMetadata_createField(t *testing.T) {
 		fieldID, err = mm.createField(fmt.Sprintf("f-%d", i), field.SumField)
 		assert.NoError(t, err)
 		assert.Equal(t, field.ID(i), fieldID)
+		mm.addField(field.Meta{
+			ID:   fieldID,
+			Type: field.SumField,
+			Name: fmt.Sprintf("f-%d", i),
+		})
 	}
 	fieldID, err = mm.createField("max-f", field.SumField)
 	assert.Equal(t, series.ErrTooManyFields, err)
@@ -80,4 +90,20 @@ func TestMetricMetadata_createTag(t *testing.T) {
 	assert.Len(t, mm2.getAllTagKeys(), constants.DefaultMaxTagKeysCount)
 	err = mm.checkTagKeyCount()
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
+}
+
+func TestMetricMetadata_rollback(t *testing.T) {
+	mm := newMetricMetadata(1, 0)
+	// test: create field id
+	fieldID, err := mm.createField("f", field.SumField)
+	assert.NoError(t, err)
+	assert.Equal(t, field.ID(1), fieldID)
+	mm.rollbackFieldID(fieldID)
+	fieldID, err = mm.createField("f", field.SumField)
+	assert.NoError(t, err)
+	assert.Equal(t, field.ID(1), fieldID)
+	mm.rollbackFieldID(field.ID(0))
+	fieldID, err = mm.createField("f", field.SumField)
+	assert.NoError(t, err)
+	assert.Equal(t, field.ID(2), fieldID)
 }

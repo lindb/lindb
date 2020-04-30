@@ -66,6 +66,10 @@ func TestIdMappingBackend_mapping(t *testing.T) {
 	err = backend.saveMapping(event)
 	assert.NoError(t, err)
 
+	event.addSeriesID(2, 50, 50)
+	err = backend.saveMapping(event)
+	assert.NoError(t, err)
+
 	// case 1: get series
 	seriesID, err := backend.getSeriesID(2, 30)
 	assert.NoError(t, err)

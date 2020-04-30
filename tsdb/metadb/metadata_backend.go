@@ -49,6 +49,10 @@ type MetadataBackend interface {
 	genMetricID() uint32
 	// genTagKeyID generates the tag key id in the memory
 	genTagKeyID() uint32
+	// rollbackMetricID rollbacks metric id
+	rollbackMetricID(metricID uint32)
+	// rollbackTagKeyID rollbacks tag key id
+	rollbackTagKeyID(tagKeyID uint32)
 
 	// loadMetricMetadata loads the metric metadata include all fields/tags by namespace and metric name,
 	// if not exist return series.ErrNotFound
@@ -82,7 +86,7 @@ type metadataBackend struct {
 }
 
 // newMetadataBackend creates a new metadata backend storage
-func newMetadataBackend(name, parent string) (MetadataBackend, error) {
+func newMetadataBackend(parent string) (MetadataBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
@@ -114,7 +118,7 @@ func newMetadataBackend(name, parent string) (MetadataBackend, error) {
 		// close bbolt.DB if init metadata err
 		if e := closeFunc(db); e != nil {
 			metaLogger.Error("close bbolt.db err when create metadata backend fail",
-				logger.String("db", name), logger.Error(e))
+				logger.String("db", parent), logger.Error(e))
 		}
 		return nil, err
 	}
@@ -167,6 +171,20 @@ func (mb *metadataBackend) suggestMetricName(namespace, prefix string, limit int
 // genMetricID generates the metric id in the memory
 func (mb *metadataBackend) genMetricID() uint32 {
 	return mb.metricIDSequence.Inc()
+}
+
+// rollbackMetricID rollbacks metric id
+func (mb *metadataBackend) rollbackMetricID(metricID uint32) {
+	if metricID == mb.metricIDSequence.Load() {
+		mb.metricIDSequence.Dec() // recycle metric id
+	}
+}
+
+// rollbackMetricID rollbacks metric id
+func (mb *metadataBackend) rollbackTagKeyID(tagKeyID uint32) {
+	if tagKeyID == mb.tagKeyIDSequence.Load() {
+		mb.tagKeyIDSequence.Dec() // recycle tag key id
+	}
 }
 
 // genTagKeyID generates the tag key id in the memory
@@ -302,10 +320,10 @@ func (mb *metadataBackend) getAllFields(metricID uint32) (fields []field.Meta, e
 // saveMetadata saves the pending metadata include namespace/metric metadata
 func (mb *metadataBackend) saveMetadata(event *metadataUpdateEvent) (err error) {
 	err = mb.db.Update(func(tx *bbolt.Tx) error {
-		if err := saveNamespaceAndMetric(tx.Bucket(nsBucketName), event); err != nil {
+		if err := mb.saveNamespaceAndMetric(tx.Bucket(nsBucketName), event); err != nil {
 			return err
 		}
-		if err := saveMetricMetadata(tx.Bucket(metricBucketName), event); err != nil {
+		if err := mb.saveMetricMetadata(tx.Bucket(metricBucketName), event); err != nil {
 			return err
 		}
 		return nil
@@ -349,7 +367,7 @@ func loadTagKeys(tagKeyBucket *bbolt.Bucket) (tags []tag.Meta) {
 }
 
 // saveNamespaceAndMetric saves namespaces and metric entry set
-func saveNamespaceAndMetric(nsRootBucket *bbolt.Bucket, event *metadataUpdateEvent) (err error) {
+func (mb *metadataBackend) saveNamespaceAndMetric(nsRootBucket *bbolt.Bucket, event *metadataUpdateEvent) (err error) {
 	for ns, nsEvent := range event.namespaces {
 		// save namespace name
 		bucket, err := nsRootBucket.CreateBucketIfNotExists([]byte(ns))
@@ -370,12 +388,15 @@ func saveNamespaceAndMetric(nsRootBucket *bbolt.Bucket, event *metadataUpdateEve
 		if err = setSequenceFunc(nsRootBucket, uint64(event.metricSeqID)); err != nil {
 			return err
 		}
+		if mb.metricIDSequence.Load() < event.metricSeqID {
+			mb.metricIDSequence.Store(event.metricSeqID)
+		}
 	}
 	return
 }
 
 // saveMetricMetadata saves metric metadata include fields/tag keys if exist with metric root bucket
-func saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEvent) (err error) {
+func (mb *metadataBackend) saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEvent) (err error) {
 	for metricID, meta := range event.metrics {
 		var scratch [4]byte
 		binary.LittleEndian.PutUint32(scratch[:], metricID)
@@ -425,6 +446,9 @@ func saveMetricMetadata(metricRootBucket *bbolt.Bucket, event *metadataUpdateEve
 		if err = setSequenceFunc(metricRootBucket, uint64(event.tagKeySeqID)); err != nil {
 			return err
 		}
+		if mb.tagKeyIDSequence.Load() < event.tagKeySeqID {
+			mb.tagKeyIDSequence.Store(event.tagKeySeqID)
+		}
 	}
 	return nil
 }
@@ -465,7 +489,10 @@ func closeDB(db *bbolt.DB) error {
 
 // setSequence sets the bucket's sequence
 func setSequence(bucket *bbolt.Bucket, seq uint64) error {
-	return bucket.SetSequence(seq)
+	if bucket.Sequence() < seq {
+		return bucket.SetSequence(seq)
+	}
+	return nil
 }
 
 // createBucket creates the bucket with name
