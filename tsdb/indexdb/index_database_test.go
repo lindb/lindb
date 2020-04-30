@@ -415,4 +415,8 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	assert.NotNil(t, db)
 
 	time.Sleep(time.Second)
+
+	mockSeriesWAL.EXPECT().Close().Return(nil)
+	err = db.Close()
+	assert.NoError(t, err)
 }

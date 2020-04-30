@@ -86,7 +86,7 @@ func TestSeriesWAL_Append(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, wal)
 	wal1 := wal.(*seriesWAL)
-	wal1.pageSize = 32
+	wal1.base.pageSize = 32
 	// case 1: put series id
 	gomock.InOrder(
 		mockPage.EXPECT().PutUint32(uint32(10), 0),
@@ -106,21 +106,21 @@ func TestSeriesWAL_Append(t *testing.T) {
 	// case 3: create new data page err
 	gomock.InOrder(
 		mockPage.EXPECT().Sync().Return(fmt.Errorf("err")),
-		fct.EXPECT().AcquirePage(wal1.pageIndex.Load()+1).Return(nil, fmt.Errorf("err")),
+		fct.EXPECT().AcquirePage(wal1.base.pageIndex.Load()+1).Return(nil, fmt.Errorf("err")),
 	)
 	err = wal.Append(10, 20, 100)
 	assert.Error(t, err)
 	// case 4: create new data page success, then write new series data
 	gomock.InOrder(
 		mockPage.EXPECT().Sync().Return(fmt.Errorf("err")),
-		fct.EXPECT().AcquirePage(wal1.pageIndex.Load()+1).Return(mockPage, nil),
+		fct.EXPECT().AcquirePage(wal1.base.pageIndex.Load()+1).Return(mockPage, nil),
 		mockPage.EXPECT().PutUint32(uint32(10), 0),
 		mockPage.EXPECT().PutUint64(uint64(20), 4),
 		mockPage.EXPECT().PutUint32(uint32(100), 12),
 	)
 	err = wal.Append(10, 20, 100)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), wal1.pageIndex.Load())
+	assert.Equal(t, int64(2), wal1.base.pageIndex.Load())
 }
 
 func TestSeriesWAL_Recovery(t *testing.T) {
@@ -152,9 +152,10 @@ func TestSeriesWAL_Recovery(t *testing.T) {
 		}
 		return fmt.Errorf("err")
 	}, func() error {
+		count++
 		return nil
 	})
-	assert.Equal(t, 2, count)
+	assert.Equal(t, 3, count)
 	assert.False(t, wal.NeedRecovery())
 	err = wal.Close()
 	assert.NoError(t, err)
@@ -192,8 +193,8 @@ func TestSeriesWAL_Recovery_err(t *testing.T) {
 	wal, err := NewSeriesWAL(testSeriesWALPath)
 	assert.NoError(t, err)
 	wal1 := wal.(*seriesWAL)
-	wal1.commitPageIndex.Store(10)
-	wal1.pageIndex.Store(11)
+	wal1.base.commitPageIndex.Store(10)
+	wal1.base.pageIndex.Store(11)
 	// case 1: get nil page by page id
 	fct.EXPECT().GetPage(int64(10)).Return(nil, false)
 	wal.Recovery(func(metricID uint32, tagsHash uint64, seriesID uint32) error {

@@ -166,7 +166,10 @@ func closeDB(db *bbolt.DB) error {
 
 // setSequence sets the bucket's sequence
 func setSequence(bucket *bbolt.Bucket, seq uint64) error {
-	return bucket.SetSequence(seq)
+	if bucket.Sequence() < seq {
+		return bucket.SetSequence(seq)
+	}
+	return nil
 }
 
 // createBucket creates the bucket with name

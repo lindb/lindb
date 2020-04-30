@@ -13,8 +13,8 @@ type metadata struct {
 }
 
 // NewMetadata creates a metadata
-func NewMetadata(ctx context.Context, name, parent string, tagFamily kv.Family) (Metadata, error) {
-	db, err := NewMetadataDatabase(ctx, name, parent)
+func NewMetadata(ctx context.Context, parent string, tagFamily kv.Family) (Metadata, error) {
+	db, err := NewMetadataDatabase(ctx, parent)
 	if err != nil {
 		return nil, err
 	}

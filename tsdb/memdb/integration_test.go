@@ -31,7 +31,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	})
 	assert.NoError(b, err)
 
-	metadata, err := metadb.NewMetadata(context.TODO(), "test", filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
+	metadata, err := metadb.NewMetadata(context.TODO(), filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
 	assert.NoError(b, err)
 
 	metricID, err := metadata.MetadataDatabase().GenMetricID("ns", "test")
@@ -79,7 +79,7 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 	})
 	assert.NoError(b, err)
 
-	metadata, err := metadb.NewMetadata(context.TODO(), "test", filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
+	metadata, err := metadb.NewMetadata(context.TODO(), filepath.Join(testPath, "meta"), kvStore.GetFamily("meta"))
 	assert.NoError(b, err)
 
 	metricID, err := metadata.MetadataDatabase().GenMetricID("ns", "test")
