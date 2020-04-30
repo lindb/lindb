@@ -31,6 +31,10 @@ type MappedPage interface {
 	PutUint32(value uint32, offset int)
 	// ReadUint32 reads uint32 from buffer
 	ReadUint32(offset int) uint32
+	// PutUint8 puts uint8 into buffer
+	PutUint8(value uint8, offset int)
+	// ReadUint8 reads uint8 from buffer
+	ReadUint8(offset int) uint8
 	// Sync syncs page to persist storage
 	Sync() error
 	// Close releases underlying bytes
@@ -111,6 +115,16 @@ func (mp *mappedPage) PutUint32(value uint32, offset int) {
 // ReadUint32 reads uint32 from buffer
 func (mp *mappedPage) ReadUint32(offset int) uint32 {
 	return stream.ReadUint32(mp.mappedBytes, offset)
+}
+
+// PutUint8 puts uint8 into buffer
+func (mp *mappedPage) PutUint8(value uint8, offset int) {
+	mp.mappedBytes[offset] = value
+}
+
+// ReadUint8 reads uint8 from buffer
+func (mp *mappedPage) ReadUint8(offset int) uint8 {
+	return mp.mappedBytes[offset]
 }
 
 // Sync syncs page to persist storage.

@@ -65,8 +65,10 @@ func TestMappedPage_Write_number(t *testing.T) {
 	assert.NoError(t, err)
 	mp.PutUint32(10, 0)
 	mp.PutUint64(999, 8)
+	mp.PutUint8(50, 16)
 	assert.Equal(t, uint32(999), mp.ReadUint32(8))
 	assert.Equal(t, uint64(10), mp.ReadUint64(0))
+	assert.Equal(t, uint8(50), mp.ReadUint8(16))
 
 	err = mp.Close()
 	assert.NoError(t, err)

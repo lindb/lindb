@@ -59,7 +59,7 @@ func TestDatabase_New(t *testing.T) {
 	assert.Nil(t, db)
 	// case 4: new metadata err
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	newMetadataFunc = func(ctx context.Context, name, parent string, tagFamily kv.Family) (metadata metadb.Metadata, err error) {
+	newMetadataFunc = func(ctx context.Context, parent string, tagFamily kv.Family) (metadata metadb.Metadata, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	db, err = newDatabase("db", testPath, &databaseConfig{
@@ -94,7 +94,7 @@ func TestDatabase_New(t *testing.T) {
 	assert.NoError(t, err)
 	// case 7: close metadata err when create db
 	metadata := metadb.NewMockMetadata(ctrl)
-	newMetadataFunc = func(ctx context.Context, name, parent string, tagFamily kv.Family) (metadb.Metadata, error) {
+	newMetadataFunc = func(ctx context.Context, parent string, tagFamily kv.Family) (metadb.Metadata, error) {
 		return metadata, nil
 	}
 	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -15,39 +16,71 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/tsdb/wal"
 )
 
 func TestMetadataDatabase_New(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	defer func() {
+		createMetadataBackend = newMetadataBackend
+		createMetaWAL = wal.NewMetricMetaWAL
 		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 
 	// test: new success
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	// test: can't re-open
-	db1, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db1, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
 	// close db
 	err = db.Close()
 	assert.NoError(t, err)
+
+	// test: create wal err
+	mockBackend := NewMockMetadataBackend(ctrl)
+	mockBackend.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
+	createMetadataBackend = func(parent string) (MetadataBackend, error) {
+		return mockBackend, nil
+	}
+	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
+		return nil, fmt.Errorf("err")
+	}
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
+
+	// test: recovery err
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
+		return mockWAL, nil
+	}
+	mockWAL.EXPECT().Recovery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	mockWAL.EXPECT().NeedRecovery().Return(true)
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
 }
 
 func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().suggestNamespace(gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
 	values, err := db.SuggestNamespace("ns", 10)
@@ -61,14 +94,16 @@ func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
 func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().suggestMetricName(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
 	values, err := db.SuggestMetrics("ns", "pp", 10)
@@ -82,14 +117,16 @@ func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 func TestMetadataDatabase_GetMetricID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
@@ -116,14 +153,16 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	meta := NewMockMetricMetadata(ctrl)
 	mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil)
@@ -184,14 +223,16 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().getMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	// case 1: suggest tag keys
@@ -214,14 +255,16 @@ func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
 func TestMetadataDatabase_GetField(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	meta := NewMockMetricMetadata(ctrl)
 	mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil)
@@ -282,14 +325,16 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 func TestMetadataDatabase_GenMetricID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
@@ -324,18 +369,49 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 	_ = db.Close()
 }
 
+func TestMetadataDatabase_GetMetricID_wal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	metricID, err := db.GenMetricID("ns", "metric")
+	assert.Equal(t, uint32(1), metricID)
+	assert.NoError(t, err)
+	db1 := db.(*metadataDatabase)
+	oldWAL := db1.metaWAL
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	db1.metaWAL = mockWAL
+	mockWAL.EXPECT().AppendMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	metricID, err = db.GenMetricID("ns", "metric2")
+	assert.Equal(t, uint32(0), metricID)
+	assert.Error(t, err)
+	db1.metaWAL = oldWAL
+	metricID, err = db.GenMetricID("ns", "metric2")
+	assert.Equal(t, uint32(2), metricID)
+	assert.NoError(t, err)
+
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
 func TestMetadataDatabase_GenFieldID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil),
@@ -343,6 +419,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 		meta.EXPECT().getField("f").Return(field.Meta{}, false),
 		meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.ID(10), nil),
 		meta.EXPECT().getMetricID().Return(uint32(1)),
+		meta.EXPECT().addField(gomock.Any()),
 	)
 	// case 1: gen new field id
 	_, err = db.GenMetricID("ns-1", "name1")
@@ -377,18 +454,50 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 	_ = db.Close()
 }
 
+func TestMetadataDatabase_GetField_wal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	_, _ = db.GenMetricID("ns", "metric")
+	fieldID, err := db.GenFieldID("ns", "metric", "f", field.SumField)
+	assert.Equal(t, field.ID(1), fieldID)
+	assert.NoError(t, err)
+	db1 := db.(*metadataDatabase)
+	oldWAL := db1.metaWAL
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	db1.metaWAL = mockWAL
+	mockWAL.EXPECT().AppendField(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	fieldID, err = db.GenFieldID("ns", "metric", "f2", field.SumField)
+	assert.Equal(t, field.ID(0), fieldID)
+	assert.Error(t, err)
+	db1.metaWAL = oldWAL
+	fieldID, err = db.GenFieldID("ns", "metric", "f2", field.SumField)
+	assert.Equal(t, field.ID(2), fieldID)
+	assert.NoError(t, err)
+
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
 func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil),
@@ -396,8 +505,8 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 		meta.EXPECT().getTagKeyID("tag-key").Return(uint32(0), false),
 		meta.EXPECT().checkTagKeyCount().Return(nil),
 		mockBackend.EXPECT().genTagKeyID().Return(uint32(10)),
-		meta.EXPECT().createTagKey("tag-key", uint32(10)),
 		meta.EXPECT().getMetricID().Return(uint32(1)),
+		meta.EXPECT().createTagKey("tag-key", uint32(10)),
 	)
 	// case 1: gen new tag key id
 	_, err = db.GenMetricID("ns-1", "name1")
@@ -426,116 +535,284 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 	_ = db.Close()
 }
 
+func TestMetadataDatabase_GenTagKeyID_wal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	_, _ = db.GenMetricID("ns", "metric")
+	tagKeyID, err := db.GenTagKeyID("ns", "metric", "tagKey")
+	assert.Equal(t, uint32(1), tagKeyID)
+	assert.NoError(t, err)
+	db1 := db.(*metadataDatabase)
+	oldWAL := db1.metaWAL
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	db1.metaWAL = mockWAL
+	mockWAL.EXPECT().AppendTagKey(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	tagKeyID, err = db.GenTagKeyID("ns", "metric", "tagKey2")
+	assert.Equal(t, uint32(0), tagKeyID)
+	assert.Error(t, err)
+	db1.metaWAL = oldWAL
+	tagKeyID, err = db.GenTagKeyID("ns", "metric", "tagKey2")
+	assert.Equal(t, uint32(2), tagKeyID)
+	assert.NoError(t, err)
+
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
 func TestMetadataDatabase_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		ctrl.Finish()
 		createMetadataBackend = newMetadataBackend
+		createMetaWAL = wal.NewMetricMetaWAL
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
-	createMetadataBackend = func(name, parent string) (backend MetadataBackend, err error) {
+	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	mockWAL.EXPECT().Recovery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	mockWAL.EXPECT().NeedRecovery().Return(false)
+	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
+		return mockWAL, nil
+	}
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
-	db1 := db.(*metadataDatabase)
-	db1.rwMux.Lock()
-	db1.immutable = newMetadataUpdateEvent()
-	db1.mutable.addMetric("ns1", "name", 1)
-	db1.immutable.addMetric("ns1", "name22", 1)
-	db1.rwMux.Unlock()
-
-	mockBackend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
-	err = db.Close()
-	assert.Error(t, err)
-
-	mockBackend.EXPECT().saveMetadata(gomock.Any()).Return(nil)
-	mockBackend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
+	mockBackend.EXPECT().Close().Return(fmt.Errorf("err"))
+	mockWAL.EXPECT().Close().Return(fmt.Errorf("err"))
 	err = db.Close()
 	assert.Error(t, err)
 }
 
-func TestMetadataDatabase_checkSync(t *testing.T) {
+func TestMetadataDatabase_reopen(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
-		syncInterval = 2 * timeutil.OneSecond
 	}()
 
-	syncInterval = 100
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	// mock one metric event
 	metricID, err := db.GenMetricID("ns-1", "name1")
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(1), metricID)
-	time.Sleep(400 * time.Millisecond)
 
 	metricID, err = db.GenMetricID("ns-1", "name2")
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(2), metricID)
-	_, err = db.GenTagKeyID("ns-1", "name1", "") // tag key cannot be empty
-	assert.NoError(t, err)
-	time.Sleep(400 * time.Millisecond)
-	_ = db.Close()
-
-	// reopen
-	db, err = NewMetadataDatabase(context.TODO(), "test-db", testPath)
-	assert.NoError(t, err)
-	metricID, err = db.GenMetricID("ns-2", "name2")
-	assert.NoError(t, err)
-	assert.Equal(t, uint32(3), metricID)
-	time.Sleep(400 * time.Millisecond)
-	_ = db.Close()
-}
-
-func TestMetadataDatabase_notify_timeout(t *testing.T) {
-	defer func() {
-		syncInterval = 2 * timeutil.OneSecond
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
-	syncInterval = 100
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
-	assert.NoError(t, err)
-	db1 := db.(*metadataDatabase)
-	// mock notify
-	db1.syncSignal <- struct{}{}
-	time.Sleep(400 * time.Millisecond)
-
-	// close it mock goroutine exit, no goroutine consume event
-	_ = db.Close()
-
-	// mock goroutine consume event
-	go func() {
-		time.Sleep(2 * time.Second)
-		<-db1.syncSignal
-	}()
-	// add chan item
-	db1.syncSignal <- struct{}{}
-	// mock mutable isn't empty
-	db1.rwMux.Lock()
-	db1.mutable = newMetadataUpdateEvent()
-	db1.mutable.addMetric("ns-1", "name-4", uint32(100))
-	db1.rwMux.Unlock()
-	// test notify timeout
-	db1.notifySyncWithLock(true)
-}
-
-func TestMetadataDatabase_Sync(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := newMockMetadataDatabase(t)
-	err := db.Sync()
+	_, err = db.GenTagKeyID("ns-1", "name1", "tagKey")
 	assert.NoError(t, err)
 	err = db.Close()
 	assert.NoError(t, err)
 
-	_ = db.Close()
+	// reopen
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	metricID, err = db.GenMetricID("ns-2", "name2")
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(3), metricID)
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestMetadataDatabase_Sync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+	db := newMockMetadataDatabase(t)
+	db1 := db.(*metadataDatabase)
+	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
+	mockWAL.EXPECT().Sync().Return(fmt.Errorf("err"))
+	db1.metaWAL = mockWAL
+	err := db.Sync()
+	assert.NoError(t, err)
+	mockWAL.EXPECT().Close().Return(nil)
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestIndexDatabase_checkSync(t *testing.T) {
+	syncInterval = 100
+	ctrl := gomock.NewController(t)
+	defer func() {
+		syncInterval = 2 * timeutil.OneSecond
+		_ = fileutil.RemoveDir(testPath)
+		createMetaWAL = wal.NewMetricMetaWAL
+
+		ctrl.Finish()
+	}()
+
+	var count atomic.Int32
+	mockMetaWAL := wal.NewMockMetricMetaWAL(ctrl)
+	mockMetaWAL.EXPECT().NeedRecovery().DoAndReturn(func() bool {
+		count.Inc()
+		return count.Load() != 1
+	}).AnyTimes()
+	mockMetaWAL.EXPECT().Recovery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
+		return mockMetaWAL, nil
+	}
+
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	time.Sleep(time.Second)
+
+	mockMetaWAL.EXPECT().Close().Return(nil)
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestMetadataDatabase_recovery_metric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	for i := 0; i < 11000; i++ {
+		_, err := db.GenMetricID("ns", fmt.Sprintf("metric-%d", i))
+		assert.NoError(t, err)
+	}
+	err = db.Close()
+	assert.NoError(t, err)
+
+	backend := NewMockMetadataBackend(ctrl)
+	backend.EXPECT().Close().Return(nil).AnyTimes()
+	createMetadataBackend = func(parent string) (MetadataBackend, error) {
+		return backend, nil
+	}
+	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
+
+	createMetadataBackend = newMetadataBackend
+	// recovery success
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	for i := 0; i < 100; i++ {
+		_, err := db.GenMetricID("ns", fmt.Sprintf("metric-%d", i))
+		assert.NoError(t, err)
+	}
+	err = db.Close()
+	assert.NoError(t, err)
+
+	createMetadataBackend = func(parent string) (MetadataBackend, error) {
+		return backend, nil
+	}
+	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
+}
+
+func TestMetadataDatabase_recovery_field(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	for i := 0; i < 9999; i++ {
+		_, err := db.GenMetricID("ns", fmt.Sprintf("metric-%d", i))
+		assert.NoError(t, err)
+	}
+	for i := 0; i < 20; i++ {
+		_, err := db.GenFieldID("ns", "metric-1", fmt.Sprintf("f-%d", i), field.SumField)
+		assert.NoError(t, err)
+	}
+	err = db.Close()
+	assert.NoError(t, err)
+
+	backend := NewMockMetadataBackend(ctrl)
+	backend.EXPECT().Close().Return(nil).AnyTimes()
+	createMetadataBackend = func(parent string) (MetadataBackend, error) {
+		return backend, nil
+	}
+	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
+
+	createMetadataBackend = newMetadataBackend
+	// recovery success
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	err = db.Close()
+	assert.NoError(t, err)
+}
+
+func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		createMetadataBackend = newMetadataBackend
+		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
+	}()
+
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	for i := 0; i < 9999; i++ {
+		_, err := db.GenMetricID("ns", fmt.Sprintf("metric-%d", i))
+		assert.NoError(t, err)
+	}
+	for i := 0; i < 20; i++ {
+		_, err := db.GenTagKeyID("ns", "metric-1", fmt.Sprintf("tagKey-%d", i))
+		assert.NoError(t, err)
+	}
+	err = db.Close()
+	assert.NoError(t, err)
+
+	backend := NewMockMetadataBackend(ctrl)
+	backend.EXPECT().Close().Return(nil).AnyTimes()
+	createMetadataBackend = func(parent string) (MetadataBackend, error) {
+		return backend, nil
+	}
+	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.Error(t, err)
+	assert.Nil(t, db)
+
+	createMetadataBackend = newMetadataBackend
+	// recovery success
+	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+
+	err = db.Close()
+	assert.NoError(t, err)
 }
 
 func newMockMetadataDatabase(t *testing.T) MetadataDatabase {
-	db, err := NewMetadataDatabase(context.TODO(), "test-db", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 

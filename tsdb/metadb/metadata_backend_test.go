@@ -26,12 +26,12 @@ func TestMetadataBackend_new(t *testing.T) {
 	}()
 
 	// test: new success
-	db, err := newMetadataBackend("test", testPath)
+	db, err := newMetadataBackend(testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	// test: can't re-open
-	db1, err := newMetadataBackend("test", testPath)
+	db1, err := newMetadataBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -44,7 +44,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = func(db *bbolt.DB) error {
 		return fmt.Errorf("err")
 	}
-	db1, err = newMetadataBackend("test", testPath)
+	db1, err = newMetadataBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -52,7 +52,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = closeDB
 	nsBucketName = []byte("ns")
 	metricBucketName = []byte("")
-	db1, err = newMetadataBackend("test", filepath.Join(testPath, "test"))
+	db1, err = newMetadataBackend(filepath.Join(testPath, "test"))
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -60,7 +60,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	mkDir = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	db, err = newMetadataBackend("test", testPath)
+	db, err = newMetadataBackend(testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -131,6 +131,22 @@ func TestMetadataBackend_gen_id(t *testing.T) {
 	db = newMockMetadataBackend(t)
 	assert.Equal(t, uint32(5), db.genMetricID())
 	assert.Equal(t, uint32(5), db.genTagKeyID())
+
+	// rollback metric id
+	metricID := db.genMetricID()
+	assert.Equal(t, uint32(6), metricID)
+	db.rollbackMetricID(metricID)
+	assert.Equal(t, uint32(6), db.genMetricID())
+	db.rollbackMetricID(4)
+	assert.Equal(t, uint32(7), db.genMetricID())
+
+	// rollback tag key id
+	tagKeyID := db.genTagKeyID()
+	assert.Equal(t, uint32(6), tagKeyID)
+	db.rollbackTagKeyID(tagKeyID)
+	assert.Equal(t, uint32(6), db.genTagKeyID())
+	db.rollbackTagKeyID(4)
+	assert.Equal(t, uint32(7), db.genTagKeyID())
 }
 
 func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
@@ -340,7 +356,7 @@ func TestMetadataBackend_sync(t *testing.T) {
 }
 
 func newMockMetadataBackend(t *testing.T) MetadataBackend {
-	db, err := newMetadataBackend("test", testPath)
+	db, err := newMetadataBackend(testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
