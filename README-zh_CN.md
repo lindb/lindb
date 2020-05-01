@@ -54,7 +54,82 @@ LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB
 - [数据分析之时序数据库](https://zhuanlan.zhihu.com/p/36804890)
 - [分布式时序数据库 - LinDB](https://zhuanlan.zhihu.com/p/35998778)
 
-## 编译(TODO)
+## 编译
+
+### 依赖
+
+在本地编译 LinDB 需要以下工具：
+- [Go >=1.14](https://golang.org/doc/install)
+- [Make tool](https://www.gnu.org/software/make/)
+- [Yarn](https://classic.yarnpkg.com/en/docs/install)
+
+### 环境设置
+
+设置 Go path 与 PATH 环境变量，GOPATH 通常默认为 `$HOME/go`
+
+```
+# 将以下命令添加到 ~/.bashrc 或 ~/.bash_profile 文件中
+export GOPATH=$HOME/go
+export PATH=$PATH:$GOPATH/bin
+
+# 使用 source 命令使 bashrc 文件立刻生效
+$ source ~/.bashrc
+```
+
+### 获取代码
+
+```
+git clone https://github.com/lindb/lindb.git
+cd lindb
+```
+
+### 编译源代码
+
+仅编译 LinDB 后端（无管理界面）
+
+```
+make build
+```
+
+同时编译 LinDB 前端与后端
+
+```
+make build-all
+```
+
+### 测试
+
+```
+make test
+```
+
+### 管理界面(开发者)
+
+启动 LinDB 前端应用
+```
+cd web
+yarn start
+```
+
+可以通过  [localhost port 3000](http://localhost:3000/) 来访问
+
+## 部署
+
+LinDB 有两种部署方式：单机模式与集群模式
+
+### 单机模式
+
+单机模式包含了内嵌的 broker, storage 和 etcd 模块
+
+```
+./bin/lind standalone init-config
+./bin/lind standalone run
+```
+在使用 `make build-all` 编译后，前端文件会被打包在 broker 模块中
+可以通过  [localhost port 9000](http://localhost:9000/) 来访问控制台
+
+### 集群模式 (todo)
+
 
 ## 架构
 
