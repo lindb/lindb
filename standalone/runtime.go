@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/embed"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
@@ -126,6 +127,9 @@ func (r *runtime) startETCD() error {
 	lcurl, _ := url.Parse(r.cfg.ETCD.URL)
 	cfg.LCUrls = []url.URL{*lcurl}
 	cfg.Dir = r.cfg.ETCD.Dir
+	// always set etcd runtime to error level
+	cfg.LogLevel = zapcore.ErrorLevel.String()
+
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {
 		return err
