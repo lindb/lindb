@@ -59,7 +59,7 @@ Once we implement the final feature and replace the LinDB under production envir
 
 To build LinDB from source you require the following on your system.
 
-- [Go](https://golang.org/doc/install)
+- [Go >=1.14](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
@@ -85,7 +85,7 @@ cd lindb
 
 ### Build from source
 
-To build only LinDB core.
+To build only LinDB core.(without web console)
 
 ```
 make build
@@ -103,7 +103,7 @@ make build-all
 make test
 ```
 
-### Access web interface
+### Access web interface(for developer)
 
 Start the node.js app to view LinDB web interface.
 
@@ -113,7 +113,6 @@ yarn start
 ```
 
 You can access the LinDB web interface on your [localhost port 3000](http://localhost:3000/)
-
 
 ## Deploy
 
@@ -128,7 +127,8 @@ You can try out fully functional LinDB on your local system via the standalone m
 ./bin/lind standalone run
 ```
 
-You can access the LinDB web console on your [localhost port 9000](http://localhost:9000)
+Make sure that the binary file is built from `make build-all`
+You can access the LinDB web console on your [localhost port 9000](http://localhost:9000/)
 
 ### Cluster mode (todo)
 
