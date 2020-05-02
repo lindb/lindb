@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/lindb/roaring"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
@@ -22,6 +23,36 @@ import (
 //go:generate mockgen -source ./database.go -destination=./database_mock.go -package memdb
 
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
+
+var (
+	getUnknownFieldTypeCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mem_get_unknown_field_type",
+			Help: "Get unknown field type when write data.",
+		},
+		[]string{"db"},
+	)
+	generateFieldIDFailCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mem_generate_field_id_fail",
+			Help: "Generate field id fail when write data.",
+		},
+		[]string{"db"},
+	)
+	writeDataPointCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mem_write_data_points",
+			Help: "Write data points.",
+		},
+		[]string{"db"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(getUnknownFieldTypeCounter)
+	prometheus.MustRegister(generateFieldIDFailCounter)
+	prometheus.MustRegister(writeDataPointCounter)
+}
 
 type familyID uint8
 
@@ -51,6 +82,7 @@ type MemoryDatabase interface {
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
+	Name     string
 	Interval timeutil.Interval
 	Metadata metadb.Metadata
 	TempPath string
@@ -95,6 +127,7 @@ func (e familyTimeIDEntries) AddID(time int64, id familyID) familyTimeIDEntries 
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
+	name     string
 	interval timeutil.Interval // time interval of rollup
 	metadata metadb.Metadata   // metadata for assign metric id/field id
 
@@ -107,6 +140,10 @@ type memoryDatabase struct {
 
 	writeCondition sync.WaitGroup
 	rwMutex        sync.RWMutex // lock of create metric store
+
+	writeDataPointCounter      prometheus.Counter
+	generateFieldIDFailCounter prometheus.Counter
+	getUnknownFieldTypeCounter prometheus.Counter
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -116,11 +153,15 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		return nil, err
 	}
 	return &memoryDatabase{
-		interval:  cfg.Interval,
-		metadata:  cfg.Metadata,
-		buf:       buf,
-		mStores:   NewMetricBucketStore(),
-		allocSize: *atomic.NewInt32(0),
+		name:                       cfg.Name,
+		interval:                   cfg.Interval,
+		metadata:                   cfg.Metadata,
+		buf:                        buf,
+		mStores:                    NewMetricBucketStore(),
+		allocSize:                  *atomic.NewInt32(0),
+		writeDataPointCounter:      writeDataPointCounter.WithLabelValues(cfg.Name),
+		generateFieldIDFailCounter: generateFieldIDFailCounter.WithLabelValues(cfg.Name),
+		getUnknownFieldTypeCounter: getUnknownFieldTypeCounter.WithLabelValues(cfg.Name),
 	}, err
 }
 
@@ -169,18 +210,20 @@ func (md *memoryDatabase) Write(
 
 	tStore, size := mStore.GetOrCreateTStore(seriesID)
 	written := false
+
 	for _, f := range fields {
 		fieldType := getFieldType(f)
 		if fieldType == field.Unknown {
-			//FIXME add log or metric
+			md.getUnknownFieldTypeCounter.Inc()
 			continue
 		}
 		fieldID, err := md.metadata.MetadataDatabase().GenFieldID(namespace, metricName, f.Name, fieldType)
 		if err != nil {
-			//FIXME stone1100 add metric
+			md.generateFieldIDFailCounter.Inc()
 			continue
 		}
 		for _, pField := range f.Fields {
+			md.writeDataPointCounter.Inc()
 			pFieldID := field.PrimitiveID(pField.PrimitiveID)
 			pStore, ok := tStore.GetFStore(fID, fieldID, pFieldID)
 			if !ok {

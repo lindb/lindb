@@ -1,6 +1,7 @@
 package wal
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -9,6 +10,26 @@ import (
 )
 
 var baseWALLogger = logger.GetLogger("wal", "base")
+
+var (
+	recoveryCommitFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_recovery_commit_fail",
+			Help: "Recovery commit fail when wal recovery.",
+		},
+	)
+	releaseWALPageFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_release_page_fail",
+			Help: "Release wal page field fail when wal recovery.",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(recoveryCommitFailCounter)
+	prometheus.MustRegister(releaseWALPageFailCounter)
+}
 
 // SeriesRecoveryFunc represents the series recovery function
 type SeriesRecoveryFunc = func(metricID uint32, tagsHash uint64, seriesID uint32) error
