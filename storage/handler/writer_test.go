@@ -18,7 +18,6 @@ import (
 	storagemock "github.com/lindb/lindb/rpc/pbmock/storage"
 	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/rpc/proto/storage"
-
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -177,9 +176,8 @@ func TestWriter_Write_Fail(t *testing.T) {
 	assert.Error(t, err)
 
 	writeServer.EXPECT().Recv().Return(&storage.WriteRequest{Replicas: []*storage.Replica{{Seq: int64(10)}}}, nil)
-	s.EXPECT().GetHeadSeq().Return(int64(10)).MaxTimes(2)
+	s.EXPECT().GetHeadSeq().Return(int64(9)).MaxTimes(2)
 	s.EXPECT().SetHeadSeq(gomock.Any())
-	s.EXPECT().Synced().Return(true)
 	s.EXPECT().GetAckSeq().Return(int64(8))
 	writeServer.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	err = writer.Write(writeServer)

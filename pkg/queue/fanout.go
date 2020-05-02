@@ -134,7 +134,7 @@ func (fq *fanOutQueue) FanOutNames() []string {
 
 // HeadSeq returns the headSeq which is the next seq for appending data.
 func (fq *fanOutQueue) HeadSeq() int64 {
-	return fq.queue.HeadSeq()
+	return fq.queue.HeadSeq() + 1
 }
 
 // TailSeq returns the tailSeq which is the smallest seq among all the fanOut tailSeq.
@@ -313,7 +313,7 @@ func (f *fanOut) Consume() int64 {
 	defer f.lock4headSeq.Unlock()
 
 	headSeq := f.headSeq.Load() + 1
-	if headSeq <= f.q.HeadSeq() {
+	if headSeq < f.q.HeadSeq() {
 		f.headSeq.Store(headSeq)
 		return headSeq
 	}
@@ -352,7 +352,7 @@ func (f *fanOut) Ack(ackSeq int64) {
 	defer f.lock4headSeq.RUnlock()
 
 	ts := f.TailSeq()
-	hs := f.HeadSeq()
+	hs := f.headSeq.Load()
 	// In the initial condition, ts == 0, if the first ackSeq == 0, it would be ignore.
 	// Since ack is always in batch mode and the following ack will ack the previous data, it's not big problem.
 	if ackSeq > ts && ackSeq <= hs {
@@ -374,7 +374,7 @@ func (f *fanOut) HeadSeq() int64 {
 	f.lock4headSeq.RLock()
 	defer f.lock4headSeq.RUnlock()
 
-	return f.headSeq.Load()
+	return f.headSeq.Load() + 1
 }
 
 // TailSeq returns the seq acked.
@@ -388,8 +388,11 @@ func (f *fanOut) setTailSeq(seq int64) {
 
 // Pending returns the offset between FanOut HeadSeq and FanOutQueue HeadSeq.
 func (f *fanOut) Pending() int64 {
-	fh := f.HeadSeq()
-	qh := f.q.HeadSeq()
+	f.lock4headSeq.RLock()
+	defer f.lock4headSeq.RUnlock()
+
+	fh := f.HeadSeq() - 1
+	qh := f.q.HeadSeq() - 1
 
 	return qh - fh
 }
