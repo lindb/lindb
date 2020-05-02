@@ -240,13 +240,13 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
 	assert.Empty(t, fq.FanOutNames())
-	assert.Equal(t, int64(-1), fq.HeadSeq())
+	assert.Equal(t, int64(0), fq.HeadSeq())
 	assert.Equal(t, int64(-1), fq.TailSeq())
 
 	f1, err := fq.GetOrCreateFanOut("f1")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Join(dir, fanOutDirName, "f1"), f1.Name())
-	assert.Equal(t, int64(-1), f1.HeadSeq())
+	assert.Equal(t, int64(0), f1.HeadSeq())
 	assert.Equal(t, int64(-1), f1.TailSeq())
 	assert.Equal(t, SeqNoNewMessageAvailable, f1.Consume())
 	assert.Equal(t, int64(0), f1.Pending())
@@ -259,7 +259,7 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 
 	fseq := f1.Consume()
 	assert.Equal(t, int64(0), fseq)
-	assert.Equal(t, int64(0), f1.HeadSeq())
+	assert.Equal(t, int64(1), f1.HeadSeq())
 	assert.Equal(t, int64(-1), f1.TailSeq())
 	assert.Equal(t, int64(0), f1.Pending())
 
@@ -274,17 +274,17 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 
 	err = fq.Put(msg1)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), fq.HeadSeq())
+	assert.Equal(t, int64(2), fq.HeadSeq())
 	assert.Equal(t, int64(1), f1.Pending())
 
 	err = fq.Put(msg2)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), fq.HeadSeq())
+	assert.Equal(t, int64(3), fq.HeadSeq())
 	assert.Equal(t, int64(2), f1.Pending())
 
 	fseq = f1.Consume()
 	assert.Equal(t, int64(1), fseq)
-	assert.Equal(t, int64(1), f1.HeadSeq())
+	assert.Equal(t, int64(2), f1.HeadSeq())
 	assert.Equal(t, int64(1), f1.Pending())
 
 	fmsg, err = f1.Get(fseq)
@@ -296,6 +296,8 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 
 	fseq = f1.Consume()
 	assert.Equal(t, int64(2), fseq)
+	assert.Equal(t, int64(3), f1.HeadSeq())
+	assert.Equal(t, int64(0), f1.Pending())
 
 	fmsg, err = f1.Get(fseq)
 	assert.NoError(t, err)
@@ -311,7 +313,7 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 	f1, err = fq.GetOrCreateFanOut("f1")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), f1.TailSeq())
-	assert.Equal(t, int64(2), f1.HeadSeq())
+	assert.Equal(t, int64(3), f1.HeadSeq())
 	assert.Equal(t, int64(0), f1.Pending())
 	fq.Close()
 }
@@ -424,7 +426,7 @@ func TestFanOutQueue_concurrent_read(t *testing.T) {
 
 	wg.Wait()
 
-	assert.Equal(t, int64(msgSize)-1, fq.HeadSeq())
+	assert.Equal(t, int64(msgSize), fq.HeadSeq())
 
 	// wait for background deleting
 	time.Sleep(2 * time.Second)
@@ -435,7 +437,7 @@ func TestFanOutQueue_concurrent_read(t *testing.T) {
 	fq2, err := NewFanOutQueue(dir, dataFileSize, time.Second)
 	assert.NoError(t, err)
 
-	assert.Equal(t, int64(msgSize)-1, fq2.HeadSeq())
+	assert.Equal(t, int64(msgSize), fq2.HeadSeq())
 
 	assert.Equal(t, len(fq2.FanOutNames()), readConcurrent)
 
@@ -443,7 +445,7 @@ func TestFanOutQueue_concurrent_read(t *testing.T) {
 		fo, err := fq2.GetOrCreateFanOut("fo-" + strconv.Itoa(i))
 		assert.NoError(t, err)
 
-		assert.Equal(t, int64(msgSize)-1, fo.HeadSeq())
+		assert.Equal(t, int64(msgSize), fo.HeadSeq())
 		assert.Equal(t, int64(msgSize)-1, fo.TailSeq())
 	}
 	fq2.Close()

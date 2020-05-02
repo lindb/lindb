@@ -136,4 +136,28 @@ func TestSequence_ack(t *testing.T) {
 	seq1.sequenceMap.Store("not-match", "test")
 	err = seq.ack(map[string]int64{"not-match": int64(10)})
 	assert.NoError(t, err)
+
+	err = seq.Close()
+	assert.NoError(t, err)
+}
+
+func TestReplicaSequence_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	// create seq success
+	seq, err := newReplicaSequence(_testSequencePath)
+	assert.NoError(t, err)
+	assert.NotNil(t, seq)
+
+	seq1 := seq.(*replicaSequence)
+	mockSeq := replication.NewMockSequence(ctrl)
+	mockSeq.EXPECT().Close().Return(fmt.Errorf("err"))
+	seq1.sequenceMap.Store("test", mockSeq)
+	err = seq.Close()
+	assert.Error(t, err)
 }

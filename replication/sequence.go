@@ -1,6 +1,8 @@
 package replication
 
 import (
+	"io"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -25,6 +27,7 @@ const (
 // Sequence represents a persistence sequence recorder
 // for on storage side when transferring data from broker to storage.
 type Sequence interface {
+	io.Closer
 	// GetHeadSeq returns the head sequence which is the latest sequence of replica received.
 	GetHeadSeq() int64
 	// SetHeadSeq sets the head sequence which is the latest sequence of replica received.
@@ -35,10 +38,6 @@ type Sequence interface {
 	SetAckSeq(seq int64)
 	// Sync syncs the Sequence to storage.
 	Sync() error
-	// Synced checked if the Sequence has been synced.
-	Synced() bool
-	// ResetSynced resets Synced() to false.
-	ResetSynced()
 
 	//TODO need add close method??
 }
@@ -53,8 +52,6 @@ type sequence struct {
 	headSeq atomic.Int64
 	// ackSeq represents the the max sequence num of replica flushed to disk.
 	ackSeq atomic.Int64
-	// false -> not synced, true -> synced
-	synced atomic.Bool
 }
 
 // NewSequence returns a sequence with page cache corresponding to dirPath.
@@ -74,29 +71,29 @@ func NewSequence(dirPath string) (Sequence, error) {
 		}
 	}()
 
+	_, ok := metaPageFct.GetPage(metaPageID)
+
 	metaPage, err := metaPageFct.AcquirePage(metaPageID)
 	if err != nil {
 		return nil, err
 	}
-	ackSeq := int64(metaPage.ReadUint64(0))
+	ackSeq := int64(-1) // for new sequence
+	if ok {
+		// if exist meta page, need read
+		ackSeq = int64(metaPage.ReadUint64(0))
+	}
 
-	return &sequence{
+	s := &sequence{
 		dirPath:     dirPath,
 		metaPageFct: metaPageFct,
 		metaPage:    metaPage,
 		headSeq:     *atomic.NewInt64(ackSeq),
 		ackSeq:      *atomic.NewInt64(ackSeq),
-	}, nil
-}
-
-// ResetSynced resets Synced() to false.
-func (s *sequence) ResetSynced() {
-	s.synced.Store(false)
-}
-
-// Synced checked if the Sequence has been synced.
-func (s *sequence) Synced() bool {
-	return s.synced.Load()
+	}
+	if err = s.Sync(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // GetHeadSeq returns the head sequence which is the latest sequence of replica received.
@@ -122,6 +119,10 @@ func (s *sequence) SetAckSeq(seq int64) {
 // Sync syncs the Sequence to storage.
 func (s *sequence) Sync() error {
 	s.metaPage.PutUint64(uint64(s.GetAckSeq()), 0)
-	s.synced.Store(true)
 	return s.metaPage.Sync()
+}
+
+// Close closes the page factory
+func (s *sequence) Close() error {
+	return s.metaPageFct.Close()
 }

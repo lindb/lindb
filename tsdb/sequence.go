@@ -1,6 +1,7 @@
 package tsdb
 
 import (
+	"io"
 	"path"
 	"sync"
 
@@ -19,6 +20,7 @@ var (
 
 // ReplicaSequence represents the shard level replica sequence
 type ReplicaSequence interface {
+	io.Closer
 	// getOrCreateSequence gets the replica sequence by remote replica peer if exist, else creates a new sequence
 	getOrCreateSequence(remotePeer string) (replication.Sequence, error)
 	// getAllHeads gets the current replica indexes for all replica remote peers
@@ -136,5 +138,19 @@ func (ss *replicaSequence) syncSequence() error {
 		})
 		ss.syncing.Store(false)
 	}
+	return err
+}
+
+// Close closes the replica sequence
+func (ss *replicaSequence) Close() error {
+	var err error
+	ss.sequenceMap.Range(func(key, value interface{}) bool {
+		seq, ok := value.(replication.Sequence)
+		if ok {
+			// sync one replica peer sequence
+			err = seq.Close()
+		}
+		return true
+	})
 	return err
 }

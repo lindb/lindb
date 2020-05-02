@@ -34,8 +34,19 @@ func TestSequence_new_err(t *testing.T) {
 	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
 		return fct, nil
 	}
+	fct.EXPECT().GetPage(int64(metaPageID)).Return(nil, false)
 	fct.EXPECT().Close().Return(fmt.Errorf("err"))
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	seq, err = NewSequence(tmp)
+	assert.Error(t, err)
+	assert.Nil(t, seq)
+	// case 3: sync err
+	fct.EXPECT().GetPage(int64(metaPageID)).Return(nil, false)
+	fct.EXPECT().Close().Return(fmt.Errorf("err"))
+	mockPage := page.NewMockMappedPage(ctrl)
+	mockPage.EXPECT().PutUint64(gomock.Any(), gomock.Any())
+	mockPage.EXPECT().Sync().Return(fmt.Errorf("err"))
+	fct.EXPECT().AcquirePage(gomock.Any()).Return(mockPage, nil)
 	seq, err = NewSequence(tmp)
 	assert.Error(t, err)
 	assert.Nil(t, seq)
@@ -52,9 +63,16 @@ func TestSequence(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, seq)
 
-	assert.Equal(t, seq.GetHeadSeq(), int64(0))
-	assert.Equal(t, seq.GetAckSeq(), int64(0))
-	assert.False(t, seq.Synced())
+	assert.Equal(t, seq.GetHeadSeq(), int64(-1))
+	assert.Equal(t, seq.GetAckSeq(), int64(-1))
+	err = seq.Close()
+	assert.NoError(t, err)
+	seq, err = NewSequence(tmp)
+	assert.NoError(t, err)
+	assert.NotNil(t, seq)
+
+	assert.Equal(t, seq.GetHeadSeq(), int64(-1))
+	assert.Equal(t, seq.GetAckSeq(), int64(-1))
 
 	seq.SetHeadSeq(int64(10))
 	seq.SetAckSeq(int64(5))
@@ -65,15 +83,10 @@ func TestSequence(t *testing.T) {
 	err = seq.Sync()
 	assert.NoError(t, err)
 
-	assert.True(t, seq.Synced())
-	seq.ResetSynced()
-	assert.False(t, seq.Synced())
-
 	// new sequence
 	newSeq, err := NewSequence(tmp)
 	assert.NoError(t, err)
 
 	assert.Equal(t, newSeq.GetAckSeq(), int64(5))
 	assert.Equal(t, newSeq.GetHeadSeq(), int64(5))
-	assert.False(t, newSeq.Synced())
 }
