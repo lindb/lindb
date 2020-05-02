@@ -1,6 +1,8 @@
 package wal
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue/page"
@@ -15,6 +17,19 @@ var (
 )
 
 var seriesWALLogger = logger.GetLogger("wal", "series")
+
+var (
+	recoverSeriesFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_recovery_series_fail",
+			Help: "Recover series fail when series wal recovery.",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(recoverSeriesFailCounter)
+}
 
 const (
 	seriesEntryLength = 4 + 8 + 4                      // metric id + tags hash + series id
@@ -88,7 +103,8 @@ func (wal *seriesWAL) Recovery(recovery SeriesRecoveryFunc, commit CommitFunc) {
 			if err := recovery(metricID,
 				walPage.ReadUint64(offset+tagsHashOffset),
 				walPage.ReadUint32(offset+seriesIDOffset)); err != nil {
-				//TODO add metric?????
+				recoverSeriesFailCounter.Inc()
+
 				seriesWALLogger.Error("invoke recovery func error",
 					logger.String("wal", wal.base.path), logger.Error(err))
 				return
@@ -97,14 +113,16 @@ func (wal *seriesWAL) Recovery(recovery SeriesRecoveryFunc, commit CommitFunc) {
 		}
 
 		if err := commit(); err != nil {
-			//TODO add metric?????
+			recoveryCommitFailCounter.Inc()
+
 			seriesWALLogger.Error("invoke commit func error",
 				logger.String("wal", wal.base.path), logger.Error(err))
 			return
 		}
 
 		if err := wal.base.walFactory.ReleasePage(i); err != nil {
-			//TODO add metric?????
+			releaseWALPageFailCounter.Inc()
+
 			seriesWALLogger.Error("release series wal page error",
 				logger.String("wal", wal.base.path), logger.Error(err))
 		}

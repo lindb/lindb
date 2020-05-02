@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -33,6 +36,30 @@ var (
 	newIndexDBFunc         = indexdb.NewIndexDatabase
 	newMemoryDBFunc        = memdb.NewMemoryDatabase
 )
+
+var (
+	buildIndexTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "shard_write_metric_duration",
+			Help:    "Write metric duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"db", "shard"},
+	)
+	writeMetricTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "shard_build_index_duration",
+			Help:    "Build index duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"db", "shard"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(buildIndexTimer)
+	prometheus.MustRegister(writeMetricTimer)
+}
 
 const (
 	replicaDir       = "replica"
@@ -111,6 +138,9 @@ type shard struct {
 	invertedFamily kv.Family // inverted store
 
 	rwMutex sync.RWMutex
+
+	buildIndexTimer  prometheus.Observer
+	writeMetricTimer prometheus.Observer
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -135,16 +165,19 @@ func newShard(
 	if err != nil {
 		return nil, err
 	}
+	shardIDStr := strconv.Itoa(int(shardID))
 	createdShard := &shard{
-		databaseName: db.Name(),
-		id:           shardID,
-		path:         shardPath,
-		option:       option,
-		sequence:     replicaSequence,
-		metadata:     db.Metadata(),
-		interval:     interval,
-		segments:     make(map[timeutil.IntervalType]IntervalSegment),
-		isFlushing:   *atomic.NewBool(false),
+		databaseName:     db.Name(),
+		id:               shardID,
+		path:             shardPath,
+		option:           option,
+		sequence:         replicaSequence,
+		metadata:         db.Metadata(),
+		interval:         interval,
+		segments:         make(map[timeutil.IntervalType]IntervalSegment),
+		isFlushing:       *atomic.NewBool(false),
+		buildIndexTimer:  buildIndexTimer.WithLabelValues(db.Name(), shardIDStr),
+		writeMetricTimer: writeMetricTimer.WithLabelValues(db.Name(), shardIDStr),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
@@ -263,12 +296,19 @@ func (s *shard) Write(metric *pb.Metric) error {
 		// if series id is new, need build inverted index
 		s.indexDB.BuildInvertIndex(ns, metric.Name, metric.Tags, seriesID)
 	}
+	buildIndexEnd := timeutil.Now()
+	s.buildIndexTimer.Observe(float64(buildIndexEnd - now))
+
 	db := s.MemoryDatabase()
 
 	// mark writing data
 	db.AcquireWrite()
 	// set write completed
-	defer db.CompleteWrite()
+	defer func() {
+		db.CompleteWrite()
+
+		s.writeMetricTimer.Observe(float64(timeutil.Now() - buildIndexEnd))
+	}()
 	// write metric point into memory db
 	return db.Write(ns, metric.Name, metricID, seriesID, metric.Timestamp, metric.Fields)
 }
@@ -425,6 +465,7 @@ func (s *shard) swapMemoryDatabase() {
 // createMemoryDatabase creates a new memory database for writing data points
 func (s *shard) createMemoryDatabase() (memdb.MemoryDatabase, error) {
 	return newMemoryDBFunc(memdb.MemoryDatabaseCfg{
+		Name:     s.databaseName,
 		Interval: s.interval,
 		Metadata: s.metadata,
 		TempPath: filepath.Join(s.path, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),

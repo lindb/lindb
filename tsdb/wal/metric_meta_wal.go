@@ -1,6 +1,8 @@
 package wal
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/field"
 )
@@ -8,6 +10,33 @@ import (
 //go:generate mockgen -source=./metric_meta_wal.go -destination=./metric_meta_wal_mock.go -package=wal
 
 var metaWAlLogger = logger.GetLogger("wal", "meta")
+
+var (
+	recoverMetricFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_recovery_metric_fail",
+			Help: "Recover metric fail when metric meta wal recovery.",
+		},
+	)
+	recoverFieldFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_recovery_field_fail",
+			Help: "Recover field fail when metric meta wal recovery.",
+		},
+	)
+	recoverTagKeyFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "wal_recovery_tag_key_fail",
+			Help: "Recover tag key fail when metric meta wal recovery.",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(recoverMetricFailCounter)
+	prometheus.MustRegister(recoverFieldFailCounter)
+	prometheus.MustRegister(recoverTagKeyFailCounter)
+}
 
 const (
 	metricMetaPageSize = 64 * 1024 * 1024 // 64M
@@ -132,7 +161,8 @@ func (m *metricMetaWAL) Recovery(metricRecovery MetricRecoveryFunc,
 				metricID := walPage.ReadUint32(offset)
 				offset += 4
 				if err := metricRecovery(ns, metricName, metricID); err != nil {
-					//TODO add metric?????
+					recoverMetricFailCounter.Inc()
+
 					metaWAlLogger.Error("invoke metric recovery func error",
 						logger.String("wal", m.base.path), logger.Error(err))
 					return
@@ -147,7 +177,8 @@ func (m *metricMetaWAL) Recovery(metricRecovery MetricRecoveryFunc,
 				fType := walPage.ReadUint8(offset)
 				offset++
 				if err := fieldRecovery(metricID, field.ID(fID), fieldName, field.Type(fType)); err != nil {
-					//TODO add metric?????
+					recoverFieldFailCounter.Inc()
+
 					metaWAlLogger.Error("invoke field recovery func error",
 						logger.String("wal", m.base.path), logger.Error(err))
 					return
@@ -160,7 +191,8 @@ func (m *metricMetaWAL) Recovery(metricRecovery MetricRecoveryFunc,
 				tagKey, n := readString(walPage, offset)
 				offset += n
 				if err := tagKeyRecovery(metricID, tagKeyID, tagKey); err != nil {
-					//TODO add metric?????
+					recoverTagKeyFailCounter.Inc()
+
 					metaWAlLogger.Error("invoke tag key recovery func error",
 						logger.String("wal", m.base.path), logger.Error(err))
 					return
@@ -171,14 +203,16 @@ func (m *metricMetaWAL) Recovery(metricRecovery MetricRecoveryFunc,
 		}
 
 		if err := commit(); err != nil {
-			//TODO add metric?????
+			recoveryCommitFailCounter.Inc()
+
 			metaWAlLogger.Error("invoke commit func error",
 				logger.String("wal", m.base.path), logger.Error(err))
 			return
 		}
 
 		if err := m.base.walFactory.ReleasePage(i); err != nil {
-			//TODO add metric?????
+			releaseWALPageFailCounter.Inc()
+
 			metaWAlLogger.Error("release meta wal page error",
 				logger.String("wal", m.base.path), logger.Error(err))
 		}
