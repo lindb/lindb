@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -13,6 +15,19 @@ import (
 )
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock.go -package memdb
+
+var (
+	fieldStoreMergeFailCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "mem_field_store_merge_fail",
+			Help: "Field Store merge fail when flush.",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(fieldStoreMergeFailCounter)
+}
 
 // memory layout as below:
 // header: family[1byte] + field id[1byte] + primitive id[1byte]
@@ -160,7 +175,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx fl
 	}
 	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.slotRange, false)
 	if err != nil {
-		//FIXME stone100 add metric
+		fieldStoreMergeFailCounter.Inc()
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
 		return
 	}

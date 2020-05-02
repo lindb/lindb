@@ -166,7 +166,6 @@ func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAgg
 	fieldOffsets := encoding.NewFixedOffsetDecoder(r.buf[position+2:])
 	// find small/equals family id index
 	idx := sort.Search(fieldCount, func(i int) bool {
-		//FIXME need test 12500 panic
 		offset, _ := fieldOffsets.Get(i)
 		return field.Key(stream.ReadUint16(r.buf, int(offset))) >= fieldAggs[0].fieldKey
 	})
