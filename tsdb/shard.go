@@ -299,7 +299,7 @@ func (s *shard) Close() error {
 		}
 	}
 	s.ackReplicaSeq()
-	return nil
+	return s.sequence.Close()
 }
 
 // IsFlushing checks if this shard is in flushing

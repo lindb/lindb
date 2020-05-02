@@ -160,6 +160,7 @@ func (r *replicator) recvLoop() {
 		// when connection is stopped, replicator.streamClient.Recv() returns error.
 		resp, err := r.streamClient.Recv()
 		if err != nil {
+			//fixme if seq out of range need reset
 			r.logger.Error("recvLoop receive error", logger.Error(err))
 			r.setReady(false)
 			time.Sleep(time.Second)

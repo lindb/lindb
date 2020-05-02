@@ -46,7 +46,9 @@ func (w *Writer) Reset(ctx context.Context, req *storage.ResetSeqRequest) (*stor
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sequence.SetHeadSeq(req.Seq)
+	if req.Seq >= 0 {
+		sequence.SetHeadSeq(req.Seq)
+	}
 
 	return &storage.ResetSeqResponse{}, nil
 }
@@ -101,7 +103,7 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			seq := replica.Seq
 
 			hs := sequence.GetHeadSeq()
-			if hs != seq {
+			if hs+1 != seq {
 				// reset to headSeq
 				return status.Errorf(codes.OutOfRange, "seq num not match replica:%d, storage:%d", seq, hs)
 			}
@@ -112,13 +114,10 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 		}
 
 		resp := &storage.WriteResponse{
-			CurSeq: sequence.GetHeadSeq() - 1,
+			CurSeq: sequence.GetHeadSeq(),
 		}
 
-		// add acked seq if synced
-		if sequence.Synced() {
-			resp.Ack = &storage.WriteResponse_AckSeq{AckSeq: sequence.GetAckSeq()}
-		}
+		resp.Ack = &storage.WriteResponse_AckSeq{AckSeq: sequence.GetAckSeq()}
 
 		if err := stream.Send(resp); err != nil {
 			return status.Error(codes.Internal, err.Error())
