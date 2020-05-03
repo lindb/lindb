@@ -32,16 +32,18 @@ func TestStorageRuntime(t *testing.T) {
 	check.TestingT(t)
 }
 
-var cfg = config.Storage{StorageBase: config.StorageBase{
-	GRPC: config.GRPC{
-		Port: 9999,
-		TTL:  1,
-	},
-	TSDB: config.TSDB{Dir: "/tmp/storage/data"},
-	Coordinator: config.RepoState{
-		Namespace: "/test/storage",
-	},
-}}
+var cfg = config.Storage{
+	StorageBase: config.StorageBase{
+		GRPC: config.GRPC{
+			Port: 9999,
+			TTL:  1,
+		},
+		TSDB: config.TSDB{Dir: "/tmp/storage/data"},
+		Coordinator: config.RepoState{
+			Namespace: "/test/storage",
+		},
+	}, Monitor: *config.NewDefaultMonitor(),
+}
 
 func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	fmt.Println("run TestStorageRun...")

@@ -37,8 +37,6 @@ func TestMaster(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	nodeSM := broker.NewMockNodeStateMachine(ctrl)
-	nodeSM.EXPECT().StartMonitoring().AnyTimes()
-	nodeSM.EXPECT().StopMonitoring().AnyTimes()
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
@@ -101,8 +99,6 @@ func TestMaster_Fail(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	nodeSM := broker.NewMockNodeStateMachine(ctrl)
-	nodeSM.EXPECT().StartMonitoring().AnyTimes()
-	nodeSM.EXPECT().StopMonitoring().AnyTimes()
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
@@ -160,8 +156,6 @@ func TestMaster_FlushDatabase(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	nodeSM := broker.NewMockNodeStateMachine(ctrl)
-	nodeSM.EXPECT().StartMonitoring().AnyTimes()
-	nodeSM.EXPECT().StopMonitoring().AnyTimes()
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{

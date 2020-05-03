@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/broker/api"
@@ -22,7 +25,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
@@ -111,6 +113,8 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	pusher monitoring.PrometheusPusher
+
 	log *logger.Logger
 }
 
@@ -174,13 +178,6 @@ func (r *runtime) Run() error {
 		ShardAssignSRV:    r.srv.shardAssignService,
 		DiscoveryFactory:  discoveryFactory,
 		TaskClientFactory: r.factory.taskClient,
-		MonitoringSM: broker.NewMonitoringStateMachine(
-			r.ctx,
-			fmt.Sprintf("http://localhost:%d/metric/prometheus?db=%s",
-				r.config.BrokerBase.HTTP.Port,
-				constants.InternalMonitoringDB),
-			r.config.Monitor.RuntimeReportInterval.Duration(),
-		),
 	})
 
 	// finally start all state machine
@@ -236,6 +233,10 @@ func (r *runtime) State() server.State {
 func (r *runtime) Stop() error {
 	r.log.Info("stopping broker server.....")
 	defer r.cancel()
+
+	if r.pusher != nil {
+		r.pusher.Stop()
+	}
 
 	if r.httpServer != nil {
 		r.log.Info("starting shutdown http server")
@@ -453,7 +454,6 @@ func (r *runtime) monitoring() {
 			node).Run()
 	}
 
-	// todo: @stone1100, broker metric http post url is not implemented
 	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
 	if runtimeStatMonitorEnabled {
 		r.log.Info("RuntimeStatMonitor is running")
@@ -463,4 +463,22 @@ func (r *runtime) monitoring() {
 			map[string]string{"role": "broker", "version": r.version},
 		)
 	}
+
+	r.pusher = monitoring.NewPrometheusPusher(
+		r.ctx,
+		r.config.Monitor.URL,
+		r.config.Monitor.RuntimeReportInterval.Duration(),
+		prometheus.Gatherers{monitoring.BrokerGatherer, prometheus.DefaultGatherer},
+		[]*dto.LabelPair{
+			{
+				Name:  proto.String("role"),
+				Value: proto.String("broker"),
+			},
+			{
+				Name:  proto.String("node"),
+				Value: proto.String(r.node.Indicator()),
+			},
+		},
+	)
+	go r.pusher.Start()
 }

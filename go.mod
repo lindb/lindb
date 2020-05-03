@@ -3,6 +3,7 @@ go 1.14
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/GeertJohan/go.rice v1.0.0
+	github.com/OneOfOne/xxhash v1.2.2
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/antlr/antlr4 v0.0.0-20200309161749-1284814c2112
 	github.com/benbjohnson/tmpl v1.0.0 // indirect
@@ -10,6 +11,7 @@ require (
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1

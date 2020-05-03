@@ -63,6 +63,8 @@ func (r *runtime) Name() string {
 
 // Run runs the cluster as standalone mode
 func (r *runtime) Run() error {
+	config.StandaloneMode = true
+
 	if err := r.startETCD(); err != nil {
 		r.state = server.Failed
 		return err

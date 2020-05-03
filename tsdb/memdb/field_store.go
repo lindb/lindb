@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -26,7 +27,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(fieldStoreMergeFailCounter)
+	monitoring.StorageRegistry.MustRegister(fieldStoreMergeFailCounter)
 }
 
 // memory layout as below:

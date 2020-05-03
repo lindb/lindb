@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue/page"
 	"github.com/lindb/lindb/series/field"
@@ -27,8 +28,8 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(recoveryCommitFailCounter)
-	prometheus.MustRegister(releaseWALPageFailCounter)
+	monitoring.StorageRegistry.MustRegister(recoveryCommitFailCounter)
+	monitoring.StorageRegistry.MustRegister(releaseWALPageFailCounter)
 }
 
 // SeriesRecoveryFunc represents the series recovery function

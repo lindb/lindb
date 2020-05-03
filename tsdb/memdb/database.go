@@ -11,6 +11,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
@@ -49,9 +50,9 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(getUnknownFieldTypeCounter)
-	prometheus.MustRegister(generateFieldIDFailCounter)
-	prometheus.MustRegister(writeDataPointCounter)
+	monitoring.StorageRegistry.MustRegister(getUnknownFieldTypeCounter)
+	monitoring.StorageRegistry.MustRegister(generateFieldIDFailCounter)
+	monitoring.StorageRegistry.MustRegister(writeDataPointCounter)
 }
 
 type familyID uint8
