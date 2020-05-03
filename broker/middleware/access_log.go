@@ -7,9 +7,32 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
+
+// for testing
+var (
+	pathUnescapeFunc = url.PathUnescape
+)
+
+var (
+	httpHandleTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_handle_duration",
+			Help:    "HTTP handle duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"path", "status"},
+	)
+)
+
+func init() {
+	monitoring.BrokerRegistry.MustRegister(httpHandleTimer)
+}
 
 // accessStats represents http access stats record
 type accessStats struct {
@@ -54,7 +77,7 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			// add access log
 			log := writer.accessStats
 			path := r.RequestURI
-			unescapedPath, err := url.PathUnescape(path)
+			unescapedPath, err := pathUnescapeFunc(path)
 			if err != nil {
 				unescapedPath = path
 			}
@@ -62,6 +85,11 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			logger.AccessLog.Info(realIP(r) + " " + strconv.Itoa(int(timeutil.Now()-start)) + "ms" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(log.status) + " " + strconv.Itoa(log.size))
+			paths := strings.Split(unescapedPath, "?")
+			if len(paths) > 0 {
+				path = paths[0]
+			}
+			httpHandleTimer.WithLabelValues(path, strconv.Itoa(log.status)).Observe(float64(timeutil.Now() - start))
 		}()
 		next.ServeHTTP(writer, r)
 	})

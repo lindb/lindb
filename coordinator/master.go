@@ -119,9 +119,6 @@ func (m *master) OnFailOver() error {
 		return fmt.Errorf("start database admin state machine error:%s", err)
 	}
 
-	// start collect broker monitoring data
-	m.cfg.BrokerSM.NodeSM.StartMonitoring()
-
 	return nil
 }
 
@@ -131,9 +128,6 @@ func (m *master) OnResignation() {
 	if m.masterCtx != nil {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
-
-		// stop collect broker monitoring data
-		m.cfg.BrokerSM.NodeSM.StopMonitoring()
 
 		m.masterCtx.Close()
 		m.masterCtx = nil

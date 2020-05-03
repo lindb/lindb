@@ -40,6 +40,7 @@ func (m *PrometheusWrite) Write(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
+
 	metricList, err := protocol.PromParse(s)
 	if err != nil {
 		api.Error(w, err)

@@ -21,7 +21,6 @@ type StateMachineCfg struct {
 	DiscoveryFactory  discovery.Factory
 	ShardAssignSRV    service.ShardAssignService
 	ChannelManager    replication.ChannelManager
-	MonitoringSM      broker.MonitoringStateMachine
 	TaskClientFactory rpc.TaskClientFactory // rpc task stream create factory
 }
 
@@ -49,7 +48,7 @@ func NewStateMachineFactory(cfg *StateMachineCfg) StateMachineFactory {
 
 // CreateNodeStateMachine creates the node state machine, if fail returns err
 func (s *stateMachineFactory) CreateNodeStateMachine() (broker.NodeStateMachine, error) {
-	return broker.NewNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.MonitoringSM, s.cfg.DiscoveryFactory)
+	return broker.NewNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.DiscoveryFactory)
 }
 
 // CreateStorageStateMachine creates the storage state machine, if fail returns err

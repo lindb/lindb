@@ -1,15 +1,23 @@
 package middleware
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAccessLogMiddleware(t *testing.T) {
+	defer func() {
+		pathUnescapeFunc = url.PathUnescape
+	}()
+	pathUnescapeFunc = func(s string) (string, error) {
+		return "err-path", fmt.Errorf("err")
+	}
 	req, err := http.NewRequest("GET", "/health-check", nil)
 	assert.NoError(t, err)
 
