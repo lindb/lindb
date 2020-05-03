@@ -3,6 +3,7 @@ package wal
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/field"
 )
@@ -33,9 +34,9 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(recoverMetricFailCounter)
-	prometheus.MustRegister(recoverFieldFailCounter)
-	prometheus.MustRegister(recoverTagKeyFailCounter)
+	monitoring.StorageRegistry.MustRegister(recoverMetricFailCounter)
+	monitoring.StorageRegistry.MustRegister(recoverFieldFailCounter)
+	monitoring.StorageRegistry.MustRegister(recoverTagKeyFailCounter)
 }
 
 const (

@@ -7,7 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/config"
@@ -70,6 +73,8 @@ type runtime struct {
 	srv          srv
 	handler      *rpcHandler
 	httpServer   *http.Server
+
+	pusher monitoring.PrometheusPusher
 
 	log *logger.Logger
 }
@@ -144,6 +149,7 @@ func (r *runtime) Run() error {
 
 	// start stat monitoring
 	r.monitoring()
+
 	r.state = server.Running
 	return nil
 }
@@ -167,6 +173,10 @@ func (r *runtime) startStateRepo() error {
 // Stop stops storage server
 func (r *runtime) Stop() error {
 	defer r.cancel()
+
+	if r.pusher != nil {
+		r.pusher.Stop()
+	}
 
 	if r.taskExecutor != nil {
 		if err := r.taskExecutor.Close(); err != nil {
@@ -297,14 +307,34 @@ func (r *runtime) monitoring() {
 			}).Run()
 	}
 
-	// todo: @stone1100, how to retrieve the broker port?
-	runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
-	if runtimeStatMonitorEnabled {
-		r.log.Info("RuntimeStatMonitor is running")
-		go monitoring.NewRunTimeCollector(
-			r.ctx,
-			r.config.Monitor.RuntimeReportInterval.Duration(),
-			map[string]string{"role": "broker", "version": r.version},
-		)
+	if !config.StandaloneMode {
+		// disable if run as standalone, because broker start same monitoring
+		runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
+		if runtimeStatMonitorEnabled {
+			r.log.Info("RuntimeStatMonitor is running")
+			go monitoring.NewRunTimeCollector(
+				r.ctx,
+				r.config.Monitor.RuntimeReportInterval.Duration(),
+				map[string]string{"role": "broker", "version": r.version},
+			)
+		}
 	}
+
+	r.pusher = monitoring.NewPrometheusPusher(
+		r.ctx,
+		r.config.Monitor.URL,
+		r.config.Monitor.RuntimeReportInterval.Duration(),
+		prometheus.Gatherers{monitoring.StorageGatherer, prometheus.DefaultGatherer},
+		[]*dto.LabelPair{
+			{
+				Name:  proto.String("role"),
+				Value: proto.String("storage"),
+			},
+			{
+				Name:  proto.String("node"),
+				Value: proto.String(r.node.Indicator()),
+			},
+		},
+	)
+	go r.pusher.Start()
 }

@@ -57,8 +57,8 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(buildIndexTimer)
-	prometheus.MustRegister(writeMetricTimer)
+	monitoring.StorageRegistry.MustRegister(buildIndexTimer)
+	monitoring.StorageRegistry.MustRegister(writeMetricTimer)
 }
 
 const (
