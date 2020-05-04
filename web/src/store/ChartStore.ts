@@ -1,7 +1,7 @@
 import { get } from "lodash";
 import { action, observable, reaction, toJS } from "mobx";
 import { Chart, ChartStatus, ChartStatusEnum, Target } from "model/Chart";
-import { ResultSet, UnitEnum } from "model/Metric";
+import { ResultSet } from "model/Metric";
 import * as R from 'ramda';
 import * as LinDBService from "service/LinQLService";
 import { URLParamStore } from "store/URLParamStore";
@@ -103,7 +103,7 @@ export class ChartStore {
             LinDBService.query({ db: target!.db, sql: target!.ql }).then(response => {
                 const series: ResultSet | undefined = response.data
 
-                let reportData: any = ProcessChartData.LineChart(series!, UnitEnum.None)
+                let reportData: any = ProcessChartData.LineChart(series!, chart!)
                 this.seriesCache.set(uniqueId, reportData)
                 const dataSet = get(reportData, "datasets", [])
                 if (dataSet.length > 0) {
@@ -116,7 +116,7 @@ export class ChartStore {
                 } else {
                     chartStatus!.status = ChartStatusEnum.NoData
                 }
-                console.log("sss",uniqueId,series!.stats,response.data)
+                console.log("sss", uniqueId, series!.stats, response.data)
                 this.statsCache.set(uniqueId, series!.stats)
                 this.setChartStatus(uniqueId, chartStatus!)
             }).catch((err) => {

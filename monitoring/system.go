@@ -56,11 +56,16 @@ func GetCPUStat() (*models.CPUStat, error) {
 		return nil, fmt.Errorf("cannot get cpu stat")
 	}
 	allStat := s[0]
+	total := allStat.Total()
 	return &models.CPUStat{
-		User:   allStat.User,
-		System: allStat.System,
-		Idle:   allStat.Idle,
-		Nice:   allStat.Nice,
+		User:    allStat.User / total,
+		System:  allStat.System / total,
+		Idle:    allStat.Idle / total,
+		Nice:    allStat.Nice / total,
+		Iowait:  allStat.Iowait / total,
+		Irq:     allStat.Irq / total,
+		Softirq: allStat.Softirq / total,
+		Steal:   allStat.Steal / total,
 	}, nil
 }
 

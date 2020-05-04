@@ -4,12 +4,35 @@ import (
 	"context"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
+
+var (
+	memStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "system_mem_stat",
+		Help: "System mem stats",
+	}, []string{"type"})
+	cpuStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "system_cpu_stat",
+		Help: "System cpu stats",
+	}, []string{"type"})
+	diskStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "system_disk_stat",
+		Help: "System disk stats",
+	}, []string{"type"})
+)
+
+func init() {
+	prometheus.MustRegister(memStatGauge)
+	prometheus.MustRegister(cpuStatGauge)
+	prometheus.MustRegister(diskStatGauge)
+}
 
 // SystemCollector collects the system stat
 type SystemCollector struct {
@@ -86,6 +109,33 @@ func (r *SystemCollector) collect() {
 	}
 
 	r.nodeStat.System = *r.systemStat
+
+	if r.systemStat.MemoryStat != nil {
+		memStat := r.systemStat.MemoryStat
+		memStatGauge.WithLabelValues("total").Set(float64(memStat.Total))
+		memStatGauge.WithLabelValues("used").Set(float64(memStat.Used))
+		memStatGauge.WithLabelValues("used_percent").Set(memStat.UsedPercent)
+	}
+
+	if r.systemStat.DiskStat != nil {
+		diskStat := r.systemStat.DiskStat
+		diskStatGauge.WithLabelValues("total").Set(float64(diskStat.Total))
+		diskStatGauge.WithLabelValues("used").Set(float64(diskStat.Used))
+		diskStatGauge.WithLabelValues("used_percent").Set(diskStat.UsedPercent)
+	}
+
+	if r.systemStat.CPUStat != nil {
+		cpuStat := r.systemStat.CPUStat
+		cpuStatGauge.WithLabelValues("idle").Set(cpuStat.Idle)
+		cpuStatGauge.WithLabelValues("nice").Set(cpuStat.Nice)
+		cpuStatGauge.WithLabelValues("system").Set(cpuStat.System)
+		cpuStatGauge.WithLabelValues("user").Set(cpuStat.User)
+		cpuStatGauge.WithLabelValues("irq").Set(cpuStat.Irq)
+		cpuStatGauge.WithLabelValues("steal").Set(cpuStat.Steal)
+		cpuStatGauge.WithLabelValues("softirq").Set(cpuStat.Softirq)
+		cpuStatGauge.WithLabelValues("iowait").Set(cpuStat.Iowait)
+	}
+
 	if err := r.repository.Put(r.ctx, r.path, encoding.JSONMarshal(r.nodeStat)); err != nil {
 		log.Error("report stat error", logger.String("path", r.path))
 	}

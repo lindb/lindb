@@ -11,19 +11,15 @@ const { Option } = Select
 interface DatabaseNameSelectProps {
 }
 
-interface DatabaseNameSelecttatus {
+interface DatabaseNameSelectState{
 }
 
 @observer
-export default class DatabaseNameSelect extends React.Component<DatabaseNameSelectProps, DatabaseNameSelecttatus> {
+export default class DatabaseNameSelect extends React.Component<DatabaseNameSelectProps, DatabaseNameSelectState> {
     @observable databaseNames: string[] | undefined = undefined
-    constructor(props: DatabaseNameSelectProps) {
-        super(props)
-
-        this.state = {}
-    }
 
     componentDidMount(): void {
+        //TODO need use store
         this.fetchDatabaseNames()
     }
 

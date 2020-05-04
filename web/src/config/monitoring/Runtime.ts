@@ -10,7 +10,7 @@ function metric(title: string, ql: string, span: number = 24, unit: UnitEnum = U
   }
 }
 
-export const SystemStorageBoard = [
+export const RuntimeStorageBoard = [
   // Row
   [
     metric(

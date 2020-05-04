@@ -102,6 +102,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
    */
   renderChart() {
     this.setData(this.chartConfig)
+    console.log(this.chartConfig)
     if (this.chartInstance) {
       this.chartInstance.update()
     } else {

@@ -17,8 +17,6 @@ export default class ViewBoard extends React.Component<ViewBoardProps, ViewBoard
     this.state = {}
   }
 
-
-
   render() {
     const { board } = this.props
     return (
