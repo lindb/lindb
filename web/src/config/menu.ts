@@ -13,9 +13,24 @@ export const MENUS = [
     path: '/monitoring',
     children: [
       {
+        title: 'System',
+        icon: 'system',
+        path: '/system',
+      },
+      {
         title: 'Runtime',
         icon: 'runtime',
-        path: '/Runtime',
+        path: '/runtime',
+      },
+      {
+        title: 'Broker',
+        icon: 'broker',
+        path: '/broker',
+      },
+      {
+        title: 'Storage',
+        icon: 'storage',
+        path: '/storage',
       },
     ],
   }, {

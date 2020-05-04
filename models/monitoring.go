@@ -69,8 +69,12 @@ type MemoryStat struct {
 // CPUStat represents the amounts of time the CPU has spent performing different
 // kinds of work.
 type CPUStat struct {
-	User   float64 `json:"user"`
-	System float64 `json:"system"`
-	Idle   float64 `json:"idle"`
-	Nice   float64 `json:"nice"`
+	User    float64 `json:"user"`
+	System  float64 `json:"system"`
+	Idle    float64 `json:"idle"`
+	Nice    float64 `json:"nice"`
+	Iowait  float64 `json:"iowait"`
+	Irq     float64 `json:"irq"`
+	Softirq float64 `json:"softirq"`
+	Steal   float64 `json:"steal"`
 }

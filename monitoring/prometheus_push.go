@@ -3,6 +3,7 @@ package monitoring
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/OneOfOne/xxhash"
@@ -13,6 +14,12 @@ import (
 	"github.com/prometheus/common/model"
 
 	"github.com/lindb/lindb/pkg/logger"
+)
+
+// for testing
+var (
+	newRequest = http.NewRequest
+	doRequest  = http.DefaultClient.Do
 )
 
 var pushLogger = logger.GetLogger("monitoring", "Pusher")

@@ -2,6 +2,7 @@ import { ResultSet, UnitEnum } from "model/Metric";
 import { isEmpty } from "utils/URLUtil";
 
 export class Chart {
+    type?: string;
     loading?: boolean = false;
     unit?: UnitEnum
     title?: string;

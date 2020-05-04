@@ -86,7 +86,6 @@ func TestPrometheusPusher(t *testing.T) {
 
 func TestPrometheusPusher_push_err(t *testing.T) {
 	defer func() {
-		doGet = http.Get
 		newRequest = http.NewRequest
 		doRequest = http.DefaultClient.Do
 	}()

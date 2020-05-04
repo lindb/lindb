@@ -197,7 +197,7 @@ export default class ChartTooltip extends React.Component<ChartTooltipProps, Cha
     if (topAreaHeight > containerHeight || bottomAreaHeight > containerHeight) {
       top = topAreaHeight > containerHeight
         ? topAreaHeight - tooltipHeight - offset + scrollTop
-        : border.canvasBottom + offset + scrollTop
+        : border.canvasBottom  + scrollTop
 
       isBottom = topAreaHeight <= containerHeight
     }
