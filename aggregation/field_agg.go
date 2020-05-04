@@ -18,15 +18,18 @@ type FieldAggregator interface {
 	GetAllAggregators() []PrimitiveAggregator
 	// ResultSet returns the result set of field aggregator
 	ResultSet() (startTime int64, it series.FieldIterator)
-	// reset resets the context for reusing
+
+	// reset resets the aggregate context for reusing
 	reset()
 }
 
+// aggKey represents aggregate key for supporting multi aggregate function with a same primitive field id
 type aggKey struct {
 	primitiveID field.PrimitiveID
 	aggType     field.AggType
 }
 
+// downSamplingFieldAggregator represents
 type downSamplingFieldAggregator struct {
 	segmentStartTime int64
 	start            int
@@ -56,7 +59,7 @@ func NewDownSamplingFieldAggregator(
 				primitiveID: pField.FieldID,
 				aggType:     pField.AggType,
 			}
-			aggregatorMap[key] = NewPrimitiveAggregator(pField.FieldID, start, selector.PointCount(), pField.AggType.AggFunc())
+			aggregatorMap[key] = NewPrimitiveAggregator(pField.FieldID, selector, pField.AggType.AggFunc())
 		}
 	}
 	length := len(aggregatorMap)
@@ -73,14 +76,17 @@ func NewDownSamplingFieldAggregator(
 	return agg
 }
 
+// Aggregate aggregates the field series into current aggregator
 func (agg *downSamplingFieldAggregator) Aggregate(it series.FieldIterator) {
 	// do nothing for down sampling
 }
 
+// GetAllAggregators returns all primitive aggregates
 func (agg *downSamplingFieldAggregator) GetAllAggregators() []PrimitiveAggregator {
 	return agg.aggregators
 }
 
+// ResultSet returns the result set of field aggregator
 func (agg *downSamplingFieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
 	its := make([]series.PrimitiveIterator, len(agg.aggregators))
 	idx := 0
@@ -91,6 +97,7 @@ func (agg *downSamplingFieldAggregator) ResultSet() (startTime int64, it series.
 	return agg.segmentStartTime, newFieldIterator(agg.start, its)
 }
 
+// reset resets the aggregate context for reusing
 func (agg *downSamplingFieldAggregator) reset() {
 	for _, aggregator := range agg.aggregators {
 		aggregator.reset()
@@ -123,6 +130,7 @@ func NewFieldAggregator(segmentStartTime int64, selector selector.SlotSelector) 
 	return agg
 }
 
+// ResultSet returns the result set of field aggregator
 func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
 	its := make([]series.PrimitiveIterator, len(a.aggregateMap))
 	idx := 0
@@ -133,6 +141,7 @@ func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator)
 	return a.segmentStartTime, newFieldIterator(a.start, its)
 }
 
+// GetAllAggregators returns all primitive aggregates
 func (a *fieldAggregator) GetAllAggregators() []PrimitiveAggregator {
 	result := make([]PrimitiveAggregator, len(a.aggregateMap))
 	idx := 0
@@ -141,12 +150,6 @@ func (a *fieldAggregator) GetAllAggregators() []PrimitiveAggregator {
 		idx++
 	}
 	return result
-}
-
-func (a *fieldAggregator) reset() {
-	for _, aggregator := range a.aggregateMap {
-		aggregator.reset()
-	}
 }
 
 // Aggregate aggregates the field series into current aggregator
@@ -160,18 +163,12 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 		aggregator := a.getAggregator(primitiveFieldID, primitiveIt.AggType())
 		for primitiveIt.HasNext() {
 			timeSlot, value := primitiveIt.Next()
-			idx, completed := a.selector.IndexOf(timeSlot)
-			if completed {
-				break
-			}
-			if idx < 0 {
-				continue
-			}
-			aggregator.Aggregate(idx, value)
+			aggregator.Aggregate(timeSlot, value)
 		}
 	}
 }
 
+// getAggregator returns the primitive aggregator by primitive id and function type
 func (a *fieldAggregator) getAggregator(primitiveFieldID field.PrimitiveID, aggType field.AggType) PrimitiveAggregator {
 	key := aggKey{
 		primitiveID: primitiveFieldID,
@@ -181,8 +178,14 @@ func (a *fieldAggregator) getAggregator(primitiveFieldID field.PrimitiveID, aggT
 	if ok {
 		return agg
 	}
-	start, _ := a.selector.Range()
-	agg = NewPrimitiveAggregator(primitiveFieldID, start, a.selector.PointCount(), aggType.AggFunc())
+	agg = NewPrimitiveAggregator(primitiveFieldID, a.selector, aggType.AggFunc())
 	a.aggregateMap[key] = agg
 	return agg
+}
+
+// reset resets the aggregate context for reusing
+func (a *fieldAggregator) reset() {
+	for _, aggregator := range a.aggregateMap {
+		aggregator.reset()
+	}
 }

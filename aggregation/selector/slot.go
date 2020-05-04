@@ -1,12 +1,18 @@
 package selector
 
-import "github.com/lindb/lindb/pkg/timeutil"
+import (
+	"github.com/lindb/lindb/pkg/timeutil"
+)
+
+//go:generate mockgen -source ./slot.go -destination=./slot_mock.go -package selector
 
 // SlotSelector represents a slot selector for aggregator value's index
 type SlotSelector interface {
 	// IndexOf returns the index of the specified element in aggregator values
 	IndexOf(timeSlot int) (idx int, completed bool)
+	// Range returns the slot time range
 	Range() (start int, end int)
+	// PointCount returns the data point count in time range
 	PointCount() int
 }
 
@@ -27,15 +33,17 @@ func NewIndexSlotSelector(start, end, intervalRatio int) SlotSelector {
 	}
 }
 
+// Range returns the slot time range
 func (s *indexSlotSelector) Range() (start int, end int) {
 	return s.start, s.end
 }
 
+// PointCount returns the data point count in time range
 func (s *indexSlotSelector) PointCount() int {
 	return s.pointCount
 }
 
-// IndexOf returns the index of the specified element in aggregator values
+// IndexOf returns the index of the specified element in aggregator values,
 // index = (timeSlot - start)/ratio, if timeSlot < start return -1
 func (s *indexSlotSelector) IndexOf(timeSlot int) (idx int, completed bool) {
 	switch {

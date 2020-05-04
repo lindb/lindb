@@ -41,7 +41,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 			for k := 0; k < 20; k++ {
 				metric := &pb.Metric{
 					Name:      "cpu",
-					Timestamp: timeutil.Now(),
+					Timestamp: timeutil.Now() + 10*timeutil.OneSecond*int64(n),
 					Fields: []*pb.Field{
 						{Name: "f2", Type: pb.FieldType_Sum, Fields: []*pb.PrimitiveField{{PrimitiveID: int32(field.SimpleFieldPFieldID), Value: 1.0}}},
 					},

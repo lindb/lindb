@@ -115,9 +115,24 @@ func TestReader_Load(t *testing.T) {
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r.Load(qFlow, 10, []field.ID{100}, 1, map[string][]uint16{"host": {10}})
+	// case 5: load data success, but time slot not in query range
+	gomock.InOrder(
+		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
+		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(5)),
+		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
+		pAgg1.EXPECT().Aggregate(5, 50.0).Return(true).Times(2),
+		qFlow.EXPECT().Reduce("host", gomock.Any()),
+	)
+	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
 }
 
 func TestReader_scan(t *testing.T) {
+	defer func() {
+		getOffsetFunc = getOffset
+	}()
+
 	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
@@ -140,6 +155,13 @@ func TestReader_scan(t *testing.T) {
 	// case 4: not match
 	scanner = newDataScanner(r)
 	seriesPos = scanner.scan(0, 10)
+	assert.True(t, seriesPos < 0)
+	// case 6: get wrong offset
+	scanner = newDataScanner(r)
+	getOffsetFunc = func(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (uint32, bool) {
+		return 0, false
+	}
+	seriesPos = scanner.scan(0, 0)
 	assert.True(t, seriesPos < 0)
 }
 
