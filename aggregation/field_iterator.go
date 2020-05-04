@@ -57,16 +57,10 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 		primitiveIt := it.Next()
 		//FIXME reuse encoder???
 		encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
-		idx := 0
 		for primitiveIt.HasNext() {
-			slot, value := primitiveIt.Next()
-			for slot > idx {
-				encoder.AppendTime(bit.Zero)
-				idx++
-			}
+			_, value := primitiveIt.Next()
 			encoder.AppendTime(bit.One)
 			encoder.AppendValue(math.Float64bits(value))
-			idx++
 		}
 		data, err := encoder.Bytes()
 		if err != nil {

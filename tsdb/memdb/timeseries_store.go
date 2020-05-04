@@ -74,9 +74,12 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
 
 // FlushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
+	flushFamilyID := flushCtx.familyID
 	for _, fStore := range ts.fStoreNodes {
-		//FIXME need flush by family id
-		fStore.FlushFieldTo(flusher, flushCtx)
+		// need flush by family id
+		if flushFamilyID == fStore.GetFamilyID() {
+			fStore.FlushFieldTo(flusher, flushCtx)
+		}
 	}
 }
 

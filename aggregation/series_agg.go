@@ -165,7 +165,7 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
 		storageInterval := a.queryInterval.Int64() / int64(a.ratio)
 		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
-		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval)
+		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval) + 1
 		if a.isDownSampling {
 			agg = NewDownSamplingFieldAggregator(segmentStartTime,
 				selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio),
