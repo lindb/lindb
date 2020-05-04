@@ -38,7 +38,7 @@ type expression struct {
 // NewExpression creates an expression
 func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []stmt.Expr) Expression {
 	return &expression{
-		pointCount:  timeutil.CalPointCount(timeRange.Start, timeRange.End, interval),
+		pointCount:  timeutil.CalPointCount(timeRange.Start, timeRange.End, interval) + 1,
 		interval:    interval,
 		timeRange:   timeRange,
 		selectItems: selectItems,

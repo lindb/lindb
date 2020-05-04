@@ -42,11 +42,18 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 	tStore := newTimeSeriesStore()
 	s := tStore.(*timeSeriesStore)
 	fStore := NewMockfStoreINTF(ctrl)
+	fStore.EXPECT().GetFamilyID().Return(familyID(10))
 	s.InsertFStore(fStore)
+
+	// case 1: not match family id
+	tStore.FlushSeriesTo(flusher, flushContext{familyID: 20})
+
+	// case 2: flush by family id
 	gomock.InOrder(
+		fStore.EXPECT().GetFamilyID().Return(familyID(20)),
 		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()),
 	)
-	tStore.FlushSeriesTo(flusher, flushContext{})
+	tStore.FlushSeriesTo(flusher, flushContext{familyID: 20})
 }
 
 func TestTimeSeriesStore_scan(t *testing.T) {

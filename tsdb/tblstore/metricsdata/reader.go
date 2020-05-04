@@ -16,6 +16,11 @@ import (
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package metricsdata
 
+// for testing
+var (
+	getOffsetFunc = getOffset
+)
+
 const (
 	dataFooterSize = 2 + // start time slot
 		2 + // end time slot
@@ -48,7 +53,9 @@ type fieldAggregator struct {
 }
 
 // newFieldAggregator creates a field aggregator
-func newFieldAggregator(fieldMeta field.Meta, aggregator aggregation.PrimitiveAggregator) *fieldAggregator {
+func newFieldAggregator(fieldMeta field.Meta,
+	aggregator aggregation.PrimitiveAggregator,
+) *fieldAggregator {
 	fieldKey := field.Key(stream.ReadUint16([]byte{byte(fieldMeta.ID), byte(aggregator.FieldID())}, 0))
 	return &fieldAggregator{
 		fieldMeta:  fieldMeta,
@@ -198,7 +205,10 @@ func (r *reader) readField(agg aggregation.PrimitiveAggregator, tsd *encoding.TS
 		if tsd.HasValue() {
 			timeSlot := tsd.Slot()
 			val := tsd.Value()
-			agg.Aggregate(int(timeSlot), math.Float64frombits(val))
+
+			if agg.Aggregate(int(timeSlot), math.Float64frombits(val)) {
+				return
+			}
 		}
 	}
 }
@@ -300,11 +310,16 @@ func (s *dataScanner) scan(highKey, lowSeriesID uint16) int {
 		// get the index of low series id in container
 		idx := s.container.Rank(lowSeriesID)
 		// get series data data position
-		offset, ok := s.seriesOffsets.Get(idx - 1)
+		offset, ok := getOffsetFunc(s.seriesOffsets, idx-1)
 		if !ok {
 			return -1
 		}
 		return int(offset)
 	}
 	return -1
+}
+
+// getOffset returns the offset by idx
+func getOffset(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (uint32, bool) {
+	return seriesOffsets.Get(idx)
 }
