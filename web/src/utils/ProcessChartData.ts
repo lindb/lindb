@@ -1,14 +1,16 @@
-import { ChartDatasets, ResultSet, UnitEnum } from 'model/Metric';
+import { ChartDatasets, ResultSet } from 'model/Metric';
+import { Chart } from 'model/Chart'
 import { getChartColor, toRGBA } from 'utils/Util';
-// import * as moment from 'moment'
-const moment = require('moment');
 
+const ChartJS = require('chart.js');
+const moment = require('moment');
+const Color = ChartJS.helpers.color
 /**
  * Generate Line Chart data and options
  * @param {ResultSet} resultSet
  * @param {UnitEnum} unit Current chart Y-axes unit
  */
-export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
+export function LineChart(resultSet: ResultSet | null, chart: Chart) {
   if (!resultSet) {
     return {}
   }
@@ -30,14 +32,14 @@ export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
       return
     }
 
-    const groupName = JSON.stringify(tags)
+    const groupName = getGroupByTags(tags)
 
     for (let key of Object.keys(fields)) {
       const bgColor = getChartColor(colorIdx++)
 
-      const fill = false
+      const fill = chart.type === 'area'
       const borderColor = bgColor
-      const backgroundColor = bgColor
+      const backgroundColor = chart.type === 'area' ? Color(bgColor).alpha(0.25).rgbString() : bgColor;
       const label = groupName ? groupName : key
       const pointBackgroundColor = toRGBA(bgColor, 0.25)
 
@@ -78,4 +80,19 @@ export function LineChart(resultSet: ResultSet | null, unit?: UnitEnum) {
     timestamp = startTime! + i * interval!
   }
   return { labels, datasets, interval, times, leftMax }
+}
+
+function getGroupByTags(tags: any) {
+  if (!tags) {
+    return ""
+  }
+  const tagKeys = Object.keys(tags)
+  if (tagKeys.length === 1) {
+    return tags[tagKeys[0]]
+  }
+  const result = []
+  for (let key of tagKeys) {
+    result.push(key + ":" + tags[key])
+  }
+  return result.join(",")
 }

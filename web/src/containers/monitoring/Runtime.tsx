@@ -1,16 +1,16 @@
 import { Card } from 'antd'
 import ViewBoard from 'components/metric/ViewBoard'
-import { SystemStorageBoard } from 'config/monitoring/Runtime'
+import { RuntimeStorageBoard } from 'config/monitoring/Runtime'
 import * as React from 'react'
 
-interface MonitoringSystemProps {
+interface MonitoringRuntimeProps {
 }
 
-interface MonitoringSystemStatus {
+interface MonitoringRuntimeState {
 }
 
-export default class MonitoringSystem extends React.Component<MonitoringSystemProps, MonitoringSystemStatus> {
-  constructor(props: MonitoringSystemProps) {
+export default class MonitoringRuntime extends React.Component<MonitoringRuntimeProps, MonitoringRuntimeState> {
+  constructor(props: MonitoringRuntimeProps) {
     super(props)
     this.state = {}
   }
@@ -19,7 +19,7 @@ export default class MonitoringSystem extends React.Component<MonitoringSystemPr
     return (
       <React.Fragment>
         <Card>Node</Card>
-        <ViewBoard board={SystemStorageBoard}/>
+        <ViewBoard board={RuntimeStorageBoard}/>
       </React.Fragment>
     )
   }
