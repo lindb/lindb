@@ -8,7 +8,7 @@ export interface Node {
   system: {
     cpus: number,
     memoryStat: { usedPercent: number, total: number, used: number },
-    diskStat: { usedPercent: number, total: number, used: number },
+    diskUsageStat: { usedPercent: number, total: number, used: number },
   }
 }
 

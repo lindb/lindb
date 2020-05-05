@@ -1,7 +1,9 @@
 package monitoring
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/lindb/lindb/models"
@@ -10,6 +12,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 )
 
 var log = logger.GetLogger("monitoring", "System")
@@ -19,13 +22,13 @@ var (
 	once4CpuCount sync.Once
 	cpuCountsFunc = cpu.Counts
 	cpuTimesFunc  = cpu.Times
-	memFunc       = mem.VirtualMemory
 )
 
 type (
-	MemoryStatGetter func() (*models.MemoryStat, error)
-	CPUStatGetter    func() (*models.CPUStat, error)
-	DiskStatGetter   func(path string) (*models.DiskStat, error)
+	MemoryStatGetter    func() (*mem.VirtualMemoryStat, error)
+	CPUStatGetter       func() (*models.CPUStat, error)
+	DiskUsageStatGetter func(ctx context.Context, path string) (*disk.UsageStat, error)
+	NetStatGetter       func(ctx context.Context) ([]net.IOCountersStat, error)
 )
 
 // GetCPUs returns the number of logical cores in the system
@@ -69,29 +72,27 @@ func GetCPUStat() (*models.CPUStat, error) {
 	}, nil
 }
 
-// GetDiskStat returns a file system usage. path is a filesystem path such
-// as "/", not device file path like "/dev/vda1".
-func GetDiskStat(path string) (*models.DiskStat, error) {
-	s, err := disk.Usage(path)
+// GetNetStat return the network usage statistics
+func GetNetStat(ctx context.Context) ([]net.IOCountersStat, error) {
+	stats, err := net.IOCountersWithContext(ctx, true)
 	if err != nil {
 		return nil, err
 	}
-	return &models.DiskStat{
-		Total:       s.Total,
-		Used:        s.Used,
-		UsedPercent: s.UsedPercent,
-	}, nil
-}
-
-// GetMemoryStat return the memory usage statistics
-func GetMemoryStat() (*models.MemoryStat, error) {
-	v, err := memFunc()
-	if err != nil {
-		return nil, err
+	var availableStats []net.IOCountersStat
+	for _, stat := range stats {
+		switch {
+		// OS X
+		case strings.HasPrefix(stat.Name, "en"):
+		// Linux
+		case strings.HasPrefix(stat.Name, "eth"):
+		default:
+			continue
+		}
+		// ignore empty interface
+		if stat.BytesRecv == 0 || stat.BytesSent == 0 {
+			continue
+		}
+		availableStats = append(availableStats, stat)
 	}
-	return &models.MemoryStat{
-		Total:       v.Total,
-		Used:        v.Used,
-		UsedPercent: v.UsedPercent,
-	}, nil
+	return availableStats, nil
 }

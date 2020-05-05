@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/shirou/gopsutil/disk"
+
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -196,13 +198,13 @@ func (s *StorageAPI) getStorageClusterInfoMap() (clusterMap map[string]*models.S
 		if err != nil {
 			return
 		}
-		diskStat := models.DiskStat{}
+		diskUsageStat := disk.UsageStat{}
 		for _, node := range stat.Nodes {
-			diskStat.Total += node.System.DiskStat.Total
-			diskStat.Used += node.System.DiskStat.Used
+			diskUsageStat.Total += node.System.DiskUsageStat.Total
+			diskUsageStat.Used += node.System.DiskUsageStat.Used
 		}
-		diskStat.UsedPercent = float64(diskStat.Used*100.0) / float64(diskStat.Total)
-		stat.Capacity = diskStat
+		diskUsageStat.UsedPercent = float64(diskUsageStat.Used*100.0) / float64(diskUsageStat.Total)
+		stat.Capacity = diskUsageStat
 
 		nodeStatus := models.NodeStatus{}
 		nodeStatus.Total = len(stat.Nodes)
@@ -225,13 +227,13 @@ func (s *StorageAPI) getStorageClusterInfo(clusterName string) (stat *models.Sto
 	if err != nil {
 		return
 	}
-	diskStat := models.DiskStat{}
+	diskUsageStat := disk.UsageStat{}
 	for _, node := range stat.Nodes {
-		diskStat.Total += node.System.DiskStat.Total
-		diskStat.Used += node.System.DiskStat.Used
+		diskUsageStat.Total += node.System.DiskUsageStat.Total
+		diskUsageStat.Used += node.System.DiskUsageStat.Used
 	}
-	diskStat.UsedPercent = float64(diskStat.Used*100.0) / float64(diskStat.Total)
-	stat.Capacity = diskStat
+	diskUsageStat.UsedPercent = float64(diskUsageStat.Used*100.0) / float64(diskUsageStat.Total)
+	stat.Capacity = diskUsageStat
 	return
 }
 

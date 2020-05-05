@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
@@ -69,7 +70,7 @@ func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 		cancel:               cancel,
 		flushRequestCh:       make(chan *flushRequest),
 		shardInFlushing:      make(map[string]Shard),
-		memoryStatGetterFunc: monitoring.GetMemoryStat,
+		memoryStatGetterFunc: mem.VirtualMemory,
 	}
 }
 
