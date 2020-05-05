@@ -275,6 +275,7 @@ func prepareInvertedIndex(ctrl *gomock.Controller) InvertedIndex {
 	metadata := metadb.NewMockMetadata(ctrl)
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	tagMetadata := metadb.NewMockTagMetadata(ctrl)
+	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
 	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(1), nil).AnyTimes()

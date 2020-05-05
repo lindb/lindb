@@ -3,17 +3,13 @@ import ViewBoard from 'components/metric/ViewBoard'
 import { RuntimeStorageBoard } from 'config/monitoring/Runtime'
 import * as React from 'react'
 
-interface MonitoringRuntimeProps {
+interface RuntimeProps {
 }
 
-interface MonitoringRuntimeState {
+interface RuntimeState {
 }
 
-export default class MonitoringRuntime extends React.Component<MonitoringRuntimeProps, MonitoringRuntimeState> {
-  constructor(props: MonitoringRuntimeProps) {
-    super(props)
-    this.state = {}
-  }
+export default class Runtime extends React.Component<RuntimeProps, RuntimeState> {
 
   render() {
     return (

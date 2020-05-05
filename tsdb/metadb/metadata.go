@@ -8,20 +8,27 @@ import (
 
 // metadata implements Metadata interface
 type metadata struct {
+	databaseName     string // database name
 	metadataDatabase MetadataDatabase
 	tagMetadata      TagMetadata
 }
 
 // NewMetadata creates a metadata
-func NewMetadata(ctx context.Context, parent string, tagFamily kv.Family) (Metadata, error) {
-	db, err := NewMetadataDatabase(ctx, parent)
+func NewMetadata(ctx context.Context, databaseName, parent string, tagFamily kv.Family) (Metadata, error) {
+	db, err := NewMetadataDatabase(ctx, databaseName, parent)
 	if err != nil {
 		return nil, err
 	}
 	return &metadata{
 		metadataDatabase: db,
-		tagMetadata:      NewTagMetadata(tagFamily),
+		databaseName:     databaseName,
+		tagMetadata:      NewTagMetadata(databaseName, tagFamily),
 	}, nil
+}
+
+// DatabaseName returns the database name
+func (m *metadata) DatabaseName() string {
+	return m.databaseName
 }
 
 // MetadataDatabase returns the metric level metadata

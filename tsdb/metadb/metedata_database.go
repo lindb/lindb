@@ -8,7 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -24,6 +27,45 @@ var (
 )
 
 var (
+	genMetricIDCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "meta_gen_metric_id",
+			Help: "Generate metric id counter.",
+		},
+		[]string{"db"},
+	)
+	genTagKeyIDCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "meta_gen_tag_key_id",
+			Help: "Generate tag key id counter.",
+		},
+		[]string{"db"},
+	)
+	genFieldIDCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "meta_gen_field_id",
+			Help: "Generate field id counter.",
+		},
+		[]string{"db"},
+	)
+	recoveryMetaWALTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "recovery_metadata_wal_duration",
+			Help:    "Recovery metadata wal duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"db"},
+	)
+)
+
+func init() {
+	monitoring.StorageRegistry.MustRegister(genMetricIDCounter)
+	monitoring.StorageRegistry.MustRegister(genTagKeyIDCounter)
+	monitoring.StorageRegistry.MustRegister(genFieldIDCounter)
+	monitoring.StorageRegistry.MustRegister(recoveryMetaWALTimer)
+}
+
+var (
 	syncInterval       = 2 * timeutil.OneSecond
 	ErrNeedRecoveryWAL = errors.New("need recovery meta wal")
 )
@@ -35,11 +77,12 @@ const (
 // metadataDatabase implements the MetadataDatabase interface,
 // !!!!NOTICE: need cache all tag keys/fields of metric
 type metadataDatabase struct {
-	path    string
-	ctx     context.Context
-	cancel  context.CancelFunc
-	backend MetadataBackend
-	metrics map[string]MetricMetadata // metadata cache(key: namespace + metric-name, value: metric metadata)
+	databaseName string
+	path         string
+	ctx          context.Context
+	cancel       context.CancelFunc
+	backend      MetadataBackend
+	metrics      map[string]MetricMetadata // metadata cache(key: namespace + metric-name, value: metric metadata)
 
 	metaWAL wal.MetricMetaWAL
 
@@ -49,7 +92,7 @@ type metadataDatabase struct {
 }
 
 // NewMetadataDatabase creates new metadata database
-func NewMetadataDatabase(ctx context.Context, parent string) (MetadataDatabase, error) {
+func NewMetadataDatabase(ctx context.Context, databaseName, parent string) (MetadataDatabase, error) {
 	var err error
 	backend, err := createMetadataBackend(parent)
 	if err != nil {
@@ -71,6 +114,7 @@ func NewMetadataDatabase(ctx context.Context, parent string) (MetadataDatabase, 
 	}
 	c, cancel := context.WithCancel(ctx)
 	mdb := &metadataDatabase{
+		databaseName: databaseName,
 		path:         parent,
 		ctx:          c,
 		cancel:       cancel,
@@ -244,6 +288,9 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	}
 
 	mdb.metrics[key] = newMetricMetadata(metricID, 0)
+
+	genMetricIDCounter.WithLabelValues(mdb.databaseName).Inc()
+
 	return metricID, nil
 }
 
@@ -284,6 +331,8 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 		Name: fieldName,
 	})
 
+	genFieldIDCounter.WithLabelValues(mdb.databaseName).Inc()
+
 	return fieldID, nil
 }
 
@@ -315,6 +364,8 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 	}
 
 	metricMetadata.createTagKey(tagKey, tagKeyID)
+
+	genMetricIDCounter.WithLabelValues(mdb.databaseName).Inc()
 	return
 }
 
@@ -386,6 +437,9 @@ func (mdb *metadataDatabase) checkSync() {
 
 // metaRecovery recovers meta wal data
 func (mdb *metadataDatabase) metaRecovery() {
+	startTime := timeutil.Now()
+	defer recoveryMetaWALTimer.WithLabelValues(mdb.databaseName).Observe(float64(timeutil.Now() - startTime))
+
 	event := newMetadataUpdateEvent()
 	mdb.metaWAL.Recovery(func(namespace, metricName string, metricID uint32) error {
 		event.addMetric(namespace, metricName, metricID)

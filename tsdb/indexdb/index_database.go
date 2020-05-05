@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/lindb/roaring"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -23,6 +25,29 @@ var (
 	createBackend   = newIDMappingBackend
 	createSeriesWAL = wal.NewSeriesWAL
 )
+
+var (
+	buildInvertedIndexCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "build_inverted_index_counter",
+			Help: "Build inverted index counter.",
+		},
+		[]string{"db"},
+	)
+	recoverySeriesWALTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "recovery_series_wal_duration",
+			Help:    "Recovery series wal duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"db"},
+	)
+)
+
+func init() {
+	monitoring.StorageRegistry.MustRegister(buildInvertedIndexCounter)
+	monitoring.StorageRegistry.MustRegister(recoverySeriesWALTimer)
+}
 
 const (
 	walPath       = "wal"
@@ -199,6 +224,8 @@ func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*r
 // the tags is considered as a empty key-value pair while tags is nil.
 func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
 	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
+
+	buildInvertedIndexCounter.WithLabelValues(db.metadata.DatabaseName()).Inc()
 }
 
 // Flush flushes index data to disk
@@ -246,6 +273,9 @@ func (db *indexDatabase) checkSync() {
 
 // seriesRecovery recovers series wal data
 func (db *indexDatabase) seriesRecovery() {
+	startTime := timeutil.Now()
+	defer recoverySeriesWALTimer.WithLabelValues(db.metadata.DatabaseName()).Observe(float64(timeutil.Now() - startTime))
+
 	event := newMappingEvent()
 	db.seriesWAL.Recovery(func(metricID uint32, tagsHash uint64, seriesID uint32) error {
 		event.addSeriesID(metricID, tagsHash, seriesID)

@@ -42,6 +42,7 @@ type IDGetter interface {
 // Metadata represents all metadata of tsdb, like metric/tag metadata
 type Metadata interface {
 	io.Closer
+	DatabaseName() string
 	// MetadataDatabase returns the metric level metadata
 	MetadataDatabase() MetadataDatabase
 	// TagMetadata returns the tag metadata
