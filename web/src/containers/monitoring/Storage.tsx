@@ -1,16 +1,16 @@
 import { Card, Form } from 'antd'
-import ViewBoard from 'components/metric/ViewBoard'
 import ServerRoleSelect from 'components/meta/ServerRole'
-import { SystemBoardForRole } from 'config/monitoring/System'
+import ViewBoard from 'components/metric/ViewBoard'
+import { WriteDashboard } from 'config/monitoring/Storage'
 import * as React from 'react'
 
-interface SystemProps {
+interface StorageProps {
 }
 
-interface SystemState {
+interface StorageState {
 }
 
-export default class System extends React.Component<SystemProps, SystemState> {
+export default class MonitoringSystem extends React.Component<StorageProps, StorageState> {
 
   render() {
     return (
@@ -26,7 +26,7 @@ export default class System extends React.Component<SystemProps, SystemState> {
             </Form.Item>
           </Form>
         </Card>
-        <ViewBoard board={SystemBoardForRole} />
+        <ViewBoard board={WriteDashboard} />
       </React.Fragment>
     )
   }

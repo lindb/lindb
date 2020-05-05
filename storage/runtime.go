@@ -324,11 +324,15 @@ func (r *runtime) monitoring() {
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.RuntimeReportInterval.Duration(),
-		prometheus.Gatherers{monitoring.StorageGatherer, prometheus.DefaultGatherer},
+		prometheus.Gatherers{monitoring.StorageGatherer},
 		[]*dto.LabelPair{
 			{
 				Name:  proto.String("role"),
 				Value: proto.String("storage"),
+			},
+			{
+				Name:  proto.String("namespace"),
+				Value: proto.String(r.config.StorageBase.Coordinator.Namespace),
 			},
 			{
 				Name:  proto.String("node"),

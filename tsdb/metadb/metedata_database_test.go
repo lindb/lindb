@@ -30,12 +30,12 @@ func TestMetadataDatabase_New(t *testing.T) {
 	}()
 
 	// test: new success
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	// test: can't re-open
-	db1, err := NewMetadataDatabase(context.TODO(), testPath)
+	db1, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -52,7 +52,7 @@ func TestMetadataDatabase_New(t *testing.T) {
 	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 
@@ -63,7 +63,7 @@ func TestMetadataDatabase_New(t *testing.T) {
 	}
 	mockWAL.EXPECT().Recovery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 	mockWAL.EXPECT().NeedRecovery().Return(true)
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -80,7 +80,7 @@ func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().suggestNamespace(gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
 	values, err := db.SuggestNamespace("ns", 10)
@@ -103,7 +103,7 @@ func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().suggestMetricName(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
 	values, err := db.SuggestMetrics("ns", "pp", 10)
@@ -126,7 +126,7 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
@@ -162,7 +162,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	meta := NewMockMetricMetadata(ctrl)
 	mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil)
@@ -232,7 +232,7 @@ func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().getMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
 	// case 1: suggest tag keys
@@ -264,7 +264,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	meta := NewMockMetricMetadata(ctrl)
 	mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil)
@@ -334,7 +334,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 	createMetadataBackend = func(parent string) (backend MetadataBackend, err error) {
 		return mockBackend, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(nil, constants.ErrNotFound),
@@ -376,7 +376,7 @@ func TestMetadataDatabase_GetMetricID_wal(t *testing.T) {
 
 		ctrl.Finish()
 	}()
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	metricID, err := db.GenMetricID("ns", "metric")
 	assert.Equal(t, uint32(1), metricID)
@@ -411,7 +411,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil),
@@ -461,7 +461,7 @@ func TestMetadataDatabase_GetField_wal(t *testing.T) {
 
 		ctrl.Finish()
 	}()
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	_, _ = db.GenMetricID("ns", "metric")
 	fieldID, err := db.GenFieldID("ns", "metric", "f", field.SumField)
@@ -497,7 +497,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 		return mockBackend, nil
 	}
 	meta := NewMockMetricMetadata(ctrl)
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil),
@@ -542,7 +542,7 @@ func TestMetadataDatabase_GenTagKeyID_wal(t *testing.T) {
 
 		ctrl.Finish()
 	}()
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	_, _ = db.GenMetricID("ns", "metric")
 	tagKeyID, err := db.GenTagKeyID("ns", "metric", "tagKey")
@@ -584,7 +584,7 @@ func TestMetadataDatabase_Close(t *testing.T) {
 	createMetaWAL = func(path string) (wal.MetricMetaWAL, error) {
 		return mockWAL, nil
 	}
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	mockBackend.EXPECT().Close().Return(fmt.Errorf("err"))
 	mockWAL.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -597,7 +597,7 @@ func TestMetadataDatabase_reopen(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	// mock one metric event
 	metricID, err := db.GenMetricID("ns-1", "name1")
@@ -613,7 +613,7 @@ func TestMetadataDatabase_reopen(t *testing.T) {
 	assert.NoError(t, err)
 
 	// reopen
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	metricID, err = db.GenMetricID("ns-2", "name2")
 	assert.NoError(t, err)
@@ -663,7 +663,7 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 		return mockMetaWAL, nil
 	}
 
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -683,7 +683,7 @@ func TestMetadataDatabase_recovery_metric(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	for i := 0; i < 11000; i++ {
@@ -699,13 +699,13 @@ func TestMetadataDatabase_recovery_metric(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 
 	createMetadataBackend = newMetadataBackend
 	// recovery success
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -720,7 +720,7 @@ func TestMetadataDatabase_recovery_metric(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -734,7 +734,7 @@ func TestMetadataDatabase_recovery_field(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	for i := 0; i < 9999; i++ {
@@ -754,13 +754,13 @@ func TestMetadataDatabase_recovery_field(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 
 	createMetadataBackend = newMetadataBackend
 	// recovery success
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -777,7 +777,7 @@ func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	for i := 0; i < 9999; i++ {
@@ -797,13 +797,13 @@ func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMetadata(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 
 	createMetadataBackend = newMetadataBackend
 	// recovery success
-	db, err = NewMetadataDatabase(context.TODO(), testPath)
+	db, err = NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -812,7 +812,7 @@ func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
 }
 
 func newMockMetadataDatabase(t *testing.T) MetadataDatabase {
-	db, err := NewMetadataDatabase(context.TODO(), testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 

@@ -19,10 +19,15 @@ import (
 )
 
 func TestNewIndexDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
+
+		ctrl.Finish()
 	}()
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	mockMetadata := metadb.NewMockMetadata(ctrl)
+	mockMetadata.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	// can't new duplicate
@@ -43,6 +48,9 @@ func TestNewIndexDatabase_err(t *testing.T) {
 
 		ctrl.Finish()
 	}()
+	mockMetadata := metadb.NewMockMetadata(ctrl)
+	mockMetadata.EXPECT().DatabaseName().Return("test").AnyTimes()
+
 	backend := NewMockIDMappingBackend(ctrl)
 	createBackend = func(parent string) (IDMappingBackend, error) {
 		return backend, nil
@@ -53,7 +61,8 @@ func TestNewIndexDatabase_err(t *testing.T) {
 	createSeriesWAL = func(path string) (wal.SeriesWAL, error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+
+	db, err := NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	// case 2: series wal recovery err
@@ -64,7 +73,7 @@ func TestNewIndexDatabase_err(t *testing.T) {
 	backend.EXPECT().Close().Return(fmt.Errorf("err"))
 	mockSeriesWAl.EXPECT().Recovery(gomock.Any(), gomock.Any())
 	mockSeriesWAl.EXPECT().NeedRecovery().Return(true)
-	db, err = NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -77,6 +86,7 @@ func TestIndexDatabase_SuggestTagValues(t *testing.T) {
 		ctrl.Finish()
 	}()
 	metaDB := metadb.NewMockMetadata(ctrl)
+	metaDB.EXPECT().DatabaseName().Return("test")
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
 	metaDB.EXPECT().TagMetadata().Return(tagMeta)
 	db, err := NewIndexDatabase(context.TODO(), testPath, metaDB, nil, nil)
@@ -95,7 +105,9 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 		ctrl.Finish()
 	}()
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	db1 := db.(*indexDatabase)
@@ -118,7 +130,9 @@ func TestIndexDatabase_series_Recovery_err(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	for i := 0; i < 11000; i++ {
@@ -135,13 +149,13 @@ func TestIndexDatabase_series_Recovery_err(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 
 	createBackend = newIDMappingBackend
 	// recovery success
-	db, err = NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -157,7 +171,7 @@ func TestIndexDatabase_series_Recovery_err(t *testing.T) {
 		return backend, nil
 	}
 	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -170,7 +184,9 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	// case 1: generate new series id and create new metric id mapping
 	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 10)
@@ -192,7 +208,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	assert.NoError(t, err)
 
 	// reopen
-	db, err = NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	// case 4: get series id from backend
 	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
@@ -240,6 +256,7 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 		return backend, nil
 	}
 	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
@@ -271,8 +288,9 @@ func TestIndexDatabase_GetGroupingContext(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 		ctrl.Finish()
 	}()
-
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	index := NewMockInvertedIndex(ctrl)
@@ -298,8 +316,9 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	index := NewMockInvertedIndex(ctrl)
 	metaDB := metadb.NewMockMetadataDatabase(ctrl)
 	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test")
 	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	db2 := db.(*indexDatabase)
 	db2.index = index
 	db2.metadata = meta
@@ -353,7 +372,9 @@ func TestIndexDatabase_Close(t *testing.T) {
 	mockSeriesWAL := wal.NewMockSeriesWAL(ctrl)
 	mockSeriesWAL.EXPECT().Close().Return(fmt.Errorf("err"))
 
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test")
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	db1 := db.(*indexDatabase)
 	db1.seriesWAL = mockSeriesWAL
 
@@ -379,7 +400,9 @@ func TestIndexDatabase_Flush(t *testing.T) {
 		return mockSeriesWAL, nil
 	}
 
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test")
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	mockSeriesWAL.EXPECT().Sync().Return(fmt.Errorf("err"))
 	err = db.Flush()
@@ -410,7 +433,9 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 		return mockSeriesWAL, nil
 	}
 
-	db, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
