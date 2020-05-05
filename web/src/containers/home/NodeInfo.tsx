@@ -57,24 +57,24 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
       },
       {
         title: 'Capacity Usage',
-        dataIndex: 'system.diskStat',
+        dataIndex: 'system.diskUsageStat',
         render: (text: any, record: any, index: any) => {
           return (
             <div>
               <Row>
                 <Col span={6} style={{ textAlign: "right", marginRight: 6 }}>
-                  {DataFormatter.transformPercent(record.system.diskStat.usedPercent)}
+                  {DataFormatter.transformPercent(record.system.diskUsageStat.usedPercent)}
                 </Col>
                 <Col span={16}>
-                  <Progress style={{ marginTop: 0 }} className="lindb-storage-capacity" percent={record.system.diskStat.usedPercent} status="success" showInfo={false} />
+                  <Progress style={{ marginTop: 0 }} className="lindb-storage-capacity" percent={record.system.diskUsageStat.usedPercent} status="success" showInfo={false} />
                 </Col>
               </Row>
               <Row style={{ textAlign: "left" }}>
                 <Col span={12}>
-                  <span className="cluster-status-desc">Used: {DataFormatter.transformBytes(record.system.diskStat.used)}</span>
+                  <span className="cluster-status-desc">Used: {DataFormatter.transformBytes(record.system.diskUsageStat.used)}</span>
                 </Col>
                 <Col span={12}>
-                  <span className="cluster-status-desc">Total: {DataFormatter.transformBytes(record.system.diskStat.total)}</span>
+                  <span className="cluster-status-desc">Total: {DataFormatter.transformBytes(record.system.diskUsageStat.total)}</span>
                 </Col>
               </Row>
             </div>

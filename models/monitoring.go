@@ -1,5 +1,10 @@
 package models
 
+import (
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
+)
+
 // NodeStat represents the node monitoring stat
 type NodeStat struct {
 	Node     ActiveNode `json:"node,omitempty"`
@@ -14,7 +19,7 @@ type StorageClusterStat struct {
 	Nodes              []*NodeStat      `json:"nodes,omitempty"`
 	NodeStatus         NodeStatus       `json:"nodeStatus,omitempty"`
 	ReplicaStatus      ReplicaStatus    `json:"replicaStatus,omitempty"`
-	Capacity           DiskStat         `json:"capacity,omitempty"`
+	Capacity           disk.UsageStat   `json:"capacity,omitempty"`
 	DatabaseStatusList []DatabaseStatus `json:"databaseStatusList,omitempty"`
 }
 
@@ -41,17 +46,10 @@ type ReplicaStatus struct {
 
 // SystemStat represents the system statistics
 type SystemStat struct {
-	CPUs       int         `json:"cpus"`                 // number of cpu logic core
-	CPUStat    *CPUStat    `json:"cpuStat,omitempty"`    // cpu stat
-	MemoryStat *MemoryStat `json:"memoryStat,omitempty"` // memory stat
-	DiskStat   *DiskStat   `json:"diskStat,omitempty"`   // disk stat
-}
-
-// DiskStat represents the disk usage statistics in system
-type DiskStat struct {
-	Total       uint64  `json:"total"`
-	Used        uint64  `json:"used"`
-	UsedPercent float64 `json:"usedPercent"`
+	CPUs          int                    `json:"cpus"`                    // number of cpu logic core
+	CPUStat       *CPUStat               `json:"cpuStat,omitempty"`       // cpu stat
+	MemoryStat    *mem.VirtualMemoryStat `json:"memoryStat,omitempty"`    // memory stat
+	DiskUsageStat *disk.UsageStat        `json:"diskUsageStat,omitempty"` // disk usage stat
 }
 
 // MemoryStat represents the memory usage statistics in system

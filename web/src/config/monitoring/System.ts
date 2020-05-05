@@ -28,7 +28,7 @@ export const SystemBoardForRole = [
     ),
     metric(
       'Disk Usage',
-      'select gauge*100 from system_disk_stat where type="used_percent" group by node',
+      'select gauge*100 from system_disk_usage_stat where type="used_percent" group by node',
       8,
       UnitEnum.Percent,
     ),
@@ -52,7 +52,7 @@ export const SystemBoardForNode = [
     ),
     metric(
       'Disk Usage',
-      'select gauge from system_disk_stat where type in ("used","total") group by node',
+      'select gauge from system_disk_usage_stat where type in ("used","total") group by node',
       8,
       UnitEnum.Bytes,
     ),
