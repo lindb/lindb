@@ -9,6 +9,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
@@ -52,6 +53,20 @@ func TestFieldIterator_MarshalBinary(t *testing.T) {
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
+
+	reader := stream.NewReader(data)
+	pFieldID := reader.ReadByte() // read primitive field id
+	assert.Equal(t, field.PrimitiveID(10), field.PrimitiveID(pFieldID))
+	aggType := field.AggType(reader.ReadByte())
+	assert.Equal(t, field.Sum, aggType)
+	length := reader.ReadVarint32()
+	data1 := reader.ReadBytes(int(length))
+
+	pIt := series.NewPrimitiveIterator(field.PrimitiveID(pFieldID), aggType, encoding.NewTSDDecoder(data1))
+	assert.True(t, pIt.HasNext())
+	i, value := pIt.Next()
+	assert.Equal(t, 12, i)
+	assert.Equal(t, 10.0, value)
 }
 
 func TestFieldIterator_MarshalBinary_err(t *testing.T) {
