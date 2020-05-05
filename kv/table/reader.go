@@ -111,7 +111,7 @@ func (r *storeMMapReader) Get(key uint32) ([]byte, bool) {
 	if !r.keys.Contains(key) {
 		return nil, false
 	}
-	// bitmap data's index from 1, so idx=get index -1
+	// bitmap data's index from 1, so idx= get index - 1
 	idx := r.keys.Rank(key)
 	offset, _ := r.offsets.Get(int(idx) - 1)
 	return r.readBytes(int(offset)), true

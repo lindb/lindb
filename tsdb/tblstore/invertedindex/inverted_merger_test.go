@@ -99,3 +99,56 @@ func mockInvertedMergeData() (data [][]byte) {
 	data = append(data, nopKVFlusher.Bytes())
 	return data
 }
+
+func TestInvertedMerger_Merge_same_tagValues(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		encoding.BitmapUnmarshal = bitmapUnmarshal
+		ctrl.Finish()
+	}()
+
+	merge := NewInvertedMerger()
+	merge.Init(nil)
+	// case 1: merge data success
+	data, err := merge.Merge(1, [][]byte{
+		mockInvertedData(1, []uint32{1, 2, 3}, map[uint32]*roaring.Bitmap{
+			1: roaring.BitmapOf(1),
+			2: roaring.BitmapOf(2),
+			3: roaring.BitmapOf(3),
+		}),
+		mockInvertedData(1, []uint32{4}, map[uint32]*roaring.Bitmap{
+			4: roaring.BitmapOf(4),
+		}),
+	})
+	assert.NoError(t, err)
+	reader, err := newTagInvertedReader(data)
+	assert.NoError(t, err)
+	assert.EqualValues(t, roaring.BitmapOf(1, 2, 3, 4).ToArray(), reader.keys.ToArray())
+	seriesIDs, _ := reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1))
+	assert.EqualValues(t, roaring.BitmapOf(1).ToArray(), seriesIDs.ToArray())
+	seriesIDs, _ = reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(2))
+	assert.EqualValues(t, roaring.BitmapOf(2).ToArray(), seriesIDs.ToArray())
+	seriesIDs, _ = reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(4))
+	assert.EqualValues(t, roaring.BitmapOf(4).ToArray(), seriesIDs.ToArray())
+	data, err = merge.Merge(1, [][]byte{
+		data,
+		mockInvertedData(1, []uint32{40}, map[uint32]*roaring.Bitmap{
+			40: roaring.BitmapOf(40),
+		}),
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, data)
+}
+
+func mockInvertedData(tagKeyID uint32, tagValueIDs []uint32, tagValues map[uint32]*roaring.Bitmap) (data []byte) {
+	nopKVFlusher := kv.NewNopFlusher()
+	seriesFlusher := NewInvertedFlusher(nopKVFlusher)
+	flush := func(tagValueIDs []uint32, mapping map[uint32]*roaring.Bitmap) {
+		for _, tagValueID := range tagValueIDs {
+			_ = seriesFlusher.FlushInvertedIndex(tagValueID, mapping[tagValueID])
+		}
+	}
+	flush(tagValueIDs, tagValues)
+	_ = seriesFlusher.FlushTagKeyID(tagKeyID)
+	return nopKVFlusher.Bytes()
+}
