@@ -52,6 +52,9 @@ type Family interface {
 	removePendingOutput(fileNumber table.FileNumber)
 	// doRollupWork does rollup job, merge source family data to target family
 	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
+
+	// deleteObsoleteFiles deletes obsolete files
+	deleteObsoleteFiles()
 }
 
 // family implements Family interface
@@ -64,7 +67,8 @@ type family struct {
 	familyVersion version.FamilyVersion
 	maxFileSize   int32
 
-	pendingOutputs sync.Map
+	pendingOutputs    sync.Map
+	newCompactJobFunc func(family Family, state *compactionState, rollup Rollup) CompactJob
 
 	rolluping  atomic.Bool
 	compacting atomic.Bool
@@ -91,13 +95,14 @@ func newFamily(store Store, option FamilyOption) (Family, error) {
 	}
 
 	f := &family{
-		familyPath:    familyPath,
-		store:         store,
-		name:          name,
-		option:        option,
-		merger:        merger,
-		maxFileSize:   maxFileSize,
-		familyVersion: store.createFamilyVersion(name, version.FamilyID(option.ID)),
+		familyPath:        familyPath,
+		store:             store,
+		name:              name,
+		option:            option,
+		merger:            merger,
+		maxFileSize:       maxFileSize,
+		newCompactJobFunc: newCompactJobFunc,
+		familyVersion:     store.createFamilyVersion(name, version.FamilyID(option.ID)),
 	}
 
 	kvLogger.Info("new family success", logger.String("family", f.familyInfo()))
@@ -202,7 +207,7 @@ func (f *family) backgroundCompactionJob() error {
 		return nil
 	}
 	compactionState := newCompactionState(f.maxFileSize, snapshot, compaction)
-	compactJob := newCompactJobFunc(f, compactionState, nil)
+	compactJob := f.newCompactJobFunc(f, compactionState, nil)
 	if err := compactJob.Run(); err != nil {
 		return err
 	}

@@ -161,11 +161,24 @@ func TestFamily_compact(t *testing.T) {
 	assert.NoError(t, err)
 	fv.EXPECT().GetAllActiveFiles().Return(nil).AnyTimes()
 	fv.EXPECT().GetLiveRollupFiles().Return(nil).AnyTimes()
-	// case 1: pick nil compaction
-	v.EXPECT().PickL0Compaction(gomock.Any()).Return(nil)
+	// case 1: run compact job err
+	v.EXPECT().PickL0Compaction(gomock.Any()).
+		Return(version.NewCompaction(1, 0, nil, nil))
+	compactJob := NewMockCompactJob(ctrl)
+	f1 := f.(*family)
+	f1.newCompactJobFunc = func(family Family, state *compactionState, rollup Rollup) CompactJob {
+		return compactJob
+	}
+	compactJob.EXPECT().Run().Return(fmt.Errorf("err"))
 	f.compact()
 	time.Sleep(200 * time.Millisecond)
+	// case 2: pick nil compaction
+	v.EXPECT().PickL0Compaction(gomock.Any()).Return(nil)
+	f.compact()
+
+	time.Sleep(200 * time.Millisecond)
 }
+
 func TestFamily_compact_background(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
@@ -191,7 +204,7 @@ func TestFamily_compact_background(t *testing.T) {
 	// case 2: compact job run err
 	f2 := f.(*family)
 	compactJob := NewMockCompactJob(ctrl)
-	newCompactJobFunc = func(family Family, state *compactionState, rollup Rollup) CompactJob {
+	f2.newCompactJobFunc = func(family Family, state *compactionState, rollup Rollup) CompactJob {
 		return compactJob
 	}
 	compactJob.EXPECT().Run().Return(fmt.Errorf("err"))
