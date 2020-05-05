@@ -130,6 +130,7 @@ func NewStore(name string, option StoreOption) (s Store, err error) {
 
 		// finally need try delete obsolete files
 		store1.deleteObsoleteFiles()
+		store1.deleteFamilyObsoleteFiles()
 	}()
 
 	// build store reader cache
@@ -330,6 +331,13 @@ func (s *store) compact() {
 		if family.needCompat() {
 			family.compact()
 		}
+	}
+}
+
+// deleteFamilyObsoleteFiles deletes the all families obsolete files when init kv store
+func (s *store) deleteFamilyObsoleteFiles() {
+	for _, family := range s.families {
+		family.deleteObsoleteFiles()
 	}
 }
 

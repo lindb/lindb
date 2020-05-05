@@ -277,7 +277,6 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 	}); err != nil {
 		return err
 	}
-	//FIXME stone1100 remove it, and test family.deleteObsoleteFiles
 	return flusher.Commit()
 }
 
