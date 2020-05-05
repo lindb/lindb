@@ -81,7 +81,7 @@ func NewIndexDatabase(ctx context.Context, parent string, metadata metadb.Metada
 		backend:          backend,
 		metadata:         metadata,
 		metricID2Mapping: make(map[uint32]MetricIDMapping),
-		index:            newInvertedIndex(metadata, invertedFamily, forwardFamily),
+		index:            newInvertedIndex(metadata, forwardFamily, invertedFamily),
 		seriesWAL:        seriesWAL,
 		syncInterval:     syncInterval,
 	}

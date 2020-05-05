@@ -43,7 +43,7 @@ func (r *baseReader) initReader() error {
 		return err
 	}
 	r.keys = keys
-	// read offsets
+	// read high keys offsets
 	r.offsets = encoding.NewFixedOffsetDecoder(r.buf[offsetsPos:])
 	return nil
 }

@@ -93,6 +93,7 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 			// get the index of low tag value id in container
 			lowIdx := lowContainer.Rank(lowTagValueID)
 			seriesPos, _ := seriesOffsets.Get(lowIdx - 1)
+
 			// unmarshal series ids
 			seriesIDs := roaring.New()
 			if err := encoding.BitmapUnmarshal(seriesIDs, r.buf[seriesPos:]); err != nil {
@@ -150,6 +151,7 @@ func (s *tagInvertedScanner) scan(highKey, lowTagValueID uint16, targetSeriesIDs
 	if s.container.Contains(lowTagValueID) {
 		lowIdx := s.container.Rank(lowTagValueID)
 		seriesPos, _ := s.seriesOffsets.Get(lowIdx - 1)
+
 		// unmarshal series ids
 		seriesIDs := roaring.New()
 		if err := encoding.BitmapUnmarshal(seriesIDs, s.reader.buf[seriesPos:]); err != nil {
