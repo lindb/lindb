@@ -10,6 +10,9 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 
 	"github.com/golang/mock/gomock"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 )
 
 func Test_NewSystemCollector(t *testing.T) {
@@ -57,11 +60,11 @@ func Test_SystemCollector_Collect(t *testing.T) {
 		models.ActiveNode{},
 	)
 
-	collector.MemoryStatGetter = func() (*models.MemoryStat, error) {
+	collector.MemoryStatGetter = func() (*mem.VirtualMemoryStat, error) {
 		return nil, fmt.Errorf("error")
 	}
 	collector.collect()
-	collector.MemoryStatGetter = GetMemoryStat
+	collector.MemoryStatGetter = mem.VirtualMemory
 
 	collector.CPUStatGetter = func() (*models.CPUStat, error) {
 		return nil, fmt.Errorf("error")
@@ -69,9 +72,18 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	collector.collect()
 	collector.CPUStatGetter = GetCPUStat
 
-	collector.DiskStatGetter = func(path string) (*models.DiskStat, error) {
+	collector.DiskUsageStatGetter = func(ctx context.Context, path string) (*disk.UsageStat, error) {
 		return nil, fmt.Errorf("error")
 	}
 	collector.collect()
-	collector.DiskStatGetter = GetDiskStat
+	collector.DiskUsageStatGetter = disk.UsageWithContext
+
+	collector.NetStatGetter = func(ctx context.Context) (stats []net.IOCountersStat, err error) {
+		return nil, fmt.Errorf("error")
+	}
+	collector.collect()
+	collector.NetStatGetter = GetNetStat
+
+	collector.collect()
+	collector.collect()
 }

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/shirou/gopsutil/mem"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/tsdb/memdb"
 )
 
@@ -48,8 +48,8 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
-	check.memoryStatGetterFunc = func() (stat *models.MemoryStat, err error) {
-		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
+		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
 	}
 	checker.Start()
 
@@ -80,8 +80,8 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker = newDataFlushChecker(context.TODO())
 	check = checker.(*dataFlushChecker)
-	check.memoryStatGetterFunc = func() (stat *models.MemoryStat, err error) {
-		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
+		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
 	}
 	checker.Start()
 
@@ -112,8 +112,8 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
-	check.memoryStatGetterFunc = func() (stat *models.MemoryStat, err error) {
-		return &models.MemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
+		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
 	}
 	checker.Start()
 

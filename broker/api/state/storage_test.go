@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
@@ -102,7 +103,7 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 	clusterStat := models.StorageClusterStat{
 		Name: "test",
 		Nodes: []*models.NodeStat{{Node: activeNode, System: models.SystemStat{
-			DiskStat: &models.DiskStat{
+			DiskUsageStat: &disk.UsageStat{
 				Total:       10,
 				Used:        10,
 				UsedPercent: 10,
@@ -110,7 +111,7 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 		}}},
 		NodeStatus:    models.NodeStatus{},
 		ReplicaStatus: models.ReplicaStatus{},
-		Capacity:      models.DiskStat{},
+		Capacity:      disk.UsageStat{},
 	}
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(encoding.JSONMarshal(&clusterStat), nil)
 	storageState := models.NewStorageState()
@@ -220,7 +221,7 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 	clusterStat := models.StorageClusterStat{
 		Name: "test",
 		Nodes: []*models.NodeStat{{Node: activeNode, System: models.SystemStat{
-			DiskStat: &models.DiskStat{
+			DiskUsageStat: &disk.UsageStat{
 				Total:       10,
 				Used:        10,
 				UsedPercent: 10,
@@ -228,7 +229,7 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 		}}},
 		NodeStatus:    models.NodeStatus{},
 		ReplicaStatus: models.ReplicaStatus{},
-		Capacity:      models.DiskStat{},
+		Capacity:      disk.UsageStat{},
 	}
 	data1 := encoding.JSONMarshal(&clusterStat)
 	clusterStat.Name = "test-2"
