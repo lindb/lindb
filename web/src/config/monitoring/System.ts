@@ -22,13 +22,13 @@ export const SystemBoardForRole = [
     ),
     metric(
       'Memory Usage',
-      'select gauge*100 from system_mem_stat where type="used_percent" group by node',
+      'select gauge from system_mem_stat where type="used_percent" group by node',
       8,
       UnitEnum.Percent,
     ),
     metric(
       'Disk Usage',
-      'select gauge*100 from system_disk_usage_stat where type="used_percent" group by node',
+      'select gauge from system_disk_usage_stat where type="used_percent" group by node',
       8,
       UnitEnum.Percent,
     ),

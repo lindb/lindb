@@ -5,9 +5,11 @@ import (
 	"sync"
 
 	"github.com/lindb/roaring"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
@@ -20,6 +22,20 @@ var (
 	newTagReaderFunc  = tagkeymeta.NewReader
 	newTagFlusherFunc = tagkeymeta.NewFlusher
 )
+
+var (
+	genTagValueIDCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "meta_gen_tag_value_id",
+			Help: "Generate tag value id counter.",
+		},
+		[]string{"db"},
+	)
+)
+
+func init() {
+	monitoring.StorageRegistry.MustRegister(genTagValueIDCounter)
+}
 
 // TagMetadata represents the tag metadata, stores all tag values under spec tag key
 type TagMetadata interface {
@@ -44,18 +60,20 @@ type TagMetadata interface {
 
 // tagMetadata implements TagMetadata interface
 type tagMetadata struct {
-	family    kv.Family // store tag key/value data using common kv store
-	mutable   *TagStore // mutable store current writeable memory store
-	immutable *TagStore // immutable need to flush into kv store
+	databaseName string
+	family       kv.Family // store tag key/value data using common kv store
+	mutable      *TagStore // mutable store current writeable memory store
+	immutable    *TagStore // immutable need to flush into kv store
 
 	rwMutex sync.RWMutex
 }
 
 // NewTagMetadata creates a tag metadata
-func NewTagMetadata(family kv.Family) TagMetadata {
+func NewTagMetadata(databaseName string, family kv.Family) TagMetadata {
 	m := &tagMetadata{
-		family:  family,
-		mutable: NewTagStore(),
+		databaseName: databaseName,
+		family:       family,
+		mutable:      NewTagStore(),
 	}
 	return m
 }
@@ -125,6 +143,10 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 	// assign new id
 	tagValueID = tag.genTagValueID()
 	tag.addTagValue(tagValue, tagValueID)
+	//TODO add wal???
+
+	genTagValueIDCounter.WithLabelValues(m.databaseName).Inc()
+
 	return tagValueID, nil
 }
 

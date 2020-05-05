@@ -38,8 +38,10 @@ func TestShard_New(t *testing.T) {
 	}()
 
 	db := NewMockDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
-	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	// case 1: database option err
 	thisShard, err := newShard(db, 1, _testShard1Path, option.DatabaseOption{})
 	assert.Error(t, err)
@@ -140,8 +142,10 @@ func TestShard_GetDataFamilies(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := NewMockDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test")
 	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Nil(t, s.GetDataFamilies(timeutil.Month, timeutil.TimeRange{}))
 	assert.Nil(t, s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{}))
@@ -158,6 +162,7 @@ func TestShard_Write(t *testing.T) {
 
 	db := NewMockDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
@@ -279,10 +284,11 @@ func TestShard_Close(t *testing.T) {
 	newKVStoreFunc = func(name string, option kv.StoreOption) (s kv.Store, err error) {
 		return kvStore, nil
 	}
-
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	s1 := s.(*shard)
@@ -412,8 +418,10 @@ func TestShard_NeedFlush(t *testing.T) {
 
 func mockShard(ctrl *gomock.Controller) *shard {
 	db := NewMockDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	s1 := s.(*shard)
 	return s1

@@ -319,7 +319,7 @@ func mockTagMetadata(ctrl *gomock.Controller) (TagMetadata, *kv.MockFamily, *ver
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().Close().AnyTimes()
 	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
-	return NewTagMetadata(family), family, snapshot
+	return NewTagMetadata("test", family), family, snapshot
 }
 
 func mockTagMetadataMemData(meta TagMetadata) {

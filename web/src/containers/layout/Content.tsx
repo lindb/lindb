@@ -9,6 +9,7 @@ import Header from 'containers/layout/Header'
 import SiderMenu from 'containers/layout/SiderMenu'
 import Runtime from 'containers/monitoring/Runtime'
 import System from 'containers/monitoring/System'
+import MonitoringStorage from 'containers/monitoring/Storage'
 import SearchPage from 'containers/query/MetricDataSearch'
 import * as React from 'react'
 import { Route, Switch } from 'react-router-dom'
@@ -46,6 +47,7 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/search" component={SearchPage} />
               <Route exact={true} path="/monitoring/system" component={System} />
               <Route exact={true} path="/monitoring/runtime" component={Runtime} />
+              <Route exact={true} path="/monitoring/storage" component={MonitoringStorage} />
               <Route exact={true} path="/admin/storage" component={Storage} />
               <Route exact={true} path="/admin/database" component={Database} />
             </Switch>

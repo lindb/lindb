@@ -38,7 +38,7 @@ var (
 )
 
 var (
-	buildIndexTimer = prometheus.NewHistogramVec(
+	writeMetricTimer = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "shard_write_metric_duration",
 			Help:    "Write metric duration(ms).",
@@ -46,10 +46,18 @@ var (
 		},
 		[]string{"db", "shard"},
 	)
-	writeMetricTimer = prometheus.NewHistogramVec(
+	buildIndexTimer = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "shard_build_index_duration",
 			Help:    "Build index duration(ms).",
+			Buckets: monitoring.DefaultHistogramBuckets,
+		},
+		[]string{"db", "shard"},
+	)
+	memFlushTimer = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "shard_memory_database_flush_duration",
+			Help:    "Flush memory data duration(ms).",
 			Buckets: monitoring.DefaultHistogramBuckets,
 		},
 		[]string{"db", "shard"},
@@ -59,6 +67,7 @@ var (
 func init() {
 	monitoring.StorageRegistry.MustRegister(buildIndexTimer)
 	monitoring.StorageRegistry.MustRegister(writeMetricTimer)
+	monitoring.StorageRegistry.MustRegister(memFlushTimer)
 }
 
 const (
@@ -141,6 +150,7 @@ type shard struct {
 
 	buildIndexTimer  prometheus.Observer
 	writeMetricTimer prometheus.Observer
+	memFlushTimer    prometheus.Observer
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -178,6 +188,7 @@ func newShard(
 		isFlushing:       *atomic.NewBool(false),
 		buildIndexTimer:  buildIndexTimer.WithLabelValues(db.Name(), shardIDStr),
 		writeMetricTimer: writeMetricTimer.WithLabelValues(db.Name(), shardIDStr),
+		memFlushTimer:    memFlushTimer.WithLabelValues(db.Name(), shardIDStr),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
@@ -254,7 +265,7 @@ func (s *shard) MemoryDatabase() memdb.MemoryDatabase {
 }
 
 // Write writes the metric-point into memory-database.
-func (s *shard) Write(metric *pb.Metric) error {
+func (s *shard) Write(metric *pb.Metric) (err error) {
 	if metric == nil {
 		return constants.ErrNilMetric
 	}
@@ -474,6 +485,9 @@ func (s *shard) createMemoryDatabase() (memdb.MemoryDatabase, error) {
 
 // flushMemoryDatabase flushes memory database to disk kv store
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
+	startTime := timeutil.Now()
+	defer s.memFlushTimer.Observe(float64(timeutil.Now() - startTime))
+
 	for _, familyTime := range memDB.Families() {
 		segmentName := s.interval.Calculator().GetSegment(familyTime)
 		segment, err := s.segment.GetOrCreateSegment(segmentName)
