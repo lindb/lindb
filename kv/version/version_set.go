@@ -110,7 +110,7 @@ func (vs *storeVersionSet) Destroy() error {
 
 // NextFileNumber generates next file number
 func (vs *storeVersionSet) NextFileNumber() table.FileNumber {
-	nextNumber := vs.nextFileNumber.Add(1)
+	nextNumber := vs.nextFileNumber.Inc()
 	return table.FileNumber(nextNumber - 1)
 }
 
@@ -148,7 +148,8 @@ func (vs *storeVersionSet) CommitFamilyEditLog(family string, editLog EditLog) e
 	// Install the new version for family level version edit log
 	familyVersion.appendVersion(newVersion)
 	versionLogger.Info("log and apply new version edit",
-		logger.String("path", vs.storePath), logger.Any("log", editLog))
+		logger.String("path", vs.storePath), logger.String("family", family),
+		logger.Any("log", editLog))
 	return nil
 }
 

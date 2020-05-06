@@ -132,6 +132,11 @@ func (n *newFile) Decode(v []byte) error {
 	return reader.Error()
 }
 
+// String returns string value of new file log
+func (n *newFile) String() string {
+	return fmt.Sprintf("addFile:{level:%d,file:%s}", n.level, n.file)
+}
+
 // apply applies new file edit log to version
 func (n *newFile) apply(version Version) {
 	version.AddFile(int(n.level), n.file)
@@ -168,6 +173,11 @@ func (d *deleteFile) Decode(v []byte) error {
 	d.fileNumber = table.FileNumber(reader.ReadVarint64())
 
 	return reader.Error()
+}
+
+// String returns string value of delete file log
+func (d *deleteFile) String() string {
+	return fmt.Sprintf("deleteFile:{level:%d,fileNumber:%d}", d.level, d.fileNumber)
 }
 
 // apply applies remove file from version
@@ -208,6 +218,11 @@ func (n *nextFileNumber) apply(version Version) {
 	// do nothing
 }
 
+// String returns string value of file number log
+func (n *nextFileNumber) String() string {
+	return fmt.Sprintf("fileNumber:%d", n.fileNumber)
+}
+
 // applyVersionSet applies edit to store version set
 func (n *nextFileNumber) applyVersionSet(versionSet StoreVersionSet) {
 	versionSet.setNextFileNumberWithoutLock(n.fileNumber)
@@ -244,6 +259,11 @@ func (n *newRollupFile) Decode(v []byte) error {
 	return reader.Error()
 }
 
+// String returns string value of add rollup file log
+func (n *newRollupFile) String() string {
+	return fmt.Sprintf("addRollup:{fileNumber:%d,interval:%d}", n.fileNumber, n.interval)
+}
+
 // apply applies new rollup file edit log to version
 func (n *newRollupFile) apply(version Version) {
 	version.AddRollupFile(n.fileNumber, n.interval)
@@ -274,6 +294,11 @@ func (d *deleteRollupFile) Decode(v []byte) error {
 	reader := stream.NewReader(v)
 	d.fileNumber = table.FileNumber(reader.ReadVarint64())
 	return reader.Error()
+}
+
+// String returns string value of delete rollup file log
+func (d *deleteRollupFile) String() string {
+	return fmt.Sprintf("deleteRollup:{fileNumber:%d}", d.fileNumber)
 }
 
 // apply applies remove rollup file edit log to version
@@ -311,6 +336,11 @@ func (n *newReferenceFile) Decode(v []byte) error {
 	return reader.Error()
 }
 
+// String returns string value of add reference file log
+func (n *newReferenceFile) String() string {
+	return fmt.Sprintf("addRefFile:{familyID:%d,fileNumber:%d}", n.familyID, n.fileNumber)
+}
+
 // apply applies new reference file edit log to version
 func (n *newReferenceFile) apply(version Version) {
 	version.AddReferenceFile(n.familyID, n.fileNumber)
@@ -344,6 +374,11 @@ func (n *deleteReferenceFile) Decode(v []byte) error {
 	n.fileNumber = table.FileNumber(reader.ReadVarint64())
 	n.familyID = FamilyID(reader.ReadVarint32())
 	return reader.Error()
+}
+
+// String returns string value of delete reference file log
+func (n *deleteReferenceFile) String() string {
+	return fmt.Sprintf("deleteRefFile:{familyID:%d,fileNumber:%d}", n.familyID, n.fileNumber)
 }
 
 // apply applies remove reference file edit log to version

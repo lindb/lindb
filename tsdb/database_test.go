@@ -33,7 +33,7 @@ func TestDatabase_New(t *testing.T) {
 	}
 	db, err := newDatabase("db", testPath, &databaseConfig{
 		Option: option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	encodeToml = ltoml.EncodeToml
@@ -43,7 +43,7 @@ func TestDatabase_New(t *testing.T) {
 	}
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		Option: option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	// case 3: create family err
@@ -54,7 +54,7 @@ func TestDatabase_New(t *testing.T) {
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		Option: option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	// case 4: new metadata err
@@ -65,7 +65,7 @@ func TestDatabase_New(t *testing.T) {
 	}
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		Option: option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	// case 5: create shard err
@@ -76,7 +76,7 @@ func TestDatabase_New(t *testing.T) {
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		ShardIDs: []int32{1, 2, 3},
 		Option:   option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	// case 6: create db success
@@ -84,7 +84,7 @@ func TestDatabase_New(t *testing.T) {
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		ShardIDs: []int32{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
-	})
+	}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.NotNil(t, db.ExecutorPool())
@@ -105,7 +105,7 @@ func TestDatabase_New(t *testing.T) {
 	db, err = newDatabase("db", testPath, &databaseConfig{
 		ShardIDs: []int32{1, 2, 3},
 		Option:   option.DatabaseOption{},
-	})
+	}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
@@ -122,7 +122,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 	db, err := newDatabase("db", testPath, &databaseConfig{
 		ShardIDs: []int32{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
-	})
+	}, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -154,7 +154,8 @@ func TestDatabase_CreateShards(t *testing.T) {
 	err = db.CreateShards(option.DatabaseOption{}, []int32{9})
 	assert.Error(t, err)
 	// case 6: create exist shard
-	err = db.createShard(1, option.DatabaseOption{})
+	db1 := db.(*database)
+	err = db1.createShard(1, option.DatabaseOption{})
 	assert.NoError(t, err)
 }
 
@@ -207,9 +208,28 @@ func TestDatabase_FlushMeta(t *testing.T) {
 }
 
 func TestDatabase_Flush(t *testing.T) {
-	db := &database{
-		isFlushing: *atomic.NewBool(false)}
-	assert.Panics(t, func() {
-		_ = db.Flush()
-	})
+	ctrl := gomock.NewController(t)
+	_ = fileutil.MkDirIfNotExist(testPath)
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		ctrl.Finish()
+	}()
+
+	checker := NewMockDataFlushChecker(ctrl)
+
+	db, err := newDatabase("db", testPath, &databaseConfig{
+		Option: option.DatabaseOption{},
+	}, checker)
+	assert.NoError(t, err)
+	assert.NotNil(t, db)
+	db1 := db.(*database)
+	shard1 := NewMockShard(ctrl)
+	shard2 := NewMockShard(ctrl)
+	db1.shards.Store(1, shard1)
+	db1.shards.Store(2, shard2)
+	checker.EXPECT().requestFlushJob(shard1, false)
+	checker.EXPECT().requestFlushJob(shard2, false)
+	err = db.Flush()
+	assert.NoError(t, err)
 }
