@@ -13,6 +13,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source=./data_flush_checker.go -destination=./data_flush_checker_mock.go -package=tsdb
+
 var (
 	// can be modified in runtime
 	memoryUsageCheckInterval = *atomic.NewDuration(time.Second)
@@ -41,6 +43,9 @@ type DataFlushChecker interface {
 	Start()
 	// Stop stops the background check goroutine
 	Stop()
+
+	// requestFlushJob requests a flush job for the spec shard
+	requestFlushJob(shard Shard, global bool)
 }
 
 // flushRequest represents the shard flush job request
@@ -54,12 +59,11 @@ type dataFlushChecker struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	shardInFlushing      map[string]Shard
+	shardInFlushing      sync.Map
 	flushRequestCh       chan *flushRequest          // shard to flush
 	flushInFlight        atomic.Int32                // current pending in flushing
 	isWatermarkFlushing  atomic.Bool                 // this flag symbols if has goroutine in high water-mark flushing
 	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
-	mutex                sync.RWMutex
 }
 
 // newDataFlushChecker creates the data flush checker
@@ -69,7 +73,6 @@ func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 		ctx:                  c,
 		cancel:               cancel,
 		flushRequestCh:       make(chan *flushRequest),
-		shardInFlushing:      make(map[string]Shard),
 		memoryStatGetterFunc: mem.VirtualMemory,
 	}
 }
@@ -124,6 +127,12 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 
 // requestFlushJob requests a flush job for the spec shard
 func (fc *dataFlushChecker) requestFlushJob(shard Shard, global bool) {
+	_, ok := fc.shardInFlushing.Load(shard.ShardInfo())
+	if ok {
+		// if shard is in flushing queue, returns it
+		return
+	}
+	fc.shardInFlushing.Store(shard.ShardInfo(), shard)
 	select {
 	case <-fc.ctx.Done():
 		return
@@ -148,33 +157,25 @@ func (fc *dataFlushChecker) flushWorker() {
 
 // doFlush does the flush job for the spec shard
 func (fc *dataFlushChecker) doFlush(request *flushRequest) {
-	fc.mutex.Lock()
-	defer fc.mutex.Unlock()
-
 	shard := request.shard
 	global := request.global
 	shardInfo := shard.ShardInfo()
-	_, ok := fc.shardInFlushing[shardInfo]
-	if !ok {
-		// if shard is not in flushing queue, then does flush job
-		defer func() {
-			if global {
-				fc.isWatermarkFlushing.Store(false)
-			}
-			fc.flushInFlight.Dec()
-			// delete shard from flushing queue
-			delete(fc.shardInFlushing, shardInfo)
-		}()
-
+	defer func() {
 		if global {
-			fc.isWatermarkFlushing.Store(true)
+			fc.isWatermarkFlushing.Store(false)
 		}
-		if err := shard.Flush(); err != nil {
-			//TODO add metric
-			engineLogger.Error("flush shard memory database error",
-				logger.String("shard", shardInfo), logger.Error(err))
-		}
-		fc.shardInFlushing[shard.ShardInfo()] = shard
+		fc.flushInFlight.Dec()
+		// delete shard from flushing queue
+		fc.shardInFlushing.Delete(shardInfo)
+	}()
+
+	if global {
+		fc.isWatermarkFlushing.Store(true)
+	}
+	if err := shard.Flush(); err != nil {
+		//TODO add metric
+		engineLogger.Error("flush shard memory database error",
+			logger.String("shard", shardInfo), logger.Error(err))
 	}
 }
 

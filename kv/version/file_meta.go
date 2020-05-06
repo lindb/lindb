@@ -1,6 +1,10 @@
 package version
 
-import "github.com/lindb/lindb/kv/table"
+import (
+	"fmt"
+
+	"github.com/lindb/lindb/kv/table"
+)
 
 // FileMeta is the metadata for sst file
 type FileMeta struct {
@@ -38,4 +42,9 @@ func (f *FileMeta) GetMaxKey() uint32 {
 // GetFileSize gets file size for sst file
 func (f *FileMeta) GetFileSize() int32 {
 	return f.fileSize
+}
+
+// String returns the string value of file meta
+func (f *FileMeta) String() string {
+	return fmt.Sprintf("{fileNumber:%d,min:%d,max:%d,size:%d}", f.fileNumber, f.minKey, f.maxKey, f.fileSize)
 }
