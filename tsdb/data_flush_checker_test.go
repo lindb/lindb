@@ -121,6 +121,11 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 	checker.Stop()
 	time.Sleep(100 * time.Millisecond)
 
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().ShardInfo().Return("shardInfo").MaxTimes(3)
+	checker.requestFlushJob(shard, false) // request success
+	checker.requestFlushJob(shard, true)  // reject, because has pending flush job
+
 	for _, shard := range shards {
 		GetShardManager().AddShard(shard)
 	}

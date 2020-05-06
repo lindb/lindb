@@ -58,7 +58,7 @@ type Database interface {
 	Metadata() metadb.Metadata
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
-	// FLush flushes data to disk
+	// FLush flushes memory data of all shards to disk
 	Flush() error
 }
 
@@ -81,15 +81,20 @@ type database struct {
 	metadata     metadb.Metadata // underlying metric metadata
 	metaStore    kv.Store        // underlying meta kv store
 	isFlushing   atomic.Bool     // restrict flusher concurrency
+
+	flushChecker DataFlushChecker
 }
 
 // newDatabase creates the database instance
-func newDatabase(databaseName string, databasePath string, cfg *databaseConfig) (*database, error) {
+func newDatabase(databaseName string, databasePath string, cfg *databaseConfig,
+	flushChecker DataFlushChecker,
+) (Database, error) {
 	db := &database{
-		name:        databaseName,
-		path:        databasePath,
-		config:      cfg,
-		numOfShards: *atomic.NewInt32(0),
+		name:         databaseName,
+		path:         databasePath,
+		flushChecker: flushChecker,
+		config:       cfg,
+		numOfShards:  *atomic.NewInt32(0),
 		executorPool: &ExecutorPool{
 			Filtering: concurrent.NewPool(
 				databaseName+"-filtering-pool",
@@ -289,9 +294,15 @@ func (db *database) FlushMeta() (err error) {
 	return db.metadata.Flush()
 }
 
+// FLush flushes memory data of all shards to disk
 func (db *database) Flush() error {
-	//FIXME stone1100
-	panic("need to impl")
+	fmt.Println(db.flushChecker)
+	db.shards.Range(func(key, value interface{}) bool {
+		shard := value.(Shard)
+		db.flushChecker.requestFlushJob(shard, false)
+		return true
+	})
+	return nil
 }
 
 // optionsPath returns options file path

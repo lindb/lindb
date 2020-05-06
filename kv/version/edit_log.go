@@ -3,6 +3,7 @@ package version
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/lindb/lindb/pkg/stream"
 )
@@ -69,6 +70,18 @@ func (el *editLog) Add(log Log) {
 // IsEmpty returns edit logs is empty or not.
 func (el *editLog) IsEmpty() bool {
 	return len(el.logs) == 0
+}
+
+// String returns the string value of edit log
+func (el *editLog) String() string {
+	if el.IsEmpty() {
+		return "[]"
+	}
+	var strs []string
+	for _, l := range el.logs {
+		strs = append(strs, fmt.Sprintf("{%s}", l))
+	}
+	return fmt.Sprintf("[%s]", strings.Join(strs, ","))
 }
 
 // marshal encodes edit log to binary data

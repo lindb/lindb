@@ -68,15 +68,16 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 	e := &engine{
 		cfg: cfg,
 	}
+	e.ctx, e.cancel = context.WithCancel(context.Background())
+	e.dataFlushChecker = newDataFlushChecker(e.ctx)
+	e.dataFlushChecker.Start()
+
 	if err := e.load(); err != nil {
 		engineLogger.Error("load engine data error when create a new engine", logger.Error(err))
 		// close opened engine
 		e.Close()
 		return nil, err
 	}
-	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.dataFlushChecker = newDataFlushChecker(e.ctx)
-	e.dataFlushChecker.Start()
 	return e, nil
 }
 
@@ -95,7 +96,7 @@ func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 				databaseName, cfgPath, err)
 		}
 	}
-	db, err := newDatabaseFunc(databaseName, dbPath, cfg)
+	db, err := newDatabaseFunc(databaseName, dbPath, cfg, e.dataFlushChecker)
 	if err != nil {
 		return nil, err
 	}

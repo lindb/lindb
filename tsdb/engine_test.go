@@ -113,7 +113,8 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	assert.Nil(t, db)
 	mkDirIfNotExist = fileutil.MkDirIfNotExist
 	// create db err
-	newDatabaseFunc = func(databaseName string, databasePath string, cfg *databaseConfig) (d *database, err error) {
+	newDatabaseFunc = func(databaseName string, databasePath string, cfg *databaseConfig,
+		checker DataFlushChecker) (d Database, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	db, err = e.CreateDatabase("test_db_err")

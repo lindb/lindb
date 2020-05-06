@@ -1,6 +1,7 @@
 package version
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -31,6 +32,8 @@ func TestNewFile(t *testing.T) {
 	bytes, err := nf.Encode()
 	assert.NoError(t, err)
 
+	fmt.Println(nf)
+
 	newFile2 := &newFile{}
 	err = newFile2.Decode(bytes)
 	assert.NoError(t, err)
@@ -48,6 +51,8 @@ func TestDeleteFile(t *testing.T) {
 	bytes, err := dFile.Encode()
 	assert.NoError(t, err)
 
+	fmt.Println(dFile)
+
 	deleteFile2 := &deleteFile{}
 	err = deleteFile2.Decode(bytes)
 	assert.NoError(t, err)
@@ -63,6 +68,8 @@ func TestNextFileNumber(t *testing.T) {
 	nextFile := NewNextFileNumber(12)
 	bytes, err := nextFile.Encode()
 	assert.NoError(t, err)
+
+	fmt.Println(nextFile)
 
 	nextFileNumber2 := &nextFileNumber{}
 	err = nextFileNumber2.Decode(bytes)
@@ -81,6 +88,8 @@ func TestNewRollupFile(t *testing.T) {
 	bytes, err := rollupFile.Encode()
 	assert.NoError(t, err)
 
+	fmt.Println(rollupFile)
+
 	rollupFile2 := &newRollupFile{}
 
 	err = rollupFile2.Decode(bytes)
@@ -97,6 +106,8 @@ func TestDeleteRollupFile(t *testing.T) {
 	rollupFile := CreateDeleteRollupFile(12)
 	bytes, err := rollupFile.Encode()
 	assert.NoError(t, err)
+
+	fmt.Println(rollupFile)
 
 	rollupFile2 := &deleteRollupFile{}
 
@@ -115,6 +126,8 @@ func TestNewReferenceFile(t *testing.T) {
 	bytes, err := referenceFile.Encode()
 	assert.NoError(t, err)
 
+	fmt.Println(referenceFile)
+
 	referenceFile2 := &newReferenceFile{}
 
 	err = referenceFile2.Decode(bytes)
@@ -131,6 +144,8 @@ func TestDeleteReferenceFile(t *testing.T) {
 	referenceFile := CreateDeleteReferenceFile(FamilyID(10), 12)
 	bytes, err := referenceFile.Encode()
 	assert.NoError(t, err)
+
+	fmt.Println(referenceFile)
 
 	referenceFile2 := &deleteReferenceFile{}
 

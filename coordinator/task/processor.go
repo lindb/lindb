@@ -101,7 +101,7 @@ func (p *taskProcessor) process(evt taskEvent) {
 		_ = p.sem.Release()
 		if e := recover(); e != nil {
 			log.Error("process task", logger.Error(fmt.Errorf("panic: %v", e)),
-				logger.String("name", evt.key))
+				logger.String("name", evt.key), logger.Stack())
 		}
 	}()
 
