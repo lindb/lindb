@@ -3,6 +3,7 @@ package standalone
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -34,13 +35,17 @@ func TestRuntime_Run(t *testing.T) {
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
 	standalone := NewStandaloneRuntime("test-version", cfg)
+	s := standalone.(*runtime)
+	s.delayInit = 100 * time.Millisecond
 	err := standalone.Run()
+
 	assert.NoError(t, err)
 	assert.Equal(t, server.Running, standalone.State())
 	err = standalone.Stop()
 	assert.NoError(t, err)
 	assert.Equal(t, server.Terminated, standalone.State())
 	assert.Equal(t, "standalone", standalone.Name())
+	time.Sleep(500 * time.Millisecond)
 }
 
 func TestRuntime_Run_Err(t *testing.T) {
