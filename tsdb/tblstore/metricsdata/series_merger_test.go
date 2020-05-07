@@ -22,6 +22,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
+	reader1.EXPECT().close().AnyTimes()
+	reader2.EXPECT().close().AnyTimes()
 	readers := []FieldReader{reader1, nil, reader2}
 
 	encodeStream := encoding.NewTSDEncoder(5)
@@ -111,6 +113,8 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
+	reader1.EXPECT().close().AnyTimes()
+	reader2.EXPECT().close().AnyTimes()
 	readers := []FieldReader{reader1, reader2, nil}
 
 	encodeStream := encoding.NewTSDEncoder(5)

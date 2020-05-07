@@ -37,6 +37,7 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
+
 	for _, f := range mergeCtx.targetFields {
 		schema := f.Type.GetSchema()
 		fieldID := f.ID
@@ -69,6 +70,14 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 			// flush field data
 			sm.flusher.FlushField(field.Key(binary.LittleEndian.Uint16([]byte{byte(fieldID), byte(primitiveID)})), data)
 			encodeStream.Reset() // reset tsd compress stream for next loop
+		}
+	}
+
+	// need mark reader completed, because next series id maybe haven't field data in reader,
+	// if don't mark reader completed, some data will read duplicate.
+	for _, reader := range fieldReaders {
+		if reader != nil {
+			reader.close()
 		}
 	}
 	return nil
