@@ -12,13 +12,17 @@ import (
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/storage"
 )
 
 var log = logger.GetLogger("standalone", "Runtime")
+
+const storageClusterName = "standalone"
 
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {
@@ -29,8 +33,12 @@ type runtime struct {
 	etcd        *embed.Etcd
 	broker      server.Service
 	storage     server.Service
-	ctx         context.Context
-	cancel      context.CancelFunc
+
+	initialize *initialize
+	delayInit  time.Duration
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewStandaloneRuntime creates the runtime
@@ -39,6 +47,7 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 	return &runtime{
 		version:     version,
 		state:       server.New,
+		delayInit:   5 * time.Second,
 		repoFactory: state.NewRepositoryFactory("standalone"),
 		broker: broker.NewBrokerRuntime(version,
 			config.Broker{
@@ -50,9 +59,10 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 				StorageBase: cfg.StorageBase,
 				Monitor:     cfg.Monitor,
 			}),
-		cfg:    cfg,
-		ctx:    ctx,
-		cancel: cancel,
+		cfg:        cfg,
+		initialize: newInitialize(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 }
 
@@ -78,6 +88,28 @@ func (r *runtime) Run() error {
 		return err
 	}
 	r.state = server.Running
+
+	time.AfterFunc(r.delayInit, func() {
+		log.Info("start initialize standalone internal database")
+		r.initialize.initStorageCluster(config.StorageCluster{
+			Name: "standalone",
+			Config: config.RepoState{
+				Namespace: r.cfg.StorageBase.Coordinator.Namespace,
+				Endpoints: r.cfg.StorageBase.Coordinator.Endpoints,
+			},
+		})
+
+		r.initialize.initInternalDatabase(models.Database{
+			Name:          "_internal",
+			Cluster:       storageClusterName,
+			NumOfShard:    1,
+			ReplicaFactor: 1,
+			Option: option.DatabaseOption{
+				Interval: "10s",
+			},
+		})
+	})
+
 	return nil
 }
 
