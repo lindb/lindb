@@ -18,6 +18,8 @@ type FieldReader interface {
 	getPrimitiveData(fieldID field.ID, primitiveID field.PrimitiveID) []byte
 	// reset resets the field data for reading
 	reset(buf []byte, position int, start, end uint16)
+	// close closes the reader
+	close()
 }
 
 // fieldReader implements FieldReader
@@ -44,10 +46,12 @@ func newFieldReader(buf []byte, position int, start, end uint16) FieldReader {
 func (r *fieldReader) reset(buf []byte, position int, start, end uint16) {
 	r.start = start
 	r.end = end
+	r.buf = buf
 	r.fieldCount = int(stream.ReadUint16(buf, position))
 	r.fieldOffsets = encoding.NewFixedOffsetDecoder(buf[position+2:])
-	r.buf = buf
+	r.offset = 0
 	r.ok = false
+	r.idx = 0
 	r.completed = false
 }
 
@@ -98,4 +102,9 @@ func (r *fieldReader) nextField() bool {
 	r.offset, r.ok = r.fieldOffsets.Get(r.idx)
 	r.idx++
 	return true
+}
+
+// close marks the reader completed
+func (r *fieldReader) close() {
+	r.completed = true
 }
