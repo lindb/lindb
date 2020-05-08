@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 func TestBrokerExecutor_Execute(t *testing.T) {
@@ -20,13 +22,24 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
 	nodeStateMachine := broker.NewMockNodeStateMachine(ctrl)
+	dbStateMachine := database.NewMockDBStateMachine(ctrl)
 	nodeStateMachine.EXPECT().GetCurrentNode().Return(currentNode.Node).AnyTimes()
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(nil)
 	replicaStateMachine := replica.NewMockStatusStateMachine(ctrl)
 	jobManager := parallel.NewMockJobManager(ctrl)
 
+	// case 1: database not found
 	exec := newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
-		replicaStateMachine, nodeStateMachine, jobManager)
+		replicaStateMachine, nodeStateMachine, dbStateMachine, jobManager)
+	dbStateMachine.EXPECT().GetDatabaseCfg("test_db").Return(models.Database{}, false)
+	exec.Execute()
+	assert.NotNil(t, exec.ExecuteContext())
+
+	// case 2: storage nodes not exist
+	dbStateMachine.EXPECT().GetDatabaseCfg("test_db").
+		Return(models.Database{Option: option.DatabaseOption{Interval: "10s"}}, true).AnyTimes()
+	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
+		replicaStateMachine, nodeStateMachine, dbStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(nil)
 	exec.Execute()
 	assert.NotNil(t, exec.ExecuteContext())
@@ -45,13 +58,13 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 		generateBrokerActiveNode("1.1.1.4", 8000),
 	}
 	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f fro",
-		replicaStateMachine, nodeStateMachine, jobManager)
+		replicaStateMachine, nodeStateMachine, dbStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)
 	exec.Execute()
 
 	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
-		replicaStateMachine, nodeStateMachine, jobManager)
+		replicaStateMachine, nodeStateMachine, dbStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)
 	jobManager.EXPECT().SubmitJob(gomock.Any())
@@ -59,7 +72,7 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 
 	// submit job error
 	exec = newBrokerExecutor(context.TODO(), "test_db", "ns", "select f from cpu",
-		replicaStateMachine, nodeStateMachine, jobManager)
+		replicaStateMachine, nodeStateMachine, dbStateMachine, jobManager)
 	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(storageNodes)
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes)
 	jobManager.EXPECT().SubmitJob(gomock.Any()).Return(errors.New("submit job error"))

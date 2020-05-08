@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/sql/stmt"
@@ -37,6 +38,7 @@ type ExecutorFactory interface {
 		sql string,
 		replicaStateMachine replica.StatusStateMachine,
 		nodeStateMachine broker.NodeStateMachine,
+		databaseStateMachine database.DBStateMachine,
 		jobManager JobManager,
 	) BrokerExecutor
 

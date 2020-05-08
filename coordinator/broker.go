@@ -2,6 +2,7 @@ package coordinator
 
 import (
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -12,6 +13,7 @@ type BrokerStateMachines struct {
 	NodeSM          broker.NodeStateMachine
 	ReplicaStatusSM replica.StatusStateMachine
 	ReplicatorSM    replica.ReplicatorStateMachine
+	DatabaseSM      database.DBStateMachine
 
 	factory StateMachineFactory
 
@@ -43,6 +45,10 @@ func (s *BrokerStateMachines) Start() (err error) {
 	if err != nil {
 		return err
 	}
+	s.DatabaseSM, err = s.factory.CreateDatabaseStateMachine()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -66,6 +72,11 @@ func (s *BrokerStateMachines) Stop() {
 	if s.ReplicatorSM != nil {
 		if err := s.ReplicatorSM.Close(); err != nil {
 			s.log.Error("close replicator state machine error", logger.Error(err))
+		}
+	}
+	if s.DatabaseSM != nil {
+		if err := s.DatabaseSM.Close(); err != nil {
+			s.log.Error("close database state machine error", logger.Error(err))
 		}
 	}
 }

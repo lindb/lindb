@@ -15,15 +15,17 @@ type brokerPlan struct {
 	currentBrokerNode models.Node
 	brokerNodes       []models.ActiveNode
 	intermediateNodes []models.Node
+	databaseCfg       models.Database
 
 	physicalPlan *models.PhysicalPlan
 }
 
 // newBrokerPlan creates broker execute plan
-func newBrokerPlan(sql string, storageNodes map[string][]int32,
+func newBrokerPlan(sql string, databaseCfg models.Database, storageNodes map[string][]int32,
 	currentBrokerNode models.Node, brokerNodes []models.ActiveNode) Plan {
 	return &brokerPlan{
 		sql:               sql,
+		databaseCfg:       databaseCfg,
 		storageNodes:      storageNodes,
 		currentBrokerNode: currentBrokerNode,
 		brokerNodes:       brokerNodes,
@@ -50,11 +52,16 @@ func (p *brokerPlan) Plan() error {
 	// set query statement
 	p.query = query
 
-	//FIXME need set interval based on db config if not set
-	interval := 10 * timeutil.OneSecond
-	p.query.Interval = timeutil.Interval(interval)
-	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, interval)
-	p.query.TimeRange.End = timeutil.Truncate(p.query.TimeRange.End, interval)
+	if query.Interval <= 0 {
+		var interval timeutil.Interval
+		if err := interval.ValueOf(p.databaseCfg.Option.Interval); err != nil {
+			return err
+		}
+		query.Interval = interval
+	}
+	intervalVal := int64(query.Interval)
+	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, intervalVal)
+	p.query.TimeRange.End = timeutil.Truncate(p.query.TimeRange.End, intervalVal)
 
 	root := p.currentBrokerNode
 

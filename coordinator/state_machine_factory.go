@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/models"
@@ -34,6 +35,8 @@ type StateMachineFactory interface {
 	CreateReplicaStatusStateMachine() (replica.StatusStateMachine, error)
 	// CreateReplicatorStateMachine creates the shard replicator state machine
 	CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error)
+	// CreateDatabaseStateMachine creates the database state machine
+	CreateDatabaseStateMachine() (database.DBStateMachine, error)
 }
 
 // stateMachineFactory implements the interface, using state machine config for creating
@@ -64,4 +67,9 @@ func (s *stateMachineFactory) CreateReplicaStatusStateMachine() (replica.StatusS
 // CreateReplicatorStateMachine creates the shard replicator state machine
 func (s *stateMachineFactory) CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error) {
 	return replica.NewReplicatorStateMachine(s.cfg.Ctx, s.cfg.ChannelManager, s.cfg.ShardAssignSRV, s.cfg.DiscoveryFactory)
+}
+
+// CreateDatabaseStateMachine creates the database state machine
+func (s *stateMachineFactory) CreateDatabaseStateMachine() (database.DBStateMachine, error) {
+	return database.NewDBStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
 }
