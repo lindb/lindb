@@ -1,5 +1,5 @@
+import { Chart } from 'model/Chart';
 import { ChartDatasets, ResultSet } from 'model/Metric';
-import { Chart } from 'model/Chart'
 import { getChartColor, toRGBA } from 'utils/Util';
 
 const ChartJS = require('chart.js');
@@ -47,13 +47,14 @@ export function LineChart(resultSet: ResultSet | null, chart: Chart) {
       const points: { [timestamp: string]: number } = fields[key]
       let i = 0;
       let timestamp = startTime! + i * interval!
-      for (; timestamp <= endTime!; i++) {
+      for (; timestamp <= endTime!;) {
         const value = points[`${timestamp}`];
         const v = value ? Math.floor(value * 1000) / 1000 : 0
         if (leftMax < v) {
           leftMax = v
         }
         data.push(v)
+        i++
         timestamp = startTime! + i * interval!
       }
       datasets.push({ label, data, fill, backgroundColor, borderColor, pointBackgroundColor })
@@ -67,7 +68,7 @@ export function LineChart(resultSet: ResultSet | null, chart: Chart) {
   let i = 0
   let timestamp = startTime! + i * interval!
   const times = []
-  for (; timestamp <= endTime!; i++) {
+  for (; timestamp <= endTime!;) {
     const dateTime = moment(timestamp);
     if (showTimeLabel) {
       labels.push(dateTime.format("MM/DD HH:mm"));
@@ -77,6 +78,7 @@ export function LineChart(resultSet: ResultSet | null, chart: Chart) {
       labels.push(dateTime.format("HH:mm:ss"));
     }
     times.push(timestamp)
+    i++
     timestamp = startTime! + i * interval!
   }
   return { labels, datasets, interval, times, leftMax }

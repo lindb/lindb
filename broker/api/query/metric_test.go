@@ -24,10 +24,11 @@ func TestMetricAPI_Search(t *testing.T) {
 	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
 	brokerExecutor.EXPECT().Execute()
 
-	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 
-	api := NewMetricAPI(nil, nil, executorFactory, nil)
+	api := NewMetricAPI(nil, nil, nil, executorFactory, nil)
 
 	ch := make(chan *series.TimeSeriesEvent)
 
@@ -53,7 +54,7 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	defer ctrl.Finish()
 
 	executorFactory := parallel.NewMockExecutorFactory(ctrl)
-	api := NewMetricAPI(nil, nil, executorFactory, nil)
+	api := NewMetricAPI(nil, nil, nil, executorFactory, nil)
 
 	// param error
 	mock.DoRequest(t, &mock.HTTPHandler{
@@ -76,7 +77,8 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
 	brokerExecutor.EXPECT().Execute()
 
-	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 
 	ch := make(chan *series.TimeSeriesEvent)

@@ -354,7 +354,7 @@ func (r *runtime) buildAPIDependency() {
 		brokerStateAPI:     stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
 		masterAPI:          masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
+			r.stateMachines.NodeSM, r.stateMachines.DatabaseSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI:         writeAPI.NewWriteAPI(r.srv.channelManager),
 		prometheusWriter: write.NewPrometheusWrite(r.srv.channelManager),
 

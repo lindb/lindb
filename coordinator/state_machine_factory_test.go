@@ -44,9 +44,7 @@ func TestStateMachineFactory_Create(t *testing.T) {
 
 	discovery1.EXPECT().Discovery().Return(nil)
 	nodeSM, err = factory.CreateNodeStateMachine()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.NotNil(t, nodeSM)
 
 	// test storage state machine
@@ -57,9 +55,7 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	assert.Nil(t, storageStateSM)
 	discovery1.EXPECT().Discovery().Return(nil)
 	storageStateSM, err = factory.CreateStorageStateMachine()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.NotNil(t, storageStateSM)
 
 	// test replica status state machine
@@ -70,9 +66,7 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	assert.Nil(t, replicaStatusSM)
 	discovery1.EXPECT().Discovery().Return(nil)
 	replicaStatusSM, err = factory.CreateReplicaStatusStateMachine()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.NotNil(t, replicaStatusSM)
 
 	// test replicator state machine
@@ -83,8 +77,11 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	shardAssignSVR.EXPECT().List().Return(nil, nil)
 	discovery1.EXPECT().Discovery().Return(nil)
 	replicatorSM, err = factory.CreateReplicatorStateMachine()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.NotNil(t, replicatorSM)
+
+	discovery1.EXPECT().Discovery().Return(nil)
+	dbSM, err := factory.CreateDatabaseStateMachine()
+	assert.NoError(t, err)
+	assert.NotNil(t, dbSM)
 }

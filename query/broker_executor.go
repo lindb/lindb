@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -17,8 +18,9 @@ type brokerExecutor struct {
 	sql       string
 	query     *stmt.Query
 
-	replicaStateMachine replica.StatusStateMachine
-	nodeStateMachine    broker.NodeStateMachine
+	replicaStateMachine  replica.StatusStateMachine
+	nodeStateMachine     broker.NodeStateMachine
+	databaseStateMachine database.DBStateMachine
 
 	jobManager parallel.JobManager
 
@@ -30,15 +32,17 @@ type brokerExecutor struct {
 // newBrokerExecutor creates the execution which executes the job of parallel query
 func newBrokerExecutor(ctx context.Context, database string, namespace string, sql string,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
+	databaseStateMachine database.DBStateMachine,
 	jobManager parallel.JobManager) parallel.BrokerExecutor {
 	exec := &brokerExecutor{
-		sql:                 sql,
-		database:            database,
-		namespace:           namespace,
-		replicaStateMachine: replicaStateMachine,
-		nodeStateMachine:    nodeStateMachine,
-		jobManager:          jobManager,
-		ctx:                 ctx,
+		sql:                  sql,
+		database:             database,
+		namespace:            namespace,
+		replicaStateMachine:  replicaStateMachine,
+		nodeStateMachine:     nodeStateMachine,
+		databaseStateMachine: databaseStateMachine,
+		jobManager:           jobManager,
+		ctx:                  ctx,
 	}
 	return exec
 }
@@ -49,10 +53,19 @@ func newBrokerExecutor(ctx context.Context, database string, namespace string, s
 // 3) run distribution query job
 func (e *brokerExecutor) Execute() {
 	startTime := timeutil.NowNano()
+
+	databaseCfg, ok := e.databaseStateMachine.GetDatabaseCfg(e.database)
+	if !ok {
+		e.executeCtx = parallel.NewBrokerExecuteContext(startTime, nil)
+		e.executeCtx.Complete(errDatabaseNotExist)
+		return
+	}
+
 	//FIXME need using storage's replica state ???
 	storageNodes := e.replicaStateMachine.GetQueryableReplicas(e.database)
 	brokerNodes := e.nodeStateMachine.GetActiveNodes()
-	plan := newBrokerPlan(e.sql, storageNodes, e.nodeStateMachine.GetCurrentNode(), brokerNodes)
+	plan := newBrokerPlan(e.sql, databaseCfg, storageNodes, e.nodeStateMachine.GetCurrentNode(), brokerNodes)
+
 	var err error
 	if len(storageNodes) == 0 {
 		err = errNoAvailableStorageNode

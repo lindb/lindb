@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
@@ -46,9 +47,12 @@ func (*executorFactory) NewBrokerExecutor(
 	sql string,
 	replicaStateMachine replica.StatusStateMachine,
 	nodeStateMachine broker.NodeStateMachine,
+	databaseStateMachine database.DBStateMachine,
 	jobManager parallel.JobManager,
 ) parallel.BrokerExecutor {
-	return newBrokerExecutor(ctx, databaseName, namespace, sql, replicaStateMachine, nodeStateMachine, jobManager)
+	return newBrokerExecutor(ctx, databaseName, namespace, sql,
+		replicaStateMachine, nodeStateMachine, databaseStateMachine,
+		jobManager)
 }
 
 // NewMetadataBrokerExecutor creates the metadata executor in broker side
