@@ -6,30 +6,42 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 func TestBrokerPlan_Wrong_Case(t *testing.T) {
-	plan := newBrokerPlan("sql", nil, models.Node{}, nil)
+	plan := newBrokerPlan("sql", models.Database{}, nil, models.Node{}, nil)
 	// storage nodes cannot be empty
 	err := plan.Plan()
 	assert.Equal(t, errNoAvailableStorageNode, err)
 
 	storageNodes := map[string][]int32{"1.1.1.1:8000": {1, 2, 4}}
 	// wrong sql
-	plan = newBrokerPlan("sql", storageNodes, models.Node{}, nil)
+	plan = newBrokerPlan("sql", models.Database{}, storageNodes, models.Node{}, nil)
 	err = plan.Plan()
 	assert.NotNil(t, err)
+}
+
+func TestBrokerPlan_wrong_database_interval(t *testing.T) {
+	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
+	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	// no group sql
+	plan := newBrokerPlan("select f from cpu",
+		models.Database{Option: option.DatabaseOption{Interval: "s"}},
+		storageNodes, currentNode.Node, nil)
+	err := plan.Plan()
+	assert.Error(t, err)
 }
 
 func TestBrokerPlan_No_GroupBy(t *testing.T) {
 	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	// no group sql
-	plan := newBrokerPlan("select f from cpu", storageNodes, currentNode.Node, nil)
+	plan := newBrokerPlan("select f from cpu",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		storageNodes, currentNode.Node, nil)
 	err := plan.Plan()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	p := plan.(*brokerPlan)
 	assert.Equal(t, 0, len(p.intermediateNodes))
@@ -66,6 +78,7 @@ func TestBrokerPlan_GroupBy(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
 		currentNode.Node,
 		[]models.ActiveNode{
@@ -104,6 +117,7 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
 		currentNode.Node,
 		[]models.ActiveNode{
@@ -141,6 +155,7 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 	// current node = active node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
 		currentNode.Node,
 		[]models.ActiveNode{currentNode})
@@ -169,6 +184,7 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 	// only one storage node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
 		currentNode.Node,
 		nil)
@@ -197,6 +213,7 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 	// only one storage node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
+		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
 		currentNode.Node,
 		[]models.ActiveNode{

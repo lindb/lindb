@@ -8,26 +8,30 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/parallel"
 )
 
 // MetricAPI represents the metric query api
 type MetricAPI struct {
-	replicaStateMachine replica.StatusStateMachine
-	nodeStateMachine    broker.NodeStateMachine
-	executorFactory     parallel.ExecutorFactory
-	jobManager          parallel.JobManager
+	replicaStateMachine  replica.StatusStateMachine
+	nodeStateMachine     broker.NodeStateMachine
+	databaseStateMachine database.DBStateMachine
+	executorFactory      parallel.ExecutorFactory
+	jobManager           parallel.JobManager
 }
 
 // NewMetricAPI creates the metric query api
-func NewMetricAPI(replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
+func NewMetricAPI(replicaStateMachine replica.StatusStateMachine,
+	nodeStateMachine broker.NodeStateMachine, databaseStateMachine database.DBStateMachine,
 	executorFactory parallel.ExecutorFactory, jobManager parallel.JobManager) *MetricAPI {
 	return &MetricAPI{
-		replicaStateMachine: replicaStateMachine,
-		nodeStateMachine:    nodeStateMachine,
-		executorFactory:     executorFactory,
-		jobManager:          jobManager,
+		replicaStateMachine:  replicaStateMachine,
+		nodeStateMachine:     nodeStateMachine,
+		databaseStateMachine: databaseStateMachine,
+		executorFactory:      executorFactory,
+		jobManager:           jobManager,
 	}
 }
 
@@ -48,7 +52,9 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.executorFactory.NewBrokerExecutor(ctx, db, namespace, sql, m.replicaStateMachine, m.nodeStateMachine, m.jobManager)
+	exec := m.executorFactory.NewBrokerExecutor(ctx, db, namespace, sql,
+		m.replicaStateMachine, m.nodeStateMachine, m.databaseStateMachine,
+		m.jobManager)
 	exec.Execute()
 
 	brokerExecutor := exec.(parallel.BrokerExecutor)
