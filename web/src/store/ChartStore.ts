@@ -14,6 +14,7 @@ export class ChartStore {
     chartTrackingMap: Map<string, Chart> = new Map(); // tracking chart config change 
     seriesCache: Map<string, any> = new Map(); // for chart series data
     statsCache: Map<string, any> = new Map(); // for explain stats data
+    selectedSeries: Map<string, Map<string, string>> = new Map(); // for chart series selected
 
     @observable chartStatusMap: Map<string, ChartStatus> = new Map(); // observe chart status
 
@@ -44,7 +45,6 @@ export class ChartStore {
         );
     }
 
-
     @action
     public register(uniqueId: string, chart: Chart) {
         if (chart) {
@@ -62,6 +62,7 @@ export class ChartStore {
             this.add(uniqueId, chart);
         }
     }
+
     @action
     public unRegister(uniqueId: string) {
         this.charts.delete(uniqueId);
@@ -69,8 +70,8 @@ export class ChartStore {
         this.chartTrackingMap.delete(uniqueId);
         this.chartStatusMap.delete(uniqueId);
         this.statsCache.delete(uniqueId);
+        this.selectedSeries.delete(uniqueId);
     }
-
 
     public add(uniqueId: string, chart: Chart) {
         this.charts.set(uniqueId, chart)
@@ -102,8 +103,9 @@ export class ChartStore {
             this.setChartStatus(uniqueId, chartStatus!)
             LinDBService.query({ db: target!.db, sql: target!.ql }).then(response => {
                 const series: ResultSet | undefined = response.data
+                const selectedSeries = this.selectedSeries.get(uniqueId);
 
-                let reportData: any = ProcessChartData.LineChart(series!, chart!)
+                let reportData: any = ProcessChartData.LineChart(series!, chart!, selectedSeries!)
                 this.seriesCache.set(uniqueId, reportData)
                 const dataSet = get(reportData, "datasets", [])
                 if (dataSet.length > 0) {
@@ -116,7 +118,6 @@ export class ChartStore {
                 } else {
                     chartStatus!.status = ChartStatusEnum.NoData
                 }
-                console.log("sss", uniqueId, series!.stats, response.data)
                 this.statsCache.set(uniqueId, series!.stats)
                 this.setChartStatus(uniqueId, chartStatus!)
             }).catch((err) => {

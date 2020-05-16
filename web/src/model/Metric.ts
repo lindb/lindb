@@ -40,6 +40,7 @@ export interface ChartDatasets {
   backgroundColor: string
   borderColor: string
   pointBackgroundColor: string
+  hidden: boolean
 }
 
 /* Tooltip Data Source */

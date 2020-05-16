@@ -17,10 +17,10 @@ interface ChartProps {
   onMouseOut?: () => void
 }
 
-interface ChartStatus {
+interface ChartState {
 }
 
-export default class Chart extends React.Component<ChartProps, ChartStatus> {
+export default class Chart extends React.Component<ChartProps, ChartState> {
   chartCanvas: any // Chart Canvas Ref
   crosshair: React.RefObject<HTMLDivElement> // Chart Crosshair Ref
   chartInstance: any // ChartJS instance
@@ -37,8 +37,18 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
 
     this.disposers = [
       reaction(
-        () => StoreManager.ChartEventStore.hiddenSeries.get(props.uuid) || [],
-        this.handleLegendItemClick,
+        () => StoreManager.ChartEventStore.hiddenSeries.get(props.uuid),
+        () => {
+          this.series = StoreManager.ChartStore.seriesCache.get(props.uuid) || {}
+          if (!this.series) {
+            return 
+          }
+          const selected = StoreManager.ChartStore.selectedSeries.get(props.uuid)
+          this.series.datasets && this.series.datasets.forEach((item: any) => {
+            item.hidden = selected && selected.size > 0 && !selected.has(item.label)
+          })
+          this.renderChart()
+        }
       ),
       reaction(
         () => StoreManager.ChartEventStore.tooltipData,
@@ -62,7 +72,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
     this.disposers.map(handle => handle())
   }
 
-  shouldComponentUpdate(nextProps: Readonly<ChartProps>, nextState: Readonly<ChartStatus>, nextContext: any): boolean {
+  shouldComponentUpdate(nextProps: Readonly<ChartProps>, nextState: Readonly<ChartState>, nextContext: any): boolean {
     return false;
   }
 
@@ -210,11 +220,12 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
    * @param {any[]} hidden Current array of hidden series
    */
   @autobind
-  handleLegendItemClick(hidden: any[]) {
-    hidden.forEach((hide, index) => {
-      const meta = this.chartInstance.getDatasetMeta(index)
-      meta.hidden = hide
-    })
+  handleLegendItemClick() {
+    // hidden.forEach((hide, index) => {
+    //   const meta = this.chartInstance.getDatasetMeta(index)
+    //   meta.hidden = hide
+    // })
+    console.log("xxxxxx", this.chartInstance.get)
 
     this.chartInstance.update({
       duration: 300,
@@ -264,7 +275,7 @@ export default class Chart extends React.Component<ChartProps, ChartStatus> {
     if (height! <= 0) {
       h = 280
     }
-    console.log("xxxx",h,height)
+    console.log("xxxx", h, height)
     // Canvas Wrapped By a div element to avoid invoke `.resize` many times
     return (
       <div className="lindb-chart-canvas" style={{ height: h }}>
