@@ -10,7 +10,7 @@ const Color = ChartJS.helpers.color
  * @param {ResultSet} resultSet
  * @param {UnitEnum} unit Current chart Y-axes unit
  */
-export function LineChart(resultSet: ResultSet | null, chart: Chart) {
+export function LineChart(resultSet: ResultSet | null, chart: Chart, selectedSeries: Map<string, string>) {
   if (!resultSet) {
     return {}
   }
@@ -57,7 +57,13 @@ export function LineChart(resultSet: ResultSet | null, chart: Chart) {
         i++
         timestamp = startTime! + i * interval!
       }
-      datasets.push({ label, data, fill, backgroundColor, borderColor, pointBackgroundColor })
+
+      let hidden = false
+      console.log("sssssss",selectedSeries)
+      if (selectedSeries) {
+        hidden = !selectedSeries.has(label)
+      }
+      datasets.push({ label, data, fill, backgroundColor, borderColor, pointBackgroundColor, hidden })
     }
   })
   const labels = [];

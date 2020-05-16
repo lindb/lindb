@@ -324,7 +324,7 @@ func (r *runtime) monitoring() {
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.RuntimeReportInterval.Duration(),
-		prometheus.Gatherers{monitoring.StorageGatherer},
+		prometheus.Gatherers{monitoring.StorageGatherer, prometheus.DefaultGatherer},
 		[]*dto.LabelPair{
 			{
 				Name:  proto.String("role"),
