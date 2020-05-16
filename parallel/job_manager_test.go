@@ -31,7 +31,8 @@ func TestJobManager_SubmitJob(t *testing.T) {
 		ShardIDs: []int32{1, 2, 4},
 	})
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query := q.(*stmt.Query)
 	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	assert.NotNil(t, err)
 
@@ -59,7 +60,8 @@ func TestJobManager_SubmitJob_2(t *testing.T) {
 		},
 	})
 
-	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query := q.(*stmt.Query)
 	taskManager.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := jobManager.SubmitJob(NewJobContext(context.TODO(), nil, physicalPlan, query))
 	assert.NotNil(t, err)

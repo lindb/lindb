@@ -10,6 +10,7 @@ import (
 // Query represents search statement
 type Query struct {
 	Explain     bool     //  need explain query execute stat
+	Namespace   string   // namespace
 	MetricName  string   // like table name
 	SelectItems []Expr   // select list, such as field, function call, math expression etc.
 	FieldNames  []string // select field names
@@ -30,6 +31,7 @@ func (q *Query) HasGroupBy() bool {
 // innerQuery represents a wrapper of query for json encoding
 type innerQuery struct {
 	Explain     bool              `json:"Explain,omitempty"`
+	Namespace   string            `json:"namespace,omitempty"`
 	MetricName  string            `json:"metricName,omitempty"`
 	SelectItems []json.RawMessage `json:"selectItems,omitempty"`
 	FieldNames  []string          `json:"fieldNames,omitempty"`
@@ -47,6 +49,7 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 	inner := innerQuery{
 		Explain:    q.Explain,
 		MetricName: q.MetricName,
+		Namespace:  q.Namespace,
 		Condition:  Marshal(q.Condition),
 		FieldNames: q.FieldNames,
 		TimeRange:  q.TimeRange,
@@ -83,6 +86,7 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	}
 	q.Explain = inner.Explain
 	q.MetricName = inner.MetricName
+	q.Namespace = inner.Namespace
 	q.SelectItems = selectItems
 	q.FieldNames = inner.FieldNames
 	q.TimeRange = inner.TimeRange

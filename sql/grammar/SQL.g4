@@ -1,17 +1,33 @@
 // Define a grammar called LinSQL for LinDB query language
 grammar SQL;
 
-statement                : statementList EOF;
+statement               : statementList EOF;
 
-statementList           : queryStmt;
+statementList           : showDatabaseStmt
+                          | showNameSpacesStmt
+                          | showMeasurementsStmt
+                          | showFieldsStmt
+                          | showTagKeysStmt
+                          | showTagValuesStmt
+                          | queryStmt;
+//meta data query statement
+showDatabaseStmt     : T_SHOW T_DATASBAES ;
+showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
+showMeasurementsStmt : T_SHOW T_MEASUREMENTS (T_ON namespace)? (T_WHERE T_MEASUREMENT T_EQUAL prefix)? limitClause?;
+showFieldsStmt       : T_SHOW T_FIELDS (T_ON namespace)? fromClause;
+showTagKeysStmt      : T_SHOW T_TAG T_KEYS (T_ON namespace)? fromClause;
+showTagValuesStmt    : T_SHOW T_TAG T_VALUES (T_ON namespace)? fromClause T_WITH T_KEY T_EQUAL withTagKey whereClause? limitClause?;
+prefix               : ident ;
+withTagKey           : ident ;
+namespace            : ident ;
 
 //data query plan
-queryStmt               : T_EXPLAIN? selectExpr fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? selectExpr (T_ON namespace)? fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
 selectExpr              : T_SELECT fields;
 //select fields
-fields                   : field ( T_COMMA field )* ;
-field                    : fieldExpr alias? ;
-alias                    : T_AS ident ;
+fields                  : field ( T_COMMA field )* ;
+field                   : fieldExpr alias? ;
+alias                   : T_AS ident ;
 
 //from clause
 fromClause              : T_FROM metricName ;
@@ -19,11 +35,11 @@ fromClause              : T_FROM metricName ;
 //where clause
 whereClause             : T_WHERE conditionExpr;
 
-conditionExpr          : tagFilterExpr | tagFilterExpr T_AND timeRangeExpr | timeRangeExpr (T_AND tagFilterExpr)?;
+conditionExpr           : tagFilterExpr | tagFilterExpr T_AND timeRangeExpr | timeRangeExpr (T_AND tagFilterExpr)?;
 
-tagFilterExpr          :
+tagFilterExpr           :
                          T_OPEN_P tagFilterExpr T_CLOSE_P
-                       | tagKey (T_EQUAL | T_LIKE | T_NOT T_LIKE | T_REGEXP | T_NEQREGEXP | T_NOTEQUAL | T_NOTEQUAL2) tagValue
+                        | tagKey (T_EQUAL | T_LIKE | T_NOT T_LIKE | T_REGEXP | T_NEQREGEXP | T_NOTEQUAL | T_NOTEQUAL2) tagValue
                        | tagKey (T_IN | T_NOT T_IN) T_OPEN_P tagValueList T_CLOSE_P
                        | tagFilterExpr (T_AND | T_OR) tagFilterExpr
                        ;
@@ -122,10 +138,13 @@ nonReservedWords      :
                         | T_KILL
                         | T_SHOW
                         | T_DATASBAES
+                        | T_NAMESPACE
+                        | T_NAMESPACES
                         | T_NODE
                         | T_MEASUREMENTS
                         | T_MEASUREMENT
                         | T_FIELD
+                        | T_FIELDS
                         | T_TAG
                         | T_KEYS
                         | T_KEY
@@ -191,10 +210,13 @@ T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;
+T_NAMESPACE          : N A M E S P A C E                ;
+T_NAMESPACES         : N A M E S P A C E S              ;
 T_NODE               : N O D E                          ;
 T_MEASUREMENTS       : M E A S U R E M E N T S          ;
 T_MEASUREMENT        : M E A S U R E M E N T            ;
 T_FIELD              : F I E L D                        ;
+T_FIELDS             : F I E L D S                      ;
 T_TAG                : T A G                            ;
 T_INFO               : I N F O                          ;
 T_KEYS               : K E Y S                          ;

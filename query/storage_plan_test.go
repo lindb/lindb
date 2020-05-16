@@ -32,7 +32,8 @@ func TestStoragePlan_Metric(t *testing.T) {
 			Type: field.SumField,
 		}, nil).AnyTimes()
 
-	query, _ := sql.Parse("select f from cpu")
+	q, _ := sql.Parse("select f from cpu")
+	query := q.(*stmt.Query)
 	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
@@ -71,13 +72,15 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NotNil(t, err)
-	query, _ = sql.Parse("select no_f from cpu")
+	q, _ := sql.Parse("select no_f from cpu")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 
 	// normal
-	query, _ = sql.Parse("select f from cpu")
+	q, _ = sql.Parse("select f from cpu")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
@@ -88,7 +91,8 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, map[field.ID]aggregation.AggregatorSpec{field.ID(10): downSampling}, storagePlan.fields)
 	assert.Equal(t, []field.ID{10}, storagePlan.getFieldIDs())
 
-	query, _ = sql.Parse("select a,b,c as d from cpu")
+	q, _ = sql.Parse("select a,b,c as d from cpu")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
@@ -108,7 +112,8 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t, []field.ID{11, 12, 13}, storagePlan.getFieldIDs())
 
-	query, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
+	q, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.NoError(t, err)
@@ -148,7 +153,8 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	)
 
 	// normal
-	query, _ := sql.Parse("select f,d from disk group by host,path")
+	q, _ := sql.Parse("select f,d from disk group by host,path")
+	query := q.(*stmt.Query)
 	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.NoError(t, err)
@@ -167,7 +173,8 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(uint32(10), nil),
 		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(0), fmt.Errorf("err")),
 	)
-	query, _ = sql.Parse("select f from disk group by host,path")
+	q, _ = sql.Parse("select f from disk group by host,path")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
@@ -200,7 +207,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
 			Return(field.Meta{ID: 10, Type: field.Unknown}, nil),
 	)
-	query, _ := sql.Parse("select f from disk")
+	q, _ := sql.Parse("select f from disk")
+	query := q.(*stmt.Query)
 	plan := newStorageExecutePlan("ns", metadata, query)
 	err := plan.Plan()
 	assert.Error(t, err)
@@ -210,7 +218,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
 			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
-	query, _ = sql.Parse("select histogram(f) from disk")
+	q, _ = sql.Parse("select histogram(f) from disk")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
@@ -222,7 +231,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
 			Return(field.Meta{ID: 10, Type: field.SumField}, nil),
 	)
-	query, _ = sql.Parse("select (d+histogram(f)+b) from disk")
+	q, _ = sql.Parse("select (d+histogram(f)+b) from disk")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)
@@ -234,7 +244,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
 			Return(field.Meta{ID: 11, Type: field.SumField}, nil),
 	)
-	query, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
+	q, _ = sql.Parse("select (d+histogram(f)+b),e from disk")
+	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
 	assert.Error(t, err)

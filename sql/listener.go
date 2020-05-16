@@ -8,6 +8,8 @@ import (
 type listener struct {
 	*grammar.BaseSQLListener
 	stmt *queryStmtParse
+
+	metaStmt *metaStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -15,10 +17,67 @@ func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
 	l.stmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
 }
 
+// EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
+func (l *listener) EnterShowDatabaseStmt(ctx *grammar.ShowDatabaseStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.Database)
+}
+
+// EnterShowNameSpacesStmt is called when production showNameSpacesStmt is entered.
+func (l *listener) EnterShowNameSpacesStmt(ctx *grammar.ShowNameSpacesStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.Namespace)
+}
+
+// EnterShowMeasurementsStmt is called when production showMeasurementsStmt is entered.
+func (l *listener) EnterShowMeasurementsStmt(ctx *grammar.ShowMeasurementsStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.Metric)
+}
+
+// EnterShowFieldsStmt is called when production showFieldsStmt is entered.
+func (l *listener) EnterShowFieldsStmt(ctx *grammar.ShowFieldsStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.Field)
+}
+
+// EnterShowTagKeysStmt is called when production showTagKeysStmt is entered.
+func (l *listener) EnterShowTagKeysStmt(ctx *grammar.ShowTagKeysStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.TagKey)
+}
+
+// EnterShowTagValuesStmt is called when production showTagValuesStmt is entered.
+func (l *listener) EnterShowTagValuesStmt(ctx *grammar.ShowTagValuesStmtContext) {
+	l.metaStmt = newMetaStmtParser(stmt.TagValue)
+}
+
+// EnterNamespace is called when production namespace is entered.
+func (l *listener) EnterNamespace(ctx *grammar.NamespaceContext) {
+	switch {
+	case l.stmt != nil:
+		l.stmt.visitNamespace(ctx)
+	case l.metaStmt != nil:
+		l.metaStmt.visitNamespace(ctx)
+	}
+}
+
+// EnterWithTagKey is called when production withTagKey is entered.
+func (l *listener) EnterWithTagKey(ctx *grammar.WithTagKeyContext) {
+	if l.metaStmt != nil {
+		l.metaStmt.visitWithTagKey(ctx)
+	}
+}
+
+// EnterPrefix is called when production prefix is entered.
+func (l *listener) EnterPrefix(ctx *grammar.PrefixContext) {
+	if l.metaStmt != nil {
+		l.metaStmt.visitPrefix(ctx)
+	}
+}
+
 // EnterMetricName is called when production metricName is entered.
 func (l *listener) EnterMetricName(ctx *grammar.MetricNameContext) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		l.stmt.visitMetricName(ctx)
+	case l.metaStmt != nil:
+		l.metaStmt.visitMetricName(ctx)
 	}
 }
 
@@ -80,29 +139,41 @@ func (l *listener) EnterAlias(ctx *grammar.AliasContext) {
 
 // EnterLimitClause is called when production limitClause is entered.
 func (l *listener) EnterLimitClause(ctx *grammar.LimitClauseContext) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		l.stmt.visitLimit(ctx)
+	case l.metaStmt != nil:
+		l.metaStmt.visitLimit(ctx)
 	}
 }
 
 // EnterTagFilterExpr is called when production tagFilterExpr is entered.
 func (l *listener) EnterTagFilterExpr(ctx *grammar.TagFilterExprContext) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		l.stmt.visitTagFilterExpr(ctx)
+	case l.metaStmt != nil:
+		l.metaStmt.visitTagFilterExpr(ctx)
 	}
 }
 
 // ExitTagFilterExpr is called when production tagValueList is exited.
 func (l *listener) ExitTagFilterExpr(ctx *grammar.TagFilterExprContext) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		l.stmt.completeTagFilterExpr()
+	case l.metaStmt != nil:
+		l.metaStmt.completeTagFilterExpr()
 	}
 }
 
 // EnterTagValue is called when production tagValue is entered.
 func (l *listener) EnterTagValue(ctx *grammar.TagValueContext) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		l.stmt.visitTagValue(ctx)
+	case l.metaStmt != nil:
+		l.metaStmt.visitTagValue(ctx)
 	}
 }
 
@@ -121,10 +192,11 @@ func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
 }
 
 // statement returns query statement, if failure return error
-func (l *listener) statement() (*stmt.Query, error) {
+func (l *listener) statement() (stmt.Statement, error) {
 	if l.stmt != nil {
 		return l.stmt.build()
-
+	} else if l.metaStmt != nil {
+		return l.metaStmt.build()
 	}
 	return nil, nil
 }

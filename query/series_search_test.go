@@ -20,20 +20,23 @@ func TestSeriesSearch_Search(t *testing.T) {
 	seriesIDs := roaring.BitmapOf(10, 20, 30)
 
 	// case 1: empty filter expr
-	query, _ := sql.Parse("select f from cpu")
+	q, _ := sql.Parse("select f from cpu")
+	query := q.(*stmt.Query)
 	search := newSeriesSearch(mockFilter, nil, query)
 	resultSet, err := search.Search()
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), resultSet.GetCardinality())
 	// case 2: equal tag filter
-	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
+	q, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
 	assert.Equal(t, seriesIDs, resultSet)
 	// case 3: not expr
-	query, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
+	q, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(10, 20, 40, 50), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
@@ -41,8 +44,9 @@ func TestSeriesSearch_Search(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(40, 50), resultSet)
 	// case 4: binary expr and
-	query, _ = sql.Parse("select f from cpu " +
+	q, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' and path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), gomock.Any()).Return(roaring.BitmapOf(20), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
@@ -50,8 +54,9 @@ func TestSeriesSearch_Search(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(20), resultSet)
 	// case 5: binary expr or
-	query, _ = sql.Parse("select f from cpu " +
+	q, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' or path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), gomock.Any()).Return(roaring.BitmapOf(200), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
@@ -59,7 +64,8 @@ func TestSeriesSearch_Search(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(10, 20, 30, 200), resultSet)
 	// case 6: paren expr
-	query, _ = sql.Parse("select f from cpu where (ip='1.1.1.1')")
+	q, _ = sql.Parse("select f from cpu where (ip='1.1.1.1')")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
 	resultSet, err = search.Search()
@@ -74,7 +80,8 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	seriesIDs := roaring.BitmapOf(10, 20, 30)
 
 	// case 1: expr not exist
-	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	q, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	query := q.(*stmt.Query)
 	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query)
 	resultSet, err := search.Search()
 	assert.Error(t, err)
@@ -86,7 +93,8 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
 	// case 3: not expr err
-	query, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
+	q, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs, nil)
 	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(nil, fmt.Errorf("err"))
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
@@ -94,7 +102,8 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
 	// case 4: recursion err
-	query, _ = sql.Parse("select f from cpu where ip='1.1.1.1' or ip='1.1.1.1'")
+	q, _ = sql.Parse("select f from cpu where ip='1.1.1.1' or ip='1.1.1.1'")
+	query = q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query)
 	resultSet, err = search.Search()
@@ -107,7 +116,8 @@ func TestSeriesSearch_Search_expr_not_match(t *testing.T) {
 	defer ctrl.Finish()
 	mockFilter := series.NewMockFilter(ctrl)
 
-	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	q, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	query := q.(*stmt.Query)
 	query.Condition = &stmt.CallExpr{}
 	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query)
 	resultSet, err := search.Search()
@@ -120,8 +130,9 @@ func TestSeriesSearch_Search_complex(t *testing.T) {
 	defer ctrl.Finish()
 	mockFilter := series.NewMockFilter(ctrl)
 
-	query, _ := sql.Parse("select f from cpu" +
+	q, _ := sql.Parse("select f from cpu" +
 		" where (ip not in ('1.1.1.1','2.2.2.2') and region='sh') and (path='/data' or path='/home')")
+	query := q.(*stmt.Query)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), roaring.BitmapOf(5)).Return(roaring.BitmapOf(1, 2), nil)
 	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7), nil)
 	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(3), roaring.BitmapOf(4)).Return(roaring.BitmapOf(3, 5, 6, 7), nil)

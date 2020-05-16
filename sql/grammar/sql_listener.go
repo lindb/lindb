@@ -1,4 +1,4 @@
-// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
+// Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.8. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -12,6 +12,33 @@ type SQLListener interface {
 
 	// EnterStatementList is called when entering the statementList production.
 	EnterStatementList(c *StatementListContext)
+
+	// EnterShowDatabaseStmt is called when entering the showDatabaseStmt production.
+	EnterShowDatabaseStmt(c *ShowDatabaseStmtContext)
+
+	// EnterShowNameSpacesStmt is called when entering the showNameSpacesStmt production.
+	EnterShowNameSpacesStmt(c *ShowNameSpacesStmtContext)
+
+	// EnterShowMeasurementsStmt is called when entering the showMeasurementsStmt production.
+	EnterShowMeasurementsStmt(c *ShowMeasurementsStmtContext)
+
+	// EnterShowFieldsStmt is called when entering the showFieldsStmt production.
+	EnterShowFieldsStmt(c *ShowFieldsStmtContext)
+
+	// EnterShowTagKeysStmt is called when entering the showTagKeysStmt production.
+	EnterShowTagKeysStmt(c *ShowTagKeysStmtContext)
+
+	// EnterShowTagValuesStmt is called when entering the showTagValuesStmt production.
+	EnterShowTagValuesStmt(c *ShowTagValuesStmtContext)
+
+	// EnterPrefix is called when entering the prefix production.
+	EnterPrefix(c *PrefixContext)
+
+	// EnterWithTagKey is called when entering the withTagKey production.
+	EnterWithTagKey(c *WithTagKeyContext)
+
+	// EnterNamespace is called when entering the namespace production.
+	EnterNamespace(c *NamespaceContext)
 
 	// EnterQueryStmt is called when entering the queryStmt production.
 	EnterQueryStmt(c *QueryStmtContext)
@@ -150,6 +177,33 @@ type SQLListener interface {
 
 	// ExitStatementList is called when exiting the statementList production.
 	ExitStatementList(c *StatementListContext)
+
+	// ExitShowDatabaseStmt is called when exiting the showDatabaseStmt production.
+	ExitShowDatabaseStmt(c *ShowDatabaseStmtContext)
+
+	// ExitShowNameSpacesStmt is called when exiting the showNameSpacesStmt production.
+	ExitShowNameSpacesStmt(c *ShowNameSpacesStmtContext)
+
+	// ExitShowMeasurementsStmt is called when exiting the showMeasurementsStmt production.
+	ExitShowMeasurementsStmt(c *ShowMeasurementsStmtContext)
+
+	// ExitShowFieldsStmt is called when exiting the showFieldsStmt production.
+	ExitShowFieldsStmt(c *ShowFieldsStmtContext)
+
+	// ExitShowTagKeysStmt is called when exiting the showTagKeysStmt production.
+	ExitShowTagKeysStmt(c *ShowTagKeysStmtContext)
+
+	// ExitShowTagValuesStmt is called when exiting the showTagValuesStmt production.
+	ExitShowTagValuesStmt(c *ShowTagValuesStmtContext)
+
+	// ExitPrefix is called when exiting the prefix production.
+	ExitPrefix(c *PrefixContext)
+
+	// ExitWithTagKey is called when exiting the withTagKey production.
+	ExitWithTagKey(c *WithTagKeyContext)
+
+	// ExitNamespace is called when exiting the namespace production.
+	ExitNamespace(c *NamespaceContext)
 
 	// ExitQueryStmt is called when exiting the queryStmt production.
 	ExitQueryStmt(c *QueryStmtContext)

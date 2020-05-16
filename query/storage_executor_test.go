@@ -103,7 +103,8 @@ func TestStorageExecute_validation(t *testing.T) {
 	exec.Execute()
 
 	// case 6: normal case
-	query, _ = sql.Parse("select f from cpu")
+	q, _ := sql.Parse("select f from cpu")
+	query = q.(*stmt.Query)
 	mockDB1 := newMockDatabase(ctrl)
 	exec = newStorageExecutor(queryFlow, mockDB1, newStorageExecuteContext("ns", []int32{1, 2, 3}, query))
 	gomock.InOrder(
@@ -130,7 +131,8 @@ func TestStorageExecute_Plan_Fail(t *testing.T) {
 	plan.EXPECT().Plan().Return(fmt.Errorf("err"))
 
 	// find metric name err
-	query, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ := sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query := q.(*stmt.Query)
 	exec := newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext("ns", []int32{1, 2, 3}, query))
 	queryFlow.EXPECT().Complete(fmt.Errorf("err"))
 	exec.Execute()
@@ -148,7 +150,9 @@ func TestStorageExecutor_TagSearch(t *testing.T) {
 	}
 	mockDatabase := newMockDatabase(ctrl)
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
-	query, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	q, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
+	query := q.(*stmt.Query)
+
 	// case 1: tag search err
 	exec := newStorageExecutor(qFlow, mockDatabase, newStorageExecuteContext("ns", []int32{1, 2, 3}, query))
 	tagSearch.EXPECT().Filter().Return(nil, fmt.Errorf("err"))
@@ -207,12 +211,16 @@ func TestStorageExecute_Execute(t *testing.T) {
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()
 
 	// case 1: series search err
-	query, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ := sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query := q.(*stmt.Query)
+
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err")).Times(3)
 	exec := newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext("ns", []int32{1, 2, 3}, query))
 	exec.Execute()
 	// case 2: normal case without filter
-	query, _ = sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ = sql.Parse("select f from cpu where time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query = q.(*stmt.Query)
+
 	index.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).DoAndReturn(func(a, b string) (*roaring.Bitmap, error) {
 		return roaring.BitmapOf(1, 2, 3), nil
 	}).AnyTimes()
@@ -225,7 +233,9 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext("ns", []int32{1, 2, 3}, query))
 	exec.Execute()
 	// case 3: normal case with filter
-	query, _ = sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	q, _ = sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
+	query = q.(*stmt.Query)
+
 	filterRS = flow.NewMockFilterResultSet(ctrl)
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
@@ -259,7 +269,9 @@ func TestStorageExecute_Execute(t *testing.T) {
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
 	// case 7: group by
-	query, _ = sql.Parse("select f from cpu where host='1.1.1.1' group by host")
+	q, _ = sql.Parse("select f from cpu where host='1.1.1.1' group by host")
+	query = q.(*stmt.Query)
+
 	filterRS = flow.NewMockFilterResultSet(ctrl)
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
@@ -286,7 +298,9 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	metadata.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
 	mockDatabase.EXPECT().Metadata().Return(metadata).AnyTimes()
 	// case 1: normal case
-	query, _ := sql.Parse("select f from cpu group by host")
+	q, _ := sql.Parse("select f from cpu group by host")
+	query := q.(*stmt.Query)
+
 	exec := newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext("ns", []int32{1}, query))
 	exec1 := exec.(*storageExecutor)
 	exec1.groupByTagKeyIDs = []tag.Meta{{ID: 1, Key: "host"}}

@@ -1,4 +1,4 @@
-// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.7.2. DO NOT EDIT.
+// Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.8. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -31,6 +31,60 @@ func (s *BaseSQLListener) EnterStatementList(ctx *StatementListContext) {}
 
 // ExitStatementList is called when production statementList is exited.
 func (s *BaseSQLListener) ExitStatementList(ctx *StatementListContext) {}
+
+// EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
+func (s *BaseSQLListener) EnterShowDatabaseStmt(ctx *ShowDatabaseStmtContext) {}
+
+// ExitShowDatabaseStmt is called when production showDatabaseStmt is exited.
+func (s *BaseSQLListener) ExitShowDatabaseStmt(ctx *ShowDatabaseStmtContext) {}
+
+// EnterShowNameSpacesStmt is called when production showNameSpacesStmt is entered.
+func (s *BaseSQLListener) EnterShowNameSpacesStmt(ctx *ShowNameSpacesStmtContext) {}
+
+// ExitShowNameSpacesStmt is called when production showNameSpacesStmt is exited.
+func (s *BaseSQLListener) ExitShowNameSpacesStmt(ctx *ShowNameSpacesStmtContext) {}
+
+// EnterShowMeasurementsStmt is called when production showMeasurementsStmt is entered.
+func (s *BaseSQLListener) EnterShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
+
+// ExitShowMeasurementsStmt is called when production showMeasurementsStmt is exited.
+func (s *BaseSQLListener) ExitShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
+
+// EnterShowFieldsStmt is called when production showFieldsStmt is entered.
+func (s *BaseSQLListener) EnterShowFieldsStmt(ctx *ShowFieldsStmtContext) {}
+
+// ExitShowFieldsStmt is called when production showFieldsStmt is exited.
+func (s *BaseSQLListener) ExitShowFieldsStmt(ctx *ShowFieldsStmtContext) {}
+
+// EnterShowTagKeysStmt is called when production showTagKeysStmt is entered.
+func (s *BaseSQLListener) EnterShowTagKeysStmt(ctx *ShowTagKeysStmtContext) {}
+
+// ExitShowTagKeysStmt is called when production showTagKeysStmt is exited.
+func (s *BaseSQLListener) ExitShowTagKeysStmt(ctx *ShowTagKeysStmtContext) {}
+
+// EnterShowTagValuesStmt is called when production showTagValuesStmt is entered.
+func (s *BaseSQLListener) EnterShowTagValuesStmt(ctx *ShowTagValuesStmtContext) {}
+
+// ExitShowTagValuesStmt is called when production showTagValuesStmt is exited.
+func (s *BaseSQLListener) ExitShowTagValuesStmt(ctx *ShowTagValuesStmtContext) {}
+
+// EnterPrefix is called when production prefix is entered.
+func (s *BaseSQLListener) EnterPrefix(ctx *PrefixContext) {}
+
+// ExitPrefix is called when production prefix is exited.
+func (s *BaseSQLListener) ExitPrefix(ctx *PrefixContext) {}
+
+// EnterWithTagKey is called when production withTagKey is entered.
+func (s *BaseSQLListener) EnterWithTagKey(ctx *WithTagKeyContext) {}
+
+// ExitWithTagKey is called when production withTagKey is exited.
+func (s *BaseSQLListener) ExitWithTagKey(ctx *WithTagKeyContext) {}
+
+// EnterNamespace is called when production namespace is entered.
+func (s *BaseSQLListener) EnterNamespace(ctx *NamespaceContext) {}
+
+// ExitNamespace is called when production namespace is exited.
+func (s *BaseSQLListener) ExitNamespace(ctx *NamespaceContext) {}
 
 // EnterQueryStmt is called when production queryStmt is entered.
 func (s *BaseSQLListener) EnterQueryStmt(ctx *QueryStmtContext) {}
