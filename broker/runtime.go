@@ -16,7 +16,6 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/api/admin"
 	masterAPI "github.com/lindb/lindb/broker/api/cluster"
-	"github.com/lindb/lindb/broker/api/metadata"
 	writeAPI "github.com/lindb/lindb/broker/api/metric"
 	queryAPI "github.com/lindb/lindb/broker/api/query"
 	stateAPI "github.com/lindb/lindb/broker/api/state"
@@ -75,9 +74,8 @@ type apiHandler struct {
 	brokerStateAPI     *stateAPI.BrokerAPI
 	masterAPI          *masterAPI.MasterAPI
 	metricAPI          *queryAPI.MetricAPI
+	metadataAPI        *queryAPI.MetadataAPI
 	writeAPI           *writeAPI.WriteAPI
-	metaDatabaseAPI    *metadata.DatabaseAPI
-	metaMetricAPI      *metadata.MetricAPI
 	prometheusWriter   *write.PrometheusWrite
 }
 
@@ -355,12 +353,10 @@ func (r *runtime) buildAPIDependency() {
 		masterAPI:          masterAPI.NewMasterAPI(r.master),
 		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, r.stateMachines.DatabaseSM, query.NewExecutorFactory(), r.srv.jobManager),
+		metadataAPI: queryAPI.NewMetadataAPI(r.srv.databaseService, r.stateMachines.ReplicaStatusSM,
+			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI:         writeAPI.NewWriteAPI(r.srv.channelManager),
 		prometheusWriter: write.NewPrometheusWrite(r.srv.channelManager),
-
-		metaDatabaseAPI: metadata.NewDatabaseAPI(r.srv.databaseService),
-		metaMetricAPI: metadata.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 	}
 
 	api.AddRoute("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -383,16 +379,10 @@ func (r *runtime) buildAPIDependency() {
 	api.AddRoute("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
 
 	api.AddRoute("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
+	api.AddRoute("QueryMetadata", http.MethodGet, "/query/metadata", handlers.metadataAPI.Handle)
 
 	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
 	api.AddRoute("PrometheusWriter", http.MethodPut, "/metric/prometheus", handlers.prometheusWriter.Write)
-
-	api.AddRoute("ListDatabaseNodes", http.MethodGet, "/metadata/database/names", handlers.metaDatabaseAPI.ListDatabaseNames)
-	api.AddRoute("SuggestNamespace", http.MethodGet, "/metadata/namespace", handlers.metaMetricAPI.SuggestNamespace)
-	api.AddRoute("SuggestMetric", http.MethodGet, "/metadata/metric", handlers.metaMetricAPI.SuggestMetrics)
-	api.AddRoute("SuggestField", http.MethodGet, "/metadata/field", handlers.metaMetricAPI.GetAllFields)
-	api.AddRoute("SuggestTagKey", http.MethodGet, "/metadata/tagKey", handlers.metaMetricAPI.SuggestTagKeys)
-	api.AddRoute("SuggestTagValue", http.MethodGet, "/metadata/tagValue", handlers.metaMetricAPI.SuggestTagValues)
 }
 
 // buildMiddlewareDependency builds middleware dependency

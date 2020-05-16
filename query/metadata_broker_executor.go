@@ -17,8 +17,7 @@ import (
 // 3. merges the result from distribution task execute result set
 type metadataBrokerExecutor struct {
 	database            string
-	namespace           string
-	suggest             *stmt.Metadata
+	request             *stmt.Metadata
 	replicaStateMachine replica.StatusStateMachine
 	nodeStateMachine    broker.NodeStateMachine
 	jobManager          parallel.JobManager
@@ -27,14 +26,13 @@ type metadataBrokerExecutor struct {
 }
 
 // newMetadataBrokerExecutor creates a metadata suggest executor in broker side
-func newMetadataBrokerExecutor(ctx context.Context, database string, namespace string, suggest *stmt.Metadata,
+func newMetadataBrokerExecutor(ctx context.Context, database string, request *stmt.Metadata,
 	nodeStateMachine broker.NodeStateMachine, replicaStateMachine replica.StatusStateMachine,
 	jobManager parallel.JobManager) parallel.MetadataExecutor {
 	return &metadataBrokerExecutor{
 		ctx:                 ctx,
 		database:            database,
-		namespace:           namespace,
-		suggest:             suggest,
+		request:             request,
 		replicaStateMachine: replicaStateMachine,
 		nodeStateMachine:    nodeStateMachine,
 		jobManager:          jobManager,
@@ -56,7 +54,7 @@ func (e *metadataBrokerExecutor) Execute() (result []string, err error) {
 
 // submitJob submits the metadata suggest query job
 func (e *metadataBrokerExecutor) submitJob(physicalPlan *models.PhysicalPlan, resultCh chan []string) (result []string, err error) {
-	if err := e.jobManager.SubmitMetadataJob(e.ctx, physicalPlan, e.suggest, resultCh); err != nil {
+	if err := e.jobManager.SubmitMetadataJob(e.ctx, physicalPlan, e.request, resultCh); err != nil {
 		close(resultCh)
 		return nil, err
 	}
@@ -85,8 +83,7 @@ func (e *metadataBrokerExecutor) buildPhysicalPlan() (*models.PhysicalPlan, erro
 	curBroker := e.nodeStateMachine.GetCurrentNode()
 	curBrokerIndicator := (&curBroker).Indicator()
 	physicalPlan := &models.PhysicalPlan{
-		Database:  e.database,
-		Namespace: e.namespace,
+		Database: e.database,
 		Root: models.Root{
 			Indicator: curBrokerIndicator,
 			NumOfTask: int32(storageNodesLen),
