@@ -1,4 +1,5 @@
 import Chart from 'components/metric/Chart'
+import ChartLegend from 'components/metric/ChartLegend'
 import { autobind } from 'core-decorators'
 import { observer } from 'mobx-react'
 import { ChartTooltipData, UnitEnum } from 'model/Metric'
@@ -35,8 +36,8 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
   }
 
   @autobind
-  handleLegendClick(index: number, status: boolean[]) {
-    StoreManager.ChartEventStore.changeSeriesByClick(this.props.id, status)
+  handleLegendClick() {
+    StoreManager.ChartEventStore.changeSeriesByClick(this.props.id)
   }
 
   @autobind
@@ -51,7 +52,6 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
 
   render() {
     const { unit, id, type, height } = this.props
-    console.log(height)
     return (
       <div className="lindb-metric">
         <React.Fragment>
@@ -63,7 +63,7 @@ export default class Metric extends React.Component<MetricProps, MetricStatus> {
             onMouseMove={this.handleChartMouseMove}
             onMouseOut={this.handleChartMouseOut}
           />
-          {/* <ChartLegend data={data} onLegendClick={this.handleLegendClick} /> */}
+          <ChartLegend uuid={id} onLegendClick={this.handleLegendClick} />
         </React.Fragment>
       </div>
     )

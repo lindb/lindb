@@ -1,59 +1,93 @@
 import * as React from 'react'
 import classNames from 'classnames'
 import { autobind } from 'core-decorators'
+import { reaction } from 'mobx';
+import StoreManager from 'store/StoreManager';
+import { ChartStatusEnum } from 'model/Chart';
 
 interface ChartLegendProps {
-  data?: any
-  onLegendClick?: (index: number, status: boolean[]) => void
+  uuid: string
+  onLegendClick?: () => void
 }
 
-interface ChartLegendStatus {
-  status: boolean[] // Array of series status
+interface ChartLegendState {
+  series: any
 }
 
-export default class ChartLegend extends React.Component<ChartLegendProps, ChartLegendStatus> {
+export default class ChartLegend extends React.Component<ChartLegendProps, ChartLegendState> {
   private chartLegendCls = 'lindb-chart-legend'
+  disposers: any[]
 
   constructor(props: ChartLegendProps) {
     super(props)
 
-    const { data } = this.props
-    const legendLength = data.datasets ? data.datasets.length : 0
-
     this.state = {
-      status: [ ...Array(legendLength + 1) ].join('0').split('').map(() => false),
+      series: {},
     }
+
+    this.disposers = [
+      reaction(
+        () => StoreManager.ChartStore.chartStatusMap.get(props.uuid),
+        chartStatus => {
+          console.log("init", props.uuid)
+          if (chartStatus!.status !== ChartStatusEnum.Loaded) {
+            return
+          }
+          const series = StoreManager.ChartStore.seriesCache.get(props.uuid) || {};
+
+          this.setState({ series: series })
+        }
+      )
+    ]
+  }
+
+  componentWillUnmount(): void {
+    this.disposers.map(handle => handle())
   }
 
   @autobind
-  handleLegendItemClick(index: number) {
-    const status = this.state.status.slice()
-    status[ index ] = !this.state.status[ index ]
-    this.setState({ status })
+  handleLegendItemClick(item: any) {
+    const { onLegendClick, uuid } = this.props
+    let selected = StoreManager.ChartStore.selectedSeries.get(uuid)
+    if (!selected) {
+      selected = new Map()
+    }
+    const label = item.label
+    if (selected.has(label)) {
+      selected.delete(label)
+    } else {
+      selected.clear()
+      selected.set(label, label)
+    }
 
-    const { onLegendClick } = this.props
-    onLegendClick && onLegendClick(index, this.state.status)
+    this.forceUpdate()
+
+    StoreManager.ChartStore.selectedSeries.set(uuid, selected)
+    onLegendClick && onLegendClick()
   }
 
   render() {
-    const { data } = this.props
-    const { status } = this.state
+    const { uuid } = this.props
+    const { series } = this.state
     const cls = this.chartLegendCls
+    if (!series) {
+      return null
+    }
+    const selected = StoreManager.ChartStore.selectedSeries.get(uuid)
 
     return (
       <div className={cls}>
         {/* render Legend Item */}
-        {data.datasets && data.datasets.map((item: any, index: number) => {
+        {series.datasets && series.datasets.map((item: any, index: number) => {
           const { label, borderColor } = item
-
           return (
             <span
               key={label + borderColor}
-              className={classNames(`${cls}__item`, { hidden: status[ index ] })}
-              onClick={() => this.handleLegendItemClick(index)}
+              className={classNames(`${cls}__item`, { hidden: selected && selected.size > 0 && !selected.has(label) })}
+              onClick={() => this.handleLegendItemClick(item)}
               title={label}
             >
-              <i className={`${cls}__item__icon`} style={{ backgroundColor: borderColor }}/>{label}
+              <i className={`${cls}__item__icon`} style={{ backgroundColor: borderColor }} />{label}
             </span>
           )
         })}
