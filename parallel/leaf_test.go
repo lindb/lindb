@@ -121,7 +121,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	storageService := service.NewMockStorageService(ctrl)
 	executorFactory := NewMockExecutorFactory(ctrl)
 	exec := NewMockMetadataExecutor(ctrl)
-	executorFactory.EXPECT().NewMetadataStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
+	executorFactory.EXPECT().NewMetadataStorageExecutor(gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
 	processor := newLeafTask(currentNode, storageService, executorFactory, taskServerFactory)

@@ -32,11 +32,10 @@ func (*executorFactory) NewStorageExecutor(
 // NewMetadataStorageExecutor creates the metadata executor in storage side
 func (*executorFactory) NewMetadataStorageExecutor(
 	database tsdb.Database,
-	namespace string,
 	shardIDs []int32,
 	request *stmt.Metadata,
 ) parallel.MetadataExecutor {
-	return newMetadataStorageExecutor(database, namespace, shardIDs, request)
+	return newMetadataStorageExecutor(database, shardIDs, request)
 }
 
 // NewStorageExecutor creates broker executor
@@ -59,13 +58,12 @@ func (*executorFactory) NewBrokerExecutor(
 func (*executorFactory) NewMetadataBrokerExecutor(
 	ctx context.Context,
 	databaseName string,
-	namespace string,
 	request *stmt.Metadata,
 	replicaStateMachine replica.StatusStateMachine,
 	nodeStateMachine broker.NodeStateMachine,
 	jobManager parallel.JobManager,
 ) parallel.MetadataExecutor {
-	return newMetadataBrokerExecutor(ctx, databaseName, namespace, request, nodeStateMachine, replicaStateMachine, jobManager)
+	return newMetadataBrokerExecutor(ctx, databaseName, request, nodeStateMachine, replicaStateMachine, jobManager)
 }
 
 // NewStorageExecuteContext creates the storage execute context in storage side
