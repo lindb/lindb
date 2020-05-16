@@ -5,7 +5,8 @@ type MetadataType uint8
 
 // Defines all types of metadata suggest
 const (
-	Namespace MetadataType = iota + 1
+	Database MetadataType = iota + 1
+	Namespace
 	Metric
 	TagKey
 	TagValue
@@ -19,5 +20,8 @@ type Metadata struct {
 	Type       MetadataType // metadata suggest type
 	TagKey     string
 	TagValue   string
-	Limit      int // result set limit
+	Prefix     string
+	Condition  Expr // tag filter condition expression
+
+	Limit int // result set limit
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestBrokerExecuteContext(t *testing.T) {
@@ -21,7 +22,8 @@ func TestBrokerExecuteContext(t *testing.T) {
 
 	expression := aggregation.NewMockExpression(ctrl)
 
-	query, err := sql.Parse("select f from cpu")
+	q, err := sql.Parse("select f from cpu")
+	query := q.(*stmt.Query)
 	assert.NoError(t, err)
 	query.Interval = timeutil.Interval(10 * timeutil.OneSecond)
 
@@ -57,7 +59,8 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 
 	expression := aggregation.NewMockExpression(ctrl)
 
-	query, err := sql.Parse("select f from cpu group by host")
+	q, err := sql.Parse("select f from cpu group by host")
+	query := q.(*stmt.Query)
 	assert.NoError(t, err)
 	query.Interval = timeutil.Interval(10 * timeutil.OneSecond)
 

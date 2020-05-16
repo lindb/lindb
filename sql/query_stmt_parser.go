@@ -15,8 +15,8 @@ import (
 
 // queryStmtParse represents query statement parser using visitor
 type queryStmtParse struct {
-	explain    bool
-	metricName string
+	baseStmtParser
+	explain bool
 
 	selectItems []stmt.Expr
 	fieldNames  map[string]struct{}
@@ -24,17 +24,11 @@ type queryStmtParse struct {
 	startTime int64
 	endTime   int64
 
-	condition stmt.Expr
 	//orderByExpr stmt.Expr
 	//desc        bool
-	limit    int
 	groupBy  []string
 	interval int64
 	fieldID  int
-
-	exprStack *collections.Stack
-
-	err error
 }
 
 // newQueryStmtParse create a query statement parser
@@ -42,20 +36,23 @@ func newQueryStmtParse(explain bool) *queryStmtParse {
 	return &queryStmtParse{
 		explain:    explain,
 		fieldNames: make(map[string]struct{}),
-		limit:      20,
 		fieldID:    1,
-		exprStack:  collections.NewStack(),
+		baseStmtParser: baseStmtParser{
+			exprStack: collections.NewStack(),
+			limit:     20,
+		},
 	}
 }
 
 // build builds query statement based on parse result
-func (q *queryStmtParse) build() (*stmt.Query, error) {
+func (q *queryStmtParse) build() (stmt.Statement, error) {
 	if err := q.validation(); err != nil {
 		return nil, err
 	}
 
 	query := &stmt.Query{}
 	query.Explain = q.explain
+	query.Namespace = q.namespace
 	query.MetricName = q.metricName
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
@@ -108,19 +105,6 @@ func (q *queryStmtParse) resetExprStack() {
 	q.exprStack = collections.NewStack()
 }
 
-// visitLimit visits when production limit expression is entered
-func (q *queryStmtParse) visitLimit(ctx *grammar.LimitClauseContext) {
-	if ctx.L_INT() == nil {
-		return
-	}
-	limit, err := strconv.ParseInt(ctx.L_INT().GetText(), 10, 32)
-	if err != nil {
-		q.err = err
-		return
-	}
-	q.limit = int(limit)
-}
-
 // visitGroupByKey visits when production groupBy key expression is entered
 func (q *queryStmtParse) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	switch {
@@ -130,11 +114,6 @@ func (q *queryStmtParse) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	case ctx.DurationLit() != nil:
 		q.interval = q.parseDuration(ctx.DurationLit())
 	}
-}
-
-// visitMetricName visits when production metricName expression is entered
-func (q *queryStmtParse) visitMetricName(ctx *grammar.MetricNameContext) {
-	q.metricName = strutil.GetStringValue(ctx.Ident().GetText())
 }
 
 // visitTimeRangeExpr visits when production timeRange expression is entered
@@ -218,109 +197,6 @@ func (q *queryStmtParse) parseDuration(ctx grammar.IDurationLitContext) int64 {
 		result = duration * timeutil.OneYear
 	}
 	return result
-}
-
-// visitTagFilterExpr visits when production tag filter expression is entered
-func (q *queryStmtParse) visitTagFilterExpr(ctx *grammar.TagFilterExprContext) {
-	tagKey := ctx.TagKey()
-	var expr stmt.Expr
-	switch {
-	case ctx.TagKey() != nil:
-		expr = q.createTagFilterExpr(tagKey, ctx)
-	case ctx.T_OPEN_P() != nil:
-		expr = &stmt.ParenExpr{}
-	case ctx.T_AND() != nil:
-		expr = &stmt.BinaryExpr{Operator: stmt.AND}
-	case ctx.T_OR() != nil:
-		expr = &stmt.BinaryExpr{Operator: stmt.OR}
-	}
-
-	q.exprStack.Push(expr)
-}
-
-// visitTagValue visits when production tag value expression is entered
-func (q *queryStmtParse) visitTagValue(ctx *grammar.TagValueContext) {
-	if q.exprStack.Empty() {
-		return
-	}
-	tagFilterExpr := q.exprStack.Peek()
-	tagValue := strutil.GetStringValue(ctx.Ident().GetText())
-	switch expr := tagFilterExpr.(type) {
-	case *stmt.NotExpr:
-		q.setTagFilterExprValue(expr.Expr, tagValue)
-	case stmt.Expr:
-		q.setTagFilterExprValue(expr, tagValue)
-	}
-}
-
-// setTagFilterExprValue sets tag value for tag filter expression
-func (q *queryStmtParse) setTagFilterExprValue(expr stmt.Expr, tagValue string) {
-	switch e := expr.(type) {
-	case *stmt.EqualsExpr:
-		e.Value = tagValue
-	case *stmt.LikeExpr:
-		e.Value = tagValue
-	case *stmt.RegexExpr:
-		e.Regexp = tagValue
-	case *stmt.InExpr:
-		e.Values = append(e.Values, tagValue)
-	}
-}
-
-// createTagFilterExpr creates tag filer expr like equals, like, in and regex etc.
-func (q *queryStmtParse) createTagFilterExpr(tagKey grammar.ITagKeyContext,
-	ctx *grammar.TagFilterExprContext) stmt.Expr {
-	tagKeyCtx, ok := tagKey.(*grammar.TagKeyContext)
-	var expr stmt.Expr
-	if ok {
-		tagKeyStr := strutil.GetStringValue(tagKeyCtx.Ident().GetText())
-		switch {
-		case ctx.T_EQUAL() != nil:
-			expr = &stmt.EqualsExpr{Key: tagKeyStr}
-		case ctx.T_LIKE() != nil:
-			if ctx.T_NOT() != nil {
-				expr = &stmt.NotExpr{Expr: &stmt.LikeExpr{Key: tagKeyStr}}
-			} else {
-				expr = &stmt.LikeExpr{Key: tagKeyStr}
-			}
-		case ctx.T_REGEXP() != nil:
-			expr = &stmt.RegexExpr{Key: tagKeyStr}
-		case ctx.T_NEQREGEXP() != nil:
-			expr = &stmt.NotExpr{Expr: &stmt.RegexExpr{Key: tagKeyStr}}
-		case ctx.T_NOTEQUAL() != nil || ctx.T_NOTEQUAL2() != nil:
-			expr = &stmt.NotExpr{Expr: &stmt.EqualsExpr{Key: tagKeyStr}}
-		case ctx.T_IN() != nil:
-			if ctx.T_NOT() != nil {
-				expr = &stmt.NotExpr{Expr: &stmt.InExpr{Key: tagKeyStr}}
-			} else {
-				expr = &stmt.InExpr{Key: tagKeyStr}
-			}
-		}
-	}
-	return expr
-}
-
-// completeTagFilterExpr completes a tag filter expression for query condition
-func (q *queryStmtParse) completeTagFilterExpr() {
-	expr := q.exprStack.Pop()
-	e, ok := expr.(stmt.Expr)
-	if !ok {
-		return
-	}
-	if !q.exprStack.Empty() {
-		parent := q.exprStack.Peek()
-		switch parentExpr := parent.(type) {
-		case *stmt.BinaryExpr:
-			if parentExpr.Left == nil {
-				parentExpr.Left = e
-			} else if parentExpr.Right == nil {
-				parentExpr.Right = e
-			}
-		case *stmt.ParenExpr:
-			parentExpr.Expr = e
-		}
-	}
-	q.condition = e
 }
 
 // visitFieldExpr visits when production field expression is entered
@@ -417,27 +293,6 @@ func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
 		val, _ := strconv.ParseFloat(valStr, 64)
 		if !q.exprStack.Empty() {
 			q.setExprParam(&stmt.NumberLiteral{Val: val})
-		}
-	default:
-	}
-}
-
-// setExprParam sets expr's param(call,paren,binary)
-func (q *queryStmtParse) setExprParam(param stmt.Expr) {
-	if q.exprStack.Empty() {
-		return
-	}
-
-	switch expr := q.exprStack.Peek().(type) {
-	case *stmt.CallExpr:
-		expr.Params = append(expr.Params, param)
-	case *stmt.ParenExpr:
-		expr.Expr = param
-	case *stmt.BinaryExpr:
-		if expr.Left == nil {
-			expr.Left = param
-		} else if expr.Right == nil {
-			expr.Right = param
 		}
 	default:
 	}

@@ -25,7 +25,8 @@ func TestExpression_prepare(t *testing.T) {
 	maxSeries := mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f2", field.MinField)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	query, _ := sql.Parse("select f1,f2 from cpu")
+	q, _ := sql.Parse("select f1,f2 from cpu")
+	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -90,7 +91,8 @@ func TestExpression_prepare(t *testing.T) {
 		timeSeries.EXPECT().Next().Return(maxSeries),
 		timeSeries.EXPECT().HasNext().Return(false),
 	)
-	query, _ = sql.Parse("select f1,f2 from cpu")
+	q, _ = sql.Parse("select f1,f2 from cpu")
+	query = q.(*stmt.Query)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -109,7 +111,8 @@ func TestExpression_Paren(t *testing.T) {
 	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	query, _ := sql.Parse("select (f1+f2)*f3 as f from cpu")
+	q, _ := sql.Parse("select (f1+f2)*f3 as f from cpu")
+	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -140,7 +143,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	query, _ := sql.Parse("select (f1+f2)*100 as f from cpu")
+	q, _ := sql.Parse("select (f1+f2)*100 as f from cpu")
+	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -161,7 +165,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
 	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
 	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField)
-	query, _ = sql.Parse("select f1+f2*f3 from cpu")
+	q, _ = sql.Parse("select f1+f2*f3 from cpu")
+	query = q.(*stmt.Query)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -242,7 +247,8 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	query, _ := sql.Parse("select sum(f1) from cpu")
+	q, _ := sql.Parse("select sum(f1) from cpu")
+	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,

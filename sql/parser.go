@@ -10,12 +10,17 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+// for testing
+var (
+	newSQLParserFunc = grammar.NewSQLParser
+)
+
 var log = logger.GetLogger("sql", "Parser")
 var errorHandle = &errorListener{}
 var walker = antlr.ParseTreeWalkerDefault
 
 // Parse parses sql using the grammar of LinDB query language
-func Parse(sql string) (stmt *stmt.Query, err error) {
+func Parse(sql string) (stmt stmt.Statement, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch x := r.(type) {
@@ -39,7 +44,7 @@ func Parse(sql string) (stmt *stmt.Query, err error) {
 
 	tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 
-	parser := grammar.NewSQLParser(tokens)
+	parser := newSQLParserFunc(tokens)
 	parser.BuildParseTrees = true
 	parser.RemoveErrorListeners()
 	parser.AddErrorListener(errorHandle)
