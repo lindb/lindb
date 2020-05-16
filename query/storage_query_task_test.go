@@ -102,7 +102,8 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), result.GetCardinality())
 	// case 4: has condition, return err
-	query, _ := sql.Parse("select f from cpu where ip<>'1.1.1.1'")
+	q, _ := sql.Parse("select f from cpu where ip<>'1.1.1.1'")
+	query := q.(*stmt.Query)
 	seriesSearch := NewMockSeriesSearch(ctrl)
 	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, query *stmt.Query) SeriesSearch {
 		return seriesSearch
@@ -118,7 +119,8 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), result)
 	result.Clear()
 	// case 6: explain
-	query, _ = sql.Parse("explain select f from cpu where ip<>'1.1.1.1'")
+	q, _ = sql.Parse("explain select f from cpu where ip<>'1.1.1.1'")
+	query = q.(*stmt.Query)
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil)
 	shard.EXPECT().ShardID().Return(int32(10))
 	task = newSeriesIDsSearchTask(newStorageExecuteContext("ns", nil, query), shard, result)
