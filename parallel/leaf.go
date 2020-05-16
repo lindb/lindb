@@ -74,14 +74,14 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 			return err
 		}
 	case pb.RequestType_Metadata:
-		if err := p.processMetadataSuggest(db, physicalPlan.Namespace, curLeaf.ShardIDs, req, stream); err != nil {
+		if err := p.processMetadataSuggest(db, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *leafTask) processMetadataSuggest(db tsdb.Database, namespace string, shardIDs []int32,
+func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
 	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
 ) error {
 	payload := req.Payload
@@ -89,7 +89,7 @@ func (p *leafTask) processMetadataSuggest(db tsdb.Database, namespace string, sh
 	if err := encoding.JSONUnmarshal(payload, query); err != nil {
 		return errUnmarshalSuggest
 	}
-	exec := p.executorFactory.NewMetadataStorageExecutor(db, namespace, shardIDs, query)
+	exec := p.executorFactory.NewMetadataStorageExecutor(db, shardIDs, query)
 	result, err := exec.Execute()
 	if err != nil && err != constants.ErrNotFound {
 		return err

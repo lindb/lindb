@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
@@ -22,7 +23,7 @@ func newMetaStmtParser(metadataType stmt.MetadataType) *metaStmtParser {
 		metadataType: metadataType,
 		baseStmtParser: baseStmtParser{
 			exprStack: collections.NewStack(),
-			limit:     100,
+			namespace: constants.DefaultNamespace,
 		},
 	}
 }
@@ -31,6 +32,9 @@ func newMetaStmtParser(metadataType stmt.MetadataType) *metaStmtParser {
 func (s *metaStmtParser) build() (stmt.Statement, error) {
 	if s.err != nil {
 		return nil, s.err
+	}
+	if s.limit <= 0 {
+		s.limit = 100
 	}
 	return &stmt.Metadata{
 		Namespace:  s.namespace,

@@ -9,21 +9,19 @@ import (
 
 // metadataStorageExecutor represents the executor which executes metric metadata suggest in storage side
 type metadataStorageExecutor struct {
-	database  tsdb.Database
-	namespace string
-	request   *stmt.Metadata
-	shardIDs  []int32
+	database tsdb.Database
+	request  *stmt.Metadata
+	shardIDs []int32
 }
 
 // newMetadataStorageExecutor creates a metadata suggest executor in storage side
-func newMetadataStorageExecutor(database tsdb.Database, namespace string, shardIDs []int32,
+func newMetadataStorageExecutor(database tsdb.Database, shardIDs []int32,
 	request *stmt.Metadata,
 ) parallel.MetadataExecutor {
 	return &metadataStorageExecutor{
-		database:  database,
-		namespace: namespace,
-		request:   request,
-		shardIDs:  shardIDs,
+		database: database,
+		request:  request,
+		shardIDs: shardIDs,
 	}
 }
 
@@ -34,11 +32,11 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 
 	switch req.Type {
 	case stmt.Namespace:
-		return e.database.Metadata().MetadataDatabase().SuggestNamespace(req.Namespace, limit)
+		return e.database.Metadata().MetadataDatabase().SuggestNamespace(req.Prefix, limit)
 	case stmt.Metric:
-		return e.database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.MetricName, limit)
+		return e.database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.Prefix, limit)
 	case stmt.TagKey:
-		return e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.Namespace, req.MetricName, req.TagKey, limit)
+		return e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.Namespace, req.MetricName, req.Prefix, limit)
 	case stmt.Field:
 		fields, err := e.database.Metadata().MetadataDatabase().GetAllFields(req.Namespace, req.MetricName)
 		if err != nil {
