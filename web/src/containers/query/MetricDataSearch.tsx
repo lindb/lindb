@@ -1,5 +1,5 @@
 import { CloseOutlined, LoadingOutlined, SearchOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Col, Form, Input, Row, Tabs } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Row, Tabs, List } from 'antd';
 import DatabaseNameSelect from 'components/meta/DatabaseNames';
 import Metric from 'components/metric/Metric';
 import ExplainStats from 'components/query/ExplainStats';
@@ -18,6 +18,7 @@ interface MetricDataSearchProps {
 
 interface MetricDataSearchStatus {
   ql: string
+  isMetadata: boolean
 }
 
 const chartID = "9999999999999999"
@@ -28,8 +29,10 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
   constructor(props: MetricDataSearchProps) {
     super(props)
 
+    const ql = StoreManager.URLParamStore.getValue("ql")
     this.state = {
-      ql: StoreManager.URLParamStore.getValue("ql"),
+      ql: ql,
+      isMetadata: this.isMetadata(ql)
     }
   }
 
@@ -37,17 +40,27 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
     StoreManager.ChartStore.unRegister(chartID)
   }
 
+  isMetadata(ql: string): boolean {
+    const sql = ql.toLocaleLowerCase()
+    return sql.startsWith("show")
+  }
+
   @autobind
   async searchQL() {
     const { ql } = this.state;
-    StoreManager.ChartStore.reRegister(chartID, {
-      target: {
-        db: StoreManager.URLParamStore.getValue("db"),
-        ql: ql,
-      }
-    })
+    if (this.isMetadata(ql)) {
+      StoreManager.MetadataStore.fetchMetadata(StoreManager.URLParamStore.getValue("db"), ql)
+    } else {
+      StoreManager.ChartStore.reRegister(chartID, {
+        target: {
+          db: StoreManager.URLParamStore.getValue("db"),
+          ql: ql,
+        }
+      })
+    }
     StoreManager.URLParamStore.changeURLParams({ ql: ql })
     StoreManager.URLParamStore.forceChange()
+    this.setState({ isMetadata: this.isMetadata(ql) })
   }
 
   @autobind
@@ -71,9 +84,50 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
     }
   }
 
-  render() {
-    const stats = StoreManager.ChartStore.statsCache.get(chartID)
+  renderMetadata() {
+    const metadata = StoreManager.MetadataStore.metadata
+    if (!metadata) {
+      return null
+    }
+    const isField = metadata.type === "field"
+    return (
+      <List
+        header={isField ? metadata.type.toLocaleUpperCase() + "(name,type)" : metadata.type.toLocaleUpperCase()}
+        bordered
+        dataSource={metadata.values}
+        loading={StoreManager.MetadataStore.loading}
+        renderItem={item => (
+          <List.Item key={isField ? item.name : item}>
+            {isField ? item.name + ", " + item.type : item}
+          </List.Item>
+        )}
+      />
+    )
+  }
 
+  renderChart() {
+    const stats = StoreManager.ChartStore.statsCache.get(chartID)
+    return (
+      <Tabs defaultActiveKey="1" size="small" animated={false} tabBarExtraContent={this.renderChartStatus()}>
+        <TabPane tab="Data" key="1">
+          <Metric
+            id={chartID}
+            type="line"
+            height={480}
+            unit={UnitEnum.None}
+          />
+        </TabPane>
+        {stats && (
+          <TabPane tab="Explain" key="2">
+            <ExplainStats stats={stats} />
+          </TabPane>
+        )}
+      </Tabs>
+    )
+  }
+
+  render() {
+    const { isMetadata } = this.state
     return (
       <div>
         <Card size="small">
@@ -86,8 +140,6 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
                 }} >
                 <Form.Item label="Database">
                   <DatabaseNameSelect />
-                </Form.Item>
-                <Form.Item label="Namespace">
                 </Form.Item>
               </Form>
             </Col>
@@ -120,21 +172,8 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
           </Row>
         </Card>
         <Card>
-          <Tabs defaultActiveKey="1" size="small" animated={false} tabBarExtraContent={this.renderChartStatus()}>
-            <TabPane tab="Data" key="1">
-              <Metric
-                id={chartID}
-                type="line"
-                height={480}
-                unit={UnitEnum.None}
-              />
-            </TabPane>
-            {stats && (
-              <TabPane tab="Explain" key="2">
-                <ExplainStats stats={stats} />
-              </TabPane>
-            )}
-          </Tabs>
+          {!isMetadata && this.renderChart()}
+          {isMetadata && this.renderMetadata()}
         </Card>
       </div>
     )
