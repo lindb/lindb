@@ -170,7 +170,7 @@ func (t *seriesIDsSearchTask) Run() (err error) {
 		seriesIDs, err = seriesSearch.Search()
 	} else {
 		// get series ids for metric level
-		seriesIDs, err = t.shard.IndexDatabase().GetSeriesIDsForMetric(t.ctx.namespace, t.ctx.query.MetricName)
+		seriesIDs, err = t.shard.IndexDatabase().GetSeriesIDsForMetric(t.ctx.query.Namespace, t.ctx.query.MetricName)
 		if err == nil && !t.ctx.query.HasGroupBy() {
 			// add series id without tags, maybe metric has too many series, but one series without tags
 			seriesIDs.Add(constants.SeriesIDWithoutTags)

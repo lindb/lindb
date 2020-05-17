@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/lindb/lindb/aggregation/function"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -39,6 +40,7 @@ func newQueryStmtParse(explain bool) *queryStmtParse {
 		fieldID:    1,
 		baseStmtParser: baseStmtParser{
 			exprStack: collections.NewStack(),
+			namespace: constants.DefaultNamespace,
 			limit:     20,
 		},
 	}
