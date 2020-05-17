@@ -166,7 +166,7 @@ func (t *seriesIDsSearchTask) Run() (err error) {
 	var seriesIDs *roaring.Bitmap
 	if condition != nil {
 		// if get tag filter result do series ids searching
-		seriesSearch := newSeriesSearchFunc(t.shard.IndexDatabase(), t.ctx.tagFilterResult, t.ctx.query)
+		seriesSearch := newSeriesSearchFunc(t.shard.IndexDatabase(), t.ctx.tagFilterResult, t.ctx.query.Condition)
 		seriesIDs, err = seriesSearch.Search()
 	} else {
 		// get series ids for metric level

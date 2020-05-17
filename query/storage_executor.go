@@ -125,7 +125,8 @@ func (e *storageExecutor) Execute() {
 	}
 	condition := e.ctx.query.Condition
 	if condition != nil {
-		tagSearch := newTagSearchFunc(e.ctx.query.Namespace, e.ctx.query, e.database.Metadata())
+		tagSearch := newTagSearchFunc(e.ctx.query.Namespace, e.ctx.query.MetricName,
+			e.ctx.query.Condition, e.database.Metadata())
 		t = newTagFilterTask(e.ctx, tagSearch)
 		if err := t.Run(); err != nil {
 			e.queryFlow.Complete(err)

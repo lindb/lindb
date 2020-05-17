@@ -1,6 +1,7 @@
 package query
 
 import (
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/sql/stmt"
@@ -49,7 +50,58 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 		if err != nil {
 			return nil, err
 		}
-		result = e.database.Metadata().TagMetadata().SuggestTagValues(tagKeyID, req.TagValue, limit)
+		if req.Condition == nil {
+			// if not tag filter condition, just get tag value by tag key
+			result = e.database.Metadata().TagMetadata().SuggestTagValues(tagKeyID, req.Prefix, limit)
+		} else {
+			// 1. do tag filter
+			tagSearch := newTagSearchFunc(req.Namespace, req.MetricName,
+				req.Condition, e.database.Metadata())
+			tagFilterResult, err := tagSearch.Filter()
+			if err != nil {
+				return nil, err
+			}
+			if len(tagFilterResult) == 0 {
+				// filter not match, return not found
+				return nil, constants.ErrNotFound
+			}
+			groupByTagKeyIDs := []uint32{tagKeyID}
+			// get shard by given query shard id list
+			for _, shardID := range e.shardIDs {
+				shard, ok := e.database.GetShard(shardID)
+				// if shard exist, do series search
+				if ok {
+					// if get tag filter result do series ids searching
+					seriesSearch := newSeriesSearchFunc(shard.IndexDatabase(), tagFilterResult, req.Condition)
+					seriesIDs, err := seriesSearch.Search()
+					if err != nil {
+						return nil, err
+					}
+					// get grouping based on tag keys and series ids
+					gCtx, err := shard.IndexDatabase().GetGroupingContext(groupByTagKeyIDs, seriesIDs)
+					if err != nil {
+						return nil, err
+					}
+					highKeys := seriesIDs.GetHighKeys()
+					for i, highKey := range highKeys {
+						// get tag value ids
+						tagValueIDs := gCtx.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
+						tagValues := make(map[uint32]string)
+						// get tag value
+						err = e.database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
+						if err != nil {
+							return nil, err
+						}
+						for _, tagValue := range tagValues {
+							result = append(result, tagValue)
+							if len(result) >= limit {
+								return result, nil
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	return result, nil
 }

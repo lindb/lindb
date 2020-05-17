@@ -55,9 +55,7 @@ func TestQuery_Marshal(t *testing.T) {
 	data := encoding.JSONMarshal(&query)
 	query1 := Query{}
 	err := encoding.JSONUnmarshal(data, &query1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.Equal(t, query, query1)
 	assert.True(t, query.HasGroupBy())
 }

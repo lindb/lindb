@@ -105,7 +105,7 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	q, _ := sql.Parse("select f from cpu where ip<>'1.1.1.1'")
 	query := q.(*stmt.Query)
 	seriesSearch := NewMockSeriesSearch(ctrl)
-	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, query *stmt.Query) SeriesSearch {
+	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
 		return seriesSearch
 	}
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err"))
