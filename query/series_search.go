@@ -20,7 +20,7 @@ type SeriesSearch interface {
 // only do tag filter, return series ids.
 // return series id set for condition
 type seriesSearch struct {
-	query        *stmt.Query
+	condition    stmt.Expr
 	filterResult map[string]*tagFilterResult
 
 	filter series.Filter
@@ -29,17 +29,17 @@ type seriesSearch struct {
 }
 
 // newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(filter series.Filter, filterResult map[string]*tagFilterResult, query *stmt.Query) SeriesSearch {
+func newSeriesSearch(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
 	return &seriesSearch{
 		filterResult: filterResult,
 		filter:       filter,
-		query:        query,
+		condition:    condition,
 	}
 }
 
 // Search searches series ids base on condition, if search fail return nil, else return series ids
 func (s *seriesSearch) Search() (*roaring.Bitmap, error) {
-	_, seriesIDs := s.findSeriesIDsByExpr(s.query.Condition)
+	_, seriesIDs := s.findSeriesIDsByExpr(s.condition)
 	if s.err != nil {
 		return nil, s.err
 	}

@@ -145,7 +145,7 @@ func TestStorageExecutor_TagSearch(t *testing.T) {
 		newTagSearchFunc = newTagSearch
 	}()
 	tagSearch := NewMockTagSearch(ctrl)
-	newTagSearchFunc = func(namespace string, query *stmt.Query, metadata metadb.Metadata) TagSearch {
+	newTagSearchFunc = func(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
 		return tagSearch
 	}
 	mockDatabase := newMockDatabase(ctrl)
@@ -174,14 +174,14 @@ func TestStorageExecute_Execute(t *testing.T) {
 	}()
 
 	tagSearch := NewMockTagSearch(ctrl)
-	newTagSearchFunc = func(namespace string, query *stmt.Query, metadata metadb.Metadata) TagSearch {
+	newTagSearchFunc = func(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
 		return tagSearch
 	}
 	tagSearch.EXPECT().Filter().Return(map[string]*tagFilterResult{
 		"host": {tagValueIDs: roaring.BitmapOf(1, 2)},
 	}, nil).AnyTimes()
 	seriesSearch := NewMockSeriesSearch(ctrl)
-	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, query *stmt.Query) SeriesSearch {
+	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
 		return seriesSearch
 	}
 	queryFlow := newMockQueryFlow()

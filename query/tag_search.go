@@ -25,9 +25,10 @@ type TagSearch interface {
 
 // tagSearch implements TagSearch
 type tagSearch struct {
-	namespace string
-	query     *stmt.Query
-	metadata  metadb.Metadata
+	namespace  string
+	metricName string
+	condition  stmt.Expr
+	metadata   metadb.Metadata
 
 	result map[string]*tagFilterResult
 	tags   map[string]uint32 // for cache tag key
@@ -35,19 +36,20 @@ type tagSearch struct {
 }
 
 // newTagSearch creates tag search
-func newTagSearch(namespace string, query *stmt.Query, metadata metadb.Metadata) TagSearch {
+func newTagSearch(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
 	return &tagSearch{
-		namespace: namespace,
-		query:     query,
-		metadata:  metadata,
-		tags:      make(map[string]uint32),
-		result:    make(map[string]*tagFilterResult),
+		namespace:  namespace,
+		metricName: metricName,
+		condition:  condition,
+		metadata:   metadata,
+		tags:       make(map[string]uint32),
+		result:     make(map[string]*tagFilterResult),
 	}
 }
 
 // Filter filters tag value ids base on tag filter expr, if fail return nil, else return tag value ids
 func (s *tagSearch) Filter() (map[string]*tagFilterResult, error) {
-	s.findTagValueIDsByExpr(s.query.Condition)
+	s.findTagValueIDsByExpr(s.condition)
 	if s.err != nil {
 		return nil, s.err
 	}
@@ -102,7 +104,7 @@ func (s *tagSearch) getTagKeyID(tagKey string) (uint32, error) {
 	if ok {
 		return tagKeyID, nil
 	}
-	tagKeyID, err := s.metadata.MetadataDatabase().GetTagKeyID(s.namespace, s.query.MetricName, tagKey)
+	tagKeyID, err := s.metadata.MetadataDatabase().GetTagKeyID(s.namespace, s.metricName, tagKey)
 	if err != nil {
 		return 0, err
 	}

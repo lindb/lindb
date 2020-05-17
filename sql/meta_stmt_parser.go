@@ -13,7 +13,6 @@ type metaStmtParser struct {
 	baseStmtParser
 	metadataType stmt.MetadataType
 	tagKey       string
-	tagValue     string
 	prefix       string
 }
 
@@ -41,7 +40,6 @@ func (s *metaStmtParser) build() (stmt.Statement, error) {
 		MetricName: s.metricName,
 		Type:       s.metadataType,
 		TagKey:     s.tagKey,
-		TagValue:   s.tagValue,
 		Prefix:     s.prefix,
 		Condition:  s.condition,
 		Limit:      s.limit,

@@ -34,6 +34,36 @@ func (g *GroupingContext) GetGroupByTagValueIDs() []*roaring.Bitmap {
 	return g.tagValueIDs
 }
 
+// ScanTagValueIDs scans grouping context by high key/container of series ids,
+// then returns grouped tag value ids for each tag key
+func (g *GroupingContext) ScanTagValueIDs(highKey uint16, container roaring.Container) []*roaring.Bitmap {
+	result := make([]*roaring.Bitmap, len(g.tagKeys))
+	for i, tagKey := range g.tagKeys {
+		scanners := g.scanners[tagKey]
+		tagValues := roaring.New()
+		result[i] = tagValues
+		for _, scanner := range scanners {
+			// get series ids/tag value ids mapping by high key
+			lowContainer, tagValueIDs := scanner.GetSeriesAndTagValue(highKey)
+			if lowContainer == nil {
+				// high key not exist
+				continue
+			}
+			// iterator all series ids after filtering
+			it := lowContainer.PeekableIterator()
+			idx := 0
+			for it.HasNext() {
+				seriesID := it.Next()
+				if container.Contains(seriesID) {
+					tagValues.Add(tagValueIDs[idx])
+				}
+				idx++
+			}
+		}
+	}
+	return result
+}
+
 // BuildGroup builds the grouped series ids by the high key of series id
 // and the container includes low keys of series id.
 func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container) map[string][]uint16 {

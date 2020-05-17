@@ -41,3 +41,21 @@ func TestGroupingContext_Build(t *testing.T) {
 	assert.Len(t, groupByTagValueIDs, 1)
 	assert.EqualValues(t, roaring.BitmapOf(10, 20, 30).ToArray(), groupByTagValueIDs[0].ToArray())
 }
+
+func TestGroupingContext_ScanTagValueIDs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	scanner := series.NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]uint32{1}, map[uint32][]series.GroupingScanner{1: {scanner}})
+	// case 1: get tag value ids
+	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
+		Return(roaring.BitmapOf(1, 2, 3, 10).GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
+	result := ctx.ScanTagValueIDs(1, roaring.BitmapOf(1, 2, 6, 10).GetContainerAtIndex(0))
+	assert.Equal(t, []uint32{10, 20}, result[0].ToArray())
+	// case 2: empty tag value
+	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).Return(nil, nil)
+	result = ctx.ScanTagValueIDs(1, roaring.BitmapOf(1, 2, 6, 10).GetContainerAtIndex(0))
+	assert.Equal(t, roaring.New(), result[0])
+}
