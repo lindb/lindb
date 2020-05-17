@@ -2,11 +2,10 @@ package models
 
 // PhysicalPlan represents the distribution query's physical plan
 type PhysicalPlan struct {
-	Database      string         `json:"database"`            // database name
-	Namespace     string         `json:"namespace,omitempty"` // namespace
-	Root          Root           `json:"root"`                // root node
-	Intermediates []Intermediate `json:"intermediates"`       // intermediate node if need
-	Leafs         []Leaf         `json:"leafs"`               // leaf nodes(storage nodes of query database)
+	Database      string         `json:"database"`      // database name
+	Root          Root           `json:"root"`          // root node
+	Intermediates []Intermediate `json:"intermediates"` // intermediate node if need
+	Leafs         []Leaf         `json:"leafs"`         // leaf nodes(storage nodes of query database)
 }
 
 // NewPhysicalPlan creates the physical plan with root node

@@ -116,7 +116,7 @@ func (e *storageExecutor) Execute() {
 		return
 	}
 
-	plan := newStorageExecutePlanFunc(e.ctx.namespace, e.database.Metadata(), e.ctx.query)
+	plan := newStorageExecutePlanFunc(e.ctx.query.Namespace, e.database.Metadata(), e.ctx.query)
 	t := newStoragePlanTask(e.ctx, plan)
 
 	if err := t.Run(); err != nil {
@@ -125,7 +125,7 @@ func (e *storageExecutor) Execute() {
 	}
 	condition := e.ctx.query.Condition
 	if condition != nil {
-		tagSearch := newTagSearchFunc(e.ctx.namespace, e.ctx.query, e.database.Metadata())
+		tagSearch := newTagSearchFunc(e.ctx.query.Namespace, e.ctx.query, e.database.Metadata())
 		t = newTagFilterTask(e.ctx, tagSearch)
 		if err := t.Run(); err != nil {
 			e.queryFlow.Complete(err)

@@ -9,7 +9,7 @@ import (
 )
 
 func TestStorageExecuteContext(t *testing.T) {
-	ctx := newStorageExecuteContext("ns", nil, &stmt.Query{Explain: true})
+	ctx := newStorageExecuteContext(nil, &stmt.Query{Explain: true})
 	ctx.setTagFilterResult(nil)
 	assert.NotNil(t, ctx.QueryStats())
 }

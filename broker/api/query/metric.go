@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/replica"
@@ -42,7 +41,6 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 		api.Error(w, err)
 		return
 	}
-	namespace, _ := api.GetParamsFromRequest("ns", r, constants.DefaultNamespace, false)
 	sql, err := api.GetParamsFromRequest("sql", r, "", true)
 	if err != nil {
 		api.Error(w, err)
@@ -52,7 +50,7 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.executorFactory.NewBrokerExecutor(ctx, db, namespace, sql,
+	exec := m.executorFactory.NewBrokerExecutor(ctx, db, sql,
 		m.replicaStateMachine, m.nodeStateMachine, m.databaseStateMachine,
 		m.jobManager)
 	exec.Execute()
