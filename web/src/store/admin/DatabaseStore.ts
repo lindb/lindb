@@ -6,7 +6,6 @@ export class DatabaseStore {
     @observable public loading: boolean = false
     @observable public databaseList: DatabaseConfig[] | undefined = []
 
-
     public async fectchDatabaseList() {
         this.loading = true
         this.databaseList = await getDatabaseList()

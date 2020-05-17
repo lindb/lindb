@@ -3,6 +3,7 @@ import { StorageStore } from 'store/admin/StorageStore';
 import { BreadcrumbStore } from 'store/BreadcrumbStore';
 import ChartEventStore from 'store/ChartEventStore';
 import { ChartStore } from 'store/ChartStore';
+import { MetadataStore } from 'store/metadata/MetadataStore';
 import { URLParamStore } from 'store/URLParamStore';
 
 class StoreManager {
@@ -12,6 +13,7 @@ class StoreManager {
   public BreadcrumbStore: BreadcrumbStore = new BreadcrumbStore();
   public StorageStore: StorageStore = new StorageStore();
   public DatabaseStore: DatabaseStore = new DatabaseStore()
+  public MetadataStore: MetadataStore = new MetadataStore()
 }
 
 export default new StoreManager()

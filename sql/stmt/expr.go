@@ -243,7 +243,7 @@ func Unmarshal(value []byte) (Expr, error) {
 		return unmarshal(&exprData, &EqualsExpr{})
 	case "number":
 		return unmarshal(&exprData, &NumberLiteral{})
-	case "field":
+	case field:
 		return unmarshal(&exprData, &FieldExpr{})
 	case "paren":
 		e, err := Unmarshal(exprData.Expr)

@@ -9,6 +9,7 @@ import (
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/field"
@@ -86,7 +87,10 @@ func (d *MetadataAPI) showDatabases(w http.ResponseWriter) {
 	for _, db := range databases {
 		databaseNames = append(databaseNames, db.Name)
 	}
-	api.OK(w, databaseNames)
+	api.OK(w, &models.Metadata{
+		Type:   stmt.Database.String(),
+		Values: databaseNames,
+	})
 }
 
 // suggest executes the suggest query
@@ -105,7 +109,7 @@ func (d *MetadataAPI) suggest(w http.ResponseWriter, database string, request *s
 	switch request.Type {
 	case stmt.Field:
 		// build field result model
-		result := make(map[string]string)
+		result := make(map[string]field.Meta)
 		fields := field.Metas{}
 		for _, value := range values {
 			err = encoding.JSONUnmarshal([]byte(value), &fields)
@@ -114,12 +118,25 @@ func (d *MetadataAPI) suggest(w http.ResponseWriter, database string, request *s
 				return
 			}
 			for _, f := range fields {
-				result[f.Name] = f.Type.String()
+				result[f.Name] = f
 			}
 		}
-		api.OK(w, result)
+		var resultFields []models.Field
+		for _, f := range result {
+			resultFields = append(resultFields, models.Field{
+				Name: f.Name,
+				Type: f.Type.String(),
+			})
+		}
+		api.OK(w, &models.Metadata{
+			Type:   request.Type.String(),
+			Values: resultFields,
+		})
 	default:
-		api.OK(w, values)
+		api.OK(w, &models.Metadata{
+			Type:   request.Type.String(),
+			Values: values,
+		})
 	}
 }
 

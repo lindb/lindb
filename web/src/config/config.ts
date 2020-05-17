@@ -24,10 +24,7 @@ export const ADMIN_PATH = {
   databaseList: '/database/list',
 }
 
-export const METADATA_PATH = {
-  databaseNames: '/metadata/database/names',
-}
-
 export const QUERY_PATH = {
   metric: '/query/metric',
+  metadata: '/query/metadata'
 }
