@@ -13,6 +13,9 @@ type GroupingContext interface {
 	BuildGroup(highKey uint16, container roaring.Container) map[string][]uint16
 	// GetGroupByTagValueIDs returns the group by tag value ids for each tag key
 	GetGroupByTagValueIDs() []*roaring.Bitmap
+	// ScanTagValueIDs scans grouping context by high key/container of series ids,
+	// then returns grouped tag value ids for each tag key
+	ScanTagValueIDs(highKey uint16, container roaring.Container) []*roaring.Bitmap
 }
 
 // GroupingScanner represents the scanner which scans the group by data by high key of series id
