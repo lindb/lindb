@@ -25,7 +25,7 @@ func TestMetricAPI_Search(t *testing.T) {
 	brokerExecutor.EXPECT().Execute()
 
 	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 
 	api := NewMetricAPI(nil, nil, nil, executorFactory, nil)
@@ -77,7 +77,7 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
 	brokerExecutor.EXPECT().Execute()
 
-	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
+	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 

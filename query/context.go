@@ -7,9 +7,8 @@ import (
 
 // storageExecuteContext represents storage query execute context
 type storageExecuteContext struct {
-	namespace string
-	query     *stmt.Query
-	shardIDs  []int32
+	query    *stmt.Query
+	shardIDs []int32
 
 	tagFilterResult map[string]*tagFilterResult
 
@@ -17,11 +16,10 @@ type storageExecuteContext struct {
 }
 
 // newStorageExecuteContext creates storage execute context
-func newStorageExecuteContext(namespace string, shardIDs []int32, query *stmt.Query) *storageExecuteContext {
+func newStorageExecuteContext(shardIDs []int32, query *stmt.Query) *storageExecuteContext {
 	ctx := &storageExecuteContext{
-		namespace: namespace,
-		query:     query,
-		shardIDs:  shardIDs,
+		query:    query,
+		shardIDs: shardIDs,
 	}
 	if query.Explain {
 		// if explain query, create storage query stats

@@ -33,7 +33,6 @@ type ExecutorFactory interface {
 	NewBrokerExecutor(
 		ctx context.Context,
 		databaseName string,
-		namespace string,
 		sql string,
 		replicaStateMachine replica.StatusStateMachine,
 		nodeStateMachine broker.NodeStateMachine,
@@ -52,5 +51,5 @@ type ExecutorFactory interface {
 	) MetadataExecutor
 
 	// NewStorageExecuteContext creates the storage execute context in storage side
-	NewStorageExecuteContext(namespace string, shardIDs []int32, query *stmt.Query) StorageExecuteContext
+	NewStorageExecuteContext(shardIDs []int32, query *stmt.Query) StorageExecuteContext
 }
