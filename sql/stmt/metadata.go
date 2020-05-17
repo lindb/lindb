@@ -13,6 +13,26 @@ const (
 	Field
 )
 
+// String returns string value of metadata type
+func (m MetadataType) String() string {
+	switch m {
+	case Database:
+		return "database"
+	case Namespace:
+		return "namespace"
+	case Metric:
+		return "measurement"
+	case Field:
+		return field
+	case TagKey:
+		return "tagKey"
+	case TagValue:
+		return "tagValue"
+	default:
+		return unknown
+	}
+}
+
 // Metadata represents search metadata statement
 type Metadata struct {
 	Namespace  string       // namespace

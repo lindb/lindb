@@ -73,7 +73,7 @@ func TestMetadataAPI_ShowDatabases(t *testing.T) {
 	databaseService.EXPECT().List().Return(nil, nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
-		URL:            "/query/metadata?db=db&sql=show databases",
+		URL:            "/query/metadata?sql=show databases",
 		HandlerFunc:    api.Handle,
 		ExpectHTTPCode: 200,
 		RequestBody:    []string{},
@@ -87,16 +87,19 @@ func TestMetadataAPI_ShowDatabases(t *testing.T) {
 		nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
-		URL:            "/query/metadata?db=db&sql=show databases",
+		URL:            "/query/metadata?sql=show databases",
 		HandlerFunc:    api.Handle,
 		ExpectHTTPCode: 200,
-		RequestBody:    []string{"test1", "test2"},
+		RequestBody: models.Metadata{
+			Type:   stmt.Database.String(),
+			Values: []string{"test1", "test2"},
+		},
 	})
 
 	databaseService.EXPECT().List().Return(nil, fmt.Errorf("err"))
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodGet,
-		URL:            "/query/metadata?db=db&sql=show databases",
+		URL:            "/query/metadata?sql=show databases",
 		HandlerFunc:    api.Handle,
 		ExpectHTTPCode: 500,
 	})
@@ -133,7 +136,10 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 		URL:            "/query/metadata?db=db1&sql=show namespaces",
 		HandlerFunc:    api.Handle,
 		ExpectHTTPCode: 200,
-		ExpectResponse: []string{"a", "b"},
+		RequestBody: models.Metadata{
+			Type:   stmt.Namespace.String(),
+			Values: []string{"a", "b"},
+		},
 	})
 
 	exec.EXPECT().Execute().Return([]string{"ddd"}, nil)
