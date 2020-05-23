@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
@@ -14,7 +16,7 @@ import (
 // TaskDispatcher represents the task dispatcher
 type TaskDispatcher interface {
 	// Dispatch dispatches the task request based on task type
-	Dispatch(ctx context.Context, req *pb.TaskRequest)
+	Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest)
 }
 
 // TaskProcessor represents the task processor, all task processors are async
@@ -26,6 +28,7 @@ type TaskProcessor interface {
 // leafTaskDispatcher represents leaf task dispatcher for storage
 type leafTaskDispatcher struct {
 	processor TaskProcessor
+	logger    *logger.Logger
 }
 
 // NewLeafTaskDispatcher creates a leaf task dispatcher
@@ -34,13 +37,24 @@ func NewLeafTaskDispatcher(currentNode models.Node,
 	executorFactory ExecutorFactory, taskServerFactory rpc.TaskServerFactory) TaskDispatcher {
 	return &leafTaskDispatcher{
 		processor: newLeafTask(currentNode, storageService, executorFactory, taskServerFactory),
+		logger:    logger.GetLogger("parallel", "LeafTaskDispatcher"),
 	}
 }
 
 // Dispatch dispatches the request to storage engine query processor
-func (d *leafTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
-	//TODO need handle error, if client will hang if not handle err
-	_ = d.processor.Process(ctx, req)
+func (d *leafTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
+	err := d.processor.Process(ctx, req)
+	if err != nil {
+		if err1 := stream.Send(&pb.TaskResponse{
+			JobID:     req.JobID,
+			TaskID:    req.ParentTaskID,
+			Completed: true,
+			ErrMsg:    err.Error(),
+			SendTime:  timeutil.NowNano(),
+		}); err1 != nil {
+			d.logger.Error("send error message to target stream error", logger.Error(err))
+		}
+	}
 }
 
 // intermediateTaskDispatcher represents intermediate task dispatcher for broker
@@ -53,6 +67,6 @@ func NewIntermediateTaskDispatcher() TaskDispatcher {
 }
 
 // Dispatch dispatches the request to distribution query processor, merges the results
-func (d *intermediateTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
+func (d *intermediateTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
 
 }

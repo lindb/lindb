@@ -2,7 +2,6 @@ package parallel
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/lindb/lindb/config"
@@ -37,7 +36,7 @@ func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher Task
 }
 
 // Handle handles the task request based on grpc stream
-func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
+func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) (err error) {
 	clientLogicNode, err := rpc.GetLogicNodeFromContext(stream.Context())
 	if err != nil {
 		return err
@@ -45,31 +44,31 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) error {
 
 	nodeID := clientLogicNode.Indicator()
 
-	q.fct.Register(nodeID, stream)
-	q.logger.Info("register task stream", logger.String("client", nodeID))
+	epoch := q.fct.Register(nodeID, stream)
+	q.logger.Info("register task stream",
+		logger.String("client", nodeID), logger.Int64("epoch", epoch))
 
 	// when return, the stream is closed, Deregister the stream
 	defer func() {
-		q.fct.Deregister(nodeID)
-		q.logger.Info("unregister task stream", logger.String("client", nodeID))
+		ok := q.fct.Deregister(epoch, nodeID)
+		if ok {
+			q.logger.Info("unregister task stream successfully",
+				logger.String("client", nodeID), logger.Int64("epoch", epoch))
+		}
 	}()
 
 	for {
 		req, err := stream.Recv()
-		if err == io.EOF {
-			q.logger.Info("task server stream close")
-			return nil
-		}
 		if err != nil {
 			q.logger.Error("task server stream error", logger.Error(err))
-			continue
+			return err
 		}
-		q.dispatch(req)
+		q.dispatch(stream, req)
 	}
 }
 
 // dispatch dispatches request with timeout
-func (q *TaskHandler) dispatch(req *common.TaskRequest) {
+func (q *TaskHandler) dispatch(stream common.TaskService_HandleServer, req *common.TaskRequest) {
 	//FIXME add timeout????
 	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
 	q.taskPool.Submit(func() {
@@ -79,6 +78,6 @@ func (q *TaskHandler) dispatch(req *common.TaskRequest) {
 			}
 			cancel()
 		}()
-		q.dispatcher.Dispatch(ctx, req)
+		q.dispatcher.Dispatch(ctx, stream, req)
 	})
 }
