@@ -3,7 +3,6 @@ package parallel
 import (
 	"context"
 	"fmt"
-	"io"
 	"testing"
 	"time"
 
@@ -22,7 +21,7 @@ import (
 type mockTaskDispatcher struct {
 }
 
-func (d *mockTaskDispatcher) Dispatch(ctx context.Context, req *pb.TaskRequest) {
+func (d *mockTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
 	panic("err")
 }
 
@@ -39,7 +38,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	dispatcher := NewMockTaskDispatcher(ctrl)
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	taskServerFactory.EXPECT().Register(gomock.Any(), gomock.Any())
-	taskServerFactory.EXPECT().Deregister(gomock.Any())
+	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true)
 	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher)
 
 	server := commonmock.NewMockTaskService_HandleServer(ctrl)
@@ -50,15 +49,14 @@ func TestTaskHandler_Handle(t *testing.T) {
 
 	ctx = rpc.CreateIncomingContextWithNode(context.TODO(), models.Node{IP: "1.1.1.1", Port: 9000})
 	server.EXPECT().Context().Return(ctx)
-	server.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
 	server.EXPECT().Recv().Return(nil, nil)
-	server.EXPECT().Recv().Return(nil, io.EOF)
-	dispatcher.EXPECT().Dispatch(gomock.Any(), gomock.Any()).AnyTimes()
+	server.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
+	dispatcher.EXPECT().Dispatch(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	_ = handler.Handle(server)
 }
 
 func TestTaskHandler_dispatch(t *testing.T) {
 	handler := NewTaskHandler(cfg, nil, &mockTaskDispatcher{})
 	// test dispatch panic
-	handler.dispatch(nil)
+	handler.dispatch(nil, nil)
 }
