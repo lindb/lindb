@@ -41,7 +41,7 @@ export default class Chart extends React.Component<ChartProps, ChartState> {
         () => {
           this.series = StoreManager.ChartStore.seriesCache.get(props.uuid) || {}
           if (!this.series) {
-            return 
+            return
           }
           const selected = StoreManager.ChartStore.selectedSeries.get(props.uuid)
           this.series.datasets && this.series.datasets.forEach((item: any) => {
@@ -57,7 +57,7 @@ export default class Chart extends React.Component<ChartProps, ChartState> {
       reaction(
         () => StoreManager.ChartStore.chartStatusMap.get(props.uuid),
         chartStatus => {
-          if (chartStatus!.status !== ChartStatusEnum.Loaded) {
+          if (chartStatus && chartStatus!.status !== ChartStatusEnum.Loaded) {
             return
           }
           this.series = StoreManager.ChartStore.seriesCache.get(props.uuid) || {};
@@ -112,7 +112,6 @@ export default class Chart extends React.Component<ChartProps, ChartState> {
    */
   renderChart() {
     this.setData(this.chartConfig)
-    console.log(this.chartConfig)
     if (this.chartInstance) {
       this.chartInstance.update()
     } else {
@@ -221,12 +220,6 @@ export default class Chart extends React.Component<ChartProps, ChartState> {
    */
   @autobind
   handleLegendItemClick() {
-    // hidden.forEach((hide, index) => {
-    //   const meta = this.chartInstance.getDatasetMeta(index)
-    //   meta.hidden = hide
-    // })
-    console.log("xxxxxx", this.chartInstance.get)
-
     this.chartInstance.update({
       duration: 300,
     })
@@ -275,7 +268,6 @@ export default class Chart extends React.Component<ChartProps, ChartState> {
     if (height! <= 0) {
       h = 280
     }
-    console.log("xxxx", h, height)
     // Canvas Wrapped By a div element to avoid invoke `.resize` many times
     return (
       <div className="lindb-chart-canvas" style={{ height: h }}>

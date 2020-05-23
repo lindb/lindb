@@ -461,12 +461,16 @@ func (r *runtime) monitoring() {
 		prometheus.Gatherers{monitoring.BrokerGatherer, prometheus.DefaultGatherer},
 		[]*dto.LabelPair{
 			{
-				Name:  proto.String("role"),
-				Value: proto.String("broker"),
+				Name:  proto.String("namespace"),
+				Value: proto.String(r.config.BrokerBase.Coordinator.Namespace),
 			},
 			{
 				Name:  proto.String("node"),
 				Value: proto.String(r.node.Indicator()),
+			},
+			{
+				Name:  proto.String("role"),
+				Value: proto.String("broker"),
 			},
 		},
 	)
