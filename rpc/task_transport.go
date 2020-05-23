@@ -2,10 +2,11 @@ package rpc
 
 import (
 	"context"
-	"io"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
+	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -29,8 +30,11 @@ type TaskClientFactory interface {
 }
 
 type taskClient struct {
-	cli     common.TaskService_HandleClient
-	running atomic.Bool
+	cli      common.TaskService_HandleClient
+	targetID string
+	target   models.Node
+	running  atomic.Bool
+	ready    atomic.Bool
 }
 
 // taskClientFactory implements TaskClientFactory interface
@@ -41,15 +45,17 @@ type taskClientFactory struct {
 	taskStreams map[string]*taskClient
 	mutex       sync.RWMutex
 
-	connFct ClientConnFactory
+	newTaskServiceClientFunc func(cc *grpc.ClientConn) common.TaskServiceClient
+	connFct                  ClientConnFactory
 }
 
 // NewTaskClientFactory creates a task client factory
 func NewTaskClientFactory(currentNode models.Node) TaskClientFactory {
 	return &taskClientFactory{
-		currentNode: currentNode,
-		connFct:     GetClientConnFactory(),
-		taskStreams: make(map[string]*taskClient),
+		currentNode:              currentNode,
+		connFct:                  GetClientConnFactory(),
+		taskStreams:              make(map[string]*taskClient),
+		newTaskServiceClientFunc: common.NewTaskServiceClient,
 	}
 }
 
@@ -58,9 +64,11 @@ func (f *taskClientFactory) SetTaskReceiver(taskReceiver TaskReceiver) {
 	f.taskReceiver = taskReceiver
 }
 
+// GetTaskClient returns the task client stream by target node
 func (f *taskClientFactory) GetTaskClient(target string) common.TaskService_HandleClient {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
+
 	return f.taskStreams[target].cli
 }
 
@@ -76,23 +84,14 @@ func (f *taskClientFactory) CreateTaskClient(target models.Node) error {
 		return nil
 	}
 
-	conn, err := f.connFct.GetClientConn(target)
-	if err != nil {
-		return err
-	}
-
-	//TODO handle context?????
-	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&f.currentNode).Indicator())
-	cli, err := common.NewTaskServiceClient(conn).Handle(ctx)
-	if err != nil {
-		return err
-	}
-
 	taskClient := &taskClient{
-		cli: cli,
+		targetID: targetNodeID,
+		target:   target,
 	}
 	taskClient.running.Store(true)
+
 	go f.handleTaskResponse(taskClient)
+
 	// cache task client stream
 	f.taskStreams[targetNodeID] = taskClient
 	return nil
@@ -103,24 +102,54 @@ func (f *taskClientFactory) CloseTaskClient(targetNodeID string) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	client, ok := f.taskStreams[targetNodeID]
-	if ok {
+	if ok && client.cli != nil {
+		client.running.Store(false)
 		if err := client.cli.CloseSend(); err != nil {
 			log.Error("close task client stream", logger.String("target", targetNodeID), logger.Error(err))
 		}
-		client.running.Store(false)
 		delete(f.taskStreams, targetNodeID)
 		log.Info("close task client stream", logger.String("target", targetNodeID))
 	}
 }
 
+func (f *taskClientFactory) initTaskClient(client *taskClient) error {
+	log.Info("start init task client", logger.String("target", client.targetID))
+	if client.cli != nil {
+		if err := client.cli.CloseSend(); err != nil {
+			log.Error("close task client error", logger.Error(err))
+		}
+		client.cli = nil
+	}
+	conn, err := f.connFct.GetClientConn(client.target)
+	if err != nil {
+		return err
+	}
+
+	//TODO handle context?????
+	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&f.currentNode).Indicator())
+	cli, err := f.newTaskServiceClientFunc(conn).Handle(ctx)
+	if err != nil {
+		return err
+	}
+	client.cli = cli
+	return nil
+}
+
 // handleTaskResponse handles task response loop, if stream closed exist loop
 func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 	for client.running.Load() {
-		resp, err := client.cli.Recv()
-		if err == io.EOF {
-			return
+		if !client.ready.Load() {
+			if err := f.initTaskClient(client); err != nil {
+				log.Error("init task client error", logger.Error(err))
+				time.Sleep(time.Second)
+				continue
+			} else {
+				client.ready.Store(true)
+			}
 		}
+		resp, err := client.cli.Recv()
 		if err != nil {
+			client.ready.Store(false)
 			log.Error("receive task error from stream", logger.Error(err))
 			continue
 		}
@@ -137,23 +166,29 @@ type TaskServerFactory interface {
 	// GetStream returns a ServerStream for a node.
 	GetStream(node string) common.TaskService_HandleServer
 	// Register registers a stream for a node.
-	Register(node string, stream common.TaskService_HandleServer)
-	// Deregister unregisters a stream for node.
-	Deregister(node string)
+	Register(node string, stream common.TaskService_HandleServer) (epoch int64)
+	// Deregister unregisters a stream for node, if returns true, unregister successfully.
+	Deregister(epoch int64, node string) bool
 	// Nodes returns all registered nodes.
 	Nodes() []models.Node
 }
 
+type taskService struct {
+	handle common.TaskService_HandleServer
+	epoch  int64
+}
+
 // taskServerFactory implements TaskServerFactory interface
 type taskServerFactory struct {
-	nodeMap map[string]common.TaskService_HandleServer
+	nodeMap map[string]*taskService
+	epoch   atomic.Int64
 	lock    sync.RWMutex
 }
 
 // GetServerStreamFactory returns the singleton server stream factory
 func NewTaskServerFactory() TaskServerFactory {
 	return &taskServerFactory{
-		nodeMap: make(map[string]common.TaskService_HandleServer),
+		nodeMap: make(map[string]*taskService),
 	}
 }
 
@@ -162,16 +197,23 @@ func (fct *taskServerFactory) GetStream(node string) common.TaskService_HandleSe
 	fct.lock.RLock()
 	defer fct.lock.RUnlock()
 
-	st := fct.nodeMap[node]
-	return st
+	st, ok := fct.nodeMap[node]
+	if ok {
+		return st.handle
+	}
+	return nil
 }
 
 // Register registers a stream for a node.
-func (fct *taskServerFactory) Register(node string, stream common.TaskService_HandleServer) {
+func (fct *taskServerFactory) Register(node string, stream common.TaskService_HandleServer) (epoch int64) {
 	fct.lock.Lock()
 	defer fct.lock.Unlock()
-
-	fct.nodeMap[node] = stream
+	epoch = fct.epoch.Inc()
+	fct.nodeMap[node] = &taskService{
+		epoch:  epoch,
+		handle: stream,
+	}
+	return epoch
 }
 
 // Nodes returns all registered nodes.
@@ -192,8 +234,13 @@ func (fct *taskServerFactory) Nodes() []models.Node {
 }
 
 // Deregister unregisters a stream for node.
-func (fct *taskServerFactory) Deregister(node string) {
+func (fct *taskServerFactory) Deregister(epoch int64, node string) bool {
 	fct.lock.Lock()
 	defer fct.lock.Unlock()
-	delete(fct.nodeMap, node)
+	st, ok := fct.nodeMap[node]
+	if ok && st.epoch == epoch {
+		delete(fct.nodeMap, node)
+		return true
+	}
+	return false
 }
