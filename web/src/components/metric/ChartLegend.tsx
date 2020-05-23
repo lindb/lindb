@@ -29,7 +29,6 @@ export default class ChartLegend extends React.Component<ChartLegendProps, Chart
       reaction(
         () => StoreManager.ChartStore.chartStatusMap.get(props.uuid),
         chartStatus => {
-          console.log("init", props.uuid)
           if (chartStatus!.status !== ChartStatusEnum.Loaded) {
             return
           }

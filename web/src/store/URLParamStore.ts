@@ -48,6 +48,8 @@ export class URLParamStore {
                     } else {
                         searchParams.set(k, v);
                     }
+                } else {
+                    searchParams.delete(k);
                 }
             }
         }
