@@ -1,9 +1,9 @@
-import { Chart } from 'model/Chart';
-import { ChartDatasets, ResultSet } from 'model/Metric';
-import { getChartColor, toRGBA } from 'utils/Util';
+import { Chart } from 'model/Chart'
+import { ChartDatasets, ResultSet } from 'model/Metric'
+import { getChartColor, toRGBA } from 'utils/Util'
 
-const ChartJS = require('chart.js');
-const moment = require('moment');
+const ChartJS = require('chart.js')
+const moment = require('moment')
 const Color = ChartJS.helpers.color
 /**
  * Generate Line Chart data and options
@@ -59,7 +59,6 @@ export function LineChart(resultSet: ResultSet | null, chart: Chart, selectedSer
       }
 
       let hidden = false
-      console.log("sssssss",selectedSeries)
       if (selectedSeries) {
         hidden = !selectedSeries.has(label)
       }

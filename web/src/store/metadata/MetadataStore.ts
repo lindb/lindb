@@ -18,4 +18,8 @@ export class MetadataStore {
         this.databaseNames = await fetchMetadata({ sql: sql })
         this.loading = false
     }
+
+    public async getTagValues(sql: string) {
+        return await fetchMetadata({ db: "_internal", sql: sql })
+    }
 }
