@@ -62,7 +62,7 @@ type tagValueMapping struct {
 // idRanks sorts the ranks based on the order in rawIDs
 type idRanks struct {
 	rawIDs []uint32 // tag-value ids(uint32)
-	ranks  []uint32 // tag-value's rank list on the tree
+	ranks  []int    // tag-value's rank list on the tree
 }
 
 func (ir idRanks) Len() int           { return len(ir.rawIDs) }
@@ -90,7 +90,7 @@ func (m tagValueMapping) SortByKeys() {
 func (m *tagValueMapping) SortByRawIDs() {
 	// insert ranks
 	for i := 0; i < len(m.keys); i++ {
-		m.ranks = append(m.ranks, uint32(i))
+		m.ranks = append(m.ranks, i)
 	}
 	sort.Sort(m.idRanks)
 }
@@ -107,7 +107,7 @@ func (m *tagValueMapping) ensureSize(size int) {
 		m.keys = make([][]byte, size)[:0]
 		m.ids = make([][]byte, size)[:0]
 		m.rawIDs = make([]uint32, size)[:0]
-		m.ranks = make([]uint32, size)[:0]
+		m.ranks = make([]int, size)[:0]
 	}
 }
 

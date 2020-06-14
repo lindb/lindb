@@ -137,7 +137,7 @@ func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []f
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := r.seriesIDs.GetContainerAtIndex(highContainerIdx)
 	offset, _ := r.highOffsets.Get(highContainerIdx)
-	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[int(offset):])
+	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
 
 	tsd := encoding.GetTSDDecoder()
 	defer encoding.ReleaseTSDDecoder(tsd)
@@ -161,7 +161,7 @@ func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []f
 			// scan the data and aggregate the values
 			seriesPos, _ := seriesOffsets.Get(idx - 1)
 			// read series data and agg it
-			r.readSeriesData(int(seriesPos), tsd, fieldAggs)
+			r.readSeriesData(seriesPos, tsd, fieldAggs)
 		}
 		flow.Reduce(groupByTags, aggregator)
 	}
@@ -174,14 +174,14 @@ func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAgg
 	// find small/equals family id index
 	idx := sort.Search(fieldCount, func(i int) bool {
 		offset, _ := fieldOffsets.Get(i)
-		return field.Key(stream.ReadUint16(r.buf, int(offset))) >= fieldAggs[0].fieldKey
+		return field.Key(stream.ReadUint16(r.buf, offset)) >= fieldAggs[0].fieldKey
 	})
 	aggFieldCount := len(fieldAggs)
 	j := 0
 	for i := idx; i < fieldCount; i++ {
 		agg := fieldAggs[j]
 		offset, _ := fieldOffsets.Get(i)
-		key := field.Key(stream.ReadUint16(r.buf, int(offset)))
+		key := field.Key(stream.ReadUint16(r.buf, offset))
 		switch {
 		case key == agg.fieldKey:
 			tsd.ResetWithTimeRange(r.buf[offset+2:], r.start, r.end)
@@ -283,7 +283,7 @@ func (s *dataScanner) nextContainer() {
 	s.highKey = s.highKeys[s.seriesPos]
 	s.container = s.reader.seriesIDs.GetContainerAtIndex(s.seriesPos)
 	offset, _ := s.reader.highOffsets.Get(s.seriesPos)
-	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[int(offset):])
+	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
 	s.seriesPos++
 }
 
@@ -314,12 +314,12 @@ func (s *dataScanner) scan(highKey, lowSeriesID uint16) int {
 		if !ok {
 			return -1
 		}
-		return int(offset)
+		return offset
 	}
 	return -1
 }
 
 // getOffset returns the offset by idx
-func getOffset(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (uint32, bool) {
+func getOffset(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (int, bool) {
 	return seriesOffsets.Get(idx)
 }

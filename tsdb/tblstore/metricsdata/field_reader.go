@@ -29,7 +29,7 @@ type fieldReader struct {
 	fieldCount   int
 	fieldOffsets *encoding.FixedOffsetDecoder
 
-	offset    uint32
+	offset    int
 	ok        bool
 	idx       int
 	completed bool // !!!!NOTICE: need reset completed

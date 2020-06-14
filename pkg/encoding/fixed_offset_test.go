@@ -16,13 +16,48 @@ func TestFixedOffsetEncoder_IsEmpty(t *testing.T) {
 	assert.False(t, encoder.IsEmpty())
 }
 
+func TestFixedOffsetDecoder_Get(t *testing.T) {
+	// test all empty value
+	encoder := NewFixedOffsetEncoder()
+	for i := 1; i < 10000; i++ {
+		encoder.Add(i * -1)
+	}
+	data := encoder.MarshalBinary()
+	decoder := NewFixedOffsetDecoder(data)
+	assert.Equal(t, 1, decoder.width)
+	for i := 1; i < 10000; i++ {
+		_, ok := decoder.Get(i)
+		assert.False(t, ok)
+	}
+
+	// test with empty offset
+	encoder.Reset()
+	encoder.Add(10)
+	encoder.Add(-10)
+	encoder.Add(20)
+	encoder.Add(-10)
+	data = encoder.MarshalBinary()
+	decoder = NewFixedOffsetDecoder(data)
+	assert.Equal(t, 1, decoder.width)
+	v, ok := decoder.Get(0)
+	assert.True(t, ok)
+	assert.Equal(t, 10, v)
+	_, ok = decoder.Get(1)
+	assert.False(t, ok)
+	v, ok = decoder.Get(2)
+	assert.True(t, ok)
+	assert.Equal(t, 20, v)
+	_, ok = decoder.Get(3)
+	assert.False(t, ok)
+}
+
 func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	encoder := NewFixedOffsetEncoder()
 	data := encoder.MarshalBinary()
 	assert.Len(t, data, 0)
 	assert.Equal(t, 0, encoder.Size())
 
-	encoder.FromValues([]uint32{
+	encoder.FromValues([]int{
 		0,
 		1,
 		1 << 8,
@@ -39,17 +74,17 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	assert.Equal(t, 4, decoder.width)
 
 	var ok bool
-	var value uint32
+	var value int
 	value, _ = decoder.Get(7)
-	assert.Equal(t, uint32((1<<24)+1), value)
+	assert.Equal(t, (1<<24)+1, value)
 	value, _ = decoder.Get(5)
-	assert.Equal(t, uint32((1<<16)+1), value)
+	assert.Equal(t, (1<<16)+1, value)
 	value, _ = decoder.Get(3)
-	assert.Equal(t, uint32((1<<8)+1), value)
+	assert.Equal(t, (1<<8)+1, value)
 	value, _ = decoder.Get(2)
-	assert.Equal(t, uint32(1<<8), value)
+	assert.Equal(t, 1<<8, value)
 	value, _ = decoder.Get(0)
-	assert.Equal(t, uint32(0), value)
+	assert.Equal(t, 0, value)
 	_, ok = decoder.Get(8)
 	assert.False(t, ok)
 	_, ok = decoder.Get(-8)
@@ -71,7 +106,7 @@ func (w *mockWriter) Write(p []byte) (int, error) {
 
 func TestFixedOffsetEncoder_WriteTo(t *testing.T) {
 	encoder := NewFixedOffsetEncoder()
-	encoder.FromValues([]uint32{1, 2, 3})
+	encoder.FromValues([]int{1, 2, 3})
 	assert.NotNil(t, encoder.WriteTo(&mockWriter{}))
 }
 
@@ -93,22 +128,13 @@ func TestFixedOffsetEncoder_Reset(t *testing.T) {
 	assert.Equal(t, 4, decoder.width)
 
 	value, _ := decoder.Get(1)
-	assert.Equal(t, uint32((1<<24)+1), value)
+	assert.Equal(t, (1<<24)+1, value)
 	value, _ = decoder.Get(0)
-	assert.Equal(t, uint32(1<<24), value)
+	assert.Equal(t, 1<<24, value)
 }
 
-func TestFixedOffset_codec_int32(t *testing.T) {
-	assert.Equal(t, 1, Uint32MinWidth(0))
-	assert.Equal(t, 1, Uint32MinWidth(1))
-	assert.Equal(t, 2, Uint32MinWidth(1<<8))
-	assert.Equal(t, 2, Uint32MinWidth((1<<8)+1))
-	assert.Equal(t, 3, Uint32MinWidth(1<<16))
-	assert.Equal(t, 3, Uint32MinWidth((1<<16)+1))
-	assert.Equal(t, 4, Uint32MinWidth(1<<24))
-	assert.Equal(t, 4, Uint32MinWidth((1<<24)+1))
-
-	assertGet := func(buf []byte, index int, value uint32, ok bool) {
+func TestFixedOffset_codec_int(t *testing.T) {
+	assertGet := func(buf []byte, index int, value int, ok bool) {
 		decoder := NewFixedOffsetDecoder(buf)
 		v, exist := decoder.Get(index)
 		assert.Equal(t, value, v)
@@ -119,13 +145,13 @@ func TestFixedOffset_codec_int32(t *testing.T) {
 	// width:1
 	assertGet([]byte{1}, 0, 0, false)
 	assertGet([]byte{1, 0xff}, -1, 0, false)
-	assertGet([]byte{1, 0xff}, 0, 255, true)
+	assertGet([]byte{1, 0xff}, 0, 254, true)
 	assertGet([]byte{1, 0xff}, 1, 0, false)
 	// width: 4
 	assertGet([]byte{2, 0xff}, 0, 0, false)
 	// width: 4
 	assertGet([]byte{4, 0xff}, 0, 0, false)
-	assertGet([]byte{4, 0xff, 0xff, 0xff, 0xff}, 0, 0xffffffff, true)
+	assertGet([]byte{4, 0xff, 0xff, 0xff, 0xff}, 0, 0xfffffffe, true)
 
 	// data corruption
 	assertGet([]byte{5, 0xff, 0xff, 0xff, 0xff}, 0, 0, false)
@@ -141,9 +167,9 @@ func TestByteSlice2Uint32(t *testing.T) {
 
 func Test_GetAdd_Consistency(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
-	var expects []uint32
+	var expects []int
 	for i := 0; i < 100000; i++ {
-		expects = append(expects, rand.Uint32())
+		expects = append(expects, rand.Intn(100000000))
 	}
 	encoder := NewFixedOffsetEncoder()
 	encoder.FromValues(expects)
@@ -160,7 +186,7 @@ func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 	encoder := NewFixedOffsetEncoder()
 	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < 100000; i++ {
-		x := rand.Uint32()
+		x := rand.Intn(10000000)
 		encoder.Add(x)
 	}
 	data := encoder.MarshalBinary()
