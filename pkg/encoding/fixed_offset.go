@@ -8,11 +8,16 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+const (
+	adjustValue = 1
+	EmptyOffset = -1
+)
+
 // FixedOffsetEncoder represents the offset encoder with fixed length
 type FixedOffsetEncoder struct {
-	values []uint32
+	values []int
 	buf    *bytes.Buffer
-	max    uint32
+	max    int
 	bw     *stream.BufferWriter
 }
 
@@ -23,6 +28,7 @@ func NewFixedOffsetEncoder() *FixedOffsetEncoder {
 	return &FixedOffsetEncoder{
 		buf: &buf,
 		bw:  bw,
+		max: EmptyOffset,
 	}
 }
 
@@ -44,7 +50,7 @@ func (e *FixedOffsetEncoder) Reset() {
 }
 
 // Add adds the offset value,
-func (e *FixedOffsetEncoder) Add(v uint32) {
+func (e *FixedOffsetEncoder) Add(v int) {
 	e.values = append(e.values, v)
 	if e.max < v {
 		e.max = v
@@ -52,7 +58,7 @@ func (e *FixedOffsetEncoder) Add(v uint32) {
 }
 
 // FromValues resets the encoder, then init it with multi values.
-func (e *FixedOffsetEncoder) FromValues(values []uint32) {
+func (e *FixedOffsetEncoder) FromValues(values []int) {
 	e.Reset()
 	e.values = values
 	for _, value := range values {
@@ -73,13 +79,19 @@ func (e *FixedOffsetEncoder) WriteTo(writer io.Writer) error {
 	if len(e.values) == 0 {
 		return nil
 	}
-	width := Uint32MinWidth(e.max)
+	if e.max < 0 {
+		e.max = EmptyOffset
+	}
+	width := Uint32MinWidth(uint32(e.max + adjustValue))
 	// fixed value width
 	e.bw.PutByte(byte(width))
 	// put all values with fixed length
 	buf := make([]byte, 4)
 	for _, value := range e.values {
-		binary.LittleEndian.PutUint32(buf, value)
+		if value < 0 {
+			value = EmptyOffset
+		}
+		binary.LittleEndian.PutUint32(buf, uint32(value+adjustValue))
 		if _, err := writer.Write(buf[:width]); err != nil {
 			return err
 		}
@@ -122,7 +134,7 @@ func (d *FixedOffsetDecoder) Size() int {
 }
 
 // Get gets the offset value by index
-func (d *FixedOffsetDecoder) Get(index int) (uint32, bool) {
+func (d *FixedOffsetDecoder) Get(index int) (int, bool) {
 	start := index * d.width
 	if start < 0 || len(d.buf) == 0 || start >= len(d.buf) || d.width > 4 {
 		return 0, false
@@ -132,7 +144,11 @@ func (d *FixedOffsetDecoder) Get(index int) (uint32, bool) {
 		return 0, false
 	}
 	copy(d.scratch, d.buf[start:end])
-	return binary.LittleEndian.Uint32(d.scratch), true
+	offset := int(binary.LittleEndian.Uint32(d.scratch)) - adjustValue
+	if offset < 0 {
+		return 0, false
+	}
+	return offset, true
 }
 
 func ByteSlice2Uint32(slice []byte) uint32 {

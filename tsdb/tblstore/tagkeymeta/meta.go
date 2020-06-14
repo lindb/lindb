@@ -137,7 +137,7 @@ func (meta *tagKeyMeta) TrieTree() (trie.SuccinctTrie, error) {
 type idRanksOffsets struct {
 	ids     []uint32 // tag-value ids
 	keys    []string // tag-values
-	ranks   []uint32
+	ranks   []int
 	offsets []uint32
 }
 
@@ -145,7 +145,7 @@ func makeIDRankOffsets(size int) idRanksOffsets {
 	return idRanksOffsets{
 		ids:     make([]uint32, size)[:0],
 		keys:    make([]string, size)[:0],
-		ranks:   make([]uint32, size)[:0],
+		ranks:   make([]int, size)[:0],
 		offsets: make([]uint32, size)[:0],
 	}
 }
@@ -223,7 +223,7 @@ func (meta *tagKeyMeta) walkTrieTree(mappings *idRanksOffsets) error {
 	itr.SeekToFirst()
 
 	expectedRankIdx := 0 // pop left from ranks
-	walkedRankAt := uint32(0)
+	walkedRankAt := 0
 	for itr.Valid() {
 		if expectedRankIdx >= len(mappings.ranks) {
 			break

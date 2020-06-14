@@ -15,8 +15,8 @@ type builder struct {
 	lsLoudsBits [][]uint64
 
 	// suffix keys
-	scratch         []byte     // for variant encoding
-	suffixesOffsets [][]uint32 // pooling
+	scratch         []byte  // for variant encoding
+	suffixesOffsets [][]int // pooling
 	suffixesBlock   []byte
 
 	// value
@@ -33,7 +33,7 @@ type builder struct {
 	// pooling data-structures
 	poolByteSlice   []*[]byte
 	poolUint64Slice []*[]uint64
-	poolUint32Slice []*[]uint32
+	poolIntSlice    []*[]int
 }
 
 // NewBuilder returns a new Trie builder.
@@ -136,7 +136,7 @@ func (b *builder) addLevel() {
 	// not pooled
 	b.hasPrefix = append(b.hasPrefix, []uint64{})
 	// pooled
-	b.suffixesOffsets = append(b.suffixesOffsets, *b.pickUint32Slice())
+	b.suffixesOffsets = append(b.suffixesOffsets, *b.pickIntSlice())
 
 	b.values = append(b.values, []byte{})
 	b.valueCounts = append(b.valueCounts, 0)
@@ -171,7 +171,7 @@ func (b *builder) insertSuffix(key []byte, level, depth int) {
 		keySuffix = key[cutPos:]
 	}
 	offset := len(b.suffixesBlock)
-	b.suffixesOffsets[level] = append(b.suffixesOffsets[level], uint32(offset))
+	b.suffixesOffsets[level] = append(b.suffixesOffsets[level], offset)
 
 	// put uvarint length of key-suffix
 	width := binary.PutUvarint(b.scratch, uint64(len(keySuffix)))
@@ -219,7 +219,7 @@ func (b *builder) Reset() {
 	// cache suffixOffsets
 	for idx := range b.suffixesOffsets {
 		sl := b.suffixesOffsets[idx][:0]
-		b.poolUint32Slice = append(b.poolUint32Slice, &sl)
+		b.poolIntSlice = append(b.poolIntSlice, &sl)
 	}
 	b.suffixesOffsets = b.suffixesOffsets[:0]
 
@@ -258,12 +258,12 @@ func (b *builder) pickUint64Slice() *[]uint64 {
 	b.poolUint64Slice = b.poolUint64Slice[:tailIndex]
 	return ptr
 }
-func (b *builder) pickUint32Slice() *[]uint32 {
-	if len(b.poolUint32Slice) == 0 {
-		return &[]uint32{}
+func (b *builder) pickIntSlice() *[]int {
+	if len(b.poolIntSlice) == 0 {
+		return &[]int{}
 	}
-	tailIndex := len(b.poolUint32Slice) - 1
-	ptr := b.poolUint32Slice[tailIndex]
-	b.poolUint32Slice = b.poolUint32Slice[:tailIndex]
+	tailIndex := len(b.poolIntSlice) - 1
+	ptr := b.poolIntSlice[tailIndex]
+	b.poolIntSlice = b.poolIntSlice[:tailIndex]
 	return ptr
 }

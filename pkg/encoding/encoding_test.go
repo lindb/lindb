@@ -20,3 +20,14 @@ func TestHighLowBits(t *testing.T) {
 	low := LowBits(v)
 	assert.Equal(t, v, ValueWithHighLowBits(uint32(high)<<16, low))
 }
+
+func TestUint32MinWidth(t *testing.T) {
+	assert.Equal(t, 1, Uint32MinWidth(0))
+	assert.Equal(t, 1, Uint32MinWidth(1))
+	assert.Equal(t, 2, Uint32MinWidth(1<<8))
+	assert.Equal(t, 2, Uint32MinWidth((1<<8)+1))
+	assert.Equal(t, 3, Uint32MinWidth(1<<16))
+	assert.Equal(t, 3, Uint32MinWidth((1<<16)+1))
+	assert.Equal(t, 4, Uint32MinWidth(1<<24))
+	assert.Equal(t, 4, Uint32MinWidth((1<<24)+1))
+}
