@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -118,8 +117,22 @@ func mockMetricMergeBlock(seriesIDs []uint32, start, end uint16) []byte {
 		{ID: 10, Type: field.MinField},
 	})
 	for _, seriesID := range seriesIDs {
-		flusher.FlushField(field.Key(stream.ReadUint16([]byte{2, byte(1)}, 0)), []byte{1, 2, 3})
-		flusher.FlushField(field.Key(stream.ReadUint16([]byte{10, byte(2)}, 0)), []byte{1, 2, 3})
+		flusher.FlushField([]byte{1, 2, 3})
+		flusher.FlushField([]byte{1, 2, 3})
+		flusher.FlushSeries(seriesID)
+	}
+	_ = flusher.FlushMetric(uint32(10), start, end)
+	return nopKVFlusher.Bytes()
+}
+
+func mockMetricMergeBlockOneField(seriesIDs []uint32, start, end uint16) []byte {
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher := NewFlusher(nopKVFlusher)
+	flusher.FlushFieldMetas(field.Metas{
+		{ID: 2, Type: field.SumField},
+	})
+	for _, seriesID := range seriesIDs {
+		flusher.FlushField([]byte{1, 2, 3})
 		flusher.FlushSeries(seriesID)
 	}
 	_ = flusher.FlushMetric(uint32(10), start, end)

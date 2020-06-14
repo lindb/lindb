@@ -96,6 +96,7 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	decoder = NewFixedOffsetDecoder([]byte{0})
 	assert.Equal(t, 0, decoder.width)
 	assert.Zero(t, decoder.Size())
+	assert.Equal(t, lengthOfHeader, decoder.Header())
 }
 
 type mockWriter struct{}

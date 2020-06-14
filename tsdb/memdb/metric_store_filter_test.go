@@ -73,7 +73,6 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
 		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, true),
 		fAgg.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg}),
-		pAgg.EXPECT().FieldID().Return(field.PrimitiveID(10)),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	rs[0].Load(qFlow, []field.ID{20, 30}, 0, map[string][]uint16{
@@ -85,7 +84,6 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
 		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, true),
 		fAgg.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg}),
-		pAgg.EXPECT().FieldID().Return(field.PrimitiveID(10)),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	rs[0].Load(qFlow, []field.ID{20, 30}, 0, map[string][]uint16{

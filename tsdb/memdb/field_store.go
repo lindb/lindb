@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -31,23 +32,22 @@ func init() {
 }
 
 // memory layout as below:
-// header: family[1byte] + field id[1byte] + primitive id[1byte]
+// header: family[1byte] + field id[2bytes]
 //        + start time[2byte] + end time(delta of start time)[1byte] + mark container[2byte]
 // body: data points(value.....)
 // last mark flag of container marks the buf if has data written
 
 const (
-	familyOffset    = 0
-	fieldOffset     = familyOffset + 1
-	primitiveOffset = fieldOffset + 1
-	startOffset     = primitiveOffset + 1
-	endOffset       = startOffset + 2
-	markOffset      = endOffset + 1
-	bodyOffset      = markOffset + 2
-	headLen         = 8
-	valueSize       = 8
+	familyOffset = 0
+	fieldOffset  = familyOffset + 1
+	startOffset  = fieldOffset + 2
+	endOffset    = startOffset + 2
+	markOffset   = endOffset + 1
+	bodyOffset   = markOffset + 2
+	headLen      = 8
+	valueSize    = 8
 
-	emptyPrimitiveFieldStoreSize = 24 + // empty buf slice cost
+	emptyFieldStoreSize = 24 + // empty buf slice cost
 		24 // empty compress slice cost
 )
 
@@ -59,19 +59,14 @@ type fStoreINTF interface {
 	GetKey() uint32
 	// GetFamilyID returns the family time mapping id
 	GetFamilyID() familyID
-	// GetFieldKey returns the field key
-	// field key = field id + primitive field id
-	GetFieldKey() field.Key
 	// GetFieldID returns the field id of metric level
 	GetFieldID() field.ID
-	// GetPrimitiveID returns the primitive field id of field level, some complex field will have many primitive fields
-	GetPrimitiveID() field.PrimitiveID
 	// Write writes the field data into current buffer, returns the written size.
 	// if time slot out of current time window, need compress time window then resets the current buffer
 	// if has same time slot in current buffer, need do rollup operation by field type
 	Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
-	FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx flushContext)
+	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
 	// Load loads field store data based on query time range, then aggregate the result
 	Load(fieldType field.Type, agg aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
 }
@@ -83,10 +78,9 @@ type fieldStore struct {
 }
 
 // newFieldStore creates a new field store
-func newFieldStore(buf []byte, familyID familyID, fieldID field.ID, pFieldID field.PrimitiveID) fStoreINTF {
+func newFieldStore(buf []byte, familyID familyID, fieldID field.ID) fStoreINTF {
 	buf[familyOffset] = byte(familyID)
-	buf[fieldOffset] = byte(fieldID)
-	buf[primitiveOffset] = byte(pFieldID)
+	stream.PutUint16(buf, fieldOffset, uint16(fieldID))
 	return &fieldStore{
 		buf: buf,
 	}
@@ -95,7 +89,7 @@ func newFieldStore(buf []byte, familyID familyID, fieldID field.ID, pFieldID fie
 // GetKey returns the field store key, sorts in field list will use this key for sorting
 // field key = family id + field id + primitive field id
 func (fs *fieldStore) GetKey() uint32 {
-	return uint32(fs.buf[primitiveOffset]) | uint32(fs.buf[fieldOffset])<<8 | uint32(fs.buf[familyOffset])<<16
+	return uint32(fs.buf[fieldOffset]) | uint32(fs.buf[fieldOffset+1])<<8 | uint32(fs.buf[familyOffset])<<16
 }
 
 // GetFamilyID returns the family time mapping id
@@ -103,20 +97,9 @@ func (fs *fieldStore) GetFamilyID() familyID {
 	return familyID(fs.buf[familyOffset])
 }
 
-// GetFieldKey returns the field key
-// field key = field id + primitive field id
-func (fs *fieldStore) GetFieldKey() field.Key {
-	return field.Key(binary.LittleEndian.Uint16(fs.buf[fieldOffset:]))
-}
-
 // GetFieldID returns the field id of metric level
 func (fs *fieldStore) GetFieldID() field.ID {
-	return field.ID(fs.buf[fieldOffset])
-}
-
-// GetPrimitiveID returns the primitive field id of field level, some complex field will have many primitive fields
-func (fs *fieldStore) GetPrimitiveID() field.PrimitiveID {
-	return field.PrimitiveID(fs.buf[primitiveOffset])
+	return field.ID(stream.ReadUint16(fs.buf, fieldOffset))
 }
 
 // Write writes the field data into current buffer, returns the written size.
@@ -144,7 +127,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	pos, markIdx, flagIdx := fs.position(delta)
 	if fs.buf[markOffset+markIdx]&flagIdx != 0 {
 		// has same point of same time slot
-		aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
+		aggFunc := fieldType.GetAggFunc()
 		oldValue := math.Float64frombits(binary.LittleEndian.Uint64(fs.buf[pos:]))
 		value = aggFunc.Aggregate(oldValue, value)
 	} else {
@@ -159,13 +142,8 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 }
 
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
-func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx flushContext) {
-	fieldMeta, ok := tableFlusher.GetFieldMeta(fs.GetFieldID())
-	if !ok {
-		memDBLogger.Error("field meta not exist in flush context when flush field store data")
-		return
-	}
-	aggFunc := fieldMeta.Type.GetSchema().GetAggFunc(fs.GetPrimitiveID())
+func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
+	aggFunc := fieldMeta.Type.GetAggFunc()
 	var tsd *encoding.TSDDecoder
 	size := len(fs.compress)
 	if size > 0 {
@@ -181,7 +159,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, flushCtx fl
 		return
 	}
 
-	tableFlusher.FlushField(fs.GetFieldKey(), data)
+	tableFlusher.FlushField(data)
 }
 
 // writeFirstPoint writes first point in current write buffer
@@ -212,7 +190,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int)
 	length := len(fs.compress)
 	thisSlotRange := fs.slotRange(startTime)
 
-	aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
+	aggFunc := fieldType.GetAggFunc()
 	var tsd *encoding.TSDDecoder
 	if length > 0 {
 		// if has compress data, create tsd decoder for merge compress
@@ -239,7 +217,7 @@ func (fs *fieldStore) position(deltaOfTime uint16) (pos, markIdx uint16, flagIdx
 
 // getStart returns the start time in current write buffer
 func (fs *fieldStore) getStart() uint16 {
-	return binary.LittleEndian.Uint16(fs.buf[startOffset:])
+	return stream.ReadUint16(fs.buf, startOffset)
 }
 
 // getEnd returns the delta time of start time in current write buffer
@@ -305,7 +283,7 @@ func (fs *fieldStore) Load(
 	memScanCtx *memScanContext,
 ) {
 	hasOld := len(fs.compress) > 0
-	aggFunc := fieldType.GetSchema().GetAggFunc(fs.GetPrimitiveID())
+	aggFunc := fieldType.GetAggFunc()
 
 	var tsd *encoding.TSDDecoder
 	if hasOld {

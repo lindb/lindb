@@ -223,21 +223,17 @@ func (md *memoryDatabase) Write(
 			md.generateFieldIDFailCounter.Inc()
 			continue
 		}
-		for _, pField := range f.Fields {
-			md.writeDataPointCounter.Inc()
-			pFieldID := field.PrimitiveID(pField.PrimitiveID)
-			pStore, ok := tStore.GetFStore(fID, fieldID, pFieldID)
-			if !ok {
-				buf, err := md.buf.AllocPage()
-				if err != nil {
-					return err
-				}
-				pStore = newFieldStore(buf, fID, fieldID, pFieldID)
-				size += emptyPrimitiveFieldStoreSize + 8
-				tStore.InsertFStore(pStore)
+		md.writeDataPointCounter.Inc()
+		pStore, ok := tStore.GetFStore(fID, fieldID)
+		if !ok {
+			buf, err := md.buf.AllocPage()
+			if err != nil {
+				return err
 			}
-			size += pStore.Write(fieldType, slotIndex, pField.Value)
+			pStore = newFieldStore(buf, fID, fieldID)
+			size += tStore.InsertFStore(pStore)
 		}
+		size += pStore.Write(fieldType, slotIndex, f.Value)
 
 		// if write data success, add field into metric level for cache
 		mStore.AddField(fieldID, fieldType)

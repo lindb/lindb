@@ -13,8 +13,8 @@ const emptyTimeSeriesStoreSize = 24 // fStores slice
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetFStore returns the fStore in field list by family/field/primitive
-	GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool)
+	// GetFStore returns the fStore in field list by family/field
+	GetFStore(familyID familyID, fieldID field.ID) (fStoreINTF, bool)
 	// InsertFStore inserts a new fStore to field list.
 	InsertFStore(fStore fStoreINTF) (createdSize int)
 	// FlushSeriesTo flushes the series data segment.
@@ -41,8 +41,8 @@ func newTimeSeriesStore() tStoreINTF {
 }
 
 // GetFStore returns the fStore in this list from field-id.
-func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID, pField field.PrimitiveID) (fStoreINTF, bool) {
-	fieldKey := buildFieldKey(familyID, fieldID, pField)
+func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID) (fStoreINTF, bool) {
+	fieldKey := buildFieldKey(familyID, fieldID)
 	fieldLength := len(ts.fStoreNodes)
 	if fieldLength == 1 {
 		if ts.fStoreNodes[0].GetKey() != fieldKey {
@@ -62,7 +62,7 @@ func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID, pField
 
 // InsertFStore inserts a new fStore to field list.
 func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
-	createdSize = emptyPrimitiveFieldStoreSize + 8
+	createdSize = emptyFieldStoreSize + 8
 	if ts.fStoreNodes == nil {
 		ts.fStoreNodes = []fStoreINTF{fStore}
 		return
@@ -75,15 +75,33 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
 // FlushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
 	flushFamilyID := flushCtx.familyID
+	var stores []fStoreINTF
 	for _, fStore := range ts.fStoreNodes {
 		// need flush by family id
 		if flushFamilyID == fStore.GetFamilyID() {
-			fStore.FlushFieldTo(flusher, flushCtx)
+			stores = append(stores, fStore)
+		}
+	}
+	fStoreLen := len(stores)
+	// if no field store under current data family
+	if stores == nil || fStoreLen == 0 {
+		return
+	}
+	fieldMetas := flusher.GetFieldMetas()
+	idx := 0
+	for _, fieldMeta := range fieldMetas {
+		if idx < fStoreLen && fieldMeta.ID == stores[idx].GetFieldID() {
+			// flush field data
+			stores[idx].FlushFieldTo(flusher, fieldMeta, flushCtx)
+			idx++
+		} else {
+			// must flush nil data for metric has mutli-field
+			flusher.FlushField(nil)
 		}
 	}
 }
 
-// scan scans the time series data based on key(family+field+primitive).
+// scan scans the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
 func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
 	fieldLength := len(ts.fStoreNodes)

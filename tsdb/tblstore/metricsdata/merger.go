@@ -84,7 +84,7 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 				if seriesPos >= 0 {
 					start, end := scanner.slotRange()
 					if fieldReaders[blockIdx] == nil {
-						fieldReaders[blockIdx] = newFieldReader(values[blockIdx], seriesPos, start, end)
+						fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(), values[blockIdx], seriesPos, start, end)
 					} else {
 						fieldReaders[blockIdx].reset(values[blockIdx], seriesPos, start, end)
 					}

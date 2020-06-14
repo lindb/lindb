@@ -7,7 +7,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 )
 
 func TestPBModel(t *testing.T) {
@@ -15,9 +14,9 @@ func TestPBModel(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}
 

@@ -7,12 +7,12 @@ message MetricList {
 }
 
 message Metric {
-    string namespace = 6;
-    string name = 1;
-    int64 timestamp = 2;
-    map<string, string> tags = 3;
-    uint64 tagsHash = 4; // xxhash.Sum64String(tags), broker side generate before write wal
-    repeated Field fields = 5;
+    string namespace = 1;
+    string name = 2;
+    int64 timestamp = 3;
+    map<string, string> tags = 4;
+    uint64 tagsHash = 5; // xxhash.Sum64String(tags), broker side generate before write wal
+    repeated Field fields = 6;
 }
 
 enum FieldType {
@@ -21,18 +21,10 @@ enum FieldType {
     Min = 2;
     Max = 3;
     Gauge = 4;
-    Increase = 5;
-    Summary = 6;
-    Histogram = 7;
 }
 
 message Field {
     string name = 1;
     FieldType type = 2;
-    repeated PrimitiveField fields = 3;
-}
-
-message PrimitiveField {
-    int32 primitiveID = 1;
-    double value = 2;
+    double value = 3;
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -195,9 +194,9 @@ func TestShard_Write(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now() - 2*timeutil.OneMinute,
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}))
 	// case 5: reject ahead
@@ -205,8 +204,8 @@ func TestShard_Write(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now() + 2*timeutil.OneMinute,
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 	// case 6: gen metric id err
@@ -215,8 +214,8 @@ func TestShard_Write(t *testing.T) {
 		Name:      "test",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 	// case 7: gen series id err
@@ -228,8 +227,8 @@ func TestShard_Write(t *testing.T) {
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 	// case 7: get old series id
@@ -240,8 +239,8 @@ func TestShard_Write(t *testing.T) {
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 	// case 8: create new series id
@@ -253,8 +252,8 @@ func TestShard_Write(t *testing.T) {
 		TagsHash:  10,
 		Tags:      map[string]string{"ip": "1.1.1.1"},
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 	// case 9: write metric without tags
@@ -263,8 +262,8 @@ func TestShard_Write(t *testing.T) {
 		Timestamp: timeutil.Now(),
 		TagsHash:  10,
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Value: 1.0,
 		}},
 	}))
 

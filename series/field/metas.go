@@ -6,8 +6,8 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID   ID     `json:"id"`   // query not use ID, don't get id in query phase
-	Type Type   `json:"type"` // query not user type
+	ID   ID     `json:"id"`   // query not use id, don't get id in query phase
+	Type Type   `json:"type"` // query not use type
 	Name string `json:"name"`
 }
 
