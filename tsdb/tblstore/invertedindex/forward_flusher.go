@@ -51,7 +51,7 @@ func (f *forwardFlusher) FlushForwardIndex(tagValueIDs []uint32) {
 	}
 	offset := f.writer.Len()
 	f.writer.PutBytes(f.tagValueIDs.Bytes()) // write tag value ids
-	f.offsets.Add(uint32(offset))            // add tag value ids' offset
+	f.offsets.Add(offset)                    // add tag value ids' offset
 }
 
 // FlushTagKeyID ends writing series ids in tag index table.

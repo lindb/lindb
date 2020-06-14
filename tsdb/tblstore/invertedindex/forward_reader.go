@@ -107,7 +107,7 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Contain
 	}
 	// tag value ids cannot reuse, because
 	offset, _ := r.offsets.Get(index)
-	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[int(offset):])
+	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[offset:])
 
 	container := r.keys.GetContainerAtIndex(index)
 	tagValueIDsCount := container.GetCardinality()
@@ -155,7 +155,7 @@ func (s *tagForwardScanner) nextContainer() {
 	s.tagValueOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
 	if s.tagValueIDs == nil {
 		offset, _ := s.reader.offsets.Get(s.keyPos)
-		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[int(offset):])
+		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[offset:])
 	} else {
 		offset, _ := s.reader.offsets.Get(s.keyPos)
 		s.tagValueIDs.Reset(s.reader.buf[offset:])

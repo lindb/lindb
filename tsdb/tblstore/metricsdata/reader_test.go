@@ -158,7 +158,7 @@ func TestReader_scan(t *testing.T) {
 	assert.True(t, seriesPos < 0)
 	// case 6: get wrong offset
 	scanner = newDataScanner(r)
-	getOffsetFunc = func(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (uint32, bool) {
+	getOffsetFunc = func(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (int, bool) {
 		return 0, false
 	}
 	seriesPos = scanner.scan(0, 0)

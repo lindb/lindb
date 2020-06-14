@@ -598,14 +598,14 @@ type suffixKeyVector struct {
 	suffixesBlock   []byte
 }
 
-func (v *suffixKeyVector) Init(offsetsPerLevel [][]uint32, data []byte) {
+func (v *suffixKeyVector) Init(offsetsPerLevel [][]int, data []byte) {
 	v.suffixesBlock = data
 
 	var size int
 	for l := range offsetsPerLevel {
 		size += len(offsetsPerLevel[l])
 	}
-	offsets := make([]uint32, size)[:0]
+	offsets := make([]int, size)[:0]
 
 	for _, l := range offsetsPerLevel {
 		offsets = append(offsets, l...)
@@ -625,7 +625,7 @@ func (v *suffixKeyVector) getDecoder() *encoding.FixedOffsetDecoder {
 func (v *suffixKeyVector) GetSuffix(valPos uint32) []byte {
 	decoder := v.getDecoder()
 	start, ok := decoder.Get(int(valPos))
-	if !ok || start >= uint32(len(v.suffixesBlock)) {
+	if !ok || start >= len(v.suffixesBlock) {
 		return nil
 	}
 
@@ -633,9 +633,9 @@ func (v *suffixKeyVector) GetSuffix(valPos uint32) []byte {
 	if length == 0 {
 		return nil
 	}
-	start += uint32(width)
-	end := start + uint32(length)
-	if end > uint32(len(v.suffixesBlock)) {
+	start += width
+	end := start + int(length)
+	if end > len(v.suffixesBlock) {
 		return nil
 	}
 
