@@ -14,7 +14,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 )
 
 func TestDatabaseChannel_new(t *testing.T) {
@@ -41,9 +40,9 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			Fields: []*pb.Field{{
-				Name:   "f1",
-				Type:   pb.FieldType_Sum,
-				Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+				Name:  "f1",
+				Type:  pb.FieldType_Sum,
+				Value: 1.0,
 			}},
 			Tags: map[string]string{"host": "1.1.1.1"},
 		},
@@ -60,9 +59,9 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			Fields: []*pb.Field{{
-				Name:   "f1",
-				Type:   pb.FieldType_Sum,
-				Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+				Name:  "f1",
+				Type:  pb.FieldType_Sum,
+				Value: 1.0,
 			}},
 			Tags: map[string]string{"host": "1.1.1.1"},
 		},

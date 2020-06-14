@@ -2,7 +2,6 @@ package metricsdata
 
 import (
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -13,9 +12,9 @@ import (
 type FieldReader interface {
 	// slotRange returns the time slot range of metric level
 	slotRange() (start, end uint16)
-	// getPrimitiveData returns the primitive data by field/primitive,
-	// if reader is completed, return nil, if found data returns primitive data else returns nil
-	getPrimitiveData(fieldID field.ID, primitiveID field.PrimitiveID) []byte
+	// getFieldData returns the field data by field id,
+	// if reader is completed, return nil, if found data returns field data else returns nil
+	getFieldData(fieldID field.ID) []byte
 	// reset resets the field data for reading
 	reset(buf []byte, position int, start, end uint16)
 	// close closes the reader
@@ -25,34 +24,37 @@ type FieldReader interface {
 // fieldReader implements FieldReader
 type fieldReader struct {
 	start, end   uint16
-	buf          []byte
-	fieldCount   int
+	seriesData   []byte
 	fieldOffsets *encoding.FixedOffsetDecoder
+	fieldIndexes map[field.ID]int
+	fieldCount   int
 
-	offset    int
-	ok        bool
-	idx       int
 	completed bool // !!!!NOTICE: need reset completed
 }
 
 // newFieldReader creates the field reader
-func newFieldReader(buf []byte, position int, start, end uint16) FieldReader {
-	r := &fieldReader{}
+func newFieldReader(fieldIndexes map[field.ID]int, buf []byte, position int, start, end uint16) FieldReader {
+	r := &fieldReader{
+		fieldIndexes: fieldIndexes,
+		fieldCount:   len(fieldIndexes),
+	}
 	r.reset(buf, position, start, end)
 	return r
 }
 
 // reset resets the field data for reading
 func (r *fieldReader) reset(buf []byte, position int, start, end uint16) {
+	r.completed = false
 	r.start = start
 	r.end = end
-	r.buf = buf
-	r.fieldCount = int(stream.ReadUint16(buf, position))
-	r.fieldOffsets = encoding.NewFixedOffsetDecoder(buf[position+2:])
-	r.offset = 0
-	r.ok = false
-	r.idx = 0
-	r.completed = false
+	if r.fieldCount == 1 {
+		r.seriesData = buf
+		return
+	}
+	data := buf[position:]
+	r.fieldOffsets = encoding.NewFixedOffsetDecoder(data)
+	r.seriesData = data[r.fieldOffsets.Header()+r.fieldCount*r.fieldOffsets.ValueWidth():]
+	r.fieldOffsets = encoding.NewFixedOffsetDecoder(buf[position:])
 }
 
 // slotRange returns the time slot range of metric level
@@ -60,48 +62,24 @@ func (r *fieldReader) slotRange() (start, end uint16) {
 	return r.start, r.end
 }
 
-// getPrimitiveData returns the primitive data by field/primitive,
-// if reader is completed, return nil, if found data returns primitive data else returns nil
-func (r *fieldReader) getPrimitiveData(fieldID field.ID, primitiveID field.PrimitiveID) []byte {
+// getFieldData returns the field data by field id,
+// if reader is completed, return nil, if found data returns field data else returns nil
+func (r *fieldReader) getFieldData(fieldID field.ID) []byte {
 	if r.completed {
 		return nil
 	}
-	if !r.ok {
-		if !r.nextField() {
-			return nil
-		}
+	idx, ok := r.fieldIndexes[fieldID]
+	if !ok {
+		return nil
 	}
-	fID1 := r.buf[r.offset]
-	fID2 := byte(fieldID)
-	if fID1 < fID2 {
-		if !r.nextField() {
-			return nil
-		}
-		fID1 = r.buf[r.offset]
+	if r.fieldCount == 1 {
+		return r.seriesData
 	}
-	pID1 := r.buf[r.offset+1]
-	pID2 := byte(primitiveID)
-	if pID1 < pID2 {
-		if !r.nextField() {
-			return nil
-		}
-		pID1 = r.buf[r.offset+1]
+	offset, ok := r.fieldOffsets.Get(idx)
+	if !ok {
+		return nil
 	}
-	if fID1 == fID2 && pID1 == pID2 {
-		return r.buf[r.offset+2:]
-	}
-	return nil
-}
-
-// nextField goto next valid field, if on data return false and marks completed
-func (r *fieldReader) nextField() bool {
-	if r.idx >= r.fieldCount {
-		r.completed = true
-		return false
-	}
-	r.offset, r.ok = r.fieldOffsets.Get(r.idx)
-	r.idx++
-	return true
+	return r.seriesData[offset:]
 }
 
 // close marks the reader completed

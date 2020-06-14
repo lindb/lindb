@@ -24,15 +24,11 @@ func Test_ReadUint32(t *testing.T) {
 }
 
 func Test_ReadUint16(t *testing.T) {
-	var buf bytes.Buffer
-	writer2 := NewBufferWriter(&buf)
-	writer2.PutUInt16(2)
-	writer2.PutUInt16(999)
-	data, err := writer2.Bytes()
-	assert.NoError(t, err)
-	assert.Len(t, data, 4)
-	assert.Equal(t, uint16(999), ReadUint16(data, 2))
-	assert.Equal(t, uint16(2), ReadUint16(data, 0))
+	buf := make([]byte, 4)
+	PutUint16(buf, 0, 2)
+	PutUint16(buf, 2, 999)
+	assert.Equal(t, uint16(999), ReadUint16(buf, 2))
+	assert.Equal(t, uint16(2), ReadUint16(buf, 0))
 }
 
 func Test_ReadUvarint(t *testing.T) {

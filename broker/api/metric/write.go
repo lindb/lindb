@@ -9,7 +9,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/replication"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 )
 
 type WriteAPI struct {
@@ -43,7 +42,7 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 					Name:      "cpu",
 					Timestamp: timeutil.Now() + 10*timeutil.OneSecond*int64(n),
 					Fields: []*pb.Field{
-						{Name: "f2", Type: pb.FieldType_Sum, Fields: []*pb.PrimitiveField{{PrimitiveID: int32(field.SimpleFieldPFieldID), Value: 1.0}}},
+						{Name: "f2", Type: pb.FieldType_Sum, Value: 1.0},
 					},
 					Tags: map[string]string{"host": "1.1.1." + strconv.Itoa(i), "disk": "/tmp" + strconv.Itoa(j), "partition": "partition" + strconv.Itoa(k)},
 				}

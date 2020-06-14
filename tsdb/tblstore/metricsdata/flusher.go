@@ -28,15 +28,15 @@ type Flusher interface {
 	// FlushFieldMetas writes the meta info a field
 	FlushFieldMetas(fieldMetas field.Metas)
 	// FlushField writes a compressed field data to writer.
-	FlushField(fieldKey field.Key, data []byte)
+	FlushField(data []byte)
 	// FlushSeries writes a full series, this will be called after writing all fields of this entry.
 	FlushSeries(seriesID uint32)
 	// FlushMetric writes a full metric-block, this will be called after writing all entries of this metric.
 	FlushMetric(metricID uint32, start, end uint16) error
 	// Commit closes the writer, this will be called after writing all metric-blocks.
 	Commit() error
-	// GetFieldMeta
-	GetFieldMeta(fieldID field.ID) (field.Meta, bool)
+	// GetFieldMetas returns current metric's field metas
+	GetFieldMetas() field.Metas
 }
 
 // flusher implements Flusher.
@@ -47,7 +47,9 @@ type flusher struct {
 	fieldMetas field.Metas
 
 	// context for building field entry
-	fieldOffsets *encoding.FixedOffsetEncoder
+	seriesWriter  *stream.BufferWriter
+	fieldOffsets  *encoding.FixedOffsetEncoder
+	seriesHasData bool
 
 	seriesIDs           *roaring.Bitmap
 	highOffsets         *encoding.FixedOffsetEncoder // high value of series ids
@@ -65,6 +67,8 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 		writer:       stream.NewBufferWriter(nil),
 		fieldOffsets: encoding.NewFixedOffsetEncoder(),
 
+		seriesWriter: stream.NewBufferWriter(nil),
+
 		seriesIDs:   roaring.New(),
 		lowOffsets:  encoding.NewFixedOffsetEncoder(),
 		highOffsets: encoding.NewFixedOffsetEncoder(),
@@ -77,20 +81,38 @@ func (w *flusher) FlushFieldMetas(fieldMetas field.Metas) {
 }
 
 // FlushField writes a compressed field data to writer.
-func (w *flusher) FlushField(fieldKey field.Key, data []byte) {
-	pos := w.writer.Len()                // field start position
-	w.writer.PutUInt16(uint16(fieldKey)) // write field key
-	w.writer.PutBytes(data)              // write field data
-	w.fieldOffsets.Add(pos)              // add field start position
+func (w *flusher) FlushField(data []byte) {
+	hasData := len(data) > 0
+	w.seriesHasData = true
+	if w.fieldMetas.Len() == 1 {
+		if hasData {
+			// if metric only has one field, just writes field data
+			w.seriesWriter.PutBytes(data) // write field data
+		}
+	} else {
+		if hasData {
+			pos := w.seriesWriter.Len()   // field start position
+			w.seriesWriter.PutBytes(data) // write field data
+			w.fieldOffsets.Add(pos)       // add field start position
+		} else {
+			w.fieldOffsets.Add(encoding.EmptyOffset) // write empty offset, need align fields order with metric level
+		}
+	}
 }
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
+// 1. only one field: series data = field data
+// 2. mutli-fields: series data = field offsets + fields data
 func (w *flusher) FlushSeries(seriesID uint32) {
-	if w.fieldOffsets.IsEmpty() {
+	if !w.seriesHasData {
 		// if not field data, needn't flush series data
 		return
 	}
-	defer w.fieldOffsets.Reset()
+	defer func() {
+		w.seriesHasData = false
+		w.seriesWriter.Reset()
+		w.fieldOffsets.Reset()
+	}()
 
 	highKey := encoding.HighBits(seriesID)
 	if highKey != w.highKey {
@@ -99,11 +121,17 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 		w.highKey = highKey // set high key, for next container storage
 	}
 
-	pos := w.writer.Len() // field offset block start position
-	// write fields count
-	w.writer.PutUInt16(uint16(w.fieldOffsets.Size()))
-	// write field offsets into offset block of series level
-	w.writer.PutBytes(w.fieldOffsets.MarshalBinary())
+	pos := w.writer.Len() // field data offset/field offset block start position
+	if w.fieldMetas.Len() > 1 {
+		// metric has mutli-fields, need write field offsets
+		// write field offsets into offset block of series level
+		w.writer.PutBytes(w.fieldOffsets.MarshalBinary())
+	}
+
+	// write series's field data
+	seriesData, _ := w.seriesWriter.Bytes()
+	w.writer.PutBytes(seriesData)
+
 	w.lowOffsets.Add(pos) // add field offset's position
 
 	// add series id into metric's index block
@@ -137,6 +165,8 @@ func (w *flusher) reset() {
 	w.lowOffsets.Reset()
 	w.highOffsets.Reset()
 	w.highKey = 0
+	w.seriesHasData = false
+	w.seriesWriter.Reset()
 	w.seriesIDs.Clear()
 
 	w.fieldMetas = w.fieldMetas[:0]
@@ -202,6 +232,7 @@ func (w *flusher) Commit() error {
 	return w.kvFlusher.Commit()
 }
 
-func (w *flusher) GetFieldMeta(fieldID field.ID) (field.Meta, bool) {
-	return w.fieldMetas.GetFromID(fieldID)
+// GetFieldMetas returns current metric's field metas
+func (w *flusher) GetFieldMetas() field.Metas {
+	return w.fieldMetas
 }

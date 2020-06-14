@@ -1,7 +1,6 @@
 package memdb
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math"
 	"testing"
@@ -21,16 +20,15 @@ var encodeFunc = encoding.NewTSDEncoder
 func TestFieldStore_New(t *testing.T) {
 	buf := make([]byte, pageSize)
 
-	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	store := newFieldStore(buf, familyID(12), field.ID(1))
 	assert.NotNil(t, store)
 	assert.Equal(t, familyID(12), store.GetFamilyID())
 	assert.Equal(t, field.ID(1), store.GetFieldID())
-	assert.Equal(t, field.PrimitiveID(10), store.GetPrimitiveID())
 	s := store.(*fieldStore)
 	assert.Equal(t, uint16(0), s.getStart())
 	assert.Equal(t, uint16(15), s.timeWindow())
-	assert.Equal(t, field.Key(binary.LittleEndian.Uint16([]byte{1, 10})), s.GetFieldKey())
-	key := uint32(10) | uint32(1)<<8 | uint32(12)<<16
+	assert.Equal(t, field.ID(1), s.GetFieldID())
+	key := uint32(1) | uint32(0)<<8 | uint32(12)<<16
 	assert.Equal(t, key, s.GetKey())
 }
 
@@ -39,7 +37,7 @@ func TestFieldStore_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	store := newFieldStore(buf, familyID(12), field.ID(1))
 	assert.NotNil(t, store)
 	s := store.(*fieldStore)
 
@@ -132,7 +130,7 @@ func TestFieldStore_Write(t *testing.T) {
 
 func TestFieldStore_Write2(t *testing.T) {
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	store := newFieldStore(buf, familyID(12), field.ID(1))
 	s := store.(*fieldStore)
 	writtenSize := store.Write(field.SumField, 10, 178)
 	assert.Equal(t, valueSize+headLen, writtenSize)
@@ -162,7 +160,7 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 	}
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, familyID(12), field.ID(1), field.PrimitiveID(10))
+	store := newFieldStore(buf, familyID(12), field.ID(1))
 	assert.NotNil(t, store)
 	s := store.(*fieldStore)
 
@@ -192,18 +190,14 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	flusher := metricsdata.NewMockFlusher(ctrl)
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, familyID(12), field.ID(2), field.PrimitiveID(1))
+	store := newFieldStore(buf, familyID(12), field.ID(2))
 	_ = store.Write(field.SumField, 10, 10.1)
 	_ = store.Write(field.SumField, 5, 5.1)
 
 	assert.NotNil(t, store)
-	// case 1: field meta not exist
-	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{}, false)
-	store.FlushFieldTo(flusher, flushContext{})
-	// case 2: flush success
-	flusher.EXPECT().GetFieldMeta(field.ID(2)).Return(field.Meta{Type: field.SumField}, true).AnyTimes()
-	flusher.EXPECT().FlushField(field.Key(binary.LittleEndian.Uint16([]byte{2, 1})), mockFlushData())
-	store.FlushFieldTo(flusher, flushContext{slotRange: slotRange{start: 2, end: 20}})
+	// case 1: flush success
+	flusher.EXPECT().FlushField(mockFlushData())
+	store.FlushFieldTo(flusher, field.Meta{Type: field.SumField}, flushContext{slotRange: slotRange{start: 2, end: 20}})
 	// case 3: flush err
 	encode := encoding.NewMockTSDEncoder(ctrl)
 	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
@@ -212,7 +206,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encode.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encode.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
-	store.FlushFieldTo(flusher, flushContext{slotRange: slotRange{start: 2, end: 20}})
+	store.FlushFieldTo(flusher, field.Meta{Type: field.SumField}, flushContext{slotRange: slotRange{start: 2, end: 20}})
 }
 
 func mockFlushData() []byte {

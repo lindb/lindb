@@ -71,7 +71,8 @@ type fieldAggregator struct {
 
 // newFieldAggregator creates a field aggregator
 func newFieldAggregator(familyID familyID, fieldMeta field.Meta, aggregator aggregation.PrimitiveAggregator) *fieldAggregator {
-	fieldKey := buildFieldKey(familyID, fieldMeta.ID, aggregator.FieldID())
+	//FIXME
+	fieldKey := buildFieldKey(familyID, fieldMeta.ID)
 	return &fieldAggregator{
 		familyID:   familyID,
 		fieldMeta:  fieldMeta,

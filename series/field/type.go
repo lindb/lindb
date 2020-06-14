@@ -7,7 +7,7 @@ import (
 // AggType represents primitive field's aggregator type
 type AggType uint8
 type PrimitiveID uint8
-type ID uint8
+type ID uint16
 
 // Field key represents field id[1byte] + primitive field id[1byte]
 type Key uint16
@@ -67,6 +67,20 @@ func (t Type) String() string {
 		return "histogram"
 	default:
 		return "unknown"
+	}
+}
+
+// GetAggFunc returns the aggregate function
+func (t Type) GetAggFunc() AggFunc {
+	switch t {
+	case SumField:
+		return sumAggregator
+	case MinField:
+		return minAggregator
+	case MaxField:
+		return maxAggregator
+	default:
+		return nil
 	}
 }
 

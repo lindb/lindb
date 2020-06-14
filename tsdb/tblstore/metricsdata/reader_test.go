@@ -14,7 +14,6 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -43,7 +42,7 @@ func TestNewReader(t *testing.T) {
 	assert.Equal(t, field.Metas{
 		{ID: 2, Type: field.SumField},
 		{ID: 10, Type: field.MinField},
-		{ID: 30, Type: field.SummaryField},
+		{ID: 30, Type: field.SumField},
 		{ID: 100, Type: field.MaxField},
 	}, r.GetFields())
 	seriesIDs := roaring.New()
@@ -82,11 +81,12 @@ func TestReader_Load(t *testing.T) {
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
-		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(5)),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		pAgg1.EXPECT().Aggregate(5, 50.0).Times(2),
+		pAgg1.EXPECT().Aggregate(5, 0.0).Times(2),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
+	r, err = NewReader("1.sst", mockMetricBlock())
+	assert.NoError(t, err)
 	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
 	// case 3: can't get aggregator by family
 	gomock.InOrder(
@@ -101,31 +101,45 @@ func TestReader_Load(t *testing.T) {
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
-		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(10)),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
+	r, err = NewReader("1.sst", mockMetricBlock())
+	assert.NoError(t, err)
 	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {10, 12}})
 	// case 4: field not found
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
-		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(20)),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
+	r, err = NewReader("1.sst", mockMetricBlock())
+	assert.NoError(t, err)
 	r.Load(qFlow, 10, []field.ID{100}, 1, map[string][]uint16{"host": {10}})
 	// case 5: load data success, but time slot not in query range
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
-		pAgg1.EXPECT().FieldID().Return(field.PrimitiveID(5)),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		pAgg1.EXPECT().Aggregate(5, 50.0).Return(true).Times(2),
+		pAgg1.EXPECT().Aggregate(5, 0.0).Return(true).Times(2),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
+	r, err = NewReader("1.sst", mockMetricBlock())
+	assert.NoError(t, err)
 	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
+	// case 6: load data success, metric has one field
+	gomock.InOrder(
+		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
+		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		pAgg1.EXPECT().Aggregate(5, 0.0).Return(true).Times(2),
+		qFlow.EXPECT().Reduce("host", gomock.Any()),
+	)
+	r, err = NewReader("1.sst", mockMetricBlockForOneField())
+	assert.NoError(t, err)
+	r.Load(qFlow, 10, []field.ID{2}, 0, map[string][]uint16{"host": {4096, 8192}})
 }
 
 func TestReader_scan(t *testing.T) {
@@ -171,20 +185,20 @@ func mockMetricBlock() []byte {
 	flusher.FlushFieldMetas(field.Metas{
 		{ID: 2, Type: field.SumField},
 		{ID: 10, Type: field.MinField},
-		{ID: 30, Type: field.SummaryField},
+		{ID: 30, Type: field.SumField},
 		{ID: 100, Type: field.MaxField},
 	})
 	for j := 0; j < 10; j++ {
+		encoder := encoding.NewTSDEncoder(5)
 		for i := 0; i < 10; i++ {
-			encoder := encoding.NewTSDEncoder(5)
 			encoder.AppendTime(bit.One)
 			encoder.AppendValue(math.Float64bits(float64(10.0 * i)))
-			data, _ := encoder.BytesWithoutTime()
-			flusher.FlushField(field.Key(stream.ReadUint16([]byte{2, byte(i)}, 0)), data)
-			flusher.FlushField(field.Key(stream.ReadUint16([]byte{10, byte(i)}, 0)), data)
-			flusher.FlushField(field.Key(stream.ReadUint16([]byte{30, byte(i)}, 0)), data)
-			flusher.FlushField(field.Key(stream.ReadUint16([]byte{100, byte(i)}, 0)), data)
 		}
+		data, _ := encoder.BytesWithoutTime()
+		flusher.FlushField(data)
+		flusher.FlushField(data)
+		flusher.FlushField(data)
+		flusher.FlushField(data)
 		flusher.FlushSeries(uint32(j * 4096))
 	}
 	// mock just has one field
@@ -192,9 +206,36 @@ func mockMetricBlock() []byte {
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.BytesWithoutTime()
-	flusher.FlushField(field.Key(stream.ReadUint16([]byte{100, 200}, 0)), data)
+	flusher.FlushField(data)
 	flusher.FlushSeries(uint32(65536 + 10))
+	_ = flusher.FlushMetric(uint32(10), 5, 5)
 
+	return nopKVFlusher.Bytes()
+}
+
+func mockMetricBlockForOneField() []byte {
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher := NewFlusher(nopKVFlusher)
+	flusher.FlushFieldMetas(field.Metas{
+		{ID: 2, Type: field.SumField},
+	})
+	for j := 0; j < 10; j++ {
+		encoder := encoding.NewTSDEncoder(5)
+		for i := 0; i < 10; i++ {
+			encoder.AppendTime(bit.One)
+			encoder.AppendValue(math.Float64bits(float64(10.0 * i)))
+		}
+		data, _ := encoder.BytesWithoutTime()
+		flusher.FlushField(data)
+		flusher.FlushSeries(uint32(j * 4096))
+	}
+	// mock just has one field
+	encoder := encoding.NewTSDEncoder(5)
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(math.Float64bits(10.0))
+	data, _ := encoder.BytesWithoutTime()
+	flusher.FlushField(data)
+	flusher.FlushSeries(uint32(65536 + 10))
 	_ = flusher.FlushMetric(uint32(10), 5, 5)
 	return nopKVFlusher.Bytes()
 }

@@ -24,6 +24,11 @@ func ReadUint32(buf []byte, offset int) uint32 {
 	return binary.LittleEndian.Uint32(buf[offset : offset+4])
 }
 
+// PutUint16 reads 2 bytes from buf as uint16
+func PutUint16(buf []byte, offset int, value uint16) {
+	binary.LittleEndian.PutUint16(buf[offset:], value)
+}
+
 // ReadUint16 reads 2 bytes from buf as uint16
 func ReadUint16(buf []byte, offset int) uint16 {
 	return binary.LittleEndian.Uint16(buf[offset : offset+2])

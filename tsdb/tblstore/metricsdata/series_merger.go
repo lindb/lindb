@@ -1,7 +1,6 @@
 package metricsdata
 
 import (
-	"encoding/binary"
 	"math"
 
 	"github.com/lindb/lindb/pkg/bit"
@@ -37,40 +36,35 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
-
 	for _, f := range mergeCtx.targetFields {
-		schema := f.Type.GetSchema()
 		fieldID := f.ID
-		primitiveFields := schema.GetAllPrimitiveFields()
-		for _, primitiveID := range primitiveFields {
-			aggFunc := schema.GetAggFunc(primitiveID)
-			for idx, reader := range fieldReaders {
-				if reader == nil {
-					// if series id not exist, reader is nil
-					continue
-				}
-				fieldData := reader.getPrimitiveData(fieldID, primitiveID)
-				if len(fieldData) > 0 {
-					if streams[idx] == nil {
-						// new tsd decoder
-						streams[idx] = encoding.GetTSDDecoder()
-					}
-					oldStart, oldEnd := reader.slotRange()
-					// reset tsd data
-					streams[idx].ResetWithTimeRange(fieldData, oldStart, oldEnd)
-				}
-			}
-			// merge field data
-			sm.mergeField(mergeCtx, aggFunc, encodeStream, streams)
-			data, err := encodeStream.BytesWithoutTime()
-			if err != nil {
-				return err
-			}
 
-			// flush field data
-			sm.flusher.FlushField(field.Key(binary.LittleEndian.Uint16([]byte{byte(fieldID), byte(primitiveID)})), data)
-			encodeStream.Reset() // reset tsd compress stream for next loop
+		for idx, reader := range fieldReaders {
+			if reader == nil {
+				// if series id not exist, reader is nil
+				continue
+			}
+			fieldData := reader.getFieldData(fieldID)
+			if len(fieldData) > 0 {
+				if streams[idx] == nil {
+					// new tsd decoder
+					streams[idx] = encoding.GetTSDDecoder()
+				}
+				oldStart, oldEnd := reader.slotRange()
+				// reset tsd data
+				streams[idx].ResetWithTimeRange(fieldData, oldStart, oldEnd)
+			}
 		}
+		// merge field data
+		sm.mergeField(mergeCtx, f.Type.GetAggFunc(), encodeStream, streams)
+		data, err := encodeStream.BytesWithoutTime()
+		if err != nil {
+			return err
+		}
+
+		// flush field data
+		sm.flusher.FlushField(data)
+		encodeStream.Reset() // reset tsd compress stream for next loop
 	}
 
 	// need mark reader completed, because next series id maybe haven't field data in reader,

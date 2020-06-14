@@ -3,7 +3,6 @@ package metricsdata
 import (
 	"fmt"
 	"math"
-	"sort"
 
 	"github.com/lindb/roaring"
 
@@ -48,19 +47,15 @@ type Reader interface {
 type fieldAggregator struct {
 	fieldMeta  field.Meta
 	aggregator aggregation.PrimitiveAggregator
-
-	fieldKey field.Key
 }
 
 // newFieldAggregator creates a field aggregator
 func newFieldAggregator(fieldMeta field.Meta,
 	aggregator aggregation.PrimitiveAggregator,
 ) *fieldAggregator {
-	fieldKey := field.Key(stream.ReadUint16([]byte{byte(fieldMeta.ID), byte(aggregator.FieldID())}, 0))
 	return &fieldAggregator{
 		fieldMeta:  fieldMeta,
 		aggregator: aggregator,
-		fieldKey:   fieldKey,
 	}
 }
 
@@ -73,6 +68,8 @@ type reader struct {
 	fields        field.Metas
 	crc32CheckSum uint32
 	start, end    uint16
+
+	readFieldIndexes []int // read field indexes when query metric data
 }
 
 // NewReader creates a metric block reader
@@ -109,8 +106,12 @@ func (r *reader) GetTimeRange() (start, end uint16) {
 
 // prepare prepares the field aggregator based on query condition
 func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggregation.FieldAggregates) (aggs []*fieldAggregator) {
+	fieldMap := make(map[field.ID]int)
+	for idx, fieldMeta := range r.fields {
+		fieldMap[fieldMeta.ID] = idx
+	}
 	for idx, fieldID := range fieldIDs { // sort by field ids
-		fMeta, ok := r.fields.GetFromID(fieldID)
+		fieldIdx, ok := fieldMap[fieldID]
 		if !ok {
 			continue
 		}
@@ -118,9 +119,10 @@ func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggre
 		if !ok {
 			continue
 		}
+		r.readFieldIndexes = append(r.readFieldIndexes, fieldIdx)
 		pAggregators := fieldAggregator.GetAllAggregators() // sort by primitive field ids
 		for _, agg := range pAggregators {
-			aggs = append(aggs, newFieldAggregator(fMeta, agg))
+			aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], agg))
 		}
 	}
 	return
@@ -169,32 +171,24 @@ func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []f
 
 // readSeriesData reads series data with position
 func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator) {
-	fieldCount := int(stream.ReadUint16(r.buf, position))
-	fieldOffsets := encoding.NewFixedOffsetDecoder(r.buf[position+2:])
-	// find small/equals family id index
-	idx := sort.Search(fieldCount, func(i int) bool {
-		offset, _ := fieldOffsets.Get(i)
-		return field.Key(stream.ReadUint16(r.buf, offset)) >= fieldAggs[0].fieldKey
-	})
-	aggFieldCount := len(fieldAggs)
-	j := 0
-	for i := idx; i < fieldCount; i++ {
-		agg := fieldAggs[j]
-		offset, _ := fieldOffsets.Get(i)
-		key := field.Key(stream.ReadUint16(r.buf, offset))
-		switch {
-		case key == agg.fieldKey:
-			tsd.ResetWithTimeRange(r.buf[offset+2:], r.start, r.end)
+	fieldCount := r.fields.Len()
+	if fieldCount == 1 {
+		// metric has one field, just read the data
+		tsd.ResetWithTimeRange(r.buf[position:], r.start, r.end)
+		// read field data
+		r.readField(fieldAggs[0].aggregator, tsd)
+		return
+	}
+	// read data for mutli-fields
+	seriesData := r.buf[position:]
+	fieldOffsets := encoding.NewFixedOffsetDecoder(seriesData)
+	fieldsData := seriesData[fieldOffsets.Header()+fieldCount*fieldOffsets.ValueWidth():]
+	for i, idx := range r.readFieldIndexes {
+		offset, ok := fieldOffsets.Get(idx)
+		if ok {
+			tsd.ResetWithTimeRange(fieldsData[offset:], r.start, r.end)
 			// read field data
-			r.readField(agg.aggregator, tsd)
-			j++ // goto next query field id
-			// found all query fields return it
-			if aggFieldCount == j {
-				return
-			}
-		case key > agg.fieldKey:
-			// store key > query key, return it
-			return
+			r.readField(fieldAggs[i].aggregator, tsd)
 		}
 	}
 }
@@ -256,6 +250,15 @@ func (r *reader) initReader() error {
 	return nil
 }
 
+// fieldIndexes returns field indexes of metric level
+func (r *reader) fieldIndexes() map[field.ID]int {
+	result := make(map[field.ID]int)
+	for idx, f := range r.fields {
+		result[f.ID] = idx
+	}
+	return result
+}
+
 // dataScanner represents the metric data scanner which scans the series data when merge operation
 type dataScanner struct {
 	reader        *reader
@@ -276,6 +279,11 @@ func newDataScanner(r Reader) *dataScanner {
 	}
 	s.nextContainer()
 	return s
+}
+
+// fieldIndexes returns field indexes of metric level
+func (s *dataScanner) fieldIndexes() map[field.ID]int {
+	return s.reader.fieldIndexes()
 }
 
 // nextContainer goes next container context for scanner

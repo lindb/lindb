@@ -13,22 +13,22 @@ import (
 
 func TestTimeSeriesStore_GetOrCreateFStore(t *testing.T) {
 	tStore := newTimeSeriesStore()
-	f, ok := tStore.GetFStore(1, 10, 11)
+	f, ok := tStore.GetFStore(1, 10)
 	assert.Nil(t, f)
 	assert.False(t, ok)
-	tStore.InsertFStore(newFieldStore(make([]byte, pageSize), 1, 10, 11))
+	tStore.InsertFStore(newFieldStore(make([]byte, pageSize), 1, 10))
 	// get field store
-	f, ok = tStore.GetFStore(1, 10, 11)
+	f, ok = tStore.GetFStore(1, 10)
 	assert.NotNil(t, f)
 	assert.True(t, ok)
 	// field store not exist
-	f, ok = tStore.GetFStore(1, 10, 10)
+	f, ok = tStore.GetFStore(1, 100)
 	assert.Nil(t, f)
 	assert.False(t, ok)
 	for i := 1; i < 10; i++ {
-		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), familyID(1*i), field.ID(10*i), field.PrimitiveID(11*i)))
-		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), 1, 10, 11))
-		f, ok = tStore.GetFStore(1, 10, 11)
+		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), familyID(1*i), field.ID(10*i)))
+		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), 1, 10))
+		f, ok = tStore.GetFStore(1, 10)
 		assert.NotNil(t, f)
 		assert.True(t, ok)
 	}
@@ -51,7 +51,12 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 	// case 2: flush by family id
 	gomock.InOrder(
 		fStore.EXPECT().GetFamilyID().Return(familyID(20)),
-		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any()),
+		flusher.EXPECT().GetFieldMetas().Return(field.Metas{{ID: 1}, {ID: 2}, {ID: 3}}),
+		fStore.EXPECT().GetFieldID().Return(field.ID(2)),
+		flusher.EXPECT().FlushField(nil),
+		fStore.EXPECT().GetFieldID().Return(field.ID(2)),
+		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()),
+		flusher.EXPECT().FlushField(nil),
 	)
 	tStore.FlushSeriesTo(flusher, flushContext{familyID: 20})
 }
@@ -64,12 +69,11 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	tStore := tStoreInterface.(*timeSeriesStore)
 
 	for i := 0; i < 10; i++ {
-		fStore := newFieldStore(make([]byte, pageSize), familyID(i), field.ID(i*10), field.PrimitiveID(i))
+		fStore := newFieldStore(make([]byte, pageSize), familyID(i), field.ID(i*10))
 		tStore.InsertFStore(fStore)
 		fStore.Write(field.SumField, uint16(i), 10.1)
 	}
 	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
-	pAgg.EXPECT().FieldID().Return(field.PrimitiveID(5)).Times(2)
 
 	// case 1: family time not match
 	tStore.scan(&memScanContext{
@@ -90,7 +94,6 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		},
 	})
 	// case 3: primitive field id not match
-	pAgg.EXPECT().FieldID().Return(field.PrimitiveID(50))
 	tStore.scan(&memScanContext{
 		fieldAggs: []*fieldAggregator{
 			newFieldAggregator(familyID(5), field.Meta{
@@ -100,7 +103,6 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		},
 	})
 	// case 4: field key not match
-	pAgg.EXPECT().FieldID().Return(field.PrimitiveID(5))
 	tStore.scan(&memScanContext{
 		fieldAggs: []*fieldAggregator{
 			newFieldAggregator(familyID(5), field.Meta{
@@ -110,7 +112,6 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		},
 	})
 	// case 4: match one field
-	pAgg.EXPECT().FieldID().Return(field.PrimitiveID(5))
 	pAgg.EXPECT().Aggregate(5, 10.1)
 	tStore.scan(&memScanContext{
 		fieldAggs: []*fieldAggregator{
@@ -123,8 +124,6 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	// case 4: match two fields
 	pAgg2 := aggregation.NewMockPrimitiveAggregator(ctrl)
 	gomock.InOrder(
-		pAgg.EXPECT().FieldID().Return(field.PrimitiveID(5)),
-		pAgg2.EXPECT().FieldID().Return(field.PrimitiveID(8)),
 		pAgg.EXPECT().Aggregate(5, 10.1),
 		pAgg2.EXPECT().Aggregate(8, 10.1),
 	)
