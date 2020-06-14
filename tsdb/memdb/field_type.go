@@ -16,16 +16,12 @@ func getFieldType(f *pb.Field) field.Type {
 		return field.MinField
 	case pb.FieldType_Gauge:
 		return field.GaugeField
-	case pb.FieldType_Summary:
-		return field.SummaryField
-	case pb.FieldType_Increase:
-		return field.IncreaseField
 	default:
 		return field.Unknown
 	}
 }
 
-// buildFieldKeys returns field key with family/field/primitive
-func buildFieldKey(familyID familyID, fieldID field.ID, primitiveID field.PrimitiveID) uint32 {
-	return uint32(primitiveID) | uint32(fieldID)<<8 | uint32(familyID)<<16
+// buildFieldKeys returns field key with family/field
+func buildFieldKey(familyID familyID, fieldID field.ID) uint32 {
+	return uint32(fieldID) | uint32(familyID)<<16
 }

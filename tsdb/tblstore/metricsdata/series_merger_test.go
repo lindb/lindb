@@ -28,12 +28,12 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
-	reader1.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader2.EXPECT().slotRange().Return(uint16(10), uint16(10))
 	var result []byte
-	flusher.EXPECT().FlushField(gomock.Any(), gomock.Any()).DoAndReturn(func(key field.Key, data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
 		result = data
 	})
 	err := merger.merge(
@@ -57,11 +57,11 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	}
 	assert.Equal(t, uint16(10), slot)
 	// case 2: merge success with diff slot range
-	reader1.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(12))
+	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(12))
 	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
-	flusher.EXPECT().FlushField(gomock.Any(), gomock.Any()).DoAndReturn(func(key field.Key, data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
 		result = data
 	})
 	err = merger.merge(
@@ -85,9 +85,9 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	assert.Equal(t, 2, c)
 	// case 3: encode stream err
 	encodeStream2 := encoding.NewMockTSDEncoder(ctrl)
-	reader1.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(12))
+	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(12))
 	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
 	encodeStream2.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encodeStream2.EXPECT().AppendValue(gomock.Any()).AnyTimes()
@@ -119,12 +119,12 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
-	reader1.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
 	var result []byte
-	flusher.EXPECT().FlushField(gomock.Any(), gomock.Any()).DoAndReturn(func(key field.Key, data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
 		result = data
 	})
 	// source:[5,15] target:[0,0], interval: 10s => 5min
@@ -149,11 +149,11 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	}
 	assert.Equal(t, uint16(0), slot)
 	// case 2: merge success and rollup
-	reader1.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getPrimitiveData(gomock.Any(), gomock.Any()).Return(mockPrimitiveField(10))
+	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
 	reader2.EXPECT().slotRange().Return(uint16(182), uint16(182))
-	flusher.EXPECT().FlushField(gomock.Any(), gomock.Any()).DoAndReturn(func(key field.Key, data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
 		result = data
 	})
 	// source:[5,182] target:[0,6], interval: 10s => 5min
@@ -179,7 +179,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	assert.Equal(t, 2, c)
 }
 
-func mockPrimitiveField(start uint16) []byte {
+func mockField(start uint16) []byte {
 	encoder := encoding.NewTSDEncoder(start)
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(math.Float64bits(10.0))

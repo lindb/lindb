@@ -13,7 +13,6 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
 )
 
 func TestChannel_New(t *testing.T) {
@@ -82,9 +81,9 @@ func TestChannel_Write(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}
 	err = ch.Write(metric)
@@ -130,9 +129,9 @@ func TestChannel_checkFlush(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}
 	err = ch.Write(metric)
@@ -153,9 +152,9 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}
 	err = ch.Write(metric)
@@ -183,9 +182,9 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		Fields: []*pb.Field{{
-			Name:   "f1",
-			Type:   pb.FieldType_Sum,
-			Fields: []*pb.PrimitiveField{{Value: 1.0, PrimitiveID: int32(field.SimpleFieldPFieldID)}},
+			Name:  "f1",
+			Type:  pb.FieldType_Sum,
+			Value: 1.0,
 		}},
 	}
 	chunk.EXPECT().Append(gomock.Any())

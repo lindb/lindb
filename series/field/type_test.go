@@ -72,3 +72,10 @@ func TestType_GetSchema(t *testing.T) {
 	//assert.NotNil(t, HistogramField.GetSchema())
 	assert.Nil(t, Unknown.GetSchema())
 }
+
+func TestType_GetAggFunc(t *testing.T) {
+	assert.Equal(t, maxAggregator, MaxField.GetAggFunc())
+	assert.Equal(t, sumAggregator, SumField.GetAggFunc())
+	assert.Equal(t, minAggregator, MinField.GetAggFunc())
+	assert.Nil(t, Unknown.GetAggFunc())
+}

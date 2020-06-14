@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	adjustValue = 1
-	EmptyOffset = -1
+	adjustValue    = 1
+	lengthOfHeader = 1
+	EmptyOffset    = -1
 )
 
 // FixedOffsetEncoder represents the offset encoder with fixed length
@@ -114,10 +115,15 @@ func NewFixedOffsetDecoder(buf []byte) *FixedOffsetDecoder {
 		}
 	}
 	return &FixedOffsetDecoder{
-		buf:     buf[1:],
+		buf:     buf[lengthOfHeader:],
 		width:   int(buf[0]),
 		scratch: make([]byte, 4),
 	}
+}
+
+// Header returns the length of header
+func (d *FixedOffsetDecoder) Header() int {
+	return lengthOfHeader
 }
 
 // ValueWidth returns the width of all stored values
