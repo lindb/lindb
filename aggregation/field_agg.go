@@ -16,6 +16,8 @@ type FieldAggregator interface {
 	Aggregate(it series.FieldIterator)
 	// GetAllAggregators returns all primitive aggregates
 	GetAllAggregators() []PrimitiveAggregator
+	// GetBlock returns series block for saving loaded data
+	GetBlock() series.Block
 	// ResultSet returns the result set of field aggregator
 	ResultSet() (startTime int64, it series.FieldIterator)
 
@@ -77,8 +79,13 @@ func NewDownSamplingFieldAggregator(
 }
 
 // Aggregate aggregates the field series into current aggregator
-func (agg *downSamplingFieldAggregator) Aggregate(it series.FieldIterator) {
+func (agg *downSamplingFieldAggregator) Aggregate(_ series.FieldIterator) {
 	// do nothing for down sampling
+}
+
+// GetBlock returns series block for saving loaded data
+func (agg *downSamplingFieldAggregator) GetBlock() series.Block {
+	return nil
 }
 
 // GetAllAggregators returns all primitive aggregates
@@ -139,6 +146,11 @@ func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator)
 		idx++
 	}
 	return a.segmentStartTime, newFieldIterator(a.start, its)
+}
+
+// GetBlock returns series block for saving loaded data
+func (a *fieldAggregator) GetBlock() series.Block {
+	return nil
 }
 
 // GetAllAggregators returns all primitive aggregates

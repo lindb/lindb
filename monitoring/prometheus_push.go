@@ -3,6 +3,7 @@ package monitoring
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"time"
 
@@ -59,6 +60,9 @@ type prometheusPusher struct {
 	globalLabels []*dto.LabelPair
 	expfmt       expfmt.Format
 
+	newRequest func(method, url string, body io.Reader) (*http.Request, error)
+	doRequest  func(req *http.Request) (*http.Response, error)
+
 	hash       *xxhash.XXHash64
 	gatherFunc func(gatherers prometheus.Gatherers) ([]*dto.MetricFamily, error)
 	encodeFunc func(enc expfmt.Encoder, mf *dto.MetricFamily) error
@@ -81,6 +85,8 @@ func NewPrometheusPusher(ctx context.Context,
 		interval:       interval,
 		gatherers:      gatherers,
 		globalLabels:   globalLabels,
+		doRequest:      doRequest,
+		newRequest:     newRequest,
 		expfmt:         expfmt.FmtText,
 		hash:           xxhash.New64(),
 		metricFamilies: make(map[string]*metricFamily),
@@ -137,7 +143,7 @@ func (p *prometheusPusher) run() {
 		}
 	}
 	// 3. new metric write request
-	req, err := newRequest("PUT", p.endpoint, buf)
+	req, err := p.newRequest("PUT", p.endpoint, buf)
 	if err != nil {
 		pushLogger.Error("new write monitoring request error", logger.Error(err))
 		return
@@ -146,7 +152,7 @@ func (p *prometheusPusher) run() {
 	req.Header.Add(contentTypeHeader, string(p.expfmt))
 
 	// 4. send metric data
-	writeResp, err := doRequest(req)
+	writeResp, err := p.doRequest(req)
 	if err != nil {
 		pushLogger.Error("write monitoring data error", logger.Error(err))
 		return

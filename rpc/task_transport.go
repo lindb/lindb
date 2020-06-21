@@ -113,6 +113,9 @@ func (f *taskClientFactory) CloseTaskClient(targetNodeID string) {
 }
 
 func (f *taskClientFactory) initTaskClient(client *taskClient) error {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	log.Info("start init task client", logger.String("target", client.targetID))
 	if client.cli != nil {
 		if err := client.cli.CloseSend(); err != nil {

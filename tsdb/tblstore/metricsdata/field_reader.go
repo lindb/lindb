@@ -8,7 +8,7 @@ import (
 //go:generate mockgen -source ./field_reader.go -destination=./field_reader_mock.go -package metricsdata
 
 // FieldReader represents the field reader when does metric data merge.
-// !!!!NOTICE: need get field value in order by field/primitive
+// !!!!NOTICE: need get field value in order by field
 type FieldReader interface {
 	// slotRange returns the time slot range of metric level
 	slotRange() (start, end uint16)
