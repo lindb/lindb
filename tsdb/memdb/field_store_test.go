@@ -8,9 +8,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -112,16 +112,16 @@ func TestFieldStore_Write(t *testing.T) {
 	// case 10: test final data by load
 	writtenSize = store.Write(field.SumField, 15, 15.1)
 	assert.Equal(t, valueSize, writtenSize)
-	pAgg := aggregation.NewMockPrimitiveAggregator(ctrl)
+	block := series.NewMockBlock(ctrl)
 	gomock.InOrder(
-		pAgg.EXPECT().Aggregate(5, 5.3).Return(false),
-		pAgg.EXPECT().Aggregate(10, 40.4).Return(false),
-		pAgg.EXPECT().Aggregate(12, 12.1).Return(false),
-		pAgg.EXPECT().Aggregate(15, 15.1).Return(false),
-		pAgg.EXPECT().Aggregate(50, 50.1).Return(true),
+		block.EXPECT().Append(5, 5.3).Return(false),
+		block.EXPECT().Append(10, 40.4).Return(false),
+		block.EXPECT().Append(12, 12.1).Return(false),
+		block.EXPECT().Append(15, 15.1).Return(false),
+		block.EXPECT().Append(50, 50.1).Return(true),
 	)
 	s.Load(field.SumField,
-		pAgg,
+		block,
 		&memScanContext{
 			tsd: encoding.GetTSDDecoder(),
 		},

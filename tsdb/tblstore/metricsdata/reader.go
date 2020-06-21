@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -45,17 +46,15 @@ type Reader interface {
 
 // fieldAggregator represents the field aggregator that does file data scan and aggregates
 type fieldAggregator struct {
-	fieldMeta  field.Meta
-	aggregator aggregation.PrimitiveAggregator
+	fieldMeta field.Meta
+	block     series.Block
 }
 
 // newFieldAggregator creates a field aggregator
-func newFieldAggregator(fieldMeta field.Meta,
-	aggregator aggregation.PrimitiveAggregator,
-) *fieldAggregator {
+func newFieldAggregator(fieldMeta field.Meta, block series.Block) *fieldAggregator {
 	return &fieldAggregator{
-		fieldMeta:  fieldMeta,
-		aggregator: aggregator,
+		fieldMeta: fieldMeta,
+		block:     block,
 	}
 }
 
@@ -120,10 +119,7 @@ func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggre
 			continue
 		}
 		r.readFieldIndexes = append(r.readFieldIndexes, fieldIdx)
-		pAggregators := fieldAggregator.GetAllAggregators() // sort by primitive field ids
-		for _, agg := range pAggregators {
-			aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], agg))
-		}
+		aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], fieldAggregator.GetBlock()))
 	}
 	return
 }
@@ -176,7 +172,7 @@ func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAgg
 		// metric has one field, just read the data
 		tsd.ResetWithTimeRange(r.buf[position:], r.start, r.end)
 		// read field data
-		r.readField(fieldAggs[0].aggregator, tsd)
+		r.readField(fieldAggs[0].block, tsd)
 		return
 	}
 	// read data for mutli-fields
@@ -188,19 +184,19 @@ func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAgg
 		if ok {
 			tsd.ResetWithTimeRange(fieldsData[offset:], r.start, r.end)
 			// read field data
-			r.readField(fieldAggs[i].aggregator, tsd)
+			r.readField(fieldAggs[i].block, tsd)
 		}
 	}
 }
 
 // readField reads field data and aggregates it
-func (r *reader) readField(agg aggregation.PrimitiveAggregator, tsd *encoding.TSDDecoder) {
+func (r *reader) readField(block series.Block, tsd *encoding.TSDDecoder) {
 	for tsd.Next() {
 		if tsd.HasValue() {
 			timeSlot := tsd.Slot()
 			val := tsd.Value()
 
-			if agg.Aggregate(int(timeSlot), math.Float64frombits(val)) {
+			if block.Append(int(timeSlot), math.Float64frombits(val)) {
 				return
 			}
 		}

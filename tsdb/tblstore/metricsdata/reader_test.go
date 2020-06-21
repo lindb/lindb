@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -75,14 +76,14 @@ func TestReader_Load(t *testing.T) {
 	sAgg2 := aggregation.NewMockSeriesAggregator(ctrl)
 	fAgg1 := aggregation.NewMockFieldAggregator(ctrl)
 	fAgg2 := aggregation.NewMockFieldAggregator(ctrl)
-	pAgg1 := aggregation.NewMockPrimitiveAggregator(ctrl)
+	block1 := series.NewMockBlock(ctrl)
 	// case 2: load data success
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		fAgg1.EXPECT().GetBlock().Return(block1),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		pAgg1.EXPECT().Aggregate(5, 0.0).Times(2),
+		block1.EXPECT().Append(5, 0.0).Times(2),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
@@ -100,7 +101,7 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		fAgg1.EXPECT().GetBlock().Return(block1),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
@@ -111,7 +112,7 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		fAgg1.EXPECT().GetBlock().Return(block1),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
@@ -121,9 +122,9 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
+		fAgg1.EXPECT().GetBlock().Return(block1),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		pAgg1.EXPECT().Aggregate(5, 0.0).Return(true).Times(2),
+		block1.EXPECT().Append(5, 0.0).Times(2),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
@@ -133,8 +134,8 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1}),
-		pAgg1.EXPECT().Aggregate(5, 0.0).Return(true).Times(2),
+		fAgg1.EXPECT().GetBlock().Return(block1),
+		block1.EXPECT().Append(5, 0.0).Times(2),
 		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
