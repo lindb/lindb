@@ -85,11 +85,6 @@ func TestPrometheusPusher(t *testing.T) {
 }
 
 func TestPrometheusPusher_push_err(t *testing.T) {
-	defer func() {
-		newRequest = http.NewRequest
-		doRequest = http.DefaultClient.Do
-	}()
-
 	ts := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = ioutil.ReadAll(r.Body)
@@ -121,13 +116,13 @@ func TestPrometheusPusher_push_err(t *testing.T) {
 	c.run()
 	c.encodeFunc = encode
 	// case 3: new request err
-	newRequest = func(method, url string, body io.Reader) (request *http.Request, err error) {
+	c.newRequest = func(method, url string, body io.Reader) (request *http.Request, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	c.run()
-	newRequest = http.NewRequest
+	c.newRequest = http.NewRequest
 	// case 4: do request err
-	doRequest = func(req *http.Request) (response *http.Response, err error) {
+	c.doRequest = func(req *http.Request) (response *http.Response, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	c.run()

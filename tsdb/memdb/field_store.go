@@ -6,12 +6,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -52,10 +52,10 @@ const (
 )
 
 // fStoreINTF represents field-store,
-// which abstracts a store for storing field data based on family start time + field id + primitive field id
+// which abstracts a store for storing field data based on family start time + field id
 type fStoreINTF interface {
 	// GetKey returns the field store key, sorts in field list will use this key for sorting
-	// field key = family id + field id + primitive field id
+	// field key = family id + field id
 	GetKey() uint32
 	// GetFamilyID returns the family time mapping id
 	GetFamilyID() familyID
@@ -67,8 +67,8 @@ type fStoreINTF interface {
 	Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
-	// Load loads field store data based on query time range, then aggregate the result
-	Load(fieldType field.Type, agg aggregation.PrimitiveAggregator, memScanCtx *memScanContext)
+	// Load loads field store data based on query time range, then appends data into series block
+	Load(fieldType field.Type, block series.Block, memScanCtx *memScanContext)
 }
 
 // fieldStore implements fStoreINTF interface
@@ -87,7 +87,7 @@ func newFieldStore(buf []byte, familyID familyID, fieldID field.ID) fStoreINTF {
 }
 
 // GetKey returns the field store key, sorts in field list will use this key for sorting
-// field key = family id + field id + primitive field id
+// field key = family id + field id
 func (fs *fieldStore) GetKey() uint32 {
 	return uint32(fs.buf[fieldOffset]) | uint32(fs.buf[fieldOffset+1])<<8 | uint32(fs.buf[familyOffset])<<16
 }
@@ -200,7 +200,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int)
 	}
 	data, freeSize, err := fs.merge(aggFunc, tsd, startTime, thisSlotRange, true)
 	if err != nil {
-		memDBLogger.Error("compact primitive field store data err", logger.Error(err))
+		memDBLogger.Error("compact field store data err", logger.Error(err))
 	}
 
 	fs.compress = data
@@ -225,7 +225,7 @@ func (fs *fieldStore) getEnd() uint16 {
 	return uint16(fs.buf[endOffset])
 }
 
-// merge merges the current and compress data based on primitive field aggregate function,
+// merge merges the current and compress data based on field aggregate function,
 // startTime => current write start time
 // start/end slot => target compact time slot
 func (fs *fieldStore) merge(
@@ -276,10 +276,10 @@ func (fs *fieldStore) merge(
 	return compress, freeSize, err
 }
 
-// Load loads the field data based on query time range, then aggregates the data
+// Load loads field store data based on query time range, then appends data into series block
 func (fs *fieldStore) Load(
 	fieldType field.Type,
-	agg aggregation.PrimitiveAggregator,
+	block series.Block,
 	memScanCtx *memScanContext,
 ) {
 	hasOld := len(fs.compress) > 0
@@ -311,7 +311,7 @@ func (fs *fieldStore) Load(
 		}
 		if hasNewValue || hasOldValue {
 			// aggregate the data
-			if agg.Aggregate(int(i), value) {
+			if block.Append(int(i), value) {
 				return
 			}
 		}

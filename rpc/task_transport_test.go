@@ -74,7 +74,9 @@ func TestTaskClientFactory(t *testing.T) {
 	assert.NoError(t, err)
 	tc := fct1.taskStreams[(&target).Indicator()]
 	tc.running.Store(false)
+	fct1.mutex.Lock()
 	tc.cli = mockTaskClient
+	fct1.mutex.Unlock()
 
 	// not create new one if exist
 	target = models.Node{IP: "127.0.0.1", Port: testGRPCPort}

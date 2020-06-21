@@ -23,6 +23,7 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 
 	selector1 := selector.NewIndexSlotSelector(15, 55, 1)
 	agg := NewFieldAggregator(baseTime, selector1)
+	assert.Nil(t, agg.GetBlock())
 	it := MockSumFieldIterator(ctrl, field.PrimitiveID(1), map[int]interface{}{
 		5:  5.5,
 		15: 5.6,
@@ -94,6 +95,7 @@ func TestDownSamplingFieldAggregator(t *testing.T) {
 	// query time range 20190729 10:10:00 ~ 20190729 12:10:00
 	selector1 := selector.NewIndexSlotSelector(0, 60, 1)
 	agg := NewDownSamplingFieldAggregator(baseTime, selector1, aggSpec)
+	assert.Nil(t, agg.GetBlock())
 	assert.Equal(t, 3, len(agg.GetAllAggregators()))
 	agg.Aggregate(nil)
 	it := series.NewMockFieldIterator(ctrl)

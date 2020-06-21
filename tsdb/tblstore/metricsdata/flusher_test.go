@@ -14,6 +14,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -109,13 +110,13 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	assert.NotNil(t, r)
 	sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
 	fAgg1 := aggregation.NewMockFieldAggregator(ctrl)
-	pAgg1 := aggregation.NewMockPrimitiveAggregator(ctrl)
+	block := series.NewMockBlock(ctrl)
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
 	// case 2: load data success
 	qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, nil})
 	sAgg1.EXPECT().GetAggregator(gomock.Any()).Return(fAgg1, true)
-	fAgg1.EXPECT().GetAllAggregators().Return([]aggregation.PrimitiveAggregator{pAgg1})
-	pAgg1.EXPECT().Aggregate(gomock.Any(), gomock.Any()).AnyTimes()
+	fAgg1.EXPECT().GetBlock().Return(block)
+	block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
 	qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
 	r.Load(qFlow, 10, []field.ID{2}, 1, map[string][]uint16{"host": {1, 2, 3, 4}})
 
