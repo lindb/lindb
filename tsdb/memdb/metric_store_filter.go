@@ -8,8 +8,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -63,21 +61,21 @@ func (ms *metricStore) Filter(fieldIDs []field.ID,
 
 // fieldAggregator represents the field aggregator that does memory data scan and aggregates
 type fieldAggregator struct {
-	familyID  familyID
-	fieldMeta field.Meta
-	block     series.Block
+	familyID   familyID
+	fieldMeta  field.Meta
+	aggregator aggregation.FieldAggregator
 
 	fieldKey uint32
 }
 
 // newFieldAggregator creates a field aggregator
-func newFieldAggregator(familyID familyID, fieldMeta field.Meta, block series.Block) *fieldAggregator {
+func newFieldAggregator(familyID familyID, fieldMeta field.Meta, aggregator aggregation.FieldAggregator) *fieldAggregator {
 	fieldKey := buildFieldKey(familyID, fieldMeta.ID)
 	return &fieldAggregator{
-		familyID:  familyID,
-		fieldMeta: fieldMeta,
-		block:     block,
-		fieldKey:  fieldKey,
+		familyID:   familyID,
+		fieldMeta:  fieldMeta,
+		aggregator: aggregator,
+		fieldKey:   fieldKey,
 	}
 }
 
@@ -92,7 +90,7 @@ type memFilterResultSet struct {
 }
 
 // prepare prepares the field aggregator based on query condition
-func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregation.FieldAggregates) (aggs []*fieldAggregator) {
+func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregation.ContainerAggregator) (aggs []*fieldAggregator) {
 	for _, fID := range rs.familyIDs { // sort by family ids
 		familyTime := rs.familyIDMap[fID]
 		for idx, fieldID := range fieldIDs { // sort by field ids
@@ -100,12 +98,11 @@ func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregatio
 			if !ok {
 				continue
 			}
-			fieldAggregator, ok := aggregator[idx].GetAggregator(familyTime)
+			fieldAggregator, ok := aggregator.GetFieldAggregates()[idx].GetAggregator(familyTime)
 			if !ok {
 				continue
 			}
-			block := fieldAggregator.GetBlock() // sort by field ids
-			aggs = append(aggs, newFieldAggregator(fID, fMeta, block))
+			aggs = append(aggs, newFieldAggregator(fID, fMeta, fieldAggregator))
 		}
 	}
 	return
@@ -121,44 +118,32 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 	return rs.seriesIDs
 }
 
-// Load loads the data from storage, then does down sampling, finally reduces the down sampling results.
-func (rs *memFilterResultSet) Load(flow flow.StorageQueryFlow, fieldIDs []field.ID,
-	highKey uint16, groupedSeries map[string][]uint16,
-) {
+// Load loads the data from storage, then returns the memory storage metric scanner.
+func (rs *memFilterResultSet) Load(flow flow.StorageQueryFlow,
+	fieldIDs []field.ID,
+	highKey uint16, seriesID roaring.Container,
+) flow.Scanner {
 	//FIXME need add lock?????
 
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := rs.store.keys.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series ID not exist) return it
-		return
+		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := rs.store.keys.GetContainerAtIndex(highContainerIdx)
+	foundSeriesIDs := lowContainer.And(seriesID)
+	if foundSeriesIDs.GetCardinality() == 0 {
+		return nil
+	}
 
-	memScanCtx := &memScanContext{
-		tsd: encoding.GetTSDDecoder(),
+	aggregator := flow.GetAggregator(highKey)
+	fieldAggs := rs.prepare(fieldIDs, aggregator)
+	if len(fieldAggs) == 0 {
+		return nil
 	}
-	for groupByTags, lowSeriesIDs := range groupedSeries {
-		aggregator := flow.GetAggregator()
-		memScanCtx.fieldAggs = rs.prepare(fieldIDs, aggregator)
-		if len(memScanCtx.fieldAggs) == 0 {
-			// reduce empty aggregator for re-use
-			flow.Reduce(groupByTags, aggregator)
-			continue
-		}
-		for _, lowSeriesID := range lowSeriesIDs {
-			// check low series id if exist
-			if !lowContainer.Contains(lowSeriesID) {
-				continue
-			}
-			// get the index of low series id in container
-			idx := lowContainer.Rank(lowSeriesID)
-			// scan the data and aggregate the values
-			store := rs.store.values[highContainerIdx][idx-1]
-			store.scan(memScanCtx)
-		}
-		flow.Reduce(groupByTags, aggregator)
-	}
-	encoding.ReleaseTSDDecoder(memScanCtx.tsd)
+
+	// must use lowContainer from store, because get series index based on container
+	return newMetricStoreScanner(lowContainer, rs.store.values[highContainerIdx], fieldAggs)
 }

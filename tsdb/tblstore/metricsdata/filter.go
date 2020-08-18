@@ -90,10 +90,9 @@ func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
 	return f.seriesIDs
 }
 
-// Load reads data from sst files, finds series data based on grouped series IDs and does down sampling,
-// finally reduces the down sampling result set.
+// Load reads data from sst files, then returns the data file scanner.
 func (f *fileFilterResultSet) Load(flow flow.StorageQueryFlow, fieldIDs []field.ID,
-	highKey uint16, groupedSeries map[string][]uint16,
-) {
-	f.reader.Load(flow, f.familyTime, fieldIDs, highKey, groupedSeries)
+	highKey uint16, seriesID roaring.Container,
+) flow.Scanner {
+	return f.reader.Load(flow, f.familyTime, fieldIDs, highKey, seriesID)
 }
