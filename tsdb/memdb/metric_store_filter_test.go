@@ -10,7 +10,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -57,6 +56,7 @@ func TestMetricStore_Filter(t *testing.T) {
 func TestMemFilterResultSet_Load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	cAgg := aggregation.NewMockContainerAggregator(ctrl)
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
 	mStore := mockMetricStore()
 
@@ -67,43 +67,35 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	assert.NoError(t, err)
 	sAgg := aggregation.NewMockSeriesAggregator(ctrl)
 	fAgg := aggregation.NewMockFieldAggregator(ctrl)
-	block := series.NewMockBlock(ctrl)
+	//block := series.NewMockBlock(ctrl)
 	// case 1: load data success
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg}),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
 		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
 		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, true),
-		fAgg.EXPECT().GetBlock().Return(block),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
-	rs[0].Load(qFlow, []field.ID{20, 30}, 0, map[string][]uint16{
-		"host": {1, 2},
-	})
+	scanner := rs[0].Load(qFlow, []field.ID{20, 30}, 0, roaring.BitmapOf(100, 200).GetContainer(0))
+	assert.NotNil(t, scanner)
+	scanner.Scan(100)
+	scanner.Scan(200)
 	// case 2: series ids not found
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
-		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, true),
-		fAgg.EXPECT().GetBlock().Return(block),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
-	)
-	rs[0].Load(qFlow, []field.ID{20, 30}, 0, map[string][]uint16{
-		"host": {100, 200},
-	})
+	scanner = rs[0].Load(qFlow, []field.ID{20, 30}, 0, roaring.BitmapOf(1, 2).GetContainer(0))
+	assert.Nil(t, scanner)
 	// case 3: high key not exist
-	rs[0].Load(qFlow, []field.ID{20, 30}, 10, map[string][]uint16{
-		"host": {100, 200},
-	})
+	scanner = rs[0].Load(qFlow, []field.ID{20, 30}, 10, roaring.BitmapOf(1, 2).GetContainer(0))
+	assert.Nil(t, scanner)
 	// case 4: field agg is empty
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(100)).Return(nil, false),
-		sAgg.EXPECT().GetAggregator(int64(1000)).Return(nil, false),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
+		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
+		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, false),
 	)
-	rs[0].Load(qFlow, []field.ID{20, 30}, 0, map[string][]uint16{
-		"host": {100, 200},
-	})
+	scanner = rs[0].Load(qFlow, []field.ID{20, 30}, 0, roaring.BitmapOf(100, 200).GetContainer(0))
+	assert.Nil(t, scanner)
 }
 
 func mockMetricStore() *metricStore {

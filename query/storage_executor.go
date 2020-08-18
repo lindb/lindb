@@ -210,7 +210,7 @@ func (e *storageExecutor) executeQuery() {
 					// try start collect tag values
 					e.collectGroupByTagValues()
 				}()
-				e.executeGroupBy(shard, rs.rs, seriesIDs)
+				e.executeGroupBy(shard, rs.rs, seriesIDsAfterFilter)
 			})
 		})
 	}

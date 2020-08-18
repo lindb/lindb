@@ -118,7 +118,7 @@ func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
 		key := fieldStore.GetKey()
 		switch {
 		case key == agg.fieldKey:
-			fieldStore.Load(agg.fieldMeta.Type, agg.block, memScanCtx)
+			fieldStore.Load(agg.fieldMeta.Type, agg.aggregator.GetBlock(), memScanCtx)
 			j++ // goto next query field id
 			// found all query fields return it
 			if fieldCount == j {
