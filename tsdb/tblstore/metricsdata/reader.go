@@ -40,8 +40,10 @@ type Reader interface {
 	GetFields() field.Metas
 	// GetTimeRange returns the time range in this sst file
 	GetTimeRange() (start, end uint16)
-	// Load loads the data from sst file, then aggregates the data
-	Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []field.ID, highKey uint16, groupedSeries map[string][]uint16)
+	// Load loads the data from sst file, then returns the file metric scanner.
+	Load(queryFlow flow.StorageQueryFlow, familyTime int64, fieldIDs []field.ID, highKey uint16, seriesID roaring.Container) flow.Scanner
+	// readSeriesData reads series data from file by given position.
+	readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator)
 }
 
 // fieldAggregator represents the field aggregator that does file data scan and aggregates
@@ -104,7 +106,7 @@ func (r *reader) GetTimeRange() (start, end uint16) {
 }
 
 // prepare prepares the field aggregator based on query condition
-func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggregation.FieldAggregates) (aggs []*fieldAggregator) {
+func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggregation.ContainerAggregator) (aggs []*fieldAggregator) {
 	fieldMap := make(map[field.ID]int)
 	for idx, fieldMeta := range r.fields {
 		fieldMap[fieldMeta.ID] = idx
@@ -114,7 +116,7 @@ func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggre
 		if !ok {
 			continue
 		}
-		fieldAggregator, ok := aggregator[idx].GetAggregator(familyTime)
+		fieldAggregator, ok := aggregator.GetFieldAggregates()[idx].GetAggregator(familyTime)
 		if !ok {
 			continue
 		}
@@ -124,48 +126,36 @@ func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggre
 	return
 }
 
-// Load loads the data from sst file, then aggregates the data
-func (r *reader) Load(flow flow.StorageQueryFlow, familyTime int64, fieldIDs []field.ID, highKey uint16, groupedSeries map[string][]uint16) {
+// Load loads the data from sst file, then returns the file metric scanner.
+func (r *reader) Load(queryFlow flow.StorageQueryFlow,
+	familyTime int64, fieldIDs []field.ID,
+	highKey uint16, seriesID roaring.Container,
+) flow.Scanner {
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := r.seriesIDs.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series IDs not exist) return it
-		return
+		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := r.seriesIDs.GetContainerAtIndex(highContainerIdx)
+	foundSeriesIDs := lowContainer.And(seriesID)
+	if foundSeriesIDs.GetCardinality() == 0 {
+		return nil
+	}
 	offset, _ := r.highOffsets.Get(highContainerIdx)
 	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
 
-	tsd := encoding.GetTSDDecoder()
-	defer encoding.ReleaseTSDDecoder(tsd)
-
-	for groupByTags, lowSeriesIDs := range groupedSeries {
-		aggregator := flow.GetAggregator()
-		fieldAggs := r.prepare(familyTime, fieldIDs, aggregator)
-		if len(fieldAggs) == 0 {
-			// reduce empty aggregator for re-use
-			flow.Reduce(groupByTags, aggregator)
-			continue
-		}
-
-		for _, lowSeriesID := range lowSeriesIDs {
-			// check low series id if exist
-			if !lowContainer.Contains(lowSeriesID) {
-				continue
-			}
-			// get the index of low series id in container
-			idx := lowContainer.Rank(lowSeriesID)
-			// scan the data and aggregate the values
-			seriesPos, _ := seriesOffsets.Get(idx - 1)
-			// read series data and agg it
-			r.readSeriesData(seriesPos, tsd, fieldAggs)
-		}
-		flow.Reduce(groupByTags, aggregator)
+	aggregator := queryFlow.GetAggregator(highKey)
+	fieldAggs := r.prepare(familyTime, fieldIDs, aggregator)
+	if len(fieldAggs) == 0 {
+		return nil
 	}
+	// must use lowContainer from store, because get series index based on container
+	return newMetricScanner(r, fieldAggs, lowContainer, seriesOffsets)
 }
 
-// readSeriesData reads series data with position
+// readSeriesData reads series data from file by given position.
 func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator) {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {

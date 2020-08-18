@@ -27,10 +27,10 @@ import (
 type mockQueryFlow struct {
 }
 
-func (m *mockQueryFlow) ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string) {
+func (m *mockQueryFlow) ReduceTagValues(_ int, _ map[uint32]string) {
 }
 
-func (m *mockQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpecs) {
+func (m *mockQueryFlow) Prepare(_ aggregation.AggregatorSpecs) {
 }
 
 func (m *mockQueryFlow) Filtering(task concurrent.Task) {
@@ -45,14 +45,14 @@ func (m *mockQueryFlow) Scanner(task concurrent.Task) {
 	task()
 }
 
-func (m *mockQueryFlow) GetAggregator() (agg aggregation.FieldAggregates) {
+func (m *mockQueryFlow) GetAggregator(_ uint16) (agg aggregation.ContainerAggregator) {
 	return nil
 }
 
-func (m *mockQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates) {
+func (m *mockQueryFlow) Reduce(_ string, _ aggregation.ContainerAggregator) {
 }
 
-func (m *mockQueryFlow) Complete(err error) {
+func (m *mockQueryFlow) Complete(_ error) {
 }
 
 func newMockQueryFlow() flow.StorageQueryFlow {

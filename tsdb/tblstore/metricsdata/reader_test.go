@@ -65,6 +65,7 @@ func TestReader_Load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
+	cAgg := aggregation.NewMockContainerAggregator(ctrl)
 
 	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
@@ -77,70 +78,69 @@ func TestReader_Load(t *testing.T) {
 	fAgg1 := aggregation.NewMockFieldAggregator(ctrl)
 	fAgg2 := aggregation.NewMockFieldAggregator(ctrl)
 	block1 := series.NewMockBlock(ctrl)
-	// case 2: load data success
+	// case 3: load data success
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetBlock().Return(block1),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		block1.EXPECT().Append(5, 0.0).Times(2),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
+	scanner := r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	assert.NotNil(t, scanner)
+	// case 4: series ids not found
+	r, err = NewReader("1.sst", mockMetricBlock())
+	assert.NoError(t, err)
+	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(10, 12).GetContainer(0))
+	assert.Nil(t, scanner)
 	// case 3: can't get aggregator by family
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, false),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
-	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
-	// case 3: series ids not found
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetBlock().Return(block1),
-		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
-	)
-	r, err = NewReader("1.sst", mockMetricBlock())
-	assert.NoError(t, err)
-	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {10, 12}})
-	// case 4: field not found
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetBlock().Return(block1),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
-	)
-	r, err = NewReader("1.sst", mockMetricBlock())
-	assert.NoError(t, err)
-	r.Load(qFlow, 10, []field.ID{100}, 1, map[string][]uint16{"host": {10}})
+	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	assert.Nil(t, scanner)
+
 	// case 5: load data success, but time slot not in query range
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetBlock().Return(block1),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
 		block1.EXPECT().Append(5, 0.0).Times(2),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, map[string][]uint16{"host": {4096, 8192}})
+	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner.Scan(4096)
+	scanner.Scan(8192)
+
 	// case 6: load data success, metric has one field
 	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
+		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
+		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
 		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
 		fAgg1.EXPECT().GetBlock().Return(block1),
-		block1.EXPECT().Append(5, 0.0).Times(2),
-		qFlow.EXPECT().Reduce("host", gomock.Any()),
+		block1.EXPECT().Append(5, 0.0).Return(true).Times(2),
 	)
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
-	r.Load(qFlow, 10, []field.ID{2}, 0, map[string][]uint16{"host": {4096, 8192}})
+	scanner = r.Load(qFlow, 10, []field.ID{2}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner.Scan(4096)
+	scanner.Scan(8192)
+	// case 7: high key not exist
+	r, err = NewReader("1.sst", mockMetricBlockForOneField())
+	assert.NoError(t, err)
+	scanner = r.Load(qFlow, 10, []field.ID{2}, 10, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	assert.Nil(t, scanner)
 }
 
 func TestReader_scan(t *testing.T) {
@@ -178,6 +178,8 @@ func TestReader_scan(t *testing.T) {
 	}
 	seriesPos = scanner.scan(0, 0)
 	assert.True(t, seriesPos < 0)
+	fields := scanner.fieldIndexes()
+	assert.Len(t, fields, 4)
 }
 
 func mockMetricBlock() []byte {

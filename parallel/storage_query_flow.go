@@ -24,7 +24,7 @@ const (
 	tagValueNotFound = "tag_value_not_found"
 )
 
-type allocAgg func(aggSpecs aggregation.AggregatorSpecs) aggregation.FieldAggregates
+type allocAgg func(aggSpecs aggregation.AggregatorSpecs) aggregation.ContainerAggregator
 
 var storageQueryFlowLogger = logger.GetLogger("parallel", "storageQueryFlow")
 
@@ -32,9 +32,9 @@ var storageQueryFlowLogger = logger.GetLogger("parallel", "storageQueryFlow")
 type storageQueryFlow struct {
 	storageExecuteCtx StorageExecuteContext
 	query             *stmt.Query
-	aggPool           chan aggregation.FieldAggregates // use aggregator for request scope
-	pendingTasks      map[int32]Stage                  // pending task ref counter for each stage
-	taskIDSeq         atomic.Int32                     // task id gen sequence
+	aggPool           chan aggregation.ContainerAggregator // use aggregator for request scope
+	pendingTasks      map[int32]Stage                      // pending task ref counter for each stage
+	taskIDSeq         atomic.Int32                         // task id gen sequence
 	executorPool      *tsdb.ExecutorPool
 	reduceAgg         aggregation.GroupingAggregator
 	stream            pb.TaskService_HandleServer
@@ -82,11 +82,13 @@ func NewStorageQueryFlow(ctx context.Context,
 
 func (qf *storageQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpecs) {
 	qf.reduceAgg = aggregation.NewGroupingAggregator(qf.queryInterval, qf.queryTimeRange, downSamplingSpecs)
-	qf.aggPool = make(chan aggregation.FieldAggregates, 64)
+	qf.aggPool = make(chan aggregation.ContainerAggregator, 64)
 	qf.downSamplingSpecs = downSamplingSpecs
-	qf.allocAgg = func(aggSpecs aggregation.AggregatorSpecs) aggregation.FieldAggregates {
-		return aggregation.NewFieldAggregates(qf.queryInterval, qf.queryIntervalRatio, qf.queryTimeRange,
-			true, aggSpecs)
+	qf.allocAgg = func(aggSpecs aggregation.AggregatorSpecs) aggregation.ContainerAggregator {
+		//return aggregation.NewFieldAggregates(qf.queryInterval, qf.queryIntervalRatio, qf.queryTimeRange,
+		//	true, aggSpecs)
+		//TODO need impl
+		return nil
 	}
 
 	// for group by
@@ -99,7 +101,7 @@ func (qf *storageQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpec
 	}
 }
 
-func (qf *storageQueryFlow) GetAggregator() (agg aggregation.FieldAggregates) {
+func (qf *storageQueryFlow) GetAggregator(highKey uint16) (agg aggregation.ContainerAggregator) {
 	select {
 	case agg = <-qf.aggPool:
 		// reuse existing aggregator
@@ -111,9 +113,10 @@ func (qf *storageQueryFlow) GetAggregator() (agg aggregation.FieldAggregates) {
 }
 
 // releaseAgg releases the current field aggregator for reuse in request scope
-func (qf *storageQueryFlow) releaseAgg(agg aggregation.FieldAggregates) {
+func (qf *storageQueryFlow) releaseAgg(agg aggregation.ContainerAggregator) {
 	// 1. reset aggregator context
-	agg.Reset()
+	//TODO impl
+	//agg.Reset()
 
 	// 2. try put it back into pool
 	select {
@@ -151,7 +154,7 @@ func (qf *storageQueryFlow) Filtering(task concurrent.Task) {
 	qf.execute(Filtering, task)
 }
 
-func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates) {
+func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.ContainerAggregator) {
 	//NOTICE: don't do reduce operator in other goroutine, because big overhead when goroutine schedule
 	defer func() {
 		qf.releaseAgg(agg)
@@ -165,7 +168,8 @@ func (qf *storageQueryFlow) Reduce(tags string, agg aggregation.FieldAggregates)
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 
-	qf.reduceAgg.Aggregate(agg.ResultSet(tags))
+	//TODO impl
+	//qf.reduceAgg.Aggregate(agg.ResultSet(tags))
 }
 
 // ReduceTagValues reduces the group by tag values

@@ -113,11 +113,12 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	block := series.NewMockBlock(ctrl)
 	qFlow := flow.NewMockStorageQueryFlow(ctrl)
 	// case 2: load data success
-	qFlow.EXPECT().GetAggregator().Return(aggregation.FieldAggregates{sAgg1, nil})
+	cAgg := aggregation.NewMockContainerAggregator(ctrl)
+	cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, nil})
+	qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg)
 	sAgg1.EXPECT().GetAggregator(gomock.Any()).Return(fAgg1, true)
 	fAgg1.EXPECT().GetBlock().Return(block)
 	block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
 	qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
-	r.Load(qFlow, 10, []field.ID{2}, 1, map[string][]uint16{"host": {1, 2, 3, 4}})
-
+	r.Load(qFlow, 10, []field.ID{2}, 0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0))
 }
