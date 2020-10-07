@@ -48,6 +48,38 @@ type groupedSeriesResult struct {
 	groupedSeries map[string][]uint16
 }
 
+// loadSeriesResult represents load series result with scanner.
+type loadSeriesResult struct {
+	scanners []flow.Scanner
+}
+
+// newSeriesResultScanner creates a series load result scanner.
+func newSeriesResultScanner(len int) flow.Scanner {
+	return &loadSeriesResult{
+		scanners: make([]flow.Scanner, len),
+	}
+}
+
+// Scan scans the metric data by given series id from load result.
+func (l *loadSeriesResult) Scan(lowSeriesID uint16) {
+	for _, scanner := range l.scanners {
+		if scanner != nil {
+			scanner.Scan(lowSeriesID)
+		}
+	}
+}
+
+// Close closes the scanner's resource.
+func (l *loadSeriesResult) Close() error {
+	for _, scanner := range l.scanners {
+		if scanner != nil {
+			_ = scanner.Close()
+		}
+	}
+
+	return nil
+}
+
 // storageExecutor represents execution search logic in storage level,
 // does query task async, then merge result, such as map-reduce job.
 // 1) Filtering
@@ -249,7 +281,31 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 	for idx, key := range keys {
 		// be carefully, need use new variable for variable scope problem
 		highKey := key
-		container := seriesIDs.GetContainerAtIndex(idx)
+		containerOfSeries := seriesIDs.GetContainerAtIndex(idx)
+
+		e.queryFlow.Scanner(func() {
+			loadSeriesRS := newSeriesResultScanner(len(rs))
+			defer func() {
+				_ = loadSeriesRS.Close()
+			}()
+
+			for idx := range rs {
+				// 3.load data by grouped seriesIDs
+				t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, rs[idx], e.fieldIDs,
+					highKey, containerOfSeries,
+					idx, loadSeriesRS.(*loadSeriesResult))
+				if err := t.Run(); err != nil {
+					e.queryFlow.Complete(err)
+					return
+				}
+			}
+			// scan metric data from storage(memory/file)
+			it := containerOfSeries.PeekableIterator()
+			for it.HasNext() {
+				loadSeriesRS.Scan(it.Next())
+			}
+		})
+
 		// grouping based on group by tag keys for each container
 		e.queryFlow.Grouping(func() {
 			defer func() {
@@ -263,22 +319,12 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 				e.collectGroupByTagValues()
 			}()
 			groupedResult := &groupedSeriesResult{}
-			t := newBuildGroupTaskFunc(e.ctx, shard, groupingCtx, highKey, container, groupedResult)
+			t := newBuildGroupTaskFunc(e.ctx, shard, groupingCtx, highKey, containerOfSeries, groupedResult)
 			if err := t.Run(); err != nil {
 				e.queryFlow.Complete(err)
 				return
 			}
-			for _, resultSet := range rs {
-				// 3.load data by grouped seriesIDs
-				filteringRS := resultSet
-				e.queryFlow.Scanner(func() {
-					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, filteringRS, e.fieldIDs, highKey, groupedResult.groupedSeries)
-					if err := t.Run(); err != nil {
-						e.queryFlow.Complete(err)
-						return
-					}
-				})
-			}
+
 		})
 	}
 }
