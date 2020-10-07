@@ -394,28 +394,34 @@ func (t *buildGroupTask) AfterRun() {
 // dataLoadTask represents data load task based on filtering result set
 type dataLoadTask struct {
 	baseQueryTask
-	ctx           *storageExecuteContext
-	shard         tsdb.Shard
-	queryFlow     flow.StorageQueryFlow
-	filteringRS   flow.FilterResultSet
-	fieldIDs      []field.ID
-	highKey       uint16
-	groupedSeries map[string][]uint16
+	ctx         *storageExecuteContext
+	shard       tsdb.Shard
+	queryFlow   flow.StorageQueryFlow
+	filteringRS flow.FilterResultSet
+	fieldIDs    []field.ID
+	highKey     uint16
+	seriesIDs   roaring.Container
+
+	idx    int
+	result *loadSeriesResult
 }
 
 // newDataLoadTask creates the data load task
 func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-	filteringRS flow.FilterResultSet, fieldIDs []field.ID, highKey uint16,
-	groupedSeries map[string][]uint16,
+	filteringRS flow.FilterResultSet, fieldIDs []field.ID,
+	highKey uint16, seriesIDs roaring.Container,
+	idx int, result *loadSeriesResult,
 ) flow.QueryTask {
 	task := &dataLoadTask{
-		ctx:           ctx,
-		shard:         shard,
-		queryFlow:     queryFlow,
-		filteringRS:   filteringRS,
-		fieldIDs:      fieldIDs,
-		highKey:       highKey,
-		groupedSeries: groupedSeries,
+		ctx:         ctx,
+		shard:       shard,
+		queryFlow:   queryFlow,
+		filteringRS: filteringRS,
+		fieldIDs:    fieldIDs,
+		highKey:     highKey,
+		seriesIDs:   seriesIDs,
+		idx:         idx,
+		result:      result,
 	}
 	if ctx.query.Explain {
 		return &queryStatTask{
@@ -427,8 +433,7 @@ func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flo
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	//TODO impl
-	t.filteringRS.Load(t.queryFlow, t.fieldIDs, t.highKey, nil)
+	t.result.scanners[t.idx] = t.filteringRS.Load(t.queryFlow, t.fieldIDs, t.highKey, t.seriesIDs)
 	return nil
 }
 
