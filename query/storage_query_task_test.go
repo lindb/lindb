@@ -257,14 +257,14 @@ func TestDataLoadTask_Run(t *testing.T) {
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
 	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, qf, rs, nil, 1, nil)
+		shard, qf, rs, nil, 1, nil, 0, newSeriesResultScanner(1).(*loadSeriesResult))
 	rs.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
 	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, qf, rs, nil, 1, nil)
+		shard, qf, rs, nil, 1, nil, 0, newSeriesResultScanner(1).(*loadSeriesResult))
 	shard.EXPECT().ShardID().Return(int32(10)).AnyTimes()
 	rs.EXPECT().Identifier().Return("memory")
 	err = task.Run()
