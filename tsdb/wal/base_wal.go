@@ -39,7 +39,7 @@ type SeriesRecoveryFunc = func(metricID uint32, tagsHash uint64, seriesID uint32
 type MetricRecoveryFunc = func(namespace, metricName string, metricID uint32) error
 
 // FieldRecoveryFunc represents the field recovery function
-type FieldRecoveryFunc = func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error
+type FieldRecoveryFunc = func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error
 
 // TagKeyRecoveryFunc represents the tag key recovery function
 type TagKeyRecoveryFunc = func(metricID uint32, tagKeyID uint32, tagKey string) error

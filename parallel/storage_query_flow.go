@@ -234,7 +234,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 						continue
 					}
 
-					fields[fieldIt.FieldName()] = data
+					fields[string(fieldIt.FieldName())] = data
 				}
 				if len(fields) > 0 {
 					tags := ""

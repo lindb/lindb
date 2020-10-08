@@ -149,7 +149,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		p.field(nil, e.Left)
 		p.field(nil, e.Right)
 	case *stmt.FieldExpr:
-		fieldMeta, err := p.metadata.MetadataDatabase().GetField(p.namespace, p.query.MetricName, e.Name)
+		fieldMeta, err := p.metadata.MetadataDatabase().GetField(p.namespace, p.query.MetricName, field.Name(e.Name))
 		if err != nil {
 			p.err = err
 			return
@@ -175,7 +175,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		}
 		downSampling, exist := p.fields[fieldID]
 		if !exist {
-			downSampling = aggregation.NewDownSamplingSpec(e.Name, fieldType)
+			downSampling = aggregation.NewDownSamplingSpec(field.Name(e.Name), fieldType)
 			p.fields[fieldID] = downSampling
 		}
 		downSampling.AddFunctionType(funcType)

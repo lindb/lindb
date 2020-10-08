@@ -17,12 +17,11 @@ func TestBinaryGroupedIterator(t *testing.T) {
 	d := buildFieldIterator()
 	writer.PutByte(byte(field.SumField))
 	writer.PutVarint64(10)
-	writer.PutVarint32(int32(len(d)))
 	writer.PutBytes(d)
 	data, err := writer.Bytes()
 	assert.NoError(t, err)
-	result := make(map[string]string)
-	it := NewGroupedIterator("1.1.1.1", map[string][]byte{
+	result := make(map[field.Name]field.Name)
+	it := NewGroupedIterator("1.1.1.1", map[field.Name][]byte{
 		"f1": data,
 		"f2": data,
 	})
@@ -54,17 +53,15 @@ func TestBinaryIterator(t *testing.T) {
 	writer := stream.NewBufferWriter(nil)
 	writer.PutByte(byte(field.SumField))
 	d := buildFieldIterator()
-	writer.PutVarint64(10)
-	writer.PutVarint32(int32(len(d)))
+	writer.PutVarint64(10) //start slot
 	writer.PutBytes(d)
 	d = buildFieldIterator()
-	writer.PutVarint64(11)
-	writer.PutVarint32(int32(len(d)))
+	writer.PutVarint64(11) //start slot
 	writer.PutBytes(d)
 	data, err := writer.Bytes()
 	assert.NoError(t, err)
 	it := NewIterator("f1", data)
-	assert.Equal(t, "f1", it.FieldName())
+	assert.Equal(t, field.Name("f1"), it.FieldName())
 	assert.Equal(t, field.SumField, it.fieldType)
 	assert.True(t, it.HasNext())
 	startTime, fIt := it.Next()
@@ -95,31 +92,13 @@ func TestBinaryIterator(t *testing.T) {
 	assert.False(t, it.HasNext())
 }
 
-func TestPrimitiveIterator(t *testing.T) {
-	encoder := encoding.NewTSDEncoder(10)
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(math.Float64bits(10.0))
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(math.Float64bits(100.0))
-	data, _ := encoder.Bytes()
-	decoder := encoding.GetTSDDecoder()
-	decoder.Reset(data)
-	it := NewPrimitiveIterator(10, field.Sum, decoder)
-	assert.Equal(t, field.PrimitiveID(10), it.FieldID())
-	assert.True(t, it.HasNext())
-	slot, val := it.Next()
-	assert.Equal(t, 10, slot)
-	assert.Equal(t, 10.0, val)
-	assert.True(t, it.HasNext())
-	slot, val = it.Next()
-	assert.Equal(t, 11, slot)
-	assert.Equal(t, 100.0, val)
-	assert.False(t, it.HasNext())
-}
-
 func TestBinaryFieldIterator(t *testing.T) {
 	d := buildFieldIterator()
-	it := NewFieldIterator(d)
+	reader := stream.NewReader(d)
+	aggType := field.AggType(reader.ReadByte())
+	length := reader.ReadVarint32()
+	data := reader.ReadBytes(int(length))
+	it := NewFieldIterator(aggType, encoding.NewTSDDecoder(data))
 	assertFieldIterator(t, it)
 
 	_, err := it.MarshalBinary()
@@ -127,16 +106,11 @@ func TestBinaryFieldIterator(t *testing.T) {
 }
 
 func assertFieldIterator(t *testing.T, it FieldIterator) {
-	for i := 0; i < 2; i++ {
-		assert.True(t, it.HasNext())
-		pIt := it.Next()
-		assert.Equal(t, field.PrimitiveID(10), pIt.FieldID())
-		assert.Equal(t, field.Sum, pIt.AggType())
-		assert.True(t, pIt.HasNext())
-		s, v := pIt.Next()
-		assert.Equal(t, 12, s)
-		assert.Equal(t, 10.0, v)
-	}
+	assert.Equal(t, field.Sum, it.AggType())
+	assert.True(t, it.HasNext())
+	s, v := it.Next()
+	assert.Equal(t, 12, s)
+	assert.Equal(t, 10.0, v)
 	assert.False(t, it.HasNext())
 }
 
@@ -148,12 +122,9 @@ func buildFieldIterator() []byte {
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.Bytes()
-	for i := 0; i < 2; i++ {
-		writer.PutByte(byte(field.PrimitiveID(10)))
-		writer.PutByte(byte(field.Sum))
-		writer.PutVarint32(int32(len(data)))
-		writer.PutBytes(data)
-	}
+	writer.PutByte(byte(field.Sum))
+	writer.PutVarint32(int32(len(data)))
+	writer.PutBytes(data)
 	d, _ := writer.Bytes()
 	return d
 }

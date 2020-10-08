@@ -21,8 +21,8 @@ func TestNewFieldAggregates(t *testing.T) {
 			NewDownSamplingSpec("b", field.SumField),
 			NewDownSamplingSpec("a", field.SumField),
 		})
-	assert.Equal(t, "b", agg[0].FieldName())
-	assert.Equal(t, "a", agg[1].FieldName())
+	assert.Equal(t, field.Name("b"), agg[0].FieldName())
+	assert.Equal(t, field.Name("a"), agg[1].FieldName())
 	assert.Equal(t, field.SumField, agg[0].GetFieldType())
 	assert.Equal(t, field.SumField, agg[1].GetFieldType())
 
@@ -37,17 +37,17 @@ func TestNewFieldAggregates(t *testing.T) {
 			NewDownSamplingSpec("b", field.SumField),
 			NewDownSamplingSpec("a", field.SumField),
 		})
-	assert.Equal(t, "a", agg[0].FieldName())
-	assert.Equal(t, "b", agg[1].FieldName())
+	assert.Equal(t, field.Name("a"), agg[0].FieldName())
+	assert.Equal(t, field.Name("b"), agg[1].FieldName())
 
 	it := agg.ResultSet("")
 	assert.True(t, it.HasNext())
 	sIt := it.Next()
-	assert.Equal(t, "a", sIt.FieldName())
+	assert.Equal(t, field.Name("a"), sIt.FieldName())
 	assert.Equal(t, field.SumField, sIt.FieldType())
 	assert.True(t, it.HasNext())
 	sIt = it.Next()
-	assert.Equal(t, "b", sIt.FieldName())
+	assert.Equal(t, field.Name("b"), sIt.FieldName())
 	assert.Equal(t, field.SumField, sIt.FieldType())
 	assert.False(t, it.HasNext())
 

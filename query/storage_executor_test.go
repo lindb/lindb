@@ -205,7 +205,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	mockDatabase.EXPECT().GetShard(int32(3)).Return(shard, true).AnyTimes()
 	mockDatabase.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(uint32(10), nil).AnyTimes()
-	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), "f").
+	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
 	shard.EXPECT().MemoryDatabase().Return(memDB).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()

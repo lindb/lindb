@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -153,7 +154,7 @@ func (j *jobManager) GetTaskManager() TaskManager {
 func buildAggregatorSpecs(fieldNames []string) aggregation.AggregatorSpecs {
 	aggSpecs := make(aggregation.AggregatorSpecs, len(fieldNames))
 	for idx, fieldName := range fieldNames {
-		aggSpecs[idx] = aggregation.NewAggregatorSpec(fieldName)
+		aggSpecs[idx] = aggregation.NewAggregatorSpec(field.Name(fieldName))
 	}
 	return aggSpecs
 }

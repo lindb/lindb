@@ -20,7 +20,7 @@ type MetricMetadata interface {
 	// getMetricID gets the metric id
 	getMetricID() uint32
 	// getField gets the field meta by field name, if not exist return false
-	getField(fieldName string) (field.Meta, bool)
+	getField(fieldName field.Name) (field.Meta, bool)
 	// getAllFields returns the all fields of the metric
 	getAllFields() (fields []field.Meta)
 	// getTagKeyID gets the tag key id by tag key, if not exist return false
@@ -32,7 +32,7 @@ type MetricMetadata interface {
 	checkTagKeyCount() error
 
 	// createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-	createField(fieldName string, fieldType field.Type) (field.ID, error)
+	createField(fieldName field.Name, fieldType field.Type) (field.ID, error)
 	// rollbackFieldID rollbacks field id
 	rollbackFieldID(fieldID field.ID)
 	// addField adds field meta
@@ -70,7 +70,7 @@ func (mm *metricMetadata) getMetricID() uint32 {
 }
 
 // getField gets the field meta by field name, if not exist return false
-func (mm *metricMetadata) getField(fieldName string) (field.Meta, bool) {
+func (mm *metricMetadata) getField(fieldName field.Name) (field.Meta, bool) {
 	//FIXME use search???
 	for _, f := range mm.fields {
 		if f.Name == fieldName {
@@ -101,7 +101,7 @@ func (mm *metricMetadata) getAllTagKeys() (tagKeys []tag.Meta) {
 }
 
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-func (mm *metricMetadata) createField(fieldName string, fieldType field.Type) (field.ID, error) {
+func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type) (field.ID, error) {
 	// check fields count
 	if mm.fieldIDSeq.Load() >= constants.DefaultMaxFieldsCount {
 		return 0, series.ErrTooManyFields

@@ -103,7 +103,7 @@ func TestMetricMetaWAL_Recovery(t *testing.T) {
 		}
 		count++
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		if metricID == 1 && fID == field.ID(1) && fType == field.SumField && fieldName == "f-1" {
 			count++
 			return nil
@@ -148,7 +148,7 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	// case 1: commit err
 	wal.Recovery(func(namespace, metricName string, metricID uint32) error {
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		return nil
 	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
 		return nil
@@ -159,7 +159,7 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	// case 2: metric recovery err
 	wal.Recovery(func(namespace, metricName string, metricID uint32) error {
 		return fmt.Errorf("err")
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		return nil
 	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
 		return nil
@@ -170,7 +170,7 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	// case 3: field recovery err
 	wal.Recovery(func(namespace, metricName string, metricID uint32) error {
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		return fmt.Errorf("err")
 	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
 		return nil
@@ -181,7 +181,7 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	// case 4: tag key recovery err
 	wal.Recovery(func(namespace, metricName string, metricID uint32) error {
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		return nil
 	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
 		return fmt.Errorf("err")
@@ -201,7 +201,7 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	fct.EXPECT().ReleasePage(gomock.Any()).Return(fmt.Errorf("err"))
 	wal.Recovery(func(namespace, metricName string, metricID uint32) error {
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		return nil
 	}, func(metricID uint32, tagKeyID uint32, tagKey string) error {
 		return nil

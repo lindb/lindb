@@ -19,6 +19,7 @@ import (
 	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -151,7 +152,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	groupIt.EXPECT().HasNext().Return(true)
 	groupIt.EXPECT().Next().Return(it)
 	it.EXPECT().MarshalBinary().Return([]byte{1, 2, 3}, nil)
-	it.EXPECT().FieldName().Return("f1")
+	it.EXPECT().FieldName().Return(field.Name("f1"))
 	groupIt.EXPECT().HasNext().Return(false)
 	reduceAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{groupIt})
 	var wait1 sync.WaitGroup

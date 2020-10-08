@@ -17,56 +17,46 @@ import (
 var encodeFunc = encoding.NewTSDEncoder
 
 func TestFieldIterator(t *testing.T) {
-	it := newFieldIterator(20, []series.PrimitiveIterator{})
+	it := newFieldIterator(20, field.Sum, generateFloatArray(nil))
 	assert.False(t, it.HasNext())
+	slot, value := it.Next()
+	assert.Equal(t, -1, slot)
+	assert.Equal(t, 0.0, value)
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 
-	primitiveIt := newPrimitiveIterator(field.PrimitiveID(10), 20, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-	primitiveIt1 := newPrimitiveIterator(field.PrimitiveID(10), 20, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-
-	it = newFieldIterator(20, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
+	it = newFieldIterator(20, field.Min, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 
 	expect := map[int]float64{20: 0, 21: 10, 22: 10.0, 23: 100.4, 24: 50.0}
-	assert.True(t, it.HasNext())
-	AssertPrimitiveIt(t, it.Next(), expect)
-	assert.True(t, it.HasNext())
-	AssertPrimitiveIt(t, it.Next(), expect)
-
+	AssertFieldIt(t, it, expect)
 	assert.False(t, it.HasNext())
-	assert.Nil(t, it.Next())
+	slot, value = it.Next()
+	assert.Equal(t, -1, slot)
+	assert.Equal(t, 0.0, value)
 
-	// marshal empty primitive iterator, because primitive iterator already read
+	// marshal empty, because field iterator already read
 	data, err = it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 }
 
 func TestFieldIterator_MarshalBinary(t *testing.T) {
-	floatArray := collections.NewFloatArray(5)
-	floatArray.SetValue(2, 10.0)
-	primitiveIt := newPrimitiveIterator(field.PrimitiveID(20), 10, field.Sum, floatArray)
-	primitiveIt1 := newPrimitiveIterator(field.PrimitiveID(20), 10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-
-	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt, primitiveIt1})
+	it := newFieldIterator(10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
 
 	reader := stream.NewReader(data)
-	pFieldID := reader.ReadByte() // read primitive field id
-	assert.Equal(t, field.PrimitiveID(20), field.PrimitiveID(pFieldID))
-	aggType := field.AggType(reader.ReadByte())
+	aggType := field.AggType(reader.ReadByte()) // read field agg type
 	assert.Equal(t, field.Sum, aggType)
 	length := reader.ReadVarint32()
 	data1 := reader.ReadBytes(int(length))
 
-	pIt := series.NewPrimitiveIterator(field.PrimitiveID(pFieldID), aggType, encoding.NewTSDDecoder(data1))
-	assert.True(t, pIt.HasNext())
-	i, value := pIt.Next()
-	assert.Equal(t, 12, i)
-	assert.Equal(t, 10.0, value)
+	fIt := series.NewFieldIterator(aggType, encoding.NewTSDDecoder(data1))
+	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
+	AssertFieldIt(t, fIt, expect)
+	assert.False(t, fIt.HasNext())
 }
 
 func TestFieldIterator_MarshalBinary_err(t *testing.T) {
@@ -81,31 +71,11 @@ func TestFieldIterator_MarshalBinary_err(t *testing.T) {
 	}
 	floatArray := collections.NewFloatArray(5)
 	floatArray.SetValue(2, 10.0)
-	primitiveIt := newPrimitiveIterator(field.PrimitiveID(10), 10, field.Sum, floatArray)
 	encoder.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encoder.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encoder.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it := newFieldIterator(10, []series.PrimitiveIterator{primitiveIt})
+	it := newFieldIterator(10, field.Sum, floatArray)
 	data, err := it.MarshalBinary()
 	assert.Error(t, err)
 	assert.Nil(t, data)
-}
-
-func TestPrimitiveIterator(t *testing.T) {
-	it := newPrimitiveIterator(field.PrimitiveID(10), 20, field.Max, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
-
-	expect := map[int]float64{20: 0, 21: 10, 22: 10.0, 23: 100.4, 24: 50.0}
-	AssertPrimitiveIt(t, it, expect)
-
-	assert.False(t, it.HasNext())
-	timeSlot, value := it.Next()
-	assert.Equal(t, -1, timeSlot)
-	assert.Equal(t, float64(0), value)
-	assert.Equal(t, field.PrimitiveID(10), it.FieldID())
-
-	it = newPrimitiveIterator(field.PrimitiveID(10), 20, field.Max, nil)
-	assert.False(t, it.HasNext())
-	timeSlot, value = it.Next()
-	assert.Equal(t, -1, timeSlot)
-	assert.Equal(t, float64(0), value)
 }
