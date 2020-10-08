@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -61,21 +62,21 @@ func (ms *metricStore) Filter(fieldIDs []field.ID,
 
 // fieldAggregator represents the field aggregator that does memory data scan and aggregates
 type fieldAggregator struct {
-	familyID   familyID
-	fieldMeta  field.Meta
-	aggregator aggregation.FieldAggregator
+	familyID  familyID
+	fieldMeta field.Meta
+	block     series.Block
 
 	fieldKey uint32
 }
 
 // newFieldAggregator creates a field aggregator
-func newFieldAggregator(familyID familyID, fieldMeta field.Meta, aggregator aggregation.FieldAggregator) *fieldAggregator {
+func newFieldAggregator(familyID familyID, fieldMeta field.Meta, block series.Block) *fieldAggregator {
 	fieldKey := buildFieldKey(familyID, fieldMeta.ID)
 	return &fieldAggregator{
-		familyID:   familyID,
-		fieldMeta:  fieldMeta,
-		aggregator: aggregator,
-		fieldKey:   fieldKey,
+		familyID:  familyID,
+		fieldMeta: fieldMeta,
+		block:     block,
+		fieldKey:  fieldKey,
 	}
 }
 
@@ -98,11 +99,11 @@ func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregatio
 			if !ok {
 				continue
 			}
-			fieldAggregator, ok := aggregator.GetFieldAggregates()[idx].GetAggregator(familyTime)
+			block, ok := aggregator.GetFieldAggregates()[idx].GetAggregateBlock(familyTime)
 			if !ok {
 				continue
 			}
-			aggs = append(aggs, newFieldAggregator(fID, fMeta, fieldAggregator))
+			aggs = append(aggs, newFieldAggregator(fID, fMeta, block))
 		}
 	}
 	return

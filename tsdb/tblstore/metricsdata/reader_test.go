@@ -75,17 +75,15 @@ func TestReader_Load(t *testing.T) {
 	// case 2: load success
 	sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
 	sAgg2 := aggregation.NewMockSeriesAggregator(ctrl)
-	fAgg1 := aggregation.NewMockFieldAggregator(ctrl)
-	fAgg2 := aggregation.NewMockFieldAggregator(ctrl)
 	block1 := series.NewMockBlock(ctrl)
+	block2 := series.NewMockBlock(ctrl)
 	// case 3: load data success
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetBlock().Return(block1),
+		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
+		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
@@ -100,9 +98,9 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, false),
+		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, false),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
+		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
 	)
 	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
 	assert.Nil(t, scanner)
@@ -111,10 +109,9 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetBlock().Return(block1),
+		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregator(int64(10)).Return(fAgg2, false),
+		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
 		block1.EXPECT().Append(5, 0.0).Times(2),
 	)
 	r, err = NewReader("1.sst", mockMetricBlock())
@@ -127,8 +124,7 @@ func TestReader_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregator(int64(10)).Return(fAgg1, true),
-		fAgg1.EXPECT().GetBlock().Return(block1),
+		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
 		block1.EXPECT().Append(5, 0.0).Return(true).Times(2),
 	)
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())

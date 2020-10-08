@@ -11,6 +11,9 @@ import (
 
 //go:generate mockgen -source=./series_agg.go -destination=./series_agg_mock.go -package=aggregation
 
+// newBlockFunc represents create series block function by query time range.
+type newBlockFunc func() series.Block
+
 // FieldAggregates represents aggregator which aggregates fields of a time series
 type FieldAggregates []SeriesAggregator
 
@@ -55,10 +58,8 @@ type SeriesAggregator interface {
 	GetFieldType() field.Type
 	// SetFieldType sets field type
 	SetFieldType(fieldType field.Type)
-	// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
-	GetAggregator(segmentStartTime int64) (FieldAggregator, bool)
-	// Aggregators returns all field aggregates
-	Aggregators() []FieldAggregator
+	// GetAggregateBlock gets field aggregator by segment start time, if not exist return (nil,false).
+	GetAggregateBlock(segmentStartTime int64) (series.Block, bool)
 	// ResultSet returns the result set of series aggregator
 	ResultSet() series.Iterator
 	// Reset resets the aggregator's context for reusing
@@ -70,7 +71,7 @@ type seriesAggregator struct {
 	fieldType      field.Type
 	ratio          int
 	isDownSampling bool
-	aggregates     []FieldAggregator
+	aggregator     FieldAggregator
 	queryInterval  timeutil.Interval
 	queryTimeRange timeutil.TimeRange
 	aggSpec        AggregatorSpec
@@ -103,8 +104,11 @@ func NewSeriesAggregator(
 		queryTimeRange: queryTimeRange,
 		aggSpec:        aggSpec,
 	}
-	if length > 0 {
-		agg.aggregates = make([]FieldAggregator, length)
+	if isDownSampling {
+		agg.aggregator = NewDownSamplingFieldAggregator(aggSpec, length)
+	} else {
+		//TODO need impl
+		agg.aggregator = NewFieldAggregator(startTime, selector.NewIndexSlotSelector(0, 10, 1))
 	}
 	return agg
 }
@@ -125,39 +129,36 @@ func (a *seriesAggregator) SetFieldType(fieldType field.Type) {
 }
 
 // Aggregators returns all field aggregates
-func (a *seriesAggregator) Aggregators() []FieldAggregator {
-	return a.aggregates
-}
+//func (a *seriesAggregator) Aggregators() []FieldAggregator {
+//	return a.aggregates
+//}
 
 // ResultSet returns the result set of series aggregator
 func (a *seriesAggregator) ResultSet() series.Iterator {
-	if len(a.aggregates) == 0 {
-		return nil
-	}
+	//if len(a.aggregates) == 0 {
+	//	return nil
+	//}
 	return newSeriesIterator(a)
 }
 
 // Reset resets the aggregator's context for reusing
 func (a *seriesAggregator) Reset() {
-	for _, aggregator := range a.aggregates {
-		if aggregator == nil {
-			continue
-		}
-		aggregator.reset()
-	}
+	a.aggregator.reset()
+	//for _, aggregator := range a.aggregates {
+	//	if aggregator == nil {
+	//		continue
+	//	}
+	//	aggregator.reset()
+	//}
 }
 
 // GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
-func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggregator, ok bool) {
+func (a *seriesAggregator) GetAggregateBlock(segmentStartTime int64) (agg series.Block, ok bool) {
 	if segmentStartTime < a.startTime {
 		return
 	}
 	idx := a.calc.CalcTimeWindows(a.startTime, segmentStartTime) - 1
-	if idx < 0 || idx >= len(a.aggregates) {
-		return
-	}
-	agg = a.aggregates[idx]
-	if agg == nil {
+	return a.aggregator.GetBlock(idx, func() series.Block {
 		storageTimeRange := &timeutil.TimeRange{
 			Start: segmentStartTime,
 			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
@@ -166,15 +167,6 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 		storageInterval := a.queryInterval.Int64() / int64(a.ratio)
 		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
 		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval) + 1
-		if a.isDownSampling {
-			agg = NewDownSamplingFieldAggregator(segmentStartTime,
-				selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio),
-				a.aggSpec)
-		} else {
-			agg = NewFieldAggregator(segmentStartTime, selector.NewIndexSlotSelector(startIdx, endIdx, a.ratio))
-		}
-		a.aggregates[idx] = agg
-	}
-	ok = true
-	return
+		return series.NewBlock(startIdx, endIdx)
+	})
 }

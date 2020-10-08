@@ -8,6 +8,8 @@ import "github.com/lindb/lindb/pkg/collections"
 type Block interface {
 	// Append appends time slot and value into block
 	Append(slot int, value float64) bool
+	// Clear clears the values of block.
+	Clear()
 }
 
 // block implements Block interface
@@ -35,4 +37,9 @@ func (b *block) Append(slot int, value float64) bool {
 	}
 	b.values.SetValue(slot, value)
 	return false
+}
+
+// Clear clears the values of block.
+func (b *block) Clear() {
+	b.values.Reset()
 }
