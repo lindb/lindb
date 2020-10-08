@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -66,15 +67,15 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	sAgg := aggregation.NewMockSeriesAggregator(ctrl)
-	fAgg := aggregation.NewMockFieldAggregator(ctrl)
+	block := series.NewMockBlock(ctrl)
 	//block := series.NewMockBlock(ctrl)
 	// case 1: load data success
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
+		sAgg.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, false),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, true),
+		sAgg.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, true),
 	)
 	scanner := rs[0].Load(qFlow, []field.ID{20, 30}, 0, roaring.BitmapOf(100, 200).GetContainer(0))
 	assert.NotNil(t, scanner)
@@ -90,9 +91,9 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	gomock.InOrder(
 		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(100)).Return(fAgg, false),
+		sAgg.EXPECT().GetAggregateBlock(int64(100)).Return(block, false),
 		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg}),
-		sAgg.EXPECT().GetAggregator(int64(1000)).Return(fAgg, false),
+		sAgg.EXPECT().GetAggregateBlock(int64(1000)).Return(block, false),
 	)
 	scanner = rs[0].Load(qFlow, []field.ID{20, 30}, 0, roaring.BitmapOf(100, 200).GetContainer(0))
 	assert.Nil(t, scanner)

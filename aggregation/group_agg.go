@@ -64,10 +64,11 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 			if fieldIt == nil {
 				continue
 			}
-			fAgg, ok := sAgg.GetAggregator(startTime)
-			if ok {
-				fAgg.Aggregate(fieldIt)
-			}
+			_, _ = sAgg.GetAggregateBlock(startTime)
+			//TODO impl
+			//if ok {
+			//fAgg.Aggregate(fieldIt)
+			//}
 		}
 	}
 }
