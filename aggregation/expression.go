@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -31,7 +32,7 @@ type expression struct {
 	timeRange   timeutil.TimeRange
 	selectItems []stmt.Expr
 
-	fieldStore map[string]fields.Field
+	fieldStore map[field.Name]fields.Field
 	resultSet  map[string]collections.FloatArray
 }
 
@@ -42,7 +43,7 @@ func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []s
 		interval:    interval,
 		timeRange:   timeRange,
 		selectItems: selectItems,
-		fieldStore:  make(map[string]fields.Field),
+		fieldStore:  make(map[field.Name]fields.Field),
 		resultSet:   make(map[string]collections.FloatArray),
 	}
 }
@@ -112,7 +113,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 		return []collections.FloatArray{values}
 	case *stmt.FieldExpr:
 		fieldName := ex.Name
-		fieldValues, ok := e.fieldStore[fieldName]
+		fieldValues, ok := e.fieldStore[field.Name(fieldName)]
 		if !ok {
 			return nil
 		}
@@ -121,7 +122,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 		if parentFunc == nil {
 			return fieldValues.GetDefaultValues()
 		}
-		// get primitive field data by function type
+		// get field data by function type
 		return fieldValues.GetValues(parentFunc.FuncType)
 	default:
 		return nil

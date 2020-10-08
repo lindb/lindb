@@ -8,7 +8,7 @@ import (
 type AggregatorSpecs []AggregatorSpec
 
 type AggregatorSpec interface {
-	FieldName() string
+	FieldName() field.Name
 	GetFieldType() field.Type
 	SetFieldType(fieldType field.Type)
 	AddFunctionType(funcType function.FuncType)
@@ -16,19 +16,19 @@ type AggregatorSpec interface {
 }
 
 type aggregatorSpec struct {
-	fieldName string
+	fieldName field.Name
 	fieldType field.Type
 	functions map[function.FuncType]function.FuncType
 }
 
-func NewAggregatorSpec(fieldName string) AggregatorSpec {
+func NewAggregatorSpec(fieldName field.Name) AggregatorSpec {
 	return &aggregatorSpec{
 		fieldName: fieldName,
 		functions: make(map[function.FuncType]function.FuncType),
 	}
 }
 
-func NewDownSamplingSpec(fieldName string, fieldType field.Type) AggregatorSpec {
+func NewDownSamplingSpec(fieldName field.Name, fieldType field.Type) AggregatorSpec {
 	return &aggregatorSpec{
 		fieldName: fieldName,
 		fieldType: fieldType,
@@ -44,7 +44,7 @@ func (a *aggregatorSpec) SetFieldType(fieldType field.Type) {
 	a.fieldType = fieldType
 }
 
-func (a *aggregatorSpec) FieldName() string {
+func (a *aggregatorSpec) FieldName() field.Name {
 	return a.fieldName
 }
 

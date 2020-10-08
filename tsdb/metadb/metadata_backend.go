@@ -67,7 +67,7 @@ type MetadataBackend interface {
 	// getAllTagKeys returns the all tag keys by metric id, if not exist return series.ErrNotFound
 	getAllTagKeys(metricID uint32) (tags []tag.Meta, err error)
 	// getField gets the field meta by metric id and field name, if not exist return series.ErrNotFound
-	getField(metricID uint32, fieldName string) (f field.Meta, err error)
+	getField(metricID uint32, fieldName field.Name) (f field.Meta, err error)
 	// getAllFields returns the  all fields by metric id, if not exist return series.ErrNotFound
 	getAllFields(metricID uint32) (fields []field.Meta, err error)
 
@@ -282,7 +282,7 @@ func (mb *metadataBackend) getAllTagKeys(metricID uint32) (tags []tag.Meta, err 
 }
 
 // getField gets the field meta by metric id and field name, if not exist return series.ErrNotFound
-func (mb *metadataBackend) getField(metricID uint32, fieldName string) (f field.Meta, err error) {
+func (mb *metadataBackend) getField(metricID uint32, fieldName field.Name) (f field.Meta, err error) {
 	var scratch [4]byte
 	binary.LittleEndian.PutUint32(scratch[:], metricID)
 	err = mb.db.View(func(tx *bbolt.Tx) error {
@@ -346,7 +346,7 @@ func loadFields(fieldBucket *bbolt.Bucket) (fields []field.Meta) {
 	cursor := fieldBucket.Cursor()
 	for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 		fields = append(fields, field.Meta{
-			Name: string(k),
+			Name: field.Name(k),
 			ID:   field.ID(v[0]),
 			Type: field.Type(v[1]),
 		})

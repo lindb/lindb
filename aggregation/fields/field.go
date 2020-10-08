@@ -9,35 +9,36 @@ import (
 
 //go:generate mockgen -source=./field.go -destination=./field_mock.go -package=fields
 
-// Field represents the field series for the time series
+// Field represents the field series for the time series.
 type Field interface {
+	// SetValue sets field value using series iterator.
 	SetValue(fieldSeries series.Iterator)
-	// GetValues returns the values which function call need by given function type
+	// GetValues returns the values which function call need by given function type.
 	GetValues(funcType function.FuncType) (result []collections.FloatArray)
-	// GetDefaultValues returns the field default values which aggregation need if user not input function type
+	// GetDefaultValues returns the field default values which aggregation need if user not input function type.
 	GetDefaultValues() (result []collections.FloatArray)
-	// Reset resets field's value for reusing
+	// Reset resets field's value for reusing.
 	Reset()
 }
 
-// dynamicField represents the dynamic field for storing multi-primitive fields
+// dynamicField represents the dynamic field for storing multi-agg types.
 type dynamicField struct {
 	fieldType field.Type
 	startTime int64
 	interval  int64
 	capacity  int
 
-	fields map[field.PrimitiveID]collections.FloatArray
+	fields map[field.AggType]collections.FloatArray
 }
 
-// NewDynamicField creates a dynamic field series
+// NewDynamicField creates a dynamic field series.
 func NewDynamicField(fieldType field.Type, startTime int64, interval int64, capacity int) Field {
 	return &dynamicField{
 		fieldType: fieldType,
 		startTime: startTime,
 		interval:  interval,
 		capacity:  capacity,
-		fields:    make(map[field.PrimitiveID]collections.FloatArray),
+		fields:    make(map[field.AggType]collections.FloatArray),
 	}
 }
 
@@ -46,39 +47,37 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 	if fieldSeries == nil {
 		return
 	}
-	var pField collections.FloatArray
+	var fieldValues collections.FloatArray
 	ok := false
 	for fieldSeries.HasNext() {
 		startTime, it := fieldSeries.Next()
 		if it == nil {
 			continue
 		}
+		aggType := it.AggType()
+		fieldValues, ok = f.fields[aggType]
+		if !ok {
+			fieldValues = collections.NewFloatArray(f.capacity)
+			f.fields[aggType] = fieldValues
+		}
 		for it.HasNext() {
-			pIt := it.Next()
-			pID := pIt.FieldID()
-			pField, ok = f.fields[pID]
-			if !ok {
-				pField = collections.NewFloatArray(f.capacity)
-				f.fields[pID] = pField
-			}
-			for pIt.HasNext() {
-				slot, val := pIt.Next()
-				idx := ((int64(slot)*f.interval + startTime) - f.startTime) / f.interval
-				pField.SetValue(int(idx), val)
-			}
+			slot, val := it.Next()
+			idx := ((int64(slot)*f.interval + startTime) - f.startTime) / f.interval
+			fieldValues.SetValue(int(idx), val)
 		}
 	}
 }
 
 // GetValues returns the values which function call need by given function type and field type
 func (f *dynamicField) GetValues(funcType function.FuncType) (result []collections.FloatArray) {
-	pFields := f.fieldType.GetPrimitiveFields(funcType)
+	pFields := f.fieldType.GetFuncFieldParams(funcType)
 	return f.getFieldValues(pFields)
 }
 
 // GetDefaultValues returns the field default values which aggregation need by field type
 func (f *dynamicField) GetDefaultValues() []collections.FloatArray {
-	return f.getFieldValues(f.fieldType.GetDefaultPrimitiveFields())
+	//TODO need define default type?
+	return f.getFieldValues(f.fieldType.GetFuncFieldParams(function.Unknown))
 }
 
 func (f *dynamicField) Reset() {
@@ -87,13 +86,13 @@ func (f *dynamicField) Reset() {
 	}
 }
 
-// getFieldValues returns the values by primitive field ids
-func (f *dynamicField) getFieldValues(pFields field.PrimitiveFields) (result []collections.FloatArray) {
-	if len(pFields) == 0 {
+// getFieldValues returns the values by field name and agg type.
+func (f *dynamicField) getFieldValues(aggTypes []field.AggType) (result []collections.FloatArray) {
+	if len(aggTypes) == 0 {
 		return
 	}
-	for _, pField := range pFields {
-		pField, ok := f.fields[pField.FieldID]
+	for _, aggType := range aggTypes {
+		pField, ok := f.fields[aggType]
 		if ok {
 			result = append(result, pField)
 		}

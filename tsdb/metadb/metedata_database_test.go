@@ -274,13 +274,13 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	assert.Equal(t, uint32(1), metricID)
 
 	// case 1: from memory
-	meta.EXPECT().getField("f1").Return(field.Meta{ID: 19, Type: field.SumField}, true)
+	meta.EXPECT().getField(field.Name("f1")).Return(field.Meta{ID: 19, Type: field.SumField}, true)
 	f, err := db.GetField("ns-1", "name1", "f1")
 	assert.NoError(t, err)
 	assert.Equal(t, field.Meta{ID: 19, Type: field.SumField}, f)
 
 	// case 2: from memory not exist
-	meta.EXPECT().getField("f1").Return(field.Meta{}, false)
+	meta.EXPECT().getField(field.Name("f1")).Return(field.Meta{}, false)
 	f, err = db.GetField("ns-1", "name1", "f1")
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Equal(t, field.Meta{}, f)
@@ -293,7 +293,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 
 	// case 4: backend exist
 	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(10), nil)
-	mockBackend.EXPECT().getField(uint32(10), "f1").Return(field.Meta{ID: 19, Type: field.SumField}, nil)
+	mockBackend.EXPECT().getField(uint32(10), field.Name("f1")).Return(field.Meta{ID: 19, Type: field.SumField}, nil)
 	f, err = db.GetField("ns-1", "name2", "f1")
 	assert.NoError(t, err)
 	assert.Equal(t, field.Meta{ID: 19, Type: field.SumField}, f)
@@ -416,7 +416,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 	gomock.InOrder(
 		mockBackend.EXPECT().loadMetricMetadata("ns-1", "name1").Return(meta, nil),
 		meta.EXPECT().getMetricID().Return(uint32(100)),
-		meta.EXPECT().getField("f").Return(field.Meta{}, false),
+		meta.EXPECT().getField(field.Name("f")).Return(field.Meta{}, false),
 		meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.ID(10), nil),
 		meta.EXPECT().getMetricID().Return(uint32(1)),
 		meta.EXPECT().addField(gomock.Any()),
@@ -429,20 +429,20 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 	assert.Equal(t, field.ID(10), fieldID)
 
 	// case 2: get field id from memory
-	meta.EXPECT().getField("f").Return(field.Meta{ID: 10, Type: field.SumField}, true)
+	meta.EXPECT().getField(field.Name("f")).Return(field.Meta{ID: 10, Type: field.SumField}, true)
 	fieldID, err = db.GenFieldID("ns-1", "name1", "f", field.SumField)
 	assert.NoError(t, err)
 	assert.Equal(t, field.ID(10), fieldID)
 
 	// case 3: get field id from memory, but type not match
-	meta.EXPECT().getField("f").Return(field.Meta{ID: 10, Type: field.MinField}, true)
+	meta.EXPECT().getField(field.Name("f")).Return(field.Meta{ID: 10, Type: field.MinField}, true)
 	fieldID, err = db.GenFieldID("ns-1", "name1", "f", field.SumField)
 	assert.Equal(t, series.ErrWrongFieldType, err)
 	assert.Equal(t, field.ID(0), fieldID)
 
 	// case 4: create fail
 	gomock.InOrder(
-		meta.EXPECT().getField("f").Return(field.Meta{}, false),
+		meta.EXPECT().getField(field.Name("f")).Return(field.Meta{}, false),
 		meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.ID(10), fmt.Errorf("err")),
 	)
 	fieldID, err = db.GenFieldID("ns-1", "name1", "f", field.SumField)
@@ -742,7 +742,7 @@ func TestMetadataDatabase_recovery_field(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	for i := 0; i < 20; i++ {
-		_, err := db.GenFieldID("ns", "metric-1", fmt.Sprintf("f-%d", i), field.SumField)
+		_, err := db.GenFieldID("ns", "metric-1", field.Name(fmt.Sprintf("f-%d", i)), field.SumField)
 		assert.NoError(t, err)
 	}
 	err = db.Close()

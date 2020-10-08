@@ -218,7 +218,7 @@ func (md *memoryDatabase) Write(
 			md.getUnknownFieldTypeCounter.Inc()
 			continue
 		}
-		fieldID, err := md.metadata.MetadataDatabase().GenFieldID(namespace, metricName, f.Name, fieldType)
+		fieldID, err := md.metadata.MetadataDatabase().GenFieldID(namespace, metricName, field.Name(f.Name), fieldType)
 		if err != nil {
 			md.generateFieldIDFailCounter.Inc()
 			continue

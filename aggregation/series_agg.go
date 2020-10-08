@@ -53,7 +53,7 @@ func NewFieldAggregates(
 // SeriesAggregator represents a series aggregator which aggregates one field of a time series
 type SeriesAggregator interface {
 	// FieldName returns field name
-	FieldName() string
+	FieldName() field.Name
 	// GetFieldType returns field type
 	GetFieldType() field.Type
 	// SetFieldType sets field type
@@ -67,7 +67,7 @@ type SeriesAggregator interface {
 }
 
 type seriesAggregator struct {
-	fieldName      string
+	fieldName      field.Name
 	fieldType      field.Type
 	ratio          int
 	isDownSampling bool
@@ -114,7 +114,7 @@ func NewSeriesAggregator(
 }
 
 // FieldName returns field name
-func (a *seriesAggregator) FieldName() string {
+func (a *seriesAggregator) FieldName() field.Name {
 	return a.fieldName
 }
 

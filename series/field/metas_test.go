@@ -16,7 +16,7 @@ func Test_Metas(t *testing.T) {
 	}
 
 	for i := range ids {
-		metas = metas.Insert(Meta{ID: ID(i), Type: SumField, Name: strconv.Itoa(int(i))})
+		metas = metas.Insert(Meta{ID: ID(i), Type: SumField, Name: Name(strconv.Itoa(int(i)))})
 	}
 	sort.Sort(metas)
 

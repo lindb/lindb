@@ -14,90 +14,15 @@ import (
 // fieldIterator implements series.FieldIterator interface
 type fieldIterator struct {
 	startSlot int
-
-	length int
-	idx    int
-	its    []series.PrimitiveIterator
+	aggType   field.AggType
+	it        collections.FloatArrayIterator
 }
 
 // newFieldIterator creates a field iterator
-func newFieldIterator(startSlot int,
-	its []series.PrimitiveIterator) series.FieldIterator {
-	return &fieldIterator{
+func newFieldIterator(startSlot int, aggType field.AggType, values collections.FloatArray) series.FieldIterator {
+	it := &fieldIterator{
 		startSlot: startSlot,
-		its:       its,
-		length:    len(its),
-	}
-}
-
-// HasNext returns if the iteration has more fields
-func (it *fieldIterator) HasNext() bool {
-	return it.idx < it.length
-}
-
-// Next returns the primitive field iterator
-func (it *fieldIterator) Next() series.PrimitiveIterator {
-	if it.idx >= it.length {
-		return nil
-	}
-	primitiveIt := it.its[it.idx]
-	it.idx++
-	return primitiveIt
-}
-
-// MarshalBinary marshals the data
-func (it *fieldIterator) MarshalBinary() ([]byte, error) {
-	if it.length == 0 {
-		return nil, nil
-	}
-	//need reset idx
-	it.idx = 0
-	writer := stream.NewBufferWriter(nil)
-	for it.HasNext() {
-		primitiveIt := it.Next()
-		//FIXME reuse encoder???
-		encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
-		idx := it.startSlot
-		for primitiveIt.HasNext() {
-			slot, value := primitiveIt.Next()
-			for slot > idx {
-				encoder.AppendTime(bit.Zero)
-				idx++
-			}
-			encoder.AppendTime(bit.One)
-			encoder.AppendValue(math.Float64bits(value))
-			idx++
-		}
-		data, err := encoder.Bytes()
-		if err != nil {
-			return nil, err
-		}
-		if len(data) == 0 {
-			// maybe primitive field is empty
-			continue
-		}
-		writer.PutByte(byte(primitiveIt.FieldID()))
-		writer.PutByte(byte(primitiveIt.AggType()))
-		writer.PutVarint32(int32(len(data)))
-		writer.PutBytes(data)
-	}
-	return writer.Bytes()
-}
-
-// primitiveIterator represents primitive iterator using array
-type primitiveIterator struct {
-	start   int
-	id      field.PrimitiveID
-	aggType field.AggType
-	it      collections.FloatArrayIterator
-}
-
-// newPrimitiveIterator create primitive iterator using array
-func newPrimitiveIterator(id field.PrimitiveID, start int, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
-	it := &primitiveIterator{
-		start:   start,
-		id:      id,
-		aggType: aggType,
+		aggType:   aggType,
 	}
 	if values != nil {
 		it.it = values.Iterator()
@@ -105,18 +30,12 @@ func newPrimitiveIterator(id field.PrimitiveID, start int, aggType field.AggType
 	return it
 }
 
-// ID returns the primitive field id
-func (it *primitiveIterator) FieldID() field.PrimitiveID {
-	return it.id
-}
-
-// AggType returns the primitive field's agg type
-func (it *primitiveIterator) AggType() field.AggType {
+func (it *fieldIterator) AggType() field.AggType {
 	return it.aggType
 }
 
-// HasNext returns if the iteration has more data points
-func (it *primitiveIterator) HasNext() bool {
+// HasNext returns if the iteration has more fields
+func (it *fieldIterator) HasNext() bool {
 	if it.it == nil {
 		return false
 	}
@@ -124,14 +43,47 @@ func (it *primitiveIterator) HasNext() bool {
 }
 
 // Next returns the data point in the iteration
-func (it *primitiveIterator) Next() (timeSlot int, value float64) {
+func (it *fieldIterator) Next() (timeSlot int, value float64) {
 	if it.it == nil {
 		return -1, 0
 	}
 	timeSlot, value = it.it.Next()
 	if timeSlot == -1 {
-		return
+		return -1, 0
 	}
-	timeSlot += it.start
+	timeSlot += it.startSlot
 	return
+}
+
+// MarshalBinary marshals the data
+func (it *fieldIterator) MarshalBinary() ([]byte, error) {
+	if it.it == nil {
+		return nil, nil
+	}
+	//FIXME reuse encoder???
+	encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
+	idx := it.startSlot
+	writer := stream.NewBufferWriter(nil)
+	for it.HasNext() {
+		slot, value := it.Next()
+		for slot > idx {
+			encoder.AppendTime(bit.Zero)
+			idx++
+		}
+		encoder.AppendTime(bit.One)
+		encoder.AppendValue(math.Float64bits(value))
+		idx++
+	}
+	data, err := encoder.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	if idx == it.startSlot {
+		// maybe field data already read
+		return nil, nil
+	}
+	writer.PutByte(byte(it.AggType()))   // agg type
+	writer.PutVarint32(int32(len(data))) // length of field data
+	writer.PutBytes(data)                // field data
+	return writer.Bytes()
 }

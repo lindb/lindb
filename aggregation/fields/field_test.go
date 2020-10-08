@@ -45,3 +45,19 @@ func TestDynamicField_UnknownType(t *testing.T) {
 	values = f.GetValues(function.Sum)
 	assert.Nil(t, values)
 }
+
+// mockSingleIterator returns mock an iterator of single field
+func mockSingleIterator(ctrl *gomock.Controller) series.Iterator {
+	fIt := series.NewMockIterator(ctrl)
+	it := series.NewMockFieldIterator(ctrl)
+	fIt.EXPECT().HasNext().Return(true)
+	fIt.EXPECT().Next().Return(int64(10), it)
+	fIt.EXPECT().HasNext().Return(false)
+	it.EXPECT().AggType().Return(field.Sum)
+	it.EXPECT().HasNext().Return(true)
+	it.EXPECT().Next().Return(4, 1.1)
+	it.EXPECT().HasNext().Return(true)
+	it.EXPECT().Next().Return(112, 1.1)
+	it.EXPECT().HasNext().Return(false)
+	return fIt
+}
