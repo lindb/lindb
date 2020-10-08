@@ -30,13 +30,6 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "unknown", Unknown.String())
 }
 
-func Test_GetPrimitiveFields(t *testing.T) {
-	assert.NotNil(t, SumField.GetPrimitiveFields(function.Sum))
-	assert.NotNil(t, SumField.GetDefaultPrimitiveFields())
-	assert.Nil(t, Unknown.GetPrimitiveFields(function.FuncType(128)))
-	assert.Nil(t, Unknown.GetDefaultPrimitiveFields())
-}
-
 func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, SumField.IsFuncSupported(function.Sum))
 	assert.True(t, SumField.IsFuncSupported(function.Min))
@@ -60,17 +53,6 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, HistogramField.IsFuncSupported(function.Histogram))
 
 	assert.False(t, Unknown.IsFuncSupported(function.Histogram))
-}
-
-func TestType_GetSchema(t *testing.T) {
-	assert.NotNil(t, SumField.GetSchema())
-	assert.NotNil(t, MinField.GetSchema())
-	assert.NotNil(t, MaxField.GetSchema())
-	assert.NotNil(t, GaugeField.GetSchema())
-	assert.NotNil(t, SummaryField.GetSchema())
-	//FIXME need test
-	//assert.NotNil(t, HistogramField.GetSchema())
-	assert.Nil(t, Unknown.GetSchema())
 }
 
 func TestType_GetAggFunc(t *testing.T) {

@@ -21,10 +21,11 @@ func TestExpression_prepare(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sumSeries := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
-	maxSeries := mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f2", field.MinField)
+	sumSeries := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	maxSeries := mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f2", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
+	// case 1: text express
 	q, _ := sql.Parse("select f1,f2 from cpu")
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
@@ -47,7 +48,7 @@ func TestExpression_prepare(t *testing.T) {
 	assert.Equal(t, 4.0, rs.GetValue(4+60-10))
 	assert.Equal(t, 50.0, rs.GetValue(50+60-10))
 
-	// test reset
+	// case 2: test reset
 	expression.Reset()
 	expression.Eval(nil)
 	resultSet = expression.ResultSet()
@@ -56,7 +57,7 @@ func TestExpression_prepare(t *testing.T) {
 	rs = resultSet["f2"]
 	assert.True(t, rs.IsEmpty())
 
-	// test new expression for nil eval
+	// case 3: test new expression for nil eval
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -65,14 +66,10 @@ func TestExpression_prepare(t *testing.T) {
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
 
-	// test no data
+	// case 4：test no data
 	timeSeries1 := series.NewMockIterator(ctrl)
-	timeSeries1.EXPECT().HasNext().Return(true)
-	timeSeries1.EXPECT().FieldName().Return("f1")
+	timeSeries1.EXPECT().FieldName().Return(field.Name("f1"))
 	timeSeries1.EXPECT().FieldType().Return(field.SumField)
-	it3 := series.NewMockFieldIterator(ctrl)
-	it3.EXPECT().HasNext().Return(false)
-	timeSeries1.EXPECT().Next().Return(familyTime, it3)
 	timeSeries1.EXPECT().HasNext().Return(false)
 	timeSeries.EXPECT().HasNext().Return(true)
 	timeSeries.EXPECT().Next().Return(timeSeries1)
@@ -81,9 +78,9 @@ func TestExpression_prepare(t *testing.T) {
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
 
-	// test no match field
-	sumSeries = mockTimeSeries(ctrl, familyTime, "f3", field.SumField)
-	maxSeries = mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f4", field.MinField)
+	// case 5: test no match field
+	sumSeries = mockTimeSeries(ctrl, familyTime, "f3", field.SumField, field.Sum)
+	maxSeries = mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f4", field.MinField, field.Min)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(sumSeries),
@@ -106,9 +103,9 @@ func TestExpression_Paren(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
-	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
-	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField)
+	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
+	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
 	q, _ := sql.Parse("select (f1+f2)*f3 as f from cpu")
@@ -139,8 +136,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
-	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
+	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
 	q, _ := sql.Parse("select (f1+f2)*100 as f from cpu")
@@ -162,9 +159,9 @@ func TestExpression_BinaryEval(t *testing.T) {
 	assert.Equal(t, 1, value.Size())
 	assert.Equal(t, (50.0+50.0)*100.0, value.GetValue(50-10))
 
-	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
-	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
-	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField)
+	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
+	series3 := mockTimeSeries(ctrl, familyTime, "f3", field.MinField, field.Min)
 	q, _ = sql.Parse("select f1+f2*f3 from cpu")
 	query = q.(*stmt.Query)
 	expression = NewExpression(timeutil.TimeRange{
@@ -188,7 +185,7 @@ func TestExpression_BinaryEval(t *testing.T) {
 	assert.Equal(t, 50.0+50.0*50.0, value.GetValue(50-10))
 
 	// right is nil, return nil
-	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
+	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -203,7 +200,7 @@ func TestExpression_BinaryEval(t *testing.T) {
 	assert.Nil(t, resultSet["f1+f2*f3"])
 
 	// left is nil, return nil
-	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
+	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -218,8 +215,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	assert.Nil(t, resultSet["f1+f2*f3"])
 
 	// binary operator not accept, return nil
-	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
-	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField)
+	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -244,7 +241,7 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
+	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
 	q, _ := sql.Parse("select sum(f1) from cpu")
@@ -267,7 +264,7 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	assert.Equal(t, 50.0, value.GetValue(50-10))
 
 	// return nil
-	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField)
+	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -281,7 +278,7 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
 
-	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField)
+	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,
@@ -310,7 +307,7 @@ func TestExpression_NotSupport_Expr(t *testing.T) {
 	assert.Equal(t, 0, len(resultSet))
 
 	timeSeries := series.NewMockGroupedIterator(ctrl)
-	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField)
+	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
 		End:   now + timeutil.OneHour*2,

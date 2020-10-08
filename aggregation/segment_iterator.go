@@ -7,7 +7,7 @@ import (
 
 // seriesIterator implements series.Iterator
 type seriesIterator struct {
-	fieldName   string
+	fieldName   field.Name
 	fieldType   field.Type
 	aggregators []FieldAggregator
 	idx         int
@@ -23,7 +23,7 @@ func newSeriesIterator(agg SeriesAggregator) series.Iterator {
 }
 
 // FieldName returns field name
-func (s *seriesIterator) FieldName() string {
+func (s *seriesIterator) FieldName() field.Name {
 	return s.fieldName
 }
 

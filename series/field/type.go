@@ -4,15 +4,16 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 )
 
-// AggType represents primitive field's aggregator type
+// AggType represents field's aggregator type.
 type AggType uint8
-type PrimitiveID uint8
+
+// ID represents field id.
 type ID uint16
 
-// Field key represents field id[1byte] + primitive field id[1byte]
-type Key uint16
+// Name represents field name.
+type Name string
 
-// Defines all aggregator types for primitive field
+// Defines all aggregator types for field
 const (
 	Sum AggType = iota + 1
 	Count
@@ -20,17 +21,6 @@ const (
 	Max
 	Replace
 )
-
-var schemas = map[Type]Schema{}
-
-func init() {
-	schemas[SumField] = newSumSchema()
-	schemas[MinField] = newMinSchema()
-	schemas[MaxField] = newMaxSchema()
-	schemas[GaugeField] = newGaugeSchema()
-	schemas[SummaryField] = newSummarySchema()
-	schemas[IncreaseField] = newIncreaseSchema()
-}
 
 // Type represents field type for LinDB support
 type Type uint8
@@ -144,24 +134,31 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 	}
 }
 
-// GetPrimitiveFields returns the primitive fields for aggregator
-func (t Type) GetPrimitiveFields(funcType function.FuncType) PrimitiveFields {
-	schema := schemas[t]
-	if schema == nil {
-		return nil
+// GetFuncFieldParams returns the fields for aggregator's function params.
+func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
+	switch t {
+	case SumField:
+		return getFieldParamsForSumField(funcType)
+	case MinField:
+		return getFieldParamsForMinField(funcType)
 	}
-	return schema.getPrimitiveFields(funcType)
+	return nil
 }
 
-func (t Type) GetSchema() Schema {
-	return schemas[t]
+func getFieldParamsForSumField(funcType function.FuncType) []AggType {
+	switch funcType {
+	case function.Max:
+		return []AggType{Max}
+	default:
+		return []AggType{Sum}
+	}
 }
 
-// GetDefaultPrimitiveFields returns the default primitive fields for aggregator
-func (t Type) GetDefaultPrimitiveFields() PrimitiveFields {
-	schema := schemas[t]
-	if schema == nil {
-		return nil
+func getFieldParamsForMinField(funcType function.FuncType) []AggType {
+	switch funcType {
+	case function.Max:
+		return []AggType{Max}
+	default:
+		return []AggType{Min}
 	}
-	return schema.getDefaultPrimitiveFields()
 }

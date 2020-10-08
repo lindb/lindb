@@ -32,13 +32,13 @@ func TestMetricMetadata_createField(t *testing.T) {
 	// test: too many fields
 	mm = newMetricMetadata(1, 0)
 	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
-		fieldID, err = mm.createField(fmt.Sprintf("f-%d", i), field.SumField)
+		fieldID, err = mm.createField(field.Name(fmt.Sprintf("f-%d", i)), field.SumField)
 		assert.NoError(t, err)
 		assert.Equal(t, field.ID(i), fieldID)
 		mm.addField(field.Meta{
 			ID:   fieldID,
 			Type: field.SumField,
-			Name: fmt.Sprintf("f-%d", i),
+			Name: field.Name(fmt.Sprintf("f-%d", i)),
 		})
 	}
 	fieldID, err = mm.createField("max-f", field.SumField)
@@ -48,7 +48,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 	assert.Len(t, mm.getAllFields(), constants.DefaultMaxFieldsCount)
 
 	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
-		f, ok := mm.getField(fmt.Sprintf("f-%d", i))
+		f, ok := mm.getField(field.Name(fmt.Sprintf("f-%d", i)))
 		assert.True(t, ok)
 		assert.Equal(t, field.ID(i), f.ID)
 	}

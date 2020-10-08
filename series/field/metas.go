@@ -6,9 +6,9 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID   ID     `json:"id"`   // query not use id, don't get id in query phase
-	Type Type   `json:"type"` // query not use type
-	Name string `json:"name"`
+	ID   ID   `json:"id"`   // query not use id, don't get id in query phase
+	Type Type `json:"type"` // query not use type
+	Name Name `json:"name"`
 }
 
 // Metas implements sort.Interface, it's sorted by name
@@ -19,7 +19,7 @@ func (fms Metas) Less(i, j int) bool { return fms[i].Name < fms[j].Name }
 func (fms Metas) Swap(i, j int)      { fms[i], fms[j] = fms[j], fms[i] }
 
 // GetFromName searches the meta by fieldName, return false when not exist
-func (fms Metas) GetFromName(fieldName string) (Meta, bool) {
+func (fms Metas) GetFromName(fieldName Name) (Meta, bool) {
 	idx := sort.Search(len(fms), func(i int) bool { return fms[i].Name >= fieldName })
 	if idx >= len(fms) || fms[idx].Name != fieldName {
 		return Meta{}, false

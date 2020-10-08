@@ -10,6 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source=./result_merger.go -destination=./result_merger_mock.go -package=parallel
@@ -116,7 +117,11 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 		if len(ts.Fields) == 0 {
 			return true
 		}
-		m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, ts.Fields))
+		fields := make(map[field.Name][]byte)
+		for k, v := range ts.Fields {
+			fields[field.Name(k)] = v
+		}
+		m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, fields))
 	}
 	return true
 }

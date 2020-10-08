@@ -109,7 +109,7 @@ func (d *MetadataAPI) suggest(w http.ResponseWriter, database string, request *s
 	switch request.Type {
 	case stmt.Field:
 		// build field result model
-		result := make(map[string]field.Meta)
+		result := make(map[field.Name]field.Meta)
 		fields := field.Metas{}
 		for _, value := range values {
 			err = encoding.JSONUnmarshal([]byte(value), &fields)
@@ -124,7 +124,7 @@ func (d *MetadataAPI) suggest(w http.ResponseWriter, database string, request *s
 		var resultFields []models.Field
 		for _, f := range result {
 			resultFields = append(resultFields, models.Field{
-				Name: f.Name,
+				Name: string(f.Name),
 				Type: f.Type.String(),
 			})
 		}

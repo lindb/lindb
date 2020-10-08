@@ -205,7 +205,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags [
 }
 
 // GetField gets the field meta by namespace/metric name/field name, if not exist return constants.ErrNotFound
-func (mdb *metadataDatabase) GetField(namespace, metricName, fieldName string) (f field.Meta, err error) {
+func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName field.Name) (f field.Meta, err error) {
 	key := namespace + metricName
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
@@ -297,7 +297,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 // GenFieldID generates the field id in the memory,
 // !!!!! NOTICE: metric metadata must be exist in memory, because gen metric has been saved
 func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
-	fieldName string, fieldType field.Type,
+	fieldName field.Name, fieldType field.Type,
 ) (fieldID field.ID, err error) {
 	key := namespace + metricName
 
@@ -451,7 +451,7 @@ func (mdb *metadataDatabase) metaRecovery() {
 			event = newMetadataUpdateEvent()
 		}
 		return nil
-	}, func(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+	}, func(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 		event.addField(metricID, field.Meta{
 			ID:   fID,
 			Type: fType,

@@ -20,7 +20,7 @@ type IDGenerator interface {
 	// GenFieldID generates the field id in the memory
 	// error-case1: field type doesn't matches to before
 	// error-case2: there are too many fields
-	GenFieldID(namespace, metricName, fieldName string, fieldType field.Type) (field.ID, error)
+	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type) (field.ID, error)
 	// GenTagKeyID generates the tag key id in the memory
 	GenTagKeyID(namespace, metricName, tagKey string) (uint32, error)
 }
@@ -34,7 +34,7 @@ type IDGetter interface {
 	// GetAllTagKeys returns the all tag keys by namespace/metric name, if not exist return series.ErrNotFound
 	GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error)
 	// GetField gets the field meta by namespace/metric name/field name, if not exist return series.ErrNotFound
-	GetField(namespace, metricName, fieldName string) (field field.Meta, err error)
+	GetField(namespace, metricName string, fieldName field.Name) (field field.Meta, err error)
 	// GetAllFields returns the  all fields by namespace/metric name, if not exist return series.ErrNotFound
 	GetAllFields(namespace, metricName string) (fields []field.Meta, err error)
 }

@@ -64,7 +64,7 @@ type MetricMetaWAL interface {
 	// AppendMetric appends namespace/metricName/metricID into wal log
 	AppendMetric(namespace, metricName string, metricID uint32) error
 	// AppendField appends metricID/fieldID/fieldName/fieldType into wal log
-	AppendField(metricID uint32, fID field.ID, fieldName string, fType field.Type) error
+	AppendField(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error
 	// AppendTagKey appends metricID/tagKeyID/tagKey into wal log
 	AppendTagKey(metricID uint32, tagKeyID uint32, tagKey string) error
 	// NeedRecovery checks if wal log need to recover
@@ -107,14 +107,14 @@ func (m *metricMetaWAL) AppendMetric(namespace, metricName string, metricID uint
 }
 
 // AppendField appends metricID/fieldID/fieldName/fieldType into wal log
-func (m *metricMetaWAL) AppendField(metricID uint32, fID field.ID, fieldName string, fType field.Type) error {
+func (m *metricMetaWAL) AppendField(metricID uint32, fID field.ID, fieldName field.Name, fType field.Type) error {
 	if err := m.base.checkPage(len(fieldName) + fieldBaseLength); err != nil {
 		return err
 	}
 	m.base.putUint8(uint8(fieldType))
 	m.base.putUint32(metricID)
 	m.base.putUint8(uint8(fID))
-	m.base.putString(fieldName)
+	m.base.putString(string(fieldName))
 	m.base.putUint8(uint8(fType))
 	return nil
 }
@@ -177,7 +177,7 @@ func (m *metricMetaWAL) Recovery(metricRecovery MetricRecoveryFunc,
 				offset += n
 				fType := walPage.ReadUint8(offset)
 				offset++
-				if err := fieldRecovery(metricID, field.ID(fID), fieldName, field.Type(fType)); err != nil {
+				if err := fieldRecovery(metricID, field.ID(fID), field.Name(fieldName), field.Type(fType)); err != nil {
 					recoverFieldFailCounter.Inc()
 
 					metaWAlLogger.Error("invoke field recovery func error",
