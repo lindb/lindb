@@ -70,7 +70,7 @@ type reader struct {
 	crc32CheckSum uint32
 	start, end    uint16
 
-	readFieldIndexes []int // read field indexes when query metric data
+	readFieldIndexes []int // read field indexes be used when query metric data
 }
 
 // NewReader creates a metric block reader
@@ -116,12 +116,12 @@ func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggre
 		if !ok {
 			continue
 		}
-		fieldAggregator, ok := aggregator.GetFieldAggregates()[idx].GetAggregator(familyTime)
+		block, ok := aggregator.GetFieldAggregates()[idx].GetAggregateBlock(familyTime)
 		if !ok {
 			continue
 		}
 		r.readFieldIndexes = append(r.readFieldIndexes, fieldIdx)
-		aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], fieldAggregator.GetBlock()))
+		aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], block))
 	}
 	return
 }

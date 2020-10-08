@@ -11,4 +11,6 @@ func TestBlock_Append(t *testing.T) {
 	assert.False(t, block.Append(0, 10.0))
 	assert.False(t, block.Append(1, 10.0))
 	assert.True(t, block.Append(2, 10.0))
+
+	block.Clear()
 }

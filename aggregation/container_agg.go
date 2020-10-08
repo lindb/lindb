@@ -7,3 +7,14 @@ type ContainerAggregator interface {
 	// GetFieldAggregates returns the aggregates of fields that need query.
 	GetFieldAggregates() FieldAggregates
 }
+
+type containerAggregator struct {
+}
+
+func NewContainerAggregator() ContainerAggregator {
+	return &containerAggregator{}
+}
+
+func (c *containerAggregator) GetFieldAggregates() FieldAggregates {
+	panic("implement me")
+}

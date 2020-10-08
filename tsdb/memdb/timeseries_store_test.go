@@ -6,7 +6,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -75,8 +74,6 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		fStore.Write(field.SumField, uint16(i), 10.1)
 	}
 	block := series.NewMockBlock(ctrl)
-	fAgg := aggregation.NewMockFieldAggregator(ctrl)
-	fAgg.EXPECT().GetBlock().Return(block).AnyTimes()
 
 	// case 1: family time not match
 	tStore.scan(&memScanContext{
@@ -84,7 +81,7 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(11), field.Meta{
 				ID:   10,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 		},
 	})
 	// case 2: field id not match
@@ -93,7 +90,7 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(5), field.Meta{
 				ID:   200,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 		},
 	})
 	// case 3: field id not match
@@ -102,7 +99,7 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(5), field.Meta{
 				ID:   80,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 		},
 	})
 	// case 4: field key not match
@@ -111,7 +108,7 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(5), field.Meta{
 				ID:   80,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 		},
 	})
 	// case 4: match one field
@@ -121,13 +118,11 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(5), field.Meta{
 				ID:   50,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 		},
 	})
 	// case 4: match two fields
 	block2 := series.NewMockBlock(ctrl)
-	fAgg2 := aggregation.NewMockFieldAggregator(ctrl)
-	fAgg2.EXPECT().GetBlock().Return(block2)
 	gomock.InOrder(
 		block.EXPECT().Append(5, 10.1),
 		block2.EXPECT().Append(8, 10.1),
@@ -137,11 +132,11 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 			newFieldAggregator(familyID(5), field.Meta{
 				ID:   50,
 				Type: field.SumField,
-			}, fAgg),
+			}, block),
 			newFieldAggregator(familyID(8), field.Meta{
 				ID:   80,
 				Type: field.SumField,
-			}, fAgg2),
+			}, block2),
 		},
 	})
 }
