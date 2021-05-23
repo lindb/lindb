@@ -29,4 +29,7 @@ const (
 	DefaultNamespace = "default-ns"
 	// SeriesIDWithoutTags represents the series ids under spec metric, but without nothing tags
 	SeriesIDWithoutTags = uint32(0)
+
+	// EmptyValue represents the empty value.
+	EmptyValue = 0.0
 )
