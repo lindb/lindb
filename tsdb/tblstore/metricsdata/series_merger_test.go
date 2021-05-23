@@ -10,6 +10,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -39,10 +40,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err := merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceStart:  5,
-			sourceEnd:    15,
-			targetStart:  5,
-			targetEnd:    15,
+			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -67,10 +66,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceStart:  5,
-			sourceEnd:    15,
-			targetStart:  5,
-			targetEnd:    15,
+			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -95,10 +92,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceStart:  5,
-			sourceEnd:    15,
-			targetStart:  5,
-			targetEnd:    15,
+			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream2, readers)
 	assert.Error(t, err)
@@ -131,10 +126,8 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	err := merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceStart:  5,
-			sourceEnd:    15,
-			targetStart:  0,
-			targetEnd:    0,
+			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			targetRange:  timeutil.ShortTimeRange{Start: 0, End: 0},
 			ratio:        30,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -160,10 +153,8 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceStart:  5,
-			sourceEnd:    182,
-			targetStart:  0,
-			targetEnd:    6,
+			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 182},
+			targetRange:  timeutil.ShortTimeRange{Start: 0, End: 6},
 			ratio:        30,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)

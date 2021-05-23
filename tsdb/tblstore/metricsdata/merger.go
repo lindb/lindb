@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -18,12 +19,12 @@ func init() {
 }
 
 type mergerContext struct {
-	scanners               []*dataScanner
-	seriesIDs              *roaring.Bitmap // target series ids
-	targetFields           field.Metas     // target fields
-	sourceStart, sourceEnd uint16
-	targetStart, targetEnd uint16
-	ratio                  uint16
+	scanners     []*dataScanner
+	seriesIDs    *roaring.Bitmap // target series ids
+	targetFields field.Metas     // target fields
+
+	targetRange, sourceRange timeutil.ShortTimeRange
+	ratio                    uint16
 }
 
 // merger implements kv.Merger for merging series data for each metric
@@ -71,7 +72,7 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			encoding.ReleaseTSDDecoder(stream)
 		}
 	}()
-	encodeStream := encoding.TSDEncodeFunc(mergeCtx.targetStart)
+	encodeStream := encoding.TSDEncodeFunc(mergeCtx.targetRange.Start)
 	fieldReaders := make([]FieldReader, blockCount)
 	for idx, highKey := range highKeys {
 		container := mergeCtx.seriesIDs.GetContainerAtIndex(idx)
@@ -98,7 +99,7 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 		}
 	}
 	// flush metric data
-	if err := m.dataFlusher.FlushMetric(key, mergeCtx.targetStart, mergeCtx.targetEnd); err != nil {
+	if err := m.dataFlusher.FlushMetric(key, mergeCtx.targetRange.Start, mergeCtx.targetRange.End); err != nil {
 		return nil, err
 	}
 	return m.flusher.Bytes(), nil
@@ -110,6 +111,7 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 		seriesIDs:    roaring.New(),
 		targetFields: field.Metas{},
 	}
+
 	for idx, value := range values {
 		reader, err := NewReader("merge_operation", value)
 		if err != nil {
@@ -119,14 +121,14 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 		// get target slot range(start/end)
 		start, end := reader.GetTimeRange()
 		if len(ctx.targetFields) == 0 {
-			ctx.sourceStart = start
-			ctx.sourceEnd = end
+			ctx.sourceRange.Start = start
+			ctx.sourceRange.End = end
 		} else {
-			if ctx.sourceStart > start {
-				ctx.sourceStart = start
+			if ctx.sourceRange.Start > start {
+				ctx.sourceRange.Start = start
 			}
-			if ctx.sourceEnd < end {
-				ctx.sourceEnd = end
+			if ctx.sourceRange.End < end {
+				ctx.sourceRange.End = end
 			}
 		}
 		// merge target fields under metric level
@@ -142,14 +144,15 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 	// sort by field id
 	sort.Slice(ctx.targetFields, func(i, j int) bool { return ctx.targetFields[i].ID < ctx.targetFields[j].ID })
 	// check if rollup job
+
 	if m.rollup != nil {
 		// calc target time slot range and interval ratio
-		ctx.targetStart = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceStart))
-		ctx.targetEnd = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceEnd))
+		ctx.targetRange.Start = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.Start))
+		ctx.targetRange.End = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.End))
 		ctx.ratio = m.rollup.IntervalRatio()
 	} else {
-		ctx.targetStart = ctx.sourceStart
-		ctx.targetEnd = ctx.sourceEnd
+		ctx.targetRange.Start = ctx.sourceRange.Start
+		ctx.targetRange.End = ctx.sourceRange.End
 		ctx.ratio = 1
 	}
 	return ctx, nil
