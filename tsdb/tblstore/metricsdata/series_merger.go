@@ -1,11 +1,8 @@
 package metricsdata
 
 import (
-	"math"
-
-	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./series_merger.go -destination=./series_merger_mock.go -package metricsdata
@@ -36,6 +33,8 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
+	rs := aggregation.NewTSDDownSamplingResult(encodeStream)
+	downSampling := aggregation.NewDownSamplingAggregator(mergeCtx.sourceRange, mergeCtx.targetRange, mergeCtx.ratio, rs)
 	for _, f := range mergeCtx.targetFields {
 		fieldID := f.ID
 
@@ -55,8 +54,10 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 				streams[idx].ResetWithTimeRange(fieldData, oldStart, oldEnd)
 			}
 		}
-		// merge field data
-		sm.mergeField(mergeCtx, f.Type.GetAggFunc(), encodeStream, streams)
+		// merges field data from source time range => target time range,
+		// compact merge: source range = target range and ratio = 1
+		// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
+		downSampling.DownSampling(f.Type.GetAggFunc(), streams)
 		data, err := encodeStream.BytesWithoutTime()
 		if err != nil {
 			return err
@@ -75,50 +76,4 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 		}
 	}
 	return nil
-}
-
-// mergeField merges field data from source time range => target time range,
-// compact merge: source range = target range and ratio = 1
-// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
-func (sm *seriesMerger) mergeField(mergeCtx *mergerContext, aggFunc field.AggFunc,
-	stream encoding.TSDEncoder, values []*encoding.TSDDecoder,
-) {
-	hasValue := false
-	pos := mergeCtx.sourceStart
-	result := 0.0
-	// first loop: target slot range
-	for j := mergeCtx.targetStart; j <= mergeCtx.targetEnd; j++ {
-		// second loop: source slot range and ratio(target interval/source interval)
-		intervalEnd := mergeCtx.ratio * (j + 1)
-		for pos <= mergeCtx.sourceEnd && pos < intervalEnd {
-			// 1. merge data by time slot
-			for _, value := range values {
-				if value == nil {
-					// if series id not exist, value maybe nil
-					continue
-				}
-				if value.HasValueWithSlot(pos) {
-					if !hasValue {
-						// if target value not exist, set it
-						result = math.Float64frombits(value.Value())
-						hasValue = true
-					} else {
-						// if target value exist, do aggregate
-						result = aggFunc.Aggregate(result, math.Float64frombits(value.Value()))
-					}
-				}
-			}
-			pos++
-		}
-		// 2. add data into tsd stream
-		if hasValue {
-			stream.AppendTime(bit.One)
-			stream.AppendValue(math.Float64bits(result))
-			// reset has value for next loop
-			hasValue = false
-			result = 0.0
-		} else {
-			stream.AppendTime(bit.Zero)
-		}
-	}
 }

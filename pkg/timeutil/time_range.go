@@ -1,6 +1,11 @@
 package timeutil
 
-// TimeRange represents time range with start/end timestamp
+// ShortTimeRange represents time range with start/end timestamp using low value.
+type ShortTimeRange struct {
+	Start, End uint16
+}
+
+// TimeRange represents time range with start/end timestamp.
 type TimeRange struct {
 	Start int64 `json:"start"`
 	End   int64 `json:"end"`
