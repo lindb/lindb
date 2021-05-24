@@ -433,7 +433,7 @@ func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flo
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	t.result.scanners[t.idx] = t.filteringRS.Load(t.queryFlow, t.fieldIDs, t.highKey, t.seriesIDs)
+	t.result.scanners[t.idx] = t.filteringRS.Load(t.highKey, t.seriesIDs, t.fieldIDs)
 	return nil
 }
 

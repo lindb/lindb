@@ -61,22 +61,13 @@ func newSeriesResultScanner(len int) flow.Scanner {
 }
 
 // Scan scans the metric data by given series id from load result.
-func (l *loadSeriesResult) Scan(lowSeriesID uint16) {
+func (l *loadSeriesResult) Scan(lowSeriesID uint16) [][]byte {
 	for _, scanner := range l.scanners {
 		if scanner != nil {
 			scanner.Scan(lowSeriesID)
 		}
 	}
-}
-
-// Close closes the scanner's resource.
-func (l *loadSeriesResult) Close() error {
-	for _, scanner := range l.scanners {
-		if scanner != nil {
-			_ = scanner.Close()
-		}
-	}
-
+	//TODO need fix it
 	return nil
 }
 
@@ -285,9 +276,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 
 		e.queryFlow.Scanner(func() {
 			loadSeriesRS := newSeriesResultScanner(len(rs))
-			defer func() {
-				_ = loadSeriesRS.Close()
-			}()
 
 			for idx := range rs {
 				// 3.load data by grouped seriesIDs

@@ -2,15 +2,13 @@ package metricsdata
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -39,25 +37,11 @@ type Reader interface {
 	// GetFields returns the field metas in this sst file
 	GetFields() field.Metas
 	// GetTimeRange returns the time range in this sst file
-	GetTimeRange() (start, end uint16)
+	GetTimeRange() timeutil.ShortTimeRange
 	// Load loads the data from sst file, then returns the file metric scanner.
-	Load(queryFlow flow.StorageQueryFlow, familyTime int64, fieldIDs []field.ID, highKey uint16, seriesID roaring.Container) flow.Scanner
+	Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner
 	// readSeriesData reads series data from file by given position.
-	readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator)
-}
-
-// fieldAggregator represents the field aggregator that does file data scan and aggregates
-type fieldAggregator struct {
-	fieldMeta field.Meta
-	block     series.Block
-}
-
-// newFieldAggregator creates a field aggregator
-func newFieldAggregator(fieldMeta field.Meta, block series.Block) *fieldAggregator {
-	return &fieldAggregator{
-		fieldMeta: fieldMeta,
-		block:     block,
-	}
+	readSeriesData(position int) [][]byte
 }
 
 // reader implements Reader interface that reads metric block
@@ -68,7 +52,7 @@ type reader struct {
 	seriesIDs     *roaring.Bitmap
 	fields        field.Metas
 	crc32CheckSum uint32
-	start, end    uint16
+	timeRange     timeutil.ShortTimeRange
 
 	readFieldIndexes []int // read field indexes be used when query metric data
 }
@@ -101,36 +85,27 @@ func (r *reader) GetFields() field.Metas {
 }
 
 // GetTimeRange returns the time range in this sst file
-func (r *reader) GetTimeRange() (start, end uint16) {
-	return r.start, r.end
+func (r *reader) GetTimeRange() timeutil.ShortTimeRange {
+	return r.timeRange
 }
 
 // prepare prepares the field aggregator based on query condition
-func (r *reader) prepare(familyTime int64, fieldIDs []field.ID, aggregator aggregation.ContainerAggregator) (aggs []*fieldAggregator) {
+func (r *reader) prepare(fieldIDs []field.ID) {
 	fieldMap := make(map[field.ID]int)
 	for idx, fieldMeta := range r.fields {
 		fieldMap[fieldMeta.ID] = idx
 	}
-	for idx, fieldID := range fieldIDs { // sort by field ids
+	for _, fieldID := range fieldIDs { // sort by field ids
 		fieldIdx, ok := fieldMap[fieldID]
 		if !ok {
 			continue
 		}
-		block, ok := aggregator.GetFieldAggregates()[idx].GetAggregateBlock(familyTime)
-		if !ok {
-			continue
-		}
 		r.readFieldIndexes = append(r.readFieldIndexes, fieldIdx)
-		aggs = append(aggs, newFieldAggregator(r.fields[fieldIdx], block))
 	}
-	return
 }
 
 // Load loads the data from sst file, then returns the file metric scanner.
-func (r *reader) Load(queryFlow flow.StorageQueryFlow,
-	familyTime int64, fieldIDs []field.ID,
-	highKey uint16, seriesID roaring.Container,
-) flow.Scanner {
+func (r *reader) Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner {
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := r.seriesIDs.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {
@@ -146,51 +121,35 @@ func (r *reader) Load(queryFlow flow.StorageQueryFlow,
 	offset, _ := r.highOffsets.Get(highContainerIdx)
 	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
 
-	aggregator := queryFlow.GetAggregator(highKey)
-	fieldAggs := r.prepare(familyTime, fieldIDs, aggregator)
-	if len(fieldAggs) == 0 {
+	r.prepare(fieldIDs)
+	if len(r.readFieldIndexes) == 0 {
+		// field not found
 		return nil
 	}
 	// must use lowContainer from store, because get series index based on container
-	return newMetricScanner(r, fieldAggs, lowContainer, seriesOffsets)
+	return newMetricScanner(r, lowContainer, seriesOffsets)
 }
 
 // readSeriesData reads series data from file by given position.
-func (r *reader) readSeriesData(position int, tsd *encoding.TSDDecoder, fieldAggs []*fieldAggregator) {
+func (r *reader) readSeriesData(position int) [][]byte {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
 		// metric has one field, just read the data
-		tsd.ResetWithTimeRange(r.buf[position:], r.start, r.end)
-		// read field data
-		r.readField(fieldAggs[0].block, tsd)
-		return
+		return [][]byte{r.buf[position:]}
 	}
-	// read data for mutli-fields
+	// read data for multi-fields
 	seriesData := r.buf[position:]
 	fieldOffsets := encoding.NewFixedOffsetDecoder(seriesData)
 	fieldsData := seriesData[fieldOffsets.Header()+fieldCount*fieldOffsets.ValueWidth():]
+	rs := make([][]byte, len(r.readFieldIndexes))
 	for i, idx := range r.readFieldIndexes {
 		offset, ok := fieldOffsets.Get(idx)
 		if ok {
-			tsd.ResetWithTimeRange(fieldsData[offset:], r.start, r.end)
 			// read field data
-			r.readField(fieldAggs[i].block, tsd)
+			rs[i] = fieldsData[offset:]
 		}
 	}
-}
-
-// readField reads field data and aggregates it
-func (r *reader) readField(block series.Block, tsd *encoding.TSDDecoder) {
-	for tsd.Next() {
-		if tsd.HasValue() {
-			timeSlot := tsd.Slot()
-			val := tsd.Value()
-
-			if block.Append(int(timeSlot), math.Float64frombits(val)) {
-				return
-			}
-		}
-	}
+	return rs
 }
 
 // initReader initializes the reader context includes tag value ids/high offsets
@@ -200,8 +159,8 @@ func (r *reader) initReader() error {
 	}
 	// read footer(2+2+4+4+4+4)
 	footerPos := len(r.buf) - dataFooterSize
-	r.start = stream.ReadUint16(r.buf, footerPos)
-	r.end = stream.ReadUint16(r.buf, footerPos+2)
+	r.timeRange.Start = stream.ReadUint16(r.buf, footerPos)
+	r.timeRange.End = stream.ReadUint16(r.buf, footerPos+2)
 
 	fieldMetaStartPos := int(stream.ReadUint32(r.buf, footerPos+4))
 	seriesIDsStartPos := int(stream.ReadUint32(r.buf, footerPos+8))
@@ -282,7 +241,7 @@ func (s *dataScanner) nextContainer() {
 }
 
 // slotRange returns the slot range of metric level in current sst file
-func (s *dataScanner) slotRange() (start, end uint16) {
+func (s *dataScanner) slotRange() timeutil.ShortTimeRange {
 	return s.reader.GetTimeRange()
 }
 

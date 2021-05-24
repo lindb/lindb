@@ -341,6 +341,7 @@ func TestShard_Flush(t *testing.T) {
 
 	s1 := mockShard(ctrl)
 	mutable := memdb.NewMockMemoryDatabase(ctrl)
+	mutable.EXPECT().MemSize().Return(int32(10)).AnyTimes()
 	mutable.EXPECT().Close().Return(nil).AnyTimes()
 	s1.mutable = mutable
 	// case 1: flush is doing

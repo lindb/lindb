@@ -20,7 +20,7 @@ type tStoreINTF interface {
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 	// scan scans the time series data based on field ids
-	scan(memScanCtx *memScanContext)
+	scan(fieldKeys []FieldKey, fields field.Metas) [][]byte
 }
 
 // fStoreNodes implements sort.Interface
@@ -103,30 +103,32 @@ func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx f
 
 // scan scans the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
-func (ts *timeSeriesStore) scan(memScanCtx *memScanContext) {
+func (ts *timeSeriesStore) scan(fieldKeys []FieldKey, fields field.Metas) [][]byte {
 	fieldLength := len(ts.fStoreNodes)
-	fieldAggs := memScanCtx.fieldAggs
-	// find small/equals family id index
+	fieldCount := len(fields)
+	rs := make([][]byte, fieldCount)
+	// find equals family id index
 	idx := sort.Search(fieldLength, func(i int) bool {
-		return ts.fStoreNodes[i].GetFamilyID() >= fieldAggs[0].familyID
+		return ts.fStoreNodes[i].GetKey() <= fieldKeys[0]
 	})
-	fieldCount := len(fieldAggs)
 	j := 0
 	for i := idx; i < fieldLength; i++ {
 		fieldStore := ts.fStoreNodes[i]
-		agg := fieldAggs[j]
+		fieldKey := fieldKeys[j]
 		key := fieldStore.GetKey()
 		switch {
-		case key == agg.fieldKey:
-			fieldStore.Load(agg.fieldMeta.Type, agg.block, memScanCtx)
+		case key == fieldKey:
+			// load field data
+			rs[j] = fieldStore.Load(fields[j].Type)
 			j++ // goto next query field id
 			// found all query fields return it
 			if fieldCount == j {
-				return
+				return rs
 			}
-		case key > agg.fieldKey:
+		case key > fieldKey:
 			// store key > query key, return it
-			return
+			return rs
 		}
 	}
+	return rs
 }

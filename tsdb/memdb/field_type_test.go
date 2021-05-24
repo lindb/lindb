@@ -18,5 +18,5 @@ func TestFieldType_getFieldType(t *testing.T) {
 }
 
 func TestBuildFieldKey(t *testing.T) {
-	assert.Equal(t, uint32(10)|uint32(1)<<16, buildFieldKey(1, 10))
+	assert.Equal(t, FieldKey(uint32(10)|uint32(1)<<16), buildFieldKey(1, 10))
 }

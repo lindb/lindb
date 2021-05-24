@@ -91,8 +91,6 @@ func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
 }
 
 // Load reads data from sst files, then returns the data file scanner.
-func (f *fileFilterResultSet) Load(flow flow.StorageQueryFlow, fieldIDs []field.ID,
-	highKey uint16, seriesID roaring.Container,
-) flow.Scanner {
-	return f.reader.Load(flow, f.familyTime, fieldIDs, highKey, seriesID)
+func (f *fileFilterResultSet) Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner {
+	return f.reader.Load(highKey, seriesID, fieldIDs)
 }

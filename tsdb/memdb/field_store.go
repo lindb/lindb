@@ -11,7 +11,6 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -56,7 +55,7 @@ const (
 type fStoreINTF interface {
 	// GetKey returns the field store key, sorts in field list will use this key for sorting
 	// field key = family id + field id
-	GetKey() uint32
+	GetKey() FieldKey
 	// GetFamilyID returns the family time mapping id
 	GetFamilyID() familyID
 	// GetFieldID returns the field id of metric level
@@ -67,8 +66,8 @@ type fStoreINTF interface {
 	Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
-	// Load loads field store data based on query time range, then appends data into series block
-	Load(fieldType field.Type, block series.Block, memScanCtx *memScanContext)
+	// Load loads field series data.
+	Load(fieldType field.Type) []byte
 }
 
 // fieldStore implements fStoreINTF interface
@@ -88,8 +87,8 @@ func newFieldStore(buf []byte, familyID familyID, fieldID field.ID) fStoreINTF {
 
 // GetKey returns the field store key, sorts in field list will use this key for sorting
 // field key = family id + field id
-func (fs *fieldStore) GetKey() uint32 {
-	return uint32(fs.buf[fieldOffset]) | uint32(fs.buf[fieldOffset+1])<<8 | uint32(fs.buf[familyOffset])<<16
+func (fs *fieldStore) GetKey() FieldKey {
+	return FieldKey(uint32(fs.buf[fieldOffset]) | uint32(fs.buf[fieldOffset+1])<<8 | uint32(fs.buf[familyOffset])<<16)
 }
 
 // GetFamilyID returns the family time mapping id
@@ -115,8 +114,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	if slotIndex < startTime || slotIndex > startTime+fs.timeWindow()-1 {
 		// if current slot time out of current time window, need compress block data, start new time window
 		writtenSize = fs.compact(fieldType, startTime)
-		// !!!!! IMPORTANT: need reset current write buffer
-		fs.resetBuf()
+
 		// write first point after compact
 		writtenSize += fs.writeFirstPoint(slotIndex, value)
 		return writtenSize
@@ -204,6 +202,8 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int)
 	}
 
 	fs.compress = data
+	// !!!!! IMPORTANT: need reset current write buffer
+	fs.resetBuf()
 	return len(fs.compress) - length - freeSize
 }
 
@@ -276,46 +276,14 @@ func (fs *fieldStore) merge(
 	return compress, freeSize, err
 }
 
-// Load loads field store data based on query time range, then appends data into series block
-func (fs *fieldStore) Load(
-	fieldType field.Type,
-	block series.Block,
-	memScanCtx *memScanContext,
-) {
-	hasOld := len(fs.compress) > 0
-	aggFunc := fieldType.GetAggFunc()
-
-	var tsd *encoding.TSDDecoder
-	if hasOld {
-		// calc new start/end based on old compress values
-		tsd = memScanCtx.tsd
-		tsd.Reset(fs.compress)
-	}
-	startTime := fs.getStart()
-	thisSlotRange := fs.slotRange(startTime)
-	value := 0.0
-	for i := thisSlotRange.start; i <= thisSlotRange.end; i++ {
-		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
-		oldValue, hasOldValue := getOldFloatValue(tsd, i)
-
-		switch {
-		case hasNewValue && !hasOldValue:
-			// get value from new block buffer
-			value = newValue
-		case hasNewValue && hasOldValue:
-			// merge data from new and old
-			value = aggFunc.Aggregate(newValue, oldValue)
-		case !hasNewValue && hasOldValue:
-			// get old value from compress data
-			value = oldValue
-		}
-		if hasNewValue || hasOldValue {
-			// aggregate the data
-			if block.Append(int(i), value) {
-				return
-			}
-		}
-	}
+// Load loads field series data.
+func (fs *fieldStore) Load(fieldType field.Type) []byte {
+	//TODO check if need do compact
+	_ = fs.compact(fieldType, fs.getStart())
+	rs := make([]byte, len(fs.compress))
+	copy(rs, fs.compress)
+	//TODO remove time range???
+	return rs
 }
 
 // slotRange returns time slot range in current/compress buffer

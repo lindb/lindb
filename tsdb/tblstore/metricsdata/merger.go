@@ -83,11 +83,12 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			for blockIdx, scanner := range mergeCtx.scanners {
 				seriesPos := scanner.scan(highKey, lowSeriesID)
 				if seriesPos >= 0 {
-					start, end := scanner.slotRange()
+					timeRange := scanner.slotRange()
 					if fieldReaders[blockIdx] == nil {
-						fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(), values[blockIdx], seriesPos, start, end)
+						fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(),
+							values[blockIdx], seriesPos, timeRange.Start, timeRange.End)
 					} else {
-						fieldReaders[blockIdx].reset(values[blockIdx], seriesPos, start, end)
+						fieldReaders[blockIdx].reset(values[blockIdx], seriesPos, timeRange.Start, timeRange.End)
 					}
 				}
 			}
@@ -119,16 +120,16 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 		}
 		ctx.seriesIDs.Or(reader.GetSeriesIDs())
 		// get target slot range(start/end)
-		start, end := reader.GetTimeRange()
+		timeRange := reader.GetTimeRange()
 		if len(ctx.targetFields) == 0 {
-			ctx.sourceRange.Start = start
-			ctx.sourceRange.End = end
+			ctx.sourceRange.Start = timeRange.Start
+			ctx.sourceRange.End = timeRange.End
 		} else {
-			if ctx.sourceRange.Start > start {
-				ctx.sourceRange.Start = start
+			if ctx.sourceRange.Start > timeRange.Start {
+				ctx.sourceRange.Start = timeRange.Start
 			}
-			if ctx.sourceRange.End < end {
-				ctx.sourceRange.End = end
+			if ctx.sourceRange.End < timeRange.End {
+				ctx.sourceRange.End = timeRange.End
 			}
 		}
 		// merge target fields under metric level

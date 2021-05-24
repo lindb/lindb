@@ -258,7 +258,7 @@ func TestDataLoadTask_Run(t *testing.T) {
 	rs := flow.NewMockFilterResultSet(ctrl)
 	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
 		shard, qf, rs, nil, 1, nil, 0, newSeriesResultScanner(1).(*loadSeriesResult))
-	rs.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	rs.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
