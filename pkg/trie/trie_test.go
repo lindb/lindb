@@ -39,8 +39,8 @@ func newTestIPs() ([][]byte, [][]byte) {
 	var ranks [][]byte
 	var count int
 	for x := 10; x > 0; x-- {
-		for y := 1; y < 1<<8; y++ {
-			for z := 1<<8 - 1; z > 0; z-- {
+		for y := 1; y < 2; y++ {
+			for z := 2; z > 0; z-- {
 				ips = append(ips, []byte(fmt.Sprintf("%d.%d.%d.%d", x, y, y, z)))
 				count++
 				var rank = make([]byte, 4)

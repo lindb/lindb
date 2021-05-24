@@ -10,7 +10,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -29,7 +28,7 @@ func TestFieldStore_New(t *testing.T) {
 	assert.Equal(t, uint16(15), s.timeWindow())
 	assert.Equal(t, field.ID(1), s.GetFieldID())
 	key := uint32(1) | uint32(0)<<8 | uint32(12)<<16
-	assert.Equal(t, key, s.GetKey())
+	assert.Equal(t, FieldKey(key), s.GetKey())
 }
 
 func TestFieldStore_Write(t *testing.T) {
@@ -112,20 +111,7 @@ func TestFieldStore_Write(t *testing.T) {
 	// case 10: test final data by load
 	writtenSize = store.Write(field.SumField, 15, 15.1)
 	assert.Equal(t, valueSize, writtenSize)
-	block := series.NewMockBlock(ctrl)
-	gomock.InOrder(
-		block.EXPECT().Append(5, 5.3).Return(false),
-		block.EXPECT().Append(10, 40.4).Return(false),
-		block.EXPECT().Append(12, 12.1).Return(false),
-		block.EXPECT().Append(15, 15.1).Return(false),
-		block.EXPECT().Append(50, 50.1).Return(true),
-	)
-	s.Load(field.SumField,
-		block,
-		&memScanContext{
-			tsd: encoding.GetTSDDecoder(),
-		},
-	)
+	s.Load(field.SumField)
 }
 
 func TestFieldStore_Write2(t *testing.T) {

@@ -9,12 +9,9 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -37,9 +34,9 @@ func TestNewReader(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	assert.Equal(t, "1.sst", r.Path())
-	start, end := r.GetTimeRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(5), end)
+	timeRange := r.GetTimeRange()
+	assert.Equal(t, uint16(5), timeRange.Start)
+	assert.Equal(t, uint16(5), timeRange.End)
 	assert.Equal(t, field.Metas{
 		{ID: 2, Type: field.SumField},
 		{ID: 10, Type: field.MinField},
@@ -64,78 +61,40 @@ func TestNewReader(t *testing.T) {
 func TestReader_Load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	qFlow := flow.NewMockStorageQueryFlow(ctrl)
-	cAgg := aggregation.NewMockContainerAggregator(ctrl)
 
 	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	// case 1: series high key not found
-	r.Load(qFlow, 10, []field.ID{2, 30, 50}, 1000, nil)
-	// case 2: load success
-	sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
-	sAgg2 := aggregation.NewMockSeriesAggregator(ctrl)
-	block1 := series.NewMockBlock(ctrl)
-	block2 := series.NewMockBlock(ctrl)
+	r.Load(1000, nil, []field.ID{2, 30, 50})
 	// case 3: load data success
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
-	)
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner := r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner := r.Load(0, roaring.BitmapOf(4096, 8192).GetContainer(0), []field.ID{2, 30, 50})
 	assert.NotNil(t, scanner)
 	// case 4: series ids not found
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(10, 12).GetContainer(0))
-	assert.Nil(t, scanner)
-	// case 3: can't get aggregator by family
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, false),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
-	)
-	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner = r.Load(0, roaring.BitmapOf(10, 12).GetContainer(0), []field.ID{2, 30, 50})
 	assert.Nil(t, scanner)
 
 	// case 5: load data success, but time slot not in query range
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg2.EXPECT().GetAggregateBlock(int64(10)).Return(block2, false),
-		block1.EXPECT().Append(5, 0.0).Times(2),
-	)
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner = r.Load(qFlow, 10, []field.ID{2, 30, 50}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner = r.Load(0, roaring.BitmapOf(4096, 8192).GetContainer(0), []field.ID{2, 30, 50})
 	scanner.Scan(4096)
 	scanner.Scan(8192)
 
 	// case 6: load data success, metric has one field
-	gomock.InOrder(
-		qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg),
-		cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, sAgg2, nil}),
-		sAgg1.EXPECT().GetAggregateBlock(int64(10)).Return(block1, true),
-		block1.EXPECT().Append(5, 0.0).Return(true).Times(2),
-	)
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
-	scanner = r.Load(qFlow, 10, []field.ID{2}, 0, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner = r.Load(0, roaring.BitmapOf(4096, 8192).GetContainer(0), []field.ID{2})
 	scanner.Scan(4096)
 	scanner.Scan(8192)
 	// case 7: high key not exist
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
-	scanner = r.Load(qFlow, 10, []field.ID{2}, 10, roaring.BitmapOf(4096, 8192).GetContainer(0))
+	scanner = r.Load(10, roaring.BitmapOf(4096, 8192).GetContainer(0), []field.ID{2})
 	assert.Nil(t, scanner)
 }
 
@@ -148,9 +107,9 @@ func TestReader_scan(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	scanner := newDataScanner(r)
-	start, end := scanner.slotRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(5), end)
+	timeRange := scanner.slotRange()
+	assert.Equal(t, uint16(5), timeRange.Start)
+	assert.Equal(t, uint16(5), timeRange.End)
 	// case 1: not match
 	seriesPos := scanner.scan(10, 10)
 	assert.True(t, seriesPos < 0)
