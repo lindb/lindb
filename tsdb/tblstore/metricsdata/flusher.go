@@ -102,7 +102,7 @@ func (w *flusher) FlushField(data []byte) {
 
 // FlushSeries writes a full series, this will be called after writing all fields of this entry.
 // 1. only one field: series data = field data
-// 2. mutli-fields: series data = field offsets + fields data
+// 2. multi-fields: series data = field offsets + fields data
 func (w *flusher) FlushSeries(seriesID uint32) {
 	if !w.seriesHasData {
 		// if not field data, needn't flush series data
@@ -123,7 +123,7 @@ func (w *flusher) FlushSeries(seriesID uint32) {
 
 	pos := w.writer.Len() // field data offset/field offset block start position
 	if w.fieldMetas.Len() > 1 {
-		// metric has mutli-fields, need write field offsets
+		// metric has multi-fields, need write field offsets
 		// write field offsets into offset block of series level
 		w.writer.PutBytes(w.fieldOffsets.MarshalBinary())
 	}

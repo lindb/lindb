@@ -5,10 +5,8 @@ import (
 
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -60,53 +58,30 @@ func (ms *metricStore) Filter(fieldIDs []field.ID,
 	}, nil
 }
 
-// fieldAggregator represents the field aggregator that does memory data scan and aggregates
-type fieldAggregator struct {
-	familyID  familyID
-	fieldMeta field.Meta
-	block     series.Block
-
-	fieldKey uint32
-}
-
-// newFieldAggregator creates a field aggregator
-func newFieldAggregator(familyID familyID, fieldMeta field.Meta, block series.Block) *fieldAggregator {
-	fieldKey := buildFieldKey(familyID, fieldMeta.ID)
-	return &fieldAggregator{
-		familyID:  familyID,
-		fieldMeta: fieldMeta,
-		block:     block,
-		fieldKey:  fieldKey,
-	}
-}
-
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
 	store       *metricStore
 	fields      field.Metas // sort by field id
 	familyIDs   []familyID  // sort by family id
 	familyIDMap map[familyID]int64
+	fieldKeys   []FieldKey
 
 	seriesIDs *roaring.Bitmap
 }
 
 // prepare prepares the field aggregator based on query condition
-func (rs *memFilterResultSet) prepare(fieldIDs []field.ID, aggregator aggregation.ContainerAggregator) (aggs []*fieldAggregator) {
+func (rs *memFilterResultSet) prepare(fieldIDs []field.ID) {
 	for _, fID := range rs.familyIDs { // sort by family ids
-		familyTime := rs.familyIDMap[fID]
-		for idx, fieldID := range fieldIDs { // sort by field ids
+		for _, fieldID := range fieldIDs { // sort by field ids
 			fMeta, ok := rs.fields.GetFromID(fieldID)
 			if !ok {
 				continue
 			}
-			block, ok := aggregator.GetFieldAggregates()[idx].GetAggregateBlock(familyTime)
-			if !ok {
-				continue
-			}
-			aggs = append(aggs, newFieldAggregator(fID, fMeta, block))
+			fieldKey := buildFieldKey(fID, fMeta.ID)
+			rs.fieldKeys = append(rs.fieldKeys, fieldKey)
+			rs.fields = append(rs.fields, fMeta)
 		}
 	}
-	return
 }
 
 // Identifier identifies the source of result set from memory storage
@@ -120,10 +95,7 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 }
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
-func (rs *memFilterResultSet) Load(flow flow.StorageQueryFlow,
-	fieldIDs []field.ID,
-	highKey uint16, seriesID roaring.Container,
-) flow.Scanner {
+func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container, fieldIDs []field.ID) flow.Scanner {
 	//FIXME need add lock?????
 
 	// 1. get high container index by the high key of series ID
@@ -134,17 +106,16 @@ func (rs *memFilterResultSet) Load(flow flow.StorageQueryFlow,
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := rs.store.keys.GetContainerAtIndex(highContainerIdx)
-	foundSeriesIDs := lowContainer.And(seriesID)
+	foundSeriesIDs := lowContainer.And(seriesIDs)
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
 
-	aggregator := flow.GetAggregator(highKey)
-	fieldAggs := rs.prepare(fieldIDs, aggregator)
-	if len(fieldAggs) == 0 {
+	rs.prepare(fieldIDs)
+	if len(rs.fieldKeys) == 0 {
 		return nil
 	}
 
 	// must use lowContainer from store, because get series index based on container
-	return newMetricStoreScanner(lowContainer, rs.store.values[highContainerIdx], fieldAggs)
+	return newMetricStoreScanner(lowContainer, rs.store.values[highContainerIdx], rs.fieldKeys, rs.fields)
 }

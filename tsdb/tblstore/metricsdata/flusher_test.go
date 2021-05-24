@@ -9,12 +9,9 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -108,15 +105,15 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	r, err := NewReader("1.sst", data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
-	block := series.NewMockBlock(ctrl)
-	qFlow := flow.NewMockStorageQueryFlow(ctrl)
-	// case 2: load data success
-	cAgg := aggregation.NewMockContainerAggregator(ctrl)
-	cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, nil})
-	qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg)
-	sAgg1.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, true)
-	block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
-	qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
-	r.Load(qFlow, 10, []field.ID{2}, 0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0))
+	//sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
+	//block := series.NewMockBlock(ctrl)
+	//qFlow := flow.NewMockStorageQueryFlow(ctrl)
+	//// case 2: load data success
+	//cAgg := aggregation.NewMockContainerAggregator(ctrl)
+	//cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, nil})
+	//qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg)
+	//sAgg1.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, true)
+	//block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
+	//qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
+	r.Load(0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0), []field.ID{2})
 }

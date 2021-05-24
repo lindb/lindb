@@ -6,7 +6,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -73,70 +72,44 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 		tStore.InsertFStore(fStore)
 		fStore.Write(field.SumField, uint16(i), 10.1)
 	}
-	block := series.NewMockBlock(ctrl)
 
 	// case 1: family time not match
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(11), field.Meta{
-				ID:   10,
-				Type: field.SumField,
-			}, block),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(11, 10)},
+		field.Metas{{
+			ID:   10,
+			Type: field.SumField,
+		}})
 	// case 2: field id not match
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(5), field.Meta{
-				ID:   200,
-				Type: field.SumField,
-			}, block),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(5, 100)},
+		field.Metas{{
+			ID:   200,
+			Type: field.SumField,
+		}})
 	// case 3: field id not match
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(5), field.Meta{
-				ID:   80,
-				Type: field.SumField,
-			}, block),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(5, 80)},
+		field.Metas{{
+			ID:   80,
+			Type: field.SumField,
+		}})
 	// case 4: field key not match
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(5), field.Meta{
-				ID:   80,
-				Type: field.SumField,
-			}, block),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(5, 80)},
+		field.Metas{{
+			ID:   80,
+			Type: field.SumField,
+		}})
 	// case 4: match one field
-	block.EXPECT().Append(5, 10.1)
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(5), field.Meta{
-				ID:   50,
-				Type: field.SumField,
-			}, block),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(5, 50)},
+		field.Metas{{
+			ID:   50,
+			Type: field.SumField,
+		}})
 	// case 4: match two fields
-	block2 := series.NewMockBlock(ctrl)
-	gomock.InOrder(
-		block.EXPECT().Append(5, 10.1),
-		block2.EXPECT().Append(8, 10.1),
-	)
-	tStore.scan(&memScanContext{
-		fieldAggs: []*fieldAggregator{
-			newFieldAggregator(familyID(5), field.Meta{
-				ID:   50,
-				Type: field.SumField,
-			}, block),
-			newFieldAggregator(familyID(8), field.Meta{
-				ID:   80,
-				Type: field.SumField,
-			}, block2),
-		},
-	})
+	tStore.scan([]FieldKey{buildFieldKey(5, 50), buildFieldKey(8, 80)},
+		field.Metas{{
+			ID:   50,
+			Type: field.SumField,
+		}, {
+			ID:   80,
+			Type: field.SumField,
+		}})
 }

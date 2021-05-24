@@ -18,8 +18,8 @@ func TestFileFilterResultSet_Load(t *testing.T) {
 	reader := NewMockReader(ctrl)
 
 	rs := newFileFilterResultSet(1, field.Metas{}, nil, reader)
-	reader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	rs.Load(nil, []field.ID{1}, 0, nil)
+	reader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any())
+	rs.Load(0, nil, []field.ID{1})
 }
 
 func TestMetricsDataFilter_Filter(t *testing.T) {
