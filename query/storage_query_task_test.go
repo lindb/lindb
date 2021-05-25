@@ -135,7 +135,7 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 
 	shard := tsdb.NewMockShard(ctrl)
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
-	shard.EXPECT().MemoryDatabase().Return(memDB).AnyTimes()
+	shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
 	result := &filterResultSet{}
 	task := newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),

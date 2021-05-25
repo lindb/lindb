@@ -14,7 +14,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -60,18 +59,16 @@ type MemoryDatabase interface {
 	AcquireWrite()
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(namespace, metricName string, metricID, seriesID uint32, timestamp int64, fields []*pb.Field) (err error)
+	Write(namespace, metricName string, metricID, seriesID uint32, slotIndex uint16, fields []*pb.Field) (err error)
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
-	FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error
+	FlushFamilyTo(flusher metricsdata.Flusher) error
 	// MemSize returns the memory-size of this metric-store
 	MemSize() int32
 	// flow.DataFilter filters the data based on condition
 	flow.DataFilter
-	// series.Storage returns the high level function of storage
-	series.Storage
 	// io.Closer closes the memory database resource
 	io.Closer
 }
@@ -79,15 +76,13 @@ type MemoryDatabase interface {
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
 	Name     string
-	Interval timeutil.Interval
 	Metadata metadb.Metadata
 	TempPath string
 }
 
 // flushContext holds the context for flushing
 type flushContext struct {
-	metricID     uint32
-	timeInterval int64
+	metricID uint32
 
 	timeutil.SlotRange // start/end time slot, metric level flush context
 }
@@ -95,8 +90,7 @@ type flushContext struct {
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
 	name     string
-	interval timeutil.Interval // time interval of rollup
-	metadata metadb.Metadata   // metadata for assign metric id/field id
+	metadata metadb.Metadata // metadata for assign metric id/field id
 
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
@@ -119,7 +113,6 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 	}
 	return &memoryDatabase{
 		name:                       cfg.Name,
-		interval:                   cfg.Interval,
 		metadata:                   cfg.Metadata,
 		buf:                        buf,
 		mStores:                    NewMetricBucketStore(),
@@ -154,17 +147,10 @@ func (md *memoryDatabase) CompleteWrite() {
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(
-	namespace, metricName string,
+func (md *memoryDatabase) Write(namespace, metricName string,
 	metricID, seriesID uint32,
-	timestamp int64,
-	fields []*pb.Field,
+	slotIndex uint16, fields []*pb.Field,
 ) (err error) {
-	// calculate family start time and slot index
-	intervalCalc := md.interval.Calculator()
-	familyTime := md.getFamilyTime(timestamp)
-	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, md.interval.Int64())) // slot offset of family
-
 	md.rwMutex.Lock()
 	defer md.rwMutex.Unlock()
 
@@ -207,15 +193,14 @@ func (md *memoryDatabase) Write(
 	return nil
 }
 
-// FlushFamilyTo flushes all data related to the family from metric-stores to builder,
-func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error {
+// FlushFamilyTo flushes all data related to the family from metric-stores to builder.
+func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	// waiting current writing complete
 	md.writeCondition.Wait()
 
 	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
 		if err := value.FlushMetricsDataTo(flusher, flushContext{
-			metricID:     key,
-			timeInterval: md.interval.Int64(),
+			metricID: key,
 		}); err != nil {
 			return err
 		}
@@ -245,11 +230,6 @@ func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
 	return mStore.Filter(fieldIDs, seriesIDs)
 }
 
-// Interval return the interval of memory database
-func (md *memoryDatabase) Interval() int64 {
-	return md.interval.Int64()
-}
-
 // MemSize returns the time series database memory size
 func (md *memoryDatabase) MemSize() int32 {
 	return md.allocSize.Load()
@@ -258,12 +238,4 @@ func (md *memoryDatabase) MemSize() int32 {
 // Close closes memory data point buffer
 func (md *memoryDatabase) Close() error {
 	return md.buf.Close()
-}
-
-func (md *memoryDatabase) getFamilyTime(timestamp int64) (familyTime int64) {
-	intervalCalc := md.interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)             // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)          // hours
-	familyTime = intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
-	return
 }
