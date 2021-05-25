@@ -33,6 +33,9 @@ pre-test: ## go generate mock file.
 	#         https://github.com/golang/mock/pull/163/files
 	sh rpc/pbmock/mock.sh
 
+header: ## check and add license header.
+	sh license.sh
+
 test: ## Run test cases. (Args: GOLANGCI_LINT_VERSION=latest)
 	if [ ! -e ./bin/golangci-lint ]; then \
 		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
