@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -19,8 +20,7 @@ var (
 
 const (
 	emptyMStoreSize = 8 +
-		24 + // families slice
-		24 + // familyIDSlotRangeEntries slice
+		12 + // slot and pointer
 		8 + // pointer in metricStore
 		24 // slice in metricStore
 	// keys in metricStore are ignored
@@ -28,15 +28,13 @@ const (
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// Filter filters the data based on fieldIDs/seriesIDs/familyIDs,
-	// if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
-	Filter(
-		fieldIDs []field.ID,
-		seriesIDs *roaring.Bitmap,
-		familyIDs map[familyID]int64,
-	) ([]flow.FilterResultSet, error)
-	// SetTimestamp sets the current write timestamp
-	SetTimestamp(familyID familyID, slot uint16)
+	// Filter filters the data based on fieldIDs/seriesIDs,
+	// if finds data then returns the flow.FilterResultSet, else returns constants.ErrNotFound
+	Filter(fieldIDs []field.ID, seriesIDs *roaring.Bitmap) ([]flow.FilterResultSet, error)
+	// SetSlot sets the current write slot
+	SetSlot(slot uint16)
+	// GetSlotRange returns slot range.
+	GetSlotRange() *timeutil.SlotRange
 	// AddField adds field meta into metric level
 	AddField(fieldID field.ID, fieldType field.Type)
 	// GetOrCreateTStore constructs the index and return a tStore
@@ -45,47 +43,12 @@ type mStoreINTF interface {
 	FlushMetricsDataTo(tableFlusher metricsdata.Flusher, flushCtx flushContext) (err error)
 }
 
-type familyIDSlotRangeEntry struct {
-	id        familyID
-	slotRange slotRange
-}
-
-// familyIDSlotRangeEntries implements sort.Interface
-// sorted in ascending order
-type familyIDSlotRangeEntries []familyIDSlotRangeEntry
-
-func (e familyIDSlotRangeEntries) Len() int           { return len(e) }
-func (e familyIDSlotRangeEntries) Less(i, j int) bool { return e[i].id < e[j].id }
-func (e familyIDSlotRangeEntries) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-func (e familyIDSlotRangeEntries) GetRange(id familyID) (slotRange, bool) {
-	idx := sort.Search(e.Len(), func(i int) bool {
-		return e[i].id >= id
-	})
-	if idx >= e.Len() || e[idx].id != id {
-		return slotRange{}, false
-	}
-	return e[idx].slotRange, true
-}
-
-func (e familyIDSlotRangeEntries) SetRange(id familyID, slotRange slotRange) familyIDSlotRangeEntries {
-	idx := sort.Search(e.Len(), func(i int) bool {
-		return e[i].id >= id
-	})
-	if idx >= e.Len() || e[idx].id != id {
-		newE := append(e, familyIDSlotRangeEntry{id: id, slotRange: slotRange})
-		sort.Sort(newE)
-		return newE
-	}
-	e[idx].slotRange = slotRange
-	return e
-}
-
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
 	MetricStore
 
-	families familyIDSlotRangeEntries // time slot range
-	fields   field.Metas              // field metadata
+	slotRange *timeutil.SlotRange
+	fields    field.Metas // field metadata
 }
 
 // newMetricStore returns a new mStoreINTF.
@@ -95,15 +58,19 @@ func newMetricStore() mStoreINTF {
 	return &ms
 }
 
-// SetTimestamp sets the current write timestamp
-func (ms *metricStore) SetTimestamp(familyID familyID, slot uint16) {
-	slotRange, ok := ms.families.GetRange(familyID)
-	if ok {
-		slotRange.setSlot(slot)
+// SetSlot sets the current write timestamp
+func (ms *metricStore) SetSlot(slot uint16) {
+	if ms.slotRange == nil {
+		slotRange := timeutil.NewSlotRange(slot, slot)
+		ms.slotRange = &slotRange
 	} else {
-		slotRange = newSlotRange(slot, slot)
+		ms.slotRange.SetSlot(slot)
 	}
-	ms.families = ms.families.SetRange(familyID, slotRange)
+}
+
+// GetSlotRange returns slot range.
+func (ms *metricStore) GetSlotRange() *timeutil.SlotRange {
+	return ms.slotRange
 }
 
 // AddField adds field meta into metric level
@@ -132,11 +99,7 @@ func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, cr
 
 // FlushMetricsTo Writes metric-data to the table.
 func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx flushContext) (err error) {
-	// family time not exist, return
-	slotRange, ok := ms.families.GetRange(flushCtx.familyID)
-	if !ok {
-		return
-	}
+	slotRange := ms.slotRange
 	// field not exist, return
 	fieldLen := len(ms.fields)
 	if fieldLen == 0 {
@@ -145,13 +108,13 @@ func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx 
 	// flush field meta info
 	flusher.FlushFieldMetas(ms.fields)
 	// set current family's slot range
-	flushCtx.start, flushCtx.end = slotRange.getRange()
+	flushCtx.Start, flushCtx.End = slotRange.GetRange()
 	if err := ms.WalkEntry(func(key uint32, value tStoreINTF) error {
 		return flushFunc(flusher, flushCtx, key, value)
 	}); err != nil {
 		return err
 	}
-	return flusher.FlushMetric(flushCtx.metricID, slotRange.start, slotRange.end)
+	return flusher.FlushMetric(flushCtx.metricID, slotRange.Start, slotRange.End)
 }
 
 // flush flushes series data

@@ -45,3 +45,19 @@ func TestTimeRange_Intersect(t *testing.T) {
 	assert.True(t, timeRange.Intersect(&TimeRange{Start: 500, End: 7000}).IsEmpty())
 	assert.True(t, timeRange.Intersect(&TimeRange{Start: 5000, End: 700}).IsEmpty())
 }
+
+func TestSlotRange(t *testing.T) {
+	sr := NewSlotRange(10, 20)
+	sr.SetSlot(15)
+	start, end := sr.GetRange()
+	assert.Equal(t, uint16(10), start)
+	assert.Equal(t, uint16(20), end)
+	sr.SetSlot(5)
+	start, end = sr.GetRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(20), end)
+	sr.SetSlot(27)
+	start, end = sr.GetRange()
+	assert.Equal(t, uint16(5), start)
+	assert.Equal(t, uint16(27), end)
+}

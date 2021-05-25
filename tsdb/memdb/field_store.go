@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -31,20 +32,19 @@ func init() {
 }
 
 // memory layout as below:
-// header: family[1byte] + field id[2bytes]
+// header: field id[2bytes]
 //        + start time[2byte] + end time(delta of start time)[1byte] + mark container[2byte]
 // body: data points(value.....)
 // last mark flag of container marks the buf if has data written
 
 const (
-	familyOffset = 0
-	fieldOffset  = familyOffset + 1
-	startOffset  = fieldOffset + 2
-	endOffset    = startOffset + 2
-	markOffset   = endOffset + 1
-	bodyOffset   = markOffset + 2
-	headLen      = 8
-	valueSize    = 8
+	fieldOffset = 0
+	startOffset = fieldOffset + 2
+	endOffset   = startOffset + 2
+	markOffset  = endOffset + 1
+	bodyOffset  = markOffset + 2
+	headLen     = 8
+	valueSize   = 8
 
 	emptyFieldStoreSize = 24 + // empty buf slice cost
 		24 // empty compress slice cost
@@ -53,11 +53,6 @@ const (
 // fStoreINTF represents field-store,
 // which abstracts a store for storing field data based on family start time + field id
 type fStoreINTF interface {
-	// GetKey returns the field store key, sorts in field list will use this key for sorting
-	// field key = family id + field id
-	GetKey() FieldKey
-	// GetFamilyID returns the family time mapping id
-	GetFamilyID() familyID
 	// GetFieldID returns the field id of metric level
 	GetFieldID() field.ID
 	// Write writes the field data into current buffer, returns the written size.
@@ -77,23 +72,11 @@ type fieldStore struct {
 }
 
 // newFieldStore creates a new field store
-func newFieldStore(buf []byte, familyID familyID, fieldID field.ID) fStoreINTF {
-	buf[familyOffset] = byte(familyID)
+func newFieldStore(buf []byte, fieldID field.ID) fStoreINTF {
 	stream.PutUint16(buf, fieldOffset, uint16(fieldID))
 	return &fieldStore{
 		buf: buf,
 	}
-}
-
-// GetKey returns the field store key, sorts in field list will use this key for sorting
-// field key = family id + field id
-func (fs *fieldStore) GetKey() FieldKey {
-	return FieldKey(uint32(fs.buf[fieldOffset]) | uint32(fs.buf[fieldOffset+1])<<8 | uint32(fs.buf[familyOffset])<<16)
-}
-
-// GetFamilyID returns the family time mapping id
-func (fs *fieldStore) GetFamilyID() familyID {
-	return familyID(fs.buf[familyOffset])
 }
 
 // GetFieldID returns the field id of metric level
@@ -150,7 +133,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.slotRange, false)
+	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
 		fieldStoreMergeFailCounter.Inc()
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
@@ -232,11 +215,11 @@ func (fs *fieldStore) merge(
 	aggFunc field.AggFunc,
 	tsd *encoding.TSDDecoder,
 	startTime uint16,
-	thisSlotRange slotRange,
+	thisSlotRange timeutil.SlotRange,
 	withTimeRange bool,
 ) (compress []byte, freeSize int, err error) {
-	encode := encoding.TSDEncodeFunc(thisSlotRange.start)
-	for i := thisSlotRange.start; i <= thisSlotRange.end; i++ {
+	encode := encoding.TSDEncodeFunc(thisSlotRange.Start)
+	for i := thisSlotRange.Start; i <= thisSlotRange.End; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
 		oldValue, hasOldValue := getOldFloatValue(tsd, i)
 		switch {
@@ -287,26 +270,24 @@ func (fs *fieldStore) Load(fieldType field.Type) []byte {
 }
 
 // slotRange returns time slot range in current/compress buffer
-func (fs *fieldStore) slotRange(currentStart uint16) slotRange {
+func (fs *fieldStore) slotRange(currentStart uint16) timeutil.SlotRange {
 	startSlot := currentStart
 	endSlot := currentStart + fs.getEnd()
 	if len(fs.compress) == 0 {
-		return slotRange{start: startSlot, end: endSlot}
+		return timeutil.NewSlotRange(startSlot, endSlot)
 	}
 	start, end := encoding.DecodeTSDTime(fs.compress)
 	return getTimeSlotRange(start, end, startSlot, endSlot)
 }
 
 // getTimeSlotRange returns the final time slot range based on start/end
-func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) slotRange {
-	var sr slotRange
-	sr.start = startSlot1
-	sr.end = endSlot1
-	if sr.end < endSlot2 {
-		sr.end = endSlot2
+func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) timeutil.SlotRange {
+	sr := timeutil.NewSlotRange(startSlot1, endSlot1)
+	if sr.End < endSlot2 {
+		sr.End = endSlot2
 	}
-	if sr.start > startSlot2 {
-		sr.start = startSlot2
+	if sr.Start > startSlot2 {
+		sr.Start = startSlot2
 	}
 	return sr
 }

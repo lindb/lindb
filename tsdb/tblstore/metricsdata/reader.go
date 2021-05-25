@@ -37,7 +37,7 @@ type Reader interface {
 	// GetFields returns the field metas in this sst file
 	GetFields() field.Metas
 	// GetTimeRange returns the time range in this sst file
-	GetTimeRange() timeutil.ShortTimeRange
+	GetTimeRange() timeutil.SlotRange
 	// Load loads the data from sst file, then returns the file metric scanner.
 	Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner
 	// readSeriesData reads series data from file by given position.
@@ -52,7 +52,7 @@ type reader struct {
 	seriesIDs     *roaring.Bitmap
 	fields        field.Metas
 	crc32CheckSum uint32
-	timeRange     timeutil.ShortTimeRange
+	timeRange     timeutil.SlotRange
 
 	readFieldIndexes []int // read field indexes be used when query metric data
 }
@@ -85,7 +85,7 @@ func (r *reader) GetFields() field.Metas {
 }
 
 // GetTimeRange returns the time range in this sst file
-func (r *reader) GetTimeRange() timeutil.ShortTimeRange {
+func (r *reader) GetTimeRange() timeutil.SlotRange {
 	return r.timeRange
 }
 
@@ -241,7 +241,7 @@ func (s *dataScanner) nextContainer() {
 }
 
 // slotRange returns the slot range of metric level in current sst file
-func (s *dataScanner) slotRange() timeutil.ShortTimeRange {
+func (s *dataScanner) slotRange() timeutil.SlotRange {
 	return s.reader.GetTimeRange()
 }
 

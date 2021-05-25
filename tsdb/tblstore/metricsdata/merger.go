@@ -23,7 +23,7 @@ type mergerContext struct {
 	seriesIDs    *roaring.Bitmap // target series ids
 	targetFields field.Metas     // target fields
 
-	targetRange, sourceRange timeutil.ShortTimeRange
+	targetRange, sourceRange timeutil.SlotRange
 	ratio                    uint16
 }
 

@@ -12,20 +12,17 @@ type metricStoreScanner struct {
 	lowContainer     roaring.Container
 	timeSeriesStores []tStoreINTF
 	fields           field.Metas // sort by field id
-	fieldKeys        []FieldKey
 }
 
 // newMetricStoreScanner creates a memory storage metric scanner.
 func newMetricStoreScanner(lowContainer roaring.Container,
 	timeSeriesStores []tStoreINTF,
-	fieldKeys []FieldKey,
 	fields field.Metas,
 ) flow.Scanner {
 	return &metricStoreScanner{
 		lowContainer:     lowContainer,
 		timeSeriesStores: timeSeriesStores,
 		fields:           fields,
-		fieldKeys:        fieldKeys,
 	}
 }
 
@@ -39,5 +36,5 @@ func (s *metricStoreScanner) Scan(lowSeriesID uint16) [][]byte {
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
 	store := s.timeSeriesStores[idx-1]
-	return store.scan(s.fieldKeys, s.fields)
+	return store.scan(s.fields)
 }

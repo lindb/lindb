@@ -13,21 +13,21 @@ const emptyTimeSeriesStoreSize = 24 // fStores slice
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
-	// GetFStore returns the fStore in field list by family/field
-	GetFStore(familyID familyID, fieldID field.ID) (fStoreINTF, bool)
+	// GetFStore returns the fStore in field list by field id.
+	GetFStore(fieldID field.ID) (fStoreINTF, bool)
 	// InsertFStore inserts a new fStore to field list.
 	InsertFStore(fStore fStoreINTF) (createdSize int)
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 	// scan scans the time series data based on field ids
-	scan(fieldKeys []FieldKey, fields field.Metas) [][]byte
+	scan(fields field.Metas) [][]byte
 }
 
 // fStoreNodes implements sort.Interface
 type fStoreNodes []fStoreINTF
 
 func (f fStoreNodes) Len() int           { return len(f) }
-func (f fStoreNodes) Less(i, j int) bool { return f[i].GetKey() < f[j].GetKey() }
+func (f fStoreNodes) Less(i, j int) bool { return f[i].GetFieldID() < f[j].GetFieldID() }
 func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
@@ -41,20 +41,19 @@ func newTimeSeriesStore() tStoreINTF {
 }
 
 // GetFStore returns the fStore in this list from field-id.
-func (ts *timeSeriesStore) GetFStore(familyID familyID, fieldID field.ID) (fStoreINTF, bool) {
-	fieldKey := buildFieldKey(familyID, fieldID)
+func (ts *timeSeriesStore) GetFStore(fieldID field.ID) (fStoreINTF, bool) {
 	fieldLength := len(ts.fStoreNodes)
 	if fieldLength == 1 {
-		if ts.fStoreNodes[0].GetKey() != fieldKey {
+		if ts.fStoreNodes[0].GetFieldID() != fieldID {
 			return nil, false
 		}
 		return ts.fStoreNodes[0], true
 
 	}
 	idx := sort.Search(fieldLength, func(i int) bool {
-		return ts.fStoreNodes[i].GetKey() >= fieldKey
+		return ts.fStoreNodes[i].GetFieldID() >= fieldID
 	})
-	if idx >= fieldLength || ts.fStoreNodes[idx].GetKey() != fieldKey {
+	if idx >= fieldLength || ts.fStoreNodes[idx].GetFieldID() != fieldID {
 		return nil, false
 	}
 	return ts.fStoreNodes[idx], true
@@ -74,14 +73,7 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
 
 // FlushSeriesTo flushes the series data segment.
 func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
-	flushFamilyID := flushCtx.familyID
-	var stores []fStoreINTF
-	for _, fStore := range ts.fStoreNodes {
-		// need flush by family id
-		if flushFamilyID == fStore.GetFamilyID() {
-			stores = append(stores, fStore)
-		}
-	}
+	stores := ts.fStoreNodes
 	fStoreLen := len(stores)
 	// if no field store under current data family
 	if stores == nil || fStoreLen == 0 {
@@ -95,7 +87,7 @@ func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx f
 			stores[idx].FlushFieldTo(flusher, fieldMeta, flushCtx)
 			idx++
 		} else {
-			// must flush nil data for metric has mutli-field
+			// must flush nil data for metric has multi-field
 			flusher.FlushField(nil)
 		}
 	}
@@ -103,21 +95,21 @@ func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx f
 
 // scan scans the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
-func (ts *timeSeriesStore) scan(fieldKeys []FieldKey, fields field.Metas) [][]byte {
+func (ts *timeSeriesStore) scan(fields field.Metas) [][]byte {
 	fieldLength := len(ts.fStoreNodes)
 	fieldCount := len(fields)
 	rs := make([][]byte, fieldCount)
 	// find equals family id index
 	idx := sort.Search(fieldLength, func(i int) bool {
-		return ts.fStoreNodes[i].GetKey() <= fieldKeys[0]
+		return ts.fStoreNodes[i].GetFieldID() <= fields[0].ID
 	})
 	j := 0
 	for i := idx; i < fieldLength; i++ {
 		fieldStore := ts.fStoreNodes[i]
-		fieldKey := fieldKeys[j]
-		key := fieldStore.GetKey()
+		queryFieldID := fields[j].ID
+		storeFieldID := fieldStore.GetFieldID()
 		switch {
-		case key == fieldKey:
+		case storeFieldID == queryFieldID:
 			// load field data
 			rs[j] = fieldStore.Load(fields[j].Type)
 			j++ // goto next query field id
@@ -125,8 +117,8 @@ func (ts *timeSeriesStore) scan(fieldKeys []FieldKey, fields field.Metas) [][]by
 			if fieldCount == j {
 				return rs
 			}
-		case key > fieldKey:
-			// store key > query key, return it
+		case storeFieldID > queryFieldID:
+			// store field id > query field id, return it
 			return rs
 		}
 	}
