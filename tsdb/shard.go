@@ -89,8 +89,8 @@ type Shard interface {
 	ShardInfo() string
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
-	// MemoryDatabase returns memory database
-	MemoryDatabase() memdb.MemoryDatabase
+	// MemoryDatabase returns memory database by given family time.
+	MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	// Write writes the metric-point into memory-database.
@@ -125,8 +125,7 @@ type shard struct {
 	option       option.DatabaseOption
 	sequence     ReplicaSequence
 
-	mutable   memdb.MemoryDatabase // current accept user write data points
-	immutable memdb.MemoryDatabase // need flush data to disk persist
+	families map[int64]memdb.MemoryDatabase // memory database for each family time
 
 	indexDB  indexdb.IndexDatabase
 	metadata metadb.Metadata
@@ -181,6 +180,7 @@ func newShard(
 		path:             shardPath,
 		option:           option,
 		sequence:         replicaSequence,
+		families:         make(map[int64]memdb.MemoryDatabase),
 		metadata:         db.Metadata(),
 		interval:         interval,
 		segments:         make(map[timeutil.IntervalType]IntervalSegment),
@@ -213,11 +213,6 @@ func newShard(
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	memDB, err := createdShard.createMemoryDatabase()
-	if err != nil {
-		return nil, err
-	}
-	createdShard.mutable = memDB
 	// add shard into global shard manager
 	GetShardManager().AddShard(createdShard)
 	return createdShard, nil
@@ -254,13 +249,20 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 	return nil
 }
 
-// MemoryDatabase returns memory database
-func (s *shard) MemoryDatabase() memdb.MemoryDatabase {
+// MemoryDatabase returns memory database by given family time.
+func (s *shard) MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 	var memDB memdb.MemoryDatabase
 	s.rwMutex.RLock()
-	memDB = s.mutable
-	s.rwMutex.RUnlock()
-	return memDB
+	defer s.rwMutex.RUnlock()
+	memDB, ok := s.families[familyTime]
+	if !ok {
+		memDB, err := s.createMemoryDatabase()
+		if err != nil {
+			return nil, err
+		}
+		s.families[familyTime] = memDB
+	}
+	return memDB, nil
 }
 
 // Write writes the metric-point into memory-database.
@@ -309,7 +311,15 @@ func (s *shard) Write(metric *pb.Metric) (err error) {
 	buildIndexEnd := timeutil.Now()
 	s.buildIndexTimer.Observe(float64(buildIndexEnd - now))
 
-	db := s.MemoryDatabase()
+	// calculate family start time and slot index
+	intervalCalc := s.interval.Calculator()
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)              // day
+	family := intervalCalc.CalcFamily(timestamp, segmentTime)           // hours
+	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
+	db, err := s.MemoryDatabase(familyTime)
+	if err != nil {
+		return err
+	}
 
 	// mark writing data
 	db.AcquireWrite()
@@ -319,8 +329,10 @@ func (s *shard) Write(metric *pb.Metric) (err error) {
 
 		s.writeMetricTimer.Observe(float64(timeutil.Now() - buildIndexEnd))
 	}()
+
+	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
 	// write metric point into memory db
-	return db.Write(ns, metric.Name, metricID, seriesID, metric.Timestamp, metric.Fields)
+	return db.Write(ns, metric.Name, metricID, seriesID, slotIndex, metric.Fields)
 }
 
 func (s *shard) Close() error {
@@ -338,13 +350,8 @@ func (s *shard) Close() error {
 			return err
 		}
 	}
-	if s.mutable != nil {
-		if err := s.flushMemoryDatabase(s.mutable); err != nil {
-			return err
-		}
-	}
-	if s.immutable != nil {
-		if err := s.flushMemoryDatabase(s.immutable); err != nil {
+	for _, family := range s.families {
+		if err := s.flushMemoryDatabase(family); err != nil {
 			return err
 		}
 	}
@@ -360,13 +367,12 @@ func (s *shard) NeedFlush() bool {
 	if s.IsFlushing() {
 		return false
 	}
-	if s.hasImmutable() {
-		return false
-	}
 
-	memDB := s.MemoryDatabase()
-	//TODO add time threshold???
-	return memDB.MemSize() > constants.ShardMemoryUsedThreshold
+	for _, memDB := range s.families {
+		//TODO add time threshold???
+		return memDB.MemSize() > constants.ShardMemoryUsedThreshold
+	}
+	return false
 }
 
 // Flush flushes index and memory data to disk
@@ -375,9 +381,7 @@ func (s *shard) Flush() (err error) {
 	if !s.isFlushing.CAS(false, true) {
 		return nil
 	}
-	// 1. swap memory database
-	s.swapMemoryDatabase()
-	// 2. mark flush job doing
+	// 1. mark flush job doing
 	s.flushCondition.Add(1)
 
 	defer func() {
@@ -395,17 +399,17 @@ func (s *shard) Flush() (err error) {
 		}
 	}
 
-	// flush immutable, if exist
-	// maybe not exist, when swap fail
-	if s.immutable != nil {
-		if err := s.flushMemoryDatabase(s.immutable); err != nil {
-			return err
+	// flush memory database if need flush
+	for _, memDB := range s.families {
+		//TODO add time threshold???
+		if memDB.MemSize() > constants.ShardMemoryUsedThreshold {
+			if err := s.flushMemoryDatabase(memDB); err != nil {
+				return err
+			}
 		}
-		// after flush success, mark immutable as nil
-		s.rwMutex.Lock()
-		s.immutable = nil
-		s.rwMutex.Unlock()
+
 	}
+	//FIXME(stone1100) need remove memory database if long time no data
 	// finally, commit replica sequence
 	s.ackReplicaSeq()
 	return nil
@@ -446,37 +450,10 @@ func (s *shard) initIndexDatabase() error {
 	return nil
 }
 
-// hasImmutable checks if has immutable memory database
-func (s *shard) hasImmutable() bool {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-	return s.immutable != nil
-}
-
-// swapMemoryDatabase swaps mutable/immutable memory database
-func (s *shard) swapMemoryDatabase() {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
-	// if immutable is not nil, cannot do swap
-	if s.immutable != nil {
-		return
-	}
-
-	memDB, err := s.createMemoryDatabase()
-	if err != nil {
-		engineLogger.Error("create new memory database error when swap",
-			logger.String("shard", s.path), logger.Error(err))
-		return
-	}
-	s.immutable = s.mutable // mark old memory database is immutable
-	s.mutable = memDB       // create new  memory database as mutable
-}
-
 // createMemoryDatabase creates a new memory database for writing data points
 func (s *shard) createMemoryDatabase() (memdb.MemoryDatabase, error) {
 	return newMemoryDBFunc(memdb.MemoryDatabaseCfg{
 		Name:     s.databaseName,
-		Interval: s.interval,
 		Metadata: s.metadata,
 		TempPath: filepath.Join(s.path, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
 	})

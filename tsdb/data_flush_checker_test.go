@@ -64,7 +64,6 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard1.EXPECT().IsFlushing().Return(false).AnyTimes()
 	mDB1 := memdb.NewMockMemoryDatabase(ctrl)
 	mDB1.EXPECT().MemSize().Return(int32(100)).AnyTimes()
-	shard1.EXPECT().MemoryDatabase().Return(mDB1).AnyTimes()
 	GetShardManager().AddShard(shard1)
 
 	shard2 := NewMockShard(ctrl)
@@ -74,7 +73,6 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard2.EXPECT().Flush().Return(nil).AnyTimes()
 	mDB2 := memdb.NewMockMemoryDatabase(ctrl)
 	mDB2.EXPECT().MemSize().Return(int32(1000)).AnyTimes()
-	shard2.EXPECT().MemoryDatabase().Return(mDB2).AnyTimes()
 	GetShardManager().AddShard(shard2)
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)

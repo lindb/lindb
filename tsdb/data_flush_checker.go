@@ -191,7 +191,9 @@ func (fc *dataFlushChecker) flushBiggestMemoryUsageShard() {
 			return
 		}
 
-		theShardSize := shard.MemoryDatabase().MemSize()
+		//FIXME(stone1100)
+		theShardSize := int32(1024)
+		//shard.MemoryDatabase().MemSize()
 		if theShardSize > biggestMemSize {
 			// pick a shard that has biggest memory size
 			biggestMemSize = theShardSize

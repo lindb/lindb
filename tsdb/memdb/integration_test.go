@@ -37,7 +37,6 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	metricID, err := metadata.MetadataDatabase().GenMetricID("ns", "test")
 	assert.NoError(b, err)
 	var cfg = MemoryDatabaseCfg{
-		Interval: timeutil.Interval(10 * timeutil.OneSecond),
 		Metadata: metadata,
 		TempPath: filepath.Join(testPath, "data_temp"),
 	}
@@ -47,7 +46,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	}
 	now := timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
 			Name:  "f1",
 			Type:  pb.FieldType_Sum,
 			Value: 10.0,
@@ -57,7 +56,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
 	now = timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
 			Name:  "f1",
 			Type:  pb.FieldType_Sum,
 			Value: 10.0,
@@ -87,7 +86,6 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 	assert.NoError(b, err)
 	run := func(n int) {
 		var cfg = MemoryDatabaseCfg{
-			Interval: timeutil.Interval(10 * timeutil.OneSecond),
 			Metadata: metadata,
 			TempPath: filepath.Join(testPath, "data_temp", fmt.Sprintf("%d", n)),
 		}
@@ -97,7 +95,7 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		}
 		now := timeutil.Now()
 		for i := 0; i < 400000; i++ {
-			_ = db.Write("ns", "test", metricID, uint32(i), now, []*pb.Field{{
+			_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
 				Name:  "f1",
 				Type:  pb.FieldType_Sum,
 				Value: 10.0,
