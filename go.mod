@@ -10,6 +10,7 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/elastic/go-licenser v0.3.1 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.4.3
