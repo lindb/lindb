@@ -42,14 +42,14 @@ func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
 
 // downSamplingAggregator implements DownSamplingAggregator interface.
 type downSamplingAggregator struct {
-	source, target timeutil.ShortTimeRange
+	source, target timeutil.SlotRange
 	ratio          uint16
 
 	rs DownSamplingResult
 }
 
 // NewDownSamplingAggregator creates DownSamplingAggregator.
-func NewDownSamplingAggregator(source, target timeutil.ShortTimeRange,
+func NewDownSamplingAggregator(source, target timeutil.SlotRange,
 	ratio uint16, rs DownSamplingResult) DownSamplingAggregator {
 	return &downSamplingAggregator{
 		source: source,

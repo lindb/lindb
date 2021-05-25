@@ -38,27 +38,18 @@ func TestMetricStore_AddField(t *testing.T) {
 
 func TestMetricStore_SetTimestamp(t *testing.T) {
 	mStoreInterface := newMetricStore()
-	mStore := mStoreInterface.(*metricStore)
-	mStoreInterface.SetTimestamp(1, 10)
-	slotRange, _ := mStore.families.GetRange(1)
-	start, end := slotRange.getRange()
-	assert.Equal(t, uint16(10), start)
-	assert.Equal(t, uint16(10), end)
-	mStoreInterface.SetTimestamp(1, 5)
-	slotRange, _ = mStore.families.GetRange(1)
-	start, end = slotRange.getRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(10), end)
-	fmt.Println(start, end)
-	mStoreInterface.SetTimestamp(1, 50)
-	slotRange, _ = mStore.families.GetRange(1)
-	start, end = slotRange.getRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(50), end)
-
-	mStoreInterface.SetTimestamp(2, 50)
-	mStoreInterface.SetTimestamp(4, 50)
-	mStoreInterface.SetTimestamp(3, 50)
+	mStoreInterface.SetSlot(10)
+	slotRange := mStoreInterface.GetSlotRange()
+	assert.Equal(t, uint16(10), slotRange.Start)
+	assert.Equal(t, uint16(10), slotRange.End)
+	mStoreInterface.SetSlot(5)
+	slotRange = mStoreInterface.GetSlotRange()
+	assert.Equal(t, uint16(5), slotRange.Start)
+	assert.Equal(t, uint16(10), slotRange.End)
+	mStoreInterface.SetSlot(50)
+	slotRange = mStoreInterface.GetSlotRange()
+	assert.Equal(t, uint16(5), slotRange.Start)
+	assert.Equal(t, uint16(50), slotRange.End)
 }
 
 func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
@@ -76,11 +67,11 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	mStore.Put(10, tStore)
 
 	// case 1: family time not exist
-	err := mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
+	err := mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
 	assert.NoError(t, err)
 	// case 2: field not exist
-	mStoreInterface.SetTimestamp(1, 10)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
+	mStoreInterface.SetSlot(10)
+	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
 	assert.NoError(t, err)
 	// case 3: flush success
 	mStoreInterface.AddField(1, field.SumField)
@@ -91,7 +82,7 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 		flusher.EXPECT().FlushSeries(uint32(10)),
 		flusher.EXPECT().FlushMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
+	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
 	assert.NoError(t, err)
 	// case 4: flush err
 	flushFunc = func(flusher metricsdata.Flusher, flushCtx flushContext, key uint32, value tStoreINTF) error {
@@ -100,6 +91,6 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	gomock.InOrder(
 		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
 	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{familyID: 1})
+	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
 	assert.Error(t, err)
 }

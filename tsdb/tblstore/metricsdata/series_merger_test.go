@@ -40,8 +40,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err := merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
-			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
+			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -66,8 +66,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
-			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
+			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -92,8 +92,8 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
-			targetRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
+			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
+			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
 		}, decodeStreams, encodeStream2, readers)
 	assert.Error(t, err)
@@ -126,8 +126,8 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	err := merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 15},
-			targetRange:  timeutil.ShortTimeRange{Start: 0, End: 0},
+			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
+			targetRange:  timeutil.SlotRange{Start: 0, End: 0},
 			ratio:        30,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
@@ -153,8 +153,8 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	err = merger.merge(
 		&mergerContext{
 			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.ShortTimeRange{Start: 5, End: 182},
-			targetRange:  timeutil.ShortTimeRange{Start: 0, End: 6},
+			sourceRange:  timeutil.SlotRange{Start: 5, End: 182},
+			targetRange:  timeutil.SlotRange{Start: 0, End: 6},
 			ratio:        30,
 		}, decodeStreams, encodeStream, readers)
 	assert.NoError(t, err)
