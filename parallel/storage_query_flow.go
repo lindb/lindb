@@ -159,7 +159,7 @@ func (qf *storageQueryFlow) Complete(err error) {
 	}
 }
 
-func (qf *storageQueryFlow) Scanner(task concurrent.Task) {
+func (qf *storageQueryFlow) Load(task concurrent.Task) {
 	qf.execute(Scanner, task)
 }
 

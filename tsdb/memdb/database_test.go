@@ -226,12 +226,12 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	// case 1: family not found
-	rs, err := md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{})
+	rs, err := md.Filter(uint32(3333), nil, timeutil.TimeRange{}, field.Metas{{ID: 1}})
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, rs)
 	now := timeutil.Now()
 	// case 2: metric store not found
-	rs, err = md.Filter(0, []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
+	rs, err = md.Filter(0, nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, rs)
 	// case 3: filter success
@@ -239,7 +239,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
-	rs, err = md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
+	rs, err = md.Filter(uint32(3333), nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
 

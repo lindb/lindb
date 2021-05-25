@@ -32,8 +32,8 @@ type StorageQueryFlow interface {
 	Filtering(task concurrent.Task)
 	// Grouping does the grouping task
 	Grouping(task concurrent.Task)
-	// Scanner does the scan task
-	Scanner(task concurrent.Task)
+	// Load does the load task
+	Load(task concurrent.Task)
 	// Reduce reduces the down sampling aggregator's result
 	Reduce(tags string, agg aggregation.ContainerAggregator)
 	// ReduceTagValues reduces the group by tag values

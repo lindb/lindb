@@ -104,7 +104,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		wait.Done()
 		queryFlow.Grouping(func() {
 			wait.Done()
-			queryFlow.Scanner(func() {
+			queryFlow.Load(func() {
 				//seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
 				//seriesAgg.EXPECT().Reset()
 
@@ -117,7 +117,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		wait.Done()
 		queryFlow.Grouping(func() {
 			wait.Done()
-			queryFlow.Scanner(func() {
+			queryFlow.Load(func() {
 				wait.Done()
 			})
 		})

@@ -86,8 +86,9 @@ func (f *dataFamily) Family() kv.Family {
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if finds data then returns the FilterResultSet, else returns nil
-func (f *dataFamily) Filter(metricID uint32, fieldIDs []field.ID,
+func (f *dataFamily) Filter(metricID uint32,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
+	fields field.Metas,
 ) (resultSet []flow.FilterResultSet, err error) {
 	snapShot := f.family.GetSnapshot()
 	defer func() {
@@ -118,5 +119,5 @@ func (f *dataFamily) Filter(metricID uint32, fieldIDs []field.ID,
 		return
 	}
 	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
-	return filter.Filter(fieldIDs, seriesIDs)
+	return filter.Filter(seriesIDs, fields)
 }

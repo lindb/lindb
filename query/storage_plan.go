@@ -41,7 +41,7 @@ type storageExecutePlan struct {
 	query     *stmt.Query
 	metadata  metadb.Metadata
 
-	fieldIDs []field.ID
+	fieldMetas field.Metas
 
 	metricID    uint32
 	fields      map[field.ID]aggregation.AggregatorSpec
@@ -77,15 +77,19 @@ func (p *storageExecutePlan) Plan() error {
 	if p.err != nil {
 		return p.err
 	}
-	p.fieldIDs = make([]field.ID, len(p.fields))
+	p.fieldMetas = make(field.Metas, len(p.fields))
 	idx := 0
 	for fieldID := range p.fields {
-		p.fieldIDs[idx] = fieldID
+		f := p.fields[fieldID]
+		p.fieldMetas[idx] = field.Meta{
+			ID:   fieldID,
+			Type: f.GetFieldType(),
+		}
 		idx++
 	}
 	// sort field ids
-	sort.Slice(p.fieldIDs, func(i, j int) bool {
-		return p.fieldIDs[i] < p.fieldIDs[j]
+	sort.Slice(p.fieldMetas, func(i, j int) bool {
+		return p.fieldMetas[i].ID < p.fieldMetas[j].ID
 	})
 
 	return nil
@@ -119,17 +123,17 @@ func (p *storageExecutePlan) groupBy() error {
 
 // getDownSamplingAggSpecs returns the down sampling aggregate specs
 func (p *storageExecutePlan) getDownSamplingAggSpecs() aggregation.AggregatorSpecs {
-	result := make(aggregation.AggregatorSpecs, len(p.fieldIDs))
-	for idx, fieldID := range p.fieldIDs {
-		result[idx] = p.fields[fieldID]
+	result := make(aggregation.AggregatorSpecs, len(p.fieldMetas))
+	for idx, f := range p.fieldMetas {
+		result[idx] = p.fields[f.ID]
 	}
 	return result
 
 }
 
-// getFieldIDs returns sorted slice of field ids
-func (p *storageExecutePlan) getFieldIDs() []field.ID {
-	return p.fieldIDs
+// getFields returns sorted of field.Metas.
+func (p *storageExecutePlan) getFields() field.Metas {
+	return p.fieldMetas
 }
 
 // selectList plans the select list from down sampling aggregation specification

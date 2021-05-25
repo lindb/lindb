@@ -36,8 +36,8 @@ type tStoreINTF interface {
 	InsertFStore(fStore fStoreINTF) (createdSize int)
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
-	// scan scans the time series data based on field ids
-	scan(fields field.Metas) [][]byte
+	// load loads the time series data based on field ids
+	load(fields field.Metas) [][]byte
 }
 
 // fStoreNodes implements sort.Interface
@@ -110,13 +110,13 @@ func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx f
 	}
 }
 
-// scan scans the time series data based on key(family+field).
+// load loads the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
-func (ts *timeSeriesStore) scan(fields field.Metas) [][]byte {
+func (ts *timeSeriesStore) load(fields field.Metas) [][]byte {
 	fieldLength := len(ts.fStoreNodes)
 	fieldCount := len(fields)
 	rs := make([][]byte, fieldCount)
-	// find equals family id index
+	// find equals field id index
 	idx := sort.Search(fieldLength, func(i int) bool {
 		return ts.fStoreNodes[i].GetFieldID() <= fields[0].ID
 	})

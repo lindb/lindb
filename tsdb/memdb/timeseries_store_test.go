@@ -86,32 +86,32 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	}
 
 	// case 1: family time not match
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   10,
 		Type: field.SumField,
 	}})
 	// case 2: field id not match
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   200,
 		Type: field.SumField,
 	}})
 	// case 3: field id not match
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   80,
 		Type: field.SumField,
 	}})
 	// case 4: field key not match
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   80,
 		Type: field.SumField,
 	}})
 	// case 4: match one field
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   50,
 		Type: field.SumField,
 	}})
 	// case 4: match two fields
-	tStore.scan(field.Metas{{
+	tStore.load(field.Metas{{
 		ID:   50,
 		Type: field.SumField,
 	}, {

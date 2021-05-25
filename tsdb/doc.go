@@ -61,7 +61,7 @@ Shard                  Shard
 +------+-------+       +-----+--------+                Suggester
 │ Data │ Memory│       │ Data │ Memory<--------------+ MetaGetter
 │  DB  │   DB  │       │  DB  │   DB  │              │ Filter
-+-----^-+------+       +-----^-+------+              │ Scanner
++-----^-+------+       +-----^-+------+              │ Load
       │ │                    │ │                     +----------------------
       │ │                    │ │
       │ │           IDGetter │ │
@@ -72,7 +72,7 @@ Shard                  Shard
 +------^----------------------^-------+              │              │                      │
        │                      │                      │ Suggest-     │                      │
        ^ SuggestMetrics       ^ SuggestTagKeys       ^ TagValues    ^                      ^
-       │ NameIDIndexReader    │ MetaIndexReader      │ Filter       │ MetaGetter           │ Scanner
+       │ NameIDIndexReader    │ MetaIndexReader      │ Filter       │ MetaGetter           │ Load
 +------+-------+       +------+-------+       +------+-------+------+-------+       +------+-------+
 │ MetricNameID │       │  MetricMeta  │       │SeriesInverted│ SeriesForward│       │  MetricData  │
 │  IndexTable  │       │  IndexTable  │       │  IndexTable  │  IndexTable  │       │    Table     │
