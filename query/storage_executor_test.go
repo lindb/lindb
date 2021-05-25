@@ -196,7 +196,6 @@ func TestStorageExecute_Execute(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().IndexDatabase().Return(index).AnyTimes()
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
-	memDB.EXPECT().Interval().Return(int64(10)).AnyTimes()
 
 	// mock data
 	mockDatabase.EXPECT().NumOfShards().Return(3).AnyTimes()
@@ -207,7 +206,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
-	shard.EXPECT().MemoryDatabase().Return(memDB).AnyTimes()
+	shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()
 
 	// case 1: series search err

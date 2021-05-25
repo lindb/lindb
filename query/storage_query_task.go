@@ -222,7 +222,9 @@ func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 
 // Run executes memory database data filtering based on series ids and time range
 func (t *memoryDataFilterTask) Run() error {
-	resultSet, err := t.shard.MemoryDatabase().Filter(t.metricID, t.fieldIDs, t.seriesIDs, t.ctx.query.TimeRange)
+	//FIXME(stone1100) query by family time
+	memDB, _ := t.shard.MemoryDatabase(10)
+	resultSet, err := memDB.Filter(t.metricID, t.fieldIDs, t.seriesIDs, t.ctx.query.TimeRange)
 	if err != nil {
 		return err
 	}

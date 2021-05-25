@@ -21,7 +21,6 @@ import (
 const testDBPath = "test_db"
 
 var cfg = MemoryDatabaseCfg{
-	Interval: timeutil.Interval(10 * timeutil.OneSecond),
 	TempPath: testDBPath,
 }
 
@@ -33,7 +32,6 @@ func TestMemoryDatabase_New(t *testing.T) {
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, mdINTF)
-	assert.Equal(t, 10*timeutil.OneSecond, mdINTF.Interval())
 	err = mdINTF.Close()
 	assert.NoError(t, err)
 
@@ -59,7 +57,7 @@ func TestMemoryDatabase_AcquireWrite(t *testing.T) {
 	}()
 	flusher := metricsdata.NewMockFlusher(ctrl)
 	flusher.EXPECT().Commit().Return(nil)
-	err = mdINTF.FlushFamilyTo(flusher, 100)
+	err = mdINTF.FlushFamilyTo(flusher)
 	assert.NoError(t, err)
 }
 
@@ -93,42 +91,27 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
 		Name:  "f1",
 		Type:  pb.FieldType_Sum,
 		Value: 10.0,
 	}})
 	assert.NoError(t, err)
 	// case 2: field type unknown
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
 		Name: "f1",
 	}})
 	assert.NoError(t, err)
 	// case 3: generate field err
 	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1-err"), field.SumField).Return(field.ID(0), fmt.Errorf("err"))
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
 		Name:  "f1-err",
 		Type:  pb.FieldType_Sum,
 		Value: 10.0,
 	}})
 	assert.NoError(t, err)
-	// case 4: new family times
-	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
-		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
-		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
-		mockMStore.EXPECT().SetSlot(gomock.Any()),
-	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
-		Name:  "f1",
-		Type:  pb.FieldType_Sum,
-		Value: 10.0,
-	}})
-	assert.NoError(t, err)
-	assert.True(t, md.MemSize() > 0)
 	// case 5: new metric store
-	err = md.Write("ns", "test1", uint32(20), uint32(20), 1564300800000, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(20), uint32(20), 1, []*pb.Field{{
 		Name: "f1",
 	}})
 	assert.NoError(t, err)
@@ -140,7 +123,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 15, []*pb.Field{{
 		Name:  "f4",
 		Type:  pb.FieldType_Sum,
 		Value: 10.0,
@@ -181,7 +164,7 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
 		Name:  "f1",
 		Type:  pb.FieldType_Sum,
 		Value: 10.0,
@@ -207,11 +190,11 @@ func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 
 	// case 1: flusher ok
 	mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
-	err = md.FlushFamilyTo(flusher, 10)
+	err = md.FlushFamilyTo(flusher)
 	assert.NoError(t, err)
 	// case 2: flusher err
 	mockMStore.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = md.FlushFamilyTo(flusher, 10)
+	err = md.FlushFamilyTo(flusher)
 	assert.Error(t, err)
 
 	err = md.Close()
