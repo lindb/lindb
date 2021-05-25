@@ -1,8 +1,31 @@
 package timeutil
 
-// ShortTimeRange represents time range with start/end timestamp using low value.
-type ShortTimeRange struct {
+// SlotRange represents time range with start/end timestamp using low value.
+type SlotRange struct {
 	Start, End uint16
+}
+
+// NewSlotRange creates a new slot range with start/end
+func NewSlotRange(start, end uint16) SlotRange {
+	return SlotRange{
+		Start: start,
+		End:   end,
+	}
+}
+
+// setSlot sets the time slot range
+func (sr *SlotRange) SetSlot(slot uint16) {
+	if slot < sr.Start {
+		sr.Start = slot
+	}
+	if slot > sr.End {
+		sr.End = slot
+	}
+}
+
+// getSlotRange returns return the time slot range
+func (sr *SlotRange) GetRange() (start, end uint16) {
+	return sr.Start, sr.End
 }
 
 // TimeRange represents time range with start/end timestamp.

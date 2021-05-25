@@ -15,34 +15,19 @@ func TestMetricStore_Filter(t *testing.T) {
 	metricStore := mockMetricStore()
 
 	// case 1: field not found
-	rs, err := metricStore.Filter([]field.ID{1, 2}, nil, nil)
-	assert.Equal(t, constants.ErrNotFound, err)
-	assert.Nil(t, rs)
-	// case 2: family not found
-	rs, err = metricStore.Filter([]field.ID{1, 20}, nil, map[familyID]int64{
-		familyID(10): 100,
-	})
+	rs, err := metricStore.Filter([]field.ID{1, 2}, nil)
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, rs)
 	// case 3: series ids not found
-	rs, err = metricStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 2), map[familyID]int64{
-		familyID(20): 100,
-	})
+	rs, err = metricStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 2))
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, rs)
 	// case 3: found data
-	rs, err = metricStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200), map[familyID]int64{
-		familyID(20): 100,
-	})
+	rs, err = metricStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200))
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
 	mrs := rs[0].(*memFilterResultSet)
 	assert.EqualValues(t, roaring.BitmapOf(100, 200).ToArray(), mrs.SeriesIDs().ToArray())
-	assert.Equal(t, []familyID{20}, mrs.familyIDs)
-	assert.Equal(t,
-		map[familyID]int64{
-			familyID(20): 100,
-		}, mrs.familyIDMap)
 	assert.Equal(t,
 		field.Metas{{
 			ID:   20,
@@ -56,10 +41,7 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	defer ctrl.Finish()
 	mStore := mockMetricStore()
 
-	rs, err := mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200), map[familyID]int64{
-		familyID(1):  100,
-		familyID(20): 1000,
-	})
+	rs, err := mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200))
 	assert.NoError(t, err)
 	// case 1: load data success
 	scanner := rs[0].Load(0, roaring.BitmapOf(100, 200).GetContainer(0), []field.ID{20, 30})
@@ -67,24 +49,15 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	scanner.Scan(100)
 	scanner.Scan(200)
 	// case 2: series ids not found
-	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200), map[familyID]int64{
-		familyID(1):  100,
-		familyID(20): 1000,
-	})
+	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200))
 	scanner = rs[0].Load(0, roaring.BitmapOf(1, 2).GetContainer(0), []field.ID{20, 30})
 	assert.Nil(t, scanner)
 	// case 3: high key not exist
-	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200), map[familyID]int64{
-		familyID(1):  100,
-		familyID(20): 1000,
-	})
+	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200))
 	scanner = rs[0].Load(10, roaring.BitmapOf(1, 2).GetContainer(0), []field.ID{20, 30})
 	assert.Nil(t, scanner)
 	// case 4: field not exist
-	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200), map[familyID]int64{
-		familyID(1):  100,
-		familyID(20): 1000,
-	})
+	rs, _ = mStore.Filter([]field.ID{1, 20}, roaring.BitmapOf(1, 100, 200))
 	scanner = rs[0].Load(0, roaring.BitmapOf(100, 200).GetContainer(0), []field.ID{21, 30})
 	assert.Nil(t, scanner)
 }
@@ -93,8 +66,8 @@ func mockMetricStore() *metricStore {
 	mStore := newMetricStore()
 	mStore.AddField(field.ID(10), field.SumField)
 	mStore.AddField(field.ID(20), field.SumField)
-	mStore.SetTimestamp(familyID(1), 10)
-	mStore.SetTimestamp(familyID(20), 20)
+	mStore.SetSlot(10)
+	mStore.SetSlot(20)
 	mStore.GetOrCreateTStore(100)
 	mStore.GetOrCreateTStore(120)
 	mStore.GetOrCreateTStore(200)

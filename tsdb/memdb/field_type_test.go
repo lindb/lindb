@@ -16,7 +16,3 @@ func TestFieldType_getFieldType(t *testing.T) {
 	assert.Equal(t, field.MaxField, getFieldType(&pb.Field{Type: pb.FieldType_Max}))
 	assert.Equal(t, field.GaugeField, getFieldType(&pb.Field{Type: pb.FieldType_Gauge}))
 }
-
-func TestBuildFieldKey(t *testing.T) {
-	assert.Equal(t, FieldKey(uint32(10)|uint32(1)<<16), buildFieldKey(1, 10))
-}

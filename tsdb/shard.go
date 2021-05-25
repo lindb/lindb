@@ -23,7 +23,6 @@ import (
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -487,23 +486,23 @@ func (s *shard) createMemoryDatabase() (memdb.MemoryDatabase, error) {
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
 	startTime := timeutil.Now()
 	defer s.memFlushTimer.Observe(float64(timeutil.Now() - startTime))
-
-	for _, familyTime := range memDB.Families() {
-		segmentName := s.interval.Calculator().GetSegment(familyTime)
-		segment, err := s.segment.GetOrCreateSegment(segmentName)
-		if err != nil {
-			return err
-		}
-		thisDataFamily, err := segment.GetDataFamily(familyTime)
-		if err != nil {
-			continue
-		}
-		// flush family data
-		if err := memDB.FlushFamilyTo(
-			metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
-			return err
-		}
-	}
+	//FIXME(stone1100)
+	//for _, familyTime := range memDB.Families() {
+	//	segmentName := s.interval.Calculator().GetSegment(familyTime)
+	//	segment, err := s.segment.GetOrCreateSegment(segmentName)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	thisDataFamily, err := segment.GetDataFamily(familyTime)
+	//	if err != nil {
+	//		continue
+	//	}
+	//	// flush family data
+	//	if err := memDB.FlushFamilyTo(
+	//		metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
+	//		return err
+	//	}
+	//}
 	if err := memDB.Close(); err != nil {
 		return err
 	}

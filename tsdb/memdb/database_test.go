@@ -88,10 +88,10 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// case 1: write ok
 	gomock.InOrder(
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any()).Return(fStore, true),
+		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
-		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
 		Name:  "f1",
@@ -99,7 +99,6 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		Value: 10.0,
 	}})
 	assert.NoError(t, err)
-	assert.Len(t, md.Families(), 1)
 	// case 2: field type unknown
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
 		Name: "f1",
@@ -116,10 +115,10 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// case 4: new family times
 	gomock.InOrder(
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any()).Return(fStore, true),
+		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
-		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
 		Name:  "f1",
@@ -127,7 +126,6 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		Value: 10.0,
 	}})
 	assert.NoError(t, err)
-	assert.Len(t, md.Families(), 2)
 	assert.True(t, md.MemSize() > 0)
 	// case 5: new metric store
 	err = md.Write("ns", "test1", uint32(20), uint32(20), 1564300800000, []*pb.Field{{
@@ -137,10 +135,10 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// case 6: create new field store
 	gomock.InOrder(
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f4"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any()).Return(nil, false),
+		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 		tStore.EXPECT().InsertFStore(gomock.Any()),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
-		mockMStore.EXPECT().SetTimestamp(gomock.Any(), gomock.Any()),
+		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000+timeutil.OneHour, []*pb.Field{{
 		Name:  "f4",
@@ -148,7 +146,6 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		Value: 10.0,
 	}})
 	assert.NoError(t, err)
-	assert.Len(t, md.Families(), 2)
 	assert.True(t, md.MemSize() > 0)
 
 	err = md.Close()
@@ -182,7 +179,7 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	// case 1: write ok
 	gomock.InOrder(
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any(), gomock.Any()).Return(nil, false),
+		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 	)
 	err = md.Write("ns", "test1", uint32(1), uint32(10), 1564300800000, []*pb.Field{{
 		Name:  "f1",
@@ -233,7 +230,6 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	assert.Equal(t, constants.ErrNotFound, err)
 	assert.Nil(t, rs)
 	now := timeutil.Now()
-	md.assignFamilyID(md.getFamilyTime(now))
 	// case 2: metric store not found
 	rs, err = md.Filter(0, []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
 	assert.Equal(t, constants.ErrNotFound, err)
@@ -241,7 +237,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	// case 3: filter success
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
 	rs, err = md.Filter(uint32(3333), []field.ID{1}, nil, timeutil.TimeRange{Start: now - 10, End: now + 20})
 	assert.NoError(t, err)
@@ -249,12 +245,4 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 
 	err = md.Close()
 	assert.NoError(t, err)
-}
-
-func TestFamilyTimeIDEntries_AddID(t *testing.T) {
-	var entries familyTimeIDEntries
-	entries = entries.AddID(1, 1)
-	entries = entries.AddID(3, 3)
-	entries = entries.AddID(2, 2)
-	assert.Equal(t, int64(2), entries[1].time)
 }

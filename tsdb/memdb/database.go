@@ -2,7 +2,6 @@ package memdb
 
 import (
 	"io"
-	"sort"
 	"sync"
 
 	"github.com/lindb/roaring"
@@ -55,8 +54,6 @@ func init() {
 	monitoring.StorageRegistry.MustRegister(writeDataPointCounter)
 }
 
-type familyID uint8
-
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
 	// AcquireWrite acquires writing data points
@@ -66,8 +63,6 @@ type MemoryDatabase interface {
 	Write(namespace, metricName string, metricID, seriesID uint32, timestamp int64, fields []*pb.Field) (err error)
 	// CompleteWrite completes writing data points
 	CompleteWrite()
-	// Families returns the families in memory which has not been flushed yet
-	Families() []int64
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
 	FlushFamilyTo(flusher metricsdata.Flusher, familyTime int64) error
@@ -92,38 +87,9 @@ type MemoryDatabaseCfg struct {
 // flushContext holds the context for flushing
 type flushContext struct {
 	metricID     uint32
-	familyID     familyID
 	timeInterval int64
 
-	slotRange // start/end time slot, metric level flush context
-}
-
-// familyTimeIDEntry keeps the mapping of familyTime and familyID
-type familyTimeIDEntry struct {
-	time int64
-	id   familyID
-}
-
-// familyTimeIDEntries implements sort.Interface
-type familyTimeIDEntries []familyTimeIDEntry
-
-func (e familyTimeIDEntries) Len() int           { return len(e) }
-func (e familyTimeIDEntries) Less(i, j int) bool { return e[i].time < e[j].time }
-func (e familyTimeIDEntries) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-func (e familyTimeIDEntries) GetID(time int64) (familyID, bool) {
-	idx := sort.Search(e.Len(), func(i int) bool {
-		return e[i].time >= time
-	})
-	if idx >= e.Len() || e[idx].time != time {
-		return 0, false
-	}
-	return e[idx].id, true
-}
-
-func (e familyTimeIDEntries) AddID(time int64, id familyID) familyTimeIDEntries {
-	newE := append(e, familyTimeIDEntry{id: id, time: time})
-	sort.Sort(newE)
-	return newE
+	timeutil.SlotRange // start/end time slot, metric level flush context
 }
 
 // memoryDatabase implements MemoryDatabase.
@@ -135,9 +101,7 @@ type memoryDatabase struct {
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
 
-	allocSize           atomic.Int32        // allocated size
-	familyTimeIDEntries familyTimeIDEntries // familyTime(int64) -> family time id
-	familyIDSeq         uint8
+	allocSize atomic.Int32 // allocated size
 
 	writeCondition sync.WaitGroup
 	rwMutex        sync.RWMutex // lock of create metric store
@@ -205,9 +169,6 @@ func (md *memoryDatabase) Write(
 	defer md.rwMutex.Unlock()
 
 	mStore := md.getOrCreateMStore(metricID)
-	// assign family id for family time
-	fi := md.assignFamilyID(familyTime)
-	fID := fi
 
 	tStore, size := mStore.GetOrCreateTStore(seriesID)
 	written := false
@@ -224,13 +185,13 @@ func (md *memoryDatabase) Write(
 			continue
 		}
 		md.writeDataPointCounter.Inc()
-		pStore, ok := tStore.GetFStore(fID, fieldID)
+		pStore, ok := tStore.GetFStore(fieldID)
 		if !ok {
 			buf, err := md.buf.AllocPage()
 			if err != nil {
 				return err
 			}
-			pStore = newFieldStore(buf, fID, fieldID)
+			pStore = newFieldStore(buf, fieldID)
 			size += tStore.InsertFStore(pStore)
 		}
 		size += pStore.Write(fieldType, slotIndex, f.Value)
@@ -240,19 +201,10 @@ func (md *memoryDatabase) Write(
 		written = true
 	}
 	if written {
-		mStore.SetTimestamp(fi, slotIndex)
+		mStore.SetSlot(slotIndex)
 	}
 	md.allocSize.Add(int32(size))
 	return nil
-}
-
-// Families returns the families in memory which has not been flushed yet.
-func (md *memoryDatabase) Families() []int64 {
-	var families []int64
-	for _, entry := range md.familyTimeIDEntries {
-		families = append(families, entry.time)
-	}
-	return families
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder,
@@ -260,11 +212,9 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 	// waiting current writing complete
 	md.writeCondition.Wait()
 
-	familyID, _ := md.familyTimeIDEntries.GetID(familyTime)
 	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
 		if err := value.FlushMetricsDataTo(flusher, flushContext{
 			metricID:     key,
-			familyID:     familyID,
 			timeInterval: md.interval.Int64(),
 		}); err != nil {
 			return err
@@ -281,31 +231,18 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher, familyTime 
 func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 ) ([]flow.FilterResultSet, error) {
-	// get family tine query range
-	familyTimeRange := timeutil.TimeRange{
-		Start: md.getFamilyTime(timeRange.Start),
-		End:   md.getFamilyTime(timeRange.End),
-	}
-
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
 
 	// find if has match family id based on family time range
-	familyIDs := make(map[familyID]int64)
-	for _, entry := range md.familyTimeIDEntries {
-		if familyTimeRange.Contains(entry.time) {
-			familyIDs[entry.id] = entry.time
-		}
-	}
-	if len(familyIDs) == 0 {
-		return nil, constants.ErrNotFound
-	}
+	//FIXME(stone100) move to shard
 
 	mStore, ok := md.mStores.Get(metricID)
 	if !ok {
 		return nil, constants.ErrNotFound
 	}
-	return mStore.Filter(fieldIDs, seriesIDs, familyIDs)
+	//TODO filter slot range
+	return mStore.Filter(fieldIDs, seriesIDs)
 }
 
 // Interval return the interval of memory database
@@ -321,18 +258,6 @@ func (md *memoryDatabase) MemSize() int32 {
 // Close closes memory data point buffer
 func (md *memoryDatabase) Close() error {
 	return md.buf.Close()
-}
-
-// assignFamily assigns family id for family time
-func (md *memoryDatabase) assignFamilyID(familyTime int64) familyID {
-	fID, ok := md.familyTimeIDEntries.GetID(familyTime)
-	if ok {
-		return fID
-	}
-	fID = familyID(md.familyIDSeq)
-	md.familyIDSeq++
-	md.familyTimeIDEntries = md.familyTimeIDEntries.AddID(familyTime, fID)
-	return fID
 }
 
 func (md *memoryDatabase) getFamilyTime(timestamp int64) (familyTime int64) {

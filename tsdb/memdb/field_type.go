@@ -5,8 +5,6 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-type FieldKey uint32
-
 // getFieldType return field type by given field
 func getFieldType(f *pb.Field) field.Type {
 	switch f.Type {
@@ -21,9 +19,4 @@ func getFieldType(f *pb.Field) field.Type {
 	default:
 		return field.Unknown
 	}
-}
-
-// buildFieldKey returns field key with family/field id
-func buildFieldKey(familyID familyID, fieldID field.ID) FieldKey {
-	return FieldKey(uint32(fieldID) | uint32(familyID)<<16)
 }
