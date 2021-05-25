@@ -15,17 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package memdb
+package metricsdata
 
 import (
 	"testing"
 
+	"github.com/lindb/lindb/pkg/encoding"
+
+	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 )
 
-func TestMetricStoreScanner_Next(t *testing.T) {
-	// case 1: series not exist
-	s := newMetricStoreLoader(roaring.BitmapOf(10, 100).GetContainer(0),
-		nil, nil)
-	s.Load(200)
+func TestMetricLoader_Load(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// case 1: series id not exist
+	s := newMetricLoader(nil, roaring.BitmapOf(10).GetContainer(0), nil)
+	s.Load(1)
+	// case 2: read series data
+	r := NewMockReader(ctrl)
+	r.EXPECT().readSeriesData(gomock.Any())
+	encoder := encoding.NewFixedOffsetEncoder()
+	encoder.Add(100)
+	data := encoder.MarshalBinary()
+	seriesOffsets := encoding.NewFixedOffsetDecoder(data)
+	s = newMetricLoader(r, roaring.BitmapOf(10).GetContainer(0), seriesOffsets)
+	s.Load(10)
 }

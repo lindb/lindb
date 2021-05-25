@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/roaring"
 )
 
-func TestMetricStoreScanner_Next(t *testing.T) {
+func TestMetricStoreLoader_Load(t *testing.T) {
 	// case 1: series not exist
 	s := newMetricStoreLoader(roaring.BitmapOf(10, 100).GetContainer(0),
 		nil, nil)

@@ -56,7 +56,7 @@ type Reader interface {
 	// GetTimeRange returns the time range in this sst file
 	GetTimeRange() timeutil.SlotRange
 	// Load loads the data from sst file, then returns the file metric scanner.
-	Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner
+	Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader
 	// readSeriesData reads series data from file by given position.
 	readSeriesData(position int) [][]byte
 }
@@ -107,22 +107,26 @@ func (r *reader) GetTimeRange() timeutil.SlotRange {
 }
 
 // prepare prepares the field aggregator based on query condition
-func (r *reader) prepare(fieldIDs []field.ID) {
+func (r *reader) prepare(fields field.Metas) (found bool) {
 	fieldMap := make(map[field.ID]int)
 	for idx, fieldMeta := range r.fields {
 		fieldMap[fieldMeta.ID] = idx
 	}
-	for _, fieldID := range fieldIDs { // sort by field ids
-		fieldIdx, ok := fieldMap[fieldID]
+	r.readFieldIndexes = make([]int, len(fields))
+	for idx, f := range fields { // sort by field ids
+		fieldIdx, ok := fieldMap[f.ID]
 		if !ok {
-			continue
+			r.readFieldIndexes[idx] = -1
+		} else {
+			r.readFieldIndexes[idx] = fieldIdx
+			found = true
 		}
-		r.readFieldIndexes = append(r.readFieldIndexes, fieldIdx)
 	}
+	return
 }
 
 // Load loads the data from sst file, then returns the file metric scanner.
-func (r *reader) Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner {
+func (r *reader) Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader {
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := r.seriesIDs.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {
@@ -138,13 +142,12 @@ func (r *reader) Load(highKey uint16, seriesID roaring.Container, fieldIDs []fie
 	offset, _ := r.highOffsets.Get(highContainerIdx)
 	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
 
-	r.prepare(fieldIDs)
-	if len(r.readFieldIndexes) == 0 {
+	if !r.prepare(fields) {
 		// field not found
 		return nil
 	}
 	// must use lowContainer from store, because get series index based on container
-	return newMetricScanner(r, lowContainer, seriesOffsets)
+	return newMetricLoader(r, lowContainer, seriesOffsets)
 }
 
 // readSeriesData reads series data from file by given position.
@@ -160,6 +163,9 @@ func (r *reader) readSeriesData(position int) [][]byte {
 	fieldsData := seriesData[fieldOffsets.Header()+fieldCount*fieldOffsets.ValueWidth():]
 	rs := make([][]byte, len(r.readFieldIndexes))
 	for i, idx := range r.readFieldIndexes {
+		if idx == -1 {
+			continue
+		}
 		offset, ok := fieldOffsets.Get(idx)
 		if ok {
 			// read field data

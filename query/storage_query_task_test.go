@@ -156,7 +156,7 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
 	result := &filterResultSet{}
 	task := newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, []field.ID{10}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
 	// case 1: filter err
 	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := task.Run()
@@ -167,7 +167,7 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 	assert.NoError(t, err)
 	// case 4: explain
 	task = newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, []field.ID{10}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
 	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	shard.EXPECT().ShardID().Return(int32(10))
 	err = task.Run()
@@ -182,7 +182,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
 	result := &filterResultSet{}
 	task := newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, []field.ID{10}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
 	// case 1: get empty family
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil)
 	err := task.Run()
@@ -202,7 +202,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	assert.NotNil(t, result.rs)
 	// case 4: explain
 	task = newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, []field.ID{10}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{flow.NewMockFilterResultSet(ctrl)}, nil)
 	shard.EXPECT().ShardID().Return(int32(10))
@@ -274,14 +274,14 @@ func TestDataLoadTask_Run(t *testing.T) {
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
 	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, qf, rs, nil, 1, nil, 0, newSeriesResultScanner(1).(*loadSeriesResult))
-	rs.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+		shard, qf, rs, 1, nil, 0, newSeriesResultLoader(1).(*loadSeriesResult))
+	rs.EXPECT().Load(gomock.Any(), gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
 	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, qf, rs, nil, 1, nil, 0, newSeriesResultScanner(1).(*loadSeriesResult))
+		shard, qf, rs, 1, nil, 0, newSeriesResultLoader(1).(*loadSeriesResult))
 	shard.EXPECT().ShardID().Return(int32(10)).AnyTimes()
 	rs.EXPECT().Identifier().Return("memory")
 	err = task.Run()

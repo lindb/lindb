@@ -66,13 +66,13 @@ func TestDataFamily_Filter(t *testing.T) {
 
 	// test find kv readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	rs, err := dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
+	rs, err := dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
 	// case 1: find kv readers nil
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
+	rs, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -81,7 +81,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader.EXPECT().Path().Return("test_path").AnyTimes()
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return(nil, false)
-	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
+	rs, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -91,7 +91,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
-	rs, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
+	rs, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
@@ -106,6 +106,6 @@ func TestDataFamily_Filter(t *testing.T) {
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
-	_, err = dataFamily.Filter(uint32(10), nil, nil, timeutil.TimeRange{})
+	_, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.NoError(t, err)
 }

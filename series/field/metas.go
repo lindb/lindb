@@ -71,10 +71,10 @@ func (fms Metas) Insert(m Meta) Metas {
 
 // Intersects checks whether each fieldID is in the list,
 // and returns the new meta-list corresponding with the fieldID-list.
-func (fms Metas) Intersects(fieldIDs []ID) (x2 Metas, isSubSet bool) {
+func (fms Metas) Intersects(fields Metas) (x2 Metas, isSubSet bool) {
 	isSubSet = true
-	for _, fieldID := range fieldIDs {
-		fm, ok := fms.GetFromID(fieldID)
+	for _, f := range fields {
+		fm, ok := fms.GetFromID(f.ID)
 		if ok {
 			x2 = append(x2, fm)
 		} else {

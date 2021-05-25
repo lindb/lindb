@@ -55,6 +55,11 @@ type filterResultSet struct {
 	rs []flow.FilterResultSet
 }
 
+// isEmpty returns if result set is empty.
+func (rs *filterResultSet) isEmpty() bool {
+	return len(rs.rs) == 0
+}
+
 // groupingResult represents the grouping context result
 type groupingResult struct {
 	groupingCtx series.GroupingContext
@@ -65,27 +70,27 @@ type groupedSeriesResult struct {
 	groupedSeries map[string][]uint16
 }
 
-// loadSeriesResult represents load series result with scanner.
+// loadSeriesResult represents load series result with loader.
 type loadSeriesResult struct {
-	scanners []flow.Scanner
+	loaders []flow.DataLoader
 }
 
-// newSeriesResultScanner creates a series load result scanner.
-func newSeriesResultScanner(len int) flow.Scanner {
+// newSeriesResultLoader creates a series load result loader.
+func newSeriesResultLoader(len int) flow.DataLoader {
 	return &loadSeriesResult{
-		scanners: make([]flow.Scanner, len),
+		loaders: make([]flow.DataLoader, len),
 	}
 }
 
-// Scan scans the metric data by given series id from load result.
-func (l *loadSeriesResult) Scan(lowSeriesID uint16) [][]byte {
-	for _, scanner := range l.scanners {
-		if scanner != nil {
-			scanner.Scan(lowSeriesID)
+// Load loads the metric data by given series id from load result.
+func (l *loadSeriesResult) Load(lowSeriesID uint16) [][]byte {
+	var rs [][]byte
+	for _, loader := range l.loaders {
+		if loader != nil {
+			rs = append(rs, loader.Load(lowSeriesID)...)
 		}
 	}
-	//TODO need fix it
-	return nil
+	return rs
 }
 
 // storageExecutor represents execution search logic in storage level,
@@ -101,7 +106,7 @@ type storageExecutor struct {
 	shards   []tsdb.Shard
 
 	metricID           uint32
-	fieldIDs           []field.ID
+	fields             field.Metas
 	storageExecutePlan *storageExecutePlan
 
 	queryFlow flow.StorageQueryFlow
@@ -180,7 +185,7 @@ func (e *storageExecutor) Execute() {
 	e.queryFlow.Prepare(storageExecutePlan.getDownSamplingAggSpecs())
 
 	e.metricID = storageExecutePlan.metricID
-	e.fieldIDs = storageExecutePlan.getFieldIDs()
+	e.fields = storageExecutePlan.getFields()
 	e.storageExecutePlan = storageExecutePlan
 	if e.ctx.query.HasGroupBy() {
 		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
@@ -218,7 +223,7 @@ func (e *storageExecutor) executeQuery() {
 
 			rs := &filterResultSet{}
 			// 2. filter data in memory database
-			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fieldIDs, seriesIDs, rs)
+			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
 			if err != nil && err != constants.ErrNotFound {
 				// maybe data not exist in memory database, so ignore not found err
@@ -226,14 +231,14 @@ func (e *storageExecutor) executeQuery() {
 				return
 			}
 			// 3. filter data each data family in shard
-			t = newFileDataFilterTask(e.ctx, shard, e.metricID, e.fieldIDs, seriesIDs, rs)
+			t = newFileDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
 			if err != nil && err != constants.ErrNotFound {
 				// maybe data not exist in shard, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
 			}
-			if len(rs.rs) == 0 {
+			if rs.isEmpty() {
 				// data not found
 				return
 			}
@@ -250,7 +255,7 @@ func (e *storageExecutor) executeQuery() {
 					// try start collect tag values
 					e.collectGroupByTagValues()
 				}()
-				e.executeGroupBy(shard, rs.rs, seriesIDsAfterFilter)
+				e.executeGroupBy(shard, rs, seriesIDsAfterFilter)
 			})
 		})
 	}
@@ -259,7 +264,7 @@ func (e *storageExecutor) executeQuery() {
 // executeGroupBy executes the query flow, step as below:
 // 1. grouping
 // 2. loading
-func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResultSet, seriesIDs *roaring.Bitmap) {
+func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
 	// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
@@ -272,7 +277,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 		t := newGroupingContextFindTask(e.ctx, shard, tagKeys, seriesIDs, groupingResult)
 		err := t.Run()
 		if err != nil && err != constants.ErrNotFound {
-			// maybe group by not found, so ignore not found
+			// maybe group by not found, so ignore not found err
 			e.queryFlow.Complete(err)
 			return
 		}
@@ -285,18 +290,19 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 	e.pendingForGrouping.Add(int32(len(keys)))
 	var groupWait atomic.Int32
 	groupWait.Add(int32(len(keys)))
+	resultSet := rs.rs
 
 	for idx, key := range keys {
 		// be carefully, need use new variable for variable scope problem
 		highKey := key
 		containerOfSeries := seriesIDs.GetContainerAtIndex(idx)
 
-		e.queryFlow.Scanner(func() {
-			loadSeriesRS := newSeriesResultScanner(len(rs))
+		e.queryFlow.Load(func() {
+			loadSeriesRS := newSeriesResultLoader(len(resultSet))
 
-			for idx := range rs {
+			for idx := range resultSet {
 				// 3.load data by grouped seriesIDs
-				t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, rs[idx], e.fieldIDs,
+				t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, resultSet[idx],
 					highKey, containerOfSeries,
 					idx, loadSeriesRS.(*loadSeriesResult))
 				if err := t.Run(); err != nil {
@@ -307,7 +313,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs []flow.FilterResul
 			// scan metric data from storage(memory/file)
 			it := containerOfSeries.PeekableIterator()
 			for it.HasNext() {
-				loadSeriesRS.Scan(it.Next())
+				_ = loadSeriesRS.Load(it.Next())
 			}
 		})
 
@@ -364,7 +370,7 @@ func (e *storageExecutor) collectGroupByTagValues() {
 					e.queryFlow.ReduceTagValues(tagIndex, nil)
 					continue
 				}
-				e.queryFlow.Scanner(func() {
+				e.queryFlow.Load(func() {
 					tagValues := make(map[uint32]string)
 					t := newCollectTagValuesTask(e.ctx, e.database.Metadata(), tagKey, tagValueIDs, tagValues)
 					if err := t.Run(); err != nil {

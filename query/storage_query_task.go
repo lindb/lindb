@@ -211,21 +211,21 @@ type memoryDataFilterTask struct {
 	ctx       *storageExecuteContext
 	shard     tsdb.Shard
 	metricID  uint32
-	fieldIDs  []field.ID
+	fields    field.Metas
 	seriesIDs *roaring.Bitmap
 	result    *filterResultSet
 }
 
 // newMemoryDataFilterTask creates memory data filter task
 func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	metricID uint32, fieldIDs []field.ID, seriesIDs *roaring.Bitmap,
+	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
 	result *filterResultSet,
 ) flow.QueryTask {
 	task := &memoryDataFilterTask{
 		ctx:       ctx,
 		shard:     shard,
 		metricID:  metricID,
-		fieldIDs:  fieldIDs,
+		fields:    fields,
 		seriesIDs: seriesIDs,
 		result:    result,
 	}
@@ -241,7 +241,7 @@ func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 func (t *memoryDataFilterTask) Run() error {
 	//FIXME(stone1100) query by family time
 	memDB, _ := t.shard.MemoryDatabase(10)
-	resultSet, err := memDB.Filter(t.metricID, t.fieldIDs, t.seriesIDs, t.ctx.query.TimeRange)
+	resultSet, err := memDB.Filter(t.metricID, t.seriesIDs, t.ctx.query.TimeRange, t.fields)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ type fileDataFilterTask struct {
 	ctx       *storageExecuteContext
 	shard     tsdb.Shard
 	metricID  uint32
-	fieldIDs  []field.ID
+	fields    field.Metas
 	seriesIDs *roaring.Bitmap
 
 	result *filterResultSet
@@ -270,14 +270,14 @@ type fileDataFilterTask struct {
 
 // newFileDataFilterTask creates file data filtering task
 func newFileDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	metricID uint32, fieldIDs []field.ID, seriesIDs *roaring.Bitmap,
+	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
 	result *filterResultSet,
 ) flow.QueryTask {
 	task := &fileDataFilterTask{
 		ctx:       ctx,
 		shard:     shard,
 		metricID:  metricID,
-		fieldIDs:  fieldIDs,
+		fields:    fields,
 		seriesIDs: seriesIDs,
 		result:    result,
 	}
@@ -298,7 +298,7 @@ func (t *fileDataFilterTask) Run() error {
 	for idx := range families {
 		family := families[idx]
 		// execute data family search in background goroutine
-		resultSet, err := family.Filter(t.metricID, t.fieldIDs, t.seriesIDs, t.ctx.query.TimeRange)
+		resultSet, err := family.Filter(t.metricID, t.seriesIDs, t.ctx.query.TimeRange, t.fields)
 		if err != nil {
 			return err
 		}
@@ -417,7 +417,6 @@ type dataLoadTask struct {
 	shard       tsdb.Shard
 	queryFlow   flow.StorageQueryFlow
 	filteringRS flow.FilterResultSet
-	fieldIDs    []field.ID
 	highKey     uint16
 	seriesIDs   roaring.Container
 
@@ -427,7 +426,7 @@ type dataLoadTask struct {
 
 // newDataLoadTask creates the data load task
 func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-	filteringRS flow.FilterResultSet, fieldIDs []field.ID,
+	filteringRS flow.FilterResultSet,
 	highKey uint16, seriesIDs roaring.Container,
 	idx int, result *loadSeriesResult,
 ) flow.QueryTask {
@@ -436,7 +435,6 @@ func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flo
 		shard:       shard,
 		queryFlow:   queryFlow,
 		filteringRS: filteringRS,
-		fieldIDs:    fieldIDs,
 		highKey:     highKey,
 		seriesIDs:   seriesIDs,
 		idx:         idx,
@@ -452,7 +450,7 @@ func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flo
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	t.result.scanners[t.idx] = t.filteringRS.Load(t.highKey, t.seriesIDs, t.fieldIDs)
+	t.result.loaders[t.idx] = t.filteringRS.Load(t.highKey, t.seriesIDs)
 	return nil
 }
 
