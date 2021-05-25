@@ -31,7 +31,7 @@ import (
 // Filter implements filtering metrics from sst files.
 type Filter interface {
 	// Filter filters data under each sst file based on query condition
-	Filter(fieldIDs []field.ID, seriesIDs *roaring.Bitmap) ([]flow.FilterResultSet, error)
+	Filter(seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
 }
 
 // metricsDataFilter represents the sst file data filter
@@ -51,13 +51,13 @@ func NewFilter(familyTime int64, snapshot version.Snapshot, readers []Reader) Fi
 }
 
 // Filter filters the data under each sst file based on metric/version/seriesIDs,
-// if finds data then returns the FilterResultSet, else returns nil
-func (f *metricsDataFilter) Filter(fieldIDs []field.ID,
-	seriesIDs *roaring.Bitmap,
+// if finds data then returns the flow.FilterResultSet, else returns nil
+func (f *metricsDataFilter) Filter(
+	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) (rs []flow.FilterResultSet, err error) {
 	for _, reader := range f.readers {
 		//FIXME add time range compare????
-		fieldMetas, _ := reader.GetFields().Intersects(fieldIDs)
+		fieldMetas, _ := reader.GetFields().Intersects(fields)
 		if len(fieldMetas) == 0 {
 			// field not found
 			continue
@@ -68,7 +68,7 @@ func (f *metricsDataFilter) Filter(fieldIDs []field.ID,
 			// series ids not found
 			continue
 		}
-		rs = append(rs, newFileFilterResultSet(f.familyTime, fieldMetas, matchSeriesIDs, reader))
+		rs = append(rs, newFileFilterResultSet(f.familyTime, fields, matchSeriesIDs, reader))
 	}
 	// not founds
 	if len(rs) == 0 {
@@ -81,18 +81,18 @@ func (f *metricsDataFilter) Filter(fieldIDs []field.ID,
 type fileFilterResultSet struct {
 	reader     Reader
 	familyTime int64
-	fieldMetas field.Metas
+	fields     field.Metas
 	seriesIDs  *roaring.Bitmap
 }
 
 // newFileFilterResultSet creates the file filter result set
-func newFileFilterResultSet(familyTime int64, fieldMetas field.Metas,
+func newFileFilterResultSet(familyTime int64, fields field.Metas,
 	seriesIDs *roaring.Bitmap, reader Reader,
 ) flow.FilterResultSet {
 	return &fileFilterResultSet{
 		familyTime: familyTime,
 		reader:     reader,
-		fieldMetas: fieldMetas,
+		fields:     fields,
 		seriesIDs:  seriesIDs,
 	}
 }
@@ -108,6 +108,6 @@ func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
 }
 
 // Load reads data from sst files, then returns the data file scanner.
-func (f *fileFilterResultSet) Load(highKey uint16, seriesID roaring.Container, fieldIDs []field.ID) flow.Scanner {
-	return f.reader.Load(highKey, seriesID, fieldIDs)
+func (f *fileFilterResultSet) Load(highKey uint16, seriesID roaring.Container) flow.DataLoader {
+	return f.reader.Load(highKey, seriesID, f.fields)
 }

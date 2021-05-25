@@ -132,5 +132,5 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	//sAgg1.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, true)
 	//block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
 	//qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
-	r.Load(0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0), []field.ID{2})
+	r.Load(0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0), field.Metas{{ID: 2}})
 }

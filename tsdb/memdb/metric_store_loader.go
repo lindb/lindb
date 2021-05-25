@@ -15,36 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package metricsdata
+package memdb
 
 import (
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/series/field"
+
+	"github.com/lindb/roaring"
 )
 
-// metricScanner implements flow.Scanner interface that scans metric data from file storage.
-type metricScanner struct {
-	reader        Reader
-	lowContainer  roaring.Container
-	seriesOffsets *encoding.FixedOffsetDecoder
+// metricStoreLoader implements flow.DataLoader interface that loads metric data from memory storage.
+type metricStoreLoader struct {
+	lowContainer     roaring.Container
+	timeSeriesStores []tStoreINTF
+	fields           field.Metas // sort by field id
 }
 
-// newMetricScanner creates a file storage metric scanner.
-func newMetricScanner(reader Reader,
-	lowContainer roaring.Container,
-	seriesOffsets *encoding.FixedOffsetDecoder,
-) flow.Scanner {
-	return &metricScanner{
-		reader:        reader,
-		lowContainer:  lowContainer,
-		seriesOffsets: seriesOffsets,
+// newMetricStoreLoader creates a memory storage metric loader.
+func newMetricStoreLoader(lowContainer roaring.Container,
+	timeSeriesStores []tStoreINTF,
+	fields field.Metas,
+) flow.DataLoader {
+	return &metricStoreLoader{
+		lowContainer:     lowContainer,
+		timeSeriesStores: timeSeriesStores,
+		fields:           fields,
 	}
 }
 
-// Scan scans the metric data by given series id from file storage.
-func (s *metricScanner) Scan(lowSeriesID uint16) [][]byte {
+// Load loads the metric data by given series id from memory storage.
+func (s *metricStoreLoader) Load(lowSeriesID uint16) [][]byte {
 	// check low series id if exist
 	if !s.lowContainer.Contains(lowSeriesID) {
 		return nil
@@ -52,7 +52,6 @@ func (s *metricScanner) Scan(lowSeriesID uint16) [][]byte {
 	// get the index of low series id in container
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
-	seriesPos, _ := s.seriesOffsets.Get(idx - 1)
-	// read series data of fields
-	return s.reader.readSeriesData(seriesPos)
+	store := s.timeSeriesStores[idx-1]
+	return store.load(s.fields)
 }

@@ -56,10 +56,10 @@ func Test_Metas(t *testing.T) {
 	assert.False(t, ok)
 
 	// Intersects
-	ml, ok := metas.Intersects([]ID{1, 203, 250})
+	ml, ok := metas.Intersects(Metas{{ID: 1}, {ID: 203}, {ID: 250}})
 	assert.False(t, ok)
 	assert.Len(t, ml, 2)
-	ml, ok = metas.Intersects([]ID{1, 203, 204})
+	ml, ok = metas.Intersects(Metas{{ID: 1}, {ID: 203}, {ID: 204}})
 	assert.True(t, ok)
 	assert.Len(t, ml, 3)
 }

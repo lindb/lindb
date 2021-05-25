@@ -230,8 +230,9 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if finds data then returns the FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
+func (md *memoryDatabase) Filter(metricID uint32,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
+	fields field.Metas,
 ) ([]flow.FilterResultSet, error) {
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
@@ -244,7 +245,7 @@ func (md *memoryDatabase) Filter(metricID uint32, fieldIDs []field.ID,
 		return nil, constants.ErrNotFound
 	}
 	//TODO filter slot range
-	return mStore.Filter(fieldIDs, seriesIDs)
+	return mStore.Filter(seriesIDs, fields)
 }
 
 // MemSize returns the time series database memory size

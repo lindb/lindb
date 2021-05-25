@@ -27,6 +27,8 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+//go:generate mockgen -source=./down_sampling_agg.go -destination=./down_sampling_agg_mock.go -package=aggregation
+
 // DownSamplingAggregator represents down sampling for field data.
 type DownSamplingAggregator interface {
 	// DownSampling merges fields' data by target interval and time range.

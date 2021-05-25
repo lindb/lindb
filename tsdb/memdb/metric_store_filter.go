@@ -25,12 +25,12 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-// Filter filters the data based on fieldIDs/seriesIDs/familyIDs,
+// Filter filters the data based on fields/seriesIDs/familyIDs,
 // if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
-func (ms *metricStore) Filter(fieldIDs []field.ID, seriesIDs *roaring.Bitmap) ([]flow.FilterResultSet, error) {
+func (ms *metricStore) Filter(seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error) {
 	// first need check query's fields is match store's fields, if not return.
-	fields, _ := ms.fields.Intersects(fieldIDs)
-	if len(fields) == 0 {
+	foundFields, _ := ms.fields.Intersects(fields)
+	if len(foundFields) == 0 {
 		// field not found
 		return nil, constants.ErrNotFound
 	}
@@ -54,22 +54,10 @@ func (ms *metricStore) Filter(fieldIDs []field.ID, seriesIDs *roaring.Bitmap) ([
 
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
-	store       *metricStore
-	fields      field.Metas // sort by field id
-	queryFields field.Metas // query fields sort by field id
+	store  *metricStore
+	fields field.Metas // sort by field id
 
 	seriesIDs *roaring.Bitmap
-}
-
-// prepare prepares the field aggregator based on query condition
-func (rs *memFilterResultSet) prepare(fieldIDs []field.ID) {
-	for _, fieldID := range fieldIDs { // sort by field ids
-		fMeta, ok := rs.fields.GetFromID(fieldID)
-		if !ok {
-			continue
-		}
-		rs.queryFields = append(rs.queryFields, fMeta)
-	}
 }
 
 // Identifier identifies the source of result set from memory storage
@@ -83,7 +71,7 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 }
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
-func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container, fieldIDs []field.ID) flow.Scanner {
+func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container) flow.DataLoader {
 	//FIXME need add lock?????
 
 	// 1. get high container index by the high key of series ID
@@ -99,11 +87,6 @@ func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container, 
 		return nil
 	}
 
-	rs.prepare(fieldIDs)
-	if len(rs.queryFields) == 0 {
-		return nil
-	}
-
 	// must use lowContainer from store, because get series index based on container
-	return newMetricStoreScanner(lowContainer, rs.store.values[highContainerIdx], rs.fields)
+	return newMetricStoreLoader(lowContainer, rs.store.values[highContainerIdx], rs.fields)
 }
