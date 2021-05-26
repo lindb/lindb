@@ -52,7 +52,7 @@ type MetadataAPI struct {
 	jobManager          parallel.JobManager
 }
 
-// NewDatabaseAPI creates database api instance
+// NewMetadataAPI creates database api instance
 func NewMetadataAPI(databaseService service.DatabaseService,
 	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
 	executorFactory parallel.ExecutorFactory, jobManager parallel.JobManager,

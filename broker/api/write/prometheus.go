@@ -23,7 +23,8 @@ import (
 
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/protocol"
+	ingestCommon "github.com/lindb/lindb/ingestion/common"
+	"github.com/lindb/lindb/ingestion/prometheus"
 	"github.com/lindb/lindb/replication"
 )
 
@@ -58,7 +59,12 @@ func (m *PrometheusWrite) Write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metricList, err := protocol.PromParse(s)
+	enrichedTags, err := ingestCommon.ExtractEnrichTags(r)
+	if err != nil {
+		api.Error(w, err)
+		return
+	}
+	metricList, err := prometheus.PromParse(s, enrichedTags)
 	if err != nil {
 		api.Error(w, err)
 		return

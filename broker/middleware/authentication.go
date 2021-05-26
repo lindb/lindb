@@ -33,7 +33,7 @@ import (
 //go:generate mockgen -source=./authentication.go -destination=./authentication_mock.go -package=middleware
 
 type Authentication interface {
-	// CreateLToken returns the authentication token
+	// CreateToken returns the authentication token
 	CreateToken(user config.User) (string, error)
 	// Validate validates the token
 	Validate(next http.Handler) http.Handler
@@ -97,7 +97,7 @@ func parseToken(tokenString string, user config.User) *CustomClaims {
 	return &claims
 }
 
-// CreateLToken returns token use jwt with custom claims
+// CreateToken returns token use jwt with custom claims
 func (u *userAuthentication) CreateToken(user config.User) (string, error) {
 	claims := CustomClaims{
 		UserName: user.UserName,

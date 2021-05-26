@@ -24,7 +24,7 @@ import (
 var errOutOfRange = errors.New("index out of range")
 
 // A Buffer is a buffer manager for marshaling and unmarshaling
-// protocol buffers.  It may be reused between invocations to
+// prometheus buffers.  It may be reused between invocations to
 // reduce memory usage.  It is not necessary to use a Buffer;
 // the global functions Marshal and Unmarshal create a
 // temporary Buffer and are fine for most applications.

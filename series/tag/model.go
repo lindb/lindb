@@ -53,6 +53,10 @@ func (tags Tags) Size() int {
 	return total
 }
 
+func (tags Tags) String() string {
+	return string(tags.AppendHashKey(nil))
+}
+
 func (tags Tags) needsEscape() bool {
 	for i := range tags {
 		t := &tags[i]

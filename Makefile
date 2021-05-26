@@ -55,6 +55,9 @@ generate:  ## generate pb file.
 	sh ./ci/generate_pb.sh
 	cd tsdb/template && sh generate_tmpl.sh
 
+clean-mock: ## remove all mock files
+	find ./ -name "*_mock.go" | xargs rm
+
 clean-build:
 	rm -f bin/lind
 
@@ -69,4 +72,4 @@ clean-tmp: ## clean up tmp and test out files
 	find . -type s -name 'localhost:*' -exec rm -f {} +
 	find . -type s -name '127.0.0.1:*' -exec rm -f {} +
 
-clean: clean-tmp clean-build clean-forntend-build ## Clean up useless files.
+clean: clean-mock clean-tmp clean-build clean-forntend-build ## Clean up useless files.
