@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package protocol
+package prometheus
 
 import (
 	"testing"
+
+	"github.com/lindb/lindb/series/tag"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -74,18 +76,18 @@ testmetric{label="\"bar\""} 1`
 	input += "\n# HELP metric foo\x00bar"
 	input += "\nnull_byte_metric{a=\"abc\x00\"} 1\n"
 
-	metrics, err := PromParse([]byte(input))
+	metrics, err := PromParse([]byte(input), tag.Tags{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, metrics)
 
-	metrics, err = PromParse([]byte("empty"))
+	metrics, err = PromParse([]byte("empty"), tag.Tags{})
 	assert.Error(t, err)
 	assert.Empty(t, metrics)
 	input = `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # 	TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds{method="post",code="400",quantile="0"} 4.9351e-05
 go_gc_duration_seconds { quantile = "0.9999" } 8.38`
-	metrics, err = PromParse([]byte(input))
+	metrics, err = PromParse([]byte(input), tag.Tags{})
 	assert.NoError(t, err)
 	assert.Empty(t, metrics)
 	input = `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
@@ -94,7 +96,7 @@ go_gc_duration_seconds { quantile = "0.9999" } NaN
 go_gc_duration_seconds_count 9
 go_gc_duration_seconds_sum 90
 `
-	metrics, err = PromParse([]byte(input))
+	metrics, err = PromParse([]byte(input), tag.Tags{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, metrics)
 }
