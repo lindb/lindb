@@ -114,7 +114,7 @@ type Shard interface {
 	Write(metric *pb.Metric) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
-	// Close releases shard's resource, such as flush data, spawned goroutines etc.
+	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 	// Flush flushes index and memory data to disk
 	Flush() error

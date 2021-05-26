@@ -291,7 +291,7 @@ func gather(gatherers prometheus.Gatherers) ([]*dto.MetricFamily, error) {
 	return gatherers.Gather()
 }
 
-// encode encodes metric families into an underlying wire protocol.
+// encode encodes metric families into an underlying wire prometheus.
 func encode(enc expfmt.Encoder, mf *dto.MetricFamily) error {
 	return enc.Encode(mf)
 }

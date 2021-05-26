@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package protocol
+package prometheus
 
 import (
 	"bytes"
@@ -29,8 +29,8 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-// PromParse parses prometheus text protocol to LinDB pb protocol.
-func PromParse(data []byte) (*pb.MetricList, error) {
+// PromParse parses prometheus text prometheus to LinDB pb prometheus.
+func PromParse(data []byte, enrichedTags tag.Tags) (*pb.MetricList, error) {
 	parser := &expfmt.TextParser{}
 	out, err := parser.TextToMetricFamilies(bytes.NewBuffer(data))
 	if err != nil && len(out) == 0 {
@@ -62,8 +62,19 @@ func PromParse(data []byte) (*pb.MetricList, error) {
 				for _, label := range m.Label {
 					tags[*label.Name] = *label.Value
 				}
-				metric.TagsHash = xxhash.Sum64String(tag.Concat(tags))
 				metric.Tags = tags
+			}
+			if enrichedTags.Size() > 0 {
+				if metric.Tags == nil {
+					metric.Tags = make(map[string]string)
+				}
+				for _, enrichedTag := range enrichedTags {
+					metric.Tags[string(enrichedTag.Key)] = string(enrichedTag.Value)
+				}
+			}
+
+			if metric.Tags != nil && len(metric.Tags) > 0 {
+				metric.TagsHash = xxhash.Sum64String(tag.Concat(metric.Tags))
 			} else {
 				metric.TagsHash = xxhash.Sum64String(metric.Name)
 			}
