@@ -126,7 +126,7 @@ func TestFieldStore_Write(t *testing.T) {
 	// case 10: test final data by load
 	writtenSize = store.Write(field.SumField, 15, 15.1)
 	assert.Equal(t, valueSize, writtenSize)
-	s.Load(field.SumField)
+	s.Load(field.SumField, thisSlotRange)
 }
 
 func TestFieldStore_Write2(t *testing.T) {

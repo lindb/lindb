@@ -23,6 +23,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -89,27 +90,27 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	tStore.load(field.Metas{{
 		ID:   10,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 	// case 2: field id not match
 	tStore.load(field.Metas{{
 		ID:   200,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 	// case 3: field id not match
 	tStore.load(field.Metas{{
 		ID:   80,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 	// case 4: field key not match
 	tStore.load(field.Metas{{
 		ID:   80,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 	// case 4: match one field
 	tStore.load(field.Metas{{
 		ID:   50,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 	// case 4: match two fields
 	tStore.load(field.Metas{{
 		ID:   50,
@@ -117,5 +118,5 @@ func TestTimeSeriesStore_scan(t *testing.T) {
 	}, {
 		ID:   80,
 		Type: field.SumField,
-	}})
+	}}, timeutil.SlotRange{})
 }

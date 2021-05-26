@@ -20,6 +20,7 @@ package memdb
 import (
 	"sort"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -37,7 +38,7 @@ type tStoreINTF interface {
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 	// load loads the time series data based on field ids
-	load(fields field.Metas) [][]byte
+	load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte
 }
 
 // fStoreNodes implements sort.Interface
@@ -112,7 +113,7 @@ func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx f
 
 // load loads the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
-func (ts *timeSeriesStore) load(fields field.Metas) [][]byte {
+func (ts *timeSeriesStore) load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte {
 	fieldLength := len(ts.fStoreNodes)
 	fieldCount := len(fields)
 	rs := make([][]byte, fieldCount)
@@ -128,7 +129,7 @@ func (ts *timeSeriesStore) load(fields field.Metas) [][]byte {
 		switch {
 		case storeFieldID == queryFieldID:
 			// load field data
-			rs[j] = fieldStore.Load(fields[j].Type)
+			rs[j] = fieldStore.Load(fields[j].Type, slotRange)
 			j++ // goto next query field id
 			// found all query fields return it
 			if fieldCount == j {
