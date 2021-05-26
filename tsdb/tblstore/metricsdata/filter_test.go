@@ -44,7 +44,7 @@ func TestMetricsDataFilter_Filter(t *testing.T) {
 	defer ctrl.Finish()
 
 	reader := NewMockReader(ctrl)
-	filter := NewFilter(10, nil, []Reader{reader})
+	filter := NewFilter(10, nil, []MetricReader{reader})
 	// case 1: field not found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})
 	rs, err := filter.Filter(roaring.BitmapOf(1, 2, 3), field.Metas{{ID: 1}, {ID: 30}})

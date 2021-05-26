@@ -24,17 +24,17 @@ import (
 
 //go:generate mockgen -source ./field_reader.go -destination=./field_reader_mock.go -package metricsdata
 
-// FieldReader represents the field reader when does metric data merge.
+// FieldReader represents the field metricReader when does metric data merge.
 // !!!!NOTICE: need get field value in order by field
 type FieldReader interface {
 	// slotRange returns the time slot range of metric level
 	slotRange() (start, end uint16)
 	// getFieldData returns the field data by field id,
-	// if reader is completed, return nil, if found data returns field data else returns nil
+	// if metricReader is completed, return nil, if found data returns field data else returns nil
 	getFieldData(fieldID field.ID) []byte
 	// reset resets the field data for reading
 	reset(buf []byte, position int, start, end uint16)
-	// close closes the reader
+	// close closes the metricReader
 	close()
 }
 
@@ -49,7 +49,7 @@ type fieldReader struct {
 	completed bool // !!!!NOTICE: need reset completed
 }
 
-// newFieldReader creates the field reader
+// newFieldReader creates the field metricReader
 func newFieldReader(fieldIndexes map[field.ID]int, buf []byte, position int, start, end uint16) FieldReader {
 	r := &fieldReader{
 		fieldIndexes: fieldIndexes,
@@ -80,7 +80,7 @@ func (r *fieldReader) slotRange() (start, end uint16) {
 }
 
 // getFieldData returns the field data by field id,
-// if reader is completed, return nil, if found data returns field data else returns nil
+// if metricReader is completed, return nil, if found data returns field data else returns nil
 func (r *fieldReader) getFieldData(fieldID field.ID) []byte {
 	if r.completed {
 		return nil
@@ -99,7 +99,7 @@ func (r *fieldReader) getFieldData(fieldID field.ID) []byte {
 	return r.seriesData[offset:]
 }
 
-// close marks the reader completed
+// close marks the metricReader completed
 func (r *fieldReader) close() {
 	r.completed = true
 }

@@ -86,7 +86,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	assert.Nil(t, rs)
 
 	// case 3: new metric reader err
-	newReaderFunc = func(file string, buf []byte) (reader metricsdata.Reader, err error) {
+	newReaderFunc = func(file string, buf []byte) (reader metricsdata.MetricReader, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
@@ -96,11 +96,11 @@ func TestDataFamily_Filter(t *testing.T) {
 	assert.Nil(t, rs)
 
 	// case 4: normal case
-	newReaderFunc = func(file string, buf []byte) (reader metricsdata.Reader, err error) {
+	newReaderFunc = func(file string, buf []byte) (reader metricsdata.MetricReader, err error) {
 		return nil, nil
 	}
 	filter := metricsdata.NewMockFilter(ctrl)
-	newFilterFunc = func(familyTime int64, snapshot version.Snapshot, readers []metricsdata.Reader) metricsdata.Filter {
+	newFilterFunc = func(familyTime int64, snapshot version.Snapshot, readers []metricsdata.MetricReader) metricsdata.Filter {
 		return filter
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)

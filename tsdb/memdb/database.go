@@ -92,9 +92,10 @@ type MemoryDatabase interface {
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
-	Name     string
-	Metadata metadb.Metadata
-	TempPath string
+	FamilyTime int64
+	Name       string
+	Metadata   metadb.Metadata
+	TempPath   string
 }
 
 // flushContext holds the context for flushing
@@ -106,8 +107,9 @@ type flushContext struct {
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
-	name     string
-	metadata metadb.Metadata // metadata for assign metric id/field id
+	familyTime int64
+	name       string
+	metadata   metadb.Metadata // metadata for assign metric id/field id
 
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
@@ -129,6 +131,7 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		return nil, err
 	}
 	return &memoryDatabase{
+		familyTime:                 cfg.FamilyTime,
 		name:                       cfg.Name,
 		metadata:                   cfg.Metadata,
 		buf:                        buf,
@@ -245,7 +248,7 @@ func (md *memoryDatabase) Filter(metricID uint32,
 		return nil, constants.ErrNotFound
 	}
 	//TODO filter slot range
-	return mStore.Filter(seriesIDs, fields)
+	return mStore.Filter(md.familyTime, seriesIDs, fields)
 }
 
 // MemSize returns the time series database memory size

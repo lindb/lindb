@@ -102,7 +102,7 @@ func (f *dataFamily) Filter(metricID uint32,
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return
 	}
-	var metricReaders []metricsdata.Reader
+	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, ok := reader.Get(metricID)
 		// metric data not found

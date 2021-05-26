@@ -26,13 +26,13 @@ import (
 
 // metricLoader implements flow.DataLoader interface that loads metric data from file storage.
 type metricLoader struct {
-	reader        Reader
+	reader        MetricReader
 	lowContainer  roaring.Container
 	seriesOffsets *encoding.FixedOffsetDecoder
 }
 
 // newMetricLoader creates a file storage metric loader.
-func newMetricLoader(reader Reader,
+func newMetricLoader(reader MetricReader,
 	lowContainer roaring.Container,
 	seriesOffsets *encoding.FixedOffsetDecoder,
 ) flow.DataLoader {
