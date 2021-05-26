@@ -237,7 +237,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	// case 3: filter success
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
 	rs, err = md.Filter(uint32(3333), nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
 	assert.NoError(t, err)

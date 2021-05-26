@@ -37,13 +37,17 @@ type DataFilter interface {
 	) ([]FilterResultSet, error)
 }
 
-// FilterResultSet represents the filter result set, loads data and does down sampling need based on this interface.
+// FilterResultSet represents the filter result set, loads data based on this interface.
 type FilterResultSet interface {
-	// Identifier identifies the source of result set(mem/kv etc.)
+	// Identifier identifies the source of result set(mem/kv etc.).
 	Identifier() string
+	// FamilyTime returns the family time of storage.
+	FamilyTime() int64
+	// SlotRange returns the slot range of storage.
+	SlotRange() timeutil.SlotRange
 	// Load loads the data from storage, then returns the data loader.
 	Load(highKey uint16, seriesID roaring.Container) DataLoader
-	// SeriesIDs returns the series ids which matches with query series ids
+	// SeriesIDs returns the series ids which matches with query series ids.
 	SeriesIDs() *roaring.Bitmap
 }
 

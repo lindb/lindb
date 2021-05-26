@@ -273,7 +273,7 @@ func (s *shard) MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 	defer s.rwMutex.RUnlock()
 	memDB, ok := s.families[familyTime]
 	if !ok {
-		memDB, err := s.createMemoryDatabase()
+		memDB, err := s.createMemoryDatabase(familyTime)
 		if err != nil {
 			return nil, err
 		}
@@ -468,11 +468,12 @@ func (s *shard) initIndexDatabase() error {
 }
 
 // createMemoryDatabase creates a new memory database for writing data points
-func (s *shard) createMemoryDatabase() (memdb.MemoryDatabase, error) {
+func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 	return newMemoryDBFunc(memdb.MemoryDatabaseCfg{
-		Name:     s.databaseName,
-		Metadata: s.metadata,
-		TempPath: filepath.Join(s.path, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
+		FamilyTime: familyTime,
+		Name:       s.databaseName,
+		Metadata:   s.metadata,
+		TempPath:   filepath.Join(s.path, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
 	})
 }
 

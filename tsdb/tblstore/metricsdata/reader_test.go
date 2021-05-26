@@ -46,7 +46,7 @@ func TestNewReader(t *testing.T) {
 	r, err = NewReader("1.sst", []byte{0, 0, 0, 1, 2, 3, 3, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 1, 2, 3, 4})
 	assert.Error(t, err)
 	assert.Nil(t, r)
-	// case 3: new reader success
+	// case 3: new metricReader success
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)

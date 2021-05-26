@@ -45,9 +45,9 @@ const (
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// Filter filters the data based on fields/seriesIDs,
+	// Filter filters the data based on fields/seriesIDs/family time,
 	// if finds data then returns the flow.FilterResultSet, else returns constants.ErrNotFound
-	Filter(seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
+	Filter(familyTime int64, seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
 	// SetSlot sets the current write slot
 	SetSlot(slot uint16)
 	// GetSlotRange returns slot range.
