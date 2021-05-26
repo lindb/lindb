@@ -21,11 +21,13 @@ import (
 	"testing"
 
 	"github.com/lindb/roaring"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestMetricStoreLoader_Load(t *testing.T) {
 	// case 1: series not exist
 	s := newMetricStoreLoader(roaring.BitmapOf(10, 100).GetContainer(0),
-		nil, nil)
+		nil, timeutil.SlotRange{}, nil)
 	s.Load(200)
 }

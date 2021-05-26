@@ -88,5 +88,5 @@ func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container) 
 	}
 
 	// must use lowContainer from store, because get series index based on container
-	return newMetricStoreLoader(lowContainer, rs.store.values[highContainerIdx], rs.fields)
+	return newMetricStoreLoader(lowContainer, rs.store.values[highContainerIdx], *rs.store.slotRange, rs.fields)
 }
