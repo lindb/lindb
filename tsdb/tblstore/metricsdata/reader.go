@@ -45,8 +45,8 @@ const (
 		4 // crc32 checksum
 )
 
-// Reader represents the metric block reader
-type Reader interface {
+// MetricReader represents the metric block metricReader
+type MetricReader interface {
 	// Path returns file path
 	Path() string
 	// GetSeriesIDs returns the series ids in this sst file
@@ -61,8 +61,8 @@ type Reader interface {
 	readSeriesData(position int) [][]byte
 }
 
-// reader implements Reader interface that reads metric block
-type reader struct {
+// metricReader implements MetricReader interface that reads metric block
+type metricReader struct {
 	path          string
 	buf           []byte
 	highOffsets   *encoding.FixedOffsetDecoder
@@ -74,9 +74,9 @@ type reader struct {
 	readFieldIndexes []int // read field indexes be used when query metric data
 }
 
-// NewReader creates a metric block reader
-func NewReader(path string, buf []byte) (Reader, error) {
-	r := &reader{
+// NewReader creates a metric block metricReader
+func NewReader(path string, buf []byte) (MetricReader, error) {
+	r := &metricReader{
 		path: path,
 		buf:  buf,
 	}
@@ -87,27 +87,27 @@ func NewReader(path string, buf []byte) (Reader, error) {
 }
 
 // Path returns the file path
-func (r *reader) Path() string {
+func (r *metricReader) Path() string {
 	return r.path
 }
 
 // GetSeriesIDs returns the series ids in this sst file
-func (r *reader) GetSeriesIDs() *roaring.Bitmap {
+func (r *metricReader) GetSeriesIDs() *roaring.Bitmap {
 	return r.seriesIDs
 }
 
 // GetFields returns the field metas in this sst file
-func (r *reader) GetFields() field.Metas {
+func (r *metricReader) GetFields() field.Metas {
 	return r.fields
 }
 
 // GetTimeRange returns the time range in this sst file
-func (r *reader) GetTimeRange() timeutil.SlotRange {
+func (r *metricReader) GetTimeRange() timeutil.SlotRange {
 	return r.timeRange
 }
 
 // prepare prepares the field aggregator based on query condition
-func (r *reader) prepare(fields field.Metas) (found bool) {
+func (r *metricReader) prepare(fields field.Metas) (found bool) {
 	fieldMap := make(map[field.ID]int)
 	for idx, fieldMeta := range r.fields {
 		fieldMap[fieldMeta.ID] = idx
@@ -126,7 +126,7 @@ func (r *reader) prepare(fields field.Metas) (found bool) {
 }
 
 // Load loads the data from sst file, then returns the file metric scanner.
-func (r *reader) Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader {
+func (r *metricReader) Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader {
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := r.seriesIDs.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {
@@ -151,7 +151,7 @@ func (r *reader) Load(highKey uint16, seriesID roaring.Container, fields field.M
 }
 
 // readSeriesData reads series data from file by given position.
-func (r *reader) readSeriesData(position int) [][]byte {
+func (r *metricReader) readSeriesData(position int) [][]byte {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
 		// metric has one field, just read the data
@@ -175,8 +175,8 @@ func (r *reader) readSeriesData(position int) [][]byte {
 	return rs
 }
 
-// initReader initializes the reader context includes tag value ids/high offsets
-func (r *reader) initReader() error {
+// initReader initializes the metricReader context includes tag value ids/high offsets
+func (r *metricReader) initReader() error {
 	if len(r.buf) <= dataFooterSize {
 		return fmt.Errorf("block length not ok")
 	}
@@ -219,7 +219,7 @@ func (r *reader) initReader() error {
 }
 
 // fieldIndexes returns field indexes of metric level
-func (r *reader) fieldIndexes() map[field.ID]int {
+func (r *metricReader) fieldIndexes() map[field.ID]int {
 	result := make(map[field.ID]int)
 	for idx, f := range r.fields {
 		result[f.ID] = idx
@@ -229,7 +229,7 @@ func (r *reader) fieldIndexes() map[field.ID]int {
 
 // dataScanner represents the metric data scanner which scans the series data when merge operation
 type dataScanner struct {
-	reader        *reader
+	reader        *metricReader
 	container     roaring.Container
 	seriesOffsets *encoding.FixedOffsetDecoder
 
@@ -239,8 +239,8 @@ type dataScanner struct {
 }
 
 // newDataScanner creates a data scanner for data merge
-func newDataScanner(r Reader) *dataScanner {
-	reader := r.(*reader)
+func newDataScanner(r MetricReader) *dataScanner {
+	reader := r.(*metricReader)
 	s := &dataScanner{
 		reader:   reader,
 		highKeys: reader.seriesIDs.GetHighKeys(),

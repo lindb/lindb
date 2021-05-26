@@ -57,7 +57,7 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 
 		for idx, reader := range fieldReaders {
 			if reader == nil {
-				// if series id not exist, reader is nil
+				// if series id not exist, metricReader is nil
 				continue
 			}
 			fieldData := reader.getFieldData(fieldID)
@@ -85,8 +85,8 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 		encodeStream.Reset() // reset tsd compress stream for next loop
 	}
 
-	// need mark reader completed, because next series id maybe haven't field data in reader,
-	// if don't mark reader completed, some data will read duplicate.
+	// need mark metricReader completed, because next series id maybe haven't field data in metricReader,
+	// if don't mark metricReader completed, some data will read duplicate.
 	for _, reader := range fieldReaders {
 		if reader != nil {
 			reader.close()

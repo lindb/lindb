@@ -22,12 +22,15 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
-// Filter filters the data based on fields/seriesIDs/familyIDs,
+// Filter filters the data based on fields/seriesIDs/family time,
 // if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
-func (ms *metricStore) Filter(seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error) {
+func (ms *metricStore) Filter(familyTime int64,
+	seriesIDs *roaring.Bitmap, fields field.Metas,
+) ([]flow.FilterResultSet, error) {
 	// first need check query's fields is match store's fields, if not return.
 	foundFields, _ := ms.fields.Intersects(fields)
 	if len(foundFields) == 0 {
@@ -45,17 +48,19 @@ func (ms *metricStore) Filter(seriesIDs *roaring.Bitmap, fields field.Metas) ([]
 	// returns the filter result set
 	return []flow.FilterResultSet{
 		&memFilterResultSet{
-			store:     ms,
-			fields:    fields,
-			seriesIDs: matchSeriesIDs,
+			familyTime: familyTime,
+			store:      ms,
+			fields:     fields,
+			seriesIDs:  matchSeriesIDs,
 		},
 	}, nil
 }
 
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
-	store  *metricStore
-	fields field.Metas // sort by field id
+	familyTime int64
+	store      *metricStore
+	fields     field.Metas // sort by field id
 
 	seriesIDs *roaring.Bitmap
 }
@@ -63,6 +68,16 @@ type memFilterResultSet struct {
 // Identifier identifies the source of result set from memory storage
 func (rs *memFilterResultSet) Identifier() string {
 	return "memory"
+}
+
+// FamilyTime returns the family time of storage.
+func (rs *memFilterResultSet) FamilyTime() int64 {
+	return rs.familyTime
+}
+
+// SlotRange returns the slot range of storage.
+func (rs *memFilterResultSet) SlotRange() timeutil.SlotRange {
+	return *rs.store.slotRange
 }
 
 // SeriesIDs returns the series ids which matches with query series ids

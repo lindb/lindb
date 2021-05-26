@@ -124,7 +124,7 @@ func TestFieldReader_read_one_field(t *testing.T) {
 	// case 2: field 2 exist
 	data = fReader.getFieldData(2)
 	assert.True(t, len(data) > 0)
-	// case 3: close cannot reader data
+	// case 3: close cannot metricReader data
 	fReader.close()
 	data = fReader.getFieldData(2)
 	assert.Nil(t, data)

@@ -37,7 +37,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	m := merge.(*merger)
 	m.dataFlusher = flusher
 	m.seriesMerger = seriesMerger
-	// case 1: new reader err
+	// case 1: new metricReader err
 	data, err := merge.Merge(1, [][]byte{{1, 2, 3}})
 	assert.Error(t, err)
 	assert.Nil(t, data)

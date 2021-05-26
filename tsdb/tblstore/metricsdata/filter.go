@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -38,11 +39,11 @@ type Filter interface {
 type metricsDataFilter struct {
 	familyTime int64
 	snapshot   version.Snapshot //FIXME stone1100, need close version snapshot
-	readers    []Reader
+	readers    []MetricReader
 }
 
 // NewFilter creates the sst file data filter
-func NewFilter(familyTime int64, snapshot version.Snapshot, readers []Reader) Filter {
+func NewFilter(familyTime int64, snapshot version.Snapshot, readers []MetricReader) Filter {
 	return &metricsDataFilter{
 		familyTime: familyTime,
 		snapshot:   snapshot,
@@ -77,9 +78,9 @@ func (f *metricsDataFilter) Filter(
 	return
 }
 
-// fileFilterResultSet represents sst file reader for loading file data based on query condition
+// fileFilterResultSet represents sst file metricReader for loading file data based on query condition
 type fileFilterResultSet struct {
-	reader     Reader
+	reader     MetricReader
 	familyTime int64
 	fields     field.Metas
 	seriesIDs  *roaring.Bitmap
@@ -87,7 +88,7 @@ type fileFilterResultSet struct {
 
 // newFileFilterResultSet creates the file filter result set
 func newFileFilterResultSet(familyTime int64, fields field.Metas,
-	seriesIDs *roaring.Bitmap, reader Reader,
+	seriesIDs *roaring.Bitmap, reader MetricReader,
 ) flow.FilterResultSet {
 	return &fileFilterResultSet{
 		familyTime: familyTime,
@@ -105,6 +106,16 @@ func (f *fileFilterResultSet) Identifier() string {
 // SeriesIDs returns the series ids which matches with query series ids
 func (f *fileFilterResultSet) SeriesIDs() *roaring.Bitmap {
 	return f.seriesIDs
+}
+
+// FamilyTime returns the family time of storage.
+func (f *fileFilterResultSet) FamilyTime() int64 {
+	return f.familyTime
+}
+
+// SlotRange returns the slot range of storage.
+func (f *fileFilterResultSet) SlotRange() timeutil.SlotRange {
+	return f.reader.GetTimeRange()
 }
 
 // Load reads data from sst files, then returns the data file scanner.
