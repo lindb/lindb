@@ -79,7 +79,7 @@ type fStoreINTF interface {
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
 	// Load loads field series data.
-	Load(fieldType field.Type) []byte
+	Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte
 }
 
 // fieldStore implements fStoreINTF interface
@@ -277,13 +277,22 @@ func (fs *fieldStore) merge(
 }
 
 // Load loads field series data.
-func (fs *fieldStore) Load(fieldType field.Type) []byte {
-	//TODO check if need do compact
-	_ = fs.compact(fieldType, fs.getStart())
-	rs := make([]byte, len(fs.compress))
-	copy(rs, fs.compress)
-	//TODO remove time range???
-	return rs
+func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte {
+	aggFunc := fieldType.GetAggFunc()
+	var tsd *encoding.TSDDecoder
+	size := len(fs.compress)
+	if size > 0 {
+		// calc new start/end based on old compress values
+		tsd = encoding.GetTSDDecoder()
+		defer encoding.ReleaseTSDDecoder(tsd)
+		tsd.Reset(fs.compress)
+	}
+	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), slotRange, false)
+	if err != nil {
+		memDBLogger.Error("load field store err", logger.Error(err))
+		return nil
+	}
+	return data
 }
 
 // slotRange returns time slot range in current/compress buffer

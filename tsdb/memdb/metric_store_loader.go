@@ -19,6 +19,7 @@ package memdb
 
 import (
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 
 	"github.com/lindb/roaring"
@@ -28,17 +29,20 @@ import (
 type metricStoreLoader struct {
 	lowContainer     roaring.Container
 	timeSeriesStores []tStoreINTF
+	slotRange        timeutil.SlotRange
 	fields           field.Metas // sort by field id
 }
 
 // newMetricStoreLoader creates a memory storage metric loader.
 func newMetricStoreLoader(lowContainer roaring.Container,
 	timeSeriesStores []tStoreINTF,
+	slotRange timeutil.SlotRange,
 	fields field.Metas,
 ) flow.DataLoader {
 	return &metricStoreLoader{
 		lowContainer:     lowContainer,
 		timeSeriesStores: timeSeriesStores,
+		slotRange:        slotRange,
 		fields:           fields,
 	}
 }
@@ -53,5 +57,5 @@ func (s *metricStoreLoader) Load(lowSeriesID uint16) [][]byte {
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
 	store := s.timeSeriesStores[idx-1]
-	return store.load(s.fields)
+	return store.load(s.fields, s.slotRange)
 }
