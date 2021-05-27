@@ -47,7 +47,6 @@ func TestTaskProcessor(t *testing.T) {
 
 	// submit fail
 	taskProc := newTaskProcessor(context.TODO(), proc, repo)
-	fmt.Println("aaaa")
 	err := taskProc.Submit(taskEvent{task: Task{Kind: "tt"}})
 	assert.NotNil(t, err)
 

@@ -25,10 +25,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/lindb/roaring"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
@@ -36,6 +38,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/replication"
 	pb "github.com/lindb/lindb/rpc/proto/field"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -107,15 +110,13 @@ type Shard interface {
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// MemoryDatabase returns memory database by given family time.
-	MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
+	GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	// Write writes the metric-point into memory-database.
 	Write(metric *pb.Metric) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
-	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
-	io.Closer
 	// Flush flushes index and memory data to disk
 	Flush() error
 	// NeedFlush checks if shard need to flush memory data
@@ -124,6 +125,11 @@ type Shard interface {
 	IsFlushing() bool
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
+
+	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
+	io.Closer
+	// flow.DataFilter filters the data based on condition
+	flow.DataFilter
 }
 
 // shard implements Shard interface
@@ -266,9 +272,8 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 	return nil
 }
 
-// MemoryDatabase returns memory database by given family time.
-func (s *shard) MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
-	var memDB memdb.MemoryDatabase
+// GetOrCreateMemoryDatabase returns memory database by given family time.
+func (s *shard) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 	s.rwMutex.RLock()
 	defer s.rwMutex.RUnlock()
 	memDB, ok := s.families[familyTime]
@@ -278,8 +283,40 @@ func (s *shard) MemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 			return nil, err
 		}
 		s.families[familyTime] = memDB
+		return memDB, nil
 	}
 	return memDB, nil
+}
+
+// Filter filters the data based on metric/time range/seriesIDs,
+// if finds data then returns the flow.FilterResultSet, else returns nil
+func (s *shard) Filter(metricID uint32,
+	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
+	fields field.Metas,
+) (rs []flow.FilterResultSet, err error) {
+	s.rwMutex.RLock()
+	defer s.rwMutex.RUnlock()
+
+	for familyTime, memDB := range s.families {
+		// check family time if in query time range
+		if timeRange.Contains(familyTime) {
+			resultSet, err := memDB.Filter(metricID, seriesIDs, timeRange, fields)
+			if err != nil {
+				return nil, err
+			}
+			rs = append(rs, resultSet...)
+		}
+	}
+	return
+}
+
+func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
+	s.rwMutex.RLock()
+	defer s.rwMutex.RUnlock()
+	for _, memDB := range s.families {
+		rs = append(rs, memDB)
+	}
+	return rs
 }
 
 // Write writes the metric-point into memory-database.
@@ -333,7 +370,7 @@ func (s *shard) Write(metric *pb.Metric) (err error) {
 	segmentTime := intervalCalc.CalcSegmentTime(timestamp)              // day
 	family := intervalCalc.CalcFamily(timestamp, segmentTime)           // hours
 	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
-	db, err := s.MemoryDatabase(familyTime)
+	db, err := s.GetOrCreateMemoryDatabase(familyTime)
 	if err != nil {
 		return err
 	}

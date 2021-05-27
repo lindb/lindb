@@ -24,9 +24,13 @@ import (
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -83,14 +87,15 @@ func newSeriesResultLoader(len int) flow.DataLoader {
 }
 
 // Load loads the metric data by given series id from load result.
-func (l *loadSeriesResult) Load(lowSeriesID uint16) [][]byte {
-	var rs [][]byte
+func (l *loadSeriesResult) Load(lowSeriesID uint16) (s timeutil.SlotRange, rs [][]byte) {
 	for _, loader := range l.loaders {
 		if loader != nil {
-			rs = append(rs, loader.Load(lowSeriesID)...)
+			s1, d := loader.Load(lowSeriesID)
+			rs = append(rs, d...)
+			s = s1
 		}
 	}
-	return rs
+	return
 }
 
 // storageExecutor represents execution search logic in storage level,
@@ -267,9 +272,9 @@ func (e *storageExecutor) executeQuery() {
 func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
-	// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
-	// get grouping context if need
 	if e.ctx.query.HasGroupBy() {
+		// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
+		// get grouping context if need
 		tagKeys := make([]uint32, len(e.groupByTagKeyIDs))
 		for idx, tagKeyID := range e.groupByTagKeyIDs {
 			tagKeys[idx] = tagKeyID.ID
@@ -291,6 +296,15 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 	var groupWait atomic.Int32
 	groupWait.Add(int32(len(keys)))
 	resultSet := rs.rs
+	var slotRange *timeutil.SlotRange
+	for _, r := range resultSet {
+		t := r.SlotRange()
+		if slotRange == nil {
+			slotRange = &t
+		} else {
+			slotRange = slotRange.Intersect(&t)
+		}
+	}
 
 	for idx, key := range keys {
 		// be carefully, need use new variable for variable scope problem
@@ -313,7 +327,35 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 			// scan metric data from storage(memory/file)
 			it := containerOfSeries.PeekableIterator()
 			for it.HasNext() {
-				_ = loadSeriesRS.Load(it.Next())
+				slotRange2, data := loadSeriesRS.Load(it.Next())
+				var dd []*encoding.TSDDecoder
+				for idx, d := range data {
+					encode := encoding.NewTSDEncoder(0)
+					ds := aggregation.NewDownSamplingAggregator(*slotRange, *slotRange, 1, aggregation.NewTSDDownSamplingResult(encode))
+					ddd := encoding.GetTSDDecoder()
+					ddd.ResetWithTimeRange(d, slotRange2.Start, slotRange2.End)
+					dd = append(dd, ddd)
+					ds.DownSampling(e.fields[idx].Type.GetAggFunc(), dd)
+					d11, _ := encode.Bytes()
+
+					writer := stream.NewBufferWriter(nil)
+					writer.PutByte(byte(e.fields[idx].Type))
+					writer.PutVarint64(e.ctx.query.TimeRange.Start)
+
+					writer1 := stream.NewBufferWriter(nil)
+					writer1.PutByte(byte(e.fields[idx].Type.GetAggFunc().AggType())) // agg type
+					writer1.PutVarint32(int32(len(d11)))                             // length of field data
+					writer1.PutBytes(d11)                                            // field data
+					d44, _ := writer1.Bytes()
+
+					if len(d44) > 0 {
+						writer.PutBytes(d44)
+					}
+
+					d2, _ := writer.Bytes()
+
+					e.queryFlow.Reduce("", series.NewGroupedIterator("", map[field.Name][]byte{"counter": d2}))
+				}
 			}
 		})
 

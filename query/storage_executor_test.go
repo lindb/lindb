@@ -37,7 +37,6 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -62,11 +61,7 @@ func (m *mockQueryFlow) Load(task concurrent.Task) {
 	task()
 }
 
-func (m *mockQueryFlow) GetAggregator(_ uint16) (agg aggregation.ContainerAggregator) {
-	return nil
-}
-
-func (m *mockQueryFlow) Reduce(_ string, _ aggregation.ContainerAggregator) {
+func (m *mockQueryFlow) Reduce(_ string, _ series.GroupedIterator) {
 }
 
 func (m *mockQueryFlow) Complete(_ error) {
@@ -212,7 +207,6 @@ func TestStorageExecute_Execute(t *testing.T) {
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().IndexDatabase().Return(index).AnyTimes()
-	memDB := memdb.NewMockMemoryDatabase(ctrl)
 
 	// mock data
 	mockDatabase.EXPECT().NumOfShards().Return(3).AnyTimes()
@@ -223,7 +217,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
-	shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
+	//shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()
 
 	// case 1: series search err
@@ -241,10 +235,11 @@ func TestStorageExecute_Execute(t *testing.T) {
 		return roaring.BitmapOf(1, 2, 3), nil
 	}).AnyTimes()
 	filterRS := flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, nil).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	exec.Execute()
@@ -253,29 +248,30 @@ func TestStorageExecute_Execute(t *testing.T) {
 	query = q.(*stmt.Query)
 
 	filterRS = flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, nil).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
 	// case 4: filter data err
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, fmt.Errorf("err")).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
 	// case 5: filter result is nil
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).MaxTimes(3)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
 	// case 6: filter shard data err
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).MaxTimes(3)
 	family := tsdb.NewMockDataFamily(ctrl)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family}).MaxTimes(3)
@@ -289,10 +285,11 @@ func TestStorageExecute_Execute(t *testing.T) {
 	query = q.(*stmt.Query)
 
 	filterRS = flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, nil).MaxTimes(3)
 	index.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
@@ -325,6 +322,8 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
 	rs := flow.NewMockFilterResultSet(ctrl)
+	rs.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
+	rs.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	gCtx := series.NewMockGroupingContext(ctrl)
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})

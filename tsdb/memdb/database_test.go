@@ -25,7 +25,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -227,12 +226,12 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 
 	// case 1: family not found
 	rs, err := md.Filter(uint32(3333), nil, timeutil.TimeRange{}, field.Metas{{ID: 1}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.NoError(t, err)
 	assert.Nil(t, rs)
 	now := timeutil.Now()
 	// case 2: metric store not found
 	rs, err = md.Filter(0, nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.NoError(t, err)
 	assert.Nil(t, rs)
 	// case 3: filter success
 	// mock mStore

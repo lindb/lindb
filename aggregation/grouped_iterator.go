@@ -20,7 +20,7 @@ package aggregation
 import "github.com/lindb/lindb/series"
 
 //////////////////////////////////////////////////////
-// binaryGroupedIterator implements GroupedIterator
+// groupedIterator implements GroupedIterator
 //////////////////////////////////////////////////////
 type groupedIterator struct {
 	tags       string // tag values
