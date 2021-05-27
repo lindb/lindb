@@ -38,7 +38,7 @@ func (rs *RepoState) TOML() string {
 	return fmt.Sprintf(`
     ## Coordinator coordinates reads/writes operations between different nodes
     ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
-	namespace = "%s"
+    namespace = "%s"
     ## endpoints config list of ETCD cluster
     endpoints = %s
     ## ETCD client will fail at this interval when connecting etcd server without response
@@ -85,7 +85,7 @@ func (q *Query) TOML() string {
     max-workers = %d
 
     ## idle worker will be canceled in this duration
-	idle-timeout = "%s"
+    idle-timeout = "%s"
 
     ## maximum timeout threshold for the task performed
     timeout = "%s"`,
