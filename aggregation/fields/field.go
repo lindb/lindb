@@ -93,8 +93,7 @@ func (f *dynamicField) GetValues(funcType function.FuncType) (result []collectio
 
 // GetDefaultValues returns the field default values which aggregation need by field type
 func (f *dynamicField) GetDefaultValues() []collections.FloatArray {
-	//FIXME(stone1100) need define default type?
-	return f.getFieldValues(f.fieldType.GetFuncFieldParams(function.Sum))
+	return f.getFieldValues(f.fieldType.GetDefaultFuncFieldParams())
 }
 
 func (f *dynamicField) Reset() {

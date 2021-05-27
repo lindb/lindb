@@ -311,54 +311,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 		highKey := key
 		containerOfSeries := seriesIDs.GetContainerAtIndex(idx)
 
-		e.queryFlow.Load(func() {
-			loadSeriesRS := newSeriesResultLoader(len(resultSet))
-
-			for idx := range resultSet {
-				// 3.load data by grouped seriesIDs
-				t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, resultSet[idx],
-					highKey, containerOfSeries,
-					idx, loadSeriesRS.(*loadSeriesResult))
-				if err := t.Run(); err != nil {
-					e.queryFlow.Complete(err)
-					return
-				}
-			}
-			// scan metric data from storage(memory/file)
-			it := containerOfSeries.PeekableIterator()
-			for it.HasNext() {
-				slotRange2, data := loadSeriesRS.Load(it.Next())
-				var dd []*encoding.TSDDecoder
-				for idx, d := range data {
-					encode := encoding.NewTSDEncoder(0)
-					ds := aggregation.NewDownSamplingAggregator(*slotRange, *slotRange, 1, aggregation.NewTSDDownSamplingResult(encode))
-					ddd := encoding.GetTSDDecoder()
-					ddd.ResetWithTimeRange(d, slotRange2.Start, slotRange2.End)
-					dd = append(dd, ddd)
-					ds.DownSampling(e.fields[idx].Type.GetAggFunc(), dd)
-					d11, _ := encode.Bytes()
-
-					writer := stream.NewBufferWriter(nil)
-					writer.PutByte(byte(e.fields[idx].Type))
-					writer.PutVarint64(e.ctx.query.TimeRange.Start)
-
-					writer1 := stream.NewBufferWriter(nil)
-					writer1.PutByte(byte(e.fields[idx].Type.GetAggFunc().AggType())) // agg type
-					writer1.PutVarint32(int32(len(d11)))                             // length of field data
-					writer1.PutBytes(d11)                                            // field data
-					d44, _ := writer1.Bytes()
-
-					if len(d44) > 0 {
-						writer.PutBytes(d44)
-					}
-
-					d2, _ := writer.Bytes()
-
-					e.queryFlow.Reduce("", series.NewGroupedIterator("", map[field.Name][]byte{"counter": d2}))
-				}
-			}
-		})
-
 		// grouping based on group by tag keys for each container
 		e.queryFlow.Grouping(func() {
 			defer func() {
@@ -378,6 +330,57 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 				return
 			}
 
+			e.queryFlow.Load(func() {
+				loadSeriesRS := newSeriesResultLoader(len(resultSet))
+
+				for idx := range resultSet {
+					// 3.load data by grouped seriesIDs
+					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, resultSet[idx],
+						highKey, containerOfSeries,
+						idx, loadSeriesRS.(*loadSeriesResult))
+					if err := t.Run(); err != nil {
+						e.queryFlow.Complete(err)
+						return
+					}
+				}
+				grouped := groupedResult.groupedSeries
+				for tags, seriesIDs := range grouped {
+					// scan metric data from storage(memory/file)
+					for _, seriesID := range seriesIDs {
+						// load field series data by series ids
+						slotRange2, data := loadSeriesRS.Load(seriesID)
+
+						var dd []*encoding.TSDDecoder
+						for idx, d := range data {
+							encode := encoding.NewTSDEncoder(0)
+							ds := aggregation.NewDownSamplingAggregator(*slotRange, *slotRange, 1, aggregation.NewTSDDownSamplingResult(encode))
+							ddd := encoding.GetTSDDecoder()
+							ddd.ResetWithTimeRange(d, slotRange2.Start, slotRange2.End)
+							dd = append(dd, ddd)
+							ds.DownSampling(e.fields[idx].Type.GetAggFunc(), dd)
+							d11, _ := encode.Bytes()
+
+							writer := stream.NewBufferWriter(nil)
+							writer.PutByte(byte(e.fields[idx].Type))
+							writer.PutVarint64(e.ctx.query.TimeRange.Start)
+
+							writer1 := stream.NewBufferWriter(nil)
+							writer1.PutByte(byte(e.fields[idx].Type.GetAggFunc().AggType())) // agg type
+							writer1.PutVarint32(int32(len(d11)))                             // length of field data
+							writer1.PutBytes(d11)                                            // field data
+							d44, _ := writer1.Bytes()
+
+							if len(d44) > 0 {
+								writer.PutBytes(d44)
+							}
+
+							d2, _ := writer.Bytes()
+
+							e.queryFlow.Reduce("", series.NewGroupedIterator(tags, map[field.Name][]byte{"counter": d2}))
+						}
+					}
+				}
+			})
 		})
 	}
 }

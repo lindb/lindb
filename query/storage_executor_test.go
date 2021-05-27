@@ -355,6 +355,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	exec1.tagValueIDs = make([]*roaring.Bitmap, len(exec1.groupByTagKeyIDs))
 	exec1.storageExecutePlan = &storageExecutePlan{groupByTags: []tag.Meta{{ID: 1, Key: "host"}}}
 	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+
 	// case 5: build group series err
 	task := flow.NewMockQueryTask(ctrl)
 	newBuildGroupTaskFunc = func(ctx *storageExecuteContext, shard tsdb.Shard, groupingCtx series.GroupingContext,
@@ -362,9 +363,9 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 		return task
 	}
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
-	rs.EXPECT().Load(gomock.Any(), gomock.Any())
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
 	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+
 	newBuildGroupTaskFunc = newBuildGroupTask
 	// case 6: load data err
 	newDataLoadTaskFunc = func(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
