@@ -22,7 +22,6 @@ import (
 
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -32,8 +31,6 @@ import (
 
 func newMockDatabase(ctrl *gomock.Controller) *tsdb.MockDatabase {
 	shard := tsdb.NewMockShard(ctrl)
-	memDB := memdb.NewMockMemoryDatabase(ctrl)
-	shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()
 	metadata := metadb.NewMockMetadata(ctrl)

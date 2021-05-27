@@ -90,16 +90,16 @@ func getFieldType(metricType dto.MetricType, metric *dto.Metric) *pb.Field {
 	case dto.MetricType_COUNTER:
 		if metric.Counter != nil && metric.Counter.Value != nil {
 			return &pb.Field{
-				Name: "counter",
-				//Type:   pb.FieldType_Increase,
+				Name:  "counter",
+				Type:  pb.FieldType_Sum,
 				Value: *metric.Counter.Value,
 			}
 		}
 	case dto.MetricType_GAUGE:
 		if metric.Gauge != nil && metric.Gauge.Value != nil {
 			return &pb.Field{
-				Name: "gauge",
-				//Type:   pb.FieldType_Gauge,
+				Name:  "gauge",
+				Type:  pb.FieldType_Gauge,
 				Value: *metric.Gauge.Value,
 			}
 		}

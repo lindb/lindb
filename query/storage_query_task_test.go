@@ -34,7 +34,6 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -151,24 +150,22 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	memDB := memdb.NewMockMemoryDatabase(ctrl)
-	shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
 	result := &filterResultSet{}
 	task := newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
 	// case 1: filter err
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := task.Run()
 	assert.Error(t, err)
 	// case 2: filter success
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	err = task.Run()
 	assert.NoError(t, err)
 	// case 4: explain
 	task = newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
-	memDB.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	shard.EXPECT().ShardID().Return(int32(10))
 	err = task.Run()
 	assert.NoError(t, err)

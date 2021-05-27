@@ -313,7 +313,6 @@ func (db *database) FlushMeta() (err error) {
 
 // FLush flushes memory data of all shards to disk
 func (db *database) Flush() error {
-	fmt.Println(db.flushChecker)
 	db.shards.Range(func(key, value interface{}) bool {
 		shard := value.(Shard)
 		db.flushChecker.requestFlushJob(shard, false)

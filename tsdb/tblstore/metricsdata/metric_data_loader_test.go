@@ -34,7 +34,7 @@ func TestMetricLoader_Load(t *testing.T) {
 	s := newMetricLoader(nil, roaring.BitmapOf(10).GetContainer(0), nil)
 	s.Load(1)
 	// case 2: read series data
-	r := NewMockReader(ctrl)
+	r := NewMockMetricReader(ctrl)
 	r.EXPECT().readSeriesData(gomock.Any())
 	encoder := encoding.NewFixedOffsetEncoder()
 	encoder.Add(100)

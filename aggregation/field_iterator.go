@@ -80,7 +80,6 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	//FIXME reuse encoder???
 	encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
 	idx := it.startSlot
-	writer := stream.NewBufferWriter(nil)
 	for it.HasNext() {
 		slot, value := it.Next()
 		for slot > idx {
@@ -99,6 +98,7 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 		// maybe field data already read
 		return nil, nil
 	}
+	writer := stream.NewBufferWriter(nil)
 	writer.PutByte(byte(it.AggType()))   // agg type
 	writer.PutVarint32(int32(len(data))) // length of field data
 	writer.PutBytes(data)                // field data

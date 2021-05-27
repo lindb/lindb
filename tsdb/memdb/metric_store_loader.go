@@ -48,14 +48,14 @@ func newMetricStoreLoader(lowContainer roaring.Container,
 }
 
 // Load loads the metric data by given series id from memory storage.
-func (s *metricStoreLoader) Load(lowSeriesID uint16) [][]byte {
+func (s *metricStoreLoader) Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte) {
 	// check low series id if exist
 	if !s.lowContainer.Contains(lowSeriesID) {
-		return nil
+		return s.slotRange, nil
 	}
 	// get the index of low series id in container
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
 	store := s.timeSeriesStores[idx-1]
-	return store.load(s.fields, s.slotRange)
+	return s.slotRange, store.load(s.fields, s.slotRange)
 }

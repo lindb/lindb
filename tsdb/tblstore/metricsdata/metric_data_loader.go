@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // metricLoader implements flow.DataLoader interface that loads metric data from file storage.
@@ -44,15 +45,15 @@ func newMetricLoader(reader MetricReader,
 }
 
 // Load load the metric data by given series id from file storage.
-func (s *metricLoader) Load(lowSeriesID uint16) [][]byte {
+func (s *metricLoader) Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte) {
 	// check low series id if exist
 	if !s.lowContainer.Contains(lowSeriesID) {
-		return nil
+		return s.reader.GetTimeRange(), nil
 	}
 	// get the index of low series id in container
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
 	seriesPos, _ := s.seriesOffsets.Get(idx - 1)
 	// read series data of fields
-	return s.reader.readSeriesData(seriesPos)
+	return s.reader.GetTimeRange(), s.reader.readSeriesData(seriesPos)
 }
