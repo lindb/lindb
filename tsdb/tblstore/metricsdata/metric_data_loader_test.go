@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
@@ -30,11 +31,13 @@ func TestMetricLoader_Load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	r := NewMockMetricReader(ctrl)
+	r.EXPECT().GetTimeRange().Return(timeutil.SlotRange{}).MaxTimes(2)
+
 	// case 1: series id not exist
-	s := newMetricLoader(nil, roaring.BitmapOf(10).GetContainer(0), nil)
+	s := newMetricLoader(r, roaring.BitmapOf(10).GetContainer(0), nil)
 	s.Load(1)
 	// case 2: read series data
-	r := NewMockMetricReader(ctrl)
 	r.EXPECT().readSeriesData(gomock.Any())
 	encoder := encoding.NewFixedOffsetEncoder()
 	encoder.Add(100)
