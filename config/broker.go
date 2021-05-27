@@ -95,7 +95,7 @@ func (rc *ReplicationChannel) TOML() string {
     ## WAL mmaped log directory
     dir = "%s"
     
-    ##  data-size-limit is the maximum size in megabytes of the page file before a new
+    ## data-size-limit is the maximum size in megabytes of the page file before a new
     ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
     data-size-limit = %d
 	

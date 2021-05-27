@@ -150,6 +150,12 @@ func (r *Reader) ReadSlice(n int) []byte {
 	return r.original[startPos:endPos]
 }
 
+// ReadUntil reads a slice until a centain char.
+func (r *Reader) ReadUntil(c byte) []byte {
+	offset := bytes.IndexByte(r.UnreadSlice(), c)
+	return r.ReadSlice(offset + 1)
+}
+
 // UnreadSlice returns the unread sub-slice
 func (r *Reader) UnreadSlice() []byte {
 	if r.err != nil {

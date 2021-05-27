@@ -15,7 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package influx
+package common
 
-// https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/app/vminsert/influx/request_handler.go
-// https://github.com/influxdata/influxdb/blob/4cbdc197b8117fee648d62e2e5be75c6575352f0/tsdb/README.md
+import (
+	"github.com/klauspost/compress/gzip"
+
+	"io"
+	"sync"
+)
+
+var gzipReaderPool sync.Pool
+
+// GetGzipReader picks a cached reader from the pool
+func GetGzipReader(r io.Reader) (*gzip.Reader, error) {
+	reader := gzipReaderPool.Get()
+	if reader == nil {
+		return gzip.NewReader(r)
+	}
+	gzipReader := reader.(*gzip.Reader)
+	if err := gzipReader.Reset(r); err != nil {
+		// illegal reader, put it back
+		PutGzipReader(gzipReader)
+		return nil, err
+	}
+	return gzipReader, nil
+}
+
+// PutGzipReader puts the gzipReader back to the pool
+func PutGzipReader(gzipReader *gzip.Reader) {
+	if gzipReader == nil {
+		return
+	}
+	_ = gzipReader.Close()
+	gzipReaderPool.Put(gzipReader)
+}
