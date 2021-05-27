@@ -19,7 +19,7 @@ build: clean-build build-lind ## Build executable files. (Args: GOOS=$(go env GO
 
 build-all: clean-forntend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
 
-build-lind:
+build-lind: ## build lindb bin
 	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/lind' $(LD_FLAGS) ./cmd/
 
 GOLANGCI_LINT_VERSION ?= "v1.18.0"

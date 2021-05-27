@@ -29,7 +29,7 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Sum, SumField.DownSamplingFunc())
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
-	assert.Equal(t, function.Replace, GaugeField.DownSamplingFunc())
+	assert.Equal(t, function.LastValue, GaugeField.DownSamplingFunc())
 	assert.Equal(t, function.Count, SummaryField.DownSamplingFunc())
 	assert.Equal(t, function.Sum, IncreaseField.DownSamplingFunc())
 	assert.Equal(t, function.Histogram, HistogramField.DownSamplingFunc())
@@ -56,7 +56,7 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, MaxField.IsFuncSupported(function.Max))
 	assert.False(t, MaxField.IsFuncSupported(function.Histogram))
 
-	assert.True(t, GaugeField.IsFuncSupported(function.Replace))
+	assert.True(t, GaugeField.IsFuncSupported(function.LastValue))
 	assert.False(t, GaugeField.IsFuncSupported(function.Histogram))
 
 	assert.True(t, MinField.IsFuncSupported(function.Min))
@@ -76,5 +76,5 @@ func TestType_GetAggFunc(t *testing.T) {
 	assert.Equal(t, maxAggregator, MaxField.GetAggFunc())
 	assert.Equal(t, sumAggregator, SumField.GetAggFunc())
 	assert.Equal(t, minAggregator, MinField.GetAggFunc())
-	assert.Nil(t, Unknown.GetAggFunc())
+	assert.Equal(t, maxAggregator, Unknown.GetAggFunc())
 }

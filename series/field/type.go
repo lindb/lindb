@@ -87,7 +87,8 @@ func (t Type) GetAggFunc() AggFunc {
 	case MaxField:
 		return maxAggregator
 	default:
-		return nil
+		//FIXME(stone1100)
+		return maxAggregator
 	}
 }
 
@@ -100,7 +101,7 @@ func (t Type) DownSamplingFunc() function.FuncType {
 	case MaxField:
 		return function.Max
 	case GaugeField:
-		return function.Replace
+		return function.LastValue
 	case IncreaseField:
 		return function.Sum
 	case SummaryField:
@@ -137,7 +138,7 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		}
 	case GaugeField:
 		switch funcType {
-		case function.Sum, function.Min, function.Max, function.Replace:
+		case function.Sum, function.Min, function.Max, function.LastValue:
 			return true
 		default:
 			return false
@@ -151,13 +152,24 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 	}
 }
 
-// GetFuncFieldParams returns the fields for aggregator's function params.
+// GetFuncFieldParams returns agg type for field aggregator by given function type.
 func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
 	switch t {
 	case SumField:
 		return getFieldParamsForSumField(funcType)
 	case MinField:
 		return getFieldParamsForMinField(funcType)
+	}
+	return nil
+}
+
+// GetDefaultFuncFieldParams returns default agg type for field aggregator.
+func (t Type) GetDefaultFuncFieldParams() []AggType {
+	switch t {
+	case SumField:
+		return []AggType{Sum}
+	case MinField:
+		return []AggType{Min}
 	}
 	return nil
 }
