@@ -190,7 +190,7 @@ func TestShard_Write(t *testing.T) {
 	family := intervalCalc.CalcFamily(timestamp, segmentTime)           // hours
 	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
 	shardIns := shardINTF.(*shard)
-	_, err := shardINTF.MemoryDatabase(familyTime)
+	_, err := shardINTF.GetOrCreateMemoryDatabase(familyTime)
 	assert.NoError(t, err)
 	shardIns.indexDB = indexDB
 

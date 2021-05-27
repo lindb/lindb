@@ -29,22 +29,22 @@ const (
 	// MaxSuggestions represents the max number of suggestions count
 	MaxSuggestions = 10000
 
-	// MemoryHighWaterMark checkes if the global memory usage is greater than the limit,
-	// If so, engine will flush the biggest shard's memdb until we are down to the lower mark.
+	// MemoryHighWaterMark checks if the global memory usage is greater than the limit,
+	// If so, engine will flush the biggest shard's memory database until we are down to the lower mark.
 	MemoryHighWaterMark = 80
-	// MemoryLowWaterMark checks if the global memory usage is low water mark
+	// MemoryLowWaterMark checks if the global memory usage is low water mark.
 	MemoryLowWaterMark = 60
 	// ShardMemoryUsedThreshold checks if shard's memory usage is greater than this limit,
-	// If so, engine will flush this shard to disk
+	// If so, engine will flush this shard to disk.
 	ShardMemoryUsedThreshold = 500 * 1024 * 1024
-	// FlushConcurrency controls the concurrent number of flushers
+	// FlushConcurrency controls the concurrent number of flush jobs.
 	FlushConcurrency = 4
 
-	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag
+	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag.
 	TagValueIDForTag = uint32(0)
 	// DefaultNamespace represents default namespace if not set
 	DefaultNamespace = "default-ns"
-	// SeriesIDWithoutTags represents the series ids under spec metric, but without nothing tags
+	// SeriesIDWithoutTags represents the series ids under spec metric, but without nothing tags.
 	SeriesIDWithoutTags = uint32(0)
 
 	// EmptyValue represents the empty value.

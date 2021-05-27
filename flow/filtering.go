@@ -54,5 +54,5 @@ type FilterResultSet interface {
 // DataLoader represents the loader which load metric data from storage.
 type DataLoader interface {
 	// Load loads the metric data by given low series id.
-	Load(lowSeriesID uint16) [][]byte
+	Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte)
 }

@@ -20,6 +20,7 @@ package flow
 import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/series"
 )
 
 //go:generate mockgen -source=./query_flow.go -destination=./query_flow_mock.go -package=flow
@@ -35,11 +36,9 @@ type StorageQueryFlow interface {
 	// Load does the load task
 	Load(task concurrent.Task)
 	// Reduce reduces the down sampling aggregator's result
-	Reduce(tags string, agg aggregation.ContainerAggregator)
+	Reduce(tags string, it series.GroupedIterator)
 	// ReduceTagValues reduces the group by tag values
 	ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string)
-	// GetAggregator gets the down sampling filed aggregator
-	GetAggregator(highKey uint16) (agg aggregation.ContainerAggregator)
 	// Complete completes the query flow with error
 	Complete(err error)
 }

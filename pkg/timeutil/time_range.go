@@ -45,6 +45,20 @@ func (sr *SlotRange) GetRange() (start, end uint16) {
 	return sr.Start, sr.End
 }
 
+// Intersect returns the intersection of two slot range
+func (sr *SlotRange) Intersect(o *SlotRange) *SlotRange {
+	result := &SlotRange{}
+	result.Start = sr.Start
+	if o.Start > sr.Start {
+		result.Start = o.Start
+	}
+	result.End = sr.End
+	if o.End < sr.End {
+		result.End = o.End
+	}
+	return result
+}
+
 // TimeRange represents time range with start/end timestamp.
 type TimeRange struct {
 	Start int64 `json:"start"`

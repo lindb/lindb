@@ -32,7 +32,7 @@ func TestFileFilterResultSet_Load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	reader := NewMockReader(ctrl)
+	reader := NewMockMetricReader(ctrl)
 
 	rs := newFileFilterResultSet(1, field.Metas{}, nil, reader)
 	reader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any())
@@ -43,7 +43,7 @@ func TestMetricsDataFilter_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	reader := NewMockReader(ctrl)
+	reader := NewMockMetricReader(ctrl)
 	filter := NewFilter(10, nil, []MetricReader{reader})
 	// case 1: field not found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})

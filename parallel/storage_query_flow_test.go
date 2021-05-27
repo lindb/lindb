@@ -57,30 +57,6 @@ var testExecPool = &tsdb.ExecutorPool{
 		time.Second*5),
 }
 
-func TestStorageQueryFlow_GetAggregator(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	streamHandler := commonmock.NewMockTaskService_HandleServer(ctrl)
-	queryFlow := NewStorageQueryFlow(context.TODO(), nil, &stmt.Query{GroupBy: []string{"host"}},
-		&pb.TaskRequest{}, streamHandler, testExecPool,
-		timeutil.TimeRange{}, timeutil.Interval(timeutil.OneSecond), 1)
-	queryFlow.Prepare(nil)
-
-	agg := queryFlow.GetAggregator(1)
-	assert.Nil(t, agg)
-
-	qf := queryFlow.(*storageQueryFlow)
-	qf.releaseAgg(agg)
-
-	agg2 := queryFlow.GetAggregator(1)
-	assert.Nil(t, agg2)
-	assert.Equal(t, agg, agg2)
-
-	for i := 0; i < 100; i++ {
-		qf.releaseAgg(agg)
-	}
-}
-
 func TestStorageQueryFlow_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
