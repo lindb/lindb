@@ -42,7 +42,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	}
 	dataFamily := newDataFamily(timeutil.Interval(timeutil.OneSecond*10), timeRange, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
-	assert.Equal(t, int64(10000), dataFamily.Interval())
+	assert.Equal(t, timeutil.Interval(10000), dataFamily.Interval())
 	assert.NotNil(t, dataFamily.Family())
 }
 

@@ -105,6 +105,8 @@ type Shard interface {
 	DatabaseName() string
 	// ShardID returns the shard id
 	ShardID() int32
+	// CurrentInterval returns current interval for metric write.
+	CurrentInterval() timeutil.Interval
 	// ShardInfo returns the unique shard info
 	ShardInfo() string
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
@@ -254,6 +256,11 @@ func (s *shard) ShardID() int32 {
 // ShardInfo returns the unique shard info
 func (s *shard) ShardInfo() string {
 	return s.path
+}
+
+// CurrentInterval returns current interval for metric  write.
+func (s *shard) CurrentInterval() timeutil.Interval {
+	return s.interval
 }
 
 func (s *shard) GetOrCreateSequence(replicaPeer string) (replication.Sequence, error) {

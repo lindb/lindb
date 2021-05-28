@@ -19,6 +19,7 @@ package timeutil
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -138,4 +139,14 @@ func TestCalTimeWindow(t *testing.T) {
 
 	calc = yearCalculator
 	assert.Equal(t, 2, calc.CalcTimeWindows(2592000000, 2592000000*2))
+}
+
+func TestCalcTimestamp(t *testing.T) {
+	var i Interval
+
+	_ = i.ValueOf("1m")
+	now := Now()
+	n := time.Now()
+	timestamp := CalcTimestamp(now, 10, i)
+	assert.True(t, timestamp >= n.Add(10*time.Minute).Unix()*1000)
 }

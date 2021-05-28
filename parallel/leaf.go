@@ -132,6 +132,7 @@ func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, shar
 		return errUnmarshalQuery
 	}
 
+	//FIXME(stone11000) need remove
 	option := db.GetOption()
 	var interval timeutil.Interval
 	_ = interval.ValueOf(option.Interval)

@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -151,9 +152,9 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 
 	shard := tsdb.NewMockShard(ctrl)
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	result := &filterResultSet{}
+	rs := newTimeSpanResultSet()
 	task := newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	// case 1: filter err
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := task.Run()
@@ -164,7 +165,7 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 	assert.NoError(t, err)
 	// case 4: explain
 	task = newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	shard.EXPECT().ShardID().Return(int32(10))
 	err = task.Run()
@@ -175,16 +176,18 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	resultSet := flow.NewMockFilterResultSet(ctrl)
+	resultSet.EXPECT().Identifier().Return("memory")
 	shard := tsdb.NewMockShard(ctrl)
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	result := &filterResultSet{}
+	rs := newTimeSpanResultSet()
 	task := newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	// case 1: get empty family
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil)
 	err := task.Run()
 	assert.NoError(t, err)
-	assert.Nil(t, result.rs)
+	assert.True(t, rs.isEmpty())
 	// case 2: family filter err
 	family := tsdb.NewMockDataFamily(ctrl)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family}).AnyTimes()
@@ -192,20 +195,28 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	err = task.Run()
 	assert.Error(t, err)
 	// case 3: get data
+	family.EXPECT().Interval().Return(timeutil.Interval(10000))
+	resultSet.EXPECT().FamilyTime().Return(int64(10))
+	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
+	resultSet.EXPECT().SlotRange().Return(timeutil.SlotRange{}).MaxTimes(2)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return([]flow.FilterResultSet{flow.NewMockFilterResultSet(ctrl)}, nil)
+		Return([]flow.FilterResultSet{resultSet}, nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.NotNil(t, result.rs)
+	assert.False(t, rs.isEmpty())
 	// case 4: explain
+	family.EXPECT().Interval().Return(timeutil.Interval(10000))
+	resultSet.EXPECT().FamilyTime().Return(int64(10))
+	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
+	resultSet.EXPECT().FamilyTime().Return(int64(10)).MaxTimes(2)
 	task = newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, result)
+		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return([]flow.FilterResultSet{flow.NewMockFilterResultSet(ctrl)}, nil)
+		Return([]flow.FilterResultSet{resultSet}, nil)
 	shard.EXPECT().ShardID().Return(int32(10))
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.NotNil(t, result.rs)
+	assert.False(t, rs.isEmpty())
 }
 
 func TestGroupingContextFindTask_Run(t *testing.T) {
@@ -270,20 +281,21 @@ func TestDataLoadTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
+	timeSpan := &timeSpan{resultSets: []flow.FilterResultSet{rs}}
 	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, qf, rs, 1, nil, 0, newSeriesResultLoader(1).(*loadSeriesResult))
+		shard, qf, timeSpan, 1, nil)
 	rs.EXPECT().Load(gomock.Any(), gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
 	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, qf, rs, 1, nil, 0, newSeriesResultLoader(1).(*loadSeriesResult))
+		shard, qf, timeSpan, 1, nil)
 	shard.EXPECT().ShardID().Return(int32(10)).AnyTimes()
-	rs.EXPECT().Identifier().Return("memory")
+	timeSpan.identifier = "memory"
 	err = task.Run()
 	assert.NoError(t, err)
-	rs.EXPECT().Identifier().Return("shard/10/segment/day/20190202/10/1.sst")
+	timeSpan.identifier = "shard/10/segment/day/20190202/10/1.sst"
 	err = task.Run()
 	assert.NoError(t, err)
 }
