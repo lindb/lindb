@@ -17,5 +17,28 @@
 
 package influx
 
-// https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/app/vminsert/influx/request_handler.go
-// https://github.com/influxdata/influxdb/blob/4cbdc197b8117fee648d62e2e5be75c6575352f0/tsdb/README.md
+import (
+	"io"
+	"sync"
+)
+
+var chunkReaderPool sync.Pool
+
+// GetChunkReader picks a cached chunk-reader from the pool
+func GetChunkReader(r io.Reader) *ChunkReader {
+	reader := chunkReaderPool.Get()
+	if reader == nil {
+		return newChunkReader(r)
+	}
+	cr := reader.(*ChunkReader)
+	cr.Reset(r)
+	return cr
+}
+
+// PutChunkReader puts chunk-reader back to the pool
+func PutChunkReader(cr *ChunkReader) {
+	if cr == nil {
+		return
+	}
+	chunkReaderPool.Put(cr)
+}

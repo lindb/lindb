@@ -18,7 +18,7 @@ require (
 	github.com/golang/snappy v0.0.3
 	github.com/gorilla/mux v1.7.4
 	github.com/json-iterator/go v1.1.7
-	github.com/klauspost/compress v1.12.3 // indirect
+	github.com/klauspost/compress v1.12.3
 	github.com/lindb/roaring v0.0.0-00010101000000-000000000000
 	github.com/m3db/prometheus_client_golang v0.8.1 // indirect
 	github.com/m3db/prometheus_client_model v0.1.0 // indirect
