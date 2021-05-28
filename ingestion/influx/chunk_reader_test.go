@@ -26,9 +26,9 @@ import (
 
 const influxText = `
 # comment
-a1,location=us-midwest temperature=82 1465839830100400200
+ a1,location=us-midwest temperature=82 1465839830100400200
 
-a2,location=us-midwest temperature=1 1465839830100400200
+ a2,location=us-midwest temperature=1 1465839830100400200
 
 a3,location=us-midwest temperature=100 1465839830100400200`
 
@@ -51,20 +51,32 @@ func assertReadAll(t *testing.T, cr *ChunkReader) {
 }
 
 func Test_ChunkReader(t *testing.T) {
-	assertReadAll(t, NewChunkReader(strings.NewReader(influxText)))
-	assertReadAll(t, &ChunkReader{reader: strings.NewReader(influxText), blockSize: 64})
-	assertReadAll(t, &ChunkReader{reader: strings.NewReader(influxText), blockSize: 128})
-	assertReadAll(t, &ChunkReader{reader: strings.NewReader(influxText), blockSize: 256})
+	assertReadAll(t, newChunkReader(strings.NewReader(influxText)))
+
+	assertReadAll(t, newChunkReaderWithSize(strings.NewReader(influxText), 64))
+	assertReadAll(t, newChunkReaderWithSize(strings.NewReader(influxText), 128))
+	assertReadAll(t, newChunkReaderWithSize(strings.NewReader(influxText), 256))
 }
 
 func Test_ChunkReader_TooLongLine(t *testing.T) {
-	cr := ChunkReader{reader: strings.NewReader(influxText), blockSize: 16}
+	cr := newChunkReaderWithSize(strings.NewReader(influxText), 16)
 
 	assert.True(t, cr.HasNext())
 	assert.Equal(t, "# comment", string(cr.Next()))
 	assert.Nil(t, cr.Error())
 
 	assert.False(t, cr.HasNext())
-	assert.Equal(t, string(cr.Next()), "a1,location=us-m")
+	assert.Equal(t, "a1,location=us-", string(cr.Next()))
 	assert.NotNil(t, cr.Error())
+}
+
+func Test_ChunkReaderPool(t *testing.T) {
+	PutChunkReader(nil)
+
+	cr1 := GetChunkReader(strings.NewReader(influxText))
+	assertReadAll(t, cr1)
+	PutChunkReader(cr1)
+
+	cr2 := GetChunkReader(strings.NewReader(influxText))
+	assertReadAll(t, cr2)
 }
