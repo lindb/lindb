@@ -39,7 +39,7 @@ var (
 // DataFamily represents a storage unit for time series data, support multi-version.
 type DataFamily interface {
 	// Interval returns the interval data family's interval
-	Interval() int64
+	Interval() timeutil.Interval
 	// TimeRange returns the data family's base time range
 	TimeRange() timeutil.TimeRange
 	// Family returns the raw kv family
@@ -70,8 +70,8 @@ func newDataFamily(
 }
 
 // Interval returns the data family's interval
-func (f *dataFamily) Interval() int64 {
-	return f.interval.Int64()
+func (f *dataFamily) Interval() timeutil.Interval {
+	return f.interval
 }
 
 // TimeRange returns the data family's base time range

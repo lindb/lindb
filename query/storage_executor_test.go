@@ -206,6 +206,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
+	shard.EXPECT().CurrentInterval().Return(timeutil.Interval(10000)).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(index).AnyTimes()
 
 	// mock data
@@ -235,6 +236,8 @@ func TestStorageExecute_Execute(t *testing.T) {
 		return roaring.BitmapOf(1, 2, 3), nil
 	}).AnyTimes()
 	filterRS := flow.NewMockFilterResultSet(ctrl)
+	filterRS.EXPECT().Identifier().Return("memory").AnyTimes()
+	filterRS.EXPECT().FamilyTime().Return(int64(10)).AnyTimes()
 	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
@@ -247,7 +250,6 @@ func TestStorageExecute_Execute(t *testing.T) {
 	q, _ = sql.Parse("select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00'")
 	query = q.(*stmt.Query)
 
-	filterRS = flow.NewMockFilterResultSet(ctrl)
 	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
@@ -284,7 +286,6 @@ func TestStorageExecute_Execute(t *testing.T) {
 	q, _ = sql.Parse("select f from cpu where host='1.1.1.1' group by host")
 	query = q.(*stmt.Query)
 
-	filterRS = flow.NewMockFilterResultSet(ctrl)
 	filterRS.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
 	filterRS.EXPECT().Load(gomock.Any(), gomock.Any()).MaxTimes(3)
 	filterRS.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).MaxTimes(3)
@@ -327,34 +328,32 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	gCtx := series.NewMockGroupingContext(ctrl)
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})
-	rs.EXPECT().Load(gomock.Any(), gomock.Any())
 	gCtx.EXPECT().GetGroupByTagValueIDs().Return([]*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}).AnyTimes()
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exec1.storageExecutePlan = &storageExecutePlan{groupByTags: []tag.Meta{{ID: 1, Key: "host"}}}
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 2: get grouping context err
 	gomock.InOrder(
 		indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
 	)
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
 	// case 3: get grouping context nil
 	gomock.InOrder(
 		indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil),
 	)
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 4: collect tag values err
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})
-	rs.EXPECT().Load(gomock.Any(), gomock.Any())
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1}, query))
 	exec1 = exec.(*storageExecutor)
 	exec1.groupByTagKeyIDs = []tag.Meta{{ID: 1, Key: "host"}}
 	exec1.tagValueIDs = make([]*roaring.Bitmap, len(exec1.groupByTagKeyIDs))
 	exec1.storageExecutePlan = &storageExecutePlan{groupByTags: []tag.Meta{{ID: 1, Key: "host"}}}
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 5: build group series err
 	task := flow.NewMockQueryTask(ctrl)
@@ -364,21 +363,20 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	}
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
 
 	newBuildGroupTaskFunc = newBuildGroupTask
 	// case 6: load data err
 	newDataLoadTaskFunc = func(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-		filteringRS flow.FilterResultSet,
+		span *timeSpan,
 		highKey uint16, seriesID roaring.Container,
-		idx int, result *loadSeriesResult,
 	) flow.QueryTask {
 		return task
 	}
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})
-	exec1.executeGroupBy(shard, &filterResultSet{rs: []flow.FilterResultSet{rs}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, timeSpans{{}}, roaring.BitmapOf(1, 2, 3))
 }
 
 func TestStorageExecutor_merge_groupBy_tagValues(t *testing.T) {
@@ -400,19 +398,4 @@ func TestStorageExecutor_merge_groupBy_tagValues(t *testing.T) {
 	exec1.mergeGroupByTagValueIDs([]*roaring.Bitmap{roaring.BitmapOf(1, 2, 3), nil, nil})
 	// case 3: merge tag value
 	exec1.mergeGroupByTagValueIDs([]*roaring.Bitmap{roaring.BitmapOf(4, 5, 6), roaring.BitmapOf(1, 2, 3), nil})
-}
-
-func TestStorageExecutor_seriesResultLoader(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
-
-	loader := flow.NewMockDataLoader(ctrl)
-	loaders := newSeriesResultLoader(2)
-	rs := loaders.(*loadSeriesResult)
-	rs.loaders[1] = loader
-
-	loader.EXPECT().Load(gomock.Any())
-	loaders.Load(1)
 }

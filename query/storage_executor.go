@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -54,16 +53,6 @@ var (
 	errShardNumNotMatch  = errors.New("got shard size not equals input shard size")
 )
 
-// filterResultSet represents data filter result set
-type filterResultSet struct {
-	rs []flow.FilterResultSet
-}
-
-// isEmpty returns if result set is empty.
-func (rs *filterResultSet) isEmpty() bool {
-	return len(rs.rs) == 0
-}
-
 // groupingResult represents the grouping context result
 type groupingResult struct {
 	groupingCtx series.GroupingContext
@@ -72,30 +61,6 @@ type groupingResult struct {
 // groupedSeriesResult represents grouped series for group by query
 type groupedSeriesResult struct {
 	groupedSeries map[string][]uint16
-}
-
-// loadSeriesResult represents load series result with loader.
-type loadSeriesResult struct {
-	loaders []flow.DataLoader
-}
-
-// newSeriesResultLoader creates a series load result loader.
-func newSeriesResultLoader(len int) flow.DataLoader {
-	return &loadSeriesResult{
-		loaders: make([]flow.DataLoader, len),
-	}
-}
-
-// Load loads the metric data by given series id from load result.
-func (l *loadSeriesResult) Load(lowSeriesID uint16) (s timeutil.SlotRange, rs [][]byte) {
-	for _, loader := range l.loaders {
-		if loader != nil {
-			s1, d := loader.Load(lowSeriesID)
-			rs = append(rs, d...)
-			s = s1
-		}
-	}
-	return
 }
 
 // storageExecutor represents execution search logic in storage level,
@@ -226,7 +191,7 @@ func (e *storageExecutor) executeQuery() {
 				return
 			}
 
-			rs := &filterResultSet{}
+			rs := newTimeSpanResultSet()
 			// 2. filter data in memory database
 			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
@@ -247,11 +212,7 @@ func (e *storageExecutor) executeQuery() {
 				// data not found
 				return
 			}
-			// 4. merge all series ids after filtering => final series ids
-			seriesIDsAfterFilter := roaring.New()
-			for _, result := range rs.rs {
-				seriesIDsAfterFilter.Or(result.SeriesIDs())
-			}
+
 			// 5. execute group by
 			e.pendingForGrouping.Inc()
 			e.queryFlow.Grouping(func() {
@@ -260,7 +221,7 @@ func (e *storageExecutor) executeQuery() {
 					// try start collect tag values
 					e.collectGroupByTagValues()
 				}()
-				e.executeGroupBy(shard, rs, seriesIDsAfterFilter)
+				e.executeGroupBy(shard, rs.getTimeSpans(), rs.getSeriesIDs())
 			})
 		})
 	}
@@ -269,7 +230,7 @@ func (e *storageExecutor) executeQuery() {
 // executeGroupBy executes the query flow, step as below:
 // 1. grouping
 // 2. loading
-func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, seriesIDs *roaring.Bitmap) {
+func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, timeSpans timeSpans, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
 	if e.ctx.query.HasGroupBy() {
@@ -295,16 +256,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 	e.pendingForGrouping.Add(int32(len(keys)))
 	var groupWait atomic.Int32
 	groupWait.Add(int32(len(keys)))
-	resultSet := rs.rs
-	var slotRange *timeutil.SlotRange
-	for _, r := range resultSet {
-		t := r.SlotRange()
-		if slotRange == nil {
-			slotRange = &t
-		} else {
-			slotRange = slotRange.Intersect(&t)
-		}
-	}
 
 	for idx, key := range keys {
 		// be carefully, need use new variable for variable scope problem
@@ -331,13 +282,10 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 			}
 
 			e.queryFlow.Load(func() {
-				loadSeriesRS := newSeriesResultLoader(len(resultSet))
-
-				for idx := range resultSet {
+				for _, span := range timeSpans {
 					// 3.load data by grouped seriesIDs
-					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, resultSet[idx],
-						highKey, containerOfSeries,
-						idx, loadSeriesRS.(*loadSeriesResult))
+					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, span,
+						highKey, containerOfSeries)
 					if err := t.Run(); err != nil {
 						e.queryFlow.Complete(err)
 						return
@@ -347,27 +295,32 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
 					for _, seriesID := range seriesIDs {
-						// load field series data by series ids
-						slotRange2, data := loadSeriesRS.Load(seriesID)
-
-						var dd []*encoding.TSDDecoder
-						for idx, d := range data {
+						for _, span := range timeSpans {
+							// Load loads the metric data by given series id from load result.
+							var dd []*encoding.TSDDecoder
+							for _, loader := range span.loaders {
+								// load field series data by series ids
+								slotRange2, d := loader.Load(seriesID)
+								for _, data := range d {
+									ddd := encoding.GetTSDDecoder()
+									ddd.ResetWithTimeRange(data, slotRange2.Start, slotRange2.End)
+									dd = append(dd, ddd)
+								}
+							}
 							encode := encoding.NewTSDEncoder(0)
-							ds := aggregation.NewDownSamplingAggregator(*slotRange, *slotRange, 1, aggregation.NewTSDDownSamplingResult(encode))
-							ddd := encoding.GetTSDDecoder()
-							ddd.ResetWithTimeRange(d, slotRange2.Start, slotRange2.End)
-							dd = append(dd, ddd)
-							ds.DownSampling(e.fields[idx].Type.GetAggFunc(), dd)
+							ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1,
+								aggregation.NewTSDDownSamplingResult(encode))
+							ds.DownSampling(e.fields[0].Type.GetAggFunc(), dd) //FIXME(stone1100)
 							d11, _ := encode.Bytes()
 
 							writer := stream.NewBufferWriter(nil)
-							writer.PutByte(byte(e.fields[idx].Type))
+							writer.PutByte(byte(e.fields[0].Type))
 							writer.PutVarint64(e.ctx.query.TimeRange.Start)
 
 							writer1 := stream.NewBufferWriter(nil)
-							writer1.PutByte(byte(e.fields[idx].Type.GetAggFunc().AggType())) // agg type
-							writer1.PutVarint32(int32(len(d11)))                             // length of field data
-							writer1.PutBytes(d11)                                            // field data
+							writer1.PutByte(byte(e.fields[0].Type.GetAggFunc().AggType())) // agg type
+							writer1.PutVarint32(int32(len(d11)))                           // length of field data
+							writer1.PutBytes(d11)                                          // field data
 							d44, _ := writer1.Bytes()
 
 							if len(d44) > 0 {
@@ -375,7 +328,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *filterResultSet, 
 							}
 
 							d2, _ := writer.Bytes()
-
 							e.queryFlow.Reduce("", series.NewGroupedIterator(tags, map[field.Name][]byte{"counter": d2}))
 						}
 					}

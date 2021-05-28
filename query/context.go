@@ -18,8 +18,14 @@
 package query
 
 import (
+	"sort"
+
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
+
+	"github.com/lindb/roaring"
 )
 
 // storageExecuteContext represents storage query execute context
@@ -56,4 +62,70 @@ func (ctx *storageExecuteContext) QueryStats() *models.StorageStats {
 // setTagFilterResult sets tag filter result
 func (ctx *storageExecuteContext) setTagFilterResult(tagFilterResult map[string]*tagFilterResult) {
 	ctx.tagFilterResult = tagFilterResult
+}
+
+// timeSpans represents the time span slice in query time range.
+type timeSpans []*timeSpan
+
+func (f timeSpans) Len() int           { return len(f) }
+func (f timeSpans) Less(i, j int) bool { return f[i].familyTime < f[j].familyTime }
+func (f timeSpans) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+
+// timeSpan represents a time span in query time range.
+type timeSpan struct {
+	identifier     string
+	familyTime     int64
+	source, target timeutil.SlotRange
+	interval       timeutil.Interval
+
+	resultSets []flow.FilterResultSet
+	loaders    []flow.DataLoader
+}
+
+type timeSpanResultSet struct {
+	spanMap   map[int64]*timeSpan
+	seriesIDs *roaring.Bitmap
+}
+
+func newTimeSpanResultSet() *timeSpanResultSet {
+	return &timeSpanResultSet{
+		spanMap:   make(map[int64]*timeSpan),
+		seriesIDs: roaring.New(),
+	}
+}
+
+func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs flow.FilterResultSet) {
+	familyTime := rs.FamilyTime()
+	span, ok := s.spanMap[familyTime]
+	if !ok {
+		span = &timeSpan{
+			identifier: rs.Identifier(),
+			familyTime: familyTime,
+			source:     rs.SlotRange(),
+			target:     rs.SlotRange(),
+			interval:   interval,
+		}
+		s.spanMap[familyTime] = span
+	}
+	span.resultSets = append(span.resultSets, rs)
+
+	// merge all series ids after filtering => final series ids
+	s.seriesIDs.Or(rs.SeriesIDs())
+}
+
+func (s *timeSpanResultSet) isEmpty() bool {
+	return len(s.spanMap) == 0
+}
+
+func (s *timeSpanResultSet) getTimeSpans() timeSpans {
+	var timeSpans timeSpans
+	for _, span := range s.spanMap {
+		timeSpans = append(timeSpans, span)
+	}
+	sort.Sort(timeSpans)
+	return timeSpans
+}
+
+func (s *timeSpanResultSet) getSeriesIDs() *roaring.Bitmap {
+	return s.seriesIDs
 }

@@ -126,7 +126,7 @@ func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
 			it := values.Iterator()
 			for it.HasNext() {
 				slot, val := it.Next()
-				points.AddPoint(int64(slot)*c.query.Interval.Int64()+c.query.TimeRange.Start, val)
+				points.AddPoint(timeutil.CalcTimestamp(c.query.TimeRange.Start, slot, c.query.Interval), val)
 			}
 			timeSeries.AddField(fieldName, points)
 		}

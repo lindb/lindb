@@ -221,3 +221,8 @@ func (y *year) CalcTimeWindows(start, end int64) int {
 	t2 = time.Date(t2.Year(), t2.Month(), 0, 0, 0, 0, 0, time.Local)
 	return int(t2.Sub(t1).Hours()/24/30) + 1
 }
+
+// CalcTimestamp returns timestamp based on start time, slot and interval.
+func CalcTimestamp(startTime int64, slot int, interval Interval) int64 {
+	return interval.Int64()*int64(slot) + startTime
+}
