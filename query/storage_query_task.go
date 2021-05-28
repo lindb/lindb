@@ -213,13 +213,13 @@ type memoryDataFilterTask struct {
 	metricID  uint32
 	fields    field.Metas
 	seriesIDs *roaring.Bitmap
-	result    *filterResultSet
+	rs        *timeSpanResultSet
 }
 
 // newMemoryDataFilterTask creates memory data filter task
 func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
-	result *filterResultSet,
+	rs *timeSpanResultSet,
 ) flow.QueryTask {
 	task := &memoryDataFilterTask{
 		ctx:       ctx,
@@ -227,7 +227,7 @@ func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 		metricID:  metricID,
 		fields:    fields,
 		seriesIDs: seriesIDs,
-		result:    result,
+		rs:        rs,
 	}
 	if ctx.query.Explain {
 		return &queryStatTask{
@@ -243,7 +243,9 @@ func (t *memoryDataFilterTask) Run() error {
 	if err != nil {
 		return err
 	}
-	t.result.rs = append(t.result.rs, resultSet...)
+	for _, rs := range resultSet {
+		t.rs.addFilterResultSet(t.shard.CurrentInterval(), rs)
+	}
 	return nil
 }
 
@@ -263,13 +265,13 @@ type fileDataFilterTask struct {
 	fields    field.Metas
 	seriesIDs *roaring.Bitmap
 
-	result *filterResultSet
+	rs *timeSpanResultSet
 }
 
 // newFileDataFilterTask creates file data filtering task
 func newFileDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
-	result *filterResultSet,
+	rs *timeSpanResultSet,
 ) flow.QueryTask {
 	task := &fileDataFilterTask{
 		ctx:       ctx,
@@ -277,7 +279,7 @@ func newFileDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 		metricID:  metricID,
 		fields:    fields,
 		seriesIDs: seriesIDs,
-		result:    result,
+		rs:        rs,
 	}
 	if ctx.query.Explain {
 		return &queryStatTask{
@@ -300,7 +302,9 @@ func (t *fileDataFilterTask) Run() error {
 		if err != nil {
 			return err
 		}
-		t.result.rs = append(t.result.rs, resultSet...)
+		for _, rs := range resultSet {
+			t.rs.addFilterResultSet(family.Interval(), rs)
+		}
 	}
 	return nil
 }
@@ -411,32 +415,26 @@ func (t *buildGroupTask) AfterRun() {
 // dataLoadTask represents data load task based on filtering result set
 type dataLoadTask struct {
 	baseQueryTask
-	ctx         *storageExecuteContext
-	shard       tsdb.Shard
-	queryFlow   flow.StorageQueryFlow
-	filteringRS flow.FilterResultSet
-	highKey     uint16
-	seriesIDs   roaring.Container
-
-	idx    int
-	result *loadSeriesResult
+	ctx       *storageExecuteContext
+	shard     tsdb.Shard
+	queryFlow flow.StorageQueryFlow
+	timeSpan  *timeSpan
+	highKey   uint16
+	seriesIDs roaring.Container
 }
 
 // newDataLoadTask creates the data load task
 func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-	filteringRS flow.FilterResultSet,
+	timeSpan *timeSpan,
 	highKey uint16, seriesIDs roaring.Container,
-	idx int, result *loadSeriesResult,
 ) flow.QueryTask {
 	task := &dataLoadTask{
-		ctx:         ctx,
-		shard:       shard,
-		queryFlow:   queryFlow,
-		filteringRS: filteringRS,
-		highKey:     highKey,
-		seriesIDs:   seriesIDs,
-		idx:         idx,
-		result:      result,
+		ctx:       ctx,
+		shard:     shard,
+		queryFlow: queryFlow,
+		timeSpan:  timeSpan,
+		highKey:   highKey,
+		seriesIDs: seriesIDs,
 	}
 	if ctx.query.Explain {
 		return &queryStatTask{
@@ -448,15 +446,20 @@ func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flo
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	t.result.loaders[t.idx] = t.filteringRS.Load(t.highKey, t.seriesIDs)
+	for _, rs := range t.timeSpan.resultSets {
+		loader := rs.Load(t.highKey, t.seriesIDs)
+		if loader != nil {
+			t.timeSpan.loaders = append(t.timeSpan.loaders, loader)
+		}
+	}
 	return nil
 }
 
 // AfterRun invokes after data load, collects the data load stats
 func (t *dataLoadTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-
-	identifiers := strings.Split(t.filteringRS.Identifier(), fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
+	//TODO need modify
+	identifiers := strings.Split(t.timeSpan.identifier, fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
 	var identifier string
 	if len(identifiers) > 1 {
 		identifier = identifiers[1]
