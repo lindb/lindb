@@ -30,8 +30,8 @@ const defaultPayloadBlock = 64 * 1024
 // HasNext() bool (skip empty lines)
 // Next() []byte
 // Error() error
+// Reset()
 type ChunkReader struct {
-	initialized  bool
 	blockSize    int
 	reader       io.Reader
 	payloadBlock []byte
@@ -41,18 +41,25 @@ type ChunkReader struct {
 	error        error
 }
 
-func NewChunkReader(r io.Reader) *ChunkReader {
-	return &ChunkReader{reader: r, blockSize: defaultPayloadBlock}
+func newChunkReader(r io.Reader) *ChunkReader {
+	return newChunkReaderWithSize(r, defaultPayloadBlock)
 }
 
-func (cr *ChunkReader) tryInitialize() {
-	if !cr.initialized {
-		if cap(cr.payloadBlock) < cr.blockSize {
-			cr.payloadBlock = make([]byte, cr.blockSize)
-		}
-		cr.readAt, cr.endAt = 0, 0
+func newChunkReaderWithSize(r io.Reader, blockSize int) *ChunkReader {
+	return &ChunkReader{
+		reader:       r,
+		blockSize:    blockSize,
+		payloadBlock: make([]byte, blockSize),
+		readAt:       0,
+		endAt:        0,
 	}
-	cr.initialized = true
+}
+
+func (cr *ChunkReader) Reset(r io.Reader) {
+	cr.reader = r
+	cr.readAt, cr.endAt = 0, 0
+	cr.section = nil
+	cr.error = nil
 }
 
 func (cr *ChunkReader) moveTailToHead() {
@@ -66,7 +73,6 @@ func (cr *ChunkReader) moveTailToHead() {
 }
 
 func (cr *ChunkReader) HasNext() bool {
-	cr.tryInitialize()
 	for {
 		delimiterAt := bytes.IndexByte(cr.payloadBlock[cr.readAt:cr.endAt], '\n')
 		switch delimiterAt {
@@ -107,6 +113,10 @@ func (cr *ChunkReader) HasNext() bool {
 }
 
 func (cr *ChunkReader) Next() []byte {
+	// strip prefix whitespace
+	for len(cr.section) > 0 && cr.section[0] == ' ' {
+		cr.section = cr.section[1:]
+	}
 	return cr.section
 }
 
