@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/field"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 )
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replication
@@ -47,7 +47,7 @@ var log = logger.GetLogger("replication", "ChannelManager")
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
-	Write(database string, list *field.MetricList) error
+	Write(database string, list *pb.MetricList) error
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
@@ -98,7 +98,7 @@ func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactor
 }
 
 // Write writes a MetricList, the manager handler the database, sharding things.
-func (cm *channelManager) Write(database string, metricList *field.MetricList) error {
+func (cm *channelManager) Write(database string, metricList *pb.MetricList) error {
 	databaseChannel, ok := cm.getDatabaseChannel(database)
 	if !ok {
 		return fmt.Errorf("database [%s] not found", database)

@@ -29,10 +29,12 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
+// todo: gzip decoder and line-based-parser
+
 // PromParse parses prometheus text prometheus to LinDB pb prometheus.
-func PromParse(data []byte, enrichedTags tag.Tags) (*pb.MetricList, error) {
+func PromParse(data []byte, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
 	parser := &expfmt.TextParser{}
-	out, err := parser.TextToMetricFamilies(bytes.NewBuffer(data))
+	out, err := parser.TextToMetricFamilies(bytes.NewReader(data))
 	if err != nil && len(out) == 0 {
 		return nil, err
 	}
@@ -49,8 +51,11 @@ func PromParse(data []byte, enrichedTags tag.Tags) (*pb.MetricList, error) {
 				continue
 			}
 
-			metric := &pb.Metric{Name: name}
-			metric.Fields = []*pb.Field{f}
+			metric := &pb.Metric{
+				Name:      name,
+				Namespace: namespace,
+				Fields:    []*pb.Field{f},
+			}
 			if m.TimestampMs != nil {
 				metric.Timestamp = *m.TimestampMs
 			} else {

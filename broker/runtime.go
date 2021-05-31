@@ -93,7 +93,8 @@ type apiHandler struct {
 	metricAPI          *queryAPI.MetricAPI
 	metadataAPI        *queryAPI.MetadataAPI
 	writeAPI           *writeAPI.WriteAPI
-	prometheusWriter   *write.PrometheusWrite
+	prometheusWriter   *write.PrometheusWriter
+	influxWriter       *write.InfluxWriter
 }
 
 type rpcHandler struct {
@@ -373,7 +374,8 @@ func (r *runtime) buildAPIDependency() {
 		metadataAPI: queryAPI.NewMetadataAPI(r.srv.databaseService, r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
 		writeAPI:         writeAPI.NewWriteAPI(r.srv.channelManager),
-		prometheusWriter: write.NewPrometheusWrite(r.srv.channelManager),
+		prometheusWriter: write.NewPrometheusWriter(r.srv.channelManager),
+		influxWriter:     write.NewInfluxWriter(r.srv.channelManager),
 	}
 
 	api.AddRoute("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
@@ -400,6 +402,7 @@ func (r *runtime) buildAPIDependency() {
 
 	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
 	api.AddRoute("PrometheusWriter", http.MethodPut, "/metric/prometheus", handlers.prometheusWriter.Write)
+	api.AddRoute("InfluxWriter", http.MethodPut, "/metric/influx", handlers.influxWriter.Write)
 }
 
 // buildMiddlewareDependency builds middleware dependency

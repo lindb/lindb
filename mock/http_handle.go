@@ -46,10 +46,19 @@ type HTTPHandler struct {
 func DoRequest(t *testing.T, httpHandler *HTTPHandler) {
 	// Create a request to pass to our handler. We don't have any query parameters for now, so we'll
 	// pass 'nil' as the third parameter.
-	requestBodyBytes, err := json.Marshal(httpHandler.RequestBody)
-	if err != nil {
-		t.Fatal(err)
-		return
+	var requestBodyBytes []byte
+	switch v := httpHandler.RequestBody.(type) {
+	case string:
+		requestBodyBytes = []byte(v)
+	case []byte:
+		requestBodyBytes = v
+	default:
+		var err error
+		requestBodyBytes, err = json.Marshal(httpHandler.RequestBody)
+		if err != nil {
+			t.Fatal(err)
+			return
+		}
 	}
 	reader := bytes.NewReader(requestBodyBytes)
 	req, err := http.NewRequest(httpHandler.Method, httpHandler.URL, reader)
