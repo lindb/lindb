@@ -40,7 +40,7 @@ var (
 // Test cases in
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
 
-func parseInfluxLine(content []byte, database string, multiplier int64) (*pb.Metric, error) {
+func parseInfluxLine(content []byte, namespace string, multiplier int64) (*pb.Metric, error) {
 	// skip comment line
 	if bytes.HasPrefix(content, []byte{'#'}) {
 		return nil, nil
@@ -50,7 +50,7 @@ func parseInfluxLine(content []byte, database string, multiplier int64) (*pb.Met
 	var (
 		m pb.Metric
 	)
-	m.Namespace = database
+	m.Namespace = namespace
 	// parse metric-name
 	metricEndAt, err := scanMetricName(content, escaped)
 	if err != nil {
