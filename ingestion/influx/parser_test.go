@@ -36,12 +36,12 @@ func Test_tooManyTags(t *testing.T) {
 		tagPair = append(tagPair, fmt.Sprintf("%s=%s", v, v))
 	}
 	line := fmt.Sprintf("mmm,%s x=1,y=2 1465839830100400200", strings.Join(tagPair, ","))
-	_, err := parseInfluxLine([]byte(line), "db", -1e6)
+	_, err := parseInfluxLine([]byte(line), "ns", -1e6)
 	assert.Equal(t, ErrTooManyTags, err)
 }
 
 func Test_noTags_noTimestamp(t *testing.T) {
-	m, err := parseInfluxLine([]byte("cpu value=1"), "db2", -1e6)
+	m, err := parseInfluxLine([]byte("cpu value=1"), "ns2", -1e6)
 	assert.Nil(t, err)
 	assert.NotZero(t, m.Timestamp)
 	assert.Empty(t, m.Tags)
@@ -58,7 +58,7 @@ func Test_badTimestamp(t *testing.T) {
 		"cpu value=1 9223372036854775807 12",
 	}
 	for _, line := range lines {
-		m, err := parseInfluxLine([]byte(line), "db3", 1)
+		m, err := parseInfluxLine([]byte(line), "ns3", 1)
 		assert.Equal(t, ErrBadTimestamp, err)
 		assert.Nil(t, m)
 	}
@@ -80,7 +80,7 @@ func Test_tags(t *testing.T) {
 		{`cpu,tag0=1\"\",t=k value=1`, map[string]string{"tag0": `1\"\"`, "t": "k"}},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "db", 1e6)
+		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
 		assert.NotNil(t, m)
 		assert.Nil(t, err)
 		assert.Equal(t, example.Tags, m.Tags)
@@ -99,7 +99,7 @@ func Test_InvalidLine(t *testing.T) {
 		{`# `, nil},
 	}
 	for _, example := range examples {
-		_, err := parseInfluxLine([]byte(example.Line), "db", 1e6)
+		_, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
 		assert.Equal(t, example.Err, err)
 	}
 }
@@ -118,7 +118,7 @@ func Test_metricName(t *testing.T) {
 		{`cpu\\\,\ a, tag0=v0 value=1`, "cpu\\\\, a"},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "db", 1e6)
+		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
 		assert.NotNil(t, m)
 		assert.Nil(t, err)
 		assert.Equal(t, example.MetricName, m.Name)
@@ -141,7 +141,7 @@ func Test_missingTagValues(t *testing.T) {
 		{`cpu,host=f\==o,`, ErrMissingWhiteSpace},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "db", -1e6)
+		m, err := parseInfluxLine([]byte(example.Line), "ns", -1e6)
 		assert.Equal(t, example.Err, err)
 		assert.Nil(t, m)
 	}
@@ -158,7 +158,7 @@ func Test_missingFieldNames(t *testing.T) {
 		{`cpu,host=serverA,region=us-west value=123i,=456i`, ErrBadFields},
 	}
 	for _, example := range examples {
-		_, err := parseInfluxLine([]byte(example.Line), "db", 1e6)
+		_, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
 		assert.Equal(t, example.Err, err)
 	}
 }
@@ -261,7 +261,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 	}
 
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "db", -1e6)
+		m, err := parseInfluxLine([]byte(example.Line), "ns", -1e6)
 		assert.Nil(t, err)
 		assert.Equal(t, example.MetricName, m.Name)
 		assert.Equal(t, example.Tags, m.Tags)
@@ -284,7 +284,7 @@ func Test_parseBadFields(t *testing.T) {
 		`cpu,regions=east value=2f`,
 	}
 	for _, line := range lines {
-		_, err := parseInfluxLine([]byte(line), "db", 1e6)
+		_, err := parseInfluxLine([]byte(line), "ns", 1e6)
 		assert.Equal(t, ErrBadFields, err)
 	}
 }

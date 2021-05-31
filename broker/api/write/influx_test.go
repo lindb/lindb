@@ -18,79 +18,76 @@
 package write
 
 import (
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"testing"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/replication"
+
+	"io"
+	"net/http"
+	"testing"
 )
 
-func TestPrometheusWrite_Write(t *testing.T) {
+func Test_Influx_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		readAllFunc = ioutil.ReadAll
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
-	api := NewPrometheusWriter(cm)
-	// case 1: param error
+	api := NewInfluxWriter(cm)
+
+	// missing db param
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
-		URL:            "/metric/prometheus",
+		URL:            "/metric/influx",
 		HandlerFunc:    api.Write,
 		ExpectHTTPCode: 500,
 	})
-	// case 2: read request body err
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return nil, fmt.Errorf("err")
-	}
+
+	// enrich_tag bad format
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
-		URL:            "/metric/prometheus?db=dal",
+		URL:            "/metric/influx?db=test&ns=ns2&enrich_tag=a",
 		HandlerFunc:    api.Write,
 		ExpectHTTPCode: 500,
 	})
-	// case 3: write wal err
-	input := `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
-# 	TYPE go_gc_duration_seconds summary
-go_gc_duration_seconds { quantile = "0.9999" } NaN
-go_gc_duration_seconds_count 9
-go_gc_duration_seconds_sum 90
-`
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return []byte(input), nil
-	}
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(errors.New("err"))
+
+	// bad influx line format
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
-		URL:            "/metric/prometheus?db=dal&cluster=dal&c=1",
+		URL:            "/metric/influx?db=test&ns=ns3&enrich_tag=a=b",
 		HandlerFunc:    api.Write,
 		ExpectHTTPCode: 500,
+		RequestBody: `
+# bad line
+a,v=c,d=f a=2 b=3 c=4
+`,
 	})
-	// case 4: write wal success
+
+	// write error
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
+	mock.DoRequest(t, &mock.HTTPHandler{
+		Method:         http.MethodPut,
+		URL:            "/metric/influx?db=test&ns=ns4&enrich_tag=a=b",
+		HandlerFunc:    api.Write,
+		ExpectHTTPCode: 500,
+		RequestBody: `
+# good line
+measurement,foo=bar value=12 1439587925
+measurement value=12 1439587925
+`,
+	})
+
+	// no content
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
 	mock.DoRequest(t, &mock.HTTPHandler{
 		Method:         http.MethodPut,
-		URL:            "/metric/prometheus?db=dal&cluster=dal&c=1",
+		URL:            "/metric/influx?db=test&ns=ns4&enrich_tag=a=b",
 		HandlerFunc:    api.Write,
 		ExpectHTTPCode: 204,
-	})
-	// case 5: parse prometheus data err
-	input = "# HELP go_gc_duration_seconds A summary of the GC invocation durations"
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return []byte(input), nil
-	}
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/prometheus?db=dal&cluster=dal&c=1",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 500,
+		RequestBody: `
+# good line
+measurement,foo=bar value=12 1439587925
+measurement value=12 1439587925
+`,
 	})
 }
