@@ -36,7 +36,7 @@ const (
 	Count
 	Min
 	Max
-	Replace
+	LastValue
 )
 
 // Type represents field type for LinDB support
@@ -44,15 +44,14 @@ type Type uint8
 
 // Defines all field types for LinDB support(user write)
 const (
-	SumField Type = iota + 1
+	Unknown Type = iota
+	SumField
 	MinField
 	MaxField
 	GaugeField
 	IncreaseField
 	SummaryField
 	HistogramField
-
-	Unknown
 )
 
 // String returns the field type's string value

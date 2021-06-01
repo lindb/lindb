@@ -331,18 +331,18 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	gCtx.EXPECT().GetGroupByTagValueIDs().Return([]*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}).AnyTimes()
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exec1.storageExecutePlan = &storageExecutePlan{groupByTags: []tag.Meta{{ID: 1, Key: "host"}}}
-	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 2: get grouping context err
 	gomock.InOrder(
 		indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
 	)
-	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{}, roaring.BitmapOf(1, 2, 3))
 	// case 3: get grouping context nil
 	gomock.InOrder(
 		indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil),
 	)
-	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 4: collect tag values err
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
@@ -353,7 +353,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	exec1.groupByTagKeyIDs = []tag.Meta{{ID: 1, Key: "host"}}
 	exec1.tagValueIDs = make([]*roaring.Bitmap, len(exec1.groupByTagKeyIDs))
 	exec1.storageExecutePlan = &storageExecutePlan{groupByTags: []tag.Meta{{ID: 1, Key: "host"}}}
-	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{}, roaring.BitmapOf(1, 2, 3))
 
 	// case 5: build group series err
 	task := flow.NewMockQueryTask(ctrl)
@@ -363,7 +363,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	}
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
-	exec1.executeGroupBy(shard, timeSpans{}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{}, roaring.BitmapOf(1, 2, 3))
 
 	newBuildGroupTaskFunc = newBuildGroupTask
 	// case 6: load data err
@@ -376,7 +376,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})
-	exec1.executeGroupBy(shard, timeSpans{{}}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{spanMap: map[int64]*timeSpan{1: {}}, filterRSCount: 1}, roaring.BitmapOf(1, 2, 3))
 }
 
 func TestStorageExecutor_merge_groupBy_tagValues(t *testing.T) {

@@ -106,7 +106,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling := aggregation.NewDownSamplingSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, map[field.ID]aggregation.AggregatorSpec{field.ID(10): downSampling}, storagePlan.fields)
-	assert.Equal(t, field.Metas{{ID: 10, Type: field.SumField}}, storagePlan.getFields())
+	assert.Equal(t, field.Metas{{Name: "f", ID: 10, Type: field.SumField}}, storagePlan.getFields())
 
 	q, _ = sql.Parse("select a,b,c as d from cpu")
 	query = q.(*stmt.Query)
@@ -129,9 +129,9 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t,
 		field.Metas{
-			{ID: 11, Type: field.MinField},
-			{ID: 12, Type: field.MaxField},
-			{ID: 13, Type: field.HistogramField},
+			{Name: "a", ID: 11, Type: field.MinField},
+			{Name: "b", ID: 12, Type: field.MaxField},
+			{Name: "c", ID: 13, Type: field.HistogramField},
 		},
 		storagePlan.getFields())
 
@@ -157,9 +157,9 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, expect, storagePlan.fields)
 	assert.Equal(t,
 		field.Metas{
-			{ID: 11, Type: field.MinField},
-			{ID: 13, Type: field.HistogramField},
-			{ID: 14, Type: field.HistogramField},
+			{Name: "a", ID: 11, Type: field.MinField},
+			{Name: "c", ID: 13, Type: field.HistogramField},
+			{Name: "e", ID: 14, Type: field.HistogramField},
 		},
 		storagePlan.getFields())
 }
@@ -193,7 +193,7 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	assert.Equal(t, field.Name("d"), aggSpecs[0].FieldName())
 	assert.Equal(t, field.Name("f"), aggSpecs[1].FieldName())
 
-	assert.Equal(t, field.Metas{{ID: 10, Type: field.SumField}, {ID: 12, Type: field.SumField}}, storagePlan.getFields())
+	assert.Equal(t, field.Metas{{Name: "d", ID: 10, Type: field.SumField}, {Name: "f", ID: 12, Type: field.SumField}}, storagePlan.getFields())
 	assert.Equal(t, 2, len(storagePlan.groupByTags))
 	assert.Equal(t, []tag.Meta{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, storagePlan.groupByKeyIDs())
 

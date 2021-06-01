@@ -17,17 +17,6 @@
 
 package aggregation
 
-import (
-	"testing"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-)
-
 //TODO need impl
 //func TestFieldAggregator_Aggregate(t *testing.T) {
 //	ctrl := gomock.NewController(t)
@@ -101,38 +90,38 @@ import (
 //	assert.False(t, fieldIt.HasNext())
 //}
 
-func TestDownSamplingFieldAggregator(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	//baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
-
-	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
-	aggSpec.AddFunctionType(function.Sum)
-	aggSpec.AddFunctionType(function.Max)
-	aggSpec.AddFunctionType(function.Avg)
-
-	agg := NewDownSamplingFieldAggregator(aggSpec, 2)
-	agg.Aggregate(nil)
-	it := series.NewMockFieldIterator(ctrl)
-	agg.Aggregate(it)
-	_, rs := agg.ResultSet()
-	assert.Nil(t, rs)
-	//assert.Equal(t, baseTime, startTime)
-	agg.reset()
-}
-
-func TestDownSamplingFieldAggregator_GetBlock(t *testing.T) {
-	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
-	agg := NewDownSamplingFieldAggregator(aggSpec, 2)
-	block, ok := agg.GetBlock(2, func() series.Block {
-		return nil
-	})
-	assert.False(t, ok)
-	assert.Nil(t, block)
-
-	block, ok = agg.GetBlock(1, func() series.Block {
-		return series.NewBlock(0, 10)
-	})
-	assert.True(t, ok)
-	assert.NotNil(t, block)
-}
+//func TestDownSamplingFieldAggregator(t *testing.T) {
+//	ctrl := gomock.NewController(t)
+//	defer ctrl.Finish()
+//	//baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
+//
+//	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
+//	aggSpec.AddFunctionType(function.Sum)
+//	aggSpec.AddFunctionType(function.Max)
+//	aggSpec.AddFunctionType(function.Avg)
+//
+//	agg := NewDownSamplingFieldAggregator(aggSpec, 2)
+//	agg.Aggregate(nil)
+//	it := series.NewMockFieldIterator(ctrl)
+//	agg.Aggregate(it)
+//	_, rs := agg.ResultSet()
+//	assert.Nil(t, rs)
+//	//assert.Equal(t, baseTime, startTime)
+//	agg.reset()
+//}
+//
+//func TestDownSamplingFieldAggregator_GetBlock(t *testing.T) {
+//	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
+//	agg := NewDownSamplingFieldAggregator(aggSpec, 2)
+//	block, ok := agg.GetBlock(2, func() series.Block {
+//		return nil
+//	})
+//	assert.False(t, ok)
+//	assert.Nil(t, block)
+//
+//	block, ok = agg.GetBlock(1, func() series.Block {
+//		return series.NewBlock(0, 10)
+//	})
+//	assert.True(t, ok)
+//	assert.NotNil(t, block)
+//}

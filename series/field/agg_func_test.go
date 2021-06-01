@@ -28,7 +28,7 @@ func TestGetAggFunc(t *testing.T) {
 	assert.NotNil(t, Min.AggFunc())
 	assert.NotNil(t, Max.AggFunc())
 	assert.NotNil(t, Count.AggFunc())
-	assert.NotNil(t, Replace.AggFunc())
+	assert.NotNil(t, LastValue.AggFunc())
 	assert.Nil(t, AggType(99).AggFunc())
 }
 
@@ -53,7 +53,7 @@ func TestMaxAgg(t *testing.T) {
 }
 
 func TestReplaceAgg(t *testing.T) {
-	agg := Replace.AggFunc()
-	assert.Equal(t, Replace, agg.AggType())
+	agg := LastValue.AggFunc()
+	assert.Equal(t, LastValue, agg.AggType())
 	assert.Equal(t, 99.0, agg.Aggregate(1, 99.0))
 }

@@ -221,7 +221,7 @@ func (e *storageExecutor) executeQuery() {
 					// try start collect tag values
 					e.collectGroupByTagValues()
 				}()
-				e.executeGroupBy(shard, rs.getTimeSpans(), rs.getSeriesIDs())
+				e.executeGroupBy(shard, rs, rs.getSeriesIDs())
 			})
 		})
 	}
@@ -230,9 +230,10 @@ func (e *storageExecutor) executeQuery() {
 // executeGroupBy executes the query flow, step as below:
 // 1. grouping
 // 2. loading
-func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, timeSpans timeSpans, seriesIDs *roaring.Bitmap) {
+func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
+	timeSpans := rs.getTimeSpans()
 	if e.ctx.query.HasGroupBy() {
 		// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
 		// get grouping context if need
@@ -292,43 +293,54 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, timeSpans timeSpans, 
 					}
 				}
 				grouped := groupedResult.groupedSeries
+				fieldSeriesList := make([][]*encoding.TSDDecoder, len(e.fields))
+				for idx := range fieldSeriesList {
+					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
+				}
+				encode := encoding.NewTSDEncoder(0)
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
 					for _, seriesID := range seriesIDs {
 						for _, span := range timeSpans {
 							// Load loads the metric data by given series id from load result.
-							var dd []*encoding.TSDDecoder
-							for _, loader := range span.loaders {
+							for i, loader := range span.loaders {
 								// load field series data by series ids
+								dd := fieldSeriesList[i]
 								slotRange2, d := loader.Load(seriesID)
-								for _, data := range d {
-									ddd := encoding.GetTSDDecoder()
-									ddd.ResetWithTimeRange(data, slotRange2.Start, slotRange2.End)
-									dd = append(dd, ddd)
+								for j, data := range d {
+									if data != nil {
+										if dd[j] == nil {
+											dd[j] = encoding.GetTSDDecoder()
+										}
+										dd[j].ResetWithTimeRange(data, slotRange2.Start, slotRange2.End)
+									}
 								}
 							}
-							encode := encoding.NewTSDEncoder(0)
-							ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1,
-								aggregation.NewTSDDownSamplingResult(encode))
-							ds.DownSampling(e.fields[0].Type.GetAggFunc(), dd) //FIXME(stone1100)
-							d11, _ := encode.Bytes()
+							for idx, fieldSeries := range fieldSeriesList {
+								f := e.fields[idx]
+								encode.Reset()
+								ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1,
+									aggregation.NewTSDDownSamplingResult(encode))
+								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries) //FIXME(stone1100)
+								d11, _ := encode.Bytes()
 
-							writer := stream.NewBufferWriter(nil)
-							writer.PutByte(byte(e.fields[0].Type))
-							writer.PutVarint64(e.ctx.query.TimeRange.Start)
+								writer := stream.NewBufferWriter(nil)
+								writer.PutByte(byte(e.fields[idx].Type))
+								writer.PutVarint64(e.ctx.query.TimeRange.Start)
 
-							writer1 := stream.NewBufferWriter(nil)
-							writer1.PutByte(byte(e.fields[0].Type.GetAggFunc().AggType())) // agg type
-							writer1.PutVarint32(int32(len(d11)))                           // length of field data
-							writer1.PutBytes(d11)                                          // field data
-							d44, _ := writer1.Bytes()
+								writer1 := stream.NewBufferWriter(nil)
+								writer1.PutByte(byte(f.Type.GetAggFunc().AggType())) // agg type
+								writer1.PutVarint32(int32(len(d11)))                 // length of field data
+								writer1.PutBytes(d11)                                // field data
+								d44, _ := writer1.Bytes()
 
-							if len(d44) > 0 {
-								writer.PutBytes(d44)
+								if len(d44) > 0 {
+									writer.PutBytes(d44)
+								}
+
+								d2, _ := writer.Bytes()
+								e.queryFlow.Reduce(tags, series.NewGroupedIterator(tags, map[field.Name][]byte{f.Name: d2}))
 							}
-
-							d2, _ := writer.Bytes()
-							e.queryFlow.Reduce("", series.NewGroupedIterator(tags, map[field.Name][]byte{"counter": d2}))
 						}
 					}
 				}
