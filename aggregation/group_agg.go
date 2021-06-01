@@ -36,7 +36,7 @@ type groupingAggregator struct {
 	aggSpecs   AggregatorSpecs
 	interval   timeutil.Interval
 	timeRange  timeutil.TimeRange
-	aggregates map[string]series.GroupedIterator // tag values => field aggregates
+	aggregates map[string]FieldAggregates // tag values => field aggregates
 }
 
 // NewGroupingAggregator creates a grouping aggregator
@@ -49,47 +49,42 @@ func NewGroupingAggregator(
 		aggSpecs:   aggSpecs,
 		interval:   interval,
 		timeRange:  timeRange,
-		aggregates: make(map[string]series.GroupedIterator),
+		aggregates: make(map[string]FieldAggregates),
 	}
 }
 
 // Aggregate aggregates the time series data
 func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
-	ga.aggregates[it.Tags()] = it
-	//tags := it.Tags()
-	//seriesAgg := ga.getAggregator(tags)
-	//var sAgg SeriesAggregator
-	//for it.HasNext() {
-	//	seriesIt := it.Next()
-	//	fieldName := seriesIt.FieldName()
-	//	fieldType := seriesIt.FieldType()
-	//	// 1. find field aggregator
-	//	sAgg = nil
-	//	for _, aggregator := range seriesAgg {
-	//		if aggregator.FieldName() == fieldName {
-	//			sAgg = aggregator
-	//			break
-	//		}
-	//	}
-	//	if sAgg == nil {
-	//		continue
-	//	}
-	//	// set field type for aggregate
-	//	sAgg.SetFieldType(fieldType)
-	//	// 2. merge the field series data
-	//	for seriesIt.HasNext() {
-	//		startTime, fieldIt := seriesIt.Next()
-	//		if fieldIt == nil {
-	//			continue
-	//		}
-	//		_, _ = sAgg.GetAggregateBlock(startTime)
-	//		fmt.Println("dlkfjaslkdf")
-	//		//TODO impl
-	//		//if ok {
-	//		//fAgg.Aggregate(fieldIt)
-	//		//}
-	//	}
-	//}
+	//ga.aggregates[it.Tags()] = it
+	tags := it.Tags()
+	seriesAgg := ga.getAggregator(tags)
+	var sAgg SeriesAggregator
+	for it.HasNext() {
+		seriesIt := it.Next()
+		fieldName := seriesIt.FieldName()
+		fieldType := seriesIt.FieldType()
+		// 1. find field aggregator
+		sAgg = nil
+		for _, aggregator := range seriesAgg {
+			if aggregator.FieldName() == fieldName {
+				sAgg = aggregator
+				break
+			}
+		}
+		if sAgg == nil {
+			continue
+		}
+		// set field type for aggregate
+		sAgg.SetFieldType(fieldType)
+		// 2. merge the field series data
+		for seriesIt.HasNext() {
+			_, fieldIt := seriesIt.Next()
+			if fieldIt == nil {
+				continue
+			}
+			sAgg.GetFiledAggregator().Aggregate(fieldIt)
+		}
+	}
 }
 
 // ResultSet returns the result set of aggregator
@@ -100,21 +95,20 @@ func (ga *groupingAggregator) ResultSet() []series.GroupedIterator {
 	}
 	seriesList := make([]series.GroupedIterator, length)
 	idx := 0
-	for _, aggregator := range ga.aggregates {
-		seriesList[idx] = aggregator
-		//.ResultSet()
+	for tags, aggregator := range ga.aggregates {
+		seriesList[idx] = aggregator.ResultSet(tags)
 		idx++
 	}
 	return seriesList
 }
 
-//// getAggregator returns the time series aggregator by time series's tags
-//func (ga *groupingAggregator) getAggregator(tags string) (agg FieldAggregates) {
-//	// 2. get series aggregator
-//	agg, ok := ga.aggregates[tags]
-//	if !ok {
-//		agg = NewFieldAggregates(ga.interval, 1, ga.timeRange, false, ga.aggSpecs)
-//		ga.aggregates[tags] = agg
-//	}
-//	return
-//}
+// getAggregator returns the time series aggregator by time series's tags
+func (ga *groupingAggregator) getAggregator(tags string) (agg FieldAggregates) {
+	// 2. get series aggregator
+	agg, ok := ga.aggregates[tags]
+	if !ok {
+		agg = NewFieldAggregates(ga.interval, ga.timeRange, ga.aggSpecs)
+		ga.aggregates[tags] = agg
+	}
+	return
+}
