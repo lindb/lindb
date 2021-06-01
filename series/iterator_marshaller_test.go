@@ -35,10 +35,8 @@ func Test_MarshalBinary(t *testing.T) {
 	writer := stream.NewBufferWriter(nil)
 	writer.PutByte(byte(field.SumField))
 	writer.PutVarint64(10)
-	writer.PutVarint32(int32(2))
 	writer.PutBytes([]byte{1, 2})
 	writer.PutVarint64(10)
-	writer.PutVarint32(int32(0))
 	data, err := writer.Bytes()
 	assert.NoError(t, err)
 

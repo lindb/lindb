@@ -84,6 +84,7 @@ func (p *storageExecutePlan) Plan() error {
 		p.fieldMetas[idx] = field.Meta{
 			ID:   fieldID,
 			Type: f.GetFieldType(),
+			Name: f.FieldName(),
 		}
 		idx++
 	}

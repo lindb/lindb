@@ -39,12 +39,7 @@ func MarshalIterator(it Iterator) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		//FIXME(stone1100): need remove?
-		// ref: series.BinaryIterator read cannot use
-		writer.PutVarint32(int32(len(data)))
-		if len(data) > 0 {
-			writer.PutBytes(data)
-		}
+		writer.PutBytes(data)
 	}
 	return writer.Bytes()
 }

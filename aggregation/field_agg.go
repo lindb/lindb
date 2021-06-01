@@ -19,7 +19,9 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/aggregation/selector"
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source=./field_agg.go -destination=./field_agg_mock.go -package=aggregation
@@ -28,114 +30,18 @@ import (
 type FieldAggregator interface {
 	// Aggregate aggregates the field series into current aggregator
 	Aggregate(it series.FieldIterator)
-	// GetBlock returns series block for saving loaded data
-	GetBlock(idx int, fn newBlockFunc) (block series.Block, ok bool)
+	GetFieldSeriesCount() int
 	// ResultSet returns the result set of field aggregator
-	ResultSet() (startTime int64, it series.FieldIterator)
-
-	// reset resets the aggregate context for reusing
-	reset()
-}
-
-//// aggKey represents aggregate key for supporting multi aggregate function with a same primitive field id
-//type aggKey struct {
-//	primitiveID field.PrimitiveID
-//	aggType     field.AggType
-//}
-
-// downSamplingFieldAggregator represents
-type downSamplingFieldAggregator struct {
-	//segmentStartTime int64
-	//start            int
-
-	blockSize int
-	blocks    []series.Block
-}
-
-// NewDownSamplingFieldAggregator creates a field aggregator for down sampling,
-// time range 's start and end is index based on segment start time and interval.
-// e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
-// real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewDownSamplingFieldAggregator(
-	aggSpec AggregatorSpec,
-	blockSize int,
-) FieldAggregator {
-	//start, _ := selector.Range()
-	agg := &downSamplingFieldAggregator{
-		//segmentStartTime: segmentStartTime,
-		//start:            start,
-		blockSize: blockSize,
-		blocks:    make([]series.Block, blockSize),
-	}
-	//aggregatorMap := make(map[aggKey]PrimitiveAggregator)
-	//// if down sampling spec need init all aggregator
-	//for funcType := range aggSpec.Functions() {
-	//	primitiveFields := aggSpec.GetFieldType().GetPrimitiveFields(funcType)
-	//	for _, pField := range primitiveFields {
-	//		key := aggKey{
-	//			primitiveID: pField.FieldID,
-	//			aggType:     pField.AggType,
-	//		}
-	//		aggregatorMap[key] = NewPrimitiveAggregator(pField.FieldID, selector, pField.AggType.AggFunc())
-	//	}
-	//}
-	//length := len(aggregatorMap)
-	//agg.aggregators = make([]PrimitiveAggregator, length)
-	//idx := 0
-	//for _, pAgg := range aggregatorMap {
-	//	agg.aggregators[idx] = pAgg
-	//	idx++
-	//}
-	//// sort field ids
-	//sort.Slice(agg.aggregators, func(i, j int) bool {
-	//	return agg.aggregators[i].FieldID() < agg.aggregators[j].FieldID()
-	//})
-	return agg
-}
-
-// Aggregate aggregates the field series into current aggregator
-func (agg *downSamplingFieldAggregator) Aggregate(_ series.FieldIterator) {
-	// do nothing for down sampling
-}
-
-// GetBlock returns series block for saving loaded data
-func (agg *downSamplingFieldAggregator) GetBlock(idx int, fn newBlockFunc) (block series.Block, ok bool) {
-	if idx < 0 || idx >= agg.blockSize {
-		return
-	}
-	block = agg.blocks[idx]
-	if block == nil {
-		block = fn()
-		agg.blocks[idx] = block
-	}
-	ok = true
-	return
-}
-
-func (agg *downSamplingFieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
-	//its := make([]series.PrimitiveIterator, len(agg.aggregators))
-	//idx := 0
-	//for _, it := range agg.aggregators {
-	//	its[idx] = it.Iterator()
-	//	idx++
-	//}
-	//return agg.segmentStartTime, newFieldIterator(agg.start, its)
-	return
-}
-
-// reset resets the aggregate context for reusing
-func (agg *downSamplingFieldAggregator) reset() {
-	for _, block := range agg.blocks {
-		if block != nil {
-			block.Clear()
-		}
-	}
+	ResultSet(idx int) (startTime int64, it series.FieldIterator)
 }
 
 // fieldAggregator implements field aggregator interface, aggregator field series based on aggregator spec
 type fieldAggregator struct {
+	aggTypes         []field.AggType
 	segmentStartTime int64
-	start            int
+
+	fieldSeriesList []collections.FloatArray
+	start           int
 
 	selector selector.SlotSelector
 }
@@ -144,68 +50,45 @@ type fieldAggregator struct {
 // time range 's start and end is index based on segment start time and interval.
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewFieldAggregator(segmentStartTime int64, selector selector.SlotSelector) FieldAggregator {
+func NewFieldAggregator(aggTypes []field.AggType, segmentStartTime int64, selector selector.SlotSelector) FieldAggregator {
 	start, _ := selector.Range()
 	agg := &fieldAggregator{
+		aggTypes:         aggTypes,
 		segmentStartTime: segmentStartTime,
-		start:            start,
 		selector:         selector,
+		start:            start,
+		fieldSeriesList:  make([]collections.FloatArray, len(aggTypes)),
 	}
-
 	return agg
 }
 
-// ResultSet returns the result set of field aggregator
-func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
-	//its := make([]series.PrimitiveIterator, len(a.aggregateMap))
-	//idx := 0
-	//for _, agg := range a.aggregateMap {
-	//	its[idx] = agg.Iterator()
-	//	idx++
-	//}
-	//return a.segmentStartTime, newFieldIterator(a.start, its)
-	return
+func (a *fieldAggregator) GetFieldSeriesCount() int {
+	return len(a.aggTypes)
 }
 
-// GetBlock returns series block for saving loaded data
-func (a *fieldAggregator) GetBlock(idx int, fn newBlockFunc) (series.Block, bool) {
-	return nil, false
+// ResultSet returns the result set of field aggregator
+func (a *fieldAggregator) ResultSet(idx int) (startTime int64, it series.FieldIterator) {
+	return a.segmentStartTime, newFieldIterator(a.start, a.aggTypes[idx], a.fieldSeriesList[idx])
 }
 
 // Aggregate aggregates the field series into current aggregator
 func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
-	//for it.HasNext() {
-	//	primitiveIt := it.Next()
-	//	if primitiveIt == nil {
-	//		continue
-	//	}
-	//	primitiveFieldID := primitiveIt.FieldID()
-	//	aggregator := a.getAggregator(primitiveFieldID, primitiveIt.AggType())
-	//	for primitiveIt.HasNext() {
-	//		timeSlot, value := primitiveIt.Next()
-	//		aggregator.Aggregate(timeSlot, value)
-	//	}
-	//}
-}
-
-//// getAggregator returns the primitive aggregator by primitive id and function type
-//func (a *fieldAggregator) getAggregator(primitiveFieldID field.PrimitiveID, aggType field.AggType) PrimitiveAggregator {
-//	key := aggKey{
-//		primitiveID: primitiveFieldID,
-//		aggType:     aggType,
-//	}
-//	agg, ok := a.aggregateMap[key]
-//	if ok {
-//		return agg
-//	}
-//	agg = NewPrimitiveAggregator(primitiveFieldID, a.selector, aggType.AggFunc())
-//	a.aggregateMap[key] = agg
-//	return agg
-//}
-
-// reset resets the aggregate context for reusing
-func (a *fieldAggregator) reset() {
-	//for _, aggregator := range a.aggregateMap {
-	//	aggregator.reset()
-	//}
+	for it.HasNext() {
+		slot, value := it.Next()
+		for idx, aggType := range a.aggTypes {
+			values := a.fieldSeriesList[idx]
+			if values == nil {
+				start, end := a.selector.Range()
+				values = collections.NewFloatArray(end - start + 1)
+				values.SetValue(slot, value)
+				a.fieldSeriesList[idx] = values
+			} else {
+				if values.HasValue(slot) {
+					values.SetValue(slot, aggType.AggFunc().Aggregate(values.GetValue(slot), value))
+				} else {
+					values.SetValue(slot, value)
+				}
+			}
+		}
+	}
 }

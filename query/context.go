@@ -85,6 +85,8 @@ type timeSpan struct {
 type timeSpanResultSet struct {
 	spanMap   map[int64]*timeSpan
 	seriesIDs *roaring.Bitmap
+
+	filterRSCount int
 }
 
 func newTimeSpanResultSet() *timeSpanResultSet {
@@ -109,8 +111,15 @@ func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs fl
 	}
 	span.resultSets = append(span.resultSets, rs)
 
+	// increase filter rs
+	s.filterRSCount++
+
 	// merge all series ids after filtering => final series ids
 	s.seriesIDs.Or(rs.SeriesIDs())
+}
+
+func (s *timeSpanResultSet) getFilterRSCount() int {
+	return s.filterRSCount
 }
 
 func (s *timeSpanResultSet) isEmpty() bool {
@@ -126,6 +135,7 @@ func (s *timeSpanResultSet) getTimeSpans() timeSpans {
 	return timeSpans
 }
 
+// getSeriesIDs returns final series ids after family filtering.
 func (s *timeSpanResultSet) getSeriesIDs() *roaring.Bitmap {
 	return s.seriesIDs
 }
