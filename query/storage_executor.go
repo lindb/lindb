@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -294,10 +293,15 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				}
 				grouped := groupedResult.groupedSeries
 				fieldSeriesList := make([][]*encoding.TSDDecoder, len(e.fields))
-				for idx := range fieldSeriesList {
+				fieldAggList := make(aggregation.FieldAggregates, len(e.fields))
+				fieldMerge := make([]aggregation.DownSamplingResult, len(e.fields))
+				for idx, f := range e.fields {
 					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
+					fieldAggList[idx] = aggregation.NewSeriesAggregator(e.ctx.query.Interval,
+						e.ctx.query.TimeRange, aggregation.NewAggregatorSpec(f.Name))
+					fieldAggList[idx].SetFieldType(f.Type) //fixme
+					fieldMerge[idx] = aggregation.NewDownSamplingMergeResult(fieldAggList[idx])
 				}
-				encode := encoding.NewTSDEncoder(0)
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
 					for _, seriesID := range seriesIDs {
@@ -318,31 +322,15 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 							}
 							for idx, fieldSeries := range fieldSeriesList {
 								f := e.fields[idx]
-								encode.Reset()
-								ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1,
-									aggregation.NewTSDDownSamplingResult(encode))
-								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries) //FIXME(stone1100)
-								d11, _ := encode.Bytes()
-
-								writer := stream.NewBufferWriter(nil)
-								writer.PutByte(byte(e.fields[idx].Type))
-								writer.PutVarint64(e.ctx.query.TimeRange.Start)
-
-								writer1 := stream.NewBufferWriter(nil)
-								writer1.PutByte(byte(f.Type.GetAggFunc().AggType())) // agg type
-								writer1.PutVarint32(int32(len(d11)))                 // length of field data
-								writer1.PutBytes(d11)                                // field data
-								d44, _ := writer1.Bytes()
-
-								if len(d44) > 0 {
-									writer.PutBytes(d44)
-								}
-
-								d2, _ := writer.Bytes()
-								e.queryFlow.Reduce(tags, series.NewGroupedIterator(tags, map[field.Name][]byte{f.Name: d2}))
+								ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1, fieldMerge[idx])
+								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries)
+								fieldMerge[idx].Reset()
 							}
 						}
 					}
+					e.queryFlow.Reduce(tags, fieldAggList.ResultSet(tags))
+					// reset agg reset for next grouped tags
+					fieldAggList.Reset()
 				}
 			})
 		})

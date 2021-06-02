@@ -28,14 +28,18 @@ import (
 
 // FieldAggregator represents a field aggregator, aggregator the field series which with same field id.
 type FieldAggregator interface {
-	// Aggregate aggregates the field series into current aggregator
+	// Aggregate aggregates the field series into current aggregator.
 	Aggregate(it series.FieldIterator)
+	// AggregateBySlot aggregates the field series into current aggregator.
+	AggregateBySlot(slot int, value float64)
+	// GetFieldSeriesCount returns the count of field series list.
 	GetFieldSeriesCount() int
-	// ResultSet returns the result set of field aggregator
+	// ResultSet returns the result set of field aggregator.
 	ResultSet(idx int) (startTime int64, it series.FieldIterator)
+	reset()
 }
 
-// fieldAggregator implements field aggregator interface, aggregator field series based on aggregator spec
+// fieldAggregator implements field aggregator interface, aggregator field series based on aggregator spec.
 type fieldAggregator struct {
 	aggTypes         []field.AggType
 	segmentStartTime int64
@@ -62,6 +66,7 @@ func NewFieldAggregator(aggTypes []field.AggType, segmentStartTime int64, select
 	return agg
 }
 
+// GetFieldSeriesCount returns the count of field series list.
 func (a *fieldAggregator) GetFieldSeriesCount() int {
 	return len(a.aggTypes)
 }
@@ -75,20 +80,33 @@ func (a *fieldAggregator) ResultSet(idx int) (startTime int64, it series.FieldIt
 func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	for it.HasNext() {
 		slot, value := it.Next()
-		for idx, aggType := range a.aggTypes {
-			values := a.fieldSeriesList[idx]
-			if values == nil {
-				start, end := a.selector.Range()
-				values = collections.NewFloatArray(end - start + 1)
-				values.SetValue(slot, value)
-				a.fieldSeriesList[idx] = values
+		a.AggregateBySlot(slot, value)
+	}
+}
+
+// Aggregate aggregates the field series into current aggregator
+func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
+	for idx, aggType := range a.aggTypes {
+		values := a.fieldSeriesList[idx]
+		if values == nil {
+			start, end := a.selector.Range()
+			values = collections.NewFloatArray(end - start + 1)
+			values.SetValue(slot, value)
+			a.fieldSeriesList[idx] = values
+		} else {
+			if values.HasValue(slot) {
+				values.SetValue(slot, aggType.AggFunc().Aggregate(values.GetValue(slot), value))
 			} else {
-				if values.HasValue(slot) {
-					values.SetValue(slot, aggType.AggFunc().Aggregate(values.GetValue(slot), value))
-				} else {
-					values.SetValue(slot, value)
-				}
+				values.SetValue(slot, value)
 			}
+		}
+	}
+}
+
+func (a *fieldAggregator) reset() {
+	for _, values := range a.fieldSeriesList {
+		if values != nil {
+			values.Reset()
 		}
 	}
 }
