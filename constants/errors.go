@@ -35,4 +35,8 @@ var (
 
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")
+
+	ErrInfluxLineTooLong = errors.New("influx line is too long")
+
+	ErrBadEnrichTagQueryFormat = errors.New("enrich_tag has the wrong format")
 )

@@ -18,6 +18,7 @@
 package common
 
 import (
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series/tag"
 
 	"fmt"
@@ -41,7 +42,7 @@ func extractTagsFromQuery(values url.Values) (tag.Tags, error) {
 	for _, section := range values[enrichTagsQueryKey] {
 		tagPair := strings.SplitN(section, "=", 2)
 		if len(tagPair) != 2 {
-			return extracted, fmt.Errorf("`%s` query: %q has the wrong format", enrichTagsQueryKey, section)
+			return extracted, fmt.Errorf("%w, query: %s", constants.ErrBadEnrichTagQueryFormat, section)
 		}
 		if len(tagPair[0]) == 0 || len(tagPair[1]) == 0 {
 			continue

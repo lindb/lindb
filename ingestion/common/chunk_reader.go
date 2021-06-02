@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/lindb/lindb/constants"
 )
 
 const defaultPayloadBlock = 64 * 1024
@@ -89,7 +91,7 @@ func (cr *ChunkReader) HasNext() bool {
 				// line is too long
 				cr.section = cr.payloadBlock[cr.readAt:cr.endAt]
 				if cr.endAt > len(cr.payloadBlock)-1 {
-					cr.error = fmt.Errorf("line is longer than: %v", cr.blockSize)
+					cr.error = fmt.Errorf("%w, length %v", constants.ErrInfluxLineTooLong, cr.blockSize)
 					return false
 				}
 				// got a line, but without delimiter

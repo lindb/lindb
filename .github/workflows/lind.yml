@@ -1,43 +1,65 @@
 name: LinDB CI
 on: [push, pull_request]
 jobs:
-  test:
-    name: Test
+  golangci:
+    name: Golangci-Lint
     runs-on: ubuntu-latest
     steps:
       - name: Setup Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
         id: go
 
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
           fetch-depth: 1
 
+      - name: Make Mock files
+        run: make gomock
+
+      - name: Lint
+        run: make lint
+
+  test:
+    name: Test-With-Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+        id: go
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Make Mock files
+        run: make gomock
+
       - name: Test
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-          make pre-test
-          make test
-          bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
+        run: make test-without-lint
+
+      - name: Upload
+        run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
+
 
   build:
-    name: Build
+    name: Build-Lind
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
           fetch-depth: 1
 
       - name: Build
-        run: |
-          export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-          make build
+        run: make build

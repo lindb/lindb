@@ -1,4 +1,4 @@
-go 1.14
+go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.3.1
@@ -13,7 +13,7 @@ require (
 	github.com/elastic/go-licenser v0.3.1 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gogo/protobuf v1.2.1
-	github.com/golang/mock v1.4.3
+	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.3
 	github.com/gorilla/mux v1.7.4
@@ -38,10 +38,11 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
-	golang.org/x/tools v0.0.0-20191029190741-b9c20aec41a5
+	golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+	rsc.io/quote/v3 v3.1.0 // indirect
 )
 
 // just redirect to local repo for local debug

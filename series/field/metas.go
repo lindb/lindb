@@ -57,9 +57,7 @@ func (fms Metas) GetFromID(fieldID ID) (Meta, bool) {
 // Clone clones a copy of fieldsMetas
 func (fms Metas) Clone() (x2 Metas) {
 	x2 = make([]Meta, fms.Len())
-	for idx, fm := range fms {
-		x2[idx] = fm
-	}
+	copy(x2, fms)
 	return x2
 }
 

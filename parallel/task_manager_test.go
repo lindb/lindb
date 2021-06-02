@@ -26,7 +26,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
-	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
+	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 func TestTaskManager_ClientStream(t *testing.T) {
@@ -72,7 +72,7 @@ func TestTaskManager_SendRequest(t *testing.T) {
 	err := taskManager.SendRequest("targetNode", nil)
 	assert.NotNil(t, err)
 
-	client := commonmock.NewMockTaskService_HandleClient(ctrl)
+	client := pb.NewMockTaskService_HandleClient(ctrl)
 	taskClientFactory.EXPECT().GetTaskClient("targetNode").Return(client).MaxTimes(2)
 	client.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	err = taskManager.SendRequest("targetNode", nil)
@@ -97,7 +97,7 @@ func TestTaskManager_SendResponse(t *testing.T) {
 	err := taskManager.SendResponse("targetNode", nil)
 	assert.NotNil(t, err)
 
-	server := commonmock.NewMockTaskService_HandleServer(ctrl)
+	server := pb.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream("targetNode").Return(server).MaxTimes(2)
 	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	err = taskManager.SendResponse("targetNode", nil)

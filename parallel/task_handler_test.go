@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/rpc"
-	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
@@ -58,7 +57,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true)
 	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher)
 
-	server := commonmock.NewMockTaskService_HandleServer(ctrl)
+	server := pb.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())
 	server.EXPECT().Context().Return(ctx)
 	err := handler.Handle(server)

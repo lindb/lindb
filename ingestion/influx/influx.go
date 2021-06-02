@@ -39,7 +39,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.Metr
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
-			return nil, fmt.Errorf("ingestion corrupted gzip data: %v", err)
+			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
 		reader = gzipReader
