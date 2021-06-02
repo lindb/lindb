@@ -15,15 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// +build !go1.12
+package common
 
-package main
-
-import (
-	"log"
-)
-
-func printModuleVersion() {
-	log.Printf("No version information is available for Mockgen compiled with " +
-		"version 1.11")
-}
+//go:generate mockgen -source=./common.pb.go -destination=./common_mock.pb.go -package=common

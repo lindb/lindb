@@ -99,7 +99,7 @@ func newFamily(store Store, option FamilyOption) (Family, error) {
 
 	if !fileutil.Exist(familyPath) {
 		if err := mkDirFunc(familyPath); err != nil {
-			return nil, fmt.Errorf("mkdir family path error:%s", err)
+			return nil, fmt.Errorf("mkdir family path error:%w", err)
 		}
 	}
 	merger, ok := mergers[MergerType(option.Merger)]
