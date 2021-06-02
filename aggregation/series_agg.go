@@ -37,13 +37,13 @@ func (agg FieldAggregates) ResultSet(tags string) series.GroupedIterator {
 	return newGroupedIterator(tags, agg)
 }
 
-//// Reset resets the aggregator's context for reusing
-//func (agg FieldAggregates) Reset() {
-//	for _, aggregator := range agg {
-//		aggregator.Reset()
-//	}
-//}
-//
+// Reset resets the aggregator's context for reusing
+func (agg FieldAggregates) Reset() {
+	for _, aggregator := range agg {
+		aggregator.reset()
+	}
+}
+
 // NewFieldAggregates creates the field aggregates based on aggregator specs and query time range.
 // NOTICE: if do down sampling aggregator, aggregator specs must be in order by field id.
 func NewFieldAggregates(
@@ -68,6 +68,7 @@ type SeriesAggregator interface {
 
 	GetFiledAggregator() FieldAggregator
 	ResultSet() series.Iterator
+	reset()
 }
 
 type seriesAggregator struct {
@@ -143,16 +144,11 @@ func (a *seriesAggregator) ResultSet() series.Iterator {
 	return newSeriesIterator(a)
 }
 
-// Reset resets the aggregator's context for reusing
-//func (a *seriesAggregator) Reset() {
-//	a.aggregator.reset()
-//	//for _, aggregator := range a.aggregates {
-//	//	if aggregator == nil {
-//	//		continue
-//	//	}
-//	//	aggregator.reset()
-//	//}
-//}
+// reset resets the aggregator's context for reusing
+func (a *seriesAggregator) reset() {
+	a.aggregator.reset()
+}
+
 //
 //// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
 //func (a *seriesAggregator) GetAggregateBlock(segmentStartTime int64) (agg series.Block, ok bool) {
