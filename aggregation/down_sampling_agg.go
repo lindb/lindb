@@ -39,6 +39,31 @@ type DownSamplingAggregator interface {
 type DownSamplingResult interface {
 	// Append appends time and value.
 	Append(slot bit.Bit, value float64)
+	Reset()
+}
+
+type downSamplingMergeResult struct {
+	agg SeriesAggregator
+
+	pos int
+}
+
+func NewDownSamplingMergeResult(agg SeriesAggregator) DownSamplingResult {
+	return &downSamplingMergeResult{
+		agg: agg,
+		pos: 0,
+	}
+}
+
+func (d *downSamplingMergeResult) Append(slot bit.Bit, value float64) {
+	if slot == bit.One {
+		d.agg.GetFiledAggregator().AggregateBySlot(d.pos, value)
+	}
+	d.pos++
+}
+
+func (d *downSamplingMergeResult) Reset() {
+	d.pos = 0
 }
 
 // TSDDownSamplingResult implements DownSamplingResult using encoding.TSDEncoder.
@@ -57,6 +82,10 @@ func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
 	if slot == bit.One {
 		rs.stream.AppendValue(math.Float64bits(value))
 	}
+}
+
+func (rs *TSDDownSamplingResult) Reset() {
+	//do nothing
 }
 
 // downSamplingAggregator implements DownSamplingAggregator interface.

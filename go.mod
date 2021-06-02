@@ -6,11 +6,10 @@ require (
 	github.com/OneOfOne/xxhash v1.2.2
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/antlr/antlr4 v0.0.0-20200309161749-1284814c2112
-	github.com/benbjohnson/tmpl v1.0.0 // indirect
 	github.com/cespare/xxhash v1.1.0
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/elastic/go-licenser v0.3.1 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.5.0
@@ -38,15 +37,12 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
-	golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	rsc.io/quote/v3 v3.1.0 // indirect
 )
 
 // just redirect to local repo for local debug
-// replace github.com/lindb/roaring => /Users/jie.huang/go/src/github.com/lindb/roaring
 replace github.com/lindb/roaring => github.com/lindb/roaring v0.4.22-0.20200211075929-6661b4a242fa
 
 module github.com/lindb/lindb
