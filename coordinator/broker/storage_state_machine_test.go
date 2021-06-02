@@ -30,7 +30,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
-	commonmock "github.com/lindb/lindb/rpc/pbmock/common"
+	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 func TestStorageStateMachine(t *testing.T) {
@@ -40,7 +40,7 @@ func TestStorageStateMachine(t *testing.T) {
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 
 	streamFactory := rpc.NewMockClientStreamFactory(ctrl)
-	clientStream := commonmock.NewMockTaskService_HandleClient(ctrl)
+	clientStream := pb.NewMockTaskService_HandleClient(ctrl)
 	clientStream.EXPECT().CloseSend().Return(nil).AnyTimes()
 	streamFactory.EXPECT().CreateTaskClient(gomock.Any()).Return(clientStream, nil).AnyTimes()
 

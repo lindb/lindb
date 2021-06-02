@@ -18,6 +18,7 @@
 package kv
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lindb/lindb/kv/table"
@@ -242,16 +243,14 @@ func (c *compactJob) finishCompactionOutputFile() (err error) {
 		}
 	}()
 	if builder == nil {
-		err = fmt.Errorf("store build is nil")
-		return err
+		return errors.New("store build is nil")
 	}
 	if builder.Count() == 0 {
 		// if no data after compact
 		return err
 	}
-	if err := builder.Close(); err != nil {
-		err = fmt.Errorf("close table builder error when compaction job, error:%s", err)
-		return err
+	if err = builder.Close(); err != nil {
+		return fmt.Errorf("close table builder error when compaction job, error:%w", err)
 	}
 	fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
 	c.state.addOutputFile(fileMeta)
