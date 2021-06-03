@@ -25,30 +25,30 @@ import (
 
 //go:generate mockgen -source=./query_flow.go -destination=./query_flow_mock.go -package=flow
 
-// StorageQueryFlow represents the storage query engine execute flow
+// StorageQueryFlow represents the storage query engine execute flow.
 type StorageQueryFlow interface {
-	// Prepare prepares the query flow, builds the flow execute context based on down sampling aggregator specs
-	Prepare(downSamplingSpecs aggregation.AggregatorSpecs)
-	// Filtering does the filtering task
+	// Prepare prepares the query flow, builds the flow execute context based on group aggregator specs.
+	Prepare(aggregatorSpecs aggregation.AggregatorSpecs)
+	// Filtering does the filtering task.
 	Filtering(task concurrent.Task)
-	// Grouping does the grouping task
+	// Grouping does the grouping task.
 	Grouping(task concurrent.Task)
-	// Load does the load task
+	// Load does the load task.
 	Load(task concurrent.Task)
-	// Reduce reduces the down sampling aggregator's result
+	// Reduce reduces the down sampling aggregator's result.
 	Reduce(tags string, it series.GroupedIterator)
-	// ReduceTagValues reduces the group by tag values
+	// ReduceTagValues reduces the group by tag values.
 	ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string)
-	// Complete completes the query flow with error
+	// Complete completes the query flow with error.
 	Complete(err error)
 }
 
-// QueryTask represents query task for data search flow
+// QueryTask represents query task for data search flow.
 type QueryTask interface {
-	// BeforeRun invokes before task run
+	// BeforeRun invokes before task run.
 	BeforeRun()
-	// Run executes task query logic
+	// Run executes task query logic.
 	Run() error
-	// AfterRun invokes after task run
+	// AfterRun invokes after task run.
 	AfterRun()
 }

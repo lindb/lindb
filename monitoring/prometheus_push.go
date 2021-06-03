@@ -232,7 +232,6 @@ func (p *prometheusPusher) calcDeltaCounter(new, old *dto.Metric) *dto.Metric {
 	}
 
 	new.Counter.Value = proto.Float64(new.Counter.GetValue() - old.Counter.GetValue())
-
 	return metric
 }
 

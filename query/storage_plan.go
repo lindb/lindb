@@ -44,7 +44,7 @@ type storageExecutePlan struct {
 	fieldMetas field.Metas
 
 	metricID    uint32
-	fields      map[field.ID]aggregation.AggregatorSpec
+	fields      map[field.ID]*aggregation.Aggregator
 	groupByTags []tag.Meta
 
 	err error
@@ -56,7 +56,7 @@ func newStorageExecutePlan(namespace string, metadata metadb.Metadata, query *st
 		namespace: namespace,
 		metadata:  metadata,
 		query:     query,
-		fields:    make(map[field.ID]aggregation.AggregatorSpec),
+		fields:    make(map[field.ID]*aggregation.Aggregator),
 	}
 }
 
@@ -83,8 +83,8 @@ func (p *storageExecutePlan) Plan() error {
 		f := p.fields[fieldID]
 		p.fieldMetas[idx] = field.Meta{
 			ID:   fieldID,
-			Type: f.GetFieldType(),
-			Name: f.FieldName(),
+			Type: f.DownSampling.GetFieldType(),
+			Name: f.DownSampling.FieldName(),
 		}
 		idx++
 	}
@@ -122,14 +122,22 @@ func (p *storageExecutePlan) groupBy() error {
 	return nil
 }
 
-// getDownSamplingAggSpecs returns the down sampling aggregate specs
+// getDownSamplingAggSpecs returns the down sampling aggregate specs.
 func (p *storageExecutePlan) getDownSamplingAggSpecs() aggregation.AggregatorSpecs {
 	result := make(aggregation.AggregatorSpecs, len(p.fieldMetas))
 	for idx, f := range p.fieldMetas {
-		result[idx] = p.fields[f.ID]
+		result[idx] = p.fields[f.ID].DownSampling
 	}
 	return result
+}
 
+// getAggregatorSpecs returns aggregator specs for group by.
+func (p *storageExecutePlan) getAggregatorSpecs() aggregation.AggregatorSpecs {
+	result := make(aggregation.AggregatorSpecs, len(p.fieldMetas))
+	for idx, f := range p.fieldMetas {
+		result[idx] = p.fields[f.ID].Aggregator
+	}
+	return result
 }
 
 // getFields returns sorted of field.Metas.
@@ -176,8 +184,17 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			p.err = err
 			return
 		}
+
 		fieldType := fieldMeta.Type
 		fieldID := fieldMeta.ID
+		aggregator, exist := p.fields[fieldID]
+		if !exist {
+			aggregator = &aggregation.Aggregator{}
+			aggregator.DownSampling = aggregation.NewAggregatorSpec(field.Name(e.Name), fieldType)
+			aggregator.Aggregator = aggregation.NewAggregatorSpec(field.Name(e.Name), fieldType)
+			p.fields[fieldID] = aggregator
+		}
+
 		var funcType function.FuncType
 		// tests if has func with field
 		if parentFunc == nil {
@@ -187,6 +204,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 				p.err = fmt.Errorf("cannot get default down sampling func for filed type[%s]", fieldType)
 				return
 			}
+			aggregator.Aggregator.AddFunctionType(funcType)
 		} else {
 			// using use input, and check func is supported
 			if !fieldType.IsFuncSupported(parentFunc.FuncType) {
@@ -194,12 +212,9 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 				return
 			}
 			funcType = parentFunc.FuncType
+			//TODO ignore down sampling func?
+			aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
 		}
-		downSampling, exist := p.fields[fieldID]
-		if !exist {
-			downSampling = aggregation.NewDownSamplingSpec(field.Name(e.Name), fieldType)
-			p.fields[fieldID] = downSampling
-		}
-		downSampling.AddFunctionType(funcType)
+		aggregator.DownSampling.AddFunctionType(funcType)
 	}
 }
