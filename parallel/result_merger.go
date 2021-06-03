@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -28,11 +29,15 @@ import (
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 //go:generate mockgen -source=./result_merger.go -destination=./result_merger_mock.go -package=parallel
 
 var mergeLogger = logger.GetLogger("parallel", "merger")
+
+// for testing
+var newGroupingAgg = aggregation.NewGroupingAggregator
 
 // ResultMerger represents a merger which merges the task response and aggregates the result
 type ResultMerger interface {
@@ -46,6 +51,7 @@ type ResultMerger interface {
 // resultMerger implements ResultMerger interface
 type resultMerger struct {
 	resultSet chan *series.TimeSeriesEvent
+	query     *stmt.Query
 
 	groupAgg aggregation.GroupingAggregator
 
@@ -59,10 +65,10 @@ type resultMerger struct {
 }
 
 // newResultMerger create a result merger
-func newResultMerger(ctx context.Context, groupAgg aggregation.GroupingAggregator, resultSet chan *series.TimeSeriesEvent) ResultMerger {
+func newResultMerger(ctx context.Context, query *stmt.Query, resultSet chan *series.TimeSeriesEvent) ResultMerger {
 	merger := &resultMerger{
 		resultSet: resultSet,
-		groupAgg:  groupAgg,
+		query:     query,
 		events:    make(chan *pb.TaskResponse),
 		closed:    make(chan struct{}),
 		ctx:       ctx,
@@ -88,6 +94,10 @@ func (m *resultMerger) close() {
 	if m.err != nil {
 		m.resultSet <- &series.TimeSeriesEvent{Err: m.err, Stats: m.stats}
 	} else {
+		if m.groupAgg == nil {
+			// no data do merge logic
+			return
+		}
 		// send all series data
 		resultSet := m.groupAgg.ResultSet()
 		if len(resultSet) > 0 {
@@ -129,6 +139,21 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 		m.err = err
 		return false
 	}
+
+	if m.groupAgg == nil {
+		AggregatorSpecs := make(aggregation.AggregatorSpecs, len(tsList.FieldAggSpecs))
+		for idx, aggSpec := range tsList.FieldAggSpecs {
+			AggregatorSpecs[idx] = aggregation.NewAggregatorSpec(
+				field.Name(aggSpec.FieldName),
+				field.Type(aggSpec.FieldType),
+			)
+			for _, funcType := range aggSpec.FuncTypeList {
+				AggregatorSpecs[idx].AddFunctionType(function.FuncType(funcType))
+			}
+		}
+		m.groupAgg = newGroupingAgg(m.query.Interval, m.query.TimeRange, AggregatorSpecs)
+	}
+
 	for _, ts := range tsList.TimeSeriesList {
 		// if no field data, ignore this response
 		if len(ts.Fields) == 0 {

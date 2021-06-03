@@ -20,7 +20,6 @@ package parallel
 import (
 	"context"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
@@ -58,17 +57,13 @@ func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) err
 	if err := encoding.JSONUnmarshal(payload, query); err != nil {
 		return errUnmarshalQuery
 	}
-	groupAgg := aggregation.NewGroupingAggregator(
-		query.Interval,
-		query.TimeRange,
-		buildAggregatorSpecs(query.FieldNames))
 	taskSubmitted := false
 	for _, intermediate := range physicalPlan.Intermediates {
 		if intermediate.Indicator == p.curNodeID {
 			taskID := p.taskManager.AllocTaskID()
 			//TODO set task id
 			taskCtx := newTaskContext(taskID, IntermediateTask, req.ParentTaskID, intermediate.Parent,
-				intermediate.NumOfTask, newResultMerger(ctx, groupAgg, nil))
+				intermediate.NumOfTask, newResultMerger(ctx, query, nil))
 			p.taskManager.Submit(taskCtx)
 			taskSubmitted = true
 			break

@@ -151,7 +151,7 @@ func (e *storageExecutor) Execute() {
 	storageExecutePlan := plan.(*storageExecutePlan)
 
 	// prepare storage query flow
-	e.queryFlow.Prepare(storageExecutePlan.getDownSamplingAggSpecs())
+	e.queryFlow.Prepare(storageExecutePlan.getAggregatorSpecs())
 
 	e.metricID = storageExecutePlan.metricID
 	e.fields = storageExecutePlan.getFields()
@@ -295,11 +295,11 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				fieldSeriesList := make([][]*encoding.TSDDecoder, len(e.fields))
 				fieldAggList := make(aggregation.FieldAggregates, len(e.fields))
 				fieldMerge := make([]aggregation.DownSamplingResult, len(e.fields))
-				for idx, f := range e.fields {
+				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
+				for idx := range e.fields {
 					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
 					fieldAggList[idx] = aggregation.NewSeriesAggregator(e.ctx.query.Interval,
-						e.ctx.query.TimeRange, aggregation.NewAggregatorSpec(f.Name))
-					fieldAggList[idx].SetFieldType(f.Type) //fixme
+						e.ctx.query.TimeRange, aggSpecs[idx])
 					fieldMerge[idx] = aggregation.NewDownSamplingMergeResult(fieldAggList[idx])
 				}
 				for tags, seriesIDs := range grouped {

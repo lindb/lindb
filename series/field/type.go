@@ -158,6 +158,8 @@ func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
 		return getFieldParamsForSumField(funcType)
 	case MinField:
 		return getFieldParamsForMinField(funcType)
+	case GaugeField:
+		return getFieldParamsForGaugeField(funcType)
 	}
 	return nil
 }
@@ -169,6 +171,8 @@ func (t Type) GetDefaultFuncFieldParams() []AggType {
 		return []AggType{Sum}
 	case MinField:
 		return []AggType{Min}
+	case GaugeField:
+		return []AggType{LastValue}
 	}
 	return nil
 }
@@ -188,5 +192,14 @@ func getFieldParamsForMinField(funcType function.FuncType) []AggType {
 		return []AggType{Max}
 	default:
 		return []AggType{Min}
+	}
+}
+
+func getFieldParamsForGaugeField(funcType function.FuncType) []AggType {
+	switch funcType {
+	case function.Max:
+		return []AggType{Max}
+	default:
+		return []AggType{LastValue}
 	}
 }
