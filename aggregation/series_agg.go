@@ -64,7 +64,6 @@ type SeriesAggregator interface {
 	FieldName() field.Name
 	// GetFieldType returns field type
 	GetFieldType() field.Type
-	SetFieldType(fieldType field.Type)
 
 	GetFiledAggregator() FieldAggregator
 	ResultSet() series.Iterator
@@ -108,10 +107,6 @@ func NewSeriesAggregator(
 	var aggTypes []field.AggType
 	for f := range aggSpec.Functions() {
 		aggTypes = append(aggTypes, aggSpec.GetFieldType().GetFuncFieldParams(f)...)
-	}
-	//FIXME(stone1100) need remove it
-	if len(aggTypes) == 0 {
-		aggTypes = append(aggTypes, field.Sum)
 	}
 	//storageInterval := queryInterval.Int64() / int64(1)
 	//startIdx := calc.CalcSlot(queryTimeRange.Start, segmentTime, storageInterval)

@@ -62,7 +62,6 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 	for it.HasNext() {
 		seriesIt := it.Next()
 		fieldName := seriesIt.FieldName()
-		fieldType := seriesIt.FieldType()
 		// 1. find field aggregator
 		sAgg = nil
 		for _, aggregator := range seriesAgg {
@@ -74,8 +73,6 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 		if sAgg == nil {
 			continue
 		}
-		// set field type for aggregate
-		sAgg.SetFieldType(fieldType)
 		// 2. merge the field series data
 		for seriesIt.HasNext() {
 			_, fieldIt := seriesIt.Next()

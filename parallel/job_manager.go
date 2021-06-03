@@ -23,11 +23,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	pb "github.com/lindb/lindb/rpc/proto/common"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -101,9 +99,8 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	}
 	query := ctx.Query()
 
-	groupAgg := aggregation.NewGroupingAggregator(query.Interval, query.TimeRange, buildAggregatorSpecs(query.FieldNames))
 	taskCtx := newTaskContext(taskID, RootTask, "", "", plan.Root.NumOfTask,
-		newResultMerger(ctx.Context(), groupAgg, ctx.ResultSet()))
+		newResultMerger(ctx.Context(), query, ctx.ResultSet()))
 	j.taskManager.Submit(taskCtx)
 
 	if len(plan.Intermediates) > 0 {
@@ -165,13 +162,4 @@ func (j *jobManager) SubmitMetadataJob(ctx context.Context, plan *models.Physica
 // GetTaskManager return the task manager
 func (j *jobManager) GetTaskManager() TaskManager {
 	return j.taskManager
-}
-
-// buildAggregatorSpecs builds aggregator specs based on field names
-func buildAggregatorSpecs(fieldNames []string) aggregation.AggregatorSpecs {
-	aggSpecs := make(aggregation.AggregatorSpecs, len(fieldNames))
-	for idx, fieldName := range fieldNames {
-		aggSpecs[idx] = aggregation.NewAggregatorSpec(field.Name(fieldName))
-	}
-	return aggSpecs
 }

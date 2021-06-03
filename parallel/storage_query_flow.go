@@ -59,7 +59,7 @@ type storageQueryFlow struct {
 	queryTimeRange     timeutil.TimeRange
 	queryInterval      timeutil.Interval
 	queryIntervalRatio int
-	downSamplingSpecs  aggregation.AggregatorSpecs
+	aggregatorSpecs    []*pb.AggregatorSpec
 
 	tagsMap      map[string]string   // tag value ids => tag values
 	tagValuesMap []map[uint32]string // tag value id=> tag value for each group by tag key
@@ -94,9 +94,18 @@ func NewStorageQueryFlow(ctx context.Context,
 	}
 }
 
-func (qf *storageQueryFlow) Prepare(downSamplingSpecs aggregation.AggregatorSpecs) {
-	qf.reduceAgg = aggregation.NewGroupingAggregator(qf.queryInterval, qf.queryTimeRange, downSamplingSpecs)
-	qf.downSamplingSpecs = downSamplingSpecs
+func (qf *storageQueryFlow) Prepare(aggregatorSpecs aggregation.AggregatorSpecs) {
+	qf.reduceAgg = aggregation.NewGroupingAggregator(qf.queryInterval, qf.queryTimeRange, aggregatorSpecs)
+	qf.aggregatorSpecs = make([]*pb.AggregatorSpec, len(aggregatorSpecs))
+	for idx, spec := range aggregatorSpecs {
+		qf.aggregatorSpecs[idx] = &pb.AggregatorSpec{
+			FieldName: string(spec.FieldName()),
+			FieldType: uint32(spec.GetFieldType()),
+		}
+		for _, funcType := range spec.Functions() {
+			qf.aggregatorSpecs[idx].FuncTypeList = append(qf.aggregatorSpecs[idx].FuncTypeList, uint32(funcType))
+		}
+	}
 
 	// for group by
 	groupByKenLen := len(qf.query.GroupBy)
@@ -226,6 +235,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 
 			seriesList := pb.TimeSeriesList{
 				TimeSeriesList: timeSeriesList,
+				FieldAggSpecs:  qf.aggregatorSpecs,
 			}
 			// no error
 			data, _ = seriesList.Marshal()

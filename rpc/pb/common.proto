@@ -34,11 +34,18 @@ message TaskResponse {
 
 message TimeSeriesList {
     repeated TimeSeries timeSeriesList = 1;
+    repeated AggregatorSpec fieldAggSpecs = 2;
 }
 
 message TimeSeries {
     string tags = 1; // tag values contact string
     map<string, bytes> fields = 2;
+}
+
+message AggregatorSpec {
+    string fieldName = 1;
+    uint32 fieldType = 2;
+    repeated uint32 funcTypeList = 3;
 }
 
 service TaskService {

@@ -22,12 +22,16 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+type Aggregator struct {
+	DownSampling AggregatorSpec
+	Aggregator   AggregatorSpec
+}
+
 type AggregatorSpecs []AggregatorSpec
 
 type AggregatorSpec interface {
 	FieldName() field.Name
 	GetFieldType() field.Type
-	SetFieldType(fieldType field.Type)
 	AddFunctionType(funcType function.FuncType)
 	Functions() map[function.FuncType]function.FuncType
 }
@@ -38,14 +42,7 @@ type aggregatorSpec struct {
 	functions map[function.FuncType]function.FuncType
 }
 
-func NewAggregatorSpec(fieldName field.Name) AggregatorSpec {
-	return &aggregatorSpec{
-		fieldName: fieldName,
-		functions: make(map[function.FuncType]function.FuncType),
-	}
-}
-
-func NewDownSamplingSpec(fieldName field.Name, fieldType field.Type) AggregatorSpec {
+func NewAggregatorSpec(fieldName field.Name, fieldType field.Type) AggregatorSpec {
 	return &aggregatorSpec{
 		fieldName: fieldName,
 		fieldType: fieldType,
