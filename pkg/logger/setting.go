@@ -41,6 +41,17 @@ var (
 	RunningAtomicLevel = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 )
 
+func init() {
+	// get log level from evn
+	level := os.Getenv("LOG_LEVEL")
+	if level != "" {
+		var zapLevel zapcore.Level
+		if err := zapLevel.Set(level); err == nil {
+			RunningAtomicLevel.SetLevel(zapLevel)
+		}
+	}
+}
+
 const (
 	lindLogFilename   = "lind.log"
 	accessLogFileName = "access.log"
