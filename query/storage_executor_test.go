@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -46,7 +47,7 @@ type mockQueryFlow struct {
 func (m *mockQueryFlow) ReduceTagValues(_ int, _ map[uint32]string) {
 }
 
-func (m *mockQueryFlow) Prepare(_ aggregation.AggregatorSpecs) {
+func (m *mockQueryFlow) Prepare(_ timeutil.Interval, _ timeutil.TimeRange, _ aggregation.AggregatorSpecs) {
 }
 
 func (m *mockQueryFlow) Filtering(task concurrent.Task) {
@@ -80,6 +81,7 @@ func TestStorageExecute_validation(t *testing.T) {
 	exeCtx.EXPECT().Complete(gomock.Any()).AnyTimes()
 
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"}).AnyTimes()
 	mockDatabase.EXPECT().Name().Return("mock_tsdb").AnyTimes()
 	query := &stmt.Query{Interval: timeutil.Interval(timeutil.OneSecond)}
 
@@ -118,9 +120,10 @@ func TestStorageExecute_validation(t *testing.T) {
 	q, _ := sql.Parse("select f from cpu")
 	query = q.(*stmt.Query)
 	mockDB1 := newMockDatabase(ctrl)
+	mockDB1.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"})
 	exec = newStorageExecutor(queryFlow, mockDB1, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	gomock.InOrder(
-		queryFlow.EXPECT().Prepare(gomock.Any()),
+		queryFlow.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()),
 		queryFlow.EXPECT().Filtering(gomock.Any()).MaxTimes(3*2), //memory db and shard
 	)
 	exec.Execute()
@@ -201,8 +204,9 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadata := metadb.NewMockMetadata(ctrl)
 	metadataIndex := metadb.NewMockMetadataDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
-	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(10), nil)
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(10), nil).AnyTimes()
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"}).AnyTimes()
 
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
@@ -218,7 +222,6 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(uint32(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
-	//shard.EXPECT().MemoryDatabase(gomock.Any()).Return(memDB, nil).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()
 
 	// case 1: series search err
@@ -259,12 +262,14 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
-	// case 4: filter data err
+
+	//case 4: filter data err
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{filterRS}, fmt.Errorf("err")).MaxTimes(3)
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
+
 	// case 5: filter result is nil
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).MaxTimes(3)
@@ -272,6 +277,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
+
 	// case 6: filter shard data err
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, nil).MaxTimes(3)
@@ -282,6 +288,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	exec = newStorageExecutor(queryFlow, mockDatabase, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
 	exec.Execute()
+
 	// case 7: group by
 	q, _ = sql.Parse("select f from cpu where host='1.1.1.1' group by host")
 	query = q.(*stmt.Query)

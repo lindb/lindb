@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/rpc"
 	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
@@ -85,7 +84,6 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	assert.Equal(t, errUnmarshalQuery, err)
 
 	// test executor fail
-	mockDatabase.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"})
 	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
@@ -115,7 +113,6 @@ func TestLeafProcessor_Process(t *testing.T) {
 	query := stmt.Query{MetricName: "cpu"}
 	data := encoding.JSONMarshal(&query)
 
-	mockDatabase.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"})
 	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
 	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 

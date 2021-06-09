@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -79,6 +80,10 @@ type storageExecutor struct {
 	storageExecutePlan *storageExecutePlan
 
 	queryFlow flow.StorageQueryFlow
+
+	queryTimeRange     timeutil.TimeRange
+	queryInterval      timeutil.Interval
+	queryIntervalRatio int
 
 	// group by query need
 	mutex              sync.Mutex
@@ -150,9 +155,6 @@ func (e *storageExecutor) Execute() {
 
 	storageExecutePlan := plan.(*storageExecutePlan)
 
-	// prepare storage query flow
-	e.queryFlow.Prepare(storageExecutePlan.getAggregatorSpecs())
-
 	e.metricID = storageExecutePlan.metricID
 	e.fields = storageExecutePlan.getFields()
 	e.storageExecutePlan = storageExecutePlan
@@ -160,6 +162,16 @@ func (e *storageExecutor) Execute() {
 		e.groupByTagKeyIDs = e.storageExecutePlan.groupByKeyIDs()
 		e.tagValueIDs = make([]*roaring.Bitmap, len(e.groupByTagKeyIDs))
 	}
+
+	option := e.database.GetOption()
+	var interval timeutil.Interval
+	_ = interval.ValueOf(option.Interval)
+	//TODO need get storage interval by query time if has rollup config
+	e.queryTimeRange, e.queryIntervalRatio, e.queryInterval = downSamplingTimeRange(
+		e.ctx.query.Interval, interval, e.ctx.query.TimeRange)
+
+	// prepare storage query flow
+	e.queryFlow.Prepare(e.queryInterval, e.queryTimeRange, storageExecutePlan.getAggregatorSpecs())
 
 	// execute query flow
 	e.executeQuery()
@@ -322,7 +334,8 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 							}
 							for idx, fieldSeries := range fieldSeriesList {
 								f := e.fields[idx]
-								ds := aggregation.NewDownSamplingAggregator(span.source, span.target, 1, fieldMerge[idx])
+								ds := aggregation.NewDownSamplingAggregator(span.source, span.target,
+									uint16(e.queryIntervalRatio), fieldMerge[idx])
 								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries)
 								fieldMerge[idx].Reset()
 							}

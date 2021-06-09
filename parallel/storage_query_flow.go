@@ -56,10 +56,7 @@ type storageQueryFlow struct {
 	req               *pb.TaskRequest
 	ctx               context.Context
 
-	queryTimeRange     timeutil.TimeRange
-	queryInterval      timeutil.Interval
-	queryIntervalRatio int
-	aggregatorSpecs    []*pb.AggregatorSpec
+	aggregatorSpecs []*pb.AggregatorSpec
 
 	tagsMap      map[string]string   // tag value ids => tag values
 	tagValuesMap []map[uint32]string // tag value id=> tag value for each group by tag key
@@ -76,26 +73,24 @@ func NewStorageQueryFlow(ctx context.Context,
 	req *pb.TaskRequest,
 	stream pb.TaskService_HandleServer,
 	executorPool *tsdb.ExecutorPool,
-	queryTimeRange timeutil.TimeRange,
-	queryInterval timeutil.Interval,
-	queryIntervalRatio int,
 ) flow.StorageQueryFlow {
 	return &storageQueryFlow{
-		ctx:                ctx,
-		storageExecuteCtx:  storageExecuteCtx,
-		query:              query,
-		req:                req,
-		stream:             stream,
-		executorPool:       executorPool,
-		pendingTasks:       make(map[int32]Stage),
-		queryTimeRange:     queryTimeRange,
-		queryInterval:      queryInterval,
-		queryIntervalRatio: queryIntervalRatio,
+		ctx:               ctx,
+		storageExecuteCtx: storageExecuteCtx,
+		query:             query,
+		req:               req,
+		stream:            stream,
+		executorPool:      executorPool,
+		pendingTasks:      make(map[int32]Stage),
 	}
 }
 
-func (qf *storageQueryFlow) Prepare(aggregatorSpecs aggregation.AggregatorSpecs) {
-	qf.reduceAgg = aggregation.NewGroupingAggregator(qf.queryInterval, qf.queryTimeRange, aggregatorSpecs)
+func (qf *storageQueryFlow) Prepare(
+	interval timeutil.Interval,
+	timeRange timeutil.TimeRange,
+	aggregatorSpecs aggregation.AggregatorSpecs,
+) {
+	qf.reduceAgg = aggregation.NewGroupingAggregator(interval, timeRange, aggregatorSpecs)
 	qf.aggregatorSpecs = make([]*pb.AggregatorSpec, len(aggregatorSpecs))
 	for idx, spec := range aggregatorSpecs {
 		qf.aggregatorSpecs[idx] = &pb.AggregatorSpec{
