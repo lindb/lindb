@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package parallel
+package query
 
 import (
 	"github.com/lindb/lindb/pkg/timeutil"
