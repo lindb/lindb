@@ -46,13 +46,10 @@ func TestEditLogCodec(t *testing.T) {
 
 	editLog := NewEditLog(1)
 	assert.True(t, editLog.IsEmpty())
-	fmt.Println(editLog)
 
 	newFile := CreateNewFile(1, NewFileMeta(12, 1, 100, 2014))
 	editLog.Add(newFile)
 	editLog.Add(NewDeleteFile(1, 123))
-
-	fmt.Println(editLog)
 
 	v, err := editLog.marshal()
 
@@ -69,8 +66,7 @@ func TestEditLogCodec(t *testing.T) {
 	editLog.Add(mockLog)
 	mockLog.EXPECT().Encode().Return(nil, fmt.Errorf("err"))
 	_, err = editLog.marshal()
-	assert.NotNil(t, err)
-
+	assert.Error(t, err)
 }
 
 func TestEditLog_Unmarshal(t *testing.T) {
@@ -107,8 +103,7 @@ func TestEditLog_Unmarshal(t *testing.T) {
 	value, _ = stream.Bytes()
 	mockLog.EXPECT().Decode([]byte("123")).Return(fmt.Errorf("err"))
 	err = editLog.unmarshal(value)
-	fmt.Println(err)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestEditLog_apply(t *testing.T) {
