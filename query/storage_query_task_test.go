@@ -198,7 +198,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	family.EXPECT().Interval().Return(timeutil.Interval(10000))
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
-	resultSet.EXPECT().SlotRange().Return(timeutil.SlotRange{}).MaxTimes(2)
+	resultSet.EXPECT().SlotRange().Return(timeutil.SlotRange{}).MaxTimes(3)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{resultSet}, nil)
 	err = task.Run()
