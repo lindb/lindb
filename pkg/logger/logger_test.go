@@ -24,9 +24,9 @@ import (
 
 	"github.com/lindb/lindb/config"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/stretchr/testify/assert"
+
+	"go.uber.org/zap/zapcore"
 )
 
 func Test_Logger(t *testing.T) {

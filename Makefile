@@ -41,7 +41,9 @@ lint: ## run lint
 	./bin/golangci-lint run
 
 test-without-lint: ## Run test without lint
-	go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	go get -u github.com/rakyll/gotest
+	export LOG_LEVEL="fatal" ## disable log for test
+	gotest -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
 test: header lint test-without-lint ## Run test cases.
 
