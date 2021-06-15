@@ -26,7 +26,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
@@ -34,43 +33,42 @@ import (
 var encodeFunc = encoding.NewTSDEncoder
 
 func TestFieldIterator(t *testing.T) {
-	it := newFieldIterator(20, field.Sum, generateFloatArray(nil))
-	assert.False(t, it.HasNext())
-	slot, value := it.Next()
-	assert.Equal(t, -1, slot)
-	assert.Equal(t, 0.0, value)
+	it := newFieldIterator(20, []field.AggType{field.Sum}, []collections.FloatArray{generateFloatArray(nil)})
+	assert.True(t, it.HasNext())
+	assert.NotNil(t, it.Next())
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
-	assert.Nil(t, data)
+	assert.NotNil(t, data)
 
-	it = newFieldIterator(20, field.Min, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	it = newFieldIterator(20, []field.AggType{field.Min}, []collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
 
 	expect := map[int]float64{20: 0, 21: 10, 22: 10.0, 23: 100.4, 24: 50.0}
 	AssertFieldIt(t, it, expect)
 	assert.False(t, it.HasNext())
-	slot, value = it.Next()
-	assert.Equal(t, -1, slot)
-	assert.Equal(t, 0.0, value)
+	assert.Nil(t, it.Next())
 
-	// marshal empty, because field iterator already read
+	// marshal has data, reset idx
+	data, err = it.MarshalBinary()
+	assert.NoError(t, err)
+	assert.NotNil(t, data)
+
+	// test empty data
+	it = newFieldIterator(20, nil, nil)
+	assert.False(t, it.HasNext())
+	assert.Nil(t, it.Next())
+
 	data, err = it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 }
 
 func TestFieldIterator_MarshalBinary(t *testing.T) {
-	it := newFieldIterator(10, field.Sum, generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0}))
+	it := newFieldIterator(10, []field.AggType{field.Sum}, []collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
 
-	reader := stream.NewReader(data)
-	aggType := field.AggType(reader.ReadByte()) // read field agg type
-	assert.Equal(t, field.Sum, aggType)
-	length := reader.ReadVarint32()
-	data1 := reader.ReadBytes(int(length))
-
-	fIt := series.NewFieldIterator(aggType, encoding.NewTSDDecoder(data1))
+	fIt := series.NewFieldIterator(data)
 	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
 	AssertFieldIt(t, fIt, expect)
 	assert.False(t, fIt.HasNext())
@@ -91,7 +89,7 @@ func TestFieldIterator_MarshalBinary_err(t *testing.T) {
 	encoder.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encoder.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encoder.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it := newFieldIterator(10, field.Sum, floatArray)
+	it := newFieldIterator(10, []field.AggType{field.Sum}, []collections.FloatArray{floatArray})
 	data, err := it.MarshalBinary()
 	assert.Error(t, err)
 	assert.Nil(t, data)
