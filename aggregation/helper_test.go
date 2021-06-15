@@ -70,9 +70,12 @@ import (
 func AssertFieldIt(t *testing.T, it series.FieldIterator, expect map[int]float64) {
 	count := 0
 	for it.HasNext() {
-		timeSlot, value := it.Next()
-		assert.Equal(t, expect[timeSlot], value)
-		count++
+		pIt := it.Next()
+		for pIt.HasNext() {
+			timeSlot, value := pIt.Next()
+			assert.Equal(t, expect[timeSlot], value)
+			count++
+		}
 	}
 	assert.Equal(t, count, len(expect))
 }
@@ -91,11 +94,15 @@ func generateFloatArray(values []float64) collections.FloatArray {
 // mockSingleIterator returns mock an iterator of single field
 func mockSingleIterator(ctrl *gomock.Controller, aggType field.AggType) series.FieldIterator {
 	it := series.NewMockFieldIterator(ctrl)
-	it.EXPECT().AggType().Return(aggType)
+	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
 	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Next().Return(4, 4.0)
-	it.EXPECT().HasNext().Return(true)
-	it.EXPECT().Next().Return(50, 50.0)
+	it.EXPECT().Next().Return(primitiveIt)
+	primitiveIt.EXPECT().AggType().Return(aggType)
+	primitiveIt.EXPECT().HasNext().Return(true)
+	primitiveIt.EXPECT().Next().Return(4, 4.0)
+	primitiveIt.EXPECT().HasNext().Return(true)
+	primitiveIt.EXPECT().Next().Return(50, 50.0)
+	primitiveIt.EXPECT().HasNext().Return(false)
 	it.EXPECT().HasNext().Return(false)
 	return it
 }

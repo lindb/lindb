@@ -53,11 +53,9 @@ func NewGroupingAggregator(
 	}
 }
 
-// Aggregate aggregates the time series data
+// Aggregate aggregates the time series data.
 func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
-	//ga.aggregates[it.Tags()] = it
-	tags := it.Tags()
-	seriesAgg := ga.getAggregator(tags)
+	seriesAgg := ga.getAggregator(it.Tags())
 	var sAgg SeriesAggregator
 	for it.HasNext() {
 		seriesIt := it.Next()
@@ -75,16 +73,19 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 		}
 		// 2. merge the field series data
 		for seriesIt.HasNext() {
-			_, fieldIt := seriesIt.Next()
+			startTime, fieldIt := seriesIt.Next()
 			if fieldIt == nil {
 				continue
 			}
-			sAgg.GetFiledAggregator().Aggregate(fieldIt)
+			aggregator, ok := sAgg.GetAggregator(startTime)
+			if ok {
+				aggregator.Aggregate(fieldIt)
+			}
 		}
 	}
 }
 
-// ResultSet returns the result set of aggregator
+// ResultSet returns the result set of aggregator.
 func (ga *groupingAggregator) ResultSet() []series.GroupedIterator {
 	length := len(ga.aggregates)
 	if length == 0 {

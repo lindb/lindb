@@ -71,16 +71,19 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 		if it == nil {
 			continue
 		}
-		aggType := it.AggType()
-		fieldValues, ok = f.fields[aggType]
-		if !ok {
-			fieldValues = collections.NewFloatArray(f.capacity)
-			f.fields[aggType] = fieldValues
-		}
 		for it.HasNext() {
-			slot, val := it.Next()
-			idx := ((int64(slot)*f.interval + startTime) - f.startTime) / f.interval
-			fieldValues.SetValue(int(idx), val)
+			pIt := it.Next()
+			aggType := pIt.AggType()
+			fieldValues, ok = f.fields[aggType]
+			if !ok {
+				fieldValues = collections.NewFloatArray(f.capacity)
+				f.fields[aggType] = fieldValues
+			}
+			for pIt.HasNext() {
+				slot, val := pIt.Next()
+				idx := ((int64(slot)*f.interval + startTime) - f.startTime) / f.interval
+				fieldValues.SetValue(int(idx), val)
+			}
 		}
 	}
 }

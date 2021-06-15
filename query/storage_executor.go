@@ -269,10 +269,10 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 	var groupWait atomic.Int32
 	groupWait.Add(int32(len(keys)))
 
-	for idx, key := range keys {
+	for j, key := range keys {
 		// be carefully, need use new variable for variable scope problem
 		highKey := key
-		containerOfSeries := seriesIDs.GetContainerAtIndex(idx)
+		containerOfSeries := seriesIDs.GetContainerAtIndex(j)
 
 		// grouping based on group by tag keys for each container
 		e.queryFlow.Grouping(func() {
@@ -310,9 +310,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
 				for idx := range e.fields {
 					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
-					fieldAggList[idx] = aggregation.NewSeriesAggregator(e.ctx.query.Interval,
-						e.ctx.query.TimeRange, aggSpecs[idx])
-					fieldMerge[idx] = aggregation.NewDownSamplingMergeResult(fieldAggList[idx])
+					fieldAggList[idx] = aggregation.NewSeriesAggregator(e.ctx.query.Interval, e.ctx.query.TimeRange, aggSpecs[idx])
 				}
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
@@ -332,9 +330,26 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 									}
 								}
 							}
+
 							for idx, fieldSeries := range fieldSeriesList {
+								merge := fieldMerge[idx]
+								var agg aggregation.FieldAggregator
+								var ok bool
+								agg, ok = fieldAggList[idx].GetAggregator(span.familyTime)
+								if !ok {
+									continue
+								}
+								if merge == nil {
+									fieldMerge[idx] = aggregation.NewDownSamplingMergeResult(agg)
+								}
 								f := e.fields[idx]
-								ds := aggregation.NewDownSamplingAggregator(span.source, span.target,
+								start, end := agg.SlotRange()
+								target := timeutil.SlotRange{
+									Start: uint16(start),
+									End:   uint16(end),
+								}
+
+								ds := aggregation.NewDownSamplingAggregator(span.source, target,
 									uint16(e.queryIntervalRatio), fieldMerge[idx])
 								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries)
 								fieldMerge[idx].Reset()
@@ -342,7 +357,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 						}
 					}
 					e.queryFlow.Reduce(tags, fieldAggList.ResultSet(tags))
-					// reset agg reset for next grouped tags
+					// reset aggregate context
 					fieldAggList.Reset()
 				}
 			})

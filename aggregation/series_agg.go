@@ -18,7 +18,6 @@
 package aggregation
 
 import (
-	"github.com/lindb/lindb/aggregation/selector"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -40,7 +39,7 @@ func (agg FieldAggregates) ResultSet(tags string) series.GroupedIterator {
 // Reset resets the aggregator's context for reusing
 func (agg FieldAggregates) Reset() {
 	for _, aggregator := range agg {
-		aggregator.reset()
+		aggregator.Reset()
 	}
 }
 
@@ -64,17 +63,18 @@ type SeriesAggregator interface {
 	FieldName() field.Name
 	// GetFieldType returns field type
 	GetFieldType() field.Type
+	GetAggregator(segmentStartTime int64) (agg FieldAggregator, ok bool)
+	GetAggregates() []FieldAggregator
 
-	GetFiledAggregator() FieldAggregator
 	ResultSet() series.Iterator
-	reset()
+	Reset()
 }
 
 type seriesAggregator struct {
 	fieldName field.Name
 	fieldType field.Type
-	//ratio          int
-	aggregator     FieldAggregator
+
+	aggregates     []FieldAggregator
 	queryInterval  timeutil.Interval
 	queryTimeRange timeutil.TimeRange
 	aggSpec        AggregatorSpec
@@ -83,8 +83,7 @@ type seriesAggregator struct {
 	startTime int64
 }
 
-//
-// NewSeriesAggregator creates a series aggregator
+// NewSeriesAggregator creates a series aggregator.
 func NewSeriesAggregator(
 	queryInterval timeutil.Interval,
 	queryTimeRange timeutil.TimeRange,
@@ -93,6 +92,8 @@ func NewSeriesAggregator(
 	calc := queryInterval.Calculator()
 	segmentTime := calc.CalcSegmentTime(queryTimeRange.Start)
 	startTime := calc.CalcFamilyStartTime(segmentTime, calc.CalcFamily(queryTimeRange.Start, segmentTime))
+
+	length := calc.CalcTimeWindows(queryTimeRange.Start, queryTimeRange.End)
 
 	agg := &seriesAggregator{
 		fieldName:      aggSpec.FieldName(),
@@ -103,63 +104,63 @@ func NewSeriesAggregator(
 		queryTimeRange: queryTimeRange,
 		aggSpec:        aggSpec,
 	}
-	//TODO maybe agg type has duplicate?
-	var aggTypes []field.AggType
-	for f := range aggSpec.Functions() {
-		aggTypes = append(aggTypes, aggSpec.GetFieldType().GetFuncFieldParams(f)...)
+	if length > 0 {
+		agg.aggregates = make([]FieldAggregator, length)
 	}
-	//storageInterval := queryInterval.Int64() / int64(1)
-	//startIdx := calc.CalcSlot(queryTimeRange.Start, segmentTime, storageInterval)
-	//endIdx := calc.CalcSlot(queryTimeRange.End, segmentTime, storageInterval) + 1
-	agg.aggregator = NewFieldAggregator(aggTypes, queryTimeRange.Start, selector.NewIndexSlotSelector(0, 360, 1))
 	return agg
 }
 
-// FieldName returns field name
+// FieldName returns field name.
 func (a *seriesAggregator) FieldName() field.Name {
 	return a.fieldName
 }
 
-// GetFieldType returns the field type
+// GetFieldType returns the field type.
 func (a *seriesAggregator) GetFieldType() field.Type {
 	return a.fieldType
 }
 
-func (a *seriesAggregator) GetFiledAggregator() FieldAggregator {
-	return a.aggregator
-}
-
-// SetFieldType sets field type
-func (a *seriesAggregator) SetFieldType(fieldType field.Type) {
-	a.fieldType = fieldType
-}
-
-// ResultSet returns the result set of series aggregator
+// ResultSet returns the result set of series aggregator.
 func (a *seriesAggregator) ResultSet() series.Iterator {
 	return newSeriesIterator(a)
 }
 
-// reset resets the aggregator's context for reusing
-func (a *seriesAggregator) reset() {
-	a.aggregator.reset()
+// Reset resets the aggregator's context for reusing.
+func (a *seriesAggregator) Reset() {
+	for _, agg := range a.aggregates {
+		if agg != nil {
+			agg.reset()
+		}
+	}
 }
 
-//
-//// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
-//func (a *seriesAggregator) GetAggregateBlock(segmentStartTime int64) (agg series.Block, ok bool) {
-//	if segmentStartTime < a.startTime {
-//		return
-//	}
-//	idx := a.calc.CalcTimeWindows(a.startTime, segmentStartTime) - 1
-//	return a.aggregator.GetBlock(idx, func() series.Block {
-//		storageTimeRange := &timeutil.TimeRange{
-//			Start: segmentStartTime,
-//			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
-//		}
-//		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
-//		storageInterval := a.queryInterval.Int64() / int64(a.ratio)
-//		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
-//		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval) + 1
-//		return series.NewBlock(startIdx, endIdx)
-//	})
-//}
+func (a *seriesAggregator) GetAggregates() []FieldAggregator {
+	return a.aggregates
+}
+
+// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
+func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggregator, ok bool) {
+	if segmentStartTime < a.startTime {
+		return
+	}
+	idx := a.calc.CalcTimeWindows(a.startTime, segmentStartTime) - 1
+	if idx < 0 || idx >= len(a.aggregates) {
+		return
+	}
+	agg = a.aggregates[idx]
+	if agg == nil {
+		storageTimeRange := &timeutil.TimeRange{
+			Start: segmentStartTime,
+			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
+		}
+		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
+		storageInterval := a.queryInterval.Int64() / int64(1) //TODO need fix
+		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
+		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval)
+
+		agg = NewFieldAggregator(a.aggSpec, segmentStartTime, startIdx, endIdx)
+		a.aggregates[idx] = agg
+	}
+	ok = true
+	return
+}
