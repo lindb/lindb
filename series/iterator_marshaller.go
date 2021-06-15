@@ -39,7 +39,11 @@ func MarshalIterator(it Iterator) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		writer.PutBytes(data)
+		length := len(data)
+		writer.PutVarint32(int32(length))
+		if length > 0 {
+			writer.PutBytes(data)
+		}
 	}
 	return writer.Bytes()
 }

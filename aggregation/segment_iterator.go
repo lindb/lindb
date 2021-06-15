@@ -22,20 +22,19 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-// seriesIterator implements series.Iterator
+// seriesIterator implements series.Iterator.
 type seriesIterator struct {
-	fieldName field.Name
-	fieldType field.Type
-	agg       FieldAggregator
-	idx       int
-	len       int
+	fieldName  field.Name
+	fieldType  field.Type
+	aggregates []FieldAggregator
+	idx        int
+	len        int
 }
 
 // newSeriesIterator creates the time series iterator
 func newSeriesIterator(agg SeriesAggregator) series.Iterator {
-	//TODO need impl set aggs
-	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.GetFieldType(), agg: agg.GetFiledAggregator()}
-	it.len = agg.GetFiledAggregator().GetFieldSeriesCount()
+	it := &seriesIterator{fieldName: agg.FieldName(), fieldType: agg.GetFieldType(), aggregates: agg.GetAggregates()}
+	it.len = len(it.aggregates)
 	return it
 }
 
@@ -51,16 +50,19 @@ func (s *seriesIterator) FieldType() field.Type {
 
 // HasNext returns if the iteration has more field's iterator
 func (s *seriesIterator) HasNext() bool {
-	for s.len > 0 && s.idx < s.len {
+	for s.idx < s.len {
+		if s.aggregates[s.idx] != nil {
+			s.idx++
+			return true
+		}
 		s.idx++
-		return true
 	}
 	return false
 }
 
 // Next returns the field's iterator and segment start time
 func (s *seriesIterator) Next() (startTime int64, fieldIt series.FieldIterator) {
-	return s.agg.ResultSet(s.idx - 1)
+	return s.aggregates[s.idx-1].ResultSet()
 }
 
 func (s *seriesIterator) MarshalBinary() ([]byte, error) {

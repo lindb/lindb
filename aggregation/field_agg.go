@@ -18,7 +18,6 @@
 package aggregation
 
 import (
-	"github.com/lindb/lindb/aggregation/selector"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -32,10 +31,9 @@ type FieldAggregator interface {
 	Aggregate(it series.FieldIterator)
 	// AggregateBySlot aggregates the field series into current aggregator.
 	AggregateBySlot(slot int, value float64)
-	// GetFieldSeriesCount returns the count of field series list.
-	GetFieldSeriesCount() int
 	// ResultSet returns the result set of field aggregator.
-	ResultSet(idx int) (startTime int64, it series.FieldIterator)
+	ResultSet() (startTime int64, it series.FieldIterator)
+	SlotRange() (start, end int)
 	reset()
 }
 
@@ -43,44 +41,49 @@ type FieldAggregator interface {
 type fieldAggregator struct {
 	aggTypes         []field.AggType
 	segmentStartTime int64
+	start, end       int
 
 	fieldSeriesList []collections.FloatArray
-	start           int
-
-	selector selector.SlotSelector
 }
 
 // NewFieldAggregator creates a field aggregator,
 // time range 's start and end is index based on segment start time and interval.
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
-func NewFieldAggregator(aggTypes []field.AggType, segmentStartTime int64, selector selector.SlotSelector) FieldAggregator {
-	start, _ := selector.Range()
+func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, end int) FieldAggregator {
+	//TODO maybe agg type has duplicate?
+	var aggTypes []field.AggType
+	for f := range aggSpec.Functions() {
+		aggTypes = append(aggTypes, aggSpec.GetFieldType().GetFuncFieldParams(f)...)
+	}
+
 	agg := &fieldAggregator{
 		aggTypes:         aggTypes,
 		segmentStartTime: segmentStartTime,
-		selector:         selector,
 		start:            start,
+		end:              end,
 		fieldSeriesList:  make([]collections.FloatArray, len(aggTypes)),
 	}
 	return agg
 }
 
-// GetFieldSeriesCount returns the count of field series list.
-func (a *fieldAggregator) GetFieldSeriesCount() int {
-	return len(a.aggTypes)
+func (a *fieldAggregator) SlotRange() (start, end int) {
+	return a.start, a.end
 }
 
 // ResultSet returns the result set of field aggregator
-func (a *fieldAggregator) ResultSet(idx int) (startTime int64, it series.FieldIterator) {
-	return a.segmentStartTime, newFieldIterator(a.start, a.aggTypes[idx], a.fieldSeriesList[idx])
+func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator) {
+	return a.segmentStartTime, newFieldIterator(a.start, a.aggTypes, a.fieldSeriesList)
 }
 
 // Aggregate aggregates the field series into current aggregator
 func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	for it.HasNext() {
-		slot, value := it.Next()
-		a.AggregateBySlot(slot, value)
+		pIt := it.Next()
+		for pIt.HasNext() {
+			slot, value := pIt.Next()
+			a.AggregateBySlot(slot, value)
+		}
 	}
 }
 
@@ -89,8 +92,7 @@ func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
 		if values == nil {
-			start, end := a.selector.Range()
-			values = collections.NewFloatArray(end - start + 1)
+			values = collections.NewFloatArray(a.end - a.start + 1)
 			values.SetValue(slot, value)
 			a.fieldSeriesList[idx] = values
 		} else {
@@ -104,9 +106,7 @@ func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 }
 
 func (a *fieldAggregator) reset() {
-	for _, values := range a.fieldSeriesList {
-		if values != nil {
-			values.Reset()
-		}
+	for idx := range a.fieldSeriesList {
+		a.fieldSeriesList[idx].Reset()
 	}
 }
