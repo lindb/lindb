@@ -15,43 +15,56 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package metric
+package write
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 
-	"github.com/lindb/lindb/broker/api"
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/replication"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 )
 
-type WriteAPI struct {
-	cm replication.ChannelManager
+var (
+	SumWritePath = "/metric/sum"
+)
+
+type MetricWriteAPI struct {
+	deps *deps.HTTPDeps
 }
 
-func NewWriteAPI(cm replication.ChannelManager) *WriteAPI {
-	return &WriteAPI{
-		cm: cm,
+func NewWriteAPI(deps *deps.HTTPDeps) *MetricWriteAPI {
+	return &MetricWriteAPI{
+		deps: deps,
 	}
 }
 
-func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
-	databaseName, err := api.GetParamsFromRequest("db", r, "", true)
+// Register adds metric write url route.
+func (m *MetricWriteAPI) Register(route gin.IRoutes) {
+	route.PUT(SumWritePath, m.Sum)
+}
+
+func (m *MetricWriteAPI) Sum(c *gin.Context) {
+	var param struct {
+		Database string `form:"db" binding:"required"`
+		Count    int    `form:"count"`
+	}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	c, _ := api.GetParamsFromRequest("c", r, "10", false)
-	//count := 40000
-	count1, _ := strconv.ParseInt(c, 10, 64)
-	count := int(count1)
+	if param.Count == 0 {
+		param.Count = 10
+	}
 	var err2 error
 	n := 0
 	//count := 12500
-	for i := 0; i < count; i++ {
+	for i := 0; i < param.Count; i++ {
 		var metrics []*pb.Metric
 		for j := 0; j < 4; j++ {
 			for k := 0; k < 20; k++ {
@@ -71,13 +84,13 @@ func (m *WriteAPI) Sum(w http.ResponseWriter, r *http.Request) {
 		metricList := &pb.MetricList{
 			Metrics: metrics,
 		}
-		if e := m.cm.Write(databaseName, metricList); e != nil {
+		if e := m.deps.CM.Write(param.Database, metricList); e != nil {
 			err2 = e
 		}
 	}
 	if err2 != nil {
-		api.Error(w, err2)
+		http.Error(c, err2)
 		return
 	}
-	api.OK(w, fmt.Sprintf("ok,written=%d", n))
+	http.OK(c, fmt.Sprintf("ok,written=%d", n))
 }

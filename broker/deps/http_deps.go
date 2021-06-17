@@ -15,16 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package deps
 
 import (
-	"context"
-	"testing"
-
-	"github.com/gin-gonic/gin"
+	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/service"
 )
 
-func TestNewRouter(t *testing.T) {
-	r := NewAPI(context.TODO(), nil)
-	r.RegisterRouter(gin.New().Group("/api"))
+// HTTPDeps represents http server handler's dependency.
+type HTTPDeps struct {
+	Master coordinator.Master
+
+	Repo          state.Repository
+	StateMachines *coordinator.BrokerStateMachines
+
+	DatabaseSrv       service.DatabaseService
+	ShardAssignSrv    service.ShardAssignService
+	StorageClusterSrv service.StorageClusterService
+
+	CM replication.ChannelManager
+
+	ExecutorFct parallel.ExecutorFactory
+	JobManager  parallel.JobManager
 }

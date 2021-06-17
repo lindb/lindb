@@ -86,6 +86,11 @@ type Logger struct {
 	logger *zap.Logger
 }
 
+// GetLogger returns under logger impl.
+func (l *Logger) GetLogger() *zap.Logger {
+	return l.getInitializedOrDefaultLogger()
+}
+
 // getInitializedOrDefaultLogger try get initialized zap logger,
 // if failure, it will use the default logger
 func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {

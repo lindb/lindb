@@ -18,45 +18,62 @@
 package write
 
 import (
-	"github.com/lindb/lindb/broker/api"
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/ingestion/influx"
-	"github.com/lindb/lindb/replication"
-
-	"net/http"
+	"github.com/lindb/lindb/pkg/http"
 )
 
-// InfluxWriter processes Influxdb line protocol
+var (
+	InfluxWritePath = "/write/influx"
+)
+
+// InfluxWriter processes Influxdb line protocol.
 type InfluxWriter struct {
-	cm replication.ChannelManager
+	deps *deps.HTTPDeps
 }
 
-// NewInfluxWriter creates influx writer
-func NewInfluxWriter(cm replication.ChannelManager) *InfluxWriter {
-	return &InfluxWriter{cm: cm}
+// NewInfluxWriter creates influx writer.
+func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
+	return &InfluxWriter{
+		deps: deps,
+	}
 }
 
-func (iw *InfluxWriter) Write(w http.ResponseWriter, r *http.Request) {
-	databaseName, err := api.GetParamsFromRequest("db", r, "", true)
+// Register adds influx write url route.
+func (iw *InfluxWriter) Register(route gin.IRoutes) {
+	route.PUT(InfluxWritePath, iw.Write)
+}
+
+func (iw *InfluxWriter) Write(c *gin.Context) {
+	var param struct {
+		Database  string `form:"db" binding:"required"`
+		Namespace string `form:"ns"`
+	}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	namespace, _ := api.GetParamsFromRequest("ns", r, constants.DefaultNamespace, false)
-	enrichedTags, err := ingestCommon.ExtractEnrichTags(r)
+	if param.Namespace == "" {
+		param.Namespace = constants.DefaultNamespace
+	}
+	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	metricList, err := influx.Parse(r, enrichedTags, namespace)
+	metricList, err := influx.Parse(c.Request, enrichedTags, param.Namespace)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	if err := iw.cm.Write(databaseName, metricList); err != nil {
-		api.Error(w, err)
+	if err := iw.deps.CM.Write(param.Database, metricList); err != nil {
+		http.Error(c, err)
 		return
 	}
-	api.NoContent(w)
+	http.NoContent(c)
 }

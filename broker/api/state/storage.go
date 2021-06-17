@@ -19,61 +19,63 @@ package state
 
 import (
 	"context"
-	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/disk"
 
-	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/pkg/http"
+)
+
+var (
+	StorageStatePath     = "/storage/cluster/state"
+	ListStorageStatePath = "/storage/cluster/state/list"
 )
 
 // StorageAPI represents query storage cluster's state api from broker state machine
 type StorageAPI struct {
-	ctx                context.Context
-	repo               state.Repository
-	stateMachine       broker.StorageStateMachine
-	shardAssignService service.ShardAssignService
-	databaseService    service.DatabaseService
+	ctx  context.Context
+	deps *deps.HTTPDeps
 }
 
 // NewStorageAPI creates storage state api
-func NewStorageAPI(ctx context.Context, repo state.Repository,
-	stateMachine broker.StorageStateMachine,
-	shardAssignService service.ShardAssignService,
-	databaseService service.DatabaseService,
-) *StorageAPI {
+func NewStorageAPI(ctx context.Context, deps *deps.HTTPDeps) *StorageAPI {
 	return &StorageAPI{
-		ctx:                ctx,
-		repo:               repo,
-		stateMachine:       stateMachine,
-		shardAssignService: shardAssignService,
-		databaseService:    databaseService,
+		ctx:  ctx,
+		deps: deps,
 	}
 }
 
+// Register adds storage state url route.
+func (s *StorageAPI) Register(route gin.IRoutes) {
+	route.GET(StorageStatePath, s.GetStorageClusterState)
+	route.GET(ListStorageStatePath, s.ListStorageClusterState)
+}
+
 // GetStorageClusterState returns the storage cluster detail stat by given cluster name
-func (s *StorageAPI) GetStorageClusterState(w http.ResponseWriter, r *http.Request) {
-	clusterName, err := api.GetParamsFromRequest("name", r, "", true)
+func (s *StorageAPI) GetStorageClusterState(c *gin.Context) {
+	var param struct {
+		ClusterName string `form:"name" binding:"required"`
+	}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
 	databaseList, shardAssignMap, err := s.getDatabaseInfo()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	clusterStat, err := s.getStorageClusterInfo(clusterName)
+	clusterStat, err := s.getStorageClusterInfo(param.ClusterName)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	aliveNodes := s.getStorageAliveNodes(clusterName)
+	aliveNodes := s.getStorageAliveNodes(param.ClusterName)
 
 	nodeStatMap := make(map[string]*models.NodeStat)
 	for _, nodeStat := range clusterStat.Nodes {
@@ -81,7 +83,7 @@ func (s *StorageAPI) GetStorageClusterState(w http.ResponseWriter, r *http.Reque
 	}
 
 	for _, db := range databaseList {
-		if db.Cluster != clusterName {
+		if db.Cluster != param.ClusterName {
 			continue
 		}
 		clusterStat.ReplicaStatus.Total += db.NumOfShard * db.ReplicaFactor
@@ -125,22 +127,22 @@ func (s *StorageAPI) GetStorageClusterState(w http.ResponseWriter, r *http.Reque
 	}
 	clusterStat.NodeStatus.Dead = clusterStat.NodeStatus.Total - clusterStat.NodeStatus.Alive
 
-	api.OK(w, clusterStat)
+	http.OK(c, clusterStat)
 }
 
 // ListStorageCluster lists state of all storage clusters
-func (s *StorageAPI) ListStorageClusterState(w http.ResponseWriter, r *http.Request) {
+func (s *StorageAPI) ListStorageClusterState(c *gin.Context) {
 	databaseList, shardAssignMap, err := s.getDatabaseInfo()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
 	clusterMap, err := s.getStorageClusterInfoMap()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	storageNodeStatus := s.stateMachine.List()
+	storageNodeStatus := s.deps.StateMachines.StorageSM.List()
 
 	// calc node status
 	aliveNodeMap := make(map[string]*models.StorageState)
@@ -184,12 +186,12 @@ func (s *StorageAPI) ListStorageClusterState(w http.ResponseWriter, r *http.Requ
 	for _, value := range clusterMap {
 		result = append(result, value)
 	}
-	api.OK(w, result)
+	http.OK(c, result)
 }
 
 // getStorageAliveNodes returns the alive nodes of storage cluster by given cluster name
 func (s *StorageAPI) getStorageAliveNodes(clusterName string) *models.StorageState {
-	storageNodeStatus := s.stateMachine.List()
+	storageNodeStatus := s.deps.StateMachines.StorageSM.List()
 	var aliveNodes *models.StorageState
 	for _, cluster := range storageNodeStatus {
 		if cluster.Name == clusterName {
@@ -202,7 +204,7 @@ func (s *StorageAPI) getStorageAliveNodes(clusterName string) *models.StorageSta
 
 // getStorageClusterInfoMap returns the all storage cluster info
 func (s *StorageAPI) getStorageClusterInfoMap() (clusterMap map[string]*models.StorageClusterStat, err error) {
-	kvs, err := s.repo.List(s.ctx, constants.StorageClusterStatPath)
+	kvs, err := s.deps.Repo.List(s.ctx, constants.StorageClusterStatPath)
 	if err != nil {
 		return
 	}
@@ -235,7 +237,7 @@ func (s *StorageAPI) getStorageClusterInfoMap() (clusterMap map[string]*models.S
 
 // getStorageClusterInfo returns the storage cluster stat info by given cluster name
 func (s *StorageAPI) getStorageClusterInfo(clusterName string) (stat *models.StorageClusterStat, err error) {
-	statData, err := s.repo.Get(s.ctx, constants.GetStorageClusterStatPath(clusterName))
+	statData, err := s.deps.Repo.Get(s.ctx, constants.GetStorageClusterStatPath(clusterName))
 	if err != nil {
 		return
 	}
@@ -256,11 +258,11 @@ func (s *StorageAPI) getStorageClusterInfo(clusterName string) (stat *models.Sto
 
 // getDatabaseInfo returns the database info include database's config and shard assignment
 func (s *StorageAPI) getDatabaseInfo() (databaseList []*models.Database, shardAssignMap map[string]*models.ShardAssignment, err error) {
-	databaseList, err = s.databaseService.List()
+	databaseList, err = s.deps.DatabaseSrv.List()
 	if err != nil {
 		return
 	}
-	shardAssignList, err := s.shardAssignService.List()
+	shardAssignList, err := s.deps.ShardAssignSrv.List()
 	if err != nil {
 		return
 	}

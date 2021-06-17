@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/lindb/lindb/monitoring"
@@ -51,48 +52,13 @@ func init() {
 	monitoring.BrokerRegistry.MustRegister(httpHandleTimer)
 }
 
-// accessStats represents http access stats record
-type accessStats struct {
-	status int
-	size   int
-}
-
-// loggingWriter represents logging stats for http response
-type loggingWriter struct {
-	http.ResponseWriter
-	accessStats accessStats
-}
-
-// Write writes the data to the connection as part of an HTTP reply,
-// records http status and response size for access log.
-func (r *loggingWriter) Write(p []byte) (int, error) {
-	if r.accessStats.status == 0 {
-		// The status will be StatusOK if WriteHeader has not been called yet
-		r.accessStats.status = http.StatusOK
-	}
-	written, err := r.ResponseWriter.Write(p)
-	r.accessStats.size += written
-	return written, err
-}
-
-// WriteHeader sends an HTTP response header with the provided status code,
-// records http status for access log.
-func (r *loggingWriter) WriteHeader(status int) {
-	r.accessStats.status = status
-	r.ResponseWriter.WriteHeader(status)
-}
-
 // AccessLogMiddleware returns access log middleware
-func AccessLogMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func AccessLogMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		start := timeutil.Now()
-		writer := &loggingWriter{
-			ResponseWriter: w,
-			accessStats:    accessStats{},
-		}
+		r := c.Request
 		defer func() {
 			// add access log
-			log := writer.accessStats
 			path := r.RequestURI
 			unescapedPath, err := pathUnescapeFunc(path)
 			if err != nil {
@@ -101,15 +67,15 @@ func AccessLogMiddleware(next http.Handler) http.Handler {
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
 			logger.AccessLog.Info(realIP(r) + " " + strconv.Itoa(int(timeutil.Now()-start)) + "ms" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
-				strconv.Itoa(log.status) + " " + strconv.Itoa(log.size))
+				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size()))
 			paths := strings.Split(unescapedPath, "?")
 			if len(paths) > 0 {
 				path = paths[0]
 			}
-			httpHandleTimer.WithLabelValues(path, strconv.Itoa(log.status)).Observe(float64(timeutil.Now() - start))
+			httpHandleTimer.WithLabelValues(path, strconv.Itoa(c.Writer.Status())).Observe(float64(timeutil.Now() - start))
 		}()
-		next.ServeHTTP(writer, r)
-	})
+		c.Next()
+	}
 }
 
 // realIP return the real ip

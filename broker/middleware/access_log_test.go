@@ -19,40 +19,31 @@ package middleware
 
 import (
 	"fmt"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/mock"
 )
 
 func TestAccessLogMiddleware(t *testing.T) {
 	defer func() {
 		pathUnescapeFunc = url.PathUnescape
 	}()
+
+	r := gin.New()
+	r.Use(AccessLogMiddleware())
+
 	pathUnescapeFunc = func(s string) (string, error) {
 		return "err-path", fmt.Errorf("err")
 	}
-	req, err := http.NewRequest("GET", "/health-check", nil)
-	assert.NoError(t, err)
+	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
 
-	rr := httptest.NewRecorder()
-
-	accessLogHandler := AccessLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, "ok")
-	}))
-
-	accessLogHandler.ServeHTTP(rr, req)
-
-	accessLogHandler = AccessLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, "ok")
-	}))
-	accessLogHandler.ServeHTTP(rr, req)
+	pathUnescapeFunc = url.PathUnescape
+	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
 }
 
 func Test_real_ip(t *testing.T) {

@@ -23,10 +23,13 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
@@ -45,23 +48,25 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 	shardAssignService := service.NewMockShardAssignService(ctrl)
 	databaseService := service.NewMockDatabaseService(ctrl)
 	stateMachine := broker.NewMockStorageStateMachine(ctrl)
-	api := NewStorageAPI(context.TODO(), repo, stateMachine, shardAssignService, databaseService)
+	api := NewStorageAPI(context.TODO(), &deps.HTTPDeps{
+		Repo:           repo,
+		ShardAssignSrv: shardAssignService,
+		DatabaseSrv:    databaseService,
+		StateMachines: &coordinator.BrokerStateMachines{
+			StorageSM: stateMachine,
+		},
+	})
+	r := gin.New()
+	api.Register(r)
 
 	// cluster name not input
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp := mock.DoRequest(t, r, http.MethodGet, StorageStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 	// database get err
 	databaseService.EXPECT().List().Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageStatePath+"?name=test", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// get shard assign err
 	databaseService.EXPECT().List().Return([]*models.Database{{
 		Name:          "test-db",
@@ -81,12 +86,8 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 	},
 	}, nil).AnyTimes()
 	shardAssignService.EXPECT().List().Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageStatePath+"?name=test", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	shardAssignService.EXPECT().List().Return([]*models.ShardAssignment{{
 		Name: "test-db",
@@ -101,20 +102,13 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 
 	// get storage stat err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageStatePath+"?name=test", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// decode err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte{1, 2, 3}, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageStatePath+"?name=test", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
 
 	clusterStat := models.StorageClusterStat{
@@ -136,12 +130,8 @@ func TestStorageAPI_GetStorageClusterState(t *testing.T) {
 	storageState.AddActiveNode(&activeNode)
 
 	stateMachine.EXPECT().List().Return([]*models.StorageState{storageState})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.GetStorageClusterState,
-		ExpectHTTPCode: 200,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageStatePath+"?name=test", "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestStorageAPI_ListStorageClusterState(t *testing.T) {
@@ -152,16 +142,21 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 	shardAssignService := service.NewMockShardAssignService(ctrl)
 	databaseService := service.NewMockDatabaseService(ctrl)
 	stateMachine := broker.NewMockStorageStateMachine(ctrl)
-	api := NewStorageAPI(context.TODO(), repo, stateMachine, shardAssignService, databaseService)
+	api := NewStorageAPI(context.TODO(), &deps.HTTPDeps{
+		Repo:           repo,
+		ShardAssignSrv: shardAssignService,
+		DatabaseSrv:    databaseService,
+		StateMachines: &coordinator.BrokerStateMachines{
+			StorageSM: stateMachine,
+		},
+	})
+	r := gin.New()
+	api.Register(r)
 
 	// database get err
 	databaseService.EXPECT().List().Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.ListStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp := mock.DoRequest(t, r, http.MethodGet, ListStorageStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// get shard assign err
 	databaseService.EXPECT().List().Return([]*models.Database{{
 		Name:          "test-db",
@@ -186,12 +181,8 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 	},
 	}, nil).AnyTimes()
 	shardAssignService.EXPECT().List().Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.ListStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	shardAssignService.EXPECT().List().Return([]*models.ShardAssignment{
 		{
@@ -218,20 +209,13 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 
 	// get storage stat err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.ListStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 	// decode err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "test", Value: []byte{1, 2, 3}}}, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.ListStorageClusterState,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
 
@@ -260,12 +244,8 @@ func TestStorageAPI_ListStorageClusterState(t *testing.T) {
 	storageState.AddActiveNode(&activeNode)
 
 	stateMachine.EXPECT().List().Return([]*models.StorageState{storageState})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/state?name=test",
-		HandlerFunc:    api.ListStorageClusterState,
-		ExpectHTTPCode: 200,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageStatePath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestNewStorageAPI_nodeIsAlive(t *testing.T) {
