@@ -15,16 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package mock
 
 import (
-	"context"
+	"bytes"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
 
-func TestNewRouter(t *testing.T) {
-	r := NewAPI(context.TODO(), nil)
-	r.RegisterRouter(gin.New().Group("/api"))
+func init() {
+	gin.SetMode(gin.ReleaseMode)
+}
+
+// DoRequest does http request for test.
+func DoRequest(t *testing.T, r *gin.Engine, method string, path string, reqBody string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	var body io.Reader
+	if reqBody != "" {
+		body = bytes.NewBufferString(reqBody)
+	}
+	req, _ := http.NewRequest(method, path, body)
+	req.Header.Set("content-type", "application/json")
+	resp := httptest.NewRecorder()
+	r.ServeHTTP(resp, req)
+	return resp
 }

@@ -15,40 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package common
+package broker
 
 import (
-	"net/http"
+	"context"
 	"testing"
+
+	"github.com/lindb/lindb/config"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_ExtractEnrichTags(t *testing.T) {
-	req, _ := http.NewRequest("GET", "http://lindb.io/write?enrich_tag=a=1", nil)
-	tags, _ := ExtractEnrichTags(req)
-	assert.Len(t, tags, 1)
-}
-
-func Test_extractTagsFromQuery(t *testing.T) {
-	tags1, err := extractTagsFromQuery(make(map[string][]string))
-	assert.Nil(t, err)
-	assert.Empty(t, tags1)
-
-	tags2, err := extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {"a=1", "b=2", "c=3="},
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, ",a=1,b=2,c=3\\=", tags2.String())
-
-	_, err = extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {""},
-	})
-	assert.NotNil(t, err)
-
-	tags4, err := extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {"=3", "a=1"},
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, ",a=1", tags4.String())
+func TestNewHTTPServer(t *testing.T) {
+	s := NewHTTPServer(config.HTTP{Port: 9999})
+	assert.NotNil(t, s.GetAPIRouter())
+	go func() {
+		_ = s.Run()
+	}()
+	go func() {
+		_ = s.Close(context.TODO())
+	}()
 }

@@ -15,33 +15,43 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cluser
+package cluster
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/pkg/http"
 )
 
-// MasterAPI represents query cluster master state
+var (
+	// MasterStatePath represents cluster master's state.
+	MasterStatePath = "/cluster/master"
+)
+
+// MasterAPI represents query cluster master state.
 type MasterAPI struct {
-	master coordinator.Master
+	deps *deps.HTTPDeps
 }
 
-// NewMasterAPI creates the master api
-func NewMasterAPI(master coordinator.Master) *MasterAPI {
+// NewMasterAPI creates the master api.
+func NewMasterAPI(deps *deps.HTTPDeps) *MasterAPI {
 	return &MasterAPI{
-		master: master,
+		deps: deps,
 	}
 }
 
-// GetMaster returns the current cluster's master
-func (m *MasterAPI) GetMaster(w http.ResponseWriter, r *http.Request) {
-	master := m.master.GetMaster()
+// Register adds master url route.
+func (m *MasterAPI) Register(route gin.IRoutes) {
+	route.GET(MasterStatePath, m.GetMasterState)
+}
+
+// GetMasterState returns the current cluster's master state.
+func (m *MasterAPI) GetMasterState(c *gin.Context) {
+	master := m.deps.Master.GetMaster()
 	if master == nil {
-		api.NotFound(w)
+		http.NotFound(c)
 	} else {
-		api.OK(w, master)
+		http.OK(c, master)
 	}
 }

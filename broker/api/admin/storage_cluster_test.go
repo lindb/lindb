@@ -22,11 +22,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/service"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStorageClusterAPI(t *testing.T) {
@@ -35,92 +38,53 @@ func TestStorageClusterAPI(t *testing.T) {
 
 	storageClusterService := service.NewMockStorageClusterService(ctrl)
 
-	api := NewStorageClusterAPI(storageClusterService)
+	api := NewStorageClusterAPI(&deps.HTTPDeps{
+		StorageClusterSrv: storageClusterService,
+	})
+	r := gin.New()
+	api.Register(r)
 
 	// get request error
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/storage/cluster",
-		RequestBody:    []byte{1, 2, 3},
-		HandlerFunc:    api.Create,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp := mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, "{}")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	cfg := config.StorageCluster{
 		Name: "test1",
 	}
 	storageClusterService.EXPECT().Save(gomock.Any()).Return(nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/storage/cluster",
-		RequestBody:    cfg,
-		HandlerFunc:    api.Create,
-		ExpectHTTPCode: 204,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+
 	storageClusterService.EXPECT().Save(gomock.Any()).Return(fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/storage/cluster",
-		RequestBody:    cfg,
-		HandlerFunc:    api.Create,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 	storageClusterService.EXPECT().Get(gomock.Any()).Return(&cfg, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/cluster?name=test1",
-		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 200,
-		ExpectResponse: cfg,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=test1", `{"name":"test1"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
+
 	storageClusterService.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/cluster?name=test1",
-		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 500,
-	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/storage/cluster",
-		HandlerFunc:    api.GetByName,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=test1", `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	storageClusterService.EXPECT().List().Return([]*config.StorageCluster{&cfg}, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/storage/cluster",
-		HandlerFunc:    api.List,
-		ExpectHTTPCode: 200,
-		ExpectResponse: []config.StorageCluster{cfg},
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 	storageClusterService.EXPECT().List().Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/storage/cluster",
-		HandlerFunc:    api.List,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	storageClusterService.EXPECT().Delete(gomock.Any()).Return(nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodDelete,
-		URL:            "/storage/cluster?name=test1",
-		HandlerFunc:    api.DeleteByName,
-		ExpectHTTPCode: 204,
-	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodDelete,
-		URL:            "/storage/cluster",
-		HandlerFunc:    api.DeleteByName,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath+"?name=test1", ``)
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+
+	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 	storageClusterService.EXPECT().Delete(gomock.Any()).Return(fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodDelete,
-		URL:            "/storage/cluster?name=test1",
-		HandlerFunc:    api.DeleteByName,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath+"?name=test1", `{"name":"test1"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

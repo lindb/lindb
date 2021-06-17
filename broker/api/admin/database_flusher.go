@@ -21,62 +21,77 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/coordinator"
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/broker/deps"
+	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var adminLogger = logger.GetLogger("broker", "adminAPI")
-var httpGet = http.Get
+var (
+	// for testing
+	httpGet = http.Get
+	// FlushDatabasePath represents database flush api path.
+	FlushDatabasePath = "/database/flush"
+)
 
-// DatabaseFlusherAPI represents the memory database flush by manual
+// DatabaseFlusherAPI represents the memory database flush by manual.
 type DatabaseFlusherAPI struct {
-	master coordinator.Master
+	deps *deps.HTTPDeps
+
+	logger *logger.Logger
 }
 
-// NewDatabaseFlusherAPI create database flusher api
-func NewDatabaseFlusherAPI(master coordinator.Master) *DatabaseFlusherAPI {
-	return &DatabaseFlusherAPI{master: master}
+// NewDatabaseFlusherAPI create database flusher api.
+func NewDatabaseFlusherAPI(deps *deps.HTTPDeps) *DatabaseFlusherAPI {
+	return &DatabaseFlusherAPI{
+		deps:   deps,
+		logger: logger.GetLogger("broker", "databaseFlusherAPI"),
+	}
+}
+
+// Register adds database flush admin url route.
+func (df *DatabaseFlusherAPI) Register(route gin.IRoutes) {
+	route.PUT(FlushDatabasePath, df.SubmitFlushTask)
 }
 
 // SubmitFlushTask submits the task which does flush job over memory database
-func (df *DatabaseFlusherAPI) SubmitFlushTask(w http.ResponseWriter, r *http.Request) {
-	cluster, err := api.GetParamsFromRequest("cluster", r, "", true)
+func (df *DatabaseFlusherAPI) SubmitFlushTask(c *gin.Context) {
+	var param struct {
+		Cluster  string `json:"cluster" binding:"required"`
+		Database string `json:"database" binding:"required"`
+	}
+	err := c.ShouldBind(&param)
 	if err != nil {
-		api.Error(w, err)
+		httppkg.Error(c, err)
 		return
 	}
-	databaseName, err := api.GetParamsFromRequest("db", r, "", true)
-	if err != nil {
-		api.Error(w, err)
-		return
-	}
-	if df.master.IsMaster() {
+	if df.deps.Master.IsMaster() {
 		// if current node is master, submits the flush task
-		if err := df.master.FlushDatabase(cluster, databaseName); err != nil {
-			api.Error(w, err)
+		if err := df.deps.Master.FlushDatabase(param.Cluster, param.Database); err != nil {
+			httppkg.Error(c, err)
 			return
 		}
 	} else {
 		// if current node is not master, need forward to master node
-		masterNode := df.master.GetMaster().Node
-		resp, err := httpGet(fmt.Sprintf("http://%s:%d"+r.RequestURI, masterNode.IP, masterNode.Port))
+		masterNode := df.deps.Master.GetMaster().Node
+		resp, err := httpGet(fmt.Sprintf("http://%s:%d"+c.Request.RequestURI, masterNode.IP, masterNode.Port))
 		if resp != nil {
 			if resp.Body != nil {
 				if err := resp.Body.Close(); err != nil {
-					adminLogger.Error("close http response body", logger.Error(err))
+					df.logger.Error("close http response body", logger.Error(err))
 				}
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				api.Error(w, fmt.Errorf("master handle error after forward"))
+				httppkg.Error(c, fmt.Errorf("master handle error after forward"))
 				return
 			}
 		}
 		if err != nil {
-			api.Error(w, err)
+			httppkg.Error(c, err)
 			return
 		}
 	}
-	api.OK(w, "success")
+	httppkg.OK(c, "success")
 }

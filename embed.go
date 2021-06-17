@@ -15,16 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package lindb
 
-import (
-	"context"
-	"testing"
+import "embed"
 
-	"github.com/gin-gonic/gin"
-)
-
-func TestNewRouter(t *testing.T) {
-	r := NewAPI(context.TODO(), nil)
-	r.RegisterRouter(gin.New().Group("/api"))
-}
+// StaticContent represents static resource path.
+//go:embed web/build
+var StaticContent embed.FS //nolint

@@ -15,16 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package http
 
-import (
-	"context"
-	"testing"
+import "github.com/gin-gonic/gin"
 
-	"github.com/gin-gonic/gin"
-)
-
-func TestNewRouter(t *testing.T) {
-	r := NewAPI(context.TODO(), nil)
-	r.RegisterRouter(gin.New().Group("/api"))
+// RouteRegister represents http handle register for spec route path.
+type RouteRegister interface {
+	// Register adds url route.
+	Register(gin.IRoutes)
 }

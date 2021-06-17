@@ -18,63 +18,78 @@
 package admin
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/pkg/http"
+)
+
+var (
+	DatabasePath     = "/database"
+	ListDatabasePath = "/database/list"
 )
 
 // DatabaseAPI represents database admin rest api
 type DatabaseAPI struct {
-	databaseService service.DatabaseService
+	deps *deps.HTTPDeps
 }
 
 // NewDatabaseAPI creates database api instance
-func NewDatabaseAPI(databaseService service.DatabaseService) *DatabaseAPI {
+func NewDatabaseAPI(deps *deps.HTTPDeps) *DatabaseAPI {
 	return &DatabaseAPI{
-		databaseService: databaseService,
+		deps: deps,
 	}
 }
 
+// Register adds database admin url route.
+func (d *DatabaseAPI) Register(route gin.IRoutes) {
+	route.POST(DatabasePath, d.Save)
+	route.GET(DatabasePath, d.GetByName)
+	route.GET(ListDatabasePath, d.List)
+}
+
 // GetByName gets a database config by the name.
-func (d *DatabaseAPI) GetByName(w http.ResponseWriter, r *http.Request) {
-	databaseName, err := api.GetParamsFromRequest("name", r, "", true)
+func (d *DatabaseAPI) GetByName(c *gin.Context) {
+	var param struct {
+		DatabaseName string `form:"name" binding:"required"`
+	}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	database, err := d.databaseService.Get(databaseName)
+	database, err := d.deps.DatabaseSrv.Get(param.DatabaseName)
 	if err != nil {
-		api.NotFound(w)
+		http.NotFound(c)
 		return
 	}
-	api.OK(w, database)
+	http.OK(c, database)
 }
 
 // Save creates the database config if there is no database
 // config with the name database.Name, otherwise update the config
-func (d *DatabaseAPI) Save(w http.ResponseWriter, r *http.Request) {
+func (d *DatabaseAPI) Save(c *gin.Context) {
 	database := &models.Database{}
-	err := api.GetJSONBodyFromRequest(r, database)
+	err := c.ShouldBind(&database)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	err = d.databaseService.Save(database)
+	err = d.deps.DatabaseSrv.Save(database)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.NoContent(w)
+	http.NoContent(c)
 }
 
 // List returns all database configs
-func (d *DatabaseAPI) List(w http.ResponseWriter, r *http.Request) {
-	dbs, err := d.databaseService.List()
+func (d *DatabaseAPI) List(c *gin.Context) {
+	dbs, err := d.deps.DatabaseSrv.List()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.OK(w, dbs)
+	http.OK(c, dbs)
 }

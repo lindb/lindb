@@ -15,40 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package common
+package http
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/config"
 )
 
-func Test_ExtractEnrichTags(t *testing.T) {
-	req, _ := http.NewRequest("GET", "http://lindb.io/write?enrich_tag=a=1", nil)
-	tags, _ := ExtractEnrichTags(req)
-	assert.Len(t, tags, 1)
-}
+var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGF" +
+	"zc3dvcmQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk"
 
-func Test_extractTagsFromQuery(t *testing.T) {
-	tags1, err := extractTagsFromQuery(make(map[string][]string))
-	assert.Nil(t, err)
-	assert.Empty(t, tags1)
-
-	tags2, err := extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {"a=1", "b=2", "c=3="},
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, ",a=1,b=2,c=3\\=", tags2.String())
-
-	_, err = extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {""},
-	})
-	assert.NotNil(t, err)
-
-	tags4, err := extractTagsFromQuery(map[string][]string{
-		enrichTagsQueryKey: {"=3", "a=1"},
-	})
-	assert.Nil(t, err)
-	assert.Equal(t, ",a=1", tags4.String())
+func Test_CreateToken(t *testing.T) {
+	user := config.User{UserName: "admin", Password: "admin123"}
+	token, err := CreateToken(user)
+	assert.Equal(t, true, err == nil)
+	assert.Equal(t, tokenStr, token)
 }

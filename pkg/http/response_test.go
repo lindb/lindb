@@ -15,42 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cluster
+package http
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/broker/deps"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-func TestMasterAPI_GetMaster(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	master := coordinator.NewMockMaster(ctrl)
-
-	api := NewMasterAPI(&deps.HTTPDeps{
-		Master: master,
-	})
-	r := gin.New()
-	api.Register(r)
-
-	m := models.Master{ElectTime: timeutil.Now(), Node: models.Node{IP: "1.1.1.1", Port: 8000}}
-	// get success
-	master.EXPECT().GetMaster().Return(&m)
-	resp := mock.DoRequest(t, r, http.MethodGet, MasterStatePath, "")
+func TestOK(t *testing.T) {
+	resp := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(resp)
+	OK(c, "ok")
 	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, `"ok"`, resp.Body.String())
+}
 
-	master.EXPECT().GetMaster().Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, MasterStatePath, "")
+func TestNoContent(t *testing.T) {
+	resp := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(resp)
+	NoContent(c)
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+	assert.Equal(t, 0, resp.Body.Len())
+}
+
+func TestNotFound(t *testing.T) {
+	resp := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(resp)
+	NotFound(c)
 	assert.Equal(t, http.StatusNotFound, resp.Code)
+	assert.Equal(t, 4, resp.Body.Len())
+}
+
+func TestError(t *testing.T) {
+	resp := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(resp)
+	Error(c, fmt.Errorf("err"))
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	assert.Equal(t, `"err"`, resp.Body.String())
 }

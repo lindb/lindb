@@ -22,8 +22,11 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
@@ -35,7 +38,8 @@ type mockIOReader struct {
 func (m *mockIOReader) Close() error {
 	return fmt.Errorf("err")
 }
-func (m *mockIOReader) Read(p []byte) (n int, err error) {
+
+func (m *mockIOReader) Read(_ []byte) (n int, err error) {
 	return 0, fmt.Errorf("err")
 }
 
@@ -44,43 +48,31 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	defer ctrl.Finish()
 
 	master := coordinator.NewMockMaster(ctrl)
-	flushAPI := NewDatabaseFlusherAPI(master)
+	flushAPI := NewDatabaseFlusherAPI(&deps.HTTPDeps{
+		Master: master,
+	})
+	r := gin.New()
+	flushAPI.Register(r)
 
 	// no cluster
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flusher",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp := mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, "{}")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// no database name
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush?cluster=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, ``)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// submit err
 	master.EXPECT().IsMaster().Return(true)
 	master.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// submit ok
 	master.EXPECT().IsMaster().Return(true)
 	master.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusOK,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	defer func() {
 		httpGet = http.Get
@@ -97,12 +89,8 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	httpGet = func(url string) (resp *http.Response, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	httpGet = func(url string) (resp *http.Response, err error) {
 		return nil, nil
@@ -114,12 +102,8 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 			Port: 12345,
 		},
 	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush/ok?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusOK,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 	httpGet = func(url string) (resp *http.Response, err error) {
 		return &http.Response{
 			StatusCode: http.StatusInternalServerError,
@@ -132,12 +116,8 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 			Port: 12346,
 		},
 	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush/ok?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusInternalServerError,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	httpGet = func(url string) (resp *http.Response, err error) {
 		return &http.Response{
@@ -152,10 +132,6 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 			Port: 12346,
 		},
 	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/database/flush/ok?cluster=test&db=test",
-		HandlerFunc:    flushAPI.SubmitFlushTask,
-		ExpectHTTPCode: http.StatusOK,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

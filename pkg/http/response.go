@@ -15,41 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package http
 
 import (
-	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/gin-gonic/gin"
 )
 
-func TestOK(t *testing.T) {
-	resp := httptest.NewRecorder()
-	OK(resp, "ok")
-	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Equal(t, `"ok"`, resp.Body.String())
+// OK responses with content and set the http status code 200.
+func OK(c *gin.Context, content interface{}) {
+	response(c, http.StatusOK, content)
 }
 
-func TestNoContent(t *testing.T) {
-	resp := httptest.NewRecorder()
-	NoContent(resp)
-	assert.Equal(t, http.StatusNoContent, resp.Code)
-	assert.Equal(t, 0, resp.Body.Len())
+// NoContent responses with empty content and set the http status code 204.
+func NoContent(c *gin.Context) {
+	response(c, http.StatusNoContent, nil)
 }
 
-func TestNotFound(t *testing.T) {
-	resp := httptest.NewRecorder()
-	NotFound(resp)
-	assert.Equal(t, http.StatusNotFound, resp.Code)
-	assert.Equal(t, 0, resp.Body.Len())
+// NotFound responses resource not found.
+func NotFound(c *gin.Context) {
+	response(c, http.StatusNotFound, nil)
 }
 
-func TestError(t *testing.T) {
-	resp := httptest.NewRecorder()
-	Error(resp, fmt.Errorf("err"))
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	assert.Equal(t, `"err"`, resp.Body.String())
+// Error responses error message and set the http status code 500.
+func Error(c *gin.Context, err error) {
+	response(c, http.StatusInternalServerError, err.Error())
+}
+
+// response responses json body for http restful api
+func response(c *gin.Context, httpCode int, content interface{}) {
+	c.JSON(httpCode, content)
 }

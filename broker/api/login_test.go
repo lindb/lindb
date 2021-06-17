@@ -22,131 +22,59 @@ import (
 	"net/http"
 	"testing"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/mock"
+	httppkg "github.com/lindb/lindb/pkg/http"
 )
-
-var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGFzc3dvc" +
-	"mQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk"
 
 func TestLogin(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	auth := middleware.NewMockAuthentication(ctrl)
+	defer func() {
+		createTokenFn = httppkg.CreateToken
+		ctrl.Finish()
+	}()
 
 	user := config.User{UserName: "admin", Password: "admin123"}
-	api := NewLoginAPI(user, auth)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    []byte{1, 2, 3},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-	})
+	api := NewLoginAPI(user)
+	r := gin.New()
+	api.Register(r)
+
+	resp := mock.DoRequest(t, r, http.MethodPut, LoginPath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	//create success
-	auth.EXPECT().CreateToken(gomock.Any()).Return(tokenStr, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    user,
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: tokenStr,
-	})
-
-	// token create fail
-	auth.EXPECT().CreateToken(gomock.Any()).Return("", fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{UserName: "admin", Password: "admin123"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	//user failure error password
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{UserName: "admin", Password: "admin1234"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "admin", "password": "admin1234"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	//user failure error user name
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{UserName: "123", Password: "admin123"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123", "password": "admin1234"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	//user failure error password
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{UserName: "admin", Password: "admin1234"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123", "password": "admin12dd34"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
 	//user login failure  password is empty
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{UserName: "admin"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//user login failure  user name is empty
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/user",
-		RequestBody:    config.User{Password: "admin1234"},
-		HandlerFunc:    api.Login,
-		ExpectHTTPCode: 200,
-		ExpectResponse: "",
-	})
-
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPost,
-		URL:            "/check",
-		HandlerFunc:    api.Check,
-		ExpectHTTPCode: 200,
-		ExpectResponse: user,
-	})
-}
-
-func Test_JWT(t *testing.T) {
-	user := config.User{UserName: "admin", Password: "admin123"}
-	claims := middleware.CustomClaims{
-		UserName: user.UserName,
-		Password: user.Password,
+	// token create fail
+	createTokenFn = func(user config.User) (string, error) {
+		return "", fmt.Errorf("err")
 	}
-	cid := middleware.Md5Encrypt(user)
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &claims)
-	tokenString, _ := token.SignedString([]byte(cid))
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "admin", "password": "admin123"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 
-	assert.Equal(t, tokenStr, tokenString)
-
-	mapClaims := middleware.CustomClaims{}
-	_, _ = jwt.ParseWithClaims(tokenString, &mapClaims, func(token *jwt.Token) (i interface{}, e error) {
-		return cid, nil
-	})
-	assert.Equal(t, user.Password, mapClaims.Password)
-	assert.Equal(t, user.UserName, mapClaims.UserName)
+	// token create ok
+	createTokenFn = httppkg.CreateToken
+	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "admin", "password": "admin123"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

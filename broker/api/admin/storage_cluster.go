@@ -18,77 +18,96 @@
 package admin
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/broker/api"
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/pkg/http"
 )
+
+var (
+	StorageClusterPath     = "/storage/cluster"
+	ListStorageClusterPath = "/storage/cluster/list"
+)
+
+type storageClusterParam struct {
+	ClusterName string `form:"name" binding:"required"`
+}
 
 // StorageClusterAPI represents storage cluster admin rest api
 type StorageClusterAPI struct {
-	storageClusterService service.StorageClusterService
+	deps *deps.HTTPDeps
 }
 
 // NewStorageClusterAPI create storage cluster api
-func NewStorageClusterAPI(storageClusterService service.StorageClusterService) *StorageClusterAPI {
+func NewStorageClusterAPI(deps *deps.HTTPDeps) *StorageClusterAPI {
 	return &StorageClusterAPI{
-		storageClusterService: storageClusterService,
+		deps: deps,
 	}
+}
+
+// Register adds storage admin url route.
+func (s *StorageClusterAPI) Register(route gin.IRoutes) {
+	route.POST(StorageClusterPath, s.Create)
+	route.GET(StorageClusterPath, s.GetByName)
+	route.DELETE(StorageClusterPath, s.DeleteByName)
+	route.GET(ListStorageClusterPath, s.List)
 }
 
 // Create creates config of storage cluster
-func (s *StorageClusterAPI) Create(w http.ResponseWriter, r *http.Request) {
+func (s *StorageClusterAPI) Create(c *gin.Context) {
 	storage := &config.StorageCluster{}
-	err := api.GetJSONBodyFromRequest(r, storage)
+	err := c.ShouldBind(&storage)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	err = s.storageClusterService.Save(storage)
+	err = s.deps.StorageClusterSrv.Save(storage)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.NoContent(w)
+	http.NoContent(c)
 }
 
 // GetByName gets storage cluster by name
-func (s *StorageClusterAPI) GetByName(w http.ResponseWriter, r *http.Request) {
-	name, err := api.GetParamsFromRequest("name", r, "", true)
+func (s *StorageClusterAPI) GetByName(c *gin.Context) {
+	param := storageClusterParam{}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	cluster, err := s.storageClusterService.Get(name)
+	cluster, err := s.deps.StorageClusterSrv.Get(param.ClusterName)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.OK(w, cluster)
+	http.OK(c, cluster)
 }
 
 // DeleteByName deletes storage cluster by name
-func (s *StorageClusterAPI) DeleteByName(w http.ResponseWriter, r *http.Request) {
-	name, err := api.GetParamsFromRequest("name", r, "", true)
+func (s *StorageClusterAPI) DeleteByName(c *gin.Context) {
+	param := storageClusterParam{}
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	err = s.storageClusterService.Delete(name)
+	err = s.deps.StorageClusterSrv.Delete(param.ClusterName)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.NoContent(w)
+	http.NoContent(c)
 }
 
 // List lists all storage clusters
-func (s *StorageClusterAPI) List(w http.ResponseWriter, r *http.Request) {
-	clusters, err := s.storageClusterService.List()
+func (s *StorageClusterAPI) List(c *gin.Context) {
+	clusters, err := s.deps.StorageClusterSrv.List()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.OK(w, clusters)
+	http.OK(c, clusters)
 }
