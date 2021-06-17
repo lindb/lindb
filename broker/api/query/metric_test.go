@@ -23,8 +23,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
@@ -45,7 +49,12 @@ func TestMetricAPI_Search(t *testing.T) {
 		gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(brokerExecutor)
 
-	api := NewMetricAPI(nil, nil, nil, executorFactory, nil)
+	api := NewMetricAPI(&deps.HTTPDeps{
+		ExecutorFct:   executorFactory,
+		StateMachines: &coordinator.BrokerStateMachines{},
+	})
+	r := gin.New()
+	api.Register(r)
 
 	ch := make(chan *series.TimeSeriesEvent)
 
@@ -58,12 +67,8 @@ func TestMetricAPI_Search(t *testing.T) {
 		close(ch)
 	})
 
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state?db=test&sql=select f from cpu",
-		HandlerFunc:    api.Search,
-		ExpectHTTPCode: 200,
-	})
+	resp := mock.DoRequest(t, r, http.MethodGet, MetricQueryPath+"?db=test&sql=select f from cpu", "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestNewMetricAPI_Search_Err(t *testing.T) {
@@ -71,23 +76,13 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	defer ctrl.Finish()
 
 	executorFactory := parallel.NewMockExecutorFactory(ctrl)
-	api := NewMetricAPI(nil, nil, nil, executorFactory, nil)
+	api := NewMetricAPI(&deps.HTTPDeps{ExecutorFct: executorFactory, StateMachines: &coordinator.BrokerStateMachines{}})
+	r := gin.New()
+	api.Register(r)
 
 	// param error
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state",
-		HandlerFunc:    api.Search,
-		ExpectHTTPCode: 500,
-	})
-
-	// param error
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state?db=test",
-		HandlerFunc:    api.Search,
-		ExpectHTTPCode: 500,
-	})
+	resp := mock.DoRequest(t, r, http.MethodGet, MetricQueryPath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	brokerExecutor := parallel.NewMockBrokerExecutor(ctrl)
 	executeCtx := parallel.NewMockBrokerExecuteContext(ctrl)
@@ -106,10 +101,6 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	time.AfterFunc(100*time.Millisecond, func() {
 		close(ch)
 	})
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state?db=test&sql=select f from cpu",
-		HandlerFunc:    api.Search,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, MetricQueryPath+"?db=test&sql=select f from cpu", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

@@ -19,41 +19,50 @@ package state
 
 import (
 	"context"
-	"net/http"
 	"path/filepath"
 
-	"github.com/lindb/lindb/broker/api"
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/http"
 )
 
-// BrokerAPI represents query broker state api from broker state machine
+var (
+	BrokerStatePath = "/broker/cluster/state"
+)
+
+// BrokerAPI represents query broker state api from broker state machine.
 type BrokerAPI struct {
-	ctx          context.Context
-	repo         state.Repository
-	stateMachine broker.NodeStateMachine
+	ctx context.Context
+
+	deps *deps.HTTPDeps
 }
 
-// NewBrokerAPI creates the broker state api
-func NewBrokerAPI(ctx context.Context, repo state.Repository, stateMachine broker.NodeStateMachine) *BrokerAPI {
+// NewBrokerAPI creates the broker state api.
+func NewBrokerAPI(ctx context.Context, deps *deps.HTTPDeps) *BrokerAPI {
 	return &BrokerAPI{
-		ctx:          ctx,
-		repo:         repo,
-		stateMachine: stateMachine,
+		ctx:  ctx,
+		deps: deps,
 	}
 }
 
-func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
-	kvs, err := s.repo.List(s.ctx, constants.StateNodesPath)
+// Register adds broker state url route.
+func (s *BrokerAPI) Register(route gin.IRoutes) {
+	route.GET(BrokerStatePath, s.ListBrokersState)
+}
+
+// ListBrokersState returns brokers state.
+func (s *BrokerAPI) ListBrokersState(c *gin.Context) {
+	kvs, err := s.deps.Repo.List(s.ctx, constants.StateNodesPath)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
 	// get active nodes
-	nodes := s.stateMachine.GetActiveNodes()
+	nodes := s.deps.StateMachines.NodeSM.GetActiveNodes()
 	nodeIDs := make(map[string]string)
 	for _, node := range nodes {
 		id := node.Node.Indicator()
@@ -65,7 +74,7 @@ func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
 		_, nodeID := filepath.Split(kv.Key)
 		stat := models.NodeStat{}
 		if err := encoding.JSONUnmarshal(kv.Value, &stat); err != nil {
-			api.Error(w, err)
+			http.Error(c, err)
 			return
 		}
 		_, ok := nodeIDs[nodeID]
@@ -74,5 +83,5 @@ func (s *BrokerAPI) ListBrokersStat(w http.ResponseWriter, r *http.Request) {
 		}
 		result = append(result, stat)
 	}
-	api.OK(w, result)
+	http.OK(c, result)
 }

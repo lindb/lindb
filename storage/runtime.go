@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gogo/protobuf/proto"
-	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	promreporter "github.com/uber-go/tally/prometheus"
@@ -259,15 +259,18 @@ func (r *runtime) startHTTPServer() {
 
 	// add prometheus metric report
 	reporter := promreporter.NewReporter(promreporter.Options{})
-	router := mux.NewRouter().StrictSlash(true)
-	router.Handle("/metrics", reporter.HTTPHandler())
+	h := reporter.HTTPHandler()
+	g := gin.New()
+	g.GET("/metrics", func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	})
 
 	r.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler:      router,
+		Handler:      g,
 	}
 	go func() {
 		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {

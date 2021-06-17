@@ -22,22 +22,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"regexp"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/broker/api/admin"
-	masterAPI "github.com/lindb/lindb/broker/api/cluster"
-	writeAPI "github.com/lindb/lindb/broker/api/metric"
-	queryAPI "github.com/lindb/lindb/broker/api/query"
-	stateAPI "github.com/lindb/lindb/broker/api/state"
-	"github.com/lindb/lindb/broker/api/write"
-	"github.com/lindb/lindb/broker/middleware"
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
@@ -81,28 +72,8 @@ type factory struct {
 	taskServer rpc.TaskServerFactory
 }
 
-// apiHandler represents all api handlers for broker
-type apiHandler struct {
-	storageClusterAPI  *admin.StorageClusterAPI
-	databaseAPI        *admin.DatabaseAPI
-	databaseFlusherAPI *admin.DatabaseFlusherAPI
-	loginAPI           *api.LoginAPI
-	storageStateAPI    *stateAPI.StorageAPI
-	brokerStateAPI     *stateAPI.BrokerAPI
-	masterAPI          *masterAPI.MasterAPI
-	metricAPI          *queryAPI.MetricAPI
-	metadataAPI        *queryAPI.MetadataAPI
-	writeAPI           *writeAPI.WriteAPI
-	prometheusWriter   *write.PrometheusWriter
-	influxWriter       *write.InfluxWriter
-}
-
 type rpcHandler struct {
 	task *parallel.TaskHandler
-}
-
-type middlewareHandler struct {
-	authentication middleware.Authentication
 }
 
 // runtime represents broker runtime dependency
@@ -116,15 +87,13 @@ type runtime struct {
 	repoFactory   state.RepositoryFactory
 	srv           srv
 	factory       factory
-	httpServer    *http.Server
+	httpServer    *HTTPServer
 	master        coordinator.Master
 	registry      discovery.Registry
 	stateMachines *coordinator.BrokerStateMachines
 
 	grpcServer rpc.GRPCServer
 	rpcHandler *rpcHandler
-
-	middleware *middlewareHandler
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -217,8 +186,6 @@ func (r *runtime) Run() error {
 	}
 	r.master = coordinator.NewMaster(masterCfg)
 
-	r.buildMiddlewareDependency()
-	r.buildAPIDependency()
 	// start tcp server
 	r.startGRPCServer()
 
@@ -256,7 +223,7 @@ func (r *runtime) Stop() error {
 
 	if r.httpServer != nil {
 		r.log.Info("starting shutdown http server")
-		if err := r.httpServer.Shutdown(r.ctx); err != nil {
+		if err := r.httpServer.Close(r.ctx); err != nil {
 			r.log.Error("shutdown http server error", logger.Error(err))
 		}
 	}
@@ -296,24 +263,22 @@ func (r *runtime) Stop() error {
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
-	port := r.config.BrokerBase.HTTP.Port
-
-	r.log.Info("starting http server", logger.Uint16("port", port))
-	router := api.NewRouter()
-
-	// add prometheus metric report
-	reporter := promreporter.NewReporter(promreporter.Options{})
-	router.Handle("/metrics", reporter.HTTPHandler())
-
-	r.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
-		WriteTimeout: time.Second * 15,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
-		Handler:      router,
-	}
+	r.httpServer = NewHTTPServer(r.config.BrokerBase.HTTP)
+	// TODO set ctx
+	httpAPI := api.NewAPI(context.TODO(), &deps.HTTPDeps{
+		Master:            r.master,
+		Repo:              r.repo,
+		StateMachines:     r.stateMachines,
+		DatabaseSrv:       r.srv.databaseService,
+		ShardAssignSrv:    r.srv.shardAssignService,
+		StorageClusterSrv: r.srv.storageClusterService,
+		CM:                r.srv.channelManager,
+		ExecutorFct:       query.NewExecutorFactory(),
+		JobManager:        r.srv.jobManager,
+	})
+	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {
-		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		if err := r.httpServer.Run(); err != http.ErrServerClosed {
 			panic(fmt.Sprintf("start http server with error: %s", err))
 		}
 		r.log.Info("http server stopped successfully")
@@ -357,68 +322,6 @@ func (r *runtime) buildServiceDependency() {
 		jobManager:            jobManager,
 	}
 	r.srv = srv
-}
-
-// buildAPIDependency builds broker api dependency
-func (r *runtime) buildAPIDependency() {
-	handlers := apiHandler{
-		storageClusterAPI:  admin.NewStorageClusterAPI(r.srv.storageClusterService),
-		databaseAPI:        admin.NewDatabaseAPI(r.srv.databaseService),
-		databaseFlusherAPI: admin.NewDatabaseFlusherAPI(r.master),
-		loginAPI:           api.NewLoginAPI(r.config.BrokerBase.User, r.middleware.authentication),
-		storageStateAPI:    stateAPI.NewStorageAPI(r.ctx, r.repo, r.stateMachines.StorageSM, r.srv.shardAssignService, r.srv.databaseService),
-		brokerStateAPI:     stateAPI.NewBrokerAPI(r.ctx, r.repo, r.stateMachines.NodeSM),
-		masterAPI:          masterAPI.NewMasterAPI(r.master),
-		metricAPI: queryAPI.NewMetricAPI(r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM, r.stateMachines.DatabaseSM, query.NewExecutorFactory(), r.srv.jobManager),
-		metadataAPI: queryAPI.NewMetadataAPI(r.srv.databaseService, r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM, query.NewExecutorFactory(), r.srv.jobManager),
-		writeAPI:         writeAPI.NewWriteAPI(r.srv.channelManager),
-		prometheusWriter: write.NewPrometheusWriter(r.srv.channelManager),
-		influxWriter:     write.NewInfluxWriter(r.srv.channelManager),
-	}
-
-	api.AddRoute("Login", http.MethodPost, "/login", handlers.loginAPI.Login)
-	api.AddRoute("Check", http.MethodGet, "/check/1", handlers.loginAPI.Check)
-
-	api.AddRoute("SaveStorageCluster", http.MethodPost, "/storage/cluster", handlers.storageClusterAPI.Create)
-	api.AddRoute("GetStorageCluster", http.MethodGet, "/storage/cluster", handlers.storageClusterAPI.GetByName)
-	api.AddRoute("DeleteStorageCluster", http.MethodDelete, "/storage/cluster", handlers.storageClusterAPI.DeleteByName)
-	api.AddRoute("ListStorageClusters", http.MethodGet, "/storage/cluster/list", handlers.storageClusterAPI.List)
-
-	api.AddRoute("CreateOrUpdateDatabase", http.MethodPost, "/database", handlers.databaseAPI.Save)
-	api.AddRoute("GetDatabase", http.MethodGet, "/database", handlers.databaseAPI.GetByName)
-	api.AddRoute("ListDatabase", http.MethodGet, "/database/list", handlers.databaseAPI.List)
-	api.AddRoute("FLushDatabase", http.MethodGet, "/database/flush", handlers.databaseFlusherAPI.SubmitFlushTask)
-
-	api.AddRoute("ListStorageClusterNodesState", http.MethodGet, "/storage/cluster/state", handlers.storageStateAPI.GetStorageClusterState)
-	api.AddRoute("ListStorageClusterState", http.MethodGet, "/storage/cluster/state/list", handlers.storageStateAPI.ListStorageClusterState)
-	api.AddRoute("ListBrokerClusterState", http.MethodGet, "/broker/cluster/state", handlers.brokerStateAPI.ListBrokersStat)
-
-	api.AddRoute("GetMasterState", http.MethodGet, "/cluster/master", handlers.masterAPI.GetMaster)
-
-	api.AddRoute("QueryMetric", http.MethodGet, "/query/metric", handlers.metricAPI.Search)
-	api.AddRoute("QueryMetadata", http.MethodGet, "/query/metadata", handlers.metadataAPI.Handle)
-
-	api.AddRoute("WriteSumMetric", http.MethodPut, "/metric/sum", handlers.writeAPI.Sum)
-	api.AddRoute("PrometheusWriter", http.MethodPut, "/metric/prometheus", handlers.prometheusWriter.Write)
-	api.AddRoute("InfluxWriter", http.MethodPut, "/metric/influx", handlers.influxWriter.Write)
-}
-
-// buildMiddlewareDependency builds middleware dependency
-// pattern support regexp matching
-func (r *runtime) buildMiddlewareDependency() {
-	r.middleware = &middlewareHandler{
-		authentication: middleware.NewAuthentication(r.config.BrokerBase.User),
-	}
-	httpAPI, err := regexp.Compile("/*")
-	if err == nil {
-		api.AddMiddleware(middleware.AccessLogMiddleware, httpAPI)
-	}
-	validate, err := regexp.Compile("/check/*")
-	if err == nil {
-		api.AddMiddleware(r.middleware.authentication.Validate, validate)
-	}
 }
 
 // startGRPCServer starts the GRPC server

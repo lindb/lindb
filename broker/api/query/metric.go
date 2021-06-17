@@ -19,57 +19,54 @@ package query
 
 import (
 	"context"
-	"net/http"
 	"time"
 
-	"github.com/lindb/lindb/broker/api"
-	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/parallel"
+	"github.com/lindb/lindb/pkg/http"
+)
+
+var (
+	MetricQueryPath = "/query/metric"
 )
 
 // MetricAPI represents the metric query api
 type MetricAPI struct {
-	replicaStateMachine  replica.StatusStateMachine
-	nodeStateMachine     broker.NodeStateMachine
-	databaseStateMachine database.DBStateMachine
-	executorFactory      parallel.ExecutorFactory
-	jobManager           parallel.JobManager
+	deps *deps.HTTPDeps
 }
 
 // NewMetricAPI creates the metric query api
-func NewMetricAPI(replicaStateMachine replica.StatusStateMachine,
-	nodeStateMachine broker.NodeStateMachine, databaseStateMachine database.DBStateMachine,
-	executorFactory parallel.ExecutorFactory, jobManager parallel.JobManager) *MetricAPI {
+func NewMetricAPI(deps *deps.HTTPDeps) *MetricAPI {
 	return &MetricAPI{
-		replicaStateMachine:  replicaStateMachine,
-		nodeStateMachine:     nodeStateMachine,
-		databaseStateMachine: databaseStateMachine,
-		executorFactory:      executorFactory,
-		jobManager:           jobManager,
+		deps: deps,
 	}
 }
 
+// Register adds metric query url route.
+func (m *MetricAPI) Register(route gin.IRoutes) {
+	route.GET(MetricQueryPath, m.Search)
+}
+
 // Search searches the metric data based on database and sql.
-func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
-	db, err := api.GetParamsFromRequest("db", r, "", true)
-	if err != nil {
-		api.Error(w, err)
-		return
+func (m *MetricAPI) Search(c *gin.Context) {
+	var param struct {
+		Database string `form:"db" binding:"required"`
+		SQL      string `form:"sql" binding:"required"`
 	}
-	sql, err := api.GetParamsFromRequest("sql", r, "", true)
+	err := c.ShouldBind(&param)
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
 	//FIXME add timeout cfg
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.executorFactory.NewBrokerExecutor(ctx, db, sql,
-		m.replicaStateMachine, m.nodeStateMachine, m.databaseStateMachine,
-		m.jobManager)
+	exec := m.deps.ExecutorFct.NewBrokerExecutor(ctx, param.Database, param.SQL,
+		m.deps.StateMachines.ReplicaStatusSM, m.deps.StateMachines.NodeSM, m.deps.StateMachines.DatabaseSM,
+		m.deps.JobManager)
 	exec.Execute()
 
 	brokerExecutor := exec.(parallel.BrokerExecutor)
@@ -83,8 +80,8 @@ func (m *MetricAPI) Search(w http.ResponseWriter, r *http.Request) {
 
 	resultSet, err := exeCtx.ResultSet()
 	if err != nil {
-		api.Error(w, err)
+		http.Error(c, err)
 		return
 	}
-	api.OK(w, resultSet)
+	http.OK(c, resultSet)
 }

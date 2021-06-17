@@ -18,14 +18,17 @@
 package write
 
 import (
-	"github.com/golang/mock/gomock"
-
-	"github.com/lindb/lindb/mock"
-	"github.com/lindb/lindb/replication"
-
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/replication"
 )
 
 func Test_Influx_Write(t *testing.T) {
@@ -33,61 +36,40 @@ func Test_Influx_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
-	api := NewInfluxWriter(cm)
+	api := NewInfluxWriter(&deps.HTTPDeps{CM: cm})
+	r := gin.New()
+	api.Register(r)
 
 	// missing db param
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/influx",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 500,
-	})
+	resp := mock.DoRequest(t, r, http.MethodPut, InfluxWritePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// enrich_tag bad format
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/influx?db=test&ns=ns2&enrich_tag=a",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// bad influx line format
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/influx?db=test&ns=ns3&enrich_tag=a=b",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 500,
-		RequestBody: `
+	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `
 # bad line
 a,v=c,d=f a=2 b=3 c=4
-`,
-	})
+`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// write error
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/influx?db=test&ns=ns4&enrich_tag=a=b",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 500,
-		RequestBody: `
+	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test3&enrich_tag=a=b", `
 # good line
 measurement,foo=bar value=12 1439587925
 measurement value=12 1439587925
-`,
-	})
+`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// no content
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodPut,
-		URL:            "/metric/influx?db=test&ns=ns4&enrich_tag=a=b",
-		HandlerFunc:    api.Write,
-		ExpectHTTPCode: 204,
-		RequestBody: `
+	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns4&enrich_tag=a=b", `
 # good line
 measurement,foo=bar value=12 1439587925
 measurement value=12 1439587925
-`,
-	})
+`)
+	assert.Equal(t, http.StatusNoContent, resp.Code)
 }

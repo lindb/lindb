@@ -23,8 +23,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
@@ -39,16 +43,19 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	stateMachine := broker.NewMockNodeStateMachine(ctrl)
-	api := NewBrokerAPI(context.TODO(), repo, stateMachine)
+	api := NewBrokerAPI(context.TODO(), &deps.HTTPDeps{
+		Repo: repo,
+		StateMachines: &coordinator.BrokerStateMachines{
+			NodeSM: stateMachine,
+		},
+	})
+	r := gin.New()
+	api.Register(r)
 
 	// get stat list err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state",
-		HandlerFunc:    api.ListBrokersStat,
-		ExpectHTTPCode: 500,
-	})
+	resp := mock.DoRequest(t, r, http.MethodGet, BrokerStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// decoding stat err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
@@ -63,12 +70,8 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 	system := models.SystemStat{
 		CPUs: 100,
 	}
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state",
-		HandlerFunc:    api.ListBrokersStat,
-		ExpectHTTPCode: 500,
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, BrokerStatePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// success
 	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
@@ -88,18 +91,6 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 			}),
 		},
 	}, nil)
-	mock.DoRequest(t, &mock.HTTPHandler{
-		Method:         http.MethodGet,
-		URL:            "/broker/state",
-		HandlerFunc:    api.ListBrokersStat,
-		ExpectHTTPCode: 200,
-		ExpectResponse: []models.NodeStat{{
-			Node:   node,
-			System: system,
-		}, {
-			Node:   node,
-			System: system,
-			IsDead: true,
-		}},
-	})
+	resp = mock.DoRequest(t, r, http.MethodGet, BrokerStatePath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

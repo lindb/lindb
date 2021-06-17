@@ -42,8 +42,8 @@ func (h *HTTP) TOML() string {
 
 // User represents user model
 type User struct {
-	UserName string `toml:"username" json:"username"`
-	Password string `toml:"password" json:"password"`
+	UserName string `toml:"username" json:"username" binding:"required"`
+	Password string `toml:"password" json:"password" binding:"required"`
 }
 
 func (u *User) TOML() string {

@@ -18,132 +18,66 @@
 package api
 
 import (
-	"errors"
-	"net/http"
-	"regexp"
+	"context"
 
-	rice "github.com/GeertJohan/go.rice"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/broker/api/admin"
+	"github.com/lindb/lindb/broker/api/cluster"
+	"github.com/lindb/lindb/broker/api/query"
+	"github.com/lindb/lindb/broker/api/state"
+	"github.com/lindb/lindb/broker/api/write"
+	"github.com/lindb/lindb/broker/deps"
 )
 
-var staticPath = "./../../web/build"
+// API represents broker http api.
+type API struct {
+	deps *deps.HTTPDeps
 
-type route struct {
-	name    string
-	method  string
-	pattern string
-	handler http.HandlerFunc
+	master       *cluster.MasterAPI
+	database     *admin.DatabaseAPI
+	flusher      *admin.DatabaseFlusherAPI
+	storage      *admin.StorageClusterAPI
+	brokerState  *state.BrokerAPI
+	storageState *state.StorageAPI
+	prometheus   *write.PrometheusWriter
+	influx       *write.InfluxWriter
+	writer       *write.MetricWriteAPI
+	metric       *query.MetricAPI
+	metadata     *query.MetadataAPI
 }
 
-type middlewareHandler struct {
-	regexp     *regexp.Regexp
-	middleware mux.MiddlewareFunc
-}
-
-var routes []route
-
-var middlewareHandlers []middlewareHandler
-
-// AddMiddleware adds middleware func base on url path pattern
-func AddMiddleware(middleware mux.MiddlewareFunc, regexp *regexp.Regexp) {
-	middlewareHandlers = append(middlewareHandlers, middlewareHandler{middleware: middleware, regexp: regexp})
-}
-
-// AddRoute adds http route handle func for urp pattern
-func AddRoute(name, method, pattern string, handler http.HandlerFunc) {
-	routes = append(routes, route{name: name, method: method, pattern: pattern, handler: handler})
-}
-
-// NewRouter returns a new router with a panic handler and a static server handler.
-// middleware Method by method
-func NewRouter() *mux.Router {
-	router := mux.NewRouter().StrictSlash(true)
-	for _, route := range routes {
-		mds := getMiddleware(route.pattern)
-		var handler http.Handler
-		// this route.pattern set middleware
-		if len(mds) > 0 {
-			for _, md := range mds {
-				handler = md.Middleware(route.handler)
-			}
-		} else {
-			handler = route.handler
-		}
-		router.
-			Methods([]string{route.method, http.MethodOptions}...).
-			Name(route.name).
-			Handler(panicHandler(handler)).
-			Path(route.pattern)
+// NewAPI creates broker http api.
+func NewAPI(ctx context.Context, deps *deps.HTTPDeps) *API {
+	return &API{
+		deps:         deps,
+		master:       cluster.NewMasterAPI(deps),
+		database:     admin.NewDatabaseAPI(deps),
+		flusher:      admin.NewDatabaseFlusherAPI(deps),
+		storage:      admin.NewStorageClusterAPI(deps),
+		brokerState:  state.NewBrokerAPI(ctx, deps),
+		storageState: state.NewStorageAPI(ctx, deps),
+		prometheus:   write.NewPrometheusWriter(deps),
+		influx:       write.NewInfluxWriter(deps),
+		writer:       write.NewWriteAPI(deps),
+		metric:       query.NewMetricAPI(deps),
+		metadata:     query.NewMetadataAPI(deps),
 	}
-	// static server path exist, serve web console
-	box, err := rice.FindBox(staticPath)
-	if err != nil {
-		log.Error("cannot find static resource", logger.Error(err))
-	} else {
-		router.Path("/").Handler(http.HandlerFunc(redirectToConsole))
-		router.PathPrefix("/console/").
-			Handler(http.StripPrefix("/console/",
-				http.FileServer(box.HTTPBox())))
-	}
-	// add cors support
-	router.Use(
-		func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Allow-Method", "POST, OPTIONS, GET, HEAD, PUT, PATCH, DELETE")
-
-				w.Header().Set("Access-Control-Allow-Headers",
-					"Origin, X-Requested-With, X-HTTP-Method-Override,accept-charset,accept-encoding "+
-						", Content-Type, Accept, Authorization")
-
-				if r.Method == http.MethodOptions {
-					return
-				}
-				next.ServeHTTP(w, r)
-			})
-		})
-	return router
 }
 
-// redirectToConsole redirects to admin console
-func redirectToConsole(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/console/", http.StatusFound)
-}
+// RegisterRouter registers v1 http api router.
+func (api *API) RegisterRouter(router *gin.RouterGroup) {
+	api.master.Register(router)
+	api.database.Register(router)
+	api.flusher.Register(router)
+	api.storage.Register(router)
 
-// getMiddleware returns suited middleware by pattern
-func getMiddleware(pattern string) []mux.MiddlewareFunc {
-	var ms []mux.MiddlewareFunc
-	for _, middlewareHandler := range middlewareHandlers {
-		if middlewareHandler.regexp.MatchString(pattern) {
-			ms = append(ms, middlewareHandler.middleware)
-		}
-	}
-	return ms
-}
+	api.brokerState.Register(router)
+	api.storageState.Register(router)
 
-// panicHandler handles panics and returns a json response with error message
-// and http code 500
-func panicHandler(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		defer func() {
-			r := recover()
-			if r != nil {
-				switch t := r.(type) {
-				case string:
-					err = errors.New(t)
-				case error:
-					err = t
-				default:
-					err = errors.New("UnKnow ERROR")
-				}
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				log.Error("serve http func panic", logger.Error(err), logger.Stack())
-			}
-		}()
-		h.ServeHTTP(w, r)
-	})
+	api.metadata.Register(router)
+	api.metric.Register(router)
+	api.influx.Register(router)
+	api.writer.Register(router)
+	api.prometheus.Register(router)
 }

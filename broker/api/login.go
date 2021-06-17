@@ -18,75 +18,65 @@
 package api
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/broker/middleware"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("broker", "api")
+var (
+	createTokenFn = http.CreateToken
+	LoginPath     = "/login"
+)
 
 // LoginAPI represents login param
 type LoginAPI struct {
 	user config.User
-	auth middleware.Authentication
+
+	logger *logger.Logger
 }
 
 // NewLoginAPI creates login api instance
-func NewLoginAPI(user config.User, auth middleware.Authentication) *LoginAPI {
+func NewLoginAPI(user config.User) *LoginAPI {
 	return &LoginAPI{
-		user: user,
-		auth: auth,
+		user:   user,
+		logger: logger.GetLogger("broker", "loginAPI"),
 	}
+}
+
+// Register adds login url route.
+func (l *LoginAPI) Register(route gin.IRoutes) {
+	route.PUT(LoginPath, l.Login)
 }
 
 // Login responses unique token
 // if use name or password is empty will responses error msg
 // if use name or password is error also will responses error msg
-func (l *LoginAPI) Login(w http.ResponseWriter, r *http.Request) {
+func (l *LoginAPI) Login(c *gin.Context) {
 	user := config.User{}
-	err := GetJSONBodyFromRequest(r, &user)
-	// login request is error
+	err := c.ShouldBind(&user)
 	if err != nil {
-		log.Error("cannot get user info from request")
-		OK(w, "")
-		return
-	}
-	// user name is empty
-	if len(user.UserName) == 0 {
-		log.Error("username is empty")
-		OK(w, "")
-		return
-	}
-	// password is empty
-	if len(user.Password) == 0 {
-		log.Error("password is empty")
-		OK(w, "")
+		l.logger.Error("cannot get user info from request")
+		http.OK(c, "")
 		return
 	}
 	// user name is error
 	if l.user.UserName != user.UserName {
-		log.Error("username is invalid")
-		OK(w, "")
+		l.logger.Error("username is invalid")
+		http.OK(c, "")
 		return
 	}
 	// password is error
 	if l.user.Password != user.Password {
-		log.Error("password is invalid")
-		OK(w, "")
+		l.logger.Error("password is invalid")
+		http.OK(c, "")
 		return
 	}
-	token, err := l.auth.CreateToken(user)
+	token, err := createTokenFn(user)
 	if err != nil {
-		OK(w, "")
+		http.OK(c, "")
 		return
 	}
-	OK(w, token)
-}
-
-// Check responses use msg
-// this method use for test
-func (l *LoginAPI) Check(w http.ResponseWriter, r *http.Request) {
-	OK(w, l.user)
+	http.OK(c, token)
 }

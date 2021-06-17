@@ -38,14 +38,6 @@ func Test_ParseToken(t *testing.T) {
 	assert.Equal(t, user.Password, claim.Password)
 }
 
-func Test_CreateToken(t *testing.T) {
-	user := config.User{UserName: "admin", Password: "admin123"}
-	u := NewAuthentication(user)
-	token, err := u.CreateToken(user)
-	assert.Equal(t, true, err == nil)
-	assert.Equal(t, tokenStr, token)
-}
-
 func TestUserAuthentication_Validate(t *testing.T) {
 	req, err := http.NewRequest("GET", "/health-check", nil)
 	if err != nil {

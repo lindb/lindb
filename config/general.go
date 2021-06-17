@@ -66,7 +66,7 @@ func (g *GRPC) TOML() string {
 
 // StorageCluster represents config of storage cluster
 type StorageCluster struct {
-	Name   string    `json:"name"`
+	Name   string    `json:"name" binding:"required"`
 	Config RepoState `json:"config"`
 }
 
