@@ -171,7 +171,7 @@ func (e *storageExecutor) Execute() {
 		e.ctx.query.Interval, interval, e.ctx.query.TimeRange)
 
 	// prepare storage query flow
-	e.queryFlow.Prepare(e.queryInterval, e.queryTimeRange, storageExecutePlan.getAggregatorSpecs())
+	e.queryFlow.Prepare(e.queryInterval, e.queryIntervalRatio, e.queryTimeRange, storageExecutePlan.getAggregatorSpecs())
 
 	// execute query flow
 	e.executeQuery()
@@ -310,7 +310,11 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
 				for idx := range e.fields {
 					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
-					fieldAggList[idx] = aggregation.NewSeriesAggregator(e.ctx.query.Interval, e.ctx.query.TimeRange, aggSpecs[idx])
+					fieldAggList[idx] = aggregation.NewSeriesAggregator(
+						e.ctx.query.Interval,
+						e.queryIntervalRatio,
+						e.ctx.query.TimeRange,
+						aggSpecs[idx])
 				}
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)

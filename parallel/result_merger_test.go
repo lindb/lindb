@@ -46,6 +46,7 @@ func TestResultMerger_Merge(t *testing.T) {
 
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	newGroupingAgg = func(interval timeutil.Interval,
+		intervalRatio int,
 		timeRange timeutil.TimeRange,
 		aggSpecs aggregation.AggregatorSpecs) aggregation.GroupingAggregator {
 		return groupAgg
@@ -120,6 +121,7 @@ func TestResultMerger_GroupBy(t *testing.T) {
 
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	newGroupingAgg = func(interval timeutil.Interval,
+		intervalRatio int,
 		timeRange timeutil.TimeRange,
 		aggSpecs aggregation.AggregatorSpecs) aggregation.GroupingAggregator {
 		return groupAgg
