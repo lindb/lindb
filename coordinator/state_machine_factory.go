@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/service"
@@ -35,6 +36,7 @@ import (
 // StateMachineCfg represents the state machine config
 type StateMachineCfg struct {
 	Ctx               context.Context
+	Repo              state.Repository
 	CurrentNode       models.Node
 	DiscoveryFactory  discovery.Factory
 	ShardAssignSRV    service.ShardAssignService
@@ -88,5 +90,5 @@ func (s *stateMachineFactory) CreateReplicatorStateMachine() (replica.Replicator
 
 // CreateDatabaseStateMachine creates the database state machine
 func (s *stateMachineFactory) CreateDatabaseStateMachine() (database.DBStateMachine, error) {
-	return database.NewDBStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
+	return database.NewDBStateMachine(s.cfg.Ctx, s.cfg.Repo, s.cfg.DiscoveryFactory)
 }
