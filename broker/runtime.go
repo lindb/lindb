@@ -158,6 +158,7 @@ func (r *runtime) Run() error {
 
 	smFactory := coordinator.NewStateMachineFactory(&coordinator.StateMachineCfg{
 		Ctx:               r.ctx,
+		Repo:              r.repo,
 		CurrentNode:       r.node,
 		ChannelManager:    r.srv.channelManager,
 		ShardAssignSRV:    r.srv.shardAssignService,

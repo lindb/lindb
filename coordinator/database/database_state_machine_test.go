@@ -28,23 +28,36 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestNewDBStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	_, err := NewDBStateMachine(context.TODO(), repo, factory)
+	assert.Error(t, err)
+
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err := NewDBStateMachine(context.TODO(), factory)
+	_, err = NewDBStateMachine(context.TODO(), repo, factory)
 	assert.Error(t, err)
 
 	// normal case
+	data, _ := json.Marshal(&models.Database{Name: "test"})
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+		{Value: data},
+		{Value: []byte{1, 1, 2}},
+	}, nil)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewDBStateMachine(context.TODO(), factory)
+	stateMachine, err := NewDBStateMachine(context.TODO(), repo, factory)
 	assert.NoError(t, err)
 	assert.NotNil(t, stateMachine)
 }
@@ -53,12 +66,14 @@ func TestDBStateMachine_listen(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	// normal case
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewDBStateMachine(context.TODO(), factory)
+	stateMachine, err := NewDBStateMachine(context.TODO(), repo, factory)
 	assert.NoError(t, err)
 
 	db := models.Database{Name: "test"}
