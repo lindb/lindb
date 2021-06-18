@@ -47,12 +47,13 @@ func (agg FieldAggregates) Reset() {
 // NOTICE: if do down sampling aggregator, aggregator specs must be in order by field id.
 func NewFieldAggregates(
 	queryInterval timeutil.Interval,
+	intervalRatio int,
 	queryTimeRange timeutil.TimeRange,
 	aggSpecs AggregatorSpecs,
 ) FieldAggregates {
 	aggregates := make(FieldAggregates, len(aggSpecs))
 	for idx, aggSpec := range aggSpecs {
-		aggregates[idx] = NewSeriesAggregator(queryInterval, queryTimeRange, aggSpec)
+		aggregates[idx] = NewSeriesAggregator(queryInterval, intervalRatio, queryTimeRange, aggSpec)
 	}
 	return aggregates
 }
@@ -74,11 +75,13 @@ type seriesAggregator struct {
 	fieldName field.Name
 	fieldType field.Type
 
-	aggregates     []FieldAggregator
 	queryInterval  timeutil.Interval
 	queryTimeRange timeutil.TimeRange
-	aggSpec        AggregatorSpec
-	calc           timeutil.Calculator
+	intervalRatio  int
+
+	aggregates []FieldAggregator
+	aggSpec    AggregatorSpec
+	calc       timeutil.Calculator
 
 	startTime int64
 }
@@ -86,6 +89,7 @@ type seriesAggregator struct {
 // NewSeriesAggregator creates a series aggregator.
 func NewSeriesAggregator(
 	queryInterval timeutil.Interval,
+	intervalRatio int,
 	queryTimeRange timeutil.TimeRange,
 	aggSpec AggregatorSpec,
 ) SeriesAggregator {
@@ -100,6 +104,7 @@ func NewSeriesAggregator(
 		fieldType:      aggSpec.GetFieldType(),
 		startTime:      startTime,
 		calc:           calc,
+		intervalRatio:  intervalRatio,
 		queryInterval:  queryInterval,
 		queryTimeRange: queryTimeRange,
 		aggSpec:        aggSpec,
@@ -154,7 +159,7 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
 		}
 		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
-		storageInterval := a.queryInterval.Int64() / int64(1) //TODO need fix
+		storageInterval := a.queryInterval.Int64() / int64(a.intervalRatio)
 		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
 		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval)
 

@@ -31,6 +31,7 @@ type StorageQueryFlow interface {
 	// Prepare prepares the query flow, builds the flow execute context based on group aggregator specs.
 	Prepare(
 		interval timeutil.Interval,
+		intervalRatio int,
 		timeRange timeutil.TimeRange,
 		aggregatorSpecs aggregation.AggregatorSpecs,
 	)

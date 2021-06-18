@@ -151,7 +151,8 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 				AggregatorSpecs[idx].AddFunctionType(function.FuncType(funcType))
 			}
 		}
-		m.groupAgg = newGroupingAgg(m.query.Interval, m.query.TimeRange, AggregatorSpecs)
+		// interval ratio is 1 when do merge result.
+		m.groupAgg = newGroupingAgg(m.query.Interval, 1, m.query.TimeRange, AggregatorSpecs)
 	}
 
 	for _, ts := range tsList.TimeSeriesList {
