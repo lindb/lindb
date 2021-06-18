@@ -72,7 +72,7 @@ func (s *HTTPServer) init() {
 	s.gin.Use(gin.Recovery())
 
 	// server static file
-	staticFS, err := fs.Sub(lindb.StaticContent, "web/build")
+	staticFS, err := fs.Sub(lindb.StaticContent, "web/static")
 	staticHome := "/console"
 	if err != nil {
 		s.logger.Error("cannot find static resource", logger.Error(err))

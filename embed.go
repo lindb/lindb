@@ -20,5 +20,5 @@ package lindb
 import "embed"
 
 // StaticContent represents static resource path.
-//go:embed web/build
+//go:embed web/static
 var StaticContent embed.FS //nolint
