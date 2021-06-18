@@ -34,9 +34,9 @@ export const MENUS = [
       },
     ],
   }, {
-    title: 'Admin',
+    title: 'Metadata',
     icon: 'setting',
-    path: '/admin',
+    path: '/metadata',
     children: [
       {
         title: 'Storage',
