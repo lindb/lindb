@@ -1,4 +1,4 @@
-name: Forntend CI
+name: Frontend CI
 on: [push, pull_request]
 jobs:
   build:

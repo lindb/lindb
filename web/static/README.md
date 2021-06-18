@@ -1,0 +1,1 @@
+Put console static files.
