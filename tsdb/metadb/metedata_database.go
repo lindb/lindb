@@ -382,7 +382,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 	metricMetadata.createTagKey(tagKey, tagKeyID)
 
-	genMetricIDCounter.WithLabelValues(mdb.databaseName).Inc()
+	genTagKeyIDCounter.WithLabelValues(mdb.databaseName).Inc()
 	return
 }
 
