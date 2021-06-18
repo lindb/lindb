@@ -33,23 +33,26 @@ type GroupingAggregator interface {
 }
 
 type groupingAggregator struct {
-	aggSpecs   AggregatorSpecs
-	interval   timeutil.Interval
-	timeRange  timeutil.TimeRange
-	aggregates map[string]FieldAggregates // tag values => field aggregates
+	aggSpecs      AggregatorSpecs
+	interval      timeutil.Interval
+	intervalRatio int
+	timeRange     timeutil.TimeRange
+	aggregates    map[string]FieldAggregates // tag values => field aggregates
 }
 
 // NewGroupingAggregator creates a grouping aggregator
 func NewGroupingAggregator(
 	interval timeutil.Interval,
+	intervalRatio int,
 	timeRange timeutil.TimeRange,
 	aggSpecs AggregatorSpecs,
 ) GroupingAggregator {
 	return &groupingAggregator{
-		aggSpecs:   aggSpecs,
-		interval:   interval,
-		timeRange:  timeRange,
-		aggregates: make(map[string]FieldAggregates),
+		aggSpecs:      aggSpecs,
+		interval:      interval,
+		intervalRatio: intervalRatio,
+		timeRange:     timeRange,
+		aggregates:    make(map[string]FieldAggregates),
 	}
 }
 
@@ -105,7 +108,7 @@ func (ga *groupingAggregator) getAggregator(tags string) (agg FieldAggregates) {
 	// 2. get series aggregator
 	agg, ok := ga.aggregates[tags]
 	if !ok {
-		agg = NewFieldAggregates(ga.interval, ga.timeRange, ga.aggSpecs)
+		agg = NewFieldAggregates(ga.interval, ga.intervalRatio, ga.timeRange, ga.aggSpecs)
 		ga.aggregates[tags] = agg
 	}
 	return

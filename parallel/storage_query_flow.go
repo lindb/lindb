@@ -87,10 +87,11 @@ func NewStorageQueryFlow(ctx context.Context,
 
 func (qf *storageQueryFlow) Prepare(
 	interval timeutil.Interval,
+	intervalRatio int,
 	timeRange timeutil.TimeRange,
 	aggregatorSpecs aggregation.AggregatorSpecs,
 ) {
-	qf.reduceAgg = aggregation.NewGroupingAggregator(interval, timeRange, aggregatorSpecs)
+	qf.reduceAgg = aggregation.NewGroupingAggregator(interval, intervalRatio, timeRange, aggregatorSpecs)
 	qf.aggregatorSpecs = make([]*pb.AggregatorSpec, len(aggregatorSpecs))
 	for idx, spec := range aggregatorSpecs {
 		qf.aggregatorSpecs[idx] = &pb.AggregatorSpec{

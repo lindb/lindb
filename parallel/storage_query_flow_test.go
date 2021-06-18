@@ -65,7 +65,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), timeutil.TimeRange{}, nil)
+	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
 	qf := queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
@@ -115,7 +115,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{},
 		&pb.TaskRequest{}, streamHandler, testExecPool)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), timeutil.TimeRange{}, nil)
+	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
 	qf := queryFlow.(*storageQueryFlow)
 	// case 1: test execute task after completed
 	qf.completed.Store(true)
@@ -125,7 +125,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 
 	// case 2: test reduce result send
 	queryFlow = NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{GroupBy: []string{"host"}}, &pb.TaskRequest{}, streamHandler, testExecPool)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), timeutil.TimeRange{}, nil)
+	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
 	qf = queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
@@ -159,7 +159,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 func TestStorageQueryFlow_getValues(t *testing.T) {
 	queryFlow := NewStorageQueryFlow(context.TODO(), nil, &stmt.Query{},
 		&pb.TaskRequest{}, nil, nil)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), timeutil.TimeRange{}, nil)
+	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
 	qf := queryFlow.(*storageQueryFlow)
 	qf.tagValues = make([]string, 2)
 	qf.tagsMap = make(map[string]string)
@@ -184,7 +184,7 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 	streamHandler := pb.NewMockTaskService_HandleServer(ctrl)
 	streamHandler.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	queryFlow := NewStorageQueryFlow(context.TODO(), storageExecuteCtx, &stmt.Query{}, &pb.TaskRequest{}, streamHandler, testExecPool)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), timeutil.TimeRange{}, nil)
+	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
 	var wait sync.WaitGroup
 	wait.Add(3)
 	queryFlow.Filtering(func() {

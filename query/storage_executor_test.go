@@ -47,7 +47,7 @@ type mockQueryFlow struct {
 func (m *mockQueryFlow) ReduceTagValues(_ int, _ map[uint32]string) {
 }
 
-func (m *mockQueryFlow) Prepare(_ timeutil.Interval, _ timeutil.TimeRange, _ aggregation.AggregatorSpecs) {
+func (m *mockQueryFlow) Prepare(_ timeutil.Interval, _ int, _ timeutil.TimeRange, _ aggregation.AggregatorSpecs) {
 }
 
 func (m *mockQueryFlow) Filtering(task concurrent.Task) {
@@ -123,7 +123,7 @@ func TestStorageExecute_validation(t *testing.T) {
 	mockDB1.EXPECT().GetOption().Return(option.DatabaseOption{Interval: "10s"})
 	exec = newStorageExecutor(queryFlow, mockDB1, newStorageExecuteContext([]int32{1, 2, 3}, query))
 	gomock.InOrder(
-		queryFlow.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()),
+		queryFlow.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
 		queryFlow.EXPECT().Filtering(gomock.Any()).MaxTimes(3*2), //memory db and shard
 	)
 	exec.Execute()
