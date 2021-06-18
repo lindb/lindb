@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-const _apiRootPath = "/"
+const _apiRootPath = "/api/v1"
 
 func init() {
 	gin.SetMode(gin.ReleaseMode)

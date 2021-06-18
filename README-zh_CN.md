@@ -2,7 +2,7 @@
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
 
-[![LICENSE](https://img.shields.io/github/license/lindb/lindb)](https://github.com/lindb/lindb/blob/develop/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/stone1100/lindb)](https://github.com/lindb/lindb/blob/develop/LICENSE)
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/LinDB%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22LinDB+CI%22)

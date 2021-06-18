@@ -6,7 +6,7 @@ export const SPACING = 10
 
 /* API URL */
 // export const API_URL = 'http://localhost:9000'
-export const API_URL = ''
+export const API_URL = '/api/v1'
 
 export const PATH = {
   login: '/login',

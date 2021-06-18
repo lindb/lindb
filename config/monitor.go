@@ -26,7 +26,7 @@ import (
 
 var (
 	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = "http://127.0.0.1:9000/metric/prometheus?db=_internal"
+	defaultPusherURL = "http://127.0.0.1:9000/api/v1/metric/prometheus?db=_internal"
 )
 
 // Monitor represents a configuration for the internal monitor
