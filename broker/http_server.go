@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	promreporter "github.com/uber-go/tally/prometheus"
 
@@ -69,6 +70,7 @@ func NewHTTPServer(cfg config.HTTP) *HTTPServer {
 func (s *HTTPServer) init() {
 	// Using middlewares on group.
 	s.gin.Use(middleware.AccessLogMiddleware())
+	s.gin.Use(cors.Default())
 	s.gin.Use(gin.Recovery())
 
 	// server static file

@@ -147,7 +147,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
                     mode="inline"
                     theme="dark"
                     className="lindb-sider__menu"
-                    defaultOpenKeys={['/monitoring', '/admin']}
+                    defaultOpenKeys={['/monitoring', '/metadata']}
                     selectedKeys={[path]}
                     onClick={this.handleMenuClick}
                 >

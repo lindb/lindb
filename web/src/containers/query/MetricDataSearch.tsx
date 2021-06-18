@@ -94,7 +94,7 @@ export default class MetricDataSearch extends React.Component<MetricDataSearchPr
       <List
         header={isField ? metadata.type.toLocaleUpperCase() + "(name,type)" : metadata.type.toLocaleUpperCase()}
         bordered
-        dataSource={metadata.values}
+        dataSource={metadata.values || []}
         loading={StoreManager.MetadataStore.loading}
         renderItem={item => (
           <List.Item key={isField ? item.name : item}>
