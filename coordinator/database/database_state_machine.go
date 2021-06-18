@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./database_state_machine.go -destination=./database_state_machine_mock.go -package=database
@@ -58,7 +59,11 @@ type dbStateMachine struct {
 }
 
 // NewDBStateMachine creates database config state machine instance
-func NewDBStateMachine(ctx context.Context, discoveryFactory discovery.Factory) (DBStateMachine, error) {
+func NewDBStateMachine(
+	ctx context.Context,
+	repo state.Repository,
+	discoveryFactory discovery.Factory,
+) (DBStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	// new admin state machine instance
 	stateMachine := &dbStateMachine{
@@ -66,6 +71,15 @@ func NewDBStateMachine(ctx context.Context, discoveryFactory discovery.Factory) 
 		cancel:    cancel,
 		databases: make(map[string]models.Database),
 		log:       logger.GetLogger("coordinator", "DBStateMachine"),
+	}
+	databaseList, err := repo.List(c, constants.DatabaseConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("get database config list error:%s", err)
+	}
+
+	// init exist database list
+	for _, database := range databaseList {
+		stateMachine.addDatabase(database.Value)
 	}
 	// new database config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseConfigPath, stateMachine)
@@ -76,23 +90,8 @@ func NewDBStateMachine(ctx context.Context, discoveryFactory discovery.Factory) 
 }
 
 // OnCreate adds database config into list when database creation
-func (sm *dbStateMachine) OnCreate(key string, resource []byte) {
-	cfg := models.Database{}
-	if err := json.Unmarshal(resource, &cfg); err != nil {
-		sm.log.Error("discovery database create but unmarshal error",
-			logger.String("data", string(resource)), logger.Error(err))
-		return
-	}
-
-	if len(cfg.Name) == 0 {
-		sm.log.Error("database name cannot be empty", logger.String("data", string(resource)))
-		return
-	}
-
-	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
-
-	sm.databases[cfg.Name] = cfg
+func (sm *dbStateMachine) OnCreate(_ string, resource []byte) {
+	sm.addDatabase(resource)
 }
 
 // OnDelete removes database config from list when database deletion
@@ -119,4 +118,24 @@ func (sm *dbStateMachine) Close() error {
 	sm.discovery.Close()
 	sm.cancel()
 	return nil
+}
+
+// addDatabase parses and adds database config into state machine.
+func (sm *dbStateMachine) addDatabase(resource []byte) {
+	cfg := models.Database{}
+	if err := json.Unmarshal(resource, &cfg); err != nil {
+		sm.log.Error("discovery database create but unmarshal error",
+			logger.String("data", string(resource)), logger.Error(err))
+		return
+	}
+
+	if len(cfg.Name) == 0 {
+		sm.log.Error("database name cannot be empty", logger.String("data", string(resource)))
+		return
+	}
+
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
+	sm.databases[cfg.Name] = cfg
 }

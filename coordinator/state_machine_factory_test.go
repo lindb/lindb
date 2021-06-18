@@ -37,6 +37,7 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
@@ -47,6 +48,7 @@ func TestStateMachineFactory_Create(t *testing.T) {
 
 	factory := NewStateMachineFactory(&StateMachineCfg{
 		Ctx:              context.TODO(),
+		Repo:             repo,
 		CurrentNode:      models.Node{IP: "1.1.1.1", Port: 9000},
 		DiscoveryFactory: discoveryFactory,
 		ShardAssignSRV:   shardAssignSVR,
