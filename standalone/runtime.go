@@ -77,7 +77,7 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 				Monitor:     cfg.Monitor,
 			}),
 		cfg:        cfg,
-		initialize: newInitialize(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),
+		initialize: newInitialize(fmt.Sprintf("http://localhost:%d/api/v1", cfg.BrokerBase.HTTP.Port)),
 		ctx:        ctx,
 		cancel:     cancel,
 	}
