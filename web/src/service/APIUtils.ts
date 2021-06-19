@@ -5,6 +5,7 @@ import { redirectTo } from 'utils/URLUtil'
 
 // env control
 const env = process.env.NODE_ENV
+const qs = require('qs')
 switch (env) {
   case 'development':
   case 'production':
@@ -22,13 +23,13 @@ message.config({
 })
 
 export function get<T>(url: string, params?: { [index: string]: any } | undefined): Promise<AxiosResponse<T | undefined>> {
-  const target = url + (params ? '?' + Object.keys(params).map(k => `${k}=${params[k]}`).join('&') : '')
+  const target = url + (params ? '?' + qs.stringify(params) : '')
   return axios.get<T>(target)
 }
 
 /* package */
 export function GET<T>(url: string, params?: { [index: string]: any } | undefined, msg?: { success?: string, error?: string }): Promise<T | undefined> {
-  const target = url + (params ? '?' + Object.keys(params).map(k => `${k}=${params[k]}`).join('&') : '')
+  const target = url + (params ? '?' + qs.stringify(params) : '')
   return axios
     .get<T>(target)
     .then((result) => {
