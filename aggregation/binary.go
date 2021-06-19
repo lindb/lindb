@@ -43,7 +43,7 @@ func binaryEval(binaryOp stmt.BinaryOP, left, right collections.FloatArray) coll
 		switch {
 		case !leftHasValue && right.IsSingle():
 		case left.IsSingle() && !rightHasValue:
-		case left.HasValue(i) || right.HasValue(i):
+		case leftHasValue || rightHasValue:
 			result.SetValue(i, eval(binaryOp, left.GetValue(i), right.GetValue(i)))
 		}
 	}
