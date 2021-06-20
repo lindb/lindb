@@ -51,7 +51,7 @@ deps:  ## Update vendor.
 	go mod verify
 	go mod tidy -v
 
-generate:  ## generate pb file.
+generate:  ## generate pb/tmpl file.
 	# go get github.com/benbjohnson/tmpl
 	# go install github.com/benbjohnson/tmpl
 	sh ./rpc/pb/generate_pb.sh
