@@ -24,6 +24,9 @@ import (
 	"strings"
 )
 
+// NodeID represents node identifier.
+type NodeID string
+
 // Node represents the basic info of server
 type Node struct {
 	IP       string `json:"ip"`

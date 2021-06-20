@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package replica;
+
+message ResetIndexRequest {
+    string database = 1;
+    int32 shard = 2;
+    int32 leader = 3;
+    int64 appendIndex = 4;
+}
+
+message ResetIndexResponse {
+
+}
+
+message GetReplicaAckIndexRequest {
+    string database = 1;
+    int32 shard = 2;
+    int32 leader = 3;
+}
+
+message GetReplicaAckIndexResponse {
+    int64 ackIndex = 5;
+}
+
+message ReplicaRequest {
+    string database = 1;
+    int32 shard = 2;
+    int32 leader = 3;
+    int64 replicaIndex = 4;
+    bytes record = 5;
+}
+
+message ReplicaResponse {
+    string database = 1;
+    int32 shard = 2;
+    int32 leader = 3;
+    int64 replicaIndex = 4;
+    int64 ackIndex = 5;
+    int64 responseTime = 6;
+}
+
+service ReplicaService {
+    rpc Reset (ResetIndexRequest) returns (ResetIndexResponse) {
+    }
+    rpc GetReplicaAckIndex (GetReplicaAckIndexRequest) returns (GetReplicaAckIndexResponse) {
+    }
+    rpc Replica (stream ReplicaRequest) returns (stream ReplicaResponse) {
+    }
+}
