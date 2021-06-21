@@ -77,6 +77,7 @@ func (r *remoteReplicator) IsReady() bool {
 		// maybe new remote replica node add in cluster or remote replica data lost.
 		needResetReplicaIdx := smallestAckIdx + 1
 		r.logger.Warn("replica node ack < current node ack, need reset remote replica node's append index",
+			logger.String("replicator", r.String()),
 			logger.Int64("lastReplicaAckIdx", lastReplicaAckIdx),
 			logger.Int64("smallestAckIdx", smallestAckIdx),
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
@@ -88,10 +89,12 @@ func (r *remoteReplicator) IsReady() bool {
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
-			r.logger.Warn("do reset replica append index err", logger.Error(err))
+			r.logger.Warn("do reset replica append index err",
+				logger.String("replicator", r.String()),
+				logger.Error(err))
 			return false
 		}
-		r.ResetReplicaIndex(nextReplicaIdx)
+		_ = r.ResetReplicaIndex(nextReplicaIdx)
 		r.state = ReplicatorReadyState
 		return true
 	case lastReplicaAckIdx > appendIdx:
@@ -99,8 +102,9 @@ func (r *remoteReplicator) IsReady() bool {
 		r.ResetAppendIndex(nextReplicaIdx)
 	}
 	// remote replica ack idx > current ack idx, maybe ack request lost
-	r.ResetReplicaIndex(nextReplicaIdx)
+	_ = r.ResetReplicaIndex(nextReplicaIdx)
 	r.logger.Warn("remote replica ack idx != current replica idx, reset current replica idx",
+		logger.String("replicator", r.String()),
 		logger.Int64("lastReplicaAckIdx", lastReplicaAckIdx),
 		logger.Int64("replicaIdx", replicaIdx),
 		logger.Int64("nextReplicaIdx", nextReplicaIdx),

@@ -18,37 +18,12 @@
 package replica
 
 import (
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/tsdb"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type localReplicator struct {
-	replicator
-
-	shard  tsdb.Shard
-	logger *logger.Logger
-}
-
-func NewLocalReplicator(shard tsdb.Shard) Replicator {
-	return &localReplicator{
-		shard:  shard,
-		logger: logger.GetLogger("replica", "localReplicator"),
-	}
-}
-
-func (r *localReplicator) Replica(_ int64, msg []byte) {
-	var metricList field.MetricList
-	err := metricList.Unmarshal(msg)
-	if err != nil {
-		r.logger.Error("unmarshal metricList", logger.Error(err))
-		return
-	}
-
-	//TODO write metric, need handle panic
-	for _, metric := range metricList.Metrics {
-		if err := r.shard.Write(metric); err != nil {
-			r.logger.Error("write metric", logger.Error(err))
-		}
-	}
+func TestReplicator_String(t *testing.T) {
+	r := NewReplicator("test", 1, "from", "to", nil)
+	assert.Equal(t, "[database:test,shard:1,from:from,to:to]", r.String())
 }

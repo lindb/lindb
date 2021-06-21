@@ -33,6 +33,7 @@ func TestReplicatorPeer(t *testing.T) {
 
 	replicator := NewMockReplicator(ctrl)
 	replicator.EXPECT().IsReady().Return(false).AnyTimes()
+	replicator.EXPECT().String().Return("str").AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	peer.Startup()
 	peer.Startup()
@@ -49,6 +50,8 @@ func TestNewReplicator_runner(t *testing.T) {
 	}()
 
 	replicator := NewMockReplicator(ctrl)
+	replicator.EXPECT().String().Return("str").AnyTimes()
+
 	// loop 1: no data
 	replicator.EXPECT().IsReady().Return(true)
 	replicator.EXPECT().Consume().Return(int64(0)) //no data
