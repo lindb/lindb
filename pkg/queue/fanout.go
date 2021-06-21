@@ -57,6 +57,8 @@ type FanOutQueue interface {
 	HeadSeq() int64
 	// TailSeq returns the tailSeq which is the smallest seq among all the fanOut tailSeq.
 	TailSeq() int64
+	//SetAppendSeq sets append seq(head/tail seq)
+	SetAppendSeq(seq int64)
 	// Close persists Seq meta, FanOut seq meta, release resources.
 	Close()
 	// get gets the message data by spec consume sequence
@@ -159,6 +161,18 @@ func (fq *fanOutQueue) TailSeq() int64 {
 	return fq.queue.TailSeq()
 }
 
+// SetAppendSeq sets append seq(head/tail) underlying queue
+func (fq *fanOutQueue) SetAppendSeq(seq int64) {
+	fq.lock4map.RLock()
+	defer fq.lock4map.RUnlock()
+
+	fq.queue.SetAppendSeq(seq - 1)
+
+	for _, fo := range fq.fanOutMap {
+		fo.SetSeq(seq - 1)
+	}
+}
+
 // Sync checks all the FanOuts tailSeqs, update the tailSeq as the smallest one.
 // Then syncs meta data to storage.
 func (fq *fanOutQueue) Sync() {
@@ -253,6 +267,10 @@ type FanOut interface {
 	HeadSeq() int64
 	// TailSeq returns the seq acked.
 	TailSeq() int64
+	// Queue returns underlying queue.
+	Queue() FanOutQueue
+	//SetSeq sets append seq(head/tail seq)
+	SetSeq(seq int64)
 	// Pending returns the offset between FanOut HeadSeq and FanOutQueue HeadSeq.
 	Pending() int64
 	// Close persists  headSeq, tailSeq.
@@ -363,6 +381,11 @@ func (f *fanOut) Get(seq int64) ([]byte, error) {
 	return f.q.get(seq)
 }
 
+// Queue returns underlying queue.
+func (f *fanOut) Queue() FanOutQueue {
+	return f.q
+}
+
 // Ack mark the data with seq less than or equals to ackSeq.
 func (f *fanOut) Ack(ackSeq int64) {
 	f.lock4headSeq.RLock()
@@ -397,6 +420,22 @@ func (f *fanOut) HeadSeq() int64 {
 // TailSeq returns the seq acked.
 func (f *fanOut) TailSeq() int64 {
 	return f.tailSeq.Load()
+}
+
+// AppendSeq returns the seq for next append.
+func (f *fanOut) AppendSeq() int64 {
+	return f.q.HeadSeq()
+}
+
+// SetAppendSeq sets append seq(head/tail) underlying queue
+func (f *fanOut) SetSeq(seq int64) {
+	f.lock4headSeq.Lock()
+	defer f.lock4headSeq.Unlock()
+
+	f.headSeq.Store(seq)
+	f.tailSeq.Store(seq)
+	f.metaPage.PutUint64(uint64(seq), fanOutHeadSeqOffset)
+	f.metaPage.PutUint64(uint64(seq-1), fanOutTailSeqOffset)
 }
 
 func (f *fanOut) setTailSeq(seq int64) {

@@ -23,6 +23,9 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 )
 
+// ShardID represents type for shard id.
+type ShardID int
+
 // Database defines database config, database can include multi-cluster
 type Database struct {
 	Name          string                `json:"name" binding:"required"` // database's name

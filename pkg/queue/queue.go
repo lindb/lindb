@@ -65,6 +65,8 @@ type Queue interface {
 	// TailSeq returns the tail seq which stands for the oldest read barrier.
 	// Message with req less than tailSeq would be deleted at some point.
 	TailSeq() int64
+	// SetAppendSeq sets head/tail seq.
+	SetAppendSeq(seq int64)
 	// Ack advances the tailSeq to seq.
 	Ack(seq int64)
 	// Close closes the queue.
@@ -264,6 +266,44 @@ func (q *queue) TailSeq() int64 {
 	return q.tailSeq.Load()
 }
 
+// SetAppendSeq sets head/tail seq.
+func (q *queue) SetAppendSeq(seq int64) {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
+	indexPageIndex := seq / indexItemsPerPage
+	if indexPageIndex != q.indexPageIndex {
+		// sync previous data page
+		if err := q.indexPage.Sync(); err != nil {
+			queueLogger.Error("sync index page err when alloc",
+				logger.String("queue", q.dirPath), logger.Error(err))
+		}
+		indexPage, err := q.indexPageFct.AcquirePage(indexPageIndex)
+		if err != nil {
+			queueLogger.Error("sync index page err when alloc",
+				logger.String("queue", q.dirPath), logger.Error(err))
+			return
+		}
+
+		q.indexPage = indexPage
+		q.indexPageIndex++
+	}
+
+	head := seq
+
+	q.headSeq.Store(head)
+	q.metaPage.PutUint64(uint64(head), queueHeadSeqOffset)
+	tail := head - 1
+	q.tailSeq.Store(tail)
+	q.metaPage.PutUint64(uint64(tail), queueTailSeqOffset)
+	q.metaPage.PutUint64(uint64(q.HeadSeq()), queueHeadSeqOffset)
+	q.metaPage.PutUint64(uint64(q.TailSeq()), queueTailSeqOffset)
+	if err := q.metaPage.Sync(); err != nil {
+		queueLogger.Error("sync queue meta page error, when set append seq",
+			logger.String("path", q.dirPath), logger.Error(err))
+	}
+}
+
 // Ack advances the tailSeq to seq.
 func (q *queue) Ack(seq int64) {
 	q.rwMutex.RLock()
@@ -274,7 +314,7 @@ func (q *queue) Ack(seq int64) {
 		q.metaPage.PutUint64(uint64(seq), queueTailSeqOffset)
 
 		if err := q.metaPage.Sync(); err != nil {
-			queueLogger.Error("sync queue meta page error",
+			queueLogger.Error("sync queue meta page error, when ack seq",
 				logger.String("path", q.dirPath), logger.Error(err))
 		}
 	}

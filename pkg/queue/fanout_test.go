@@ -404,6 +404,49 @@ func TestFanOutQueue_multiple_consumer(t *testing.T) {
 	fq.Close()
 }
 
+func TestFanOutQueue_SetAppendSeq(t *testing.T) {
+	dir := path.Join(testPath, "fanOut")
+
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+
+	// put data
+	for i := 0; i < 100; i++ {
+		msg := []byte(fmt.Sprintf("msg-%d", i))
+		err = fq.Put(msg)
+		assert.NoError(t, err)
+	}
+
+	// consumer group 1
+	consumeMsg(t, fq, "f1", 100)
+	f2, _ := fq.GetOrCreateFanOut("f2")
+	// set new append seq
+	fq.SetAppendSeq(200)
+	// put msg
+	msg := []byte(fmt.Sprintf("msg-%d", 200))
+	err = fq.Put(msg)
+	assert.NoError(t, err)
+
+	f1, _ := fq.GetOrCreateFanOut("f1")
+	fseq := f1.Consume()
+	assert.Equal(t, fseq, int64(200))
+	fmsg, err := f1.Get(fseq)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(fmt.Sprintf("msg-%d", 200)), fmsg)
+
+	fseq = f2.Consume()
+	assert.Equal(t, fseq, int64(200))
+	fmsg, err = f2.Get(fseq)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(fmt.Sprintf("msg-%d", 200)), fmsg)
+
+	fq.Close()
+}
+
 func TestFanOutQueue_concurrent_read(t *testing.T) {
 	dir := path.Join(testPath, "fanout_concurrent")
 
