@@ -96,6 +96,7 @@ func (r *replicatorRunner) shutdown() {
 
 func (r *replicatorRunner) loop() {
 	for r.running.Load() {
+		//TODO need handle panic
 		hasData := false
 
 		if r.replicator.IsReady() {

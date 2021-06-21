@@ -18,6 +18,10 @@
 package replica
 
 import (
+	"fmt"
+	"strconv"
+
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 )
 
@@ -32,6 +36,8 @@ const (
 )
 
 type Replicator interface {
+	fmt.Stringer
+
 	// Consume returns the index of message replica.
 	Consume() int64
 	GetMessage(replicaIdx int64) ([]byte, error)
@@ -42,15 +48,35 @@ type Replicator interface {
 	// AckIndex returns the index of message replica ack
 	AckIndex() int64
 	AppendIndex() int64
-	ResetReplicaIndex(idx int64)
+	ResetReplicaIndex(idx int64) error
 	ResetAppendIndex(idx int64)
 	SetAckIndex(ackIdx int64)
 }
 
 type replicator struct {
+	database string
+	shardID  models.ShardID
 	// underlying fanOut records the replication process.
-	queue queue.FanOut
-	//from, to models.NodeID // replicator node peer
+	queue    queue.FanOut
+	from, to models.NodeID // replicator node peer
+}
+
+func NewReplicator(database string, shardID models.ShardID, from, to models.NodeID, wal queue.FanOut) Replicator {
+	return &replicator{
+		database: database,
+		shardID:  shardID,
+		queue:    wal,
+		from:     from,
+		to:       to,
+	}
+}
+
+func (r *replicator) Replica(_ int64, _ []byte) {
+	// do nothing, need impl in child class
+}
+
+func (r *replicator) IsReady() bool {
+	return true
 }
 
 func (r *replicator) Consume() int64 {
@@ -72,15 +98,26 @@ func (r *replicator) AckIndex() int64 {
 }
 
 func (r *replicator) AppendIndex() int64 {
-	return 0
+	return r.queue.Queue().HeadSeq()
 }
-func (r *replicator) ResetReplicaIndex(idx int64) {
 
+func (r *replicator) ResetReplicaIndex(idx int64) error {
+	return r.queue.SetHeadSeq(idx)
 }
+
 func (r *replicator) ResetAppendIndex(idx int64) {
-
+	r.queue.Queue().SetAppendSeq(idx)
 }
 
 func (r *replicator) SetAckIndex(ackIdx int64) {
+	r.queue.Ack(ackIdx)
+}
 
+func (r *replicator) String() string {
+	return "[" +
+		"database:" + r.database +
+		",shard:" + strconv.Itoa(int(r.shardID)) +
+		",from:" + string(r.from) +
+		",to:" + string(r.to) +
+		"]"
 }
