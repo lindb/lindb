@@ -38,13 +38,27 @@ type remoteReplicator struct {
 	logger *logger.Logger
 }
 
-func NewRemoteReplicator() Replicator {
+// NewRemoteReplicator creates remote replicator.
+func NewRemoteReplicator(channel *ReplicatorChannel,
+	replicaCli replicaRpc.ReplicaServiceClient,
+) Replicator {
 	return &remoteReplicator{
-		state:  ReplicatorInitState,
-		logger: logger.GetLogger("replica", "remoteReplicator"),
+		replicator: replicator{
+			channel: channel,
+		},
+		replicaCli: replicaCli,
+		state:      ReplicatorInitState,
+		logger:     logger.GetLogger("replica", "remoteReplicator"),
 	}
 }
 
+// IsReady returns remote replicator channel is ready.
+// 1. state == ready, return true
+// 2. state != ready, do channel init like tcp three-way handshake.
+//    a. next remote replica index = current node's replica index, return true.
+//    b. last remote ack index < current node's smallest ack, need reset remote replica index, then return true.
+//    c. last remote ack index > current node's append index,
+//   	 need reset current append index/replica index, then return true.
 func (r *remoteReplicator) IsReady() bool {
 	//TODO check node is alive
 	r.rwMutex.RLock()
@@ -81,11 +95,11 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("lastReplicaAckIdx", lastReplicaAckIdx),
 			logger.Int64("smallestAckIdx", smallestAckIdx),
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
-		// send resent index request
+		// send reset index request
 		_, err := r.replicaCli.Reset(context.TODO(), &replicaRpc.ResetIndexRequest{
-			Database:    "",
-			Shard:       0,
-			Leader:      0,
+			Database:    r.channel.Database,
+			Shard:       int32(r.channel.ShardID),
+			Leader:      int32(r.channel.From),
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
@@ -113,6 +127,7 @@ func (r *remoteReplicator) IsReady() bool {
 	return true
 }
 
+// Replica sends data to remote replica node.
 func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	cli, err := r.replicaCli.Replica(context.TODO())
 	if err != nil {
@@ -121,10 +136,11 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	}
 
 	err = cli.Send(&replicaRpc.ReplicaRequest{
-		Database:     "",
-		Shard:        0,
-		Leader:       0,
-		ReplicaIndex: 0,
+		Database:     r.channel.Database,
+		Shard:        int32(r.channel.ShardID),
+		Leader:       int32(r.channel.From),
+		ReplicaIndex: idx,
+		Record:       msg,
 	})
 	if err != nil {
 		r.state = ReplicatorFailureState
@@ -135,17 +151,18 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		r.state = ReplicatorFailureState
 		return
 	}
-	r.SetAckIndex(resp.ReplicaIndex)
+	r.SetAckIndex(resp.AckIndex)
 }
 
+// getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
 	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &replicaRpc.GetReplicaAckIndexRequest{
-		Database: "",
-		Shard:    0,
-		Leader:   0,
+		Database: r.channel.Database,
+		Shard:    int32(r.channel.ShardID),
+		Leader:   int32(r.channel.From),
 	})
 	if err != nil {
-		return 0, nil
+		return 0, err
 	}
 	return resp.AckIndex, nil
 }

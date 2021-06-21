@@ -18,17 +18,17 @@
 package replica
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/queue"
 )
 
-func TestReplicator_String(t *testing.T) {
-	r := NewReplicator(&ReplicatorChannel{
-		Database: "test",
-		ShardID:  1,
-		From:     1,
-		To:       2,
-	})
-	assert.Equal(t, "[database:test,shard:1,from:1,to:2]", r.String())
+// ReplicatorChannel represents channel peer[from,to] for the shard of database.
+type ReplicatorChannel struct {
+	Database string
+	ShardID  models.ShardID
+
+	// underlying fanOut records the replication process.
+	Queue queue.FanOut
+
+	From, To models.NodeID // replicator node peer
 }
