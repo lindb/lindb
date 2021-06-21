@@ -25,7 +25,7 @@ import (
 )
 
 // NodeID represents node identifier.
-type NodeID string
+type NodeID int
 
 // Node represents the basic info of server
 type Node struct {

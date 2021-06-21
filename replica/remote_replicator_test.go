@@ -18,9 +18,14 @@
 package replica
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/pkg/queue"
+	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
+
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRemoteReplicator_IsReady(t *testing.T) {
@@ -28,4 +33,100 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
+	replicaCli := replicaRpc.NewMockReplicaServiceClient(ctrl)
+	q := queue.NewMockFanOut(ctrl)
+	fq := queue.NewMockFanOutQueue(ctrl)
+	q.EXPECT().Queue().Return(fq).AnyTimes()
+	rc := &ReplicatorChannel{
+		Database: "test",
+		ShardID:  0,
+		Queue:    q,
+		From:     1,
+		To:       2,
+	}
+
+	r := NewRemoteReplicator(rc, replicaCli)
+	r1 := r.(*remoteReplicator)
+	// case 1: replicator is ready
+	r1.state = ReplicatorReadyState
+	assert.True(t, r.IsReady())
+
+	r1.state = ReplicatorInitState
+	// case 2: get remote replica ack err
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.False(t, r.IsReady())
+	// case 3: replica idx == current node
+	q.EXPECT().HeadSeq().Return(int64(11))
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&replicaRpc.GetReplicaAckIndexResponse{
+		AckIndex: 10,
+	}, nil)
+	assert.True(t, r.IsReady())
+	// case 4: remote replica ack index < current smallest ack, but reset remote replica index err
+	r = NewRemoteReplicator(rc, replicaCli)
+	fq.EXPECT().HeadSeq().Return(int64(10))
+	q.EXPECT().HeadSeq().Return(int64(12))
+	q.EXPECT().TailSeq().Return(int64(13))
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&replicaRpc.GetReplicaAckIndexResponse{
+		AckIndex: 10,
+	}, nil)
+	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.False(t, r.IsReady())
+	// case 5: remote replica ack index < current smallest ack, reset success
+	r = NewRemoteReplicator(rc, replicaCli)
+	fq.EXPECT().HeadSeq().Return(int64(10))
+	q.EXPECT().HeadSeq().Return(int64(12))
+	q.EXPECT().TailSeq().Return(int64(13))
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&replicaRpc.GetReplicaAckIndexResponse{
+		AckIndex: 10,
+	}, nil)
+	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, nil)
+	q.EXPECT().SetHeadSeq(int64(11))
+	assert.True(t, r.IsReady())
+	// case 6: remote replica ack index > current append index, maybe leader lost data.
+	r = NewRemoteReplicator(rc, replicaCli)
+	fq.EXPECT().HeadSeq().Return(int64(5))
+	q.EXPECT().HeadSeq().Return(int64(12))
+	q.EXPECT().TailSeq().Return(int64(9))
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&replicaRpc.GetReplicaAckIndexResponse{
+		AckIndex: 10,
+	}, nil)
+	fq.EXPECT().SetAppendSeq(int64(11))
+	q.EXPECT().SetHeadSeq(int64(11)).Return(fmt.Errorf("err"))
+	assert.True(t, r.IsReady())
+}
+
+func TestRemoteReplicator_Replica(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	replicaCli := replicaRpc.NewMockReplicaServiceClient(ctrl)
+	q := queue.NewMockFanOut(ctrl)
+	rc := &ReplicatorChannel{
+		Database: "test",
+		ShardID:  0,
+		Queue:    q,
+		From:     1,
+		To:       2,
+	}
+
+	r := NewRemoteReplicator(rc, replicaCli)
+	replicaCli.EXPECT().Replica(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	r.Replica(1, []byte{})
+
+	cli := replicaRpc.NewMockReplicaService_ReplicaClient(ctrl)
+	replicaCli.EXPECT().Replica(gomock.Any(), gomock.Any()).Return(cli, nil).AnyTimes()
+	cli.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
+	r.Replica(1, []byte{})
+
+	cli.EXPECT().Send(gomock.Any()).Return(nil)
+	cli.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
+	r.Replica(1, []byte{})
+
+	cli.EXPECT().Send(gomock.Any()).Return(nil)
+	cli.EXPECT().Recv().Return(&replicaRpc.ReplicaResponse{
+		AckIndex: 1,
+	}, nil)
+	q.EXPECT().Ack(int64(1))
+	r.Replica(1, []byte{})
 }

@@ -20,9 +20,6 @@ package replica
 import (
 	"fmt"
 	"strconv"
-
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/queue"
 )
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
@@ -54,20 +51,12 @@ type Replicator interface {
 }
 
 type replicator struct {
-	database string
-	shardID  models.ShardID
-	// underlying fanOut records the replication process.
-	queue    queue.FanOut
-	from, to models.NodeID // replicator node peer
+	channel *ReplicatorChannel
 }
 
-func NewReplicator(database string, shardID models.ShardID, from, to models.NodeID, wal queue.FanOut) Replicator {
+func NewReplicator(channel *ReplicatorChannel) Replicator {
 	return &replicator{
-		database: database,
-		shardID:  shardID,
-		queue:    wal,
-		from:     from,
-		to:       to,
+		channel: channel,
 	}
 }
 
@@ -80,44 +69,44 @@ func (r *replicator) IsReady() bool {
 }
 
 func (r *replicator) Consume() int64 {
-	return r.queue.Consume()
+	return r.channel.Queue.Consume()
 }
 
 func (r *replicator) GetMessage(replicaIdx int64) ([]byte, error) {
-	return r.queue.Get(replicaIdx)
+	return r.channel.Queue.Get(replicaIdx)
 }
 
 // ReplicaIndex returns the index of message replica
 func (r *replicator) ReplicaIndex() int64 {
-	return r.queue.HeadSeq()
+	return r.channel.Queue.HeadSeq()
 }
 
-// AckIndex returns the index of message replica ack
+// AckIndex returns the index of message replica ack.
 func (r *replicator) AckIndex() int64 {
-	return r.queue.TailSeq()
+	return r.channel.Queue.TailSeq()
 }
 
 func (r *replicator) AppendIndex() int64 {
-	return r.queue.Queue().HeadSeq()
+	return r.channel.Queue.Queue().HeadSeq()
 }
 
 func (r *replicator) ResetReplicaIndex(idx int64) error {
-	return r.queue.SetHeadSeq(idx)
+	return r.channel.Queue.SetHeadSeq(idx)
 }
 
 func (r *replicator) ResetAppendIndex(idx int64) {
-	r.queue.Queue().SetAppendSeq(idx)
+	r.channel.Queue.Queue().SetAppendSeq(idx)
 }
 
 func (r *replicator) SetAckIndex(ackIdx int64) {
-	r.queue.Ack(ackIdx)
+	r.channel.Queue.Ack(ackIdx)
 }
 
 func (r *replicator) String() string {
 	return "[" +
-		"database:" + r.database +
-		",shard:" + strconv.Itoa(int(r.shardID)) +
-		",from:" + string(r.from) +
-		",to:" + string(r.to) +
+		"database:" + r.channel.Database +
+		",shard:" + strconv.Itoa(int(r.channel.ShardID)) +
+		",from:" + strconv.Itoa(int(r.channel.From)) +
+		",to:" + strconv.Itoa(int(r.channel.To)) +
 		"]"
 }
