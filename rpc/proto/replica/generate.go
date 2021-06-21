@@ -17,18 +17,4 @@
 
 package replica
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestReplicator_String(t *testing.T) {
-	r := NewReplicator(&ReplicatorChannel{
-		Database: "test",
-		ShardID:  1,
-		From:     1,
-		To:       2,
-	})
-	assert.Equal(t, "[database:test,shard:1,from:1,to:2]", r.String())
-}
+//go:generate mockgen -source=./replica.pb.go -destination=./replica_mock.pb.go -package=replica
