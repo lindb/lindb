@@ -35,7 +35,7 @@ func TestStorageClusterState_SetState(t *testing.T) {
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 	taskClientFactory.EXPECT().CloseTaskClient(gomock.Any()).AnyTimes()
 
-	state := newStorageClusterState(taskClientFactory)
+	state := newStorageClusterState(taskClientFactory, storageFSMLogger)
 
 	storageState := models.NewStorageState()
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})

@@ -23,25 +23,25 @@ import (
 	"github.com/lindb/lindb/rpc"
 )
 
-var log = logger.GetLogger("coordinator", "BrokerStorageClusterState")
-
 const dummy = ""
 
 type StorageClusterState struct {
 	state             *models.StorageState
 	taskStreams       map[string]string
 	taskClientFactory rpc.TaskClientFactory
+	logger            *logger.Logger
 }
 
-func newStorageClusterState(taskClientFactory rpc.TaskClientFactory) *StorageClusterState {
+func newStorageClusterState(taskClientFactory rpc.TaskClientFactory, logger *logger.Logger) *StorageClusterState {
 	return &StorageClusterState{
 		taskClientFactory: taskClientFactory,
 		taskStreams:       make(map[string]string),
+		logger:            logger,
 	}
 }
 
 func (s *StorageClusterState) SetState(state *models.StorageState) {
-	log.Info("set new storage cluster state")
+	s.logger.Info("set new storage cluster state", logger.String(state.Name, state.String()))
 	var needDelete []string
 	for nodeID := range s.taskStreams {
 		_, ok := state.ActiveNodes[nodeID]
@@ -58,7 +58,7 @@ func (s *StorageClusterState) SetState(state *models.StorageState) {
 	for nodeID, node := range state.ActiveNodes {
 		// create a new client stream
 		if err := s.taskClientFactory.CreateTaskClient(node.Node); err != nil {
-			log.Error("create task client stream",
+			s.logger.Error("create task client stream",
 				logger.String("target", (&node.Node).Indicator()), logger.Error(err))
 			s.taskClientFactory.CloseTaskClient(nodeID)
 			delete(s.taskStreams, nodeID)
@@ -68,14 +68,14 @@ func (s *StorageClusterState) SetState(state *models.StorageState) {
 	}
 
 	s.state = state
-	log.Info("set new storage cluster successfully")
+	s.logger.Debug("set new storage cluster successfully")
 }
 
 func (s *StorageClusterState) close() {
-	log.Info("start close storage cluster state")
+	s.logger.Debug("start close storage cluster state")
 	for nodeID := range s.taskStreams {
 		s.taskClientFactory.CloseTaskClient(nodeID)
 		delete(s.taskStreams, nodeID)
 	}
-	log.Info("close storage cluster state successfully")
+	s.logger.Debug("close storage cluster state successfully")
 }

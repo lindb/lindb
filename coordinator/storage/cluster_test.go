@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/service"
@@ -65,6 +66,7 @@ func TestStorageCluster(t *testing.T) {
 		factory:             discoveryFactory,
 		controllerFactory:   controllerFactory,
 		shardAssignService:  shardAssignService,
+		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
 	_, err := factory.newCluster(cfg)
 	assert.NotNil(t, err)
@@ -175,6 +177,7 @@ func TestCluster_CollectStat(t *testing.T) {
 		repo:                repo,
 		factory:             discoveryFactory,
 		controllerFactory:   controllerFactory,
+		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	cluster1, err := factory.newCluster(cfg)
@@ -236,6 +239,7 @@ func TestCluster_FlushDatabase(t *testing.T) {
 		repo:                repo,
 		factory:             discoveryFactory,
 		controllerFactory:   controllerFactory,
+		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	cluster1, err := factory.newCluster(cfg)

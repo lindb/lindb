@@ -18,23 +18,42 @@
 package prometheus
 
 import (
-	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 
 	"github.com/cespare/xxhash"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
+	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/timeutil"
 	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/tag"
 )
 
-// todo: gzip decoder and line-based-parser
+// todo: line-based-parser
 
-// PromParse parses prometheus text prometheus to LinDB pb prometheus.
-func PromParse(data []byte, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
+// Parse parses prometheus text
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
+	var reader = req.Body
+	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
+		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
+		}
+		defer ingestCommon.PutGzipReader(gzipReader)
+		reader = gzipReader
+	}
+
+	return promParse(reader, enrichedTags, namespace)
+}
+
+// promParse parses prometheus text prometheus to LinDB pb prometheus.
+func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
 	parser := &expfmt.TextParser{}
-	out, err := parser.TextToMetricFamilies(bytes.NewReader(data))
+	out, err := parser.TextToMetricFamilies(reader)
 	if err != nil && len(out) == 0 {
 		return nil, err
 	}
