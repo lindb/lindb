@@ -18,8 +18,6 @@
 package write
 
 import (
-	"io/ioutil"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/broker/deps"
@@ -30,9 +28,6 @@ import (
 )
 
 var (
-	// for testing
-	readAllFunc = ioutil.ReadAll
-
 	PrometheusWritePath = "/metric/prometheus"
 )
 
@@ -67,18 +62,13 @@ func (m *PrometheusWriter) Write(c *gin.Context) {
 	if param.Namespace == "" {
 		param.Namespace = constants.DefaultNamespace
 	}
-	s, err := readAllFunc(c.Request.Body)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
 
 	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
 	if err != nil {
 		http.Error(c, err)
 		return
 	}
-	metricList, err := prometheus.PromParse(s, enrichedTags, param.Namespace)
+	metricList, err := prometheus.Parse(c.Request, enrichedTags, param.Namespace)
 	if err != nil {
 		http.Error(c, err)
 		return

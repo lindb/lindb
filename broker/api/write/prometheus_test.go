@@ -19,9 +19,6 @@ package write
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -36,10 +33,7 @@ import (
 
 func TestPrometheusWrite_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		readAllFunc = ioutil.ReadAll
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
 	api := NewPrometheusWriter(&deps.HTTPDeps{CM: cm})
@@ -49,21 +43,15 @@ func TestPrometheusWrite_Write(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// case 2: read request body err
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", "")
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", "#$$#@#")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// case 3: write wal err
+	//	// case 3: write wal err
 	input := `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # 	TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds { quantile = "0.9999" } NaN
 go_gc_duration_seconds_count 9
 go_gc_duration_seconds_sum 90
-`
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return []byte(input), nil
-	}
+//`
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(errors.New("err"))
 	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -73,9 +61,6 @@ go_gc_duration_seconds_sum 90
 	assert.Equal(t, http.StatusNoContent, resp.Code)
 	// case 5: parse prometheus data err
 	input = "# HELP go_gc_duration_seconds A summary of the GC invocation durations"
-	readAllFunc = func(r io.Reader) (bytes []byte, err error) {
-		return []byte(input), nil
-	}
 	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 

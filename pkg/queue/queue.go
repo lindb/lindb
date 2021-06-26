@@ -46,7 +46,7 @@ var ErrOutOfSequenceRange = errors.New("out of sequence range")
 var ErrExceedingTotalSizeLimit = errors.New("queue data size exceeds the max size limit")
 var ErrMsgNotFound = errors.New("message not found")
 
-var queueLogger = logger.GetLogger("queue", "fan_out")
+var queueLogger = logger.GetLogger("queue", "FanOutQueue")
 
 // Queue represents a sequence of segments, new data is appended at headSeq.
 // Segments with all message seqNum < tailSeq will be removed by ticker task.

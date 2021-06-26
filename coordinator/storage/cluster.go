@@ -37,8 +37,6 @@ import (
 
 //go:generate mockgen -source=./cluster.go -destination=./cluster_mock.go -package=storage
 
-var log = logger.GetLogger("coordinator", "StorageCluster")
-
 // clusterCfg represents the config which creates cluster instance need
 // IMPORTANT: need clean config's resource
 type clusterCfg struct {
@@ -49,12 +47,13 @@ type clusterCfg struct {
 	controllerFactory   task.ControllerFactory
 	factory             discovery.Factory
 	shardAssignService  service.ShardAssignService
+	logger              *logger.Logger
 }
 
 // clean cleans the resource for cfg
 func (cfg *clusterCfg) clean() {
 	if err := cfg.repo.Close(); err != nil {
-		log.Error("close state repo of storage cluster",
+		cfg.logger.Error("close state repo of storage cluster",
 			logger.String("cluster", cfg.cfg.Name), logger.Error(err), logger.Stack())
 	}
 }
@@ -90,7 +89,7 @@ type Cluster interface {
 	// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 	GetShardAssign(databaseName string) (*models.ShardAssignment, error)
 
-	// FLushDatabase submits the coordinator task for flushing memory database by name
+	// FlushDatabase submits the coordinator task for flushing memory database by name
 	FlushDatabase(databaseName string) error
 
 	// SaveShardAssign saves shard assignment
@@ -123,6 +122,8 @@ type cluster struct {
 	clusterState *models.StorageState
 
 	mutex sync.RWMutex
+
+	logger *logger.Logger
 }
 
 // newCluster creates cluster controller, init active node list if exist node, must return cluster
@@ -130,6 +131,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster := &cluster{
 		cfg:          cfg,
 		clusterState: models.NewStorageState(),
+		logger:       cfg.logger,
 	}
 	// init active nodes if exist
 	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
@@ -151,7 +153,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	}
 	cluster.taskController = cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo)
 
-	log.Info("init storage cluster success", logger.String("cluster", cluster.clusterState.Name))
+	cluster.logger.Info("init storage cluster success", logger.String("cluster", cluster.clusterState.Name))
 	return cluster, nil
 }
 
@@ -209,7 +211,7 @@ func (c *cluster) CollectStat() (*models.StorageClusterStat, error) {
 	return &models.StorageClusterStat{Nodes: result}, err
 }
 
-// FLushDatabase submits the coordinator task for flushing memory database by name
+// FlushDatabase submits the coordinator task for flushing memory database by name
 func (c *cluster) FlushDatabase(databaseName string) error {
 	var params []task.ControllerTaskParam
 	taskParam := &models.DatabaseFlushTask{DatabaseName: databaseName}
@@ -276,11 +278,11 @@ func (c *cluster) SubmitTask(kind task.Kind, name string, params []task.Controll
 
 // Close stops watch, and cleanups cluster's metadata
 func (c *cluster) Close() {
-	log.Info("close storage cluster state machine", logger.String("cluster", c.cfg.cfg.Name))
+	c.logger.Info("close storage cluster state machine", logger.String("cluster", c.cfg.cfg.Name))
 	if c.taskController != nil {
 		// need close task controller of current storage cluster
 		if err := c.taskController.Close(); err != nil {
-			log.Error("close task controller", logger.String("cluster", c.cfg.cfg.Name), logger.Error(err))
+			c.logger.Error("close task controller", logger.String("cluster", c.cfg.cfg.Name), logger.Error(err))
 		}
 	}
 	if c.discovery != nil {
@@ -294,7 +296,7 @@ func (c *cluster) Close() {
 func (c *cluster) addNode(resource []byte) bool {
 	node := &models.ActiveNode{}
 	if err := encoding.JSONUnmarshal(resource, node); err != nil {
-		log.Error("discovery new storage node but unmarshal error",
+		c.logger.Error("discovery new storage node but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return false
 	}
@@ -309,6 +311,6 @@ func (c *cluster) saveClusterState() {
 	name := c.cfg.cfg.Name
 	//TODO need to retry when save state error
 	if err := c.cfg.storageStateService.Save(name, c.clusterState); err != nil {
-		log.Error("save storage state error", logger.String("cluster", name), logger.Error(err))
+		c.logger.Error("save storage state error", logger.String("cluster", name), logger.Error(err))
 	}
 }

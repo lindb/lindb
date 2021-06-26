@@ -344,6 +344,7 @@ func (r *runtime) monitoring() {
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.RuntimeReportInterval.Duration(),
+		r.config.Monitor.Gzip,
 		prometheus.Gatherers{monitoring.StorageGatherer, prometheus.DefaultGatherer},
 		[]*dto.LabelPair{
 			{

@@ -26,4 +26,4 @@ const defaultCompactThreshold = 4
 const defaultRollupThreshold = 3
 
 var defaultCompactCheckInterval = 60
-var kvLogger = logger.GetLogger("kv", "store")
+var kvLogger = logger.GetLogger("kv", "Store")
