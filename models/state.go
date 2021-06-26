@@ -17,6 +17,8 @@
 
 package models
 
+import "encoding/json"
+
 // StorageState represents storage cluster node state.
 // NOTICE: it is not safe for concurrent use.
 type StorageState struct {
@@ -52,4 +54,10 @@ func (s *StorageState) GetActiveNodes() []*ActiveNode {
 		nodes = append(nodes, node)
 	}
 	return nodes
+}
+
+// Stringer returns a human readable string
+func (s *StorageState) String() string {
+	content, _ := json.Marshal(s)
+	return string(content)
 }

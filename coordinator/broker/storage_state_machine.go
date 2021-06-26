@@ -158,7 +158,7 @@ func (s *storageStateMachine) addCluster(resource []byte) {
 	//TODO need check if same state, maybe state is same, such as system start
 	state, ok := s.storageClusters[storageState.Name]
 	if !ok {
-		state = newStorageClusterState(s.taskClientFactory)
+		state = newStorageClusterState(s.taskClientFactory, storageFSMLogger)
 		s.storageClusters[storageState.Name] = state
 	}
 	state.SetState(storageState)

@@ -34,6 +34,7 @@ type Monitor struct {
 	SystemReportInterval  ltoml.Duration `toml:"system-report-interval"`
 	RuntimeReportInterval ltoml.Duration `toml:"runtime-report-interval"`
 	URL                   string         `toml:"url"`
+	Gzip                  bool           `toml:"gzip"`
 }
 
 // TOML returns Monitor's toml config
@@ -52,10 +53,14 @@ func (m *Monitor) TOML() string {
   runtime-report-interval = "%s"
 
   ## URL is the target of prometheus pusher 
-  url = "%s"`,
+  url = "%s"
+	
+  ## if sets true, data will be compressed before sending 
+  gzip = %t`,
 		m.SystemReportInterval.String(),
 		m.RuntimeReportInterval.String(),
 		m.URL,
+		m.Gzip,
 	)
 }
 
@@ -65,5 +70,6 @@ func NewDefaultMonitor() *Monitor {
 		SystemReportInterval:  ltoml.Duration(30 * time.Second),
 		RuntimeReportInterval: ltoml.Duration(10 * time.Second),
 		URL:                   defaultPusherURL,
+		Gzip:                  true,
 	}
 }

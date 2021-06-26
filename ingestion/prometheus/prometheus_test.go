@@ -18,15 +18,18 @@
 package prometheus
 
 import (
+	"bytes"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/lindb/lindb/series/tag"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPromParse(t *testing.T) {
-	input := `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+const goodText = `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # 	TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds{method="post",code="400",quantile="0"} 4.9351e-05
 go_gc_duration_seconds{quantile="0.25",} 7.424100000000001e-05
@@ -73,21 +76,54 @@ name {labelname="val2",basename="base\"v\\al\nue"} 0.23 1234567890
 _metric_starting_with_underscore 1
 testmetric{_label_starting_with_underscore="foo"} 1
 testmetric{label="\"bar\""} 1`
+
+func makeGzipData(body []byte) []byte {
+	var w bytes.Buffer
+	gw := gzip.NewWriter(&w)
+	_, _ = gw.Write(body)
+	_ = gw.Close()
+	return w.Bytes()
+}
+
+func Test_Parse(t *testing.T) {
+	r1 := bytes.NewReader(makeGzipData([]byte(goodText)))
+
+	req, _ := http.NewRequest(http.MethodPut, "", r1)
+	req.Header.Set("Content-Encoding", "gzip")
+
+	metricList, err := Parse(req, []tag.Tag{
+		tag.NewTag([]byte("zone"), []byte("bj")),
+		tag.NewTag([]byte("host"), []byte("abcd")),
+	}, "ns")
+	assert.Nil(t, err)
+	assert.NotNil(t, metricList)
+
+	// bad gzip data
+	r2 := bytes.NewReader([]byte(goodText))
+	req, _ = http.NewRequest(http.MethodPut, "", r2)
+	req.Header.Set("Content-Encoding", "gzip")
+	metricList, err = Parse(req, []tag.Tag{}, "ns")
+	assert.NotNil(t, err)
+	assert.Nil(t, metricList)
+}
+
+func TestPromParse(t *testing.T) {
+	input := goodText
 	input += "\n# HELP metric foo\x00bar"
 	input += "\nnull_byte_metric{a=\"abc\x00\"} 1\n"
 
-	metrics, err := PromParse([]byte(input), tag.Tags{}, "ns")
+	metrics, err := promParse(strings.NewReader(input), tag.Tags{}, "ns")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, metrics)
 
-	metrics, err = PromParse([]byte("empty"), tag.Tags{}, "ns")
+	metrics, err = promParse(strings.NewReader("empty"), tag.Tags{}, "ns")
 	assert.Error(t, err)
 	assert.Empty(t, metrics)
 	input = `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
 # 	TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds{method="post",code="400",quantile="0"} 4.9351e-05
 go_gc_duration_seconds { quantile = "0.9999" } 8.38`
-	metrics, err = PromParse([]byte(input), tag.Tags{}, "ns")
+	metrics, err = promParse(strings.NewReader(input), tag.Tags{}, "ns")
 	assert.NoError(t, err)
 	assert.Empty(t, metrics)
 	input = `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
@@ -96,7 +132,7 @@ go_gc_duration_seconds { quantile = "0.9999" } NaN
 go_gc_duration_seconds_count 9
 go_gc_duration_seconds_sum 90
 `
-	metrics, err = PromParse([]byte(input), tag.Tags{}, "ns")
+	metrics, err = promParse(strings.NewReader(input), tag.Tags{}, "ns")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, metrics)
 }

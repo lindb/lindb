@@ -26,6 +26,7 @@ import (
 
 	"github.com/OneOfOne/xxhash"
 	"github.com/gogo/protobuf/proto"
+	"github.com/klauspost/compress/gzip"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
@@ -73,6 +74,7 @@ type prometheusPusher struct {
 	cancel       context.CancelFunc
 	interval     time.Duration
 	endpoint     string // HTTP endpoint
+	gzipped      bool
 	gatherers    prometheus.Gatherers
 	globalLabels []*dto.LabelPair
 	expfmt       expfmt.Format
@@ -91,6 +93,7 @@ type prometheusPusher struct {
 func NewPrometheusPusher(ctx context.Context,
 	endpoint string,
 	interval time.Duration,
+	gzipped bool,
 	gatherers prometheus.Gatherers,
 	globalLabels []*dto.LabelPair,
 ) PrometheusPusher {
@@ -100,6 +103,7 @@ func NewPrometheusPusher(ctx context.Context,
 		cancel:         cancel,
 		endpoint:       endpoint,
 		interval:       interval,
+		gzipped:        gzipped,
 		gatherers:      gatherers,
 		globalLabels:   globalLabels,
 		doRequest:      doRequest,
@@ -144,7 +148,12 @@ func (p *prometheusPusher) run() {
 	}
 	// 2. encode metric, calc delta value if need calc delta
 	buf := &bytes.Buffer{}
-	enc := expfmt.NewEncoder(buf, p.expfmt)
+	var enc expfmt.Encoder
+	if p.gzipped {
+		enc = expfmt.NewEncoder(gzip.NewWriter(buf), p.expfmt)
+	} else {
+		enc = expfmt.NewEncoder(buf, p.expfmt)
+	}
 	for _, mf := range mfs {
 		if p.needCalcDelta(mf.GetType()) {
 			p.metricFamilies[mf.GetName()] = p.calcDelta(mf)
@@ -165,7 +174,9 @@ func (p *prometheusPusher) run() {
 		pushLogger.Error("new write monitoring request error", logger.Error(err))
 		return
 	}
-	//TODO add gzip compress????
+	if p.gzipped {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
 	req.Header.Add(contentTypeHeader, string(p.expfmt))
 
 	// 4. send metric data

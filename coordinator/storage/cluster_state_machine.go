@@ -240,6 +240,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 		controllerFactory:   c.controllerFactory,
 		factory:             discovery.NewFactory(repo),
 		shardAssignService:  c.shardAssignService,
+		logger:              c.log,
 	}
 	cluster, err := c.clusterFactory.newCluster(clusterCfg)
 	if err != nil {

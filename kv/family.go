@@ -122,7 +122,7 @@ func newFamily(store Store, option FamilyOption) (Family, error) {
 		familyVersion:     store.createFamilyVersion(name, version.FamilyID(option.ID)),
 	}
 
-	kvLogger.Info("new family success", logger.String("family", f.familyInfo()))
+	kvLogger.Info("create new family successfully", logger.String("family", f.familyInfo()))
 	return f, nil
 }
 

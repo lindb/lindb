@@ -60,7 +60,7 @@ func NewHTTPServer(cfg config.HTTP) *HTTPServer {
 			ReadTimeout:  time.Second * 15,
 			IdleTimeout:  time.Second * 60, //TODO add config?
 		},
-		logger: logger.GetLogger("broker", "httpServer"),
+		logger: logger.GetLogger("broker", "HTTPServer"),
 	}
 	s.init()
 	return s
