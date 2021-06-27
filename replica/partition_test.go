@@ -131,3 +131,31 @@ func TestPartition_WriteLog(t *testing.T) {
 	err = p.WriteLog(nil)
 	assert.NoError(t, err)
 }
+
+func TestPartition_ReplicaLog(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	l := queue.NewMockFanOutQueue(ctrl)
+	p := NewPartition(1, nil, 1, l)
+	// case 1: replica idx err
+	l.EXPECT().HeadSeq().Return(int64(8))
+	idx, err := p.ReplicaLog(10, []byte{1})
+	assert.NoError(t, err)
+	assert.Equal(t, idx, int64(8))
+
+	// case 2: put err
+	l.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
+	l.EXPECT().HeadSeq().Return(int64(10))
+	idx, err = p.ReplicaLog(10, []byte{1})
+	assert.Error(t, err)
+	assert.Equal(t, idx, int64(-1))
+
+	// case 3: put ok
+	l.EXPECT().Put(gomock.Any()).Return(nil)
+	l.EXPECT().HeadSeq().Return(int64(10))
+	idx, err = p.ReplicaLog(10, []byte{1})
+	assert.NoError(t, err)
+	assert.Equal(t, idx, int64(10))
+}
