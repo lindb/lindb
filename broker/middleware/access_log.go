@@ -65,9 +65,14 @@ func AccessLogMiddleware() gin.HandlerFunc {
 				unescapedPath = path
 			}
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
-			logger.AccessLog.Info(realIP(r) + " " + strconv.Itoa(int(timeutil.Now()-start)) + "ms" +
+			requestInfo := realIP(r) + " " + strconv.Itoa(int(timeutil.Now()-start)) + "ms" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
-				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size()))
+				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size())
+			if len(c.Errors) > 0 {
+				logger.AccessLog.Error(requestInfo, logger.Error(c.Errors[0].Err))
+			} else {
+				logger.AccessLog.Info(requestInfo)
+			}
 			paths := strings.Split(unescapedPath, "?")
 			if len(paths) > 0 {
 				path = paths[0]

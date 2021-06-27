@@ -37,10 +37,6 @@ import (
 
 const _apiRootPath = "/api/v1"
 
-func init() {
-	gin.SetMode(gin.ReleaseMode)
-}
-
 // HTTPServer represents http server with gin framework.
 type HTTPServer struct {
 	addr   string

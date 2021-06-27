@@ -54,7 +54,6 @@ func newStorageCmd() *cobra.Command {
 	storageCmd.AddCommand(
 		runStorageCmd,
 		initializeStorageConfigCmd,
-		databaseCmd,
 	)
 	return storageCmd
 }
@@ -91,13 +90,4 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
-}
-
-// databaseCmd provides the ability to control the database of storage
-var databaseCmd = &cobra.Command{
-	Use:   "database",
-	Short: "Control the database of LinDB",
-	Run: func(cmd *cobra.Command, args []string) {
-		// todo: @codingcrush
-	},
 }

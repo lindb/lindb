@@ -18,6 +18,7 @@
 package http
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,11 +36,13 @@ func NoContent(c *gin.Context) {
 
 // NotFound responses resource not found.
 func NotFound(c *gin.Context) {
+	_ = c.Error(errors.New("StatusNotFound"))
 	response(c, http.StatusNotFound, nil)
 }
 
 // Error responses error message and set the http status code 500.
 func Error(c *gin.Context, err error) {
+	_ = c.Error(err)
 	response(c, http.StatusInternalServerError, err.Error())
 }
 

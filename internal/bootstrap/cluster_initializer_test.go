@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package standalone
+package bootstrap
 
 import (
 	"fmt"
@@ -27,6 +27,8 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInitialize(t *testing.T) {
@@ -43,19 +45,19 @@ func TestInitialize(t *testing.T) {
 	newRequest = func(method, url string, body io.Reader) (*http.Request, error) {
 		return nil, fmt.Errorf("err")
 	}
-	init := newInitialize(ts.URL)
+	init := NewClusterInitializer(ts.URL)
 
-	init.initInternalDatabase(models.Database{})
-	init.initStorageCluster(config.StorageCluster{})
+	assert.NotNil(t, init.InitInternalDatabase(models.Database{}))
+	assert.NotNil(t, init.InitStorageCluster(config.StorageCluster{}))
 	newRequest = http.NewRequest
 
 	doRequest = func(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("err")
 	}
-	init.initInternalDatabase(models.Database{})
-	init.initStorageCluster(config.StorageCluster{})
+	assert.NotNil(t, init.InitInternalDatabase(models.Database{}))
+	assert.NotNil(t, init.InitStorageCluster(config.StorageCluster{}))
 
 	doRequest = http.DefaultClient.Do
-	init.initInternalDatabase(models.Database{})
-	init.initStorageCluster(config.StorageCluster{})
+	assert.Nil(t, init.InitInternalDatabase(models.Database{}))
+	assert.Nil(t, init.InitStorageCluster(config.StorageCluster{}))
 }

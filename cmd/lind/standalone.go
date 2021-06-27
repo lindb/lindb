@@ -39,7 +39,7 @@ const (
 func newStandaloneCmd() *cobra.Command {
 	standaloneCmd := &cobra.Command{
 		Use:   "standalone",
-		Short: "Run as the standalone mode(embed broker/storage/etcd)",
+		Short: "Run as a standalone node with embed broker, storage, etcd)",
 	}
 
 	standaloneCmd.AddCommand(
@@ -57,7 +57,7 @@ func newStandaloneCmd() *cobra.Command {
 
 var runStandaloneCmd = &cobra.Command{
 	Use:   "run",
-	Short: "run as the standalone mode",
+	Short: "run as standalone mode",
 	RunE:  serveStandalone,
 }
 
