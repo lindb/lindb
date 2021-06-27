@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/service"
 )
 
@@ -57,6 +58,7 @@ type writeAheadLogManager struct {
 	currentNodeID models.NodeID
 	databaseLogs  map[string]WriteAheadLog
 	storageSrv    service.StorageService
+	cliFct        rpc.ClientStreamFactory
 
 	mutex sync.Mutex
 }
@@ -65,11 +67,13 @@ type writeAheadLogManager struct {
 func NewWriteAheadLogManager(cfg config.Replica,
 	currentNodeID models.NodeID,
 	storageSrv service.StorageService,
+	cliFct rpc.ClientStreamFactory,
 ) WriteAheadLogManager {
 	return &writeAheadLogManager{
 		cfg:           cfg,
 		currentNodeID: currentNodeID,
 		storageSrv:    storageSrv,
+		cliFct:        cliFct,
 
 		databaseLogs: make(map[string]WriteAheadLog),
 	}
@@ -86,7 +90,7 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 		return log
 	}
 	// create new, then put in cache
-	log = newWriteAheadLog(w.cfg, w.currentNodeID, database, w.storageSrv)
+	log = newWriteAheadLog(w.cfg, w.currentNodeID, database, w.storageSrv, w.cliFct)
 	w.databaseLogs[database] = log
 	return log
 }
@@ -98,6 +102,7 @@ type writeAheadLog struct {
 	currentNodeID models.NodeID
 	shardLogs     map[models.ShardID]Partition
 	storageSrv    service.StorageService
+	cliFct        rpc.ClientStreamFactory
 
 	mutex sync.Mutex
 }
@@ -107,12 +112,14 @@ func NewWriteAheadLog(cfg config.Replica,
 	currentNodeID models.NodeID,
 	database string,
 	storageSrv service.StorageService,
+	cliFct rpc.ClientStreamFactory,
 ) WriteAheadLog {
 	return &writeAheadLog{
 		currentNodeID: currentNodeID,
 		database:      database,
 		cfg:           cfg,
 		storageSrv:    storageSrv,
+		cliFct:        cliFct,
 		shardLogs:     make(map[models.ShardID]Partition),
 	}
 }
@@ -138,7 +145,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition,
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartition(shardID, shard, w.currentNodeID, q)
+	p = NewPartition(shardID, shard, w.currentNodeID, q, w.cliFct)
 	w.shardLogs[shardID] = p
 	return p, nil
 }

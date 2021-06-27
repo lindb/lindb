@@ -29,6 +29,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc/proto/common"
+	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
 	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
@@ -104,12 +105,22 @@ type ClientStreamFactory interface {
 	CreateTaskClient(target models.Node) (common.TaskService_HandleClient, error)
 	// CreateWriteServiceClient creates a WriteServiceClient
 	CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error)
+	// CreateReplicaServiceClient creates a replicaRpc.ReplicaServiceClient.
+	CreateReplicaServiceClient(target models.Node) (replicaRpc.ReplicaServiceClient, error)
 }
 
 // clientStreamFactory implements ClientStreamFactory.
 type clientStreamFactory struct {
 	logicNode models.Node
 	connFct   ClientConnFactory
+}
+
+// NewClientStreamFactory returns a factory to get clientStream.
+func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
+	return &clientStreamFactory{
+		logicNode: logicNode,
+		connFct:   GetClientConnFactory(),
+	}
 }
 
 // LogicNode returns the a logic Node which will be transferred to the target server for identification.
@@ -155,12 +166,13 @@ func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (stor
 	return storage.NewWriteServiceClient(conn), nil
 }
 
-// NewClientStreamFactory returns a factory to get clientStream.
-func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
-	return &clientStreamFactory{
-		logicNode: logicNode,
-		connFct:   GetClientConnFactory(),
+// CreateReplicaServiceClient creates a replicaRpc.ReplicaServiceClient.
+func (w *clientStreamFactory) CreateReplicaServiceClient(target models.Node) (replicaRpc.ReplicaServiceClient, error) {
+	conn, err := w.connFct.GetClientConn(target)
+	if err != nil {
+		return nil, err
 	}
+	return replicaRpc.NewReplicaServiceClient(conn), nil
 }
 
 // createOutgoingContextWithPairs creates outGoing context with key, value pairs.
