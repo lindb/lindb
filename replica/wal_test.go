@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/service"
 
 	"github.com/golang/mock/gomock"
@@ -40,10 +41,12 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 
 	newWriteAheadLog = func(cfg config.Replica,
 		currentNodeID models.NodeID, database string,
-		storageSrv service.StorageService) WriteAheadLog {
+		storageSrv service.StorageService,
+		cliFct rpc.ClientStreamFactory,
+	) WriteAheadLog {
 		return NewMockWriteAheadLog(ctrl)
 	}
-	m := NewWriteAheadLogManager(config.Replica{}, 1, nil)
+	m := NewWriteAheadLogManager(config.Replica{}, 1, nil, nil)
 	// create new
 	l := m.GetOrCreateLog("test")
 	assert.NotNil(t, l)
@@ -59,7 +62,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		ctrl.Finish()
 	}()
 	srv := service.NewMockStorageService(ctrl)
-	l := NewWriteAheadLog(config.Replica{}, 1, "test", srv)
+	l := NewWriteAheadLog(config.Replica{}, 1, "test", srv, nil)
 
 	// case 1: shard not exist
 	srv.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)

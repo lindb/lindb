@@ -26,7 +26,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
-	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -43,11 +43,11 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ *ReplicatorChannel,
-		_ replicaRpc.ReplicaServiceClient) Replicator {
+		_ rpc.ClientStreamFactory) Replicator {
 		return r
 	}
 
-	p := NewPartition(1, nil, 1, nil)
+	p := NewPartition(1, nil, 1, nil, nil)
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
 	assert.Error(t, err)
 
@@ -75,11 +75,11 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ *ReplicatorChannel,
-		_ replicaRpc.ReplicaServiceClient) Replicator {
+		_ rpc.ClientStreamFactory) Replicator {
 		return r
 	}
 
-	p := NewPartition(1, nil, 1, nil)
+	p := NewPartition(1, nil, 1, nil, nil)
 	err := p.BuildReplicaForFollower(2, 2)
 	assert.Error(t, err)
 
@@ -102,12 +102,12 @@ func TestPartition_Close(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ *ReplicatorChannel,
-		_ replicaRpc.ReplicaServiceClient) Replicator {
+		_ rpc.ClientStreamFactory) Replicator {
 		return r
 	}
 
 	l.EXPECT().Close().MaxTimes(2)
-	p := NewPartition(1, nil, 1, l)
+	p := NewPartition(1, nil, 1, l, nil)
 	err := p.Close()
 	assert.NoError(t, err)
 	r.EXPECT().IsReady().Return(false).AnyTimes()
@@ -123,7 +123,7 @@ func TestPartition_WriteLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 	l := queue.NewMockFanOutQueue(ctrl)
-	p := NewPartition(1, nil, 1, l)
+	p := NewPartition(1, nil, 1, l, nil)
 	l.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
 	err := p.WriteLog([]byte{1})
 	assert.Error(t, err)
@@ -138,7 +138,7 @@ func TestPartition_ReplicaLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 	l := queue.NewMockFanOutQueue(ctrl)
-	p := NewPartition(1, nil, 1, l)
+	p := NewPartition(1, nil, 1, l, nil)
 	// case 1: replica idx err
 	l.EXPECT().HeadSeq().Return(int64(8))
 	idx, err := p.ReplicaLog(10, []byte{1})
