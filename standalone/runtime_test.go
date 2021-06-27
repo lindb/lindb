@@ -51,15 +51,15 @@ func TestRuntime_Run(t *testing.T) {
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
-	standalone := NewStandaloneRuntime("test-version", cfg)
+	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	s.delayInit = 100 * time.Millisecond
-	err := standalone.Run()
 
+	err := standalone.Run()
 	assert.NoError(t, err)
 	assert.Equal(t, server.Running, standalone.State())
-	err = standalone.Stop()
-	assert.NoError(t, err)
+
+	standalone.Stop()
 	assert.Equal(t, server.Terminated, standalone.State())
 	assert.Equal(t, "standalone", standalone.Name())
 	time.Sleep(500 * time.Millisecond)
@@ -75,7 +75,7 @@ func TestRuntime_Run_Err(t *testing.T) {
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3902
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
-	standalone := NewStandaloneRuntime("test-version", cfg)
+	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
 	s.storage = storage
@@ -83,13 +83,12 @@ func TestRuntime_Run_Err(t *testing.T) {
 	err := standalone.Run()
 	assert.Error(t, err)
 
-	standalone = NewStandaloneRuntime("test-version", cfg)
+	standalone = NewStandaloneRuntime("test-version", &cfg)
 	// restart etcd err
 	err = standalone.Run()
 	assert.Error(t, err)
-	storage.EXPECT().Stop().Return(fmt.Errorf("err")).AnyTimes()
-	err = s.Stop()
-	assert.NoError(t, err)
+	storage.EXPECT().Stop().Return().AnyTimes()
+	s.Stop()
 }
 
 func TestRuntime_runServer(t *testing.T) {
@@ -100,7 +99,7 @@ func TestRuntime_runServer(t *testing.T) {
 	}()
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3903
 	cfg := defaultStandaloneConfig
-	standalone := NewStandaloneRuntime("test-version", cfg)
+	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
 	s.storage = storage
@@ -110,10 +109,9 @@ func TestRuntime_runServer(t *testing.T) {
 	broker.EXPECT().Run().Return(fmt.Errorf("err"))
 	err := s.runServer()
 	assert.Error(t, err)
-	storage.EXPECT().Stop().Return(fmt.Errorf("err"))
-	broker.EXPECT().Stop().Return(fmt.Errorf("err"))
-	err = s.Stop()
-	assert.NoError(t, err)
+	storage.EXPECT().Stop().Return()
+	broker.EXPECT().Stop().Return()
+	s.Stop()
 }
 
 func TestRuntime_cleanupState(t *testing.T) {
@@ -126,15 +124,14 @@ func TestRuntime_cleanupState(t *testing.T) {
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3904
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath
-	standalone := NewStandaloneRuntime("test-version", cfg)
+	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
 	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := standalone.Run()
 	assert.Error(t, err)
-	err = s.Stop()
-	assert.NoError(t, err)
+	s.Stop()
 
 	repo := state.NewMockRepository(ctrl)
 	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo, nil)

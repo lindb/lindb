@@ -27,10 +27,10 @@ import (
 
 func printLogoWhenIsTty() {
 	if logger.IsTerminal(os.Stdout) {
-		fmt.Fprintf(os.Stdout, logger.Cyan.Add(linDBLogo))
-		fmt.Fprintf(os.Stdout, logger.Green.Add(" ::  LinDB  :: ")+
+		_, _ = fmt.Fprintf(os.Stdout, logger.Cyan.Add(linDBLogo))
+		_, _ = fmt.Fprintf(os.Stdout, logger.Green.Add(" ::  LinDB  :: ")+
 			fmt.Sprintf("%22s", fmt.Sprintf("(v%s Release)", getVersion())))
-		fmt.Fprintf(os.Stdout, "\n\n")
+		_, _ = fmt.Fprintf(os.Stdout, "\n\n")
 	}
 }
 
@@ -38,7 +38,7 @@ func printLogoWhenIsTty() {
 // A user must type in "yes" or "no" and then press enter.
 // It has fuzzy matching, so "y", "Y", "yes", "YES"
 func askForConfirmation() (confirmed bool, err error) {
-	fmt.Fprintf(os.Stdout, "[y/n]:")
+	_, _ = fmt.Fprintf(os.Stdout, "[y/n]:")
 
 	var answer string
 	if _, err = fmt.Scanln(&answer); err != nil {

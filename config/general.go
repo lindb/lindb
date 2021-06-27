@@ -29,7 +29,10 @@ import (
 type RepoState struct {
 	Namespace   string         `toml:"namespace" json:"namespace"`
 	Endpoints   []string       `toml:"endpoints" json:"endpoints"`
+	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
 	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
+	Username    string         `toml:"username" json:"username"`
+	Password    string         `toml:"password" json:"password"`
 }
 
 // TOML returns RepoState's toml config string
@@ -41,11 +44,20 @@ func (rs *RepoState) TOML() string {
     namespace = "%s"
     ## endpoints config list of ETCD cluster
     endpoints = %s
-    ## ETCD client will fail at this interval when connecting etcd server without response
-    dial-timeout = "%s"`,
+	## Timeout is the timeout for failing to executing a etcd command.
+	timeout = "%s"
+	## DialTimeout is the timeout for failing to establish a etcd connection.
+    dial-timeout = "%s"
+	## Username is a user name for etcd authentication.
+	username = "%s"
+	## Password is a password for etcd authentication.
+	password = "%s"`,
 		rs.Namespace,
 		coordinatorEndpoints,
+		rs.Timeout.String(),
 		rs.DialTimeout.String(),
+		rs.Username,
+		rs.Password,
 	)
 }
 

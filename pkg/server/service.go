@@ -28,5 +28,5 @@ type Service interface {
 	// State returns current service state
 	State() State
 	// Stop shutdowns server, do some cleanup logic
-	Stop() error
+	Stop()
 }

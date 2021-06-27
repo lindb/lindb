@@ -86,7 +86,7 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	}
 
 	// start storage server
-	storageRuntime := storage.NewStorageRuntime(getVersion(), storageCfg)
+	storageRuntime := storage.NewStorageRuntime(getVersion(), &storageCfg)
 	if err := run(ctx, storageRuntime); err != nil {
 		return err
 	}

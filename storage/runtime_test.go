@@ -35,6 +35,7 @@ import (
 	"github.com/lindb/lindb/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -66,8 +67,9 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	fmt.Println("run TestStorageRun...")
 	// test normal storage run
 	cfg.StorageBase.Coordinator.Endpoints = ts.Cluster.Endpoints
+	cfg.StorageBase.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
 	cfg.StorageBase.GRPC.Port = 9999
-	storage := NewStorageRuntime("test-version", cfg)
+	storage := NewStorageRuntime("test-version", &cfg)
 	err := storage.Run()
 	assert.NoError(ts.t, err)
 	c.Assert(server.Running, check.Equals, storage.State())
@@ -85,7 +87,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
 	c.Assert("storage", check.Equals, storage.Name())
 
-	_ = storage.Stop()
+	storage.Stop()
 	c.Assert(server.Terminated, check.Equals, storage.State())
 	time.Sleep(500 * time.Millisecond)
 }
@@ -97,7 +99,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(c *check.C) {
 		hostName = os.Hostname
 	}()
 	cfg.StorageBase.GRPC.Port = 8889
-	storage := NewStorageRuntime("test-version", cfg)
+	storage := NewStorageRuntime("test-version", &cfg)
 	getHostIP = func() (string, error) {
 		return "test-ip", fmt.Errorf("err")
 	}
@@ -112,12 +114,12 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(c *check.C) {
 	}
 	cfg.StorageBase.GRPC.Port = 8887
 	cfg.StorageBase.Coordinator.Endpoints = ts.Cluster.Endpoints
-	storage = NewStorageRuntime("test-version", cfg)
+	storage = NewStorageRuntime("test-version", &cfg)
 	err = storage.Run()
 	assert.NoError(ts.t, err)
 	// wait grpc server start and register success
 	time.Sleep(500 * time.Millisecond)
-	err = storage.Stop()
+	storage.Stop()
 	assert.NoError(ts.t, err)
 }
 
@@ -127,7 +129,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_Err(c *check.C) {
 	defer ctrl.Finish()
 
 	cfg.StorageBase.GRPC.Port = 8886
-	storage := NewStorageRuntime("test-version", cfg)
+	storage := NewStorageRuntime("test-version", &cfg)
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
@@ -143,6 +145,6 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_Err(c *check.C) {
 	repo := state.NewMockRepository(ctrl)
 	s.repo = repo
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
-	err = s.Stop()
-	assert.NoError(ts.t, err)
+	s.Stop()
+	assert.Error(ts.t, err)
 }

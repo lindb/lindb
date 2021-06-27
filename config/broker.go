@@ -167,6 +167,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 		Coordinator: RepoState{
 			Namespace:   "/lindb/broker",
 			Endpoints:   []string{"http://localhost:2379"},
+			Timeout:     ltoml.Duration(time.Second * 10),
 			DialTimeout: ltoml.Duration(time.Second * 5),
 		},
 		User: User{
