@@ -47,7 +47,7 @@ func Test_Logger(t *testing.T) {
 }
 
 func Test_Access_logger(t *testing.T) {
-	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}))
+	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}, "access.log"))
 	logger1 := GetLogger(HTTPModule, "access")
 	logger1.Info("access log")
 	isTerminal = true
@@ -92,23 +92,23 @@ func Test_InitLogger(t *testing.T) {
 	assert.NotNil(t, GetLogger("test", "test").getInitializedOrDefaultLogger())
 
 	cfg1 := config.Logging{Level: "LLL"}
-	assert.NotNil(t, InitLogger(cfg1))
+	assert.NotNil(t, InitLogger(cfg1, "test.log"))
 
 	cfg2 := config.NewDefaultLogging()
-	assert.Nil(t, InitLogger(*cfg2))
+	assert.Nil(t, InitLogger(*cfg2, "test.log"))
 	thisLogger := GetLogger("test", "test")
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 
 	cfg3 := config.Logging{Level: "info"}
-	assert.Nil(t, InitLogger(cfg3))
+	assert.Nil(t, InitLogger(cfg3, "test.log"))
 
 	cfg4 := config.Logging{Level: "debug"}
-	assert.Nil(t, InitLogger(cfg4))
+	assert.Nil(t, InitLogger(cfg4, "test.log"))
 
 	isTerminal = true
 	defer func() {
 		isTerminal = false
 	}()
-	assert.Nil(t, InitLogger(cfg4))
+	assert.Nil(t, InitLogger(cfg4, "test.log"))
 }

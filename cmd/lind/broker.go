@@ -30,6 +30,7 @@ import (
 
 const (
 	brokerCfgName        = "broker.toml"
+	brokerLogFileName    = "lind-broker.log"
 	defaultBrokerCfgFile = "./" + brokerCfgName
 )
 
@@ -80,7 +81,7 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	if err := ltoml.LoadConfig(cfg, defaultBrokerCfgFile, &brokerCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
-	if err := logger.InitLogger(brokerCfg.Logging); err != nil {
+	if err := logger.InitLogger(brokerCfg.Logging, brokerLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 

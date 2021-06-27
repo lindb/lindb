@@ -30,6 +30,7 @@ import (
 
 const (
 	storageCfgName        = "storage.toml"
+	storageLogFileName    = "lind-storage.log"
 	defaultStorageCfgFile = "./" + storageCfgName
 )
 
@@ -80,7 +81,7 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	if err := ltoml.LoadConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
-	if err := logger.InitLogger(storageCfg.Logging); err != nil {
+	if err := logger.InitLogger(storageCfg.Logging, storageLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 
