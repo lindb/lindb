@@ -100,7 +100,9 @@ func NewDefaultStorageBase() *StorageBase {
 		Coordinator: RepoState{
 			Namespace:   "/lindb/storage",
 			Endpoints:   []string{"http://localhost:2379"},
-			DialTimeout: ltoml.Duration(time.Second * 5)},
+			Timeout:     ltoml.Duration(time.Second * 10),
+			DialTimeout: ltoml.Duration(time.Second * 5),
+		},
 		GRPC: GRPC{
 			Port: 2891,
 			TTL:  ltoml.Duration(time.Second)},

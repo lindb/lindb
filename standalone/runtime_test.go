@@ -56,8 +56,8 @@ func TestRuntime_Run(t *testing.T) {
 	s.delayInit = 100 * time.Millisecond
 
 	err := standalone.Run()
-	assert.NoError(t, err)
 	assert.Equal(t, server.Running, standalone.State())
+	assert.NoError(t, err)
 
 	standalone.Stop()
 	assert.Equal(t, server.Terminated, standalone.State())

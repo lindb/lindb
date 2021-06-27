@@ -13,14 +13,15 @@ help:  ## Display this help
 build-frontend: clean-frontend-build
 	cd web/ && make web_build
 
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
-build: clean-build build-lind ## Build executable files. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
+GOARCH = amd64
+build: clean-build build-lind ## Build executable files.
 
-build-all: clean-frontend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside. (Args: GOOS=$(go env GOOS) GOARCH=$(go env GOARCH))
+build-all: clean-frontend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside.
 
-build-lind: ## build lindb bin
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o 'bin/lind' $(LD_FLAGS) ./cmd/
+build-lind: ## build lindb binary
+	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lind-darwin' $(LD_FLAGS) ./cmd/
+	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lind-linux' $(LD_FLAGS) ./cmd/
+
 
 GOLANGCI_LINT_VERSION ?= "v1.28.3"
 

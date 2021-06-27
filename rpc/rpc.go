@@ -209,7 +209,7 @@ func CreateIncomingContextWithNode(ctx context.Context, node models.Node) contex
 	return createIncomingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
 }
 
-// CreateOutgoingContext creates outgoing context with logic node.
+// CreateOutgoingContextWithNode creates outgoing context with logic node.
 func CreateOutgoingContextWithNode(ctx context.Context, node models.Node) context.Context {
 	return createOutgoingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
 }

@@ -130,16 +130,16 @@ func (r *SystemCollector) collect() {
 	r.systemStat.CPUs = GetCPUs()
 
 	if r.systemStat.MemoryStat, err = r.MemoryStatGetter(); err != nil {
-		log.Error("get memory stat", logger.Error(err))
+		collectorLogger.Error("get memory stat", logger.Error(err))
 	}
 	if r.systemStat.CPUStat, err = r.CPUStatGetter(); err != nil {
-		log.Error("get cpu stat", logger.Error(err))
+		collectorLogger.Error("get cpu stat", logger.Error(err))
 	}
 	if r.systemStat.DiskUsageStat, err = r.DiskUsageStatGetter(r.ctx, r.storage); err != nil {
-		log.Error("get disk usage stat", logger.Error(err))
+		collectorLogger.Error("get disk usage stat", logger.Error(err))
 	}
 	if stats, err := r.NetStatGetter(r.ctx); err != nil {
-		log.Error("get net stat", logger.Error(err))
+		collectorLogger.Error("get net stat", logger.Error(err))
 	} else {
 		for _, stat := range stats {
 			r.netStats[stat.Name] = stat
@@ -155,7 +155,7 @@ func (r *SystemCollector) collect() {
 	r.logNetStat()
 
 	if err := r.repository.Put(r.ctx, r.path, encoding.JSONMarshal(r.nodeStat)); err != nil {
-		log.Error("report stat error", logger.String("path", r.path))
+		collectorLogger.Error("report stat error", logger.String("path", r.path))
 	}
 }
 
