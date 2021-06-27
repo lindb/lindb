@@ -32,7 +32,7 @@ import (
 	"github.com/shirou/gopsutil/net"
 )
 
-var log = logger.GetLogger("monitoring", "System")
+var collectorLogger = logger.GetLogger("monitoring", "Collector")
 
 var (
 	cpuCount      = 0
@@ -61,7 +61,7 @@ func GetCPUs() int {
 func getCPUs() int {
 	count, err := cpuCountsFunc(true)
 	if err != nil {
-		log.Error("get cpu cores", logger.Error(err))
+		collectorLogger.Error("get cpu cores", logger.Error(err))
 	}
 	return count
 }

@@ -126,7 +126,7 @@ func (p *prometheusPusher) Start() {
 		case <-ticker.C:
 			p.run()
 		case <-p.ctx.Done():
-			pushLogger.Info("stop push prometheus metric data via http")
+			pushLogger.Info("stop prometheus pusher")
 			return
 		}
 	}

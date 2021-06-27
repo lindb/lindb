@@ -18,6 +18,8 @@
 package lind
 
 import (
+	"github.com/lindb/lindb/cmd/lind/cli"
+
 	"github.com/spf13/cobra"
 )
 
@@ -46,10 +48,10 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(
-		envCmd,
 		versionCmd,
 		newStorageCmd(),
 		newBrokerCmd(),
 		newStandaloneCmd(),
+		cli.NewCLICmd(),
 	)
 }

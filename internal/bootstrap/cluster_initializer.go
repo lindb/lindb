@@ -15,67 +15,69 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package standalone
+package bootstrap
 
 import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // for testing
 var (
-	newRequest = http.NewRequest
-	doRequest  = http.DefaultClient.Do
+	newRequest    = http.NewRequest
+	defaultClient = http.Client{Timeout: time.Second * 10}
+	doRequest     = defaultClient.Do
 )
 
-var initializeLogger = logger.GetLogger("standalone", "Initialize")
+const brokerAPIPrefix = "/api/v1"
 
-// initialize represents initialize standalone cluster(storage/internal database)
-type initialize struct {
+// ClusterInitializer initializes cluster(storage/internal database)
+type ClusterInitializer struct {
 	endpoint string
 }
 
-// newInitialize creates a initialize
-func newInitialize(endpoint string) *initialize {
-	return &initialize{endpoint: endpoint}
+// NewClusterInitializer creates a initializer
+func NewClusterInitializer(endpoint string) *ClusterInitializer {
+	u, _ := url.Parse(endpoint)
+	u.Path = path.Join(u.Path, brokerAPIPrefix)
+	return &ClusterInitializer{endpoint: u.String()}
 }
 
-// initStorageCluster initializes the storage cluster
-func (i *initialize) initStorageCluster(storageCfg config.StorageCluster) {
+// InitStorageCluster initializes the storage cluster
+func (i *ClusterInitializer) InitStorageCluster(storageCfg config.StorageCluster) error {
 	reader := bytes.NewReader(encoding.JSONMarshal(&storageCfg))
 	req, err := newRequest("POST", fmt.Sprintf("%s/storage/cluster", i.endpoint), reader)
 	if err != nil {
-		initializeLogger.Error("new create storage cluster request error", logger.Error(err))
-		return
+		return err
 	}
-	doPost(req)
+	return doPost(req)
 }
 
-// initInternalDatabase initializes internal database
-func (i *initialize) initInternalDatabase(database models.Database) {
+// InitInternalDatabase initializes internal database
+func (i *ClusterInitializer) InitInternalDatabase(database models.Database) error {
 	reader := bytes.NewReader(encoding.JSONMarshal(&database))
 	req, err := newRequest("POST", fmt.Sprintf("%s/database", i.endpoint), reader)
 	if err != nil {
-		initializeLogger.Error("new create init request error", logger.Error(err))
-		return
+		return err
 	}
-	doPost(req)
+	return doPost(req)
 }
 
 // doPost does http post request
-func doPost(req *http.Request) {
+func doPost(req *http.Request) error {
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 
 	writeResp, err := doRequest(req)
 	if err != nil {
-		initializeLogger.Error("do init request error", logger.Error(err))
-		return
+		return err
 	}
-	_ = writeResp.Body.Close()
+	return writeResp.Body.Close()
 }

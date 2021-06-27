@@ -277,6 +277,7 @@ func (r *runtime) startHTTPServer() {
 	r.log.Info("starting HTTP server")
 	r.httpServer = NewHTTPServer(r.config.BrokerBase.HTTP)
 	// TODO set ctx
+	// TODO login api is not registered
 	httpAPI := api.NewAPI(context.TODO(), &deps.HTTPDeps{
 		Master:            r.master,
 		Repo:              r.repo,

@@ -15,55 +15,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package lind
+package cli
 
-import (
-	"fmt"
-	"runtime"
+import "github.com/spf13/cobra"
 
-	"github.com/spf13/cobra"
-)
-
-// These variables are populated via the Go linker.
-var (
-	// release version, ldflags
-	version = ""
-	// binary build-time, ldflags
-	buildTime = "unknown"
-	// debug mode
-	debug = false
-	// cfg path
-	cfg = ""
-)
-
-const defaultVersion = "0.0.0"
-
-func getVersion() string {
-	if version == "" {
-		return defaultVersion
-	}
-	return version
-}
-
-func printVersion() {
-	fmt.Printf("LinDB: %v, BuildDate: %v\n", getVersion(), buildTime)
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version",
+var addUserCmd = &cobra.Command{
+	Use:   "user-add",
+	Short: "Adds a new admin user",
 	Run: func(cmd *cobra.Command, args []string) {
-		printVersion()
+		// todo: @codingcrush
 	},
 }
 
-var envCmd = &cobra.Command{
-	Use:   "env",
-	Short: "Print environment information",
+var listUserCmd = &cobra.Command{
+	Use:   "user-list",
+	Short: "Lists all users",
 	Run: func(cmd *cobra.Command, args []string) {
-		printVersion()
-		fmt.Printf("GOOS=%q\n", runtime.GOOS)
-		fmt.Printf("GOARCH=%q\n", runtime.GOARCH)
-		fmt.Printf("GOVERSION=%q\n", runtime.Version())
+		// todo: @codingcrush
+	},
+}
+
+var getUserCmd = &cobra.Command{
+	Use:   "user-get",
+	Short: "Gets detailed information of a user",
+	Run: func(cmd *cobra.Command, args []string) {
+		// todo: @codingcrush
+	},
+}
+
+var deleteUserCmd = &cobra.Command{
+	Use:   "user-delete",
+	Short: "Deletes a user",
+	Run: func(cmd *cobra.Command, args []string) {
+		// todo: @codingcrush
 	},
 }

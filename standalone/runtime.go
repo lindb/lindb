@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/broker"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -51,8 +52,8 @@ type runtime struct {
 	broker      server.Service
 	storage     server.Service
 
-	initialize *initialize
-	delayInit  time.Duration
+	initializer *bootstrap.ClusterInitializer
+	delayInit   time.Duration
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -76,10 +77,10 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				StorageBase: cfg.StorageBase,
 				Monitor:     cfg.Monitor,
 			}),
-		cfg:        cfg,
-		initialize: newInitialize(fmt.Sprintf("http://localhost:%d/api/v1", cfg.BrokerBase.HTTP.Port)),
-		ctx:        ctx,
-		cancel:     cancel,
+		cfg:         cfg,
+		initializer: bootstrap.NewClusterInitializer(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),
+		ctx:         ctx,
+		cancel:      cancel,
 	}
 }
 
@@ -107,16 +108,15 @@ func (r *runtime) Run() error {
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
-		log.Info("start initialize standalone internal database")
-		r.initialize.initStorageCluster(config.StorageCluster{
-			Name: "standalone",
-			Config: config.RepoState{
-				Namespace: r.cfg.StorageBase.Coordinator.Namespace,
-				Endpoints: r.cfg.StorageBase.Coordinator.Endpoints,
-			},
-		})
+		log.Info("initializing standalone internal database")
+		if err := r.initializer.InitStorageCluster(config.StorageCluster{
+			Name:   "standalone",
+			Config: r.cfg.StorageBase.Coordinator}); err != nil {
+			log.Error("init storage cluster with error", logger.Error(err))
+		}
+		log.Info("initialized standalone storage cluster")
 
-		r.initialize.initInternalDatabase(models.Database{
+		if err := r.initializer.InitInternalDatabase(models.Database{
 			Name:          "_internal",
 			Cluster:       storageClusterName,
 			NumOfShard:    1,
@@ -124,7 +124,10 @@ func (r *runtime) Run() error {
 			Option: option.DatabaseOption{
 				Interval: "10s",
 			},
-		})
+		}); err != nil {
+			log.Error("init internal database with error", logger.Error(err))
+		}
+		log.Info("initialized internal database")
 	})
 
 	return nil
