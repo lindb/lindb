@@ -21,7 +21,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/rpc"
 	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
 )
 
@@ -32,23 +34,26 @@ type remoteReplicator struct {
 
 	//inFlight *InFlightReplica
 
-	rwMutex    sync.RWMutex
-	replicaCli replicaRpc.ReplicaServiceClient
+	cliFct        rpc.ClientStreamFactory
+	replicaCli    replicaRpc.ReplicaServiceClient
+	replicaStream replicaRpc.ReplicaService_ReplicaClient
+
+	rwMutex sync.RWMutex
 
 	logger *logger.Logger
 }
 
 // NewRemoteReplicator creates remote replicator.
 func NewRemoteReplicator(channel *ReplicatorChannel,
-	replicaCli replicaRpc.ReplicaServiceClient,
+	cliFct rpc.ClientStreamFactory,
 ) Replicator {
 	return &remoteReplicator{
 		replicator: replicator{
 			channel: channel,
 		},
-		replicaCli: replicaCli,
-		state:      ReplicatorInitState,
-		logger:     logger.GetLogger("replica", "remoteReplicator"),
+		cliFct: cliFct,
+		state:  ReplicatorInitState,
+		logger: logger.GetLogger("replica", "remoteReplicator"),
 	}
 }
 
@@ -60,15 +65,30 @@ func NewRemoteReplicator(channel *ReplicatorChannel,
 //    c. last remote ack index > current node's append index,
 //   	 need reset current append index/replica index, then return true.
 func (r *remoteReplicator) IsReady() bool {
-	//TODO check node is alive
-	r.rwMutex.RLock()
+	r.rwMutex.Lock()
 	if r.state == ReplicatorReadyState {
-		r.rwMutex.RUnlock()
+		r.rwMutex.Unlock()
 		return true
 	}
 
 	// replicator is not ready, need do init like tcp three-way handshake
-	defer r.rwMutex.RUnlock()
+	defer r.rwMutex.Unlock()
+
+	//TODO check node is alive
+	//TODO close cli/stream if re-connect???
+	replicaCli, err := r.cliFct.CreateReplicaServiceClient(models.Node{})
+	if err != nil {
+		//TODO add metric
+		r.logger.Warn("create replica service client err", logger.Error(err))
+		return false
+	}
+	r.replicaCli = replicaCli
+	r.replicaStream, err = replicaCli.Replica(context.TODO()) //TODO add timeout ??
+	if err != nil {
+		//TODO add metric
+		r.logger.Warn("create replica service client stream err", logger.Error(err))
+		return false
+	}
 
 	lastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
 	if err != nil {
@@ -129,13 +149,8 @@ func (r *remoteReplicator) IsReady() bool {
 
 // Replica sends data to remote replica node.
 func (r *remoteReplicator) Replica(idx int64, msg []byte) {
-	cli, err := r.replicaCli.Replica(context.TODO())
-	if err != nil {
-		r.state = ReplicatorFailureState
-		return
-	}
-
-	err = cli.Send(&replicaRpc.ReplicaRequest{
+	cli := r.replicaStream
+	err := cli.Send(&replicaRpc.ReplicaRequest{
 		ReplicaIndex: idx,
 		Record:       msg,
 	})

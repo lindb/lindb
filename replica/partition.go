@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -57,6 +58,7 @@ type partition struct {
 	shardID       models.ShardID
 	shard         tsdb.Shard
 	peers         map[string]ReplicatorPeer
+	cliFct        rpc.ClientStreamFactory
 
 	mutex sync.Mutex
 }
@@ -65,12 +67,14 @@ type partition struct {
 func NewPartition(shardID models.ShardID, shard tsdb.Shard,
 	currentNodeID models.NodeID,
 	log queue.FanOutQueue,
+	cliFct rpc.ClientStreamFactory,
 ) Partition {
 	return &partition{
 		log:           log,
 		shardID:       shardID,
 		shard:         shard,
 		currentNodeID: currentNodeID,
+		cliFct:        cliFct,
 		peers:         make(map[string]ReplicatorPeer),
 	}
 }
@@ -161,7 +165,7 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 			Queue:    nil, //TODO set queue
 			From:     leader,
 			To:       replica,
-		}, nil) //TODO set client
+		}, p.cliFct)
 	}
 
 	// startup replicator peer
