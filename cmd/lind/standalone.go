@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	standaloneCfgName = "standalone.toml"
+	standaloneCfgName     = "standalone.toml"
+	standaloneLogFileName = "lind-standalone.log"
 	// DefaultStandaloneCfgFile defines default config file path for standalone mode
 	defaultStandaloneCfgFile = "./" + standaloneCfgName
 )
@@ -84,7 +85,7 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	if err := ltoml.LoadConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode config file error: %s", err)
 	}
-	if err := logger.InitLogger(standaloneCfg.Logging); err != nil {
+	if err := logger.InitLogger(standaloneCfg.Logging, standaloneLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 
