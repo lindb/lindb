@@ -136,9 +136,6 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	}
 
 	err = cli.Send(&replicaRpc.ReplicaRequest{
-		Database:     r.channel.Database,
-		Shard:        int32(r.channel.ShardID),
-		Leader:       int32(r.channel.From),
 		ReplicaIndex: idx,
 		Record:       msg,
 	})

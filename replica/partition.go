@@ -43,7 +43,8 @@ type Partition interface {
 	// BuildReplicaForFollower builds replica relation when handle replica connection.
 	BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error
 	// ReplicaLog writes msg that leader send replica msg.
-	ReplicaLog(replicaIdx int64, msg []byte) error
+	// return appended index, if success.
+	ReplicaLog(replicaIdx int64, msg []byte) (int64, error)
 	// WriteLog writes msg that leader handle client write request.
 	WriteLog(msg []byte) error
 }
@@ -74,9 +75,17 @@ func NewPartition(shardID models.ShardID, shard tsdb.Shard,
 	}
 }
 
-func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) error {
-	//FIXME stone1100
-	panic("impl")
+// ReplicaLog writes msg that leader send replica msg.
+// return appended index, if success.
+func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
+	appendIdx := p.log.HeadSeq()
+	if replicaIdx != appendIdx {
+		return appendIdx, nil
+	}
+	if err := p.log.Put(msg); err != nil {
+		return -1, err
+	}
+	return appendIdx, nil
 }
 
 // ReplicaLog writes msg that leader send replica msg.

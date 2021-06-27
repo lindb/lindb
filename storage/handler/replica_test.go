@@ -68,6 +68,16 @@ func TestReplicaHandler_Write(t *testing.T) {
 	replicaServer.EXPECT().Context().Return(ctx)
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
+	// case 5: replicas is empty
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs("metaKeyDatabase", "test-db",
+			"metaKeyShardID", strconv.Itoa(1),
+			"metaKeyLeader", strconv.Itoa(2),
+			"metaKeyReplicas", `[]`,
+		))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Write(replicaServer)
+	assert.Error(t, err)
 	// case 5: create partition err
 	ctx = metadata.NewIncomingContext(context.TODO(),
 		metadata.Pairs("metaKeyDatabase", "test-db",
@@ -110,5 +120,89 @@ func TestReplicaHandler_Write(t *testing.T) {
 	replicaServer.EXPECT().Send(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
 	err = r.Write(replicaServer)
+	assert.NoError(t, err)
+}
+
+func TestReplicaHandler_Replica(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
+	replicaServer := replicaRpc.NewMockReplicaService_ReplicaServer(ctrl)
+	replicaServer.EXPECT().Context().Return(context.TODO())
+	r := NewReplicaHandler(walMgr, nil)
+
+	// case 1: database not exist
+	err := r.Replica(replicaServer)
+	assert.Error(t, err)
+	// case 2: shard not exist
+	ctx := metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs("metaKeyDatabase", "test-db"))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+	// case 3: leader not exist
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs("metaKeyDatabase", "test-db",
+			"metaKeyShardID", strconv.Itoa(1)))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+	// case 4: replicas not exist
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs("metaKeyDatabase", "test-db",
+			"metaKeyShardID", strconv.Itoa(1),
+			"metaKeyLeader", strconv.Itoa(2),
+		))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+	// case 5: create partition err
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs("metaKeyDatabase", "test-db",
+			"metaKeyShardID", strconv.Itoa(1),
+			"metaKeyLeader", strconv.Itoa(2),
+			"metaKeyReplica", `3`,
+		))
+	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
+	wal := replica.NewMockWriteAheadLog(ctrl)
+	walMgr.EXPECT().GetOrCreateLog(gomock.Any()).Return(wal).AnyTimes()
+	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+
+	// case 6: build replica replica err
+	p := replica.NewMockPartition(ctrl)
+	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(p, nil).AnyTimes()
+	p.EXPECT().BuildReplicaForFollower(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+
+	// case 7: recv req EOF
+	p.EXPECT().BuildReplicaForFollower(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
+	err = r.Replica(replicaServer)
+	assert.NoError(t, err)
+
+	// case 8: recv req err
+	replicaServer.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+
+	// case 9: replica log err
+	replicaServer.EXPECT().Recv().Return(&replicaRpc.ReplicaRequest{}, nil)
+	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(-1), fmt.Errorf("err"))
+	replicaServer.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
+	err = r.Replica(replicaServer)
+	assert.Error(t, err)
+
+	// case 9: replica log success
+	replicaServer.EXPECT().Recv().Return(&replicaRpc.ReplicaRequest{}, nil)
+	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(10), nil)
+	replicaServer.EXPECT().Send(gomock.Any()).Return(nil)
+	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
+	err = r.Replica(replicaServer)
 	assert.NoError(t, err)
 }
