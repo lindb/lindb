@@ -53,7 +53,6 @@ func init() {
 }
 
 const (
-	lindLogFilename   = "lind.log"
 	accessLogFileName = "access.log"
 )
 
@@ -88,8 +87,8 @@ func newDefaultLogger() *zap.Logger {
 }
 
 // InitLogger initializes a zap logger from user config
-func InitLogger(cfg config.Logging) error {
-	if err := initLogger(lindLogFilename, cfg); err != nil {
+func InitLogger(cfg config.Logging, fileName string) error {
+	if err := initLogger(fileName, cfg); err != nil {
 		return err
 	}
 	if err := initLogger(accessLogFileName, cfg); err != nil {
