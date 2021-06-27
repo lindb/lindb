@@ -40,6 +40,7 @@ const (
 	metaKeyShardID   = "metaKeyShardID"
 	metaKeyLeader    = "metaKeyLeader"
 	metaKeyReplicas  = "metaKeyReplicas"
+	metaKeyReplica   = "metaKeyReplica"
 )
 
 var (
@@ -239,6 +240,15 @@ func GetShardIDFromContext(ctx context.Context) (int32, error) {
 // GetLeaderFromContext returns leader's node id.
 func GetLeaderFromContext(ctx context.Context) (models.NodeID, error) {
 	nodeID, err := getIntFromContext(ctx, metaKeyLeader)
+	if err != nil {
+		return models.NodeID(-1), err
+	}
+	return models.NodeID(nodeID), nil
+}
+
+// GetFollowerFromContext returns follower's node id.
+func GetFollowerFromContext(ctx context.Context) (models.NodeID, error) {
+	nodeID, err := getIntFromContext(ctx, metaKeyReplica)
 	if err != nil {
 		return models.NodeID(-1), err
 	}
