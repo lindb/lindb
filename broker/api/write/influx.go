@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write
+package write //nolint:dupl
 
 import (
 	"github.com/gin-gonic/gin"

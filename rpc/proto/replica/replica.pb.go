@@ -429,6 +429,100 @@ func (m *ReplicaResponse) GetResponseTime() int64 {
 	return 0
 }
 
+type WriteRequest struct {
+	Record               []byte   `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteRequest) Reset()         { *m = WriteRequest{} }
+func (m *WriteRequest) String() string { return proto.CompactTextString(m) }
+func (*WriteRequest) ProtoMessage()    {}
+func (*WriteRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1e84aa831fb48ea1, []int{6}
+}
+func (m *WriteRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WriteRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WriteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteRequest.Merge(m, src)
+}
+func (m *WriteRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *WriteRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteRequest proto.InternalMessageInfo
+
+func (m *WriteRequest) GetRecord() []byte {
+	if m != nil {
+		return m.Record
+	}
+	return nil
+}
+
+type WriteResponse struct {
+	Err                  string   `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *WriteResponse) Reset()         { *m = WriteResponse{} }
+func (m *WriteResponse) String() string { return proto.CompactTextString(m) }
+func (*WriteResponse) ProtoMessage()    {}
+func (*WriteResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1e84aa831fb48ea1, []int{7}
+}
+func (m *WriteResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *WriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_WriteResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *WriteResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_WriteResponse.Merge(m, src)
+}
+func (m *WriteResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *WriteResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_WriteResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_WriteResponse proto.InternalMessageInfo
+
+func (m *WriteResponse) GetErr() string {
+	if m != nil {
+		return m.Err
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*ResetIndexRequest)(nil), "replica.ResetIndexRequest")
 	proto.RegisterType((*ResetIndexResponse)(nil), "replica.ResetIndexResponse")
@@ -436,34 +530,39 @@ func init() {
 	proto.RegisterType((*GetReplicaAckIndexResponse)(nil), "replica.GetReplicaAckIndexResponse")
 	proto.RegisterType((*ReplicaRequest)(nil), "replica.ReplicaRequest")
 	proto.RegisterType((*ReplicaResponse)(nil), "replica.ReplicaResponse")
+	proto.RegisterType((*WriteRequest)(nil), "replica.WriteRequest")
+	proto.RegisterType((*WriteResponse)(nil), "replica.WriteResponse")
 }
 
 func init() { proto.RegisterFile("replica.proto", fileDescriptor_1e84aa831fb48ea1) }
 
 var fileDescriptor_1e84aa831fb48ea1 = []byte{
-	// 344 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x93, 0xbf, 0x4e, 0xf3, 0x30,
-	0x14, 0xc5, 0xeb, 0xaf, 0x5f, 0x5a, 0xb8, 0x94, 0x7f, 0x57, 0x15, 0x98, 0x20, 0x45, 0x91, 0x59,
-	0x32, 0x55, 0x08, 0x16, 0x56, 0xba, 0x20, 0x56, 0xc3, 0x8e, 0xdc, 0xe4, 0x4a, 0x54, 0x94, 0x26,
-	0xd8, 0x01, 0xb1, 0xf1, 0x16, 0x88, 0xb7, 0x61, 0x65, 0xe4, 0x11, 0x50, 0x79, 0x0a, 0x36, 0x54,
-	0xc7, 0x4d, 0x83, 0x5a, 0x3a, 0x01, 0xe3, 0x39, 0xce, 0xc9, 0xfd, 0xe5, 0xfa, 0x04, 0x56, 0x35,
-	0x65, 0x83, 0x7e, 0xac, 0x3a, 0x99, 0x4e, 0xf3, 0x14, 0x9b, 0x4e, 0x8a, 0x07, 0xd8, 0x94, 0x64,
-	0x28, 0x3f, 0x1d, 0x26, 0x74, 0x2f, 0xe9, 0xe6, 0x96, 0x4c, 0x8e, 0x3e, 0x2c, 0x25, 0x2a, 0x57,
-	0x3d, 0x65, 0x88, 0xb3, 0x90, 0x45, 0xcb, 0xb2, 0xd4, 0xd8, 0x06, 0xcf, 0x5c, 0x2a, 0x9d, 0xf0,
-	0x7f, 0x21, 0x8b, 0x3c, 0x59, 0x08, 0xdc, 0x82, 0xc6, 0x80, 0x54, 0x42, 0x9a, 0xd7, 0xad, 0xed,
-	0x14, 0x86, 0xb0, 0xa2, 0xb2, 0x8c, 0x86, 0x89, 0x7d, 0x3f, 0xff, 0x1f, 0xb2, 0xa8, 0x2e, 0xab,
-	0x96, 0x68, 0x03, 0x56, 0x01, 0x4c, 0x96, 0x0e, 0x0d, 0x09, 0x82, 0x9d, 0x13, 0xca, 0x65, 0x01,
-	0x79, 0x1c, 0x5f, 0xfd, 0x0e, 0x9e, 0x38, 0x02, 0x7f, 0xde, 0x98, 0x02, 0x62, 0x3c, 0x47, 0x39,
-	0x8f, 0x7b, 0x96, 0xbc, 0xd4, 0xe2, 0x91, 0xc1, 0x9a, 0xcb, 0xfd, 0xfc, 0xd6, 0x04, 0xb4, 0xdc,
-	0xfd, 0x54, 0xd7, 0xf6, 0xc5, 0x1b, 0x67, 0x35, 0xc5, 0xa9, 0x4e, 0x2c, 0x5a, 0x4b, 0x3a, 0x25,
-	0x9e, 0x19, 0xac, 0x97, 0x60, 0xd3, 0x0f, 0xf9, 0x43, 0xb2, 0x05, 0x6b, 0x2b, 0xf2, 0x05, 0xd5,
-	0x79, 0xff, 0x9a, 0x78, 0x63, 0x92, 0x9f, 0x7a, 0x07, 0x1f, 0xd3, 0xd5, 0x9e, 0x91, 0xbe, 0xeb,
-	0xc7, 0x84, 0x5d, 0xf0, 0x6c, 0x49, 0xd0, 0xef, 0x4c, 0x7a, 0x3c, 0xd3, 0x5a, 0x7f, 0x77, 0xee,
-	0x99, 0x2b, 0x54, 0x0d, 0x2f, 0x00, 0x67, 0xef, 0x1a, 0x45, 0x19, 0xfa, 0xb6, 0x6f, 0xfe, 0xde,
-	0xc2, 0x67, 0xca, 0x01, 0x5d, 0x68, 0xba, 0x43, 0xdc, 0xae, 0xa0, 0x54, 0x3b, 0xe2, 0xf3, 0xd9,
-	0x83, 0x49, 0x3e, 0x62, 0xfb, 0xac, 0xbb, 0xf1, 0x32, 0x0a, 0xd8, 0xeb, 0x28, 0x60, 0x6f, 0xa3,
-	0x80, 0x3d, 0xbd, 0x07, 0xb5, 0x5e, 0xc3, 0xfe, 0xb0, 0x87, 0x9f, 0x01, 0x00, 0x00, 0xff, 0xff,
-	0x76, 0x90, 0xa0, 0x77, 0xc1, 0x03, 0x00, 0x00,
+	// 391 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x54, 0xc1, 0x4e, 0xc2, 0x40,
+	0x10, 0x65, 0xc1, 0x82, 0x8e, 0xa0, 0x38, 0x41, 0xac, 0x35, 0x69, 0xea, 0x9a, 0x98, 0x9e, 0x88,
+	0xd1, 0x8b, 0x07, 0x2f, 0x72, 0x31, 0x5e, 0xab, 0x89, 0x47, 0xb3, 0xb4, 0x93, 0xd8, 0x88, 0xb4,
+	0x6e, 0xab, 0xf1, 0xe6, 0x5f, 0x18, 0xff, 0xc4, 0xa3, 0x57, 0x8f, 0x7e, 0x82, 0xc1, 0x1f, 0x31,
+	0xb4, 0xdb, 0x52, 0x04, 0x39, 0xa9, 0x37, 0xde, 0xdb, 0x79, 0xcc, 0x9b, 0xb7, 0xb3, 0x85, 0x86,
+	0xa4, 0xb0, 0xef, 0xbb, 0xa2, 0x13, 0xca, 0x20, 0x0e, 0xb0, 0xa6, 0x20, 0x7f, 0x84, 0x35, 0x87,
+	0x22, 0x8a, 0x4f, 0x07, 0x1e, 0x3d, 0x38, 0x74, 0x7b, 0x47, 0x51, 0x8c, 0x06, 0x2c, 0x7a, 0x22,
+	0x16, 0x3d, 0x11, 0x91, 0xce, 0x2c, 0x66, 0x2f, 0x39, 0x39, 0xc6, 0x16, 0x68, 0xd1, 0x95, 0x90,
+	0x9e, 0x5e, 0xb6, 0x98, 0xad, 0x39, 0x29, 0xc0, 0x36, 0x54, 0xfb, 0x24, 0x3c, 0x92, 0x7a, 0x25,
+	0xa1, 0x15, 0x42, 0x0b, 0x96, 0x45, 0x18, 0xd2, 0xc0, 0x4b, 0xfe, 0x5f, 0x5f, 0xb0, 0x98, 0x5d,
+	0x71, 0x8a, 0x14, 0x6f, 0x01, 0x16, 0x0d, 0x44, 0x61, 0x30, 0x88, 0x88, 0x13, 0x6c, 0x9e, 0x50,
+	0xec, 0xa4, 0x26, 0x8f, 0xdd, 0xeb, 0xbf, 0xb1, 0xc7, 0x0f, 0xc1, 0x98, 0xd5, 0x26, 0x35, 0x31,
+	0xea, 0x23, 0x14, 0xa7, 0x6b, 0x89, 0xf3, 0x1c, 0xf3, 0x27, 0x06, 0x2b, 0x4a, 0xf7, 0xfb, 0xa9,
+	0x71, 0xa8, 0xab, 0xfb, 0x29, 0xc6, 0x36, 0xc1, 0x8d, 0xb4, 0x92, 0xdc, 0x40, 0x7a, 0x89, 0xb5,
+	0xba, 0xa3, 0x10, 0x7f, 0x65, 0xb0, 0x9a, 0x1b, 0x1b, 0x0f, 0xf2, 0x8f, 0xce, 0xe6, 0xc4, 0x96,
+	0xea, 0x53, 0x57, 0xe7, 0xfe, 0x0d, 0xe9, 0xd5, 0x4c, 0x3f, 0xe6, 0xf8, 0x2e, 0xd4, 0x2f, 0xa4,
+	0x1f, 0x53, 0x96, 0xeb, 0x78, 0x52, 0x36, 0x31, 0xe9, 0x36, 0x34, 0x54, 0x9d, 0x1a, 0xb3, 0x09,
+	0x15, 0x92, 0x52, 0x4d, 0x38, 0xfa, 0xb9, 0xff, 0x52, 0xce, 0x6f, 0xe9, 0x8c, 0xe4, 0xbd, 0xef,
+	0x12, 0x76, 0x41, 0x4b, 0xf6, 0x0d, 0x8d, 0x4e, 0xf6, 0x24, 0xa6, 0x1e, 0x80, 0xb1, 0x35, 0xf3,
+	0x4c, 0xed, 0x66, 0x09, 0x2f, 0x01, 0xa7, 0xd7, 0x06, 0x79, 0x2e, 0xfa, 0x71, 0x75, 0x8d, 0x9d,
+	0xb9, 0x35, 0x79, 0x83, 0x2e, 0xd4, 0xd4, 0x21, 0x6e, 0x14, 0xac, 0x14, 0xd7, 0xcd, 0xd0, 0xa7,
+	0x0f, 0x32, 0xbd, 0xcd, 0xf6, 0x18, 0x1e, 0x81, 0x96, 0xc4, 0x83, 0xeb, 0x79, 0x61, 0x31, 0x56,
+	0xa3, 0xfd, 0x9d, 0x2e, 0xaa, 0xbb, 0xcd, 0xb7, 0xa1, 0xc9, 0xde, 0x87, 0x26, 0xfb, 0x18, 0x9a,
+	0xec, 0xf9, 0xd3, 0x2c, 0xf5, 0xaa, 0xc9, 0x97, 0xe3, 0xe0, 0x2b, 0x00, 0x00, 0xff, 0xff, 0xad,
+	0x6c, 0x1f, 0x2c, 0x4a, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -481,6 +580,7 @@ type ReplicaServiceClient interface {
 	Reset(ctx context.Context, in *ResetIndexRequest, opts ...grpc.CallOption) (*ResetIndexResponse, error)
 	GetReplicaAckIndex(ctx context.Context, in *GetReplicaAckIndexRequest, opts ...grpc.CallOption) (*GetReplicaAckIndexResponse, error)
 	Replica(ctx context.Context, opts ...grpc.CallOption) (ReplicaService_ReplicaClient, error)
+	Write(ctx context.Context, opts ...grpc.CallOption) (ReplicaService_WriteClient, error)
 }
 
 type replicaServiceClient struct {
@@ -540,11 +640,43 @@ func (x *replicaServiceReplicaClient) Recv() (*ReplicaResponse, error) {
 	return m, nil
 }
 
+func (c *replicaServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (ReplicaService_WriteClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ReplicaService_serviceDesc.Streams[1], "/replica.ReplicaService/Write", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &replicaServiceWriteClient{stream}
+	return x, nil
+}
+
+type ReplicaService_WriteClient interface {
+	Send(*WriteRequest) error
+	Recv() (*WriteResponse, error)
+	grpc.ClientStream
+}
+
+type replicaServiceWriteClient struct {
+	grpc.ClientStream
+}
+
+func (x *replicaServiceWriteClient) Send(m *WriteRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *replicaServiceWriteClient) Recv() (*WriteResponse, error) {
+	m := new(WriteResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ReplicaServiceServer is the server API for ReplicaService service.
 type ReplicaServiceServer interface {
 	Reset(context.Context, *ResetIndexRequest) (*ResetIndexResponse, error)
 	GetReplicaAckIndex(context.Context, *GetReplicaAckIndexRequest) (*GetReplicaAckIndexResponse, error)
 	Replica(ReplicaService_ReplicaServer) error
+	Write(ReplicaService_WriteServer) error
 }
 
 // UnimplementedReplicaServiceServer can be embedded to have forward compatible implementations.
@@ -559,6 +691,9 @@ func (*UnimplementedReplicaServiceServer) GetReplicaAckIndex(ctx context.Context
 }
 func (*UnimplementedReplicaServiceServer) Replica(srv ReplicaService_ReplicaServer) error {
 	return status.Errorf(codes.Unimplemented, "method Replica not implemented")
+}
+func (*UnimplementedReplicaServiceServer) Write(srv ReplicaService_WriteServer) error {
+	return status.Errorf(codes.Unimplemented, "method Write not implemented")
 }
 
 func RegisterReplicaServiceServer(s *grpc.Server, srv ReplicaServiceServer) {
@@ -627,6 +762,32 @@ func (x *replicaServiceReplicaServer) Recv() (*ReplicaRequest, error) {
 	return m, nil
 }
 
+func _ReplicaService_Write_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ReplicaServiceServer).Write(&replicaServiceWriteServer{stream})
+}
+
+type ReplicaService_WriteServer interface {
+	Send(*WriteResponse) error
+	Recv() (*WriteRequest, error)
+	grpc.ServerStream
+}
+
+type replicaServiceWriteServer struct {
+	grpc.ServerStream
+}
+
+func (x *replicaServiceWriteServer) Send(m *WriteResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *replicaServiceWriteServer) Recv() (*WriteRequest, error) {
+	m := new(WriteRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _ReplicaService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "replica.ReplicaService",
 	HandlerType: (*ReplicaServiceServer)(nil),
@@ -644,6 +805,12 @@ var _ReplicaService_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Replica",
 			Handler:       _ReplicaService_Replica_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "Write",
+			Handler:       _ReplicaService_Write_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
@@ -918,6 +1085,74 @@ func (m *ReplicaResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *WriteRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WriteRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WriteRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Record) > 0 {
+		i -= len(m.Record)
+		copy(dAtA[i:], m.Record)
+		i = encodeVarintReplica(dAtA, i, uint64(len(m.Record)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *WriteResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WriteResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WriteResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Err) > 0 {
+		i -= len(m.Err)
+		copy(dAtA[i:], m.Err)
+		i = encodeVarintReplica(dAtA, i, uint64(len(m.Err)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintReplica(dAtA []byte, offset int, v uint64) int {
 	offset -= sovReplica(v)
 	base := offset
@@ -1056,6 +1291,38 @@ func (m *ReplicaResponse) Size() (n int) {
 	}
 	if m.ResponseTime != 0 {
 		n += 1 + sovReplica(uint64(m.ResponseTime))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *WriteRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Record)
+	if l > 0 {
+		n += 1 + l + sovReplica(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *WriteResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Err)
+	if l > 0 {
+		n += 1 + l + sovReplica(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1796,6 +2063,180 @@ func (m *ReplicaResponse) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipReplica(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WriteRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowReplica
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WriteRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WriteRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Record", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowReplica
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthReplica
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Record = append(m.Record[:0], dAtA[iNdEx:postIndex]...)
+			if m.Record == nil {
+				m.Record = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipReplica(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *WriteResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowReplica
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: WriteResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: WriteResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Err", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowReplica
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthReplica
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Err = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipReplica(dAtA[iNdEx:])
