@@ -125,6 +125,9 @@ func TestPartition_WriteLog(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	p := NewPartition(1, nil, 1, l)
 	l.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
-	err := p.WriteLog([]byte{})
+	err := p.WriteLog([]byte{1})
 	assert.Error(t, err)
+	// msg is empty
+	err = p.WriteLog(nil)
+	assert.NoError(t, err)
 }
