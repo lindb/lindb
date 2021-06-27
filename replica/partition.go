@@ -81,6 +81,9 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) error {
 
 // ReplicaLog writes msg that leader send replica msg.
 func (p *partition) WriteLog(msg []byte) error {
+	if len(msg) == 0 {
+		return nil
+	}
 	return p.log.Put(msg)
 }
 
@@ -113,7 +116,7 @@ func (p *partition) BuildReplicaForFollower(leader models.NodeID, replica models
 func (p *partition) Close() error {
 	var waiter sync.WaitGroup
 	waiter.Add(len(p.peers))
-	for k, _ := range p.peers {
+	for k := range p.peers {
 		r := p.peers[k]
 		go func() {
 			waiter.Done()
@@ -127,6 +130,7 @@ func (p *partition) Close() error {
 	return nil
 }
 
+// buildReplica builds replica replication based on leader/follower node.
 func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -155,6 +159,4 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 	peer := NewReplicatorPeer(replicator)
 	p.peers[key] = peer
 	peer.Startup()
-
-	return
 }

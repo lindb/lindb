@@ -40,11 +40,21 @@ message ReplicaResponse {
     int64 responseTime = 6;
 }
 
+message WriteRequest {
+    bytes record = 1;
+}
+
+message WriteResponse {
+    string err = 1;
+}
+
 service ReplicaService {
     rpc Reset (ResetIndexRequest) returns (ResetIndexResponse) {
     }
     rpc GetReplicaAckIndex (GetReplicaAckIndexRequest) returns (GetReplicaAckIndexResponse) {
     }
     rpc Replica (stream ReplicaRequest) returns (stream ReplicaResponse) {
+    }
+    rpc Write (stream WriteRequest) returns (stream WriteResponse) {
     }
 }

@@ -19,6 +19,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"sync"
@@ -37,6 +38,8 @@ const (
 	metaKeyLogicNode = "metaKeyLogicNode"
 	metaKeyDatabase  = "metaKeyDatabase"
 	metaKeyShardID   = "metaKeyShardID"
+	metaKeyLeader    = "metaKeyLeader"
+	metaKeyReplicas  = "metaKeyReplicas"
 )
 
 var (
@@ -199,10 +202,10 @@ func CreateOutgoingContextWithNode(ctx context.Context, node models.Node) contex
 }
 
 // getStringFromContext retrieving string metaValue from context for metaKey.
-func getStringFromContext(cxt context.Context, metaKey string) (string, error) {
-	md, ok := metadata.FromIncomingContext(cxt)
+func getStringFromContext(ctx context.Context, metaKey string) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return "", errors.New("meta data not exists")
+		return "", errors.New("meta data not exists, key: " + metaKey)
 	}
 
 	strList := md.Get(metaKey)
@@ -214,8 +217,8 @@ func getStringFromContext(cxt context.Context, metaKey string) (string, error) {
 }
 
 // GetLogicNodeFromContext returns the logicNode.
-func GetLogicNodeFromContext(cxt context.Context) (*models.Node, error) {
-	strVal, err := getStringFromContext(cxt, metaKeyLogicNode)
+func GetLogicNodeFromContext(ctx context.Context) (*models.Node, error) {
+	strVal, err := getStringFromContext(ctx, metaKeyLogicNode)
 	if err != nil {
 		return nil, err
 	}
@@ -224,13 +227,40 @@ func GetLogicNodeFromContext(cxt context.Context) (*models.Node, error) {
 }
 
 // GetDatabaseFromContext returns database.
-func GetDatabaseFromContext(cxt context.Context) (string, error) {
-	return getStringFromContext(cxt, metaKeyDatabase)
+func GetDatabaseFromContext(ctx context.Context) (string, error) {
+	return getStringFromContext(ctx, metaKeyDatabase)
 }
 
 // GetShardIDFromContext returns shardID.
-func GetShardIDFromContext(cxt context.Context) (int32, error) {
-	strVal, err := getStringFromContext(cxt, metaKeyShardID)
+func GetShardIDFromContext(ctx context.Context) (int32, error) {
+	return getIntFromContext(ctx, metaKeyShardID)
+}
+
+// GetLeaderFromContext returns leader's node id.
+func GetLeaderFromContext(ctx context.Context) (models.NodeID, error) {
+	nodeID, err := getIntFromContext(ctx, metaKeyLeader)
+	if err != nil {
+		return models.NodeID(-1), err
+	}
+	return models.NodeID(nodeID), nil
+}
+
+// GetReplicasFromContext returns replicas' node id.
+func GetReplicasFromContext(ctx context.Context) ([]models.NodeID, error) {
+	nodeIDs, err := getStringFromContext(ctx, metaKeyReplicas)
+	if err != nil {
+		return nil, err
+	}
+	var replicas []models.NodeID
+	if err := json.Unmarshal([]byte(nodeIDs), &replicas); err != nil {
+		return nil, err
+	}
+	return replicas, nil
+}
+
+// getIntFromContext retrieving int metaValue from context for metaKey.
+func getIntFromContext(ctx context.Context, metaKey string) (int32, error) {
+	strVal, err := getStringFromContext(ctx, metaKey)
 	if err != nil {
 		return -1, err
 	}
