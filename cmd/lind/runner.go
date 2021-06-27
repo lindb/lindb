@@ -43,7 +43,9 @@ func run(ctx context.Context, service server.Service) error {
 	if debug {
 		logger.RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
 		go func() {
-			http.ListenAndServe(":6060", nil)
+			if err := http.ListenAndServe(":6060", nil); err != nil {
+				mainLogger.Error("close debug http listener with err", logger.Error(err))
+			}
 		}()
 		mainLogger.Info("pprof listening on 6060")
 	}
@@ -57,9 +59,7 @@ func run(ctx context.Context, service server.Service) error {
 	<-ctx.Done()
 
 	// stop service
-	if err := service.Stop(); err != nil {
-		return fmt.Errorf("stop service[%s] error:%s", service.Name(), err)
-	}
+	service.Stop()
 
 	return nil
 }

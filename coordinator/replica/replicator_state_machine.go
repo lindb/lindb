@@ -60,8 +60,10 @@ type replicatorStateMachine struct {
 
 // NewReplicatorStateMachine creates the state machine
 func NewReplicatorStateMachine(ctx context.Context,
-	cm replication.ChannelManager, shardAssignService service.ShardAssignService,
-	discoveryFactory discovery.Factory) (ReplicatorStateMachine, error) {
+	cm replication.ChannelManager,
+	shardAssignService service.ShardAssignService,
+	discoveryFactory discovery.Factory,
+) (ReplicatorStateMachine, error) {
 	shardAssigns, err := shardAssignService.List()
 	if err != nil {
 		return nil, err

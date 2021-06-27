@@ -30,6 +30,10 @@ import (
 
 //go:generate mockgen -source=./shard_assign.go -destination=./shard_assign_mock.go -package service
 
+var (
+	shardAssignServiceLogger = logger.GetLogger("service", "ShardAssignService")
+)
+
 // ShardAssignService represents database shard assignment maintain
 // Master generates assignment, then storing into related storage cluster's state repo.
 // Storage node will create the time series engine based on related shard assignment.
@@ -66,9 +70,8 @@ func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
 		shardAssign := &models.ShardAssignment{}
 		err = encoding.JSONUnmarshal(val.Value, shardAssign)
 		if err != nil {
-			logger.GetLogger("service", "ShardAssignService").
-				Warn("unmarshal data error",
-					logger.String("data", string(val.Value)))
+			shardAssignServiceLogger.Warn("unmarshal data error",
+				logger.String("data", string(val.Value)))
 		} else {
 			result = append(result, shardAssign)
 		}

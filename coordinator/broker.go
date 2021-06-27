@@ -46,14 +46,17 @@ func NewBrokerStateMachines(factory StateMachineFactory) *BrokerStateMachines {
 
 // Start starts related state machines for broker
 func (s *BrokerStateMachines) Start() (err error) {
+	s.log.Info("starting BrokerStateMachines")
 	s.NodeSM, err = s.factory.CreateNodeStateMachine()
 	if err != nil {
 		return err
 	}
+	s.log.Debug("started NodeStateMachine")
 	s.ReplicatorSM, err = s.factory.CreateReplicatorStateMachine()
 	if err != nil {
 		return err
 	}
+	s.log.Debug("started ReplicatorStateMachine")
 	s.StorageSM, err = s.factory.CreateStorageStateMachine()
 	if err != nil {
 		return err
@@ -62,10 +65,13 @@ func (s *BrokerStateMachines) Start() (err error) {
 	if err != nil {
 		return err
 	}
+	s.log.Debug("started ReplicaStatusStateMachine")
 	s.DatabaseSM, err = s.factory.CreateDatabaseStateMachine()
 	if err != nil {
 		return err
 	}
+	s.log.Debug("started DatabaseStateMachine")
+	s.log.Info("started BrokerStateMachines")
 	return nil
 }
 
