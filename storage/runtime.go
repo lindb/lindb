@@ -75,7 +75,7 @@ var hostName = os.Hostname
 type runtime struct {
 	state   server.State
 	version string
-	config  config.Storage
+	config  *config.Storage
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -97,7 +97,7 @@ type runtime struct {
 }
 
 // NewStorageRuntime creates storage runtime
-func NewStorageRuntime(version string, config config.Storage) server.Service {
+func NewStorageRuntime(version string, config *config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		state:       server.New,
@@ -188,55 +188,69 @@ func (r *runtime) startStateRepo() error {
 }
 
 // Stop stops storage server
-func (r *runtime) Stop() error {
+func (r *runtime) Stop() {
+	r.log.Info("stopping storage server...")
 	defer r.cancel()
 
 	if r.pusher != nil {
 		r.pusher.Stop()
+		r.log.Info("stopped prometheus pusher successfully")
 	}
 
 	if r.taskExecutor != nil {
+		r.log.Info("stopping task executor")
 		if err := r.taskExecutor.Close(); err != nil {
-			r.log.Error("close task executor error", logger.Error(err))
+			r.log.Error("stopped task executor with error", logger.Error(err))
+		} else {
+			r.log.Info("stooped task executor successfully")
 		}
 	}
 
 	// close registry, deregister storage node from active list
 	if r.registry != nil {
+		r.log.Info("closing discovery-registry...")
 		if err := r.registry.Close(); err != nil {
 			r.log.Error("unregister storage node error", logger.Error(err))
+		} else {
+			r.log.Info("closed discovery-registry successfully")
 		}
 	}
 
 	// close state repo if exist
 	if r.repo != nil {
-		r.log.Info("closing state repo")
+		r.log.Info("closing state repo...")
 		if err := r.repo.Close(); err != nil {
 			r.log.Error("close state repo error, when storage stop", logger.Error(err))
+		} else {
+			r.log.Info("closed state repo successfully")
 		}
 	}
 
 	if r.httpServer != nil {
-		r.log.Info("starting shutdown http server")
+		r.log.Info("stopping http server...")
 		if err := r.httpServer.Shutdown(r.ctx); err != nil {
-			r.log.Error("shutdown http server error", logger.Error(err))
+			r.log.Error("stopped http server with error", logger.Error(err))
+		} else {
+			r.log.Info("stopped http server successfully")
 		}
 	}
 
 	// finally shutdown rpc server
 	if r.server != nil {
-		r.log.Info("stopping grpc server")
+		r.log.Info("stopping GRPC server...")
 		r.server.Stop()
+		r.log.Info("stopped GRPC server")
 	}
 
 	// close the storage engine
 	if r.srv.storageService != nil {
+		r.log.Info("stopping storage engine...")
 		r.srv.storageService.Close()
+		r.log.Info("stopped storage engine")
 	}
 
-	r.log.Info("storage server stop complete")
+	r.log.Info("stopped storage server successfully")
 	r.state = server.Terminated
-	return nil
 }
 
 // buildServiceDependency builds broker service dependency

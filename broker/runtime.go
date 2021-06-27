@@ -80,7 +80,7 @@ type rpcHandler struct {
 type runtime struct {
 	version string
 	state   server.State
-	config  config.Broker
+	config  *config.Broker
 	node    models.Node
 	// init value when runtime
 	repo          state.Repository
@@ -104,7 +104,7 @@ type runtime struct {
 }
 
 // NewBrokerRuntime creates broker runtime
-func NewBrokerRuntime(version string, config config.Broker) server.Service {
+func NewBrokerRuntime(version string, config *config.Broker) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		version:     version,
@@ -214,56 +214,67 @@ func (r *runtime) State() server.State {
 }
 
 // Stop stops broker server,
-func (r *runtime) Stop() error {
-	r.log.Info("stopping broker server.....")
+func (r *runtime) Stop() {
+	r.log.Info("stopping broker server...")
 	defer r.cancel()
 
 	if r.pusher != nil {
 		r.pusher.Stop()
+		r.log.Info("stopped prometheus pusher successfully")
 	}
 
 	if r.httpServer != nil {
-		r.log.Info("starting shutdown http server")
+		r.log.Info("stopping http server...")
 		if err := r.httpServer.Close(r.ctx); err != nil {
 			r.log.Error("shutdown http server error", logger.Error(err))
+		} else {
+			r.log.Info("stopped http server successfully")
 		}
 	}
 
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
+		r.log.Info("closing discovery-registry...")
 		if err := r.registry.Close(); err != nil {
 			r.log.Error("unregister broker node error", logger.Error(err))
+		} else {
+			r.log.Info("closed discovery-registry successfully")
 		}
 	}
 
 	if r.master != nil {
+		r.log.Info("stopping master...")
 		r.master.Stop()
 	}
 
 	if r.stateMachines != nil {
+		r.log.Info("stopping broker-state-machines...")
 		r.stateMachines.Stop()
 	}
 
 	if r.repo != nil {
-		r.log.Info("closing state repo")
+		r.log.Info("closing state repo...")
 		if err := r.repo.Close(); err != nil {
 			r.log.Error("close state repo error, when broker stop", logger.Error(err))
+		} else {
+			r.log.Info("closed state repo successfully")
 		}
 	}
 
 	// finally shutdown rpc server
 	if r.grpcServer != nil {
-		r.log.Info("stopping grpc server")
+		r.log.Info("stopping grpc server...")
 		r.grpcServer.Stop()
+		r.log.Info("stoped grpc server successfully")
 	}
 
-	r.log.Info("broker server stop complete")
+	r.log.Info("stopped broker server successfully")
 	r.state = server.Terminated
-	return nil
 }
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
+	r.log.Info("starting HTTP server")
 	r.httpServer = NewHTTPServer(r.config.BrokerBase.HTTP)
 	// TODO set ctx
 	httpAPI := api.NewAPI(context.TODO(), &deps.HTTPDeps{
@@ -327,6 +338,7 @@ func (r *runtime) buildServiceDependency() {
 
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
+	r.log.Info("starting GRPC server")
 	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.BrokerBase.GRPC.Port))
 
 	// bind grpc handlers

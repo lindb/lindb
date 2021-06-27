@@ -46,7 +46,7 @@ type runtime struct {
 	version     string
 	state       server.State
 	repoFactory state.RepositoryFactory
-	cfg         config.Standalone
+	cfg         *config.Standalone
 	etcd        *embed.Etcd
 	broker      server.Service
 	storage     server.Service
@@ -59,7 +59,7 @@ type runtime struct {
 }
 
 // NewStandaloneRuntime creates the runtime
-func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service {
+func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		version:     version,
@@ -67,12 +67,12 @@ func NewStandaloneRuntime(version string, cfg config.Standalone) server.Service 
 		delayInit:   5 * time.Second,
 		repoFactory: state.NewRepositoryFactory("standalone"),
 		broker: broker.NewBrokerRuntime(version,
-			config.Broker{
+			&config.Broker{
 				BrokerBase: cfg.BrokerBase,
 				Monitor:    cfg.Monitor,
 			}),
 		storage: storage.NewStorageRuntime(version,
-			config.Storage{
+			&config.Storage{
 				StorageBase: cfg.StorageBase,
 				Monitor:     cfg.Monitor,
 			}),
@@ -150,26 +150,19 @@ func (r *runtime) State() server.State {
 }
 
 // Stop stops the cluster
-func (r *runtime) Stop() error {
+func (r *runtime) Stop() {
 	defer r.cancel()
 	if r.broker != nil {
-		if err := r.broker.Stop(); err != nil {
-			log.Error("stop broker server", logger.Error(err))
-		}
-		log.Info("broker server stopped")
+		r.broker.Stop()
 	}
 	if r.storage != nil {
-		if err := r.storage.Stop(); err != nil {
-			log.Error("stop storage server", logger.Error(err))
-		}
-		log.Info("storage server stopped")
+		r.storage.Stop()
 	}
 	if r.etcd != nil {
 		r.etcd.Close()
-		log.Info("etcd server stopped")
+		log.Info("stopped etcd server")
 	}
 	r.state = server.Terminated
-	return nil
 }
 
 // startETCD starts embed etcd server

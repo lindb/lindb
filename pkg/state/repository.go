@@ -139,7 +139,7 @@ func NewRepositoryFactory(owner string) RepositoryFactory {
 
 // CreateRepo creates state repository based on config
 func (f *repositoryFactory) CreateRepo(repoState config.RepoState) (Repository, error) {
-	return newEtedRepository(repoState, f.owner)
+	return newEtcdRepository(repoState, f.owner)
 }
 
 type Transaction interface {
