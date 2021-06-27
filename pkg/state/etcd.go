@@ -122,9 +122,7 @@ func (r *etcdRepository) Close() error {
 func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error) {
 	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, false)
 	h.withLogger(r.logger)
-	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
-	defer cancelFunc()
-	_, err := h.grantKeepAliveLease(thisCtx)
+	_, err := h.grantKeepAliveLease(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +131,7 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 	go func() {
 		// close closed channel, if keep alive stopped
 		defer close(ch)
-		h.keepAlive(thisCtx)
+		h.keepAlive(ctx)
 	}()
 	return ch, nil
 }
