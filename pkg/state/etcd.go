@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 
 	etcdcliv3 "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/concurrency"
 	"google.golang.org/grpc"
 )
 
@@ -238,6 +240,42 @@ func (r *etcdRepository) Commit(ctx context.Context, txn Transaction) error {
 	}
 	resp, err := r.client.Txn(ctx).If(t.cmps...).Then(t.ops...).Commit()
 	return TxnErr(resp, err)
+}
+
+// NextSequence returns next sequence number.
+func (r *etcdRepository) NextSequence(ctx context.Context, key string) (int64, error) {
+	s, err := concurrency.NewSession(r.client) // explore options to pass
+	if err != nil {
+		return 0, err
+	}
+
+	m := concurrency.NewMutex(s, key)
+
+	if err := m.Lock(ctx); err != nil {
+		return 0, err
+	}
+	defer m.Unlock(ctx)
+
+	resp, err := r.client.Get(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	var seq int64
+	if resp.Count > 0 {
+		seq, err = strconv.ParseInt(string(resp.OpResponse().Get().Kvs[0].Value), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		seq++
+	} else {
+		seq = 1 // init value
+	}
+
+	_, err = r.client.Put(ctx, key, strconv.FormatInt(seq, 10))
+	if err != nil {
+		return 0, err
+	}
+	return seq, nil
 }
 
 // keyPath return new key path with namespace prefix
