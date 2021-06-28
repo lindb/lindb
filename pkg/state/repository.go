@@ -63,6 +63,8 @@ type Repository interface {
 	WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan
 	// Batch puts k/v list, this operation is atomic
 	Batch(ctx context.Context, batch Batch) (bool, error)
+	// NextSequence returns next sequence number.
+	NextSequence(ctx context.Context, key string) (int64, error)
 	// NewTransaction creates a new transaction
 	NewTransaction() Transaction
 	// Commit commits the transaction, if fail return err
