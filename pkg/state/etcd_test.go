@@ -380,3 +380,47 @@ func (ts *testEtcdRepoSuite) TestTransaction(c *check.C) {
 
 	c.Assert(TxnErr(nil, fmt.Errorf("err")), check.NotNil)
 }
+
+func (ts *testEtcdRepoSuite) TestNextSequence(c *check.C) {
+	b, _ := newEtcdRepository(config.RepoState{
+		Endpoints: ts.Cluster.Endpoints,
+	}, "nobody")
+	repo := b.(*etcdRepository)
+	repo.timeout = time.Second * 10
+
+	seq, err := repo.NextSequence(context.TODO(), "/test/seq")
+	c.Assert(err, check.IsNil)
+	c.Assert(int64(1), check.Equals, seq)
+	for i := 2; i < 10; i++ {
+		seq, err = repo.NextSequence(context.TODO(), "/test/seq")
+		c.Assert(err, check.IsNil)
+		c.Assert(int64(i), check.Equals, seq)
+	}
+}
+
+func (ts *testEtcdRepoSuite) TestNextSequence_Concurrency(c *check.C) {
+	b, _ := newEtcdRepository(config.RepoState{
+		Endpoints: ts.Cluster.Endpoints,
+	}, "nobody")
+	repo := b.(*etcdRepository)
+	repo.timeout = time.Minute
+
+	var wait sync.WaitGroup
+	wait.Add(10)
+	var rs sync.Map
+	for i := 0; i < 10; i++ {
+		go func() {
+			defer wait.Done()
+			for j := 0; j < 10; j++ {
+				seq, err := repo.NextSequence(context.TODO(), "/test/seq")
+				c.Assert(err, check.IsNil)
+				rs.Store(seq, seq)
+			}
+		}()
+	}
+	wait.Wait()
+	for i := 1; i <= 100; i++ {
+		_, ok := rs.Load(int64(i))
+		c.Assert(ok, check.Equals, ok)
+	}
+}
