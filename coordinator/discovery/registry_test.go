@@ -19,6 +19,7 @@ package discovery
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -58,7 +59,7 @@ func TestRegistry(t *testing.T) {
 	close(closedCh)
 	time.Sleep(600 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/%s", testRegistryPath, node.Indicator())
+	nodePath := fmt.Sprintf("%s/data/%s", testRegistryPath, node.Indicator())
 	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
 	err = registry1.Deregister(node)
 	assert.Nil(t, err)
@@ -81,4 +82,42 @@ func TestRegistry(t *testing.T) {
 		r.cancel()
 	})
 	r.register("/data/pant", node)
+}
+
+func TestRegistry_GenerateNodeID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+
+	registry1 := NewRegistry(repo, testRegistryPath, 100)
+	// case 1: get err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	_, err := registry1.GenerateNodeID(models.Node{})
+	assert.Error(t, err)
+
+	// case 2: get data ok
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte(strconv.FormatInt(10, 10)), nil)
+	id, err := registry1.GenerateNodeID(models.Node{})
+	assert.NoError(t, err)
+	assert.Equal(t, models.NodeID(10), id)
+
+	// case 3: init seq err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
+	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(0), fmt.Errorf("err"))
+	_, err = registry1.GenerateNodeID(models.Node{})
+	assert.Error(t, err)
+	// case 4: store seq err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
+	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(10), nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	_, err = registry1.GenerateNodeID(models.Node{})
+	assert.Error(t, err)
+	// case 5: init seq
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
+	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(100), nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	id, err = registry1.GenerateNodeID(models.Node{})
+	assert.NoError(t, err)
+	assert.Equal(t, models.NodeID(100), id)
 }

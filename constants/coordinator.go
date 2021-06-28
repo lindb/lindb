@@ -88,7 +88,17 @@ func GetDatabaseAssignPath(name string) string {
 
 // GetNodePath returns node register path
 func GetNodePath(prefix, node string) string {
-	return fmt.Sprintf("%s/%s", prefix, node)
+	return fmt.Sprintf("%s/data/%s", prefix, node)
+}
+
+// GetNodeIDPath returns node id register path
+func GetNodeIDPath(prefix, node string) string {
+	return fmt.Sprintf("%s/ids/%s", prefix, node)
+}
+
+// GetNodeSeqPath returns node id's generate path
+func GetNodeSeqPath(prefix string) string {
+	return fmt.Sprintf("%s/seq", prefix)
 }
 
 // GetReplicaStatePath returns replica's state path

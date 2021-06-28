@@ -20,6 +20,7 @@ package discovery
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/lindb/lindb/constants"
@@ -31,13 +32,15 @@ import (
 
 //go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
 
-// Registry represents server node register
+// Registry represents server node register.
 type Registry interface {
-	// Register registers node info, add it to active node list for discovery
+	// GenerateNodeID generates node id if node not exist in cluster.
+	GenerateNodeID(node models.Node) (models.NodeID, error)
+	// Register registers node info, add it to active node list for discovery.
 	Register(node models.Node) error
-	// Deregister deregister node info, remove it from active list
+	// Deregister deregister node info, remove it from active list.
 	Deregister(node models.Node) error
-	// Close closes registry, releases resources
+	// Close closes registry, releases resources.
 	Close() error
 }
 
@@ -68,6 +71,32 @@ func NewRegistry(
 		cancel: cancel,
 		log:    logger.GetLogger("coordinator", "Registry"),
 	}
+}
+
+// GenerateNodeID generates node id if node not exist in cluster.
+func (r *registry) GenerateNodeID(node models.Node) (models.NodeID, error) {
+	path := constants.GetNodeIDPath(r.prefix, node.Indicator())
+	id, err := r.repo.Get(r.ctx, path)
+	if err == state.ErrNotExist {
+		// node data not exist, need gen new node id
+		seq, err := r.repo.NextSequence(r.ctx, constants.GetNodeSeqPath(r.prefix))
+		if err != nil {
+			return 0, err
+		}
+		// store node id
+		err = r.repo.Put(r.ctx, path, []byte(strconv.FormatInt(seq, 10)))
+		if err != nil {
+			return 0, err
+		}
+		// return new node id
+		return models.NodeID(int(seq)), nil
+	}
+	nodeID, err := strconv.ParseInt(string(id), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	// node id exist, return it
+	return models.NodeID(int(nodeID)), nil
 }
 
 // Register registers node info, add it to active node list for discovery

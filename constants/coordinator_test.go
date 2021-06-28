@@ -32,7 +32,7 @@ func TestGetDatabaseConfigPath(t *testing.T) {
 }
 
 func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, "prefix/name", GetNodePath("prefix", "name"))
+	assert.Equal(t, "prefix/data/name", GetNodePath("prefix", "name"))
 }
 
 func TestGetStorageClusterConfigPath(t *testing.T) {
@@ -53,4 +53,9 @@ func TestGetReplicaStatePath(t *testing.T) {
 
 func TestGetNodeMonitoringStatPath(t *testing.T) {
 	assert.Equal(t, StateNodesPath+"/1.1.1.1:port", GetNodeMonitoringStatPath("1.1.1.1:port"))
+}
+
+func TestGetNodeIDPath(t *testing.T) {
+	assert.Equal(t, StateNodesPath+"/ids/1.1.1.1:port", GetNodeIDPath(StateNodesPath, "1.1.1.1:port"))
+	assert.Equal(t, StateNodesPath+"/seq", GetNodeSeqPath(StateNodesPath))
 }
