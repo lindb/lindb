@@ -254,7 +254,9 @@ func (r *etcdRepository) NextSequence(ctx context.Context, key string) (int64, e
 	if err := m.Lock(ctx); err != nil {
 		return 0, err
 	}
-	defer m.Unlock(ctx)
+	defer func() {
+		_ = m.Unlock(ctx)
+	}()
 
 	resp, err := r.client.Get(ctx, key)
 	if err != nil {
