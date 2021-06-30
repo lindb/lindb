@@ -15,86 +15,94 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package broker
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-//go:generate mockgen -source=./status_state_machine.go -destination=./status_state_machine_mock.go -package=replica
+//go:generate mockgen -source=./replica_status_state_machine.go -destination=./replica_status_state_machine_mock.go -package=broker
 
-// StatusStateMachine represents the status of database's replicas
+// ReplicaStatusStateMachine represents the status of database's replicas
 // Each broker node need start this state machine,
-type StatusStateMachine interface {
-	discovery.Listener
+type ReplicaStatusStateMachine interface {
+	inif.Listener
+	io.Closer
+
 	// GetQueryableReplicas returns the queryable replicas，
 	// and chooses the fastest replica if the shard has multi-replica.
 	// returns storage node => shard id list
 	GetQueryableReplicas(database string) map[string][]int32
 	// GetReplicas returns the replica state list under this broker by broker's indicator
 	GetReplicas(broker string) models.BrokerReplicaState
-	// Close closes state machine, stops watch change event
-	Close() error
 }
 
-// statusStateMachine implements status state machine,
+// replicaStatusStateMachine implements status state machine,
 // watches replica state path for listening modify event which broker uploaded
-type statusStateMachine struct {
+type replicaStatusStateMachine struct {
 	discovery discovery.Discovery
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	mutex sync.RWMutex
+	running *atomic.Bool
+	mutex   sync.RWMutex
 	// brokers: broker node => replica list under this broker
 	brokers map[string]models.BrokerReplicaState
 
-	log *logger.Logger
+	logger *logger.Logger
 }
 
-// NewStatusStateMachine creates a replica's status state machine
-func NewStatusStateMachine(ctx context.Context, factory discovery.Factory) (StatusStateMachine, error) {
+// NewReplicaStatusStateMachine creates a replica's status state machine
+func NewReplicaStatusStateMachine(ctx context.Context, factory discovery.Factory) (ReplicaStatusStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
-	sm := &statusStateMachine{
+	sm := &replicaStatusStateMachine{
+		running: atomic.NewBool(false),
+		brokers: make(map[string]models.BrokerReplicaState),
+		logger:  logger.GetLogger("coordinator", "ReplicaStatusStateMachine"),
 		ctx:     c,
 		cancel:  cancel,
-		brokers: make(map[string]models.BrokerReplicaState),
-		log:     logger.GetLogger("coordinator", "ReplicaStatusStateMachine"),
-	}
-	repo := factory.GetRepo()
-	replicaStatusList, err := repo.List(c, constants.ReplicaStatePath)
-	if err != nil {
-		return nil, fmt.Errorf("replica status list error:%s", err)
 	}
 
-	// init exist replica status list
-	for _, brokerReplica := range replicaStatusList {
-		sm.addBrokerReplica(brokerReplica.Key, brokerReplica.Value)
-	}
 	// new replica status discovery
 	sm.discovery = factory.CreateDiscovery(constants.ReplicaStatePath, sm)
-	if err := sm.discovery.Discovery(); err != nil {
+	if err := sm.discovery.Discovery(true); err != nil {
 		return nil, fmt.Errorf("discovery database status error:%s", err)
 	}
+
+	sm.running.Store(true)
+	sm.logger.Info("replica status state machine is started")
+
 	return sm, nil
 }
 
 // GetQueryableReplicas returns the queryable replicas
 // returns storage node => shard id list
-func (sm *statusStateMachine) GetQueryableReplicas(database string) map[string][]int32 {
+func (sm *replicaStatusStateMachine) GetQueryableReplicas(database string) map[string][]int32 {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+
+	if !sm.running.Load() {
+		return nil
+	}
+
 	// 1. find shards by given database's name
 	shards := make(map[string][]models.ReplicaState)
-	sm.mutex.RLock()
+
 	for _, brokerReplicaState := range sm.brokers {
 		for _, replica := range brokerReplicaState.Replicas {
 			if replica.Database != database {
@@ -104,7 +112,6 @@ func (sm *statusStateMachine) GetQueryableReplicas(database string) map[string][
 			shards[shardID] = append(shards[shardID], replica)
 		}
 	}
-	sm.mutex.RUnlock()
 
 	if len(shards) == 0 {
 		return nil
@@ -128,41 +135,55 @@ func (sm *statusStateMachine) GetQueryableReplicas(database string) map[string][
 }
 
 // GetReplicas returns the replica state list under this broker by broker's indicator
-func (sm *statusStateMachine) GetReplicas(broker string) models.BrokerReplicaState {
+func (sm *replicaStatusStateMachine) GetReplicas(broker string) models.BrokerReplicaState {
 	sm.mutex.RLock()
 	defer sm.mutex.RUnlock()
+
+	if !sm.running.Load() {
+		return models.BrokerReplicaState{}
+	}
+
 	return sm.brokers[broker]
 }
 
 // Close closes state machine, stops watch change event
-func (sm *statusStateMachine) Close() error {
-	sm.discovery.Close()
-	sm.cancel()
+func (sm *replicaStatusStateMachine) Close() error {
+	if sm.running.CAS(true, false) {
+		defer sm.cancel()
+
+		sm.discovery.Close()
+		sm.logger.Info("replica status state machine is stopped.")
+	}
 	return nil
 }
 
 // OnCreates updates the broker's replica status when broker upload replica state
-func (sm *statusStateMachine) OnCreate(key string, resource []byte) {
-	sm.addBrokerReplica(key, resource)
-}
+func (sm *replicaStatusStateMachine) OnCreate(key string, resource []byte) {
+	sm.logger.Info("discovery new broker online",
+		logger.String("key", key),
+		logger.String("data", string(resource)))
 
-// OnDelete deletes the broker's replica status when broker offline
-func (sm *statusStateMachine) OnDelete(key string) {
-	_, broker := filepath.Split(key)
-	sm.mutex.Lock()
-	delete(sm.brokers, broker)
-	sm.mutex.Unlock()
-}
-
-func (sm *statusStateMachine) addBrokerReplica(key string, data []byte) {
 	brokerReplicaState := models.BrokerReplicaState{}
-	if err := json.Unmarshal(data, &brokerReplicaState); err != nil {
-		sm.log.Error("discovery replica status but unmarshal error",
-			logger.String("data", string(data)), logger.Error(err))
+	if err := json.Unmarshal(resource, &brokerReplicaState); err != nil {
+		sm.logger.Error("discovery replica status but unmarshal error", logger.Error(err))
 		return
 	}
 	_, broker := filepath.Split(key)
+
 	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
 	sm.brokers[broker] = brokerReplicaState
-	sm.mutex.Unlock()
+}
+
+// OnDelete deletes the broker's replica status when broker offline.
+func (sm *replicaStatusStateMachine) OnDelete(key string) {
+	sm.logger.Info("discovery broker offline remove",
+		logger.String("key", key))
+
+	_, broker := filepath.Split(key)
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
+	delete(sm.brokers, broker)
 }

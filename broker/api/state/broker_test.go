@@ -29,7 +29,7 @@ import (
 
 	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -42,7 +42,7 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	stateMachine := broker.NewMockNodeStateMachine(ctrl)
+	stateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
 	api := NewBrokerAPI(context.TODO(), &deps.HTTPDeps{
 		Repo: repo,
 		StateMachines: &coordinator.BrokerStateMachines{

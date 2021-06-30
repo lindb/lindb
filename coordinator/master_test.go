@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
@@ -49,11 +48,11 @@ func TestMaster(t *testing.T) {
 		Return(true, nil, nil).AnyTimes()
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discovery1.EXPECT().Discovery().Return(nil).AnyTimes()
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).AnyTimes()
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
@@ -115,7 +114,7 @@ func TestMaster_Fail(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{
@@ -130,7 +129,7 @@ func TestMaster_Fail(t *testing.T) {
 	})
 	master1.Start()
 
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	data := encoding.JSONMarshal(&models.Master{Node: node1})
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeModify,
@@ -141,8 +140,8 @@ func TestMaster_Fail(t *testing.T) {
 	assert.False(t, master1.IsMaster())
 	assert.Nil(t, master1.GetMaster())
 
-	discovery1.EXPECT().Discovery().Return(nil)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeModify,
 		KeyValues: []state.EventKeyValue{
@@ -168,11 +167,11 @@ func TestMaster_FlushDatabase(t *testing.T) {
 		Return(true, nil, nil).AnyTimes()
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discovery1.EXPECT().Discovery().Return(nil).AnyTimes()
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).AnyTimes()
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := broker.NewMockNodeStateMachine(ctrl)
+	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
 
 	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
 	master1 := NewMaster(&MasterCfg{

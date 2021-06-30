@@ -22,7 +22,8 @@ import (
 	"sort"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/coordinator/discovery"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/sql/stmt"
@@ -35,8 +36,8 @@ import (
 type metadataBrokerExecutor struct {
 	database            string
 	request             *stmt.Metadata
-	replicaStateMachine replica.StatusStateMachine
-	nodeStateMachine    broker.NodeStateMachine
+	replicaStateMachine broker.ReplicaStatusStateMachine
+	nodeStateMachine    discovery.ActiveNodeStateMachine
 	jobManager          parallel.JobManager
 
 	ctx context.Context
@@ -44,7 +45,7 @@ type metadataBrokerExecutor struct {
 
 // newMetadataBrokerExecutor creates a metadata suggest executor in broker side
 func newMetadataBrokerExecutor(ctx context.Context, database string, request *stmt.Metadata,
-	nodeStateMachine broker.NodeStateMachine, replicaStateMachine replica.StatusStateMachine,
+	nodeStateMachine discovery.ActiveNodeStateMachine, replicaStateMachine broker.ReplicaStatusStateMachine,
 	jobManager parallel.JobManager) parallel.MetadataExecutor {
 	return &metadataBrokerExecutor{
 		ctx:                 ctx,

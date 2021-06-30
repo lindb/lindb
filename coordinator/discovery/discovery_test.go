@@ -26,6 +26,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/coordinator/inif"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -74,7 +76,7 @@ func TestDiscovery(t *testing.T) {
 	assert.Equal(t, repo, factory.GetRepo())
 
 	d := factory.CreateDiscovery("", newMockListener())
-	err := d.Discovery()
+	err := d.Discovery(false)
 	assert.NotNil(t, err)
 	d.Close()
 
@@ -82,7 +84,7 @@ func TestDiscovery(t *testing.T) {
 	d = factory.CreateDiscovery(testDiscoveryPath, listener)
 
 	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(nil)
-	err = d.Discovery()
+	err = d.Discovery(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +96,7 @@ func TestDiscovery(t *testing.T) {
 	d = factory.CreateDiscovery(testDiscoveryPath, listener)
 
 	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(eventCh)
-	err = d.Discovery()
+	err = d.Discovery(false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,4 +145,35 @@ func TestDiscovery(t *testing.T) {
 func sendEvent(eventCh chan *state.Event, event *state.Event) {
 	eventCh <- event
 	time.Sleep(10 * time.Millisecond)
+}
+
+func TestDiscovery_Discovery(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+	listener := inif.NewMockListener(ctrl)
+	d := &discovery{prefix: "/test", repo: repo, listener: listener, logger: logger.GetLogger("test", "test")}
+
+	// case 1: list err
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	err := d.Discovery(true)
+	assert.Error(t, err)
+
+	// case 2: no data
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
+	eventCh := make(chan *state.Event)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(eventCh)
+	err = d.Discovery(true)
+	assert.NoError(t, err)
+	close(eventCh)
+
+	// case 3: find data
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{}, {}}, nil)
+	listener.EXPECT().OnCreate(gomock.Any(), gomock.Any()).MaxTimes(2)
+	eventCh = make(chan *state.Event)
+	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), false).Return(eventCh)
+	err = d.Discovery(true)
+	assert.NoError(t, err)
+	close(eventCh)
 }

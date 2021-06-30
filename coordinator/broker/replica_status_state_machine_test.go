@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package broker
 
 import (
 	"context"
@@ -29,34 +29,23 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestStatusStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
-	factory.EXPECT().GetRepo().Return(repo).AnyTimes()
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	_, err := NewStatusStateMachine(context.TODO(), factory)
-	assert.NotNil(t, err)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	_, err := NewReplicaStatusStateMachine(context.TODO(), factory)
+	assert.Error(t, err)
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err = NewStatusStateMachine(context.TODO(), factory)
-	assert.NotNil(t, err)
-
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "key", Value: []byte{1, 2, 3}}}, nil)
-	discovery1.EXPECT().Discovery().Return(nil)
-	sm, err := NewStatusStateMachine(context.TODO(), factory)
-	if err != nil {
-		t.Fatal(err)
-	}
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	sm, err := NewReplicaStatusStateMachine(context.TODO(), factory)
+	assert.NoError(t, err)
 	assert.NotNil(t, sm)
 
 	sm.OnCreate("/data/err1", []byte{1, 1, 3})
@@ -148,7 +137,12 @@ func TestStatusStateMachine(t *testing.T) {
 
 	discovery1.EXPECT().Close()
 	err = sm.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+
+	err = sm.Close()
+	assert.NoError(t, err)
+
+	// after close, get empty data
+	assert.Nil(t, sm.GetQueryableReplicas("test_db_2"))
+	assert.Equal(t, models.BrokerReplicaState{}, sm.GetReplicas("1.1.1.1:9000"))
 }

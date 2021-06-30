@@ -162,7 +162,6 @@ func (r *runtime) Run() error {
 		Repo:              r.repo,
 		CurrentNode:       r.node,
 		ChannelManager:    r.srv.channelManager,
-		ShardAssignSRV:    r.srv.shardAssignService,
 		DiscoveryFactory:  discoveryFactory,
 		TaskClientFactory: r.factory.taskClient,
 	})
