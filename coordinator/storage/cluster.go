@@ -134,7 +134,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 		logger:       cfg.logger,
 	}
 	// init active nodes if exist
-	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath)
+	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath+"/data")
 	if err != nil {
 		return cluster, fmt.Errorf("get active nodes error:%s", err)
 	}
@@ -147,7 +147,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	cluster.saveClusterState()
 
 	// new storage active node discovery
-	cluster.discovery = cfg.factory.CreateDiscovery(constants.ActiveNodesPath, cluster)
+	cluster.discovery = cfg.factory.CreateDiscovery(constants.ActiveNodesPath+"/data", cluster)
 	if err := cluster.discovery.Discovery(); err != nil {
 		return cluster, fmt.Errorf("discovery active storage nodes error:%s", err)
 	}

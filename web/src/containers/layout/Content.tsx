@@ -48,8 +48,8 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/monitoring/system" component={System} />
               <Route exact={true} path="/monitoring/runtime" component={Runtime} />
               <Route exact={true} path="/monitoring/storage" component={MonitoringStorage} />
-              <Route exact={true} path="/admin/storage" component={Storage} />
-              <Route exact={true} path="/admin/database" component={Database} />
+              <Route exact={true} path="/metadata/storage" component={Storage} />
+              <Route exact={true} path="/metadata/database" component={Database} />
             </Switch>
           </AntDContent>
 

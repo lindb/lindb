@@ -73,7 +73,7 @@ func NewNodeStateMachine(ctx context.Context, currentNode models.Node,
 		log:         logger.GetLogger("coordinator", "BrokerNodeStateMachine"),
 	}
 	// new replica status discovery
-	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath, stateMachine)
+	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath+"/data", stateMachine)
 	if err := stateMachine.discovery.Discovery(); err != nil {
 		return nil, fmt.Errorf("discovery broker node error:%s", err)
 	}
