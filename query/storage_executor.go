@@ -193,7 +193,7 @@ func (e *storageExecutor) executeQuery() {
 			seriesIDs := roaring.New()
 			t := newSeriesIDsSearchTask(e.ctx, shard, seriesIDs)
 			err := t.Run()
-			if err != nil && err != constants.ErrNotFound {
+			if err != nil && !errors.Is(err, constants.ErrNotFound) {
 				// maybe series ids not found in shard, so ignore not found err
 				e.queryFlow.Complete(err)
 			}
@@ -206,7 +206,7 @@ func (e *storageExecutor) executeQuery() {
 			// 2. filter data in memory database
 			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
-			if err != nil && err != constants.ErrNotFound {
+			if err != nil && !errors.Is(err, constants.ErrNotFound) {
 				// maybe data not exist in memory database, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
@@ -214,7 +214,7 @@ func (e *storageExecutor) executeQuery() {
 			// 3. filter data each data family in shard
 			t = newFileDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
-			if err != nil && err != constants.ErrNotFound {
+			if err != nil && !errors.Is(err, constants.ErrNotFound) {
 				// maybe data not exist in shard, so ignore not found err
 				e.queryFlow.Complete(err)
 				return
@@ -254,7 +254,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 		}
 		t := newGroupingContextFindTask(e.ctx, shard, tagKeys, seriesIDs, groupingResult)
 		err := t.Run()
-		if err != nil && err != constants.ErrNotFound {
+		if err != nil && !errors.Is(err, constants.ErrNotFound) {
 			// maybe group by not found, so ignore not found err
 			e.queryFlow.Complete(err)
 			return

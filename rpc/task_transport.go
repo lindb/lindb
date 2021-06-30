@@ -86,7 +86,11 @@ func (f *taskClientFactory) GetTaskClient(target string) common.TaskService_Hand
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 
-	return f.taskStreams[target].cli
+	stream, ok := f.taskStreams[target]
+	if ok && stream != nil {
+		return stream.cli
+	}
+	return nil
 }
 
 // CreateTaskClient creates a stream task client if not exist,
@@ -133,7 +137,6 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	log.Info("start init task client", logger.String("target", client.targetID))
 	if client.cli != nil {
 		if err := client.cli.CloseSend(); err != nil {
 			log.Error("close task client error", logger.Error(err))
@@ -157,13 +160,26 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 
 // handleTaskResponse handles task response loop, if stream closed exist loop
 func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
+	var sequence int32 = 0
 	for client.running.Load() {
 		if !client.ready.Load() {
+			sequence++
+			log.Info("initializing task client",
+				logger.String("target", client.targetID),
+				logger.Int32("sequence", sequence),
+			)
 			if err := f.initTaskClient(client); err != nil {
-				log.Error("init task client error", logger.Error(err))
+				log.Error("failed to initialize task client",
+					logger.Error(err),
+					logger.String("target", client.targetID),
+					logger.Int32("sequence", sequence),
+				)
 				time.Sleep(time.Second)
 				continue
 			} else {
+				log.Info("initialized task client successfully",
+					logger.String("target", client.targetID),
+					logger.Int32("sequence", sequence))
 				client.ready.Store(true)
 			}
 		}
@@ -181,7 +197,7 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 	}
 }
 
-// ServerStreamFactory represents a factory to get server stream.
+// TaskServerFactory represents a factory to get server stream.
 type TaskServerFactory interface {
 	// GetStream returns a ServerStream for a node.
 	GetStream(node string) common.TaskService_HandleServer
@@ -205,7 +221,7 @@ type taskServerFactory struct {
 	lock    sync.RWMutex
 }
 
-// GetServerStreamFactory returns the singleton server stream factory
+// NewTaskServerFactory returns the singleton server stream factory
 func NewTaskServerFactory() TaskServerFactory {
 	return &taskServerFactory{
 		nodeMap: make(map[string]*taskService),

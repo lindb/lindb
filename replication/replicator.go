@@ -211,7 +211,8 @@ func (r *replicator) initClient() {
 		// get storage head seq, reset fanOut headSeq or reset storage headSeq.
 		nextSeq, err := r.remoteNextSeq()
 		if err != nil {
-			r.logger.Error("recvLoop get remote next seq error", logger.Error(err))
+			r.logger.Error("recvLoop get remote next seq error", logger.Error(err),
+				logger.String("target", r.target.Indicator()))
 			// typically CreateWriteServiceClient won't return err if remote target is unavailable(async dial), the real rpc call will.
 			// sleep to avoid dead for loop
 			time.Sleep(time.Second)
@@ -258,6 +259,10 @@ func (r *replicator) remoteNextSeq() (int64, error) {
 	nextResp, err := r.serviceClient.Next(ctx, nextReq)
 	cancel()
 	if err != nil {
+		r.logger.Debug("failed to call remoteNextSeq",
+			logger.String("database", r.database),
+			logger.Int32("shardID", r.shardID),
+		)
 		return -1, err
 	}
 	return nextResp.Seq, nil

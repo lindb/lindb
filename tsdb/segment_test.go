@@ -18,6 +18,7 @@
 package tsdb
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -85,7 +86,7 @@ func TestSegment_GetDataFamily(t *testing.T) {
 	seg1 := seg.(*segment)
 	seg1.families.Store(23, "err data family")
 	result, err := seg.GetDataFamily(wrongTime)
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, result)
 
 	ctrl := gomock.NewController(t)

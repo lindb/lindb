@@ -94,6 +94,7 @@ func (r *runtime) Run() error {
 	config.StandaloneMode = true
 
 	if err := r.startETCD(); err != nil {
+		log.Error("failed to start ETCD", logger.Error(err))
 		r.state = server.Failed
 		return err
 	}

@@ -19,7 +19,6 @@ package tagkeymeta
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -98,7 +97,7 @@ type tagKeyMeta struct {
 
 func newTagKeyMeta(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
 	if len(tagKeyMetaBlock) < tagFooterSize {
-		return nil, fmt.Errorf("block length not ok")
+		return nil, constants.ErrDataFileCorruption
 	}
 	meta := &tagKeyMeta{
 		block: tagKeyMetaBlock,

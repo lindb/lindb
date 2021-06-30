@@ -18,6 +18,7 @@
 package tagkeymeta
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/lindb/lindb/constants"
@@ -122,7 +123,7 @@ func TestReader_GetTagValueSeq(t *testing.T) {
 	reader := mockTagReader(ctrl)
 	// case 1: tag key id not exist
 	id, err := reader.GetTagValueSeq(19)
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), id)
 	// case 2: get value
 	id, err = reader.GetTagValueSeq(22)
@@ -142,7 +143,7 @@ func TestReader_GetTagValueID(t *testing.T) {
 	reader := mockTagReader(ctrl)
 	// case 1: tag key id not exist
 	id, err := reader.GetTagValueID(19, "eleme-dev-sh-5")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), id)
 
 	// case 2: get value
@@ -152,7 +153,7 @@ func TestReader_GetTagValueID(t *testing.T) {
 
 	// case 3: tag value not found
 	id, err = reader.GetTagValueID(22, "eleme-dev-sh-5999")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), id)
 
 	// case 4: new tag key meta err

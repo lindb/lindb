@@ -18,6 +18,7 @@
 package metadb
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
@@ -124,7 +125,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 			// got tag value id from kv store
 			return tagValueID, nil
 		}
-		if err != constants.ErrNotFound {
+		if !errors.Is(err, constants.ErrNotFound) {
 			// if load tag value id err, return it
 			return
 		}

@@ -34,8 +34,8 @@ var createDatabaseCmd = &cobra.Command{
 	Short: "Creates the database for LinDB",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		brokerCfg := config.Broker{}
-		if err := ltoml.LoadConfig(cliConfigFile, "", &brokerCfg); err != nil {
+		storageCfg := config.Storage{}
+		if err := ltoml.LoadConfig(cliConfigFile, "", &storageCfg); err != nil {
 			return fmt.Errorf("decode config file error: %s", err)
 		}
 		numOfShards, err := readInt("number of shards? :")
@@ -53,7 +53,7 @@ var createDatabaseCmd = &cobra.Command{
 		initializer := bootstrap.NewClusterInitializer(cliBrokerEndpoint)
 		if err := initializer.InitStorageCluster(config.StorageCluster{
 			Name:   args[0],
-			Config: brokerCfg.BrokerBase.Coordinator},
+			Config: storageCfg.StorageBase.Coordinator},
 		); err != nil {
 			return err
 		}

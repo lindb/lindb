@@ -45,7 +45,7 @@ type StorageService interface {
 	// GetShard returns shard by given db and shard id
 	GetShard(databaseName string, shardID int32) (tsdb.Shard, bool)
 
-	// FLush produces a signal to workers for flushing memory database by name
+	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
 
 	// Close closes the time series engine

@@ -33,7 +33,7 @@ var (
 	newPageFactoryFunc = page.NewFactory
 )
 
-var sequenceLogger = logger.GetLogger("replication", "sequence")
+var sequenceLogger = logger.GetLogger("replication", "Sequence")
 
 const (
 	//sequenceMetaSize 8 bytes for int64
@@ -51,7 +51,7 @@ type Sequence interface {
 	SetHeadSeq(seq int64)
 	// GetAckSeq returns the ack sequence which is the latest sequence of replica successfully flushed to disk.
 	GetAckSeq() int64
-	// GetAckSeq sets the ack sequence which is the latest sequence of replica successfully flushed to disk.
+	// SetAckSeq sets the ack sequence which is the latest sequence of replica successfully flushed to disk.
 	SetAckSeq(seq int64)
 	// Sync syncs the Sequence to storage.
 	Sync() error
@@ -128,7 +128,7 @@ func (s *sequence) GetAckSeq() int64 {
 	return s.ackSeq.Load()
 }
 
-// GetAckSeq sets the ack sequence which is the latest sequence of replica successfully flushed to disk.
+// SetAckSeq sets the ack sequence which is the latest sequence of replica successfully flushed to disk.
 func (s *sequence) SetAckSeq(seq int64) {
 	s.ackSeq.Store(seq)
 }

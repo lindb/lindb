@@ -18,6 +18,8 @@
 package query
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -80,7 +82,8 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 			}
 			if len(tagFilterResult) == 0 {
 				// filter not match, return not found
-				return nil, constants.ErrNotFound
+				return nil, fmt.Errorf("%w , namespace: %s, metricName: %s",
+					constants.ErrTagFilterResultNotFound, req.Namespace, req.MetricName)
 			}
 			groupByTagKeyIDs := []uint32{tagKeyID}
 			// get shard by given query shard id list

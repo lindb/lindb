@@ -44,11 +44,14 @@ type IDGenerator interface {
 
 // IDGetter represents the query ability for metric level, such as metric id, field meta etc.
 type IDGetter interface {
-	// GetMetricID gets the metric id by namespace and metric name, if not exist return series.ErrNotFound
+	// GetMetricID gets the metric id by namespace and metric name,
+	// if not exist return constants.ErrMetricIDNotFound
 	GetMetricID(namespace, metricName string) (metricID uint32, err error)
-	// GetTagKeyID gets the tag key id by namespace/metric name/tag key key, if not exist return series.ErrNotFound
+	// GetTagKeyID gets the tag key id by namespace/metric name/tag key key,
+	// if not exist return constants.ErrTagKeyIDNotFound
 	GetTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error)
-	// GetAllTagKeys returns the all tag keys by namespace/metric name, if not exist return series.ErrNotFound
+	// GetAllTagKeys returns the all tag keys by namespace/metric name,
+	// if not exist return  constants.ErrMetricIDNotFound, constants.ErrMetricBucketNotFound
 	GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error)
 	// GetField gets the field meta by namespace/metric name/field name, if not exist return series.ErrNotFound
 	GetField(namespace, metricName string, fieldName field.Name) (field field.Meta, err error)

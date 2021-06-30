@@ -19,6 +19,7 @@ package indexdb
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"path"
 	"time"
@@ -103,13 +104,14 @@ func (imb *idMappingBackend) loadMetricIDMapping(metricID uint32) (idMapping Met
 	err = imb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(seriesBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return constants.ErrNotFound
+			return fmt.Errorf("%w, metricID: %d", constants.ErrMetricBucketNotFound, metricID)
 		}
 		sequence = uint32(metricBucket.Sequence())
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w, metricID: %d, loadMetricIDMapping with error: %s",
+			constants.ErrMetricBucketNotFound, metricID, err)
 	}
 	return newMetricIDMapping(metricID, sequence), nil
 }
@@ -121,13 +123,15 @@ func (imb *idMappingBackend) getSeriesID(metricID uint32, tagsHash uint64) (seri
 	err = imb.db.View(func(tx *bbolt.Tx) error {
 		metricBucket := tx.Bucket(seriesBucketName).Bucket(scratch[:])
 		if metricBucket == nil {
-			return constants.ErrNotFound
+			return fmt.Errorf("%w, metricID: %d, tagsHash: %d",
+				constants.ErrMetricBucketNotFound, metricID, tagsHash)
 		}
 		var hash [8]byte
 		binary.LittleEndian.PutUint64(hash[:], tagsHash)
 		value := metricBucket.Get(hash[:])
 		if len(value) == 0 {
-			return constants.ErrNotFound
+			return fmt.Errorf("%w, metricID: %d, tagsHash: %d",
+				constants.ErrSeriesIDNotFound, metricID, tagsHash)
 		}
 		seriesID = binary.LittleEndian.Uint32(value)
 		return nil
