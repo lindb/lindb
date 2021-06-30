@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/sql/stmt"
@@ -36,8 +36,8 @@ func TestMetadataBrokerExecutor_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	nodeStateMachine := broker.NewMockNodeStateMachine(ctrl)
-	replicaStateMachine := replica.NewMockStatusStateMachine(ctrl)
+	nodeStateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
+	replicaStateMachine := broker.NewMockReplicaStatusStateMachine(ctrl)
 	jobManager := parallel.NewMockJobManager(ctrl)
 
 	exec := newMetadataBrokerExecutor(context.TODO(), "test_db", &stmt.Metadata{},

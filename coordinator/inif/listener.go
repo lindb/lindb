@@ -15,37 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package context
+package inif
 
-import (
-	"fmt"
-	"testing"
+//go:generate mockgen -source=./listener.go -destination=./listener_mock.go -package=inif
 
-	"github.com/golang/mock/gomock"
-
-	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/storage"
-)
-
-func TestMasterContext_Close(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	stateMachine := &StateMachine{}
-	ctx := NewMasterContext(stateMachine)
-	ctx.Close()
-
-	admin := broker.NewMockShardAssignmentStateMachine(ctrl)
-	cluster := storage.NewMockClusterStateMachine(ctrl)
-
-	stateMachine.DatabaseAdmin = admin
-	stateMachine.StorageCluster = cluster
-
-	admin.EXPECT().Close().Return(nil)
-	cluster.EXPECT().Close().Return(nil)
-	ctx.Close()
-
-	admin.EXPECT().Close().Return(fmt.Errorf("err"))
-	cluster.EXPECT().Close().Return(fmt.Errorf("err"))
-	ctx.Close()
+// Listener represents discovery resource event callback interface,
+// includes create/delete/cleanup operation.
+type Listener interface {
+	// OnCreate is resource creation callback.
+	OnCreate(key string, resource []byte)
+	// OnDelete is resource deletion callback.
+	OnDelete(key string)
 }

@@ -21,74 +21,71 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./state_machine_factory.go -destination=./state_machine_factory_mock.go -package=coordinator
 
-// StateMachineCfg represents the state machine config
+// StateMachineCfg represents the state machine config.
 type StateMachineCfg struct {
 	Ctx               context.Context
 	Repo              state.Repository
 	CurrentNode       models.Node
 	DiscoveryFactory  discovery.Factory
-	ShardAssignSRV    service.ShardAssignService
 	ChannelManager    replication.ChannelManager
 	TaskClientFactory rpc.TaskClientFactory // rpc task stream create factory
 }
 
-// StateMachineFactory represents the state machine create factory
+// StateMachineFactory represents the state machine create factory.
 type StateMachineFactory interface {
-	// CreateNodeStateMachine creates the node state machine
-	CreateNodeStateMachine() (broker.NodeStateMachine, error)
-	// CreateStorageStateMachine creates the storage state machine
+	// CreateActiveNodeStateMachine creates the active node state machine.
+	CreateActiveNodeStateMachine() (discovery.ActiveNodeStateMachine, error)
+	// CreateStorageStateMachine creates the storage state machine.
 	CreateStorageStateMachine() (broker.StorageStateMachine, error)
-	// CreateReplicaStatusStateMachine creates the shard replica status state machine
-	CreateReplicaStatusStateMachine() (replica.StatusStateMachine, error)
-	// CreateReplicatorStateMachine creates the shard replicator state machine
+	// CreateReplicaStatusStateMachine creates the shard replica status state machine.
+	CreateReplicaStatusStateMachine() (broker.ReplicaStatusStateMachine, error)
+	// CreateReplicatorStateMachine creates the shard replicator state machine.
 	CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error)
-	// CreateDatabaseStateMachine creates the database state machine
-	CreateDatabaseStateMachine() (database.DBStateMachine, error)
+	// CreateDatabaseStateMachine creates the database state machine.
+	CreateDatabaseStateMachine() (broker.DatabaseStateMachine, error)
 }
 
-// stateMachineFactory implements the interface, using state machine config for creating
+// stateMachineFactory implements the interface, using state machine config for creating.
 type stateMachineFactory struct {
 	cfg *StateMachineCfg
 }
 
-// NewStateMachineFactory creates the factory using config
+// NewStateMachineFactory creates the factory using config.
 func NewStateMachineFactory(cfg *StateMachineCfg) StateMachineFactory {
 	return &stateMachineFactory{cfg: cfg}
 }
 
-// CreateNodeStateMachine creates the node state machine, if fail returns err
-func (s *stateMachineFactory) CreateNodeStateMachine() (broker.NodeStateMachine, error) {
-	return broker.NewNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.DiscoveryFactory, s.cfg.TaskClientFactory)
+// CreateActiveNodeStateMachine creates the active node state machine, if fail returns err.
+func (s *stateMachineFactory) CreateActiveNodeStateMachine() (discovery.ActiveNodeStateMachine, error) {
+	return discovery.NewActiveNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.DiscoveryFactory, s.cfg.TaskClientFactory)
 }
 
-// CreateStorageStateMachine creates the storage state machine, if fail returns err
+// CreateStorageStateMachine creates the storage state machine, if fail returns err.
 func (s *stateMachineFactory) CreateStorageStateMachine() (broker.StorageStateMachine, error) {
 	return broker.NewStorageStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory, s.cfg.TaskClientFactory)
 }
 
-// CreateReplicaStatusStateMachine creates the shard replica status state machine, if fail returns err
-func (s *stateMachineFactory) CreateReplicaStatusStateMachine() (replica.StatusStateMachine, error) {
-	return replica.NewStatusStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
+// CreateReplicaStatusStateMachine creates the shard replica status state machine, if fail returns err.
+func (s *stateMachineFactory) CreateReplicaStatusStateMachine() (broker.ReplicaStatusStateMachine, error) {
+	return broker.NewReplicaStatusStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
 }
 
-// CreateReplicatorStateMachine creates the shard replicator state machine
+// CreateReplicatorStateMachine creates the shard replicator state machine.
 func (s *stateMachineFactory) CreateReplicatorStateMachine() (replica.ReplicatorStateMachine, error) {
-	return replica.NewReplicatorStateMachine(s.cfg.Ctx, s.cfg.ChannelManager, s.cfg.ShardAssignSRV, s.cfg.DiscoveryFactory)
+	return replica.NewReplicatorStateMachine(s.cfg.Ctx, s.cfg.ChannelManager, s.cfg.DiscoveryFactory)
 }
 
-// CreateDatabaseStateMachine creates the database state machine
-func (s *stateMachineFactory) CreateDatabaseStateMachine() (database.DBStateMachine, error) {
-	return database.NewDBStateMachine(s.cfg.Ctx, s.cfg.Repo, s.cfg.DiscoveryFactory)
+// CreateDatabaseStateMachine creates the database state machine.
+func (s *stateMachineFactory) CreateDatabaseStateMachine() (broker.DatabaseStateMachine, error) {
+	return broker.NewDatabaseStateMachine(s.cfg.Ctx, s.cfg.DiscoveryFactory)
 }

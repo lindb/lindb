@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package database
+package broker
 
 import (
 	"context"
@@ -28,36 +28,24 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
 )
 
-func TestNewDBStateMachine(t *testing.T) {
+func TestNewDatabaseStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	_, err := NewDBStateMachine(context.TODO(), repo, factory)
+	// case 1: discovery err
+	discovery1.EXPECT().Discovery(true).Return(fmt.Errorf("err"))
+	_, err := NewDatabaseStateMachine(context.TODO(), factory)
 	assert.Error(t, err)
 
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
-	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err = NewDBStateMachine(context.TODO(), repo, factory)
-	assert.Error(t, err)
-
-	// normal case
-	data, _ := json.Marshal(&models.Database{Name: "test"})
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
-		{Value: data},
-		{Value: []byte{1, 1, 2}},
-	}, nil)
-	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewDBStateMachine(context.TODO(), repo, factory)
+	// case 2: normal case
+	discovery1.EXPECT().Discovery(true).Return(nil)
+	stateMachine, err := NewDatabaseStateMachine(context.TODO(), factory)
 	assert.NoError(t, err)
 	assert.NotNil(t, stateMachine)
 }
@@ -66,23 +54,25 @@ func TestDBStateMachine_listen(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	repo := state.NewMockRepository(ctrl)
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	// normal case
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
-	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewDBStateMachine(context.TODO(), repo, factory)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+	discovery1.EXPECT().Discovery(true).Return(nil)
+	stateMachine, err := NewDatabaseStateMachine(context.TODO(), factory)
 	assert.NoError(t, err)
 
 	db := models.Database{Name: "test"}
 	data, _ := json.Marshal(&db)
 	stateMachine.OnCreate("/data/test", data)
 
+	db = models.Database{Name: "test3"}
+	data, _ = json.Marshal(&db)
+	stateMachine.OnCreate("/data/test3", data)
+
 	db2, ok := stateMachine.GetDatabaseCfg("test")
 	assert.True(t, ok)
-	assert.Equal(t, db, db2)
+	assert.Equal(t, models.Database{Name: "test"}, db2)
 
 	stateMachine.OnCreate("/data/test2", []byte{1, 1})
 	_, ok = stateMachine.GetDatabaseCfg("test2")
@@ -97,6 +87,13 @@ func TestDBStateMachine_listen(t *testing.T) {
 	_, ok = stateMachine.GetDatabaseCfg("test")
 	assert.False(t, ok)
 
+	db2, ok = stateMachine.GetDatabaseCfg("test3")
+	assert.True(t, ok)
+	assert.Equal(t, db, db2)
+
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
+
+	_, ok = stateMachine.GetDatabaseCfg("test3")
+	assert.False(t, ok)
 }

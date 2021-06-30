@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package broker
+package discovery
 
 import (
 	"github.com/lindb/lindb/models"
@@ -25,23 +25,23 @@ import (
 
 var connectionManagerLogger = logger.GetLogger("coordinator", "ConnectionManager")
 
-// connectionManger manages the rpc connections
+// ConnectionManager manages the rpc Connections
 // not thread-safe
-type connectionManager struct {
+type ConnectionManager struct {
 	RoleFrom          string
 	RoleTo            string
-	connections       map[string]struct{}
-	taskClientFactory rpc.TaskClientFactory
+	Connections       map[string]struct{}
+	TaskClientFactory rpc.TaskClientFactory
 }
 
-func (manager *connectionManager) createConnection(target models.Node) {
-	if err := manager.taskClientFactory.CreateTaskClient(target); err == nil {
+func (manager *ConnectionManager) CreateConnection(target models.Node) {
+	if err := manager.TaskClientFactory.CreateTaskClient(target); err == nil {
 		connectionManagerLogger.Info("established connection successfully",
 			logger.String("target", target.Indicator()),
 			logger.String("from", manager.RoleFrom),
 			logger.String("to", manager.RoleTo),
 		)
-		manager.connections[target.Indicator()] = struct{}{}
+		manager.Connections[target.Indicator()] = struct{}{}
 	} else {
 		connectionManagerLogger.Error("failed to establish connection",
 			logger.String("target", target.Indicator()),
@@ -49,13 +49,13 @@ func (manager *connectionManager) createConnection(target models.Node) {
 			logger.String("to", manager.RoleTo),
 			logger.Error(err),
 		)
-		delete(manager.connections, target.Indicator())
+		delete(manager.Connections, target.Indicator())
 	}
 }
 
-func (manager *connectionManager) closeConnection(target string) {
-	closed, err := manager.taskClientFactory.CloseTaskClient(target)
-	delete(manager.connections, target)
+func (manager *ConnectionManager) CloseConnection(target string) {
+	closed, err := manager.TaskClientFactory.CloseTaskClient(target)
+	delete(manager.Connections, target)
 
 	if closed {
 		if err == nil {
@@ -81,20 +81,20 @@ func (manager *connectionManager) closeConnection(target string) {
 	}
 }
 
-func (manager *connectionManager) closeAll() {
-	for target := range manager.connections {
-		manager.closeConnection(target)
+func (manager *ConnectionManager) CloseAll() {
+	for target := range manager.Connections {
+		manager.CloseConnection(target)
 	}
 }
 
-func (manager *connectionManager) closeInactiveNodeConnections(activeNodes []string) {
+func (manager *ConnectionManager) CloseInactiveNodeConnections(activeNodes []string) {
 	activeNodesSet := make(map[string]struct{})
 	for _, node := range activeNodes {
 		activeNodesSet[node] = struct{}{}
 	}
-	for target := range manager.connections {
+	for target := range manager.Connections {
 		if _, exist := activeNodesSet[target]; !exist {
-			manager.closeConnection(target)
+			manager.CloseConnection(target)
 		}
 	}
 }

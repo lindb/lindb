@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package database
+package broker
 
 import (
 	"context"
@@ -24,72 +24,77 @@ import (
 	"io"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-//go:generate mockgen -source=./admin_state_machine.go -destination=./admin_state_machine_mock.go -package=database
+//go:generate mockgen -source=./shard_assignment_state_machine.go -destination=./shard_assignment_state_machine_mock.go -package=broker
 
-// AdminStateMachine is database config controller,
+// ShardAssignmentStateMachine is database config controller,
 // creates shard assignment based on config and active nodes related storage cluster.
 // runtime watches database change event, maintain shard assignment and create related coordinator task.
-type AdminStateMachine interface {
-	discovery.Listener
-
-	// Closer closes admin state machine, stops watch change event
+type ShardAssignmentStateMachine interface {
+	inif.Listener
 	io.Closer
 }
 
-// adminStateMachine implement admin state machine interface.
+// shardAssignmentStateMachine implement ShardAssignmentStateMachine interface.
 // all metadata change will store related storage cluster.
-type adminStateMachine struct {
+type shardAssignmentStateMachine struct {
 	storageCluster storage.ClusterStateMachine
 	discovery      discovery.Discovery
 
-	mutex  sync.RWMutex
-	ctx    context.Context
-	cancel context.CancelFunc
+	mutex   sync.RWMutex
+	ctx     context.Context
+	cancel  context.CancelFunc
+	running *atomic.Bool
 
-	log *logger.Logger
+	logger *logger.Logger
 }
 
-// NewAdminStateMachine creates admin state machine instance
-func NewAdminStateMachine(
-	ctx context.Context,
-	discoveryFactory discovery.Factory,
-	storageCluster storage.ClusterStateMachine,
-) (AdminStateMachine, error) {
+// NewShardAssignmentStateMachine creates shard assignment state machine instance
+func NewShardAssignmentStateMachine(ctx context.Context, discoveryFactory discovery.Factory,
+	storageCluster storage.ClusterStateMachine) (ShardAssignmentStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
-	// new admin state machine instance
-	stateMachine := &adminStateMachine{
+	// new shard assignment state machine instance
+	stateMachine := &shardAssignmentStateMachine{
 		storageCluster: storageCluster,
 		ctx:            c,
+		running:        atomic.NewBool(false),
 		cancel:         cancel,
-		log:            logger.GetLogger("coordinator", "AdminStateMachine"),
+		logger:         logger.GetLogger("coordinator", "ShardAssignmentStateMachine"),
 	}
 	// new database config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseConfigPath, stateMachine)
-	if err := stateMachine.discovery.Discovery(); err != nil {
+	if err := stateMachine.discovery.Discovery(false); err != nil {
 		return nil, fmt.Errorf("discovery database config error:%s", err)
 	}
+	stateMachine.running.Store(true)
+	stateMachine.logger.Info("database shard assignment state machine is started")
 	return stateMachine, nil
 }
 
 // OnCreate creates shard assignment when receive database create event
-func (sm *adminStateMachine) OnCreate(_ string, resource []byte) {
+func (sm *shardAssignmentStateMachine) OnCreate(key string, resource []byte) {
+	sm.logger.Info("discovery new database need shard assignment in cluster",
+		logger.String("key", key),
+		logger.String("data", string(resource)))
+
 	cfg := models.Database{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
-		sm.log.Error("discovery database create but unmarshal error",
-			logger.String("data", string(resource)), logger.Error(err))
+		sm.logger.Error("discovery database create but unmarshal error", logger.Error(err))
 		return
 	}
 
 	if len(cfg.Name) == 0 {
-		sm.log.Error("database name cannot be empty", logger.String("data", string(resource)))
+		sm.logger.Error("database name cannot be empty")
 		return
 	}
 
@@ -98,37 +103,39 @@ func (sm *adminStateMachine) OnCreate(_ string, resource []byte) {
 
 	cluster := sm.storageCluster.GetCluster(cfg.Cluster)
 	if cluster == nil {
-		sm.log.Error("storage cluster not exist",
+		sm.logger.Error("storage cluster not exist",
 			logger.String("cluster", cfg.Cluster))
 		return
 	}
 	shardAssign, err := cluster.GetShardAssign(cfg.Name)
 	if err != nil && err != state.ErrNotExist {
-		sm.log.Error("get shard assign error", logger.Error(err))
+		sm.logger.Error("get shard assign error", logger.Error(err))
 		return
 	}
 	// build shard assignment for creation database, generate related coordinator task
 	if shardAssign == nil {
 		if err := sm.createShardAssignment(cfg.Name, cluster, &cfg, -1, -1); err != nil {
-			sm.log.Error("create shard assignment error",
-				logger.String("data", string(resource)), logger.Error(err))
+			sm.logger.Error("create shard assignment error", logger.Error(err))
 		}
 	} else if len(shardAssign.Shards) != cfg.NumOfShard {
 		if err := sm.modifyShardAssignment(cfg.Name, shardAssign, cluster, &cfg); err != nil {
-			sm.log.Error("modify shard assignment error",
-				logger.String("data", string(resource)), logger.Error(err))
+			sm.logger.Error("modify shard assignment error", logger.Error(err))
 		}
 	}
 }
 
-func (sm *adminStateMachine) OnDelete(_ string) {
+func (sm *shardAssignmentStateMachine) OnDelete(key string) {
 	//TODO impl delete database???
 }
 
-// Close closes admin state machine, stops watch change event
-func (sm *adminStateMachine) Close() error {
-	sm.discovery.Close()
-	sm.cancel()
+// Close closes shard assignment state machine, stops watch change event.
+func (sm *shardAssignmentStateMachine) Close() error {
+	if sm.running.CAS(true, false) {
+		defer sm.cancel()
+		sm.discovery.Close()
+
+		sm.logger.Info("shard assignment state machine is stopped.")
+	}
 	return nil
 }
 
@@ -136,7 +143,7 @@ func (sm *adminStateMachine) Close() error {
 // 1) generate shard assignment
 // 2) save shard assignment into related storage cluster
 // 3) submit create shard coordinator task(storage node will execute it when receive task event)
-func (sm *adminStateMachine) createShardAssignment(databaseName string,
+func (sm *shardAssignmentStateMachine) createShardAssignment(databaseName string,
 	cluster storage.Cluster, cfg *models.Database, fixedStartIndex, startShardID int) error {
 	activeNodes := cluster.GetActiveNodes()
 	if len(activeNodes) == 0 {
@@ -161,6 +168,9 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	// set nodes and config, storage node will use it when execute create shard task
 	shardAssign.Nodes = nodes
 
+	sm.logger.Info("create shard assign",
+		logger.String("database", databaseName),
+		logger.Any("shardAssign", shardAssign))
 	// save shard assignment into related storage cluster
 	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Option); err != nil {
 		return err
@@ -168,7 +178,7 @@ func (sm *adminStateMachine) createShardAssignment(databaseName string,
 	return nil
 }
 
-func (sm *adminStateMachine) modifyShardAssignment(databaseName string, shardAssign *models.ShardAssignment,
+func (sm *shardAssignmentStateMachine) modifyShardAssignment(databaseName string, shardAssign *models.ShardAssignment,
 	cluster storage.Cluster, cfg *models.Database) error {
 	if len(shardAssign.Shards) > cfg.NumOfShard { //reduce shardAssign's shards
 		//TODO implement the reduce shards, is needed?
@@ -195,6 +205,9 @@ func (sm *adminStateMachine) modifyShardAssignment(databaseName string, shardAss
 			return err
 		}
 	}
+	sm.logger.Info("modify shard assign",
+		logger.String("database", databaseName),
+		logger.Any("shardAssign", shardAssign))
 	// save shard assignment into related storage cluster
 	if err := cluster.SaveShardAssign(databaseName, shardAssign, cfg.Option); err != nil {
 		return err

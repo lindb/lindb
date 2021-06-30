@@ -21,8 +21,8 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/coordinator/discovery"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -51,9 +51,9 @@ type ExecutorFactory interface {
 		ctx context.Context,
 		databaseName string,
 		sql string,
-		replicaStateMachine replica.StatusStateMachine,
-		nodeStateMachine broker.NodeStateMachine,
-		databaseStateMachine database.DBStateMachine,
+		replicaStateMachine broker.ReplicaStatusStateMachine,
+		nodeStateMachine discovery.ActiveNodeStateMachine,
+		databaseStateMachine broker.DatabaseStateMachine,
 		jobManager JobManager,
 	) BrokerExecutor
 
@@ -62,8 +62,8 @@ type ExecutorFactory interface {
 		ctx context.Context,
 		databaseName string,
 		request *stmt.Metadata,
-		replicaStateMachine replica.StatusStateMachine,
-		nodeStateMachine broker.NodeStateMachine,
+		replicaStateMachine broker.ReplicaStatusStateMachine,
+		nodeStateMachine discovery.ActiveNodeStateMachine,
 		jobManager JobManager,
 	) MetadataExecutor
 

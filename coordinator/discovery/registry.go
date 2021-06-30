@@ -20,6 +20,7 @@ package discovery
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"strconv"
 	"time"
 
@@ -34,21 +35,19 @@ import (
 
 // Registry represents server node register.
 type Registry interface {
+	io.Closer
 	// GenerateNodeID generates node id if node not exist in cluster.
 	GenerateNodeID(node models.Node) (models.NodeID, error)
 	// Register registers node info, add it to active node list for discovery.
 	Register(node models.Node) error
 	// Deregister deregister node info, remove it from active list.
 	Deregister(node models.Node) error
-	// Close closes registry, releases resources.
-	Close() error
 }
 
-// registry implements registry interface for server node register with prefix
+// registry implements registry interface for server node register with prefix.
 type registry struct {
-	prefix string
-	ttl    time.Duration
-	repo   state.Repository
+	ttl  time.Duration
+	repo state.Repository
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -56,7 +55,7 @@ type registry struct {
 	log *logger.Logger
 }
 
-// NewRegistry returns a new registry with prefix and ttl
+// NewRegistry returns a new registry with prefix and ttl.
 func NewRegistry(
 	repo state.Repository,
 	prefix string,
@@ -64,7 +63,6 @@ func NewRegistry(
 ) Registry {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &registry{
-		prefix: prefix,
 		ttl:    ttl,
 		repo:   repo,
 		ctx:    ctx,
@@ -75,11 +73,11 @@ func NewRegistry(
 
 // GenerateNodeID generates node id if node not exist in cluster.
 func (r *registry) GenerateNodeID(node models.Node) (models.NodeID, error) {
-	path := constants.GetNodeIDPath(r.prefix, node.Indicator())
+	path := constants.GetNodeIDPath(node.Indicator())
 	id, err := r.repo.Get(r.ctx, path)
 	if err == state.ErrNotExist {
 		// node data not exist, need gen new node id
-		seq, err := r.repo.NextSequence(r.ctx, constants.GetNodeSeqPath(r.prefix))
+		seq, err := r.repo.NextSequence(r.ctx, constants.NodeSeqPath)
 		if err != nil {
 			return 0, err
 		}
@@ -99,27 +97,27 @@ func (r *registry) GenerateNodeID(node models.Node) (models.NodeID, error) {
 	return models.NodeID(int(nodeID)), nil
 }
 
-// Register registers node info, add it to active node list for discovery
+// Register registers node info, add it to active node list for discovery.
 func (r *registry) Register(node models.Node) error {
 	// register node info
-	path := constants.GetNodePath(r.prefix, node.Indicator())
+	path := constants.GetActiveNodePath(node.Indicator())
 	// register node if fail retry it
 	go r.register(path, node)
 	return nil
 }
 
-// Deregister deregisters node info, remove it from active list
+// Deregister deregisters node info, remove it from active list.
 func (r *registry) Deregister(node models.Node) error {
-	return r.repo.Delete(r.ctx, constants.GetNodePath(r.prefix, node.Indicator()))
+	return r.repo.Delete(r.ctx, constants.GetActiveNodePath(node.Indicator()))
 }
 
-// Close closes registry, releases resources
+// Close closes registry, releases resources.
 func (r *registry) Close() error {
 	r.cancel()
 	return nil
 }
 
-// register registers node info, if fail do retry
+// register registers node info, if fail do retry.
 func (r *registry) register(path string, node models.Node) {
 	for {
 		// if ctx happen err, exit register loop

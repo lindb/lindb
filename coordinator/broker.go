@@ -19,7 +19,7 @@ package coordinator
 
 import (
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -27,10 +27,10 @@ import (
 // BrokerStateMachines represents all state machines for broker
 type BrokerStateMachines struct {
 	StorageSM       broker.StorageStateMachine
-	NodeSM          broker.NodeStateMachine
-	ReplicaStatusSM replica.StatusStateMachine
+	NodeSM          discovery.ActiveNodeStateMachine
+	ReplicaStatusSM broker.ReplicaStatusStateMachine
 	ReplicatorSM    replica.ReplicatorStateMachine
-	DatabaseSM      database.DBStateMachine
+	DatabaseSM      broker.DatabaseStateMachine
 
 	factory StateMachineFactory
 
@@ -47,11 +47,11 @@ func NewBrokerStateMachines(factory StateMachineFactory) *BrokerStateMachines {
 // Start starts related state machines for broker
 func (s *BrokerStateMachines) Start() (err error) {
 	s.log.Info("starting BrokerStateMachines")
-	s.NodeSM, err = s.factory.CreateNodeStateMachine()
+	s.NodeSM, err = s.factory.CreateActiveNodeStateMachine()
 	if err != nil {
 		return err
 	}
-	s.log.Debug("started NodeStateMachine")
+	s.log.Debug("started ActiveNodeStateMachine")
 	s.ReplicatorSM, err = s.factory.CreateReplicatorStateMachine()
 	if err != nil {
 		return err

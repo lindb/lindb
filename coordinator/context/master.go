@@ -18,7 +18,7 @@
 package context
 
 import (
-	"github.com/lindb/lindb/coordinator/database"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -26,7 +26,7 @@ import (
 // StateMachine represents all state machine for master
 type StateMachine struct {
 	StorageCluster storage.ClusterStateMachine
-	DatabaseAdmin  database.AdminStateMachine
+	DatabaseAdmin  broker.ShardAssignmentStateMachine
 }
 
 // MasterContext represents master context, creates it after node elect master

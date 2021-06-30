@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package broker
+package discovery
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
 )
@@ -38,19 +37,18 @@ func TestNodeStateMachine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := discovery.NewMockFactory(ctrl)
-	discovery1 := discovery.NewMockDiscovery(ctrl)
+	factory := NewMockFactory(ctrl)
+	discovery1 := NewMockDiscovery(ctrl)
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 
-	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
+	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	_, err := NewActiveNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.Error(t, err)
 
 	// normal case
-	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
+	discovery1.EXPECT().Discovery(true).Return(nil)
+	stateMachine, err := NewActiveNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
 	assert.Equal(t, currentNode, stateMachine.GetCurrentNode())
@@ -60,14 +58,13 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := discovery.NewMockFactory(ctrl)
-	discovery1 := discovery.NewMockDiscovery(ctrl)
+	factory := NewMockFactory(ctrl)
+	discovery1 := NewMockDiscovery(ctrl)
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
-
 	// normal case
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
+	discovery1.EXPECT().Discovery(true).Return(nil)
+	stateMachine, err := NewActiveNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.NoError(t, err)
 
 	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any())
@@ -93,6 +90,7 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 
 	taskClientFactory.EXPECT().CloseTaskClient(gomock.Any()).Return(true, io.ErrClosedPipe)
 	discovery1.EXPECT().Close()
+	_ = stateMachine.Close()
 	_ = stateMachine.Close()
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
 }

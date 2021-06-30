@@ -20,26 +20,27 @@ package replica
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./replicator_state_machine.go -destination=./replicator_state_machine_mock.go -package=replica
 
 // ReplicatorStateMachine represents the replicator state machine in broker
 type ReplicatorStateMachine interface {
-	discovery.Listener
-
-	// Close closes the state machine
-	Close() error
+	inif.Listener
+	io.Closer
 }
 
 // replicatorStateMachine implements the state machine interface,
@@ -48,75 +49,93 @@ type replicatorStateMachine struct {
 	discovery discovery.Discovery
 	cm        replication.ChannelManager
 
-	mutex sync.RWMutex
+	mutex   sync.RWMutex
+	running *atomic.Bool
 	// shardAssigns: db's name => shard assignment
 	shardAssigns map[string]*models.ShardAssignment
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *logger.Logger
+	logger *logger.Logger
 }
 
 // NewReplicatorStateMachine creates the state machine
 func NewReplicatorStateMachine(ctx context.Context,
 	cm replication.ChannelManager,
-	shardAssignService service.ShardAssignService,
 	discoveryFactory discovery.Factory,
 ) (ReplicatorStateMachine, error) {
-	shardAssigns, err := shardAssignService.List()
-	if err != nil {
-		return nil, err
-	}
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &replicatorStateMachine{
 		ctx:          c,
 		cancel:       cancel,
 		cm:           cm,
 		shardAssigns: make(map[string]*models.ShardAssignment),
-		log:          logger.GetLogger("coordinator", "ReplicatorStateMachine"),
+		running:      atomic.NewBool(false),
+		logger:       logger.GetLogger("coordinator", "ReplicatorStateMachine"),
 	}
-	for _, shardAssign := range shardAssigns {
-		stateMachine.buildShardAssign(shardAssign)
-	}
-	// final sync new replicator state
-	stateMachine.cm.SyncReplicatorState()
 	// new database's shard assign discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.DatabaseAssignPath, stateMachine)
-	if err := stateMachine.discovery.Discovery(); err != nil {
-		return nil, fmt.Errorf("discovery database config error:%s", err)
+	if err := stateMachine.discovery.Discovery(true); err != nil {
+		return nil, fmt.Errorf("discovery replicator error:%s", err)
 	}
+
+	stateMachine.running.Store(true)
+	// final sync new replicator state
+	stateMachine.cm.SyncReplicatorState()
+	stateMachine.logger.Info("replicator state machine is started")
+
 	return stateMachine, nil
 }
 
 // OnCreate triggers on shard assignment creation, builds related replicators
 func (sm *replicatorStateMachine) OnCreate(key string, resource []byte) {
+	sm.logger.Info("discovery new database shard assignment create in cluster",
+		logger.String("key", key),
+		logger.String("data", string(resource)))
+
 	shardAssign := &models.ShardAssignment{}
 	if err := encoding.JSONUnmarshal(resource, shardAssign); err != nil {
-		sm.log.Error("unmarshal shard assign", logger.Error(err))
+		sm.logger.Error("unmarshal shard assign", logger.Error(err))
 		return
 	}
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
 	sm.buildShardAssign(shardAssign)
-	// final sync new replicator state
-	sm.cm.SyncReplicatorState()
+
+	if sm.running.Load() {
+		// final sync new replicator state
+		sm.cm.SyncReplicatorState()
+	}
 }
 
 // OnDelete trigger on database deletion, destroy related replicators for deletion database
 func (sm *replicatorStateMachine) OnDelete(key string) {
+	sm.logger.Info("discovery a database shard assignment delete from cluster",
+		logger.String("key", key))
+
 	_, dbName := filepath.Split(key)
+
 	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+
 	//FIXME: need remove replicator and channel when database delete?
 	delete(sm.shardAssigns, dbName)
-	sm.mutex.Unlock()
 }
 
 // Close closes the state machine
 func (sm *replicatorStateMachine) Close() error {
-	sm.discovery.Close()
-	sm.cancel()
+	if sm.running.CAS(true, false) {
+		sm.mutex.Lock()
+		defer func() {
+			sm.mutex.Unlock()
+			sm.cancel()
+		}()
+		sm.discovery.Close()
+
+		sm.logger.Info("replicator state machine is stopped")
+	}
 	return nil
 }
 
@@ -136,10 +155,10 @@ func (sm *replicatorStateMachine) createReplicaChannel(numOfShard, shardID int, 
 	db := shardAssign.Name
 	ch, err := sm.cm.CreateChannel(db, int32(numOfShard), int32(shardID))
 	if err != nil {
-		sm.log.Error("create replica channel", logger.Error(err))
+		sm.logger.Error("create replica channel", logger.Error(err))
 		return
 	}
-	sm.log.Info("create replica channel successfully", logger.String("db", db), logger.Any("shardID", shardID))
+	sm.logger.Info("create replica channel successfully", logger.String("db", db), logger.Any("shardID", shardID))
 
 	sm.startReplicator(ch, shardID, shardAssign)
 }
@@ -154,10 +173,10 @@ func (sm *replicatorStateMachine) startReplicator(ch replication.Channel, shardI
 		if target != nil {
 			_, err := ch.GetOrCreateReplicator(*target)
 			if err != nil {
-				sm.log.Error("start replicator", logger.Error(err))
+				sm.logger.Error("start replicator", logger.Error(err))
 				continue
 			}
-			sm.log.Info("create replicator successfully", logger.String("db", db),
+			sm.logger.Info("create replicator successfully", logger.String("db", db),
 				logger.Any("shardID", shardID), logger.String("target", target.Indicator()))
 		}
 	}

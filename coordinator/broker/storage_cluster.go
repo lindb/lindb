@@ -18,6 +18,7 @@
 package broker
 
 import (
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -25,19 +26,19 @@ import (
 
 type StorageClusterState struct {
 	state             *models.StorageState
-	connectionManager *connectionManager
+	connectionManager *discovery.ConnectionManager
 	logger            *logger.Logger
 }
 
-func newStorageClusterState(taskClientFactory rpc.TaskClientFactory, logger *logger.Logger) *StorageClusterState {
+func newStorageClusterState(taskClientFactory rpc.TaskClientFactory) *StorageClusterState {
 	return &StorageClusterState{
-		connectionManager: &connectionManager{
+		connectionManager: &discovery.ConnectionManager{
 			RoleFrom:          "broker",
 			RoleTo:            "storage",
-			connections:       make(map[string]struct{}),
-			taskClientFactory: taskClientFactory,
+			Connections:       make(map[string]struct{}),
+			TaskClientFactory: taskClientFactory,
 		},
-		logger: logger,
+		logger: logger.GetLogger("coordinator", "StorageClusterState"),
 	}
 }
 
@@ -47,14 +48,14 @@ func (s *StorageClusterState) SetState(state *models.StorageState) {
 	for _, node := range state.GetActiveNodes() {
 		activeNodes = append(activeNodes, node.Node.Indicator())
 	}
-	s.connectionManager.closeInactiveNodeConnections(activeNodes)
+	s.connectionManager.CloseInactiveNodeConnections(activeNodes)
 
 	for _, node := range state.ActiveNodes {
 		s.logger.Info("storage node is online",
 			logger.String("node", node.Node.Indicator()),
 			logger.Int64("nodeOnlineTime", node.OnlineTime),
 		)
-		s.connectionManager.createConnection(node.Node)
+		s.connectionManager.CreateConnection(node.Node)
 	}
 
 	s.state = state
@@ -62,6 +63,6 @@ func (s *StorageClusterState) SetState(state *models.StorageState) {
 }
 
 func (s *StorageClusterState) close() {
-	s.connectionManager.closeAll()
+	s.connectionManager.CloseAll()
 	s.logger.Debug("close storage cluster state successfully")
 }
