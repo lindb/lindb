@@ -21,8 +21,8 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/coordinator/discovery"
+
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
@@ -34,9 +34,9 @@ type brokerExecutor struct {
 	sql      string
 	query    *stmt.Query
 
-	replicaStateMachine  replica.StatusStateMachine
-	nodeStateMachine     broker.NodeStateMachine
-	databaseStateMachine database.DBStateMachine
+	replicaStateMachine  broker.ReplicaStatusStateMachine
+	nodeStateMachine     discovery.ActiveNodeStateMachine
+	databaseStateMachine broker.DatabaseStateMachine
 
 	jobManager parallel.JobManager
 
@@ -47,8 +47,8 @@ type brokerExecutor struct {
 
 // newBrokerExecutor creates the execution which executes the job of parallel query
 func newBrokerExecutor(ctx context.Context, database string, sql string,
-	replicaStateMachine replica.StatusStateMachine, nodeStateMachine broker.NodeStateMachine,
-	databaseStateMachine database.DBStateMachine,
+	replicaStateMachine broker.ReplicaStatusStateMachine, nodeStateMachine discovery.ActiveNodeStateMachine,
+	databaseStateMachine broker.DatabaseStateMachine,
 	jobManager parallel.JobManager) parallel.BrokerExecutor {
 	exec := &brokerExecutor{
 		sql:                  sql,

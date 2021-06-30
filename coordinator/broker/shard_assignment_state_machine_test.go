@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package database
+package broker
 
 import (
 	"context"
@@ -40,14 +40,14 @@ func TestAdminStateMachine(t *testing.T) {
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err := NewAdminStateMachine(context.TODO(), factory, nil)
+	discovery1.EXPECT().Discovery(false).Return(fmt.Errorf("err"))
+	_, err := NewShardAssignmentStateMachine(context.TODO(), factory, nil)
 	assert.NotNil(t, err)
 
 	storageCluster := storage.NewMockClusterStateMachine(ctrl)
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewAdminStateMachine(context.TODO(), factory, storageCluster)
+	discovery1.EXPECT().Discovery(false).Return(nil)
+	stateMachine, err := NewShardAssignmentStateMachine(context.TODO(), factory, storageCluster)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,6 +98,7 @@ func TestAdminStateMachine(t *testing.T) {
 
 	stateMachine.OnDelete("mock")
 	discovery1.EXPECT().Close()
+	_ = stateMachine.Close()
 	_ = stateMachine.Close()
 }
 

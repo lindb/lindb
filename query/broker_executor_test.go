@@ -26,8 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
-	"github.com/lindb/lindb/coordinator/replica"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/option"
@@ -38,11 +37,11 @@ func TestBrokerExecutor_Execute(t *testing.T) {
 	defer ctrl.Finish()
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
-	nodeStateMachine := broker.NewMockNodeStateMachine(ctrl)
-	dbStateMachine := database.NewMockDBStateMachine(ctrl)
+	nodeStateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
+	dbStateMachine := broker.NewMockDatabaseStateMachine(ctrl)
 	nodeStateMachine.EXPECT().GetCurrentNode().Return(currentNode.Node).AnyTimes()
 	nodeStateMachine.EXPECT().GetActiveNodes().Return(nil)
-	replicaStateMachine := replica.NewMockStatusStateMachine(ctrl)
+	replicaStateMachine := broker.NewMockReplicaStatusStateMachine(ctrl)
 	jobManager := parallel.NewMockJobManager(ctrl)
 
 	// case 1: database not found

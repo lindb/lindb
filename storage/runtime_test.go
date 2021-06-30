@@ -77,7 +77,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 
 	runtime, _ := storage.(*runtime)
-	nodePath := constants.GetNodePath(constants.ActiveNodesPath, runtime.node.Indicator())
+	nodePath := constants.GetActiveNodePath(runtime.node.Indicator())
 	nodeBytes, err := runtime.repo.Get(context.TODO(), nodePath)
 	assert.NoError(ts.t, err)
 

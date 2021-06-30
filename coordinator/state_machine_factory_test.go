@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
 )
 
 func TestStateMachineFactory_Create(t *testing.T) {
@@ -37,12 +36,10 @@ func TestStateMachineFactory_Create(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	discoveryFactory.EXPECT().GetRepo().Return(repo).AnyTimes()
-	shardAssignSVR := service.NewMockShardAssignService(ctrl)
 	cm := replication.NewMockChannelManager(ctrl)
 	cm.EXPECT().SyncReplicatorState().AnyTimes()
 
@@ -51,55 +48,51 @@ func TestStateMachineFactory_Create(t *testing.T) {
 		Repo:             repo,
 		CurrentNode:      models.Node{IP: "1.1.1.1", Port: 9000},
 		DiscoveryFactory: discoveryFactory,
-		ShardAssignSRV:   shardAssignSVR,
 		ChannelManager:   cm,
 	})
 
 	// test node state machine
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	nodeSM, err := factory.CreateNodeStateMachine()
-	assert.NotNil(t, err)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	nodeSM, err := factory.CreateActiveNodeStateMachine()
+	assert.Error(t, err)
 	assert.Nil(t, nodeSM)
 
-	discovery1.EXPECT().Discovery().Return(nil)
-	nodeSM, err = factory.CreateNodeStateMachine()
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	nodeSM, err = factory.CreateActiveNodeStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, nodeSM)
 
 	// test storage state machine
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil).MaxTimes(2)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	storageStateSM, err := factory.CreateStorageStateMachine()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, storageStateSM)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	storageStateSM, err = factory.CreateStorageStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, storageStateSM)
 
 	// test replica status state machine
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil).MaxTimes(2)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	replicaStatusSM, err := factory.CreateReplicaStatusStateMachine()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, replicaStatusSM)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	replicaStatusSM, err = factory.CreateReplicaStatusStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, replicaStatusSM)
 
 	// test replicator state machine
-	shardAssignSVR.EXPECT().List().Return(nil, fmt.Errorf("err"))
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	replicatorSM, err := factory.CreateReplicatorStateMachine()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, replicatorSM)
-	shardAssignSVR.EXPECT().List().Return(nil, nil)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	replicatorSM, err = factory.CreateReplicatorStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, replicatorSM)
 
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	dbSM, err := factory.CreateDatabaseStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, dbSM)

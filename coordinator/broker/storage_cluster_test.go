@@ -35,28 +35,28 @@ func TestStorageClusterState_SetState(t *testing.T) {
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 	taskClientFactory.EXPECT().CloseTaskClient(gomock.Any()).AnyTimes()
 
-	state := newStorageClusterState(taskClientFactory, storageFSMLogger)
+	state := newStorageClusterState(taskClientFactory)
 
 	storageState := models.NewStorageState()
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 
 	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any()).Return(nil)
 	state.SetState(storageState)
-	assert.Equal(t, 1, len(state.connectionManager.connections))
-	assert.NotNil(t, state.connectionManager.connections["1.1.1.1:9000"])
+	assert.Equal(t, 1, len(state.connectionManager.Connections))
+	assert.NotNil(t, state.connectionManager.Connections["1.1.1.1:9000"])
 
 	storageState = models.NewStorageState()
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 9000}})
 	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any()).Return(fmt.Errorf("err"))
 	state.SetState(storageState)
-	assert.Equal(t, 0, len(state.connectionManager.connections))
+	assert.Equal(t, 0, len(state.connectionManager.Connections))
 
 	storageState = models.NewStorageState()
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 9000}})
 	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any()).Return(nil)
 	state.SetState(storageState)
-	assert.Equal(t, 1, len(state.connectionManager.connections))
+	assert.Equal(t, 1, len(state.connectionManager.Connections))
 
 	state.close()
-	assert.Equal(t, 0, len(state.connectionManager.connections))
+	assert.Equal(t, 0, len(state.connectionManager.Connections))
 }

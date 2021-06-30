@@ -29,6 +29,7 @@ type NodeID int
 
 // Node represents the basic info of server
 type Node struct {
+	ID       NodeID `json:"id"`
 	IP       string `json:"ip"`
 	Port     uint16 `json:"port"`
 	HTTPPort uint16 `json:"httpPort"`

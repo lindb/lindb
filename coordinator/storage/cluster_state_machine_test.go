@@ -50,53 +50,22 @@ func TestClusterStateMachine_New(t *testing.T) {
 	discoverFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	clusterFactory := NewMockClusterFactory(ctrl)
 
-	// list exist storage cluster err
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	// register discovery err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err := NewClusterStateMachine(context.TODO(), repo,
 		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)
-
-	assert.NotNil(t, err)
-
-	// register discovery err
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err = NewClusterStateMachine(context.TODO(), repo,
-		controllerFactory, discoverFactory, clusterFactory, repoFactory,
-		storageService, shardAssignService)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	// normal case
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).
-		Return([]state.KeyValue{
-			{Key: "test1", Value: encoding.JSONMarshal(&models.StorageState{Name: "test1"})},
-			{Key: "unmarshal_err", Value: []byte{1, 2, 3}},
-			{Key: "test2", Value: encoding.JSONMarshal(&models.StorageState{Name: "test2"})},
-			{Key: "test3", Value: encoding.JSONMarshal(&models.StorageState{Name: "test3"})},
-			{Key: "error", Value: encoding.JSONMarshal(&models.StorageState{})},
-		}, nil).AnyTimes()
-	repo1 := state.NewMockRepository(ctrl)
-	repo1.EXPECT().Close().Return(nil)
-
-	gomock.InOrder(
-		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo1, nil),
-		clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, fmt.Errorf("err")),
-		cluster.EXPECT().Close(),
-		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(state.NewMockRepository(ctrl), nil),
-		clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, nil),
-		repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err")),
-	)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
 	stateMachine, err := NewClusterStateMachine(context.TODO(), repo,
 		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, stateMachine)
-	assert.Equal(t, 1, len(stateMachine.GetAllCluster()))
-	assert.Equal(t, cluster, stateMachine.GetCluster("test2"))
-	assert.Nil(t, stateMachine.GetCluster("test1"))
 
 	// OnDelete
 	cluster.EXPECT().Close()
@@ -108,8 +77,8 @@ func TestClusterStateMachine_New(t *testing.T) {
 	clusterFactory.EXPECT().newCluster(gomock.Any()).Return(cluster, nil)
 	stateMachine.OnCreate("/test/data/test1", encoding.JSONMarshal(&models.StorageState{Name: "test1"}))
 
-	cluster.EXPECT().Close()
 	discovery1.EXPECT().Close()
+	_ = stateMachine.Close()
 	_ = stateMachine.Close()
 }
 
@@ -125,12 +94,10 @@ func TestClusterStateMachine_collect(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	discoverFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discovery1.EXPECT().Discovery().Return(nil)
 	discoverFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	clusterFactory := NewMockClusterFactory(ctrl)
 
-	// list exist storage cluster err
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	sm, err := NewClusterStateMachine(context.TODO(), repo,
 		controllerFactory, discoverFactory, clusterFactory, repoFactory,
 		storageService, shardAssignService)

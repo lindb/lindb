@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -78,7 +79,7 @@ func NewClusterFactory() ClusterFactory {
 // 2) save shard assignment
 // 3) generate coordinator task
 type Cluster interface {
-	discovery.Listener
+	inif.Listener
 
 	// GetActiveNodes returns all active nodes
 	GetActiveNodes() []*models.ActiveNode
@@ -133,24 +134,17 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 		clusterState: models.NewStorageState(),
 		logger:       cfg.logger,
 	}
-	// init active nodes if exist
-	nodeList, err := cfg.repo.List(cfg.ctx, constants.ActiveNodesPath+"/data")
-	if err != nil {
-		return cluster, fmt.Errorf("get active nodes error:%s", err)
-	}
-	for _, node := range nodeList {
-		_ = cluster.addNode(node.Value)
+
+	// new storage active node discovery
+	cluster.discovery = cfg.factory.CreateDiscovery(constants.ActiveNodesPath, cluster)
+	if err := cluster.discovery.Discovery(true); err != nil {
+		return cluster, fmt.Errorf("discovery active storage nodes error:%s", err)
 	}
 	// set cluster name
 	cluster.clusterState.Name = cfg.cfg.Name
 	// saving new cluster state
 	cluster.saveClusterState()
 
-	// new storage active node discovery
-	cluster.discovery = cfg.factory.CreateDiscovery(constants.ActiveNodesPath+"/data", cluster)
-	if err := cluster.discovery.Discovery(); err != nil {
-		return cluster, fmt.Errorf("discovery active storage nodes error:%s", err)
-	}
 	cluster.taskController = cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo)
 
 	cluster.logger.Info("init storage cluster success", logger.String("cluster", cluster.clusterState.Name))

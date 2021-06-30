@@ -21,13 +21,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -41,13 +45,13 @@ import (
 // ClusterStateMachine represents storage cluster control when node is master,
 // watches cluster config change event, then create/delete related storage cluster controller.
 type ClusterStateMachine interface {
-	discovery.Listener
+	inif.Listener
+	io.Closer
+
 	// GetCluster returns cluster controller for maintain the metadata of storage cluster
 	GetCluster(name string) Cluster
 	// GetAllCluster returns all cluster controller
 	GetAllCluster() []Cluster
-	// Close closes state machine, cleanup and close all cluster controller
-	Close() error
 }
 
 // clusterStateMachine implements storage cluster state machine,
@@ -70,8 +74,9 @@ type clusterStateMachine struct {
 	interval time.Duration
 	timer    *time.Timer
 
-	mutex sync.RWMutex
-	log   *logger.Logger
+	running *atomic.Bool
+	mutex   sync.RWMutex
+	logger  *logger.Logger
 }
 
 // NewClusterStateMachine create state machine, init cluster controller if exist, watch change event
@@ -97,33 +102,28 @@ func NewClusterStateMachine(
 		controllerFactory:   controllerFactory,
 		shardAssignService:  shardAssignService,
 		clusters:            make(map[string]Cluster),
+		running:             atomic.NewBool(false),
 		interval:            30 * time.Second, //TODO add config ?
-		log:                 log,
-	}
-	clusterList, err := repo.List(c, constants.StorageClusterConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("get storage cluster list error:%s", err)
+		logger:              log,
 	}
 
-	// init exist cluster list
-	for _, cluster := range clusterList {
-		stateMachine.addCluster(cluster.Value)
-	}
 	// new storage config discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.StorageClusterConfigPath, stateMachine)
-	if err := stateMachine.discovery.Discovery(); err != nil {
+	if err := stateMachine.discovery.Discovery(true); err != nil {
 		return nil, fmt.Errorf("discovery storage cluster config error:%s", err)
 	}
 	// start collect cluster stat goroutine
 	stateMachine.timer = time.NewTimer(stateMachine.interval)
 	go stateMachine.collectStat()
+
+	stateMachine.running.Store(true)
 	log.Info("storage cluster state machine started")
 	return stateMachine, nil
 }
 
 // OnCreate creates and starts cluster controller when receive create event
 func (c *clusterStateMachine) OnCreate(key string, resource []byte) {
-	c.log.Info("storage cluster be created", logger.String("key", key))
+	c.logger.Info("storage cluster be created", logger.String("key", key))
 	c.addCluster(resource)
 }
 
@@ -131,41 +131,54 @@ func (c *clusterStateMachine) OnCreate(key string, resource []byte) {
 func (c *clusterStateMachine) OnDelete(key string) {
 	_, name := filepath.Split(key)
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	c.deleteCluster(name)
-	c.mutex.Unlock()
 }
 
 // GetCluster returns cluster controller for maintain the metadata of storage cluster
 func (c *clusterStateMachine) GetCluster(name string) Cluster {
 	var cluster Cluster
 	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	if !c.running.Load() {
+		return cluster
+	}
+
 	cluster = c.clusters[name]
-	c.mutex.RUnlock()
 	return cluster
 }
 
 // GetAllCluster returns all cluster controller
 func (c *clusterStateMachine) GetAllCluster() []Cluster {
-	var clusters []Cluster
 	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if !c.running.Load() {
+		return nil
+	}
+
+	var clusters []Cluster
 	for _, v := range c.clusters {
 		clusters = append(clusters, v)
 	}
-	c.mutex.RUnlock()
 	return clusters
 }
 
 // Close closes state machine, cleanup and close all cluster controller
 func (c *clusterStateMachine) Close() error {
-	// 1) close listen for storage cluster config change
-	c.discovery.Close()
-	// 2) cleanup clusters and release resource
-	c.mutex.Lock()
-	c.cleanupCluster()
-	c.mutex.Unlock()
-
-	c.timer.Stop()
-	c.cancel()
+	if c.running.CAS(true, false) {
+		c.mutex.Lock()
+		defer func() {
+			c.mutex.Unlock()
+			c.timer.Stop()
+			c.cancel()
+		}()
+		// 1) close listen for storage cluster config change
+		c.discovery.Close()
+		// 2) cleanup clusters and release resource
+		c.cleanupCluster()
+	}
 	return nil
 }
 
@@ -183,7 +196,7 @@ func (c *clusterStateMachine) collectStat() {
 }
 
 func (c *clusterStateMachine) collect() {
-	c.log.Debug("collecting storage cluster stat")
+	c.logger.Debug("collecting storage cluster stat")
 
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -191,12 +204,12 @@ func (c *clusterStateMachine) collect() {
 	for name, cluster := range c.clusters {
 		stat, err := cluster.CollectStat()
 		if err != nil {
-			c.log.Warn("collect storage cluster stat", logger.String("cluster", name), logger.Error(err))
+			c.logger.Warn("collect storage cluster stat", logger.String("cluster", name), logger.Error(err))
 			continue
 		}
 		stat.Name = name
 		if err := c.repo.Put(c.ctx, constants.GetStorageClusterStatPath(name), encoding.JSONMarshal(stat)); err != nil {
-			c.log.Warn("save storage cluster stat", logger.String("cluster", name), logger.Error(err))
+			c.logger.Warn("save storage cluster stat", logger.String("cluster", name), logger.Error(err))
 			continue
 		}
 	}
@@ -213,12 +226,12 @@ func (c *clusterStateMachine) cleanupCluster() {
 func (c *clusterStateMachine) addCluster(resource []byte) {
 	cfg := config.StorageCluster{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
-		c.log.Error("discovery new storage config but unmarshal error",
+		c.logger.Error("discovery new storage config but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
 	if len(cfg.Name) == 0 {
-		c.log.Error("cluster name is empty", logger.Any("cfg", cfg))
+		c.logger.Error("cluster name is empty", logger.Any("cfg", cfg))
 		return
 	}
 	c.mutex.Lock()
@@ -233,7 +246,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 
 	repo, err := c.repoFactory.CreateRepo(cfg.Config)
 	if err != nil {
-		c.log.Error("new state repo error when create cluster",
+		c.logger.Error("new state repo error when create cluster",
 			logger.Any("cfg", cfg), logger.Error(err))
 		return
 	}
@@ -245,7 +258,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 		controllerFactory:   c.controllerFactory,
 		factory:             discovery.NewFactory(repo),
 		shardAssignService:  c.shardAssignService,
-		logger:              c.log,
+		logger:              c.logger,
 	}
 	cluster, err := c.clusterFactory.newCluster(clusterCfg)
 	if err != nil {
@@ -254,7 +267,7 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 			cluster.Close()
 		}
 		(&clusterCfg).clean()
-		c.log.Error("create storage cluster error",
+		c.logger.Error("create storage cluster error",
 			logger.Any("cfg", cfg), logger.Error(err))
 		return
 	}

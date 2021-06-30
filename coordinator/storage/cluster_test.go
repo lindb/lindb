@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/config"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
@@ -53,7 +52,6 @@ func TestStorageCluster(t *testing.T) {
 
 	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	controller := task.NewMockController(ctrl)
 	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	controllerFactory := task.NewMockControllerFactory(ctrl)
@@ -68,39 +66,27 @@ func TestStorageCluster(t *testing.T) {
 		shardAssignService:  shardAssignService,
 		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err := factory.newCluster(cfg)
-	assert.NotNil(t, err)
-
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
-		{Key: "/node1", Value: encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 4000}})},
-		{Key: "/node_err", Value: []byte{1, 1, 1, 1}},
-		{Key: "/node2", Value: encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.2", Port: 4000}})},
-	}, nil).AnyTimes()
-
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err = factory.newCluster(cfg)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	cluster, err := factory.newCluster(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, cluster)
 
-	// get active nodes
-	assert.Equal(t, 2, len(cluster.GetActiveNodes()))
 	// OnCreate
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	cluster.OnCreate("/active/node/1",
 		encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.4", Port: 4000}}))
 	cluster.OnCreate("/active/node/2", []byte{1, 2, 3})
-	assert.Equal(t, 3, len(cluster.GetActiveNodes()))
+	assert.Equal(t, 1, len(cluster.GetActiveNodes()))
 
 	// OnDelete
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	cluster.OnDelete("/active/nodes/1.1.1.2:4000")
-	assert.Equal(t, 2, len(cluster.GetActiveNodes()))
+	assert.Equal(t, 1, len(cluster.GetActiveNodes()))
 
 	// get shard assign
 	shardAssignService.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -164,7 +150,7 @@ func TestCluster_CollectStat(t *testing.T) {
 
 	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller := task.NewMockController(ctrl)
@@ -179,7 +165,6 @@ func TestCluster_CollectStat(t *testing.T) {
 		controllerFactory:   controllerFactory,
 		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	cluster1, err := factory.newCluster(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, cluster1)
@@ -226,7 +211,7 @@ func TestCluster_FlushDatabase(t *testing.T) {
 
 	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	discovery1.EXPECT().Discovery().Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
 	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
 	controller := task.NewMockController(ctrl)
@@ -241,7 +226,6 @@ func TestCluster_FlushDatabase(t *testing.T) {
 		controllerFactory:   controllerFactory,
 		logger:              logger.GetLogger("coordinator", "storage-test"),
 	}
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
 	cluster1, err := factory.newCluster(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, cluster1)

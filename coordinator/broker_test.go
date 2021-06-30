@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/database"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/replica"
 )
 
@@ -35,17 +35,17 @@ func TestBrokerStateMachines(t *testing.T) {
 
 	factory := NewMockStateMachineFactory(ctrl)
 	brokerSMs := NewBrokerStateMachines(factory)
-	nodeSM := broker.NewMockNodeStateMachine(ctrl)
-	replicaSM := replica.NewMockStatusStateMachine(ctrl)
+	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
+	replicaSM := broker.NewMockReplicaStatusStateMachine(ctrl)
 	storageStateSM := broker.NewMockStorageStateMachine(ctrl)
 	replicatorSM := replica.NewMockReplicatorStateMachine(ctrl)
-	dbSM := database.NewMockDBStateMachine(ctrl)
+	dbSM := broker.NewMockDatabaseStateMachine(ctrl)
 
-	factory.EXPECT().CreateNodeStateMachine().Return(nil, fmt.Errorf("err"))
+	factory.EXPECT().CreateActiveNodeStateMachine().Return(nil, fmt.Errorf("err"))
 	err := brokerSMs.Start()
 	assert.Error(t, err)
 
-	factory.EXPECT().CreateNodeStateMachine().Return(nodeSM, nil).AnyTimes()
+	factory.EXPECT().CreateActiveNodeStateMachine().Return(nodeSM, nil).AnyTimes()
 	factory.EXPECT().CreateReplicatorStateMachine().Return(nil, fmt.Errorf("err"))
 	err = brokerSMs.Start()
 	assert.Error(t, err)

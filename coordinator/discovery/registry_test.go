@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -59,7 +60,7 @@ func TestRegistry(t *testing.T) {
 	close(closedCh)
 	time.Sleep(600 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/data/%s", testRegistryPath, node.Indicator())
+	nodePath := fmt.Sprintf("%s/%s", constants.ActiveNodesPath, node.Indicator())
 	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
 	err = registry1.Deregister(node)
 	assert.Nil(t, err)

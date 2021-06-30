@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lindb/lindb/coordinator/broker"
 	coCtx "github.com/lindb/lindb/coordinator/context"
-	"github.com/lindb/lindb/coordinator/database"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -131,7 +131,7 @@ func (m *master) OnFailOver() error {
 		return fmt.Errorf("start storage cluster state machine errer:%s", err)
 	}
 
-	stateMachine.DatabaseAdmin, err = database.NewAdminStateMachine(m.ctx, m.cfg.DiscoveryFactory, stateMachine.StorageCluster)
+	stateMachine.DatabaseAdmin, err = broker.NewShardAssignmentStateMachine(m.ctx, m.cfg.DiscoveryFactory, stateMachine.StorageCluster)
 	if err != nil {
 		return fmt.Errorf("start database admin state machine error:%s", err)
 	}

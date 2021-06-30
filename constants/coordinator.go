@@ -23,10 +23,14 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 )
 
-// defines common constants will be used in broker and storage
+// defines common constants will be used in broker and storage.
 const (
-	// ActiveNodesPath represents active nodes prefix path for node register
+	// ActiveNodesPath represents active nodes prefix path for node register.
 	ActiveNodesPath = "/active/nodes"
+	// NodesPath represents node's metadata root path.
+	NodesPath = "/nodes/meta"
+	// NodeSeqPath represents node id seg generate path.
+	NodeSeqPath = "/active/nodes/seq"
 	// StateNodesPath represents the state of node that node will report runtime status
 	StateNodesPath = "/state/nodes"
 )
@@ -86,14 +90,19 @@ func GetDatabaseAssignPath(name string) string {
 	return fmt.Sprintf("%s/%s", DatabaseAssignPath, name)
 }
 
-// GetNodePath returns node register path
-func GetNodePath(prefix, node string) string {
-	return fmt.Sprintf("%s/data/%s", prefix, node)
+// GetActiveNodePath returns active node register path.
+func GetActiveNodePath(node string) string {
+	return fmt.Sprintf("%s/%s", ActiveNodesPath, node)
+}
+
+// GetNodePath returns node's metadata register path.
+func GetNodePath(node string) string {
+	return fmt.Sprintf("%s/%s", NodesPath, node)
 }
 
 // GetNodeIDPath returns node id register path
-func GetNodeIDPath(prefix, node string) string {
-	return fmt.Sprintf("%s/ids/%s", prefix, node)
+func GetNodeIDPath(node string) string {
+	return fmt.Sprintf("%s/ids/%s", NodesPath, node)
 }
 
 // GetNodeSeqPath returns node id's generate path
