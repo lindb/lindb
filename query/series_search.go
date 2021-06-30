@@ -18,6 +18,8 @@
 package query
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -110,7 +112,7 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (uint32, *roarin
 func (s *seriesSearch) getSeriesIDsByExpr(expr stmt.Expr) (uint32, *roaring.Bitmap, error) {
 	tagValues, ok := s.filterResult[expr.Rewrite()]
 	if !ok {
-		return 0, nil, constants.ErrNotFound
+		return 0, nil, fmt.Errorf("%w, expr: %s", constants.ErrTagValueFilterResultNotFound, expr.Rewrite())
 	}
 	seriesIDs, err := s.filter.GetSeriesIDsByTagValueIDs(tagValues.tagKey, tagValues.tagValueIDs)
 	if err != nil {

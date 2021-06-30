@@ -19,6 +19,7 @@ package field
 
 import (
 	"sort"
+	"strings"
 )
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
@@ -81,4 +82,25 @@ func (fms Metas) Intersects(fields Metas) (x2 Metas, isSubSet bool) {
 	}
 	sort.Sort(x2)
 	return x2, isSubSet
+}
+
+// Stringer returns the fields in string
+func (fms Metas) String() string {
+	switch len(fms) {
+	case 0:
+		return ""
+	case 1:
+		return string(fms[0].Name)
+	case 2:
+		return string(fms[0].Name) + "," + string(fms[1].Name)
+	default:
+		b := strings.Builder{}
+		for i := range fms {
+			if i > 0 {
+				b.WriteString(",")
+			}
+			b.WriteString(string(fms[i].Name))
+		}
+		return b.String()
+	}
 }

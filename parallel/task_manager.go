@@ -103,10 +103,10 @@ func (t *taskManager) Get(taskID string) TaskContext {
 func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) error {
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
-		return errNoSendStream
+		return fmt.Errorf("SendRequest: %w, targetNodeID: %s", errNoSendStream, targetNodeID)
 	}
 	if err := client.Send(req); err != nil {
-		return errTaskSend
+		return fmt.Errorf("%w, targetNodeID: %s", errTaskSend, targetNodeID)
 	}
 	return nil
 }
@@ -116,10 +116,10 @@ func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) erro
 func (t *taskManager) SendResponse(parentNodeID string, resp *pb.TaskResponse) error {
 	stream := t.taskServerFactory.GetStream(parentNodeID)
 	if stream == nil {
-		return errNoSendStream
+		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", errNoSendStream, parentNodeID)
 	}
 	if err := stream.Send(resp); err != nil {
-		return err
+		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", errResponseSend, parentNodeID)
 	}
 	return nil
 }

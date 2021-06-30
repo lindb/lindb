@@ -19,6 +19,7 @@ package metadb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -197,13 +198,13 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	// case 2: from memory not exist
 	meta.EXPECT().getTagKeyID("tag-key").Return(uint32(10), false)
 	tagKeyID, err = db.GetTagKeyID("ns-1", "name1", "tag-key")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), tagKeyID)
 
 	// case 4: backend, metric not exist
 	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	tagKeyID, err = db.GetTagKeyID("ns-1", "name2", "tag-key")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), tagKeyID)
 
 	// case 4: backend exist
@@ -222,7 +223,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	// case 6: backend, metric not exist
 	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	tagKeys, err = db.GetAllTagKeys("ns-1", "name2")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, tagKeys)
 
 	// case 7: backend, tag keys exist
@@ -299,13 +300,13 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	// case 2: from memory not exist
 	meta.EXPECT().getField(field.Name("f1")).Return(field.Meta{}, false)
 	f, err = db.GetField("ns-1", "name1", "f1")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, field.Meta{}, f)
 
 	// case 4: backend, metric not exist
 	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	f, err = db.GetField("ns-1", "name2", "f1")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, field.Meta{}, f)
 
 	// case 4: backend exist
@@ -324,7 +325,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	// case 6: backend, metric not exist
 	mockBackend.EXPECT().getMetricID("ns-1", "name2").Return(uint32(0), constants.ErrNotFound)
 	fields, err = db.GetAllFields("ns-1", "name2")
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, fields)
 
 	// case 7: backend, tag keys exist

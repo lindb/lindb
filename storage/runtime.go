@@ -150,6 +150,7 @@ func (r *runtime) Run() error {
 
 	// start state repo
 	if err := r.startStateRepo(); err != nil {
+		r.log.Error("failed to startStateRepo", logger.Error(err))
 		r.state = server.Failed
 		return err
 	}

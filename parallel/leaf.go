@@ -20,6 +20,7 @@ package parallel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -107,7 +108,7 @@ func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
 	}
 	exec := p.executorFactory.NewMetadataStorageExecutor(db, shardIDs, query)
 	result, err := exec.Execute()
-	if err != nil && err != constants.ErrNotFound {
+	if err != nil && !errors.Is(err, constants.ErrNotFound) {
 		return err
 	}
 	// send result to upstream

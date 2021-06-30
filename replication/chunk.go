@@ -38,7 +38,7 @@ type Chunk interface {
 	Size() int
 	// Append appends the metric into buffer
 	Append(metric *field.Metric)
-	// MarshalBinary marshals the data
+	// BinaryMarshaler marshals the data
 	encoding.BinaryMarshaler
 }
 

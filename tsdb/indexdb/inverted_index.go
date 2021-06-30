@@ -102,7 +102,7 @@ func newInvertedIndex(metadata metadb.Metadata, forwardFamily kv.Family, inverte
 	}
 }
 
-// FindSeriesIDsByExpr finds series ids by tag filter expr
+// GetSeriesIDsByTagValueIDs finds series ids by tag filter expr
 func (index *invertedIndex) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
 	result := roaring.New()
 	// read data from mem

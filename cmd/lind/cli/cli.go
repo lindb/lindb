@@ -36,7 +36,7 @@ func NewCLICmd() *cobra.Command {
 	cliCmd.PersistentFlags().StringVar(
 		&cliBrokerEndpoint, "endpoint", "http://localhost:9000", "endpoint of any broker")
 	cliCmd.PersistentFlags().StringVar(
-		&cliConfigFile, "config", "./broker.toml", "path of a broker config")
+		&cliConfigFile, "config", "./storage.toml", "path of a storage toml")
 
 	cliCmd.AddCommand(
 		createDatabaseCmd,

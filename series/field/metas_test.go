@@ -62,4 +62,14 @@ func Test_Metas(t *testing.T) {
 	ml, ok = metas.Intersects(Metas{{ID: 1}, {ID: 203}, {ID: 204}})
 	assert.True(t, ok)
 	assert.Len(t, ml, 3)
+
+	metas = Metas{}
+	assert.Equal(t, "", metas.String())
+	metas = metas.Insert(Meta{ID: 1, Name: "a"})
+	assert.Equal(t, "a", metas.String())
+	metas = metas.Insert(Meta{ID: 2, Name: "b"})
+	assert.Equal(t, "a,b", metas.String())
+	metas = metas.Insert(Meta{ID: 3, Name: "c,"})
+	assert.Equal(t, "a,b,c,", metas.String())
+
 }

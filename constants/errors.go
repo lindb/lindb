@@ -17,14 +17,31 @@
 
 package constants
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
-	ErrDatabaseNotFound = errors.New("database not found")
-	ErrShardNotFound    = errors.New("shard not found")
-
 	// ErrNotFound represents the data not found
 	ErrNotFound = errors.New("not found")
+
+	ErrTagFilterResultNotFound      = fmt.Errorf("tagFilter result %w", ErrNotFound)
+	ErrTagValueFilterResultNotFound = fmt.Errorf("tagValueFitler result %w", ErrNotFound)
+
+	ErrDatabaseNotFound        = fmt.Errorf("database %w", ErrNotFound)
+	ErrShardNotFound           = fmt.Errorf("shard %w", ErrNotFound)
+	ErrNameSpaceBucketNotFound = fmt.Errorf("namespace bucket %w", ErrNotFound)
+	ErrMetricIDNotFound        = fmt.Errorf("metricID %w", ErrNotFound)
+	ErrMetricBucketNotFound    = fmt.Errorf("metric bucket %w", ErrNotFound)
+	ErrTagKeyIDNotFound        = fmt.Errorf("tagKeyID %w", ErrNotFound)
+	ErrTagKeyMetaNotFound      = fmt.Errorf("tagKeyMeta %w", ErrNotFound)
+	ErrTagValueSeqNotFound     = fmt.Errorf("tagValueSeq %w", ErrNotFound)
+	ErrTagValueIDNotFound      = fmt.Errorf("tagValueID %w", ErrNotFound)
+	ErrFieldNotFound           = fmt.Errorf("field %w", ErrNotFound)
+	ErrFieldBucketNotFound     = fmt.Errorf("field bucket %w", ErrNotFound)
+	ErrSeriesIDNotFound        = fmt.Errorf("seriesID %w", ErrNotFound)
+	ErrDataFamilyNotFound      = fmt.Errorf("data family %w", ErrNotFound)
 
 	// ErrNilMetric represents write nil metric error
 	ErrNilMetric = errors.New("metric is nil")
