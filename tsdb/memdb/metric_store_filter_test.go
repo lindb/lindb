@@ -18,6 +18,7 @@
 package memdb
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -33,11 +34,11 @@ func TestMetricStore_Filter(t *testing.T) {
 
 	// case 1: field not found
 	rs, err := metricStore.Filter(1, nil, field.Metas{{ID: 1}, {ID: 2}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 3: series ids not found
 	rs, err = metricStore.Filter(1, roaring.BitmapOf(1, 2), field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 3: found data
 	rs, err = metricStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}})
@@ -76,7 +77,7 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	assert.Nil(t, loader)
 	// case 4: field not exist
 	rs, err = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 100}, {ID: 200}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 }
 

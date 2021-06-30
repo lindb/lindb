@@ -147,9 +147,10 @@ func (e *election) elect() {
 		}
 
 		if result {
-			log.Info("become master", logger.Any("node", e.node))
+			log.Info("finished election, i'm master now", logger.Any("self", e.node))
+		} else {
+			log.Info("finished election, i'm follower now", logger.Any("self", e.node))
 		}
-		log.Info("finish master elect....")
 		select {
 		case <-e.ctx.Done():
 			return

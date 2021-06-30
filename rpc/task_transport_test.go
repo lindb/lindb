@@ -102,6 +102,9 @@ func TestTaskClientFactory(t *testing.T) {
 	cli := fct.GetTaskClient((&target).Indicator())
 	assert.NotNil(t, cli)
 
+	cli = fct.GetTaskClient((&models.Node{IP: "", Port: testGRPCPort}).Indicator())
+	assert.Nil(t, cli)
+
 	fct.CloseTaskClient((&target).Indicator())
 }
 

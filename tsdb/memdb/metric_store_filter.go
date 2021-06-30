@@ -18,6 +18,8 @@
 package memdb
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -27,7 +29,7 @@ import (
 )
 
 // Filter filters the data based on fields/seriesIDs/family time,
-// if finds data then returns the FilterResultSet, else returns constants.ErrNotFound
+// if finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
 func (ms *metricStore) Filter(familyTime int64,
 	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) ([]flow.FilterResultSet, error) {
@@ -35,14 +37,15 @@ func (ms *metricStore) Filter(familyTime int64,
 	foundFields, _ := ms.fields.Intersects(fields)
 	if len(foundFields) == 0 {
 		// field not found
-		return nil, constants.ErrNotFound
+		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
 	}
 
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.keys)
 	if matchSeriesIDs.IsEmpty() {
 		// series id not found
-		return nil, constants.ErrNotFound
+		return nil, fmt.Errorf("%w when Filter, familyTime: %d, fields: %s",
+			constants.ErrSeriesIDNotFound, familyTime, fields.String())
 	}
 
 	// returns the filter result set

@@ -18,6 +18,7 @@
 package indexdb
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -93,15 +94,15 @@ func TestIdMappingBackend_mapping(t *testing.T) {
 	assert.Equal(t, uint32(300), seriesID)
 	// case 2: metric id not exist
 	seriesID, err = backend.getSeriesID(4, 30)
-	assert.Equal(t, err, constants.ErrNotFound)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), seriesID)
 	// case 3: series id not exist
 	seriesID, err = backend.getSeriesID(2, 300)
-	assert.Equal(t, err, constants.ErrNotFound)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Equal(t, uint32(0), seriesID)
 	// case 4: load mapping not exist
 	mapping, err := backend.loadMetricIDMapping(30)
-	assert.Equal(t, err, constants.ErrNotFound)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, mapping)
 	// case 5: load mapping not exist
 	mapping, err = backend.loadMetricIDMapping(2)

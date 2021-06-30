@@ -170,11 +170,11 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32, tagsHash uint64,
 	} else {
 		// metric mapping not exist, need load from backend storage
 		metricIDMapping, err = db.backend.loadMetricIDMapping(metricID)
-		if err != nil && err != constants.ErrNotFound {
+		if err != nil && !errors.Is(err, constants.ErrNotFound) {
 			return 0, false, err
 		}
 		// if metric id not exist in backend storage
-		if err == constants.ErrNotFound {
+		if errors.Is(err, constants.ErrNotFound) {
 			// create new metric id mapping with 0 sequence
 			metricIDMapping = newMetricIDMapping(metricID, 0)
 			// cache metric id mapping
@@ -192,7 +192,7 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID uint32, tagsHash uint64,
 		}
 	}
 	// throw err in backend storage
-	if err != nil && err != constants.ErrNotFound {
+	if err != nil && !errors.Is(err, constants.ErrNotFound) {
 		return 0, false, err
 	}
 	// generate new series id

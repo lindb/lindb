@@ -130,7 +130,8 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 
 	segmentTime := calc.CalcSegmentTime(timestamp)
 	if segmentTime != s.baseTime {
-		return nil, fmt.Errorf("segment base time not match")
+		return nil, fmt.Errorf("%w ,segment base time not match, segmentTime: %d, baseTime: %d",
+			constants.ErrDataFamilyNotFound, timestamp, s.baseTime)
 	}
 
 	familyTime := calc.CalcFamily(timestamp, s.baseTime)
@@ -148,7 +149,8 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 			// create kv family
 			f, err := s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
 			if err != nil {
-				return nil, fmt.Errorf("create data family error: %s", err)
+				return nil, fmt.Errorf("%w ,failed to create data family: %s",
+					constants.ErrDataFamilyNotFound, err)
 			}
 			dataFamily := s.initDataFamily(familyTime, f)
 			return dataFamily, nil
@@ -156,7 +158,7 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 	}
 	f, ok := family.(DataFamily)
 	if !ok {
-		return nil, constants.ErrNotFound
+		return nil, fmt.Errorf("%w ,loaded dataFamily is not ok", constants.ErrDataFamilyNotFound)
 	}
 	return f, nil
 }

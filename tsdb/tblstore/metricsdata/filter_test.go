@@ -18,6 +18,7 @@
 package metricsdata
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -48,13 +49,13 @@ func TestMetricsDataFilter_Filter(t *testing.T) {
 	// case 1: field not found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})
 	rs, err := filter.Filter(roaring.BitmapOf(1, 2, 3), field.Metas{{ID: 1}, {ID: 30}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 2: series ids found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})
 	reader.EXPECT().GetSeriesIDs().Return(roaring.BitmapOf(10, 200))
 	rs, err = filter.Filter(roaring.BitmapOf(1, 2, 3), field.Metas{{ID: 2}, {ID: 30}})
-	assert.Equal(t, constants.ErrNotFound, err)
+	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 3: data found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})
