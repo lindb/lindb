@@ -52,7 +52,7 @@ func newCompactJob(family Family, state *compactionState, rollup Rollup) Compact
 	}
 }
 
-// run runs compact job
+// Run runs compact job
 func (c *compactJob) Run() error {
 	compaction := c.state.compaction
 	switch {
@@ -82,7 +82,8 @@ func (c *compactJob) moveCompaction() {
 
 // mergeCompaction merges input files to up level
 func (c *compactJob) mergeCompaction() (err error) {
-	kvLogger.Info("starting compaction job, do merge compaction", logger.String("family", c.family.familyInfo()))
+	kvLogger.Info("starting compaction job, do merge compaction",
+		logger.String("family", c.family.familyInfo()))
 	defer func() {
 		// cleanup compaction context, include temp pending output files
 		c.cleanupCompaction()

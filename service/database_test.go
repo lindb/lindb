@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -36,7 +37,7 @@ func TestDatabaseService(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	db := NewDatabaseService(repo)
+	db := NewDatabaseService(context.TODO(), repo)
 
 	database := models.Database{
 		Name:          "test",
@@ -105,7 +106,7 @@ func TestDatabaseService_List(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	db := NewDatabaseService(repo)
+	db := NewDatabaseService(context.TODO(), repo)
 
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	list, err := db.List()

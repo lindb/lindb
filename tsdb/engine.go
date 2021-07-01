@@ -48,7 +48,7 @@ type Engine interface {
 	CreateDatabase(databaseName string) (Database, error)
 	// GetDatabase returns the time series database by given name
 	GetDatabase(databaseName string) (Database, bool)
-	// FLushDatabase produces a signal to workers for flushing memory database by name
+	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// Close closes the cached time series databases
 	Close()
@@ -143,7 +143,7 @@ func (e *engine) Close() {
 	})
 }
 
-// FLushDatabase produces a signal to workers for flushing memory database by name
+// FlushDatabase produces a signal to workers for flushing memory database by name
 func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
 	item, ok := e.databases.Load(name)
 	if !ok {

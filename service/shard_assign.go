@@ -48,19 +48,21 @@ type ShardAssignService interface {
 
 // shardAssignService implements shard assign service interface
 type shardAssignService struct {
+	ctx  context.Context
 	repo state.Repository
 }
 
 // NewShardAssignService creates shard assign service
-func NewShardAssignService(repo state.Repository) ShardAssignService {
+func NewShardAssignService(ctx context.Context, repo state.Repository) ShardAssignService {
 	return &shardAssignService{
+		ctx:  ctx,
 		repo: repo,
 	}
 }
 
 // List returns all database's shard assignments
 func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
-	data, err := s.repo.List(context.TODO(), constants.DatabaseAssignPath)
+	data, err := s.repo.List(s.ctx, constants.DatabaseAssignPath)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +83,7 @@ func (s *shardAssignService) List() ([]*models.ShardAssignment, error) {
 
 // Get gets shard assignment by given database name, if not exist return ErrNotExist
 func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, error) {
-	data, err := s.repo.Get(context.TODO(), constants.GetDatabaseAssignPath(databaseName))
+	data, err := s.repo.Get(s.ctx, constants.GetDatabaseAssignPath(databaseName))
 	if err != nil {
 		return nil, err
 	}
@@ -95,5 +97,5 @@ func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, 
 // Save saves shard assignment for given database name, if fail return error
 func (s *shardAssignService) Save(databaseName string, shardAssign *models.ShardAssignment) error {
 	data, _ := json.Marshal(shardAssign)
-	return s.repo.Put(context.TODO(), constants.GetDatabaseAssignPath(databaseName), data)
+	return s.repo.Put(s.ctx, constants.GetDatabaseAssignPath(databaseName), data)
 }

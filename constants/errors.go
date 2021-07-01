@@ -43,12 +43,13 @@ var (
 	ErrSeriesIDNotFound        = fmt.Errorf("seriesID %w", ErrNotFound)
 	ErrDataFamilyNotFound      = fmt.Errorf("data family %w", ErrNotFound)
 
-	// ErrNilMetric represents write nil metric error
-	ErrNilMetric = errors.New("metric is nil")
-	// ErrEmptyMetricName represents metric name is empty when write data
-	ErrEmptyMetricName = errors.New("metric name is empty")
-	// ErrEmptyField represents field is empty when write data
-	ErrEmptyField = errors.New("field is empty")
+	// ErrBadMetricPBFormat represents write bad pb format
+	ErrBadMetricPBFormat = errors.New("bad format")
+	ErrMetricPBNilMetric = fmt.Errorf("%w, metric is nil", ErrBadMetricPBFormat)
+	// ErrMetricPBEmptyMetricName represents metric name is empty when write data
+	ErrMetricPBEmptyMetricName = fmt.Errorf("%w, metric name is empty", ErrBadMetricPBFormat)
+	// ErrMetricPBEmptyField represents field is empty when write data
+	ErrMetricPBEmptyField = fmt.Errorf("%w, field is empty", ErrBadMetricPBFormat)
 
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")

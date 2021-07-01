@@ -30,7 +30,7 @@ import (
 type GRPCServer interface {
 	// Start starts grpc server
 	Start() error
-	// Stops stops grpc server
+	// Stop stops grpc server
 	Stop()
 	// GetServer returns the grpc server
 	GetServer() *grpc.Server

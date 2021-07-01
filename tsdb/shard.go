@@ -329,13 +329,13 @@ func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
 // Write writes the metric-point into memory-database.
 func (s *shard) Write(metric *pb.Metric) (err error) {
 	if metric == nil {
-		return constants.ErrNilMetric
+		return constants.ErrMetricPBNilMetric
 	}
 	if len(metric.Name) == 0 {
-		return constants.ErrEmptyMetricName
+		return constants.ErrMetricPBEmptyMetricName
 	}
 	if len(metric.Fields) == 0 {
-		return constants.ErrEmptyField
+		return constants.ErrMetricPBEmptyField
 	}
 	timestamp := metric.Timestamp
 	now := timeutil.Now()
