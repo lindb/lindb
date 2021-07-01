@@ -121,7 +121,7 @@ func (r *runtime) Run() error {
 	ip, err := getHostIP()
 	if err != nil {
 		r.state = server.Failed
-		return fmt.Errorf("cannot get server ip address, error:%s", err)
+		return fmt.Errorf("failed to get server ip address, error: %s", err)
 	}
 
 	// build service dependency for storage server
@@ -131,7 +131,7 @@ func (r *runtime) Run() error {
 	}
 	hostName, err := hostName()
 	if err != nil {
-		r.log.Error("get host name with error", logger.Error(err))
+		r.log.Error("failed to get host name", logger.Error(err))
 		hostName = "unknown"
 	}
 	r.node = models.Node{

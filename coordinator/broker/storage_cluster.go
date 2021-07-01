@@ -41,7 +41,7 @@ func newStorageClusterState(taskClientFactory rpc.TaskClientFactory, logger *log
 }
 
 func (s *StorageClusterState) SetState(state *models.StorageState) {
-	s.logger.Info("set new storage cluster state", logger.String(state.Name, state.String()))
+	s.logger.Debug("set new storage cluster state", logger.String(state.Name, state.String()))
 	var needDelete []string
 	for nodeID := range s.taskStreams {
 		_, ok := state.ActiveNodes[nodeID]

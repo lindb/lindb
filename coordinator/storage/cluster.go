@@ -158,7 +158,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 }
 
 // OnCreate adds node into active node list when node online
-func (c *cluster) OnCreate(key string, resource []byte) {
+func (c *cluster) OnCreate(_ string, resource []byte) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	if c.addNode(resource) {
@@ -174,6 +174,10 @@ func (c *cluster) OnDelete(key string) {
 	c.mutex.Unlock()
 
 	c.saveClusterState()
+
+	c.logger.Info("peer storage is offline",
+		logger.String("node", name),
+	)
 }
 
 // GetRepo returns current storage cluster's state repo
@@ -302,6 +306,10 @@ func (c *cluster) addNode(resource []byte) bool {
 	}
 
 	c.clusterState.AddActiveNode(node)
+	c.logger.Info("peer storage is online",
+		logger.String("node", node.Node.Indicator()),
+		logger.Int64("nodeOnlineTime", node.OnlineTime),
+	)
 	return true
 }
 

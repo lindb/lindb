@@ -95,7 +95,7 @@ type discovery struct {
 // Discovery starts discovery resources change, includes create/delete/clean
 func (d *discovery) Discovery() error {
 	if len(d.prefix) == 0 {
-		return fmt.Errorf("watch prefix is empth for discovery resource")
+		return fmt.Errorf("watch prefix is empty for discovery resource")
 	}
 
 	watchEventCh := d.repo.WatchPrefix(d.ctx, d.prefix, false)
@@ -106,7 +106,7 @@ func (d *discovery) Discovery() error {
 	return nil
 }
 
-// Cleanup cleans all resources
+// Close cleans all resources
 func (d *discovery) Close() {
 	d.cancel()
 }

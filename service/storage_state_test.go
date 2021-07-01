@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -39,7 +40,7 @@ func TestStorageSateService(t *testing.T) {
 	storageState.Name = "LinDB_Storage"
 	storageState.AddActiveNode(&models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}})
 
-	srv := NewStorageStateService(repo)
+	srv := NewStorageStateService(context.TODO(), repo)
 
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := srv.Save("Test_LinDB", storageState)

@@ -326,10 +326,10 @@ func (r *runtime) buildServiceDependency() {
 	r.factory.taskClient.SetTaskReceiver(taskReceiver)
 
 	srv := srv{
-		storageClusterService: service.NewStorageClusterService(r.repo),
-		databaseService:       service.NewDatabaseService(r.repo),
-		storageStateService:   service.NewStorageStateService(r.repo),
-		shardAssignService:    service.NewShardAssignService(r.repo),
+		storageClusterService: service.NewStorageClusterService(r.ctx, r.repo),
+		databaseService:       service.NewDatabaseService(r.ctx, r.repo),
+		storageStateService:   service.NewStorageStateService(r.ctx, r.repo),
+		shardAssignService:    service.NewShardAssignService(r.ctx, r.repo),
 		replicatorStateReport: replicatorStateReport,
 		channelManager:        cm,
 		taskManager:           taskManager,

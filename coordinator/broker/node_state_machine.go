@@ -61,7 +61,9 @@ type nodeStateMachine struct {
 }
 
 // NewNodeStateMachine creates a node state machine, and starts discovery for watching node state change event
-func NewNodeStateMachine(ctx context.Context, currentNode models.Node,
+func NewNodeStateMachine(
+	ctx context.Context,
+	currentNode models.Node,
 	discoveryFactory discovery.Factory,
 ) (NodeStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
@@ -108,6 +110,10 @@ func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 	nodeID := fileName
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.log.Info("peer broker is online",
+		logger.String("node", node.Node.Indicator()),
+		logger.Int64("nodeOnlineTime", node.OnlineTime),
+	)
 	s.nodes[nodeID] = node
 }
 
@@ -119,6 +125,10 @@ func (s *nodeStateMachine) OnDelete(key string) {
 	defer s.mutex.Unlock()
 
 	delete(s.nodes, nodeID)
+
+	s.log.Info("peer broker is offline",
+		logger.String("node", nodeID),
+	)
 }
 
 // Close closes state machine, then releases resource
