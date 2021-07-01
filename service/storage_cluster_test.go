@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -42,7 +43,7 @@ func TestStorageClusterService(t *testing.T) {
 	cluster := config.StorageCluster{
 		Name: "test1",
 	}
-	srv := NewStorageClusterService(repo)
+	srv := NewStorageClusterService(context.TODO(), repo)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := srv.Save(&cluster)
 	if err != nil {

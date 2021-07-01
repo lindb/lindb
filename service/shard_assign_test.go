@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -35,7 +36,7 @@ func TestShardAssignService(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	srv := NewShardAssignService(repo)
+	srv := NewShardAssignService(context.TODO(), repo)
 
 	shardAssign1 := models.NewShardAssignment("test")
 	shardAssign1.AddReplica(1, 1)

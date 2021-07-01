@@ -176,7 +176,7 @@ func (m *master) Stop() {
 	m.cancel()
 }
 
-// FLushDatabase submits the coordinator task for flushing memory database by cluster and database name
+// FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
 func (m *master) FlushDatabase(cluster string, databaseName string) error {
 	if m.IsMaster() {
 		m.mutex.Lock()

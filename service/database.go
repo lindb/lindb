@@ -42,12 +42,14 @@ type DatabaseService interface {
 
 // databaseService implements DatabaseService interface
 type databaseService struct {
+	ctx  context.Context
 	repo state.Repository
 }
 
 // NewDatabaseService creates database service
-func NewDatabaseService(repo state.Repository) DatabaseService {
+func NewDatabaseService(ctx context.Context, repo state.Repository) DatabaseService {
 	return &databaseService{
+		ctx:  ctx,
 		repo: repo,
 	}
 }
@@ -72,7 +74,7 @@ func (db *databaseService) Save(database *models.Database) error {
 		return err
 	}
 	data, _ := json.Marshal(database)
-	return db.repo.Put(context.TODO(), constants.GetDatabaseConfigPath(database.Name), data)
+	return db.repo.Put(db.ctx, constants.GetDatabaseConfigPath(database.Name), data)
 }
 
 // Get returns the database config in the state's repo, if not exist return ErrNotExist
@@ -80,7 +82,7 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 	if len(name) == 0 {
 		return nil, fmt.Errorf("database name must not be null")
 	}
-	configBytes, err := db.repo.Get(context.TODO(), constants.GetDatabaseConfigPath(name))
+	configBytes, err := db.repo.Get(db.ctx, constants.GetDatabaseConfigPath(name))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +97,7 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 // List returns all database configs
 func (db *databaseService) List() ([]*models.Database, error) {
 	var result []*models.Database
-	data, err := db.repo.List(context.TODO(), constants.DatabaseConfigPath)
+	data, err := db.repo.List(db.ctx, constants.DatabaseConfigPath)
 	if err != nil {
 		return result, err
 	}

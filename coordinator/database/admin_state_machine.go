@@ -40,7 +40,7 @@ import (
 type AdminStateMachine interface {
 	discovery.Listener
 
-	// Close closes admin state machine, stops watch change event
+	// Closer closes admin state machine, stops watch change event
 	io.Closer
 }
 
@@ -77,7 +77,7 @@ func NewAdminStateMachine(ctx context.Context, discoveryFactory discovery.Factor
 }
 
 // OnCreate creates shard assignment when receive database create event
-func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
+func (sm *adminStateMachine) OnCreate(_ string, resource []byte) {
 	cfg := models.Database{}
 	if err := json.Unmarshal(resource, &cfg); err != nil {
 		sm.log.Error("discovery database create but unmarshal error",
@@ -118,7 +118,7 @@ func (sm *adminStateMachine) OnCreate(key string, resource []byte) {
 	}
 }
 
-func (sm *adminStateMachine) OnDelete(key string) {
+func (sm *adminStateMachine) OnDelete(_ string) {
 	//TODO impl delete database???
 }
 
