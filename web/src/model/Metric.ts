@@ -1,4 +1,4 @@
-import { Chart } from 'model/Chart'
+import {Chart} from 'model/Chart'
 
 export type Board = ChartRow[]
 export type ChartRow = Metric[]
@@ -12,6 +12,7 @@ export interface Metric {
 export enum UnitEnum {
   None = 'none',
   Bytes = 'bytes',
+  KBytesPerSecond = 'KB/s',
   Percent = 'percent',
   Seconds = 'seconds(s)',
   Milliseconds = 'milliseconds(ms)',

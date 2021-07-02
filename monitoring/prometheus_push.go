@@ -44,7 +44,10 @@ var (
 var pushLogger = logger.GetLogger("monitoring", "Pusher")
 
 var separatorByteSlice = []byte{model.SeparatorByte} // For convenient use with xxhash.
-const contentTypeHeader = "Content-Type"
+const (
+	contentTypeHeader     = "Content-Type"
+	contentEncodingHeader = "Content-Encoding"
+)
 
 // PrometheusPusher represents a pusher,
 // collects metrics from prometheus registry, then pushes metrics data via http.
@@ -74,7 +77,6 @@ type prometheusPusher struct {
 	cancel       context.CancelFunc
 	interval     time.Duration
 	endpoint     string // HTTP endpoint
-	gzipped      bool
 	gatherers    prometheus.Gatherers
 	globalLabels []*dto.LabelPair
 	expfmt       expfmt.Format
@@ -90,10 +92,10 @@ type prometheusPusher struct {
 }
 
 // NewPrometheusPusher creates a new prometheus pusher
-func NewPrometheusPusher(ctx context.Context,
+func NewPrometheusPusher(
+	ctx context.Context,
 	endpoint string,
 	interval time.Duration,
-	gzipped bool,
 	gatherers prometheus.Gatherers,
 	globalLabels []*dto.LabelPair,
 ) PrometheusPusher {
@@ -103,7 +105,6 @@ func NewPrometheusPusher(ctx context.Context,
 		cancel:         cancel,
 		endpoint:       endpoint,
 		interval:       interval,
-		gzipped:        gzipped,
 		gatherers:      gatherers,
 		globalLabels:   globalLabels,
 		doRequest:      doRequest,
@@ -149,34 +150,31 @@ func (p *prometheusPusher) run() {
 	// 2. encode metric, calc delta value if need calc delta
 	buf := &bytes.Buffer{}
 	var enc expfmt.Encoder
-	if p.gzipped {
-		enc = expfmt.NewEncoder(gzip.NewWriter(buf), p.expfmt)
-	} else {
-		enc = expfmt.NewEncoder(buf, p.expfmt)
-	}
+
+	gzipWriter := gzip.NewWriter(buf)
+	enc = expfmt.NewEncoder(gzipWriter, p.expfmt)
+
 	for _, mf := range mfs {
 		if p.needCalcDelta(mf.GetType()) {
 			p.metricFamilies[mf.GetName()] = p.calcDelta(mf)
 		}
-
 		// add global labels
 		for _, m := range mf.GetMetric() {
 			m.Label = append(m.Label, p.globalLabels...)
 		}
-
 		if err = p.encodeFunc(enc, mf); err != nil {
 			pushLogger.Error("encode prometheus metric error", logger.Error(err))
 		}
 	}
+	_ = gzipWriter.Close()
+
 	// 3. new metric write request
 	req, err := p.newRequest("PUT", p.endpoint, buf)
 	if err != nil {
 		pushLogger.Error("new write monitoring request error", logger.Error(err))
 		return
 	}
-	if p.gzipped {
-		req.Header.Set("Content-Encoding", "gzip")
-	}
+	req.Header.Set(contentEncodingHeader, "gzip")
 	req.Header.Add(contentTypeHeader, string(p.expfmt))
 
 	// 4. send metric data
