@@ -62,7 +62,8 @@ clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm
 
 clean-build:
-	rm -f bin/lind
+	rm -f bin/lind-darwin
+	rm -f bin/lind-linux
 
 clean-frontend-build:
 	cd web/ && make web_clean

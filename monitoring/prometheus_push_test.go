@@ -88,7 +88,6 @@ func TestPrometheusPusher(t *testing.T) {
 		ctx,
 		ts.URL,
 		time.Millisecond*100,
-		true,
 		prometheus.Gatherers{prometheus.DefaultGatherer},
 		[]*dto.LabelPair{{
 			Name:  proto.String("key"),
@@ -113,7 +112,6 @@ func TestPrometheusPusher_push_err(t *testing.T) {
 		context.TODO(),
 		ts.URL,
 		time.Millisecond*100,
-		true,
 		prometheus.Gatherers{prometheus.DefaultGatherer},
 		[]*dto.LabelPair{{
 			Name:  proto.String("key"),

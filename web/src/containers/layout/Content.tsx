@@ -1,4 +1,4 @@
-import { Layout } from 'antd'
+import {Layout} from 'antd'
 import ChartTooltip from 'components/metric/ChartTooltip'
 import Database from 'containers/admin/Database'
 import Storage from 'containers/admin/Storage'
@@ -10,9 +10,10 @@ import SiderMenu from 'containers/layout/SiderMenu'
 import Runtime from 'containers/monitoring/Runtime'
 import System from 'containers/monitoring/System'
 import MonitoringStorage from 'containers/monitoring/Storage'
+import MonitoringBroker from 'containers/monitoring/Broker'
 import SearchPage from 'containers/query/MetricDataSearch'
 import * as React from 'react'
-import { Route, Switch } from 'react-router-dom'
+import {Route, Switch} from 'react-router-dom'
 
 const { Content: AntDContent } = Layout
 
@@ -47,6 +48,7 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/search" component={SearchPage} />
               <Route exact={true} path="/monitoring/system" component={System} />
               <Route exact={true} path="/monitoring/runtime" component={Runtime} />
+              <Route exact={true} path="/monitoring/broker" component={MonitoringBroker}/>
               <Route exact={true} path="/monitoring/storage" component={MonitoringStorage} />
               <Route exact={true} path="/metadata/storage" component={Storage} />
               <Route exact={true} path="/metadata/database" component={Database} />

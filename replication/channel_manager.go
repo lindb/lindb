@@ -103,6 +103,9 @@ func (cm *channelManager) Write(database string, metricList *pb.MetricList) erro
 	if !ok {
 		return fmt.Errorf("database [%s] not found", database)
 	}
+	if metricList == nil || len(metricList.Metrics) == 0 {
+		return fmt.Errorf("metrics is empty")
+	}
 	return databaseChannel.Write(metricList)
 }
 

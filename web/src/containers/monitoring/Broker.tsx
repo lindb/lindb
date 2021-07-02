@@ -1,16 +1,16 @@
 import { Card, Form } from 'antd'
 import ViewBoard from 'components/metric/ViewBoard'
-import { WriteDashboard } from 'config/monitoring/Storage'
+import { BrokerDashboard } from 'config/monitoring/Broker'
 import * as React from 'react'
 import TagValuesSelect from "components/meta/TagValues";
 
-interface StorageProps {
+interface BrokerProps {
 }
 
-interface StorageState {
+interface BrokerState {
 }
 
-export default class MonitoringStorage extends React.Component<StorageProps, StorageState> {
+export default class MonitoringSystem extends React.Component<BrokerProps, BrokerState> {
 
   render() {
     return (
@@ -22,11 +22,11 @@ export default class MonitoringStorage extends React.Component<StorageProps, Sto
               textAlign: "left",
             }} >
             <Form.Item label="Node">
-              <TagValuesSelect measurement="system_cpu_stat" tagKey="node' where role='storage" mode="tags"/>
+              <TagValuesSelect measurement="system_cpu_stat" tagKey="node' where role='broker" mode="tags"/>
             </Form.Item>
           </Form>
         </Card>
-        <ViewBoard board={WriteDashboard} />
+        <ViewBoard board={BrokerDashboard} />
       </React.Fragment>
     )
   }

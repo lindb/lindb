@@ -326,41 +326,31 @@ func (r *runtime) bindRPCHandlers() {
 }
 
 func (r *runtime) monitoring() {
-	systemStatMonitorEnabled := r.config.Monitor.SystemReportInterval > 0
-	if systemStatMonitorEnabled {
-		r.log.Info("SystemStatMonitor is running")
-		go monitoring.NewSystemCollector(
-			r.ctx,
-			r.config.Monitor.SystemReportInterval.Duration(),
-			r.config.StorageBase.TSDB.Dir,
-			r.repo,
-			constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-			models.ActiveNode{
-				Version:    r.version,
-				Node:       r.node,
-				OnlineTime: timeutil.Now(),
-			}).Run()
+	monitorEnabled := r.config.Monitor.ReportInterval > 0
+	if !monitorEnabled {
+		r.log.Info("monitor report-interval sets to 0, exit")
+		return
 	}
+	r.log.Info("monitor is running",
+		logger.String("interval", r.config.Monitor.ReportInterval.String()))
 
-	if !config.StandaloneMode {
-		// disable if run as standalone, because broker start same monitoring
-		runtimeStatMonitorEnabled := r.config.Monitor.RuntimeReportInterval > 0
-		if runtimeStatMonitorEnabled {
-			r.log.Info("RuntimeStatMonitor is running")
-			go monitoring.NewRunTimeCollector(
-				r.ctx,
-				r.config.Monitor.RuntimeReportInterval.Duration(),
-				map[string]string{"role": "broker", "version": r.version},
-			)
-		}
-	}
+	go monitoring.NewSystemCollector(
+		r.ctx,
+		r.config.Monitor.ReportInterval.Duration(),
+		r.config.StorageBase.TSDB.Dir,
+		r.repo,
+		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
+		models.ActiveNode{
+			Version:    r.version,
+			Node:       r.node,
+			OnlineTime: timeutil.Now(),
+		}).Run()
 
 	r.pusher = monitoring.NewPrometheusPusher(
 		r.ctx,
 		r.config.Monitor.URL,
-		r.config.Monitor.RuntimeReportInterval.Duration(),
-		r.config.Monitor.Gzip,
-		prometheus.Gatherers{monitoring.StorageGatherer, prometheus.DefaultGatherer},
+		r.config.Monitor.ReportInterval.Duration(),
+		prometheus.Gatherers{monitoring.StorageGatherer},
 		[]*dto.LabelPair{
 			{
 				Name:  proto.String("role"),

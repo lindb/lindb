@@ -31,10 +31,8 @@ var (
 
 // Monitor represents a configuration for the internal monitor
 type Monitor struct {
-	SystemReportInterval  ltoml.Duration `toml:"system-report-interval"`
-	RuntimeReportInterval ltoml.Duration `toml:"runtime-report-interval"`
-	URL                   string         `toml:"url"`
-	Gzip                  bool           `toml:"gzip"`
+	ReportInterval ltoml.Duration `toml:"report-interval"`
+	URL            string         `toml:"url"`
 }
 
 // TOML returns Monitor's toml config
@@ -43,33 +41,20 @@ func (m *Monitor) TOML() string {
 [monitor]
   ## Config for the Internal Monitor
   ## monitor won't start when interval is sets to 0
-  
-  ## system-monitor collects the system metrics, 
-  ## such as cpu, memory, and disk
-  system-report-interval = "%s"
-  
-  ## runtime-monitor collects the golang runtime memory metrics,
-  ## such as stack, heap, off-heap, and gc
-  runtime-report-interval = "%s"
+  ## such as cpu, memory, and disk, process and go runtime
+  report-interval = "%s"
 
   ## URL is the target of prometheus pusher 
-  url = "%s"
-	
-  ## if sets true, data will be compressed before sending 
-  gzip = %t`,
-		m.SystemReportInterval.String(),
-		m.RuntimeReportInterval.String(),
+  url = "%s"`,
+		m.ReportInterval.String(),
 		m.URL,
-		m.Gzip,
 	)
 }
 
 // NewDefaultMonitor returns a new default monitor config
 func NewDefaultMonitor() *Monitor {
 	return &Monitor{
-		SystemReportInterval:  ltoml.Duration(30 * time.Second),
-		RuntimeReportInterval: ltoml.Duration(10 * time.Second),
-		URL:                   defaultPusherURL,
-		Gzip:                  true,
+		ReportInterval: ltoml.Duration(10 * time.Second),
+		URL:            defaultPusherURL,
 	}
 }
