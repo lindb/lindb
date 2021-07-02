@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
+	pb "github.com/lindb/lindb/rpc/proto/field"
 )
 
 var replicationConfig = config.ReplicationChannel{
@@ -109,7 +110,9 @@ func TestChannelManager_Write(t *testing.T) {
 	cm1 := cm.(*channelManager)
 	cm1.databaseChannelMap.Store("database", dbChannel)
 	dbChannel.EXPECT().Write(gomock.Any()).Return(nil)
-	err = cm.Write("database", nil)
+	err = cm.Write("database", &pb.MetricList{Metrics: []*pb.Metric{
+		{Namespace: "xx"},
+	}})
 	assert.NoError(t, err)
 	cm.Close()
 }

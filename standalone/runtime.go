@@ -113,9 +113,10 @@ func (r *runtime) Run() error {
 		if err := r.initializer.InitStorageCluster(config.StorageCluster{
 			Name:   "standalone",
 			Config: r.cfg.StorageBase.Coordinator}); err != nil {
-			log.Error("init storage cluster with error", logger.Error(err))
+			log.Error("initialized standalone storage cluster with error", logger.Error(err))
+		} else {
+			log.Info("initialized standalone storage cluster successfully")
 		}
-		log.Info("initialized standalone storage cluster")
 
 		if err := r.initializer.InitInternalDatabase(models.Database{
 			Name:          "_internal",
@@ -126,9 +127,10 @@ func (r *runtime) Run() error {
 				Interval: "10s",
 			},
 		}); err != nil {
-			log.Error("init internal database with error", logger.Error(err))
+			log.Error("init _internal database with error", logger.Error(err))
+		} else {
+			log.Info("initialized _internal database successfully")
 		}
-		log.Info("initialized internal database")
 	})
 
 	return nil

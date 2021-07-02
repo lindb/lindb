@@ -68,7 +68,7 @@ export const IndexDashboard = [
   [
     metric(
       'CPU Usage',
-      'select auge*100 from system_cpu_stat group by type',
+      'select 100-gauge*100 from system_cpu_stat  where type="idle" group by node',
       8,
       UnitEnum.Percent,
       "area",
@@ -81,7 +81,7 @@ export const IndexDashboard = [
     ),
     metric(
       'Disk Usage',
-      'select gauge from system_disk_stat where type in ("used","total") group by node',
+      'select gauge from system_disk_usage where type in ("used","total") group by node',
       8,
       UnitEnum.Bytes,
     ),

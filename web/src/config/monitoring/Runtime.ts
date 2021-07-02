@@ -61,7 +61,7 @@ export const RuntimeStorageBoard = [
     ),
     metric(
       'GC invocation duration',
-      'select sum(summary) from go_gc_duration_seconds',
+      'select summary from go_gc_duration_seconds',
       8,
       UnitEnum.Seconds,
     ),

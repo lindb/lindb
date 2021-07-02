@@ -48,8 +48,7 @@ func TestBrokerRuntime(t *testing.T) {
 
 var cfg = config.Broker{
 	Monitor: config.Monitor{
-		RuntimeReportInterval: ltoml.Duration(10 * time.Second),
-		SystemReportInterval:  ltoml.Duration(10 * time.Second),
+		ReportInterval: ltoml.Duration(10 * time.Second),
 	},
 	BrokerBase: config.BrokerBase{
 		HTTP: config.HTTP{

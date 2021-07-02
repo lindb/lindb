@@ -1,8 +1,8 @@
-import { Badge, Table } from 'antd';
+import {Badge, Table} from 'antd';
 import ReplicaStatusInfo from 'components/ReplicaStatusInfo';
-import { DatabaseStatus } from 'model/Monitoring';
+import {DatabaseStatus} from 'model/Monitoring';
 import * as React from 'react';
-import { uuid } from 'uuidv4';
+import {uuid} from 'uuidv4';
 
 interface DatabaseStatusListProps {
     databaseStatusList: Array<DatabaseStatus>
@@ -31,10 +31,28 @@ export default class DatabaseStatusList extends React.Component<DatabaseStatusLi
             {
                 title: 'Num. Of Shards',
                 dataIndex: "config.numOfShard",
+                render: (text: any, record: any, index: any) => {
+                    return (
+                        <div>
+                            <div className="cluster-status">
+                                <span className="success">{record.config.numOfShard}</span>
+                            </div>
+                        </div>
+                    )
+                },
             },
             {
                 title: 'Replica Factor',
                 dataIndex: "config.replicaFactor",
+                render: (text: any, record: any, index: any) => {
+                    return (
+                        <div>
+                            <div className="cluster-status">
+                                <span className="success">{record.config.replicaFactor}</span>
+                            </div>
+                        </div>
+                    )
+                },
             },
             {
                 title: 'Replication Status',

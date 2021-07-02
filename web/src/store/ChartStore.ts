@@ -1,10 +1,10 @@
-import { get } from "lodash";
-import { action, observable, reaction, toJS } from "mobx";
-import { Chart, ChartStatus, ChartStatusEnum, Target } from "model/Chart";
-import { ResultSet } from "model/Metric";
+import {get} from "lodash";
+import {action, observable, reaction, toJS} from "mobx";
+import {Chart, ChartStatus, ChartStatusEnum, Target} from "model/Chart";
+import {ResultSet} from "model/Metric";
 import * as R from 'ramda';
 import * as LinDBService from "service/LinQLService";
-import { URLParamStore } from "store/URLParamStore";
+import {URLParamStore} from "store/URLParamStore";
 import * as ProcessChartData from "utils/ProcessChartData";
 
 export class ChartStore {
@@ -77,7 +77,7 @@ export class ChartStore {
         this.charts.set(uniqueId, chart)
         // copy chart data for tracking
         this.chartTrackingMap.set(uniqueId, R.clone(chart))
-        this.chartStatusMap.set(uniqueId, { status: ChartStatusEnum.Init })
+        this.chartStatusMap.set(uniqueId, {status: ChartStatusEnum.Init})
     }
 
     @action
@@ -101,7 +101,7 @@ export class ChartStore {
         if (forceLoad || !R.equals(target, previousChart!.target)) {
             chartStatus!.status = ChartStatusEnum.Loading
             this.setChartStatus(uniqueId, chartStatus!)
-            LinDBService.query({ db: target!.db, sql: target!.ql }).then(response => {
+            LinDBService.query({db: target!.db, sql: this.buildQL(target!.ql)}).then(response => {
                 const series: ResultSet | undefined = response.data
                 const selectedSeries = this.selectedSeries.get(uniqueId);
 
@@ -131,6 +131,29 @@ export class ChartStore {
 
         // set new target for chart config 
         previousChart!.target = target;
+    }
+
+    private buildQL(ql: string | undefined) {
+        if (ql === undefined) {
+            return ''
+        }
+        let queries: string[] = []
+        this.urlParamStore.getHashSearch().forEach((value: string, key: string) => {
+            queries.push(key + '="' + value + '" ')
+        })
+        let queryQL = queries.join(' and ')
+        const whereAt = ql.indexOf('where ')
+        if (whereAt < 0) {
+            if (queries.length === 0) {
+                return ql
+            } else {
+                return ql + ' where ' + queryQL
+            }
+        }
+        if (queries.length > 0) {
+            queryQL += ' and '
+        }
+        return ql.slice(0, whereAt + 6) + queryQL + ql.slice(whereAt + 6, ql.length)
     }
 
 }
