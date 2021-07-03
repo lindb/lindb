@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/rpc"
 )
 
 var currentNode = models.Node{IP: "1.1.1.2", Port: 2080}
@@ -38,15 +40,17 @@ func TestNodeStateMachine(t *testing.T) {
 
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
+	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
+
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(fmt.Errorf("err"))
-	_, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
+	_, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.Error(t, err)
 
 	// normal case
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
 	assert.Equal(t, currentNode, stateMachine.GetCurrentNode())
@@ -58,12 +62,15 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 
 	factory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
+	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
+
 	// normal case
 	factory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
 	discovery1.EXPECT().Discovery().Return(nil)
-	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory)
+	stateMachine, err := NewNodeStateMachine(context.TODO(), currentNode, factory, taskClientFactory)
 	assert.NoError(t, err)
 
+	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any())
 	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
 	data, _ := json.Marshal(&activeNode)
 	stateMachine.OnCreate("/data/test", data)
@@ -72,9 +79,11 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	assert.Equal(t, activeNode, stateMachine.GetActiveNodes()[0])
 	assert.Equal(t, currentNode, stateMachine.GetCurrentNode())
 
+	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any())
 	stateMachine.OnCreate("/data/test2", []byte{1, 1})
 	assert.Equal(t, 1, len(stateMachine.GetActiveNodes()))
 
+	taskClientFactory.EXPECT().CloseTaskClient(gomock.Any()).Return(true, nil)
 	stateMachine.OnDelete("/data/test")
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))
 
@@ -82,6 +91,7 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 	stateMachine.OnCreate("/data/test", data)
 	assert.Equal(t, 1, len(stateMachine.GetActiveNodes()))
 
+	taskClientFactory.EXPECT().CloseTaskClient(gomock.Any()).Return(true, io.ErrClosedPipe)
 	discovery1.EXPECT().Close()
 	_ = stateMachine.Close()
 	assert.Equal(t, 0, len(stateMachine.GetActiveNodes()))

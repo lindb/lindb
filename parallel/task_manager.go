@@ -101,6 +101,7 @@ func (t *taskManager) Get(taskID string) TaskContext {
 // SendRequest sends the task request to target node based on node's indicator,
 // if fail, returns err
 func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) error {
+	// todo: query from other broker
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
 		return fmt.Errorf("SendRequest: %w, targetNodeID: %s", errNoSendStream, targetNodeID)

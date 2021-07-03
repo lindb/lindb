@@ -70,7 +70,7 @@ func NewStateMachineFactory(cfg *StateMachineCfg) StateMachineFactory {
 
 // CreateNodeStateMachine creates the node state machine, if fail returns err
 func (s *stateMachineFactory) CreateNodeStateMachine() (broker.NodeStateMachine, error) {
-	return broker.NewNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.DiscoveryFactory)
+	return broker.NewNodeStateMachine(s.cfg.Ctx, s.cfg.CurrentNode, s.cfg.DiscoveryFactory, s.cfg.TaskClientFactory)
 }
 
 // CreateStorageStateMachine creates the storage state machine, if fail returns err
