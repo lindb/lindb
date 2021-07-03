@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./node_state_machine.go -destination=./node_state_machine_mock.go -package=broker
@@ -55,9 +56,9 @@ type nodeStateMachine struct {
 
 	mutex sync.RWMutex
 	// brokers: broker node => replica list under this broker
-	nodes map[string]models.ActiveNode
-
-	log *logger.Logger
+	nodes             map[string]models.ActiveNode
+	connectionManager *connectionManager
+	logger            *logger.Logger
 }
 
 // NewNodeStateMachine creates a node state machine, and starts discovery for watching node state change event
@@ -65,14 +66,22 @@ func NewNodeStateMachine(
 	ctx context.Context,
 	currentNode models.Node,
 	discoveryFactory discovery.Factory,
+	taskClientFactory rpc.TaskClientFactory,
 ) (NodeStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
+
 	stateMachine := &nodeStateMachine{
 		ctx:         c,
 		cancel:      cancel,
 		currentNode: currentNode,
-		nodes:       make(map[string]models.ActiveNode),
-		log:         logger.GetLogger("coordinator", "BrokerNodeStateMachine"),
+		connectionManager: &connectionManager{
+			RoleFrom:          "broker",
+			RoleTo:            "broker",
+			connections:       make(map[string]struct{}),
+			taskClientFactory: taskClientFactory,
+		},
+		nodes:  make(map[string]models.ActiveNode),
+		logger: logger.GetLogger("coordinator", "BrokerNodeStateMachine"),
 	}
 	// new replica status discovery
 	stateMachine.discovery = discoveryFactory.CreateDiscovery(constants.ActiveNodesPath+"/data", stateMachine)
@@ -102,7 +111,7 @@ func (s *nodeStateMachine) GetActiveNodes() []models.ActiveNode {
 func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 	node := models.ActiveNode{}
 	if err := json.Unmarshal(resource, &node); err != nil {
-		s.log.Error("discovery node online but unmarshal error",
+		s.logger.Error("discovery node online but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return
 	}
@@ -110,10 +119,13 @@ func (s *nodeStateMachine) OnCreate(key string, resource []byte) {
 	nodeID := fileName
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.log.Info("peer broker is online",
+
+	s.logger.Info("peer broker is online",
 		logger.String("node", node.Node.Indicator()),
 		logger.Int64("nodeOnlineTime", node.OnlineTime),
 	)
+	s.connectionManager.createConnection(node.Node)
+
 	s.nodes[nodeID] = node
 }
 
@@ -126,9 +138,10 @@ func (s *nodeStateMachine) OnDelete(key string) {
 
 	delete(s.nodes, nodeID)
 
-	s.log.Info("peer broker is offline",
+	s.logger.Info("peer broker is offline",
 		logger.String("node", nodeID),
 	)
+	s.connectionManager.closeConnection(nodeID)
 }
 
 // Close closes state machine, then releases resource
@@ -138,5 +151,7 @@ func (s *nodeStateMachine) Close() error {
 	s.nodes = make(map[string]models.ActiveNode)
 	s.mutex.Unlock()
 	s.cancel()
+
+	s.connectionManager.closeAll()
 	return nil
 }

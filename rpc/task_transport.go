@@ -41,7 +41,7 @@ type TaskClientFactory interface {
 	// GetTaskClient returns the task client stream by target node
 	GetTaskClient(target string) common.TaskService_HandleClient
 	// CloseTaskClient closes the task client stream for target node
-	CloseTaskClient(targetNodeID string)
+	CloseTaskClient(targetNodeID string) (closed bool, err error)
 	// SetTaskReceiver set task receiver for handling task response
 	SetTaskReceiver(taskReceiver TaskReceiver)
 }
@@ -119,18 +119,18 @@ func (f *taskClientFactory) CreateTaskClient(target models.Node) error {
 }
 
 // CloseTaskClient closes the task client stream for target node
-func (f *taskClientFactory) CloseTaskClient(targetNodeID string) {
+func (f *taskClientFactory) CloseTaskClient(targetNodeID string) (closed bool, err error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+
 	client, ok := f.taskStreams[targetNodeID]
 	if ok && client.cli != nil {
 		client.running.Store(false)
-		if err := client.cli.CloseSend(); err != nil {
-			log.Error("close task client stream", logger.String("target", targetNodeID), logger.Error(err))
-		}
+		err = client.cli.CloseSend()
 		delete(f.taskStreams, targetNodeID)
-		log.Info("close task client stream", logger.String("target", targetNodeID))
+		return closed, err
 	}
+	return false, nil
 }
 
 func (f *taskClientFactory) initTaskClient(client *taskClient) error {

@@ -317,7 +317,8 @@ func (r *runtime) buildServiceDependency() {
 	replicatorStateReport := replication.NewReplicatorStateReport(r.node, r.repo)
 
 	// hard code create channel first.
-	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel, rpc.NewClientStreamFactory(r.node), replicatorStateReport)
+	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel,
+		rpc.NewClientStreamFactory(r.node), replicatorStateReport)
 	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
 	jobManager := parallel.NewJobManager(taskManager)
 
