@@ -58,8 +58,11 @@ type adminStateMachine struct {
 }
 
 // NewAdminStateMachine creates admin state machine instance
-func NewAdminStateMachine(ctx context.Context, discoveryFactory discovery.Factory,
-	storageCluster storage.ClusterStateMachine) (AdminStateMachine, error) {
+func NewAdminStateMachine(
+	ctx context.Context,
+	discoveryFactory discovery.Factory,
+	storageCluster storage.ClusterStateMachine,
+) (AdminStateMachine, error) {
 	c, cancel := context.WithCancel(ctx)
 	// new admin state machine instance
 	stateMachine := &adminStateMachine{
