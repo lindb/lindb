@@ -26,9 +26,9 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
-	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
 	"github.com/lindb/lindb/service"
 )
 
@@ -42,7 +42,7 @@ type replicaHandler struct {
 
 // NewReplicaHandler creates a replica handler.
 func NewReplicaHandler(walMgr replica.WriteAheadLogManager,
-	storageService service.StorageService) replicaRpc.ReplicaServiceServer {
+	storageService service.StorageService) protoReplicaV1.ReplicaServiceServer {
 	return &replicaHandler{
 		walMgr:         walMgr,
 		storageService: storageService,
@@ -52,20 +52,20 @@ func NewReplicaHandler(walMgr replica.WriteAheadLogManager,
 
 // GetReplicaAckIndex returns current replica ack index.
 func (r *replicaHandler) GetReplicaAckIndex(ctx context.Context,
-	req *replicaRpc.GetReplicaAckIndexRequest,
-) (*replicaRpc.GetReplicaAckIndexResponse, error) {
+	req *protoReplicaV1.GetReplicaAckIndexRequest,
+) (*protoReplicaV1.GetReplicaAckIndexResponse, error) {
 	panic("implement me")
 }
 
 // Reset resets replica index.
 func (r *replicaHandler) Reset(ctx context.Context,
-	request *replicaRpc.ResetIndexRequest,
-) (*replicaRpc.ResetIndexResponse, error) {
+	request *protoReplicaV1.ResetIndexRequest,
+) (*protoReplicaV1.ResetIndexResponse, error) {
 	panic("implement me")
 }
 
 // Replica does replica request, and writes data.
-func (r *replicaHandler) Replica(server replicaRpc.ReplicaService_ReplicaServer) error {
+func (r *replicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaServer) error {
 	database, shardID, leader, follower, err := r.getFollowerInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
@@ -93,7 +93,7 @@ func (r *replicaHandler) Replica(server replicaRpc.ReplicaService_ReplicaServer)
 			return status.Error(codes.Internal, err.Error())
 		}
 
-		resp := &replicaRpc.ReplicaResponse{}
+		resp := &protoReplicaV1.ReplicaResponse{}
 		// write replica wal log
 		appendedIdx, err := p.ReplicaLog(req.ReplicaIndex, req.Record)
 
@@ -110,7 +110,7 @@ func (r *replicaHandler) Replica(server replicaRpc.ReplicaService_ReplicaServer)
 }
 
 // Write does metric write request.
-func (r *replicaHandler) Write(server replicaRpc.ReplicaService_WriteServer) error {
+func (r *replicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer) error {
 	database, shardID, leader, replicas, err := r.getReplicasInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
@@ -142,7 +142,7 @@ func (r *replicaHandler) Write(server replicaRpc.ReplicaService_WriteServer) err
 			return status.Error(codes.Internal, err.Error())
 		}
 
-		resp := &replicaRpc.WriteResponse{}
+		resp := &protoReplicaV1.WriteResponse{}
 		// write wal log
 		err = p.WriteLog(req.Record)
 

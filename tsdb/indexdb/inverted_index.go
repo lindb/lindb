@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
@@ -77,7 +78,7 @@ type InvertedIndex interface {
 	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error)
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
-	buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32)
+	buildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32)
 	// Flush flushes the inverted-index of tag value id=>series ids under tag key
 	Flush() error
 }
@@ -237,13 +238,15 @@ func (index *invertedIndex) getGroupingScanners(
 
 // buildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
+func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32) {
 	index.rwMutex.Lock()
 	defer index.rwMutex.Unlock()
 
 	metadataDB := index.metadata.MetadataDatabase()
 	tagMetadata := index.metadata.TagMetadata()
-	for tagKey, tagValue := range tags {
+	for idx := range tags {
+		tagKey := tags[idx].Key
+		tagValue := tags[idx].Value
 		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey)
 		if err != nil {
 			genTagKeyFailCounter.WithLabelValues(index.metadata.DatabaseName()).Inc()

@@ -23,22 +23,22 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
 func TestPBModel(t *testing.T) {
-	metric := &pb.Metric{
+	metric := &protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{{
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
-			Type:  pb.FieldType_Sum,
-			Value: 1.0,
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+			Value: 1,
 		}},
 	}
 
 	data, _ := metric.Marshal()
-	metric2 := &pb.Metric{}
+	metric2 := &protoMetricsV1.Metric{}
 	_ = metric2.Unmarshal(data)
 	assert.Equal(t, *metric, *metric2)
 }

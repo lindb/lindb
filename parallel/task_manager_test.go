@@ -25,8 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 func TestTaskManager_ClientStream(t *testing.T) {

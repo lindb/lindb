@@ -301,7 +301,7 @@ func TestMetadataBackend_save_err(t *testing.T) {
 
 	// field name is empty
 	e = newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.SummaryField})
+	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.MaxField})
 	err = db.saveMetadata(e)
 	assert.Error(t, err)
 
@@ -316,7 +316,7 @@ func TestMetadataBackend_save_err(t *testing.T) {
 	tagBucketName = []byte("t")
 	fieldBucketName = []byte("")
 	e = newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.SummaryField})
+	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.MaxField})
 	err = db.saveMetadata(e)
 	assert.Error(t, err)
 }
@@ -332,7 +332,7 @@ func TestMetadataBackend_save_db_err(t *testing.T) {
 	db := newMockMetadataBackend(t)
 
 	e := newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "aa", Type: field.SummaryField})
+	e.addField(1, field.Meta{ID: 1, Name: "aa", Type: field.MaxField})
 	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
 		return fmt.Errorf("err")
 	}
@@ -403,7 +403,7 @@ func mockMetadataEvent() *metadataUpdateEvent {
 	e.addTagKey(2, tag.Meta{Key: "tagKey-2", ID: 4})
 
 	// fields
-	e.addField(1, field.Meta{ID: 1, Name: "f1", Type: field.SummaryField})
+	e.addField(1, field.Meta{ID: 1, Name: "f1", Type: field.GaugeField})
 	e.addField(1, field.Meta{ID: 2, Name: "f2", Type: field.MinField})
 	e.addField(2, field.Meta{ID: 1, Name: "f3", Type: field.MaxField})
 	e.addField(2, field.Meta{ID: 3, Name: "f4", Type: field.SumField})

@@ -31,7 +31,8 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -179,7 +180,7 @@ func TestShard_Write(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	mockMemDB.EXPECT().AcquireWrite().AnyTimes()
 	mockMemDB.EXPECT().CompleteWrite().AnyTimes()
-	mockMemDB.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMemDB.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	// calculate family start time and slot index
 	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
 	timestamp := timeutil.Now()
@@ -197,39 +198,39 @@ func TestShard_Write(t *testing.T) {
 	// case 1: metric nil
 	assert.Error(t, shardINTF.Write(nil))
 	// case 2: metric name is empty
-	assert.Error(t, shardINTF.Write(&pb.Metric{
+	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Timestamp: timestamp,
 	}))
 	// case 3: field is empty
-	assert.Error(t, shardINTF.Write(&pb.Metric{
+	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 	}))
 	// case 4: reject before
-	assert.NoError(t, shardINTF.Write(&pb.Metric{
+	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp - 2*timeutil.OneMinute,
-		Fields: []*pb.Field{{
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
-			Type:  pb.FieldType_Sum,
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 			Value: 1.0,
 		}},
 	}))
 	// case 5: reject ahead
-	assert.NoError(t, shardINTF.Write(&pb.Metric{
+	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp + 2*timeutil.OneMinute,
-		Fields: []*pb.Field{{
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},
 	}))
 	// case 6: gen metric id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
-	assert.Error(t, shardINTF.Write(&pb.Metric{
+	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
-		Fields: []*pb.Field{{
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},
@@ -237,47 +238,47 @@ func TestShard_Write(t *testing.T) {
 	// case 7: gen series id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(0), false, fmt.Errorf("err"))
-	assert.Error(t, shardINTF.Write(&pb.Metric{
+	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  10,
-		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{{
+		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},
 	}))
 	// case 7: get old series id
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), false, nil)
-	assert.NoError(t, shardINTF.Write(&pb.Metric{
+	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  10,
-		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{{
+		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},
 	}))
 	// case 8: create new series id
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), true, nil)
-	indexDB.EXPECT().BuildInvertIndex(constants.DefaultNamespace, "test", map[string]string{"ip": "1.1.1.1"}, uint32(10))
-	assert.NoError(t, shardINTF.Write(&pb.Metric{
+	indexDB.EXPECT().BuildInvertIndex(constants.DefaultNamespace, "test", tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}), uint32(10))
+	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  10,
-		Tags:      map[string]string{"ip": "1.1.1.1"},
-		Fields: []*pb.Field{{
+		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},
 	}))
 	// case 9: write metric without tags
-	assert.NoError(t, shardINTF.Write(&pb.Metric{
+	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  10,
-		Fields: []*pb.Field{{
+		SimpleFields: []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
 			Value: 1.0,
 		}},

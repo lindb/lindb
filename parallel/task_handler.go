@@ -24,8 +24,8 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/common"
 )
 
 // TaskHandler represents the task rpc handler
@@ -53,7 +53,7 @@ func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher Task
 }
 
 // Handle handles the task request based on grpc stream
-func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) (err error) {
+func (q *TaskHandler) Handle(stream protoCommonV1.TaskService_HandleServer) (err error) {
 	clientLogicNode, err := rpc.GetLogicNodeFromContext(stream.Context())
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (q *TaskHandler) Handle(stream common.TaskService_HandleServer) (err error)
 }
 
 // dispatch dispatches request with timeout
-func (q *TaskHandler) dispatch(stream common.TaskService_HandleServer, req *common.TaskRequest) {
+func (q *TaskHandler) dispatch(stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 	//FIXME add timeout????
 	ctx, cancel := context.WithTimeout(context.TODO(), q.timeout)
 	q.taskPool.Submit(func() {

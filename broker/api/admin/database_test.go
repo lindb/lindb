@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/broker/deps"
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/service"

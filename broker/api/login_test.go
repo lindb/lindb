@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 	httppkg "github.com/lindb/lindb/pkg/http"
 )
 

@@ -20,16 +20,57 @@ package tag
 import (
 	"sort"
 	"strings"
+
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
-const emptyStr = ""
+type KeyValues []*protoMetricsV1.KeyValue
 
-var emptyArray []string
+func (kvs KeyValues) Len() int           { return len(kvs) }
+func (kvs KeyValues) Less(i, j int) bool { return kvs[i].Key < kvs[j].Key }
+func (kvs KeyValues) Swap(i, j int)      { kvs[i], kvs[j] = kvs[j], kvs[i] }
+func (kvs KeyValues) Map() map[string]string {
+	var m = make(map[string]string)
+	for idx := range kvs {
+		m[kvs[idx].Key] = kvs[idx].Value
+	}
+	return m
+}
+
+func KeyValuesFromMap(tags map[string]string) KeyValues {
+	if tags == nil {
+		return nil
+	}
+	var kvs KeyValues
+	for k, v := range tags {
+		kvs = append(kvs, &protoMetricsV1.KeyValue{Key: k, Value: v})
+	}
+	return kvs
+}
+
+func ConcatKeyValues(kvs KeyValues) string {
+	if len(kvs) == 0 {
+		return ""
+	}
+	sort.Sort(kvs)
+	tagKeysLen := len(kvs)
+	var b strings.Builder
+	b.Grow(128)
+	for idx := range kvs {
+		b.WriteString(kvs[idx].Key)
+		b.WriteString("=")
+		b.WriteString(kvs[idx].Value)
+		if idx != tagKeysLen-1 {
+			b.WriteString(",")
+		}
+	}
+	return b.String()
+}
 
 // Concat concats map-tags to string
 func Concat(tags map[string]string) string {
 	if tags == nil {
-		return emptyStr
+		return ""
 	}
 	tagKeys := make([]string, 0, len(tags))
 	var b strings.Builder
@@ -53,7 +94,7 @@ func Concat(tags map[string]string) string {
 // ConcatTagValues cancats the tag values to string
 func ConcatTagValues(tagValues []string) string {
 	if len(tagValues) == 0 {
-		return emptyStr
+		return ""
 	}
 	return strings.Join(tagValues, ",")
 }
@@ -61,7 +102,7 @@ func ConcatTagValues(tagValues []string) string {
 // SplitTagValues splits the string of tag values to array
 func SplitTagValues(tags string) []string {
 	if tags == "" {
-		return emptyArray
+		return []string{}
 	}
 	return strings.Split(tags, ",")
 }

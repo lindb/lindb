@@ -36,8 +36,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/replication"
-	pb "github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -116,7 +116,7 @@ type Shard interface {
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	// Write writes the metric-point into memory-database.
-	Write(metric *pb.Metric) error
+	Write(metric *protoMetricsV1.Metric) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
 	// Flush flushes index and memory data to disk
@@ -327,14 +327,14 @@ func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
 }
 
 // Write writes the metric-point into memory-database.
-func (s *shard) Write(metric *pb.Metric) (err error) {
+func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	if metric == nil {
 		return constants.ErrMetricPBNilMetric
 	}
 	if len(metric.Name) == 0 {
 		return constants.ErrMetricPBEmptyMetricName
 	}
-	if len(metric.Fields) == 0 {
+	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
 		return constants.ErrMetricPBEmptyField
 	}
 	timestamp := metric.Timestamp
@@ -393,7 +393,7 @@ func (s *shard) Write(metric *pb.Metric) (err error) {
 
 	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
 	// write metric point into memory db
-	return db.Write(ns, metric.Name, metricID, seriesID, slotIndex, metric.Fields)
+	return db.Write(ns, metric.Name, metricID, seriesID, slotIndex, metric.SimpleFields, metric.CompoundField)
 }
 
 func (s *shard) Close() error {

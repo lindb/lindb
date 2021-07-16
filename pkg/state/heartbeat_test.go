@@ -25,7 +25,7 @@ import (
 	etcdcliv3 "go.etcd.io/etcd/clientv3"
 	"gopkg.in/check.v1"
 
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 )
 
 type testHeartbeatSuite struct {

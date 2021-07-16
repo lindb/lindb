@@ -18,8 +18,8 @@
 package parallel
 
 import (
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	pb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/series"
 )
 

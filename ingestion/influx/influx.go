@@ -22,7 +22,7 @@ import (
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/strutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 
 	"fmt"
@@ -33,7 +33,7 @@ import (
 
 // Parse parses influxdb line protocol data to LinDB pb prometheus.
 // https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/#example-api-write-request
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
 	qry := req.URL.Query()
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
@@ -50,7 +50,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.Metr
 	cr := ingestCommon.GetChunkReader(reader)
 	defer ingestCommon.PutChunkReader(cr)
 
-	metricList := &pb.MetricList{}
+	metricList := &protoMetricsV1.MetricList{}
 	for cr.HasNext() {
 		metric, err := parseInfluxLine(cr.Next(), namespace, multiplier)
 		if err != nil {
@@ -62,10 +62,16 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.Metr
 		// enrich tags
 		for _, enrichedTag := range enrichedTags {
 			tagKey := strutil.ByteSlice2String(enrichedTag.Key)
-			if _, ok := metric.Tags[tagKey]; !ok {
-				metric.Tags[tagKey] = strutil.ByteSlice2String(enrichedTag.Value)
+			for idx := range metric.Tags {
+				if metric.Tags[idx].Key == tagKey {
+					continue
+				}
+				metric.Tags = append(metric.Tags, &protoMetricsV1.KeyValue{
+					Key:   tagKey,
+					Value: strutil.ByteSlice2String(enrichedTag.Value),
+				})
 			}
-			metric.TagsHash = xxhash.Sum64String(tag.Concat(metric.Tags))
+			metric.TagsHash = xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
 		}
 		metricList.Metrics = append(metricList.Metrics, metric)
 	}

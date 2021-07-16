@@ -19,7 +19,7 @@ package replica
 
 import (
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -38,7 +38,7 @@ func NewLocalReplicator(shard tsdb.Shard) Replicator {
 }
 
 func (r *localReplicator) Replica(_ int64, msg []byte) {
-	var metricList field.MetricList
+	var metricList protoMetricsV1.MetricList
 	err := metricList.Unmarshal(msg)
 	if err != nil {
 		r.logger.Error("unmarshal metricList", logger.Error(err))

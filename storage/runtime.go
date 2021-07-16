@@ -42,10 +42,10 @@ import (
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/common"
-	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/storage/handler"
 	"github.com/lindb/lindb/tsdb"
@@ -321,8 +321,8 @@ func (r *runtime) bindRPCHandlers() {
 	}
 
 	//TODO add task service ??????
-	storage.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
-	common.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
+	protoStorageV1.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
+	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
 }
 
 func (r *runtime) monitoring() {

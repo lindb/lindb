@@ -30,10 +30,10 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -71,7 +71,7 @@ func TestWriter_Next(t *testing.T) {
 	writer := NewWriter(srv)
 
 	ctx := mockContext(database, shardID, node)
-	resp, err := writer.Next(ctx, &storage.NextSeqRequest{
+	resp, err := writer.Next(ctx, &protoStorageV1.NextSeqRequest{
 		ShardID:  shardID,
 		Database: database})
 	assert.NoError(t, err)
@@ -79,7 +79,7 @@ func TestWriter_Next(t *testing.T) {
 
 	// not metadata
 	ctx = context.TODO()
-	_, err = writer.Next(ctx, &storage.NextSeqRequest{
+	_, err = writer.Next(ctx, &protoStorageV1.NextSeqRequest{
 		Database: database,
 		ShardID:  shardID,
 	})
@@ -87,7 +87,7 @@ func TestWriter_Next(t *testing.T) {
 
 	ctx = mockContext(database, shardID, node)
 	srv.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
-	_, err = writer.Next(ctx, &storage.NextSeqRequest{
+	_, err = writer.Next(ctx, &protoStorageV1.NextSeqRequest{
 		ShardID:  shardID,
 		Database: database})
 	assert.Error(t, err)
@@ -111,7 +111,7 @@ func TestWriter_Reset(t *testing.T) {
 	writer := NewWriter(srv)
 
 	ctx := mockContext(database, shardID, node)
-	_, err := writer.Reset(ctx, &storage.ResetSeqRequest{
+	_, err := writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
 		ShardID:  shardID,
 		Seq:      seq,
@@ -120,7 +120,7 @@ func TestWriter_Reset(t *testing.T) {
 
 	// not metadata
 	ctx = context.TODO()
-	_, err = writer.Reset(ctx, &storage.ResetSeqRequest{
+	_, err = writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
 		ShardID:  shardID,
 		Seq:      seq,
@@ -130,7 +130,7 @@ func TestWriter_Reset(t *testing.T) {
 	ctx = mockContext(database, shardID, node)
 	srv.EXPECT().GetDatabase(gomock.Any()).Return(db, true)
 	db.EXPECT().GetShard(gomock.Any()).Return(nil, false)
-	_, err = writer.Reset(ctx, &storage.ResetSeqRequest{
+	_, err = writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
 		ShardID:  shardID,
 		Seq:      seq,
@@ -147,7 +147,7 @@ func TestWriter_Write_Fail(t *testing.T) {
 	writer := NewWriter(srv)
 
 	// metadata err
-	writeServer := storage.NewMockWriteService_WriteServer(ctl)
+	writeServer := protoStorageV1.NewMockWriteService_WriteServer(ctl)
 	writeServer.EXPECT().Context().Return(context.TODO())
 	err := writer.Write(writeServer)
 	assert.Error(t, err)
@@ -180,18 +180,18 @@ func TestWriter_Write_Fail(t *testing.T) {
 	assert.Error(t, err)
 
 	// no replica
-	writeServer.EXPECT().Recv().Return(&storage.WriteRequest{}, nil)
+	writeServer.EXPECT().Recv().Return(&protoStorageV1.WriteRequest{}, nil)
 	writeServer.EXPECT().Recv().Return(nil, io.EOF)
 	err = writer.Write(writeServer)
 	assert.Nil(t, err)
 
 	// replica index not match
-	writeServer.EXPECT().Recv().Return(&storage.WriteRequest{Replicas: []*storage.Replica{{Seq: int64(10)}}}, nil)
+	writeServer.EXPECT().Recv().Return(&protoStorageV1.WriteRequest{Replicas: []*protoStorageV1.Replica{{Seq: int64(10)}}}, nil)
 	s.EXPECT().GetHeadSeq().Return(int64(8))
 	err = writer.Write(writeServer)
 	assert.Error(t, err)
 
-	writeServer.EXPECT().Recv().Return(&storage.WriteRequest{Replicas: []*storage.Replica{{Seq: int64(10)}}}, nil)
+	writeServer.EXPECT().Recv().Return(&protoStorageV1.WriteRequest{Replicas: []*protoStorageV1.Replica{{Seq: int64(10)}}}, nil)
 	s.EXPECT().GetHeadSeq().Return(int64(9)).MaxTimes(2)
 	s.EXPECT().SetHeadSeq(gomock.Any())
 	s.EXPECT().GetAckSeq().Return(int64(8))
@@ -208,16 +208,16 @@ func TestWriter_handle_replica(t *testing.T) {
 
 	writer := NewWriter(srv)
 	shard := tsdb.NewMockShard(ctrl)
-	writer.handleReplica(shard, &storage.Replica{Seq: int64(10), Data: []byte{1, 2, 3}})
+	writer.handleReplica(shard, &protoStorageV1.Replica{Seq: int64(10), Data: []byte{1, 2, 3}})
 
 	buf := &bytes.Buffer{}
 	compressBuf := snappy.NewBufferedWriter(buf)
 	_, _ = compressBuf.Write([]byte{1, 2, 4})
 	_ = compressBuf.Flush()
-	writer.handleReplica(shard, &storage.Replica{Seq: int64(10), Data: buf.Bytes()})
+	writer.handleReplica(shard, &protoStorageV1.Replica{Seq: int64(10), Data: buf.Bytes()})
 
-	metricList := &field.MetricList{
-		Metrics: []*field.Metric{{Name: "test"}},
+	metricList := &protoMetricsV1.MetricList{
+		Metrics: []*protoMetricsV1.Metric{{Name: "test"}},
 	}
 	data, _ := metricList.Marshal()
 
@@ -226,7 +226,7 @@ func TestWriter_handle_replica(t *testing.T) {
 	_, _ = compressBuf.Write(data)
 	_ = compressBuf.Flush()
 	shard.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
-	writer.handleReplica(shard, &storage.Replica{Seq: int64(10), Data: buf.Bytes()})
+	writer.handleReplica(shard, &protoStorageV1.Replica{Seq: int64(10), Data: buf.Bytes()})
 }
 
 func TestWrite_parse_ctx(t *testing.T) {

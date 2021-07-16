@@ -29,14 +29,14 @@ import (
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
 // todo: line-based-parser
 
 // Parse parses prometheus text
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
@@ -51,13 +51,13 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*pb.Metr
 }
 
 // promParse parses prometheus text prometheus to LinDB pb prometheus.
-func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*pb.MetricList, error) {
+func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
 	parser := &expfmt.TextParser{}
 	out, err := parser.TextToMetricFamilies(reader)
 	if err != nil && len(out) == 0 {
 		return nil, err
 	}
-	metricList := &pb.MetricList{}
+	metricList := &protoMetricsV1.MetricList{}
 	for name, pm := range out {
 		metricType := *pm.Type
 		if metricType == dto.MetricType_UNTYPED {
@@ -70,10 +70,10 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*pb.M
 				continue
 			}
 
-			metric := &pb.Metric{
-				Name:      name,
-				Namespace: namespace,
-				Fields:    []*pb.Field{f},
+			metric := &protoMetricsV1.Metric{
+				Name:         name,
+				Namespace:    namespace,
+				SimpleFields: []*protoMetricsV1.SimpleField{f},
 			}
 			if m.TimestampMs != nil {
 				metric.Timestamp = *m.TimestampMs
@@ -82,23 +82,32 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*pb.M
 			}
 			tagCount := len(m.Label)
 			if tagCount > 0 {
-				tags := make(map[string]string, tagCount)
-				for _, label := range m.Label {
-					tags[*label.Name] = *label.Value
+				var tags = make([]*protoMetricsV1.KeyValue, len(m.Label))
+				for idx := range m.Label {
+					tags[idx] = &protoMetricsV1.KeyValue{
+						Key: *m.Label[idx].Name, Value: *m.Label[idx].Value}
 				}
 				metric.Tags = tags
 			}
 			if enrichedTags.Size() > 0 {
 				if metric.Tags == nil {
-					metric.Tags = make(map[string]string)
+					metric.Tags = nil
 				}
 				for _, enrichedTag := range enrichedTags {
-					metric.Tags[string(enrichedTag.Key)] = string(enrichedTag.Value)
+					for idx := range metric.Tags {
+						if metric.Tags[idx].Key == string(enrichedTag.Key) {
+							continue
+						} else {
+							metric.Tags = append(metric.Tags, &protoMetricsV1.KeyValue{
+								Key:   string(enrichedTag.Key),
+								Value: string(enrichedTag.Value)})
+						}
+					}
 				}
 			}
 
 			if metric.Tags != nil && len(metric.Tags) > 0 {
-				metric.TagsHash = xxhash.Sum64String(tag.Concat(metric.Tags))
+				metric.TagsHash = xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
 			} else {
 				metric.TagsHash = xxhash.Sum64String(metric.Name)
 			}
@@ -109,82 +118,30 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*pb.M
 	return metricList, nil
 }
 
-func getFieldType(metricType dto.MetricType, metric *dto.Metric) *pb.Field {
+func getFieldType(metricType dto.MetricType, metric *dto.Metric) *protoMetricsV1.SimpleField {
 	switch metricType {
 	case dto.MetricType_COUNTER:
 		if metric.Counter != nil && metric.Counter.Value != nil {
-			return &pb.Field{
-				Name:  "counter",
-				Type:  pb.FieldType_Sum,
+			return &protoMetricsV1.SimpleField{
+				Name:  "gauge",
+				Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
 				Value: *metric.Counter.Value,
 			}
 		}
 	case dto.MetricType_GAUGE:
 		if metric.Gauge != nil && metric.Gauge.Value != nil {
-			return &pb.Field{
+			return &protoMetricsV1.SimpleField{
 				Name:  "gauge",
-				Type:  pb.FieldType_Gauge,
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 				Value: *metric.Gauge.Value,
 			}
 		}
+	case dto.MetricType_HISTOGRAM:
+		// todo: translate into histogram_cumulative
+		return nil
 	case dto.MetricType_SUMMARY:
-		if metric.Summary == nil || metric.Summary.SampleCount == nil || metric.Summary.SampleSum == nil {
-			return nil
-		}
-		f := &pb.Field{
-			Name: "summary",
-			//Type: pb.FieldType_Summary,
-		}
-		//FIXME stone1100
-		//count := float64(*metric.Summary.SampleCount)
-		//f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//	PrimitiveID: int32(1),
-		//	Value:       *metric.Summary.SampleSum,
-		//}, &pb.PrimitiveField{
-		//	PrimitiveID: int32(2),
-		//	Value:       count,
-		//})
-		//quantile := metric.Summary.Quantile
-		//for _, q := range quantile {
-		//	switch *q.Quantile {
-		//	case 0.5:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(50),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.75:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(75),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.90:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(90),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.95:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(95),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.99:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(99),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.999:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(39),
-		//			Value:       *q.Value * count,
-		//		})
-		//	case 0.9999:
-		//		f.Fields = append(f.Fields, &pb.PrimitiveField{
-		//			PrimitiveID: int32(49),
-		//			Value:       *q.Value * count,
-		//		})
-		//	}
-		//}
-		return f
+		// todo: record not-support data
+		return nil
 	}
 	return nil
 }

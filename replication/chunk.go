@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/snappy"
 
-	"github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
 //go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replication
@@ -37,7 +37,7 @@ type Chunk interface {
 	// Size returns the size of chunk
 	Size() int
 	// Append appends the metric into buffer
-	Append(metric *field.Metric)
+	Append(metric *protoMetricsV1.Metric)
 	// BinaryMarshaler marshals the data
 	encoding.BinaryMarshaler
 }
@@ -46,7 +46,7 @@ type Chunk interface {
 type chunk struct {
 	buf      *bytes.Buffer
 	writer   *snappy.Writer
-	buffer   field.MetricList
+	buffer   protoMetricsV1.MetricList
 	capacity int
 	size     int // chunk size and append index
 }
@@ -57,8 +57,8 @@ func newChunk(capacity int) Chunk {
 	return &chunk{
 		capacity: capacity,
 		buf:      buf,
-		buffer: field.MetricList{
-			Metrics: make([]*field.Metric, capacity),
+		buffer: protoMetricsV1.MetricList{
+			Metrics: make([]*protoMetricsV1.Metric, capacity),
 		},
 		writer: snappy.NewBufferedWriter(buf),
 	}
@@ -80,7 +80,7 @@ func (c *chunk) Size() int {
 }
 
 // Append appends the metric into buffer
-func (c *chunk) Append(metric *field.Metric) {
+func (c *chunk) Append(metric *protoMetricsV1.Metric) {
 	c.buffer.Metrics[c.size] = metric
 	c.size++
 }
@@ -96,7 +96,7 @@ func (c *chunk) MarshalBinary() ([]byte, error) {
 		// if error, will ignore buffer data
 		c.size = 0
 		// reset for re-use
-		c.buffer.Metrics = make([]*field.Metric, c.capacity)
+		c.buffer.Metrics = make([]*protoMetricsV1.Metric, c.capacity)
 		c.buf = &bytes.Buffer{}
 		c.writer.Reset(c.buf)
 	}()

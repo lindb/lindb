@@ -28,8 +28,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/field"
 )
 
 //go:generate mockgen -source=./shard_channel.go -destination=./shard_channel_mock.go -package=replication
@@ -50,7 +50,7 @@ type Channel interface {
 	// Write writes the data into the channel, ErrCanceled is returned when the channel is canceled before
 	// data is wrote successfully.
 	// Concurrent safe.
-	Write(metric *field.Metric) error
+	Write(metric *protoMetricsV1.Metric) error
 	// GetOrCreateReplicator get a existed or creates a new replicator for target.
 	// Concurrent safe.
 	GetOrCreateReplicator(target models.Node) (Replicator, error)
@@ -185,7 +185,7 @@ func (c *channel) Targets() []models.Node {
 // Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
 // data is wrote successfully.
 // Concurrent safe.
-func (c *channel) Write(metric *field.Metric) error {
+func (c *channel) Write(metric *protoMetricsV1.Metric) error {
 	c.lock4write.Lock()
 	defer c.lock4write.Unlock()
 

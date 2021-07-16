@@ -15,25 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package memdb
+package gen
 
-import (
-	pb "github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/series/field"
-)
-
-// getFieldType return field type by given field
-func getFieldType(f *pb.Field) field.Type {
-	switch f.Type {
-	case pb.FieldType_Sum:
-		return field.SumField
-	case pb.FieldType_Max:
-		return field.MaxField
-	case pb.FieldType_Min:
-		return field.MinField
-	case pb.FieldType_Gauge:
-		return field.GaugeField
-	default:
-		return field.Unknown
-	}
-}
+//go:generate mockgen -source=./v1/broker/broker.pb.go -destination=./v1/broker/broker_pb_mock.go -package=protoBrokerV1
+//go:generate mockgen -source=./v1/common/common.pb.go -destination=./v1/common/common_pb_mock.go -package=protoCommonV1
+//go:generate mockgen -source=./v1/replica/replica.pb.go -destination=./v1/replica/replica_pb_mock.go -package=protoReplicaV1
+//go:generate mockgen -source=./v1/storage/storage.pb.go -destination=./v1/storage/storage_pb_mock.go -package=protoStorageV1

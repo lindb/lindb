@@ -25,7 +25,8 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/tag"
 )
 
 var (
@@ -40,7 +41,7 @@ var (
 // Test cases in
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
 
-func parseInfluxLine(content []byte, namespace string, multiplier int64) (*pb.Metric, error) {
+func parseInfluxLine(content []byte, namespace string, multiplier int64) (*protoMetricsV1.Metric, error) {
 	// skip comment line
 	if bytes.HasPrefix(content, []byte{'#'}) {
 		return nil, nil
@@ -48,7 +49,7 @@ func parseInfluxLine(content []byte, namespace string, multiplier int64) (*pb.Me
 
 	escaped := bytes.IndexByte(content, '\\') >= 0
 	var (
-		m pb.Metric
+		m protoMetricsV1.Metric
 	)
 	m.Namespace = namespace
 	// parse metric-name
@@ -75,7 +76,7 @@ func parseInfluxLine(content []byte, namespace string, multiplier int64) (*pb.Me
 	if err != nil {
 		return nil, err
 	}
-	if m.Fields, err = parseFields(content, tagsEndAt+1, fieldsEndAt, escaped); err != nil {
+	if m.SimpleFields, err = parseFields(content, tagsEndAt+1, fieldsEndAt, escaped); err != nil {
 		return nil, err
 	}
 
@@ -161,20 +162,20 @@ func scanTagLine(buf []byte, startAt int, isEscaped bool) (endAt int, err error)
 	}
 }
 
-func parseTags(buf []byte, startAt int, endAt int, isEscaped bool) (map[string]string, error) {
+func parseTags(buf []byte, startAt int, endAt int, isEscaped bool) (tag.KeyValues, error) {
 	// empty
 	tags := make(map[string]string)
 
 WalkBeforeComma:
 	{
 		if startAt >= endAt-1 {
-			return tags, nil
+			return tag.KeyValuesFromMap(tags), nil
 		}
 		commaAt := walkToUnescapedChar(buf, ',', startAt, isEscaped)
 		// '=' does not exist
 		equalAt := walkToUnescapedChar(buf, '=', startAt, isEscaped)
 		if equalAt <= startAt || equalAt+1 >= endAt {
-			return tags, ErrBadTags
+			return tag.KeyValuesFromMap(tags), ErrBadTags
 		}
 		boundaryAt := endAt
 		if commaAt > 0 && commaAt <= endAt {
@@ -182,7 +183,7 @@ WalkBeforeComma:
 		}
 		// move to next tag pair
 		if equalAt+1 >= boundaryAt {
-			return tags, ErrBadTags
+			return tag.KeyValuesFromMap(tags), ErrBadTags
 		}
 		// move to next tag pair
 		tagKey, tagValue := buf[startAt:equalAt], buf[equalAt+1:boundaryAt]
@@ -211,8 +212,8 @@ func scanFieldLine(buf []byte, startAt int, isEscaped bool) (endAt int, err erro
 	}
 }
 
-func parseFields(buf []byte, startAt int, endAt int, isEscaped bool) ([]*pb.Field, error) {
-	var fields []*pb.Field
+func parseFields(buf []byte, startAt int, endAt int, isEscaped bool) ([]*protoMetricsV1.SimpleField, error) {
+	var fields []*protoMetricsV1.SimpleField
 WalkBeforeComma:
 	{
 		if startAt >= endAt-1 {
@@ -246,7 +247,7 @@ WalkBeforeComma:
 	}
 }
 
-func parseField(key, value []byte) (*pb.Field, error) {
+func parseField(key, value []byte) (*protoMetricsV1.SimpleField, error) {
 	if len(value) == 0 {
 		return nil, ErrBadFields
 	}
@@ -264,15 +265,27 @@ func parseField(key, value []byte) (*pb.Field, error) {
 		if err != nil {
 			return nil, ErrBadFields
 		}
-		return &pb.Field{Name: string(unescapedKey), Type: guessFieldType(key), Value: float64(v)}, nil
+		return &protoMetricsV1.SimpleField{
+			Name:  string(unescapedKey),
+			Type:  guessFieldType(key),
+			Value: float64(v),
+		}, nil
 	case 't', 'T': // boolean true
 		if len(value) == 1 {
-			return &pb.Field{Name: string(unescapedKey), Type: pb.FieldType_Gauge, Value: 1}, nil
+			return &protoMetricsV1.SimpleField{
+				Name:  string(unescapedKey),
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Value: float64(1),
+			}, nil
 		}
 		return nil, ErrBadFields
 	case 'f', 'F': // boolean false
 		if len(value) == 1 {
-			return &pb.Field{Name: string(unescapedKey), Type: pb.FieldType_Gauge, Value: 0}, nil
+			return &protoMetricsV1.SimpleField{
+				Name:  string(unescapedKey),
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Value: float64(0),
+			}, nil
 		}
 		return nil, ErrBadFields
 	default:
@@ -281,28 +294,40 @@ func parseField(key, value []byte) (*pb.Field, error) {
 		// still boolean
 		switch lf {
 		case "false", "False", "FALSE":
-			return &pb.Field{Name: string(unescapedKey), Type: pb.FieldType_Gauge, Value: 0}, nil
+			return &protoMetricsV1.SimpleField{
+				Name:  string(unescapedKey),
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Value: float64(0),
+			}, nil
 		case "true", "True", "TRUE":
-			return &pb.Field{Name: string(unescapedKey), Type: pb.FieldType_Gauge, Value: 1}, nil
+			return &protoMetricsV1.SimpleField{
+				Name:  string(unescapedKey),
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Value: float64(1),
+			}, nil
 		default:
 			// todo, decimal, such like 1e-3, 1e20, -3e23
 			v, err := strconv.ParseFloat(lf, 64)
 			if err != nil {
 				return nil, ErrBadFields
 			}
-			return &pb.Field{Name: string(unescapedKey), Type: guessFieldType(key), Value: v}, nil
+			return &protoMetricsV1.SimpleField{
+				Name:  string(unescapedKey),
+				Type:  guessFieldType(key),
+				Value: v,
+			}, nil
 		}
 	}
 }
 
-func guessFieldType(key []byte) pb.FieldType {
+func guessFieldType(key []byte) protoMetricsV1.SimpleFieldType {
 	switch {
 	case bytes.HasSuffix(key, []byte("total")):
-		return pb.FieldType_Sum
+		return protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM
 	case bytes.HasSuffix(key, []byte("sum")):
-		return pb.FieldType_Sum
+		return protoMetricsV1.SimpleFieldType_DELTA_SUM
 	default:
-		return pb.FieldType_Gauge
+		return protoMetricsV1.SimpleFieldType_GAUGE
 	}
 }
 

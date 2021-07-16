@@ -28,8 +28,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
+	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/replica"
-	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
 )
 
 func TestReplicaHandler_Write(t *testing.T) {
@@ -39,7 +39,7 @@ func TestReplicaHandler_Write(t *testing.T) {
 	}()
 
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	replicaServer := replicaRpc.NewMockReplicaService_WriteServer(ctrl)
+	replicaServer := protoReplicaV1.NewMockReplicaService_WriteServer(ctrl)
 	replicaServer.EXPECT().Context().Return(context.TODO())
 	r := NewReplicaHandler(walMgr, nil)
 
@@ -109,13 +109,13 @@ func TestReplicaHandler_Write(t *testing.T) {
 	err = r.Write(replicaServer)
 	assert.NoError(t, err)
 	// case 9: write wal err
-	replicaServer.EXPECT().Recv().Return(&replicaRpc.WriteRequest{}, nil)
+	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.WriteRequest{}, nil)
 	p.EXPECT().WriteLog(gomock.Any()).Return(fmt.Errorf("err"))
 	replicaServer.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
 	// case 10: write wal ok
-	replicaServer.EXPECT().Recv().Return(&replicaRpc.WriteRequest{}, nil)
+	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.WriteRequest{}, nil)
 	p.EXPECT().WriteLog(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Send(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
@@ -130,7 +130,7 @@ func TestReplicaHandler_Replica(t *testing.T) {
 	}()
 
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	replicaServer := replicaRpc.NewMockReplicaService_ReplicaServer(ctrl)
+	replicaServer := protoReplicaV1.NewMockReplicaService_ReplicaServer(ctrl)
 	replicaServer.EXPECT().Context().Return(context.TODO())
 	r := NewReplicaHandler(walMgr, nil)
 
@@ -192,14 +192,14 @@ func TestReplicaHandler_Replica(t *testing.T) {
 	assert.Error(t, err)
 
 	// case 9: replica log err
-	replicaServer.EXPECT().Recv().Return(&replicaRpc.ReplicaRequest{}, nil)
+	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.ReplicaRequest{}, nil)
 	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(-1), fmt.Errorf("err"))
 	replicaServer.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	err = r.Replica(replicaServer)
 	assert.Error(t, err)
 
 	// case 9: replica log success
-	replicaServer.EXPECT().Recv().Return(&replicaRpc.ReplicaRequest{}, nil)
+	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.ReplicaRequest{}, nil)
 	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(10), nil)
 	replicaServer.EXPECT().Send(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Recv().Return(nil, io.EOF)

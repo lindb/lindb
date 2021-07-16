@@ -28,9 +28,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/rpc/proto/common"
-	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
-	"github.com/lindb/lindb/rpc/proto/storage"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 )
 
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
@@ -100,13 +100,13 @@ type ClientStreamFactory interface {
 	// LogicNode returns the a logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
 	// CreateWriteClient creates a stream WriteClient.
-	CreateWriteClient(db string, shardID int32, target models.Node) (storage.WriteService_WriteClient, error)
-	// CreateQueryClient creates a stream task client
-	CreateTaskClient(target models.Node) (common.TaskService_HandleClient, error)
+	CreateWriteClient(db string, shardID int32, target models.Node) (protoStorageV1.WriteService_WriteClient, error)
+	// CreateTaskClient creates a stream task client
+	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
 	// CreateWriteServiceClient creates a WriteServiceClient
-	CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error)
-	// CreateReplicaServiceClient creates a replicaRpc.ReplicaServiceClient.
-	CreateReplicaServiceClient(target models.Node) (replicaRpc.ReplicaServiceClient, error)
+	CreateWriteServiceClient(target models.Node) (protoStorageV1.WriteServiceClient, error)
+	// CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
+	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
 }
 
 // clientStreamFactory implements ClientStreamFactory.
@@ -128,8 +128,8 @@ func (w *clientStreamFactory) LogicNode() models.Node {
 	return w.logicNode
 }
 
-// CreateQueryClient creates a stream task client
-func (w *clientStreamFactory) CreateTaskClient(target models.Node) (common.TaskService_HandleClient, error) {
+// CreateTaskClient creates a stream task client
+func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
@@ -138,13 +138,13 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (common.TaskS
 	node := w.LogicNode()
 	//TODO handle context?????
 	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&node).Indicator())
-	cli, err := common.NewTaskServiceClient(conn).Handle(ctx)
+	cli, err := protoCommonV1.NewTaskServiceClient(conn).Handle(ctx)
 	return cli, err
 }
 
 // CreateWriteClient creates a WriteClient.
 func (w *clientStreamFactory) CreateWriteClient(db string, shardID int32,
-	target models.Node) (storage.WriteService_WriteClient, error) {
+	target models.Node) (protoStorageV1.WriteService_WriteClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
@@ -152,27 +152,27 @@ func (w *clientStreamFactory) CreateWriteClient(db string, shardID int32,
 
 	// pass logicNode.ID as meta to rpc serve
 	ctx := createOutgoingContext(context.TODO(), db, shardID, w.LogicNode())
-	cli, err := storage.NewWriteServiceClient(conn).Write(ctx)
+	cli, err := protoStorageV1.NewWriteServiceClient(conn).Write(ctx)
 
 	return cli, err
 }
 
 // CreateWriteServiceClient creates a WriteServiceClient
-func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (storage.WriteServiceClient, error) {
+func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (protoStorageV1.WriteServiceClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
 	}
-	return storage.NewWriteServiceClient(conn), nil
+	return protoStorageV1.NewWriteServiceClient(conn), nil
 }
 
-// CreateReplicaServiceClient creates a replicaRpc.ReplicaServiceClient.
-func (w *clientStreamFactory) CreateReplicaServiceClient(target models.Node) (replicaRpc.ReplicaServiceClient, error) {
+// CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
+func (w *clientStreamFactory) CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
 	}
-	return replicaRpc.NewReplicaServiceClient(conn), nil
+	return protoReplicaV1.NewReplicaServiceClient(conn), nil
 }
 
 // createOutgoingContextWithPairs creates outGoing context with key, value pairs.

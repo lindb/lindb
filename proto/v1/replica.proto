@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package replica;
+package protoReplicaV1;
 
 message ResetIndexRequest {
     string database = 1;
