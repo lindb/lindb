@@ -134,5 +134,5 @@ go_gc_duration_seconds_sum 90
 `
 	metrics, err = promParse(strings.NewReader(input), tag.Tags{}, "ns")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, metrics)
+	assert.Empty(t, metrics)
 }

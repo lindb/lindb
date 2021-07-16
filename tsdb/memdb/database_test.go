@@ -28,7 +28,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -104,32 +104,31 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
-		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
-		mockMStore.EXPECT().SetSlot(gomock.Any()),
+		mockMStore.EXPECT().SetSlot(gomock.Any()).Times(2),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
 		Name:  "f1",
-		Type:  pb.FieldType_Sum,
+		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		Value: 10.0,
-	}})
+	}}, nil)
 	assert.NoError(t, err)
 	// case 2: field type unknown
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
 		Name: "f1",
-	}})
+	}}, nil)
 	assert.NoError(t, err)
 	// case 3: generate field err
 	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1-err"), field.SumField).Return(field.ID(0), fmt.Errorf("err"))
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
 		Name:  "f1-err",
-		Type:  pb.FieldType_Sum,
+		Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
 		Value: 10.0,
-	}})
+	}}, nil)
 	assert.NoError(t, err)
 	// case 5: new metric store
-	err = md.Write("ns", "test1", uint32(20), uint32(20), 1, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(20), uint32(20), 1, []*protoMetricsV1.SimpleField{{
 		Name: "f1",
-	}})
+	}}, nil)
 	assert.NoError(t, err)
 	// case 6: create new field store
 	gomock.InOrder(
@@ -139,11 +138,11 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 15, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 15, []*protoMetricsV1.SimpleField{{
 		Name:  "f4",
-		Type:  pb.FieldType_Sum,
+		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		Value: 10.0,
-	}})
+	}}, nil)
 	assert.NoError(t, err)
 	assert.True(t, md.MemSize() > 0)
 
@@ -180,11 +179,11 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*pb.Field{{
+	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
 		Name:  "f1",
-		Type:  pb.FieldType_Sum,
+		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		Value: 10.0,
-	}})
+	}}, nil)
 	assert.Error(t, err)
 
 	buf.EXPECT().Close().Return(nil)

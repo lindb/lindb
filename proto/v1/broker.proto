@@ -1,7 +1,6 @@
 syntax = "proto3";
 
-package broker;
-
+package protoBrokerV1;
 
 message WriteRequest {
     string cluster = 1;

@@ -25,7 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/models"
-	pb "github.com/lindb/lindb/rpc/proto/common"
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
 func TestLeafTaskDispatcher_Dispatch(t *testing.T) {

@@ -30,8 +30,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/field"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -53,7 +53,7 @@ var (
 // DatabaseChannel represents the database level replication channel
 type DatabaseChannel interface {
 	// Write writes the metric data into channel's buffer
-	Write(metricList *field.MetricList) error
+	Write(metricList *protoMetricsV1.MetricList) error
 	// CreateChannel creates the shard level replication channel by given shard id
 	CreateChannel(numOfShard, shardID int32) (Channel, error)
 	// ReplicaState returns the replica state
@@ -90,11 +90,11 @@ func newDatabaseChannel(ctx context.Context,
 }
 
 // Write writes the metric data into channel's buffer
-func (dc *databaseChannel) Write(metricList *field.MetricList) (err error) {
+func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err error) {
 	// sharding metrics to shards
 	numOfShard := uint64(dc.numOfShard.Load())
 	for _, metric := range metricList.Metrics {
-		hash := xxhash.Sum64String(tag.Concat(metric.Tags))
+		hash := xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
 		// set tags hash code for storage side reuse
 		// !!!IMPORTANT: storage side will use this hash for write
 		metric.TagsHash = hash

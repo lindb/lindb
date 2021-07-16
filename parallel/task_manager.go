@@ -24,8 +24,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 //go:generate mockgen -source=./task_manager.go -destination=./task_manager_mock.go -package=parallel

@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
 func TestChannel_New(t *testing.T) {
@@ -94,14 +94,11 @@ func TestChannel_Write(t *testing.T) {
 	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
-	metric := &pb.Metric{
+	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{{
-			Name:  "f1",
-			Type:  pb.FieldType_Sum,
-			Value: 1.0,
-		}},
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -142,14 +139,11 @@ func TestChannel_checkFlush(t *testing.T) {
 	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	ch1.q = fanout
 
-	metric := &pb.Metric{
+	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{{
-			Name:  "f1",
-			Type:  pb.FieldType_Sum,
-			Value: 1.0,
-		}},
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -165,14 +159,11 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 
 	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
 	assert.NoError(t, err)
-	metric := &pb.Metric{
+	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{{
-			Name:  "f1",
-			Type:  pb.FieldType_Sum,
-			Value: 1.0,
-		}},
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -195,14 +186,11 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	ch1 := ch.(*channel)
 	ch1.chunk = chunk
 
-	metric := &pb.Metric{
+	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
-		Fields: []*pb.Field{{
-			Name:  "f1",
-			Type:  pb.FieldType_Sum,
-			Value: 1.0,
-		}},
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
 	chunk.EXPECT().Append(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)

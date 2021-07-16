@@ -49,9 +49,7 @@ const (
 	MinField
 	MaxField
 	GaugeField
-	IncreaseField
-	SummaryField
-	HistogramField
+	HistogramField // alias for sumField, only visible for tsdb
 )
 
 // String returns the field type's string value
@@ -65,10 +63,6 @@ func (t Type) String() string {
 		return "max"
 	case GaugeField:
 		return "gauge"
-	case IncreaseField:
-		return "increase"
-	case SummaryField:
-		return "summary"
 	case HistogramField:
 		return "histogram"
 	default:
@@ -79,7 +73,7 @@ func (t Type) String() string {
 // GetAggFunc returns the aggregate function
 func (t Type) GetAggFunc() AggFunc {
 	switch t {
-	case SumField:
+	case SumField, HistogramField:
 		return sumAggregator
 	case MinField:
 		return minAggregator
@@ -101,10 +95,6 @@ func (t Type) DownSamplingFunc() function.FuncType {
 		return function.Max
 	case GaugeField:
 		return function.LastValue
-	case IncreaseField:
-		return function.Sum
-	case SummaryField:
-		return function.Count
 	case HistogramField:
 		return function.Histogram
 	default:
@@ -142,10 +132,6 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		default:
 			return false
 		}
-	case SummaryField:
-		return true
-	case HistogramField:
-		return true
 	default:
 		return false
 	}

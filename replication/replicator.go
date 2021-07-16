@@ -27,8 +27,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replication
@@ -67,9 +67,9 @@ type replicator struct {
 	// factory to get write streamClient
 	fct rpc.ClientStreamFactory
 	// current WriteStreamClient
-	streamClient storage.WriteService_WriteClient
+	streamClient protoStorageV1.WriteService_WriteClient
 	// current WriteServiceClient
-	serviceClient storage.WriteServiceClient
+	serviceClient protoStorageV1.WriteServiceClient
 	// lock to protect clients
 	lock4client sync.RWMutex
 	// false -> running, true -> stopped
@@ -186,7 +186,7 @@ func (r *replicator) recvLoop() {
 
 		// todo@TianliangXia use resp.curSeq for sliding window control
 		// ackSeq could be nil, means no ack signal
-		ack, ok := resp.Ack.(*storage.WriteResponse_AckSeq)
+		ack, ok := resp.Ack.(*protoStorageV1.WriteResponse_AckSeq)
 		if ok {
 			r.fo.Ack(ack.AckSeq)
 		}
@@ -249,7 +249,7 @@ func (r *replicator) initClient() {
 }
 
 func (r *replicator) remoteNextSeq() (int64, error) {
-	nextReq := &storage.NextSeqRequest{
+	nextReq := &protoStorageV1.NextSeqRequest{
 		Database: r.database,
 		ShardID:  r.shardID,
 	}
@@ -270,7 +270,7 @@ func (r *replicator) remoteNextSeq() (int64, error) {
 
 func (r *replicator) resetRemoteSeq(resetSeq int64) error {
 	// reset storage headSeq
-	nextReq := &storage.ResetSeqRequest{
+	nextReq := &protoStorageV1.ResetSeqRequest{
 		Database: r.database,
 		ShardID:  r.shardID,
 		Seq:      resetSeq,
@@ -298,7 +298,7 @@ func (r *replicator) sendLoop() {
 	}()
 
 	// reuse the fix size slice
-	reusedReplicas := make([]*storage.Replica, 0, batchReplicaSize)
+	reusedReplicas := make([]*protoStorageV1.Replica, 0, batchReplicaSize)
 
 	for {
 		if r.isStopped() {
@@ -318,7 +318,7 @@ func (r *replicator) sendLoop() {
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
-		wr := &storage.WriteRequest{
+		wr := &protoStorageV1.WriteRequest{
 			Replicas: replicas,
 		}
 
@@ -338,7 +338,7 @@ func (r *replicator) sendLoop() {
 }
 
 // consumeBatch consumes a batch of Replicas(limited by batchReplicaSize), the input slice is reused.
-func (r *replicator) consumeBatch(repPointer *[]*storage.Replica) []*storage.Replica {
+func (r *replicator) consumeBatch(repPointer *[]*protoStorageV1.Replica) []*protoStorageV1.Replica {
 	replicas := *repPointer
 	replicas = replicas[:0]
 	var i int
@@ -355,7 +355,7 @@ func (r *replicator) consumeBatch(repPointer *[]*storage.Replica) []*storage.Rep
 			break
 		}
 
-		replica := &storage.Replica{
+		replica := &protoStorageV1.Replica{
 			Seq:  seq,
 			Data: data,
 		}

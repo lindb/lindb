@@ -17,7 +17,7 @@
 
 package rpc
 
-import pb "github.com/lindb/lindb/rpc/proto/common"
+import pb "github.com/lindb/lindb/proto/gen/v1/common"
 
 //go:generate mockgen -source ./task_receiver.go -destination=./task_receiver_mock.go -package=rpc
 

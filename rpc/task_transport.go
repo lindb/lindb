@@ -27,7 +27,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/rpc/proto/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
 //go:generate mockgen -source ./task_transport.go -destination=./task_transport_mock.go -package=rpc
@@ -39,7 +39,7 @@ type TaskClientFactory interface {
 	// CreateTaskClient creates a task client stream if not exist
 	CreateTaskClient(target models.Node) error
 	// GetTaskClient returns the task client stream by target node
-	GetTaskClient(target string) common.TaskService_HandleClient
+	GetTaskClient(target string) protoCommonV1.TaskService_HandleClient
 	// CloseTaskClient closes the task client stream for target node
 	CloseTaskClient(targetNodeID string) (closed bool, err error)
 	// SetTaskReceiver set task receiver for handling task response
@@ -47,7 +47,7 @@ type TaskClientFactory interface {
 }
 
 type taskClient struct {
-	cli      common.TaskService_HandleClient
+	cli      protoCommonV1.TaskService_HandleClient
 	targetID string
 	target   models.Node
 	running  atomic.Bool
@@ -62,7 +62,7 @@ type taskClientFactory struct {
 	taskStreams map[string]*taskClient
 	mutex       sync.RWMutex
 
-	newTaskServiceClientFunc func(cc *grpc.ClientConn) common.TaskServiceClient
+	newTaskServiceClientFunc func(cc *grpc.ClientConn) protoCommonV1.TaskServiceClient
 	connFct                  ClientConnFactory
 }
 
@@ -72,7 +72,7 @@ func NewTaskClientFactory(currentNode models.Node) TaskClientFactory {
 		currentNode:              currentNode,
 		connFct:                  GetClientConnFactory(),
 		taskStreams:              make(map[string]*taskClient),
-		newTaskServiceClientFunc: common.NewTaskServiceClient,
+		newTaskServiceClientFunc: protoCommonV1.NewTaskServiceClient,
 	}
 }
 
@@ -82,7 +82,7 @@ func (f *taskClientFactory) SetTaskReceiver(taskReceiver TaskReceiver) {
 }
 
 // GetTaskClient returns the task client stream by target node
-func (f *taskClientFactory) GetTaskClient(target string) common.TaskService_HandleClient {
+func (f *taskClientFactory) GetTaskClient(target string) protoCommonV1.TaskService_HandleClient {
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 
@@ -200,9 +200,9 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 // TaskServerFactory represents a factory to get server stream.
 type TaskServerFactory interface {
 	// GetStream returns a ServerStream for a node.
-	GetStream(node string) common.TaskService_HandleServer
+	GetStream(node string) protoCommonV1.TaskService_HandleServer
 	// Register registers a stream for a node.
-	Register(node string, stream common.TaskService_HandleServer) (epoch int64)
+	Register(node string, stream protoCommonV1.TaskService_HandleServer) (epoch int64)
 	// Deregister unregisters a stream for node, if returns true, unregister successfully.
 	Deregister(epoch int64, node string) bool
 	// Nodes returns all registered nodes.
@@ -210,7 +210,7 @@ type TaskServerFactory interface {
 }
 
 type taskService struct {
-	handle common.TaskService_HandleServer
+	handle protoCommonV1.TaskService_HandleServer
 	epoch  int64
 }
 
@@ -229,7 +229,7 @@ func NewTaskServerFactory() TaskServerFactory {
 }
 
 // GetStream returns a ServerStream for a node.
-func (fct *taskServerFactory) GetStream(node string) common.TaskService_HandleServer {
+func (fct *taskServerFactory) GetStream(node string) protoCommonV1.TaskService_HandleServer {
 	fct.lock.RLock()
 	defer fct.lock.RUnlock()
 
@@ -241,7 +241,7 @@ func (fct *taskServerFactory) GetStream(node string) common.TaskService_HandleSe
 }
 
 // Register registers a stream for a node.
-func (fct *taskServerFactory) Register(node string, stream common.TaskService_HandleServer) (epoch int64) {
+func (fct *taskServerFactory) Register(node string, stream protoCommonV1.TaskService_HandleServer) (epoch int64) {
 	fct.lock.Lock()
 	defer fct.lock.Unlock()
 	epoch = fct.epoch.Inc()

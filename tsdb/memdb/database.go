@@ -19,7 +19,9 @@ package memdb
 
 import (
 	"io"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/lindb/roaring"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +31,7 @@ import (
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -75,7 +77,13 @@ type MemoryDatabase interface {
 	AcquireWrite()
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(namespace, metricName string, metricID, seriesID uint32, slotIndex uint16, fields []*pb.Field) (err error)
+	Write(
+		namespace, metricName string,
+		metricID, seriesID uint32,
+		slotIndex uint16,
+		simpleFields []*protoMetricsV1.SimpleField,
+		compoundField *protoMetricsV1.CompoundField,
+	) (err error)
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -83,9 +91,9 @@ type MemoryDatabase interface {
 	FlushFamilyTo(flusher metricsdata.Flusher) error
 	// MemSize returns the memory-size of this metric-store
 	MemSize() int32
-	// flow.DataFilter filters the data based on condition
+	// DataFilter filters the data based on condition
 	flow.DataFilter
-	// io.Closer closes the memory database resource
+	// Closer closes the memory database resource
 	io.Closer
 }
 
@@ -113,14 +121,14 @@ type memoryDatabase struct {
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
 
-	allocSize atomic.Int32 // allocated size
-
 	writeCondition sync.WaitGroup
 	rwMutex        sync.RWMutex // lock of create metric store
 
-	writeDataPointCounter      prometheus.Counter
-	generateFieldIDFailCounter prometheus.Counter
-	getUnknownFieldTypeCounter prometheus.Counter
+	allocSize                atomic.Int32 // allocated size
+	reportTicker             time.Ticker
+	writtenDataPoints        atomic.Int64
+	generatedFieldIDFailures atomic.Int64
+	gotUnknownFields         atomic.Int64
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -130,16 +138,41 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		return nil, err
 	}
 	return &memoryDatabase{
-		familyTime:                 cfg.FamilyTime,
-		name:                       cfg.Name,
-		metadata:                   cfg.Metadata,
-		buf:                        buf,
-		mStores:                    NewMetricBucketStore(),
-		allocSize:                  *atomic.NewInt32(0),
-		writeDataPointCounter:      writeDataPointCounter.WithLabelValues(cfg.Name),
-		generateFieldIDFailCounter: generateFieldIDFailCounter.WithLabelValues(cfg.Name),
-		getUnknownFieldTypeCounter: getUnknownFieldTypeCounter.WithLabelValues(cfg.Name),
+		familyTime:               cfg.FamilyTime,
+		name:                     cfg.Name,
+		metadata:                 cfg.Metadata,
+		buf:                      buf,
+		mStores:                  NewMetricBucketStore(),
+		allocSize:                *atomic.NewInt32(0),
+		reportTicker:             *time.NewTicker(time.Second * 10),
+		writtenDataPoints:        *atomic.NewInt64(0),
+		generatedFieldIDFailures: *atomic.NewInt64(0),
+		gotUnknownFields:         *atomic.NewInt64(0),
 	}, err
+}
+
+func (md *memoryDatabase) statsReporter() {
+	// todo: use otel sdk reporter
+	writeDataPointC := writeDataPointCounter.WithLabelValues(md.name)
+	generateFieldIDFailC := generateFieldIDFailCounter.WithLabelValues(md.name)
+	getUnknownFieldTypeC := getUnknownFieldTypeCounter.WithLabelValues(md.name)
+	var (
+		lastWrittenDataPoints        int64 = 0
+		lastGeneratedFieldIDFailures int64 = 0
+		lastGotUnknownFields         int64 = 0
+	)
+	for range md.reportTicker.C {
+		writtenDataPoints := md.writtenDataPoints.Load()
+		generatedFieldIDFailures := md.generatedFieldIDFailures.Load()
+		gotUnknownFields := md.gotUnknownFields.Load()
+		writeDataPointC.Add(float64(writtenDataPoints - lastWrittenDataPoints))
+		generateFieldIDFailC.Add(float64(generatedFieldIDFailures - lastGeneratedFieldIDFailures))
+		getUnknownFieldTypeC.Add(float64(gotUnknownFields - lastGotUnknownFields))
+
+		lastWrittenDataPoints = writtenDataPoints
+		lastGeneratedFieldIDFailures = generatedFieldIDFailures
+		lastGotUnknownFields = gotUnknownFields
+	}
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
@@ -166,9 +199,12 @@ func (md *memoryDatabase) CompleteWrite() {
 }
 
 // Write writes metric-point to database.
-func (md *memoryDatabase) Write(namespace, metricName string,
+func (md *memoryDatabase) Write(
+	namespace, metricName string,
 	metricID, seriesID uint32,
-	slotIndex uint16, fields []*pb.Field,
+	slotIndex uint16,
+	simpleFields []*protoMetricsV1.SimpleField,
+	compoundField *protoMetricsV1.CompoundField,
 ) (err error) {
 	md.rwMutex.Lock()
 	defer md.rwMutex.Unlock()
@@ -178,38 +214,158 @@ func (md *memoryDatabase) Write(namespace, metricName string,
 	tStore, size := mStore.GetOrCreateTStore(seriesID)
 	written := false
 
-	for _, f := range fields {
-		fieldType := getFieldType(f)
-		if fieldType == field.Unknown {
-			md.getUnknownFieldTypeCounter.Inc()
-			continue
-		}
-		fieldID, err := md.metadata.MetadataDatabase().GenFieldID(namespace, metricName, field.Name(f.Name), fieldType)
+	if compoundField != nil {
+		writtenSize, err := md.writeCompoundField(namespace, metricName, slotIndex,
+			mStore, tStore, compoundField)
 		if err != nil {
-			md.generateFieldIDFailCounter.Inc()
-			continue
+			return err
 		}
-		md.writeDataPointCounter.Inc()
-		pStore, ok := tStore.GetFStore(fieldID)
-		if !ok {
-			buf, err := md.buf.AllocPage()
-			if err != nil {
-				return err
-			}
-			pStore = newFieldStore(buf, fieldID)
-			size += tStore.InsertFStore(pStore)
-		}
-		size += pStore.Write(fieldType, slotIndex, f.Value)
-
-		// if write data success, add field into metric level for cache
-		mStore.AddField(fieldID, fieldType)
+		size += writtenSize
 		written = true
 	}
+
+	for _, SimpleField := range simpleFields {
+		if protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED == SimpleField.Type {
+			md.gotUnknownFields.Inc()
+			continue
+		}
+		var (
+			fieldType    field.Type
+			isCumulative bool
+		)
+		switch SimpleField.Type {
+		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
+			fieldType = field.SumField
+		case protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
+			fieldType = field.SumField
+			isCumulative = true
+		case protoMetricsV1.SimpleFieldType_GAUGE:
+			fieldType = field.GaugeField
+		default:
+			md.gotUnknownFields.Inc()
+			continue
+		}
+		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+			SimpleField.Name, fieldType, SimpleField.Value,
+			mStore, tStore, isCumulative,
+		)
+		if err != nil {
+			return err
+		}
+		size += writtenLinFieldSize
+		written = true
+	}
+
 	if written {
 		mStore.SetSlot(slotIndex)
 	}
 	md.allocSize.Add(int32(size))
 	return nil
+}
+
+func (md *memoryDatabase) writeCompoundField(
+	namespace, metricName string,
+	slotIndex uint16,
+	mStore mStoreINTF, tStore tStoreINTF,
+	compoundField *protoMetricsV1.CompoundField,
+) (writtenSize int, err error) {
+	isCumulative := false
+	switch compoundField.Type {
+	case protoMetricsV1.CompoundFieldType_CUMULATIVE_HISTOGRAM:
+		isCumulative = true
+	case protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM:
+	default:
+		md.gotUnknownFields.Inc()
+		return 0, nil
+	}
+	// write histogram_min
+	if compoundField.Min > 0 {
+		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+			"HistogramMin", field.MinField, compoundField.Min,
+			mStore, tStore, isCumulative,
+		)
+		if err != nil {
+			return writtenSize, err
+		}
+		writtenSize += writtenLinFieldSize
+	}
+	// write histogram_max
+	if compoundField.Max > 0 {
+		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+			"HistogramMax", field.MaxField, compoundField.Max,
+			mStore, tStore, isCumulative,
+		)
+		if err != nil {
+			return writtenSize, err
+		}
+		writtenSize += writtenLinFieldSize
+	}
+	// write histogram_count
+	if compoundField.Max > 0 {
+		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+			"HistogramCount", field.SumField, compoundField.Count,
+			mStore, tStore, isCumulative,
+		)
+		if err != nil {
+			return writtenSize, err
+		}
+		writtenSize += writtenLinFieldSize
+	}
+	// write histogram_sum
+	writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+		"HistogramSum", field.SumField, compoundField.Sum,
+		mStore, tStore, isCumulative,
+	)
+	if err != nil {
+		return writtenSize, err
+	}
+	writtenSize += writtenLinFieldSize
+	// write histogram_data
+	for idx := range compoundField.Values {
+		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
+			"Histogram"+strconv.Itoa(idx), field.HistogramField, compoundField.Values[idx],
+			mStore, tStore, isCumulative,
+		)
+		if err != nil {
+			return writtenSize, err
+		}
+		writtenSize += writtenLinFieldSize
+	}
+	return writtenSize, err
+}
+
+func (md *memoryDatabase) writeLinField(
+	namespace, metricName string,
+	slotIndex uint16,
+	fieldName string, fieldType field.Type, fieldValue float64,
+	mStore mStoreINTF, tStore tStoreINTF,
+	isCumulativeField bool,
+) (writtenSize int, err error) {
+	fieldID, err := md.metadata.MetadataDatabase().GenFieldID(
+		namespace, metricName, field.Name(fieldName), fieldType)
+	if err != nil {
+		md.generatedFieldIDFailures.Inc()
+		// ignore generate field-id error
+		return 0, nil
+	}
+	md.writtenDataPoints.Inc()
+	fStore, ok := tStore.GetFStore(fieldID)
+	if !ok {
+		buf, err := md.buf.AllocPage()
+		if err != nil {
+			return 0, err
+		}
+		if isCumulativeField {
+			fStore = newCumulativeSumFieldStore(buf, fieldID)
+		} else {
+			fStore = newFieldStore(buf, fieldID)
+		}
+		writtenSize += tStore.InsertFStore(fStore)
+		// if write data success, add field into metric level for cache
+		mStore.AddField(fieldID, fieldType)
+	}
+	writtenSize += fStore.Write(fieldType, slotIndex, fieldValue)
+	return writtenSize, nil
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder.
@@ -254,5 +410,6 @@ func (md *memoryDatabase) MemSize() int32 {
 
 // Close closes memory data point buffer
 func (md *memoryDatabase) Close() error {
+	md.reportTicker.Stop()
 	return md.buf.Close()
 }

@@ -124,7 +124,7 @@ func TestMetricMetaWAL_Recovery(t *testing.T) {
 		if metricID == 1 && fID == field.ID(1) && fType == field.SumField && fieldName == "f-1" {
 			count++
 			return nil
-		} else if metricID == 2 && fID == field.ID(2) && fType == field.HistogramField && fieldName == "f-2" {
+		} else if metricID == 2 && fID == field.ID(2) && fType == field.GaugeField && fieldName == "f-2" {
 			count++
 			return nil
 		}
@@ -239,7 +239,7 @@ func mockAppendData(t *testing.T) {
 	assert.NoError(t, wal.AppendTagKey(1, 1, "tagKey-1"))
 	assert.NoError(t, wal.AppendField(1, 1, "f-1", field.SumField))
 	assert.NoError(t, wal.AppendMetric(ns, "metric-1", 1))
-	assert.NoError(t, wal.AppendField(2, 2, "f-2", field.HistogramField))
+	assert.NoError(t, wal.AppendField(2, 2, "f-2", field.GaugeField))
 	assert.NoError(t, wal.AppendTagKey(2, 2, "tagKey-2"))
 	assert.NoError(t, wal.AppendMetric(ns, "metric-2", 2))
 

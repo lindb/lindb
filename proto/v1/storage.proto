@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package storage;
+package protoStorageV1;
 
 message Replica {
     int64 seq = 1;

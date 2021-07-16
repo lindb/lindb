@@ -24,7 +24,7 @@ import (
 
 	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/service"
 
 	"github.com/gin-gonic/gin"

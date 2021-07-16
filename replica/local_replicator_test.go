@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/tsdb"
 
 	"github.com/golang/mock/gomock"
@@ -38,8 +38,8 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	assert.True(t, replicator.IsReady())
 	replicator.Replica(1, []byte{1, 2, 3})
 
-	metricList := field.MetricList{
-		Metrics: []*field.Metric{{Name: "test"}},
+	metricList := protoMetricsV1.MetricList{
+		Metrics: []*protoMetricsV1.Metric{{Name: "test"}},
 	}
 	data, _ := metricList.Marshal()
 	shard.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("errj"))

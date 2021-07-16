@@ -31,8 +31,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/stream"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/storage"
 )
 
 /**
@@ -105,15 +105,15 @@ var (
 	shardID  = int32(0)
 )
 
-func buildWriteRequest(seqBegin, seqEnd int64) (*storage.WriteRequest, string) {
-	replicas := make([]*storage.Replica, seqEnd-seqBegin)
+func buildWriteRequest(seqBegin, seqEnd int64) (*protoStorageV1.WriteRequest, string) {
+	replicas := make([]*protoStorageV1.Replica, seqEnd-seqBegin)
 	for i := seqBegin; i < seqEnd; i++ {
-		replicas[i-seqBegin] = &storage.Replica{
+		replicas[i-seqBegin] = &protoStorageV1.Replica{
 			Seq:  i,
 			Data: buildMessageBytes(int(i)),
 		}
 	}
-	wr := &storage.WriteRequest{
+	wr := &protoStorageV1.WriteRequest{
 		Replicas: replicas,
 	}
 	return wr, fmt.Sprintf("[%d,%d)", seqBegin, seqEnd)
@@ -166,7 +166,7 @@ func TestGetRemoteNextSeqFail(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
 	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(nil, errors.New("get remote next seq error"))
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
@@ -175,7 +175,7 @@ func TestGetRemoteNextSeqFail(t *testing.T) {
 	mockFct.EXPECT().LogicNode().Return(node)
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(node models.Node) (storage.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(node models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
@@ -199,8 +199,8 @@ func TestSetLocalHeadSeqFail(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 0,
 	}, nil)
 	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, errors.New("reset remote next seq error"))
@@ -210,7 +210,7 @@ func TestSetLocalHeadSeqFail(t *testing.T) {
 	mockFct.EXPECT().LogicNode().Return(node).Times(2)
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
@@ -238,8 +238,8 @@ func TestSetLocalHeadSeqSuccess(t *testing.T) {
 	defer ctl.Finish()
 
 	nextSeq := int64(5)
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: nextSeq,
 	}, nil)
 
@@ -249,7 +249,7 @@ func TestSetLocalHeadSeqSuccess(t *testing.T) {
 	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("create stream client error"))
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
@@ -277,11 +277,11 @@ func TestResetRemoteSeqSuccess(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 0,
 	}, nil)
-	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(&storage.ResetSeqResponse{}, nil)
+	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(&protoStorageV1.ResetSeqResponse{}, nil)
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
 	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
@@ -289,7 +289,7 @@ func TestResetRemoteSeqSuccess(t *testing.T) {
 	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("creat write client error"))
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (storage.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		time.Sleep(100 * time.Millisecond)
 		return nil, errors.New("get service client error any")
@@ -321,14 +321,14 @@ func TestNormalReplication(t *testing.T) {
 	defer ctl.Finish()
 
 	nextSeq := int64(5)
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: nextSeq,
 	}, nil)
 
 	done := make(chan struct{})
-	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
-	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+	mockClientStream := protoStorageV1.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*protoStorageV1.WriteResponse, error) {
 		<-done
 		return nil, errors.New("stream canceled")
 	})
@@ -384,18 +384,18 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 5,
 	}, nil)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 7,
 	}, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
-	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
-	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+	mockClientStream := protoStorageV1.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*protoStorageV1.WriteResponse, error) {
 		<-done1
 		time.Sleep(10 * time.Millisecond)
 		return nil, errors.New("stream canceled")
@@ -403,13 +403,13 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 
 	// replica 5~15
 	wr1, _ := buildWriteRequest(5, 15)
-	mockClientStream.EXPECT().Send(wr1).DoAndReturn(func(_ *storage.WriteRequest) error {
+	mockClientStream.EXPECT().Send(wr1).DoAndReturn(func(_ *protoStorageV1.WriteRequest) error {
 		// notify recv loop to re-connect
 		close(done1)
 		return errors.New("seq not match")
 	})
 
-	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*protoStorageV1.WriteResponse, error) {
 		<-done2
 		return nil, errors.New("stream canceled")
 	})
@@ -455,19 +455,19 @@ func TestReplicator_Ack(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 5,
 	}, nil).AnyTimes()
 
 	done1 := make(chan struct{})
-	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
+	mockClientStream := protoStorageV1.NewMockWriteService_WriteClient(ctl)
 	mockClientStream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*protoStorageV1.WriteResponse, error) {
 		<-done1
 		time.Sleep(10 * time.Millisecond)
-		return &storage.WriteResponse{
-			Ack: &storage.WriteResponse_AckSeq{AckSeq: int64(1000)},
+		return &protoStorageV1.WriteResponse{
+			Ack: &protoStorageV1.WriteResponse_AckSeq{AckSeq: int64(1000)},
 		}, nil
 	})
 
@@ -492,23 +492,23 @@ func TestReplicator_Loop_panic(t *testing.T) {
 	ctl := gomock.NewController(t)
 	defer ctl.Finish()
 
-	mockServiceClient := storage.NewMockWriteServiceClient(ctl)
-	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&storage.NextSeqResponse{
+	mockServiceClient := protoStorageV1.NewMockWriteServiceClient(ctl)
+	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(&protoStorageV1.NextSeqResponse{
 		Seq: 5,
 	}, nil).AnyTimes()
 
 	var panicCount atomic.Int32
 	panicCount.Store(2)
 	done1 := make(chan struct{})
-	mockClientStream := storage.NewMockWriteService_WriteClient(ctl)
-	mockClientStream.EXPECT().Send(gomock.Any()).DoAndReturn(func(req *storage.WriteRequest) error {
+	mockClientStream := protoStorageV1.NewMockWriteService_WriteClient(ctl)
+	mockClientStream.EXPECT().Send(gomock.Any()).DoAndReturn(func(req *protoStorageV1.WriteRequest) error {
 		if panicCount.Load() > 0 {
 			panicCount.Dec()
 			panic("send")
 		}
 		return nil
 	}).AnyTimes()
-	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*storage.WriteResponse, error) {
+	mockClientStream.EXPECT().Recv().DoAndReturn(func() (*protoStorageV1.WriteResponse, error) {
 		<-done1
 		panic("recv")
 	})
