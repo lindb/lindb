@@ -30,8 +30,8 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	pb "github.com/lindb/lindb/rpc/proto/common"
 )
 
 type mockTaskDispatcher struct {

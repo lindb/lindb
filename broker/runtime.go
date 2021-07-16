@@ -43,10 +43,10 @@ import (
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
-	commonpb "github.com/lindb/lindb/rpc/proto/common"
 	"github.com/lindb/lindb/service"
 )
 
@@ -362,7 +362,7 @@ func (r *runtime) bindGRPCHandlers() {
 		task: parallel.NewTaskHandler(r.config.BrokerBase.Query, r.factory.taskServer, dispatcher),
 	}
 
-	commonpb.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
+	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
 }
 
 func (r *runtime) monitoring() {

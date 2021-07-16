@@ -131,7 +131,7 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 	index := NewMockInvertedIndex(ctrl)
 	db1.index = index
 	index.EXPECT().buildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	db.BuildInvertIndex("ns", "cpu", map[string]string{"ip": "1.1.1.1"}, 10)
+	db.BuildInvertIndex("ns", "cpu", tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}), 10)
 
 	index.EXPECT().Flush().Return(nil)
 	err = db.Close()

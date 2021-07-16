@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package common;
+package protoCommonV1;
 
 enum TaskType {
     UNKNOWN = 0;

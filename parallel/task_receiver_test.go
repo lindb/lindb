@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
-	pb "github.com/lindb/lindb/rpc/proto/common"
+	pb "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 )
 

@@ -26,7 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 )
 
 func TestAccessLogMiddleware(t *testing.T) {

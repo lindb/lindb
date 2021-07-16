@@ -76,13 +76,9 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		Return(field.Meta{ID: 11, Type: field.MinField}, nil).AnyTimes()
 	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("b")).
 		Return(field.Meta{ID: 12, Type: field.MaxField}, nil).AnyTimes()
-	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("c")).
-		Return(field.Meta{ID: 13, Type: field.HistogramField}, nil).AnyTimes()
-	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("e")).
-		Return(field.Meta{ID: 14, Type: field.HistogramField}, nil).AnyTimes()
 
 	metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("no_f")).
-		Return(field.Meta{ID: 99, Type: field.HistogramField}, constants.ErrNotFound).AnyTimes()
+		Return(field.Meta{ID: 99, Type: field.SumField}, constants.ErrNotFound).AnyTimes()
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
@@ -108,7 +104,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, downSampling, storagePlan.fields[field.ID(10)].DownSampling)
 	assert.Equal(t, field.Metas{{Name: "f", ID: 10, Type: field.SumField}}, storagePlan.getFields())
 
-	q, _ = sql.Parse("select a,b,c as d from cpu")
+	q, _ = sql.Parse("select a,b as d from cpu")
 	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
@@ -119,20 +115,16 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	downSampling1.AddFunctionType(function.Min)
 	downSampling2 := aggregation.NewAggregatorSpec("b", field.MaxField)
 	downSampling2.AddFunctionType(function.Max)
-	downSampling3 := aggregation.NewAggregatorSpec("c", field.HistogramField)
-	downSampling3.AddFunctionType(function.Histogram)
 	assert.Equal(t, downSampling1, storagePlan.fields[field.ID(11)].DownSampling)
 	assert.Equal(t, downSampling2, storagePlan.fields[field.ID(12)].DownSampling)
-	assert.Equal(t, downSampling3, storagePlan.fields[field.ID(13)].DownSampling)
 	assert.Equal(t,
 		field.Metas{
 			{Name: "a", ID: 11, Type: field.MinField},
 			{Name: "b", ID: 12, Type: field.MaxField},
-			{Name: "c", ID: 13, Type: field.HistogramField},
 		},
 		storagePlan.getFields())
 
-	q, _ = sql.Parse("select min(a),max(sum(c)+avg(c)+e) as d from cpu")
+	q, _ = sql.Parse("select min(a) as d from cpu")
 	query = q.(*stmt.Query)
 	plan = newStorageExecutePlan("ns", metadata, query)
 	err = plan.Plan()
@@ -141,19 +133,10 @@ func TestStoragePlan_SelectList(t *testing.T) {
 
 	downSampling1 = aggregation.NewAggregatorSpec("a", field.MinField)
 	downSampling1.AddFunctionType(function.Min)
-	downSampling3 = aggregation.NewAggregatorSpec("c", field.HistogramField)
-	downSampling3.AddFunctionType(function.Sum)
-	downSampling3.AddFunctionType(function.Avg)
-	downSampling4 := aggregation.NewAggregatorSpec("e", field.HistogramField)
-	downSampling4.AddFunctionType(function.Histogram)
 	assert.Equal(t, downSampling1, storagePlan.fields[field.ID(11)].DownSampling)
-	assert.Equal(t, downSampling3, storagePlan.fields[field.ID(13)].DownSampling)
-	assert.Equal(t, downSampling4, storagePlan.fields[field.ID(14)].DownSampling)
 	assert.Equal(t,
 		field.Metas{
 			{Name: "a", ID: 11, Type: field.MinField},
-			{Name: "c", ID: 13, Type: field.HistogramField},
-			{Name: "e", ID: 14, Type: field.HistogramField},
 		},
 		storagePlan.getFields())
 }

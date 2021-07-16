@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/rpc/proto/field"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -63,21 +63,21 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	}
 	now := timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
-			Type:  pb.FieldType_Sum,
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 			Value: 10.0,
-		}})
+		}}, nil)
 	}
 	runtime.GC()
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
 	now = timeutil.Now()
 	for i := 0; i < 3200000; i++ {
-		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
+		_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*protoMetricsV1.SimpleField{{
 			Name:  "f1",
-			Type:  pb.FieldType_Sum,
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 			Value: 10.0,
-		}})
+		}}, nil)
 	}
 	runtime.GC()
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
@@ -112,11 +112,11 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		}
 		now := timeutil.Now()
 		for i := 0; i < 400000; i++ {
-			_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*pb.Field{{
+			_ = db.Write("ns", "test", metricID, uint32(i), uint16(now%1024), []*protoMetricsV1.SimpleField{{
 				Name:  "f1",
-				Type:  pb.FieldType_Sum,
+				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: 10.0,
-			}})
+			}}, nil)
 		}
 		fmt.Printf("n:=%d, cost:=%d\n", n, timeutil.Now()-now)
 	}

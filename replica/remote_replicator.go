@@ -23,8 +23,8 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
-	replicaRpc "github.com/lindb/lindb/rpc/proto/replica"
 )
 
 type remoteReplicator struct {
@@ -35,8 +35,8 @@ type remoteReplicator struct {
 	//inFlight *InFlightReplica
 
 	cliFct        rpc.ClientStreamFactory
-	replicaCli    replicaRpc.ReplicaServiceClient
-	replicaStream replicaRpc.ReplicaService_ReplicaClient
+	replicaCli    protoReplicaV1.ReplicaServiceClient
+	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
 
 	rwMutex sync.RWMutex
 
@@ -116,7 +116,7 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("smallestAckIdx", smallestAckIdx),
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		// send reset index request
-		_, err := r.replicaCli.Reset(context.TODO(), &replicaRpc.ResetIndexRequest{
+		_, err := r.replicaCli.Reset(context.TODO(), &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.Database,
 			Shard:       int32(r.channel.ShardID),
 			Leader:      int32(r.channel.From),
@@ -150,7 +150,7 @@ func (r *remoteReplicator) IsReady() bool {
 // Replica sends data to remote replica node.
 func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	cli := r.replicaStream
-	err := cli.Send(&replicaRpc.ReplicaRequest{
+	err := cli.Send(&protoReplicaV1.ReplicaRequest{
 		ReplicaIndex: idx,
 		Record:       msg,
 	})
@@ -168,7 +168,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
-	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &replicaRpc.GetReplicaAckIndexRequest{
+	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &protoReplicaV1.GetReplicaAckIndexRequest{
 		Database: r.channel.Database,
 		Shard:    int32(r.channel.ShardID),
 		Leader:   int32(r.channel.From),

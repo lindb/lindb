@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/wal"
 )
@@ -239,7 +240,7 @@ func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*r
 
 // BuildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags map[string]string, seriesID uint32) {
+func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32) {
 	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
 
 	buildInvertedIndexCounter.WithLabelValues(db.metadata.DatabaseName()).Inc()

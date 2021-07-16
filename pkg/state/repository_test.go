@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/mock"
+	"github.com/lindb/lindb/internal/mock"
 
 	"github.com/stretchr/testify/assert"
 )

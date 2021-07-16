@@ -29,8 +29,8 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
-	pb "github.com/lindb/lindb/rpc/proto/field"
 )
 
 func TestDatabaseChannel_new(t *testing.T) {
@@ -52,16 +52,13 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ch, err := newDatabaseChannel(context.TODO(), "test-db", replicationConfig, 1, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, ch)
-	err = ch.Write(&pb.MetricList{Metrics: []*pb.Metric{
+	err = ch.Write(&protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
 		{
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
-			Fields: []*pb.Field{{
-				Name:  "f1",
-				Type:  pb.FieldType_Sum,
-				Value: 1.0,
-			}},
-			Tags: map[string]string{"host": "1.1.1.1"},
+			SimpleFields: []*protoMetricsV1.SimpleField{
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		},
 	}})
 	assert.Equal(t, errChannelNotFound, err)
@@ -71,16 +68,13 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ch1.shardChannels.Store(int32(0), shardCh)
 
 	shardCh.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
-	err = ch.Write(&pb.MetricList{Metrics: []*pb.Metric{
+	err = ch.Write(&protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
 		{
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
-			Fields: []*pb.Field{{
-				Name:  "f1",
-				Type:  pb.FieldType_Sum,
-				Value: 1.0,
-			}},
-			Tags: map[string]string{"host": "1.1.1.1"},
+			SimpleFields: []*protoMetricsV1.SimpleField{
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		},
 	}})
 	assert.Error(t, err)

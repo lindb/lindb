@@ -27,20 +27,21 @@ import (
 
 func Test_Concat(t *testing.T) {
 	assert.Equal(t, "", Concat(nil))
+	assert.Equal(t, "", ConcatKeyValues(KeyValuesFromMap(nil)))
 	tags := map[string]string{"t2": "v2", "t1": "v1"}
-	tagsStr := Concat(tags)
-	assert.Equal(t, "t1=v1,t2=v2", tagsStr)
+	assert.Equal(t, "t1=v1,t2=v2", ConcatKeyValues(KeyValuesFromMap(tags)))
+	assert.Equal(t, "t1=v1,t2=v2", Concat(tags))
 }
 
 func TestConcatTagValues(t *testing.T) {
-	assert.Equal(t, emptyStr, ConcatTagValues(nil))
-	assert.Equal(t, emptyStr, ConcatTagValues([]string{}))
+	assert.Equal(t, "", ConcatTagValues(nil))
+	assert.Equal(t, "", ConcatTagValues([]string{}))
 	assert.Equal(t, "a", ConcatTagValues([]string{"a"}))
 	assert.Equal(t, "a,b", ConcatTagValues([]string{"a", "b"}))
 }
 
 func TestSplitTagValues(t *testing.T) {
-	assert.Equal(t, emptyArray, SplitTagValues(""))
+	assert.Len(t, SplitTagValues(""), 0)
 	assert.Equal(t, []string{"a"}, SplitTagValues("a"))
 	assert.Equal(t, []string{"a", "b"}, SplitTagValues("a,b"))
 	assert.Equal(t, []string{"a", "b", ""}, SplitTagValues("a,b,"))

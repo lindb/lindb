@@ -208,7 +208,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		} else {
 			// using use input, and check func is supported
 			if !fieldType.IsFuncSupported(parentFunc.FuncType) {
-				p.err = fmt.Errorf("field type[%s] not supprot function[%s]", fieldType, parentFunc.FuncType)
+				p.err = fmt.Errorf("field type[%s] not support function[%s]", fieldType, parentFunc.FuncType)
 				return
 			}
 			funcType = parentFunc.FuncType

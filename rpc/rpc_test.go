@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/rpc/proto/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
 var (
@@ -115,7 +115,7 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	go ctrl.Finish()
 
-	handler := common.NewMockTaskServiceServer(ctrl)
+	handler := protoCommonV1.NewMockTaskServiceServer(ctrl)
 
 	factory := NewClientStreamFactory(models.Node{IP: "127.0.0.2", Port: 9000})
 	target := models.Node{IP: "127.0.0.1", Port: 9000}
@@ -125,7 +125,7 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	assert.Nil(t, client)
 
 	grpcServer := NewGRPCServer(":9000")
-	common.RegisterTaskServiceServer(grpcServer.GetServer(), handler)
+	protoCommonV1.RegisterTaskServiceServer(grpcServer.GetServer(), handler)
 	go func() {
 		_ = grpcServer.Start()
 	}()

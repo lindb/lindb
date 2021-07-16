@@ -30,10 +30,10 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/rpc/proto/field"
-	"github.com/lindb/lindb/rpc/proto/storage"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -52,7 +52,7 @@ func NewWriter(storageService service.StorageService) *Writer {
 	}
 }
 
-func (w *Writer) Reset(ctx context.Context, req *storage.ResetSeqRequest) (*storage.ResetSeqResponse, error) {
+func (w *Writer) Reset(ctx context.Context, req *protoStorageV1.ResetSeqRequest) (*protoStorageV1.ResetSeqResponse, error) {
 	logicNode, err := getLogicNodeFromCtx(ctx)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -67,10 +67,10 @@ func (w *Writer) Reset(ctx context.Context, req *storage.ResetSeqRequest) (*stor
 		sequence.SetHeadSeq(req.Seq)
 	}
 
-	return &storage.ResetSeqResponse{}, nil
+	return &protoStorageV1.ResetSeqResponse{}, nil
 }
 
-func (w *Writer) Next(ctx context.Context, req *storage.NextSeqRequest) (*storage.NextSeqResponse, error) {
+func (w *Writer) Next(ctx context.Context, req *protoStorageV1.NextSeqRequest) (*protoStorageV1.NextSeqResponse, error) {
 	logicNode, err := getLogicNodeFromCtx(ctx)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -81,11 +81,11 @@ func (w *Writer) Next(ctx context.Context, req *storage.NextSeqRequest) (*storag
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &storage.NextSeqResponse{Seq: sequence.GetHeadSeq()}, nil
+	return &protoStorageV1.NextSeqResponse{Seq: sequence.GetHeadSeq()}, nil
 }
 
 // Write handles the stream write request.
-func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
+func (w *Writer) Write(stream protoStorageV1.WriteService_WriteServer) error {
 	database, shardID, logicNode, err := parseCtx(stream.Context())
 	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -130,11 +130,11 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 			sequence.SetHeadSeq(hs + 1)
 		}
 
-		resp := &storage.WriteResponse{
+		resp := &protoStorageV1.WriteResponse{
 			CurSeq: sequence.GetHeadSeq(),
 		}
 
-		resp.Ack = &storage.WriteResponse_AckSeq{AckSeq: sequence.GetAckSeq()}
+		resp.Ack = &protoStorageV1.WriteResponse_AckSeq{AckSeq: sequence.GetAckSeq()}
 
 		if err := stream.Send(resp); err != nil {
 			return status.Error(codes.Internal, err.Error())
@@ -142,14 +142,14 @@ func (w *Writer) Write(stream storage.WriteService_WriteServer) error {
 	}
 }
 
-func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
+func (w *Writer) handleReplica(shard tsdb.Shard, replica *protoStorageV1.Replica) {
 	reader := snappy.NewReader(bytes.NewReader(replica.Data))
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		w.logger.Error("decompress replica data error", logger.Error(err))
 		return
 	}
-	var metricList field.MetricList
+	var metricList protoMetricsV1.MetricList
 	err = metricList.Unmarshal(data)
 	if err != nil {
 		w.logger.Error("unmarshal metricList", logger.Error(err))
@@ -157,6 +157,7 @@ func (w *Writer) handleReplica(shard tsdb.Shard, replica *storage.Replica) {
 	}
 
 	//TODO write metric, need handle panic
+	// todo, sanitize field-name
 	for _, metric := range metricList.Metrics {
 		err = shard.Write(metric)
 	}
