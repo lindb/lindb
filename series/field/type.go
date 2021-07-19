@@ -30,6 +30,10 @@ type ID uint16
 // Name represents field name.
 type Name string
 
+func (n Name) String() string {
+	return string(n)
+}
+
 // Defines all aggregator types for field
 const (
 	Sum AggType = iota + 1
@@ -96,7 +100,7 @@ func (t Type) DownSamplingFunc() function.FuncType {
 	case GaugeField:
 		return function.LastValue
 	case HistogramField:
-		return function.Histogram
+		return function.Sum
 	default:
 		return function.Unknown
 	}
@@ -132,6 +136,13 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		default:
 			return false
 		}
+	case HistogramField:
+		switch funcType {
+		case function.Sum:
+			return true
+		default:
+			return false
+		}
 	default:
 		return false
 	}
@@ -146,6 +157,9 @@ func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
 		return getFieldParamsForMinField(funcType)
 	case GaugeField:
 		return getFieldParamsForGaugeField(funcType)
+	case HistogramField:
+		// Histogram field only supports sum
+		return []AggType{Sum}
 	}
 	return nil
 }
@@ -159,6 +173,8 @@ func (t Type) GetDefaultFuncFieldParams() []AggType {
 		return []AggType{Min}
 	case GaugeField:
 		return []AggType{LastValue}
+	case HistogramField:
+		return []AggType{Sum}
 	}
 	return nil
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/broker/deps"
-	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/http"
 )
 
@@ -64,21 +63,20 @@ func (m *MetricAPI) Search(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
 	defer cancel()
 
-	exec := m.deps.ExecutorFct.NewBrokerExecutor(ctx, param.Database, param.SQL,
+	executor := m.deps.ExecutorFct.NewBrokerExecutor(ctx, param.Database, param.SQL,
 		m.deps.StateMachines.ReplicaStatusSM, m.deps.StateMachines.NodeSM, m.deps.StateMachines.DatabaseSM,
 		m.deps.JobManager)
-	exec.Execute()
+	executor.Execute()
 
-	brokerExecutor := exec.(parallel.BrokerExecutor)
-	exeCtx := brokerExecutor.ExecuteContext()
+	executorCtx := executor.ExecuteContext()
 
 	//FIXME timeout logic use select
-	resultCh := exeCtx.ResultCh()
+	resultCh := executorCtx.ResultCh()
 	for result := range resultCh {
-		exeCtx.Emit(result)
+		executorCtx.Emit(result)
 	}
 
-	resultSet, err := exeCtx.ResultSet()
+	resultSet, err := executorCtx.ResultSet()
 	if err != nil {
 		http.Error(c, err)
 		return

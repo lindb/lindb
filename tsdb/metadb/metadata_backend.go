@@ -94,6 +94,9 @@ type MetadataBackend interface {
 	// getAllFields returns the  all fields by metric id,
 	// if not exist return constants.ErrMetricBucketNotFound
 	getAllFields(metricID uint32) (fields []field.Meta, err error)
+	// getAllHistogramFields returns all histogram-bucket fields by metric id,
+	// if not exist return constants.ErrHistogramFieldNotFound
+	getAllHistogramFields(metricID uint32) (fields []field.Meta, err error)
 
 	// saveMetadata saves the pending metadata include namespace/metric metadata
 	saveMetadata(event *metadataUpdateEvent) error
@@ -345,6 +348,21 @@ func (mb *metadataBackend) getAllFields(metricID uint32) (fields []field.Meta, e
 		return nil
 	})
 	return
+}
+
+func (mb *metadataBackend) getAllHistogramFields(metricID uint32) (fields []field.Meta, err error) {
+	fields, err = mb.getAllFields(metricID)
+	if err != nil {
+		return nil, fmt.Errorf("%w durging getAllHistogramFields metricID: %d",
+			constants.ErrHistogramFieldNotFound, metricID)
+	}
+	var histogramFields field.Metas
+	for idx := range fields {
+		if fields[idx].Type == field.HistogramField {
+			histogramFields = append(histogramFields, fields[idx])
+		}
+	}
+	return histogramFields, nil
 }
 
 // saveMetadata saves the pending metadata include namespace/metric metadata

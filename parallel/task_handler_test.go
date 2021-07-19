@@ -30,14 +30,14 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
 
 type mockTaskDispatcher struct {
 }
 
-func (d *mockTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
+func (d *mockTaskDispatcher) Dispatch(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 	panic("err")
 }
 
@@ -57,7 +57,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true)
 	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher)
 
-	server := pb.NewMockTaskService_HandleServer(ctrl)
+	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())
 	server.EXPECT().Context().Return(ctx)
 	err := handler.Handle(server)

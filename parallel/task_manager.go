@@ -24,7 +24,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -42,9 +42,9 @@ type TaskManager interface {
 	Get(taskID string) TaskContext
 
 	// SendRequest sends the task request to target node based on node's indicator
-	SendRequest(targetNodeID string, req *pb.TaskRequest) error
+	SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error
 	// SendResponse sends the task response to parent node
-	SendResponse(targetNodeID string, resp *pb.TaskResponse) error
+	SendResponse(targetNodeID string, resp *protoCommonV1.TaskResponse) error
 }
 
 // taskManager implements the task manager interface, tracks all task of the current node
@@ -100,7 +100,7 @@ func (t *taskManager) Get(taskID string) TaskContext {
 
 // SendRequest sends the task request to target node based on node's indicator,
 // if fail, returns err
-func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) error {
+func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error {
 	// todo: query from other broker
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
@@ -114,7 +114,7 @@ func (t *taskManager) SendRequest(targetNodeID string, req *pb.TaskRequest) erro
 
 // SendResponse sends the task response to parent node,
 // if fail, returns err
-func (t *taskManager) SendResponse(parentNodeID string, resp *pb.TaskResponse) error {
+func (t *taskManager) SendResponse(parentNodeID string, resp *protoCommonV1.TaskResponse) error {
 	stream := t.taskServerFactory.GetStream(parentNodeID)
 	if stream == nil {
 		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", errNoSendStream, parentNodeID)

@@ -55,7 +55,7 @@ type Iterator interface {
 	HasNext() bool
 	// Next returns the field's iterator.
 	Next() (startTime int64, fieldIt FieldIterator)
-	// MarshalBinary marshals the data.
+	// BinaryMarshaler marshals the data.
 	enc.BinaryMarshaler
 }
 
@@ -65,7 +65,7 @@ type FieldIterator interface {
 	HasNext() bool
 	// Next returns the data point in the iteration.
 	Next() PrimitiveIterator
-	// MarshalBinary marshals the data.
+	// BinaryMarshaler marshals the data.
 	enc.BinaryMarshaler
 }
 

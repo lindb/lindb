@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
@@ -52,11 +52,11 @@ type storageQueryFlow struct {
 	taskIDSeq         atomic.Int32    // task id gen sequence
 	executorPool      *tsdb.ExecutorPool
 	reduceAgg         aggregation.GroupingAggregator
-	stream            pb.TaskService_HandleServer
-	req               *pb.TaskRequest
+	stream            protoCommonV1.TaskService_HandleServer
+	req               *protoCommonV1.TaskRequest
 	ctx               context.Context
 
-	aggregatorSpecs []*pb.AggregatorSpec
+	aggregatorSpecs []*protoCommonV1.AggregatorSpec
 
 	tagsMap      map[string]string   // tag value ids => tag values
 	tagValuesMap []map[uint32]string // tag value id=> tag value for each group by tag key
@@ -70,8 +70,8 @@ type storageQueryFlow struct {
 func NewStorageQueryFlow(ctx context.Context,
 	storageExecuteCtx StorageExecuteContext,
 	query *stmt.Query,
-	req *pb.TaskRequest,
-	stream pb.TaskService_HandleServer,
+	req *protoCommonV1.TaskRequest,
+	stream protoCommonV1.TaskService_HandleServer,
 	executorPool *tsdb.ExecutorPool,
 ) flow.StorageQueryFlow {
 	return &storageQueryFlow{
@@ -92,9 +92,9 @@ func (qf *storageQueryFlow) Prepare(
 	aggregatorSpecs aggregation.AggregatorSpecs,
 ) {
 	qf.reduceAgg = aggregation.NewGroupingAggregator(interval, intervalRatio, timeRange, aggregatorSpecs)
-	qf.aggregatorSpecs = make([]*pb.AggregatorSpec, len(aggregatorSpecs))
+	qf.aggregatorSpecs = make([]*protoCommonV1.AggregatorSpec, len(aggregatorSpecs))
 	for idx, spec := range aggregatorSpecs {
-		qf.aggregatorSpecs[idx] = &pb.AggregatorSpec{
+		qf.aggregatorSpecs[idx] = &protoCommonV1.AggregatorSpec{
 			FieldName: string(spec.FieldName()),
 			FieldType: uint32(spec.GetFieldType()),
 		}
@@ -117,7 +117,7 @@ func (qf *storageQueryFlow) Prepare(
 func (qf *storageQueryFlow) Complete(err error) {
 	if err != nil && qf.completed.CAS(false, true) {
 		// if complete with err, need send err msg directly and mark task completed
-		if err := qf.stream.Send(&pb.TaskResponse{
+		if err := qf.stream.Send(&protoCommonV1.TaskResponse{
 			JobID:     qf.req.JobID,
 			TaskID:    qf.req.ParentTaskID,
 			Completed: true,
@@ -202,7 +202,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 			// 1. get reduce aggregator result set
 			groupedSeriesList := qf.reduceAgg.ResultSet()
 			// 2. build rpc response data
-			var timeSeriesList []*pb.TimeSeries
+			var timeSeriesList []*protoCommonV1.TimeSeries
 			for _, ts := range groupedSeriesList {
 				fields := make(map[string][]byte)
 				for ts.HasNext() {
@@ -222,14 +222,14 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 					if hasGroupBy {
 						tags = qf.getTagValues(ts.Tags())
 					}
-					timeSeriesList = append(timeSeriesList, &pb.TimeSeries{
+					timeSeriesList = append(timeSeriesList, &protoCommonV1.TimeSeries{
 						Tags:   tags,
 						Fields: fields,
 					})
 				}
 			}
 
-			seriesList := pb.TimeSeriesList{
+			seriesList := protoCommonV1.TimeSeriesList{
 				TimeSeriesList: timeSeriesList,
 				FieldAggSpecs:  qf.aggregatorSpecs,
 			}
@@ -242,7 +242,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 			stats = encoding.JSONMarshal(qf.storageExecuteCtx.QueryStats())
 		}
 		// send result to upstream
-		if err := qf.stream.Send(&pb.TaskResponse{
+		if err := qf.stream.Send(&protoCommonV1.TaskResponse{
 			JobID:     qf.req.JobID,
 			TaskID:    qf.req.ParentTaskID,
 			Completed: true,

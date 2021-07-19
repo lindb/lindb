@@ -34,6 +34,7 @@ var (
 	ErrNameSpaceBucketNotFound = fmt.Errorf("namespace bucket %w", ErrNotFound)
 	ErrMetricIDNotFound        = fmt.Errorf("metricID %w", ErrNotFound)
 	ErrMetricBucketNotFound    = fmt.Errorf("metric bucket %w", ErrNotFound)
+	ErrHistogramFieldNotFound  = fmt.Errorf("histogram field %w", ErrNotFound)
 	ErrTagKeyIDNotFound        = fmt.Errorf("tagKeyID %w", ErrNotFound)
 	ErrTagKeyMetaNotFound      = fmt.Errorf("tagKeyMeta %w", ErrNotFound)
 	ErrTagValueSeqNotFound     = fmt.Errorf("tagValueSeq %w", ErrNotFound)

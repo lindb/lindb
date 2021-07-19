@@ -26,7 +26,7 @@ import (
 
 // Query represents search statement
 type Query struct {
-	Explain     bool     //  need explain query execute stat
+	Explain     bool     // need explain query execute stat
 	Namespace   string   // namespace
 	MetricName  string   // like table name
 	SelectItems []Expr   // select list, such as field, function call, math expression etc.

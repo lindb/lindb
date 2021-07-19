@@ -18,6 +18,8 @@
 package aggregation
 
 import (
+	"strconv"
+
 	"github.com/lindb/lindb/aggregation/fields"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
@@ -116,7 +118,12 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 	case *stmt.SelectItem:
 		return e.eval(nil, ex.Expr)
 	case *stmt.CallExpr:
-		return e.funcCall(ex)
+		switch ex.FuncType {
+		case function.Quantile:
+			return e.quantile(ex)
+		default:
+			return e.funcCall(ex)
+		}
 	case *stmt.ParenExpr:
 		return e.eval(nil, ex.Expr)
 	case *stmt.BinaryExpr:
@@ -144,6 +151,36 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 	default:
 		return nil
 	}
+}
+
+func (e *expression) quantile(expr *stmt.CallExpr) []collections.FloatArray {
+	var (
+		histogramFields = make(map[float64][]collections.FloatArray)
+	)
+	if len(expr.Params) != 1 {
+		return nil
+	}
+	quantileValue, err := strconv.ParseFloat(expr.Params[0].Rewrite(), 64)
+	if err != nil {
+		return nil
+	}
+	for fieldName, df := range e.fieldStore {
+		if df.Type() == field.HistogramField {
+			upperBound, err := field.HistogramConverter.UpperBound(fieldName.String())
+			if err != nil {
+				continue
+			}
+			histogramFields[upperBound] = df.GetDefaultValues()
+		}
+	}
+	if len(histogramFields) == 0 {
+		return nil
+	}
+	array, err := function.QuantileCall(quantileValue, histogramFields)
+	if err != nil {
+		return nil
+	}
+	return []collections.FloatArray{array}
 }
 
 // funcCall calls the function

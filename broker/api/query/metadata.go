@@ -135,12 +135,31 @@ func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Met
 				result[f.Name] = f
 			}
 		}
-		var resultFields []models.Field
+		// HistogramSum(sum), HistogramCount(sum), HistogramMin(min), HistogramMax(max) is visible
+		// Histogram_${id}(HistogramField) is not visible for api,
+		// underlying histogram data is only restricted access by user via quantile function
+		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
+		var (
+			resultFields []models.Field
+			hasHistogram bool
+		)
 		for _, f := range result {
-			resultFields = append(resultFields, models.Field{
-				Name: string(f.Name),
-				Type: f.Type.String(),
-			})
+			if f.Type != field.HistogramField {
+				resultFields = append(resultFields, models.Field{
+					Name: string(f.Name),
+					Type: f.Type.String(),
+				})
+			} else {
+				hasHistogram = true
+			}
+		}
+		//
+		if hasHistogram {
+			resultFields = append(resultFields,
+				models.Field{Name: "quantile(0.99)", Type: field.HistogramField.String()},
+				models.Field{Name: "quantile(0.95)", Type: field.HistogramField.String()},
+				models.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
+			)
 		}
 		http.OK(c, &models.Metadata{
 			Type:   request.Type.String(),

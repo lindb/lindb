@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
@@ -58,7 +58,7 @@ func newLeafTask(
 }
 
 // Process processes the task request, searches the metric's data from time series engine
-func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
+func (p *leafTask) Process(ctx context.Context, req *protoCommonV1.TaskRequest) error {
 	physicalPlan := models.PhysicalPlan{}
 	if err := json.Unmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
 		return errUnmarshalPlan
@@ -86,11 +86,11 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 	}
 
 	switch req.RequestType {
-	case pb.RequestType_Data:
+	case protoCommonV1.RequestType_Data:
 		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
-	case pb.RequestType_Metadata:
+	case protoCommonV1.RequestType_Metadata:
 		if err := p.processMetadataSuggest(db, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (p *leafTask) Process(ctx context.Context, req *pb.TaskRequest) error {
 }
 
 func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
-	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
+	req *protoCommonV1.TaskRequest, stream protoCommonV1.TaskService_HandleServer,
 ) error {
 	payload := req.Payload
 	query := &stmt.Metadata{}
@@ -112,7 +112,7 @@ func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
 		return err
 	}
 	// send result to upstream
-	if err := stream.Send(&pb.TaskResponse{
+	if err := stream.Send(&protoCommonV1.TaskResponse{
 		JobID:     req.JobID,
 		TaskID:    req.ParentTaskID,
 		Completed: true,
@@ -124,7 +124,7 @@ func (p *leafTask) processMetadataSuggest(db tsdb.Database, shardIDs []int32,
 }
 
 func (p *leafTask) processDataSearch(ctx context.Context, db tsdb.Database, shardIDs []int32,
-	req *pb.TaskRequest, stream pb.TaskService_HandleServer,
+	req *protoCommonV1.TaskRequest, stream protoCommonV1.TaskService_HandleServer,
 ) error {
 	payload := req.Payload
 	query := stmt.Query{}
