@@ -20,6 +20,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sync"
 
 	"github.com/lindb/lindb/pkg/bit"
@@ -160,7 +161,7 @@ type TSDDecoder struct {
 // NewTSDDecoder create tsd decoder instance
 func NewTSDDecoder(data []byte) *TSDDecoder {
 	decoder := &TSDDecoder{}
-	if data != nil {
+	if len(data) > 4 {
 		decoder.Reset(data)
 	}
 	return decoder
@@ -178,6 +179,11 @@ func (d *TSDDecoder) ResetWithTimeRange(data []byte, start, end uint16) {
 
 // Reset resets tsd data and reads the meta info from the data
 func (d *TSDDecoder) Reset(data []byte) {
+	if len(data) <= 4 {
+		d.err = fmt.Errorf("TSDDecoder resets with bad data")
+		return
+	}
+
 	d.reset(data)
 
 	d.startTime = binary.LittleEndian.Uint16(data[0:2])

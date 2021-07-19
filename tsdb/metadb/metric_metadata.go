@@ -40,6 +40,8 @@ type MetricMetadata interface {
 	getField(fieldName field.Name) (field.Meta, bool)
 	// getAllFields returns the all fields of the metric
 	getAllFields() (fields []field.Meta)
+	// getAllHistogramFields returns histogram bucket fields
+	getAllHistogramFields() (fields field.Metas)
 	// getTagKeyID gets the tag key id by tag key, if not exist return false
 	getTagKeyID(tagKey string) (uint32, bool)
 	// getAllTags returns the tag keys of the metric
@@ -100,6 +102,17 @@ func (mm *metricMetadata) getField(fieldName field.Name) (field.Meta, bool) {
 // getAllFields returns the all fields of the metric
 func (mm *metricMetadata) getAllFields() (fields []field.Meta) {
 	return mm.fields
+}
+
+// getAllHistogramFields returns histogram buckets fields,
+// with format like __bucket_${boundary}
+func (mm *metricMetadata) getAllHistogramFields() (fields field.Metas) {
+	for idx := range mm.fields {
+		if mm.fields[idx].Type == field.HistogramField {
+			fields = append(fields, mm.fields[idx])
+		}
+	}
+	return
 }
 
 // getTagKeyID gets the tag key id by tag key, if not exist return false

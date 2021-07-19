@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -62,7 +62,7 @@ func TestResultMerger_Merge(t *testing.T) {
 		c.Inc()
 		wait.Done()
 	}()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID", Stats: encoding.JSONMarshal(models.NewStorageStats())})
+	merger.merge(&protoCommonV1.TaskResponse{TaskID: "taskID", Stats: encoding.JSONMarshal(models.NewStorageStats())})
 	merger.close()
 	fmt.Println("1")
 	wait.Wait()
@@ -106,7 +106,7 @@ func TestResultMerger_Err(t *testing.T) {
 			}
 		}
 	}()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: []byte{1, 2, 3}})
+	merger.merge(&protoCommonV1.TaskResponse{TaskID: "taskID", Payload: []byte{1, 2, 3}})
 	merger.close()
 	wait.Wait()
 	assert.Equal(t, int32(1), c.Load())
@@ -145,23 +145,23 @@ func TestResultMerger_GroupBy(t *testing.T) {
 	fields := make(map[string][]byte)
 	fields["f1"] = []byte{}
 	tagValues := "1.1.1.1"
-	timeSeries := &pb.TimeSeries{
+	timeSeries := &protoCommonV1.TimeSeries{
 		Tags:   tagValues,
 		Fields: fields,
 	}
-	seriesList := pb.TimeSeriesList{
-		TimeSeriesList: []*pb.TimeSeries{timeSeries},
+	seriesList := protoCommonV1.TimeSeriesList{
+		TimeSeriesList: []*protoCommonV1.TimeSeries{timeSeries},
 	}
 	data, _ := seriesList.Marshal()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
-	timeSeries = &pb.TimeSeries{
+	merger.merge(&protoCommonV1.TaskResponse{TaskID: "taskID", Payload: data})
+	timeSeries = &protoCommonV1.TimeSeries{
 		Tags: tagValues,
 	}
-	seriesList = pb.TimeSeriesList{
-		TimeSeriesList: []*pb.TimeSeries{timeSeries},
+	seriesList = protoCommonV1.TimeSeriesList{
+		TimeSeriesList: []*protoCommonV1.TimeSeries{timeSeries},
 	}
 	data, _ = seriesList.Marshal()
-	merger.merge(&pb.TaskResponse{TaskID: "taskID", Payload: data})
+	merger.merge(&protoCommonV1.TaskResponse{TaskID: "taskID", Payload: data})
 	merger.close()
 	wait.Wait()
 	assert.Equal(t, int32(1), c.Load())
@@ -174,13 +174,13 @@ func TestSuggestMerge_merge(t *testing.T) {
 	wait.Add(2)
 
 	go func() {
-		merger.merge(&pb.TaskResponse{
+		merger.merge(&protoCommonV1.TaskResponse{
 			Payload: []byte{1, 2, 3},
 		})
-		merger.merge(&pb.TaskResponse{
+		merger.merge(&protoCommonV1.TaskResponse{
 			Payload: encoding.JSONMarshal(&models.SuggestResult{Values: []string{"a"}}),
 		})
-		merger.merge(&pb.TaskResponse{
+		merger.merge(&protoCommonV1.TaskResponse{
 			Payload: encoding.JSONMarshal(&models.SuggestResult{Values: []string{"a"}}),
 		})
 		// close result chan

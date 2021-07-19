@@ -19,7 +19,6 @@ package memdb
 
 import (
 	"io"
-	"strconv"
 	"sync"
 	"time"
 
@@ -281,7 +280,7 @@ func (md *memoryDatabase) writeCompoundField(
 	// write histogram_min
 	if compoundField.Min > 0 {
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			"HistogramMin", field.MinField, compoundField.Min,
+			field.HistogramConverter.MinFieldName, field.MinField, compoundField.Min,
 			mStore, tStore, isCumulative,
 		)
 		if err != nil {
@@ -292,7 +291,7 @@ func (md *memoryDatabase) writeCompoundField(
 	// write histogram_max
 	if compoundField.Max > 0 {
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			"HistogramMax", field.MaxField, compoundField.Max,
+			field.HistogramConverter.MaxFieldName, field.MaxField, compoundField.Max,
 			mStore, tStore, isCumulative,
 		)
 		if err != nil {
@@ -303,7 +302,7 @@ func (md *memoryDatabase) writeCompoundField(
 	// write histogram_count
 	if compoundField.Max > 0 {
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			"HistogramCount", field.SumField, compoundField.Count,
+			field.HistogramConverter.SumFieldName, field.SumField, compoundField.Count,
 			mStore, tStore, isCumulative,
 		)
 		if err != nil {
@@ -313,7 +312,7 @@ func (md *memoryDatabase) writeCompoundField(
 	}
 	// write histogram_sum
 	writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-		"HistogramSum", field.SumField, compoundField.Sum,
+		field.HistogramConverter.SumFieldName, field.SumField, compoundField.Sum,
 		mStore, tStore, isCumulative,
 	)
 	if err != nil {
@@ -321,9 +320,12 @@ func (md *memoryDatabase) writeCompoundField(
 	}
 	writtenSize += writtenLinFieldSize
 	// write histogram_data
-	for idx := range compoundField.Values {
+	// assume that length of ExplicitBounds equals to Values
+	// data must be valid before write
+	for idx := range compoundField.ExplicitBounds {
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			"Histogram"+strconv.Itoa(idx), field.HistogramField, compoundField.Values[idx],
+			field.HistogramConverter.BucketName(compoundField.ExplicitBounds[idx]),
+			field.HistogramField, compoundField.Values[idx],
 			mStore, tStore, isCumulative,
 		)
 		if err != nil {

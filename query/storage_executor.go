@@ -19,6 +19,7 @@ package query
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/lindb/roaring"
@@ -264,15 +265,15 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 		}
 		groupingCtx = groupingResult.groupingCtx
 	}
-	keys := seriesIDs.GetHighKeys()
-	e.pendingForGrouping.Add(int32(len(keys)))
+	seriesIDsHighKeys := seriesIDs.GetHighKeys()
+	e.pendingForGrouping.Add(int32(len(seriesIDsHighKeys)))
 	var groupWait atomic.Int32
-	groupWait.Add(int32(len(keys)))
+	groupWait.Add(int32(len(seriesIDsHighKeys)))
 
-	for j, key := range keys {
+	for seriesIDHighKeyIdx, seriesIDHighKey := range seriesIDsHighKeys {
+		seriesIDHighKey := seriesIDHighKey
 		// be carefully, need use new variable for variable scope problem
-		highKey := key
-		containerOfSeries := seriesIDs.GetContainerAtIndex(j)
+		containerOfSeries := seriesIDs.GetContainerAtIndex(seriesIDHighKeyIdx)
 
 		// grouping based on group by tag keys for each container
 		e.queryFlow.Grouping(func() {
@@ -287,7 +288,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				e.collectGroupByTagValues()
 			}()
 			groupedResult := &groupedSeriesResult{}
-			t := newBuildGroupTaskFunc(e.ctx, shard, groupingCtx, highKey, containerOfSeries, groupedResult)
+			t := newBuildGroupTaskFunc(e.ctx, shard, groupingCtx, seriesIDHighKey, containerOfSeries, groupedResult)
 			if err := t.Run(); err != nil {
 				e.queryFlow.Complete(err)
 				return
@@ -297,7 +298,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				for _, span := range timeSpans {
 					// 3.load data by grouped seriesIDs
 					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, span,
-						highKey, containerOfSeries)
+						seriesIDHighKey, containerOfSeries)
 					if err := t.Run(); err != nil {
 						e.queryFlow.Complete(err)
 						return
@@ -316,21 +317,28 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 						e.ctx.query.TimeRange,
 						aggSpecs[idx])
 				}
+
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Println(r)
+					}
+				}()
 				for tags, seriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
 					for _, seriesID := range seriesIDs {
 						for _, span := range timeSpans {
-							// Load loads the metric data by given series id from load result.
-							for i, loader := range span.loaders {
+							// loads the metric data by given series id from load result.
+							for resultSetIdx, loader := range span.loaders {
 								// load field series data by series ids
-								dd := fieldSeriesList[i]
-								slotRange2, d := loader.Load(seriesID)
-								for j, data := range d {
-									if data != nil {
-										if dd[j] == nil {
-											dd[j] = encoding.GetTSDDecoder()
+								slotRange2, allFieldsBytes := loader.Load(seriesID)
+								for fieldIndex := range allFieldsBytes {
+									fieldBytes := allFieldsBytes[fieldIndex]
+									fieldsTSDDecoders := fieldSeriesList[fieldIndex]
+									if fieldBytes != nil {
+										if fieldsTSDDecoders[resultSetIdx] == nil {
+											fieldsTSDDecoders[resultSetIdx] = encoding.GetTSDDecoder()
 										}
-										dd[j].ResetWithTimeRange(data, slotRange2.Start, slotRange2.End)
+										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(fieldBytes, slotRange2.Start, slotRange2.End)
 									}
 								}
 							}

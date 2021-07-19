@@ -127,4 +127,20 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 	exec.EXPECT().Execute().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
 	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show fields from cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
+
+	// histogram
+	exec.EXPECT().Execute().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{
+		{Name: "test", Type: field.SumField},
+		{Name: "histogram_0", Type: field.HistogramField},
+		{Name: "histogram_2", Type: field.HistogramField},
+		{Name: "histogram_3", Type: field.HistogramField},
+		{Name: "histogram_4", Type: field.HistogramField},
+		{Name: "histogram_99", Type: field.HistogramField},
+		{Name: "histogram_sum", Type: field.SumField},
+		{Name: "histogram_count", Type: field.SumField},
+		{Name: "histogram_min", Type: field.MinField},
+		{Name: "histogram_max", Type: field.MaxField},
+	}))}, nil)
+	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show fields from cpu", "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

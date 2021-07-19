@@ -22,7 +22,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -47,7 +47,7 @@ func newIntermediateTask(curNode models.Node, taskManger TaskManager) *intermedi
 
 // Process processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
-func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) error {
+func (p *intermediateTask) Process(ctx context.Context, req *protoCommonV1.TaskRequest) error {
 	physicalPlan := models.PhysicalPlan{}
 	if err := encoding.JSONUnmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
 		return errUnmarshalPlan
@@ -80,7 +80,7 @@ func (p *intermediateTask) Process(ctx context.Context, req *pb.TaskRequest) err
 }
 
 // sendLeafTasks sends the task request to the related leaf nodes, if failure return error
-func (p *intermediateTask) sendLeafTasks(physicalPlan models.PhysicalPlan, req *pb.TaskRequest) error {
+func (p *intermediateTask) sendLeafTasks(physicalPlan models.PhysicalPlan, req *protoCommonV1.TaskRequest) error {
 	for _, leaf := range physicalPlan.Leafs {
 		if leaf.Parent == p.curNodeID {
 			if err := p.taskManager.SendRequest(leaf.Indicator, req); err != nil {
@@ -93,7 +93,7 @@ func (p *intermediateTask) sendLeafTasks(physicalPlan models.PhysicalPlan, req *
 }
 
 // Receive receives the sub task's result, and merges the results
-func (p *intermediateTask) Receive(resp *pb.TaskResponse) error {
+func (p *intermediateTask) Receive(resp *protoCommonV1.TaskResponse) error {
 	taskID := resp.TaskID
 	taskCtx := p.taskManager.Get(taskID)
 	if taskCtx == nil {
@@ -105,7 +105,7 @@ func (p *intermediateTask) Receive(resp *pb.TaskResponse) error {
 	if taskCtx.Completed() {
 		p.taskManager.Complete(taskID)
 		// if task complete, need send task's result to parent node, if exist parent node
-		if err := p.taskManager.SendResponse(taskCtx.ParentNode(), &pb.TaskResponse{TaskID: taskCtx.ParentTaskID()}); err != nil {
+		if err := p.taskManager.SendResponse(taskCtx.ParentNode(), &protoCommonV1.TaskResponse{TaskID: taskCtx.ParentTaskID()}); err != nil {
 			return err
 		}
 	}

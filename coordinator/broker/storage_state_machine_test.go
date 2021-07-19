@@ -28,7 +28,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -39,7 +39,7 @@ func TestStorageStateMachine(t *testing.T) {
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 
 	streamFactory := rpc.NewMockClientStreamFactory(ctrl)
-	clientStream := pb.NewMockTaskService_HandleClient(ctrl)
+	clientStream := protoCommonV1.NewMockTaskService_HandleClient(ctrl)
 	clientStream.EXPECT().CloseSend().Return(nil).AnyTimes()
 	streamFactory.EXPECT().CreateTaskClient(gomock.Any()).Return(clientStream, nil).AnyTimes()
 

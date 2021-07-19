@@ -270,8 +270,8 @@ func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
 		callExpr.FuncType = function.Avg
 	case ctx.T_STDDEV() != nil:
 		callExpr.FuncType = function.Stddev
-	case ctx.T_HISTOGRAM() != nil:
-		callExpr.FuncType = function.Histogram
+	case ctx.T_QUANTILE() != nil:
+		callExpr.FuncType = function.Quantile
 	}
 }
 

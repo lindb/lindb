@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
@@ -227,14 +227,14 @@ func (c *jobContext) Context() context.Context {
 type TaskContext interface {
 	// TaskID returns the task id under current node
 	TaskID() string
-	// Type returns the task type
+	// TaskType returns the task type
 	TaskType() TaskType
 	// ParentNode returns the parent node's indicator for sending task result
 	ParentNode() string
 	// ParentTaskID returns the parent node's task id for tracking task
 	ParentTaskID() string
 	// ReceiveResult marks receive result, decreases the num. of task tracking
-	ReceiveResult(resp *pb.TaskResponse)
+	ReceiveResult(resp *protoCommonV1.TaskResponse)
 	// Completed returns if the task is completes
 	Completed() bool
 	// Error returns task's error
@@ -288,7 +288,7 @@ func (c *taskContext) TaskID() string {
 
 // ReceiveResult marks receive result, decreases the num. of task tracking,
 // if no pending task marks this task completed
-func (c *taskContext) ReceiveResult(resp *pb.TaskResponse) {
+func (c *taskContext) ReceiveResult(resp *protoCommonV1.TaskResponse) {
 	defer func() {
 		// check if task completed,
 		// if yes, closes the merger

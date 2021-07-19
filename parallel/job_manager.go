@@ -25,7 +25,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -91,7 +91,7 @@ func (j *jobManager) SubmitJob(ctx JobContext) (err error) {
 	taskID := j.taskManager.AllocTaskID()
 
 	// TODO need add param
-	req := &pb.TaskRequest{
+	req := &protoCommonV1.TaskRequest{
 		JobID:        jobID,
 		ParentTaskID: taskID,
 		PhysicalPlan: planPayload,
@@ -136,9 +136,9 @@ func (j *jobManager) SubmitMetadataJob(ctx context.Context, plan *models.Physica
 
 	taskID := j.taskManager.AllocTaskID()
 
-	req := &pb.TaskRequest{
+	req := &protoCommonV1.TaskRequest{
 		JobID:        jobID,
-		RequestType:  pb.RequestType_Metadata,
+		RequestType:  protoCommonV1.RequestType_Metadata,
 		ParentTaskID: taskID,
 		PhysicalPlan: planPayload,
 		Payload:      encoding.JSONMarshal(suggest),

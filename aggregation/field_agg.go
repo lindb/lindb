@@ -87,7 +87,7 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	}
 }
 
-// Aggregate aggregates the field series into current aggregator
+// AggregateBySlot aggregates the field series into current aggregator
 func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
@@ -107,6 +107,9 @@ func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 
 func (a *fieldAggregator) reset() {
 	for idx := range a.fieldSeriesList {
+		if a.fieldSeriesList[idx] == nil {
+			continue
+		}
 		a.fieldSeriesList[idx].Reset()
 	}
 }
