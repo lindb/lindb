@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
@@ -42,7 +42,7 @@ var newGroupingAgg = aggregation.NewGroupingAggregator
 // ResultMerger represents a merger which merges the task response and aggregates the result
 type ResultMerger interface {
 	// merge merges the task response and aggregates the result
-	merge(resp *pb.TaskResponse)
+	merge(resp *protoCommonV1.TaskResponse)
 
 	// close closes merger
 	close()
@@ -55,7 +55,7 @@ type resultMerger struct {
 
 	groupAgg aggregation.GroupingAggregator
 
-	events chan *pb.TaskResponse
+	events chan *protoCommonV1.TaskResponse
 
 	closed chan struct{}
 	ctx    context.Context
@@ -69,7 +69,7 @@ func newResultMerger(ctx context.Context, query *stmt.Query, resultSet chan *ser
 	merger := &resultMerger{
 		resultSet: resultSet,
 		query:     query,
-		events:    make(chan *pb.TaskResponse),
+		events:    make(chan *protoCommonV1.TaskResponse),
 		closed:    make(chan struct{}),
 		ctx:       ctx,
 	}
@@ -81,7 +81,7 @@ func newResultMerger(ctx context.Context, query *stmt.Query, resultSet chan *ser
 }
 
 // merge merges and aggregates the result
-func (m *resultMerger) merge(resp *pb.TaskResponse) {
+func (m *resultMerger) merge(resp *protoCommonV1.TaskResponse) {
 	m.events <- resp
 }
 
@@ -128,12 +128,12 @@ func (m *resultMerger) process() {
 }
 
 // handleEvent merges the task response
-func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
+func (m *resultMerger) handleEvent(resp *protoCommonV1.TaskResponse) bool {
 	// handle query stats
 	m.handleQueryStats(resp)
 
 	data := resp.Payload
-	tsList := &pb.TimeSeriesList{}
+	tsList := &protoCommonV1.TimeSeriesList{}
 	err := tsList.Unmarshal(data)
 	if err != nil {
 		m.err = err
@@ -170,7 +170,7 @@ func (m *resultMerger) handleEvent(resp *pb.TaskResponse) bool {
 }
 
 // handleQueryStats handles query stats if need
-func (m *resultMerger) handleQueryStats(resp *pb.TaskResponse) {
+func (m *resultMerger) handleQueryStats(resp *protoCommonV1.TaskResponse) {
 	if len(resp.Stats) > 0 {
 		// if has query stats, need merge task query stats
 		if m.stats == nil {
@@ -197,7 +197,7 @@ func newSuggestResultMerger(resultSet chan []string) ResultMerger {
 }
 
 // merge merges the suggest results
-func (m *suggestResultMerger) merge(resp *pb.TaskResponse) {
+func (m *suggestResultMerger) merge(resp *protoCommonV1.TaskResponse) {
 	result := &models.SuggestResult{}
 	err := encoding.JSONUnmarshal(resp.Payload, result)
 	if err != nil {

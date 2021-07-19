@@ -119,7 +119,7 @@ func (ts *timeSeriesStore) load(fields field.Metas, slotRange timeutil.SlotRange
 	rs := make([][]byte, fieldCount)
 	// find equals field id index
 	idx := sort.Search(fieldLength, func(i int) bool {
-		return ts.fStoreNodes[i].GetFieldID() <= fields[0].ID
+		return ts.fStoreNodes[i].GetFieldID() >= fields[0].ID
 	})
 	j := 0
 	for i := idx; i < fieldLength; i++ {

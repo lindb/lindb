@@ -28,6 +28,8 @@ import (
 
 // Field represents the field series for the time series.
 type Field interface {
+	// Type returns field's type
+	Type() field.Type
 	// SetValue sets field value using series iterator.
 	SetValue(fieldSeries series.Iterator)
 	// GetValues returns the values which function call need by given function type.
@@ -57,6 +59,10 @@ func NewDynamicField(fieldType field.Type, startTime int64, interval int64, capa
 		capacity:  capacity,
 		fields:    make(map[field.AggType]collections.FloatArray),
 	}
+}
+
+func (f *dynamicField) Type() field.Type {
+	return f.fieldType
 }
 
 // SetValue sets the field's value by time slot

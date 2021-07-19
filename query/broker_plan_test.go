@@ -50,6 +50,16 @@ func TestBrokerPlan_wrong_database_interval(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestBrokerPlan_quantile(t *testing.T) {
+	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
+	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	plan := newBrokerPlan("select quantile(0.99) from cpu",
+		models.Database{Option: option.DatabaseOption{Interval: "s"}},
+		storageNodes, currentNode.Node, nil)
+	err := plan.Plan()
+	assert.Error(t, err)
+}
+
 func TestBrokerPlan_No_GroupBy(t *testing.T) {
 	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)

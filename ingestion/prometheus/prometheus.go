@@ -65,15 +65,13 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*prot
 			continue
 		}
 		for _, m := range pm.Metric {
-			f := getFieldType(metricType, m)
-			if f == nil {
-				continue
-			}
-
 			metric := &protoMetricsV1.Metric{
-				Name:         name,
-				Namespace:    namespace,
-				SimpleFields: []*protoMetricsV1.SimpleField{f},
+				Name:      name,
+				Namespace: namespace,
+			}
+			set := setField(metric, metricType, m)
+			if !set {
+				continue
 			}
 			if m.TimestampMs != nil {
 				metric.Timestamp = *m.TimestampMs
@@ -118,30 +116,53 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*prot
 	return metricList, nil
 }
 
-func getFieldType(metricType dto.MetricType, metric *dto.Metric) *protoMetricsV1.SimpleField {
+func setField(metric *protoMetricsV1.Metric, metricType dto.MetricType, dtoMetric *dto.Metric) bool {
 	switch metricType {
 	case dto.MetricType_COUNTER:
-		if metric.Counter != nil && metric.Counter.Value != nil {
-			return &protoMetricsV1.SimpleField{
-				Name:  "gauge",
-				Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
-				Value: *metric.Counter.Value,
-			}
+		if dtoMetric.Counter == nil || dtoMetric.Counter.Value == nil {
+			return false
 		}
+		metric.SimpleFields = []*protoMetricsV1.SimpleField{{
+			Name:  "counter",
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+			Value: *dtoMetric.Counter.Value,
+		}}
 	case dto.MetricType_GAUGE:
-		if metric.Gauge != nil && metric.Gauge.Value != nil {
-			return &protoMetricsV1.SimpleField{
-				Name:  "gauge",
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
-				Value: *metric.Gauge.Value,
-			}
+		if dtoMetric.Gauge == nil && dtoMetric.Gauge.Value == nil {
+			return false
 		}
+		metric.SimpleFields = []*protoMetricsV1.SimpleField{{
+			Name:  "gauge",
+			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			Value: *dtoMetric.Gauge.Value,
+		}}
 	case dto.MetricType_HISTOGRAM:
-		// todo: translate into histogram_cumulative
-		return nil
+		if dtoMetric.Histogram == nil || len(dtoMetric.Histogram.Bucket) == 0 {
+			return false
+		}
+		var (
+			explicitBounds = make([]float64, len(dtoMetric.Histogram.GetBucket()))
+			values         = make([]float64, len(dtoMetric.Histogram.GetBucket()))
+		)
+		for idx := range dtoMetric.Histogram.GetBucket() {
+			bkt := dtoMetric.Histogram.GetBucket()[idx]
+			if bkt == nil {
+				return false
+			}
+			explicitBounds[idx] = bkt.GetUpperBound()
+			values[idx] = float64(bkt.GetCumulativeCount())
+		}
+		metric.CompoundField = &protoMetricsV1.CompoundField{
+			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
+			Sum:            dtoMetric.Histogram.GetSampleSum(),
+			Count:          float64(dtoMetric.Histogram.GetSampleCount()),
+			ExplicitBounds: explicitBounds,
+			Values:         values,
+		}
+
 	case dto.MetricType_SUMMARY:
 		// todo: record not-support data
-		return nil
+		return false
 	}
-	return nil
+	return true
 }

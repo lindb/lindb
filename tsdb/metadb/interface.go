@@ -55,8 +55,12 @@ type IDGetter interface {
 	GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error)
 	// GetField gets the field meta by namespace/metric name/field name, if not exist return series.ErrNotFound
 	GetField(namespace, metricName string, fieldName field.Name) (field field.Meta, err error)
-	// GetAllFields returns the  all fields by namespace/metric name, if not exist return series.ErrNotFound
+	// GetAllFields returns the all visible fields by namespace/metric name,
+	// if not exist return series.ErrNotFound
 	GetAllFields(namespace, metricName string) (fields []field.Meta, err error)
+	// GetAllHistogramFields returns histogram-fields namespace/metric name,
+	// if not exist return series.ErrNotFound
+	GetAllHistogramFields(namespace, metricName string) (fields field.Metas, err error)
 }
 
 // Metadata represents all metadata of tsdb, like metric/tag metadata

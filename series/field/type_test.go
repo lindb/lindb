@@ -45,18 +45,18 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, SumField.IsFuncSupported(function.Sum))
 	assert.True(t, SumField.IsFuncSupported(function.Min))
 	assert.True(t, SumField.IsFuncSupported(function.Max))
-	assert.False(t, SumField.IsFuncSupported(function.Histogram))
+	assert.False(t, SumField.IsFuncSupported(function.Quantile))
 
 	assert.True(t, MaxField.IsFuncSupported(function.Max))
-	assert.False(t, MaxField.IsFuncSupported(function.Histogram))
+	assert.False(t, MaxField.IsFuncSupported(function.Quantile))
 
 	assert.True(t, GaugeField.IsFuncSupported(function.LastValue))
-	assert.False(t, GaugeField.IsFuncSupported(function.Histogram))
+	assert.False(t, GaugeField.IsFuncSupported(function.Quantile))
 
 	assert.True(t, MinField.IsFuncSupported(function.Min))
-	assert.False(t, MinField.IsFuncSupported(function.Histogram))
+	assert.False(t, MinField.IsFuncSupported(function.Quantile))
 
-	assert.False(t, Unknown.IsFuncSupported(function.Histogram))
+	assert.False(t, Unknown.IsFuncSupported(function.Quantile))
 }
 
 func TestType_GetAggFunc(t *testing.T) {

@@ -27,7 +27,7 @@ const (
 	Count
 	Avg
 	LastValue
-	Histogram
+	Quantile
 	Stddev
 
 	Unknown
@@ -48,8 +48,8 @@ func (t FuncType) String() string {
 		return "avg"
 	case LastValue:
 		return "last_value"
-	case Histogram:
-		return "histogram"
+	case Quantile:
+		return "quantile"
 	case Stddev:
 		return "stddev"
 	default:

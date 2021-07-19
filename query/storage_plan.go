@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
@@ -170,6 +171,10 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 	case *stmt.SelectItem:
 		p.field(nil, e.Expr)
 	case *stmt.CallExpr:
+		if e.FuncType == function.Quantile {
+			p.planHistogramFields(e)
+			return
+		}
 		for _, param := range e.Params {
 			p.field(e, param)
 		}
@@ -216,5 +221,35 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
 		}
 		aggregator.DownSampling.AddFunctionType(funcType)
+	}
+}
+
+func (p *storageExecutePlan) planHistogramFields(e *stmt.CallExpr) {
+	if len(e.Params) != 1 {
+		p.err = fmt.Errorf("qunantile params not ok")
+		return
+	}
+	if v, err := strconv.ParseFloat(e.Params[0].Rewrite(), 64); err != nil {
+		p.err = fmt.Errorf("quantile param: %s is not ok", e.Params[0].Rewrite())
+		return
+	} else if v <= 0 || v >= 1 {
+		p.err = fmt.Errorf("quantile param: %f is illegal", v)
+		return
+	}
+	fieldMetas, err := p.metadata.MetadataDatabase().GetAllHistogramFields(p.namespace, p.query.MetricName)
+	if err != nil {
+		p.err = err
+		return
+	}
+	for _, fieldMeta := range fieldMetas {
+		aggregator, exist := p.fields[fieldMeta.ID]
+		if !exist {
+			aggregator = &aggregation.Aggregator{}
+			aggregator.DownSampling = aggregation.NewAggregatorSpec(fieldMeta.Name, fieldMeta.Type)
+			aggregator.Aggregator = aggregation.NewAggregatorSpec(fieldMeta.Name, fieldMeta.Type)
+			p.fields[fieldMeta.ID] = aggregator
+		}
+		aggregator.Aggregator.AddFunctionType(function.Sum)
+		aggregator.DownSampling.AddFunctionType(function.Sum)
 	}
 }

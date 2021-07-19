@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	pb "github.com/lindb/lindb/proto/gen/v1/common"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/service"
 )
@@ -33,13 +33,13 @@ import (
 // TaskDispatcher represents the task dispatcher
 type TaskDispatcher interface {
 	// Dispatch dispatches the task request based on task type
-	Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest)
+	Dispatch(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest)
 }
 
 // TaskProcessor represents the task processor, all task processors are async
 type TaskProcessor interface {
 	// Process processes the task request
-	Process(ctx context.Context, req *pb.TaskRequest) error
+	Process(ctx context.Context, req *protoCommonV1.TaskRequest) error
 }
 
 // leafTaskDispatcher represents leaf task dispatcher for storage
@@ -59,10 +59,10 @@ func NewLeafTaskDispatcher(currentNode models.Node,
 }
 
 // Dispatch dispatches the request to storage engine query processor
-func (d *leafTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
+func (d *leafTaskDispatcher) Dispatch(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 	err := d.processor.Process(ctx, req)
 	if err != nil {
-		if err1 := stream.Send(&pb.TaskResponse{
+		if err1 := stream.Send(&protoCommonV1.TaskResponse{
 			JobID:     req.JobID,
 			TaskID:    req.ParentTaskID,
 			Completed: true,
@@ -84,6 +84,6 @@ func NewIntermediateTaskDispatcher() TaskDispatcher {
 }
 
 // Dispatch dispatches the request to distribution query processor, merges the results
-func (d *intermediateTaskDispatcher) Dispatch(ctx context.Context, stream pb.TaskService_HandleServer, req *pb.TaskRequest) {
+func (d *intermediateTaskDispatcher) Dispatch(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 
 }

@@ -84,7 +84,22 @@ message CompoundField {
     double max = 4;
     double sum = 5;
     double count = 6;
-    repeated double values = 7;
+    // same as open-telemetry metrics definition
+    // explicit_bounds specifies buckets with explicitly defined bounds for values.
+    //
+    // The boundaries for bucket at index i are:
+    //
+    // (-infinity, explicit_bounds[i]] for i == 0
+    // (explicit_bounds[i-1], explicit_bounds[i]] for 0 < i < size(explicit_bounds)
+    // (explicit_bounds[i-1], +infinity) for i == size(explicit_bounds)
+    //
+    // The values in the explicit_bounds array must be strictly increasing.
+    //
+    // Histogram buckets are inclusive of their upper boundary, except the last
+    // bucket where the boundary is at infinity. This format is intentionally
+    // compatible with the OpenMetrics histogram definition.
+    repeated double explicit_bounds = 7;
+    repeated double values = 8;
 }
 
 // KeyValue is a key-value pair that is used to store tag/label attributes

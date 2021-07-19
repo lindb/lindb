@@ -123,14 +123,15 @@ func TestSelectFuncItem(t *testing.T) {
 		Expr: &stmt.CallExpr{FuncType: function.Count, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
 	}, *selectItem)
 
-	sql = "select histogram(f) from memory"
+	sql = "select quantile(0.99) from memory"
 	q, err = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(query.SelectItems))
 	selectItem = (query.SelectItems[0]).(*stmt.SelectItem)
+	// field name is hacked to transform into quantile value
 	assert.Equal(t, stmt.SelectItem{
-		Expr: &stmt.CallExpr{FuncType: function.Histogram, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+		Expr: &stmt.CallExpr{FuncType: function.Quantile, Params: []stmt.Expr{&stmt.NumberLiteral{Val: 0.99}}},
 	}, *selectItem)
 }
 

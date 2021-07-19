@@ -264,6 +264,22 @@ func (mdb *metadataDatabase) GetAllFields(namespace, metricName string) (fields 
 	return mdb.backend.getAllFields(metricID)
 }
 
+func (mdb *metadataDatabase) GetAllHistogramFields(namespace, metricName string) (fields field.Metas, err error) {
+	key := namespace + metricName
+	mdb.rwMux.RLock()
+	metricMetadata, ok := mdb.metrics[key]
+	if ok {
+		defer mdb.rwMux.RUnlock()
+		return metricMetadata.getAllHistogramFields(), nil
+	}
+	mdb.rwMux.RUnlock()
+	metricID, err := mdb.GetMetricID(namespace, metricName)
+	if err != nil {
+		return nil, err
+	}
+	return mdb.backend.getAllHistogramFields(metricID)
+}
+
 // GenMetricID generates the metric id in the memory.
 // 1) get metric id from memory if exist, if not exist goto 2
 // 2) get metric metadata from backend storage, if not exist need create new metric metadata

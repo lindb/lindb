@@ -17,7 +17,9 @@
 
 package function
 
-import "github.com/lindb/lindb/pkg/collections"
+import (
+	"github.com/lindb/lindb/pkg/collections"
+)
 
 // FuncCall calls the function calc by function type and params
 func FuncCall(funcType FuncType, params ...collections.FloatArray) collections.FloatArray {
