@@ -25,9 +25,6 @@ import (
 
 //go:generate mockgen -source=./series_agg.go -destination=./series_agg_mock.go -package=aggregation
 
-// newBlockFunc represents create series block function by query time range.
-//type newBlockFunc func() series.Block
-//
 // FieldAggregates represents aggregator which aggregates fields of a time series
 type FieldAggregates []SeriesAggregator
 

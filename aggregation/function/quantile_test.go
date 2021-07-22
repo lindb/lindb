@@ -26,17 +26,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func makeFloatArray(data []float64) []collections.FloatArray {
+func makeFloatArray(data []float64) []*collections.FloatArray {
 	array := collections.NewFloatArray(len(data))
 	for idx := range data {
 		array.SetValue(idx, data[idx])
 	}
-	return []collections.FloatArray{array}
+	return []*collections.FloatArray{array}
 }
 
-func getDataFloatArray(array collections.FloatArray) []float64 {
+func getDataFloatArray(array *collections.FloatArray) []float64 {
 	var data []float64
-	itr := array.Iterator()
+	itr := array.NewIterator()
 	for itr.HasNext() {
 		_, v := itr.Next()
 		data = append(data, v)
@@ -60,7 +60,7 @@ func Test_Buckets(t *testing.T) {
 }
 
 func Test_QuantileCall(t *testing.T) {
-	fields := map[float64][]collections.FloatArray{
+	fields := map[float64][]*collections.FloatArray{
 		1:               makeFloatArray([]float64{1, 2, 3, 4}),
 		2:               makeFloatArray([]float64{2, 2, 3, 4}),
 		4:               makeFloatArray([]float64{5, 2, 3, 4}),
@@ -100,7 +100,7 @@ func Test_QuantileCall(t *testing.T) {
 
 func Test_QuantileCallBadCases(t *testing.T) {
 	// starts from upperBound < 0
-	fields := map[float64][]collections.FloatArray{
+	fields := map[float64][]*collections.FloatArray{
 		-0.2:            makeFloatArray([]float64{1, 2, 3, 4}),
 		2:               makeFloatArray([]float64{2, 2, 3, 4}),
 		4:               makeFloatArray([]float64{5, 2, 3, 4}),
@@ -113,14 +113,14 @@ func Test_QuantileCallBadCases(t *testing.T) {
 	assert.InDeltaSlice(t, []float64{-0.2, -0.2, -0.2, -0.2}, getDataFloatArray(array), 0.001)
 
 	// fields buckets less than 2
-	fields = map[float64][]collections.FloatArray{
+	fields = map[float64][]*collections.FloatArray{
 		-0.2: makeFloatArray([]float64{1, 2, 3, 4}),
 	}
 	_, err := QuantileCall(0, fields)
 	assert.Error(t, err)
 
 	// last upper bound not Inf
-	fields = map[float64][]collections.FloatArray{
+	fields = map[float64][]*collections.FloatArray{
 		2: makeFloatArray([]float64{2, 2, 3, 4}),
 		4: makeFloatArray([]float64{5, 2, 3, 4}),
 	}
@@ -128,7 +128,7 @@ func Test_QuantileCallBadCases(t *testing.T) {
 	assert.Error(t, err)
 
 	// all data zero
-	fields = map[float64][]collections.FloatArray{
+	fields = map[float64][]*collections.FloatArray{
 		1:               makeFloatArray([]float64{0, 0, 0, 0}),
 		2:               makeFloatArray([]float64{0, 0, 0, 0}),
 		4:               makeFloatArray([]float64{0, 0, 0, 0}),
@@ -142,7 +142,7 @@ func Test_QuantileCallBadCases(t *testing.T) {
 	assert.InDeltaSlice(t, []float64{0, 0, 0, 0}, getDataFloatArray(array), 0.001)
 
 	// float64 array length not ok
-	fields = map[float64][]collections.FloatArray{
+	fields = map[float64][]*collections.FloatArray{
 		2:               makeFloatArray([]float64{2, 2, 3, 4}),
 		4:               append(makeFloatArray([]float64{5, 2, 3, 4}), makeFloatArray([]float64{5, 2, 3, 4})...),
 		math.Inf(1) + 1: makeFloatArray([]float64{1, 2, 3, 4}),
@@ -150,7 +150,7 @@ func Test_QuantileCallBadCases(t *testing.T) {
 	_, err = QuantileCall(0.9, fields)
 	assert.Error(t, err)
 	// data length not match
-	fields = map[float64][]collections.FloatArray{
+	fields = map[float64][]*collections.FloatArray{
 		1:               makeFloatArray([]float64{0, 0, 0, 0, 1, 2, 3}),
 		2:               makeFloatArray([]float64{0, 0, 0, 0}),
 		4:               makeFloatArray([]float64{0, 0, 0, 0}),

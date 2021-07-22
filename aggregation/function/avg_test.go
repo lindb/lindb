@@ -15,19 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package function
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/collections"
 )
 
-func TestBlock_Append(t *testing.T) {
-	block := NewBlock(1, 1)
-	assert.False(t, block.Append(0, 10.0))
-	assert.False(t, block.Append(1, 10.0))
-	assert.True(t, block.Append(2, 10.0))
+func Test_AvgCall(t *testing.T) {
+	result := AvgCall()
+	assert.Nil(t, result)
+	result = AvgCall()
+	assert.Nil(t, result)
 
-	block.Clear()
+	array1 := collections.NewFloatArray(10)
+	array1.SetValue(1, 10.0)
+	array1.SetValue(2, 10.0) // count is nil
+	array1.SetValue(3, 10.0) // count is 0
+	array2 := collections.NewFloatArray(20)
+	array2.SetValue(1, 5.0)
+	array2.SetValue(3, 0.0)
+	result = AvgCall(array1)
+	assert.Nil(t, result)
+	result = AvgCall(array1, array2)
+	assert.Equal(t, 2.0, result.GetValue(1))
+	assert.False(t, result.HasValue(2))
+	assert.False(t, result.HasValue(3))
 }

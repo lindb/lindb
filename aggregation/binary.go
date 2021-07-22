@@ -26,7 +26,7 @@ import (
 // 1. capacity not equals, return nil
 // 2. merge two array based on binary operator, return other float array
 // NOTICE: make sure both left and right array are not nil and same capacity
-func binaryEval(binaryOp stmt.BinaryOP, left, right collections.FloatArray) collections.FloatArray {
+func binaryEval(binaryOp stmt.BinaryOP, left, right *collections.FloatArray) *collections.FloatArray {
 	if left == nil || right == nil {
 		return nil
 	}
