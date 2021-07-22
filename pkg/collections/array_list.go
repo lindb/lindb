@@ -19,34 +19,9 @@ package collections
 
 const blockSize = 8
 
-// FloatArray represents a float array
-type FloatArray interface {
-	// Iterator returns an iterator over the array
-	Iterator() FloatArrayIterator
-	// GetValue returns value with pos, if has not value return 0
-	GetValue(pos int) float64
-	// HasValue returns if has value with pos
-	HasValue(pos int) bool
-	// SetValue sets value with pos, if pos out of bounds, return it
-	SetValue(pos int, value float64)
-	// IsEmpty tests if array is empty
-	IsEmpty() bool
-	// Size returns size of array
-	Size() int
-	// Capacity returns the capacity of array
-	Capacity() int
-	// Marks returns the marks of array
-	Marks() []uint8
-	// Reset resets all values and mark for reusing
-	Reset()
-	// SetSingle sets is array is single value, mean all values is same
-	SetSingle(single bool)
-	// IsSingle return if is single value
-	IsSingle() bool
-}
-
-// floatArray represents a float array, support mark pos if has value
-type floatArray struct {
+// FloatArray encapsulates methods for using the float array
+// support mark pos if has value
+type FloatArray struct {
 	marks    []uint8
 	values   []float64
 	isSingle bool
@@ -54,16 +29,16 @@ type floatArray struct {
 	capacity int
 	size     int
 
-	it *floatArrayIterator
+	it *FloatArrayIterator
 }
 
-// NewFloatArray creates a float array
-func NewFloatArray(capacity int) FloatArray {
+// NewFloatArray creates a float array with a certain capacity
+func NewFloatArray(capacity int) *FloatArray {
 	markLen := capacity / blockSize
 	if capacity%blockSize > 0 {
 		markLen++
 	}
-	return &floatArray{
+	return &FloatArray{
 		capacity: capacity,
 		values:   make([]float64, capacity),
 		marks:    make([]uint8, markLen),
@@ -71,7 +46,7 @@ func NewFloatArray(capacity int) FloatArray {
 }
 
 // HasValue returns if has value with pos
-func (f *floatArray) HasValue(pos int) bool {
+func (f *FloatArray) HasValue(pos int) bool {
 	if !f.checkPos(pos) {
 		return false
 	}
@@ -82,7 +57,7 @@ func (f *floatArray) HasValue(pos int) bool {
 }
 
 // GetValue returns value with pos, if has not value return 0
-func (f *floatArray) GetValue(pos int) float64 {
+func (f *FloatArray) GetValue(pos int) float64 {
 	if !f.checkPos(pos) {
 		return 0
 	}
@@ -90,7 +65,7 @@ func (f *floatArray) GetValue(pos int) float64 {
 }
 
 // SetValue sets value with pos, if pos out of bounds, return it
-func (f *floatArray) SetValue(pos int, value float64) {
+func (f *FloatArray) SetValue(pos int, value float64) {
 	if !f.checkPos(pos) {
 		return
 	}
@@ -108,17 +83,17 @@ func (f *floatArray) SetValue(pos int, value float64) {
 }
 
 // IsEmpty tests if array is empty
-func (f *floatArray) IsEmpty() bool {
+func (f *FloatArray) IsEmpty() bool {
 	return f.size == 0
 }
 
 // Size returns size of array
-func (f *floatArray) Size() int {
+func (f *FloatArray) Size() int {
 	return f.size
 }
 
-// Iterator returns an iterator over the array
-func (f *floatArray) Iterator() FloatArrayIterator {
+// NewIterator returns an iterator over the array
+func (f *FloatArray) NewIterator() *FloatArrayIterator {
 	if f.it == nil {
 		f.it = newFloatArrayIterator(f)
 	} else {
@@ -128,17 +103,17 @@ func (f *floatArray) Iterator() FloatArrayIterator {
 }
 
 // Capacity returns the capacity of array
-func (f *floatArray) Capacity() int {
+func (f *FloatArray) Capacity() int {
 	return f.capacity
 }
 
 // Marks returns the marks of array
-func (f *floatArray) Marks() []uint8 {
+func (f *FloatArray) Marks() []uint8 {
 	return f.marks
 }
 
 // checkPos checks pos if out of bounds
-func (f *floatArray) checkPos(pos int) bool {
+func (f *FloatArray) checkPos(pos int) bool {
 	if pos < 0 || pos >= f.capacity {
 		return false
 	}
@@ -146,7 +121,7 @@ func (f *floatArray) checkPos(pos int) bool {
 }
 
 // Reset resets all values and mark for reusing
-func (f *floatArray) Reset() {
+func (f *FloatArray) Reset() {
 	f.size = 0
 	f.isSingle = false
 	for i := range f.marks {
@@ -155,26 +130,18 @@ func (f *floatArray) Reset() {
 }
 
 // SetSingle sets is array is single value, mean all values is same
-func (f *floatArray) SetSingle(single bool) {
+func (f *FloatArray) SetSingle(single bool) {
 	f.isSingle = single
 }
 
 // IsSingle return if is single value
-func (f *floatArray) IsSingle() bool {
+func (f *FloatArray) IsSingle() bool {
 	return f.isSingle
 }
 
 // FloatArrayIterator represents a float array iterator
-type FloatArrayIterator interface {
-	// HasNext returns if this iterator has more values
-	HasNext() bool
-	// Next returns the next value and index
-	Next() (idx int, value float64)
-}
-
-// floatArrayIterator represents a float array iterator
-type floatArrayIterator struct {
-	fa  FloatArray
+type FloatArrayIterator struct {
+	fa  *FloatArray
 	idx int
 
 	count    int
@@ -184,15 +151,15 @@ type floatArrayIterator struct {
 }
 
 // newFloatArrayIterator creates a float array iterator
-func newFloatArrayIterator(fa FloatArray) *floatArrayIterator {
-	return &floatArrayIterator{
+func newFloatArrayIterator(fa *FloatArray) *FloatArrayIterator {
+	return &FloatArrayIterator{
 		fa:       fa,
 		hasValue: true,
 		marks:    fa.Marks(),
 	}
 }
 
-func (it *floatArrayIterator) reset() {
+func (it *FloatArrayIterator) reset() {
 	it.idx = 0
 	it.count = 0
 	it.marks = it.fa.Marks()
@@ -200,7 +167,7 @@ func (it *floatArrayIterator) reset() {
 }
 
 // HasNext returns if this iterator has more values
-func (it *floatArrayIterator) HasNext() bool {
+func (it *FloatArrayIterator) HasNext() bool {
 	for it.idx < it.fa.Capacity() && it.count < it.fa.Size() {
 		blockIdx := it.idx / blockSize
 		idx := it.idx % blockSize
@@ -218,7 +185,7 @@ func (it *floatArrayIterator) HasNext() bool {
 }
 
 // Next returns the next value and index
-func (it *floatArrayIterator) Next() (idx int, value float64) {
+func (it *FloatArrayIterator) Next() (idx int, value float64) {
 	if !it.hasValue {
 		return -1, 0
 	}

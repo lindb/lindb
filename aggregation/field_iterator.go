@@ -33,16 +33,17 @@ type fieldIterator struct {
 	startSlot int
 	aggTypes  []field.AggType
 
-	fieldSeriesList []collections.FloatArray
+	fieldSeriesList []*collections.FloatArray
 
 	length int
 	idx    int
 }
 
 // newFieldIterator creates a field iterator.
-func newFieldIterator(startSlot int,
+func newFieldIterator(
+	startSlot int,
 	aggTypes []field.AggType,
-	fieldSeriesList []collections.FloatArray,
+	fieldSeriesList []*collections.FloatArray,
 ) series.FieldIterator {
 	it := &fieldIterator{
 		startSlot:       startSlot,
@@ -105,17 +106,17 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 type primitiveIterator struct {
 	start   int
 	aggType field.AggType
-	it      collections.FloatArrayIterator
+	it      *collections.FloatArrayIterator
 }
 
 // newPrimitiveIterator create primitive iterator using array.
-func newPrimitiveIterator(start int, aggType field.AggType, values collections.FloatArray) series.PrimitiveIterator {
+func newPrimitiveIterator(start int, aggType field.AggType, values *collections.FloatArray) series.PrimitiveIterator {
 	it := &primitiveIterator{
 		start:   start,
 		aggType: aggType,
 	}
 	if values != nil {
-		it.it = values.Iterator()
+		it.it = values.NewIterator()
 	}
 	return it
 }

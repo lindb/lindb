@@ -123,7 +123,7 @@ func (c *brokerExecuteContext) Emit(event *series.TimeSeriesEvent) {
 				continue
 			}
 			points := models.NewPoints()
-			it := values.Iterator()
+			it := values.NewIterator()
 			for it.HasNext() {
 				slot, val := it.Next()
 				points.AddPoint(timeutil.CalcTimestamp(c.query.TimeRange.Start, slot, c.query.Interval), val)

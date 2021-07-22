@@ -15,4 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package function
+
+import "github.com/lindb/lindb/pkg/collections"
+
+func AvgCall(arrays ...*collections.FloatArray) *collections.FloatArray {
+	// params: 0=>sum, 1=>count
+	if len(arrays) < 2 {
+		return nil
+	}
+	result := collections.NewFloatArray(arrays[0].Capacity())
+	itr := arrays[0].NewIterator()
+	for itr.HasNext() {
+		idx, sum := itr.Next()
+		if arrays[1].HasValue(idx) {
+			count := arrays[1].GetValue(idx)
+			if count != 0 {
+				result.SetValue(idx, sum/count)
+			}
+		}
+	}
+	return result
+}

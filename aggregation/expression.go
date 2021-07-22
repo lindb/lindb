@@ -36,7 +36,7 @@ type Expression interface {
 	// Eval evaluates the select item's expression
 	Eval(timeSeries series.GroupedIterator)
 	// ResultSet returns the eval result
-	ResultSet() map[string]collections.FloatArray
+	ResultSet() map[string]*collections.FloatArray
 	// Reset resets the expression context for reusing
 	Reset()
 }
@@ -52,7 +52,7 @@ type expression struct {
 	selectItems []stmt.Expr
 
 	fieldStore map[field.Name]fields.Field
-	resultSet  map[string]collections.FloatArray
+	resultSet  map[string]*collections.FloatArray
 }
 
 // NewExpression creates an expression
@@ -63,7 +63,7 @@ func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []s
 		timeRange:   timeRange,
 		selectItems: selectItems,
 		fieldStore:  make(map[field.Name]fields.Field),
-		resultSet:   make(map[string]collections.FloatArray),
+		resultSet:   make(map[string]*collections.FloatArray),
 	}
 }
 
@@ -93,7 +93,7 @@ func (e *expression) Eval(timeSeries series.GroupedIterator) {
 }
 
 // ResultSet returns the eval result
-func (e *expression) ResultSet() map[string]collections.FloatArray {
+func (e *expression) ResultSet() map[string]*collections.FloatArray {
 	return e.resultSet
 }
 
@@ -113,7 +113,7 @@ func (e *expression) prepare(timeSeries series.GroupedIterator) {
 }
 
 // eval evaluates the expression
-func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collections.FloatArray {
+func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collections.FloatArray {
 	switch ex := expr.(type) {
 	case *stmt.SelectItem:
 		return e.eval(nil, ex.Expr)
@@ -134,7 +134,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 			values.SetValue(i, ex.Val)
 		}
 		values.SetSingle(true)
-		return []collections.FloatArray{values}
+		return []*collections.FloatArray{values}
 	case *stmt.FieldExpr:
 		fieldName := ex.Name
 		fieldValues, ok := e.fieldStore[field.Name(fieldName)]
@@ -153,9 +153,9 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []collectio
 	}
 }
 
-func (e *expression) quantile(expr *stmt.CallExpr) []collections.FloatArray {
+func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 	var (
-		histogramFields = make(map[float64][]collections.FloatArray)
+		histogramFields = make(map[float64][]*collections.FloatArray)
 	)
 	if len(expr.Params) != 1 {
 		return nil
@@ -180,12 +180,12 @@ func (e *expression) quantile(expr *stmt.CallExpr) []collections.FloatArray {
 	if err != nil {
 		return nil
 	}
-	return []collections.FloatArray{array}
+	return []*collections.FloatArray{array}
 }
 
 // funcCall calls the function
-func (e *expression) funcCall(expr *stmt.CallExpr) []collections.FloatArray {
-	var params []collections.FloatArray
+func (e *expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
+	var params []*collections.FloatArray
 	for _, param := range expr.Params {
 		paramValues := e.eval(expr, param)
 		if len(paramValues) == 0 {
@@ -193,15 +193,21 @@ func (e *expression) funcCall(expr *stmt.CallExpr) []collections.FloatArray {
 		}
 		params = append(params, paramValues...)
 	}
-	result := function.FuncCall(expr.FuncType, params...)
+	var result *collections.FloatArray
+	switch expr.FuncType {
+	case function.Avg:
+		result = function.AvgCall(params...)
+	default:
+		result = function.FuncCall(expr.FuncType, params...)
+	}
 	if result == nil {
 		return nil
 	}
-	return []collections.FloatArray{result}
+	return []*collections.FloatArray{result}
 }
 
 // binaryEval evaluates binary operator
-func (e *expression) binaryEval(expr *stmt.BinaryExpr) []collections.FloatArray {
+func (e *expression) binaryEval(expr *stmt.BinaryExpr) []*collections.FloatArray {
 	binaryOP := expr.Operator
 	if binaryOP == stmt.ADD || binaryOP == stmt.SUB || binaryOP == stmt.DIV || binaryOP == stmt.MUL {
 		left := e.eval(nil, expr.Left)
@@ -213,7 +219,7 @@ func (e *expression) binaryEval(expr *stmt.BinaryExpr) []collections.FloatArray 
 			return nil
 		}
 		result := binaryEval(binaryOP, left[0], right[0])
-		return []collections.FloatArray{result}
+		return []*collections.FloatArray{result}
 	}
 
 	return nil
@@ -224,5 +230,5 @@ func (e *expression) Reset() {
 	for _, f := range e.fieldStore {
 		f.Reset()
 	}
-	e.resultSet = make(map[string]collections.FloatArray)
+	e.resultSet = make(map[string]*collections.FloatArray)
 }
