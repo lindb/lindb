@@ -28,7 +28,7 @@ import (
 type bucket struct {
 	upperBound float64
 	count      float64
-	itr        collections.FloatArrayIterator
+	itr        *collections.FloatArrayIterator
 }
 
 type buckets []bucket
@@ -54,7 +54,7 @@ func (bkt buckets) EnsureCountFieldCumulative() {
 // 0 <= q <= 1
 // q = 0, returns 0
 // q = 1, last UpperBound before Inf is returned
-func QuantileCall(q float64, histogramFields map[float64][]collections.FloatArray) (collections.FloatArray, error) {
+func QuantileCall(q float64, histogramFields map[float64][]*collections.FloatArray) (*collections.FloatArray, error) {
 	if q < 0 || q > 1 {
 		return nil, fmt.Errorf("QuantileCall with illegal value: %f", q)
 	}
@@ -65,7 +65,7 @@ func QuantileCall(q float64, histogramFields map[float64][]collections.FloatArra
 		if len(arrays) != 1 {
 			return nil, fmt.Errorf("QuantileCall buckets's floatArray count: %d not equals 1", len(arrays))
 		}
-		histogramBuckets[idx] = bucket{upperBound: upperBound, itr: arrays[0].Iterator()}
+		histogramBuckets[idx] = bucket{upperBound: upperBound, itr: arrays[0].NewIterator()}
 		idx++
 	}
 	sort.Sort(histogramBuckets)

@@ -43,7 +43,7 @@ type fieldAggregator struct {
 	segmentStartTime int64
 	start, end       int
 
-	fieldSeriesList []collections.FloatArray
+	fieldSeriesList []*collections.FloatArray
 }
 
 // NewFieldAggregator creates a field aggregator,
@@ -62,7 +62,7 @@ func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, e
 		segmentStartTime: segmentStartTime,
 		start:            start,
 		end:              end,
-		fieldSeriesList:  make([]collections.FloatArray, len(aggTypes)),
+		fieldSeriesList:  make([]*collections.FloatArray, len(aggTypes)),
 	}
 	return agg
 }

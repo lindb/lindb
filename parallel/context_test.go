@@ -53,7 +53,7 @@ func TestBrokerExecuteContext(t *testing.T) {
 	expression.EXPECT().Eval(gomock.Any())
 	values := collections.NewFloatArray(10)
 	values.SetValue(1, 10.0)
-	expression.EXPECT().ResultSet().Return(map[string]collections.FloatArray{"test": nil, "f": values})
+	expression.EXPECT().ResultSet().Return(map[string]*collections.FloatArray{"test": nil, "f": values})
 	expression.EXPECT().Reset()
 	ctx.Emit(&series.TimeSeriesEvent{
 		SeriesList: []series.GroupedIterator{it},
@@ -91,7 +91,7 @@ func TestBrokerExecuteContext_Emit_GroupBy(t *testing.T) {
 	expression.EXPECT().Eval(gomock.Any())
 	values := collections.NewFloatArray(10)
 	values.SetValue(1, 10.0)
-	expression.EXPECT().ResultSet().Return(map[string]collections.FloatArray{"test": nil, "f": values})
+	expression.EXPECT().ResultSet().Return(map[string]*collections.FloatArray{"test": nil, "f": values})
 	expression.EXPECT().Reset()
 	ctx.Emit(&series.TimeSeriesEvent{
 		SeriesList: []series.GroupedIterator{it},

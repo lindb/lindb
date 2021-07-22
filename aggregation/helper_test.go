@@ -80,7 +80,7 @@ func AssertFieldIt(t *testing.T, it series.FieldIterator, expect map[int]float64
 	assert.Equal(t, count, len(expect))
 }
 
-func generateFloatArray(values []float64) collections.FloatArray {
+func generateFloatArray(values []float64) *collections.FloatArray {
 	if values == nil {
 		return nil
 	}

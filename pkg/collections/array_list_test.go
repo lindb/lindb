@@ -52,7 +52,7 @@ func TestFloatArray(t *testing.T) {
 	assert.Equal(t, 3, fa.Size())
 
 	for i := 0; i < 3; i++ {
-		it := fa.Iterator()
+		it := fa.NewIterator()
 		assert.True(t, it.HasNext())
 		idx, value := it.Next()
 		assert.Equal(t, 0, idx)

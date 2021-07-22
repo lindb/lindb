@@ -33,14 +33,14 @@ import (
 var encodeFunc = encoding.NewTSDEncoder
 
 func TestFieldIterator(t *testing.T) {
-	it := newFieldIterator(20, []field.AggType{field.Sum}, []collections.FloatArray{generateFloatArray(nil)})
+	it := newFieldIterator(20, []field.AggType{field.Sum}, []*collections.FloatArray{generateFloatArray(nil)})
 	assert.True(t, it.HasNext())
 	assert.NotNil(t, it.Next())
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.NotNil(t, data)
 
-	it = newFieldIterator(20, []field.AggType{field.Min}, []collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
+	it = newFieldIterator(20, []field.AggType{field.Min}, []*collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
 
 	expect := map[int]float64{20: 0, 21: 10, 22: 10.0, 23: 100.4, 24: 50.0}
 	AssertFieldIt(t, it, expect)
@@ -63,7 +63,7 @@ func TestFieldIterator(t *testing.T) {
 }
 
 func TestFieldIterator_MarshalBinary(t *testing.T) {
-	it := newFieldIterator(10, []field.AggType{field.Sum}, []collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
+	it := newFieldIterator(10, []field.AggType{field.Sum}, []*collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
@@ -89,7 +89,7 @@ func TestFieldIterator_MarshalBinary_err(t *testing.T) {
 	encoder.EXPECT().AppendTime(gomock.Any()).AnyTimes()
 	encoder.EXPECT().AppendValue(gomock.Any()).AnyTimes()
 	encoder.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it := newFieldIterator(10, []field.AggType{field.Sum}, []collections.FloatArray{floatArray})
+	it := newFieldIterator(10, []field.AggType{field.Sum}, []*collections.FloatArray{floatArray})
 	data, err := it.MarshalBinary()
 	assert.Error(t, err)
 	assert.Nil(t, data)

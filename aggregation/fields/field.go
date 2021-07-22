@@ -33,9 +33,9 @@ type Field interface {
 	// SetValue sets field value using series iterator.
 	SetValue(fieldSeries series.Iterator)
 	// GetValues returns the values which function call need by given function type.
-	GetValues(funcType function.FuncType) (result []collections.FloatArray)
+	GetValues(funcType function.FuncType) (result []*collections.FloatArray)
 	// GetDefaultValues returns the field default values which aggregation need if user not input function type.
-	GetDefaultValues() (result []collections.FloatArray)
+	GetDefaultValues() (result []*collections.FloatArray)
 	// Reset resets field's value for reusing.
 	Reset()
 }
@@ -47,7 +47,7 @@ type dynamicField struct {
 	interval  int64
 	capacity  int
 
-	fields map[field.AggType]collections.FloatArray
+	fields map[field.AggType]*collections.FloatArray
 }
 
 // NewDynamicField creates a dynamic field series.
@@ -57,7 +57,7 @@ func NewDynamicField(fieldType field.Type, startTime int64, interval int64, capa
 		startTime: startTime,
 		interval:  interval,
 		capacity:  capacity,
-		fields:    make(map[field.AggType]collections.FloatArray),
+		fields:    make(map[field.AggType]*collections.FloatArray),
 	}
 }
 
@@ -70,7 +70,7 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 	if fieldSeries == nil {
 		return
 	}
-	var fieldValues collections.FloatArray
+	var fieldValues *collections.FloatArray
 	ok := false
 	for fieldSeries.HasNext() {
 		startTime, it := fieldSeries.Next()
@@ -95,13 +95,13 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 }
 
 // GetValues returns the values which function call need by given function type and field type
-func (f *dynamicField) GetValues(funcType function.FuncType) (result []collections.FloatArray) {
+func (f *dynamicField) GetValues(funcType function.FuncType) (result []*collections.FloatArray) {
 	pFields := f.fieldType.GetFuncFieldParams(funcType)
 	return f.getFieldValues(pFields)
 }
 
 // GetDefaultValues returns the field default values which aggregation need by field type
-func (f *dynamicField) GetDefaultValues() []collections.FloatArray {
+func (f *dynamicField) GetDefaultValues() []*collections.FloatArray {
 	return f.getFieldValues(f.fieldType.GetDefaultFuncFieldParams())
 }
 
@@ -112,7 +112,7 @@ func (f *dynamicField) Reset() {
 }
 
 // getFieldValues returns the values by field name and agg type.
-func (f *dynamicField) getFieldValues(aggTypes []field.AggType) (result []collections.FloatArray) {
+func (f *dynamicField) getFieldValues(aggTypes []field.AggType) (result []*collections.FloatArray) {
 	if len(aggTypes) == 0 {
 		return
 	}
