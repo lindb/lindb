@@ -46,7 +46,7 @@ type Replicator interface {
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
-	ShardID() int32
+	ShardID() models.ShardID
 	// Pending returns the num of messages remaining to replicate.
 	Pending() int64
 	// ReplicaIndex returns the index of message replica
@@ -61,7 +61,7 @@ type Replicator interface {
 type replicator struct {
 	target   models.Node
 	database string
-	shardID  int32
+	shardID  models.ShardID
 	// underlying fanOut records the replication process.
 	fo queue.FanOut
 	// factory to get write streamClient
@@ -82,7 +82,7 @@ type replicator struct {
 }
 
 // newReplicator returns a Replicator with specific attributions.
-func newReplicator(target models.Node, database string, shardID int32,
+func newReplicator(target models.Node, database string, shardID models.ShardID,
 	fo queue.FanOut, fct rpc.ClientStreamFactory) Replicator {
 	r := &replicator{
 		target:   target,
@@ -110,7 +110,7 @@ func (r *replicator) Database() string {
 }
 
 // ShardID returns the shardID attribution.
-func (r *replicator) ShardID() int32 {
+func (r *replicator) ShardID() models.ShardID {
 	return r.shardID
 }
 
@@ -251,7 +251,7 @@ func (r *replicator) initClient() {
 func (r *replicator) remoteNextSeq() (int64, error) {
 	nextReq := &protoStorageV1.NextSeqRequest{
 		Database: r.database,
-		ShardID:  r.shardID,
+		ShardID:  int32(r.shardID),
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), unaryRPCTimeout)
@@ -261,7 +261,7 @@ func (r *replicator) remoteNextSeq() (int64, error) {
 	if err != nil {
 		r.logger.Debug("failed to call remoteNextSeq",
 			logger.String("database", r.database),
-			logger.Int32("shardID", r.shardID),
+			logger.Any("shardID", r.shardID),
 		)
 		return -1, err
 	}
@@ -272,7 +272,7 @@ func (r *replicator) resetRemoteSeq(resetSeq int64) error {
 	// reset storage headSeq
 	nextReq := &protoStorageV1.ResetSeqRequest{
 		Database: r.database,
-		ShardID:  r.shardID,
+		ShardID:  int32(r.shardID),
 		Seq:      resetSeq,
 	}
 	ctx, cancel := context.WithTimeout(context.TODO(), unaryRPCTimeout)
@@ -351,7 +351,7 @@ func (r *replicator) consumeBatch(repPointer *[]*protoStorageV1.Replica) []*prot
 		data, err := r.fo.Get(seq)
 		if err != nil {
 			r.logger.Error("get message from fanout queue error", logger.String("database", r.database),
-				logger.Int32("shardID", r.shardID))
+				logger.Any("shardID", r.shardID))
 			break
 		}
 

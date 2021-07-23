@@ -65,7 +65,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
-	ch1.shardChannels.Store(int32(0), shardCh)
+	ch1.shardChannels.Store(models.ShardID(0), shardCh)
 
 	shardCh.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
 	err = ch.Write(&protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
@@ -89,8 +89,8 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	assert.NotNil(t, ch)
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
-	ch1.shardChannels.Store(int32(0), shardCh)
-	shardCh2, err := ch.CreateChannel(int32(1), int32(0))
+	ch1.shardChannels.Store(models.ShardID(0), shardCh)
+	shardCh2, err := ch.CreateChannel(int32(1), models.ShardID(0))
 	assert.NoError(t, err)
 	assert.Equal(t, shardCh, shardCh2)
 
@@ -108,7 +108,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 		createChannel = newChannel
 	}()
 	createChannel = func(cxt context.Context,
-		cfg config.ReplicationChannel, database string, shardID int32,
+		cfg config.ReplicationChannel, database string, shardID models.ShardID,
 		fct rpc.ClientStreamFactory,
 	) (i Channel, e error) {
 		return nil, fmt.Errorf("err")
@@ -118,7 +118,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	assert.Error(t, err)
 
 	ch1.shardChannels.Store(int32(3), "test")
-	c, ok := ch1.getChannelByShardID(int32(3))
+	c, ok := ch1.getChannelByShardID(models.ShardID(3))
 	assert.False(t, ok)
 	assert.Nil(t, c)
 }
@@ -134,16 +134,19 @@ func TestDatabaseChannel_ReplicaState(t *testing.T) {
 	shardCh0 := NewMockChannel(ctrl)
 	shardCh1 := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
-	ch1.shardChannels.Store(int32(0), shardCh0)
-	ch1.shardChannels.Store(int32(1), shardCh1)
+	ch1.shardChannels.Store(models.ShardID(0), shardCh0)
+	ch1.shardChannels.Store(models.ShardID(1), shardCh1)
 
 	shardCh0.EXPECT().Targets().Return(nil)
-	shardCh1.EXPECT().Targets().Return([]models.Node{{IP: "1.1.1.1", Port: 12345}, {IP: "2.2.2.2", Port: 12345}})
-	shardCh1.EXPECT().GetOrCreateReplicator(models.Node{IP: "1.1.1.1", Port: 12345}).Return(nil, fmt.Errorf("err"))
+	shardCh1.EXPECT().Targets().Return([]models.Node{
+		&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 12345},
+		&models.StatelessNode{HostIP: "2.2.2.2", GRPCPort: 12345},
+	})
+	shardCh1.EXPECT().GetOrCreateReplicator(&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 12345}).Return(nil, fmt.Errorf("err"))
 	replicator := NewMockReplicator(ctrl)
-	shardCh1.EXPECT().GetOrCreateReplicator(models.Node{IP: "2.2.2.2", Port: 12345}).Return(replicator, nil)
+	shardCh1.EXPECT().GetOrCreateReplicator(&models.StatelessNode{HostIP: "2.2.2.2", GRPCPort: 12345}).Return(replicator, nil)
 	replicator.EXPECT().Database().Return("db")
-	replicator.EXPECT().ShardID().Return(int32(1))
+	replicator.EXPECT().ShardID().Return(models.ShardID(1))
 	replicator.EXPECT().Pending().Return(int64(0))
 	replicator.EXPECT().ReplicaIndex().Return(int64(0))
 	replicator.EXPECT().AckIndex().Return(int64(0))

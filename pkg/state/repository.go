@@ -27,27 +27,27 @@ import (
 //go:generate mockgen -source=./repository.go -destination=./repository_mock.go -package=state
 
 var (
-	// ErrNotExist represents key not exist
-	ErrNotExist = errors.New("not exist")
+	// ErrNotExist represents key not exist.
+	ErrNotExist = errors.New("key not exist")
 )
 
-// RepositoryFactory represents the repository create factory
+// RepositoryFactory represents the repository create factory.
 type RepositoryFactory interface {
-	// CreateRepo creates state repository based on config
+	// CreateRepo creates state repository based on config.
 	CreateRepo(repoState config.RepoState) (Repository, error)
 }
 
 // Repository stores state data, such as metadata/config/status/task etc.
 type Repository interface {
-	// Get retrieves value for given key from repository
+	// Get retrieves value for given key from repository.
 	Get(ctx context.Context, key string) ([]byte, error)
-	// List retrieves list for given prefix from repository
+	// List retrieves list for given prefix from repository.
 	List(ctx context.Context, prefix string) ([]KeyValue, error)
-	// Put puts a key-value pair into repository
+	// Put puts a key-value pair into repository.
 	Put(ctx context.Context, key string, val []byte) error
-	// Delete deletes value for given key from repository
+	// Delete deletes value for given key from repository.
 	Delete(ctx context.Context, key string) error
-	// Heartbeat does heartbeat on the key with a value and ttl
+	// Heartbeat does heartbeat on the key with a value and ttl.
 	Heartbeat(ctx context.Context, key string, value []byte, ttl int64) (<-chan Closed, error)
 	// Elect puts a key with a value,
 	// 1) returns success if the key does not exist and puts success
@@ -55,13 +55,13 @@ type Repository interface {
 	// When this operation success, it will do keepalive background for keep session
 	Elect(ctx context.Context, key string, value []byte, ttl int64) (bool, <-chan Closed, error)
 	// Watch watches on a key. The watched events will be returned through the returned channel.
-	// fetchVal: if fetch prefix key's values for init
+	// fetchVal: if fetch prefix key's values for init.
 	Watch(ctx context.Context, key string, fetchVal bool) WatchEventChan
 	// WatchPrefix watches on a prefix.All of the changes who has the prefix
 	// will be notified through the WatchEventChan channel.
 	// fetchVal: if fetch prefix key's values for init
 	WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan
-	// Batch puts k/v list, this operation is atomic
+	// Batch puts k/v list, this operation is atomic.
 	Batch(ctx context.Context, batch Batch) (bool, error)
 	// NextSequence returns next sequence number.
 	NextSequence(ctx context.Context, key string) (int64, error)

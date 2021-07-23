@@ -75,7 +75,7 @@ func (df *DatabaseFlusherAPI) SubmitFlushTask(c *gin.Context) {
 	} else {
 		// if current node is not master, need forward to master node
 		masterNode := df.deps.Master.GetMaster().Node
-		resp, err := httpGet(fmt.Sprintf("http://%s:%d"+c.Request.RequestURI, masterNode.IP, masterNode.Port))
+		resp, err := httpGet(fmt.Sprintf("http://%s"+c.Request.RequestURI, masterNode.Indicator())) //TODO use grpc??
 		if resp != nil {
 			if resp.Body != nil {
 				if err := resp.Body.Close(); err != nil {

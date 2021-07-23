@@ -36,7 +36,7 @@ func TestChannel_New(t *testing.T) {
 	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "database", ch.Database())
-	assert.Equal(t, int32(1), ch.ShardID())
+	assert.Equal(t, models.ShardID(1), ch.ShardID())
 
 	defer func() {
 		newFanOutQueue = queue.NewFanOutQueue
@@ -57,23 +57,23 @@ func TestChannel_GetOrCreateReplicator(t *testing.T) {
 	ch, err := newChannel(ctx, replicationConfig, "database", 1, nil)
 	assert.NoError(t, err)
 	ch.Startup()
-	target := models.Node{IP: "1.1.1.1", Port: 12345}
-	r, err := ch.GetOrCreateReplicator(target)
+	target := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 12345}
+	r, err := ch.GetOrCreateReplicator(&target)
 	assert.NoError(t, err)
-	assert.Equal(t, target, r.Target())
+	assert.Equal(t, &target, r.Target())
 
-	r2, err := ch.GetOrCreateReplicator(target)
+	r2, err := ch.GetOrCreateReplicator(&target)
 	assert.NoError(t, err)
 	assert.Equal(t, r, r2)
 
 	assert.Len(t, ch.Targets(), 1)
-	assert.Equal(t, target, ch.Targets()[0])
+	assert.Equal(t, &target, ch.Targets()[0])
 
 	ch1 := ch.(*channel)
 	fanout := queue.NewMockFanOutQueue(ctrl)
 	fanout.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	ch1.q = fanout
-	r2, err = ch.GetOrCreateReplicator(models.Node{IP: "err", Port: 12345})
+	r2, err = ch.GetOrCreateReplicator(&models.StatelessNode{HostIP: "err", GRPCPort: 12345})
 	assert.Error(t, err)
 	assert.Nil(t, r2)
 	cancel()

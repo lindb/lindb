@@ -19,15 +19,13 @@ package coordinator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
-	"github.com/lindb/lindb/coordinator/broker"
-	coCtx "github.com/lindb/lindb/coordinator/context"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
-	"github.com/lindb/lindb/coordinator/storage"
+	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -37,10 +35,6 @@ import (
 //go:generate mockgen -source=./master.go -destination=./master_mock.go -package=coordinator
 
 var log = logger.GetLogger("coordinator", "Master")
-
-var (
-	errNoCluster = errors.New("cluster not exist")
-)
 
 // MasterCfg represents the config for master creating
 type MasterCfg struct {
@@ -53,11 +47,7 @@ type MasterCfg struct {
 	// factory
 	DiscoveryFactory  discovery.Factory
 	ControllerFactory task.ControllerFactory
-	ClusterFactory    storage.ClusterFactory
 	RepoFactory       state.RepositoryFactory
-
-	// broker state machine
-	BrokerSM *BrokerStateMachines
 }
 
 // Master represents all metadata/state controller, only has one active master in broker cluster.
@@ -78,13 +68,15 @@ type Master interface {
 
 // master implements master interface
 type master struct {
-	cfg *MasterCfg
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	cfg      *MasterCfg
+	stateMgr masterpkg.StateManager
 
 	// create by runtime
-	masterCtx *coCtx.MasterContext
-	ctx       context.Context
-	cancel    context.CancelFunc
-	elect     elect.Election
+	stateMachineFct *masterpkg.StateMachineFactory
+	elect           elect.Election
 
 	mutex sync.Mutex
 }
@@ -107,28 +99,29 @@ func (m *master) OnFailOver() error {
 	log.Info("starting master fail over")
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
 	var err error
-	stateMachine := &coCtx.StateMachine{}
-	newCtx := coCtx.NewMasterContext(stateMachine)
+	stateMgr := masterpkg.NewStateManager(m.ctx, m.cfg.Repo, m.cfg.RepoFactory, m.cfg.ControllerFactory)
+	stateMachineFct := masterpkg.NewStateMachineFactory(m.ctx, m.cfg.DiscoveryFactory, stateMgr)
+	// first need set state machine factory in state manager
+	stateMgr.SetStateMachineFactory(stateMachineFct)
+
 	defer func() {
 		if err != nil {
-			newCtx.Close()
-			m.masterCtx = nil
+			stateMachineFct.Stop()
+			if err0 := stateMgr.Close(); err0 != nil {
+				log.Error("close state error when elect master fail", logger.Error(err0))
+			}
+			m.stateMachineFct = nil
 		} else {
-			m.masterCtx = newCtx
+			m.stateMachineFct = stateMachineFct
+			m.stateMgr = stateMgr
 		}
 	}()
-
-	stateMachine.StorageCluster, err = storage.NewClusterStateMachine(m.ctx, m.cfg.Repo,
-		m.cfg.ControllerFactory, m.cfg.DiscoveryFactory, m.cfg.ClusterFactory, m.cfg.RepoFactory,
-	)
+	// start master state machine
+	err = stateMachineFct.Start()
 	if err != nil {
-		return fmt.Errorf("start storage cluster state machine errer:%s", err)
-	}
-
-	stateMachine.DatabaseAdmin, err = broker.NewShardAssignmentStateMachine(m.ctx, m.cfg.DiscoveryFactory, stateMachine.StorageCluster)
-	if err != nil {
-		return fmt.Errorf("start database admin state machine error:%s", err)
+		return fmt.Errorf("start master state machine error:%s", err)
 	}
 
 	return nil
@@ -137,12 +130,18 @@ func (m *master) OnFailOver() error {
 // OnResignation invoked current node is master, before re-electing
 func (m *master) OnResignation() {
 	log.Info("starting master resign")
-	if m.masterCtx != nil {
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-		m.masterCtx.Close()
-		m.masterCtx = nil
+	if m.stateMachineFct != nil {
+		m.stateMachineFct.Stop()
+		m.stateMachineFct = nil
+	}
+
+	if m.stateMgr != nil {
+		if err := m.stateMgr.Close(); err != nil {
+			log.Error("close state error when master resign", logger.Error(err))
+		}
 	}
 }
 
@@ -176,11 +175,12 @@ func (m *master) FlushDatabase(cluster string, databaseName string) error {
 	if m.IsMaster() {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
-		cluster := m.masterCtx.StateMachine.StorageCluster.GetCluster(cluster)
-		if cluster == nil {
-			return errNoCluster
+
+		storage := m.stateMgr.GetStorageCluster(cluster)
+		if storage == nil {
+			return constants.ErrNoStorageCluster
 		}
-		return cluster.FlushDatabase(databaseName)
+		return storage.FlushDatabase(databaseName)
 	}
 	return nil
 }

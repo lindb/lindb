@@ -38,7 +38,7 @@ func TestTaskManager_SubmitMetricTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	currentNode := models.Node{IP: "1.1.1.1", Port: 8000}
+	currentNode := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -46,7 +46,7 @@ func TestTaskManager_SubmitMetricTask(t *testing.T) {
 
 	taskManager1 := NewTaskManager(
 		ctx,
-		currentNode,
+		&currentNode,
 		taskClientFactory,
 		taskServerFactory,
 		concurrent.NewPool(
@@ -63,8 +63,8 @@ func TestTaskManager_SubmitMetricTask(t *testing.T) {
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []models.Node{{IP: "1.1.1.1", Port: 2000}},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 2000}},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	physicalPlan.AddIntermediate(models.Intermediate{
 		BaseNode: models.BaseNode{
@@ -113,7 +113,7 @@ func TestTaskManager_SendResponse(t *testing.T) {
 
 	taskManager1 := NewTaskManager(
 		ctx,
-		models.Node{IP: "1.1.1.1", Port: 8000},
+		&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000},
 		nil,
 		taskServerFactory,
 		concurrent.NewPool(
@@ -142,13 +142,13 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	currentNode := models.Node{IP: "1.1.1.2", Port: 8000}
+	currentNode := models.StatelessNode{HostIP: "1.1.1.2", GRPCPort: 8000}
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 
 	taskManager2 := NewTaskManager(
 		context.Background(),
-		currentNode,
+		&currentNode,
 		taskClientFactory,
 		taskServerFactory,
 		concurrent.NewPool(
@@ -166,8 +166,8 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 			Parent:    "1.1.1.4:8000",
 			Indicator: "1.1.1.2:9000",
 		},
-		Receivers: []models.Node{{IP: "1.1.1.1", Port: 2000}},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 2000}},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	// send error
 	client := protoCommonV1.NewMockTaskService_HandleClient(ctrl)
@@ -193,7 +193,7 @@ func TestTaskManager_cleaner(t *testing.T) {
 
 	tm := NewTaskManager(
 		context.Background(),
-		models.Node{},
+		&models.StatelessNode{},
 		nil,
 		nil,
 		concurrent.NewPool(

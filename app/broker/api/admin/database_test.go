@@ -64,17 +64,17 @@ func TestDatabaseAPI_Save(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, reps.Code)
 	// num shards < 0
 	reps = mock.DoRequest(t, r, http.MethodPost, DatabasePath,
-		`{"name":"23", "cluster": "xxx", "numOfShard": -2}`)
+		`{"name":"23", "storage": "xxx", "numOfShard": -2}`)
 	assert.Equal(t, http.StatusInternalServerError, reps.Code)
 	// ReplicaFactor < 0
 	reps = mock.DoRequest(t, r, http.MethodPost, DatabasePath,
-		`{"name":"23", "cluster": "xxx", "numOfShard": 2, "replicaFactor": -1}`)
+		`{"name":"23", "storage": "xxx", "numOfShard": 2, "replicaFactor": -1}`)
 	assert.Equal(t, http.StatusInternalServerError, reps.Code)
 
 	// validate error
 	database := models.Database{
 		Name:          "test",
-		Cluster:       "cluster-test",
+		Storage:       "cluster-test",
 		NumOfShard:    12,
 		ReplicaFactor: 3,
 		Option:        option.DatabaseOption{Interval: "-10s"},
@@ -148,7 +148,7 @@ func TestDatabaseService_List(t *testing.T) {
 	// get ok
 	database := models.Database{
 		Name:          "test",
-		Cluster:       "cluster-test",
+		Storage:       "cluster-test",
 		NumOfShard:    12,
 		ReplicaFactor: 3,
 	}

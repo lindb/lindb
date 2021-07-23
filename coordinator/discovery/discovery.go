@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -33,7 +32,7 @@ type Factory interface {
 	// GetRepo returns the repo of discovery used.
 	GetRepo() state.Repository
 	// CreateDiscovery creates a discovery who will watch the changes with the given prefix.
-	CreateDiscovery(prefix string, listener inif.Listener) Discovery
+	CreateDiscovery(prefix string, listener Listener) Discovery
 }
 
 // factory implements factory interface using state repo.
@@ -52,7 +51,7 @@ func (f *factory) GetRepo() state.Repository {
 }
 
 // CreateDiscovery creates a discovery who will watch the changes with the given prefix.
-func (f *factory) CreateDiscovery(prefix string, listener inif.Listener) Discovery {
+func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &discovery{
 		prefix:   prefix,
@@ -80,7 +79,7 @@ type Discovery interface {
 type discovery struct {
 	prefix   string
 	repo     state.Repository
-	listener inif.Listener
+	listener Listener
 
 	ctx    context.Context
 	cancel context.CancelFunc

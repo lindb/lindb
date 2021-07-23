@@ -20,7 +20,6 @@ package discovery
 import (
 	"context"
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/lindb/lindb/constants"
@@ -28,7 +27,6 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
@@ -36,8 +34,6 @@ import (
 // Registry represents server node register.
 type Registry interface {
 	io.Closer
-	// GenerateNodeID generates node id if node not exist in cluster.
-	GenerateNodeID(node models.Node) (models.NodeID, error)
 	// Register registers node info, add it to active node list for discovery.
 	Register(node models.Node) error
 	// Deregister deregister node info, remove it from active list.
@@ -56,11 +52,7 @@ type registry struct {
 }
 
 // NewRegistry returns a new registry with prefix and ttl.
-func NewRegistry(
-	repo state.Repository,
-	prefix string,
-	ttl time.Duration,
-) Registry {
+func NewRegistry(repo state.Repository, ttl time.Duration) Registry {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &registry{
 		ttl:    ttl,
@@ -71,36 +63,11 @@ func NewRegistry(
 	}
 }
 
-// GenerateNodeID generates node id if node not exist in cluster.
-func (r *registry) GenerateNodeID(node models.Node) (models.NodeID, error) {
-	path := constants.GetNodeIDPath(node.Indicator())
-	id, err := r.repo.Get(r.ctx, path)
-	if err == state.ErrNotExist {
-		// node data not exist, need gen new node id
-		seq, err := r.repo.NextSequence(r.ctx, constants.NodeSeqPath)
-		if err != nil {
-			return 0, err
-		}
-		// store node id
-		err = r.repo.Put(r.ctx, path, []byte(strconv.FormatInt(seq, 10)))
-		if err != nil {
-			return 0, err
-		}
-		// return new node id
-		return models.NodeID(int(seq)), nil
-	}
-	nodeID, err := strconv.ParseInt(string(id), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	// node id exist, return it
-	return models.NodeID(int(nodeID)), nil
-}
-
 // Register registers node info, add it to active node list for discovery.
 func (r *registry) Register(node models.Node) error {
 	// register node info
-	path := constants.GetActiveNodePath(node.Indicator())
+	path := constants.GetLiveNodePath(node.Indicator())
+	r.log.Info("starting register live node", logger.String("path", path))
 	// register node if fail retry it
 	go r.register(path, node)
 	return nil
@@ -108,7 +75,7 @@ func (r *registry) Register(node models.Node) error {
 
 // Deregister deregisters node info, remove it from active list.
 func (r *registry) Deregister(node models.Node) error {
-	return r.repo.Delete(r.ctx, constants.GetActiveNodePath(node.Indicator()))
+	return r.repo.Delete(r.ctx, constants.GetLiveNodePath(node.Indicator()))
 }
 
 // Close closes registry, releases resources.
@@ -124,7 +91,7 @@ func (r *registry) register(path string, node models.Node) {
 		if r.ctx.Err() != nil {
 			return
 		}
-		nodeBytes := encoding.JSONMarshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
+		nodeBytes := encoding.JSONMarshal(node)
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, int64(r.ttl.Seconds()))
 		if err != nil {
@@ -133,7 +100,7 @@ func (r *registry) register(path string, node models.Node) {
 			continue
 		}
 
-		r.log.Info("register node successfully", logger.String("path", path))
+		r.log.Info("register node successfully", logger.String("path", path), logger.Any("node", node))
 
 		select {
 		case <-r.ctx.Done():

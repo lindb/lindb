@@ -35,12 +35,12 @@ import (
 
 var log = logger.GetLogger("coordinator", "Election")
 
-// Listener represent master change callback interface
+// Listener represent master change callback interface.
 type Listener interface {
 	// OnFailOver triggers master fail-over, current node become master,
 	// if fail over is failure return err
 	OnFailOver() error
-	// OnResignation triggers master resignation
+	// OnResignation triggers master resignation.
 	OnResignation()
 }
 
@@ -58,7 +58,7 @@ type Election interface {
 	GetMaster() *models.Master
 }
 
-// election implements election interface for master elect
+// election implements election interface for master elect.
 type election struct {
 	repo     state.Repository
 	isMaster *atomic.Bool
@@ -134,7 +134,7 @@ func (e *election) elect() {
 		}
 		log.Info("try elect master", logger.Any("node", e.node))
 
-		master := models.Master{Node: e.node, ElectTime: timeutil.Now()}
+		master := models.Master{Node: e.node.(*models.StatelessNode), ElectTime: timeutil.Now()}
 		masterBytes := encoding.JSONMarshal(master)
 		result, _, err := e.repo.Elect(e.ctx, constants.MasterPath, masterBytes, e.ttl)
 
@@ -208,11 +208,15 @@ func (e *election) handleEvent(event *state.Event) {
 		for _, kv := range event.KeyValues {
 			master := models.Master{}
 			if err := encoding.JSONUnmarshal(kv.Value, &master); err != nil {
-				log.Error("unmarshal master value error", logger.Error(err))
+				//TODO if master data err, need remove master register data???
+				log.Error("unmarshal master value error",
+					logger.String("data", string(kv.Value)),
+					logger.Error(err))
+				continue
 			}
 			log.Info("current master is", logger.Any("master", master))
 			// check current node if is master
-			if master.Node.IP == e.node.IP && master.Node.Port == e.node.Port {
+			if master.Node.Indicator() == e.node.Indicator() {
 				// current node become master
 				if err := e.listener.OnFailOver(); err != nil {
 					e.reElect()

@@ -1429,7 +1429,10 @@ func (m *ResetIndexRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -1480,7 +1483,10 @@ func (m *ResetIndexResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -1601,7 +1607,10 @@ func (m *GetReplicaAckIndexRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -1671,7 +1680,10 @@ func (m *GetReplicaAckIndexResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -1775,7 +1787,10 @@ func (m *ReplicaRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -1985,7 +2000,10 @@ func (m *ReplicaResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -2070,7 +2088,10 @@ func (m *WriteRequest) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {
@@ -2153,7 +2174,10 @@ func (m *WriteResponse) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthReplica
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthReplica
 			}
 			if (iNdEx + skippy) > l {

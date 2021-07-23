@@ -24,7 +24,7 @@ import (
 )
 
 func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, DatabaseAssignPath+"/name", GetDatabaseAssignPath("name"))
+	assert.Equal(t, ShardAssigmentPath+"/name", GetDatabaseAssignPath("name"))
 }
 
 func TestGetDatabaseConfigPath(t *testing.T) {
@@ -32,29 +32,14 @@ func TestGetDatabaseConfigPath(t *testing.T) {
 }
 
 func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, ActiveNodesPath+"/name", GetActiveNodePath("name"))
+	assert.Equal(t, LiveNodesPath+"/name", GetLiveNodePath("name"))
 }
 
 func TestGetStorageClusterConfigPath(t *testing.T) {
-	assert.Equal(t, StorageClusterConfigPath+"/name", GetStorageClusterConfigPath("name"))
+	assert.Equal(t, StorageConfigPath+"/name", GetStorageClusterConfigPath("name"))
 
-}
-func TestGetStorageClusterStatePath(t *testing.T) {
-	assert.Equal(t, StorageClusterNodeStatePath+"/name", GetStorageClusterNodeStatePath("name"))
-}
-
-func TestGetStorageClusterStatPath(t *testing.T) {
-	assert.Equal(t, StorageClusterStatPath+"/name", GetStorageClusterStatPath("name"))
-}
-
-func TestGetReplicaStatePath(t *testing.T) {
-	assert.Equal(t, ReplicaStatePath+"/1.1.1.1:port", GetReplicaStatePath("1.1.1.1:port"))
 }
 
 func TestGetNodeMonitoringStatPath(t *testing.T) {
 	assert.Equal(t, StateNodesPath+"/1.1.1.1:port", GetNodeMonitoringStatPath("1.1.1.1:port"))
-}
-
-func TestGetNodeIDPath(t *testing.T) {
-	assert.Equal(t, NodesPath+"/ids/1.1.1.1:port", GetNodeIDPath("1.1.1.1:port"))
 }

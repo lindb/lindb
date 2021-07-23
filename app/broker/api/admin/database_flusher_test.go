@@ -81,9 +81,9 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	// forward master
 	master.EXPECT().IsMaster().Return(false)
 	master.EXPECT().GetMaster().Return(&models.Master{
-		Node: models.Node{
-			IP:   "127.0.0.1",
-			Port: 12345,
+		Node: &models.StatelessNode{
+			HostIP:   "127.0.0.1",
+			HTTPPort: 12345,
 		},
 	})
 	httpGet = func(url string) (resp *http.Response, err error) {
@@ -97,9 +97,9 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	}
 	master.EXPECT().IsMaster().Return(false)
 	master.EXPECT().GetMaster().Return(&models.Master{
-		Node: models.Node{
-			IP:   "127.0.0.1",
-			Port: 12345,
+		Node: &models.StatelessNode{
+			HostIP:   "127.0.0.1",
+			HTTPPort: 12345,
 		},
 	})
 	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
@@ -111,9 +111,9 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	}
 	master.EXPECT().IsMaster().Return(false)
 	master.EXPECT().GetMaster().Return(&models.Master{
-		Node: models.Node{
-			IP:   "127.0.0.1",
-			Port: 12346,
+		Node: &models.StatelessNode{
+			HostIP:   "127.0.0.1",
+			HTTPPort: 12345,
 		},
 	})
 	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)
@@ -127,9 +127,9 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	}
 	master.EXPECT().IsMaster().Return(false)
 	master.EXPECT().GetMaster().Return(&models.Master{
-		Node: models.Node{
-			IP:   "127.0.0.1",
-			Port: 12346,
+		Node: &models.StatelessNode{
+			HostIP:   "127.0.0.1",
+			HTTPPort: 12345,
 		},
 	})
 	resp = mock.DoRequest(t, r, http.MethodPut, FlushDatabasePath, `{"cluster":"test","database":"db"}`)

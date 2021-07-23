@@ -36,14 +36,14 @@ func TestTaskExecutor(t *testing.T) {
 
 	engine := tsdb.NewMockEngine(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	exec := NewTaskExecutor(context.TODO(), &models.Node{IP: "1.1.1.1", Port: 5000}, repo, engine)
+	exec := NewTaskExecutor(context.TODO(), &models.StatefulNode{
+		StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 5000},
+	}, repo, engine)
 	assert.NotNil(t, exec)
 
 	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)
 	exec.Run()
 	time.Sleep(100 * time.Millisecond)
 	err := exec.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 }

@@ -111,7 +111,7 @@ func NewTaskManager(
 	taskManagerScope := linmetric.NewScope("lindb.broker.query")
 	tm := &taskManager{
 		ctx:                  ctx,
-		currentNodeID:        (&currentNode).Indicator(),
+		currentNodeID:        currentNode.Indicator(),
 		taskClientFactory:    taskClientFactory,
 		taskServerFactory:    taskServerFactory,
 		seq:                  atomic.NewInt64(0),

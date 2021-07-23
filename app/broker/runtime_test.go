@@ -18,6 +18,7 @@
 package broker
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -25,9 +26,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	check "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
+	brokerpkg "github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/internal/server"
@@ -110,20 +112,32 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 		return "host", fmt.Errorf("err")
 	}
 	err = broker.Run()
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(ts.t, err)
+
+	broker.Stop()
+	c.Assert(server.Terminated, check.Equals, broker.State())
 }
 
-func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(c *check.C) {
+func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	ctrl := gomock.NewController(ts.t)
 	defer ctrl.Finish()
 
 	defer func() {
+		newStateMachineFactory = brokerpkg.NewStateMachineFactory
+		newRegistry = discovery.NewRegistry
 		if err := recover(); err != nil {
 			assert.NotNil(ts.t, err)
 		}
 	}()
+	smFct := discovery.NewMockStateMachineFactory(ctrl)
+	smFct.EXPECT().Stop().AnyTimes()
+
+	newStateMachineFactory = func(ctx context.Context,
+		discoveryFactory discovery.Factory,
+		stateMgr brokerpkg.StateManager,
+	) discovery.StateMachineFactory {
+		return smFct
+	}
 
 	broker := NewBrokerRuntime("test-version", &cfg)
 	b := broker.(*runtime)
@@ -135,14 +149,32 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(c *check.C) {
 	broker.Stop()
 
 	repo := state.NewMockRepository(ctrl)
+	repo.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo, nil).AnyTimes()
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+
+	broker = NewBrokerRuntime("test-version", &cfg)
+	b = broker.(*runtime)
+	b.repoFactory = repoFactory
+	smFct.EXPECT().Start().Return(fmt.Errorf("err"))
+	err = broker.Run()
+	// wait run finish
+	time.Sleep(500 * time.Millisecond)
+	assert.Error(ts.t, err)
+	broker.Stop()
+
+	broker = NewBrokerRuntime("test-version", &cfg)
+	b = broker.(*runtime)
+	b.repoFactory = repoFactory
+	smFct.EXPECT().Start().Return(nil)
+	registry := discovery.NewMockRegistry(ctrl)
+	registry.EXPECT().Close().Return(fmt.Errorf("err"))
+	newRegistry = func(repo state.Repository, ttl time.Duration) discovery.Registry {
+		return registry
+	}
+	registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 	err = broker.Run()
 	assert.Error(ts.t, err)
-	repo.EXPECT().Close().Return(fmt.Errorf("err"))
-	registry := discovery.NewMockRegistry(ctrl)
-	b.registry = registry
-	registry.EXPECT().Close().Return(fmt.Errorf("err"))
+	// wait run finish
+	time.Sleep(500 * time.Millisecond)
 	broker.Stop()
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
@@ -138,7 +139,7 @@ func TestShard_New(t *testing.T) {
 	assert.NotNil(t, thisShard)
 	assert.NotNil(t, thisShard.IndexDatabase())
 	assert.Equal(t, "db", thisShard.DatabaseName())
-	assert.Equal(t, int32(1), thisShard.ShardID())
+	assert.Equal(t, models.ShardID(1), thisShard.ShardID())
 	s, err := thisShard.GetOrCreateSequence("tes")
 	assert.NoError(t, err)
 	assert.NotNil(t, s)

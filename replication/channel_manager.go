@@ -51,7 +51,7 @@ type ChannelManager interface {
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
-	CreateChannel(database string, numOfShard, shardID int32) (Channel, error)
+	CreateChannel(database string, numOfShard int32, shardID models.ShardID) (Channel, error)
 	// SyncReplicatorState syncs replicator state
 	SyncReplicatorState()
 
@@ -111,8 +111,8 @@ func (cm *channelManager) Write(database string, metricList *protoMetricsV1.Metr
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
 // NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-func (cm *channelManager) CreateChannel(database string, numOfShard, shardID int32) (Channel, error) {
-	if numOfShard <= 0 || shardID >= numOfShard {
+func (cm *channelManager) CreateChannel(database string, numOfShard int32, shardID models.ShardID) (Channel, error) {
+	if numOfShard <= 0 || int32(shardID) >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
 	ch, ok := cm.getDatabaseChannel(database)

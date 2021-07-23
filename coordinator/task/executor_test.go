@@ -37,7 +37,7 @@ func TestExecutor(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	node := models.Node{IP: "1.1.1.1", Port: 8000}
+	node := models.StatefulNode{StatelessNode: models.StatelessNode{HostName: "1.1.1.1", GRPCPort: 8000}}
 	exec := NewExecutor(context.TODO(), &node, repo)
 	proc := &dummyProcessor{}
 	exec.Register(proc)
@@ -106,7 +106,7 @@ func TestExecutor_dispatch(t *testing.T) {
 	proc.EXPECT().Kind().Return(Kind("test")).AnyTimes()
 	proc.EXPECT().RetryBackOff().Return(time.Duration(10))
 
-	node := models.Node{IP: "1.1.1.1", Port: 8000}
+	node := models.StatefulNode{StatelessNode: models.StatelessNode{HostName: "1.1.1.1", GRPCPort: 8000}}
 	exec := NewExecutor(context.TODO(), &node, repo)
 	exec.Register(proc)
 	exec.dispatch(state.EventKeyValue{Key: "xxx", Value: []byte{1, 2, 3}})
@@ -135,7 +135,7 @@ func TestExecutor_Run(t *testing.T) {
 	defer ctrl.Finish()
 	repo := state.NewMockRepository(ctrl)
 
-	node := models.Node{IP: "1.1.1.1", Port: 8000}
+	node := models.StatefulNode{StatelessNode: models.StatelessNode{HostName: "1.1.1.1", GRPCPort: 8000}}
 	exec := NewExecutor(context.TODO(), &node, repo)
 
 	time.AfterFunc(100*time.Millisecond, func() {

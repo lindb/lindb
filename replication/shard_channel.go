@@ -44,7 +44,7 @@ type Channel interface {
 	// Database returns the database attribution.
 	Database() string
 	// ShardID returns the shardID attribution.
-	ShardID() int32
+	ShardID() models.ShardID
 	// Startup starts the channel internal goroutine worker which consumes chan data and writes wal
 	Startup()
 	// Write writes the data into the channel, ErrCanceled is returned when the channel is canceled before
@@ -66,7 +66,7 @@ type channel struct {
 	// factory to get WriteClient
 	fct      rpc.ClientStreamFactory
 	database string
-	shardID  int32
+	shardID  models.ShardID
 	// underlying storage for written data
 	q queue.FanOutQueue
 	// chanel to convert multiple goroutine write to single goroutine write to FanOutQueue
@@ -97,7 +97,7 @@ func newChannel(
 	cxt context.Context,
 	cfg config.ReplicationChannel,
 	database string,
-	shardID int32,
+	shardID models.ShardID,
 	fct rpc.ClientStreamFactory,
 ) (Channel, error) {
 	dirPath := path.Join(cfg.Dir, database, strconv.Itoa(int(shardID)))
@@ -137,7 +137,7 @@ func (c *channel) Database() string {
 }
 
 // ShardID returns the shardID attribution.
-func (c *channel) ShardID() int32 {
+func (c *channel) ShardID() models.ShardID {
 	return c.shardID
 }
 
@@ -215,7 +215,7 @@ func (c *channel) initAppendTask() {
 		// handle write wal loop
 		c.writeWAL()
 		c.writePendingBeforeClose()
-		c.logger.Info("close channel append routine", logger.String("database", c.Database()), logger.Int32("shardID", c.ShardID()))
+		c.logger.Info("close channel append routine", logger.String("database", c.Database()), logger.Any("shardID", c.ShardID()))
 	}()
 }
 
