@@ -81,3 +81,88 @@ func Benchmark_TagsAsString_new(b *testing.B) {
 		Concat(_testTags)
 	}
 }
+
+func Test_KeyValues(t *testing.T) {
+	// merge
+	originMap := map[string]string{
+		"host": "alpha",
+		"ip":   "1.1.1.1",
+		"z":    "32",
+	}
+	origin := KeyValuesFromMap(originMap)
+	assert.Equal(t, origin.Merge(nil), origin)
+	other := KeyValuesFromMap(map[string]string{
+		"host": "beta",
+		"a":    "222",
+		"z":    "33",
+	})
+	merged := origin.Merge(other)
+	assert.Equal(t, originMap, origin.Map())
+	assert.Equal(t, KeyValues{
+		{Key: "a", Value: "222"},
+		{Key: "host", Value: "beta"},
+		{Key: "ip", Value: "1.1.1.1"},
+		{Key: "z", Value: "33"},
+	}, merged)
+
+	// append
+	origin = KeyValuesFromMap(map[string]string{
+		"host": "alpha",
+		"ip":   "1.1.1.1",
+		"z":    "32",
+	})
+	other = KeyValuesFromMap(map[string]string{
+		"b": "222",
+		"c": "33",
+		"d": "313",
+		"e": "323",
+		"f": "333",
+	})
+	assert.Equal(t, KeyValues{
+		{Key: "b", Value: "222"},
+		{Key: "c", Value: "33"},
+		{Key: "d", Value: "313"},
+		{Key: "e", Value: "323"},
+		{Key: "f", Value: "333"},
+		{Key: "host", Value: "alpha"},
+		{Key: "ip", Value: "1.1.1.1"},
+		{Key: "z", Value: "32"},
+	}, origin.Merge(other))
+}
+
+func Test_KeyValuesDeDup(t *testing.T) {
+	assert.Len(t, KeyValuesFromMap(map[string]string{"a": "1"}).DeDup(), 1)
+
+	assert.Equal(t, KeyValues{
+		{Key: "1", Value: "2"},
+		{Key: "2", Value: "4"},
+		{Key: "3", Value: "6"},
+	}, KeyValues{
+		{Key: "2", Value: "4"},
+		{Key: "2", Value: "4"},
+		{Key: "1", Value: "2"},
+		{Key: "3", Value: "6"},
+		{Key: "3", Value: "6"},
+	}.DeDup())
+
+	assert.Equal(t, KeyValues{
+		{Key: "1", Value: "2"},
+		{Key: "2", Value: "4"},
+		{Key: "3", Value: "6"},
+	}, KeyValues{
+		{Key: "2", Value: "4"},
+		{Key: "1", Value: "2"},
+		{Key: "3", Value: "6"},
+		{Key: "3", Value: "6"},
+	}.DeDup())
+
+	assert.Equal(t, KeyValues{
+		{Key: "1", Value: "2"},
+		{Key: "2", Value: "4"},
+		{Key: "3", Value: "6"},
+	}, KeyValues{
+		{Key: "2", Value: "4"},
+		{Key: "1", Value: "2"},
+		{Key: "3", Value: "6"},
+	}.DeDup())
+}
