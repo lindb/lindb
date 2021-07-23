@@ -226,11 +226,11 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 
 func (p *storageExecutePlan) planHistogramFields(e *stmt.CallExpr) {
 	if len(e.Params) != 1 {
-		p.err = fmt.Errorf("qunantile params not ok")
+		p.err = fmt.Errorf("qunantile params more than one")
 		return
 	}
 	if v, err := strconv.ParseFloat(e.Params[0].Rewrite(), 64); err != nil {
-		p.err = fmt.Errorf("quantile param: %s is not ok", e.Params[0].Rewrite())
+		p.err = fmt.Errorf("quantile param: %s is not float", e.Params[0].Rewrite())
 		return
 	} else if v <= 0 || v >= 1 {
 		p.err = fmt.Errorf("quantile param: %f is illegal", v)

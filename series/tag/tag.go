@@ -29,12 +29,69 @@ type KeyValues []*protoMetricsV1.KeyValue
 func (kvs KeyValues) Len() int           { return len(kvs) }
 func (kvs KeyValues) Less(i, j int) bool { return kvs[i].Key < kvs[j].Key }
 func (kvs KeyValues) Swap(i, j int)      { kvs[i], kvs[j] = kvs[j], kvs[i] }
+
+// DeDup sorts keyvalues and removes the duplicates
+func (kvs KeyValues) DeDup() KeyValues {
+	if len(kvs) < 2 {
+		return kvs
+	}
+	sort.Sort(kvs)
+	var (
+		fast = 1
+		slow = 0
+	)
+	for fast < kvs.Len() {
+		// move to next
+		if kvs[fast].Key != kvs[slow].Key {
+			slow++
+		}
+		kvs[slow] = kvs[fast]
+		fast++
+	}
+	return kvs[:slow+1]
+}
+
+// Map transforms the KeyValues into map
 func (kvs KeyValues) Map() map[string]string {
 	var m = make(map[string]string)
 	for idx := range kvs {
 		m[kvs[idx].Key] = kvs[idx].Value
 	}
 	return m
+}
+
+// Clone returns a copy of keyValues
+func (kvs KeyValues) Clone() KeyValues {
+	var dst = make([]*protoMetricsV1.KeyValue, len(kvs))
+	for i := range kvs {
+		dst[i] = &protoMetricsV1.KeyValue{
+			Key:   kvs[i].Key,
+			Value: kvs[i].Value,
+		}
+	}
+	return dst
+}
+
+// Merge merges another keyvalue list into a new one
+func (kvs KeyValues) Merge(other KeyValues) KeyValues {
+	if len(other) == 0 {
+		return kvs.Clone()
+	}
+	m := kvs.Map()
+	for _, item := range other {
+		m[item.Key] = item.Value
+	}
+	merged := make(KeyValues, len(m))
+	idx := 0
+	for key, value := range m {
+		merged[idx] = &protoMetricsV1.KeyValue{
+			Key:   key,
+			Value: value,
+		}
+		idx++
+	}
+	sort.Sort(merged)
+	return merged
 }
 
 func KeyValuesFromMap(tags map[string]string) KeyValues {
