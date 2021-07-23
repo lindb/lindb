@@ -124,7 +124,7 @@ func (s *StorageClusterAPI) List(c *gin.Context) {
 	ctx, cancel := s.deps.WithTimeout()
 	defer cancel()
 	var clusters []*config.StorageCluster
-	data, err := s.deps.Repo.List(ctx, constants.StorageClusterConfigPath)
+	data, err := s.deps.Repo.List(ctx, constants.StorageConfigPath)
 	if err != nil {
 		http.Error(c, err)
 		return

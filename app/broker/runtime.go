@@ -28,8 +28,8 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -49,8 +49,12 @@ import (
 )
 
 // just for testing
-var getHostIP = hostutil.GetHostIP
-var hostName = os.Hostname
+var (
+	getHostIP              = hostutil.GetHostIP
+	hostName               = os.Hostname
+	newStateMachineFactory = broker.NewStateMachineFactory
+	newRegistry            = discovery.NewRegistry
+)
 
 // srv represents all services for broker
 type srv struct {
@@ -61,8 +65,9 @@ type srv struct {
 
 // factory represents all factories for broker
 type factory struct {
-	taskClient rpc.TaskClientFactory
-	taskServer rpc.TaskServerFactory
+	taskClient    rpc.TaskClientFactory
+	taskServer    rpc.TaskServerFactory
+	connectionMgr rpc.ConnectionManager
 }
 
 type rpcHandler struct {
@@ -74,16 +79,17 @@ type runtime struct {
 	version string
 	state   server.State
 	config  *config.Broker
-	node    models.Node
+	node    *models.StatelessNode
 	// init value when runtime
-	repo          state.Repository
-	repoFactory   state.RepositoryFactory
-	srv           srv
-	factory       factory
-	httpServer    *HTTPServer
-	master        coordinator.Master
-	registry      discovery.Registry
-	stateMachines *coordinator.BrokerStateMachines
+	repo                state.Repository
+	repoFactory         state.RepositoryFactory
+	srv                 srv
+	factory             factory
+	httpServer          *HTTPServer
+	master              coordinator.Master
+	registry            discovery.Registry
+	stateMachineFactory discovery.StateMachineFactory
+	stateMgr            broker.StateManager
 
 	grpcServer rpc.GRPCServer
 	rpcHandler *rpcHandler
@@ -135,11 +141,13 @@ func (r *runtime) Run() error {
 		r.log.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{
-		IP:       ip,
-		Port:     r.config.BrokerBase.GRPC.Port,
-		HostName: hostName,
-		HTTPPort: r.config.BrokerBase.HTTP.Port,
+	r.node = &models.StatelessNode{
+		HostIP:     ip,
+		HostName:   hostName,
+		GRPCPort:   r.config.BrokerBase.GRPC.Port,
+		HTTPPort:   r.config.BrokerBase.HTTP.Port,
+		OnlineTime: timeutil.Now(),
+		//TODO add build version
 	}
 
 	// start state repository
@@ -149,26 +157,25 @@ func (r *runtime) Run() error {
 		return err
 	}
 
+	tackClientFct := rpc.NewTaskClientFactory(r.node)
 	r.factory = factory{
-		taskClient: rpc.NewTaskClientFactory(r.node),
-		taskServer: rpc.NewTaskServerFactory(),
+		taskClient:    tackClientFct,
+		taskServer:    rpc.NewTaskServerFactory(),
+		connectionMgr: rpc.NewConnectionManager(tackClientFct), //TODO close connections
 	}
 
 	r.buildServiceDependency()
+
+	// start tcp server
+	r.startGRPCServer()
+
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	smFactory := coordinator.NewStateMachineFactory(&coordinator.StateMachineCfg{
-		Ctx:               r.ctx,
-		Repo:              r.repo,
-		CurrentNode:       r.node,
-		ChannelManager:    r.srv.channelManager,
-		DiscoveryFactory:  discoveryFactory,
-		TaskClientFactory: r.factory.taskClient,
-	})
-
+	r.stateMgr = broker.NewStateManager(*r.node, r.factory.connectionMgr, r.factory.taskClient, r.srv.channelManager)
 	// finally start all state machine
-	r.stateMachines = coordinator.NewBrokerStateMachines(smFactory)
-	if err := r.stateMachines.Start(); err != nil {
+	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
+
+	if err := r.stateMachineFactory.Start(); err != nil {
 		return fmt.Errorf("start state machines error: %s", err)
 	}
 
@@ -179,20 +186,15 @@ func (r *runtime) Run() error {
 		TTL:               1, //TODO need config
 		DiscoveryFactory:  discoveryFactory,
 		ControllerFactory: task.NewControllerFactory(),
-		ClusterFactory:    storage.NewClusterFactory(),
 		RepoFactory:       r.repoFactory,
-		BrokerSM:          r.stateMachines,
 	}
 	r.master = coordinator.NewMaster(masterCfg)
 
-	// start tcp server
-	r.startGRPCServer()
-
 	// register broker node info
 	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
+	r.registry = newRegistry(r.repo, 1)
 	if err := r.registry.Register(r.node); err != nil {
-		return fmt.Errorf("register storagequery node error:%s", err)
+		return fmt.Errorf("register broker node error:%s", err)
 	}
 	r.master.Start()
 
@@ -247,9 +249,9 @@ func (r *runtime) Stop() {
 		r.master.Stop()
 	}
 
-	if r.stateMachines != nil {
+	if r.stateMachineFactory != nil {
 		r.log.Info("stopping broker-state-machines...")
-		r.stateMachines.Stop()
+		r.stateMachineFactory.Stop()
 	}
 
 	if r.repo != nil {
@@ -278,16 +280,14 @@ func (r *runtime) startHTTPServer() {
 	r.httpServer = NewHTTPServer(r.config.BrokerBase.HTTP)
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
-		Ctx:           r.ctx,
-		BrokerCfg:     &r.config.BrokerBase,
-		Master:        r.master,
-		Repo:          r.repo,
-		StateMachines: r.stateMachines,
-		CM:            r.srv.channelManager,
+		Ctx:       r.ctx,
+		BrokerCfg: &r.config.BrokerBase,
+		Master:    r.master,
+		Repo:      r.repo,
+		StateMgr:  r.stateMgr,
+		CM:        r.srv.channelManager,
 		QueryFactory: brokerQuery.NewQueryFactory(
-			r.stateMachines.ReplicaStatusSM,
-			r.stateMachines.NodeSM,
-			r.stateMachines.DatabaseSM,
+			r.stateMgr,
 			r.srv.taskManager,
 		),
 	})
@@ -407,9 +407,5 @@ func (r *runtime) systemCollector() {
 		r.config.BrokerBase.ReplicationChannel.Dir,
 		r.repo,
 		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-		models.ActiveNode{
-			Version:    r.version,
-			Node:       r.node,
-			OnlineTime: timeutil.Now(),
-		}, "broker").Run()
+		r.node, "broker").Run()
 }

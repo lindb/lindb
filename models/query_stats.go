@@ -58,7 +58,7 @@ type StorageStats struct {
 	TotalCost             ltoml.Duration            `json:"totalCost"`
 	PlanCost              ltoml.Duration            `json:"planCost"`
 	TagFilterCost         ltoml.Duration            `json:"tagFilterCost"`
-	Shards                map[int32]*ShardStats     `json:"shards,omitempty"`
+	Shards                map[ShardID]*ShardStats   `json:"shards,omitempty"`
 	CollectTagValuesStats map[string]ltoml.Duration `json:"collectTagValuesStats,omitempty"`
 
 	start time.Time  // track search start time in storage side
@@ -68,7 +68,7 @@ type StorageStats struct {
 // NewStorageStats creates the query stats in storage side
 func NewStorageStats() *StorageStats {
 	return &StorageStats{
-		Shards:                make(map[int32]*ShardStats),
+		Shards:                make(map[ShardID]*ShardStats),
 		CollectTagValuesStats: make(map[string]ltoml.Duration),
 		start:                 time.Now(),
 	}
@@ -96,7 +96,7 @@ func (s *StorageStats) SetTagFilterCost(cost time.Duration) {
 }
 
 // SetShardSeriesIDsSearchStats sets shard series ids search stats
-func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID int32, numOfSeries uint64, seriesFilterCost time.Duration) {
+func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID ShardID, numOfSeries uint64, seriesFilterCost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -107,7 +107,7 @@ func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID int32, numOfSeries u
 }
 
 // SetShardMemoryDataFilterCost sets shard memory data filter cost
-func (s *StorageStats) SetShardMemoryDataFilterCost(shardID int32, cost time.Duration) {
+func (s *StorageStats) SetShardMemoryDataFilterCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
@@ -117,7 +117,7 @@ func (s *StorageStats) SetShardMemoryDataFilterCost(shardID int32, cost time.Dur
 }
 
 // SetShardKVDataFilterCost sets shard data filter cost in kv store
-func (s *StorageStats) SetShardKVDataFilterCost(shardID int32, cost time.Duration) {
+func (s *StorageStats) SetShardKVDataFilterCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
@@ -127,7 +127,7 @@ func (s *StorageStats) SetShardKVDataFilterCost(shardID int32, cost time.Duratio
 }
 
 // SetShardGroupingCost sets get shard grouping context cost
-func (s *StorageStats) SetShardGroupingCost(shardID int32, cost time.Duration) {
+func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
@@ -137,7 +137,7 @@ func (s *StorageStats) SetShardGroupingCost(shardID int32, cost time.Duration) {
 }
 
 // SetShardScanStats sets data scan cost in shard level
-func (s *StorageStats) SetShardScanStats(shardID int32, identifier string, cost time.Duration) {
+func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
@@ -147,7 +147,7 @@ func (s *StorageStats) SetShardScanStats(shardID int32, identifier string, cost 
 }
 
 // SetShardGroupBuildStats sets grouping build stats in shard level
-func (s *StorageStats) SetShardGroupBuildStats(shardID int32, cost time.Duration) {
+func (s *StorageStats) SetShardGroupBuildStats(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]

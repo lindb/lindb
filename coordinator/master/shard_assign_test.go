@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package broker
+package master
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ import (
 )
 
 func TestShardAssign(t *testing.T) {
-	storageNodeIDs := []int{0, 1, 2, 3, 4}
+	storageNodeIDs := []models.NodeID{0, 1, 2, 3, 4}
 
 	_, err1 := ShardAssignment(storageNodeIDs,
 		&models.Database{
@@ -63,12 +63,12 @@ func TestShardAssign(t *testing.T) {
 
 func checkShardAssignResult(shardAssignment *models.ShardAssignment, t *testing.T) {
 	assert.Equal(t, 10, len(shardAssignment.Shards))
-	var nodes = make(map[int]map[int]int)
+	var nodes = make(map[models.NodeID]map[models.ShardID]models.ShardID)
 	for shardID, replica := range shardAssignment.Shards {
 		for _, nodeID := range replica.Replicas {
 			node, ok := nodes[nodeID]
 			if !ok {
-				node = make(map[int]int)
+				node = make(map[models.ShardID]models.ShardID)
 				nodes[nodeID] = node
 			}
 			node[shardID] = shardID

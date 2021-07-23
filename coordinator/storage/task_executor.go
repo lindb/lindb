@@ -40,7 +40,7 @@ type TaskExecutor struct {
 
 // NewTaskExecutor creates task executor
 func NewTaskExecutor(ctx context.Context,
-	node *models.Node,
+	node *models.StatefulNode,
 	repo state.Repository,
 	engine tsdb.Engine,
 ) *TaskExecutor {

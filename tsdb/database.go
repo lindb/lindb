@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
@@ -65,9 +66,9 @@ type Database interface {
 	// GetOption returns the data base options
 	GetOption() option.DatabaseOption
 	// CreateShards creates shards for data partition
-	CreateShards(option option.DatabaseOption, shardIDs []int32) error
+	CreateShards(option option.DatabaseOption, shardIDs []models.ShardID) error
 	// GetShard returns shard by given shard id
-	GetShard(shardID int32) (Shard, bool)
+	GetShard(shardID models.ShardID) (Shard, bool)
 	// ExecutorPool returns the pool for querying tasks
 	ExecutorPool() *ExecutorPool
 	// Closer closes database's underlying resource
@@ -82,7 +83,7 @@ type Database interface {
 
 // databaseConfig represents a database configuration about config and shards
 type databaseConfig struct {
-	ShardIDs []int32               `toml:"shardIDs"`
+	ShardIDs []models.ShardID      `toml:"shardIDs"`
 	Option   option.DatabaseOption `toml:"option"`
 }
 
@@ -194,7 +195,7 @@ func (db *database) GetOption() option.DatabaseOption {
 // CreateShards creates shards for data partition
 func (db *database) CreateShards(
 	option option.DatabaseOption,
-	shardIDs []int32,
+	shardIDs []models.ShardID,
 ) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("shardIDs list is empty")
@@ -212,7 +213,7 @@ func (db *database) CreateShards(
 }
 
 // createShard creates a new shard based on option
-func (db *database) createShard(shardID int32, option option.DatabaseOption) error {
+func (db *database) createShard(shardID models.ShardID, option option.DatabaseOption) error {
 	// be careful need do mutex unlock
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -243,7 +244,7 @@ func (db *database) createShard(shardID int32, option option.DatabaseOption) err
 }
 
 // GetShard returns shard by given shard id,
-func (db *database) GetShard(shardID int32) (Shard, bool) {
+func (db *database) GetShard(shardID models.ShardID) (Shard, bool) {
 	return db.shardSet.GetShard(shardID)
 }
 

@@ -31,7 +31,7 @@ import (
 type Executor struct {
 	keyPrefix  string
 	repo       state.Repository
-	node       *models.Node
+	node       *models.StatefulNode
 	processors map[Kind]*taskProcessor
 
 	ctx    context.Context
@@ -41,7 +41,7 @@ type Executor struct {
 }
 
 // NewExecutor creates a new Executor, the task key prefix must be the same as Controller's.
-func NewExecutor(ctx context.Context, node *models.Node, repo state.Repository) *Executor {
+func NewExecutor(ctx context.Context, node *models.StatefulNode, repo state.Repository) *Executor {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Executor{
 		keyPrefix:  fmt.Sprintf("%s/executor/%s/", taskCoordinatorKey, node.Indicator()),

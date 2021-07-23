@@ -60,7 +60,7 @@ var createDatabaseCmd = &cobra.Command{
 		}
 		if err := initializer.InitInternalDatabase(models.Database{
 			Name:          args[0],
-			Cluster:       args[0],
+			Storage:       args[0],
 			NumOfShard:    numOfShards,
 			ReplicaFactor: replicaFactor,
 			Option: option.DatabaseOption{

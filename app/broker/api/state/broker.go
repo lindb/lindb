@@ -61,10 +61,10 @@ func (s *BrokerAPI) ListBrokersState(c *gin.Context) {
 		return
 	}
 	// get active nodes
-	nodes := s.deps.StateMachines.NodeSM.GetActiveNodes()
+	nodes := s.deps.StateMgr.GetLiveNodes()
 	nodeIDs := make(map[string]string)
 	for _, node := range nodes {
-		id := node.Node.Indicator()
+		id := node.Indicator()
 		nodeIDs[id] = id
 	}
 	// build result

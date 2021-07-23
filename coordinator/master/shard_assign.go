@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package broker
+package master
 
 import (
 	"fmt"
@@ -27,10 +27,10 @@ import (
 // Shard assigment reference kafka partition assigment
 // kafka implement => (https://github.com/apache/kafka/blob/2.3/core/src/main/scala/kafka/admin/AdminUtils.scala)
 
-// ShardAssignment assigns replica list for storage cluster
-// which database's each shard based on selected node list in cluster.
+// ShardAssignment assigns replica list for storage storageCluster
+// which database's each shard based on selected node list in storageCluster.
 // There are 2 goals of replica assignment:
-// 1. Spread the replicas evenly among storage nodes for currently cluster state.
+// 1. Spread the replicas evenly among storage nodes for currently storageCluster state.
 // 2. For shards assigned to a particular storage node, their other replicas are spread over the other storage nodes.
 //
 // TO achieve this goal, we:
@@ -45,7 +45,7 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []int, cfg *models.Database, fixedStartIndex, startShardID int) (*models.ShardAssignment, error) {
+func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database, fixedStartIndex int, startShardID models.ShardID) (*models.ShardAssignment, error) {
 	numOfShard := cfg.NumOfShard
 	replicaFactor := cfg.ReplicaFactor
 	if numOfShard <= 0 {
@@ -66,8 +66,8 @@ func ShardAssignment(storageNodeIDs []int, cfg *models.Database, fixedStartIndex
 	return shardAssignment, nil
 }
 
-func ModifyShardAssignment(storageNodeIDs []int, cfg *models.Database, shardAssignment *models.ShardAssignment,
-	fixedStartIndex, startShardID int) error {
+func ModifyShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database, shardAssignment *models.ShardAssignment,
+	fixedStartIndex int, startShardID models.ShardID) error {
 	numOfShard := cfg.NumOfShard - len(shardAssignment.Shards)
 	replicaFactor := cfg.ReplicaFactor
 	if numOfShard <= 0 {
@@ -86,10 +86,10 @@ func ModifyShardAssignment(storageNodeIDs []int, cfg *models.Database, shardAssi
 	return nil
 }
 
-// assignReplicasToStorageNodes assigns replica list for storage cluster
-// which database's each shard based on selected node list in cluster.
-func assignReplicasToStorageNodes(storageNodeIDs []int,
-	numOfShard, replicaFactor, fixedStartIndex, startShardID int,
+// assignReplicasToStorageNodes assigns replica list for storage storageCluster
+// which database's each shard based on selected node list in storageCluster.
+func assignReplicasToStorageNodes(storageNodeIDs []models.NodeID,
+	numOfShard, replicaFactor, fixedStartIndex int, startShardID models.ShardID,
 	shardAssignment *models.ShardAssignment) {
 	numOfNode := len(storageNodeIDs)
 
@@ -100,17 +100,17 @@ func assignReplicasToStorageNodes(storageNodeIDs []int,
 		startIndex = rand.Intn(numOfNode)
 		nextReplicaShift = rand.Intn(numOfNode)
 	}
-	currentShardID := 0
+	currentShardID := models.ShardID(0)
 	if startShardID >= 0 {
 		currentShardID = startShardID
 	}
 
 	// assign replica list for each shard
 	for i := 0; i < numOfShard; i++ {
-		if currentShardID > 0 && (currentShardID%numOfNode == 0) {
+		if currentShardID > 0 && (int(currentShardID)%numOfNode == 0) {
 			nextReplicaShift++
 		}
-		firstReplicaIndex := (currentShardID + startIndex) % numOfNode
+		firstReplicaIndex := (int(currentShardID) + startIndex) % numOfNode
 
 		// elect first replica as leader
 		leader := storageNodeIDs[firstReplicaIndex]

@@ -62,6 +62,6 @@ type Intermediate struct {
 type Leaf struct {
 	BaseNode
 
-	Receivers []Node  `json:"receivers"`
-	ShardIDs  []int32 `json:"shardIDs"`
+	Receivers []StatelessNode `json:"receivers"`
+	ShardIDs  []ShardID       `json:"shardIDs"`
 }

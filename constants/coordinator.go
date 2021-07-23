@@ -21,16 +21,15 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/models"
 )
 
 // defines common constants will be used in broker and storage.
 const (
-	// ActiveNodesPath represents active nodes prefix path for node register.
-	ActiveNodesPath = "/active/nodes"
+	// LiveNodesPath represents live nodes prefix path for node register.
+	LiveNodesPath = "/live/nodes"
 	// NodesPath represents node's metadata root path.
 	NodesPath = "/nodes/meta"
-	// NodeSeqPath represents node id seg generate path.
-	NodeSeqPath = "/active/nodes/seq"
 	// StateNodesPath represents the state of node that node will report runtime status
 	StateNodesPath = "/state/nodes"
 )
@@ -38,23 +37,18 @@ const (
 // defines storage level constants will be used in storage
 //const ()
 
-// defines broker level constants will be used in broker
+// defines broker level constants will be used in broker.
 const (
-	// MasterPath represents master elect path
+	// MasterPath represents master elect path.
 	MasterPath = "/master/node"
-	// DatabaseAssignPath represents database shard assignment
-	DatabaseAssignPath = "/database/assign"
-	// StorageClusterConfigPath represents cluster config store
-	StorageClusterConfigPath = "/storage/cluster/config"
-	// DatabaseConfigPath represents database config path
+	// DatabaseConfigPath represents database config path.
 	DatabaseConfigPath = "/database/config"
-
-	// StorageClusterNodeStatePath represents storage cluster's node state
-	StorageClusterNodeStatePath = "/state/storage/nodes/cluster"
-	// ReplicaStatePath represents the replica's state
-	ReplicaStatePath = "/state/replica"
-	// StorageClusterStatPath represents storage cluster's node monitoring stat
-	StorageClusterStatPath = "/state/storage/stat/cluster"
+	// ShardAssigmentPath represents database shard assignment.
+	ShardAssigmentPath = "/database/assign"
+	// StorageConfigPath represents storage cluster's config.
+	StorageConfigPath = "/storage/config"
+	// StorageStatePath represents storage cluster's state.
+	StorageStatePath = "/storage/state"
 )
 
 // defines all task kinds
@@ -67,17 +61,11 @@ const (
 
 // GetStorageClusterConfigPath returns path which storing config of storage cluster
 func GetStorageClusterConfigPath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageClusterConfigPath, name)
+	return fmt.Sprintf("%s/%s", StorageConfigPath, name)
 }
 
-// GetStorageClusterNodeStatePath returns path whine storing state of storage cluster
-func GetStorageClusterNodeStatePath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageClusterNodeStatePath, name)
-}
-
-// GetStorageClusterStatPath returns path whine storing monitoring stat of storage cluster
-func GetStorageClusterStatPath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageClusterStatPath, name)
+func GetStorageStatePath(name string) string {
+	return fmt.Sprintf("%s/%s", StorageStatePath, name)
 }
 
 // GetDatabaseConfigPath returns path which storing config of database
@@ -87,32 +75,17 @@ func GetDatabaseConfigPath(name string) string {
 
 // GetDatabaseAssignPath returns path which storing shard assignment of database
 func GetDatabaseAssignPath(name string) string {
-	return fmt.Sprintf("%s/%s", DatabaseAssignPath, name)
+	return fmt.Sprintf("%s/%s", ShardAssigmentPath, name)
 }
 
-// GetActiveNodePath returns active node register path.
-func GetActiveNodePath(node string) string {
-	return fmt.Sprintf("%s/%s", ActiveNodesPath, node)
+// GetLiveNodePath returns live node register path.
+func GetLiveNodePath(node string) string {
+	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
 }
 
-// GetNodePath returns node's metadata register path.
-func GetNodePath(node string) string {
-	return fmt.Sprintf("%s/%s", NodesPath, node)
-}
-
-// GetNodeIDPath returns node id register path
-func GetNodeIDPath(node string) string {
-	return fmt.Sprintf("%s/ids/%s", NodesPath, node)
-}
-
-// GetNodeSeqPath returns node id's generate path
-func GetNodeSeqPath(prefix string) string {
-	return fmt.Sprintf("%s/seq", prefix)
-}
-
-// GetReplicaStatePath returns replica's state path
-func GetReplicaStatePath(node string) string {
-	return fmt.Sprintf("%s/%s", ReplicaStatePath, node)
+// GetStatefulNodePath returns stateful node's metadata register path.
+func GetStatefulNodePath(nodeID models.NodeID) string {
+	return fmt.Sprintf("%s/%d", NodesPath, nodeID)
 }
 
 // GetNodeMonitoringStatPath returns the node monitoring stat's path

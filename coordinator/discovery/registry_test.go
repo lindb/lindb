@@ -19,7 +19,6 @@ package discovery
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -31,26 +30,24 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
-var testRegistryPath = "/test/registry"
-
 func TestRegistry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
 
-	registry1 := NewRegistry(repo, testRegistryPath, 100)
+	registry1 := NewRegistry(repo, 100)
 
 	closedCh := make(chan state.Closed)
 
-	node := models.Node{IP: "127.0.0.1", Port: 2080, HTTPPort: 9002}
+	node := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	gomock.InOrder(
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, fmt.Errorf("err")),
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(closedCh, nil),
 	)
-	err := registry1.Register(node)
+	err := registry1.Register(&node)
 	assert.NoError(t, err)
 	time.Sleep(600 * time.Millisecond)
 
@@ -60,65 +57,27 @@ func TestRegistry(t *testing.T) {
 	close(closedCh)
 	time.Sleep(600 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/%s", constants.ActiveNodesPath, node.Indicator())
+	nodePath := fmt.Sprintf("%s/%s", constants.LiveNodesPath, node.Indicator())
 	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
-	err = registry1.Deregister(node)
+	err = registry1.Deregister(&node)
 	assert.Nil(t, err)
 
 	err = registry1.Close()
 	assert.NoError(t, err)
 
-	registry1 = NewRegistry(repo, testRegistryPath, 100)
+	registry1 = NewRegistry(repo, 100)
 	err = registry1.Close()
 	assert.NoError(t, err)
 
 	r := registry1.(*registry)
-	r.register("/data/pant", node)
+	r.register("/data/pant", &node)
 
-	registry1 = NewRegistry(repo, testRegistryPath, 100)
+	registry1 = NewRegistry(repo, 100)
 	r = registry1.(*registry)
 
 	// cancel ctx in timer
 	time.AfterFunc(100*time.Millisecond, func() {
 		r.cancel()
 	})
-	r.register("/data/pant", node)
-}
-
-func TestRegistry_GenerateNodeID(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	repo := state.NewMockRepository(ctrl)
-
-	registry1 := NewRegistry(repo, testRegistryPath, 100)
-	// case 1: get err
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	_, err := registry1.GenerateNodeID(models.Node{})
-	assert.Error(t, err)
-
-	// case 2: get data ok
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte(strconv.FormatInt(10, 10)), nil)
-	id, err := registry1.GenerateNodeID(models.Node{})
-	assert.NoError(t, err)
-	assert.Equal(t, models.NodeID(10), id)
-
-	// case 3: init seq err
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
-	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(0), fmt.Errorf("err"))
-	_, err = registry1.GenerateNodeID(models.Node{})
-	assert.Error(t, err)
-	// case 4: store seq err
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
-	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(10), nil)
-	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	_, err = registry1.GenerateNodeID(models.Node{})
-	assert.Error(t, err)
-	// case 5: init seq
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
-	repo.EXPECT().NextSequence(gomock.Any(), gomock.Any()).Return(int64(100), nil)
-	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	id, err = registry1.GenerateNodeID(models.Node{})
-	assert.NoError(t, err)
-	assert.Equal(t, models.NodeID(100), id)
+	r.register("/data/pant", &node)
 }

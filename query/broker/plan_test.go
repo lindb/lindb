@@ -28,46 +28,46 @@ import (
 )
 
 func TestBrokerPlan_Wrong_Case(t *testing.T) {
-	plan := newBrokerPlan("sql", models.Database{}, nil, models.Node{}, nil)
+	plan := newBrokerPlan("sql", models.Database{}, nil, models.StatelessNode{}, nil)
 	// storage nodes cannot be empty
 	err := plan.Plan()
 	assert.Equal(t, query.ErrNoAvailableStorageNode, err)
 
-	storageNodes := map[string][]int32{"1.1.1.1:8000": {1, 2, 4}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:8000": {1, 2, 4}}
 	// wrong sql
-	plan = newBrokerPlan("sql", models.Database{}, storageNodes, models.Node{}, nil)
+	plan = newBrokerPlan("sql", models.Database{}, storageNodes, models.StatelessNode{}, nil)
 	err = plan.Plan()
 	assert.NotNil(t, err)
 }
 
 func TestBrokerPlan_wrong_database_interval(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	// no group sql
 	plan := newBrokerPlan("select f from cpu",
 		models.Database{Option: option.DatabaseOption{Interval: "s"}},
-		storageNodes, currentNode.Node, nil)
+		storageNodes, currentNode, nil)
 	err := plan.Plan()
 	assert.Error(t, err)
 }
 
 func TestBrokerPlan_quantile(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan("select quantile(0.99) from cpu",
 		models.Database{Option: option.DatabaseOption{Interval: "s"}},
-		storageNodes, currentNode.Node, nil)
+		storageNodes, currentNode, nil)
 	err := plan.Plan()
 	assert.Error(t, err)
 }
 
 func TestBrokerPlan_No_GroupBy(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	// no group sql
 	plan := newBrokerPlan("select f from cpu",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
-		storageNodes, currentNode.Node, nil)
+		storageNodes, currentNode, nil)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
@@ -78,16 +78,16 @@ func TestBrokerPlan_No_GroupBy(t *testing.T) {
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []models.Node{currentNode.Node},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{currentNode},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	physicalPlan.AddLeaf(models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.2:9000",
 		},
-		Receivers: []models.Node{currentNode.Node},
-		ShardIDs:  []int32{3, 5, 6},
+		Receivers: []models.StatelessNode{currentNode},
+		ShardIDs:  []models.ShardID{3, 5, 6},
 	})
 	assert.Equal(t, physicalPlan.Root, plan.physicalPlan.Root)
 	assert.Equal(t, 2, len(plan.physicalPlan.Leafs))
@@ -96,7 +96,7 @@ func TestBrokerPlan_No_GroupBy(t *testing.T) {
 
 func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 	// odd number
-	oddStorageNodes := map[string][]int32{
+	oddStorageNodes := map[string][]models.ShardID{
 		"1.1.1.1:9000": {1, 2, 4},
 		"1.1.1.2:9000": {3, 6, 9},
 		"1.1.1.3:9000": {5, 7, 8},
@@ -108,8 +108,8 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		oddStorageNodes,
-		currentNode.Node,
-		[]models.ActiveNode{
+		currentNode,
+		[]models.StatelessNode{
 			generateBrokerActiveNode("1.1.1.1", 8000),
 			generateBrokerActiveNode("1.1.1.2", 8000),
 			currentNode,
@@ -127,7 +127,7 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 		assert.Equal(t, int32(5), intermediate.NumOfTask)
 	}
 	assert.Equal(t, 5, len(physicalPlan.Leafs))
-	storageNodes2 := make(map[string][]int32)
+	storageNodes2 := make(map[string][]models.ShardID)
 	for _, leaf := range physicalPlan.Leafs {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 3, len(leaf.Receivers))
@@ -138,7 +138,7 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 	// even number
 	evenStorageNodes :=
-		map[string][]int32{
+		map[string][]models.ShardID{
 			"1.1.1.4:9000": {10, 13, 15},
 			"1.1.1.5:9000": {11, 12, 14},
 		}
@@ -147,8 +147,8 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		evenStorageNodes,
-		currentNode.Node,
-		[]models.ActiveNode{
+		currentNode,
+		[]models.StatelessNode{
 			generateBrokerActiveNode("1.1.1.2", 8000),
 			currentNode,
 			generateBrokerActiveNode("1.1.1.4", 8000),
@@ -165,7 +165,7 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 		assert.Equal(t, int32(2), intermediate.NumOfTask)
 	}
 	assert.Equal(t, 2, len(physicalPlan.Leafs))
-	storageNodes2 := make(map[string][]int32)
+	storageNodes2 := make(map[string][]models.ShardID)
 	for _, leaf := range physicalPlan.Leafs {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 2, len(leaf.Receivers))
@@ -174,7 +174,7 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 }
 
 func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
-	storageNodes := map[string][]int32{
+	storageNodes := map[string][]models.ShardID{
 		"1.1.1.1:9000": {1, 2, 4},
 		"1.1.1.2:9000": {3, 5, 6},
 	}
@@ -183,8 +183,8 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
-		currentNode.Node,
-		[]models.ActiveNode{
+		currentNode,
+		[]models.StatelessNode{
 			generateBrokerActiveNode("1.1.1.1", 8000),
 			generateBrokerActiveNode("1.1.1.2", 8000),
 			currentNode,
@@ -204,7 +204,7 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 		assert.Equal(t, int32(2), intermediate.NumOfTask)
 	}
 	assert.Equal(t, 2, len(physicalPlan.Leafs))
-	storageNodes2 := make(map[string][]int32)
+	storageNodes2 := make(map[string][]models.ShardID)
 	for _, leaf := range physicalPlan.Leafs {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 3, len(leaf.Receivers))
@@ -213,7 +213,7 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 }
 
 func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
 	// current node = active node
@@ -221,8 +221,8 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
-		currentNode.Node,
-		[]models.ActiveNode{currentNode})
+		currentNode,
+		[]models.StatelessNode{currentNode})
 	err := plan.Plan()
 	if err != nil {
 		t.Fatal(err)
@@ -235,14 +235,14 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []models.Node{currentNode.Node},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{currentNode},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 
 func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
 	// only one storage node
@@ -250,7 +250,7 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
-		currentNode.Node,
+		currentNode,
 		nil)
 	err := plan.Plan()
 	if err != nil {
@@ -264,14 +264,14 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []models.Node{currentNode.Node},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{currentNode},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 
 func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
-	storageNodes := map[string][]int32{"1.1.1.1:9000": {1, 2, 4}}
+	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
 	// only one storage node
@@ -279,8 +279,8 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 		"select f from cpu group by host",
 		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
 		storageNodes,
-		currentNode.Node,
-		[]models.ActiveNode{
+		currentNode,
+		[]models.StatelessNode{
 			generateBrokerActiveNode("1.1.1.1", 8000),
 			generateBrokerActiveNode("1.1.1.2", 8100),
 			currentNode,
@@ -298,12 +298,12 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []models.Node{currentNode.Node},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []models.StatelessNode{currentNode},
+		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 
-func generateBrokerActiveNode(ip string, port int) models.ActiveNode {
-	return models.ActiveNode{Node: models.Node{IP: ip, Port: uint16(port)}}
+func generateBrokerActiveNode(ip string, port int) models.StatelessNode {
+	return models.StatelessNode{HostIP: ip, GRPCPort: uint16(port)}
 }

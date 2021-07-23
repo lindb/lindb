@@ -32,38 +32,38 @@ import (
 )
 
 var (
-	node = models.Node{
-		IP:   "127.0.0.1",
-		Port: 123,
+	node = models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
 	}
 	database = "database"
-	shardID  = int32(0)
+	shardID  = models.ShardID(0)
 )
 
 func TestClientConnFactory(t *testing.T) {
-	node1 := models.Node{
-		IP:   "1.1.1.1",
-		Port: 123,
+	node1 := models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
 	}
 
-	node2 := models.Node{
-		IP:   "1.1.1.1",
-		Port: 456,
+	node2 := models.StatelessNode{
+		HostIP:   "1.1.1.1",
+		GRPCPort: 456,
 	}
 
 	fct := GetClientConnFactory()
 
-	conn1, err := fct.GetClientConn(node1)
+	conn1, err := fct.GetClientConn(&node1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	conn11, err := fct.GetClientConn(node1)
+	conn11, err := fct.GetClientConn(&node1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	conn2, err := fct.GetClientConn(node2)
+	conn2, err := fct.GetClientConn(&node2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,11 +73,11 @@ func TestClientConnFactory(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	node := models.Node{
-		IP:   "1.1.1.1",
-		Port: 123,
+	node := models.StatelessNode{
+		HostIP:   "1.1.1.1",
+		GRPCPort: 123,
 	}
-	ctx := CreateIncomingContext(context.TODO(), database, shardID, node)
+	ctx := CreateIncomingContext(context.TODO(), database, shardID, &node)
 
 	n, err := GetLogicNodeFromContext(ctx)
 	if err != nil {
@@ -96,19 +96,19 @@ func TestContext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, shardID, sID)
+	assert.Equal(t, int32(shardID), sID)
 }
 
 func TestClientStreamFactory(t *testing.T) {
-	target := models.Node{
-		IP:   "127.0.0.1",
-		Port: 1234,
+	target := models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 1234,
 	}
-	fct := NewClientStreamFactory(node)
-	_, err := fct.CreateWriteServiceClient(target)
+	fct := NewClientStreamFactory(&node)
+	_, err := fct.CreateWriteServiceClient(&target)
 	assert.Nil(t, err)
 
-	assert.Equal(t, fct.LogicNode(), node)
+	assert.Equal(t, fct.LogicNode(), &node)
 
 	// stream client will dail the target address, it's no easy to test
 }
@@ -119,10 +119,10 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 
 	handler := protoCommonV1.NewMockTaskServiceServer(ctrl)
 
-	factory := NewClientStreamFactory(models.Node{IP: "127.0.0.2", Port: 9000})
-	target := models.Node{IP: "127.0.0.1", Port: 9000}
+	factory := NewClientStreamFactory(&models.StatelessNode{HostIP: "127.0.0.2", GRPCPort: 9000})
+	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 9000}
 
-	client, err := factory.CreateTaskClient(target)
+	client, err := factory.CreateTaskClient(&target)
 	assert.NotNil(t, err)
 	assert.Nil(t, client)
 
@@ -135,7 +135,7 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	// wait server start finish
 	time.Sleep(10 * time.Millisecond)
 
-	_, _ = factory.CreateTaskClient(target)
+	_, _ = factory.CreateTaskClient(&target)
 
 	time.Sleep(10 * time.Millisecond)
 	grpcServer.Stop()

@@ -41,14 +41,14 @@ func TestElection_Initialize(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 
 	listener1 := NewMockListener(ctrl)
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
-	election := NewElection(context.TODO(), repo, node1, 1, listener1)
+	election := NewElection(context.TODO(), repo, &node1, 1, listener1)
 	election.Initialize()
 	election.Close()
 
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(eventCh)
-	election = NewElection(context.TODO(), repo, node1, 1, listener1)
+	election = NewElection(context.TODO(), repo, &node1, 1, listener1)
 	election.Initialize()
 	election.Close()
 }
@@ -60,9 +60,9 @@ func TestElection_Elect(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	listener1 := NewMockListener(ctrl)
 
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
-	election := NewElection(context.TODO(), repo, node1, 1, listener1)
+	election := NewElection(context.TODO(), repo, &node1, 1, listener1)
 	election.Initialize()
 	election.Elect()
 	election.Close()
@@ -76,9 +76,9 @@ func TestElection_elect(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	listener1 := NewMockListener(ctrl)
 
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
-	election1 := NewElection(ctx, repo, node1, 1, listener1)
+	election1 := NewElection(ctx, repo, &node1, 1, listener1)
 	election1.Initialize()
 	e := election1.(*election)
 	time.AfterFunc(700*time.Millisecond, func() {
@@ -106,9 +106,9 @@ func TestElection_Handle_Event(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 
 	listener1 := NewMockListener(ctrl)
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
-	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
+	election1 := NewElection(context.TODO(), repo, &node1, 1, listener1)
 	election1.Initialize()
 	e := election1.(*election)
 
@@ -128,7 +128,7 @@ func TestElection_Handle_Event(t *testing.T) {
 			Type: state.EventTypeModify,
 			Err:  fmt.Errorf("err"),
 		})
-		data := encoding.JSONMarshal(&models.Master{Node: node1})
+		data := encoding.JSONMarshal(&models.Master{Node: &node1})
 		listener1.EXPECT().OnFailOver().Return(nil)
 		sendEvent(eventCh, &state.Event{
 			Type: state.EventTypeModify,
@@ -155,13 +155,14 @@ func TestElection_handle_event(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	listener1 := NewMockListener(ctrl)
 
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
-	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
+	election1 := NewElection(context.TODO(), repo, &node1, 1, listener1)
 	assert.Nil(t, election1.GetMaster())
 	election1.Initialize()
 	e := election1.(*election)
-	data := encoding.JSONMarshal(&models.Master{Node: node1})
+	data := encoding.JSONMarshal(&models.Master{Node: &node1})
+
 	time.AfterFunc(10*time.Millisecond, func() {
 		<-e.retryCh
 	})
@@ -183,7 +184,7 @@ func TestElection_handle_event(t *testing.T) {
 		},
 	})
 	assert.True(t, e.IsMaster())
-	assert.Equal(t, node1, e.GetMaster().Node)
+	assert.Equal(t, &node1, e.GetMaster().Node)
 
 	time.AfterFunc(100*time.Millisecond, func() {
 		<-e.retryCh
@@ -207,14 +208,14 @@ func TestElection_Err(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	listener1 := NewMockListener(ctrl)
 
-	node1 := models.Node{IP: "127.0.0.1", Port: 2080}
-	election1 := NewElection(context.TODO(), repo, node1, 1, listener1)
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
+	election1 := NewElection(context.TODO(), repo, &node1, 1, listener1)
 	election1.Close()
 	e := election1.(*election)
 	e.elect()
 	election1.Close()
 
-	election1 = NewElection(context.TODO(), repo, node1, 1, listener1)
+	election1 = NewElection(context.TODO(), repo, &node1, 1, listener1)
 
 	time.AfterFunc(100*time.Millisecond, func() {
 		election1.Close()

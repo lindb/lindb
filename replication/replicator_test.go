@@ -97,12 +97,12 @@ stop
 */
 
 var (
-	node = models.Node{
-		IP:   "123",
-		Port: 123,
+	node = models.StatelessNode{
+		HostIP:   "123",
+		GRPCPort: 123,
 	}
 	database = "database"
-	shardID  = int32(0)
+	shardID  = models.ShardID(0)
 )
 
 func buildWriteRequest(seqBegin, seqEnd int64) (*protoStorageV1.WriteRequest, string) {
@@ -137,17 +137,17 @@ func TestSimple(t *testing.T) {
 	defer ctl.Finish()
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error")).AnyTimes()
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(nil, errors.New("get service client error")).AnyTimes()
 	fanOut := queue.NewMockFanOut(ctl)
 	fanOut.EXPECT().Pending().Return(int64(0))
 	fanOut.EXPECT().HeadSeq().Return(int64(0))
 	fanOut.EXPECT().TailSeq().Return(int64(0))
 
-	rep := newReplicator(node, database, shardID, fanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, fanOut, mockFct)
 
 	assert.Equal(t, database, rep.Database())
 	assert.Equal(t, shardID, rep.ShardID())
-	assert.Equal(t, node, rep.Target())
+	assert.Equal(t, &node, rep.Target())
 	assert.True(t, rep.Pending() == 0)
 	assert.True(t, rep.AckIndex() == 0)
 	assert.True(t, rep.ReplicaIndex() == 0)
@@ -170,19 +170,19 @@ func TestGetRemoteNextSeqFail(t *testing.T) {
 	mockServiceClient.EXPECT().Next(gomock.Any(), gomock.Any()).Return(nil, errors.New("get remote next seq error"))
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(nil, errors.New("get service client error"))
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(nil, errors.New("get service client error"))
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node)
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(node models.Node) (protoStorageV1.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(&node).DoAndReturn(func(node models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
 		return nil, errors.New("get service client error any")
 	})
 
-	rep := newReplicator(node, database, shardID, nil, mockFct)
+	rep := newReplicator(&node, database, shardID, nil, mockFct)
 	// if the main go-routine is block, check mock call missing work will be block too.
 	<-done
 	rep.Stop()
@@ -206,11 +206,11 @@ func TestSetLocalHeadSeqFail(t *testing.T) {
 	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, errors.New("reset remote next seq error"))
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node).Times(2)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node).Times(2)
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(&node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
@@ -221,7 +221,7 @@ func TestSetLocalHeadSeqFail(t *testing.T) {
 	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
 	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
 
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -244,12 +244,12 @@ func TestSetLocalHeadSeqSuccess(t *testing.T) {
 	}, nil)
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node)
 	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("create stream client error"))
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(&node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		// wait for <- done to stop replica
 		time.Sleep(100 * time.Millisecond)
@@ -259,7 +259,7 @@ func TestSetLocalHeadSeqSuccess(t *testing.T) {
 	mockFanOut := queue.NewMockFanOut(ctl)
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil)
 
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -284,12 +284,12 @@ func TestResetRemoteSeqSuccess(t *testing.T) {
 	mockServiceClient.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(&protoStorageV1.ResetSeqResponse{}, nil)
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node).Times(2)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node).Times(2)
 	mockFct.EXPECT().CreateWriteClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("creat write client error"))
 
 	done := make(chan struct{})
-	mockFct.EXPECT().CreateWriteServiceClient(node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
+	mockFct.EXPECT().CreateWriteServiceClient(&node).DoAndReturn(func(_ models.Node) (protoStorageV1.WriteServiceClient, error) {
 		close(done)
 		time.Sleep(100 * time.Millisecond)
 		return nil, errors.New("get service client error any")
@@ -299,7 +299,7 @@ func TestResetRemoteSeqSuccess(t *testing.T) {
 	mockFanOut.EXPECT().SetHeadSeq(gomock.Any()).Return(errors.New("fanOut set head seq error"))
 	mockFanOut.EXPECT().HeadSeq().Return(int64(0))
 
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 
 	<-done
 	rep.Stop()
@@ -342,9 +342,9 @@ func TestNormalReplication(t *testing.T) {
 	mockClientStream.EXPECT().Send(wr2).Return(nil)
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node)
-	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, &node).Return(mockClientStream, nil)
 
 	mockFanOut := queue.NewMockFanOut(ctl)
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil)
@@ -355,7 +355,7 @@ func TestNormalReplication(t *testing.T) {
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 
 	time.Sleep(time.Second * 2)
 	rep.Stop()
@@ -420,13 +420,13 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
 	// first time
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node)
-	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, &node).Return(mockClientStream, nil)
 	// second time
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil)
-	mockFct.EXPECT().LogicNode().Return(node)
-	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil)
+	mockFct.EXPECT().LogicNode().Return(&node)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, &node).Return(mockClientStream, nil)
 
 	mockFanOut := queue.NewMockFanOut(ctl)
 	mockFanOut.EXPECT().SetHeadSeq(int64(5)).Return(nil)
@@ -444,7 +444,7 @@ func TestReplicationSeqNotMatch(t *testing.T) {
 	}
 	mockFanOut.EXPECT().Consume().Return(queue.SeqNoNewMessageAvailable).AnyTimes()
 
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 
 	time.Sleep(time.Second * 4)
 	rep.Stop()
@@ -472,17 +472,17 @@ func TestReplicator_Ack(t *testing.T) {
 	})
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil).AnyTimes()
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil).AnyTimes()
 	mockFanOut := queue.NewMockFanOut(ctl)
-	mockFct.EXPECT().LogicNode().Return(node).AnyTimes()
+	mockFct.EXPECT().LogicNode().Return(&node).AnyTimes()
 	nextSeq := int64(5)
 	mockFanOut.EXPECT().Consume().Return(int64(10)).AnyTimes()
 	mockFanOut.EXPECT().Get(int64(10)).Return(nil, fmt.Errorf("err"))
 	mockFanOut.EXPECT().Get(int64(10)).Return(nil, nil).AnyTimes()
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil).AnyTimes()
 	mockFanOut.EXPECT().Ack(int64(1000)).AnyTimes()
-	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, &node).Return(mockClientStream, nil)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 	time.Sleep(2 * time.Second)
 	rep.Stop()
 	close(done1)
@@ -514,15 +514,15 @@ func TestReplicator_Loop_panic(t *testing.T) {
 	})
 
 	mockFct := rpc.NewMockClientStreamFactory(ctl)
-	mockFct.EXPECT().CreateWriteServiceClient(node).Return(mockServiceClient, nil).AnyTimes()
+	mockFct.EXPECT().CreateWriteServiceClient(&node).Return(mockServiceClient, nil).AnyTimes()
 	mockFanOut := queue.NewMockFanOut(ctl)
-	mockFct.EXPECT().LogicNode().Return(node).AnyTimes()
+	mockFct.EXPECT().LogicNode().Return(&node).AnyTimes()
 	nextSeq := int64(5)
 	mockFanOut.EXPECT().Consume().Return(int64(10)).AnyTimes()
 	mockFanOut.EXPECT().Get(int64(10)).Return(buildMessageBytes(10), nil).AnyTimes()
 	mockFanOut.EXPECT().SetHeadSeq(nextSeq).Return(nil).AnyTimes()
-	mockFct.EXPECT().CreateWriteClient(database, shardID, node).Return(mockClientStream, nil)
-	rep := newReplicator(node, database, shardID, mockFanOut, mockFct)
+	mockFct.EXPECT().CreateWriteClient(database, shardID, &node).Return(mockClientStream, nil)
+	rep := newReplicator(&node, database, shardID, mockFanOut, mockFct)
 	time.Sleep(1500 * time.Millisecond)
 	rep.Stop()
 	close(done1)

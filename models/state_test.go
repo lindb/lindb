@@ -24,11 +24,34 @@ import (
 )
 
 func TestStorageState(t *testing.T) {
-	storageState := NewStorageState()
-	storageState.AddActiveNode(&ActiveNode{Node: Node{IP: "1.1.1.1", Port: 9000}})
-	storageState.AddActiveNode(&ActiveNode{Node: Node{IP: "1.1.1.2", Port: 9000}})
-	storageState.AddActiveNode(&ActiveNode{Node: Node{IP: "1.1.1.3", Port: 9000}})
-	assert.Equal(t, 3, len(storageState.GetActiveNodes()))
-	storageState.RemoveActiveNode("1.1.1.2:9000")
-	assert.Equal(t, 2, len(storageState.GetActiveNodes()))
+	storageState := NewStorageState("test")
+	storageState.NodeOnline(StatefulNode{
+		StatelessNode: StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
+		ID:            1,
+	})
+	storageState.NodeOnline(StatefulNode{
+		StatelessNode: StatelessNode{HostIP: "1.1.1.2", GRPCPort: 9000},
+		ID:            2,
+	})
+	storageState.NodeOnline(StatefulNode{
+		StatelessNode: StatelessNode{HostIP: "1.1.1.3", GRPCPort: 9000},
+		ID:            3,
+	})
+	storageState.NodeOffline(2)
+	assert.Len(t, storageState.LiveNodes, 2)
+	storageState.ShardAssignments["test"] = &ShardAssignment{
+		Name:   "test",
+		Shards: map[ShardID]*Replica{1: {Replicas: []NodeID{1, 2, 3}}},
+	}
+	rs := storageState.ReplicasOnNode(3)
+	assert.Len(t, rs, 1)
+	assert.Equal(t, rs["test"], []ShardID{1})
+
+	storageState.ShardStates["test"] = map[ShardID]ShardState{1: {
+		ID:     1,
+		Leader: 2,
+	}}
+	rs1 := storageState.LeadersOnNode(2)
+	assert.Len(t, rs1, 1)
+	assert.Equal(t, rs1["test"], []ShardID{1})
 }

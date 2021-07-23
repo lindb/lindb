@@ -56,7 +56,7 @@ func NewIntermediateTaskProcessor(
 ) query.TaskProcessor {
 	return &intermediateTaskProcessor{
 		currentNode:       currentNode,
-		currentNodeID:     (&currentNode).Indicator(),
+		currentNodeID:     currentNode.Indicator(),
 		taskClientFactory: taskClientFactory,
 		taskServerFactory: taskServerFactory,
 		taskManager:       taskManager,

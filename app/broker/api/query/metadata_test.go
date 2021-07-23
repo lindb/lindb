@@ -32,7 +32,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -110,14 +110,15 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 
 	factory := brokerQuery.NewMockFactory(ctrl)
 	metaDataQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 
 	factory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metaDataQuery).AnyTimes()
 
 	api := NewMetadataAPI(
 		&deps.HTTPDeps{
-			StateMachines: &coordinator.BrokerStateMachines{},
-			QueryFactory:  factory,
-			BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
+			StateMgr:     stateMgr,
+			QueryFactory: factory,
+			BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
 		})
 	r := gin.New()
 	api.Register(r)

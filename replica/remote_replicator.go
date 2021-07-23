@@ -76,7 +76,7 @@ func (r *remoteReplicator) IsReady() bool {
 
 	//TODO check node is alive
 	//TODO close cli/stream if re-connect???
-	replicaCli, err := r.cliFct.CreateReplicaServiceClient(models.Node{})
+	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&models.StatefulNode{})
 	if err != nil {
 		//TODO add metric
 		r.logger.Warn("create replica service client err", logger.Error(err))

@@ -47,7 +47,7 @@ func Test_NewSystemCollector(t *testing.T) {
 		"/tmp",
 		repo,
 		"",
-		models.ActiveNode{},
+		&models.StatelessNode{},
 		"standalone",
 	)
 
@@ -73,7 +73,7 @@ func Test_SystemCollector_Collect(t *testing.T) {
 		"/tmp",
 		repo,
 		"",
-		models.ActiveNode{},
+		&models.StatelessNode{},
 		"standalone",
 	)
 

@@ -52,6 +52,7 @@ func TestStorageRuntime(t *testing.T) {
 
 var cfg = config.Storage{
 	StorageBase: config.StorageBase{
+		Indicator: 1,
 		GRPC: config.GRPC{
 			Port: 9999,
 			TTL:  1,
@@ -77,14 +78,14 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 
 	runtime, _ := storage.(*runtime)
-	nodePath := constants.GetActiveNodePath(runtime.node.Indicator())
+	nodePath := constants.GetLiveNodePath(runtime.node.Indicator())
 	nodeBytes, err := runtime.repo.Get(context.TODO(), nodePath)
 	assert.NoError(ts.t, err)
 
-	nodeInfo := models.ActiveNode{}
+	nodeInfo := models.StatefulNode{}
 	_ = encoding.JSONUnmarshal(nodeBytes, &nodeInfo)
 
-	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
+	c.Assert(*runtime.node, check.Equals, nodeInfo)
 	c.Assert("storage", check.Equals, storage.Name())
 
 	storage.Stop()
@@ -92,13 +93,14 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 }
 
-func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(c *check.C) {
+func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(_ *check.C) {
 	fmt.Println("run TestStorageRun_GetHost_Err...")
 	defer func() {
 		getHostIP = hostutil.GetHostIP
 		hostName = os.Hostname
 	}()
 	cfg.StorageBase.GRPC.Port = 8889
+	cfg.StorageBase.Indicator = 2
 	storage := NewStorageRuntime("test-version", &cfg)
 	getHostIP = func() (string, error) {
 		return "test-ip", fmt.Errorf("err")
@@ -113,6 +115,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(c *check.C) {
 		return "host", fmt.Errorf("err")
 	}
 	cfg.StorageBase.GRPC.Port = 8887
+	cfg.StorageBase.Indicator = 3
 	cfg.StorageBase.Coordinator.Endpoints = ts.Cluster.Endpoints
 	storage = NewStorageRuntime("test-version", &cfg)
 	err = storage.Run()
@@ -123,18 +126,25 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_GetHost_Err(c *check.C) {
 	assert.NoError(ts.t, err)
 }
 
-func (ts *testStorageRuntimeSuite) TestStorageRun_Err(c *check.C) {
+func (ts *testStorageRuntimeSuite) TestStorageRun_Err(_ *check.C) {
 	fmt.Println("run TestStorageRun_Err...")
 	ctrl := gomock.NewController(ts.t)
 	defer ctrl.Finish()
 
-	cfg.StorageBase.GRPC.Port = 8886
+	cfg.StorageBase.GRPC.Port = 8889
+	cfg.StorageBase.Indicator = 0
 	storage := NewStorageRuntime("test-version", &cfg)
+	err := storage.Run()
+	assert.Error(ts.t, err)
+
+	cfg.StorageBase.GRPC.Port = 8886
+	cfg.StorageBase.Indicator = 4
+	storage = NewStorageRuntime("test-version", &cfg)
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
 	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err := s.Run()
+	err = s.Run()
 	assert.Error(ts.t, err)
 	// wait grpc server start and register success
 	time.Sleep(500 * time.Millisecond)

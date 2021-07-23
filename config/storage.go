@@ -114,6 +114,7 @@ func (t *TSDB) TOML() string {
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
+	Indicator   int       `toml:"indicator"` // Indicator is unique id under current storage cluster.
 	Coordinator RepoState `toml:"coordinator"`
 	GRPC        GRPC      `toml:"grpc"`
 	TSDB        TSDB      `toml:"tsdb"`
@@ -125,6 +126,8 @@ type StorageBase struct {
 func (s *StorageBase) TOML() string {
 	return fmt.Sprintf(`## Config for the Storage Node
 [storage]
+  indicator = %d
+
   [storage.coordinator]%s
   
   [storage.query]%s
@@ -132,6 +135,7 @@ func (s *StorageBase) TOML() string {
   [storage.grpc]%s
 
   [storage.tsdb]%s`,
+		s.Indicator,
 		s.Coordinator.TOML(),
 		s.Query.TOML(),
 		s.GRPC.TOML(),
@@ -170,6 +174,7 @@ type Storage struct {
 // NewDefaultStorageBase returns a new default StorageBase struct
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
+		Indicator: 1,
 		Coordinator: RepoState{
 			Namespace:   "/lindb/storage",
 			Endpoints:   []string{"http://localhost:2379"},

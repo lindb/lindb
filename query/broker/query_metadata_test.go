@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -42,8 +41,7 @@ func Test_MetadataQuery(t *testing.T) {
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
-	replicaStateMachine := broker.NewMockReplicaStatusStateMachine(ctrl)
-	nodeStateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 	thisTaskManager := NewMockTaskManager(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -52,27 +50,25 @@ func Test_MetadataQuery(t *testing.T) {
 		"db",
 		&stmt.Metadata{},
 		&queryFactory{
-			replicaStateMachine:  replicaStateMachine,
-			nodeStateMachine:     nodeStateMachine,
-			databaseStateMachine: nil,
-			taskManager:          thisTaskManager,
+			stateMgr:    stateMgr,
+			taskManager: thisTaskManager,
 		},
 	)
 
 	// GetQueryableReplicas return empty
-	replicaStateMachine.EXPECT().GetQueryableReplicas("db").
-		Return(map[string][]int32{})
+	stateMgr.EXPECT().GetQueryableReplicas("db").
+		Return(map[string][]models.ShardID{})
 	results, err := metaDataQuery.WaitResponse()
 	assert.Error(t, err)
 	assert.Nil(t, results)
 
-	replicaStateMachine.EXPECT().GetQueryableReplicas("db").
-		Return(map[string][]int32{
+	stateMgr.EXPECT().GetQueryableReplicas("db").
+		Return(map[string][]models.ShardID{
 			"1.1.1.1:9000": {1, 2, 4},
 			"1.1.1.2:9000": {3, 5, 6},
 		}).AnyTimes()
-	nodeStateMachine.EXPECT().GetCurrentNode().Return(models.Node{
-		IP: "1.1.1.3", Port: 8000,
+	stateMgr.EXPECT().GetCurrentNode().Return(models.StatelessNode{
+		HostIP: "1.1.1.3", GRPCPort: 8000,
 	}).AnyTimes()
 
 	// wait error

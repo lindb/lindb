@@ -24,41 +24,35 @@ import (
 )
 
 func TestNode_Indicator(t *testing.T) {
-	node := &Node{IP: "1.1.1.1", Port: 19000}
+	node := &StatelessNode{HostIP: "1.1.1.1", GRPCPort: 19000}
 	indicator := node.Indicator()
 	assert.Equal(t, "1.1.1.1:19000", indicator)
 	node2, err := ParseNode(indicator)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, *node, *node2)
+	assert.NoError(t, err)
+	node3 := node2.(*StatelessNode)
+	assert.Equal(t, node, node3)
 }
 
 func TestNode_ParseNode(t *testing.T) {
-	if _, err := ParseNode("xxx:123"); err == nil {
-		t.Fatal("should be error")
-	}
+	_, err := ParseNode("xxx:123")
+	assert.Error(t, err)
 
-	if _, err := ParseNode("1.1.1.1123"); err == nil {
-		t.Fatal("should be error")
-	}
+	_, err = ParseNode("1.1.1.1123")
+	assert.Error(t, err)
 
-	if _, err := ParseNode("1.1.1.1:-1"); err == nil {
-		t.Fatal("should be error")
-	}
+	_, err = ParseNode("1.1.1.1:-1")
+	assert.Error(t, err)
 
-	if _, err := ParseNode("1.1.1.1:65536"); err == nil {
-		t.Fatal("should be error")
-	}
+	_, err = ParseNode("1.1.1.1:65536")
+	assert.Error(t, err)
 
 	node, err := ParseNode("1.1.1.1:65535")
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, node.IP, "1.1.1.1")
-	assert.Equal(t, node.Port, uint16(65535))
+	assert.NoError(t, err)
+	node1 := node.(*StatelessNode)
 
-	if _, err = ParseNode(":123"); err == nil {
-		t.Fatal(err)
-	}
+	assert.Equal(t, node1.HostIP, "1.1.1.1")
+	assert.Equal(t, node1.GRPCPort, uint16(65535))
+
+	_, err = ParseNode(":123")
+	assert.Error(t, err)
 }

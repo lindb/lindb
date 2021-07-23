@@ -47,7 +47,7 @@ func TestTaskServerFactory(t *testing.T) {
 
 	nodes := fct.Nodes()
 	assert.Equal(t, 1, len(nodes))
-	assert.Equal(t, node, nodes[0])
+	assert.Equal(t, &node, nodes[0])
 
 	ok := fct.Deregister(10, (&node).Indicator())
 	assert.False(t, ok)
@@ -72,7 +72,7 @@ func TestTaskClientFactory(t *testing.T) {
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err")).AnyTimes()
 	taskService := protoCommonV1.NewMockTaskServiceClient(ctl)
 
-	fct := NewTaskClientFactory(models.Node{IP: "127.0.0.1", Port: 123})
+	fct := NewTaskClientFactory(&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
 	receiver := NewMockTaskReceiver(ctl)
 	receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	fct.SetTaskReceiver(receiver)
@@ -82,11 +82,11 @@ func TestTaskClientFactory(t *testing.T) {
 		return taskService
 	}
 
-	target := models.Node{IP: "127.0.0.1", Port: testGRPCPort}
+	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: testGRPCPort}
 	conn, _ := grpc.Dial(target.Indicator(), grpc.WithInsecure())
 	mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil).AnyTimes()
 	taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil).AnyTimes()
-	err := fct.CreateTaskClient(target)
+	err := fct.CreateTaskClient(&target)
 	assert.NoError(t, err)
 	tc := fct1.taskStreams[(&target).Indicator()]
 	tc.running.Store(false)
@@ -95,21 +95,21 @@ func TestTaskClientFactory(t *testing.T) {
 	fct1.mutex.Unlock()
 
 	// not create new one if exist
-	target = models.Node{IP: "127.0.0.1", Port: testGRPCPort}
-	err = fct.CreateTaskClient(target)
+	target = models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: testGRPCPort}
+	err = fct.CreateTaskClient(&target)
 	assert.NoError(t, err)
 
 	cli := fct.GetTaskClient((&target).Indicator())
 	assert.NotNil(t, cli)
 
-	cli = fct.GetTaskClient((&models.Node{IP: "", Port: testGRPCPort}).Indicator())
+	cli = fct.GetTaskClient((&models.StatelessNode{HostIP: "", GRPCPort: testGRPCPort}).Indicator())
 	assert.Nil(t, cli)
 
 	closed, err := fct.CloseTaskClient((&target).Indicator())
 	assert.NotNil(t, err)
 	assert.False(t, closed)
 
-	closed, err = fct.CloseTaskClient((&models.Node{IP: "127.0.0.1", Port: 1000}).Indicator())
+	closed, err = fct.CloseTaskClient((&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 1000}).Indicator())
 	assert.Nil(t, err)
 	assert.False(t, closed)
 }
@@ -121,10 +121,10 @@ func TestTaskClientFactory_handler(t *testing.T) {
 	}()
 
 	receiver := NewMockTaskReceiver(ctrl)
-	fct := NewTaskClientFactory(models.Node{IP: "127.0.0.1", Port: 123})
+	fct := NewTaskClientFactory(&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
 	fct.SetTaskReceiver(receiver)
 
-	target := models.Node{IP: "127.0.0.1", Port: 321}
+	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 321}
 	conn, _ := grpc.Dial(target.Indicator(), grpc.WithInsecure())
 	mockClientConnFct := NewMockClientConnFactory(ctrl)
 	mockTaskClient := protoCommonV1.NewMockTaskService_HandleClient(ctrl)
@@ -138,17 +138,17 @@ func TestTaskClientFactory_handler(t *testing.T) {
 	factory.connFct = mockClientConnFct
 	taskClient := &taskClient{
 		targetID: "test",
-		target:   target,
+		target:   &target,
 	}
 	taskClient.running.Store(true)
 	gomock.InOrder(
-		mockClientConnFct.EXPECT().GetClientConn(target).Return(nil, fmt.Errorf("err")),
-		mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil),
+		mockClientConnFct.EXPECT().GetClientConn(&target).Return(nil, fmt.Errorf("err")),
+		mockClientConnFct.EXPECT().GetClientConn(&target).Return(conn, nil),
 		taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")),
-		mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil),
+		mockClientConnFct.EXPECT().GetClientConn(&target).Return(conn, nil),
 		taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil),
 		mockTaskClient.EXPECT().Recv().Return(nil, fmt.Errorf("err")),
-		mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil),
+		mockClientConnFct.EXPECT().GetClientConn(&target).Return(conn, nil),
 		taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil),
 		mockTaskClient.EXPECT().Recv().Return(nil, nil),
 		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(nil),

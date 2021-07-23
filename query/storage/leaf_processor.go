@@ -59,7 +59,7 @@ func NewLeafTaskProcessor(
 	storageQueryScope := linmetric.NewScope("lindb.storage.query")
 	return &leafTaskProcessor{
 		currentNode:                currentNode,
-		currentNodeID:              (&currentNode).Indicator(),
+		currentNodeID:              currentNode.Indicator(),
 		engine:                     engine,
 		taskServerFactory:          taskServerFactory,
 		logger:                     logger.GetLogger("query", "LeafTaskDispatcher"),
@@ -147,7 +147,7 @@ func (p *leafTaskProcessor) process(
 
 func (p *leafTaskProcessor) processMetadataSuggest(
 	db tsdb.Database,
-	shardIDs []int32,
+	shardIDs []models.ShardID,
 	req *protoCommonV1.TaskRequest,
 	stream protoCommonV1.TaskService_HandleServer,
 ) error {
@@ -175,7 +175,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 func (p *leafTaskProcessor) processDataSearch(
 	ctx context.Context,
 	db tsdb.Database,
-	shardIDs []int32,
+	shardIDs []models.ShardID,
 	req *protoCommonV1.TaskRequest,
 	leafNode *models.Leaf,
 ) error {

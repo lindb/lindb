@@ -37,7 +37,7 @@ func Test_Intermediate_decodePhysicalPlan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	taskProcessor := intermediateTaskProcessor{}
+	taskProcessor := intermediateTaskProcessor{currentNode: &models.StatelessNode{}}
 	_, _, err := taskProcessor.decodePhysicalPlan(&protoCommonV1.TaskRequest{})
 	assert.Error(t, err)
 

@@ -21,10 +21,12 @@ import (
 	"sort"
 
 	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/models"
 )
 
 type shardEntry struct {
-	shardID int32
+	shardID models.ShardID
 	shard   Shard
 }
 
@@ -52,7 +54,7 @@ func newShardSet() *shardSet {
 
 // InsertShard appends a new shard into the slice,
 // then changes atomic.Value to the new sorted set
-func (ss *shardSet) InsertShard(shardID int32, shard Shard) {
+func (ss *shardSet) InsertShard(shardID models.ShardID, shard Shard) {
 	oldEntries := ss.value.Load().(shardEntries)
 	var (
 		newEntries shardEntries
@@ -70,7 +72,7 @@ func (ss *shardSet) InsertShard(shardID int32, shard Shard) {
 
 // GetShard searches the shard by shardID from the shardSet
 // BinarySearch is not always faster than iterating
-func (ss *shardSet) GetShard(shardID int32) (Shard, bool) {
+func (ss *shardSet) GetShard(shardID models.ShardID) (Shard, bool) {
 	entries := ss.value.Load().(shardEntries)
 	// fast path when length < 20
 	if entries.Len() <= 20 {

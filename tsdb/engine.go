@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
@@ -55,10 +56,10 @@ type Engine interface {
 	CreateShards(
 		databaseName string,
 		databaseOption option.DatabaseOption,
-		shardIDs ...int32,
+		shardIDs ...models.ShardID,
 	) error
 	// GetShard returns shard by given db and shard id
-	GetShard(databaseName string, shardID int32) (Shard, bool)
+	GetShard(databaseName string, shardID models.ShardID) (Shard, bool)
 	// GetDatabase returns the time series database by given name
 	GetDatabase(databaseName string) (Database, bool)
 	// FlushDatabase produces a signal to workers for flushing memory database by name
@@ -129,7 +130,7 @@ func (e *engine) createDatabase(databaseName string) (Database, error) {
 func (e *engine) CreateShards(
 	databaseName string,
 	databaseOption option.DatabaseOption,
-	shardIDs ...int32,
+	shardIDs ...models.ShardID,
 ) error {
 	if len(shardIDs) == 0 {
 		return fmt.Errorf("cannot create empty shard for database[%s]", databaseName)
@@ -168,7 +169,7 @@ func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 }
 
 // GetShard returns shard by given db and shard id
-func (e *engine) GetShard(databaseName string, shardID int32) (Shard, bool) {
+func (e *engine) GetShard(databaseName string, shardID models.ShardID) (Shard, bool) {
 	db, ok := e.GetDatabase(databaseName)
 	if !ok {
 		return nil, false

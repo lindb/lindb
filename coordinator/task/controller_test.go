@@ -48,8 +48,8 @@ func TestController_Submit(t *testing.T) {
 	err = controller.Submit("", "", nil)
 	assert.Nil(t, err)
 
-	node1 := &models.Node{IP: "1.1.1.1", Port: 8000}
-	node2 := &models.Node{IP: "1.1.1.1", Port: 8000}
+	node1 := &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
+	node2 := &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	repo.EXPECT().NewTransaction().Return(txn)
 	txn.EXPECT().Put(gomock.Any(), gomock.Any()).MaxTimes(3)
 	repo.EXPECT().Commit(gomock.Any(), gomock.Any()).Return(nil)

@@ -29,10 +29,10 @@ import (
 type brokerPlan struct {
 	sql               string
 	query             *stmt.Query
-	storageNodes      map[string][]int32
-	currentBrokerNode models.Node
-	brokerNodes       []models.ActiveNode
-	intermediateNodes []models.Node
+	storageNodes      map[string][]models.ShardID
+	currentBrokerNode models.StatelessNode
+	brokerNodes       []models.StatelessNode
+	intermediateNodes []models.StatelessNode
 	databaseCfg       models.Database
 
 	physicalPlan *models.PhysicalPlan
@@ -42,9 +42,9 @@ type brokerPlan struct {
 func newBrokerPlan(
 	sql string,
 	databaseCfg models.Database,
-	storageNodes map[string][]int32,
-	currentBrokerNode models.Node,
-	brokerNodes []models.ActiveNode,
+	storageNodes map[string][]models.ShardID,
+	currentBrokerNode models.StatelessNode,
+	brokerNodes []models.StatelessNode,
 ) *brokerPlan {
 	return &brokerPlan{
 		sql:               sql,
@@ -95,17 +95,17 @@ func (p *brokerPlan) Plan() error {
 	if lenOfIntermediateNodes > 0 {
 		// create parallel exec task
 		p.physicalPlan = models.NewPhysicalPlan(models.Root{
-			Indicator: (&root).Indicator(),
+			Indicator: root.Indicator(),
 			NumOfTask: int32(lenOfIntermediateNodes)})
 
 		p.buildIntermediates()
 	} else {
-		receivers := []models.Node{root}
+		receivers := []models.StatelessNode{root}
 		// create parallel exec task
 		p.physicalPlan = models.NewPhysicalPlan(models.Root{
-			Indicator: (&root).Indicator(),
+			Indicator: root.Indicator(),
 			NumOfTask: int32(lenOfStorageNodes)})
-		p.buildLeafs((&root).Indicator(), p.getStorageNodeIDs(), receivers)
+		p.buildLeafs(root.Indicator(), p.getStorageNodeIDs(), receivers)
 	}
 	return nil
 }
@@ -123,8 +123,8 @@ func (p *brokerPlan) buildIntermediateNodes() {
 	}
 
 	for _, brokerNode := range p.brokerNodes {
-		if brokerNode.Node != p.currentBrokerNode {
-			p.intermediateNodes = append(p.intermediateNodes, brokerNode.Node)
+		if brokerNode.Indicator() != p.currentBrokerNode.Indicator() {
+			p.intermediateNodes = append(p.intermediateNodes, brokerNode)
 		}
 	}
 }
@@ -163,12 +163,12 @@ func (p *brokerPlan) buildIntermediates() {
 		if idx >= lenOfIntermediateNodes {
 			break
 		}
-		intermediateNodeID := (&p.intermediateNodes[idx]).Indicator()
+		intermediateNodeID := p.intermediateNodes[idx].Indicator()
 
 		// add intermediate task into parallel exec tree
 		p.physicalPlan.AddIntermediate(models.Intermediate{
 			BaseNode: models.BaseNode{
-				Parent:    (&p.currentBrokerNode).Indicator(),
+				Parent:    p.currentBrokerNode.Indicator(),
 				Indicator: intermediateNodeID,
 			},
 			NumOfTask: int32(lenOfStorageNodes),
@@ -182,7 +182,7 @@ func (p *brokerPlan) buildIntermediates() {
 }
 
 // buildLeafs builds the leaf computing nodes based parent, nodes and result receivers
-func (p *brokerPlan) buildLeafs(parentID string, nodeIDs []string, receivers []models.Node) {
+func (p *brokerPlan) buildLeafs(parentID string, nodeIDs []string, receivers []models.StatelessNode) {
 	for _, nodeID := range nodeIDs {
 		p.physicalPlan.AddLeaf(models.Leaf{
 			BaseNode: models.BaseNode{

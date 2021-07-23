@@ -106,8 +106,9 @@ func (d *DatabaseAPI) Save(c *gin.Context) {
 }
 
 func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
-	if len(database.Cluster) == 0 {
-		return fmt.Errorf("cluster name cannot eb empty")
+	if len(database.Storage) == 0 {
+		//TODO add golang tag?
+		return fmt.Errorf("storage name cannot eb empty")
 	}
 	if database.NumOfShard <= 0 {
 		return fmt.Errorf("num. of shard must be > 0")

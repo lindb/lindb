@@ -59,7 +59,7 @@ func (w *Writer) Reset(ctx context.Context, req *protoStorageV1.ResetSeqRequest)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sequence, err := w.getSequence(req.Database, req.ShardID, *logicNode)
+	sequence, err := w.getSequence(req.Database, req.ShardID, logicNode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -77,7 +77,7 @@ func (w *Writer) Next(ctx context.Context, req *protoStorageV1.NextSeqRequest) (
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sequence, err := w.getSequence(req.Database, req.ShardID, *logicNode)
+	sequence, err := w.getSequence(req.Database, req.ShardID, logicNode)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -181,11 +181,11 @@ func (w *Writer) handleReplica(shard tsdb.Shard, replica *protoStorageV1.Replica
 	}
 }
 
-func getLogicNodeFromCtx(ctx context.Context) (*models.Node, error) {
+func getLogicNodeFromCtx(ctx context.Context) (models.Node, error) {
 	return rpc.GetLogicNodeFromContext(ctx)
 }
 
-func parseCtx(ctx context.Context) (database string, shardID int32, logicNode *models.Node, err error) {
+func parseCtx(ctx context.Context) (database string, shardID models.ShardID, logicNode models.Node, err error) {
 	logicNode, err = rpc.GetLogicNodeFromContext(ctx)
 	if err != nil {
 		return
@@ -196,7 +196,8 @@ func parseCtx(ctx context.Context) (database string, shardID int32, logicNode *m
 		return
 	}
 
-	shardID, err = rpc.GetShardIDFromContext(ctx)
+	shard, err := rpc.GetShardIDFromContext(ctx)
+	shardID = models.ShardID(shard)
 	return
 }
 
@@ -205,7 +206,7 @@ func (w *Writer) getSequence(database string, shardID int32, logicNode models.No
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
-	shard, ok := db.GetShard(shardID)
+	shard, ok := db.GetShard(models.ShardID(shardID))
 	if !ok {
 		return nil, constants.ErrShardNotFound
 	}

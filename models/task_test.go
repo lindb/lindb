@@ -29,7 +29,7 @@ import (
 func TestCreateShardTask_Bytes(t *testing.T) {
 	task := CreateShardTask{
 		DatabaseName:   "test",
-		ShardIDs:       []int32{1, 4, 6},
+		ShardIDs:       []ShardID{1, 4, 6},
 		DatabaseOption: option.DatabaseOption{},
 	}
 	data := task.Bytes()

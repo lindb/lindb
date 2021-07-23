@@ -28,7 +28,6 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -43,57 +42,53 @@ func Test_MetricQuery(t *testing.T) {
 	defer ctrl.Finish()
 
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
-	nodeStateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
-	dbStateMachine := broker.NewMockDatabaseStateMachine(ctrl)
-	nodeStateMachine.EXPECT().GetCurrentNode().Return(currentNode.Node).AnyTimes()
-	replicaStateMachine := broker.NewMockReplicaStatusStateMachine(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().GetCurrentNode().Return(currentNode).AnyTimes()
 	taskManager := NewMockTaskManager(ctrl)
 
 	queryFactory := &queryFactory{
-		replicaStateMachine:  replicaStateMachine,
-		nodeStateMachine:     nodeStateMachine,
-		databaseStateMachine: dbStateMachine,
-		taskManager:          taskManager,
+		stateMgr:    stateMgr,
+		taskManager: taskManager,
 	}
-	brokerNodes := []models.ActiveNode{
+	brokerNodes := []models.StatelessNode{
 		generateBrokerActiveNode("1.1.1.1", 8000),
 		generateBrokerActiveNode("1.1.1.2", 8000),
 		currentNode,
 		generateBrokerActiveNode("1.1.1.4", 8000),
 	}
-	nodeStateMachine.EXPECT().GetActiveNodes().Return(brokerNodes).AnyTimes()
+	stateMgr.EXPECT().GetLiveNodes().Return(brokerNodes).AnyTimes()
 
 	// case 1: database not found
 	qry := newMetricQuery(context.Background(),
 		"test_db",
 		"select f from cpu",
 		queryFactory)
-	dbStateMachine.EXPECT().GetDatabaseCfg("test_db").Return(models.Database{}, false)
+	stateMgr.EXPECT().GetDatabaseCfg("test_db").Return(models.Database{}, false)
 	_, err := qry.WaitResponse()
 	assert.Error(t, err)
 
 	// case 2: storage nodes not exist
-	dbStateMachine.EXPECT().GetDatabaseCfg("test_db").
+	stateMgr.EXPECT().GetDatabaseCfg("test_db").
 		Return(models.Database{Option: option.DatabaseOption{Interval: "10s"}}, true).
 		AnyTimes()
 	qry = newMetricQuery(context.Background(),
 		"test_db",
 		"select f from cpu",
 		queryFactory)
-	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").Return(nil)
+	stateMgr.EXPECT().GetQueryableReplicas("test_db").Return(nil)
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)
 
-	storageNodes := map[string][]int32{
+	storageNodes := map[string][]models.ShardID{
 		"1.1.1.1:9000": {1, 2, 4},
 		"1.1.1.2:9000": {3, 6, 9},
 		"1.1.1.3:9000": {5, 7, 8},
 		"1.1.1.4:9000": {10, 13, 15},
 		"1.1.1.5:9000": {11, 12, 14},
 	}
-	replicaStateMachine.EXPECT().GetQueryableReplicas("test_db").
+	stateMgr.EXPECT().GetQueryableReplicas("test_db").
 		Return(storageNodes).AnyTimes()
-	nodeStateMachine.EXPECT().GetActiveNodes().
+	stateMgr.EXPECT().GetLiveNodes().
 		Return(brokerNodes).AnyTimes()
 
 	// bad sql
