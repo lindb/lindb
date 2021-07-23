@@ -66,7 +66,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	err := handler.Handle(server)
 	assert.NotNil(t, err)
 
-	ctx = rpc.CreateIncomingContextWithNode(context.TODO(), models.Node{IP: "1.1.1.1", Port: 9000})
+	ctx = rpc.CreateIncomingContextWithNode(context.TODO(), &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000})
 	server.EXPECT().Context().Return(ctx)
 	server.EXPECT().Recv().Return(nil, nil)
 	server.EXPECT().Recv().Return(nil, fmt.Errorf("err"))

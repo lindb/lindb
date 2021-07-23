@@ -43,6 +43,7 @@ var defaultStandaloneConfig = config.Standalone{
 
 func init() {
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
+	defaultStandaloneConfig.StorageBase.Indicator = 1
 }
 
 func TestRuntime_Run(t *testing.T) {
@@ -137,7 +138,6 @@ func TestRuntime_cleanupState(t *testing.T) {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
-
 	defaultStandaloneConfig.StorageBase.GRPC.Port = 3904
 	cfg := defaultStandaloneConfig
 	cfg.StorageBase.TSDB.Dir = testPath

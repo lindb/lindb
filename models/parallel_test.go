@@ -30,8 +30,8 @@ func TestPhysicalPlan(t *testing.T) {
 			Parent:    "1.1.1.2:8000",
 			Indicator: "1.1.1.1:9000",
 		},
-		Receivers: []Node{{IP: "1.1.1.5", Port: 8000}},
-		ShardIDs:  []int32{1, 2, 4},
+		Receivers: []StatelessNode{{HostIP: "1.1.1.5", GRPCPort: 8000}},
+		ShardIDs:  []ShardID{1, 2, 4},
 	})
 	physicalPlan.AddIntermediate(Intermediate{
 		BaseNode: BaseNode{
@@ -56,8 +56,8 @@ func TestPhysicalPlan(t *testing.T) {
 				Parent:    "1.1.1.2:8000",
 				Indicator: "1.1.1.1:9000",
 			},
-			Receivers: []Node{{IP: "1.1.1.5", Port: 8000}},
-			ShardIDs:  []int32{1, 2, 4},
+			Receivers: []StatelessNode{{HostIP: "1.1.1.5", GRPCPort: 8000}},
+			ShardIDs:  []ShardID{1, 2, 4},
 		}},
 	}, *physicalPlan)
 }

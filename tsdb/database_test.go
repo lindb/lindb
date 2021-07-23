@@ -28,6 +28,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
@@ -88,11 +89,11 @@ func TestDatabase_New(t *testing.T) {
 	assert.Nil(t, db)
 	// case 5: create shard err
 	newMetadataFunc = metadb.NewMetadata
-	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {
+	newShardFunc = func(db Database, shardID models.ShardID, shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	db, err = newDatabase("db", testPath, &databaseConfig{
-		ShardIDs: []int32{1, 2, 3},
+		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -100,7 +101,7 @@ func TestDatabase_New(t *testing.T) {
 	// case 6: create db success
 	newShardFunc = newShard
 	db, err = newDatabase("db", testPath, &databaseConfig{
-		ShardIDs: []int32{1, 2, 3},
+		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
 	}, nil)
 	assert.NoError(t, err)
@@ -116,12 +117,12 @@ func TestDatabase_New(t *testing.T) {
 	newMetadataFunc = func(ctx context.Context, databaseName, parent string, tagFamily kv.Family) (metadb.Metadata, error) {
 		return metadata, nil
 	}
-	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {
+	newShardFunc = func(db Database, shardID models.ShardID, shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
 	db, err = newDatabase("db", testPath, &databaseConfig{
-		ShardIDs: []int32{1, 2, 3},
+		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -138,7 +139,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		ctrl.Finish()
 	}()
 	db, err := newDatabase("db", testPath, &databaseConfig{
-		ShardIDs: []int32{1, 2, 3},
+		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
 	}, nil)
 	assert.NoError(t, err)
@@ -148,28 +149,31 @@ func TestDatabase_CreateShards(t *testing.T) {
 	err = db.CreateShards(option.DatabaseOption{}, nil)
 	assert.Error(t, err)
 	// case 2: create shard err
-	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {
+	newShardFunc = func(db Database, shardID models.ShardID,
+		shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	err = db.CreateShards(option.DatabaseOption{}, []int32{4, 5, 6})
+	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{4, 5, 6})
 	assert.Error(t, err)
 	// case 3: create exist shard
-	err = db.CreateShards(option.DatabaseOption{}, []int32{1, 2, 3})
+	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{1, 2, 3})
 	assert.NoError(t, err)
 	// case 4: create shard success
-	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {
+	newShardFunc = func(db Database, shardID models.ShardID,
+		shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, nil
 	}
-	err = db.CreateShards(option.DatabaseOption{}, []int32{4, 5, 6})
+	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{4, 5, 6})
 	assert.NoError(t, err)
 	// case 5: dump option err
-	newShardFunc = func(db Database, shardID int32, shardPath string, option option.DatabaseOption) (s Shard, err error) {
+	newShardFunc = func(db Database, shardID models.ShardID,
+		shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, nil
 	}
 	encodeToml = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
-	err = db.CreateShards(option.DatabaseOption{}, []int32{9})
+	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{9})
 	assert.Error(t, err)
 	// case 6: create exist shard
 	db1 := db.(*database)
@@ -203,7 +207,7 @@ func TestDatabase_Close(t *testing.T) {
 	// mock shard close error
 	mockShard := NewMockShard(ctrl)
 	mockShard.EXPECT().Close().Return(fmt.Errorf("error"))
-	db.shardSet.InsertShard(int32(1), mockShard)
+	db.shardSet.InsertShard(models.ShardID(1), mockShard)
 	assert.Nil(t, db.Close())
 }
 
@@ -260,7 +264,7 @@ func Test_ShardSet_multi(t *testing.T) {
 	set := newShardSet()
 	shard1 := NewMockShard(ctrl)
 	for i := 0; i < 100; i += 2 {
-		set.InsertShard(int32(i), shard1)
+		set.InsertShard(models.ShardID(i), shard1)
 	}
 	assert.Equal(t, set.GetShardNum(), 50)
 	_, ok := set.GetShard(0)
@@ -345,12 +349,12 @@ var (
 func Benchmark_ShardSet_iterating(b *testing.B) {
 	set := newShardSet()
 	for i := 0; i < boundaryShardSetLen; i++ {
-		set.InsertShard(int32(i), nil)
+		set.InsertShard(models.ShardID(i), nil)
 	}
 	// 2.8ns
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			set.GetShard(int32(boundaryShardSetLen) - 1)
+			set.GetShard(models.ShardID(boundaryShardSetLen - 1))
 		}
 	})
 }
@@ -358,12 +362,12 @@ func Benchmark_ShardSet_iterating(b *testing.B) {
 func Benchmark_SharSet_binarySearch(b *testing.B) {
 	set := newShardSet()
 	for i := 0; i < boundaryShardSetLen+1; i++ {
-		set.InsertShard(int32(i), nil)
+		set.InsertShard(models.ShardID(i), nil)
 	}
 	// 4.68ns
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			set.GetShard(int32(boundaryShardSetLen))
+			set.GetShard(models.ShardID(boundaryShardSetLen))
 		}
 	})
 }

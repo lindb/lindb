@@ -18,11 +18,7 @@
 package replication
 
 import (
-	"context"
-
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -50,10 +46,10 @@ func NewReplicatorStateReport(node models.Node, repo state.Repository) Replicato
 
 // Report reports all wal replicator state under current broker
 func (s *replicatorStateReport) Report(state *models.BrokerReplicaState) error {
-	data := encoding.JSONMarshal(state)
+	//data := encoding.JSONMarshal(state)
 	//TODO need using timeout
-	if err := s.repo.Put(context.TODO(), constants.GetReplicaStatePath((&s.node).Indicator()), data); err != nil {
-		return err
-	}
+	//if err := s.repo.Put(context.TODO(), constants.GetReplicaStatePath((&s.node).Indicator()), data); err != nil {
+	//	return err
+	//}
 	return nil
 }

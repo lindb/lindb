@@ -28,7 +28,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/storage"
+	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
@@ -52,28 +52,23 @@ func TestMaster(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
-
-	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
+	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
-		Node:             node1,
+		Node:             &node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
-		BrokerSM: &BrokerStateMachines{
-			NodeSM: nodeSM,
-		},
 	})
 	master1.Start()
-	data := encoding.JSONMarshal(&models.Master{Node: node1})
+	data := encoding.JSONMarshal(&models.Master{Node: &node1})
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeModify,
 		KeyValues: []state.EventKeyValue{
 			{Key: constants.MasterPath, Value: data},
 		},
 	})
-	assert.Equal(t, node1, master1.GetMaster().Node)
+	assert.Equal(t, &node1, master1.GetMaster().Node)
 	assert.True(t, master1.IsMaster())
 
 	// re-elect
@@ -114,23 +109,18 @@ func TestMaster_Fail(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
-
-	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
+	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
-		Node:             node1,
+		Node:             &node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
-		BrokerSM: &BrokerStateMachines{
-			NodeSM: nodeSM,
-		},
 	})
 	master1.Start()
 
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
-	data := encoding.JSONMarshal(&models.Master{Node: node1})
+	data := encoding.JSONMarshal(&models.Master{Node: &node1})
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeModify,
 		KeyValues: []state.EventKeyValue{
@@ -171,24 +161,19 @@ func TestMaster_FlushDatabase(t *testing.T) {
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	nodeSM := discovery.NewMockActiveNodeStateMachine(ctrl)
-
-	node1 := models.Node{IP: "1.1.1.1", Port: 8000}
+	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	master1 := NewMaster(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
-		Node:             node1,
+		Node:             &node1,
 		TTL:              1,
 		DiscoveryFactory: discoveryFactory,
-		BrokerSM: &BrokerStateMachines{
-			NodeSM: nodeSM,
-		},
 	})
 	err := master1.FlushDatabase("test", "test")
 	assert.NoError(t, err)
 
 	master1.Start()
-	data := encoding.JSONMarshal(&models.Master{Node: node1})
+	data := encoding.JSONMarshal(&models.Master{Node: &node1})
 	sendEvent(eventCh, &state.Event{
 		Type: state.EventTypeModify,
 		KeyValues: []state.EventKeyValue{
@@ -201,12 +186,12 @@ func TestMaster_FlushDatabase(t *testing.T) {
 
 	m1 := master1.(*master)
 	m1.mutex.Lock()
-	clusterSM := storage.NewMockClusterStateMachine(ctrl)
-	m1.masterCtx.StateMachine.StorageCluster = clusterSM
+	statMgr := masterpkg.NewMockStateManager(ctrl)
+	m1.stateMgr = statMgr
 	m1.mutex.Unlock()
 
-	cluster1 := storage.NewMockCluster(ctrl)
-	clusterSM.EXPECT().GetCluster(gomock.Any()).Return(cluster1)
+	cluster1 := masterpkg.NewMockStorageCluster(ctrl)
+	statMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster1)
 	cluster1.EXPECT().FlushDatabase(gomock.Any()).Return(nil)
 	err = master1.FlushDatabase("test", "test")
 	assert.NoError(t, err)

@@ -25,7 +25,7 @@ import (
 // CreateShardTask represents the create shard task's param
 type CreateShardTask struct {
 	DatabaseName   string                `json:"databaseName"`   // database's name
-	ShardIDs       []int32               `json:"shardIDs"`       // shard ids
+	ShardIDs       []ShardID             `json:"shardIDs"`       // shard ids
 	DatabaseOption option.DatabaseOption `json:"databaseOption"` // time series database
 }
 

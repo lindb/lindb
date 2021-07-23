@@ -31,7 +31,7 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := NewQueryFactory(nil, nil, nil, nil)
+	factory := NewQueryFactory(nil, nil)
 	assert.NotNil(t, factory.NewMetricQuery(
 		context.Background(),
 		"",

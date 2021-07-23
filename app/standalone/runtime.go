@@ -127,7 +127,7 @@ func (r *runtime) Run() error {
 
 		if err := r.initializer.InitInternalDatabase(models.Database{
 			Name:          "_internal",
-			Cluster:       storageClusterName,
+			Storage:       storageClusterName,
 			NumOfShard:    1,
 			ReplicaFactor: 1,
 			Option: option.DatabaseOption{
@@ -210,18 +210,38 @@ func (r *runtime) startETCD() error {
 
 // cleanupState cleans the state of previous standalone process.
 // 1. master node in etcd, because etcd will trigger master node expire event
+// 2. stateful node in etcd
 func (r *runtime) cleanupState() error {
-	repo, err := r.repoFactory.CreateRepo(r.cfg.BrokerBase.Coordinator)
+	brokerRepo, err := r.repoFactory.CreateRepo(r.cfg.BrokerBase.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
 	defer func() {
-		if err := repo.Close(); err != nil {
-			log.Error("close state repo when do cleanup", logger.Error(err))
+		if err := brokerRepo.Close(); err != nil {
+			log.Error("close broker state repo when do cleanup", logger.Error(err))
 		}
 	}()
-	if err := repo.Delete(context.TODO(), constants.MasterPath); err != nil {
+	if err := brokerRepo.Delete(context.TODO(), constants.MasterPath); err != nil {
 		return fmt.Errorf("delete old master error")
+	}
+
+	storageRepo, err := r.repoFactory.CreateRepo(r.cfg.StorageBase.Coordinator)
+	if err != nil {
+		return fmt.Errorf("start storage state repo error:%s", err)
+	}
+	defer func() {
+		if err := storageRepo.Close(); err != nil {
+			log.Error("close storage state repo when do cleanup", logger.Error(err))
+		}
+	}()
+	kvs, err := storageRepo.List(context.TODO(), constants.NodesPath)
+	if err != nil {
+		return err
+	}
+	for _, kv := range kvs {
+		if err := storageRepo.Delete(context.TODO(), kv.Key); err != nil {
+			return fmt.Errorf("delete stateful node info error")
+		}
 	}
 	return nil
 }

@@ -21,28 +21,21 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
 type queryFactory struct {
-	replicaStateMachine  broker.ReplicaStatusStateMachine
-	nodeStateMachine     discovery.ActiveNodeStateMachine
-	databaseStateMachine broker.DatabaseStateMachine
-	taskManager          TaskManager
+	stateMgr    broker.StateManager
+	taskManager TaskManager
 }
 
 func NewQueryFactory(
-	replicaStateMachine broker.ReplicaStatusStateMachine,
-	nodeStateMachine discovery.ActiveNodeStateMachine,
-	databaseStateMachine broker.DatabaseStateMachine,
+	stateMgr broker.StateManager,
 	taskManager TaskManager,
 ) Factory {
 	return &queryFactory{
-		replicaStateMachine:  replicaStateMachine,
-		nodeStateMachine:     nodeStateMachine,
-		databaseStateMachine: databaseStateMachine,
-		taskManager:          taskManager,
+		stateMgr:    stateMgr,
+		taskManager: taskManager,
 	}
 }
 

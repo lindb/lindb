@@ -26,7 +26,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -152,7 +151,7 @@ func TestDiscovery_Discovery(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	listener := inif.NewMockListener(ctrl)
+	listener := NewMockListener(ctrl)
 	d := &discovery{prefix: "/test", repo: repo, listener: listener, logger: logger.GetLogger("test", "test")}
 
 	// case 1: list err

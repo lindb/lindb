@@ -10,7 +10,6 @@ require (
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
-	github.com/fatih/color v1.12.0 // indirect
 	github.com/felixge/fgprof v0.9.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0

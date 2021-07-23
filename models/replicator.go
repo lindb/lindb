@@ -27,12 +27,12 @@ type BrokerReplicaState struct {
 
 // ReplicaState represents the status of replicator's channel
 type ReplicaState struct {
-	Database     string `json:"database"`     // database name
-	ShardID      int32  `json:"shardID"`      // shard id
-	Target       Node   `json:"target"`       // target storage node for database's shard
-	Pending      int64  `json:"pending"`      // the num. of pending which it need replica msg
-	ReplicaIndex int64  `json:"replicaIndex"` // replica index for current replicator's channel
-	AckIndex     int64  `json:"ackIndex"`     // commit index
+	Database     string  `json:"database"`     // database name
+	ShardID      ShardID `json:"shardID"`      // shard id
+	Target       Node    `json:"target"`       // target storage node for database's shard
+	Pending      int64   `json:"pending"`      // the num. of pending which it need replica msg
+	ReplicaIndex int64   `json:"replicaIndex"` // replica index for current replicator's channel
+	AckIndex     int64   `json:"ackIndex"`     // commit index
 }
 
 // ShardIndicator returns shard indicator based on database/shard id

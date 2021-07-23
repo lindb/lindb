@@ -135,7 +135,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition,
 	if ok {
 		return p, nil
 	}
-	shard, ok := w.engine.GetShard(w.database, int32(shardID))
+	shard, ok := w.engine.GetShard(w.database, shardID)
 	if !ok {
 		return nil, errors.New("shard not exist")
 	}

@@ -29,7 +29,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -42,13 +42,14 @@ func TestMetricAPI_Search(t *testing.T) {
 
 	queryFactory := brokerQuery.NewMockFactory(ctrl)
 	metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 
 	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 
 	api := NewMetricAPI(&deps.HTTPDeps{
-		BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
-		StateMachines: &coordinator.BrokerStateMachines{},
-		QueryFactory:  queryFactory,
+		BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
+		StateMgr:     stateMgr,
+		QueryFactory: queryFactory,
 	})
 	r := gin.New()
 	api.Register(r)
@@ -63,10 +64,13 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	defer ctrl.Finish()
 
 	queryFactory := brokerQuery.NewMockFactory(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
+
 	api := NewMetricAPI(&deps.HTTPDeps{
-		BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
-		QueryFactory:  queryFactory,
-		StateMachines: &coordinator.BrokerStateMachines{}})
+		BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
+		QueryFactory: queryFactory,
+		StateMgr:     stateMgr,
+	})
 	r := gin.New()
 	api.Register(r)
 

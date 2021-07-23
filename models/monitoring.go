@@ -24,10 +24,10 @@ import (
 
 // NodeStat represents the node monitoring stat
 type NodeStat struct {
-	Node     ActiveNode `json:"node,omitempty"`
-	System   SystemStat `json:"system,omitempty"`
-	Replicas int        `json:"replicas"` // the number of replica under the node
-	IsDead   bool       `json:"isDead"`
+	Node     *StatelessNode `json:"node,omitempty"`
+	System   SystemStat     `json:"system,omitempty"`
+	Replicas int            `json:"replicas"` // the number of replica under the node
+	IsDead   bool           `json:"isDead"`
 }
 
 // StorageClusterStat represents the storage cluster's stat

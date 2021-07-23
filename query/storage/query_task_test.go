@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -145,7 +146,7 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	q, _ = sql.Parse("explain select f from cpu where ip<>'1.1.1.1'")
 	query = q.(*stmt.Query)
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil)
-	shard.EXPECT().ShardID().Return(int32(10))
+	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	task = newSeriesIDsSearchTask(newStorageExecuteContext(nil, query), shard, result)
 	err = task.Run()
 	assert.NoError(t, err)
@@ -173,7 +174,7 @@ func TestMemoryDataFilterTask_Run(t *testing.T) {
 	task = newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
-	shard.EXPECT().ShardID().Return(int32(10))
+	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
 }
@@ -219,7 +220,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{resultSet}, nil)
-	shard.EXPECT().ShardID().Return(int32(10))
+	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
 	assert.False(t, rs.isEmpty())
@@ -248,7 +249,7 @@ func TestGroupingContextFindTask_Run(t *testing.T) {
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil)
 	task = newGroupingContextFindTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, nil, seriesIDs, result)
-	shard.EXPECT().ShardID().Return(int32(10))
+	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
 }
@@ -275,7 +276,7 @@ func TestBuildGroupTask_Run(t *testing.T) {
 	// case 3: explain
 	task = newBuildGroupTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, groupingCtx, 0, seriesIDs.GetContainer(0), result)
-	shard.EXPECT().ShardID().Return(int32(10))
+	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
 }
@@ -297,7 +298,7 @@ func TestDataLoadTask_Run(t *testing.T) {
 	// case 2: explain
 	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, qf, timeSpan, 1, nil)
-	shard.EXPECT().ShardID().Return(int32(10)).AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
 	timeSpan.identifier = "memory"
 	err = task.Run()
 	assert.NoError(t, err)

@@ -21,41 +21,90 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
-// StorageState represents storage cluster node state.
-// NOTICE: it is not safe for concurrent use.
+type ShardStateType int
+
+const (
+	UnknownShard ShardStateType = iota
+	NewShard
+	OnlineShard
+	OfflineShard
+	NonExistentShard
+)
+
+type ReplicaStateType int
+
+const (
+	UnknownReplica ReplicaStateType = iota
+	NewReplica
+	NonExistentReplica
+	OnlineReplica
+	OfflineReplica
+)
+const NoLeader NodeID = -1
+
+// ShardState represents current state of shard.
+type ShardState struct {
+	ID      ShardID        `json:"id"`
+	State   ShardStateType `json:"state"`
+	Leader  NodeID         `json:"leader"`
+	Replica Replica        `json:"replica"`
+}
+
+// StorageState represents storage cluster state.
+// NOTICE: it is not safe for concurrent use. //TODO need concurrent safe????
 type StorageState struct {
-	Name        string                 `json:"name"`
-	ActiveNodes map[string]*ActiveNode `json:"activeNodes"`
+	Name string `json:"name"`
+
+	LiveNodes map[NodeID]StatefulNode
+
+	//TODO remove??
+	ShardAssignments map[string]*ShardAssignment       // database's name => shard assignment
+	ShardStates      map[string]map[ShardID]ShardState // database's name => shard state
 }
 
 // NewStorageState creates storage cluster state
-func NewStorageState() *StorageState {
+func NewStorageState(name string) *StorageState {
 	return &StorageState{
-		ActiveNodes: make(map[string]*ActiveNode),
+		Name:             name,
+		LiveNodes:        make(map[NodeID]StatefulNode),
+		ShardAssignments: make(map[string]*ShardAssignment),
+		ShardStates:      make(map[string]map[ShardID]ShardState),
 	}
 }
 
-// AddActiveNode adds a node into active node list
-func (s *StorageState) AddActiveNode(node *ActiveNode) {
-	key := node.Node.Indicator()
-	_, ok := s.ActiveNodes[key]
-	if !ok {
-		s.ActiveNodes[key] = node
+func (s *StorageState) LeadersOnNode(nodeID NodeID) map[string][]ShardID {
+	result := make(map[string][]ShardID)
+	for name, shards := range s.ShardStates {
+		for shardID, shard := range shards {
+			if shard.Leader == nodeID {
+				result[name] = append(result[name], shardID)
+			}
+		}
 	}
+	return result
 }
 
-// RemoveActiveNode removes a node from active node list
-func (s *StorageState) RemoveActiveNode(node string) {
-	delete(s.ActiveNodes, node)
+func (s *StorageState) ReplicasOnNode(nodeID NodeID) map[string][]ShardID {
+	result := make(map[string][]ShardID)
+	for name, shardAssignment := range s.ShardAssignments {
+		shards := shardAssignment.Shards
+		for shardID, replicas := range shards {
+			if replicas.Contain(nodeID) {
+				result[name] = append(result[name], shardID)
+			}
+		}
+	}
+	return result
 }
 
-// GetActiveNodes returns all active nodes
-func (s *StorageState) GetActiveNodes() []*ActiveNode {
-	var nodes []*ActiveNode
-	for _, node := range s.ActiveNodes {
-		nodes = append(nodes, node)
-	}
-	return nodes
+// NodeOnline adds a live node into node list.
+func (s *StorageState) NodeOnline(node StatefulNode) {
+	s.LiveNodes[node.ID] = node
+}
+
+// NodeOffline removes a offline node from live node list.
+func (s *StorageState) NodeOffline(nodeID NodeID) {
+	delete(s.LiveNodes, nodeID)
 }
 
 // Stringer returns a human readable string

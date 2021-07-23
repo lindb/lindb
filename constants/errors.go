@@ -66,4 +66,14 @@ var (
 	ErrInfluxLineTooLong = errors.New("influx line is too long")
 
 	ErrBadEnrichTagQueryFormat = errors.New("enrich_tag has the wrong format")
+	// ErrNoLiveReplica represents no live replica node for current shard.
+	ErrNoLiveReplica = errors.New("no live replica for shard")
+	// ErrNoLiveNode represents no live node for current cluster.
+	ErrNoLiveNode = errors.New("no live node for cluster")
+	// ErrNameEmpty represents name is empty.
+	ErrNameEmpty = errors.New("name cannot be empty")
+	// ErrNoStorageCluster represents storage cluster not exist.
+	ErrNoStorageCluster = errors.New("storage cluster not exist")
+	// ErrStatefulNodeExist represents stateful node already register.
+	ErrStatefulNodeExist = errors.New("stateful node already register")
 )

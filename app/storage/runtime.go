@@ -19,6 +19,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -38,6 +39,7 @@ import (
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
@@ -75,7 +77,7 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	node         models.Node
+	node         *models.StatefulNode
 	server       rpc.GRPCServer
 	repoFactory  state.RepositoryFactory
 	repo         state.Repository
@@ -116,6 +118,10 @@ func (r *runtime) Name() string {
 
 // Run runs storage server
 func (r *runtime) Run() error {
+	if r.config.StorageBase.Indicator <= 0 {
+		r.state = server.Failed
+		return errors.New("storage indicator must be > 0")
+	}
 	ip, err := getHostIP()
 	if err != nil {
 		r.state = server.Failed
@@ -135,11 +141,16 @@ func (r *runtime) Run() error {
 		r.log.Error("failed to get host name", logger.Error(err))
 		hostName = "unknown"
 	}
-	r.node = models.Node{
-		IP:       ip,
-		Port:     r.config.StorageBase.GRPC.Port,
-		HostName: hostName,
-		HTTPPort: r.config.StorageBase.GRPC.Port + 1,
+	r.node = &models.StatefulNode{
+		ID: models.NodeID(r.config.StorageBase.Indicator),
+		StatelessNode: models.StatelessNode{
+			HostIP:     ip,
+			GRPCPort:   r.config.StorageBase.GRPC.Port,
+			HostName:   hostName,
+			HTTPPort:   r.config.StorageBase.GRPC.Port + 1,
+			OnlineTime: timeutil.Now(),
+			//TODO add build version
+		},
 	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
@@ -151,19 +162,32 @@ func (r *runtime) Run() error {
 
 	// start state repo
 	if err := r.startStateRepo(); err != nil {
-		r.log.Error("failed to startStateRepo", logger.Error(err))
+		r.log.Error("start state repo failure", logger.Error(err))
 		r.state = server.Failed
 		return err
 	}
 
+	// Use Leader election mechanism to ensure the uniqueness of stateful node id
+	ok, _, err := r.repo.Elect(r.ctx, constants.GetStatefulNodePath(r.node.ID), encoding.JSONMarshal(r.node), 1) //TODO add config
+	if err != nil {
+		// stateful node register err
+		r.state = server.Failed
+		return err
+	}
+	if !ok {
+		// stateful node already exist
+		r.state = server.Failed
+		return constants.ErrStatefulNodeExist
+	}
+
 	// register storage node info
 	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, r.config.StorageBase.GRPC.TTL.Duration())
+	r.registry = discovery.NewRegistry(r.repo, r.config.StorageBase.GRPC.TTL.Duration())
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
 
-	r.taskExecutor = task.NewTaskExecutor(r.ctx, &r.node, r.repo, r.engine)
+	r.taskExecutor = task.NewTaskExecutor(r.ctx, r.node, r.repo, r.engine)
 	r.taskExecutor.Run()
 
 	// start system collector
@@ -262,7 +286,7 @@ func (r *runtime) startHTTPServer() {
 	if !logger.IsDebug() {
 		return
 	}
-	port := r.node.Port + 1
+	port := r.node.GRPCPort + 1 //TODO need remove
 	r.log.Info("starting http server", logger.Uint16("port", port))
 
 	// add prometheus metric report
@@ -355,9 +379,6 @@ func (r *runtime) systemCollector() {
 		r.config.StorageBase.TSDB.Dir,
 		r.repo,
 		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-		models.ActiveNode{
-			Version:    r.version,
-			Node:       r.node,
-			OnlineTime: timeutil.Now(),
-		}, "storage").Run()
+		&r.node.StatelessNode,
+		"storage").Run()
 }

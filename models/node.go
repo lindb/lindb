@@ -27,23 +27,37 @@ import (
 // NodeID represents node identifier.
 type NodeID int
 
-// Node represents the basic info of server
-type Node struct {
-	ID       NodeID `json:"id"`
-	IP       string `json:"ip"`
-	Port     uint16 `json:"port"`
-	HTTPPort uint16 `json:"httpPort"`
-	HostName string `json:"hostName"`
+// Node represents the node info in cluster(broker/storage).
+type Node interface {
+	// Indicator returns return node indicator's string.
+	Indicator() string
 }
 
-// Indicator returns return node indicator's string
-func (n *Node) Indicator() string {
-	return fmt.Sprintf("%s:%d", n.IP, n.Port)
+type StatefulNode struct {
+	StatelessNode
+
+	ID NodeID `json:"id"`
+}
+
+// StatelessNode represents stateless node basic info.
+type StatelessNode struct {
+	HostIP   string `json:"hostIp"`
+	HostName string `json:"hostName"`
+	GRPCPort uint16 `json:"grpcPort"`
+	HTTPPort uint16 `json:"httpPort"`
+
+	Version    string `json:"version"`
+	OnlineTime int64  `json:"onlineTime"` // node online time(millisecond)
+}
+
+// Indicator returns return node indicator's string.
+func (n *StatelessNode) Indicator() string {
+	return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
 }
 
 // ParseNode parses Node from indicator,
 // if indicator is not in the form [ip]:port  or port is not valid num, return error.
-func ParseNode(indicator string) (*Node, error) {
+func ParseNode(indicator string) (Node, error) {
 	index := strings.Index(indicator, ":")
 	if index < 0 {
 		return nil, fmt.Errorf("indicator(%s) is not in the format [ip]:port", indicator)
@@ -59,21 +73,15 @@ func ParseNode(indicator string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Node{
-		IP:   indicator[:index],
-		Port: uint16(port),
+	//TODO change base node info???
+	return &StatelessNode{
+		HostIP:   indicator[:index],
+		GRPCPort: uint16(port),
 	}, nil
 }
 
-// Master represents master basic info
+// Master represents master basic info.
 type Master struct {
-	Node      Node  `json:"node"`
-	ElectTime int64 `json:"electTime"`
-}
-
-// ActiveNode represents active node include online time
-type ActiveNode struct {
-	Version    string `json:"version"`
-	Node       Node   `json:"node"`
-	OnlineTime int64  `json:"onlineTime"` // node online time(millisecond)
+	Node      *StatelessNode `json:"node"`
+	ElectTime int64          `json:"electTime"`
 }

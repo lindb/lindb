@@ -89,13 +89,13 @@ func (mq *metadataQuery) WaitResponse() ([]string, error) {
 // buildPhysicalPlan builds distribution physical execute plan
 func (mq *metadataQuery) makePlan() (*models.PhysicalPlan, error) {
 	//FIXME need using storage's replica state ???
-	storageNodes := mq.runtime.replicaStateMachine.GetQueryableReplicas(mq.database)
+	storageNodes := mq.runtime.stateMgr.GetQueryableReplicas(mq.database)
 	storageNodesLen := len(storageNodes)
 	if storageNodesLen == 0 {
 		return nil, query.ErrNoAvailableStorageNode
 	}
-	curBroker := mq.runtime.nodeStateMachine.GetCurrentNode()
-	curBrokerIndicator := (&curBroker).Indicator()
+	curBroker := mq.runtime.stateMgr.GetCurrentNode()
+	curBrokerIndicator := curBroker.Indicator()
 	physicalPlan := &models.PhysicalPlan{
 		Database: mq.database,
 		Root: models.Root{
@@ -103,7 +103,7 @@ func (mq *metadataQuery) makePlan() (*models.PhysicalPlan, error) {
 			NumOfTask: int32(storageNodesLen),
 		},
 	}
-	receivers := []models.Node{curBroker}
+	receivers := []models.StatelessNode{curBroker}
 	for storageNode, shardIDs := range storageNodes {
 		physicalPlan.AddLeaf(models.Leaf{
 			BaseNode: models.BaseNode{

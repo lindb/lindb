@@ -114,7 +114,7 @@ type ClientStreamFactory interface {
 	// LogicNode returns the a logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
 	// CreateWriteClient creates a stream WriteClient.
-	CreateWriteClient(db string, shardID int32, target models.Node) (protoStorageV1.WriteService_WriteClient, error)
+	CreateWriteClient(db string, shardID models.ShardID, target models.Node) (protoStorageV1.WriteService_WriteClient, error)
 	// CreateTaskClient creates a stream task client
 	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
 	// CreateWriteServiceClient creates a WriteServiceClient
@@ -151,7 +151,7 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 
 	node := w.LogicNode()
 	//TODO handle context?????
-	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&node).Indicator())
+	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, node.Indicator())
 	cli, err := protoCommonV1.NewTaskServiceClient(conn).Handle(ctx)
 	return cli, err
 }
@@ -159,7 +159,7 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 // CreateWriteClient creates a WriteClient.
 func (w *clientStreamFactory) CreateWriteClient(
 	db string,
-	shardID int32,
+	shardID models.ShardID,
 	target models.Node,
 ) (protoStorageV1.WriteService_WriteClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
@@ -206,7 +206,7 @@ func createIncomingContextWithPairs(ctx context.Context, pairs ...string) contex
 // db is the database, shardID is the shard id for database,
 // logicNode is a client provided identification on server side.
 // These parameters will passed to the sever side in stream context.
-func createOutgoingContext(ctx context.Context, db string, shardID int32, logicNode models.Node) context.Context {
+func createOutgoingContext(ctx context.Context, db string, shardID models.ShardID, logicNode models.Node) context.Context {
 	return metadata.AppendToOutgoingContext(ctx,
 		metaKeyLogicNode, logicNode.Indicator(),
 		metaKeyDatabase, db,
@@ -214,7 +214,7 @@ func createOutgoingContext(ctx context.Context, db string, shardID int32, logicN
 }
 
 // CreateIncomingContext creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
-func CreateIncomingContext(ctx context.Context, db string, shardID int32, logicNode models.Node) context.Context {
+func CreateIncomingContext(ctx context.Context, db string, shardID models.ShardID, logicNode models.Node) context.Context {
 	return metadata.NewIncomingContext(ctx,
 		metadata.Pairs(metaKeyLogicNode, logicNode.Indicator(),
 			metaKeyDatabase, db,
@@ -247,7 +247,7 @@ func getStringFromContext(ctx context.Context, metaKey string) (string, error) {
 }
 
 // GetLogicNodeFromContext returns the logicNode.
-func GetLogicNodeFromContext(ctx context.Context) (*models.Node, error) {
+func GetLogicNodeFromContext(ctx context.Context) (models.Node, error) {
 	strVal, err := getStringFromContext(ctx, metaKeyLogicNode)
 	if err != nil {
 		return nil, err

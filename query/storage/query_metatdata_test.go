@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -90,7 +91,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, string(encoding.JSONMarshal([]field.Meta{{ID: 10}})), result[0])
 
 	// case 6: suggest tag values
-	exec = newStorageMetadataQuery(db, []int32{1, 2}, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.Metadata{
 		Type: stmt.TagValue,
 	})
 	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(2), nil)
@@ -104,7 +105,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, []string{"a"}, result)
 
 	// case 7: suggest tag values err
-	exec = newStorageMetadataQuery(db, []int32{1, 2}, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.Metadata{
 		Type: stmt.TagValue,
 	})
 	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
@@ -136,7 +137,7 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 	newTagSearchFunc = func(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
 		return tagSearch
 	}
-	exec := newStorageMetadataQuery(db, []int32{1}, &stmt.Metadata{
+	exec := newStorageMetadataQuery(db, []models.ShardID{1}, &stmt.Metadata{
 		Type:      stmt.TagValue,
 		Condition: &stmt.EqualsExpr{},
 		Limit:     2,

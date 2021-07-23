@@ -35,6 +35,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -94,7 +95,7 @@ type Shard interface {
 	// DatabaseName returns the database name
 	DatabaseName() string
 	// ShardID returns the shard id
-	ShardID() int32
+	ShardID() models.ShardID
 	// CurrentInterval returns current interval for metric write.
 	CurrentInterval() timeutil.Interval
 	// ShardInfo returns the unique shard info
@@ -140,7 +141,7 @@ type shardMetrics struct {
 	indexFlushTimer         *linmetric.BoundDeltaHistogram
 }
 
-func newShardMetrics(dbName string, shardID int32) *shardMetrics {
+func newShardMetrics(dbName string, shardID models.ShardID) *shardMetrics {
 	shardIDStr := strconv.Itoa(int(shardID))
 	return &shardMetrics{
 		badMetrics:              badMetricsVec.WithTagValues(dbName, shardIDStr),
@@ -169,7 +170,7 @@ func newShardMetrics(dbName string, shardID int32) *shardMetrics {
 //    xx/shard/1/data/20191013/
 type shard struct {
 	databaseName string
-	id           int32
+	id           models.ShardID
 	path         string
 	option       option.DatabaseOption
 	sequence     ReplicaSequence
@@ -205,7 +206,7 @@ type shard struct {
 // return error if fail.
 func newShard(
 	db Database,
-	shardID int32,
+	shardID models.ShardID,
 	shardPath string,
 	option option.DatabaseOption,
 ) (Shard, error) {
@@ -256,7 +257,7 @@ func newShard(
 		}
 		if err = createdShard.Close(); err != nil {
 			engineLogger.Error("close shard error when create shard fail",
-				logger.Int32("shardID", createdShard.id),
+				logger.Any("shardID", createdShard.id),
 				logger.String("database", createdShard.databaseName),
 				logger.String("shard", createdShard.path), logger.Error(err))
 		}
@@ -286,12 +287,12 @@ func (s *shard) DatabaseName() string {
 	return s.databaseName
 }
 
-// ShardID returns the shard id
-func (s *shard) ShardID() int32 {
+// ShardID returns the shard id.
+func (s *shard) ShardID() models.ShardID {
 	return s.id
 }
 
-// ShardInfo returns the unique shard info
+// ShardInfo returns the unique shard info.
 func (s *shard) ShardInfo() string {
 	return s.path
 }
@@ -679,7 +680,7 @@ func (s *shard) validateMemDBSize(familyTime int64, m memdb.MemoryDatabase) {
 	s.families.SetFamilyImmutable(familyTime)
 
 	s.logger.Info("memdb is above memory threshold, switch to immutable",
-		logger.Int32("shardID", s.id),
+		logger.Any("shardID", s.id),
 		logger.String("database", s.databaseName),
 		logger.Int64("familyTime", familyTime),
 		logger.String("uptime", m.Uptime().String()),
@@ -706,7 +707,7 @@ MoveMutable:
 		if entry.memDB.Uptime() > ttl {
 			s.families.SetFamilyImmutable(entry.familyTime)
 			s.logger.Info("switch a expired mutable memdb to immutable",
-				logger.Int32("shardID", s.id),
+				logger.Any("shardID", s.id),
 				logger.String("database", s.databaseName),
 				logger.String("uptime", entry.memDB.Uptime().String()),
 				logger.String("mutable-memdb-ttl", ttl.String()),
@@ -734,7 +735,7 @@ func (s *shard) NeedFlush() bool {
 	number := len(s.families.Entries())
 	if number > cfg.TSDB.MaxMemDBNumber {
 		s.logger.Info("number of memdb is above threshold, waiting for flush",
-			logger.Int32("shardID", s.id),
+			logger.Any("shardID", s.id),
 			logger.String("database", s.databaseName),
 			logger.Int32("memdb-number", int32(number)),
 			logger.Int32("max-memdb-number", int32(cfg.TSDB.MaxMemDBNumber)),
@@ -745,7 +746,7 @@ func (s *shard) NeedFlush() bool {
 	totalSize := s.families.TotalSize()
 	if totalSize > int64(cfg.TSDB.MaxMemDBTotalSize) {
 		s.logger.Info("total size of memdb is above threshold, waiting for flush",
-			logger.Int32("shardID", s.id),
+			logger.Any("shardID", s.id),
 			logger.String("database", s.databaseName),
 			logger.Int64("memdb-total-size", totalSize),
 			logger.Int64("max-memdb-total-size", int64(cfg.TSDB.MaxMemDBTotalSize)),
@@ -777,13 +778,13 @@ func (s *shard) Flush() (err error) {
 	if s.indexDB != nil {
 		if err = s.indexDB.Flush(); err != nil {
 			s.logger.Error("failed to flush indexDB ",
-				logger.Int32("shardID", s.id),
+				logger.Any("shardID", s.id),
 				logger.String("database", s.databaseName),
 				logger.Error(err))
 			return err
 		}
 		s.logger.Info("flush indexDB successfully",
-			logger.Int32("shardID", s.id),
+			logger.Any("shardID", s.id),
 			logger.String("database", s.databaseName),
 		)
 		s.metrics.indexFlushTimer.UpdateSince(startTime)
@@ -800,7 +801,7 @@ func (s *shard) Flush() (err error) {
 		if evictedMutable := s.families.SetLargestMutableMemDBImmutable(); evictedMutable {
 			waitingFlushMemDB = s.families.ImmutableEntries()[0].memDB
 			s.logger.Info("forcefully switch a memdb to immutable for flushing",
-				logger.Int32("shardID", s.id),
+				logger.Any("shardID", s.id),
 				logger.String("database", s.databaseName),
 				logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
 				logger.Int64("memDBSize", waitingFlushMemDB.MemSize()),
@@ -809,14 +810,14 @@ func (s *shard) Flush() (err error) {
 		s.mutex.Unlock()
 	}
 	if waitingFlushMemDB == nil {
-		s.logger.Warn("there is no memdb to flush", logger.Int32("shardID", s.id))
+		s.logger.Warn("there is no memdb to flush", logger.Any("shardID", s.id))
 		return nil
 	}
 
 	startTime = time.Now()
 	if err := s.flushMemoryDatabase(waitingFlushMemDB); err != nil {
 		s.logger.Error("failed to flush memdb",
-			logger.Int32("shardID", s.id),
+			logger.Any("shardID", s.id),
 			logger.String("database", s.databaseName),
 			logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
 			logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
@@ -829,7 +830,7 @@ func (s *shard) Flush() (err error) {
 
 	endTime := time.Now()
 	s.logger.Info("flush memdb successfully",
-		logger.Int32("shardID", s.id),
+		logger.Any("shardID", s.id),
 		logger.String("database", s.databaseName),
 		logger.String("flush-duration", endTime.Sub(startTime).String()),
 		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),

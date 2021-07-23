@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-// metricQuery implements MetricQuery
+// metricQuery implements MetricQuery.
 type metricQuery struct {
 	queryFactory *queryFactory
 
@@ -48,7 +48,7 @@ type metricQuery struct {
 	expression *aggregation.Expression
 }
 
-// newMetricQuery creates the execution which executes the job of parallel query
+// newMetricQuery creates the execution which executes the job of parallel query.
 func newMetricQuery(
 	ctx context.Context,
 	database string,
@@ -68,23 +68,23 @@ func newMetricQuery(
 // 2) build execute plan
 func (mq *metricQuery) makePlan() error {
 	startTime := time.Now()
-	databaseCfg, ok := mq.queryFactory.databaseStateMachine.GetDatabaseCfg(mq.database)
+	databaseCfg, ok := mq.queryFactory.stateMgr.GetDatabaseCfg(mq.database)
 	if !ok {
 		return query.ErrDatabaseNotExist
 	}
 
 	//FIXME need using storage's replica state ???
-	storageNodes := mq.queryFactory.replicaStateMachine.GetQueryableReplicas(mq.database)
+	storageNodes := mq.queryFactory.stateMgr.GetQueryableReplicas(mq.database)
 	if len(storageNodes) == 0 {
 		return query.ErrNoAvailableStorageNode
 	}
-	brokerNodes := mq.queryFactory.nodeStateMachine.GetActiveNodes()
+	brokerNodes := mq.queryFactory.stateMgr.GetLiveNodes()
 
 	mq.plan = newBrokerPlan(
 		mq.sql,
 		databaseCfg,
 		storageNodes,
-		mq.queryFactory.nodeStateMachine.GetCurrentNode(),
+		mq.queryFactory.stateMgr.GetCurrentNode(),
 		brokerNodes,
 	)
 	if err := mq.plan.Plan(); err != nil {

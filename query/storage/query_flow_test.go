@@ -80,9 +80,9 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		&stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
-			{IP: "1.1.1.2", Port: 2000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
 		}},
 		testExecPool,
 	)
@@ -143,9 +143,9 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		&stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
-			{IP: "1.1.1.2", Port: 2000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
 		}},
 		testExecPool,
 	)
@@ -165,8 +165,8 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		&stmt.Query{GroupBy: []string{"host"}},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
 		}},
 		testExecPool,
 	)
@@ -219,9 +219,9 @@ func TestStorageQueryFlow_getValues(t *testing.T) {
 		&stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
-			{IP: "1.1.1.2", Port: 2000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
 		}},
 		testExecPool,
 	)
@@ -287,9 +287,9 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		storageExecuteCtx, &stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
-			{IP: "1.1.1.2", Port: 2000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
 		}},
 		testExecPool)
 
@@ -303,9 +303,9 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		storageExecuteCtx, &stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
-		&models.Leaf{Receivers: []models.Node{
-			{IP: "1.1.1.1", Port: 1000},
-			{IP: "1.1.1.2", Port: 2000},
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
 		}},
 		testExecPool)
 	queryFlow.Complete(fmt.Errorf("err")) // stream not found

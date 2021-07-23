@@ -26,7 +26,7 @@ import (
 func TestReplicaState(t *testing.T) {
 	replica := ReplicaState{
 		Database:     "db",
-		ShardID:      int32(1),
+		ShardID:      ShardID(1),
 		Pending:      100,
 		ReplicaIndex: 50,
 	}

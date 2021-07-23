@@ -30,12 +30,12 @@ import (
 
 // API represents broker http api.
 type API struct {
-	master          *cluster.MasterAPI
-	database        *admin.DatabaseAPI
-	flusher         *admin.DatabaseFlusherAPI
-	storage         *admin.StorageClusterAPI
-	brokerState     *state.BrokerAPI
-	storageState    *state.StorageAPI
+	master      *cluster.MasterAPI
+	database    *admin.DatabaseAPI
+	flusher     *admin.DatabaseFlusherAPI
+	storage     *admin.StorageClusterAPI
+	brokerState *state.BrokerAPI
+	//storageState    *state.StorageAPI
 	prometheus      *write.PrometheusWriter
 	influxIngestion *write.InfluxWriter
 	nativeIngestion *write.NativeWriter
@@ -46,12 +46,12 @@ type API struct {
 // NewAPI creates broker http api.
 func NewAPI(deps *deps.HTTPDeps) *API {
 	return &API{
-		master:          cluster.NewMasterAPI(deps),
-		database:        admin.NewDatabaseAPI(deps),
-		flusher:         admin.NewDatabaseFlusherAPI(deps),
-		storage:         admin.NewStorageClusterAPI(deps),
-		brokerState:     state.NewBrokerAPI(deps),
-		storageState:    state.NewStorageAPI(deps),
+		master:      cluster.NewMasterAPI(deps),
+		database:    admin.NewDatabaseAPI(deps),
+		flusher:     admin.NewDatabaseFlusherAPI(deps),
+		storage:     admin.NewStorageClusterAPI(deps),
+		brokerState: state.NewBrokerAPI(deps),
+		//storageState:    state.NewStorageAPI(deps),
 		prometheus:      write.NewPrometheusWriter(deps),
 		influxIngestion: write.NewInfluxWriter(deps),
 		nativeIngestion: write.NewNativeWriter(deps),
@@ -68,7 +68,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.storage.Register(router)
 
 	api.brokerState.Register(router)
-	api.storageState.Register(router)
+	//TODO need add
+	//api.storageState.Register(router)
 
 	api.metadata.Register(router)
 	api.metric.Register(router)

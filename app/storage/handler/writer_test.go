@@ -44,12 +44,12 @@ case replica seq not match:
 */
 
 var (
-	node = models.Node{
-		IP:   "127.0.0.1",
-		Port: 123,
+	node = &models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
 	}
 	database = "database"
-	shardID  = int32(0)
+	shardID  = models.ShardID(0)
 )
 
 func TestWriter_Next(t *testing.T) {
@@ -71,7 +71,7 @@ func TestWriter_Next(t *testing.T) {
 
 	ctx := mockContext(database, shardID, node)
 	resp, err := writer.Next(ctx, &protoStorageV1.NextSeqRequest{
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 		Database: database})
 	assert.NoError(t, err)
 	assert.Equal(t, seq, resp.Seq)
@@ -80,14 +80,14 @@ func TestWriter_Next(t *testing.T) {
 	ctx = context.TODO()
 	_, err = writer.Next(ctx, &protoStorageV1.NextSeqRequest{
 		Database: database,
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 	})
 	assert.Error(t, err)
 
 	ctx = mockContext(database, shardID, node)
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
 	_, err = writer.Next(ctx, &protoStorageV1.NextSeqRequest{
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 		Database: database})
 	assert.Error(t, err)
 }
@@ -112,7 +112,7 @@ func TestWriter_Reset(t *testing.T) {
 	ctx := mockContext(database, shardID, node)
 	_, err := writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 		Seq:      seq,
 	})
 	assert.NoError(t, err)
@@ -121,7 +121,7 @@ func TestWriter_Reset(t *testing.T) {
 	ctx = context.TODO()
 	_, err = writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 		Seq:      seq,
 	})
 	assert.Error(t, err)
@@ -131,7 +131,7 @@ func TestWriter_Reset(t *testing.T) {
 	db.EXPECT().GetShard(gomock.Any()).Return(nil, false)
 	_, err = writer.Reset(ctx, &protoStorageV1.ResetSeqRequest{
 		Database: database,
-		ShardID:  shardID,
+		ShardID:  int32(shardID),
 		Seq:      seq,
 	})
 	assert.Error(t, err)
@@ -238,15 +238,15 @@ func TestWrite_parse_ctx(t *testing.T) {
 	ctx = metadata.NewIncomingContext(context.TODO(), metadata.Pairs("metaKeyLogicNode", "1.1.1.1:9000", "metaKeyDatabase", "db"))
 	_, _, _, err = parseCtx(ctx)
 	assert.NotNil(t, err)
-	db, shard, node, err := parseCtx(mockContext("db", int32(10), models.Node{IP: "1.1.1.1", Port: 9000}))
+	db, shard, node, err := parseCtx(mockContext("db", models.ShardID(10), &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, db, "db")
-	assert.Equal(t, shard, int32(10))
-	assert.Equal(t, models.Node{IP: "1.1.1.1", Port: 9000}, *node)
+	assert.Equal(t, shard, models.ShardID(10))
+	assert.Equal(t, &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000}, node)
 }
 
-func mockContext(db string, shardID int32, node models.Node) context.Context {
+func mockContext(db string, shardID models.ShardID, node models.Node) context.Context {
 	return rpc.CreateIncomingContext(context.TODO(), db, shardID, node)
 }

@@ -92,7 +92,7 @@ func NewSystemCollector(
 	storage string,
 	repository state.Repository,
 	path string,
-	node models.ActiveNode,
+	node *models.StatelessNode,
 	role string,
 ) *SystemCollector {
 	r := &SystemCollector{

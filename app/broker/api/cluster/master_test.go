@@ -44,7 +44,7 @@ func TestMasterAPI_GetMaster(t *testing.T) {
 	r := gin.New()
 	api.Register(r)
 
-	m := models.Master{ElectTime: timeutil.Now(), Node: models.Node{IP: "1.1.1.1", Port: 8000}}
+	m := models.Master{ElectTime: timeutil.Now(), Node: &models.StatelessNode{HostName: "1.1.1.1", GRPCPort: 8000}}
 	// get success
 	master.EXPECT().GetMaster().Return(&m)
 	resp := mock.DoRequest(t, r, http.MethodGet, MasterStatePath, "")

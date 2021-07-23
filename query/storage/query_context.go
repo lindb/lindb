@@ -31,7 +31,7 @@ import (
 // storageExecuteContext represents storage query execute context
 type storageExecuteContext struct {
 	query    *stmt.Query
-	shardIDs []int32
+	shardIDs []models.ShardID
 
 	tagFilterResult map[string]*tagFilterResult
 
@@ -39,7 +39,7 @@ type storageExecuteContext struct {
 }
 
 // newStorageExecuteContext creates storage execute context
-func newStorageExecuteContext(shardIDs []int32, query *stmt.Query) *storageExecuteContext {
+func newStorageExecuteContext(shardIDs []models.ShardID, query *stmt.Query) *storageExecuteContext {
 	ctx := &storageExecuteContext{
 		query:    query,
 		shardIDs: shardIDs,

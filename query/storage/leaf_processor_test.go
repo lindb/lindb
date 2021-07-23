@@ -43,7 +43,7 @@ func TestLeafTaskProcessor_Process_sendStreamFailure(t *testing.T) {
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 	leafTaskProcessor := NewLeafTaskProcessor(
-		models.Node{IP: "1.1.1.1", Port: 9000},
+		&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
 		nil,
 		nil)
 	leafTaskProcessor.Process(
@@ -61,8 +61,8 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 
-	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
+	currentNode := models.StatelessNode{HostIP: "1.1.1.3", GRPCPort: 8000}
+	processorI := NewLeafTaskProcessor(&currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	// unmarshal error
 	err := processor.process(
@@ -126,8 +126,8 @@ func TestLeafProcessor_Process(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	engine := tsdb.NewMockEngine(ctrl)
 
-	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
+	currentNode := models.StatelessNode{HostIP: "1.1.1.3", GRPCPort: 8000}
+	processorI := NewLeafTaskProcessor(&currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
@@ -153,8 +153,8 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	engine := tsdb.NewMockEngine(ctrl)
 
-	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
+	currentNode := models.StatelessNode{HostIP: "1.1.1.3", GRPCPort: 8000}
+	processorI := NewLeafTaskProcessor(&currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{

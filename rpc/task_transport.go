@@ -96,7 +96,7 @@ func (f *taskClientFactory) GetTaskClient(target string) protoCommonV1.TaskServi
 // CreateTaskClient creates a stream task client if not exist,
 // then create a goroutine handle task response if created successfully.
 func (f *taskClientFactory) CreateTaskClient(target models.Node) error {
-	targetNodeID := (&target).Indicator()
+	targetNodeID := target.Indicator()
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -149,7 +149,7 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 	}
 
 	//TODO handle context?????
-	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, (&f.currentNode).Indicator())
+	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, f.currentNode.Indicator())
 	cli, err := f.newTaskServiceClientFunc(conn).Handle(ctx)
 	if err != nil {
 		return err
@@ -267,7 +267,7 @@ func (fct *taskServerFactory) Nodes() []models.Node {
 			log.Warn("parse node error", logger.Error(err))
 			continue
 		}
-		nodes = append(nodes, *node)
+		nodes = append(nodes, node)
 	}
 	return nodes
 }

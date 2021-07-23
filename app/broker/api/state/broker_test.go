@@ -30,14 +30,12 @@ import (
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestBrokerAPI_ListBrokersStat(t *testing.T) {
@@ -45,13 +43,11 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	stateMachine := discovery.NewMockActiveNodeStateMachine(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 	api := NewBrokerAPI(&deps.HTTPDeps{
-		Repo: repo,
-		StateMachines: &coordinator.BrokerStateMachines{
-			NodeSM: stateMachine,
-		},
-		Ctx: context.Background(),
+		Repo:     repo,
+		StateMgr: stateMgr,
+		Ctx:      context.Background(),
 		BrokerCfg: &config.BrokerBase{
 			HTTP: config.HTTP{
 				ReadTimeout: ltoml.Duration(time.Second)},
@@ -74,9 +70,9 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 			Value: []byte{1, 2, 3},
 		},
 	}, nil)
-	node := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 2080}, OnlineTime: timeutil.Now()}
-	nodes := []models.ActiveNode{node}
-	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
+	node := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 2080}
+	nodes := []models.StatelessNode{node}
+	stateMgr.EXPECT().GetLiveNodes().Return(nodes)
 	system := models.SystemStat{
 		CPUs: 100,
 	}
@@ -84,19 +80,19 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// success
-	stateMachine.EXPECT().GetActiveNodes().Return(nodes)
+	stateMgr.EXPECT().GetLiveNodes().Return(nodes)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
 		{
 			Key: "/test/1.1.1.1:2080",
 			Value: encoding.JSONMarshal(&models.NodeStat{
-				Node:   node,
+				Node:   &node,
 				System: system,
 			}),
 		},
 		{
 			Key: "/test/1.1.1.2:2080",
 			Value: encoding.JSONMarshal(&models.NodeStat{
-				Node:   node,
+				Node:   &node,
 				System: system,
 			}),
 		},

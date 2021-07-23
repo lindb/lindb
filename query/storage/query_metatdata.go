@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -30,13 +31,13 @@ import (
 type metadataStorageExecutor struct {
 	database tsdb.Database
 	request  *stmt.Metadata
-	shardIDs []int32
+	shardIDs []models.ShardID
 }
 
 // newMetadataStorageExecutor creates a metadata suggest executor in storage side
 func newStorageMetadataQuery(
 	database tsdb.Database,
-	shardIDs []int32,
+	shardIDs []models.ShardID,
 	request *stmt.Metadata,
 ) storageMetadataQuery {
 	return &metadataStorageExecutor{

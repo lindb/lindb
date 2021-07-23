@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replication"
@@ -33,8 +34,8 @@ type HTTPDeps struct {
 	BrokerCfg *config.BrokerBase
 	Master    coordinator.Master
 
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
+	Repo     state.Repository
+	StateMgr broker.StateManager
 
 	CM replication.ChannelManager
 
