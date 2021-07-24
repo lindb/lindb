@@ -24,15 +24,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/lindb/roaring"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -57,37 +57,12 @@ var (
 )
 
 var (
-	writeMetricTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "shard_write_metric_duration",
-			Help:    "Write metric duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"db", "shard"},
-	)
-	buildIndexTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "shard_build_index_duration",
-			Help:    "Build index duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"db", "shard"},
-	)
-	memFlushTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "shard_memory_database_flush_duration",
-			Help:    "Flush memory data duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"db", "shard"},
-	)
+	shardScope              = linmetric.NewScope("lindb.tsdb.shard")
+	writeMetricCounterVec   = shardScope.NewDeltaCounterVec("write_metric_counter", "db", "shard")
+	writeMetricTimeTotalVec = shardScope.NewDeltaCounterVec("write_metric_time_total", "db", "shard")
+	buildIndexTimerVec      = shardScope.Scope("build_index_duration").NewDeltaHistogramVec("db", "shard")
+	memFlushTimerVec        = shardScope.Scope("memdb_flush_duration").NewDeltaHistogramVec("db", "shard")
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(buildIndexTimer)
-	monitoring.StorageRegistry.MustRegister(writeMetricTimer)
-	monitoring.StorageRegistry.MustRegister(memFlushTimer)
-}
 
 const (
 	replicaDir       = "replica"
@@ -171,9 +146,10 @@ type shard struct {
 
 	rwMutex sync.RWMutex
 
-	buildIndexTimer  prometheus.Observer
-	writeMetricTimer prometheus.Observer
-	memFlushTimer    prometheus.Observer
+	buildIndexTimer      *linmetric.BoundDeltaHistogram
+	writeMetricCount     *linmetric.BoundDeltaCounter
+	writeMetricTimeTotal *linmetric.BoundDeltaCounter
+	memFlushTimer        *linmetric.BoundDeltaHistogram
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -200,19 +176,20 @@ func newShard(
 	}
 	shardIDStr := strconv.Itoa(int(shardID))
 	createdShard := &shard{
-		databaseName:     db.Name(),
-		id:               shardID,
-		path:             shardPath,
-		option:           option,
-		sequence:         replicaSequence,
-		families:         make(map[int64]memdb.MemoryDatabase),
-		metadata:         db.Metadata(),
-		interval:         interval,
-		segments:         make(map[timeutil.IntervalType]IntervalSegment),
-		isFlushing:       *atomic.NewBool(false),
-		buildIndexTimer:  buildIndexTimer.WithLabelValues(db.Name(), shardIDStr),
-		writeMetricTimer: writeMetricTimer.WithLabelValues(db.Name(), shardIDStr),
-		memFlushTimer:    memFlushTimer.WithLabelValues(db.Name(), shardIDStr),
+		databaseName:         db.Name(),
+		id:                   shardID,
+		path:                 shardPath,
+		option:               option,
+		sequence:             replicaSequence,
+		families:             make(map[int64]memdb.MemoryDatabase),
+		metadata:             db.Metadata(),
+		interval:             interval,
+		segments:             make(map[timeutil.IntervalType]IntervalSegment),
+		isFlushing:           *atomic.NewBool(false),
+		buildIndexTimer:      buildIndexTimerVec.WithTagValues(db.Name(), shardIDStr),
+		writeMetricCount:     writeMetricCounterVec.WithTagValues(db.Name(), shardIDStr),
+		writeMetricTimeTotal: writeMetricTimeTotalVec.WithTagValues(db.Name(), shardIDStr),
+		memFlushTimer:        memFlushTimerVec.WithTagValues(db.Name(), shardIDStr),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
@@ -370,7 +347,7 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 		s.indexDB.BuildInvertIndex(ns, metric.Name, metric.Tags, seriesID)
 	}
 	buildIndexEnd := timeutil.Now()
-	s.buildIndexTimer.Observe(float64(buildIndexEnd - now))
+	s.buildIndexTimer.UpdateMilliseconds(float64(buildIndexEnd - now))
 
 	// calculate family start time and slot index
 	intervalCalc := s.interval.Calculator()
@@ -388,7 +365,8 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	defer func() {
 		db.CompleteWrite()
 
-		s.writeMetricTimer.Observe(float64(timeutil.Now() - buildIndexEnd))
+		s.writeMetricTimeTotal.Add(float64(timeutil.Now() - buildIndexEnd))
+		s.writeMetricCount.Incr()
 	}()
 
 	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
@@ -523,8 +501,8 @@ func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, er
 
 // flushMemoryDatabase flushes memory database to disk kv store
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
-	startTime := timeutil.Now()
-	defer s.memFlushTimer.Observe(float64(timeutil.Now() - startTime))
+	startTime := time.Now()
+	defer s.memFlushTimer.UpdateSince(startTime)
 	//FIXME(stone1100)
 	//for _, familyTime := range memDB.Families() {
 	//	segmentName := s.interval.Calculator().GetSegment(familyTime)

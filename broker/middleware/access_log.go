@@ -23,13 +23,12 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // for testing
@@ -38,24 +37,16 @@ var (
 )
 
 var (
-	httpHandleTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "http_handle_duration",
-			Help:    "HTTP handle duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"path", "status"},
-	)
+	httHandlerTimerVec = linmetric.
+		NewScope("lindb.broker.http_handle_duration").
+		NewDeltaHistogramVec("path", "status").
+		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
 )
-
-func init() {
-	monitoring.BrokerRegistry.MustRegister(httpHandleTimer)
-}
 
 // AccessLogMiddleware returns access log middleware
 func AccessLogMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := timeutil.Now()
+		start := time.Now()
 		r := c.Request
 		defer func() {
 			// add access log
@@ -65,7 +56,7 @@ func AccessLogMiddleware() gin.HandlerFunc {
 				unescapedPath = path
 			}
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
-			requestInfo := realIP(r) + " " + strconv.Itoa(int(timeutil.Now()-start)) + "ms" +
+			requestInfo := realIP(r) + " " + strconv.Itoa(int(time.Since(start).Milliseconds())) + "ms" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size())
 			if len(c.Errors) > 0 {
@@ -77,7 +68,9 @@ func AccessLogMiddleware() gin.HandlerFunc {
 			if len(paths) > 0 {
 				path = paths[0]
 			}
-			httpHandleTimer.WithLabelValues(path, strconv.Itoa(c.Writer.Status())).Observe(float64(timeutil.Now() - start))
+			httHandlerTimerVec.
+				WithTagValues(path, strconv.Itoa(c.Writer.Status())).
+				UpdateSince(start)
 		}()
 		c.Next()
 	}

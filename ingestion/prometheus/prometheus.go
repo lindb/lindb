@@ -28,12 +28,23 @@ import (
 	"github.com/prometheus/common/expfmt"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
-// todo: line-based-parser
+var (
+	prometheusIngestionScope = linmetric.NewScope("lindb.ingestion").Scope("prometheus")
+	corruptedGzipCounter     = prometheusIngestionScope.NewDeltaCounter("gzip_data_corrupted")
+	unsupportedCounter       = prometheusIngestionScope.NewDeltaCounter("unsupported_prom_metric_count")
+	gaugeCounter             = prometheusIngestionScope.NewDeltaCounter("prom_gauge_count")
+	badGaugeCounter          = prometheusIngestionScope.NewDeltaCounter("bad_prom_gauge_count")
+	counterCounter           = prometheusIngestionScope.NewDeltaCounter("prom_counter_count")
+	badCounterCounter        = prometheusIngestionScope.NewDeltaCounter("bad_prom_counter_count")
+	histogramCounter         = prometheusIngestionScope.NewDeltaCounter("prom_histogram_count")
+	badHistogramCounter      = prometheusIngestionScope.NewDeltaCounter("bad_prom_histogram_count")
+)
 
 // Parse parses prometheus text
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
@@ -41,6 +52,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
+			corruptedGzipCounter.Incr()
 			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
@@ -61,7 +73,7 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*prot
 	for name, pm := range out {
 		metricType := *pm.Type
 		if metricType == dto.MetricType_UNTYPED {
-			// not support untyped metric type
+			unsupportedCounter.Incr()
 			continue
 		}
 		for _, m := range pm.Metric {
@@ -120,15 +132,18 @@ func setField(metric *protoMetricsV1.Metric, metricType dto.MetricType, dtoMetri
 	switch metricType {
 	case dto.MetricType_COUNTER:
 		if dtoMetric.Counter == nil || dtoMetric.Counter.Value == nil {
+			badCounterCounter.Incr()
 			return false
 		}
 		metric.SimpleFields = []*protoMetricsV1.SimpleField{{
 			Name:  "counter",
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+			Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
 			Value: *dtoMetric.Counter.Value,
 		}}
+		counterCounter.Incr()
 	case dto.MetricType_GAUGE:
 		if dtoMetric.Gauge == nil && dtoMetric.Gauge.Value == nil {
+			badGaugeCounter.Incr()
 			return false
 		}
 		metric.SimpleFields = []*protoMetricsV1.SimpleField{{
@@ -136,8 +151,10 @@ func setField(metric *protoMetricsV1.Metric, metricType dto.MetricType, dtoMetri
 			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 			Value: *dtoMetric.Gauge.Value,
 		}}
+		gaugeCounter.Incr()
 	case dto.MetricType_HISTOGRAM:
 		if dtoMetric.Histogram == nil || len(dtoMetric.Histogram.Bucket) == 0 {
+			badHistogramCounter.Incr()
 			return false
 		}
 		var (
@@ -152,16 +169,24 @@ func setField(metric *protoMetricsV1.Metric, metricType dto.MetricType, dtoMetri
 			explicitBounds[idx] = bkt.GetUpperBound()
 			values[idx] = float64(bkt.GetCumulativeCount())
 		}
+		// values of different buckets to delta
+		for i := len(values) - 1; i > 0; i-- {
+			if values[i] < values[i]-1 {
+				badHistogramCounter.Incr()
+				return false
+			}
+			values[i] -= values[i-1]
+		}
 		metric.CompoundField = &protoMetricsV1.CompoundField{
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
+			Type:           protoMetricsV1.CompoundFieldType_CUMULATIVE_HISTOGRAM,
 			Sum:            dtoMetric.Histogram.GetSampleSum(),
 			Count:          float64(dtoMetric.Histogram.GetSampleCount()),
 			ExplicitBounds: explicitBounds,
 			Values:         values,
 		}
-
+		histogramCounter.Incr()
 	case dto.MetricType_SUMMARY:
-		// todo: record not-support data
+		unsupportedCounter.Incr()
 		return false
 	}
 	return true

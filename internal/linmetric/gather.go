@@ -18,8 +18,6 @@
 package linmetric
 
 import (
-	"time"
-
 	"github.com/lindb/lindb/series/tag"
 
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -28,7 +26,7 @@ import (
 // Gather gathers native lindb dto metrics
 type Gather interface {
 	// Gather gathers and returns the gathered metrics
-	Gather() *protoMetricsV1.MetricList
+	Gather() []*protoMetricsV1.Metric
 }
 
 // NewGather returns a gather to gather metrics from sdk and runtime.
@@ -44,14 +42,8 @@ type GatherOption interface {
 	ApplyConfig(g *gather)
 }
 
-var (
-	reporterScope          = NewScope("lindb.linmetric")
-	gatheredMetricsCounter = reporterScope.NewDeltaCounter("gathered_count")
-
-	gatheredMetricHistogram = reporterScope.Scope("gather_duration").NewDeltaHistogram().WithExponentBuckets(time.Millisecond, time.Second*10, 20)
-)
-
 type gather struct {
+	namespace       string
 	runtimeObserver *runtimeObserver
 	keyValues       tag.KeyValues
 }
@@ -66,21 +58,18 @@ func (g *gather) appendKeyValuesToFront(m *protoMetricsV1.Metric) {
 	m.Tags = tags
 }
 
-func (g *gather) Gather() *protoMetricsV1.MetricList {
-	start := time.Now()
-
+func (g *gather) Gather() []*protoMetricsV1.Metric {
 	if g.runtimeObserver != nil {
 		g.runtimeObserver.Observe()
 	}
 
-	metrics, count := defaultRegistry.gatherMetricList()
+	metrics, _ := defaultRegistry.gatherMetricList()
 	// enrich global tagKeyValues
-	for _, m := range metrics.Metrics {
+	for _, m := range metrics {
 		g.appendKeyValuesToFront(m)
+		m.Namespace = g.namespace
 	}
 
-	gatheredMetricHistogram.UpdateSince(start)
-	gatheredMetricsCounter.Add(float64(count))
 	return metrics
 }
 
@@ -100,4 +89,14 @@ func (o *globalKeyValuesOption) ApplyConfig(g *gather) {
 
 func WithGlobalKeyValueOption(kvs tag.KeyValues) GatherOption {
 	return &globalKeyValuesOption{keyValues: kvs}
+}
+
+type namespaceOption struct{ namespace string }
+
+func (o *namespaceOption) ApplyConfig(g *gather) {
+	g.namespace = o.namespace
+}
+
+func WithNamespaceOption(namespace string) GatherOption {
+	return &namespaceOption{namespace: namespace}
 }

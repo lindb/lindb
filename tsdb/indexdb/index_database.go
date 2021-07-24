@@ -24,18 +24,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/roaring"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/wal"
+
+	"github.com/lindb/roaring"
 )
 
 // for testing
@@ -45,27 +44,10 @@ var (
 )
 
 var (
-	buildInvertedIndexCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "build_inverted_index_counter",
-			Help: "Build inverted index counter.",
-		},
-		[]string{"db"},
-	)
-	recoverySeriesWALTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "recovery_series_wal_duration",
-			Help:    "Recovery series wal duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"db"},
-	)
+	indexDBScope                 = linmetric.NewScope("lindb.tsdb.indexdb")
+	buildInvertedIndexCounterVec = indexDBScope.NewDeltaCounterVec("build_inverted_index_counter", "db")
+	recoverySeriesWALTimerVec    = indexDBScope.Scope("recovery_series_wal_duration").NewDeltaHistogramVec("db")
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(buildInvertedIndexCounter)
-	monitoring.StorageRegistry.MustRegister(recoverySeriesWALTimer)
-}
 
 const (
 	walPath       = "wal"
@@ -243,7 +225,7 @@ func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*r
 func (db *indexDatabase) BuildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32) {
 	db.index.buildInvertIndex(namespace, metricName, tags, seriesID)
 
-	buildInvertedIndexCounter.WithLabelValues(db.metadata.DatabaseName()).Inc()
+	buildInvertedIndexCounterVec.WithTagValues(db.metadata.DatabaseName()).Incr()
 }
 
 // Flush flushes index data to disk
@@ -291,8 +273,8 @@ func (db *indexDatabase) checkSync() {
 
 // seriesRecovery recovers series wal data
 func (db *indexDatabase) seriesRecovery() {
-	startTime := timeutil.Now()
-	defer recoverySeriesWALTimer.WithLabelValues(db.metadata.DatabaseName()).Observe(float64(timeutil.Now() - startTime))
+	startTime := time.Now()
+	defer recoverySeriesWALTimerVec.WithTagValues(db.metadata.DatabaseName()).UpdateSince(startTime)
 
 	event := newMappingEvent()
 	db.seriesWAL.Recovery(func(metricID uint32, tagsHash uint64, seriesID uint32) error {

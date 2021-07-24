@@ -23,11 +23,10 @@ import (
 	"time"
 
 	"github.com/lindb/roaring"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -41,34 +40,11 @@ import (
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
 
 var (
-	getUnknownFieldTypeCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "mem_get_unknown_field_type",
-			Help: "Get unknown field type when write data.",
-		},
-		[]string{"db"},
-	)
-	generateFieldIDFailCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "mem_generate_field_id_fail",
-			Help: "Generate field id fail when write data.",
-		},
-		[]string{"db"},
-	)
-	writeDataPointCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "mem_write_data_points",
-			Help: "Write data points.",
-		},
-		[]string{"db"},
-	)
+	memDBScope                    = linmetric.NewScope("lindb.tsdb.memdb")
+	unknownFieldTypeCounterVec    = memDBScope.NewDeltaCounterVec("unknown_field_type_counter", "db")
+	generateFieldIDFailCounterVec = memDBScope.NewDeltaCounterVec("generate_field_id_fails", "db")
+	writeDataPointCounterVec      = memDBScope.NewDeltaCounterVec("mem_write_data_points", "db")
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(getUnknownFieldTypeCounter)
-	monitoring.StorageRegistry.MustRegister(generateFieldIDFailCounter)
-	monitoring.StorageRegistry.MustRegister(writeDataPointCounter)
-}
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
@@ -151,10 +127,9 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 }
 
 func (md *memoryDatabase) statsReporter() {
-	// todo: use otel sdk reporter
-	writeDataPointC := writeDataPointCounter.WithLabelValues(md.name)
-	generateFieldIDFailC := generateFieldIDFailCounter.WithLabelValues(md.name)
-	getUnknownFieldTypeC := getUnknownFieldTypeCounter.WithLabelValues(md.name)
+	writeDataPointC := writeDataPointCounterVec.WithTagValues(md.name)
+	generateFieldIDFailC := generateFieldIDFailCounterVec.WithTagValues(md.name)
+	getUnknownFieldTypeC := unknownFieldTypeCounterVec.WithTagValues(md.name)
 	var (
 		lastWrittenDataPoints        int64 = 0
 		lastGeneratedFieldIDFailures int64 = 0
