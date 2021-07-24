@@ -32,7 +32,7 @@ import (
 	"github.com/shirou/gopsutil/net"
 )
 
-var collectorLogger = logger.GetLogger("monitoring", "Collector")
+var collectorLogger = logger.GetLogger("monitoring", "SystemCollector")
 
 var (
 	cpuCount      = 0

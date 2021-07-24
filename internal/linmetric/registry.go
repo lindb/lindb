@@ -49,7 +49,7 @@ func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries
 }
 
 // gatherMetricList transforms event-metrics to native lindb dto-proto format
-func (r *registry) gatherMetricList() (*protoMetricsV1.MetricList, int) {
+func (r *registry) gatherMetricList() ([]*protoMetricsV1.Metric, int) {
 	r.mu.Lock()
 	r.buffer = r.buffer[:0]
 	for _, nm := range r.series {
@@ -69,7 +69,5 @@ func (r *registry) gatherMetricList() (*protoMetricsV1.MetricList, int) {
 		count++
 		ml = append(ml, gatheredMetric)
 	}
-	return &protoMetricsV1.MetricList{
-		Metrics: ml,
-	}, count
+	return ml, count
 }

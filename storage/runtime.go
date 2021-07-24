@@ -25,9 +25,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gogo/protobuf/proto"
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/config"
@@ -46,6 +43,7 @@ import (
 	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/storage/handler"
 	"github.com/lindb/lindb/tsdb"
@@ -91,7 +89,7 @@ type runtime struct {
 	handler      *rpcHandler
 	httpServer   *http.Server
 
-	pusher monitoring.PrometheusPusher
+	pusher monitoring.NativePusher
 
 	log *logger.Logger
 }
@@ -346,24 +344,15 @@ func (r *runtime) monitoring() {
 			OnlineTime: timeutil.Now(),
 		}).Run()
 
-	r.pusher = monitoring.NewPrometheusPusher(
+	r.pusher = monitoring.NewNativeProtoPusher(
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
-		prometheus.Gatherers{monitoring.StorageGatherer},
-		[]*dto.LabelPair{
-			{
-				Name:  proto.String("role"),
-				Value: proto.String("storage"),
-			},
-			{
-				Name:  proto.String("namespace"),
-				Value: proto.String(r.config.StorageBase.Coordinator.Namespace),
-			},
-			{
-				Name:  proto.String("node"),
-				Value: proto.String(r.node.Indicator()),
-			},
+		r.config.Monitor.PushTimeout.Duration(),
+		tag.KeyValues{
+			{Key: "namespace", Value: r.config.StorageBase.Coordinator.Namespace},
+			{Key: "node", Value: r.node.Indicator()},
+			{Key: "role", Value: "storage"},
 		},
 	)
 	go r.pusher.Start()

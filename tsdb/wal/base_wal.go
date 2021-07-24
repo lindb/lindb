@@ -18,36 +18,21 @@
 package wal
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue/page"
 	"github.com/lindb/lindb/series/field"
 )
 
-var baseWALLogger = logger.GetLogger("wal", "base")
+var walLogger = logger.GetLogger("tsdb", "WAL")
 
 var (
-	recoveryCommitFailCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "wal_recovery_commit_fail",
-			Help: "Recovery commit fail when wal recovery.",
-		},
-	)
-	releaseWALPageFailCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "wal_release_page_fail",
-			Help: "Release wal page field fail when wal recovery.",
-		},
-	)
+	walScope                  = linmetric.NewScope("lindb.tsdb.wal")
+	recoveryCommitFailCounter = walScope.NewDeltaCounter("wal_recovery_commit_fail")
+	releaseWALPageFailCounter = walScope.NewDeltaCounter("wal_release_page_fail")
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(recoveryCommitFailCounter)
-	monitoring.StorageRegistry.MustRegister(releaseWALPageFailCounter)
-}
 
 // SeriesRecoveryFunc represents the series recovery function
 type SeriesRecoveryFunc = func(metricID uint32, tagsHash uint64, seriesID uint32) error
@@ -97,7 +82,7 @@ func newBaseWAL(path string, pageSize int) (*baseWAL, error) {
 	defer func() {
 		if err != nil {
 			if err1 := wal.walFactory.Close(); err1 != nil {
-				baseWALLogger.Error("close wal page factory error when init base wal",
+				walLogger.Error("close wal page factory error when init base wal",
 					logger.String("wal", wal.path), logger.Error(err))
 			}
 		}
@@ -122,7 +107,7 @@ func (wal *baseWAL) checkPage(length int) error {
 	if wal.offset+length > wal.pageSize {
 		// sync previous data page
 		if err := wal.currentPage.Sync(); err != nil {
-			baseWALLogger.Error("sync data page err when alloc",
+			walLogger.Error("sync data page err when alloc",
 				logger.String("wal", wal.path), logger.Error(err))
 		}
 

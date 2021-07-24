@@ -23,10 +23,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
-
 	"github.com/lindb/lindb/broker/api"
 	"github.com/lindb/lindb/broker/deps"
 	"github.com/lindb/lindb/config"
@@ -47,6 +43,7 @@ import (
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/service"
 )
 
@@ -98,7 +95,7 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pusher monitoring.PrometheusPusher
+	pusher monitoring.NativePusher
 
 	log *logger.Logger
 }
@@ -386,24 +383,15 @@ func (r *runtime) monitoring() {
 		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
 		node).Run()
 
-	r.pusher = monitoring.NewPrometheusPusher(
+	r.pusher = monitoring.NewNativeProtoPusher(
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
-		prometheus.Gatherers{monitoring.BrokerGatherer},
-		[]*dto.LabelPair{
-			{
-				Name:  proto.String("namespace"),
-				Value: proto.String(r.config.BrokerBase.Coordinator.Namespace),
-			},
-			{
-				Name:  proto.String("node"),
-				Value: proto.String(r.node.Indicator()),
-			},
-			{
-				Name:  proto.String("role"),
-				Value: proto.String("broker"),
-			},
+		r.config.Monitor.PushTimeout.Duration(),
+		tag.KeyValues{
+			{Key: "namespace", Value: r.config.BrokerBase.Coordinator.Namespace},
+			{Key: "node", Value: r.node.Indicator()},
+			{Key: "role", Value: "broker"},
 		},
 	)
 	go r.pusher.Start()

@@ -26,10 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -45,43 +43,12 @@ var (
 )
 
 var (
-	genMetricIDCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "meta_gen_metric_id",
-			Help: "Generate metric id counter.",
-		},
-		[]string{"db"},
-	)
-	genTagKeyIDCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "meta_gen_tag_key_id",
-			Help: "Generate tag key id counter.",
-		},
-		[]string{"db"},
-	)
-	genFieldIDCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "meta_gen_field_id",
-			Help: "Generate field id counter.",
-		},
-		[]string{"db"},
-	)
-	recoveryMetaWALTimer = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "recovery_metadata_wal_duration",
-			Help:    "Recovery metadata wal duration(ms).",
-			Buckets: monitoring.DefaultHistogramBuckets,
-		},
-		[]string{"db"},
-	)
+	metaDBScope             = linmetric.NewScope("lindb.tsdb.metadb")
+	genMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_metric_id", "db")
+	genTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_tag_key_id", "db")
+	genFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("gen_field_id", "db")
+	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewDeltaHistogramVec("db")
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(genMetricIDCounter)
-	monitoring.StorageRegistry.MustRegister(genTagKeyIDCounter)
-	monitoring.StorageRegistry.MustRegister(genFieldIDCounter)
-	monitoring.StorageRegistry.MustRegister(recoveryMetaWALTimer)
-}
 
 var (
 	syncInterval       = 2 * timeutil.OneSecond
@@ -326,7 +293,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 
 	mdb.metrics[key] = newMetricMetadata(metricID, 0)
 
-	genMetricIDCounter.WithLabelValues(mdb.databaseName).Inc()
+	genMetricIDCounterVec.WithTagValues(mdb.databaseName).Incr()
 
 	return metricID, nil
 }
@@ -368,7 +335,7 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 		Name: fieldName,
 	})
 
-	genFieldIDCounter.WithLabelValues(mdb.databaseName).Inc()
+	genFieldIDCounterVec.WithTagValues(mdb.databaseName).Incr()
 
 	return fieldID, nil
 }
@@ -402,7 +369,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 	metricMetadata.createTagKey(tagKey, tagKeyID)
 
-	genTagKeyIDCounter.WithLabelValues(mdb.databaseName).Inc()
+	genTagKeyIDCounterVec.WithTagValues(mdb.databaseName).Incr()
 	return
 }
 
@@ -474,8 +441,8 @@ func (mdb *metadataDatabase) checkSync() {
 
 // metaRecovery recovers meta wal data
 func (mdb *metadataDatabase) metaRecovery() {
-	startTime := timeutil.Now()
-	defer recoveryMetaWALTimer.WithLabelValues(mdb.databaseName).Observe(float64(timeutil.Now() - startTime))
+	startTime := time.Now()
+	defer recoveryMetaWALTimerVec.WithTagValues(mdb.databaseName).UpdateSince(startTime)
 
 	event := newMetadataUpdateEvent()
 	mdb.metaWAL.Recovery(func(namespace, metricName string, metricID uint32) error {
