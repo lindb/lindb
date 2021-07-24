@@ -46,6 +46,7 @@ func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
 // Register adds influx write url route.
 func (iw *InfluxWriter) Register(route gin.IRoutes) {
 	route.PUT(InfluxWritePath, iw.Write)
+	route.POST(InfluxWritePath, iw.Write)
 }
 
 func (iw *InfluxWriter) Write(c *gin.Context) {

@@ -21,7 +21,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
@@ -34,39 +33,43 @@ import (
 )
 
 var (
-	memStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "system_mem_stat",
-		Help: "System mem stats",
-	}, []string{"type"})
-	cpuStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "system_cpu_stat",
-		Help: "System cpu stats",
-	}, []string{"type"})
-	diskUsageStatGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "system_disk_usage_stat",
-		Help: "System disk usage stats",
-	}, []string{"type"})
-	netStatCounter = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "net_stat",
-		Help: "Network stat",
-	}, []string{"type", "interface"})
+	// memory
+	systemMemScope      = monitorScope.Scope("system_mem_stat")
+	memTotalGauge       = systemMemScope.NewGauge("total")
+	memUsedGauge        = systemMemScope.NewGauge("used")
+	memUsedPercentGauge = systemMemScope.NewGauge("used_percent")
+	// cpu
+	systemCPUScope  = monitorScope.Scope("system_cpu_stat")
+	cpuIdleGauge    = systemCPUScope.NewGauge("idle")
+	cpuNiceGauge    = systemCPUScope.NewGauge("nice")
+	cpuSystemGauge  = systemCPUScope.NewGauge("system")
+	cpuUserGauge    = systemCPUScope.NewGauge("user")
+	cpuIrqGauge     = systemCPUScope.NewGauge("irq")
+	cpuStealGauge   = systemCPUScope.NewGauge("steal")
+	cpuSoftRiqGauge = systemCPUScope.NewGauge("softirq")
+	cpuIOWaitGauge  = systemCPUScope.NewGauge("iowait")
+	// disk usage
+	systemDiskScope      = monitorScope.Scope("system_disk_usage_stats")
+	diskTotalGauge       = systemDiskScope.NewGauge("total")
+	diskUsedGauge        = systemDiskScope.NewGauge("used")
+	diskFreeGauge        = systemDiskScope.NewGauge("free")
+	diskUsedPercentGauge = systemDiskScope.NewGauge("used_percent")
+	// disk inode
+	inodesFreeGauge        = systemCPUScope.NewGauge("inodes_free")
+	inodesUsedGauge        = systemCPUScope.NewGauge("inodes_used")
+	inodesTotalGauge       = systemCPUScope.NewGauge("inodes_total")
+	inodesUsedPercentGauge = systemCPUScope.NewGauge("inodes_used_percent")
+	// net
+	netScope              = monitorScope.Scope("system_net_stat")
+	bytesSentCounterVec   = netScope.NewDeltaCounterVec("bytes_sent", "interface")
+	bytesRecvCounterVec   = netScope.NewDeltaCounterVec("bytes_recv", "interface")
+	packetsSentCounterVec = netScope.NewDeltaCounterVec("packets_sent", "interface")
+	packetsRecvCounterVec = netScope.NewDeltaCounterVec("packets_recv", "interface")
+	errInCounterVec       = netScope.NewDeltaCounterVec("errin", "interface")
+	errOutCounterVec      = netScope.NewDeltaCounterVec("errout", "interface")
+	dropInCounterVec      = netScope.NewDeltaCounterVec("dropin", "interface")
+	dropOutCounterVec     = netScope.NewDeltaCounterVec("dropout", "interface")
 )
-
-func init() {
-	BrokerRegistry.MustRegister(memStatGauge)
-	BrokerRegistry.MustRegister(cpuStatGauge)
-	BrokerRegistry.MustRegister(diskUsageStatGauge)
-	BrokerRegistry.MustRegister(netStatCounter)
-	BrokerRegistry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	BrokerRegistry.MustRegister(prometheus.NewGoCollector())
-
-	StorageRegistry.MustRegister(memStatGauge)
-	StorageRegistry.MustRegister(cpuStatGauge)
-	StorageRegistry.MustRegister(diskUsageStatGauge)
-	StorageRegistry.MustRegister(netStatCounter)
-	StorageRegistry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	StorageRegistry.MustRegister(prometheus.NewGoCollector())
-}
 
 // SystemCollector collects the system stat
 type SystemCollector struct {
@@ -171,23 +174,23 @@ func (r *SystemCollector) collect() {
 func (r *SystemCollector) logMemStat() {
 	if r.systemStat.MemoryStat != nil {
 		memStat := r.systemStat.MemoryStat
-		memStatGauge.WithLabelValues("total").Set(float64(memStat.Total))
-		memStatGauge.WithLabelValues("used").Set(float64(memStat.Used))
-		memStatGauge.WithLabelValues("used_percent").Set(memStat.UsedPercent)
+		memTotalGauge.Update(float64(memStat.Total))
+		memUsedGauge.Update(float64(memStat.Used))
+		memUsedPercentGauge.Update(memStat.UsedPercent)
 	}
 }
 
 func (r *SystemCollector) logCPUStat() {
 	if r.systemStat.CPUStat != nil {
 		cpuStat := r.systemStat.CPUStat
-		cpuStatGauge.WithLabelValues("idle").Set(cpuStat.Idle)
-		cpuStatGauge.WithLabelValues("nice").Set(cpuStat.Nice)
-		cpuStatGauge.WithLabelValues("system").Set(cpuStat.System)
-		cpuStatGauge.WithLabelValues("user").Set(cpuStat.User)
-		cpuStatGauge.WithLabelValues("irq").Set(cpuStat.Irq)
-		cpuStatGauge.WithLabelValues("steal").Set(cpuStat.Steal)
-		cpuStatGauge.WithLabelValues("softirq").Set(cpuStat.Softirq)
-		cpuStatGauge.WithLabelValues("iowait").Set(cpuStat.Iowait)
+		cpuIdleGauge.Update(cpuStat.Idle)
+		cpuNiceGauge.Update(cpuStat.Nice)
+		cpuSystemGauge.Update(cpuStat.System)
+		cpuUserGauge.Update(cpuStat.User)
+		cpuIrqGauge.Update(cpuStat.Irq)
+		cpuStealGauge.Update(cpuStat.Steal)
+		cpuSoftRiqGauge.Update(cpuStat.Softirq)
+		cpuIOWaitGauge.Update(cpuStat.Iowait)
 	}
 }
 
@@ -195,15 +198,15 @@ func (r *SystemCollector) logDiskUsageStat() {
 	if r.systemStat.DiskUsageStat != nil {
 		stat := r.systemStat.DiskUsageStat
 		// usage
-		diskUsageStatGauge.WithLabelValues("total").Set(float64(stat.Total))
-		diskUsageStatGauge.WithLabelValues("used").Set(float64(stat.Used))
-		diskUsageStatGauge.WithLabelValues("free").Set(float64(stat.Free))
-		diskUsageStatGauge.WithLabelValues("used_percent").Set(stat.UsedPercent)
+		diskTotalGauge.Update(float64(stat.Total))
+		diskUsedGauge.Update(float64(stat.Used))
+		diskFreeGauge.Update(float64(stat.Free))
+		diskUsedPercentGauge.Update(stat.UsedPercent)
 		// inode
-		diskUsageStatGauge.WithLabelValues("inodes_free").Set(float64(stat.InodesFree))
-		diskUsageStatGauge.WithLabelValues("inodes_used").Set(float64(stat.InodesUsed))
-		diskUsageStatGauge.WithLabelValues("inodes_total").Set(float64(stat.InodesTotal))
-		diskUsageStatGauge.WithLabelValues("inodes_used_percent").Set(stat.InodesUsedPercent)
+		inodesFreeGauge.Update(float64(stat.InodesFree))
+		inodesUsedGauge.Update(float64(stat.InodesUsed))
+		inodesTotalGauge.Update(float64(stat.InodesTotal))
+		inodesUsedPercentGauge.Update(stat.InodesUsedPercent)
 	}
 }
 func (r *SystemCollector) logNetStat() {
@@ -211,14 +214,14 @@ func (r *SystemCollector) logNetStat() {
 		lastStat, ok := r.netStats[stat.Name]
 		// check time interval
 		if ok && time.Since(r.netStatsUpdated[stat.Name]) <= 2*r.interval {
-			netStatCounter.WithLabelValues("bytes_sent", stat.Name).Add(float64(stat.BytesSent - lastStat.BytesSent))
-			netStatCounter.WithLabelValues("bytes_recv", stat.Name).Add(float64(stat.BytesRecv - lastStat.BytesRecv))
-			netStatCounter.WithLabelValues("packets_sent", stat.Name).Add(float64(stat.PacketsSent - lastStat.PacketsSent))
-			netStatCounter.WithLabelValues("packets_recv", stat.Name).Add(float64(stat.PacketsRecv - lastStat.PacketsRecv))
-			netStatCounter.WithLabelValues("errin", stat.Name).Add(float64(stat.Errin - lastStat.Errin))
-			netStatCounter.WithLabelValues("errout", stat.Name).Add(float64(stat.Errout - lastStat.Errout))
-			netStatCounter.WithLabelValues("dropin", stat.Name).Add(float64(stat.Dropin - lastStat.Dropin))
-			netStatCounter.WithLabelValues("dropout", stat.Name).Add(float64(stat.Dropout - lastStat.Dropout))
+			bytesSentCounterVec.WithTagValues(stat.Name).Add(float64(stat.BytesSent - lastStat.BytesSent))
+			bytesRecvCounterVec.WithTagValues(stat.Name).Add(float64(stat.BytesRecv - lastStat.BytesRecv))
+			packetsSentCounterVec.WithTagValues(stat.Name).Add(float64(stat.PacketsSent - lastStat.PacketsSent))
+			packetsRecvCounterVec.WithTagValues(stat.Name).Add(float64(stat.PacketsRecv - lastStat.PacketsRecv))
+			errInCounterVec.WithTagValues(stat.Name).Add(float64(stat.Errin - lastStat.Errin))
+			errOutCounterVec.WithTagValues(stat.Name).Add(float64(stat.Errout - lastStat.Errout))
+			dropInCounterVec.WithTagValues(stat.Name).Add(float64(stat.Dropin - lastStat.Dropin))
+			dropOutCounterVec.WithTagValues(stat.Name).Add(float64(stat.Dropout - lastStat.Dropout))
 		}
 		r.netStats[stat.Name] = stat
 		r.netStatsUpdated[stat.Name] = time.Now()

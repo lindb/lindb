@@ -44,6 +44,10 @@ type Scope interface {
 	NewCumulativeHistogram() *BoundCumulativeHistogram
 	// NewDeltaHistogram returns a histogram which bounded to the scope
 	NewDeltaHistogram() *BoundDeltaHistogram
+	// NewDeltaHistogramVec initializes a vec by tagKeys
+	NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec
+	// NewDeltaCounterVec initializes a vec by tagKeys and fieldName
+	NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
 }
 
 type taggedSeries struct {
@@ -205,6 +209,14 @@ func (s *taggedSeries) NewDeltaHistogram() *BoundDeltaHistogram {
 	}
 	s.payload.histogramDelta = newDeltaHistogram()
 	return s.payload.histogramDelta
+}
+
+func (s *taggedSeries) NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec {
+	return newDeltaHistogramVec(s.metricName, s.tags, tagKey...)
+}
+
+func (s *taggedSeries) NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
+	return newDeltaCounterVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewCumulativeHistogram() *BoundCumulativeHistogram {

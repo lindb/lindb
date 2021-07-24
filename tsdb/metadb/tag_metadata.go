@@ -27,7 +27,6 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
@@ -50,10 +49,6 @@ var (
 		[]string{"db"},
 	)
 )
-
-func init() {
-	monitoring.StorageRegistry.MustRegister(genTagValueIDCounter)
-}
 
 // TagMetadata represents the tag metadata, stores all tag values under spec tag key
 type TagMetadata interface {

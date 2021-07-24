@@ -33,6 +33,7 @@ func Test_Gather(t *testing.T) {
 			"ip":   "1.1.1.1",
 		})),
 		WithReadRuntimeOption(),
+		WithNamespaceOption("default-ns"),
 	)
 	_ = gather.Gather()
 }

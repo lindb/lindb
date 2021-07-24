@@ -34,34 +34,34 @@ import (
 type API struct {
 	deps *deps.HTTPDeps
 
-	master       *cluster.MasterAPI
-	database     *admin.DatabaseAPI
-	flusher      *admin.DatabaseFlusherAPI
-	storage      *admin.StorageClusterAPI
-	brokerState  *state.BrokerAPI
-	storageState *state.StorageAPI
-	prometheus   *write.PrometheusWriter
-	influx       *write.InfluxWriter
-	writer       *write.MetricWriteAPI
-	metric       *query.MetricAPI
-	metadata     *query.MetadataAPI
+	master          *cluster.MasterAPI
+	database        *admin.DatabaseAPI
+	flusher         *admin.DatabaseFlusherAPI
+	storage         *admin.StorageClusterAPI
+	brokerState     *state.BrokerAPI
+	storageState    *state.StorageAPI
+	prometheus      *write.PrometheusWriter
+	influxIngestion *write.InfluxWriter
+	nativeIngestion *write.NativeWriter
+	metric          *query.MetricAPI
+	metadata        *query.MetadataAPI
 }
 
 // NewAPI creates broker http api.
 func NewAPI(ctx context.Context, deps *deps.HTTPDeps) *API {
 	return &API{
-		deps:         deps,
-		master:       cluster.NewMasterAPI(deps),
-		database:     admin.NewDatabaseAPI(deps),
-		flusher:      admin.NewDatabaseFlusherAPI(deps),
-		storage:      admin.NewStorageClusterAPI(deps),
-		brokerState:  state.NewBrokerAPI(ctx, deps),
-		storageState: state.NewStorageAPI(ctx, deps),
-		prometheus:   write.NewPrometheusWriter(deps),
-		influx:       write.NewInfluxWriter(deps),
-		writer:       write.NewWriteAPI(deps),
-		metric:       query.NewMetricAPI(deps),
-		metadata:     query.NewMetadataAPI(deps),
+		deps:            deps,
+		master:          cluster.NewMasterAPI(deps),
+		database:        admin.NewDatabaseAPI(deps),
+		flusher:         admin.NewDatabaseFlusherAPI(deps),
+		storage:         admin.NewStorageClusterAPI(deps),
+		brokerState:     state.NewBrokerAPI(ctx, deps),
+		storageState:    state.NewStorageAPI(ctx, deps),
+		prometheus:      write.NewPrometheusWriter(deps),
+		influxIngestion: write.NewInfluxWriter(deps),
+		nativeIngestion: write.NewNativeWriter(deps),
+		metric:          query.NewMetricAPI(deps),
+		metadata:        query.NewMetadataAPI(deps),
 	}
 }
 
@@ -77,7 +77,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.metadata.Register(router)
 	api.metric.Register(router)
-	api.influx.Register(router)
-	api.writer.Register(router)
+	api.influxIngestion.Register(router)
+	api.nativeIngestion.Register(router)
 	api.prometheus.Register(router)
 }

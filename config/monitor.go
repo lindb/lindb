@@ -26,11 +26,12 @@ import (
 
 var (
 	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = "http://127.0.0.1:9000/api/v1/metric/prometheus?db=_internal"
+	defaultPusherURL = "http://127.0.0.1:9000/api/v1/write/native?db=_internal"
 )
 
 // Monitor represents a configuration for the internal monitor
 type Monitor struct {
+	PushTimeout    ltoml.Duration `toml:"push-timeout"`
 	ReportInterval ltoml.Duration `toml:"report-interval"`
 	URL            string         `toml:"url"`
 }
@@ -40,12 +41,16 @@ func (m *Monitor) TOML() string {
 	return fmt.Sprintf(`
 [monitor]
   ## Config for the Internal Monitor
+  ## time period to process an HTTP metrics push call
+  push-timeout = "%s"
+
   ## monitor won't start when interval is sets to 0
   ## such as cpu, memory, and disk, process and go runtime
   report-interval = "%s"
-
-  ## URL is the target of prometheus pusher 
+	
+  ## URL is the target of broker native ingestion url
   url = "%s"`,
+		m.PushTimeout.String(),
 		m.ReportInterval.String(),
 		m.URL,
 	)
@@ -54,6 +59,7 @@ func (m *Monitor) TOML() string {
 // NewDefaultMonitor returns a new default monitor config
 func NewDefaultMonitor() *Monitor {
 	return &Monitor{
+		PushTimeout:    ltoml.Duration(3 * time.Second),
 		ReportInterval: ltoml.Duration(10 * time.Second),
 		URL:            defaultPusherURL,
 	}
