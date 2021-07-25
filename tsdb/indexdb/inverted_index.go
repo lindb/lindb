@@ -20,6 +20,7 @@ package indexdb
 import (
 	"sync"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
@@ -43,8 +44,8 @@ var (
 )
 
 var (
-	genTagKeyFailCounterVec   = indexDBScope.NewDeltaCounterVec("meta_gen_tag_key_id_fail", "db")
-	genTagValueFailCounterVec = indexDBScope.NewDeltaCounterVec("meta_gen_tag_value_id_fail", "db")
+	genTagKeyFailCounterVec   = indexDBScope.NewDeltaCounterVec("gen_tag_key_id_fails", "db")
+	genTagValueFailCounterVec = indexDBScope.NewDeltaCounterVec("gen_tag_value_id_fails", "db")
 )
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
@@ -72,15 +73,19 @@ type invertedIndex struct {
 	mutable   *TagIndexStore
 	immutable *TagIndexStore
 
-	rwMutex sync.RWMutex
+	rwMutex                sync.RWMutex
+	genTagKeyFailCounter   *linmetric.BoundDeltaCounter
+	genTagValueFailCounter *linmetric.BoundDeltaCounter
 }
 
 func newInvertedIndex(metadata metadb.Metadata, forwardFamily kv.Family, invertedFamily kv.Family) InvertedIndex {
 	return &invertedIndex{
-		invertedFamily: invertedFamily,
-		forwardFamily:  forwardFamily,
-		metadata:       metadata,
-		mutable:        NewTagIndexStore(),
+		invertedFamily:         invertedFamily,
+		forwardFamily:          forwardFamily,
+		metadata:               metadata,
+		mutable:                NewTagIndexStore(),
+		genTagKeyFailCounter:   genTagKeyFailCounterVec.WithTagValues(metadata.DatabaseName()),
+		genTagValueFailCounter: genTagValueFailCounterVec.WithTagValues(metadata.DatabaseName()),
 	}
 }
 
@@ -230,7 +235,7 @@ func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags 
 		tagValue := tags[idx].Value
 		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey)
 		if err != nil {
-			genTagKeyFailCounterVec.WithTagValues(index.metadata.DatabaseName()).Incr()
+			index.genTagKeyFailCounter.Incr()
 
 			indexLogger.Error("gen tag key id fail, ignore index build for this tag key",
 				logger.String("namespace", namespace), logger.String("metric", metricName),
@@ -244,7 +249,7 @@ func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags 
 		}
 		tagValueID, err := tagMetadata.GenTagValueID(tagKeyID, tagValue)
 		if err != nil {
-			genTagValueFailCounterVec.WithTagValues(index.metadata.DatabaseName()).Incr()
+			index.genTagValueFailCounter.Incr()
 
 			indexLogger.Error("gen tag value id fail, ignore index build for this tag key",
 				logger.String("namespace", namespace), logger.String("metric", metricName),

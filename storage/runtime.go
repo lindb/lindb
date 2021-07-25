@@ -163,8 +163,10 @@ func (r *runtime) Run() error {
 	r.taskExecutor = task.NewTaskExecutor(r.ctx, &r.node, r.repo, r.srv.storageService)
 	r.taskExecutor.Run()
 
+	// start system collector
+	r.systemCollector()
 	// start stat monitoring
-	r.monitoring()
+	r.nativePusher()
 
 	r.state = server.Running
 	return nil
@@ -193,7 +195,7 @@ func (r *runtime) Stop() {
 
 	if r.pusher != nil {
 		r.pusher.Stop()
-		r.log.Info("stopped prometheus pusher successfully")
+		r.log.Info("stopped native linmetric pusher successfully")
 	}
 
 	if r.taskExecutor != nil {
@@ -323,26 +325,14 @@ func (r *runtime) bindRPCHandlers() {
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
 }
 
-func (r *runtime) monitoring() {
+func (r *runtime) nativePusher() {
 	monitorEnabled := r.config.Monitor.ReportInterval > 0
 	if !monitorEnabled {
-		r.log.Info("monitor report-interval sets to 0, exit")
+		r.log.Info("pusher won't start because report-interval is 0")
 		return
 	}
-	r.log.Info("monitor is running",
+	r.log.Info("pusher is running",
 		logger.String("interval", r.config.Monitor.ReportInterval.String()))
-
-	go monitoring.NewSystemCollector(
-		r.ctx,
-		r.config.Monitor.ReportInterval.Duration(),
-		r.config.StorageBase.TSDB.Dir,
-		r.repo,
-		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-		models.ActiveNode{
-			Version:    r.version,
-			Node:       r.node,
-			OnlineTime: timeutil.Now(),
-		}).Run()
 
 	r.pusher = monitoring.NewNativeProtoPusher(
 		r.ctx,
@@ -350,10 +340,24 @@ func (r *runtime) monitoring() {
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
 		tag.KeyValues{
-			{Key: "namespace", Value: r.config.StorageBase.Coordinator.Namespace},
 			{Key: "node", Value: r.node.Indicator()},
 			{Key: "role", Value: "storage"},
 		},
 	)
 	go r.pusher.Start()
+}
+
+func (r *runtime) systemCollector() {
+	r.log.Info("system collector is running")
+
+	go monitoring.NewSystemCollector(
+		r.ctx,
+		r.config.StorageBase.TSDB.Dir,
+		r.repo,
+		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
+		models.ActiveNode{
+			Version:    r.version,
+			Node:       r.node,
+			OnlineTime: timeutil.Now(),
+		}, "storage").Run()
 }

@@ -37,13 +37,13 @@ import (
 var (
 	prometheusIngestionScope = linmetric.NewScope("lindb.ingestion").Scope("prometheus")
 	corruptedGzipCounter     = prometheusIngestionScope.NewDeltaCounter("gzip_data_corrupted")
-	unsupportedCounter       = prometheusIngestionScope.NewDeltaCounter("unsupported_prom_metric_count")
-	gaugeCounter             = prometheusIngestionScope.NewDeltaCounter("prom_gauge_count")
-	badGaugeCounter          = prometheusIngestionScope.NewDeltaCounter("bad_prom_gauge_count")
-	counterCounter           = prometheusIngestionScope.NewDeltaCounter("prom_counter_count")
-	badCounterCounter        = prometheusIngestionScope.NewDeltaCounter("bad_prom_counter_count")
-	histogramCounter         = prometheusIngestionScope.NewDeltaCounter("prom_histogram_count")
-	badHistogramCounter      = prometheusIngestionScope.NewDeltaCounter("bad_prom_histogram_count")
+	unsupportedCounter       = prometheusIngestionScope.NewDeltaCounter("unsupported_metrics")
+	gaugeCounter             = prometheusIngestionScope.NewDeltaCounter("transformed_gauges")
+	badGaugeCounter          = prometheusIngestionScope.NewDeltaCounter("bad_gauges")
+	counterCounter           = prometheusIngestionScope.NewDeltaCounter("transformed_counters")
+	badCounterCounter        = prometheusIngestionScope.NewDeltaCounter("bad_counters")
+	histogramCounter         = prometheusIngestionScope.NewDeltaCounter("transformed_histograms")
+	badHistogramCounter      = prometheusIngestionScope.NewDeltaCounter("bad_histograms")
 )
 
 // Parse parses prometheus text

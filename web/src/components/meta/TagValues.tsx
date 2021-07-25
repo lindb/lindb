@@ -41,6 +41,7 @@ export default class TagValuesSelect extends React.Component<TagValuesSelectProp
                     tags.push(`'${item}' in (${tv})`)
                 }
             })
+
             if (tags.length > 0) {
                 showTagValuesSQL += " where " + tags.join(" and ")
             }
