@@ -18,9 +18,9 @@
 package linmetric
 
 import (
-	"github.com/lindb/lindb/series/tag"
-
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/tag"
+	"sort"
 )
 
 // Gather gathers native lindb dto metrics
@@ -48,14 +48,20 @@ type gather struct {
 	keyValues       tag.KeyValues
 }
 
-func (g *gather) appendKeyValuesToFront(m *protoMetricsV1.Metric) {
+func (g *gather) mergeTags(m *protoMetricsV1.Metric) {
 	if len(g.keyValues) == 0 {
 		return
 	}
-	var tags = make(tag.KeyValues, len(g.keyValues)+len(m.Tags))
-	tags = append(tags[:0], g.keyValues...)
-	tags = append(tags, m.Tags...)
-	m.Tags = tags
+	var tags = make(map[string]string)
+	for _, globalKV := range g.keyValues {
+		tags[globalKV.Key] = globalKV.Value
+	}
+	for _, t := range m.Tags {
+		tags[t.Key] = t.Value
+	}
+	newKVs := tag.KeyValuesFromMap(tags)
+	sort.Sort(newKVs)
+	m.Tags = newKVs
 }
 
 func (g *gather) Gather() []*protoMetricsV1.Metric {
@@ -66,7 +72,7 @@ func (g *gather) Gather() []*protoMetricsV1.Metric {
 	metrics, _ := defaultRegistry.gatherMetricList()
 	// enrich global tagKeyValues
 	for _, m := range metrics {
-		g.appendKeyValuesToFront(m)
+		g.mergeTags(m)
 		m.Namespace = g.namespace
 	}
 

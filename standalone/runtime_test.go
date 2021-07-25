@@ -19,6 +19,7 @@ package standalone
 
 import (
 	"fmt"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"testing"
 	"time"
 
@@ -63,6 +64,22 @@ func TestRuntime_Run(t *testing.T) {
 	assert.Equal(t, server.Terminated, standalone.State())
 	assert.Equal(t, "standalone", standalone.Name())
 	time.Sleep(500 * time.Millisecond)
+}
+
+func TestRuntime_RunWithoutPusher(t *testing.T) {
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
+	cfg := defaultStandaloneConfig
+	cfg.StorageBase.TSDB.Dir = testPath
+	cfg.Monitor.ReportInterval = ltoml.Duration(0)
+	standalone := NewStandaloneRuntime("test-version", &cfg)
+	s := standalone.(*runtime)
+	s.delayInit = 100 * time.Millisecond
+
+	_ = standalone.Run()
+	standalone.Stop()
 }
 
 func TestRuntime_Run_Err(t *testing.T) {

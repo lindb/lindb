@@ -51,10 +51,8 @@ func Test_Gather_appendKeyValuesToFront(t *testing.T) {
 			{Key: "c", Value: "2"},
 		},
 	}
-	gather1.appendKeyValuesToFront(m)
+	gather1.mergeTags(m)
 	assert.Equal(t, []*protoMetricsV1.KeyValue{
-		{Key: "1", Value: "a"},
-		{Key: "1", Value: "b"},
 		{Key: "1", Value: "0"},
 		{Key: "b", Value: "2"},
 		{Key: "c", Value: "2"},
