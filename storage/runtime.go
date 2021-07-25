@@ -317,7 +317,12 @@ func (r *runtime) bindRPCHandlers() {
 
 	r.handler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService),
-		task:   taskHandler.NewTaskHandler(r.config.StorageBase.Query, r.factory.taskServer, dispatcher),
+		task: taskHandler.NewTaskHandler(
+			r.config.StorageBase.Query,
+			r.factory.taskServer,
+			dispatcher,
+			"storage",
+		),
 	}
 
 	//TODO add task service ??????

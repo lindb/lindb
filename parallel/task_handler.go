@@ -22,7 +22,8 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
@@ -41,11 +42,16 @@ type TaskHandler struct {
 }
 
 // NewTaskHandler creates the task rpc handler
-func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher TaskDispatcher) *TaskHandler {
+func NewTaskHandler(cfg config.Query, fct rpc.TaskServerFactory, dispatcher TaskDispatcher, role string) *TaskHandler {
 	return &TaskHandler{
-		cfg:        cfg,
-		timeout:    cfg.Timeout.Duration(),
-		taskPool:   concurrent.NewPool("task-handle-pool", cfg.MaxWorkers, time.Second*5),
+		cfg:     cfg,
+		timeout: cfg.Timeout.Duration(),
+		taskPool: concurrent.NewPool(
+			"task-handle-pool",
+			cfg.QueryConcurrency,
+			time.Second*5,
+			linmetric.NewScope("lindb.parallel", "pool", role+"-task-handle"),
+		),
 		fct:        fct,
 		dispatcher: dispatcher,
 		logger:     logger.GetLogger("parallel", "TaskHandler"),

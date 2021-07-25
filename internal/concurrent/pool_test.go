@@ -22,13 +22,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/internal/linmetric"
+
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 )
 
 func Test_Pool_Submit(t *testing.T) {
 	grNum := runtime.NumGoroutine()
-	pool := NewPool("test", 2, time.Second*5)
+	pool := NewPool("test", 2, time.Second*5, linmetric.NewScope("1"))
 	// num. of pool + 1 dispatcher, workers has not been spawned
 	assert.Equal(t, grNum+1, runtime.NumGoroutine())
 
@@ -55,28 +57,17 @@ func Test_Pool_Submit(t *testing.T) {
 }
 
 func Test_Pool_Statistics(t *testing.T) {
-	p := NewPool("test", 0, time.Millisecond*100)
-	s := p.Statistics()
-	assert.Zero(t, s.AliveWorkers)
-	assert.Zero(t, s.CreatedWorkers)
-	assert.Zero(t, s.KilledWorkers)
-	assert.Zero(t, s.ConsumedTasks)
+	p := NewPool("test", 0, time.Millisecond*100, linmetric.NewScope("2"))
+	wp := p.(*workerPool)
+
 	for i := 0; i < 10; i++ {
 		p.SubmitAndWait(nil)
 		p.SubmitAndWait(func() {
 		})
 	}
-	s = p.Statistics()
-	assert.Equal(t, 1, s.AliveWorkers)
-	assert.Equal(t, 1, s.CreatedWorkers)
-	assert.Equal(t, 0, s.KilledWorkers)
-	assert.Equal(t, 10, s.ConsumedTasks)
+	assert.Equal(t, float64(1), wp.workersAlive.Get())
 
 	time.Sleep(time.Second)
 	p.Stop()
-	s = p.Statistics()
-	assert.Equal(t, 0, s.AliveWorkers)
-	assert.Equal(t, 1, s.CreatedWorkers)
-	assert.Equal(t, 1, s.KilledWorkers)
-	assert.Equal(t, 10, s.ConsumedTasks)
+	assert.Equal(t, float64(0), wp.workersAlive.Get())
 }

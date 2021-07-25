@@ -23,7 +23,6 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -52,9 +51,10 @@ func NewHTTPServer(cfg config.HTTP) *HTTPServer {
 		addr: fmt.Sprintf(":%d", cfg.Port),
 		gin:  gin.New(),
 		server: http.Server{
-			WriteTimeout: time.Second * 15,
-			ReadTimeout:  time.Second * 15,
-			IdleTimeout:  time.Second * 60, //TODO add config?
+			// use extra timeout for ingestion and query timeout
+			WriteTimeout: cfg.WriteTimeout.Duration(),
+			ReadTimeout:  cfg.ReadTimeout.Duration(),
+			IdleTimeout:  cfg.IdleTimeout.Duration(),
 		},
 		logger: logger.GetLogger("broker", "HTTPServer"),
 	}

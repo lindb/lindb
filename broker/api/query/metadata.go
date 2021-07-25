@@ -136,7 +136,7 @@ func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Met
 			}
 		}
 		// HistogramSum(sum), HistogramCount(sum), HistogramMin(min), HistogramMax(max) is visible
-		// Histogram_${id}(HistogramField) is not visible for api,
+		// __bucket_{id}(HistogramField) is not visible for api,
 		// underlying histogram data is only restricted access by user via quantile function
 		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
 		var (

@@ -27,7 +27,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"

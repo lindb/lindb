@@ -42,9 +42,9 @@ func (d *mockTaskDispatcher) Dispatch(ctx context.Context, stream protoCommonV1.
 }
 
 var cfg = config.Query{
-	MaxWorkers:  10,
-	IdleTimeout: ltoml.Duration(time.Second * 5),
-	Timeout:     ltoml.Duration(time.Second * 10),
+	QueryConcurrency: 10,
+	IdleTimeout:      ltoml.Duration(time.Second * 5),
+	Timeout:          ltoml.Duration(time.Second * 10),
 }
 
 func TestTaskHandler_Handle(t *testing.T) {
@@ -55,7 +55,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	taskServerFactory.EXPECT().Register(gomock.Any(), gomock.Any())
 	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true)
-	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher)
+	handler := NewTaskHandler(cfg, taskServerFactory, dispatcher, "broker")
 
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())
@@ -72,7 +72,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 }
 
 func TestTaskHandler_dispatch(t *testing.T) {
-	handler := NewTaskHandler(cfg, nil, &mockTaskDispatcher{})
+	handler := NewTaskHandler(cfg, nil, &mockTaskDispatcher{}, "broker")
 	// test dispatch panic
 	handler.dispatch(nil, nil)
 }
