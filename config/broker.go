@@ -27,17 +27,41 @@ import (
 
 // HTTP represents a HTTP level configuration of broker.
 type HTTP struct {
-	Port uint16 `toml:"port"`
+	Port         uint16         `toml:"port"`
+	IdleTimeout  ltoml.Duration `toml:"idle-timeout"`
+	WriteTimeout ltoml.Duration `toml:"write-timeout"`
+	ReadTimeout  ltoml.Duration `toml:"read-timeout"`
 }
 
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
-	## Controls how HTTP endpoints are configured.
+	## Controls how HTTP Server are configured.
     ##
     ## which port broker's HTTP Server is listening on 
-    port = %d`,
+    port = %d
+	## maximum duration the server should keep established connections alive.
+	idle-timeout = "%s"
+	## maximum duration before timing out for server writes of the response
+	write-timeout = "%s"	
+	## maximum duration for reading the entire request, including the body.
+	read-timeout = "%s"
+`,
 		h.Port,
+		h.IdleTimeout.Duration().String(),
+		h.WriteTimeout.Duration().String(),
+		h.ReadTimeout.Duration().String(),
 	)
+}
+
+type Ingestion struct {
+	IngestTimeout ltoml.Duration `toml:"ingest-timeout"`
+}
+
+func (i *Ingestion) TOML() string {
+	return fmt.Sprintf(`
+    ## maximum duration before timeout for server ingesting metrics
+    ingest-timeout = "%s"`,
+		i.IngestTimeout.Duration().String())
 }
 
 // User represents user model
@@ -128,6 +152,7 @@ type BrokerBase struct {
 	Coordinator        RepoState          `toml:"coordinator"`
 	Query              Query              `toml:"query"`
 	HTTP               HTTP               `toml:"http"`
+	Ingestion          Ingestion          `toml:"ingestion"`
 	User               User               `toml:"user"`
 	GRPC               GRPC               `toml:"grpc"`
 	ReplicationChannel ReplicationChannel `toml:"replication_channel"`
@@ -141,7 +166,9 @@ func (bb *BrokerBase) TOML() string {
   [broker.query]%s
 
   [broker.http]%s
-	
+
+  [broker.ingestion]%s
+
   [broker.user]%s
 
   [broker.grpc]%s
@@ -150,6 +177,7 @@ func (bb *BrokerBase) TOML() string {
 		bb.Coordinator.TOML(),
 		bb.Query.TOML(),
 		bb.HTTP.TOML(),
+		bb.Ingestion.TOML(),
 		bb.User.TOML(),
 		bb.GRPC.TOML(),
 		bb.ReplicationChannel.TOML(),
@@ -159,7 +187,13 @@ func (bb *BrokerBase) TOML() string {
 func NewDefaultBrokerBase() *BrokerBase {
 	return &BrokerBase{
 		HTTP: HTTP{
-			Port: 9000,
+			Port:         9000,
+			IdleTimeout:  ltoml.Duration(time.Minute * 2),
+			ReadTimeout:  ltoml.Duration(time.Second * 15),
+			WriteTimeout: ltoml.Duration(time.Second * 15),
+		},
+		Ingestion: Ingestion{
+			IngestTimeout: ltoml.Duration(time.Second * 5),
 		},
 		GRPC: GRPC{
 			Port: 9001,

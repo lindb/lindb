@@ -1,4 +1,4 @@
-import { DatabaseOutlined, HomeOutlined, SearchOutlined, DeploymentUnitOutlined, HddOutlined, DesktopOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons'
+import { DatabaseOutlined, HomeOutlined, SearchOutlined, DeploymentUnitOutlined, HddOutlined,PartitionOutlined, DesktopOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
 import Logo from 'assets/images/logo_title_dark.png'
 import { BizIcon } from 'components/basic/BizIcon'
@@ -37,6 +37,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         this.iconMap.set("system", <DesktopOutlined />)
         this.iconMap.set("broker", <DeploymentUnitOutlined />)
         this.iconMap.set("storage", <HddOutlined />)
+        this.iconMap.set("parallel", <PartitionOutlined />)
         this.iconMap.set("runtime", <BizIcon type={"icongo"} style={{ fontSize: '16px' }} />)
     }
 

@@ -29,8 +29,9 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
@@ -116,15 +117,24 @@ func newDatabase(databaseName string, databasePath string, cfg *databaseConfig,
 			Filtering: concurrent.NewPool(
 				databaseName+"-filtering-pool",
 				runtime.NumCPU(), /*nRoutines*/
-				time.Second*5),
+				time.Second*5,
+				linmetric.NewScope("lindb.parallel",
+					"pool", databaseName+"-filtering"),
+			),
 			Grouping: concurrent.NewPool(
 				databaseName+"-grouping-pool",
 				runtime.NumCPU(), /*nRoutines*/
-				time.Second*5),
+				time.Second*5,
+				linmetric.NewScope("lindb.parallel",
+					"pool", databaseName+"-grouping"),
+			),
 			Scanner: concurrent.NewPool(
 				databaseName+"-scanner-pool",
 				runtime.NumCPU(), /*nRoutines*/
-				time.Second*5),
+				time.Second*5,
+				linmetric.NewScope("lindb.parallel",
+					"pool", databaseName+"-scanner"),
+			),
 		},
 		isFlushing: *atomic.NewBool(false),
 	}

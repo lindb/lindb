@@ -30,8 +30,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/concurrent"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
@@ -45,15 +46,21 @@ var testExecPool = &tsdb.ExecutorPool{
 	Filtering: concurrent.NewPool(
 		"test-filtering-pool",
 		runtime.NumCPU(), /*nRoutines*/
-		time.Second*5),
+		time.Second*5,
+		linmetric.NewScope("test-filtering-pool"),
+	),
 	Grouping: concurrent.NewPool(
 		"test-grouping-pool",
 		runtime.NumCPU(), /*nRoutines*/
-		time.Second*5),
+		time.Second*5,
+		linmetric.NewScope("test-filtering-pool"),
+	),
 	Scanner: concurrent.NewPool(
 		"test-scanner-pool",
 		runtime.NumCPU(), /*nRoutines*/
-		time.Second*5),
+		time.Second*5,
+		linmetric.NewScope("test-filtering-pool"),
+	),
 }
 
 func TestStorageQueryFlow_Execute(t *testing.T) {

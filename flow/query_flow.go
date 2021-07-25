@@ -19,7 +19,7 @@ package flow
 
 import (
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/concurrent"
+	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 )
