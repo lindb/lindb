@@ -44,9 +44,9 @@ var (
 
 var (
 	metaDBScope             = linmetric.NewScope("lindb.tsdb.metadb")
-	genMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_metric_id", "db")
-	genTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_tag_key_id", "db")
-	genFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("gen_field_id", "db")
+	genMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_metric_ids", "db")
+	genTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_tag_key_ids", "db")
+	genFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("gen_field_ids", "db")
 	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewDeltaHistogramVec("db")
 )
 
@@ -74,6 +74,11 @@ type metadataDatabase struct {
 	syncInterval int64
 
 	rwMux sync.RWMutex
+
+	genMetricIDCounter   *linmetric.BoundDeltaCounter
+	genTagKeyIDCounter   *linmetric.BoundDeltaCounter
+	genFieldIDCounter    *linmetric.BoundDeltaCounter
+	recoveryMetaWALTimer *linmetric.BoundDeltaHistogram
 }
 
 // NewMetadataDatabase creates new metadata database
@@ -99,14 +104,18 @@ func NewMetadataDatabase(ctx context.Context, databaseName, parent string) (Meta
 	}
 	c, cancel := context.WithCancel(ctx)
 	mdb := &metadataDatabase{
-		databaseName: databaseName,
-		path:         parent,
-		ctx:          c,
-		cancel:       cancel,
-		backend:      backend,
-		metrics:      make(map[string]MetricMetadata),
-		metaWAL:      metaWAL,
-		syncInterval: syncInterval,
+		databaseName:         databaseName,
+		path:                 parent,
+		ctx:                  c,
+		cancel:               cancel,
+		backend:              backend,
+		metrics:              make(map[string]MetricMetadata),
+		metaWAL:              metaWAL,
+		syncInterval:         syncInterval,
+		genMetricIDCounter:   genMetricIDCounterVec.WithTagValues(databaseName),
+		genFieldIDCounter:    genFieldIDCounterVec.WithTagValues(databaseName),
+		genTagKeyIDCounter:   genTagKeyIDCounterVec.WithTagValues(databaseName),
+		recoveryMetaWALTimer: recoveryMetaWALTimerVec.WithTagValues(databaseName),
 	}
 	// meta recovery
 	mdb.metaRecovery()
@@ -293,7 +302,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 
 	mdb.metrics[key] = newMetricMetadata(metricID, 0)
 
-	genMetricIDCounterVec.WithTagValues(mdb.databaseName).Incr()
+	mdb.genMetricIDCounter.Incr()
 
 	return metricID, nil
 }
@@ -335,7 +344,7 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 		Name: fieldName,
 	})
 
-	genFieldIDCounterVec.WithTagValues(mdb.databaseName).Incr()
+	mdb.genFieldIDCounter.Incr()
 
 	return fieldID, nil
 }
@@ -369,7 +378,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 	metricMetadata.createTagKey(tagKey, tagKeyID)
 
-	genTagKeyIDCounterVec.WithTagValues(mdb.databaseName).Incr()
+	mdb.genTagKeyIDCounter.Incr()
 	return
 }
 
@@ -442,7 +451,8 @@ func (mdb *metadataDatabase) checkSync() {
 // metaRecovery recovers meta wal data
 func (mdb *metadataDatabase) metaRecovery() {
 	startTime := time.Now()
-	defer recoveryMetaWALTimerVec.WithTagValues(mdb.databaseName).UpdateSince(startTime)
+
+	defer mdb.recoveryMetaWALTimer.UpdateSince(startTime)
 
 	event := newMetadataUpdateEvent()
 	mdb.metaWAL.Recovery(func(namespace, metricName string, metricID uint32) error {

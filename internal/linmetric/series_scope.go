@@ -48,6 +48,8 @@ type Scope interface {
 	NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec
 	// NewDeltaCounterVec initializes a vec by tagKeys and fieldName
 	NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
+	// NewGaugeVec initializes a vec by tagKeys and fieldName
+	NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec
 }
 
 type taggedSeries struct {
@@ -68,8 +70,9 @@ type fieldPayload struct {
 
 func NewScope(metricName string, tagList ...string) Scope {
 	assertMetricName(metricName)
-	assertTagList(tagList...)
-	ms := newTaggedSeries(metricName, tagList2KeyValues(tagList...))
+
+	m := tagList2Map(tagList...)
+	ms := newTaggedSeries(metricName, tag.KeyValuesFromMap(m))
 	return ms
 }
 
@@ -115,34 +118,53 @@ func assertMetricName(metricName string) {
 	}
 }
 
-func assertTagList(tagList ...string) {
-	if len(tagList)%2 != 0 {
-		panic("bad tags length ")
+func assertTagKeyList(tagKeyList ...string) {
+	if len(tagKeyList) == 0 {
+		panic("tag-key list cannot be empty")
 	}
+}
+
+func assertFieldName(fieldName string) {
+	if len(fieldName) == 0 {
+		panic("field-name cannot be empty")
+	}
+}
+
+func nextScopeKeyValues(oldTags tag.KeyValues, newTagList ...string) tag.KeyValues {
+	if len(newTagList) == 0 {
+		return oldTags.Clone()
+	}
+	nextScopeTags := tagList2Map(newTagList...)
+	// newer add tags are higher priority
+	for _, oldTag := range oldTags {
+		if _, exist := nextScopeTags[oldTag.Key]; !exist {
+			nextScopeTags[oldTag.Key] = nextScopeTags[oldTag.Value]
+		}
+	}
+	return tag.KeyValuesFromMap(nextScopeTags)
 }
 
 func (s *taggedSeries) Scope(metricName string, tagList ...string) Scope {
 	assertMetricName(metricName)
-	assertTagList(tagList...)
 
-	// full tags with parent
-	nextScopeTags := s.tags.Merge(tagList2KeyValues(tagList...))
 	nextMetricName := s.metricName + "." + metricName
-	return newTaggedSeries(nextMetricName, nextScopeTags)
+	return newTaggedSeries(nextMetricName, nextScopeKeyValues(s.tags, tagList...))
 }
 
-func tagList2KeyValues(tagList ...string) tag.KeyValues {
-	var tags2 []*protoMetricsV1.KeyValue
-	for i := 0; i < len(tagList); i += 2 {
-		tags2 = append(tags2, &protoMetricsV1.KeyValue{
-			Key:   tagList[i],
-			Value: tagList[i+1],
-		})
+func tagList2Map(tagList ...string) map[string]string {
+	if len(tagList)%2 != 0 {
+		panic("bad tags length ")
 	}
-	return tags2
+
+	var m = make(map[string]string)
+	for i := 0; i < len(tagList); i += 2 {
+		m[tagList[i]] = tagList[i+1]
+	}
+	return m
 }
 
 func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
+	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -161,6 +183,7 @@ func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
 }
 
 func (s *taggedSeries) NewCumulativeCounter(fieldName string) *BoundCumulativeCounter {
+	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -179,6 +202,7 @@ func (s *taggedSeries) NewCumulativeCounter(fieldName string) *BoundCumulativeCo
 }
 
 func (s *taggedSeries) NewDeltaCounter(fieldName string) *BoundDeltaCounter {
+	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -212,11 +236,20 @@ func (s *taggedSeries) NewDeltaHistogram() *BoundDeltaHistogram {
 }
 
 func (s *taggedSeries) NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec {
+	assertTagKeyList(tagKey...)
 	return newDeltaHistogramVec(s.metricName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
+	assertFieldName(fieldName)
+	assertTagKeyList(tagKey...)
 	return newDeltaCounterVec(s.metricName, fieldName, s.tags, tagKey...)
+}
+
+func (s *taggedSeries) NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec {
+	assertFieldName(fieldName)
+	assertTagKeyList(tagKey...)
+	return newGaugeVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewCumulativeHistogram() *BoundCumulativeHistogram {

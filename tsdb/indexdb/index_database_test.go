@@ -103,7 +103,7 @@ func TestIndexDatabase_SuggestTagValues(t *testing.T) {
 		ctrl.Finish()
 	}()
 	metaDB := metadb.NewMockMetadata(ctrl)
-	metaDB.EXPECT().DatabaseName().Return("test")
+	metaDB.EXPECT().DatabaseName().Return("test").AnyTimes()
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
 	metaDB.EXPECT().TagMetadata().Return(tagMeta)
 	db, err := NewIndexDatabase(context.TODO(), testPath, metaDB, nil, nil)
@@ -333,7 +333,7 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	index := NewMockInvertedIndex(ctrl)
 	metaDB := metadb.NewMockMetadataDatabase(ctrl)
 	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test")
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	db2 := db.(*indexDatabase)
@@ -390,7 +390,7 @@ func TestIndexDatabase_Close(t *testing.T) {
 	mockSeriesWAL.EXPECT().Close().Return(fmt.Errorf("err"))
 
 	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test")
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	db1 := db.(*indexDatabase)
 	db1.seriesWAL = mockSeriesWAL
@@ -418,7 +418,7 @@ func TestIndexDatabase_Flush(t *testing.T) {
 	}
 
 	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test")
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
 	mockSeriesWAL.EXPECT().Sync().Return(fmt.Errorf("err"))

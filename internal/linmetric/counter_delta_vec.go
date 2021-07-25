@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package linmetric
+package linmetric //nolint:dupl
 
 import (
 	"strings"
 	"sync"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -35,9 +34,6 @@ type DeltaCounterVec struct {
 }
 
 func newDeltaCounterVec(metricName string, fieldName string, tags tag.KeyValues, tagKey ...string) *DeltaCounterVec {
-	if len(tagKey) == 0 {
-		panic("tagKey length is zero")
-	}
 	return &DeltaCounterVec{
 		metricName:    metricName,
 		fieldName:     fieldName,
@@ -66,14 +62,11 @@ func (dcv *DeltaCounterVec) WithTagValues(tagValues ...string) *BoundDeltaCounte
 	if ok {
 		return c
 	}
-	var tags = dcv.tags.Clone()
+	var tagsMap = dcv.tags.Map()
 	for i := range dcv.tagKeys {
-		tags = append(tags, &protoMetricsV1.KeyValue{
-			Key:   dcv.tagKeys[i],
-			Value: tagValues[i],
-		})
+		tagsMap[dcv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(dcv.metricName, tags)
+	series := newTaggedSeries(dcv.metricName, tag.KeyValuesFromMap(tagsMap))
 	c = series.NewDeltaCounter(dcv.fieldName)
 
 	dcv.deltaCounters[id] = c

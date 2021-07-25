@@ -23,33 +23,33 @@ import (
 	"testing"
 )
 
-func Test_DeltaCounterVec(t *testing.T) {
-	scope := NewScope("vec")
-	vec := scope.NewDeltaCounterVec("count", "1", "2")
+func Test_GaugeVec(t *testing.T) {
+	scope := NewScope("vecg")
+	vec := scope.NewGaugeVec("gauge", "1", "2")
 	assert.Panics(t, func() {
 		vec.WithTagValues("1", "2", "3")
 	})
 	assert.Panics(t, func() {
-		scope.NewDeltaCounterVec("count2")
+		scope.NewGaugeVec("count2")
 	})
 	vec.WithTagValues("a", "b").Incr()
 	vec.WithTagValues("a", "c").Incr()
 	vec.WithTagValues("a", "b").Incr()
 }
 
-func Benchmark_DeltaCounterVec(b *testing.B) {
+func Benchmark_GaugeVec(b *testing.B) {
 	scope := NewScope("vec_test")
-	vec := scope.NewDeltaCounterVec("counter", "1", "2")
+	vec := scope.NewGaugeVec("gauge", "1", "2")
 
 	for i := 0; i < b.N; i++ {
 		vec.WithTagValues("3", "4").Incr()
 	}
 }
 
-func Benchmark_DeltaCounter(b *testing.B) {
+func Benchmark_Gauge(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewScope("counter_test", "1", "3", "2", "4").
-			NewDeltaCounter("counter").
+		NewScope("gauge_test", "1", "3", "2", "4").
+			NewGauge("gauge").
 			Incr()
 	}
 }
