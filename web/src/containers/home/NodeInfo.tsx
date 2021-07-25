@@ -54,6 +54,9 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
       {
         title: 'CPU',
         dataIndex: 'system.cpus',
+        render: (text: any, record: any, index: any) => {
+          return record.system.cpus
+        },
       },
       {
         title: 'Capacity Usage',

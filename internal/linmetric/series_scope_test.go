@@ -79,4 +79,16 @@ func Test_MetricScope_Scope(t *testing.T) {
 	assert.Panics(t, func() {
 		scope3.NewDeltaHistogram()
 	})
+	assert.Panics(t, func() {
+		scope3.NewDeltaHistogramVec()
+	})
+	assert.Panics(t, func() {
+		scope3.NewDeltaCounterVec("23")
+	})
+	assert.Panics(t, func() {
+		scope3.NewGaugeVec("23")
+	})
+	assert.Panics(t, func() {
+		scope3.NewGauge("")
+	})
 }

@@ -22,13 +22,10 @@ export default class System extends React.Component<SystemProps, SystemState> {
               textAlign: "left",
             }} >
             <Form.Item label="Server Role">
-              <TagValuesSelect measurement="system_cpu_stat" tagKey="role"/>
-            </Form.Item>
-            <Form.Item label="Namespace">
-              <TagValuesSelect measurement="system_cpu_stat" tagKey="namespace" mode="tags" watch={["role"]}/>
+              <TagValuesSelect measurement="lindb.monitor.system.cpu_stat" tagKey="role"/>
             </Form.Item>
             <Form.Item label="Node">
-              <TagValuesSelect measurement="system_cpu_stat" tagKey="node" mode="tags" watch={["namespace","role"]}/>
+              <TagValuesSelect measurement="lindb.monitor.system.cpu_stat" tagKey="node" mode="tags" watch={["role"]}/>
             </Form.Item>
           </Form>
         </Card>

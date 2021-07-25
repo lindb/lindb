@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -36,9 +35,6 @@ type DeltaHistogramVec struct {
 }
 
 func newDeltaHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *DeltaHistogramVec {
-	if len(tagKey) == 0 {
-		panic("tagKey length is zero")
-	}
 	return &DeltaHistogramVec{
 		metricName:      metricName,
 		tags:            tags,
@@ -86,14 +82,11 @@ func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundDeltaHisto
 	if ok {
 		return h
 	}
-	var tags = hv.tags.Clone()
+	var tagsMap = hv.tags.Map()
 	for i := range hv.tagKeys {
-		tags = append(tags, &protoMetricsV1.KeyValue{
-			Key:   hv.tagKeys[i],
-			Value: tagValues[i],
-		})
+		tagsMap[hv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(hv.metricName, tags)
+	series := newTaggedSeries(hv.metricName, tag.KeyValuesFromMap(tagsMap))
 	h = series.NewDeltaHistogram()
 	if hv.setBucketsFunc != nil {
 		hv.setBucketsFunc(h)

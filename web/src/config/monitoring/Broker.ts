@@ -14,34 +14,42 @@ export const BrokerDashboard = [
     // Row
     [
         metric(
-            'HTTP Duration',
-            'select counter from http_handle_duration group by node',
+            'HTTP p99 Duration',
+            'select quantile(0.99) from lindb.broker.http_handle_duration group by path',
+            8,
+            UnitEnum.Milliseconds,
+        ),
+        metric(
+            'HTTP Count',
+            'select HistogramCount from lindb.broker.http_handle_duration group by path',
             8,
             UnitEnum.None,
         ),
+        metric(
+            'Native ingestion IO',
+            'select read_bytes_count from lindb.ingestion.native',
+            8,
+            UnitEnum.Bytes,
+        ),
     ],
-]
-export const IndexDashboard = [
-    // Row
     [
         metric(
-            'CPU Usage',
-            'select 100-gauge*100 from system_cpu_stat  where type="idle" group by node',
+            'Native ingestion',
+            'select unmarshal_metric_count, data_corrupted_count from lindb.ingestion.native',
             8,
-            UnitEnum.Percent,
-            "area",
+            UnitEnum.None,
         ),
         metric(
-            'Memory Usage',
-            'select gauge from system_mem_stat where type in ("used","total") group by node',
+            'Prometheus ingestion transformed',
+            'select transformed_gauges, transformed_counters, transformed_histograms from lindb.ingestion.prometheus',
             8,
-            UnitEnum.Bytes,
+            UnitEnum.None,
         ),
         metric(
-            'Disk Usage',
-            'select gauge from system_disk_usage where type in ("used","total") group by node',
+            'Prometheus ingestion failures',
+            'select gzip_data_corrupted, bad_gauges, bad_counters, bad_histograms from lindb.ingestion.prometheus',
             8,
-            UnitEnum.Bytes,
+            UnitEnum.None,
         ),
     ],
 ]

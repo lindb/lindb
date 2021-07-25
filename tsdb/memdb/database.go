@@ -43,7 +43,9 @@ var (
 	memDBScope                    = linmetric.NewScope("lindb.tsdb.memdb")
 	unknownFieldTypeCounterVec    = memDBScope.NewDeltaCounterVec("unknown_field_type_counter", "db")
 	generateFieldIDFailCounterVec = memDBScope.NewDeltaCounterVec("generate_field_id_fails", "db")
-	writeDataPointCounterVec      = memDBScope.NewDeltaCounterVec("mem_write_data_points", "db")
+	writeMetricsCounterVec        = memDBScope.NewDeltaCounterVec("write_metrics", "db")
+	writeMetricsFailure           = memDBScope.NewDeltaCounterVec("write_metric_failures", "db")
+	writeFieldsCounterVec         = memDBScope.NewDeltaCounterVec("write_fields", "db")
 )
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
@@ -101,9 +103,11 @@ type memoryDatabase struct {
 
 	allocSize                atomic.Int32 // allocated size
 	reportTicker             time.Ticker
-	writtenDataPoints        atomic.Int64
-	generatedFieldIDFailures atomic.Int64
-	gotUnknownFields         atomic.Int64
+	writeMetricsCounter      *linmetric.BoundDeltaCounter
+	writeMetricFailures      *linmetric.BoundDeltaCounter
+	writeFieldsCounter       *linmetric.BoundDeltaCounter
+	generatedFieldIDFailures *linmetric.BoundDeltaCounter
+	gotUnknownFields         *linmetric.BoundDeltaCounter
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -120,33 +124,12 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		mStores:                  NewMetricBucketStore(),
 		allocSize:                *atomic.NewInt32(0),
 		reportTicker:             *time.NewTicker(time.Second * 10),
-		writtenDataPoints:        *atomic.NewInt64(0),
-		generatedFieldIDFailures: *atomic.NewInt64(0),
-		gotUnknownFields:         *atomic.NewInt64(0),
+		writeMetricsCounter:      writeMetricsCounterVec.WithTagValues(cfg.Name),
+		writeMetricFailures:      writeMetricsFailure.WithTagValues(cfg.Name),
+		writeFieldsCounter:       writeFieldsCounterVec.WithTagValues(cfg.Name),
+		generatedFieldIDFailures: generateFieldIDFailCounterVec.WithTagValues(cfg.Name),
+		gotUnknownFields:         unknownFieldTypeCounterVec.WithTagValues(cfg.Name),
 	}, err
-}
-
-func (md *memoryDatabase) statsReporter() {
-	writeDataPointC := writeDataPointCounterVec.WithTagValues(md.name)
-	generateFieldIDFailC := generateFieldIDFailCounterVec.WithTagValues(md.name)
-	getUnknownFieldTypeC := unknownFieldTypeCounterVec.WithTagValues(md.name)
-	var (
-		lastWrittenDataPoints        int64 = 0
-		lastGeneratedFieldIDFailures int64 = 0
-		lastGotUnknownFields         int64 = 0
-	)
-	for range md.reportTicker.C {
-		writtenDataPoints := md.writtenDataPoints.Load()
-		generatedFieldIDFailures := md.generatedFieldIDFailures.Load()
-		gotUnknownFields := md.gotUnknownFields.Load()
-		writeDataPointC.Add(float64(writtenDataPoints - lastWrittenDataPoints))
-		generateFieldIDFailC.Add(float64(generatedFieldIDFailures - lastGeneratedFieldIDFailures))
-		getUnknownFieldTypeC.Add(float64(gotUnknownFields - lastGotUnknownFields))
-
-		lastWrittenDataPoints = writtenDataPoints
-		lastGeneratedFieldIDFailures = generatedFieldIDFailures
-		lastGotUnknownFields = gotUnknownFields
-	}
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
@@ -192,6 +175,7 @@ func (md *memoryDatabase) Write(
 		writtenSize, err := md.writeCompoundField(namespace, metricName, slotIndex,
 			mStore, tStore, compoundField)
 		if err != nil {
+			md.writeMetricFailures.Incr()
 			return err
 		}
 		size += writtenSize
@@ -200,7 +184,7 @@ func (md *memoryDatabase) Write(
 
 	for _, SimpleField := range simpleFields {
 		if protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED == SimpleField.Type {
-			md.gotUnknownFields.Inc()
+			md.gotUnknownFields.Incr()
 			continue
 		}
 		var (
@@ -216,7 +200,7 @@ func (md *memoryDatabase) Write(
 		case protoMetricsV1.SimpleFieldType_GAUGE:
 			fieldType = field.GaugeField
 		default:
-			md.gotUnknownFields.Inc()
+			md.gotUnknownFields.Incr()
 			continue
 		}
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
@@ -233,6 +217,7 @@ func (md *memoryDatabase) Write(
 	if written {
 		mStore.SetSlot(slotIndex)
 	}
+	md.writeMetricsCounter.Incr()
 	md.allocSize.Add(int32(size))
 	return nil
 }
@@ -249,7 +234,7 @@ func (md *memoryDatabase) writeCompoundField(
 		isCumulative = true
 	case protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM:
 	default:
-		md.gotUnknownFields.Inc()
+		md.gotUnknownFields.Incr()
 		return 0, nil
 	}
 	// write histogram_min
@@ -277,7 +262,7 @@ func (md *memoryDatabase) writeCompoundField(
 	// write histogram_count
 	if compoundField.Max > 0 {
 		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			field.HistogramConverter.SumFieldName, field.SumField, compoundField.Count,
+			field.HistogramConverter.CountFieldName, field.SumField, compoundField.Count,
 			mStore, tStore, isCumulative,
 		)
 		if err != nil {
@@ -321,15 +306,16 @@ func (md *memoryDatabase) writeLinField(
 	fieldID, err := md.metadata.MetadataDatabase().GenFieldID(
 		namespace, metricName, field.Name(fieldName), fieldType)
 	if err != nil {
-		md.generatedFieldIDFailures.Inc()
+		md.generatedFieldIDFailures.Incr()
+		md.writeMetricFailures.Incr()
 		// ignore generate field-id error
 		return 0, nil
 	}
-	md.writtenDataPoints.Inc()
 	fStore, ok := tStore.GetFStore(fieldID)
 	if !ok {
 		buf, err := md.buf.AllocPage()
 		if err != nil {
+			md.writeMetricFailures.Incr()
 			return 0, err
 		}
 		if isCumulativeField {
@@ -342,6 +328,7 @@ func (md *memoryDatabase) writeLinField(
 		mStore.AddField(fieldID, fieldType)
 	}
 	writtenSize += fStore.Write(fieldType, slotIndex, fieldValue)
+	md.writeFieldsCounter.Incr()
 	return writtenSize, nil
 }
 

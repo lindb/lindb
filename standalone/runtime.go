@@ -31,10 +31,13 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/storage"
 )
 
@@ -57,6 +60,7 @@ type runtime struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	pusher monitoring.NativePusher
 }
 
 // NewStandaloneRuntime creates the runtime
@@ -70,12 +74,12 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 		broker: broker.NewBrokerRuntime(version,
 			&config.Broker{
 				BrokerBase: cfg.BrokerBase,
-				Monitor:    cfg.Monitor,
+				Monitor:    config.Monitor{}, // empty to disable broker monitor
 			}),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
 				StorageBase: cfg.StorageBase,
-				Monitor:     cfg.Monitor,
+				Monitor:     config.Monitor{}, // empty to disable storage monitor
 			}),
 		cfg:         cfg,
 		initializer: bootstrap.NewClusterInitializer(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),
@@ -106,6 +110,9 @@ func (r *runtime) Run() error {
 	if err := r.runServer(); err != nil {
 		return err
 	}
+
+	// start a standalone pusher
+	r.nativePusher()
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
@@ -168,6 +175,10 @@ func (r *runtime) Stop() {
 		r.etcd.Close()
 		log.Info("stopped etcd server")
 	}
+	if r.pusher != nil {
+		r.pusher.Stop()
+		log.Info("stopped native linmetric pusher successfully")
+	}
 	r.state = server.Terminated
 }
 
@@ -213,4 +224,29 @@ func (r *runtime) cleanupState() error {
 		return fmt.Errorf("delete old master error")
 	}
 	return nil
+}
+
+func (r *runtime) nativePusher() {
+	log.Info("disable pusher of both broker and storage")
+	monitorEnabled := r.cfg.Monitor.ReportInterval > 0
+	if !monitorEnabled {
+		log.Info("pusher won't start because report-interval is 0")
+		return
+	}
+	log.Info("pusher is running",
+		logger.String("interval", r.cfg.Monitor.ReportInterval.String()))
+
+	ip, _ := hostutil.GetHostIP()
+
+	r.pusher = monitoring.NewNativeProtoPusher(
+		r.ctx,
+		r.cfg.Monitor.URL,
+		r.cfg.Monitor.ReportInterval.Duration(),
+		r.cfg.Monitor.PushTimeout.Duration(),
+		tag.KeyValues{
+			{Key: "node", Value: ip},
+			{Key: "role", Value: "standalone"},
+		},
+	)
+	go r.pusher.Start()
 }

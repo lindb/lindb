@@ -198,8 +198,10 @@ func (r *runtime) Run() error {
 	// start http server
 	r.startHTTPServer()
 
+	// start system collector
+	r.systemCollector()
 	// start stat monitoring
-	r.monitoring()
+	r.nativePusher()
 
 	r.state = server.Running
 	return nil
@@ -217,7 +219,7 @@ func (r *runtime) Stop() {
 
 	if r.pusher != nil {
 		r.pusher.Stop()
-		r.log.Info("stopped prometheus pusher successfully")
+		r.log.Info("stopped native linmetric pusher successfully")
 	}
 
 	if r.httpServer != nil {
@@ -361,27 +363,14 @@ func (r *runtime) bindGRPCHandlers() {
 	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
 }
 
-func (r *runtime) monitoring() {
+func (r *runtime) nativePusher() {
 	monitorEnabled := r.config.Monitor.ReportInterval > 0
-	node := models.ActiveNode{
-		Version:    r.version,
-		Node:       r.node,
-		OnlineTime: timeutil.Now(),
-	}
 	if !monitorEnabled {
-		r.log.Info("monitor report-interval sets to 0, exit")
+		r.log.Info("pusher won't start because report-interval is 0")
 		return
 	}
-	r.log.Info("monitor is running",
+	r.log.Info("pusher is running",
 		logger.String("interval", r.config.Monitor.ReportInterval.String()))
-
-	go monitoring.NewSystemCollector(
-		r.ctx,
-		r.config.Monitor.ReportInterval.Duration(),
-		r.config.BrokerBase.ReplicationChannel.Dir,
-		r.repo,
-		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
-		node).Run()
 
 	r.pusher = monitoring.NewNativeProtoPusher(
 		r.ctx,
@@ -389,10 +378,24 @@ func (r *runtime) monitoring() {
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
 		tag.KeyValues{
-			{Key: "namespace", Value: r.config.BrokerBase.Coordinator.Namespace},
 			{Key: "node", Value: r.node.Indicator()},
 			{Key: "role", Value: "broker"},
 		},
 	)
 	go r.pusher.Start()
+}
+
+func (r *runtime) systemCollector() {
+	r.log.Info("system collector is running")
+
+	go monitoring.NewSystemCollector(
+		r.ctx,
+		r.config.BrokerBase.ReplicationChannel.Dir,
+		r.repo,
+		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
+		models.ActiveNode{
+			Version:    r.version,
+			Node:       r.node,
+			OnlineTime: timeutil.Now(),
+		}, "broker").Run()
 }

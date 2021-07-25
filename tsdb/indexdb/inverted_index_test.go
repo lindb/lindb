@@ -236,7 +236,9 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 		return forward
 	}
 
-	index := newInvertedIndex(nil, forwardFamily, invertedFamily)
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	index := newInvertedIndex(meta, forwardFamily, invertedFamily)
 	// case 1: flush not tiger
 	err := index.Flush()
 	assert.NoError(t, err)

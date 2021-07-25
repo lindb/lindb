@@ -151,7 +151,7 @@ func TestShard_GetDataFamilies(t *testing.T) {
 
 	db := NewMockDatabase(ctrl)
 	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test")
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db.EXPECT().Name().Return("test-db").AnyTimes()
 	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})

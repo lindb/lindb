@@ -44,11 +44,11 @@ func Test_NewSystemCollector(t *testing.T) {
 
 	collector := NewSystemCollector(
 		ctx,
-		10*time.Millisecond,
 		"/tmp",
 		repo,
 		"",
 		models.ActiveNode{},
+		"standalone",
 	)
 
 	go func() {
@@ -70,11 +70,11 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	collector := NewSystemCollector(
 		ctx,
-		10*time.Millisecond,
 		"/tmp",
 		repo,
 		"",
 		models.ActiveNode{},
+		"standalone",
 	)
 
 	collector.MemoryStatGetter = func() (*mem.VirtualMemoryStat, error) {
