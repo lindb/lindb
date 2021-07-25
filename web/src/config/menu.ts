@@ -32,6 +32,11 @@ export const MENUS = [
         icon: 'storage',
         path: '/storage',
       },
+      {
+        title: 'Parallel',
+        icon: 'parallel',
+        path: '/parallel',
+      },
     ],
   }, {
     title: 'Metadata',

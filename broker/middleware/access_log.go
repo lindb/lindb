@@ -68,9 +68,12 @@ func AccessLogMiddleware() gin.HandlerFunc {
 			if len(paths) > 0 {
 				path = paths[0]
 			}
-			httHandlerTimerVec.
-				WithTagValues(path, strconv.Itoa(c.Writer.Status())).
-				UpdateSince(start)
+			// ignore admin web static js, css files
+			if strings.HasPrefix(path, "/api/") {
+				httHandlerTimerVec.
+					WithTagValues(path, strconv.Itoa(c.Writer.Status())).
+					UpdateSince(start)
+			}
 		}()
 		c.Next()
 	}

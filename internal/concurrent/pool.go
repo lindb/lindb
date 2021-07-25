@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/lindb/internal/linmetric"
+
 	"go.uber.org/atomic"
 )
 
@@ -55,30 +57,30 @@ type Pool interface {
 	// Stop stops all goroutines gracefully,
 	// all pending tasks will be finished before exit
 	Stop()
-	// Statistics returns the statistics data since started
-	Statistics() *PoolStat
 }
 
 // workerPool is a pool for goroutines.
 type workerPool struct {
 	name                string
 	maxWorkers          int
-	tasks               chan Task     // tasks channel
-	readyWorkers        chan *worker  // available worker
-	idleTimeout         time.Duration // idle goroutine recycle time
-	onDispatcherStopped chan struct{} // signal that dispatcher is stopped
-	stopped             atomic.Bool   // mark if the pool is closed or not
-	workersAlive        atomic.Int32  // current workers count in use
-	workersCreated      atomic.Int32  // workers created count since start
-	workersKilled       atomic.Int32  // workers killed since start
-	tasksConsumed       atomic.Int32  // tasks consumed count
+	tasks               chan Task                    // tasks channel
+	readyWorkers        chan *worker                 // available worker
+	idleTimeout         time.Duration                // idle goroutine recycle time
+	onDispatcherStopped chan struct{}                // signal that dispatcher is stopped
+	stopped             atomic.Bool                  // mark if the pool is closed or not
+	workersAlive        *linmetric.BoundGauge        // current workers count in use
+	workersCreated      *linmetric.BoundDeltaCounter // workers created count since start
+	workersKilled       *linmetric.BoundDeltaCounter // workers killed since start
+	tasksConsumed       *linmetric.BoundDeltaCounter // tasks consumed count
+	tasksWaitingTime    *linmetric.BoundDeltaCounter // tasks waiting total time
+	tasksExecutingTime  *linmetric.BoundDeltaCounter // tasks executing total time with waiting period
 	ctx                 context.Context
 	cancel              context.CancelFunc
 }
 
 // NewPool returns a new worker pool,
 // maxWorkers parameter specifies the maximum number workers that will execute tasks concurrently.
-func NewPool(name string, maxWorkers int, idleTimeout time.Duration) Pool {
+func NewPool(name string, maxWorkers int, idleTimeout time.Duration, scope linmetric.Scope) Pool {
 	if maxWorkers < 1 {
 		maxWorkers = 1
 	}
@@ -91,10 +93,12 @@ func NewPool(name string, maxWorkers int, idleTimeout time.Duration) Pool {
 		idleTimeout:         idleTimeout,
 		onDispatcherStopped: make(chan struct{}),
 		stopped:             *atomic.NewBool(false),
-		workersAlive:        *atomic.NewInt32(0),
-		workersCreated:      *atomic.NewInt32(0),
-		workersKilled:       *atomic.NewInt32(0),
-		tasksConsumed:       *atomic.NewInt32(0),
+		workersAlive:        scope.NewGauge("workers_alive"),
+		workersCreated:      scope.NewDeltaCounter("workers_created"),
+		workersKilled:       scope.NewDeltaCounter("workers_killed"),
+		tasksConsumed:       scope.NewDeltaCounter("tasks_consumed"),
+		tasksWaitingTime:    scope.NewDeltaCounter("tasks_waiting_duration_sum"),
+		tasksExecutingTime:  scope.NewDeltaCounter("tasks_executing_duration_sum"),
 		ctx:                 ctx,
 		cancel:              cancel,
 	}
@@ -102,32 +106,32 @@ func NewPool(name string, maxWorkers int, idleTimeout time.Duration) Pool {
 	return pool
 }
 
-func (p *workerPool) Statistics() *PoolStat {
-	return &PoolStat{
-		AliveWorkers:   int(p.workersAlive.Load()),
-		CreatedWorkers: int(p.workersCreated.Load()),
-		KilledWorkers:  int(p.workersKilled.Load()),
-		ConsumedTasks:  int(p.tasksConsumed.Load())}
-}
-
 func (p *workerPool) Submit(task Task) {
 	if task == nil || p.Stopped() {
 		return
 	}
-	p.tasks <- task
+	startTime := time.Now()
+	p.tasks <- func() {
+		p.tasksWaitingTime.Add(float64(time.Since(startTime).Nanoseconds() / 1e6))
+		task()
+		p.tasksExecutingTime.Add(float64(time.Since(startTime).Nanoseconds() / 1e6))
+	}
 }
 
 func (p *workerPool) SubmitAndWait(task Task) {
 	if task == nil || p.Stopped() {
 		return
 	}
+	startTime := time.Now()
 	worker := p.mustGetWorker()
+	p.tasksWaitingTime.Add(float64(time.Since(startTime).Nanoseconds() / 1e6))
 	doneChan := make(chan struct{})
 	worker.execute(func() {
 		task()
 		close(doneChan)
 	})
 	<-doneChan
+	p.tasksExecutingTime.Add(float64(time.Since(startTime).Nanoseconds() / 1e6))
 }
 
 // mustGetWorker makes sure that a ready worker is return
@@ -139,7 +143,7 @@ func (p *workerPool) mustGetWorker() *worker {
 		case worker = <-p.readyWorkers:
 			return worker
 		default:
-			if int(p.workersAlive.Load()) >= p.maxWorkers {
+			if int(p.workersAlive.Get()) >= p.maxWorkers {
 				// no available workers
 				time.Sleep(sleepInterval)
 				continue
@@ -172,7 +176,7 @@ func (p *workerPool) dispatch() {
 			worker.execute(task)
 		case <-idleTimeoutTimer.C:
 			// timed out waiting, kill a ready worker
-			if p.workersAlive.Load() > 0 {
+			if p.workersAlive.Get() > 0 {
 				select {
 				case worker = <-p.readyWorkers:
 					worker.stop(func() {})
@@ -191,7 +195,7 @@ func (p *workerPool) Stopped() bool {
 // stopWorkers stops all workers
 func (p *workerPool) stopWorkers() {
 	var wg sync.WaitGroup
-	for p.workersAlive.Load() > 0 {
+	for p.workersAlive.Get() > 0 {
 		wg.Add(1)
 		worker := <-p.readyWorkers
 		worker.stop(func() {
@@ -207,7 +211,7 @@ func (p *workerPool) consumedRemainingTasks() {
 		select {
 		case task := <-p.tasks:
 			task()
-			p.tasksConsumed.Inc()
+			p.tasksConsumed.Incr()
 		default:
 			return
 		}
@@ -244,8 +248,8 @@ func newWorker(pool *workerPool) *worker {
 		tasks:  make(chan Task),
 		stopCh: make(chan struct{}),
 	}
-	w.pool.workersAlive.Inc()
-	w.pool.workersCreated.Inc()
+	w.pool.workersAlive.Incr()
+	w.pool.workersCreated.Incr()
 	go w.process()
 	return w
 }
@@ -258,8 +262,8 @@ func (w *worker) execute(task Task) {
 func (w *worker) stop(callable func()) {
 	defer callable()
 	w.stopCh <- struct{}{}
-	w.pool.workersKilled.Inc()
-	w.pool.workersAlive.Dec()
+	w.pool.workersKilled.Incr()
+	w.pool.workersAlive.Decr()
 }
 
 // process process task from queue
@@ -271,7 +275,7 @@ func (w *worker) process() {
 			return
 		case task = <-w.tasks:
 			task()
-			w.pool.tasksConsumed.Inc()
+			w.pool.tasksConsumed.Incr()
 			// register worker-self to readyWorkers again
 			w.pool.readyWorkers <- w
 		}

@@ -17,7 +17,7 @@
 
 package tsdb
 
-import "github.com/lindb/lindb/pkg/concurrent"
+import "github.com/lindb/lindb/internal/concurrent"
 
 // ExecutorPool represents the executor pool used by query flow for each storage engine
 type ExecutorPool struct {
