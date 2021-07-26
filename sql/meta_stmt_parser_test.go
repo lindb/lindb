@@ -59,14 +59,14 @@ func TestMetaStmt_ShowNamespace(t *testing.T) {
 	assert.Equal(t, 10, query.Limit)
 }
 
-func TestMetaStmt_ShowMeasurement(t *testing.T) {
-	sql := "show measurements"
+func TestMetaStmt_ShowMetrics(t *testing.T) {
+	sql := "show metrics"
 	q, err := Parse(sql)
 	query := q.(*stmt.Metadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Metric, query.Type)
 
-	sql = "show measurements on 'ns' where measurement='abc' limit 10"
+	sql = "show metrics on 'ns' where metric='abc' limit 10"
 	q, err = Parse(sql)
 	query = q.(*stmt.Metadata)
 	assert.Nil(t, err)

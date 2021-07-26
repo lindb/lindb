@@ -36,8 +36,8 @@ type SQLListener interface {
 	// EnterShowNameSpacesStmt is called when entering the showNameSpacesStmt production.
 	EnterShowNameSpacesStmt(c *ShowNameSpacesStmtContext)
 
-	// EnterShowMeasurementsStmt is called when entering the showMeasurementsStmt production.
-	EnterShowMeasurementsStmt(c *ShowMeasurementsStmtContext)
+	// EnterShowMetricsStmt is called when entering the showMetricsStmt production.
+	EnterShowMetricsStmt(c *ShowMetricsStmtContext)
 
 	// EnterShowFieldsStmt is called when entering the showFieldsStmt production.
 	EnterShowFieldsStmt(c *ShowFieldsStmtContext)
@@ -201,8 +201,8 @@ type SQLListener interface {
 	// ExitShowNameSpacesStmt is called when exiting the showNameSpacesStmt production.
 	ExitShowNameSpacesStmt(c *ShowNameSpacesStmtContext)
 
-	// ExitShowMeasurementsStmt is called when exiting the showMeasurementsStmt production.
-	ExitShowMeasurementsStmt(c *ShowMeasurementsStmtContext)
+	// ExitShowMetricsStmt is called when exiting the showMetricsStmt production.
+	ExitShowMetricsStmt(c *ShowMetricsStmtContext)
 
 	// ExitShowFieldsStmt is called when exiting the showFieldsStmt production.
 	ExitShowFieldsStmt(c *ShowFieldsStmtContext)

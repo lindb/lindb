@@ -38,6 +38,26 @@ func Test_SQL_Parse(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func Test_Sql_examples(t *testing.T) {
+	examples := []struct {
+		ok  bool
+		sql string
+	}{
+		{true, "select x from y where name = 'sss'"},
+		{true, "select x from y where update = 'sss'"},
+		{true, "select x from y where metric = 'sss' and drop='xxx'"},
+		{false, "drop x from y where drop = 'sss'"},
+	}
+	for _, example := range examples {
+		_, err := Parse(example.sql)
+		if example.ok {
+			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
+		}
+	}
+}
+
 func Test_Meta_SQL_Parse(t *testing.T) {
 	query, err := Parse("show databases")
 	assert.NoError(t, err)
