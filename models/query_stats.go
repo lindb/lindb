@@ -25,6 +25,7 @@ import (
 
 // QueryStats represents the query stats when need explain query flow stat
 type QueryStats struct {
+	BrokerNodes  map[string]*QueryStats   `json:"brokerNodes,omitempty"`
 	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
 	Cost         int64                    `json:"cost"` // total query cost
 	ExpressCost  int64                    `json:"expressCost"`
@@ -33,13 +34,19 @@ type QueryStats struct {
 // NewQueryStats creates the query stats
 func NewQueryStats() *QueryStats {
 	return &QueryStats{
+		BrokerNodes:  make(map[string]*QueryStats),
 		StorageNodes: make(map[string]*StorageStats),
 	}
 }
 
+// MergeBrokerTaskStats merges intermediate task execution stats
+func (s *QueryStats) MergeBrokerTaskStats(nodeID string, stats *QueryStats) {
+	s.BrokerNodes[nodeID] = stats
+}
+
 // MergeStorageTaskStats merges storage task execution stats
-func (s *QueryStats) MergeStorageTaskStats(taskID string, stats *StorageStats) {
-	s.StorageNodes[taskID] = stats
+func (s *QueryStats) MergeStorageTaskStats(nodeID string, stats *StorageStats) {
+	s.StorageNodes[nodeID] = stats
 }
 
 // StorageStats represents query stats in storage side

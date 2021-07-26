@@ -21,5 +21,16 @@ import (
 	"errors"
 )
 
-var errNoAvailableStorageNode = errors.New("no available storage node for server")
-var errDatabaseNotExist = errors.New("database not exist")
+var (
+	errOnlySupportIntermediateTask = errors.New("only intermediate task is supported")
+	errNoAvailableStorageNode      = errors.New("no available storage node for server")
+	errDatabaseNotExist            = errors.New("database not exist")
+	errUnmarshalPlan               = errors.New("unmarshal physical plan error")
+	errUnmarshalQuery              = errors.New("unmarshal query statement error")
+	errUnmarshalSuggest            = errors.New("unmarshal metadata suggest statement error")
+	errBadPhysicalPlan             = errors.New("bad plan")
+	errNoSendStream                = errors.New("send stream not found")
+	errTaskSend                    = errors.New("send task request error")
+	errResponseSend                = errors.New("send response error")
+	errNoDatabase                  = errors.New("not found database")
+)

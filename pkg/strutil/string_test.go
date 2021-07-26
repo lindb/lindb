@@ -40,3 +40,9 @@ func Test_String2ByteSlice(t *testing.T) {
 	s := "abc"
 	assert.Equal(t, []byte("abc"), String2ByteSlice(s))
 }
+
+func Test_DeDupString(t *testing.T) {
+	assert.Len(t, DeDupStringSlice(nil), 0)
+	assert.Len(t, DeDupStringSlice([]string{"a", "v"}), 2)
+	assert.Len(t, DeDupStringSlice([]string{"a", "a", "b", "v"}), 3)
+}

@@ -81,11 +81,11 @@ func (t *queryStatTask) AfterRun() {
 type storagePlanTask struct {
 	baseQueryTask
 	ctx  *storageExecuteContext
-	plan Plan
+	plan *storageExecutePlan
 }
 
 // newStoragePlanTask creates storage execute plan task
-func newStoragePlanTask(ctx *storageExecuteContext, plan Plan) flow.QueryTask {
+func newStoragePlanTask(ctx *storageExecuteContext, plan *storageExecutePlan) flow.QueryTask {
 	task := &storagePlanTask{
 		ctx:  ctx,
 		plan: plan,

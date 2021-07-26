@@ -19,6 +19,7 @@ package rpc
 
 import (
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -46,7 +47,10 @@ func NewGRPCServer(bindAddress string) GRPCServer {
 	return &grpcServer{
 		bindAddress: bindAddress,
 		logger:      logger.GetLogger("rpc", "GRPCServer"),
-		gs:          grpc.NewServer(),
+		gs: grpc.NewServer(
+			grpc.ConnectionTimeout(time.Second*3),
+			grpc.MaxConcurrentStreams(30),
+		),
 	}
 }
 

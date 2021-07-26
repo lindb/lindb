@@ -19,7 +19,6 @@ package query
 
 import (
 	"context"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -59,24 +58,12 @@ func (m *MetricAPI) Search(c *gin.Context) {
 		http.Error(c, err)
 		return
 	}
-	//FIXME add timeout cfg
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+
+	ctx, cancel := context.WithTimeout(context.Background(), m.deps.BrokerCfg.Query.Timeout.Duration())
 	defer cancel()
 
-	executor := m.deps.ExecutorFct.NewBrokerExecutor(ctx, param.Database, param.SQL,
-		m.deps.StateMachines.ReplicaStatusSM, m.deps.StateMachines.NodeSM, m.deps.StateMachines.DatabaseSM,
-		m.deps.JobManager)
-	executor.Execute()
-
-	executorCtx := executor.ExecuteContext()
-
-	//FIXME timeout logic use select
-	resultCh := executorCtx.ResultCh()
-	for result := range resultCh {
-		executorCtx.Emit(result)
-	}
-
-	resultSet, err := executorCtx.ResultSet()
+	metricQuery := m.deps.QueryFactory.NewMetricQuery(ctx, param.Database, param.SQL)
+	resultSet, err := metricQuery.WaitResponse()
 	if err != nil {
 		http.Error(c, err)
 		return

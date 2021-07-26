@@ -22,7 +22,7 @@ export default class Runtime extends React.Component<RuntimeProps, RuntimeState>
                               textAlign: "left",
                           }}>
                         <Form.Item label="Node">
-                            <TagValuesSelect measurement="lindb.runtime" tagKey="node" mode="tags"/>
+                            <TagValuesSelect metric="lindb.runtime" tagKey="node" mode="tags"/>
                         </Form.Item>
                     </Form>
                 </Card>

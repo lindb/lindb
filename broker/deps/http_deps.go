@@ -18,16 +18,18 @@
 package deps
 
 import (
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/service"
 )
 
 // HTTPDeps represents http server handler's dependency.
 type HTTPDeps struct {
-	Master coordinator.Master
+	BrokerCfg *config.BrokerBase
+	Master    coordinator.Master
 
 	Repo          state.Repository
 	StateMachines *coordinator.BrokerStateMachines
@@ -38,6 +40,5 @@ type HTTPDeps struct {
 
 	CM replication.ChannelManager
 
-	ExecutorFct parallel.ExecutorFactory
-	JobManager  parallel.JobManager
+	QueryFactory query.Factory
 }

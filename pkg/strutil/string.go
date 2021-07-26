@@ -51,3 +51,20 @@ func String2ByteSlice(str string) []byte {
 		Cap:  hdr.Len,
 	}))
 }
+
+// DeDupStringSlice removes the duplicated string in a list
+func DeDupStringSlice(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	var m = make(map[string]struct{})
+	for _, item := range items {
+		m[item] = struct{}{}
+	}
+	var dst = make([]string, len(m))
+	idx := 0
+	for k := range m {
+		dst[idx] = k
+	}
+	return dst
+}

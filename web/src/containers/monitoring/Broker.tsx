@@ -22,7 +22,7 @@ export default class MonitoringSystem extends React.Component<BrokerProps, Broke
                               textAlign: "left",
                           }}>
                         <Form.Item label="Node">
-                            <TagValuesSelect measurement="lindb.broker.http_handle_duration" tagKey="node" mode="tags"/>
+                            <TagValuesSelect metric="lindb.broker.http_handle_duration" tagKey="node" mode="tags"/>
                         </Form.Item>
                     </Form>
                 </Card>
