@@ -61,11 +61,11 @@ func (s *BaseSQLListener) EnterShowNameSpacesStmt(ctx *ShowNameSpacesStmtContext
 // ExitShowNameSpacesStmt is called when production showNameSpacesStmt is exited.
 func (s *BaseSQLListener) ExitShowNameSpacesStmt(ctx *ShowNameSpacesStmtContext) {}
 
-// EnterShowMeasurementsStmt is called when production showMeasurementsStmt is entered.
-func (s *BaseSQLListener) EnterShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
+// EnterShowMetricsStmt is called when production showMetricsStmt is entered.
+func (s *BaseSQLListener) EnterShowMetricsStmt(ctx *ShowMetricsStmtContext) {}
 
-// ExitShowMeasurementsStmt is called when production showMeasurementsStmt is exited.
-func (s *BaseSQLListener) ExitShowMeasurementsStmt(ctx *ShowMeasurementsStmtContext) {}
+// ExitShowMetricsStmt is called when production showMetricsStmt is exited.
+func (s *BaseSQLListener) ExitShowMetricsStmt(ctx *ShowMetricsStmtContext) {}
 
 // EnterShowFieldsStmt is called when production showFieldsStmt is entered.
 func (s *BaseSQLListener) EnterShowFieldsStmt(ctx *ShowFieldsStmtContext) {}
