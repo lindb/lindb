@@ -22,7 +22,7 @@ export default class MonitoringStorage extends React.Component<StorageProps, Sto
                               textAlign: "left",
                           }}>
                         <Form.Item label="Node">
-                            <TagValuesSelect measurement="lindb.tsdb.memdb" tagKey="node" mode="tags"/>
+                            <TagValuesSelect metric="lindb.tsdb.memdb" tagKey="node" mode="tags"/>
                         </Form.Item>
                     </Form>
                 </Card>

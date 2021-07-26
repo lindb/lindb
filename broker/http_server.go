@@ -65,9 +65,10 @@ func NewHTTPServer(cfg config.HTTP) *HTTPServer {
 // init initializes http server default router/handle/middleware.
 func (s *HTTPServer) init() {
 	// Using middlewares on group.
+	// use AccessLogMiddleware to log panic error with zap
 	s.gin.Use(middleware.AccessLogMiddleware())
 	s.gin.Use(cors.Default())
-	s.gin.Use(gin.Recovery())
+	gin.Recovery()
 
 	// server static file
 	staticFS, err := fs.Sub(lindb.StaticContent, "web/static")

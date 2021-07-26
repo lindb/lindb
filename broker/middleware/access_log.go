@@ -59,11 +59,17 @@ func AccessLogMiddleware() gin.HandlerFunc {
 			requestInfo := realIP(r) + " " + strconv.Itoa(int(time.Since(start).Milliseconds())) + "ms" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size())
-			if len(c.Errors) > 0 {
+
+			r := recover()
+			switch {
+			case r != nil:
+				logger.AccessLog.Error(requestInfo, logger.Stack())
+			case len(c.Errors) > 0:
 				logger.AccessLog.Error(requestInfo, logger.Error(c.Errors[0].Err))
-			} else {
+			default:
 				logger.AccessLog.Info(requestInfo)
 			}
+
 			paths := strings.Split(unescapedPath, "?")
 			if len(paths) > 0 {
 				path = paths[0]

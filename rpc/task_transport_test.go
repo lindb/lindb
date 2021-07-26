@@ -74,7 +74,7 @@ func TestTaskClientFactory(t *testing.T) {
 
 	fct := NewTaskClientFactory(models.Node{IP: "127.0.0.1", Port: 123})
 	receiver := NewMockTaskReceiver(ctl)
-	receiver.EXPECT().Receive(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+	receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	fct.SetTaskReceiver(receiver)
 	fct1 := fct.(*taskClientFactory)
 	fct1.connFct = mockClientConnFct
@@ -151,12 +151,13 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil),
 		taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil),
 		mockTaskClient.EXPECT().Recv().Return(nil, nil),
-		receiver.EXPECT().Receive(gomock.Any()).Return(nil),
+		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(nil),
 		mockTaskClient.EXPECT().Recv().Return(nil, nil),
-		receiver.EXPECT().Receive(gomock.Any()).DoAndReturn(func(req *protoCommonV1.TaskResponse) error {
-			taskClient.running.Store(false)
-			return fmt.Errorf("err")
-		}),
+		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(req *protoCommonV1.TaskResponse, targetID string) error {
+				taskClient.running.Store(false)
+				return fmt.Errorf("err")
+			}),
 	)
 	factory.handleTaskResponse(taskClient)
 }

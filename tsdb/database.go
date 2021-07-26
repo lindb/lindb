@@ -70,13 +70,13 @@ type Database interface {
 	GetShard(shardID int32) (Shard, bool)
 	// ExecutorPool returns the pool for querying tasks
 	ExecutorPool() *ExecutorPool
-	// Close closes database's underlying resource
+	// Closer closes database's underlying resource
 	io.Closer
 	// Metadata returns the metadata include metric/tag
 	Metadata() metadb.Metadata
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
-	// FLush flushes memory data of all shards to disk
+	// Flush flushes memory data of all shards to disk
 	Flush() error
 }
 
@@ -118,21 +118,21 @@ func newDatabase(databaseName string, databasePath string, cfg *databaseConfig,
 				databaseName+"-filtering-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel",
+				linmetric.NewScope("lindb.parallel.task",
 					"pool", databaseName+"-filtering"),
 			),
 			Grouping: concurrent.NewPool(
 				databaseName+"-grouping-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel",
+				linmetric.NewScope("lindb.parallel.task",
 					"pool", databaseName+"-grouping"),
 			),
 			Scanner: concurrent.NewPool(
 				databaseName+"-scanner-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel",
+				linmetric.NewScope("lindb.parallel.task",
 					"pool", databaseName+"-scanner"),
 			),
 		},

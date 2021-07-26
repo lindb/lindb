@@ -190,7 +190,7 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 			continue
 		}
 
-		err = f.taskReceiver.Receive(resp)
+		err = f.taskReceiver.Receive(resp, client.targetID)
 		if err != nil {
 			log.Error("receive task response", logger.Any("rep", resp), logger.Error(err))
 		}

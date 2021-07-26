@@ -28,45 +28,32 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/parallel"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/query"
 )
 
 func TestMetricAPI_Search(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	executorFactory := parallel.NewMockExecutorFactory(ctrl)
-	brokerExecutor := parallel.NewMockBrokerExecutor(ctrl)
-	executeCtx := parallel.NewMockBrokerExecuteContext(ctrl)
-	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
-	brokerExecutor.EXPECT().Execute()
+	queryFactory := query.NewMockFactory(ctrl)
+	metricQuery := query.NewMockMetricQuery(ctrl)
 
-	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(brokerExecutor)
+	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 
 	api := NewMetricAPI(&deps.HTTPDeps{
-		ExecutorFct:   executorFactory,
+		BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		StateMachines: &coordinator.BrokerStateMachines{},
+		QueryFactory:  queryFactory,
 	})
 	r := gin.New()
 	api.Register(r)
 
-	ch := make(chan *series.TimeSeriesEvent)
-
-	executeCtx.EXPECT().ResultCh().Return(ch)
-	executeCtx.EXPECT().Emit(gomock.Any())
-	executeCtx.EXPECT().ResultSet().Return(&models.ResultSet{}, nil)
-
-	time.AfterFunc(100*time.Millisecond, func() {
-		ch <- nil
-		close(ch)
-	})
-
+	metricQuery.EXPECT().WaitResponse().Return(&models.ResultSet{}, nil)
 	resp := mock.DoRequest(t, r, http.MethodGet, MetricQueryPath+"?db=test&sql=select f from cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
@@ -75,8 +62,11 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	executorFactory := parallel.NewMockExecutorFactory(ctrl)
-	api := NewMetricAPI(&deps.HTTPDeps{ExecutorFct: executorFactory, StateMachines: &coordinator.BrokerStateMachines{}})
+	queryFactory := query.NewMockFactory(ctrl)
+	api := NewMetricAPI(&deps.HTTPDeps{
+		BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
+		QueryFactory:  queryFactory,
+		StateMachines: &coordinator.BrokerStateMachines{}})
 	r := gin.New()
 	api.Register(r)
 
@@ -84,23 +74,10 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodGet, MetricQueryPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	brokerExecutor := parallel.NewMockBrokerExecutor(ctrl)
-	executeCtx := parallel.NewMockBrokerExecuteContext(ctrl)
-	brokerExecutor.EXPECT().ExecuteContext().Return(executeCtx)
-	brokerExecutor.EXPECT().Execute()
+	metricQuery := query.NewMockMetricQuery(ctrl)
+	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+	metricQuery.EXPECT().WaitResponse().Return(&models.ResultSet{}, fmt.Errorf("err"))
 
-	executorFactory.EXPECT().NewBrokerExecutor(gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(brokerExecutor)
-
-	ch := make(chan *series.TimeSeriesEvent)
-
-	executeCtx.EXPECT().ResultCh().Return(ch)
-	executeCtx.EXPECT().ResultSet().Return(&models.ResultSet{}, fmt.Errorf("err"))
-
-	time.AfterFunc(100*time.Millisecond, func() {
-		close(ch)
-	})
 	resp = mock.DoRequest(t, r, http.MethodGet, MetricQueryPath+"?db=test&sql=select f from cpu", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

@@ -14,17 +14,16 @@ enum RequestType {
 }
 
 message TaskRequest {
-    int64 jobID = 1;
-    string parentTaskID = 2;
-    TaskType type = 3;
-    RequestType requestType = 4;
-    bytes physicalPlan = 5;
-    bytes payload = 6;
+    string parentTaskID = 1;
+    TaskType type = 2;
+    RequestType requestType = 3;
+    bytes physicalPlan = 4;
+    bytes payload = 5;
 }
 
 message TaskResponse {
-    int64 jobID = 1;
-    string TaskID = 2;
+    string taskID = 1;
+    TaskType type = 2;
     bool completed = 3;
     string errMsg = 4;
     int64 sendTime = 5;

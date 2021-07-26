@@ -21,7 +21,7 @@ import (
 	enc "encoding"
 
 	"github.com/lindb/lindb/models"
-
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -29,11 +29,13 @@ import (
 
 // TimeSeriesEvent represents time series event for query.
 type TimeSeriesEvent struct {
-	SeriesList []GroupedIterator
-
-	Stats *models.QueryStats
-	Err   error
+	SeriesList      GroupedIterators
+	AggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
+	Stats           *models.QueryStats
+	Err             error
 }
+
+type GroupedIterators []GroupedIterator
 
 // GroupedIterator represents a iterator for the grouped time series data.
 type GroupedIterator interface {

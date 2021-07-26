@@ -5,6 +5,7 @@ bin/
 .DS_Store
 *.log
 .history
+*.bat
 
 # temp file during testing
 *.test
