@@ -44,8 +44,8 @@ func (l *listener) EnterShowNameSpacesStmt(ctx *grammar.ShowNameSpacesStmtContex
 	l.metaStmt = newMetaStmtParser(stmt.Namespace)
 }
 
-// EnterShowMeasurementsStmt is called when production showMeasurementsStmt is entered.
-func (l *listener) EnterShowMeasurementsStmt(ctx *grammar.ShowMeasurementsStmtContext) {
+// EnterShowMetricsStmt is called when production showMetricsStmt is entered.
+func (l *listener) EnterShowMetricsStmt(ctx *grammar.ShowMetricsStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Metric)
 }
 

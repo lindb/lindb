@@ -1,19 +1,20 @@
 // Define a grammar called LinSQL for LinDB query language
+// antlr4 SQL.g4 -Dlanguage=Go -package grammar
 grammar SQL;
 
 statement               : statementList EOF;
 
 statementList           : showDatabaseStmt
-                          | showNameSpacesStmt
-                          | showMeasurementsStmt
-                          | showFieldsStmt
-                          | showTagKeysStmt
-                          | showTagValuesStmt
-                          | queryStmt;
+                        | showNameSpacesStmt
+                        | showMetricsStmt
+                        | showFieldsStmt
+                        | showTagKeysStmt
+                        | showTagValuesStmt
+                        | queryStmt;
 //meta data query statement
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
-showMeasurementsStmt : T_SHOW T_MEASUREMENTS (T_ON namespace)? (T_WHERE T_MEASUREMENT T_EQUAL prefix)? limitClause?;
+showMetricsStmt      : T_SHOW T_METRICS (T_ON namespace)? (T_WHERE T_METRIC T_EQUAL prefix)? limitClause?;
 showFieldsStmt       : T_SHOW T_FIELDS (T_ON namespace)? fromClause;
 showTagKeysStmt      : T_SHOW T_TAG T_KEYS (T_ON namespace)? fromClause;
 showTagValuesStmt    : T_SHOW T_TAG T_VALUES (T_ON namespace)? fromClause T_WITH T_KEY T_EQUAL withTagKey whereClause? limitClause?;
@@ -130,38 +131,50 @@ ident                    :  (L_ID | nonReservedWords) ('.' (L_ID | nonReservedWo
 
 nonReservedWords      :
                           T_CREATE
+                        | T_UPDATE
+                        | T_SET
+                        | T_DROP
                         | T_INTERVAL
+                        | T_INTERVAL_NAME
                         | T_SHARD
                         | T_REPLICATION
                         | T_TTL
-                        | T_DATASBAE
+                        | T_META_TTL
+                        | T_PAST_TTL
+                        | T_FUTURE_TTL
                         | T_KILL
+                        | T_ON
                         | T_SHOW
+                        | T_DATASBAE
                         | T_DATASBAES
                         | T_NAMESPACE
                         | T_NAMESPACES
                         | T_NODE
-                        | T_MEASUREMENTS
-                        | T_MEASUREMENT
+                        | T_METRICS
+                        | T_METRIC
                         | T_FIELD
                         | T_FIELDS
                         | T_TAG
+                        | T_INFO
                         | T_KEYS
                         | T_KEY
                         | T_WITH
                         | T_VALUES
+                        | T_VALUE
                         | T_FROM
                         | T_WHERE
                         | T_LIMIT
                         | T_QUERIES
                         | T_QUERY
+                        | T_EXPLAIN
+                        | T_WITH_VALUE
                         | T_SELECT
                         | T_AS
                         | T_AND
                         | T_OR
+                        | T_FILL
                         | T_NULL
                         | T_PREVIOUS
-                        | T_FILL
                         | T_ORDER
                         | T_ASC
                         | T_DESC
@@ -169,20 +182,16 @@ nonReservedWords      :
                         | T_NOT
                         | T_BETWEEN
                         | T_IS
-                        | T_PROFILE
                         | T_GROUP
+                        | T_HAVING
                         | T_BY
-                        | T_ON
+                        | T_FOR
                         | T_STATS
                         | T_TIME
-                        | T_FOR
-                        | T_SECOND
-                        | T_MINUTE
-                        | T_HOUR
-                        | T_DAY
-                        | T_WEEK
-                        | T_MONTH
-                        | T_YEAR
+                        | T_NOW
+                        | T_IN
+                        | T_LOG
+                        | T_PROFILE
                         | T_SUM
                         | T_MIN
                         | T_MAX
@@ -190,6 +199,13 @@ nonReservedWords      :
                         | T_AVG
                         | T_STDDEV
                         | T_QUANTILE
+                        | T_SECOND
+                        | T_MINUTE
+                        | T_HOUR
+                        | T_DAY
+                        | T_WEEK
+                        | T_MONTH
+                        | T_YEAR
                         ;
 
 // Lexer rules
@@ -213,8 +229,8 @@ T_DATASBAES          : D A T A B A S E S                ;
 T_NAMESPACE          : N A M E S P A C E                ;
 T_NAMESPACES         : N A M E S P A C E S              ;
 T_NODE               : N O D E                          ;
-T_MEASUREMENTS       : M E A S U R E M E N T S          ;
-T_MEASUREMENT        : M E A S U R E M E N T            ;
+T_METRICS            : M E T R I C S                    ;
+T_METRIC             : M E T R I C                      ;
 T_FIELD              : F I E L D                        ;
 T_FIELDS             : F I E L D S                      ;
 T_TAG                : T A G                            ;
