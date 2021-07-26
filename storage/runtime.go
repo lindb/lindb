@@ -31,9 +31,10 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
-	taskHandler "github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
@@ -61,8 +62,8 @@ type factory struct {
 
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
-	writer *handler.Writer
-	task   *taskHandler.TaskHandler
+	writer  *handler.Writer
+	handler *query.TaskHandler
 }
 
 // just for testing
@@ -86,12 +87,11 @@ type runtime struct {
 	taskExecutor *task.TaskExecutor
 	factory      factory
 	srv          srv
-	handler      *rpcHandler
+	rpcHandler   *rpcHandler
 	httpServer   *http.Server
-
-	pusher monitoring.NativePusher
-
-	log *logger.Logger
+	queryPool    concurrent.Pool
+	pusher       monitoring.NativePusher
+	log          *logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -104,7 +104,11 @@ func NewStorageRuntime(version string, config *config.Storage) server.Service {
 		config:      config,
 		ctx:         ctx,
 		cancel:      cancel,
-
+		queryPool: concurrent.NewPool(
+			"task-pool",
+			config.StorageBase.Query.QueryConcurrency,
+			config.StorageBase.Query.IdleTimeout.Duration(),
+			linmetric.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
 		log: logger.GetLogger("storage", "Runtime"),
 	}
 }
@@ -312,22 +316,25 @@ func (r *runtime) startTCPServer() {
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
 	//FIXME: (stone1100) need close
-	dispatcher := taskHandler.NewLeafTaskDispatcher(r.node, r.srv.storageService,
-		query.NewExecutorFactory(), r.factory.taskServer)
+	leafTaskProcessor := query.NewLeafTaskProcessor(
+		r.node,
+		r.srv.storageService,
+		r.factory.taskServer,
+	)
 
-	r.handler = &rpcHandler{
+	r.rpcHandler = &rpcHandler{
 		writer: handler.NewWriter(r.srv.storageService),
-		task: taskHandler.NewTaskHandler(
+		handler: query.NewTaskHandler(
 			r.config.StorageBase.Query,
 			r.factory.taskServer,
-			dispatcher,
-			"storage",
+			leafTaskProcessor,
+			r.queryPool,
 		),
 	}
 
 	//TODO add task service ??????
-	protoStorageV1.RegisterWriteServiceServer(r.server.GetServer(), r.handler.writer)
-	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.handler.task)
+	protoStorageV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.writer)
+	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.handler)
 }
 
 func (r *runtime) nativePusher() {

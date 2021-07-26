@@ -8,7 +8,7 @@ const { Option } = Select
 
 interface TagValuesSelectProps {
     tagKey: string
-    measurement: string
+    metric: string
     watch?: string[]
     mode?: 'multiple' | 'tags'
 }
@@ -26,8 +26,8 @@ export default class TagValuesSelect extends React.Component<TagValuesSelectProp
 
     @autobind
     async fetchDatabaseNames() {
-        const { measurement, tagKey, watch } = this.props
-        let showTagValuesSQL = `show tag values from '${measurement}' with key='${tagKey}'`
+        const { metric, tagKey, watch } = this.props
+        let showTagValuesSQL = `show tag values from '${metric}' with key='${tagKey}'`
         if (watch) {
             const tags: string[] = []
             watch.forEach(item => {

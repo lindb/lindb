@@ -21,17 +21,20 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/broker/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
@@ -99,37 +102,41 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := parallel.NewMockExecutorFactory(ctrl)
-	exec := parallel.NewMockMetadataExecutor(ctrl)
+	factory := query.NewMockFactory(ctrl)
+	metaDataQuery := query.NewMockMetaDataQuery(ctrl)
 
-	factory.EXPECT().NewMetadataBrokerExecutor(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any(), gomock.Any()).Return(exec).AnyTimes()
+	factory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metaDataQuery).AnyTimes()
 
-	api := NewMetadataAPI(&deps.HTTPDeps{ExecutorFct: factory, StateMachines: &coordinator.BrokerStateMachines{}})
+	api := NewMetadataAPI(
+		&deps.HTTPDeps{
+			StateMachines: &coordinator.BrokerStateMachines{},
+			QueryFactory:  factory,
+			BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
+		})
 	r := gin.New()
 	api.Register(r)
 
 	resp := mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?sql=show namespaces", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	exec.EXPECT().Execute().Return(nil, fmt.Errorf("err"))
+	metaDataQuery.EXPECT().WaitResponse().Return(nil, fmt.Errorf("err"))
 	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show namespaces", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	exec.EXPECT().Execute().Return([]string{"a", "b"}, nil)
+	metaDataQuery.EXPECT().WaitResponse().Return([]string{"a", "b"}, nil)
 	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show namespaces", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	exec.EXPECT().Execute().Return([]string{"ddd"}, nil)
+	metaDataQuery.EXPECT().WaitResponse().Return([]string{"ddd"}, nil)
 	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show fields from cpu", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	exec.EXPECT().Execute().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
+	metaDataQuery.EXPECT().WaitResponse().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
 	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?db=db&sql=show fields from cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	// histogram
-	exec.EXPECT().Execute().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{
+	metaDataQuery.EXPECT().WaitResponse().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{
 		{Name: "test", Type: field.SumField},
 		{Name: "histogram_0", Type: field.HistogramField},
 		{Name: "histogram_2", Type: field.HistogramField},

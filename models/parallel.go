@@ -42,26 +42,26 @@ func (t *PhysicalPlan) AddLeaf(leaf Leaf) {
 
 // Root represents the root node info
 type Root struct {
-	Indicator string
-	NumOfTask int32
+	Indicator string `json:"indicator"`
+	NumOfTask int32  `json:"numOfTask"`
 }
 
 type BaseNode struct {
-	Parent    string // parent node's indicator
-	Indicator string // current node's indicator
+	Parent    string `json:"parent"`    // parent node's indicator
+	Indicator string `json:"indicator"` // current node's indicator
 }
 
 // Intermediate represents the intermediate node info
 type Intermediate struct {
 	BaseNode
 
-	NumOfTask int32
+	NumOfTask int32 `json:"numOfTask"`
 }
 
 // Leaf represents the leaf node info
 type Leaf struct {
 	BaseNode
 
-	Receivers []Node
-	ShardIDs  []int32
+	Receivers []Node  `json:"receivers"`
+	ShardIDs  []int32 `json:"shardIDs"`
 }

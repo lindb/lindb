@@ -14,11 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
+//
 package query
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -53,16 +54,21 @@ func TestStoragePlanTask_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	plan := NewMockPlan(ctrl)
-	plan.EXPECT().Plan().Return(nil).AnyTimes()
+	mockMetaData := metadb.NewMockMetadata(ctrl)
+	mockMetaDataBase := metadb.NewMockMetadataDatabase(ctrl)
+	mockMetaData.EXPECT().MetadataDatabase().Return(mockMetaDataBase).AnyTimes()
+	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(0), io.ErrClosedPipe).AnyTimes()
+
+	plan := &storageExecutePlan{metadata: mockMetaData, query: &stmt.Query{MetricName: ""}}
+
 	// case 1: normal
 	task := newStoragePlanTask(newStorageExecuteContext(nil, &stmt.Query{}), plan)
 	err := task.Run()
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	// case 2: explain track stats
 	task = newStoragePlanTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}), plan)
 	err = task.Run()
-	assert.NoError(t, err)
+	assert.Error(t, err)
 }
 
 func TestTagFilterTask_AfterRun(t *testing.T) {

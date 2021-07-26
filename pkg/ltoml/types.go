@@ -34,8 +34,8 @@ func (d Duration) Duration() time.Duration {
 	return time.Duration(d)
 }
 
-// See https://github.com/BurntSushi/toml
 // UnmarshalText parses a TOML value into a duration value.
+// See https://github.com/BurntSushi/toml
 func (d *Duration) UnmarshalText(text []byte) error {
 	if len(text) == 0 {
 		return nil

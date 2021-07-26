@@ -29,7 +29,7 @@ type GroupingAggregator interface {
 	// Aggregate aggregates the time series data
 	Aggregate(it series.GroupedIterator)
 	// ResultSet returns the result set of aggregator
-	ResultSet() []series.GroupedIterator
+	ResultSet() series.GroupedIterators
 }
 
 type groupingAggregator struct {
@@ -89,7 +89,7 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 }
 
 // ResultSet returns the result set of aggregator.
-func (ga *groupingAggregator) ResultSet() []series.GroupedIterator {
+func (ga *groupingAggregator) ResultSet() series.GroupedIterators {
 	length := len(ga.aggregates)
 	if length == 0 {
 		return nil

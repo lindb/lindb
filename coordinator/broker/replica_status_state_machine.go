@@ -157,9 +157,9 @@ func (sm *replicaStatusStateMachine) Close() error {
 	return nil
 }
 
-// OnCreates updates the broker's replica status when broker upload replica state
+// OnCreate updates the broker's replica status when broker upload replica state
 func (sm *replicaStatusStateMachine) OnCreate(key string, resource []byte) {
-	sm.logger.Info("discovery new broker online",
+	sm.logger.Debug("discovery new broker online",
 		logger.String("key", key),
 		logger.String("data", string(resource)))
 

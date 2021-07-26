@@ -44,7 +44,7 @@ func (m MetadataType) String() string {
 	case Namespace:
 		return "namespace"
 	case Metric:
-		return "measurement"
+		return "metric"
 	case Field:
 		return field
 	case TagKey:

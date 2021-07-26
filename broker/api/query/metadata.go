@@ -20,7 +20,6 @@ package query
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -109,13 +108,11 @@ func (d *MetadataAPI) showDatabases(c *gin.Context) {
 
 // suggest executes the suggest query
 func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Metadata) {
-	//TODO add timeout cfg
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), d.deps.BrokerCfg.Query.Timeout.Duration())
 	defer cancel()
 
-	exec := d.deps.ExecutorFct.NewMetadataBrokerExecutor(ctx, database, request,
-		d.deps.StateMachines.ReplicaStatusSM, d.deps.StateMachines.NodeSM, d.deps.JobManager)
-	values, err := exec.Execute()
+	metaDataQuery := d.deps.QueryFactory.NewMetadataQuery(ctx, database, request)
+	values, err := metaDataQuery.WaitResponse()
 	if err != nil {
 		http.Error(c, err)
 		return

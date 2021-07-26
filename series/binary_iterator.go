@@ -69,7 +69,6 @@ func (g *binaryGroupedIterator) Next() Iterator {
 	return g.it
 }
 
-//////////////////////////////////////////////////////
 // BinaryIterator implements Iterator
 //////////////////////////////////////////////////////
 type BinaryIterator struct {
@@ -124,8 +123,7 @@ func (b *BinaryIterator) MarshalBinary() ([]byte, error) {
 	return b.data, nil
 }
 
-//////////////////////////////////////////////////////
-// binaryFieldIterator implements FieldIterator
+// BinaryFieldIterator implements FieldIterator
 //////////////////////////////////////////////////////
 type BinaryFieldIterator struct {
 	reader *stream.Reader

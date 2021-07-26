@@ -31,9 +31,10 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
-	"github.com/lindb/lindb/parallel"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/server"
@@ -59,8 +60,7 @@ type srv struct {
 	databaseService       service.DatabaseService
 	replicatorStateReport replication.ReplicatorStateReport
 	channelManager        replication.ChannelManager
-	taskManager           parallel.TaskManager
-	jobManager            parallel.JobManager
+	taskManager           query.TaskManager
 }
 
 // factory represents all factories for broker
@@ -70,7 +70,7 @@ type factory struct {
 }
 
 type rpcHandler struct {
-	task *parallel.TaskHandler
+	handler *query.TaskHandler
 }
 
 // runtime represents broker runtime dependency
@@ -91,6 +91,7 @@ type runtime struct {
 
 	grpcServer rpc.GRPCServer
 	rpcHandler *rpcHandler
+	queryPool  concurrent.Pool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -110,7 +111,13 @@ func NewBrokerRuntime(version string, config *config.Broker) server.Service {
 		repoFactory: state.NewRepositoryFactory("broker"),
 		ctx:         ctx,
 		cancel:      cancel,
-		log:         logger.GetLogger("broker", "Runtime"),
+		queryPool: concurrent.NewPool(
+			"task-pool",
+			config.BrokerBase.Query.QueryConcurrency,
+			config.BrokerBase.Query.IdleTimeout.Duration(),
+			linmetric.NewScope("lindb.concurrent.pool", "pool", "broker-task"),
+		),
+		log: logger.GetLogger("broker", "Runtime"),
 	}
 }
 
@@ -278,6 +285,7 @@ func (r *runtime) startHTTPServer() {
 	// TODO set ctx
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(context.TODO(), &deps.HTTPDeps{
+		BrokerCfg:         &r.config.BrokerBase,
 		Master:            r.master,
 		Repo:              r.repo,
 		StateMachines:     r.stateMachines,
@@ -285,8 +293,12 @@ func (r *runtime) startHTTPServer() {
 		ShardAssignSrv:    r.srv.shardAssignService,
 		StorageClusterSrv: r.srv.storageClusterService,
 		CM:                r.srv.channelManager,
-		ExecutorFct:       query.NewExecutorFactory(),
-		JobManager:        r.srv.jobManager,
+		QueryFactory: query.NewQueryFactory(
+			r.stateMachines.ReplicaStatusSM,
+			r.stateMachines.NodeSM,
+			r.stateMachines.DatabaseSM,
+			r.srv.taskManager,
+		),
 	})
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {
@@ -315,14 +327,21 @@ func (r *runtime) buildServiceDependency() {
 	replicatorStateReport := replication.NewReplicatorStateReport(r.node, r.repo)
 
 	// hard code create channel first.
-	cm := replication.NewChannelManager(r.config.BrokerBase.ReplicationChannel,
-		rpc.NewClientStreamFactory(r.node), replicatorStateReport)
-	taskManager := parallel.NewTaskManager(r.node, r.factory.taskClient, r.factory.taskServer)
-	jobManager := parallel.NewJobManager(taskManager)
+	cm := replication.NewChannelManager(
+		r.config.BrokerBase.ReplicationChannel,
+		rpc.NewClientStreamFactory(r.node),
+		replicatorStateReport)
+	taskManager := query.NewTaskManager(
+		r.ctx,
+		r.node,
+		r.factory.taskClient,
+		r.factory.taskServer,
+		r.queryPool,
+		r.config.BrokerBase.Query.Timeout.Duration(),
+	)
 
 	//FIXME (stone100)close it????
-	taskReceiver := parallel.NewTaskReceiver(jobManager)
-	r.factory.taskClient.SetTaskReceiver(taskReceiver)
+	r.factory.taskClient.SetTaskReceiver(taskManager)
 
 	srv := srv{
 		storageClusterService: service.NewStorageClusterService(r.ctx, r.repo),
@@ -332,7 +351,6 @@ func (r *runtime) buildServiceDependency() {
 		replicatorStateReport: replicatorStateReport,
 		channelManager:        cm,
 		taskManager:           taskManager,
-		jobManager:            jobManager,
 	}
 	r.srv = srv
 }
@@ -354,18 +372,22 @@ func (r *runtime) startGRPCServer() {
 
 // bindGRPCHandlers binds rpc handlers, registers rpcHandler into grpc server
 func (r *runtime) bindGRPCHandlers() {
-	//FIXME: (stone1100) need close
-	dispatcher := parallel.NewIntermediateTaskDispatcher()
+	intermediateTaskProcessor := query.NewIntermediateTaskProcessor(
+		r.node,
+		r.factory.taskClient,
+		r.factory.taskServer,
+		r.srv.taskManager,
+	)
 	r.rpcHandler = &rpcHandler{
-		task: parallel.NewTaskHandler(
+		handler: query.NewTaskHandler(
 			r.config.BrokerBase.Query,
 			r.factory.taskServer,
-			dispatcher,
-			"broker",
+			intermediateTaskProcessor,
+			r.queryPool,
 		),
 	}
 
-	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.task)
+	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.handler)
 }
 
 func (r *runtime) nativePusher() {

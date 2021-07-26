@@ -22,7 +22,7 @@ export default class MonitoringParallel extends React.Component<RuntimeProps, Ru
                               textAlign: "left",
                           }}>
                         <Form.Item label="Node">
-                            <TagValuesSelect measurement="lindb.parallel" tagKey="node" mode="tags" watch={["pool"]}/>
+                            <TagValuesSelect metric="lindb.parallel" tagKey="node" mode="tags" watch={["pool"]}/>
                         </Form.Item>
                     </Form>
                 </Card>

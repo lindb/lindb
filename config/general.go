@@ -107,7 +107,7 @@ func (q *Query) TOML() string {
 
 func NewDefaultQuery() *Query {
 	return &Query{
-		QueryConcurrency: 20,
+		QueryConcurrency: 30,
 		IdleTimeout:      ltoml.Duration(5 * time.Second),
 		Timeout:          ltoml.Duration(15 * time.Second),
 	}
