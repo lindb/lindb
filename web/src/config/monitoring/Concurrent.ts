@@ -10,24 +10,24 @@ function metric(title: string, ql: string, span: number = 24, unit: UnitEnum = U
     }
 }
 
-export const ParallelBoard = [
+export const ConcurrentBoard = [
     // Row
     [
         metric(
             'Worker created Counter',
-            'select workers_created from lindb.parallel group by pool',
+            'select workers_created from lindb.concurrent group by pool_name',
             8,
             UnitEnum.None,
         ),
         metric(
             'Workers killed Counter',
-            'select workers_killed from lindb.parallel group by pool',
+            'select workers_killed from lindb.concurrent group by pool_name',
             8,
             UnitEnum.None,
         ),
         metric(
             'Workers Alive',
-            'select workers_alive from lindb.parallel group by pool',
+            'select workers_alive from lindb.concurrent group by pool_name',
             8,
             UnitEnum.None,
         ),
@@ -35,19 +35,19 @@ export const ParallelBoard = [
     [
         metric(
             'Task consumed Counter',
-            'select tasks_consumed from lindb.parallel group by pool',
+            'select tasks_consumed from lindb.concurrent group by pool_name',
             8,
             UnitEnum.None,
         ),
         metric(
             'Task waiting average Duration',
-            'select tasks_waiting_duration_sum/tasks_consumed as avg_waiting_duration from lindb.parallel group by pool',
+            'select tasks_waiting_duration_sum/tasks_consumed as avg_waiting_duration from lindb.concurrent group by pool_name',
             8,
             UnitEnum.Milliseconds,
         ),
         metric(
             'Task executing average Duration',
-            'select tasks_executing_duration_sum/tasks_consumed as avg_executing_duration from lindb.parallel group by pool',
+            'select tasks_executing_duration_sum/tasks_consumed as avg_executing_duration from lindb.concurrent group by pool_name',
             8,
             UnitEnum.Milliseconds,
         ),

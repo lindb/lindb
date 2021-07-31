@@ -147,7 +147,11 @@ export class ChartStore {
             if (queries.length === 0) {
                 return ql
             } else {
-                return ql + ' where ' + queryQL
+                const groupByAt = ql.indexOf('group by')
+                if (groupByAt < 0) {
+                    return ql + ' where ' + queryQL
+                }
+                return ql.slice(0, groupByAt) + ' where ' + queryQL + ql.slice(groupByAt, ql.length)
             }
         }
         if (queries.length > 0) {

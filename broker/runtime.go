@@ -115,7 +115,7 @@ func NewBrokerRuntime(version string, config *config.Broker) server.Service {
 			"task-pool",
 			config.BrokerBase.Query.QueryConcurrency,
 			config.BrokerBase.Query.IdleTimeout.Duration(),
-			linmetric.NewScope("lindb.concurrent.pool", "pool", "broker-task"),
+			linmetric.NewScope("lindb.concurrent", "pool_name", "broker-query"),
 		),
 		log: logger.GetLogger("broker", "Runtime"),
 	}

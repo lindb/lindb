@@ -65,6 +65,7 @@ func DeDupStringSlice(items []string) []string {
 	idx := 0
 	for k := range m {
 		dst[idx] = k
+		idx++
 	}
 	return dst
 }

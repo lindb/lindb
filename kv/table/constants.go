@@ -42,4 +42,4 @@ const (
 	sstFileMinLength = sstFileFooterSize + 2
 )
 
-var tableLogger = logger.GetLogger("kv", "table")
+var tableLogger = logger.GetLogger("kv", "Table")

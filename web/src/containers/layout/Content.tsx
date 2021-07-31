@@ -8,7 +8,8 @@ import Footer from 'containers/layout/Footer'
 import Header from 'containers/layout/Header'
 import SiderMenu from 'containers/layout/SiderMenu'
 import Runtime from 'containers/monitoring/Runtime'
-import MonitoringParallel from 'containers/monitoring/Parallel'
+import MonitoringConcurrent from 'containers/monitoring/Concurrent'
+import MonitoringQuery from 'containers/monitoring/Query'
 import System from 'containers/monitoring/System'
 import MonitoringStorage from 'containers/monitoring/Storage'
 import MonitoringBroker from 'containers/monitoring/Broker'
@@ -51,7 +52,8 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/monitoring/runtime" component={Runtime} />
               <Route exact={true} path="/monitoring/broker" component={MonitoringBroker}/>
               <Route exact={true} path="/monitoring/storage" component={MonitoringStorage} />
-              <Route exact={true} path="/monitoring/parallel" component={MonitoringParallel} />
+              <Route exact={true} path="/monitoring/concurrent" component={MonitoringConcurrent} />
+              <Route exact={true} path="/monitoring/query" component={MonitoringQuery} />
               <Route exact={true} path="/metadata/storage" component={Storage} />
               <Route exact={true} path="/metadata/database" component={Database} />
             </Switch>

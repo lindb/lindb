@@ -1,6 +1,6 @@
 import {Card, Form} from 'antd'
 import ViewBoard from 'components/metric/ViewBoard'
-import {ParallelBoard} from 'config/monitoring/Parallel'
+import {ConcurrentBoard} from 'config/monitoring/Concurrent'
 import * as React from 'react'
 import TagValuesSelect from "components/meta/TagValues";
 
@@ -10,7 +10,7 @@ interface RuntimeProps {
 interface RuntimeState {
 }
 
-export default class MonitoringParallel extends React.Component<RuntimeProps, RuntimeState> {
+export default class MonitoringConcurrent extends React.Component<RuntimeProps, RuntimeState> {
 
     render() {
         return (
@@ -21,12 +21,15 @@ export default class MonitoringParallel extends React.Component<RuntimeProps, Ru
                               width: "calc(100%)",
                               textAlign: "left",
                           }}>
+                        <Form.Item label="Pool Name">
+                            <TagValuesSelect metric="lindb.concurrent" tagKey="pool_name" mode="tags"/>
+                        </Form.Item>
                         <Form.Item label="Node">
-                            <TagValuesSelect metric="lindb.parallel" tagKey="node" mode="tags" watch={["pool"]}/>
+                            <TagValuesSelect metric="lindb.concurrent" tagKey="node" mode="tags" watch={["pool_name"]}/>
                         </Form.Item>
                     </Form>
                 </Card>
-                <ViewBoard board={ParallelBoard}/>
+                <ViewBoard board={ConcurrentBoard}/>
             </React.Fragment>
         )
     }

@@ -191,7 +191,19 @@ func TestTaskManager_cleaner(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	tm := &taskManager{ctx: context.Background()}
+	tm := NewTaskManager(
+		context.Background(),
+		models.Node{},
+		nil,
+		nil,
+		concurrent.NewPool(
+			"p",
+			10,
+			time.Minute,
+			linmetric.NewScope("test"),
+		),
+		time.Second*10,
+	).(*taskManager)
 	go tm.cleaner(time.Millisecond * 10)
 	task := NewMockTaskContext(ctrl)
 	task.EXPECT().Expired(gomock.Any()).Return(true)
