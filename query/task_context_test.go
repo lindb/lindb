@@ -18,14 +18,13 @@
 package query
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 )
@@ -105,12 +104,12 @@ func Test_TaskContext_handleStats(t *testing.T) {
 	storageNodeStat1 := models.NewStorageStats()
 	storageNodeStat1.NetCost = 20
 	storageNodeStat1.NetPayload = 30000
-	data1, _ := json.Marshal(storageNodeStat1)
+	data1 := encoding.JSONMarshal(storageNodeStat1)
 
 	storageNodeStat2 := models.NewStorageStats()
 	storageNodeStat2.NetCost = 30
 	storageNodeStat2.NetPayload = 40000
-	data2, _ := json.Marshal(storageNodeStat1)
+	data2 := encoding.JSONMarshal(storageNodeStat1)
 	taskCtx3.handleStats(
 		&protoCommonV1.TaskResponse{
 			Stats: data1,
@@ -121,8 +120,7 @@ func Test_TaskContext_handleStats(t *testing.T) {
 			Type: protoCommonV1.TaskType_Leaf},
 		"1.1.1.2")
 
-	queryStats, _ := json.Marshal(taskCtx3.stats)
-	fmt.Println(string(queryStats))
+	queryStats := encoding.JSONMarshal(taskCtx3.stats)
 	taskCtx3.stats = nil
 	// query stats from intermediate
 	taskCtx3.handleStats(

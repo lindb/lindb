@@ -19,7 +19,6 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"testing"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -102,7 +102,7 @@ func Test_MetadataQuery(t *testing.T) {
 	assert.Error(t, err)
 
 	// ok data
-	data, _ := json.Marshal(models.SuggestResult{Values: []string{"a"}})
+	data := encoding.JSONMarshal(models.SuggestResult{Values: []string{"a"}})
 	response3Ch := make(chan *protoCommonV1.TaskResponse)
 	time.AfterFunc(time.Millisecond*200, func() {
 		response3Ch <- &protoCommonV1.TaskResponse{Payload: data}

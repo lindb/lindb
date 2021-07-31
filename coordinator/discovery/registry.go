@@ -19,13 +19,13 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -124,7 +124,7 @@ func (r *registry) register(path string, node models.Node) {
 		if r.ctx.Err() != nil {
 			return
 		}
-		nodeBytes, _ := json.Marshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
+		nodeBytes := encoding.JSONMarshal(&models.ActiveNode{OnlineTime: timeutil.Now(), Node: node})
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, int64(r.ttl.Seconds()))
 		if err != nil {

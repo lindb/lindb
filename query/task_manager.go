@@ -51,10 +51,10 @@ type TaskManager interface {
 		stmtQuery *stmt.Query,
 	) (eventCh <-chan *series.TimeSeriesEvent, err error)
 
-	// WaitIntermediateMetricTask waits the intermediate task from leaf nodes
+	// SubmitIntermediateMetricTask creates a intermediate task from leaf nodes
 	// leaf response will also be merged in task-context.
 	// when all intermediate response arrives to root, event will be returned to the caller
-	WaitIntermediateMetricTask(
+	SubmitIntermediateMetricTask(
 		physicalPlan *models.PhysicalPlan,
 		stmtQuery *stmt.Query,
 		parentTaskID string,
@@ -175,7 +175,7 @@ func (t *taskManager) SubmitMetricTask(
 ) (eventCh <-chan *series.TimeSeriesEvent, err error) {
 	rootTaskID := t.AllocTaskID()
 	marshalledPhysicalPlan := encoding.JSONMarshal(physicalPlan)
-	marshalledPayload := encoding.JSONMarshal(stmtQuery)
+	marshalledPayload, _ := stmtQuery.MarshalJSON()
 	responseCh := make(chan *series.TimeSeriesEvent)
 
 	taskCtx := newMetricTaskContext(
@@ -244,7 +244,7 @@ func (t *taskManager) SubmitMetricTask(
 	return responseCh, sendError.Load()
 }
 
-func (t *taskManager) WaitIntermediateMetricTask(
+func (t *taskManager) SubmitIntermediateMetricTask(
 	physicalPlan *models.PhysicalPlan,
 	stmtQuery *stmt.Query,
 	parentTaskID string,
@@ -270,11 +270,12 @@ func (t *taskManager) SubmitMetaDataTask(
 ) (taskResponse <-chan *protoCommonV1.TaskResponse, err error) {
 	taskID := t.AllocTaskID()
 
+	suggestMarshalData, _ := suggest.MarshalJSON()
 	req := &protoCommonV1.TaskRequest{
 		RequestType:  protoCommonV1.RequestType_Metadata,
 		ParentTaskID: taskID,
 		PhysicalPlan: encoding.JSONMarshal(physicalPlan),
-		Payload:      encoding.JSONMarshal(suggest),
+		Payload:      suggestMarshalData,
 	}
 
 	responseCh := make(chan *protoCommonV1.TaskResponse)

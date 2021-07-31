@@ -18,13 +18,13 @@
 package middleware
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	jwt "github.com/dgrijalva/jwt-go"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/encoding"
 	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
@@ -63,7 +63,7 @@ func (u *userAuthentication) Validate(next http.Handler) http.Handler {
 		err := errors.New("authorization token invalid")
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusUnauthorized)
-		b, _ := json.Marshal(err.Error())
+		b := encoding.JSONMarshal(err.Error())
 		_, _ = w.Write(b)
 	})
 }

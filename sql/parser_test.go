@@ -67,15 +67,15 @@ func Test_Meta_SQL_Parse(t *testing.T) {
 
 func TestParse_panic(t *testing.T) {
 	defer func() {
-		newSQLParserFunc = grammar.NewSQLParser
+		getSQLParserFunc = getSQLParser
 	}()
-	newSQLParserFunc = func(input antlr.TokenStream) *grammar.SQLParser {
+	getSQLParserFunc = func(tokenStream *antlr.CommonTokenStream) *grammar.SQLParser {
 		panic(fmt.Errorf("err"))
 	}
 	_, err := Parse("select f+100 from cpu")
 	assert.Error(t, err)
 
-	newSQLParserFunc = func(input antlr.TokenStream) *grammar.SQLParser {
+	getSQLParserFunc = func(tokenStream *antlr.CommonTokenStream) *grammar.SQLParser {
 		panic(123)
 	}
 	_, err = Parse("select f+100 from cpu")

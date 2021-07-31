@@ -19,7 +19,6 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
@@ -44,7 +44,7 @@ func Test_Intermediate_decodePhysicalPlan(t *testing.T) {
 	plan := models.PhysicalPlan{Intermediates: []models.Intermediate{{
 		BaseNode: models.BaseNode{Indicator: "1.1.1.1:80"},
 	}}}
-	data, _ := json.Marshal(plan)
+	data := encoding.JSONMarshal(plan)
 	_, _, err = taskProcessor.decodePhysicalPlan(&protoCommonV1.TaskRequest{
 		PhysicalPlan: data,
 	})
@@ -104,11 +104,11 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	plan := models.PhysicalPlan{Intermediates: []models.Intermediate{{
 		BaseNode: models.BaseNode{Indicator: "1.1.1.1:80"},
 	}}}
-	planData, _ := json.Marshal(plan)
+	planData := encoding.JSONMarshal(plan)
 
 	// closed error
 	ch1 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().WaitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch1)
 	time.AfterFunc(time.Millisecond*200, func() {
 		close(ch1)
@@ -121,7 +121,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 
 	// event error
 	ch2 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().WaitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch2)
 	time.AfterFunc(time.Millisecond*200, func() {
 		ch2 <- &series.TimeSeriesEvent{Err: io.ErrClosedPipe}
@@ -135,7 +135,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	ch3 := make(chan *series.TimeSeriesEvent)
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(time.Millisecond*200, cancel)
-	taskManager.EXPECT().WaitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch3)
 	assert.Nil(t, taskProcessor.processIntermediateTask(ctx,
 		&protoCommonV1.TaskRequest{

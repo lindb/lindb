@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
@@ -60,13 +60,13 @@ func TestStorageStateMachine(t *testing.T) {
 
 	storageState2 := models.NewStorageState()
 	storageState2.Name = "test2"
-	data3, _ := json.Marshal(storageState2)
+	data3 := encoding.JSONMarshal(storageState2)
 
 	stateMachine.OnCreate("/data/test2", data3)
 	assert.Equal(t, 1, len(stateMachine.List()))
 	storageState1 := models.NewStorageState()
 	storageState1.Name = "test"
-	data, _ := json.Marshal(storageState1)
+	data := encoding.JSONMarshal(storageState1)
 	stateMachine.OnCreate("/data/test", data)
 	assert.Equal(t, 2, len(stateMachine.List()))
 
@@ -76,7 +76,7 @@ func TestStorageStateMachine(t *testing.T) {
 
 	// name empty
 	storageState3 := models.NewStorageState()
-	data3, _ = json.Marshal(storageState3)
+	data3 = encoding.JSONMarshal(storageState3)
 	stateMachine.OnCreate("/data/test5", data3)
 	assert.Equal(t, 2, len(stateMachine.List()))
 

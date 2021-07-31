@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
@@ -31,6 +30,7 @@ import (
 	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -88,7 +88,7 @@ func (sm *shardAssignmentStateMachine) OnCreate(key string, resource []byte) {
 		logger.String("data", string(resource)))
 
 	cfg := models.Database{}
-	if err := json.Unmarshal(resource, &cfg); err != nil {
+	if err := encoding.JSONUnmarshal(resource, &cfg); err != nil {
 		sm.logger.Error("discovery database create but unmarshal error", logger.Error(err))
 		return
 	}

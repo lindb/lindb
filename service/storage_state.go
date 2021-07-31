@@ -19,10 +19,10 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -53,7 +53,7 @@ func NewStorageStateService(ctx context.Context, repo state.Repository) StorageS
 
 // Save saves newest storage state for cluster name
 func (s *storageStateService) Save(clusterName string, storageState *models.StorageState) error {
-	data, _ := json.Marshal(storageState)
+	data := encoding.JSONMarshal(storageState)
 	if err := s.repo.Put(s.ctx, constants.GetStorageClusterNodeStatePath(clusterName), data); err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (s *storageStateService) Get(clusterName string) (*models.StorageState, err
 		return nil, err
 	}
 	storageState := &models.StorageState{}
-	err = json.Unmarshal(data, storageState)
+	err = encoding.JSONUnmarshal(data, storageState)
 	if err != nil {
 		return nil, err
 	}

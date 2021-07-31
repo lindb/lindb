@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/lindb/lindb/pkg/logger"
@@ -44,12 +43,6 @@ func run(ctx context.Context, service server.Service) error {
 	if debug {
 		logger.RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
 		gin.SetMode(gin.DebugMode)
-		go func() {
-			if err := http.ListenAndServe(":6060", nil); err != nil {
-				mainLogger.Error("close debug http listener with err", logger.Error(err))
-			}
-		}()
-		mainLogger.Info("pprof listening on 6060")
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}

@@ -19,7 +19,6 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"testing"
@@ -28,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -69,7 +69,7 @@ func TestNodeStateMachine_Listener(t *testing.T) {
 
 	taskClientFactory.EXPECT().CreateTaskClient(gomock.Any())
 	activeNode := models.ActiveNode{Node: models.Node{IP: "1.1.1.1", Port: 9000}}
-	data, _ := json.Marshal(&activeNode)
+	data := encoding.JSONMarshal(&activeNode)
 	stateMachine.OnCreate("/data/test", data)
 
 	assert.Equal(t, 1, len(stateMachine.GetActiveNodes()))

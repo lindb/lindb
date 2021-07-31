@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -31,6 +30,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
@@ -109,7 +109,7 @@ func (s *storageStateMachine) OnCreate(key string, resource []byte) {
 		logger.String("data", string(resource)))
 
 	storageState := models.NewStorageState()
-	if err := json.Unmarshal(resource, storageState); err != nil {
+	if err := encoding.JSONUnmarshal(resource, storageState); err != nil {
 		s.logger.Error("discovery new storage state but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return

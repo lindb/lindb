@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestNewDatabaseStateMachine(t *testing.T) {
@@ -63,11 +63,11 @@ func TestDBStateMachine_listen(t *testing.T) {
 	assert.NoError(t, err)
 
 	db := models.Database{Name: "test"}
-	data, _ := json.Marshal(&db)
+	data := encoding.JSONMarshal(&db)
 	stateMachine.OnCreate("/data/test", data)
 
 	db = models.Database{Name: "test3"}
-	data, _ = json.Marshal(&db)
+	data = encoding.JSONMarshal(&db)
 	stateMachine.OnCreate("/data/test3", data)
 
 	db2, ok := stateMachine.GetDatabaseCfg("test")
@@ -78,7 +78,7 @@ func TestDBStateMachine_listen(t *testing.T) {
 	_, ok = stateMachine.GetDatabaseCfg("test2")
 	assert.False(t, ok)
 
-	data, _ = json.Marshal(&models.Database{})
+	data = encoding.JSONMarshal(&models.Database{})
 	stateMachine.OnCreate("/data/test2", data)
 	_, ok = stateMachine.GetDatabaseCfg("test2")
 	assert.False(t, ok)

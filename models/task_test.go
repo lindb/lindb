@@ -18,11 +18,11 @@
 package models
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -34,7 +34,7 @@ func TestCreateShardTask_Bytes(t *testing.T) {
 	}
 	data := task.Bytes()
 	task1 := CreateShardTask{}
-	_ = json.Unmarshal(data, &task1)
+	_ = encoding.JSONUnmarshal(data, &task1)
 	assert.Equal(t, task, task1)
 }
 
@@ -44,6 +44,6 @@ func TestDatabaseFlushTask_Bytes(t *testing.T) {
 	}
 	data := task.Bytes()
 	task1 := DatabaseFlushTask{}
-	_ = json.Unmarshal(data, &task1)
+	_ = encoding.JSONUnmarshal(data, &task1)
 	assert.Equal(t, task, task1)
 }

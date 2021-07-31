@@ -168,14 +168,11 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 	if c.expectResults > 0 {
 		return
 	}
-	resultSet := c.groupAgg.ResultSet()
-	if len(resultSet) == 0 {
-		return
-	}
+
 	select {
 	case c.eventCh <- &series.TimeSeriesEvent{
 		AggregatorSpecs: c.aggregatorSpecs,
-		SeriesList:      resultSet,
+		SeriesList:      c.groupAgg.ResultSet(),
 		Stats:           c.stats}:
 	default:
 		// reader gone

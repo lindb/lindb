@@ -19,7 +19,6 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -30,6 +29,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
@@ -125,7 +125,7 @@ func (s *activeNodeStateMachine) OnCreate(key string, resource []byte) {
 		logger.String("data", string(resource)))
 
 	node := models.ActiveNode{}
-	if err := json.Unmarshal(resource, &node); err != nil {
+	if err := encoding.JSONUnmarshal(resource, &node); err != nil {
 		s.logger.Error("discovery node online but unmarshal error", logger.Error(err))
 		return
 	}

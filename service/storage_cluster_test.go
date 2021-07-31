@@ -19,7 +19,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -56,7 +56,7 @@ func TestStorageClusterService(t *testing.T) {
 	err = srv.Save(&cluster)
 	assert.NotNil(t, err)
 
-	data, _ := json.Marshal(cluster)
+	data := encoding.JSONMarshal(cluster)
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data, nil)
 	cluster2, _ := srv.Get("test1")
 	assert.Equal(t, cluster, *cluster2)

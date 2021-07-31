@@ -201,7 +201,7 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 	_ = qry.makeResultSet(&series.TimeSeriesEvent{
 		SeriesList: []series.GroupedIterator{timeSeries},
 		Stats: &models.QueryStats{
-			Cost:        100,
+			TotalCost:   100,
 			ExpressCost: 200,
 		},
 	})

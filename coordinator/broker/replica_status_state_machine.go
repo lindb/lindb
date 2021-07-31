@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -32,6 +31,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -164,7 +164,7 @@ func (sm *replicaStatusStateMachine) OnCreate(key string, resource []byte) {
 		logger.String("data", string(resource)))
 
 	brokerReplicaState := models.BrokerReplicaState{}
-	if err := json.Unmarshal(resource, &brokerReplicaState); err != nil {
+	if err := encoding.JSONUnmarshal(resource, &brokerReplicaState); err != nil {
 		sm.logger.Error("discovery replica status but unmarshal error", logger.Error(err))
 		return
 	}
