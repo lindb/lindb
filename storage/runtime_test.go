@@ -19,7 +19,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -34,6 +33,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/server"
@@ -82,7 +82,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	assert.NoError(ts.t, err)
 
 	nodeInfo := models.ActiveNode{}
-	_ = json.Unmarshal(nodeBytes, &nodeInfo)
+	_ = encoding.JSONUnmarshal(nodeBytes, &nodeInfo)
 
 	c.Assert(runtime.node, check.Equals, nodeInfo.Node)
 	c.Assert("storage", check.Equals, storage.Name())

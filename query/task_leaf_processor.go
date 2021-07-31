@@ -19,7 +19,6 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -100,7 +99,7 @@ func (p *leafTaskProcessor) process(
 	req *protoCommonV1.TaskRequest,
 ) error {
 	physicalPlan := models.PhysicalPlan{}
-	if err := json.Unmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
+	if err := encoding.JSONUnmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
 		return fmt.Errorf("%w: %s", errUnmarshalPlan, err)
 	}
 
@@ -152,12 +151,11 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 	req *protoCommonV1.TaskRequest,
 	stream protoCommonV1.TaskService_HandleServer,
 ) error {
-	payload := req.Payload
-	query := &stmt.Metadata{}
-	if err := encoding.JSONUnmarshal(payload, query); err != nil {
+	var stmtQuery = &stmt.Metadata{}
+	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return errUnmarshalSuggest
 	}
-	exec := newStorageMetadataQuery(db, shardIDs, query)
+	exec := newStorageMetadataQuery(db, shardIDs, stmtQuery)
 	result, err := exec.Execute()
 	if err != nil && !errors.Is(err, constants.ErrNotFound) {
 		return err
@@ -181,15 +179,22 @@ func (p *leafTaskProcessor) processDataSearch(
 	req *protoCommonV1.TaskRequest,
 	leafNode *models.Leaf,
 ) error {
-	payload := req.Payload
-	query := stmt.Query{}
-	if err := encoding.JSONUnmarshal(payload, &query); err != nil {
+	stmtQuery := stmt.Query{}
+	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return errUnmarshalQuery
 	}
 
 	// execute leaf task
-	storageExecuteCtx := newStorageExecuteContext(shardIDs, &query)
-	queryFlow := NewStorageQueryFlow(ctx, storageExecuteCtx, &query, req, p.taskServerFactory, leafNode, db.ExecutorPool())
+	storageExecuteCtx := newStorageExecuteContext(shardIDs, &stmtQuery)
+	queryFlow := NewStorageQueryFlow(
+		ctx,
+		storageExecuteCtx,
+		&stmtQuery,
+		req,
+		p.taskServerFactory,
+		leafNode,
+		db.ExecutorPool(),
+	)
 	exec := newStorageMetricQuery(queryFlow, db, storageExecuteCtx)
 	exec.Execute()
 	return nil

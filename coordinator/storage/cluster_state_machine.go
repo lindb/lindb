@@ -19,7 +19,6 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -225,7 +224,7 @@ func (c *clusterStateMachine) cleanupCluster() {
 // addCluster creates and starts cluster controller, if success cache it
 func (c *clusterStateMachine) addCluster(resource []byte) {
 	cfg := config.StorageCluster{}
-	if err := json.Unmarshal(resource, &cfg); err != nil {
+	if err := encoding.JSONUnmarshal(resource, &cfg); err != nil {
 		c.logger.Error("discovery new storage config but unmarshal error",
 			logger.String("data", string(resource)), logger.Error(err))
 		return

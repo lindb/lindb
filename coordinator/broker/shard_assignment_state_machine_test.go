@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -55,14 +55,14 @@ func TestAdminStateMachine(t *testing.T) {
 
 	stateMachine.OnCreate("/data/db1", []byte{1, 1, 1})
 
-	data, _ := json.Marshal(&models.Database{})
+	data := encoding.JSONMarshal(&models.Database{})
 	stateMachine.OnCreate("/data/db1", data)
 
-	data, _ = json.Marshal(&models.Database{Name: "db1"})
+	data = encoding.JSONMarshal(&models.Database{Name: "db1"})
 	storageCluster.EXPECT().GetCluster("").Return(nil)
 	stateMachine.OnCreate("/data/db1", data)
 
-	data, _ = json.Marshal(&models.Database{
+	data = encoding.JSONMarshal(&models.Database{
 		Name:    "db1",
 		Cluster: "db1_cluster1",
 	})
@@ -81,7 +81,7 @@ func TestAdminStateMachine(t *testing.T) {
 	cluster.EXPECT().GetActiveNodes().Return(prepareStorageCluster())
 	stateMachine.OnCreate("/data/db1", data)
 
-	data, _ = json.Marshal(&models.Database{
+	data = encoding.JSONMarshal(&models.Database{
 		Name:          "db1",
 		Cluster:       "db1_cluster1",
 		NumOfShard:    10,

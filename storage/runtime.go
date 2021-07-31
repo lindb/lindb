@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -273,20 +273,20 @@ func (r *runtime) buildServiceDependency() error {
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
+	if !logger.IsDebug() {
+		return
+	}
 	port := r.node.Port + 1
 	r.log.Info("starting http server", logger.Uint16("port", port))
 
 	// add prometheus metric report
-	reporter := promreporter.NewReporter(promreporter.Options{})
-	h := reporter.HTTPHandler()
 	g := gin.New()
-	g.GET("/metrics", func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	})
+	pprof.Register(g)
+	r.log.Info("/debug/pprof is enabled")
 
 	r.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		WriteTimeout: time.Second * 15,
+		WriteTimeout: time.Second * 120,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
 		Handler:      g,

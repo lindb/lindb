@@ -19,7 +19,6 @@ package rpc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"sync"
@@ -28,6 +27,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
@@ -274,7 +274,7 @@ func GetReplicasFromContext(ctx context.Context) ([]models.NodeID, error) {
 		return nil, err
 	}
 	var replicas []models.NodeID
-	if err := json.Unmarshal([]byte(nodeIDs), &replicas); err != nil {
+	if err := encoding.JSONUnmarshal([]byte(nodeIDs), &replicas); err != nil {
 		return nil, err
 	}
 	return replicas, nil

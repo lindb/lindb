@@ -17,7 +17,9 @@
 
 package models
 
-import "encoding/json"
+import (
+	"github.com/lindb/lindb/pkg/encoding"
+)
 
 // StorageState represents storage cluster node state.
 // NOTICE: it is not safe for concurrent use.
@@ -58,6 +60,6 @@ func (s *StorageState) GetActiveNodes() []*ActiveNode {
 
 // Stringer returns a human readable string
 func (s *StorageState) String() string {
-	content, _ := json.Marshal(s)
+	content := encoding.JSONMarshal(s)
 	return string(content)
 }

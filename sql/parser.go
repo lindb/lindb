@@ -19,6 +19,7 @@ package sql
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 
@@ -29,7 +30,7 @@ import (
 
 // for testing
 var (
-	newSQLParserFunc = grammar.NewSQLParser
+	getSQLParserFunc = getSQLParser
 )
 
 var log = logger.GetLogger("sql", "Parser")
@@ -55,16 +56,13 @@ func Parse(sql string) (stmt stmt.Statement, err error) {
 
 	input := antlr.NewInputStream(sql)
 
-	lexer := grammar.NewSQLLexer(input)
-	lexer.RemoveErrorListeners()
-	lexer.AddErrorListener(errorHandle)
+	lexer := getSQLLexer(input)
+	defer putSQLLexer(lexer)
 
 	tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 
-	parser := newSQLParserFunc(tokens)
-	parser.BuildParseTrees = true
-	parser.RemoveErrorListeners()
-	parser.AddErrorListener(errorHandle)
+	parser := getSQLParserFunc(tokens)
+	defer putSQLParser(parser)
 
 	ctx := parser.Statement()
 
@@ -75,4 +73,44 @@ func Parse(sql string) (stmt stmt.Statement, err error) {
 
 	stmt, err = listener.statement()
 	return stmt, err
+}
+
+var (
+	lexerPool  sync.Pool
+	parserPool sync.Pool
+)
+
+func getSQLLexer(input *antlr.InputStream) *grammar.SQLLexer {
+	lexer := lexerPool.Get()
+	if lexer == nil {
+		lexer := grammar.NewSQLLexer(input)
+		lexer.RemoveErrorListeners()
+		lexer.AddErrorListener(errorHandle)
+		return lexer
+	}
+	l := lexer.(*grammar.SQLLexer)
+	l.SetInputStream(input)
+	return l
+}
+func putSQLLexer(l *grammar.SQLLexer) {
+	lexerPool.Put(l)
+}
+
+// getSQLParser picks a cached parser from the pool
+func getSQLParser(tokenStream *antlr.CommonTokenStream) *grammar.SQLParser {
+	parser := parserPool.Get()
+	if parser == nil {
+		parser := grammar.NewSQLParser(tokenStream)
+		parser.BuildParseTrees = true
+		parser.RemoveErrorListeners()
+		parser.AddErrorListener(errorHandle)
+		return parser
+	}
+	p := parser.(*grammar.SQLParser)
+	p.SetInputStream(tokenStream)
+	return p
+}
+
+func putSQLParser(p *grammar.SQLParser) {
+	parserPool.Put(p)
 }

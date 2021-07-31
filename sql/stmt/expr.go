@@ -245,7 +245,7 @@ func Marshal(expr Expr) []byte {
 // Unmarshal parses value to expr
 func Unmarshal(value []byte) (Expr, error) {
 	var exprData exprData
-	err := json.Unmarshal(value, &exprData)
+	err := encoding.JSONUnmarshal(value, &exprData)
 	if err != nil {
 		return nil, err
 	}

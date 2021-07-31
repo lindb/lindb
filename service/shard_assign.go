@@ -19,7 +19,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -88,7 +87,7 @@ func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, 
 		return nil, err
 	}
 	shardAssign := &models.ShardAssignment{}
-	if err := json.Unmarshal(data, shardAssign); err != nil {
+	if err := encoding.JSONUnmarshal(data, shardAssign); err != nil {
 		return nil, err
 	}
 	return shardAssign, nil
@@ -96,6 +95,6 @@ func (s *shardAssignService) Get(databaseName string) (*models.ShardAssignment, 
 
 // Save saves shard assignment for given database name, if fail return error
 func (s *shardAssignService) Save(databaseName string, shardAssign *models.ShardAssignment) error {
-	data, _ := json.Marshal(shardAssign)
+	data := encoding.JSONMarshal(shardAssign)
 	return s.repo.Put(s.ctx, constants.GetDatabaseAssignPath(databaseName), data)
 }

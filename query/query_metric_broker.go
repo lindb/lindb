@@ -37,7 +37,9 @@ type metricQuery struct {
 	database string
 	sql      string
 
-	startTime  int64
+	startTime   int64
+	endPlanTime int64
+
 	stmtQuery  *stmt.Query
 	plan       *brokerPlan
 	expression aggregation.Expression
@@ -102,6 +104,7 @@ func (mq *metricQuery) WaitResponse() (*models.ResultSet, error) {
 	if err := mq.makePlan(); err != nil {
 		return nil, err
 	}
+	mq.endPlanTime = timeutil.NowNano()
 
 	eventCh, err := mq.queryFactory.taskManager.SubmitMetricTask(
 		mq.plan.physicalPlan,
@@ -177,8 +180,11 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 
 	resultSet.Stats = event.Stats
 	if resultSet.Stats != nil {
-		resultSet.Stats.Cost = timeutil.NowNano() - mq.startTime
-		resultSet.Stats.ExpressCost = timeutil.NowNano() - makeResultStartTime
+		now := timeutil.NowNano()
+		resultSet.Stats.PlanCost = mq.endPlanTime - mq.startTime
+		resultSet.Stats.WaitCost = makeResultStartTime - mq.endPlanTime
+		resultSet.Stats.ExpressCost = now - makeResultStartTime
+		resultSet.Stats.TotalCost = now - mq.startTime
 	}
 	return resultSet
 }

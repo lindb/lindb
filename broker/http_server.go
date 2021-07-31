@@ -25,8 +25,8 @@ import (
 	"net/http"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	promreporter "github.com/uber-go/tally/prometheus"
 
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/broker/middleware"
@@ -68,8 +68,11 @@ func (s *HTTPServer) init() {
 	// use AccessLogMiddleware to log panic error with zap
 	s.gin.Use(middleware.AccessLogMiddleware())
 	s.gin.Use(cors.Default())
-	gin.Recovery()
 
+	if logger.IsDebug() {
+		s.logger.Info("/debug/pprof is enabled")
+		pprof.Register(s.gin)
+	}
 	// server static file
 	staticFS, err := fs.Sub(lindb.StaticContent, "web/static")
 	staticHome := "/console"
@@ -83,13 +86,6 @@ func (s *HTTPServer) init() {
 			s.gin.HandleContext(c)
 		})
 	}
-
-	// add prometheus metric report
-	reporter := promreporter.NewReporter(promreporter.Options{})
-	h := reporter.HTTPHandler()
-	s.gin.GET("/metrics", func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	})
 }
 
 // GetAPIRouter returns api router.

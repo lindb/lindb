@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"testing"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestStatusStateMachine(t *testing.T) {
@@ -55,7 +55,7 @@ func TestStatusStateMachine(t *testing.T) {
 	}}
 	brokerReplicaState := models.BrokerReplicaState{Replicas: replicaStatus}
 
-	data, _ := json.Marshal(&brokerReplicaState)
+	data := encoding.JSONMarshal(&brokerReplicaState)
 	sm.OnCreate("/data/1.1.1.1:9000", data)
 	assert.Equal(t, brokerReplicaState, sm.GetReplicas("1.1.1.1:9000"))
 
@@ -86,7 +86,7 @@ func TestStatusStateMachine(t *testing.T) {
 			ShardID:      1,
 		},
 	}
-	data, _ = json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
+	data = encoding.JSONMarshal(models.BrokerReplicaState{Replicas: replicaStatus})
 	sm.OnCreate("/broker/2.1.1.1:2080", data)
 
 	// broker 2:
@@ -113,7 +113,7 @@ func TestStatusStateMachine(t *testing.T) {
 			ShardID:      2,
 		},
 	}
-	data, _ = json.Marshal(models.BrokerReplicaState{Replicas: replicaStatus})
+	data = encoding.JSONMarshal(models.BrokerReplicaState{Replicas: replicaStatus})
 	sm.OnCreate("/broker/2.1.1.2:2080", data)
 
 	r := sm.GetQueryableReplicas("test_db")

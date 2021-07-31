@@ -27,8 +27,10 @@ import (
 type QueryStats struct {
 	BrokerNodes  map[string]*QueryStats   `json:"brokerNodes,omitempty"`
 	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
-	Cost         int64                    `json:"cost"` // total query cost
-	ExpressCost  int64                    `json:"expressCost"`
+	PlanCost     int64                    `json:"planCost,omitempty"`
+	WaitCost     int64                    `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
+	ExpressCost  int64                    `json:"expressCost,omitempty"`
+	TotalCost    int64                    `json:"totalCost,omitempty"` // total query cost
 }
 
 // NewQueryStats creates the query stats

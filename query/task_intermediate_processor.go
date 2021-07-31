@@ -99,15 +99,16 @@ ErrToRoot:
 // processIntermediateTask processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
 func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context, req *protoCommonV1.TaskRequest) error {
+	startTime := timeutil.NowNano()
 	stmtQuery := stmt.Query{}
-	if err := encoding.JSONUnmarshal(req.Payload, &stmtQuery); err != nil {
+	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return errUnmarshalQuery
 	}
 	physicalPlan, intermediate, err := p.decodePhysicalPlan(req)
 	if err != nil {
 		return err
 	}
-	eventCh := p.taskManager.WaitIntermediateMetricTask(
+	eventCh := p.taskManager.SubmitIntermediateMetricTask(
 		physicalPlan,
 		&stmtQuery,
 		req.ParentTaskID,
@@ -119,6 +120,9 @@ func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context,
 		}
 		if event.Err != nil {
 			return event.Err
+		}
+		if event.Stats != nil {
+			event.Stats.WaitCost = timeutil.NowNano() - startTime
 		}
 		taskResponse := p.makeTaskResponse(req, event)
 		return p.taskManager.SendResponse(intermediate.Parent, taskResponse)

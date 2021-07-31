@@ -88,6 +88,13 @@ func Test_IsTerminal(t *testing.T) {
 	assert.False(t, IsTerminal(os.Stdout))
 }
 
+func Test_IsDebug(t *testing.T) {
+	RunningAtomicLevel.SetLevel(zapcore.InfoLevel)
+	assert.False(t, IsDebug())
+	RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
+	assert.True(t, IsDebug())
+}
+
 func Test_InitLogger(t *testing.T) {
 	assert.NotNil(t, GetLogger("test", "test").getInitializedOrDefaultLogger())
 

@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -29,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/inif"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 
 	"go.uber.org/atomic"
@@ -94,7 +94,7 @@ func (sm *databaseStateMachine) OnCreate(key string, resource []byte) {
 		logger.String("data", string(resource)))
 
 	cfg := models.Database{}
-	if err := json.Unmarshal(resource, &cfg); err != nil {
+	if err := encoding.JSONUnmarshal(resource, &cfg); err != nil {
 		sm.logger.Error("discovery database create but unmarshal error", logger.Error(err))
 		return
 	}

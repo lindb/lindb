@@ -19,7 +19,6 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -71,7 +70,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 		&protoCommonV1.TaskRequest{PhysicalPlan: nil})
 	assert.True(t, errors.Is(err, errUnmarshalPlan))
 
-	plan, _ := json.Marshal(&models.PhysicalPlan{
+	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Leafs: []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
 	})
 	// wrong request
@@ -80,7 +79,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 		&protoCommonV1.TaskRequest{PhysicalPlan: plan})
 	assert.True(t, errors.Is(err, errBadPhysicalPlan))
 
-	plan, _ = json.Marshal(&models.PhysicalPlan{
+	plan = encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
 		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
@@ -131,7 +130,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	processorI := NewLeafTaskProcessor(currentNode, storageService, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	plan, _ := json.Marshal(&models.PhysicalPlan{
+	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
 		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
@@ -158,7 +157,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	processorI := NewLeafTaskProcessor(currentNode, storageService, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	plan, _ := json.Marshal(&models.PhysicalPlan{
+	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
 		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})

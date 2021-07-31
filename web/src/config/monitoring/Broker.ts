@@ -35,7 +35,7 @@ export const BrokerDashboard = [
     [
         metric(
             'Native ingestion',
-            'select unmarshal_metric_count, data_corrupted_count from lindb.ingestion.native',
+            'select ingested_metrics, data_corrupted_count from lindb.ingestion.native',
             8,
             UnitEnum.None,
         ),

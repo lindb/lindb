@@ -19,11 +19,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -61,7 +61,7 @@ func (s *storageClusterService) Save(storageCluster *config.StorageCluster) erro
 	if storageCluster.Name == "" {
 		return fmt.Errorf("storage cluster name cannot be empty")
 	}
-	data, _ := json.Marshal(storageCluster)
+	data := encoding.JSONMarshal(storageCluster)
 
 	if err := s.repo.Put(s.ctx, constants.GetStorageClusterConfigPath(storageCluster.Name), data); err != nil {
 		return err
@@ -81,7 +81,7 @@ func (s *storageClusterService) Get(name string) (*config.StorageCluster, error)
 		return nil, err
 	}
 	storageCluster := &config.StorageCluster{}
-	err = json.Unmarshal(data, storageCluster)
+	err = encoding.JSONUnmarshal(data, storageCluster)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (s *storageClusterService) List() ([]*config.StorageCluster, error) {
 	}
 	for _, val := range data {
 		storageCluster := &config.StorageCluster{}
-		err = json.Unmarshal(val.Value, storageCluster)
+		err = encoding.JSONUnmarshal(val.Value, storageCluster)
 		if err != nil {
 			logger.GetLogger("service", "StorageCluster").
 				Warn("unmarshal data error",

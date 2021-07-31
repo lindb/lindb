@@ -19,7 +19,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -52,12 +52,12 @@ func TestShardAssignService(t *testing.T) {
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	_ = srv.Save("db2", shardAssign2)
 
-	data1, _ := json.Marshal(shardAssign1)
+	data1 := encoding.JSONMarshal(shardAssign1)
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data1, nil)
 	shardAssign11, _ := srv.Get("db1")
 	assert.Equal(t, *shardAssign1, *shardAssign11)
 
-	data2, _ := json.Marshal(shardAssign2)
+	data2 := encoding.JSONMarshal(shardAssign2)
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data2, nil)
 	shardAssign22, _ := srv.Get("db2")
 	assert.Equal(t, *shardAssign2, *shardAssign22)

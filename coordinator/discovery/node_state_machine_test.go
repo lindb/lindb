@@ -19,7 +19,6 @@ package discovery
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestNewNodeStateMachine(t *testing.T) {
@@ -73,7 +73,7 @@ func TestNodeStateMachine_Discovery(t *testing.T) {
 	assert.Empty(t, sm.GetNodes())
 
 	// case 2: discovery new node
-	data, _ := json.Marshal(&models.Node{ID: 1, IP: "1.1.1.1", Port: 8080})
+	data := encoding.JSONMarshal(&models.Node{ID: 1, IP: "1.1.1.1", Port: 8080})
 	sm.OnCreate("/1.1.1.1:8080", data)
 	assert.Len(t, sm.GetNodes(), 1)
 
