@@ -19,7 +19,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -46,7 +46,7 @@ func TestDatabaseService(t *testing.T) {
 		ReplicaFactor: 3,
 		Option:        option.DatabaseOption{Interval: "10s"},
 	}
-	data, _ := json.Marshal(&database)
+	data := encoding.JSONMarshal(&database)
 
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err := db.Save(&database)
@@ -126,7 +126,7 @@ func TestDatabaseService_List(t *testing.T) {
 		ReplicaFactor: 3,
 	}
 	database.Desc = database.String()
-	data, _ := json.Marshal(&database)
+	data := encoding.JSONMarshal(&database)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
 		{Key: "db", Value: data},
 		{Key: "err", Value: []byte{1, 2, 4}},

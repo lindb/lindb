@@ -192,7 +192,10 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 
 		err = f.taskReceiver.Receive(resp, client.targetID)
 		if err != nil {
-			log.Error("receive task response", logger.Any("rep", resp), logger.Error(err))
+			log.Error("receive task response",
+				logger.String("taskID", resp.TaskID),
+				logger.String("taskType", resp.Type.String()),
+				logger.Error(err))
 		}
 	}
 }

@@ -36,7 +36,7 @@ import (
 var (
 	nativeIngestionScope         = linmetric.NewScope("lindb.ingestion").Scope("native")
 	nativeCorruptedDataCounter   = nativeIngestionScope.NewDeltaCounter("data_corrupted_count")
-	nativeUnmarshalMetricCounter = nativeIngestionScope.NewDeltaCounter("unmarshal_metric_count")
+	nativeUnmarshalMetricCounter = nativeIngestionScope.NewDeltaCounter("ingested_metrics")
 	nativeReadBytesCounter       = nativeIngestionScope.NewDeltaCounter("read_bytes_count")
 )
 

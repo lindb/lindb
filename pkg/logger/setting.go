@@ -56,6 +56,10 @@ const (
 	accessLogFileName = "access.log"
 )
 
+func IsDebug() bool {
+	return RunningAtomicLevel.Level() == zapcore.DebugLevel
+}
+
 // GetLogger return logger with module name
 func GetLogger(module, role string) *Logger {
 	length := len(module)

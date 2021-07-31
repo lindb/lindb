@@ -183,8 +183,8 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 	_, err = taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.Metadata{})
 	assert.Error(t, err)
 
-	// WaitIntermediateMetricTask
-	_ = taskManager2.WaitIntermediateMetricTask(physicalPlan, &stmt.Query{}, "")
+	// SubmitIntermediateMetricTask
+	_ = taskManager2.SubmitIntermediateMetricTask(physicalPlan, &stmt.Query{}, "")
 }
 
 func TestTaskManager_cleaner(t *testing.T) {

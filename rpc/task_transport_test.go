@@ -152,7 +152,7 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil),
 		mockTaskClient.EXPECT().Recv().Return(nil, nil),
 		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(nil),
-		mockTaskClient.EXPECT().Recv().Return(nil, nil),
+		mockTaskClient.EXPECT().Recv().Return(&protoCommonV1.TaskResponse{}, nil),
 		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(req *protoCommonV1.TaskResponse, targetID string) error {
 				taskClient.running.Store(false)

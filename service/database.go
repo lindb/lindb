@@ -19,11 +19,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -73,7 +73,7 @@ func (db *databaseService) Save(database *models.Database) error {
 	if err := database.Option.Validate(); err != nil {
 		return err
 	}
-	data, _ := json.Marshal(database)
+	data := encoding.JSONMarshal(database)
 	return db.repo.Put(db.ctx, constants.GetDatabaseConfigPath(database.Name), data)
 }
 
@@ -87,7 +87,7 @@ func (db *databaseService) Get(name string) (*models.Database, error) {
 		return nil, err
 	}
 	database := &models.Database{}
-	err = json.Unmarshal(configBytes, database)
+	err = encoding.JSONUnmarshal(configBytes, database)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (db *databaseService) List() ([]*models.Database, error) {
 	}
 	for _, val := range data {
 		db := &models.Database{}
-		err = json.Unmarshal(val.Value, db)
+		err = encoding.JSONUnmarshal(val.Value, db)
 		if err != nil {
 			logger.GetLogger("service", "DatabaseService").
 				Warn("unmarshal data error",

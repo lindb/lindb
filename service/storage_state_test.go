@@ -19,7 +19,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -52,7 +52,7 @@ func TestStorageSateService(t *testing.T) {
 	err = srv.Save("Test_LinDB", storageState)
 	assert.NotNil(t, err)
 
-	data, _ := json.Marshal(&storageState)
+	data := encoding.JSONMarshal(&storageState)
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data, nil)
 	storageState1, _ := srv.Get("Test_LinDB")
 	assert.Equal(t, storageState, storageState1)

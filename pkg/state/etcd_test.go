@@ -19,7 +19,6 @@ package state
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
 
 	"gopkg.in/check.v1"
@@ -59,7 +59,7 @@ func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 		Home: "home1",
 	}
 
-	d, _ := json.Marshal(home1)
+	d := encoding.JSONMarshal(home1)
 	err = rep.Put(context.TODO(), "/test/key1", d)
 	if err != nil {
 		c.Fatal(err)
@@ -69,7 +69,7 @@ func (ts *testEtcdRepoSuite) Test_Write_Read(c *check.C) {
 		c.Fatal(err1)
 	}
 	home2 := &address{}
-	_ = json.Unmarshal(d1, home2)
+	_ = encoding.JSONUnmarshal(d1, home2)
 	c.Assert(*home1, check.Equals, *home2)
 
 	_ = rep.Delete(context.TODO(), "/test/key1")
@@ -96,7 +96,7 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 		Home: "home1",
 	}
 
-	d, _ := json.Marshal(home1)
+	d := encoding.JSONMarshal(home1)
 	_ = rep.Put(context.TODO(), "/test/key1", d)
 	_ = rep.Put(context.TODO(), "/test/key2", d)
 	// value is empty, will ignore
