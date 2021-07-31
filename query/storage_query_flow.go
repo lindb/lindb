@@ -45,7 +45,9 @@ const (
 	tagValueNotFound = "tag_value_not_found"
 )
 
-var storageQueryFlowLogger = logger.GetLogger("query", "storageQueryFlow")
+var (
+	storageQueryFlowLogger = logger.GetLogger("query", "StorageQueryFlow")
+)
 
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
@@ -210,8 +212,6 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 		return
 	}
 
-	// during intermediate task, time series will be grouped by hash
-	// and send to multi intermediate receiver
 	hashGroupData := make([][]byte, len(qf.leafNode.Receivers))
 	if qf.reduceAgg != nil {
 		hasGroupBy := qf.query.HasGroupBy()
@@ -272,10 +272,7 @@ func (qf *storageQueryFlow) sendResponse(hashGroupData [][]byte) {
 			Payload:   hashGroupData[idx],
 			Stats:     stats,
 		}); err != nil {
-			sentResponseFailures.Incr()
 			storageQueryFlowLogger.Error("send storage query result", logger.Error(err))
-		} else {
-			sentResponsesCounter.Incr()
 		}
 	}
 }

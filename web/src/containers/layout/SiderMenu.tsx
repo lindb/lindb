@@ -1,15 +1,26 @@
-import { DatabaseOutlined, HomeOutlined, SearchOutlined, DeploymentUnitOutlined, HddOutlined,PartitionOutlined, DesktopOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons'
-import { Layout, Menu } from 'antd'
+import {
+    DatabaseOutlined,
+    HomeOutlined,
+    SearchOutlined,
+    DeploymentUnitOutlined,
+    HddOutlined,
+    PartitionOutlined,
+    FileSearchOutlined,
+    DesktopOutlined,
+    SettingOutlined,
+    ShareAltOutlined
+} from '@ant-design/icons'
+import {Layout, Menu} from 'antd'
 import Logo from 'assets/images/logo_title_dark.png'
-import { BizIcon } from 'components/basic/BizIcon'
-import { MENUS } from 'config/menu'
-import { autobind } from 'core-decorators'
-import { BreadcrumbStatus } from 'model/Breadcrumb'
+import {BizIcon} from 'components/basic/BizIcon'
+import {MENUS} from 'config/menu'
+import {autobind} from 'core-decorators'
+import {BreadcrumbStatus} from 'model/Breadcrumb'
 import * as React from 'react'
-import { Link } from 'react-router-dom'
+import {Link} from 'react-router-dom'
 import StoreManager from 'store/StoreManager'
 
-const { Sider } = Layout
+const {Sider} = Layout
 
 interface SiderMenuProps {
 }
@@ -29,16 +40,17 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         this.flatMenu = this.getFlatMenu()
         this.currentBreadcrumbPath = []
         this.iconMap = new Map()
-        this.iconMap.set("home", <HomeOutlined />)
-        this.iconMap.set("search", <SearchOutlined />)
-        this.iconMap.set("share-alt", <ShareAltOutlined />)
-        this.iconMap.set("database", <DatabaseOutlined />)
-        this.iconMap.set("setting", <SettingOutlined />)
-        this.iconMap.set("system", <DesktopOutlined />)
-        this.iconMap.set("broker", <DeploymentUnitOutlined />)
-        this.iconMap.set("storage", <HddOutlined />)
-        this.iconMap.set("parallel", <PartitionOutlined />)
-        this.iconMap.set("runtime", <BizIcon type={"icongo"} style={{ fontSize: '16px' }} />)
+        this.iconMap.set("home", <HomeOutlined/>)
+        this.iconMap.set("search", <SearchOutlined/>)
+        this.iconMap.set("share-alt", <ShareAltOutlined/>)
+        this.iconMap.set("database", <DatabaseOutlined/>)
+        this.iconMap.set("setting", <SettingOutlined/>)
+        this.iconMap.set("system", <DesktopOutlined/>)
+        this.iconMap.set("broker", <DeploymentUnitOutlined/>)
+        this.iconMap.set("storage", <HddOutlined/>)
+        this.iconMap.set("concurrent", <PartitionOutlined/>)
+        this.iconMap.set("query", <FileSearchOutlined/>)
+        this.iconMap.set("runtime", <BizIcon type={"icongo"} style={{fontSize: '16px'}}/>)
     }
 
     renderMenu(menus: Array<any>, parentPath?: string) {
@@ -92,16 +104,17 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         let flatMenu: Array<BreadcrumbStatus> = []
         MENUS.forEach(item => {
             if (item.children) {
-                flatMenu.push({ path: item.path, label: item.title })
+                flatMenu.push({path: item.path, label: item.title})
                 item.children.forEach(child => {
-                    flatMenu.push({ path: item.path + child.path, label: child.title });
+                    flatMenu.push({path: item.path + child.path, label: child.title});
                 })
             } else {
-                flatMenu.push({ path: item.path, label: item.title })
+                flatMenu.push({path: item.path, label: item.title})
             }
         })
         return flatMenu
     }
+
     /**
      * @description initialize the breadcrumb data by getting the page routing
      */
@@ -125,7 +138,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
      */
     @autobind
     getPath() {
-        const { location: { hash } } = window;
+        const {location: {hash}} = window;
         const path = hash.replace('#', '')
         return path
     }
@@ -140,7 +153,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
             <Sider className="lindb-sider" collapsible={true} trigger={null}>
                 {/* Logo */}
                 <div className="lindb-sider__logo">
-                    <Link to="/"><img src={Logo} alt="LinDB" /></Link>
+                    <Link to="/"><img src={Logo} alt="LinDB"/></Link>
                 </div>
 
                 {/* Menu */}

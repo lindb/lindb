@@ -38,20 +38,6 @@ import (
 
 //go:generate mockgen -source=./task_manager.go -destination=./task_manager_mock.go -package=query
 
-var (
-	taskManagerScope     = linmetric.NewScope("lindb.query.task")
-	createdTaskCounter   = taskManagerScope.NewDeltaCounter("created_tasks")
-	aliveTaskGauge       = taskManagerScope.NewGauge("alive_tasks")
-	emitEventsCounter    = taskManagerScope.NewDeltaCounter("emitted_events")
-	omitEventsCounter    = taskManagerScope.NewDeltaCounter("omitted_events")
-	emitResponseCounter  = taskManagerScope.NewDeltaCounter("emitted_responses")
-	omitResponseCounter  = taskManagerScope.NewDeltaCounter("omitted_responses")
-	sentRequestCounter   = taskManagerScope.NewDeltaCounter("sent_requests")
-	sentResponsesCounter = taskManagerScope.NewDeltaCounter("sent_responses")
-	sentResponseFailures = taskManagerScope.NewDeltaCounter("sent_responses_failures")
-	sentRequestFailures  = taskManagerScope.NewDeltaCounter("sent_requests_failures")
-)
-
 // TaskManager represents the task manager for current node
 type TaskManager interface {
 	// SubmitMetricTask concurrently send query task to multi intermediates and leafs.
@@ -101,6 +87,15 @@ type taskManager struct {
 	tasks      sync.Map        // taskID -> taskCtx
 	logger     *logger.Logger
 	ttl        time.Duration
+
+	createdTaskCounter   *linmetric.BoundDeltaCounter
+	aliveTaskGauge       *linmetric.BoundGauge
+	emitResponseCounter  *linmetric.BoundDeltaCounter
+	omitResponseCounter  *linmetric.BoundDeltaCounter
+	sentRequestCounter   *linmetric.BoundDeltaCounter
+	sentResponsesCounter *linmetric.BoundDeltaCounter
+	sentResponseFailures *linmetric.BoundDeltaCounter
+	sentRequestFailures  *linmetric.BoundDeltaCounter
 }
 
 // NewTaskManager creates the task manager
@@ -112,15 +107,24 @@ func NewTaskManager(
 	taskPool concurrent.Pool,
 	ttl time.Duration,
 ) TaskManager {
+	taskManagerScope := linmetric.NewScope("lindb.broker.query")
 	tm := &taskManager{
-		ctx:               ctx,
-		currentNodeID:     (&currentNode).Indicator(),
-		taskClientFactory: taskClientFactory,
-		taskServerFactory: taskServerFactory,
-		seq:               atomic.NewInt64(0),
-		workerPool:        taskPool,
-		logger:            logger.GetLogger("query", "TaskManager"),
-		ttl:               ttl,
+		ctx:                  ctx,
+		currentNodeID:        (&currentNode).Indicator(),
+		taskClientFactory:    taskClientFactory,
+		taskServerFactory:    taskServerFactory,
+		seq:                  atomic.NewInt64(0),
+		workerPool:           taskPool,
+		logger:               logger.GetLogger("query", "TaskManager"),
+		ttl:                  ttl,
+		createdTaskCounter:   taskManagerScope.NewDeltaCounter("created_tasks"),
+		aliveTaskGauge:       taskManagerScope.NewGauge("alive_tasks"),
+		emitResponseCounter:  taskManagerScope.NewDeltaCounter("emitted_responses"),
+		omitResponseCounter:  taskManagerScope.NewDeltaCounter("omitted_responses"),
+		sentRequestCounter:   taskManagerScope.NewDeltaCounter("sent_requests"),
+		sentResponsesCounter: taskManagerScope.NewDeltaCounter("sent_responses"),
+		sentResponseFailures: taskManagerScope.NewDeltaCounter("sent_responses_failures"),
+		sentRequestFailures:  taskManagerScope.NewDeltaCounter("sent_requests_failures"),
 	}
 	duration := ttl
 	if ttl < time.Minute {
@@ -141,7 +145,7 @@ func (t *taskManager) cleaner(duration time.Duration) {
 			t.tasks.Range(func(key, value interface{}) bool {
 				taskCtx := value.(TaskContext)
 				if taskCtx.Expired(t.ttl) {
-					aliveTaskGauge.Decr()
+					t.aliveTaskGauge.Decr()
 					t.tasks.Delete(key)
 				}
 				return true
@@ -155,14 +159,14 @@ func (t *taskManager) cleaner(duration time.Duration) {
 func (t *taskManager) evictTask(taskID string) {
 	_, loaded := t.tasks.LoadAndDelete(taskID)
 	if loaded {
-		aliveTaskGauge.Decr()
+		t.aliveTaskGauge.Decr()
 	}
 }
 
 func (t *taskManager) storeTask(taskID string, taskCtx TaskContext) {
 	t.tasks.Store(taskID, taskCtx)
-	createdTaskCounter.Incr()
-	aliveTaskGauge.Incr()
+	t.createdTaskCounter.Incr()
+	t.aliveTaskGauge.Incr()
 }
 
 func (t *taskManager) SubmitMetricTask(
@@ -325,14 +329,14 @@ func (t *taskManager) Get(taskID string) TaskContext {
 func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error {
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
-		sentRequestFailures.Incr()
+		t.sentRequestFailures.Incr()
 		return fmt.Errorf("SendRequest: %w, targetNodeID: %s", errNoSendStream, targetNodeID)
 	}
 	if err := client.Send(req); err != nil {
-		sentRequestFailures.Incr()
+		t.sentRequestFailures.Incr()
 		return fmt.Errorf("%w, targetNodeID: %s", errTaskSend, targetNodeID)
 	}
-	sentRequestCounter.Incr()
+	t.sentRequestCounter.Incr()
 	return nil
 }
 
@@ -341,24 +345,24 @@ func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRe
 func (t *taskManager) SendResponse(parentNodeID string, resp *protoCommonV1.TaskResponse) error {
 	stream := t.taskServerFactory.GetStream(parentNodeID)
 	if stream == nil {
-		sentResponseFailures.Incr()
+		t.sentResponseFailures.Incr()
 		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", errNoSendStream, parentNodeID)
 	}
 	if err := stream.Send(resp); err != nil {
-		sentResponseFailures.Incr()
+		t.sentResponseFailures.Incr()
 		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", errResponseSend, parentNodeID)
 	}
-	sentResponsesCounter.Incr()
+	t.sentResponsesCounter.Incr()
 	return nil
 }
 
 func (t *taskManager) Receive(resp *protoCommonV1.TaskResponse, targetNode string) error {
 	taskCtx := t.Get(resp.TaskID)
 	if taskCtx == nil {
-		omitResponseCounter.Incr()
+		t.omitResponseCounter.Incr()
 		return fmt.Errorf("TaskID: %s may be evicted", resp.TaskID)
 	}
-	emitResponseCounter.Incr()
+	t.emitResponseCounter.Incr()
 	t.workerPool.Submit(func() {
 		// for root task and intermediate task
 		taskCtx.WriteResponse(resp, targetNode)

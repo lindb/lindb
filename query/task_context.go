@@ -147,7 +147,6 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 
 	// preventing close channel twice
 	if c.closed {
-		omitEventsCounter.Incr()
 		return
 	}
 	defer func() {
@@ -160,10 +159,8 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 	if err := c.handleTaskResponse(resp, fromNode); err != nil {
 		select {
 		case c.eventCh <- &series.TimeSeriesEvent{Err: err, Stats: c.stats}:
-			emitEventsCounter.Incr()
 		default:
 			// reader gone
-			omitEventsCounter.Incr()
 		}
 		return
 	}
@@ -180,10 +177,8 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 		AggregatorSpecs: c.aggregatorSpecs,
 		SeriesList:      resultSet,
 		Stats:           c.stats}:
-		emitEventsCounter.Incr()
 	default:
 		// reader gone
-		omitEventsCounter.Incr()
 	}
 }
 
@@ -300,7 +295,6 @@ func (c *metaDataTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, _ 
 
 	// preventing close channel twice
 	if c.closed {
-		omitEventsCounter.Incr()
 		return
 	}
 	select {
@@ -309,9 +303,7 @@ func (c *metaDataTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, _ 
 			close(c.taskResponseCh)
 			c.closed = true
 		}
-		emitEventsCounter.Incr()
 	default:
-		emitEventsCounter.Incr()
 		// has been closed, just drop the data
 	}
 }

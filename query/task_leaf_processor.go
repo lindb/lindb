@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -44,6 +45,10 @@ type leafTaskProcessor struct {
 	storageService    service.StorageService
 	taskServerFactory rpc.TaskServerFactory
 	logger            *logger.Logger
+
+	storageMetricQueryCounter  *linmetric.BoundDeltaCounter
+	storageMetaQueryCounter    *linmetric.BoundDeltaCounter
+	storageOmitResponseCounter *linmetric.BoundDeltaCounter
 }
 
 // NewLeafTaskProcessor creates the leaf task
@@ -52,12 +57,16 @@ func NewLeafTaskProcessor(
 	storageService service.StorageService,
 	taskServerFactory rpc.TaskServerFactory,
 ) TaskProcessor {
+	storageQueryScope := linmetric.NewScope("lindb.storage.query")
 	return &leafTaskProcessor{
-		currentNode:       currentNode,
-		currentNodeID:     (&currentNode).Indicator(),
-		storageService:    storageService,
-		taskServerFactory: taskServerFactory,
-		logger:            logger.GetLogger("query", "LeafTaskDispatcher"),
+		currentNode:                currentNode,
+		currentNodeID:              (&currentNode).Indicator(),
+		storageService:             storageService,
+		taskServerFactory:          taskServerFactory,
+		logger:                     logger.GetLogger("query", "LeafTaskDispatcher"),
+		storageMetricQueryCounter:  storageQueryScope.NewDeltaCounter("metric_queries"),
+		storageMetaQueryCounter:    storageQueryScope.NewDeltaCounter("meta_queries"),
+		storageOmitResponseCounter: storageQueryScope.NewDeltaCounter("omitted_responses"),
 	}
 }
 
@@ -105,26 +114,34 @@ func (p *leafTaskProcessor) process(
 		}
 	}
 	if !foundTask {
+		p.storageOmitResponseCounter.Incr()
 		return fmt.Errorf("%w, i: %s am not a leaf node", errBadPhysicalPlan, p.currentNodeID)
 	}
 	db, ok := p.storageService.GetDatabase(physicalPlan.Database)
 	if !ok {
+		p.storageOmitResponseCounter.Incr()
 		return fmt.Errorf("%w: %s", errNoDatabase, physicalPlan.Database)
 	}
 	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
 	if stream == nil {
+		p.storageOmitResponseCounter.Incr()
 		return fmt.Errorf("%w: %s", errNoSendStream, curLeaf.Parent)
 	}
 
 	switch req.RequestType {
 	case protoCommonV1.RequestType_Data:
+		p.storageMetricQueryCounter.Incr()
 		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, &curLeaf); err != nil {
 			return err
 		}
 	case protoCommonV1.RequestType_Metadata:
+		p.storageMetaQueryCounter.Incr()
 		if err := p.processMetadataSuggest(db, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
+	default:
+		p.storageOmitResponseCounter.Incr()
+		return nil
 	}
 	return nil
 }

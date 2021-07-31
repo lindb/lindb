@@ -31,8 +31,6 @@ var (
 	newPageFactoryFunc = page.NewFactory
 )
 
-var seriesWALLogger = logger.GetLogger("wal", "series")
-
 var (
 	recoverSeriesFailCounter = walScope.NewDeltaCounter("wal_recovery_series_fail")
 )
@@ -111,7 +109,7 @@ func (wal *seriesWAL) Recovery(recovery SeriesRecoveryFunc, commit CommitFunc) {
 				walPage.ReadUint32(offset+seriesIDOffset)); err != nil {
 				recoverSeriesFailCounter.Incr()
 
-				seriesWALLogger.Error("invoke recovery func error",
+				walLogger.Error("invoke recovery func error",
 					logger.String("wal", wal.base.path), logger.Error(err))
 				return
 			}
@@ -121,7 +119,7 @@ func (wal *seriesWAL) Recovery(recovery SeriesRecoveryFunc, commit CommitFunc) {
 		if err := commit(); err != nil {
 			recoveryCommitFailCounter.Incr()
 
-			seriesWALLogger.Error("invoke commit func error",
+			walLogger.Error("invoke commit func error",
 				logger.String("wal", wal.base.path), logger.Error(err))
 			return
 		}
@@ -129,7 +127,7 @@ func (wal *seriesWAL) Recovery(recovery SeriesRecoveryFunc, commit CommitFunc) {
 		if err := wal.base.walFactory.ReleasePage(i); err != nil {
 			releaseWALPageFailCounter.Incr()
 
-			seriesWALLogger.Error("release series wal page error",
+			walLogger.Error("release series wal page error",
 				logger.String("wal", wal.base.path), logger.Error(err))
 		}
 
