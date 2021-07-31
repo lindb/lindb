@@ -33,9 +33,14 @@ export const MENUS = [
         path: '/storage',
       },
       {
-        title: 'Parallel',
-        icon: 'parallel',
-        path: '/parallel',
+        title: 'Concurrent',
+        icon: 'concurrent',
+        path: '/concurrent',
+      },
+      {
+        title: 'Query',
+        icon: 'query',
+        path: '/query',
       },
     ],
   }, {

@@ -104,7 +104,10 @@ type database struct {
 }
 
 // newDatabase creates the database instance
-func newDatabase(databaseName string, databasePath string, cfg *databaseConfig,
+func newDatabase(
+	databaseName string,
+	databasePath string,
+	cfg *databaseConfig,
 	flushChecker DataFlushChecker,
 ) (Database, error) {
 	db := &database{
@@ -118,22 +121,22 @@ func newDatabase(databaseName string, databasePath string, cfg *databaseConfig,
 				databaseName+"-filtering-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel.task",
-					"pool", databaseName+"-filtering"),
+				linmetric.NewScope("lindb.concurrent",
+					"pool_name", databaseName+"-filtering"),
 			),
 			Grouping: concurrent.NewPool(
 				databaseName+"-grouping-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel.task",
-					"pool", databaseName+"-grouping"),
+				linmetric.NewScope("lindb.concurrent",
+					"pool_name", databaseName+"-grouping"),
 			),
 			Scanner: concurrent.NewPool(
 				databaseName+"-scanner-pool",
 				runtime.NumCPU(), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.parallel.task",
-					"pool", databaseName+"-scanner"),
+				linmetric.NewScope("lindb.concurrent",
+					"pool_name", databaseName+"-scanner"),
 			),
 		},
 		isFlushing: *atomic.NewBool(false),
