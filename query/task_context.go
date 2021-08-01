@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -197,9 +197,7 @@ func (c *metricTaskContext) handleStats(resp *protoCommonV1.TaskResponse, fromNo
 		// from leaf node
 		storageStats := models.NewStorageStats()
 		_ = encoding.JSONUnmarshal(resp.Stats, storageStats)
-		// todo: clock unsync in network, may < 0
-		storageStats.NetCost = timeutil.NowNano() - resp.SendTime
-		storageStats.NetPayload = len(resp.Stats) + len(resp.Payload)
+		storageStats.NetPayload = ltoml.Size(len(resp.Stats) + len(resp.Payload))
 		c.stats.MergeStorageTaskStats(fromNode, storageStats)
 	}
 }
