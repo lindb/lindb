@@ -20,9 +20,11 @@ package query
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
@@ -37,12 +39,12 @@ type metricQuery struct {
 	database string
 	sql      string
 
-	startTime   int64
-	endPlanTime int64
+	startTime   time.Time
+	endPlanTime time.Time
 
 	stmtQuery  *stmt.Query
 	plan       *brokerPlan
-	expression aggregation.Expression
+	expression *aggregation.Expression
 }
 
 // newMetricQuery creates the execution which executes the job of parallel query
@@ -64,7 +66,7 @@ func newMetricQuery(
 // 1) get metadata based on params
 // 2) build execute plan
 func (mq *metricQuery) makePlan() error {
-	startTime := timeutil.NowNano()
+	startTime := time.Now()
 	databaseCfg, ok := mq.queryFactory.databaseStateMachine.GetDatabaseCfg(mq.database)
 	if !ok {
 		return errDatabaseNotExist
@@ -104,7 +106,7 @@ func (mq *metricQuery) WaitResponse() (*models.ResultSet, error) {
 	if err := mq.makePlan(); err != nil {
 		return nil, err
 	}
-	mq.endPlanTime = timeutil.NowNano()
+	mq.endPlanTime = time.Now()
 
 	eventCh, err := mq.queryFactory.taskManager.SubmitMetricTask(
 		mq.plan.physicalPlan,
@@ -134,9 +136,9 @@ func (mq *metricQuery) WaitResponse() (*models.ResultSet, error) {
 }
 
 func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *models.ResultSet) {
-	resultSet = new(models.ResultSet)
-	makeResultStartTime := timeutil.NowNano()
+	makeResultStartTime := time.Now()
 
+	resultSet = new(models.ResultSet)
 	//TODO merge stats for cross idc query?
 	groupByKeys := mq.stmtQuery.GroupBy
 	groupByKeysLength := len(groupByKeys)
@@ -180,11 +182,11 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 
 	resultSet.Stats = event.Stats
 	if resultSet.Stats != nil {
-		now := timeutil.NowNano()
-		resultSet.Stats.PlanCost = mq.endPlanTime - mq.startTime
-		resultSet.Stats.WaitCost = makeResultStartTime - mq.endPlanTime
-		resultSet.Stats.ExpressCost = now - makeResultStartTime
-		resultSet.Stats.TotalCost = now - mq.startTime
+		now := time.Now()
+		resultSet.Stats.PlanCost = ltoml.Duration(mq.endPlanTime.Sub(mq.startTime))
+		resultSet.Stats.WaitCost = ltoml.Duration(makeResultStartTime.Sub(mq.endPlanTime))
+		resultSet.Stats.ExpressCost = ltoml.Duration(now.Sub(makeResultStartTime))
+		resultSet.Stats.TotalCost = ltoml.Duration(now.Sub(mq.startTime))
 	}
 	return resultSet
 }

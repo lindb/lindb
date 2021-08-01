@@ -20,10 +20,12 @@ package query
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
@@ -99,7 +101,7 @@ ErrToRoot:
 // processIntermediateTask processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
 func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context, req *protoCommonV1.TaskRequest) error {
-	startTime := timeutil.NowNano()
+	startTime := time.Now()
 	stmtQuery := stmt.Query{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return errUnmarshalQuery
@@ -122,7 +124,7 @@ func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context,
 			return event.Err
 		}
 		if event.Stats != nil {
-			event.Stats.WaitCost = timeutil.NowNano() - startTime
+			event.Stats.WaitCost = ltoml.Duration(time.Since(startTime))
 		}
 		taskResponse := p.makeTaskResponse(req, event)
 		return p.taskManager.SendResponse(intermediate.Parent, taskResponse)

@@ -20,12 +20,12 @@ package query
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -35,13 +35,13 @@ import (
 
 // baseQueryTask represents base query task stats track for task execute cost
 type baseQueryTask struct {
-	start, end int64 // task start/end time with nano
-	cost       int64
+	start time.Time
+	cost  time.Duration
 }
 
 // BeforeRun invokes before task run function
 func (t *baseQueryTask) BeforeRun() {
-	t.start = timeutil.NowNano()
+	t.start = time.Now()
 }
 
 // Run executes task logic
@@ -51,8 +51,7 @@ func (t *baseQueryTask) Run() error {
 
 // AfterRun invokes after task run function
 func (t *baseQueryTask) AfterRun() {
-	t.end = timeutil.NowNano()
-	t.cost = t.end - t.start
+	t.cost = time.Since(t.start)
 }
 
 // queryStatTask represents the query stat task

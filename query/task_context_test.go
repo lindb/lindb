@@ -102,12 +102,10 @@ func Test_TaskContext_handleStats(t *testing.T) {
 	).(*metricTaskContext)
 	//
 	storageNodeStat1 := models.NewStorageStats()
-	storageNodeStat1.NetCost = 20
 	storageNodeStat1.NetPayload = 30000
 	data1 := encoding.JSONMarshal(storageNodeStat1)
 
 	storageNodeStat2 := models.NewStorageStats()
-	storageNodeStat2.NetCost = 30
 	storageNodeStat2.NetPayload = 40000
 	data2 := encoding.JSONMarshal(storageNodeStat1)
 	taskCtx3.handleStats(
