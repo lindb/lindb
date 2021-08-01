@@ -29,23 +29,11 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-//go:generate mockgen -source=./expression.go -destination=./expression_mock.go -package=aggregation
-
-// Expression represents expression eval like math calc, function call etc.
-type Expression interface {
-	// Eval evaluates the select item's expression
-	Eval(timeSeries series.GroupedIterator)
-	// ResultSet returns the eval result
-	ResultSet() map[string]*collections.FloatArray
-	// Reset resets the expression context for reusing
-	Reset()
-}
-
-// expression implement Expression interface, operator as below:
+// Expression represents Expression eval like math calc, function call etc.
 // 1. prepare field store based on time series iterator
-// 2. eval the expression
+// 2. eval the Expression
 // 3. build result set
-type expression struct {
+type Expression struct {
 	pointCount  int
 	interval    int64
 	timeRange   timeutil.TimeRange
@@ -55,9 +43,9 @@ type expression struct {
 	resultSet  map[string]*collections.FloatArray
 }
 
-// NewExpression creates an expression
-func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []stmt.Expr) Expression {
-	return &expression{
+// NewExpression creates an Expression
+func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []stmt.Expr) *Expression {
+	return &Expression{
 		pointCount:  timeutil.CalPointCount(timeRange.Start, timeRange.End, interval) + 1,
 		interval:    interval,
 		timeRange:   timeRange,
@@ -67,12 +55,12 @@ func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []s
 	}
 }
 
-// Eval evaluates the select item's expression
-func (e *expression) Eval(timeSeries series.GroupedIterator) {
+// Eval evaluates the select item's Expression
+func (e *Expression) Eval(timeSeries series.GroupedIterator) {
 	if len(e.selectItems) == 0 {
 		return
 	}
-	// prepare expression context
+	// prepare Expression context
 	e.prepare(timeSeries)
 
 	if len(e.fieldStore) == 0 {
@@ -93,12 +81,12 @@ func (e *expression) Eval(timeSeries series.GroupedIterator) {
 }
 
 // ResultSet returns the eval result
-func (e *expression) ResultSet() map[string]*collections.FloatArray {
+func (e *Expression) ResultSet() map[string]*collections.FloatArray {
 	return e.resultSet
 }
 
 // prepare prepares the field store
-func (e *expression) prepare(timeSeries series.GroupedIterator) {
+func (e *Expression) prepare(timeSeries series.GroupedIterator) {
 	if timeSeries == nil {
 		return
 	}
@@ -112,8 +100,8 @@ func (e *expression) prepare(timeSeries series.GroupedIterator) {
 	}
 }
 
-// eval evaluates the expression
-func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collections.FloatArray {
+// eval evaluates the Expression
+func (e *Expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collections.FloatArray {
 	switch ex := expr.(type) {
 	case *stmt.SelectItem:
 		return e.eval(nil, ex.Expr)
@@ -153,7 +141,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collecti
 	}
 }
 
-func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
+func (e *Expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 	var (
 		histogramFields = make(map[float64][]*collections.FloatArray)
 	)
@@ -184,7 +172,7 @@ func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 }
 
 // funcCall calls the function
-func (e *expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
+func (e *Expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
 	var params []*collections.FloatArray
 	for _, param := range expr.Params {
 		paramValues := e.eval(expr, param)
@@ -207,7 +195,7 @@ func (e *expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
 }
 
 // binaryEval evaluates binary operator
-func (e *expression) binaryEval(expr *stmt.BinaryExpr) []*collections.FloatArray {
+func (e *Expression) binaryEval(expr *stmt.BinaryExpr) []*collections.FloatArray {
 	binaryOP := expr.Operator
 	if binaryOP == stmt.ADD || binaryOP == stmt.SUB || binaryOP == stmt.DIV || binaryOP == stmt.MUL {
 		left := e.eval(nil, expr.Left)
@@ -225,8 +213,8 @@ func (e *expression) binaryEval(expr *stmt.BinaryExpr) []*collections.FloatArray
 	return nil
 }
 
-// Reset resets the expression context for reusing
-func (e *expression) Reset() {
+// Reset resets the Expression context for reusing
+func (e *Expression) Reset() {
 	for _, f := range e.fieldStore {
 		f.Reset()
 	}
