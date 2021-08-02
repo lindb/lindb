@@ -58,12 +58,11 @@ type Engine interface {
 	//databaseMetaFlusher(ctx context.Context)
 }
 
-// todo, map free engine @codingcrush
-
 // engine implements Engine
 type engine struct {
 	cfg              config.TSDB        // the common cfg of time series database
-	databases        sync.Map           // databaseName -> Database
+	mutex            sync.Mutex         // mutex for creating database
+	dbSet            databaseSet        // atomic value, holding databaseName -> Database
 	ctx              context.Context    // context
 	cancel           context.CancelFunc // cancel function of flusher
 	dataFlushChecker DataFlushChecker
@@ -85,7 +84,8 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Dir, err)
 	}
 	e := &engine{
-		cfg: cfg,
+		cfg:   cfg,
+		dbSet: *newDatabaseSet(),
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	e.dataFlushChecker = newDataFlushChecker(e.ctx)
@@ -103,6 +103,9 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 // CreateDatabase creates database instance by database's name
 // return success when creating database's path successfully
 func (e *engine) CreateDatabase(databaseName string) (Database, error) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	dbPath := filepath.Join(e.cfg.Dir, databaseName)
 	if err := mkDirIfNotExist(dbPath); err != nil {
 		return nil, fmt.Errorf("create database[%s]'s path with error: %s", databaseName, err)
@@ -119,17 +122,13 @@ func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	e.databases.Store(databaseName, db)
+	e.dbSet.PutDatabase(databaseName, db)
 	return db, nil
 }
 
 // GetDatabase returns the time series database by given name
 func (e *engine) GetDatabase(databaseName string) (Database, bool) {
-	item, ok := e.databases.Load(databaseName)
-	if ok {
-		return item.(Database), true
-	}
-	return nil, false
+	return e.dbSet.GetDatabase(databaseName)
 }
 
 // Close closes the cached time series databases
@@ -137,23 +136,21 @@ func (e *engine) Close() {
 	if e.dataFlushChecker != nil {
 		e.dataFlushChecker.Stop()
 	}
-
-	e.databases.Range(func(key, value interface{}) bool {
-		db := value.(Database)
+	for dbName, db := range e.dbSet.Entries() {
 		if err := db.Close(); err != nil {
-			engineLogger.Error("close database", logger.Error(err))
+			engineLogger.Error("close database",
+				logger.String("name", dbName),
+				logger.Error(err))
 		}
-		return true
-	})
+	}
 }
 
 // FlushDatabase produces a signal to workers for flushing memory database by name
 func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
-	item, ok := e.databases.Load(name)
+	db, ok := e.dbSet.GetDatabase(name)
 	if !ok {
 		return false
 	}
-	db := item.(Database)
 	if err := db.Flush(); err != nil {
 		//TODO add log and metric
 		return false

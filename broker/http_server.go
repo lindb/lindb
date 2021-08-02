@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/felixge/fgprof"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -72,6 +73,8 @@ func (s *HTTPServer) init() {
 	if logger.IsDebug() {
 		s.logger.Info("/debug/pprof is enabled")
 		pprof.Register(s.gin)
+		s.logger.Info("/debug/fgprof is enabled")
+		s.gin.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
 	}
 	// server static file
 	staticFS, err := fs.Sub(lindb.StaticContent, "web/static")
