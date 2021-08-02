@@ -285,6 +285,22 @@ func TestShard_Write(t *testing.T) {
 	}))
 }
 
+func Test_familyMemDBSet(t *testing.T) {
+	set := newFamilyMemDBSet()
+	for i := 1000; i >= 0; i -= 10 {
+		set.InsertFamily(int64(i), nil)
+	}
+
+	for i := 0; i < 1000; i += 10 {
+		_, exist := set.GetFamily(int64(i))
+		assert.True(t, exist)
+		_, exist = set.GetFamily(int64(i + 1))
+		assert.False(t, exist)
+		_, exist = set.GetFamily(int64(i - 1))
+		assert.False(t, exist)
+	}
+}
+
 func TestShard_Close(t *testing.T) {
 	//ctrl := gomock.NewController(t)
 	//defer func() {

@@ -21,10 +21,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -153,8 +155,8 @@ func Test_Engine_Close(t *testing.T) {
 
 	mockDatabase := NewMockDatabase(ctrl)
 	mockDatabase.EXPECT().Close().Return(fmt.Errorf("error")).AnyTimes()
-	engineImpl.databases.Store("1", mockDatabase)
-	engineImpl.databases.Store("2", mockDatabase)
+	engineImpl.dbSet.PutDatabase("1", mockDatabase)
+	engineImpl.dbSet.PutDatabase("2", mockDatabase)
 
 	e.Close()
 }
@@ -175,11 +177,72 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	mockDatabase := NewMockDatabase(ctrl)
 	// case 1: flush success
 	mockDatabase.EXPECT().Flush().Return(nil)
-	engineImpl.databases.Store("test_db_1", mockDatabase)
+	engineImpl.dbSet.PutDatabase("test_db_1", mockDatabase)
 	ok = e.FlushDatabase(context.TODO(), "test_db_1")
 	assert.True(t, ok)
 	// case 2: flush err
 	mockDatabase.EXPECT().Flush().Return(fmt.Errorf("err"))
 	ok = e.FlushDatabase(context.TODO(), "test_db_1")
 	assert.False(t, ok)
+}
+
+var testDatabaseNames = []string{
+	"_internal", "system", "docker", "network", "java",
+	"runtime", "go", "php", "k8s", "infra", "prometheus",
+	"application", "nginx", "frontend", "kernel", "other",
+	"trace", "test", "test2", "test3", "test4",
+}
+
+func BenchmarkEngine_DatabaseWithSyncMap(b *testing.B) {
+	var sm sync.Map
+	for _, dn := range testDatabaseNames {
+		sm.Store(dn, &database{})
+	}
+	// 9.365 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			item, _ := sm.Load("application")
+			_ = item.(*database)
+		}
+	})
+}
+
+func BenchmarkEngine_DatabaseWithLockFreeMap(b *testing.B) {
+	var v atomic.Value
+	var lm = make(map[string]*database)
+	for _, dn := range testDatabaseNames {
+		lm[dn] = &database{}
+	}
+	v.Store(lm)
+	// 3.895 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			thisMap := v.Load().(map[string]*database)
+			_ = thisMap["application"]
+		}
+	})
+}
+
+func BenchmarkEngine_DatabaseWithLockFreeSlice(b *testing.B) {
+	type entry struct {
+		name string
+		db   *database
+	}
+	var v atomic.Value
+	var entries []entry
+	for _, dn := range testDatabaseNames {
+		entries = append(entries, entry{name: dn, db: &database{}})
+	}
+	v.Store(entries)
+	// 2.534 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			sl := v.Load().([]entry)
+			for idx := range sl {
+				if sl[idx].name == "nginx" {
+					break
+				}
+			}
+		}
+	})
 }

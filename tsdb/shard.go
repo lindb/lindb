@@ -125,7 +125,8 @@ type shard struct {
 	option       option.DatabaseOption
 	sequence     ReplicaSequence
 
-	families map[int64]memdb.MemoryDatabase // memory database for each family time
+	mutex    sync.Mutex     // mutex for update families
+	families familyMemDBSet // memory database for each family time
 
 	indexDB  indexdb.IndexDatabase
 	metadata metadb.Metadata
@@ -143,8 +144,6 @@ type shard struct {
 	indexStore     kv.Store  // kv stores
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
-
-	rwMutex sync.RWMutex
 
 	buildIndexTimer      *linmetric.BoundDeltaHistogram
 	writeMetricCount     *linmetric.BoundDeltaCounter
@@ -181,7 +180,7 @@ func newShard(
 		path:                 shardPath,
 		option:               option,
 		sequence:             replicaSequence,
-		families:             make(map[int64]memdb.MemoryDatabase),
+		families:             *newFamilyMemDBSet(),
 		metadata:             db.Metadata(),
 		interval:             interval,
 		segments:             make(map[timeutil.IntervalType]IntervalSegment),
@@ -258,33 +257,39 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 
 // GetOrCreateMemoryDatabase returns memory database by given family time.
 func (s *shard) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-	memDB, ok := s.families[familyTime]
-	if !ok {
-		memDB, err := s.createMemoryDatabase(familyTime)
-		if err != nil {
-			return nil, err
-		}
-		s.families[familyTime] = memDB
-		return memDB, nil
+	db, exist := s.families.GetFamily(familyTime)
+	if exist {
+		return db, nil
 	}
-	return memDB, nil
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// double check
+	db, exist = s.families.GetFamily(familyTime)
+	if exist {
+		return db, nil
+	}
+	newDB, err := s.createMemoryDatabase(familyTime)
+	if err != nil {
+		return nil, err
+	}
+	s.families.InsertFamily(familyTime, newDB)
+	return newDB, nil
 }
 
 // Filter filters the data based on metric/time range/seriesIDs,
 // if finds data then returns the flow.FilterResultSet, else returns nil
-func (s *shard) Filter(metricID uint32,
-	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
+func (s *shard) Filter(
+	metricID uint32,
+	seriesIDs *roaring.Bitmap,
+	timeRange timeutil.TimeRange,
 	fields field.Metas,
 ) (rs []flow.FilterResultSet, err error) {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-
-	for familyTime, memDB := range s.families {
+	entries := s.families.Entries()
+	for idx := range entries {
 		// check family time if in query time range
-		if timeRange.Contains(familyTime) {
-			resultSet, err := memDB.Filter(metricID, seriesIDs, timeRange, fields)
+		if timeRange.Contains(entries[idx].familyTime) {
+			resultSet, err := entries[idx].memDB.Filter(metricID, seriesIDs, timeRange, fields)
 			if err != nil {
 				return nil, err
 			}
@@ -295,10 +300,9 @@ func (s *shard) Filter(metricID uint32,
 }
 
 func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-	for _, memDB := range s.families {
-		rs = append(rs, memDB)
+	entries := s.families.Entries()
+	for idx := range entries {
+		rs = append(rs, entries[idx].memDB)
 	}
 	return rs
 }
@@ -389,8 +393,8 @@ func (s *shard) Close() error {
 			return err
 		}
 	}
-	for _, family := range s.families {
-		if err := s.flushMemoryDatabase(family); err != nil {
+	for _, entry := range s.families.Entries() {
+		if err := s.flushMemoryDatabase(entry.memDB); err != nil {
 			return err
 		}
 	}
@@ -407,9 +411,9 @@ func (s *shard) NeedFlush() bool {
 		return false
 	}
 
-	for _, memDB := range s.families {
+	for _, entry := range s.families.Entries() {
 		//TODO add time threshold???
-		return memDB.MemSize() > constants.ShardMemoryUsedThreshold
+		return entry.memDB.MemSize() > constants.ShardMemoryUsedThreshold
 	}
 	return false
 }
@@ -439,10 +443,10 @@ func (s *shard) Flush() (err error) {
 	}
 
 	// flush memory database if need flush
-	for _, memDB := range s.families {
+	for _, entry := range s.families.Entries() {
 		//TODO add time threshold???
-		if memDB.MemSize() > constants.ShardMemoryUsedThreshold {
-			if err := s.flushMemoryDatabase(memDB); err != nil {
+		if entry.memDB.MemSize() > constants.ShardMemoryUsedThreshold {
+			if err := s.flushMemoryDatabase(entry.memDB); err != nil {
 				return err
 			}
 		}
