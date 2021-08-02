@@ -15,30 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package brokerquery
 
 import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+	"context"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
+func TestExecutorFactory_NewExecutor(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
+	factory := NewQueryFactory(nil, nil, nil, nil)
+	assert.NotNil(t, factory.NewMetricQuery(
+		context.Background(),
+		"",
+		""))
+	assert.NotNil(t, factory.NewMetadataQuery(
+		context.Background(),
+		"",
+		&stmt.Metadata{}))
 
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
 }

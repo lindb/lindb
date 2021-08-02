@@ -15,30 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package storagequery
 
-import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
-)
+import "github.com/lindb/lindb/models"
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
+//go:generate mockgen -source=./interface.go -destination=./interface_mock.go -package=storagequery
 
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
+type storageMetricQuery interface {
+	Execute()
+}
 
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
+type storageMetadataQuery interface {
+	Execute() (result []string, err error)
+}
 
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+// StorageExecuteContext represents the storage execute context
+type StorageExecuteContext interface {
+	// QueryStats returns the storage query stats
+	QueryStats() *models.StorageStats
 }
