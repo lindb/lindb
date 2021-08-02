@@ -45,7 +45,7 @@ type DataFamily interface {
 	// Family returns the raw kv family
 	Family() kv.Family
 
-	// flow.DataFilter filters data under data family based on query condition
+	// DataFilter filters data under data family based on query condition
 	flow.DataFilter
 }
 

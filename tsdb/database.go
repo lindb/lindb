@@ -93,9 +93,8 @@ type database struct {
 	path         string          // database root path
 	config       *databaseConfig // meta configuration
 	executorPool *ExecutorPool   // executor pool for querying task
-	shards       sync.Map        // shardID(int32)->shard(Shard)
-	numOfShards  atomic.Int32    // counter
 	mutex        sync.Mutex      // mutex for creating shards
+	shardSet     *shardSet       // atomic value
 	metadata     metadb.Metadata // underlying metric metadata
 	metaStore    kv.Store        // underlying meta kv store
 	isFlushing   atomic.Bool     // restrict flusher concurrency
@@ -115,7 +114,7 @@ func newDatabase(
 		path:         databasePath,
 		flushChecker: flushChecker,
 		config:       cfg,
-		numOfShards:  *atomic.NewInt32(0),
+		shardSet:     newShardSet(),
 		executorPool: &ExecutorPool{
 			Filtering: concurrent.NewPool(
 				databaseName+"-filtering-pool",
@@ -169,8 +168,7 @@ func newDatabase(
 				return nil, fmt.Errorf("cannot create shard[%d] of database[%s] with error: %s",
 					shardID, databaseName, err)
 			}
-			db.shards.Store(shardID, shard)
-			db.numOfShards.Inc()
+			db.shardSet.InsertShard(shardID, shard)
 		}
 	}
 
@@ -186,7 +184,7 @@ func (db *database) Name() string {
 }
 
 func (db *database) NumOfShards() int {
-	return int(db.numOfShards.Load())
+	return db.shardSet.GetShardNum()
 }
 
 func (db *database) GetOption() option.DatabaseOption {
@@ -240,18 +238,13 @@ func (db *database) createShard(shardID int32, option option.DatabaseOption) err
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
 		return err
 	}
-	db.shards.Store(shardID, createdShard)
-	db.numOfShards.Inc()
+	db.shardSet.InsertShard(shardID, createdShard)
 	return nil
 }
 
 // GetShard returns shard by given shard id,
 func (db *database) GetShard(shardID int32) (Shard, bool) {
-	item, ok := db.shards.Load(shardID)
-	if !ok {
-		return nil, false
-	}
-	return item.(Shard), true
+	return db.shardSet.GetShard(shardID)
 }
 
 // ExecutorPool returns the query task execute pool
@@ -267,14 +260,13 @@ func (db *database) Close() error {
 	if err := db.metaStore.Close(); err != nil {
 		return err
 	}
-	db.shards.Range(func(key, value interface{}) bool {
-		thisShard := value.(Shard)
+	for _, shardEntry := range *db.shardSet.Entries() {
+		thisShard := shardEntry.shard
 		if err := thisShard.Close(); err != nil {
 			engineLogger.Error(fmt.Sprintf(
-				"close shard[%d] of database[%s]", key.(int32), db.name), logger.Error(err))
+				"close shard[%d] of database[%s]", shardEntry.shardID, db.name), logger.Error(err))
 		}
-		return true
-	})
+	}
 	return nil
 }
 
@@ -324,13 +316,12 @@ func (db *database) FlushMeta() (err error) {
 	return db.metadata.Flush()
 }
 
-// FLush flushes memory data of all shards to disk
+// Flush flushes memory data of all shards to disk
 func (db *database) Flush() error {
-	db.shards.Range(func(key, value interface{}) bool {
-		shard := value.(Shard)
+	for _, shardEntry := range *db.shardSet.Entries() {
+		shard := shardEntry.shard
 		db.flushChecker.requestFlushJob(shard, false)
-		return true
-	})
+	}
 	return nil
 }
 
