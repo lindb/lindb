@@ -15,30 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package query
+
+//go:generate mockgen -source=./task_processor.go -destination=./task_processor_mock.go -package=query
 
 import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+	"context"
+
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
-
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
-
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+// TaskProcessor represents the task processor, all task processors are async
+type TaskProcessor interface {
+	// Process processes the task request
+	Process(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest)
 }

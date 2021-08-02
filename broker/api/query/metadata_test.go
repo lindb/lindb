@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/query"
+	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
@@ -102,8 +102,8 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := query.NewMockFactory(ctrl)
-	metaDataQuery := query.NewMockMetaDataQuery(ctrl)
+	factory := brokerQuery.NewMockFactory(ctrl)
+	metaDataQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
 
 	factory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metaDataQuery).AnyTimes()
 

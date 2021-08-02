@@ -15,30 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package storagequery
 
 import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
+func TestStorageExecuteContext(t *testing.T) {
+	ctx := newStorageExecuteContext(nil, &stmt.Query{Explain: true})
+	ctx.setTagFilterResult(nil)
+	assert.NotNil(t, ctx.QueryStats())
 
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
+	spans := timeSpans{{familyTime: 1}, {familyTime: 1}}
+	sort.Sort(spans)
 
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+	_ = newTimeSpanResultSet().getFilterRSCount()
 }

@@ -15,30 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package storagequery
 
 import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
-
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
-
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+func TestStage_String(t *testing.T) {
+	assert.Equal(t, "scanner", Scanner.String())
+	assert.Equal(t, "filtering", Filtering.String())
+	assert.Equal(t, "grouping", Grouping.String())
+	assert.Equal(t, "downSampling", DownSampling.String())
+	assert.Equal(t, "unknown", Stage(99999).String())
 }

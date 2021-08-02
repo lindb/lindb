@@ -43,6 +43,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 	"github.com/lindb/lindb/query"
+	storageQuery "github.com/lindb/lindb/query/storage"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/service"
@@ -316,7 +317,7 @@ func (r *runtime) startTCPServer() {
 // bindRPCHandlers binds rpc handlers, registers handler into grpc server
 func (r *runtime) bindRPCHandlers() {
 	//FIXME: (stone1100) need close
-	leafTaskProcessor := query.NewLeafTaskProcessor(
+	leafTaskProcessor := storageQuery.NewLeafTaskProcessor(
 		r.node,
 		r.srv.storageService,
 		r.factory.taskServer,

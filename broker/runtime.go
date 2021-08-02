@@ -42,6 +42,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
+	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
@@ -60,7 +61,7 @@ type srv struct {
 	databaseService       service.DatabaseService
 	replicatorStateReport replication.ReplicatorStateReport
 	channelManager        replication.ChannelManager
-	taskManager           query.TaskManager
+	taskManager           brokerQuery.TaskManager
 }
 
 // factory represents all factories for broker
@@ -198,7 +199,7 @@ func (r *runtime) Run() error {
 	//TODO TTL default value???
 	r.registry = discovery.NewRegistry(r.repo, constants.ActiveNodesPath, 1)
 	if err := r.registry.Register(r.node); err != nil {
-		return fmt.Errorf("register storage node error:%s", err)
+		return fmt.Errorf("register storagequery node error:%s", err)
 	}
 	r.master.Start()
 
@@ -271,7 +272,7 @@ func (r *runtime) Stop() {
 	if r.grpcServer != nil {
 		r.log.Info("stopping grpc server...")
 		r.grpcServer.Stop()
-		r.log.Info("stoped grpc server successfully")
+		r.log.Info("stopped grpc server successfully")
 	}
 
 	r.log.Info("stopped broker server successfully")
@@ -293,7 +294,7 @@ func (r *runtime) startHTTPServer() {
 		ShardAssignSrv:    r.srv.shardAssignService,
 		StorageClusterSrv: r.srv.storageClusterService,
 		CM:                r.srv.channelManager,
-		QueryFactory: query.NewQueryFactory(
+		QueryFactory: brokerQuery.NewQueryFactory(
 			r.stateMachines.ReplicaStatusSM,
 			r.stateMachines.NodeSM,
 			r.stateMachines.DatabaseSM,
@@ -331,7 +332,7 @@ func (r *runtime) buildServiceDependency() {
 		r.config.BrokerBase.ReplicationChannel,
 		rpc.NewClientStreamFactory(r.node),
 		replicatorStateReport)
-	taskManager := query.NewTaskManager(
+	taskManager := brokerQuery.NewTaskManager(
 		r.ctx,
 		r.node,
 		r.factory.taskClient,
@@ -372,7 +373,7 @@ func (r *runtime) startGRPCServer() {
 
 // bindGRPCHandlers binds rpc handlers, registers rpcHandler into grpc server
 func (r *runtime) bindGRPCHandlers() {
-	intermediateTaskProcessor := query.NewIntermediateTaskProcessor(
+	intermediateTaskProcessor := brokerQuery.NewIntermediateTaskProcessor(
 		r.node,
 		r.factory.taskClient,
 		r.factory.taskServer,
