@@ -33,15 +33,15 @@ import (
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/query"
+	brokerQuery "github.com/lindb/lindb/query/broker"
 )
 
 func TestMetricAPI_Search(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	queryFactory := query.NewMockFactory(ctrl)
-	metricQuery := query.NewMockMetricQuery(ctrl)
+	queryFactory := brokerQuery.NewMockFactory(ctrl)
+	metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
 
 	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 
@@ -62,7 +62,7 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	queryFactory := query.NewMockFactory(ctrl)
+	queryFactory := brokerQuery.NewMockFactory(ctrl)
 	api := NewMetricAPI(&deps.HTTPDeps{
 		BrokerCfg:     &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		QueryFactory:  queryFactory,
@@ -74,7 +74,7 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodGet, MetricQueryPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	metricQuery := query.NewMockMetricQuery(ctrl)
+	metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
 	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 	metricQuery.EXPECT().WaitResponse().Return(&models.ResultSet{}, fmt.Errorf("err"))
 

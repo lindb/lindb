@@ -15,30 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package storagequery
 
-import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+// Stage is the definition of query stage
+type Stage int
+
+const (
+	Filtering Stage = iota + 1
+	Grouping
+	Scanner
+	DownSampling
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
-
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
-
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+func (qs Stage) String() string {
+	switch qs {
+	case Filtering:
+		return "filtering"
+	case Grouping:
+		return "grouping"
+	case Scanner:
+		return "scanner"
+	case DownSampling:
+		return "downSampling"
+	default:
+		return "unknown"
+	}
 }

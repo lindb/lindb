@@ -15,30 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package deps
+package storagequery
 
 import (
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator"
-	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
-	"github.com/lindb/lindb/service"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-// HTTPDeps represents http server handler's dependency.
-type HTTPDeps struct {
-	BrokerCfg *config.BrokerBase
-	Master    coordinator.Master
-
-	Repo          state.Repository
-	StateMachines *coordinator.BrokerStateMachines
-
-	DatabaseSrv       service.DatabaseService
-	ShardAssignSrv    service.ShardAssignService
-	StorageClusterSrv service.StorageClusterService
-
-	CM replication.ChannelManager
-
-	QueryFactory brokerQuery.Factory
+func Test_downSamplingTimeRange(t *testing.T) {
+	timeRange, intervalRatio, interval := downSamplingTimeRange(
+		timeutil.Interval(30*timeutil.OneSecond),
+		timeutil.Interval(10*timeutil.OneSecond),
+		timeutil.TimeRange{
+			Start: 35 * timeutil.OneSecond,
+			End:   65 * timeutil.OneSecond,
+		})
+	assert.Equal(t, 3, intervalRatio)
+	assert.Equal(t, 30*timeutil.OneSecond, interval.Int64())
+	assert.Equal(t, timeutil.TimeRange{
+		Start: 30 * timeutil.OneSecond,
+		End:   60 * timeutil.OneSecond,
+	}, timeRange)
 }
