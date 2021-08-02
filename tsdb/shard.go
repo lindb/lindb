@@ -86,7 +86,7 @@ type Shard interface {
 	ShardInfo() string
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
-	// MemoryDatabase returns memory database by given family time.
+	// GetOrCreateMemoryDatabase makes sure that a memory database will always be returned by given family time.
 	GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
@@ -105,7 +105,7 @@ type Shard interface {
 
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
-	// flow.DataFilter filters the data based on condition
+	// DataFilter filters the data based on condition
 	flow.DataFilter
 }
 

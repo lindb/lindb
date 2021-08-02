@@ -20,6 +20,7 @@ package tsdb
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -185,6 +186,7 @@ func TestDatabase_Close(t *testing.T) {
 	metadata.EXPECT().Flush().Return(nil).AnyTimes()
 	db := &database{
 		metadata:  metadata,
+		shardSet:  newShardSet(),
 		metaStore: mockStore}
 	// case 1: close metadata err
 	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -201,7 +203,7 @@ func TestDatabase_Close(t *testing.T) {
 	// mock shard close error
 	mockShard := NewMockShard(ctrl)
 	mockShard.EXPECT().Close().Return(fmt.Errorf("error"))
-	db.shards.Store(int32(1), mockShard)
+	db.shardSet.InsertShard(int32(1), mockShard)
 	assert.Nil(t, db.Close())
 }
 
@@ -243,10 +245,84 @@ func TestDatabase_Flush(t *testing.T) {
 	db1 := db.(*database)
 	shard1 := NewMockShard(ctrl)
 	shard2 := NewMockShard(ctrl)
-	db1.shards.Store(1, shard1)
-	db1.shards.Store(2, shard2)
+	db1.shardSet.InsertShard(1, shard1)
+	db1.shardSet.InsertShard(2, shard2)
 	checker.EXPECT().requestFlushJob(shard1, false)
 	checker.EXPECT().requestFlushJob(shard2, false)
 	err = db.Flush()
 	assert.NoError(t, err)
+}
+
+func Test_ShardSet_multi(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	set := newShardSet()
+	shard1 := NewMockShard(ctrl)
+	for i := 0; i < 100; i += 2 {
+		set.InsertShard(int32(i), shard1)
+	}
+	assert.Equal(t, set.GetShardNum(), 50)
+	_, ok := set.GetShard(0)
+	assert.True(t, ok)
+	_, ok = set.GetShard(11)
+	assert.False(t, ok)
+	_, ok = set.GetShard(101)
+	assert.False(t, ok)
+}
+
+func Benchmark_LoadSyncMap(b *testing.B) {
+	var m sync.Map
+	for i := 0; i < 10; i++ {
+		m.Store(i, &shard{})
+	}
+	for i := 0; i < b.N; i++ {
+		for i := 0; i < 10; i++ {
+			item, ok := m.Load(i)
+			if !ok {
+				panic("shard not exist")
+			}
+			_, _ = item.(*shard)
+		}
+	}
+}
+
+func Benchmark_LoadAtomicValue(b *testing.B) {
+	var v atomic.Value
+	l := make([]*shard, 10)
+	v.Store(&l)
+
+	for i := 0; i < b.N; i++ {
+		list := v.Load().(*[]*shard)
+		for i := 0; i < 10; i++ {
+			if len(*list) < i {
+				panic("error atomic value")
+			}
+			_ = (*list)[i]
+		}
+	}
+}
+
+var (
+	boundaryShardSetLen = 20
+)
+
+func Benchmark_ShardSet_iterating(b *testing.B) {
+	set := newShardSet()
+	for i := 0; i < boundaryShardSetLen; i++ {
+		set.InsertShard(int32(i), nil)
+	}
+	for i := 0; i < b.N; i++ {
+		set.GetShard(int32(boundaryShardSetLen) - 1)
+	}
+}
+
+func Benchmark_SharSet_binarySearch(b *testing.B) {
+	set := newShardSet()
+	for i := 0; i < boundaryShardSetLen+1; i++ {
+		set.InsertShard(int32(i), nil)
+	}
+	for i := 0; i < b.N; i++ {
+		set.GetShard(int32(boundaryShardSetLen))
+	}
 }

@@ -30,7 +30,7 @@ func NewSlotRange(start, end uint16) SlotRange {
 	}
 }
 
-// setSlot sets the time slot range
+// SetSlot sets the time slot range
 func (sr *SlotRange) SetSlot(slot uint16) {
 	if slot < sr.Start {
 		sr.Start = slot
@@ -40,7 +40,7 @@ func (sr *SlotRange) SetSlot(slot uint16) {
 	}
 }
 
-// getSlotRange returns return the time slot range
+// GetRange returns the time slot range
 func (sr *SlotRange) GetRange() (start, end uint16) {
 	return sr.Start, sr.End
 }
