@@ -36,10 +36,8 @@ func (se shardEntries) Swap(i, j int)      { se[i], se[j] = se[j], se[i] }
 
 // shardSet is a immutable data structure in database to provide lock-free lookup
 type shardSet struct {
-	// *[]shardEntry
-	value atomic.Value
-	// number of shards
-	num atomic.Int32
+	value atomic.Value // shardEntries
+	num   atomic.Int32 // number of shards
 }
 
 // newShardSet returns a default empty shardSet
@@ -48,48 +46,48 @@ func newShardSet() *shardSet {
 		num: *atomic.NewInt32(0),
 	}
 	// initialize it with a new empty entry slice
-	set.value.Store(&shardEntries{})
+	set.value.Store(shardEntries{})
 	return set
 }
 
 // InsertShard appends a new shard into the slice,
 // then changes atomic.Value to the new sorted set
 func (ss *shardSet) InsertShard(shardID int32, shard Shard) {
-	oldEntries := ss.value.Load().(*shardEntries)
+	oldEntries := ss.value.Load().(shardEntries)
 	var (
 		newEntries shardEntries
 		newEntry   = shardEntry{shardID: shardID, shard: shard}
 	)
 
 	newEntries = make([]shardEntry, oldEntries.Len()+1)
-	copy(newEntries, *oldEntries)
+	copy(newEntries, oldEntries)
 	newEntries[len(newEntries)-1] = newEntry
 	sort.Sort(newEntries)
 
-	ss.value.Store(&newEntries)
+	ss.value.Store(newEntries)
 	ss.num.Inc()
 }
 
 // GetShard searches the shard by shardID from the shardSet
 // BinarySearch is not always faster than iterating
 func (ss *shardSet) GetShard(shardID int32) (Shard, bool) {
-	entries := ss.value.Load().(*shardEntries)
+	entries := ss.value.Load().(shardEntries)
 	// fast path when length < 20
 	if entries.Len() <= 20 {
-		for idx := range *entries {
-			if (*entries)[idx].shardID == shardID {
-				return (*entries)[idx].shard, true
+		for idx := range entries {
+			if entries[idx].shardID == shardID {
+				return entries[idx].shard, true
 			}
 		}
 		return nil, false
 	}
 	index := sort.Search(entries.Len(), func(i int) bool {
-		return (*entries)[i].shardID >= shardID
+		return entries[i].shardID >= shardID
 	})
 	if index < 0 || index >= entries.Len() {
 		return nil, false
 	}
-	return (*entries)[index].shard, (*entries)[index].shardID == shardID
+	return entries[index].shard, entries[index].shardID == shardID
 }
 
 // GetShardNum returns the shard number
@@ -97,6 +95,6 @@ func (ss *shardSet) GetShardNum() int {
 	return int(ss.num.Load())
 }
 
-func (ss *shardSet) Entries() *shardEntries {
-	return ss.value.Load().(*shardEntries)
+func (ss *shardSet) Entries() shardEntries {
+	return ss.value.Load().(shardEntries)
 }

@@ -24,6 +24,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/felixge/fgprof"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 
@@ -284,6 +285,8 @@ func (r *runtime) startHTTPServer() {
 	g := gin.New()
 	pprof.Register(g)
 	r.log.Info("/debug/pprof is enabled")
+	g.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
+	r.log.Info("/debug/fgprof is enabled")
 
 	r.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),

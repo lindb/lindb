@@ -186,7 +186,7 @@ func TestDatabase_Close(t *testing.T) {
 	metadata.EXPECT().Flush().Return(nil).AnyTimes()
 	db := &database{
 		metadata:  metadata,
-		shardSet:  newShardSet(),
+		shardSet:  *newShardSet(),
 		metaStore: mockStore}
 	// case 1: close metadata err
 	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -273,34 +273,69 @@ func Test_ShardSet_multi(t *testing.T) {
 
 func Benchmark_LoadSyncMap(b *testing.B) {
 	var m sync.Map
-	for i := 0; i < 10; i++ {
+	for i := 0; i < boundaryShardSetLen; i++ {
 		m.Store(i, &shard{})
 	}
-	for i := 0; i < b.N; i++ {
-		for i := 0; i < 10; i++ {
-			item, ok := m.Load(i)
-			if !ok {
-				panic("shard not exist")
+	// 8.435 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			item, ok := m.Load(boundaryShardSetLen - 1)
+			if ok {
+				_, _ = item.(*shard)
 			}
-			_, _ = item.(*shard)
 		}
-	}
+	})
 }
 
 func Benchmark_LoadAtomicValue(b *testing.B) {
 	var v atomic.Value
-	l := make([]*shard, 10)
-	v.Store(&l)
+	l := make([]*shard, boundaryShardSetLen)
+	v.Store(l)
 
-	for i := 0; i < b.N; i++ {
-		list := v.Load().(*[]*shard)
-		for i := 0; i < 10; i++ {
-			if len(*list) < i {
-				panic("error atomic value")
+	// 2.631ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			list := v.Load().([]*shard)
+			for i := 0; i < boundaryShardSetLen; i++ {
+				if i == boundaryShardSetLen-1 {
+					_ = list[boundaryShardSetLen-1]
+				}
 			}
-			_ = (*list)[i]
 		}
+	})
+}
+
+func Benchmark_SyncRWMutex(b *testing.B) {
+	var lock sync.RWMutex
+	m := make(map[int]*shard)
+	for i := 0; i < boundaryShardSetLen; i++ {
+		m[i] = &shard{}
 	}
+
+	// 34.75 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			lock.RLock()
+			_ = m[boundaryShardSetLen-1]
+			lock.RUnlock()
+		}
+	})
+}
+
+func Benchmark_MapWithoutLock(b *testing.B) {
+	m := make(map[int]*shard)
+	for i := 0; i < boundaryShardSetLen; i++ {
+		m[i] = &shard{}
+	}
+	var v atomic.Value
+	v.Store(m)
+	// 3.066 ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			item := v.Load().(map[int]*shard)
+			_ = item[boundaryShardSetLen-1]
+		}
+	})
 }
 
 var (
@@ -312,9 +347,12 @@ func Benchmark_ShardSet_iterating(b *testing.B) {
 	for i := 0; i < boundaryShardSetLen; i++ {
 		set.InsertShard(int32(i), nil)
 	}
-	for i := 0; i < b.N; i++ {
-		set.GetShard(int32(boundaryShardSetLen) - 1)
-	}
+	// 2.8ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			set.GetShard(int32(boundaryShardSetLen) - 1)
+		}
+	})
 }
 
 func Benchmark_SharSet_binarySearch(b *testing.B) {
@@ -322,7 +360,10 @@ func Benchmark_SharSet_binarySearch(b *testing.B) {
 	for i := 0; i < boundaryShardSetLen+1; i++ {
 		set.InsertShard(int32(i), nil)
 	}
-	for i := 0; i < b.N; i++ {
-		set.GetShard(int32(boundaryShardSetLen))
-	}
+	// 4.68ns
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			set.GetShard(int32(boundaryShardSetLen))
+		}
+	})
 }

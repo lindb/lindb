@@ -94,7 +94,7 @@ type database struct {
 	config       *databaseConfig // meta configuration
 	executorPool *ExecutorPool   // executor pool for querying task
 	mutex        sync.Mutex      // mutex for creating shards
-	shardSet     *shardSet       // atomic value
+	shardSet     shardSet        // atomic value
 	metadata     metadb.Metadata // underlying metric metadata
 	metaStore    kv.Store        // underlying meta kv store
 	isFlushing   atomic.Bool     // restrict flusher concurrency
@@ -114,7 +114,7 @@ func newDatabase(
 		path:         databasePath,
 		flushChecker: flushChecker,
 		config:       cfg,
-		shardSet:     newShardSet(),
+		shardSet:     *newShardSet(),
 		executorPool: &ExecutorPool{
 			Filtering: concurrent.NewPool(
 				databaseName+"-filtering-pool",
@@ -260,7 +260,7 @@ func (db *database) Close() error {
 	if err := db.metaStore.Close(); err != nil {
 		return err
 	}
-	for _, shardEntry := range *db.shardSet.Entries() {
+	for _, shardEntry := range db.shardSet.Entries() {
 		thisShard := shardEntry.shard
 		if err := thisShard.Close(); err != nil {
 			engineLogger.Error(fmt.Sprintf(
@@ -318,7 +318,7 @@ func (db *database) FlushMeta() (err error) {
 
 // Flush flushes memory data of all shards to disk
 func (db *database) Flush() error {
-	for _, shardEntry := range *db.shardSet.Entries() {
+	for _, shardEntry := range db.shardSet.Entries() {
 		shard := shardEntry.shard
 		db.flushChecker.requestFlushJob(shard, false)
 	}
