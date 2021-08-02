@@ -58,6 +58,8 @@ type Engine interface {
 	//databaseMetaFlusher(ctx context.Context)
 }
 
+// todo, map free engine @codingcrush
+
 // engine implements Engine
 type engine struct {
 	cfg              config.TSDB        // the common cfg of time series database
@@ -123,9 +125,11 @@ func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 
 // GetDatabase returns the time series database by given name
 func (e *engine) GetDatabase(databaseName string) (Database, bool) {
-	item, _ := e.databases.Load(databaseName)
-	db, ok := item.(Database)
-	return db, ok
+	item, ok := e.databases.Load(databaseName)
+	if ok {
+		return item.(Database), true
+	}
+	return nil, false
 }
 
 // Close closes the cached time series databases

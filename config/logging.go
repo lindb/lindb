@@ -74,7 +74,7 @@ func NewDefaultLogging() *Logging {
 	return &Logging{
 		Dir:        filepath.Join(defaultParentDir, "log"),
 		Level:      "info",
-		MaxSize:    500,
+		MaxSize:    100,
 		MaxBackups: 3,
 		MaxAge:     30}
 }
