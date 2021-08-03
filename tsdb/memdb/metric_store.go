@@ -114,7 +114,7 @@ func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, cr
 	return tStore, createdSize
 }
 
-// FlushMetricsTo Writes metric-data to the table.
+// FlushMetricsDataTo Writes metric-data to the table.
 func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx flushContext) (err error) {
 	slotRange := ms.slotRange
 	// field not exist, return
