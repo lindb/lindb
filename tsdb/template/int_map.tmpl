@@ -7,6 +7,7 @@ import (
 
 // {{.type}}Store represents int map using roaring bitmap
 type {{.type}}Store struct {
+    putCount  int             // insert count
 	keys      *roaring.Bitmap // store all keys
 	values    [][]{{.value}}  // store all values by high/low key
 }
@@ -38,6 +39,7 @@ func (m *{{.type}}Store) Get(key uint32) ({{.value}}, bool) {
 
 // Put puts the value by key
 func (m *{{.type}}Store) Put(key uint32, value {{.value}}) {
+	defer m.tryOptimize()
 	if len(m.values) == 0 {
 		// if values is empty, append new low container directly
 		m.values = append(m.values, []{{.value}}{value})
@@ -70,6 +72,14 @@ func (m *{{.type}}Store) Put(key uint32, value {{.value}}) {
 	m.keys.Add(key)
 }
 
+// tryOptimize optimizes the roaring bitmap when inserted in every 100
+func (m *{{.type}}Store) tryOptimize() {
+    m.putCount ++
+    if m.putCount % 100 == 0{
+        m.keys.RunOptimize()
+    }
+}
+
 // Keys returns the all keys
 func (m *{{.type}}Store) Keys() *roaring.Bitmap {
 	return m.keys
@@ -80,7 +90,7 @@ func (m *{{.type}}Store) Values() [][]{{.value}} {
 	return m.values
 }
 
-// size returns the size of keys
+// Size returns the size of keys
 func (m *{{.type}}Store) Size() int {
 	return int(m.keys.GetCardinality())
 }

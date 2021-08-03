@@ -20,7 +20,6 @@ package memdb
 import (
 	"io"
 	"sync"
-	"time"
 
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
@@ -102,7 +101,6 @@ type memoryDatabase struct {
 	rwMutex        sync.RWMutex // lock of create metric store
 
 	allocSize                atomic.Int32 // allocated size
-	reportTicker             time.Ticker
 	writeMetricsCounter      *linmetric.BoundDeltaCounter
 	writeMetricFailures      *linmetric.BoundDeltaCounter
 	writeFieldsCounter       *linmetric.BoundDeltaCounter
@@ -123,7 +121,6 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		buf:                      buf,
 		mStores:                  NewMetricBucketStore(),
 		allocSize:                *atomic.NewInt32(0),
-		reportTicker:             *time.NewTicker(time.Second * 10),
 		writeMetricsCounter:      writeMetricsCounterVec.WithTagValues(cfg.Name),
 		writeMetricFailures:      writeMetricsFailure.WithTagValues(cfg.Name),
 		writeFieldsCounter:       writeFieldsCounterVec.WithTagValues(cfg.Name),
@@ -353,7 +350,8 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 // Filter filters the data based on metric/seriesIDs,
 // if finds data then returns the flow.FilterResultSet, else returns nil
 func (md *memoryDatabase) Filter(metricID uint32,
-	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
+	seriesIDs *roaring.Bitmap,
+	timeRange timeutil.TimeRange,
 	fields field.Metas,
 ) ([]flow.FilterResultSet, error) {
 	md.rwMutex.RLock()
@@ -374,6 +372,5 @@ func (md *memoryDatabase) MemSize() int32 {
 
 // Close closes memory data point buffer
 func (md *memoryDatabase) Close() error {
-	md.reportTicker.Stop()
 	return md.buf.Close()
 }

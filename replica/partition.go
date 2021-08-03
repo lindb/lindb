@@ -92,7 +92,7 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 	return appendIdx, nil
 }
 
-// ReplicaLog writes msg that leader send replica msg.
+// WriteLog writes msg that leader send replica msg.
 func (p *partition) WriteLog(msg []byte) error {
 	if len(msg) == 0 {
 		return nil
