@@ -9,9 +9,9 @@ require (
 	github.com/cespare/xxhash v1.1.0
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.12.0 // indirect
-	github.com/felixge/fgprof v0.9.1 // indirect
+	github.com/felixge/fgprof v0.9.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.2
@@ -22,7 +22,7 @@ require (
 	github.com/golang/snappy v0.0.3
 	github.com/json-iterator/go v1.1.9
 	github.com/klauspost/compress v1.12.3
-	github.com/lindb/roaring v0.4.22-0.20200211075929-6661b4a242fa
+	github.com/lindb/roaring v0.9.2
 	github.com/mattn/go-isatty v0.0.13
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0

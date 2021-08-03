@@ -111,3 +111,52 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
 	assert.Error(t, err)
 }
+
+func Benchmark_MetricBucketStore_get(b *testing.B) {
+	noOptimization := func(count int) func(b *testing.B) {
+		m := NewMetricBucketStore()
+		for i := 0; i < count; i += 2 {
+			m.Put(uint32(i), nil)
+		}
+
+		return func(b *testing.B) {
+			b.StartTimer()
+			for i := 0; i < b.N; i++ {
+				m.Get(uint32(b.N % count))
+			}
+			b.StopTimer()
+		}
+	}
+
+	withOptimization := func(count int) func(b *testing.B) {
+		m := NewMetricBucketStore()
+		for i := 0; i < count; i++ {
+			m.Put(uint32(i), nil)
+		}
+		m.keys.RunOptimize()
+
+		return func(b *testing.B) {
+			b.StartTimer()
+			for i := 0; i < b.N; i++ {
+				m.Get(uint32(b.N % count))
+			}
+			b.StopTimer()
+		}
+	}
+
+	b.Run("10_without_optimize", noOptimization(10))
+	b.Run("100_without_optimize", noOptimization(100))
+	b.Run("500_without_optimize", noOptimization(500))
+	b.Run("1000_without_optimize", noOptimization(1000))
+	b.Run("5000_without_optimize", noOptimization(5000))
+	b.Run("10000_without_optimize", noOptimization(10000))
+	b.Run("50000_without_optimize", noOptimization(50000))
+	b.Run("100000_without_optimize", noOptimization(100000))
+
+	b.Run("100_with_optimize", withOptimization(100))
+	b.Run("1000_with_optimize", withOptimization(1000))
+	b.Run("5000_with_optimize", withOptimization(5000))
+	b.Run("10000_with_optimize", withOptimization(10000))
+	b.Run("50000_with_optimize", withOptimization(50000))
+	b.Run("100000_with_optimize", withOptimization(100000))
+}

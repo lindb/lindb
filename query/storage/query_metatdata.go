@@ -90,34 +90,35 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 			// get shard by given query shard id list
 			for _, shardID := range e.shardIDs {
 				shard, ok := e.database.GetShard(shardID)
+				if !ok {
+					continue
+				}
 				// if shard exist, do series search
-				if ok {
-					// if get tag filter result do series ids searching
-					seriesSearch := newSeriesSearchFunc(shard.IndexDatabase(), tagFilterResult, req.Condition)
-					seriesIDs, err := seriesSearch.Search()
+				// if get tag filter result do series ids searching
+				seriesSearch := newSeriesSearchFunc(shard.IndexDatabase(), tagFilterResult, req.Condition)
+				seriesIDs, err := seriesSearch.Search()
+				if err != nil {
+					return nil, err
+				}
+				// get grouping based on tag keys and series ids
+				gCtx, err := shard.IndexDatabase().GetGroupingContext(groupByTagKeyIDs, seriesIDs)
+				if err != nil {
+					return nil, err
+				}
+				highKeys := seriesIDs.GetHighKeys()
+				for i, highKey := range highKeys {
+					// get tag value ids
+					tagValueIDs := gCtx.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
+					tagValues := make(map[uint32]string)
+					// get tag value
+					err = e.database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
 					if err != nil {
 						return nil, err
 					}
-					// get grouping based on tag keys and series ids
-					gCtx, err := shard.IndexDatabase().GetGroupingContext(groupByTagKeyIDs, seriesIDs)
-					if err != nil {
-						return nil, err
-					}
-					highKeys := seriesIDs.GetHighKeys()
-					for i, highKey := range highKeys {
-						// get tag value ids
-						tagValueIDs := gCtx.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
-						tagValues := make(map[uint32]string)
-						// get tag value
-						err = e.database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
-						if err != nil {
-							return nil, err
-						}
-						for _, tagValue := range tagValues {
-							result = append(result, tagValue)
-							if len(result) >= limit {
-								return result, nil
-							}
+					for _, tagValue := range tagValues {
+						result = append(result, tagValue)
+						if len(result) >= limit {
+							return result, nil
 						}
 					}
 				}
