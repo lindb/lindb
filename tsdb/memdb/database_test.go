@@ -19,6 +19,7 @@ package memdb
 
 import (
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -83,15 +83,11 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		defer ctrl.Finish()
 	}()
 	// mock
-	mockMetadata := metadb.NewMockMetadata(ctrl)
-	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
-	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
 	fStore := NewMockfStoreINTF(ctrl)
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
 	// build memory-database
-	cfg.Metadata = mockMetadata
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	md := mdINTF.(*memoryDatabase)
@@ -101,51 +97,105 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	md.mStores.Put(uint32(1), mockMStore)
 	// case 1: write ok
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
-		mockMStore.EXPECT().SetSlot(gomock.Any()).Times(2),
+		mockMStore.EXPECT().SetSlot(gomock.Any()).Times(1),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
-		Name:  "f1",
-		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		Value: 10.0,
-	}}, nil)
+	err = md.Write(&MetricPoint{
+		MetricID:  1,
+		SeriesID:  10,
+		SlotIndex: 1,
+		FieldIDs:  []field.ID{10},
+		Proto: &protoMetricsV1.Metric{
+			Name:      "test1",
+			Namespace: "ns",
+			SimpleFields: []*protoMetricsV1.SimpleField{
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+			},
+		}})
 	assert.NoError(t, err)
 	// case 2: field type unknown
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
-		Name: "f1",
-	}}, nil)
+	err = md.Write(&MetricPoint{
+		MetricID:  1,
+		SeriesID:  10,
+		SlotIndex: 1,
+		FieldIDs:  []field.ID{10},
+		Proto: &protoMetricsV1.Metric{
+			Name:      "test1",
+			Namespace: "ns",
+			SimpleFields: []*protoMetricsV1.SimpleField{
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED, Value: 10},
+			},
+		}})
 	assert.NoError(t, err)
-	// case 3: generate field err
-	mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1-err"), field.SumField).Return(field.ID(0), fmt.Errorf("err"))
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
-		Name:  "f1-err",
-		Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
-		Value: 10.0,
-	}}, nil)
+	// case 3: new metric store
+	err = md.Write(
+		&MetricPoint{
+			MetricID:  20,
+			SeriesID:  20,
+			SlotIndex: 1,
+			FieldIDs:  []field.ID{10},
+			Proto: &protoMetricsV1.Metric{
+				Name:      "test1",
+				Namespace: "ns",
+				SimpleFields: []*protoMetricsV1.SimpleField{
+					{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+				},
+			}})
 	assert.NoError(t, err)
-	// case 5: new metric store
-	err = md.Write("ns", "test1", uint32(20), uint32(20), 1, []*protoMetricsV1.SimpleField{{
-		Name: "f1",
-	}}, nil)
-	assert.NoError(t, err)
-	// case 6: create new field store
+	// case 4: create new field store
 	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f4"), field.SumField).Return(field.ID(1), nil),
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 		tStore.EXPECT().InsertFStore(gomock.Any()),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 15, []*protoMetricsV1.SimpleField{{
-		Name:  "f4",
-		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		Value: 10.0,
-	}}, nil)
+	err = md.Write(
+		&MetricPoint{
+			MetricID:  1,
+			SeriesID:  10,
+			SlotIndex: 15,
+			FieldIDs:  []field.ID{10},
+			Proto: &protoMetricsV1.Metric{
+				Name:      "test1",
+				Namespace: "ns",
+				SimpleFields: []*protoMetricsV1.SimpleField{
+					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+				},
+			}})
 	assert.NoError(t, err)
 	assert.True(t, md.MemSize() > 0)
+	// case5, write histogram field
+	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false).AnyTimes()
+	tStore.EXPECT().InsertFStore(gomock.Any()).AnyTimes()
+	mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()).AnyTimes()
+	mockMStore.EXPECT().SetSlot(gomock.Any()).AnyTimes()
+	releaseLock := md.WithLock()
+	err = md.WriteWithoutLock(
+		&MetricPoint{
+			MetricID:  1,
+			SeriesID:  10,
+			SlotIndex: 15,
+			FieldIDs:  []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			Proto: &protoMetricsV1.Metric{
+				Name:      "test1",
+				Namespace: "ns",
+				SimpleFields: []*protoMetricsV1.SimpleField{
+					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+				},
+				CompoundField: &protoMetricsV1.CompoundField{
+					Min:            10,
+					Max:            10,
+					Sum:            10,
+					Count:          10,
+					ExplicitBounds: []float64{1, 1, 1, 1, math.Inf(1) + 1},
+					Values:         []float64{1, 1, 1, 1, 1, 1},
+					Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
+				},
+			}})
 
+	releaseLock()
+	assert.NoError(t, err)
 	err = md.Close()
 	assert.NoError(t, err)
 }
@@ -157,14 +207,10 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	}()
 
 	// mock
-	mockMetadata := metadb.NewMockMetadata(ctrl)
-	mockMetadataDatabase := metadb.NewMockMetadataDatabase(ctrl)
-	mockMetadata.EXPECT().MetadataDatabase().Return(mockMetadataDatabase).AnyTimes()
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
 	// build memory-database
-	cfg.Metadata = mockMetadata
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	buf := NewMockDataPointBuffer(ctrl)
@@ -175,15 +221,20 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	// load mock
 	md.mStores.Put(uint32(1), mockMStore)
 	// case 1: write ok
-	gomock.InOrder(
-		mockMetadataDatabase.EXPECT().GenFieldID("ns", "test1", field.Name("f1"), field.SumField).Return(field.ID(1), nil),
-		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
-	)
-	err = md.Write("ns", "test1", uint32(1), uint32(10), 1, []*protoMetricsV1.SimpleField{{
-		Name:  "f1",
-		Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		Value: 10.0,
-	}}, nil)
+	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false)
+	err = md.Write(
+		&MetricPoint{
+			MetricID:  1,
+			SeriesID:  10,
+			SlotIndex: 15,
+			FieldIDs:  []field.ID{10},
+			Proto: &protoMetricsV1.Metric{
+				Name:      "test1",
+				Namespace: "ns",
+				SimpleFields: []*protoMetricsV1.SimpleField{
+					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+				},
+			}})
 	assert.Error(t, err)
 
 	buf.EXPECT().Close().Return(nil)

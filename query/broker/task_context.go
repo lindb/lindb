@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
@@ -58,7 +59,7 @@ type TaskContext interface {
 }
 
 type baseTaskContext struct {
-	createTime   time.Time
+	createTime   int64
 	taskID       string
 	taskType     TaskType
 	parentTaskID string
@@ -71,7 +72,7 @@ type baseTaskContext struct {
 }
 
 func (c *baseTaskContext) Expired(ttl time.Duration) bool {
-	return time.Since(c.createTime) > ttl
+	return fasttime.UnixMilliseconds()-c.createTime > ttl.Milliseconds()
 }
 
 func (c *baseTaskContext) TaskType() TaskType {
@@ -131,7 +132,7 @@ func newMetricTaskContext(
 			parentNode:    parentNode,
 			expectResults: expectResults,
 			closed:        false,
-			createTime:    time.Now(),
+			createTime:    fasttime.UnixMilliseconds(),
 		},
 		aggregatorSpecs: make(map[string]*protoCommonV1.AggregatorSpec),
 		stmtQuery:       stmtQuery,
@@ -276,7 +277,7 @@ func newMetaDataTaskContext(
 			parentNode:    parentNode,
 			expectResults: expectResults,
 			closed:        false,
-			createTime:    time.Now(),
+			createTime:    fasttime.UnixMilliseconds(),
 		},
 		taskResponseCh: taskResponseCh,
 	}

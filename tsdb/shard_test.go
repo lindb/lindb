@@ -34,6 +34,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -165,20 +166,26 @@ func TestShard_GetDataFamilies(t *testing.T) {
 func Test_Shard_validateMetric(t *testing.T) {
 	s := &shard{behind: 100000, ahead: 100000, metrics: *newShardMetrics("1", 1)}
 	// nil pb
-	assert.Error(t, s.validateMetric(nil))
+	_, err := s.validateMetric(nil)
+	assert.Error(t, err)
 	// empty name
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{Name: ""}))
+	_, err = s.validateMetric(&protoMetricsV1.Metric{Name: ""})
+	assert.Error(t, err)
 	// field empty
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{Name: "1"}))
+	_, err = s.validateMetric(&protoMetricsV1.Metric{Name: "1"})
+	assert.Error(t, err)
+
 	// time behind
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
 		},
-	}))
+	})
+	assert.Error(t, err)
+
 	// bad tags, empty
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		Tags: []*protoMetricsV1.KeyValue{
 			{Key: "", Value: ""},
@@ -187,75 +194,86 @@ func Test_Shard_validateMetric(t *testing.T) {
 			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
+
 	// bad tags, nil
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		Tags: []*protoMetricsV1.KeyValue{nil, nil},
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// simple fields nil
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name:         "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{nil, nil},
 		Timestamp:    fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// field name empty
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
-	// sanitize field name, field type unspecified
-	assert.NoError(t, s.validateMetric(&protoMetricsV1.Metric{
+	})
+	assert.Error(t, err)
+	// sanitize field name
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "Histogram_2", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.NoError(t, err)
 	// sanitize field name, field type unspecified
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "xxx2", Type: protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED, Value: 1},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// Nan number
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Value: math.Log(-1), Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
+
 	// Inf number
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Value: math.Inf(1) + 1, Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	//
 	// validate compound field
 	//
 	// unspecified field
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Type: protoMetricsV1.CompoundFieldType_COMPOUND_UNSPECIFIED,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// length not match
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Values:         []float64{1, 2, 3},
@@ -263,9 +281,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// length too short
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Values:         []float64{1, 2},
@@ -273,9 +292,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// min, max < 0
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            -1,
@@ -284,9 +304,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// check value
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
@@ -295,9 +316,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// check increase
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
@@ -306,9 +328,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// check last bound
-	assert.Error(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
@@ -317,9 +340,10 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.Error(t, err)
 	// ok
-	assert.NoError(t, s.validateMetric(&protoMetricsV1.Metric{
+	_, err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
@@ -328,7 +352,8 @@ func Test_Shard_validateMetric(t *testing.T) {
 			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
-	}))
+	})
+	assert.NoError(t, err)
 }
 
 func TestShard_Write(t *testing.T) {
@@ -351,7 +376,7 @@ func TestShard_Write(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	mockMemDB.EXPECT().AcquireWrite().AnyTimes()
 	mockMemDB.EXPECT().CompleteWrite().AnyTimes()
-	mockMemDB.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockMemDB.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
 	// calculate family start time and slot index
 	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
 	timestamp := timeutil.Now()
@@ -421,8 +446,9 @@ func TestShard_Write(t *testing.T) {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
 	}))
-	// case 7: get old series id
+	// case 8: get old series id
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
+	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(11)).Return(uint32(10), false, nil)
 	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
@@ -435,8 +461,9 @@ func TestShard_Write(t *testing.T) {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
 	}))
-	// case 8: create new series id
+	// case 9: create new series id
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), true, nil)
+	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 	indexDB.EXPECT().BuildInvertIndex(constants.DefaultNamespace, "test", tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}), uint32(10))
 	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
@@ -449,7 +476,8 @@ func TestShard_Write(t *testing.T) {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
 	}))
-	// case 9: write metric without tags
+	// case 10: write metric without tags
+	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
@@ -499,7 +527,7 @@ func Benchmark_validate_metric(b *testing.B) {
 	var s = &shard{metrics: *newShardMetrics("1", 1)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = s.validateMetric(_testMetric)
+		_, _ = s.validateMetric(_testMetric)
 	}
 }
 
