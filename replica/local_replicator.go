@@ -18,6 +18,9 @@
 package replica
 
 import (
+	"errors"
+
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/tsdb"
@@ -48,6 +51,9 @@ func (r *localReplicator) Replica(_ int64, msg []byte) {
 	//TODO write metric, need handle panic
 	for _, metric := range metricList.Metrics {
 		if err := r.shard.Write(metric); err != nil {
+			if errors.Is(err, constants.ErrMetricOutOfTimeRange) {
+				continue
+			}
 			r.logger.Error("write metric", logger.Error(err))
 		}
 	}

@@ -22,7 +22,7 @@ require (
 	github.com/golang/snappy v0.0.3
 	github.com/json-iterator/go v1.1.9
 	github.com/klauspost/compress v1.12.3
-	github.com/lindb/roaring v0.9.2
+	github.com/lindb/roaring v0.9.0
 	github.com/mattn/go-isatty v0.0.13
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0

@@ -15,25 +15,37 @@ export const WriteDashboard = [
   [
     metric(
       'Write Data Points',
-      'select write_metrics from lindb.tsdb.memdb group by db',
+      'select write_metrics from lindb.tsdb.shard group by db, shard',
       8,
       UnitEnum.None,
     ),
     metric(
-        'Write Data Points duration',
-        'select write_metric_time_total/write_metric_counter from lindb.tsdb.shard group by db, shard',
+        'Bad Metric Data Points',
+        'select bad_metrics from lindb.tsdb.shard group by db, shard',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
+        'Write Data Points Failures',
+        'select write_metric_failures from lindb.tsdb.shard group by db, shard',
         8,
         UnitEnum.None,
     ),
     metric(
         'Write Fields',
-        'select write_fields from lindb.tsdb.memdb group by db',
+        'select write_fields from lindb.tsdb.shard group by db, shard',
         8,
         UnitEnum.None,
     ),
     metric(
-        'Shard Build Index Duration',
-        'select quantile(0.99) from lindb.tsdb.shard.build_index_duration group by db, shard',
+        'Escaped Fields',
+        'select escaped_fields from lindb.tsdb.shard group by db, shard',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
+        'Metrics Out of Time Range',
+        'select metrics_out_of_range from lindb.tsdb.shard group by db, shard',
         8,
         UnitEnum.Milliseconds,
     ),
@@ -42,12 +54,6 @@ export const WriteDashboard = [
         'select quantile(0.99) from lindb.tsdb.shard.memdb_flush_duration group by db, shard',
         8,
         UnitEnum.Milliseconds,
-    ),
-    metric(
-      'Unknown Field Type',
-      'select unknown_field_type_counter from lindb.tsdb.memdb group by db',
-      8,
-      UnitEnum.None,
     ),
     metric(
       'Generate Field ID Fail',
@@ -90,30 +96,6 @@ export const WriteDashboard = [
       'select gen_tag_value_id_fails from lindb.tsdb.indexdb group by db',
       8,
       UnitEnum.None,
-    ),
-  ],
-]
-export const IndexDashboard = [
-  // Row
-  [
-    metric(
-      'CPU Usage',
-      'select 100-gauge*100 from system_cpu_stat  where type="idle" group by node',
-      8,
-      UnitEnum.Percent,
-      "area",
-    ),
-    metric(
-      'Memory Usage',
-      'select gauge from system_mem_stat where type in ("used","total") group by node',
-      8,
-      UnitEnum.Bytes,
-    ),
-    metric(
-      'Disk Usage',
-      'select gauge from system_disk_usage where type in ("used","total") group by node',
-      8,
-      UnitEnum.Bytes,
     ),
   ],
 ]

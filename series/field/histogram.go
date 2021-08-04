@@ -69,3 +69,12 @@ func (hc histogramConverter) Sanitize(fieldName string) string {
 	}
 	return fieldName
 }
+func (hc histogramConverter) NeedToSanitize(fieldName string) bool {
+	if strings.HasPrefix(fieldName, "Histogram") {
+		return true
+	}
+	if strings.HasPrefix(fieldName, "__bucket_") {
+		return true
+	}
+	return false
+}
