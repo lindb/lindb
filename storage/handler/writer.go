@@ -23,6 +23,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"sync"
 
 	"github.com/golang/snappy"
 	"google.golang.org/grpc/codes"
@@ -143,8 +144,19 @@ func (w *Writer) Write(stream protoStorageV1.WriteService_WriteServer) error {
 	}
 }
 
+var snappyReaderPool = sync.Pool{
+	New: func() interface{} {
+		return snappy.NewReader(nil)
+	},
+}
+
 func (w *Writer) handleReplica(shard tsdb.Shard, replica *protoStorageV1.Replica) {
-	reader := snappy.NewReader(bytes.NewReader(replica.Data))
+	reader := snappyReaderPool.Get().(*snappy.Reader)
+	reader.Reset(bytes.NewReader(replica.Data))
+	defer func() {
+		reader.Reset(nil)
+		snappyReaderPool.Put(reader)
+	}()
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		w.logger.Error("decompress replica data error", logger.Error(err))
