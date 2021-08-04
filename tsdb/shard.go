@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -57,11 +59,14 @@ var (
 )
 
 var (
-	shardScope              = linmetric.NewScope("lindb.tsdb.shard")
-	writeMetricCounterVec   = shardScope.NewDeltaCounterVec("write_metric_counter", "db", "shard")
-	writeMetricTimeTotalVec = shardScope.NewDeltaCounterVec("write_metric_time_total", "db", "shard")
-	buildIndexTimerVec      = shardScope.Scope("build_index_duration").NewDeltaHistogramVec("db", "shard")
-	memFlushTimerVec        = shardScope.Scope("memdb_flush_duration").NewDeltaHistogramVec("db", "shard")
+	shardScope             = linmetric.NewScope("lindb.tsdb.shard")
+	badMetricsVec          = shardScope.NewDeltaCounterVec("bad_metrics", "db", "shard")
+	outOfRangeMetricsVec   = shardScope.NewDeltaCounterVec("metrics_out_of_range", "db", "shard")
+	writeMetricsVec        = shardScope.NewDeltaCounterVec("write_metrics", "db", "shard")
+	writeMetricFailuresVec = shardScope.NewDeltaCounterVec("write_metric_failures", "db", "shard")
+	writeFieldsVec         = shardScope.NewDeltaCounterVec("write_fields", "db", "shard")
+	escapedFieldNameVec    = shardScope.NewDeltaCounterVec("escaped_fields", "db", "shard")
+	memFlushTimerVec       = shardScope.Scope("memdb_flush_duration").NewDeltaHistogramVec("db", "shard")
 )
 
 const (
@@ -109,6 +114,29 @@ type Shard interface {
 	flow.DataFilter
 }
 
+type shardMetrics struct {
+	badMetrics          *linmetric.BoundDeltaCounter
+	outOfRangeMetrics   *linmetric.BoundDeltaCounter
+	writeMetrics        *linmetric.BoundDeltaCounter
+	writeMetricFailures *linmetric.BoundDeltaCounter
+	writeFields         *linmetric.BoundDeltaCounter
+	escapedFields       *linmetric.BoundDeltaCounter
+	memFlushTimer       *linmetric.BoundDeltaHistogram
+}
+
+func newShardMetrics(dbName string, shardID int32) *shardMetrics {
+	shardIDStr := strconv.Itoa(int(shardID))
+	return &shardMetrics{
+		badMetrics:          badMetricsVec.WithTagValues(dbName, shardIDStr),
+		outOfRangeMetrics:   outOfRangeMetricsVec.WithTagValues(dbName, shardIDStr),
+		writeMetrics:        writeMetricsVec.WithTagValues(dbName, shardIDStr),
+		writeMetricFailures: writeMetricFailuresVec.WithTagValues(dbName, shardIDStr),
+		writeFields:         writeFieldsVec.WithTagValues(dbName, shardIDStr),
+		escapedFields:       escapedFieldNameVec.WithTagValues(dbName, shardIDStr),
+		memFlushTimer:       memFlushTimerVec.WithTagValues(dbName, shardIDStr),
+	}
+}
+
 // shard implements Shard interface
 // directory tree:
 //    xx/shard/1/ (path)
@@ -145,10 +173,7 @@ type shard struct {
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
 
-	buildIndexTimer      *linmetric.BoundDeltaHistogram
-	writeMetricCount     *linmetric.BoundDeltaCounter
-	writeMetricTimeTotal *linmetric.BoundDeltaCounter
-	memFlushTimer        *linmetric.BoundDeltaHistogram
+	metrics shardMetrics
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -173,22 +198,18 @@ func newShard(
 	if err != nil {
 		return nil, err
 	}
-	shardIDStr := strconv.Itoa(int(shardID))
 	createdShard := &shard{
-		databaseName:         db.Name(),
-		id:                   shardID,
-		path:                 shardPath,
-		option:               option,
-		sequence:             replicaSequence,
-		families:             *newFamilyMemDBSet(),
-		metadata:             db.Metadata(),
-		interval:             interval,
-		segments:             make(map[timeutil.IntervalType]IntervalSegment),
-		isFlushing:           *atomic.NewBool(false),
-		buildIndexTimer:      buildIndexTimerVec.WithTagValues(db.Name(), shardIDStr),
-		writeMetricCount:     writeMetricCounterVec.WithTagValues(db.Name(), shardIDStr),
-		writeMetricTimeTotal: writeMetricTimeTotalVec.WithTagValues(db.Name(), shardIDStr),
-		memFlushTimer:        memFlushTimerVec.WithTagValues(db.Name(), shardIDStr),
+		databaseName: db.Name(),
+		id:           shardID,
+		path:         shardPath,
+		option:       option,
+		sequence:     replicaSequence,
+		families:     *newFamilyMemDBSet(),
+		metadata:     db.Metadata(),
+		interval:     interval,
+		segments:     make(map[timeutil.IntervalType]IntervalSegment),
+		isFlushing:   *atomic.NewBool(false),
+		metrics:      *newShardMetrics(db.Name(), shardID),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
@@ -307,31 +328,137 @@ func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
 	return rs
 }
 
-// Write writes the metric-point into memory-database.
-func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
+func (s *shard) validateMetric(metric *protoMetricsV1.Metric) error {
 	if metric == nil {
 		return constants.ErrMetricPBNilMetric
 	}
 	if len(metric.Name) == 0 {
 		return constants.ErrMetricPBEmptyMetricName
 	}
+	// empty field
 	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
 		return constants.ErrMetricPBEmptyField
 	}
 	timestamp := metric.Timestamp
-	now := timeutil.Now()
-
+	now := fasttime.UnixMilliseconds()
 	// check metric timestamp if in acceptable time range
 	if (s.behind.Int64() > 0 && timestamp < now-s.behind.Int64()) ||
 		(s.ahead.Int64() > 0 && timestamp > now+s.ahead.Int64()) {
+		s.metrics.outOfRangeMetrics.Incr()
+		return constants.ErrMetricOutOfTimeRange
+	}
+	// validate empty tags
+	if len(metric.Tags) > 0 {
+		for idx := range metric.Tags {
+			// nil tag
+			if metric.Tags[idx] == nil {
+				return constants.ErrMetricEmptyTagKeyValue
+			}
+			// empty key value
+			if metric.Tags[idx].Key == "" || metric.Tags[idx].Value == "" {
+				return constants.ErrMetricEmptyTagKeyValue
+			}
+		}
+	}
+
+	// check simple fields
+	for idx := range metric.SimpleFields {
+		// nil value
+		if metric.SimpleFields[idx] == nil {
+			return constants.ErrBadMetricPBFormat
+		}
+		// field-name empty
+		if metric.SimpleFields[idx].Name == "" {
+			return constants.ErrMetricEmptyFieldName
+		}
+		// check sanitize
+		if field.HistogramConverter.NeedToSanitize(metric.SimpleFields[idx].Name) {
+			s.metrics.escapedFields.Incr()
+			metric.SimpleFields[idx].Name = field.HistogramConverter.Sanitize(metric.SimpleFields[idx].Name)
+		}
+		// field type unspecified
+		if metric.SimpleFields[idx].Type == protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED {
+			return constants.ErrBadMetricPBFormat
+		}
+		v := metric.SimpleFields[idx].Value
+		if math.IsNaN(v) {
+			return constants.ErrMetricNanField
+		}
+		if math.IsInf(v, 0) {
+			return constants.ErrMetricInfField
+		}
+	}
+	// no more compound field
+	if metric.CompoundField == nil {
 		return nil
 	}
+	// compound field-type unspecified
+	if metric.CompoundField.Type == protoMetricsV1.CompoundFieldType_COMPOUND_UNSPECIFIED {
+		return constants.ErrBadMetricPBFormat
+	}
+	// value length zero or length not match
+	if len(metric.CompoundField.Values) != len(metric.CompoundField.ExplicitBounds) ||
+		len(metric.CompoundField.Values) <= 2 {
+		return constants.ErrBadMetricPBFormat
+	}
+	// ensure compound field value > 0
+	if (metric.CompoundField.Max < 0) ||
+		metric.CompoundField.Min < 0 ||
+		metric.CompoundField.Sum < 0 ||
+		metric.CompoundField.Count < 0 {
+		return constants.ErrBadMetricPBFormat
+	}
+
+	for idx := 0; idx < len(metric.CompoundField.Values); idx++ {
+		// ensure value > 0
+		if metric.CompoundField.Values[idx] < 0 || metric.CompoundField.ExplicitBounds[idx] < 0 {
+			return constants.ErrBadMetricPBFormat
+		}
+		// ensure explicate bounds increase progressively
+		if idx >= 1 && metric.CompoundField.ExplicitBounds[idx] < metric.CompoundField.ExplicitBounds[idx-1] {
+			return constants.ErrBadMetricPBFormat
+		}
+		// ensure last bound is +Inf
+		if idx == len(metric.CompoundField.ExplicitBounds)-1 && !math.IsInf(metric.CompoundField.ExplicitBounds[idx], 1) {
+			return constants.ErrBadMetricPBFormat
+		}
+	}
+	return nil
+}
+
+func (s *shard) howManyFieldsWillWrite(metric *protoMetricsV1.Metric) int {
+	var count = len(metric.SimpleFields)
+	if metric.CompoundField == nil {
+		return count
+	}
+	// min, max is a feature in lindb's field
+	count += len(metric.CompoundField.Values)
+	if metric.CompoundField.Min > 0 {
+		count++
+	}
+	if metric.CompoundField.Max > 0 {
+		count++
+	}
+	// assume that all compound field will contains sum/count field
+	count += 2
+	return count
+}
+
+// Write writes the metric-point into memory-database.
+func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
+	if err := s.validateMetric(metric); err != nil {
+		s.metrics.badMetrics.Incr()
+		return err
+	}
+	timestamp := metric.Timestamp
+
 	ns := metric.Namespace
 	if len(ns) == 0 {
 		ns = constants.DefaultNamespace
 	}
 	metricID, err := s.metadata.MetadataDatabase().GenMetricID(ns, metric.Name)
 	if err != nil {
+		s.metrics.writeMetricFailures.Incr()
 		return err
 	}
 	var seriesID uint32
@@ -342,6 +469,7 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	} else {
 		seriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(metricID, metric.TagsHash)
 		if err != nil {
+			s.metrics.writeMetricFailures.Incr()
 			return err
 		}
 	}
@@ -350,8 +478,6 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 		// if series id is new, need build inverted index
 		s.indexDB.BuildInvertIndex(ns, metric.Name, metric.Tags, seriesID)
 	}
-	buildIndexEnd := timeutil.Now()
-	s.buildIndexTimer.UpdateMilliseconds(float64(buildIndexEnd - now))
 
 	// calculate family start time and slot index
 	intervalCalc := s.interval.Calculator()
@@ -360,22 +486,24 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
 	db, err := s.GetOrCreateMemoryDatabase(familyTime)
 	if err != nil {
+		s.metrics.writeMetricFailures.Incr()
 		return err
 	}
 
-	// mark writing data
-	db.AcquireWrite()
-	// set write completed
-	defer func() {
-		db.CompleteWrite()
-
-		s.writeMetricTimeTotal.Add(float64(timeutil.Now() - buildIndexEnd))
-		s.writeMetricCount.Incr()
-	}()
-
 	slotIndex := uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
+
+	db.AcquireWrite()
 	// write metric point into memory db
-	return db.Write(ns, metric.Name, metricID, seriesID, slotIndex, metric.SimpleFields, metric.CompoundField)
+	err = db.Write(ns, metric.Name, metricID, seriesID, slotIndex, metric.SimpleFields, metric.CompoundField)
+	db.CompleteWrite()
+
+	if err == nil {
+		s.metrics.writeMetrics.Incr()
+		s.metrics.writeFields.Add(float64(s.howManyFieldsWillWrite(metric)))
+	} else {
+		s.metrics.writeMetricFailures.Incr()
+	}
+	return err
 }
 
 func (s *shard) Close() error {
@@ -506,7 +634,7 @@ func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, er
 // flushMemoryDatabase flushes memory database to disk kv store
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
 	startTime := time.Now()
-	defer s.memFlushTimer.UpdateSince(startTime)
+	defer s.metrics.memFlushTimer.UpdateSince(startTime)
 	//FIXME(stone1100)
 	//for _, familyTime := range memDB.Families() {
 	//	segmentName := s.interval.Calculator().GetSegment(familyTime)

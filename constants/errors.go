@@ -44,13 +44,21 @@ var (
 	ErrSeriesIDNotFound        = fmt.Errorf("seriesID %w", ErrNotFound)
 	ErrDataFamilyNotFound      = fmt.Errorf("data family %w", ErrNotFound)
 
+	ErrMetricOutOfTimeRange = errors.New("metric's timestamp is out of timerange")
 	// ErrBadMetricPBFormat represents write bad pb format
 	ErrBadMetricPBFormat = errors.New("bad metric proto")
 	ErrMetricPBNilMetric = fmt.Errorf("%w, metric is nil", ErrBadMetricPBFormat)
 	// ErrMetricPBEmptyMetricName represents metric name is empty when write data
 	ErrMetricPBEmptyMetricName = fmt.Errorf("%w, metric name is empty", ErrBadMetricPBFormat)
+	ErrMetricEmptyTagKeyValue  = fmt.Errorf("%w tag key value is empty", ErrBadMetricPBFormat)
 	// ErrMetricPBEmptyField represents field is empty when write data
 	ErrMetricPBEmptyField = fmt.Errorf("%w, fields are empty", ErrBadMetricPBFormat)
+	// ErrMetricEmptyFieldName represents that field-name is empty in pb structure
+	ErrMetricEmptyFieldName = fmt.Errorf("%w, field name is empty", ErrBadMetricPBFormat)
+	// ErrMetricNanField represents field value is not a number
+	ErrMetricNanField = fmt.Errorf("%w, field is not a number", ErrBadMetricPBFormat)
+	// ErrMetricInfField represents field value is infinity, positive or negative
+	ErrMetricInfField = fmt.Errorf("%w, field is infinity", ErrBadMetricPBFormat)
 
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")

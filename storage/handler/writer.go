@@ -20,6 +20,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 
@@ -157,9 +158,11 @@ func (w *Writer) handleReplica(shard tsdb.Shard, replica *protoStorageV1.Replica
 	}
 
 	//TODO write metric, need handle panic
-	// todo, sanitize field-name
 	for _, metric := range metricList.Metrics {
 		err = shard.Write(metric)
+	}
+	if errors.Is(err, constants.ErrMetricOutOfTimeRange) {
+		return
 	}
 	if err != nil {
 		w.logger.Error("write metric", logger.Error(err))
