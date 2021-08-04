@@ -22,14 +22,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lindb/roaring"
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
+
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./tag_metadata.go -destination=./tag_metadata_mock.go -package metadb
@@ -38,16 +37,6 @@ import (
 var (
 	newTagReaderFunc  = tagkeymeta.NewReader
 	newTagFlusherFunc = tagkeymeta.NewFlusher
-)
-
-var (
-	genTagValueIDCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "meta_gen_tag_value_id",
-			Help: "Generate tag value id counter.",
-		},
-		[]string{"db"},
-	)
 )
 
 // TagMetadata represents the tag metadata, stores all tag values under spec tag key
@@ -157,8 +146,6 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 	tagValueID = tag.genTagValueID()
 	tag.addTagValue(tagValue, tagValueID)
 	//TODO add wal???
-
-	genTagValueIDCounter.WithLabelValues(m.databaseName).Inc()
 
 	return tagValueID, nil
 }

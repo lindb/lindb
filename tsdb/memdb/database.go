@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -39,11 +38,9 @@ import (
 var memDBLogger = logger.GetLogger("tsdb", "MemDB")
 
 var (
-	memDBScope = linmetric.NewScope("lindb.tsdb.memdb")
-	// todo: remove generateFieldIDFailCounterVec
-	generateFieldIDFailCounterVec = memDBScope.NewDeltaCounterVec("generate_field_id_fails", "db")
-	pageAllocatedCounterVec       = memDBScope.NewDeltaCounterVec("allocated_pages", "db")
-	pageAllocatedFailuresVec      = memDBScope.NewDeltaCounterVec("allocated_page_failures", "db")
+	memDBScope               = linmetric.NewScope("lindb.tsdb.memdb")
+	pageAllocatedCounterVec  = memDBScope.NewDeltaCounterVec("allocated_pages", "db")
+	pageAllocatedFailuresVec = memDBScope.NewDeltaCounterVec("allocated_page_failures", "db")
 )
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
@@ -52,13 +49,12 @@ type MemoryDatabase interface {
 	AcquireWrite()
 	// Write writes metrics to the memory-database,
 	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(
-		namespace, metricName string,
-		metricID, seriesID uint32,
-		slotIndex uint16,
-		simpleFields []*protoMetricsV1.SimpleField,
-		compoundField *protoMetricsV1.CompoundField,
-	) (err error)
+	Write(point *MetricPoint) error
+	// WithLock retrieves the lock of memdb, and returns the release function
+	WithLock() (release func())
+	// WriteWithoutLock must be called after WithLock
+	// Used for batch write
+	WriteWithoutLock(point *MetricPoint) error
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -73,16 +69,14 @@ type MemoryDatabase interface {
 }
 
 type memoryDBMetrics struct {
-	generatedFieldIDFailures *linmetric.BoundDeltaCounter
-	allocatedPages           *linmetric.BoundDeltaCounter
-	allocatedPageFailures    *linmetric.BoundDeltaCounter
+	allocatedPages        *linmetric.BoundDeltaCounter
+	allocatedPageFailures *linmetric.BoundDeltaCounter
 }
 
 func newMemoryDBMetrics(name string) *memoryDBMetrics {
 	return &memoryDBMetrics{
-		generatedFieldIDFailures: generateFieldIDFailCounterVec.WithTagValues(name),
-		allocatedPages:           pageAllocatedCounterVec.WithTagValues(name),
-		allocatedPageFailures:    pageAllocatedFailuresVec.WithTagValues(name),
+		allocatedPages:        pageAllocatedCounterVec.WithTagValues(name),
+		allocatedPageFailures: pageAllocatedFailuresVec.WithTagValues(name),
 	}
 }
 
@@ -90,7 +84,6 @@ func newMemoryDBMetrics(name string) *memoryDBMetrics {
 type MemoryDatabaseCfg struct {
 	FamilyTime int64
 	Name       string
-	Metadata   metadb.Metadata
 	TempPath   string
 }
 
@@ -105,7 +98,6 @@ type flushContext struct {
 type memoryDatabase struct {
 	familyTime int64
 	name       string
-	metadata   metadb.Metadata // metadata for assign metric id/field id
 
 	mStores *MetricBucketStore // metric id => mStoreINTF
 	buf     DataPointBuffer
@@ -126,7 +118,6 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 	return &memoryDatabase{
 		familyTime: cfg.FamilyTime,
 		name:       cfg.Name,
-		metadata:   cfg.Metadata,
 		buf:        buf,
 		mStores:    NewMetricBucketStore(),
 		allocSize:  *atomic.NewInt32(0),
@@ -157,156 +148,138 @@ func (md *memoryDatabase) CompleteWrite() {
 	md.writeCondition.Done()
 }
 
-// Write writes metric-point to database.
-func (md *memoryDatabase) Write(
-	namespace, metricName string,
-	metricID, seriesID uint32,
-	slotIndex uint16,
-	simpleFields []*protoMetricsV1.SimpleField,
-	compoundField *protoMetricsV1.CompoundField,
-) (err error) {
+type MetricPoint struct {
+	MetricID  uint32
+	SeriesID  uint32
+	SlotIndex uint16
+	FieldIDs  []field.ID
+	Proto     *protoMetricsV1.Metric
+}
+
+func (md *memoryDatabase) WithLock() (release func()) {
+	md.rwMutex.Lock()
+	return md.rwMutex.Unlock
+}
+
+func (md *memoryDatabase) Write(point *MetricPoint) error {
 	md.rwMutex.Lock()
 	defer md.rwMutex.Unlock()
+	return md.WriteWithoutLock(point)
+}
 
-	mStore := md.getOrCreateMStore(metricID)
-
-	tStore, size := mStore.GetOrCreateTStore(seriesID)
+func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
+	mStore := md.getOrCreateMStore(point.MetricID)
+	tStore, size := mStore.GetOrCreateTStore(point.SeriesID)
 	written := false
-
-	if compoundField != nil {
-		writtenSize, err := md.writeCompoundField(namespace, metricName, slotIndex,
-			mStore, tStore, compoundField)
-		if err != nil {
-			return err
-		}
-		size += writtenSize
+	var fieldIDIdx = 0
+	afterWrite := func(writtenLinFieldSize int) {
+		fieldIDIdx++
+		size += writtenLinFieldSize
 		written = true
 	}
 
-	for _, SimpleField := range simpleFields {
-		if protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED == SimpleField.Type {
-			continue
-		}
+	simpleFields := point.Proto.SimpleFields
+	for simpleFieldIdx := range simpleFields {
 		var (
-			fieldType    field.Type
-			isCumulative bool
+			fieldType field.Type
 		)
-		switch SimpleField.Type {
-		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
+		switch point.Proto.SimpleFields[simpleFieldIdx].Type {
+		case protoMetricsV1.SimpleFieldType_DELTA_SUM, protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
 			fieldType = field.SumField
-		case protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
-			fieldType = field.SumField
-			isCumulative = true
 		case protoMetricsV1.SimpleFieldType_GAUGE:
 			fieldType = field.GaugeField
 		default:
 			continue
 		}
-		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			SimpleField.Name, fieldType, SimpleField.Value,
-			mStore, tStore, isCumulative,
+		writtenLinFieldSize, err := md.writeLinField(
+			point.SlotIndex,
+			point.FieldIDs[fieldIDIdx], fieldType, simpleFields[simpleFieldIdx].Value,
+			mStore, tStore,
 		)
 		if err != nil {
 			return err
 		}
-		size += writtenLinFieldSize
-		written = true
+		afterWrite(writtenLinFieldSize)
+	}
+	compoundField := point.Proto.CompoundField
+
+	var (
+		err                 error
+		writtenLinFieldSize int
+	)
+	if compoundField == nil {
+		goto End
 	}
 
+	// write histogram_min
+	if compoundField.Min > 0 {
+		writtenLinFieldSize, err := md.writeLinField(
+			point.SlotIndex, point.FieldIDs[fieldIDIdx],
+			field.MinField, compoundField.Min,
+			mStore, tStore)
+		if err != nil {
+			return err
+		}
+		afterWrite(writtenLinFieldSize)
+	}
+	// write histogram_max
+	if compoundField.Max > 0 {
+		writtenLinFieldSize, err := md.writeLinField(
+			point.SlotIndex, point.FieldIDs[fieldIDIdx],
+			field.MinField, compoundField.Max,
+			mStore, tStore)
+		if err != nil {
+			return err
+		}
+		afterWrite(writtenLinFieldSize)
+	}
+	// write histogram_sum
+	writtenLinFieldSize, err = md.writeLinField(
+		point.SlotIndex, point.FieldIDs[fieldIDIdx],
+		field.SumField, compoundField.Sum,
+		mStore, tStore)
+	if err != nil {
+		return err
+	}
+	afterWrite(writtenLinFieldSize)
+
+	// write histogram_count
+	writtenLinFieldSize, err = md.writeLinField(
+		point.SlotIndex, point.FieldIDs[fieldIDIdx],
+		field.SumField, compoundField.Count,
+		mStore, tStore)
+	if err != nil {
+		return err
+	}
+	afterWrite(writtenLinFieldSize)
+
+	// write __bucket_${boundary}
+	// assume that length of ExplicitBounds equals to Values
+	// data must be valid before write
+	for idx := range compoundField.ExplicitBounds {
+		writtenLinFieldSize, err = md.writeLinField(
+			point.SlotIndex, point.FieldIDs[fieldIDIdx],
+			field.HistogramField, compoundField.Values[idx],
+			mStore, tStore)
+		if err != nil {
+			return err
+		}
+		afterWrite(writtenLinFieldSize)
+	}
+
+End:
 	if written {
-		mStore.SetSlot(slotIndex)
+		mStore.SetSlot(point.SlotIndex)
 	}
 	md.allocSize.Add(int32(size))
 	return nil
 }
 
-func (md *memoryDatabase) writeCompoundField(
-	namespace, metricName string,
-	slotIndex uint16,
-	mStore mStoreINTF, tStore tStoreINTF,
-	compoundField *protoMetricsV1.CompoundField,
-) (writtenSize int, err error) {
-	isCumulative := false
-	switch compoundField.Type {
-	case protoMetricsV1.CompoundFieldType_CUMULATIVE_HISTOGRAM:
-		isCumulative = true
-	case protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM:
-	default:
-		return 0, nil
-	}
-	// write histogram_min
-	if compoundField.Min > 0 {
-		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			field.HistogramConverter.MinFieldName, field.MinField, compoundField.Min,
-			mStore, tStore, isCumulative,
-		)
-		if err != nil {
-			return writtenSize, err
-		}
-		writtenSize += writtenLinFieldSize
-	}
-	// write histogram_max
-	if compoundField.Max > 0 {
-		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			field.HistogramConverter.MaxFieldName, field.MaxField, compoundField.Max,
-			mStore, tStore, isCumulative,
-		)
-		if err != nil {
-			return writtenSize, err
-		}
-		writtenSize += writtenLinFieldSize
-	}
-	// write histogram_count
-	if compoundField.Max > 0 {
-		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			field.HistogramConverter.CountFieldName, field.SumField, compoundField.Count,
-			mStore, tStore, isCumulative,
-		)
-		if err != nil {
-			return writtenSize, err
-		}
-		writtenSize += writtenLinFieldSize
-	}
-	// write histogram_sum
-	writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-		field.HistogramConverter.SumFieldName, field.SumField, compoundField.Sum,
-		mStore, tStore, isCumulative,
-	)
-	if err != nil {
-		return writtenSize, err
-	}
-	writtenSize += writtenLinFieldSize
-	// write histogram_data
-	// assume that length of ExplicitBounds equals to Values
-	// data must be valid before write
-	for idx := range compoundField.ExplicitBounds {
-		writtenLinFieldSize, err := md.writeLinField(namespace, metricName, slotIndex,
-			field.HistogramConverter.BucketName(compoundField.ExplicitBounds[idx]),
-			field.HistogramField, compoundField.Values[idx],
-			mStore, tStore, isCumulative,
-		)
-		if err != nil {
-			return writtenSize, err
-		}
-		writtenSize += writtenLinFieldSize
-	}
-	return writtenSize, err
-}
-
 func (md *memoryDatabase) writeLinField(
-	namespace, metricName string,
 	slotIndex uint16,
-	fieldName string, fieldType field.Type, fieldValue float64,
+	fieldID field.ID, fieldType field.Type, fieldValue float64,
 	mStore mStoreINTF, tStore tStoreINTF,
-	isCumulativeField bool,
 ) (writtenSize int, err error) {
-	fieldID, err := md.metadata.MetadataDatabase().GenFieldID(
-		namespace, metricName, field.Name(fieldName), fieldType)
-	if err != nil {
-		md.metrics.generatedFieldIDFailures.Incr()
-		// ignore generate field-id error
-		return 0, nil
-	}
 	fStore, ok := tStore.GetFStore(fieldID)
 	if !ok {
 		buf, err := md.buf.AllocPage()
@@ -315,11 +288,7 @@ func (md *memoryDatabase) writeLinField(
 			return 0, err
 		}
 		md.metrics.allocatedPages.Incr()
-		if isCumulativeField {
-			fStore = newCumulativeSumFieldStore(buf, fieldID)
-		} else {
-			fStore = newFieldStore(buf, fieldID)
-		}
+		fStore = newFieldStore(buf, fieldID)
 		writtenSize += tStore.InsertFStore(fStore)
 		// if write data success, add field into metric level for cache
 		mStore.AddField(fieldID, fieldType)
