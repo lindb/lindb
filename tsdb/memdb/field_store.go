@@ -21,8 +21,6 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -33,15 +31,6 @@ import (
 )
 
 //go:generate mockgen -source ./field_store.go -destination=./field_store_mock.go -package memdb
-
-var (
-	fieldStoreMergeFailCounter = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "mem_field_store_merge_fail",
-			Help: "Field Store merge fail when flush.",
-		},
-	)
-)
 
 // memory layout as below:
 // header: field id[2bytes]
@@ -147,7 +136,6 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 	}
 	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
-		fieldStoreMergeFailCounter.Inc()
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
 		return
 	}
@@ -339,68 +327,4 @@ func getOldFloatValue(tsd *encoding.TSDDecoder, timeSlot uint16) (value float64,
 	hasValue = true
 	value = math.Float64frombits(tsd.Value())
 	return
-}
-
-// cumulativeSumFieldStore implements fStoreINTF interface
-// it is used to store cumulative sum data, data will translated
-// into delta sum, compatible for prometheus counter.
-type cumulativeSumFieldStore struct {
-	lastCounter float64
-	fieldStore
-}
-
-func newCumulativeSumFieldStore(buf []byte, fieldID field.ID) fStoreINTF {
-	stream.PutUint16(buf, fieldOffset, uint16(fieldID))
-	return &cumulativeSumFieldStore{
-		fieldStore: fieldStore{
-			buf: buf,
-		},
-		lastCounter: 0,
-	}
-}
-
-// Write writes field data into current buffer,
-// cumulative value will be calculated into delta
-func (fs *cumulativeSumFieldStore) Write(_ field.Type, slotIndex uint16, value float64) (writtenSize int) {
-	// no data written before, lastCounter was stored
-	if fs.buf[markOffset+1] == 0 && fs.lastCounter > 0 && value >= fs.lastCounter {
-		// no data written before
-		writtenSize = fs.writeFirstPoint(slotIndex, value-fs.lastCounter)
-		fs.lastCounter = value
-		return
-	}
-	startTime := fs.getStart()
-	if slotIndex < startTime || slotIndex > startTime+fs.timeWindow()-1 {
-		// if current slot time out of current time window, need compress block data, start new time window
-		writtenSize = fs.compact(field.SumField, startTime)
-		// write first point after compact
-		if value >= fs.lastCounter {
-			writtenSize += fs.writeFirstPoint(slotIndex, value-fs.lastCounter)
-		}
-		fs.lastCounter = value
-		// otherwise drop this point
-		return writtenSize
-	}
-
-	// write data in current write buffer
-	delta := slotIndex - startTime
-	pos, markIdx, flagIdx := fs.position(delta)
-	if fs.buf[markOffset+markIdx]&flagIdx != 0 {
-		// has same point of same time slot
-		// ignore new data, replace lastCounter in next loop
-		return 0
-	}
-	// old value is bigger, use a new lastCounter
-	if value <= fs.lastCounter {
-		fs.lastCounter = value
-		return 0
-	}
-	// new data for time slot
-	fs.buf[endOffset] = byte(delta)
-	fs.buf[markOffset+markIdx] |= flagIdx // mark value exist
-	writtenSize += valueSize
-	// finally write value into the body of current write buffer
-	binary.LittleEndian.PutUint64(fs.buf[pos:], math.Float64bits(value-fs.lastCounter))
-	fs.lastCounter = value
-	return writtenSize
 }

@@ -56,12 +56,6 @@ export const WriteDashboard = [
         UnitEnum.Milliseconds,
     ),
     metric(
-      'Generate Field ID Fail',
-      'select generate_field_id_fails from lindb.tsdb.memdb group by db',
-      8,
-      UnitEnum.None,
-    ),
-    metric(
       'Generate Metric ID',
       'select gen_metric_ids from lindb.tsdb.metadb group by db',
       8,
