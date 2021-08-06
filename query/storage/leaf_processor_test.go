@@ -32,7 +32,6 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -58,12 +57,12 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
-	storageService := service.NewMockStorageService(ctrl)
+	engine := tsdb.NewMockEngine(ctrl)
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, storageService, taskServerFactory)
+	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	// unmarshal error
 	err := processor.process(
@@ -88,14 +87,14 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	data := encoding.JSONMarshal(&qry)
 
 	// db not exist
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
 	err = processor.process(
 		context.Background(),
 		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.True(t, errors.Is(err, query.ErrNoDatabase))
 
 	// test get upstream err
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
 	err = processor.process(
 		context.Background(),
@@ -103,7 +102,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	assert.True(t, errors.Is(err, query.ErrNoSendStream))
 
 	// unmarshal query err
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 	err = processor.process(
 		context.Background(),
@@ -113,7 +112,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	// test executor fail
 	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	err = processor.process(
 		context.Background(),
 		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
@@ -125,10 +124,10 @@ func TestLeafProcessor_Process(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
-	storageService := service.NewMockStorageService(ctrl)
+	engine := tsdb.NewMockEngine(ctrl)
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, storageService, taskServerFactory)
+	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
@@ -139,7 +138,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	data := encoding.JSONMarshal(&qry)
 
 	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
@@ -152,17 +151,17 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
-	storageService := service.NewMockStorageService(ctrl)
+	engine := tsdb.NewMockEngine(ctrl)
 
 	currentNode := models.Node{IP: "1.1.1.3", Port: 8000}
-	processorI := NewLeafTaskProcessor(currentNode, storageService, taskServerFactory)
+	processorI := NewLeafTaskProcessor(currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
 		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
-	storageService.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
+	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream).AnyTimes()
 

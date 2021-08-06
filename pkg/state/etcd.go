@@ -104,6 +104,14 @@ func (r *etcdRepository) Put(ctx context.Context, key string, val []byte) error 
 	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
 	defer cancelFunc()
 	_, err := r.client.Put(thisCtx, r.keyPath(key), string(val))
+	if err == nil {
+		r.logger.Debug("put ok", logger.String("path", key),
+			logger.String("namespace", r.namespace))
+	} else {
+		r.logger.Debug("put error", logger.String("path", key),
+			logger.String("namespace", r.namespace),
+			logger.Error(err))
+	}
 	return err
 }
 

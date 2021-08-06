@@ -24,16 +24,16 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 // TaskExecutor represents storage node task executor.
 // NOTICE: need implements task processor and register it.
 type TaskExecutor struct {
-	executor       *task.Executor
-	storageService service.StorageService
-	repo           state.Repository
-	ctx            context.Context
+	executor *task.Executor
+	engine   tsdb.Engine
+	repo     state.Repository
+	ctx      context.Context
 
 	log *logger.Logger
 }
@@ -42,18 +42,18 @@ type TaskExecutor struct {
 func NewTaskExecutor(ctx context.Context,
 	node *models.Node,
 	repo state.Repository,
-	storageService service.StorageService) *TaskExecutor {
+	engine tsdb.Engine,
+) *TaskExecutor {
 	executor := task.NewExecutor(ctx, node, repo)
-
 	// register task processor
-	executor.Register(newCreateShardProcessor(storageService))
-	executor.Register(newDatabaseFlushProcessor(storageService))
+	executor.Register(newCreateShardProcessor(engine))
+	executor.Register(newDatabaseFlushProcessor(engine))
 	return &TaskExecutor{
-		ctx:            ctx,
-		repo:           repo,
-		executor:       executor,
-		storageService: storageService,
-		log:            logger.GetLogger("coordinator", "StorageTaskExecutor"),
+		ctx:      ctx,
+		repo:     repo,
+		executor: executor,
+		engine:   engine,
+		log:      logger.GetLogger("coordinator", "StorageTaskExecutor"),
 	}
 }
 

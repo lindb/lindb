@@ -24,9 +24,11 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
@@ -43,9 +45,20 @@ var engineLogger = logger.GetLogger("tsdb", "Engine")
 
 // Engine represents a time series engine
 type Engine interface {
-	// CreateDatabase creates database instance by database's name
+	// createDatabase creates database instance by database's name
 	// return success when creating database's path successfully
-	CreateDatabase(databaseName string) (Database, error)
+	// called when CreateShards without database created
+	createDatabase(databaseName string) (Database, error)
+	// CreateShards creates shards for data partition by given options
+	// 1) dump engine option into local disk
+	// 2) create shard storage struct
+	CreateShards(
+		databaseName string,
+		databaseOption option.DatabaseOption,
+		shardIDs ...int32,
+	) error
+	// GetShard returns shard by given db and shard id
+	GetShard(databaseName string, shardID int32) (Shard, bool)
 	// GetDatabase returns the time series database by given name
 	GetDatabase(databaseName string) (Database, bool)
 	// FlushDatabase produces a signal to workers for flushing memory database by name
@@ -100,12 +113,9 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 	return e, nil
 }
 
-// CreateDatabase creates database instance by database's name
+// createDatabase creates database instance by database's name
 // return success when creating database's path successfully
-func (e *engine) CreateDatabase(databaseName string) (Database, error) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
+func (e *engine) createDatabase(databaseName string) (Database, error) {
 	dbPath := filepath.Join(e.cfg.Dir, databaseName)
 	if err := mkDirIfNotExist(dbPath); err != nil {
 		return nil, fmt.Errorf("create database[%s]'s path with error: %s", databaseName, err)
@@ -126,9 +136,54 @@ func (e *engine) CreateDatabase(databaseName string) (Database, error) {
 	return db, nil
 }
 
+func (e *engine) CreateShards(
+	databaseName string,
+	databaseOption option.DatabaseOption,
+	shardIDs ...int32,
+) error {
+	if len(shardIDs) == 0 {
+		return fmt.Errorf("cannot create empty shard for database[%s]", databaseName)
+	}
+	db, ok := e.GetDatabase(databaseName)
+	if !ok {
+		e.mutex.Lock()
+		defer e.mutex.Unlock()
+		if db, ok = e.GetDatabase(databaseName); !ok {
+			// double check
+			var err error
+			db, err = e.createDatabase(databaseName)
+			if err != nil {
+				engineLogger.Error("failed to create database",
+					logger.Error(err))
+				return err
+			}
+			engineLogger.Info("create database successfully",
+				logger.String("database", databaseName))
+		}
+	}
+
+	// create shards for database
+	shardIDData := encoding.JSONMarshal(shardIDs)
+	if err := db.CreateShards(databaseOption, shardIDs); err != nil {
+		engineLogger.Error("failed to create shard", logger.String("shardIDs", string(shardIDData)))
+		return err
+	}
+	engineLogger.Info("create shard successfully", logger.String("shardIDs", string(shardIDData)))
+	return nil
+}
+
 // GetDatabase returns the time series database by given name
 func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 	return e.dbSet.GetDatabase(databaseName)
+}
+
+// GetShard returns shard by given db and shard id
+func (e *engine) GetShard(databaseName string, shardID int32) (Shard, bool) {
+	db, ok := e.GetDatabase(databaseName)
+	if !ok {
+		return nil, false
+	}
+	return db.GetShard(shardID)
 }
 
 // Close closes the cached time series databases
@@ -164,8 +219,10 @@ func (e *engine) load() error {
 	if err != nil {
 		return err
 	}
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	for _, databaseName := range databaseNames {
-		_, err := e.CreateDatabase(databaseName)
+		_, err := e.createDatabase(databaseName)
 		if err != nil {
 			return err
 		}

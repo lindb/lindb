@@ -36,7 +36,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./cluster_state_machine.go -destination=./cluster_state_machine_mock.go -package=storage
@@ -61,12 +60,10 @@ type clusterStateMachine struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 
-	storageStateService service.StorageStateService
-	shardAssignService  service.ShardAssignService
-	clusterFactory      ClusterFactory
-	discoveryFactory    discovery.Factory
-	repoFactory         state.RepositoryFactory
-	controllerFactory   task.ControllerFactory
+	clusterFactory    ClusterFactory
+	discoveryFactory  discovery.Factory
+	repoFactory       state.RepositoryFactory
+	controllerFactory task.ControllerFactory
 
 	clusters map[string]Cluster
 
@@ -86,24 +83,21 @@ func NewClusterStateMachine(
 	discoveryFactory discovery.Factory,
 	clusterFactory ClusterFactory,
 	repoFactory state.RepositoryFactory,
-	storageStateService service.StorageStateService,
-	shardAssignService service.ShardAssignService) (ClusterStateMachine, error) {
+) (ClusterStateMachine, error) {
 	log := logger.GetLogger("coordinator", "StorageClusterStateMachine")
 	c, cancel := context.WithCancel(ctx)
 	stateMachine := &clusterStateMachine{
-		repo:                repo,
-		ctx:                 c,
-		cancel:              cancel,
-		clusterFactory:      clusterFactory,
-		discoveryFactory:    discoveryFactory,
-		repoFactory:         repoFactory,
-		storageStateService: storageStateService,
-		controllerFactory:   controllerFactory,
-		shardAssignService:  shardAssignService,
-		clusters:            make(map[string]Cluster),
-		running:             atomic.NewBool(false),
-		interval:            30 * time.Second, //TODO add config ?
-		logger:              log,
+		repo:              repo,
+		ctx:               c,
+		cancel:            cancel,
+		clusterFactory:    clusterFactory,
+		discoveryFactory:  discoveryFactory,
+		repoFactory:       repoFactory,
+		controllerFactory: controllerFactory,
+		clusters:          make(map[string]Cluster),
+		running:           atomic.NewBool(false),
+		interval:          30 * time.Second, //TODO add config ?
+		logger:            log,
 	}
 
 	// new storage config discovery
@@ -243,21 +237,20 @@ func (c *clusterStateMachine) addCluster(resource []byte) {
 	cfg.Config.Timeout = ltoml.Duration(10 * time.Second)
 	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
 
-	repo, err := c.repoFactory.CreateRepo(cfg.Config)
+	storageRepo, err := c.repoFactory.CreateRepo(cfg.Config)
 	if err != nil {
 		c.logger.Error("new state repo error when create cluster",
 			logger.Any("cfg", cfg), logger.Error(err))
 		return
 	}
 	clusterCfg := clusterCfg{
-		ctx:                 c.ctx,
-		cfg:                 cfg,
-		storageStateService: c.storageStateService,
-		repo:                repo,
-		controllerFactory:   c.controllerFactory,
-		factory:             discovery.NewFactory(repo),
-		shardAssignService:  c.shardAssignService,
-		logger:              c.logger,
+		ctx:               c.ctx,
+		cfg:               cfg,
+		brokerRepo:        c.repo,
+		storageRepo:       storageRepo,
+		controllerFactory: c.controllerFactory,
+		factory:           discovery.NewFactory(storageRepo),
+		logger:            c.logger,
 	}
 	cluster, err := c.clusterFactory.newCluster(clusterCfg)
 	if err != nil {
