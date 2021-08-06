@@ -20,7 +20,7 @@ package lind
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/broker"
+	"github.com/lindb/lindb/app/broker"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"

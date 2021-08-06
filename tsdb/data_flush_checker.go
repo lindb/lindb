@@ -81,6 +81,7 @@ type dataFlushChecker struct {
 	flushInFlight        atomic.Int32                // current pending in flushing
 	isWatermarkFlushing  atomic.Bool                 // this flag symbols if has goroutine in high water-mark flushing
 	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
+	logger               *logger.Logger
 }
 
 // newDataFlushChecker creates the data flush checker
@@ -91,6 +92,7 @@ func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 		cancel:               cancel,
 		flushRequestCh:       make(chan *flushRequest),
 		memoryStatGetterFunc: mem.VirtualMemory,
+		logger:               engineLogger,
 	}
 }
 
@@ -114,6 +116,7 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 	for i := 0; i < constants.FlushConcurrency; i++ {
 		go fc.flushWorker()
 	}
+	fc.logger.Info("DataFlusher Checker is running", logger.Int32("workers", constants.FlushConcurrency))
 
 	for {
 		select {

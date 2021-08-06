@@ -32,7 +32,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./master.go -destination=./master_mock.go -package=coordinator
@@ -56,10 +55,6 @@ type MasterCfg struct {
 	ControllerFactory task.ControllerFactory
 	ClusterFactory    storage.ClusterFactory
 	RepoFactory       state.RepositoryFactory
-
-	// service
-	StorageStateService service.StorageStateService
-	ShardAssignService  service.ShardAssignService
 
 	// broker state machine
 	BrokerSM *BrokerStateMachines
@@ -126,7 +121,7 @@ func (m *master) OnFailOver() error {
 
 	stateMachine.StorageCluster, err = storage.NewClusterStateMachine(m.ctx, m.cfg.Repo,
 		m.cfg.ControllerFactory, m.cfg.DiscoveryFactory, m.cfg.ClusterFactory, m.cfg.RepoFactory,
-		m.cfg.StorageStateService, m.cfg.ShardAssignService)
+	)
 	if err != nil {
 		return fmt.Errorf("start storage cluster state machine errer:%s", err)
 	}
