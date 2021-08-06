@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 //go:generate mockgen -source=./wal.go -destination=./wal_mock.go -package=replica
@@ -57,22 +57,23 @@ type writeAheadLogManager struct {
 	cfg           config.Replica
 	currentNodeID models.NodeID
 	databaseLogs  map[string]WriteAheadLog
-	storageSrv    service.StorageService
+	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
 
 	mutex sync.Mutex
 }
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.
-func NewWriteAheadLogManager(cfg config.Replica,
+func NewWriteAheadLogManager(
+	cfg config.Replica,
 	currentNodeID models.NodeID,
-	storageSrv service.StorageService,
+	engine tsdb.Engine,
 	cliFct rpc.ClientStreamFactory,
 ) WriteAheadLogManager {
 	return &writeAheadLogManager{
 		cfg:           cfg,
 		currentNodeID: currentNodeID,
-		storageSrv:    storageSrv,
+		engine:        engine,
 		cliFct:        cliFct,
 
 		databaseLogs: make(map[string]WriteAheadLog),
@@ -90,7 +91,7 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 		return log
 	}
 	// create new, then put in cache
-	log = newWriteAheadLog(w.cfg, w.currentNodeID, database, w.storageSrv, w.cliFct)
+	log = newWriteAheadLog(w.cfg, w.currentNodeID, database, w.engine, w.cliFct)
 	w.databaseLogs[database] = log
 	return log
 }
@@ -101,7 +102,7 @@ type writeAheadLog struct {
 	cfg           config.Replica
 	currentNodeID models.NodeID
 	shardLogs     map[models.ShardID]Partition
-	storageSrv    service.StorageService
+	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
 
 	mutex sync.Mutex
@@ -111,14 +112,14 @@ type writeAheadLog struct {
 func NewWriteAheadLog(cfg config.Replica,
 	currentNodeID models.NodeID,
 	database string,
-	storageSrv service.StorageService,
+	engine tsdb.Engine,
 	cliFct rpc.ClientStreamFactory,
 ) WriteAheadLog {
 	return &writeAheadLog{
 		currentNodeID: currentNodeID,
 		database:      database,
 		cfg:           cfg,
-		storageSrv:    storageSrv,
+		engine:        engine,
 		cliFct:        cliFct,
 		shardLogs:     make(map[models.ShardID]Partition),
 	}
@@ -134,7 +135,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition,
 	if ok {
 		return p, nil
 	}
-	shard, ok := w.storageSrv.GetShard(w.database, int32(shardID))
+	shard, ok := w.engine.GetShard(w.database, int32(shardID))
 	if !ok {
 		return nil, errors.New("shard not exist")
 	}

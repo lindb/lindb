@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
 func TestClusterStateMachine_New(t *testing.T) {
@@ -39,9 +38,6 @@ func TestClusterStateMachine_New(t *testing.T) {
 	defer ctrl.Finish()
 
 	controllerFactory := task.NewMockControllerFactory(ctrl)
-	storageService := service.NewMockStorageStateService(ctrl)
-	shardAssignService := service.NewMockShardAssignService(ctrl)
-
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	discoverFactory := discovery.NewMockFactory(ctrl)
@@ -53,16 +49,14 @@ func TestClusterStateMachine_New(t *testing.T) {
 	// register discovery err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err := NewClusterStateMachine(context.TODO(), repo,
-		controllerFactory, discoverFactory, clusterFactory, repoFactory,
-		storageService, shardAssignService)
+		controllerFactory, discoverFactory, clusterFactory, repoFactory)
 	assert.Error(t, err)
 
 	// normal case
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
 	stateMachine, err := NewClusterStateMachine(context.TODO(), repo,
-		controllerFactory, discoverFactory, clusterFactory, repoFactory,
-		storageService, shardAssignService)
+		controllerFactory, discoverFactory, clusterFactory, repoFactory)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, stateMachine)
@@ -87,8 +81,6 @@ func TestClusterStateMachine_collect(t *testing.T) {
 	defer ctrl.Finish()
 
 	controllerFactory := task.NewMockControllerFactory(ctrl)
-	storageService := service.NewMockStorageStateService(ctrl)
-	shardAssignService := service.NewMockShardAssignService(ctrl)
 
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	repo := state.NewMockRepository(ctrl)
@@ -99,8 +91,7 @@ func TestClusterStateMachine_collect(t *testing.T) {
 
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	sm, err := NewClusterStateMachine(context.TODO(), repo,
-		controllerFactory, discoverFactory, clusterFactory, repoFactory,
-		storageService, shardAssignService)
+		controllerFactory, discoverFactory, clusterFactory, repoFactory)
 	assert.NoError(t, err)
 	assert.NotNil(t, sm)
 	sm1 := sm.(*clusterStateMachine)

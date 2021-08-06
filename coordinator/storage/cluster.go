@@ -33,7 +33,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
 //go:generate mockgen -source=./cluster.go -destination=./cluster_mock.go -package=storage
@@ -41,19 +40,18 @@ import (
 // clusterCfg represents the config which creates cluster instance need
 // IMPORTANT: need clean config's resource
 type clusterCfg struct {
-	ctx                 context.Context
-	cfg                 config.StorageCluster
-	storageStateService service.StorageStateService
-	repo                state.Repository
-	controllerFactory   task.ControllerFactory
-	factory             discovery.Factory
-	shardAssignService  service.ShardAssignService
-	logger              *logger.Logger
+	ctx               context.Context
+	cfg               config.StorageCluster
+	brokerRepo        state.Repository
+	storageRepo       state.Repository
+	controllerFactory task.ControllerFactory
+	factory           discovery.Factory
+	logger            *logger.Logger
 }
 
 // clean cleans the resource for cfg
 func (cfg *clusterCfg) clean() {
-	if err := cfg.repo.Close(); err != nil {
+	if err := cfg.storageRepo.Close(); err != nil {
 		cfg.logger.Error("close state repo of storage cluster",
 			logger.String("cluster", cfg.cfg.Name), logger.Error(err), logger.Stack())
 	}
@@ -145,7 +143,7 @@ func (f *clusterFactory) newCluster(cfg clusterCfg) (Cluster, error) {
 	// saving new cluster state
 	cluster.saveClusterState()
 
-	cluster.taskController = cfg.controllerFactory.CreateController(cfg.ctx, cfg.repo)
+	cluster.taskController = cfg.controllerFactory.CreateController(cfg.ctx, cfg.storageRepo)
 
 	cluster.logger.Info("init storage cluster success", logger.String("cluster", cluster.clusterState.Name))
 	return cluster, nil
@@ -176,7 +174,7 @@ func (c *cluster) OnDelete(key string) {
 
 // GetRepo returns current storage cluster's state repo
 func (c *cluster) GetRepo() state.Repository {
-	return c.cfg.repo
+	return c.cfg.storageRepo
 }
 
 // GetActiveNodes returns all active nodes
@@ -228,7 +226,15 @@ func (c *cluster) FlushDatabase(databaseName string) error {
 
 // GetShardAssign returns shard assignment by database name, return not exist err if it not exist
 func (c *cluster) GetShardAssign(databaseName string) (*models.ShardAssignment, error) {
-	return c.cfg.shardAssignService.Get(databaseName)
+	data, err := c.cfg.brokerRepo.Get(c.cfg.ctx, constants.GetDatabaseAssignPath(databaseName))
+	if err != nil {
+		return nil, err
+	}
+	shardAssign := &models.ShardAssignment{}
+	if err := encoding.JSONUnmarshal(data, shardAssign); err != nil {
+		return nil, err
+	}
+	return shardAssign, nil
 }
 
 // SaveShardAssign saves shard assignment, generates create shard task after saving successfully
@@ -237,9 +243,11 @@ func (c *cluster) SaveShardAssign(
 	shardAssign *models.ShardAssignment,
 	databaseOption option.DatabaseOption,
 ) error {
-	if err := c.cfg.shardAssignService.Save(databaseName, shardAssign); err != nil {
+	data := encoding.JSONMarshal(shardAssign)
+	if err := c.cfg.brokerRepo.Put(c.cfg.ctx, constants.GetDatabaseAssignPath(databaseName), data); err != nil {
 		return err
 	}
+
 	var tasks = make(map[int]*models.CreateShardTask)
 
 	for ID, shard := range shardAssign.Shards {
@@ -312,7 +320,8 @@ func (c *cluster) addNode(resource []byte) bool {
 func (c *cluster) saveClusterState() {
 	name := c.cfg.cfg.Name
 	//TODO need to retry when save state error
-	if err := c.cfg.storageStateService.Save(name, c.clusterState); err != nil {
+	data := encoding.JSONMarshal(c.clusterState)
+	if err := c.cfg.brokerRepo.Put(c.cfg.ctx, constants.GetStorageClusterNodeStatePath(name), data); err != nil {
 		c.logger.Error("save storage state error", logger.String("cluster", name), logger.Error(err))
 	}
 }

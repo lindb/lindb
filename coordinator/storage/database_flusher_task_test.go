@@ -29,15 +29,15 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 func TestDatabaseFlushProcessor(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageService := service.NewMockStorageService(ctrl)
-	processor := newDatabaseFlushProcessor(storageService)
+	engine := tsdb.NewMockEngine(ctrl)
+	processor := newDatabaseFlushProcessor(engine)
 	assert.Equal(t, 1, processor.Concurrency())
 	assert.Equal(t, time.Duration(0), processor.RetryBackOff())
 	assert.Equal(t, 0, processor.RetryCount())
@@ -46,7 +46,7 @@ func TestDatabaseFlushProcessor(t *testing.T) {
 	err := processor.Process(context.TODO(), task.Task{Params: []byte{1, 1, 1}})
 	assert.NotNil(t, err)
 	param := models.DatabaseFlushTask{}
-	storageService.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(true)
+	engine.EXPECT().FlushDatabase(gomock.Any(), gomock.Any()).Return(true)
 	err = processor.Process(context.TODO(), task.Task{Params: encoding.JSONMarshal(&param)})
 	assert.NoError(t, err)
 }

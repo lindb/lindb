@@ -31,7 +31,6 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/service"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -42,7 +41,7 @@ import (
 type leafTaskProcessor struct {
 	currentNode       models.Node
 	currentNodeID     string
-	storageService    service.StorageService
+	engine            tsdb.Engine
 	taskServerFactory rpc.TaskServerFactory
 	logger            *logger.Logger
 
@@ -54,14 +53,14 @@ type leafTaskProcessor struct {
 // NewLeafTaskProcessor creates the leaf task
 func NewLeafTaskProcessor(
 	currentNode models.Node,
-	storageService service.StorageService,
+	engine tsdb.Engine,
 	taskServerFactory rpc.TaskServerFactory,
 ) query.TaskProcessor {
 	storageQueryScope := linmetric.NewScope("lindb.storage.query")
 	return &leafTaskProcessor{
 		currentNode:                currentNode,
 		currentNodeID:              (&currentNode).Indicator(),
-		storageService:             storageService,
+		engine:                     engine,
 		taskServerFactory:          taskServerFactory,
 		logger:                     logger.GetLogger("query", "LeafTaskDispatcher"),
 		storageMetricQueryCounter:  storageQueryScope.NewDeltaCounter("metric_queries"),
@@ -117,7 +116,7 @@ func (p *leafTaskProcessor) process(
 		p.storageOmitResponseCounter.Incr()
 		return fmt.Errorf("%w, i: %s am not a leaf node", query.ErrBadPhysicalPlan, p.currentNodeID)
 	}
-	db, ok := p.storageService.GetDatabase(physicalPlan.Database)
+	db, ok := p.engine.GetDatabase(physicalPlan.Database)
 	if !ok {
 		p.storageOmitResponseCounter.Incr()
 		return fmt.Errorf("%w: %s", query.ErrNoDatabase, physicalPlan.Database)

@@ -18,8 +18,11 @@
 package storage
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -30,9 +33,9 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
 )
 
 func TestStorageCluster(t *testing.T) {
@@ -44,56 +47,64 @@ func TestStorageCluster(t *testing.T) {
 	}
 	factory := NewClusterFactory()
 	storage := config.StorageCluster{
-		Config: config.RepoState{Namespace: "storage"},
+		Config: config.RepoState{
+			Namespace: "storage",
+			Timeout:   ltoml.Duration(time.Second * 5),
+		},
 	}
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	controller := task.NewMockController(ctrl)
 	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	controllerFactory := task.NewMockControllerFactory(ctrl)
 	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
-	shardAssignService := service.NewMockShardAssignService(ctrl)
 	cfg := clusterCfg{
-		storageStateService: storageService,
-		cfg:                 storage,
-		repo:                repo,
-		factory:             discoveryFactory,
-		controllerFactory:   controllerFactory,
-		shardAssignService:  shardAssignService,
-		logger:              logger.GetLogger("coordinator", "storage-test"),
+		ctx:               context.Background(),
+		cfg:               storage,
+		storageRepo:       repo,
+		brokerRepo:        repo,
+		factory:           discoveryFactory,
+		controllerFactory: controllerFactory,
+		logger:            logger.GetLogger("coordinator", "storage-test"),
 	}
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err := factory.newCluster(cfg)
 	assert.Error(t, err)
 
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	cluster, err := factory.newCluster(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, cluster)
 
 	// OnCreate
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	cluster.OnCreate("/active/node/1",
 		encoding.JSONMarshal(&models.ActiveNode{Node: models.Node{IP: "1.1.1.4", Port: 4000}}))
 	cluster.OnCreate("/active/node/2", []byte{1, 2, 3})
 	assert.Equal(t, 1, len(cluster.GetActiveNodes()))
 
 	// OnDelete
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	cluster.OnDelete("/active/nodes/1.1.1.2:4000")
 	assert.Equal(t, 1, len(cluster.GetActiveNodes()))
 
 	// get shard assign
-	shardAssignService.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	shardAssign, err := cluster.GetShardAssign("test")
 	assert.Nil(t, shardAssign)
 	assert.NotNil(t, err)
-	shardAssignService.EXPECT().Get(gomock.Any()).Return(models.NewShardAssignment("test"), nil)
+	// unmarshal error
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("bad"), nil)
+	shardAssign, err = cluster.GetShardAssign("test")
+	assert.Nil(t, shardAssign)
+	assert.NotNil(t, err)
+	// ok
+	data, _ := json.Marshal(models.NewShardAssignment("test"))
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(data, nil)
 	shardAssign, err = cluster.GetShardAssign("test")
 	assert.NotNil(t, shardAssign)
 	assert.Nil(t, err)
@@ -107,16 +118,16 @@ func TestStorageCluster(t *testing.T) {
 	shardAssign.Nodes[1] = &models.Node{IP: "1.1.1.1", Port: 8000}
 	shardAssign.Nodes[2] = &models.Node{IP: "1.1.1.2", Port: 8000}
 	// save shard assign err
-	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.NotNil(t, err)
 	// submit task err
-	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.NotNil(t, err)
 	// success
-	shardAssignService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	controller.EXPECT().Submit(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	err = cluster.SaveShardAssign("test", shardAssign, databaseOption)
 	assert.Nil(t, err)
@@ -134,7 +145,6 @@ func TestStorageCluster(t *testing.T) {
 	discovery1.EXPECT().Close()
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
 	cluster.Close()
-
 }
 
 func TestCluster_CollectStat(t *testing.T) {
@@ -142,28 +152,29 @@ func TestCluster_CollectStat(t *testing.T) {
 	defer ctrl.Finish()
 	factory := NewClusterFactory()
 	storage := config.StorageCluster{
-		Config: config.RepoState{Namespace: "storage"},
+		Config: config.RepoState{Namespace: "storage",
+			Timeout: ltoml.Duration(time.Second * 5)},
 	}
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	controller := task.NewMockController(ctrl)
 	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	controllerFactory := task.NewMockControllerFactory(ctrl)
 	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
 	cfg := clusterCfg{
-		storageStateService: storageService,
-		cfg:                 storage,
-		repo:                repo,
-		factory:             discoveryFactory,
-		controllerFactory:   controllerFactory,
-		logger:              logger.GetLogger("coordinator", "storage-test"),
+		ctx:               context.Background(),
+		cfg:               storage,
+		brokerRepo:        repo,
+		storageRepo:       repo,
+		factory:           discoveryFactory,
+		controllerFactory: controllerFactory,
+		logger:            logger.GetLogger("coordinator", "storage-test"),
 	}
 	cluster1, err := factory.newCluster(cfg)
 	assert.Nil(t, err)
@@ -209,22 +220,22 @@ func TestCluster_FlushDatabase(t *testing.T) {
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
-	storageService := service.NewMockStorageStateService(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 
-	storageService.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	controller := task.NewMockController(ctrl)
 	controller.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	controllerFactory := task.NewMockControllerFactory(ctrl)
 	controllerFactory.EXPECT().CreateController(gomock.Any(), gomock.Any()).Return(controller).AnyTimes()
 	cfg := clusterCfg{
-		storageStateService: storageService,
-		cfg:                 storage,
-		repo:                repo,
-		factory:             discoveryFactory,
-		controllerFactory:   controllerFactory,
-		logger:              logger.GetLogger("coordinator", "storage-test"),
+		ctx:               context.Background(),
+		cfg:               storage,
+		brokerRepo:        repo,
+		storageRepo:       repo,
+		factory:           discoveryFactory,
+		controllerFactory: controllerFactory,
+		logger:            logger.GetLogger("coordinator", "storage-test"),
 	}
 	cluster1, err := factory.newCluster(cfg)
 	assert.Nil(t, err)

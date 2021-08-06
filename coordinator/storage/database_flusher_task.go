@@ -26,18 +26,18 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 // databaseFlushProcessor represents flush data of memory database for all shards
 type databaseFlushProcessor struct {
-	storageService service.StorageService
+	engine tsdb.Engine
 }
 
 // newCreateShardProcessor returns create shard processor instance
-func newDatabaseFlushProcessor(storageService service.StorageService) task.Processor {
+func newDatabaseFlushProcessor(engine tsdb.Engine) task.Processor {
 	return &databaseFlushProcessor{
-		storageService: storageService,
+		engine: engine,
 	}
 }
 
@@ -52,7 +52,7 @@ func (p *databaseFlushProcessor) Process(ctx context.Context, task task.Task) er
 	if err := encoding.JSONUnmarshal(task.Params, &param); err != nil {
 		return err
 	}
-	r := p.storageService.FlushDatabase(ctx, param.DatabaseName)
+	r := p.engine.FlushDatabase(ctx, param.DatabaseName)
 	logger.GetLogger("coordinator", "StorageFlushDBProcessor").
 		Info("process flush memory database data task",
 			logger.String("params", string(task.Params)),

@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +41,7 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 
 	newWriteAheadLog = func(cfg config.Replica,
 		currentNodeID models.NodeID, database string,
-		storageSrv service.StorageService,
+		engine tsdb.Engine,
 		cliFct rpc.ClientStreamFactory,
 	) WriteAheadLog {
 		return NewMockWriteAheadLog(ctrl)
@@ -61,11 +61,11 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		newFanOutQueue = queue.NewFanOutQueue
 		ctrl.Finish()
 	}()
-	srv := service.NewMockStorageService(ctrl)
-	l := NewWriteAheadLog(config.Replica{}, 1, "test", srv, nil)
+	engine := tsdb.NewMockEngine(ctrl)
+	l := NewWriteAheadLog(config.Replica{}, 1, "test", engine, nil)
 
 	// case 1: shard not exist
-	srv.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
+	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
 	p, err := l.GetOrCreatePartition(1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
@@ -74,7 +74,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
 		return nil, fmt.Errorf("err")
 	}
-	srv.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, true)
+	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, true)
 	p, err = l.GetOrCreatePartition(1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
@@ -83,7 +83,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
 		return nil, nil
 	}
-	srv.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, true)
+	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, true)
 	p, err = l.GetOrCreatePartition(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)

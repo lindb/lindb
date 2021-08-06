@@ -64,7 +64,7 @@ func TestNew(t *testing.T) {
 	e, err = NewEngine(engineCfg)
 	assert.NoError(t, err)
 
-	db, err := e.CreateDatabase("test_db")
+	db, err := e.createDatabase("test_db")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
@@ -94,7 +94,7 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	e, err := NewEngine(engineCfg)
 	assert.NoError(t, err)
 
-	db, err := e.CreateDatabase("test_db")
+	db, err := e.createDatabase("test_db")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
@@ -127,7 +127,7 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	db, err = e.CreateDatabase("test_db_err")
+	db, err = e.createDatabase("test_db_err")
 	assert.Error(t, err)
 	assert.Nil(t, db)
 	mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -136,7 +136,7 @@ func TestEngine_CreateDatabase(t *testing.T) {
 		checker DataFlushChecker) (d Database, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err = e.CreateDatabase("test_db_err")
+	db, err = e.createDatabase("test_db_err")
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }

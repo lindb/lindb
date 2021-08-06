@@ -27,16 +27,16 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 func TestTaskExecutor(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageService := service.NewMockStorageService(ctrl)
+	engine := tsdb.NewMockEngine(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	exec := NewTaskExecutor(context.TODO(), &models.Node{IP: "1.1.1.1", Port: 5000}, repo, storageService)
+	exec := NewTaskExecutor(context.TODO(), &models.Node{IP: "1.1.1.1", Port: 5000}, repo, engine)
 	assert.NotNil(t, exec)
 
 	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), true).Return(nil)

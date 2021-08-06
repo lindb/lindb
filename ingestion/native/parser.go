@@ -97,5 +97,3 @@ func parseProtoMetric(data []byte, enrichedTags tag.Tags, namespace string) (*pr
 	}
 	return &ms, nil
 }
-
-// todo: check fields

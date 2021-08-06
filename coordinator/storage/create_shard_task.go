@@ -26,19 +26,19 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/service"
+	"github.com/lindb/lindb/tsdb"
 )
 
 // createShardProcessor represents create shard when receive task.
 // create shard if it not exist
 type createShardProcessor struct {
-	storageService service.StorageService
+	engine tsdb.Engine
 }
 
 // newCreateShardProcessor returns create shard processor instance
-func newCreateShardProcessor(storageService service.StorageService) task.Processor {
+func newCreateShardProcessor(engine tsdb.Engine) task.Processor {
 	return &createShardProcessor{
-		storageService: storageService,
+		engine: engine,
 	}
 }
 
@@ -48,14 +48,14 @@ func (p *createShardProcessor) RetryBackOff() time.Duration { return 0 }
 func (p *createShardProcessor) Concurrency() int            { return 1 }
 
 // Process creates shard for storing time series data
-func (p *createShardProcessor) Process(ctx context.Context, task task.Task) error {
+func (p *createShardProcessor) Process(_ context.Context, task task.Task) error {
 	param := models.CreateShardTask{}
 	if err := encoding.JSONUnmarshal(task.Params, &param); err != nil {
 		return err
 	}
 	logger.GetLogger("coordinator", "StorageCreateShardProcessor").
 		Info("process create shard task", logger.String("params", string(task.Params)))
-	if err := p.storageService.CreateShards(
+	if err := p.engine.CreateShards(
 		param.DatabaseName,
 		param.DatabaseOption,
 		param.ShardIDs...,
