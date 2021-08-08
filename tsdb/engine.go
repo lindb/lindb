@@ -101,7 +101,7 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 		dbSet: *newDatabaseSet(),
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.dataFlushChecker = newDataFlushChecker(e.ctx)
+	e.dataFlushChecker = newDataFlushChecker(e.ctx, &cfg)
 	e.dataFlushChecker.Start()
 
 	if err := e.load(); err != nil {

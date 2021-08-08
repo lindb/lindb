@@ -29,16 +29,9 @@ const (
 	// MaxSuggestions represents the max number of suggestions count
 	MaxSuggestions = 10000
 
-	// MemoryHighWaterMark checks if the global memory usage is greater than the limit,
-	// If so, engine will flush the biggest shard's memory database until we are down to the lower mark.
-	MemoryHighWaterMark = 80
-	// MemoryLowWaterMark checks if the global memory usage is low water mark.
-	MemoryLowWaterMark = 60
 	// ShardMemoryUsedThreshold checks if shard's memory usage is greater than this limit,
 	// If so, engine will flush this shard to disk.
 	ShardMemoryUsedThreshold = 500 * 1024 * 1024
-	// FlushConcurrency controls the concurrent number of flush jobs.
-	FlushConcurrency = 4
 
 	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag.
 	TagValueIDForTag = uint32(0)

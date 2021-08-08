@@ -27,14 +27,86 @@ import (
 
 // TSDB represents the tsdb configuration
 type TSDB struct {
-	Dir string `toml:"dir"`
+	Dir                      string         `toml:"dir"`
+	BatchWriteSize           int            `toml:"batch-write-size"`
+	BatchPendingSize         int            `toml:"batch-pending-size"`
+	BatchTimeout             ltoml.Duration `toml:"batch-timeout"`
+	MaxMemDBSize             ltoml.Size     `toml:"max-memdb-size"`
+	MaxMemDBTotalSize        ltoml.Size     `toml:"max-memdb-total-size"`
+	MaxMemDBNumber           int            `toml:"max-memdb-number"`
+	MutableMemDBTTL          ltoml.Duration `toml:"mutable-memdb-ttl"`
+	MaxMemUsageBeforeFlush   float64        `toml:"max-mem-usage-before-flush"`
+	TargetMemUsageAfterFlush float64        `toml:"target-mem-usage-after-flush"`
+	FlushConcurrency         int            `toml:"flush-concurrency"`
+	MaxSeriesIDsNumber       int            `toml:"max-seriesIDs"`
+	MaxTagKeysNumber         int            `toml:"max-tagKeys"`
 }
 
 func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
-    ## where the tsdb data is stored
-    dir = "%s"`,
+	## The TSDB directory where the time series data and meta file stores.
+    dir = "%s"
+
+	## Write configuration
+	## 
+	## Shard batch write to memdb with this many buffered metrics
+	batch-write-size = %d
+	## Shard pending with this many batched metrics in memory
+	## if batch-write-size is 100, batch-pending-size is 10
+	## at most 1000 metrics will be cached before write
+	batch-pending-size = %d
+	## Shard will write at least this often,
+	## even if the configured batch-size is not reached.
+	batch-timeout = "%s"
+	
+	## Flush configuration
+	## 
+	## The amount of data to build up in each memdb, 
+	## before it is queueing to the immutable list for flushing.
+	## Default: 500 MiB, larger memdb may improve query performance
+	max-memdb-size = "%s"
+	## The maximum size of mutable and immutable memdb of a shard
+	## Flush operation will be triggered When this exceeds.
+	## Default: 2 GiB
+	max-memdb-total-size = "%s"
+	## The maximum number mutable and immutable memdb stores in memory.
+	## Default: 5. Notice that unlmitied time-range of metrics will make it uncontrollable。
+	## If sets to 0, the memdb number is unlimited.
+	max-memdb-number = %d
+	## mutable memdb will switch to immutable this often,
+	## event if the configured memdb-size is not reached.
+	## Default: 1h
+	mutable-memdb-ttl = "%s"
+	## Global flush operation will be triggered
+	## when system memory usage is higher than this ratio.
+	## Default: 0.85
+	max-mem-usage-before-flush = %.2f
+	## Global flush operation will be stopped 
+	## when system memory usage is lower than this ration.
+	## Defult: 0.60
+	target-mem-usage-after-flush = %.2f
+	## concurrency of goroutines for flushing. Default: 4
+	flush-concurrency = %d
+
+	## Time Series limitation
+	## 
+	## Limit for time series of metric. Default: 200000
+	max-seriesIDs = %d
+	## limit for tagKeys, Default: 32
+	max-tagKeys = %d`,
 		t.Dir,
+		t.BatchWriteSize,
+		t.BatchPendingSize,
+		t.BatchTimeout.String(),
+		t.MaxMemDBSize.String(),
+		t.MaxMemDBTotalSize.String(),
+		t.MaxMemDBNumber,
+		t.MutableMemDBTTL.String(),
+		t.MaxMemUsageBeforeFlush,
+		t.TargetMemUsageAfterFlush,
+		t.FlushConcurrency,
+		t.MaxSeriesIDsNumber,
+		t.MaxTagKeysNumber,
 	)
 }
 
@@ -107,7 +179,20 @@ func NewDefaultStorageBase() *StorageBase {
 			Port: 2891,
 			TTL:  ltoml.Duration(time.Second)},
 		TSDB: TSDB{
-			Dir: filepath.Join(defaultParentDir, "storage/data")},
+			Dir:                      filepath.Join(defaultParentDir, "storage/data"),
+			BatchWriteSize:           100,
+			BatchPendingSize:         10,
+			BatchTimeout:             ltoml.Duration(time.Millisecond * 500),
+			MaxMemDBSize:             ltoml.Size(500 * 1024 * 1024),
+			MaxMemDBNumber:           5,
+			MaxMemDBTotalSize:        ltoml.Size(2 * 1024 * 1024 * 1024),
+			MutableMemDBTTL:          ltoml.Duration(time.Hour),
+			MaxMemUsageBeforeFlush:   0.85,
+			TargetMemUsageAfterFlush: 0.6,
+			FlushConcurrency:         4,
+			MaxSeriesIDsNumber:       200000,
+			MaxTagKeysNumber:         32,
+		},
 		Query: *NewDefaultQuery(),
 	}
 }

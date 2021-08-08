@@ -37,21 +37,24 @@ func (entries memDBEntries) Less(i, j int) bool { return entries[i].familyTime <
 func (entries memDBEntries) Swap(i, j int)      { entries[i], entries[j] = entries[j], entries[i] }
 
 // familyMemDBSet is a immutable data structure in database to provide lock-free lookup
+// operation like inserting or switching memdb from mutable to immutable should be protected with lock
 type familyMemDBSet struct {
-	value atomic.Value // memDBEntries
+	mutable   atomic.Value // mutable memdb list
+	immutable atomic.Value
 }
 
 // newFamilyMemDBSet returns a default empty familyMemDBSet
 func newFamilyMemDBSet() *familyMemDBSet {
 	set := &familyMemDBSet{}
 	// initialize it with a new empty entry slice
-	set.value.Store(memDBEntries{})
+	set.mutable.Store(memDBEntries{})
+	set.immutable.Store(memDBEntries{})
 	return set
 }
 
 // InsertFamily inserts a new family into the set
 func (ss *familyMemDBSet) InsertFamily(familyTime int64, memDB memdb.MemoryDatabase) {
-	oldEntries := ss.value.Load().(memDBEntries)
+	oldEntries := ss.mutable.Load().(memDBEntries)
 	var (
 		newEntries memDBEntries
 		newEntry   = memDBEntry{familyTime: familyTime, memDB: memDB}
@@ -61,12 +64,12 @@ func (ss *familyMemDBSet) InsertFamily(familyTime int64, memDB memdb.MemoryDatab
 	copy(newEntries, oldEntries)
 	newEntries[len(newEntries)-1] = newEntry
 	sort.Sort(newEntries)
-	ss.value.Store(newEntries)
+	ss.mutable.Store(newEntries)
 }
 
 // GetFamily searches the memDB by familyTime from the familyMemDBSet
 func (ss *familyMemDBSet) GetFamily(familyTime int64) (memdb.MemoryDatabase, bool) {
-	entries := ss.value.Load().(memDBEntries)
+	entries := ss.mutable.Load().(memDBEntries)
 	// fast path when length < 20
 	if entries.Len() <= 20 {
 		for idx := range entries {
@@ -86,5 +89,5 @@ func (ss *familyMemDBSet) GetFamily(familyTime int64) (memdb.MemoryDatabase, boo
 }
 
 func (ss *familyMemDBSet) Entries() memDBEntries {
-	return ss.value.Load().(memDBEntries)
+	return ss.mutable.Load().(memDBEntries)
 }

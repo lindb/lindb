@@ -17,7 +17,39 @@
 
 package config
 
+import "sync/atomic"
+
 var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
+
+	globalBrokerCfg  atomic.Value
+	globalStorageCfg atomic.Value
 )
+
+func init() {
+	SetGlobalBrokerConfig(NewDefaultBrokerBase())
+	SetGlobalStorageConfig(NewDefaultStorageBase())
+}
+
+// SetGlobalBrokerConfig sets global the broker config,
+// this config will be triggered to reload when receiving a SIGHUP
+func SetGlobalBrokerConfig(cfg *BrokerBase) {
+	globalBrokerCfg.Store(cfg)
+}
+
+// SetGlobalStorageConfig sets global the storage config,
+// this config will be triggered to reload when receiving a SIGHUP
+func SetGlobalStorageConfig(cfg *StorageBase) {
+	globalStorageCfg.Store(cfg)
+}
+
+// GlobalBrokerConfig returns the global broker config
+func GlobalBrokerConfig() *BrokerBase {
+	return globalBrokerCfg.Load().(*BrokerBase)
+}
+
+// GlobalStorageConfig returns the global storage config
+func GlobalStorageConfig() *StorageBase {
+	return globalStorageCfg.Load().(*StorageBase)
+}

@@ -26,7 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/shirou/gopsutil/mem"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/tsdb/memdb"
 )
 
@@ -42,7 +42,7 @@ func TestDataFlushChecker_Start(t *testing.T) {
 	shard.EXPECT().Flush().Return(fmt.Errorf("err")).AnyTimes()
 	GetShardManager().AddShard(shard)
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO())
+	checker := newDataFlushChecker(context.TODO(), &config.TSDB{FlushConcurrency: 4})
 	checker.Start()
 
 	time.Sleep(100 * time.Millisecond)
@@ -63,10 +63,11 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard.EXPECT().IsFlushing().Return(true).AnyTimes()
 	GetShardManager().AddShard(shard)
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO())
+	checker := newDataFlushChecker(context.TODO(),
+		&config.TSDB{FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
 	check := checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
 	}
 	checker.Start()
 
@@ -93,10 +94,11 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	GetShardManager().AddShard(shard2)
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker = newDataFlushChecker(context.TODO())
+	checker = newDataFlushChecker(context.TODO(), &config.TSDB{
+		FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
 	check = checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
 	}
 	checker.Start()
 
@@ -125,10 +127,11 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 		shards = append(shards, shard)
 	}
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO())
+	checker := newDataFlushChecker(context.TODO(), &config.TSDB{
+		FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
 	check := checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: constants.MemoryHighWaterMark + 0.1}, nil
+		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
 	}
 	checker.Start()
 
