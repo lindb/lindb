@@ -118,23 +118,17 @@ func (rc *ReplicationChannel) TOML() string {
 	return fmt.Sprintf(`
     ## WAL mmaped log directory
     dir = "%s"
-    
     ## data-size-limit is the maximum size in megabytes of the page file before a new
     ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
     data-size-limit = %d
-	
     ## interval for how often a new segment will be created
     remove-task-interval = "%s"
-
     ## replicator state report interval
     report-interval = "%s"
-
     ## interval for how often buffer will be checked if it's available to flush
     check-flush-interval = "%s"
-
     ## interval for how often data will be flushed if data not exceeds the buffer-size
     flush-interval = "%s"
-
     ## will flush if this size of data in kegabytes get buffered
     buffer-size = %d`,
 		rc.Dir,

@@ -93,10 +93,8 @@ func (q *Query) TOML() string {
 	return fmt.Sprintf(`
     ## number of queries allowed to execute concurrently
     query-concurrency = %d
-
     ## idle worker will be canceled in this duration
     idle-timeout = "%s"
-
     ## maximum timeout threshold for query.
     timeout = "%s"`,
 		q.QueryConcurrency,
