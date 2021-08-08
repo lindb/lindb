@@ -30,12 +30,14 @@ import (
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -46,6 +48,7 @@ import (
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -69,7 +72,10 @@ var (
 	cumulativeTransformedVec   = shardScope.NewDeltaCounterVec("cumulative_transformed", "db", "shard")
 	cumulativeUnTransformedVec = shardScope.NewDeltaCounterVec("cumulative_untransformed", "db", "shard")
 	escapedFieldNameVec        = shardScope.NewDeltaCounterVec("escaped_fields", "db", "shard")
+	memdbTotalSizeVec          = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
+	memdbNumberVec             = shardScope.NewGaugeVec("memdb_number", "db", "shard")
 	memFlushTimerVec           = shardScope.Scope("memdb_flush_duration").NewDeltaHistogramVec("db", "shard")
+	indexFlushTimerVec         = shardScope.Scope("indexdb_flush_duration").NewDeltaHistogramVec("db", "shard")
 )
 
 const (
@@ -102,6 +108,8 @@ type Shard interface {
 	Write(metric *protoMetricsV1.Metric) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
+	// MemDBTotalSize returns the total size of mutable and immutable memdb
+	MemDBTotalSize() int64
 	// Flush flushes index and memory data to disk
 	Flush() error
 	// NeedFlush checks if shard need to flush memory data
@@ -110,7 +118,6 @@ type Shard interface {
 	IsFlushing() bool
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
-
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 	// DataFilter filters the data based on condition
@@ -126,7 +133,10 @@ type shardMetrics struct {
 	cumulativeTransformed   *linmetric.BoundDeltaCounter
 	cumulativeUnTransformed *linmetric.BoundDeltaCounter
 	escapedFields           *linmetric.BoundDeltaCounter
+	memdbTotalSize          *linmetric.BoundGauge
+	memdbNumber             *linmetric.BoundGauge
 	memFlushTimer           *linmetric.BoundDeltaHistogram
+	indexFlushTimer         *linmetric.BoundDeltaHistogram
 }
 
 func newShardMetrics(dbName string, shardID int32) *shardMetrics {
@@ -140,7 +150,10 @@ func newShardMetrics(dbName string, shardID int32) *shardMetrics {
 		cumulativeTransformed:   cumulativeTransformedVec.WithTagValues(dbName, shardIDStr),
 		cumulativeUnTransformed: cumulativeUnTransformedVec.WithTagValues(dbName, shardIDStr),
 		escapedFields:           escapedFieldNameVec.WithTagValues(dbName, shardIDStr),
+		memdbTotalSize:          memdbTotalSizeVec.WithTagValues(dbName, shardIDStr),
+		memdbNumber:             memdbNumberVec.WithTagValues(dbName, shardIDStr),
 		memFlushTimer:           memFlushTimerVec.WithTagValues(dbName, shardIDStr),
+		indexFlushTimer:         indexFlushTimerVec.WithTagValues(dbName, shardIDStr),
 	}
 }
 
@@ -179,8 +192,8 @@ type shard struct {
 	indexStore     kv.Store  // kv stores
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
-
-	metrics shardMetrics
+	logger         *logger.Logger
+	metrics        shardMetrics
 
 	// cumulative field value-> delta cache
 	once4Cache      sync.Once
@@ -221,6 +234,7 @@ func newShard(
 		segments:     make(map[timeutil.IntervalType]IntervalSegment),
 		isFlushing:   *atomic.NewBool(false),
 		metrics:      *newShardMetrics(db.Name(), shardID),
+		logger:       logger.GetLogger("tsdb", "Shard"),
 	}
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
@@ -239,6 +253,8 @@ func newShard(
 		if err != nil {
 			if err := createdShard.Close(); err != nil {
 				engineLogger.Error("close shard error when create shard fail",
+					logger.Int32("shardID", createdShard.id),
+					logger.String("database", createdShard.databaseName),
 					logger.String("shard", createdShard.path), logger.Error(err))
 			}
 		}
@@ -301,7 +317,7 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 
 // GetOrCreateMemoryDatabase returns memory database by given family time.
 func (s *shard) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
-	db, exist := s.families.GetFamily(familyTime)
+	db, exist := s.families.GetMutableFamily(familyTime)
 	if exist {
 		return db, nil
 	}
@@ -309,7 +325,7 @@ func (s *shard) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabas
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// double check
-	db, exist = s.families.GetFamily(familyTime)
+	db, exist = s.families.GetMutableFamily(familyTime)
 	if exist {
 		return db, nil
 	}
@@ -617,6 +633,8 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	} else {
 		s.metrics.writeMetricFailures.Incr()
 	}
+	// if memdb size is above threshold, it will be put into immutable list
+	s.validateMemDBSize(familyTime, db)
 	return err
 }
 
@@ -647,15 +665,90 @@ func (s *shard) Close() error {
 // IsFlushing checks if this shard is in flushing
 func (s *shard) IsFlushing() bool { return s.isFlushing.Load() }
 
+func (s *shard) validateMemDBSize(familyTime int64, m memdb.MemoryDatabase) {
+	// memory usage lower than threshold
+	maxMemDBSize := int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)
+	if m.MemSize() < maxMemDBSize {
+		return
+	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.families.SetFamilyImmutable(familyTime)
+
+	s.logger.Info("memdb is above memory threshold, switch to immutable",
+		logger.Int32("shardID", s.id),
+		logger.String("database", s.databaseName),
+		logger.Int64("familyTime", familyTime),
+		logger.String("uptime", m.Uptime().String()),
+		logger.String("memdb-size", ltoml.Size(m.MemSize()).String()),
+		logger.Int64("max-memdb-size", maxMemDBSize),
+	)
+}
+
+func (s *shard) tryEvictMutable() {
+	// fast path, there is no expired mutable memdb
+	ttl := config.GlobalStorageConfig().TSDB.MutableMemDBTTL.Duration()
+	mutable := s.families.MutableEntries()
+	for _, entry := range mutable {
+		if entry.memDB.Uptime() > ttl {
+			goto MoveMutable
+		}
+	}
+	return
+
+MoveMutable:
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, entry := range s.families.MutableEntries() {
+		if entry.memDB.Uptime() > ttl {
+			s.families.SetFamilyImmutable(entry.familyTime)
+			s.logger.Info("switch a expired mutable memdb to immutable",
+				logger.Int32("shardID", s.id),
+				logger.String("database", s.databaseName),
+				logger.String("uptime", entry.memDB.Uptime().String()),
+				logger.String("mutable-memdb-ttl", ttl.String()),
+			)
+		}
+	}
+}
+
+func (s *shard) MemDBTotalSize() int64 {
+	return s.families.TotalSize()
+}
+
 // NeedFlush checks if shard need to flush memory data
 func (s *shard) NeedFlush() bool {
 	if s.IsFlushing() {
 		return false
 	}
+	s.metrics.memdbNumber.Update(float64(len(s.families.Entries())))
+	s.metrics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
 
-	for _, entry := range s.families.Entries() {
-		//TODO add time threshold???
-		return entry.memDB.MemSize() > constants.ShardMemoryUsedThreshold
+	s.tryEvictMutable()
+
+	cfg := config.GlobalStorageConfig()
+	// too many memdbs
+	number := len(s.families.Entries())
+	if number > cfg.TSDB.MaxMemDBNumber {
+		s.logger.Info("number of memdb is above threshold, waiting for flush",
+			logger.Int32("shardID", s.id),
+			logger.String("database", s.databaseName),
+			logger.Int32("memdb-number", int32(number)),
+			logger.Int32("max-memdb-number", int32(cfg.TSDB.MaxMemDBNumber)),
+		)
+		return true
+	}
+	// total size too much
+	totalSize := s.families.TotalSize()
+	if totalSize > int64(cfg.TSDB.MaxMemDBTotalSize) {
+		s.logger.Info("total size of memdb is above threshold, waiting for flush",
+			logger.Int32("shardID", s.id),
+			logger.String("database", s.databaseName),
+			logger.Int64("memdb-total-size", totalSize),
+			logger.Int64("max-memdb-total-size", int64(cfg.TSDB.MaxMemDBTotalSize)),
+		)
+		return true
 	}
 	return false
 }
@@ -676,26 +769,71 @@ func (s *shard) Flush() (err error) {
 		s.isFlushing.Store(false)
 	}()
 
+	startTime := time.Now()
 	//FIXME stone1100
 	// index flush
 	if s.indexDB != nil {
 		if err = s.indexDB.Flush(); err != nil {
+			s.logger.Error("failed to flush indexDB ",
+				logger.Int32("shardID", s.id),
+				logger.String("database", s.databaseName),
+				logger.Error(err))
 			return err
 		}
+		s.logger.Info("flush indexDB successfully",
+			logger.Int32("shardID", s.id),
+			logger.String("database", s.databaseName),
+		)
+		s.metrics.indexFlushTimer.UpdateSince(startTime)
 	}
 
-	// flush memory database if need flush
-	for _, entry := range s.families.Entries() {
-		//TODO add time threshold???
-		if entry.memDB.MemSize() > constants.ShardMemoryUsedThreshold {
-			if err := s.flushMemoryDatabase(entry.memDB); err != nil {
-				return err
-			}
+	var waitingFlushMemDB memdb.MemoryDatabase
+	immutable := s.families.ImmutableEntries()
+	// flush first immutable memdb
+	if len(immutable) > 0 {
+		waitingFlushMemDB = immutable[0].memDB
+	} else {
+		s.mutex.Lock()
+		// force picks a mutable memdb from memory
+		if evictedMutable := s.families.SetLargestMutableMemDBImmutable(); evictedMutable {
+			waitingFlushMemDB = s.families.ImmutableEntries()[0].memDB
+			s.logger.Info("forcefully switch a memdb to immutable for flushing",
+				logger.Int32("shardID", s.id),
+				logger.String("database", s.databaseName),
+				logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
+				logger.Int64("memDBSize", waitingFlushMemDB.MemSize()),
+			)
 		}
-
+		s.mutex.Unlock()
 	}
-	//FIXME(stone1100) need remove memory database if long time no data
-	// finally, commit replica sequence
+	if waitingFlushMemDB == nil {
+		s.logger.Warn("there is no memdb to flush", logger.Int32("shardID", s.id))
+		return nil
+	}
+
+	startTime = time.Now()
+	if err := s.flushMemoryDatabase(waitingFlushMemDB); err != nil {
+		s.logger.Error("failed to flush memdb",
+			logger.Int32("shardID", s.id),
+			logger.String("database", s.databaseName),
+			logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
+			logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
+		return err
+	}
+	// flush success, remove it from the immutable list
+	s.mutex.Lock()
+	s.families.RemoveHeadImmutable()
+	s.mutex.Unlock()
+
+	endTime := time.Now()
+	s.logger.Error("flush memdb successfully",
+		logger.Int32("shardID", s.id),
+		logger.String("flush-duration", endTime.Sub(startTime).String()),
+		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
+		logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
+	s.metrics.memFlushTimer.UpdateDuration(endTime.Sub(startTime))
+
+	//FIXME(stone1100) commit replica sequence
 	s.ackReplicaSeq()
 	return nil
 }
@@ -748,23 +886,21 @@ func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, er
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
 	startTime := time.Now()
 	defer s.metrics.memFlushTimer.UpdateSince(startTime)
-	//FIXME(stone1100)
-	//for _, familyTime := range memDB.Families() {
-	//	segmentName := s.interval.Calculator().GetSegment(familyTime)
-	//	segment, err := s.segment.GetOrCreateSegment(segmentName)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	thisDataFamily, err := segment.GetDataFamily(familyTime)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	// flush family data
-	//	if err := memDB.FlushFamilyTo(
-	//		metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher()), familyTime); err != nil {
-	//		return err
-	//	}
-	//}
+
+	segmentName := s.interval.Calculator().GetSegment(memDB.FamilyTime())
+	segment, err := s.segment.GetOrCreateSegment(segmentName)
+	if err != nil {
+		return err
+	}
+	thisDataFamily, err := segment.GetDataFamily(memDB.FamilyTime())
+	if err != nil {
+		return err
+	}
+	// flush family data
+	if err := memDB.FlushFamilyTo(
+		metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher())); err != nil {
+		return err
+	}
 	if err := memDB.Close(); err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 //go:generate mockgen -source=./data_flush_checker.go -destination=./data_flush_checker_mock.go -package=tsdb
@@ -75,7 +76,6 @@ type flushRequest struct {
 type dataFlushChecker struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-	cfg    *config.TSDB
 
 	shardInFlushing      sync.Map
 	flushRequestCh       chan *flushRequest          // shard to flush
@@ -86,12 +86,11 @@ type dataFlushChecker struct {
 }
 
 // newDataFlushChecker creates the data flush checker
-func newDataFlushChecker(ctx context.Context, cfg *config.TSDB) DataFlushChecker {
+func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 	c, cancel := context.WithCancel(ctx)
 	return &dataFlushChecker{
 		ctx:                  c,
 		cancel:               cancel,
-		cfg:                  cfg,
 		flushRequestCh:       make(chan *flushRequest),
 		memoryStatGetterFunc: mem.VirtualMemory,
 		logger:               engineLogger,
@@ -115,11 +114,11 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 	defer timer.Stop()
 
 	// 2. start some flush workers
-	for i := 0; i < fc.cfg.FlushConcurrency; i++ {
+	for i := 0; i < config.GlobalStorageConfig().TSDB.FlushConcurrency; i++ {
 		go fc.flushWorker()
 	}
 	fc.logger.Info("DataFlusher Checker is running",
-		logger.Int32("workers", int32(fc.cfg.FlushConcurrency)))
+		logger.Int32("workers", int32(config.GlobalStorageConfig().TSDB.FlushConcurrency)))
 
 	for {
 		select {
@@ -135,7 +134,7 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 			if fc.flushInFlight.Load() == 0 {
 				// check Global memory is above than the high watermark
 				stat, _ := fc.memoryStatGetterFunc()
-				if stat.UsedPercent > fc.cfg.MaxMemUsageBeforeFlush*100 &&
+				if stat.UsedPercent > config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush*100 &&
 					!fc.isWatermarkFlushing.Load() {
 					// memory is higher than the high-watermark
 					// restrict watermarkFlusher concurrency thread-safe
@@ -205,25 +204,26 @@ func (fc *dataFlushChecker) doFlush(request *flushRequest) {
 // flushBiggestMemoryUsageShard picks the biggest memory usage shard to flush
 func (fc *dataFlushChecker) flushBiggestMemoryUsageShard() {
 	var (
-		biggestShard   Shard
-		biggestMemSize int32
+		biggestShard Shard
+		// ignore shard whose memdb size is smaller than 4MB
+		// without this threshold, when tsdb is under insufficient system resources,
+		// watermark flushing may creates a large number of small L0 files，
+		// which is not helpful for reducing system memory usage
+		biggestMemSize = ltoml.Size(4 * 1024 * 1024)
 	)
 	GetShardManager().WalkEntry(func(shard Shard) {
 		// skip shard in flushing
 		if shard.IsFlushing() {
 			return
 		}
-
-		//FIXME(stone1100)
-		theShardSize := int32(1024)
-		//shard.MemoryDatabase().MemSize()
-		if theShardSize > biggestMemSize {
-			// pick a shard that has biggest memory size
-			biggestMemSize = theShardSize
+		thisShardTotalSize := ltoml.Size(shard.MemDBTotalSize())
+		if thisShardTotalSize > biggestMemSize {
+			biggestMemSize = thisShardTotalSize
 			biggestShard = shard
 		}
 	})
-	if biggestMemSize == 0 {
+	// no available shard for flushing
+	if biggestShard == nil {
 		return
 	}
 	// request flush job

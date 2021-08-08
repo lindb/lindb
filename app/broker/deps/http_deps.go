@@ -19,6 +19,7 @@ package deps
 
 import (
 	"context"
+	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
@@ -46,6 +47,10 @@ func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
 	timeout := deps.BrokerCfg.Coordinator.Timeout.Duration()
 	if deps.BrokerCfg.HTTP.ReadTimeout.Duration() < timeout {
 		timeout = deps.BrokerCfg.HTTP.ReadTimeout.Duration()
+	}
+	// todo: pre-check config setting
+	if timeout <= 0 {
+		timeout = time.Second
 	}
 	return context.WithTimeout(deps.Ctx, timeout)
 }

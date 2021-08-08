@@ -42,7 +42,7 @@ func TestDataFlushChecker_Start(t *testing.T) {
 	shard.EXPECT().Flush().Return(fmt.Errorf("err")).AnyTimes()
 	GetShardManager().AddShard(shard)
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO(), &config.TSDB{FlushConcurrency: 4})
+	checker := newDataFlushChecker(context.TODO())
 	checker.Start()
 
 	time.Sleep(100 * time.Millisecond)
@@ -63,11 +63,10 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard.EXPECT().IsFlushing().Return(true).AnyTimes()
 	GetShardManager().AddShard(shard)
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO(),
-		&config.TSDB{FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
+	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
+		return &mem.VirtualMemoryStat{UsedPercent: config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush + 0.1}, nil
 	}
 	checker.Start()
 
@@ -81,7 +80,7 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard1.EXPECT().ShardInfo().Return("shardInfo").AnyTimes()
 	shard1.EXPECT().IsFlushing().Return(false).AnyTimes()
 	mDB1 := memdb.NewMockMemoryDatabase(ctrl)
-	mDB1.EXPECT().MemSize().Return(int32(100)).AnyTimes()
+	mDB1.EXPECT().MemSize().Return(int64(100)).AnyTimes()
 	GetShardManager().AddShard(shard1)
 
 	shard2 := NewMockShard(ctrl)
@@ -90,15 +89,15 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 	shard2.EXPECT().IsFlushing().Return(false).AnyTimes()
 	shard2.EXPECT().Flush().Return(nil).AnyTimes()
 	mDB2 := memdb.NewMockMemoryDatabase(ctrl)
-	mDB2.EXPECT().MemSize().Return(int32(1000)).AnyTimes()
+	mDB2.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
 	GetShardManager().AddShard(shard2)
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker = newDataFlushChecker(context.TODO(), &config.TSDB{
-		FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
+	checker = newDataFlushChecker(context.TODO())
 	check = checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
+		return &mem.VirtualMemoryStat{
+			UsedPercent: config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush + 0.1}, nil
 	}
 	checker.Start()
 
@@ -127,11 +126,11 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 		shards = append(shards, shard)
 	}
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
-	checker := newDataFlushChecker(context.TODO(), &config.TSDB{
-		FlushConcurrency: 4, MaxMemUsageBeforeFlush: 0.85})
+	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
 	check.memoryStatGetterFunc = func() (stat *mem.VirtualMemoryStat, err error) {
-		return &mem.VirtualMemoryStat{UsedPercent: 0.85 + 0.1}, nil
+		return &mem.VirtualMemoryStat{
+			UsedPercent: config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush + 0.1}, nil
 	}
 	checker.Start()
 

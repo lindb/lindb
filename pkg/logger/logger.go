@@ -203,6 +203,11 @@ func Int32(key string, val int32) zap.Field {
 	return zap.Field{Key: key, Type: zapcore.Int32Type, Integer: int64(val)}
 }
 
+// Int is a shortcut for int32
+func Int(key string, val int) zap.Field {
+	return zap.Field{Key: key, Type: zapcore.Int32Type, Integer: int64(val)}
+}
+
 // Int64 constructs a field with the given key and value.
 func Int64(key string, val int64) zap.Field {
 	return zap.Field{Key: key, Type: zapcore.Int64Type, Integer: val}
