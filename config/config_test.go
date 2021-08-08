@@ -80,3 +80,8 @@ func Test_ReplicationChannel_SegmentFileSizeInBytes(t *testing.T) {
 	rc.DataSizeLimit = 10000
 	assert.Equal(t, int64(1024*1024*1024), rc.GetDataSizeLimit())
 }
+
+func Test_Global(t *testing.T) {
+	assert.NotNil(t, GlobalBrokerConfig())
+	assert.NotNil(t, GlobalStorageConfig())
+}

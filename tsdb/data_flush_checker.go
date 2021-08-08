@@ -25,7 +25,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -75,6 +75,7 @@ type flushRequest struct {
 type dataFlushChecker struct {
 	ctx    context.Context
 	cancel context.CancelFunc
+	cfg    *config.TSDB
 
 	shardInFlushing      sync.Map
 	flushRequestCh       chan *flushRequest          // shard to flush
@@ -85,11 +86,12 @@ type dataFlushChecker struct {
 }
 
 // newDataFlushChecker creates the data flush checker
-func newDataFlushChecker(ctx context.Context) DataFlushChecker {
+func newDataFlushChecker(ctx context.Context, cfg *config.TSDB) DataFlushChecker {
 	c, cancel := context.WithCancel(ctx)
 	return &dataFlushChecker{
 		ctx:                  c,
 		cancel:               cancel,
+		cfg:                  cfg,
 		flushRequestCh:       make(chan *flushRequest),
 		memoryStatGetterFunc: mem.VirtualMemory,
 		logger:               engineLogger,
@@ -113,10 +115,11 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 	defer timer.Stop()
 
 	// 2. start some flush workers
-	for i := 0; i < constants.FlushConcurrency; i++ {
+	for i := 0; i < fc.cfg.FlushConcurrency; i++ {
 		go fc.flushWorker()
 	}
-	fc.logger.Info("DataFlusher Checker is running", logger.Int32("workers", constants.FlushConcurrency))
+	fc.logger.Info("DataFlusher Checker is running",
+		logger.Int32("workers", int32(fc.cfg.FlushConcurrency)))
 
 	for {
 		select {
@@ -132,7 +135,7 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 			if fc.flushInFlight.Load() == 0 {
 				// check Global memory is above than the high watermark
 				stat, _ := fc.memoryStatGetterFunc()
-				if stat.UsedPercent > constants.MemoryHighWaterMark &&
+				if stat.UsedPercent > fc.cfg.MaxMemUsageBeforeFlush*100 &&
 					!fc.isWatermarkFlushing.Load() {
 					// memory is higher than the high-watermark
 					// restrict watermarkFlusher concurrency thread-safe
