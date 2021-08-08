@@ -23,10 +23,12 @@ import (
 	"math"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fasttime"
@@ -165,6 +167,8 @@ func TestShard_GetDataFamilies(t *testing.T) {
 
 func Test_Shard_validateMetric(t *testing.T) {
 	s := &shard{behind: 100000, ahead: 100000, metrics: *newShardMetrics("1", 1)}
+	assert.NotNil(t, s.getCache())
+	assert.Zero(t, s.CurrentInterval().Int64())
 	// nil pb
 	_, err := s.validateMetric(nil)
 	assert.Error(t, err)
@@ -376,6 +380,7 @@ func TestShard_Write(t *testing.T) {
 	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
 	mockMemDB.EXPECT().AcquireWrite().AnyTimes()
 	mockMemDB.EXPECT().CompleteWrite().AnyTimes()
+	mockMemDB.EXPECT().MemSize().Return(int64(100)).AnyTimes()
 	mockMemDB.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
 	// calculate family start time and slot index
 	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
@@ -538,169 +543,229 @@ func Test_familyMemDBSet(t *testing.T) {
 	}
 
 	for i := 0; i < 1000; i += 10 {
-		_, exist := set.GetFamily(int64(i))
+		_, exist := set.GetMutableFamily(int64(i))
 		assert.True(t, exist)
-		_, exist = set.GetFamily(int64(i + 1))
+		_, exist = set.GetMutableFamily(int64(i + 1))
 		assert.False(t, exist)
-		_, exist = set.GetFamily(int64(i - 1))
+		_, exist = set.GetMutableFamily(int64(i - 1))
 		assert.False(t, exist)
 	}
 }
 
 func TestShard_Close(t *testing.T) {
-	//ctrl := gomock.NewController(t)
-	//defer func() {
-	//	_ = fileutil.RemoveDir(testPath)
-	//	newKVStoreFunc = kv.NewStore
-	//	ctrl.Finish()
-	//}()
-	//kvStore := kv.NewMockStore(ctrl)
-	//family := kv.NewMockFamily(ctrl)
-	//kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
-	//newKVStoreFunc = func(name string, option kv.StoreOption) (s kv.Store, err error) {
-	//	return kvStore, nil
-	//}
-	//meta := metadb.NewMockMetadata(ctrl)
-	//meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	//db := NewMockDatabase(ctrl)
-	//db.EXPECT().Name().Return("test-db").AnyTimes()
-	//db.EXPECT().Metadata().Return(meta).AnyTimes()
-	//s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	//index := indexdb.NewMockIndexDatabase(ctrl)
-	//s1 := s.(*shard)
-	//s1.indexDB = index
-	//
-	//// case 1: close index err
-	//index.EXPECT().Close().Return(fmt.Errorf("err"))
-	//err := s.Close()
-	//assert.Error(t, err)
-	//// case 2: close index store err
-	//index.EXPECT().Close().Return(nil).AnyTimes()
-	//kvStore.EXPECT().Close().Return(fmt.Errorf("exx"))
-	//err = s.Close()
-	//assert.Error(t, err)
-	//// case 3: flush family err
-	//kvStore.EXPECT().Close().Return(nil).AnyTimes()
-	//mutable := memdb.NewMockMemoryDatabase(ctrl)
-	//s1.mutable = mutable
-	//mutable.EXPECT().Families().Return([]int64{1, 2})
-	//mutable.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	//err = s.Close()
-	//assert.Error(t, err)
-	//// case 4: close success
-	//mutable.EXPECT().Close().Return(nil)
-	//mutable.EXPECT().Families().Return(nil)
-	//err = s.Close()
-	//assert.NoError(t, err)
-	//// case 5: close memory database err
-	//mutable.EXPECT().Close().Return(fmt.Errorf("err"))
-	//mutable.EXPECT().Families().Return(nil)
-	//err = s.Close()
-	//assert.Error(t, err)
-	//// case 6: flush immutable err
-	//mutable.EXPECT().Close().Return(nil)
-	//mutable.EXPECT().Families().Return(nil)
-	//immutable := memdb.NewMockMemoryDatabase(ctrl)
-	//s1.immutable = immutable
-	//immutable.EXPECT().Close().Return(fmt.Errorf("err"))
-	//immutable.EXPECT().Families().Return(nil)
-	//err = s.Close()
-	//assert.Error(t, err)
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newKVStoreFunc = kv.NewStore
+		ctrl.Finish()
+	}()
+	kvStore := kv.NewMockStore(ctrl)
+	family := kv.NewMockFamily(ctrl)
+	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
+	newKVStoreFunc = func(name string, option kv.StoreOption) (s kv.Store, err error) {
+		return kvStore, nil
+	}
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test-db").AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	s1 := s.(*shard)
+	s1.indexDB = index
+
+	// case 1: close index err
+	index.EXPECT().Close().Return(fmt.Errorf("err"))
+	err := s.Close()
+	assert.Error(t, err)
+	// case 2: close index store err
+	index.EXPECT().Close().Return(nil).AnyTimes()
+	kvStore.EXPECT().Close().Return(fmt.Errorf("exx"))
+	err = s.Close()
+	assert.Error(t, err)
+	// case 3: flush immutable err
+	kvStore.EXPECT().Close().Return(nil).AnyTimes()
+	mutableDB := memdb.NewMockMemoryDatabase(ctrl)
+	immutableDB := memdb.NewMockMemoryDatabase(ctrl)
+	s1.families.InsertFamily(1, mutableDB)
+	s1.families.InsertFamily(2, immutableDB)
+	s1.families.SetFamilyImmutable(2)
+	mutableDB.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
+	immutableDB.EXPECT().FamilyTime().Return(int64(2)).AnyTimes()
+
+	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(fmt.Errorf("err"))
+	err = s.Close()
+	assert.Error(t, err)
+	// case 4: close success
+	mutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
+	mutableDB.EXPECT().Close().Return(nil)
+	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
+	immutableDB.EXPECT().Close().Return(nil)
+	err = s.Close()
+	assert.NoError(t, err)
+	// case 5: close memory database err
+	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
+	immutableDB.EXPECT().Close().Return(fmt.Errorf("error"))
+	err = s.Close()
+	assert.Error(t, err)
+
+	// case6, get segment error
+	mockSegment := NewMockIntervalSegment(ctrl)
+	s1.segment = mockSegment
+	mockSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("error"))
+	err = s.Close()
+	assert.Error(t, err)
 }
 
 func TestShard_Flush(t *testing.T) {
-	//ctrl := gomock.NewController(t)
-	//defer func() {
-	//	_ = fileutil.RemoveDir(testPath)
-	//	newMemoryDBFunc = memdb.NewMemoryDatabase
-	//	ctrl.Finish()
-	//}()
-	//
-	//s1 := mockShard(ctrl)
-	//mutable := memdb.NewMockMemoryDatabase(ctrl)
-	//mutable.EXPECT().MemSize().Return(int32(10)).AnyTimes()
-	//mutable.EXPECT().Close().Return(nil).AnyTimes()
-	//s1.mutable = mutable
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newMemoryDBFunc = memdb.NewMemoryDatabase
+		ctrl.Finish()
+	}()
+
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test-db").AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	s, _ := newShard(db, 2, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	s2 := s.(*shard)
+	s2.indexDB = index
+
 	//// case 1: flush is doing
-	//s1.isFlushing.Store(true)
-	//err := s1.Flush()
-	//assert.NoError(t, err)
-	//// case 2: flush err
-	//s1.isFlushing.Store(false)
-	//mutable.EXPECT().Families().Return([]int64{1, 2})
-	//mutable.EXPECT().FlushFamilyTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	//err = s1.Flush()
-	//assert.Error(t, err)
-	//// case 3: get segment err
-	//s1.mutable = mutable
-	//intervalSegment := NewMockIntervalSegment(ctrl)
-	//s1.segment = intervalSegment
-	//mutable.EXPECT().Families().Return([]int64{1, 2}).AnyTimes()
-	//intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	//err = s1.Flush()
-	//assert.Error(t, err)
-	//// case 4: ack replica sequence err
-	//s1.mutable = mutable
-	//seq := NewMockReplicaSequence(ctrl)
-	//s1.sequence = seq
-	//seq.EXPECT().getAllHeads().Return(nil).AnyTimes()
-	//seq.EXPECT().ack(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	//intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	//err = s1.Flush()
-	//assert.Error(t, err)
-	//// case 5: get family err
-	//s1.mutable = mutable
-	//segment := NewMockSegment(ctrl)
-	//intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil).AnyTimes()
-	//segment.EXPECT().GetDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err")).Times(2)
-	//err = s1.Flush()
-	//assert.NoError(t, err)
-	//// case 6: create memory database err, when swap
-	//newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memoryDatabase memdb.MemoryDatabase, err error) {
-	//	return nil, fmt.Errorf("err")
-	//}
-	//err = s1.Flush()
-	//assert.NoError(t, err)
-	//// case 7: flush index err
-	//indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	//s1.indexDB = indexDB
-	//indexDB.EXPECT().Flush().Return(fmt.Errorf("err"))
-	//err = s1.Flush()
-	//assert.Error(t, err)
+	s2.isFlushing.Store(true)
+	assert.NoError(t, s2.Flush())
+	// case 2: flush index error
+	s2.isFlushing.Store(false)
+	index.EXPECT().Flush().Return(fmt.Errorf("error"))
+	assert.Error(t, s2.Flush())
+	// case3: no memdb to flush
+	index.EXPECT().Flush().Return(nil)
+	assert.NoError(t, s2.Flush())
+
+	index.EXPECT().Flush().Return(nil).AnyTimes()
+	immutableDB1 := memdb.NewMockMemoryDatabase(ctrl)
+	immutableDB1.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
+	immutableDB1.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
+	immutableDB1.EXPECT().Close().Return(nil).AnyTimes()
+	mutableDB2 := memdb.NewMockMemoryDatabase(ctrl)
+	mutableDB2.EXPECT().FamilyTime().Return(int64(2)).AnyTimes()
+	mutableDB2.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
+	mutableDB2.EXPECT().Close().Return(nil).AnyTimes()
+
+	s2.families.InsertFamily(1, immutableDB1)
+	s2.families.InsertFamily(2, mutableDB2)
+	s2.families.SetFamilyImmutable(1)
+	// case4: flush first immutable error
+	immutableDB1.EXPECT().FlushFamilyTo(gomock.Any()).Return(fmt.Errorf("error"))
+	assert.Error(t, s2.Flush())
+
+	// case5, flush first immutable ok
+	immutableDB1.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
+	assert.NoError(t, s2.Flush())
+
+	// case6, move mutable to immutable
+	mutableDB2.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
+	assert.NoError(t, s2.Flush())
 }
 
 func TestShard_NeedFlush(t *testing.T) {
-	//ctrl := gomock.NewController(t)
-	//defer ctrl.Finish()
-	//defer func() {
-	//	_ = fileutil.RemoveDir(testPath)
-	//}()
-	//mutable := memdb.NewMockMemoryDatabase(ctrl)
-	//s1 := mockShard(ctrl)
-	//s1.mutable = mutable
-	//// case 1: flush doing
-	//s1.isFlushing.Store(true)
-	//assert.False(t, s1.NeedFlush())
-	//// case 2: need flush
-	//s1.isFlushing.Store(false)
-	//mutable.EXPECT().MemSize().Return(int32(constants.ShardMemoryUsedThreshold + 10))
-	//assert.True(t, s1.NeedFlush())
-	//// case 3: mem size < threshold
-	//mutable.EXPECT().MemSize().Return(int32(10))
-	//assert.False(t, s1.NeedFlush())
-	//// case 4: has immutable
-	//s1.immutable = mutable
-	//assert.False(t, s1.NeedFlush())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+	}()
+
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test-db").AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	s, _ := newShard(db, 2, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	s3 := s.(*shard)
+	s3.indexDB = index
+	// case 1: flush doing
+	s3.isFlushing.Store(true)
+	assert.False(t, s3.NeedFlush())
+	s3.isFlushing.Store(false)
+
+	db1 := memdb.NewMockMemoryDatabase(ctrl)
+	db1.EXPECT().MemSize().Return(int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)).AnyTimes()
+	db1.EXPECT().Uptime().Return(time.Second).AnyTimes()
+	db2 := memdb.NewMockMemoryDatabase(ctrl)
+	db2.EXPECT().MemSize().Return(int64(2)).AnyTimes()
+	db2.EXPECT().Uptime().Return(time.Hour * 24).AnyTimes()
+	db3 := memdb.NewMockMemoryDatabase(ctrl)
+	db3.EXPECT().Uptime().Return(time.Second).AnyTimes()
+	db3.EXPECT().MemSize().Return(int64(3)).AnyTimes()
+	db4 := memdb.NewMockMemoryDatabase(ctrl)
+	db4.EXPECT().Uptime().Return(time.Second).AnyTimes()
+	db4.EXPECT().MemSize().Return(int64(4)).AnyTimes()
+	db5 := memdb.NewMockMemoryDatabase(ctrl)
+	db5.EXPECT().Uptime().Return(time.Second).AnyTimes()
+	db5.EXPECT().MemSize().Return(int64(5)).AnyTimes()
+	db6 := memdb.NewMockMemoryDatabase(ctrl)
+	db6.EXPECT().Uptime().Return(time.Second).AnyTimes()
+	db6.EXPECT().MemSize().Return(int64(config.GlobalStorageConfig().TSDB.MaxMemDBTotalSize) + 10000).AnyTimes()
+
+	s3.families.InsertFamily(1, db1)
+	s3.families.SetFamilyImmutable(1)
+	s3.families.InsertFamily(2, db2)
+	s3.families.SetFamilyImmutable(2)
+	s3.families.InsertFamily(3, db3)
+	s3.families.InsertFamily(4, db4)
+	s3.families.InsertFamily(5, db5)
+	s3.families.InsertFamily(6, db6)
+
+	// case 2: too many memdbs
+	assert.True(t, s3.NeedFlush())
+
+	// case3, size too much
+	s3.families.RemoveHeadImmutable()
+	s3.families.RemoveHeadImmutable()
+	assert.True(t, s3.NeedFlush())
+
+	// case4, no need to flush
+	s3.families.SetFamilyImmutable(3)
+	s3.families.SetFamilyImmutable(4)
+	s3.families.SetFamilyImmutable(5)
+	s3.families.SetFamilyImmutable(6)
+	s3.families.RemoveHeadImmutable()
+	s3.families.RemoveHeadImmutable()
+	s3.families.RemoveHeadImmutable()
+	s3.families.RemoveHeadImmutable()
+	assert.False(t, s3.NeedFlush())
 }
 
-//
-//func mockShard(ctrl *gomock.Controller) *shard {
-//	db := NewMockDatabase(ctrl)
-//	meta := metadb.NewMockMetadata(ctrl)
-//	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-//	db.EXPECT().Name().Return("test-db").AnyTimes()
-//	db.EXPECT().Metadata().Return(meta).AnyTimes()
-//	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-//	s1 := s.(*shard)
-//	return s1
-//}
+func TestShard_GetOrCreateMemoryDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		_ = fileutil.RemoveDir(testPath)
+		newMemoryDBFunc = memdb.NewMemoryDatabase
+		ctrl.Finish()
+	}()
+	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+		return nil, nil
+	}
+	meta := metadb.NewMockMetadata(ctrl)
+	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test-db").AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
+	s4 := s.(*shard)
+
+	_, err := s4.GetOrCreateMemoryDatabase(1)
+	assert.Nil(t, err)
+
+	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+		return nil, fmt.Errorf("err")
+	}
+	_, err = s4.GetOrCreateMemoryDatabase(2)
+	assert.Error(t, err)
+}

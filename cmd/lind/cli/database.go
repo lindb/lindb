@@ -47,7 +47,8 @@ var createDatabaseCmd = &cobra.Command{
 			return err
 		}
 		interval, err := readString("write interval? :")
-		if err != nil {
+		var d ltoml.Duration
+		if err := d.UnmarshalText([]byte(interval)); err != nil {
 			return err
 		}
 		initializer := bootstrap.NewClusterInitializer(cliBrokerEndpoint)

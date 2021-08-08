@@ -14,6 +14,18 @@ export const WriteDashboard = [
   // Row
   [
     metric(
+        'MemDB total Size',
+        'select memdb_total_size from lindb.tsdb.shard group by db, shard',
+        8,
+        UnitEnum.Bytes,
+    ),
+    metric(
+        'MemDB Number(mutable and immutable)',
+        'select memdb_number from lindb.tsdb.shard group by db, shard',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
       'Write Data Points',
       'select write_metrics from lindb.tsdb.shard group by db, shard',
       8,

@@ -18,8 +18,6 @@
 package tsdb
 
 import (
-	"sort"
-
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -30,64 +28,145 @@ type memDBEntry struct {
 	memDB      memdb.MemoryDatabase
 }
 
-type memDBEntries []memDBEntry
+// memDBSet holds all memory databases
+type memDBSet struct {
+	mutable   []memDBEntry
+	immutable []memDBEntry
+}
 
-func (entries memDBEntries) Len() int           { return len(entries) }
-func (entries memDBEntries) Less(i, j int) bool { return entries[i].familyTime < entries[j].familyTime }
-func (entries memDBEntries) Swap(i, j int)      { entries[i], entries[j] = entries[j], entries[i] }
+// New returns a new data structure with samp capacity
+func (s *memDBSet) New() *memDBSet {
+	return &memDBSet{
+		mutable:   make([]memDBEntry, 0, len(s.mutable)),
+		immutable: make([]memDBEntry, 0, len(s.immutable)),
+	}
+}
+
+func newMemDBSet() *memDBSet {
+	return &memDBSet{}
+}
 
 // familyMemDBSet is a immutable data structure in database to provide lock-free lookup
 // operation like inserting or switching memdb from mutable to immutable should be protected with lock
 type familyMemDBSet struct {
-	mutable   atomic.Value // mutable memdb list
-	immutable atomic.Value
+	value atomic.Value // memDBSet
 }
 
 // newFamilyMemDBSet returns a default empty familyMemDBSet
 func newFamilyMemDBSet() *familyMemDBSet {
 	set := &familyMemDBSet{}
-	// initialize it with a new empty entry slice
-	set.mutable.Store(memDBEntries{})
-	set.immutable.Store(memDBEntries{})
+	set.value.Store(*newMemDBSet())
 	return set
 }
 
 // InsertFamily inserts a new family into the set
 func (ss *familyMemDBSet) InsertFamily(familyTime int64, memDB memdb.MemoryDatabase) {
-	oldEntries := ss.mutable.Load().(memDBEntries)
+	set := ss.value.Load().(memDBSet)
+	newSet := set.New()
+
 	var (
-		newEntries memDBEntries
-		newEntry   = memDBEntry{familyTime: familyTime, memDB: memDB}
+		newMutableEntry = memDBEntry{familyTime: familyTime, memDB: memDB}
 	)
+	newSet.mutable = append(newSet.mutable, set.mutable...)
+	newSet.immutable = append(newSet.immutable, set.immutable...)
 
-	newEntries = make([]memDBEntry, oldEntries.Len()+1)
-	copy(newEntries, oldEntries)
-	newEntries[len(newEntries)-1] = newEntry
-	sort.Sort(newEntries)
-	ss.mutable.Store(newEntries)
+	newSet.mutable = append(newSet.mutable, newMutableEntry)
+
+	ss.value.Store(*newSet)
 }
 
-// GetFamily searches the memDB by familyTime from the familyMemDBSet
-func (ss *familyMemDBSet) GetFamily(familyTime int64) (memdb.MemoryDatabase, bool) {
-	entries := ss.mutable.Load().(memDBEntries)
-	// fast path when length < 20
-	if entries.Len() <= 20 {
-		for idx := range entries {
-			if entries[idx].familyTime == familyTime {
-				return entries[idx].memDB, true
-			}
+// GetMutableFamily searches writable memDB by familyTime from the familyMemDBSet
+func (ss *familyMemDBSet) GetMutableFamily(familyTime int64) (memdb.MemoryDatabase, bool) {
+	set := ss.value.Load().(memDBSet)
+	for idx := range set.mutable {
+		if set.mutable[idx].familyTime == familyTime {
+			return set.mutable[idx].memDB, true
 		}
-		return nil, false
 	}
-	index := sort.Search(entries.Len(), func(i int) bool {
-		return entries[i].familyTime >= familyTime
-	})
-	if index < 0 || index >= entries.Len() {
-		return nil, false
-	}
-	return entries[index].memDB, entries[index].familyTime == familyTime
+	return nil, false
 }
 
-func (ss *familyMemDBSet) Entries() memDBEntries {
-	return ss.mutable.Load().(memDBEntries)
+// SetLargestMutableMemDBImmutable choose a largest mutable memdb, then evict it
+func (ss *familyMemDBSet) SetLargestMutableMemDBImmutable() bool {
+	mutable := ss.MutableEntries()
+	var (
+		maxSize    int64
+		familyTime int64
+	)
+	for _, entry := range mutable {
+		memdbSize := entry.memDB.MemSize()
+		if memdbSize > maxSize {
+			familyTime = entry.familyTime
+			maxSize = memdbSize
+		}
+	}
+	if maxSize > 0 {
+		ss.SetFamilyImmutable(familyTime)
+		return true
+	}
+	return false
+}
+
+// SetFamilyImmutable moves a memdb from mutable to immutable
+func (ss *familyMemDBSet) SetFamilyImmutable(familyTime int64) {
+	oldSet := ss.value.Load().(memDBSet)
+	newSet := oldSet.New()
+
+	newSet.immutable = append(newSet.immutable, oldSet.immutable...)
+
+	for _, entry := range oldSet.mutable {
+		if entry.familyTime != familyTime {
+			newSet.mutable = append(newSet.mutable, entry)
+		} else {
+			newSet.immutable = append(newSet.immutable, entry)
+		}
+	}
+
+	// list keeps order as push order
+	ss.value.Store(*newSet)
+}
+
+// RemoveHeadImmutable removes first immutable memdb after flushed
+func (ss *familyMemDBSet) RemoveHeadImmutable() {
+	oldSet := ss.value.Load().(memDBSet)
+	// we must make sure there is already a immutable memdb in list
+	newSet := oldSet.New()
+	newSet.mutable = oldSet.mutable
+
+	for idx := 1; idx < len(oldSet.immutable); idx++ {
+		newSet.immutable = append(newSet.immutable, oldSet.immutable[idx])
+	}
+	ss.value.Store(*newSet)
+
+}
+
+// Entries returns all mutable and immutable memdb
+func (ss *familyMemDBSet) Entries() []memDBEntry {
+	set := ss.value.Load().(memDBSet)
+	var dst = make([]memDBEntry, len(set.mutable)+len(set.immutable))
+	copy(dst, set.immutable)
+	copy(dst[len(set.immutable):], set.mutable)
+	return dst
+}
+
+func (ss *familyMemDBSet) MutableEntries() []memDBEntry {
+	set := ss.value.Load().(memDBSet)
+	return set.mutable
+}
+
+func (ss *familyMemDBSet) ImmutableEntries() []memDBEntry {
+	set := ss.value.Load().(memDBSet)
+	return set.immutable
+}
+
+func (ss *familyMemDBSet) TotalSize() int64 {
+	set := ss.value.Load().(memDBSet)
+	var size int64
+	for _, entry := range set.mutable {
+		size += entry.memDB.MemSize()
+	}
+	for _, entry := range set.immutable {
+		size += entry.memDB.MemSize()
+	}
+	return size
 }

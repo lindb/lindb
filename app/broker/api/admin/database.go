@@ -37,13 +37,15 @@ var (
 
 // DatabaseAPI represents database admin rest api
 type DatabaseAPI struct {
-	deps *deps.HTTPDeps
+	deps   *deps.HTTPDeps
+	logger *logger.Logger
 }
 
 // NewDatabaseAPI creates database api instance
 func NewDatabaseAPI(deps *deps.HTTPDeps) *DatabaseAPI {
 	return &DatabaseAPI{
-		deps: deps,
+		deps:   deps,
+		logger: logger.GetLogger("broker", "DatabaseAPI"),
 	}
 }
 
@@ -121,6 +123,7 @@ func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
 
 	ctx, cancel := d.deps.WithTimeout()
 	defer cancel()
+	d.logger.Info("Saving Database", logger.String("config", string(data)))
 	return d.deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data)
 }
 
