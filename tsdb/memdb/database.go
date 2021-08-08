@@ -20,12 +20,14 @@ package memdb
 import (
 	"io"
 	"sync"
+	"time"
 
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -61,11 +63,16 @@ type MemoryDatabase interface {
 	// Close is not in the flushing process.
 	FlushFamilyTo(flusher metricsdata.Flusher) error
 	// MemSize returns the memory-size of this metric-store
-	MemSize() int32
+	MemSize() int64
 	// DataFilter filters the data based on condition
 	flow.DataFilter
 	// Closer closes the memory database resource
 	io.Closer
+	// FamilyTime returns the family time of this memdb
+	FamilyTime() int64
+	// Uptime returns duration since created
+	Uptime() time.Duration
+	// todo: prevent flushing latest memdb under high watermark
 }
 
 type memoryDBMetrics struct {
@@ -96,6 +103,8 @@ type flushContext struct {
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
+	allocSize atomic.Int64 // allocated size
+
 	familyTime int64
 	name       string
 
@@ -105,8 +114,8 @@ type memoryDatabase struct {
 	writeCondition sync.WaitGroup
 	rwMutex        sync.RWMutex // lock of create metric store
 
-	allocSize atomic.Int32 // allocated size
-	metrics   memoryDBMetrics
+	metrics     memoryDBMetrics
+	createdTime int64
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -116,14 +125,17 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		return nil, err
 	}
 	return &memoryDatabase{
-		familyTime: cfg.FamilyTime,
-		name:       cfg.Name,
-		buf:        buf,
-		mStores:    NewMetricBucketStore(),
-		allocSize:  *atomic.NewInt32(0),
-		metrics:    *newMemoryDBMetrics(cfg.Name),
+		familyTime:  cfg.FamilyTime,
+		name:        cfg.Name,
+		buf:         buf,
+		mStores:     NewMetricBucketStore(),
+		allocSize:   *atomic.NewInt64(0),
+		metrics:     *newMemoryDBMetrics(cfg.Name),
+		createdTime: fasttime.UnixNano(),
 	}, err
 }
+
+func (md *memoryDatabase) FamilyTime() int64 { return md.familyTime }
 
 // getOrCreateMStore returns the mStore by metricHash.
 func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF) {
@@ -271,7 +283,7 @@ End:
 	if written {
 		mStore.SetSlot(point.SlotIndex)
 	}
-	md.allocSize.Add(int32(size))
+	md.allocSize.Add(int64(size))
 	return nil
 }
 
@@ -334,11 +346,15 @@ func (md *memoryDatabase) Filter(metricID uint32,
 }
 
 // MemSize returns the time series database memory size
-func (md *memoryDatabase) MemSize() int32 {
+func (md *memoryDatabase) MemSize() int64 {
 	return md.allocSize.Load()
 }
 
 // Close closes memory data point buffer
 func (md *memoryDatabase) Close() error {
 	return md.buf.Close()
+}
+
+func (md *memoryDatabase) Uptime() time.Duration {
+	return time.Duration(fasttime.UnixNano() - md.createdTime)
 }

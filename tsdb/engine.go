@@ -73,7 +73,6 @@ type Engine interface {
 
 // engine implements Engine
 type engine struct {
-	cfg              config.TSDB        // the common cfg of time series database
 	mutex            sync.Mutex         // mutex for creating database
 	dbSet            databaseSet        // atomic value, holding databaseName -> Database
 	ctx              context.Context    // context
@@ -82,26 +81,17 @@ type engine struct {
 }
 
 // NewEngine creates an engine for manipulating the databases
-func NewEngine(cfg config.TSDB) (Engine, error) {
-	engine, err := newEngine(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return engine, nil
-}
-
-// newEngine creates an engine
-func newEngine(cfg config.TSDB) (*engine, error) {
+func NewEngine() (Engine, error) {
 	// create time series storage path
-	if err := mkDirIfNotExist(cfg.Dir); err != nil {
-		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s", cfg.Dir, err)
+	if err := mkDirIfNotExist(config.GlobalStorageConfig().TSDB.Dir); err != nil {
+		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s",
+			config.GlobalStorageConfig().TSDB.Dir, err)
 	}
 	e := &engine{
-		cfg:   cfg,
 		dbSet: *newDatabaseSet(),
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.dataFlushChecker = newDataFlushChecker(e.ctx, &cfg)
+	e.dataFlushChecker = newDataFlushChecker(e.ctx)
 	e.dataFlushChecker.Start()
 
 	if err := e.load(); err != nil {
@@ -116,7 +106,7 @@ func newEngine(cfg config.TSDB) (*engine, error) {
 // createDatabase creates database instance by database's name
 // return success when creating database's path successfully
 func (e *engine) createDatabase(databaseName string) (Database, error) {
-	dbPath := filepath.Join(e.cfg.Dir, databaseName)
+	dbPath := filepath.Join(config.GlobalStorageConfig().TSDB.Dir, databaseName)
 	if err := mkDirIfNotExist(dbPath); err != nil {
 		return nil, fmt.Errorf("create database[%s]'s path with error: %s", databaseName, err)
 	}
@@ -215,7 +205,7 @@ func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
 
 // load loads the time series engines if exist
 func (e *engine) load() error {
-	databaseNames, err := listDir(e.cfg.Dir)
+	databaseNames, err := listDir(config.GlobalStorageConfig().TSDB.Dir)
 	if err != nil {
 		return err
 	}

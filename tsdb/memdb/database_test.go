@@ -50,6 +50,8 @@ func TestMemoryDatabase_New(t *testing.T) {
 	assert.NotNil(t, mdINTF)
 	err = mdINTF.Close()
 	assert.NoError(t, err)
+	time.Sleep(time.Millisecond * 100)
+	assert.True(t, mdINTF.Uptime() > 0)
 
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")

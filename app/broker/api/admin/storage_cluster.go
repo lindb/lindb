@@ -70,6 +70,7 @@ func (s *StorageClusterAPI) Create(c *gin.Context) {
 	data := encoding.JSONMarshal(storage)
 	ctx, cancel := s.deps.WithTimeout()
 	defer cancel()
+	s.logger.Info("Creating storage cluster", logger.String("config", string(data)))
 	if err := s.deps.Repo.Put(ctx, constants.GetStorageClusterConfigPath(storage.Name), data); err != nil {
 		http.Error(c, err)
 		return

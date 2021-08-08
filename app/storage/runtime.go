@@ -123,7 +123,7 @@ func (r *runtime) Run() error {
 	}
 
 	// start tsdb engine for storage server
-	engine, err := tsdb.NewEngine(r.config.StorageBase.TSDB)
+	engine, err := tsdb.NewEngine()
 	if err != nil {
 		r.state = server.Failed
 		return err

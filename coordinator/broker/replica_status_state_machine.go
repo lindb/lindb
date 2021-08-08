@@ -159,10 +159,6 @@ func (sm *replicaStatusStateMachine) Close() error {
 
 // OnCreate updates the broker's replica status when broker upload replica state
 func (sm *replicaStatusStateMachine) OnCreate(key string, resource []byte) {
-	sm.logger.Debug("discovery new broker online",
-		logger.String("key", key),
-		logger.String("data", string(resource)))
-
 	brokerReplicaState := models.BrokerReplicaState{}
 	if err := encoding.JSONUnmarshal(resource, &brokerReplicaState); err != nil {
 		sm.logger.Error("discovery replica status but unmarshal error", logger.Error(err))

@@ -10,11 +10,11 @@ help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} \
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-build-frontend: clean-frontend-build
+build-frontend: ## build frontend
 	cd web/ && make web_build
 
 GOARCH = amd64
-build: clean-build build-lind ## Build executable files.
+build: clean-build build-frontend build-lind ## Build executable files.
 
 build-all: clean-frontend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside.
 

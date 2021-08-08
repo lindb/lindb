@@ -34,7 +34,12 @@ import (
 )
 
 var testPath = "test_data"
-var engineCfg = config.TSDB{Dir: testPath}
+
+func withTestPath() {
+	cfg := config.GlobalStorageConfig()
+	cfg.TSDB.Dir = testPath
+	config.SetGlobalStorageConfig(cfg)
+}
 
 func TestNew(t *testing.T) {
 	defer func() {
@@ -47,7 +52,9 @@ func TestNew(t *testing.T) {
 	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	e, err := NewEngine(engineCfg)
+	withTestPath()
+
+	e, err := NewEngine()
 	assert.Error(t, err)
 	assert.Nil(t, e)
 	mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -56,12 +63,12 @@ func TestNew(t *testing.T) {
 	listDir = func(path string) (strings []string, e error) {
 		return nil, fmt.Errorf("err")
 	}
-	e, err = NewEngine(engineCfg)
+	e, err = NewEngine()
 	assert.Error(t, err)
 	assert.Nil(t, e)
 	listDir = fileutil.ListDir
 
-	e, err = NewEngine(engineCfg)
+	e, err = NewEngine()
 	assert.NoError(t, err)
 
 	db, err := e.createDatabase("test_db")
@@ -78,7 +85,7 @@ func TestNew(t *testing.T) {
 		}
 		return fileutil.MkDirIfNotExist(path)
 	}
-	e, err = NewEngine(engineCfg)
+	e, err = NewEngine()
 	assert.Error(t, err)
 	assert.Nil(t, e)
 }
@@ -90,8 +97,9 @@ func TestEngine_CreateDatabase(t *testing.T) {
 		decodeToml = ltoml.DecodeToml
 		newDatabaseFunc = newDatabase
 	}()
+	withTestPath()
 
-	e, err := NewEngine(engineCfg)
+	e, err := NewEngine()
 	assert.NoError(t, err)
 
 	db, err := e.createDatabase("test_db")
@@ -109,13 +117,13 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	decodeToml = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
-	e, err = NewEngine(engineCfg)
+	e, err = NewEngine()
 	assert.Error(t, err)
 	assert.Nil(t, e)
 	decodeToml = ltoml.DecodeToml
 
 	// re-open engine
-	e, err = NewEngine(engineCfg)
+	e, err = NewEngine()
 	assert.NoError(t, err)
 	db, ok = e.GetDatabase("test_db")
 	assert.True(t, ok)
@@ -149,7 +157,9 @@ func Test_Engine_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	e, _ := NewEngine(engineCfg)
+	withTestPath()
+
+	e, _ := NewEngine()
 	engineImpl := e.(*engine)
 	defer engineImpl.cancel()
 
@@ -168,7 +178,9 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	e, _ := NewEngine(engineCfg)
+	withTestPath()
+
+	e, _ := NewEngine()
 	engineImpl := e.(*engine)
 	defer engineImpl.cancel()
 	ok := e.FlushDatabase(context.TODO(), "test_db_3")
