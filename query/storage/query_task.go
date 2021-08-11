@@ -212,13 +212,13 @@ type memoryDataFilterTask struct {
 	metricID  uint32
 	fields    field.Metas
 	seriesIDs *roaring.Bitmap
-	rs        *timeSpanResultSet
+	timeSpan  *timeSpanResultSet
 }
 
 // newMemoryDataFilterTask creates memory data filter task
 func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
-	rs *timeSpanResultSet,
+	timeSpan *timeSpanResultSet,
 ) flow.QueryTask {
 	task := &memoryDataFilterTask{
 		ctx:       ctx,
@@ -226,7 +226,7 @@ func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 		metricID:  metricID,
 		fields:    fields,
 		seriesIDs: seriesIDs,
-		rs:        rs,
+		timeSpan:  timeSpan,
 	}
 	if ctx.query.Explain {
 		return &queryStatTask{
@@ -243,7 +243,7 @@ func (t *memoryDataFilterTask) Run() error {
 		return err
 	}
 	for _, rs := range resultSet {
-		t.rs.addFilterResultSet(t.shard.CurrentInterval(), rs)
+		t.timeSpan.addFilterResultSet(t.shard.CurrentInterval(), rs)
 	}
 	return nil
 }

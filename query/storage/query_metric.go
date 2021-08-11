@@ -304,7 +304,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				grouped := groupedResult.groupedSeries
 				fieldSeriesList := make([][]*encoding.TSDDecoder, len(e.fields))
 				fieldAggList := make(aggregation.FieldAggregates, len(e.fields))
-				fieldMerge := make([]aggregation.DownSamplingResult, len(e.fields))
 				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
 				for idx := range e.fields {
 					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
@@ -327,41 +326,39 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 							// loads the metric data by given series id from load result.
 							for resultSetIdx, loader := range span.loaders {
 								// load field series data by series ids
-								slotRange2, fieldsBinary := loader.Load(seriesID)
-								for fieldIndex := range fieldsBinary {
-									fieldBinary := fieldsBinary[fieldIndex]
+								slotRange2, fieldSpanBinary := loader.Load(seriesID)
+								for fieldIndex := range fieldSpanBinary {
+									spanBinary := fieldSpanBinary[fieldIndex]
 									fieldsTSDDecoders := fieldSeriesList[fieldIndex]
-									if fieldBinary != nil {
+									if spanBinary != nil {
 										if fieldsTSDDecoders[resultSetIdx] == nil {
 											fieldsTSDDecoders[resultSetIdx] = encoding.GetTSDDecoder()
 										}
-										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(fieldBinary, slotRange2.Start, slotRange2.End)
+										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(spanBinary, slotRange2.Start, slotRange2.End)
 									}
 								}
 							}
 
 							for idx, fieldSeries := range fieldSeriesList {
-								merge := fieldMerge[idx]
 								var agg aggregation.FieldAggregator
 								var ok bool
 								agg, ok = fieldAggList[idx].GetAggregator(span.familyTime)
 								if !ok {
 									continue
 								}
-								if merge == nil {
-									fieldMerge[idx] = aggregation.NewDownSamplingMergeResult(agg)
-								}
-								f := e.fields[idx]
+								merger := aggregation.NewDownSamplingMergeResult(agg)
+
 								start, end := agg.SlotRange()
 								target := timeutil.SlotRange{
 									Start: uint16(start),
 									End:   uint16(end),
 								}
-
-								ds := aggregation.NewDownSamplingAggregator(span.source, target,
-									uint16(e.queryIntervalRatio), fieldMerge[idx])
-								ds.DownSampling(f.Type.GetAggFunc(), fieldSeries)
-								fieldMerge[idx].Reset()
+								aggregation.DownSamplingMultiSeriesInto(
+									span.source, target, uint16(e.queryIntervalRatio),
+									e.fields[idx].Type.GetAggFunc(),
+									fieldSeries,
+									merger,
+								)
 							}
 						}
 					}
