@@ -90,6 +90,8 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	}
 
 	// run cluster as standalone mode
+	config.SetGlobalBrokerConfig(&standaloneCfg.BrokerBase)
+	config.SetGlobalStorageConfig(&standaloneCfg.StorageBase)
 	runtime := standalone.NewStandaloneRuntime(getVersion(), &standaloneCfg)
 	if err := run(ctx, runtime); err != nil {
 		return err

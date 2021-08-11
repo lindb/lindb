@@ -83,7 +83,7 @@ type timeSpan struct {
 }
 
 type timeSpanResultSet struct {
-	spanMap   map[int64]*timeSpan
+	spanMap   map[int64]*timeSpan // familyTime -> timeSpan
 	seriesIDs *roaring.Bitmap
 
 	filterRSCount int
@@ -109,10 +109,10 @@ func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs fl
 		}
 		s.spanMap[familyTime] = span
 	} else {
-		// calc target slot range
-		target := span.target
-		source := rs.SlotRange()
-		span.target = *((&target).Intersect(&source))
+		// calc source slot range
+		source := span.source
+		newSource := rs.SlotRange()
+		span.source = *((&source).Union(&newSource))
 	}
 
 	span.resultSets = append(span.resultSets, rs)

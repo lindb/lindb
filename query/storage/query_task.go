@@ -423,7 +423,10 @@ type dataLoadTask struct {
 }
 
 // newDataLoadTask creates the data load task
-func newDataLoadTask(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
+func newDataLoadTask(
+	ctx *storageExecuteContext,
+	shard tsdb.Shard,
+	queryFlow flow.StorageQueryFlow,
 	timeSpan *timeSpan,
 	highKey uint16, seriesIDs roaring.Container,
 ) flow.QueryTask {
