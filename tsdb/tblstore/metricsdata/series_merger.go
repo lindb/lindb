@@ -51,7 +51,6 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	fieldReaders []FieldReader,
 ) error {
 	rs := aggregation.NewTSDDownSamplingResult(encodeStream)
-	downSampling := aggregation.NewDownSamplingAggregator(mergeCtx.sourceRange, mergeCtx.targetRange, mergeCtx.ratio, rs)
 	for _, f := range mergeCtx.targetFields {
 		fieldID := f.ID
 
@@ -74,7 +73,12 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 		// merges field data from source time range => target time range,
 		// compact merge: source range = target range and ratio = 1
 		// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
-		downSampling.DownSampling(f.Type.GetAggFunc(), streams)
+		aggregation.DownSamplingMultiSeriesInto(
+			mergeCtx.sourceRange, mergeCtx.targetRange, mergeCtx.ratio,
+			f.Type.GetAggFunc(), streams,
+			rs,
+		)
+
 		data, err := encodeStream.BytesWithoutTime()
 		if err != nil {
 			return err

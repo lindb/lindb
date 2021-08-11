@@ -29,12 +29,6 @@ import (
 
 //go:generate mockgen -source=./down_sampling_agg.go -destination=./down_sampling_agg_mock.go -package=aggregation
 
-// DownSamplingAggregator represents down sampling for field data.
-type DownSamplingAggregator interface {
-	// DownSampling merges fields' data by target interval and time range.
-	DownSampling(aggFunc field.AggFunc, values []*encoding.TSDDecoder)
-}
-
 // DownSamplingResult represents the result of down sampling aggregator.
 type DownSamplingResult interface {
 	// Append appends time and value.
@@ -88,37 +82,23 @@ func (rs *TSDDownSamplingResult) Reset() {
 	//do nothing
 }
 
-// downSamplingAggregator implements DownSamplingAggregator interface.
-type downSamplingAggregator struct {
-	source, target timeutil.SlotRange
-	ratio          uint16
-
-	rs DownSamplingResult
-}
-
-// NewDownSamplingAggregator creates DownSamplingAggregator.
-func NewDownSamplingAggregator(source, target timeutil.SlotRange,
-	ratio uint16, rs DownSamplingResult) DownSamplingAggregator {
-	return &downSamplingAggregator{
-		source: source,
-		target: target,
-		ratio:  ratio,
-		rs:     rs,
-	}
-}
-
-// DownSampling merges field data from source time range => target time range,
+// DownSamplingMultiSeriesInto merges field data from source time range => target time range,
+// data will be merged into DownSamplingResult
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
-func (ds *downSamplingAggregator) DownSampling(aggFunc field.AggFunc, decoders []*encoding.TSDDecoder) {
+func DownSamplingMultiSeriesInto(
+	source, target timeutil.SlotRange, ratio uint16,
+	aggFunc field.AggFunc, decoders []*encoding.TSDDecoder,
+	rs DownSamplingResult,
+) {
 	hasValue := false
-	pos := ds.source.Start
-	end := ds.source.End
+	pos := source.Start
+	end := source.End
 	result := 0.0
-	rs := ds.rs
+
 	// first loop: target slot range
-	for j := ds.target.Start; j <= ds.target.End; j++ {
+	for j := target.Start; j <= target.End; j++ {
 		// second loop: source slot range and ratio(target interval/source interval)
-		intervalEnd := ds.ratio * (j + 1)
+		intervalEnd := ratio * (j + 1)
 		for pos <= end && pos < intervalEnd {
 			// 1. merge data by time slot
 			for _, decoder := range decoders {

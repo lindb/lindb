@@ -74,7 +74,7 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	if it.length == 0 {
 		return nil, nil
 	}
-	//need reset idx
+	// need reset idx
 	it.idx = 0
 	writer := stream.NewBufferWriter(nil)
 	for it.HasNext() {
