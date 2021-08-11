@@ -284,24 +284,24 @@ func (qf *storageQueryFlow) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
 	groupedSeriesList := qf.reduceAgg.ResultSet()
 	// 2. build rpc response data
 	var timeSeriesList []*protoCommonV1.TimeSeries
-	for _, ts := range groupedSeriesList {
+	for _, groupedSeriesItr := range groupedSeriesList {
 		fields := make(map[string][]byte)
-		for ts.HasNext() {
-			fieldIt := ts.Next()
-			data, err := fieldIt.MarshalBinary()
+		for groupedSeriesItr.HasNext() {
+			seriesItr := groupedSeriesItr.Next()
+			data, err := seriesItr.MarshalBinary()
 			if err != nil || len(data) == 0 {
 				if err != nil {
-					storageQueryFlowLogger.Error("marshal iterator data", logger.Error(err))
+					storageQueryFlowLogger.Error("marshal seriesItr data", logger.Error(err))
 				}
 				continue
 			}
-			fields[string(fieldIt.FieldName())] = data
+			fields[string(seriesItr.FieldName())] = data
 		}
 
 		if len(fields) > 0 {
 			tags := ""
 			if hasGroupBy {
-				tags = qf.getTagValues(ts.Tags())
+				tags = qf.getTagValues(groupedSeriesItr.Tags())
 			}
 			timeSeriesList = append(timeSeriesList, &protoCommonV1.TimeSeries{
 				Tags:   tags,
