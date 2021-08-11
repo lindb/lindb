@@ -241,6 +241,7 @@ func (e *storageExecutor) executeQuery() {
 func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
+	// timespans sorted by family
 	timeSpans := rs.getTimeSpans()
 	if e.ctx.query.HasGroupBy() {
 		// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
@@ -326,15 +327,15 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 							// loads the metric data by given series id from load result.
 							for resultSetIdx, loader := range span.loaders {
 								// load field series data by series ids
-								slotRange2, allFieldsBytes := loader.Load(seriesID)
-								for fieldIndex := range allFieldsBytes {
-									fieldBytes := allFieldsBytes[fieldIndex]
+								slotRange2, fieldsBinary := loader.Load(seriesID)
+								for fieldIndex := range fieldsBinary {
+									fieldBinary := fieldsBinary[fieldIndex]
 									fieldsTSDDecoders := fieldSeriesList[fieldIndex]
-									if fieldBytes != nil {
+									if fieldBinary != nil {
 										if fieldsTSDDecoders[resultSetIdx] == nil {
 											fieldsTSDDecoders[resultSetIdx] = encoding.GetTSDDecoder()
 										}
-										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(fieldBytes, slotRange2.Start, slotRange2.End)
+										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(fieldBinary, slotRange2.Start, slotRange2.End)
 									}
 								}
 							}

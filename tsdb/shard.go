@@ -826,7 +826,7 @@ func (s *shard) Flush() (err error) {
 	s.mutex.Unlock()
 
 	endTime := time.Now()
-	s.logger.Error("flush memdb successfully",
+	s.logger.Info("flush memdb successfully",
 		logger.Int32("shardID", s.id),
 		logger.String("flush-duration", endTime.Sub(startTime).String()),
 		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),

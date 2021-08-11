@@ -109,7 +109,7 @@ func NewDownSamplingAggregator(source, target timeutil.SlotRange,
 
 // DownSampling merges field data from source time range => target time range,
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
-func (ds *downSamplingAggregator) DownSampling(aggFunc field.AggFunc, values []*encoding.TSDDecoder) {
+func (ds *downSamplingAggregator) DownSampling(aggFunc field.AggFunc, decoders []*encoding.TSDDecoder) {
 	hasValue := false
 	pos := ds.source.Start
 	end := ds.source.End
@@ -121,19 +121,19 @@ func (ds *downSamplingAggregator) DownSampling(aggFunc field.AggFunc, values []*
 		intervalEnd := ds.ratio * (j + 1)
 		for pos <= end && pos < intervalEnd {
 			// 1. merge data by time slot
-			for _, value := range values {
-				if value == nil {
+			for _, decoder := range decoders {
+				if decoder == nil {
 					// if series id not exist, value maybe nil
 					continue
 				}
-				if value.HasValueWithSlot(pos) {
+				if decoder.HasValueWithSlot(pos) {
 					if !hasValue {
 						// if target value not exist, set it
-						result = math.Float64frombits(value.Value())
+						result = math.Float64frombits(decoder.Value())
 						hasValue = true
 					} else {
 						// if target value exist, do aggregate
-						result = aggFunc.Aggregate(result, math.Float64frombits(value.Value()))
+						result = aggFunc.Aggregate(result, math.Float64frombits(decoder.Value()))
 					}
 				}
 			}
