@@ -68,7 +68,7 @@ type nativeProtoPusher struct {
 	client          *http.Client
 }
 
-// NewNativePusher creates a new native pusher
+// NewNativeProtoPusher creates a new native pusher
 func NewNativeProtoPusher(
 	ctx context.Context,
 	endpoint string,

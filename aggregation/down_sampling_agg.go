@@ -33,7 +33,7 @@ import (
 type DownSamplingResult interface {
 	// Append appends time and value.
 	Append(slot bit.Bit, value float64)
-	Reset()
+	Reset(slotStart uint16)
 }
 
 type downSamplingMergeResult struct {
@@ -56,8 +56,8 @@ func (d *downSamplingMergeResult) Append(slot bit.Bit, value float64) {
 	d.pos++
 }
 
-func (d *downSamplingMergeResult) Reset() {
-	d.pos = 0
+func (d *downSamplingMergeResult) Reset(slotStart uint16) {
+	d.pos = int(slotStart)
 }
 
 // TSDDownSamplingResult implements DownSamplingResult using encoding TSDEncoder.
@@ -78,7 +78,7 @@ func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
 	}
 }
 
-func (rs *TSDDownSamplingResult) Reset() {
+func (rs *TSDDownSamplingResult) Reset(_ uint16) {
 	//do nothing
 }
 
@@ -86,21 +86,19 @@ func (rs *TSDDownSamplingResult) Reset() {
 // data will be merged into DownSamplingResult
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
 func DownSamplingMultiSeriesInto(
-	source, target timeutil.SlotRange, ratio uint16,
+	target timeutil.SlotRange, ratio uint16,
 	aggFunc field.AggFunc, decoders []*encoding.TSDDecoder,
 	rs DownSamplingResult,
 ) {
-	hasValue := false
-	pos := source.Start
-	end := source.End
-	result := 0.0
+	rs.Reset(target.Start / ratio)
 
 	// first loop: target slot range
-	for j := target.Start; j <= target.End; j++ {
-		// second loop: source slot range and ratio(target interval/source interval)
+	for j := target.Start; j <= target.End; j += ratio {
+		hasValue := bit.Zero
+		result := constants.EmptyValue
+		// loop: source slot range and ratio(target interval/source interval)
 		intervalEnd := ratio * (j + 1)
-		for pos <= end && pos < intervalEnd {
-			// 1. merge data by time slot
+		for pos := j; pos < intervalEnd; pos++ {
 			for _, decoder := range decoders {
 				if decoder == nil {
 					// if series id not exist, value maybe nil
@@ -110,23 +108,14 @@ func DownSamplingMultiSeriesInto(
 					if !hasValue {
 						// if target value not exist, set it
 						result = math.Float64frombits(decoder.Value())
-						hasValue = true
+						hasValue = bit.One
 					} else {
 						// if target value exist, do aggregate
 						result = aggFunc.Aggregate(result, math.Float64frombits(decoder.Value()))
 					}
 				}
 			}
-			pos++
 		}
-		// 2. add data into rs stream
-		if hasValue {
-			rs.Append(bit.One, result)
-			// reset has value for next loop
-			hasValue = false
-			result = 0.0
-		} else {
-			rs.Append(bit.Zero, constants.EmptyValue)
-		}
+		rs.Append(hasValue, result)
 	}
 }

@@ -89,6 +89,15 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 
 // AggregateBySlot aggregates the field series into current aggregator
 func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
+	// todo: last family data is successfully set, but was omitted when querying
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 358 20210813 16:59:40 83782
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 359 20210813 16:59:50 88542
+	// Aug 13 17:56:56 worker1 lind[621]: DownSamplingMultiSeriesInto familyTime 20210813 17:00:00 20210813 17:00:00 20210813 17:56:50 {0 341}
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 141 20210813 17:23:30 27640
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 142 20210813 17:23:40 46512
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 143 20210813 17:23:50 50072
+	// Aug 13 17:56:56 worker1 lind[621]: set slot 144 20210813 17:24:00 54656
+
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
 		if values == nil {
