@@ -117,6 +117,7 @@ func newPrimitiveIterator(start int, aggType field.AggType, values *collections.
 	}
 	if values != nil {
 		it.it = values.NewIterator()
+		it.it.ReadAt(start)
 	}
 	return it
 }
