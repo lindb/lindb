@@ -141,9 +141,17 @@ func TestHasValueWithSlot(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, len(data) > 0)
 
-	decoder := NewTSDDecoder(data)
+	// seek test
+	decoder0 := NewTSDDecoder(data)
+	assert.False(t, decoder0.Seek(15))
+	assert.True(t, decoder0.Seek(12))
+	assert.False(t, decoder0.HasValueWithSlot(12))
+	assert.True(t, decoder0.HasValueWithSlot(13))
 
+	decoder := NewTSDDecoder(data)
+	assert.False(t, decoder.HasValueWithSlot(9))
 	assert.True(t, decoder.HasValueWithSlot(10))
+	assert.False(t, decoder.HasValueWithSlot(13))
 	assert.Equal(t, uint64(10), decoder.Value())
 	assert.True(t, decoder.HasValueWithSlot(11))
 	assert.Equal(t, uint64(100), decoder.Value())
