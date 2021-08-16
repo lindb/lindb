@@ -230,6 +230,21 @@ func (d *TSDDecoder) Next() bool {
 	return false
 }
 
+// Seek seeks and reads at the specified slot
+func (d *TSDDecoder) Seek(slot uint16) bool {
+	if slot > d.endTime {
+		return false
+	}
+	for d.idx+d.startTime < slot {
+		if d.HasValueWithSlot(d.idx + d.startTime) {
+			_ = d.Value()
+		} else {
+			return false
+		}
+	}
+	return d.idx+d.startTime == slot
+}
+
 // HasValue returns slot value if exist
 func (d *TSDDecoder) HasValue() bool {
 	if d.reader == nil {

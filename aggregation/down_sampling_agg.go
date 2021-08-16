@@ -33,7 +33,6 @@ import (
 type DownSamplingResult interface {
 	// Append appends time and value.
 	Append(slot bit.Bit, value float64)
-	Reset(slotStart uint16)
 }
 
 type downSamplingMergeResult struct {
@@ -56,10 +55,6 @@ func (d *downSamplingMergeResult) Append(slot bit.Bit, value float64) {
 	d.pos++
 }
 
-func (d *downSamplingMergeResult) Reset(slotStart uint16) {
-	d.pos = int(slotStart)
-}
-
 // TSDDownSamplingResult implements DownSamplingResult using encoding TSDEncoder.
 type TSDDownSamplingResult struct {
 	stream encoding.TSDEncoder
@@ -78,10 +73,6 @@ func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
 	}
 }
 
-func (rs *TSDDownSamplingResult) Reset(_ uint16) {
-	//do nothing
-}
-
 // DownSamplingMultiSeriesInto merges field data from source time range => target time range,
 // data will be merged into DownSamplingResult
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
@@ -90,14 +81,21 @@ func DownSamplingMultiSeriesInto(
 	aggFunc field.AggFunc, decoders []*encoding.TSDDecoder,
 	rs DownSamplingResult,
 ) {
-	rs.Reset(target.Start / ratio)
-
 	// first loop: target slot range
 	for j := target.Start; j <= target.End; j += ratio {
 		hasValue := bit.Zero
 		result := constants.EmptyValue
 		// loop: source slot range and ratio(target interval/source interval)
 		intervalEnd := ratio * (j + 1)
+
+		// seek reads from the start slot
+		// flushed data always starts from 0, but target is arbitrarily
+		// decoders: 0-359
+		for _, d := range decoders {
+			if d != nil {
+				d.Seek(j)
+			}
+		}
 		for pos := j; pos < intervalEnd; pos++ {
 			for _, decoder := range decoders {
 				if decoder == nil {

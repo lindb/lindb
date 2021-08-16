@@ -166,10 +166,6 @@ func (it *FloatArrayIterator) reset() {
 	it.hasValue = true
 }
 
-func (it *FloatArrayIterator) ReadAt(slotStart int) {
-	it.idx = slotStart
-}
-
 // HasNext returns if this iterator has more values
 func (it *FloatArrayIterator) HasNext() bool {
 	for it.idx < it.fa.Capacity() && it.count < it.fa.Size() {
