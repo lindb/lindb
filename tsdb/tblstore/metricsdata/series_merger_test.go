@@ -184,7 +184,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 			c++
 		}
 	}
-	assert.Equal(t, 2, c)
+	assert.Equal(t, 1, c)
 }
 
 func mockField(start uint16) []byte {
