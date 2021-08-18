@@ -18,7 +18,7 @@
 package influx
 
 import (
-	"github.com/cespare/xxhash"
+	"github.com/cespare/xxhash/v2"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/strutil"

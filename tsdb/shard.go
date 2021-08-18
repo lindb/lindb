@@ -250,13 +250,14 @@ func newShard(
 	createdShard.segments[interval.Type()] = createdShard.segment
 
 	defer func() {
-		if err != nil {
-			if err := createdShard.Close(); err != nil {
-				engineLogger.Error("close shard error when create shard fail",
-					logger.Int32("shardID", createdShard.id),
-					logger.String("database", createdShard.databaseName),
-					logger.String("shard", createdShard.path), logger.Error(err))
-			}
+		if err == nil {
+			return
+		}
+		if err = createdShard.Close(); err != nil {
+			engineLogger.Error("close shard error when create shard fail",
+				logger.Int32("shardID", createdShard.id),
+				logger.String("database", createdShard.databaseName),
+				logger.String("shard", createdShard.path), logger.Error(err))
 		}
 	}()
 	if err = createdShard.initIndexDatabase(); err != nil {
@@ -828,6 +829,7 @@ func (s *shard) Flush() (err error) {
 	endTime := time.Now()
 	s.logger.Info("flush memdb successfully",
 		logger.Int32("shardID", s.id),
+		logger.String("database", s.databaseName),
 		logger.String("flush-duration", endTime.Sub(startTime).String()),
 		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
 		logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))

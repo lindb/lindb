@@ -43,11 +43,9 @@ func (m *Monitor) TOML() string {
   ## Config for the Internal Monitor
   ## time period to process an HTTP metrics push call
   push-timeout = "%s"
-
   ## monitor won't start when interval is sets to 0
   ## such as cpu, memory, and disk, process and go runtime
   report-interval = "%s"
-	
   ## URL is the target of broker native ingestion url
   url = "%s"`,
 		m.PushTimeout.String(),

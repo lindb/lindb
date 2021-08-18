@@ -29,8 +29,8 @@ import (
 func Test_FastTime(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
-	assert.True(t, time.Now().UnixNano()-fasttime.UnixNano() < 6e6)
-	assert.True(t, time.Now().UnixNano()/1e3-fasttime.UnixMicroseconds() < 6e3)
-	assert.True(t, time.Now().UnixNano()/1e6-fasttime.UnixMilliseconds() < 6)
-	assert.True(t, float64(time.Now().UnixNano()/1e9)-float64(fasttime.UnixTimestamp()) < 0.006)
+	assert.True(t, time.Now().UnixNano()-fasttime.UnixNano() < 20e6)
+	assert.True(t, time.Now().UnixNano()/1e3-fasttime.UnixMicroseconds() < 20e3)
+	assert.True(t, time.Now().UnixNano()/1e6-fasttime.UnixMilliseconds() < 20)
+	assert.True(t, float64(time.Now().UnixNano()/1e9)-float64(fasttime.UnixTimestamp()) < 0.02)
 }

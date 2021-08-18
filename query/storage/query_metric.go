@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -316,7 +317,9 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 
 				defer func() {
 					if r := recover(); r != nil {
-						fmt.Println(r)
+						storageQueryFlowLogger.Error("executeGroupBy",
+							logger.Error(fmt.Errorf("panic: %v", e)),
+							logger.Stack())
 					}
 				}()
 				for tags, seriesIDs := range grouped {
