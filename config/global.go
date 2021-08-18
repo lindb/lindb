@@ -17,7 +17,12 @@
 
 package config
 
-import "sync/atomic"
+import (
+	"fmt"
+	"sync/atomic"
+
+	"github.com/lindb/lindb/pkg/ltoml"
+)
 
 var (
 	// StandaloneMode represents LinDB run as standalone mode
@@ -28,20 +33,8 @@ var (
 )
 
 func init() {
-	SetGlobalBrokerConfig(NewDefaultBrokerBase())
-	SetGlobalStorageConfig(NewDefaultStorageBase())
-}
-
-// SetGlobalBrokerConfig sets global the broker config,
-// this config will be triggered to reload when receiving a SIGHUP
-func SetGlobalBrokerConfig(cfg *BrokerBase) {
-	globalBrokerCfg.Store(cfg)
-}
-
-// SetGlobalStorageConfig sets global the storage config,
-// this config will be triggered to reload when receiving a SIGHUP
-func SetGlobalStorageConfig(cfg *StorageBase) {
-	globalStorageCfg.Store(cfg)
+	globalBrokerCfg.Store(NewDefaultBrokerBase())
+	globalStorageCfg.Store(NewDefaultStorageBase())
 }
 
 // GlobalBrokerConfig returns the global broker config
@@ -52,4 +45,48 @@ func GlobalBrokerConfig() *BrokerBase {
 // GlobalStorageConfig returns the global storage config
 func GlobalStorageConfig() *StorageBase {
 	return globalStorageCfg.Load().(*StorageBase)
+}
+
+// LoadAndSetBrokerConfig parses the broker config file
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetBrokerConfig(cfgName string, defaultPath string, brokerCfg *Broker) error {
+	if err := ltoml.LoadConfig(cfgName, defaultPath, &brokerCfg); err != nil {
+		return fmt.Errorf("decode broker config file error: %s", err)
+	}
+	if err := checkBrokerBaseCfg(&brokerCfg.BrokerBase); err != nil {
+		return fmt.Errorf("failed checking broker config: %s", err)
+	}
+	globalBrokerCfg.Store(&brokerCfg.BrokerBase)
+	return nil
+}
+
+// LoadAndSetStorageConfig parses the storage config file
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetStorageConfig(cfgName string, defaultPath string, storageCfg *Storage) error {
+	if err := ltoml.LoadConfig(cfgName, defaultPath, &storageCfg); err != nil {
+		return fmt.Errorf("decode storage config file error: %s", err)
+	}
+	if err := checkStorageBaseCfg(&storageCfg.StorageBase); err != nil {
+		return fmt.Errorf("failed checking storage config: %s", err)
+	}
+	globalStorageCfg.Store(&storageCfg.StorageBase)
+	return nil
+}
+
+// LoadAndSetStandAloneConfig parses the standalone config file
+// then sets the global broker and storage config
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetStandAloneConfig(cfgName string, defaultPath string, standaloneCfg *Standalone) error {
+	if err := ltoml.LoadConfig(cfgName, defaultPath, &standaloneCfg); err != nil {
+		return fmt.Errorf("decode standalone config file error: %s", err)
+	}
+	if err := checkBrokerBaseCfg(&standaloneCfg.BrokerBase); err != nil {
+		return fmt.Errorf("failed checking broker config: %s", err)
+	}
+	if err := checkStorageBaseCfg(&standaloneCfg.StorageBase); err != nil {
+		return fmt.Errorf("failed checking storage config: %s", err)
+	}
+	globalBrokerCfg.Store(&standaloneCfg.BrokerBase)
+	globalStorageCfg.Store(&standaloneCfg.StorageBase)
+	return nil
 }

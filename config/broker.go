@@ -36,14 +36,17 @@ type HTTP struct {
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
 	## Controls how HTTP Server are configured.
-    ##
-    ## which port broker's HTTP Server is listening on 
-    port = %d
+	##
+	## which port broker's HTTP Server is listening on 
+	port = %d
 	## maximum duration the server should keep established connections alive.
+	## Default: 5s
 	idle-timeout = "%s"
 	## maximum duration before timing out for server writes of the response
+	## Default: 5s
 	write-timeout = "%s"	
 	## maximum duration for reading the entire request, including the body.
+	## Default: 5s
 	read-timeout = "%s"
 `,
 		h.Port,
@@ -59,8 +62,9 @@ type Ingestion struct {
 
 func (i *Ingestion) TOML() string {
 	return fmt.Sprintf(`
-    ## maximum duration before timeout for server ingesting metrics
-    ingest-timeout = "%s"`,
+	## maximum duration before timeout for server ingesting metrics
+	## Default: 5s
+	ingest-timeout = "%s"`,
 		i.IngestTimeout.Duration().String())
 }
 
@@ -72,21 +76,11 @@ type User struct {
 
 func (u *User) TOML() string {
 	return fmt.Sprintf(`
-    ## admin user setting
-    username = "%s"
-    password = "%s"`,
+	## admin user setting
+	username = "%s"
+	password = "%s"`,
 		u.UserName,
 		u.Password)
-}
-
-type TCP struct {
-	Port uint16 `toml:"port"`
-}
-
-func (t *TCP) TOML() string {
-	return fmt.Sprintf(`
-    port = %d`,
-		t.Port)
 }
 
 // ReplicationChannel represents config for data replication in broker.
@@ -116,21 +110,21 @@ func (rc *ReplicationChannel) BufferSizeInBytes() int {
 
 func (rc *ReplicationChannel) TOML() string {
 	return fmt.Sprintf(`
-    ## WAL mmaped log directory
-    dir = "%s"
-    ## data-size-limit is the maximum size in megabytes of the page file before a new
-    ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
-    data-size-limit = %d
-    ## interval for how often a new segment will be created
-    remove-task-interval = "%s"
-    ## replicator state report interval
-    report-interval = "%s"
-    ## interval for how often buffer will be checked if it's available to flush
-    check-flush-interval = "%s"
-    ## interval for how often data will be flushed if data not exceeds the buffer-size
-    flush-interval = "%s"
-    ## will flush if this size of data in kegabytes get buffered
-    buffer-size = %d`,
+	## WAL mmaped log directory
+	dir = "%s"
+	## data-size-limit is the maximum size in megabytes of the page file before a new
+	## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+	data-size-limit = %d
+	## interval for how often a new segment will be created
+	remove-task-interval = "%s"
+	## replicator state report interval
+	report-interval = "%s"
+	## interval for how often buffer will be checked if it's available to flush
+	check-flush-interval = "%s"
+	## interval for how often data will be flushed if data not exceeds the buffer-size
+	flush-interval = "%s"
+	## will flush if this size of data in kegabytes get buffered
+	buffer-size = %d`,
 		rc.Dir,
 		rc.DataSizeLimit,
 		rc.RemoveTaskInterval.String(),
@@ -183,8 +177,8 @@ func NewDefaultBrokerBase() *BrokerBase {
 		HTTP: HTTP{
 			Port:         9000,
 			IdleTimeout:  ltoml.Duration(time.Minute * 2),
-			ReadTimeout:  ltoml.Duration(time.Second * 15),
-			WriteTimeout: ltoml.Duration(time.Second * 15),
+			ReadTimeout:  ltoml.Duration(time.Second * 5),
+			WriteTimeout: ltoml.Duration(time.Second * 5),
 		},
 		Ingestion: Ingestion{
 			IngestTimeout: ltoml.Duration(time.Second * 5),
@@ -195,7 +189,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 		Coordinator: RepoState{
 			Namespace:   "/lindb/broker",
 			Endpoints:   []string{"http://localhost:2379"},
-			Timeout:     ltoml.Duration(time.Second * 10),
+			Timeout:     ltoml.Duration(time.Second * 5),
 			DialTimeout: ltoml.Duration(time.Second * 5),
 		},
 		User: User{
@@ -232,4 +226,35 @@ func NewDefaultBrokerTOML() string {
 		NewDefaultMonitor().TOML(),
 		NewDefaultLogging().TOML(),
 	)
+}
+
+func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
+	if err := checkCoordinatorCfg(&brokerBaseCfg.Coordinator); err != nil {
+		return err
+	}
+	if err := checkGRPCCfg(&brokerBaseCfg.GRPC); err != nil {
+		return err
+	}
+	checkQueryCfg(&brokerBaseCfg.Query)
+
+	defaultBrokerCfg := NewDefaultBrokerBase()
+	// http check
+	if brokerBaseCfg.HTTP.Port == 0 {
+		return fmt.Errorf("http port cannot be empty")
+	}
+	if brokerBaseCfg.HTTP.ReadTimeout == 0 {
+		brokerBaseCfg.HTTP.ReadTimeout = defaultBrokerCfg.HTTP.ReadTimeout
+	}
+	if brokerBaseCfg.HTTP.WriteTimeout == 0 {
+		brokerBaseCfg.HTTP.WriteTimeout = defaultBrokerCfg.HTTP.WriteTimeout
+	}
+	if brokerBaseCfg.HTTP.IdleTimeout == 0 {
+		brokerBaseCfg.HTTP.IdleTimeout = defaultBrokerCfg.HTTP.IdleTimeout
+	}
+
+	// ingestion
+	if brokerBaseCfg.Ingestion.IngestTimeout == 0 {
+		brokerBaseCfg.Ingestion.IngestTimeout = defaultBrokerCfg.Ingestion.IngestTimeout
+	}
+	return nil
 }
