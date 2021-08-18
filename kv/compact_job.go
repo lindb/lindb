@@ -20,10 +20,17 @@ package kv
 import (
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
+)
+
+var (
+	kvMergeHistogram = linmetric.NewScope("lindb.kv.compaction.merge_duration").NewDeltaHistogram()
+	kvMoveHistogram  = linmetric.NewScope("lindb.kv.compaction.move_duration").NewDeltaHistogram()
 )
 
 //go:generate mockgen -source ./compact_job.go -destination=./compact_job_mock.go -package kv
@@ -66,8 +73,9 @@ func (c *compactJob) Run() error {
 	return nil
 }
 
-// moveCompaction moves low level file to  up level, just does metadata change
+// moveCompaction moves low level file to up level, just does metadata change
 func (c *compactJob) moveCompaction() {
+	startTime := time.Now()
 	compaction := c.state.compaction
 	kvLogger.Info("starting compaction job, just move file to next level", logger.String("family", c.family.familyInfo()))
 	//move file to next level
@@ -76,17 +84,24 @@ func (c *compactJob) moveCompaction() {
 	compaction.DeleteFile(level, fileMeta.GetFileNumber())
 	compaction.AddFile(level+1, fileMeta)
 	c.family.commitEditLog(compaction.GetEditLog())
-	// TODO add cost ?????
-	kvLogger.Info("finish move file compaction", logger.String("family", c.family.familyInfo()))
+
+	elapsed := time.Since(startTime)
+	kvMoveHistogram.UpdateDuration(elapsed)
+	kvLogger.Info("finish move file compaction",
+		logger.String("family", c.family.familyInfo()),
+		logger.String("cost", elapsed.String()),
+	)
 }
 
 // mergeCompaction merges input files to up level
 func (c *compactJob) mergeCompaction() (err error) {
+	startTime := time.Now()
 	kvLogger.Info("starting compaction job, do merge compaction",
 		logger.String("family", c.family.familyInfo()))
 	defer func() {
 		// cleanup compaction context, include temp pending output files
 		c.cleanupCompaction()
+		kvMergeHistogram.UpdateSince(startTime)
 	}()
 
 	// do merge logic

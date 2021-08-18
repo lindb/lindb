@@ -345,7 +345,7 @@ func (s *store) compact() {
 	}
 	s.rwMutex.RUnlock()
 	for _, family := range families {
-		if family.needCompat() {
+		if family.needCompact() {
 			family.compact()
 		}
 	}

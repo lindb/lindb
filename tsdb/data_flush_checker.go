@@ -195,7 +195,6 @@ func (fc *dataFlushChecker) doFlush(request *flushRequest) {
 		fc.isWatermarkFlushing.Store(true)
 	}
 	if err := shard.Flush(); err != nil {
-		//TODO add metric
 		engineLogger.Error("flush shard memory database error",
 			logger.String("shard", shardInfo), logger.Error(err))
 	}

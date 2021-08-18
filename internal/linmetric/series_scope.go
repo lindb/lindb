@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cespare/xxhash"
+	"github.com/cespare/xxhash/v2"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"

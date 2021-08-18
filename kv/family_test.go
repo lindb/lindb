@@ -148,15 +148,15 @@ func TestFamily_needCompact(t *testing.T) {
 	assert.NoError(t, err)
 	// case 1: empty family
 	v.EXPECT().NumberOfFilesInLevel(gomock.Any()).Return(0)
-	assert.False(t, f.needCompat())
+	assert.False(t, f.needCompact())
 	// case 2: compacting
 	f2 := f.(*family)
 	f2.compacting.Store(true)
-	assert.False(t, f.needCompat())
+	assert.False(t, f.needCompact())
 	f2.compacting.Store(false)
 	// case 3: need compact
 	v.EXPECT().NumberOfFilesInLevel(gomock.Any()).Return(10)
-	assert.True(t, f.needCompat())
+	assert.True(t, f.needCompact())
 }
 
 func TestFamily_compact(t *testing.T) {
