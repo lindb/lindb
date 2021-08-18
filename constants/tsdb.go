@@ -29,10 +29,6 @@ const (
 	// MaxSuggestions represents the max number of suggestions count
 	MaxSuggestions = 10000
 
-	// ShardMemoryUsedThreshold checks if shard's memory usage is greater than this limit,
-	// If so, engine will flush this shard to disk.
-	ShardMemoryUsedThreshold = 500 * 1024 * 1024
-
 	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag.
 	TagValueIDForTag = uint32(0)
 	// DefaultNamespace represents default namespace if not set

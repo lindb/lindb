@@ -23,7 +23,7 @@ import (
 	"path"
 	"sync"
 
-	"github.com/cespare/xxhash"
+	"github.com/cespare/xxhash/v2"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"

@@ -72,7 +72,6 @@ type MemoryDatabase interface {
 	FamilyTime() int64
 	// Uptime returns duration since created
 	Uptime() time.Duration
-	// todo: prevent flushing latest memdb under high watermark
 }
 
 type memoryDBMetrics struct {

@@ -197,7 +197,6 @@ func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
 		return false
 	}
 	if err := db.Flush(); err != nil {
-		//TODO add log and metric
 		return false
 	}
 	return true
@@ -220,7 +219,6 @@ func (e *engine) load() error {
 	return nil
 }
 
-//FIXME stone1100
 //func (e *engine) databaseMetaFlusher(ctx context.Context) {
 //	ticker := time.NewTicker(flushMetaInterval.Load())
 //	defer ticker.Stop()
@@ -236,7 +234,7 @@ func (e *engine) load() error {
 //		case <-ctx.Done():
 //			return
 //		case <-ticker.C:
-//			//e.flushAllDatabases(ctx)
+//			e.flushAllDatabases(ctx)
 //		}
 //	}
 //}

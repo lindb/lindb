@@ -57,8 +57,8 @@ type Family interface {
 	commitEditLog(editLog version.EditLog) bool
 	// newTableBuilder creates table builder instance for storing kv data.
 	newTableBuilder() (table.Builder, error)
-	// needCompat returns level0 files if need do compact job
-	needCompat() bool
+	// needCompact returns level0 files if need do compact job
+	needCompact() bool
 	// compact does compaction job
 	compact()
 	// getNewMerger returns new merger function, merger need implement Merger interface
@@ -173,7 +173,7 @@ func (f *family) commitEditLog(editLog version.EditLog) bool {
 }
 
 // needCompat returns level0 files if need do compact job
-func (f *family) needCompat() bool {
+func (f *family) needCompact() bool {
 	// has compaction job doing
 	if f.compacting.Load() {
 		return false
