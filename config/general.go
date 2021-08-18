@@ -39,15 +39,17 @@ type RepoState struct {
 func (rs *RepoState) TOML() string {
 	coordinatorEndpoints, _ := json.Marshal(rs.Endpoints)
 	return fmt.Sprintf(`
-    ## Coordinator coordinates reads/writes operations between different nodes
-    ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
-    namespace = "%s"
-    ## endpoints config list of ETCD cluster
-    endpoints = %s
+	## Coordinator coordinates reads/writes operations between different nodes
+	## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
+	namespace = "%s"
+	## Endpoints config list of ETCD cluster
+	endpoints = %s
 	## Timeout is the timeout for failing to executing a etcd command.
+	## Default: 5s
 	timeout = "%s"
 	## DialTimeout is the timeout for failing to establish a etcd connection.
-    dial-timeout = "%s"
+	## Default: 5s
+	dial-timeout = "%s"
 	## Username is a user name for etcd authentication.
 	username = "%s"
 	## Password is a password for etcd authentication.
@@ -69,8 +71,9 @@ type GRPC struct {
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
-    port = %d
-    ttl = "%s"`,
+	port = %d
+	## Default: 1s
+	ttl = "%s"`,
 		g.Port,
 		g.TTL.String(),
 	)
@@ -91,12 +94,15 @@ type Query struct {
 
 func (q *Query) TOML() string {
 	return fmt.Sprintf(`
-    ## number of queries allowed to execute concurrently
-    query-concurrency = %d
-    ## idle worker will be canceled in this duration
-    idle-timeout = "%s"
-    ## maximum timeout threshold for query.
-    timeout = "%s"`,
+	## Number of queries allowed to execute concurrently
+	## Default: 30
+	query-concurrency = %d
+	## Idle worker will be canceled in this duration
+	## Default: 5s
+	idle-timeout = "%s"
+	## Maximum timeout threshold for query.
+	## Default: 5s
+	timeout = "%s"`,
 		q.QueryConcurrency,
 		q.IdleTimeout,
 		q.Timeout,
@@ -107,6 +113,45 @@ func NewDefaultQuery() *Query {
 	return &Query{
 		QueryConcurrency: 30,
 		IdleTimeout:      ltoml.Duration(5 * time.Second),
-		Timeout:          ltoml.Duration(15 * time.Second),
+		Timeout:          ltoml.Duration(5 * time.Second),
+	}
+}
+
+func checkCoordinatorCfg(state *RepoState) error {
+	if state.Namespace == "" {
+		return fmt.Errorf("namespace cannot be empty")
+	}
+	if len(state.Endpoints) == 0 {
+		return fmt.Errorf("endpoints cannot be empty")
+	}
+	if state.Timeout == 0 {
+		state.Timeout = ltoml.Duration(time.Second * 5)
+	}
+	if state.DialTimeout == 0 {
+		state.Timeout = ltoml.Duration(time.Second * 5)
+	}
+	return nil
+}
+
+func checkGRPCCfg(grpcCfg *GRPC) error {
+	if grpcCfg.Port == 0 {
+		return fmt.Errorf("grpc endpoint cannot be empty")
+	}
+	if grpcCfg.TTL == 0 {
+		grpcCfg.TTL = ltoml.Duration(time.Second)
+	}
+	return nil
+}
+
+func checkQueryCfg(queryCfg *Query) {
+	defaultQuery := NewDefaultQuery()
+	if queryCfg.QueryConcurrency == 0 {
+		queryCfg.QueryConcurrency = defaultQuery.QueryConcurrency
+	}
+	if queryCfg.Timeout == 0 {
+		queryCfg.Timeout = defaultQuery.Timeout
+	}
+	if queryCfg.IdleTimeout == 0 {
+		queryCfg.IdleTimeout = defaultQuery.IdleTimeout
 	}
 }

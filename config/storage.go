@@ -45,7 +45,7 @@ type TSDB struct {
 func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
 	## The TSDB directory where the time series data and meta file stores.
-    dir = "%s"
+	dir = "%s"
 
 	## Write configuration
 	## 
@@ -73,7 +73,7 @@ func (t *TSDB) TOML() string {
 	## Default: 5. Notice that unlmitied time-range of metrics will make it uncontrollable。
 	## If sets to 0, the memdb number is unlimited.
 	max-memdb-number = %d
-	## mutable memdb will switch to immutable this often,
+	## Mutable memdb will switch to immutable this often,
 	## event if the configured memdb-size is not reached.
 	## Default: 1h
 	mutable-memdb-ttl = "%s"
@@ -90,9 +90,11 @@ func (t *TSDB) TOML() string {
 
 	## Time Series limitation
 	## 
-	## Limit for time series of metric. Default: 200000
+	## Limit for time series of metric.
+	## Default: 200000
 	max-seriesIDs = %d
-	## limit for tagKeys, Default: 32
+	## Limit for tagKeys
+	## Default: 32
 	max-tagKeys = %d`,
 		t.Dir,
 		t.BatchWriteSize,
@@ -129,8 +131,7 @@ func (s *StorageBase) TOML() string {
   
   [storage.grpc]%s
 
-  [storage.tsdb]%s
-`,
+  [storage.tsdb]%s`,
 		s.Coordinator.TOML(),
 		s.Query.TOML(),
 		s.GRPC.TOML(),
@@ -172,7 +173,7 @@ func NewDefaultStorageBase() *StorageBase {
 		Coordinator: RepoState{
 			Namespace:   "/lindb/storage",
 			Endpoints:   []string{"http://localhost:2379"},
-			Timeout:     ltoml.Duration(time.Second * 10),
+			Timeout:     ltoml.Duration(time.Second * 5),
 			DialTimeout: ltoml.Duration(time.Second * 5),
 		},
 		GRPC: GRPC{
@@ -208,4 +209,60 @@ func NewDefaultStorageTOML() string {
 		NewDefaultMonitor().TOML(),
 		NewDefaultLogging().TOML(),
 	)
+}
+
+func checkTSDBCfg(tsdbCfg *TSDB) error {
+	defaultStorageCfg := NewDefaultStorageBase()
+	if tsdbCfg.Dir == "" {
+		return fmt.Errorf("tsdb dir cannot be empty")
+	}
+	if tsdbCfg.BatchWriteSize == 0 {
+		tsdbCfg.BatchWriteSize = defaultStorageCfg.TSDB.BatchWriteSize
+	}
+	if tsdbCfg.BatchPendingSize == 0 {
+		tsdbCfg.BatchPendingSize = defaultStorageCfg.TSDB.BatchPendingSize
+	}
+	if tsdbCfg.BatchTimeout == 0 {
+		tsdbCfg.BatchTimeout = defaultStorageCfg.TSDB.BatchTimeout
+	}
+	if tsdbCfg.MaxMemDBSize == 0 {
+		tsdbCfg.MaxMemDBSize = defaultStorageCfg.TSDB.MaxMemDBSize
+	}
+	if tsdbCfg.MaxMemDBNumber == 0 {
+		tsdbCfg.MaxMemDBNumber = defaultStorageCfg.TSDB.MaxMemDBNumber
+	}
+	if tsdbCfg.MaxMemDBTotalSize == 0 {
+		tsdbCfg.MaxMemDBTotalSize = defaultStorageCfg.TSDB.MaxMemDBTotalSize
+	}
+	if tsdbCfg.MutableMemDBTTL == 0 {
+		tsdbCfg.MutableMemDBTTL = defaultStorageCfg.TSDB.MutableMemDBTTL
+	}
+	if tsdbCfg.MaxMemUsageBeforeFlush == 0 {
+		tsdbCfg.MaxMemUsageBeforeFlush = defaultStorageCfg.TSDB.MaxMemUsageBeforeFlush
+	}
+	if tsdbCfg.TargetMemUsageAfterFlush == 0 {
+		tsdbCfg.TargetMemUsageAfterFlush = defaultStorageCfg.TSDB.TargetMemUsageAfterFlush
+	}
+	if tsdbCfg.FlushConcurrency == 0 {
+		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
+	}
+	if tsdbCfg.MaxSeriesIDsNumber == 0 {
+		tsdbCfg.MaxSeriesIDsNumber = defaultStorageCfg.TSDB.MaxSeriesIDsNumber
+	}
+	if tsdbCfg.MaxTagKeysNumber == 0 {
+		tsdbCfg.MaxTagKeysNumber = defaultStorageCfg.TSDB.MaxTagKeysNumber
+	}
+	return nil
+}
+
+func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
+	if err := checkCoordinatorCfg(&storageBaseCfg.Coordinator); err != nil {
+		return err
+	}
+	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
+		return err
+	}
+	checkQueryCfg(&storageBaseCfg.Query)
+
+	return checkTSDBCfg(&storageBaseCfg.TSDB)
 }

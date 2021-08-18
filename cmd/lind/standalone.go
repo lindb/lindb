@@ -82,19 +82,17 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if err := ltoml.LoadConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
-		return fmt.Errorf("decode config file error: %s", err)
+	if err := config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
+		return err
 	}
 	if err := logger.InitLogger(standaloneCfg.Logging, standaloneLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 
 	// run cluster as standalone mode
-	config.SetGlobalBrokerConfig(&standaloneCfg.BrokerBase)
-	config.SetGlobalStorageConfig(&standaloneCfg.StorageBase)
 	runtime := standalone.NewStandaloneRuntime(getVersion(), &standaloneCfg)
-	if err := run(ctx, runtime); err != nil {
-		return err
-	}
-	return nil
+	return run(ctx, runtime, func() error {
+		newStandaloneCfg := config.Standalone{}
+		return config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &newStandaloneCfg)
+	})
 }

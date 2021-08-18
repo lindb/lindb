@@ -27,16 +27,30 @@ import (
 // newCtxWithSignals returns a context which will can be canceled by sending signal.
 func newCtxWithSignals() context.Context {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		defer cancel()
-		select {
-		case <-ctx.Done():
-			return
-		case <-c:
-			return
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case sig := <-c:
+				// preventing exiting when receiving SigHup Signal
+				if sig == syscall.SIGHUP {
+					continue
+				}
+				return
+			}
 		}
 	}()
 	return ctx
+}
+
+// newSigHupCh returns a channel for handling sigHup signal,
+// which is used for config reloading.
+func newSigHupCh() <-chan os.Signal {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGHUP)
+	return ch
 }

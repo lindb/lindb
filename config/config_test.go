@@ -29,13 +29,6 @@ import (
 
 var testPath = "./tmp"
 
-func TestTCP_TOML(t *testing.T) {
-	tcp := &TCP{
-		Port: 8080,
-	}
-	assert.Equal(t, "\n    port = 8080", tcp.TOML())
-}
-
 func Test_NewConfig(t *testing.T) {
 	_ = fileutil.MkDirIfNotExist(testPath)
 	defer func() {
@@ -44,8 +37,16 @@ func Test_NewConfig(t *testing.T) {
 
 	// validate broker config
 	brokerCfgPath := filepath.Join(testPath, "broker.toml")
-	assert.Nil(t, ltoml.WriteConfig(brokerCfgPath, NewDefaultBrokerTOML()))
 	var brokerCfg Broker
+	// not-exist
+	assert.NotNil(t, LoadAndSetBrokerConfig("not-exist-path", "broker.toml", &brokerCfg))
+	// bad broker config
+	assert.Nil(t, ltoml.WriteConfig(brokerCfgPath, ""))
+	assert.Error(t, LoadAndSetBrokerConfig(brokerCfgPath, "broker.toml", &brokerCfg))
+
+	// ok
+	assert.Nil(t, ltoml.WriteConfig(brokerCfgPath, NewDefaultBrokerTOML()))
+	assert.Nil(t, LoadAndSetBrokerConfig(brokerCfgPath, "broker.toml", &brokerCfg))
 	assert.Nil(t, ltoml.DecodeToml(brokerCfgPath, &brokerCfg))
 	assert.Equal(t, brokerCfg.BrokerBase, *NewDefaultBrokerBase())
 	assert.Equal(t, brokerCfg.Logging, *NewDefaultLogging())
@@ -53,8 +54,16 @@ func Test_NewConfig(t *testing.T) {
 
 	// validate storage config
 	storageCfgPath := filepath.Join(testPath, "storage.toml")
-	assert.Nil(t, ltoml.WriteConfig(storageCfgPath, NewDefaultStorageTOML()))
 	var storageCfg Storage
+	// not exist
+	assert.Error(t, LoadAndSetStorageConfig("not-exist-path", "storage.toml", &storageCfg))
+	// bad storage config
+	assert.Nil(t, ltoml.WriteConfig(storageCfgPath, ""))
+	assert.Error(t, LoadAndSetStorageConfig(storageCfgPath, "storage.toml", &storageCfg))
+
+	// ok
+	assert.Nil(t, ltoml.WriteConfig(storageCfgPath, NewDefaultStorageTOML()))
+	assert.Nil(t, LoadAndSetStorageConfig(storageCfgPath, "storage.toml", &storageCfg))
 	assert.Nil(t, ltoml.DecodeToml(storageCfgPath, &storageCfg))
 	assert.Equal(t, storageCfg.StorageBase, *NewDefaultStorageBase())
 	assert.Equal(t, storageCfg.Logging, *NewDefaultLogging())
@@ -62,8 +71,16 @@ func Test_NewConfig(t *testing.T) {
 
 	// validate standalone config
 	standaloneCfgPath := filepath.Join(testPath, "standalone.toml")
-	assert.Nil(t, ltoml.WriteConfig(standaloneCfgPath, NewDefaultStandaloneTOML()))
 	var standaloneCfg Standalone
+	// not-exist
+	assert.Error(t, LoadAndSetStandAloneConfig("not-exist-path", "standalone.toml", &standaloneCfg))
+	// bad broker config
+	assert.Nil(t, ltoml.WriteConfig(standaloneCfgPath, ""))
+	assert.Error(t, LoadAndSetStandAloneConfig(standaloneCfgPath, "standalone.toml", &standaloneCfg))
+
+	// ok
+	assert.Nil(t, ltoml.WriteConfig(standaloneCfgPath, NewDefaultStandaloneTOML()))
+	assert.Nil(t, LoadAndSetStandAloneConfig(standaloneCfgPath, "standalone.toml", &standaloneCfg))
 	assert.Nil(t, ltoml.DecodeToml(standaloneCfgPath, &standaloneCfg))
 	assert.Equal(t, standaloneCfg.BrokerBase, *NewDefaultBrokerBase())
 	assert.Equal(t, standaloneCfg.StorageBase, *NewDefaultStorageBase())
@@ -84,4 +101,93 @@ func Test_ReplicationChannel_SegmentFileSizeInBytes(t *testing.T) {
 func Test_Global(t *testing.T) {
 	assert.NotNil(t, GlobalBrokerConfig())
 	assert.NotNil(t, GlobalStorageConfig())
+}
+
+func Test_checkBrokerBaseCfg(t *testing.T) {
+	emptyBrokerBase := &BrokerBase{}
+	assert.Error(t, checkBrokerBaseCfg(emptyBrokerBase))
+
+	// grpc failure
+	brokerCfg1 := &BrokerBase{Coordinator: RepoState{
+		Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+	}}
+	assert.Error(t, checkBrokerBaseCfg(brokerCfg1))
+
+	// http port failure
+	brokerCfg2 := &BrokerBase{
+		Coordinator: RepoState{
+			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+		},
+		GRPC: GRPC{Port: 2379},
+	}
+	assert.Error(t, checkBrokerBaseCfg(brokerCfg2))
+
+	// ok
+	brokerCfg3 := &BrokerBase{
+		Coordinator: RepoState{
+			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+		},
+		GRPC: GRPC{Port: 2379},
+		HTTP: HTTP{Port: 9000},
+	}
+	assert.NoError(t, checkBrokerBaseCfg(brokerCfg3))
+	assert.NotZero(t, brokerCfg3.HTTP.ReadTimeout)
+	assert.NotZero(t, brokerCfg3.HTTP.IdleTimeout)
+	assert.NotZero(t, brokerCfg3.HTTP.WriteTimeout)
+	assert.NotZero(t, brokerCfg3.Ingestion.IngestTimeout)
+}
+
+func Test_checkStorageBaseCfg(t *testing.T) {
+	emptyStorageBase := &StorageBase{}
+	assert.Error(t, checkStorageBaseCfg(emptyStorageBase))
+
+	// grpc failure
+	storageCfg1 := &StorageBase{Coordinator: RepoState{
+		Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+	}}
+	assert.Error(t, checkStorageBaseCfg(storageCfg1))
+
+	// http port failure
+	storageCfg2 := &StorageBase{
+		Coordinator: RepoState{
+			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+		},
+		GRPC: GRPC{Port: 2379},
+	}
+	assert.Error(t, checkStorageBaseCfg(storageCfg2))
+
+	// tsdb error
+	storageCfg3 := &StorageBase{
+		Coordinator: RepoState{
+			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+		},
+		GRPC: GRPC{Port: 2379},
+	}
+	assert.Error(t, checkStorageBaseCfg(storageCfg3))
+
+	// ok
+	storageCfg4 := &StorageBase{
+		Coordinator: RepoState{
+			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
+		},
+		GRPC: GRPC{Port: 2379},
+		TSDB: TSDB{Dir: "/tmp/lindb"},
+	}
+	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
+	assert.NotZero(t, storageCfg4.TSDB.BatchWriteSize)
+	assert.NotZero(t, storageCfg4.TSDB.BatchPendingSize)
+	assert.NotZero(t, storageCfg4.TSDB.BatchTimeout)
+	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBSize)
+	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBTotalSize)
+	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBNumber)
+	assert.NotZero(t, storageCfg4.TSDB.MutableMemDBTTL)
+	assert.NotZero(t, storageCfg4.TSDB.MaxMemUsageBeforeFlush)
+	assert.NotZero(t, storageCfg4.TSDB.TargetMemUsageAfterFlush)
+	assert.NotZero(t, storageCfg4.TSDB.FlushConcurrency)
+	assert.NotZero(t, storageCfg4.TSDB.MaxSeriesIDsNumber)
+	assert.NotZero(t, storageCfg4.TSDB.MaxTagKeysNumber)
+}
+
+func Test_LoadAndSetBrokerConfig(t *testing.T) {
+
 }

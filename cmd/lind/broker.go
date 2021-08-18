@@ -78,15 +78,18 @@ func serveBroker(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	brokerCfg := config.Broker{}
-	if err := ltoml.LoadConfig(cfg, defaultBrokerCfgFile, &brokerCfg); err != nil {
-		return fmt.Errorf("decode config file error: %s", err)
+	if err := config.LoadAndSetBrokerConfig(cfg, defaultBrokerCfgFile, &brokerCfg); err != nil {
+		return err
 	}
+
 	if err := logger.InitLogger(brokerCfg.Logging, brokerLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 
 	// start broker server
 	brokerRuntime := broker.NewBrokerRuntime(getVersion(), &brokerCfg)
-	config.SetGlobalBrokerConfig(&brokerCfg.BrokerBase)
-	return run(ctx, brokerRuntime)
+	return run(ctx, brokerRuntime, func() error {
+		newBrokerCfg := config.Broker{}
+		return config.LoadAndSetBrokerConfig(cfg, defaultBrokerCfgFile, &newBrokerCfg)
+	})
 }
