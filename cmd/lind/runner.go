@@ -32,7 +32,7 @@ import (
 )
 
 // serveStandalone runs the cluster as standalone mode
-func run(ctx context.Context, service server.Service) error {
+func run(ctx context.Context, service server.Service, reloadConfigFunc func() error) error {
 	printLogoWhenIsTty()
 
 	var mainLogger = logger.GetLogger("cmd", "Main")
@@ -51,6 +51,23 @@ func run(ctx context.Context, service server.Service) error {
 	if err := service.Run(); err != nil {
 		return fmt.Errorf("run service[%s] error:%s", service.Name(), err)
 	}
+
+	signUpCh := newSigHupCh()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-signUpCh:
+				mainLogger.Info("received SIGHUP signal, reloading config...")
+				if err := reloadConfigFunc(); err != nil {
+					mainLogger.Error("failed to reload config", logger.Error(err))
+				} else {
+					mainLogger.Info("reload config successfully")
+				}
+			}
+		}
+	}()
 
 	// waiting system exit signal
 	<-ctx.Done()

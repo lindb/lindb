@@ -38,7 +38,6 @@ var testPath = "test_data"
 func withTestPath() {
 	cfg := config.GlobalStorageConfig()
 	cfg.TSDB.Dir = testPath
-	config.SetGlobalStorageConfig(cfg)
 }
 
 func TestNew(t *testing.T) {

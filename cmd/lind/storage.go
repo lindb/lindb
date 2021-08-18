@@ -77,8 +77,9 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	ctx := newCtxWithSignals()
 
 	storageCfg := config.Storage{}
-	if err := ltoml.LoadConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
-		return fmt.Errorf("decode config file error: %s", err)
+
+	if err := config.LoadAndSetStorageConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
+		return err
 	}
 	if err := logger.InitLogger(storageCfg.Logging, storageLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
@@ -86,9 +87,8 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 
 	// start storage server
 	storageRuntime := storage.NewStorageRuntime(getVersion(), &storageCfg)
-	config.SetGlobalStorageConfig(&storageCfg.StorageBase)
-	if err := run(ctx, storageRuntime); err != nil {
-		return err
-	}
-	return nil
+	return run(ctx, storageRuntime, func() error {
+		newStorageCfg := config.Storage{}
+		return config.LoadAndSetStorageConfig(cfg, defaultStorageCfgFile, &newStorageCfg)
+	})
 }
