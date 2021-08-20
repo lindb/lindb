@@ -184,7 +184,10 @@ func NewDefaultBrokerBase() *BrokerBase {
 			IngestTimeout: ltoml.Duration(time.Second * 5),
 		},
 		GRPC: GRPC{
-			Port: 9001,
+			Port:                 9001,
+			TTL:                  ltoml.Duration(time.Second),
+			MaxConcurrentStreams: 30,
+			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		Coordinator: RepoState{
 			Namespace:   "/lindb/broker",
@@ -239,21 +242,21 @@ func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 
 	defaultBrokerCfg := NewDefaultBrokerBase()
 	// http check
-	if brokerBaseCfg.HTTP.Port == 0 {
+	if brokerBaseCfg.HTTP.Port <= 0 {
 		return fmt.Errorf("http port cannot be empty")
 	}
-	if brokerBaseCfg.HTTP.ReadTimeout == 0 {
+	if brokerBaseCfg.HTTP.ReadTimeout <= 0 {
 		brokerBaseCfg.HTTP.ReadTimeout = defaultBrokerCfg.HTTP.ReadTimeout
 	}
-	if brokerBaseCfg.HTTP.WriteTimeout == 0 {
+	if brokerBaseCfg.HTTP.WriteTimeout <= 0 {
 		brokerBaseCfg.HTTP.WriteTimeout = defaultBrokerCfg.HTTP.WriteTimeout
 	}
-	if brokerBaseCfg.HTTP.IdleTimeout == 0 {
+	if brokerBaseCfg.HTTP.IdleTimeout <= 0 {
 		brokerBaseCfg.HTTP.IdleTimeout = defaultBrokerCfg.HTTP.IdleTimeout
 	}
 
 	// ingestion
-	if brokerBaseCfg.Ingestion.IngestTimeout == 0 {
+	if brokerBaseCfg.Ingestion.IngestTimeout <= 0 {
 		brokerBaseCfg.Ingestion.IngestTimeout = defaultBrokerCfg.Ingestion.IngestTimeout
 	}
 	return nil

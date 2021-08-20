@@ -177,8 +177,11 @@ func NewDefaultStorageBase() *StorageBase {
 			DialTimeout: ltoml.Duration(time.Second * 5),
 		},
 		GRPC: GRPC{
-			Port: 2891,
-			TTL:  ltoml.Duration(time.Second)},
+			Port:                 2891,
+			TTL:                  ltoml.Duration(time.Second),
+			MaxConcurrentStreams: 30,
+			ConnectTimeout:       ltoml.Duration(time.Second * 3),
+		},
 		TSDB: TSDB{
 			Dir:                      filepath.Join(defaultParentDir, "storage/data"),
 			BatchWriteSize:           100,
@@ -216,40 +219,40 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	if tsdbCfg.Dir == "" {
 		return fmt.Errorf("tsdb dir cannot be empty")
 	}
-	if tsdbCfg.BatchWriteSize == 0 {
+	if tsdbCfg.BatchWriteSize <= 0 {
 		tsdbCfg.BatchWriteSize = defaultStorageCfg.TSDB.BatchWriteSize
 	}
-	if tsdbCfg.BatchPendingSize == 0 {
+	if tsdbCfg.BatchPendingSize <= 0 {
 		tsdbCfg.BatchPendingSize = defaultStorageCfg.TSDB.BatchPendingSize
 	}
-	if tsdbCfg.BatchTimeout == 0 {
+	if tsdbCfg.BatchTimeout <= 0 {
 		tsdbCfg.BatchTimeout = defaultStorageCfg.TSDB.BatchTimeout
 	}
-	if tsdbCfg.MaxMemDBSize == 0 {
+	if tsdbCfg.MaxMemDBSize <= 0 {
 		tsdbCfg.MaxMemDBSize = defaultStorageCfg.TSDB.MaxMemDBSize
 	}
-	if tsdbCfg.MaxMemDBNumber == 0 {
+	if tsdbCfg.MaxMemDBNumber <= 0 {
 		tsdbCfg.MaxMemDBNumber = defaultStorageCfg.TSDB.MaxMemDBNumber
 	}
-	if tsdbCfg.MaxMemDBTotalSize == 0 {
+	if tsdbCfg.MaxMemDBTotalSize <= 0 {
 		tsdbCfg.MaxMemDBTotalSize = defaultStorageCfg.TSDB.MaxMemDBTotalSize
 	}
-	if tsdbCfg.MutableMemDBTTL == 0 {
+	if tsdbCfg.MutableMemDBTTL <= 0 {
 		tsdbCfg.MutableMemDBTTL = defaultStorageCfg.TSDB.MutableMemDBTTL
 	}
-	if tsdbCfg.MaxMemUsageBeforeFlush == 0 {
+	if tsdbCfg.MaxMemUsageBeforeFlush <= 0 {
 		tsdbCfg.MaxMemUsageBeforeFlush = defaultStorageCfg.TSDB.MaxMemUsageBeforeFlush
 	}
-	if tsdbCfg.TargetMemUsageAfterFlush == 0 {
+	if tsdbCfg.TargetMemUsageAfterFlush <= 0 {
 		tsdbCfg.TargetMemUsageAfterFlush = defaultStorageCfg.TSDB.TargetMemUsageAfterFlush
 	}
-	if tsdbCfg.FlushConcurrency == 0 {
+	if tsdbCfg.FlushConcurrency <= 0 {
 		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
 	}
-	if tsdbCfg.MaxSeriesIDsNumber == 0 {
+	if tsdbCfg.MaxSeriesIDsNumber <= 0 {
 		tsdbCfg.MaxSeriesIDsNumber = defaultStorageCfg.TSDB.MaxSeriesIDsNumber
 	}
-	if tsdbCfg.MaxTagKeysNumber == 0 {
+	if tsdbCfg.MaxTagKeysNumber <= 0 {
 		tsdbCfg.MaxTagKeysNumber = defaultStorageCfg.TSDB.MaxTagKeysNumber
 	}
 	return nil
