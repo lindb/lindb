@@ -43,6 +43,7 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/series/field"
+	metricchecker "github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/cumulativecache"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -412,9 +413,9 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 			return isCumulative, constants.ErrMetricEmptyFieldName
 		}
 		// check sanitize
-		if field.HistogramConverter.NeedToSanitize(metric.SimpleFields[idx].Name) {
+		if metricchecker.HistogramConverter.NeedToSanitize(metric.SimpleFields[idx].Name) {
 			s.metrics.escapedFields.Incr()
-			metric.SimpleFields[idx].Name = field.HistogramConverter.Sanitize(metric.SimpleFields[idx].Name)
+			metric.SimpleFields[idx].Name = metricchecker.HistogramConverter.Sanitize(metric.SimpleFields[idx].Name)
 		}
 		// field type unspecified
 		switch metric.SimpleFields[idx].Type {
@@ -547,7 +548,7 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 	// min
 	if metric.CompoundField.Min > 0 {
 		minFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name, field.Name(field.HistogramConverter.MinFieldName), field.MinField)
+			ns, metric.Name, field.Name(metricchecker.HistogramConverter.MinFieldName), field.MinField)
 		if err != nil {
 			return nil, err
 		}
@@ -556,7 +557,7 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 	// max
 	if metric.CompoundField.Max > 0 {
 		maxFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name, field.Name(field.HistogramConverter.MaxFieldName), field.MaxField)
+			ns, metric.Name, field.Name(metricchecker.HistogramConverter.MaxFieldName), field.MaxField)
 		if err != nil {
 			return nil, err
 		}
@@ -564,14 +565,14 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 	}
 	// sum
 	sumFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-		ns, metric.Name, field.Name(field.HistogramConverter.SumFieldName), field.SumField)
+		ns, metric.Name, field.Name(metricchecker.HistogramConverter.SumFieldName), field.SumField)
 	if err != nil {
 		return nil, err
 	}
 	mm.FieldIDs = append(mm.FieldIDs, sumFieldID)
 	// count
 	countFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-		ns, metric.Name, field.Name(field.HistogramConverter.CountFieldName), field.SumField)
+		ns, metric.Name, field.Name(metricchecker.HistogramConverter.CountFieldName), field.SumField)
 	if err != nil {
 		return nil, err
 	}
@@ -580,7 +581,7 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 	for idx := range metric.CompoundField.ExplicitBounds {
 		histogramFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
 			ns, metric.Name,
-			field.Name(field.HistogramConverter.BucketName(metric.CompoundField.ExplicitBounds[idx])),
+			field.Name(metricchecker.HistogramConverter.BucketName(metric.CompoundField.ExplicitBounds[idx])),
 			field.HistogramField)
 		if err != nil {
 			return nil, err

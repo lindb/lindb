@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -50,7 +51,8 @@ var (
 
 func init() {
 	clientConnFct = &clientConnFactory{
-		connMap: make(map[models.Node]*grpc.ClientConn),
+		connMap:       make(map[models.Node]*grpc.ClientConn),
+		clientTracker: conntrack.NewGRPCClientTracker(),
 	}
 }
 
@@ -67,7 +69,8 @@ type clientConnFactory struct {
 	// target -> connection
 	connMap map[models.Node]*grpc.ClientConn
 	// lock to protect connMap
-	lock4map sync.Mutex
+	lock4map      sync.Mutex
+	clientTracker *conntrack.GRPCClientTracker
 }
 
 // GetClientConnFactory returns a singleton ClientConnFactory.
@@ -85,7 +88,12 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 	if ok {
 		return coon, nil
 	}
-	conn, err := grpc.Dial(target.Indicator(), grpc.WithInsecure())
+	conn, err := grpc.Dial(
+		target.Indicator(),
+		grpc.WithInsecure(),
+		grpc.WithStreamInterceptor(fct.clientTracker.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(fct.clientTracker.UnaryClientInterceptor()),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +151,11 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 }
 
 // CreateWriteClient creates a WriteClient.
-func (w *clientStreamFactory) CreateWriteClient(db string, shardID int32,
-	target models.Node) (protoStorageV1.WriteService_WriteClient, error) {
+func (w *clientStreamFactory) CreateWriteClient(
+	db string,
+	shardID int32,
+	target models.Node,
+) (protoStorageV1.WriteService_WriteClient, error) {
 	conn, err := w.connFct.GetClientConn(target)
 	if err != nil {
 		return nil, err
