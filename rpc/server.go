@@ -23,6 +23,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -44,11 +45,14 @@ type grpcServer struct {
 }
 
 func NewGRPCServer(bindAddress string) GRPCServer {
+	grpcServerTracker := conntrack.NewGRPCServerTracker()
 	return &grpcServer{
 		bindAddress: bindAddress,
 		logger:      logger.GetLogger("rpc", "GRPCServer"),
 		gs: grpc.NewServer(
 			grpc.ConnectionTimeout(time.Second*3),
+			grpc.StreamInterceptor(grpcServerTracker.StreamServerInterceptor()),
+			grpc.UnaryInterceptor(grpcServerTracker.UnaryServerInterceptor()),
 			grpc.MaxConcurrentStreams(30),
 		),
 	}

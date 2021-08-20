@@ -90,7 +90,6 @@ func (mm *metricMetadata) getMetricID() uint32 {
 
 // getField gets the field meta by field name, if not exist return false
 func (mm *metricMetadata) getField(fieldName field.Name) (field.Meta, bool) {
-	//FIXME use search???
 	for _, f := range mm.fields {
 		if f.Name == fieldName {
 			return f, true

@@ -42,6 +42,11 @@ export const MENUS = [
         icon: 'query',
         path: '/query',
       },
+      {
+        title: 'Traffic',
+        icon: 'traffic',
+        path: '/traffic',
+      },
     ],
   }, {
     title: 'Metadata',

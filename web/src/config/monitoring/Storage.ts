@@ -10,7 +10,7 @@ function metric(title: string, ql: string, span: number = 24, unit: UnitEnum = U
   }
 }
 
-export const WriteDashboard = [
+export const StorageDashboard = [
   // Row
   [
     metric(
@@ -74,16 +74,34 @@ export const WriteDashboard = [
       UnitEnum.None,
     ),
     metric(
+        'Get Metric ID',
+        'select get_metric_ids from lindb.tsdb.metadb group by db',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
       'Generate Tag Key ID',
       'select gen_tag_key_ids from lindb.tsdb.metadb group by db',
       8,
       UnitEnum.None,
     ),
     metric(
+        'Get Tag Key ID',
+        'select get_tag_key_ids from lindb.tsdb.metadb group by db',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
       'Generate Field ID',
       'select gen_field_ids from lindb.tsdb.metadb group by db',
       8,
       UnitEnum.None,
+    ),
+    metric(
+        'Get Field ID',
+        'select get_field_ids from lindb.tsdb.metadb group by db',
+        8,
+        UnitEnum.None,
     ),
     metric(
       'Build Inverted Index',

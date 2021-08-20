@@ -1,16 +1,16 @@
 import {Card, Form} from 'antd'
 import ViewBoard from 'components/metric/ViewBoard'
-import {StorageDashboard} from 'config/monitoring/Storage'
 import * as React from 'react'
 import TagValuesSelect from "components/meta/TagValues";
+import {TrafficDashboard} from "config/monitoring/Traffic";
 
-interface StorageProps {
+interface TrafficProps {
 }
 
-interface StorageState {
+interface TrafficState {
 }
 
-export default class MonitoringStorage extends React.Component<StorageProps, StorageState> {
+export default class MonitoringTraffic extends React.Component<TrafficProps, TrafficState> {
 
     render() {
         return (
@@ -22,11 +22,11 @@ export default class MonitoringStorage extends React.Component<StorageProps, Sto
                               textAlign: "left",
                           }}>
                         <Form.Item label="Node">
-                            <TagValuesSelect metric="lindb.tsdb.memdb" tagKey="node" mode="tags"/>
+                            <TagValuesSelect metric="lindb.traffic.grpc_server" tagKey="node" mode="tags"/>
                         </Form.Item>
                     </Form>
                 </Card>
-                <ViewBoard board={StorageDashboard}/>
+                <ViewBoard board={TrafficDashboard}/>
             </React.Fragment>
         )
     }
