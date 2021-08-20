@@ -289,7 +289,7 @@ func (r *runtime) startHTTPServer() {
 
 // startTCPServer starts tcp server
 func (r *runtime) startTCPServer() {
-	r.server = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.node.Port))
+	r.server = rpc.NewGRPCServer(r.config.StorageBase.GRPC)
 
 	// bind rpc handlers
 	r.bindRPCHandlers()

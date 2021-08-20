@@ -25,7 +25,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
@@ -124,7 +126,7 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, client)
 
-	grpcServer := NewGRPCServer(":9000")
+	grpcServer := NewGRPCServer(config.GRPC{Port: 9000, ConnectTimeout: ltoml.Duration(time.Second)})
 	protoCommonV1.RegisterTaskServiceServer(grpcServer.GetServer(), handler)
 	go func() {
 		_ = grpcServer.Start()

@@ -65,17 +65,27 @@ func (rs *RepoState) TOML() string {
 
 // GRPC represents grpc server config
 type GRPC struct {
-	Port uint16         `toml:"port"`
-	TTL  ltoml.Duration `toml:"ttl"`
+	Port                 uint16         `toml:"port"`
+	TTL                  ltoml.Duration `toml:"ttl"`
+	MaxConcurrentStreams uint32         `toml:"max-concurrent-streams"`
+	ConnectTimeout       ltoml.Duration `toml:"connect-timeout"`
 }
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
 	port = %d
 	## Default: 1s
-	ttl = "%s"`,
+	ttl = "%s"
+	## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
+	## Default: 30
+	max-concurrent-streams = %d
+	## connect-timeout sets the timeout for connection establishment.
+	## Default: 3s
+	connect-timeout = "%s"`,
 		g.Port,
 		g.TTL.String(),
+		g.MaxConcurrentStreams,
+		g.ConnectTimeout.Duration().String(),
 	)
 }
 
@@ -124,10 +134,10 @@ func checkCoordinatorCfg(state *RepoState) error {
 	if len(state.Endpoints) == 0 {
 		return fmt.Errorf("endpoints cannot be empty")
 	}
-	if state.Timeout == 0 {
+	if state.Timeout <= 0 {
 		state.Timeout = ltoml.Duration(time.Second * 5)
 	}
-	if state.DialTimeout == 0 {
+	if state.DialTimeout <= 0 {
 		state.Timeout = ltoml.Duration(time.Second * 5)
 	}
 	return nil
@@ -137,21 +147,27 @@ func checkGRPCCfg(grpcCfg *GRPC) error {
 	if grpcCfg.Port == 0 {
 		return fmt.Errorf("grpc endpoint cannot be empty")
 	}
-	if grpcCfg.TTL == 0 {
+	if grpcCfg.TTL <= 0 {
 		grpcCfg.TTL = ltoml.Duration(time.Second)
+	}
+	if grpcCfg.MaxConcurrentStreams <= 0 {
+		grpcCfg.MaxConcurrentStreams = 30
+	}
+	if grpcCfg.ConnectTimeout <= 0 {
+		grpcCfg.ConnectTimeout = ltoml.Duration(time.Second * 3)
 	}
 	return nil
 }
 
 func checkQueryCfg(queryCfg *Query) {
 	defaultQuery := NewDefaultQuery()
-	if queryCfg.QueryConcurrency == 0 {
+	if queryCfg.QueryConcurrency <= 0 {
 		queryCfg.QueryConcurrency = defaultQuery.QueryConcurrency
 	}
-	if queryCfg.Timeout == 0 {
+	if queryCfg.Timeout <= 0 {
 		queryCfg.Timeout = defaultQuery.Timeout
 	}
-	if queryCfg.IdleTimeout == 0 {
+	if queryCfg.IdleTimeout <= 0 {
 		queryCfg.IdleTimeout = defaultQuery.IdleTimeout
 	}
 }
