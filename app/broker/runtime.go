@@ -345,7 +345,7 @@ func (r *runtime) buildServiceDependency() {
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
 	r.log.Info("starting GRPC server")
-	r.grpcServer = rpc.NewGRPCServer(fmt.Sprintf(":%d", r.config.BrokerBase.GRPC.Port))
+	r.grpcServer = rpc.NewGRPCServer(r.config.BrokerBase.GRPC)
 
 	// bind grpc handlers
 	r.bindGRPCHandlers()

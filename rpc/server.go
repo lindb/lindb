@@ -18,11 +18,12 @@
 package rpc
 
 import (
+	"fmt"
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -44,16 +45,16 @@ type grpcServer struct {
 	gs          *grpc.Server
 }
 
-func NewGRPCServer(bindAddress string) GRPCServer {
+func NewGRPCServer(cfg config.GRPC) GRPCServer {
 	grpcServerTracker := conntrack.NewGRPCServerTracker()
 	return &grpcServer{
-		bindAddress: bindAddress,
+		bindAddress: fmt.Sprintf(":%d", cfg.Port),
 		logger:      logger.GetLogger("rpc", "GRPCServer"),
 		gs: grpc.NewServer(
-			grpc.ConnectionTimeout(time.Second*3),
+			grpc.ConnectionTimeout(cfg.ConnectTimeout.Duration()),
 			grpc.StreamInterceptor(grpcServerTracker.StreamServerInterceptor()),
 			grpc.UnaryInterceptor(grpcServerTracker.UnaryServerInterceptor()),
-			grpc.MaxConcurrentStreams(30),
+			grpc.MaxConcurrentStreams(cfg.MaxConcurrentStreams),
 		),
 	}
 }
