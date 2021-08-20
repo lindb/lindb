@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"net"
 	"net/http"
 
 	"github.com/felixge/fgprof"
@@ -32,6 +31,7 @@ import (
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -101,11 +101,11 @@ func (s *HTTPServer) Run() error {
 	s.logger.Info("starting http server", logger.String("addr", s.server.Addr))
 	s.server.Handler = s.gin
 	// Open listener.
-	ln, err := net.Listen("tcp", s.addr)
+	trackedListener, err := conntrack.NewTrackedListener("tcp", s.addr)
 	if err != nil {
 		return err
 	}
-	return s.server.Serve(ln)
+	return s.server.Serve(trackedListener)
 }
 
 // Close closes the server.
