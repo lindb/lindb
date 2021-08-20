@@ -17,7 +17,9 @@
 
 package constants
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	// DefaultMaxSeriesIDsCount represents series count limit, uses this limit of metric-level when maxSeriesIDsLimit is not set
@@ -28,6 +30,13 @@ const (
 	DefaultMaxFieldsCount = math.MaxUint8
 	// MaxSuggestions represents the max number of suggestions count
 	MaxSuggestions = 10000
+
+	// MetricMaxAheadDuration controls the global max write ahead duration.
+	// If current timestamp is 2021-08-19 23:00:00, metric after 2021-08-19 23:30:00 will be dropped.
+	MetricMaxAheadDuration = 30 * 60 * 1000
+	// MetricMaxBehindDuration controls the global max write behind duration.
+	// If current timestamp is 2021-08-19 23:00:00, metric before 2021-08-19 22:00:00 will be dropped.
+	MetricMaxBehindDuration = 60 * 60 * 1000
 
 	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag.
 	TagValueIDForTag = uint32(0)

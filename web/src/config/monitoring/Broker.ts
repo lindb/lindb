@@ -14,7 +14,7 @@ export const BrokerDashboard = [
     // Row
     [
         metric(
-            'HTTP p99 Duration',
+            'HTTP P99 Duration',
             'select quantile(0.99) from lindb.broker.http_handle_duration group by path',
             8,
             UnitEnum.Milliseconds,

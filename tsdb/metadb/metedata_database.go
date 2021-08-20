@@ -44,8 +44,11 @@ var (
 
 var (
 	metaDBScope             = linmetric.NewScope("lindb.tsdb.metadb")
+	getMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("get_metric_ids", "db")
 	genMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_metric_ids", "db")
+	getTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("get_tag_key_ids", "db")
 	genTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_tag_key_ids", "db")
+	getFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("get_field_ids", "db")
 	genFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("gen_field_ids", "db")
 	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewDeltaHistogramVec("db")
 )
@@ -75,10 +78,15 @@ type metadataDatabase struct {
 
 	rwMux sync.RWMutex
 
-	genMetricIDCounter   *linmetric.BoundDeltaCounter
-	genTagKeyIDCounter   *linmetric.BoundDeltaCounter
-	genFieldIDCounter    *linmetric.BoundDeltaCounter
-	recoveryMetaWALTimer *linmetric.BoundDeltaHistogram
+	statistics struct {
+		genMetricIDCounter   *linmetric.BoundDeltaCounter
+		getMetricIDCounter   *linmetric.BoundDeltaCounter
+		genTagKeyIDCounter   *linmetric.BoundDeltaCounter
+		getTagKeyIDCounter   *linmetric.BoundDeltaCounter
+		genFieldIDCounter    *linmetric.BoundDeltaCounter
+		getFieldIDCounter    *linmetric.BoundDeltaCounter
+		recoveryMetaWALTimer *linmetric.BoundDeltaHistogram
+	}
 }
 
 // NewMetadataDatabase creates new metadata database
@@ -104,19 +112,23 @@ func NewMetadataDatabase(ctx context.Context, databaseName, parent string) (Meta
 	}
 	c, cancel := context.WithCancel(ctx)
 	mdb := &metadataDatabase{
-		databaseName:         databaseName,
-		path:                 parent,
-		ctx:                  c,
-		cancel:               cancel,
-		backend:              backend,
-		metrics:              make(map[string]MetricMetadata),
-		metaWAL:              metaWAL,
-		syncInterval:         syncInterval,
-		genMetricIDCounter:   genMetricIDCounterVec.WithTagValues(databaseName),
-		genFieldIDCounter:    genFieldIDCounterVec.WithTagValues(databaseName),
-		genTagKeyIDCounter:   genTagKeyIDCounterVec.WithTagValues(databaseName),
-		recoveryMetaWALTimer: recoveryMetaWALTimerVec.WithTagValues(databaseName),
+		databaseName: databaseName,
+		path:         parent,
+		ctx:          c,
+		cancel:       cancel,
+		backend:      backend,
+		metrics:      make(map[string]MetricMetadata),
+		metaWAL:      metaWAL,
+		syncInterval: syncInterval,
 	}
+	mdb.statistics.genMetricIDCounter = genMetricIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.getMetricIDCounter = getMetricIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.genFieldIDCounter = genFieldIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.getFieldIDCounter = getFieldIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.genTagKeyIDCounter = genTagKeyIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.getTagKeyIDCounter = getTagKeyIDCounterVec.WithTagValues(databaseName)
+	mdb.statistics.recoveryMetaWALTimer = recoveryMetaWALTimerVec.WithTagValues(databaseName)
+
 	// meta recovery
 	mdb.metaRecovery()
 
@@ -141,6 +153,8 @@ func (mdb *metadataDatabase) SuggestMetricName(namespace, prefix string, limit i
 
 // GetMetricID gets the metric id by namespace and metric name, if not exist return constants.ErrMetricIDNotFound
 func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID uint32, err error) {
+	mdb.statistics.getMetricIDCounter.Incr()
+
 	mdb.rwMux.RLock()
 	// read from memory
 	key := namespace + metricName
@@ -157,6 +171,8 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 
 // GetTagKeyID gets the tag key id by namespace/metric name/tag key key, if not exist return constants.ErrTagKeyIDNotFound
 func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey string) (tagKeyID uint32, err error) {
+	mdb.statistics.getTagKeyIDCounter.Incr()
+
 	key := namespace + metricName
 
 	mdb.rwMux.RLock()
@@ -265,7 +281,8 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	// get metric id from memory, add read lock
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
-		mdb.rwMux.RUnlock()
+		defer mdb.rwMux.RUnlock()
+		mdb.statistics.getMetricIDCounter.Incr()
 		return metricMetadata.getMetricID(), nil
 	}
 	mdb.rwMux.RUnlock()
@@ -276,6 +293,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	// double check with memory
 	metricMetadata, ok = mdb.metrics[key]
 	if ok {
+		mdb.statistics.getMetricIDCounter.Incr()
 		return metricMetadata.getMetricID(), nil
 	}
 
@@ -284,6 +302,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	if err == nil {
 		// get metric metadata from backend
 		mdb.metrics[key] = metricMetadata
+		mdb.statistics.getMetricIDCounter.Incr()
 		return metricMetadata.getMetricID(), nil
 	}
 	// isn't not found, return err
@@ -302,14 +321,15 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 
 	mdb.metrics[key] = newMetricMetadata(metricID, 0)
 
-	mdb.genMetricIDCounter.Incr()
+	mdb.statistics.genMetricIDCounter.Incr()
 
 	return metricID, nil
 }
 
 // GenFieldID generates the field id in the memory,
 // !!!!! NOTICE: metric metadata must be exist in memory, because gen metric has been saved
-func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
+func (mdb *metadataDatabase) GenFieldID(
+	namespace, metricName string,
 	fieldName field.Name, fieldType field.Type,
 ) (fieldID field.ID, err error) {
 	key := namespace + metricName
@@ -320,6 +340,7 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 	metricMetadata := mdb.metrics[key]
 	f, ok := metricMetadata.getField(fieldName)
 	if ok {
+		mdb.statistics.getFieldIDCounter.Incr()
 		if f.Type == fieldType {
 			return f.ID, nil
 		}
@@ -344,7 +365,7 @@ func (mdb *metadataDatabase) GenFieldID(namespace, metricName string,
 		Name: fieldName,
 	})
 
-	mdb.genFieldIDCounter.Incr()
+	mdb.statistics.genFieldIDCounter.Incr()
 
 	return fieldID, nil
 }
@@ -360,6 +381,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 	metricMetadata := mdb.metrics[key]
 	tagKeyID, ok := metricMetadata.getTagKeyID(tagKey)
 	if ok {
+		mdb.statistics.genTagKeyIDCounter.Incr()
 		return tagKeyID, nil
 	}
 	// check tag keys count before create
@@ -378,7 +400,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 	metricMetadata.createTagKey(tagKey, tagKeyID)
 
-	mdb.genTagKeyIDCounter.Incr()
+	mdb.statistics.genTagKeyIDCounter.Incr()
 	return
 }
 
@@ -452,7 +474,7 @@ func (mdb *metadataDatabase) checkSync() {
 func (mdb *metadataDatabase) metaRecovery() {
 	startTime := time.Now()
 
-	defer mdb.recoveryMetaWALTimer.UpdateSince(startTime)
+	defer mdb.statistics.recoveryMetaWALTimer.UpdateSince(startTime)
 
 	event := newMetadataUpdateEvent()
 	mdb.metaWAL.Recovery(func(namespace, metricName string, metricID uint32) error {

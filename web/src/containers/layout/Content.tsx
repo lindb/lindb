@@ -13,6 +13,7 @@ import MonitoringQuery from 'containers/monitoring/Query'
 import System from 'containers/monitoring/System'
 import MonitoringStorage from 'containers/monitoring/Storage'
 import MonitoringBroker from 'containers/monitoring/Broker'
+import MonitoringTraffic from 'containers/monitoring/Traffic'
 import SearchPage from 'containers/query/MetricDataSearch'
 import * as React from 'react'
 import {Route, Switch} from 'react-router-dom'
@@ -54,6 +55,7 @@ export default class Content extends React.Component<ContentProps, ContentStatus
               <Route exact={true} path="/monitoring/storage" component={MonitoringStorage} />
               <Route exact={true} path="/monitoring/concurrent" component={MonitoringConcurrent} />
               <Route exact={true} path="/monitoring/query" component={MonitoringQuery} />
+              <Route exact={true} path="/monitoring/traffic" component={MonitoringTraffic} />
               <Route exact={true} path="/metadata/storage" component={Storage} />
               <Route exact={true} path="/metadata/database" component={Database} />
             </Switch>
