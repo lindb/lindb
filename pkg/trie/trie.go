@@ -28,9 +28,9 @@ type trie struct {
 	labelVec    labelVector
 	hasChildVec rankVectorSparse
 	loudsVec    selectVector
-	suffixes    suffixKeyVector
 	values      valueVector
 	prefixVec   prefixVector
+	suffixVec   suffixVector
 }
 
 // NewTrie returns a new empty SuccinctTrie
@@ -41,7 +41,7 @@ func NewTrie() SuccinctTrie {
 func (tree *trie) Init(builder *builder) *trie {
 	tree.height = uint32(len(builder.lsLabels))
 
-	tree.labelVec.Init(builder.lsLabels, tree.height)
+	tree.labelVec.Init(builder.lsLabels, tree.sparseLevels())
 
 	numItemsPerLevel := make([]uint32, tree.sparseLevels())
 	for level := range numItemsPerLevel {
@@ -50,10 +50,10 @@ func (tree *trie) Init(builder *builder) *trie {
 	tree.hasChildVec.Init(builder.lsHasChild, numItemsPerLevel)
 	tree.loudsVec.Init(builder.lsLoudsBits, numItemsPerLevel)
 
-	tree.suffixes.Init(builder.suffixesOffsets, builder.suffixesBlock)
-
 	tree.values.Init(builder.values, builder.valueWidth)
+
 	tree.prefixVec.Init(builder.hasPrefix, builder.nodeCounts, builder.prefixes)
+	tree.suffixVec.Init(builder.hasSuffix, numItemsPerLevel, builder.suffixes)
 
 	return tree
 }
@@ -83,8 +83,9 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 		}
 		if !tree.hasChildVec.IsSet(pos) {
 			valPos := tree.suffixPos(pos)
-			if ok = tree.suffixes.CheckSuffix(valPos, key, depth+1); ok {
+			if ok = tree.suffixVec.CheckSuffix(key, depth, pos); ok {
 				value = tree.values.Get(valPos)
+				ok = true
 			}
 			return value, ok
 		}
@@ -92,7 +93,7 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 		nodeID = tree.childNodeID(pos)
 		pos = tree.firstLabelPos(nodeID)
 	}
-	// key is exhausted, re-check the prefix
+	// key is not exhausted, re-check the prefix
 	if !exhausted {
 		_, ok = tree.prefixVec.CheckPrefix(key, depth, tree.prefixID(nodeID))
 		if !ok {
@@ -101,8 +102,9 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 	}
 
 	if tree.labelVec.GetLabel(pos) == labelTerminator && !tree.hasChildVec.IsSet(pos) {
-		valPos := tree.suffixPos(pos)
-		if ok = tree.suffixes.CheckSuffix(valPos, key, depth+1); ok {
+		if ok = tree.suffixVec.CheckSuffix(key, depth, pos); ok {
+			valPos := tree.suffixPos(pos)
+			//if ok = tree.suffixVec.CheckSuffix(key, depth, nodeID); ok {
 			value = tree.values.Get(valPos)
 		}
 		return value, ok
@@ -117,16 +119,16 @@ func (tree *trie) MarshalSize() int64 {
 
 func (tree *trie) rawMarshalSize() int64 {
 	return 4 + tree.labelVec.MarshalSize() + tree.hasChildVec.MarshalSize() + tree.loudsVec.MarshalSize() +
-		tree.suffixes.MarshalSize() + tree.prefixVec.MarshalSize()
+		tree.suffixVec.MarshalSize() + tree.prefixVec.MarshalSize()
 }
 
 func (tree *trie) MarshalBinary() ([]byte, error) {
 	w := bytes.NewBuffer(make([]byte, 0, tree.MarshalSize()))
-	_ = tree.WriteTo(w)
+	_ = tree.Write(w)
 	return w.Bytes(), nil
 }
 
-func (tree *trie) WriteTo(w io.Writer) error {
+func (tree *trie) Write(w io.Writer) error {
 	var (
 		bs [4]byte
 	)
@@ -134,19 +136,19 @@ func (tree *trie) WriteTo(w io.Writer) error {
 	if _, err := w.Write(bs[:]); err != nil {
 		return err
 	}
-	if err := tree.labelVec.WriteTo(w); err != nil {
+	if err := tree.labelVec.Write(w); err != nil {
 		return err
 	}
-	if err := tree.hasChildVec.WriteTo(w); err != nil {
+	if err := tree.hasChildVec.Write(w); err != nil {
 		return err
 	}
-	if err := tree.loudsVec.WriteTo(w); err != nil {
+	if err := tree.loudsVec.Write(w); err != nil {
 		return err
 	}
-	if err := tree.prefixVec.WriteTo(w); err != nil {
+	if err := tree.prefixVec.Write(w); err != nil {
 		return err
 	}
-	if err := tree.suffixes.WriteTo(w); err != nil {
+	if err := tree.suffixVec.Write(w); err != nil {
 		return err
 	}
 	rawMarshalSize := tree.rawMarshalSize()
@@ -157,7 +159,7 @@ func (tree *trie) WriteTo(w io.Writer) error {
 		return err
 	}
 	// write values
-	return tree.values.WriteTo(w)
+	return tree.values.Write(w)
 }
 
 func (tree *trie) UnmarshalBinary(buf []byte) (err error) {
@@ -180,7 +182,7 @@ func (tree *trie) UnmarshalBinary(buf []byte) (err error) {
 	if buf1, err = tree.prefixVec.Unmarshal(buf1); err != nil {
 		return err
 	}
-	if buf1, err = tree.suffixes.Unmarshal(buf1); err != nil {
+	if buf1, err = tree.suffixVec.Unmarshal(buf1); err != nil {
 		return err
 	}
 

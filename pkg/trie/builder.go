@@ -17,11 +17,7 @@
 
 package trie
 
-import (
-	"encoding/binary"
-)
-
-// builder is builder of Succinct Trie.
+// builder builds Succinct Trie.
 type builder struct {
 	valueWidth uint32
 	totalCount int
@@ -31,11 +27,6 @@ type builder struct {
 	lsHasChild  [][]uint64
 	lsLoudsBits [][]uint64
 
-	// suffix keys
-	scratch         []byte  // for variant encoding
-	suffixesOffsets [][]int // pooling
-	suffixesBlock   []byte
-
 	// value
 	values      [][]byte
 	valueCounts []uint32
@@ -44,27 +35,27 @@ type builder struct {
 	hasPrefix [][]uint64
 	prefixes  [][][]byte
 
+	// suffix
+	hasSuffix [][]uint64
+	suffixes  [][][]byte
+
 	nodeCounts           []uint32
 	isLastItemTerminator []bool
 
 	// pooling data-structures
-	poolByteSlice   []*[]byte
-	poolUint64Slice []*[]uint64
-	poolIntSlice    []*[]int
+	cachedLabel   [][]byte
+	cachedUint64s [][]uint64
 }
 
 // NewBuilder returns a new Trie builder.
 func NewBuilder() Builder {
-	return &builder{
-		suffixesBlock: make([]byte, 4096)[:0],
-		scratch:       make([]byte, binary.MaxVarintLen32),
-	}
+	return &builder{}
 }
 
 func (b *builder) Build(keys, vals [][]byte, valueWidth uint32) SuccinctTrie {
 	b.valueWidth = valueWidth
-
 	b.totalCount = len(keys)
+
 	b.buildNodes(keys, vals, 0, 0, 0)
 
 	tree := new(trie)
@@ -87,7 +78,7 @@ func (b *builder) buildNodes(keys, vals [][]byte, prefixDepth, depth, level int)
 	if depth >= len(keys[groupStart]) {
 		b.lsLabels[level] = append(b.lsLabels[level], labelTerminator)
 		b.isLastItemTerminator[level] = true
-		b.insertSuffix(keys[groupStart], level, depth)
+		b.ensureLevel(level)
 		b.insertValue(vals[groupStart], level)
 		b.moveToNextItemSlot(level)
 		groupStart++
@@ -107,7 +98,11 @@ func (b *builder) buildNodes(keys, vals [][]byte, prefixDepth, depth, level int)
 		b.lsLabels[level] = append(b.lsLabels[level], keys[groupStart][depth])
 		b.moveToNextItemSlot(level)
 		if groupEnd-groupStart == 1 {
-			b.insertSuffix(keys[groupStart], level, depth)
+			if depth+1 < len(keys[groupStart]) {
+				b.ensureLevel(level)
+				setBit(b.hasSuffix[level], b.numItems(level)-1)
+				b.suffixes[level] = append(b.suffixes[level], keys[groupStart][depth+1:])
+			}
 			b.insertValue(vals[groupStart], level)
 		} else {
 			setBit(b.lsHasChild[level], b.numItems(level)-1)
@@ -120,14 +115,15 @@ func (b *builder) buildNodes(keys, vals [][]byte, prefixDepth, depth, level int)
 	// check if current node contains compressed path.
 	if depth-prefixDepth > 0 {
 		prefix := keys[0][prefixDepth:depth]
-		setBit(b.hasPrefix[level], b.nodeCounts[level])
 		b.insertPrefix(prefix, level)
 	}
+
 	setBit(b.lsLoudsBits[level], nodeStartPos)
 
 	b.nodeCounts[level]++
 	if b.nodeCounts[level]%wordSize == 0 {
 		b.hasPrefix[level] = append(b.hasPrefix[level], 0)
+		b.hasSuffix[level] = append(b.hasSuffix[level], 0)
 	}
 }
 
@@ -146,18 +142,17 @@ func (b *builder) numItems(level int) uint32 {
 }
 
 func (b *builder) addLevel() {
-	// pooled
-	b.lsLabels = append(b.lsLabels, *b.pickByteSlice())
-	b.lsHasChild = append(b.lsHasChild, *b.pickUint64Slice())
-	b.lsLoudsBits = append(b.lsLoudsBits, *b.pickUint64Slice())
-	// not pooled
-	b.hasPrefix = append(b.hasPrefix, []uint64{})
-	// pooled
-	b.suffixesOffsets = append(b.suffixesOffsets, *b.pickIntSlice())
+	// cached
+	b.lsLabels = append(b.lsLabels, b.pickLabels())
+	b.lsHasChild = append(b.lsHasChild, b.pickUint64Slice())
+	b.lsLoudsBits = append(b.lsLoudsBits, b.pickUint64Slice())
+	b.hasPrefix = append(b.hasPrefix, b.pickUint64Slice())
+	b.hasSuffix = append(b.hasSuffix, b.pickUint64Slice())
 
 	b.values = append(b.values, []byte{})
 	b.valueCounts = append(b.valueCounts, 0)
 	b.prefixes = append(b.prefixes, [][]byte{})
+	b.suffixes = append(b.suffixes, [][]byte{})
 
 	b.nodeCounts = append(b.nodeCounts, 0)
 	b.isLastItemTerminator = append(b.isLastItemTerminator, false)
@@ -166,36 +161,14 @@ func (b *builder) addLevel() {
 	b.lsHasChild[level] = append(b.lsHasChild[level], 0)
 	b.lsLoudsBits[level] = append(b.lsLoudsBits[level], 0)
 	b.hasPrefix[level] = append(b.hasPrefix[level], 0)
+	b.hasSuffix[level] = append(b.hasSuffix[level], 0)
 }
 
 func (b *builder) moveToNextItemSlot(level int) {
 	if b.numItems(level)%wordSize == 0 {
+		b.hasSuffix[level] = append(b.hasSuffix[level], 0)
 		b.lsHasChild[level] = append(b.lsHasChild[level], 0)
 		b.lsLoudsBits[level] = append(b.lsLoudsBits[level], 0)
-	}
-}
-
-func (b *builder) insertSuffix(key []byte, level, depth int) {
-	if level >= b.treeHeight() {
-		b.addLevel()
-	}
-
-	var keySuffix []byte
-	cutPos := depth + 1
-	if cutPos > len(key) {
-		keySuffix = nil
-	} else {
-		keySuffix = key[cutPos:]
-	}
-	offset := len(b.suffixesBlock)
-	b.suffixesOffsets[level] = append(b.suffixesOffsets[level], offset)
-
-	// put uvarint length of key-suffix
-	width := binary.PutUvarint(b.scratch, uint64(len(keySuffix)))
-	b.suffixesBlock = append(b.suffixesBlock, b.scratch[:width]...)
-	// put key-suffix
-	if len(keySuffix) != 0 {
-		b.suffixesBlock = append(b.suffixesBlock, keySuffix...)
 	}
 }
 
@@ -205,7 +178,8 @@ func (b *builder) insertValue(value []byte, level int) {
 }
 
 func (b *builder) insertPrefix(prefix []byte, level int) {
-	b.prefixes[level] = append(b.prefixes[level], append([]byte{}, prefix...))
+	setBit(b.hasPrefix[level], b.nodeCounts[level])
+	b.prefixes[level] = append(b.prefixes[level], prefix)
 }
 
 func (b *builder) Reset() {
@@ -214,73 +188,67 @@ func (b *builder) Reset() {
 
 	// cache lsLabels
 	for idx := range b.lsLabels {
-		sl := b.lsLabels[idx][:0]
-		b.poolByteSlice = append(b.poolByteSlice, &sl)
+		b.cachedLabel = append(b.cachedLabel, b.lsLabels[idx][:0])
 	}
 	b.lsLabels = b.lsLabels[:0]
 
 	// cache lsHasChild
 	for idx := range b.lsHasChild {
-		sl := b.lsHasChild[idx][:0]
-		b.poolUint64Slice = append(b.poolUint64Slice, &sl)
+		b.cachedUint64s = append(b.cachedUint64s, b.lsHasChild[idx][:0])
 	}
 	b.lsHasChild = b.lsHasChild[:0]
 
 	// cache lsLoudsBits
 	for idx := range b.lsLoudsBits {
-		sl := b.lsLoudsBits[idx][:0]
-		b.poolUint64Slice = append(b.poolUint64Slice, &sl)
+		b.cachedUint64s = append(b.cachedUint64s, b.lsLoudsBits[idx][:0])
 	}
 	b.lsLoudsBits = b.lsLoudsBits[:0]
-
-	// cache suffixOffsets
-	for idx := range b.suffixesOffsets {
-		sl := b.suffixesOffsets[idx][:0]
-		b.poolIntSlice = append(b.poolIntSlice, &sl)
-	}
-	b.suffixesOffsets = b.suffixesOffsets[:0]
-
-	// reset suffixesBlock
-	b.suffixesBlock = b.suffixesBlock[:0]
 
 	// reset values
 	b.values = b.values[:0]
 	b.valueCounts = b.valueCounts[:0]
 
+	// cache has prefix
+	for idx := range b.hasPrefix {
+		b.hasPrefix = append(b.hasPrefix, b.hasPrefix[idx][:0])
+	}
+	b.hasPrefix = b.hasPrefix[:0]
+
+	// cache has suffix
+	for idx := range b.hasSuffix {
+		b.hasSuffix = append(b.hasSuffix, b.hasSuffix[idx][:0])
+	}
+	b.hasSuffix = b.hasSuffix[:0]
+
 	// reset prefixes
 	b.hasPrefix = b.hasPrefix[:0]
 	b.prefixes = b.prefixes[:0]
+
+	// reset suffixes
+	b.hasSuffix = b.hasSuffix[:0]
+	b.suffixes = b.suffixes[:0]
 
 	// reset nodeCounts
 	b.nodeCounts = b.nodeCounts[:0]
 	b.isLastItemTerminator = b.isLastItemTerminator[:0]
 }
 
-func (b *builder) pickByteSlice() *[]byte {
-	if len(b.poolByteSlice) == 0 {
-		return &[]byte{}
+func (b *builder) pickLabels() []byte {
+	if len(b.cachedLabel) == 0 {
+		return []byte{}
 	}
-	tailIndex := len(b.poolByteSlice) - 1
-	ptr := b.poolByteSlice[tailIndex]
-	b.poolByteSlice = b.poolByteSlice[:tailIndex]
+	tailIndex := len(b.cachedLabel) - 1
+	ptr := b.cachedLabel[tailIndex]
+	b.cachedLabel = b.cachedLabel[:tailIndex]
 	return ptr
 }
 
-func (b *builder) pickUint64Slice() *[]uint64 {
-	if len(b.poolUint64Slice) == 0 {
-		return &[]uint64{}
+func (b *builder) pickUint64Slice() []uint64 {
+	if len(b.cachedUint64s) == 0 {
+		return []uint64{}
 	}
-	tailIndex := len(b.poolUint64Slice) - 1
-	ptr := b.poolUint64Slice[tailIndex]
-	b.poolUint64Slice = b.poolUint64Slice[:tailIndex]
-	return ptr
-}
-func (b *builder) pickIntSlice() *[]int {
-	if len(b.poolIntSlice) == 0 {
-		return &[]int{}
-	}
-	tailIndex := len(b.poolIntSlice) - 1
-	ptr := b.poolIntSlice[tailIndex]
-	b.poolIntSlice = b.poolIntSlice[:tailIndex]
+	tailIndex := len(b.cachedUint64s) - 1
+	ptr := b.cachedUint64s[tailIndex]
+	b.cachedUint64s = b.cachedUint64s[:tailIndex]
 	return ptr
 }

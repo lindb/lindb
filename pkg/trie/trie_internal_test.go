@@ -188,7 +188,7 @@ type mockWriter struct {
 	errorRound int
 }
 
-func (mw *mockWriter) Write(p []byte) (n int, err error) {
+func (mw *mockWriter) Write(_ []byte) (n int, err error) {
 	defer func() {
 		mw.round++
 	}()
@@ -201,7 +201,7 @@ func (mw *mockWriter) Write(p []byte) (n int, err error) {
 func TestTrie_WriteTo(t *testing.T) {
 	tree := newHostNameTrie()
 	for i := 0; i < 32; i++ {
-		assert.Error(t, tree.WriteTo(&mockWriter{errorRound: i}))
+		assert.Error(t, tree.Write(&mockWriter{errorRound: i}))
 	}
 }
 
