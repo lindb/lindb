@@ -32,11 +32,11 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
 

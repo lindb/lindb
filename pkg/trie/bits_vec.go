@@ -19,14 +19,12 @@ package trie
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math/bits"
 	"sort"
 	"strings"
 
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 )
 
@@ -172,7 +170,7 @@ func (v *valueVector) rawMarshalSize() int64 {
 	return 8 + int64(len(v.bytes))
 }
 
-func (v *valueVector) WriteTo(w io.Writer) error {
+func (v *valueVector) Write(w io.Writer) error {
 	var bs [4]byte
 	endian.PutUint32(bs[:], uint32(len(v.bytes)))
 	if _, err := w.Write(bs[:]); err != nil {
@@ -287,7 +285,7 @@ func (v *selectVector) rawMarshalSize() int64 {
 	return 4 + 4 + int64(v.bitsSize()) + int64(v.lutSize())
 }
 
-func (v *selectVector) WriteTo(w io.Writer) error {
+func (v *selectVector) Write(w io.Writer) error {
 	var buf [4]byte
 	endian.PutUint32(buf[:], v.numBits)
 	_, err := w.Write(buf[:])
@@ -363,7 +361,7 @@ func (v *rankVector) rawMarshalSize() int64 {
 	return 4 + 4 + int64(v.bitsSize()) + int64(v.lutSize())
 }
 
-func (v *rankVector) WriteTo(w io.Writer) error {
+func (v *rankVector) Write(w io.Writer) error {
 	var buf [4]byte
 	endian.PutUint32(buf[:], v.numBits)
 	if _, err := w.Write(buf[:]); err != nil {
@@ -481,7 +479,7 @@ func (v *labelVector) rawMarshalSize() int64 {
 	return 4 + int64(len(v.labels))
 }
 
-func (v *labelVector) WriteTo(w io.Writer) error {
+func (v *labelVector) Write(w io.Writer) error {
 	var bs [4]byte
 	endian.PutUint32(bs[:], uint32(len(v.labels)))
 	if _, err := w.Write(bs[:]); err != nil {
@@ -510,23 +508,89 @@ func (v *labelVector) Unmarshal(buf []byte) ([]byte, error) {
 	return buf[tail:], nil
 }
 
-type prefixVector struct {
-	hasPrefixVec  rankVectorSparse
-	prefixOffsets []uint32
-	prefixData    []byte
+type compressPathVector struct {
+	hasPathVector rankVectorSparse
+	offsets       []uint32
+	data          []byte
 }
 
-func (v *prefixVector) Init(hasPrefixBits [][]uint64, numNodesPerLevel []uint32, prefixes [][][]byte) {
-	v.hasPrefixVec.Init(hasPrefixBits, numNodesPerLevel)
-
+func (pv *compressPathVector) Init(hasPathBits [][]uint64, numNodesPerLevel []uint32, paths [][][]byte) {
+	pv.hasPathVector.Init(hasPathBits, numNodesPerLevel)
 	var offset uint32
-	for _, level := range prefixes {
-		for _, prefix := range level {
-			v.prefixOffsets = append(v.prefixOffsets, offset)
-			offset += uint32(len(prefix))
-			v.prefixData = append(v.prefixData, prefix...)
+	for _, level := range paths {
+		for idx := range level {
+			pv.offsets = append(pv.offsets, offset)
+			offset += uint32(len(level[idx]))
+			pv.data = append(pv.data, level[idx]...)
 		}
 	}
+}
+
+func (pv *compressPathVector) rawMarshalSize() int64 {
+	return pv.hasPathVector.MarshalSize() + 8 + int64(len(pv.offsets)*4+len(pv.data))
+}
+
+func (pv *compressPathVector) MarshalSize() int64 {
+	return align(pv.rawMarshalSize())
+}
+
+func (pv *compressPathVector) GetPath(nodeID uint32) []byte {
+	if !pv.hasPathVector.IsSet(nodeID) {
+		return nil
+	}
+	pathID := pv.hasPathVector.Rank(nodeID) - 1
+	start := pv.offsets[pathID]
+	end := uint32(len(pv.data))
+	if int(pathID+1) < len(pv.offsets) {
+		end = pv.offsets[pathID+1]
+	}
+	return pv.data[start:end]
+}
+
+func (pv *compressPathVector) Write(w io.Writer) error {
+	if err := pv.hasPathVector.Write(w); err != nil {
+		return err
+	}
+
+	var length [8]byte
+	endian.PutUint32(length[:4], uint32(len(pv.offsets)*4))
+	endian.PutUint32(length[4:], uint32(len(pv.data)))
+
+	if _, err := w.Write(length[:]); err != nil {
+		return err
+	}
+	if _, err := w.Write(u32SliceToBytes(pv.offsets)); err != nil {
+		return err
+	}
+	if _, err := w.Write(pv.data); err != nil {
+		return err
+	}
+
+	padding := pv.MarshalSize() - pv.rawMarshalSize()
+	var zeros [8]byte
+	_, err := w.Write(zeros[:padding])
+	return err
+}
+
+func (pv *compressPathVector) Unmarshal(b []byte) ([]byte, error) {
+	buf1, err := pv.hasPathVector.Unmarshal(b)
+	if err != nil {
+		return buf1, err
+	}
+	sr := stream.NewReader(buf1)
+	offsetsLen := sr.ReadUint32()
+	dataLen := sr.ReadUint32()
+
+	pv.offsets = bytesToU32Slice(sr.ReadSlice(int(offsetsLen)))
+	pv.data = sr.ReadSlice(int(dataLen))
+	// read padding
+	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
+	_ = sr.ReadSlice(int(paddingWidth))
+	return sr.UnreadSlice(), sr.Error()
+}
+
+type prefixVector struct {
+	compressPathVector
 }
 
 func (v *prefixVector) CheckPrefix(key []byte, depth uint32, nodeID uint32) (uint32, bool) {
@@ -534,7 +598,6 @@ func (v *prefixVector) CheckPrefix(key []byte, depth uint32, nodeID uint32) (uin
 	if len(prefix) == 0 {
 		return 0, true
 	}
-
 	if int(depth)+len(prefix) > len(key) {
 		return 0, false
 	}
@@ -545,166 +608,21 @@ func (v *prefixVector) CheckPrefix(key []byte, depth uint32, nodeID uint32) (uin
 }
 
 func (v *prefixVector) GetPrefix(nodeID uint32) []byte {
-	if !v.hasPrefixVec.IsSet(nodeID) {
-		return nil
-	}
-
-	prefixID := v.hasPrefixVec.Rank(nodeID) - 1
-	start := v.prefixOffsets[prefixID]
-	end := uint32(len(v.prefixData))
-	if int(prefixID+1) < len(v.prefixOffsets) {
-		end = v.prefixOffsets[prefixID+1]
-	}
-	return v.prefixData[start:end]
+	return v.GetPath(nodeID)
 }
 
-func (v *prefixVector) WriteTo(w io.Writer) error {
-	if err := v.hasPrefixVec.WriteTo(w); err != nil {
-		return err
-	}
-
-	var length [8]byte
-	endian.PutUint32(length[:4], uint32(len(v.prefixOffsets)*4))
-	endian.PutUint32(length[4:], uint32(len(v.prefixData)))
-
-	if _, err := w.Write(length[:]); err != nil {
-		return err
-	}
-	if _, err := w.Write(u32SliceToBytes(v.prefixOffsets)); err != nil {
-		return err
-	}
-	if _, err := w.Write(v.prefixData); err != nil {
-		return err
-	}
-
-	padding := v.MarshalSize() - v.rawMarshalSize()
-	var zeros [8]byte
-	_, err := w.Write(zeros[:padding])
-	return err
+type suffixVector struct {
+	compressPathVector
 }
 
-func (v *prefixVector) Unmarshal(b []byte) ([]byte, error) {
-	buf1, err := v.hasPrefixVec.Unmarshal(b)
-	if err != nil {
-		return buf1, err
-	}
-	sr := stream.NewReader(buf1)
-	offsetsLen := sr.ReadUint32()
-	dataLen := sr.ReadUint32()
-
-	v.prefixOffsets = bytesToU32Slice(sr.ReadSlice(int(offsetsLen)))
-	v.prefixData = sr.ReadSlice(int(dataLen))
-	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-	return sr.UnreadSlice(), sr.Error()
-}
-
-func (v *prefixVector) rawMarshalSize() int64 {
-	return v.hasPrefixVec.MarshalSize() + 8 + int64(len(v.prefixOffsets)*4+len(v.prefixData))
-}
-
-func (v *prefixVector) MarshalSize() int64 {
-	return align(v.rawMarshalSize())
-}
-
-// suffixKeyVector stores all remaining key-suffixes.
-type suffixKeyVector struct {
-	decoder         *encoding.FixedOffsetDecoder
-	suffixesOffsets []byte
-	suffixesBlock   []byte
-}
-
-func (v *suffixKeyVector) Init(offsetsPerLevel [][]int, data []byte) {
-	v.suffixesBlock = data
-
-	var size int
-	for l := range offsetsPerLevel {
-		size += len(offsetsPerLevel[l])
-	}
-	offsets := make([]int, size)[:0]
-
-	for _, l := range offsetsPerLevel {
-		offsets = append(offsets, l...)
-	}
-	encoder := encoding.NewFixedOffsetEncoder()
-	encoder.FromValues(offsets)
-	v.suffixesOffsets = encoder.MarshalBinary()
-}
-
-func (v *suffixKeyVector) getDecoder() *encoding.FixedOffsetDecoder {
-	if v.decoder == nil {
-		v.decoder = encoding.NewFixedOffsetDecoder(v.suffixesOffsets)
-	}
-	return v.decoder
-}
-
-func (v *suffixKeyVector) GetSuffix(valPos uint32) []byte {
-	decoder := v.getDecoder()
-	start, ok := decoder.Get(int(valPos))
-	if !ok || start >= len(v.suffixesBlock) {
-		return nil
-	}
-
-	length, width := binary.Uvarint(v.suffixesBlock[start:])
-	if length == 0 {
-		return nil
-	}
-	start += width
-	end := start + int(length)
-	if end > len(v.suffixesBlock) {
-		return nil
-	}
-
-	return v.suffixesBlock[start:end]
-}
-
-func (v *suffixKeyVector) CheckSuffix(valPos uint32, key []byte, depth uint32) bool {
-	suffix := v.GetSuffix(valPos)
-	if depth >= uint32(len(key)) {
+func (v *suffixVector) CheckSuffix(key []byte, depth uint32, nodeID uint32) bool {
+	suffix := v.GetSuffix(nodeID)
+	if depth+1 >= uint32(len(key)) {
 		return len(suffix) == 0
 	}
-	return bytes.Equal(suffix, key[depth:])
+	return bytes.Equal(suffix, key[depth+1:])
 }
 
-func (v *suffixKeyVector) rawMarshalSize() int64 {
-	return int64(8 + len(v.suffixesOffsets) + len(v.suffixesBlock))
-}
-
-func (v *suffixKeyVector) MarshalSize() int64 {
-	return align(v.rawMarshalSize())
-}
-
-func (v *suffixKeyVector) WriteTo(w io.Writer) error {
-	var length [8]byte
-	endian.PutUint32(length[:4], uint32(len(v.suffixesOffsets)))
-	endian.PutUint32(length[4:], uint32(len(v.suffixesBlock)))
-
-	if _, err := w.Write(length[:]); err != nil {
-		return err
-	}
-	if _, err := w.Write(v.suffixesOffsets); err != nil {
-		return err
-	}
-	if _, err := w.Write(v.suffixesBlock); err != nil {
-		return err
-	}
-
-	padding := v.MarshalSize() - v.rawMarshalSize()
-	var zeros [8]byte
-	_, err := w.Write(zeros[:padding])
-	return err
-}
-
-func (v *suffixKeyVector) Unmarshal(b []byte) ([]byte, error) {
-	sr := stream.NewReader(b)
-
-	offsetsLen := sr.ReadUint32()
-	blockLen := sr.ReadUint32()
-	v.suffixesOffsets = sr.ReadSlice(int(offsetsLen))
-	v.suffixesBlock = sr.ReadSlice(int(blockLen))
-	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-	return sr.UnreadSlice(), sr.Error()
+func (v *suffixVector) GetSuffix(nodeID uint32) []byte {
+	return v.GetPath(nodeID)
 }

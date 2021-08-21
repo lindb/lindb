@@ -146,7 +146,7 @@ func (it *Iterator) seek(key []byte) bool {
 		it.append(key[depth], pos, nodeID)
 
 		if !it.tree.hasChildVec.IsSet(pos) {
-			return it.tree.suffixes.CheckSuffix(it.tree.suffixPos(pos), key, depth+1)
+			return it.tree.suffixVec.CheckSuffix(key, depth, pos)
 		}
 
 		nodeID = it.tree.childNodeID(pos)
@@ -196,8 +196,7 @@ func (it *Iterator) uniqueKey() []byte {
 }
 
 func (it *Iterator) Key() []byte {
-	valPos := it.tree.suffixPos(it.posInTrie[it.level])
-	suffix := it.tree.suffixes.GetSuffix(valPos)
+	suffix := it.tree.suffixVec.GetSuffix(it.posInTrie[it.level])
 
 	if len(suffix) == 0 {
 		return it.uniqueKey()

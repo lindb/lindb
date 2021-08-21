@@ -26,9 +26,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
 
