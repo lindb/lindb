@@ -18,27 +18,32 @@
 package trie_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/lindb/lindb/pkg/trie"
 )
 
-// 79.2ms
+// after:  2982368 size 42.2ms (650k ip)
+// before: 5488152 size 62.1ms (650k ip)
 func BenchmarkTrie_MarshalBinary(b *testing.B) {
-	ips, ranks := newTestIPs()
+	b.StopTimer()
+	ips, ranks := newTestIPs(1 << 8)
 	builder := trie.NewBuilder()
 
-	b.ResetTimer()
+	b.StartTimer()
+	var buf = &bytes.Buffer{}
 	for i := 0; i < b.N; i++ {
 		tree := builder.Build(ips, ranks, 3)
-		_, _ = tree.MarshalBinary()
+		_ = tree.Write(buf)
+		buf.Reset()
 		builder.Reset()
 	}
 }
 
-// 13.0ms
+// 13.5ms
 func BenchmarkTrie_Iterator_NoRead(b *testing.B) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(1 << 8)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
 	itr := tree.NewIterator()
@@ -51,9 +56,9 @@ func BenchmarkTrie_Iterator_NoRead(b *testing.B) {
 	}
 }
 
-// 13.6ms
+// 32.7ms
 func BenchmarkTrie_Iterator_Read(b *testing.B) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(1 << 8)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
 	itr := tree.NewIterator()
@@ -67,12 +72,12 @@ func BenchmarkTrie_Iterator_Read(b *testing.B) {
 	}
 }
 
-// 364ns
+// 320ns
 func BenchmarkTrie_Get(b *testing.B) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(1 << 8)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
-	key := []byte("1.1.1.1")
+	key := ips[len(ips)-1]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = tree.Get(key)

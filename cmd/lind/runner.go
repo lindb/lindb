@@ -24,8 +24,8 @@ import (
 
 	_ "net/http/pprof"
 
+	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/server"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap/zapcore"

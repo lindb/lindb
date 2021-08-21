@@ -41,7 +41,7 @@ type SuccinctTrie interface {
 	MarshalSize() int64
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
-	WriteTo(w io.Writer) error
+	Write(w io.Writer) error
 	// NewIterator returns a iterator for arbitrarily iterating the trie
 	NewIterator() *Iterator
 	// NewPrefixIterator returns a iterator for prefix-iterating the trie

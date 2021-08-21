@@ -30,9 +30,9 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/server"
 	"github.com/lindb/lindb/pkg/state"
 )
 

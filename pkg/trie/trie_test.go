@@ -51,13 +51,13 @@ func (p kvPair) Sort() {
 	sort.Sort(p)
 }
 
-func newTestIPs() ([][]byte, [][]byte) {
+func newTestIPs(batchSize int) ([][]byte, [][]byte) {
 	var ips [][]byte
 	var ranks [][]byte
 	var count int
 	for x := 10; x > 0; x-- {
-		for y := 1; y < 2; y++ {
-			for z := 2; z > 0; z-- {
+		for y := 1; y < batchSize; y++ {
+			for z := batchSize - 1; z > 0; z-- {
 				ips = append(ips, []byte(fmt.Sprintf("%d.%d.%d.%d", x, y, y, z)))
 				count++
 				var rank = make([]byte, 4)
@@ -71,7 +71,7 @@ func newTestIPs() ([][]byte, [][]byte) {
 }
 
 func TestBuilder_Reset(t *testing.T) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(2)
 	builder := trie.NewBuilder()
 	assert.True(t, sort.IsSorted(&kvPair{keys: ips, values: ranks}))
 
@@ -96,7 +96,7 @@ func TestBuilder_Reset(t *testing.T) {
 }
 
 func TestIterator_SeekToLast(t *testing.T) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(2)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
 	itr := tree.NewIterator()
@@ -117,7 +117,7 @@ func TestIterator_SeekToLast(t *testing.T) {
 }
 
 func TestTrie_Get(t *testing.T) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(2)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
 	for _, ip := range ips {
@@ -131,7 +131,7 @@ func TestTrie_Get(t *testing.T) {
 }
 
 func TestTrie_UnmarshalBinary(t *testing.T) {
-	ips, ranks := newTestIPs()
+	ips, ranks := newTestIPs(2)
 	builder := trie.NewBuilder()
 	tree := builder.Build(ips, ranks, 3)
 	data, err := tree.MarshalBinary()
@@ -171,4 +171,45 @@ func Test_Trie_ASCII(t *testing.T) {
 	itr.Seek([]byte{12, 13, 14, 16})
 	itr.Seek([]byte{13, 12, 13, 14})
 
+}
+
+func Test_Trie_words(t *testing.T) {
+	var keys [][]byte
+	var values [][]byte
+	keysString := []string{
+		"a", "ab", "b", "abc", "abcdefgh", "abcdefghijklmnopqrstuvwxyz", "abcdefghijkl", "zzzzzz", "ice",
+	}
+	for idx, key := range keysString {
+		keys = append(keys, []byte(key))
+		values = append(values, []byte{uint8(idx)})
+	}
+	kvPair{keys: keys, values: values}.Sort()
+	builder := trie.NewBuilder()
+	tree := builder.Build(keys, values, 1)
+	examples := []struct {
+		input string
+		ok    bool
+	}{
+		{"a", true},
+		{"ab", true},
+		{"b", true},
+		{"bb", false},
+		{"abc", true},
+		{"abcd", false},
+		{"abcdefghijklmnopqrstuvwxyz", true},
+		{"abcdefghijkl", true},
+		{"abcdefghijklm", false},
+		{"zzzzzz", true},
+		{"zzzzz", false},
+		{"zzzzzzz", false},
+		{"i", false},
+		{"ice", true},
+		{"ic", false},
+		{"ices", false},
+	}
+
+	for _, example := range examples {
+		_, ok := tree.Get([]byte(example.input))
+		assert.Equalf(t, example.ok, ok, example.input)
+	}
 }

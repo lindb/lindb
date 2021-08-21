@@ -103,7 +103,7 @@ func (m tagValueMapping) SortByKeys() {
 	sort.Sort(m)
 }
 
-// SortByKeys should be called before
+// SortByRawIDs should be called before
 func (m *tagValueMapping) SortByRawIDs() {
 	// insert ranks
 	for i := 0; i < len(m.keys); i++ {
@@ -121,10 +121,10 @@ func (m *tagValueMapping) reset() {
 
 func (m *tagValueMapping) ensureSize(size int) {
 	if cap(m.keys) < size {
-		m.keys = make([][]byte, size)[:0]
-		m.ids = make([][]byte, size)[:0]
-		m.rawIDs = make([]uint32, size)[:0]
-		m.ranks = make([]int, size)[:0]
+		m.keys = make([][]byte, 0, size)
+		m.ids = make([][]byte, 0, size)
+		m.rawIDs = make([]uint32, 0, size)
+		m.ranks = make([]int, 0, size)
 	}
 }
 
@@ -158,7 +158,7 @@ func (tf *flusher) FlushTagKeyID(tagKeyID uint32, tagValueSeq uint32) error {
 		uint32(encoding.Uint32MinWidth(tf.maxTagValueID)))
 
 	// writing to buffer in memory won't raise error
-	_ = tree.WriteTo(tf.entrySetWriter)
+	_ = tree.Write(tf.entrySetWriter)
 	tf.tagValueMapping.SortByRawIDs()
 	// remember bitmap position
 	bitmapPosition := tf.entrySetWriter.Len()
