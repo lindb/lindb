@@ -21,11 +21,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"math"
+	"math/rand"
+	"os"
 	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/lindb/lindb/pkg/trie"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -212,4 +219,106 @@ func Test_Trie_words(t *testing.T) {
 		_, ok := tree.Get([]byte(example.input))
 		assert.Equalf(t, example.ok, ok, example.input)
 	}
+}
+
+func Test_Trie_idList(t *testing.T) {
+	var scratch [4]byte
+	var ids [][]byte
+	var indexes [][]byte
+	for i := 0; i < 10000; i++ {
+		rand.Seed(time.Now().UnixNano())
+		id := fmt.Sprintf("%d", rand.Int63n(math.MaxInt64))
+		ids = append(ids, []byte(id))
+		binary.LittleEndian.PutUint32(scratch[:], uint32(i))
+		indexes = append(indexes, append([]byte{}, scratch[:]...))
+	}
+	kvPair{keys: ids, values: indexes}.Sort()
+	builder := trie.NewBuilder()
+	tree := builder.Build(ids, indexes, 4)
+	if len(indexes) == 0 || len(ids) == 0 {
+		panic("length is zero")
+	}
+	for idx := range ids {
+		value, ok := tree.Get(ids[idx])
+		assert.True(t, ok)
+		assert.Equal(t, indexes[idx], value)
+	}
+	data, err := tree.MarshalBinary()
+	assert.Nil(t, err)
+	tree2 := trie.NewTrie()
+	assert.NoError(t, tree2.UnmarshalBinary(data))
+
+	itr := tree2.NewIterator()
+	itr.SeekToFirst()
+	// prev is empty
+	itr.Prev()
+	assert.False(t, itr.Valid())
+	var idx = 0
+	for itr.Valid() {
+		assert.Equal(t, indexes[idx], itr.Value())
+		assert.Equal(t, ids[idx], itr.Key())
+		itr.Next()
+		idx++
+	}
+	itr.Next()
+	assert.False(t, itr.Valid())
+}
+
+func assertTestData(t *testing.T, path string) {
+	var scratch [4]byte
+	var keys [][]byte
+	var values [][]byte
+	f, err := os.Open(path)
+	assert.Nil(t, err)
+	r, err := gzip.NewReader(f)
+	assert.Nil(t, err)
+
+	data, err := ioutil.ReadAll(r)
+	assert.Nil(t, err)
+	lines := strings.Split(string(data), "\n")
+
+	for i, line := range lines {
+		keys = append(keys, []byte(line))
+		binary.LittleEndian.PutUint32(scratch[:], uint32(i))
+		values = append(values, append([]byte{}, scratch[:]...))
+	}
+	kvPair{keys: keys, values: values}.Sort()
+	builder := trie.NewBuilder()
+	tree := builder.Build(keys, values, 4)
+
+	if len(keys) == 0 || len(values) == 0 {
+		panic("length is zero")
+	}
+	for idx := range keys {
+		value, ok := tree.Get(keys[idx])
+		assert.True(t, ok)
+		assert.Equal(t, values[idx], value)
+	}
+
+	data, err = tree.MarshalBinary()
+	assert.Nil(t, err)
+	tree2 := trie.NewTrie()
+	assert.NoError(t, tree2.UnmarshalBinary(data))
+
+	itr := tree2.NewIterator()
+	itr.SeekToFirst()
+	var idx = 0
+	for itr.Valid() {
+		assert.Equal(t, values[idx], itr.Value())
+		assert.Equal(t, keys[idx], itr.Key())
+		itr.Next()
+		idx++
+	}
+}
+
+func Test_Trie_TestData_Words(t *testing.T) {
+	assertTestData(t, "testdata/words.txt.gz")
+}
+
+func Test_Trie_TestData_UUID(t *testing.T) {
+	assertTestData(t, "testdata/uuid.txt.gz")
+}
+
+func Test_Trie_TestData_Hsk_words(t *testing.T) {
+	assertTestData(t, "testdata/hsk_words.txt.gz")
 }
