@@ -96,3 +96,6 @@ package trie
 // S-ChildNodePos(pos) = select1(S-LOUDS, rank1(SHasChild, pos) + 1)
 // to move up, S-ParentNodePos(pos) = select1(SHasChild, rank1(S-LOUDS, pos) - 1)
 // to access a value, S-ValuePos(pos) = pos - rank1(S-HasChild, pos)
+//
+// https://github.com/plar/go-adaptive-radix-tree/tree/master/test/assets
+// test data is from go-adaptive-radix-tree
