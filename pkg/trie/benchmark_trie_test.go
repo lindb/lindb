@@ -41,6 +41,20 @@ func BenchmarkTrie_MarshalBinary(b *testing.B) {
 	}
 }
 
+func BenchmarkTrie_UnMarshalBinary(b *testing.B) {
+	ips, ranks := newTestIPs(1 << 8)
+	builder := trie.NewBuilder()
+
+	tree := builder.Build(ips, ranks, 3)
+	data, _ := tree.MarshalBinary()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree2 := trie.NewTrie()
+		_ = tree2.UnmarshalBinary(data)
+	}
+}
+
 // 13.5ms
 func BenchmarkTrie_Iterator_NoRead(b *testing.B) {
 	ips, ranks := newTestIPs(1 << 8)
