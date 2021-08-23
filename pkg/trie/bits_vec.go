@@ -24,8 +24,6 @@ import (
 	"math/bits"
 	"sort"
 	"strings"
-
-	"github.com/lindb/lindb/pkg/stream"
 )
 
 type bitVector struct {
@@ -193,17 +191,28 @@ func (v *valueVector) Write(w io.Writer) error {
 }
 
 func (v *valueVector) Unmarshal(buf []byte) ([]byte, error) {
-	sr := stream.NewReader(buf)
-
-	sz := sr.ReadUint32()
-	v.valueWidth = sr.ReadUint32()
-	v.bytes = sr.ReadSlice(int(sz))
+	if len(buf) < 8 {
+		return nil, fmt.Errorf("cannot read valueWidth and bytes of valueVector")
+	}
+	var position int64
+	sz := endian.Uint32(buf[:4])
+	v.valueWidth = endian.Uint32(buf[4:8])
+	buf = buf[8:]
+	position += 8
+	// read bytes
+	if uint32(len(buf)) < sz {
+		return nil, fmt.Errorf("cannot read bytes: %d from valueVector: %d", sz, len(buf))
+	}
+	v.bytes = buf[:sz]
+	buf = buf[sz:]
+	position += int64(sz)
 
 	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-
-	return sr.UnreadSlice(), sr.Error()
+	paddingWidth := align(position) - position
+	if int64(len(buf)) < paddingWidth {
+		return nil, fmt.Errorf("cannot read padding: %d from valueVector: %d", paddingWidth, len(buf))
+	}
+	return buf[paddingWidth:], nil
 }
 
 const selectSampleInterval = 64
@@ -311,16 +320,39 @@ func (v *selectVector) Write(w io.Writer) error {
 }
 
 func (v *selectVector) Unmarshal(buf []byte) ([]byte, error) {
-	sr := stream.NewReader(buf)
-	v.numBits = sr.ReadUint32()
-	v.numOnes = sr.ReadUint32()
-	v.bits = bytesToU64Slice(sr.ReadSlice(int(v.bitsSize())))
-	v.selectLut = bytesToU32Slice(sr.ReadSlice(int(v.lutSize())))
+	if len(buf) < 8 {
+		return nil, fmt.Errorf("cannot read numBits and numOnes of selectVector")
+	}
+	var position int64
+	v.numBits = endian.Uint32(buf[:4])
+	v.numOnes = endian.Uint32(buf[4:8])
+	buf = buf[8:]
+	position += 8
+	// read bits
+	bitsSize := int(v.bitsSize())
+	if len(buf) < bitsSize {
+		return nil, fmt.Errorf("cannot read bitsSize: %d from selectVector:%d", bitsSize, len(buf))
+	}
+	v.bits = bytesToU64Slice(buf[:bitsSize])
+	buf = buf[bitsSize:]
+	position += int64(bitsSize)
+
+	// read lut
+	lutSize := int(v.lutSize())
+	if len(buf) < lutSize {
+		return nil, fmt.Errorf("cannot read lut: %d from selectVector:%d", lutSize, len(buf))
+	}
+	v.selectLut = bytesToU32Slice(buf[:lutSize])
+	buf = buf[lutSize:]
+	position += int64(lutSize)
 
 	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-	return sr.UnreadSlice(), sr.Error()
+	paddingWidth := align(position) - position
+
+	if int64(len(buf)) < paddingWidth {
+		return nil, fmt.Errorf("cannot read padding: %d from selectVector: %d", paddingWidth, len(buf))
+	}
+	return buf[paddingWidth:], nil
 }
 
 const (
@@ -385,19 +417,35 @@ func (v *rankVector) Write(w io.Writer) error {
 }
 
 func (v *rankVector) Unmarshal(buf []byte) ([]byte, error) {
-	sr := stream.NewReader(buf)
-	v.numBits = sr.ReadUint32()
-	v.blockSize = sr.ReadUint32()
+	if len(buf) < 8 {
+		return nil, fmt.Errorf("cannot read numBits and blockSize of rankVector")
+	}
+	v.numBits = endian.Uint32(buf[:4])
+	v.blockSize = endian.Uint32(buf[4:8])
+	buf = buf[8:]
+	// read bits
 	bitsSize := int(v.bitsSize())
-	v.bits = bytesToU64Slice(sr.ReadSlice(bitsSize))
+	if len(buf) < bitsSize {
+		return nil, fmt.Errorf("cannot read bits: %d from rankVector: %d", bitsSize, len(buf))
+	}
+	v.bits = bytesToU64Slice(buf[:bitsSize])
+	buf = buf[bitsSize:]
 
+	// reading lut
 	lutSize := int(v.lutSize())
-	v.rankLut = bytesToU32Slice(sr.ReadSlice(lutSize))
+	if len(buf) < lutSize {
+		return nil, fmt.Errorf("cannot read lut: %d from rankVector: %d", lutSize, len(buf))
+	}
+	v.rankLut = bytesToU32Slice(buf[:lutSize])
+	buf = buf[lutSize:]
 
 	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-	return sr.UnreadSlice(), sr.Error()
+	position := 8 + bitsSize + lutSize
+	paddingWidth := align(int64(position)) - int64(position)
+	if int64(len(buf)) < paddingWidth {
+		return nil, fmt.Errorf("cannot read padding: %d from rankVector: %d", paddingWidth, len(buf))
+	}
+	return buf[paddingWidth:], nil
 }
 
 type rankVectorSparse struct {
@@ -577,16 +625,32 @@ func (pv *compressPathVector) Unmarshal(b []byte) ([]byte, error) {
 	if err != nil {
 		return buf1, err
 	}
-	sr := stream.NewReader(buf1)
-	offsetsLen := sr.ReadUint32()
-	dataLen := sr.ReadUint32()
+	var position int64 = 0
+	if len(buf1) < 8 {
+		return nil, fmt.Errorf("cannot read offsetsLen and dataLen of compressPathVector")
+	}
+	offsetsLen := endian.Uint32(buf1[0:4])
+	dataLen := endian.Uint32(buf1[4:8])
+	buf1 = buf1[8:]
+	position += 8
+	// read offsets
+	if uint32(len(buf1)) < offsetsLen+dataLen {
+		return nil, fmt.Errorf("offsets+data: %d is longer than remaining buf: %d of compressPathVector", offsetsLen+dataLen, len(buf1))
+	}
+	pv.offsets = bytesToU32Slice(buf1[:offsetsLen])
+	buf1 = buf1[offsetsLen:]
+	position += int64(offsetsLen)
+	// read data
+	pv.data = buf1[:dataLen]
+	buf1 = buf1[dataLen:]
+	position += int64(dataLen)
 
-	pv.offsets = bytesToU32Slice(sr.ReadSlice(int(offsetsLen)))
-	pv.data = sr.ReadSlice(int(dataLen))
 	// read padding
-	paddingWidth := align(int64(sr.Position())) - int64(sr.Position())
-	_ = sr.ReadSlice(int(paddingWidth))
-	return sr.UnreadSlice(), sr.Error()
+	paddingWidth := align(position) - position
+	if int64(len(buf1)) < paddingWidth {
+		return nil, fmt.Errorf("paddingWidth: %d is longer than remaining buf: %d of compressPathVector", paddingWidth, len(buf1))
+	}
+	return buf1[paddingWidth:], nil
 }
 
 type prefixVector struct {
