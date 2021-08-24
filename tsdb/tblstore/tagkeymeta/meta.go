@@ -81,7 +81,6 @@ func (metas TagKeyMetas) GetTagValueIDs() (*roaring.Bitmap, error) {
 // tagKeyMeta implements TagKeyMeta
 type tagKeyMeta struct {
 	block          []byte
-	sr             *stream.Reader
 	tree           trie.SuccinctTrie
 	unmarshalError error
 	offsetsDecoder *encoding.FixedOffsetDecoder
@@ -101,31 +100,28 @@ func newTagKeyMeta(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
 	}
 	meta := &tagKeyMeta{
 		block: tagKeyMetaBlock,
-		sr:    stream.NewReader(tagKeyMetaBlock),
 	}
 	// read footer(4+4+4+4+4)
 	meta.footerPos = len(tagKeyMetaBlock) - tagFooterSize
-	meta.sr.ReadAt(meta.footerPos)
-	meta.bitmapPos = int(meta.sr.ReadUint32())
-	meta.offsetsPos = int(meta.sr.ReadUint32())
-	meta.tagValueIDSeq = meta.sr.ReadUint32()
-	meta.crc32CheckSum = meta.sr.ReadUint32()
+	meta.bitmapPos = int(stream.ReadUint32(tagKeyMetaBlock, meta.footerPos))
+	meta.offsetsPos = int(stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+4))
+	meta.tagValueIDSeq = stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+8)
+	meta.crc32CheckSum = stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+12)
 
 	expectedOrders := []int{0,
 		meta.bitmapPos, meta.bitmapPos + 1,
 		meta.offsetsPos, meta.offsetsPos + 1,
-		meta.footerPos}
+		meta.footerPos, len(tagKeyMetaBlock)}
 	// data validation
 	if !sort.IntsAreSorted(expectedOrders) {
 		return nil, constants.ErrDataFileCorruption
 	}
 	// read trie block data, lazy unmarshal
-	meta.sr.SeekStart()
-	meta.trieBlock = meta.sr.ReadSlice(meta.bitmapPos) // 0->bitmap pos
+	meta.trieBlock = tagKeyMetaBlock[:meta.bitmapPos] // 0->bitmap pos
 	// read bitmap data, lazy unmarshal
-	meta.bitmapData = meta.sr.ReadSlice(meta.offsetsPos - meta.bitmapPos)
+	meta.bitmapData = tagKeyMetaBlock[meta.bitmapPos:meta.offsetsPos]
 	// read offsets data, lazy unmarshal
-	meta.offsetsData = meta.sr.ReadSlice(meta.footerPos - meta.offsetsPos)
+	meta.offsetsData = tagKeyMetaBlock[meta.offsetsPos:meta.footerPos]
 	return meta, nil
 }
 
@@ -159,10 +155,10 @@ type idRanksOffsets struct {
 
 func makeIDRankOffsets(size int) idRanksOffsets {
 	return idRanksOffsets{
-		ids:     make([]uint32, size)[:0],
-		keys:    make([]string, size)[:0],
-		ranks:   make([]int, size)[:0],
-		offsets: make([]uint32, size)[:0],
+		ids:     make([]uint32, 0, size),
+		keys:    make([]string, 0, size),
+		ranks:   make([]int, 0, size),
+		offsets: make([]uint32, 0, size),
 	}
 }
 func (ir idRanksOffsets) Len() int           { return len(ir.ranks) }

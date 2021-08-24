@@ -18,6 +18,8 @@
 package aggregation
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 
 	"github.com/lindb/lindb/constants"
@@ -82,6 +84,10 @@ func DownSamplingMultiSeriesInto(
 	rs DownSamplingResult,
 ) {
 	// first loop: target slot range
+	// todo:remove
+
+	var m = make(map[uint16]float64)
+
 	for j := target.Start; j <= target.End; j += ratio {
 		hasValue := bit.Zero
 		result := constants.EmptyValue
@@ -114,6 +120,10 @@ func DownSamplingMultiSeriesInto(
 				}
 			}
 		}
+
+		m[j] = result
 		rs.Append(hasValue, result)
 	}
+	data, _ := json.Marshal(m)
+	fmt.Println(string(data))
 }
