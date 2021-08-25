@@ -151,7 +151,7 @@ const DatabaseForm: React.FC<DatabaseFormProps> = ({
           <Input placeholder="Please input database name!" />
         </Form.Item>
         <Form.Item
-          name="cluster"
+          name="storage"
           label="Storage Cluster"
           rules={[{ required: true, message: 'Please select the storage cluster!' }]}
         >

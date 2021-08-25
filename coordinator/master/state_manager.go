@@ -163,6 +163,8 @@ func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
 		}
 		shardStates[shardID] = shardState
 	}
+	//TODO set shard assignments
+	s.ShardAssignments[shardAssignment.Name] = shardAssignment
 	s.ShardStates[shardAssignment.Name] = shardStates
 
 	m.syncState(s)
@@ -301,7 +303,7 @@ func (m *stateManager) ShardAssignment(databaseCfg models.Database) {
 		}
 
 		// add new shard assignments
-		s.ShardAssignments[databaseCfg.Name] = shardAssign
+		s.ShardAssignments[databaseCfg.Name] = shardAssign //TODO remove it???
 	} else if len(shardAssign.Shards) != databaseCfg.NumOfShard {
 		if err := m.modifyShardAssignment(cluster, &databaseCfg, shardAssign); err != nil {
 			m.logger.Error("modify shard assignment error",
