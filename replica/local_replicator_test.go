@@ -18,6 +18,7 @@
 package replica
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/lindb/lindb/tsdb"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/snappy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +36,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := tsdb.NewMockShard(ctrl)
-	replicator := NewLocalReplicator(shard)
+	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard)
 	assert.True(t, replicator.IsReady())
 	replicator.Replica(1, []byte{1, 2, 3})
 
@@ -42,6 +44,11 @@ func TestLocalReplicator_Replica(t *testing.T) {
 		Metrics: []*protoMetricsV1.Metric{{Name: "test"}},
 	}
 	data, _ := metricList.Marshal()
+	buf := &bytes.Buffer{}
+	writer := snappy.NewBufferedWriter(buf)
+	_, _ = writer.Write(data)
+	_ = writer.Flush()
+	data = buf.Bytes()
 	shard.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("errj"))
 	replicator.Replica(1, data)
 }

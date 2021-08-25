@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/replica"
 )
 
 // HTTPDeps represents http server handler's dependency.
@@ -37,7 +37,7 @@ type HTTPDeps struct {
 	Repo     state.Repository
 	StateMgr broker.StateManager
 
-	CM replication.ChannelManager
+	CM replica.ChannelManager
 
 	QueryFactory brokerQuery.Factory
 }

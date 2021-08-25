@@ -68,6 +68,6 @@ func TestNewReplicator_runner(t *testing.T) {
 	replicator.EXPECT().IsReady().Return(false).AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	peer.Startup()
-	peer.Shutdown()
 	time.Sleep(100 * time.Millisecond)
+	peer.Shutdown()
 }

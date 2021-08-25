@@ -15,25 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package constants
 
-import (
-	"testing"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
+const (
+	RPCMetaKeyLogicNode  = "LogicNode"
+	RPCMetaKeyDatabase   = "Database"
+	RPCMetaKeyShardState = "ShardState"
 )
-
-func TestReplicatorService_Report(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	repo := state.NewMockRepository(ctrl)
-	srv := NewReplicatorStateReport(&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000}, repo)
-
-	err := srv.Report(&models.BrokerReplicaState{})
-	assert.NoError(t, err)
-}

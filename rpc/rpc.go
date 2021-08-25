@@ -20,30 +20,19 @@ package rpc
 import (
 	"context"
 	"errors"
-	"strconv"
 	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
-	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
 )
 
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
-
-const (
-	metaKeyLogicNode = "metaKeyLogicNode"
-	metaKeyDatabase  = "metaKeyDatabase"
-	metaKeyShardID   = "metaKeyShardID"
-	metaKeyLeader    = "metaKeyLeader"
-	metaKeyReplicas  = "metaKeyReplicas"
-	metaKeyReplica   = "metaKeyReplica"
-)
 
 var (
 	clientConnFct ClientConnFactory
@@ -113,12 +102,8 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 type ClientStreamFactory interface {
 	// LogicNode returns the a logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
-	// CreateWriteClient creates a stream WriteClient.
-	CreateWriteClient(db string, shardID models.ShardID, target models.Node) (protoStorageV1.WriteService_WriteClient, error)
 	// CreateTaskClient creates a stream task client
 	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
-	// CreateWriteServiceClient creates a WriteServiceClient
-	CreateWriteServiceClient(target models.Node) (protoStorageV1.WriteServiceClient, error)
 	// CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
 	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
 }
@@ -151,36 +136,9 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 
 	node := w.LogicNode()
 	//TODO handle context?????
-	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, node.Indicator())
+	ctx := CreateOutgoingContextWithPairs(context.TODO(), constants.RPCMetaKeyLogicNode, node.Indicator())
 	cli, err := protoCommonV1.NewTaskServiceClient(conn).Handle(ctx)
 	return cli, err
-}
-
-// CreateWriteClient creates a WriteClient.
-func (w *clientStreamFactory) CreateWriteClient(
-	db string,
-	shardID models.ShardID,
-	target models.Node,
-) (protoStorageV1.WriteService_WriteClient, error) {
-	conn, err := w.connFct.GetClientConn(target)
-	if err != nil {
-		return nil, err
-	}
-
-	// pass logicNode.ID as meta to rpc serve
-	ctx := createOutgoingContext(context.TODO(), db, shardID, w.LogicNode())
-	cli, err := protoStorageV1.NewWriteServiceClient(conn).Write(ctx)
-
-	return cli, err
-}
-
-// CreateWriteServiceClient creates a WriteServiceClient
-func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (protoStorageV1.WriteServiceClient, error) {
-	conn, err := w.connFct.GetClientConn(target)
-	if err != nil {
-		return nil, err
-	}
-	return protoStorageV1.NewWriteServiceClient(conn), nil
 }
 
 // CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
@@ -192,47 +150,13 @@ func (w *clientStreamFactory) CreateReplicaServiceClient(target models.Node) (pr
 	return protoReplicaV1.NewReplicaServiceClient(conn), nil
 }
 
-// createOutgoingContextWithPairs creates outGoing context with key, value pairs.
-func createOutgoingContextWithPairs(ctx context.Context, pairs ...string) context.Context {
+// CreateOutgoingContextWithPairs creates outGoing context with key, value pairs.
+func CreateOutgoingContextWithPairs(ctx context.Context, pairs ...string) context.Context {
 	return metadata.NewOutgoingContext(ctx, metadata.Pairs(pairs...))
 }
 
-// createIncomingContextWithPairs creates outGoing context with key, value pairs, mainly for test.
-func createIncomingContextWithPairs(ctx context.Context, pairs ...string) context.Context {
-	return metadata.NewIncomingContext(ctx, metadata.Pairs(pairs...))
-}
-
-// createOutgoingContext creates outGoing context with provided parameters.
-// db is the database, shardID is the shard id for database,
-// logicNode is a client provided identification on server side.
-// These parameters will passed to the sever side in stream context.
-func createOutgoingContext(ctx context.Context, db string, shardID models.ShardID, logicNode models.Node) context.Context {
-	return metadata.AppendToOutgoingContext(ctx,
-		metaKeyLogicNode, logicNode.Indicator(),
-		metaKeyDatabase, db,
-		metaKeyShardID, strconv.Itoa(int(shardID)))
-}
-
-// CreateIncomingContext creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
-func CreateIncomingContext(ctx context.Context, db string, shardID models.ShardID, logicNode models.Node) context.Context {
-	return metadata.NewIncomingContext(ctx,
-		metadata.Pairs(metaKeyLogicNode, logicNode.Indicator(),
-			metaKeyDatabase, db,
-			metaKeyShardID, strconv.Itoa(int(shardID))))
-}
-
-// CreateIncomingContextWithNode creates incoming context with given parameters, mainly for test rpc server, mock incoming context.
-func CreateIncomingContextWithNode(ctx context.Context, node models.Node) context.Context {
-	return createIncomingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
-}
-
-// CreateOutgoingContextWithNode creates outgoing context with logic node.
-func CreateOutgoingContextWithNode(ctx context.Context, node models.Node) context.Context {
-	return createOutgoingContextWithPairs(ctx, metaKeyLogicNode, node.Indicator())
-}
-
-// getStringFromContext retrieving string metaValue from context for metaKey.
-func getStringFromContext(ctx context.Context, metaKey string) (string, error) {
+// GetStringFromContext retrieving string metaValue from context for metaKey.
+func GetStringFromContext(ctx context.Context, metaKey string) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", errors.New("meta data not exists, key: " + metaKey)
@@ -248,66 +172,10 @@ func getStringFromContext(ctx context.Context, metaKey string) (string, error) {
 
 // GetLogicNodeFromContext returns the logicNode.
 func GetLogicNodeFromContext(ctx context.Context) (models.Node, error) {
-	strVal, err := getStringFromContext(ctx, metaKeyLogicNode)
+	strVal, err := GetStringFromContext(ctx, constants.RPCMetaKeyLogicNode)
 	if err != nil {
 		return nil, err
 	}
 
 	return models.ParseNode(strVal)
-}
-
-// GetDatabaseFromContext returns database.
-func GetDatabaseFromContext(ctx context.Context) (string, error) {
-	return getStringFromContext(ctx, metaKeyDatabase)
-}
-
-// GetShardIDFromContext returns shardID.
-func GetShardIDFromContext(ctx context.Context) (int32, error) {
-	return getIntFromContext(ctx, metaKeyShardID)
-}
-
-// GetLeaderFromContext returns leader's node id.
-func GetLeaderFromContext(ctx context.Context) (models.NodeID, error) {
-	nodeID, err := getIntFromContext(ctx, metaKeyLeader)
-	if err != nil {
-		return models.NodeID(-1), err
-	}
-	return models.NodeID(nodeID), nil
-}
-
-// GetFollowerFromContext returns follower's node id.
-func GetFollowerFromContext(ctx context.Context) (models.NodeID, error) {
-	nodeID, err := getIntFromContext(ctx, metaKeyReplica)
-	if err != nil {
-		return models.NodeID(-1), err
-	}
-	return models.NodeID(nodeID), nil
-}
-
-// GetReplicasFromContext returns replicas' node id.
-func GetReplicasFromContext(ctx context.Context) ([]models.NodeID, error) {
-	nodeIDs, err := getStringFromContext(ctx, metaKeyReplicas)
-	if err != nil {
-		return nil, err
-	}
-	var replicas []models.NodeID
-	if err := encoding.JSONUnmarshal([]byte(nodeIDs), &replicas); err != nil {
-		return nil, err
-	}
-	return replicas, nil
-}
-
-// getIntFromContext retrieving int metaValue from context for metaKey.
-func getIntFromContext(ctx context.Context, metaKey string) (int32, error) {
-	strVal, err := getStringFromContext(ctx, metaKey)
-	if err != nil {
-		return -1, err
-	}
-
-	num, err := strconv.Atoi(strVal)
-	if err != nil {
-		return -1, err
-	}
-
-	return int32(num), nil
 }

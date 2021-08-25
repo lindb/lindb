@@ -38,23 +38,23 @@ var (
 	newWriteAheadLog = NewWriteAheadLog
 )
 
-// WriteAheadLogManager represents manage all write ahead log.
+// WriteAheadLogManager represents manage all writeTask ahead log.
 type WriteAheadLogManager interface {
-	// GetOrCreateLog returns write ahead log for database,
+	// GetOrCreateLog returns writeTask ahead log for database,
 	// if exist returns it, else creates a new log.
 	GetOrCreateLog(database string) WriteAheadLog
 }
 
-// WriteAheadLog represents write ahead log underlying fan out queue.
+// WriteAheadLog represents writeTask ahead log underlying fan out queue.
 type WriteAheadLog interface {
-	// GetOrCreatePartition returns a partition of write ahead log.
+	// GetOrCreatePartition returns a partition of writeTask ahead log.
 	// if exist returns it, else create a new partition.
 	GetOrCreatePartition(shardID models.ShardID) (Partition, error)
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
 type writeAheadLogManager struct {
-	cfg           config.Replica
+	cfg           config.WAL
 	currentNodeID models.NodeID
 	databaseLogs  map[string]WriteAheadLog
 	engine        tsdb.Engine
@@ -65,7 +65,7 @@ type writeAheadLogManager struct {
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.
 func NewWriteAheadLogManager(
-	cfg config.Replica,
+	cfg config.WAL,
 	currentNodeID models.NodeID,
 	engine tsdb.Engine,
 	cliFct rpc.ClientStreamFactory,
@@ -80,7 +80,7 @@ func NewWriteAheadLogManager(
 	}
 }
 
-// GetOrCreateLog returns write ahead log for database,
+// GetOrCreateLog returns writeTask ahead log for database,
 // if exist returns it, else creates a new.
 func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	w.mutex.Lock()
@@ -99,7 +99,7 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 // writeAheadLog implements WriteAheadLog.
 type writeAheadLog struct {
 	database      string
-	cfg           config.Replica
+	cfg           config.WAL
 	currentNodeID models.NodeID
 	shardLogs     map[models.ShardID]Partition
 	engine        tsdb.Engine
@@ -109,7 +109,7 @@ type writeAheadLog struct {
 }
 
 // NewWriteAheadLog creates a WriteAheadLog instance.
-func NewWriteAheadLog(cfg config.Replica,
+func NewWriteAheadLog(cfg config.WAL,
 	currentNodeID models.NodeID,
 	database string,
 	engine tsdb.Engine,
@@ -125,7 +125,7 @@ func NewWriteAheadLog(cfg config.Replica,
 	}
 }
 
-// GetOrCreatePartition returns a partition of write ahead log.
+// GetOrCreatePartition returns a partition of writeTask ahead log.
 // if exist returns it, else create a new partition.
 func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition, error) {
 	w.mutex.Lock()

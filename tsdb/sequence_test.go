@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/pkg/queue"
 )
 
 var _testSequencePath = filepath.Join(testPath, replicaDir)
@@ -38,7 +38,7 @@ func TestSequence_new(t *testing.T) {
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		listDir = fileutil.ListDir
-		newSequenceFunc = replication.NewSequence
+		newSequenceFunc = queue.NewSequence
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
@@ -70,7 +70,7 @@ func TestSequence_new(t *testing.T) {
 
 	// reopen new sequence err
 	listDir = fileutil.ListDir
-	newSequenceFunc = func(dirPath string) (sequence replication.Sequence, e error) {
+	newSequenceFunc = func(dirPath string) (sequence queue.Sequence, e error) {
 		return nil, fmt.Errorf("err")
 	}
 	seq, err = newReplicaSequence(_testSequencePath)
@@ -78,8 +78,8 @@ func TestSequence_new(t *testing.T) {
 	assert.Nil(t, seq)
 
 	// sync error
-	s1 := replication.NewMockSequence(ctrl)
-	newSequenceFunc = func(dirPath string) (sequence replication.Sequence, e error) {
+	s1 := queue.NewMockSequence(ctrl)
+	newSequenceFunc = func(dirPath string) (sequence queue.Sequence, e error) {
 		return s1, nil
 	}
 	s1.EXPECT().GetAckSeq().Return(int64(10))
@@ -90,7 +90,7 @@ func TestSequence_new(t *testing.T) {
 	assert.Nil(t, seq)
 
 	// reopen success
-	newSequenceFunc = replication.NewSequence
+	newSequenceFunc = queue.NewSequence
 	seq, err = newReplicaSequence(_testSequencePath)
 	assert.NoError(t, err)
 	assert.NotNil(t, seq)
@@ -101,7 +101,7 @@ func TestSequence_getOrCreateSequence(t *testing.T) {
 	defer ctrl.Finish()
 
 	defer func() {
-		newSequenceFunc = replication.NewSequence
+		newSequenceFunc = queue.NewSequence
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
@@ -117,7 +117,7 @@ func TestSequence_getOrCreateSequence(t *testing.T) {
 	assert.Equal(t, s, s2)
 
 	// create err
-	newSequenceFunc = func(dirPath string) (sequence replication.Sequence, e error) {
+	newSequenceFunc = func(dirPath string) (sequence queue.Sequence, e error) {
 		return nil, fmt.Errorf("err")
 	}
 	s2, err = seq.getOrCreateSequence("remote-test-2")
@@ -172,7 +172,7 @@ func TestReplicaSequence_Close(t *testing.T) {
 	assert.NotNil(t, seq)
 
 	seq1 := seq.(*replicaSequence)
-	mockSeq := replication.NewMockSequence(ctrl)
+	mockSeq := queue.NewMockSequence(ctrl)
 	mockSeq.EXPECT().Close().Return(fmt.Errorf("err"))
 	seq1.sequenceMap.Store("test", mockSeq)
 	err = seq.Close()

@@ -15,38 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package replica
 
 import (
 	"context"
-	"errors"
-	"path"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
+	"github.com/lithammer/go-jump-consistent-hash"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
 
-//go:generate mockgen -source=./database_channel.go -destination=./database_channel_mock.go -package=replication
-
-var (
-	// define error types
-	errChannelNotFound = errors.New("shard replica channel not found")
-	errInvalidShardID  = errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
-	errInvalidShardNum = errors.New("numOfShard should be equal or greater than original setting")
-)
+//go:generate mockgen -source=./database_channel.go -destination=./database_channel_mock.go -package=replica
 
 // for testing
 var (
-	mkdir         = fileutil.MkDirIfNotExist
 	createChannel = newChannel
 )
 
@@ -56,14 +45,12 @@ type DatabaseChannel interface {
 	Write(metricList *protoMetricsV1.MetricList) error
 	// CreateChannel creates the shard level replication channel by given shard id
 	CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error)
-	// ReplicaState returns the replica state
-	ReplicaState() (replicas []models.ReplicaState)
+	Stop()
 }
 
 type databaseChannel struct {
 	database      string
 	ctx           context.Context
-	cfg           config.ReplicationChannel
 	fct           rpc.ClientStreamFactory
 	numOfShard    atomic.Int32
 	shardChannels sync.Map
@@ -72,17 +59,12 @@ type databaseChannel struct {
 
 // newDatabaseChannel creates a new database replication channel
 func newDatabaseChannel(ctx context.Context,
-	database string, cfg config.ReplicationChannel, numOfShard int32,
+	database string, numOfShard int32,
 	fct rpc.ClientStreamFactory,
 ) (DatabaseChannel, error) {
-	dirPath := path.Join(cfg.Dir, database)
-	if err := mkdir(dirPath); err != nil {
-		return nil, err
-	}
 	ch := &databaseChannel{
 		database: database,
 		ctx:      ctx,
-		cfg:      cfg,
 		fct:      fct,
 	}
 	ch.numOfShard.Store(numOfShard)
@@ -92,13 +74,15 @@ func newDatabaseChannel(ctx context.Context,
 // Write writes the metric data into channel's buffer
 func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err error) {
 	// sharding metrics to shards
-	numOfShard := uint64(dc.numOfShard.Load())
+	numOfShard := dc.numOfShard.Load()
 	for _, metric := range metricList.Metrics {
 		hash := xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
+
+		idx := int(jump.Hash(hash, numOfShard))
 		// set tags hash code for storage side reuse
-		// !!!IMPORTANT: storage side will use this hash for write
+		// !!!IMPORTANT: storage side will use this hash for writeTask
 		metric.TagsHash = hash
-		shardID := models.ShardID(hash % numOfShard)
+		shardID := models.ShardID(idx)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
 			err = errChannelNotFound
@@ -107,7 +91,7 @@ func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err err
 			continue
 		}
 		if err = channel.Write(metric); err != nil {
-			log.Error("channel write data error", logger.String("database", dc.database), logger.Any("shardID", shardID))
+			log.Error("channel writeTask data error", logger.String("database", dc.database), logger.Any("shardID", shardID))
 		}
 	}
 	return
@@ -129,12 +113,8 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 			if numOfShard < dc.numOfShard.Load() {
 				return nil, errInvalidShardNum
 			}
-			ch, err := createChannel(dc.ctx, dc.cfg, dc.database, shardID, dc.fct)
-			if err != nil {
-				return nil, err
-			}
-			// need startup channel
-			ch.Startup()
+			ch := createChannel(dc.ctx, dc.database, shardID, dc.fct)
+
 			// cache shard level channel
 			dc.shardChannels.Store(shardID, ch)
 			return ch, nil
@@ -143,33 +123,14 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 	return channel, nil
 }
 
-// ReplicaState returns the replica state
-func (dc *databaseChannel) ReplicaState() (replicas []models.ReplicaState) {
-	dc.shardChannels.Range(func(key, value interface{}) bool {
-		channel, ok := value.(Channel)
+func (dc *databaseChannel) Stop() {
+	dc.shardChannels.Range(func(key, channel interface{}) bool {
+		ch, ok := channel.(Channel)
 		if ok {
-			targets := channel.Targets()
-			for i := range targets {
-				target := targets[i]
-				replicator, err := channel.GetOrCreateReplicator(target)
-				if err != nil {
-					log.Error("get replicator fail", logger.String("target", target.Indicator()), logger.Error(err))
-					continue
-				}
-				replicatorState := models.ReplicaState{
-					Database:     replicator.Database(),
-					Target:       target,
-					ShardID:      replicator.ShardID(),
-					Pending:      replicator.Pending(),
-					ReplicaIndex: replicator.ReplicaIndex(),
-					AckIndex:     replicator.AckIndex(),
-				}
-				replicas = append(replicas, replicatorState)
-			}
+			ch.Stop()
 		}
 		return true
 	})
-	return
 }
 
 // getChannelByShardID gets the replica channel by shard id

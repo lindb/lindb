@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lindb/lindb/constants"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/replica"
 )
@@ -48,43 +49,27 @@ func TestReplicaHandler_Write(t *testing.T) {
 	assert.Error(t, err)
 	// case 2: shard not exist
 	ctx := metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db"))
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db"))
 	replicaServer.EXPECT().Context().Return(ctx)
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
-	// case 3: leader not exist
+	// case 3: shard decode err
 	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1)))
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
+			constants.RPCMetaKeyShardState, strconv.Itoa(1)))
 	replicaServer.EXPECT().Context().Return(ctx)
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
-	// case 4: replicas not exist
+
+	// case 3: create partition err
 	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1),
-			"metaKeyLeader", strconv.Itoa(2),
-		))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Write(replicaServer)
-	assert.Error(t, err)
-	// case 5: replicas is empty
-	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1),
-			"metaKeyLeader", strconv.Itoa(2),
-			"metaKeyReplicas", `[]`,
-		))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Write(replicaServer)
-	assert.Error(t, err)
-	// case 5: create partition err
-	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1),
-			"metaKeyLeader", strconv.Itoa(2),
-			"metaKeyReplicas", `[1,2,3]`,
-		))
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
+			constants.RPCMetaKeyShardState,
+			`{
+				"id":1,
+				"leader":2,
+				"replica":{"replicas":[1,2,3]}
+			}`))
 	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
 	wal := replica.NewMockWriteAheadLog(ctrl)
 	walMgr.EXPECT().GetOrCreateLog(gomock.Any()).Return(wal).AnyTimes()
@@ -134,33 +119,8 @@ func TestReplicaHandler_Replica(t *testing.T) {
 	replicaServer.EXPECT().Context().Return(context.TODO())
 	r := NewReplicaHandler(walMgr, nil)
 
-	// case 1: database not exist
-	err := r.Replica(replicaServer)
-	assert.Error(t, err)
-	// case 2: shard not exist
-	ctx := metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db"))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Replica(replicaServer)
-	assert.Error(t, err)
-	// case 3: leader not exist
-	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1)))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Replica(replicaServer)
-	assert.Error(t, err)
-	// case 4: replicas not exist
-	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1),
-			"metaKeyLeader", strconv.Itoa(2),
-		))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Replica(replicaServer)
-	assert.Error(t, err)
 	// case 5: create partition err
-	ctx = metadata.NewIncomingContext(context.TODO(),
+	ctx := metadata.NewIncomingContext(context.TODO(),
 		metadata.Pairs("metaKeyDatabase", "test-db",
 			"metaKeyShardID", strconv.Itoa(1),
 			"metaKeyLeader", strconv.Itoa(2),
@@ -170,7 +130,7 @@ func TestReplicaHandler_Replica(t *testing.T) {
 	wal := replica.NewMockWriteAheadLog(ctrl)
 	walMgr.EXPECT().GetOrCreateLog(gomock.Any()).Return(wal).AnyTimes()
 	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err = r.Replica(replicaServer)
+	err := r.Replica(replicaServer)
 	assert.Error(t, err)
 
 	// case 6: build replica replica err
