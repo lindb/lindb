@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/lindb/lindb/pkg/bit"
@@ -55,6 +56,9 @@ func ReleaseTSDDecoder(decoder *TSDDecoder) {
 
 // TSDEncoder encodes time series data point
 type TSDEncoder interface {
+	// EmitDownSamplingValue appends the value after downsampling
+	// Inf value symbols a empty value to omit
+	EmitDownSamplingValue(pos int, value float64)
 	// AppendTime appends time slot, marks time slot if has data point
 	AppendTime(slot bit.Bit)
 	// AppendValue appends data point value
@@ -90,6 +94,16 @@ func (e *tsdEncoder) Reset() {
 	e.bitBuffer.Reset()
 	e.bitWriter.Reset(&e.bitBuffer)
 	e.values.Reset()
+}
+
+func (e *tsdEncoder) EmitDownSamplingValue(pos int, value float64) {
+	_ = pos
+	if math.IsInf(value, 1) {
+		e.AppendTime(bit.Zero)
+		return
+	}
+	e.AppendTime(bit.One)
+	e.AppendValue(math.Float64bits(value))
 }
 
 // AppendTime appends time slot, marks time slot if has data point
@@ -232,7 +246,7 @@ func (d *TSDDecoder) Next() bool {
 
 // Seek seeks and reads at the specified slot
 func (d *TSDDecoder) Seek(slot uint16) bool {
-	if slot > d.endTime {
+	if slot > d.endTime || slot < d.startTime {
 		return false
 	}
 	for d.idx+d.startTime < slot {

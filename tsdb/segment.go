@@ -115,7 +115,7 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 		family, ok := v.(DataFamily)
 		if ok {
 			timeRange := family.TimeRange()
-			if familyQueryTimeRange.Overlap(&timeRange) {
+			if familyQueryTimeRange.Overlap(timeRange) {
 				result = append(result, family)
 			}
 		}

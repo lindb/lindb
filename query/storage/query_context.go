@@ -110,9 +110,7 @@ func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs fl
 		s.spanMap[familyTime] = span
 	} else {
 		// calc source slot range
-		source := span.source
-		newSource := rs.SlotRange()
-		span.source = *((&source).Union(&newSource))
+		span.source = span.source.Union(rs.SlotRange())
 	}
 
 	span.resultSets = append(span.resultSets, rs)

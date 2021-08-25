@@ -41,26 +41,30 @@ func TestTimeRange_Contains(t *testing.T) {
 
 func TestTimeRange_Overlap(t *testing.T) {
 	timeRange := &TimeRange{Start: 10, End: 100}
-	assert.True(t, timeRange.Overlap(&TimeRange{Start: 10, End: 1000}))
-	assert.True(t, timeRange.Overlap(&TimeRange{Start: 6, End: 100}))
-	assert.True(t, timeRange.Overlap(&TimeRange{Start: 60, End: 70}))
+	assert.True(t, timeRange.Overlap(TimeRange{Start: 10, End: 1000}))
+	assert.True(t, timeRange.Overlap(TimeRange{Start: 6, End: 100}))
+	assert.True(t, timeRange.Overlap(TimeRange{Start: 60, End: 70}))
 
-	assert.False(t, timeRange.Overlap(&TimeRange{Start: 6, End: 9}))
-	assert.False(t, timeRange.Overlap(&TimeRange{Start: 600, End: 900}))
+	assert.False(t, timeRange.Overlap(TimeRange{Start: 6, End: 9}))
+	assert.False(t, timeRange.Overlap(TimeRange{Start: 600, End: 900}))
 }
 
 func TestTimeRange_Intersect(t *testing.T) {
 	timeRange := &TimeRange{Start: 10, End: 100}
-	assert.Equal(t, TimeRange{Start: 10, End: 100}, *timeRange.Intersect(&TimeRange{Start: 10, End: 100}))
-	assert.Equal(t, TimeRange{Start: 50, End: 60}, *timeRange.Intersect(&TimeRange{Start: 50, End: 60}))
-	assert.Equal(t, TimeRange{Start: 50, End: 100}, *timeRange.Intersect(&TimeRange{Start: 50, End: 1000}))
-	assert.Equal(t, TimeRange{Start: 10, End: 100}, *timeRange.Intersect(&TimeRange{Start: 5, End: 1000}))
-	assert.Equal(t, TimeRange{Start: 10, End: 60}, *timeRange.Intersect(&TimeRange{Start: 5, End: 60}))
+	assert.Equal(t, TimeRange{Start: 10, End: 100}, timeRange.Intersect(TimeRange{Start: 10, End: 100}))
+	assert.Equal(t, TimeRange{Start: 50, End: 60}, timeRange.Intersect(TimeRange{Start: 50, End: 60}))
+	assert.Equal(t, TimeRange{Start: 50, End: 100}, timeRange.Intersect(TimeRange{Start: 50, End: 1000}))
+	assert.Equal(t, TimeRange{Start: 10, End: 100}, timeRange.Intersect(TimeRange{Start: 5, End: 1000}))
+	assert.Equal(t, TimeRange{Start: 10, End: 60}, timeRange.Intersect(TimeRange{Start: 5, End: 60}))
 
-	assert.True(t, timeRange.Intersect(&TimeRange{Start: 7, End: 5}).IsEmpty())
-	assert.True(t, timeRange.Intersect(&TimeRange{Start: 5, End: 7}).IsEmpty())
-	assert.True(t, timeRange.Intersect(&TimeRange{Start: 500, End: 7000}).IsEmpty())
-	assert.True(t, timeRange.Intersect(&TimeRange{Start: 5000, End: 700}).IsEmpty())
+	intersect := timeRange.Intersect(TimeRange{Start: 7, End: 5})
+	assert.True(t, intersect.IsEmpty())
+	intersect = timeRange.Intersect(TimeRange{Start: 5, End: 7})
+	assert.True(t, intersect.IsEmpty())
+	intersect = timeRange.Intersect(TimeRange{Start: 500, End: 7000})
+	assert.True(t, intersect.IsEmpty())
+	intersect = timeRange.Intersect(TimeRange{Start: 5000, End: 700})
+	assert.True(t, intersect.IsEmpty())
 }
 
 func TestSlotRange(t *testing.T) {

@@ -151,7 +151,7 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 	}
 	agg = a.aggregates[idx]
 	if agg == nil {
-		storageTimeRange := &timeutil.TimeRange{
+		storageTimeRange := timeutil.TimeRange{
 			Start: segmentStartTime,
 			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
 		}
