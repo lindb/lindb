@@ -18,6 +18,8 @@
 package aggregation
 
 import (
+	"math"
+
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -30,7 +32,7 @@ type FieldAggregator interface {
 	// Aggregate aggregates the field series into current aggregator.
 	Aggregate(it series.FieldIterator)
 	// AggregateBySlot aggregates the field series into current aggregator.
-	AggregateBySlot(slot int, value float64)
+	AggregateBySlot(pos int, value float64)
 	// ResultSet returns the result set of field aggregator.
 	ResultSet() (startTime int64, it series.FieldIterator)
 	SlotRange() (start, end int)
@@ -89,6 +91,11 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 
 // AggregateBySlot aggregates the field series into current aggregator
 func (a *fieldAggregator) AggregateBySlot(pos int, value float64) {
+	// drop inf value
+	if math.IsInf(value, 1) {
+		return
+	}
+
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
 		if values == nil {

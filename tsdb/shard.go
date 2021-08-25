@@ -351,13 +351,16 @@ func (s *shard) Filter(
 	entries := s.families.Entries()
 	for idx := range entries {
 		// check family time if in query time range
-		if timeRange.Contains(entries[idx].familyTime) {
-			resultSet, err := entries[idx].memDB.Filter(metricID, seriesIDs, timeRange, fields)
-			if err != nil {
-				return nil, err
-			}
-			rs = append(rs, resultSet...)
+		familyStartTime := entries[idx].familyTime
+		familyEndTime := s.interval.Calculator().CalcFamilyEndTime(familyStartTime)
+		if !timeRange.Overlap(timeutil.TimeRange{Start: familyStartTime, End: familyEndTime}) {
+			continue
 		}
+		resultSet, err := entries[idx].memDB.Filter(metricID, seriesIDs, timeRange, fields)
+		if err != nil {
+			return nil, err
+		}
+		rs = append(rs, resultSet...)
 	}
 	return
 }

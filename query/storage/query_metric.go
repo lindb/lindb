@@ -349,8 +349,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 								if !ok {
 									continue
 								}
-								merger := aggregation.NewDownSamplingMergeResult(agg)
-
 								start, end := agg.SlotRange()
 								target := timeutil.SlotRange{
 									Start: uint16(start),
@@ -360,7 +358,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 									target, uint16(e.queryIntervalRatio),
 									e.fields[idx].Type.GetAggFunc(),
 									fieldSeries,
-									merger,
+									agg.AggregateBySlot,
 								)
 							}
 						}

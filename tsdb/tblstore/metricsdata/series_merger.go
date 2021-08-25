@@ -50,7 +50,6 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
-	rs := aggregation.NewTSDDownSamplingResult(encodeStream)
 	for _, f := range mergeCtx.targetFields {
 		fieldID := f.ID
 
@@ -76,7 +75,7 @@ func (sm *seriesMerger) merge(mergeCtx *mergerContext,
 		aggregation.DownSamplingMultiSeriesInto(
 			mergeCtx.targetRange, mergeCtx.ratio,
 			f.Type.GetAggFunc(), streams,
-			rs,
+			encodeStream.EmitDownSamplingValue,
 		)
 
 		data, err := encodeStream.BytesWithoutTime()

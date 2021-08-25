@@ -122,8 +122,8 @@ func (s *intervalSegment) getDataFamilies(timeRange timeutil.TimeRange) []DataFa
 		if ok {
 			baseTime := segment.BaseTime()
 			if segmentQueryTimeRange.Contains(baseTime) {
-				familyQueryTimeRange := segmentQueryTimeRange.Intersect(&timeRange)
-				families := segment.getDataFamilies(*familyQueryTimeRange)
+				familyQueryTimeRange := segmentQueryTimeRange.Intersect(timeRange)
+				families := segment.getDataFamilies(familyQueryTimeRange)
 				if len(families) > 0 {
 					result = append(result, families...)
 				}
