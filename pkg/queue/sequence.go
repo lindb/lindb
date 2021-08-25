@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package queue
 
 import (
 	"io"
@@ -26,11 +26,11 @@ import (
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
-//go:generate mockgen -source=./sequence.go -destination=./sequence_mock.go -package=replication
+//go:generate mockgen -source=./sequence.go -destination=./sequence_mock.go -package=queue
 
 // for testing
 var (
-	newPageFactoryFunc = page.NewFactory
+	newPageFctFunc = page.NewFactory
 )
 
 var sequenceLogger = logger.GetLogger("replication", "Sequence")
@@ -74,7 +74,7 @@ type sequence struct {
 // NewSequence returns a sequence with page cache corresponding to dirPath.
 func NewSequence(dirPath string) (Sequence, error) {
 	var err error
-	metaPageFct, err := newPageFactoryFunc(dirPath, sequenceMetaSize)
+	metaPageFct, err := newPageFctFunc(dirPath, sequenceMetaSize)
 	if err != nil {
 		return nil, err
 	}

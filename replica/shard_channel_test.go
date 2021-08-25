@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package replica
 
 import (
 	"context"
@@ -27,72 +27,28 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/rpc"
 )
-
-func TestChannel_New(t *testing.T) {
-	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "database", ch.Database())
-	assert.Equal(t, models.ShardID(1), ch.ShardID())
-
-	defer func() {
-		newFanOutQueue = queue.NewFanOutQueue
-	}()
-	newFanOutQueue = func(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
-		return nil, fmt.Errorf("err")
-	}
-	ch, err = newChannel(context.TODO(), replicationConfig, "database", 1, nil)
-	assert.Error(t, err)
-	assert.Nil(t, ch)
-}
-
-func TestChannel_GetOrCreateReplicator(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	ch, err := newChannel(ctx, replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
-	ch.Startup()
-	target := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 12345}
-	r, err := ch.GetOrCreateReplicator(&target)
-	assert.NoError(t, err)
-	assert.Equal(t, &target, r.Target())
-
-	r2, err := ch.GetOrCreateReplicator(&target)
-	assert.NoError(t, err)
-	assert.Equal(t, r, r2)
-
-	assert.Len(t, ch.Targets(), 1)
-	assert.Equal(t, &target, ch.Targets()[0])
-
-	ch1 := ch.(*channel)
-	fanout := queue.NewMockFanOutQueue(ctrl)
-	fanout.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ch1.q = fanout
-	r2, err = ch.GetOrCreateReplicator(&models.StatelessNode{HostIP: "err", GRPCPort: 12345})
-	assert.Error(t, err)
-	assert.Nil(t, r2)
-	cancel()
-	time.Sleep(300 * time.Millisecond)
-}
 
 func TestChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		newSenderFn = newSender
+	}()
+
+	sender := NewMockSender(ctrl)
+	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
+	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
+		return sender
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
-	ch, err := newChannel(ctx, replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
-	ch.Startup()
-
-	ch1 := ch.(*channel)
-	fanout := queue.NewMockFanOutQueue(ctrl)
-	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	ch1.q = fanout
+	ch := newChannel(ctx, "database", 1, nil)
+	ch.SyncShardState(models.ShardState{}, nil)
 
 	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
@@ -100,7 +56,7 @@ func TestChannel_Write(t *testing.T) {
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
-	err = ch.Write(metric)
+	err := ch.Write(metric)
 	assert.NoError(t, err)
 	err = ch.Write(metric)
 	assert.NoError(t, err)
@@ -108,9 +64,9 @@ func TestChannel_Write(t *testing.T) {
 	cancel()
 	time.Sleep(time.Millisecond * 600)
 
-	ch, err = newChannel(ctx, replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
-	ch1 = ch.(*channel)
+	ch = newChannel(ctx, "database", 1, nil)
+	ch.SyncShardState(models.ShardState{}, nil)
+	ch1 := ch.(*channel)
 	// ignore data, after closed
 	chunk := NewMockChunk(ctrl)
 	ch1.chunk = chunk
@@ -127,17 +83,21 @@ func TestChannel_Write(t *testing.T) {
 
 func TestChannel_checkFlush(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		newSenderFn = newSender
+	}()
+
+	sender := NewMockSender(ctrl)
+	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
+	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
+		return sender
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
-	ch, err := newChannel(ctx, replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
-	ch.Startup()
-
-	ch1 := ch.(*channel)
-	fanout := queue.NewMockFanOutQueue(ctrl)
-	fanout.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	ch1.q = fanout
+	ch := newChannel(ctx, "database", 1, nil)
+	ch.SyncShardState(models.ShardState{}, nil)
 
 	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
@@ -145,7 +105,7 @@ func TestChannel_checkFlush(t *testing.T) {
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
-	err = ch.Write(metric)
+	err := ch.Write(metric)
 	assert.NoError(t, err)
 
 	time.Sleep(time.Second)
@@ -155,33 +115,50 @@ func TestChannel_checkFlush(t *testing.T) {
 
 func TestChannel_write_pending_before_close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		newSenderFn = newSender
+	}()
 
-	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
+	sender := NewMockSender(ctrl)
+	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
+	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
+		return sender
+	}
+
+	ch := newChannel(context.TODO(), "database", 1, nil)
 	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}
-	err = ch.Write(metric)
+	ch.SyncShardState(models.ShardState{}, nil)
+	err := ch.Write(metric)
 	assert.NoError(t, err)
 
 	ch1 := ch.(*channel)
 	ch1.ch <- []byte{1, 2, 3}
-	fanOut := queue.NewMockFanOutQueue(ctrl)
-	fanOut.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	ch1.q = fanOut
 	ch1.writePendingBeforeClose()
 }
 
 func TestChannel_chunk_marshal_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		newSenderFn = newSender
+	}()
 
-	ch, err := newChannel(context.TODO(), replicationConfig, "database", 1, nil)
-	assert.NoError(t, err)
+	sender := NewMockSender(ctrl)
+	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
+	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
+		return sender
+	}
+
+	ch := newChannel(context.TODO(), "database", 1, nil)
+	ch.SyncShardState(models.ShardState{}, nil)
 	chunk := NewMockChunk(ctrl)
 	ch1 := ch.(*channel)
 	ch1.chunk = chunk
@@ -195,7 +172,7 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	chunk.EXPECT().Append(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
 	chunk.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
-	err = ch.Write(metric)
+	err := ch.Write(metric)
 	assert.Error(t, err)
 
 	chunk.EXPECT().Append(gomock.Any())

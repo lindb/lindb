@@ -26,7 +26,6 @@ import (
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -43,7 +42,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	brokerQuery "github.com/lindb/lindb/query/broker"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -58,9 +57,8 @@ var (
 
 // srv represents all services for broker
 type srv struct {
-	replicatorStateReport replication.ReplicatorStateReport
-	channelManager        replication.ChannelManager
-	taskManager           brokerQuery.TaskManager
+	channelManager replica.ChannelManager
+	taskManager    brokerQuery.TaskManager
 }
 
 // factory represents all factories for broker
@@ -222,7 +220,7 @@ func (r *runtime) Stop() {
 
 	if r.pusher != nil {
 		r.pusher.Stop()
-		r.log.Info("stopped native linmetric pusher successfully")
+		r.log.Info("stopped native metric pusher successfully")
 	}
 
 	if r.httpServer != nil {
@@ -261,6 +259,11 @@ func (r *runtime) Stop() {
 		} else {
 			r.log.Info("closed state repo successfully")
 		}
+	}
+	if r.srv.channelManager != nil {
+		r.log.Info("closing write channel manager...")
+		r.srv.channelManager.Close()
+		r.log.Info("closed write channel successfully")
 	}
 
 	// finally shutdown rpc server
@@ -316,13 +319,9 @@ func (r *runtime) startStateRepo() error {
 func (r *runtime) buildServiceDependency() {
 	// todo watch stateMachine states change.
 
-	replicatorStateReport := replication.NewReplicatorStateReport(r.node, r.repo)
-
 	// hard code create channel first.
-	cm := replication.NewChannelManager(
-		r.config.BrokerBase.ReplicationChannel,
-		rpc.NewClientStreamFactory(r.node),
-		replicatorStateReport)
+	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.node))
+
 	taskManager := brokerQuery.NewTaskManager(
 		r.ctx,
 		r.node,
@@ -336,9 +335,8 @@ func (r *runtime) buildServiceDependency() {
 	r.factory.taskClient.SetTaskReceiver(taskManager)
 
 	srv := srv{
-		replicatorStateReport: replicatorStateReport,
-		channelManager:        cm,
-		taskManager:           taskManager,
+		channelManager: cm,
+		taskManager:    taskManager,
 	}
 	r.srv = srv
 }
@@ -405,8 +403,6 @@ func (r *runtime) systemCollector() {
 
 	go monitoring.NewSystemCollector(
 		r.ctx,
-		r.config.BrokerBase.ReplicationChannel.Dir,
-		r.repo,
-		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
+		"",
 		r.node, "broker").Run()
 }

@@ -39,14 +39,14 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	newWriteAheadLog = func(cfg config.Replica,
+	newWriteAheadLog = func(cfg config.WAL,
 		currentNodeID models.NodeID, database string,
 		engine tsdb.Engine,
 		cliFct rpc.ClientStreamFactory,
 	) WriteAheadLog {
 		return NewMockWriteAheadLog(ctrl)
 	}
-	m := NewWriteAheadLogManager(config.Replica{}, 1, nil, nil)
+	m := NewWriteAheadLogManager(config.WAL{}, 1, nil, nil)
 	// create new
 	l := m.GetOrCreateLog("test")
 	assert.NotNil(t, l)
@@ -62,7 +62,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		ctrl.Finish()
 	}()
 	engine := tsdb.NewMockEngine(ctrl)
-	l := NewWriteAheadLog(config.Replica{}, 1, "test", engine, nil)
+	l := NewWriteAheadLog(config.WAL{}, 1, "test", engine, nil)
 
 	// case 1: shard not exist
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)

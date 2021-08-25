@@ -18,6 +18,9 @@
 package storage
 
 import (
+	"path/filepath"
+	"sync"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -25,6 +28,10 @@ import (
 )
 
 type StateManager interface {
+	// OnNodeStartup triggers when node online.
+	OnNodeStartup(key string, data []byte)
+	// OnNodeFailure trigger when node offline.
+	OnNodeFailure(key string)
 	OnShardAssignmentChange(key string, data []byte)
 	OnDatabaseDelete(key string)
 }
@@ -32,11 +39,15 @@ type StateManager interface {
 type stateManager struct {
 	engine  tsdb.Engine
 	current *models.StatefulNode
+	nodes   map[string]models.StatefulNode // storage live nodes
+
+	mutex sync.Mutex
 
 	logger *logger.Logger
 }
 
-func NewStateManager(current *models.StatefulNode, engine tsdb.Engine) StateManager {
+func NewStateManager(current *models.StatefulNode,
+	engine tsdb.Engine) StateManager {
 	return &stateManager{
 		current: current,
 		engine:  engine,
@@ -44,8 +55,8 @@ func NewStateManager(current *models.StatefulNode, engine tsdb.Engine) StateMana
 	}
 }
 
-func (s *stateManager) OnShardAssignmentChange(key string, data []byte) {
-	s.logger.Info("shard assignment is changed",
+func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
+	m.logger.Info("shard assignment is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
 	param := models.DatabaseAssignment{}
@@ -57,14 +68,14 @@ func (s *stateManager) OnShardAssignmentChange(key string, data []byte) {
 	}
 	var shardIDs []models.ShardID
 	for shardID, replica := range param.ShardAssignment.Shards {
-		if replica.Contain(s.current.ID) {
+		if replica.Contain(m.current.ID) {
 			shardIDs = append(shardIDs, shardID)
 		}
 	}
 	if len(shardIDs) == 0 {
 		return
 	}
-	if err := s.engine.CreateShards(
+	if err := m.engine.CreateShards(
 		param.ShardAssignment.Name,
 		param.Option,
 		shardIDs...,
@@ -73,6 +84,40 @@ func (s *stateManager) OnShardAssignmentChange(key string, data []byte) {
 	}
 }
 
-func (s *stateManager) OnDatabaseDelete(key string) {
+func (m *stateManager) OnDatabaseDelete(key string) {
 	panic("implement me")
+}
+
+func (m *stateManager) OnNodeStartup(key string, data []byte) {
+	m.logger.Info("new node online",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	node := &models.StatefulNode{}
+	if err := encoding.JSONUnmarshal(data, node); err != nil {
+		m.logger.Error("new node online but unmarshal error", logger.Error(err))
+		return
+	}
+
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.nodes[nodeID] = *node
+}
+
+func (m *stateManager) OnNodeFailure(key string) {
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
+
+	m.logger.Info("node online => offline",
+		logger.String("nodeID", nodeID),
+		logger.String("key", key))
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	delete(m.nodes, nodeID)
 }

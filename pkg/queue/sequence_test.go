@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package queue
 
 import (
 	"fmt"
@@ -29,18 +29,16 @@ import (
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
-var testPath = "test"
-
 func TestSequence_new_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	tmp := path.Join(testPath, "sequence_test")
 	defer func() {
-		newPageFactoryFunc = page.NewFactory
+		newPageFctFunc = page.NewFactory
 		_ = fileutil.RemoveDir(testPath)
 		ctrl.Finish()
 	}()
 	// case 1: new page factory err
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFctFunc = func(path string, pageSize int) (page.Factory, error) {
 		return nil, fmt.Errorf("err")
 	}
 	seq, err := NewSequence(tmp)
@@ -48,7 +46,7 @@ func TestSequence_new_err(t *testing.T) {
 	assert.Nil(t, seq)
 	// case 2: AcquirePage err
 	fct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFctFunc = func(path string, pageSize int) (page.Factory, error) {
 		return fct, nil
 	}
 	fct.EXPECT().GetPage(int64(metaPageID)).Return(nil, false)

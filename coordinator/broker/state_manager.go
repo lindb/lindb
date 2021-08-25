@@ -24,7 +24,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -68,7 +68,7 @@ type stateManager struct {
 	// connection manager
 	connectionManager rpc.ConnectionManager
 	taskClientFactory rpc.TaskClientFactory
-	cm                replication.ChannelManager
+	cm                replica.ChannelManager
 
 	mutex sync.RWMutex
 
@@ -79,7 +79,7 @@ func NewStateManager(
 	currentNode models.StatelessNode,
 	connectionManager rpc.ConnectionManager,
 	taskClientFactory rpc.TaskClientFactory,
-	cm replication.ChannelManager,
+	cm replica.ChannelManager,
 ) StateManager {
 	return &stateManager{
 		currentNode:       currentNode,
@@ -324,48 +324,28 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 	return result
 }
 
-// buildShardAssign builds the wal replica channel and related replicators for the shard assignment
+// buildShardAssign builds the data write channel and related shard state.
 func (m *stateManager) buildShardAssign(storageState *models.StorageState) {
 	liveNodes := storageState.LiveNodes
 	for db, shards := range storageState.ShardStates {
 		numOfShard := len(shards)
-		for shardID, shardState := range shards {
-			m.createReplicaChannel(db, numOfShard, shardID, shardState, liveNodes)
+		for _, shardState := range shards {
+			m.startWriteChannel(db, numOfShard, shardState, liveNodes)
 		}
 	}
 }
 
-// createReplicaChannel creates wal replica channel for spec database's shard
-func (m *stateManager) createReplicaChannel(db string,
-	numOfShard int, shardID models.ShardID,
+// startWriteChannel starts data write channel for spec database's shard.
+func (m *stateManager) startWriteChannel(db string,
+	numOfShard int,
 	shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode,
 ) {
+	shardID := shardState.ID
 	ch, err := m.cm.CreateChannel(db, int32(numOfShard), shardID)
 	if err != nil {
-		m.logger.Error("create replica channel", logger.Error(err))
+		m.logger.Error("create shard write channel", logger.Error(err))
 		return
 	}
-	m.logger.Info("create replica channel successfully", logger.String("db", db), logger.Any("shardID", shardID))
 
-	m.startReplicator(ch, db, shardID, shardState, liveNodes)
-}
-
-// startReplicator starts wal replicator for spec database's shard
-func (m *stateManager) startReplicator(ch replication.Channel,
-	db string, shardID models.ShardID, shardState models.ShardState,
-	liveNodes map[models.NodeID]models.StatefulNode,
-) {
-
-	for _, replicaID := range shardState.Replica.Replicas {
-		target, ok := liveNodes[replicaID]
-		if ok {
-			_, err := ch.GetOrCreateReplicator(&target)
-			if err != nil {
-				m.logger.Error("start replicator", logger.Error(err))
-				continue
-			}
-			m.logger.Info("create replicator successfully", logger.String("db", db),
-				logger.Any("shardID", shardID), logger.String("target", target.Indicator()))
-		}
-	}
+	ch.SyncShardState(shardState, liveNodes)
 }

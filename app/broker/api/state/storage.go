@@ -310,7 +310,7 @@ func (s *StorageAPI) ListStorageClusterState(c *gin.Context) {
 //}
 //
 //// calcReplicaStatus calculates the replica status
-//func calcReplicaStatus(replica *models.Replica,
+//func calcReplicaStatus(replica *models.WAL,
 //	nodes map[models.NodeID]*models.Node,
 //	storageState *models.StorageState,
 //) (available int, underReplicated int) {

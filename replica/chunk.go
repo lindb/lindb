@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package replica
 
 import (
 	"bytes"
@@ -26,10 +26,12 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
-//go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replication
+//go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica
 
-// Chunk represents the write buffer chunk for compressing the metric list
+// Chunk represents the writeTask buffer chunk for compressing the metric list
 type Chunk interface {
+	encoding.BinaryMarshaler
+
 	// IsFull checks the chunk if is full
 	IsFull() bool
 	// IsEmpty checks the chunk if is empty
@@ -38,8 +40,6 @@ type Chunk interface {
 	Size() int
 	// Append appends the metric into buffer
 	Append(metric *protoMetricsV1.Metric)
-	// BinaryMarshaler marshals the data
-	encoding.BinaryMarshaler
 }
 
 // chunk represents the buffer with snappy compress

@@ -46,9 +46,10 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	protoStorageV1 "github.com/lindb/lindb/proto/gen/v1/storage"
+	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/query"
 	storageQuery "github.com/lindb/lindb/query/storage"
+	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
@@ -61,8 +62,8 @@ type factory struct {
 
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
-	writer  *handler.Writer
-	handler *query.TaskHandler
+	replica *handler.ReplicaHandler
+	task    *query.TaskHandler
 }
 
 // just for testing
@@ -369,7 +370,7 @@ func (r *runtime) startTCPServer() {
 	}()
 }
 
-// bindRPCHandlers binds rpc handlers, registers handler into grpc server
+// bindRPCHandlers binds rpc handlers, registers task into grpc server
 func (r *runtime) bindRPCHandlers() {
 	//FIXME: (stone1100) need close
 	leafTaskProcessor := storageQuery.NewLeafTaskProcessor(
@@ -378,9 +379,13 @@ func (r *runtime) bindRPCHandlers() {
 		r.factory.taskServer,
 	)
 
+	//TODO modify
+	walMgr := replica.NewWriteAheadLogManager(r.config.StorageBase.WAL,
+		r.node.ID, r.engine,
+		rpc.NewClientStreamFactory(r.node))
 	r.rpcHandler = &rpcHandler{
-		writer: handler.NewWriter(r.engine),
-		handler: query.NewTaskHandler(
+		replica: handler.NewReplicaHandler(walMgr, r.engine),
+		task: query.NewTaskHandler(
 			r.config.Query,
 			r.factory.taskServer,
 			leafTaskProcessor,
@@ -389,8 +394,8 @@ func (r *runtime) bindRPCHandlers() {
 	}
 
 	//TODO add task service ??????
-	protoStorageV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.writer)
-	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.handler)
+	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
+	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
 }
 
 func (r *runtime) nativePusher() {
@@ -421,8 +426,6 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		r.config.StorageBase.TSDB.Dir,
-		r.repo,
-		constants.GetNodeMonitoringStatPath(r.node.Indicator()),
 		&r.node.StatelessNode,
 		"storage").Run()
 }

@@ -595,7 +595,7 @@ func (c *replicaServiceClient) GetReplicaAckIndex(ctx context.Context, in *GetRe
 }
 
 func (c *replicaServiceClient) Replica(ctx context.Context, opts ...grpc.CallOption) (ReplicaService_ReplicaClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ReplicaService_serviceDesc.Streams[0], "/protoReplicaV1.ReplicaService/Replica", opts...)
+	stream, err := c.cc.NewStream(ctx, &_ReplicaService_serviceDesc.Streams[0], "/protoReplicaV1.ReplicaService/WAL", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +675,7 @@ func (*UnimplementedReplicaServiceServer) GetReplicaAckIndex(ctx context.Context
 	return nil, status.Errorf(codes.Unimplemented, "method GetReplicaAckIndex not implemented")
 }
 func (*UnimplementedReplicaServiceServer) Replica(srv ReplicaService_ReplicaServer) error {
-	return status.Errorf(codes.Unimplemented, "method Replica not implemented")
+	return status.Errorf(codes.Unimplemented, "method WAL not implemented")
 }
 func (*UnimplementedReplicaServiceServer) Write(srv ReplicaService_WriteServer) error {
 	return status.Errorf(codes.Unimplemented, "method Write not implemented")
@@ -788,7 +788,7 @@ var _ReplicaService_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Replica",
+			StreamName:    "WAL",
 			Handler:       _ReplicaService_Replica_Handler,
 			ServerStreams: true,
 			ClientStreams: true,

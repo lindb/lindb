@@ -15,34 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package replica
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
 )
 
-//go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replication
-
-// ErrCanceled is the error returned when writing data ctx canceled.
-var ErrCanceled = errors.New("write data ctx done")
+//go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
 
 const (
-	defaultReportInterval = 30 * time.Second
-	defaultBufferSize     = 1024
+	defaultBufferSize = 1024
 )
 
-var log = logger.GetLogger("replication", "ChannelManager")
+var log = logger.GetLogger("replica", "ChannelManager")
 
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
@@ -52,8 +45,6 @@ type ChannelManager interface {
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
 	CreateChannel(database string, numOfShard int32, shardID models.ShardID) (Channel, error)
-	// SyncReplicatorState syncs replicator state
-	SyncReplicatorState()
 
 	// Close closes all the channel.
 	Close()
@@ -65,35 +56,26 @@ type channelManager struct {
 	ctx context.Context
 	// cancelFun to cancel context
 	cancel context.CancelFunc
-	// config
-	cfg config.ReplicationChannel
-	// factory to get rpc  write client
+	// factory to get rpc  writeTask client
 	fct rpc.ClientStreamFactory
-	// for report replica state
-	replicatorStateReport ReplicatorStateReport
 	// channelID(database name)  -> Channel
 	databaseChannelMap sync.Map
 	// lock for channelMap
-	lock4map  sync.Mutex
-	syncState chan struct{}
-	logger    *logger.Logger
+	lock4map sync.Mutex
+
+	logger *logger.Logger
 }
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
 // WriteClientFactory makes it easy to mock rpc streamClient for test.
-func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactory,
-	replicatorStateReport ReplicatorStateReport) ChannelManager {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) ChannelManager {
+	ctx, cancel := context.WithCancel(ctx)
 	cm := &channelManager{
-		ctx:                   ctx,
-		cancel:                cancel,
-		cfg:                   cfg,
-		fct:                   fct,
-		replicatorStateReport: replicatorStateReport,
-		syncState:             make(chan struct{}),
-		logger:                logger.GetLogger("replication", "ChannelManager"),
+		ctx:    ctx,
+		cancel: cancel,
+		fct:    fct,
+		logger: logger.GetLogger("replica", "channelManager"),
 	}
-	cm.scheduleStateReport()
 	return cm
 }
 
@@ -124,12 +106,16 @@ func (cm *channelManager) CreateChannel(database string, numOfShard int32, shard
 		ch, ok = cm.getDatabaseChannel(database)
 		if !ok {
 			// if not exist, create database channel
-			ch, err := newDatabaseChannel(cm.ctx, database, cm.cfg, numOfShard, cm.fct)
+			ch, err := newDatabaseChannel(cm.ctx, database, numOfShard, cm.fct)
 			if err != nil {
 				return nil, err
 			}
 			// add to cache
 			cm.databaseChannelMap.Store(database, ch)
+
+			cm.logger.Info("create shard write channel successfully",
+				logger.String("db", database), logger.Any("shardID", shardID))
+
 			// create shard level channel
 			return ch.CreateChannel(numOfShard, shardID)
 		}
@@ -137,14 +123,16 @@ func (cm *channelManager) CreateChannel(database string, numOfShard int32, shard
 	return ch.CreateChannel(numOfShard, shardID)
 }
 
-// SyncReplicatorState syncs replicator state
-func (cm *channelManager) SyncReplicatorState() {
-	cm.syncState <- struct{}{}
-}
-
 // Close closes all the channel.
 func (cm *channelManager) Close() {
 	cm.cancel()
+	cm.databaseChannelMap.Range(func(key, ch interface{}) bool {
+		channel, ok := ch.(DatabaseChannel)
+		if ok {
+			channel.Stop()
+		}
+		return true
+	})
 }
 
 // getDatabaseChannel gets the database channel by given database name
@@ -158,46 +146,4 @@ func (cm *channelManager) getDatabaseChannel(databaseName string) (DatabaseChann
 		return nil, ok
 	}
 	return channel, true
-}
-
-// scheduleStateReport schedules a state report background job
-func (cm *channelManager) scheduleStateReport() {
-	interval := defaultReportInterval
-	if cm.cfg.ReportInterval > 0 {
-		interval = time.Duration(cm.cfg.ReportInterval)
-	}
-	ticker := time.NewTicker(interval)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				cm.reportState()
-			case <-cm.syncState:
-				cm.reportState()
-			case <-cm.ctx.Done():
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-}
-
-// reportState reports the state of all replicators under current broker
-func (cm *channelManager) reportState() {
-	brokerState := models.BrokerReplicaState{
-		ReportTime: timeutil.Now(),
-	}
-	cm.databaseChannelMap.Range(func(key, value interface{}) bool {
-		channel, ok := value.(DatabaseChannel)
-		if ok {
-			replicas := channel.ReplicaState()
-			if len(replicas) > 0 {
-				brokerState.Replicas = append(brokerState.Replicas, replicas...)
-			}
-		}
-		return true
-	})
-	if err := cm.replicatorStateReport.Report(&brokerState); err != nil {
-		log.Error("report broker replicator state fail", logger.Error(err))
-	}
 }

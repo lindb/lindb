@@ -24,7 +24,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/replica"
@@ -32,8 +34,8 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
-// replicaHandler implements replica.ReplicaServiceServer interface for handling replica rpc request.
-type replicaHandler struct {
+// ReplicaHandler implements replica.ReplicaServiceServer interface for handling replica rpc request.
+type ReplicaHandler struct {
 	walMgr replica.WriteAheadLogManager
 	engine tsdb.Engine
 
@@ -44,8 +46,8 @@ type replicaHandler struct {
 func NewReplicaHandler(
 	walMgr replica.WriteAheadLogManager,
 	engine tsdb.Engine,
-) protoReplicaV1.ReplicaServiceServer {
-	return &replicaHandler{
+) *ReplicaHandler {
+	return &ReplicaHandler{
 		walMgr: walMgr,
 		engine: engine,
 		logger: logger.GetLogger("storage", "ReplicaRPC"),
@@ -53,21 +55,21 @@ func NewReplicaHandler(
 }
 
 // GetReplicaAckIndex returns current replica ack index.
-func (r *replicaHandler) GetReplicaAckIndex(ctx context.Context,
+func (r *ReplicaHandler) GetReplicaAckIndex(ctx context.Context,
 	req *protoReplicaV1.GetReplicaAckIndexRequest,
 ) (*protoReplicaV1.GetReplicaAckIndexResponse, error) {
 	panic("implement me")
 }
 
 // Reset resets replica index.
-func (r *replicaHandler) Reset(ctx context.Context,
+func (r *ReplicaHandler) Reset(ctx context.Context,
 	request *protoReplicaV1.ResetIndexRequest,
 ) (*protoReplicaV1.ResetIndexResponse, error) {
 	panic("implement me")
 }
 
 // Replica does replica request, and writes data.
-func (r *replicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaServer) error {
+func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaServer) error {
 	database, shardID, leader, follower, err := r.getFollowerInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
@@ -112,22 +114,23 @@ func (r *replicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 }
 
 // Write does metric write request.
-func (r *replicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer) error {
-	database, shardID, leader, replicas, err := r.getReplicasInfoFromCtx(server.Context())
+func (r *ReplicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer) error {
+	database, shardState, err := r.getReplicasInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
-	if len(replicas) == 0 {
+	//TODO need check leader?
+	if len(shardState.Replica.Replicas) == 0 {
 		return status.Error(codes.InvalidArgument, "replicas cannot be empty")
 	}
 
-	p, err := r.getOrCreatePartition(database, shardID)
+	p, err := r.getOrCreatePartition(database, shardState.ID)
 	if err != nil {
 		r.logger.Error("create wal partition err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = p.BuildReplicaForLeader(leader, replicas)
+	err = p.BuildReplicaForLeader(shardState.Leader, shardState.Replica.Replicas)
 	if err != nil {
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
@@ -159,24 +162,16 @@ func (r *replicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer)
 }
 
 // getReplicasInfoFromCtx gets shard replica metadata from rpc context.
-func (r *replicaHandler) getReplicasInfoFromCtx(ctx context.Context) (database string, shardID models.ShardID,
-	leader models.NodeID, replicas []models.NodeID, err error) {
-	database, err = rpc.GetDatabaseFromContext(ctx)
+func (r *ReplicaHandler) getReplicasInfoFromCtx(ctx context.Context) (database string, shardState models.ShardState, err error) {
+	database, err = rpc.GetStringFromContext(ctx, constants.RPCMetaKeyDatabase)
 	if err != nil {
 		return
 	}
-	shard, err0 := rpc.GetShardIDFromContext(ctx)
-	if err0 != nil {
-		err = err0
-		return
-	}
-	shardID = models.ShardID(shard)
-
-	leader, err = rpc.GetLeaderFromContext(ctx)
+	shardStateData, err := rpc.GetStringFromContext(ctx, constants.RPCMetaKeyShardState)
 	if err != nil {
 		return
 	}
-	replicas, err = rpc.GetReplicasFromContext(ctx)
+	err = encoding.JSONUnmarshal([]byte(shardStateData), &shardState)
 	if err != nil {
 		return
 	}
@@ -184,32 +179,13 @@ func (r *replicaHandler) getReplicasInfoFromCtx(ctx context.Context) (database s
 }
 
 // getFollowerInfoFromCtx gets follower metadata from rpc context.
-func (r *replicaHandler) getFollowerInfoFromCtx(ctx context.Context) (database string, shardID models.ShardID,
+func (r *ReplicaHandler) getFollowerInfoFromCtx(ctx context.Context) (database string, shardID models.ShardID,
 	leader models.NodeID, replica models.NodeID, err error) {
-	database, err = rpc.GetDatabaseFromContext(ctx)
-	if err != nil {
-		return
-	}
-	shard, err0 := rpc.GetShardIDFromContext(ctx)
-	if err0 != nil {
-		err = err0
-		return
-	}
-	shardID = models.ShardID(shard)
-
-	leader, err = rpc.GetLeaderFromContext(ctx)
-	if err != nil {
-		return
-	}
-	replica, err = rpc.GetFollowerFromContext(ctx)
-	if err != nil {
-		return
-	}
 	return
 }
 
 // getOrCreatePartition returns write ahead log's partition if exist, else creates a new partition.
-func (r *replicaHandler) getOrCreatePartition(database string, shardID models.ShardID) (replica.Partition, error) {
+func (r *ReplicaHandler) getOrCreatePartition(database string, shardID models.ShardID) (replica.Partition, error) {
 	wal := r.walMgr.GetOrCreateLog(database)
 	p, err := wal.GetOrCreatePartition(shardID)
 	if err != nil {

@@ -101,9 +101,9 @@ package state
 //			5: {IP: "1.1.1.2", Port: 9000},
 //			6: {IP: "1.1.1.3", Port: 9000},
 //		},
-//		Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2}}, 2: {Replicas: []models.NodeID{5, 6}}},
+//		Shards: map[models.ShardID]*models.WAL{1: {Replicas: []models.NodeID{1, 2}}, 2: {Replicas: []models.NodeID{5, 6}}},
 //	}}, nil).AnyTimes()
-//		Shards: map[int]*models.Replica{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
+//		Shards: map[int]*models.WAL{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
 //	}
 //	saData, _ := json.Marshal(sa)
 //
@@ -204,7 +204,7 @@ package state
 //				5: {IP: "1.1.1.2", Port: 9000},
 //				6: {IP: "1.1.1.3", Port: 9000},
 //			},
-//			Shards: map[int]*models.Replica{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
+//			Shards: map[int]*models.WAL{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
 //		},
 //		{
 //			Name: "test-db-2",
@@ -214,7 +214,7 @@ package state
 //				5: {IP: "1.1.1.2", Port: 9000},
 //				6: {IP: "1.1.1.3", Port: 9000},
 //			},
-//			Shards: map[int]*models.Replica{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
+//			Shards: map[int]*models.WAL{1: {Replicas: []int{1, 2}}, 2: {Replicas: []int{5, 6}}},
 //		}}
 //	var keys []state.KeyValue
 //	for _, sa := range sas {
@@ -222,7 +222,7 @@ package state
 //		keys = append(keys, state.KeyValue{Key: "", Value: data})
 //	}
 //	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(keys, nil)
-//			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2}}, 2: {Replicas: []models.NodeID{5, 6}}},
+//			Shards: map[models.ShardID]*models.WAL{1: {Replicas: []models.NodeID{1, 2}}, 2: {Replicas: []models.NodeID{5, 6}}},
 //		},
 //	}, nil).AnyTimes()
 //

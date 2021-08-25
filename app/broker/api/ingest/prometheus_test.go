@@ -28,14 +28,14 @@ import (
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/internal/mock"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/replica"
 )
 
 func TestPrometheusWrite_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := replication.NewMockChannelManager(ctrl)
+	cm := replica.NewMockChannelManager(ctrl)
 	api := NewPrometheusWriter(&deps.HTTPDeps{CM: cm})
 	r := gin.New()
 	api.Register(r)

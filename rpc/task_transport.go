@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -149,7 +150,7 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 	}
 
 	//TODO handle context?????
-	ctx := createOutgoingContextWithPairs(context.TODO(), metaKeyLogicNode, f.currentNode.Indicator())
+	ctx := CreateOutgoingContextWithPairs(context.TODO(), constants.RPCMetaKeyLogicNode, f.currentNode.Indicator())
 	cli, err := f.newTaskServiceClientFunc(conn).Handle(ctx)
 	if err != nil {
 		return err
