@@ -46,8 +46,8 @@ func (sr *SlotRange) GetRange() (start, end uint16) {
 }
 
 // Union returns the union of two slot range
-func (sr *SlotRange) Union(o *SlotRange) *SlotRange {
-	result := &SlotRange{}
+func (sr *SlotRange) Union(o SlotRange) SlotRange {
+	var result SlotRange
 	result.Start = sr.Start
 	if o.Start < sr.Start {
 		result.Start = o.Start
@@ -76,13 +76,13 @@ func (r *TimeRange) Contains(timestamp int64) bool {
 }
 
 // Overlap tests if overlap with current time range
-func (r *TimeRange) Overlap(o *TimeRange) bool {
+func (r *TimeRange) Overlap(o TimeRange) bool {
 	return r.Contains(o.Start) || o.Contains(r.Start)
 }
 
 // Intersect returns the intersection of two time range
-func (r *TimeRange) Intersect(o *TimeRange) *TimeRange {
-	result := &TimeRange{}
+func (r *TimeRange) Intersect(o TimeRange) TimeRange {
+	var result TimeRange
 	result.Start = r.Start
 	if o.Start > r.Start {
 		result.Start = o.Start

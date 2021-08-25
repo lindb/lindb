@@ -103,8 +103,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
 	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(12))
 	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
-	encodeStream2.EXPECT().AppendTime(gomock.Any()).AnyTimes()
-	encodeStream2.EXPECT().AppendValue(gomock.Any()).AnyTimes()
+	encodeStream2.EXPECT().EmitDownSamplingValue(gomock.Any(), gomock.Any()).AnyTimes()
 	encodeStream2.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
 	err = merger.merge(
 		&mergerContext{
@@ -184,7 +183,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 			c++
 		}
 	}
-	assert.Equal(t, 1, c)
+	assert.Equal(t, 2, c)
 }
 
 func mockField(start uint16) []byte {

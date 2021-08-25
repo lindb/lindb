@@ -18,61 +18,55 @@
 package aggregation
 
 import (
-	"encoding/json"
-	"fmt"
 	"math"
+	"sync"
 
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
-//go:generate mockgen -source=./down_sampling_agg.go -destination=./down_sampling_agg_mock.go -package=aggregation
+const infBlockSize = 360
 
-// DownSamplingResult represents the result of down sampling aggregator.
-type DownSamplingResult interface {
-	// Append appends time and value.
-	Append(slot bit.Bit, value float64)
-}
+var (
+	infFilledBlock = make([]float64, infBlockSize)
+)
 
-type downSamplingMergeResult struct {
-	agg FieldAggregator
-
-	pos int
-}
-
-func NewDownSamplingMergeResult(agg FieldAggregator) DownSamplingResult {
-	return &downSamplingMergeResult{
-		agg: agg,
-		pos: 0,
+func init() {
+	for i := 0; i < infBlockSize; i++ {
+		infFilledBlock[i] = math.Inf(1) + 1
 	}
 }
 
-func (d *downSamplingMergeResult) Append(slot bit.Bit, value float64) {
-	if slot == bit.One {
-		d.agg.AggregateBySlot(d.pos, value)
+var float64Pool sync.Pool
+
+func fillInfBlock(sl []float64) []float64 {
+	length := len(sl)
+	for i := 0; i <= length/infBlockSize; i++ {
+		from := i * infBlockSize
+		to := (i + 1) * infBlockSize
+		if to > length {
+			to = length
+		}
+		copy(sl[from:to], infFilledBlock)
 	}
-	d.pos++
+	return sl
 }
 
-// TSDDownSamplingResult implements DownSamplingResult using encoding TSDEncoder.
-type TSDDownSamplingResult struct {
-	stream encoding.TSDEncoder
-}
-
-// NewTSDDownSamplingResult creates tsd down sampling result.
-func NewTSDDownSamplingResult(stream encoding.TSDEncoder) DownSamplingResult {
-	return &TSDDownSamplingResult{stream: stream}
-}
-
-// Append appends time and value into tsd encode stream.
-func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
-	rs.stream.AppendTime(slot)
-	if slot == bit.One {
-		rs.stream.AppendValue(math.Float64bits(value))
+func getFloat64Slice(size int) []float64 {
+	item := float64Pool.Get()
+	if item == nil {
+		return make([]float64, size)
 	}
+	sl := item.(*[]float64)
+	if cap(*sl) < size {
+		return make([]float64, size)
+	}
+	return (*sl)[:size]
+}
+
+func putFloat64Slice(sl *[]float64) {
+	float64Pool.Put(sl)
 }
 
 // DownSamplingMultiSeriesInto merges field data from source time range => target time range,
@@ -81,49 +75,51 @@ func (rs *TSDDownSamplingResult) Append(slot bit.Bit, value float64) {
 func DownSamplingMultiSeriesInto(
 	target timeutil.SlotRange, ratio uint16,
 	aggFunc field.AggFunc, decoders []*encoding.TSDDecoder,
-	rs DownSamplingResult,
+	emitValue func(targetPos int, value float64),
 ) {
-	// first loop: target slot range
-	// todo:remove
-
-	var m = make(map[uint16]float64)
-
-	for j := target.Start; j <= target.End; j += ratio {
-		hasValue := bit.Zero
-		result := constants.EmptyValue
-		// loop: source slot range and ratio(target interval/source interval)
-		intervalEnd := ratio * (j + 1)
-
-		// seek reads from the start slot
-		// flushed data always starts from 0, but target is arbitrarily
-		// decoders: 0-359
-		for _, d := range decoders {
-			if d != nil {
-				d.Seek(j)
-			}
-		}
-		for pos := j; pos < intervalEnd; pos++ {
-			for _, decoder := range decoders {
-				if decoder == nil {
-					// if series id not exist, value maybe nil
-					continue
-				}
-				if decoder.HasValueWithSlot(pos) {
-					if !hasValue {
-						// if target value not exist, set it
-						result = math.Float64frombits(decoder.Value())
-						hasValue = bit.One
-					} else {
-						// if target value exist, do aggregate
-						result = aggFunc.Aggregate(result, math.Float64frombits(decoder.Value()))
-					}
-				}
-			}
-		}
-
-		m[j] = result
-		rs.Append(hasValue, result)
+	targetValues := make([]float64, infBlockSize)
+	length := int(target.End-target.Start) + 1
+	if length <= infBlockSize {
+		// on stack
+		targetValues = targetValues[:length]
+	} else {
+		// on heap
+		targetValues = getFloat64Slice(length)
+		defer putFloat64Slice(&targetValues)
 	}
-	data, _ := json.Marshal(m)
-	fmt.Println(string(data))
+	// first loop: filled target values with inf value
+	// inf value is invalid, and won't be emitted after downsampling
+	fillInfBlock(targetValues)
+
+	// second loop: iterating tsd decoder
+	for _, decoder := range decoders {
+		if decoder == nil {
+			continue
+		}
+		for movingSourceSlot := decoder.StartTime(); movingSourceSlot <= decoder.EndTime(); movingSourceSlot++ {
+			if !decoder.HasValueWithSlot(movingSourceSlot) {
+				continue
+			}
+			value := math.Float64frombits(decoder.Value())
+			targetPos := int(movingSourceSlot/ratio) - int(target.Start)
+			if targetPos < 0 {
+				continue
+			}
+			// exhausted
+			if targetPos >= length {
+				break
+			}
+			// not set before
+			if math.IsInf(targetValues[targetPos], 1) {
+				targetValues[targetPos] = value
+				// set before, aggregate
+			} else {
+				targetValues[targetPos] = aggFunc.Aggregate(targetValues[targetPos], value)
+			}
+		}
+	}
+	// third loop, emit downsampling data
+	for offset, value := range targetValues {
+		emitValue(offset, value)
+	}
 }
