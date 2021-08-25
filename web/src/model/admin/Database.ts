@@ -1,6 +1,6 @@
 export interface DatabaseConfig {
     name?: string
-    cluster?: string
+    storage?: string
     numOfShard?: number
     replicaFactor?: number
     option?: {
