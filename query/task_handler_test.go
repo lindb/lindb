@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
@@ -65,8 +66,9 @@ func TestTaskHandler_Handle(t *testing.T) {
 	server.EXPECT().Context().Return(ctx)
 	err := handler.Handle(server)
 	assert.NotNil(t, err)
-
-	ctx = rpc.CreateIncomingContextWithNode(context.TODO(), &models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000})
+	ctx = metadata.NewIncomingContext(ctx,
+		metadata.Pairs(constants.RPCMetaKeyLogicNode,
+			(&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000}).Indicator()))
 	server.EXPECT().Context().Return(ctx)
 	server.EXPECT().Recv().Return(nil, nil)
 	server.EXPECT().Recv().Return(nil, fmt.Errorf("err"))

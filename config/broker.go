@@ -19,7 +19,6 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -136,11 +135,10 @@ func (rc *ReplicationChannel) TOML() string {
 
 // BrokerBase represents a broker configuration
 type BrokerBase struct {
-	HTTP               HTTP               `toml:"http"`
-	Ingestion          Ingestion          `toml:"ingestion"`
-	User               User               `toml:"user"`
-	GRPC               GRPC               `toml:"grpc"`
-	ReplicationChannel ReplicationChannel `toml:"replication_channel"`
+	HTTP      HTTP      `toml:"http"`
+	Ingestion Ingestion `toml:"ingestion"`
+	User      User      `toml:"user"`
+	GRPC      GRPC      `toml:"grpc"`
 }
 
 func (bb *BrokerBase) TOML() string {
@@ -151,14 +149,11 @@ func (bb *BrokerBase) TOML() string {
 
   [broker.user]%s
 
-  [broker.grpc]%s
-
-  [broker.replication_channel]%s`,
+  [broker.grpc]%s`,
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
 		bb.User.TOML(),
 		bb.GRPC.TOML(),
-		bb.ReplicationChannel.TOML(),
 	)
 }
 
@@ -182,14 +177,6 @@ func NewDefaultBrokerBase() *BrokerBase {
 		User: User{
 			UserName: "admin",
 			Password: "admin123",
-		},
-		ReplicationChannel: ReplicationChannel{
-			Dir:                filepath.Join(defaultParentDir, "broker/replication"),
-			DataSizeLimit:      512,
-			RemoveTaskInterval: ltoml.Duration(time.Minute),
-			CheckFlushInterval: ltoml.Duration(time.Second),
-			FlushInterval:      ltoml.Duration(5 * time.Second),
-			BufferSize:         128,
 		},
 	}
 }

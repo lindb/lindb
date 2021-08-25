@@ -23,6 +23,7 @@ require (
 	github.com/json-iterator/go v1.1.9
 	github.com/klauspost/compress v1.12.3
 	github.com/lindb/roaring v0.9.0
+	github.com/lithammer/go-jump-consistent-hash v1.0.2
 	github.com/mattn/go-isatty v0.0.13
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
@@ -36,7 +37,7 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200320040136-0eee733220fc
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/sys v0.0.0-20210902050250-f475640dd07b
+	golang.org/x/sys v0.0.0-20210903071746-97244b99971b
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

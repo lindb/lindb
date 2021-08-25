@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replication
+package replica
 
 import (
 	"bytes"
@@ -86,7 +86,7 @@ func TestChunk_MarshalBinary(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, data)
 
-	// mock write err
+	// mock writeTask err
 	c2.writer = snappy.NewBufferedWriter(&mockIOWriter{})
 	_, err = c2.writer.Write([]byte{1, 2, 3})
 	assert.NoError(t, err)

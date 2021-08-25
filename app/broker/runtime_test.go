@@ -63,15 +63,6 @@ var cfg = config.Broker{
 			Port: 2881,
 			TTL:  1,
 		},
-
-		ReplicationChannel: config.ReplicationChannel{
-			Dir:                "/tmp/broker/replication",
-			DataSizeLimit:      128,
-			RemoveTaskInterval: ltoml.Duration(time.Minute),
-			CheckFlushInterval: ltoml.Duration(time.Second),
-			FlushInterval:      ltoml.Duration(time.Second * 5),
-			BufferSize:         128,
-		},
 	}}
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {

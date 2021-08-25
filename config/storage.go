@@ -114,10 +114,10 @@ func (t *TSDB) TOML() string {
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	Indicator int     `toml:"indicator"` // Indicator is unique id under current storage cluster.
-	GRPC      GRPC    `toml:"grpc"`
-	TSDB      TSDB    `toml:"tsdb"`
-	Replica   Replica `toml:"replica"`
+	Indicator int  `toml:"indicator"` // Indicator is unique id under current storage cluster.
+	GRPC      GRPC `toml:"grpc"`
+	TSDB      TSDB `toml:"tsdb"`
+	WAL       WAL  `toml:"wal"`
 }
 
 // TOML returns StorageBase's toml config string
@@ -129,25 +129,27 @@ func (s *StorageBase) TOML() string {
 
   [storage.grpc]%s
 
+  [storage.wal]%s
+
   [storage.tsdb]%s`,
 		s.Indicator,
 		s.GRPC.TOML(),
+		s.WAL.TOML(),
 		s.TSDB.TOML(),
 	)
 }
 
-// Replica represents config for data replication in storage.
-type Replica struct {
+// WAL represents config for write ahead log in storage.
+type WAL struct {
 	Dir                string         `toml:"dir"`
 	DataSizeLimit      int64          `toml:"data-size-limit"`
 	RemoveTaskInterval ltoml.Duration `toml:"remove-task-interval"`
-	ReportInterval     ltoml.Duration `toml:"report-interval"` // replicator state report interval
 	CheckFlushInterval ltoml.Duration `toml:"check-flush-interval"`
 	FlushInterval      ltoml.Duration `toml:"flush-interval"`
 	BufferSize         int            `toml:"buffer-size"`
 }
 
-func (rc *Replica) GetDataSizeLimit() int64 {
+func (rc *WAL) GetDataSizeLimit() int64 {
 	if rc.DataSizeLimit <= 1 {
 		return 1024 * 1024 // 1MB
 	}
@@ -155,6 +157,30 @@ func (rc *Replica) GetDataSizeLimit() int64 {
 		return 1024 * 1024 * 1024 // 1GB
 	}
 	return rc.DataSizeLimit * 1024 * 1024
+}
+
+func (rc *WAL) TOML() string {
+	return fmt.Sprintf(`
+	## WAL mmaped log directory
+	dir = "%s"
+	## data-size-limit is the maximum size in megabytes of the page file before a new
+	## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+	data-size-limit = %d
+	## interval for how often a new segment will be created
+	remove-task-interval = "%s"
+	## interval for how often buffer will be checked if it's available to flush
+	check-flush-interval = "%s"
+	## interval for how often data will be flushed if data not exceeds the buffer-size
+	flush-interval = "%s"
+	## will flush if this size of data in kegabytes get buffered
+	buffer-size = %d`,
+		rc.Dir,
+		rc.DataSizeLimit,
+		rc.RemoveTaskInterval.String(),
+		rc.CheckFlushInterval.String(),
+		rc.FlushInterval.String(),
+		rc.BufferSize,
+	)
 }
 
 // Storage represents a storage configuration with common settings
@@ -175,6 +201,14 @@ func NewDefaultStorageBase() *StorageBase {
 			TTL:                  ltoml.Duration(time.Second),
 			MaxConcurrentStreams: 30,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
+		},
+		WAL: WAL{
+			Dir:                filepath.Join(defaultParentDir, "storage/wal"),
+			DataSizeLimit:      512,
+			RemoveTaskInterval: ltoml.Duration(time.Minute),
+			CheckFlushInterval: ltoml.Duration(time.Second),
+			FlushInterval:      ltoml.Duration(5 * time.Second),
+			BufferSize:         128,
 		},
 		TSDB: TSDB{
 			Dir:                      filepath.Join(defaultParentDir, "storage/data"),

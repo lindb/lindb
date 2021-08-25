@@ -25,21 +25,21 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/replication"
+	"github.com/lindb/lindb/pkg/queue"
 )
 
 //go:generate mockgen -source=./sequence.go -destination=./sequence_mock.go -package=tsdb
 
 // for testing
 var (
-	newSequenceFunc = replication.NewSequence
+	newSequenceFunc = queue.NewSequence
 )
 
 // ReplicaSequence represents the shard level replica sequence
 type ReplicaSequence interface {
 	io.Closer
 	// getOrCreateSequence gets the replica sequence by remote replica peer if exist, else creates a new sequence
-	getOrCreateSequence(remotePeer string) (replication.Sequence, error)
+	getOrCreateSequence(remotePeer string) (queue.Sequence, error)
 	// getAllHeads gets the current replica indexes for all replica remote peers
 	getAllHeads() map[string]int64
 	// ack acks the replica index that the data is persistent
@@ -86,7 +86,7 @@ func newReplicaSequence(dirPath string) (ReplicaSequence, error) {
 }
 
 // getOrCreateSequence gets the replica sequence by remote replica peer if exist, else creates a new sequence
-func (ss *replicaSequence) getOrCreateSequence(remotePeer string) (replication.Sequence, error) {
+func (ss *replicaSequence) getOrCreateSequence(remotePeer string) (queue.Sequence, error) {
 	val, ok := ss.sequenceMap.Load(remotePeer)
 	if !ok {
 		ss.lock4map.Lock()
@@ -104,7 +104,7 @@ func (ss *replicaSequence) getOrCreateSequence(remotePeer string) (replication.S
 		}
 	}
 
-	seq := val.(replication.Sequence)
+	seq := val.(queue.Sequence)
 	return seq, nil
 }
 
@@ -112,7 +112,7 @@ func (ss *replicaSequence) getOrCreateSequence(remotePeer string) (replication.S
 func (ss *replicaSequence) getAllHeads() map[string]int64 {
 	result := make(map[string]int64)
 	ss.sequenceMap.Range(func(key, value interface{}) bool {
-		seq, ok := value.(replication.Sequence)
+		seq, ok := value.(queue.Sequence)
 		if ok {
 			replicaKey, ok := key.(string)
 			if ok {
@@ -131,7 +131,7 @@ func (ss *replicaSequence) ack(heads map[string]int64) error {
 		if !ok {
 			continue
 		}
-		s, ok := seq.(replication.Sequence)
+		s, ok := seq.(queue.Sequence)
 		if !ok {
 			continue
 		}
@@ -146,7 +146,7 @@ func (ss *replicaSequence) syncSequence() error {
 	var err error
 	if ss.syncing.CAS(false, true) {
 		ss.sequenceMap.Range(func(key, value interface{}) bool {
-			seq, ok := value.(replication.Sequence)
+			seq, ok := value.(queue.Sequence)
 			if ok {
 				// sync one replica peer sequence
 				err = seq.Sync()
@@ -162,7 +162,7 @@ func (ss *replicaSequence) syncSequence() error {
 func (ss *replicaSequence) Close() error {
 	var err error
 	ss.sequenceMap.Range(func(key, value interface{}) bool {
-		seq, ok := value.(replication.Sequence)
+		seq, ok := value.(queue.Sequence)
 		if ok {
 			// sync one replica peer sequence
 			err = seq.Close()

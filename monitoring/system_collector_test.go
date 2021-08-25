@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
 
 	"github.com/golang/mock/gomock"
 	"github.com/shirou/gopsutil/disk"
@@ -36,17 +35,11 @@ func Test_NewSystemCollector(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		repo,
-		"",
 		&models.StatelessNode{},
 		"standalone",
 	)
@@ -66,13 +59,9 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		repo,
-		"",
 		&models.StatelessNode{},
 		"standalone",
 	)

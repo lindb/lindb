@@ -40,9 +40,9 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
-	"github.com/lindb/lindb/replication"
 	"github.com/lindb/lindb/series/field"
 	metricchecker "github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/cumulativecache"
@@ -109,7 +109,7 @@ type Shard interface {
 	// Write writes the metric-point into memory-database.
 	Write(metric *protoMetricsV1.Metric) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
-	GetOrCreateSequence(replicaPeer string) (replication.Sequence, error)
+	GetOrCreateSequence(replicaPeer string) (queue.Sequence, error)
 	// MemDBTotalSize returns the total size of mutable and immutable memdb
 	MemDBTotalSize() int64
 	// Flush flushes index and memory data to disk
@@ -302,7 +302,7 @@ func (s *shard) CurrentInterval() timeutil.Interval {
 	return s.interval
 }
 
-func (s *shard) GetOrCreateSequence(replicaPeer string) (replication.Sequence, error) {
+func (s *shard) GetOrCreateSequence(replicaPeer string) (queue.Sequence, error) {
 	return s.sequence.getOrCreateSequence(replicaPeer)
 }
 

@@ -15,8 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package gen
+package replica
 
-//go:generate mockgen -source=./v1/broker/broker.pb.go -destination=./v1/broker/broker_pb_mock.go -package=protoBrokerV1
-//go:generate mockgen -source=./v1/common/common.pb.go -destination=./v1/common/common_pb_mock.go -package=protoCommonV1
-//go:generate mockgen -source=./v1/replica/replica.pb.go -destination=./v1/replica/replica_pb_mock.go -package=protoReplicaV1
+import "errors"
+
+var (
+	// define error types
+	errChannelNotFound = errors.New("shard replica channel not found")
+	errInvalidShardID  = errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
+	errInvalidShardNum = errors.New("numOfShard should be equal or greater than original setting")
+	// ErrCanceled is the error returned when writing data ctx canceled.
+	ErrCanceled = errors.New("writeTask data ctx done")
+)

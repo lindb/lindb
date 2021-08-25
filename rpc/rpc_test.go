@@ -18,7 +18,6 @@
 package rpc
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -36,8 +35,6 @@ var (
 		HostIP:   "127.0.0.1",
 		GRPCPort: 123,
 	}
-	database = "database"
-	shardID  = models.ShardID(0)
 )
 
 func TestClientConnFactory(t *testing.T) {
@@ -70,47 +67,6 @@ func TestClientConnFactory(t *testing.T) {
 
 	assert.True(t, conn1 == conn11)
 	assert.False(t, conn1 == conn2)
-}
-
-func TestContext(t *testing.T) {
-	node := models.StatelessNode{
-		HostIP:   "1.1.1.1",
-		GRPCPort: 123,
-	}
-	ctx := CreateIncomingContext(context.TODO(), database, shardID, &node)
-
-	n, err := GetLogicNodeFromContext(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, n, &node)
-
-	db, err := GetDatabaseFromContext(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, db, database)
-
-	sID, err := GetShardIDFromContext(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, int32(shardID), sID)
-}
-
-func TestClientStreamFactory(t *testing.T) {
-	target := models.StatelessNode{
-		HostIP:   "127.0.0.1",
-		GRPCPort: 1234,
-	}
-	fct := NewClientStreamFactory(&node)
-	_, err := fct.CreateWriteServiceClient(&target)
-	assert.Nil(t, err)
-
-	assert.Equal(t, fct.LogicNode(), &node)
-
-	// stream client will dail the target address, it's no easy to test
 }
 
 func TestClientStreamFactory_CreateTaskClient(t *testing.T) {

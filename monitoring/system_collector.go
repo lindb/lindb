@@ -27,10 +27,8 @@ import (
 
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/state"
 )
 
 // SystemCollector collects the system stat
@@ -38,12 +36,10 @@ type SystemCollector struct {
 	ctx             context.Context
 	interval        time.Duration
 	storage         string
-	path            string                        // repository key
 	netStats        map[string]net.IOCountersStat // interface-name as key
 	netStatsUpdated map[string]time.Time          // last updated time
 	systemStat      *models.SystemStat
 	nodeStat        *models.NodeStat
-	repository      state.Repository
 	// used for mock
 	MemoryStatGetter    MemoryStatGetter
 	CPUStatGetter       CPUStatGetter
@@ -90,16 +86,11 @@ type SystemCollector struct {
 func NewSystemCollector(
 	ctx context.Context,
 	storage string,
-	repository state.Repository,
-	path string,
 	node *models.StatelessNode,
 	role string,
 ) *SystemCollector {
 	r := &SystemCollector{
 		interval:        time.Second * 10,
-		storage:         fileutil.GetExistPath(storage),
-		repository:      repository,
-		path:            path,
 		netStats:        make(map[string]net.IOCountersStat),
 		netStatsUpdated: make(map[string]time.Time),
 		systemStat:      &models.SystemStat{},
@@ -112,6 +103,9 @@ func NewSystemCollector(
 		DiskUsageStatGetter: disk.UsageWithContext,
 		NetStatGetter:       GetNetStat,
 		role:                role,
+	}
+	if storage != "" {
+		r.storage = fileutil.GetExistPath(storage)
 	}
 	r.boundMetrics()
 	return r
@@ -192,8 +186,10 @@ func (r *SystemCollector) collect() {
 	if r.systemStat.CPUStat, err = r.CPUStatGetter(); err != nil {
 		collectorLogger.Error("get cpu stat", logger.Error(err))
 	}
-	if r.systemStat.DiskUsageStat, err = r.DiskUsageStatGetter(r.ctx, r.storage); err != nil {
-		collectorLogger.Error("get disk usage stat", logger.Error(err))
+	if r.storage != "" {
+		if r.systemStat.DiskUsageStat, err = r.DiskUsageStatGetter(r.ctx, r.storage); err != nil {
+			collectorLogger.Error("get disk usage stat", logger.Error(err))
+		}
 	}
 	if stats, err := r.NetStatGetter(r.ctx); err != nil {
 		collectorLogger.Error("get net stat", logger.Error(err))
@@ -210,10 +206,6 @@ func (r *SystemCollector) collect() {
 	r.logDiskUsageStat()
 	r.logCPUStat()
 	r.logNetStat()
-
-	if err := r.repository.Put(r.ctx, r.path, encoding.JSONMarshal(r.nodeStat)); err != nil {
-		collectorLogger.Error("report stat error", logger.String("path", r.path))
-	}
 }
 
 func (r *SystemCollector) logMemStat() {
