@@ -47,8 +47,7 @@ func (h *HTTP) TOML() string {
 	write-timeout = "%s"	
 	## maximum duration for reading the entire request, including the body.
 	## Default: 5s
-	read-timeout = "%s"
-`,
+	read-timeout = "%s"`,
 		h.Port,
 		h.IdleTimeout.Duration().String(),
 		h.WriteTimeout.Duration().String(),
@@ -137,8 +136,6 @@ func (rc *ReplicationChannel) TOML() string {
 
 // BrokerBase represents a broker configuration
 type BrokerBase struct {
-	Coordinator        RepoState          `toml:"coordinator"`
-	Query              Query              `toml:"query"`
 	HTTP               HTTP               `toml:"http"`
 	Ingestion          Ingestion          `toml:"ingestion"`
 	User               User               `toml:"user"`
@@ -147,12 +144,7 @@ type BrokerBase struct {
 }
 
 func (bb *BrokerBase) TOML() string {
-	return fmt.Sprintf(`## Config for the Broker Node
-[broker]
-  [broker.coordinator]%s
-  
-  [broker.query]%s
-
+	return fmt.Sprintf(`[broker]
   [broker.http]%s
 
   [broker.ingestion]%s
@@ -162,8 +154,6 @@ func (bb *BrokerBase) TOML() string {
   [broker.grpc]%s
 
   [broker.replication_channel]%s`,
-		bb.Coordinator.TOML(),
-		bb.Query.TOML(),
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
 		bb.User.TOML(),
@@ -189,12 +179,6 @@ func NewDefaultBrokerBase() *BrokerBase {
 			MaxConcurrentStreams: 30,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
-		Coordinator: RepoState{
-			Namespace:   "/lindb/broker",
-			Endpoints:   []string{"http://localhost:2379"},
-			Timeout:     ltoml.Duration(time.Second * 5),
-			DialTimeout: ltoml.Duration(time.Second * 5),
-		},
 		User: User{
 			UserName: "admin",
 			Password: "admin123",
@@ -207,15 +191,16 @@ func NewDefaultBrokerBase() *BrokerBase {
 			FlushInterval:      ltoml.Duration(5 * time.Second),
 			BufferSize:         128,
 		},
-		Query: *NewDefaultQuery(),
 	}
 }
 
 // Broker represents a broker configuration with common settings
 type Broker struct {
-	BrokerBase BrokerBase `toml:"broker"`
-	Monitor    Monitor    `toml:"monitor"`
-	Logging    Logging    `toml:"logging"`
+	Coordinator RepoState  `toml:"coordinator"`
+	Query       Query      `toml:"query"`
+	BrokerBase  BrokerBase `toml:"broker"`
+	Monitor     Monitor    `toml:"monitor"`
+	Logging     Logging    `toml:"logging"`
 }
 
 // NewDefaultBrokerTOML creates broker default toml config
@@ -224,7 +209,13 @@ func NewDefaultBrokerTOML() string {
 
 %s
 
+%s
+
+%s
+
 %s`,
+		NewDefaultCoordinator().TOML(),
+		NewDefaultQuery().TOML(),
 		NewDefaultBrokerBase().TOML(),
 		NewDefaultMonitor().TOML(),
 		NewDefaultLogging().TOML(),
@@ -232,14 +223,9 @@ func NewDefaultBrokerTOML() string {
 }
 
 func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
-	if err := checkCoordinatorCfg(&brokerBaseCfg.Coordinator); err != nil {
-		return err
-	}
 	if err := checkGRPCCfg(&brokerBaseCfg.GRPC); err != nil {
 		return err
 	}
-	checkQueryCfg(&brokerBaseCfg.Query)
-
 	defaultBrokerCfg := NewDefaultBrokerBase()
 	// http check
 	if brokerBaseCfg.HTTP.Port <= 0 {

@@ -31,7 +31,7 @@ import (
 // HTTPDeps represents http server handler's dependency.
 type HTTPDeps struct {
 	Ctx       context.Context
-	BrokerCfg *config.BrokerBase
+	BrokerCfg *config.Broker
 	Master    coordinator.Master
 
 	Repo     state.Repository
@@ -45,8 +45,8 @@ type HTTPDeps struct {
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
 	// choose the shorter duration
 	timeout := deps.BrokerCfg.Coordinator.Timeout.Duration()
-	if deps.BrokerCfg.HTTP.ReadTimeout.Duration() < timeout {
-		timeout = deps.BrokerCfg.HTTP.ReadTimeout.Duration()
+	if deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration() < timeout {
+		timeout = deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration()
 	}
 	return context.WithTimeout(deps.Ctx, timeout)
 }

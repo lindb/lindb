@@ -25,6 +25,8 @@ import (
 // Standalone represents the configuration of standalone mode
 type Standalone struct {
 	ETCD        ETCD        `toml:"etcd"`
+	Coordinator RepoState   `toml:"coordinator"`
+	Query       Query       `toml:"query"`
 	BrokerBase  BrokerBase  `toml:"broker"`
 	StorageBase StorageBase `toml:"storage"`
 	Logging     Logging     `toml:"logging"`
@@ -39,8 +41,7 @@ type ETCD struct {
 
 // TOML returns ETCD's toml config string
 func (etcd *ETCD) TOML() string {
-	return fmt.Sprintf(`## Config for embedding etcd server
-[etcd]
+	return fmt.Sprintf(`[etcd]
 	## Where the ETCD data is stored
 	dir = "%s"
 
@@ -50,8 +51,7 @@ func (etcd *ETCD) TOML() string {
 	## If an IP address is given as well as a port, 
 	## etcd will listen on the given port and interface.
 	## example: http://10.0.0.1:2379
-	url = "%s"
-`,
+	url = "%s"`,
 		etcd.Dir,
 		etcd.URL)
 }
@@ -74,9 +74,15 @@ func NewDefaultStandaloneTOML() string {
 
 %s
 
+%s
+
+%s
+
 %s`,
 
 		NewDefaultETCD().TOML(),
+		NewDefaultCoordinator().TOML(),
+		NewDefaultQuery().TOML(),
 		NewDefaultBrokerBase().TOML(),
 		NewDefaultStorageBase().TOML(),
 		NewDefaultLogging().TOML(),

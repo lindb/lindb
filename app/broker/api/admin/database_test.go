@@ -46,9 +46,11 @@ func TestDatabaseAPI_Save(t *testing.T) {
 	r := gin.New()
 	repo := state.NewMockRepository(ctrl)
 	api := NewDatabaseAPI(&deps.HTTPDeps{
-		Ctx:       context.Background(),
-		Repo:      repo,
-		BrokerCfg: &config.BrokerBase{HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}},
+		Ctx:  context.Background(),
+		Repo: repo,
+		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
+			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)},
+		}},
 	})
 	api.Register(r)
 
@@ -97,9 +99,10 @@ func TestDatabaseAPI_GetByName(t *testing.T) {
 	r := gin.New()
 	repo := state.NewMockRepository(ctrl)
 	api := NewDatabaseAPI(&deps.HTTPDeps{
-		Ctx:       context.Background(),
-		Repo:      repo,
-		BrokerCfg: &config.BrokerBase{HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}},
+		Ctx:  context.Background(),
+		Repo: repo,
+		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
+			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}}},
 	})
 	api.Register(r)
 
@@ -136,7 +139,7 @@ func TestDatabaseService_List(t *testing.T) {
 	api := NewDatabaseAPI(&deps.HTTPDeps{
 		Ctx:       context.Background(),
 		Repo:      repo,
-		BrokerCfg: &config.BrokerBase{HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}},
+		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}}},
 	})
 	api.Register(r)
 

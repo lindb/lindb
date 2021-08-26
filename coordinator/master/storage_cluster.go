@@ -20,7 +20,6 @@ package master
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -28,7 +27,6 @@ import (
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -82,11 +80,8 @@ func newStorageCluster(ctx context.Context,
 	stateMgr StateManager,
 	repoFactory state.RepositoryFactory,
 	controllerFactory task.ControllerFactory) (cluster StorageCluster, err error) {
-	//TODO need add config, and retry???
-	cfg.Config.Timeout = ltoml.Duration(10 * time.Second)
-	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
 	var storageRepo state.Repository
-	storageRepo, err = repoFactory.CreateRepo(cfg.Config)
+	storageRepo, err = repoFactory.CreateStorageRepo(cfg.Config)
 	defer func() {
 		if err != nil && storageRepo != nil {
 			//TODO add log??
@@ -153,7 +148,7 @@ func (c *storageCluster) FlushDatabase(databaseName string) error {
 	return nil
 }
 
-// SaveShardAssign saves shard assignment, generates create shard task after saving successfully
+// CreateShards saves shard assignment, generates create shard task after saving successfully
 func (c *storageCluster) CreateShards(
 	databaseName string,
 	shardAssign *models.ShardAssignment,

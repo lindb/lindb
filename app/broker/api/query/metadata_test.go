@@ -82,13 +82,15 @@ func TestMetadataAPI_ShowDatabases(t *testing.T) {
 	api := NewMetadataAPI(&deps.HTTPDeps{
 		Repo: mockRepo,
 		Ctx:  context.Background(),
-		BrokerCfg: &config.BrokerBase{
-			HTTP: config.HTTP{
-				ReadTimeout: ltoml.Duration(time.Second)},
+		BrokerCfg: &config.Broker{
 			Coordinator: config.RepoState{
 				Timeout: ltoml.Duration(time.Second * 5)},
-		},
-	})
+			BrokerBase: config.BrokerBase{
+				HTTP: config.HTTP{
+					ReadTimeout: ltoml.Duration(time.Second)},
+			},
+		}},
+	)
 	r := gin.New()
 	api.Register(r)
 
@@ -118,7 +120,7 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 		&deps.HTTPDeps{
 			StateMgr:     stateMgr,
 			QueryFactory: factory,
-			BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
+			BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
 		})
 	r := gin.New()
 	api.Register(r)

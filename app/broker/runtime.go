@@ -115,8 +115,8 @@ func NewBrokerRuntime(version string, config *config.Broker) server.Service {
 		cancel:      cancel,
 		queryPool: concurrent.NewPool(
 			"task-pool",
-			config.BrokerBase.Query.QueryConcurrency,
-			config.BrokerBase.Query.IdleTimeout.Duration(),
+			config.Query.QueryConcurrency,
+			config.Query.IdleTimeout.Duration(),
 			linmetric.NewScope("lindb.concurrent", "pool_name", "broker-query"),
 		),
 		log: logger.GetLogger("broker", "Runtime"),
@@ -281,7 +281,7 @@ func (r *runtime) startHTTPServer() {
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
 		Ctx:       r.ctx,
-		BrokerCfg: &r.config.BrokerBase,
+		BrokerCfg: r.config,
 		Master:    r.master,
 		Repo:      r.repo,
 		StateMgr:  r.stateMgr,
@@ -302,7 +302,8 @@ func (r *runtime) startHTTPServer() {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateRepo(r.config.BrokerBase.Coordinator)
+	// set a sub namespace
+	repo, err := r.repoFactory.CreateBrokerRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}
@@ -328,7 +329,7 @@ func (r *runtime) buildServiceDependency() {
 		r.factory.taskClient,
 		r.factory.taskServer,
 		r.queryPool,
-		r.config.BrokerBase.Query.Timeout.Duration(),
+		r.config.Query.Timeout.Duration(),
 	)
 
 	//FIXME (stone100)close it????
@@ -367,7 +368,7 @@ func (r *runtime) bindGRPCHandlers() {
 	)
 	r.rpcHandler = &rpcHandler{
 		handler: query.NewTaskHandler(
-			r.config.BrokerBase.Query,
+			r.config.Query,
 			r.factory.taskServer,
 			intermediateTaskProcessor,
 			r.queryPool,

@@ -48,9 +48,10 @@ func TestBrokerAPI_ListBrokersStat(t *testing.T) {
 		Repo:     repo,
 		StateMgr: stateMgr,
 		Ctx:      context.Background(),
-		BrokerCfg: &config.BrokerBase{
-			HTTP: config.HTTP{
-				ReadTimeout: ltoml.Duration(time.Second)},
+		BrokerCfg: &config.Broker{
+			BrokerBase: config.BrokerBase{
+				HTTP: config.HTTP{
+					ReadTimeout: ltoml.Duration(time.Second)}},
 			Coordinator: config.RepoState{
 				Timeout: ltoml.Duration(time.Second * 5)},
 		},

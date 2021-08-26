@@ -31,7 +31,7 @@ import (
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
 
 type StateManager interface {
-	// OnDatabaseCfgModify triggers when database create/modify.
+	// OnDatabaseCfgChange triggers when database create/modify.
 	OnDatabaseCfgChange(key string, data []byte)
 	// OnDatabaseCfgDelete triggers when database delete.
 	OnDatabaseCfgDelete(key string)
@@ -39,9 +39,9 @@ type StateManager interface {
 	OnNodeStartup(key string, data []byte)
 	// OnNodeFailure trigger when node offline.
 	OnNodeFailure(key string)
-	// OnNodeStartup triggers when node online.
+	// OnStorageStateChange triggers when node online.
 	OnStorageStateChange(key string, data []byte)
-	// OnNodeFailure trigger when node offline.
+	// OnStorageDelete trigger when node offline.
 	OnStorageDelete(key string)
 
 	// read api as below:
@@ -93,7 +93,7 @@ func NewStateManager(
 	}
 }
 
-// OnDatabaseCfgModify triggers when database create/modify.
+// OnDatabaseCfgChange triggers when database create/modify.
 func (m *stateManager) OnDatabaseCfgChange(key string, data []byte) {
 	m.logger.Info("database config modified",
 		logger.String("key", key),
@@ -308,12 +308,11 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 	}
 
 	result := make(map[string][]models.ShardID)
-
-	for _, shardState := range shards {
+	for shardID, shardState := range shards {
 		if shardState.State == models.OnlineShard {
 			node := liveNodes[shardState.Leader]
 			nodeID := node.Indicator()
-			result[nodeID] = append(result[nodeID], shardState.ID)
+			result[nodeID] = append(result[nodeID], shardID)
 		} else {
 			m.logger.Warn("shard is not online ignore it, maybe query data will be lost",
 				logger.String("storage", database.Storage),
@@ -333,7 +332,6 @@ func (m *stateManager) buildShardAssign(storageState *models.StorageState) {
 			m.createReplicaChannel(db, numOfShard, shardID, shardState, liveNodes)
 		}
 	}
-
 }
 
 // createReplicaChannel creates wal replica channel for spec database's shard

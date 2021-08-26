@@ -47,11 +47,19 @@ func GlobalStorageConfig() *StorageBase {
 	return globalStorageCfg.Load().(*StorageBase)
 }
 
+func SetGlobalStorageConfig(storageCfg *StorageBase) {
+	globalStorageCfg.Store(storageCfg)
+}
+
 // LoadAndSetBrokerConfig parses the broker config file
 // this config will be triggered to reload when receiving a SIGHUP signal
 func LoadAndSetBrokerConfig(cfgName string, defaultPath string, brokerCfg *Broker) error {
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &brokerCfg); err != nil {
 		return fmt.Errorf("decode broker config file error: %s", err)
+	}
+	checkQueryCfg(&brokerCfg.Query)
+	if err := checkCoordinatorCfg(&brokerCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
 	}
 	if err := checkBrokerBaseCfg(&brokerCfg.BrokerBase); err != nil {
 		return fmt.Errorf("failed checking broker config: %s", err)
@@ -66,6 +74,10 @@ func LoadAndSetStorageConfig(cfgName string, defaultPath string, storageCfg *Sto
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &storageCfg); err != nil {
 		return fmt.Errorf("decode storage config file error: %s", err)
 	}
+	checkQueryCfg(&storageCfg.Query)
+	if err := checkCoordinatorCfg(&storageCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
+	}
 	if err := checkStorageBaseCfg(&storageCfg.StorageBase); err != nil {
 		return fmt.Errorf("failed checking storage config: %s", err)
 	}
@@ -79,6 +91,10 @@ func LoadAndSetStorageConfig(cfgName string, defaultPath string, storageCfg *Sto
 func LoadAndSetStandAloneConfig(cfgName string, defaultPath string, standaloneCfg *Standalone) error {
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode standalone config file error: %s", err)
+	}
+	checkQueryCfg(&standaloneCfg.Query)
+	if err := checkCoordinatorCfg(&standaloneCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
 	}
 	if err := checkBrokerBaseCfg(&standaloneCfg.BrokerBase); err != nil {
 		return fmt.Errorf("failed checking broker config: %s", err)
