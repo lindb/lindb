@@ -42,7 +42,7 @@ func NewConnectionManager(taskClientFct TaskClientFactory) ConnectionManager {
 	return &connectionManager{
 		taskClientFct: taskClientFct,
 		connections:   make(map[string]struct{}),
-		logger:        logger.GetLogger("rpc", "connectionManager"),
+		logger:        logger.GetLogger("rpc", "ConnectionManager"),
 	}
 }
 

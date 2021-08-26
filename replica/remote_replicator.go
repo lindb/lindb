@@ -53,7 +53,7 @@ func NewRemoteReplicator(channel *ReplicatorChannel,
 		},
 		cliFct: cliFct,
 		state:  ReplicatorInitState,
-		logger: logger.GetLogger("replica", "remoteReplicator"),
+		logger: logger.GetLogger("replica", "RemoteReplicator"),
 	}
 }
 

@@ -98,7 +98,7 @@ func NewStateManager(
 		storages:          make(map[string]StorageCluster),
 		databases:         make(map[string]models.Database),
 		elector:           newReplicaLeaderElector(),
-		logger:            logger.GetLogger("master", "stateManager"),
+		logger:            logger.GetLogger("master", "StateManager"),
 	}
 }
 
