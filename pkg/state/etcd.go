@@ -30,6 +30,8 @@ import (
 
 	etcdcliv3 "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 )
 
@@ -43,6 +45,8 @@ type etcdRepository struct {
 
 // newEtcdRepository creates a new repository based on etcd storage
 func newEtcdRepository(repoState config.RepoState, owner string) (Repository, error) {
+	zapCfg := zap.NewProductionConfig()
+	zapCfg.Level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
 	cfg := etcdcliv3.Config{
 		Endpoints:            repoState.Endpoints,
 		DialTimeout:          repoState.DialTimeout.Duration(),
@@ -51,6 +55,7 @@ func newEtcdRepository(repoState config.RepoState, owner string) (Repository, er
 		DialOptions:          []grpc.DialOption{grpc.WithBlock()},
 		Username:             repoState.Username,
 		Password:             repoState.Password,
+		LogConfig:            &zapCfg,
 	}
 	cli, err := etcdcliv3.New(cfg)
 	if err != nil {

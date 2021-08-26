@@ -91,7 +91,7 @@ func NewChannelManager(cfg config.ReplicationChannel, fct rpc.ClientStreamFactor
 		fct:                   fct,
 		replicatorStateReport: replicatorStateReport,
 		syncState:             make(chan struct{}),
-		logger:                logger.GetLogger("replication", "channelManager"),
+		logger:                logger.GetLogger("replication", "ChannelManager"),
 	}
 	cm.scheduleStateReport()
 	return cm

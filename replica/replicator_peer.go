@@ -77,7 +77,7 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 		replicator: replicator,
 		running:    atomic.NewBool(false),
 		closed:     make(chan struct{}),
-		logger:     logger.GetLogger("replica", "replicatorRunner"),
+		logger:     logger.GetLogger("replica", "ReplicatorRunner"),
 	}
 }
 
