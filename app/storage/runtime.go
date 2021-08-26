@@ -104,8 +104,8 @@ func NewStorageRuntime(version string, config *config.Storage) server.Service {
 		cancel:      cancel,
 		queryPool: concurrent.NewPool(
 			"task-pool",
-			config.StorageBase.Query.QueryConcurrency,
-			config.StorageBase.Query.IdleTimeout.Duration(),
+			config.Query.QueryConcurrency,
+			config.Query.IdleTimeout.Duration(),
 			linmetric.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
 		log: logger.GetLogger("storage", "Runtime"),
 	}
@@ -206,7 +206,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateRepo(r.config.StorageBase.Coordinator)
+	repo, err := r.repoFactory.CreateStorageRepo(r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}
@@ -337,7 +337,7 @@ func (r *runtime) bindRPCHandlers() {
 	r.rpcHandler = &rpcHandler{
 		writer: handler.NewWriter(r.engine),
 		handler: query.NewTaskHandler(
-			r.config.StorageBase.Query,
+			r.config.Query,
 			r.factory.taskServer,
 			leafTaskProcessor,
 			r.queryPool,

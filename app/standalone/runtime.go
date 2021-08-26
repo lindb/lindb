@@ -73,11 +73,15 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 		repoFactory: state.NewRepositoryFactory("standalone"),
 		broker: broker.NewBrokerRuntime(version,
 			&config.Broker{
-				BrokerBase: cfg.BrokerBase,
-				Monitor:    config.Monitor{}, // empty to disable broker monitor
+				Query:       cfg.Query,
+				Coordinator: cfg.Coordinator,
+				BrokerBase:  cfg.BrokerBase,
+				Monitor:     config.Monitor{}, // empty to disable broker monitor
 			}),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
+				Query:       cfg.Query,
+				Coordinator: cfg.Coordinator,
 				StorageBase: cfg.StorageBase,
 				Monitor:     config.Monitor{}, // empty to disable storage monitor
 			}),
@@ -119,7 +123,7 @@ func (r *runtime) Run() error {
 		log.Info("initializing standalone internal database")
 		if err := r.initializer.InitStorageCluster(config.StorageCluster{
 			Name:   "standalone",
-			Config: r.cfg.StorageBase.Coordinator}); err != nil {
+			Config: r.cfg.Coordinator}); err != nil {
 			log.Error("initialized standalone storage cluster with error", logger.Error(err))
 		} else {
 			log.Info("initialized standalone storage cluster successfully")
@@ -212,7 +216,7 @@ func (r *runtime) startETCD() error {
 // 1. master node in etcd, because etcd will trigger master node expire event
 // 2. stateful node in etcd
 func (r *runtime) cleanupState() error {
-	brokerRepo, err := r.repoFactory.CreateRepo(r.cfg.BrokerBase.Coordinator)
+	brokerRepo, err := r.repoFactory.CreateBrokerRepo(r.cfg.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
@@ -225,7 +229,7 @@ func (r *runtime) cleanupState() error {
 		return fmt.Errorf("delete old master error")
 	}
 
-	storageRepo, err := r.repoFactory.CreateRepo(r.cfg.StorageBase.Coordinator)
+	storageRepo, err := r.repoFactory.CreateStorageRepo(r.cfg.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repo error:%s", err)
 	}

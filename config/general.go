@@ -20,6 +20,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -35,10 +36,21 @@ type RepoState struct {
 	Password    string         `toml:"password" json:"password"`
 }
 
+func (rs *RepoState) WithSubNamespace(subDir string) RepoState {
+	return RepoState{
+		Namespace:   filepath.Join(rs.Namespace, subDir),
+		Endpoints:   rs.Endpoints,
+		Timeout:     rs.Timeout,
+		DialTimeout: rs.DialTimeout,
+		Username:    rs.Username,
+		Password:    rs.Password,
+	}
+}
+
 // TOML returns RepoState's toml config string
 func (rs *RepoState) TOML() string {
 	coordinatorEndpoints, _ := json.Marshal(rs.Endpoints)
-	return fmt.Sprintf(`
+	return fmt.Sprintf(`[coordinator]
 	## Coordinator coordinates reads/writes operations between different nodes
 	## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
 	namespace = "%s"
@@ -61,6 +73,15 @@ func (rs *RepoState) TOML() string {
 		rs.Username,
 		rs.Password,
 	)
+}
+
+func NewDefaultCoordinator() *RepoState {
+	return &RepoState{
+		Namespace:   "/lindb-cluster",
+		Endpoints:   []string{"http://localhost:2379"},
+		Timeout:     ltoml.Duration(time.Second * 5),
+		DialTimeout: ltoml.Duration(time.Second * 5),
+	}
 }
 
 // GRPC represents grpc server config
@@ -103,7 +124,7 @@ type Query struct {
 }
 
 func (q *Query) TOML() string {
-	return fmt.Sprintf(`
+	return fmt.Sprintf(`[query]
 	## Number of queries allowed to execute concurrently
 	## Default: 30
 	query-concurrency = %d

@@ -54,7 +54,7 @@ var createDatabaseCmd = &cobra.Command{
 		initializer := bootstrap.NewClusterInitializer(cliBrokerEndpoint)
 		if err := initializer.InitStorageCluster(config.StorageCluster{
 			Name:   args[0],
-			Config: storageCfg.StorageBase.Coordinator},
+			Config: storageCfg.Coordinator},
 		); err != nil {
 			return err
 		}

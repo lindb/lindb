@@ -114,30 +114,23 @@ func (t *TSDB) TOML() string {
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	Indicator   int       `toml:"indicator"` // Indicator is unique id under current storage cluster.
-	Coordinator RepoState `toml:"coordinator"`
-	GRPC        GRPC      `toml:"grpc"`
-	TSDB        TSDB      `toml:"tsdb"`
-	Query       Query     `toml:"query"`
-	Replica     Replica   `toml:"replica"`
+	Indicator int     `toml:"indicator"` // Indicator is unique id under current storage cluster.
+	GRPC      GRPC    `toml:"grpc"`
+	TSDB      TSDB    `toml:"tsdb"`
+	Replica   Replica `toml:"replica"`
 }
 
 // TOML returns StorageBase's toml config string
 func (s *StorageBase) TOML() string {
-	return fmt.Sprintf(`## Config for the Storage Node
-[storage]
+	return fmt.Sprintf(`[storage]
+  ## Indicator is a unique id for identifing each storage node
+  ## Make sure indicator on each node is different
   indicator = %d
 
-  [storage.coordinator]%s
-  
-  [storage.query]%s
-  
   [storage.grpc]%s
 
   [storage.tsdb]%s`,
 		s.Indicator,
-		s.Coordinator.TOML(),
-		s.Query.TOML(),
 		s.GRPC.TOML(),
 		s.TSDB.TOML(),
 	)
@@ -166,6 +159,8 @@ func (rc *Replica) GetDataSizeLimit() int64 {
 
 // Storage represents a storage configuration with common settings
 type Storage struct {
+	Coordinator RepoState   `toml:"coordinator"`
+	Query       Query       `toml:"query"`
 	StorageBase StorageBase `toml:"storage"`
 	Monitor     Monitor     `toml:"monitor"`
 	Logging     Logging     `toml:"logging"`
@@ -175,12 +170,6 @@ type Storage struct {
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
 		Indicator: 1,
-		Coordinator: RepoState{
-			Namespace:   "/lindb/storage",
-			Endpoints:   []string{"http://localhost:2379"},
-			Timeout:     ltoml.Duration(time.Second * 5),
-			DialTimeout: ltoml.Duration(time.Second * 5),
-		},
 		GRPC: GRPC{
 			Port:                 2891,
 			TTL:                  ltoml.Duration(time.Second),
@@ -202,7 +191,6 @@ func NewDefaultStorageBase() *StorageBase {
 			MaxSeriesIDsNumber:       200000,
 			MaxTagKeysNumber:         32,
 		},
-		Query: *NewDefaultQuery(),
 	}
 }
 
@@ -212,7 +200,13 @@ func NewDefaultStorageTOML() string {
 
 %s
 
+%s
+
+%s
+
 %s`,
+		NewDefaultCoordinator().TOML(),
+		NewDefaultQuery().TOML(),
 		NewDefaultStorageBase().TOML(),
 		NewDefaultMonitor().TOML(),
 		NewDefaultLogging().TOML(),
@@ -264,13 +258,8 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 }
 
 func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
-	if err := checkCoordinatorCfg(&storageBaseCfg.Coordinator); err != nil {
-		return err
-	}
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err
 	}
-	checkQueryCfg(&storageBaseCfg.Query)
-
 	return checkTSDBCfg(&storageBaseCfg.TSDB)
 }

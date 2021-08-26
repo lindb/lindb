@@ -34,9 +34,6 @@ const (
 	StateNodesPath = "/state/nodes"
 )
 
-// defines storage level constants will be used in storage
-//const ()
-
 // defines broker level constants will be used in broker.
 const (
 	// MasterPath represents master elect path.
