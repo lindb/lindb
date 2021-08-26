@@ -34,7 +34,10 @@ func TestNewRepo(t *testing.T) {
 	}
 
 	factory := NewRepositoryFactory("nobody")
-	repo, err := factory.CreateRepo(cfg)
+	repo, err := factory.CreateBrokerRepo(cfg)
+	assert.Nil(t, err)
+	assert.NotNil(t, repo)
+	repo, err = factory.CreateStorageRepo(cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, repo)
 }

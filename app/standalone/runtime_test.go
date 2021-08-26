@@ -33,26 +33,29 @@ import (
 )
 
 var testPath = "./test_data"
-var defaultStandaloneConfig = config.Standalone{
-	StorageBase: *config.NewDefaultStorageBase(),
-	BrokerBase:  *config.NewDefaultBrokerBase(),
-	Logging:     *config.NewDefaultLogging(),
-	ETCD:        *config.NewDefaultETCD(),
-	Monitor:     *config.NewDefaultMonitor(),
-}
 
-func init() {
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
-	defaultStandaloneConfig.StorageBase.Indicator = 1
+func newDefaultStandaloneConfig() config.Standalone {
+	saCfg := config.Standalone{
+		Query:       *config.NewDefaultQuery(),
+		Coordinator: *config.NewDefaultCoordinator(),
+		StorageBase: *config.NewDefaultStorageBase(),
+		BrokerBase:  *config.NewDefaultBrokerBase(),
+		Logging:     *config.NewDefaultLogging(),
+		ETCD:        *config.NewDefaultETCD(),
+		Monitor:     *config.NewDefaultMonitor(),
+	}
+	saCfg.StorageBase.TSDB.Dir = testPath
+	saCfg.StorageBase.GRPC.Port = 3901
+	saCfg.StorageBase.Indicator = 1
+	return saCfg
 }
 
 func TestRuntime_Run(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
-	cfg := defaultStandaloneConfig
-	cfg.StorageBase.TSDB.Dir = testPath
+	cfg := newDefaultStandaloneConfig()
+	cfg.StorageBase.GRPC.Port = 3901
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	s.delayInit = 100 * time.Millisecond
@@ -71,9 +74,9 @@ func TestRuntime_RunWithoutPusher(t *testing.T) {
 	defer func() {
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3901
-	cfg := defaultStandaloneConfig
-	cfg.StorageBase.TSDB.Dir = testPath
+	cfg := newDefaultStandaloneConfig()
+
+	cfg.StorageBase.GRPC.Port = 3901
 	cfg.Monitor.ReportInterval = ltoml.Duration(0)
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
@@ -90,9 +93,8 @@ func TestRuntime_Run_Err(t *testing.T) {
 		_ = fileutil.RemoveDir(testPath)
 	}()
 
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3902
-	cfg := defaultStandaloneConfig
-	cfg.StorageBase.TSDB.Dir = testPath
+	cfg := newDefaultStandaloneConfig()
+	cfg.StorageBase.GRPC.Port = 3902
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
@@ -115,8 +117,8 @@ func TestRuntime_runServer(t *testing.T) {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3903
-	cfg := defaultStandaloneConfig
+	cfg := newDefaultStandaloneConfig()
+	cfg.StorageBase.GRPC.Port = 3903
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	storage := server.NewMockService(ctrl)
@@ -138,20 +140,20 @@ func TestRuntime_cleanupState(t *testing.T) {
 		ctrl.Finish()
 		_ = fileutil.RemoveDir(testPath)
 	}()
-	defaultStandaloneConfig.StorageBase.GRPC.Port = 3904
-	cfg := defaultStandaloneConfig
-	cfg.StorageBase.TSDB.Dir = testPath
+	cfg := newDefaultStandaloneConfig()
+	cfg.StorageBase.GRPC.Port = 3904
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
-	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := standalone.Run()
 	assert.Error(t, err)
 	s.Stop()
 
 	repo := state.NewMockRepository(ctrl)
-	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo, nil)
+	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil).AnyTimes()
+	repoFactory.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil).AnyTimes()
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
 	err = s.cleanupState()

@@ -108,25 +108,17 @@ func Test_checkBrokerBaseCfg(t *testing.T) {
 	assert.Error(t, checkBrokerBaseCfg(emptyBrokerBase))
 
 	// grpc failure
-	brokerCfg1 := &BrokerBase{Coordinator: RepoState{
-		Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-	}}
+	brokerCfg1 := &BrokerBase{}
 	assert.Error(t, checkBrokerBaseCfg(brokerCfg1))
 
 	// http port failure
 	brokerCfg2 := &BrokerBase{
-		Coordinator: RepoState{
-			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-		},
 		GRPC: GRPC{Port: 2379},
 	}
 	assert.Error(t, checkBrokerBaseCfg(brokerCfg2))
 
 	// ok
 	brokerCfg3 := &BrokerBase{
-		Coordinator: RepoState{
-			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-		},
 		GRPC: GRPC{Port: 2379},
 		HTTP: HTTP{Port: 9000},
 	}
@@ -142,34 +134,23 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.Error(t, checkStorageBaseCfg(emptyStorageBase))
 
 	// grpc failure
-	storageCfg1 := &StorageBase{Coordinator: RepoState{
-		Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-	}}
+	storageCfg1 := &StorageBase{}
 	assert.Error(t, checkStorageBaseCfg(storageCfg1))
 
 	// http port failure
 	storageCfg2 := &StorageBase{
-		Coordinator: RepoState{
-			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-		},
 		GRPC: GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg2))
 
 	// tsdb error
 	storageCfg3 := &StorageBase{
-		Coordinator: RepoState{
-			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-		},
 		GRPC: GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg3))
 
 	// ok
 	storageCfg4 := &StorageBase{
-		Coordinator: RepoState{
-			Namespace: "111", Endpoints: []string{"http://localhost:2379"},
-		},
 		GRPC: GRPC{Port: 2379},
 		TSDB: TSDB{Dir: "/tmp/lindb"},
 	}

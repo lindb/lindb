@@ -52,12 +52,12 @@ var cfg = config.Broker{
 	Monitor: config.Monitor{
 		ReportInterval: ltoml.Duration(10 * time.Second),
 	},
+	Coordinator: config.RepoState{
+		Namespace: "/test/",
+	},
 	BrokerBase: config.BrokerBase{
 		HTTP: config.HTTP{
 			Port: 9999,
-		},
-		Coordinator: config.RepoState{
-			Namespace: "/test/broker",
 		},
 		GRPC: config.GRPC{
 			Port: 2881,
@@ -75,8 +75,8 @@ var cfg = config.Broker{
 	}}
 
 func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	cfg.BrokerBase.Coordinator.Endpoints = ts.Cluster.Endpoints
-	cfg.BrokerBase.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
+	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
+	cfg.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
 
 	broker := NewBrokerRuntime("test-version", &cfg)
 	err := broker.Run()
@@ -143,14 +143,14 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	b := broker.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	b.repoFactory = repoFactory
-	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := broker.Run()
 	assert.Error(ts.t, err)
 	broker.Stop()
 
 	repo := state.NewMockRepository(ctrl)
 	repo.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
-	repoFactory.EXPECT().CreateRepo(gomock.Any()).Return(repo, nil).AnyTimes()
+	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil).AnyTimes()
 
 	broker = NewBrokerRuntime("test-version", &cfg)
 	b = broker.(*runtime)

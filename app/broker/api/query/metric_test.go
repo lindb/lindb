@@ -47,7 +47,7 @@ func TestMetricAPI_Search(t *testing.T) {
 	queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 
 	api := NewMetricAPI(&deps.HTTPDeps{
-		BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
+		BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		StateMgr:     stateMgr,
 		QueryFactory: queryFactory,
 	})
@@ -67,7 +67,7 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 	stateMgr := broker.NewMockStateManager(ctrl)
 
 	api := NewMetricAPI(&deps.HTTPDeps{
-		BrokerCfg:    &config.BrokerBase{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
+		BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		QueryFactory: queryFactory,
 		StateMgr:     stateMgr,
 	})

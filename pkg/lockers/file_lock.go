@@ -46,7 +46,7 @@ type fileLock struct {
 func NewFileLock(fileName string) FileLock {
 	return &fileLock{
 		fileName: fileName,
-		logger:   logger.GetLogger("pkg/lockers", fmt.Sprintf("FileLock(%s)", fileName)),
+		logger:   logger.GetLogger("lockers", "FileLock"),
 	}
 }
 
@@ -69,14 +69,14 @@ func (l *fileLock) Lock() error {
 func (l *fileLock) Unlock() error {
 	defer func() {
 		if err := os.Remove(l.fileName); nil != err {
-			l.logger.Error("remove file lock error", logger.Error(err))
+			l.logger.Error("remove file lock error", logger.String("file", l.fileName), logger.Error(err))
 		}
-		l.logger.Info("remove file lock successfully")
+		l.logger.Info("remove file lock successfully", logger.String("file", l.fileName))
 	}()
 
 	defer func() {
 		if err := l.file.Close(); nil != err {
-			l.logger.Error("close file lock error", logger.Error(err))
+			l.logger.Error("close file lock error", logger.String("file", l.fileName), logger.Error(err))
 		}
 	}()
 	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
