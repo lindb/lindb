@@ -30,6 +30,7 @@ import (
 type RepoState struct {
 	Namespace   string         `toml:"namespace" json:"namespace"`
 	Endpoints   []string       `toml:"endpoints" json:"endpoints"`
+	LeaseTTL    int64          `toml:"lease-ttl" json:"leaseTTL"`
 	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
 	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
 	Username    string         `toml:"username" json:"username"`
@@ -51,23 +52,29 @@ func (rs *RepoState) WithSubNamespace(subDir string) RepoState {
 func (rs *RepoState) TOML() string {
 	coordinatorEndpoints, _ := json.Marshal(rs.Endpoints)
 	return fmt.Sprintf(`[coordinator]
-	## Coordinator coordinates reads/writes operations between different nodes
-	## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
-	namespace = "%s"
-	## Endpoints config list of ETCD cluster
-	endpoints = %s
-	## Timeout is the timeout for failing to executing a etcd command.
-	## Default: 5s
-	timeout = "%s"
-	## DialTimeout is the timeout for failing to establish a etcd connection.
-	## Default: 5s
-	dial-timeout = "%s"
-	## Username is a user name for etcd authentication.
-	username = "%s"
-	## Password is a password for etcd authentication.
-	password = "%s"`,
+    ## Coordinator coordinates reads/writes operations between different nodes
+    ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
+    namespace = "%s"
+    ## Endpoints config list of ETCD cluster
+    endpoints = %s
+    ## Lease-TTL is a number in seconds.
+    ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
+    ## lease expiration will cause a re-elect.
+    ## Min: 5； Default: 10
+    lease-ttl = %d
+    ## Timeout is the timeout for failing to executing a etcd command.
+    ## Default: 5s
+    timeout = "%s"
+    ## DialTimeout is the timeout for failing to establish a etcd connection.
+    ## Default: 5s
+    dial-timeout = "%s"
+    ## Username is a user name for etcd authentication.
+    username = "%s"
+    ## Password is a password for etcd authentication.
+    password = "%s"`,
 		rs.Namespace,
 		coordinatorEndpoints,
+		rs.LeaseTTL,
 		rs.Timeout.String(),
 		rs.DialTimeout.String(),
 		rs.Username,
@@ -79,6 +86,7 @@ func NewDefaultCoordinator() *RepoState {
 	return &RepoState{
 		Namespace:   "/lindb-cluster",
 		Endpoints:   []string{"http://localhost:2379"},
+		LeaseTTL:    10,
 		Timeout:     ltoml.Duration(time.Second * 5),
 		DialTimeout: ltoml.Duration(time.Second * 5),
 	}
@@ -94,15 +102,15 @@ type GRPC struct {
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
-	port = %d
-	## Default: 1s
-	ttl = "%s"
-	## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-	## Default: 30
-	max-concurrent-streams = %d
-	## connect-timeout sets the timeout for connection establishment.
-	## Default: 3s
-	connect-timeout = "%s"`,
+    port = %d
+    ## Default: 1s
+    ttl = "%s"
+    ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
+    ## Default: 30
+    max-concurrent-streams = %d
+    ## connect-timeout sets the timeout for connection establishment.
+    ## Default: 3s
+    connect-timeout = "%s"`,
 		g.Port,
 		g.TTL.String(),
 		g.MaxConcurrentStreams,
@@ -125,15 +133,15 @@ type Query struct {
 
 func (q *Query) TOML() string {
 	return fmt.Sprintf(`[query]
-	## Number of queries allowed to execute concurrently
-	## Default: 30
-	query-concurrency = %d
-	## Idle worker will be canceled in this duration
-	## Default: 5s
-	idle-timeout = "%s"
-	## Maximum timeout threshold for query.
-	## Default: 5s
-	timeout = "%s"`,
+    ## Number of queries allowed to execute concurrently
+    ## Default: 30
+    query-concurrency = %d
+    ## Idle worker will be canceled in this duration
+    ## Default: 5s
+    idle-timeout = "%s"
+    ## Maximum timeout threshold for query.
+    ## Default: 5s
+    timeout = "%s"`,
 		q.QueryConcurrency,
 		q.IdleTimeout,
 		q.Timeout,
@@ -151,6 +159,9 @@ func NewDefaultQuery() *Query {
 func checkCoordinatorCfg(state *RepoState) error {
 	if state.Namespace == "" {
 		return fmt.Errorf("namespace cannot be empty")
+	}
+	if state.LeaseTTL < 5 {
+		state.LeaseTTL = 5
 	}
 	if len(state.Endpoints) == 0 {
 		return fmt.Errorf("endpoints cannot be empty")

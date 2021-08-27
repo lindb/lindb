@@ -160,26 +160,26 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 
 // handleTaskResponse handles task response loop, if stream closed exist loop
 func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
-	var sequence int32 = 0
+	var attempt int32 = 0
 	for client.running.Load() {
 		if !client.ready.Load() {
-			sequence++
+			attempt++
 			log.Info("initializing task client",
 				logger.String("target", client.targetID),
-				logger.Int32("sequence", sequence),
+				logger.Int32("attempt", attempt),
 			)
 			if err := f.initTaskClient(client); err != nil {
 				log.Error("failed to initialize task client",
 					logger.Error(err),
 					logger.String("target", client.targetID),
-					logger.Int32("sequence", sequence),
+					logger.Int32("attempt", attempt),
 				)
 				time.Sleep(time.Second)
 				continue
 			} else {
 				log.Info("initialized task client successfully",
 					logger.String("target", client.targetID),
-					logger.Int32("sequence", sequence))
+					logger.Int32("attempt", attempt))
 				client.ready.Store(true)
 			}
 		}
