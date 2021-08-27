@@ -258,6 +258,9 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 }
 
 func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
+	if storageBaseCfg.Indicator <= 0 {
+		return fmt.Errorf("indicator must > 0")
+	}
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err
 	}

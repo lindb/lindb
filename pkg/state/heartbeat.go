@@ -82,7 +82,6 @@ func (h *heartbeat) grantKeepAliveLease(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	response.Responses[0].GetResponse()
 	if response.Succeeded {
 		h.keepaliveCh, err = h.client.KeepAlive(ctx, resp.ID)
 	}
@@ -125,7 +124,7 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 	}
 }
 
-// handleAliveResp handles keepalive response, if keepalive closed or ctx canceled return keep liave stopped error
+// handleAliveResp handles keepalive response, if keepalive closed or ctx canceled return keep alive stopped error
 func (h *heartbeat) handleAliveResp(ctx context.Context) error {
 	select {
 	case aliveResp := <-h.keepaliveCh:

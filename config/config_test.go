@@ -134,25 +134,28 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.Error(t, checkStorageBaseCfg(emptyStorageBase))
 
 	// grpc failure
-	storageCfg1 := &StorageBase{}
+	storageCfg1 := &StorageBase{Indicator: 1}
 	assert.Error(t, checkStorageBaseCfg(storageCfg1))
 
 	// http port failure
 	storageCfg2 := &StorageBase{
-		GRPC: GRPC{Port: 2379},
+		Indicator: 1,
+		GRPC:      GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg2))
 
 	// tsdb error
 	storageCfg3 := &StorageBase{
-		GRPC: GRPC{Port: 2379},
+		Indicator: 1,
+		GRPC:      GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg3))
 
 	// ok
 	storageCfg4 := &StorageBase{
-		GRPC: GRPC{Port: 2379},
-		TSDB: TSDB{Dir: "/tmp/lindb"},
+		Indicator: 1,
+		GRPC:      GRPC{Port: 2379},
+		TSDB:      TSDB{Dir: "/tmp/lindb"},
 	}
 	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
 	assert.NotZero(t, storageCfg4.TSDB.BatchWriteSize)
@@ -169,6 +172,15 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.NotZero(t, storageCfg4.TSDB.MaxTagKeysNumber)
 }
 
-func Test_LoadAndSetBrokerConfig(t *testing.T) {
+func Test_checkCoordinatorCfg(t *testing.T) {
+	var repo RepoState
+	assert.Error(t, checkCoordinatorCfg(&repo))
 
+	repo = RepoState{Namespace: "/1"}
+	assert.Error(t, checkCoordinatorCfg(&repo))
+
+	repo = RepoState{Namespace: "/1", Endpoints: []string{"http://localhost:2379"}}
+	assert.NoError(t, checkCoordinatorCfg(&repo))
+
+	assert.Equal(t, "/1/2", repo.WithSubNamespace("2").Namespace)
 }

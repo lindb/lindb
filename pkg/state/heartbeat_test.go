@@ -46,22 +46,33 @@ func (ts *testHeartbeatSuite) TestHeartBeat_keepalive_stop(c *check.C) {
 		c.Fatal(err)
 	}
 	key := "/test/heartbeat"
-	heartbeat := newHeartbeat(cli, key, []byte("value"), 0, false)
+	heartbeat := newHeartbeat(cli, key, []byte("value"), 1, true)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	ok, err := heartbeat.grantKeepAliveLease(ctx)
 	c.Assert(ok, check.Equals, true)
 	if err != nil {
 		c.Fatal(err)
 	}
-	go func() {
-		heartbeat.keepAlive(ctx)
-	}()
 
 	_, err = cli.Get(ctx, key)
 	if err != nil {
 		c.Fatal(err)
 	}
+	// close heartbeat
+	cancel()
+
+	// next term, exist
+	heartbeat = newHeartbeat(cli, key, []byte("value"), 1, true)
+	ctx, cancel = context.WithCancel(context.Background())
+	ok, _ = heartbeat.grantKeepAliveLease(ctx)
+	c.Assert(ok, check.Equals, false)
+
+	// assert lease expired
+	time.Sleep(time.Second * 2)
+	ok, _ = heartbeat.grantKeepAliveLease(ctx)
+	c.Assert(ok, check.Equals, true)
+
+	cancel()
+
 	_ = cli.Close()
-	time.Sleep(time.Second)
 }
