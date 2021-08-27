@@ -19,6 +19,7 @@ package encoding
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,19 +30,18 @@ import (
 var f = flushFunc
 
 func TestCodec(t *testing.T) {
-	encoder := NewTSDEncoder(10)
+	encoder := GetTSDEncoder(10)
+	defer ReleaseTSDEncoder(encoder)
 	data, err := encoder.Bytes()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 	encoder.Reset()
+	encoder.RestWithStartTime(10)
 
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(uint64(10))
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(uint64(100))
-	encoder.AppendTime(bit.Zero)
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(uint64(50))
+	encoder.EmitDownSamplingValue(0, math.Float64frombits(10))
+	encoder.EmitDownSamplingValue(1, math.Float64frombits(100))
+	encoder.EmitDownSamplingValue(2, math.Inf(1))
+	encoder.EmitDownSamplingValue(3, math.Float64frombits(50))
 
 	data, err = encoder.Bytes()
 	assert.Nil(t, err)
@@ -94,6 +94,9 @@ func TestCodec(t *testing.T) {
 	encoder.Reset()
 	data, _ = encoder.Bytes()
 	assert.Len(t, data, 4)
+
+	decoder.Reset(nil)
+	assert.Error(t, decoder.Error())
 }
 
 func TestTsdEncoder_Err(t *testing.T) {
@@ -101,9 +104,8 @@ func TestTsdEncoder_Err(t *testing.T) {
 		flushFunc = f
 	}()
 	encoder := NewTSDEncoder(10)
-	e := encoder.(*tsdEncoder)
 	// case 1: encode with err
-	e.err = fmt.Errorf("err")
+	encoder.err = fmt.Errorf("err")
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(uint64(10))
 	data, err := encoder.Bytes()
