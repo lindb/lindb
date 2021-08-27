@@ -265,7 +265,7 @@ func (db *indexDatabase) checkSync() {
 			}
 		case <-db.ctx.Done():
 			ticker.Stop()
-			indexLogger.Info("check series event update goroutine exit...", logger.String("db", db.path))
+			indexLogger.Info("received ctx.Done(), stopped checkSync", logger.String("db", db.path))
 			return
 		}
 	}

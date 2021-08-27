@@ -54,12 +54,14 @@ const (
 // fStoreINTF represents field-store,
 // which abstracts a store for storing field data based on family start time + field id
 type fStoreINTF interface {
+	// Capacity returns the size usage
+	Capacity() int
 	// GetFieldID returns the field id of metric level
 	GetFieldID() field.ID
-	// Write writes the field data into current buffer, returns the written size.
+	// Write writes the field data into current buffer
 	// if time slot out of current time window, need compress time window then resets the current buffer
 	// if has same time slot in current buffer, need do rollup operation by field type
-	Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int)
+	Write(fieldType field.Type, slotIndex uint16, value float64)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
 	// Load loads field series data.
@@ -85,23 +87,21 @@ func (fs *fieldStore) GetFieldID() field.ID {
 	return field.ID(stream.ReadUint16(fs.buf, fieldOffset))
 }
 
-// Write writes the field data into current buffer, returns the written size.
-// if time slot out of current time window, need compress time window then resets the current buffer
-// if has same time slot in current buffer, need do rollup operation by field type
-func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float64) (writtenSize int) {
+func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float64) {
 	if fs.buf[markOffset+1] == 0 {
 		// no data written before
-		return fs.writeFirstPoint(slotIndex, value)
+		fs.writeFirstPoint(slotIndex, value)
+		return
 	}
 
 	startTime := fs.getStart()
 	if slotIndex < startTime || slotIndex > startTime+fs.timeWindow()-1 {
 		// if current slot time out of current time window, need compress block data, start new time window
-		writtenSize = fs.compact(fieldType, startTime)
+		fs.compact(fieldType, startTime)
 
 		// write first point after compact
-		writtenSize += fs.writeFirstPoint(slotIndex, value)
-		return writtenSize
+		fs.writeFirstPoint(slotIndex, value)
+		return
 	}
 
 	// write data in current write buffer
@@ -116,25 +116,22 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 		// new data for time slot
 		fs.buf[endOffset] = byte(delta)
 		fs.buf[markOffset+markIdx] |= flagIdx // mark value exist
-		writtenSize += valueSize
 	}
 	// finally write value into the body of current write buffer
 	binary.LittleEndian.PutUint64(fs.buf[pos:], math.Float64bits(value))
-	return writtenSize
 }
 
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
 	aggFunc := fieldMeta.Type.GetAggFunc()
 	var tsd *encoding.TSDDecoder
-	size := len(fs.compress)
-	if size > 0 {
+	if len(fs.compress) > 0 {
 		// calc new start/end based on old compress values
 		tsd = encoding.GetTSDDecoder()
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.SlotRange, false)
+	data, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
 		return
@@ -144,14 +141,13 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 }
 
 // writeFirstPoint writes first point in current write buffer
-func (fs *fieldStore) writeFirstPoint(slotIndex uint16, value float64) (writtenSize int) {
+func (fs *fieldStore) writeFirstPoint(slotIndex uint16, value float64) {
 	pos, markIdx, flagIdx := fs.position(0)
 	binary.LittleEndian.PutUint16(fs.buf[startOffset:], slotIndex) // write start time
 	fs.buf[endOffset] = 0
 	fs.buf[markOffset+markIdx] |= flagIdx // mark value exist
 	fs.buf[markOffset+1] |= 1             // last mark flag marks if buf has data written
 	binary.LittleEndian.PutUint64(fs.buf[pos:], math.Float64bits(value))
-	return valueSize + headLen
 }
 
 // timeWindow returns the time window of current write buffer
@@ -165,9 +161,14 @@ func (fs *fieldStore) resetBuf() {
 	fs.buf[markOffset+1] = 0
 }
 
+func (fs *fieldStore) Capacity() int {
+	// notice: do not use cap as it's a allocated page
+	return len(fs.compress) + len(fs.buf) + emptyFieldStoreSize
+}
+
 // compact compacts the current write buffer,
 // new compress operation will be executed when it's necessary
-func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int) {
+func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	length := len(fs.compress)
 	thisSlotRange := fs.slotRange(startTime)
 
@@ -179,7 +180,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int)
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, freeSize, err := fs.merge(aggFunc, tsd, startTime, thisSlotRange, true)
+	data, err := fs.merge(aggFunc, tsd, startTime, thisSlotRange, true)
 	if err != nil {
 		memDBLogger.Error("compact field store data err", logger.Error(err))
 	}
@@ -187,7 +188,6 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) (size int)
 	fs.compress = data
 	// !!!!! IMPORTANT: need reset current write buffer
 	fs.resetBuf()
-	return len(fs.compress) - length - freeSize
 }
 
 // position returns the point write position/mark index/flag index
@@ -217,7 +217,7 @@ func (fs *fieldStore) merge(
 	startTime uint16,
 	thisSlotRange timeutil.SlotRange,
 	withTimeRange bool,
-) (compress []byte, freeSize int, err error) {
+) (compress []byte, err error) {
 	encode := encoding.TSDEncodeFunc(thisSlotRange.Start)
 	for i := thisSlotRange.Start; i <= thisSlotRange.End; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
@@ -239,24 +239,20 @@ func (fs *fieldStore) merge(
 			// append empty value
 			encode.AppendTime(bit.Zero)
 		}
-		// if has value calc the free size
-		if hasNewValue {
-			freeSize += valueSize
-		}
 	}
 	if withTimeRange {
 		compress, err = encode.Bytes()
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
-		return compress, freeSize, err
+		return compress, err
 	}
 	// get compress data without time slot range
 	compress, err = encode.BytesWithoutTime()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return compress, freeSize, err
+	return compress, err
 }
 
 // Load loads field series data.
@@ -270,7 +266,7 @@ func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) [
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, _, err := fs.merge(aggFunc, tsd, fs.getStart(), slotRange, false)
+	data, err := fs.merge(aggFunc, tsd, fs.getStart(), slotRange, false)
 	if err != nil {
 		memDBLogger.Error("load field store err", logger.Error(err))
 		return nil

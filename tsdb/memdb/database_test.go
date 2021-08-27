@@ -87,8 +87,11 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// mock
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
+	tStore.EXPECT().Capacity().Return(100).AnyTimes()
 	fStore := NewMockfStoreINTF(ctrl)
-	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
+	fStore.EXPECT().Capacity().Return(100).AnyTimes()
+	mockMStore.EXPECT().Capacity().Return(100).AnyTimes()
+	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, false).AnyTimes()
 	// build memory-database
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
@@ -100,7 +103,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// case 1: write ok
 	gomock.InOrder(
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(fStore, true),
-		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(10),
+		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()).Times(1),
 	)
 	err = md.Write(&MetricPoint{
@@ -210,8 +213,10 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 
 	// mock
 	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().Capacity().Return(100).AnyTimes()
 	tStore := NewMocktStoreINTF(ctrl)
-	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, 10).AnyTimes()
+	tStore.EXPECT().Capacity().Return(100).AnyTimes()
+	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, false).AnyTimes()
 	// build memory-database
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
