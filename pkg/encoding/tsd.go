@@ -29,19 +29,20 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./tsd.go -destination=./tsd_mock.go -package encoding
-
 // for testing
 var (
-	TSDEncodeFunc = NewTSDEncoder
+	TSDEncodeFunc = GetTSDEncoder
 	flushFunc     = flush
 )
 
-var decoderPool = sync.Pool{
-	New: func() interface{} {
-		return NewTSDDecoder(nil)
-	},
-}
+var (
+	decoderPool = sync.Pool{
+		New: func() interface{} {
+			return NewTSDDecoder(nil)
+		},
+	}
+	encoderPool = sync.Pool{}
+)
 
 func GetTSDDecoder() *TSDDecoder {
 	decoder := decoderPool.Get()
@@ -54,25 +55,24 @@ func ReleaseTSDDecoder(decoder *TSDDecoder) {
 	}
 }
 
-// TSDEncoder encodes time series data point
-type TSDEncoder interface {
-	// EmitDownSamplingValue appends the value after downsampling
-	// Inf value symbols a empty value to omit
-	EmitDownSamplingValue(pos int, value float64)
-	// AppendTime appends time slot, marks time slot if has data point
-	AppendTime(slot bit.Bit)
-	// AppendValue appends data point value
-	AppendValue(value uint64)
-	// Reset resets the underlying bytes.Buffer
-	Reset()
-	// Bytes returns binary which compress time series data point
-	Bytes() ([]byte, error)
-	// BytesWithoutTime returns binary which compress time series data point without time slot range
-	BytesWithoutTime() ([]byte, error)
+func GetTSDEncoder(startTime uint16) *TSDEncoder {
+	encoderIntf := encoderPool.Get()
+	if encoderIntf == nil {
+		return NewTSDEncoder(startTime)
+	}
+	encoder := encoderIntf.(*TSDEncoder)
+	encoder.RestWithStartTime(startTime)
+	return encoder
+}
+
+func ReleaseTSDEncoder(encoder *TSDEncoder) {
+	if encoder != nil {
+		encoderPool.Put(encoder)
+	}
 }
 
 // TSDEncoder encodes time series data point
-type tsdEncoder struct {
+type TSDEncoder struct {
 	startTime uint16
 	bitBuffer bytes.Buffer
 	bitWriter *bit.Writer
@@ -82,21 +82,31 @@ type tsdEncoder struct {
 }
 
 // NewTSDEncoder creates tsd encoder instance
-func NewTSDEncoder(startTime uint16) TSDEncoder {
-	e := &tsdEncoder{startTime: startTime}
+func NewTSDEncoder(startTime uint16) *TSDEncoder {
+	e := &TSDEncoder{startTime: startTime}
 	e.bitWriter = bit.NewWriter(&e.bitBuffer)
 	e.values = NewXOREncoder(e.bitWriter)
 	return e
 }
 
 // Reset resets the underlying bytes.Buffer
-func (e *tsdEncoder) Reset() {
+func (e *TSDEncoder) Reset() {
 	e.bitBuffer.Reset()
 	e.bitWriter.Reset(&e.bitBuffer)
 	e.values.Reset()
 }
 
-func (e *tsdEncoder) EmitDownSamplingValue(pos int, value float64) {
+// RestWithStartTime resets the buffer and slot info
+func (e *TSDEncoder) RestWithStartTime(startTime uint16) {
+	e.startTime = startTime
+	e.count = 0
+	e.err = nil
+	e.Reset()
+}
+
+// EmitDownSamplingValue appends the value after downsampling
+// Inf value symbols a empty value to omit
+func (e *TSDEncoder) EmitDownSamplingValue(pos int, value float64) {
 	_ = pos
 	if math.IsInf(value, 1) {
 		e.AppendTime(bit.Zero)
@@ -107,7 +117,7 @@ func (e *tsdEncoder) EmitDownSamplingValue(pos int, value float64) {
 }
 
 // AppendTime appends time slot, marks time slot if has data point
-func (e *tsdEncoder) AppendTime(slot bit.Bit) {
+func (e *TSDEncoder) AppendTime(slot bit.Bit) {
 	if e.err != nil {
 		return
 	}
@@ -116,7 +126,7 @@ func (e *tsdEncoder) AppendTime(slot bit.Bit) {
 }
 
 // AppendValue appends data point value
-func (e *tsdEncoder) AppendValue(value uint64) {
+func (e *TSDEncoder) AppendValue(value uint64) {
 	if e.err != nil {
 		return
 	}
@@ -124,7 +134,7 @@ func (e *tsdEncoder) AppendValue(value uint64) {
 }
 
 // Bytes returns binary which compress time series data point
-func (e *tsdEncoder) Bytes() ([]byte, error) {
+func (e *TSDEncoder) Bytes() ([]byte, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
@@ -145,7 +155,7 @@ func (e *tsdEncoder) Bytes() ([]byte, error) {
 }
 
 // BytesWithoutTime returns binary which compress time series data point without time slot range
-func (e *tsdEncoder) BytesWithoutTime() ([]byte, error) {
+func (e *TSDEncoder) BytesWithoutTime() ([]byte, error) {
 	if e.err != nil {
 		return nil, e.err
 	}

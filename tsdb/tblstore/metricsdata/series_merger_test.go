@@ -18,7 +18,6 @@
 package metricsdata
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -97,22 +96,6 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 2, c)
-	// case 3: encode stream err
-	encodeStream2 := encoding.NewMockTSDEncoder(ctrl)
-	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(12))
-	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
-	encodeStream2.EXPECT().EmitDownSamplingValue(gomock.Any(), gomock.Any()).AnyTimes()
-	encodeStream2.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
-	err = merger.merge(
-		&mergerContext{
-			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
-			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
-			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
-			ratio:        1,
-		}, decodeStreams, encodeStream2, readers)
-	assert.Error(t, err)
 }
 
 func TestSeriesMerger_rollup_merge(t *testing.T) {

@@ -28,7 +28,8 @@ import (
 type SeriesMerger interface {
 	// merge merges the multi fields data with same series id
 	merge(mergeCtx *mergerContext,
-		decodeStreams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
+		decodeStreams []*encoding.TSDDecoder,
+		encodeStream *encoding.TSDEncoder,
 		fieldReaders []FieldReader,
 	) error
 }
@@ -46,8 +47,10 @@ func newSeriesMerger(flusher Flusher) SeriesMerger {
 }
 
 // merge merges the multi fields data with same series id
-func (sm *seriesMerger) merge(mergeCtx *mergerContext,
-	streams []*encoding.TSDDecoder, encodeStream encoding.TSDEncoder,
+func (sm *seriesMerger) merge(
+	mergeCtx *mergerContext,
+	streams []*encoding.TSDDecoder,
+	encodeStream *encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
 	for _, f := range mergeCtx.targetFields {
