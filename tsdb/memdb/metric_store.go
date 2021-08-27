@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	"github.com/lindb/roaring"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -36,15 +37,21 @@ var (
 )
 
 const (
-	emptyMStoreSize = 8 +
-		12 + // slot and pointer
-		8 + // pointer in metricStore
-		24 // slice in metricStore
-	// keys in metricStore are ignored
+	emptyMStoreSize = 4 + // metricStore put-count
+		8 + // metric store roaring pointer
+		4 + // capacity size
+		12 // slot range pointer and struct
+	fieldMetaSize = 2 + // field id
+		1 + // field Type
+		8 + // field name, string internal pointer
+		4 // field name, string internal len size
 )
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
+	// Capacity returns the memory usage of metric-store,
+	// without tStores and FieldStores
+	Capacity() int
 	// Filter filters the data based on fields/seriesIDs/family time,
 	// if finds data then returns the flow.FilterResultSet, else returns constants.ErrNotFound
 	Filter(familyTime int64, seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
@@ -55,13 +62,15 @@ type mStoreINTF interface {
 	// AddField adds field meta into metric level
 	AddField(fieldID field.ID, fieldType field.Type)
 	// GetOrCreateTStore constructs the index and return a tStore
-	GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, createdSize int)
+	GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, created bool)
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
 	FlushMetricsDataTo(tableFlusher metricsdata.Flusher, flushCtx flushContext) (err error)
 }
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
+	capacity atomic.Int32 // memory usage
+
 	MetricStore
 
 	slotRange *timeutil.SlotRange
@@ -72,7 +81,12 @@ type metricStore struct {
 func newMetricStore() mStoreINTF {
 	var ms metricStore
 	ms.keys = roaring.New() // init keys
+	ms.capacity.Store(int32(emptyMStoreSize + cap(ms.fields)*fieldMetaSize))
 	return &ms
+}
+
+func (ms *metricStore) Capacity() int {
+	return int(ms.capacity.Load())
 }
 
 // SetSlot sets the current write timestamp
@@ -94,24 +108,40 @@ func (ms *metricStore) GetSlotRange() *timeutil.SlotRange {
 func (ms *metricStore) AddField(fieldID field.ID, fieldType field.Type) {
 	_, ok := ms.fields.GetFromID(fieldID)
 	if !ok {
+		fieldsCap := cap(ms.fields)
 		ms.fields = ms.fields.Insert(field.Meta{
 			ID:   fieldID,
 			Type: fieldType,
 		})
+		ms.capacity.Add(int32((cap(ms.fields) - fieldsCap) * fieldMetaSize))
+		if len(ms.fields) <= 1 {
+			return
+		}
 		// sort by field id
 		sort.Slice(ms.fields, func(i, j int) bool { return ms.fields[i].ID < ms.fields[j].ID })
 	}
 }
 
+func (ms *metricStore) mStoreSize() int {
+	var size int
+	size += cap(ms.MetricStore.values)*24 + 24
+	for idx := range ms.MetricStore.values {
+		size += cap(ms.MetricStore.values[idx])*8 + 24
+	}
+	return size
+}
+
 // GetOrCreateTStore constructs the index and return a tStore
-func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, createdSize int) {
+func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, created bool) {
 	tStore, ok := ms.Get(seriesID)
 	if !ok {
 		tStore = newTimeSeriesStore()
+		beforeMStoreSize := ms.mStoreSize()
 		ms.Put(seriesID, tStore)
-		createdSize += emptyTimeSeriesStoreSize + 8 // pointer size
+		ms.capacity.Add(int32(ms.mStoreSize() - beforeMStoreSize))
+		created = true
 	}
-	return tStore, createdSize
+	return tStore, created
 }
 
 // FlushMetricsDataTo Writes metric-data to the table.
