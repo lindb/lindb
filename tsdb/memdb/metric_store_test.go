@@ -34,9 +34,9 @@ func TestMetricStore_GetOrCreateTStore(t *testing.T) {
 
 	mStoreInterface := newMetricStore()
 	mStore := mStoreInterface.(*metricStore)
-	tStore, size := mStore.GetOrCreateTStore(uint32(10))
+	tStore, created := mStore.GetOrCreateTStore(uint32(10))
 	assert.NotNil(t, tStore)
-	assert.True(t, size > 0)
+	assert.True(t, created)
 	tStore2, size := mStore.GetOrCreateTStore(uint32(10))
 	assert.Zero(t, size)
 	assert.Equal(t, tStore, tStore2)

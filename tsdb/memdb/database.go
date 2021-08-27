@@ -136,14 +136,27 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 
 func (md *memoryDatabase) FamilyTime() int64 { return md.familyTime }
 
+func (md *memoryDatabase) metricBucketSize() int {
+	var size int
+	size += cap(md.mStores.values)*24 + 24
+	for idx := range md.mStores.values {
+		size += cap(md.mStores.values[idx])*8 + 24
+	}
+	return size
+}
+
 // getOrCreateMStore returns the mStore by metricHash.
 func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF) {
 	mStore, ok := md.mStores.Get(metricID)
 	if !ok {
 		// not found need create new metric store
+		beforeMetricBucketSize := md.metricBucketSize()
 		mStore = newMetricStore()
-		md.allocSize.Add(emptyMStoreSize)
+		// add metric-store size
+		md.allocSize.Add(int64(mStore.Capacity()))
+		// add metric-bucket increased
 		md.mStores.Put(metricID, mStore)
+		md.allocSize.Add(int64(md.metricBucketSize() - beforeMetricBucketSize))
 	}
 	// found metric store in current memory database
 	return
@@ -180,7 +193,13 @@ func (md *memoryDatabase) Write(point *MetricPoint) error {
 
 func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 	mStore := md.getOrCreateMStore(point.MetricID)
-	tStore, size := mStore.GetOrCreateTStore(point.SeriesID)
+	var size int
+	beforeMStoreCapacity := mStore.Capacity()
+	tStore, created := mStore.GetOrCreateTStore(point.SeriesID)
+	if created {
+		size += tStore.Capacity()
+		size += mStore.Capacity() - beforeMStoreCapacity
+	}
 	written := false
 	var fieldIDIdx = 0
 	afterWrite := func(writtenLinFieldSize int) {
@@ -224,7 +243,7 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 
 	// write histogram_min
 	if compoundField.Min > 0 {
-		writtenLinFieldSize, err := md.writeLinField(
+		writtenLinFieldSize, err = md.writeLinField(
 			point.SlotIndex, point.FieldIDs[fieldIDIdx],
 			field.MinField, compoundField.Min,
 			mStore, tStore)
@@ -235,7 +254,7 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 	}
 	// write histogram_max
 	if compoundField.Max > 0 {
-		writtenLinFieldSize, err := md.writeLinField(
+		writtenLinFieldSize, err = md.writeLinField(
 			point.SlotIndex, point.FieldIDs[fieldIDIdx],
 			field.MinField, compoundField.Max,
 			mStore, tStore)
@@ -300,12 +319,16 @@ func (md *memoryDatabase) writeLinField(
 		}
 		md.metrics.allocatedPages.Incr()
 		fStore = newFieldStore(buf, fieldID)
-		writtenSize += tStore.InsertFStore(fStore)
+		writtenSize += fStore.Capacity()
+		beforeTStoreSize := tStore.Capacity()
+		tStore.InsertFStore(fStore)
+		writtenSize += tStore.Capacity() - beforeTStoreSize
 		// if write data success, add field into metric level for cache
 		mStore.AddField(fieldID, fieldType)
 	}
-	writtenSize += fStore.Write(fieldType, slotIndex, fieldValue)
-	return writtenSize, nil
+	beforeFStoreCapacity := fStore.Capacity()
+	fStore.Write(fieldType, slotIndex, fieldValue)
+	return writtenSize + fStore.Capacity() - beforeFStoreCapacity, nil
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder.

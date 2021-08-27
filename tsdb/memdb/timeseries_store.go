@@ -31,10 +31,12 @@ const emptyTimeSeriesStoreSize = 24 // fStores slice
 
 // tStoreINTF abstracts a time-series store
 type tStoreINTF interface {
+	// Capacity returns the size of tStoreINTF without fields
+	Capacity() int
 	// GetFStore returns the fStore in field list by field id.
 	GetFStore(fieldID field.ID) (fStoreINTF, bool)
 	// InsertFStore inserts a new fStore to field list.
-	InsertFStore(fStore fStoreINTF) (createdSize int)
+	InsertFStore(fStore fStoreINTF)
 	// FlushSeriesTo flushes the series data segment.
 	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
 	// load loads the time series data based on field ids
@@ -66,7 +68,15 @@ func (ts *timeSeriesStore) GetFStore(fieldID field.ID) (fStoreINTF, bool) {
 			return nil, false
 		}
 		return ts.fStoreNodes[0], true
-
+	}
+	// fast path
+	if fieldLength < 20 {
+		for idx := range ts.fStoreNodes {
+			if ts.fStoreNodes[idx].GetFieldID() == fieldID {
+				return ts.fStoreNodes[idx], true
+			}
+		}
+		return nil, false
 	}
 	idx := sort.Search(fieldLength, func(i int) bool {
 		return ts.fStoreNodes[i].GetFieldID() >= fieldID
@@ -77,16 +87,16 @@ func (ts *timeSeriesStore) GetFStore(fieldID field.ID) (fStoreINTF, bool) {
 	return ts.fStoreNodes[idx], true
 }
 
+func (ts *timeSeriesStore) Capacity() int {
+	return emptyTimeSeriesStoreSize + 8*cap(ts.fStoreNodes)
+}
+
 // InsertFStore inserts a new fStore to field list.
-func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) (createdSize int) {
-	createdSize = emptyFieldStoreSize + 8
-	if ts.fStoreNodes == nil {
-		ts.fStoreNodes = []fStoreINTF{fStore}
-		return
-	}
+func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
 	ts.fStoreNodes = append(ts.fStoreNodes, fStore)
-	sort.Sort(ts.fStoreNodes)
-	return createdSize
+	if len(ts.fStoreNodes) > 1 {
+		sort.Sort(ts.fStoreNodes)
+	}
 }
 
 // FlushSeriesTo flushes the series data segment.
