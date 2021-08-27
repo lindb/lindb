@@ -18,19 +18,14 @@
 package aggregation
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
-
-var encodeFunc = encoding.NewTSDEncoder
 
 func TestFieldIterator(t *testing.T) {
 	it := newFieldIterator(20, []field.AggType{field.Sum}, []*collections.FloatArray{generateFloatArray(nil)})
@@ -72,25 +67,4 @@ func TestFieldIterator_MarshalBinary(t *testing.T) {
 	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
 	AssertFieldIt(t, fIt, expect)
 	assert.False(t, fIt.HasNext())
-}
-
-func TestFieldIterator_MarshalBinary_err(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		encoding.TSDEncodeFunc = encodeFunc
-		ctrl.Finish()
-	}()
-	encoder := encoding.NewMockTSDEncoder(ctrl)
-	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
-		return encoder
-	}
-	floatArray := collections.NewFloatArray(5)
-	floatArray.SetValue(2, 10.0)
-	encoder.EXPECT().AppendTime(gomock.Any()).AnyTimes()
-	encoder.EXPECT().AppendValue(gomock.Any()).AnyTimes()
-	encoder.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
-	it := newFieldIterator(10, []field.AggType{field.Sum}, []*collections.FloatArray{floatArray})
-	data, err := it.MarshalBinary()
-	assert.Error(t, err)
-	assert.Nil(t, data)
 }

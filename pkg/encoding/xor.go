@@ -50,7 +50,7 @@ func NewXOREncoder(bw *bit.Writer) *XOREncoder {
 
 func (e *XOREncoder) Reset() {
 	e.previousVal = 0
-	e.leading = int(^uint8(0))
+	e.leading = 0
 	e.trailing = 0
 	e.first = true
 	e.err = nil

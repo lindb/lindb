@@ -18,7 +18,6 @@
 package memdb
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -166,11 +165,6 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	encode := encoding.NewMockTSDEncoder(ctrl)
-	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
-		return encode
-	}
-
 	buf := make([]byte, pageSize)
 	store := newFieldStore(buf, field.ID(1))
 	assert.NotNil(t, store)
@@ -178,19 +172,15 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 
 	store.Write(field.SumField, 10, 10.1)
 	assert.NotZero(t, store.Capacity())
-	// test compress err
-	encode.EXPECT().AppendTime(gomock.Any())
-	encode.EXPECT().AppendValue(gomock.Any())
-	encode.EXPECT().Bytes().Return(nil, fmt.Errorf("err"))
 	capacity := store.Capacity()
 	store.Write(field.SumField, 100, 100.1)
-	assert.Zero(t, store.Capacity()-capacity)
+	assert.Equal(t, 13, store.Capacity()-capacity)
 	value, ok := s.getCurrentValue(100, 100)
 	assert.True(t, ok)
 	assert.InDelta(t, 100.1, value, 0)
 	assert.Equal(t, uint16(0), s.getEnd())
 	// compress data is nil
-	assert.Nil(t, s.compress)
+	assert.NotNil(t, s.compress)
 }
 
 func TestFieldStore_FlushFieldTo(t *testing.T) {
@@ -210,15 +200,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	assert.NotNil(t, store)
 	// case 1: flush success
 	flusher.EXPECT().FlushField(mockFlushData())
-	store.FlushFieldTo(flusher, field.Meta{Type: field.SumField}, flushContext{SlotRange: timeutil.SlotRange{Start: 2, End: 20}})
-	// case 3: flush err
-	encode := encoding.NewMockTSDEncoder(ctrl)
-	encoding.TSDEncodeFunc = func(startTime uint16) encoding.TSDEncoder {
-		return encode
-	}
-	encode.EXPECT().AppendTime(gomock.Any()).AnyTimes()
-	encode.EXPECT().AppendValue(gomock.Any()).AnyTimes()
-	encode.EXPECT().BytesWithoutTime().Return(nil, fmt.Errorf("err"))
+
 	store.FlushFieldTo(flusher, field.Meta{Type: field.SumField}, flushContext{SlotRange: timeutil.SlotRange{Start: 2, End: 20}})
 }
 

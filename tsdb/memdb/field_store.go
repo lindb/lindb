@@ -124,14 +124,17 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
 	aggFunc := fieldMeta.Type.GetAggFunc()
-	var tsd *encoding.TSDDecoder
+	var decoder *encoding.TSDDecoder
 	if len(fs.compress) > 0 {
 		// calc new start/end based on old compress values
-		tsd = encoding.GetTSDDecoder()
-		defer encoding.ReleaseTSDDecoder(tsd)
-		tsd.Reset(fs.compress)
+		decoder = encoding.GetTSDDecoder()
+		defer encoding.ReleaseTSDDecoder(decoder)
+		decoder.Reset(fs.compress)
 	}
-	data, err := fs.merge(aggFunc, tsd, fs.getStart(), flushCtx.SlotRange, false)
+	encoder := encoding.GetTSDEncoder(flushCtx.SlotRange.Start)
+	defer encoding.ReleaseTSDEncoder(encoder)
+
+	data, err := fs.merge(aggFunc, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
 		return
@@ -163,7 +166,7 @@ func (fs *fieldStore) resetBuf() {
 
 func (fs *fieldStore) Capacity() int {
 	// notice: do not use cap as it's a allocated page
-	return len(fs.compress) + len(fs.buf) + emptyFieldStoreSize
+	return cap(fs.compress) + len(fs.buf) + emptyFieldStoreSize
 }
 
 // compact compacts the current write buffer,
@@ -173,19 +176,22 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	thisSlotRange := fs.slotRange(startTime)
 
 	aggFunc := fieldType.GetAggFunc()
-	var tsd *encoding.TSDDecoder
+	var decoder *encoding.TSDDecoder
 	if length > 0 {
 		// if has compress data, create tsd decoder for merge compress
-		tsd = encoding.GetTSDDecoder()
-		defer encoding.ReleaseTSDDecoder(tsd)
-		tsd.Reset(fs.compress)
+		decoder = encoding.GetTSDDecoder()
+		defer encoding.ReleaseTSDDecoder(decoder)
+		decoder.Reset(fs.compress)
 	}
-	data, err := fs.merge(aggFunc, tsd, startTime, thisSlotRange, true)
+	encoder := encoding.TSDEncodeFunc(thisSlotRange.Start)
+	defer encoding.ReleaseTSDEncoder(encoder)
+
+	data, err := fs.merge(aggFunc, encoder, decoder, startTime, thisSlotRange, true)
 	if err != nil {
 		memDBLogger.Error("compact field store data err", logger.Error(err))
 	}
 
-	fs.compress = data
+	fs.compress = encoding.MustCopy(fs.compress, data)
 	// !!!!! IMPORTANT: need reset current write buffer
 	fs.resetBuf()
 }
@@ -213,42 +219,42 @@ func (fs *fieldStore) getEnd() uint16 {
 // start/end slot => target compact time slot
 func (fs *fieldStore) merge(
 	aggFunc field.AggFunc,
-	tsd *encoding.TSDDecoder,
+	encoder *encoding.TSDEncoder,
+	decoder *encoding.TSDDecoder,
 	startTime uint16,
 	thisSlotRange timeutil.SlotRange,
 	withTimeRange bool,
 ) (compress []byte, err error) {
-	encode := encoding.TSDEncodeFunc(thisSlotRange.Start)
 	for i := thisSlotRange.Start; i <= thisSlotRange.End; i++ {
 		newValue, hasNewValue := fs.getCurrentValue(startTime, i)
-		oldValue, hasOldValue := getOldFloatValue(tsd, i)
+		oldValue, hasOldValue := getOldFloatValue(decoder, i)
 		switch {
 		case hasNewValue && !hasOldValue:
 			// just compress current block value with pos
-			encode.AppendTime(bit.One)
-			encode.AppendValue(math.Float64bits(newValue))
+			encoder.AppendTime(bit.One)
+			encoder.AppendValue(math.Float64bits(newValue))
 		case hasNewValue && hasOldValue:
 			// merge and compress
-			encode.AppendTime(bit.One)
-			encode.AppendValue(math.Float64bits(aggFunc.Aggregate(newValue, oldValue)))
+			encoder.AppendTime(bit.One)
+			encoder.AppendValue(math.Float64bits(aggFunc.Aggregate(newValue, oldValue)))
 		case !hasNewValue && hasOldValue:
 			// compress old value
-			encode.AppendTime(bit.One)
-			encode.AppendValue(math.Float64bits(oldValue))
+			encoder.AppendTime(bit.One)
+			encoder.AppendValue(math.Float64bits(oldValue))
 		default:
 			// append empty value
-			encode.AppendTime(bit.Zero)
+			encoder.AppendTime(bit.Zero)
 		}
 	}
 	if withTimeRange {
-		compress, err = encode.Bytes()
+		compress, err = encoder.Bytes()
 		if err != nil {
 			return nil, err
 		}
 		return compress, err
 	}
 	// get compress data without time slot range
-	compress, err = encode.BytesWithoutTime()
+	compress, err = encoder.BytesWithoutTime()
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +272,9 @@ func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) [
 		defer encoding.ReleaseTSDDecoder(tsd)
 		tsd.Reset(fs.compress)
 	}
-	data, err := fs.merge(aggFunc, tsd, fs.getStart(), slotRange, false)
+	// todo: pool encoder after loading ?
+	encoder := encoding.NewTSDEncoder(slotRange.Start)
+	data, err := fs.merge(aggFunc, encoder, tsd, fs.getStart(), slotRange, false)
 	if err != nil {
 		memDBLogger.Error("load field store err", logger.Error(err))
 		return nil
