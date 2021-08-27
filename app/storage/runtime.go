@@ -168,21 +168,12 @@ func (r *runtime) Run() error {
 	}
 
 	// Use Leader election mechanism to ensure the uniqueness of stateful node id
-	ok, _, err := r.repo.Elect(r.ctx, constants.GetStatefulNodePath(r.node.ID), encoding.JSONMarshal(r.node), 1) //TODO add config
-	if err != nil {
-		// stateful node register err
-		r.state = server.Failed
+	if err := r.MustRegisterStateFulNode(); err != nil {
 		return err
-	}
-	if !ok {
-		// stateful node already exist
-		r.state = server.Failed
-		return constants.ErrStatefulNodeExist
 	}
 
 	// register storage node info
-	//TODO TTL default value???
-	r.registry = discovery.NewRegistry(r.repo, r.config.StorageBase.GRPC.TTL.Duration())
+	r.registry = discovery.NewRegistry(r.repo, time.Duration(r.config.Coordinator.LeaseTTL)*time.Second)
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register storage node error:%s", err)
 	}
@@ -197,6 +188,57 @@ func (r *runtime) Run() error {
 
 	r.state = server.Running
 	return nil
+}
+
+// MustRegisterStateFulNode make sure that state node is registered to etcd
+func (r *runtime) MustRegisterStateFulNode() error {
+	r.log.Info("registering stateful storage node...",
+		logger.Int("indicator", int(r.node.ID)),
+		logger.Int64("lease-ttl", r.config.Coordinator.LeaseTTL),
+	)
+	var (
+		ok            bool
+		err           error
+		maxRetries    = 20
+		retryInterval = time.Second
+	)
+	// sometimes lease isn't expired when storage restarts, retry registering is necessary
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		ok, _, err = r.repo.Elect(
+			r.ctx,
+			constants.GetStatefulNodePath(r.node.ID),
+			encoding.JSONMarshal(r.node),
+			r.config.Coordinator.LeaseTTL)
+		if ok {
+			r.log.Info("registered state node successfully",
+				logger.Int("indicator", int(r.node.ID)),
+				logger.Int64("lease-ttl", r.config.Coordinator.LeaseTTL),
+			)
+			return nil
+		}
+		if err != nil {
+			r.log.Error("failed to register state node",
+				logger.Int("indicator", int(r.node.ID)),
+				logger.Int("attempt", attempt),
+				logger.Error(err),
+			)
+		}
+		if !ok {
+			r.log.Error("stateful node is already registered",
+				logger.Int("indicator", int(r.node.ID)),
+				logger.Int("attempt", attempt),
+			)
+		}
+		time.Sleep(retryInterval)
+	}
+	r.state = server.Failed
+	if err != nil {
+		// stateful node register err
+		return err
+	}
+	// stateful node already exist
+	r.state = server.Failed
+	return constants.ErrStatefulNodeExist
 }
 
 // State returns current storage server state
