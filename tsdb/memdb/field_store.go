@@ -109,9 +109,8 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	pos, markIdx, flagIdx := fs.position(delta)
 	if fs.buf[markOffset+markIdx]&flagIdx != 0 {
 		// has same point of same time slot
-		aggFunc := fieldType.GetAggFunc()
 		oldValue := math.Float64frombits(binary.LittleEndian.Uint64(fs.buf[pos:]))
-		value = aggFunc.Aggregate(oldValue, value)
+		value = fieldType.AggType().Aggregate(oldValue, value)
 	} else {
 		// new data for time slot
 		fs.buf[endOffset] = byte(delta)
@@ -123,7 +122,6 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
-	aggFunc := fieldMeta.Type.GetAggFunc()
 	var decoder *encoding.TSDDecoder
 	if len(fs.compress) > 0 {
 		// calc new start/end based on old compress values
@@ -134,7 +132,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 	encoder := encoding.GetTSDEncoder(flushCtx.SlotRange.Start)
 	defer encoding.ReleaseTSDEncoder(encoder)
 
-	data, err := fs.merge(aggFunc, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
+	data, err := fs.merge(fieldMeta.Type, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
 		return
@@ -175,7 +173,6 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	length := len(fs.compress)
 	thisSlotRange := fs.slotRange(startTime)
 
-	aggFunc := fieldType.GetAggFunc()
 	var decoder *encoding.TSDDecoder
 	if length > 0 {
 		// if has compress data, create tsd decoder for merge compress
@@ -186,7 +183,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	encoder := encoding.TSDEncodeFunc(thisSlotRange.Start)
 	defer encoding.ReleaseTSDEncoder(encoder)
 
-	data, err := fs.merge(aggFunc, encoder, decoder, startTime, thisSlotRange, true)
+	data, err := fs.merge(fieldType, encoder, decoder, startTime, thisSlotRange, true)
 	if err != nil {
 		memDBLogger.Error("compact field store data err", logger.Error(err))
 	}
@@ -218,7 +215,7 @@ func (fs *fieldStore) getEnd() uint16 {
 // startTime => current write start time
 // start/end slot => target compact time slot
 func (fs *fieldStore) merge(
-	aggFunc field.AggFunc,
+	fieldType field.Type,
 	encoder *encoding.TSDEncoder,
 	decoder *encoding.TSDDecoder,
 	startTime uint16,
@@ -236,7 +233,7 @@ func (fs *fieldStore) merge(
 		case hasNewValue && hasOldValue:
 			// merge and compress
 			encoder.AppendTime(bit.One)
-			encoder.AppendValue(math.Float64bits(aggFunc.Aggregate(newValue, oldValue)))
+			encoder.AppendValue(math.Float64bits(fieldType.AggType().Aggregate(newValue, oldValue)))
 		case !hasNewValue && hasOldValue:
 			// compress old value
 			encoder.AppendTime(bit.One)
@@ -263,7 +260,6 @@ func (fs *fieldStore) merge(
 
 // Load loads field series data.
 func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte {
-	aggFunc := fieldType.GetAggFunc()
 	var tsd *encoding.TSDDecoder
 	size := len(fs.compress)
 	if size > 0 {
@@ -274,7 +270,7 @@ func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) [
 	}
 	// todo: pool encoder after loading ?
 	encoder := encoding.NewTSDEncoder(slotRange.Start)
-	data, err := fs.merge(aggFunc, encoder, tsd, fs.getStart(), slotRange, false)
+	data, err := fs.merge(fieldType, encoder, tsd, fs.getStart(), slotRange, false)
 	if err != nil {
 		memDBLogger.Error("load field store err", logger.Error(err))
 		return nil
