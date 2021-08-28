@@ -322,7 +322,9 @@ func (r *replicator) sendLoop() {
 			Replicas: replicas,
 		}
 
-		r.logger.Debug("send replicas",
+		r.logger.Debug("send batch",
+			logger.String("database", r.database),
+			logger.Int("shardID", int(r.shardID)),
 			logger.Int64("begin", replicas[0].Seq),
 			logger.Int64("end", replicas[len(replicas)-1].Seq))
 
@@ -331,7 +333,11 @@ func (r *replicator) sendLoop() {
 		cli := r.streamClient
 		r.lock4client.RUnlock()
 		if err := cli.Send(wr); err != nil {
-			r.logger.Error("sendLoop write request error", logger.Error(err))
+			r.logger.Error("sendLoop write request error",
+				logger.String("database", r.database),
+				logger.Int("shardID", int(r.shardID)),
+				logger.Error(err),
+			)
 			r.setReady(false)
 		}
 	}

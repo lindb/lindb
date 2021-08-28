@@ -356,7 +356,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 								}
 								aggregation.DownSamplingMultiSeriesInto(
 									target, uint16(e.queryIntervalRatio),
-									e.fields[idx].Type.GetAggFunc(),
+									e.fields[idx].Type,
 									fieldSeries,
 									agg.AggregateBySlot,
 								)

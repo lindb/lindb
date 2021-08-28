@@ -74,7 +74,7 @@ func putFloat64Slice(sl *[]float64) {
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
 func DownSamplingMultiSeriesInto(
 	target timeutil.SlotRange, ratio uint16,
-	aggFunc field.AggFunc, decoders []*encoding.TSDDecoder,
+	fieldType field.Type, decoders []*encoding.TSDDecoder,
 	emitValue func(targetPos int, value float64),
 ) {
 	targetValues := make([]float64, infBlockSize)
@@ -114,7 +114,7 @@ func DownSamplingMultiSeriesInto(
 				targetValues[targetPos] = value
 				// set before, aggregate
 			} else {
-				targetValues[targetPos] = aggFunc.Aggregate(targetValues[targetPos], value)
+				targetValues[targetPos] = fieldType.AggType().Aggregate(targetValues[targetPos], value)
 			}
 		}
 	}

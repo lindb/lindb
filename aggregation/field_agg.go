@@ -105,7 +105,7 @@ func (a *fieldAggregator) AggregateBySlot(pos int, value float64) {
 		} else {
 			// slot too large for last family
 			if values.HasValue(pos) {
-				values.SetValue(pos, aggType.AggFunc().Aggregate(values.GetValue(pos), value))
+				values.SetValue(pos, aggType.Aggregate(values.GetValue(pos), value))
 			} else {
 				values.SetValue(pos, value)
 			}
