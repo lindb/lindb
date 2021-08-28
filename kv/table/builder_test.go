@@ -79,7 +79,7 @@ func TestStoreBuilder_Build_Err(t *testing.T) {
 	_ = fileutil.MkDirIfNotExist(testKVPath)
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newBufioWriterFunc = bufioutil.NewBufioWriter
+		newBufioWriterFunc = bufioutil.NewBufioStreamWriter
 		encoding.BitmapMarshal = bitmapMarshal
 		_ = os.Remove(testKVPath)
 		ctrl.Finish()
@@ -143,4 +143,32 @@ func TestStoreBuilder_Abandon(t *testing.T) {
 	_ = builder.Add(1, []byte("test"))
 	err = builder.Abandon()
 	assert.NoError(t, err)
+}
+
+func Test_Builder_Stream_Writer(t *testing.T) {
+	_ = fileutil.MkDirIfNotExist(testKVPath)
+	var builder, err = NewStoreBuilder(10, testKVPath+"/000010.sst")
+	defer func() {
+		_ = os.RemoveAll(testKVPath)
+		_ = builder.Close()
+	}()
+	err = builder.Add(1, []byte("test"))
+	assert.Nil(t, err)
+	// bad key
+	beforeSize := builder.Size()
+	writer := builder.StreamWriter()
+	assert.Zero(t, writer.Size())
+	writer.Prepare(1)
+	_, _ = writer.Write([]byte("aaa"))
+	writer.Commit()
+	assert.Equal(t, beforeSize, builder.Size())
+
+	// normal increasing key
+	writer.Prepare(2)
+	beforeBatchSize := writer.Size()
+	_, _ = writer.Write([]byte("aaa"))
+	writer.Commit()
+	// written len
+	assert.Equal(t, builder.Size()-beforeSize, int32(3))
+	assert.Equal(t, writer.Size()-beforeBatchSize, int32(3))
 }

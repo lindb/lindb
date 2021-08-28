@@ -152,4 +152,19 @@ func Test_NopFlusher(t *testing.T) {
 
 	_ = nf.Add(2, []byte{1, 2, 3})
 	assert.NotNil(t, nf.Bytes())
+
+	writer, _ := nf.StreamWriter()
+	writer.Prepare(0)
+	assert.Zero(t, writer.Size())
+	_, _ = writer.Write([]byte{1, 2, 3})
+	assert.Equal(t, int32(3), writer.Size())
+	_, _ = writer.Write([]byte{1, 2, 3})
+	assert.Equal(t, int32(6), writer.Size())
+	_, _ = writer.Write(nil)
+	assert.Equal(t, int32(6), writer.Size())
+	writer.Commit()
+
+	writer.Prepare(2)
+	assert.Zero(t, writer.Size())
+
 }

@@ -27,20 +27,24 @@ import (
 
 // metricLoader implements flow.DataLoader interface that loads metric data from file storage.
 type metricLoader struct {
-	reader        MetricReader
-	lowContainer  roaring.Container
-	seriesOffsets *encoding.FixedOffsetDecoder
+	reader             MetricReader
+	lowContainer       roaring.Container
+	lowKeyOffsets      *encoding.FixedOffsetDecoder
+	seriesEntriesBlock []byte
 }
 
 // newMetricLoader creates a file storage metric loader.
-func newMetricLoader(reader MetricReader,
+func newMetricLoader(
+	reader MetricReader,
+	seriesEntriesBlock []byte,
 	lowContainer roaring.Container,
-	seriesOffsets *encoding.FixedOffsetDecoder,
+	lowKeyOffsets *encoding.FixedOffsetDecoder,
 ) flow.DataLoader {
 	return &metricLoader{
-		reader:        reader,
-		lowContainer:  lowContainer,
-		seriesOffsets: seriesOffsets,
+		seriesEntriesBlock: seriesEntriesBlock,
+		reader:             reader,
+		lowContainer:       lowContainer,
+		lowKeyOffsets:      lowKeyOffsets,
 	}
 }
 
@@ -53,7 +57,8 @@ func (s *metricLoader) Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte) {
 	// get the index of low series id in container
 	idx := s.lowContainer.Rank(lowSeriesID)
 	// scan the data and aggregate the values
-	seriesPos, _ := s.seriesOffsets.Get(idx - 1)
+
+	seriesEntry, _ := s.lowKeyOffsets.GetBlock(idx-1, s.seriesEntriesBlock)
 	// read series data of fields
-	return s.reader.GetTimeRange(), s.reader.readSeriesData(seriesPos)
+	return s.reader.GetTimeRange(), s.reader.readSeriesData(seriesEntry)
 }

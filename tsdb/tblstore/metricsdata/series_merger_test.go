@@ -39,19 +39,20 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
-	reader1.EXPECT().close().AnyTimes()
-	reader2.EXPECT().close().AnyTimes()
+	reader1.EXPECT().Close().AnyTimes()
+	reader2.EXPECT().Close().AnyTimes()
 	readers := []FieldReader{reader1, nil, reader2}
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
-	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader2.EXPECT().slotRange().Return(uint16(10), uint16(10))
+	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
+	reader2.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader2.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
 	var result []byte
-	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) error {
 		result = data
+		return nil
 	})
 	err := merger.merge(
 		&mergerContext{
@@ -72,12 +73,13 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	}
 	assert.Equal(t, uint16(10), slot)
 	// case 2: merge success with diff slot range
-	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(12))
-	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
-	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
+	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
+	reader2.EXPECT().GetFieldData(gomock.Any()).Return(mockField(12))
+	reader2.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 12, End: 12})
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) error {
 		result = data
+		return nil
 	})
 	err = merger.merge(
 		&mergerContext{
@@ -107,19 +109,20 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
 	reader2 := NewMockFieldReader(ctrl)
-	reader1.EXPECT().close().AnyTimes()
-	reader2.EXPECT().close().AnyTimes()
+	reader1.EXPECT().Close().AnyTimes()
+	reader2.EXPECT().Close().AnyTimes()
 	readers := []FieldReader{reader1, reader2, nil}
 
 	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
-	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader2.EXPECT().slotRange().Return(uint16(12), uint16(12))
+	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
+	reader2.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader2.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 12, End: 12})
 	var result []byte
-	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) error {
 		result = data
+		return nil
 	})
 	// source:[5,15] target:[0,0], interval: 10s => 5min
 	err := merger.merge(
@@ -141,12 +144,13 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	}
 	assert.Equal(t, uint16(0), slot)
 	// case 2: merge success and rollup
-	reader1.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader1.EXPECT().slotRange().Return(uint16(10), uint16(10))
-	reader2.EXPECT().getFieldData(gomock.Any()).Return(mockField(10))
-	reader2.EXPECT().slotRange().Return(uint16(182), uint16(182))
-	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) {
+	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
+	reader2.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
+	reader2.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 182, End: 182})
+	flusher.EXPECT().FlushField(gomock.Any()).DoAndReturn(func(data []byte) error {
 		result = data
+		return nil
 	})
 	// source:[5,182] target:[0,6], interval: 10s => 5min
 	err = merger.merge(

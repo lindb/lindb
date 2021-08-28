@@ -19,6 +19,7 @@ package tagkeymeta
 
 import (
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/lindb/lindb/constants"
@@ -99,11 +100,11 @@ func mockTagReader(ctrl *gomock.Controller) Reader {
 	zoneBlock, ipBlock, hostBlock := buildTrieBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(10)).Return(nil, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(19)).Return(nil, false).AnyTimes()
-	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(10)).Return(nil, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(19)).Return(nil, io.EOF).AnyTimes()
+	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, nil).AnyTimes()
 	// build tag reader
 	return NewReader([]table.Reader{mockReader})
 }
@@ -112,7 +113,7 @@ func mockBadTagReader(ctrl *gomock.Controller) Reader {
 	zoneBlock, _, _ := buildTrieBlock()
 	badZoneBlock := append(zoneBlock, byte(1), byte(1))
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(23)).Return(badZoneBlock, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(23)).Return(badZoneBlock, nil).AnyTimes()
 	return NewReader([]table.Reader{mockReader})
 }
 

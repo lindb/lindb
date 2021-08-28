@@ -39,8 +39,8 @@ var (
 	writeFileFunc       = ioutil.WriteFile
 	readFileFunc        = ioutil.ReadFile
 	renameFunc          = os.Rename
-	newBufferReaderFunc = bufioutil.NewBufioReader
-	newBufferWriterFunc = bufioutil.NewBufioWriter
+	newBufferReaderFunc = bufioutil.NewBufioEntryReader
+	newBufferWriterFunc = bufioutil.NewBufioEntryWriter
 	newEmptyEditLogFunc = newEmptyEditLog
 )
 
@@ -165,7 +165,8 @@ func (vs *storeVersionSet) CommitFamilyEditLog(family string, editLog EditLog) e
 	// Install the new version for family level version edit log
 	familyVersion.appendVersion(newVersion)
 	versionLogger.Info("log and apply new version edit",
-		logger.String("path", vs.storePath), logger.String("family", family),
+		logger.String("path", vs.storePath),
+		logger.String("family", family),
 		logger.Any("log", editLog))
 	return nil
 }
@@ -176,7 +177,8 @@ func (vs *storeVersionSet) CreateFamilyVersion(family string, familyID FamilyID)
 	var familyVersion = vs.GetFamilyVersion(family)
 	if familyVersion != nil {
 		versionLogger.Warn("family version exist, use it.",
-			logger.String("path", vs.storePath), logger.String("family", family))
+			logger.String("path", vs.storePath),
+			logger.String("family", family))
 		return familyVersion
 	}
 	familyVersion = newFamilyVersion(familyID, family, vs)

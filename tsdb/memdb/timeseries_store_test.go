@@ -70,7 +70,7 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()),
 		flusher.EXPECT().FlushField(nil),
 	)
-	tStore.FlushSeriesTo(flusher, flushContext{})
+	assert.NoError(t, tStore.FlushFieldsTo(flusher, &flushContext{}))
 }
 
 func TestTimeSeriesStore_scan(t *testing.T) {

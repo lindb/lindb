@@ -47,29 +47,58 @@ type BufioWriter interface {
 	Size() int64
 }
 
-// bufioWriter implements BufioWriter.
-type bufioWriter struct {
+// bufioEntryWriter implements BufioWriter.
+type bufioEntryWriter struct {
 	fileName string
 	w        *bufio.Writer
 	f        *os.File
 	size     int64
 }
 
-// NewBufioWriter returns a new BufioWriter from fileName.
-func NewBufioWriter(fileName string) (BufioWriter, error) {
+// bufioStreamWriter implements BufioWriter
+type bufioStreamWriter struct {
+	bufioEntryWriter
+}
+
+// NewBufioEntryWriter returns a new BufioWriter from fileName.
+// BufioEntryWriter writes each entry with a variant length header + block content
+func NewBufioEntryWriter(fileName string) (BufioWriter, error) {
+	return newBufioEntryWriter(fileName)
+}
+
+func newBufioEntryWriter(fileName string) (*bufioEntryWriter, error) {
 	f, err := os.Create(fileName)
 	if err != nil {
 		return nil, err
 	}
-	return &bufioWriter{
+	return &bufioEntryWriter{
 		fileName: fileName,
 		w:        bufio.NewWriterSize(f, defaultWriteBufferSize),
 		f:        f,
 	}, nil
 }
 
+// NewBufioEntryWriter returns a new BufioWriter from fileName.
+// BufioStreamWriter writes each block content without length header
+func NewBufioStreamWriter(fileName string) (BufioWriter, error) {
+	entryWriter, err := newBufioEntryWriter(fileName)
+	if err != nil {
+		return nil, err
+	}
+	return &bufioStreamWriter{*entryWriter}, nil
+}
+
+func (sw *bufioStreamWriter) Write(content []byte) (int, error) {
+	n, err := sw.w.Write(content)
+	if err != nil {
+		return 0, err
+	}
+	sw.size += int64(n)
+	return n, nil
+}
+
 // Reset switches the buffered writer to write to a new file.
-func (bw *bufioWriter) Reset(fileName string) error {
+func (bw *bufioEntryWriter) Reset(fileName string) error {
 	newF, err := os.Create(fileName)
 	if err != nil {
 		return err
@@ -85,7 +114,7 @@ func (bw *bufioWriter) Reset(fileName string) error {
 }
 
 // Write writes byte-slice to the buffer.
-func (bw *bufioWriter) Write(content []byte) (int, error) {
+func (bw *bufioEntryWriter) Write(content []byte) (int, error) {
 	var buf [8]byte // buf for store length
 	variantLength := binary.PutUvarint(buf[:], uint64(len(content)))
 	// write length
@@ -105,7 +134,7 @@ func (bw *bufioWriter) Write(content []byte) (int, error) {
 
 // Sync flushes the buffered data to the write-queue of the disk.
 // It does not wait for the end of the actual write operation of disk.
-func (bw *bufioWriter) Sync() error {
+func (bw *bufioEntryWriter) Sync() error {
 	// Flush just flushes data to io.Writer
 	if err := bw.w.Flush(); err != nil {
 		return err
@@ -115,17 +144,17 @@ func (bw *bufioWriter) Sync() error {
 }
 
 // Flush flushes buffered data to the underlying io.Writer.
-func (bw *bufioWriter) Flush() error {
+func (bw *bufioEntryWriter) Flush() error {
 	return bw.w.Flush()
 }
 
 // Size returns the length of all written data.
-func (bw *bufioWriter) Size() int64 {
+func (bw *bufioEntryWriter) Size() int64 {
 	return bw.size
 }
 
 // Close closes the writer after flushing the buffered data.
-func (bw *bufioWriter) Close() error {
+func (bw *bufioEntryWriter) Close() error {
 	if err := bw.w.Flush(); err != nil {
 		return err
 	}

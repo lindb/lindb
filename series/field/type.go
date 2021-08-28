@@ -27,7 +27,7 @@ import (
 type AggType uint8
 
 // ID represents field id.
-type ID uint16
+type ID uint8
 
 // Name represents field name.
 type Name string

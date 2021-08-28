@@ -33,13 +33,11 @@ const (
 	// current file layout version
 	version0 = 0
 
-	sstFileFooterSize = 1 + // entry length wrote by bufioutil
-		4 + // posOfOffset(4)
+	sstFileFooterSize = 4 + // posOfOffset(4)
 		4 + // posOfKeys(4)
 		1 + // version(1)
 		8 // magicNumber(8)
-	// footer-size, offset(1), keys(1)
-	sstFileMinLength = sstFileFooterSize + 2
+	magicNumberAtFooter = 9
 )
 
 var tableLogger = logger.GetLogger("kv", "Table")

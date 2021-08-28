@@ -18,7 +18,9 @@
 package metricsdata
 
 import (
+	"encoding/binary"
 	"fmt"
+	"sort"
 
 	"github.com/lindb/roaring"
 
@@ -30,11 +32,6 @@ import (
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package metricsdata
-
-// for testing
-var (
-	getOffsetFunc = getOffset
-)
 
 const (
 	dataFooterSize = 2 + // start time slot
@@ -57,28 +54,29 @@ type MetricReader interface {
 	GetTimeRange() timeutil.SlotRange
 	// Load loads the data from sst file, then returns the file metric scanner.
 	Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader
-	// readSeriesData reads series data from file by given position.
-	readSeriesData(position int) [][]byte
+	// readSeriesData reads series data from file by seriesEntryBlock
+	readSeriesData(seriesEntryBlock []byte) [][]byte
 }
 
 // metricReader implements MetricReader interface that reads metric block
 type metricReader struct {
-	path          string
-	buf           []byte
-	highOffsets   *encoding.FixedOffsetDecoder
-	seriesIDs     *roaring.Bitmap
-	fields        field.Metas
-	crc32CheckSum uint32
-	timeRange     timeutil.SlotRange
+	path           string
+	metricBlock    []byte
+	seriesBucket   []byte
+	highKeyOffsets *encoding.FixedOffsetDecoder
+	seriesIDs      *roaring.Bitmap
+	fields         field.Metas
+	crc32CheckSum  uint32
+	timeRange      timeutil.SlotRange
 
 	readFieldIndexes []int // read field indexes be used when query metric data
 }
 
 // NewReader creates a metric block metricReader
-func NewReader(path string, buf []byte) (MetricReader, error) {
+func NewReader(path string, metricBlock []byte) (MetricReader, error) {
 	r := &metricReader{
-		path: path,
-		buf:  buf,
+		path:        path,
+		metricBlock: metricBlock,
 	}
 	if err := r.initReader(); err != nil {
 		return nil, err
@@ -139,37 +137,64 @@ func (r *metricReader) Load(highKey uint16, seriesID roaring.Container, fields f
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
-	offset, _ := r.highOffsets.Get(highContainerIdx)
-	seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
+	level3Block, err := r.highKeyOffsets.GetBlock(highContainerIdx, r.seriesBucket)
+	if err != nil {
+		return nil
+	}
+	// shorter than footer
+	if len(level3Block) <= 4 {
+		return nil
+	}
+	// out of range
+	lowKeyOffsetsAt := binary.LittleEndian.Uint32(level3Block[len(level3Block)-4:])
+	if lowKeyOffsetsAt+4 >= uint32(len(level3Block)) {
+		return nil
+	}
+
+	lowKeyOffsetsDecoder := encoding.NewFixedOffsetDecoder()
+	if _, err = lowKeyOffsetsDecoder.Unmarshal(level3Block[lowKeyOffsetsAt:]); err != nil {
+		return nil
+	}
 
 	if !r.prepare(fields) {
 		// field not found
 		return nil
 	}
+	seriesEntriesBlock := level3Block[:lowKeyOffsetsAt]
 	// must use lowContainer from store, because get series index based on container
-	return newMetricLoader(r, lowContainer, seriesOffsets)
+	return newMetricLoader(r, seriesEntriesBlock, lowContainer, lowKeyOffsetsDecoder)
 }
 
 // readSeriesData reads series data from file by given position.
-func (r *metricReader) readSeriesData(position int) [][]byte {
+func (r *metricReader) readSeriesData(seriesEntryBlock []byte) [][]byte {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
 		// metric has one field, just read the data
-		return [][]byte{r.buf[position:]}
+		return [][]byte{seriesEntryBlock}
 	}
+	// seriesEntry length too short
+	if len(seriesEntryBlock) <= 4 {
+		return nil
+	}
+	fieldOffsetsAt := binary.LittleEndian.Uint32(seriesEntryBlock[len(seriesEntryBlock)-4:])
+	// fieldOffsetsAt out of range
+	if fieldOffsetsAt+4 >= uint32(len(seriesEntryBlock)) {
+		return nil
+	}
+
 	// read data for multi-fields
-	seriesData := r.buf[position:]
-	fieldOffsets := encoding.NewFixedOffsetDecoder(seriesData)
-	fieldsData := seriesData[fieldOffsets.Header()+fieldCount*fieldOffsets.ValueWidth():]
+	fieldOffsetsDecoder := encoding.NewFixedOffsetDecoder()
+	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
+
 	rs := make([][]byte, len(r.readFieldIndexes))
 	for i, idx := range r.readFieldIndexes {
 		if idx == -1 {
 			continue
 		}
-		offset, ok := fieldOffsets.Get(idx)
-		if ok {
+		fieldBlock, err := fieldOffsetsDecoder.GetBlock(idx, seriesEntryBlock[:fieldOffsetsAt])
+		if err == nil {
 			// read field data
-			rs[i] = fieldsData[offset:]
+			rs[i] = fieldBlock
 		}
 	}
 	return rs
@@ -177,45 +202,53 @@ func (r *metricReader) readSeriesData(position int) [][]byte {
 
 // initReader initializes the metricReader context includes tag value ids/high offsets
 func (r *metricReader) initReader() error {
-	if len(r.buf) <= dataFooterSize {
-		return fmt.Errorf("block length not ok")
+	if len(r.metricBlock) <= dataFooterSize {
+		return fmt.Errorf("metric block's length too small: %d <= %d", len(r.metricBlock), dataFooterSize)
 	}
 	// read footer(2+2+4+4+4+4)
-	footerPos := len(r.buf) - dataFooterSize
-	r.timeRange.Start = stream.ReadUint16(r.buf, footerPos)
-	r.timeRange.End = stream.ReadUint16(r.buf, footerPos+2)
+	footerPos := len(r.metricBlock) - dataFooterSize
+	r.timeRange.Start = stream.ReadUint16(r.metricBlock, footerPos)
+	r.timeRange.End = stream.ReadUint16(r.metricBlock, footerPos+2)
 
-	fieldMetaStartPos := int(stream.ReadUint32(r.buf, footerPos+4))
-	seriesIDsStartPos := int(stream.ReadUint32(r.buf, footerPos+8))
-	highOffsetsPos := int(stream.ReadUint32(r.buf, footerPos+12))
-	r.crc32CheckSum = stream.ReadUint32(r.buf, footerPos+16)
+	fieldMetaStartPos := int(stream.ReadUint32(r.metricBlock, footerPos+4))
+	seriesIDsStartPos := int(stream.ReadUint32(r.metricBlock, footerPos+8))
+	highKeyOffsetsPos := int(stream.ReadUint32(r.metricBlock, footerPos+12))
+	r.crc32CheckSum = stream.ReadUint32(r.metricBlock, footerPos+16)
 	// validate offsets
-	if fieldMetaStartPos > footerPos || seriesIDsStartPos > highOffsetsPos {
-		return fmt.Errorf("bad offsets")
+	if !sort.IntsAreSorted([]int{
+		0, fieldMetaStartPos, fieldMetaStartPos + 2, seriesIDsStartPos, highKeyOffsetsPos, footerPos,
+	}) {
+		return fmt.Errorf("invalid footer format")
 	}
 
 	// read field metas
-	offset := fieldMetaStartPos
-	fieldCount := r.buf[offset]
-	offset++
+	fieldCount := r.metricBlock[fieldMetaStartPos]
+	cursor := fieldMetaStartPos + 1
 	r.fields = make(field.Metas, fieldCount)
-	for i := byte(0); i < fieldCount; i++ {
-		r.fields[i] = field.Meta{
-			ID:   field.ID(r.buf[offset]),
-			Type: field.Type(r.buf[offset+1]),
+	for i := uint8(0); i < fieldCount; i++ {
+		if cursor+1 >= seriesIDsStartPos {
+			return fmt.Errorf("corruted field metas, field count: %d", fieldCount)
 		}
-		offset += 2
+		r.fields[i] = field.Meta{
+			ID:   field.ID(r.metricBlock[cursor]),
+			Type: field.Type(r.metricBlock[cursor+1]),
+		}
+		cursor += 2
 	}
-
+	if fieldCount == 0 {
+		return fmt.Errorf("field count is zero")
+	}
 	// read series ids
 	seriesIDs := roaring.New()
-	if err := encoding.BitmapUnmarshal(seriesIDs, r.buf[seriesIDsStartPos:]); err != nil {
+	if err := encoding.BitmapUnmarshal(seriesIDs, r.metricBlock[seriesIDsStartPos:]); err != nil {
 		return err
 	}
+	r.seriesBucket = r.metricBlock[:fieldMetaStartPos]
 	r.seriesIDs = seriesIDs
 	// read high offsets
-	r.highOffsets = encoding.NewFixedOffsetDecoder(r.buf[highOffsetsPos:])
-	return nil
+	r.highKeyOffsets = encoding.NewFixedOffsetDecoder()
+	_, err := r.highKeyOffsets.Unmarshal(r.metricBlock[highKeyOffsetsPos:])
+	return err
 }
 
 // fieldIndexes returns field indexes of metric level
@@ -231,22 +264,26 @@ func (r *metricReader) fieldIndexes() map[field.ID]int {
 type dataScanner struct {
 	reader        *metricReader
 	container     roaring.Container
-	seriesOffsets *encoding.FixedOffsetDecoder
+	lowKeyOffsets *encoding.FixedOffsetDecoder
+	seriesEntries []byte
 
-	highKeys  []uint16
-	highKey   uint16
-	seriesPos int
+	highKeys         []uint16
+	highKey          uint16
+	highContainerIdx int
 }
 
 // newDataScanner creates a data scanner for data merge
-func newDataScanner(r MetricReader) *dataScanner {
+func newDataScanner(r MetricReader) (*dataScanner, error) {
 	reader := r.(*metricReader)
 	s := &dataScanner{
-		reader:   reader,
-		highKeys: reader.seriesIDs.GetHighKeys(),
+		reader:        reader,
+		highKeys:      reader.seriesIDs.GetHighKeys(),
+		lowKeyOffsets: encoding.NewFixedOffsetDecoder(),
 	}
-	s.nextContainer()
-	return s
+	if len(s.highKeys) == 0 {
+		return nil, fmt.Errorf("seriesID bitmap are empty")
+	}
+	return s, s.nextContainer()
 }
 
 // fieldIndexes returns field indexes of metric level
@@ -255,12 +292,26 @@ func (s *dataScanner) fieldIndexes() map[field.ID]int {
 }
 
 // nextContainer goes next container context for scanner
-func (s *dataScanner) nextContainer() {
-	s.highKey = s.highKeys[s.seriesPos]
-	s.container = s.reader.seriesIDs.GetContainerAtIndex(s.seriesPos)
-	offset, _ := s.reader.highOffsets.Get(s.seriesPos)
-	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
-	s.seriesPos++
+func (s *dataScanner) nextContainer() error {
+	s.highKey = s.highKeys[s.highContainerIdx]
+	s.container = s.reader.seriesIDs.GetContainerAtIndex(s.highContainerIdx)
+	level3Block, err := s.reader.highKeyOffsets.GetBlock(s.highContainerIdx, s.reader.seriesBucket)
+	if err != nil {
+		return err
+	}
+	if len(level3Block) <= 4 {
+		return fmt.Errorf("series entries length too short: %d", len(level3Block))
+	}
+	lowKeyOffsetsAt := binary.LittleEndian.Uint32(level3Block[len(level3Block)-4:])
+	if lowKeyOffsetsAt+4 >= uint32(len(level3Block)) {
+		return fmt.Errorf("lowKeyOffsetsAt: %d is out or range: %d-4", lowKeyOffsetsAt, len(level3Block))
+	}
+	if _, err := s.lowKeyOffsets.Unmarshal(level3Block[lowKeyOffsetsAt:]); err != nil {
+		return err
+	}
+	s.seriesEntries = level3Block[:lowKeyOffsetsAt]
+	s.highContainerIdx++
+	return nil
 }
 
 // slotRange returns the slot range of metric level in current sst file
@@ -268,34 +319,29 @@ func (s *dataScanner) slotRange() timeutil.SlotRange {
 	return s.reader.GetTimeRange()
 }
 
-// scan scans the data and returns series position if series id exist, else returns -1
-func (s *dataScanner) scan(highKey, lowSeriesID uint16) int {
+// scan scans the data and returns the seriesEntry if series id exist,
+// else returns nil
+func (s *dataScanner) scan(highKey, lowSeriesID uint16) []byte {
 	if s.highKey < highKey {
-		if s.seriesPos >= len(s.highKeys) {
+		if s.highContainerIdx >= len(s.highKeys) {
 			// current tag inverted no data can read
-			return -1
+			return nil
 		}
-		s.nextContainer()
+		if err := s.nextContainer(); err != nil {
+			return nil
+		}
 	}
 	if highKey != s.highKey {
 		// high key not match, return it
-		return -1
+		return nil
 	}
 	// find data by low series id
 	if s.container.Contains(lowSeriesID) {
 		// get the index of low series id in container
 		idx := s.container.Rank(lowSeriesID)
 		// get series data data position
-		offset, ok := getOffsetFunc(s.seriesOffsets, idx-1)
-		if !ok {
-			return -1
-		}
-		return offset
+		seriesEntry, _ := s.lowKeyOffsets.GetBlock(idx-1, s.seriesEntries)
+		return seriesEntry
 	}
-	return -1
-}
-
-// getOffset returns the offset by idx
-func getOffset(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (int, bool) {
-	return seriesOffsets.Get(idx)
+	return nil
 }

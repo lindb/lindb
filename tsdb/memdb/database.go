@@ -336,8 +336,10 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	// waiting current writing complete
 	md.writeCondition.Wait()
 
+	var flushCtx flushContext
 	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
-		if err := value.FlushMetricsDataTo(flusher, flushContext{
+		flushCtx.metricID = key
+		if err := value.FlushMetricsDataTo(flusher, &flushContext{
 			metricID: key,
 		}); err != nil {
 			return err
@@ -346,7 +348,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	}); err != nil {
 		return err
 	}
-	return flusher.Commit()
+	return flusher.Close()
 }
 
 // Filter filters the data based on metric/seriesIDs,

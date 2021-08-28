@@ -18,8 +18,10 @@
 package encoding
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
@@ -27,49 +29,79 @@ import (
 )
 
 func TestFixedOffsetEncoder_IsEmpty(t *testing.T) {
-	encoder := NewFixedOffsetEncoder()
+	encoder := NewFixedOffsetEncoder(true)
 	assert.True(t, encoder.IsEmpty())
 	encoder.Add(10)
 	assert.False(t, encoder.IsEmpty())
 }
 
-func TestFixedOffsetDecoder_Get(t *testing.T) {
-	// test all empty value
-	encoder := NewFixedOffsetEncoder()
-	for i := 1; i < 10000; i++ {
-		encoder.Add(i * -1)
-	}
-	data := encoder.MarshalBinary()
-	decoder := NewFixedOffsetDecoder(data)
-	assert.Equal(t, 1, decoder.width)
-	for i := 1; i < 10000; i++ {
-		_, ok := decoder.Get(i)
-		assert.False(t, ok)
-	}
+func TestFixedOffsetDecoder_NotIncreasing(t *testing.T) {
+	encoder := NewFixedOffsetEncoder(false)
+	assert.Panics(t, func() {
+		encoder.Add(-1)
+	})
+	encoder.Add(1)
+	encoder.Add(3)
+	assert.NotPanics(t, func() {
+		encoder.Add(2)
+	})
 
-	// test with empty offset
+}
+
+func TestFixedOffsetDecoder_Get(t *testing.T) {
+	// test with negative value
+	encoder := NewFixedOffsetEncoder(true)
+	assert.Panics(t, func() {
+		for i := 1; i < 10000; i++ {
+			encoder.Add(i * -1)
+		}
+	})
+	data := encoder.MarshalBinary()
+	assert.Len(t, data, 0)
+
+	// test with non-increasing value
+	encoder.Add(1)
+	encoder.Add(3)
+	assert.Panics(t, func() {
+		encoder.Add(2)
+	})
+
+	decoder := NewFixedOffsetDecoder()
+	_, err := decoder.Unmarshal(nil)
+	assert.Error(t, err)
+	assert.Equal(t, 0, decoder.Size())
+
+	// corrupted block
 	encoder.Reset()
-	encoder.Add(10)
-	encoder.Add(-10)
-	encoder.Add(20)
-	encoder.Add(-10)
+	encoder.Add(0)
+	encoder.Add(5)
+	encoder.Add(15)
+	encoder.Add(30)
+
 	data = encoder.MarshalBinary()
-	decoder = NewFixedOffsetDecoder(data)
+	fmt.Println(data)
+	decoder = NewFixedOffsetDecoder()
+	_, err = decoder.Unmarshal(data)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, decoder.width)
-	v, ok := decoder.Get(0)
-	assert.True(t, ok)
-	assert.Equal(t, 10, v)
-	_, ok = decoder.Get(1)
-	assert.False(t, ok)
-	v, ok = decoder.Get(2)
-	assert.True(t, ok)
-	assert.Equal(t, 20, v)
-	_, ok = decoder.Get(3)
-	assert.False(t, ok)
+
+	block := make([]byte, 28)
+	_, err = decoder.Unmarshal(data)
+	assert.NoError(t, err)
+	partition, err := decoder.GetBlock(0, block)
+	assert.NoError(t, err)
+	assert.Len(t, partition, 5)
+
+	partition, err = decoder.GetBlock(1, block)
+	assert.NoError(t, err)
+	assert.Len(t, partition, 10)
+
+	_, err = decoder.GetBlock(2, block)
+	assert.Error(t, err)
 }
 
 func TestFixedOffsetDecoder_Codec(t *testing.T) {
-	encoder := NewFixedOffsetEncoder()
+	encoder := NewFixedOffsetEncoder(true)
 	data := encoder.MarshalBinary()
 	assert.Len(t, data, 0)
 	assert.Equal(t, 0, encoder.Size())
@@ -87,49 +119,44 @@ func TestFixedOffsetDecoder_Codec(t *testing.T) {
 	assert.Equal(t, 8, encoder.Size())
 	data = encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
-	decoder := NewFixedOffsetDecoder(data)
+	decoder := NewFixedOffsetDecoder()
+	_, err := decoder.Unmarshal(data)
+	assert.NoError(t, err)
 	assert.Equal(t, 4, decoder.width)
 
-	var ok bool
-	var value int
-	value, _ = decoder.Get(7)
-	assert.Equal(t, (1<<24)+1, value)
-	value, _ = decoder.Get(5)
-	assert.Equal(t, (1<<16)+1, value)
-	value, _ = decoder.Get(3)
-	assert.Equal(t, (1<<8)+1, value)
-	value, _ = decoder.Get(2)
-	assert.Equal(t, 1<<8, value)
-	value, _ = decoder.Get(0)
-	assert.Equal(t, 0, value)
-	_, ok = decoder.Get(8)
-	assert.False(t, ok)
-	_, ok = decoder.Get(-8)
-	assert.False(t, ok)
 	assert.Equal(t, 8, decoder.Size())
 	assert.Equal(t, 4, decoder.ValueWidth())
 
 	// test empty
-	decoder = NewFixedOffsetDecoder([]byte{0})
+	decoder = NewFixedOffsetDecoder()
+	_, _ = decoder.Unmarshal([]byte{0})
 	assert.Equal(t, 0, decoder.width)
 	assert.Zero(t, decoder.Size())
-	assert.Equal(t, lengthOfHeader, decoder.Header())
 }
 
-type mockWriter struct{}
+type mockWriter struct {
+	count   int
+	errorOn int
+}
 
 func (w *mockWriter) Write(p []byte) (int, error) {
-	return 0, io.ErrShortBuffer
+	w.count++
+	if w.count >= w.errorOn {
+		return 0, io.ErrShortBuffer
+	}
+	return len(p), nil
 }
 
 func TestFixedOffsetEncoder_WriteTo(t *testing.T) {
-	encoder := NewFixedOffsetEncoder()
+	encoder := NewFixedOffsetEncoder(true)
 	encoder.FromValues([]int{1, 2, 3})
-	assert.NotNil(t, encoder.WriteTo(&mockWriter{}))
+	assert.NotNil(t, encoder.Write(&mockWriter{errorOn: 1}))
+	assert.NotNil(t, encoder.Write(&mockWriter{errorOn: 2}))
+	assert.NotNil(t, encoder.Write(&mockWriter{errorOn: 3}))
 }
 
 func TestFixedOffsetEncoder_Reset(t *testing.T) {
-	encoder := NewFixedOffsetEncoder()
+	encoder := NewFixedOffsetEncoder(true)
 	encoder.Add(0) //0
 	encoder.Add(1) //1
 	data := encoder.MarshalBinary()
@@ -142,18 +169,17 @@ func TestFixedOffsetEncoder_Reset(t *testing.T) {
 	data = encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
 
-	decoder := NewFixedOffsetDecoder(data)
+	decoder := NewFixedOffsetDecoder()
+	_, err := decoder.Unmarshal(data)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, decoder.Size())
 	assert.Equal(t, 4, decoder.width)
-
-	value, _ := decoder.Get(1)
-	assert.Equal(t, (1<<24)+1, value)
-	value, _ = decoder.Get(0)
-	assert.Equal(t, 1<<24, value)
 }
 
 func TestFixedOffset_codec_int(t *testing.T) {
 	assertGet := func(buf []byte, index int, value int, ok bool) {
-		decoder := NewFixedOffsetDecoder(buf)
+		decoder := NewFixedOffsetDecoder()
+		_, _ = decoder.Unmarshal(buf)
 		v, exist := decoder.Get(index)
 		assert.Equal(t, value, v)
 		assert.Equal(t, ok, exist)
@@ -162,18 +188,17 @@ func TestFixedOffset_codec_int(t *testing.T) {
 	assertGet(nil, 0, 0, false)
 	// width:1
 	assertGet([]byte{1}, 0, 0, false)
-	assertGet([]byte{1, 0xff}, -1, 0, false)
-	assertGet([]byte{1, 0xff}, 0, 254, true)
-	assertGet([]byte{1, 0xff}, 1, 0, false)
+	assertGet([]byte{1, 1, 0xff}, -1, 0, false)
+	assertGet([]byte{1, 1, 0xff}, 0, 255, true)
+	assertGet([]byte{1, 1, 0xff}, 1, 0, false)
 	// width: 4
-	assertGet([]byte{2, 0xff}, 0, 0, false)
+	assertGet([]byte{2, 1, 0xff}, 0, 0, false)
 	// width: 4
-	assertGet([]byte{4, 0xff}, 0, 0, false)
-	assertGet([]byte{4, 0xff, 0xff, 0xff, 0xff}, 0, 0xfffffffe, true)
+	assertGet([]byte{4, 1, 0xff}, 0, 0, false)
+	assertGet([]byte{4, 1, 0xff, 0xff, 0xff, 0xff}, 0, 0xffffffff, true)
 
 	// data corruption
-	assertGet([]byte{5, 0xff, 0xff, 0xff, 0xff}, 0, 0, false)
-
+	assertGet([]byte{5, 1, 0xff, 0xff, 0xff, 0xff}, 0, 0, false)
 }
 
 func TestByteSlice2Uint32(t *testing.T) {
@@ -189,9 +214,12 @@ func Test_GetAdd_Consistency(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		expects = append(expects, rand.Intn(100000000))
 	}
-	encoder := NewFixedOffsetEncoder()
+	sort.Ints(expects)
+
+	encoder := NewFixedOffsetEncoder(true)
 	encoder.FromValues(expects)
-	decoder := NewFixedOffsetDecoder(encoder.MarshalBinary())
+	decoder := NewFixedOffsetDecoder()
+	_, _ = decoder.Unmarshal(encoder.MarshalBinary())
 
 	for i := 0; i < 100000; i++ {
 		value, ok := decoder.Get(i)
@@ -200,16 +228,35 @@ func Test_GetAdd_Consistency(t *testing.T) {
 	}
 }
 
+func Test_Decoder_Corrupted_data(t *testing.T) {
+	data := []byte{4, 1, 0xff, 0xff, 0xff, 0xff}
+	decoder := NewFixedOffsetDecoder()
+	_, _ = decoder.Unmarshal(data)
+
+	block, err := decoder.GetBlock(1, nil)
+	assert.Error(t, err)
+	assert.Len(t, block, 0)
+
+	block, err = decoder.GetBlock(0, nil)
+	assert.Error(t, err)
+	assert.Len(t, block, 0)
+}
+
 func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
-	encoder := NewFixedOffsetEncoder()
-	rand.Seed(time.Now().UnixNano())
+	encoder := NewFixedOffsetEncoder(true)
+	var expects = make([]int, 100000)
 	for i := 0; i < 100000; i++ {
-		x := rand.Intn(10000000)
-		encoder.Add(x)
+		rand.Seed(time.Now().UnixNano())
+		expects[i] = rand.Intn(10000000)
 	}
+	sort.Ints(expects)
+	encoder.FromValues(expects)
+
 	data := encoder.MarshalBinary()
-	decoder := NewFixedOffsetDecoder(data)
+	decoder := NewFixedOffsetDecoder()
+	_, _ = decoder.Unmarshal(data)
 	b.ResetTimer()
+
 	for round := 0; round < b.N; round++ {
 		for i := 0; i < 100000; i++ {
 			_, _ = decoder.Get(i)

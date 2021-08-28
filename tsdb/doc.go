@@ -212,105 +212,72 @@ Level2(Field Meta)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Data Table━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
-                   +---------+---------+---------+---------+---------+---------+
-                   │ Metric  │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
-                   │ Block   │ Block   │ Block   │ Offset  │ Index   │         │
-                   +---------+---------+---------+---------+---------+---------+
-                  /           \                   \        │\        +-------------------------------+
-                 /             \                   \       │ +--------------------------------+       \
-                /               \                   \      +-----------------------------+     \       \
-               /                 \                   +--------------+                     \     \       \
-  +-----------+                   +--------+                         \                     \     \       \
- /                 Level2                   \                         \                     \     \       \
-v--------+--------+--------+--------+--------v                         v--------+---+--------v     v-------v
-│ Version│ Version│ Version│ Version│ Footer │                         │ Offset │...│ Offset │     │ Metric│
-│ Entry1 │ Entry2 │ Entry3 │ Offsets│        │                         │        │   │        │     │ Bitmap│
-+--------+--------+--------+--------+--------+                         +--------+---+--------+     +-------+
+                   +---------+---------+---------+---------+---------+
+                   │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
+                   │ Block   │ Block   │ Offsets │ Bitmap  │         │
+                   +---------+---------+---------+---------+---------+
+                  /           \
+                 /             \
+                /               \
+               /                 \
+  +-----------+                   +-----------------+
+ /                 Level2                            \
+v--------+--------+--------+--------+--------+--------v
+│ Series │ Series │  Field | Series │ HighKey│ Footer │
+│ Bucket │ Bucket │  Metas | Bitmap │ Offsets│        │
++--------+--------+--------+--------+--------+--------+
 │        │
 │        │
 │        │         Level3
-v--------v--------+--------+--------+--------+--------+--------v
-│ Series │ Series │ Series │ Series │ Series │ Fields │ Footer │
-│ Entry  │ Entry  │ Entry  │ Offset │ Bitmap │  Meta  │        │
-+--------+--------+--------+--------+--------+--------+--------+
-│         \                 \       │\        \
-│          \                 \      │ \        +-----------------------------------------------+
-│           \                 \     │  +----------------------------------------------+         \
-│            \                 \    +---------------------------------------------+    \         \
-│             \                 +-----------------------------+                    \    \         \
-│              +------------------------------------+          \                    \    \         \
-│                  Level4                            \          \                    \    \         \
-v--------+--------+--------+--------+--------+--------v          v--------+---+-------v    v---------v
-│ Fields │ Data   │  Data  │ Data   │ Data   │  Data  │          │ Offset │...│ Offset│    │seriesID │
-│ Info   │        │        │        │        │        │          │        │   │       │    │ Bitmap  │
-+--------+--------+--------+--------+--------+--------+          +--------+---+-------+    +---------+
+v--------v--------+--------+--------+
+│ Series │ Series │ Series │ LowKey │
+│ Entry  │ Entry  │ Entry  │ Offsets│
++--------+--------+--------+--------+
+│         \        \        \
+│          \        \        \
+│           \        \        |
+│            \        \       +--------------------------+
+│             \        +--------------------------+       \
+│              +------------------+                \       \
+│                  Level4          \                \        \
+v--------+--------+--------+--------+                +--------+
+│ Field  │ Field  │ Field  │ Field  │                │ Field  |
+│ Data   │ Data   │ Data   │ Offsets│                │ Data   |
++--------+--------+--------+--------+                +--------+
 
 
-Level1(KV table: MetricBlocks, Offset, Keys)
-┌───────────────────────────────────────────┬───────────────────────────────────────────┐
-│               Metric Blocks               │           Offset And Keys                 │
-├──────────┬──────────┬──────────┬──────────┼──────────┬──────────┬──────────┬──────────┤
-│  length  │  Metric  │  length  │  Metric  │  length  │  Offset  │  length  │  Keys    │
-│          │  Block1  │          │  Block2  │          │          │          │          │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │  N Bytes │ uvariant │ N Bytes  │ uvariant │  N Bytes │ uvariant │  N Bytes │
-└──────────┴──────────┴──────────┴──────────^──────────┴──────────^──────────┴──────────┘
-                                            │                     │
-                                       posOfOffset             posOfKeys
+Level1 (KV table: MetricBlocks, Offset, Keys)
+┌───────────────────────────────────────────┬─────────────────────┐
+│               Metric Blocks               │  Offset And Keys    │
+├──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
+│  Metric  │  Metric  │  Metric  │  Metric  │  Offset  │  High    │
+│  Block1  │  Block2  │  Block3  │  Block4  │          │  Keys    │
+├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
+│  N Bytes │  N Bytes │  N Bytes │ N Bytes  │  N Bytes │  N Bytes │
+└──────────┴──────────┴──────────┴──────────^──────────^──────────┘
+                                            │          │
+                                       posOfOffset  posOfKeys
 
-Level1(KV table: Footer)
+Level2 (KV table: Series Bucket Footer)
 ┌──────────────────────────────────────────────────────┐
 │                    Footer                            │
 ├──────────┬──────────┬──────────┬──────────┬──────────┤
-│  length  │ position │ position │  Table   │  Magic   │
-│          │ OfOffset │ OfKeys   │ Version  │  Number  │
+│   time   │ position │ position │ position │  CRC32   │
+│   range  │ OfMetas  │ OfBitmap │ OfOffsets│ CheckSum │
 ├──────────┼──────────┼──────────┼──────────┼──────────┤
-│  1 Byte  │ 4 Bytes  │ 4 Bytes  │ 1 Bytes  │  8 Bytes │
+│  4 Byte  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │  4 Bytes │
 └──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
-Level2(Version Offsets Block)
-Same as Level2 in ForwardIndexTable
-┌────────────────────────────────┐┌──────────────────────────────────────────────────────┐┌─────────────────────┐
-│          Version Entries       ││                     Version Offsets                  ││        Footer       │
-├──────────┬──────────┬──────────┤├──────────┬──────────┬──────────┬──────────┬──────────┤├──────────┬──────────┤
-│  Version │  Version │  Version ││ Versions │ Version1 │ Version1 │ Version2 │ Version2 ││VersionOff│ CRC32    │
-│  Entry1  │  Entry2  │  Entry3  ││  Count   │   int64  │  Length  │   int64  │  Length  ││ setsPos  │ CheckSum │
-├──────────┼──────────┼──────────┤├──────────┼──────────┼──────────┼──────────┼──────────┤├──────────┼──────────┤
-│  N Bytes │  N Bytes │  N Bytes ││ uvariant │  8 Bytes │ uvariant │  8 Bytes │ uvariant ││ 4 Bytes  │ 4 Bytes  │
-└──────────┴──────────┴──────────┘└──────────┴──────────┴──────────┴──────────┴──────────┘└──────────┴──────────┘
-
-Level3(Fields Meta)
+Level2(Fields Meta)
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Fields Meta                                │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
-│   Count  │ FieldID  │  Field   │ FieldName│ FieldName│          │
-│          │ (uint16) │  Type    │  Length  │          │  ......  │
+│   Count  │ FieldID  │  Field   │ FieldID  │  Field   │          │
+│          │ (uint16) │  Type    │ (uint16) │  Type    │  ......  │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │  2 Bytes │ 1 Byte   │ uvariant │ N Bytes  │          │
+│  1 Byte  │  1 Bytes │ 1 Byte   │  1 Bytes │ 1 Byte   │          │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-
-Level3(Series Footer)
-┌─────────────────────┐
-│   Series Footer     │
-├──────────┬──────────┤
-│  Series  │FieldsMeta│
-│ BitMapPos│   Pos    │
-├──────────┼──────────┤
-│ 4 Bytes  │ 4 Bytes  │
-└──────────┴──────────┘
-
-
-Level4(Fields Info, Fields Data)
-┌────────────────────────────────┬─────────────────────┐
-│          Fields Info           │   Fields Data       │
-├──────────┬──────────┬──────────┼──────────┬──────────┤
-│ BitArray │  Data1   │  Data2   │  Data1   │ Data2    │
-│          │  Length  │  Length  │          │          │
-├──────────┼──────────┼──────────┼──────────┼──────────┤
-│ N Bytes  │ uvariant │ uvariant │ N Bytes  │ N Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┘
-bit array example(10101001, 1010100110101001)
 
 
 */

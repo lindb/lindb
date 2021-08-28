@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -30,8 +31,32 @@ import (
 
 // for test
 var (
-	newMMapStoreReaderFunc = newMMapStoreReader
+	newMMapStoreReaderFunc   = newMMapStoreReader
+	_once4Cache              sync.Once
+	_instanceCacheStatistics *cacheStatistics
 )
+
+func getCacheStatistics() *cacheStatistics {
+	_once4Cache.Do(func() {
+		tableCacheScope := linmetric.NewScope("lindb.kv.table.cache")
+		_instanceCacheStatistics = &cacheStatistics{
+			evictCounts: tableCacheScope.NewDeltaCounter("evict_counts"),
+			cacheHits:   tableCacheScope.NewDeltaCounter("cache_hits"),
+			cacheMisses: tableCacheScope.NewDeltaCounter("cache_misses"),
+			CloseCounts: tableCacheScope.NewDeltaCounter("close_counts"),
+			CloseErrors: tableCacheScope.NewDeltaCounter("close_errors"),
+		}
+	})
+	return _instanceCacheStatistics
+}
+
+type cacheStatistics struct {
+	evictCounts *linmetric.BoundDeltaCounter
+	cacheHits   *linmetric.BoundDeltaCounter
+	cacheMisses *linmetric.BoundDeltaCounter
+	CloseCounts *linmetric.BoundDeltaCounter
+	CloseErrors *linmetric.BoundDeltaCounter
+}
 
 // Cache caches table readers
 type Cache interface {
@@ -66,10 +91,14 @@ func (c *mapCache) Evict(family string, fileName string) {
 	reader, ok := c.readers[filePath]
 	if ok {
 		if err := reader.Close(); err != nil {
+			getCacheStatistics().CloseErrors.Incr()
 			tableLogger.Error("close store reader error",
 				logger.String("path", c.storePath),
 				logger.String("file", filePath), logger.Error(err))
+		} else {
+			getCacheStatistics().CloseCounts.Incr()
 		}
+		getCacheStatistics().evictCounts.Incr()
 		delete(c.readers, filePath)
 	}
 }
@@ -83,9 +112,11 @@ func (c *mapCache) GetReader(family string, fileName string) (Reader, error) {
 	// find from cache
 	reader, ok := c.readers[filePath]
 	if ok {
+		getCacheStatistics().cacheHits.Incr()
 		return reader, nil
 	}
 
+	getCacheStatistics().cacheMisses.Incr()
 	// create new reader
 	path := filepath.Join(c.storePath, filePath)
 	newReader, err := newMMapStoreReaderFunc(path)
@@ -100,9 +131,12 @@ func (c *mapCache) GetReader(family string, fileName string) (Reader, error) {
 func (c *mapCache) Close() error {
 	for k, v := range c.readers {
 		if err := v.Close(); err != nil {
+			getCacheStatistics().CloseErrors.Incr()
 			tableLogger.Error("close store reader error",
 				logger.String("path", c.storePath),
 				logger.String("file", k), logger.Error(err))
+		} else {
+			getCacheStatistics().CloseCounts.Incr()
 		}
 	}
 	return nil

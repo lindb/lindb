@@ -18,7 +18,6 @@
 package metricsdata
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -29,75 +28,59 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
-var bitMapMarshal = encoding.BitmapMarshal
-
 func TestFlusher_flush_metric(t *testing.T) {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	flusher, err := NewFlusher(nopKVFlusher)
+	assert.NoError(t, err)
+	flusher.PrepareMetric(39,
+		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+	)
 	// no field for series
-	flusher.FlushSeries(5)
+	assert.NoError(t, flusher.FlushSeries(5))
 
-	flusher.FlushField([]byte{1, 2, 3})
-	flusher.FlushField([]byte{10, 20, 30})
-	flusher.FlushSeries(10)
+	assert.NoError(t, flusher.FlushField([]byte{1, 2, 3}))
+	assert.NoError(t, flusher.FlushField([]byte{10, 20, 30}))
+	assert.NoError(t, flusher.FlushSeries(10))
+
 	// flush has one field
-	flusher.FlushField([]byte{10, 20, 30})
-	flusher.FlushField(nil)
-	flusher.FlushSeries(100)
+	assert.NoError(t, flusher.FlushField([]byte{10, 20, 30}))
+	assert.NoError(t, flusher.FlushField(nil))
+	assert.NoError(t, flusher.FlushSeries(100))
 
 	f := flusher.GetFieldMetas()
 	assert.Equal(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}}, f)
-	err := flusher.FlushMetric(39, 10, 13)
+	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 	assert.NoError(t, err)
-	// field not exist not flush metric
-	assert.Empty(t, flusher.GetFieldMetas())
 
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}})
-	flusher.FlushField([]byte{1, 2, 3})
-	err = flusher.FlushMetric(40, 10, 13)
-	assert.NoError(t, err)
+	// field not exist, not flush metric
+	assert.Empty(t, flusher.GetFieldMetas())
+	flusher.PrepareMetric(40, []field.Meta{{ID: 1, Type: field.SumField}})
+	assert.NoError(t, flusher.FlushField([]byte{1, 2, 3}))
+	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 
 	// metric hasn't series ids
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}})
-	flusher.FlushField(nil)
-	err = flusher.FlushMetric(50, 10, 13)
-	assert.NoError(t, err)
+	flusher.PrepareMetric(50, []field.Meta{{ID: 1, Type: field.SumField}})
+	assert.NoError(t, flusher.FlushField(nil))
+	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 
-	err = flusher.Commit()
-	assert.NoError(t, err)
+	// close
+	assert.NoError(t, flusher.Close())
 }
 
 func TestFlusher_flush_big_series_id(t *testing.T) {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
-	flusher.FlushField([]byte{1, 2, 3})
-	flusher.FlushSeries(100000)
-	err := flusher.FlushMetric(39, 10, 13)
-	assert.NoError(t, err)
-	err = flusher.Commit()
-	assert.NoError(t, err)
-}
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	assert.NoError(t, flusher.FlushField([]byte{1, 2, 3}))
+	assert.NoError(t, flusher.FlushSeries(10000))
+	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 
-func TestFlusher_flush_err(t *testing.T) {
-	defer func() {
-		encoding.BitmapMarshal = bitMapMarshal
-	}()
-	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
-	flusher.FlushField([]byte{1, 2, 3})
-	flusher.FlushSeries(100000)
-	encoding.BitmapMarshal = func(bitmap *roaring.Bitmap) (bytes []byte, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	err := flusher.FlushMetric(39, 10, 13)
-	assert.Error(t, err)
 	assert.Empty(t, flusher.GetFieldMetas())
+	assert.NoError(t, flusher.Close())
 }
 
 func TestFlusher_TooMany_Data(t *testing.T) {
@@ -110,27 +93,18 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	data, _ := encoder.BytesWithoutTime()
 
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas([]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+
 	for i := 0; i < 80000; i++ {
-		flusher.FlushField(data)
-		flusher.FlushSeries(uint32(i))
+		assert.NoError(t, flusher.FlushField(data))
+		assert.NoError(t, flusher.FlushSeries(uint32(i)))
 	}
-	err := flusher.FlushMetric(39, 5, 5)
-	assert.NoError(t, err)
+	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 5, End: 5}))
 	data = nopKVFlusher.Bytes()
 	r, err := NewReader("1.sst", data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	//sAgg1 := aggregation.NewMockSeriesAggregator(ctrl)
-	//block := series.NewMockBlock(ctrl)
-	//qFlow := flow.NewMockStorageQueryFlow(ctrl)
-	//// case 2: load data success
-	//cAgg := aggregation.NewMockContainerAggregator(ctrl)
-	//cAgg.EXPECT().GetFieldAggregates().Return(aggregation.FieldAggregates{sAgg1, nil})
-	//qFlow.EXPECT().GetAggregator(uint16(0)).Return(cAgg)
-	//sAgg1.EXPECT().GetAggregateBlock(gomock.Any()).Return(block, true)
-	//block.EXPECT().Append(gomock.Any(), gomock.Any()).AnyTimes()
-	//qFlow.EXPECT().Reduce("host", gomock.Any()).AnyTimes()
+
 	r.Load(0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0), field.Metas{{ID: 2}})
 }

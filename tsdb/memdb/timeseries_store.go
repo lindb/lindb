@@ -37,8 +37,8 @@ type tStoreINTF interface {
 	GetFStore(fieldID field.ID) (fStoreINTF, bool)
 	// InsertFStore inserts a new fStore to field list.
 	InsertFStore(fStore fStoreINTF)
-	// FlushSeriesTo flushes the series data segment.
-	FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext)
+	// FlushFieldsTo flushes the field data segment.
+	FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *flushContext) error
 	// load loads the time series data based on field ids
 	load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte
 }
@@ -99,26 +99,29 @@ func (ts *timeSeriesStore) InsertFStore(fStore fStoreINTF) {
 	}
 }
 
-// FlushSeriesTo flushes the series data segment.
-func (ts *timeSeriesStore) FlushSeriesTo(flusher metricsdata.Flusher, flushCtx flushContext) {
+// FlushFieldsTo flushes the series data segment.
+func (ts *timeSeriesStore) FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *flushContext) error {
 	stores := ts.fStoreNodes
 	fStoreLen := len(stores)
 	// if no field store under current data family
 	if stores == nil || fStoreLen == 0 {
-		return
+		return nil
 	}
 	fieldMetas := flusher.GetFieldMetas()
 	idx := 0
 	for _, fieldMeta := range fieldMetas {
 		if idx < fStoreLen && fieldMeta.ID == stores[idx].GetFieldID() {
 			// flush field data
-			stores[idx].FlushFieldTo(flusher, fieldMeta, flushCtx)
+			if err := stores[idx].FlushFieldTo(flusher, fieldMeta, flushCtx); err != nil {
+				return err
+			}
 			idx++
 		} else {
 			// must flush nil data for metric has multi-field
-			flusher.FlushField(nil)
+			_ = flusher.FlushField(nil)
 		}
 	}
+	return nil
 }
 
 // load loads the time series data based on key(family+field).

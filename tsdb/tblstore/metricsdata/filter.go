@@ -87,8 +87,11 @@ type fileFilterResultSet struct {
 }
 
 // newFileFilterResultSet creates the file filter result set
-func newFileFilterResultSet(familyTime int64, fields field.Metas,
-	seriesIDs *roaring.Bitmap, reader MetricReader,
+func newFileFilterResultSet(
+	familyTime int64,
+	fields field.Metas,
+	seriesIDs *roaring.Bitmap,
+	reader MetricReader,
 ) flow.FilterResultSet {
 	return &fileFilterResultSet{
 		familyTime: familyTime,

@@ -61,8 +61,8 @@ func TestStoreVersionSet_Recover_err(t *testing.T) {
 	defer func() {
 		writeFileFunc = ioutil.WriteFile
 		renameFunc = os.Rename
-		newBufferReaderFunc = bufioutil.NewBufioReader
-		newBufferWriterFunc = bufioutil.NewBufioWriter
+		newBufferReaderFunc = bufioutil.NewBufioEntryReader
+		newBufferWriterFunc = bufioutil.NewBufioEntryWriter
 		readFileFunc = ioutil.ReadFile
 		newEmptyEditLogFunc = newEmptyEditLog
 
@@ -92,14 +92,14 @@ func TestStoreVersionSet_Recover_err(t *testing.T) {
 	err = vs.Destroy()
 	assert.NoError(t, err)
 	vs = NewStoreVersionSet(vsTestPath, cache, 2) // reopen
-	newBufferReaderFunc = func(fileName string) (reader bufioutil.BufioReader, err error) {
+	newBufferReaderFunc = func(fileName string) (reader bufioutil.BufioEntryReader, err error) {
 		return nil, fmt.Errorf("ere")
 	}
 	err = vs.Recover()
 	assert.Error(t, err)
 	// case 4: read edit log err
-	bufReader := bufioutil.NewMockBufioReader(ctrl)
-	newBufferReaderFunc = func(fileName string) (reader bufioutil.BufioReader, err error) {
+	bufReader := bufioutil.NewMockBufioEntryReader(ctrl)
+	newBufferReaderFunc = func(fileName string) (reader bufioutil.BufioEntryReader, err error) {
 		return bufReader, nil
 	}
 	gomock.InOrder(
@@ -131,7 +131,7 @@ func TestStoreVersionSet_Recover_err(t *testing.T) {
 	err = vs.Recover()
 	assert.Error(t, err)
 	// case 7: new buf writer err
-	newBufferReaderFunc = bufioutil.NewBufioReader
+	newBufferReaderFunc = bufioutil.NewBufioEntryReader
 	newEmptyEditLogFunc = newEmptyEditLog
 	newBufferWriterFunc = func(fileName string) (writer bufioutil.BufioWriter, err error) {
 		return nil, fmt.Errorf("err")

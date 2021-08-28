@@ -54,8 +54,9 @@ type merger struct {
 
 // NewMerger creates a metric data merger
 func NewMerger() kv.Merger {
+	// todo: @codingcrush use stream flusher
 	flusher := kv.NewNopFlusher()
-	dataFlusher := NewFlusher(flusher)
+	dataFlusher, _ := NewFlusher(flusher)
 	return &merger{
 		flusher:      flusher,
 		dataFlusher:  dataFlusher,
@@ -72,15 +73,15 @@ func (m *merger) Init(params map[string]interface{}) {
 }
 
 // Merge merges the multi metric data into one target metric data for same metric id
-func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
-	blockCount := len(values)
+func (m *merger) Merge(key uint32, metricBlocks [][]byte) ([]byte, error) {
+	blockCount := len(metricBlocks)
 	// 1. prepare readers and metric level data(field/time slot/series ids)
-	mergeCtx, err := m.prepare(values)
+	mergeCtx, err := m.prepare(metricBlocks)
 	if err != nil {
 		return nil, err
 	}
-	// 2. flush fields
-	m.dataFlusher.FlushFieldMetas(mergeCtx.targetFields)
+	// 2. Prepare metric
+	m.dataFlusher.PrepareMetric(key, mergeCtx.targetFields)
 	// 3. merge series data by roaring container
 	highKeys := mergeCtx.seriesIDs.GetHighKeys()
 	decodeStreams := make([]*encoding.TSDDecoder, blockCount) // make decodeStreams for reuse
@@ -98,40 +99,42 @@ func (m *merger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			lowSeriesID := it.Next()
 			// maybe series id not exist in some value block
 			for blockIdx, scanner := range mergeCtx.scanners {
-				seriesPos := scanner.scan(highKey, lowSeriesID)
-				if seriesPos >= 0 {
-					timeRange := scanner.slotRange()
-					if fieldReaders[blockIdx] == nil {
-						fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(),
-							values[blockIdx], seriesPos, timeRange.Start, timeRange.End)
-					} else {
-						fieldReaders[blockIdx].reset(values[blockIdx], seriesPos, timeRange.Start, timeRange.End)
-					}
+				seriesEntry := scanner.scan(highKey, lowSeriesID)
+				if len(seriesEntry) == 0 {
+					continue
+				}
+				timeRange := scanner.slotRange()
+				if fieldReaders[blockIdx] == nil {
+					fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(), seriesEntry, timeRange)
+				} else {
+					fieldReaders[blockIdx].Reset(seriesEntry, timeRange)
 				}
 			}
 			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, encodeStream, fieldReaders); err != nil {
 				return nil, err
 			}
 			// flush series id
-			m.dataFlusher.FlushSeries(encoding.ValueWithHighLowBits(uint32(highKey)<<16, lowSeriesID))
+			if err := m.dataFlusher.FlushSeries(encoding.ValueWithHighLowBits(uint32(highKey)<<16, lowSeriesID)); err != nil {
+				return nil, err
+			}
 		}
 	}
 	// flush metric data
-	if err := m.dataFlusher.FlushMetric(key, mergeCtx.targetRange.Start, mergeCtx.targetRange.End); err != nil {
+	if err := m.dataFlusher.CommitMetric(mergeCtx.targetRange); err != nil {
 		return nil, err
 	}
 	return m.flusher.Bytes(), nil
 }
 
-func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
+func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
 	ctx := &mergerContext{
-		scanners:     make([]*dataScanner, len(values)),
+		scanners:     make([]*dataScanner, len(metricBlocks)),
 		seriesIDs:    roaring.New(),
 		targetFields: field.Metas{},
 	}
 
-	for idx, value := range values {
-		reader, err := NewReader("merge_operation", value)
+	for idx, metricBlock := range metricBlocks {
+		reader, err := NewReader("merge_operation", metricBlock)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +160,9 @@ func (m *merger) prepare(values [][]byte) (*mergerContext, error) {
 			}
 		}
 		// create data scanner
-		ctx.scanners[idx] = newDataScanner(reader)
+		if ctx.scanners[idx], err = newDataScanner(reader); err != nil {
+			return nil, err
+		}
 	}
 	// sort by field id
 	sort.Slice(ctx.targetFields, func(i, j int) bool { return ctx.targetFields[i].ID < ctx.targetFields[j].ID })

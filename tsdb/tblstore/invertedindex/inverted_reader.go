@@ -59,8 +59,8 @@ func (r *inverterReader) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs 
 func (r *inverterReader) loadSeriesIDs(tagKeyID uint32, fn func(indexReader *tagInvertedReader) (*roaring.Bitmap, error)) (*roaring.Bitmap, error) {
 	seriesIDs := roaring.New()
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagKeyID)
-		if !ok {
+		value, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		indexReader, err := newTagInvertedReader(value)
@@ -103,7 +103,11 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 		lowContainerIdx := r.keys.GetContainerIndex(highKey)
 		lowContainer := r.keys.GetContainerAtIndex(lowContainerIdx)
 		offset, _ := r.offsets.Get(lowContainerIdx)
-		seriesOffsets := encoding.NewFixedOffsetDecoder(r.buf[offset:])
+		seriesOffsets := encoding.NewFixedOffsetDecoder()
+		_, err := seriesOffsets.Unmarshal(r.buf[offset:])
+		if err != nil {
+			return nil, err
+		}
 		it := loadLowContainer.PeekableIterator()
 		for it.HasNext() {
 			lowTagValueID := it.Next()
@@ -147,7 +151,8 @@ func (s *tagInvertedScanner) nextContainer() {
 	s.highKey = s.highKeys[s.keyPos]
 	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
 	offset, _ := s.reader.offsets.Get(s.keyPos)
-	s.seriesOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
+	s.seriesOffsets = encoding.NewFixedOffsetDecoder()
+	_, _ = s.seriesOffsets.Unmarshal(s.reader.buf[offset:])
 	s.keyPos++
 }
 
