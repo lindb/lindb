@@ -17,180 +17,179 @@
 
 package state
 
-//
-//import (
-//	"github.com/gin-gonic/gin"
-//	"github.com/shirou/gopsutil/disk"
-//
-//	"github.com/lindb/lindb/app/broker/api/admin"
-//	"github.com/lindb/lindb/app/broker/deps"
-//	"github.com/lindb/lindb/constants"
-//	"github.com/lindb/lindb/models"
-//	"github.com/lindb/lindb/pkg/encoding"
-//	"github.com/lindb/lindb/pkg/http"
-//	"github.com/lindb/lindb/pkg/logger"
-//)
-//
-//var (
-//	StorageStatePath     = "/storage/cluster/state"
-//	ListStorageStatePath = "/storage/cluster/state/list"
-//)
-//
-//// StorageAPI represents query storage cluster's state api from broker state machine
-//type StorageAPI struct {
-//	deps         *deps.HTTPDeps
-//	ListDatabase func() ([]*models.Database, error)
-//	logger       *logger.Logger
-//}
-//
-//// NewStorageAPI creates storage state api
-//func NewStorageAPI(deps *deps.HTTPDeps) *StorageAPI {
-//	return &StorageAPI{
-//		deps:         deps,
-//		ListDatabase: admin.NewDatabaseAPI(deps).ListDataBase,
-//		logger:       logger.GetLogger("broker", "StorageAPI"),
-//	}
-//}
-//
-//// Register adds storage state url route.
-//func (s *StorageAPI) Register(route gin.IRoutes) {
-//	route.GET(StorageStatePath, s.GetStorageClusterState)
-//	route.GET(ListStorageStatePath, s.ListStorageClusterState)
-//}
-//
-//// GetStorageClusterState returns the storage cluster detail stat by given cluster name
-//func (s *StorageAPI) GetStorageClusterState(c *gin.Context) {
-//	var param struct {
-//		ClusterName string `form:"name" binding:"required"`
-//	}
-//	err := c.ShouldBindQuery(&param)
-//	if err != nil {
-//		http.Error(c, err)
-//		return
-//	}
-//	databaseList, shardAssignMap, err := s.getDatabaseInfo()
-//	if err != nil {
-//		http.Error(c, err)
-//		return
-//	}
-//	clusterStat, err := s.getStorageClusterInfo(param.ClusterName)
-//	if err != nil {
-//		http.Error(c, err)
-//		return
-//	}
-//	aliveNodes := s.getStorageAliveNodes(param.ClusterName)
-//
-//	nodeStatMap := make(map[string]*models.NodeStat)
-//	for _, nodeStat := range clusterStat.Nodes {
-//		nodeStatMap[nodeStat.Node.Node.Indicator()] = nodeStat
-//	}
-//
-//	for _, db := range databaseList {
-//		if db.Cluster != param.ClusterName {
-//			continue
-//		}
-//		clusterStat.ReplicaStatus.Total += db.NumOfShard * db.ReplicaFactor
-//
-//		shardAssign, ok := shardAssignMap[db.Name]
-//		if !ok {
-//			continue
-//		}
-//		db.Desc = db.String()
-//		databaseStatus := models.DatabaseStatus{
-//			Config:        *db,
-//			ReplicaStatus: models.ReplicaStatus{},
-//		}
-//		databaseStatus.ReplicaStatus.Total = db.NumOfShard * db.ReplicaFactor
-//		clusterStat.DatabaseStatusList = append(clusterStat.DatabaseStatusList, databaseStatus)
-//
-//		shards := shardAssign.Shards
-//		nodes := shardAssign.Nodes
-//		for _, replica := range shards {
-//			available, underReplicated := calcReplicaStatus(replica, nodes, aliveNodes)
-//			for _, nodeID := range replica.Replicas {
-//				node := nodes[nodeID]
-//				nodeStat, ok := nodeStatMap[node.Indicator()]
-//				if !ok {
-//					continue
-//				}
-//				nodeStat.Replicas++
-//			}
-//			databaseStatus.ReplicaStatus.UnderReplicated += underReplicated
-//			clusterStat.ReplicaStatus.UnderReplicated += underReplicated
-//			if available == 0 {
-//				clusterStat.ReplicaStatus.Unavailable++
-//				databaseStatus.ReplicaStatus.Unavailable++
-//			}
-//		}
-//	}
-//	// calc node status
-//	clusterStat.NodeStatus.Total = len(clusterStat.Nodes)
-//	if aliveNodes != nil {
-//		clusterStat.NodeStatus.Alive = len(aliveNodes.ActiveNodes)
-//	}
-//	clusterStat.NodeStatus.Dead = clusterStat.NodeStatus.Total - clusterStat.NodeStatus.Alive
-//
-//	http.OK(c, clusterStat)
-//}
-//
-//// ListStorageClusterState lists state of all storage clusters
-//func (s *StorageAPI) ListStorageClusterState(c *gin.Context) {
-//	databaseList, shardAssignMap, err := s.getDatabaseInfo()
-//	if err != nil {
-//		http.Error(c, err)
-//		return
-//	}
-//	clusterMap, err := s.getStorageClusterInfoMap()
-//	if err != nil {
-//		http.Error(c, err)
-//		return
-//	}
-//	storageNodeStatus := s.deps.StateMachines.StorageSM.List()
-//
-//	// calc node status
-//	aliveNodeMap := make(map[string]*models.StorageState)
-//	for _, storageState := range storageNodeStatus {
-//		aliveNodeMap[storageState.Name] = storageState
-//		clusterStat, ok := clusterMap[storageState.Name]
-//		if ok {
-//			clusterStat.NodeStatus.Alive = len(storageState.ActiveNodes)
-//			clusterStat.NodeStatus.Dead = clusterStat.NodeStatus.Total - clusterStat.NodeStatus.Alive
-//		}
-//	}
-//
-//	for _, db := range databaseList {
-//		clusterStat, ok := clusterMap[db.Cluster]
-//		if !ok {
-//			continue
-//		}
-//		clusterStat.ReplicaStatus.Total += db.NumOfShard * db.ReplicaFactor
-//
-//		shardAssign, ok := shardAssignMap[db.Name]
-//		if !ok {
-//			continue
-//		}
-//		aliveNodes, ok := aliveNodeMap[db.Cluster]
-//		if !ok {
-//			continue
-//		}
-//		shards := shardAssign.Shards
-//		nodes := shardAssign.Nodes
-//		for _, replica := range shards {
-//			available, underReplicated := calcReplicaStatus(replica, nodes, aliveNodes)
-//			clusterStat.ReplicaStatus.UnderReplicated += underReplicated
-//			if available == 0 {
-//				clusterStat.ReplicaStatus.Unavailable++
-//			}
-//		}
-//	}
-//
-//	// build result
-//	var result []*models.StorageClusterStat
-//	for _, value := range clusterMap {
-//		result = append(result, value)
-//	}
-//	http.OK(c, result)
-//}
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/lindb/lindb/app/broker/api/admin"
+	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/logger"
+)
+
+var (
+	StorageStatePath     = "/storage/cluster/state"
+	ListStorageStatePath = "/storage/cluster/state/list"
+)
+
+// StorageAPI represents query storage cluster's state api from broker state machine
+type StorageAPI struct {
+	deps         *deps.HTTPDeps
+	ListDatabase func() ([]*models.Database, error)
+	logger       *logger.Logger
+}
+
+// NewStorageAPI creates storage state api
+func NewStorageAPI(deps *deps.HTTPDeps) *StorageAPI {
+	return &StorageAPI{
+		deps:         deps,
+		ListDatabase: admin.NewDatabaseAPI(deps).ListDataBase,
+		logger:       logger.GetLogger("broker", "StorageAPI"),
+	}
+}
+
+// Register adds storage state url route.
+func (s *StorageAPI) Register(route gin.IRoutes) {
+	route.GET(StorageStatePath, s.GetStorageClusterState)
+	route.GET(ListStorageStatePath, s.ListStorageClusterState)
+}
+
+// GetStorageClusterState returns the storage cluster detail stat by given cluster name
+func (s *StorageAPI) GetStorageClusterState(c *gin.Context) {
+	var param struct {
+		ClusterName string `form:"name" binding:"required"`
+	}
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		http.Error(c, err)
+		return
+	}
+	http.OK(c, &models.StorageClusterStat{})
+	//databaseList, shardAssignMap, err := s.getDatabaseInfo()
+	//if err != nil {
+	//	http.Error(c, err)
+	//	return
+	//}
+	//
+	//clusterStat, err := s.getStorageClusterInfo(param.ClusterName)
+	//if err != nil {
+	//	http.Error(c, err)
+	//	return
+	//}
+	//aliveNodes := s.getStorageAliveNodes(param.ClusterName)
+	//
+	//nodeStatMap := make(map[string]*models.NodeStat)
+	//for _, nodeStat := range clusterStat.Nodes {
+	//	nodeStatMap[nodeStat.Node.Node.Indicator()] = nodeStat
+	//}
+	//
+	//for _, db := range databaseList {
+	//	if db.Cluster != param.ClusterName {
+	//		continue
+	//	}
+	//	clusterStat.ReplicaStatus.Total += db.NumOfShard * db.ReplicaFactor
+	//
+	//	shardAssign, ok := shardAssignMap[db.Name]
+	//	if !ok {
+	//		continue
+	//	}
+	//	db.Desc = db.String()
+	//	databaseStatus := models.DatabaseStatus{
+	//		Config:        *db,
+	//		ReplicaStatus: models.ReplicaStatus{},
+	//	}
+	//	databaseStatus.ReplicaStatus.Total = db.NumOfShard * db.ReplicaFactor
+	//	clusterStat.DatabaseStatusList = append(clusterStat.DatabaseStatusList, databaseStatus)
+	//
+	//	shards := shardAssign.Shards
+	//	nodes := shardAssign.Nodes
+	//	for _, replica := range shards {
+	//		available, underReplicated := calcReplicaStatus(replica, nodes, aliveNodes)
+	//		for _, nodeID := range replica.Replicas {
+	//			node := nodes[nodeID]
+	//			nodeStat, ok := nodeStatMap[node.Indicator()]
+	//			if !ok {
+	//				continue
+	//			}
+	//			nodeStat.Replicas++
+	//		}
+	//		databaseStatus.ReplicaStatus.UnderReplicated += underReplicated
+	//		clusterStat.ReplicaStatus.UnderReplicated += underReplicated
+	//		if available == 0 {
+	//			clusterStat.ReplicaStatus.Unavailable++
+	//			databaseStatus.ReplicaStatus.Unavailable++
+	//		}
+	//	}
+	//}
+	//// calc node status
+	//clusterStat.NodeStatus.Total = len(clusterStat.Nodes)
+	//if aliveNodes != nil {
+	//	clusterStat.NodeStatus.Alive = len(aliveNodes.ActiveNodes)
+	//}
+	//clusterStat.NodeStatus.Dead = clusterStat.NodeStatus.Total - clusterStat.NodeStatus.Alive
+	//
+	//http.OK(c, clusterStat)
+}
+
+// ListStorageClusterState lists state of all storage clusters
+func (s *StorageAPI) ListStorageClusterState(c *gin.Context) {
+	//databaseList, shardAssignMap, err := s.getDatabaseInfo()
+	//if err != nil {
+	//	http.Error(c, err)
+	//	return
+	//}
+	//clusterMap, err := s.getStorageClusterInfoMap()
+	//if err != nil {
+	//	http.Error(c, err)
+	//	return
+	//}
+	//storageNodeStatus := s.deps.StateMachines.StorageSM.List()
+	//
+	//// calc node status
+	//aliveNodeMap := make(map[string]*models.StorageState)
+	//for _, storageState := range storageNodeStatus {
+	//	aliveNodeMap[storageState.Name] = storageState
+	//	clusterStat, ok := clusterMap[storageState.Name]
+	//	if ok {
+	//		clusterStat.NodeStatus.Alive = len(storageState.ActiveNodes)
+	//		clusterStat.NodeStatus.Dead = clusterStat.NodeStatus.Total - clusterStat.NodeStatus.Alive
+	//	}
+	//}
+	//
+	//for _, db := range databaseList {
+	//	clusterStat, ok := clusterMap[db.Cluster]
+	//	if !ok {
+	//		continue
+	//	}
+	//	clusterStat.ReplicaStatus.Total += db.NumOfShard * db.ReplicaFactor
+	//
+	//	shardAssign, ok := shardAssignMap[db.Name]
+	//	if !ok {
+	//		continue
+	//	}
+	//	aliveNodes, ok := aliveNodeMap[db.Cluster]
+	//	if !ok {
+	//		continue
+	//	}
+	//	shards := shardAssign.Shards
+	//	nodes := shardAssign.Nodes
+	//	for _, replica := range shards {
+	//		available, underReplicated := calcReplicaStatus(replica, nodes, aliveNodes)
+	//		clusterStat.ReplicaStatus.UnderReplicated += underReplicated
+	//		if available == 0 {
+	//			clusterStat.ReplicaStatus.Unavailable++
+	//		}
+	//	}
+	//}
+	//
+	// build result
+	var result []*models.StorageClusterStat
+	//for _, value := range clusterMap {
+	//	result = append(result, value)
+	//}
+	http.OK(c, result)
+}
+
 //
 //// getStorageAliveNodes returns the alive nodes of storage cluster by given cluster name
 //func (s *StorageAPI) getStorageAliveNodes(clusterName string) *models.StorageState {
