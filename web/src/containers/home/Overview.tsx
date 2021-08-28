@@ -11,8 +11,9 @@ interface OverviewProps {
 }
 
 interface OverviewState {
-  ip: string
-  port: number
+  hostIp: string
+  hostName: string
+  grpcPort: number
   electTime: number
   brokers: NodeList
   storageClusters: Array<StorageCluster>
@@ -24,8 +25,9 @@ export default class Overview extends React.Component<OverviewProps, OverviewSta
     super(props)
 
     this.state = {
-      ip: '',
-      port: 0,
+      hostIp: '',
+      hostName: '',
+      grpcPort: 0,
       electTime: 0,
       brokers: [],
       storageClusters: [],
@@ -45,8 +47,8 @@ export default class Overview extends React.Component<OverviewProps, OverviewSta
   async getMaster() {
     const result: any = await getMaster()
     if (result) {
-      const { node: { ip, port }, electTime } = result
-      this.setState({ ip, port, electTime })
+      const { node: { hostIp, hostName, grpcPort }, electTime } = result
+      this.setState({ hostIp, hostName, grpcPort, electTime })
     }
   }
 
@@ -65,13 +67,13 @@ export default class Overview extends React.Component<OverviewProps, OverviewSta
   }
 
   render() {
-    const { ip, port, electTime, brokers, storageClusters } = this.state
+    const { hostIp, hostName, grpcPort, electTime, brokers, storageClusters } = this.state
 
     return (
       <div>
         {/* Master */}
         <Card size="small" title="Master" loading={false}>
-          {ip}:{port}
+          {hostName}({hostIp}):{grpcPort}
           <Tag color="lime" style={{ padding: "2px", marginLeft: "8px" }}>
             <span style={{ margin: "4px" }}>
               Elect Time: {dateFormatter(electTime)}

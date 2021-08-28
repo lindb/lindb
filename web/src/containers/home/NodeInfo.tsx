@@ -39,7 +39,7 @@ class BrokersListTable extends React.Component<NodeListTableProps> {
           return (
             <div>
               <Badge status="success" />
-              {record.node.node.ip + " - " + record.node.node.hostName}
+              {record.node.hostIp + " - " + record.node.hostName}
             </div>
           )
         },
