@@ -146,9 +146,9 @@ func buildForwardReader(ctrl *gomock.Controller) ForwardReader {
 	block := buildForwardBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(10)).Return(nil, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(19)).Return(nil, false).AnyTimes()
-	mockReader.EXPECT().Get(uint32(20)).Return(block, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(10)).Return(nil, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(19)).Return(nil, table.ErrKeyNotExist).AnyTimes()
+	mockReader.EXPECT().Get(uint32(20)).Return(block, nil).AnyTimes()
 	// build series index inverterReader
 	return NewForwardReader([]table.Reader{mockReader})
 }

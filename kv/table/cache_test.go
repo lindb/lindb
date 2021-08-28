@@ -61,10 +61,19 @@ func TestMapCache_GetReader(t *testing.T) {
 	// case 5: evict reader err
 	mockReader.EXPECT().Close().Return(fmt.Errorf("err"))
 	cache.Evict("f", "100000.sst")
+	// case6, evict ok
+	mockReader.EXPECT().Close().Return(nil)
+	_, _ = cache.GetReader("f", "100000.sst")
+	cache.Evict("f", "100000.sst")
+
 	// case 6: close err
 	mockReader.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(2)
 	_, _ = cache.GetReader("f", "100000.sst")
 	_, _ = cache.GetReader("f", "200000.sst")
+	err = cache.Close()
+	assert.NoError(t, err)
+	// case7, close ok
+	mockReader.EXPECT().Close().Return(nil).AnyTimes()
 	err = cache.Close()
 	assert.NoError(t, err)
 }

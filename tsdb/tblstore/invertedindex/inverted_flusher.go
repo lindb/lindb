@@ -47,8 +47,8 @@ func NewInvertedFlusher(kvFlusher kv.Flusher) InvertedFlusher {
 		kvFlusher:   kvFlusher,
 		writer:      stream.NewBufferWriter(nil),
 		tagValueIDs: roaring.New(),
-		lowOffsets:  encoding.NewFixedOffsetEncoder(),
-		highOffsets: encoding.NewFixedOffsetEncoder(),
+		lowOffsets:  encoding.NewFixedOffsetEncoder(true),
+		highOffsets: encoding.NewFixedOffsetEncoder(true),
 	}
 }
 

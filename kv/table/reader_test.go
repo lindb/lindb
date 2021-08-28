@@ -20,7 +20,6 @@ package table
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 
@@ -67,7 +66,6 @@ func TestReader_Fail(t *testing.T) {
 func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	_ = fileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
-		uvarintFunc = binary.ReadUvarint
 		uint64Func = binary.LittleEndian.Uint64
 		encoding.BitmapUnmarshal = bitmapUnmarshal
 		_ = os.RemoveAll(testKVPath)
@@ -80,29 +78,25 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	assert.Equal(t, uint64(2), builder.Count())
 	err = builder.Close()
 	assert.Nil(t, err)
-	// case 1: read data length err
-	uvarintFunc = func(r io.ByteReader) (u uint64, err error) {
-		return 0, fmt.Errorf("err")
-	}
+
+	// case1, ok
 	r, err := newMMapStoreReader(testKVPath + "/000010.sst")
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	block, err := r.(*storeMMapReader).getBlock(0)
+	assert.NoError(t, err)
+	assert.Equal(t, "test", string(block))
+
+	block, err = r.(*storeMMapReader).getBlock(1)
+	assert.NoError(t, err)
+	assert.Equal(t, "test10", string(block))
+
+	block, err = r.(*storeMMapReader).getBlock(2)
 	assert.Error(t, err)
-	assert.Nil(t, r)
-	// case 2: length > end
-	uvarintFunc = func(r io.ByteReader) (u uint64, err error) {
-		return 1000000, nil
-	}
-	r, err = newMMapStoreReader(testKVPath + "/000010.sst")
-	assert.Error(t, err)
-	assert.Nil(t, r)
-	// case 3: read magic number err
-	uvarintFunc = binary.ReadUvarint
-	uint64Func = func(b []byte) uint64 {
-		return 0
-	}
-	r, err = newMMapStoreReader(testKVPath + "/000010.sst")
-	assert.Error(t, err)
-	assert.Nil(t, r)
-	// case 4: unmarshal keys err
+	assert.Len(t, block, 0)
+
+	// case 2: unmarshal keys err
 	uint64Func = binary.LittleEndian.Uint64
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
@@ -110,7 +104,8 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	r, err = newMMapStoreReader(testKVPath + "/000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
-	// case 5: offset's size != key's size
+
+	// case 3: offset's size != key's size
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		bitmap.AddRange(1, 1000)
 		return nil
@@ -150,8 +145,8 @@ func TestReader(t *testing.T) {
 	defer func() {
 		_ = reader.Close()
 	}()
-	value, ok := reader.Get(100)
-	assert.False(t, ok)
+	value, err := reader.Get(100)
+	assert.Error(t, err)
 	assert.Nil(t, value)
 
 	value, _ = reader.Get(1)

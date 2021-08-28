@@ -201,7 +201,9 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	// case 1: flush success
 	flusher.EXPECT().FlushField(mockFlushData())
 
-	store.FlushFieldTo(flusher, field.Meta{Type: field.SumField}, flushContext{SlotRange: timeutil.SlotRange{Start: 2, End: 20}})
+	assert.NoError(t, store.FlushFieldTo(flusher,
+		field.Meta{Type: field.SumField},
+		&flushContext{SlotRange: timeutil.SlotRange{Start: 2, End: 20}}))
 }
 
 func mockFlushData() []byte {

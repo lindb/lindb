@@ -903,9 +903,12 @@ func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
 	if err != nil {
 		return err
 	}
+	dataFlusher, err := metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher())
+	if err != nil {
+		return err
+	}
 	// flush family data
-	if err := memDB.FlushFamilyTo(
-		metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher())); err != nil {
+	if err := memDB.FlushFamilyTo(dataFlusher); err != nil {
 		return err
 	}
 	if err := memDB.Close(); err != nil {

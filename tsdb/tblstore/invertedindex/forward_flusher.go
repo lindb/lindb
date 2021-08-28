@@ -54,7 +54,7 @@ func NewForwardFlusher(kvFlusher kv.Flusher) ForwardFlusher {
 	return &forwardFlusher{
 		writer:      stream.NewBufferWriter(nil),
 		tagValueIDs: encoding.NewDeltaBitPackingEncoder(),
-		offsets:     encoding.NewFixedOffsetEncoder(),
+		offsets:     encoding.NewFixedOffsetEncoder(true),
 		kvFlusher:   kvFlusher,
 	}
 }

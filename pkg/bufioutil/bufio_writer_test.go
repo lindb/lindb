@@ -33,9 +33,9 @@ var (
 	_testContent = []byte("eleme.ci.etrace")
 )
 
-func TestNewBufioWriter(t *testing.T) {
+func TestNewBufioEntryWriter(t *testing.T) {
 	defer os.Remove(_testFile)
-	bw, err := NewBufioWriter(_testFile)
+	bw, err := NewBufioEntryWriter(_testFile)
 
 	assert.Nil(t, err)
 	assert.NotNil(t, bw)
@@ -45,7 +45,7 @@ func TestBufioWriter_Reset(t *testing.T) {
 	defer os.Remove(_testFile)
 	defer os.Remove("new" + _testFile)
 
-	bw, _ := NewBufioWriter(_testFile)
+	bw, _ := NewBufioEntryWriter(_testFile)
 	bw.Write([]byte("test"))
 	bw.Flush()
 	assert.Equal(t, int64(5), bw.Size())
@@ -61,7 +61,7 @@ func TestBufioWriter_Reset(t *testing.T) {
 
 func TestBufioWriter_Write_Size(t *testing.T) {
 	defer os.Remove(_testFile)
-	bw, _ := NewBufioWriter(_testFile)
+	bw, _ := NewBufioEntryWriter(_testFile)
 	assert.Equal(t, int64(0), bw.Size())
 	n, err := bw.Write([]byte(""))
 	assert.Equal(t, 1, n)
@@ -78,9 +78,28 @@ func TestBufioWriter_Write_Size(t *testing.T) {
 	assert.Equal(t, int64(135), bw.Size())
 }
 
+func TestBufioStreamWriter_Write_Size(t *testing.T) {
+	defer os.Remove(_testFile)
+	bw, _ := NewBufioStreamWriter(_testFile)
+	assert.Equal(t, int64(0), bw.Size())
+	n, err := bw.Write([]byte(""))
+	assert.Equal(t, 0, n)
+	assert.Equal(t, int64(0), bw.Size())
+	assert.Nil(t, err)
+
+	n, _ = bw.Write([]byte("xyz"))
+	assert.Equal(t, 3, n)
+	assert.Equal(t, int64(3), bw.Size())
+
+	var s [128]byte
+	n, _ = bw.Write(s[:])
+	assert.Equal(t, 128, n)
+	assert.Equal(t, int64(131), bw.Size())
+}
+
 func BenchmarkBufioWriter_Write(b *testing.B) {
 	defer os.Remove(_testFile)
-	bw, _ := NewBufioWriter(_testFile)
+	bw, _ := NewBufioEntryWriter(_testFile)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -92,7 +111,7 @@ func BenchmarkBufioWriter_Write(b *testing.B) {
 
 func TestBufioWriter_Close(t *testing.T) {
 	defer os.Remove(_testFile)
-	bw, _ := NewBufioWriter(_testFile)
+	bw, _ := NewBufioEntryWriter(_testFile)
 
 	expectedLength := (len(_testContent) + 1) * 100000
 	for i := 0; i < 100000; i++ {

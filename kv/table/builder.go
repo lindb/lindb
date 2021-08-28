@@ -20,9 +20,12 @@ package table
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
+	"sync"
 
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -32,8 +35,28 @@ import (
 
 // for testing
 var (
-	newBufioWriterFunc = bufioutil.NewBufioWriter
+	newBufioWriterFunc         = bufioutil.NewBufioStreamWriter
+	_once4Builder              sync.Once
+	_instanceBuilderStatistics *builderStatistics
 )
+
+func getBuilderStatistics() *builderStatistics {
+	_once4Builder.Do(func() {
+		tableBuilderScope := linmetric.NewScope("lindb.kv.table.builder")
+		_instanceBuilderStatistics = &builderStatistics{
+			AddBadKeys: tableBuilderScope.NewDeltaCounter("bad_keys"),
+			AddKeys:    tableBuilderScope.NewDeltaCounter("add_keys"),
+			AddBytes:   tableBuilderScope.NewDeltaCounter("add_bytes"),
+		}
+	})
+	return _instanceBuilderStatistics
+}
+
+type builderStatistics struct {
+	AddBadKeys *linmetric.BoundDeltaCounter
+	AddKeys    *linmetric.BoundDeltaCounter
+	AddBytes   *linmetric.BoundDeltaCounter
+}
 
 // FileNumber represents sst file number
 type FileNumber int64
@@ -50,6 +73,8 @@ type Builder interface {
 	// Add puts k/v pair init sst file write buffer
 	// NOTICE: key must key in sort by desc
 	Add(key uint32, value []byte) error
+	// StreamWriter returns a writer for streaming writing data
+	StreamWriter() StreamWriter
 	// MinKey returns min key in store
 	MinKey() uint32
 	// MaxKey returns max key in store
@@ -62,6 +87,24 @@ type Builder interface {
 	Abandon() error
 	// Close closes sst file write buffer
 	Close() error
+}
+
+// StreamWriter writes multi buffer into the builder continuously
+// Call Prepare, Write, Commit in order.
+// sw.Prepare(1)
+// sw.Write(...)
+// sw.Write(...)
+// sw.Commit()
+type StreamWriter interface {
+	// Prepare the writer with specified key
+	Prepare(key uint32)
+	// Writer writes buffer into the underlying file
+	io.Writer
+	// Size returns total written size of Write
+	// Prepare will resets it to zero.
+	Size() int32
+	// Commit marks the key/value pair has been written
+	Commit()
 }
 
 // storeBuilder builds store file
@@ -91,7 +134,7 @@ func NewStoreBuilder(fileNumber FileNumber, fileName string) (Builder, error) {
 		keys:       roaring.New(),
 		writer:     writer,
 		first:      true,
-		offset:     encoding.NewFixedOffsetEncoder(),
+		offset:     encoding.NewFixedOffsetEncoder(true),
 	}, nil
 }
 
@@ -100,12 +143,36 @@ func (b *storeBuilder) FileNumber() FileNumber {
 	return b.fileNumber
 }
 
-// Add adds key/value pair into store file, if write failure return error
-func (b *storeBuilder) Add(key uint32, value []byte) error {
-	if !b.first && key <= b.maxKey {
+func (b *storeBuilder) ensureIncreasingKey(key uint32) bool {
+	if b.first {
+		return true
+	}
+	if key <= b.maxKey {
+		getBuilderStatistics().AddBadKeys.Incr()
 		tableLogger.Warn("key is smaller then last key ignore current options.",
 			logger.String("file", b.fileName),
-			logger.Uint32("last", b.maxKey), logger.Uint32("cur", key))
+			logger.Uint32("last", b.maxKey),
+			logger.Uint32("cur", key))
+		return false
+	}
+	return true
+}
+
+func (b *storeBuilder) afterWrite(key uint32, offset int) {
+	// add offset into offset buffer
+	b.offset.Add(offset)
+	// add key into index block
+	b.keys.Add(key)
+	if b.first {
+		b.minKey = key
+	}
+	b.maxKey = key
+	b.first = false
+}
+
+// Add adds key/value pair into store file, if write failure return error
+func (b *storeBuilder) Add(key uint32, value []byte) error {
+	if !b.ensureIncreasingKey(key) {
 		return nil
 	}
 
@@ -114,18 +181,9 @@ func (b *storeBuilder) Add(key uint32, value []byte) error {
 	if _, err := b.writer.Write(value); err != nil {
 		return fmt.Errorf("write data into store file error:%s", err)
 	}
-	// add offset into offset buffer
-	b.offset.Add(int(offset))
-	// add key into index block
-	b.keys.Add(key)
-
-	if b.first {
-		b.minKey = key
-	}
-
-	b.maxKey = key
-	b.first = false
-
+	getBuilderStatistics().AddKeys.Incr()
+	getBuilderStatistics().AddBytes.Add(float64(len(value)))
+	b.afterWrite(key, int(offset))
 	return nil
 }
 
@@ -185,4 +243,55 @@ func (b *storeBuilder) Close() error {
 		return err
 	}
 	return b.writer.Close()
+}
+
+func (b *storeBuilder) StreamWriter() StreamWriter {
+	return newStreamWriter(b)
+}
+
+func newStreamWriter(builder *storeBuilder) *streamWriter {
+	return &streamWriter{
+		builder: builder,
+		badKey:  true,
+	}
+}
+
+type streamWriter struct {
+	builder *storeBuilder
+	size    int32
+	key     uint32
+	offset  int64
+	badKey  bool
+}
+
+func (sw *streamWriter) Prepare(key uint32) {
+	sw.badKey = !sw.builder.ensureIncreasingKey(key)
+	sw.offset = sw.builder.writer.Size()
+	sw.key = key
+	sw.size = 0
+}
+
+func (sw *streamWriter) Write(data []byte) (int, error) {
+	if sw.badKey {
+		return 0, nil
+	}
+	n, err := sw.builder.writer.Write(data)
+	if err == nil {
+		sw.size += int32(n)
+	}
+	getBuilderStatistics().AddBytes.Add(float64(len(data)))
+	return n, err
+}
+
+func (sw *streamWriter) Size() int32 {
+	return sw.size
+}
+
+func (sw *streamWriter) Commit() {
+	if sw.badKey {
+		return
+	}
+	sw.builder.afterWrite(sw.key, int(sw.offset))
+	// preventing committing twice
+	sw.badKey = true
 }

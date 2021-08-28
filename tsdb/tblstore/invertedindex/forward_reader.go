@@ -78,8 +78,8 @@ func (r *forwardReader) GetGroupingScanner(tagKeyID uint32, seriesIDs *roaring.B
 // findReader finds the tag forward reader by tag key id, if reader exist, will invoke callback function
 func (r *forwardReader) findReader(tagKeyID uint32, callback func(reader TagForwardReader)) error {
 	for _, reader := range r.readers {
-		value, ok := reader.Get(tagKeyID)
-		if !ok {
+		value, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		indexReader, err := NewTagForwardReader(value)
@@ -169,7 +169,8 @@ func (s *tagForwardScanner) nextContainer() {
 	s.highKey = s.highKeys[s.keyPos]
 	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
 	offset, _ := s.reader.offsets.Get(s.keyPos)
-	s.tagValueOffsets = encoding.NewFixedOffsetDecoder(s.reader.buf[offset:])
+	s.tagValueOffsets = encoding.NewFixedOffsetDecoder()
+	_, _ = s.tagValueOffsets.Unmarshal(s.reader.buf[offset:])
 	if s.tagValueIDs == nil {
 		offset, _ := s.reader.offsets.Get(s.keyPos)
 		s.tagValueIDs = encoding.NewDeltaBitPackingDecoder(s.reader.buf[offset:])

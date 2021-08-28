@@ -19,6 +19,7 @@ package metricsdata
 
 import (
 	"fmt"
+
 	"math"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -120,53 +122,43 @@ func TestReader_Load(t *testing.T) {
 }
 
 func TestReader_scan(t *testing.T) {
-	defer func() {
-		getOffsetFunc = getOffset
-	}()
-
 	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	scanner := newDataScanner(r)
+	scanner, err := newDataScanner(r)
+	assert.NoError(t, err)
+
 	timeRange := scanner.slotRange()
 	assert.Equal(t, uint16(5), timeRange.Start)
 	assert.Equal(t, uint16(5), timeRange.End)
+
 	// case 1: not match
-	seriesPos := scanner.scan(10, 10)
-	assert.True(t, seriesPos < 0)
+	seriesEntry := scanner.scan(10, 10)
+	assert.Empty(t, seriesEntry)
 	// case 2: merge data
-	scanner = newDataScanner(r)
-	seriesPos = scanner.scan(0, 0)
-	assert.True(t, seriesPos >= 0)
-	seriesPos = scanner.scan(1, 10)
-	assert.True(t, seriesPos >= 0)
+	scanner, _ = newDataScanner(r)
+	seriesEntry = scanner.scan(0, 0)
+	assert.True(t, scanner.reader.seriesIDs.Contains(0))
+	assert.True(t, len(seriesEntry) > 0)
 	// case 3: scan completed
-	seriesPos = scanner.scan(3, 10)
-	assert.True(t, seriesPos < 0)
+	seriesEntry = scanner.scan(3, 10)
+	assert.Empty(t, seriesEntry)
 	// case 4: not match
-	scanner = newDataScanner(r)
-	seriesPos = scanner.scan(0, 10)
-	assert.True(t, seriesPos < 0)
-	// case 6: get wrong offset
-	scanner = newDataScanner(r)
-	getOffsetFunc = func(seriesOffsets *encoding.FixedOffsetDecoder, idx int) (int, bool) {
-		return 0, false
-	}
-	seriesPos = scanner.scan(0, 0)
-	assert.True(t, seriesPos < 0)
-	fields := scanner.fieldIndexes()
-	assert.Len(t, fields, 4)
+	scanner, _ = newDataScanner(r)
+	seriesEntry = scanner.scan(0, 10)
+	assert.Empty(t, seriesEntry)
 }
 
 func mockMetricBlock() []byte {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas(field.Metas{
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(10, field.Metas{
 		{ID: 2, Type: field.SumField},
 		{ID: 10, Type: field.MinField},
 		{ID: 30, Type: field.SumField},
 		{ID: 100, Type: field.MaxField},
 	})
+
 	for j := 0; j < 10; j++ {
 		encoder := encoding.NewTSDEncoder(5)
 		for i := 0; i < 10; i++ {
@@ -174,30 +166,29 @@ func mockMetricBlock() []byte {
 			encoder.AppendValue(math.Float64bits(float64(10.0 * i)))
 		}
 		data, _ := encoder.BytesWithoutTime()
-		flusher.FlushField(data)
-		flusher.FlushField(data)
-		flusher.FlushField(data)
-		flusher.FlushField(data)
-		flusher.FlushSeries(uint32(j * 4096))
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushSeries(uint32(j * 4096))
 	}
 	// mock just has one field
 	encoder := encoding.NewTSDEncoder(5)
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.BytesWithoutTime()
-	flusher.FlushField(data)
-	flusher.FlushSeries(uint32(65536 + 10))
-	_ = flusher.FlushMetric(uint32(10), 5, 5)
+	_ = flusher.FlushField(data)
+	_ = flusher.FlushSeries(uint32(65536 + 10))
+	_ = flusher.CommitMetric(timeutil.SlotRange{Start: 5, End: 5})
 
 	return nopKVFlusher.Bytes()
 }
 
 func mockMetricBlockForOneField() []byte {
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas(field.Metas{
-		{ID: 2, Type: field.SumField},
-	})
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(10, field.Metas{{ID: 2, Type: field.SumField}})
+
 	for j := 0; j < 10; j++ {
 		encoder := encoding.NewTSDEncoder(5)
 		for i := 0; i < 10; i++ {
@@ -205,16 +196,16 @@ func mockMetricBlockForOneField() []byte {
 			encoder.AppendValue(math.Float64bits(float64(10.0 * i)))
 		}
 		data, _ := encoder.BytesWithoutTime()
-		flusher.FlushField(data)
-		flusher.FlushSeries(uint32(j * 4096))
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushSeries(uint32(j * 4096))
 	}
 	// mock just has one field
 	encoder := encoding.NewTSDEncoder(5)
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(math.Float64bits(10.0))
 	data, _ := encoder.BytesWithoutTime()
-	flusher.FlushField(data)
-	flusher.FlushSeries(uint32(65536 + 10))
-	_ = flusher.FlushMetric(uint32(10), 5, 5)
+	_ = flusher.FlushField(data)
+	_ = flusher.FlushSeries(uint32(65536 + 10))
+	_ = flusher.CommitMetric(timeutil.SlotRange{Start: 5, End: 5})
 	return nopKVFlusher.Bytes()
 }

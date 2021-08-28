@@ -52,7 +52,7 @@ func NewFlusher(kvFlusher kv.Flusher) Flusher {
 		kvFlusher:      kvFlusher,
 		entrySetWriter: stream.NewBufferWriter(nil),
 		idBitmap:       roaring.New(),
-		rankOffsets:    encoding.NewFixedOffsetEncoder(),
+		rankOffsets:    encoding.NewFixedOffsetEncoder(false),
 		trieBuilder:    trie.NewBuilder(),
 	}
 }
