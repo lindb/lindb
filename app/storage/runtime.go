@@ -247,6 +247,9 @@ func (r *runtime) Stop() {
 	// close state repo if exist
 	if r.repo != nil {
 		r.log.Info("closing state repo...")
+		if err := r.repo.Delete(r.ctx, constants.GetStatefulNodePath(r.node.ID)); err != nil {
+			r.log.Warn("delete storage node's metadata")
+		}
 		if err := r.repo.Close(); err != nil {
 			r.log.Error("close state repo error, when storage stop", logger.Error(err))
 		} else {

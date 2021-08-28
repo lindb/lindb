@@ -158,7 +158,10 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_Err(_ *check.C) {
 	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	repo := state.NewMockRepository(ctrl)
 	s.repo = repo
+
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
+
 	s.Stop()
 	assert.Error(ts.t, err)
 }
