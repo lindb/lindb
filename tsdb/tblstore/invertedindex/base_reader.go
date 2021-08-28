@@ -61,6 +61,7 @@ func (r *baseReader) initReader() error {
 	}
 	r.keys = keys
 	// read high keys offsets
-	r.offsets = encoding.NewFixedOffsetDecoder(r.buf[offsetsPos:])
-	return nil
+	r.offsets = encoding.NewFixedOffsetDecoder()
+	_, err := r.offsets.Unmarshal(r.buf[offsetsPos:])
+	return err
 }

@@ -29,6 +29,8 @@ import (
 
 // Flusher flushes data into kv store, for big data will be split into many sst files
 type Flusher interface {
+	// StreamWriter creates a stream writer for flushing in stream
+	StreamWriter() (table.StreamWriter, error)
 	// Add puts k/v pair
 	Add(key uint32, value []byte) error
 	// Commit flushes data and commits metadata
@@ -50,9 +52,7 @@ func newStoreFlusher(family Family) Flusher {
 	}
 }
 
-// Add adds puts k/v pair.
-// NOTICE: key must key in sort by desc
-func (sf *storeFlusher) Add(key uint32, value []byte) error {
+func (sf *storeFlusher) checkBuilder() error {
 	if sf.builder == nil {
 		builder, err := sf.family.newTableBuilder()
 		if err != nil {
@@ -61,8 +61,24 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 		sf.family.addPendingOutput(builder.FileNumber())
 		sf.builder = builder
 	}
+	return nil
+}
+
+// Add adds puts k/v pair.
+// NOTICE: key must key in sort by desc
+func (sf *storeFlusher) Add(key uint32, value []byte) error {
+	if err := sf.checkBuilder(); err != nil {
+		return err
+	}
 	//TODO add file size limit
 	return sf.builder.Add(key, value)
+}
+
+func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
+	if err := sf.checkBuilder(); err != nil {
+		return nil, err
+	}
+	return sf.builder.StreamWriter(), nil
 }
 
 // Commit flushes data and commits metadata
@@ -105,8 +121,12 @@ func NewNopFlusher() *NopFlusher {
 // Bytes returns last-flushed-value
 func (nf *NopFlusher) Bytes() []byte { return nf.buffer.Bytes() }
 
+func (nf *NopFlusher) StreamWriter() (table.StreamWriter, error) {
+	return &nopStreamWriter{buffer: &nf.buffer}, nil
+}
+
 // Add puts value to the buffer.
-func (nf *NopFlusher) Add(key uint32, value []byte) error {
+func (nf *NopFlusher) Add(_ uint32, value []byte) error {
 	nf.buffer.Reset()
 	nf.buffer.Write(value)
 	return nil
@@ -114,3 +134,24 @@ func (nf *NopFlusher) Add(key uint32, value []byte) error {
 
 // Commit always return nil
 func (nf *NopFlusher) Commit() error { return nil }
+
+type nopStreamWriter struct {
+	size   int32
+	buffer *bytes.Buffer
+}
+
+func (nw *nopStreamWriter) Prepare(_ uint32) {
+	nw.size = 0
+}
+
+func (nw *nopStreamWriter) Write(data []byte) (int, error) {
+	_, _ = nw.buffer.Write(data)
+	nw.size += int32(len(data))
+	return len(data), nil
+}
+
+func (nw *nopStreamWriter) Size() int32 {
+	return nw.size
+}
+
+func (nw *nopStreamWriter) Commit() {}

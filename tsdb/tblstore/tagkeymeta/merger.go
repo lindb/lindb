@@ -35,7 +35,7 @@ type merger struct {
 	kvFlusher *kv.NopFlusher
 }
 
-// NewTagMerger creates a merger for compacting tag-key-meta
+// NewMerger creates a merger for compacting tag-key-meta
 func NewMerger() kv.Merger {
 	kvFlusher := kv.NewNopFlusher()
 	return &merger{

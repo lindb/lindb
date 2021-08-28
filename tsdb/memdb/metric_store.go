@@ -64,7 +64,7 @@ type mStoreINTF interface {
 	// GetOrCreateTStore constructs the index and return a tStore
 	GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, created bool)
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
-	FlushMetricsDataTo(tableFlusher metricsdata.Flusher, flushCtx flushContext) (err error)
+	FlushMetricsDataTo(tableFlusher metricsdata.Flusher, flushCtx *flushContext) (err error)
 }
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
@@ -145,15 +145,15 @@ func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, cr
 }
 
 // FlushMetricsDataTo Writes metric-data to the table.
-func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx flushContext) (err error) {
+func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx *flushContext) (err error) {
 	slotRange := ms.slotRange
 	// field not exist, return
 	fieldLen := len(ms.fields)
 	if fieldLen == 0 {
 		return
 	}
-	// flush field meta info
-	flusher.FlushFieldMetas(ms.fields)
+	// prepare for flushing metric
+	flusher.PrepareMetric(flushCtx.metricID, ms.fields)
 	// set current family's slot range
 	flushCtx.Start, flushCtx.End = slotRange.GetRange()
 	if err := ms.WalkEntry(func(key uint32, value tStoreINTF) error {
@@ -161,12 +161,13 @@ func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx 
 	}); err != nil {
 		return err
 	}
-	return flusher.FlushMetric(flushCtx.metricID, slotRange.Start, slotRange.End)
+	return flusher.CommitMetric(flushCtx.SlotRange)
 }
 
 // flush flushes series data
-func flush(flusher metricsdata.Flusher, flushCtx flushContext, key uint32, value tStoreINTF) error {
-	value.FlushSeriesTo(flusher, flushCtx)
-	flusher.FlushSeries(key)
-	return nil
+func flush(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, tStore tStoreINTF) error {
+	if err := tStore.FlushFieldsTo(flusher, flushCtx); err != nil {
+		return err
+	}
+	return flusher.FlushSeries(key)
 }

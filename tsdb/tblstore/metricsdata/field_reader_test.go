@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -31,31 +32,31 @@ func TestField_read(t *testing.T) {
 	r, err := NewReader("1.sst", block)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	scanner := newDataScanner(r)
-	seriesPos := scanner.scan(0, 1)
-	fReader := newFieldReader(scanner.fieldIndexes(), block, seriesPos, 5, 5)
-	start, end := fReader.slotRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(5), end)
+	scanner, _ := newDataScanner(r)
+	seriesEntry := scanner.scan(0, 1)
+	fReader := newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	sr := fReader.SlotRange()
+	assert.Equal(t, uint16(5), sr.Start)
+	assert.Equal(t, uint16(5), sr.End)
 	// case 1: field 1 not exist
-	data := fReader.getFieldData(1)
+	data := fReader.GetFieldData(1)
 	assert.Nil(t, data)
 	// case 2: field 2 exist
-	data = fReader.getFieldData(2)
+	data = fReader.GetFieldData(2)
 	assert.True(t, len(data) > 0)
 	// case 3: field 10 exist
-	data = fReader.getFieldData(10)
+	data = fReader.GetFieldData(10)
 	assert.True(t, len(data) > 0)
 	// case 4: field 20 not exist
-	data = fReader.getFieldData(20)
+	data = fReader.GetFieldData(20)
 	assert.Nil(t, data)
 	// case 5: complete cannot get field
-	fReader.close()
-	data = fReader.getFieldData(10)
+	fReader.Close()
+	data = fReader.GetFieldData(10)
 	assert.Nil(t, data)
 	// case 6: no fields
-	fReader = newFieldReader(scanner.fieldIndexes(), []byte{0, 0, 0}, 0, 5, 5)
-	data = fReader.getFieldData(10)
+	fReader = newFieldReader(scanner.fieldIndexes(), []byte{0, 0, 0}, timeutil.SlotRange{Start: 5, End: 5})
+	data = fReader.GetFieldData(10)
 	assert.Nil(t, data)
 }
 
@@ -64,11 +65,11 @@ func TestFieldReader_close(t *testing.T) {
 	r, err := NewReader("1.sst", block)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	scanner := newDataScanner(r)
-	seriesPos := scanner.scan(0, 1)
-	fReader := newFieldReader(scanner.fieldIndexes(), block, seriesPos, 5, 5)
-	fReader.close()
-	data := fReader.getFieldData(2)
+	scanner, _ := newDataScanner(r)
+	seriesEntry := scanner.scan(0, 1)
+	fReader := newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	fReader.Close()
+	data := fReader.GetFieldData(2)
 	assert.Nil(t, data)
 }
 
@@ -77,55 +78,55 @@ func TestFieldReader_reset(t *testing.T) {
 	r, err := NewReader("1.sst", block)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	scanner := newDataScanner(r)
-	seriesPos := scanner.scan(0, 1)
-	fReader := newFieldReader(scanner.fieldIndexes(), block, seriesPos, 5, 5)
-	start, end := fReader.slotRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(5), end)
-	data := fReader.getFieldData(2)
+	scanner, _ := newDataScanner(r)
+	seriesEntry := scanner.scan(0, 1)
+	fReader := newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	sr := fReader.SlotRange()
+	assert.Equal(t, uint16(5), sr.Start)
+	assert.Equal(t, uint16(5), sr.End)
+	data := fReader.GetFieldData(2)
 	assert.True(t, len(data) > 0)
-	data = fReader.getFieldData(10)
+	data = fReader.GetFieldData(10)
 	assert.True(t, len(data) > 0)
 
 	// mock diff field
 	nopKVFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(nopKVFlusher)
-	flusher.FlushFieldMetas(field.Metas{
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(10, field.Metas{
 		{ID: 10, Type: field.MinField},
 	})
-	flusher.FlushField([]byte{1, 2, 3})
-	flusher.FlushSeries(10)
-	_ = flusher.FlushMetric(uint32(10), start, end)
-	block = nopKVFlusher.Bytes()
+	_ = flusher.FlushField([]byte{1, 2, 3})
+	_ = flusher.FlushSeries(10)
+	_ = flusher.CommitMetric(sr)
 
 	// reset value
-	fReader.reset(block, seriesPos, 15, 15)
-	start, end = fReader.slotRange()
-	assert.Equal(t, uint16(15), start)
-	assert.Equal(t, uint16(15), end)
-	data = fReader.getFieldData(10)
+	fReader.Reset(seriesEntry, timeutil.SlotRange{Start: 15, End: 15})
+	sr = fReader.SlotRange()
+	assert.Equal(t, uint16(15), sr.Start)
+	assert.Equal(t, uint16(15), sr.End)
+	data = fReader.GetFieldData(10)
 	assert.True(t, len(data) > 0)
 }
+
 func TestFieldReader_read_one_field(t *testing.T) {
 	block := mockMetricMergeBlockOneField([]uint32{1}, 5, 5)
 	r, err := NewReader("1.sst", block)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-	scanner := newDataScanner(r)
-	seriesPos := scanner.scan(0, 1)
-	fReader := newFieldReader(scanner.fieldIndexes(), block, seriesPos, 5, 5)
-	start, end := fReader.slotRange()
-	assert.Equal(t, uint16(5), start)
-	assert.Equal(t, uint16(5), end)
+	scanner, _ := newDataScanner(r)
+	seriesEntry := scanner.scan(0, 1)
+	fReader := newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	sr := fReader.SlotRange()
+	assert.Equal(t, uint16(5), sr.Start)
+	assert.Equal(t, uint16(5), sr.End)
 	// case 1: field 1 not exist
-	data := fReader.getFieldData(1)
+	data := fReader.GetFieldData(1)
 	assert.Nil(t, data)
 	// case 2: field 2 exist
-	data = fReader.getFieldData(2)
+	data = fReader.GetFieldData(2)
 	assert.True(t, len(data) > 0)
 	// case 3: close cannot metricReader data
-	fReader.close()
-	data = fReader.getFieldData(2)
+	fReader.Close()
+	data = fReader.GetFieldData(2)
 	assert.Nil(t, data)
 }

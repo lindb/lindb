@@ -20,34 +20,26 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-const (
-	adjustValue    = 1
-	lengthOfHeader = 1
-	EmptyOffset    = -1
-)
-
 // FixedOffsetEncoder represents the offset encoder with fixed length
+// Make sure that added offset is increasing
 type FixedOffsetEncoder struct {
-	values []int
-	buf    *bytes.Buffer
-	max    int
-	bw     *stream.BufferWriter
+	values           []int
+	max              int
+	ensureIncreasing bool
 }
 
 // NewFixedOffsetEncoder creates the fixed length offset encoder
-func NewFixedOffsetEncoder() *FixedOffsetEncoder {
-	var buf bytes.Buffer
-	bw := stream.NewBufferWriter(&buf)
-	return &FixedOffsetEncoder{
-		buf: &buf,
-		bw:  bw,
-		max: EmptyOffset,
-	}
+// ensureIncreasing=true ensure that added offsets are increasing, panic when value is smaller than before
+// ensureIncreasing=false suppresses the increasing check.
+// Offset must >= 0
+func NewFixedOffsetEncoder(ensureIncreasing bool) *FixedOffsetEncoder {
+	return &FixedOffsetEncoder{ensureIncreasing: ensureIncreasing}
 }
 
 // IsEmpty returns if is empty
@@ -62,13 +54,18 @@ func (e *FixedOffsetEncoder) Size() int {
 
 // Reset resets the encoder context for reuse
 func (e *FixedOffsetEncoder) Reset() {
-	e.bw.Reset()
 	e.max = 0
 	e.values = e.values[:0]
 }
 
-// Add adds the offset value,
+// Add adds the start offset value,
 func (e *FixedOffsetEncoder) Add(v int) {
+	if e.ensureIncreasing && len(e.values) > 0 && e.values[len(e.values)-1] > v {
+		panic("value added to FixedOffsetEncoder must be increasing")
+	}
+	if v < 0 {
+		panic("value add be FixedOffsetEncoder must > 0")
+	}
 	e.values = append(e.values, v)
 	if e.max < v {
 		e.max = v
@@ -88,28 +85,42 @@ func (e *FixedOffsetEncoder) FromValues(values []int) {
 
 // MarshalBinary marshals the values to binary
 func (e *FixedOffsetEncoder) MarshalBinary() []byte {
-	_ = e.WriteTo(e.buf)
-	return e.buf.Bytes()
+	var buf bytes.Buffer
+	buf.Grow(e.MarshalSize())
+	_ = e.Write(&buf)
+	return buf.Bytes()
 }
 
-// WriteTo writes the data to the writer.
-func (e *FixedOffsetEncoder) WriteTo(writer io.Writer) error {
+func (e *FixedOffsetEncoder) MarshalSize() int {
+	return 1 + // width flag
+		stream.UvariantSize(uint64(len(e.values))) + // size
+		len(e.values)*e.width() // values
+}
+
+func (e *FixedOffsetEncoder) width() int {
+	return Uint32MinWidth(uint32(e.max))
+}
+
+// Write writes the data to the writer.
+func (e *FixedOffsetEncoder) Write(writer io.Writer) error {
 	if len(e.values) == 0 {
 		return nil
 	}
-	if e.max < 0 {
-		e.max = EmptyOffset
-	}
-	width := Uint32MinWidth(uint32(e.max + adjustValue))
+	width := e.width()
 	// fixed value width
-	e.bw.PutByte(byte(width))
+	if _, err := writer.Write([]byte{uint8(width)}); err != nil {
+		return err
+	}
 	// put all values with fixed length
-	buf := make([]byte, 4)
+	var buf [binary.MaxVarintLen64]byte
+	// write size
+	sizeFlagWidth := binary.PutUvarint(buf[:], uint64(len(e.values)))
+	if _, err := writer.Write(buf[:sizeFlagWidth]); err != nil {
+		return err
+	}
+	// write values
 	for _, value := range e.values {
-		if value < 0 {
-			value = EmptyOffset
-		}
-		binary.LittleEndian.PutUint32(buf, uint32(value+adjustValue))
+		binary.LittleEndian.PutUint32(buf[:], uint32(value))
 		if _, err := writer.Write(buf[:width]); err != nil {
 			return err
 		}
@@ -117,30 +128,17 @@ func (e *FixedOffsetEncoder) WriteTo(writer io.Writer) error {
 	return nil
 }
 
-// FixedOffsetDecoder represents the fixed offset decoder, supports random reads offset by index
+// FixedOffsetDecoder represents the fixed offset decoder,
+// supports random reads offset by index
 type FixedOffsetDecoder struct {
-	buf     []byte
-	width   int
-	scratch []byte
+	offsetsBlock []byte
+	width        int
+	size         int
 }
 
 // NewFixedOffsetDecoder creates the fixed offset decoder
-func NewFixedOffsetDecoder(buf []byte) *FixedOffsetDecoder {
-	if len(buf) == 0 {
-		return &FixedOffsetDecoder{
-			buf: nil,
-		}
-	}
-	return &FixedOffsetDecoder{
-		buf:     buf[lengthOfHeader:],
-		width:   int(buf[0]),
-		scratch: make([]byte, 4),
-	}
-}
-
-// Header returns the length of header
-func (d *FixedOffsetDecoder) Header() int {
-	return lengthOfHeader
+func NewFixedOffsetDecoder() *FixedOffsetDecoder {
+	return &FixedOffsetDecoder{}
 }
 
 // ValueWidth returns the width of all stored values
@@ -153,25 +151,73 @@ func (d *FixedOffsetDecoder) Size() int {
 	if d.width == 0 {
 		return 0
 	}
-	return len(d.buf) / d.width
+	return d.size
 }
 
-// Get gets the offset value by index
+// Unmarshal unmarshals from data block, then return the remaining buffer.
+func (d *FixedOffsetDecoder) Unmarshal(data []byte) (left []byte, err error) {
+	d.offsetsBlock = d.offsetsBlock[:0]
+	d.width = 0
+	d.size = 0
+	if len(data) < 2 {
+		return nil, fmt.Errorf("length too short of FixedOffsetDecoder: %d", len(data))
+	}
+	d.width = int(data[0])
+	if d.width < 0 || d.width > 4 {
+		return nil, fmt.Errorf("ivalid width of FixedOffsetDecoder: %d", d.width)
+	}
+	size, readBytes := binary.Uvarint(data[1:])
+	if readBytes <= 0 {
+		return nil, fmt.Errorf("invalid uvariant of FixedOffsetDecoder")
+	}
+	d.size = int(size)
+	wantLen := 1 + readBytes + d.width*d.size
+	if wantLen > len(data) || wantLen < 0 || 1+readBytes > wantLen {
+		return nil, fmt.Errorf("cannot unmarshal FixedOffsetDecoder with a invalid buffer: %d, want: %d",
+			len(data), wantLen)
+	}
+	d.offsetsBlock = data[1+readBytes : wantLen]
+	return data[wantLen:], nil
+}
+
 func (d *FixedOffsetDecoder) Get(index int) (int, bool) {
 	start := index * d.width
-	if start < 0 || len(d.buf) == 0 || start >= len(d.buf) || d.width > 4 {
+	if start < 0 || len(d.offsetsBlock) == 0 || start >= len(d.offsetsBlock) || d.width > 4 {
 		return 0, false
 	}
 	end := start + d.width
-	if end > len(d.buf) {
+	if end > len(d.offsetsBlock) {
 		return 0, false
 	}
-	copy(d.scratch, d.buf[start:end])
-	offset := int(binary.LittleEndian.Uint32(d.scratch)) - adjustValue
+	var scratch [4]byte
+	copy(scratch[:], d.offsetsBlock[start:end])
+	offset := int(binary.LittleEndian.Uint32(scratch[:]))
+	// on x32, data may overflow
 	if offset < 0 {
 		return 0, false
 	}
 	return offset, true
+}
+
+// GetBlock returns the block by offset range(start -> end) with index
+// GetBlock is only supported when Offsets are increasing encoded.
+func (d *FixedOffsetDecoder) GetBlock(index int, dataBlock []byte) (block []byte, err error) {
+	startOffset, ok := d.Get(index)
+	if !ok {
+		return nil, fmt.Errorf("corrupted FixedOffsetDecoder block, length: %d, startOffset: %d",
+			len(d.offsetsBlock), startOffset)
+	}
+	endOffset, ok := d.Get(index + 1)
+	if !ok {
+		endOffset = len(dataBlock)
+	}
+
+	if startOffset < 0 || endOffset < 0 || endOffset < startOffset || endOffset > len(dataBlock) {
+		return nil, fmt.Errorf("corrupted FixedOffsetDecoder block, "+
+			"data block length: %d, data range: [%d, %d]", len(dataBlock), startOffset, endOffset,
+		)
+	}
+	return dataBlock[startOffset:endOffset], nil
 }
 
 func ByteSlice2Uint32(slice []byte) uint32 {

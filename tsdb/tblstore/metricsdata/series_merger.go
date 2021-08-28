@@ -61,15 +61,15 @@ func (sm *seriesMerger) merge(
 				// if series id not exist, metricReader is nil
 				continue
 			}
-			fieldData := reader.getFieldData(fieldID)
+			fieldData := reader.GetFieldData(fieldID)
 			if len(fieldData) > 0 {
 				if streams[idx] == nil {
 					// new tsd decoder
 					streams[idx] = encoding.GetTSDDecoder()
 				}
-				oldStart, oldEnd := reader.slotRange()
+				oldSlotRange := reader.SlotRange()
 				// reset tsd data
-				streams[idx].ResetWithTimeRange(fieldData, oldStart, oldEnd)
+				streams[idx].ResetWithTimeRange(fieldData, oldSlotRange.Start, oldSlotRange.End)
 			}
 		}
 		// merges field data from source time range => target time range,
@@ -87,7 +87,9 @@ func (sm *seriesMerger) merge(
 		}
 
 		// flush field data
-		sm.flusher.FlushField(data)
+		if err := sm.flusher.FlushField(data); err != nil {
+			return err
+		}
 		encodeStream.Reset() // reset tsd compress stream for next loop
 	}
 
@@ -95,7 +97,7 @@ func (sm *seriesMerger) merge(
 	// if don't mark metricReader completed, some data will read duplicate.
 	for _, reader := range fieldReaders {
 		if reader != nil {
-			reader.close()
+			reader.Close()
 		}
 	}
 	return nil

@@ -19,6 +19,7 @@ package tsdb
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -80,7 +81,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader := table.NewMockReader(ctrl)
 	reader.EXPECT().Path().Return("test_path").AnyTimes()
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return(nil, false)
+	reader.EXPECT().Get(gomock.Any()).Return(nil, io.EOF)
 	rs, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
@@ -90,7 +91,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	rs, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.Error(t, err)
 	assert.Nil(t, rs)
@@ -104,7 +105,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		return filter
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
-	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true)
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
 	assert.NoError(t, err)

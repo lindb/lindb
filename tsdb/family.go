@@ -104,9 +104,9 @@ func (f *dataFamily) Filter(metricID uint32,
 	}
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
-		value, ok := reader.Get(metricID)
+		value, err := reader.Get(metricID)
 		// metric data not found
-		if !ok {
+		if err != nil {
 			continue
 		}
 		r, err := newReaderFunc(reader.Path(), value)

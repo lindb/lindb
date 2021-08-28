@@ -18,7 +18,10 @@
 package metricsdata
 
 import (
+	"encoding/binary"
+
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -27,22 +30,23 @@ import (
 // FieldReader represents the field metricReader when does metric data merge.
 // !!!!NOTICE: need get field value in order by field
 type FieldReader interface {
-	// slotRange returns the time slot range of metric level
-	slotRange() (start, end uint16)
-	// getFieldData returns the field data by field id,
+	// SlotRange returns the time slot range of metric level
+	SlotRange() timeutil.SlotRange
+	// GetFieldData returns the field data by field id,
 	// if metricReader is completed, return nil, if found data returns field data else returns nil
-	getFieldData(fieldID field.ID) []byte
-	// reset resets the field data for reading
-	reset(buf []byte, position int, start, end uint16)
-	// close closes the metricReader
-	close()
+	GetFieldData(fieldID field.ID) []byte
+	// Reset resets the field data for reading
+	Reset(seriesEntry []byte, slotRange timeutil.SlotRange)
+	// Close closes the metricReader
+	Close()
 }
 
 // fieldReader implements FieldReader
 type fieldReader struct {
-	start, end   uint16
-	seriesData   []byte
+	slotRange    timeutil.SlotRange
+	seriesEntry  []byte
 	fieldOffsets *encoding.FixedOffsetDecoder
+	fieldDatas   []byte
 	fieldIndexes map[field.ID]int
 	fieldCount   int
 
@@ -50,38 +54,49 @@ type fieldReader struct {
 }
 
 // newFieldReader creates the field metricReader
-func newFieldReader(fieldIndexes map[field.ID]int, buf []byte, position int, start, end uint16) FieldReader {
+func newFieldReader(fieldIndexes map[field.ID]int, seriesEntry []byte, slotRange timeutil.SlotRange) FieldReader {
 	r := &fieldReader{
 		fieldIndexes: fieldIndexes,
 		fieldCount:   len(fieldIndexes),
+		seriesEntry:  seriesEntry,
+		slotRange:    slotRange,
+		fieldOffsets: encoding.NewFixedOffsetDecoder(),
 	}
-	r.reset(buf, position, start, end)
+	r.Reset(seriesEntry, slotRange)
 	return r
 }
 
-// reset resets the field data for reading
-func (r *fieldReader) reset(buf []byte, position int, start, end uint16) {
+// Reset resets the field data for reading
+func (r *fieldReader) Reset(seriesEntry []byte, slotRange timeutil.SlotRange) {
 	r.completed = false
-	r.start = start
-	r.end = end
+	r.slotRange = slotRange
 	if r.fieldCount == 1 {
-		r.seriesData = buf
+		r.seriesEntry = seriesEntry
 		return
 	}
-	data := buf[position:]
-	r.fieldOffsets = encoding.NewFixedOffsetDecoder(data)
-	r.seriesData = data[r.fieldOffsets.Header()+r.fieldCount*r.fieldOffsets.ValueWidth():]
-	r.fieldOffsets = encoding.NewFixedOffsetDecoder(buf[position:])
+	if len(seriesEntry) <= 4 {
+		r.completed = true
+		return
+	}
+	fieldOffsetsAt := binary.LittleEndian.Uint32(seriesEntry[len(seriesEntry)-4:])
+	if fieldOffsetsAt+4 >= uint32(len(seriesEntry)) {
+		r.completed = true
+		return
+	}
+	if _, err := r.fieldOffsets.Unmarshal(seriesEntry[fieldOffsetsAt:]); err != nil {
+		r.completed = true
+	}
+	r.fieldDatas = seriesEntry[:fieldOffsetsAt]
 }
 
-// slotRange returns the time slot range of metric level
-func (r *fieldReader) slotRange() (start, end uint16) {
-	return r.start, r.end
+// SlotRange returns the time slot range of metric level
+func (r *fieldReader) SlotRange() timeutil.SlotRange {
+	return r.slotRange
 }
 
-// getFieldData returns the field data by field id,
+// GetFieldData returns the field data by field id,
 // if metricReader is completed, return nil, if found data returns field data else returns nil
-func (r *fieldReader) getFieldData(fieldID field.ID) []byte {
+func (r *fieldReader) GetFieldData(fieldID field.ID) []byte {
 	if r.completed {
 		return nil
 	}
@@ -90,16 +105,16 @@ func (r *fieldReader) getFieldData(fieldID field.ID) []byte {
 		return nil
 	}
 	if r.fieldCount == 1 {
-		return r.seriesData
+		return r.seriesEntry
 	}
-	offset, ok := r.fieldOffsets.Get(idx)
-	if !ok {
+	fieldBlock, err := r.fieldOffsets.GetBlock(idx, r.fieldDatas)
+	if err != nil {
 		return nil
 	}
-	return r.seriesData[offset:]
+	return fieldBlock
 }
 
-// close marks the metricReader completed
-func (r *fieldReader) close() {
+// Close marks the metricReader completed
+func (r *fieldReader) Close() {
 	r.completed = true
 }

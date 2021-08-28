@@ -79,8 +79,8 @@ func NewReader(readers []table.Reader) Reader {
 // so the max sequence will be stored in the first table.reader that is tag key store.
 func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		//FIXME stone1100 opt need cache entry set
@@ -97,8 +97,8 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 // if not exist return constants.ErrTagValueIDNotFound
 func (r *tagReader) GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, ok := reader.Get(tagID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagID)
+		if err != nil {
 			continue
 		}
 		meta, err := newTagKeyMeta(tagKeyMetaBlock)
@@ -155,8 +155,8 @@ func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, er
 // filterTagKeyMetas filters the tag-key-metas by tag key id
 func (r *tagReader) filterTagKeyMetas(tagID uint32) (metas TagKeyMetas) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, ok := reader.Get(tagID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagID)
+		if err != nil {
 			continue
 		}
 		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
@@ -180,8 +180,8 @@ func (r *tagReader) SuggestTagValues(
 		limit = constants.MaxSuggestions
 	}
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
@@ -212,8 +212,8 @@ func (r *tagReader) WalkTagValues(
 	fn func(tagValue []byte, tagValueID uint32) bool,
 ) error {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
@@ -245,8 +245,8 @@ func (r *tagReader) CollectTagValues(
 		if tagValueIDs.IsEmpty() {
 			return nil
 		}
-		tagKeyMetaBlock, ok := reader.Get(tagKeyID)
-		if !ok {
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		if err != nil {
 			continue
 		}
 		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)

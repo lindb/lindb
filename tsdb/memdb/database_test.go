@@ -74,7 +74,7 @@ func TestMemoryDatabase_AcquireWrite(t *testing.T) {
 		mdINTF.CompleteWrite()
 	}()
 	flusher := metricsdata.NewMockFlusher(ctrl)
-	flusher.EXPECT().Commit().Return(nil)
+	flusher.EXPECT().Close().Return(nil)
 	err = mdINTF.FlushFamilyTo(flusher)
 	assert.NoError(t, err)
 }
@@ -256,7 +256,8 @@ func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 	assert.NoError(t, err)
 	md := mdINTF.(*memoryDatabase)
 	flusher := metricsdata.NewMockFlusher(ctrl)
-	flusher.EXPECT().Commit().Return(nil).AnyTimes()
+	flusher.EXPECT().CommitMetric(gomock.Any()).Return(nil).AnyTimes()
+	flusher.EXPECT().Close().Return(nil).AnyTimes()
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
 	md.mStores.Put(uint32(3333), mockMStore)

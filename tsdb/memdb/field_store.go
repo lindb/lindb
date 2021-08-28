@@ -63,7 +63,7 @@ type fStoreINTF interface {
 	// if has same time slot in current buffer, need do rollup operation by field type
 	Write(fieldType field.Type, slotIndex uint16, value float64)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
-	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext)
+	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx *flushContext) error
 	// Load loads field series data.
 	Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte
 }
@@ -121,7 +121,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 }
 
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
-func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx flushContext) {
+func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx *flushContext) error {
 	var decoder *encoding.TSDDecoder
 	if len(fs.compress) > 0 {
 		// calc new start/end based on old compress values
@@ -135,10 +135,9 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 	data, err := fs.merge(fieldMeta.Type, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
 		memDBLogger.Error("flush field store err, data lost", logger.Error(err))
-		return
+		return nil
 	}
-
-	tableFlusher.FlushField(data)
+	return tableFlusher.FlushField(data)
 }
 
 // writeFirstPoint writes first point in current write buffer

@@ -84,31 +84,31 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	mStore.Put(10, tStore)
 
 	// case 1: family time not exist
-	err := mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
+	err := mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
 	assert.NoError(t, err)
 	// case 2: field not exist
 	mStoreInterface.SetSlot(10)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
+	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
 	assert.NoError(t, err)
 	// case 3: flush success
 	mStoreInterface.AddField(1, field.SumField)
 	mStoreInterface.AddField(2, field.MinField)
 	gomock.InOrder(
-		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
-		tStore.EXPECT().FlushSeriesTo(gomock.Any(), gomock.Any()),
-		flusher.EXPECT().FlushSeries(uint32(10)),
-		flusher.EXPECT().FlushMetric(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()),
+		tStore.EXPECT().FlushFieldsTo(gomock.Any(), gomock.Any()).Return(nil),
+		flusher.EXPECT().FlushSeries(uint32(10)).Return(nil),
+		flusher.EXPECT().CommitMetric(gomock.Any()).Return(nil),
 	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
+	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
 	assert.NoError(t, err)
 	// case 4: flush err
-	flushFunc = func(flusher metricsdata.Flusher, flushCtx flushContext, key uint32, value tStoreINTF) error {
+	flushFunc = func(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, value tStoreINTF) error {
 		return fmt.Errorf("err")
 	}
 	gomock.InOrder(
-		flusher.EXPECT().FlushFieldMetas(gomock.Any()),
+		flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()),
 	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, flushContext{})
+	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
 	assert.Error(t, err)
 }
 

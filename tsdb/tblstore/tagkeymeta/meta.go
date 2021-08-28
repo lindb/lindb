@@ -219,7 +219,10 @@ func (meta *tagKeyMeta) walkTrieTree(mappings *idRanksOffsets) error {
 		return err
 	}
 	if meta.offsetsDecoder == nil {
-		meta.offsetsDecoder = encoding.NewFixedOffsetDecoder(meta.offsetsData)
+		meta.offsetsDecoder = encoding.NewFixedOffsetDecoder()
+		if _, err := meta.offsetsDecoder.Unmarshal(meta.offsetsData); err != nil {
+			return err
+		}
 	}
 
 	for _, offset := range mappings.offsets {

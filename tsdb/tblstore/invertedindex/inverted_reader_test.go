@@ -100,11 +100,11 @@ func buildInvertedIndexReader(ctrl *gomock.Controller) InvertedReader {
 	zoneBlock, ipBlock, hostBlock := buildInvertedIndexBlock()
 	// mock readers
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(10)).Return(nil, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(19)).Return(nil, false).AnyTimes()
-	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, true).AnyTimes()
-	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, true).AnyTimes()
+	mockReader.EXPECT().Get(uint32(10)).Return(nil, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(19)).Return(nil, table.ErrKeyNotExist).AnyTimes()
+	mockReader.EXPECT().Get(uint32(20)).Return(zoneBlock, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(21)).Return(ipBlock, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(22)).Return(hostBlock, nil).AnyTimes()
 	// build series index inverterReader
 	return NewInvertedReader([]table.Reader{mockReader})
 }

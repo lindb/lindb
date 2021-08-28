@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source=./bufio_reader.go -destination=./bufio_reader_mock.go -package=bufioutil
+//go:generate mockgen -source=./bufio_entry_reader.go -destination=./bufio_entry_reader_mock.go -package=bufioutil
 
 const (
 	defaultReadBufferSize = 256 * 1024 // 256KB
@@ -52,8 +52,8 @@ mapping of len(content)(uint32) and bytes-count:
 
 */
 
-// BufioReader read entries from a specified file by buffered I/O. Not thread-safe
-type BufioReader interface {
+// BufioEntryReader read entries from a specified file by buffered I/O. Not thread-safe
+type BufioEntryReader interface {
 	// Read reads a new entry's content.
 	Read() (content []byte, err error)
 	// Next reads from Reader and records the content and error.
@@ -73,8 +73,8 @@ type BufioReader interface {
 	Close() error
 }
 
-// bufioReader implements BufioReader.
-type bufioReader struct {
+// bufioEntryReader implements BufioReader.
+type bufioEntryReader struct {
 	fileName string
 	r        *bufio.Reader
 	f        *os.File
@@ -83,13 +83,13 @@ type bufioReader struct {
 	err      error
 }
 
-// NewBufioReader returns a new BufioReader from fileName.
-func NewBufioReader(fileName string) (BufioReader, error) {
+// NewBufioEntryReader returns a new BufioEntryReader from fileName.
+func NewBufioEntryReader(fileName string) (BufioEntryReader, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
-	return &bufioReader{
+	return &bufioEntryReader{
 		fileName: fileName,
 		r:        bufio.NewReaderSize(f, defaultReadBufferSize),
 		f:        f,
@@ -97,7 +97,7 @@ func NewBufioReader(fileName string) (BufioReader, error) {
 }
 
 // Next detects if there is data to read.
-func (br *bufioReader) Next() bool {
+func (br *bufioEntryReader) Next() bool {
 	length, err := binary.ReadUvarint(br.r)
 	if err == io.EOF {
 		return false
@@ -123,13 +123,13 @@ func (br *bufioReader) Next() bool {
 }
 
 // Read returns content from next entry, the underlying buffer is reusable.
-func (br *bufioReader) Read() (content []byte, err error) {
+func (br *bufioEntryReader) Read() (content []byte, err error) {
 	// read length
 	return br.content, br.err
 }
 
 // Reset switches the buffered reader to read from a new file.
-func (br *bufioReader) Reset(fileName string) error {
+func (br *bufioEntryReader) Reset(fileName string) error {
 	newF, err := os.Open(fileName)
 	if err != nil {
 		return err
@@ -146,12 +146,12 @@ func (br *bufioReader) Reset(fileName string) error {
 }
 
 // Count returns the size of read bytes.
-func (br *bufioReader) Count() int64 {
+func (br *bufioEntryReader) Count() int64 {
 	return br.count
 }
 
 // Close closes the opened file.
-func (br *bufioReader) Close() error {
+func (br *bufioEntryReader) Close() error {
 	if br.f == nil {
 		return nil
 	}
@@ -159,7 +159,7 @@ func (br *bufioReader) Close() error {
 }
 
 // Size returns the stat of the file.
-func (br *bufioReader) Size() (int64, error) {
+func (br *bufioEntryReader) Size() (int64, error) {
 	stat, err := br.f.Stat()
 	if err != nil {
 		return 0, err

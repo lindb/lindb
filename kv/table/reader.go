@@ -18,34 +18,65 @@
 package table
 
 import (
-	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/stream"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table
 
 // for testing
 var (
-	mapFunc     = fileutil.Map
-	unmapFunc   = fileutil.Unmap
-	uvarintFunc = binary.ReadUvarint
-	uint64Func  = binary.LittleEndian.Uint64
+	ErrKeyNotExist            = errors.New("key not exist in kv table")
+	mapFunc                   = fileutil.Map
+	unmapFunc                 = fileutil.Unmap
+	uint64Func                = binary.LittleEndian.Uint64
+	_once4ReaderStatistics    sync.Once
+	_instanceReaderStatistics *readerStatistics
 )
+
+func getReaderStatistics() *readerStatistics {
+	_once4ReaderStatistics.Do(func() {
+		tableReaderScope := linmetric.NewScope("lindb.kv.table.reader")
+		_instanceReaderStatistics = &readerStatistics{
+			getErrors:    tableReaderScope.NewDeltaCounter("get_errors"),
+			getCounts:    tableReaderScope.NewDeltaCounter("get_counts"),
+			getBytes:     tableReaderScope.NewDeltaCounter("get_bytes"),
+			mmapCounts:   tableReaderScope.NewDeltaCounter("mmap_counts"),
+			mmapErros:    tableReaderScope.NewDeltaCounter("mmap_errors"),
+			unmmapCounts: tableReaderScope.NewDeltaCounter("unmmap_counts"),
+			unmmapErrors: tableReaderScope.NewDeltaCounter("unmmap_errors"),
+		}
+	})
+	return _instanceReaderStatistics
+}
+
+type readerStatistics struct {
+	getErrors    *linmetric.BoundDeltaCounter
+	getCounts    *linmetric.BoundDeltaCounter
+	getBytes     *linmetric.BoundDeltaCounter
+	mmapCounts   *linmetric.BoundDeltaCounter
+	mmapErros    *linmetric.BoundDeltaCounter
+	unmmapCounts *linmetric.BoundDeltaCounter
+	unmmapErrors *linmetric.BoundDeltaCounter
+}
 
 // Reader represents reader which reads k/v pair from store file
 type Reader interface {
 	// Path returns the file path
 	Path() string
-	// Get returns value for giving key, if key not exist, return nil, false
-	Get(key uint32) ([]byte, bool)
+	// Get returns value for giving key,
+	// if key not exist, return nil, ErrKeyNotExist
+	Get(key uint32) ([]byte, error)
 	// Iterator iterates over a store's key/value pairs in key order.
 	Iterator() Iterator
 	// Close closes reader, release related resources
@@ -54,11 +85,11 @@ type Reader interface {
 
 // storeMMapReader represents mmap store file reader
 type storeMMapReader struct {
-	path    string                       // path of sst-file
-	data    []byte                       // mmaped file content
-	len     int                          // length of the file
-	keys    *roaring.Bitmap              // bitmap of keys
-	offsets *encoding.FixedOffsetDecoder // offset of values
+	path         string                       // path of sst-file
+	fullBlock    []byte                       // mmaped file content
+	entriesBlock []byte                       // mmaped file content without footer
+	keys         *roaring.Bitmap              // bitmap of keys
+	offsets      *encoding.FixedOffsetDecoder // offset of values
 }
 
 // newMMapStoreReader creates mmap store file reader
@@ -68,23 +99,28 @@ func newMMapStoreReader(path string) (r Reader, err error) {
 		if err != nil && len(data) > 0 {
 			// if init err and map data exist, need unmap it
 			if e := unmapFunc(data); e != nil {
+				getReaderStatistics().unmmapErrors.Incr()
 				tableLogger.Warn("unmap error when new store reader fail",
 					logger.String("path", path), logger.Error(err))
+			} else {
+				getReaderStatistics().unmmapCounts.Incr()
 			}
 		}
 	}()
 	if err != nil {
+		getReaderStatistics().mmapErros.Incr()
 		return
 	}
-	if len(data) < sstFileMinLength {
+	getReaderStatistics().mmapCounts.Incr()
+
+	if len(data) < sstFileFooterSize {
 		err = fmt.Errorf("length of sstfile:%s length is too short", path)
 		return
 	}
 	reader := &storeMMapReader{
-		path: path,
-		data: data,
-		len:  len(data),
-		keys: roaring.New(),
+		path:      path,
+		fullBlock: data,
+		keys:      roaring.New(),
 	}
 
 	if err := reader.initialize(); err != nil {
@@ -96,25 +132,35 @@ func newMMapStoreReader(path string) (r Reader, err error) {
 
 // initialize initializes store reader, reads index block(keys,offset etc.), then caches it
 func (r *storeMMapReader) initialize() error {
-	buf := r.readBytes(r.len - sstFileFooterSize)
-	if (len(buf)) != sstFileFooterSize-1 {
-		return fmt.Errorf("read sstfile:%s footer error", r.path)
-	}
+	// decode footer
+	footerStart := len(r.fullBlock) - sstFileFooterSize
 	// validate magic-number
-	if uint64Func(buf[9:]) != magicNumberOffsetFile {
+	if uint64Func(r.fullBlock[footerStart+magicNumberAtFooter:]) != magicNumberOffsetFile {
 		return fmt.Errorf("verify magic-number of sstfile:%s failure", r.path)
 	}
-	posOfOffset := int(binary.LittleEndian.Uint32(buf[:4]))
-	posOfKeys := int(binary.LittleEndian.Uint32(buf[4:8]))
-	if err := encoding.BitmapUnmarshal(r.keys, r.readBytes(posOfKeys)); err != nil {
+	posOfOffset := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart : footerStart+4]))
+	posOfKeys := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart+4 : footerStart+8]))
+	if !sort.IntsAreSorted([]int{
+		0, posOfOffset, posOfKeys, footerStart}) {
+		return fmt.Errorf("bad footer data, posOfOffsets: %d posOfKeys: %d,"+
+			" footerStart: %d", posOfOffset, posOfKeys, footerStart)
+	}
+	// decode offsets
+	offsetsBlock := r.fullBlock[posOfOffset:posOfKeys]
+	r.offsets = encoding.NewFixedOffsetDecoder()
+	if _, err := r.offsets.Unmarshal(offsetsBlock); err != nil {
+		return fmt.Errorf("unmarshal fixed-offsets decoder with error: %s", err)
+	}
+	// decode keys
+	if err := encoding.BitmapUnmarshal(r.keys, r.fullBlock[posOfKeys:]); err != nil {
 		return fmt.Errorf("unmarshal keys data from file[%s] error:%s", r.path, err)
 	}
-	offset := r.readBytes(posOfOffset)
-	r.offsets = encoding.NewFixedOffsetDecoder(offset)
-
+	// validate keys and offsets
 	if r.offsets.Size() != int(r.keys.GetCardinality()) {
 		return fmt.Errorf("num. of keys != num. of offsets in file[%s]", r.path)
 	}
+	// read entries block
+	r.entriesBlock = r.fullBlock[:posOfOffset]
 	return nil
 }
 
@@ -124,14 +170,24 @@ func (r *storeMMapReader) Path() string {
 }
 
 // Get return value for key, if not exist return nil,false
-func (r *storeMMapReader) Get(key uint32) ([]byte, bool) {
+func (r *storeMMapReader) Get(key uint32) ([]byte, error) {
 	if !r.keys.Contains(key) {
-		return nil, false
+		return nil, ErrKeyNotExist
 	}
 	// bitmap data's index from 1, so idx= get index - 1
 	idx := r.keys.Rank(key)
-	offset, _ := r.offsets.Get(int(idx) - 1)
-	return r.readBytes(offset), true
+	return r.getBlock(int(idx) - 1)
+}
+
+func (r *storeMMapReader) getBlock(idx int) ([]byte, error) {
+	block, err := r.offsets.GetBlock(idx, r.entriesBlock)
+	if err == nil {
+		getReaderStatistics().getCounts.Incr()
+		getReaderStatistics().getBytes.Add(float64(len(block)))
+	} else {
+		getReaderStatistics().getErrors.Incr()
+	}
+	return block, err
 }
 
 // Iterator iterates over a store's key/value pairs in key order.
@@ -141,22 +197,14 @@ func (r *storeMMapReader) Iterator() Iterator {
 
 // close store reader, release resource
 func (r *storeMMapReader) Close() error {
-	return fileutil.Unmap(r.data)
-}
-
-// readBytes reads bytes from buffer, read length+data format
-func (r *storeMMapReader) readBytes(offset int) []byte {
-	length, err := uvarintFunc(bytes.NewReader(r.data[offset:]))
-	if err != nil {
-		return nil
+	r.entriesBlock = nil
+	err := fileutil.Unmap(r.fullBlock)
+	if err == nil {
+		getReaderStatistics().unmmapCounts.Incr()
+	} else {
+		getReaderStatistics().unmmapErrors.Incr()
 	}
-	bytesCount := stream.UvariantSize(length)
-	start := offset + bytesCount
-	end := start + int(length)
-	if end > len(r.data) {
-		return nil
-	}
-	return r.data[start:end]
+	return err
 }
 
 // storeMMapIterator iterates k/v pair using mmap store reader
@@ -189,7 +237,7 @@ func (it *storeMMapIterator) Key() uint32 {
 
 // Value returns the value of the current key/value pair
 func (it *storeMMapIterator) Value() []byte {
-	offset, _ := it.reader.offsets.Get(it.idx)
+	block, _ := it.reader.getBlock(it.idx)
 	it.idx++
-	return it.reader.readBytes(offset)
+	return block
 }
