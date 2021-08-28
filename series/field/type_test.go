@@ -27,6 +27,7 @@ import (
 
 func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Sum, SumField.DownSamplingFunc())
+	assert.Equal(t, function.Sum, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
 	assert.Equal(t, function.LastValue, GaugeField.DownSamplingFunc())
@@ -38,10 +39,14 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "max", MaxField.String())
 	assert.Equal(t, "min", MinField.String())
 	assert.Equal(t, "gauge", GaugeField.String())
+	assert.Equal(t, "histogram", HistogramField.String())
 	assert.Equal(t, "unknown", Unknown.String())
 }
 
 func TestIsSupportFunc(t *testing.T) {
+	assert.True(t, HistogramField.IsFuncSupported(function.Sum))
+	assert.False(t, HistogramField.IsFuncSupported(function.LastValue))
+
 	assert.True(t, SumField.IsFuncSupported(function.Sum))
 	assert.True(t, SumField.IsFuncSupported(function.Min))
 	assert.True(t, SumField.IsFuncSupported(function.Max))
@@ -59,9 +64,26 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.False(t, Unknown.IsFuncSupported(function.Quantile))
 }
 
-func TestType_GetAggFunc(t *testing.T) {
-	assert.Equal(t, maxAggregator, MaxField.GetAggFunc())
-	assert.Equal(t, sumAggregator, SumField.GetAggFunc())
-	assert.Equal(t, minAggregator, MinField.GetAggFunc())
-	assert.Equal(t, maxAggregator, Unknown.GetAggFunc())
+func TestSumAgg(t *testing.T) {
+	assert.Equal(t, 100.0, SumField.AggType().Aggregate(1, 99.0))
+}
+
+func Test_UnspecifiedField(t *testing.T) {
+	assert.Panics(t, func() {
+		AggType(22).Aggregate(1, 2)
+	})
+}
+
+func TestMinAgg(t *testing.T) {
+	assert.Equal(t, 1.0, MinField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 1.0, MinField.AggType().Aggregate(99.0, 1))
+}
+
+func TestMaxAgg(t *testing.T) {
+	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(99.0, 1))
+}
+
+func TestReplaceAgg(t *testing.T) {
+	assert.Equal(t, 99.0, GaugeField.AggType().Aggregate(1, 99.0))
 }

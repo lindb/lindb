@@ -73,12 +73,13 @@ func ReleaseTSDEncoder(encoder *TSDEncoder) {
 
 // TSDEncoder encodes time series data point
 type TSDEncoder struct {
-	startTime uint16
-	bitBuffer bytes.Buffer
-	bitWriter *bit.Writer
-	values    *XOREncoder
-	count     uint16
-	err       error
+	startTime  uint16
+	bitBuffer  bytes.Buffer
+	bitWriter  *bit.Writer
+	values     *XOREncoder
+	count      uint16
+	err        error
+	timeBitBuf bytes.Buffer // time + bitBuffer
 }
 
 // NewTSDEncoder creates tsd encoder instance
@@ -94,6 +95,7 @@ func (e *TSDEncoder) Reset() {
 	e.bitBuffer.Reset()
 	e.bitWriter.Reset(&e.bitBuffer)
 	e.values.Reset()
+	e.timeBitBuf.Reset()
 }
 
 // RestWithStartTime resets the buffer and slot info
@@ -146,12 +148,14 @@ func (e *TSDEncoder) Bytes() ([]byte, error) {
 		// if return data with empty data, will get wrong start/end time range(because end is negative)
 		return nil, nil
 	}
-	var buf bytes.Buffer
-	writer := stream.NewBufferWriter(&buf)
-	writer.PutUInt16(e.startTime)
-	writer.PutUInt16(e.startTime + e.count - 1)
-	writer.PutBytes(e.bitBuffer.Bytes())
-	return writer.Bytes()
+
+	e.timeBitBuf.Reset()
+	var scratch [4]byte
+	stream.PutUint16(scratch[:], 0, e.startTime)
+	stream.PutUint16(scratch[:], 2, e.startTime+e.count-1)
+	_, _ = e.timeBitBuf.Write(scratch[:])
+	_, _ = e.timeBitBuf.Write(e.bitBuffer.Bytes())
+	return e.timeBitBuf.Bytes(), nil
 }
 
 // BytesWithoutTime returns binary which compress time series data point without time slot range

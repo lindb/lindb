@@ -18,6 +18,8 @@
 package field
 
 import (
+	"math"
+
 	"github.com/lindb/lindb/aggregation/function"
 )
 
@@ -42,6 +44,22 @@ const (
 	Max
 	LastValue
 )
+
+// Aggregate aggregates two float64 values into one
+func (t AggType) Aggregate(a, b float64) float64 {
+	switch t {
+	case Sum, Count:
+		return a + b
+	case LastValue:
+		return b
+	case Min:
+		return math.Min(a, b)
+	case Max:
+		return math.Max(a, b)
+	default:
+		panic("unspecified AggType")
+	}
+}
 
 // Type represents field type for LinDB support
 type Type uint8
@@ -74,18 +92,18 @@ func (t Type) String() string {
 	}
 }
 
-// GetAggFunc returns the aggregate function
-func (t Type) GetAggFunc() AggFunc {
+// AggType returns the aggregate function
+func (t Type) AggType() AggType {
 	switch t {
 	case SumField, HistogramField:
-		return sumAggregator
+		return Sum
 	case MinField:
-		return minAggregator
+		return Min
 	case MaxField:
-		return maxAggregator
+		return Max
 	default:
 		//FIXME(stone1100)
-		return maxAggregator
+		return Max
 	}
 }
 
