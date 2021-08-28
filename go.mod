@@ -10,6 +10,7 @@ require (
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/fatih/color v1.12.0 // indirect
 	github.com/felixge/fgprof v0.9.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
@@ -35,7 +36,7 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200320040136-0eee733220fc
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/sys v0.0.0-20210819135213-f52c844e1c1c
+	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
