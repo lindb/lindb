@@ -203,11 +203,11 @@ func (c *storageCluster) SubmitTask(kind task.Kind, name string, params []task.C
 
 // Close stops watch, and cleanups storageCluster's metadata
 func (c *storageCluster) Close() {
-	c.logger.Info("close storage storageCluster state machine", logger.String("storageCluster", c.cfg.Name))
+	c.logger.Info("close storage cluster state machine", logger.String("storage", c.cfg.Name))
 	if c.taskController != nil {
 		// need close task controller of current storage storageCluster
 		if err := c.taskController.Close(); err != nil {
-			c.logger.Error("close task controller", logger.String("storageCluster", c.cfg.Name), logger.Error(err))
+			c.logger.Error("close task controller", logger.String("storage", c.cfg.Name), logger.Error(err))
 		}
 	}
 	if c.sm != nil {
@@ -218,6 +218,6 @@ func (c *storageCluster) Close() {
 	}
 	if err := c.storageRepo.Close(); err != nil {
 		c.logger.Error("close state repo of storage cluster",
-			logger.String("storageCluster", c.cfg.Name), logger.Error(err), logger.Stack())
+			logger.String("storage", c.cfg.Name), logger.Error(err), logger.Stack())
 	}
 }
