@@ -238,7 +238,7 @@ func (r *runtime) cleanupState() error {
 			log.Error("close storage state repo when do cleanup", logger.Error(err))
 		}
 	}()
-	kvs, err := storageRepo.List(context.TODO(), constants.NodesPath)
+	kvs, err := storageRepo.List(context.TODO(), constants.LiveNodesPath)
 	if err != nil {
 		return err
 	}

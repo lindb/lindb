@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
@@ -79,7 +79,7 @@ func (ts *testStorageRuntimeSuite) TestStorageRun(c *check.C) {
 	time.Sleep(500 * time.Millisecond)
 
 	runtime, _ := storage.(*runtime)
-	nodePath := constants.GetLiveNodePath(runtime.node.Indicator())
+	nodePath := constants.GetLiveNodePath(strconv.Itoa(int(runtime.node.ID)))
 	nodeBytes, err := runtime.repo.Get(context.TODO(), nodePath)
 	assert.NoError(ts.t, err)
 
@@ -153,9 +153,6 @@ func (ts *testStorageRuntimeSuite) TestStorageRun_Err(_ *check.C) {
 	// wait grpc server start and register success
 	time.Sleep(500 * time.Millisecond)
 
-	registry := discovery.NewMockRegistry(ctrl)
-	s.registry = registry
-	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	repo := state.NewMockRepository(ctrl)
 	s.repo = repo
 
