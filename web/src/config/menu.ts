@@ -47,6 +47,11 @@ export const MENUS = [
         icon: 'traffic',
         path: '/traffic',
       },
+      {
+        title: 'KV',
+        icon: 'kv',
+        path: '/kv',
+      },
     ],
   }, {
     title: 'Metadata',
