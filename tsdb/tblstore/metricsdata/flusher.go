@@ -155,9 +155,10 @@ type flusher struct {
 	// │              +------------------+                \       \
 	// │                  Level4          \                \        \
 	// v--------+--------+--------+--------+                +--------+
-	// │ Field  │ Field  │ Field  | PosOf  │                │ Field  |
+	// │ Field  │ Field  │ Field  | LenOf  │                │ Field  |
 	// │ Data   │ Data   │ Offsets│ Offsets│                │ Data   |
 	// +--------+--------+--------+--------+                +--------+
+	// uvariant64 encoding LenOfOffsets, reversed
 	//
 	// Level4 is the fourth level of kv table, context for writing field data.
 	// Each entry is a different field datas ordered by field ids
@@ -169,6 +170,8 @@ type flusher struct {
 	Level4 struct {
 		// startAt is the absolute position in Level2's SeriesEntry
 		startAt int
+		// scratch for variant encoding field offsets marshal size's length
+		scratch [binary.MaxVarintLen64]byte
 		// fieldsOffsets holds distances between startAt and position of fieldData
 		fieldDataOffsets *encoding.FixedOffsetEncoder
 	}
@@ -222,14 +225,21 @@ func (w *flusher) FlushField(data []byte) error {
 
 func (w *flusher) writeLevel4OffsetsFooter() error {
 	// pick level4's start position of Offsets
-	var scratch [4]byte
-	binary.LittleEndian.PutUint32(scratch[:], uint32(w.kvWriter.Size())-uint32(w.Level4.startAt))
+	beforeLen := w.kvWriter.Size()
 	// write level4's FieldOffsets
 	if err := w.Level4.fieldDataOffsets.Write(w.kvWriter); err != nil {
 		return err
 	}
-	// write level4's Position of Offsets
-	_, err := w.kvWriter.Write(scratch[:])
+
+	// write level4's length of Offsets
+	writtenLen := binary.PutUvarint(w.Level4.scratch[:], uint64(w.kvWriter.Size()-beforeLen))
+	// reverse uvaiant encoding
+	for i := 0; i < writtenLen/2; i++ {
+		// reverse scratch
+		w.Level4.scratch[i], w.Level4.scratch[writtenLen-i-1] =
+			w.Level4.scratch[writtenLen-i-1], w.Level4.scratch[i]
+	}
+	_, err := w.kvWriter.Write(w.Level4.scratch[:writtenLen])
 	return err
 }
 
