@@ -21,16 +21,14 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/coordinator/task"
-	"github.com/lindb/lindb/models"
 )
 
 // defines common constants will be used in broker and storage.
 const (
 	// LiveNodesPath represents live nodes prefix path for node register.
 	LiveNodesPath = "/live/nodes"
-	// NodesPath represents node's metadata root path.
-	NodesPath = "/nodes/meta"
 	// StateNodesPath represents the state of node that node will report runtime status
+	//TODO need remove
 	StateNodesPath = "/state/nodes"
 )
 
@@ -78,11 +76,6 @@ func GetDatabaseAssignPath(name string) string {
 // GetLiveNodePath returns live node register path.
 func GetLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
-}
-
-// GetStatefulNodePath returns stateful node's metadata register path.
-func GetStatefulNodePath(nodeID models.NodeID) string {
-	return fmt.Sprintf("%s/%d", NodesPath, nodeID)
 }
 
 // GetNodeMonitoringStatPath returns the node monitoring stat's path

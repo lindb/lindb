@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/felixge/fgprof"
@@ -32,7 +33,6 @@ import (
 	"github.com/lindb/lindb/app/storage/handler"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/discovery"
 	task "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -81,7 +81,6 @@ type runtime struct {
 	server       rpc.GRPCServer
 	repoFactory  state.RepositoryFactory
 	repo         state.Repository
-	registry     discovery.Registry
 	taskExecutor *task.TaskExecutor
 	factory      factory
 	engine       tsdb.Engine
@@ -172,12 +171,6 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	// register storage node info
-	r.registry = discovery.NewRegistry(r.repo, time.Duration(r.config.Coordinator.LeaseTTL)*time.Second)
-	if err := r.registry.Register(r.node); err != nil {
-		return fmt.Errorf("register storage node error:%s", err)
-	}
-
 	r.taskExecutor = task.NewTaskExecutor(r.ctx, r.node, r.repo, r.engine)
 	r.taskExecutor.Run()
 
@@ -206,7 +199,7 @@ func (r *runtime) MustRegisterStateFulNode() error {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		ok, _, err = r.repo.Elect(
 			r.ctx,
-			constants.GetStatefulNodePath(r.node.ID),
+			constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID))),
 			encoding.JSONMarshal(r.node),
 			r.config.Coordinator.LeaseTTL)
 		if ok {
@@ -276,21 +269,11 @@ func (r *runtime) Stop() {
 		}
 	}
 
-	// close registry, deregister storage node from active list
-	if r.registry != nil {
-		r.log.Info("closing discovery-registry...")
-		if err := r.registry.Close(); err != nil {
-			r.log.Error("unregister storage node error", logger.Error(err))
-		} else {
-			r.log.Info("closed discovery-registry successfully")
-		}
-	}
-
 	// close state repo if exist
 	if r.repo != nil {
 		r.log.Info("closing state repo...")
-		if err := r.repo.Delete(r.ctx, constants.GetStatefulNodePath(r.node.ID)); err != nil {
-			r.log.Warn("delete storage node's metadata")
+		if err := r.repo.Delete(r.ctx, constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID)))); err != nil {
+			r.log.Warn("delete storage node register info")
 		}
 		if err := r.repo.Close(); err != nil {
 			r.log.Error("close state repo error, when storage stop", logger.Error(err))
