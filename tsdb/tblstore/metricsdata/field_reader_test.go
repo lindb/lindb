@@ -18,6 +18,8 @@
 package metricsdata
 
 import (
+	"encoding/binary"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,6 +108,49 @@ func TestFieldReader_reset(t *testing.T) {
 	assert.Equal(t, uint16(15), sr.End)
 	data = fReader.GetFieldData(10)
 	assert.True(t, len(data) > 0)
+}
+
+func TestFieldReader_Reset_error(t *testing.T) {
+	block := mockMetricMergeBlock([]uint32{1}, 5, 5)
+	r, err := NewReader("1.sst", block)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+	scanner, _ := newDataScanner(r)
+	seriesEntry := scanner.scan(0, 1)
+	fReader := newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	fReader.Reset(nil, timeutil.SlotRange{Start: 5, End: 5})
+	assert.True(t, fReader.(*fieldReader).completed)
+	// max uint64
+	var buf [binary.MaxVarintLen64]byte
+	binary.PutUvarint(buf[:], math.MaxUint64)
+	reverseBuf(buf[:])
+	fReader = newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	fReader.Reset(buf[:], timeutil.SlotRange{Start: 5, End: 5})
+	assert.True(t, fReader.(*fieldReader).completed)
+	// bad variant
+	var buf2 = []byte{
+		1, 1,
+		0x80, 0x80, 0x80, 0x80, 0x80,
+		0x80, 0x80, 0x80, 0x80, 0x80,
+	}
+	reverseBuf(buf2)
+	fReader = newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	fReader.Reset(buf2, timeutil.SlotRange{Start: 5, End: 5})
+	assert.True(t, fReader.(*fieldReader).completed)
+	// empty buf
+	var buf3 = []byte{
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+	}
+	fReader = newFieldReader(scanner.fieldIndexes(), seriesEntry, timeutil.SlotRange{Start: 5, End: 5})
+	fReader.Reset(buf3, timeutil.SlotRange{Start: 5, End: 5})
+	assert.True(t, fReader.(*fieldReader).completed)
+}
+
+func reverseBuf(data []byte) {
+	for i := 0; i < len(data); i++ {
+		data[i], data[len(data)-i-1] = data[len(data)-i-1], data[i]
+	}
 }
 
 func TestFieldReader_read_one_field(t *testing.T) {

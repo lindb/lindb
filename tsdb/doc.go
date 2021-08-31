@@ -229,10 +229,10 @@ v--------+--------+--------+--------+--------+--------v
 │        │
 │        │
 │        │         Level3
-v--------v--------+--------+--------+
-│ Series │ Series │ Series │ LowKey │
-│ Entry  │ Entry  │ Entry  │ Offsets│
-+--------+--------+--------+--------+
+v--------v--------+--------+--------+--------+
+│ Series │ Series │ Series │ LowKey │ PosOf  |
+│ Entry  │ Entry  │ Entry  │ Offsets│Offsets |
++--------+--------+--------+--------+--------+
 │         \        \        \
 │          \        \        \
 │           \        \        |
@@ -241,8 +241,8 @@ v--------v--------+--------+--------+
 │              +------------------+                \       \
 │                  Level4          \                \        \
 v--------+--------+--------+--------+                +--------+
-│ Field  │ Field  │ Field  │ Field  │                │ Field  |
-│ Data   │ Data   │ Data   │ Offsets│                │ Data   |
+│ Field  │ Field  │ Field  | LenOf  │                │ Field  |
+│ Data   │ Data   │ Offsets│ Offsets│                │ Data   |
 +--------+--------+--------+--------+                +--------+
 
 
