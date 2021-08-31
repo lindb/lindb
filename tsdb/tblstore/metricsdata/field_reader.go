@@ -74,12 +74,35 @@ func (r *fieldReader) Reset(seriesEntry []byte, slotRange timeutil.SlotRange) {
 		r.seriesEntry = seriesEntry
 		return
 	}
-	if len(seriesEntry) <= 4 {
+	if len(seriesEntry) <= 1 {
 		r.completed = true
 		return
 	}
-	fieldOffsetsAt := binary.LittleEndian.Uint32(seriesEntry[len(seriesEntry)-4:])
-	if fieldOffsetsAt+4 >= uint32(len(seriesEntry)) {
+	// reversed decoding binary.Uvariant
+	var (
+		fieldOffsetsLen uint64
+		readBytes       uint
+	)
+	{
+		for j := len(seriesEntry) - 1; j >= 0; j-- {
+			b := seriesEntry[j]
+			i := len(seriesEntry) - j - 1
+			if b < 0x80 {
+				if i >= binary.MaxVarintLen64 || i == binary.MaxVarintLen64-1 && b > 1 {
+					// overflow
+					r.completed = true
+					return
+				}
+				fieldOffsetsLen |= uint64(b) << readBytes
+				readBytes = uint(i + 1)
+				break
+			}
+			fieldOffsetsLen |= uint64(b&0x7f) << readBytes
+			readBytes += 7
+		}
+	}
+	fieldOffsetsAt := len(seriesEntry) - int(readBytes) - int(fieldOffsetsLen)
+	if fieldOffsetsAt < 0 || fieldOffsetsAt >= len(seriesEntry) {
 		r.completed = true
 		return
 	}
