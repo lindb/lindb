@@ -101,7 +101,7 @@ func Test_MetricQuery(t *testing.T) {
 
 	// timeout
 	eventCh1 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(eventCh1, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	qry = newMetricQuery(ctx,
@@ -116,7 +116,7 @@ func Test_MetricQuery(t *testing.T) {
 		queryFactory)
 	// has error
 	eventCh2 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any()).Return(eventCh2, nil)
+	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventCh2, nil)
 	time.AfterFunc(time.Millisecond*200, func() {
 		eventCh2 <- &series.TimeSeriesEvent{Err: io.ErrClosedPipe}
 	})
@@ -125,7 +125,7 @@ func Test_MetricQuery(t *testing.T) {
 
 	// closed channel
 	eventCh3 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any()).Return(eventCh3, nil)
+	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventCh3, nil)
 	time.AfterFunc(time.Millisecond*200, func() { close(eventCh3) })
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)

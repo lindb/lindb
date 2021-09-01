@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-func TestTaskManager_SubmitMetricTask(t *testing.T) {
+func TestTaskManager_SubmitMetricTask_WithoutIntermediates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -66,17 +66,11 @@ func TestTaskManager_SubmitMetricTask(t *testing.T) {
 		Receivers: []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 2000}},
 		ShardIDs:  []models.ShardID{1, 2, 4},
 	})
-	physicalPlan.AddIntermediate(models.Intermediate{
-		BaseNode: models.BaseNode{
-			Parent:    "1.1.2.3:8000",
-			Indicator: "1.1.2.1:9000",
-		},
-		NumOfTask: 1,
-	})
 	// no client
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(nil).Times(1)
 	_, _ = taskManager1.SubmitMetricTask(
+		context.TODO(),
 		physicalPlan, &stmt.Query{})
 
 	// send error
@@ -85,14 +79,18 @@ func TestTaskManager_SubmitMetricTask(t *testing.T) {
 		Return(client).Times(1)
 	client.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	_, _ = taskManager1.SubmitMetricTask(
+		context.TODO(),
 		physicalPlan, &stmt.Query{})
 
 	// send ok
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
-		Return(client).Times(2)
-	client.EXPECT().Send(gomock.Any()).Return(nil).Times(2)
-	_, _ = taskManager1.SubmitMetricTask(
-		physicalPlan, &stmt.Query{})
+		Return(client).Times(1)
+	client.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
+	_, err := taskManager1.SubmitMetricTask(
+		context.TODO(),
+		physicalPlan,
+		&stmt.Query{})
+	assert.Nil(t, err)
 
 	tm := taskManager1.(*taskManager)
 	// task not found

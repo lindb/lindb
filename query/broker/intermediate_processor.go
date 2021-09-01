@@ -64,6 +64,24 @@ func NewIntermediateTaskProcessor(
 	}
 }
 
+func (p *intermediateTaskProcessor) ackIntermediateTask(
+	stream protoCommonV1.TaskService_HandleServer,
+	req *protoCommonV1.TaskRequest,
+	errMessage string,
+) {
+	if streamErr := stream.Send(&protoCommonV1.TaskResponse{
+		TaskID:    req.ParentTaskID,
+		Completed: true,
+		ErrMsg:    errMessage,
+		SendTime:  timeutil.NowNano(),
+	}); streamErr != nil {
+		p.logger.Error("failed to send ack intermediate task to root",
+			logger.String("taskID", req.ParentTaskID),
+			logger.Error(streamErr),
+		)
+	}
+}
+
 // Process dispatches the request to distribution query processor, merges the results
 func (p *intermediateTaskProcessor) Process(
 	ctx context.Context,
@@ -79,29 +97,21 @@ func (p *intermediateTaskProcessor) Process(
 		err = query.ErrOnlySupportIntermediateTask
 	}
 	if err != nil {
-		goto ErrToRoot
-	}
-	if err = p.processIntermediateTask(ctx, req); err == nil {
+		p.ackIntermediateTask(stream, req, err.Error())
 		return
 	}
-
-ErrToRoot:
-	if streamErr := stream.Send(&protoCommonV1.TaskResponse{
-		TaskID:    req.ParentTaskID,
-		Completed: true,
-		ErrMsg:    err.Error(),
-		SendTime:  timeutil.NowNano(),
-	}); streamErr != nil {
-		p.logger.Error("failed to send error message to target stream",
-			logger.String("taskID", req.ParentTaskID),
-			logger.Error(streamErr),
-		)
+	if err = p.processIntermediateTask(ctx, stream, req); err != nil {
+		p.ackIntermediateTask(stream, req, err.Error())
 	}
 }
 
 // processIntermediateTask processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
-func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context, req *protoCommonV1.TaskRequest) error {
+func (p *intermediateTaskProcessor) processIntermediateTask(
+	ctx context.Context,
+	stream protoCommonV1.TaskService_HandleServer,
+	req *protoCommonV1.TaskRequest,
+) error {
 	startTime := time.Now()
 	stmtQuery := stmt.Query{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
@@ -116,6 +126,9 @@ func (p *intermediateTaskProcessor) processIntermediateTask(ctx context.Context,
 		&stmtQuery,
 		req.ParentTaskID,
 	)
+	// created task ok
+	p.ackIntermediateTask(stream, req, "")
+
 	select {
 	case event, ok := <-eventCh:
 		if !ok {

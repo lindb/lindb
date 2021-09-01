@@ -101,6 +101,70 @@ func (c *baseTaskContext) Done() bool {
 	return c.expectResults <= 0
 }
 
+// intermediateAckTaskContext represents the task context for root node
+// tacking how many intermediate acks the intermediate task
+type intermediateAckTaskContext struct {
+	baseTaskContext
+
+	eventCh chan<- error
+}
+
+func newIntermediateAckTaskContext(
+	taskID string,
+	taskType TaskType,
+	expectResults int32,
+	eventCh chan<- error,
+) TaskContext {
+	return &intermediateAckTaskContext{
+		baseTaskContext: baseTaskContext{
+			taskID:        taskID,
+			taskType:      taskType,
+			parentTaskID:  "",
+			parentNode:    "",
+			expectResults: expectResults,
+			closed:        false,
+			createTime:    fasttime.UnixMilliseconds(),
+		},
+		eventCh: eventCh,
+	}
+}
+
+func (c *intermediateAckTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, _ string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.expectResults--
+
+	// preventing close channel twice
+	if c.closed {
+		return
+	}
+	defer func() {
+		if c.expectResults <= 0 {
+			close(c.eventCh)
+			c.closed = true
+		}
+	}()
+	if resp.ErrMsg != "" {
+		select {
+		case c.eventCh <- errors.New(resp.ErrMsg):
+		default:
+			// reader gone
+		}
+		return
+	}
+	// not done yet
+	if c.expectResults > 0 {
+		return
+	}
+
+	select {
+	case c.eventCh <- nil:
+	default:
+		// reader gone
+	}
+}
+
 // metricTaskContext represents the task context for tacking task execution state
 type metricTaskContext struct {
 	baseTaskContext
@@ -174,7 +238,8 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 	case c.eventCh <- &series.TimeSeriesEvent{
 		AggregatorSpecs: c.aggregatorSpecs,
 		SeriesList:      c.groupAgg.ResultSet(),
-		Stats:           c.stats}:
+		Stats:           c.stats,
+	}:
 	default:
 		// reader gone
 	}
