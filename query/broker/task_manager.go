@@ -48,6 +48,7 @@ type TaskManager interface {
 	//                                                                            -> leaf nodes -> response
 	// 2. api -> metric-query -> SubmitMetricTask (query with intermediate nodes) <-> peer broker <->
 	SubmitMetricTask(
+		ctx context.Context,
 		physicalPlan *models.PhysicalPlan,
 		stmtQuery *stmt.Query,
 	) (eventCh <-chan *series.TimeSeriesEvent, err error)
@@ -170,15 +171,80 @@ func (t *taskManager) storeTask(taskID string, taskCtx TaskContext) {
 	t.aliveTaskGauge.Incr()
 }
 
+func (t *taskManager) ensureIntermediateAckTasks(
+	ctx context.Context,
+	physicalPlan *models.PhysicalPlan,
+	taskRequest *protoCommonV1.TaskRequest,
+) error {
+	var (
+		wg        sync.WaitGroup
+		sendError atomic.Error
+	)
+	responseCh := make(chan error)
+	taskCtx := newIntermediateAckTaskContext(
+		taskRequest.ParentTaskID,
+		RootTask,
+		int32(len(physicalPlan.Intermediates)),
+		responseCh,
+	)
+
+	t.storeTask(taskRequest.ParentTaskID, taskCtx)
+	defer t.evictTask(taskRequest.ParentTaskID)
+
+	wg.Add(len(physicalPlan.Intermediates))
+	for _, intermediate := range physicalPlan.Intermediates {
+		intermediate := intermediate
+		t.workerPool.Submit(func() {
+			defer wg.Done()
+			if err := t.SendRequest(intermediate.Indicator, taskRequest); err != nil {
+				sendError.Store(err)
+			}
+		})
+	}
+	wg.Wait()
+	if sendError.Load() != nil {
+		return sendError.Load()
+	}
+
+	select {
+	case event, ok := <-responseCh:
+		if !ok {
+			return fmt.Errorf("missing acks from intermdiate nodes")
+		}
+		return event
+	case <-ctx.Done():
+		return ErrTimeout
+	}
+}
+
 func (t *taskManager) SubmitMetricTask(
+	ctx context.Context,
 	physicalPlan *models.PhysicalPlan,
 	stmtQuery *stmt.Query,
 ) (eventCh <-chan *series.TimeSeriesEvent, err error) {
 	rootTaskID := t.AllocTaskID()
 	marshalledPhysicalPlan := encoding.JSONMarshal(physicalPlan)
 	marshalledPayload, _ := stmtQuery.MarshalJSON()
-	responseCh := make(chan *series.TimeSeriesEvent)
 
+	// checkpoint to ensure that all intermediate established the tasks.
+	// in distributed environment, storage responses may be faster than intermediate nodes
+	//
+	// send task to intermediates firstly, then to the leafs
+	// in case of too early response arriving without reader
+	if len(physicalPlan.Intermediates) > 0 {
+		req := &protoCommonV1.TaskRequest{
+			ParentTaskID: rootTaskID,
+			Type:         protoCommonV1.TaskType_Intermediate,
+			RequestType:  protoCommonV1.RequestType_Data,
+			PhysicalPlan: marshalledPhysicalPlan,
+			Payload:      marshalledPayload,
+		}
+		if err := t.ensureIntermediateAckTasks(ctx, physicalPlan, req); err != nil {
+			return nil, err
+		}
+	}
+
+	responseCh := make(chan *series.TimeSeriesEvent)
 	taskCtx := newMetricTaskContext(
 		rootTaskID,
 		RootTask,
@@ -196,48 +262,25 @@ func (t *taskManager) SubmitMetricTask(
 		wg        sync.WaitGroup
 		sendError atomic.Error
 	)
-	// send task to intermediates firstly, then to the leafs
-	if len(physicalPlan.Intermediates) > 0 {
-		req := &protoCommonV1.TaskRequest{
-			ParentTaskID: rootTaskID,
-			Type:         protoCommonV1.TaskType_Intermediate,
-			RequestType:  protoCommonV1.RequestType_Data,
-			PhysicalPlan: marshalledPhysicalPlan,
-			Payload:      marshalledPayload,
-		}
-		wg.Add(len(physicalPlan.Intermediates))
-		for _, intermediate := range physicalPlan.Intermediates {
-			intermediate := intermediate
-			t.workerPool.Submit(func() {
-				defer wg.Done()
-				if err := t.SendRequest(intermediate.Indicator, req); err != nil {
-					sendError.Store(err)
-				}
-			})
-		}
-		wg.Wait()
-	}
 	// notify error to other peer nodes
-	if sendError.Load() == nil {
-		req := &protoCommonV1.TaskRequest{
-			ParentTaskID: rootTaskID,
-			Type:         protoCommonV1.TaskType_Leaf,
-			RequestType:  protoCommonV1.RequestType_Data,
-			PhysicalPlan: marshalledPhysicalPlan,
-			Payload:      marshalledPayload,
-		}
-		wg.Add(len(physicalPlan.Leafs))
-		for _, leaf := range physicalPlan.Leafs {
-			leaf := leaf
-			t.workerPool.Submit(func() {
-				defer wg.Done()
-				if err := t.SendRequest(leaf.Indicator, req); err != nil {
-					sendError.Store(err)
-				}
-			})
-		}
-		wg.Wait()
+	req := &protoCommonV1.TaskRequest{
+		ParentTaskID: rootTaskID,
+		Type:         protoCommonV1.TaskType_Leaf,
+		RequestType:  protoCommonV1.RequestType_Data,
+		PhysicalPlan: marshalledPhysicalPlan,
+		Payload:      marshalledPayload,
 	}
+	wg.Add(len(physicalPlan.Leafs))
+	for _, leaf := range physicalPlan.Leafs {
+		leaf := leaf
+		t.workerPool.Submit(func() {
+			defer wg.Done()
+			if err := t.SendRequest(leaf.Indicator, req); err != nil {
+				sendError.Store(err)
+			}
+		})
+	}
+	wg.Wait()
 
 	if sendError.Load() != nil {
 		t.evictTask(rootTaskID)

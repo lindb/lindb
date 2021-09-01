@@ -90,12 +90,15 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 		currentNodeID: "1.1.1.1:80",
 		logger:        logger.GetLogger("query", "Test"),
 	}
+	stream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
+	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+
 	// decode stmt error
-	err := taskProcessor.processIntermediateTask(context.Background(), &protoCommonV1.TaskRequest{})
+	err := taskProcessor.processIntermediateTask(context.Background(), stream, &protoCommonV1.TaskRequest{})
 	assert.Error(t, err)
 	// decode plan error
 	stmtData := []byte("{}")
-	err = taskProcessor.processIntermediateTask(context.Background(), &protoCommonV1.TaskRequest{
+	err = taskProcessor.processIntermediateTask(context.Background(), stream, &protoCommonV1.TaskRequest{
 		Payload: stmtData,
 	})
 	assert.Error(t, err)
@@ -114,6 +117,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 		close(ch1)
 	})
 	assert.Error(t, taskProcessor.processIntermediateTask(context.Background(),
+		stream,
 		&protoCommonV1.TaskRequest{
 			Payload:      stmtData,
 			PhysicalPlan: planData,
@@ -127,6 +131,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 		ch2 <- &series.TimeSeriesEvent{Err: io.ErrClosedPipe}
 	})
 	assert.Error(t, taskProcessor.processIntermediateTask(context.Background(),
+		stream,
 		&protoCommonV1.TaskRequest{
 			Payload:      stmtData,
 			PhysicalPlan: planData,
@@ -138,6 +143,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch3)
 	assert.Nil(t, taskProcessor.processIntermediateTask(ctx,
+		stream,
 		&protoCommonV1.TaskRequest{
 			Payload:      stmtData,
 			PhysicalPlan: planData,

@@ -110,6 +110,7 @@ func (mq *metricQuery) WaitResponse() (*models.ResultSet, error) {
 	mq.endPlanTime = time.Now()
 
 	eventCh, err := mq.queryFactory.taskManager.SubmitMetricTask(
+		mq.ctx,
 		mq.plan.physicalPlan,
 		mq.plan.query,
 	)
