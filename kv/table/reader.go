@@ -195,7 +195,7 @@ func (r *storeMMapReader) Iterator() Iterator {
 	return newMMapIterator(r)
 }
 
-// close store reader, release resource
+// Close store reader, release resource
 func (r *storeMMapReader) Close() error {
 	r.entriesBlock = nil
 	err := fileutil.Unmap(r.fullBlock)
