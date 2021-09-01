@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
@@ -232,13 +233,8 @@ func (w *flusher) writeLevel4OffsetsFooter() error {
 	}
 
 	// write level4's length of Offsets
-	writtenLen := binary.PutUvarint(w.Level4.scratch[:], uint64(w.kvWriter.Size()-beforeLen))
-	// reverse uvaiant encoding
-	for i := 0; i < writtenLen/2; i++ {
-		// reverse scratch
-		w.Level4.scratch[i], w.Level4.scratch[writtenLen-i-1] =
-			w.Level4.scratch[writtenLen-i-1], w.Level4.scratch[i]
-	}
+	writtenLen := stream.PutUvariantLittleEndian(w.Level4.scratch[:], uint64(w.kvWriter.Size()-beforeLen))
+	// reverse uvaiant little endian encoding
 	_, err := w.kvWriter.Write(w.Level4.scratch[:writtenLen])
 	return err
 }
@@ -368,7 +364,7 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 	//////////////////////////////////////////////////
 	// write time range of metric level
 	binary.LittleEndian.PutUint16(w.Level2.footer[:2], slotRange.Start)
-	binary.LittleEndian.PutUint16(w.Level2.footer[2:4], slotRange.Start)
+	binary.LittleEndian.PutUint16(w.Level2.footer[2:4], slotRange.End)
 	// write field metas' start position
 	binary.LittleEndian.PutUint32(w.Level2.footer[4:8], fieldMetasAt)
 	// write series ids' start position
