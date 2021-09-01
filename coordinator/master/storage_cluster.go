@@ -19,7 +19,7 @@ package master
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -40,6 +40,7 @@ import (
 type StorageCluster interface {
 	Start() error
 	GetState() *models.StorageState
+	GetLiveNodes() ([]models.StatefulNode, error)
 	// FlushDatabase submits the coordinator task for flushing memory database by name
 	FlushDatabase(databaseName string) error
 	// CreateShards creates shard by shard assignment.
@@ -47,6 +48,7 @@ type StorageCluster interface {
 		databaseName string,
 		shardAssign *models.ShardAssignment,
 		databaseOption option.DatabaseOption,
+		liveNodes map[models.NodeID]*models.StatefulNode,
 	) error
 	// SubmitTask generates coordinator task
 	SubmitTask(
@@ -125,6 +127,22 @@ func (c *storageCluster) GetState() *models.StorageState {
 	return c.state
 }
 
+func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
+	//TODO add timeout ctx
+	kvs, err := c.storageRepo.List(c.ctx, constants.LiveNodesPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, kv := range kvs {
+		node := models.StatefulNode{}
+		if err := json.Unmarshal(kv.Value, &node); err != nil {
+			return nil, err
+		}
+		rs = append(rs, node)
+	}
+	return rs, nil
+}
+
 // GetRepo returns current storage storageCluster's state repo
 func (c *storageCluster) GetRepo() state.Repository {
 	return c.storageRepo
@@ -153,19 +171,8 @@ func (c *storageCluster) CreateShards(
 	databaseName string,
 	shardAssign *models.ShardAssignment,
 	databaseOption option.DatabaseOption,
+	liveNodes map[models.NodeID]*models.StatefulNode,
 ) error {
-
-	//TODO add retry? maybe active nodes not equals shard assign
-	liveNodes := c.state.LiveNodes
-	if len(liveNodes) == 0 {
-		return fmt.Errorf("active node not found")
-	}
-
-	nodes := make(map[models.NodeID]*models.StatefulNode)
-	for idx := range liveNodes {
-		node := liveNodes[idx]
-		nodes[node.ID] = &node
-	}
 	var tasks = make(map[models.NodeID]*models.CreateShardTask)
 
 	for ID, shard := range shardAssign.Shards {
@@ -181,7 +188,7 @@ func (c *storageCluster) CreateShards(
 	}
 	var params []task.ControllerTaskParam
 	for nodeID, taskParam := range tasks {
-		node := nodes[nodeID]
+		node := liveNodes[nodeID]
 		params = append(params, task.ControllerTaskParam{
 			NodeID: node.Indicator(), //TODO need use node id?
 			Params: taskParam,

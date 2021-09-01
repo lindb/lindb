@@ -76,7 +76,7 @@ type stateManager struct {
 	databases map[string]models.Database
 
 	running *atomic.Bool
-	mutex   sync.RWMutex
+	mutex   sync.Mutex
 
 	logger *logger.Logger
 }
@@ -198,9 +198,6 @@ func (m *stateManager) OnStorageConfigChange(key string, data []byte) {
 		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	if !m.isRunning() {
 		return
 	}
@@ -214,9 +211,6 @@ func (m *stateManager) OnStorageConfigChange(key string, data []byte) {
 func (m *stateManager) OnStorageConfigDelete(key string) {
 	m.logger.Info("storage config deleted",
 		logger.String("key", key))
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	if !m.isRunning() {
 		return
@@ -283,7 +277,9 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	if err != nil {
 		return err
 	}
+	m.mutex.Lock()
 	m.storages[cfg.Name] = cluster
+	m.mutex.Unlock()
 	// start storage cluster state machine
 	if err := cluster.Start(); err != nil {
 		m.unRegister(cfg.Name)
@@ -299,7 +295,11 @@ func (m *stateManager) unRegister(name string) {
 	if ok {
 		// need cleanup storage cluster resource
 		cluster.Close()
+
+		m.mutex.Lock()
 		delete(m.storages, name)
+		m.mutex.Unlock()
+
 		m.logger.Info("cleanup storage cluster resource finished", logger.String("storage", name))
 	}
 }
@@ -363,6 +363,8 @@ func (m *stateManager) nodeStartup(name string, node models.StatefulNode) {
 
 	s.NodeOnline(node)
 	m.onNodeStartup(s, node)
+
+	m.syncState(cluster.GetState())
 }
 
 func (m *stateManager) nodeFailure(name string, nodeID models.NodeID) {
@@ -370,6 +372,8 @@ func (m *stateManager) nodeFailure(name string, nodeID models.NodeID) {
 	s := cluster.GetState()
 
 	m.onNodeFailure(s, nodeID)
+
+	m.syncState(cluster.GetState())
 }
 
 func (m *stateManager) onNodeStartup(state *models.StorageState, node models.StatefulNode) {
@@ -434,7 +438,11 @@ func (m *stateManager) createShardAssignment(
 	cluster StorageCluster, cfg *models.Database,
 	startShardID models.ShardID, fixedStartIndex int,
 ) (*models.ShardAssignment, error) {
-	liveNodes := cluster.GetState().LiveNodes
+	liveNodes, err := cluster.GetLiveNodes()
+	if err != nil {
+		return nil, err
+	}
+
 	if len(liveNodes) == 0 {
 		return nil, constants.ErrNoLiveNode
 	}
@@ -464,7 +472,7 @@ func (m *stateManager) createShardAssignment(
 		return nil, err
 	}
 	// save shard assignment into related storage storageCluster
-	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option); err != nil {
+	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option, nodes); err != nil {
 		return nil, err
 	}
 
@@ -475,24 +483,30 @@ func (m *stateManager) modifyShardAssignment(
 	cluster StorageCluster, cfg *models.Database,
 	shardAssign *models.ShardAssignment,
 ) error {
+	nodes := make(map[models.NodeID]*models.StatefulNode)
 	if len(shardAssign.Shards) > cfg.NumOfShard { //reduce shardAssign's shards
 		//TODO implement the reduce shards, is needed?
 		panic("not implemented")
 	} else if len(shardAssign.Shards) < cfg.NumOfShard { // add shardAssign's shards
-		activeNodes := cluster.GetState().LiveNodes
-		if len(activeNodes) == 0 {
+		liveNodes, err := cluster.GetLiveNodes()
+		if err != nil {
+			return err
+		}
+		if len(liveNodes) == 0 {
 			return constants.ErrNoLiveNode
 		}
 		//TODO need calc resource and pick related node for store data
 
 		var nodeIDs []models.NodeID
-		for _, node := range activeNodes {
+		for idx := range liveNodes {
+			node := liveNodes[idx]
 			nodeIDs = append(nodeIDs, node.ID)
+			nodes[node.ID] = &node
 		}
 
 		// generate shard assignment based on node ids and config
 		//TODO check start shard id
-		err := ModifyShardAssignment(nodeIDs, cfg, shardAssign, -1, models.ShardID(len(shardAssign.Shards)))
+		err = ModifyShardAssignment(nodeIDs, cfg, shardAssign, -1, models.ShardID(len(shardAssign.Shards)))
 		if err != nil {
 			return err
 		}
@@ -508,7 +522,7 @@ func (m *stateManager) modifyShardAssignment(
 	}
 
 	// save shard assignment into related storage storageCluster
-	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option); err != nil {
+	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option, nodes); err != nil {
 		return err
 	}
 	return nil
@@ -529,8 +543,8 @@ func (m *stateManager) GetShardAssign(databaseName string) (*models.ShardAssignm
 
 // GetStorageCluster returns cluster controller for maintain the metadata of storage cluster
 func (m *stateManager) GetStorageCluster(name string) (cluster StorageCluster) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	cluster = m.storages[name]
 	return
