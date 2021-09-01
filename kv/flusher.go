@@ -142,6 +142,7 @@ type nopStreamWriter struct {
 
 func (nw *nopStreamWriter) Prepare(_ uint32) {
 	nw.size = 0
+	nw.buffer.Reset()
 }
 
 func (nw *nopStreamWriter) Write(data []byte) (int, error) {

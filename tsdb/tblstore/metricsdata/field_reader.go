@@ -18,9 +18,8 @@
 package metricsdata
 
 import (
-	"encoding/binary"
-
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
@@ -78,34 +77,14 @@ func (r *fieldReader) Reset(seriesEntry []byte, slotRange timeutil.SlotRange) {
 		r.completed = true
 		return
 	}
-	// reversed decoding binary.Uvariant
-	var (
-		fieldOffsetsLen uint64
-		readBytes       uint
-	)
-	{
-		for j := len(seriesEntry) - 1; j >= 0; j-- {
-			b := seriesEntry[j]
-			i := len(seriesEntry) - j - 1
-			if b < 0x80 {
-				if i >= binary.MaxVarintLen64 || i == binary.MaxVarintLen64-1 && b > 1 {
-					// overflow
-					r.completed = true
-					return
-				}
-				fieldOffsetsLen |= uint64(b) << readBytes
-				readBytes = uint(i + 1)
-				break
-			}
-			fieldOffsetsLen |= uint64(b&0x7f) << readBytes
-			readBytes += 7
-		}
-	}
-	fieldOffsetsAt := len(seriesEntry) - int(readBytes) - int(fieldOffsetsLen)
-	if fieldOffsetsAt < 0 || fieldOffsetsAt >= len(seriesEntry) {
+	// little endian decoding binary.Uvariant
+	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntry)
+	fieldOffsetsAt := len(seriesEntry) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
+	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntry) {
 		r.completed = true
 		return
 	}
+
 	if _, err := r.fieldOffsets.Unmarshal(seriesEntry[fieldOffsetsAt:]); err != nil {
 		r.completed = true
 	}

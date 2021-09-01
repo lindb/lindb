@@ -172,13 +172,11 @@ func (r *metricReader) readSeriesData(seriesEntryBlock []byte) [][]byte {
 		// metric has one field, just read the data
 		return [][]byte{seriesEntryBlock}
 	}
-	// seriesEntry length too short
-	if len(seriesEntryBlock) <= 4 {
-		return nil
-	}
-	fieldOffsetsAt := binary.LittleEndian.Uint32(seriesEntryBlock[len(seriesEntryBlock)-4:])
-	// fieldOffsetsAt out of range
-	if fieldOffsetsAt+4 >= uint32(len(seriesEntryBlock)) {
+
+	// seriesEntry length too short or out of range
+	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntryBlock)
+	fieldOffsetsAt := len(seriesEntryBlock) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
+	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntryBlock) {
 		return nil
 	}
 

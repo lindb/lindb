@@ -19,15 +19,79 @@ package metricsdata
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
+
+func Test_Compact(t *testing.T) {
+	mergerIntf := NewMerger()
+	for i := 0; i < 10; i++ {
+		assertMergeReentrant(t, mergerIntf)
+	}
+}
+
+func assertMergeReentrant(t *testing.T, mergerIntf kv.Merger) {
+	data, err := mergerIntf.Merge(
+		1,
+		[][]byte{
+			mockRealMetricBlock([]uint32{1, 2, 4}, 11, 15),
+			mockRealMetricBlock([]uint32{2, 20}, 16, 20),
+			mockRealMetricBlock([]uint32{2, 30}, 5, 10),
+		})
+	assert.Nil(t, err)
+
+	r, err := NewReader("test", data)
+	assert.Nil(t, err)
+	assert.Len(t, r.GetFields(), 2)
+	assert.EqualValues(t, r.GetFields(), field.Metas{
+		{ID: 2, Type: field.SumField},
+		{ID: 10, Type: field.MinField},
+	})
+	for _, seriesID := range []uint32{1, 2, 4, 20, 30} {
+		assert.True(t, r.GetSeriesIDs().Contains(seriesID))
+	}
+
+	assert.Equal(t, timeutil.SlotRange{Start: uint16(5), End: uint16(20)}, r.GetTimeRange())
+
+	container := r.GetSeriesIDs().GetContainer(0)
+	loader := r.Load(0, container, r.GetFields())
+	// not exist
+	_, blocks := loader.Load(0)
+	assert.Len(t, blocks, 0)
+	// 11-15
+	_, blocks = loader.Load(1)
+	assert.Len(t, blocks, 2)
+}
+
+func mockRealMetricBlock(seriesIDs []uint32, start, end uint16) []byte {
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher, _ := NewFlusher(nopKVFlusher)
+	flusher.PrepareMetric(10, field.Metas{
+		{ID: 2, Type: field.SumField},
+		{ID: 10, Type: field.MinField},
+	})
+	encoder := encoding.NewTSDEncoder(start)
+	for i := start; i <= end; i++ {
+		encoder.AppendTime(true)
+		encoder.AppendValue(math.Float64bits(float64(i)))
+	}
+	data, _ := encoder.BytesWithoutTime()
+	for _, seriesID := range seriesIDs {
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushField(data)
+		_ = flusher.FlushSeries(seriesID)
+	}
+	_ = flusher.CommitMetric(timeutil.SlotRange{Start: start, End: end})
+	return nopKVFlusher.Bytes()
+}
 
 func TestMerger_Compact_Merge(t *testing.T) {
 	ctrl := gomock.NewController(t)
