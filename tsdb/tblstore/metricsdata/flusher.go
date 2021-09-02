@@ -377,8 +377,7 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 	if _, err := w.kvWriter.Write(w.Level2.footer[:]); err != nil {
 		return err
 	}
-	w.kvWriter.Commit()
-	return nil
+	return w.kvWriter.Commit()
 }
 
 // Close adds the footer and then closes the kv builder,

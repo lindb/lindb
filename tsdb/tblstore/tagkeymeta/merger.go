@@ -31,22 +31,23 @@ func init() {
 
 // merger implements kv.Merger for merging tag trie meta data for each metric
 type merger struct {
-	flusher   Flusher
-	kvFlusher *kv.NopFlusher
+	flusher    Flusher
+	kvFlusher  kv.Flusher
+	nopFlusher *kv.NopFlusher
 }
 
 // NewMerger creates a merger for compacting tag-key-meta
-func NewMerger() kv.Merger {
-	kvFlusher := kv.NewNopFlusher()
+func NewMerger(kvFlusher kv.Flusher) kv.Merger {
+	// todo: @codingcrush, use stream flusher
+	nopFlusher := kv.NewNopFlusher()
 	return &merger{
-		kvFlusher: kvFlusher,
-		flusher:   NewFlusher(kvFlusher),
+		nopFlusher: nopFlusher,
+		kvFlusher:  kvFlusher,
+		flusher:    NewFlusher(nopFlusher),
 	}
 }
 
-func (tm *merger) Init(params map[string]interface{}) {
-	// do nothing
-}
+func (tm *merger) Init(_ map[string]interface{}) {}
 
 func cloneSlice(slice []byte) []byte {
 	if len(slice) == 0 {
@@ -58,14 +59,14 @@ func cloneSlice(slice []byte) []byte {
 }
 
 // Merge merges the multi tag trie meta data into a trie for same metric
-func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) ([]byte, error) {
+func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) error {
 	maxSequenceID := uint32(0) // target sequence of tag value id
 	// 1. prepare tagKeyMetas
 	var tagKeyMetas []TagKeyMeta
 	for _, dataBlock := range dataBlocks {
 		tagKeyMeta, err := newTagKeyMeta(dataBlock)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if maxSequenceID < tagKeyMeta.TagValueIDSeq() {
 			maxSequenceID = tagKeyMeta.TagValueIDSeq()
@@ -76,7 +77,7 @@ func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) ([]byte, error) {
 	for _, tagKeyMeta := range tagKeyMetas {
 		itr, err := tagKeyMeta.PrefixIterator(nil)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for itr.Valid() {
 			tm.flusher.FlushTagValue(cloneSlice(itr.Key()), encoding.ByteSlice2Uint32(itr.Value()))
@@ -84,7 +85,7 @@ func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) ([]byte, error) {
 		}
 	}
 	if err := tm.flusher.FlushTagKeyID(tagKeyID, maxSequenceID); err != nil {
-		return nil, err
+		return err
 	}
-	return tm.kvFlusher.Bytes(), nil
+	return tm.kvFlusher.Add(tagKeyID, tm.nopFlusher.Bytes())
 }

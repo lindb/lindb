@@ -32,14 +32,15 @@ import (
 )
 
 func Test_Compact(t *testing.T) {
-	mergerIntf := NewMerger()
+	flusher := kv.NewNopFlusher()
+	mergerIntf := NewMerger(flusher)
 	for i := 0; i < 10; i++ {
-		assertMergeReentrant(t, mergerIntf)
+		assertMergeReentrant(t, flusher, mergerIntf)
 	}
 }
 
-func assertMergeReentrant(t *testing.T, mergerIntf kv.Merger) {
-	data, err := mergerIntf.Merge(
+func assertMergeReentrant(t *testing.T, flusher kv.Flusher, mergerIntf kv.Merger) {
+	err := mergerIntf.Merge(
 		1,
 		[][]byte{
 			mockRealMetricBlock([]uint32{1, 2, 4}, 11, 15),
@@ -48,7 +49,7 @@ func assertMergeReentrant(t *testing.T, mergerIntf kv.Merger) {
 		})
 	assert.Nil(t, err)
 
-	r, err := NewReader("test", data)
+	r, err := NewReader("test", flusher.(*kv.NopFlusher).Bytes())
 	assert.Nil(t, err)
 	assert.Len(t, r.GetFields(), 2)
 	assert.EqualValues(t, r.GetFields(), field.Metas{
@@ -98,21 +99,22 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	defer ctrl.Finish()
 	flusher := NewMockFlusher(ctrl)
 	seriesMerger := NewMockSeriesMerger(ctrl)
-	merge := NewMerger()
+	nopFlusher := kv.NewNopFlusher()
+	merge := NewMerger(nopFlusher)
 	m := merge.(*merger)
 	m.dataFlusher = flusher
 	m.seriesMerger = seriesMerger
 	// case 1: new metricReader err
-	data, err := merge.Merge(1, [][]byte{{1, 2, 3}})
+	err := merge.Merge(1, [][]byte{{1, 2, 3}})
 	assert.Error(t, err)
-	assert.Nil(t, data)
+	assert.Nil(t, nopFlusher.Bytes())
 	// case 2: series merge err
 	flusher.EXPECT().PrepareMetric(uint32(1),
 		field.Metas{{ID: 2, Type: field.SumField}, {ID: 10, Type: field.MinField}}).AnyTimes()
 
 	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(fmt.Errorf("err"))
-	data, err = merge.Merge(
+	err = merge.Merge(
 		1,
 		[][]byte{
 			mockMetricMergeBlock([]uint32{1, 2, 4}, 10, 10),
@@ -120,7 +122,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 			mockMetricMergeBlock([]uint32{2, 30}, 5, 5),
 		})
 	assert.Error(t, err)
-	assert.Nil(t, data)
+	assert.Nil(t, nopFlusher.Bytes())
 	// case 3: merge success
 	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil).Times(4)
@@ -131,14 +133,14 @@ func TestMerger_Compact_Merge(t *testing.T) {
 		flusher.EXPECT().FlushSeries(uint32(20)),
 		flusher.EXPECT().CommitMetric(timeutil.SlotRange{Start: 10, End: 15}).Return(nil),
 	)
-	data, err = merge.Merge(
+	err = merge.Merge(
 		1,
 		[][]byte{
 			mockMetricMergeBlock([]uint32{1, 2, 4}, 10, 10),
 			mockMetricMergeBlock([]uint32{2, 20}, 15, 15),
 		})
 	assert.NoError(t, err)
-	assert.False(t, len(data) > 0) // data flush is mock
+	assert.False(t, len(nopFlusher.Bytes()) > 0) // data flush is mock
 	// case 4: flush metric err
 	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
@@ -146,13 +148,13 @@ func TestMerger_Compact_Merge(t *testing.T) {
 		flusher.EXPECT().FlushSeries(uint32(1)).Return(nil),
 		flusher.EXPECT().CommitMetric(timeutil.SlotRange{Start: 10, End: 10}).Return(fmt.Errorf("err")),
 	)
-	data, err = merge.Merge(
+	err = merge.Merge(
 		1,
 		[][]byte{
 			mockMetricMergeBlock([]uint32{1}, 10, 10),
 		})
 	assert.Error(t, err)
-	assert.Nil(t, data)
+	assert.Nil(t, nopFlusher.Bytes())
 }
 
 func TestMerger_Rollup_Merge(t *testing.T) {
@@ -161,7 +163,8 @@ func TestMerger_Rollup_Merge(t *testing.T) {
 	rollup := kv.NewMockRollup(ctrl)
 	flusher := NewMockFlusher(ctrl)
 	seriesMerger := NewMockSeriesMerger(ctrl)
-	merge := NewMerger()
+	nopFlusher := kv.NewNopFlusher()
+	merge := NewMerger(nopFlusher)
 	merge.Init(map[string]interface{}{kv.RollupContext: rollup})
 
 	m := merge.(*merger)
@@ -184,14 +187,14 @@ func TestMerger_Rollup_Merge(t *testing.T) {
 		flusher.EXPECT().FlushSeries(uint32(20)),
 		flusher.EXPECT().CommitMetric(timeutil.SlotRange{Start: 0, End: 0}).Return(nil),
 	)
-	data, err := merge.Merge(
+	err := merge.Merge(
 		1,
 		[][]byte{
 			mockMetricMergeBlock([]uint32{1, 2, 4}, 10, 10),
 			mockMetricMergeBlock([]uint32{2, 20}, 15, 15),
 		})
 	assert.NoError(t, err)
-	assert.False(t, len(data) > 0) // data flush is mock
+	assert.False(t, len(nopFlusher.Bytes()) > 0) // data flush is mock
 }
 
 func mockMetricMergeBlock(seriesIDs []uint32, start, end uint16) []byte {
