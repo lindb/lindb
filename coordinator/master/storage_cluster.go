@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
@@ -43,12 +44,10 @@ type StorageCluster interface {
 	GetLiveNodes() ([]models.StatefulNode, error)
 	// FlushDatabase submits the coordinator task for flushing memory database by name
 	FlushDatabase(databaseName string) error
-	// CreateShards creates shard by shard assignment.
-	CreateShards(
-		databaseName string,
+	// SaveDatabaseAssignment saves database assignment in storage state repo.
+	SaveDatabaseAssignment(
 		shardAssign *models.ShardAssignment,
 		databaseOption option.DatabaseOption,
-		liveNodes map[models.NodeID]*models.StatefulNode,
 	) error
 	// SubmitTask generates coordinator task
 	SubmitTask(
@@ -166,39 +165,22 @@ func (c *storageCluster) FlushDatabase(databaseName string) error {
 	return nil
 }
 
-// CreateShards saves shard assignment, generates create shard task after saving successfully
-func (c *storageCluster) CreateShards(
-	databaseName string,
+// SaveDatabaseAssignment saves database assignment in storage state repo.
+func (c *storageCluster) SaveDatabaseAssignment(
 	shardAssign *models.ShardAssignment,
 	databaseOption option.DatabaseOption,
-	liveNodes map[models.NodeID]*models.StatefulNode,
 ) error {
-	var tasks = make(map[models.NodeID]*models.CreateShardTask)
-
-	for ID, shard := range shardAssign.Shards {
-		for _, replicaID := range shard.Replicas {
-			taskParam, ok := tasks[replicaID]
-			if !ok {
-				taskParam = &models.CreateShardTask{DatabaseName: databaseName}
-				tasks[replicaID] = taskParam
-			}
-			taskParam.ShardIDs = append(taskParam.ShardIDs, ID)
-			taskParam.DatabaseOption = databaseOption
-		}
-	}
-	var params []task.ControllerTaskParam
-	for nodeID, taskParam := range tasks {
-		node := liveNodes[nodeID]
-		params = append(params, task.ControllerTaskParam{
-			NodeID: node.Indicator(), //TODO need use node id?
-			Params: taskParam,
-		})
-	}
-	// create create shard coordinator tasks
-	if err := c.SubmitTask(constants.CreateShard, databaseName, params); err != nil {
+	//TODO timeout ctx
+	data := encoding.JSONMarshal(&models.DatabaseAssignment{
+		ShardAssignment: shardAssign,
+		Option:          databaseOption,
+	})
+	if err := c.storageRepo.Put(c.ctx, constants.ShardAssigmentPath+"/"+shardAssign.Name, data); err != nil {
 		return err
 	}
-	c.logger.Info("submit create task", logger.String("storage", c.cfg.Name))
+	c.logger.Info("save database assignment successfully",
+		logger.String("storage", c.cfg.Name),
+		logger.String("database", shardAssign.Name))
 	return nil
 }
 

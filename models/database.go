@@ -44,6 +44,11 @@ func (db Database) String() string {
 	return result
 }
 
+type DatabaseAssignment struct {
+	ShardAssignment *ShardAssignment      `json:"shardAssignment"`
+	Option          option.DatabaseOption `json:"option"`
+}
+
 // Replica defines replica list for spec shard of database.
 type Replica struct {
 	Replicas []NodeID `json:"replicas"`

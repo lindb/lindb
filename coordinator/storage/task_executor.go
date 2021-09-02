@@ -46,7 +46,6 @@ func NewTaskExecutor(ctx context.Context,
 ) *TaskExecutor {
 	executor := task.NewExecutor(ctx, node, repo)
 	// register task processor
-	executor.Register(newCreateShardProcessor(engine))
 	executor.Register(newDatabaseFlushProcessor(engine))
 	return &TaskExecutor{
 		ctx:      ctx,
