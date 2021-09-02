@@ -43,19 +43,19 @@ type CompactJob interface {
 
 // compactJob represents the compaction job, merges input files
 type compactJob struct {
-	family Family
-	state  *compactionState
-	merger NewMerger
-	rollup Rollup
+	family    Family
+	state     *compactionState
+	newMerger NewMerger
+	rollup    Rollup
 }
 
 // newCompactJob creates a compaction job
 func newCompactJob(family Family, state *compactionState, rollup Rollup) CompactJob {
 	return &compactJob{
-		family: family,
-		merger: family.getNewMerger(),
-		state:  state,
-		rollup: rollup,
+		family:    family,
+		newMerger: family.getNewMerger(),
+		state:     state,
+		rollup:    rollup,
 	}
 }
 
@@ -119,7 +119,7 @@ func (c *compactJob) doMerge() error {
 	if err != nil {
 		return err
 	}
-	merger := c.merger()
+	merger := c.newMerger(c.newCompactFlusher())
 	if c.rollup != nil {
 		merger.Init(map[string]interface{}{RollupContext: c.rollup})
 	}
@@ -139,15 +139,10 @@ func (c *compactJob) doMerge() error {
 			//FIXME stone1100 merge data maybe is one block
 
 			// 1. if new key != previous key do merge logic based on user define
-			mergedValue, err := merger.Merge(previousKey, needMerge)
-			if err != nil {
+			if err := merger.Merge(previousKey, needMerge); err != nil {
 				return err
 			}
-			// 2. add new k/v pair into new store build
-			if err := c.add(previousKey, mergedValue); err != nil {
-				return err
-			}
-			// 3. prepare next merge loop
+			// 2. prepare next merge loop
 			// init value for next loop
 			needMerge = needMerge[:0]
 			// add value to need merge slice
@@ -159,11 +154,7 @@ func (c *compactJob) doMerge() error {
 
 	// if has pending merge values after iterator, need do merge
 	if len(needMerge) > 0 {
-		mergedValue, err := merger.Merge(previousKey, needMerge)
-		if err != nil {
-			return err
-		}
-		if err := c.add(previousKey, mergedValue); err != nil {
+		if err := merger.Merge(previousKey, needMerge); err != nil {
 			return err
 		}
 	}
@@ -189,32 +180,6 @@ func (c *compactJob) installCompactionResults() {
 		c.state.compaction.AddFile(level+1, output)
 	}
 	c.family.commitEditLog(c.state.compaction.GetEditLog())
-}
-
-// add adds new k/v pair into new store build,
-// if store builder is nil need create a new store builder,
-// if file size > max file limit, closes current builder.
-func (c *compactJob) add(key uint32, value []byte) error {
-	if len(value) == 0 {
-		return nil
-	}
-	// generates output file number and creates store build if necessary
-	if c.state.builder == nil {
-		if err := c.openCompactionOutputFile(); err != nil {
-			return err
-		}
-	}
-	// add key/value into store builder
-	if err := c.state.builder.Add(key, value); err != nil {
-		return err
-	}
-	// close current store build's file if it is big enough
-	if c.state.builder.Size() >= c.state.maxFileSize {
-		if err := c.finishCompactionOutputFile(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // makeInputIterator makes a merged iterator by compaction pick input files
@@ -286,4 +251,91 @@ func (c *compactJob) cleanupCompaction() {
 	for _, output := range c.state.outputs {
 		c.family.removePendingOutput(output.GetFileNumber())
 	}
+}
+
+// newCompactFlusher creates a new flusher for compacting
+// there are 2 strategies for flushing: streaming flush and buffer flush
+func (c *compactJob) newCompactFlusher() Flusher {
+	return &compactFlusher{compactJob: c}
+}
+
+// compactFlusher wraps the kv builder, implements Flusher
+// provides stream writer and add method
+type compactFlusher struct {
+	compactJob   *compactJob
+	streamWriter table.StreamWriter // lazy initialized
+}
+
+func (cf *compactFlusher) StreamWriter() (table.StreamWriter, error) {
+	if cf.streamWriter != nil {
+		return cf.streamWriter, nil
+	}
+	// ensure builder is created
+	if err := cf.beforeAdd(); err != nil {
+		return nil, err
+	}
+	sw := cf.compactJob.state.builder.StreamWriter()
+	// hooks stream writer with compaction processing checkers
+	cf.streamWriter = &compactFlusherStreamWriter{
+		compactFlusher: cf,
+		StreamWriter:   sw,
+	}
+	return cf.streamWriter, nil
+}
+
+func (cf *compactFlusher) beforeAdd() error {
+	// generates output file number and creates store build if necessary
+	if cf.compactJob.state.builder == nil {
+		if err := cf.compactJob.openCompactionOutputFile(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cf *compactFlusher) afterAdd() error {
+	// close current store build's file if it is big enough
+	if cf.compactJob.state.builder.Size() >= cf.compactJob.state.maxFileSize {
+		if err := cf.compactJob.finishCompactionOutputFile(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Add adds new k/v pair into new store build,
+// if store builder is nil need create a new store builder,
+// if file size > max file limit, closes current builder.
+func (cf *compactFlusher) Add(key uint32, value []byte) error {
+	if len(value) == 0 {
+		return nil
+	}
+	// generates output file number and creates store build if necessary
+	if err := cf.beforeAdd(); err != nil {
+		return err
+	}
+	// add key/value into store builder
+	if err := cf.compactJob.state.builder.Add(key, value); err != nil {
+		return err
+	}
+	if err := cf.afterAdd(); err != nil {
+		return err
+	}
+	return nil
+}
+func (cf *compactFlusher) Commit() error {
+	panic("Commit is not allowed to call for CompactFlusher")
+}
+
+// compactFlusherStreamWriter wraps stream writer with write check
+type compactFlusherStreamWriter struct {
+	compactFlusher *compactFlusher
+	table.StreamWriter
+}
+
+// Commit checks if build's file if it is big enough
+func (cfsw *compactFlusherStreamWriter) Commit() error {
+	// table's StreamWriter Commit won't raise error
+	_ = cfsw.StreamWriter.Commit()
+	return cfsw.compactFlusher.afterAdd()
 }

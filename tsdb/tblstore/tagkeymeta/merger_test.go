@@ -30,12 +30,13 @@ import (
 )
 
 func TestMerger_Merge_Success(t *testing.T) {
-	merger := NewMerger()
+	nopFlusher := kv.NewNopFlusher()
+	merger := NewMerger(nopFlusher)
 	merger.Init(nil)
 
-	data, err := merger.Merge(20, mockMergeData())
+	err := merger.Merge(20, mockMergeData())
 	assert.NoError(t, err)
-	meta, err := newTagKeyMeta(data)
+	meta, err := newTagKeyMeta(nopFlusher.Bytes())
 	assert.NoError(t, err)
 	// validate TagValueIDSeq
 	assert.Equal(t, uint32(200), meta.TagValueIDSeq())
@@ -74,12 +75,14 @@ func Test_Merger_error(t *testing.T) {
 	defer ctrl.Finish()
 
 	// case1: bad tagKeyMeta
-	metaMerger1 := NewMerger()
-	_, err := metaMerger1.Merge(20, append([][]byte{{1}}, mockMergeData()...))
+	nopFlusher := kv.NewNopFlusher()
+	metaMerger1 := NewMerger(nopFlusher)
+	err := metaMerger1.Merge(20, append([][]byte{{1}}, mockMergeData()...))
 	assert.Error(t, err)
 
 	// case2: flush error
-	metaMerger2 := NewMerger()
+	nopFlusher2 := kv.NewNopFlusher()
+	metaMerger2 := NewMerger(nopFlusher2)
 	mergerImpl2 := metaMerger2.(*merger)
 
 	mockFlusher := NewMockFlusher(ctrl)
@@ -87,9 +90,9 @@ func Test_Merger_error(t *testing.T) {
 	mockFlusher.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
 	mergerImpl2.flusher = mockFlusher
 
-	data, err := mergerImpl2.Merge(20, mockMergeData())
+	err = mergerImpl2.Merge(20, mockMergeData())
 	assert.Error(t, err)
-	assert.Len(t, data, 0)
+	assert.Len(t, nopFlusher2.Bytes(), 0)
 }
 
 func mockMergeData() (data [][]byte) {

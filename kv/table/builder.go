@@ -109,7 +109,7 @@ type StreamWriter interface {
 	// CRC32CheckSum returns a IEEE checksum of written bytes
 	CRC32CheckSum() uint32
 	// Commit marks the key/value pair has been written
-	Commit()
+	Commit() error
 }
 
 // storeBuilder builds store file
@@ -300,11 +300,12 @@ func (sw *streamWriter) CRC32CheckSum() uint32 {
 	return sw.crc32.Sum32()
 }
 
-func (sw *streamWriter) Commit() {
+func (sw *streamWriter) Commit() error {
 	if sw.badKey {
-		return
+		return nil
 	}
 	sw.builder.afterWrite(sw.key, int(sw.offset))
 	// preventing committing twice
 	sw.badKey = true
+	return nil
 }

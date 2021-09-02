@@ -33,7 +33,7 @@ func (f FamilyID) Int() int {
 	return int(f)
 }
 
-// Int returns int32 value of family id
+// Int32 returns int32 value of family id
 func (f FamilyID) Int32() int32 {
 	return int32(f)
 }
