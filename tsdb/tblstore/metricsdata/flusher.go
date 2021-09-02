@@ -372,7 +372,8 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 	// write offset block start position
 	binary.LittleEndian.PutUint32(w.Level2.footer[12:16], highKeyOffsetsAt)
 	// write CRC32 checksum
-	// todo: use digest to check CRC32 checksum
+	binary.LittleEndian.PutUint32(w.Level2.footer[16:20], w.kvWriter.CRC32CheckSum())
+
 	if _, err := w.kvWriter.Write(w.Level2.footer[:]); err != nil {
 		return err
 	}

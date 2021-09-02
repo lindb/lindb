@@ -20,6 +20,8 @@ package table
 import (
 	"encoding/binary"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"io"
 	"sync"
 
@@ -97,12 +99,15 @@ type Builder interface {
 // sw.Commit()
 type StreamWriter interface {
 	// Prepare the writer with specified key
+	// Resets the size and checksum
 	Prepare(key uint32)
 	// Writer writes buffer into the underlying file
 	io.Writer
 	// Size returns total written size of Write
 	// Prepare will resets it to zero.
 	Size() int32
+	// CRC32CheckSum returns a IEEE checksum of written bytes
+	CRC32CheckSum() uint32
 	// Commit marks the key/value pair has been written
 	Commit()
 }
@@ -253,6 +258,7 @@ func newStreamWriter(builder *storeBuilder) *streamWriter {
 	return &streamWriter{
 		builder: builder,
 		badKey:  true,
+		crc32:   crc32.New(crc32.IEEETable),
 	}
 }
 
@@ -262,6 +268,7 @@ type streamWriter struct {
 	key     uint32
 	offset  int64
 	badKey  bool
+	crc32   hash.Hash32
 }
 
 func (sw *streamWriter) Prepare(key uint32) {
@@ -269,6 +276,7 @@ func (sw *streamWriter) Prepare(key uint32) {
 	sw.offset = sw.builder.writer.Size()
 	sw.key = key
 	sw.size = 0
+	sw.crc32.Reset()
 }
 
 func (sw *streamWriter) Write(data []byte) (int, error) {
@@ -276,6 +284,7 @@ func (sw *streamWriter) Write(data []byte) (int, error) {
 		return 0, nil
 	}
 	n, err := sw.builder.writer.Write(data)
+	_, _ = sw.crc32.Write(data)
 	if err == nil {
 		sw.size += int32(n)
 	}
@@ -285,6 +294,10 @@ func (sw *streamWriter) Write(data []byte) (int, error) {
 
 func (sw *streamWriter) Size() int32 {
 	return sw.size
+}
+
+func (sw *streamWriter) CRC32CheckSum() uint32 {
+	return sw.crc32.Sum32()
 }
 
 func (sw *streamWriter) Commit() {

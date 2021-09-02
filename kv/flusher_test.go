@@ -155,16 +155,23 @@ func Test_NopFlusher(t *testing.T) {
 
 	writer, _ := nf.StreamWriter()
 	writer.Prepare(0)
+	assert.Equal(t, uint32(0), writer.CRC32CheckSum())
 	assert.Zero(t, writer.Size())
 	_, _ = writer.Write([]byte{1, 2, 3})
 	assert.Equal(t, int32(3), writer.Size())
-	_, _ = writer.Write([]byte{1, 2, 3})
+	_, _ = writer.Write([]byte{4, 5, 6})
 	assert.Equal(t, int32(6), writer.Size())
 	_, _ = writer.Write(nil)
 	assert.Equal(t, int32(6), writer.Size())
 	writer.Commit()
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
 
 	writer.Prepare(2)
 	assert.Zero(t, writer.Size())
-
+	assert.Equal(t, uint32(0), writer.CRC32CheckSum())
+	_, _ = writer.Write([]byte{1, 2})
+	_, _ = writer.Write([]byte{3, 4})
+	_, _ = writer.Write([]byte{5, 6})
+	assert.Equal(t, int32(6), writer.Size())
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
 }
