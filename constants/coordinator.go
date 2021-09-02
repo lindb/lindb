@@ -48,8 +48,6 @@ const (
 
 // defines all task kinds
 const (
-	// CreateShard represents task kind which is create shard for storage node
-	CreateShard task.Kind = "create-shard"
 	// FlushDatabase represents task kind which is flush memory database for storage node
 	FlushDatabase task.Kind = "flush-database"
 )
