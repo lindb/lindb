@@ -380,6 +380,10 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 	if len(metric.Name) == 0 {
 		return isCumulative, constants.ErrMetricPBEmptyMetricName
 	}
+	// sanitize metric-name and namespace, as we will stores it in the index with a concated prefix
+	metric.Name = metricchecker.SanitizeMetricName(metric.Name)
+	metric.Namespace = metricchecker.SanitizeNamespace(metric.Namespace)
+
 	// empty field
 	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
 		return isCumulative, constants.ErrMetricPBEmptyField

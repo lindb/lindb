@@ -17,6 +17,29 @@
 
 package metricchecker
 
+import "strings"
+
+// SanitizeMetricName checks if metric-name is in necessary of sanitizing
+func SanitizeMetricName(metricName string) string {
+	if !strings.Contains(metricName, "|") {
+		return metricName
+	}
+	return strings.Replace(metricName, "|", "_", -1)
+}
+
+// SanitizeNamespace checks if namespace is in necessary of sanitizing
+func SanitizeNamespace(namespace string) string {
+	if !strings.Contains(namespace, "|") {
+		return namespace
+	}
+	return strings.Replace(namespace, "|", "_", -1)
+}
+
+// JoinNamespaceMetric concat namespace and metric-name for storage with a delimiter
+func JoinNamespaceMetric(namespace, metricName string) string {
+	return namespace + "|" + metricName
+}
+
 // todo : @codingcrush implement this later
 //// ValidateProtoMetricV1 validate and escapes the metric on broker-side
 //// If timestamp is zero, current timestamp will be set
