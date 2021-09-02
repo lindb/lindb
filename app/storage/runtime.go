@@ -33,7 +33,8 @@ import (
 	"github.com/lindb/lindb/app/storage/handler"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	task "github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
@@ -65,8 +66,11 @@ type rpcHandler struct {
 }
 
 // just for testing
-var getHostIP = hostutil.GetHostIP
-var hostName = os.Hostname
+var (
+	getHostIP              = hostutil.GetHostIP
+	hostName               = os.Hostname
+	newStateMachineFactory = storage.NewStateMachineFactory
+)
 
 // runtime represents storage runtime dependency
 type runtime struct {
@@ -77,11 +81,14 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	stateMachineFactory discovery.StateMachineFactory
+	stateMgr            storage.StateManager
+
 	node         *models.StatefulNode
 	server       rpc.GRPCServer
 	repoFactory  state.RepositoryFactory
 	repo         state.Repository
-	taskExecutor *task.TaskExecutor
+	taskExecutor *storage.TaskExecutor
 	factory      factory
 	engine       tsdb.Engine
 	rpcHandler   *rpcHandler
@@ -170,8 +177,17 @@ func (r *runtime) Run() error {
 	if err := r.MustRegisterStateFulNode(); err != nil {
 		return err
 	}
+	discoveryFactory := discovery.NewFactory(r.repo)
 
-	r.taskExecutor = task.NewTaskExecutor(r.ctx, r.node, r.repo, r.engine)
+	r.stateMgr = storage.NewStateManager(r.node, engine)
+	// finally start all state machine
+	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
+
+	if err := r.stateMachineFactory.Start(); err != nil {
+		return fmt.Errorf("start state machines error: %s", err)
+	}
+
+	r.taskExecutor = storage.NewTaskExecutor(r.ctx, r.node, r.repo, r.engine)
 	r.taskExecutor.Run()
 
 	// start system collector

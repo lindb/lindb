@@ -270,6 +270,7 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
+	//TODO need add err, return detail err msg
 	// 1. check database if exist
 	database, ok := m.databases[databaseName]
 	if !ok {

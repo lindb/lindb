@@ -331,11 +331,14 @@ func (m *stateManager) shardAssignment(databaseCfg models.Database) {
 	}
 
 	cluster := m.storages[databaseCfg.Storage]
-	s := cluster.GetState()
 
-	// build shard assignment for creation database, generate related coordinator task
-	if shardAssign == nil {
-		shardAssign, err := m.createShardAssignment(cluster, &databaseCfg, -1, -1)
+	switch {
+	case shardAssign == nil:
+		// build shard assignment for creation database, generate related coordinator task
+		m.logger.Info("create shard assignment starting....",
+			logger.String("storage", databaseCfg.Storage),
+			logger.Any("database", databaseCfg.Name))
+		_, err := m.createShardAssignment(cluster, &databaseCfg, -1, -1)
 		if err != nil {
 			m.logger.Error("create shard assignment error",
 				logger.String("storage", databaseCfg.Storage),
@@ -343,15 +346,24 @@ func (m *stateManager) shardAssignment(databaseCfg models.Database) {
 				logger.Error(err))
 			return
 		}
-
-		// add new shard assignments
-		s.ShardAssignments[databaseCfg.Name] = shardAssign //TODO remove it???
-	} else if len(shardAssign.Shards) != databaseCfg.NumOfShard {
+	case len(shardAssign.Shards) != databaseCfg.NumOfShard:
+		m.logger.Info("modify shard assignment starting....",
+			logger.String("storage", databaseCfg.Storage),
+			logger.Any("database", databaseCfg.Name))
 		if err := m.modifyShardAssignment(cluster, &databaseCfg, shardAssign); err != nil {
 			m.logger.Error("modify shard assignment error",
 				logger.String("storage", databaseCfg.Storage),
 				logger.Any("databaseCfg", databaseCfg),
 				logger.Error(err))
+			return
+		}
+	default:
+		//TODO remove it ???
+		m.logger.Info("no data changed, just trigger shard assignment data modify event",
+			logger.String("storage", databaseCfg.Storage),
+			logger.Any("database", databaseCfg.Name))
+		data := encoding.JSONMarshal(shardAssign)
+		if err := m.masterRepo.Put(m.ctx, constants.GetDatabaseAssignPath(shardAssign.Name), data); err != nil {
 			return
 		}
 	}
@@ -380,7 +392,10 @@ func (m *stateManager) onNodeStartup(state *models.StorageState, node models.Sta
 	// 1. do when a new node come up is send it the entire list of shards that it is supposed to host.
 	replicasOnOnlineNode := state.ReplicasOnNode(node.ID)
 	for db, shards := range replicasOnOnlineNode {
-		shardStates := state.ShardStates[db]
+		shardStates, ok := state.ShardStates[db]
+		if !ok {
+			continue
+		}
 		for _, shardID := range shards {
 			shardState := shardStates[shardID]
 			if shardState.State == models.OfflineShard {
@@ -399,7 +414,10 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 	liveNodes := state.LiveNodes
 	for db, shards := range leadersOnOfflineNode {
 		shardAssignment := state.ShardAssignments[db]
-		shardStates := state.ShardStates[db]
+		shardStates, ok := state.ShardStates[db]
+		if !ok {
+			continue
+		}
 		for _, shardID := range shards {
 			leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
 			shardState := shardStates[shardID]
@@ -471,8 +489,8 @@ func (m *stateManager) createShardAssignment(
 	if err := m.masterRepo.Put(m.ctx, constants.GetDatabaseAssignPath(databaseName), data); err != nil {
 		return nil, err
 	}
-	// save shard assignment into related storage storageCluster
-	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option, nodes); err != nil {
+	// save shard assignment into related storage repo.
+	if err := cluster.SaveDatabaseAssignment(shardAssign, cfg.Option); err != nil {
 		return nil, err
 	}
 
@@ -521,8 +539,8 @@ func (m *stateManager) modifyShardAssignment(
 		return err
 	}
 
-	// save shard assignment into related storage storageCluster
-	if err := cluster.CreateShards(databaseName, shardAssign, cfg.Option, nodes); err != nil {
+	// save shard assignment into related storage repo.
+	if err := cluster.SaveDatabaseAssignment(shardAssign, cfg.Option); err != nil {
 		return err
 	}
 	return nil
