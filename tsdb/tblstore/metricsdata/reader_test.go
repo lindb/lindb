@@ -209,3 +209,48 @@ func mockMetricBlockForOneField() []byte {
 	_ = flusher.CommitMetric(timeutil.SlotRange{Start: 5, End: 5})
 	return nopKVFlusher.Bytes()
 }
+
+func Benchmark_unmarshal_roaring(b *testing.B) {
+	r := roaring.New()
+	for i := 0; i < 100000; i += 2 {
+		r.Add(uint32(i))
+	}
+	r.RunOptimize()
+	data, _ := r.MarshalBinary()
+
+	r2 := roaring.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = r2.UnmarshalBinary(data)
+	}
+}
+
+func Benchmark_Roaring_FromBuffer(b *testing.B) {
+	r := roaring.New()
+	for i := 0; i < 100000; i += 2 {
+		r.Add(uint32(i))
+	}
+	r.RunOptimize()
+	data, _ := r.MarshalBinary()
+
+	r2 := roaring.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = r2.FromBuffer(data)
+	}
+}
+
+func Benchmark_Roaring_FrozenView(b *testing.B) {
+	r := roaring.New()
+	for i := 0; i < 100000; i += 2 {
+		r.Add(uint32(i))
+	}
+	r.RunOptimize()
+	data, _ := r.Freeze()
+
+	r2 := roaring.New()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = r2.FrozenView(data)
+	}
+}
