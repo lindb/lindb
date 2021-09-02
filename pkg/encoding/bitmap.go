@@ -32,5 +32,6 @@ func bitmapMarshal(bitmap *roaring.Bitmap) ([]byte, error) {
 
 // bitmapUnmarshal unmarshal the bitmap from data for testing
 func bitmapUnmarshal(bitmap *roaring.Bitmap, data []byte) error {
-	return bitmap.UnmarshalBinary(data)
+	_, err := bitmap.FromBuffer(data)
+	return err
 }
