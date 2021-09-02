@@ -34,15 +34,18 @@ func init() {
 // invertedMerger implements kv.Merger for merging inverted index data for each tag key
 type invertedMerger struct {
 	invertedFlusher InvertedFlusher
-	flusher         *kv.NopFlusher
+	nopFlusher      *kv.NopFlusher
+	kvFlusher       kv.Flusher
+	// todo: @codingcrush use streaming flush
 }
 
 // NewInvertedMerger creates a inverted merger
-func NewInvertedMerger() kv.Merger {
-	flusher := kv.NewNopFlusher()
+func NewInvertedMerger(flusher kv.Flusher) kv.Merger {
+	nopFlusher := kv.NewNopFlusher()
 	return &invertedMerger{
-		flusher:         flusher,
-		invertedFlusher: NewInvertedFlusher(flusher),
+		kvFlusher:       flusher,
+		nopFlusher:      nopFlusher,
+		invertedFlusher: NewInvertedFlusher(nopFlusher),
 	}
 }
 
@@ -51,14 +54,14 @@ func (m *invertedMerger) Init(params map[string]interface{}) {
 }
 
 // Merge merges the multi inverted index data into a inverted index for same tag key id
-func (m *invertedMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
+func (m *invertedMerger) Merge(key uint32, values [][]byte) error {
 	var scanners []*tagInvertedScanner
 	targetTagValueIDs := roaring.New() // target merged tag value ids
 	// 1. prepare tag inverted scanner
 	for _, value := range values {
 		reader, err := newTagInvertedReader(value)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		targetTagValueIDs.Or(reader.keys)
 		scanners = append(scanners, newTagInvertedScanner(reader))
@@ -75,7 +78,7 @@ func (m *invertedMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			// scan index data then merge series ids
 			for _, scanner := range scanners {
 				if err := scanner.scan(highKey, lowTagValueID, seriesIDs); err != nil {
-					return nil, err
+					return err
 				}
 			}
 
@@ -83,13 +86,13 @@ func (m *invertedMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 			// flush tag value id=>series ids mapping
 			if err := m.invertedFlusher.
 				FlushInvertedIndex(encoding.ValueWithHighLowBits(hk, lowTagValueID), seriesIDs); err != nil {
-				return nil, err
+				return err
 			}
 			seriesIDs.Clear() // clear target series ids
 		}
 	}
 	if err := m.invertedFlusher.FlushTagKeyID(key); err != nil {
-		return nil, err
+		return err
 	}
-	return m.flusher.Bytes(), nil
+	return m.kvFlusher.Add(key, m.nopFlusher.Bytes())
 }

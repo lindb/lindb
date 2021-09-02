@@ -138,7 +138,10 @@ func (nf *NopFlusher) Add(_ uint32, value []byte) error {
 }
 
 // Commit always return nil
-func (nf *NopFlusher) Commit() error { return nil }
+func (nf *NopFlusher) Commit() error {
+	nf.buffer.Reset()
+	return nil
+}
 
 type nopStreamWriter struct {
 	size   int32
@@ -159,12 +162,6 @@ func (nw *nopStreamWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (nw *nopStreamWriter) CRC32CheckSum() uint32 {
-	return nw.crc32.Sum32()
-}
-
-func (nw *nopStreamWriter) Size() int32 {
-	return nw.size
-}
-
-func (nw *nopStreamWriter) Commit() {}
+func (nw *nopStreamWriter) CRC32CheckSum() uint32 { return nw.crc32.Sum32() }
+func (nw *nopStreamWriter) Size() int32           { return nw.size }
+func (nw *nopStreamWriter) Commit() error         { return nil }

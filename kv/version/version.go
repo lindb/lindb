@@ -41,7 +41,7 @@ type Version interface {
 	GetFamilyVersion() FamilyVersion
 	// NumOfRef returns the number of reference which version be used by search/compact/rollup
 	NumOfRef() int32
-	// retain increments version ref count
+	// Retain increments version ref count
 	Retain()
 	// Release decrements version ref count,
 	// if ref==0, then remove current version from list of family level.
@@ -125,7 +125,7 @@ func (v *version) NumOfRef() int32 {
 	return v.ref.Load()
 }
 
-// retain increments version ref count
+// Retain increments version ref count
 func (v *version) Retain() {
 	v.ref.Inc()
 }

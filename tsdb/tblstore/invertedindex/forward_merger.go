@@ -34,6 +34,7 @@ func init() {
 type forwardMerger struct {
 	forwardFlusher ForwardFlusher
 	flusher        *kv.NopFlusher
+	kvFlusher      kv.Flusher
 }
 
 func (m *forwardMerger) Init(params map[string]interface{}) {
@@ -41,23 +42,24 @@ func (m *forwardMerger) Init(params map[string]interface{}) {
 }
 
 // NewForwardMerger creates a forward merger
-func NewForwardMerger() kv.Merger {
-	flusher := kv.NewNopFlusher()
+func NewForwardMerger(flusher kv.Flusher) kv.Merger {
+	nopFlusher := kv.NewNopFlusher()
 	return &forwardMerger{
-		flusher:        flusher,
-		forwardFlusher: NewForwardFlusher(flusher),
+		kvFlusher:      flusher,
+		flusher:        nopFlusher,
+		forwardFlusher: NewForwardFlusher(nopFlusher),
 	}
 }
 
 // Merge merges the multi forward index data into a forward index for same tag key id
-func (m *forwardMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
+func (m *forwardMerger) Merge(key uint32, values [][]byte) error {
 	var scanners []*tagForwardScanner
 	seriesIDs := roaring.New() // target merged series ids
 	// 1. prepare tag forward scanner
 	for _, value := range values {
 		reader, err := NewTagForwardReader(value)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		seriesIDs.Or(reader.getSeriesIDs())
 		scanners = append(scanners, newTagForwardScanner(reader))
@@ -81,7 +83,7 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) ([]byte, error) {
 	}
 	// flush all series ids under this tag key
 	if err := m.forwardFlusher.FlushTagKeyID(key, seriesIDs); err != nil {
-		return nil, err
+		return err
 	}
-	return m.flusher.Bytes(), nil
+	return m.kvFlusher.Add(key, m.flusher.Bytes())
 }

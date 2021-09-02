@@ -47,18 +47,14 @@ type mergerContext struct {
 // merger implements kv.Merger for merging series data for each metric
 type merger struct {
 	dataFlusher  Flusher
-	flusher      *kv.NopFlusher
 	seriesMerger SeriesMerger
 	rollup       kv.Rollup
 }
 
 // NewMerger creates a metric data merger
-func NewMerger() kv.Merger {
-	// todo: @codingcrush use stream flusher
-	flusher := kv.NewNopFlusher()
+func NewMerger(flusher kv.Flusher) kv.Merger {
 	dataFlusher, _ := NewFlusher(flusher)
 	return &merger{
-		flusher:      flusher,
 		dataFlusher:  dataFlusher,
 		seriesMerger: newSeriesMerger(dataFlusher),
 	}
@@ -73,12 +69,12 @@ func (m *merger) Init(params map[string]interface{}) {
 }
 
 // Merge merges the multi metric data into one target metric data for same metric id
-func (m *merger) Merge(key uint32, metricBlocks [][]byte) ([]byte, error) {
+func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 	blockCount := len(metricBlocks)
 	// 1. prepare readers and metric level data(field/time slot/series ids)
 	mergeCtx, err := m.prepare(metricBlocks)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// 2. Prepare metric
 	m.dataFlusher.PrepareMetric(key, mergeCtx.targetFields)
@@ -111,19 +107,19 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) ([]byte, error) {
 				}
 			}
 			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, encodeStream, fieldReaders); err != nil {
-				return nil, err
+				return err
 			}
 			// flush series id
 			if err := m.dataFlusher.FlushSeries(encoding.ValueWithHighLowBits(uint32(highKey)<<16, lowSeriesID)); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 	// flush metric data
 	if err := m.dataFlusher.CommitMetric(mergeCtx.targetRange); err != nil {
-		return nil, err
+		return err
 	}
-	return m.flusher.Bytes(), nil
+	return nil
 }
 
 func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
