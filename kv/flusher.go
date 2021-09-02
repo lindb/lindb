@@ -20,6 +20,8 @@ package kv
 import (
 	"bytes"
 	"fmt"
+	"hash"
+	"hash/crc32"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -122,7 +124,10 @@ func NewNopFlusher() *NopFlusher {
 func (nf *NopFlusher) Bytes() []byte { return nf.buffer.Bytes() }
 
 func (nf *NopFlusher) StreamWriter() (table.StreamWriter, error) {
-	return &nopStreamWriter{buffer: &nf.buffer}, nil
+	return &nopStreamWriter{
+		buffer: &nf.buffer,
+		crc32:  crc32.New(crc32.IEEETable),
+	}, nil
 }
 
 // Add puts value to the buffer.
@@ -138,17 +143,24 @@ func (nf *NopFlusher) Commit() error { return nil }
 type nopStreamWriter struct {
 	size   int32
 	buffer *bytes.Buffer
+	crc32  hash.Hash32
 }
 
 func (nw *nopStreamWriter) Prepare(_ uint32) {
 	nw.size = 0
 	nw.buffer.Reset()
+	nw.crc32.Reset()
 }
 
 func (nw *nopStreamWriter) Write(data []byte) (int, error) {
 	_, _ = nw.buffer.Write(data)
 	nw.size += int32(len(data))
+	_, _ = nw.crc32.Write(data)
 	return len(data), nil
+}
+
+func (nw *nopStreamWriter) CRC32CheckSum() uint32 {
+	return nw.crc32.Sum32()
 }
 
 func (nw *nopStreamWriter) Size() int32 {

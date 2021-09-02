@@ -20,7 +20,9 @@ package table
 import (
 	"encoding/binary"
 	"fmt"
+	"hash/crc32"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -146,10 +148,8 @@ func TestStoreBuilder_Abandon(t *testing.T) {
 }
 
 func Test_Builder_Stream_Writer(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
-	var builder, err = NewStoreBuilder(10, testKVPath+"/000010.sst")
+	var builder, err = NewStoreBuilder(10, filepath.Join(t.TempDir(), "/000010.sst"))
 	defer func() {
-		_ = os.RemoveAll(testKVPath)
 		_ = builder.Close()
 	}()
 	err = builder.Add(1, []byte("test"))
@@ -171,4 +171,37 @@ func Test_Builder_Stream_Writer(t *testing.T) {
 	// written len
 	assert.Equal(t, builder.Size()-beforeSize, int32(3))
 	assert.Equal(t, writer.Size()-beforeBatchSize, int32(3))
+}
+
+func Test_StreamWriter_CheckSum32(t *testing.T) {
+	var builder, _ = NewStoreBuilder(10, filepath.Join(t.TempDir(), "/000011.sst"))
+	defer func() {
+		_ = builder.Close()
+	}()
+	writer := builder.StreamWriter()
+
+	writer.Prepare(1)
+	assert.Equal(t, uint32(0), writer.CRC32CheckSum())
+	_, _ = writer.Write([]byte{1, 2, 3, 4, 5, 6})
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
+
+	writer.Prepare(2)
+	assert.Equal(t, uint32(0), writer.CRC32CheckSum())
+	_, _ = writer.Write([]byte{1, 2})
+	_, _ = writer.Write([]byte{3, 4})
+	_, _ = writer.Write([]byte{5, 6})
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
+	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
+}
+
+func Benchmark_CRC32_1MB(b *testing.B) {
+	hasher := crc32.New(crc32.IEEETable)
+	buf := make([]byte, 1024)
+
+	for i := 0; i < b.N; i++ {
+		for y := 0; y < 1024; y++ {
+			_, _ = hasher.Write(buf)
+		}
+	}
 }
