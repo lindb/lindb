@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	metricchecker "github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/wal"
 )
@@ -70,7 +71,7 @@ type metadataDatabase struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	backend      MetadataBackend
-	metrics      map[string]MetricMetadata // metadata cache(key: namespace + metric-name, value: metric metadata)
+	metrics      map[string]MetricMetadata // metadata cache(key: namespace + delimiter + metric-name, value: metric metadata)
 
 	metaWAL wal.MetricMetaWAL
 
@@ -157,7 +158,7 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 
 	mdb.rwMux.RLock()
 	// read from memory
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
 		defer mdb.rwMux.RUnlock()
@@ -173,7 +174,7 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey string) (tagKeyID uint32, err error) {
 	mdb.statistics.getTagKeyIDCounter.Incr()
 
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
@@ -198,7 +199,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey st
 // GetAllTagKeys returns the all tag keys by namespace/metric name,
 // if not exist return constants.ErrMetricIDNotFound, constants.ErrMetricBucketNotFound
 func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
@@ -217,7 +218,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags [
 
 // GetField gets the field meta by namespace/metric name/field name, if not exist return constants.ErrNotFound
 func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName field.Name) (f field.Meta, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
@@ -241,7 +242,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 }
 
 func (mdb *metadataDatabase) GetAllFields(namespace, metricName string) (fields []field.Meta, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
@@ -257,7 +258,7 @@ func (mdb *metadataDatabase) GetAllFields(namespace, metricName string) (fields 
 }
 
 func (mdb *metadataDatabase) GetAllHistogramFields(namespace, metricName string) (fields field.Metas, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	mdb.rwMux.RLock()
 	metricMetadata, ok := mdb.metrics[key]
 	if ok {
@@ -276,7 +277,7 @@ func (mdb *metadataDatabase) GetAllHistogramFields(namespace, metricName string)
 // 1) get metric id from memory if exist, if not exist goto 2
 // 2) get metric metadata from backend storage, if not exist need create new metric metadata
 func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID uint32, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 	mdb.rwMux.RLock()
 	// get metric id from memory, add read lock
 	metricMetadata, ok := mdb.metrics[key]
@@ -332,7 +333,7 @@ func (mdb *metadataDatabase) GenFieldID(
 	namespace, metricName string,
 	fieldName field.Name, fieldType field.Type,
 ) (fieldID field.ID, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
@@ -373,7 +374,7 @@ func (mdb *metadataDatabase) GenFieldID(
 // GenTagKeyID generates the tag key id in the memory
 // !!!!! NOTICE: metric metadata must be exist in memory, because gen metric has been saved
 func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error) {
-	key := namespace + metricName
+	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
