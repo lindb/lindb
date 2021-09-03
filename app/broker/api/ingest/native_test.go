@@ -15,56 +15,61 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write
+package ingest
 
 import (
-	"errors"
-	"net/http"
-	"testing"
-
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"io"
+	"net/http"
+	"testing"
+
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/internal/mock"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/replication"
 )
 
-func TestPrometheusWrite_Write(t *testing.T) {
+func Test_NativeWriter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
-	api := NewPrometheusWriter(&deps.HTTPDeps{CM: cm})
+	api := NewNativeWriter(&deps.HTTPDeps{CM: cm})
 	r := gin.New()
 	api.Register(r)
-	// case 1: param error
-	resp := mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath, "")
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// case 2: read request body err
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", "#$$#@#")
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	//	// case 3: write wal err
-	input := `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
-# 	TYPE go_gc_duration_seconds summary
-go_gc_duration_seconds { quantile = "0.9999" } NaN
-go_gc_duration_seconds_count 9
-go_gc_duration_seconds_sum 90
-//`
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(errors.New("err"))
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// case 4: write wal success
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
-	assert.Equal(t, http.StatusNoContent, resp.Code)
-	// case 5: parse prometheus data err
-	input = "# HELP go_gc_duration_seconds A summary of the GC invocation durations"
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
+
+	// missing db param
+	resp := mock.DoRequest(t, r, http.MethodPut, NativeWritePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	// case 6: enrich_tag bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	// enrich_tag bad format
+	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// bad format
+	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `xxxx`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// write error
+	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test3&enrich_tag=a=b", `ok`)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// no content
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
+	var metricList = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
+		{Name: "1", Namespace: "ns", SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM, Value: 23},
+		}},
+	}}
+	data, _ := metricList.Marshal()
+	resp = mock.DoRequest(t, r, http.MethodPost, NativeWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
+	assert.Equal(t, http.StatusNoContent, resp.Code)
+
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
+	resp = mock.DoRequest(t, r, http.MethodPost, NativeWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
 }

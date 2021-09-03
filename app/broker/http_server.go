@@ -35,7 +35,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-const _apiRootPath = "/api/v1"
+const _apiRootPath = "/api"
 
 // HTTPServer represents http server with gin framework.
 type HTTPServer struct {

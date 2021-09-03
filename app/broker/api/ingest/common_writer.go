@@ -15,42 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write //nolint:dupl
+package ingest
 
 import (
+	netHTTP "net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
-	"github.com/lindb/lindb/ingestion/prometheus"
 	"github.com/lindb/lindb/pkg/http"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/tag"
 )
 
-var (
-	PrometheusWritePath = "/write/prometheus"
-)
+type parserFunc func(req *netHTTP.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error)
 
-// PrometheusWriter processes prometheus text protocol.
-type PrometheusWriter struct {
-	deps *deps.HTTPDeps
+type commonWriter struct {
+	deps   *deps.HTTPDeps
+	parser parserFunc
 }
 
-// NewPrometheusWriter creates prometheus writer.
-func NewPrometheusWriter(deps *deps.HTTPDeps) *PrometheusWriter {
-	return &PrometheusWriter{
-		deps: deps,
-	}
-}
-
-// Register adds prometheus write url route.
-func (m *PrometheusWriter) Register(route gin.IRoutes) {
-	route.PUT(PrometheusWritePath, m.Write)
-	route.POST(PrometheusWritePath, m.Write)
-}
-
-// Write parses prometheus text protocol then writes data into wal.
-func (m *PrometheusWriter) Write(c *gin.Context) {
+func (cw *commonWriter) Write(c *gin.Context) {
 	var param struct {
 		Database  string `form:"db" binding:"required"`
 		Namespace string `form:"ns"`
@@ -63,19 +50,17 @@ func (m *PrometheusWriter) Write(c *gin.Context) {
 	if param.Namespace == "" {
 		param.Namespace = constants.DefaultNamespace
 	}
-
 	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
 	if err != nil {
 		http.Error(c, err)
 		return
 	}
-	metricList, err := prometheus.Parse(c.Request, enrichedTags, param.Namespace)
+	metrics, err := cw.parser(c.Request, enrichedTags, param.Namespace)
 	if err != nil {
 		http.Error(c, err)
 		return
 	}
-
-	if err := m.deps.CM.Write(param.Database, metricList); err != nil {
+	if err := cw.deps.CM.Write(param.Database, metrics); err != nil {
 		http.Error(c, err)
 		return
 	}
