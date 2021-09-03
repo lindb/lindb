@@ -23,6 +23,8 @@ import (
 	"strconv"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -36,6 +38,15 @@ var (
 	ErrTooManyTags       = errors.New("too_many_tags")
 	ErrBadFields         = errors.New("bad_fields")
 	ErrBadTimestamp      = errors.New("bad_timestamp")
+)
+
+var (
+	influxIngestionScope       = linmetric.NewScope("lindb.ingestion.influx")
+	influxCorruptedDataCounter = influxIngestionScope.NewDeltaCounter("data_corrupted_count")
+	ingestedMetricsCounter     = influxIngestionScope.NewDeltaCounter("ingested_metrics")
+	ingestedFieldsCounter      = influxIngestionScope.NewDeltaCounter("ingested_fields")
+	influxReadBytesCounter     = influxIngestionScope.NewDeltaCounter("read_bytes")
+	droppedMetricsCounter      = influxIngestionScope.NewDeltaCounter("dropped_metrics")
 )
 
 // Test cases in
@@ -241,13 +252,13 @@ WalkBeforeComma:
 		if err != nil {
 			return fields, err
 		}
-		fields = append(fields, f)
+		fields = append(fields, f...)
 		startAt = boundaryAt + 1
 		goto WalkBeforeComma
 	}
 }
 
-func parseField(key, value []byte) (*protoMetricsV1.SimpleField, error) {
+func parseField(key, value []byte) ([]*protoMetricsV1.SimpleField, error) {
 	if len(value) == 0 {
 		return nil, ErrBadFields
 	}
@@ -265,27 +276,23 @@ func parseField(key, value []byte) (*protoMetricsV1.SimpleField, error) {
 		if err != nil {
 			return nil, ErrBadFields
 		}
-		return &protoMetricsV1.SimpleField{
-			Name:  string(unescapedKey),
-			Type:  guessFieldType(key),
-			Value: float64(v),
-		}, nil
+		return toLinGaugeAndSumField(unescapedKey, float64(v)), nil
 	case 't', 'T': // boolean true
 		if len(value) == 1 {
-			return &protoMetricsV1.SimpleField{
+			return []*protoMetricsV1.SimpleField{{
 				Name:  string(unescapedKey),
 				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 				Value: float64(1),
-			}, nil
+			}}, nil
 		}
 		return nil, ErrBadFields
 	case 'f', 'F': // boolean false
 		if len(value) == 1 {
-			return &protoMetricsV1.SimpleField{
+			return []*protoMetricsV1.SimpleField{{
 				Name:  string(unescapedKey),
 				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 				Value: float64(0),
-			}, nil
+			}}, nil
 		}
 		return nil, ErrBadFields
 	default:
@@ -294,40 +301,54 @@ func parseField(key, value []byte) (*protoMetricsV1.SimpleField, error) {
 		// still boolean
 		switch lf {
 		case "false", "False", "FALSE":
-			return &protoMetricsV1.SimpleField{
+			return []*protoMetricsV1.SimpleField{{
 				Name:  string(unescapedKey),
 				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 				Value: float64(0),
-			}, nil
+			}}, nil
 		case "true", "True", "TRUE":
-			return &protoMetricsV1.SimpleField{
+			return []*protoMetricsV1.SimpleField{{
 				Name:  string(unescapedKey),
 				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
 				Value: float64(1),
-			}, nil
+			}}, nil
 		default:
-			// todo, decimal, such like 1e-3, 1e20, -3e23
 			v, err := strconv.ParseFloat(lf, 64)
 			if err != nil {
 				return nil, ErrBadFields
 			}
-			return &protoMetricsV1.SimpleField{
-				Name:  string(unescapedKey),
-				Type:  guessFieldType(key),
-				Value: v,
-			}, nil
+			return toLinGaugeAndSumField(unescapedKey, v), nil
 		}
 	}
 }
 
-func guessFieldType(key []byte) protoMetricsV1.SimpleFieldType {
+func toLinGaugeAndSumField(key []byte, value float64) []*protoMetricsV1.SimpleField {
 	switch {
-	case bytes.HasSuffix(key, []byte("total")):
-		return protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM
+	case bytes.HasSuffix(key, []byte("gauge")):
+		return []*protoMetricsV1.SimpleField{{
+			Name:  string(key),
+			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			Value: value,
+		}}
 	case bytes.HasSuffix(key, []byte("sum")):
-		return protoMetricsV1.SimpleFieldType_DELTA_SUM
+		return []*protoMetricsV1.SimpleField{{
+			Name:  string(key),
+			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+			Value: value,
+		}}
 	default:
-		return protoMetricsV1.SimpleFieldType_GAUGE
+		return []*protoMetricsV1.SimpleField{
+			{
+				Name:  string(key) + "_sum",
+				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+				Value: value,
+			},
+			{
+				Name:  string(key) + "_gauge",
+				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Value: value,
+			},
+		}
 	}
 }
 
@@ -340,10 +361,43 @@ func parseTimestamp(buf []byte, startAt int, multiplier int64) (int64, error) {
 	if err != nil {
 		return 0, ErrBadTimestamp
 	}
-	if multiplier > 0 {
+	switch {
+	// precision query not exist, unknown multiplier
+	case multiplier == 0:
+		return timestamp2MilliSeconds(f), nil
+	case multiplier > 0:
 		return f * multiplier, nil
+	default:
+		return -1 * f / multiplier, nil
 	}
-	return -1 * f / multiplier, nil
+}
+
+// timestamp2MilliSeconds guesses the real timestamp precision,
+// then converts it into milliseconds
+func timestamp2MilliSeconds(timestamp int64) int64 {
+	min := fasttime.UnixMilliseconds() - int64(constants.MetricMaxBehindDuration)
+	max := fasttime.UnixMilliseconds() + int64(constants.MetricMaxAheadDuration)
+
+	switch {
+	// ms
+	case min < timestamp && timestamp < max:
+		return timestamp
+	// ns
+	case min < (timestamp/1e6) && (timestamp/1e6) < max:
+		return timestamp / 1e6
+	// us
+	case min < (timestamp/1e3) && (timestamp/1e3) < max:
+		return timestamp / 1e3
+	// m
+	case min < (timestamp*60*1000) && (timestamp*60*1000) < max:
+		return timestamp * 1000 * 60
+	// h
+	case min < (timestamp*1000*3600) && (timestamp*1000*3600) < max:
+		return timestamp * 1000 * 3600
+	// unknown precision, use milliseconds
+	default:
+		return fasttime.UnixMilliseconds()
+	}
 }
 
 type escapeSet struct {

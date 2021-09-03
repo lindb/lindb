@@ -28,6 +28,8 @@ import (
 )
 
 var (
+	// todo: @codingcrush, use semantic path,
+
 	NativeWritePath = "/write/native"
 )
 

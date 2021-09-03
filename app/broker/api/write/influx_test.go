@@ -48,7 +48,8 @@ func Test_Influx_Write(t *testing.T) {
 	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	// bad influx line format
+	// influx line format without timestamp
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
 	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `
 # bad line
 a,v=c,d=f a=2 b=3 c=4

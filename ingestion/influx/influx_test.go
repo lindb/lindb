@@ -88,7 +88,7 @@ measurement value=12 1439587925
 	req.Header.Set("Content-Encoding", "gzip")
 
 	_, err = Parse(req, nil, "ns")
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 }
 
 func Test_getPrecisionMultiplier(t *testing.T) {

@@ -34,10 +34,10 @@ import (
 )
 
 var (
-	nativeIngestionScope         = linmetric.NewScope("lindb.ingestion").Scope("native")
+	nativeIngestionScope         = linmetric.NewScope("lindb.ingestion.native")
 	nativeCorruptedDataCounter   = nativeIngestionScope.NewDeltaCounter("data_corrupted_count")
 	nativeUnmarshalMetricCounter = nativeIngestionScope.NewDeltaCounter("ingested_metrics")
-	nativeReadBytesCounter       = nativeIngestionScope.NewDeltaCounter("read_bytes_count")
+	nativeReadBytesCounter       = nativeIngestionScope.NewDeltaCounter("read_bytes")
 )
 
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
