@@ -21,7 +21,12 @@ import (
 	"fmt"
 	"net"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
@@ -46,14 +51,29 @@ type grpcServer struct {
 }
 
 func NewGRPCServer(cfg config.GRPC) GRPCServer {
+	log := logger.GetLogger("rpc", "GRPCServer")
 	grpcServerTracker := conntrack.NewGRPCServerTracker()
+	// Shared options for the logger, with a custom gRPC code to log level function.
+	opts := []grpc_recovery.Option{
+		grpc_recovery.WithRecoveryHandler(func(p interface{}) (err error) {
+			//TODO add metric
+			log.Error("panic trigger when handle rpc request", logger.Any("err", p), logger.Stack())
+			return status.Errorf(codes.Internal, "panic triggered: %v", p)
+		}),
+	}
 	return &grpcServer{
+		logger:      log,
 		bindAddress: fmt.Sprintf(":%d", cfg.Port),
-		logger:      logger.GetLogger("rpc", "GRPCServer"),
 		gs: grpc.NewServer(
 			grpc.ConnectionTimeout(cfg.ConnectTimeout.Duration()),
-			grpc.StreamInterceptor(grpcServerTracker.StreamServerInterceptor()),
-			grpc.UnaryInterceptor(grpcServerTracker.UnaryServerInterceptor()),
+			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+				grpcServerTracker.StreamServerInterceptor(),
+				grpc_recovery.StreamServerInterceptor(opts...),
+			)),
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+				grpcServerTracker.UnaryServerInterceptor(),
+				grpc_recovery.UnaryServerInterceptor(opts...),
+			)),
 			grpc.MaxConcurrentStreams(cfg.MaxConcurrentStreams),
 		),
 	}

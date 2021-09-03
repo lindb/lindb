@@ -10,7 +10,6 @@ require (
 	github.com/damnever/goctl v1.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
-	github.com/fatih/color v1.12.0 // indirect
 	github.com/felixge/fgprof v0.9.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
@@ -20,6 +19,7 @@ require (
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.3.3
 	github.com/golang/snappy v0.0.3
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/json-iterator/go v1.1.9
 	github.com/klauspost/compress v1.12.3
 	github.com/lindb/roaring v0.9.0
