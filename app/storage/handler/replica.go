@@ -86,7 +86,7 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	// handle write request from stream
+	// handle replica request from stream
 	for {
 		req, err := server.Recv()
 		if err == io.EOF {
@@ -120,7 +120,6 @@ func (r *ReplicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer)
 		r.logger.Error("get param err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
-	//TODO need check leader?
 	if len(shardState.Replica.Replicas) == 0 {
 		return status.Error(codes.InvalidArgument, "replicas cannot be empty")
 	}

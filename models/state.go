@@ -31,16 +31,13 @@ const (
 	NonExistentShard
 )
 
-type ReplicaStateType int
-
-const (
-	UnknownReplica ReplicaStateType = iota
-	NewReplica
-	NonExistentReplica
-	OnlineReplica
-	OfflineReplica
-)
 const NoLeader NodeID = -1
+
+type ReplicatorState struct {
+	ID       ShardID `json:"id"`
+	Leader   NodeID  `json:"leader"`
+	Follower NodeID  `json:"follower"`
+}
 
 // ShardState represents current state of shard.
 type ShardState struct {
