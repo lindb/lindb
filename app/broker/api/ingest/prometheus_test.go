@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write
+package ingest
 
 import (
-	"io"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -31,46 +31,40 @@ import (
 	"github.com/lindb/lindb/replication"
 )
 
-func Test_Influx_Write(t *testing.T) {
+func TestPrometheusWrite_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	cm := replication.NewMockChannelManager(ctrl)
-	api := NewInfluxWriter(&deps.HTTPDeps{CM: cm})
+	api := NewPrometheusWriter(&deps.HTTPDeps{CM: cm})
 	r := gin.New()
 	api.Register(r)
-
-	// missing db param
-	resp := mock.DoRequest(t, r, http.MethodPut, InfluxWritePath, "")
+	// case 1: param error
+	resp := mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// enrich_tag bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	// case 2: read request body err
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", "#$$#@#")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// influx line format without timestamp
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `
-# bad line
-a,v=c,d=f a=2 b=3 c=4
-`)
+	//	// case 3: write wal err
+	input := `# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+# 	TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds { quantile = "0.9999" } NaN
+go_gc_duration_seconds_count 9
+go_gc_duration_seconds_sum 90
+//`
+	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(errors.New("err"))
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// write error
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test3&enrich_tag=a=b", `
-# good line
-measurement,foo=bar value=12 1439587925
-measurement value=12 1439587925
-`)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// no content
+	// case 4: write wal success
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns4&enrich_tag=a=b", `
-# good line
-measurement,foo=bar value=12 1439587925
-measurement value=12 1439587925
-`)
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
 	assert.Equal(t, http.StatusNoContent, resp.Code)
+	// case 5: parse prometheus data err
+	input = "# HELP go_gc_duration_seconds A summary of the GC invocation durations"
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=dal", input)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// case 6: enrich_tag bad format
+	resp = mock.DoRequest(t, r, http.MethodPut, PrometheusWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

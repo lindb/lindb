@@ -15,33 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write //nolint:dupl
+package ingest
 
 import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
-	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/ingestion/native"
-	"github.com/lindb/lindb/pkg/http"
 )
 
 var (
-	// todo: @codingcrush, use semantic path,
-
-	NativeWritePath = "/write/native"
+	NativeWritePath = "/native/write"
 )
 
 // NativeWriter processes native proto metrics.
 type NativeWriter struct {
-	deps *deps.HTTPDeps
+	commonWriter
 }
 
 // NewNativeWriter creates native proto metrics writer
 func NewNativeWriter(deps *deps.HTTPDeps) *NativeWriter {
 	return &NativeWriter{
-		deps: deps,
+		commonWriter: commonWriter{
+			deps:   deps,
+			parser: native.Parse,
+		},
 	}
 }
 
@@ -49,34 +47,4 @@ func NewNativeWriter(deps *deps.HTTPDeps) *NativeWriter {
 func (nw *NativeWriter) Register(route gin.IRoutes) {
 	route.POST(NativeWritePath, nw.Write)
 	route.PUT(NativeWritePath, nw.Write)
-}
-
-func (nw *NativeWriter) Write(c *gin.Context) {
-	var param struct {
-		Database  string `form:"db" binding:"required"`
-		Namespace string `form:"ns"`
-	}
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	if param.Namespace == "" {
-		param.Namespace = constants.DefaultNamespace
-	}
-	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	metrics, err := native.Parse(c.Request, enrichedTags, param.Namespace)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	if err := nw.deps.CM.Write(param.Database, metrics); err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.NoContent(c)
 }

@@ -47,14 +47,14 @@ export const BrokerDashboard = [
         ),
         metric(
             'InfluxDB Ingestion Failures',
-            'select dropped_metrics, data_corrupted_count from lindb.ingestion.influx',
+            'select dropped_metrics, dropped_fields, data_corrupted_count from lindb.ingestion.influx',
             8,
             UnitEnum.None,
         ),
     ],
     [
         metric(
-            'InfluxDB Ingestion Count',
+            'InfluxDB Ingestion',
             'select ingested_metrics, ingested_fields from lindb.ingestion.influx',
             8,
             UnitEnum.None,
