@@ -22,9 +22,9 @@ import (
 
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/cluster"
+	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/query"
 	"github.com/lindb/lindb/app/broker/api/state"
-	"github.com/lindb/lindb/app/broker/api/write"
 	"github.com/lindb/lindb/app/broker/deps"
 )
 
@@ -36,9 +36,9 @@ type API struct {
 	storage         *admin.StorageClusterAPI
 	brokerState     *state.BrokerAPI
 	storageState    *state.StorageAPI
-	prometheus      *write.PrometheusWriter
-	influxIngestion *write.InfluxWriter
-	nativeIngestion *write.NativeWriter
+	prometheus      *ingest.PrometheusWriter
+	influxIngestion *ingest.InfluxWriter
+	nativeIngestion *ingest.NativeWriter
 	metric          *query.MetricAPI
 	metadata        *query.MetadataAPI
 }
@@ -52,15 +52,15 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		storage:         admin.NewStorageClusterAPI(deps),
 		brokerState:     state.NewBrokerAPI(deps),
 		storageState:    state.NewStorageAPI(deps),
-		prometheus:      write.NewPrometheusWriter(deps),
-		influxIngestion: write.NewInfluxWriter(deps),
-		nativeIngestion: write.NewNativeWriter(deps),
+		prometheus:      ingest.NewPrometheusWriter(deps),
+		influxIngestion: ingest.NewInfluxWriter(deps),
+		nativeIngestion: ingest.NewNativeWriter(deps),
 		metric:          query.NewMetricAPI(deps),
 		metadata:        query.NewMetadataAPI(deps),
 	}
 }
 
-// RegisterRouter registers v1 http api router.
+// RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.master.Register(router)
 	api.database.Register(router)

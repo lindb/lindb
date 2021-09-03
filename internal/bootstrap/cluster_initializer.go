@@ -37,7 +37,7 @@ var (
 	doRequest     = defaultClient.Do
 )
 
-const brokerAPIPrefix = "/api/v1"
+const brokerAPIPrefix = "/api/"
 
 // ClusterInitializer initializes cluster(storage/internal database)
 type ClusterInitializer struct {

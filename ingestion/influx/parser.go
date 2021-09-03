@@ -47,6 +47,7 @@ var (
 	ingestedFieldsCounter      = influxIngestionScope.NewDeltaCounter("ingested_fields")
 	influxReadBytesCounter     = influxIngestionScope.NewDeltaCounter("read_bytes")
 	droppedMetricsCounter      = influxIngestionScope.NewDeltaCounter("dropped_metrics")
+	droppedFieldsCounter       = influxIngestionScope.NewDeltaCounter("dropped_fields")
 )
 
 // Test cases in
@@ -87,7 +88,9 @@ func parseInfluxLine(content []byte, namespace string, multiplier int64) (*proto
 	if err != nil {
 		return nil, err
 	}
-	if m.SimpleFields, err = parseFields(content, tagsEndAt+1, fieldsEndAt, escaped); err != nil {
+	if m.SimpleFields, err = parseFields(content, tagsEndAt+1, fieldsEndAt, escaped);
+	// return error only if fields are empty, just drop fields not supported in lindb like string.
+	err != nil && len(m.SimpleFields) == 0 {
 		return nil, err
 	}
 
@@ -223,8 +226,7 @@ func scanFieldLine(buf []byte, startAt int, isEscaped bool) (endAt int, err erro
 	}
 }
 
-func parseFields(buf []byte, startAt int, endAt int, isEscaped bool) ([]*protoMetricsV1.SimpleField, error) {
-	var fields []*protoMetricsV1.SimpleField
+func parseFields(buf []byte, startAt int, endAt int, isEscaped bool) (fields []*protoMetricsV1.SimpleField, err error) {
 WalkBeforeComma:
 	{
 		if startAt >= endAt-1 {
@@ -248,11 +250,15 @@ WalkBeforeComma:
 			return fields, ErrBadFields
 		}
 		// move to next field pair
-		f, err := parseField(buf[startAt:equalAt], buf[equalAt+1:boundaryAt])
-		if err != nil {
-			return fields, err
+		var (
+			parsedFields []*protoMetricsV1.SimpleField
+		)
+		parsedFields, err = parseField(buf[startAt:equalAt], buf[equalAt+1:boundaryAt])
+		if err == nil {
+			fields = append(fields, parsedFields...)
+		} else {
+			droppedFieldsCounter.Incr()
 		}
-		fields = append(fields, f...)
 		startAt = boundaryAt + 1
 		goto WalkBeforeComma
 	}

@@ -15,31 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package write //nolint:dupl
+package ingest
 
 import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
-	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/ingestion/influx"
 	"github.com/lindb/lindb/pkg/http"
 )
 
 var (
 	InfluxWritePath = "/influx/write"
+	InfluxQueryPath = "/influx/query"
 )
 
 // InfluxWriter processes Influxdb line protocol.
 type InfluxWriter struct {
-	deps *deps.HTTPDeps
+	commonWriter
 }
 
 // NewInfluxWriter creates influx writer.
 func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
 	return &InfluxWriter{
-		deps: deps,
+		commonWriter: commonWriter{
+			deps:   deps,
+			parser: influx.Parse,
+		},
 	}
 }
 
@@ -47,34 +49,11 @@ func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
 func (iw *InfluxWriter) Register(route gin.IRoutes) {
 	route.PUT(InfluxWritePath, iw.Write)
 	route.POST(InfluxWritePath, iw.Write)
+
+	route.POST(InfluxQueryPath, iw.FakeQuery)
 }
 
-func (iw *InfluxWriter) Write(c *gin.Context) {
-	var param struct {
-		Database  string `form:"db" binding:"required"`
-		Namespace string `form:"ns"`
-	}
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	if param.Namespace == "" {
-		param.Namespace = constants.DefaultNamespace
-	}
-	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	metricList, err := influx.Parse(c.Request, enrichedTags, param.Namespace)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	if err := iw.deps.CM.Write(param.Database, metricList); err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.NoContent(c)
+// FakeQuery answers influxdb agent such as telegraf
+func (iw *InfluxWriter) FakeQuery(c *gin.Context) {
+	http.OK(c, "ok")
 }

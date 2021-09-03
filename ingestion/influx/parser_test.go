@@ -151,17 +151,23 @@ func Test_missingTagValues(t *testing.T) {
 
 func Test_missingFieldNames(t *testing.T) {
 	examples := []struct {
-		Line string
-		Err  error
+		Line       string
+		Err        error
+		FieldCount int
 	}{
-		{`cpu,host=serverA,region=us-west =`, ErrBadFields},
-		{`cpu,host=serverA,region=us-west =123i`, ErrBadFields},
-		{`cpu,host=serverA,region=us-west a\ =123i`, nil},
-		{`cpu,host=serverA,region=us-west value=123i,=456i`, ErrBadFields},
+		{`cpu,host=serverA,region=us-west =`, ErrBadFields, 0},
+		{`cpu,host=serverA,region=us-west =123i`, ErrBadFields, 0},
+		{`cpu,host=serverA,region=us-west a\ =123i`, nil, 2},
+		{`cpu,host=serverA,region=us-west value=123i,=456i`, nil, 2},
 	}
 	for _, example := range examples {
-		_, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
+		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
 		assert.Equal(t, example.Err, err)
+		if example.FieldCount == 0 {
+			assert.Error(t, err)
+		} else {
+			assert.Lenf(t, m.SimpleFields, example.FieldCount, example.Line)
+		}
 	}
 }
 
