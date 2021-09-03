@@ -52,26 +52,26 @@ func (rs *RepoState) WithSubNamespace(subDir string) RepoState {
 func (rs *RepoState) TOML() string {
 	coordinatorEndpoints, _ := json.Marshal(rs.Endpoints)
 	return fmt.Sprintf(`[coordinator]
-    ## Coordinator coordinates reads/writes operations between different nodes
-    ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
-    namespace = "%s"
-    ## Endpoints config list of ETCD cluster
-    endpoints = %s
-    ## Lease-TTL is a number in seconds.
-    ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
-    ## lease expiration will cause a re-elect.
-    ## Min: 5； Default: 10
-    lease-ttl = %d
-    ## Timeout is the timeout for failing to executing a etcd command.
-    ## Default: 5s
-    timeout = "%s"
-    ## DialTimeout is the timeout for failing to establish a etcd connection.
-    ## Default: 5s
-    dial-timeout = "%s"
-    ## Username is a user name for etcd authentication.
-    username = "%s"
-    ## Password is a password for etcd authentication.
-    password = "%s"`,
+## Coordinator coordinates reads/writes operations between different nodes
+## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
+namespace = "%s"
+## Endpoints config list of ETCD cluster
+endpoints = %s
+## Lease-TTL is a number in seconds.
+## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
+## lease expiration will cause a re-elect.
+## Min: 5； Default: 10
+lease-ttl = %d
+## Timeout is the timeout for failing to executing a etcd command.
+## Default: 5s
+timeout = "%s"
+## DialTimeout is the timeout for failing to establish a etcd connection.
+## Default: 5s
+dial-timeout = "%s"
+## Username is a user name for etcd authentication.
+username = "%s"
+## Password is a password for etcd authentication.
+password = "%s"`,
 		rs.Namespace,
 		coordinatorEndpoints,
 		rs.LeaseTTL,
@@ -95,24 +95,20 @@ func NewDefaultCoordinator() *RepoState {
 // GRPC represents grpc server config
 type GRPC struct {
 	Port                 uint16         `toml:"port"`
-	TTL                  ltoml.Duration `toml:"ttl"`
 	MaxConcurrentStreams uint32         `toml:"max-concurrent-streams"`
 	ConnectTimeout       ltoml.Duration `toml:"connect-timeout"`
 }
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
-    port = %d
-    ## Default: 1s
-    ttl = "%s"
-    ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-    ## Default: 30
-    max-concurrent-streams = %d
-    ## connect-timeout sets the timeout for connection establishment.
-    ## Default: 3s
-    connect-timeout = "%s"`,
+port = %d
+## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
+## Default: 30
+max-concurrent-streams = %d
+## connect-timeout sets the timeout for connection establishment.
+## Default: 3s
+connect-timeout = "%s"`,
 		g.Port,
-		g.TTL.String(),
 		g.MaxConcurrentStreams,
 		g.ConnectTimeout.Duration().String(),
 	)
@@ -132,16 +128,17 @@ type Query struct {
 }
 
 func (q *Query) TOML() string {
-	return fmt.Sprintf(`[query]
-    ## Number of queries allowed to execute concurrently
-    ## Default: 30
-    query-concurrency = %d
-    ## Idle worker will be canceled in this duration
-    ## Default: 5s
-    idle-timeout = "%s"
-    ## Maximum timeout threshold for query.
-    ## Default: 5s
-    timeout = "%s"`,
+	return fmt.Sprintf(`
+[query]
+## Number of queries allowed to execute concurrently
+## Default: 30
+query-concurrency = %d
+## Idle worker will be canceled in this duration
+## Default: 5s
+idle-timeout = "%s"
+## Maximum timeout threshold for query.
+## Default: 5s
+timeout = "%s"`,
 		q.QueryConcurrency,
 		q.IdleTimeout,
 		q.Timeout,
@@ -178,9 +175,6 @@ func checkCoordinatorCfg(state *RepoState) error {
 func checkGRPCCfg(grpcCfg *GRPC) error {
 	if grpcCfg.Port == 0 {
 		return fmt.Errorf("grpc endpoint cannot be empty")
-	}
-	if grpcCfg.TTL <= 0 {
-		grpcCfg.TTL = ltoml.Duration(time.Second)
 	}
 	if grpcCfg.MaxConcurrentStreams <= 0 {
 		grpcCfg.MaxConcurrentStreams = 30

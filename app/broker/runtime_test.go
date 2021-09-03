@@ -61,7 +61,6 @@ var cfg = config.Broker{
 		},
 		GRPC: config.GRPC{
 			Port: 2881,
-			TTL:  1,
 		},
 	}}
 

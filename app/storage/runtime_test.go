@@ -58,7 +58,6 @@ var cfg = config.Storage{
 		Indicator: 1,
 		GRPC: config.GRPC{
 			Port: 9999,
-			TTL:  1,
 		},
 		TSDB: config.TSDB{Dir: "/tmp/test/data"},
 	}, Monitor: *config.NewDefaultMonitor(),
