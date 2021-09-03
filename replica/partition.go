@@ -20,7 +20,6 @@ package replica
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 
 	"github.com/lindb/lindb/models"
@@ -154,7 +153,7 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 		// exist
 		return
 	}
-	walConsumer, err := p.log.GetOrCreateFanOut(strconv.Itoa(int(replica)))
+	walConsumer, err := p.log.GetOrCreateFanOut(fmt.Sprintf("%d_%d", leader, replica))
 	if err != nil {
 		//TODO add log
 		return

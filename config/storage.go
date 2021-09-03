@@ -83,7 +83,7 @@ mutable-memdb-ttl = "%s"
 max-mem-usage-before-flush = %.2f
 ## Global flush operation will be stopped 
 ## when system memory usage is lower than this ration.
-## Defult: 0.60
+## Default: 0.60
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing. Default: 4
 flush-concurrency = %d
