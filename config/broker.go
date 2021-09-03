@@ -34,19 +34,19 @@ type HTTP struct {
 
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
-	## Controls how HTTP Server are configured.
-	##
-	## which port broker's HTTP Server is listening on 
-	port = %d
-	## maximum duration the server should keep established connections alive.
-	## Default: 5s
-	idle-timeout = "%s"
-	## maximum duration before timing out for server writes of the response
-	## Default: 5s
-	write-timeout = "%s"	
-	## maximum duration for reading the entire request, including the body.
-	## Default: 5s
-	read-timeout = "%s"`,
+## Controls how HTTP Server are configured.
+##
+## which port broker's HTTP Server is listening on 
+port = %d
+## maximum duration the server should keep established connections alive.
+## Default: 2m
+idle-timeout = "%s"
+## maximum duration before timing out for server writes of the response
+## Default: 5s
+write-timeout = "%s"	
+## maximum duration for reading the entire request, including the body.
+## Default: 5s
+read-timeout = "%s"`,
 		h.Port,
 		h.IdleTimeout.Duration().String(),
 		h.WriteTimeout.Duration().String(),
@@ -60,9 +60,9 @@ type Ingestion struct {
 
 func (i *Ingestion) TOML() string {
 	return fmt.Sprintf(`
-	## maximum duration before timeout for server ingesting metrics
-	## Default: 5s
-	ingest-timeout = "%s"`,
+## maximum duration before timeout for server ingesting metrics
+## Default: 5s
+ingest-timeout = "%s"`,
 		i.IngestTimeout.Duration().String())
 }
 
@@ -74,9 +74,9 @@ type User struct {
 
 func (u *User) TOML() string {
 	return fmt.Sprintf(`
-	## admin user setting
-	username = "%s"
-	password = "%s"`,
+## admin user setting
+username = "%s"
+password = "%s"`,
 		u.UserName,
 		u.Password)
 }
@@ -108,21 +108,21 @@ func (rc *ReplicationChannel) BufferSizeInBytes() int {
 
 func (rc *ReplicationChannel) TOML() string {
 	return fmt.Sprintf(`
-	## WAL mmaped log directory
-	dir = "%s"
-	## data-size-limit is the maximum size in megabytes of the page file before a new
-	## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
-	data-size-limit = %d
-	## interval for how often a new segment will be created
-	remove-task-interval = "%s"
-	## replicator state report interval
-	report-interval = "%s"
-	## interval for how often buffer will be checked if it's available to flush
-	check-flush-interval = "%s"
-	## interval for how often data will be flushed if data not exceeds the buffer-size
-	flush-interval = "%s"
-	## will flush if this size of data in kegabytes get buffered
-	buffer-size = %d`,
+## WAL mmaped log directory
+dir = "%s"
+## data-size-limit is the maximum size in megabytes of the page file before a new
+## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+data-size-limit = %d
+## interval for how often a new segment will be created
+remove-task-interval = "%s"
+## replicator state report interval
+report-interval = "%s"
+## interval for how often buffer will be checked if it's available to flush
+check-flush-interval = "%s"
+## interval for how often data will be flushed if data not exceeds the buffer-size
+flush-interval = "%s"
+## will flush if this size of data in kegabytes get buffered
+buffer-size = %d`,
 		rc.Dir,
 		rc.DataSizeLimit,
 		rc.RemoveTaskInterval.String(),
@@ -142,14 +142,16 @@ type BrokerBase struct {
 }
 
 func (bb *BrokerBase) TOML() string {
-	return fmt.Sprintf(`[broker]
-  [broker.http]%s
+	return fmt.Sprintf(`
+[broker]
 
-  [broker.ingestion]%s
+[broker.http]%s
 
-  [broker.user]%s
+[broker.ingestion]%s
 
-  [broker.grpc]%s`,
+[broker.user]%s
+
+[broker.grpc]%s`,
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
 		bb.User.TOML(),
@@ -170,7 +172,6 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		GRPC: GRPC{
 			Port:                 9001,
-			TTL:                  ltoml.Duration(time.Second),
 			MaxConcurrentStreams: 30,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
