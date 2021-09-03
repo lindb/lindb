@@ -390,6 +390,15 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 	}
 	timestamp := metric.Timestamp
 	now := fasttime.UnixMilliseconds()
+
+	// global max time range
+	// this threshold makes sure that invalid timestamp will be dropped
+	// otherwise, it will results in a large size of memdbs
+	if (s.behind.Int64() == 0 && timestamp < now-constants.MetricMaxBehindDuration) ||
+		s.ahead.Int64() == 0 && timestamp > now+constants.MetricMaxAheadDuration {
+		s.metrics.outOfRangeMetrics.Incr()
+		return isCumulative, constants.ErrMetricOutOfTimeRange
+	}
 	// check metric timestamp if in acceptable time range
 	if (s.behind.Int64() > 0 && timestamp < now-s.behind.Int64()) ||
 		(s.ahead.Int64() > 0 && timestamp > now+s.ahead.Int64()) {

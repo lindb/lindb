@@ -19,6 +19,7 @@ package influx
 
 import (
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/fasttime"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 
@@ -175,17 +176,27 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`foo\,bar value_total=1i`,
 			"foo,bar",
 			map[string]string{},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value_total", Type: protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "value_total_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+				},
+				{
+					Name: "value_total_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// comma in metric name with tags
 		{`cpu\,main,regions=east value=1.0 1465839830100400200`,
 			"cpu,main",
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+				},
+				{
+					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// spaces in metric name
 		{`cpu\ load,region=east value_sum=1.0 1465839830100400200`,
@@ -231,80 +242,103 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu,reg\=ion=east value=1.0`,
 			`cpu`,
 			map[string]string{"reg=ion": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+				},
+				{
+					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// space is tag name
 		{`cpu,\ =east value=1.0`,
 			`cpu`,
 			map[string]string{` `: "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			},
 		},
 		// commas in tag values
 		{`cpu,regions=east\,west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east,west"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			},
 		},
 		// backslash literal followed by trailing space
 		{`cpu,regions=east\  value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east `},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			},
 		},
 		// spaces in tag values
 		{`cpu,regions=east\ west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east west`},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			},
 		},
 		// commas in field keys
-		{`cpu,regions=east value\,ms=1.0`,
+		{`cpu,regions=east value\,ms_gauge=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value,ms", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "value,ms_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// spaces in field keys
 		{`cpu,regions=east value\ ms=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value ms", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{Name: "value ms_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value ms_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			},
 		},
 		// random character escaped
 		{`cpu,regions=eas\t value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "eas\\t"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+				},
+				{
+					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// field keys using escape char.
 		{`cpu \a=1i`,
 			`cpu`,
 			map[string]string{},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "\\a", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
-			}},
+			[]*protoMetricsV1.SimpleField{
+				{
+					Name: "\\a_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+				},
+				{
+					Name: "\\a_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+				},
+			},
 		},
 		// measurement, tag and tag value with equals
 		{`cpu=load,equals\=foo=tag\=value value=1i,bool=f`,
 			`cpu=load`,
 			map[string]string{"equals=foo": "tag=value"},
 			[]*protoMetricsV1.SimpleField{
-				{Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
 				{Name: "bool", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 0},
 			}},
 	}
@@ -315,7 +349,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		assert.Equal(t, example.MetricName, m.Name)
 		assert.Equal(t, example.Tags, tag.KeyValues(m.Tags).Map())
 		assert.NotZero(t, m.Timestamp)
-		assert.EqualValues(t, example.Fields, m.SimpleFields)
+		assert.EqualValuesf(t, example.Fields, m.SimpleFields, example.Line)
 	}
 }
 
@@ -336,4 +370,15 @@ func Test_parseBadFields(t *testing.T) {
 		_, err := parseInfluxLine([]byte(line), "ns", 1e6)
 		assert.Equal(t, ErrBadFields, err)
 	}
+}
+
+func Test_parseTimestamp(t *testing.T) {
+	timestamp := fasttime.UnixMilliseconds()
+	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp))
+	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp/1000))
+	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp*1000))
+	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp*1000*1000))
+	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/60), float64(1000*60))
+	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/3600), float64(1000*3600))
+
 }

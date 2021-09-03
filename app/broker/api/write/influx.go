@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	InfluxWritePath = "/write/influx"
+	InfluxWritePath = "/influx/write"
 )
 
 // InfluxWriter processes Influxdb line protocol.

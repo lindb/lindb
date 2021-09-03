@@ -59,7 +59,7 @@ export const StorageDashboard = [
         'Metrics Out of Time Range',
         'select metrics_out_of_range from lindb.tsdb.shard group by db, shard',
         8,
-        UnitEnum.Milliseconds,
+        UnitEnum.None,
     ),
     metric(
         'Shard Flush Duration',

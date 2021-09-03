@@ -18,17 +18,22 @@
 package influx
 
 import (
-	"github.com/cespare/xxhash/v2"
-
-	ingestCommon "github.com/lindb/lindb/ingestion/common"
-	"github.com/lindb/lindb/pkg/strutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
-	"github.com/lindb/lindb/series/tag"
-
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/cespare/xxhash/v2"
+
+	ingestCommon "github.com/lindb/lindb/ingestion/common"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/strutil"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/tag"
+)
+
+var (
+	influxLogger = logger.GetLogger("ingestion", "InfluxDB")
 )
 
 // Parse parses influxdb line protocol data to LinDB pb prometheus.
@@ -39,6 +44,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
+			influxCorruptedDataCounter.Incr()
 			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
@@ -52,13 +58,22 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 
 	metricList := &protoMetricsV1.MetricList{}
 	for cr.HasNext() {
-		metric, err := parseInfluxLine(cr.Next(), namespace, multiplier)
+		nextLine := cr.Next()
+		influxReadBytesCounter.Add(float64(len(nextLine)))
+		metric, err := parseInfluxLine(nextLine, namespace, multiplier)
 		if err != nil {
-			return nil, err
-		}
-		if metric == nil {
+			influxLogger.Warn("ingest error",
+				logger.String("line", string(nextLine)),
+				logger.Error(err))
+			droppedMetricsCounter.Incr()
 			continue
 		}
+		if metric == nil || len(metric.SimpleFields) == 0 {
+			droppedMetricsCounter.Incr()
+			continue
+		}
+		ingestedMetricsCounter.Incr()
+		ingestedFieldsCounter.Add(float64(len(metric.SimpleFields)))
 		// enrich tags
 		for _, enrichedTag := range enrichedTags {
 			tagKey := strutil.ByteSlice2String(enrichedTag.Key)
@@ -101,6 +116,6 @@ func getPrecisionMultiplier(precision string) int64 {
 	case "h":
 		return 1000 * 3600
 	default:
-		return 1
+		return 0
 	}
 }
