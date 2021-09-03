@@ -44,58 +44,58 @@ type TSDB struct {
 
 func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
-	## The TSDB directory where the time series data and meta file stores.
-	dir = "%s"
+## The TSDB directory where the time series data and meta file stores.
+dir = "%s"
 
-	## Write configuration
-	## 
-	## Shard batch write to memdb with this many buffered metrics
-	batch-write-size = %d
-	## Shard pending with this many batched metrics in memory
-	## if batch-write-size is 100, batch-pending-size is 10
-	## at most 1000 metrics will be cached before write
-	batch-pending-size = %d
-	## Shard will write at least this often,
-	## even if the configured batch-size is not reached.
-	batch-timeout = "%s"
-	
-	## Flush configuration
-	## 
-	## The amount of data to build up in each memdb, 
-	## before it is queueing to the immutable list for flushing.
-	## Default: 500 MiB, larger memdb may improve query performance
-	max-memdb-size = "%s"
-	## The maximum size of mutable and immutable memdb of a shard
-	## Flush operation will be triggered When this exceeds.
-	## Default: 2 GiB
-	max-memdb-total-size = "%s"
-	## The maximum number mutable and immutable memdb stores in memory.
-	## Default: 5. Notice that unlmitied time-range of metrics will make it uncontrollable。
-	## If sets to 0, the memdb number is unlimited.
-	max-memdb-number = %d
-	## Mutable memdb will switch to immutable this often,
-	## event if the configured memdb-size is not reached.
-	## Default: 1h
-	mutable-memdb-ttl = "%s"
-	## Global flush operation will be triggered
-	## when system memory usage is higher than this ratio.
-	## Default: 0.85
-	max-mem-usage-before-flush = %.2f
-	## Global flush operation will be stopped 
-	## when system memory usage is lower than this ration.
-	## Defult: 0.60
-	target-mem-usage-after-flush = %.2f
-	## concurrency of goroutines for flushing. Default: 4
-	flush-concurrency = %d
+## Write configuration
+## 
+## Shard batch write to memdb with this many buffered metrics
+batch-write-size = %d
+## Shard pending with this many batched metrics in memory
+## if batch-write-size is 100, batch-pending-size is 10
+## at most 1000 metrics will be cached before write
+batch-pending-size = %d
+## Shard will write at least this often,
+## even if the configured batch-size is not reached.
+batch-timeout = "%s"
 
-	## Time Series limitation
-	## 
-	## Limit for time series of metric.
-	## Default: 200000
-	max-seriesIDs = %d
-	## Limit for tagKeys
-	## Default: 32
-	max-tagKeys = %d`,
+## Flush configuration
+## 
+## The amount of data to build up in each memdb, 
+## before it is queueing to the immutable list for flushing.
+## Default: 500 MiB, larger memdb may improve query performance
+max-memdb-size = "%s"
+## The maximum size of mutable and immutable memdb of a shard
+## Flush operation will be triggered When this exceeds.
+## Default: 2 GiB
+max-memdb-total-size = "%s"
+## The maximum number mutable and immutable memdb stores in memory.
+## Default: 5. Notice that unlmitied time-range of metrics will make it uncontrollable。
+## If sets to 0, the memdb number is unlimited.
+max-memdb-number = %d
+## Mutable memdb will switch to immutable this often,
+## event if the configured memdb-size is not reached.
+## Default: 1h
+mutable-memdb-ttl = "%s"
+## Global flush operation will be triggered
+## when system memory usage is higher than this ratio.
+## Default: 0.85
+max-mem-usage-before-flush = %.2f
+## Global flush operation will be stopped 
+## when system memory usage is lower than this ration.
+## Defult: 0.60
+target-mem-usage-after-flush = %.2f
+## concurrency of goroutines for flushing. Default: 4
+flush-concurrency = %d
+
+## Time Series limitation
+## 
+## Limit for time series of metric.
+## Default: 200000
+max-seriesIDs = %d
+## Limit for tagKeys
+## Default: 32
+max-tagKeys = %d`,
 		t.Dir,
 		t.BatchWriteSize,
 		t.BatchPendingSize,
@@ -122,16 +122,17 @@ type StorageBase struct {
 
 // TOML returns StorageBase's toml config string
 func (s *StorageBase) TOML() string {
-	return fmt.Sprintf(`[storage]
-  ## Indicator is a unique id for identifing each storage node
-  ## Make sure indicator on each node is different
-  indicator = %d
+	return fmt.Sprintf(`
+[storage]
+## Indicator is a unique id for identifing each storage node
+## Make sure indicator on each node is different
+indicator = %d
 
-  [storage.grpc]%s
+[storage.grpc]%s
 
-  [storage.wal]%s
+[storage.wal]%s
 
-  [storage.tsdb]%s`,
+[storage.tsdb]%s`,
 		s.Indicator,
 		s.GRPC.TOML(),
 		s.WAL.TOML(),
@@ -161,19 +162,19 @@ func (rc *WAL) GetDataSizeLimit() int64 {
 
 func (rc *WAL) TOML() string {
 	return fmt.Sprintf(`
-	## WAL mmaped log directory
-	dir = "%s"
-	## data-size-limit is the maximum size in megabytes of the page file before a new
-	## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
-	data-size-limit = %d
-	## interval for how often a new segment will be created
-	remove-task-interval = "%s"
-	## interval for how often buffer will be checked if it's available to flush
-	check-flush-interval = "%s"
-	## interval for how often data will be flushed if data not exceeds the buffer-size
-	flush-interval = "%s"
-	## will flush if this size of data in kegabytes get buffered
-	buffer-size = %d`,
+## WAL mmaped log directory
+dir = "%s"
+## data-size-limit is the maximum size in megabytes of the page file before a new
+## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+data-size-limit = %d
+## interval for how often a new segment will be created
+remove-task-interval = "%s"
+## interval for how often buffer will be checked if it's available to flush
+check-flush-interval = "%s"
+## interval for how often data will be flushed if data not exceeds the buffer-size
+flush-interval = "%s"
+## will flush if this size of data in kegabytes get buffered
+buffer-size = %d`,
 		rc.Dir,
 		rc.DataSizeLimit,
 		rc.RemoveTaskInterval.String(),
@@ -198,7 +199,6 @@ func NewDefaultStorageBase() *StorageBase {
 		Indicator: 1,
 		GRPC: GRPC{
 			Port:                 2891,
-			TTL:                  ltoml.Duration(time.Second),
 			MaxConcurrentStreams: 30,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
