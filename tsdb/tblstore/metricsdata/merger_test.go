@@ -19,6 +19,7 @@ package metricsdata
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"testing"
 
@@ -31,9 +32,20 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+func Test_NewMerger(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	flusher := kv.NewMockFlusher(ctrl)
+	flusher.EXPECT().StreamWriter().Return(nil, io.ErrClosedPipe)
+	_, err := NewMerger(flusher)
+	assert.Error(t, err)
+}
+
 func Test_Compact(t *testing.T) {
 	flusher := kv.NewNopFlusher()
-	mergerIntf := NewMerger(flusher)
+	mergerIntf, err := NewMerger(flusher)
+	assert.Nil(t, err)
 	for i := 0; i < 10; i++ {
 		assertMergeReentrant(t, flusher, mergerIntf)
 	}
@@ -100,7 +112,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	flusher := NewMockFlusher(ctrl)
 	seriesMerger := NewMockSeriesMerger(ctrl)
 	nopFlusher := kv.NewNopFlusher()
-	merge := NewMerger(nopFlusher)
+	merge, _ := NewMerger(nopFlusher)
 	m := merge.(*merger)
 	m.dataFlusher = flusher
 	m.seriesMerger = seriesMerger
@@ -164,7 +176,7 @@ func TestMerger_Rollup_Merge(t *testing.T) {
 	flusher := NewMockFlusher(ctrl)
 	seriesMerger := NewMockSeriesMerger(ctrl)
 	nopFlusher := kv.NewNopFlusher()
-	merge := NewMerger(nopFlusher)
+	merge, _ := NewMerger(nopFlusher)
 	merge.Init(map[string]interface{}{kv.RollupContext: rollup})
 
 	m := merge.(*merger)

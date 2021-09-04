@@ -52,12 +52,15 @@ type merger struct {
 }
 
 // NewMerger creates a metric data merger
-func NewMerger(flusher kv.Flusher) kv.Merger {
-	dataFlusher, _ := NewFlusher(flusher)
+func NewMerger(flusher kv.Flusher) (kv.Merger, error) {
+	dataFlusher, err := NewFlusher(flusher)
+	if err != nil {
+		return nil, err
+	}
 	return &merger{
 		dataFlusher:  dataFlusher,
 		seriesMerger: newSeriesMerger(dataFlusher),
-	}
+	}, nil
 }
 
 // Init initializes metric data merger, if rollup context exist do rollup job, else do compact job

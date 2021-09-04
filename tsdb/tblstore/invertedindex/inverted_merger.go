@@ -40,13 +40,13 @@ type invertedMerger struct {
 }
 
 // NewInvertedMerger creates a inverted merger
-func NewInvertedMerger(flusher kv.Flusher) kv.Merger {
+func NewInvertedMerger(flusher kv.Flusher) (kv.Merger, error) {
 	nopFlusher := kv.NewNopFlusher()
 	return &invertedMerger{
 		kvFlusher:       flusher,
 		nopFlusher:      nopFlusher,
 		invertedFlusher: NewInvertedFlusher(nopFlusher),
-	}
+	}, nil
 }
 
 func (m *invertedMerger) Init(params map[string]interface{}) {

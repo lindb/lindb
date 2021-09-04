@@ -19,13 +19,13 @@ package tagkeymeta
 
 import (
 	"bytes"
+	"encoding/binary"
 	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/trie"
 
@@ -87,7 +87,6 @@ type tagKeyMeta struct {
 	trieBlock      []byte
 	bitmapData     []byte
 	offsetsData    []byte
-	footerPos      int
 	bitmapPos      int
 	offsetsPos     int
 	tagValueIDSeq  uint32
@@ -102,16 +101,16 @@ func newTagKeyMeta(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
 		block: tagKeyMetaBlock,
 	}
 	// read footer(4+4+4+4+4)
-	meta.footerPos = len(tagKeyMetaBlock) - tagFooterSize
-	meta.bitmapPos = int(stream.ReadUint32(tagKeyMetaBlock, meta.footerPos))
-	meta.offsetsPos = int(stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+4))
-	meta.tagValueIDSeq = stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+8)
-	meta.crc32CheckSum = stream.ReadUint32(tagKeyMetaBlock, meta.footerPos+12)
+	footerPos := len(tagKeyMetaBlock) - tagFooterSize
+	meta.bitmapPos = int(binary.LittleEndian.Uint32(tagKeyMetaBlock[footerPos : footerPos+4]))
+	meta.offsetsPos = int(binary.LittleEndian.Uint32(tagKeyMetaBlock[footerPos+4 : footerPos+8]))
+	meta.tagValueIDSeq = binary.LittleEndian.Uint32(tagKeyMetaBlock[footerPos+8 : footerPos+12])
+	meta.crc32CheckSum = binary.LittleEndian.Uint32(tagKeyMetaBlock[footerPos+12 : footerPos+16])
 
 	expectedOrders := []int{0,
 		meta.bitmapPos, meta.bitmapPos + 1,
 		meta.offsetsPos, meta.offsetsPos + 1,
-		meta.footerPos, len(tagKeyMetaBlock)}
+		footerPos}
 	// data validation
 	if !sort.IntsAreSorted(expectedOrders) {
 		return nil, constants.ErrDataFileCorruption
@@ -121,7 +120,7 @@ func newTagKeyMeta(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
 	// read bitmap data, lazy unmarshal
 	meta.bitmapData = tagKeyMetaBlock[meta.bitmapPos:meta.offsetsPos]
 	// read offsets data, lazy unmarshal
-	meta.offsetsData = tagKeyMetaBlock[meta.offsetsPos:meta.footerPos]
+	meta.offsetsData = tagKeyMetaBlock[meta.offsetsPos:footerPos]
 	return meta, nil
 }
 
@@ -261,7 +260,7 @@ func (meta *tagKeyMeta) FindTagValueID(tagValue string) (tagValueIDs []uint32) {
 	if err != nil {
 		return nil
 	}
-	slice, ok := tree.Get([]byte(tagValue))
+	slice, ok := tree.Get(strutil.String2ByteSlice(tagValue))
 	if !ok {
 		return nil
 	}

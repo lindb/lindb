@@ -95,9 +95,9 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 
 // GetTagValueID returns the tag value id for spec metric's tag key id,
 // if not exist return constants.ErrTagValueIDNotFound
-func (r *tagReader) GetTagValueID(tagID uint32, tagValue string) (tagValueID uint32, err error) {
+func (r *tagReader) GetTagValueID(tagKeyID uint32, tagValue string) (tagValueID uint32, err error) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagID)
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
 		if err != nil {
 			continue
 		}
@@ -116,10 +116,10 @@ func (r *tagReader) GetTagValueID(tagID uint32, tagValue string) (tagValueID uin
 }
 
 // FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
-func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
-	tagKeyMetas := r.filterTagKeyMetas(tagID)
+func (r *tagReader) FindValueIDsByExprForTagKeyID(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
+	tagKeyMetas := r.filterTagKeyMetas(tagKeyID)
 	if len(tagKeyMetas) == 0 {
-		return nil, fmt.Errorf("%w, tagID: %d", constants.ErrTagKeyMetaNotFound, tagID)
+		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagKeyMetaNotFound, tagKeyID)
 	}
 	tagValueIDs := roaring.New()
 	for _, tagKeyMeta := range tagKeyMetas {
@@ -133,29 +133,29 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagID uint32, expr stmt.TagFil
 		case *stmt.RegexExpr:
 			tagValueIDs.AddMany(tagKeyMeta.FindTagValueIDsByRegex(expression.Regexp))
 		default:
-			return nil, fmt.Errorf("%w, unsupported expr, tagID: %d",
-				constants.ErrTagKeyMetaNotFound, tagID)
+			return nil, fmt.Errorf("%w, unsupported expr, tagKeyID: %d",
+				constants.ErrTagKeyMetaNotFound, tagKeyID)
 		}
 	}
 	if tagValueIDs.IsEmpty() {
-		return nil, fmt.Errorf("%w, tagID: %d", constants.ErrTagValueIDNotFound, tagID)
+		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagValueIDNotFound, tagKeyID)
 	}
 	return tagValueIDs, nil
 }
 
 // GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
-func (r *tagReader) GetTagValueIDsForTagKeyID(tagID uint32) (*roaring.Bitmap, error) {
-	tagKeyMetas := r.filterTagKeyMetas(tagID)
+func (r *tagReader) GetTagValueIDsForTagKeyID(tagKeyID uint32) (*roaring.Bitmap, error) {
+	tagKeyMetas := r.filterTagKeyMetas(tagKeyID)
 	if len(tagKeyMetas) == 0 {
-		return nil, fmt.Errorf("%w, tagID: %d", constants.ErrTagKeyMetaNotFound, tagID)
+		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagKeyMetaNotFound, tagKeyID)
 	}
 	return tagKeyMetas.GetTagValueIDs()
 }
 
 // filterTagKeyMetas filters the tag-key-metas by tag key id
-func (r *tagReader) filterTagKeyMetas(tagID uint32) (metas TagKeyMetas) {
+func (r *tagReader) filterTagKeyMetas(tagKeyID uint32) (metas TagKeyMetas) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagID)
+		tagKeyMetaBlock, err := reader.Get(tagKeyID)
 		if err != nil {
 			continue
 		}

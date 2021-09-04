@@ -119,7 +119,10 @@ func (c *compactJob) doMerge() error {
 	if err != nil {
 		return err
 	}
-	merger := c.newMerger(c.newCompactFlusher())
+	merger, err := c.newMerger(c.newCompactFlusher())
+	if err != nil {
+		return err
+	}
 	if c.rollup != nil {
 		merger.Init(map[string]interface{}{RollupContext: c.rollup})
 	}

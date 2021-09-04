@@ -46,3 +46,7 @@ func Test_DeDupString(t *testing.T) {
 	assert.Len(t, DeDupStringSlice([]string{"a", "v"}), 2)
 	assert.Len(t, DeDupStringSlice([]string{"a", "a", "b", "v"}), 3)
 }
+
+func Test_RandomString(t *testing.T) {
+	t.Log(RandStringBytes(20))
+}

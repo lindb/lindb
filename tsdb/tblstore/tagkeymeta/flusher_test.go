@@ -19,29 +19,45 @@ package tagkeymeta
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestFlusher_NewError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockKVFlusher := kv.NewMockFlusher(ctrl)
+	mockKVFlusher.EXPECT().StreamWriter().Return(nil, io.ErrClosedPipe)
+	flusher, err := NewFlusher(mockKVFlusher)
+	assert.NotNil(t, err)
+	assert.Nil(t, flusher)
+}
 
 func TestFlusher_Commit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
-	flusher := NewFlusher(mockKVFlusher)
+	sw := table.NewMockStreamWriter(ctrl)
+	mockKVFlusher.EXPECT().StreamWriter().Return(sw, nil).AnyTimes()
+
+	flusher, err := NewFlusher(mockKVFlusher)
+	assert.Nil(t, err)
 	assert.NotNil(t, flusher)
 
-	// mock commit error
+	// mock Close error
 	mockKVFlusher.EXPECT().Commit().Return(fmt.Errorf("commit error"))
-	assert.NotNil(t, flusher.Commit())
+	assert.NotNil(t, flusher.Close())
 
 	// mock commit ok
-	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	err := flusher.FlushTagKeyID(333, 100)
+	err = flusher.FlushTagKeyID(333, 100)
 	assert.Nil(t, err)
 }
 
@@ -50,8 +66,16 @@ func TestFlushTagKeyID_OK(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockKVFlusher := kv.NewMockFlusher(ctrl)
-	mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
-	flusher := NewFlusher(mockKVFlusher)
+	sw := table.NewMockStreamWriter(ctrl)
+	sw.EXPECT().Prepare(gomock.Any()).AnyTimes()
+	sw.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
+	sw.EXPECT().Size().Return(int32(10000)).AnyTimes()
+	sw.EXPECT().CRC32CheckSum().Return(uint32(10000)).AnyTimes()
+	sw.EXPECT().Commit().Return(nil)
+	mockKVFlusher.EXPECT().StreamWriter().Return(sw, nil).AnyTimes()
+
+	//mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
+	flusher, _ := NewFlusher(mockKVFlusher)
 
 	// flush tagValue1
 	flusher.EnsureSize((1 << 8) * (1 << 8))

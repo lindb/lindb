@@ -202,8 +202,13 @@ func (it *Iterator) Key() []byte {
 		return it.uniqueKey()
 	}
 
-	it.fullKeyBuf = append(it.fullKeyBuf[:0], it.uniqueKey()...)
-	it.fullKeyBuf = append(it.fullKeyBuf, suffix...)
+	expectLen := len(it.uniqueKey()) + len(suffix)
+	if cap(it.fullKeyBuf) < expectLen {
+		it.fullKeyBuf = make([]byte, expectLen)
+	}
+	it.fullKeyBuf = it.fullKeyBuf[0:expectLen]
+	copy(it.fullKeyBuf[:len(it.uniqueKey())], it.uniqueKey())
+	copy(it.fullKeyBuf[len(it.uniqueKey()):], suffix)
 	return it.fullKeyBuf
 }
 

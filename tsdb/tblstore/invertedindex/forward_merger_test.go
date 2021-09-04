@@ -32,7 +32,7 @@ func TestForwardMerger_Merge(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	nopFlusher1 := kv.NewNopFlusher()
-	merge := NewForwardMerger(nopFlusher1)
+	merge, _ := NewForwardMerger(nopFlusher1)
 	merge.Init(nil)
 	// case 1: merge data success
 	err := merge.Merge(1, mockMergeForwardBlock())
@@ -48,7 +48,7 @@ func TestForwardMerger_Merge(t *testing.T) {
 	assert.Equal(t, []uint32{10, 20, 30, 40}, tagValueIDs)
 	// case 2: new reader err
 	nopFlusher2 := kv.NewNopFlusher()
-	merge = NewForwardMerger(nopFlusher2)
+	merge, _ = NewForwardMerger(nopFlusher2)
 	err = merge.Merge(1, [][]byte{{1, 2, 3}})
 	assert.Error(t, err)
 	assert.Nil(t, nopFlusher2.Bytes())
