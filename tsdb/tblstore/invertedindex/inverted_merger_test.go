@@ -38,7 +38,7 @@ func TestInvertedMerger_Merge(t *testing.T) {
 	}()
 
 	nopFlusher := kv.NewNopFlusher()
-	merge := NewInvertedMerger(nopFlusher)
+	merge, _ := NewInvertedMerger(nopFlusher)
 	merge.Init(nil)
 	// case 1: merge data success
 	err := merge.Merge(1, mockInvertedMergeData())
@@ -127,7 +127,7 @@ func TestInvertedMerger_Merge_same_tagValues(t *testing.T) {
 	}()
 
 	nopFlusher := kv.NewNopFlusher()
-	merge := NewInvertedMerger(nopFlusher)
+	merge, _ := NewInvertedMerger(nopFlusher)
 	merge.Init(nil)
 	// case 1: merge data success
 	err := merge.Merge(1, [][]byte{

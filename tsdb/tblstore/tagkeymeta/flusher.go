@@ -20,12 +20,12 @@ package tagkeymeta
 import (
 	"bytes"
 	"encoding/binary"
-	"hash/crc32"
+	"io"
 	"sort"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/trie"
 
 	"github.com/lindb/roaring"
@@ -42,31 +42,73 @@ type Flusher interface {
 	FlushTagValue(tagValue []byte, tagValueID uint32)
 	// FlushTagKeyID ends writing trie tree data in tag index table.
 	FlushTagKeyID(tagKeyID uint32, tagValueSeq uint32) error
-	// Commit closes the writer, this will be called after writing all tagKeys.
-	Commit() error
+	// used for merging
+	commitTagKeyID() error
+	// Closer closes the writer, this will be called after writing all tagKeys.
+	io.Closer
 }
 
 // NewFlusher returns a new TagFlusher
-func NewFlusher(kvFlusher kv.Flusher) Flusher {
-	return &flusher{
-		kvFlusher:      kvFlusher,
-		entrySetWriter: stream.NewBufferWriter(nil),
-		idBitmap:       roaring.New(),
-		rankOffsets:    encoding.NewFixedOffsetEncoder(false),
-		trieBuilder:    trie.NewBuilder(),
+func NewFlusher(kvFlusher kv.Flusher) (Flusher, error) {
+	kvWriter, err := kvFlusher.StreamWriter()
+	if err != nil {
+		return nil, err
 	}
+	f := &flusher{
+		kvFlusher: kvFlusher,
+		kvWriter:  kvWriter,
+	}
+	f.Level2.trieBuilder = trie.NewBuilder()
+	f.Level2.tagValueIDsBitmap = roaring.New()
+	f.Level2.rankOffsets = encoding.NewFixedOffsetEncoder(false)
+	return f, nil
 }
 
 // flusher implements Flusher.
 type flusher struct {
-	kvFlusher      kv.Flusher
-	trieBuilder    trie.Builder
-	entrySetWriter *stream.BufferWriter
-	maxTagValueID  uint32
-	// cached kv paris for building the fast succinct trie
-	tagValueMapping tagValueMapping
-	idBitmap        *roaring.Bitmap              // storing all tag-value ids
-	rankOffsets     *encoding.FixedOffsetEncoder // storing all ranks of tag-ids on trie tree
+	// Level1 flusher
+	kvFlusher kv.Flusher
+	kvWriter  table.StreamWriter
+
+	//  ━━━━━━━━━━━━━━━━━━━━━━━Layout of TagKeys Meta Table━━━━━━━━━━━━━━━━━━━━━━━━
+	//
+	//                    Level1
+	//                    +---------+---------+---------+---------+---------+---------+
+	//                    │ TagKey  │ TagKey  │ TagKey  │ Offsets │ Bitmap  │ Footer  │
+	//                    │  Meta   │  Meta   │  Meta   │         │         │         │
+	//                    +---------+---------+---------+---------+---------+---------+
+	//                   /           \                  |         |
+	//                  /             \                 |          \
+	//                 /                \              /            \
+	//                /                   \           /               \
+	//   +-----------+                     |        /                   \
+	//  /                     Level2       |       |                     |
+	// v--------+--------+--------+--------v       v--------+---+--------v
+	// │  Trie  │TagValue│ Offsets│ Footer │       │ Offset │...│ Offset │
+	// │  Tree  │IDBitmap│        │        │       │        │   │        │
+	// +--------+--------+--------+--------+       +--------+---+--------+
+	//
+	//
+	// Level1(KV table: TagKeyID -> TagKeyMeta data)
+	//
+	// Level2(Footer)
+	//
+	// ┌───────────────────────────────────────────┐
+	// │                 Footer                    │
+	// ├──────────┬──────────┬──────────┬──────────┤
+	// │  BitMap  │  Offsets │ TagValue │  CRC32   │
+	// │ Position │ Position │ Sequence │ CheckSum │
+	// ├──────────┼──────────┼──────────┼──────────┤
+	// │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
+	// └──────────┴──────────┴──────────┴──────────┘
+	Level2 struct {
+		trieBuilder       trie.Builder
+		maxTagValueID     uint32
+		tagValueMapping   tagValueMapping              // cached kv paris for building succinct trie
+		tagValueIDsBitmap *roaring.Bitmap              // storing all tag-value ids
+		rankOffsets       *encoding.FixedOffsetEncoder // storing all ranks of tag-ids on trie tree
+		footer            [tagFooterSize]byte
+	}
 }
 
 // tagValueMapping sorts the ids based on the order in keys
@@ -89,10 +131,8 @@ func (ir idRanks) Swap(i, j int) {
 	ir.ranks[i], ir.ranks[j] = ir.ranks[j], ir.ranks[i]
 }
 
-func (m tagValueMapping) Len() int { return len(m.keys) }
-func (m tagValueMapping) Less(i, j int) bool {
-	return bytes.Compare(m.keys[i], m.keys[j]) < 0
-}
+func (m tagValueMapping) Len() int           { return len(m.keys) }
+func (m tagValueMapping) Less(i, j int) bool { return bytes.Compare(m.keys[i], m.keys[j]) < 0 }
 func (m tagValueMapping) Swap(i, j int) {
 	m.keys[i], m.keys[j] = m.keys[j], m.keys[i]
 	m.ids[i], m.ids[j] = m.ids[j], m.ids[i]
@@ -128,81 +168,87 @@ func (m *tagValueMapping) ensureSize(size int) {
 	}
 }
 
-func (tf *flusher) EnsureSize(size int) { tf.tagValueMapping.ensureSize(size) }
+func (tf *flusher) EnsureSize(size int) { tf.Level2.tagValueMapping.ensureSize(size) }
 
 func (tf *flusher) FlushTagValue(tagValue []byte, tagValueID uint32) {
 	var buf = make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, tagValueID)
-	tf.tagValueMapping.keys = append(tf.tagValueMapping.keys, tagValue)
-	tf.tagValueMapping.ids = append(tf.tagValueMapping.ids, buf)
+	tf.Level2.tagValueMapping.keys = append(tf.Level2.tagValueMapping.keys, tagValue)
+	tf.Level2.tagValueMapping.ids = append(tf.Level2.tagValueMapping.ids, buf)
 
-	if tagValueID > tf.maxTagValueID {
-		tf.maxTagValueID = tagValueID
+	if tagValueID > tf.Level2.maxTagValueID {
+		tf.Level2.maxTagValueID = tagValueID
 	}
-	tf.tagValueMapping.rawIDs = append(tf.tagValueMapping.rawIDs, tagValueID)
+	tf.Level2.tagValueMapping.rawIDs = append(tf.Level2.tagValueMapping.rawIDs, tagValueID)
 }
 
 // FlushTagKeyID ends writing prefix trie in tag index table.
 func (tf *flusher) FlushTagKeyID(tagKeyID uint32, tagValueSeq uint32) error {
-	defer tf.reset()
+	defer tf.resetLevel2()
 
-	if len(tf.tagValueMapping.keys) == 0 {
+	if len(tf.Level2.tagValueMapping.keys) == 0 {
 		return nil
 	}
-	// pre-sort for building trie
-	tf.tagValueMapping.SortByKeys()
-	// build trie
-	tree := tf.trieBuilder.Build(
-		tf.tagValueMapping.keys,
-		tf.tagValueMapping.ids,
-		uint32(encoding.Uint32MinWidth(tf.maxTagValueID)))
+	tf.kvWriter.Prepare(tagKeyID)
 
-	// writing to buffer in memory won't raise error
-	_ = tree.Write(tf.entrySetWriter)
-	tf.tagValueMapping.SortByRawIDs()
-	// remember bitmap position
-	bitmapPosition := tf.entrySetWriter.Len()
-	// flush bitmap
-	tf.idBitmap.AddMany(tf.tagValueMapping.rawIDs)
-	// writing to buffer in memory won't raise error
-	_, _ = tf.idBitmap.WriteTo(tf.entrySetWriter)
-	// flush offsets
-	offsetsPosition := tf.entrySetWriter.Len()
-	for _, rank := range tf.tagValueMapping.ranks {
-		tf.rankOffsets.Add(rank)
+	// pre-sort for building trie
+	tf.Level2.tagValueMapping.SortByKeys()
+	// build trie
+	tree := tf.Level2.trieBuilder.Build(
+		tf.Level2.tagValueMapping.keys,
+		tf.Level2.tagValueMapping.ids,
+		uint32(encoding.Uint32MinWidth(tf.Level2.maxTagValueID)))
+
+	if err := tree.Write(tf.kvWriter); err != nil {
+		return err
 	}
 
-	// writing to buffer in memory won't raise error
-	_, _ = tf.entrySetWriter.Write(tf.rankOffsets.MarshalBinary())
+	tf.Level2.tagValueMapping.SortByRawIDs()
+	// remember bitmap position
+	tagValueBitmapAt := tf.kvWriter.Size()
+	// flush bitmap
+	tf.Level2.tagValueIDsBitmap.AddMany(tf.Level2.tagValueMapping.rawIDs)
+	if _, err := tf.Level2.tagValueIDsBitmap.WriteTo(tf.kvWriter); err != nil {
+		return err
+	}
+	// build offsets
+	offsetsAt := tf.kvWriter.Size()
+	for _, rank := range tf.Level2.tagValueMapping.ranks {
+		tf.Level2.rankOffsets.Add(rank)
+	}
+
+	// write offsets
+	if err := tf.Level2.rankOffsets.Write(tf.kvWriter); err != nil {
+		return err
+	}
 
 	// footer
 	// flush bitmap position
-	tf.entrySetWriter.PutUint32(uint32(bitmapPosition))
+	binary.LittleEndian.PutUint32(tf.Level2.footer[0:4], uint32(tagValueBitmapAt))
 	// flush offsets position
-	tf.entrySetWriter.PutUint32(uint32(offsetsPosition))
+	binary.LittleEndian.PutUint32(tf.Level2.footer[4:8], uint32(offsetsAt))
 	// flush tag-value sequence
-	tf.entrySetWriter.PutUint32(tagValueSeq)
+	binary.LittleEndian.PutUint32(tf.Level2.footer[8:12], tagValueSeq)
 	// write crc32 checksum
-	data, _ := tf.entrySetWriter.Bytes()
-	tf.entrySetWriter.PutUint32(crc32.ChecksumIEEE(data))
+	binary.LittleEndian.PutUint32(tf.Level2.footer[12:16], tf.kvWriter.CRC32CheckSum())
 
-	data, _ = tf.entrySetWriter.Bytes()
-	return tf.kvFlusher.Add(tagKeyID, data)
+	if _, err := tf.kvWriter.Write(tf.Level2.footer[:]); err != nil {
+		return err
+	}
+	return tf.commitTagKeyID()
 }
 
-// Commit closes the writer, this will be called after writing all tagKeys.
-func (tf *flusher) Commit() error {
-	tf.reset()
+func (tf *flusher) commitTagKeyID() error { return tf.kvWriter.Commit() }
+
+func (tf *flusher) Close() error {
 	return tf.kvFlusher.Commit()
 }
 
 // reset resets the underlying data structures
-func (tf *flusher) reset() {
-	tf.maxTagValueID = 0
-	tf.idBitmap.Clear()
-	tf.entrySetWriter.Reset()
-	tf.rankOffsets.Reset()
-
-	tf.tagValueMapping.reset()
-	tf.trieBuilder.Reset()
+func (tf *flusher) resetLevel2() {
+	tf.Level2.trieBuilder.Reset()
+	tf.Level2.maxTagValueID = 0
+	tf.Level2.tagValueMapping.reset()
+	tf.Level2.tagValueIDsBitmap.Clear()
+	tf.Level2.rankOffsets.Reset()
 }

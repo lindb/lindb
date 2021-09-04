@@ -68,7 +68,7 @@ func buildTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	// flush zone tag, tagKeyID: 20
 	/////////////////////////
 	nopKVFlusher1 := kv.NewNopFlusher()
-	flusher1 := NewFlusher(nopKVFlusher1)
+	flusher1, _ := NewFlusher(nopKVFlusher1)
 	flush(flusher1, zoneMapping)
 	// pick the zoneBlock buffer
 	_ = flusher1.FlushTagKeyID(20, 20)
@@ -78,7 +78,7 @@ func buildTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	// flush ip tag, tagKeyID: 21
 	/////////////////////////
 	nopKVFlusher2 := kv.NewNopFlusher()
-	flusher2 := NewFlusher(nopKVFlusher2)
+	flusher2, _ := NewFlusher(nopKVFlusher2)
 	flush(flusher2, ipMapping)
 	// pick the ipBlock buffer
 	_ = flusher2.FlushTagKeyID(21, 21)
@@ -88,7 +88,7 @@ func buildTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	// flush host tag, tagKeyID: 22
 	/////////////////////////
 	nopKVFlusher3 := kv.NewNopFlusher()
-	flusher3 := NewFlusher(nopKVFlusher3)
+	flusher3, _ := NewFlusher(nopKVFlusher3)
 	flush(flusher3, hostMapping)
 	// pick the hostBlock buffer
 	_ = flusher3.FlushTagKeyID(22, 22)

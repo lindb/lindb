@@ -23,7 +23,7 @@ package kv
 type MergerType string
 
 // NewMerger represents create merger instance function
-type NewMerger func(flusher Flusher) Merger
+type NewMerger func(flusher Flusher) (Merger, error)
 
 var mergers = make(map[MergerType]NewMerger)
 

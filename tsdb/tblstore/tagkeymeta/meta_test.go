@@ -49,7 +49,7 @@ var testData []byte
 func buildTestTrieData() []byte {
 	testOnce.Do(func() {
 		kvFlusher := kv.NewNopFlusher()
-		flusher := NewFlusher(kvFlusher)
+		flusher, _ := NewFlusher(kvFlusher)
 		flusher.EnsureSize(10 * 10 * 10 * 10)
 
 		count := uint32(0)
@@ -204,7 +204,7 @@ func TestTagKeyMeta_CollectTagValues(t *testing.T) {
 
 func TestTagKeyMeta_CollectTagValues_WithSwap(t *testing.T) {
 	kvFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(kvFlusher)
+	flusher, _ := NewFlusher(kvFlusher)
 	flusher.FlushTagValue([]byte("x"), 1)
 	flusher.FlushTagValue([]byte("t"), 2)
 	flusher.FlushTagValue([]byte("sfd"), 3)
@@ -222,7 +222,7 @@ func TestTagKeyMeta_CollectTagValues_WithSwap(t *testing.T) {
 
 func TestTagKeyMeta_Error(t *testing.T) {
 	kvFlusher := kv.NewNopFlusher()
-	flusher := NewFlusher(kvFlusher)
+	flusher, _ := NewFlusher(kvFlusher)
 	flusher.FlushTagValue([]byte("x"), 1)
 	flusher.FlushTagValue([]byte("t"), 2)
 	_ = flusher.FlushTagKeyID(1, 1)
