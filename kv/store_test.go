@@ -38,8 +38,8 @@ import (
 var testKVPath = "./test_data"
 var mergerStr = "mockMergerAppend"
 
-func newMockMerger(flusher Flusher) Merger {
-	return &mockAppendMerger{flusher: flusher}
+func newMockMerger(flusher Flusher) (Merger, error) {
+	return &mockAppendMerger{flusher: flusher}, nil
 }
 
 func init() {

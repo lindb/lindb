@@ -263,3 +263,10 @@ func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_ByteSlice2Uint32(b *testing.B) {
+	var slice = []byte{1, 2, 3, 4}
+	for i := 0; i < b.N; i++ {
+		ByteSlice2Uint32(slice)
+	}
+}

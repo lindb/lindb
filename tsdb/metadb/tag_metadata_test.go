@@ -280,8 +280,8 @@ func TestTagMetadata_Flush(t *testing.T) {
 
 	meta, family, _ := mockTagMetadata(ctrl)
 	flusher := tagkeymeta.NewMockFlusher(ctrl)
-	newTagFlusherFunc = func(kvFlusher kv.Flusher) tagkeymeta.Flusher {
-		return flusher
+	newTagFlusherFunc = func(kvFlusher kv.Flusher) (tagkeymeta.Flusher, error) {
+		return flusher, nil
 	}
 	// case 1: flush not tiger
 	err := meta.Flush()
@@ -310,7 +310,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 		family.EXPECT().NewFlusher().Return(nil),
 		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
-		flusher.EXPECT().Commit().Return(fmt.Errorf("err")),
+		flusher.EXPECT().Close().Return(fmt.Errorf("err")),
 	)
 	err = meta.Flush()
 	assert.Error(t, err)
@@ -322,7 +322,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 		family.EXPECT().NewFlusher().Return(nil),
 		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
-		flusher.EXPECT().Commit().Return(nil),
+		flusher.EXPECT().Close().Return(nil),
 	)
 	err = meta.Flush()
 	assert.NoError(t, err)

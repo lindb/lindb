@@ -33,8 +33,8 @@ type mockAppendMerger struct {
 	flusher Flusher
 }
 
-func newMockAppendMerger(flusher Flusher) Merger {
-	return &mockAppendMerger{flusher: flusher}
+func newMockAppendMerger(flusher Flusher) (Merger, error) {
+	return &mockAppendMerger{flusher: flusher}, nil
 }
 
 func (m *mockAppendMerger) Init(_ map[string]interface{}) {}
@@ -53,8 +53,8 @@ func TestCompactJob_move_compact(t *testing.T) {
 
 	snapshot := version.NewMockSnapshot(ctrl)
 	merge := NewMockMerger(ctrl)
-	family := generateMockFamily(ctrl, func(flusher Flusher) Merger {
-		return merge
+	family := generateMockFamily(ctrl, func(flusher Flusher) (Merger, error) {
+		return merge, nil
 	})
 	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 100, 100)
@@ -80,8 +80,8 @@ func TestCompactJob_merge_compact_get_read_fail(t *testing.T) {
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	merge := NewMockMerger(ctrl)
-	family := generateMockFamily(ctrl, func(flusher Flusher) Merger {
-		return merge
+	family := generateMockFamily(ctrl, func(flusher Flusher) (Merger, error) {
+		return merge, nil
 	})
 	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 10, 100)
@@ -110,9 +110,10 @@ func TestCompactJob_merge_compact_merge_fail(t *testing.T) {
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(reader, nil).MaxTimes(2)
 	merge := NewMockMerger(ctrl)
 	merge.EXPECT().Merge(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	family := generateMockFamily(ctrl, func(flusher Flusher) Merger {
-		return merge
+	family := generateMockFamily(ctrl, func(flusher Flusher) (Merger, error) {
+		return merge, nil
 	})
+
 	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
@@ -159,8 +160,8 @@ func TestCompactJob_merge_doMerge_fail(t *testing.T) {
 	)
 	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
 	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
-	family := generateMockFamily(ctrl, func(flusher Flusher) Merger {
-		return merge
+	family := generateMockFamily(ctrl, func(flusher Flusher) (Merger, error) {
+		return merge, nil
 	})
 	family.EXPECT().familyInfo().Return("family").AnyTimes()
 
@@ -193,8 +194,8 @@ func TestCompactJob_output_fail(t *testing.T) {
 	)
 	snapshot.EXPECT().GetReader(table.FileNumber(1)).Return(reader1, nil)
 	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
-	family := generateMockFamily(ctrl, func(flusher Flusher) Merger {
-		return merge
+	family := generateMockFamily(ctrl, func(flusher Flusher) (Merger, error) {
+		return merge, nil
 	})
 	family.EXPECT().familyInfo().Return("family").AnyTimes()
 	builder := table.NewMockBuilder(ctrl)

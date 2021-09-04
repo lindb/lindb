@@ -31,20 +31,20 @@ func init() {
 
 // merger implements kv.Merger for merging tag trie meta data for each metric
 type merger struct {
-	flusher    Flusher
-	kvFlusher  kv.Flusher
-	nopFlusher *kv.NopFlusher
+	metaFlusher Flusher
+	kvFlusher   kv.Flusher
 }
 
 // NewMerger creates a merger for compacting tag-key-meta
-func NewMerger(kvFlusher kv.Flusher) kv.Merger {
-	// todo: @codingcrush, use stream flusher
-	nopFlusher := kv.NewNopFlusher()
-	return &merger{
-		nopFlusher: nopFlusher,
-		kvFlusher:  kvFlusher,
-		flusher:    NewFlusher(nopFlusher),
+func NewMerger(kvFlusher kv.Flusher) (kv.Merger, error) {
+	metaFlusher, err := NewFlusher(kvFlusher)
+	if err != nil {
+		return nil, err
 	}
+	return &merger{
+		metaFlusher: metaFlusher,
+		kvFlusher:   kvFlusher,
+	}, nil
 }
 
 func (tm *merger) Init(_ map[string]interface{}) {}
@@ -80,12 +80,12 @@ func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) error {
 			return err
 		}
 		for itr.Valid() {
-			tm.flusher.FlushTagValue(cloneSlice(itr.Key()), encoding.ByteSlice2Uint32(itr.Value()))
+			tm.metaFlusher.FlushTagValue(cloneSlice(itr.Key()), encoding.ByteSlice2Uint32(itr.Value()))
 			itr.Next()
 		}
 	}
-	if err := tm.flusher.FlushTagKeyID(tagKeyID, maxSequenceID); err != nil {
+	if err := tm.metaFlusher.FlushTagKeyID(tagKeyID, maxSequenceID); err != nil {
 		return err
 	}
-	return tm.kvFlusher.Add(tagKeyID, tm.nopFlusher.Bytes())
+	return tm.metaFlusher.commitTagKeyID()
 }

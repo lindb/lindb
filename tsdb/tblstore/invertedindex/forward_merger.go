@@ -42,13 +42,13 @@ func (m *forwardMerger) Init(params map[string]interface{}) {
 }
 
 // NewForwardMerger creates a forward merger
-func NewForwardMerger(flusher kv.Flusher) kv.Merger {
+func NewForwardMerger(flusher kv.Flusher) (kv.Merger, error) {
 	nopFlusher := kv.NewNopFlusher()
 	return &forwardMerger{
 		kvFlusher:      flusher,
 		flusher:        nopFlusher,
 		forwardFlusher: NewForwardFlusher(nopFlusher),
-	}
+	}, nil
 }
 
 // Merge merges the multi forward index data into a forward index for same tag key id

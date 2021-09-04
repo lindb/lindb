@@ -263,7 +263,10 @@ func (m *tagMetadata) Flush() error {
 
 	// flush immutable data into kv store
 	fluster := m.family.NewFlusher()
-	tagFluster := newTagFlusherFunc(fluster)
+	tagFluster, err := newTagFlusherFunc(fluster)
+	if err != nil {
+		return err
+	}
 	if err := m.immutable.WalkEntry(func(key uint32, value TagEntry) error {
 		tagValues := value.getTagValues()
 		for tagValue, tagValueID := range tagValues {
@@ -276,7 +279,7 @@ func (m *tagMetadata) Flush() error {
 	}); err != nil {
 		return err
 	}
-	if err := tagFluster.Commit(); err != nil {
+	if err := tagFluster.Close(); err != nil {
 		return err
 	}
 	// finally clear immutable
