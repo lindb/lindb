@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
-	"fmt"
+	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -26,38 +26,45 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
-func TestForwardFlusher_Flusher(t *testing.T) {
+func TestFlusher_FlushInvertedIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockFlusher := kv.NewMockFlusher(ctrl)
-	indexFlusher := NewForwardFlusher(mockFlusher)
+	mockFlusher.EXPECT().StreamWriter().Return(mockStreamWriter(ctrl), nil)
+	indexFlusher, err := NewInvertedFlusher(mockFlusher)
+	assert.Nil(t, err)
 	assert.NotNil(t, indexFlusher)
-	indexFlusher.FlushForwardIndex([]uint32{1, 2, 3, 4})
-	indexFlusher.FlushForwardIndex([]uint32{1, 2, 3, 4})
-	mockFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
-	err := indexFlusher.FlushTagKeyID(3, roaring.BitmapOf(1, 2, 3))
+	indexFlusher.PrepareTagKey(3)
+	err = indexFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
+	err = indexFlusher.FlushInvertedIndex(2, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	err = indexFlusher.FlushInvertedIndex(3, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	err = indexFlusher.FlushInvertedIndex(5, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+	err = indexFlusher.FlushInvertedIndex(6, roaring.BitmapOf(1, 2, 3))
+	assert.NoError(t, err)
+
+	assert.NoError(t, indexFlusher.CommitTagKey())
+
 	mockFlusher.EXPECT().Commit().Return(nil)
-	err = indexFlusher.Commit()
+	err = indexFlusher.Close()
 	assert.NoError(t, err)
 }
 
-func TestForwardFlusher_Flush_err(t *testing.T) {
+func TestFlusher_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		encoding.BitmapMarshal = bitMapMarshal
 		ctrl.Finish()
 	}()
+	mockFlusher := kv.NewMockFlusher(ctrl)
+	mockFlusher.EXPECT().StreamWriter().Return(nil, io.ErrUnexpectedEOF)
 
-	indexFlusher := NewForwardFlusher(nil)
-	assert.NotNil(t, indexFlusher)
-	encoding.BitmapMarshal = func(bitmap *roaring.Bitmap) (bytes []byte, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	err := indexFlusher.FlushTagKeyID(3, roaring.BitmapOf(1, 2, 3))
+	indexFlusher, err := NewInvertedFlusher(mockFlusher)
 	assert.Error(t, err)
+	assert.Nil(t, indexFlusher)
 }

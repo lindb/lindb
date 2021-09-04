@@ -15,94 +15,110 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
-	"hash/crc32"
+	"encoding/binary"
+	"io"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/stream"
 
 	"github.com/lindb/roaring"
 )
 
-//go:generate mockgen -source ./forward_flusher.go -destination=./forward_flusher_mock.go -package invertedindex
+//go:generate mockgen -source ./forward_flusher.go -destination=./forward_flusher_mock.go -package tagindex
 
 // ForwardFlusher represents forward index invertedFlusher which flushes series id => tag value id mapping
 // The layout is available in `tsdb/doc.go`
 type ForwardFlusher interface {
+	// PrepareTagKey should be called firstly
+	PrepareTagKey(tagKeyID uint32)
 	// FlushForwardIndex flushes tag value ids by bitmap container
-	FlushForwardIndex(tagValueIDs []uint32)
+	FlushForwardIndex(tagValueIDs []uint32) error
 	// FlushTagKeyID ends writing series ids in tag index table.
-	FlushTagKeyID(tagID uint32, seriesIDs *roaring.Bitmap) error
-	// Commit closes the writer, this will be called after writing all tag keys.
-	Commit() error
+	CommitTagKey(seriesIDs *roaring.Bitmap) error
+	// Close closes the writer, this will be called after writing all tag keys.
+	io.Closer
 }
 
 // forwardFlusher implements ForwardFlusher interface
 type forwardFlusher struct {
+	kvFlusher kv.Flusher
+	kvWriter  table.StreamWriter
+	// level2
 	tagValueIDs *encoding.DeltaBitPackingEncoder // temp store tag value ids for encoding
 	offsets     *encoding.FixedOffsetEncoder     // store offset that is tag value ids of one container
-	writer      *stream.BufferWriter
-
-	kvFlusher kv.Flusher
+	footer      [indexFooterSize]byte
 }
 
 // NewForwardFlusher creates a forward index invertedFlusher
-func NewForwardFlusher(kvFlusher kv.Flusher) ForwardFlusher {
+func NewForwardFlusher(kvFlusher kv.Flusher) (ForwardFlusher, error) {
+	kvWriter, err := kvFlusher.StreamWriter()
+	if err != nil {
+		return nil, err
+	}
 	return &forwardFlusher{
-		writer:      stream.NewBufferWriter(nil),
+		kvFlusher:   kvFlusher,
+		kvWriter:    kvWriter,
 		tagValueIDs: encoding.NewDeltaBitPackingEncoder(),
 		offsets:     encoding.NewFixedOffsetEncoder(true),
-		kvFlusher:   kvFlusher,
-	}
+	}, nil
+}
+
+func (f *forwardFlusher) PrepareTagKey(tagKeyID uint32) {
+	f.kvWriter.Prepare(tagKeyID)
 }
 
 // FlushForwardIndex flushes tag value ids by bitmap container
-func (f *forwardFlusher) FlushForwardIndex(tagValueIDs []uint32) {
+func (f *forwardFlusher) FlushForwardIndex(tagValueIDs []uint32) error {
 	defer f.tagValueIDs.Reset()
 
 	for _, tagValueID := range tagValueIDs {
 		f.tagValueIDs.Add(int32(tagValueID))
 	}
-	offset := f.writer.Len()
-	f.writer.PutBytes(f.tagValueIDs.Bytes()) // write tag value ids
-	f.offsets.Add(offset)                    // add tag value ids' offset
-}
-
-// FlushTagKeyID ends writing series ids in tag index table.
-func (f *forwardFlusher) FlushTagKeyID(tagID uint32, seriesIDs *roaring.Bitmap) error {
-	defer f.reset()
-
-	// write offsets
-	offsetPos := f.writer.Len()
-	f.writer.PutBytes(f.offsets.MarshalBinary())
-	// write series ids bitmap
-	seriesIDsBlock, err := encoding.BitmapMarshal(seriesIDs)
-	if err != nil {
+	offset := f.kvWriter.Size()
+	// write tag value ids
+	if _, err := f.kvWriter.Write(f.tagValueIDs.Bytes()); err != nil {
 		return err
 	}
-	seriesIDsPos := f.writer.Len()
-	f.writer.PutBytes(seriesIDsBlock)
+	// add tag value ids' offset
+	f.offsets.Add(int(offset))
+	return nil
+}
+
+func (f *forwardFlusher) CommitTagKey(seriesIDs *roaring.Bitmap) error {
+	defer f.reset()
+
+	// write series ids bitmap
+	seriesIDAt := f.kvWriter.Size()
+	if _, err := seriesIDs.WriteTo(f.kvWriter); err != nil {
+		return err
+	}
+	// write offsets
+	offsetsAt := f.kvWriter.Size()
+	if err := f.offsets.Write(f.kvWriter); err != nil {
+		return err
+	}
 	////////////////////////////////
 	// footer (series ids' offset + offsets + crc32 checksum)
 	// (4 bytes + 4 bytes + 4 bytes)
 	////////////////////////////////
 	// write tag value ids' start position
-	f.writer.PutUint32(uint32(seriesIDsPos))
+	binary.LittleEndian.PutUint32(f.footer[0:4], uint32(seriesIDAt))
 	// write offset block start position
-	f.writer.PutUint32(uint32(offsetPos))
+	binary.LittleEndian.PutUint32(f.footer[4:8], uint32(offsetsAt))
 	// write crc32 checksum
-	data, _ := f.writer.Bytes()
-	f.writer.PutUint32(crc32.ChecksumIEEE(data))
-	// write all
-	data, _ = f.writer.Bytes()
-	return f.kvFlusher.Add(tagID, data)
+	binary.LittleEndian.PutUint32(f.footer[8:12], f.kvWriter.CRC32CheckSum())
+	if _, err := f.kvWriter.Write(f.footer[:]); err != nil {
+		return err
+	}
+	return f.kvWriter.Commit()
 }
 
 // Commit closes the writer, this will be called after writing all tag keys.
-func (f *forwardFlusher) Commit() error {
+func (f *forwardFlusher) Close() error {
 	f.reset()
 	return f.kvFlusher.Commit()
 }
@@ -111,5 +127,4 @@ func (f *forwardFlusher) Commit() error {
 func (f *forwardFlusher) reset() {
 	f.tagValueIDs.Reset()
 	f.offsets.Reset()
-	f.writer.Reset()
 }

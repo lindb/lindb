@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ var bitmapUnmarshal = encoding.BitmapUnmarshal
 
 func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
-	seriesFlusher := NewInvertedFlusher(nopKVFlusher)
+	seriesFlusher, _ := NewInvertedFlusher(nopKVFlusher)
 	zoneMapping := map[uint32]*roaring.Bitmap{
 		1: roaring.BitmapOf(1),
 		2: roaring.BitmapOf(2),
@@ -60,16 +60,18 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 	/////////////////////////
 	// flush zone tag, tagID: 20
 	/////////////////////////
+	seriesFlusher.PrepareTagKey(20)
 	_ = seriesFlusher.FlushInvertedIndex(0, roaring.BitmapOf(1, 2, 3))
 	flush([]uint32{1, 2, 3}, zoneMapping)
 	// pick the zoneBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(20)
+	_ = seriesFlusher.CommitTagKey()
 	zoneBlock = append(zoneBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
 	// flush ip tag, tagID: 21
 	/////////////////////////
 	//flush(ipMapping)
+	seriesFlusher.PrepareTagKey(21)
 	_ = seriesFlusher.FlushInvertedIndex(0, roaring.BitmapOf(1, 2, 3, 4000000, 5000000, 6000000, 7000000, 8000000, 9000000))
 	_ = seriesFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1))
 	_ = seriesFlusher.FlushInvertedIndex(2, roaring.BitmapOf(2))
@@ -82,16 +84,17 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 	_ = seriesFlusher.FlushInvertedIndex(9000000, roaring.BitmapOf(9000000))
 
 	// pick the ipBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(21)
+	_ = seriesFlusher.CommitTagKey()
 	ipBlock = append(ipBlock, nopKVFlusher.Bytes()...)
 
 	/////////////////////////
 	// flush host tag, tagID: 22
 	/////////////////////////
+	seriesFlusher.PrepareTagKey(22)
 	_ = seriesFlusher.FlushInvertedIndex(0, roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7, 8, 9))
 	flush([]uint32{1, 2, 3, 4, 5, 6, 7, 8, 9}, hostMapping)
 	// pick the hostBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(22)
+	_ = seriesFlusher.CommitTagKey()
 	hostBlock = append(hostBlock, nopKVFlusher.Bytes()...)
 	return zoneBlock, ipBlock, hostBlock
 }
@@ -187,20 +190,17 @@ func TestReader_InvertedIndex_reader_err(t *testing.T) {
 }
 
 func TestTagInvertedReader_scan(t *testing.T) {
-	defer func() {
-		encoding.BitmapUnmarshal = bitmapUnmarshal
-	}()
-
 	zoneBlock, ipBlock, _ := buildInvertedIndexBlock()
 	reader, _ := newTagInvertedReader(ipBlock)
-	scanner := newTagInvertedScanner(reader)
+	scanner, err := newTagInvertedScanner(reader)
+	assert.Nil(t, err)
 	seriesIDs := roaring.New()
 	// case 1: not match
-	err := scanner.scan(10, 10, seriesIDs)
+	err = scanner.scan(10, 10, seriesIDs)
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.New(), seriesIDs)
 	// case 2: merge data
-	scanner = newTagInvertedScanner(reader)
+	scanner, _ = newTagInvertedScanner(reader)
 	err = scanner.scan(0, 1, seriesIDs)
 	assert.NoError(t, err)
 	assert.EqualValues(t, roaring.BitmapOf(1).ToArray(), seriesIDs.ToArray())
@@ -208,13 +208,13 @@ func TestTagInvertedReader_scan(t *testing.T) {
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
 	}
-	scanner = newTagInvertedScanner(reader)
+	scanner, _ = newTagInvertedScanner(reader)
 	err = scanner.scan(0, 1, seriesIDs)
 	assert.Error(t, err)
 	// case 4: scanner is completed
 	encoding.BitmapUnmarshal = bitmapUnmarshal
 	reader, _ = newTagInvertedReader(zoneBlock)
-	scanner = newTagInvertedScanner(reader)
+	scanner, _ = newTagInvertedScanner(reader)
 	seriesIDs.Clear()
 	err = scanner.scan(10, 1, seriesIDs)
 	assert.NoError(t, err)

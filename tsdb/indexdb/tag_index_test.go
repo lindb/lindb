@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb/query"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
 func TestTagIndex_GetGroupingScanner(t *testing.T) {
@@ -87,30 +87,31 @@ func TestTagIndex_flush(t *testing.T) {
 	defer ctrl.Finish()
 
 	tagIndex := prepareTagIdx()
-	forward := invertedindex.NewMockForwardFlusher(ctrl)
-	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
+	forward := tagindex.NewMockForwardFlusher(ctrl)
+	inverted := tagindex.NewMockInvertedFlusher(ctrl)
 	// case 1: flush forward err
-	forward.EXPECT().FlushForwardIndex(gomock.Any()).AnyTimes()
-	forward.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	forward.EXPECT().PrepareTagKey(gomock.Any()).AnyTimes()
+	inverted.EXPECT().PrepareTagKey(gomock.Any()).AnyTimes()
+	forward.EXPECT().FlushForwardIndex(gomock.Any()).Return(fmt.Errorf("err"))
 	err := tagIndex.flush(12, forward, inverted)
 	assert.Error(t, err)
-	// case 2: flush tag level series ids err
-	forward.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	// case 2: forward commit tag key error
+	forward.EXPECT().FlushForwardIndex(gomock.Any()).Return(nil).AnyTimes()
+	forward.EXPECT().CommitTagKey(gomock.Any()).Return(fmt.Errorf("err"))
 	err = tagIndex.flush(12, forward, inverted)
 	assert.Error(t, err)
-	// case 3: flush tag value series ids
-	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil)
+	// case 3: flush inverted error
+	forward.EXPECT().CommitTagKey(gomock.Any()).Return(nil).AnyTimes()
 	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = tagIndex.flush(13, forward, inverted)
 	assert.Error(t, err)
 	// case 4: flush tag key err
 	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("err"))
+	inverted.EXPECT().CommitTagKey().Return(fmt.Errorf("err"))
 	err = tagIndex.flush(14, forward, inverted)
 	assert.Error(t, err)
-	// case 3: flush tag key err
-	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil)
+	// case 5: flush tag key ok
+	inverted.EXPECT().CommitTagKey().Return(nil)
 	err = tagIndex.flush(14, forward, inverted)
 	assert.NoError(t, err)
 }
@@ -137,9 +138,10 @@ func TestTagIndex_GetData(t *testing.T) {
 		}
 	}
 	nopKVFlusher := kv.NewNopFlusher()
-	forwardFlusher := invertedindex.NewForwardFlusher(nopKVFlusher)
-	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
-	inverted.EXPECT().FlushTagKeyID(gomock.Any()).Return(nil).AnyTimes()
+	forwardFlusher, _ := tagindex.NewForwardFlusher(nopKVFlusher)
+	inverted := tagindex.NewMockInvertedFlusher(ctrl)
+	inverted.EXPECT().PrepareTagKey(gomock.Any()).AnyTimes()
+	inverted.EXPECT().CommitTagKey().Return(nil).AnyTimes()
 	inverted.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	err := host.flush(10, forwardFlusher, inverted)
 	assert.NoError(t, err)
@@ -149,7 +151,7 @@ func TestTagIndex_GetData(t *testing.T) {
 	err = partition.flush(12, forwardFlusher, inverted)
 	assert.NoError(t, err)
 
-	r, err := invertedindex.NewTagForwardReader(data)
+	r, err := tagindex.NewTagForwardReader(data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	keys := seriesIDs.GetHighKeys()

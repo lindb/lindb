@@ -15,16 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
 )
 
-//go:generate mockgen -source ./inverted_reader.go -destination=./inverted_reader_mock.go -package invertedindex
+//go:generate mockgen -source ./inverted_reader.go -destination=./inverted_reader_mock.go -package tagindex
 
 // InvertedReader reads seriesID bitmap from series-index-table
 type InvertedReader interface {
@@ -98,26 +101,47 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 	// get final tag value ids need to load
 	finalTagValueIDs := roaring.And(tagValueIDs, r.keys)
 	highKeys := finalTagValueIDs.GetHighKeys()
+
+	highOffsets := encoding.NewFixedOffsetDecoder()
+	lowOffsets := encoding.NewFixedOffsetDecoder()
+
+	if _, err := highOffsets.Unmarshal(r.buf[r.baseReader.offsetsAt:]); err != nil {
+		return nil, err
+	}
+	entries := r.buf[:r.baseReader.tagValueBitmapAt]
+
 	for idx, highKey := range highKeys {
 		loadLowContainer := finalTagValueIDs.GetContainerAtIndex(idx)
 		lowContainerIdx := r.keys.GetContainerIndex(highKey)
 		lowContainer := r.keys.GetContainerAtIndex(lowContainerIdx)
-		offset, _ := r.offsets.Get(lowContainerIdx)
-		seriesOffsets := encoding.NewFixedOffsetDecoder()
-		_, err := seriesOffsets.Unmarshal(r.buf[offset:])
+
+		tagValueBucket, err := highOffsets.GetBlock(lowContainerIdx, entries)
 		if err != nil {
 			return nil, err
 		}
+		lowKeyOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(tagValueBucket)
+		lowKeyOffsetsAt := len(tagValueBucket) - int(lowKeyOffsetsBlockLen) - uVariantEncodingLen
+		if uVariantEncodingLen <= 0 || lowKeyOffsetsAt <= 0 || lowKeyOffsetsAt >= len(tagValueBucket) {
+			return nil, fmt.Errorf("read lowkey offsets error")
+		}
+		if _, err = lowOffsets.Unmarshal(tagValueBucket[lowKeyOffsetsAt:]); err != nil {
+			return nil, err
+		}
+		level3Block := tagValueBucket[:lowKeyOffsetsAt]
+
 		it := loadLowContainer.PeekableIterator()
 		for it.HasNext() {
 			lowTagValueID := it.Next()
 			// get the index of low tag value id in container
 			lowIdx := lowContainer.Rank(lowTagValueID)
-			seriesPos, _ := seriesOffsets.Get(lowIdx - 1)
 
+			block, err := lowOffsets.GetBlock(lowIdx-1, level3Block)
+			if err != nil {
+				continue
+			}
 			// unmarshal series ids
 			seriesIDs := roaring.New()
-			if err := encoding.BitmapUnmarshal(seriesIDs, r.buf[seriesPos:]); err != nil {
+			if err := encoding.BitmapUnmarshal(seriesIDs, block); err != nil {
 				return nil, err
 			}
 			result.Or(seriesIDs)
@@ -130,40 +154,61 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 type tagInvertedScanner struct {
 	reader        *tagInvertedReader
 	container     roaring.Container
-	seriesOffsets *encoding.FixedOffsetDecoder
-	highKeys      []uint16
-	highKey       uint16
-	keyPos        int
+	lowKeyOffsets *encoding.FixedOffsetDecoder
+	entries       []byte
+	level3Block   []byte
+
+	highKeys         []uint16
+	highKey          uint16
+	highContainerIdx int
 }
 
 // newTagInvertedScanner creates a tag inverted index scanner
-func newTagInvertedScanner(reader *tagInvertedReader) *tagInvertedScanner {
+func newTagInvertedScanner(reader *tagInvertedReader) (*tagInvertedScanner, error) {
 	s := &tagInvertedScanner{
-		reader:   reader,
-		highKeys: reader.keys.GetHighKeys(),
+		reader:        reader,
+		highKeys:      reader.keys.GetHighKeys(),
+		lowKeyOffsets: encoding.NewFixedOffsetDecoder(),
+		entries:       reader.buf[:reader.tagValueBitmapAt],
 	}
-	s.nextContainer()
-	return s
+	if len(s.highKeys) == 0 {
+		return nil, fmt.Errorf("tagValue bitmap is empty")
+	}
+	return s, s.nextContainer()
 }
 
 // nextContainer goes next container context for scanner
-func (s *tagInvertedScanner) nextContainer() {
-	s.highKey = s.highKeys[s.keyPos]
-	s.container = s.reader.keys.GetContainerAtIndex(s.keyPos)
-	offset, _ := s.reader.offsets.Get(s.keyPos)
-	s.seriesOffsets = encoding.NewFixedOffsetDecoder()
-	_, _ = s.seriesOffsets.Unmarshal(s.reader.buf[offset:])
-	s.keyPos++
+func (s *tagInvertedScanner) nextContainer() error {
+	s.highKey = s.highKeys[s.highContainerIdx]
+	s.container = s.reader.keys.GetContainerAtIndex(s.highContainerIdx)
+
+	tagValueBucket, err := s.reader.offsets.GetBlock(s.highContainerIdx, s.entries)
+	if err != nil {
+		return err
+	}
+	lowKeyOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(tagValueBucket)
+	lowKeyOffsetsAt := len(tagValueBucket) - int(lowKeyOffsetsBlockLen) - uVariantEncodingLen
+	if uVariantEncodingLen <= 0 || lowKeyOffsetsAt <= 0 || lowKeyOffsetsAt >= len(tagValueBucket) {
+		return fmt.Errorf("read lowkey offsets error")
+	}
+	if _, err = s.lowKeyOffsets.Unmarshal(tagValueBucket[lowKeyOffsetsAt:]); err != nil {
+		return err
+	}
+	s.level3Block = tagValueBucket[:lowKeyOffsetsAt]
+	s.highContainerIdx++
+	return nil
 }
 
 // scan scans the data then merges the series ids into target series ids
 func (s *tagInvertedScanner) scan(highKey, lowTagValueID uint16, targetSeriesIDs *roaring.Bitmap) error {
 	if s.highKey < highKey {
-		if s.keyPos >= len(s.highKeys) {
+		if s.highContainerIdx >= len(s.highKeys) {
 			// current tag inverted no data can read
 			return nil
 		}
-		s.nextContainer()
+		if err := s.nextContainer(); err != nil {
+			return err
+		}
 	}
 	if highKey != s.highKey {
 		// high key not match, return it
@@ -172,11 +217,13 @@ func (s *tagInvertedScanner) scan(highKey, lowTagValueID uint16, targetSeriesIDs
 	// find data by low tag value id
 	if s.container.Contains(lowTagValueID) {
 		lowIdx := s.container.Rank(lowTagValueID)
-		seriesPos, _ := s.seriesOffsets.Get(lowIdx - 1)
-
+		bitmapBlock, err := s.lowKeyOffsets.GetBlock(lowIdx-1, s.level3Block)
+		if err != nil {
+			return err
+		}
 		// unmarshal series ids
 		seriesIDs := roaring.New()
-		if err := encoding.BitmapUnmarshal(seriesIDs, s.reader.buf[seriesPos:]); err != nil {
+		if err := encoding.BitmapUnmarshal(seriesIDs, bitmapBlock); err != nil {
 			return err
 		}
 		// merge the data into target series ids

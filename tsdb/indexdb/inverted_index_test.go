@@ -30,17 +30,17 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
 func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newInvertedReaderFunc = invertedindex.NewInvertedReader
+		newInvertedReaderFunc = tagindex.NewInvertedReader
 		ctrl.Finish()
 	}()
-	reader := invertedindex.NewMockInvertedReader(ctrl)
-	newInvertedReaderFunc = func(readers []table.Reader) invertedindex.InvertedReader {
+	reader := tagindex.NewMockInvertedReader(ctrl)
+	newInvertedReaderFunc = func(readers []table.Reader) tagindex.InvertedReader {
 		return reader
 	}
 
@@ -114,11 +114,11 @@ func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newForwardReaderFunc = invertedindex.NewForwardReader
+		newForwardReaderFunc = tagindex.NewForwardReader
 		ctrl.Finish()
 	}()
-	reader := invertedindex.NewMockForwardReader(ctrl)
-	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
+	reader := tagindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) tagindex.ForwardReader {
 		return reader
 	}
 
@@ -151,11 +151,11 @@ func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 func TestInvertedIndex_GetSeriesIDsForTag(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newForwardReaderFunc = invertedindex.NewForwardReader
+		newForwardReaderFunc = tagindex.NewForwardReader
 		ctrl.Finish()
 	}()
-	reader := invertedindex.NewMockForwardReader(ctrl)
-	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
+	reader := tagindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) tagindex.ForwardReader {
 		return reader
 	}
 
@@ -178,7 +178,7 @@ func TestInvertedIndex_GetSeriesIDsForTag(t *testing.T) {
 func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newForwardReaderFunc = invertedindex.NewForwardReader
+		newForwardReaderFunc = tagindex.NewForwardReader
 		ctrl.Finish()
 	}()
 
@@ -201,8 +201,8 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, ctx)
 	// case 3: get scanner from file err
-	reader := invertedindex.NewMockForwardReader(ctrl)
-	newForwardReaderFunc = func(readers []table.Reader) invertedindex.ForwardReader {
+	reader := tagindex.NewMockForwardReader(ctrl)
+	newForwardReaderFunc = func(readers []table.Reader) tagindex.ForwardReader {
 		return reader
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
@@ -221,19 +221,19 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newInvertedFlusherFunc = invertedindex.NewInvertedFlusher
-		newForwardFlusherFunc = invertedindex.NewForwardFlusher
+		newInvertedFlusherFunc = tagindex.NewInvertedFlusher
+		newForwardFlusherFunc = tagindex.NewForwardFlusher
 		ctrl.Finish()
 	}()
 	invertedFamily := kv.NewMockFamily(ctrl)
-	inverted := invertedindex.NewMockInvertedFlusher(ctrl)
-	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) invertedindex.InvertedFlusher {
-		return inverted
+	inverted := tagindex.NewMockInvertedFlusher(ctrl)
+	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.InvertedFlusher, error) {
+		return inverted, nil
 	}
 	forwardFamily := kv.NewMockFamily(ctrl)
-	forward := invertedindex.NewMockForwardFlusher(ctrl)
-	newForwardFlusherFunc = func(kvFlusher kv.Flusher) invertedindex.ForwardFlusher {
-		return forward
+	forward := tagindex.NewMockForwardFlusher(ctrl)
+	newForwardFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.ForwardFlusher, error) {
+		return forward, nil
 	}
 
 	meta := metadb.NewMockMetadata(ctrl)
@@ -262,7 +262,7 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 		forwardFamily.EXPECT().NewFlusher().Return(nil),
 		invertedFamily.EXPECT().NewFlusher().Return(nil),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-		forward.EXPECT().Commit().Return(fmt.Errorf("err")),
+		forward.EXPECT().Close().Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
 	assert.Error(t, err)
@@ -272,8 +272,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 		forwardFamily.EXPECT().NewFlusher().Return(nil),
 		invertedFamily.EXPECT().NewFlusher().Return(nil),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-		forward.EXPECT().Commit().Return(nil),
-		inverted.EXPECT().Commit().Return(fmt.Errorf("err")),
+		forward.EXPECT().Close().Return(nil),
+		inverted.EXPECT().Close().Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
 	assert.Error(t, err)
@@ -283,8 +283,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 		forwardFamily.EXPECT().NewFlusher().Return(nil),
 		invertedFamily.EXPECT().NewFlusher().Return(nil),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-		forward.EXPECT().Commit().Return(nil),
-		inverted.EXPECT().Commit().Return(nil),
+		forward.EXPECT().Close().Return(nil),
+		inverted.EXPECT().Close().Return(nil),
 	)
 	err = index.Flush()
 	assert.NoError(t, err)

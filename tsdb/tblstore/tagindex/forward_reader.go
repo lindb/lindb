@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"github.com/lindb/roaring"
@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/series"
 )
 
-//go:generate mockgen -source ./forward_reader.go -destination=./forward_reader_mock.go -package invertedindex
+//go:generate mockgen -source ./forward_reader.go -destination=./forward_reader_mock.go -package tagindex
 
 // ForwardReader represents read forward index data(series id=>tag value id)
 type ForwardReader interface {

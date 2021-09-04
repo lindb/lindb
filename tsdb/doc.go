@@ -121,16 +121,16 @@ Shard                  Shard
                    │ TagKey  │ TagKey  │ TagKey  │ Offsets │ Bitmap  │ Footer  │
                    │  Meta   │  Meta   │  Meta   │         │         │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /           \                  |         |         |         |
-                 /             \                 |          \        |         |
-                /                \              /            \       |         |
-               /                   \           /               \     |         |
-  +-----------+                     |        /                   \    \         \
- /                     Level2       |       |                     |    \         |
-v--------+--------+--------+--------v       v--------+---+--------v     v--------v
-│  Trie  │TagValue│ Offsets│ Footer │       │ Offset │...│ Offset │     │ TagKV  │
-│  Tree  │IDBitmap│        │        │       │        │   │        │     │ Bitmap │
-+--------+--------+--------+--------+       +--------+---+--------+     +--------+
+                  /           \                  |         |
+                 /             \                 |          \
+                /                \              /            \
+               /                   \           /               \
+  +-----------+                     |        /                   \
+ /                     Level2       |       |                     |
+v--------+--------+--------+--------v       v--------+---+--------v
+│  Trie  │TagValue│ Offsets│ Footer │       │ Offset │...│ Offset │
+│  Tree  │IDBitmap│        │        │       │        │   │        │
++--------+--------+--------+--------+       +--------+---+--------+
 
 
 Level1(KV table: TagKeyID -> TagKeyMeta data)
@@ -148,65 +148,40 @@ Level2(Footer)
 └──────────┴──────────┴──────────┴──────────┘
 
 
-━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric NameID Index Table━━━━━━━━━━━━━━━━━━━━━━━━
-Metric-NameID-Table is a gzip compressed k/v pairs of metricNames and metricIDs on disk.
-
-                   Level1
-                   +---------+---------+---------+---------+
-                   │ Metric  │  Meta   │ Index   │ Footer  │
-                   │ KVPair  │         │         │         │
-                   +---------+---------+---------+---------+
-
-Level1(Metric NameID KVPair)
-┌─────────────────────────────────────────────────────────────────┬─────────────────────┐
-│            Gzip Compressed Metric K/V pairs                     │  SequenceNumber     │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┼──────────┬──────────┤
-│MetricName│MetricName│ MetricID │MetricName│MetricName│ MetricID │ MetricID │ TagKeyID │
-│  Length  │          │          │  Length  │          │          │ Sequence │ Sequence │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ N Bytes  │ 4 Bytes  │ uvariant │ N Bytes  │ 4 Bytes  │ 4 Bytes  │ 4 Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-
-
-━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Meta Index Table━━━━━━━━━━━━━━━━━━━━━━━━
-Metric-Meta stores meta info for metric,
-such as tagKey, tagKeyID, fieldID, fieldName and fieldType etc.
+━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Inverted Index Table━━━━━━━━━━━━━━━━━━━━━━━━
 
                    Level1
                    +---------+---------+---------+---------+---------+---------+
-                   │ Metric  │ Metric  │ Metric  │ Metric  │ Metric  │ Footer  │
-                   │ Meta    │  Meta   │  Meta   │  Meta   │ Index   │         │
+                   │ Inverted│ Inverted│ Inverted│ Blocks  │ Blocks  │ Footer  │
+                   │ Block   │  Block  │  Block  │ Offsets │ Offsets │         │
                    +---------+---------+---------+---------+---------+---------+
-                  /         /          │         │\        +---------+
-                 /         +           |         │ +----------+       \
-                /          |           |         +-------+     \       \
-               /           |           |                  \     \       \
-  +-----------+            |           |                   \     \       \
- /                 Level2  |           |                    \     \       \
-v--------+--------+--------v           v--------+---+--------v     v-------v
-│ TagKey │  Field │ PosOf  │           │ Offset │...│ Offset │     │ Metric│
-│   Meta │  Meta  │ Field  │           │        │   │        │     │ Bitmap│
-+--------+--------+--------+           +--------+---+--------+     +-------+
+                  /          |
+                 /            \
+                /               \
+               /                  \
+  +-----------+                    +-------+
+ /                 Level2                   \
+v--------+--------+--------+--------+--------v
+│TagValue│TagValue│TagValue| HighKey│ Footer │
+│ Bucket │ Bucket │ Bitmap | Offsets│        │
++--------+--------+--------+--------+--------+
+|        |
+|        |         Level3
+v--------+--------+--------+--------v
+│SeriesID│SeriesID│ LowKey │Offsets │
+│ Bitmap │ Bitmap │ Offsets│Length  │
++--------+--------+--------+--------+
 
-Level2(TagKey Meta)
+
+Level2(Footer)
 ┌─────────────────────────────────────────────────────────────────┐
-│                       TagKey Meta                               │
+│                       Level2 Footer                            │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
 │  TagKey  │  TagKey  │ TagKeyID │  TagKey  │  TagKey  │  TagID   │
 │   Len    │          │          │   Len    │          │          │
 ├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
 │  1 Byte  │ N Bytes  │ 4 Bytes  │  1 Byte  │ N Bytes  │ 4 Bytes  │
 └──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
-
-Level2(Field Meta)
-┌───────────────────────────────────────────────────────────────────────────────────────┬──────────┐
-│                                    Field Meta                                         │          │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┼──────────┤
-│  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  Field   │  PosOf   │
-│   Len    │  Name    │  Type    │   ID     │   Len    │  Name    │  Type    │   ID     │  Field   │
-├──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┤
-│ uvariant │ N Bytes  │ 1 Byte   │ 2 Bytes  │ uvariant │ N Bytes  │  1 Byte  │ 2 Bytes  │ 4 Bytes  │
-└──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Data Table━━━━━━━━━━━━━━━━━━━━━━
