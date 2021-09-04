@@ -49,8 +49,15 @@ func NewStateMachineFactory(ctx context.Context,
 
 // Start starts related state machines for broker.
 func (f *StateMachineFactory) Start() (err error) {
+	f.logger.Debug("starting LiveNodeStateMachine")
+	sm, err := f.createStorageLiveNodeStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
 	f.logger.Debug("starting ShardAssignStateMachine")
-	sm, err := f.createShardAssignStateMachine()
+	sm, err = f.createShardAssignStateMachine()
 	if err != nil {
 		return err
 	}
@@ -78,5 +85,18 @@ func (f *StateMachineFactory) createShardAssignStateMachine() (discovery.StateMa
 		true,
 		f.stateMgr.OnShardAssignmentChange,
 		f.stateMgr.OnDatabaseDelete,
+	)
+}
+
+// createStorageLiveNodeStateMachine creates storage live node state machine.
+func (f *StateMachineFactory) createStorageLiveNodeStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.LiveNodeStateMachine,
+		f.discoveryFactory,
+		constants.LiveNodesPath,
+		true,
+		f.stateMgr.OnNodeStartup,
+		f.stateMgr.OnNodeFailure,
 	)
 }

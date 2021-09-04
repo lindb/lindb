@@ -19,6 +19,7 @@ package storage
 
 import (
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/lindb/lindb/models"
@@ -27,6 +28,8 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
+//go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
+
 type StateManager interface {
 	// OnNodeStartup triggers when node online.
 	OnNodeStartup(key string, data []byte)
@@ -34,14 +37,16 @@ type StateManager interface {
 	OnNodeFailure(key string)
 	OnShardAssignmentChange(key string, data []byte)
 	OnDatabaseDelete(key string)
+
+	GetLiveNode(nodeID models.NodeID) (models.StatefulNode, bool)
 }
 
 type stateManager struct {
 	engine  tsdb.Engine
 	current *models.StatefulNode
-	nodes   map[string]models.StatefulNode // storage live nodes
+	nodes   map[models.NodeID]models.StatefulNode // storage live nodes
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	logger *logger.Logger
 }
@@ -51,6 +56,7 @@ func NewStateManager(current *models.StatefulNode,
 	return &stateManager{
 		current: current,
 		engine:  engine,
+		nodes:   make(map[models.NodeID]models.StatefulNode),
 		logger:  logger.GetLogger("storage", "StateManager"),
 	}
 }
@@ -99,13 +105,10 @@ func (m *stateManager) OnNodeStartup(key string, data []byte) {
 		return
 	}
 
-	_, fileName := filepath.Split(key)
-	nodeID := fileName
-
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	m.nodes[nodeID] = *node
+	m.nodes[node.ID] = *node
 }
 
 func (m *stateManager) OnNodeFailure(key string) {
@@ -116,8 +119,22 @@ func (m *stateManager) OnNodeFailure(key string) {
 		logger.String("nodeID", nodeID),
 		logger.String("key", key))
 
+	id, err := strconv.ParseInt(nodeID, 10, 64)
+	if err != nil {
+		m.logger.Error("parse offline node id err", logger.Error(err))
+		return
+	}
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	delete(m.nodes, nodeID)
+	delete(m.nodes, models.NodeID(id))
+}
+
+func (m *stateManager) GetLiveNode(nodeID models.NodeID) (models.StatefulNode, bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	node, ok := m.nodes[nodeID]
+	return node, ok
 }

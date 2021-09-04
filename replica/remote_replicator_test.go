@@ -18,9 +18,12 @@
 package replica
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
@@ -35,19 +38,23 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		ctrl.Finish()
 	}()
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
+	stateMgr := storage.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true).AnyTimes()
 	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
 	q := queue.NewMockFanOut(ctrl)
 	fq := queue.NewMockFanOutQueue(ctrl)
 	q.EXPECT().Queue().Return(fq).AnyTimes()
 	rc := &ReplicatorChannel{
-		Database: "test",
-		ShardID:  0,
-		Queue:    q,
-		From:     1,
-		To:       2,
+		State: &models.ReplicaState{
+			Database: "test",
+			ShardID:  0,
+			Leader:   1,
+			Follower: 2,
+		},
+		Queue: q,
 	}
 
-	r := NewRemoteReplicator(rc, cliFct)
+	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 	r1 := r.(*remoteReplicator)
 	// case 1: replicator is ready
 	r1.state = ReplicatorReadyState
@@ -76,7 +83,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	}, nil)
 	assert.True(t, r.IsReady())
 	// case 6: remote replica ack index < current smallest ack, but reset remote replica index err
-	r = NewRemoteReplicator(rc, cliFct)
+	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 	fq.EXPECT().HeadSeq().Return(int64(10))
 	q.EXPECT().HeadSeq().Return(int64(12))
 	q.EXPECT().TailSeq().Return(int64(13))
@@ -86,7 +93,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	assert.False(t, r.IsReady())
 	// case 7: remote replica ack index < current smallest ack, reset success
-	r = NewRemoteReplicator(rc, cliFct)
+	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 	fq.EXPECT().HeadSeq().Return(int64(10))
 	q.EXPECT().HeadSeq().Return(int64(12))
 	q.EXPECT().TailSeq().Return(int64(13))
@@ -97,7 +104,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	q.EXPECT().SetHeadSeq(int64(11))
 	assert.True(t, r.IsReady())
 	// case 8: remote replica ack index > current append index, maybe leader lost data.
-	r = NewRemoteReplicator(rc, cliFct)
+	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 	fq.EXPECT().HeadSeq().Return(int64(5))
 	q.EXPECT().HeadSeq().Return(int64(12))
 	q.EXPECT().TailSeq().Return(int64(9))
@@ -115,16 +122,19 @@ func TestRemoteReplicator_Replica(t *testing.T) {
 		ctrl.Finish()
 	}()
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
+	stateMgr := storage.NewMockStateManager(ctrl)
 	q := queue.NewMockFanOut(ctrl)
 	rc := &ReplicatorChannel{
-		Database: "test",
-		ShardID:  0,
-		Queue:    q,
-		From:     1,
-		To:       2,
+		State: &models.ReplicaState{
+			Database: "test",
+			ShardID:  0,
+			Leader:   1,
+			Follower: 2,
+		},
+		Queue: q,
 	}
 
-	r := NewRemoteReplicator(rc, cliFct)
+	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 	r1 := r.(*remoteReplicator)
 	cli := protoReplicaV1.NewMockReplicaService_ReplicaClient(ctrl)
 	r1.replicaStream = cli

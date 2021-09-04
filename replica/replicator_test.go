@@ -20,15 +20,19 @@ package replica
 import (
 	"testing"
 
+	"github.com/lindb/lindb/models"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReplicator_String(t *testing.T) {
 	r := NewReplicator(&ReplicatorChannel{
-		Database: "test",
-		ShardID:  1,
-		From:     1,
-		To:       2,
+		State: &models.ReplicaState{
+			Database: "test",
+			ShardID:  1,
+			Leader:   1,
+			Follower: 2,
+		},
 	})
-	assert.Equal(t, "[database:test,shard:1,from:1,to:2]", r.String())
+	assert.Equal(t, "[database:test,shard:1,from(leader):1,to(follower):2]", r.String())
 }
