@@ -18,10 +18,12 @@
 package replica
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
@@ -48,33 +50,41 @@ type Partition interface {
 	ReplicaLog(replicaIdx int64, msg []byte) (int64, error)
 	// WriteLog writes msg that leader handle client writeTask request.
 	WriteLog(msg []byte) error
+	// ReplicaAckIndex returns the index which replica appended index.
+	ReplicaAckIndex() int64
+	ResetReplicaIndex(idx int64)
 }
 
 // partition implements  Partition interface.
 type partition struct {
-	database      string
+	ctx           context.Context
 	currentNodeID models.NodeID
 	log           queue.FanOutQueue
 	shardID       models.ShardID
 	shard         tsdb.Shard
 	peers         map[string]ReplicatorPeer
 	cliFct        rpc.ClientStreamFactory
+	stateMgr      storage.StateManager
 
 	mutex sync.Mutex
 }
 
 // NewPartition creates a writeTask ahead log partition.
-func NewPartition(shardID models.ShardID, shard tsdb.Shard,
+func NewPartition(ctx context.Context,
+	shardID models.ShardID, shard tsdb.Shard,
 	currentNodeID models.NodeID,
 	log queue.FanOutQueue,
 	cliFct rpc.ClientStreamFactory,
+	stateMgr storage.StateManager,
 ) Partition {
 	return &partition{
+		ctx:           ctx,
 		log:           log,
 		shardID:       shardID,
 		shard:         shard,
 		currentNodeID: currentNodeID,
 		cliFct:        cliFct,
+		stateMgr:      stateMgr,
 		peers:         make(map[string]ReplicatorPeer),
 	}
 }
@@ -90,6 +100,14 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 		return -1, err
 	}
 	return appendIdx, nil
+}
+
+func (p *partition) ReplicaAckIndex() int64 {
+	return p.log.HeadSeq() - 1
+}
+
+func (p *partition) ResetReplicaIndex(idx int64) {
+	p.log.SetAppendSeq(idx)
 }
 
 // WriteLog writes msg that leader send replica msg.
@@ -160,18 +178,20 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 	}
 	var replicator Replicator
 	channel := ReplicatorChannel{
-		Database: p.database,
-		ShardID:  p.shardID,
-		Queue:    walConsumer,
-		From:     leader,
-		To:       replica,
+		State: &models.ReplicaState{
+			Database: p.shard.DatabaseName(),
+			ShardID:  p.shardID,
+			Leader:   leader,
+			Follower: replica,
+		},
+		Queue: walConsumer,
 	}
 	if replica == p.currentNodeID {
 		// local replicator
 		replicator = newLocalReplicatorFn(&channel, p.shard)
 	} else {
 		// build remote replicator
-		replicator = newRemoteReplicatorFn(&channel, p.cliFct)
+		replicator = newRemoteReplicatorFn(p.ctx, &channel, p.stateMgr, p.cliFct)
 	}
 
 	// startup replicator peer

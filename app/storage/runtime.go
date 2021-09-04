@@ -161,6 +161,7 @@ func (r *runtime) Run() error {
 	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
+	r.stateMgr = storage.NewStateManager(r.node, engine)
 
 	// start tcp server
 	r.startTCPServer()
@@ -179,8 +180,6 @@ func (r *runtime) Run() error {
 		return err
 	}
 	discoveryFactory := discovery.NewFactory(r.repo)
-
-	r.stateMgr = storage.NewStateManager(r.node, engine)
 	// finally start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 
@@ -380,9 +379,13 @@ func (r *runtime) bindRPCHandlers() {
 	)
 
 	//TODO modify
-	walMgr := replica.NewWriteAheadLogManager(r.config.StorageBase.WAL,
+	walMgr := replica.NewWriteAheadLogManager(
+		r.ctx,
+		r.config.StorageBase.WAL,
 		r.node.ID, r.engine,
-		rpc.NewClientStreamFactory(r.node))
+		rpc.NewClientStreamFactory(r.node),
+		r.stateMgr,
+	)
 	r.rpcHandler = &rpcHandler{
 		replica: handler.NewReplicaHandler(walMgr, r.engine),
 		task: query.NewTaskHandler(

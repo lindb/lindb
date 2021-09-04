@@ -104,9 +104,9 @@ func (r *replicator) SetAckIndex(ackIdx int64) {
 
 func (r *replicator) String() string {
 	return "[" +
-		"database:" + r.channel.Database +
-		",shard:" + strconv.Itoa(int(r.channel.ShardID)) +
-		",from:" + strconv.Itoa(int(r.channel.From)) +
-		",to:" + strconv.Itoa(int(r.channel.To)) +
+		"database:" + r.channel.State.Database +
+		",shard:" + strconv.Itoa(int(r.channel.State.ShardID)) +
+		",from(leader):" + strconv.Itoa(int(r.channel.State.Leader)) +
+		",to(follower):" + strconv.Itoa(int(r.channel.State.Follower)) +
 		"]"
 }

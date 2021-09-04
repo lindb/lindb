@@ -21,7 +21,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
@@ -30,6 +32,7 @@ import (
 type remoteReplicator struct {
 	replicator
 
+	ctx   context.Context
 	state ReplicatorState
 
 	//inFlight *InFlightReplica
@@ -37,6 +40,7 @@ type remoteReplicator struct {
 	cliFct        rpc.ClientStreamFactory
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
+	stateMgr      storage.StateManager
 
 	rwMutex sync.RWMutex
 
@@ -44,16 +48,20 @@ type remoteReplicator struct {
 }
 
 // NewRemoteReplicator creates remote replicator.
-func NewRemoteReplicator(channel *ReplicatorChannel,
+func NewRemoteReplicator(ctx context.Context,
+	channel *ReplicatorChannel,
+	stateMgr storage.StateManager,
 	cliFct rpc.ClientStreamFactory,
 ) Replicator {
 	return &remoteReplicator{
+		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
 		},
-		cliFct: cliFct,
-		state:  ReplicatorInitState,
-		logger: logger.GetLogger("replica", "RemoteReplicator"),
+		cliFct:   cliFct,
+		stateMgr: stateMgr,
+		state:    ReplicatorInitState,
+		logger:   logger.GetLogger("replica", "RemoteReplicator"),
 	}
 }
 
@@ -74,16 +82,24 @@ func (r *remoteReplicator) IsReady() bool {
 	// replicator is not ready, need do init like tcp three-way handshake
 	defer r.rwMutex.Unlock()
 
-	//TODO check node is alive
+	node, ok := r.stateMgr.GetLiveNode(r.replicator.channel.State.Follower)
+	if !ok {
+		r.logger.Warn("follower node is offline")
+		return false
+	}
 	//TODO close cli/stream if re-connect???
-	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&models.StatefulNode{})
+	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
 		//TODO add metric
 		r.logger.Warn("create replica service client err", logger.Error(err))
 		return false
 	}
 	r.replicaCli = replicaCli
-	r.replicaStream, err = replicaCli.Replica(context.TODO()) //TODO add timeout ??
+	// pass metadata(database/shard state) when create rpc connection.
+	replicaState := encoding.JSONMarshal(&r.channel.State)
+	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
+		constants.RPCMetaReplicaState, string(replicaState))
+	r.replicaStream, err = replicaCli.Replica(ctx) //TODO add timeout ??
 	if err != nil {
 		//TODO add metric
 		r.logger.Warn("create replica service client stream err", logger.Error(err))
@@ -117,9 +133,9 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		// send reset index request
 		_, err := r.replicaCli.Reset(context.TODO(), &protoReplicaV1.ResetIndexRequest{
-			Database:    r.channel.Database,
-			Shard:       int32(r.channel.ShardID),
-			Leader:      int32(r.channel.From),
+			Database:    r.channel.State.Database,
+			Shard:       int32(r.channel.State.ShardID),
+			Leader:      int32(r.channel.State.Leader),
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
@@ -169,9 +185,9 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
 	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &protoReplicaV1.GetReplicaAckIndexRequest{
-		Database: r.channel.Database,
-		Shard:    int32(r.channel.ShardID),
-		Leader:   int32(r.channel.From),
+		Database: r.channel.State.Database,
+		Shard:    int32(r.channel.State.ShardID),
+		Leader:   int32(r.channel.State.Leader),
 	})
 	if err != nil {
 		return 0, err

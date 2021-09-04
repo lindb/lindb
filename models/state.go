@@ -33,8 +33,10 @@ const (
 
 const NoLeader NodeID = -1
 
-type ReplicatorState struct {
-	ID       ShardID `json:"id"`
+// ReplicaState represents the relationship for a replica.
+type ReplicaState struct {
+	Database string  `json:"database"`
+	ShardID  ShardID `json:"shardId"`
 	Leader   NodeID  `json:"leader"`
 	Follower NodeID  `json:"follower"`
 }
