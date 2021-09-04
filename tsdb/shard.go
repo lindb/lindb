@@ -49,8 +49,8 @@ import (
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
+	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -870,7 +870,7 @@ func (s *shard) initIndexDatabase() error {
 		forwardIndexDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
-			Merger:           string(invertedindex.SeriesForwardMerger)})
+			Merger:           string(tagindex.SeriesForwardMerger)})
 	if err != nil {
 		return err
 	}
@@ -878,7 +878,7 @@ func (s *shard) initIndexDatabase() error {
 		invertedIndexDir,
 		kv.FamilyOption{
 			CompactThreshold: 0,
-			Merger:           string(invertedindex.SeriesInvertedMerger)})
+			Merger:           string(tagindex.SeriesInvertedMerger)})
 	if err != nil {
 		return err
 	}

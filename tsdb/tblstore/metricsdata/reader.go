@@ -205,13 +205,13 @@ func (r *metricReader) initReader() error {
 	}
 	// read footer(2+2+4+4+4+4)
 	footerPos := len(r.metricBlock) - dataFooterSize
-	r.timeRange.Start = stream.ReadUint16(r.metricBlock, footerPos)
-	r.timeRange.End = stream.ReadUint16(r.metricBlock, footerPos+2)
+	r.timeRange.Start = binary.LittleEndian.Uint16(r.metricBlock[footerPos : footerPos+2])
+	r.timeRange.End = binary.LittleEndian.Uint16(r.metricBlock[footerPos+2 : footerPos+4])
 
-	fieldMetaStartPos := int(stream.ReadUint32(r.metricBlock, footerPos+4))
-	seriesIDsStartPos := int(stream.ReadUint32(r.metricBlock, footerPos+8))
-	highKeyOffsetsPos := int(stream.ReadUint32(r.metricBlock, footerPos+12))
-	r.crc32CheckSum = stream.ReadUint32(r.metricBlock, footerPos+16)
+	fieldMetaStartPos := int(binary.LittleEndian.Uint32(r.metricBlock[footerPos+4 : footerPos+8]))
+	seriesIDsStartPos := int(binary.LittleEndian.Uint32(r.metricBlock[footerPos+8 : footerPos+12]))
+	highKeyOffsetsPos := int(binary.LittleEndian.Uint32(r.metricBlock[footerPos+12 : footerPos+16]))
+	r.crc32CheckSum = binary.LittleEndian.Uint32(r.metricBlock[footerPos+16 : footerPos+20])
 	// validate offsets
 	if !sort.IntsAreSorted([]int{
 		0, fieldMetaStartPos, fieldMetaStartPos + 2, seriesIDsStartPos, highKeyOffsetsPos, footerPos,
@@ -279,7 +279,7 @@ func newDataScanner(r MetricReader) (*dataScanner, error) {
 		lowKeyOffsets: encoding.NewFixedOffsetDecoder(),
 	}
 	if len(s.highKeys) == 0 {
-		return nil, fmt.Errorf("seriesID bitmap are empty")
+		return nil, fmt.Errorf("seriesID bitmap is empty")
 	}
 	return s, s.nextContainer()
 }

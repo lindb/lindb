@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"fmt"
@@ -155,9 +155,10 @@ func buildForwardReader(ctrl *gomock.Controller) ForwardReader {
 
 func buildForwardBlock() (block []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
-	forwardFlusher := NewForwardFlusher(nopKVFlusher)
-	forwardFlusher.FlushForwardIndex([]uint32{1, 2, 3, 4})
-	forwardFlusher.FlushForwardIndex([]uint32{10, 20, 30, 40})
-	_ = forwardFlusher.FlushTagKeyID(10, roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40))
+	forwardFlusher, _ := NewForwardFlusher(nopKVFlusher)
+	forwardFlusher.PrepareTagKey(10)
+	_ = forwardFlusher.FlushForwardIndex([]uint32{1, 2, 3, 4})
+	_ = forwardFlusher.FlushForwardIndex([]uint32{10, 20, 30, 40})
+	_ = forwardFlusher.CommitTagKey(roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40))
 	return nopKVFlusher.Bytes()
 }

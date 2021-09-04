@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"github.com/lindb/roaring"
@@ -33,21 +33,20 @@ func init() {
 // forwardMerger implements kv.Merger for merging forward index data for each tag key
 type forwardMerger struct {
 	forwardFlusher ForwardFlusher
-	flusher        *kv.NopFlusher
 	kvFlusher      kv.Flusher
 }
 
-func (m *forwardMerger) Init(params map[string]interface{}) {
-	// do nothing
-}
+func (m *forwardMerger) Init(_ map[string]interface{}) {}
 
 // NewForwardMerger creates a forward merger
 func NewForwardMerger(flusher kv.Flusher) (kv.Merger, error) {
-	nopFlusher := kv.NewNopFlusher()
+	forwardFlusher, err := NewForwardFlusher(flusher)
+	if err != nil {
+		return nil, err
+	}
 	return &forwardMerger{
 		kvFlusher:      flusher,
-		flusher:        nopFlusher,
-		forwardFlusher: NewForwardFlusher(nopFlusher),
+		forwardFlusher: forwardFlusher,
 	}, nil
 }
 
@@ -67,6 +66,8 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) error {
 
 	// 2. merge forward index by roaring container
 	highKeys := seriesIDs.GetHighKeys()
+	m.forwardFlusher.PrepareTagKey(key)
+
 	for idx, highKey := range highKeys {
 		container := seriesIDs.GetContainerAtIndex(idx)
 		it := container.PeekableIterator()
@@ -79,11 +80,10 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) error {
 			}
 		}
 		// flush tag value ids by one container
-		m.forwardFlusher.FlushForwardIndex(tagValueIDs)
+		if err := m.forwardFlusher.FlushForwardIndex(tagValueIDs); err != nil {
+			return err
+		}
 	}
 	// flush all series ids under this tag key
-	if err := m.forwardFlusher.FlushTagKeyID(key, seriesIDs); err != nil {
-		return err
-	}
-	return m.kvFlusher.Add(key, m.flusher.Bytes())
+	return m.forwardFlusher.CommitTagKey(seriesIDs)
 }

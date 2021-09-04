@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"fmt"
@@ -57,7 +57,8 @@ func TestForwardMerger_Merge(t *testing.T) {
 	m := merge.(*forwardMerger)
 	m.forwardFlusher = flusher
 	flusher.EXPECT().FlushForwardIndex(gomock.Any()).AnyTimes()
-	flusher.EXPECT().FlushTagKeyID(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	flusher.EXPECT().PrepareTagKey(gomock.Any()).AnyTimes()
+	flusher.EXPECT().CommitTagKey(gomock.Any()).Return(fmt.Errorf("err"))
 	err = merge.Merge(1, mockMergeForwardBlock())
 	assert.Error(t, err)
 	assert.Nil(t, nopFlusher2.Bytes())
@@ -65,18 +66,20 @@ func TestForwardMerger_Merge(t *testing.T) {
 
 func mockMergeForwardBlock() (block [][]byte) {
 	nopKVFlusher1 := kv.NewNopFlusher()
-	forwardFlusher := NewForwardFlusher(nopKVFlusher1)
-	forwardFlusher.FlushForwardIndex([]uint32{1, 3})
-	forwardFlusher.FlushForwardIndex([]uint32{10, 20})
-	_ = forwardFlusher.FlushTagKeyID(10, roaring.BitmapOf(1, 3, 65535+10, 65535+20))
+	forwardFlusher, _ := NewForwardFlusher(nopKVFlusher1)
+	forwardFlusher.PrepareTagKey(10)
+	_ = forwardFlusher.FlushForwardIndex([]uint32{1, 3})
+	_ = forwardFlusher.FlushForwardIndex([]uint32{10, 20})
+	_ = forwardFlusher.CommitTagKey(roaring.BitmapOf(1, 3, 65535+10, 65535+20))
 	block = append(block, nopKVFlusher1.Bytes())
 
 	// create new nop flusher, because under nop flusher share buffer
 	nopKVFlusher2 := kv.NewNopFlusher()
-	forwardFlusher = NewForwardFlusher(nopKVFlusher2)
-	forwardFlusher.FlushForwardIndex([]uint32{2, 4})
-	forwardFlusher.FlushForwardIndex([]uint32{30, 40})
-	_ = forwardFlusher.FlushTagKeyID(10, roaring.BitmapOf(2, 4, 65535+30, 65535+40))
+	forwardFlusher, _ = NewForwardFlusher(nopKVFlusher2)
+	forwardFlusher.PrepareTagKey(10)
+	_ = forwardFlusher.FlushForwardIndex([]uint32{2, 4})
+	_ = forwardFlusher.FlushForwardIndex([]uint32{30, 40})
+	_ = forwardFlusher.CommitTagKey(roaring.BitmapOf(2, 4, 65535+30, 65535+40))
 	block = append(block, nopKVFlusher2.Bytes())
 	return
 }
