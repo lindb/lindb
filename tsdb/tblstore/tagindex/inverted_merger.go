@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"github.com/lindb/roaring"
@@ -34,24 +34,22 @@ func init() {
 // invertedMerger implements kv.Merger for merging inverted index data for each tag key
 type invertedMerger struct {
 	invertedFlusher InvertedFlusher
-	nopFlusher      *kv.NopFlusher
 	kvFlusher       kv.Flusher
-	// todo: @codingcrush use streaming flush
 }
 
 // NewInvertedMerger creates a inverted merger
 func NewInvertedMerger(flusher kv.Flusher) (kv.Merger, error) {
-	nopFlusher := kv.NewNopFlusher()
+	iFlusher, err := NewInvertedFlusher(flusher)
+	if err != nil {
+		return nil, err
+	}
 	return &invertedMerger{
 		kvFlusher:       flusher,
-		nopFlusher:      nopFlusher,
-		invertedFlusher: NewInvertedFlusher(nopFlusher),
+		invertedFlusher: iFlusher,
 	}, nil
 }
 
-func (m *invertedMerger) Init(params map[string]interface{}) {
-	// do nothing
-}
+func (m *invertedMerger) Init(_ map[string]interface{}) {}
 
 // Merge merges the multi inverted index data into a inverted index for same tag key id
 func (m *invertedMerger) Merge(key uint32, values [][]byte) error {
@@ -64,9 +62,14 @@ func (m *invertedMerger) Merge(key uint32, values [][]byte) error {
 			return err
 		}
 		targetTagValueIDs.Or(reader.keys)
-		scanners = append(scanners, newTagInvertedScanner(reader))
+		newScanner, err := newTagInvertedScanner(reader)
+		if err != nil {
+			return err
+		}
+		scanners = append(scanners, newScanner)
 	}
 
+	m.invertedFlusher.PrepareTagKey(key)
 	// 2. merge inverted index by roaring container
 	highKeys := targetTagValueIDs.GetHighKeys()
 	seriesIDs := roaring.New()
@@ -91,8 +94,5 @@ func (m *invertedMerger) Merge(key uint32, values [][]byte) error {
 			seriesIDs.Clear() // clear target series ids
 		}
 	}
-	if err := m.invertedFlusher.FlushTagKeyID(key); err != nil {
-		return err
-	}
-	return m.kvFlusher.Add(key, m.nopFlusher.Bytes())
+	return m.invertedFlusher.CommitTagKey()
 }

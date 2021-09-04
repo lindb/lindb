@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package invertedindex
+package tagindex
 
 import (
 	"fmt"
@@ -32,10 +32,7 @@ import (
 
 func TestInvertedMerger_Merge(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		encoding.BitmapUnmarshal = bitmapUnmarshal
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	nopFlusher := kv.NewNopFlusher()
 	merge, _ := NewInvertedMerger(nopFlusher)
@@ -61,13 +58,15 @@ func TestInvertedMerger_Merge(t *testing.T) {
 	flusher := NewMockInvertedFlusher(ctrl)
 	m := merge.(*invertedMerger)
 	m.invertedFlusher = flusher
+	flusher.EXPECT().PrepareTagKey(gomock.Any()).Return()
 	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = merge.Merge(3, mockInvertedMergeData())
 	assert.Error(t, err)
 	assert.Len(t, nopFlusher.Bytes(), 0)
 	// case 4: flush tag data err
+	flusher.EXPECT().PrepareTagKey(gomock.Any()).Return().AnyTimes()
 	flusher.EXPECT().FlushInvertedIndex(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	flusher.EXPECT().FlushTagKeyID(gomock.Any()).Return(fmt.Errorf("err"))
+	flusher.EXPECT().CommitTagKey().Return(fmt.Errorf("err"))
 	err = merge.Merge(4, mockInvertedMergeData())
 	assert.Error(t, err)
 	assert.Len(t, nopFlusher.Bytes(), 0)
@@ -88,7 +87,7 @@ func TestInvertedMerger_Merge(t *testing.T) {
 
 func mockInvertedMergeData() (data [][]byte) {
 	nopKVFlusher := kv.NewNopFlusher()
-	seriesFlusher := NewInvertedFlusher(nopKVFlusher)
+	seriesFlusher, _ := NewInvertedFlusher(nopKVFlusher)
 	zoneMapping := map[uint32]*roaring.Bitmap{
 		1: roaring.BitmapOf(1),
 		2: roaring.BitmapOf(2),
@@ -109,23 +108,23 @@ func mockInvertedMergeData() (data [][]byte) {
 			_ = seriesFlusher.FlushInvertedIndex(tagValueID, mapping[tagValueID])
 		}
 	}
+	seriesFlusher.PrepareTagKey(20)
 	flush([]uint32{1, 2, 3}, zoneMapping)
-	_ = seriesFlusher.FlushTagKeyID(20)
-	data = append(data, nopKVFlusher.Bytes())
+	_ = seriesFlusher.CommitTagKey()
+	data = append(data, append([]byte{}, nopKVFlusher.Bytes()...))
+	seriesFlusher.PrepareTagKey(22)
 	flush([]uint32{1, 3, 4, 5, 6, 7, 8000000, 9000000}, hostMapping)
 	// pick the hostBlock buffer
-	_ = seriesFlusher.FlushTagKeyID(22)
-	data = append(data, nopKVFlusher.Bytes())
+	_ = seriesFlusher.CommitTagKey()
+	data = append(data, append([]byte{}, nopKVFlusher.Bytes()...))
 	return data
 }
 
 func TestInvertedMerger_Merge_same_tagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		encoding.BitmapUnmarshal = bitmapUnmarshal
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
+	encoding.BitmapUnmarshal = bitmapUnmarshal
 	nopFlusher := kv.NewNopFlusher()
 	merge, _ := NewInvertedMerger(nopFlusher)
 	merge.Init(nil)
@@ -141,7 +140,7 @@ func TestInvertedMerger_Merge_same_tagValues(t *testing.T) {
 		}),
 	})
 	assert.NoError(t, err)
-	reader, err := newTagInvertedReader(nopFlusher.Bytes())
+	reader, err := newTagInvertedReader(append([]byte{}, nopFlusher.Bytes()...))
 	assert.NoError(t, err)
 	assert.EqualValues(t, roaring.BitmapOf(1, 2, 3, 4).ToArray(), reader.keys.ToArray())
 	seriesIDs, _ := reader.getSeriesIDsByTagValueIDs(roaring.BitmapOf(1))
@@ -162,13 +161,14 @@ func TestInvertedMerger_Merge_same_tagValues(t *testing.T) {
 
 func mockInvertedData(tagKeyID uint32, tagValueIDs []uint32, tagValues map[uint32]*roaring.Bitmap) (data []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
-	seriesFlusher := NewInvertedFlusher(nopKVFlusher)
+	seriesFlusher, _ := NewInvertedFlusher(nopKVFlusher)
 	flush := func(tagValueIDs []uint32, mapping map[uint32]*roaring.Bitmap) {
 		for _, tagValueID := range tagValueIDs {
 			_ = seriesFlusher.FlushInvertedIndex(tagValueID, mapping[tagValueID])
 		}
 	}
+	seriesFlusher.PrepareTagKey(tagKeyID)
 	flush(tagValueIDs, tagValues)
-	_ = seriesFlusher.FlushTagKeyID(tagKeyID)
+	_ = seriesFlusher.CommitTagKey()
 	return nopKVFlusher.Bytes()
 }

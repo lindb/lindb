@@ -21,7 +21,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/tsdb/tblstore/invertedindex"
+	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
 //go:generate mockgen -source ./tag_index.go -destination=./tag_index_mock.go -package=indexdb
@@ -40,7 +40,7 @@ type TagIndex interface {
 	getAllSeriesIDs() *roaring.Bitmap
 	// flush flushes tag index under spec tag key,
 	// write series ids of tag key level with constants.TagValueIDForTag
-	flush(tagKeyID uint32, forward invertedindex.ForwardFlusher, inverted invertedindex.InvertedFlusher) error
+	flush(tagKeyID uint32, forward tagindex.ForwardFlusher, inverted tagindex.InvertedFlusher) error
 }
 
 // memGroupingScanner implements series.GroupingScanner for memory tag index
@@ -132,20 +132,26 @@ func (index *tagIndex) getValues() *InvertedStore {
 
 // flush flushes tag index under spec tag key,
 // write series ids of tag key level with constants.TagValueIDForTag
-func (index *tagIndex) flush(tagKeyID uint32,
-	forward invertedindex.ForwardFlusher, inverted invertedindex.InvertedFlusher,
+func (index *tagIndex) flush(
+	tagKeyID uint32,
+	forward tagindex.ForwardFlusher,
+	inverted tagindex.InvertedFlusher,
 ) error {
+	forward.PrepareTagKey(tagKeyID)
+	inverted.PrepareTagKey(tagKeyID)
 	for _, tagValueIDs := range index.forward.values {
-		forward.FlushForwardIndex(tagValueIDs)
+		if err := forward.FlushForwardIndex(tagValueIDs); err != nil {
+			return err
+		}
 	}
-	if err := forward.FlushTagKeyID(tagKeyID, index.forward.keys); err != nil {
+	if err := forward.CommitTagKey(index.forward.keys); err != nil {
 		return err
 	}
 	// write each tag value series ids
 	if err := index.inverted.WalkEntry(inverted.FlushInvertedIndex); err != nil {
 		return err
 	}
-	if err := inverted.FlushTagKeyID(tagKeyID); err != nil {
+	if err := inverted.CommitTagKey(); err != nil {
 		return err
 	}
 	return nil
