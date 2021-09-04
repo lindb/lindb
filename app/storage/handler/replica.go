@@ -55,33 +55,46 @@ func NewReplicaHandler(
 }
 
 // GetReplicaAckIndex returns current replica ack index.
-func (r *ReplicaHandler) GetReplicaAckIndex(ctx context.Context,
-	req *protoReplicaV1.GetReplicaAckIndexRequest,
+func (r *ReplicaHandler) GetReplicaAckIndex(_ context.Context,
+	request *protoReplicaV1.GetReplicaAckIndexRequest,
 ) (*protoReplicaV1.GetReplicaAckIndexResponse, error) {
-	panic("implement me")
+	p, err := r.getOrCreatePartition(request.Database, models.ShardID(request.Shard))
+	if err != nil {
+		r.logger.Error("get or create wal partition err, when do get replica ack index", logger.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &protoReplicaV1.GetReplicaAckIndexResponse{
+		AckIndex: p.ReplicaAckIndex(),
+	}, nil
 }
 
 // Reset resets replica index.
-func (r *ReplicaHandler) Reset(ctx context.Context,
+func (r *ReplicaHandler) Reset(_ context.Context,
 	request *protoReplicaV1.ResetIndexRequest,
 ) (*protoReplicaV1.ResetIndexResponse, error) {
-	panic("implement me")
+	p, err := r.getOrCreatePartition(request.Database, models.ShardID(request.Shard))
+	if err != nil {
+		r.logger.Error("get or create wal partition err, when do reset replica index", logger.Error(err))
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	p.ResetReplicaIndex(request.AppendIndex)
+	return &protoReplicaV1.ResetIndexResponse{}, nil
 }
 
 // Replica does replica request, and writes data.
 func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaServer) error {
-	database, shardID, leader, follower, err := r.getFollowerInfoFromCtx(server.Context())
+	replicaState, err := r.getReplicaStateFromCtx(server.Context())
 	if err != nil {
-		r.logger.Error("get param err", logger.Error(err))
+		r.logger.Error("get replica state err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	p, err := r.getOrCreatePartition(database, shardID)
+	p, err := r.getOrCreatePartition(replicaState.Database, replicaState.ShardID)
 	if err != nil {
-		r.logger.Error("create wal partition err", logger.Error(err))
+		r.logger.Error("get or create wal partition err, when do replica", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = p.BuildReplicaForFollower(leader, follower)
+	err = p.BuildReplicaForFollower(replicaState.Leader, replicaState.Follower)
 	if err != nil {
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
@@ -126,7 +139,7 @@ func (r *ReplicaHandler) Write(server protoReplicaV1.ReplicaService_WriteServer)
 
 	p, err := r.getOrCreatePartition(database, shardState.ID)
 	if err != nil {
-		r.logger.Error("create wal partition err", logger.Error(err))
+		r.logger.Error("get or create wal partition err, when do write", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
 	err = p.BuildReplicaForLeader(shardState.Leader, shardState.Replica.Replicas)
@@ -177,9 +190,16 @@ func (r *ReplicaHandler) getReplicasInfoFromCtx(ctx context.Context) (database s
 	return
 }
 
-// getFollowerInfoFromCtx gets follower metadata from rpc context.
-func (r *ReplicaHandler) getFollowerInfoFromCtx(ctx context.Context) (database string, shardID models.ShardID,
-	leader models.NodeID, replica models.NodeID, err error) {
+// getReplicaStateFromCtx gets replica relationship metadata from rpc context.
+func (r *ReplicaHandler) getReplicaStateFromCtx(ctx context.Context) (replicatorState models.ReplicaState, err error) {
+	replicaStateData, err := rpc.GetStringFromContext(ctx, constants.RPCMetaReplicaState)
+	if err != nil {
+		return
+	}
+	err = encoding.JSONUnmarshal([]byte(replicaStateData), &replicatorState)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -188,7 +208,6 @@ func (r *ReplicaHandler) getOrCreatePartition(database string, shardID models.Sh
 	wal := r.walMgr.GetOrCreateLog(database)
 	p, err := wal.GetOrCreatePartition(shardID)
 	if err != nil {
-		r.logger.Error("create wal partition err", logger.Error(err))
 		return nil, err
 	}
 	return p, nil

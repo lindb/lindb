@@ -21,4 +21,5 @@ const (
 	RPCMetaKeyLogicNode  = "LogicNode"
 	RPCMetaKeyDatabase   = "Database"
 	RPCMetaKeyShardState = "ShardState"
+	RPCMetaReplicaState  = "ReplicaState"
 )

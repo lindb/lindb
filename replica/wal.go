@@ -18,12 +18,14 @@
 package replica
 
 import (
+	"context"
 	"errors"
 	"path"
 	"strconv"
 	"sync"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
@@ -54,27 +56,33 @@ type WriteAheadLog interface {
 
 // writeAheadLogManager implements WriteAheadLogManager.
 type writeAheadLogManager struct {
+	ctx           context.Context
 	cfg           config.WAL
 	currentNodeID models.NodeID
 	databaseLogs  map[string]WriteAheadLog
 	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
+	stateMgr      storage.StateManager
 
 	mutex sync.Mutex
 }
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.
 func NewWriteAheadLogManager(
+	ctx context.Context,
 	cfg config.WAL,
 	currentNodeID models.NodeID,
 	engine tsdb.Engine,
 	cliFct rpc.ClientStreamFactory,
+	stateMgr storage.StateManager,
 ) WriteAheadLogManager {
 	return &writeAheadLogManager{
+		ctx:           ctx,
 		cfg:           cfg,
 		currentNodeID: currentNodeID,
 		engine:        engine,
 		cliFct:        cliFct,
+		stateMgr:      stateMgr,
 
 		databaseLogs: make(map[string]WriteAheadLog),
 	}
@@ -91,36 +99,42 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 		return log
 	}
 	// create new, then put in cache
-	log = newWriteAheadLog(w.cfg, w.currentNodeID, database, w.engine, w.cliFct)
+	log = newWriteAheadLog(w.ctx, w.cfg, w.currentNodeID, database, w.engine, w.cliFct, w.stateMgr)
 	w.databaseLogs[database] = log
 	return log
 }
 
 // writeAheadLog implements WriteAheadLog.
 type writeAheadLog struct {
+	ctx           context.Context
 	database      string
 	cfg           config.WAL
 	currentNodeID models.NodeID
 	shardLogs     map[models.ShardID]Partition
 	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
+	stateMgr      storage.StateManager
 
 	mutex sync.Mutex
 }
 
 // NewWriteAheadLog creates a WriteAheadLog instance.
-func NewWriteAheadLog(cfg config.WAL,
+func NewWriteAheadLog(ctx context.Context,
+	cfg config.WAL,
 	currentNodeID models.NodeID,
 	database string,
 	engine tsdb.Engine,
 	cliFct rpc.ClientStreamFactory,
+	stateMgr storage.StateManager,
 ) WriteAheadLog {
 	return &writeAheadLog{
+		ctx:           ctx,
 		currentNodeID: currentNodeID,
 		database:      database,
 		cfg:           cfg,
 		engine:        engine,
 		cliFct:        cliFct,
+		stateMgr:      stateMgr,
 		shardLogs:     make(map[models.ShardID]Partition),
 	}
 }
@@ -146,7 +160,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition,
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartition(shardID, shard, w.currentNodeID, q, w.cliFct)
+	p = NewPartition(w.ctx, shardID, shard, w.currentNodeID, q, w.cliFct, w.stateMgr)
 	w.shardLogs[shardID] = p
 	return p, nil
 }

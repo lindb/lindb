@@ -18,11 +18,13 @@
 package replica
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
@@ -39,14 +41,15 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	newWriteAheadLog = func(cfg config.WAL,
+	newWriteAheadLog = func(_ context.Context, cfg config.WAL,
 		currentNodeID models.NodeID, database string,
 		engine tsdb.Engine,
 		cliFct rpc.ClientStreamFactory,
+		_ storage.StateManager,
 	) WriteAheadLog {
 		return NewMockWriteAheadLog(ctrl)
 	}
-	m := NewWriteAheadLogManager(config.WAL{}, 1, nil, nil)
+	m := NewWriteAheadLogManager(context.TODO(), config.WAL{}, 1, nil, nil, nil)
 	// create new
 	l := m.GetOrCreateLog("test")
 	assert.NotNil(t, l)
@@ -62,7 +65,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		ctrl.Finish()
 	}()
 	engine := tsdb.NewMockEngine(ctrl)
-	l := NewWriteAheadLog(config.WAL{}, 1, "test", engine, nil)
+	l := NewWriteAheadLog(context.TODO(), config.WAL{}, 1, "test", engine, nil, nil)
 
 	// case 1: shard not exist
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)

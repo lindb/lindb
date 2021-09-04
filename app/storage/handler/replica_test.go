@@ -116,15 +116,12 @@ func TestReplicaHandler_Replica(t *testing.T) {
 
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
 	replicaServer := protoReplicaV1.NewMockReplicaService_ReplicaServer(ctrl)
-	replicaServer.EXPECT().Context().Return(context.TODO())
 	r := NewReplicaHandler(walMgr, nil)
 
 	// case 5: create partition err
 	ctx := metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs("metaKeyDatabase", "test-db",
-			"metaKeyShardID", strconv.Itoa(1),
-			"metaKeyLeader", strconv.Itoa(2),
-			"metaKeyReplica", `3`,
+		metadata.Pairs(
+			constants.RPCMetaReplicaState, `{"database":"test-db","shardId":1,"leader":2,"follower":3}`,
 		))
 	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
 	wal := replica.NewMockWriteAheadLog(ctrl)

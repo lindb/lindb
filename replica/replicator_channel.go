@@ -24,11 +24,8 @@ import (
 
 // ReplicatorChannel represents channel peer[from,to] for the shard of database.
 type ReplicatorChannel struct {
-	Database string
-	ShardID  models.ShardID
+	State *models.ReplicaState
 
 	// underlying fanOut records the replication process.
 	Queue queue.FanOut
-
-	From, To models.NodeID // replicator node peer
 }
