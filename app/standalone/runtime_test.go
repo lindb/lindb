@@ -154,8 +154,8 @@ func TestRuntime_cleanupState(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil).AnyTimes()
 	repoFactory.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil).AnyTimes()
-	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	repo.EXPECT().Close().Return(fmt.Errorf("err"))
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+	repo.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	err = s.cleanupState()
 	assert.Error(t, err)
 }

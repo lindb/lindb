@@ -143,8 +143,7 @@ func (sm *stateMachine) OnCreate(key string, resource []byte) {
 	}
 	sm.logger.Info("discovery new state",
 		logger.String("type", sm.stateMachineType.String()),
-		logger.String("key", key),
-		logger.String("data", string(resource)))
+		logger.String("key", key))
 
 	if sm.onCreateFn != nil {
 		sm.onCreateFn(key, resource)
@@ -158,6 +157,9 @@ func (sm *stateMachine) OnDelete(key string) {
 			logger.String("type", sm.stateMachineType.String()))
 		return
 	}
+	sm.logger.Info("discovery state removed",
+		logger.String("type", sm.stateMachineType.String()),
+		logger.String("key", key))
 	if sm.onDeleteFn != nil {
 		sm.onDeleteFn(key)
 	}
