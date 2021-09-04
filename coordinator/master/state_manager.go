@@ -34,6 +34,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -165,7 +166,7 @@ func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
 	shardStates := make(map[models.ShardID]models.ShardState)
 	for shardID, replicas := range shardAssignment.Shards {
 		leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
-		shardState := models.ShardState{Replica: *replicas}
+		shardState := models.ShardState{ID: shardID, Replica: *replicas}
 		if err != nil {
 			shardState.State = models.OfflineShard
 			shardState.Leader = models.NoLeader
@@ -273,6 +274,9 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	// shutdown old storageCluster state machine if exist
 	m.unRegister(cfg.Name)
 
+	//TODO add config
+	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
+	cfg.Config.Timeout = ltoml.Duration(5 * time.Second)
 	cluster, err := newStorageCluster(m.ctx, cfg, m, m.repoFactory, m.controllerFactory)
 	if err != nil {
 		return err
