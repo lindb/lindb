@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+// StateMachineFactory represents storage state machine maintainer.
 type StateMachineFactory struct {
 	ctx              context.Context
 	discoveryFactory discovery.Factory
@@ -35,6 +36,7 @@ type StateMachineFactory struct {
 	logger *logger.Logger
 }
 
+// NewStateMachineFactory creates a StateMachineFactory instance.
 func NewStateMachineFactory(ctx context.Context,
 	discoveryFactory discovery.Factory,
 	stateMgr StateManager,
@@ -47,7 +49,7 @@ func NewStateMachineFactory(ctx context.Context,
 	}
 }
 
-// Start starts related state machines for broker.
+// Start starts all storage's related state machines.
 func (f *StateMachineFactory) Start() (err error) {
 	f.logger.Debug("starting LiveNodeStateMachine")
 	sm, err := f.createStorageLiveNodeStateMachine()
@@ -67,7 +69,7 @@ func (f *StateMachineFactory) Start() (err error) {
 	return nil
 }
 
-// Stop stops the broker's state machines.
+// Stop stops all storage's related state machines.
 func (f *StateMachineFactory) Stop() {
 	for _, sm := range f.stateMachines {
 		if err := sm.Close(); err != nil {
@@ -76,6 +78,7 @@ func (f *StateMachineFactory) Stop() {
 	}
 }
 
+// createShardAssignStateMachine creates shard assignment state machine.
 func (f *StateMachineFactory) createShardAssignStateMachine() (discovery.StateMachine, error) {
 	return discovery.NewStateMachine(
 		f.ctx,
@@ -83,8 +86,8 @@ func (f *StateMachineFactory) createShardAssignStateMachine() (discovery.StateMa
 		f.discoveryFactory,
 		constants.ShardAssigmentPath,
 		true,
-		f.stateMgr.OnShardAssignmentChange,
-		f.stateMgr.OnDatabaseDelete,
+		f.onShardAssignmentChange,
+		nil,
 	)
 }
 
@@ -96,7 +99,33 @@ func (f *StateMachineFactory) createStorageLiveNodeStateMachine() (discovery.Sta
 		f.discoveryFactory,
 		constants.LiveNodesPath,
 		true,
-		f.stateMgr.OnNodeStartup,
-		f.stateMgr.OnNodeFailure,
+		f.onNodeStartup,
+		f.onNodeFailure,
 	)
+}
+
+// onNodeStartup triggers when storage node online.
+func (f *StateMachineFactory) onNodeStartup(key string, data []byte) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   key,
+		Value: data,
+	})
+}
+
+// onNodeFailure triggers when storage node offline.
+func (f *StateMachineFactory) onNodeFailure(key string) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  key,
+	})
+}
+
+// onShardAssignmentChange triggers when shard assignment changed after database config modified.
+func (f *StateMachineFactory) onShardAssignmentChange(key string, data []byte) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type:  discovery.ShardAssignmentChanged,
+		Key:   key,
+		Value: data,
+	})
 }

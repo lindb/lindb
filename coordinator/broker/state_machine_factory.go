@@ -50,7 +50,7 @@ func NewStateMachineFactory(
 	}
 }
 
-// Start starts related state machines for broker.
+// Start starts all broker's related state machines.
 func (f *stateMachineFactory) Start() (err error) {
 	f.logger.Debug("starting LiveNodeStateMachine")
 	sm, err := f.createBrokerLiveNodeStateMachine()
@@ -77,7 +77,7 @@ func (f *stateMachineFactory) Start() (err error) {
 	return nil
 }
 
-// Stop stops the broker's state machines.
+// Stop stops all broker's related state machines.
 func (f *stateMachineFactory) Stop() {
 	f.logger.Info("stopping broker state machines...")
 	for _, sm := range f.stateMachines {

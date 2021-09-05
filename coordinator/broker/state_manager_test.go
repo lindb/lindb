@@ -121,7 +121,7 @@ func TestStateManager_Node(t *testing.T) {
 		Type: discovery.NodeFailure,
 		Key:  "/lives/2.2.2.2:9000",
 	})
-	// case 5: remove database config
+	// case 5: remove node
 	cm.EXPECT().CloseConnection("1.1.1.1:9000")
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,

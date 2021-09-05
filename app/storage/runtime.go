@@ -161,7 +161,7 @@ func (r *runtime) Run() error {
 	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
-	r.stateMgr = storage.NewStateManager(r.node, engine)
+	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
 
 	// start tcp server
 	r.startTCPServer()
@@ -296,6 +296,10 @@ func (r *runtime) Stop() {
 		} else {
 			r.log.Info("closed state repo successfully")
 		}
+	}
+
+	if r.stateMgr != nil {
+		r.stateMgr.Close()
 	}
 
 	if r.httpServer != nil {

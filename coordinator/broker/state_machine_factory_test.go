@@ -115,6 +115,7 @@ func TestStateMachineFactory_OnNode(t *testing.T) {
 	})
 	fct1.onNodeStartup("/key", []byte("value"))
 }
+
 func TestStateMachineFactory_OnStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
