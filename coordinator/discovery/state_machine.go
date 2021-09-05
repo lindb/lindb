@@ -67,6 +67,14 @@ func (st StateMachineType) String() string {
 	}
 }
 
+// StateMachineEventHandle represents handle state machine event.
+type StateMachineEventHandle interface {
+	// EmitEvent emits discovery event when state changed.
+	EmitEvent(event *Event)
+	// Close cleans the resource.
+	Close()
+}
+
 // StateMachineFactory represents maintain all state machines for each role.
 type StateMachineFactory interface {
 	// Start starts all state machines, do init logic.

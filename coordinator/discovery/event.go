@@ -26,6 +26,7 @@ const (
 	NodeFailure
 	StorageStateChanged
 	StorageDeletion
+	ShardAssignmentChanged
 )
 
 // Event represents discovery state change event.
