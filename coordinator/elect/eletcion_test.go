@@ -99,6 +99,34 @@ func TestElection_elect(t *testing.T) {
 	election1.Close()
 }
 
+func TestElection_Is_Follower(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	repo := state.NewMockRepository(ctrl)
+	listener1 := NewMockListener(ctrl)
+
+	node1 := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
+	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(nil)
+	election1 := NewElection(ctx, repo, &node1, 1, listener1)
+	election1.Initialize()
+	e := election1.(*election)
+	time.AfterFunc(700*time.Millisecond, func() {
+		e.retryCh <- 1
+		time.Sleep(10 * time.Millisecond)
+		close(e.retryCh)
+		cancel()
+	})
+
+	// success
+	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false, nil, nil).AnyTimes()
+	e.elect()
+
+	election1.Close()
+}
+
 func TestElection_Handle_Event(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

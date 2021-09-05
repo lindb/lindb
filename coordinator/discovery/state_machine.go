@@ -29,12 +29,14 @@ import (
 
 //go:generate mockgen -source=./state_machine.go -destination=./state_machine_mock.go -package=discovery
 
+// NewStateMachineFn represents new state machine function.
+var NewStateMachineFn = NewStateMachine
+
 // StateMachineType represents state machine type.
 type StateMachineType int
 
 const (
-	UnknownStateMachineType StateMachineType = iota
-	DatabaseConfigStateMachine
+	DatabaseConfigStateMachine StateMachineType = iota + 1
 	ShardAssignmentStateMachine
 	ReplicaLeaderStateMachine
 	LiveNodeStateMachine
@@ -65,8 +67,11 @@ func (st StateMachineType) String() string {
 	}
 }
 
+// StateMachineFactory represents maintain all state machines for each role.
 type StateMachineFactory interface {
+	// Start starts all state machines, do init logic.
 	Start() error
+	// Stop stops all state machines, clean all resources.
 	Stop()
 }
 
@@ -88,15 +93,14 @@ type StateMachine interface {
 
 // stateMachine implements StateMachine interface.
 type stateMachine struct {
-	stateMachineType StateMachineType
-
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	stateMachineType StateMachineType
+	discovery        Discovery
+
 	onCreateFn func(key string, resource []byte)
 	onDeleteFn func(key string)
-
-	discovery Discovery
 
 	running *atomic.Bool
 
