@@ -57,7 +57,7 @@ func Test_MetadataQuery(t *testing.T) {
 
 	// GetQueryableReplicas return empty
 	stateMgr.EXPECT().GetQueryableReplicas("db").
-		Return(map[string][]models.ShardID{})
+		Return(map[string][]models.ShardID{}, nil)
 	results, err := metaDataQuery.WaitResponse()
 	assert.Error(t, err)
 	assert.Nil(t, results)
@@ -66,7 +66,7 @@ func Test_MetadataQuery(t *testing.T) {
 		Return(map[string][]models.ShardID{
 			"1.1.1.1:9000": {1, 2, 4},
 			"1.1.1.2:9000": {3, 5, 6},
-		}).AnyTimes()
+		}, nil).AnyTimes()
 	stateMgr.EXPECT().GetCurrentNode().Return(models.StatelessNode{
 		HostIP: "1.1.1.3", GRPCPort: 8000,
 	}).AnyTimes()

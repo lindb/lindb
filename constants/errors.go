@@ -31,6 +31,7 @@ var (
 
 	ErrDatabaseNotFound        = fmt.Errorf("database %w", ErrNotFound)
 	ErrShardNotFound           = fmt.Errorf("shard %w", ErrNotFound)
+	ErrReplicaNotFound         = fmt.Errorf("replica %w", ErrNotFound)
 	ErrNameSpaceBucketNotFound = fmt.Errorf("namespace bucket %w", ErrNotFound)
 	ErrMetricIDNotFound        = fmt.Errorf("metricID %w", ErrNotFound)
 	ErrMetricBucketNotFound    = fmt.Errorf("metric bucket %w", ErrNotFound)
