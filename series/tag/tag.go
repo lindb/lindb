@@ -20,7 +20,11 @@ package tag
 import (
 	"sort"
 	"strings"
+	"sync"
 
+	"github.com/cespare/xxhash/v2"
+
+	"github.com/lindb/lindb/pkg/strutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
@@ -105,14 +109,78 @@ func KeyValuesFromMap(tags map[string]string) KeyValues {
 	return kvs
 }
 
+var (
+	emptyStringHash = xxhash.Sum64String("")
+	slicePool       sync.Pool
+)
+
+func getSlice(size int) *[]byte {
+	item := slicePool.Get()
+	if item == nil {
+		slice := make([]byte, size)
+		return &slice
+	}
+	s := item.(*[]byte)
+	if cap(*s) < size {
+		slice := make([]byte, size)
+		return &slice
+	}
+	*s = (*s)[0:size]
+	return s
+}
+
+func putSlice(s *[]byte) {
+	slicePool.Put(s)
+}
+
+// XXHashOfKeyValues calculates a hash of sorted KeyValues
+// If length <= 256, allocates a slice on stack.
+// Otherwise, picks a buffer from sync pool to hold the concated string.
+func XXHashOfKeyValues(kvs KeyValues) uint64 {
+	tagKeysLen := len(kvs)
+	switch tagKeysLen {
+	case 0:
+		return emptyStringHash
+	case 1:
+		// no need to resort when its length is 1
+	default:
+		if !sort.IsSorted(kvs) {
+			sort.Sort(kvs)
+		}
+	}
+	var expectLen int
+	// calculate expected concated string length
+	for idx := range kvs {
+		expectLen += len(kvs[idx].Key) + len(kvs[idx].Value) + 1
+	}
+	expectLen += tagKeysLen - 1
+
+	if expectLen <= 256 {
+		var slice [256]byte
+		// default slice on stack is 256
+		return xxHashOfSortedKeyValuesOnSlice(slice[:], kvs)
+	}
+	// use slice on heap
+	slice := *getSlice(expectLen)
+	h := xxHashOfSortedKeyValuesOnSlice(slice, kvs)
+	putSlice(&slice)
+	return h
+}
+
 func ConcatKeyValues(kvs KeyValues) string {
 	if len(kvs) == 0 {
 		return ""
 	}
+	var expectLen int
+	// calculate expected concated string length
+	for idx := range kvs {
+		expectLen += len(kvs[idx].Key) + len(kvs[idx].Value) + 1
+	}
+	expectLen += len(kvs) - 1
 	sort.Sort(kvs)
 	tagKeysLen := len(kvs)
 	var b strings.Builder
-	b.Grow(128)
+	b.Grow(expectLen)
 	for idx := range kvs {
 		b.WriteString(kvs[idx].Key)
 		b.WriteString("=")
@@ -124,31 +192,27 @@ func ConcatKeyValues(kvs KeyValues) string {
 	return b.String()
 }
 
-// Concat concats map-tags to string
-func Concat(tags map[string]string) string {
-	if tags == nil {
-		return ""
-	}
-	tagKeys := make([]string, 0, len(tags))
-	var b strings.Builder
-	b.Grow(128)
-	for key := range tags {
-		tagKeys = append(tagKeys, key)
-	}
-	sort.Strings(tagKeys)
-	tagKeysLen := len(tagKeys)
-	for idx, tagKey := range tagKeys {
-		b.WriteString(tagKey)
-		b.WriteString("=")
-		b.WriteString(tags[tagKey])
+func xxHashOfSortedKeyValuesOnSlice(slice []byte, kvs KeyValues) uint64 {
+	var (
+		cursor     int // cursor during copy
+		tagKeysLen = len(kvs)
+	)
+	for idx := range kvs {
+		copy(slice[cursor:cursor+len(kvs[idx].Key)], strutil.String2ByteSlice(kvs[idx].Key))
+		cursor += len(kvs[idx].Key)
+		slice[cursor] = byte('=')
+		cursor++
+		copy(slice[cursor:cursor+len(kvs[idx].Value)], strutil.String2ByteSlice(kvs[idx].Value))
+		cursor += len(kvs[idx].Value)
 		if idx != tagKeysLen-1 {
-			b.WriteString(",")
+			slice[cursor] = byte(',')
+			cursor++
 		}
 	}
-	return b.String()
+	return xxhash.Sum64(slice[:cursor])
 }
 
-// ConcatTagValues cancats the tag values to string
+// ConcatTagValues concat the tag values to string
 func ConcatTagValues(tagValues []string) string {
 	if len(tagValues) == 0 {
 		return ""
