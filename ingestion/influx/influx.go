@@ -23,8 +23,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cespare/xxhash/v2"
-
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/strutil"
@@ -86,7 +84,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 					Value: strutil.ByteSlice2String(enrichedTag.Value),
 				})
 			}
-			metric.TagsHash = xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
+			metric.TagsHash = tag.XXHashOfKeyValues(metric.Tags)
 		}
 		metricList.Metrics = append(metricList.Metrics, metric)
 	}

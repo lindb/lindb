@@ -22,20 +22,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/stretchr/testify/assert"
-)
 
-func Test_Concat(t *testing.T) {
-	assert.Equal(t, "", Concat(nil))
-	assert.Equal(t, "", ConcatKeyValues(KeyValuesFromMap(nil)))
-	tags := map[string]string{"t2": "v2", "t1": "v1"}
-	assert.Equal(t, "t1=v1,t2=v2", ConcatKeyValues(KeyValuesFromMap(tags)))
-	assert.Equal(t, "t1=v1,t2=v2", Concat(tags))
-}
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+)
 
 func TestConcatTagValues(t *testing.T) {
 	assert.Equal(t, "", ConcatTagValues(nil))
+	assert.Equal(t, "", ConcatKeyValues(KeyValuesFromMap(nil)))
 	assert.Equal(t, "", ConcatTagValues([]string{}))
+	tags := map[string]string{"t2": "v2", "t1": "v1"}
+	assert.Equal(t, "t1=v1,t2=v2", ConcatKeyValues(KeyValuesFromMap(tags)))
 	assert.Equal(t, "a", ConcatTagValues([]string{"a"}))
 	assert.Equal(t, "a,b", ConcatTagValues([]string{"a", "b"}))
 }
@@ -76,10 +74,78 @@ func Benchmark_TagsAsString_old(b *testing.B) {
 	}
 }
 
-func Benchmark_TagsAsString_new(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Concat(_testTags)
+func Test_XXHashOfKeyValues(t *testing.T) {
+	assert.Equal(t, xxhash.Sum64String(""), XXHashOfKeyValues(nil))
+}
+
+var (
+	singleKeyValues KeyValues = []*protoMetricsV1.KeyValue{{Key: "env", Value: "prd"}}
+	logKeyValues    KeyValues = []*protoMetricsV1.KeyValue{
+		{Key: "333339", Value: "22222222222222222211111"},
+		{Key: "333338", Value: "22222222222222222211111"},
+		{Key: "333337", Value: "22222222222222222211111"},
+		{Key: "333336", Value: "22222222222222222211111"},
+		{Key: "333335", Value: "22222222222222222211111"},
+		{Key: "333334", Value: "22222222222222222211111"},
+		{Key: "33333", Value: "22222222222222222211111"},
+		{Key: "1", Value: "11111111111111111111111111"},
+		{Key: "2222", Value: "22222222222222222211111"},
 	}
+	commonKeyValues KeyValues = []*protoMetricsV1.KeyValue{
+		{Key: "ip", Value: "1.1.1.1"},
+		{Key: "host", Value: "alpha-test-machine"},
+		{Key: "region", Value: "shanghai"},
+		{Key: "1", Value: "2"},
+		{Key: "2222", Value: "211111"},
+		{Key: "env", Value: "prd"},
+	}
+)
+
+// on stack concat Sum64, 280ns/op, no escape
+// digest with pool,  WriteString..., 687ns/op (too much memmove)
+// use bytes buffer, 590ns/op(too much strings.Builder.Grow)
+func Benchmark_HashOfConcatTagValues(b *testing.B) {
+	kvs := commonKeyValues.Clone()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = XXHashOfKeyValues(kvs)
+	}
+}
+
+func Benchmark_HashOfConcatTagValues_Sorted(b *testing.B) {
+	sorted := commonKeyValues.Clone()
+	sort.Sort(sorted)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = XXHashOfKeyValues(sorted)
+	}
+}
+
+func Benchmark_HashOfConcatTagValues_OnHeap(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = XXHashOfKeyValues(logKeyValues)
+	}
+}
+
+func Benchmark_HashOfConcatTagValues_Single(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = XXHashOfKeyValues(singleKeyValues)
+	}
+}
+
+func TestXXHashOfKeyValues(t *testing.T) {
+	assert.Equal(t, xxhash.Sum64String(""), XXHashOfKeyValues(nil))
+	_ = XXHashOfKeyValues(singleKeyValues)
+	_ = XXHashOfKeyValues(commonKeyValues)
+	_ = XXHashOfKeyValues(logKeyValues)
+	long2 := logKeyValues.Clone().Merge(commonKeyValues)
+	_ = XXHashOfKeyValues(long2)
+	_ = XXHashOfKeyValues(logKeyValues)
+	sorted := commonKeyValues.Clone()
+	sort.Sort(sorted)
+	_ = XXHashOfKeyValues(sorted)
 }
 
 func Test_KeyValues(t *testing.T) {
