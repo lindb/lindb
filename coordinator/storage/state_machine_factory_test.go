@@ -1,0 +1,85 @@
+package storage
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/coordinator/discovery"
+)
+
+func TestStateMachineFactory_Start(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, nil)
+
+	//live node sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err := fct.Start()
+	assert.Error(t, err)
+
+	//shard assignment  sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err = fct.Start()
+	assert.Error(t, err)
+	// all state machines are ok
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	err = fct.Start()
+	assert.NoError(t, err)
+}
+
+func TestStateMachineFactory_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fct := NewStateMachineFactory(context.TODO(), nil, nil)
+	sm := discovery.NewMockStateMachine(ctrl)
+	fct.stateMachines = append(fct.stateMachines, sm, sm)
+
+	sm.EXPECT().Close().Return(fmt.Errorf("err"))
+	sm.EXPECT().Close().Return(nil)
+
+	fct.Stop()
+}
+
+func TestStateMachineFactory_OnNode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	fct := NewStateMachineFactory(context.TODO(), nil, stateMgr)
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  "/key",
+	})
+	fct.onNodeFailure("/key")
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   "/key",
+		Value: []byte("value"),
+	})
+	fct.onNodeStartup("/key", []byte("value"))
+}
+
+func TestStateMachineFactory_OnShardAssign(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	fct := NewStateMachineFactory(context.TODO(), nil, stateMgr)
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.ShardAssignmentChanged,
+		Key:   "/key",
+		Value: []byte("value"),
+	})
+	fct.onShardAssignmentChange("/key", []byte("value"))
+}

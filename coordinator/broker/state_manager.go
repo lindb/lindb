@@ -35,10 +35,7 @@ import (
 
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
-	// EmitEvent emits discovery event when state changed.
-	EmitEvent(event *discovery.Event)
-	// Close cleans the resource.
-	Close()
+	discovery.StateMachineEventHandle
 
 	// GetCurrentNode returns the current node.
 	GetCurrentNode() models.StatelessNode
