@@ -19,6 +19,7 @@ package brokerquery
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -176,6 +177,10 @@ type metricTaskContext struct {
 	// fieldname -> aggregator spec
 	// we will use it during intermediate tasks
 	aggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
+	// tolerantNotFounds keeps the number of how many not found errors can be returned
+	// if all nodes return not-found errors, it will be treated as a error
+	// other error will be returned immediately
+	tolerantNotFounds int32
 }
 
 // metricTaskContext creates the task context based on params
@@ -198,10 +203,32 @@ func newMetricTaskContext(
 			closed:        false,
 			createTime:    fasttime.UnixMilliseconds(),
 		},
-		aggregatorSpecs: make(map[string]*protoCommonV1.AggregatorSpec),
-		stmtQuery:       stmtQuery,
-		eventCh:         eventCh,
+		aggregatorSpecs:   make(map[string]*protoCommonV1.AggregatorSpec),
+		stmtQuery:         stmtQuery,
+		eventCh:           eventCh,
+		tolerantNotFounds: expectResults,
 	}
+}
+
+// checkError checks if a error should be returned.
+// node of the cluster may returns not found error,
+// ignoreResponse=true symbols that the response should be ignored
+func (c *metricTaskContext) checkError(errMsg string) (ignoreResponse bool, err error) {
+	if errMsg == "" {
+		return false, nil
+	}
+	// real error
+	if !strings.Contains(errMsg, "not found") {
+		goto ReturnError
+	}
+	c.tolerantNotFounds--
+	// not found, but there may be still more responses not reached
+	if c.tolerantNotFounds > 0 {
+		return true, nil
+	}
+	// fallthrough, all node returns not found errors
+ReturnError:
+	return true, errors.New(errMsg)
 }
 
 func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, fromNode string) {
@@ -271,8 +298,13 @@ func (c *metricTaskContext) handleStats(resp *protoCommonV1.TaskResponse, fromNo
 func (c *metricTaskContext) handleTaskResponse(resp *protoCommonV1.TaskResponse, fromNode string) error {
 	c.handleStats(resp, fromNode)
 
-	if resp.ErrMsg != "" {
-		return errors.New(resp.ErrMsg)
+	ignoreReponse, err := c.checkError(resp.ErrMsg)
+	if err != nil {
+		return err
+	}
+	// partial not-found errors
+	if ignoreReponse {
+		return nil
 	}
 
 	tsList := &protoCommonV1.TimeSeriesList{}
