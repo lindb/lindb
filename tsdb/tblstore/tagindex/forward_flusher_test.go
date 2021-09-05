@@ -32,7 +32,7 @@ import (
 func mockStreamWriter(ctrl *gomock.Controller) table.StreamWriter {
 	sw := table.NewMockStreamWriter(ctrl)
 	sw.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
-	sw.EXPECT().Size().Return(int32(1000)).AnyTimes()
+	sw.EXPECT().Size().Return(uint32(1000)).AnyTimes()
 	sw.EXPECT().Prepare(gomock.Any()).AnyTimes()
 	sw.EXPECT().CRC32CheckSum().Return(uint32(1)).AnyTimes()
 	sw.EXPECT().Commit().Return(nil).AnyTimes()

@@ -21,7 +21,7 @@ import "github.com/lindb/lindb/pkg/logger"
 
 const dummy = ""
 const RollupContext = "RollupContext"
-const defaultMaxFileSize = int32(256 * 1024 * 1024)
+const defaultMaxFileSize = uint32(256 * 1024 * 1024)
 const defaultCompactThreshold = 4
 const defaultRollupThreshold = 3
 

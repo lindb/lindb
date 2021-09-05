@@ -167,10 +167,10 @@ func Test_Builder_Stream_Writer(t *testing.T) {
 	writer.Prepare(2)
 	beforeBatchSize := writer.Size()
 	_, _ = writer.Write([]byte("aaa"))
-	writer.Commit()
+	_ = writer.Commit()
 	// written len
-	assert.Equal(t, builder.Size()-beforeSize, int32(3))
-	assert.Equal(t, writer.Size()-beforeBatchSize, int32(3))
+	assert.Equal(t, builder.Size()-beforeSize, uint32(3))
+	assert.Equal(t, writer.Size()-beforeBatchSize, uint32(3))
 }
 
 func Test_StreamWriter_CheckSum32(t *testing.T) {
