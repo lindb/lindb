@@ -21,7 +21,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/lithammer/go-jump-consistent-hash"
 	"go.uber.org/atomic"
 
@@ -76,7 +75,7 @@ func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err err
 	// sharding metrics to shards
 	numOfShard := dc.numOfShard.Load()
 	for _, metric := range metricList.Metrics {
-		hash := xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
+		hash := tag.XXHashOfKeyValues(metric.Tags)
 
 		idx := int(jump.Hash(hash, numOfShard))
 		// set tags hash code for storage side reuse

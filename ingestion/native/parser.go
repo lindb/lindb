@@ -24,8 +24,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cespare/xxhash/v2"
-
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/strutil"
@@ -93,7 +91,7 @@ func parseProtoMetric(data []byte, enrichedTags tag.Tags, namespace string) (*pr
 			sort.Sort(kvs)
 			m.Tags = kvs
 		}
-		m.TagsHash = xxhash.Sum64String(tag.ConcatKeyValues(m.Tags))
+		m.TagsHash = tag.XXHashOfKeyValues(m.Tags)
 	}
 	return &ms, nil
 }

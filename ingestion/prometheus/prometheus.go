@@ -117,7 +117,7 @@ func promParse(reader io.Reader, enrichedTags tag.Tags, namespace string) (*prot
 			}
 
 			if metric.Tags != nil && len(metric.Tags) > 0 {
-				metric.TagsHash = xxhash.Sum64String(tag.ConcatKeyValues(metric.Tags))
+				metric.TagsHash = tag.XXHashOfKeyValues(metric.Tags)
 			} else {
 				metric.TagsHash = xxhash.Sum64String(metric.Name)
 			}
