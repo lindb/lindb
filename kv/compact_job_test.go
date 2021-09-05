@@ -204,7 +204,7 @@ func TestCompactJob_output_fail(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
-		builder.EXPECT().Size().Return(int32(100)),
+		builder.EXPECT().Size().Return(uint32(100)),
 		// no output
 		builder.EXPECT().Count().Return(uint64(0)),
 	)
@@ -238,7 +238,7 @@ func TestCompactJob_output_fail(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
-		builder.EXPECT().Size().Return(int32(100)),
+		builder.EXPECT().Size().Return(uint32(100)),
 		builder.EXPECT().Count().Return(uint64(10)),
 		builder.EXPECT().Close().Return(fmt.Errorf("err")),
 		builder.EXPECT().Abandon().Return(fmt.Errorf("err")),
@@ -323,28 +323,28 @@ func TestCompactJob_merge_compact(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(5)),
 		family.EXPECT().addPendingOutput(table.FileNumber(5)),
 		builder.EXPECT().Add(uint32(1), []byte("value1value1")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(3), []byte("value3")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(10), []byte("value10value10value10value10")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(30), []byte("value30value30")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(40), []byte("value40")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(100), []byte("value100")).Return(nil),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Count().Return(uint64(6)),
 		builder.EXPECT().Close().Return(nil),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(5)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
 		builder.EXPECT().MaxKey().Return(uint32(100)),
-		builder.EXPECT().Size().Return(int32(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(5)),
 	)
 	err := compactJob.Run()
 	assert.NoError(t, err)
-	newFile := version.NewFileMeta(table.FileNumber(5), uint32(1), uint32(100), int32(10))
+	newFile := version.NewFileMeta(table.FileNumber(5), uint32(1), uint32(100), uint32(10))
 	assert.Equal(t, 1, len(state.outputs))
 	assert.Equal(t, *newFile, *(state.outputs[0]))
 	editLog := state.compaction.GetEditLog()

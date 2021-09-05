@@ -82,7 +82,7 @@ type family struct {
 	option        FamilyOption
 	merger        NewMerger
 	familyVersion version.FamilyVersion
-	maxFileSize   int32
+	maxFileSize   uint32
 
 	pendingOutputs    sync.Map
 	newCompactJobFunc func(family Family, state *compactionState, rollup Rollup) CompactJob

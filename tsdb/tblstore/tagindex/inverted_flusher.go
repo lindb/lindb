@@ -178,8 +178,8 @@ func (w *invertedFlusher) CommitTagKey() error {
 	//         high key offset position
 	//         crc32 checksum)
 	// (4 bytes + 4 bytes + 4 bytes)
-	binary.LittleEndian.PutUint32(w.Level2.footer[0:4], uint32(tagValueBitmapAt))
-	binary.LittleEndian.PutUint32(w.Level2.footer[4:8], uint32(offsetsAt))
+	binary.LittleEndian.PutUint32(w.Level2.footer[0:4], tagValueBitmapAt)
+	binary.LittleEndian.PutUint32(w.Level2.footer[4:8], offsetsAt)
 	binary.LittleEndian.PutUint32(w.Level2.footer[8:12], w.kvWriter.CRC32CheckSum())
 	// write footer
 	if _, err := w.kvWriter.Write(w.Level2.footer[:]); err != nil {

@@ -24,7 +24,7 @@ type FamilyOption struct {
 	CompactThreshold int    `toml:"compactThreshold"` // level 0 compact threshold
 	RollupThreshold  int    `toml:"rollupThreshold"`  // level 0 rollup threshold
 	Merger           string `toml:"merger"`           // merger which need implement Merger interface
-	MaxFileSize      int32  `toml:"maxFileSize"`      // max file size
+	MaxFileSize      uint32 `toml:"maxFileSize"`      // max file size
 }
 
 // StoreOption defines config item for store level

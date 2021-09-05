@@ -224,9 +224,9 @@ func (tf *flusher) FlushTagKeyID(tagKeyID uint32, tagValueSeq uint32) error {
 
 	// footer
 	// flush bitmap position
-	binary.LittleEndian.PutUint32(tf.Level2.footer[0:4], uint32(tagValueBitmapAt))
+	binary.LittleEndian.PutUint32(tf.Level2.footer[0:4], tagValueBitmapAt)
 	// flush offsets position
-	binary.LittleEndian.PutUint32(tf.Level2.footer[4:8], uint32(offsetsAt))
+	binary.LittleEndian.PutUint32(tf.Level2.footer[4:8], offsetsAt)
 	// flush tag-value sequence
 	binary.LittleEndian.PutUint32(tf.Level2.footer[8:12], tagValueSeq)
 	// write crc32 checksum

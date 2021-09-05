@@ -133,7 +133,7 @@ func (n *newFile) Encode() ([]byte, error) {
 	writer.PutVarint64(n.file.GetFileNumber().Int64()) // file number
 	writer.PutUvarint32(n.file.GetMinKey())            // min key
 	writer.PutUvarint32(n.file.GetMaxKey())            // max key
-	writer.PutVarint32(n.file.GetFileSize())           // file size
+	writer.PutUvarint32(n.file.GetFileSize())          // file size
 	return writer.Bytes()
 }
 
@@ -144,7 +144,7 @@ func (n *newFile) Decode(v []byte) error {
 	n.level = reader.ReadVarint32()
 	// read file meta
 	n.file = NewFileMeta(table.FileNumber(reader.ReadVarint64()),
-		reader.ReadUvarint32(), reader.ReadUvarint32(), reader.ReadVarint32())
+		reader.ReadUvarint32(), reader.ReadUvarint32(), reader.ReadUvarint32())
 	// if error, return it
 	return reader.Error()
 }

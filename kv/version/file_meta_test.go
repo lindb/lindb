@@ -31,7 +31,7 @@ func TestFileMeta(t *testing.T) {
 	assert.Equal(t, table.FileNumber(10), f.GetFileNumber())
 	assert.Equal(t, uint32(2), f.GetMinKey())
 	assert.Equal(t, uint32(40), f.GetMaxKey())
-	assert.Equal(t, int32(1024), f.GetFileSize())
+	assert.Equal(t, uint32(1024), f.GetFileSize())
 
 	assert.Equal(t, fmt.Sprintf("{fileNumber:%d,min:%d,max:%d,size:%d}",
 		f.fileNumber, f.minKey, f.maxKey, f.fileSize),

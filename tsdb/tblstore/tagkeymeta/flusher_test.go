@@ -69,7 +69,7 @@ func TestFlushTagKeyID_OK(t *testing.T) {
 	sw := table.NewMockStreamWriter(ctrl)
 	sw.EXPECT().Prepare(gomock.Any()).AnyTimes()
 	sw.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
-	sw.EXPECT().Size().Return(int32(10000)).AnyTimes()
+	sw.EXPECT().Size().Return(uint32(10000)).AnyTimes()
 	sw.EXPECT().CRC32CheckSum().Return(uint32(10000)).AnyTimes()
 	sw.EXPECT().Commit().Return(nil)
 	mockKVFlusher.EXPECT().StreamWriter().Return(sw, nil).AnyTimes()

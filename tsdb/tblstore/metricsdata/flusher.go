@@ -331,7 +331,7 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 	}
 
 	// write fields-meta
-	fieldMetasAt := uint32(w.kvWriter.Size())
+	fieldMetasAt := w.kvWriter.Size()
 	// write field-count
 	if _, err := w.kvWriter.Write([]byte{byte(len(w.Level2.fieldMetas))}); err != nil {
 		return err
@@ -347,12 +347,12 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 		}
 	}
 	// write series ids bitmap
-	seriesIDAt := uint32(w.kvWriter.Size())
+	seriesIDAt := w.kvWriter.Size()
 	if _, err := w.Level2.seriesIDs.WriteTo(w.kvWriter); err != nil {
 		return err
 	}
 	// write high offsets
-	highKeyOffsetsAt := uint32(w.kvWriter.Size())
+	highKeyOffsetsAt := w.kvWriter.Size()
 
 	if err := w.Level2.highKeyOffsets.Write(w.kvWriter); err != nil {
 		return err

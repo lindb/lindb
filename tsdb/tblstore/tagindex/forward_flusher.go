@@ -106,9 +106,9 @@ func (f *forwardFlusher) CommitTagKey(seriesIDs *roaring.Bitmap) error {
 	// (4 bytes + 4 bytes + 4 bytes)
 	////////////////////////////////
 	// write tag value ids' start position
-	binary.LittleEndian.PutUint32(f.footer[0:4], uint32(seriesIDAt))
+	binary.LittleEndian.PutUint32(f.footer[0:4], seriesIDAt)
 	// write offset block start position
-	binary.LittleEndian.PutUint32(f.footer[4:8], uint32(offsetsAt))
+	binary.LittleEndian.PutUint32(f.footer[4:8], offsetsAt)
 	// write crc32 checksum
 	binary.LittleEndian.PutUint32(f.footer[8:12], f.kvWriter.CRC32CheckSum())
 	if _, err := f.kvWriter.Write(f.footer[:]); err != nil {
