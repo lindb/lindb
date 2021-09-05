@@ -74,7 +74,7 @@ func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) Channel
 		ctx:    ctx,
 		cancel: cancel,
 		fct:    fct,
-		logger: logger.GetLogger("replica", "channelManager"),
+		logger: logger.GetLogger("replica", "ChannelManager"),
 	}
 	return cm
 }

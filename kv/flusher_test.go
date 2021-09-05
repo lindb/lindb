@@ -113,7 +113,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
 		builder.EXPECT().MaxKey().Return(uint32(10)),
-		builder.EXPECT().Size().Return(int32(100)),
+		builder.EXPECT().Size().Return(uint32(100)),
 		family.EXPECT().commitEditLog(gomock.Any()).Return(false),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
@@ -130,7 +130,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
 		builder.EXPECT().MaxKey().Return(uint32(10)),
-		builder.EXPECT().Size().Return(int32(100)),
+		builder.EXPECT().Size().Return(uint32(100)),
 		family.EXPECT().commitEditLog(gomock.Any()).Return(true),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
@@ -158,12 +158,12 @@ func Test_NopFlusher(t *testing.T) {
 	assert.Equal(t, uint32(0), writer.CRC32CheckSum())
 	assert.Zero(t, writer.Size())
 	_, _ = writer.Write([]byte{1, 2, 3})
-	assert.Equal(t, int32(3), writer.Size())
+	assert.Equal(t, uint32(3), writer.Size())
 	_, _ = writer.Write([]byte{4, 5, 6})
-	assert.Equal(t, int32(6), writer.Size())
+	assert.Equal(t, uint32(6), writer.Size())
 	_, _ = writer.Write(nil)
-	assert.Equal(t, int32(6), writer.Size())
-	writer.Commit()
+	assert.Equal(t, uint32(6), writer.Size())
+	_ = writer.Commit()
 	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
 
 	writer.Prepare(2)
@@ -172,6 +172,6 @@ func Test_NopFlusher(t *testing.T) {
 	_, _ = writer.Write([]byte{1, 2})
 	_, _ = writer.Write([]byte{3, 4})
 	_, _ = writer.Write([]byte{5, 6})
-	assert.Equal(t, int32(6), writer.Size())
+	assert.Equal(t, uint32(6), writer.Size())
 	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
 }

@@ -82,7 +82,7 @@ type Builder interface {
 	// MaxKey returns max key in store
 	MaxKey() uint32
 	// Size returns the length of store file
-	Size() int32
+	Size() uint32
 	// Count returns the number of k/v pairs contained in the store
 	Count() uint64
 	// Abandon abandons current store build for some reason
@@ -105,7 +105,7 @@ type StreamWriter interface {
 	io.Writer
 	// Size returns total written size of Write
 	// Prepare will resets it to zero.
-	Size() int32
+	Size() uint32
 	// CRC32CheckSum returns a IEEE checksum of written bytes
 	CRC32CheckSum() uint32
 	// Commit marks the key/value pair has been written
@@ -203,8 +203,8 @@ func (b *storeBuilder) MaxKey() uint32 {
 }
 
 // Size returns the length of store file
-func (b *storeBuilder) Size() int32 {
-	return int32(b.writer.Size())
+func (b *storeBuilder) Size() uint32 {
+	return uint32(b.writer.Size())
 }
 
 // Count returns the number of k/v pairs contained in the store
@@ -264,7 +264,7 @@ func newStreamWriter(builder *storeBuilder) *streamWriter {
 
 type streamWriter struct {
 	builder *storeBuilder
-	size    int32
+	size    uint32
 	key     uint32
 	offset  int64
 	badKey  bool
@@ -286,13 +286,13 @@ func (sw *streamWriter) Write(data []byte) (int, error) {
 	n, err := sw.builder.writer.Write(data)
 	_, _ = sw.crc32.Write(data)
 	if err == nil {
-		sw.size += int32(n)
+		sw.size += uint32(n)
 	}
 	getBuilderStatistics().AddBytes.Add(float64(len(data)))
 	return n, err
 }
 
-func (sw *streamWriter) Size() int32 {
+func (sw *streamWriter) Size() uint32 {
 	return sw.size
 }
 

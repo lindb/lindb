@@ -29,11 +29,11 @@ type compactionState struct {
 	compaction        *version.Compaction
 	snapshot          version.Snapshot
 	currentFileNumber table.FileNumber
-	maxFileSize       int32
+	maxFileSize       uint32
 }
 
 // newCompactionState creates a compaction state
-func newCompactionState(maxFileSize int32, snapshot version.Snapshot, compaction *version.Compaction) *compactionState {
+func newCompactionState(maxFileSize uint32, snapshot version.Snapshot, compaction *version.Compaction) *compactionState {
 	return &compactionState{
 		maxFileSize: maxFileSize,
 		snapshot:    snapshot,
