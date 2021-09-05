@@ -131,3 +131,30 @@ func Test_TaskContext_handleStats(t *testing.T) {
 		"2")
 	assert.Len(t, taskCtx3.stats.BrokerNodes, 2)
 }
+
+func Test_TaskContext_metricTaskContext_notFound(t *testing.T) {
+	ch := make(chan *series.TimeSeriesEvent)
+	taskCtx3 := newMetricTaskContext(
+		"1",
+		RootTask,
+		"",
+		"",
+		nil,
+		2,
+		ch,
+	)
+	// sent emitted
+	time.AfterFunc(time.Millisecond*2, func() {
+		<-ch
+	})
+	time.Sleep(time.Millisecond * 10)
+	taskCtx3.WriteResponse(
+		&protoCommonV1.TaskResponse{ErrMsg: "metricID not found"},
+		"1.1.1.1",
+	)
+	taskCtx3.WriteResponse(
+		&protoCommonV1.TaskResponse{ErrMsg: "metricID not found"},
+		"1.1.1.1",
+	)
+
+}
