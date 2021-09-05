@@ -38,7 +38,6 @@ type StateMachineType int
 const (
 	DatabaseConfigStateMachine StateMachineType = iota + 1
 	ShardAssignmentStateMachine
-	ReplicaLeaderStateMachine
 	LiveNodeStateMachine
 	StorageStatusStateMachine
 	StorageConfigStateMachine
@@ -52,8 +51,6 @@ func (st StateMachineType) String() string {
 		return "DatabaseConfigStateMachine"
 	case ShardAssignmentStateMachine:
 		return "ShardAssignmentStateMachine"
-	case ReplicaLeaderStateMachine:
-		return "ReplicaLeaderStateMachine"
 	case LiveNodeStateMachine:
 		return "LiveNodeStateMachine"
 	case StorageStatusStateMachine:

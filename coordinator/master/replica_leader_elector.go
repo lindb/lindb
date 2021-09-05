@@ -22,6 +22,8 @@ import (
 	"github.com/lindb/lindb/models"
 )
 
+//go:generate mockgen -source=./replica_leader_elector.go -destination=./replica_leader_elector_mock.go -package=master
+
 type ReplicaLeaderElector interface {
 	ElectLeader(shardAssignment *models.ShardAssignment,
 		liveNodes map[models.NodeID]models.StatefulNode,

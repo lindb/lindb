@@ -22,11 +22,13 @@ type EventType int
 const (
 	DatabaseConfigChanged EventType = iota + 1
 	DatabaseConfigDeletion
+	ShardAssignmentChanged
+	ShardAssignmentDeletion
 	NodeStartup
 	NodeFailure
 	StorageStateChanged
 	StorageDeletion
-	ShardAssignmentChanged
+	StorageConfigChanged
 )
 
 // Event represents discovery state change event.
@@ -34,4 +36,6 @@ type Event struct {
 	Type  EventType
 	Key   string
 	Value []byte
+
+	Attributes map[string]string
 }
