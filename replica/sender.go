@@ -180,6 +180,11 @@ func (c *sender) Send(data []byte) error {
 		}
 	}
 
+	if !c.ready.Load() {
+		//TODO add log
+		return nil
+	}
+
 	err := c.writeCli.Send(
 		&protoReplicaV1.WriteRequest{
 			Record: data,

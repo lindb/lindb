@@ -62,7 +62,7 @@ func (f *factory) CreateDiscovery(prefix string, listener Listener) Discovery {
 		logger:   logger.GetLogger("coordinator", "Discovery"),
 	}
 
-	r.logger.Info("create new discovery", logger.String("watchKey", prefix))
+	r.logger.Info("create new discovery", logger.String("watch", prefix))
 	return r
 }
 

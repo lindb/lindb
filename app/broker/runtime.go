@@ -169,7 +169,9 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	r.stateMgr = broker.NewStateManager(*r.node, r.factory.connectionMgr, r.factory.taskClient, r.srv.channelManager)
+	r.stateMgr = broker.NewStateManager(r.ctx, *r.node,
+		r.factory.connectionMgr, r.factory.taskClient,
+		r.srv.channelManager)
 	// finally start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 
@@ -248,7 +250,6 @@ func (r *runtime) Stop() {
 	}
 
 	if r.stateMachineFactory != nil {
-		r.log.Info("stopping broker-state-machines...")
 		r.stateMachineFactory.Stop()
 	}
 
@@ -259,6 +260,9 @@ func (r *runtime) Stop() {
 		} else {
 			r.log.Info("closed state repo successfully")
 		}
+	}
+	if r.stateMgr != nil {
+		r.stateMgr.Close()
 	}
 	if r.srv.channelManager != nil {
 		r.log.Info("closing write channel manager...")
