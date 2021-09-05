@@ -24,6 +24,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source ./connection_manager.go -destination=./connection_manager_mock.go -package=rpc
+
 type ConnectionManager interface {
 	io.Closer
 

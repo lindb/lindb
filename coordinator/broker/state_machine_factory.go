@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+// stateMachineFactory implements discovery.StateMachineFactory.
 type stateMachineFactory struct {
 	ctx              context.Context
 	discoveryFactory discovery.Factory
@@ -35,6 +36,7 @@ type stateMachineFactory struct {
 	logger *logger.Logger
 }
 
+// NewStateMachineFactory creates a state machine factory instance.
 func NewStateMachineFactory(
 	ctx context.Context,
 	discoveryFactory discovery.Factory,
@@ -44,7 +46,7 @@ func NewStateMachineFactory(
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
-		logger:           logger.GetLogger("coordinator", "BrokerStateMachines"),
+		logger:           logger.GetLogger("broker", "StateMachineFactory"),
 	}
 }
 
@@ -77,6 +79,7 @@ func (f *stateMachineFactory) Start() (err error) {
 
 // Stop stops the broker's state machines.
 func (f *stateMachineFactory) Stop() {
+	f.logger.Info("stopping broker state machines...")
 	for _, sm := range f.stateMachines {
 		if err := sm.Close(); err != nil {
 			f.logger.Error("close state machine error", logger.Error(err))
@@ -86,39 +89,90 @@ func (f *stateMachineFactory) Stop() {
 
 // createBrokerLiveNodeStateMachine creates broker live node state machine.
 func (f *stateMachineFactory) createBrokerLiveNodeStateMachine() (discovery.StateMachine, error) {
-	return discovery.NewStateMachine(
+	return discovery.NewStateMachineFn(
 		f.ctx,
 		discovery.LiveNodeStateMachine,
 		f.discoveryFactory,
 		constants.LiveNodesPath,
 		true,
-		f.stateMgr.OnNodeStartup,
-		f.stateMgr.OnNodeFailure,
+		f.onNodeStartup,
+		f.onNodeFailure,
 	)
 }
 
 // createDatabaseCfgStateMachine creates database config state machine.
 func (f *stateMachineFactory) createDatabaseCfgStateMachine() (discovery.StateMachine, error) {
-	return discovery.NewStateMachine(
+	return discovery.NewStateMachineFn(
 		f.ctx,
 		discovery.DatabaseConfigStateMachine,
 		f.discoveryFactory,
 		constants.DatabaseConfigPath,
 		true,
-		f.stateMgr.OnDatabaseCfgChange,
-		f.stateMgr.OnDatabaseCfgDelete,
+		f.onDatabaseConfigChanged,
+		f.onDatabaseConfigDeletion,
 	)
 }
 
 // createStorageStatusStateMachine creates storage status state machine.
 func (f *stateMachineFactory) createStorageStatusStateMachine() (discovery.StateMachine, error) {
-	return discovery.NewStateMachine(
+	return discovery.NewStateMachineFn(
 		f.ctx,
 		discovery.StorageStatusStateMachine,
 		f.discoveryFactory,
 		constants.StorageStatePath,
 		true,
-		f.stateMgr.OnStorageStateChange,
-		f.stateMgr.OnStorageDelete,
+		f.onStorageStateChange,
+		f.onStorageDeletion,
 	)
+}
+
+// onDatabaseConfigChanged triggers when database config modified(create/update)
+func (f *stateMachineFactory) onDatabaseConfigChanged(key string, data []byte) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   key,
+		Value: data,
+	})
+}
+
+// onDatabaseConfigDeletion triggers when database is deletion.
+func (f *stateMachineFactory) onDatabaseConfigDeletion(key string) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  key,
+	})
+}
+
+// onNodeStartup triggers when node online.
+func (f *stateMachineFactory) onNodeStartup(key string, data []byte) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   key,
+		Value: data,
+	})
+}
+
+// onNodeFailure triggers when node offline.
+func (f *stateMachineFactory) onNodeFailure(key string) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  key,
+	})
+}
+
+// onStorageStateChange triggers when storage state changed.
+func (f *stateMachineFactory) onStorageStateChange(key string, data []byte) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type:  discovery.StorageStateChanged,
+		Key:   key,
+		Value: data,
+	})
+}
+
+// onStorageDeletion triggers when storage is deletion.
+func (f *stateMachineFactory) onStorageDeletion(key string) {
+	f.stateMgr.EmitEvent(&discovery.Event{
+		Type: discovery.StorageDeletion,
+		Key:  key,
+	})
 }

@@ -18,9 +18,11 @@
 package broker
 
 import (
+	"context"
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -30,21 +32,12 @@ import (
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
 
+// StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
-	// OnDatabaseCfgChange triggers when database create/modify.
-	OnDatabaseCfgChange(key string, data []byte)
-	// OnDatabaseCfgDelete triggers when database delete.
-	OnDatabaseCfgDelete(key string)
-	// OnNodeStartup triggers when node online.
-	OnNodeStartup(key string, data []byte)
-	// OnNodeFailure trigger when node offline.
-	OnNodeFailure(key string)
-	// OnStorageStateChange triggers when node online.
-	OnStorageStateChange(key string, data []byte)
-	// OnStorageDelete trigger when node offline.
-	OnStorageDelete(key string)
-
-	// read api as below:
+	// EmitEvent emits discovery event when state changed.
+	EmitEvent(event *discovery.Event)
+	// Close cleans the resource.
+	Close()
 
 	// GetCurrentNode returns the current node.
 	GetCurrentNode() models.StatelessNode
@@ -58,30 +51,40 @@ type StateManager interface {
 	GetQueryableReplicas(databaseName string) map[string][]models.ShardID
 }
 
+// stateManager implements StateManager.
 type stateManager struct {
-	currentNode models.StatelessNode
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// state cache
-	storages  map[string]*models.StorageState
-	databases map[string]models.Database
-	nodes     map[string]models.StatelessNode // broker live nodes
+	currentNode models.StatelessNode
+	storages    map[string]*models.StorageState // storage state
+	databases   map[string]models.Database      // database config
+	nodes       map[string]models.StatelessNode // broker live nodes
 
 	// connection manager
 	connectionManager rpc.ConnectionManager
 	taskClientFactory rpc.TaskClientFactory
 	cm                replica.ChannelManager
 
-	mutex sync.RWMutex
+	events chan *discovery.Event
+	mutex  sync.RWMutex
 
 	logger *logger.Logger
 }
 
+// NewStateManager creates a broker state manager instance.
 func NewStateManager(
+	ctx context.Context,
 	currentNode models.StatelessNode,
 	connectionManager rpc.ConnectionManager,
 	taskClientFactory rpc.TaskClientFactory,
 	cm replica.ChannelManager,
 ) StateManager {
-	return &stateManager{
+	c, cancel := context.WithCancel(ctx)
+	mgr := &stateManager{
+		ctx:               c,
+		cancel:            cancel,
 		currentNode:       currentNode,
 		connectionManager: connectionManager,
 		taskClientFactory: taskClientFactory,
@@ -89,13 +92,68 @@ func NewStateManager(
 		storages:          make(map[string]*models.StorageState),
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
-		logger:            logger.GetLogger("broker", "stateManager"),
+		events:            make(chan *discovery.Event, 10),
+		logger:            logger.GetLogger("broker", "StateManager"),
+	}
+
+	// start consume discovery event task
+	go mgr.consumeEvent()
+
+	return mgr
+}
+
+// EmitEvent emits discovery event when state changed.
+func (m *stateManager) EmitEvent(event *discovery.Event) {
+	m.events <- event
+}
+
+// Close cleans the resource(stop the task).
+func (m *stateManager) Close() {
+	m.cancel()
+}
+
+// consumeEvent consumes the discovery event, then handles the event by each event type.
+func (m *stateManager) consumeEvent() {
+	for {
+		select {
+		case event := <-m.events:
+			m.processEvent(event)
+		case <-m.ctx.Done():
+			m.logger.Info("consume discovery event task is stopped")
+			return
+		}
 	}
 }
 
-// OnDatabaseCfgChange triggers when database create/modify.
-func (m *stateManager) OnDatabaseCfgChange(key string, data []byte) {
-	m.logger.Info("database config modified",
+// processEvent processes each events, if panic will ignore the event handle, maybe lost the state in broker.
+func (m *stateManager) processEvent(event *discovery.Event) {
+	defer func() {
+		if err := recover(); err != nil {
+			//TODO add metric
+			m.logger.Error("panic when process discovery event, lost the state",
+				logger.Any("err", err), logger.Stack())
+		}
+	}()
+
+	switch event.Type {
+	case discovery.DatabaseConfigChanged:
+		m.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseConfigDeletion:
+		m.onDatabaseCfgDelete(event.Key)
+	case discovery.NodeStartup:
+		m.onNodeStartup(event.Key, event.Value)
+	case discovery.NodeFailure:
+		m.onNodeFailure(event.Key)
+	case discovery.StorageStateChanged:
+		m.onStorageStateChange(event.Key, event.Value)
+	case discovery.StorageDeletion:
+		m.onStorageDelete(event.Key)
+	}
+}
+
+// onDatabaseCfgChange triggers when database create/modify.
+func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
+	m.logger.Info("database config is modified",
 		logger.String("key", key),
 		logger.String("data", string(data)))
 
@@ -116,8 +174,8 @@ func (m *stateManager) OnDatabaseCfgChange(key string, data []byte) {
 	m.databases[cfg.Name] = cfg
 }
 
-// OnDatabaseCfgDelete triggers when database delete.
-func (m *stateManager) OnDatabaseCfgDelete(key string) {
+// onDatabaseCfgDelete triggers when database is deletion.
+func (m *stateManager) onDatabaseCfgDelete(key string) {
 	m.logger.Info("database config deleted",
 		logger.String("key", key))
 
@@ -127,16 +185,19 @@ func (m *stateManager) OnDatabaseCfgDelete(key string) {
 	defer m.mutex.Unlock()
 
 	delete(m.databases, databaseName)
+
+	//TODO remove database channel
 }
 
-func (m *stateManager) OnNodeStartup(key string, data []byte) {
-	m.logger.Info("new node online",
+// onNodeStartup triggers when broker node online.
+func (m *stateManager) onNodeStartup(key string, data []byte) {
+	m.logger.Info("new broker node online",
 		logger.String("key", key),
 		logger.String("data", string(data)))
 
 	node := &models.StatelessNode{}
 	if err := encoding.JSONUnmarshal(data, node); err != nil {
-		m.logger.Error("new node online but unmarshal error", logger.Error(err))
+		m.logger.Error("new broker node online but unmarshal error", logger.Error(err))
 		return
 	}
 
@@ -151,11 +212,12 @@ func (m *stateManager) OnNodeStartup(key string, data []byte) {
 	m.nodes[nodeID] = *node
 }
 
-func (m *stateManager) OnNodeFailure(key string) {
+// onNodeFailure triggers when broker node offline.
+func (m *stateManager) onNodeFailure(key string) {
 	_, fileName := filepath.Split(key)
 	nodeID := fileName
 
-	m.logger.Info("node online => offline",
+	m.logger.Info("broker node online => offline",
 		logger.String("nodeID", nodeID),
 		logger.String("key", key))
 
@@ -167,7 +229,8 @@ func (m *stateManager) OnNodeFailure(key string) {
 	delete(m.nodes, nodeID)
 }
 
-func (m *stateManager) OnStorageStateChange(key string, data []byte) {
+// onStorageStateChange triggers when storage cluster state changed.
+func (m *stateManager) onStorageStateChange(key string, data []byte) {
 	m.logger.Info("storage state is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -184,8 +247,6 @@ func (m *stateManager) OnStorageStateChange(key string, data []byte) {
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
-	m.logger.Info("storage state is changed", logger.String("storage", newState.Name))
 
 	oldState, ok := m.storages[newState.Name]
 	if ok {
@@ -216,9 +277,12 @@ func (m *stateManager) OnStorageStateChange(key string, data []byte) {
 
 	//TODO need modify
 	m.buildShardAssign(newState)
+
+	m.logger.Info("storage state is changed successful", logger.String("storage", newState.Name))
 }
 
-func (m *stateManager) OnStorageDelete(key string) {
+// onStorageDelete triggers when storage cluster is deletion.
+func (m *stateManager) onStorageDelete(key string) {
 	_, name := filepath.Split(key)
 
 	m.logger.Info("storage is deleted",
@@ -293,14 +357,7 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 			logger.String("database", databaseName))
 		return nil
 	}
-	shards, ok := storageState.ShardStates[databaseName]
-	if !ok {
-		m.logger.Warn("database's shard state be lost",
-			logger.String("storage", database.Storage),
-			logger.String("database", databaseName))
-		return nil
-	}
-
+	shards := storageState.ShardStates[databaseName]
 	if len(shards) == 0 {
 		m.logger.Warn("there is no shard for this database",
 			logger.String("storage", database.Storage),
@@ -343,7 +400,8 @@ func (m *stateManager) startWriteChannel(db string,
 	shardID := shardState.ID
 	ch, err := m.cm.CreateChannel(db, int32(numOfShard), shardID)
 	if err != nil {
-		m.logger.Error("create shard write channel", logger.Error(err))
+		m.logger.Error("create shard write channel", logger.String("db", db),
+			logger.Any("shard", shardID), logger.Error(err))
 		return
 	}
 

@@ -54,11 +54,11 @@ type ShardState struct {
 type StorageState struct {
 	Name string `json:"name"`
 
-	LiveNodes map[NodeID]StatefulNode
+	LiveNodes map[NodeID]StatefulNode `json:"liveNodes"`
 
 	//TODO remove??
-	ShardAssignments map[string]*ShardAssignment       // database's name => shard assignment
-	ShardStates      map[string]map[ShardID]ShardState // database's name => shard state
+	ShardAssignments map[string]*ShardAssignment       `json:"shardAssignments"` // database's name => shard assignment
+	ShardStates      map[string]map[ShardID]ShardState `json:"shardStates"`      // database's name => shard state
 }
 
 // NewStorageState creates storage cluster state
