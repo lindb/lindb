@@ -1,0 +1,18 @@
+[coordinator]
+namespace = "/lindb-cluster"
+endpoints = ["http://etcd:2379"]
+
+[broker]
+[broker.http]
+port = 9000
+
+[broker.grpc]
+port = 9001
+
+[monitor]
+report-interval = "10s"
+url = "http://broker3:9000/api/native/write?db=_internal"
+
+[logging]
+dir = "/lindb/broker3"
+level = "debug"

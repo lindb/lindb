@@ -1,0 +1,24 @@
+[coordinator]
+namespace = "/lindb-cluster"
+endpoints = ["http://etcd:2379"]
+
+[storage]
+indicator = 2
+
+[storage.grpc]
+port = 2891
+
+[storage.wal]
+dir = "/lindb/storage2/wal"
+
+[storage.tsdb]
+dir = "/lindb/storage2/data"
+
+[monitor]
+report-interval = "10s"
+url = "http://broker2:9000/api/native/write?db=_internal"
+
+[logging]
+dir = "/lindb/storage2"
+level = "debug"
+
