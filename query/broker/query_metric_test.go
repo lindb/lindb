@@ -75,7 +75,7 @@ func Test_MetricQuery(t *testing.T) {
 		"test_db",
 		"select f from cpu",
 		queryFactory)
-	stateMgr.EXPECT().GetQueryableReplicas("test_db").Return(nil)
+	stateMgr.EXPECT().GetQueryableReplicas("test_db").Return(nil, nil)
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)
 
@@ -87,7 +87,7 @@ func Test_MetricQuery(t *testing.T) {
 		"1.1.1.5:9000": {11, 12, 14},
 	}
 	stateMgr.EXPECT().GetQueryableReplicas("test_db").
-		Return(storageNodes).AnyTimes()
+		Return(storageNodes, nil).AnyTimes()
 	stateMgr.EXPECT().GetLiveNodes().
 		Return(brokerNodes).AnyTimes()
 

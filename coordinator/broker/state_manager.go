@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -48,7 +49,7 @@ type StateManager interface {
 	// GetQueryableReplicas returns the queryable replicas，
 	// and chooses the leader replica if the shard has multi-replica.
 	// returns storage node => shard id list
-	GetQueryableReplicas(databaseName string) map[string][]models.ShardID
+	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
 }
 
 // stateManager implements StateManager.
@@ -328,17 +329,16 @@ func (m *stateManager) GetDatabaseCfg(databaseName string) (models.Database, boo
 	return database, ok
 }
 
-// GetQueryableReplicas returns the queryable replicas
+// GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x
 // returns storage node => shard id list
-func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]models.ShardID {
+func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	//TODO need add err, return detail err msg
 	// 1. check database if exist
 	database, ok := m.databases[databaseName]
 	if !ok {
-		return nil
+		return nil, constants.ErrDatabaseNotFound
 	}
 
 	// 2. check shards if exist
@@ -347,7 +347,7 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 		m.logger.Warn("database not run on any storage",
 			logger.String("storage", database.Storage),
 			logger.String("database", databaseName))
-		return nil
+		return nil, constants.ErrNoStorageCluster
 	}
 	// check if has live nodes
 	liveNodes := storageState.LiveNodes
@@ -355,14 +355,14 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 		m.logger.Warn("there is no live node for this storage",
 			logger.String("storage", database.Storage),
 			logger.String("database", databaseName))
-		return nil
+		return nil, constants.ErrNoLiveNode
 	}
 	shards := storageState.ShardStates[databaseName]
 	if len(shards) == 0 {
 		m.logger.Warn("there is no shard for this database",
 			logger.String("storage", database.Storage),
 			logger.String("database", databaseName))
-		return nil
+		return nil, constants.ErrShardNotFound
 	}
 
 	result := make(map[string][]models.ShardID)
@@ -378,7 +378,7 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) map[string][]mo
 				logger.Any("shard", shardState.ID))
 		}
 	}
-	return result
+	return result, nil
 }
 
 // buildShardAssign builds the data write channel and related shard state.

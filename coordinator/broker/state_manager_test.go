@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -264,19 +265,24 @@ func TestStateManager_ShardState(t *testing.T) {
 		"db":     {Storage: "test"}}
 
 	// db not exist
-	replicas := mgr.GetQueryableReplicas("test_db")
+	replicas, err := mgr.GetQueryableReplicas("test_db")
+	assert.Equal(t, err, constants.ErrDatabaseNotFound)
 	assert.Empty(t, replicas)
 
 	// storage not exist
-	replicas = mgr.GetQueryableReplicas("test")
+	replicas, err = mgr.GetQueryableReplicas("test")
+	assert.Equal(t, err, constants.ErrNoStorageCluster)
 	assert.Empty(t, replicas)
 	// no live nodes
-	replicas = mgr.GetQueryableReplicas("test_1")
+	replicas, err = mgr.GetQueryableReplicas("test_1")
+	assert.Equal(t, err, constants.ErrNoLiveNode)
 	assert.Empty(t, replicas)
 	// no shard
-	replicas = mgr.GetQueryableReplicas("test_2")
+	replicas, err = mgr.GetQueryableReplicas("test_2")
+	assert.Equal(t, err, constants.ErrShardNotFound)
 	assert.Empty(t, replicas)
 
-	replicas = mgr.GetQueryableReplicas("db")
+	replicas, err = mgr.GetQueryableReplicas("db")
+	assert.NoError(t, err)
 	assert.Len(t, replicas, 1)
 }
