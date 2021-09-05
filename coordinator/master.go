@@ -109,9 +109,7 @@ func (m *master) OnFailOver() error {
 	defer func() {
 		if err != nil {
 			stateMachineFct.Stop()
-			if err0 := stateMgr.Close(); err0 != nil {
-				log.Error("close state error when elect master fail", logger.Error(err0))
-			}
+			stateMgr.Close()
 			m.stateMachineFct = nil
 		} else {
 			m.stateMachineFct = stateMachineFct
@@ -139,9 +137,7 @@ func (m *master) OnResignation() {
 	}
 
 	if m.stateMgr != nil {
-		if err := m.stateMgr.Close(); err != nil {
-			log.Error("close state error when master resign", logger.Error(err))
-		}
+		m.stateMgr.Close()
 	}
 }
 

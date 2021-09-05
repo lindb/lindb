@@ -110,6 +110,9 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		}
 	}()
 
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	switch event.Type {
 	case discovery.NodeStartup:
 		m.onNodeStartup(event.Key, event.Value)
@@ -166,9 +169,6 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	m.nodes[node.ID] = *node
 }
 
@@ -186,9 +186,6 @@ func (m *stateManager) onNodeFailure(key string) {
 		m.logger.Error("parse offline node id err", logger.Error(err))
 		return
 	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	delete(m.nodes, models.NodeID(id))
 }

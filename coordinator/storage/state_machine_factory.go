@@ -45,7 +45,7 @@ func NewStateMachineFactory(ctx context.Context,
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
-		logger:           logger.GetLogger("coordinator", "MasterStateMachines"),
+		logger:           logger.GetLogger("storage", "StateMachineFactory"),
 	}
 }
 

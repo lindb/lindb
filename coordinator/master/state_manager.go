@@ -20,7 +20,6 @@ package master
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -40,41 +40,40 @@ import (
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=master
 
+// StateManager represents master state manager, state coordinator.
 type StateManager interface {
-	io.Closer
+	discovery.StateMachineEventHandle
 
+	// SetStateMachineFactory sets state machine factory.
 	SetStateMachineFactory(stateMachineFct *StateMachineFactory)
+	// GetStateMachineFactory returns state machine factory.
 	GetStateMachineFactory() *StateMachineFactory
-
-	// OnDatabaseCfgChange triggers when database create/modify.
-	OnDatabaseCfgChange(key string, data []byte)
-	// OnDatabaseCfgDelete triggers when database delete.
-	OnDatabaseCfgDelete(key string)
-
-	OnShardAssignmentChange(key string, data []byte)
-	OnShardAssignmentDelete(key string)
-
-	OnStorageConfigChange(key string, data []byte)
-	OnStorageConfigDelete(key string)
-
-	OnStorageNodeStartup(storageName string, key string, data []byte)
-	OnStorageNodeFailure(storageName string, key string)
 
 	// GetStorageCluster returns cluster controller for maintain the metadata of storage cluster.
 	GetStorageCluster(name string) StorageCluster
 }
 
+// stateManager implements StateManager.
 type stateManager struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	repoFactory       state.RepositoryFactory
 	controllerFactory task.ControllerFactory
 	stateMachineFct   *StateMachineFactory
 
-	ctx        context.Context
 	masterRepo state.Repository
 	elector    ReplicaLeaderElector
 
+	newStorageClusterFn func(ctx context.Context, cfg config.StorageCluster,
+		stateMgr StateManager,
+		repoFactory state.RepositoryFactory,
+		controllerFactory task.ControllerFactory) (cluster StorageCluster, err error)
+
 	storages  map[string]StorageCluster
 	databases map[string]models.Database
+
+	events chan *discovery.Event
 
 	running *atomic.Bool
 	mutex   sync.Mutex
@@ -82,45 +81,103 @@ type stateManager struct {
 	logger *logger.Logger
 }
 
+// NewStateManager creates a StateManager instance.
 func NewStateManager(
 	ctx context.Context,
 	masterRepo state.Repository,
 	repoFactory state.RepositoryFactory,
 	controllerFactory task.ControllerFactory,
 ) StateManager {
-	return &stateManager{
-		ctx:               ctx,
-		masterRepo:        masterRepo,
-		repoFactory:       repoFactory,
-		controllerFactory: controllerFactory,
-		storages:          make(map[string]StorageCluster),
-		databases:         make(map[string]models.Database),
-		elector:           newReplicaLeaderElector(),
-		running:           atomic.NewBool(true),
-		logger:            logger.GetLogger("master", "StateManager"),
+	c, cancel := context.WithCancel(ctx)
+	mgr := &stateManager{
+		ctx:                 c,
+		cancel:              cancel,
+		masterRepo:          masterRepo,
+		repoFactory:         repoFactory,
+		controllerFactory:   controllerFactory,
+		storages:            make(map[string]StorageCluster),
+		databases:           make(map[string]models.Database),
+		elector:             newReplicaLeaderElector(),
+		events:              make(chan *discovery.Event, 10),
+		running:             atomic.NewBool(true),
+		newStorageClusterFn: newStorageCluster,
+		logger:              logger.GetLogger("master", "StateManager"),
+	}
+
+	// start consume event then do coordinate
+	go mgr.consumeEvent()
+
+	return mgr
+}
+
+// EmitEvent emits discovery event when state changed.
+func (m *stateManager) EmitEvent(event *discovery.Event) {
+	m.events <- event
+}
+
+// consumeEvent consumes the discovery event, then handles the event by each event type.
+func (m *stateManager) consumeEvent() {
+	for {
+		select {
+		case event := <-m.events:
+			m.processEvent(event)
+		case <-m.ctx.Done():
+			m.logger.Info("consume discovery event task is stopped")
+			return
+		}
 	}
 }
 
-func (m *stateManager) SetStateMachineFactory(stateMachineFct *StateMachineFactory) {
-	m.stateMachineFct = stateMachineFct
-}
-
-func (m *stateManager) GetStateMachineFactory() *StateMachineFactory {
-	return m.stateMachineFct
-}
-
-// OnDatabaseCfgChange triggers when database create/modify.
-func (m *stateManager) OnDatabaseCfgChange(key string, data []byte) {
-	m.logger.Info("do shard assignment, because database config is changed",
-		logger.String("key", key),
-		logger.String("data", string(data)))
+// processEvent processes each events, if panic will ignore the event handle, maybe lost the state in storage/.
+func (m *stateManager) processEvent(event *discovery.Event) {
+	defer func() {
+		if err := recover(); err != nil {
+			//TODO add metric
+			m.logger.Error("panic when process discovery event, lost the state",
+				logger.Any("err", err), logger.Stack())
+		}
+	}()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if !m.isRunning() {
+	if !m.running.Load() {
+		m.logger.Warn("master state manager is closed")
 		return
 	}
+	switch event.Type {
+	case discovery.StorageConfigChanged:
+		m.onStorageConfigChange(event.Key, event.Value)
+	case discovery.StorageDeletion:
+		m.onStorageConfigDelete(event.Key)
+	case discovery.DatabaseConfigChanged:
+		m.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseConfigDeletion:
+		m.onDatabaseCfgDelete(event.Key)
+	case discovery.ShardAssignmentChanged:
+		m.onShardAssignmentChange(event.Key, event.Value)
+	case discovery.NodeStartup:
+		m.onStorageNodeStartup(event.Attributes[storageNameKey], event.Key, event.Value)
+	case discovery.NodeFailure:
+		m.onStorageNodeFailure(event.Attributes[storageNameKey], event.Key)
+	}
+}
+
+// SetStateMachineFactory sets state machine factory.
+func (m *stateManager) SetStateMachineFactory(stateMachineFct *StateMachineFactory) {
+	m.stateMachineFct = stateMachineFct
+}
+
+// GetStateMachineFactory returns state machine factory.
+func (m *stateManager) GetStateMachineFactory() *StateMachineFactory {
+	return m.stateMachineFct
+}
+
+// onDatabaseCfgChange triggers when database create/modify.
+func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
+	m.logger.Info("do shard assignment, because database config is changed",
+		logger.String("key", key),
+		logger.String("data", string(data)))
 
 	cfg := models.Database{}
 	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
@@ -134,12 +191,13 @@ func (m *stateManager) OnDatabaseCfgChange(key string, data []byte) {
 	m.shardAssignment(cfg)
 }
 
-// OnDatabaseCfgDelete triggers when database delete.
-func (m *stateManager) OnDatabaseCfgDelete(_ string) {
+// onDatabaseCfgDelete triggers when database config is deletion.
+func (m *stateManager) onDatabaseCfgDelete(_ string) {
 	panic("need impl")
 }
 
-func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
+// onShardAssignmentChange triggers when shard assignment modify.
+func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 	m.logger.Info("database's shard assignment is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -147,13 +205,6 @@ func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
 	if err := encoding.JSONUnmarshal(data, shardAssignment); err != nil {
 		m.logger.Error("database's shard assignment is changed, but unmarshal error",
 			logger.Error(err))
-		return
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if !m.isRunning() {
 		return
 	}
 
@@ -171,6 +222,9 @@ func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
 			shardState.State = models.OfflineShard
 			shardState.Leader = models.NoLeader
 			//TODO add log and metric
+			m.logger.Warn("elect shard leader err",
+				logger.String("db", shardAssignment.Name),
+				logger.Any("shard", shardID), logger.Error(err))
 		} else {
 			shardState.State = models.OnlineShard
 			shardState.Leader = leader
@@ -184,11 +238,8 @@ func (m *stateManager) OnShardAssignmentChange(key string, data []byte) {
 	m.syncState(s)
 }
 
-func (m *stateManager) OnShardAssignmentDelete(key string) {
-	panic("need impl")
-}
-
-func (m *stateManager) OnStorageConfigChange(key string, data []byte) {
+// onStorageConfigChange triggers when storage config create/modify.
+func (m *stateManager) onStorageConfigChange(key string, data []byte) {
 	m.logger.Info("storage config is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -199,30 +250,24 @@ func (m *stateManager) OnStorageConfigChange(key string, data []byte) {
 		return
 	}
 
-	if !m.isRunning() {
-		return
-	}
-
 	if err := m.register(cfg); err != nil {
 		m.logger.Error("register new storage cluster", logger.Error(err))
 		return
 	}
 }
 
-func (m *stateManager) OnStorageConfigDelete(key string) {
+// onStorageConfigDelete triggers when storage config is deletion.
+func (m *stateManager) onStorageConfigDelete(key string) {
 	m.logger.Info("storage config deleted",
 		logger.String("key", key))
-
-	if !m.isRunning() {
-		return
-	}
 
 	_, name := filepath.Split(key)
 
 	m.unRegister(name)
 }
 
-func (m *stateManager) OnStorageNodeStartup(storageName string, key string, data []byte) {
+// onStorageNodeStartup triggers when storage node online
+func (m *stateManager) onStorageNodeStartup(storageName string, key string, data []byte) {
 	m.logger.Info("new storage node online in storage cluster",
 		logger.String("storage", storageName),
 		logger.String("key", key),
@@ -234,17 +279,18 @@ func (m *stateManager) OnStorageNodeStartup(storageName string, key string, data
 		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	cluster := m.storages[storageName]
+	s := cluster.GetState()
 
-	if !m.isRunning() {
-		return
-	}
+	s.NodeOnline(node)
 
-	m.nodeStartup(storageName, node)
+	m.onNodeStartup(s, node)
+
+	m.syncState(s)
 }
 
-func (m *stateManager) OnStorageNodeFailure(storageName string, key string) {
+// onStorageNodeFailure triggers when storage node offline.
+func (m *stateManager) onStorageNodeFailure(storageName string, key string) {
 	m.logger.Info("a storage node offline in storage cluster",
 		logger.String("storage", storageName),
 		logger.String("key", key))
@@ -256,16 +302,15 @@ func (m *stateManager) OnStorageNodeFailure(storageName string, key string) {
 		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	cluster := m.storages[storageName]
+	s := cluster.GetState()
 
-	if !m.isRunning() {
-		return
-	}
+	m.onNodeFailure(s, models.NodeID(id))
 
-	m.nodeFailure(storageName, models.NodeID(id))
+	m.syncState(s)
 }
 
+// register registers start storage state machine which watch storage state change.
 func (m *stateManager) register(cfg config.StorageCluster) error {
 	if len(cfg.Name) == 0 {
 		return constants.ErrNameEmpty
@@ -277,14 +322,13 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	//TODO add config
 	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
 	cfg.Config.Timeout = ltoml.Duration(5 * time.Second)
-	cluster, err := newStorageCluster(m.ctx, cfg, m, m.repoFactory, m.controllerFactory)
+	cluster, err := m.newStorageClusterFn(m.ctx, cfg, m, m.repoFactory, m.controllerFactory)
 	if err != nil {
 		return err
 	}
-	m.mutex.Lock()
 	m.storages[cfg.Name] = cluster
-	m.mutex.Unlock()
-	// start storage cluster state machine
+	// start storage cluster state machine.
+	// TODO need start in goroutine???
 	if err := cluster.Start(); err != nil {
 		m.unRegister(cfg.Name)
 		m.logger.Info("start storage cluster failure", logger.String("storage", cfg.Name), logger.Error(err))
@@ -293,34 +337,33 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	return nil
 }
 
-// deleteCluster deletes the storageCluster if exist
+// deleteCluster deletes the storageCluster if exist.
 func (m *stateManager) unRegister(name string) {
 	cluster, ok := m.storages[name]
 	if ok {
 		// need cleanup storage cluster resource
 		cluster.Close()
 
-		m.mutex.Lock()
 		delete(m.storages, name)
-		m.mutex.Unlock()
 
 		m.logger.Info("cleanup storage cluster resource finished", logger.String("storage", name))
 	}
 }
 
-func (m *stateManager) Close() error {
+func (m *stateManager) Close() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	if m.running.CAS(true, false) {
-		m.logger.Info("starting close master state manager")
+		m.logger.Info("starting close state manager")
 		for name := range m.storages {
 			m.unRegister(name)
 		}
+		m.cancel()
 	}
-	return nil
 }
 
+// shardAssignment does shard assignment.
 func (m *stateManager) shardAssignment(databaseCfg models.Database) {
 	if len(databaseCfg.Name) == 0 {
 		m.logger.Error("database name cannot be empty")
@@ -368,28 +411,13 @@ func (m *stateManager) shardAssignment(databaseCfg models.Database) {
 			logger.Any("database", databaseCfg.Name))
 		data := encoding.JSONMarshal(shardAssign)
 		if err := m.masterRepo.Put(m.ctx, constants.GetDatabaseAssignPath(shardAssign.Name), data); err != nil {
+			m.logger.Error("trigger shard assignment data modify event",
+				logger.String("storage", databaseCfg.Storage),
+				logger.Any("database", databaseCfg.Name),
+				logger.Error(err))
 			return
 		}
 	}
-}
-
-func (m *stateManager) nodeStartup(name string, node models.StatefulNode) {
-	cluster := m.storages[name]
-	s := cluster.GetState()
-
-	s.NodeOnline(node)
-	m.onNodeStartup(s, node)
-
-	m.syncState(cluster.GetState())
-}
-
-func (m *stateManager) nodeFailure(name string, nodeID models.NodeID) {
-	cluster := m.storages[name]
-	s := cluster.GetState()
-
-	m.onNodeFailure(s, nodeID)
-
-	m.syncState(cluster.GetState())
 }
 
 func (m *stateManager) onNodeStartup(state *models.StorageState, node models.StatefulNode) {
@@ -402,7 +430,7 @@ func (m *stateManager) onNodeStartup(state *models.StorageState, node models.Sta
 		}
 		for _, shardID := range shards {
 			shardState := shardStates[shardID]
-			if shardState.State == models.OfflineShard {
+			if shardState.State != models.OnlineShard {
 				shardState.State = models.OnlineShard
 				shardState.Leader = node.ID
 			}
@@ -418,10 +446,7 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 	liveNodes := state.LiveNodes
 	for db, shards := range leadersOnOfflineNode {
 		shardAssignment := state.ShardAssignments[db]
-		shardStates, ok := state.ShardStates[db]
-		if !ok {
-			continue
-		}
+		shardStates := state.ShardStates[db]
 		for _, shardID := range shards {
 			leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
 			shardState := shardStates[shardID]
@@ -429,6 +454,10 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 				shardState.State = models.OfflineShard
 				shardState.Leader = models.NoLeader
 				//TODO add log and metric
+
+				m.logger.Warn("elect shard leader err",
+					logger.String("db", shardAssignment.Name),
+					logger.Any("shard", shardID), logger.Error(err))
 			} else {
 				shardState.State = models.OnlineShard
 				shardState.Leader = leader
@@ -438,6 +467,7 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 	}
 }
 
+// syncState syncs storage state into state repo.
 func (m *stateManager) syncState(state *models.StorageState) {
 	//TODO add timeout
 	ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
@@ -563,18 +593,11 @@ func (m *stateManager) GetShardAssign(databaseName string) (*models.ShardAssignm
 	return shardAssign, nil
 }
 
-// GetStorageCluster returns cluster controller for maintain the metadata of storage cluster
+// GetStorageCluster returns cluster controller for maintain the metadata of storage cluster.
 func (m *stateManager) GetStorageCluster(name string) (cluster StorageCluster) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	cluster = m.storages[name]
 	return
-}
-
-func (m *stateManager) isRunning() bool {
-	if !m.running.Load() {
-		m.logger.Warn("master state manager is closed")
-	}
-	return m.running.Load()
 }
