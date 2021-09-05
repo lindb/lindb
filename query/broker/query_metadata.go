@@ -22,11 +22,11 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -89,10 +89,13 @@ func (mq *metadataQuery) WaitResponse() ([]string, error) {
 // buildPhysicalPlan builds distribution physical execute plan
 func (mq *metadataQuery) makePlan() (*models.PhysicalPlan, error) {
 	//FIXME need using storage's replica state ???
-	storageNodes := mq.runtime.stateMgr.GetQueryableReplicas(mq.database)
+	storageNodes, err := mq.runtime.stateMgr.GetQueryableReplicas(mq.database)
+	if err != nil {
+		return nil, err
+	}
 	storageNodesLen := len(storageNodes)
 	if storageNodesLen == 0 {
-		return nil, query.ErrNoAvailableStorageNode
+		return nil, constants.ErrReplicaNotFound
 	}
 	curBroker := mq.runtime.stateMgr.GetCurrentNode()
 	curBrokerIndicator := curBroker.Indicator()

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -74,9 +75,12 @@ func (mq *metricQuery) makePlan() error {
 	}
 
 	//FIXME need using storage's replica state ???
-	storageNodes := mq.queryFactory.stateMgr.GetQueryableReplicas(mq.database)
+	storageNodes, err := mq.queryFactory.stateMgr.GetQueryableReplicas(mq.database)
+	if err != nil {
+		return err
+	}
 	if len(storageNodes) == 0 {
-		return query.ErrNoAvailableStorageNode
+		return constants.ErrReplicaNotFound
 	}
 	brokerNodes := mq.queryFactory.stateMgr.GetLiveNodes()
 
