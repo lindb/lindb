@@ -59,22 +59,10 @@ LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB
 ### 依赖
 
 在本地编译 LinDB 需要以下工具：
-- [Go >=1.14](https://golang.org/doc/install)
+- [Go >=1.16](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
-### 环境设置
-
-设置 Go path 与 PATH 环境变量，GOPATH 通常默认为 `$HOME/go`
-
-```
-# 将以下命令添加到 ~/.bashrc 或 ~/.bash_profile 文件中
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
-
-# 使用 source 命令使 bashrc 文件立刻生效
-$ source ~/.bashrc
-```
 
 ### 获取代码
 

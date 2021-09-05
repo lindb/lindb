@@ -59,22 +59,9 @@ Once we implement the final feature and replace the LinDB under production envir
 
 To build LinDB from source you require the following on your system.
 
-- [Go >=1.14](https://golang.org/doc/install)
+- [Go >=1.16](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-
-### Setup environment
-
-Export GO path and system PATH to your environment. GOPATH typically defaults to `$HOME/go`.
-
-```
-# Add these to your ~/.bashrc or ~/.bash_profile file and save file.
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
-
-# Source bashrc to export to environment
-$ source ~/.bashrc
-```
 
 ### Get the code
 

@@ -15,7 +15,9 @@ cpu_profile
 *.db
 
 # config files
-*.toml
+broker.toml
+storage.toml
+standalone.toml
 
 ## Go
 # Binaries for programs and plugins
@@ -29,6 +31,10 @@ cpu_profile
 *mock.go
 *mock.pb.go
 *mock_test.go
+
+# docker cluster
+docker/broker*/
+docker/storage*/
 
 default.etcd
 web/node_modules/
