@@ -25,6 +25,9 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+const storageNameKey = "storageName"
+
+// StateMachineFactory represents master state machine maintainer.
 type StateMachineFactory struct {
 	ctx              context.Context
 	discoveryFactory discovery.Factory
@@ -35,6 +38,7 @@ type StateMachineFactory struct {
 	logger *logger.Logger
 }
 
+// NewStateMachineFactory creates a StateMachineFactory instance.
 func NewStateMachineFactory(ctx context.Context,
 	discoveryFactory discovery.Factory,
 	stateMgr StateManager,
@@ -43,11 +47,11 @@ func NewStateMachineFactory(ctx context.Context,
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
-		logger:           logger.GetLogger("coordinator", "MasterStateMachines"),
+		logger:           logger.GetLogger("master", "MasterStateMachines"),
 	}
 }
 
-// Start starts related state machines for broker.
+// Start starts all master related state machines.
 func (f *StateMachineFactory) Start() (err error) {
 	f.logger.Debug("starting StorageConfigStateMachine")
 	sm, err := f.createStorageConfigStateMachine()
@@ -56,14 +60,14 @@ func (f *StateMachineFactory) Start() (err error) {
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 
-	f.logger.Debug("starting ReplicaLeaderStateMachine")
-	sm, err = f.createShardAssignStateMachine()
+	f.logger.Debug("starting DatabaseConfigStateMachine")
+	sm, err = f.createDatabaseConfigStateMachine()
 	if err != nil {
 		return err
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 	f.logger.Debug("starting ShardAssignmentStateMachine")
-	sm, err = f.createReplicaLeaderStateMachine()
+	sm, err = f.createShardAssignmentStateMachine()
 	if err != nil {
 		return err
 	}
@@ -82,6 +86,7 @@ func (f *StateMachineFactory) Stop() {
 	}
 }
 
+// createStorageConfigStateMachine creates storage config state machine.
 func (f *StateMachineFactory) createStorageConfigStateMachine() (discovery.StateMachine, error) {
 	return discovery.NewStateMachine(
 		f.ctx,
@@ -89,35 +94,69 @@ func (f *StateMachineFactory) createStorageConfigStateMachine() (discovery.State
 		f.discoveryFactory,
 		constants.StorageConfigPath,
 		true,
-		f.stateMgr.OnStorageConfigChange,
-		f.stateMgr.OnStorageConfigDelete,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StorageConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StorageDeletion,
+				Key:  key,
+			})
+		},
 	)
 }
 
-func (f *StateMachineFactory) createShardAssignStateMachine() (discovery.StateMachine, error) {
+// createDatabaseConfigStateMachine crates database config state machine.
+func (f *StateMachineFactory) createDatabaseConfigStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseConfigStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseConfigPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.DatabaseConfigDeletion,
+				Key:  key,
+			})
+		})
+}
+
+// createShardAssignmentStateMachine creates shard assignment state machine.
+func (f *StateMachineFactory) createShardAssignmentStateMachine() (discovery.StateMachine, error) {
 	return discovery.NewStateMachine(
 		f.ctx,
 		discovery.ShardAssignmentStateMachine,
 		f.discoveryFactory,
-		constants.DatabaseConfigPath,
-		true,
-		f.stateMgr.OnDatabaseCfgChange,
-		f.stateMgr.OnDatabaseCfgDelete,
-	)
-}
-
-func (f *StateMachineFactory) createReplicaLeaderStateMachine() (discovery.StateMachine, error) {
-	return discovery.NewStateMachine(
-		f.ctx,
-		discovery.ReplicaLeaderStateMachine,
-		f.discoveryFactory,
 		constants.ShardAssigmentPath,
 		true,
-		f.stateMgr.OnShardAssignmentChange,
-		f.stateMgr.OnShardAssignmentDelete,
-	)
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.ShardAssignmentChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.ShardAssignmentDeletion,
+				Key:  key,
+			})
+		})
 }
 
+// createStorageNodeStateMachine creates storage node state machine.
 func (f *StateMachineFactory) createStorageNodeStateMachine(storageName string,
 	discoveryFactory discovery.Factory,
 ) (discovery.StateMachine, error) {
@@ -127,11 +166,20 @@ func (f *StateMachineFactory) createStorageNodeStateMachine(storageName string,
 		discoveryFactory,
 		constants.LiveNodesPath,
 		true,
-		func(key string, resource []byte) {
-			f.stateMgr.OnStorageNodeStartup(storageName, key, resource)
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:       discovery.NodeStartup,
+				Key:        key,
+				Value:      data,
+				Attributes: map[string]string{storageNameKey: storageName},
+			})
 		},
 		func(key string) {
-			f.stateMgr.OnStorageNodeFailure(storageName, key)
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:       discovery.NodeFailure,
+				Key:        key,
+				Attributes: map[string]string{storageNameKey: storageName},
+			})
 		},
 	)
 }

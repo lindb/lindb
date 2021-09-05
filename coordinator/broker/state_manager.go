@@ -133,6 +133,9 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		}
 	}()
 
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	switch event.Type {
 	case discovery.DatabaseConfigChanged:
 		m.onDatabaseCfgChange(event.Key, event.Value)
@@ -166,9 +169,6 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
 		return
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	m.databases[cfg.Name] = cfg
 }
 
@@ -178,9 +178,6 @@ func (m *stateManager) onDatabaseCfgDelete(key string) {
 		logger.String("key", key))
 
 	_, databaseName := filepath.Split(key)
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	delete(m.databases, databaseName)
 
@@ -202,9 +199,6 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	_, fileName := filepath.Split(key)
 	nodeID := fileName
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	m.connectionManager.CreateConnection(node)
 
 	m.nodes[nodeID] = *node
@@ -218,9 +212,6 @@ func (m *stateManager) onNodeFailure(key string) {
 	m.logger.Info("broker node online => offline",
 		logger.String("nodeID", nodeID),
 		logger.String("key", key))
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	m.connectionManager.CloseConnection(nodeID)
 
@@ -242,9 +233,6 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 		m.logger.Error("storage name is empty")
 		return
 	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	oldState, ok := m.storages[newState.Name]
 	if ok {
@@ -286,9 +274,6 @@ func (m *stateManager) onStorageDelete(key string) {
 	m.logger.Info("storage is deleted",
 		logger.String("storage", name),
 		logger.String("key", key))
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	state, ok := m.storages[name]
 	if ok {

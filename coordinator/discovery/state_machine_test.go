@@ -29,7 +29,6 @@ import (
 func TestStateMachineType_String(t *testing.T) {
 	assert.Equal(t, DatabaseConfigStateMachine.String(), "DatabaseConfigStateMachine")
 	assert.Equal(t, ShardAssignmentStateMachine.String(), "ShardAssignmentStateMachine")
-	assert.Equal(t, ReplicaLeaderStateMachine.String(), "ReplicaLeaderStateMachine")
 	assert.Equal(t, LiveNodeStateMachine.String(), "LiveNodeStateMachine")
 	assert.Equal(t, StorageStatusStateMachine.String(), "StorageStatusStateMachine")
 	assert.Equal(t, StorageConfigStateMachine.String(), "StorageConfigStateMachine")
