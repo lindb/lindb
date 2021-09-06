@@ -26,8 +26,12 @@ function gen() {
     protoc -I. --gofast_out=plugins=grpc,$GO_OUT_M:../gen/$dir_name/$base_name $2
 }
 
+# brew install flatbuffer
+flatc --go -o ./proto/gen/v1 ./proto/v1/metrics.fbs
+
 # for dir in v1 opentelemetry-v1
 for dir in v1; do
+
   cd proto/$dir
 
   for file in `ls *.proto`; do

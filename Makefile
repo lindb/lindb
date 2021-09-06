@@ -55,7 +55,7 @@ deps:  ## Update vendor.
 generate:  ## generate pb/tmpl file.
 	# go get github.com/benbjohnson/tmpl
 	# go install github.com/benbjohnson/tmpl
-	sh ./proto/generate_pb.sh
+	sh ./proto/generate.sh
 	cd tsdb/template && sh generate_tmpl.sh
 
 clean-mock: ## remove all mock files
