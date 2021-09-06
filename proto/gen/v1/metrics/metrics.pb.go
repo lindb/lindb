@@ -1230,7 +1230,10 @@ func (m *MetricList) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -1487,7 +1490,10 @@ func (m *Metric) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -1634,7 +1640,10 @@ func (m *SimpleField) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -1871,7 +1880,10 @@ func (m *CompoundField) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -1986,7 +1998,10 @@ func (m *KeyValue) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -2124,7 +2139,10 @@ func (m *Exemplar) Unmarshal(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
+			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {

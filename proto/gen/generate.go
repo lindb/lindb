@@ -20,3 +20,4 @@ package gen
 //go:generate mockgen -source=./v1/broker/broker.pb.go -destination=./v1/broker/broker_pb_mock.go -package=protoBrokerV1
 //go:generate mockgen -source=./v1/common/common.pb.go -destination=./v1/common/common_pb_mock.go -package=protoCommonV1
 //go:generate mockgen -source=./v1/replica/replica.pb.go -destination=./v1/replica/replica_pb_mock.go -package=protoReplicaV1
+//go:generate mockgen -source=./v1/write/write.pb.go -destination=./v1/write/write_pb_mock.go -package=protoWriteV1

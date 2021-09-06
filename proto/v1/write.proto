@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package protoWriteV1;
+
+message WriteRequest {
+    bytes record = 1;
+}
+
+message WriteResponse {
+    string err = 1;
+}
+
+service WriteService {
+    rpc Write (stream WriteRequest) returns (stream WriteResponse) {
+    }
+}
