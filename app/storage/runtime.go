@@ -47,6 +47,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
+	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 	"github.com/lindb/lindb/query"
 	storageQuery "github.com/lindb/lindb/query/storage"
 	"github.com/lindb/lindb/replica"
@@ -63,6 +64,7 @@ type factory struct {
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
 	replica *handler.ReplicaHandler
+	write   *handler.WriteHandler
 	task    *query.TaskHandler
 }
 
@@ -391,7 +393,8 @@ func (r *runtime) bindRPCHandlers() {
 		r.stateMgr,
 	)
 	r.rpcHandler = &rpcHandler{
-		replica: handler.NewReplicaHandler(walMgr, r.engine),
+		replica: handler.NewReplicaHandler(walMgr),
+		write:   handler.NewWriteHandler(walMgr),
 		task: query.NewTaskHandler(
 			r.config.Query,
 			r.factory.taskServer,
@@ -402,6 +405,7 @@ func (r *runtime) bindRPCHandlers() {
 
 	//TODO add task service ??????
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
+	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
 }
 

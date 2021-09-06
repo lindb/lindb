@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
+	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
 
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
@@ -106,6 +107,8 @@ type ClientStreamFactory interface {
 	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
 	// CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
 	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
+	// CreateWriteServiceClient creates a protoWriteV1.WriteServiceClient.
+	CreateWriteServiceClient(target models.Node) (protoWriteV1.WriteServiceClient, error)
 }
 
 // clientStreamFactory implements ClientStreamFactory.
@@ -148,6 +151,15 @@ func (w *clientStreamFactory) CreateReplicaServiceClient(target models.Node) (pr
 		return nil, err
 	}
 	return protoReplicaV1.NewReplicaServiceClient(conn), nil
+}
+
+// CreateWriteServiceClient creates a protoWriteV1.WriteServiceClient.
+func (w *clientStreamFactory) CreateWriteServiceClient(target models.Node) (protoWriteV1.WriteServiceClient, error) {
+	conn, err := w.connFct.GetClientConn(target)
+	if err != nil {
+		return nil, err
+	}
+	return protoWriteV1.NewWriteServiceClient(conn), nil
 }
 
 // CreateOutgoingContextWithPairs creates outGoing context with key, value pairs.
