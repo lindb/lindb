@@ -328,12 +328,19 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	}
 	m.storages[cfg.Name] = cluster
 	// start storage cluster state machine.
-	// TODO need start in goroutine???
-	if err := cluster.Start(); err != nil {
-		m.unRegister(cfg.Name)
-		m.logger.Info("start storage cluster failure", logger.String("storage", cfg.Name), logger.Error(err))
-		return err
-	}
+	go func() {
+		// need start storage cluster state machine in background,
+		// because maybe load too many storage nodes when state machine init, emits too many event into event chan,
+		// if chan is full, will be block, then trigger data race.
+		if err := cluster.Start(); err != nil {
+			// need lock
+			m.mutex.Lock()
+			defer m.mutex.Unlock()
+
+			m.unRegister(cfg.Name)
+			m.logger.Warn("start storage cluster failure", logger.String("storage", cfg.Name), logger.Error(err))
+		}
+	}()
 	return nil
 }
 
