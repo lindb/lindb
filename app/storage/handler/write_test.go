@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -28,62 +29,81 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/constants"
-	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
+	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 	"github.com/lindb/lindb/replica"
 )
 
-func TestReplicaHandler_Replica(t *testing.T) {
+func TestWriteHandler_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
 	}()
 
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	replicaServer := protoReplicaV1.NewMockReplicaService_ReplicaServer(ctrl)
-	r := NewReplicaHandler(walMgr)
+	replicaServer := protoWriteV1.NewMockWriteService_WriteServer(ctrl)
+	replicaServer.EXPECT().Context().Return(context.TODO())
+	r := NewWriteHandler(walMgr)
 
-	// case 5: create partition err
+	// case 1: database not exist
+	err := r.Write(replicaServer)
+	assert.Error(t, err)
+	// case 2: shard not exist
 	ctx := metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs(
-			constants.RPCMetaReplicaState, `{"database":"test-db","shardId":1,"leader":2,"follower":3}`,
-		))
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db"))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Write(replicaServer)
+	assert.Error(t, err)
+	// case 3: shard decode err
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
+			constants.RPCMetaKeyShardState, strconv.Itoa(1)))
+	replicaServer.EXPECT().Context().Return(ctx)
+	err = r.Write(replicaServer)
+	assert.Error(t, err)
+
+	// case 3: create partition err
+	ctx = metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
+			constants.RPCMetaKeyShardState,
+			`{
+				"id":1,
+				"leader":2,
+				"replica":{"replicas":[1,2,3]}
+			}`))
 	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
 	wal := replica.NewMockWriteAheadLog(ctrl)
 	walMgr.EXPECT().GetOrCreateLog(gomock.Any()).Return(wal).AnyTimes()
 	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err := r.Replica(replicaServer)
+	err = r.Write(replicaServer)
 	assert.Error(t, err)
 
 	// case 6: build replica replica err
 	p := replica.NewMockPartition(ctrl)
 	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(p, nil).AnyTimes()
-	p.EXPECT().BuildReplicaForFollower(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = r.Replica(replicaServer)
+	p.EXPECT().BuildReplicaForLeader(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = r.Write(replicaServer)
 	assert.Error(t, err)
 
-	// case 7: recv req EOF
-	p.EXPECT().BuildReplicaForFollower(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
-	err = r.Replica(replicaServer)
-	assert.NoError(t, err)
-
-	// case 8: recv req err
+	// case 7: recv req err
+	p.EXPECT().BuildReplicaForLeader(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	replicaServer.EXPECT().Recv().Return(nil, fmt.Errorf("err"))
-	err = r.Replica(replicaServer)
+	err = r.Write(replicaServer)
 	assert.Error(t, err)
-
-	// case 9: replica log err
-	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.ReplicaRequest{}, nil)
-	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(-1), fmt.Errorf("err"))
+	// case 8: recv req EOF err
+	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
+	err = r.Write(replicaServer)
+	assert.NoError(t, err)
+	// case 9: write wal err
+	replicaServer.EXPECT().Recv().Return(&protoWriteV1.WriteRequest{}, nil)
+	p.EXPECT().WriteLog(gomock.Any()).Return(fmt.Errorf("err"))
 	replicaServer.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
-	err = r.Replica(replicaServer)
+	err = r.Write(replicaServer)
 	assert.Error(t, err)
-
-	// case 9: replica log success
-	replicaServer.EXPECT().Recv().Return(&protoReplicaV1.ReplicaRequest{}, nil)
-	p.EXPECT().ReplicaLog(gomock.Any(), gomock.Any()).Return(int64(10), nil)
+	// case 10: write wal ok
+	replicaServer.EXPECT().Recv().Return(&protoWriteV1.WriteRequest{}, nil)
+	p.EXPECT().WriteLog(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Send(gomock.Any()).Return(nil)
 	replicaServer.EXPECT().Recv().Return(nil, io.EOF)
-	err = r.Replica(replicaServer)
+	err = r.Write(replicaServer)
 	assert.NoError(t, err)
 }

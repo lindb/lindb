@@ -20,6 +20,7 @@ package replica
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -32,8 +33,6 @@ import (
 )
 
 //go:generate mockgen -source=./shard_channel.go -destination=./shard_channel_mock.go -package=replica
-
-var newSenderFn = newSender
 
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
@@ -54,13 +53,21 @@ type channel struct {
 
 	database string
 	shardID  models.ShardID
+
+	newWriteStreamFn func(
+		ctx context.Context,
+		target models.Node,
+		database string, shardState *models.ShardState,
+		fct rpc.ClientStreamFactory,
+	) (rpc.WriteStream, error)
+
+	fct rpc.ClientStreamFactory
 	// channel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
 	ch chan []byte
 
 	chunk Chunk // buffer current writeTask metric for compress
 
 	running *atomic.Bool
-	sender  Sender
 
 	// last flush time
 	lastFlushTime time.Time
@@ -83,9 +90,10 @@ func newChannel(
 ) Channel {
 	c := &channel{
 		ctx:                ctx,
-		sender:             newSenderFn(ctx, database, shardID, fct),
 		database:           database,
 		shardID:            shardID,
+		newWriteStreamFn:   rpc.NewWriteStream,
+		fct:                fct,
 		ch:                 make(chan []byte, 2),
 		running:            atomic.NewBool(false),
 		checkFlushInterval: time.Second,
@@ -128,9 +136,10 @@ func (c *channel) Write(metric *protoMetricsV1.Metric) error {
 }
 
 func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {
-	c.sender.SyncShardState(shardState, liveNodes)
 	if c.running.CAS(false, true) {
-		go c.writeTask()
+		//TODO check target exist???
+		target := liveNodes[shardState.Leader]
+		go c.writeTask(shardState, &target)
 		c.logger.Info("start shard write channel successfully", logger.String("db", c.database),
 			logger.Any("shardID", c.shardID))
 	}
@@ -141,25 +150,12 @@ func (c *channel) Stop() {
 }
 
 func (c *channel) writePendingBeforeClose() {
-	var wait sync.WaitGroup
-	wait.Add(1)
-	go func() {
-		// try to drain data from chan
-		for data := range c.ch {
-			err := c.sender.Send(data)
-			if err != nil {
-				c.logger.Error("append to queue err", logger.Error(err))
-			}
-		}
-		wait.Done()
-	}()
 	// flush chunk pending data if chunk not empty
 	if !c.chunk.IsEmpty() {
 		// flush chunk pending data if chunk not empty
 		c.flushChunk()
 	}
 	close(c.ch)
-	wait.Wait()
 }
 
 func (c *channel) checkFlush() {
@@ -193,20 +189,44 @@ func (c *channel) flushChunk() {
 }
 
 // writeTask consumes data from chan, then appends the data into queue
-func (c *channel) writeTask() {
+func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 	// on avg 2 * limit could avoid buffer grow
 	ticker := time.NewTicker(c.checkFlushInterval)
 	defer ticker.Stop()
+
+	var stream rpc.WriteStream
+	var err error
+	defer func() {
+		if stream != nil {
+			if err := stream.Close(); err != nil {
+				c.logger.Error("close write stream err when exit write task", logger.Error(err))
+			}
+		}
+	}()
 
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
 		case data := <-c.ch:
-			err := c.sender.Send(data)
+			if stream == nil {
+				stream, err = c.newWriteStreamFn(c.ctx, target, c.database, &shardState, c.fct)
+				if err != nil {
+					//TODO do retry, add max retry count?
+					c.ch <- data
+					continue
+				}
+			}
+			err := stream.Send(data)
 			if err != nil {
-				c.logger.Error("append to queue err", logger.Error(err))
-				//TODO do retry, add max retry count?
+				c.logger.Error("send write request err", logger.Error(err))
+				if err == io.EOF {
+					if err0 := stream.Close(); err0 != nil {
+						c.logger.Error("close write stream err, when do write request", logger.Error(err))
+					}
+					stream = nil
+				}
+				// do retry
 				c.ch <- data
 			}
 		case <-ticker.C:

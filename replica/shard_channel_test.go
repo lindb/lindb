@@ -36,18 +36,22 @@ func TestChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
-		newSenderFn = newSender
 	}()
 
-	sender := NewMockSender(ctrl)
-	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
-	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
-		return sender
-	}
+	stream := rpc.NewMockWriteStream(ctrl)
+	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	stream.EXPECT().Close().AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	ch := newChannel(ctx, "database", 1, nil)
+	ch1 := ch.(*channel)
+	ch1.lock4write.Lock()
+	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		return stream, nil
+	}
+	ch1.lock4write.Unlock()
+
 	ch.SyncShardState(models.ShardState{}, nil)
 
 	metric := &protoMetricsV1.Metric{
@@ -66,7 +70,14 @@ func TestChannel_Write(t *testing.T) {
 
 	ch = newChannel(ctx, "database", 1, nil)
 	ch.SyncShardState(models.ShardState{}, nil)
-	ch1 := ch.(*channel)
+	ch1 = ch.(*channel)
+	ch1.lock4write.Lock()
+	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		return stream, nil
+	}
+	ch1.lock4write.Unlock()
+	time.Sleep(time.Millisecond * 600) // wait task finish
 	// ignore data, after closed
 	chunk := NewMockChunk(ctrl)
 	ch1.chunk = chunk
@@ -85,18 +96,21 @@ func TestChannel_checkFlush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
-		newSenderFn = newSender
 	}()
 
-	sender := NewMockSender(ctrl)
-	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
-	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
-		return sender
-	}
+	stream := rpc.NewMockWriteStream(ctrl)
+	stream.EXPECT().Close().Return(nil).AnyTimes()
+	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	ch := newChannel(ctx, "database", 1, nil)
+	ch1 := ch.(*channel)
+	ch1.lock4write.Lock()
+	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		return stream, nil
+	}
+	ch1.lock4write.Unlock()
 	ch.SyncShardState(models.ShardState{}, nil)
 
 	metric := &protoMetricsV1.Metric{
@@ -117,17 +131,19 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
-		newSenderFn = newSender
 	}()
-
-	sender := NewMockSender(ctrl)
-	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
-	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
-		return sender
-	}
+	stream := rpc.NewMockWriteStream(ctrl)
+	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
 
 	ch := newChannel(context.TODO(), "database", 1, nil)
+	ch1 := ch.(*channel)
+	ch1.lock4write.Lock()
+	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		return stream, nil
+	}
+	ch1.lock4write.Unlock()
+
 	metric := &protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
@@ -138,7 +154,6 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	err := ch.Write(metric)
 	assert.NoError(t, err)
 
-	ch1 := ch.(*channel)
 	ch1.ch <- []byte{1, 2, 3}
 	ch1.writePendingBeforeClose()
 }
@@ -147,20 +162,20 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
-		newSenderFn = newSender
 	}()
-
-	sender := NewMockSender(ctrl)
-	sender.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
-	sender.EXPECT().SyncShardState(gomock.Any(), gomock.Any()).AnyTimes()
-	newSenderFn = func(ctx context.Context, database string, shardID models.ShardID, fct rpc.ClientStreamFactory) Sender {
-		return sender
-	}
+	stream := rpc.NewMockWriteStream(ctrl)
 
 	ch := newChannel(context.TODO(), "database", 1, nil)
+	ch1 := ch.(*channel)
+	ch1.lock4write.Lock()
+	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		return stream, nil
+	}
+	ch1.lock4write.Unlock()
+
 	ch.SyncShardState(models.ShardState{}, nil)
 	chunk := NewMockChunk(ctrl)
-	ch1 := ch.(*channel)
 	ch1.chunk = chunk
 
 	metric := &protoMetricsV1.Metric{
