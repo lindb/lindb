@@ -41,8 +41,8 @@ var memDBLogger = logger.GetLogger("tsdb", "MemDB")
 
 var (
 	memDBScope               = linmetric.NewScope("lindb.tsdb.memdb")
-	pageAllocatedCounterVec  = memDBScope.NewDeltaCounterVec("allocated_pages", "db")
-	pageAllocatedFailuresVec = memDBScope.NewDeltaCounterVec("allocated_page_failures", "db")
+	pageAllocatedCounterVec  = memDBScope.NewCounterVec("allocated_pages", "db")
+	pageAllocatedFailuresVec = memDBScope.NewCounterVec("allocated_page_failures", "db")
 )
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
@@ -214,10 +214,14 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 			fieldType field.Type
 		)
 		switch point.Proto.SimpleFields[simpleFieldIdx].Type {
-		case protoMetricsV1.SimpleFieldType_DELTA_SUM, protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
+		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
 			fieldType = field.SumField
 		case protoMetricsV1.SimpleFieldType_GAUGE:
 			fieldType = field.GaugeField
+		case protoMetricsV1.SimpleFieldType_Min:
+			fieldType = field.MinField
+		case protoMetricsV1.SimpleFieldType_Max:
+			fieldType = field.MaxField
 		default:
 			continue
 		}

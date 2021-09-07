@@ -119,14 +119,14 @@ func NewTaskManager(
 		workerPool:           taskPool,
 		logger:               logger.GetLogger("query", "TaskManager"),
 		ttl:                  ttl,
-		createdTaskCounter:   taskManagerScope.NewDeltaCounter("created_tasks"),
+		createdTaskCounter:   taskManagerScope.NewCounter("created_tasks"),
 		aliveTaskGauge:       taskManagerScope.NewGauge("alive_tasks"),
-		emitResponseCounter:  taskManagerScope.NewDeltaCounter("emitted_responses"),
-		omitResponseCounter:  taskManagerScope.NewDeltaCounter("omitted_responses"),
-		sentRequestCounter:   taskManagerScope.NewDeltaCounter("sent_requests"),
-		sentResponsesCounter: taskManagerScope.NewDeltaCounter("sent_responses"),
-		sentResponseFailures: taskManagerScope.NewDeltaCounter("sent_responses_failures"),
-		sentRequestFailures:  taskManagerScope.NewDeltaCounter("sent_requests_failures"),
+		emitResponseCounter:  taskManagerScope.NewCounter("emitted_responses"),
+		omitResponseCounter:  taskManagerScope.NewCounter("omitted_responses"),
+		sentRequestCounter:   taskManagerScope.NewCounter("sent_requests"),
+		sentResponsesCounter: taskManagerScope.NewCounter("sent_responses"),
+		sentResponseFailures: taskManagerScope.NewCounter("sent_responses_failures"),
+		sentRequestFailures:  taskManagerScope.NewCounter("sent_requests_failures"),
 	}
 	duration := ttl
 	if ttl < time.Minute {

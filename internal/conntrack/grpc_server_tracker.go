@@ -36,9 +36,9 @@ type GRPCServerTracker struct {
 func NewGRPCServerTracker() *GRPCServerTracker {
 	tracker := &GRPCServerTracker{}
 	grpcServerScope := linmetric.NewScope("lindb.traffic.grpc_server")
-	tracker.streamMsgReceivedVec = grpcServerScope.NewDeltaCounterVec(
+	tracker.streamMsgReceivedVec = grpcServerScope.NewCounterVec(
 		"msg_received", "grpc_type", "grpc_service", "grpc_method")
-	tracker.streamMsgSentVec = grpcServerScope.NewDeltaCounterVec(
+	tracker.streamMsgSentVec = grpcServerScope.NewCounterVec(
 		"msg_sent", "grpc_type", "grpc_service", "grpc_method")
 	return tracker
 }

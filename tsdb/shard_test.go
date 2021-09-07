@@ -168,20 +168,19 @@ func TestShard_GetDataFamilies(t *testing.T) {
 
 func Test_Shard_validateMetric(t *testing.T) {
 	s := &shard{behind: 100000, ahead: 100000, metrics: *newShardMetrics("1", 1)}
-	assert.NotNil(t, s.getCache())
 	assert.Zero(t, s.CurrentInterval().Int64())
 	// nil pb
-	_, err := s.validateMetric(nil)
+	err := s.validateMetric(nil)
 	assert.Error(t, err)
 	// empty name
-	_, err = s.validateMetric(&protoMetricsV1.Metric{Name: ""})
+	err = s.validateMetric(&protoMetricsV1.Metric{Name: ""})
 	assert.Error(t, err)
 	// field empty
-	_, err = s.validateMetric(&protoMetricsV1.Metric{Name: "1"})
+	err = s.validateMetric(&protoMetricsV1.Metric{Name: "1"})
 	assert.Error(t, err)
 
 	// time behind
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
@@ -190,7 +189,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	assert.Error(t, err)
 
 	// bad tags, empty
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		Tags: []*protoMetricsV1.KeyValue{
 			{Key: "", Value: ""},
@@ -203,7 +202,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	assert.Error(t, err)
 
 	// bad tags, nil
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		Tags: []*protoMetricsV1.KeyValue{nil, nil},
 		SimpleFields: []*protoMetricsV1.SimpleField{
@@ -213,14 +212,14 @@ func Test_Shard_validateMetric(t *testing.T) {
 	})
 	assert.Error(t, err)
 	// simple fields nil
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name:         "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{nil, nil},
 		Timestamp:    fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// field name empty
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
@@ -229,7 +228,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	})
 	assert.Error(t, err)
 	// sanitize field name
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "Histogram_2", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
@@ -238,7 +237,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	// sanitize field name, field type unspecified
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "xxx2", Type: protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED, Value: 1},
@@ -247,7 +246,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	})
 	assert.Error(t, err)
 	// Nan number
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Value: math.Log(-1), Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
@@ -257,7 +256,7 @@ func Test_Shard_validateMetric(t *testing.T) {
 	assert.Error(t, err)
 
 	// Inf number
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Value: math.Inf(1) + 1, Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
@@ -268,93 +267,77 @@ func Test_Shard_validateMetric(t *testing.T) {
 	//
 	// validate compound field
 	//
-	// unspecified field
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Type: protoMetricsV1.CompoundFieldType_COMPOUND_UNSPECIFIED,
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
 	// length not match
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Values:         []float64{1, 2, 3},
 			ExplicitBounds: []float64{1, 2, 3, 4},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// length too short
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Values:         []float64{1, 2},
 			ExplicitBounds: []float64{1, math.Inf(1) + 1},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// min, max < 0
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            -1,
 			Values:         []float64{1, 2, 3, 4},
 			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// check value
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
 			Values:         []float64{-1, 2, 3, 4},
 			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// check increase
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
 			Values:         []float64{1, 4, 3, 4},
 			ExplicitBounds: []float64{1, 5, 3, math.Inf(1) + 1},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// check last bound
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
 			Values:         []float64{1, 4, 3, 4},
 			ExplicitBounds: []float64{1, 2, 3, 4},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
 	assert.Error(t, err)
 	// ok
-	_, err = s.validateMetric(&protoMetricsV1.Metric{
+	err = s.validateMetric(&protoMetricsV1.Metric{
 		Name: "1",
 		CompoundField: &protoMetricsV1.CompoundField{
 			Sum:            11,
 			Values:         []float64{1, 4, 3, 4},
 			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-			Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		},
 		Timestamp: fasttime.UnixMilliseconds(),
 	})
@@ -533,7 +516,7 @@ func Benchmark_validate_metric(b *testing.B) {
 	var s = &shard{metrics: *newShardMetrics("1", 1)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = s.validateMetric(_testMetric)
+		_ = s.validateMetric(_testMetric)
 	}
 }
 

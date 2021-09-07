@@ -30,8 +30,8 @@ var walLogger = logger.GetLogger("tsdb", "WAL")
 
 var (
 	walScope                  = linmetric.NewScope("lindb.tsdb.wal")
-	recoveryCommitFailCounter = walScope.NewDeltaCounter("wal_recovery_commit_fail")
-	releaseWALPageFailCounter = walScope.NewDeltaCounter("wal_release_page_fail")
+	recoveryCommitFailCounter = walScope.NewCounter("wal_recovery_commit_fail")
+	releaseWALPageFailCounter = walScope.NewCounter("wal_release_page_fail")
 )
 
 // SeriesRecoveryFunc represents the series recovery function

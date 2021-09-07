@@ -195,7 +195,6 @@ func TestMemoryDatabase_Write(t *testing.T) {
 					Count:          10,
 					ExplicitBounds: []float64{1, 1, 1, 1, math.Inf(1) + 1},
 					Values:         []float64{1, 1, 1, 1, 1, 1},
-					Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 				},
 			}})
 

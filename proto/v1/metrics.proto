@@ -30,7 +30,7 @@ message MetricList {
 //  |compound-field |---> |Histogram                           |
 //  +---------------+     +------------------------------------+
 //
-//  SimpleField   [One of Gauge, CumulativeSum, DeltaSum ...]
+//  SimpleField   [One of Gauge, DeltaSum, Min, Max ...]
 //  +-----------+
 //  |name       |  // field-name
 //  |type       |  // field-type
@@ -39,9 +39,8 @@ message MetricList {
 //  |value      |
 //  +-----------+
 //
-//  CompoundField  [One of CumulativeHistogram, DeltaHistogram ...]
+//  CompoundField  [DeltaHistogram ...]
 //  +-----------+
-//  |type       |  // field-type
 //  |exemplars  |  // exemplars of series
 //  +-----+-----+-----+-----+-----+-----+
 //  |min  |max  |sum  |value|value|.....|
@@ -60,14 +59,10 @@ enum SimpleFieldType {
     SIMPLE_UNSPECIFIED = 0;
     GAUGE = 1;
     DELTA_SUM = 2;
-    CUMULATIVE_SUM = 3;
+    Min = 3;
+    Max = 4;
 }
 
-enum CompoundFieldType {
-    COMPOUND_UNSPECIFIED = 0;
-    DELTA_HISTOGRAM = 1;
-    CUMULATIVE_HISTOGRAM = 2;
-}
 
 message SimpleField {
     string name = 1;
@@ -78,12 +73,11 @@ message SimpleField {
 
 // CompoundData is compound data used for histogram field.
 message CompoundField {
-    CompoundFieldType type = 1;
-    repeated Exemplar exemplars = 2;
-    double min = 3;
-    double max = 4;
-    double sum = 5;
-    double count = 6;
+    repeated Exemplar exemplars = 1;
+    double min = 2;
+    double max = 3;
+    double sum = 4;
+    double count = 5;
     // same as open-telemetry metrics definition
     // explicit_bounds specifies buckets with explicitly defined bounds for values.
     //
@@ -98,8 +92,8 @@ message CompoundField {
     // Histogram buckets are inclusive of their upper boundary, except the last
     // bucket where the boundary is at infinity. This format is intentionally
     // compatible with the OpenMetrics histogram definition.
-    repeated double explicit_bounds = 7;
-    repeated double values = 8;
+    repeated double explicit_bounds = 6;
+    repeated double values = 7;
 }
 
 // KeyValue is a key-value pair that is used to store tag/label attributes

@@ -26,7 +26,7 @@ import (
 
 func Test_HistogramDeltaVec(t *testing.T) {
 	scope := NewScope("44")
-	vec := scope.NewDeltaHistogramVec("1", "2")
+	vec := scope.NewHistogramVec("1", "2")
 
 	assert.Panics(t, func() {
 		vec.WithTagValues("1")
@@ -42,7 +42,7 @@ func Test_HistogramDeltaVec(t *testing.T) {
 
 func Benchmark_HistogramVec(b *testing.B) {
 	scope := NewScope("vec_test")
-	vec := scope.NewDeltaHistogramVec("1", "2").
+	vec := scope.NewHistogramVec("1", "2").
 		WithExponentBuckets(time.Millisecond, time.Second*4, 10)
 
 	for i := 0; i < b.N; i++ {
@@ -53,7 +53,7 @@ func Benchmark_HistogramVec(b *testing.B) {
 func Benchmark_histogram(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		NewScope("histogram_test", "1", "3", "2", "4").
-			NewDeltaHistogram().
+			NewHistogram().
 			WithExponentBuckets(time.Millisecond, time.Second*4, 10).
 			UpdateSeconds(1)
 	}

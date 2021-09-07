@@ -25,8 +25,7 @@ import (
 )
 
 func Test_Counter(t *testing.T) {
-	c1 := newDeltaCounter("count")
-	c2 := newCumulativeCounter("count ")
+	c1 := NewCounter("count")
 	var wg sync.WaitGroup
 	for range [10]struct{}{} {
 		wg.Add(1)
@@ -37,10 +36,6 @@ func Test_Counter(t *testing.T) {
 				c1.Sub(1)
 				c1.Incr()
 				c1.Decr()
-				c2.Add(2)
-				c2.Sub(1)
-				c2.Incr()
-				c2.Decr()
 			}
 		}()
 	}
@@ -49,10 +44,4 @@ func Test_Counter(t *testing.T) {
 	assert.Equal(t, float64(100), c1.getAndReset())
 	// reset
 	assert.Equal(t, float64(0), c1.Get())
-
-	assert.Equal(t, float64(100), c2.Get())
-	assert.Equal(t, float64(100), c2.Get())
-	c2.Update(1000)
-	assert.Equal(t, float64(1000), c2.Get())
-
 }

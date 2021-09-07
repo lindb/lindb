@@ -32,7 +32,7 @@ var (
 )
 
 var (
-	recoverSeriesFailCounter = walScope.NewDeltaCounter("wal_recovery_series_fail")
+	recoverSeriesFailCounter = walScope.NewCounter("wal_recovery_series_fail")
 )
 
 const (

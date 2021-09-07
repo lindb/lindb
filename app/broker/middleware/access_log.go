@@ -39,7 +39,7 @@ var (
 var (
 	httHandlerTimerVec = linmetric.
 		NewScope("lindb.broker.http_handle_duration").
-		NewDeltaHistogramVec("path", "status").
+		NewHistogramVec("path", "status").
 		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
 )
 

@@ -39,14 +39,14 @@ type GRPCClientTracker struct {
 func NewGRPCClientTracker() *GRPCClientTracker {
 	tracker := &GRPCClientTracker{}
 	grpcClientScope := linmetric.NewScope("lindb.traffic.grpc_client")
-	tracker.clientStreamMsgReceivedVec = grpcClientScope.NewDeltaCounterVec(
+	tracker.clientStreamMsgReceivedVec = grpcClientScope.NewCounterVec(
 		"msg_received", "grpc_type", "grpc_service", "grpc_method")
-	tracker.clientStreamMsgSentVec = grpcClientScope.NewDeltaCounterVec(
+	tracker.clientStreamMsgSentVec = grpcClientScope.NewCounterVec(
 		"msg_sent", "grpc_type", "grpc_service", "grpc_method")
 	tracker.clientStreamMsgReceivedTimerVec = grpcClientScope.Scope("msg_received_duration").
-		NewDeltaHistogramVec("grpc_type", "grpc_service", "grpc_method")
+		NewHistogramVec("grpc_type", "grpc_service", "grpc_method")
 	tracker.clientStreamMsgSentTimerVec = grpcClientScope.Scope("msg_sent_duration").
-		NewDeltaHistogramVec("grpc_type", "grpc_service", "grpc_method")
+		NewHistogramVec("grpc_type", "grpc_service", "grpc_method")
 	return tracker
 }
 

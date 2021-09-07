@@ -34,7 +34,7 @@ type DeltaHistogramVec struct {
 	setBucketsFunc  func(h *BoundDeltaHistogram)
 }
 
-func newDeltaHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *DeltaHistogramVec {
+func NewHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *DeltaHistogramVec {
 	return &DeltaHistogramVec{
 		metricName:      metricName,
 		tags:            tags,
@@ -87,7 +87,7 @@ func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundDeltaHisto
 		tagsMap[hv.tagKeys[i]] = tagValues[i]
 	}
 	series := newTaggedSeries(hv.metricName, tag.KeyValuesFromMap(tagsMap))
-	h = series.NewDeltaHistogram()
+	h = series.NewHistogram()
 	if hv.setBucketsFunc != nil {
 		hv.setBucketsFunc(h)
 	}

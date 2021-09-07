@@ -55,17 +55,17 @@ func NewTrackedListener(network, addr string) (*TrackedListener, error) {
 	return &TrackedListener{
 		Listener: ln,
 		connStatistics: connStatistics{
-			acceptCounter: tcpScope.NewDeltaCounter("accept_conns"),
-			acceptErrors:  tcpScope.NewDeltaCounter("accept_errors"),
+			acceptCounter: tcpScope.NewCounter("accept_conns"),
+			acceptErrors:  tcpScope.NewCounter("accept_errors"),
 			connNum:       tcpScope.NewGauge("conns_num"),
-			readCounter:   tcpScope.NewDeltaCounter("read_count"),
-			readBytes:     tcpScope.NewDeltaCounter("read_bytes"),
-			readErrors:    tcpScope.NewDeltaCounter("read_errors"),
-			writeCounter:  tcpScope.NewDeltaCounter("write_count"),
-			writeBytes:    tcpScope.NewDeltaCounter("write_bytes"),
-			writeErrors:   tcpScope.NewDeltaCounter("write_errors"),
-			closeCounter:  tcpScope.NewDeltaCounter("close_conns"),
-			closeErrors:   tcpScope.NewDeltaCounter("close_errors"),
+			readCounter:   tcpScope.NewCounter("read_count"),
+			readBytes:     tcpScope.NewCounter("read_bytes"),
+			readErrors:    tcpScope.NewCounter("read_errors"),
+			writeCounter:  tcpScope.NewCounter("write_count"),
+			writeBytes:    tcpScope.NewCounter("write_bytes"),
+			writeErrors:   tcpScope.NewCounter("write_errors"),
+			closeCounter:  tcpScope.NewCounter("close_conns"),
+			closeErrors:   tcpScope.NewCounter("close_errors"),
 		},
 	}, nil
 }

@@ -25,9 +25,9 @@ import (
 //go:generate mockgen -source=./metric_meta_wal.go -destination=./metric_meta_wal_mock.go -package=wal
 
 var (
-	recoverMetricFailCounter = walScope.NewDeltaCounter("wal_recovery_metric_fail")
-	recoverFieldFailCounter  = walScope.NewDeltaCounter("wal_recovery_field_fail")
-	recoverTagKeyFailCounter = walScope.NewDeltaCounter("wal_recovery_tag_key_fail")
+	recoverMetricFailCounter = walScope.NewCounter("wal_recovery_metric_fail")
+	recoverFieldFailCounter  = walScope.NewCounter("wal_recovery_field_fail")
+	recoverTagKeyFailCounter = walScope.NewCounter("wal_recovery_tag_key_fail")
 )
 
 const (
