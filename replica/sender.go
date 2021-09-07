@@ -171,7 +171,7 @@ func (c *sender) initClient() error {
 	return nil
 }
 
-// sendLoop is a loop to send message to rpc stream, it recovers from panic to prevent crash.
+// Send is a loop to send message to rpc stream, it recovers from panic to prevent crash.
 // The loop only terminates when isStopped() return true.
 func (c *sender) Send(data []byte) error {
 	if !c.ready.Load() {
