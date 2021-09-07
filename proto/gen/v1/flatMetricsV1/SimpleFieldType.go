@@ -24,24 +24,27 @@ import "strconv"
 type SimpleFieldType int8
 
 const (
-	SimpleFieldTypeUnSpecified   SimpleFieldType = 0
-	SimpleFieldTypeGauge         SimpleFieldType = 1
-	SimpleFieldTypeDeltaSum      SimpleFieldType = 2
-	SimpleFieldTypeCumulativeSum SimpleFieldType = 3
+	SimpleFieldTypeUnSpecified SimpleFieldType = 0
+	SimpleFieldTypeGauge       SimpleFieldType = 1
+	SimpleFieldTypeDeltaSum    SimpleFieldType = 2
+	SimpleFieldTypeMin         SimpleFieldType = 3
+	SimpleFieldTypeMax         SimpleFieldType = 4
 )
 
 var EnumNamesSimpleFieldType = map[SimpleFieldType]string{
-	SimpleFieldTypeUnSpecified:   "UnSpecified",
-	SimpleFieldTypeGauge:         "Gauge",
-	SimpleFieldTypeDeltaSum:      "DeltaSum",
-	SimpleFieldTypeCumulativeSum: "CumulativeSum",
+	SimpleFieldTypeUnSpecified: "UnSpecified",
+	SimpleFieldTypeGauge:       "Gauge",
+	SimpleFieldTypeDeltaSum:    "DeltaSum",
+	SimpleFieldTypeMin:         "Min",
+	SimpleFieldTypeMax:         "Max",
 }
 
 var EnumValuesSimpleFieldType = map[string]SimpleFieldType{
-	"UnSpecified":   SimpleFieldTypeUnSpecified,
-	"Gauge":         SimpleFieldTypeGauge,
-	"DeltaSum":      SimpleFieldTypeDeltaSum,
-	"CumulativeSum": SimpleFieldTypeCumulativeSum,
+	"UnSpecified": SimpleFieldTypeUnSpecified,
+	"Gauge":       SimpleFieldTypeGauge,
+	"DeltaSum":    SimpleFieldTypeDeltaSum,
+	"Min":         SimpleFieldTypeMin,
+	"Max":         SimpleFieldTypeMax,
 }
 
 func (v SimpleFieldType) String() string {

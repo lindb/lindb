@@ -4,13 +4,8 @@ enum SimpleFieldType:byte {
     UnSpecified = 0,
     Gauge = 1,
     DeltaSum = 2,
-    CumulativeSum = 3,
-}
-
-enum CompoundFieldType:byte{
-    UnSpecified = 0,
-    DeltaHistogram = 1,
-    CumultaiveHistogram = 2,
+    Min = 3,
+    Max = 4,
 }
 
 table SimpleField {
@@ -22,7 +17,6 @@ table SimpleField {
 
 // CompoundField holds compound data used for histogram field.
 table CompoundField{
-    type: CompoundFieldType;
     exemplars: [Exemplar];
     min: double; // lindb specific field
     max: double; // lindb specific field
@@ -42,7 +36,7 @@ table CompoundField{
     // Histogram buckets are inclusive of their upper boundary, except the last
     // bucket where the boundary is at infinity. This format is intentionally
     // compatible with the OpenMetrics histogram definition.
-    explictBounds: [double];
+    explicitBounds: [double];
     values: [double];
 }
 
@@ -74,7 +68,7 @@ table Exemplar {
 //
 // - Metric is composed of metadata、timestamp and fields.
 // - Metadata part contains a namespace, name, tags and its sorted-concat-string hash.
-// - Fields is the array of the possible fields (Sum, Gauge, Histogram).
+// - Fields is the array of the possible fields (Sum, Gauge, Histogram, Min, Max).
 // - Fields contains exemplars, names, and the underlying value or value list
 //
 //     Metric
@@ -88,7 +82,7 @@ table Exemplar {
 //  |compound-field |---> |Histogram                           |
 //  +---------------+     +------------------------------------+
 //
-//  SimpleField   [One of Gauge, CumulativeSum, DeltaSum ...]
+//  SimpleField   [One of Gauge, DeltaSum, Min, Max ...]
 //  +-----------+
 //  |name       |  // field-name
 //  |type       |  // field-type
@@ -97,9 +91,8 @@ table Exemplar {
 //  |value      |
 //  +-----------+
 //
-//  CompoundField  [One of CumulativeHistogram, DeltaHistogram ...]
+//  CompoundField  [DeltaHistogram ...]
 //  +-----------+
-//  |type       |  // field-type
 //  |exemplars  |  // exemplars of series
 //  +-----+-----+-----+-----+-----+-----+
 //  |min  |max  |sum  |value|value|.....|
