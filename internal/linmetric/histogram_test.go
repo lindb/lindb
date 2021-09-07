@@ -26,33 +26,12 @@ import (
 )
 
 func Test_Histogram(t *testing.T) {
-	ch := newCumulativeHistogram()
-	dh := newDeltaHistogram()
+	dh := NewHistogram()
 	concurrentDo(
 		func() {
-			ch.WithExponentBuckets(time.Millisecond, time.Second*5, 100)
-			ch.WithLinearBuckets(time.Second, time.Second*5, 5)
 			dh.WithLinearBuckets(time.Millisecond, time.Second*5, 100)
 			dh.WithExponentBuckets(time.Second, time.Second*5, 5)
 		})
-	concurrentDo(
-		func() {
-			// [1000 2333.333333333333 3666.666666666666 4999.999999999999 +Inf]
-			ch.UpdateMilliseconds(900)         // bucket0
-			ch.UpdateSeconds(1)                // bucket0
-			ch.UpdateMilliseconds(1001)        // bucket1
-			ch.UpdateMilliseconds(2332)        // bucket1
-			ch.UpdateMilliseconds(3666)        // bucket2
-			ch.UpdateMilliseconds(3667)        // bucket3
-			ch.UpdateMilliseconds(4999)        // bucket3
-			ch.UpdateMilliseconds(5000)        // bucket3
-			ch.UpdateDuration(time.Second * 6) // bucket4
-			// < 0
-			ch.UpdateSince(time.Now().Add(time.Second))      // drop
-			ch.UpdateSince(time.Now().Add(-1 * time.Second)) // bucket0
-		})
-	assert.InDeltaSlice(t, []float64{300, 200, 100, 300, 100}, ch.bkts.values, 0.01)
-
 	concurrentDo(
 		func() {
 			dh.UpdateMilliseconds(2000)                      // bucket2
@@ -70,8 +49,6 @@ func Test_Histogram(t *testing.T) {
 	assert.InDeltaSlice(t, []float64{100, 100, 300, 200, 300}, dh.bkts.values, 0.01)
 
 	defer func() {
-		ch.Update(func() {
-		})
 		dh.Update(func() {
 		})
 	}()

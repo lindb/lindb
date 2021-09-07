@@ -36,7 +36,7 @@ var testMetricList = &protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metri
 		Name:      "a",
 		Timestamp: 0,
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM, Value: 23},
+			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 23},
 		}},
 }}
 

@@ -27,7 +27,7 @@ type BoundDeltaCounter struct {
 	fieldName string
 }
 
-func newDeltaCounter(fieldName string) *BoundDeltaCounter {
+func NewCounter(fieldName string) *BoundDeltaCounter {
 	return &BoundDeltaCounter{
 		fieldName: fieldName,
 	}

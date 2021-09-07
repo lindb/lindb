@@ -46,9 +46,9 @@ func getBuilderStatistics() *builderStatistics {
 	_once4Builder.Do(func() {
 		tableBuilderScope := linmetric.NewScope("lindb.kv.table.builder")
 		_instanceBuilderStatistics = &builderStatistics{
-			AddBadKeys: tableBuilderScope.NewDeltaCounter("bad_keys"),
-			AddKeys:    tableBuilderScope.NewDeltaCounter("add_keys"),
-			AddBytes:   tableBuilderScope.NewDeltaCounter("add_bytes"),
+			AddBadKeys: tableBuilderScope.NewCounter("bad_keys"),
+			AddKeys:    tableBuilderScope.NewCounter("add_keys"),
+			AddBytes:   tableBuilderScope.NewCounter("add_bytes"),
 		}
 	})
 	return _instanceBuilderStatistics

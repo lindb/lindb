@@ -59,17 +59,5 @@ export const BrokerDashboard = [
             8,
             UnitEnum.None,
         ),
-        metric(
-            'Prometheus Ingestion Transformed',
-            'select transformed_gauges, transformed_counters, transformed_histograms from lindb.ingestion.prometheus',
-            8,
-            UnitEnum.None,
-        ),
-        metric(
-            'Prometheus Ingestion Failures',
-            'select gzip_data_corrupted, bad_gauges, bad_counters, bad_histograms from lindb.ingestion.prometheus',
-            8,
-            UnitEnum.None,
-        ),
     ]
 ]

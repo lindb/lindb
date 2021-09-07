@@ -42,12 +42,12 @@ var (
 
 var (
 	influxIngestionScope       = linmetric.NewScope("lindb.ingestion.influx")
-	influxCorruptedDataCounter = influxIngestionScope.NewDeltaCounter("data_corrupted_count")
-	ingestedMetricsCounter     = influxIngestionScope.NewDeltaCounter("ingested_metrics")
-	ingestedFieldsCounter      = influxIngestionScope.NewDeltaCounter("ingested_fields")
-	influxReadBytesCounter     = influxIngestionScope.NewDeltaCounter("read_bytes")
-	droppedMetricsCounter      = influxIngestionScope.NewDeltaCounter("dropped_metrics")
-	droppedFieldsCounter       = influxIngestionScope.NewDeltaCounter("dropped_fields")
+	influxCorruptedDataCounter = influxIngestionScope.NewCounter("data_corrupted_count")
+	ingestedMetricsCounter     = influxIngestionScope.NewCounter("ingested_metrics")
+	ingestedFieldsCounter      = influxIngestionScope.NewCounter("ingested_fields")
+	influxReadBytesCounter     = influxIngestionScope.NewCounter("read_bytes")
+	droppedMetricsCounter      = influxIngestionScope.NewCounter("dropped_metrics")
+	droppedFieldsCounter       = influxIngestionScope.NewCounter("dropped_fields")
 )
 
 // Test cases in

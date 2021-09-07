@@ -17,6 +17,19 @@
 
 package metric
 
+import (
+	flatbuffers "github.com/google/flatbuffers/go"
+)
+
 type BrokerRow struct {
 	readOnlyRow
 }
+
+func (br *BrokerRow) Unmarshal(data []byte) {
+	br.m.Init(data, flatbuffers.GetUOffsetT(data))
+}
+
+// UnmarshalBrokerRowsInto unmarshal rows into dst, return error if data is invalid
+//func UnmarshalBrokerRowsInto(dst []BrokerRow, src []byte) ([]BrokerRow, error) {
+//
+//}
