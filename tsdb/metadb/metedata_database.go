@@ -45,13 +45,13 @@ var (
 
 var (
 	metaDBScope             = linmetric.NewScope("lindb.tsdb.metadb")
-	getMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("get_metric_ids", "db")
-	genMetricIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_metric_ids", "db")
-	getTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("get_tag_key_ids", "db")
-	genTagKeyIDCounterVec   = metaDBScope.NewDeltaCounterVec("gen_tag_key_ids", "db")
-	getFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("get_field_ids", "db")
-	genFieldIDCounterVec    = metaDBScope.NewDeltaCounterVec("gen_field_ids", "db")
-	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewDeltaHistogramVec("db")
+	getMetricIDCounterVec   = metaDBScope.NewCounterVec("get_metric_ids", "db")
+	genMetricIDCounterVec   = metaDBScope.NewCounterVec("gen_metric_ids", "db")
+	getTagKeyIDCounterVec   = metaDBScope.NewCounterVec("get_tag_key_ids", "db")
+	genTagKeyIDCounterVec   = metaDBScope.NewCounterVec("gen_tag_key_ids", "db")
+	getFieldIDCounterVec    = metaDBScope.NewCounterVec("get_field_ids", "db")
+	genFieldIDCounterVec    = metaDBScope.NewCounterVec("gen_field_ids", "db")
+	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewHistogramVec("db")
 )
 
 var (

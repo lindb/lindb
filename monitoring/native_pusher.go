@@ -37,9 +37,9 @@ var nativePushLogger = logger.GetLogger("monitoring", "Pusher")
 var (
 	monitorScope       = linmetric.NewScope("lindb.monitor")
 	nativePusherScope  = monitorScope.Scope("native_pusher")
-	pushBytesCounter   = nativePusherScope.NewDeltaCounter("push_bytes")
-	pushMetricsCounter = nativePusherScope.NewDeltaCounter("push_metrics_count")
-	pushErrorCounter   = nativePusherScope.NewDeltaCounter("push_error_count")
+	pushBytesCounter   = nativePusherScope.NewCounter("push_bytes")
+	pushMetricsCounter = nativePusherScope.NewCounter("push_metrics_count")
+	pushErrorCounter   = nativePusherScope.NewCounter("push_error_count")
 )
 
 const (

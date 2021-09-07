@@ -44,8 +44,8 @@ var (
 )
 
 var (
-	genTagKeyFailCounterVec   = indexDBScope.NewDeltaCounterVec("gen_tag_key_id_fails", "db")
-	genTagValueFailCounterVec = indexDBScope.NewDeltaCounterVec("gen_tag_value_id_fails", "db")
+	genTagKeyFailCounterVec   = indexDBScope.NewCounterVec("gen_tag_key_id_fails", "db")
+	genTagValueFailCounterVec = indexDBScope.NewCounterVec("gen_tag_value_id_fails", "db")
 )
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)

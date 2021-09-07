@@ -45,8 +45,8 @@ var (
 
 var (
 	indexDBScope                 = linmetric.NewScope("lindb.tsdb.indexdb")
-	buildInvertedIndexCounterVec = indexDBScope.NewDeltaCounterVec("build_inverted_index_counter", "db")
-	recoverySeriesWALTimerVec    = indexDBScope.Scope("recovery_series_wal_duration").NewDeltaHistogramVec("db")
+	buildInvertedIndexCounterVec = indexDBScope.NewCounterVec("build_inverted_index_counter", "db")
+	recoverySeriesWALTimerVec    = indexDBScope.Scope("recovery_series_wal_duration").NewHistogramVec("db")
 )
 
 const (

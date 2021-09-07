@@ -61,7 +61,7 @@ func Test_NativeWriter(t *testing.T) {
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
 	var metricList = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
 		{Name: "1", Namespace: "ns", SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM, Value: 23},
+			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 23},
 		}},
 	}}
 	data, _ := metricList.Marshal()

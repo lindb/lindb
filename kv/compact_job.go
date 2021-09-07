@@ -29,8 +29,8 @@ import (
 )
 
 var (
-	kvMergeHistogram = linmetric.NewScope("lindb.kv.compaction.merge_duration").NewDeltaHistogram()
-	kvMoveHistogram  = linmetric.NewScope("lindb.kv.compaction.move_duration").NewDeltaHistogram()
+	kvMergeHistogram = linmetric.NewScope("lindb.kv.compaction.merge_duration").NewHistogram()
+	kvMoveHistogram  = linmetric.NewScope("lindb.kv.compaction.move_duration").NewHistogram()
 )
 
 //go:generate mockgen -source ./compact_job.go -destination=./compact_job_mock.go -package kv

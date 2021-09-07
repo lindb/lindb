@@ -15,36 +15,4 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package ingest
-
-import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/ingestion/prometheus"
-)
-
-var (
-	PrometheusWritePath = "/prometheus/write"
-)
-
-// PrometheusWriter processes prometheus text protocol.
-type PrometheusWriter struct {
-	commonWriter
-}
-
-// NewPrometheusWriter creates prometheus writer.
-func NewPrometheusWriter(deps *deps.HTTPDeps) *PrometheusWriter {
-	return &PrometheusWriter{
-		commonWriter: commonWriter{
-			deps:   deps,
-			parser: prometheus.Parse,
-		},
-	}
-}
-
-// Register adds prometheus write url route.
-func (m *PrometheusWriter) Register(route gin.IRoutes) {
-	route.PUT(PrometheusWritePath, m.Write)
-	route.POST(PrometheusWritePath, m.Write)
-}
+package metric

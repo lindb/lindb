@@ -36,7 +36,6 @@ type API struct {
 	storage         *admin.StorageClusterAPI
 	brokerState     *state.BrokerAPI
 	storageState    *state.StorageAPI
-	prometheus      *ingest.PrometheusWriter
 	influxIngestion *ingest.InfluxWriter
 	nativeIngestion *ingest.NativeWriter
 	metric          *query.MetricAPI
@@ -52,7 +51,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		storage:         admin.NewStorageClusterAPI(deps),
 		brokerState:     state.NewBrokerAPI(deps),
 		storageState:    state.NewStorageAPI(deps),
-		prometheus:      ingest.NewPrometheusWriter(deps),
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		nativeIngestion: ingest.NewNativeWriter(deps),
 		metric:          query.NewMetricAPI(deps),
@@ -74,5 +72,4 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.metric.Register(router)
 	api.influxIngestion.Register(router)
 	api.nativeIngestion.Register(router)
-	api.prometheus.Register(router)
 }

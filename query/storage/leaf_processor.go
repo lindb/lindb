@@ -63,9 +63,9 @@ func NewLeafTaskProcessor(
 		engine:                     engine,
 		taskServerFactory:          taskServerFactory,
 		logger:                     logger.GetLogger("query", "LeafTaskDispatcher"),
-		storageMetricQueryCounter:  storageQueryScope.NewDeltaCounter("metric_queries"),
-		storageMetaQueryCounter:    storageQueryScope.NewDeltaCounter("meta_queries"),
-		storageOmitResponseCounter: storageQueryScope.NewDeltaCounter("omitted_responses"),
+		storageMetricQueryCounter:  storageQueryScope.NewCounter("metric_queries"),
+		storageMetaQueryCounter:    storageQueryScope.NewCounter("meta_queries"),
+		storageOmitResponseCounter: storageQueryScope.NewCounter("omitted_responses"),
 	}
 }
 

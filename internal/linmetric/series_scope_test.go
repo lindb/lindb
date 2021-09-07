@@ -34,21 +34,14 @@ func Test_MetricScope(t *testing.T) {
 	scope1 := linmetric.NewScope("1",
 		"k2", "v2", "k1", "v1", "k2", "v2")
 	scope1.NewGauge("g1").Incr()
-	scope1.NewCumulativeCounter("c1").Incr()
-	scope1.NewCumulativeCounter("c1").Incr()
-	scope1.NewDeltaCounter("c2").Incr()
-	scope1.NewDeltaCounter("c2").Incr()
-	scope1.NewCumulativeHistogram().UpdateDuration(time.Second)
-	scope1.NewCumulativeHistogram().UpdateDuration(time.Second)
+	scope1.NewCounter("c2").Incr()
+	scope1.NewCounter("c2").Incr()
 
 	scope12 := scope1.Scope("2", "k1", "v1", "k3", "v3")
 	scope12.NewGauge("g1").Update(1)
 	scope12.NewGauge("g1").Update(2)
-	scope12.NewDeltaHistogram().UpdateDuration(time.Second)
-	scope12.NewDeltaHistogram().UpdateDuration(time.Second)
-	assert.Panics(t, func() {
-		scope12.NewCumulativeHistogram().UpdateDuration(time.Second)
-	})
+	scope12.NewHistogram().UpdateDuration(time.Second)
+	scope12.NewHistogram().UpdateDuration(time.Second)
 	time.Sleep(time.Second)
 	gather := linmetric.NewGather(linmetric.WithReadRuntimeOption())
 	_ = gather.Gather()
@@ -64,26 +57,16 @@ func Test_MetricScope_Scope(t *testing.T) {
 	})
 
 	scope3 := linmetric.NewScope("3")
-	scope3.NewCumulativeCounter("c")
-	assert.Panics(t, func() {
-		scope3.NewDeltaCounter("c")
-	})
+	scope3.NewCounter("c")
 	assert.Panics(t, func() {
 		scope3.NewGauge("c")
 	})
-	scope3.NewDeltaCounter("d")
+	scope3.NewCounter("d")
 	assert.Panics(t, func() {
-		scope3.NewCumulativeCounter("d")
-	})
-	scope3.NewCumulativeHistogram()
-	assert.Panics(t, func() {
-		scope3.NewDeltaHistogram()
+		scope3.NewHistogramVec()
 	})
 	assert.Panics(t, func() {
-		scope3.NewDeltaHistogramVec()
-	})
-	assert.Panics(t, func() {
-		scope3.NewDeltaCounterVec("23")
+		scope3.NewCounterVec("23")
 	})
 	assert.Panics(t, func() {
 		scope3.NewGaugeVec("23")

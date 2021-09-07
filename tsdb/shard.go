@@ -45,7 +45,6 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
 	metricchecker "github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/tsdb/cumulativecache"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -65,19 +64,17 @@ var (
 )
 
 var (
-	shardScope                 = linmetric.NewScope("lindb.tsdb.shard")
-	badMetricsVec              = shardScope.NewDeltaCounterVec("bad_metrics", "db", "shard")
-	outOfRangeMetricsVec       = shardScope.NewDeltaCounterVec("metrics_out_of_range", "db", "shard")
-	writeMetricsVec            = shardScope.NewDeltaCounterVec("write_metrics", "db", "shard")
-	writeMetricFailuresVec     = shardScope.NewDeltaCounterVec("write_metric_failures", "db", "shard")
-	writeFieldsVec             = shardScope.NewDeltaCounterVec("write_fields", "db", "shard")
-	cumulativeTransformedVec   = shardScope.NewDeltaCounterVec("cumulative_transformed", "db", "shard")
-	cumulativeUnTransformedVec = shardScope.NewDeltaCounterVec("cumulative_untransformed", "db", "shard")
-	escapedFieldNameVec        = shardScope.NewDeltaCounterVec("escaped_fields", "db", "shard")
-	memdbTotalSizeVec          = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
-	memdbNumberVec             = shardScope.NewGaugeVec("memdb_number", "db", "shard")
-	memFlushTimerVec           = shardScope.Scope("memdb_flush_duration").NewDeltaHistogramVec("db", "shard")
-	indexFlushTimerVec         = shardScope.Scope("indexdb_flush_duration").NewDeltaHistogramVec("db", "shard")
+	shardScope             = linmetric.NewScope("lindb.tsdb.shard")
+	badMetricsVec          = shardScope.NewCounterVec("bad_metrics", "db", "shard")
+	outOfRangeMetricsVec   = shardScope.NewCounterVec("metrics_out_of_range", "db", "shard")
+	writeMetricsVec        = shardScope.NewCounterVec("write_metrics", "db", "shard")
+	writeMetricFailuresVec = shardScope.NewCounterVec("write_metric_failures", "db", "shard")
+	writeFieldsVec         = shardScope.NewCounterVec("write_fields", "db", "shard")
+	escapedFieldNameVec    = shardScope.NewCounterVec("escaped_fields", "db", "shard")
+	memdbTotalSizeVec      = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
+	memdbNumberVec         = shardScope.NewGaugeVec("memdb_number", "db", "shard")
+	memFlushTimerVec       = shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard")
+	indexFlushTimerVec     = shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard")
 )
 
 const (
@@ -127,35 +124,31 @@ type Shard interface {
 }
 
 type shardMetrics struct {
-	badMetrics              *linmetric.BoundDeltaCounter
-	outOfRangeMetrics       *linmetric.BoundDeltaCounter
-	writeMetrics            *linmetric.BoundDeltaCounter
-	writeMetricFailures     *linmetric.BoundDeltaCounter
-	writeFields             *linmetric.BoundDeltaCounter
-	cumulativeTransformed   *linmetric.BoundDeltaCounter
-	cumulativeUnTransformed *linmetric.BoundDeltaCounter
-	escapedFields           *linmetric.BoundDeltaCounter
-	memdbTotalSize          *linmetric.BoundGauge
-	memdbNumber             *linmetric.BoundGauge
-	memFlushTimer           *linmetric.BoundDeltaHistogram
-	indexFlushTimer         *linmetric.BoundDeltaHistogram
+	badMetrics          *linmetric.BoundDeltaCounter
+	outOfRangeMetrics   *linmetric.BoundDeltaCounter
+	writeMetrics        *linmetric.BoundDeltaCounter
+	writeMetricFailures *linmetric.BoundDeltaCounter
+	writeFields         *linmetric.BoundDeltaCounter
+	escapedFields       *linmetric.BoundDeltaCounter
+	memdbTotalSize      *linmetric.BoundGauge
+	memdbNumber         *linmetric.BoundGauge
+	memFlushTimer       *linmetric.BoundDeltaHistogram
+	indexFlushTimer     *linmetric.BoundDeltaHistogram
 }
 
 func newShardMetrics(dbName string, shardID models.ShardID) *shardMetrics {
 	shardIDStr := strconv.Itoa(int(shardID))
 	return &shardMetrics{
-		badMetrics:              badMetricsVec.WithTagValues(dbName, shardIDStr),
-		outOfRangeMetrics:       outOfRangeMetricsVec.WithTagValues(dbName, shardIDStr),
-		writeMetrics:            writeMetricsVec.WithTagValues(dbName, shardIDStr),
-		writeMetricFailures:     writeMetricFailuresVec.WithTagValues(dbName, shardIDStr),
-		writeFields:             writeFieldsVec.WithTagValues(dbName, shardIDStr),
-		cumulativeTransformed:   cumulativeTransformedVec.WithTagValues(dbName, shardIDStr),
-		cumulativeUnTransformed: cumulativeUnTransformedVec.WithTagValues(dbName, shardIDStr),
-		escapedFields:           escapedFieldNameVec.WithTagValues(dbName, shardIDStr),
-		memdbTotalSize:          memdbTotalSizeVec.WithTagValues(dbName, shardIDStr),
-		memdbNumber:             memdbNumberVec.WithTagValues(dbName, shardIDStr),
-		memFlushTimer:           memFlushTimerVec.WithTagValues(dbName, shardIDStr),
-		indexFlushTimer:         indexFlushTimerVec.WithTagValues(dbName, shardIDStr),
+		badMetrics:          badMetricsVec.WithTagValues(dbName, shardIDStr),
+		outOfRangeMetrics:   outOfRangeMetricsVec.WithTagValues(dbName, shardIDStr),
+		writeMetrics:        writeMetricsVec.WithTagValues(dbName, shardIDStr),
+		writeMetricFailures: writeMetricFailuresVec.WithTagValues(dbName, shardIDStr),
+		writeFields:         writeFieldsVec.WithTagValues(dbName, shardIDStr),
+		escapedFields:       escapedFieldNameVec.WithTagValues(dbName, shardIDStr),
+		memdbTotalSize:      memdbTotalSizeVec.WithTagValues(dbName, shardIDStr),
+		memdbNumber:         memdbNumberVec.WithTagValues(dbName, shardIDStr),
+		memFlushTimer:       memFlushTimerVec.WithTagValues(dbName, shardIDStr),
+		indexFlushTimer:     indexFlushTimerVec.WithTagValues(dbName, shardIDStr),
 	}
 }
 
@@ -196,10 +189,6 @@ type shard struct {
 	invertedFamily kv.Family // inverted store
 	logger         *logger.Logger
 	metrics        shardMetrics
-
-	// cumulative field value-> delta cache
-	once4Cache      sync.Once
-	cumulativeCache *cumulativecache.Cache
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -268,18 +257,6 @@ func newShard(
 	// add shard into global shard manager
 	GetShardManager().AddShard(createdShard)
 	return createdShard, nil
-}
-
-func (s *shard) getCache() *cumulativecache.Cache {
-	s.once4Cache.Do(func() {
-		s.cumulativeCache = cumulativecache.NewCache(
-			32,
-			time.Minute, // max pull duration is 1 minute
-			time.Second*30,
-			shardScope.Scope("cumulative_caches"),
-		)
-	})
-	return s.cumulativeCache
 }
 
 // DatabaseName returns the database name
@@ -373,12 +350,12 @@ func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
 	return rs
 }
 
-func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool, err error) {
+func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (err error) {
 	if metric == nil {
-		return isCumulative, constants.ErrMetricPBNilMetric
+		return constants.ErrMetricPBNilMetric
 	}
 	if len(metric.Name) == 0 {
-		return isCumulative, constants.ErrMetricPBEmptyMetricName
+		return constants.ErrMetricPBEmptyMetricName
 	}
 	// sanitize metric-name and namespace, as we will stores it in the index with a concated prefix
 	metric.Name = metricchecker.SanitizeMetricName(metric.Name)
@@ -386,7 +363,7 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 
 	// empty field
 	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
-		return isCumulative, constants.ErrMetricPBEmptyField
+		return constants.ErrMetricPBEmptyField
 	}
 	timestamp := metric.Timestamp
 	now := fasttime.UnixMilliseconds()
@@ -397,24 +374,24 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 	if (s.behind.Int64() == 0 && timestamp < now-constants.MetricMaxBehindDuration) ||
 		s.ahead.Int64() == 0 && timestamp > now+constants.MetricMaxAheadDuration {
 		s.metrics.outOfRangeMetrics.Incr()
-		return isCumulative, constants.ErrMetricOutOfTimeRange
+		return constants.ErrMetricOutOfTimeRange
 	}
 	// check metric timestamp if in acceptable time range
 	if (s.behind.Int64() > 0 && timestamp < now-s.behind.Int64()) ||
 		(s.ahead.Int64() > 0 && timestamp > now+s.ahead.Int64()) {
 		s.metrics.outOfRangeMetrics.Incr()
-		return isCumulative, constants.ErrMetricOutOfTimeRange
+		return constants.ErrMetricOutOfTimeRange
 	}
 	// validate empty tags
 	if len(metric.Tags) > 0 {
 		for idx := range metric.Tags {
 			// nil tag
 			if metric.Tags[idx] == nil {
-				return isCumulative, constants.ErrMetricEmptyTagKeyValue
+				return constants.ErrMetricEmptyTagKeyValue
 			}
 			// empty key value
 			if metric.Tags[idx].Key == "" || metric.Tags[idx].Value == "" {
-				return isCumulative, constants.ErrMetricEmptyTagKeyValue
+				return constants.ErrMetricEmptyTagKeyValue
 			}
 		}
 	}
@@ -423,11 +400,11 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 	for idx := range metric.SimpleFields {
 		// nil value
 		if metric.SimpleFields[idx] == nil {
-			return isCumulative, constants.ErrBadMetricPBFormat
+			return constants.ErrBadMetricPBFormat
 		}
 		// field-name empty
 		if metric.SimpleFields[idx].Name == "" {
-			return isCumulative, constants.ErrMetricEmptyFieldName
+			return constants.ErrMetricEmptyFieldName
 		}
 		// check sanitize
 		if metricchecker.HistogramConverter.NeedToSanitize(metric.SimpleFields[idx].Name) {
@@ -435,59 +412,50 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (isCumulative bool
 			metric.SimpleFields[idx].Name = metricchecker.HistogramConverter.Sanitize(metric.SimpleFields[idx].Name)
 		}
 		// field type unspecified
-		switch metric.SimpleFields[idx].Type {
-		case protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED:
-			return false, constants.ErrBadMetricPBFormat
-		case protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
-			isCumulative = true
+		if metric.SimpleFields[idx].Type == protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED {
+			return constants.ErrBadMetricPBFormat
 		}
 		v := metric.SimpleFields[idx].Value
 		if math.IsNaN(v) {
-			return isCumulative, constants.ErrMetricNanField
+			return constants.ErrMetricNanField
 		}
 		if math.IsInf(v, 0) {
-			return isCumulative, constants.ErrMetricInfField
+			return constants.ErrMetricInfField
 		}
 	}
 	// no more compound field
 	if metric.CompoundField == nil {
-		return isCumulative, nil
+		return nil
 	}
-	// compound field-type unspecified
-	switch metric.CompoundField.Type {
-	case protoMetricsV1.CompoundFieldType_COMPOUND_UNSPECIFIED:
-		return isCumulative, constants.ErrBadMetricPBFormat
-	case protoMetricsV1.CompoundFieldType_CUMULATIVE_HISTOGRAM:
-		isCumulative = true
-	}
+
 	// value length zero or length not match
 	if len(metric.CompoundField.Values) != len(metric.CompoundField.ExplicitBounds) ||
 		len(metric.CompoundField.Values) <= 2 {
-		return isCumulative, constants.ErrBadMetricPBFormat
+		return constants.ErrBadMetricPBFormat
 	}
 	// ensure compound field value > 0
 	if (metric.CompoundField.Max < 0) ||
 		metric.CompoundField.Min < 0 ||
 		metric.CompoundField.Sum < 0 ||
 		metric.CompoundField.Count < 0 {
-		return isCumulative, constants.ErrBadMetricPBFormat
+		return constants.ErrBadMetricPBFormat
 	}
 
 	for idx := 0; idx < len(metric.CompoundField.Values); idx++ {
 		// ensure value > 0
 		if metric.CompoundField.Values[idx] < 0 || metric.CompoundField.ExplicitBounds[idx] < 0 {
-			return isCumulative, constants.ErrBadMetricPBFormat
+			return constants.ErrBadMetricPBFormat
 		}
 		// ensure explicate bounds increase progressively
 		if idx >= 1 && metric.CompoundField.ExplicitBounds[idx] < metric.CompoundField.ExplicitBounds[idx-1] {
-			return isCumulative, constants.ErrBadMetricPBFormat
+			return constants.ErrBadMetricPBFormat
 		}
 		// ensure last bound is +Inf
 		if idx == len(metric.CompoundField.ExplicitBounds)-1 && !math.IsInf(metric.CompoundField.ExplicitBounds[idx], 1) {
-			return isCumulative, constants.ErrBadMetricPBFormat
+			return constants.ErrBadMetricPBFormat
 		}
 	}
-	return isCumulative, nil
+	return nil
 }
 
 func (s *shard) howManyFieldsWillWrite(metric *protoMetricsV1.Metric) int {
@@ -547,10 +515,14 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 	for idx := range metric.SimpleFields {
 		var fieldType field.Type
 		switch metric.SimpleFields[idx].Type {
-		case protoMetricsV1.SimpleFieldType_DELTA_SUM, protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM:
+		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
 			fieldType = field.SumField
 		case protoMetricsV1.SimpleFieldType_GAUGE:
 			fieldType = field.GaugeField
+		case protoMetricsV1.SimpleFieldType_Max:
+			fieldType = field.MaxField
+		case protoMetricsV1.SimpleFieldType_Min:
+			fieldType = field.MinField
 		}
 		fieldID, err := s.metadata.MetadataDatabase().GenFieldID(
 			ns, metric.Name, field.Name(metric.SimpleFields[idx].Name), fieldType)
@@ -610,8 +582,7 @@ func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPo
 
 // Write writes the metric-point into memory-database.
 func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
-	isCumulative, err := s.validateMetric(metric)
-	if err != nil {
+	if err := s.validateMetric(metric); err != nil {
 		s.metrics.badMetrics.Incr()
 		return err
 	}
@@ -633,13 +604,6 @@ func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
 	}
 
 	point.SlotIndex = uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
-	if isCumulative {
-		if updated := s.getCache().CumulativePointToDelta(point); updated {
-			s.metrics.cumulativeTransformed.Incr()
-		} else {
-			s.metrics.cumulativeUnTransformed.Incr()
-		}
-	}
 
 	db.AcquireWrite()
 	// write metric point into memory db

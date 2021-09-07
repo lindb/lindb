@@ -48,13 +48,13 @@ func getReaderStatistics() *readerStatistics {
 	_once4ReaderStatistics.Do(func() {
 		tableReaderScope := linmetric.NewScope("lindb.kv.table.reader")
 		_instanceReaderStatistics = &readerStatistics{
-			getErrors:    tableReaderScope.NewDeltaCounter("get_errors"),
-			getCounts:    tableReaderScope.NewDeltaCounter("get_counts"),
-			getBytes:     tableReaderScope.NewDeltaCounter("get_bytes"),
-			mmapCounts:   tableReaderScope.NewDeltaCounter("mmap_counts"),
-			mmapErros:    tableReaderScope.NewDeltaCounter("mmap_errors"),
-			unmmapCounts: tableReaderScope.NewDeltaCounter("unmmap_counts"),
-			unmmapErrors: tableReaderScope.NewDeltaCounter("unmmap_errors"),
+			getErrors:    tableReaderScope.NewCounter("get_errors"),
+			getCounts:    tableReaderScope.NewCounter("get_counts"),
+			getBytes:     tableReaderScope.NewCounter("get_bytes"),
+			mmapCounts:   tableReaderScope.NewCounter("mmap_counts"),
+			mmapErros:    tableReaderScope.NewCounter("mmap_errors"),
+			unmmapCounts: tableReaderScope.NewCounter("unmmap_counts"),
+			unmmapErrors: tableReaderScope.NewCounter("unmmap_errors"),
 		}
 	})
 	return _instanceReaderStatistics

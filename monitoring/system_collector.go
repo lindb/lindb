@@ -147,14 +147,14 @@ func (r *SystemCollector) boundMetrics() {
 
 	netScope := systemScope.Scope("net_stat")
 	// net
-	r.bytesSentCounterVec = netScope.NewDeltaCounterVec("bytes_sent", "interface")
-	r.bytesRecvCounterVec = netScope.NewDeltaCounterVec("bytes_recv", "interface")
-	r.packetsSentCounterVec = netScope.NewDeltaCounterVec("packets_sent", "interface")
-	r.packetsRecvCounterVec = netScope.NewDeltaCounterVec("packets_recv", "interface")
-	r.errInCounterVec = netScope.NewDeltaCounterVec("errin", "interface")
-	r.errOutCounterVec = netScope.NewDeltaCounterVec("errout", "interface")
-	r.dropInCounterVec = netScope.NewDeltaCounterVec("dropin", "interface")
-	r.dropOutCounterVec = netScope.NewDeltaCounterVec("dropout", "interface")
+	r.bytesSentCounterVec = netScope.NewCounterVec("bytes_sent", "interface")
+	r.bytesRecvCounterVec = netScope.NewCounterVec("bytes_recv", "interface")
+	r.packetsSentCounterVec = netScope.NewCounterVec("packets_sent", "interface")
+	r.packetsRecvCounterVec = netScope.NewCounterVec("packets_recv", "interface")
+	r.errInCounterVec = netScope.NewCounterVec("errin", "interface")
+	r.errOutCounterVec = netScope.NewCounterVec("errout", "interface")
+	r.dropInCounterVec = netScope.NewCounterVec("dropin", "interface")
+	r.dropOutCounterVec = netScope.NewCounterVec("dropout", "interface")
 }
 
 // Run starts a background goroutine that collects the monitoring stat

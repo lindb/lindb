@@ -29,6 +29,7 @@ import (
 //
 // a default created bucket will be automatically created,
 // however, you can also specify your own buckets.
+// Prometheus Histogram's buckets are cumulative where values in each buckets is cumulative,
 type BoundDeltaHistogram struct {
 	mu             sync.Mutex
 	bkts           *histogramBuckets
@@ -37,7 +38,7 @@ type BoundDeltaHistogram struct {
 	lastTotalSum   float64
 }
 
-func newDeltaHistogram() *BoundDeltaHistogram {
+func NewHistogram() *BoundDeltaHistogram {
 	h := &BoundDeltaHistogram{
 		bkts: newHistogramBuckets(
 			defaultMinBucketUpperBound,
@@ -109,7 +110,6 @@ func (h *BoundDeltaHistogram) marshalToCompoundField() *protoMetricsV1.CompoundF
 	}
 
 	f := &protoMetricsV1.CompoundField{
-		Type:           protoMetricsV1.CompoundFieldType_DELTA_HISTOGRAM,
 		Min:            h.bkts.min,
 		Max:            h.bkts.max,
 		Sum:            h.bkts.totalSum - h.lastTotalSum,

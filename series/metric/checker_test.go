@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/snappy"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
@@ -161,4 +162,39 @@ func Test_FlatMetric_Size(t *testing.T) {
 	_, _ = w.Write(data)
 	_ = w.Flush()
 	t.Log("flat gzip compressed size", len(buf.Bytes()))
+
+	w2 := snappy.NewBufferedWriter(&buf)
+	buf.Reset()
+	_, _ = w2.Write(data)
+	_ = w2.Flush()
+	t.Log("flat snappy compressed size", len(buf.Bytes()))
+}
+
+func Benchmark_GzipCompress(b *testing.B) {
+	builder := flatbuffers.NewBuilder(1024)
+	buildFlatMetric(builder)
+	data := builder.FinishedBytes()
+
+	var buf bytes.Buffer
+	w, _ := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		_, _ = w.Write(data)
+		_ = w.Flush()
+	}
+}
+
+func Benchmark_SnappyCompress(b *testing.B) {
+	builder := flatbuffers.NewBuilder(1024)
+	buildFlatMetric(builder)
+	data := builder.FinishedBytes()
+
+	var buf bytes.Buffer
+	w := snappy.NewBufferedWriter(&buf)
+
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		_, _ = w.Write(data)
+		_ = w.Flush()
+	}
 }

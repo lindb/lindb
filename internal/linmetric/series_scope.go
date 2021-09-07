@@ -36,18 +36,14 @@ type Scope interface {
 	Scope(name string, tagList ...string) Scope
 	// NewGauge returns a fast gauge which bounded to the scope
 	NewGauge(fieldName string) *BoundGauge
-	// NewCumulativeCounter returns a fast counter which bounded to the scope
-	NewCumulativeCounter(fieldName string) *BoundCumulativeCounter
-	// NewDeltaCounter returns a fast counter which bounded to the scope
-	NewDeltaCounter(fieldName string) *BoundDeltaCounter
-	// NewCumulativeHistogram returns a histogram which bounded to the scope
-	NewCumulativeHistogram() *BoundCumulativeHistogram
-	// NewDeltaHistogram returns a histogram which bounded to the scope
-	NewDeltaHistogram() *BoundDeltaHistogram
-	// NewDeltaHistogramVec initializes a vec by tagKeys
-	NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec
-	// NewDeltaCounterVec initializes a vec by tagKeys and fieldName
-	NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
+	// NewCounter returns a fast counter which bounded to the scope
+	NewCounter(fieldName string) *BoundDeltaCounter
+	// NewHistogram returns a histogram which bounded to the scope
+	NewHistogram() *BoundDeltaHistogram
+	// NewHistogramVec initializes a vec by tagKeys
+	NewHistogramVec(tagKey ...string) *DeltaHistogramVec
+	// NewCounterVec initializes a vec by tagKeys and fieldName
+	NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
 	// NewGaugeVec initializes a vec by tagKeys and fieldName
 	NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec
 }
@@ -61,11 +57,9 @@ type taggedSeries struct {
 }
 
 type fieldPayload struct {
-	gauges              []*BoundGauge             // BoundGauge list
-	countersCumulative  []*BoundCumulativeCounter // BoundCumulativeCounter list
-	countersDelta       []*BoundDeltaCounter      // BoundDeltaCounter list
-	histogramCumulative *BoundCumulativeHistogram
-	histogramDelta      *BoundDeltaHistogram
+	gauges         []*BoundGauge        // BoundGauge list
+	countersDelta  []*BoundDeltaCounter // BoundDeltaCounter list
+	histogramDelta *BoundDeltaHistogram
 }
 
 func NewScope(metricName string, tagList ...string) Scope {
@@ -96,11 +90,6 @@ func (s *taggedSeries) ensurePayload() {
 func (s *taggedSeries) containsFieldName(fieldName string) bool {
 	for _, g := range s.payload.gauges {
 		if g.fieldName == fieldName {
-			return true
-		}
-	}
-	for _, cc := range s.payload.countersCumulative {
-		if cc.fieldName == fieldName {
 			return true
 		}
 	}
@@ -182,33 +171,14 @@ func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
 	panic(fmt.Sprintf("gauge field: %s has registered another type before", fieldName))
 }
 
-func (s *taggedSeries) NewCumulativeCounter(fieldName string) *BoundCumulativeCounter {
+func (s *taggedSeries) NewCounter(fieldName string) *BoundDeltaCounter {
 	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ensurePayload()
 	if !s.containsFieldName(fieldName) {
-		cc := newCumulativeCounter(fieldName)
-		s.payload.countersCumulative = append(s.payload.countersCumulative, cc)
-		return cc
-	}
-	for _, cc := range s.payload.countersCumulative {
-		if cc.fieldName == fieldName {
-			return cc
-		}
-	}
-	panic(fmt.Sprintf("cumulative-counter field: %s has registered another type before", fieldName))
-}
-
-func (s *taggedSeries) NewDeltaCounter(fieldName string) *BoundDeltaCounter {
-	assertFieldName(fieldName)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ensurePayload()
-	if !s.containsFieldName(fieldName) {
-		dc := newDeltaCounter(fieldName)
+		dc := NewCounter(fieldName)
 		s.payload.countersDelta = append(s.payload.countersDelta, dc)
 		return dc
 	}
@@ -220,7 +190,7 @@ func (s *taggedSeries) NewDeltaCounter(fieldName string) *BoundDeltaCounter {
 	panic(fmt.Sprintf("delta-counter field: %s has registered another type before", fieldName))
 }
 
-func (s *taggedSeries) NewDeltaHistogram() *BoundDeltaHistogram {
+func (s *taggedSeries) NewHistogram() *BoundDeltaHistogram {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -228,43 +198,25 @@ func (s *taggedSeries) NewDeltaHistogram() *BoundDeltaHistogram {
 	if s.payload.histogramDelta != nil {
 		return s.payload.histogramDelta
 	}
-	if s.payload.histogramCumulative != nil {
-		panic("cumulative-histogram is already existed")
-	}
-	s.payload.histogramDelta = newDeltaHistogram()
+	s.payload.histogramDelta = NewHistogram()
 	return s.payload.histogramDelta
 }
 
-func (s *taggedSeries) NewDeltaHistogramVec(tagKey ...string) *DeltaHistogramVec {
+func (s *taggedSeries) NewHistogramVec(tagKey ...string) *DeltaHistogramVec {
 	assertTagKeyList(tagKey...)
-	return newDeltaHistogramVec(s.metricName, s.tags, tagKey...)
+	return NewHistogramVec(s.metricName, s.tags, tagKey...)
 }
 
-func (s *taggedSeries) NewDeltaCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
+func (s *taggedSeries) NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
-	return newDeltaCounterVec(s.metricName, fieldName, s.tags, tagKey...)
+	return NewCounterVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
 	return newGaugeVec(s.metricName, fieldName, s.tags, tagKey...)
-}
-
-func (s *taggedSeries) NewCumulativeHistogram() *BoundCumulativeHistogram {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ensurePayload()
-	if s.payload.histogramCumulative != nil {
-		return s.payload.histogramCumulative
-	}
-	if s.payload.histogramDelta != nil {
-		panic("delta-histogram is already existed")
-	}
-	s.payload.histogramCumulative = newCumulativeHistogram()
-	return s.payload.histogramCumulative
 }
 
 func (s *taggedSeries) gatherMetric() *protoMetricsV1.Metric {
@@ -295,17 +247,6 @@ func (s *taggedSeries) gatherMetric() *protoMetricsV1.Metric {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 			Value: dc.getAndReset(),
 		})
-	}
-	// pick cumulative counters
-	for _, cc := range s.payload.countersCumulative {
-		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
-			Name:  cc.fieldName,
-			Type:  protoMetricsV1.SimpleFieldType_CUMULATIVE_SUM,
-			Value: cc.Get(),
-		})
-	}
-	if s.payload.histogramCumulative != nil {
-		m.CompoundField = s.payload.histogramCumulative.marshalToCompoundField()
 	}
 	if s.payload.histogramDelta != nil {
 		m.CompoundField = s.payload.histogramDelta.marshalToCompoundField()
