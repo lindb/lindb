@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package metricchecker
+package metric
 
 import (
 	"bytes"
@@ -40,63 +40,6 @@ func Test_Sanitize(t *testing.T) {
 
 	assert.Equal(t, "aa|bb", JoinNamespaceMetric("aa", "bb"))
 
-}
-
-func buildFlatMetric(builder *flatbuffers.Builder) {
-	builder.Reset()
-
-	var (
-		keys       [10]flatbuffers.UOffsetT
-		values     [10]flatbuffers.UOffsetT
-		fieldNames [10]flatbuffers.UOffsetT
-		kvs        [10]flatbuffers.UOffsetT
-		fields     [10]flatbuffers.UOffsetT
-	)
-	for i := 0; i < 10; i++ {
-		keys[i] = builder.CreateString("key" + strconv.Itoa(i))
-		values[i] = builder.CreateString("value" + strconv.Itoa(i))
-		fieldNames[i] = builder.CreateString("counter" + strconv.Itoa(i))
-	}
-	for i := 9; i >= 0; i-- {
-		flatMetricsV1.KeyValueStart(builder)
-		flatMetricsV1.KeyValueAddKey(builder, keys[i])
-		flatMetricsV1.KeyValueAddValue(builder, values[i])
-		kvs[i] = flatMetricsV1.KeyValueEnd(builder)
-	}
-
-	// serialize field names
-	for i := 0; i < 10; i++ {
-		flatMetricsV1.SimpleFieldStart(builder)
-		flatMetricsV1.SimpleFieldAddName(builder, fieldNames[i])
-		flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeDeltaSum)
-		flatMetricsV1.SimpleFieldAddValue(builder, float64(i))
-		fields[i] = flatMetricsV1.SimpleFieldEnd(builder)
-	}
-
-	flatMetricsV1.MetricStartSimpleFieldsVector(builder, 10)
-	for i := 9; i >= 0; i-- {
-		builder.PrependUOffsetT(kvs[i])
-	}
-	kvsAt := builder.EndVector(10)
-
-	flatMetricsV1.MetricStartSimpleFieldsVector(builder, 10)
-	for i := 9; i >= 0; i-- {
-		builder.PrependUOffsetT(fields[i])
-	}
-	fieldsAt := builder.EndVector(10)
-
-	// serialize metric
-	metricName := builder.CreateString("hello")
-	namespace := builder.CreateString("default-ns")
-	flatMetricsV1.MetricStart(builder)
-	flatMetricsV1.MetricAddNamespace(builder, namespace)
-	flatMetricsV1.MetricAddName(builder, metricName)
-	flatMetricsV1.MetricAddTimestamp(builder, fasttime.UnixMilliseconds())
-	flatMetricsV1.MetricAddKeyValues(builder, kvsAt)
-	flatMetricsV1.MetricAddSimpleFields(builder, fieldsAt)
-
-	end := flatMetricsV1.MetricEnd(builder)
-	builder.Finish(end)
 }
 
 func Benchmark_SerializeFlatMetric(b *testing.B) {

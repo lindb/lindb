@@ -38,7 +38,7 @@ var newSenderFn = newSender
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
 	// Write writes the data into the channel, ErrCanceled is returned when the channel is canceled before
-	// data is wrote successfully.
+	// data is written successfully.
 	// Concurrent safe.
 	Write(metric *protoMetricsV1.Metric) error
 

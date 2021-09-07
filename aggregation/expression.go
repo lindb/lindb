@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	metricchecker "github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -155,7 +155,7 @@ func (e *Expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 	}
 	for fieldName, df := range e.fieldStore {
 		if df.Type() == field.HistogramField {
-			upperBound, err := metricchecker.HistogramConverter.UpperBound(fieldName.String())
+			upperBound, err := metric.HistogramConverter.UpperBound(fieldName.String())
 			if err != nil {
 				continue
 			}
