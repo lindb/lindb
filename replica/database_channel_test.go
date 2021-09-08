@@ -34,7 +34,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ch, err := newDatabaseChannel(context.TODO(), "test-db", 1, nil)
+	ch, err := newDatabaseChannel(context.TODO(), models.Database{Name: "database"}, 1, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 	err = ch.Write(&protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
@@ -69,7 +69,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ch, err := newDatabaseChannel(context.TODO(), "test-db", 4, nil)
+	ch, err := newDatabaseChannel(context.TODO(), models.Database{Name: "database"}, 4, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 	shardCh := NewMockChannel(ctrl)

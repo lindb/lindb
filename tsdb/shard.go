@@ -36,7 +36,6 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
@@ -175,8 +174,6 @@ type shard struct {
 	metadata metadb.Metadata
 	// write accept time range
 	interval timeutil.Interval
-	ahead    timeutil.Interval
-	behind   timeutil.Interval
 	// segments keeps all interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
 	segments       map[timeutil.IntervalType]IntervalSegment
@@ -235,8 +232,6 @@ func newShard(
 	if err != nil {
 		return nil, err
 	}
-	_ = createdShard.ahead.ValueOf(option.Ahead)
-	_ = createdShard.behind.ValueOf(option.Behind)
 	// add writing segment into segment list
 	createdShard.segments[interval.Type()] = createdShard.segment
 
@@ -364,23 +359,6 @@ func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (err error) {
 	// empty field
 	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
 		return constants.ErrMetricPBEmptyField
-	}
-	timestamp := metric.Timestamp
-	now := fasttime.UnixMilliseconds()
-
-	// global max time range
-	// this threshold makes sure that invalid timestamp will be dropped
-	// otherwise, it will results in a large size of memdbs
-	if (s.behind.Int64() == 0 && timestamp < now-constants.MetricMaxBehindDuration) ||
-		s.ahead.Int64() == 0 && timestamp > now+constants.MetricMaxAheadDuration {
-		s.metrics.outOfRangeMetrics.Incr()
-		return constants.ErrMetricOutOfTimeRange
-	}
-	// check metric timestamp if in acceptable time range
-	if (s.behind.Int64() > 0 && timestamp < now-s.behind.Int64()) ||
-		(s.ahead.Int64() > 0 && timestamp > now+s.ahead.Int64()) {
-		s.metrics.outOfRangeMetrics.Incr()
-		return constants.ErrMetricOutOfTimeRange
 	}
 	// validate empty tags
 	if len(metric.Tags) > 0 {

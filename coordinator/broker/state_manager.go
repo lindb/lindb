@@ -367,22 +367,23 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]m
 func (m *stateManager) buildShardAssign(storageState *models.StorageState) {
 	liveNodes := storageState.LiveNodes
 	for db, shards := range storageState.ShardStates {
+		databaseCfg := m.databases[db]
 		numOfShard := len(shards)
 		for _, shardState := range shards {
-			m.startWriteChannel(db, numOfShard, shardState, liveNodes)
+			m.startWriteChannel(databaseCfg, numOfShard, shardState, liveNodes)
 		}
 	}
 }
 
 // startWriteChannel starts data write channel for spec database's shard.
-func (m *stateManager) startWriteChannel(db string,
+func (m *stateManager) startWriteChannel(databaseCfg models.Database,
 	numOfShard int,
 	shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode,
 ) {
 	shardID := shardState.ID
-	ch, err := m.cm.CreateChannel(db, int32(numOfShard), shardID)
+	ch, err := m.cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
 	if err != nil {
-		m.logger.Error("create shard write channel", logger.String("db", db),
+		m.logger.Error("create shard write channel", logger.String("db", databaseCfg.Name),
 			logger.Any("shard", shardID), logger.Error(err))
 		return
 	}

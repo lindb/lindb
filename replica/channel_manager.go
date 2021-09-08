@@ -44,7 +44,7 @@ type ChannelManager interface {
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
-	CreateChannel(database string, numOfShard int32, shardID models.ShardID) (Channel, error)
+	CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (Channel, error)
 
 	// Close closes all the channel.
 	Close()
@@ -81,22 +81,23 @@ func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) Channel
 
 // Write writes a MetricList, the manager handler the database, sharding things.
 func (cm *channelManager) Write(database string, metricList *protoMetricsV1.MetricList) error {
+	if metricList == nil || len(metricList.Metrics) == 0 {
+		return nil
+	}
 	databaseChannel, ok := cm.getDatabaseChannel(database)
 	if !ok {
 		return fmt.Errorf("database [%s] not found", database)
-	}
-	if metricList == nil || len(metricList.Metrics) == 0 {
-		return fmt.Errorf("metrics is empty")
 	}
 	return databaseChannel.Write(metricList)
 }
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
 // NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-func (cm *channelManager) CreateChannel(database string, numOfShard int32, shardID models.ShardID) (Channel, error) {
+func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (Channel, error) {
 	if numOfShard <= 0 || int32(shardID) >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
+	database := databaseCfg.Name
 	ch, ok := cm.getDatabaseChannel(database)
 	if !ok {
 		// double check, need lock
@@ -106,7 +107,7 @@ func (cm *channelManager) CreateChannel(database string, numOfShard int32, shard
 		ch, ok = cm.getDatabaseChannel(database)
 		if !ok {
 			// if not exist, create database channel
-			ch, err := newDatabaseChannel(cm.ctx, database, numOfShard, cm.fct)
+			ch, err := newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
 			if err != nil {
 				return nil, err
 			}

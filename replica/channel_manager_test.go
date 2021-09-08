@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
@@ -41,13 +42,13 @@ func TestChannelManager_GetChannel(t *testing.T) {
 
 	cm := NewChannelManager(context.TODO(), nil)
 
-	_, err := cm.CreateChannel("database", 2, 2)
+	_, err := cm.CreateChannel(models.Database{Name: "database"}, 2, 2)
 	assert.Error(t, err)
 
-	ch1, err := cm.CreateChannel("database", 3, 0)
+	ch1, err := cm.CreateChannel(models.Database{Name: "database"}, 3, 0)
 	assert.NoError(t, err)
 
-	ch111, err := cm.CreateChannel("database", 3, 0)
+	ch111, err := cm.CreateChannel(models.Database{Name: "database"}, 3, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, ch111, ch1)
 
@@ -72,7 +73,7 @@ func TestChannelManager_Write(t *testing.T) {
 
 	cm := NewChannelManager(context.TODO(), nil)
 	err := cm.Write("database", nil)
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	dbChannel := NewMockDatabaseChannel(ctrl)
 	dbChannel.EXPECT().Stop()
