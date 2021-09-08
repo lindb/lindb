@@ -90,14 +90,14 @@ type taskManager struct {
 	logger     *logger.Logger
 	ttl        time.Duration
 
-	createdTaskCounter   *linmetric.BoundDeltaCounter
+	createdTaskCounter   *linmetric.BoundCounter
 	aliveTaskGauge       *linmetric.BoundGauge
-	emitResponseCounter  *linmetric.BoundDeltaCounter
-	omitResponseCounter  *linmetric.BoundDeltaCounter
-	sentRequestCounter   *linmetric.BoundDeltaCounter
-	sentResponsesCounter *linmetric.BoundDeltaCounter
-	sentResponseFailures *linmetric.BoundDeltaCounter
-	sentRequestFailures  *linmetric.BoundDeltaCounter
+	emitResponseCounter  *linmetric.BoundCounter
+	omitResponseCounter  *linmetric.BoundCounter
+	sentRequestCounter   *linmetric.BoundCounter
+	sentResponsesCounter *linmetric.BoundCounter
+	sentResponseFailures *linmetric.BoundCounter
+	sentRequestFailures  *linmetric.BoundCounter
 }
 
 // NewTaskManager creates the task manager

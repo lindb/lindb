@@ -28,7 +28,6 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
@@ -306,15 +305,15 @@ func prepareInvertedIndex(ctrl *gomock.Controller) InvertedIndex {
 	tagMetadata.EXPECT().GenTagValueID(uint32(2), "sh").Return(uint32(1), nil)
 	tagMetadata.EXPECT().GenTagValueID(uint32(2), "bj").Return(uint32(2), nil)
 	index := newInvertedIndex(metadata, nil, nil)
-	index.buildInvertIndex("ns", "name", tag.KeyValuesFromMap(map[string]string{
+	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host": "1.1.1.1",
 		"zone": "sh",
 	}), 1)
-	index.buildInvertIndex("ns", "name", tag.KeyValuesFromMap(map[string]string{
+	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host": "1.1.1.1",
 		"zone": "bj",
 	}), 2)
-	index.buildInvertIndex("ns", "name", tag.KeyValuesFromMap(map[string]string{
+	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host":     "1.1.1.5",
 		"zone_err": "bj",
 	}), 3)

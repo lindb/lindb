@@ -23,11 +23,11 @@ type runtimeObserver struct {
 	goRoutinesGauge        *BoundGauge
 	threadsGauge           *BoundGauge
 	allocBytesGauge        *BoundGauge
-	allocBytesTotalCounter *BoundDeltaCounter
+	allocBytesTotalCounter *BoundCounter
 	sysBytesGauge          *BoundGauge
-	looksUpCounter         *BoundDeltaCounter
-	mallocsTotalCounter    *BoundDeltaCounter
-	freesTotalCounter      *BoundDeltaCounter
+	looksUpCounter         *BoundCounter
+	mallocsTotalCounter    *BoundCounter
+	freesTotalCounter      *BoundCounter
 	heapAllocBytesGauge    *BoundGauge
 	heapSysBytesGauge      *BoundGauge
 	headIdleGague          *BoundGauge

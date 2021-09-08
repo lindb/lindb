@@ -53,7 +53,7 @@ type mStoreINTF interface {
 	// without tStores and FieldStores
 	Capacity() int
 	// Filter filters the data based on fields/seriesIDs/family time,
-	// if finds data then returns the flow.FilterResultSet, else returns constants.ErrNotFound
+	// if data founded then returns the flow.FilterResultSet, else returns constants.ErrNotFound
 	Filter(familyTime int64, seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
 	// SetSlot sets the current write slot
 	SetSlot(slot uint16)

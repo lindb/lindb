@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/golang/snappy"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/klauspost/compress/gzip"
+	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fasttime"

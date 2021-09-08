@@ -56,7 +56,7 @@ func (r replicatorPeer) Startup() {
 	}
 }
 
-// Shutdown shutdown gracefully.
+// Shutdown shutdowns gracefully.
 func (r replicatorPeer) Shutdown() {
 	if r.running.CAS(true, false) {
 		r.runner.shutdown()

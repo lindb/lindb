@@ -19,48 +19,48 @@ package linmetric
 
 import "go.uber.org/atomic"
 
-// BoundDeltaCounter is a counter which has been Bound to a certain metric
+// BoundCounter is a counter which has been Bound to a certain metric
 // with field-name and metrics, it does not support update method.
 // Get will resets the underlying delta value
-type BoundDeltaCounter struct {
+type BoundCounter struct {
 	delta     atomic.Float64
 	fieldName string
 }
 
-func NewCounter(fieldName string) *BoundDeltaCounter {
-	return &BoundDeltaCounter{
+func NewCounter(fieldName string) *BoundCounter {
+	return &BoundCounter{
 		fieldName: fieldName,
 	}
 }
 
 // Incr increments c.
-func (c *BoundDeltaCounter) Incr() {
+func (c *BoundCounter) Incr() {
 	c.delta.Add(1)
 }
 
 // Decr decrements g.
-func (c *BoundDeltaCounter) Decr() {
+func (c *BoundCounter) Decr() {
 	c.delta.Sub(1)
 }
 
 // Add adds v to c.
-func (c *BoundDeltaCounter) Add(v float64) {
+func (c *BoundCounter) Add(v float64) {
 	c.delta.Add(v)
 }
 
 // Sub subs v to c.
-func (c *BoundDeltaCounter) Sub(v float64) {
+func (c *BoundCounter) Sub(v float64) {
 	c.delta.Sub(v)
 }
 
 // Get returns the current delta counter value
-func (c *BoundDeltaCounter) Get() float64 {
+func (c *BoundCounter) Get() float64 {
 	return c.delta.Load()
 }
 
 // getAndReset returns the current cumulative counter value
 // and resets the delta value by spin lock.
-func (c *BoundDeltaCounter) getAndReset() float64 {
+func (c *BoundCounter) getAndReset() float64 {
 	for {
 		v := c.delta.Load()
 		if c.delta.CAS(v, 0) {

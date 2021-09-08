@@ -108,10 +108,10 @@ func (tracker *GRPCClientTracker) StreamClientInterceptor() func(
 // wrappedClientStream wraps grpc.ClientStream allowing each Sent/Recv of message to increment counters.
 type wrappedClientStream struct {
 	grpc.ClientStream
-	clientStreamMsgReceived      *linmetric.BoundDeltaCounter
-	clientStreamMsgSent          *linmetric.BoundDeltaCounter
-	clientStreamMsgReceivedTimer *linmetric.BoundDeltaHistogram
-	clientStreamMsgSentTimer     *linmetric.BoundDeltaHistogram
+	clientStreamMsgReceived      *linmetric.BoundCounter
+	clientStreamMsgSent          *linmetric.BoundCounter
+	clientStreamMsgReceivedTimer *linmetric.BoundHistogram
+	clientStreamMsgSentTimer     *linmetric.BoundHistogram
 }
 
 func (s *wrappedClientStream) SendMsg(m interface{}) error {

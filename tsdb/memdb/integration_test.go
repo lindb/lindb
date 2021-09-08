@@ -47,21 +47,21 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	}()
 	// batch write
 	release := db.WithLock()
+
+	row := protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+		},
+	})
+	row.MetricID = 1
+
 	for i := 0; i < 3200000; i++ {
-		point := &MetricPoint{
-			MetricID:  1,
-			SeriesID:  uint32(i),
-			SlotIndex: uint16(now % 1024),
-			FieldIDs:  []field.ID{1},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-				},
-			},
-		}
-		_ = db.WriteWithoutLock(point)
+		row.MetricID = 1
+		row.SeriesID = uint32(i)
+		row.FieldIDs = []field.ID{1}
+		_ = db.WriteRow(row)
 	}
 	release()
 
@@ -69,21 +69,22 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
 	now = timeutil.Now()
 
+	row = protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+		},
+	})
+
 	for i := 0; i < 3200000; i++ {
-		point := &MetricPoint{
-			MetricID:  1,
-			SeriesID:  uint32(i),
-			SlotIndex: uint16(now % 1024),
-			FieldIDs:  []field.ID{1},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-				},
-			},
-		}
-		_ = db.Write(point)
+		row.MetricID = 1
+		row.SeriesID = uint32(i)
+		row.SlotIndex = uint16(i % 1024)
+		row.FieldIDs = []field.ID{1}
+		release := db.WithLock()
+		_ = db.WriteRow(row)
+		release()
 	}
 	runtime.GC()
 	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
@@ -104,21 +105,21 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 			b.Fatal(err)
 		}
 		now := timeutil.Now()
+
+		row := protoToStorageRow(&protoMetricsV1.Metric{
+			Name:      "test",
+			Namespace: "ns",
+			SimpleFields: []*protoMetricsV1.SimpleField{
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+			},
+		})
 		for i := 0; i < 3200000; i++ {
-			point := &MetricPoint{
-				MetricID:  1,
-				SeriesID:  uint32(i),
-				SlotIndex: uint16(now % 1024),
-				FieldIDs:  []field.ID{1},
-				Proto: &protoMetricsV1.Metric{
-					Name:      "test",
-					Namespace: "ns",
-					SimpleFields: []*protoMetricsV1.SimpleField{
-						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-					},
-				},
-			}
-			_ = db.Write(point)
+			row.MetricID = 1
+			row.SeriesID = uint32(i)
+			row.SlotIndex = uint16(i % 1024)
+			row.FieldIDs = []field.ID{1}
+
+			_ = db.WriteRow(row)
 		}
 		fmt.Printf("n:=%d, cost:=%d\n", n, timeutil.Now()-now)
 	}

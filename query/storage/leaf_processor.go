@@ -45,9 +45,9 @@ type leafTaskProcessor struct {
 	taskServerFactory rpc.TaskServerFactory
 	logger            *logger.Logger
 
-	storageMetricQueryCounter  *linmetric.BoundDeltaCounter
-	storageMetaQueryCounter    *linmetric.BoundDeltaCounter
-	storageOmitResponseCounter *linmetric.BoundDeltaCounter
+	storageMetricQueryCounter  *linmetric.BoundCounter
+	storageMetaQueryCounter    *linmetric.BoundCounter
+	storageOmitResponseCounter *linmetric.BoundCounter
 }
 
 // NewLeafTaskProcessor creates the leaf task
