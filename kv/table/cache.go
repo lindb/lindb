@@ -51,11 +51,11 @@ func getCacheStatistics() *cacheStatistics {
 }
 
 type cacheStatistics struct {
-	evictCounts *linmetric.BoundDeltaCounter
-	cacheHits   *linmetric.BoundDeltaCounter
-	cacheMisses *linmetric.BoundDeltaCounter
-	CloseCounts *linmetric.BoundDeltaCounter
-	CloseErrors *linmetric.BoundDeltaCounter
+	evictCounts *linmetric.BoundCounter
+	cacheHits   *linmetric.BoundCounter
+	cacheMisses *linmetric.BoundCounter
+	CloseCounts *linmetric.BoundCounter
+	CloseErrors *linmetric.BoundCounter
 }
 
 // Cache caches table readers

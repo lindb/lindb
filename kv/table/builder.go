@@ -55,9 +55,9 @@ func getBuilderStatistics() *builderStatistics {
 }
 
 type builderStatistics struct {
-	AddBadKeys *linmetric.BoundDeltaCounter
-	AddKeys    *linmetric.BoundDeltaCounter
-	AddBytes   *linmetric.BoundDeltaCounter
+	AddBadKeys *linmetric.BoundCounter
+	AddKeys    *linmetric.BoundCounter
+	AddBytes   *linmetric.BoundCounter
 }
 
 // FileNumber represents sst file number

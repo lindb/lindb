@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
@@ -60,7 +60,7 @@ type InvertedIndex interface {
 	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error)
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
-	buildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32)
+	buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
 	// Flush flushes the inverted-index of tag value id=>series ids under tag key
 	Flush() error
 }
@@ -74,8 +74,8 @@ type invertedIndex struct {
 	immutable *TagIndexStore
 
 	rwMutex                sync.RWMutex
-	genTagKeyFailCounter   *linmetric.BoundDeltaCounter
-	genTagValueFailCounter *linmetric.BoundDeltaCounter
+	genTagKeyFailCounter   *linmetric.BoundCounter
+	genTagValueFailCounter *linmetric.BoundCounter
 }
 
 func newInvertedIndex(metadata metadb.Metadata, forwardFamily kv.Family, invertedFamily kv.Family) InvertedIndex {
@@ -224,15 +224,17 @@ func (index *invertedIndex) getGroupingScanners(
 
 // buildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as a empty key-value pair while tags is nil.
-func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32) {
+func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32) {
 	index.rwMutex.Lock()
 	defer index.rwMutex.Unlock()
 
 	metadataDB := index.metadata.MetadataDatabase()
 	tagMetadata := index.metadata.TagMetadata()
-	for idx := range tags {
-		tagKey := tags[idx].Key
-		tagValue := tags[idx].Value
+
+	for tagIterator.HasNext() {
+		tagKey := string(tagIterator.NextKey())
+		tagValue := string(tagIterator.NextValue())
+
 		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey)
 		if err != nil {
 			index.genTagKeyFailCounter.Incr()

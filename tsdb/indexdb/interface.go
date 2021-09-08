@@ -22,7 +22,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
@@ -50,7 +50,7 @@ type IndexDatabase interface {
 	GetOrCreateSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, isCreated bool, err error)
 	// BuildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as a empty key-value pair while tags is nil.
-	BuildInvertIndex(namespace, metricName string, tags tag.KeyValues, seriesID uint32)
+	BuildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
 	// Flush flushes index data to disk
 	Flush() error
 }

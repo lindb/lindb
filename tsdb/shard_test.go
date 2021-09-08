@@ -18,9 +18,9 @@
 package tsdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -32,12 +32,12 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -166,173 +166,14 @@ func TestShard_GetDataFamilies(t *testing.T) {
 	assert.Equal(t, 0, len(s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{})))
 }
 
-func Test_Shard_validateMetric(t *testing.T) {
-	s := &shard{metrics: *newShardMetrics("1", 1)}
-	assert.Zero(t, s.CurrentInterval().Int64())
-	// nil pb
-	err := s.validateMetric(nil)
-	assert.Error(t, err)
-	// empty name
-	err = s.validateMetric(&protoMetricsV1.Metric{Name: ""})
-	assert.Error(t, err)
-	// field empty
-	err = s.validateMetric(&protoMetricsV1.Metric{Name: "1"})
-	assert.Error(t, err)
+func mockBatchRows(m *protoMetricsV1.Metric) *metric.StorageRow {
+	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
+	var buf bytes.Buffer
+	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
 
-	// bad tags, empty
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		Tags: []*protoMetricsV1.KeyValue{
-			{Key: "", Value: ""},
-		},
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-
-	// bad tags, nil
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		Tags: []*protoMetricsV1.KeyValue{nil, nil},
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// simple fields nil
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name:         "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{nil, nil},
-		Timestamp:    fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// field name empty
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// sanitize field name
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "Histogram_2", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.NoError(t, err)
-	// sanitize field name, field type unspecified
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "xxx2", Type: protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED, Value: 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// Nan number
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Value: math.Log(-1), Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-
-	// Inf number
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Value: math.Inf(1) + 1, Name: "222", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	//
-	// validate compound field
-	//
-	// length not match
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Values:         []float64{1, 2, 3},
-			ExplicitBounds: []float64{1, 2, 3, 4},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// length too short
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Values:         []float64{1, 2},
-			ExplicitBounds: []float64{1, math.Inf(1) + 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// min, max < 0
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Sum:            -1,
-			Values:         []float64{1, 2, 3, 4},
-			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// check value
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Sum:            11,
-			Values:         []float64{-1, 2, 3, 4},
-			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// check increase
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Sum:            11,
-			Values:         []float64{1, 4, 3, 4},
-			ExplicitBounds: []float64{1, 5, 3, math.Inf(1) + 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// check last bound
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Sum:            11,
-			Values:         []float64{1, 4, 3, 4},
-			ExplicitBounds: []float64{1, 2, 3, 4},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.Error(t, err)
-	// ok
-	err = s.validateMetric(&protoMetricsV1.Metric{
-		Name: "1",
-		CompoundField: &protoMetricsV1.CompoundField{
-			Sum:            11,
-			Values:         []float64{1, 4, 3, 4},
-			ExplicitBounds: []float64{1, 2, 3, math.Inf(1) + 1},
-		},
-		Timestamp: fasttime.UnixMilliseconds(),
-	})
-	assert.NoError(t, err)
+	var br metric.BatchRows
+	br.UnmarshalRows(buf.Bytes())
+	return &br.Rows()[0]
 }
 
 func TestShard_Write(t *testing.T) {
@@ -356,7 +197,7 @@ func TestShard_Write(t *testing.T) {
 	mockMemDB.EXPECT().AcquireWrite().AnyTimes()
 	mockMemDB.EXPECT().CompleteWrite().AnyTimes()
 	mockMemDB.EXPECT().MemSize().Return(int64(100)).AnyTimes()
-	mockMemDB.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
+	mockMemDB.EXPECT().WriteRow(gomock.Any()).Return(nil).AnyTimes()
 	// calculate family start time and slot index
 	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
 	timestamp := timeutil.Now()
@@ -370,20 +211,9 @@ func TestShard_Write(t *testing.T) {
 	shardIns.indexDB = indexDB
 	shardIns.families.InsertFamily(familyTime, mockMemDB)
 
-	// case 1: metric nil
-	assert.Error(t, shardINTF.Write(nil))
-	// case 2: metric name is empty
-	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
-		Timestamp: timestamp,
-	}))
-	// case 3: field is empty
-	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-	}))
 	// case 4: gen metric id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
-	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
+	assert.Error(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		SimpleFields: []*protoMetricsV1.SimpleField{{
@@ -391,11 +221,11 @@ func TestShard_Write(t *testing.T) {
 			Value: 1.0,
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
-	}))
+	})))
 	// case 5: gen series id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(9)).Return(uint32(0), false, fmt.Errorf("err"))
-	assert.Error(t, shardINTF.Write(&protoMetricsV1.Metric{
+	assert.Error(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  9,
@@ -405,12 +235,12 @@ func TestShard_Write(t *testing.T) {
 			Value: 1.0,
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
-	}))
+	})))
 	// case 6: get old series id
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
 	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(11)).Return(uint32(10), false, nil)
-	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
+	assert.NoError(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
 		TagsHash:  11,
@@ -420,75 +250,8 @@ func TestShard_Write(t *testing.T) {
 			Value: 1.0,
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
-	}))
-	// case 7: create new series id
-	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(10)).Return(uint32(10), true, nil)
-	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-	indexDB.EXPECT().BuildInvertIndex(constants.DefaultNamespace, "test", tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}), uint32(10))
-	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-		TagsHash:  10,
-		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
-		SimpleFields: []*protoMetricsV1.SimpleField{{
-			Name:  "f1",
-			Value: 1.0,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		}},
-	}))
-	// case 8: write metric without tags
-	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-	assert.NoError(t, shardINTF.Write(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-		TagsHash:  10,
-		SimpleFields: []*protoMetricsV1.SimpleField{{
-			Name:  "f1",
-			Value: 1.0,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		}},
-	}))
-}
+	})))
 
-func Test_Shard_howManyFieldsWillWrite(t *testing.T) {
-	var s = &shard{}
-	assert.Equal(t, s.howManyFieldsWillWrite(_testMetric), 26)
-	assert.Equal(t, s.howManyFieldsWillWrite(&protoMetricsV1.Metric{
-		Name: "xxxx",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "111", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 111},
-			{Name: "Histogram111", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 2222},
-		}},
-	), 2)
-}
-
-var _testMetric = &protoMetricsV1.Metric{
-	Name: "xxxx",
-	Tags: []*protoMetricsV1.KeyValue{
-		{Key: "a", Value: "v"},
-		{Key: "1", Value: "2"},
-	},
-	TagsHash: 11111,
-	SimpleFields: []*protoMetricsV1.SimpleField{
-		{Name: "111", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 111},
-		{Name: "Histogram111", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 2222},
-	},
-	CompoundField: &protoMetricsV1.CompoundField{
-		Sum:            1,
-		Count:          2222,
-		Min:            111,
-		Max:            333343,
-		Values:         []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
-		ExplicitBounds: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, math.Inf(1) + 1},
-	},
-}
-
-func Benchmark_validate_metric(b *testing.B) {
-	var s = &shard{metrics: *newShardMetrics("1", 1)}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = s.validateMetric(_testMetric)
-	}
 }
 
 func Test_familyMemDBSet(t *testing.T) {

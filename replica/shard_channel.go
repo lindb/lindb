@@ -217,8 +217,9 @@ func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 					continue
 				}
 			}
-			err := stream.Send(data)
-			if err != nil {
+			if err := stream.Send(data); err == nil {
+				putMarshalBlock(&data)
+			} else {
 				c.logger.Error("send write request err", logger.Error(err))
 				if err == io.EOF {
 					if err0 := stream.Close(); err0 != nil {

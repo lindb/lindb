@@ -30,8 +30,8 @@ type DeltaHistogramVec struct {
 	tagKeys         []string
 	metricName      string // concated metric name
 	mu              sync.RWMutex
-	deltaHistograms map[string]*BoundDeltaHistogram
-	setBucketsFunc  func(h *BoundDeltaHistogram)
+	deltaHistograms map[string]*BoundHistogram
+	setBucketsFunc  func(h *BoundHistogram)
 }
 
 func NewHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *DeltaHistogramVec {
@@ -39,7 +39,7 @@ func NewHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *D
 		metricName:      metricName,
 		tags:            tags,
 		tagKeys:         tagKey,
-		deltaHistograms: make(map[string]*BoundDeltaHistogram),
+		deltaHistograms: make(map[string]*BoundHistogram),
 	}
 }
 
@@ -47,7 +47,7 @@ func (hv *DeltaHistogramVec) WithExponentBuckets(lower, upper time.Duration, cou
 	hv.mu.Lock()
 	defer hv.mu.Unlock()
 
-	hv.setBucketsFunc = func(h *BoundDeltaHistogram) {
+	hv.setBucketsFunc = func(h *BoundHistogram) {
 		h.WithExponentBuckets(lower, upper, count)
 	}
 	return hv
@@ -57,13 +57,13 @@ func (hv *DeltaHistogramVec) WithLinearBuckets(lower, upper time.Duration, count
 	hv.mu.Lock()
 	defer hv.mu.Unlock()
 
-	hv.setBucketsFunc = func(h *BoundDeltaHistogram) {
+	hv.setBucketsFunc = func(h *BoundHistogram) {
 		h.WithLinearBuckets(lower, upper, count)
 	}
 	return hv
 }
 
-func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundDeltaHistogram {
+func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundHistogram {
 	if len(tagValues) != len(hv.tagKeys) {
 		panic("count of tagKey and tagValue not match")
 	}

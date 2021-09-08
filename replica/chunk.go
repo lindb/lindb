@@ -20,10 +20,12 @@ package replica
 import (
 	"bytes"
 	"encoding"
+	"sync"
 
 	"github.com/golang/snappy"
 
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica
@@ -44,23 +46,20 @@ type Chunk interface {
 
 // chunk represents the buffer with snappy compress
 type chunk struct {
-	buf      *bytes.Buffer
-	writer   *snappy.Writer
-	buffer   protoMetricsV1.MetricList
-	capacity int
-	size     int // chunk size and append index
+	buffer       *bytes.Buffer
+	protoMetrics protoMetricsV1.MetricList
+	capacity     int
+	size         int // chunk size and append index
 }
 
 // newChunk creates a new chunk
 func newChunk(capacity int) Chunk {
-	buf := &bytes.Buffer{}
 	return &chunk{
 		capacity: capacity,
-		buf:      buf,
-		buffer: protoMetricsV1.MetricList{
+		buffer:   &bytes.Buffer{},
+		protoMetrics: protoMetricsV1.MetricList{
 			Metrics: make([]*protoMetricsV1.Metric, capacity),
 		},
-		writer: snappy.NewBufferedWriter(buf),
 	}
 }
 
@@ -81,7 +80,7 @@ func (c *chunk) Size() int {
 
 // Append appends the metric into buffer
 func (c *chunk) Append(metric *protoMetricsV1.Metric) {
-	c.buffer.Metrics[c.size] = metric
+	c.protoMetrics.Metrics[c.size] = metric
 	c.size++
 }
 
@@ -96,29 +95,39 @@ func (c *chunk) MarshalBinary() ([]byte, error) {
 		// if error, will ignore buffer data
 		c.size = 0
 		// reset for re-use
-		c.buffer.Metrics = make([]*protoMetricsV1.Metric, c.capacity)
-		c.buf = &bytes.Buffer{}
-		c.writer.Reset(c.buf)
+		c.protoMetrics.Metrics = make([]*protoMetricsV1.Metric, c.capacity)
+		// TODO:  use flat metric
+		c.buffer.Reset()
 	}()
 
 	// 1. if chunk not full, need truncate metric buffer list by the size
 	if c.size < c.capacity {
-		c.buffer.Metrics = c.buffer.Metrics[0:c.size]
+		c.protoMetrics.Metrics = c.protoMetrics.Metrics[0:c.size]
 	}
-	// 2. marshal metric list
-	data, err := c.buffer.Marshal()
+
+	// 2. marshal and compress metric list
+	_, err := metric.MarshalProtoMetricsV1ListTo(c.protoMetrics, c.buffer)
 	if err != nil {
 		return nil, err
 	}
-	// 3. compress the data
-	_, err = c.writer.Write(data)
-	if err != nil {
-		return nil, err
+	// we use snappy block format here
+	var block = *getMarshalBlock()
+	block = snappy.Encode(block, c.buffer.Bytes())
+	return block, nil
+}
+
+var marshalBlockPool sync.Pool
+
+func getMarshalBlock() *[]byte {
+	item := marshalBlockPool.Get()
+	if item == nil {
+		var buf []byte
+		return &buf
 	}
-	// 4. flush data
-	if err := c.writer.Flush(); err != nil {
-		return nil, err
-	}
-	// 5. return the binary data
-	return c.buf.Bytes(), nil
+	return item.(*[]byte)
+}
+
+func putMarshalBlock(b *[]byte) {
+	*b = (*b)[:0]
+	marshalBlockPool.Put(b)
 }
