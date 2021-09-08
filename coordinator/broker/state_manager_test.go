@@ -258,11 +258,13 @@ func TestStateManager_ShardState(t *testing.T) {
 	time.Sleep(time.Second)
 
 	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
 	mgr1.databases = map[string]models.Database{
 		"test_1": {Storage: "test_1"},
 		"test_2": {Storage: "test_2"},
 		"test":   {Storage: "test_not_exist"},
 		"db":     {Storage: "test"}}
+	mgr1.mutex.Unlock()
 
 	// db not exist
 	replicas, err := mgr.GetQueryableReplicas("test_db")
