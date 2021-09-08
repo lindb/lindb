@@ -18,6 +18,7 @@
 package indexdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -30,6 +31,8 @@ import (
 
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/wal"
@@ -116,6 +119,21 @@ func TestIndexDatabase_SuggestTagValues(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func mockTagKeyValueIterator(kvs map[string]string) *metric.KeyValueIterator {
+	var ml protoMetricsV1.MetricList
+	var m protoMetricsV1.Metric
+	for k, v := range kvs {
+		m.Tags = append(m.Tags, &protoMetricsV1.KeyValue{Key: k, Value: v})
+	}
+
+	ml.Metrics = append(ml.Metrics, &m)
+	var buf bytes.Buffer
+	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
+	var br metric.BatchRows
+	br.UnmarshalRows(buf.Bytes())
+	return br.Rows()[0].NewKeyValueIterator()
+}
+
 func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
@@ -131,7 +149,7 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 	index := NewMockInvertedIndex(ctrl)
 	db1.index = index
 	index.EXPECT().buildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	db.BuildInvertIndex("ns", "cpu", tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}), 10)
+	db.BuildInvertIndex("ns", "cpu", mockTagKeyValueIterator(map[string]string{"ip": "1.1.1.1"}), 10)
 
 	index.EXPECT().Flush().Return(nil)
 	err = db.Close()

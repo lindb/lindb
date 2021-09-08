@@ -37,9 +37,9 @@ type Scope interface {
 	// NewGauge returns a fast gauge which bounded to the scope
 	NewGauge(fieldName string) *BoundGauge
 	// NewCounter returns a fast counter which bounded to the scope
-	NewCounter(fieldName string) *BoundDeltaCounter
+	NewCounter(fieldName string) *BoundCounter
 	// NewHistogram returns a histogram which bounded to the scope
-	NewHistogram() *BoundDeltaHistogram
+	NewHistogram() *BoundHistogram
 	// NewHistogramVec initializes a vec by tagKeys
 	NewHistogramVec(tagKey ...string) *DeltaHistogramVec
 	// NewCounterVec initializes a vec by tagKeys and fieldName
@@ -57,9 +57,9 @@ type taggedSeries struct {
 }
 
 type fieldPayload struct {
-	gauges         []*BoundGauge        // BoundGauge list
-	countersDelta  []*BoundDeltaCounter // BoundDeltaCounter list
-	histogramDelta *BoundDeltaHistogram
+	gauges         []*BoundGauge   // BoundGauge list
+	countersDelta  []*BoundCounter // BoundCounter list
+	histogramDelta *BoundHistogram
 }
 
 func NewScope(metricName string, tagList ...string) Scope {
@@ -171,7 +171,7 @@ func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
 	panic(fmt.Sprintf("gauge field: %s has registered another type before", fieldName))
 }
 
-func (s *taggedSeries) NewCounter(fieldName string) *BoundDeltaCounter {
+func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
 	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -190,7 +190,7 @@ func (s *taggedSeries) NewCounter(fieldName string) *BoundDeltaCounter {
 	panic(fmt.Sprintf("delta-counter field: %s has registered another type before", fieldName))
 }
 
-func (s *taggedSeries) NewHistogram() *BoundDeltaHistogram {
+func (s *taggedSeries) NewHistogram() *BoundHistogram {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

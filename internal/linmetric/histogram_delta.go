@@ -24,13 +24,13 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
-// BoundDeltaHistogram is a histogram which has been Bound to a certain metric
+// BoundHistogram is a histogram which has been Bound to a certain metric
 // with field-name and metrics, used for non-negative values
 //
 // a default created bucket will be automatically created,
 // however, you can also specify your own buckets.
 // Prometheus Histogram's buckets are cumulative where values in each buckets is cumulative,
-type BoundDeltaHistogram struct {
+type BoundHistogram struct {
 	mu             sync.Mutex
 	bkts           *histogramBuckets
 	lastValues     []float64
@@ -38,8 +38,8 @@ type BoundDeltaHistogram struct {
 	lastTotalSum   float64
 }
 
-func NewHistogram() *BoundDeltaHistogram {
-	h := &BoundDeltaHistogram{
+func NewHistogram() *BoundHistogram {
+	h := &BoundHistogram{
 		bkts: newHistogramBuckets(
 			defaultMinBucketUpperBound,
 			defaultMaxBucketUpperBound,
@@ -51,13 +51,13 @@ func NewHistogram() *BoundDeltaHistogram {
 	return h
 }
 
-func (h *BoundDeltaHistogram) afterResetBuckets() {
+func (h *BoundHistogram) afterResetBuckets() {
 	h.lastValues = cloneFloat64Slice(h.bkts.values)
 	h.lastTotalCount = h.bkts.totalCount
 	h.lastTotalSum = h.bkts.totalSum
 }
 
-func (h *BoundDeltaHistogram) WithExponentBuckets(lower, upper time.Duration, count int) *BoundDeltaHistogram {
+func (h *BoundHistogram) WithExponentBuckets(lower, upper time.Duration, count int) *BoundHistogram {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -66,7 +66,7 @@ func (h *BoundDeltaHistogram) WithExponentBuckets(lower, upper time.Duration, co
 	return h
 }
 
-func (h *BoundDeltaHistogram) WithLinearBuckets(lower, upper time.Duration, count int) *BoundDeltaHistogram {
+func (h *BoundHistogram) WithLinearBuckets(lower, upper time.Duration, count int) *BoundHistogram {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -75,32 +75,32 @@ func (h *BoundDeltaHistogram) WithLinearBuckets(lower, upper time.Duration, coun
 	return h
 }
 
-func (h *BoundDeltaHistogram) UpdateDuration(d time.Duration) {
+func (h *BoundHistogram) UpdateDuration(d time.Duration) {
 	h.UpdateMilliseconds(float64(d.Nanoseconds() / 1e6))
 }
 
-func (h *BoundDeltaHistogram) UpdateSince(start time.Time) {
+func (h *BoundHistogram) UpdateSince(start time.Time) {
 	h.UpdateMilliseconds(float64(time.Since(start).Nanoseconds() / 1e6))
 }
 
-func (h *BoundDeltaHistogram) UpdateMilliseconds(s float64) {
+func (h *BoundHistogram) UpdateMilliseconds(s float64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	h.bkts.Update(s)
 }
 
-func (h *BoundDeltaHistogram) UpdateSeconds(s float64) {
+func (h *BoundHistogram) UpdateSeconds(s float64) {
 	h.UpdateMilliseconds(s * 1000)
 }
 
-func (h *BoundDeltaHistogram) Update(f func()) {
+func (h *BoundHistogram) Update(f func()) {
 	start := time.Now()
 	f()
 	h.UpdateSince(start)
 }
 
-func (h *BoundDeltaHistogram) marshalToCompoundField() *protoMetricsV1.CompoundField {
+func (h *BoundHistogram) marshalToCompoundField() *protoMetricsV1.CompoundField {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

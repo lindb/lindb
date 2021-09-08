@@ -30,7 +30,7 @@ type DeltaCounterVec struct {
 	metricName    string // concated metric name
 	fieldName     string
 	mu            sync.RWMutex
-	deltaCounters map[string]*BoundDeltaCounter
+	deltaCounters map[string]*BoundCounter
 }
 
 func NewCounterVec(metricName string, fieldName string, tags tag.KeyValues, tagKey ...string) *DeltaCounterVec {
@@ -39,11 +39,11 @@ func NewCounterVec(metricName string, fieldName string, tags tag.KeyValues, tagK
 		fieldName:     fieldName,
 		tags:          tags,
 		tagKeys:       tagKey,
-		deltaCounters: make(map[string]*BoundDeltaCounter),
+		deltaCounters: make(map[string]*BoundCounter),
 	}
 }
 
-func (dcv *DeltaCounterVec) WithTagValues(tagValues ...string) *BoundDeltaCounter {
+func (dcv *DeltaCounterVec) WithTagValues(tagValues ...string) *BoundCounter {
 	if len(tagValues) != len(dcv.tagKeys) {
 		panic("count of tagKey and tagValue not match")
 	}

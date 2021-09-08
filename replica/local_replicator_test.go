@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/snappy"
+	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,19 +39,28 @@ func TestLocalReplicator_Replica(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := tsdb.NewMockShard(ctrl)
+	var interval timeutil.Interval
+	_ = interval.ValueOf("10s")
+	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
+	shard.EXPECT().DatabaseName().Return("test-database").AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+
 	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard)
 	assert.True(t, replicator.IsReady())
+	// bad compressed data
 	replicator.Replica(1, []byte{1, 2, 3})
-
+	// data ok
 	metricList := protoMetricsV1.MetricList{
 		Metrics: []*protoMetricsV1.Metric{{Name: "test"}},
 	}
-	data, _ := metricList.Marshal()
 	buf := &bytes.Buffer{}
-	writer := snappy.NewBufferedWriter(buf)
-	_, _ = writer.Write(data)
-	_ = writer.Flush()
-	data = buf.Bytes()
-	shard.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("errj"))
-	replicator.Replica(1, data)
+	_, _ = metric.MarshalProtoMetricsV1ListTo(metricList, buf)
+	var dst []byte
+	dst = snappy.Encode(dst, buf.Bytes())
+	shard.EXPECT().WriteBatchRows(gomock.Any(), gomock.Any()).Return(fmt.Errorf("errj"))
+	replicator.Replica(1, dst)
+	// bad data
+	dst = snappy.Encode(dst, []byte("bad-data"))
+	replicator.Replica(1, dst)
+
 }

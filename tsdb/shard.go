@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -41,9 +40,8 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
-	metricchecker "github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -64,12 +62,10 @@ var (
 
 var (
 	shardScope             = linmetric.NewScope("lindb.tsdb.shard")
-	badMetricsVec          = shardScope.NewCounterVec("bad_metrics", "db", "shard")
-	outOfRangeMetricsVec   = shardScope.NewCounterVec("metrics_out_of_range", "db", "shard")
-	writeMetricsVec        = shardScope.NewCounterVec("write_metrics", "db", "shard")
 	writeMetricFailuresVec = shardScope.NewCounterVec("write_metric_failures", "db", "shard")
+	writeBatchesVec        = shardScope.NewCounterVec("write_batches", "db", "shard")
+	writeMetricsVec        = shardScope.NewCounterVec("write_metrics", "db", "shard")
 	writeFieldsVec         = shardScope.NewCounterVec("write_fields", "db", "shard")
-	escapedFieldNameVec    = shardScope.NewCounterVec("escaped_fields", "db", "shard")
 	memdbTotalSizeVec      = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
 	memdbNumberVec         = shardScope.NewGaugeVec("memdb_number", "db", "shard")
 	memFlushTimerVec       = shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard")
@@ -102,8 +98,8 @@ type Shard interface {
 	GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
-	// Write writes the metric-point into memory-database.
-	Write(metric *protoMetricsV1.Metric) error
+	// WriteBatchRows writes metric rows with same family in batch
+	WriteBatchRows(familyTime int64, rows []metric.StorageRow) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (queue.Sequence, error)
 	// MemDBTotalSize returns the total size of mutable and immutable memdb
@@ -120,35 +116,6 @@ type Shard interface {
 	io.Closer
 	// DataFilter filters the data based on condition
 	flow.DataFilter
-}
-
-type shardMetrics struct {
-	badMetrics          *linmetric.BoundDeltaCounter
-	outOfRangeMetrics   *linmetric.BoundDeltaCounter
-	writeMetrics        *linmetric.BoundDeltaCounter
-	writeMetricFailures *linmetric.BoundDeltaCounter
-	writeFields         *linmetric.BoundDeltaCounter
-	escapedFields       *linmetric.BoundDeltaCounter
-	memdbTotalSize      *linmetric.BoundGauge
-	memdbNumber         *linmetric.BoundGauge
-	memFlushTimer       *linmetric.BoundDeltaHistogram
-	indexFlushTimer     *linmetric.BoundDeltaHistogram
-}
-
-func newShardMetrics(dbName string, shardID models.ShardID) *shardMetrics {
-	shardIDStr := strconv.Itoa(int(shardID))
-	return &shardMetrics{
-		badMetrics:          badMetricsVec.WithTagValues(dbName, shardIDStr),
-		outOfRangeMetrics:   outOfRangeMetricsVec.WithTagValues(dbName, shardIDStr),
-		writeMetrics:        writeMetricsVec.WithTagValues(dbName, shardIDStr),
-		writeMetricFailures: writeMetricFailuresVec.WithTagValues(dbName, shardIDStr),
-		writeFields:         writeFieldsVec.WithTagValues(dbName, shardIDStr),
-		escapedFields:       escapedFieldNameVec.WithTagValues(dbName, shardIDStr),
-		memdbTotalSize:      memdbTotalSizeVec.WithTagValues(dbName, shardIDStr),
-		memdbNumber:         memdbNumberVec.WithTagValues(dbName, shardIDStr),
-		memFlushTimer:       memFlushTimerVec.WithTagValues(dbName, shardIDStr),
-		indexFlushTimer:     indexFlushTimerVec.WithTagValues(dbName, shardIDStr),
-	}
 }
 
 // shard implements Shard interface
@@ -185,7 +152,17 @@ type shard struct {
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
 	logger         *logger.Logger
-	metrics        shardMetrics
+
+	statistics struct {
+		writeBatches        *linmetric.BoundCounter
+		writeMetrics        *linmetric.BoundCounter
+		writeMetricFailures *linmetric.BoundCounter
+		writeFields         *linmetric.BoundCounter
+		memdbTotalSize      *linmetric.BoundGauge
+		memdbNumber         *linmetric.BoundGauge
+		memFlushTimer       *linmetric.BoundHistogram
+		indexFlushTimer     *linmetric.BoundHistogram
+	}
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -221,9 +198,19 @@ func newShard(
 		interval:     interval,
 		segments:     make(map[timeutil.IntervalType]IntervalSegment),
 		isFlushing:   *atomic.NewBool(false),
-		metrics:      *newShardMetrics(db.Name(), shardID),
 		logger:       logger.GetLogger("tsdb", "Shard"),
 	}
+	// initialize metrics
+	shardIDStr := strconv.Itoa(int(shardID))
+	createdShard.statistics.writeBatches = writeBatchesVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.writeMetrics = writeMetricsVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.writeFields = writeFieldsVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.memdbTotalSize = memdbTotalSizeVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.memdbNumber = memdbNumberVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.memFlushTimer = memFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
+
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
 		interval,
@@ -255,32 +242,22 @@ func newShard(
 }
 
 // DatabaseName returns the database name
-func (s *shard) DatabaseName() string {
-	return s.databaseName
-}
+func (s *shard) DatabaseName() string { return s.databaseName }
 
 // ShardID returns the shard id.
-func (s *shard) ShardID() models.ShardID {
-	return s.id
-}
+func (s *shard) ShardID() models.ShardID { return s.id }
 
 // ShardInfo returns the unique shard info.
-func (s *shard) ShardInfo() string {
-	return s.path
-}
+func (s *shard) ShardInfo() string { return s.path }
 
 // CurrentInterval returns current interval for metric  write.
-func (s *shard) CurrentInterval() timeutil.Interval {
-	return s.interval
-}
+func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
 
 func (s *shard) GetOrCreateSequence(replicaPeer string) (queue.Sequence, error) {
 	return s.sequence.getOrCreateSequence(replicaPeer)
 }
 
-func (s *shard) IndexDatabase() indexdb.IndexDatabase {
-	return s.indexDB
-}
+func (s *shard) IndexDatabase() indexdb.IndexDatabase { return s.indexDB }
 
 func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
 	segment, ok := s.segments[intervalType]
@@ -345,258 +322,147 @@ func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
 	return rs
 }
 
-func (s *shard) validateMetric(metric *protoMetricsV1.Metric) (err error) {
-	if metric == nil {
-		return constants.ErrMetricPBNilMetric
-	}
-	if len(metric.Name) == 0 {
-		return constants.ErrMetricPBEmptyMetricName
-	}
-	// sanitize metric-name and namespace, as we will stores it in the index with a concated prefix
-	metric.Name = metricchecker.SanitizeMetricName(metric.Name)
-	metric.Namespace = metricchecker.SanitizeNamespace(metric.Namespace)
+func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
+	namespace := constants.DefaultNamespace
+	metricName := string(row.Name())
 
-	// empty field
-	if len(metric.SimpleFields) == 0 && metric.CompoundField == nil {
-		return constants.ErrMetricPBEmptyField
-	}
-	// validate empty tags
-	if len(metric.Tags) > 0 {
-		for idx := range metric.Tags {
-			// nil tag
-			if metric.Tags[idx] == nil {
-				return constants.ErrMetricEmptyTagKeyValue
-			}
-			// empty key value
-			if metric.Tags[idx].Key == "" || metric.Tags[idx].Value == "" {
-				return constants.ErrMetricEmptyTagKeyValue
-			}
-		}
+	if len(row.NameSpace()) > 0 {
+		namespace = string(row.NameSpace())
 	}
 
-	// check simple fields
-	for idx := range metric.SimpleFields {
-		// nil value
-		if metric.SimpleFields[idx] == nil {
-			return constants.ErrBadMetricPBFormat
-		}
-		// field-name empty
-		if metric.SimpleFields[idx].Name == "" {
-			return constants.ErrMetricEmptyFieldName
-		}
-		// check sanitize
-		if metricchecker.HistogramConverter.NeedToSanitize(metric.SimpleFields[idx].Name) {
-			s.metrics.escapedFields.Incr()
-			metric.SimpleFields[idx].Name = metricchecker.HistogramConverter.Sanitize(metric.SimpleFields[idx].Name)
-		}
-		// field type unspecified
-		if metric.SimpleFields[idx].Type == protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED {
-			return constants.ErrBadMetricPBFormat
-		}
-		v := metric.SimpleFields[idx].Value
-		if math.IsNaN(v) {
-			return constants.ErrMetricNanField
-		}
-		if math.IsInf(v, 0) {
-			return constants.ErrMetricInfField
-		}
-	}
-	// no more compound field
-	if metric.CompoundField == nil {
-		return nil
-	}
-
-	// value length zero or length not match
-	if len(metric.CompoundField.Values) != len(metric.CompoundField.ExplicitBounds) ||
-		len(metric.CompoundField.Values) <= 2 {
-		return constants.ErrBadMetricPBFormat
-	}
-	// ensure compound field value > 0
-	if (metric.CompoundField.Max < 0) ||
-		metric.CompoundField.Min < 0 ||
-		metric.CompoundField.Sum < 0 ||
-		metric.CompoundField.Count < 0 {
-		return constants.ErrBadMetricPBFormat
-	}
-
-	for idx := 0; idx < len(metric.CompoundField.Values); idx++ {
-		// ensure value > 0
-		if metric.CompoundField.Values[idx] < 0 || metric.CompoundField.ExplicitBounds[idx] < 0 {
-			return constants.ErrBadMetricPBFormat
-		}
-		// ensure explicate bounds increase progressively
-		if idx >= 1 && metric.CompoundField.ExplicitBounds[idx] < metric.CompoundField.ExplicitBounds[idx-1] {
-			return constants.ErrBadMetricPBFormat
-		}
-		// ensure last bound is +Inf
-		if idx == len(metric.CompoundField.ExplicitBounds)-1 && !math.IsInf(metric.CompoundField.ExplicitBounds[idx], 1) {
-			return constants.ErrBadMetricPBFormat
-		}
-	}
-	return nil
-}
-
-func (s *shard) howManyFieldsWillWrite(metric *protoMetricsV1.Metric) int {
-	var count = len(metric.SimpleFields)
-	if metric.CompoundField == nil {
-		return count
-	}
-	// min, max is a feature in lindb's field
-	count += len(metric.CompoundField.Values)
-	if metric.CompoundField.Min > 0 {
-		count++
-	}
-	if metric.CompoundField.Max > 0 {
-		count++
-	}
-	// assume that all compound field will contains sum/count field
-	count += 2
-	return count
-}
-
-func (s *shard) lookupMetricMeta(metric *protoMetricsV1.Metric) (*memdb.MetricPoint, error) {
-	ns := metric.Namespace
-	if len(ns) == 0 {
-		ns = constants.DefaultNamespace
-	}
-
-	metricID, err := s.metadata.MetadataDatabase().GenMetricID(ns, metric.Name)
+	row.MetricID, err = s.metadata.MetadataDatabase().GenMetricID(namespace, metricName)
 	if err != nil {
-		s.metrics.writeMetricFailures.Incr()
-		return nil, err
+		s.statistics.writeMetricFailures.Incr()
+		return err
 	}
-	var seriesID uint32
-	isCreated := false
-	if len(metric.Tags) == 0 {
+	var isCreated bool
+	if row.TagsLen() == 0 {
 		// if metric without tags, uses default series id(0)
-		seriesID = constants.SeriesIDWithoutTags
+		row.SeriesID = constants.SeriesIDWithoutTags
 	} else {
-		seriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(metricID, metric.TagsHash)
+		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(row.MetricID, row.TagsHash())
 		if err != nil {
-			s.metrics.writeMetricFailures.Incr()
-			return nil, err
+			s.statistics.writeMetricFailures.Incr()
+			return err
 		}
 	}
 	if isCreated {
 		// if series id is new, need build inverted index
-		s.indexDB.BuildInvertIndex(ns, metric.Name, metric.Tags, seriesID)
+		s.indexDB.BuildInvertIndex(
+			namespace,
+			metricName,
+			row.NewKeyValueIterator(),
+			row.SeriesID)
+	}
+	// set field id
+	simpleFieldItr := row.NewSimpleFieldIterator()
+	var fieldID field.ID
+	for simpleFieldItr.HasNext() {
+		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+			namespace, metricName,
+			simpleFieldItr.NextName(),
+			simpleFieldItr.NextType()); err != nil {
+			return err
+		}
+		row.FieldIDs = append(row.FieldIDs, fieldID)
 	}
 
-	fieldsCount := s.howManyFieldsWillWrite(metric)
-	var mm = memdb.MetricPoint{
-		MetricID: metricID,
-		SeriesID: seriesID,
-		FieldIDs: make([]field.ID, fieldsCount)[:0],
-		Proto:    metric,
-	}
-
-	for idx := range metric.SimpleFields {
-		var fieldType field.Type
-		switch metric.SimpleFields[idx].Type {
-		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
-			fieldType = field.SumField
-		case protoMetricsV1.SimpleFieldType_GAUGE:
-			fieldType = field.GaugeField
-		case protoMetricsV1.SimpleFieldType_Max:
-			fieldType = field.MaxField
-		case protoMetricsV1.SimpleFieldType_Min:
-			fieldType = field.MinField
-		}
-		fieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name, field.Name(metric.SimpleFields[idx].Name), fieldType)
-		if err != nil {
-			return nil, err
-		}
-		mm.FieldIDs = append(mm.FieldIDs, fieldID)
-	}
-	if metric.CompoundField == nil {
-		return &mm, nil
+	compoundFieldItr, ok := row.NewCompoundFieldIterator()
+	if !ok {
+		goto Done
 	}
 	// min
-	if metric.CompoundField.Min > 0 {
-		minFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name, field.Name(metricchecker.HistogramConverter.MinFieldName), field.MinField)
-		if err != nil {
-			return nil, err
+	if compoundFieldItr.Min() > 0 {
+		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+			namespace, metricName, field.Name(metric.HistogramConverter.MinFieldName), field.MinField); err != nil {
+			return err
 		}
-		mm.FieldIDs = append(mm.FieldIDs, minFieldID)
+		row.FieldIDs = append(row.FieldIDs, fieldID)
 	}
 	// max
-	if metric.CompoundField.Max > 0 {
-		maxFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name, field.Name(metricchecker.HistogramConverter.MaxFieldName), field.MaxField)
-		if err != nil {
-			return nil, err
+	if compoundFieldItr.Max() > 0 {
+		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+			namespace, metricName, field.Name(metric.HistogramConverter.MaxFieldName), field.MaxField); err != nil {
+			return err
 		}
-		mm.FieldIDs = append(mm.FieldIDs, maxFieldID)
+		row.FieldIDs = append(row.FieldIDs, fieldID)
 	}
 	// sum
-	sumFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-		ns, metric.Name, field.Name(metricchecker.HistogramConverter.SumFieldName), field.SumField)
-	if err != nil {
-		return nil, err
+	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+		namespace, metricName, field.Name(metric.HistogramConverter.SumFieldName), field.SumField); err != nil {
+		return err
 	}
-	mm.FieldIDs = append(mm.FieldIDs, sumFieldID)
+	row.FieldIDs = append(row.FieldIDs, fieldID)
 	// count
-	countFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-		ns, metric.Name, field.Name(metricchecker.HistogramConverter.CountFieldName), field.SumField)
-	if err != nil {
-		return nil, err
+	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+		namespace, metricName, field.Name(metric.HistogramConverter.CountFieldName), field.SumField); err != nil {
+		return err
 	}
-	mm.FieldIDs = append(mm.FieldIDs, countFieldID)
-	// values
-	for idx := range metric.CompoundField.ExplicitBounds {
-		histogramFieldID, err := s.metadata.MetadataDatabase().GenFieldID(
-			ns, metric.Name,
-			field.Name(metricchecker.HistogramConverter.BucketName(metric.CompoundField.ExplicitBounds[idx])),
-			field.HistogramField)
-		if err != nil {
-			return nil, err
+	row.FieldIDs = append(row.FieldIDs, fieldID)
+	// explicit bounds
+	for compoundFieldItr.HasNextBucket() {
+		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
+			namespace, metricName,
+			compoundFieldItr.BucketName(), field.HistogramField); err != nil {
+			return err
 		}
-		mm.FieldIDs = append(mm.FieldIDs, histogramFieldID)
+		row.FieldIDs = append(row.FieldIDs, fieldID)
 	}
-	return &mm, nil
+
+Done:
+	row.Writable = true
+	return nil
 }
 
-// Write writes the metric-point into memory-database.
-func (s *shard) Write(metric *protoMetricsV1.Metric) (err error) {
-	if err := s.validateMetric(metric); err != nil {
-		s.metrics.badMetrics.Incr()
-		return err
-	}
-	timestamp := metric.Timestamp
-	point, err := s.lookupMetricMeta(metric)
-	if err != nil {
-		return err
-	}
+func (s *shard) WriteBatchRows(familyTime int64, rows []metric.StorageRow) error {
+	defer s.statistics.writeBatches.Incr()
 
-	// calculate family start time and slot index
 	intervalCalc := s.interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)              // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)           // hours
-	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
+
+	for idx := range rows {
+		if err := s.lookupRowMeta(&rows[idx]); err != nil {
+			fmt.Println(rows[idx].FieldIDs)
+			sfItr := rows[idx].NewSimpleFieldIterator()
+			for sfItr.HasNext() {
+				fmt.Println(sfItr.NextName(), sfItr.NextType())
+			}
+			s.logger.Error("failed to lookup meta of row", logger.Error(err))
+			continue
+		}
+		rows[idx].SlotIndex = uint16(intervalCalc.CalcSlot(
+			rows[idx].Timestamp(),
+			familyTime,
+			s.interval.Int64()),
+		)
+	}
 	db, err := s.GetOrCreateMemoryDatabase(familyTime)
 	if err != nil {
-		s.metrics.writeMetricFailures.Incr()
+		// all rows are dropped
+		s.statistics.writeMetricFailures.Add(float64(len(rows)))
 		return err
 	}
-
-	point.SlotIndex = uint16(intervalCalc.CalcSlot(timestamp, familyTime, s.interval.Int64())) // slot offset of family
-
 	db.AcquireWrite()
-	// write metric point into memory db
-	err = db.Write(point)
-	db.CompleteWrite()
+	defer db.CompleteWrite()
 
-	if err == nil {
-		s.metrics.writeMetrics.Incr()
-		s.metrics.writeFields.Add(float64(len(point.FieldIDs)))
-	} else {
-		s.metrics.writeMetricFailures.Incr()
+	releaseFunc := db.WithLock()
+	defer releaseFunc()
+
+	for idx := range rows {
+		if !rows[idx].Writable {
+			s.statistics.writeMetricFailures.Incr()
+			continue
+		}
+		if err = db.WriteRow(&rows[idx]); err == nil {
+			s.statistics.writeMetrics.Incr()
+			s.statistics.writeFields.Add(float64(len(rows[idx].FieldIDs)))
+		} else {
+			s.statistics.writeMetricFailures.Incr()
+			s.logger.Error("failed writing row", logger.Error(err))
+		}
 	}
 	// if memdb size is above threshold, it will be put into immutable list
 	s.validateMemDBSize(familyTime, db)
-	return err
+	return nil
 }
 
 func (s *shard) Close() error {
@@ -683,8 +549,8 @@ func (s *shard) NeedFlush() bool {
 	if s.IsFlushing() {
 		return false
 	}
-	s.metrics.memdbNumber.Update(float64(len(s.families.Entries())))
-	s.metrics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
+	s.statistics.memdbNumber.Update(float64(len(s.families.Entries())))
+	s.statistics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
 
 	s.tryEvictMutable()
 
@@ -745,7 +611,7 @@ func (s *shard) Flush() (err error) {
 			logger.Any("shardID", s.id),
 			logger.String("database", s.databaseName),
 		)
-		s.metrics.indexFlushTimer.UpdateSince(startTime)
+		s.statistics.indexFlushTimer.UpdateSince(startTime)
 	}
 
 	var waitingFlushMemDB memdb.MemoryDatabase
@@ -793,7 +659,7 @@ func (s *shard) Flush() (err error) {
 		logger.String("flush-duration", endTime.Sub(startTime).String()),
 		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
 		logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
-	s.metrics.memFlushTimer.UpdateDuration(endTime.Sub(startTime))
+	s.statistics.memFlushTimer.UpdateDuration(endTime.Sub(startTime))
 
 	//FIXME(stone1100) commit replica sequence
 	s.ackReplicaSeq()
@@ -847,7 +713,7 @@ func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, er
 // flushMemoryDatabase flushes memory database to disk kv store
 func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
 	startTime := time.Now()
-	defer s.metrics.memFlushTimer.UpdateSince(startTime)
+	defer s.statistics.memFlushTimer.UpdateSince(startTime)
 
 	segmentName := s.interval.Calculator().GetSegment(memDB.FamilyTime())
 	segment, err := s.segment.GetOrCreateSegment(segmentName)

@@ -61,13 +61,13 @@ func getReaderStatistics() *readerStatistics {
 }
 
 type readerStatistics struct {
-	getErrors    *linmetric.BoundDeltaCounter
-	getCounts    *linmetric.BoundDeltaCounter
-	getBytes     *linmetric.BoundDeltaCounter
-	mmapCounts   *linmetric.BoundDeltaCounter
-	mmapErros    *linmetric.BoundDeltaCounter
-	unmmapCounts *linmetric.BoundDeltaCounter
-	unmmapErrors *linmetric.BoundDeltaCounter
+	getErrors    *linmetric.BoundCounter
+	getCounts    *linmetric.BoundCounter
+	getBytes     *linmetric.BoundCounter
+	mmapCounts   *linmetric.BoundCounter
+	mmapErros    *linmetric.BoundCounter
+	unmmapCounts *linmetric.BoundCounter
+	unmmapErrors *linmetric.BoundCounter
 }
 
 // Reader represents reader which reads k/v pair from store file

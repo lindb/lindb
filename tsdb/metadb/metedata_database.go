@@ -80,13 +80,13 @@ type metadataDatabase struct {
 	rwMux sync.RWMutex
 
 	statistics struct {
-		genMetricIDCounter   *linmetric.BoundDeltaCounter
-		getMetricIDCounter   *linmetric.BoundDeltaCounter
-		genTagKeyIDCounter   *linmetric.BoundDeltaCounter
-		getTagKeyIDCounter   *linmetric.BoundDeltaCounter
-		genFieldIDCounter    *linmetric.BoundDeltaCounter
-		getFieldIDCounter    *linmetric.BoundDeltaCounter
-		recoveryMetaWALTimer *linmetric.BoundDeltaHistogram
+		genMetricIDCounter   *linmetric.BoundCounter
+		getMetricIDCounter   *linmetric.BoundCounter
+		genTagKeyIDCounter   *linmetric.BoundCounter
+		getTagKeyIDCounter   *linmetric.BoundCounter
+		genFieldIDCounter    *linmetric.BoundCounter
+		getFieldIDCounter    *linmetric.BoundCounter
+		recoveryMetaWALTimer *linmetric.BoundHistogram
 	}
 }
 
@@ -333,6 +333,9 @@ func (mdb *metadataDatabase) GenFieldID(
 	namespace, metricName string,
 	fieldName field.Name, fieldType field.Type,
 ) (fieldID field.ID, err error) {
+	if fieldType == field.Unknown {
+		return 0, series.ErrFieldTypeUnspecified
+	}
 	key := metricchecker.JoinNamespaceMetric(namespace, metricName)
 
 	mdb.rwMux.Lock()

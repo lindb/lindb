@@ -26,17 +26,17 @@ import (
 )
 
 type connStatistics struct {
-	acceptCounter *linmetric.BoundDeltaCounter
-	acceptErrors  *linmetric.BoundDeltaCounter
+	acceptCounter *linmetric.BoundCounter
+	acceptErrors  *linmetric.BoundCounter
 	connNum       *linmetric.BoundGauge
-	readCounter   *linmetric.BoundDeltaCounter
-	readBytes     *linmetric.BoundDeltaCounter
-	readErrors    *linmetric.BoundDeltaCounter
-	writeCounter  *linmetric.BoundDeltaCounter
-	writeBytes    *linmetric.BoundDeltaCounter
-	writeErrors   *linmetric.BoundDeltaCounter
-	closeCounter  *linmetric.BoundDeltaCounter
-	closeErrors   *linmetric.BoundDeltaCounter
+	readCounter   *linmetric.BoundCounter
+	readBytes     *linmetric.BoundCounter
+	readErrors    *linmetric.BoundCounter
+	writeCounter  *linmetric.BoundCounter
+	writeBytes    *linmetric.BoundCounter
+	writeErrors   *linmetric.BoundCounter
+	closeCounter  *linmetric.BoundCounter
+	closeErrors   *linmetric.BoundCounter
 }
 
 type TrackedListener struct {

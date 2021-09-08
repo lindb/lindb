@@ -18,6 +18,7 @@
 package memdb
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -79,6 +81,17 @@ func TestMemoryDatabase_AcquireWrite(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func protoToStorageRow(m *protoMetricsV1.Metric) *metric.StorageRow {
+	var ml protoMetricsV1.MetricList
+	ml.Metrics = append(ml.Metrics, m)
+	var buf bytes.Buffer
+	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
+
+	var br metric.BatchRows
+	br.UnmarshalRows(buf.Bytes())
+	return &br.Rows()[0]
+}
+
 func TestMemoryDatabase_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
@@ -106,100 +119,83 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()).Times(1),
 	)
-	err = md.Write(&MetricPoint{
-		MetricID:  1,
-		SeriesID:  10,
-		SlotIndex: 1,
-		FieldIDs:  []field.ID{10},
-		Proto: &protoMetricsV1.Metric{
-			Name:      "test1",
-			Namespace: "ns",
-			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-			},
-		}})
-	assert.NoError(t, err)
-	// case 2: field type unknown
-	err = md.Write(&MetricPoint{
-		MetricID:  1,
-		SeriesID:  10,
-		SlotIndex: 1,
-		FieldIDs:  []field.ID{10},
-		Proto: &protoMetricsV1.Metric{
-			Name:      "test1",
-			Namespace: "ns",
-			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED, Value: 10},
-			},
-		}})
-	assert.NoError(t, err)
-	// case 3: new metric store
-	err = md.Write(
-		&MetricPoint{
-			MetricID:  20,
-			SeriesID:  20,
-			SlotIndex: 1,
-			FieldIDs:  []field.ID{10},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test1",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-				},
-			}})
-	assert.NoError(t, err)
-	// case 4: create new field store
+
+	row := protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+		},
+	})
+	row.MetricID = 1
+	row.SeriesID = 10
+	row.SlotIndex = 1
+	row.FieldIDs = []field.ID{10}
+	assert.NoError(t, md.WriteRow(row))
+
+	// case 2: new metric store
+	row = protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+		},
+	})
+	row.MetricID = 20
+	row.SeriesID = 20
+	row.SlotIndex = 1
+	row.FieldIDs = []field.ID{10}
+	assert.NoError(t, md.WriteRow(row))
+
+	// case 3: create new field store
 	gomock.InOrder(
 		tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false),
 		tStore.EXPECT().InsertFStore(gomock.Any()),
 		mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()),
 		mockMStore.EXPECT().SetSlot(gomock.Any()),
 	)
-	err = md.Write(
-		&MetricPoint{
-			MetricID:  1,
-			SeriesID:  10,
-			SlotIndex: 15,
-			FieldIDs:  []field.ID{10},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test1",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
-				},
-			}})
-	assert.NoError(t, err)
+	row = protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+		},
+	})
+	row.MetricID = 1
+	row.SeriesID = 10
+	row.SlotIndex = 15
+	row.FieldIDs = []field.ID{10}
+	assert.NoError(t, md.WriteRow(row))
 	assert.True(t, md.MemSize() > 0)
-	// case5, write histogram field
+
+	// case4, write histogram field
 	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false).AnyTimes()
 	tStore.EXPECT().InsertFStore(gomock.Any()).AnyTimes()
 	mockMStore.EXPECT().AddField(gomock.Any(), gomock.Any()).AnyTimes()
 	mockMStore.EXPECT().SetSlot(gomock.Any()).AnyTimes()
 	releaseLock := md.WithLock()
-	err = md.WriteWithoutLock(
-		&MetricPoint{
-			MetricID:  1,
-			SeriesID:  10,
-			SlotIndex: 15,
-			FieldIDs:  []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test1",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
-				},
-				CompoundField: &protoMetricsV1.CompoundField{
-					Min:            10,
-					Max:            10,
-					Sum:            10,
-					Count:          10,
-					ExplicitBounds: []float64{1, 1, 1, 1, math.Inf(1) + 1},
-					Values:         []float64{1, 1, 1, 1, 1, 1},
-				},
-			}})
 
+	row = protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+		},
+		CompoundField: &protoMetricsV1.CompoundField{
+			Min:            10,
+			Max:            10,
+			Sum:            10,
+			Count:          10,
+			ExplicitBounds: []float64{1, 1, 1, 1, math.Inf(1) + 1},
+			Values:         []float64{1, 1, 1, 1, 1, 1},
+		},
+	})
+	row.MetricID = 1
+	row.SeriesID = 10
+	row.SlotIndex = 15
+	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	releaseLock()
-	assert.NoError(t, err)
+	assert.NoError(t, md.WriteRow(row))
 	err = md.Close()
 	assert.NoError(t, err)
 }
@@ -228,20 +224,19 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	md.mStores.Put(uint32(1), mockMStore)
 	// case 1: write ok
 	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false)
-	err = md.Write(
-		&MetricPoint{
-			MetricID:  1,
-			SeriesID:  10,
-			SlotIndex: 15,
-			FieldIDs:  []field.ID{10},
-			Proto: &protoMetricsV1.Metric{
-				Name:      "test1",
-				Namespace: "ns",
-				SimpleFields: []*protoMetricsV1.SimpleField{
-					{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
-				},
-			}})
-	assert.Error(t, err)
+
+	row := protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+		},
+	})
+	row.MetricID = 1
+	row.SeriesID = 10
+	row.SlotIndex = 15
+	row.FieldIDs = []field.ID{10}
+	assert.Error(t, md.WriteRow(row))
 
 	buf.EXPECT().Close().Return(nil)
 	err = md.Close()

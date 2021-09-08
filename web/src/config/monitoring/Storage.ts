@@ -32,8 +32,8 @@ export const StorageDashboard = [
       UnitEnum.None,
     ),
     metric(
-        'Bad Metric Data Points',
-        'select bad_metrics from lindb.tsdb.shard group by db, shard',
+        'Write Metric Batch',
+        'select write_batches from lindb.tsdb.shard group by db, shard',
         8,
         UnitEnum.None,
     ),
@@ -46,18 +46,6 @@ export const StorageDashboard = [
     metric(
         'Write Fields',
         'select write_fields from lindb.tsdb.shard group by db, shard',
-        8,
-        UnitEnum.None,
-    ),
-    metric(
-        'Escaped Fields',
-        'select escaped_fields from lindb.tsdb.shard group by db, shard',
-        8,
-        UnitEnum.None,
-    ),
-    metric(
-        'Metrics Out of Time Range',
-        'select metrics_out_of_range from lindb.tsdb.shard group by db, shard',
         8,
         UnitEnum.None,
     ),

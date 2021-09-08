@@ -78,8 +78,8 @@ func (tracker *GRPCServerTracker) StreamServerInterceptor() func(
 // wrappedServerStream wraps grpc.ServerStream allowing each Sent/Recv of message to increment counters.
 type wrappedServerStream struct {
 	grpc.ServerStream
-	serverStreamMsgReceived *linmetric.BoundDeltaCounter
-	serverStreamMsgSent     *linmetric.BoundDeltaCounter
+	serverStreamMsgReceived *linmetric.BoundCounter
+	serverStreamMsgSent     *linmetric.BoundCounter
 }
 
 func (s *wrappedServerStream) SendMsg(m interface{}) error {

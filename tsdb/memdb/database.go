@@ -30,8 +30,8 @@ import (
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -49,14 +49,13 @@ var (
 type MemoryDatabase interface {
 	// AcquireWrite acquires writing data points
 	AcquireWrite()
-	// Write writes metrics to the memory-database,
-	// return error on exceeding max count of tagsIdentifier or writing failure
-	Write(point *MetricPoint) error
+	// WriteRowWithLock writes metrics to the memory-database,
+	WriteRowWithLock(row *metric.StorageRow) error
 	// WithLock retrieves the lock of memdb, and returns the release function
 	WithLock() (release func())
-	// WriteWithoutLock must be called after WithLock
+	// WriteRow must be called after WithLock
 	// Used for batch write
-	WriteWithoutLock(point *MetricPoint) error
+	WriteRow(row *metric.StorageRow) error
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -75,8 +74,8 @@ type MemoryDatabase interface {
 }
 
 type memoryDBMetrics struct {
-	allocatedPages        *linmetric.BoundDeltaCounter
-	allocatedPageFailures *linmetric.BoundDeltaCounter
+	allocatedPages        *linmetric.BoundCounter
+	allocatedPageFailures *linmetric.BoundCounter
 }
 
 func newMemoryDBMetrics(name string) *memoryDBMetrics {
@@ -172,30 +171,23 @@ func (md *memoryDatabase) CompleteWrite() {
 	md.writeCondition.Done()
 }
 
-type MetricPoint struct {
-	MetricID  uint32
-	SeriesID  uint32
-	SlotIndex uint16
-	FieldIDs  []field.ID
-	Proto     *protoMetricsV1.Metric
-}
-
 func (md *memoryDatabase) WithLock() (release func()) {
 	md.rwMutex.Lock()
 	return md.rwMutex.Unlock
 }
 
-func (md *memoryDatabase) Write(point *MetricPoint) error {
+func (md *memoryDatabase) WriteRowWithLock(row *metric.StorageRow) error {
 	md.rwMutex.Lock()
 	defer md.rwMutex.Unlock()
-	return md.WriteWithoutLock(point)
+
+	return md.WriteRow(row)
 }
 
-func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
-	mStore := md.getOrCreateMStore(point.MetricID)
+func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
+	mStore := md.getOrCreateMStore(row.MetricID)
 	var size int
 	beforeMStoreCapacity := mStore.Capacity()
-	tStore, created := mStore.GetOrCreateTStore(point.SeriesID)
+	tStore, created := mStore.GetOrCreateTStore(row.SeriesID)
 	if created {
 		size += tStore.Capacity()
 		size += mStore.Capacity() - beforeMStoreCapacity
@@ -208,26 +200,13 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 		written = true
 	}
 
-	simpleFields := point.Proto.SimpleFields
-	for simpleFieldIdx := range simpleFields {
-		var (
-			fieldType field.Type
-		)
-		switch point.Proto.SimpleFields[simpleFieldIdx].Type {
-		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
-			fieldType = field.SumField
-		case protoMetricsV1.SimpleFieldType_GAUGE:
-			fieldType = field.GaugeField
-		case protoMetricsV1.SimpleFieldType_Min:
-			fieldType = field.MinField
-		case protoMetricsV1.SimpleFieldType_Max:
-			fieldType = field.MaxField
-		default:
-			continue
-		}
+	simpleFieldItr := row.NewSimpleFieldIterator()
+	for simpleFieldItr.HasNext() {
 		writtenLinFieldSize, err := md.writeLinField(
-			point.SlotIndex,
-			point.FieldIDs[fieldIDIdx], fieldType, simpleFields[simpleFieldIdx].Value,
+			row.SlotIndex,
+			row.FieldIDs[fieldIDIdx],
+			simpleFieldItr.NextType(),
+			simpleFieldItr.NextValue(),
 			mStore, tStore,
 		)
 		if err != nil {
@@ -235,21 +214,21 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 		}
 		afterWrite(writtenLinFieldSize)
 	}
-	compoundField := point.Proto.CompoundField
+	compoundFieldItr, ok := row.NewCompoundFieldIterator()
 
 	var (
 		err                 error
 		writtenLinFieldSize int
 	)
-	if compoundField == nil {
+	if !ok {
 		goto End
 	}
 
 	// write histogram_min
-	if compoundField.Min > 0 {
+	if compoundFieldItr.Min() > 0 {
 		writtenLinFieldSize, err = md.writeLinField(
-			point.SlotIndex, point.FieldIDs[fieldIDIdx],
-			field.MinField, compoundField.Min,
+			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			field.MinField, compoundFieldItr.Min(),
 			mStore, tStore)
 		if err != nil {
 			return err
@@ -257,10 +236,10 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 		afterWrite(writtenLinFieldSize)
 	}
 	// write histogram_max
-	if compoundField.Max > 0 {
+	if compoundFieldItr.Max() > 0 {
 		writtenLinFieldSize, err = md.writeLinField(
-			point.SlotIndex, point.FieldIDs[fieldIDIdx],
-			field.MinField, compoundField.Max,
+			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			field.MinField, compoundFieldItr.Max(),
 			mStore, tStore)
 		if err != nil {
 			return err
@@ -269,8 +248,8 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 	}
 	// write histogram_sum
 	writtenLinFieldSize, err = md.writeLinField(
-		point.SlotIndex, point.FieldIDs[fieldIDIdx],
-		field.SumField, compoundField.Sum,
+		row.SlotIndex, row.FieldIDs[fieldIDIdx],
+		field.SumField, compoundFieldItr.Sum(),
 		mStore, tStore)
 	if err != nil {
 		return err
@@ -279,8 +258,8 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 
 	// write histogram_count
 	writtenLinFieldSize, err = md.writeLinField(
-		point.SlotIndex, point.FieldIDs[fieldIDIdx],
-		field.SumField, compoundField.Count,
+		row.SlotIndex, row.FieldIDs[fieldIDIdx],
+		field.SumField, compoundFieldItr.Count(),
 		mStore, tStore)
 	if err != nil {
 		return err
@@ -290,10 +269,10 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 	// write __bucket_${boundary}
 	// assume that length of ExplicitBounds equals to Values
 	// data must be valid before write
-	for idx := range compoundField.ExplicitBounds {
+	for compoundFieldItr.HasNextBucket() {
 		writtenLinFieldSize, err = md.writeLinField(
-			point.SlotIndex, point.FieldIDs[fieldIDIdx],
-			field.HistogramField, compoundField.Values[idx],
+			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			field.HistogramField, compoundFieldItr.NextValue(),
 			mStore, tStore)
 		if err != nil {
 			return err
@@ -303,7 +282,7 @@ func (md *memoryDatabase) WriteWithoutLock(point *MetricPoint) error {
 
 End:
 	if written {
-		mStore.SetSlot(point.SlotIndex)
+		mStore.SetSlot(row.SlotIndex)
 	}
 	md.allocSize.Add(int64(size))
 	return nil
@@ -357,7 +336,8 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 
 // Filter filters the data based on metric/seriesIDs,
 // if finds data then returns the flow.FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(metricID uint32,
+func (md *memoryDatabase) Filter(
+	metricID uint32,
 	seriesIDs *roaring.Bitmap,
 	timeRange timeutil.TimeRange,
 	fields field.Metas,
@@ -369,6 +349,7 @@ func (md *memoryDatabase) Filter(metricID uint32,
 	if !ok {
 		return nil, nil
 	}
+
 	//TODO filter slot range
 	return mStore.Filter(md.familyTime, seriesIDs, fields)
 }

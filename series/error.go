@@ -30,3 +30,5 @@ var ErrTooManyFields = errors.New("too many fields")
 // ErrWrongFieldType is the error returned by tsdb when
 // field-type of new point is different from the type before.
 var ErrWrongFieldType = errors.New("field type is wrong")
+
+var ErrFieldTypeUnspecified = errors.New("field type is unknown")

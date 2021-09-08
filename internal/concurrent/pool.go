@@ -63,17 +63,17 @@ type Pool interface {
 type workerPool struct {
 	name                string
 	maxWorkers          int
-	tasks               chan Task                    // tasks channel
-	readyWorkers        chan *worker                 // available worker
-	idleTimeout         time.Duration                // idle goroutine recycle time
-	onDispatcherStopped chan struct{}                // signal that dispatcher is stopped
-	stopped             atomic.Bool                  // mark if the pool is closed or not
-	workersAlive        *linmetric.BoundGauge        // current workers count in use
-	workersCreated      *linmetric.BoundDeltaCounter // workers created count since start
-	workersKilled       *linmetric.BoundDeltaCounter // workers killed since start
-	tasksConsumed       *linmetric.BoundDeltaCounter // tasks consumed count
-	tasksWaitingTime    *linmetric.BoundDeltaCounter // tasks waiting total time
-	tasksExecutingTime  *linmetric.BoundDeltaCounter // tasks executing total time with waiting period
+	tasks               chan Task               // tasks channel
+	readyWorkers        chan *worker            // available worker
+	idleTimeout         time.Duration           // idle goroutine recycle time
+	onDispatcherStopped chan struct{}           // signal that dispatcher is stopped
+	stopped             atomic.Bool             // mark if the pool is closed or not
+	workersAlive        *linmetric.BoundGauge   // current workers count in use
+	workersCreated      *linmetric.BoundCounter // workers created count since start
+	workersKilled       *linmetric.BoundCounter // workers killed since start
+	tasksConsumed       *linmetric.BoundCounter // tasks consumed count
+	tasksWaitingTime    *linmetric.BoundCounter // tasks waiting total time
+	tasksExecutingTime  *linmetric.BoundCounter // tasks executing total time with waiting period
 	ctx                 context.Context
 	cancel              context.CancelFunc
 }
