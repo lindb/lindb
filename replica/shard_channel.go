@@ -213,7 +213,7 @@ func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 				stream, err = c.newWriteStreamFn(c.ctx, target, c.database, &shardState, c.fct)
 				if err != nil {
 					//TODO do retry, add max retry count?
-					c.ch <- data
+					//c.ch <- data
 					continue
 				}
 			}
@@ -227,8 +227,8 @@ func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 					}
 					stream = nil
 				}
-				// do retry
-				c.ch <- data
+				//TODO do retry
+				//c.ch <- data
 			}
 		case <-ticker.C:
 			// check
