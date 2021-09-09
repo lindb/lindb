@@ -18,6 +18,7 @@
 package linmetric_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -36,6 +37,17 @@ func Test_MetricScope(t *testing.T) {
 	scope1.NewGauge("g1").Incr()
 	scope1.NewCounter("c2").Incr()
 	scope1.NewCounter("c2").Incr()
+	scope1.NewMax("max3").Update(1)
+	scope1.NewMax("max3").Update(2)
+	scope1.NewMax("max3").Update(math.Inf(1))
+
+	assert.Panics(t, func() {
+		scope1.NewCounter("max3")
+	})
+
+	scope1.NewMin("min4").Update(2)
+	scope1.NewMin("min4").Update(1)
+	scope1.NewMin("min4").Update(math.Inf(-1))
 
 	scope12 := scope1.Scope("2", "k1", "v1", "k3", "v3")
 	scope12.NewGauge("g1").Update(1)
@@ -61,6 +73,12 @@ func Test_MetricScope_Scope(t *testing.T) {
 	assert.Panics(t, func() {
 		scope3.NewGauge("c")
 	})
+	assert.Panics(t, func() {
+		scope3.NewMax("c")
+	})
+	assert.Panics(t, func() {
+		scope3.NewMin("c")
+	})
 	scope3.NewCounter("d")
 	assert.Panics(t, func() {
 		scope3.NewHistogramVec()
@@ -70,6 +88,12 @@ func Test_MetricScope_Scope(t *testing.T) {
 	})
 	assert.Panics(t, func() {
 		scope3.NewGaugeVec("23")
+	})
+	assert.Panics(t, func() {
+		scope3.NewMaxVec("23")
+	})
+	assert.Panics(t, func() {
+		scope3.NewMinVec("23")
 	})
 	assert.Panics(t, func() {
 		scope3.NewGauge("")

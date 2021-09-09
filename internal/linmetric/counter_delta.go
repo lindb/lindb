@@ -27,7 +27,7 @@ type BoundCounter struct {
 	fieldName string
 }
 
-func NewCounter(fieldName string) *BoundCounter {
+func newCounter(fieldName string) *BoundCounter {
 	return &BoundCounter{
 		fieldName: fieldName,
 	}

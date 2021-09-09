@@ -17,47 +17,42 @@
 
 package linmetric
 
-import "go.uber.org/atomic"
+import (
+	"math"
 
-// BoundGauge is a gauge which has Bound to a certain metric with field-name and tags
-type BoundGauge struct {
+	"go.uber.org/atomic"
+)
+
+type BoundMax struct {
 	value     atomic.Float64
 	fieldName string
 }
 
-func newGauge(fieldName string) *BoundGauge {
-	return &BoundGauge{
+func newMax(fieldName string) *BoundMax {
+	return &BoundMax{
 		fieldName: fieldName,
-		value:     *atomic.NewFloat64(0),
+		value:     *atomic.NewFloat64(math.Inf(-1)),
 	}
 }
 
-// Update updates gauge with a new value
-func (g *BoundGauge) Update(v float64) {
-	g.value.Store(v)
+// Update updates Max with a new value
+// Skip updating when newValue is smaller than v
+func (m *BoundMax) Update(newValue float64) {
+	if m.value.Load() >= newValue {
+		return
+	}
+	for {
+		v := m.value.Load()
+		if newValue <= v {
+			break
+		}
+		if m.value.CAS(v, newValue) {
+			return
+		}
+	}
 }
 
-// Add adds v to g.
-func (g *BoundGauge) Add(v float64) {
-	g.value.Add(v)
-}
-
-// Sub subs v to g.
-func (g *BoundGauge) Sub(v float64) {
-	g.value.Sub(v)
-}
-
-// Incr increments g.
-func (g *BoundGauge) Incr() {
-	g.value.Add(1)
-}
-
-// Decr decrements g.
-func (g *BoundGauge) Decr() {
-	g.value.Sub(1)
-}
-
-// Get returns the current gauge value
-func (g *BoundGauge) Get() float64 {
-	return g.value.Load()
+// Get returns the current max value
+func (m *BoundMax) Get() float64 {
+	return m.value.Load()
 }
