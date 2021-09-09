@@ -18,30 +18,38 @@
 package linmetric
 
 import (
-	"sync"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+
+	"testing"
 )
 
-func Test_Counter(t *testing.T) {
-	c1 := newCounter("count")
-	var wg sync.WaitGroup
-	for range [10]struct{}{} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := 0; i < 10; i++ {
-				c1.Add(2)
-				c1.Sub(1)
-				c1.Incr()
-				c1.Decr()
-			}
-		}()
+func Test_MaxVec(t *testing.T) {
+	scope := NewScope("vecg")
+	vec := scope.NewMaxVec("Max", "1", "2")
+	assert.Panics(t, func() {
+		vec.WithTagValues("1", "2", "3")
+	})
+	assert.Panics(t, func() {
+		scope.NewMaxVec("count2")
+	})
+	vec.WithTagValues("a", "b").Update(1)
+	vec.WithTagValues("a", "c").Update(2)
+	vec.WithTagValues("a", "b").Update(1)
+}
+
+func Benchmark_MaxVec(b *testing.B) {
+	scope := NewScope("vec_test")
+	vec := scope.NewMaxVec("Max", "1", "2")
+
+	for i := 0; i < b.N; i++ {
+		vec.WithTagValues("3", "4").Update(2323)
 	}
-	wg.Wait()
-	assert.Equal(t, float64(100), c1.Get())
-	assert.Equal(t, float64(100), c1.getAndReset())
-	// reset
-	assert.Equal(t, float64(0), c1.Get())
+}
+
+func Benchmark_Max(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NewScope("Max_test", "1", "3", "2", "4").
+			NewMax("Max").
+			Update(2)
+	}
 }
