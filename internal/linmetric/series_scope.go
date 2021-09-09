@@ -19,6 +19,7 @@ package linmetric
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
@@ -28,7 +29,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-// Scope is a namespace wrapper for for linmetric.
+// Scope is a namespace wrapper for linmetric.
 // ensure that all emitted metric have a given prefix and tags.
 // NewsScope("lindb").Scope("runtime").Scope("mem") make a point-concated metric-name: lindb.runtime.mem
 type Scope interface {
@@ -38,6 +39,10 @@ type Scope interface {
 	NewGauge(fieldName string) *BoundGauge
 	// NewCounter returns a fast counter which bounded to the scope
 	NewCounter(fieldName string) *BoundCounter
+	// NewMax returns a fast max which bounded to the scope
+	NewMax(fieldName string) *BoundMax
+	// NewMin returns a fast min which bounded to the scope
+	NewMin(fieldName string) *BoundMin
 	// NewHistogram returns a histogram which bounded to the scope
 	NewHistogram() *BoundHistogram
 	// NewHistogramVec initializes a vec by tagKeys
@@ -46,6 +51,10 @@ type Scope interface {
 	NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
 	// NewGaugeVec initializes a vec by tagKeys and fieldName
 	NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec
+	// NewMaxVec initializes a vec by tagKeys and fieldName
+	NewMaxVec(fieldName string, tagKey ...string) *MaxVec
+	// NewMinVec initializes a vec by tagKeys and fieldName
+	NewMinVec(fieldName string, tagKey ...string) *MinVec
 }
 
 type taggedSeries struct {
@@ -59,6 +68,8 @@ type taggedSeries struct {
 type fieldPayload struct {
 	gauges         []*BoundGauge   // BoundGauge list
 	countersDelta  []*BoundCounter // BoundCounter list
+	maxes          []*BoundMax     // BoundMax list
+	mines          []*BoundMin     // BoundMin list
 	histogramDelta *BoundHistogram
 }
 
@@ -94,6 +105,16 @@ func (s *taggedSeries) containsFieldName(fieldName string) bool {
 		}
 	}
 	for _, dc := range s.payload.countersDelta {
+		if dc.fieldName == fieldName {
+			return true
+		}
+	}
+	for _, dc := range s.payload.maxes {
+		if dc.fieldName == fieldName {
+			return true
+		}
+	}
+	for _, dc := range s.payload.mines {
 		if dc.fieldName == fieldName {
 			return true
 		}
@@ -178,7 +199,7 @@ func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
 
 	s.ensurePayload()
 	if !s.containsFieldName(fieldName) {
-		dc := NewCounter(fieldName)
+		dc := newCounter(fieldName)
 		s.payload.countersDelta = append(s.payload.countersDelta, dc)
 		return dc
 	}
@@ -188,6 +209,43 @@ func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
 		}
 	}
 	panic(fmt.Sprintf("delta-counter field: %s has registered another type before", fieldName))
+}
+func (s *taggedSeries) NewMax(fieldName string) *BoundMax {
+	assertFieldName(fieldName)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.ensurePayload()
+	if !s.containsFieldName(fieldName) {
+		m := newMax(fieldName)
+		s.payload.maxes = append(s.payload.maxes, m)
+		return m
+	}
+	for _, m := range s.payload.maxes {
+		if m.fieldName == fieldName {
+			return m
+		}
+	}
+	panic(fmt.Sprintf("max field: %s has registered another type before", fieldName))
+}
+
+func (s *taggedSeries) NewMin(fieldName string) *BoundMin {
+	assertFieldName(fieldName)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.ensurePayload()
+	if !s.containsFieldName(fieldName) {
+		m := newMin(fieldName)
+		s.payload.mines = append(s.payload.mines, m)
+		return m
+	}
+	for _, m := range s.payload.mines {
+		if m.fieldName == fieldName {
+			return m
+		}
+	}
+	panic(fmt.Sprintf("min field: %s has registered another type before", fieldName))
 }
 
 func (s *taggedSeries) NewHistogram() *BoundHistogram {
@@ -219,6 +277,18 @@ func (s *taggedSeries) NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec
 	return newGaugeVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
+func (s *taggedSeries) NewMaxVec(fieldName string, tagKey ...string) *MaxVec {
+	assertFieldName(fieldName)
+	assertTagKeyList(tagKey...)
+	return newMaxVec(s.metricName, fieldName, s.tags, tagKey...)
+}
+
+func (s *taggedSeries) NewMinVec(fieldName string, tagKey ...string) *MinVec {
+	assertFieldName(fieldName)
+	assertTagKeyList(tagKey...)
+	return newMinVec(s.metricName, fieldName, s.tags, tagKey...)
+}
+
 func (s *taggedSeries) gatherMetric() *protoMetricsV1.Metric {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -248,6 +318,31 @@ func (s *taggedSeries) gatherMetric() *protoMetricsV1.Metric {
 			Value: dc.getAndReset(),
 		})
 	}
+	// pick max
+	for _, mf := range s.payload.maxes {
+		v := mf.Get()
+		if math.IsInf(v, 1) || math.IsInf(v, -1) {
+			continue
+		}
+		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
+			Name:  mf.fieldName,
+			Type:  protoMetricsV1.SimpleFieldType_Max,
+			Value: v,
+		})
+	}
+	// pick min
+	for _, mf := range s.payload.mines {
+		v := mf.Get()
+		if math.IsInf(v, 1) || math.IsInf(v, -1) {
+			continue
+		}
+		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
+			Name:  mf.fieldName,
+			Type:  protoMetricsV1.SimpleFieldType_Min,
+			Value: v,
+		})
+	}
+
 	if s.payload.histogramDelta != nil {
 		m.CompoundField = s.payload.histogramDelta.marshalToCompoundField()
 	}

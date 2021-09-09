@@ -24,24 +24,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Counter(t *testing.T) {
-	c1 := newCounter("count")
+func Test_Max(t *testing.T) {
+	m1 := newMax("max")
 	var wg sync.WaitGroup
 	for range [10]struct{}{} {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 10; i++ {
-				c1.Add(2)
-				c1.Sub(1)
-				c1.Incr()
-				c1.Decr()
+				m1.Update(10)
+				m1.Update(20)
+				m1.Update(10)
+				m1.Update(21)
+				m1.Update(9)
 			}
 		}()
 	}
 	wg.Wait()
-	assert.Equal(t, float64(100), c1.Get())
-	assert.Equal(t, float64(100), c1.getAndReset())
-	// reset
-	assert.Equal(t, float64(0), c1.Get())
+	assert.Equal(t, float64(21), m1.Get())
 }
