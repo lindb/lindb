@@ -19,12 +19,16 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/lindb/lindb/pkg/option"
 )
 
 // ShardID represents type for shard id.
 type ShardID int
+
+func (s ShardID) String() string { return strconv.Itoa(int(s)) }
+func (s ShardID) Int() int       { return int(s) }
 
 // Database defines database config, database can include multi-cluster.
 type Database struct {

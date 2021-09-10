@@ -52,12 +52,6 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, ch111, ch1)
 
-	cm1 := cm.(*channelManager)
-	cm1.databaseChannelMap.Store("database-value-err", "test")
-	c, ok := cm1.getDatabaseChannel("database-value-err")
-	assert.False(t, ok)
-	assert.Nil(t, c)
-
 	cm.Close()
 }
 
@@ -78,11 +72,15 @@ func TestChannelManager_Write(t *testing.T) {
 	dbChannel := NewMockDatabaseChannel(ctrl)
 	dbChannel.EXPECT().Stop()
 	cm1 := cm.(*channelManager)
-	cm1.databaseChannelMap.Store("database", dbChannel)
+	cm1.insertDatabaseChannel("database", dbChannel)
 	dbChannel.EXPECT().Write(gomock.Any()).Return(nil)
+	dbChannel.EXPECT().Stop().AnyTimes()
 	err = cm.Write("database", &protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
 		{Namespace: "xx"},
 	}})
+	cm1.insertDatabaseChannel("database2", dbChannel)
+	cm1.insertDatabaseChannel("database3", dbChannel)
+
 	assert.NoError(t, err)
 	cm.Close()
 }

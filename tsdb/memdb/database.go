@@ -49,8 +49,6 @@ var (
 type MemoryDatabase interface {
 	// AcquireWrite acquires writing data points
 	AcquireWrite()
-	// WriteRowWithLock writes metrics to the memory-database,
-	WriteRowWithLock(row *metric.StorageRow) error
 	// WithLock retrieves the lock of memdb, and returns the release function
 	WithLock() (release func())
 	// WriteRow must be called after WithLock
@@ -174,13 +172,6 @@ func (md *memoryDatabase) CompleteWrite() {
 func (md *memoryDatabase) WithLock() (release func()) {
 	md.rwMutex.Lock()
 	return md.rwMutex.Unlock
-}
-
-func (md *memoryDatabase) WriteRowWithLock(row *metric.StorageRow) error {
-	md.rwMutex.Lock()
-	defer md.rwMutex.Unlock()
-
-	return md.WriteRow(row)
 }
 
 func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {

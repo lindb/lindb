@@ -87,7 +87,7 @@ func protoToStorageRow(m *protoMetricsV1.Metric) *metric.StorageRow {
 	var buf bytes.Buffer
 	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
 
-	var br metric.BatchRows
+	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
 	return &br.Rows()[0]
 }

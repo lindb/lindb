@@ -129,7 +129,7 @@ func mockTagKeyValueIterator(kvs map[string]string) *metric.KeyValueIterator {
 	ml.Metrics = append(ml.Metrics, &m)
 	var buf bytes.Buffer
 	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
-	var br metric.BatchRows
+	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
 	return br.Rows()[0].NewKeyValueIterator()
 }

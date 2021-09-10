@@ -19,17 +19,35 @@ package metric
 
 import (
 	flatbuffers "github.com/google/flatbuffers/go"
+
+	"github.com/lindb/lindb/models"
 )
 
 type BrokerRow struct {
 	readOnlyRow
+	ShardID models.ShardID
 }
 
 func (br *BrokerRow) Unmarshal(data []byte) {
 	br.m.Init(data, flatbuffers.GetUOffsetT(data))
 }
 
+//func (br *BrokerRow) UnmarshalFromProto(m *protoMetricsV1.Metric) {
+//
+//}
+
 // UnmarshalBrokerRowsInto unmarshal rows into dst, return error if data is invalid
 //func UnmarshalBrokerRowsInto(dst []BrokerRow, src []byte) ([]BrokerRow, error) {
 //
+//}
+
+//type BrokerBatchRows struct {
+//}
+//
+//// BrokerRowShardIterator iterating rows with shard-id,
+//// rows will be batched inserted into shard-channel for replication
+//type BrokerRowShardIterator struct {
+//	groupEnd     int            // group end index
+//	groupStart   int            // group start index
+//	groupShardID models.ShardID // group shard id
 //}
