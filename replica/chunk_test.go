@@ -24,40 +24,47 @@ import (
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/metric"
 )
 
+func makeTestBrokerRows() metric.BrokerRow {
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	_ = converter.ConvertTo(&protoMetricsV1.Metric{
+		Name:      "cpu",
+		Tags:      []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
+		Timestamp: timeutil.Now(),
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+	}, &brokerRow)
+	return brokerRow
+}
+
 func TestChunk_Append(t *testing.T) {
-	chunk := newChunk(2)
+	chunk := newChunk(ltoml.Size(1024))
 	assert.False(t, chunk.IsFull())
 	assert.True(t, chunk.IsEmpty())
-	assert.Equal(t, 0, chunk.Size())
-	chunk.Append(&protoMetricsV1.Metric{
-		Name:      "cpu",
-		Timestamp: timeutil.Now(),
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-		Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
-	})
+	assert.Equal(t, ltoml.Size(0), chunk.Size())
+
+	row := makeTestBrokerRows()
+	_, _ = row.WriteTo(chunk)
 	assert.False(t, chunk.IsEmpty())
 	assert.False(t, chunk.IsFull())
-	assert.Equal(t, 1, chunk.Size())
-	chunk.Append(&protoMetricsV1.Metric{
-		Name:      "cpu",
-		Timestamp: timeutil.Now(),
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-		Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
-	})
+	assert.NotZero(t, chunk.Size())
+	_, _ = row.WriteTo(chunk)
+
 	assert.False(t, chunk.IsEmpty())
+	for i := 0; i < 10; i++ {
+		_, _ = row.WriteTo(chunk)
+	}
 	assert.True(t, chunk.IsFull())
-	assert.Equal(t, 2, chunk.Size())
 }
 
 func TestChunk_MarshalBinary(t *testing.T) {
-	c1 := newChunk(2)
+	c1 := newChunk(ltoml.Size(2))
 	data, err := c1.MarshalBinary()
 	assert.NoError(t, err)
 	assert.Nil(t, data)
@@ -66,34 +73,30 @@ func TestChunk_MarshalBinary(t *testing.T) {
 
 	c2 := c1.(*chunk)
 
-	c2.Append(&protoMetricsV1.Metric{
-		Name:      "cpu",
-		Timestamp: timeutil.Now(),
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-		Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
-	})
+	row := makeTestBrokerRows()
+	_, _ = row.WriteTo(c2)
+
 	data, err = c2.MarshalBinary()
 	assert.NoError(t, err)
 	assert.NotNil(t, data)
 }
 
-func testMarshal(chunk Chunk, size int, t *testing.T) {
+func testMarshal(chunk Chunk, count int, t *testing.T) {
 	data, err := chunk.MarshalBinary()
 	assert.Nil(t, data)
 	assert.Nil(t, err)
 
-	rs := protoMetricsV1.MetricList{}
-	for i := 0; i < size; i++ {
-		m := &protoMetricsV1.Metric{
+	var converter = metric.NewProtoConverter()
+	for i := 0; i < count; i++ {
+		var row metric.BrokerRow
+		_ = converter.ConvertTo(&protoMetricsV1.Metric{
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			SimpleFields: []*protoMetricsV1.SimpleField{
 				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
-		}
-		chunk.Append(m)
-		rs.Metrics = append(rs.Metrics, m)
+		}, &row)
+		_, _ = row.WriteTo(chunk)
 	}
 	data, err = chunk.MarshalBinary()
 	assert.NoError(t, err)

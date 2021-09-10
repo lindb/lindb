@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/metric"
@@ -50,11 +51,19 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	// bad compressed data
 	replicator.Replica(1, []byte{1, 2, 3})
 	// data ok
-	metricList := protoMetricsV1.MetricList{
-		Metrics: []*protoMetricsV1.Metric{{Name: "test"}},
-	}
 	buf := &bytes.Buffer{}
-	_, _ = metric.MarshalProtoMetricsV1ListTo(metricList, buf)
+	converter := metric.NewProtoConverter()
+	var row metric.BrokerRow
+	_ = converter.ConvertTo(&protoMetricsV1.Metric{
+		Namespace: "test",
+		Name:      "test",
+		Timestamp: fasttime.UnixMilliseconds(),
+		TagsHash:  0,
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_Min, Value: 1},
+		},
+	}, &row)
+	_, _ = row.WriteTo(buf)
 	var dst []byte
 	dst = snappy.Encode(dst, buf.Bytes())
 	shard.EXPECT().WriteRows(gomock.Any(), gomock.Any()).Return(fmt.Errorf("errj"))

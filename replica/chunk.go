@@ -24,8 +24,7 @@ import (
 
 	"github.com/golang/snappy"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
-	"github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 //go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica
@@ -39,28 +38,21 @@ type Chunk interface {
 	// IsEmpty checks the chunk if is empty
 	IsEmpty() bool
 	// Size returns the size of chunk
-	Size() int
+	Size() ltoml.Size
 	// Append appends the metric into buffer
-	Append(metric *protoMetricsV1.Metric)
+	Write([]byte) (n int, err error)
 }
 
 // chunk represents the buffer with snappy compress
 type chunk struct {
-	buffer       *bytes.Buffer
-	protoMetrics protoMetricsV1.MetricList
-	capacity     int
-	size         int // chunk size and append index
+	buffer   bytes.Buffer
+	capacity ltoml.Size // use bytes capacity instead of lines-num
+	size     ltoml.Size // chunk size and append index
 }
 
 // newChunk creates a new chunk
-func newChunk(capacity int) Chunk {
-	return &chunk{
-		capacity: capacity,
-		buffer:   &bytes.Buffer{},
-		protoMetrics: protoMetricsV1.MetricList{
-			Metrics: make([]*protoMetricsV1.Metric, capacity),
-		},
-	}
+func newChunk(capacity ltoml.Size) Chunk {
+	return &chunk{capacity: capacity}
 }
 
 // IsEmpty checks the chunk if is empty
@@ -70,18 +62,19 @@ func (c *chunk) IsEmpty() bool {
 
 // IsFull checks the chunk if is full
 func (c *chunk) IsFull() bool {
-	return c.size == c.capacity
+	return c.size >= c.capacity
 }
 
 // Size returns the size of chunk
-func (c *chunk) Size() int {
+func (c *chunk) Size() ltoml.Size {
 	return c.size
 }
 
 // Append appends the metric into buffer
-func (c *chunk) Append(metric *protoMetricsV1.Metric) {
-	c.protoMetrics.Metrics[c.size] = metric
-	c.size++
+func (c *chunk) Write(row []byte) (n int, err error) {
+	n, err = c.buffer.Write(row)
+	c.size += ltoml.Size(n)
+	return n, err
 }
 
 // MarshalBinary marshals the data, then resets the context,
@@ -95,22 +88,11 @@ func (c *chunk) MarshalBinary() ([]byte, error) {
 		// if error, will ignore buffer data
 		c.size = 0
 		// reset for re-use
-		c.protoMetrics.Metrics = make([]*protoMetricsV1.Metric, c.capacity)
-		// TODO:  use flat metric
 		c.buffer.Reset()
 	}()
 
-	// 1. if chunk not full, need truncate metric buffer list by the size
-	if c.size < c.capacity {
-		c.protoMetrics.Metrics = c.protoMetrics.Metrics[0:c.size]
-	}
-
-	// 2. marshal and compress metric list
-	_, err := metric.MarshalProtoMetricsV1ListTo(c.protoMetrics, c.buffer)
-	if err != nil {
-		return nil, err
-	}
 	// we use snappy block format here
+	// todo: @codingcrush, pick fixed size slice from sync.Pool for reusing heap object
 	var block = *getMarshalBlock()
 	block = snappy.Encode(block, c.buffer.Bytes())
 	return block, nil

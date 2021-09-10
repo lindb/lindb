@@ -71,6 +71,12 @@ func Benchmark_UnmarshalFlatMetric_10Fields(b *testing.B) {
 	}
 }
 
+func Test_SanitizeFieldName(t *testing.T) {
+	assert.Equal(t, []byte("_HistogramTest"), SanitizeFieldName([]byte("HistogramTest")))
+	assert.Equal(t, []byte("_bucket_1"), SanitizeFieldName([]byte("__bucket_1")))
+	assert.Equal(t, []byte("bucket_1"), SanitizeFieldName([]byte("bucket_1")))
+}
+
 func Benchmark_FlatMetric_Unmarshal10KeyValues(b *testing.B) {
 	builder := flatbuffers.NewBuilder(1024)
 	buildFlatMetric(builder)

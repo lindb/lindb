@@ -27,14 +27,15 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
 
-const (
-	defaultBufferSize = 1024
+var (
+	defaultBufferSize = ltoml.Size(128 * 1024)
 )
 
 var log = logger.GetLogger("replica", "ChannelManager")
@@ -42,7 +43,7 @@ var log = logger.GetLogger("replica", "ChannelManager")
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
-	Write(database string, list *protoMetricsV1.MetricList) error
+	Write(database string, brokerBatchRows *metric.BrokerBatchRows) error
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
@@ -89,15 +90,15 @@ func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) Channel
 }
 
 // Write writes a MetricList, the manager handler the database, sharding things.
-func (cm *channelManager) Write(database string, metricList *protoMetricsV1.MetricList) error {
-	if metricList == nil || len(metricList.Metrics) == 0 {
+func (cm *channelManager) Write(database string, brokerBatchRows *metric.BrokerBatchRows) error {
+	if brokerBatchRows == nil || brokerBatchRows.Len() == 0 {
 		return nil
 	}
 	databaseChannel, ok := cm.getDatabaseChannel(database)
 	if !ok {
 		return fmt.Errorf("database [%s] not found", database)
 	}
-	return databaseChannel.Write(metricList)
+	return databaseChannel.Write(brokerBatchRows)
 }
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
