@@ -17,7 +17,10 @@
 
 package metric
 
-import "strings"
+import (
+	"bytes"
+	"strings"
+)
 
 // SanitizeMetricName checks if metric-name is in necessary of sanitizing
 func SanitizeMetricName(metricName string) string {
@@ -25,10 +28,6 @@ func SanitizeMetricName(metricName string) string {
 		return metricName
 	}
 	return strings.Replace(metricName, "|", "_", -1)
-}
-
-func NeedSanitizeMetricName(metricName string) bool {
-	return strings.IndexByte(metricName, '|') >= 0
 }
 
 // SanitizeNamespace checks if namespace is in necessary of sanitizing
@@ -39,8 +38,36 @@ func SanitizeNamespace(namespace string) string {
 	return strings.Replace(namespace, "|", "_", -1)
 }
 
-func NeedSanitizeMetricNameSpace(namespace string) bool {
-	return strings.IndexByte(namespace, '|') >= 0
+func ShouldSanitizeNamespaceOrMetricName(name []byte) bool {
+	return bytes.IndexByte(name, '|') >= 0
+}
+
+func SanitizeNamespaceOrMetricName(name []byte) []byte {
+	for idx := range name {
+		if name[idx] == '|' {
+			name[idx] = '_'
+		}
+	}
+	return name
+}
+
+func ShouldSanitizeFieldName(fieldName []byte) bool {
+	return bytes.HasPrefix(fieldName, []byte("Histogram")) ||
+		bytes.HasPrefix(fieldName, []byte("__bucket_")) // bucket field
+}
+
+func SanitizeFieldName(fieldName []byte) []byte {
+	switch {
+	case bytes.HasPrefix(fieldName, []byte("Histogram")):
+		var dst = make([]byte, len(fieldName)+1)
+		dst[0] = byte('_')
+		copy(dst[1:], fieldName)
+		return dst
+	case bytes.HasPrefix(fieldName, []byte("__bucket_")):
+		return fieldName[1:]
+	default:
+		return fieldName
+	}
 }
 
 // JoinNamespaceMetric concat namespace and metric-name for storage with a delimiter

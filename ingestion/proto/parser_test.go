@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package native
+package proto
 
 import (
 	"bytes"
@@ -61,11 +61,12 @@ func Test_Parse(t *testing.T) {
 		tag.NewTag([]byte("ip"), []byte("1.1.1.1")),
 		tag.NewTag([]byte("region"), []byte("nj")),
 	}
-	metrics, err := Parse(req, enrichedTags, "ns")
+	batch, err := Parse(req, enrichedTags, "ns")
 	assert.Nil(t, err)
-	assert.NotNil(t, metrics)
-	assert.Len(t, metrics.Metrics, 1)
-	assert.Len(t, metrics.Metrics[0].Tags, 2)
+	assert.NotNil(t, batch)
+	m := batch.Rows()[0].Metric()
+	assert.Equal(t, 2, m.KeyValuesLength())
+	assert.Equal(t, "ns", string(m.Namespace()))
 }
 
 func Test_Parse_badGzipData(t *testing.T) {
@@ -93,8 +94,9 @@ func Test_Parser_empty(t *testing.T) {
 
 func Test_parseProtoMetric(t *testing.T) {
 	data, _ := testMetricList.Marshal()
-	ms, err := parseProtoMetric(data, nil, "ns")
+	batch, err := parseProtoMetric(data, nil, "ns")
 	assert.Nil(t, err)
-	assert.Equal(t, "ns", ms.Metrics[0].Namespace)
-	assert.Len(t, ms.Metrics[0].Tags, 0)
+	m := batch.Rows()[0].Metric()
+	assert.Equal(t, "ns", string(m.Namespace()))
+	assert.Equal(t, 0, m.KeyValuesLength())
 }

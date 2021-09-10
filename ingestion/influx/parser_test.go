@@ -18,38 +18,52 @@
 package influx
 
 import (
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/fasttime"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
-	"github.com/lindb/lindb/series/tag"
-
-	"github.com/stretchr/testify/assert"
-
 	"fmt"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/lindb/series/metric"
 )
 
 func Test_tooManyTags(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
 	var tagPair []string
 	for i := 0; i <= constants.DefaultMaxTagKeysCount+1; i++ {
 		v := strconv.FormatInt(int64(i), 10)
 		tagPair = append(tagPair, fmt.Sprintf("%s=%s", v, v))
 	}
 	line := fmt.Sprintf("mmm,%s x=1,y=2 1465839830100400200", strings.Join(tagPair, ","))
-	_, err := parseInfluxLine([]byte(line), "ns", -1e6)
-	assert.Equal(t, ErrTooManyTags, err)
+	err := parseInfluxLine(builder, []byte(line), "ns", -1e6)
+	assert.NoError(t, err)
+	_, err = builder.Build()
+	assert.Error(t, err)
 }
 
 func Test_noTags_noTimestamp(t *testing.T) {
-	m, err := parseInfluxLine([]byte("cpu value=1"), "ns2", -1e6)
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
+	err := parseInfluxLine(builder, []byte("cpu value=1"), "ns2", -1e6)
 	assert.Nil(t, err)
-	assert.NotZero(t, m.Timestamp)
-	assert.Empty(t, m.Tags)
+	var row metric.BrokerRow
+	err = builder.BuildTo(&row)
+	assert.NoError(t, err)
+	m := row.Metric()
+	assert.NotZero(t, m.Timestamp())
+	assert.Equal(t, 0, m.KeyValuesLength())
 }
 
 func Test_badTimestamp(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	lines := []string{
 		"cpu value=1 9223372036854775808",
 		"cpu value=1 -92233720368547758078",
@@ -60,13 +74,16 @@ func Test_badTimestamp(t *testing.T) {
 		"cpu value=1 9223372036854775807 12",
 	}
 	for _, line := range lines {
-		m, err := parseInfluxLine([]byte(line), "ns3", 1)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(line), "ns3", 1)
 		assert.Equal(t, ErrBadTimestamp, err)
-		assert.Nil(t, m)
 	}
 }
 
 func Test_tags(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	examples := []struct {
 		Line string
 		Tags map[string]string
@@ -82,31 +99,48 @@ func Test_tags(t *testing.T) {
 		{`cpu,tag0=1\"\",t=k value=1`, map[string]string{"tag0": `1\"\"`, "t": "k"}},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
-		assert.NotNil(t, m)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
 		assert.Nil(t, err)
-		assert.EqualValues(t, example.Tags, tag.KeyValues(m.Tags).Map())
+		var br metric.BrokerRow
+		assert.NoError(t, builder.BuildTo(&br))
+		m := br.Metric()
+		var mp = make(map[string]string)
+		var kv flatMetricsV1.KeyValue
+		for i := 0; i < m.KeyValuesLength(); i++ {
+			m.KeyValues(&kv, i)
+			mp[string(kv.Key())] = string(kv.Value())
+		}
+		assert.EqualValues(t, example.Tags, mp)
 	}
 }
 
 func Test_InvalidLine(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	examples := []struct {
 		Line string
-		Err  error
 	}{
-		{``, ErrBadFields},
-		{`a`, ErrBadFields},
-		{` a`, ErrMissingMetricName},
-		{`,a=b c=1`, ErrMissingMetricName},
-		{`# `, nil},
+		{``},
+		{`a`},
+		{` a`},
+		{`,a=b c=1`},
 	}
 	for _, example := range examples {
-		_, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
-		assert.Equal(t, example.Err, err)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		if err == nil {
+			_, err = builder.Build()
+		}
+		assert.Error(t, err)
 	}
 }
 
 func Test_metricName(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	examples := []struct {
 		Line       string
 		MetricName string
@@ -120,14 +154,20 @@ func Test_metricName(t *testing.T) {
 		{`cpu\\\,\ a, tag0=v0 value=1`, "cpu\\\\, a"},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
-		assert.NotNil(t, m)
-		assert.Nil(t, err)
-		assert.Equal(t, example.MetricName, m.Name)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		assert.NoError(t, err)
+		var row metric.BrokerRow
+		assert.NoError(t, builder.BuildTo(&row))
+		m := row.Metric()
+		assert.Equal(t, example.MetricName, string(m.Name()))
 	}
 }
 
 func Test_missingTagValues(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	examples := []struct {
 		Line string
 		Err  error
@@ -143,13 +183,16 @@ func Test_missingTagValues(t *testing.T) {
 		{`cpu,host=f\==o,`, ErrMissingWhiteSpace},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "ns", -1e6)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6)
 		assert.Equal(t, example.Err, err)
-		assert.Nil(t, m)
 	}
 }
 
 func Test_missingFieldNames(t *testing.T) {
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	examples := []struct {
 		Line       string
 		Err        error
@@ -161,12 +204,16 @@ func Test_missingFieldNames(t *testing.T) {
 		{`cpu,host=serverA,region=us-west value=123i,=456i`, nil, 2},
 	}
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "ns", 1e6)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
 		assert.Equal(t, example.Err, err)
 		if example.FieldCount == 0 {
 			assert.Error(t, err)
 		} else {
-			assert.Lenf(t, m.SimpleFields, example.FieldCount, example.Line)
+			var row metric.BrokerRow
+			assert.NoError(t, builder.BuildTo(&row))
+			m := row.Metric()
+			assert.Equalf(t, m.SimpleFieldsLength(), example.FieldCount, example.Line)
 		}
 	}
 }
@@ -176,18 +223,18 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		Line       string
 		MetricName string
 		Tags       map[string]string
-		Fields     []*protoMetricsV1.SimpleField
+		Fields     []flatSimpleField
 	}{
 		// commas in metric name
 		{`foo\,bar value_total=1i`,
 			"foo,bar",
 			map[string]string{},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "value_total_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+					Name: []byte("value_total_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: "value_total_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("value_total_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -195,12 +242,12 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu\,main,regions=east value=1.0 1465839830100400200`,
 			"cpu,main",
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -208,52 +255,52 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu\ load,region=east value_sum=1.0 1465839830100400200`,
 			"cpu load",
 			map[string]string{"region": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+			[]flatSimpleField{{
+				Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 			}},
 		},
 		// equals in metric name, boolean false
 		{`cpu\=load,region=east value=false`,
 			`cpu\=load`,
 			map[string]string{"region": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 0,
+			[]flatSimpleField{{
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0,
 			}},
 		},
 		// equals in metric name, boolean true
 		{`cpu\=load,region=east value=true`,
 			`cpu\=load`,
 			map[string]string{"region": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+			[]flatSimpleField{{
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 			}},
 		},
 		// commas in tag names, boolean true
 		{`cpu,region\,zone=east value=t`,
 			`cpu`,
 			map[string]string{"region,zone": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+			[]flatSimpleField{{
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 			}},
 		},
 		// spaces in tag name, boolean false
 		{`cpu,region\ zone=east value=f`,
 			`cpu`,
 			map[string]string{"region zone": "east"},
-			[]*protoMetricsV1.SimpleField{{
-				Name: "value", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 0,
+			[]flatSimpleField{{
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0,
 			}},
 		},
 		// backslash with escaped equals in tag name, decimal value
 		{`cpu,reg\=ion=east value=1.0`,
 			`cpu`,
 			map[string]string{"reg=ion": "east"},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -261,45 +308,45 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu,\ =east value=1.0`,
 			`cpu`,
 			map[string]string{` `: "east"},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			[]flatSimpleField{
+				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
 			},
 		},
 		// commas in tag values
 		{`cpu,regions=east\,west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east,west"},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			[]flatSimpleField{
+				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
 			},
 		},
 		// backslash literal followed by trailing space
 		{`cpu,regions=east\  value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east `},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			[]flatSimpleField{
+				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
 			},
 		},
 		// spaces in tag values
 		{`cpu,regions=east\ west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east west`},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			[]flatSimpleField{
+				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
 			},
 		},
 		// commas in field keys
 		{`cpu,regions=east value\,ms_gauge=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "value,ms_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("value,ms_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -307,21 +354,21 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu,regions=east value\ ms=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value ms_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value ms_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
+			[]flatSimpleField{
+				{Name: []byte("value ms_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value ms_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
 			},
 		},
 		// random character escaped
 		{`cpu,regions=eas\t value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "eas\\t"},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -329,12 +376,12 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu \a=1i`,
 			`cpu`,
 			map[string]string{},
-			[]*protoMetricsV1.SimpleField{
+			[]flatSimpleField{
 				{
-					Name: "\\a_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1,
+					Name: []byte("\\a_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: "\\a_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1,
+					Name: []byte("\\a_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
 				},
 			},
 		},
@@ -342,20 +389,45 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		{`cpu=load,equals\=foo=tag\=value value=1i,bool=f`,
 			`cpu=load`,
 			map[string]string{"equals=foo": "tag=value"},
-			[]*protoMetricsV1.SimpleField{
-				{Name: "value_sum", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-				{Name: "value_gauge", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 1},
-				{Name: "bool", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 0},
+			[]flatSimpleField{
+				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
+				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("bool"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0},
 			}},
 	}
 
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	for _, example := range examples {
-		m, err := parseInfluxLine([]byte(example.Line), "ns", -1e6)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6)
 		assert.Nil(t, err)
-		assert.Equal(t, example.MetricName, m.Name)
-		assert.Equal(t, example.Tags, tag.KeyValues(m.Tags).Map())
+		var row metric.BrokerRow
+		assert.NoError(t, builder.BuildTo(&row))
+		var m = row.Metric()
+		assert.Equal(t, example.MetricName, string(m.Name()))
+		var mp = make(map[string]string)
+		var kv flatMetricsV1.KeyValue
+		for i := 0; i < m.KeyValuesLength(); i++ {
+			m.KeyValues(&kv, i)
+			mp[string(kv.Key())] = string(kv.Value())
+		}
+		assert.Equal(t, example.Tags, mp)
 		assert.NotZero(t, m.Timestamp)
-		assert.EqualValuesf(t, example.Fields, m.SimpleFields, example.Line)
+
+		var realFields []flatSimpleField
+		var sf flatMetricsV1.SimpleField
+		for i := 0; i < m.SimpleFieldsLength(); i++ {
+			m.SimpleFields(&sf, i)
+			realFields = append(realFields, flatSimpleField{
+				Name:  sf.Name(),
+				Type:  sf.Type(),
+				Value: sf.Value(),
+			})
+		}
+
+		assert.EqualValuesf(t, example.Fields, realFields, example.Line)
 	}
 }
 
@@ -372,8 +444,11 @@ func Test_parseBadFields(t *testing.T) {
 		`cpu,regions=east value=1t`,
 		`cpu,regions=east value=2f`,
 	}
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
 	for _, line := range lines {
-		_, err := parseInfluxLine([]byte(line), "ns", 1e6)
+		builder.Reset()
+		err := parseInfluxLine(builder, []byte(line), "ns", 1e6)
 		assert.Equal(t, ErrBadFields, err)
 	}
 }

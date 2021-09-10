@@ -21,30 +21,30 @@ import (
 	"context"
 	"sync"
 
-	"github.com/lithammer/go-jump-consistent-hash"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_database.go -destination=./channel_database_mock.go -package=replica
 
 // for testing
 var (
-	createChannel = newChannel
+	createChannel        = newChannel
+	databaseChannelScope = linmetric.NewScope("lindb.replica.database")
+	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "database")
 )
 
 // DatabaseChannel represents the database level replication channel
 type DatabaseChannel interface {
 	// Write writes the metric data into channel's buffer
-	Write(metricList *protoMetricsV1.MetricList) error
+	Write(brokerBatchRows *metric.BrokerBatchRows) error
 	// CreateChannel creates the shard level replication channel by given shard id
 	CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error)
 	Stop()
@@ -64,6 +64,10 @@ type (
 		fct           rpc.ClientStreamFactory
 		numOfShard    atomic.Int32
 		shardChannels shardChannels
+
+		statistics struct {
+			evictedCounter *linmetric.BoundCounter
+		}
 	}
 )
 
@@ -95,33 +99,24 @@ func newDatabaseChannel(
 	}
 
 	ch.numOfShard.Store(numOfShard)
+	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)
 	return ch, nil
 }
 
 // Write writes the metric data into channel's buffer
-func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err error) {
-	now := fasttime.UnixMilliseconds()
+func (dc *databaseChannel) Write(brokerBatchRows *metric.BrokerBatchRows) error {
+	var err error
+
 	behind := dc.behind.Load()
 	ahead := dc.ahead.Load()
 
+	evicted := brokerBatchRows.EvictOutOfTimeRange(behind, ahead)
+	dc.statistics.evictedCounter.Add(float64(evicted))
+
 	// sharding metrics to shards
-	numOfShard := dc.numOfShard.Load()
-	for _, metric := range metricList.Metrics {
-		timestamp := metric.Timestamp
-
-		// check metric timestamp if in acceptable time range
-		if (behind > 0 && timestamp < now-behind) ||
-			(ahead > 0 && timestamp > now+ahead) {
-			//TODO need add metric
-			continue
-		}
-		hash := tag.XXHashOfKeyValues(metric.Tags)
-
-		idx := int(jump.Hash(hash, numOfShard))
-		// set tags hash code for storage side reuse
-		// !!!IMPORTANT: storage side will use this hash for writeTask
-		metric.TagsHash = hash
-		shardID := models.ShardID(idx)
+	shardingIterator := brokerBatchRows.NewShardGroupIterator(dc.numOfShard.Load())
+	for shardingIterator.HasRowsForNextShard() {
+		shardID, rows := shardingIterator.RowsForNextShard()
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
 			err = errChannelNotFound
@@ -131,7 +126,7 @@ func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err err
 				logger.Any("shardID", shardID))
 			continue
 		}
-		if err = channel.Write(metric); err != nil {
+		if err = channel.Write(rows); err != nil {
 			log.Error("channel writeTask data error",
 				logger.String("database", dc.databaseCfg.Name),
 				logger.Any("shardID", shardID))

@@ -37,24 +37,24 @@ func Test_NativeWriter(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	api := NewNativeWriter(&deps.HTTPDeps{CM: cm})
+	api := NewProtoWriter(&deps.HTTPDeps{CM: cm})
 	r := gin.New()
 	api.Register(r)
 
 	// missing db param
-	resp := mock.DoRequest(t, r, http.MethodPut, NativeWritePath, "")
+	resp := mock.DoRequest(t, r, http.MethodPut, ProtoWritePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// enrich_tag bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `xxxx`)
+	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `xxxx`)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// write error
-	resp = mock.DoRequest(t, r, http.MethodPut, NativeWritePath+"?db=test3&enrich_tag=a=b", `ok`)
+	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test3&enrich_tag=a=b", `ok`)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// no content
@@ -65,11 +65,11 @@ func Test_NativeWriter(t *testing.T) {
 		}},
 	}}
 	data, _ := metricList.Marshal()
-	resp = mock.DoRequest(t, r, http.MethodPost, NativeWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
+	resp = mock.DoRequest(t, r, http.MethodPost, ProtoWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
 	assert.Equal(t, http.StatusNoContent, resp.Code)
 
 	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodPost, NativeWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
+	resp = mock.DoRequest(t, r, http.MethodPost, ProtoWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 }

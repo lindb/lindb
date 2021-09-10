@@ -28,18 +28,18 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=replica
 
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
-	// Write writes the data into the channel, ErrCanceled is returned when the channel is canceled before
-	// data is written successfully.
+	// Write writes the data into the channel,
+	// ErrCanceled is returned when the channel is canceled before data is written successfully.
 	// Concurrent safe.
-	Write(metric *protoMetricsV1.Metric) error
+	Write(rows []metric.BrokerRow) error
 
 	SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 
@@ -97,7 +97,7 @@ func newChannel(
 		ch:                 make(chan []byte, 2),
 		running:            atomic.NewBool(false),
 		checkFlushInterval: time.Second,
-		chunk:              newChunk(defaultBufferSize), //TODO add config
+		chunk:              newChunk(defaultBufferSize), //TODO add config, ltoml size
 		lastFlushTime:      time.Now(),
 		logger:             logger.GetLogger("replica", "ShardChannel"),
 	}
@@ -108,31 +108,39 @@ func newChannel(
 // Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
 // data is wrote successfully.
 // Concurrent safe.
-func (c *channel) Write(metric *protoMetricsV1.Metric) error {
+func (c *channel) Write(rows []metric.BrokerRow) error {
 	c.lock4write.Lock()
 	defer c.lock4write.Unlock()
 
 	if !c.running.Load() {
 		return fmt.Errorf("shard write channle is not running")
 	}
-	c.chunk.Append(metric)
-
-	if c.chunk.IsFull() {
-		data, err := c.chunk.MarshalBinary()
-		if err != nil {
+	for idx := 0; idx < len(rows); idx++ {
+		if _, err := rows[idx].WriteTo(c.chunk); err != nil {
 			return err
 		}
-		if len(data) == 0 {
-			return nil
-		}
-		select {
-		case c.ch <- data:
-			return nil
-		case <-c.ctx.Done():
-			return ErrCanceled
+
+		if err := c.flushChunkOnFull(); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (c *channel) flushChunkOnFull() error {
+	if !c.chunk.IsFull() {
+		return nil
+	}
+	data, err := c.chunk.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	select {
+	case c.ch <- data:
+		return nil
+	case <-c.ctx.Done():
+		return ErrCanceled
+	}
 }
 
 func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {

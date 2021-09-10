@@ -27,15 +27,14 @@ import (
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
-	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/lindb/series/metric"
 )
 
 var (
 	ErrMissingMetricName = errors.New("missing_metric_name")
 	ErrMissingWhiteSpace = errors.New("missing_whitespace")
 	ErrBadTags           = errors.New("bad_tags")
-	ErrTooManyTags       = errors.New("too_many_tags")
 	ErrBadFields         = errors.New("bad_fields")
 	ErrBadTimestamp      = errors.New("bad_timestamp")
 )
@@ -53,52 +52,64 @@ var (
 // Test cases in
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
 
-func parseInfluxLine(content []byte, namespace string, multiplier int64) (*protoMetricsV1.Metric, error) {
+func parseInfluxLine(
+	builder *metric.RowBuilder,
+	content []byte,
+	namespace string,
+	multiplier int64,
+) error {
 	// skip comment line
 	if bytes.HasPrefix(content, []byte{'#'}) {
-		return nil, nil
+		return nil
 	}
 
 	escaped := bytes.IndexByte(content, '\\') >= 0
-	var (
-		m protoMetricsV1.Metric
-	)
-	m.Namespace = namespace
+	builder.AddNameSpace(strutil.String2ByteSlice(namespace))
 	// parse metric-name
 	metricEndAt, err := scanMetricName(content, escaped)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	m.Name = string(unescapeMetricName(content[:metricEndAt]))
+	builder.AddMetricName(unescapeMetricName(content[:metricEndAt]))
 
 	// parse tags
 	tagsEndAt, err := scanTagLine(content, metricEndAt+1, escaped)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if m.Tags, err = parseTags(content, metricEndAt+1, tagsEndAt, escaped); err != nil {
-		return nil, err
+	tags, err := parseTags(content, metricEndAt+1, tagsEndAt, escaped)
+	if err != nil {
+		return err
 	}
-	if len(m.Tags) >= constants.DefaultMaxTagKeysCount {
-		return nil, ErrTooManyTags
+	for k, v := range tags {
+		if err := builder.AddTag(strutil.String2ByteSlice(k), strutil.String2ByteSlice(v)); err != nil {
+			return err
+		}
 	}
 
 	// parse fields
 	fieldsEndAt, err := scanFieldLine(content, tagsEndAt+1, escaped)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if m.SimpleFields, err = parseFields(content, tagsEndAt+1, fieldsEndAt, escaped);
+	fields, err := parseFields(content, tagsEndAt+1, fieldsEndAt, escaped)
 	// return error only if fields are empty, just drop fields not supported in lindb like string.
-	err != nil && len(m.SimpleFields) == 0 {
-		return nil, err
+	if err != nil && len(fields) == 0 {
+		return err
+	}
+	for idx := range fields {
+		if err := builder.AddSimpleField(fields[idx].Name, fields[idx].Type, fields[idx].Value); err != nil {
+			return err
+		}
 	}
 
 	// parse timestamp
-	if m.Timestamp, err = parseTimestamp(content, fieldsEndAt+1, multiplier); err != nil {
-		return nil, err
+	timestamp, err := parseTimestamp(content, fieldsEndAt+1, multiplier)
+	if err != nil {
+		return err
 	}
-	return &m, nil
+	builder.AddTimestamp(timestamp)
+	return nil
 }
 
 // walkToUnescapedChar returns first position of given unescaped char
@@ -176,20 +187,20 @@ func scanTagLine(buf []byte, startAt int, isEscaped bool) (endAt int, err error)
 	}
 }
 
-func parseTags(buf []byte, startAt int, endAt int, isEscaped bool) (tag.KeyValues, error) {
+func parseTags(buf []byte, startAt int, endAt int, isEscaped bool) (map[string]string, error) {
 	// empty
 	tags := make(map[string]string)
 
 WalkBeforeComma:
 	{
 		if startAt >= endAt-1 {
-			return tag.KeyValuesFromMap(tags), nil
+			return tags, nil
 		}
 		commaAt := walkToUnescapedChar(buf, ',', startAt, isEscaped)
 		// '=' does not exist
 		equalAt := walkToUnescapedChar(buf, '=', startAt, isEscaped)
 		if equalAt <= startAt || equalAt+1 >= endAt {
-			return tag.KeyValuesFromMap(tags), ErrBadTags
+			return tags, ErrBadTags
 		}
 		boundaryAt := endAt
 		if commaAt > 0 && commaAt <= endAt {
@@ -197,7 +208,7 @@ WalkBeforeComma:
 		}
 		// move to next tag pair
 		if equalAt+1 >= boundaryAt {
-			return tag.KeyValuesFromMap(tags), ErrBadTags
+			return tags, ErrBadTags
 		}
 		// move to next tag pair
 		tagKey, tagValue := buf[startAt:equalAt], buf[equalAt+1:boundaryAt]
@@ -226,7 +237,18 @@ func scanFieldLine(buf []byte, startAt int, isEscaped bool) (endAt int, err erro
 	}
 }
 
-func parseFields(buf []byte, startAt int, endAt int, isEscaped bool) (fields []*protoMetricsV1.SimpleField, err error) {
+type flatSimpleField struct {
+	Name  []byte
+	Type  flatMetricsV1.SimpleFieldType
+	Value float64
+}
+
+func parseFields(
+	buf []byte,
+	startAt int,
+	endAt int,
+	isEscaped bool,
+) (fields []flatSimpleField, err error) {
 WalkBeforeComma:
 	{
 		if startAt >= endAt-1 {
@@ -251,7 +273,7 @@ WalkBeforeComma:
 		}
 		// move to next field pair
 		var (
-			parsedFields []*protoMetricsV1.SimpleField
+			parsedFields []flatSimpleField
 		)
 		parsedFields, err = parseField(buf[startAt:equalAt], buf[equalAt+1:boundaryAt])
 		if err == nil {
@@ -264,7 +286,7 @@ WalkBeforeComma:
 	}
 }
 
-func parseField(key, value []byte) ([]*protoMetricsV1.SimpleField, error) {
+func parseField(key, value []byte) ([]flatSimpleField, error) {
 	if len(value) == 0 {
 		return nil, ErrBadFields
 	}
@@ -285,18 +307,18 @@ func parseField(key, value []byte) ([]*protoMetricsV1.SimpleField, error) {
 		return toLinGaugeAndSumField(unescapedKey, float64(v)), nil
 	case 't', 'T': // boolean true
 		if len(value) == 1 {
-			return []*protoMetricsV1.SimpleField{{
-				Name:  string(unescapedKey),
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			return []flatSimpleField{{
+				Name:  unescapedKey,
+				Type:  flatMetricsV1.SimpleFieldTypeGauge,
 				Value: float64(1),
 			}}, nil
 		}
 		return nil, ErrBadFields
 	case 'f', 'F': // boolean false
 		if len(value) == 1 {
-			return []*protoMetricsV1.SimpleField{{
-				Name:  string(unescapedKey),
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			return []flatSimpleField{{
+				Name:  unescapedKey,
+				Type:  flatMetricsV1.SimpleFieldTypeGauge,
 				Value: float64(0),
 			}}, nil
 		}
@@ -307,15 +329,15 @@ func parseField(key, value []byte) ([]*protoMetricsV1.SimpleField, error) {
 		// still boolean
 		switch lf {
 		case "false", "False", "FALSE":
-			return []*protoMetricsV1.SimpleField{{
-				Name:  string(unescapedKey),
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			return []flatSimpleField{{
+				Name:  unescapedKey,
+				Type:  flatMetricsV1.SimpleFieldTypeGauge,
 				Value: float64(0),
 			}}, nil
 		case "true", "True", "TRUE":
-			return []*protoMetricsV1.SimpleField{{
-				Name:  string(unescapedKey),
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+			return []flatSimpleField{{
+				Name:  unescapedKey,
+				Type:  flatMetricsV1.SimpleFieldTypeGauge,
 				Value: float64(1),
 			}}, nil
 		default:
@@ -328,30 +350,30 @@ func parseField(key, value []byte) ([]*protoMetricsV1.SimpleField, error) {
 	}
 }
 
-func toLinGaugeAndSumField(key []byte, value float64) []*protoMetricsV1.SimpleField {
+func toLinGaugeAndSumField(key []byte, value float64) []flatSimpleField {
 	switch {
 	case bytes.HasSuffix(key, []byte("gauge")):
-		return []*protoMetricsV1.SimpleField{{
-			Name:  string(key),
-			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+		return []flatSimpleField{{
+			Name:  key,
+			Type:  flatMetricsV1.SimpleFieldTypeGauge,
 			Value: value,
 		}}
 	case bytes.HasSuffix(key, []byte("sum")):
-		return []*protoMetricsV1.SimpleField{{
-			Name:  string(key),
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+		return []flatSimpleField{{
+			Name:  key,
+			Type:  flatMetricsV1.SimpleFieldTypeDeltaSum,
 			Value: value,
 		}}
 	default:
-		return []*protoMetricsV1.SimpleField{
+		return []flatSimpleField{
 			{
-				Name:  string(key) + "_sum",
-				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+				Name:  []byte(string(key) + "_sum"),
+				Type:  flatMetricsV1.SimpleFieldTypeDeltaSum,
 				Value: value,
 			},
 			{
-				Name:  string(key) + "_gauge",
-				Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+				Name:  []byte(string(key) + "_gauge"),
+				Type:  flatMetricsV1.SimpleFieldTypeGauge,
 				Value: value,
 			},
 		}

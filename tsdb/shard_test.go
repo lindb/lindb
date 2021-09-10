@@ -169,7 +169,8 @@ func TestShard_GetDataFamilies(t *testing.T) {
 func mockBatchRows(m *protoMetricsV1.Metric) *metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
-	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
+	converter := metric.NewProtoConverter()
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
@@ -224,7 +225,7 @@ func TestShard_Write(t *testing.T) {
 	})))
 	// case 5: gen series id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
-	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(9)).Return(uint32(0), false, fmt.Errorf("err"))
+	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 	assert.Error(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,
@@ -239,7 +240,7 @@ func TestShard_Write(t *testing.T) {
 	// case 6: get old series id
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
 	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), uint64(11)).Return(uint32(10), false, nil)
+	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(10), false, nil)
 	assert.NoError(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: timestamp,

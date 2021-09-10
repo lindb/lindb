@@ -18,6 +18,7 @@
 package influx
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,8 +26,7 @@ import (
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/strutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -36,7 +36,7 @@ var (
 
 // Parse parses influxdb line protocol data to LinDB pb prometheus.
 // https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/#example-api-write-request
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
 	qry := req.URL.Query()
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
@@ -51,47 +51,49 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 	// precision
 	multiplier := getPrecisionMultiplier(qry.Get("precision"))
 
-	cr := ingestCommon.GetChunkReader(reader)
-	defer ingestCommon.PutChunkReader(cr)
+	cr := GetChunkReader(reader)
+	defer PutChunkReader(cr)
 
-	metricList := &protoMetricsV1.MetricList{}
+	rowBuilder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(rowBuilder)
+
+	batch := metric.NewBrokerBatchRows()
+
 	for cr.HasNext() {
 		nextLine := cr.Next()
+		// reset for constructing next row
+		rowBuilder.Reset()
+
 		influxReadBytesCounter.Add(float64(len(nextLine)))
-		metric, err := parseInfluxLine(nextLine, namespace, multiplier)
-		if err != nil {
+		// skip comment line
+		if bytes.HasPrefix(nextLine, []byte{'#'}) {
+			continue
+		}
+		if err := parseInfluxLine(rowBuilder, nextLine, namespace, multiplier); err != nil {
 			influxLogger.Warn("ingest error",
 				logger.String("line", string(nextLine)),
 				logger.Error(err))
 			droppedMetricsCounter.Incr()
 			continue
 		}
-		if metric == nil || len(metric.SimpleFields) == 0 {
+
+		for _, enrichedTag := range enrichedTags {
+			if err := rowBuilder.AddTag(enrichedTag.Key, enrichedTag.Value); err != nil {
+				return nil, err
+			}
+		}
+		if err := batch.TryAppend(rowBuilder.BuildTo); err != nil {
 			droppedMetricsCounter.Incr()
 			continue
 		}
+
 		ingestedMetricsCounter.Incr()
-		ingestedFieldsCounter.Add(float64(len(metric.SimpleFields)))
-		// enrich tags
-		for _, enrichedTag := range enrichedTags {
-			tagKey := strutil.ByteSlice2String(enrichedTag.Key)
-			for idx := range metric.Tags {
-				if metric.Tags[idx].Key == tagKey {
-					continue
-				}
-				metric.Tags = append(metric.Tags, &protoMetricsV1.KeyValue{
-					Key:   tagKey,
-					Value: strutil.ByteSlice2String(enrichedTag.Value),
-				})
-			}
-			metric.TagsHash = tag.XXHashOfKeyValues(metric.Tags)
-		}
-		metricList.Metrics = append(metricList.Metrics, metric)
+		ingestedFieldsCounter.Add(float64(rowBuilder.SimpleFieldsLen()))
 	}
 	if cr.Error() == nil || cr.Error() == io.EOF {
-		return metricList, nil
+		return batch, nil
 	}
-	return metricList, cr.Error()
+	return batch, cr.Error()
 }
 
 // getPrecisionMultiplier returns a multiplier for the precision specified.

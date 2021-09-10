@@ -21,30 +21,30 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/ingestion/native"
+	"github.com/lindb/lindb/ingestion/flat"
 )
 
 var (
-	NativeWritePath = "/native/write"
+	FlatWritePath = "/flat/write"
 )
 
-// NativeWriter processes native proto metrics.
-type NativeWriter struct {
+// FlatWriter processes native proto metrics.
+type FlatWriter struct {
 	commonWriter
 }
 
-// NewNativeWriter creates native proto metrics writer
-func NewNativeWriter(deps *deps.HTTPDeps) *NativeWriter {
-	return &NativeWriter{
+// NewFlatWriter creates native proto metrics writer
+func NewFlatWriter(deps *deps.HTTPDeps) *FlatWriter {
+	return &FlatWriter{
 		commonWriter: commonWriter{
 			deps:   deps,
-			parser: native.Parse,
+			parser: flat.Parse,
 		},
 	}
 }
 
 // Register adds native write url route.
-func (nw *NativeWriter) Register(route gin.IRoutes) {
-	route.POST(NativeWritePath, nw.Write)
-	route.PUT(NativeWritePath, nw.Write)
+func (nw *FlatWriter) Register(route gin.IRoutes) {
+	route.POST(FlatWritePath, nw.Write)
+	route.PUT(FlatWritePath, nw.Write)
 }

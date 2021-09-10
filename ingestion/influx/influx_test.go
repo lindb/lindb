@@ -59,10 +59,10 @@ func Test_Parse(t *testing.T) {
 		tag.NewTag([]byte("ip"), []byte("1.1.1.1")),
 		tag.NewTag([]byte("region"), []byte("sh")),
 	}
-	metrics, err := Parse(req, enrichedTags, "ns")
+	batch, err := Parse(req, enrichedTags, "ns")
 	assert.Nil(t, err)
-	assert.NotNil(t, metrics)
-	assert.Len(t, metrics.Metrics, 6)
+	assert.NotNil(t, batch)
+	assert.Len(t, batch.Rows(), 6)
 }
 
 func Test_getGzipError(t *testing.T) {
