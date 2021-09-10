@@ -10,7 +10,8 @@ import {
     SettingOutlined,
     ShareAltOutlined,
     LineChartOutlined,
-    TableOutlined
+    TableOutlined,
+    ForkOutlined
 } from '@ant-design/icons'
 import {Layout, Menu} from 'antd'
 import Logo from 'assets/images/logo_title_dark.png'
@@ -54,6 +55,7 @@ export default class SiderMenu extends React.Component<SiderMenuProps, SiderMenu
         this.iconMap.set("query", <FileSearchOutlined/>)
         this.iconMap.set("traffic", <LineChartOutlined/>)
         this.iconMap.set("kv", <TableOutlined/>)
+        this.iconMap.set("replica", <ForkOutlined/>)
         this.iconMap.set("runtime", <BizIcon type={"icongo"} style={{fontSize: '16px'}}/>)
     }
 
