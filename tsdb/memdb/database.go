@@ -239,7 +239,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	if compoundFieldItr.Max() > 0 {
 		writtenLinFieldSize, err = md.writeLinField(
 			row.SlotIndex, row.FieldIDs[fieldIDIdx],
-			field.MinField, compoundFieldItr.Max(),
+			field.MaxField, compoundFieldItr.Max(),
 			mStore, tStore)
 		if err != nil {
 			return err

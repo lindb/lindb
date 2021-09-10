@@ -52,6 +52,11 @@ export const MENUS = [
         icon: 'kv',
         path: '/kv',
       },
+      {
+        title: 'Replica',
+        icon: 'replica',
+        path: '/replica',
+      },
     ],
   }, {
     title: 'Metadata',

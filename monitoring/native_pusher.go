@@ -66,6 +66,8 @@ type nativeProtoPusher struct {
 	globalKeyValues tag.KeyValues
 	gather          linmetric.Gather
 	client          *http.Client
+	buffer          *bytes.Buffer
+	gzipWriter      *gzip.Writer
 }
 
 // NewNativeProtoPusher creates a new native pusher
@@ -77,7 +79,7 @@ func NewNativeProtoPusher(
 	globalKeyValues tag.KeyValues,
 ) NativePusher {
 	c, cancel := context.WithCancel(ctx)
-	return &nativeProtoPusher{
+	pusher := &nativeProtoPusher{
 		ctx:             c,
 		cancel:          cancel,
 		endpoint:        endpoint,
@@ -88,7 +90,10 @@ func NewNativeProtoPusher(
 			linmetric.WithGlobalKeyValueOption(globalKeyValues),
 		),
 		client: &http.Client{Timeout: pushTimeout},
+		buffer: &bytes.Buffer{},
 	}
+	pusher.gzipWriter = gzip.NewWriter(pusher.buffer)
+	return pusher
 }
 
 func (np *nativeProtoPusher) Start() {
@@ -99,8 +104,9 @@ func (np *nativeProtoPusher) Start() {
 	for {
 		select {
 		case <-ticker.C:
-			buf := np.gatherAndMarshal()
-			np.push(buf)
+			np.gatherAndMarshal()
+			np.push(np.buffer)
+			np.buffer.Reset()
 		case <-np.ctx.Done():
 			nativePushLogger.Info("native proto pusher stopped")
 			return
@@ -112,23 +118,21 @@ func (np *nativeProtoPusher) Stop() {
 	np.cancel()
 }
 
-func (np *nativeProtoPusher) gatherAndMarshal() *bytes.Buffer {
+func (np *nativeProtoPusher) gatherAndMarshal() {
 	metrics := np.gather.Gather()
-	var buf bytes.Buffer
-	gzipWriter := gzip.NewWriter(&buf)
 
 	ml := protoMetricsV1.MetricList{Metrics: metrics}
 	data, err := ml.Marshal()
 	if err != nil {
 		pushErrorCounter.Add(float64(len(metrics)))
 		nativePushLogger.Error("failed to marshal metric", logger.Error(err))
-		return nil
+		return
 	}
-	_, _ = gzipWriter.Write(data)
+	np.gzipWriter.Reset(np.buffer)
+	_, _ = np.gzipWriter.Write(data)
 	pushMetricsCounter.Add(float64(len(metrics)))
-	_ = gzipWriter.Close()
-	pushBytesCounter.Add(float64(buf.Len()))
-	return &buf
+	_ = np.gzipWriter.Close()
+	pushBytesCounter.Add(float64(np.buffer.Len()))
 }
 
 func (np *nativeProtoPusher) push(r io.Reader) {

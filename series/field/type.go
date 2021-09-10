@@ -171,10 +171,12 @@ func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
 	switch t {
 	case SumField:
 		return getFieldParamsForSumField(funcType)
-	case MinField:
-		return getFieldParamsForMinField(funcType)
 	case GaugeField:
 		return getFieldParamsForGaugeField(funcType)
+	case MinField:
+		return getFieldParamsForMinField(funcType)
+	case MaxField:
+		return []AggType{Max}
 	case HistogramField:
 		// Histogram field only supports sum
 		return []AggType{Sum}
@@ -191,6 +193,8 @@ func (t Type) GetDefaultFuncFieldParams() []AggType {
 		return []AggType{Min}
 	case GaugeField:
 		return []AggType{LastValue}
+	case MaxField:
+		return []AggType{Max}
 	case HistogramField:
 		return []AggType{Sum}
 	}
