@@ -19,6 +19,7 @@ package metric
 
 import (
 	"bytes"
+	"math"
 	"strconv"
 	"testing"
 
@@ -121,13 +122,11 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 	mr.Unmarshal(builder.FinishedBytes())
 
 	assert.Equal(t, "hello", string(mr.Name()))
-	assert.False(t, mr.ShouldSanitizeNameSpace())
-	assert.False(t, mr.ShouldSanitizeName())
-	assert.Equal(t, string(mr.Name()), mr.SanitizedName())
-	assert.Equal(t, string(mr.NameSpace()), mr.SanitizedNamespace())
 
 	assert.Equal(t, "default-ns", string(mr.NameSpace()))
 	assert.NotZero(t, mr.TagsHash())
+	assert.Equal(t, 10, mr.TagsLen())
+	assert.Equal(t, 10, mr.SimpleFieldsLen())
 	assert.NotZero(t, mr.Timestamp())
 
 	kvItr := mr.NewKeyValueIterator()
@@ -151,10 +150,10 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 		var count int
 		for sfItr.HasNext() {
 			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextName()))
+			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextRawName()))
 			assert.Equal(t, field.SumField, sfItr.NextType())
+			assert.Equal(t, flatMetricsV1.SimpleFieldTypeDeltaSum, sfItr.NextRawType())
 			assert.InDelta(t, float64(count), sfItr.NextValue(), 1e-6)
-			assert.False(t, sfItr.ShouldSanitizeNextName())
-			assert.Equal(t, string(sfItr.NextName()), sfItr.SanitizeNextName())
 			count++
 		}
 		assert.Equal(t, 10, count)
@@ -179,6 +178,11 @@ func Test_MetricRow_WithCompoundField(t *testing.T) {
 	assert.InDelta(t, 1024, itr.Count(), 1e-6)
 	assert.InDelta(t, 1024*1024, itr.Sum(), 1e-6)
 
+	_ = itr.HistogramSumFieldName()
+	_ = itr.HistogramCountFieldName()
+	_ = itr.HistogramMaxFieldName()
+	_ = itr.HistogramMinFieldName()
+
 	for i := 0; i < 10; i++ {
 		itr.Reset()
 		var count int
@@ -201,7 +205,8 @@ func Test_BatchRows_FamilyIterator_SameFamily(t *testing.T) {
 		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(timestamp))
 	}
 	var buf bytes.Buffer
-	_, _ = MarshalProtoMetricsV1ListTo(ml, &buf)
+	converter := NewProtoConverter()
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	br := NewStorageBatchRows()
 
@@ -240,7 +245,8 @@ func Test_BatchRows_FamilyIterator_DifferentFamily(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	_, _ = MarshalProtoMetricsV1ListTo(ml, &buf)
+	converter := NewProtoConverter()
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	br := NewStorageBatchRows()
 
@@ -273,11 +279,34 @@ func Test_BatchRows_FamilyIterator_DifferentFamily(t *testing.T) {
 	// reset batch rows
 	ml.Metrics = ml.Metrics[:30]
 	buf.Reset()
-	_, _ = MarshalProtoMetricsV1ListTo(ml, &buf)
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
+
 	br.UnmarshalRows(buf.Bytes())
 	itr = br.NewFamilyIterator(interval)
 	assert.True(t, itr.HasNextFamily())
 	_, rows = itr.NextFamily()
 	assert.Len(t, rows, 30)
 	assert.False(t, itr.HasNextFamily())
+}
+
+func Test_HistogramConverter(t *testing.T) {
+	v := math.Inf(1) + 1
+	assert.Equal(t, "__bucket_+Inf", BucketNameOfHistogramExplicitBound(v))
+	assert.Equal(t, "__bucket_0.025", BucketNameOfHistogramExplicitBound(0.025))
+	assert.Equal(t, "__bucket_0.5", BucketNameOfHistogramExplicitBound(0.500))
+	assert.Equal(t, "__bucket_5000", BucketNameOfHistogramExplicitBound(5000))
+
+	f, err := UpperBound("__bucket_5000")
+	assert.Nil(t, err)
+	assert.Equal(t, float64(5000), f)
+
+	f, err = UpperBound("__bucket_0.025")
+	assert.Nil(t, err)
+	assert.Equal(t, 0.025, f)
+
+	_, err = UpperBound("_bucket_0.025")
+	assert.NotNil(t, err)
+
+	_, err = UpperBound("__bucket_x")
+	assert.NotNil(t, err)
 }

@@ -85,7 +85,8 @@ func protoToStorageRow(m *protoMetricsV1.Metric) *metric.StorageRow {
 	var ml protoMetricsV1.MetricList
 	ml.Metrics = append(ml.Metrics, m)
 	var buf bytes.Buffer
-	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
+	converter := metric.NewProtoConverter()
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
@@ -186,14 +187,14 @@ func TestMemoryDatabase_Write(t *testing.T) {
 			Max:            10,
 			Sum:            10,
 			Count:          10,
-			ExplicitBounds: []float64{1, 1, 1, 1, math.Inf(1) + 1},
+			ExplicitBounds: []float64{1, 1, 1, 1, 1, math.Inf(1) + 1},
 			Values:         []float64{1, 1, 1, 1, 1, 1},
 		},
 	})
 	row.MetricID = 1
 	row.SeriesID = 10
 	row.SlotIndex = 15
-	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	releaseLock()
 	assert.NoError(t, md.WriteRow(row))
 	err = md.Close()

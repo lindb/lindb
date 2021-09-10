@@ -37,7 +37,8 @@ type API struct {
 	brokerState     *state.BrokerAPI
 	storageState    *state.StorageAPI
 	influxIngestion *ingest.InfluxWriter
-	nativeIngestion *ingest.NativeWriter
+	protoIngestion  *ingest.ProtoWriter
+	flatIngestion   *ingest.FlatWriter
 	metric          *query.MetricAPI
 	metadata        *query.MetadataAPI
 }
@@ -52,7 +53,8 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		brokerState:     state.NewBrokerAPI(deps),
 		storageState:    state.NewStorageAPI(deps),
 		influxIngestion: ingest.NewInfluxWriter(deps),
-		nativeIngestion: ingest.NewNativeWriter(deps),
+		protoIngestion:  ingest.NewProtoWriter(deps),
+		flatIngestion:   ingest.NewFlatWriter(deps),
 		metric:          query.NewMetricAPI(deps),
 		metadata:        query.NewMetadataAPI(deps),
 	}
@@ -71,5 +73,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.metadata.Register(router)
 	api.metric.Register(router)
 	api.influxIngestion.Register(router)
-	api.nativeIngestion.Register(router)
+	api.protoIngestion.Register(router)
+	api.flatIngestion.Register(router)
 }

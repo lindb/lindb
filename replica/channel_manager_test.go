@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 )
 
 func TestChannelManager_GetChannel(t *testing.T) {
@@ -73,11 +72,9 @@ func TestChannelManager_Write(t *testing.T) {
 	dbChannel.EXPECT().Stop()
 	cm1 := cm.(*channelManager)
 	cm1.insertDatabaseChannel("database", dbChannel)
-	dbChannel.EXPECT().Write(gomock.Any()).Return(nil)
+	dbChannel.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
 	dbChannel.EXPECT().Stop().AnyTimes()
-	err = cm.Write("database", &protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
-		{Namespace: "xx"},
-	}})
+	err = cm.Write("database", nil)
 	cm1.insertDatabaseChannel("database2", dbChannel)
 	cm1.insertDatabaseChannel("database3", dbChannel)
 

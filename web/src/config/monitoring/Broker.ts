@@ -26,19 +26,33 @@ export const BrokerDashboard = [
             UnitEnum.None,
         ),
         metric(
-            'Native Ingestion IO',
-            'select read_bytes from lindb.ingestion.native',
+            'Proto Ingestion IO',
+            'select read_bytes from lindb.ingestion.proto',
             8,
             UnitEnum.Bytes,
         ),
     ],
     [
         metric(
-            'Native Ingestion',
-            'select ingested_metrics, data_corrupted_count from lindb.ingestion.native',
+            'Proto Ingestion',
+            'select ingested_metrics, data_corrupted_count from lindb.ingestion.proto',
             8,
             UnitEnum.None,
         ),
+        metric(
+            'Flat Ingestion IO',
+            'select read_bytes from lindb.ingestion.flat',
+            8,
+            UnitEnum.Bytes,
+        ),
+        metric(
+            'Flat Ingestion',
+            'select ingested_metrics, data_corrupted_count from lindb.ingestion.flat',
+            8,
+            UnitEnum.None,
+        ),
+    ],
+    [
         metric(
             'InfluxDB Ingestion IO',
             'select read_bytes from lindb.ingestion.influx',
@@ -51,8 +65,6 @@ export const BrokerDashboard = [
             8,
             UnitEnum.None,
         ),
-    ],
-    [
         metric(
             'InfluxDB Ingestion',
             'select ingested_metrics, ingested_fields from lindb.ingestion.influx',

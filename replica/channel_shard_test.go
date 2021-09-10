@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/metric"
 )
 
 func TestChannel_Write(t *testing.T) {
@@ -54,15 +55,17 @@ func TestChannel_Write(t *testing.T) {
 
 	ch.SyncShardState(models.ShardState{}, nil)
 
-	metric := &protoMetricsV1.Metric{
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-	}
-	err := ch.Write(metric)
+	}, &brokerRow))
+	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
-	err = ch.Write(metric)
+	err = ch.Write([]metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	cancel()
@@ -84,10 +87,10 @@ func TestChannel_Write(t *testing.T) {
 	// make sure chan is full
 	ch1.ch <- []byte{1, 2}
 	ch1.ch <- []byte{1, 2}
-	chunk.EXPECT().Append(gomock.Any())
+	chunk.EXPECT().Write(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
 	chunk.EXPECT().MarshalBinary().Return([]byte{1, 2, 3}, nil)
-	err = ch.Write(metric)
+	err = ch.Write([]metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
 	time.Sleep(time.Millisecond * 500)
 }
@@ -113,13 +116,16 @@ func TestChannel_checkFlush(t *testing.T) {
 	ch1.lock4write.Unlock()
 	ch.SyncShardState(models.ShardState{}, nil)
 
-	metric := &protoMetricsV1.Metric{
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-	}
-	err := ch.Write(metric)
+	}, &brokerRow))
+
+	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	time.Sleep(time.Second)
@@ -144,14 +150,17 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	}
 	ch1.lock4write.Unlock()
 
-	metric := &protoMetricsV1.Metric{
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-	}
+	}, &brokerRow))
+
 	ch.SyncShardState(models.ShardState{}, nil)
-	err := ch.Write(metric)
+	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	ch1.ch <- []byte{1, 2, 3}
@@ -178,23 +187,20 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	chunk := NewMockChunk(ctrl)
 	ch1.chunk = chunk
 
-	metric := &protoMetricsV1.Metric{
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
-	}
-	chunk.EXPECT().Append(gomock.Any())
+	}, &brokerRow))
+
+	chunk.EXPECT().Write(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
 	chunk.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
-	err := ch.Write(metric)
+	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
-
-	chunk.EXPECT().Append(gomock.Any())
-	chunk.EXPECT().IsFull().Return(true)
-	chunk.EXPECT().MarshalBinary().Return(nil, nil)
-	err = ch.Write(metric)
-	assert.NoError(t, err)
 
 	chunk.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
 	ch1.flushChunk()

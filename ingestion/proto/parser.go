@@ -15,30 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package native
+package proto
 
 import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"sort"
 	"strings"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/strutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
 var (
-	nativeIngestionScope         = linmetric.NewScope("lindb.ingestion.native")
-	nativeCorruptedDataCounter   = nativeIngestionScope.NewCounter("data_corrupted_count")
-	nativeUnmarshalMetricCounter = nativeIngestionScope.NewCounter("ingested_metrics")
-	nativeReadBytesCounter       = nativeIngestionScope.NewCounter("read_bytes")
+	protoIngestionScope          = linmetric.NewScope("lindb.ingestion.proto")
+	nativeCorruptedDataCounter   = protoIngestionScope.NewCounter("data_corrupted_count")
+	nativeUnmarshalMetricCounter = protoIngestionScope.NewCounter("ingested_metrics")
+	droppedMetricCounter         = protoIngestionScope.NewCounter("dropped_metrics")
+	nativeReadBytesCounter       = protoIngestionScope.NewCounter("read_bytes")
 )
 
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
@@ -56,42 +57,41 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*protoMe
 	}
 
 	nativeReadBytesCounter.Add(float64(len(data)))
-	ms, err := parseProtoMetric(data, enrichedTags, namespace)
+	batch, err := parseProtoMetric(data, enrichedTags, namespace)
 	if err != nil {
 		nativeCorruptedDataCounter.Incr()
 		return nil, err
 	}
-	if len(ms.Metrics) == 0 {
+	if batch.Len() == 0 {
 		return nil, fmt.Errorf("empty metrics")
 	}
-	nativeUnmarshalMetricCounter.Add(float64(len(ms.Metrics)))
-	return ms, nil
+	nativeUnmarshalMetricCounter.Add(float64(batch.Len()))
+	return batch, nil
 }
 
-func parseProtoMetric(data []byte, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error) {
+func parseProtoMetric(
+	data []byte,
+	enrichedTags tag.Tags,
+	namespace string,
+) (
+	batch *metric.BrokerBatchRows, err error,
+) {
+	batch = metric.NewBrokerBatchRows()
+
+	converter, releaseFunc := metric.NewBrokerRowProtoConverter(strutil.String2ByteSlice(namespace), enrichedTags)
+	defer releaseFunc(converter)
+
 	var ms protoMetricsV1.MetricList
 	if err := ms.Unmarshal(data); err != nil {
 		return nil, err
 	}
 	for _, m := range ms.Metrics {
-		m.Namespace = namespace
-		if len(enrichedTags) > 0 {
-			var newKeyValues tag.KeyValues
-			for _, t := range enrichedTags {
-				newKeyValues = append(newKeyValues, &protoMetricsV1.KeyValue{
-					Key:   strutil.ByteSlice2String(t.Key),
-					Value: strutil.ByteSlice2String(t.Value),
-				})
-			}
-			newKeyValues = append(newKeyValues, m.Tags...)
-			sort.Sort(newKeyValues)
-			m.Tags = newKeyValues
-		} else {
-			var kvs tag.KeyValues = m.Tags
-			sort.Sort(kvs)
-			m.Tags = kvs
+		m := m
+		if err := batch.TryAppend(func(row *metric.BrokerRow) error {
+			return converter.ConvertTo(m, row)
+		}); err != nil {
+			droppedMetricCounter.Incr()
 		}
-		m.TagsHash = tag.XXHashOfKeyValues(m.Tags)
 	}
-	return &ms, nil
+	return batch, nil
 }

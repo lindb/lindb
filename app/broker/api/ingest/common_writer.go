@@ -26,11 +26,11 @@ import (
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/http"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
-type parserFunc func(req *netHTTP.Request, enrichedTags tag.Tags, namespace string) (*protoMetricsV1.MetricList, error)
+type parserFunc func(req *netHTTP.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error)
 
 type commonWriter struct {
 	deps   *deps.HTTPDeps

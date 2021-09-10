@@ -121,14 +121,21 @@ func TestIndexDatabase_SuggestTagValues(t *testing.T) {
 
 func mockTagKeyValueIterator(kvs map[string]string) *metric.KeyValueIterator {
 	var ml protoMetricsV1.MetricList
-	var m protoMetricsV1.Metric
+	var m = protoMetricsV1.Metric{
+		Namespace: "ns",
+		Name:      "name",
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_Min, Value: 1},
+		},
+	}
 	for k, v := range kvs {
 		m.Tags = append(m.Tags, &protoMetricsV1.KeyValue{Key: k, Value: v})
 	}
 
 	ml.Metrics = append(ml.Metrics, &m)
 	var buf bytes.Buffer
-	_, _ = metric.MarshalProtoMetricsV1ListTo(ml, &buf)
+	converter := metric.NewProtoConverter()
+	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
 	return br.Rows()[0].NewKeyValueIterator()

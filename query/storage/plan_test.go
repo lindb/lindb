@@ -30,7 +30,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series/field"
-	metricchecker "github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
@@ -249,12 +249,12 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 
 var (
 	histogramFieldMetas = field.Metas{
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(0.1)), ID: 1, Type: field.HistogramField},
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(0.2)), ID: 2, Type: field.HistogramField},
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(0.4)), ID: 3, Type: field.HistogramField},
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(0.8)), ID: 4, Type: field.HistogramField},
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(1.0)), ID: 5, Type: field.HistogramField},
-		{Name: field.Name(metricchecker.HistogramConverter.BucketName(math.MaxFloat64 + 1)), ID: 6, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(0.1)), ID: 1, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(0.2)), ID: 2, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(0.4)), ID: 3, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(0.8)), ID: 4, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(1.0)), ID: 5, Type: field.HistogramField},
+		{Name: field.Name(metric.BucketNameOfHistogramExplicitBound(math.MaxFloat64 + 1)), ID: 6, Type: field.HistogramField},
 	}
 )
 

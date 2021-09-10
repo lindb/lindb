@@ -18,10 +18,11 @@
 package metric
 
 import (
-	"bytes"
+	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
-	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 	"github.com/lindb/lindb/series/field"
 )
@@ -34,24 +35,6 @@ type readOnlyRow struct {
 	keyValueIterator      KeyValueIterator
 	simpleFieldIterator   SimpleFieldIterator
 	compoundFieldIterator CompoundFieldIterator
-}
-
-// ShouldSanitizeName checks if metric-name is in necessary of sanitizing
-func (mr *readOnlyRow) ShouldSanitizeName() bool {
-	return bytes.IndexByte(mr.Name(), '|') >= 0
-}
-
-// ShouldSanitizeNameSpace checks if namespace is in necessary of sanitizing
-func (mr *readOnlyRow) ShouldSanitizeNameSpace() bool {
-	return bytes.IndexByte(mr.NameSpace(), '|') >= 0
-}
-
-func (mr *readOnlyRow) SanitizedName() string {
-	return strings.Replace(strutil.ByteSlice2String(mr.Name()), "|", "_", -1)
-}
-
-func (mr *readOnlyRow) SanitizedNamespace() string {
-	return strings.Replace(strutil.ByteSlice2String(mr.NameSpace()), "|", "_", -1)
 }
 
 func (mr *readOnlyRow) Timestamp() int64     { return mr.m.Timestamp() }
@@ -72,6 +55,7 @@ func (mr *readOnlyRow) NewSimpleFieldIterator() *SimpleFieldIterator {
 	mr.simpleFieldIterator.num = mr.m.SimpleFieldsLength()
 	return &mr.simpleFieldIterator
 }
+
 func (mr *readOnlyRow) NewCompoundFieldIterator() (*CompoundFieldIterator, bool) {
 	mr.compoundFieldIterator.idx = -1
 	mr.compoundFieldIterator.m = &mr.m
@@ -80,6 +64,9 @@ func (mr *readOnlyRow) NewCompoundFieldIterator() (*CompoundFieldIterator, bool)
 		return nil, false
 	}
 	mr.compoundFieldIterator.num = mr.compoundFieldIterator.f.ExplicitBoundsLength()
+	if mr.compoundFieldIterator.f.ValuesLength() < mr.compoundFieldIterator.num {
+		mr.compoundFieldIterator.num = mr.compoundFieldIterator.f.ValuesLength()
+	}
 	return &mr.compoundFieldIterator, true
 }
 
@@ -118,12 +105,12 @@ func (itr *SimpleFieldIterator) HasNext() bool {
 }
 
 // Reset iterator for re-iterating simpleFields
-func (itr *SimpleFieldIterator) Reset()   { itr.idx = -1 }
-func (itr *SimpleFieldIterator) Len() int { return itr.num }
-func (itr *SimpleFieldIterator) NextName() field.Name {
-	return field.Name(itr.f.Name())
-}
-func (itr *SimpleFieldIterator) NextValue() float64 { return itr.f.Value() }
+func (itr *SimpleFieldIterator) Reset()                                     { itr.idx = -1 }
+func (itr *SimpleFieldIterator) Len() int                                   { return itr.num }
+func (itr *SimpleFieldIterator) NextName() field.Name                       { return field.Name(itr.f.Name()) }
+func (itr *SimpleFieldIterator) NextRawName() []byte                        { return itr.f.Name() }
+func (itr *SimpleFieldIterator) NextValue() float64                         { return itr.f.Value() }
+func (itr *SimpleFieldIterator) NextRawType() flatMetricsV1.SimpleFieldType { return itr.f.Type() }
 func (itr *SimpleFieldIterator) NextType() field.Type {
 	switch itr.f.Type() {
 	// assertion: cumulative should be converted before writing into memdb
@@ -137,29 +124,6 @@ func (itr *SimpleFieldIterator) NextType() field.Type {
 		return field.MinField
 	default:
 		return field.Unknown
-	}
-}
-
-func (itr *SimpleFieldIterator) ShouldSanitizeNextName() bool {
-	v := itr.f.Name()
-	// internal histogram field
-	return bytes.HasPrefix(v, []byte("Histogram")) ||
-		bytes.HasPrefix(v, []byte("__bucket_")) // bucket field
-}
-
-// SanitizeNextName escapes the illegal field name,
-// if reserved field-name is used, the input will be escaped with underline.
-// HistogramSum-> _HistogramSum
-// __bucket_ -> _bucket_
-func (itr *SimpleFieldIterator) SanitizeNextName() string {
-	v := itr.f.Name()
-	switch {
-	case bytes.HasPrefix(v, []byte("Histogram")):
-		return "_" + string(v)
-	case bytes.HasPrefix(v, []byte("__bucket_")):
-		return string(v[1:])
-	default:
-		return string(v)
 	}
 }
 
@@ -185,5 +149,35 @@ func (itr *CompoundFieldIterator) Max() float64       { return itr.f.Max() }
 func (itr *CompoundFieldIterator) Sum() float64       { return itr.f.Sum() }
 func (itr *CompoundFieldIterator) Count() float64     { return itr.f.Count() }
 func (itr *CompoundFieldIterator) BucketName() field.Name {
-	return field.Name(HistogramConverter.BucketName(itr.NextExplicitBound()))
+	return field.Name(BucketNameOfHistogramExplicitBound(itr.NextExplicitBound()))
+}
+
+const (
+	histogramSum   = field.Name("HistogramSum")
+	histogramCount = field.Name("HistogramCount")
+	histogramMax   = field.Name("HistogramMax")
+	histogramMin   = field.Name("HistogramMin")
+)
+
+func (itr *CompoundFieldIterator) HistogramSumFieldName() field.Name   { return histogramSum }
+func (itr *CompoundFieldIterator) HistogramCountFieldName() field.Name { return histogramCount }
+func (itr *CompoundFieldIterator) HistogramMaxFieldName() field.Name   { return histogramMax }
+func (itr *CompoundFieldIterator) HistogramMinFieldName() field.Name   { return histogramMin }
+
+// BucketNameOfHistogramExplicitBound converts reserved field-name for histogram buckets.
+func BucketNameOfHistogramExplicitBound(upperBound float64) string {
+	if math.IsInf(upperBound, 1) {
+		return "__bucket_+Inf"
+	}
+	return "__bucket_" + strconv.FormatFloat(upperBound, 'f', -1, 32)
+}
+
+// UpperBound extracts the upper-bound from bucketName
+func UpperBound(bucketName string) (float64, error) {
+	// make sure it has prefix with __bucket_
+	if !strings.HasPrefix(bucketName, "__bucket_") {
+		return 0, fmt.Errorf("bucketName:%s not startswith '__bucket_", bucketName)
+	}
+	raw := bucketName[len("__bucket_"):]
+	return strconv.ParseFloat(raw, 64)
 }

@@ -26,7 +26,7 @@ import (
 
 var (
 	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = "http://127.0.0.1:9000/api/native/write?db=_internal"
+	defaultPusherURL = "http://127.0.0.1:9000/api/proto/write?db=_internal"
 )
 
 // Monitor represents a configuration for the internal monitor
