@@ -101,7 +101,7 @@ func testMarshal(chunk Chunk, size int, t *testing.T) {
 	var dst []byte
 	dst, err = snappy.Decode(dst, data)
 	assert.NoError(t, err)
-	var batch metric.BatchRows
+	var batch metric.StorageBatchRows
 	assert.NotPanics(t, func() {
 		batch.UnmarshalRows(dst)
 	})

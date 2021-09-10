@@ -203,7 +203,7 @@ func Test_BatchRows_FamilyIterator_SameFamily(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = MarshalProtoMetricsV1ListTo(ml, &buf)
 
-	br := NewBatchRows()
+	br := NewStorageBatchRows()
 
 	br.UnmarshalRows(buf.Bytes())
 
@@ -242,7 +242,7 @@ func Test_BatchRows_FamilyIterator_DifferentFamily(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = MarshalProtoMetricsV1ListTo(ml, &buf)
 
-	br := NewBatchRows()
+	br := NewStorageBatchRows()
 
 	var interval timeutil.Interval
 	_ = interval.ValueOf("10s")

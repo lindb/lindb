@@ -60,10 +60,24 @@ export const RuntimeStorageBoard = [
             UnitEnum.None,
         ),
         metric(
+            'Number of Threads',
+            'select go_threads from lindb.runtime',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
             'Next GC Bytes',
             'select next_gc_bytes from lindb.runtime.mem',
             8,
             UnitEnum.Bytes,
+        ),
+    ],
+    [
+        metric(
+            'GC CPU Fraction',
+            'select gc_cpu_fraction from lindb.runtime.mem',
+            8,
+            UnitEnum.None,
         ),
         metric(
             'Lookups(number of pointer lookups)',
@@ -71,5 +85,5 @@ export const RuntimeStorageBoard = [
             8,
             UnitEnum.None,
         ),
-    ],
+    ]
 ]

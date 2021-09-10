@@ -47,21 +47,21 @@ func (mr *StorageRow) Unmarshal(data []byte) {
 	mr.Writable = false
 }
 
-// BatchRows holds multi rows for inserting into memdb
+// StorageBatchRows holds multi rows for inserting into memdb
 // It is reused in sync.Pool
-type BatchRows struct {
+type StorageBatchRows struct {
 	appendIndex    int
 	rows           []StorageRow
 	familyIterator StorageRowFamilyIterator
 }
 
-// NewBatchRows returns write-context for batch writing.
-func NewBatchRows() (ctx *BatchRows) {
-	return &BatchRows{}
+// NewStorageBatchRows returns write-context for batch writing.
+func NewStorageBatchRows() (ctx *StorageBatchRows) {
+	return &StorageBatchRows{}
 }
-func (br *BatchRows) reset() { br.appendIndex = 0 }
+func (br *StorageBatchRows) reset() { br.appendIndex = 0 }
 
-func (br *BatchRows) UnmarshalRows(rowsBlock []byte) {
+func (br *StorageBatchRows) UnmarshalRows(rowsBlock []byte) {
 	br.reset()
 	// uint32 length + block encoding
 	for len(rowsBlock) > 0 {
@@ -71,7 +71,7 @@ func (br *BatchRows) UnmarshalRows(rowsBlock []byte) {
 	}
 }
 
-func (br *BatchRows) append(data []byte) {
+func (br *StorageBatchRows) append(data []byte) {
 	defer func() { br.appendIndex++ }()
 	if br.appendIndex < len(br.rows) {
 		br.rows[br.appendIndex].Unmarshal(data)
@@ -82,13 +82,15 @@ func (br *BatchRows) append(data []byte) {
 	br.rows = append(br.rows, sr)
 }
 
-func (br *BatchRows) Len() int           { return br.appendIndex }
-func (br *BatchRows) Less(i, j int) bool { return br.rows[i].Timestamp() < br.rows[j].Timestamp() }
-func (br *BatchRows) Swap(i, j int)      { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
-func (br *BatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }
+func (br *StorageBatchRows) Len() int { return br.appendIndex }
+func (br *StorageBatchRows) Less(i, j int) bool {
+	return br.rows[i].Timestamp() < br.rows[j].Timestamp()
+}
+func (br *StorageBatchRows) Swap(i, j int)      { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
+func (br *StorageBatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }
 
 // NewFamilyIterator provides a method for iterating data with family
-func (br *BatchRows) NewFamilyIterator(interval timeutil.Interval) *StorageRowFamilyIterator {
+func (br *StorageBatchRows) NewFamilyIterator(interval timeutil.Interval) *StorageRowFamilyIterator {
 	br.familyIterator.batch = br
 	br.familyIterator.Reset(interval)
 	return &br.familyIterator
@@ -101,7 +103,7 @@ type StorageRowFamilyIterator struct {
 
 	sameFamily bool
 
-	batch        *BatchRows
+	batch        *StorageBatchRows
 	intervalCalc timeutil.IntervalCalculator
 }
 
