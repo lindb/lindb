@@ -18,8 +18,6 @@
 package replica
 
 import (
-	"strconv"
-
 	"github.com/golang/snappy"
 
 	"github.com/lindb/lindb/internal/linmetric"
@@ -42,7 +40,7 @@ type localReplicator struct {
 
 	shard     tsdb.Shard
 	logger    *logger.Logger
-	batchRows *metric.BatchRows
+	batchRows *metric.StorageBatchRows
 
 	block []byte
 
@@ -61,12 +59,12 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard) Replicator
 			channel: channel,
 		},
 		shard:     shard,
-		batchRows: metric.NewBatchRows(),
+		batchRows: metric.NewStorageBatchRows(),
 		logger:    logger.GetLogger("replica", "LocalReplicator"),
 		block:     make([]byte, 256*1024),
 	}
 
-	shardStr := strconv.Itoa(int(shard.ShardID()))
+	shardStr := shard.ShardID().String()
 	lr.statistics.localMaxDecodedBlock = localMaxDecodedBlockVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaCounts = localReplicaCountsVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaBytes = localReplicaBytesVec.WithTagValues(shard.DatabaseName(), shardStr)
@@ -108,7 +106,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	familyIterator := r.batchRows.NewFamilyIterator(r.shard.CurrentInterval())
 	for familyIterator.HasNextFamily() {
 		familyTime, rows := familyIterator.NextFamily()
-		if err := r.shard.WriteBatchRows(familyTime, rows); err != nil {
+		if err := r.shard.WriteRows(familyTime, rows); err != nil {
 			r.logger.Error("failed writing family rows",
 				logger.Int64("family", familyTime),
 				logger.Int("rows", len(rows)),

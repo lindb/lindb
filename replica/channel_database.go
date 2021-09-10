@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-//go:generate mockgen -source=./database_channel.go -destination=./database_channel_mock.go -package=replica
+//go:generate mockgen -source=./channel_database.go -destination=./channel_database_mock.go -package=replica
 
 // for testing
 var (
@@ -50,20 +50,28 @@ type DatabaseChannel interface {
 	Stop()
 }
 
-type databaseChannel struct {
-	databaseCfg   models.Database
-	ahead         *atomic.Int64
-	behind        *atomic.Int64
-	ctx           context.Context
-	fct           rpc.ClientStreamFactory
-	numOfShard    atomic.Int32
-	shardChannels sync.Map
-	mutex         sync.Mutex
-}
+type (
+	shard2Channel map[models.ShardID]Channel
+	shardChannels struct {
+		value atomic.Value // readonly shard2Channel
+		mu    sync.Mutex   // lock for modifying shard2Channel
+	}
+	databaseChannel struct {
+		databaseCfg   models.Database
+		ahead         *atomic.Int64
+		behind        *atomic.Int64
+		ctx           context.Context
+		fct           rpc.ClientStreamFactory
+		numOfShard    atomic.Int32
+		shardChannels shardChannels
+	}
+)
 
 // newDatabaseChannel creates a new database replication channel
-func newDatabaseChannel(ctx context.Context,
-	databaseCfg models.Database, numOfShard int32,
+func newDatabaseChannel(
+	ctx context.Context,
+	databaseCfg models.Database,
+	numOfShard int32,
 	fct rpc.ClientStreamFactory,
 ) (DatabaseChannel, error) {
 	ch := &databaseChannel{
@@ -71,6 +79,7 @@ func newDatabaseChannel(ctx context.Context,
 		ctx:         ctx,
 		fct:         fct,
 	}
+	ch.shardChannels.value.Store(make(shard2Channel))
 
 	var ahead timeutil.Interval
 	var behind timeutil.Interval
@@ -136,8 +145,8 @@ func (dc *databaseChannel) Write(metricList *protoMetricsV1.MetricList) (err err
 func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error) {
 	channel, ok := dc.getChannelByShardID(shardID)
 	if !ok {
-		dc.mutex.Lock()
-		defer dc.mutex.Unlock()
+		dc.shardChannels.mu.Lock()
+		defer dc.shardChannels.mu.Unlock()
 
 		// double check
 		channel, ok = dc.getChannelByShardID(shardID)
@@ -151,7 +160,7 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 			ch := createChannel(dc.ctx, dc.databaseCfg.Name, shardID, dc.fct)
 
 			// cache shard level channel
-			dc.shardChannels.Store(shardID, ch)
+			dc.insertShardChannel(shardID, ch)
 			return ch, nil
 		}
 	}
@@ -159,24 +168,27 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 }
 
 func (dc *databaseChannel) Stop() {
-	dc.shardChannels.Range(func(key, channel interface{}) bool {
-		ch, ok := channel.(Channel)
-		if ok {
-			ch.Stop()
-		}
-		return true
-	})
+	dc.shardChannels.mu.Lock()
+	defer dc.shardChannels.mu.Unlock()
+
+	channels := dc.shardChannels.value.Load().(shard2Channel)
+	for _, channel := range channels {
+		channel.Stop()
+	}
 }
 
 // getChannelByShardID gets the replica channel by shard id
 func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (Channel, bool) {
-	channel, ok := dc.shardChannels.Load(shardID)
-	if !ok {
-		return nil, ok
+	ch, ok := dc.shardChannels.value.Load().(shard2Channel)[shardID]
+	return ch, ok
+}
+
+func (dc *databaseChannel) insertShardChannel(newShardID models.ShardID, newChannel Channel) {
+	oldMap := dc.shardChannels.value.Load().(shard2Channel)
+	newMap := make(shard2Channel)
+	for shardID, channel := range oldMap {
+		newMap[shardID] = channel
 	}
-	ch, ok := channel.(Channel)
-	if !ok {
-		return nil, ok
-	}
-	return ch, true
+	newMap[newShardID] = newChannel
+	dc.shardChannels.value.Store(newMap)
 }

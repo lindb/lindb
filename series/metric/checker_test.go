@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/snappy"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/klauspost/compress/gzip"
-	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fasttime"
@@ -184,7 +184,7 @@ func Benchmark_GzipCompress(b *testing.B) {
 	}
 }
 
-func Benchmark_SnappyCompress(b *testing.B) {
+func Benchmark_SnappyStreamCompress(b *testing.B) {
 	builder := flatbuffers.NewBuilder(1024)
 	buildFlatMetric(builder)
 	data := builder.FinishedBytes()
@@ -196,5 +196,17 @@ func Benchmark_SnappyCompress(b *testing.B) {
 		buf.Reset()
 		_, _ = w.Write(data)
 		_ = w.Flush()
+	}
+}
+
+func Benchmark_SnappyBlockCompress(b *testing.B) {
+	builder := flatbuffers.NewBuilder(1024)
+	buildFlatMetric(builder)
+	data := builder.FinishedBytes()
+
+	var block []byte
+	for i := 0; i < b.N; i++ {
+		block = block[:0]
+		block = snappy.Encode(block, data)
 	}
 }

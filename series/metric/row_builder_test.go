@@ -89,7 +89,7 @@ func Test_MarshalProtoMetricsV1List(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	var br BatchRows
+	var br StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
 	assert.Equal(t, 10, br.Len())
 	br.UnmarshalRows(buf.Bytes())

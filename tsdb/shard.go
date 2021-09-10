@@ -98,8 +98,8 @@ type Shard interface {
 	GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
-	// WriteBatchRows writes metric rows with same family in batch
-	WriteBatchRows(familyTime int64, rows []metric.StorageRow) error
+	// WriteRows writes metric rows with same family in batch
+	WriteRows(familyTime int64, rows []metric.StorageRow) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (queue.Sequence, error)
 	// MemDBTotalSize returns the total size of mutable and immutable memdb
@@ -414,18 +414,13 @@ Done:
 	return nil
 }
 
-func (s *shard) WriteBatchRows(familyTime int64, rows []metric.StorageRow) error {
+func (s *shard) WriteRows(familyTime int64, rows []metric.StorageRow) error {
 	defer s.statistics.writeBatches.Incr()
 
 	intervalCalc := s.interval.Calculator()
 
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {
-			fmt.Println(rows[idx].FieldIDs)
-			sfItr := rows[idx].NewSimpleFieldIterator()
-			for sfItr.HasNext() {
-				fmt.Println(sfItr.NextName(), sfItr.NextType())
-			}
 			s.logger.Error("failed to lookup meta of row", logger.Error(err))
 			continue
 		}

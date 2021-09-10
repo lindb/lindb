@@ -50,7 +50,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
-	ch1.shardChannels.Store(models.ShardID(0), shardCh)
+	ch1.insertShardChannel(models.ShardID(0), shardCh)
 
 	shardCh.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
 	err = ch.Write(&protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
@@ -74,7 +74,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	assert.NotNil(t, ch)
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
-	ch1.shardChannels.Store(models.ShardID(0), shardCh)
+	ch1.insertShardChannel(models.ShardID(0), shardCh)
 	shardCh2, err := ch.CreateChannel(int32(1), models.ShardID(0))
 	assert.NoError(t, err)
 	assert.Equal(t, shardCh, shardCh2)
@@ -88,9 +88,4 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 
 	_, err = ch.CreateChannel(4, 1)
 	assert.NoError(t, err)
-
-	ch1.shardChannels.Store(int32(3), "test")
-	c, ok := ch1.getChannelByShardID(models.ShardID(3))
-	assert.False(t, ok)
-	assert.Nil(t, c)
 }

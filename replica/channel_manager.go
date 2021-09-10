@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -51,20 +53,26 @@ type ChannelManager interface {
 }
 
 // channelManager implements ChannelManager.
-type channelManager struct {
-	// context passed to all Channel
-	ctx context.Context
-	// cancelFun to cancel context
-	cancel context.CancelFunc
-	// factory to get rpc  writeTask client
-	fct rpc.ClientStreamFactory
-	// channelID(database name)  -> Channel
-	databaseChannelMap sync.Map
-	// lock for channelMap
-	lock4map sync.Mutex
+type (
+	database2Channel map[string]DatabaseChannel
+	databaseChannels struct {
+		value atomic.Value // readonly database2Channel
+		mu    sync.Mutex   // lock for modifying database2Channel
+	}
 
-	logger *logger.Logger
-}
+	channelManager struct {
+		// context passed to all Channel
+		ctx context.Context
+		// cancelFun to cancel context
+		cancel context.CancelFunc
+		// factory to get rpc  writeTask client
+		fct rpc.ClientStreamFactory
+
+		databaseChannels databaseChannels
+
+		logger *logger.Logger
+	}
+)
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
 // WriteClientFactory makes it easy to mock rpc streamClient for test.
@@ -76,6 +84,7 @@ func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) Channel
 		fct:    fct,
 		logger: logger.GetLogger("replica", "ChannelManager"),
 	}
+	cm.databaseChannels.value.Store(make(database2Channel))
 	return cm
 }
 
@@ -101,8 +110,8 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 	ch, ok := cm.getDatabaseChannel(database)
 	if !ok {
 		// double check, need lock
-		cm.lock4map.Lock()
-		defer cm.lock4map.Unlock()
+		cm.databaseChannels.mu.Lock()
+		defer cm.databaseChannels.mu.Unlock()
 
 		ch, ok = cm.getDatabaseChannel(database)
 		if !ok {
@@ -111,11 +120,12 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 			if err != nil {
 				return nil, err
 			}
-			// add to cache
-			cm.databaseChannelMap.Store(database, ch)
+			// clone databases and creates a new map to hold database channels
+			cm.insertDatabaseChannel(database, ch)
 
 			cm.logger.Info("create shard write channel successfully",
-				logger.String("db", database), logger.Any("shardID", shardID))
+				logger.String("db", database),
+				logger.Int("shardID", shardID.Int()))
 
 			// create shard level channel
 			return ch.CreateChannel(numOfShard, shardID)
@@ -127,24 +137,29 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 // Close closes all the channel.
 func (cm *channelManager) Close() {
 	cm.cancel()
-	cm.databaseChannelMap.Range(func(key, ch interface{}) bool {
-		channel, ok := ch.(DatabaseChannel)
-		if ok {
-			channel.Stop()
-		}
-		return true
-	})
+
+	// preventing creating new channels
+	cm.databaseChannels.mu.Lock()
+	defer cm.databaseChannels.mu.Unlock()
+
+	channels := cm.databaseChannels.value.Load().(database2Channel)
+	for _, channel := range channels {
+		channel.Stop()
+	}
 }
 
 // getDatabaseChannel gets the database channel by given database name
 func (cm *channelManager) getDatabaseChannel(databaseName string) (DatabaseChannel, bool) {
-	ch, ok := cm.databaseChannelMap.Load(databaseName)
-	if !ok {
-		return nil, ok
+	ch, ok := cm.databaseChannels.value.Load().(database2Channel)[databaseName]
+	return ch, ok
+}
+
+func (cm *channelManager) insertDatabaseChannel(newDatabaseName string, newChannel DatabaseChannel) {
+	oldMap := cm.databaseChannels.value.Load().(database2Channel)
+	newMap := make(database2Channel)
+	for databaseName, channel := range oldMap {
+		newMap[databaseName] = channel
 	}
-	channel, ok := ch.(DatabaseChannel)
-	if !ok {
-		return nil, ok
-	}
-	return channel, true
+	newMap[newDatabaseName] = newChannel
+	cm.databaseChannels.value.Store(newMap)
 }

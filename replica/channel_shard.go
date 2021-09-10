@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 )
 
-//go:generate mockgen -source=./shard_channel.go -destination=./shard_channel_mock.go -package=replica
+//go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=replica
 
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
