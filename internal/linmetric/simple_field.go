@@ -17,20 +17,11 @@
 
 package linmetric
 
-import (
-	"testing"
+import "github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 
-	"github.com/lindb/lindb/series/tag"
-)
-
-func Test_Gather(t *testing.T) {
-	gather := NewGather(
-		WithGlobalKeyValueOption(tag.TagsFromMap(map[string]string{
-			"host": "alpha",
-			"ip":   "1.1.1.1",
-		})),
-		WithReadRuntimeOption(),
-		WithNamespaceOption("default-ns"),
-	)
-	_, _ = gather.Gather()
+// simpleField is implemented by gauge, sum, min, max
+type simpleField interface {
+	gather() float64
+	name() string
+	flatType() flatMetricsV1.SimpleFieldType
 }

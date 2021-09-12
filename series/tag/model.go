@@ -53,6 +53,33 @@ func (tags Tags) Size() int {
 	return total
 }
 
+func (tags Tags) Clone() Tags {
+	var newTags = make([]Tag, len(tags))
+	for idx := 0; idx < len(tags); idx++ {
+		newTags[idx] = Tag{
+			Key:   []byte(string(tags[idx].Key)),
+			Value: []byte(string(tags[idx].Value)),
+		}
+	}
+	return newTags
+}
+
+func (tags Tags) Map() map[string]string {
+	m := make(map[string]string)
+	for _, ts := range tags {
+		m[string(ts.Key)] = m[string(ts.Value)]
+	}
+	return m
+}
+
+func TagsFromMap(m map[string]string) Tags {
+	var tags []Tag
+	for k, v := range m {
+		tags = append(tags, Tag{Key: []byte(k), Value: []byte(v)})
+	}
+	return tags
+}
+
 func (tags Tags) String() string {
 	return string(tags.AppendHashKey(nil))
 }

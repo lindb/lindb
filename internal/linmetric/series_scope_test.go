@@ -56,8 +56,8 @@ func Test_MetricScope(t *testing.T) {
 	scope12.NewHistogram().UpdateDuration(time.Second)
 	time.Sleep(time.Second)
 	gather := linmetric.NewGather(linmetric.WithReadRuntimeOption())
-	_ = gather.Gather()
-	_ = gather.Gather()
+	_, _ = gather.Gather()
+	_, _ = gather.Gather()
 }
 
 func Test_MetricScope_Scope(t *testing.T) {

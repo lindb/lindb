@@ -21,6 +21,8 @@ import (
 	"math"
 
 	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
 type BoundMin struct {
@@ -55,4 +57,9 @@ func (m *BoundMin) Update(newValue float64) {
 // Get returns the current Min value
 func (m *BoundMin) Get() float64 {
 	return m.value.Load()
+}
+func (m *BoundMin) gather() float64 { return m.value.Load() }
+func (m *BoundMin) name() string    { return m.fieldName }
+func (m *BoundMin) flatType() flatMetricsV1.SimpleFieldType {
+	return flatMetricsV1.SimpleFieldTypeMin
 }

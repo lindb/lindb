@@ -18,16 +18,16 @@
 package linmetric
 
 import (
-	"sort"
+	"bytes"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
 // Gather gathers native lindb dto metrics
 type Gather interface {
 	// Gather gathers and returns the gathered metrics
-	Gather() []*protoMetricsV1.Metric
+	Gather() ([]byte, int)
 }
 
 // NewGather returns a gather to gather metrics from sdk and runtime.
@@ -46,38 +46,29 @@ type GatherOption interface {
 type gather struct {
 	namespace       string
 	runtimeObserver *runtimeObserver
-	keyValues       tag.KeyValues
+	tags            tag.Tags
+	buf             bytes.Buffer
 }
 
-func (g *gather) mergeTags(m *protoMetricsV1.Metric) {
-	if len(g.keyValues) == 0 {
+func (g *gather) enrichTagsNameSpace(builder *metric.RowBuilder) {
+	if len(g.tags) == 0 {
 		return
 	}
-	var tags = make(map[string]string)
-	for _, globalKV := range g.keyValues {
-		tags[globalKV.Key] = globalKV.Value
+	for _, kv := range g.tags {
+		_ = builder.AddTag(kv.Key, kv.Value)
 	}
-	for _, t := range m.Tags {
-		tags[t.Key] = t.Value
-	}
-	newKVs := tag.KeyValuesFromMap(tags)
-	sort.Sort(newKVs)
-	m.Tags = newKVs
+	builder.AddNameSpace([]byte(g.namespace))
 }
 
-func (g *gather) Gather() []*protoMetricsV1.Metric {
+func (g *gather) Gather() ([]byte, int) {
 	if g.runtimeObserver != nil {
 		g.runtimeObserver.Observe()
 	}
 
-	metrics, _ := defaultRegistry.gatherMetricList()
-	// enrich global tagKeyValues
-	for _, m := range metrics {
-		g.mergeTags(m)
-		m.Namespace = g.namespace
-	}
+	g.buf.Reset()
 
-	return metrics
+	n := defaultRegistry.gatherMetricList(&g.buf, g.enrichTagsNameSpace)
+	return g.buf.Bytes(), n
 }
 
 type readRuntimeOption struct{}
@@ -87,14 +78,14 @@ func (o *readRuntimeOption) ApplyConfig(g *gather) { g.runtimeObserver = newRunt
 func WithReadRuntimeOption() GatherOption { return &readRuntimeOption{} }
 
 type globalKeyValuesOption struct {
-	keyValues tag.KeyValues
+	keyValues tag.Tags
 }
 
 func (o *globalKeyValuesOption) ApplyConfig(g *gather) {
-	g.keyValues = o.keyValues.DeDup()
+	g.tags = o.keyValues
 }
 
-func WithGlobalKeyValueOption(kvs tag.KeyValues) GatherOption {
+func WithGlobalKeyValueOption(kvs tag.Tags) GatherOption {
 	return &globalKeyValuesOption{keyValues: kvs}
 }
 

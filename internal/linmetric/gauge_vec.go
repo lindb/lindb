@@ -25,7 +25,7 @@ import (
 )
 
 type GaugeVec struct {
-	tags       tag.KeyValues // unique tags
+	tags       tag.Tags // unique tags
 	tagKeys    []string
 	metricName string // concated metric name
 	fieldName  string
@@ -33,7 +33,7 @@ type GaugeVec struct {
 	gauges     map[string]*BoundGauge
 }
 
-func newGaugeVec(metricName string, fieldName string, tags tag.KeyValues, tagKey ...string) *GaugeVec {
+func newGaugeVec(metricName string, fieldName string, tags tag.Tags, tagKey ...string) *GaugeVec {
 	return &GaugeVec{
 		metricName: metricName,
 		fieldName:  fieldName,
@@ -66,7 +66,7 @@ func (gv *GaugeVec) WithTagValues(tagValues ...string) *BoundGauge {
 	for i := range gv.tagKeys {
 		tagsMap[gv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(gv.metricName, tag.KeyValuesFromMap(tagsMap))
+	series := newTaggedSeries(gv.metricName, tag.TagsFromMap(tagsMap))
 	c = series.NewGauge(gv.fieldName)
 
 	gv.gauges[id] = c

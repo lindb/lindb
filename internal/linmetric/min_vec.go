@@ -25,7 +25,7 @@ import (
 )
 
 type MinVec struct {
-	tags       tag.KeyValues // unique tags
+	tags       tag.Tags // unique tags
 	tagKeys    []string
 	metricName string // concated metric name
 	fieldName  string
@@ -33,7 +33,7 @@ type MinVec struct {
 	mines      map[string]*BoundMin
 }
 
-func newMinVec(metricName string, fieldName string, tags tag.KeyValues, tagKey ...string) *MinVec {
+func newMinVec(metricName string, fieldName string, tags tag.Tags, tagKey ...string) *MinVec {
 	return &MinVec{
 		metricName: metricName,
 		fieldName:  fieldName,
@@ -66,7 +66,7 @@ func (gv *MinVec) WithTagValues(tagValues ...string) *BoundMin {
 	for i := range gv.tagKeys {
 		tagsMap[gv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(gv.metricName, tag.KeyValuesFromMap(tagsMap))
+	series := newTaggedSeries(gv.metricName, tag.TagsFromMap(tagsMap))
 	c = series.NewMin(gv.fieldName)
 
 	gv.mines[id] = c

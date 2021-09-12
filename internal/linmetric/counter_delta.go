@@ -17,7 +17,11 @@
 
 package linmetric
 
-import "go.uber.org/atomic"
+import (
+	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+)
 
 // BoundCounter is a counter which has been Bound to a certain metric
 // with field-name and metrics, it does not support update method.
@@ -58,13 +62,18 @@ func (c *BoundCounter) Get() float64 {
 	return c.delta.Load()
 }
 
-// getAndReset returns the current cumulative counter value
+// gather returns the current cumulative counter value
 // and resets the delta value by spin lock.
-func (c *BoundCounter) getAndReset() float64 {
+func (c *BoundCounter) gather() float64 {
 	for {
 		v := c.delta.Load()
 		if c.delta.CAS(v, 0) {
 			return v
 		}
 	}
+}
+
+func (c *BoundCounter) name() string { return c.fieldName }
+func (c *BoundCounter) flatType() flatMetricsV1.SimpleFieldType {
+	return flatMetricsV1.SimpleFieldTypeDeltaSum
 }
