@@ -18,9 +18,10 @@
 package linmetric
 
 import (
+	"io"
 	"sync"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 )
 
 // registry is a set of metrics
@@ -49,7 +50,9 @@ func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries
 }
 
 // gatherMetricList transforms event-metrics to native lindb dto-proto format
-func (r *registry) gatherMetricList() ([]*protoMetricsV1.Metric, int) {
+func (r *registry) gatherMetricList(
+	writer io.Writer, merger func(builder *metric.RowBuilder),
+) (count int) {
 	r.mu.Lock()
 	r.buffer = r.buffer[:0]
 	for _, nm := range r.series {
@@ -57,17 +60,24 @@ func (r *registry) gatherMetricList() ([]*protoMetricsV1.Metric, int) {
 	}
 	r.mu.Unlock()
 
-	var (
-		ml    []*protoMetricsV1.Metric
-		count int
-	)
+	builder, releaseFunc := metric.NewRowBuilder()
+	defer releaseFunc(builder)
+
 	for _, s := range r.buffer {
-		gatheredMetric := s.gatherMetric()
-		if gatheredMetric == nil {
+		if s.payload == nil {
 			continue
 		}
+		builder.Reset()
+
+		s.buildFlatMetric(builder)
+		merger(builder)
+
+		data, err := builder.Build()
+		if err != nil {
+			continue
+		}
+		_, _ = writer.Write(data)
 		count++
-		ml = append(ml, gatheredMetric)
 	}
-	return ml, count
+	return count
 }

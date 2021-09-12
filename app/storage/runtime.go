@@ -423,9 +423,9 @@ func (r *runtime) nativePusher() {
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
-		tag.KeyValues{
-			{Key: "node", Value: r.node.Indicator()},
-			{Key: "role", Value: "storage"},
+		tag.Tags{
+			{Key: []byte("node"), Value: []byte(r.node.Indicator())},
+			{Key: []byte("role"), Value: []byte("storage")},
 		},
 	)
 	go r.pusher.Start()

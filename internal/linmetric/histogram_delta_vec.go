@@ -26,7 +26,7 @@ import (
 )
 
 type DeltaHistogramVec struct {
-	tags            tag.KeyValues // unique tags
+	tags            tag.Tags // unique tags
 	tagKeys         []string
 	metricName      string // concated metric name
 	mu              sync.RWMutex
@@ -34,7 +34,7 @@ type DeltaHistogramVec struct {
 	setBucketsFunc  func(h *BoundHistogram)
 }
 
-func NewHistogramVec(metricName string, tags tag.KeyValues, tagKey ...string) *DeltaHistogramVec {
+func NewHistogramVec(metricName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
 	return &DeltaHistogramVec{
 		metricName:      metricName,
 		tags:            tags,
@@ -86,7 +86,7 @@ func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundHistogram 
 	for i := range hv.tagKeys {
 		tagsMap[hv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(hv.metricName, tag.KeyValuesFromMap(tagsMap))
+	series := newTaggedSeries(hv.metricName, tag.TagsFromMap(tagsMap))
 	h = series.NewHistogram()
 	if hv.setBucketsFunc != nil {
 		hv.setBucketsFunc(h)

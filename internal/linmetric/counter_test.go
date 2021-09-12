@@ -41,7 +41,7 @@ func Test_Counter(t *testing.T) {
 	}
 	wg.Wait()
 	assert.Equal(t, float64(100), c1.Get())
-	assert.Equal(t, float64(100), c1.getAndReset())
+	assert.Equal(t, float64(100), c1.gather())
 	// reset
 	assert.Equal(t, float64(0), c1.Get())
 }

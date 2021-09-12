@@ -19,13 +19,14 @@ package linmetric
 
 import (
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
 
-	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -58,35 +59,32 @@ type Scope interface {
 }
 
 type taggedSeries struct {
-	mu         sync.Mutex    // lock for modifying fields
-	tagsID     uint64        // metric-name + tags
-	metricName string        // concated metric name
-	tags       tag.KeyValues // unique tags
+	mu         sync.Mutex // lock for modifying fields
+	tagsID     uint64     // metric-name + tags
+	metricName string     // concated metric name
+	tags       tag.Tags   // unique tags
 	payload    *fieldPayload
 }
 
 type fieldPayload struct {
-	gauges         []*BoundGauge   // BoundGauge list
-	countersDelta  []*BoundCounter // BoundCounter list
-	maxes          []*BoundMax     // BoundMax list
-	mines          []*BoundMin     // BoundMin list
+	simpleFields   []simpleField // Bound SimpleField list
 	histogramDelta *BoundHistogram
 }
 
 func NewScope(metricName string, tagList ...string) Scope {
 	assertMetricName(metricName)
 
-	m := tagList2Map(tagList...)
-	ms := newTaggedSeries(metricName, tag.KeyValuesFromMap(m))
+	m := tagList2Tags(tagList...)
+	ms := newTaggedSeries(metricName, m)
 	return ms
 }
 
-func newTaggedSeries(metricName string, tags tag.KeyValues) *taggedSeries {
+func newTaggedSeries(metricName string, tags tag.Tags) *taggedSeries {
 	ts := &taggedSeries{
 		metricName: metricName,
 		tags:       tags,
 	}
-	ts.tagsID = xxhash.Sum64String(ts.metricName + tag.ConcatKeyValues(ts.tags))
+	ts.tagsID = xxhash.Sum64String(ts.metricName + string(ts.tags.AppendHashKey(nil)))
 	// registered or replaced
 	ts = defaultRegistry.Register(ts.tagsID, ts)
 	return ts
@@ -97,31 +95,6 @@ func (s *taggedSeries) ensurePayload() {
 		s.payload = &fieldPayload{}
 	}
 }
-
-func (s *taggedSeries) containsFieldName(fieldName string) bool {
-	for _, g := range s.payload.gauges {
-		if g.fieldName == fieldName {
-			return true
-		}
-	}
-	for _, dc := range s.payload.countersDelta {
-		if dc.fieldName == fieldName {
-			return true
-		}
-	}
-	for _, dc := range s.payload.maxes {
-		if dc.fieldName == fieldName {
-			return true
-		}
-	}
-	for _, dc := range s.payload.mines {
-		if dc.fieldName == fieldName {
-			return true
-		}
-	}
-	return false
-}
-
 func assertMetricName(metricName string) {
 	if len(metricName) == 0 {
 		panic("metric-name cannot be empty string")
@@ -140,18 +113,18 @@ func assertFieldName(fieldName string) {
 	}
 }
 
-func nextScopeKeyValues(oldTags tag.KeyValues, newTagList ...string) tag.KeyValues {
+func nextScopeKeyValues(oldTags tag.Tags, newTagList ...string) tag.Tags {
 	if len(newTagList) == 0 {
 		return oldTags.Clone()
 	}
-	nextScopeTags := tagList2Map(newTagList...)
-	// newer add tags are higher priority
-	for _, oldTag := range oldTags {
-		if _, exist := nextScopeTags[oldTag.Key]; !exist {
-			nextScopeTags[oldTag.Key] = nextScopeTags[oldTag.Value]
-		}
+	if len(newTagList)%2 != 0 {
+		panic("bad tags length ")
 	}
-	return tag.KeyValuesFromMap(nextScopeTags)
+	m := oldTags.Map()
+	for i := 0; i < len(newTagList); i += 2 {
+		m[newTagList[i]] = newTagList[i+1]
+	}
+	return tag.TagsFromMap(m)
 }
 
 func (s *taggedSeries) Scope(metricName string, tagList ...string) Scope {
@@ -161,91 +134,65 @@ func (s *taggedSeries) Scope(metricName string, tagList ...string) Scope {
 	return newTaggedSeries(nextMetricName, nextScopeKeyValues(s.tags, tagList...))
 }
 
-func tagList2Map(tagList ...string) map[string]string {
+func tagList2Tags(tagList ...string) tag.Tags {
 	if len(tagList)%2 != 0 {
 		panic("bad tags length ")
 	}
 
-	var m = make(map[string]string)
+	var ts tag.Tags
 	for i := 0; i < len(tagList); i += 2 {
-		m[tagList[i]] = tagList[i+1]
+		ts = append(ts, tag.Tag{
+			Key:   []byte(tagList[i]),
+			Value: []byte(tagList[i+1]),
+		})
 	}
-	return m
+	return ts
 }
 
 func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
-	assertFieldName(fieldName)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ensurePayload()
-	if !s.containsFieldName(fieldName) {
-		bg := newGauge(fieldName)
-		s.payload.gauges = append(s.payload.gauges, bg)
-		return bg
-	}
-	for _, g := range s.payload.gauges {
-		if g.fieldName == fieldName {
-			return g
-		}
-	}
-	panic(fmt.Sprintf("gauge field: %s has registered another type before", fieldName))
+	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeGauge, func() simpleField {
+		return newGauge(fieldName)
+	}).(*BoundGauge)
 }
 
 func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
-	assertFieldName(fieldName)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ensurePayload()
-	if !s.containsFieldName(fieldName) {
-		dc := newCounter(fieldName)
-		s.payload.countersDelta = append(s.payload.countersDelta, dc)
-		return dc
-	}
-	for _, dc := range s.payload.countersDelta {
-		if dc.fieldName == fieldName {
-			return dc
-		}
-	}
-	panic(fmt.Sprintf("delta-counter field: %s has registered another type before", fieldName))
+	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeDeltaSum, func() simpleField {
+		return newCounter(fieldName)
+	}).(*BoundCounter)
 }
 func (s *taggedSeries) NewMax(fieldName string) *BoundMax {
-	assertFieldName(fieldName)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ensurePayload()
-	if !s.containsFieldName(fieldName) {
-		m := newMax(fieldName)
-		s.payload.maxes = append(s.payload.maxes, m)
-		return m
-	}
-	for _, m := range s.payload.maxes {
-		if m.fieldName == fieldName {
-			return m
-		}
-	}
-	panic(fmt.Sprintf("max field: %s has registered another type before", fieldName))
+	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeMax, func() simpleField {
+		return newMax(fieldName)
+	}).(*BoundMax)
 }
 
 func (s *taggedSeries) NewMin(fieldName string) *BoundMin {
+	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeMin, func() simpleField {
+		return newMin(fieldName)
+	}).(*BoundMin)
+}
+
+func (s *taggedSeries) findSimpleField(
+	fieldName string,
+	fieldType flatMetricsV1.SimpleFieldType,
+	createFunc func() simpleField,
+) simpleField {
 	assertFieldName(fieldName)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ensurePayload()
-	if !s.containsFieldName(fieldName) {
-		m := newMin(fieldName)
-		s.payload.mines = append(s.payload.mines, m)
-		return m
-	}
-	for _, m := range s.payload.mines {
-		if m.fieldName == fieldName {
-			return m
+	for _, sf := range s.payload.simpleFields {
+		if sf.name() == fieldName {
+			if sf.flatType() != fieldType {
+				panic(fmt.Sprintf("field: %s has registered another type before", fieldName))
+			}
+			return sf
 		}
 	}
-	panic(fmt.Sprintf("min field: %s has registered another type before", fieldName))
+	sf := createFunc()
+	s.payload.simpleFields = append(s.payload.simpleFields, sf)
+	return sf
 }
 
 func (s *taggedSeries) NewHistogram() *BoundHistogram {
@@ -289,62 +236,26 @@ func (s *taggedSeries) NewMinVec(fieldName string, tagKey ...string) *MinVec {
 	return newMinVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
-func (s *taggedSeries) gatherMetric() *protoMetricsV1.Metric {
+func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.payload == nil {
-		return nil
+	builder.AddMetricName(strutil.String2ByteSlice(s.metricName))
+	builder.AddTimestamp(fasttime.UnixMilliseconds())
+	for _, kv := range s.tags {
+		_ = builder.AddTag(kv.Key, kv.Value)
 	}
-	var m = protoMetricsV1.Metric{
-		Name:      s.metricName,
-		Timestamp: timeutil.Now(),
-		Tags:      s.tags,
-		TagsHash:  s.tagsID,
-	}
-	// pick gauges
-	for _, g := range s.payload.gauges {
-		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
-			Name:  g.fieldName,
-			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
-			Value: g.Get(),
-		})
-	}
-	// pick delta counter
-	for _, dc := range s.payload.countersDelta {
-		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
-			Name:  dc.fieldName,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-			Value: dc.getAndReset(),
-		})
-	}
-	// pick max
-	for _, mf := range s.payload.maxes {
-		v := mf.Get()
-		if math.IsInf(v, 1) || math.IsInf(v, -1) {
-			continue
-		}
-		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
-			Name:  mf.fieldName,
-			Type:  protoMetricsV1.SimpleFieldType_Max,
-			Value: v,
-		})
-	}
-	// pick min
-	for _, mf := range s.payload.mines {
-		v := mf.Get()
-		if math.IsInf(v, 1) || math.IsInf(v, -1) {
-			continue
-		}
-		m.SimpleFields = append(m.SimpleFields, &protoMetricsV1.SimpleField{
-			Name:  mf.fieldName,
-			Type:  protoMetricsV1.SimpleFieldType_Min,
-			Value: v,
-		})
+
+	// pick simple fields
+	for _, sf := range s.payload.simpleFields {
+		_ = builder.AddSimpleField(
+			strutil.String2ByteSlice(sf.name()),
+			sf.flatType(),
+			sf.gather(),
+		)
 	}
 
 	if s.payload.histogramDelta != nil {
-		m.CompoundField = s.payload.histogramDelta.marshalToCompoundField()
+		s.payload.histogramDelta.marshalToCompoundField(builder)
 	}
-	return &m
 }
