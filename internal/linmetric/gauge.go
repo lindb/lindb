@@ -17,7 +17,11 @@
 
 package linmetric
 
-import "go.uber.org/atomic"
+import (
+	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+)
 
 // BoundGauge is a gauge which has Bound to a certain metric with field-name and tags
 type BoundGauge struct {
@@ -60,4 +64,10 @@ func (g *BoundGauge) Decr() {
 // Get returns the current gauge value
 func (g *BoundGauge) Get() float64 {
 	return g.value.Load()
+}
+
+func (g *BoundGauge) gather() float64 { return g.value.Load() }
+func (g *BoundGauge) name() string    { return g.fieldName }
+func (g *BoundGauge) flatType() flatMetricsV1.SimpleFieldType {
+	return flatMetricsV1.SimpleFieldTypeGauge
 }

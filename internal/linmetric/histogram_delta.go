@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/series/metric"
 )
 
 // BoundHistogram is a histogram which has been Bound to a certain metric
@@ -100,7 +100,7 @@ func (h *BoundHistogram) Update(f func()) {
 	h.UpdateSince(start)
 }
 
-func (h *BoundHistogram) marshalToCompoundField() *protoMetricsV1.CompoundField {
+func (h *BoundHistogram) marshalToCompoundField(builder *metric.RowBuilder) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -109,14 +109,15 @@ func (h *BoundHistogram) marshalToCompoundField() *protoMetricsV1.CompoundField 
 		deltas[idx] -= h.lastValues[idx]
 	}
 
-	f := &protoMetricsV1.CompoundField{
-		Min:            h.bkts.min,
-		Max:            h.bkts.max,
-		Sum:            h.bkts.totalSum - h.lastTotalSum,
-		Count:          h.bkts.totalCount - h.lastTotalCount,
-		ExplicitBounds: cloneFloat64Slice(h.bkts.upperBounds),
-		Values:         deltas,
-	}
+	_ = builder.AddCompoundFieldMMSC(
+		h.bkts.min, h.bkts.max,
+		h.bkts.totalSum-h.lastTotalSum,
+		h.bkts.totalCount-h.lastTotalCount,
+	)
+	_ = builder.AddCompoundFieldData(
+		deltas,
+		cloneFloat64Slice(h.bkts.upperBounds),
+	)
 	// resets min and max
 	h.bkts.min = 0
 	h.bkts.max = 0
@@ -124,5 +125,4 @@ func (h *BoundHistogram) marshalToCompoundField() *protoMetricsV1.CompoundField 
 	h.lastTotalCount = h.bkts.totalCount
 	h.lastTotalSum = h.bkts.totalSum
 	copy(h.lastValues, h.bkts.values)
-	return f
 }

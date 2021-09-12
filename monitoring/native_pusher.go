@@ -28,7 +28,6 @@ import (
 
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -63,7 +62,7 @@ type nativeProtoPusher struct {
 	cancel          context.CancelFunc
 	interval        time.Duration
 	endpoint        string // HTTP endpoint
-	globalKeyValues tag.KeyValues
+	globalKeyValues tag.Tags
 	gather          linmetric.Gather
 	client          *http.Client
 	buffer          *bytes.Buffer
@@ -76,7 +75,7 @@ func NewNativeProtoPusher(
 	endpoint string,
 	interval time.Duration,
 	pushTimeout time.Duration,
-	globalKeyValues tag.KeyValues,
+	globalKeyValues tag.Tags,
 ) NativePusher {
 	c, cancel := context.WithCancel(ctx)
 	pusher := &nativeProtoPusher{
@@ -119,18 +118,11 @@ func (np *nativeProtoPusher) Stop() {
 }
 
 func (np *nativeProtoPusher) gatherAndMarshal() {
-	metrics := np.gather.Gather()
+	data, count := np.gather.Gather()
 
-	ml := protoMetricsV1.MetricList{Metrics: metrics}
-	data, err := ml.Marshal()
-	if err != nil {
-		pushErrorCounter.Add(float64(len(metrics)))
-		nativePushLogger.Error("failed to marshal metric", logger.Error(err))
-		return
-	}
 	np.gzipWriter.Reset(np.buffer)
 	_, _ = np.gzipWriter.Write(data)
-	pushMetricsCounter.Add(float64(len(metrics)))
+	pushMetricsCounter.Add(float64(count))
 	_ = np.gzipWriter.Close()
 	pushBytesCounter.Add(float64(np.buffer.Len()))
 }
