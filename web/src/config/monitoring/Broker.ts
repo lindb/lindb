@@ -26,19 +26,33 @@ export const BrokerDashboard = [
             UnitEnum.None,
         ),
         metric(
+            'Throttle Writes Of Concurrency Limiter',
+            'select throttle_requests from lindb.broker.write_limiter',
+            8,
+            UnitEnum.None,
+        ),
+    ],
+    [
+        metric(
+            'Timeout Writes Of Concurrency Limiter',
+            'select timeout_requests from lindb.broker.write_limiter',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
             'Proto Ingestion IO',
             'select read_bytes from lindb.ingestion.proto',
             8,
             UnitEnum.Bytes,
         ),
-    ],
-    [
         metric(
             'Proto Ingestion',
             'select ingested_metrics, data_corrupted_count from lindb.ingestion.proto',
             8,
             UnitEnum.None,
         ),
+    ],
+    [
         metric(
             'Flat Ingestion IO',
             'select read_bytes from lindb.ingestion.flat',
@@ -47,7 +61,13 @@ export const BrokerDashboard = [
         ),
         metric(
             'Flat Ingestion',
-            'select ingested_metrics, data_corrupted_count from lindb.ingestion.flat',
+            'select ingested_metrics, dropped_metrics, data_corrupted_count from lindb.ingestion.flat',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
+            'Flat Ingestion Block Size',
+            'select block from lindb.ingestion.flat group by size',
             8,
             UnitEnum.None,
         ),

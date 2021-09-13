@@ -21,12 +21,15 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/replica"
@@ -37,7 +40,13 @@ func Test_NativeWriter(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	api := NewProtoWriter(&deps.HTTPDeps{CM: cm})
+	api := NewProtoWriter(&deps.HTTPDeps{
+		CM: cm,
+		WriteLimiter: concurrent.NewLimiter(
+			32,
+			time.Second,
+			linmetric.NewScope("proto_write_test")),
+	})
 	r := gin.New()
 	api.Register(r)
 

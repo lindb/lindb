@@ -21,12 +21,15 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/replica"
 )
@@ -36,7 +39,13 @@ func Test_Influx_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	api := NewInfluxWriter(&deps.HTTPDeps{CM: cm})
+	api := NewInfluxWriter(&deps.HTTPDeps{
+		CM: cm,
+		WriteLimiter: concurrent.NewLimiter(
+			32,
+			time.Second,
+			linmetric.NewScope("influx_write_test")),
+	})
 	r := gin.New()
 	api.Register(r)
 

@@ -28,9 +28,6 @@ import (
 // TSDB represents the tsdb configuration
 type TSDB struct {
 	Dir                      string         `toml:"dir"`
-	BatchWriteSize           int            `toml:"batch-write-size"`
-	BatchPendingSize         int            `toml:"batch-pending-size"`
-	BatchTimeout             ltoml.Duration `toml:"batch-timeout"`
 	MaxMemDBSize             ltoml.Size     `toml:"max-memdb-size"`
 	MaxMemDBTotalSize        ltoml.Size     `toml:"max-memdb-total-size"`
 	MaxMemDBNumber           int            `toml:"max-memdb-number"`
@@ -46,18 +43,6 @@ func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
 ## The TSDB directory where the time series data and meta file stores.
 dir = "%s"
-
-## Write configuration
-## 
-## Shard batch write to memdb with this many buffered metrics
-batch-write-size = %d
-## Shard pending with this many batched metrics in memory
-## if batch-write-size is 100, batch-pending-size is 10
-## at most 1000 metrics will be cached before write
-batch-pending-size = %d
-## Shard will write at least this often,
-## even if the configured batch-size is not reached.
-batch-timeout = "%s"
 
 ## Flush configuration
 ## 
@@ -97,9 +82,6 @@ max-seriesIDs = %d
 ## Default: 32
 max-tagKeys = %d`,
 		t.Dir,
-		t.BatchWriteSize,
-		t.BatchPendingSize,
-		t.BatchTimeout.String(),
 		t.MaxMemDBSize.String(),
 		t.MaxMemDBTotalSize.String(),
 		t.MaxMemDBNumber,
@@ -145,9 +127,6 @@ type WAL struct {
 	Dir                string         `toml:"dir"`
 	DataSizeLimit      int64          `toml:"data-size-limit"`
 	RemoveTaskInterval ltoml.Duration `toml:"remove-task-interval"`
-	CheckFlushInterval ltoml.Duration `toml:"check-flush-interval"`
-	FlushInterval      ltoml.Duration `toml:"flush-interval"`
-	BufferSize         int            `toml:"buffer-size"`
 }
 
 func (rc *WAL) GetDataSizeLimit() int64 {
@@ -168,19 +147,10 @@ dir = "%s"
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 data-size-limit = %d
 ## interval for how often a new segment will be created
-remove-task-interval = "%s"
-## interval for how often buffer will be checked if it's available to flush
-check-flush-interval = "%s"
-## interval for how often data will be flushed if data not exceeds the buffer-size
-flush-interval = "%s"
-## will flush if this size of data in kegabytes get buffered
-buffer-size = %d`,
+remove-task-interval = "%s"`,
 		rc.Dir,
 		rc.DataSizeLimit,
 		rc.RemoveTaskInterval.String(),
-		rc.CheckFlushInterval.String(),
-		rc.FlushInterval.String(),
-		rc.BufferSize,
 	)
 }
 
@@ -206,15 +176,9 @@ func NewDefaultStorageBase() *StorageBase {
 			Dir:                filepath.Join(defaultParentDir, "storage/wal"),
 			DataSizeLimit:      512,
 			RemoveTaskInterval: ltoml.Duration(time.Minute),
-			CheckFlushInterval: ltoml.Duration(time.Second),
-			FlushInterval:      ltoml.Duration(5 * time.Second),
-			BufferSize:         128,
 		},
 		TSDB: TSDB{
 			Dir:                      filepath.Join(defaultParentDir, "storage/data"),
-			BatchWriteSize:           100,
-			BatchPendingSize:         10,
-			BatchTimeout:             ltoml.Duration(time.Millisecond * 500),
 			MaxMemDBSize:             ltoml.Size(500 * 1024 * 1024),
 			MaxMemDBNumber:           5,
 			MaxMemDBTotalSize:        ltoml.Size(2 * 1024 * 1024 * 1024),
@@ -251,15 +215,6 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	defaultStorageCfg := NewDefaultStorageBase()
 	if tsdbCfg.Dir == "" {
 		return fmt.Errorf("tsdb dir cannot be empty")
-	}
-	if tsdbCfg.BatchWriteSize <= 0 {
-		tsdbCfg.BatchWriteSize = defaultStorageCfg.TSDB.BatchWriteSize
-	}
-	if tsdbCfg.BatchPendingSize <= 0 {
-		tsdbCfg.BatchPendingSize = defaultStorageCfg.TSDB.BatchPendingSize
-	}
-	if tsdbCfg.BatchTimeout <= 0 {
-		tsdbCfg.BatchTimeout = defaultStorageCfg.TSDB.BatchTimeout
 	}
 	if tsdbCfg.MaxMemDBSize <= 0 {
 		tsdbCfg.MaxMemDBSize = defaultStorageCfg.TSDB.MaxMemDBSize
