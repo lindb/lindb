@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replica"
@@ -37,7 +38,8 @@ type HTTPDeps struct {
 	Repo     state.Repository
 	StateMgr broker.StateManager
 
-	CM replica.ChannelManager
+	CM           replica.ChannelManager
+	WriteLimiter *concurrent.Limiter
 
 	QueryFactory brokerQuery.Factory
 }

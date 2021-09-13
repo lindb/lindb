@@ -38,31 +38,37 @@ type commonWriter struct {
 }
 
 func (cw *commonWriter) Write(c *gin.Context) {
+	if err := cw.deps.WriteLimiter.Do(func() error {
+		return cw.realWrite(c)
+	}); err != nil {
+		http.Error(c, err)
+	} else {
+		http.NoContent(c)
+	}
+}
+
+func (cw *commonWriter) realWrite(c *gin.Context) error {
 	var param struct {
 		Database  string `form:"db" binding:"required"`
 		Namespace string `form:"ns"`
 	}
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	if param.Namespace == "" {
 		param.Namespace = constants.DefaultNamespace
 	}
 	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	metrics, err := cw.parser(c.Request, enrichedTags, param.Namespace)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	if err := cw.deps.CM.Write(param.Database, metrics); err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
-	http.NoContent(c)
+	return nil
 }

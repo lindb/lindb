@@ -81,55 +81,29 @@ password = "%s"`,
 		u.Password)
 }
 
-// ReplicationChannel represents config for data replication in broker.
-type ReplicationChannel struct {
-	Dir                string         `toml:"dir"`
-	DataSizeLimit      int64          `toml:"data-size-limit"`
-	RemoveTaskInterval ltoml.Duration `toml:"remove-task-interval"`
-	ReportInterval     ltoml.Duration `toml:"report-interval"` // replicator state report interval
-	CheckFlushInterval ltoml.Duration `toml:"check-flush-interval"`
-	FlushInterval      ltoml.Duration `toml:"flush-interval"`
-	BufferSize         int            `toml:"buffer-size"`
+// Write represents config for write replication in broker.
+type Write struct {
+	MaxConcurrency int            `toml:"max-write-concurrency"`
+	BatchTimeout   ltoml.Duration `toml:"batch-timout"`
+	BatchBlockSize ltoml.Size     `toml:"batch-block-size"`
 }
 
-func (rc *ReplicationChannel) GetDataSizeLimit() int64 {
-	if rc.DataSizeLimit <= 1 {
-		return 1024 * 1024 // 1MB
-	}
-	if rc.DataSizeLimit >= 1024 {
-		return 1024 * 1024 * 1024 // 1GB
-	}
-	return rc.DataSizeLimit * 1024 * 1024
-}
-
-func (rc *ReplicationChannel) BufferSizeInBytes() int {
-	return rc.BufferSize
-}
-
-func (rc *ReplicationChannel) TOML() string {
+func (rc *Write) TOML() string {
 	return fmt.Sprintf(`
-## WAL mmaped log directory
-dir = "%s"
-## data-size-limit is the maximum size in megabytes of the page file before a new
-## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
-data-size-limit = %d
-## interval for how often a new segment will be created
-remove-task-interval = "%s"
-## replicator state report interval
-report-interval = "%s"
-## interval for how often buffer will be checked if it's available to flush
-check-flush-interval = "%s"
-## interval for how often data will be flushed if data not exceeds the buffer-size
-flush-interval = "%s"
-## will flush if this size of data in kegabytes get buffered
-buffer-size = %d`,
-		rc.Dir,
-		rc.DataSizeLimit,
-		rc.RemoveTaskInterval.String(),
-		rc.ReportInterval.String(),
-		rc.CheckFlushInterval.String(),
-		rc.FlushInterval.String(),
-		rc.BufferSize,
+## Write Configuration for writing replication block
+## 
+## How many goroutines can write metrics at the same time.
+## If writes requests exceeds the concurrency, 
+## ingestion HTTP API will be throttled.
+max-concurrency = %d
+## Broker will write at least this often,
+## even if the configured batch-size if not reached.
+batch-timeout = "%s"
+## Broker will sending block to storage node in this size
+batch-size = "%s"`,
+		rc.MaxConcurrency,
+		rc.BatchTimeout.String(),
+		rc.BatchBlockSize.String(),
 	)
 }
 
@@ -137,6 +111,7 @@ buffer-size = %d`,
 type BrokerBase struct {
 	HTTP      HTTP      `toml:"http"`
 	Ingestion Ingestion `toml:"ingestion"`
+	Write     Write     `toml:"write"`
 	User      User      `toml:"user"`
 	GRPC      GRPC      `toml:"grpc"`
 }
@@ -149,11 +124,14 @@ func (bb *BrokerBase) TOML() string {
 
 [broker.ingestion]%s
 
+[broker.write]%s
+
 [broker.user]%s
 
 [broker.grpc]%s`,
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
+		bb.Write.TOML(),
 		bb.User.TOML(),
 		bb.GRPC.TOML(),
 	)
@@ -169,6 +147,11 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		Ingestion: Ingestion{
 			IngestTimeout: ltoml.Duration(time.Second * 5),
+		},
+		Write: Write{
+			MaxConcurrency: 32,
+			BatchTimeout:   ltoml.Duration(time.Second * 2),
+			BatchBlockSize: ltoml.Size(256 * 1024),
 		},
 		GRPC: GRPC{
 			Port:                 9001,
@@ -233,5 +216,16 @@ func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 	if brokerBaseCfg.Ingestion.IngestTimeout <= 0 {
 		brokerBaseCfg.Ingestion.IngestTimeout = defaultBrokerCfg.Ingestion.IngestTimeout
 	}
+	// write check
+	if brokerBaseCfg.Write.BatchTimeout <= 0 {
+		brokerBaseCfg.Write.BatchTimeout = ltoml.Duration(time.Second * 2)
+	}
+	if brokerBaseCfg.Write.MaxConcurrency <= 0 {
+		brokerBaseCfg.Write.MaxConcurrency = 32
+	}
+	if brokerBaseCfg.Write.BatchBlockSize <= 0 {
+		brokerBaseCfg.Write.BatchBlockSize = ltoml.Size(256 * 1024)
+	}
+
 	return nil
 }
