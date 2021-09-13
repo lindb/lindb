@@ -27,16 +27,11 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
-
-var (
-	defaultBufferSize = ltoml.Size(128 * 1024)
-)
 
 var log = logger.GetLogger("replica", "ChannelManager")
 
@@ -77,7 +72,10 @@ type (
 
 // NewChannelManager returns a ChannelManager with dirPath and WriteClientFactory.
 // WriteClientFactory makes it easy to mock rpc streamClient for test.
-func NewChannelManager(ctx context.Context, fct rpc.ClientStreamFactory) ChannelManager {
+func NewChannelManager(
+	ctx context.Context,
+	fct rpc.ClientStreamFactory,
+) ChannelManager {
 	ctx, cancel := context.WithCancel(ctx)
 	cm := &channelManager{
 		ctx:    ctx,

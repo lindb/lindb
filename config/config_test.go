@@ -88,16 +88,6 @@ func Test_NewConfig(t *testing.T) {
 	assert.Equal(t, standaloneCfg.Monitor, *NewDefaultMonitor())
 }
 
-func Test_ReplicationChannel_SegmentFileSizeInBytes(t *testing.T) {
-	var rc ReplicationChannel
-	assert.Equal(t, int64(1024*1024), rc.GetDataSizeLimit())
-	assert.Zero(t, rc.BufferSizeInBytes())
-	rc.DataSizeLimit = 10
-	assert.Equal(t, int64(10*1024*1024), rc.GetDataSizeLimit())
-	rc.DataSizeLimit = 10000
-	assert.Equal(t, int64(1024*1024*1024), rc.GetDataSizeLimit())
-}
-
 func Test_Global(t *testing.T) {
 	assert.NotNil(t, GlobalBrokerConfig())
 	assert.NotNil(t, GlobalStorageConfig())
@@ -158,9 +148,6 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 		TSDB:      TSDB{Dir: "/tmp/lindb"},
 	}
 	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
-	assert.NotZero(t, storageCfg4.TSDB.BatchWriteSize)
-	assert.NotZero(t, storageCfg4.TSDB.BatchPendingSize)
-	assert.NotZero(t, storageCfg4.TSDB.BatchTimeout)
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBSize)
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBTotalSize)
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBNumber)

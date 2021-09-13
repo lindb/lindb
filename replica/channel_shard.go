@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -74,7 +75,7 @@ type channel struct {
 	// interval for check flush
 	checkFlushInterval time.Duration
 	// interval for flush
-	flushInterval time.Duration
+	batchTimout time.Duration
 
 	lock4write sync.Mutex
 
@@ -88,6 +89,7 @@ func newChannel(
 	shardID models.ShardID,
 	fct rpc.ClientStreamFactory,
 ) Channel {
+	cfg := config.GlobalBrokerConfig().Write
 	c := &channel{
 		ctx:                ctx,
 		database:           database,
@@ -97,7 +99,8 @@ func newChannel(
 		ch:                 make(chan []byte, 2),
 		running:            atomic.NewBool(false),
 		checkFlushInterval: time.Second,
-		chunk:              newChunk(defaultBufferSize), //TODO add config, ltoml size
+		batchTimout:        cfg.BatchTimeout.Duration(),
+		chunk:              newChunk(cfg.BatchBlockSize),
 		lastFlushTime:      time.Now(),
 		logger:             logger.GetLogger("replica", "ShardChannel"),
 	}
@@ -168,7 +171,7 @@ func (c *channel) writePendingBeforeClose() {
 
 func (c *channel) checkFlush() {
 	now := time.Now()
-	if now.After(c.lastFlushTime.Add(c.flushInterval)) {
+	if now.After(c.lastFlushTime.Add(c.batchTimout)) {
 		c.lock4write.Lock()
 		defer c.lock4write.Unlock()
 

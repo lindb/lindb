@@ -37,6 +37,15 @@ var (
 	flatDroppedMetricCounter   = flatIngestionScope.NewCounter("dropped_metrics")
 	flatUnmarshalMetricCounter = flatIngestionScope.NewCounter("ingested_metrics")
 	flatReadBytesCounter       = flatIngestionScope.NewCounter("read_bytes")
+	flatIngestionBlockScope    = flatIngestionScope.NewCounterVec("block", "size")
+	// small block
+	lt10KiBCounter  = flatIngestionBlockScope.WithTagValues("<10KiB")
+	lt100KiBCounter = flatIngestionBlockScope.WithTagValues("<100KiB")
+	// medium block
+	lt1MiBCounter  = flatIngestionBlockScope.WithTagValues("<1MiB")
+	lt10MiBCounter = flatIngestionBlockScope.WithTagValues("<10MiB")
+	// big block
+	gt10MiBCounter = flatIngestionBlockScope.WithTagValues(">=10MiB")
 )
 
 var flatLogger = logger.GetLogger("ingestion", "Flat")
@@ -57,6 +66,18 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
+	}
+	switch {
+	case len(data) < 10*1024:
+		lt10KiBCounter.Incr()
+	case len(data) < 100*1024:
+		lt100KiBCounter.Incr()
+	case len(data) < 1024*1024:
+		lt1MiBCounter.Incr()
+	case len(data) < 10*1024*1024:
+		lt10MiBCounter.Incr()
+	default:
+		gt10MiBCounter.Incr()
 	}
 
 	flatReadBytesCounter.Add(float64(len(data)))
