@@ -14,6 +14,12 @@ export const ReplicaDashboard = [
   // Row
   [
     metric(
+        'Metric Out Of TimeRange',
+        'select metrics_out_of_time_range from lindb.replica.database group by db',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
         'Local Replica Count',
         'select replica_count from lindb.replica.local group by db, shard',
         8,

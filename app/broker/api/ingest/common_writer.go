@@ -38,7 +38,7 @@ type commonWriter struct {
 }
 
 func (cw *commonWriter) Write(c *gin.Context) {
-	if err := cw.deps.WriteLimiter.Do(func() error {
+	if err := cw.deps.IngestLimiter.Do(func() error {
 		return cw.realWrite(c)
 	}); err != nil {
 		http.Error(c, err)

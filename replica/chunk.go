@@ -19,7 +19,6 @@ package replica
 
 import (
 	"bytes"
-	"encoding"
 	"sync"
 
 	"github.com/golang/snappy"
@@ -31,8 +30,8 @@ import (
 
 // Chunk represents the writeTask buffer chunk for compressing the metric list
 type Chunk interface {
-	encoding.BinaryMarshaler
-
+	// Compress marshals and compresses the data, then resets the context,
+	Compress() (*compressedChunk, error)
 	// IsFull checks the chunk if is full
 	IsFull() bool
 	// IsEmpty checks the chunk if is empty
@@ -77,8 +76,8 @@ func (c *chunk) Write(row []byte) (n int, err error) {
 	return n, err
 }
 
-// MarshalBinary marshals the data, then resets the context,
-func (c *chunk) MarshalBinary() ([]byte, error) {
+// Compress marshals the data, then resets the context,
+func (c *chunk) Compress() (*compressedChunk, error) {
 	// if chunk is empty, return nil,nil
 	if c.size == 0 {
 		return nil, nil
@@ -92,24 +91,35 @@ func (c *chunk) MarshalBinary() ([]byte, error) {
 	}()
 
 	// we use snappy block format here
-	// todo: @codingcrush, pick fixed size slice from sync.Pool for reusing heap object
-	var block = *getMarshalBlock()
-	block = snappy.Encode(block, c.buffer.Bytes())
-	return block, nil
+	ck := newCompressedChunk(len(c.buffer.Bytes()))
+	ck.Encode(c.buffer.Bytes())
+	return ck, nil
 }
 
-var marshalBlockPool sync.Pool
+var (
+	compressedChunkPool sync.Pool
+)
 
-func getMarshalBlock() *[]byte {
-	item := marshalBlockPool.Get()
+type compressedChunk []byte
+
+// Release put the compressed chunk into sync pool
+func (cc *compressedChunk) Release() {
+	*cc = (*cc)[:0]
+	compressedChunkPool.Put(cc)
+}
+
+// Encode compresses source block
+func (cc *compressedChunk) Encode(block []byte) {
+	*cc = snappy.Encode(*cc, block)
+}
+
+// newCompressedChunk picks a fixed sized buffer from pool
+// expected compress ratio for snappy is 0.6 under of test
+func newCompressedChunk(originalSize int) *compressedChunk {
+	item := compressedChunkPool.Get()
 	if item == nil {
-		var buf []byte
-		return &buf
+		ck := make(compressedChunk, int(float64(originalSize)*0.6))
+		return &ck
 	}
-	return item.(*[]byte)
-}
-
-func putMarshalBlock(b *[]byte) {
-	*b = (*b)[:0]
-	marshalBlockPool.Put(b)
+	return item.(*compressedChunk)
 }

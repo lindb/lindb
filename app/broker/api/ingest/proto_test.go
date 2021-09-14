@@ -42,7 +42,7 @@ func Test_NativeWriter(t *testing.T) {
 	cm := replica.NewMockChannelManager(ctrl)
 	api := NewProtoWriter(&deps.HTTPDeps{
 		CM: cm,
-		WriteLimiter: concurrent.NewLimiter(
+		IngestLimiter: concurrent.NewLimiter(
 			32,
 			time.Second,
 			linmetric.NewScope("proto_write_test")),

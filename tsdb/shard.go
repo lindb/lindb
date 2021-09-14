@@ -528,6 +528,7 @@ MoveMutable:
 			s.logger.Info("switch a expired mutable memdb to immutable",
 				logger.Any("shardID", s.id),
 				logger.String("database", s.databaseName),
+				logger.Int64("family", entry.familyTime),
 				logger.String("uptime", entry.memDB.Uptime().String()),
 				logger.String("mutable-memdb-ttl", ttl.String()),
 			)
