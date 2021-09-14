@@ -18,6 +18,7 @@
 package ingest
 
 import (
+	"context"
 	netHTTP "net/http"
 
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,10 @@ func (cw *commonWriter) realWrite(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(context.Background(),
+		cw.deps.BrokerCfg.BrokerBase.Ingestion.IngestTimeout.Duration())
+	defer cancel()
+
 	if param.Namespace == "" {
 		param.Namespace = constants.DefaultNamespace
 	}
@@ -67,7 +72,7 @@ func (cw *commonWriter) realWrite(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := cw.deps.CM.Write(param.Database, metrics); err != nil {
+	if err := cw.deps.CM.Write(ctx, param.Database, metrics); err != nil {
 		return err
 	}
 	return nil

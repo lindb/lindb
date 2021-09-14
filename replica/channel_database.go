@@ -44,7 +44,7 @@ var (
 // DatabaseChannel represents the database level replication channel
 type DatabaseChannel interface {
 	// Write writes the metric data into channel's buffer
-	Write(brokerBatchRows *metric.BrokerBatchRows) error
+	Write(ctx context.Context, brokerBatchRows *metric.BrokerBatchRows) error
 	// CreateChannel creates the shard level replication channel by given shard id
 	CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error)
 	Stop()
@@ -104,7 +104,7 @@ func newDatabaseChannel(
 }
 
 // Write writes the metric data into channel's buffer
-func (dc *databaseChannel) Write(brokerBatchRows *metric.BrokerBatchRows) error {
+func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.BrokerBatchRows) error {
 	var err error
 
 	behind := dc.behind.Load()
@@ -126,7 +126,7 @@ func (dc *databaseChannel) Write(brokerBatchRows *metric.BrokerBatchRows) error 
 				logger.Any("shardID", shardID))
 			continue
 		}
-		if err = channel.Write(rows); err != nil {
+		if err = channel.Write(ctx, rows); err != nil {
 			log.Error("channel writeTask data error",
 				logger.String("database", dc.databaseCfg.Name),
 				logger.Any("shardID", shardID))

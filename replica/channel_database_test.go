@@ -50,14 +50,14 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, row)
 	})
-	err = ch.Write(batch)
+	err = ch.Write(context.TODO(), batch)
 	assert.Equal(t, errChannelNotFound, err)
 
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
 	ch1.insertShardChannel(models.ShardID(0), shardCh)
 
-	shardCh.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
+	shardCh.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 
 	batch = metric.NewBrokerBatchRows()
 	_ = batch.TryAppend(func(row *metric.BrokerRow) error {
@@ -69,7 +69,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, row)
 	})
-	err = ch.Write(batch)
+	err = ch.Write(context.TODO(), batch)
 	assert.Error(t, err)
 }
 

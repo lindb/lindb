@@ -136,10 +136,15 @@ func (np *nativeProtoPusher) push(r io.Reader) {
 	req.Header.Set("Content-Type", ProtoFmt)
 
 	resp, err := np.client.Do(req)
+	defer func() {
+		// need close resp body by defer, maybe resp is not nil when throw some err
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
 	if err != nil {
 		pushErrorCounter.Incr()
 		nativePushLogger.Error("failed to post request", logger.Error(err))
 		return
 	}
-	_ = resp.Body.Close()
 }

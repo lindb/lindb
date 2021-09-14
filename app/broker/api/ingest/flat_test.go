@@ -18,6 +18,7 @@
 package ingest
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"testing"
@@ -33,16 +34,18 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/replica"
+	"github.com/lindb/lindb/series/metric"
 )
 
-func Test_NativeWriter(t *testing.T) {
+func Test_Flat_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	api := NewProtoWriter(&deps.HTTPDeps{
+	api := NewFlatWriter(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
 				Ingestion: config.Ingestion{
@@ -54,40 +57,41 @@ func Test_NativeWriter(t *testing.T) {
 		IngestLimiter: concurrent.NewLimiter(
 			32,
 			time.Second,
-			linmetric.NewScope("proto_write_test")),
+			linmetric.NewScope("influx_write_test")),
 	})
 	r := gin.New()
 	api.Register(r)
 
 	// missing db param
-	resp := mock.DoRequest(t, r, http.MethodPut, ProtoWritePath, "")
+	resp := mock.DoRequest(t, r, http.MethodPut, FlatWritePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// enrich_tag bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	resp = mock.DoRequest(t, r, http.MethodPut, FlatWritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	// parse err
+	resp = mock.DoRequest(t, r, http.MethodPut, FlatWritePath+"?db=test&enrich_tag=a=b", "error")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	// bad format
-	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `xxxx`)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	err := converter.ConvertTo(&protoMetricsV1.Metric{
+		Name:      "cpu",
+		Timestamp: timeutil.Now(),
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+	}, &brokerRow)
+	assert.NoError(t, err)
+	var buf bytes.Buffer
+	_, _ = brokerRow.WriteTo(&buf)
+	body := buf.String()
 	// write error
-	resp = mock.DoRequest(t, r, http.MethodPut, ProtoWritePath+"?db=test3&enrich_tag=a=b", `ok`)
+	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
+	resp = mock.DoRequest(t, r, http.MethodPut, FlatWritePath+"?db=test3&enrich_tag=a=b", body)
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// no content
 	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	var metricList = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
-		{Name: "1", Namespace: "ns", SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 23},
-		}},
-	}}
-	data, _ := metricList.Marshal()
-	resp = mock.DoRequest(t, r, http.MethodPost, ProtoWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
+	resp = mock.DoRequest(t, r, http.MethodPut, FlatWritePath+"?db=test&ns=ns4&enrich_tag=a=b", body)
 	assert.Equal(t, http.StatusNoContent, resp.Code)
-
-	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodPost, ProtoWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
 }

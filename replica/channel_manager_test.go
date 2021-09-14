@@ -65,16 +65,16 @@ func TestChannelManager_Write(t *testing.T) {
 	}()
 
 	cm := NewChannelManager(context.TODO(), nil)
-	err := cm.Write("database", nil)
+	err := cm.Write(context.TODO(), "database", nil)
 	assert.NoError(t, err)
 
 	dbChannel := NewMockDatabaseChannel(ctrl)
 	dbChannel.EXPECT().Stop()
 	cm1 := cm.(*channelManager)
 	cm1.insertDatabaseChannel("database", dbChannel)
-	dbChannel.EXPECT().Write(gomock.Any()).Return(nil).AnyTimes()
+	dbChannel.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	dbChannel.EXPECT().Stop().AnyTimes()
-	err = cm.Write("database", nil)
+	err = cm.Write(context.TODO(), "database", nil)
 	cm1.insertDatabaseChannel("database2", dbChannel)
 	cm1.insertDatabaseChannel("database3", dbChannel)
 

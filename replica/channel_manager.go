@@ -38,7 +38,7 @@ var log = logger.GetLogger("replica", "ChannelManager")
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
-	Write(database string, brokerBatchRows *metric.BrokerBatchRows) error
+	Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error
 	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
@@ -88,7 +88,7 @@ func NewChannelManager(
 }
 
 // Write writes a MetricList, the manager handler the database, sharding things.
-func (cm *channelManager) Write(database string, brokerBatchRows *metric.BrokerBatchRows) error {
+func (cm *channelManager) Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error {
 	if brokerBatchRows == nil || brokerBatchRows.Len() == 0 {
 		return nil
 	}
@@ -96,7 +96,7 @@ func (cm *channelManager) Write(database string, brokerBatchRows *metric.BrokerB
 	if !ok {
 		return fmt.Errorf("database [%s] not found", database)
 	}
-	return databaseChannel.Write(brokerBatchRows)
+	return databaseChannel.Write(ctx, brokerBatchRows)
 }
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
