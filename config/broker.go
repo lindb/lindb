@@ -19,6 +19,7 @@ package config
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -95,6 +96,7 @@ func (rc *Write) TOML() string {
 ## How many goroutines can write metrics at the same time.
 ## If writes requests exceeds the concurrency, 
 ## ingestion HTTP API will be throttled.
+## Default: runtime.GOMAXPROCS(-1) * 2
 max-concurrency = %d
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
@@ -149,13 +151,13 @@ func NewDefaultBrokerBase() *BrokerBase {
 			IngestTimeout: ltoml.Duration(time.Second * 5),
 		},
 		Write: Write{
-			MaxConcurrency: 32,
+			MaxConcurrency: runtime.GOMAXPROCS(-1) * 2,
 			BatchTimeout:   ltoml.Duration(time.Second * 2),
 			BatchBlockSize: ltoml.Size(256 * 1024),
 		},
 		GRPC: GRPC{
 			Port:                 9001,
-			MaxConcurrentStreams: 30,
+			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 2,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		User: User{
@@ -218,13 +220,13 @@ func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 	}
 	// write check
 	if brokerBaseCfg.Write.BatchTimeout <= 0 {
-		brokerBaseCfg.Write.BatchTimeout = ltoml.Duration(time.Second * 2)
+		brokerBaseCfg.Write.BatchTimeout = defaultBrokerCfg.Write.BatchTimeout
 	}
 	if brokerBaseCfg.Write.MaxConcurrency <= 0 {
-		brokerBaseCfg.Write.MaxConcurrency = 32
+		brokerBaseCfg.Write.MaxConcurrency = defaultBrokerCfg.Write.MaxConcurrency
 	}
 	if brokerBaseCfg.Write.BatchBlockSize <= 0 {
-		brokerBaseCfg.Write.BatchBlockSize = ltoml.Size(256 * 1024)
+		brokerBaseCfg.Write.BatchBlockSize = defaultBrokerCfg.Write.BatchBlockSize
 	}
 
 	return nil

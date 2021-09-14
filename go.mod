@@ -34,6 +34,7 @@ require (
 	go.etcd.io/bbolt v1.3.4
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200320040136-0eee733220fc
 	go.uber.org/atomic v1.6.0
+	go.uber.org/automaxprocs v1.4.0 // indirect
 	go.uber.org/zap v1.14.1
 	golang.org/x/sys v0.0.0-20210908233432-aa78b53d3365
 	google.golang.org/grpc v1.26.0

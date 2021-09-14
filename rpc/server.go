@@ -74,7 +74,7 @@ func NewGRPCServer(cfg config.GRPC) GRPCServer {
 				grpcServerTracker.UnaryServerInterceptor(),
 				grpcrecovery.UnaryServerInterceptor(opts...),
 			)),
-			grpc.MaxConcurrentStreams(cfg.MaxConcurrentStreams),
+			grpc.MaxConcurrentStreams(uint32(cfg.MaxConcurrentStreams)),
 		),
 	}
 }
