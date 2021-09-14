@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -95,7 +96,7 @@ func NewDefaultCoordinator() *RepoState {
 // GRPC represents grpc server config
 type GRPC struct {
 	Port                 uint16         `toml:"port"`
-	MaxConcurrentStreams uint32         `toml:"max-concurrent-streams"`
+	MaxConcurrentStreams int            `toml:"max-concurrent-streams"`
 	ConnectTimeout       ltoml.Duration `toml:"connect-timeout"`
 }
 
@@ -103,7 +104,7 @@ func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
 port = %d
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-## Default: 30
+## Default: runtime.GOMAXPROCS(-1) * 2
 max-concurrent-streams = %d
 ## connect-timeout sets the timeout for connection establishment.
 ## Default: 3s
@@ -131,7 +132,7 @@ func (q *Query) TOML() string {
 	return fmt.Sprintf(`
 [query]
 ## Number of queries allowed to execute concurrently
-## Default: 30
+## Default: runtime.GOMAXPROCS(-1) * 2
 query-concurrency = %d
 ## Idle worker will be canceled in this duration
 ## Default: 5s
@@ -147,7 +148,7 @@ timeout = "%s"`,
 
 func NewDefaultQuery() *Query {
 	return &Query{
-		QueryConcurrency: 30,
+		QueryConcurrency: runtime.GOMAXPROCS(-1) * 2,
 		IdleTimeout:      ltoml.Duration(5 * time.Second),
 		Timeout:          ltoml.Duration(5 * time.Second),
 	}
@@ -177,7 +178,7 @@ func checkGRPCCfg(grpcCfg *GRPC) error {
 		return fmt.Errorf("grpc endpoint cannot be empty")
 	}
 	if grpcCfg.MaxConcurrentStreams <= 0 {
-		grpcCfg.MaxConcurrentStreams = 30
+		grpcCfg.MaxConcurrentStreams = runtime.GOMAXPROCS(-1) * 2
 	}
 	if grpcCfg.ConnectTimeout <= 0 {
 		grpcCfg.ConnectTimeout = ltoml.Duration(time.Second * 3)

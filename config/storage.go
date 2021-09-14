@@ -19,7 +19,9 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -60,17 +62,17 @@ max-memdb-total-size = "%s"
 max-memdb-number = %d
 ## Mutable memdb will switch to immutable this often,
 ## event if the configured memdb-size is not reached.
-## Default: 1h
+## Default: 30min
 mutable-memdb-ttl = "%s"
 ## Global flush operation will be triggered
 ## when system memory usage is higher than this ratio.
-## Default: 0.85
+## Default: 0.75
 max-mem-usage-before-flush = %.2f
 ## Global flush operation will be stopped 
 ## when system memory usage is lower than this ration.
 ## Default: 0.60
 target-mem-usage-after-flush = %.2f
-## concurrency of goroutines for flushing. Default: 4
+## concurrency of goroutines for flushing. Default: Ceil(runtime.GOMAXPROCS(-1) / 2)
 flush-concurrency = %d
 
 ## Time Series limitation
@@ -169,7 +171,7 @@ func NewDefaultStorageBase() *StorageBase {
 		Indicator: 1,
 		GRPC: GRPC{
 			Port:                 2891,
-			MaxConcurrentStreams: 30,
+			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 2,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		WAL: WAL{
@@ -182,10 +184,10 @@ func NewDefaultStorageBase() *StorageBase {
 			MaxMemDBSize:             ltoml.Size(500 * 1024 * 1024),
 			MaxMemDBNumber:           5,
 			MaxMemDBTotalSize:        ltoml.Size(2 * 1024 * 1024 * 1024),
-			MutableMemDBTTL:          ltoml.Duration(time.Hour),
-			MaxMemUsageBeforeFlush:   0.85,
+			MutableMemDBTTL:          ltoml.Duration(time.Minute * 30),
+			MaxMemUsageBeforeFlush:   0.75,
 			TargetMemUsageAfterFlush: 0.6,
-			FlushConcurrency:         4,
+			FlushConcurrency:         int(math.Ceil(float64(runtime.GOMAXPROCS(-1)) / 2)),
 			MaxSeriesIDsNumber:       200000,
 			MaxTagKeysNumber:         32,
 		},

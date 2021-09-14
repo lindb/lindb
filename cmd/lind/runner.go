@@ -20,14 +20,14 @@ package lind
 import (
 	"context"
 	"fmt"
-	"os"
-
 	_ "net/http/pprof"
+	"os"
 
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/pkg/logger"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -47,6 +47,10 @@ func run(ctx context.Context, service server.Service, reloadConfigFunc func() er
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// auto set maxprocs
+	_, _ = maxprocs.Set(maxprocs.Logger(func(s string, i ...interface{}) {
+		mainLogger.Info(fmt.Sprintf(s, i))
+	}))
 	// start service
 	if err := service.Run(); err != nil {
 		return fmt.Errorf("run service[%s] error:%s", service.Name(), err)
