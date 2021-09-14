@@ -65,9 +65,9 @@ func TestChunk_Append(t *testing.T) {
 
 func TestChunk_MarshalBinary(t *testing.T) {
 	c1 := newChunk(ltoml.Size(2))
-	data, err := c1.MarshalBinary()
+	compressed, err := c1.Compress()
 	assert.NoError(t, err)
-	assert.Nil(t, data)
+	assert.Nil(t, compressed)
 	testMarshal(c1, 2, t)
 	testMarshal(c1, 1, t)
 
@@ -76,14 +76,14 @@ func TestChunk_MarshalBinary(t *testing.T) {
 	row := makeTestBrokerRows()
 	_, _ = row.WriteTo(c2)
 
-	data, err = c2.MarshalBinary()
+	compressed, err = c2.Compress()
 	assert.NoError(t, err)
-	assert.NotNil(t, data)
+	assert.NotNil(t, compressed)
 }
 
 func testMarshal(chunk Chunk, count int, t *testing.T) {
-	data, err := chunk.MarshalBinary()
-	assert.Nil(t, data)
+	compressed, err := chunk.Compress()
+	assert.Nil(t, compressed)
 	assert.Nil(t, err)
 
 	var converter = metric.NewProtoConverter()
@@ -98,11 +98,11 @@ func testMarshal(chunk Chunk, count int, t *testing.T) {
 		}, &row)
 		_, _ = row.WriteTo(chunk)
 	}
-	data, err = chunk.MarshalBinary()
+	compressed, err = chunk.Compress()
 	assert.NoError(t, err)
-	assert.NotNil(t, data)
+	assert.NotNil(t, compressed)
 	var dst []byte
-	dst, err = snappy.Decode(dst, data)
+	dst, err = snappy.Decode(dst, *compressed)
 	assert.NoError(t, err)
 	var batch metric.StorageBatchRows
 	assert.NotPanics(t, func() {

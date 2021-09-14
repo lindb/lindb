@@ -38,7 +38,7 @@ import (
 var (
 	createChannel        = newChannel
 	databaseChannelScope = linmetric.NewScope("lindb.replica.database")
-	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "database")
+	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "db")
 )
 
 // DatabaseChannel represents the database level replication channel

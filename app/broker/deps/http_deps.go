@@ -38,8 +38,8 @@ type HTTPDeps struct {
 	Repo     state.Repository
 	StateMgr broker.StateManager
 
-	CM           replica.ChannelManager
-	WriteLimiter *concurrent.Limiter
+	CM            replica.ChannelManager
+	IngestLimiter *concurrent.Limiter
 
 	QueryFactory brokerQuery.Factory
 }

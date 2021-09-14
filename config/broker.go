@@ -56,14 +56,21 @@ read-timeout = "%s"`,
 }
 
 type Ingestion struct {
-	IngestTimeout ltoml.Duration `toml:"ingest-timeout"`
+	MaxConcurrency int            `toml:"max-write-concurrency"`
+	IngestTimeout  ltoml.Duration `toml:"ingest-timeout"`
 }
 
 func (i *Ingestion) TOML() string {
 	return fmt.Sprintf(`
+## How many goroutines can write metrics at the same time.
+## If writes requests exceeds the concurrency, 
+## ingestion HTTP API will be throttled.
+## Default: runtime.GOMAXPROCS(-1) * 2
+max-concurrency = %d
 ## maximum duration before timeout for server ingesting metrics
 ## Default: 5s
 ingest-timeout = "%s"`,
+		i.MaxConcurrency,
 		i.IngestTimeout.Duration().String())
 }
 
@@ -84,7 +91,6 @@ password = "%s"`,
 
 // Write represents config for write replication in broker.
 type Write struct {
-	MaxConcurrency int            `toml:"max-write-concurrency"`
 	BatchTimeout   ltoml.Duration `toml:"batch-timout"`
 	BatchBlockSize ltoml.Size     `toml:"batch-block-size"`
 }
@@ -93,17 +99,11 @@ func (rc *Write) TOML() string {
 	return fmt.Sprintf(`
 ## Write Configuration for writing replication block
 ## 
-## How many goroutines can write metrics at the same time.
-## If writes requests exceeds the concurrency, 
-## ingestion HTTP API will be throttled.
-## Default: runtime.GOMAXPROCS(-1) * 2
-max-concurrency = %d
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
 batch-size = "%s"`,
-		rc.MaxConcurrency,
 		rc.BatchTimeout.String(),
 		rc.BatchBlockSize.String(),
 	)
@@ -148,10 +148,10 @@ func NewDefaultBrokerBase() *BrokerBase {
 			WriteTimeout: ltoml.Duration(time.Second * 5),
 		},
 		Ingestion: Ingestion{
-			IngestTimeout: ltoml.Duration(time.Second * 5),
+			MaxConcurrency: runtime.GOMAXPROCS(-1) * 2,
+			IngestTimeout:  ltoml.Duration(time.Second * 5),
 		},
 		Write: Write{
-			MaxConcurrency: runtime.GOMAXPROCS(-1) * 2,
 			BatchTimeout:   ltoml.Duration(time.Second * 2),
 			BatchBlockSize: ltoml.Size(256 * 1024),
 		},
@@ -218,12 +218,12 @@ func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 	if brokerBaseCfg.Ingestion.IngestTimeout <= 0 {
 		brokerBaseCfg.Ingestion.IngestTimeout = defaultBrokerCfg.Ingestion.IngestTimeout
 	}
+	if brokerBaseCfg.Ingestion.MaxConcurrency <= 0 {
+		brokerBaseCfg.Ingestion.MaxConcurrency = defaultBrokerCfg.Ingestion.MaxConcurrency
+	}
 	// write check
 	if brokerBaseCfg.Write.BatchTimeout <= 0 {
 		brokerBaseCfg.Write.BatchTimeout = defaultBrokerCfg.Write.BatchTimeout
-	}
-	if brokerBaseCfg.Write.MaxConcurrency <= 0 {
-		brokerBaseCfg.Write.MaxConcurrency = defaultBrokerCfg.Write.MaxConcurrency
 	}
 	if brokerBaseCfg.Write.BatchBlockSize <= 0 {
 		brokerBaseCfg.Write.BatchBlockSize = defaultBrokerCfg.Write.BatchBlockSize
