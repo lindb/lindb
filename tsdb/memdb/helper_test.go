@@ -84,7 +84,7 @@ func Benchmark_syncMap(b *testing.B) {
 	}
 
 	wg := sync.WaitGroup{}
-	for g := 0; g < runtime.NumCPU()*100; g++ {
+	for g := 0; g < runtime.GOMAXPROCS(-1)*100; g++ {
 		wg.Add(1)
 		go func() {
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -104,7 +104,7 @@ func Benchmark_rwLockedMap(b *testing.B) {
 		rwmap.m[i] = i
 	}
 	wg := sync.WaitGroup{}
-	for g := 0; g < runtime.NumCPU()*100; g++ {
+	for g := 0; g < runtime.GOMAXPROCS(-1)*100; g++ {
 		wg.Add(1)
 		go func() {
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -127,7 +127,7 @@ func Benchmark_shardingRwLockedMap(b *testing.B) {
 		srwmap.Set(i, i)
 	}
 	wg := sync.WaitGroup{}
-	for g := 0; g < runtime.NumCPU()*100; g++ {
+	for g := 0; g < runtime.GOMAXPROCS(-1)*100; g++ {
 		wg.Add(1)
 		go func() {
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -149,7 +149,7 @@ func Benchmark_spinLockMap(b *testing.B) {
 	}
 
 	wg := sync.WaitGroup{}
-	for g := 0; g < runtime.NumCPU()*100; g++ {
+	for g := 0; g < runtime.GOMAXPROCS(-1)*100; g++ {
 		wg.Add(1)
 		go func() {
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))

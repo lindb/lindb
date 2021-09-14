@@ -216,8 +216,12 @@ type memoryDataFilterTask struct {
 }
 
 // newMemoryDataFilterTask creates memory data filter task
-func newMemoryDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
+func newMemoryDataFilterTask(
+	ctx *storageExecuteContext,
+	shard tsdb.Shard,
+	metricID uint32,
+	fields field.Metas,
+	seriesIDs *roaring.Bitmap,
 	timeSpan *timeSpanResultSet,
 ) flow.QueryTask {
 	task := &memoryDataFilterTask{
