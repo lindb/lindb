@@ -28,9 +28,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/replica"
 )
 
@@ -40,6 +42,13 @@ func Test_Influx_Write(t *testing.T) {
 
 	cm := replica.NewMockChannelManager(ctrl)
 	api := NewInfluxWriter(&deps.HTTPDeps{
+		BrokerCfg: &config.Broker{
+			BrokerBase: config.BrokerBase{
+				Ingestion: config.Ingestion{
+					IngestTimeout: ltoml.Duration(time.Second * 2),
+				},
+			},
+		},
 		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
 			32,
@@ -61,7 +70,7 @@ func Test_Influx_Write(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// influx line format without timestamp
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
+	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
 	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns3&enrich_tag=a=b", `
 # bad line
 a,v=c,d=f a=2 b=3 c=4
@@ -69,7 +78,7 @@ a,v=c,d=f a=2 b=3 c=4
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// write error
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
+	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
 	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test3&enrich_tag=a=b", `
 # good line
 measurement,foo=bar value=12 1439587925
@@ -78,7 +87,7 @@ measurement value=12 1439587925
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	// no content
-	cm.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil)
+	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	resp = mock.DoRequest(t, r, http.MethodPut, InfluxWritePath+"?db=test&ns=ns4&enrich_tag=a=b", `
 # good line
 measurement,foo=bar value=12 1439587925
