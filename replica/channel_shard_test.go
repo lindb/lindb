@@ -63,9 +63,9 @@ func TestChannel_Write(t *testing.T) {
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}, &brokerRow))
-	err := ch.Write([]metric.BrokerRow{brokerRow})
+	err := ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
-	err = ch.Write([]metric.BrokerRow{brokerRow})
+	err = ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	cancel()
@@ -92,7 +92,7 @@ func TestChannel_Write(t *testing.T) {
 	chunk.EXPECT().IsFull().Return(true)
 	data2 := compressedChunk([]byte{1, 2, 3})
 	chunk.EXPECT().Compress().Return(&data2, nil)
-	err = ch.Write([]metric.BrokerRow{brokerRow})
+	err = ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
 	time.Sleep(time.Millisecond * 500)
 }
@@ -127,7 +127,7 @@ func TestChannel_checkFlush(t *testing.T) {
 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
 	}, &brokerRow))
 
-	err := ch.Write([]metric.BrokerRow{brokerRow})
+	err := ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	time.Sleep(time.Second)
@@ -165,7 +165,7 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	}, &brokerRow))
 
 	ch.SyncShardState(models.ShardState{}, nil)
-	err := ch.Write([]metric.BrokerRow{brokerRow})
+	err := ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
 	var data = compressedChunk([]byte{1, 2, 3})
@@ -205,7 +205,7 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	chunk.EXPECT().Write(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
 	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
-	err := ch.Write([]metric.BrokerRow{brokerRow})
+	err := ch.Write(context.TODO(), []metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
 
 	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))

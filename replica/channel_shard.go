@@ -40,7 +40,7 @@ type Channel interface {
 	// Write writes the data into the channel,
 	// ErrCanceled is returned when the channel is canceled before data is written successfully.
 	// Concurrent safe.
-	Write(rows []metric.BrokerRow) error
+	Write(ctx context.Context, rows []metric.BrokerRow) error
 
 	SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 
@@ -111,7 +111,7 @@ func newChannel(
 // Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
 // data is wrote successfully.
 // Concurrent safe.
-func (c *channel) Write(rows []metric.BrokerRow) error {
+func (c *channel) Write(ctx context.Context, rows []metric.BrokerRow) error {
 	c.lock4write.Lock()
 	defer c.lock4write.Unlock()
 
@@ -123,14 +123,14 @@ func (c *channel) Write(rows []metric.BrokerRow) error {
 			return err
 		}
 
-		if err := c.flushChunkOnFull(); err != nil {
+		if err := c.flushChunkOnFull(ctx); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *channel) flushChunkOnFull() error {
+func (c *channel) flushChunkOnFull(ctx context.Context) error {
 	if !c.chunk.IsFull() {
 		return nil
 	}
@@ -141,6 +141,8 @@ func (c *channel) flushChunkOnFull() error {
 	select {
 	case c.ch <- compressed:
 		return nil
+	case <-ctx.Done():
+		return ErrCanceled
 	case <-c.ctx.Done():
 		return ErrCanceled
 	}
