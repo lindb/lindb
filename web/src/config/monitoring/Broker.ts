@@ -26,16 +26,16 @@ export const BrokerDashboard = [
             UnitEnum.None,
         ),
         metric(
-            'Throttle Writes Of Concurrency Limiter',
-            'select throttle_requests from lindb.broker.write_limiter',
+            'Throttle Ingestion Of Concurrency Limiter',
+            'select throttle_requests from lindb.broker.ingestion_limiter',
             8,
             UnitEnum.None,
         ),
     ],
     [
         metric(
-            'Timeout Writes Of Concurrency Limiter',
-            'select timeout_requests from lindb.broker.write_limiter',
+            'Timeout Ingestion Of Concurrency Limiter',
+            'select timeout_requests from lindb.broker.ingestion_limiter',
             8,
             UnitEnum.None,
         ),

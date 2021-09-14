@@ -64,7 +64,7 @@ type channel struct {
 
 	fct rpc.ClientStreamFactory
 	// channel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
-	ch chan []byte
+	ch chan *compressedChunk
 
 	chunk Chunk // buffer current writeTask metric for compress
 
@@ -96,7 +96,7 @@ func newChannel(
 		shardID:            shardID,
 		newWriteStreamFn:   rpc.NewWriteStream,
 		fct:                fct,
-		ch:                 make(chan []byte, 2),
+		ch:                 make(chan *compressedChunk, 2),
 		running:            atomic.NewBool(false),
 		checkFlushInterval: time.Second,
 		batchTimout:        cfg.BatchTimeout.Duration(),
@@ -134,12 +134,12 @@ func (c *channel) flushChunkOnFull() error {
 	if !c.chunk.IsFull() {
 		return nil
 	}
-	data, err := c.chunk.MarshalBinary()
+	compressed, err := c.chunk.Compress()
 	if err != nil {
 		return err
 	}
 	select {
-	case c.ch <- data:
+	case c.ch <- compressed:
 		return nil
 	case <-c.ctx.Done():
 		return ErrCanceled
@@ -184,16 +184,16 @@ func (c *channel) checkFlush() {
 
 // flushChunk flushes the chunk data and appends data into queue
 func (c *channel) flushChunk() {
-	data, err := c.chunk.MarshalBinary()
+	compressed, err := c.chunk.Compress()
 	if err != nil {
 		c.logger.Error("chunk marshal err", logger.Error(err))
 		return
 	}
-	if len(data) == 0 {
+	if compressed == nil || len(*compressed) == 0 {
 		return
 	}
 	select {
-	case c.ch <- data:
+	case c.ch <- compressed:
 	case <-c.ctx.Done():
 		c.logger.Warn("task has already canceled")
 	}
@@ -219,7 +219,7 @@ func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 		select {
 		case <-c.ctx.Done():
 			return
-		case data := <-c.ch:
+		case compressed := <-c.ch:
 			if stream == nil {
 				stream, err = c.newWriteStreamFn(c.ctx, target, c.database, &shardState, c.fct)
 				if err != nil {
@@ -228,8 +228,8 @@ func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
 					continue
 				}
 			}
-			if err := stream.Send(data); err == nil {
-				putMarshalBlock(&data)
+			if err := stream.Send(*compressed); err == nil {
+				compressed.Release()
 			} else {
 				c.logger.Error("send write request err", logger.Error(err))
 				if err == io.EOF {

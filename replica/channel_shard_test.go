@@ -85,11 +85,13 @@ func TestChannel_Write(t *testing.T) {
 	chunk := NewMockChunk(ctrl)
 	ch1.chunk = chunk
 	// make sure chan is full
-	ch1.ch <- []byte{1, 2}
-	ch1.ch <- []byte{1, 2}
+	var data = compressedChunk([]byte{1, 2})
+	ch1.ch <- &data
+	ch1.ch <- &data
 	chunk.EXPECT().Write(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
-	chunk.EXPECT().MarshalBinary().Return([]byte{1, 2, 3}, nil)
+	data2 := compressedChunk([]byte{1, 2, 3})
+	chunk.EXPECT().Compress().Return(&data2, nil)
 	err = ch.Write([]metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
 	time.Sleep(time.Millisecond * 500)
@@ -140,8 +142,11 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	}()
 	stream := rpc.NewMockWriteStream(ctrl)
 	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	stream.EXPECT().Close().Return(nil).AnyTimes()
 
-	ch := newChannel(context.TODO(), "database", 1, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch := newChannel(ctx, "database", 1, nil)
 	ch1 := ch.(*channel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
@@ -163,7 +168,8 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.NoError(t, err)
 
-	ch1.ch <- []byte{1, 2, 3}
+	var data = compressedChunk([]byte{1, 2, 3})
+	ch1.ch <- &data
 	ch1.writePendingBeforeClose()
 }
 
@@ -198,12 +204,12 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 
 	chunk.EXPECT().Write(gomock.Any())
 	chunk.EXPECT().IsFull().Return(true)
-	chunk.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
+	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
 	err := ch.Write([]metric.BrokerRow{brokerRow})
 	assert.Error(t, err)
 
-	chunk.EXPECT().MarshalBinary().Return(nil, fmt.Errorf("err"))
+	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
 	ch1.flushChunk()
-	chunk.EXPECT().MarshalBinary().Return(nil, nil)
+	chunk.EXPECT().Compress().Return(nil, nil)
 	ch1.flushChunk()
 }

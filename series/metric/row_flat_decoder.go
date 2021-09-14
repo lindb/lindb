@@ -77,6 +77,7 @@ func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 	itr.resetForNextDecode()
 
 	if len(itr.block) < 4 {
+		itr.block = nil
 		return fmt.Errorf("flat block too short: %d", len(itr.block))
 	}
 	size := flatbuffers.GetSizePrefix(itr.block, 0)

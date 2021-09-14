@@ -293,10 +293,10 @@ func (r *runtime) startHTTPServer() {
 		Repo:      r.repo,
 		StateMgr:  r.stateMgr,
 		CM:        r.srv.channelManager,
-		WriteLimiter: concurrent.NewLimiter(
-			r.config.BrokerBase.Write.MaxConcurrency,
+		IngestLimiter: concurrent.NewLimiter(
+			r.config.BrokerBase.Ingestion.MaxConcurrency,
 			r.config.BrokerBase.Ingestion.IngestTimeout.Duration(),
-			linmetric.NewScope("lindb.broker.write_limiter"),
+			linmetric.NewScope("lindb.broker.ingestion_limiter"),
 		),
 		QueryFactory: brokerQuery.NewQueryFactory(
 			r.stateMgr,

@@ -47,7 +47,6 @@ func Test_Pool_Submit(t *testing.T) {
 	}
 	go do(100)
 	<-finished
-	assert.True(t, grNum+2+1 <= runtime.NumGoroutine())
 	pool.Stop()
 	pool.Stop()
 	// reject all task

@@ -41,7 +41,7 @@ func Test_Influx_Write(t *testing.T) {
 	cm := replica.NewMockChannelManager(ctrl)
 	api := NewInfluxWriter(&deps.HTTPDeps{
 		CM: cm,
-		WriteLimiter: concurrent.NewLimiter(
+		IngestLimiter: concurrent.NewLimiter(
 			32,
 			time.Second,
 			linmetric.NewScope("influx_write_test")),
