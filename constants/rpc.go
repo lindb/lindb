@@ -18,8 +18,8 @@
 package constants
 
 const (
-	RPCMetaKeyLogicNode  = "LogicNode"
-	RPCMetaKeyDatabase   = "Database"
-	RPCMetaKeyShardState = "ShardState"
-	RPCMetaReplicaState  = "ReplicaState"
+	RPCMetaKeyLogicNode   = "LogicNode"
+	RPCMetaKeyDatabase    = "Database"
+	RPCMetaKeyFamilyState = "FamilyState"
+	RPCMetaReplicaState   = "ReplicaState"
 )

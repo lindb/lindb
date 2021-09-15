@@ -44,31 +44,26 @@ func TestWriteHandler_Write(t *testing.T) {
 	replicaServer.EXPECT().Context().Return(context.TODO())
 	r := NewWriteHandler(walMgr)
 
-	// case 1: database not exist
+	// case 1: family state not exist
 	err := r.Write(replicaServer)
 	assert.Error(t, err)
-	// case 2: shard not exist
-	ctx := metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db"))
-	replicaServer.EXPECT().Context().Return(ctx)
-	err = r.Write(replicaServer)
-	assert.Error(t, err)
 	// case 3: shard decode err
-	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
-			constants.RPCMetaKeyShardState, strconv.Itoa(1)))
+	ctx := metadata.NewIncomingContext(context.TODO(),
+		metadata.Pairs(constants.RPCMetaKeyFamilyState, strconv.Itoa(1)))
 	replicaServer.EXPECT().Context().Return(ctx)
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
 
 	// case 3: create partition err
 	ctx = metadata.NewIncomingContext(context.TODO(),
-		metadata.Pairs(constants.RPCMetaKeyDatabase, "test-db",
-			constants.RPCMetaKeyShardState,
-			`{
-				"id":1,
-				"leader":2,
-				"replica":{"replicas":[1,2,3]}
+		metadata.Pairs(constants.RPCMetaKeyFamilyState,
+			`{  "database":"test-db",
+				"shard":{
+					"id":1,
+					"leader":2,
+					"replica":{"replicas":[1,2,3]}
+				},
+				"familyTime":12321
 			}`))
 	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
 	wal := replica.NewMockWriteAheadLog(ctrl)
