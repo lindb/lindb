@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
@@ -54,24 +55,38 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 	// only one shard
 	itr := brokerRows.NewShardGroupIterator(1)
 	assert.True(t, itr.HasRowsForNextShard())
-	shardID, rows := itr.RowsForNextShard()
+	var interval timeutil.Interval
+	_ = interval.ValueOf("10s")
+	shardID, familyItr := itr.FamilyRowsForNextShard(interval)
+	var (
+		allRows  []BrokerRow
+		families int
+	)
+
+	for familyItr.HasNextFamily() {
+		_, rows := familyItr.NextFamily()
+		families++
+		allRows = append(allRows, rows...)
+	}
 	assert.Equal(t, models.ShardID(0), shardID)
-	assert.Len(t, rows, 1000)
+	assert.Len(t, allRows, 1000)
 	assert.False(t, itr.HasRowsForNextShard())
 
 	itr = brokerRows.NewShardGroupIterator(10)
 	for i := 0; i < 10; i++ {
 		assert.True(t, itr.HasRowsForNextShard())
-		shardID, rows = itr.RowsForNextShard()
+		shardID, familyItr = itr.FamilyRowsForNextShard(interval)
 		assert.Equal(t, models.ShardID(i), shardID)
+		assert.True(t, familyItr.HasNextFamily())
+		_, rows := familyItr.NextFamily()
 		assert.True(t, len(rows) > 0)
 		assert.Len(t, brokerRows.Rows(), 1000)
 	}
 	assert.False(t, itr.HasRowsForNextShard())
 
 	// eviction
-	assert.Equal(t, 999,
-		brokerRows.EvictOutOfTimeRange(100, 100))
+	assert.InDelta(t, 1000,
+		brokerRows.EvictOutOfTimeRange(100, 100), 100)
 }
 
 func buildRow(row *BrokerRow, timestamp int64) {
@@ -113,4 +128,78 @@ func Test_BrokerRow_Writer(t *testing.T) {
 	n, err = row.WriteTo(&buf)
 	assert.Equal(t, 4, n)
 	assert.NoError(t, err)
+}
+
+func Test_BrokerBatchRows_FamilyRowsForNextShard_SingleShard(t *testing.T) {
+	now := fasttime.UnixMilliseconds()
+
+	var brokerRows BrokerBatchRows
+	for i := 0; i < 30; i++ {
+		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
+			buildRow(row, now)
+			return nil
+		})
+	}
+
+	for i := 30; i < 50; i++ {
+		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
+			buildRow(row, now-timeutil.OneHour)
+			return nil
+		})
+	}
+
+	for i := 50; i < 100; i++ {
+		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
+			buildRow(row, now+timeutil.OneHour)
+			return nil
+		})
+	}
+	var interval timeutil.Interval
+	_ = interval.ValueOf("10s")
+
+	// one shard
+	itr := brokerRows.NewShardGroupIterator(1)
+	assert.True(t, itr.HasRowsForNextShard())
+
+	shardID, familyItr := itr.FamilyRowsForNextShard(interval)
+	assert.Equal(t, models.ShardID(0), shardID)
+
+	// last family
+	assert.True(t, familyItr.HasNextFamily())
+	familyTime, rows := familyItr.NextFamily()
+	t.Log(familyTime)
+	assert.Len(t, rows, 20)
+
+	// current family
+	assert.True(t, familyItr.HasNextFamily())
+	familyTime, rows = familyItr.NextFamily()
+	t.Log(familyTime)
+	assert.Len(t, rows, 30)
+
+	// next family
+	assert.True(t, familyItr.HasNextFamily())
+	familyTime, rows = familyItr.NextFamily()
+	t.Log(familyTime)
+	assert.Len(t, rows, 50)
+
+	assert.False(t, familyItr.HasNextFamily())
+}
+
+func Test_BrokerBatchRows_FamilyRowsForNextShard_SameFamily(t *testing.T) {
+	now := fasttime.UnixMilliseconds()
+
+	var brokerRows BrokerBatchRows
+	for i := 0; i < 30; i++ {
+		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
+			buildRow(row, now)
+			return nil
+		})
+	}
+	itr := brokerRows.NewShardGroupIterator(1)
+	var interval timeutil.Interval
+	_ = interval.ValueOf("10s")
+	assert.True(t, itr.HasRowsForNextShard())
+	_, familyItr := itr.FamilyRowsForNextShard(interval)
+	assert.True(t, familyItr.HasNextFamily())
+	assert.False(t, familyItr.HasNextFamily())
 }
