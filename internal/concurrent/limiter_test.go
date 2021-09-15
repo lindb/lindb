@@ -18,6 +18,7 @@
 package concurrent
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 
 func Test_Limiter(t *testing.T) {
 	limiter := NewLimiter(
+		context.TODO(),
 		10,
 		time.Millisecond,
 		linmetric.NewScope("test_limiter"),

@@ -18,6 +18,7 @@
 package ingest
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"testing"
@@ -52,6 +53,7 @@ func Test_NativeWriter(t *testing.T) {
 		},
 		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
+			context.TODO(),
 			32,
 			time.Second,
 			linmetric.NewScope("proto_write_test")),
