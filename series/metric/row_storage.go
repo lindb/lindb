@@ -89,6 +89,8 @@ func (br *StorageBatchRows) Less(i, j int) bool {
 func (br *StorageBatchRows) Swap(i, j int)      { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
 func (br *StorageBatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }
 
+// todo: @codingcrush, remove family iterator for storage.
+
 // NewFamilyIterator provides a method for iterating data with family
 func (br *StorageBatchRows) NewFamilyIterator(interval timeutil.Interval) *StorageRowFamilyIterator {
 	br.familyIterator.batch = br

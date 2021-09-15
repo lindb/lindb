@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"math"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/lindb/lindb/pkg/fasttime"
@@ -38,7 +39,7 @@ func makeProtoMetricV1(timestamp int64) *protoMetricsV1.Metric {
 	m.Timestamp = timestamp
 
 	var keyValues = tag.KeyValuesFromMap(map[string]string{
-		"host": "test",
+		"host": strconv.FormatInt(timestamp, 10),
 		"ip":   "1.1.1.1",
 		"zone": "sh",
 	})
@@ -102,7 +103,7 @@ func Test_MarshalProtoMetricsV1List(t *testing.T) {
 	itr := row.NewKeyValueIterator()
 	assert.True(t, itr.HasNext())
 	assert.Equal(t, "host", string(itr.NextKey()))
-	assert.Equal(t, "test", string(itr.NextValue()))
+	assert.NotEmpty(t, "test", string(itr.NextValue()))
 
 	assert.True(t, itr.HasNext())
 	assert.Equal(t, "ip", string(itr.NextKey()))

@@ -64,6 +64,7 @@ type (
 		fct           rpc.ClientStreamFactory
 		numOfShard    atomic.Int32
 		shardChannels shardChannels
+		interval      timeutil.Interval
 
 		statistics struct {
 			evictedCounter *linmetric.BoundCounter
@@ -91,6 +92,7 @@ func newDatabaseChannel(
 	_ = behind.ValueOf(databaseCfg.Option.Behind)
 	ch.ahead = atomic.NewInt64(ahead.Int64())
 	ch.behind = atomic.NewInt64(behind.Int64())
+	_ = ch.interval.ValueOf(databaseCfg.Option.Interval)
 	if ch.ahead.Load() <= 0 {
 		ch.ahead.Store(constants.MetricMaxBehindDuration)
 	}
@@ -116,7 +118,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 	// sharding metrics to shards
 	shardingIterator := brokerBatchRows.NewShardGroupIterator(dc.numOfShard.Load())
 	for shardingIterator.HasRowsForNextShard() {
-		shardID, rows := shardingIterator.RowsForNextShard()
+		shardID, familyIterator := shardingIterator.FamilyRowsForNextShard(dc.interval)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
 			err = errChannelNotFound
@@ -126,10 +128,14 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 				logger.Any("shardID", shardID))
 			continue
 		}
-		if err = channel.Write(ctx, rows); err != nil {
-			log.Error("channel writeTask data error",
-				logger.String("database", dc.databaseCfg.Name),
-				logger.Any("shardID", shardID))
+		for familyIterator.HasNextFamily() {
+			// todo: @stone, write with families
+			_, rows := familyIterator.NextFamily()
+			if err = channel.Write(ctx, rows); err != nil {
+				log.Error("channel writeTask data error",
+					logger.String("database", dc.databaseCfg.Name),
+					logger.Any("shardID", shardID))
+			}
 		}
 	}
 	//TODO if need return nil?

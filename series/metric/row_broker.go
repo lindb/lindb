@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
@@ -147,6 +148,8 @@ type BrokerBatchShardIterator struct {
 	groupShardID models.ShardID // group shard id
 
 	batch *BrokerBatchRows
+
+	familyIterator BrokerBatchShardFamilyIterator
 }
 
 // Reset re-sorts batch rows for batching inserting
@@ -173,9 +176,112 @@ func (itr *BrokerBatchShardIterator) HasRowsForNextShard() bool {
 	return itr.groupStart < itr.groupEnd
 }
 
-func (itr *BrokerBatchShardIterator) RowsForNextShard() (
+func (itr *BrokerBatchShardIterator) FamilyRowsForNextShard(
+	interval timeutil.Interval,
+) (
 	shardID models.ShardID,
-	rows []BrokerRow,
+	familyIterator *BrokerBatchShardFamilyIterator,
 ) {
-	return itr.groupShardID, itr.batch.rows[itr.groupStart:itr.groupEnd]
+	itr.familyIterator.reset(
+		itr.batch.rows[itr.groupStart:itr.groupEnd],
+		interval,
+	)
+	return itr.groupShardID, &itr.familyIterator
 }
+
+// BrokerBatchShardFamilyIterator grouping broker rows with families
+// rows will be batched inserted into shard-channel for replication
+type BrokerBatchShardFamilyIterator struct {
+	groupEnd        int
+	groupStart      int
+	groupFamilyTime int64 // group family time
+
+	sameFamily bool
+
+	rows familySortedRows
+
+	intervalCalc timeutil.IntervalCalculator
+}
+
+func (itr *BrokerBatchShardFamilyIterator) reset(
+	rows []BrokerRow,
+	interval timeutil.Interval,
+) {
+	itr.groupEnd = 0
+	itr.groupStart = 0
+	itr.rows = rows
+	itr.intervalCalc = interval.Calculator()
+	itr.groupFamilyTime = 0
+	itr.rows = rows
+	// fast path, all rows are same family
+	if itr.sameFamily = itr.isSameFamily(); itr.sameFamily {
+		return
+	}
+	sort.Sort(itr.rows)
+}
+
+func (itr *BrokerBatchShardFamilyIterator) isSameFamily() bool {
+	if len(itr.rows) == 0 {
+		return true
+	}
+	firstTimestamp := itr.rows[0].m.Timestamp()
+	itr.groupFamilyTime = itr.familyTimeOfTimestamp(firstTimestamp)
+	timeRange := itr.timeRangeOfTimestamp(firstTimestamp)
+	for i := 1; i < len(itr.rows); i++ {
+		if !timeRange.Contains(itr.rows[i].m.Timestamp()) {
+			return false
+		}
+	}
+	return true
+}
+
+func (itr *BrokerBatchShardFamilyIterator) HasNextFamily() bool {
+	if itr.groupEnd >= len(itr.rows) || itr.groupStart > itr.groupEnd {
+		return false
+	}
+	if itr.sameFamily {
+		itr.groupEnd = len(itr.rows)
+		itr.groupStart = 0
+		return true
+	}
+
+	firstTimestamp := itr.rows[itr.groupEnd].m.Timestamp()
+	timeRange := itr.timeRangeOfTimestamp(firstTimestamp)
+	itr.groupStart = itr.groupEnd
+	itr.groupFamilyTime = itr.familyTimeOfTimestamp(firstTimestamp)
+
+	for itr.groupEnd < len(itr.rows) {
+		if !timeRange.Contains(itr.rows[itr.groupEnd].m.Timestamp()) {
+			break
+		}
+		itr.groupEnd++
+	}
+	return itr.groupStart < itr.groupEnd
+}
+
+func (itr *BrokerBatchShardFamilyIterator) NextFamily() (familyTime int64, rows []BrokerRow) {
+	return itr.groupFamilyTime, itr.rows[itr.groupStart:itr.groupEnd]
+}
+
+func (itr *BrokerBatchShardFamilyIterator) familyTimeOfTimestamp(timestamp int64) int64 {
+	segmentTime := itr.intervalCalc.CalcSegmentTime(timestamp)
+	family := itr.intervalCalc.CalcFamily(timestamp, segmentTime)
+	return itr.intervalCalc.CalcFamilyStartTime(segmentTime, family)
+}
+
+func (itr *BrokerBatchShardFamilyIterator) timeRangeOfTimestamp(timestamp int64) timeutil.TimeRange {
+	segmentTime := itr.intervalCalc.CalcSegmentTime(timestamp)
+	family := itr.intervalCalc.CalcFamily(timestamp, segmentTime)
+	familyStartTime := itr.intervalCalc.CalcFamilyStartTime(segmentTime, family)
+	return timeutil.TimeRange{
+		Start: familyStartTime,
+		End:   itr.intervalCalc.CalcFamilyEndTime(familyStartTime),
+	}
+}
+
+// sort rows by timestamp, so we will
+type familySortedRows []BrokerRow
+
+func (fr familySortedRows) Len() int           { return len(fr) }
+func (fr familySortedRows) Less(i, j int) bool { return fr[i].m.Timestamp() < fr[j].m.Timestamp() }
+func (fr familySortedRows) Swap(i, j int)      { fr[i], fr[j] = fr[j], fr[i] }
