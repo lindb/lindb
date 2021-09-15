@@ -49,6 +49,13 @@ type ShardState struct {
 	Replica Replica        `json:"replica"`
 }
 
+// FamilyState represents current state of shard's family.
+type FamilyState struct {
+	Database   string     `json:"database"`
+	Shard      ShardState `json:"shard"`
+	FamilyTime int64      `json:"familyTime"`
+}
+
 // StorageState represents storage cluster state.
 // NOTICE: it is not safe for concurrent use. //TODO need concurrent safe????
 type StorageState struct {

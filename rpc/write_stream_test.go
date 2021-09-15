@@ -40,7 +40,7 @@ func TestNewWriteStream(t *testing.T) {
 
 	// case 1: create write service cli err
 	fct.EXPECT().CreateWriteServiceClient(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	stream, err := NewWriteStream(context.TODO(), nil, "test", nil, fct)
+	stream, err := NewWriteStream(context.TODO(), nil, "test", &models.ShardState{}, 1, fct)
 	assert.Error(t, err)
 	assert.Nil(t, stream)
 
@@ -48,7 +48,7 @@ func TestNewWriteStream(t *testing.T) {
 	writeSrv := protoWriteV1.NewMockWriteServiceClient(ctrl)
 	fct.EXPECT().CreateWriteServiceClient(gomock.Any()).Return(writeSrv, nil).AnyTimes()
 	writeSrv.EXPECT().Write(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	stream, err = NewWriteStream(context.TODO(), nil, "test", nil, fct)
+	stream, err = NewWriteStream(context.TODO(), nil, "test", &models.ShardState{}, 1, fct)
 	assert.Error(t, err)
 	assert.Nil(t, stream)
 
@@ -57,7 +57,7 @@ func TestNewWriteStream(t *testing.T) {
 	writeSrv.EXPECT().Write(gomock.Any()).Return(cli, nil)
 	cli.EXPECT().Recv().Return(nil, io.EOF).AnyTimes()
 	cli.EXPECT().Context().Return(context.TODO()).AnyTimes()
-	stream, err = NewWriteStream(context.TODO(), &models.StatefulNode{}, "test", &models.ShardState{}, fct)
+	stream, err = NewWriteStream(context.TODO(), &models.StatefulNode{}, "test", &models.ShardState{}, 1, fct)
 	assert.NoError(t, err)
 	assert.NotNil(t, stream)
 

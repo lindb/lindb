@@ -48,6 +48,7 @@ type writeStream struct {
 	target     models.Node
 	database   string
 	shardState *models.ShardState
+	familyTime int64
 
 	fct    ClientStreamFactory
 	cli    protoWriteV1.WriteService_WriteClient
@@ -60,7 +61,7 @@ type writeStream struct {
 func NewWriteStream(
 	ctx context.Context,
 	target models.Node,
-	database string, shardState *models.ShardState,
+	database string, shardState *models.ShardState, familyTime int64,
 	fct ClientStreamFactory,
 ) (WriteStream, error) {
 	c, cancel := context.WithCancel(ctx)
@@ -70,6 +71,7 @@ func NewWriteStream(
 		target:     target,
 		database:   database,
 		shardState: shardState,
+		familyTime: familyTime,
 		fct:        fct,
 		closed:     atomic.NewBool(false),
 		logger:     logger.GetLogger("rpc", "WriteStream"),
@@ -89,11 +91,13 @@ func (s *writeStream) initialize() error {
 		return err
 	}
 
-	// pass metadata(database/shard state) when create rpc connection.
-	shardState := encoding.JSONMarshal(s.shardState)
-	ctx := CreateOutgoingContextWithPairs(s.ctx,
-		constants.RPCMetaKeyDatabase, s.database,
-		constants.RPCMetaKeyShardState, string(shardState))
+	// pass metadata(database/shard/family state) when create rpc connection.
+	familyState := encoding.JSONMarshal(&models.FamilyState{
+		Database:   s.database,
+		Shard:      *s.shardState,
+		FamilyTime: s.familyTime,
+	})
+	ctx := CreateOutgoingContextWithPairs(s.ctx, constants.RPCMetaKeyFamilyState, string(familyState))
 	writeCli, err := writeService.Write(ctx)
 
 	if err != nil {
