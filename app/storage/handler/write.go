@@ -52,21 +52,21 @@ func NewWriteHandler(
 
 // Write does metric write request.
 func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error {
-	database, shardState, err := r.getReplicasInfoFromCtx(server.Context())
+	familyState, err := r.getFamilyInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
-	if len(shardState.Replica.Replicas) == 0 {
+	if len(familyState.Shard.Replica.Replicas) == 0 {
 		return status.Error(codes.InvalidArgument, "replicas cannot be empty")
 	}
 
-	p, err := r.getOrCreatePartition(database, shardState.ID)
+	p, err := r.getOrCreatePartition(familyState.Database, familyState.Shard.ID)
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do write", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = p.BuildReplicaForLeader(shardState.Leader, shardState.Replica.Replicas)
+	err = p.BuildReplicaForLeader(familyState.Shard.Leader, familyState.Shard.Replica.Replicas)
 	if err != nil {
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
@@ -97,17 +97,13 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 	}
 }
 
-// getReplicasInfoFromCtx gets shard replica metadata from rpc context.
-func (r *WriteHandler) getReplicasInfoFromCtx(ctx context.Context) (database string, shardState models.ShardState, err error) {
-	database, err = rpc.GetStringFromContext(ctx, constants.RPCMetaKeyDatabase)
+// getFamilyInfoFromCtx returns family state metadata from rpc context.
+func (r *WriteHandler) getFamilyInfoFromCtx(ctx context.Context) (familyState models.FamilyState, err error) {
+	familyStateDate, err := rpc.GetStringFromContext(ctx, constants.RPCMetaKeyFamilyState)
 	if err != nil {
 		return
 	}
-	shardStateData, err := rpc.GetStringFromContext(ctx, constants.RPCMetaKeyShardState)
-	if err != nil {
-		return
-	}
-	err = encoding.JSONUnmarshal([]byte(shardStateData), &shardState)
+	err = encoding.JSONUnmarshal([]byte(familyStateDate), &familyState)
 	if err != nil {
 		return
 	}

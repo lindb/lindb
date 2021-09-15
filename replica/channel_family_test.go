@@ -49,7 +49,7 @@ func TestChannel_Write(t *testing.T) {
 	ch1 := ch.(*familyChannel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
-		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
 		return stream, nil
 	}
 	ch1.lock4write.Unlock()
@@ -74,7 +74,7 @@ func TestChannel_Write(t *testing.T) {
 	ch1 = ch.(*familyChannel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
-		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
 		return stream, nil
 	}
 	ch1.lock4write.Unlock()
@@ -110,7 +110,7 @@ func TestChannel_checkFlush(t *testing.T) {
 	ch1 := ch.(*familyChannel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
-		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
 		return stream, nil
 	}
 	ch1.lock4write.Unlock()
@@ -147,7 +147,7 @@ func TestChannel_write_pending_before_close(t *testing.T) {
 	ch1 := ch.(*familyChannel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
-		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
 		return stream, nil
 	}
 	ch1.lock4write.Unlock()
@@ -182,7 +182,7 @@ func TestChannel_chunk_marshal_err(t *testing.T) {
 	ch1 := ch.(*familyChannel)
 	ch1.lock4write.Lock()
 	ch1.newWriteStreamFn = func(ctx context.Context, target models.Node, database string,
-		shardState *models.ShardState, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
 		return stream, nil
 	}
 	ch1.lock4write.Unlock()

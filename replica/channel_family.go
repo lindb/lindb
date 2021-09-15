@@ -51,7 +51,7 @@ type familyChannel struct {
 	newWriteStreamFn func(
 		ctx context.Context,
 		target models.Node,
-		database string, shardState *models.ShardState,
+		database string, shardState *models.ShardState, familyTime int64,
 		fct rpc.ClientStreamFactory,
 	) (rpc.WriteStream, error)
 
@@ -131,6 +131,7 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	select {
 	case fc.ch <- compressed:
 		return nil
@@ -163,7 +164,7 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 			return
 		case compressed := <-fc.ch:
 			if stream == nil {
-				stream, err = fc.newWriteStreamFn(fc.ctx, target, fc.database, &shardState, fc.fct)
+				stream, err = fc.newWriteStreamFn(fc.ctx, target, fc.database, &shardState, fc.familyTime, fc.fct)
 				if err != nil {
 					//TODO do retry, add max retry count?
 					//c.ch <- data
