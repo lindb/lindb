@@ -38,7 +38,7 @@ type Chunk interface {
 	IsEmpty() bool
 	// Size returns the size of chunk
 	Size() ltoml.Size
-	// Append appends the metric into buffer
+	// Write writes the metric into buffer
 	Write([]byte) (n int, err error)
 }
 
