@@ -49,14 +49,21 @@ func (m *MetricAPI) Register(route gin.IRoutes) {
 
 // Search searches the metric data based on database and sql.
 func (m *MetricAPI) Search(c *gin.Context) {
+	if err := m.deps.QueryLimiter.Do(func() error {
+		return m.searchWithLimit(c)
+	}); err != nil {
+		http.Error(c, err)
+	}
+}
+
+func (m *MetricAPI) searchWithLimit(c *gin.Context) error {
 	var param struct {
 		Database string `form:"db" binding:"required"`
 		SQL      string `form:"sql" binding:"required"`
 	}
 	err := c.ShouldBind(&param)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), m.deps.BrokerCfg.Query.Timeout.Duration())
@@ -65,8 +72,8 @@ func (m *MetricAPI) Search(c *gin.Context) {
 	metricQuery := m.deps.QueryFactory.NewMetricQuery(ctx, param.Database, param.SQL)
 	resultSet, err := metricQuery.WaitResponse()
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	http.OK(c, resultSet)
+	return nil
 }

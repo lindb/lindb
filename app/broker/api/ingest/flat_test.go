@@ -19,6 +19,7 @@ package ingest
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"testing"
@@ -55,6 +56,7 @@ func Test_Flat_Write(t *testing.T) {
 		},
 		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
+			context.TODO(),
 			32,
 			time.Second,
 			linmetric.NewScope("influx_write_test")),

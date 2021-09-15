@@ -18,6 +18,7 @@
 package concurrent
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ import (
 var ErrConcurrencyLimiterTimeout = errors.New("reaches the max concurrency for writing")
 
 type Limiter struct {
+	ctx     context.Context
 	timeout time.Duration
 	tokens  chan struct{}
 
@@ -39,8 +41,9 @@ type Limiter struct {
 
 // NewLimiter creates a limiter based of buffer channel.
 // It limits the concurrency for writing.
-func NewLimiter(maxConcurrency int, timeout time.Duration, scope linmetric.Scope) *Limiter {
+func NewLimiter(ctx context.Context, maxConcurrency int, timeout time.Duration, scope linmetric.Scope) *Limiter {
 	l := &Limiter{
+		ctx:     ctx,
 		timeout: timeout,
 		tokens:  make(chan struct{}, maxConcurrency),
 	}
@@ -67,6 +70,8 @@ func (l *Limiter) Do(f func() error) error {
 		err := f()
 		<-l.tokens
 		return err
+	case <-l.ctx.Done():
+		return nil
 	case <-timer.C:
 		releaseTimer(timer)
 		l.statistics.timeouts.Incr()

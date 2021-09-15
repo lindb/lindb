@@ -40,6 +40,7 @@ type HTTPDeps struct {
 
 	CM            replica.ChannelManager
 	IngestLimiter *concurrent.Limiter
+	QueryLimiter  *concurrent.Limiter
 
 	QueryFactory brokerQuery.Factory
 }

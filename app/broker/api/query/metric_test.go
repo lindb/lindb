@@ -18,6 +18,7 @@
 package query
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -30,6 +31,8 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -50,6 +53,12 @@ func TestMetricAPI_Search(t *testing.T) {
 		BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		StateMgr:     stateMgr,
 		QueryFactory: queryFactory,
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metric_data_search"),
+		),
 	})
 	r := gin.New()
 	api.Register(r)
@@ -70,6 +79,12 @@ func TestNewMetricAPI_Search_Err(t *testing.T) {
 		BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second)}},
 		QueryFactory: queryFactory,
 		StateMgr:     stateMgr,
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metric_data_search"),
+		),
 	})
 	r := gin.New()
 	api.Register(r)
