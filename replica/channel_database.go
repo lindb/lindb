@@ -129,12 +129,13 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			continue
 		}
 		for familyIterator.HasNextFamily() {
-			// todo: @stone, write with families
-			_, rows := familyIterator.NextFamily()
-			if err = channel.Write(ctx, rows); err != nil {
+			familyTime, rows := familyIterator.NextFamily()
+			familyChannel := channel.GetOrCreateFamilyChannel(familyTime)
+			if err = familyChannel.Write(ctx, rows); err != nil {
 				log.Error("channel writeTask data error",
 					logger.String("database", dc.databaseCfg.Name),
-					logger.Any("shardID", shardID))
+					logger.Any("shardID", shardID),
+					logger.Int64("familyTime", familyTime))
 			}
 		}
 	}

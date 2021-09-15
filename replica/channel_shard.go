@@ -20,29 +20,21 @@ package replica
 import (
 	"context"
 	"fmt"
-	"io"
 	"sync"
-	"time"
-
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=replica
 
 // Channel represents a place to buffer the data for a specific cluster, database, shardID.
 type Channel interface {
-	// Write writes the data into the channel,
-	// ErrCanceled is returned when the channel is canceled before data is written successfully.
-	// Concurrent safe.
-	Write(ctx context.Context, rows []metric.BrokerRow) error
-
 	SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
+
+	GetOrCreateFamilyChannel(familyTime int64) FamilyChannel
 
 	Stop()
 }
@@ -51,33 +43,17 @@ type Channel interface {
 type channel struct {
 	// context to close channel
 	ctx context.Context
+	cfg config.Write
 
 	database string
 	shardID  models.ShardID
+	fct      rpc.ClientStreamFactory
 
-	newWriteStreamFn func(
-		ctx context.Context,
-		target models.Node,
-		database string, shardState *models.ShardState,
-		fct rpc.ClientStreamFactory,
-	) (rpc.WriteStream, error)
+	families   *familyChannelSet // send channel for each family time
+	shardState models.ShardState
+	liveNodes  map[models.NodeID]models.StatefulNode
 
-	fct rpc.ClientStreamFactory
-	// channel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
-	ch chan *compressedChunk
-
-	chunk Chunk // buffer current writeTask metric for compress
-
-	running *atomic.Bool
-
-	// last flush time
-	lastFlushTime time.Time
-	// interval for check flush
-	checkFlushInterval time.Duration
-	// interval for flush
-	batchTimout time.Duration
-
-	lock4write sync.Mutex
+	mutex sync.Mutex
 
 	logger *logger.Logger
 }
@@ -89,163 +65,52 @@ func newChannel(
 	shardID models.ShardID,
 	fct rpc.ClientStreamFactory,
 ) Channel {
-	cfg := config.GlobalBrokerConfig().Write
 	c := &channel{
-		ctx:                ctx,
-		database:           database,
-		shardID:            shardID,
-		newWriteStreamFn:   rpc.NewWriteStream,
-		fct:                fct,
-		ch:                 make(chan *compressedChunk, 2),
-		running:            atomic.NewBool(false),
-		checkFlushInterval: time.Second,
-		batchTimout:        cfg.BatchTimeout.Duration(),
-		chunk:              newChunk(cfg.BatchBlockSize),
-		lastFlushTime:      time.Now(),
-		logger:             logger.GetLogger("replica", "ShardChannel"),
+		ctx:      ctx,
+		cfg:      config.GlobalBrokerConfig().Write, //TODO
+		database: database,
+		shardID:  shardID,
+		families: newFamilyChannelSet(),
+		fct:      fct,
+		logger:   logger.GetLogger("replica", "ShardChannel"),
 	}
 
+	//TODO need add family gc task
 	return c
 }
 
-// Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
-// data is wrote successfully.
-// Concurrent safe.
-func (c *channel) Write(ctx context.Context, rows []metric.BrokerRow) error {
-	c.lock4write.Lock()
-	defer c.lock4write.Unlock()
-
-	if !c.running.Load() {
-		return fmt.Errorf("shard write channle is not running")
-	}
-	for idx := 0; idx < len(rows); idx++ {
-		if _, err := rows[idx].WriteTo(c.chunk); err != nil {
-			return err
-		}
-
-		if err := c.flushChunkOnFull(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *channel) flushChunkOnFull(ctx context.Context) error {
-	if !c.chunk.IsFull() {
-		return nil
-	}
-	compressed, err := c.chunk.Compress()
-	if err != nil {
-		return err
-	}
-	select {
-	case c.ch <- compressed:
-		return nil
-	case <-ctx.Done():
-		return ErrCanceled
-	case <-c.ctx.Done():
-		return ErrCanceled
-	}
-}
-
 func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {
-	if c.running.CAS(false, true) {
-		//TODO check target exist???
-		target := liveNodes[shardState.Leader]
-		go c.writeTask(shardState, &target)
-		c.logger.Info("start shard write channel successfully", logger.String("db", c.database),
-			logger.Any("shardID", c.shardID))
+	//TODO need sync shard state
+	c.shardState = shardState
+	c.liveNodes = liveNodes
+	c.logger.Info("start shard write channel successfully", logger.String("db", c.database),
+		logger.Any("shardID", c.shardID))
+}
+
+// GetOrCreateMemoryDatabase returns memory database by given family time.
+func (c *channel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
+	familyChannel, exist := c.families.GetFamilyChannel(familyTime)
+	if exist {
+		return familyChannel
 	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// double check
+	familyChannel, exist = c.families.GetFamilyChannel(familyTime)
+	if exist {
+		return familyChannel
+	}
+	fmt.Println(familyTime)
+	familyChannel = newFamilyChannel(c.ctx, c.cfg, c.database, c.shardID, familyTime, c.fct, c.shardState, c.liveNodes)
+	c.families.InsertFamily(familyTime, familyChannel)
+	return familyChannel
 }
 
 func (c *channel) Stop() {
-	c.running.Store(false)
-}
-
-func (c *channel) writePendingBeforeClose() {
-	// flush chunk pending data if chunk not empty
-	if !c.chunk.IsEmpty() {
-		// flush chunk pending data if chunk not empty
-		c.flushChunk()
-	}
-	close(c.ch)
-}
-
-func (c *channel) checkFlush() {
-	now := time.Now()
-	if now.After(c.lastFlushTime.Add(c.batchTimout)) {
-		c.lock4write.Lock()
-		defer c.lock4write.Unlock()
-
-		if !c.chunk.IsEmpty() {
-			c.flushChunk()
-		}
-		c.lastFlushTime = now
-	}
-}
-
-// flushChunk flushes the chunk data and appends data into queue
-func (c *channel) flushChunk() {
-	compressed, err := c.chunk.Compress()
-	if err != nil {
-		c.logger.Error("chunk marshal err", logger.Error(err))
-		return
-	}
-	if compressed == nil || len(*compressed) == 0 {
-		return
-	}
-	select {
-	case c.ch <- compressed:
-	case <-c.ctx.Done():
-		c.logger.Warn("task has already canceled")
-	}
-}
-
-// writeTask consumes data from chan, then appends the data into queue
-func (c *channel) writeTask(shardState models.ShardState, target models.Node) {
-	// on avg 2 * limit could avoid buffer grow
-	ticker := time.NewTicker(c.checkFlushInterval)
-	defer ticker.Stop()
-
-	var stream rpc.WriteStream
-	var err error
-	defer func() {
-		if stream != nil {
-			if err := stream.Close(); err != nil {
-				c.logger.Error("close write stream err when exit write task", logger.Error(err))
-			}
-		}
-	}()
-
-	for {
-		select {
-		case <-c.ctx.Done():
-			return
-		case compressed := <-c.ch:
-			if stream == nil {
-				stream, err = c.newWriteStreamFn(c.ctx, target, c.database, &shardState, c.fct)
-				if err != nil {
-					//TODO do retry, add max retry count?
-					//c.ch <- data
-					continue
-				}
-			}
-			if err := stream.Send(*compressed); err == nil {
-				compressed.Release()
-			} else {
-				c.logger.Error("send write request err", logger.Error(err))
-				if err == io.EOF {
-					if err0 := stream.Close(); err0 != nil {
-						c.logger.Error("close write stream err, when do write request", logger.Error(err))
-					}
-					stream = nil
-				}
-				//TODO do retry
-				//c.ch <- data
-			}
-		case <-ticker.C:
-			// check
-			c.checkFlush()
-		}
+	families := c.families.Entries()
+	for _, family := range families {
+		family.Stop()
 	}
 }

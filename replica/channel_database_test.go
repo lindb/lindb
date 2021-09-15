@@ -56,8 +56,9 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
 	ch1.insertShardChannel(models.ShardID(0), shardCh)
-
-	shardCh.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	familyChannel := NewMockFamilyChannel(ctrl)
+	familyChannel.EXPECT().Write(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	shardCh.EXPECT().GetOrCreateFamilyChannel(gomock.Any()).Return(familyChannel).AnyTimes()
 
 	batch = metric.NewBrokerBatchRows()
 	_ = batch.TryAppend(func(row *metric.BrokerRow) error {
