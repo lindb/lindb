@@ -14,6 +14,18 @@ export const QueryBoard = [
     // Row
     [
         metric(
+            'Throttle Query Of Concurrency Limiter',
+            'select throttle_requests from lindb.broker.query_limiter group by node',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
+            'Timeout Query Of Concurrency Limiter',
+            'select timeout_requests from lindb.broker.query_limiter group by node',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
             'Broker Created Tasks',
             'select created_tasks from lindb.broker.query group by node',
             8,
@@ -31,8 +43,6 @@ export const QueryBoard = [
             8,
             UnitEnum.None,
         ),
-    ],
-    [
         metric(
             'Broker Sent Tasks Responses',
             'select sent_responses from lindb.broker.query group by node',
@@ -51,8 +61,6 @@ export const QueryBoard = [
             8,
             UnitEnum.None,
         ),
-    ],
-    [
         metric(
             'Storage Metric Queries Counter',
             'select metric_queries from lindb.storage.query group by node',

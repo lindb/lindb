@@ -89,7 +89,7 @@ func (q *TaskHandler) Handle(stream protoCommonV1.TaskService_HandleServer) (err
 	}
 }
 
-// dispatch dispatches request with timeout
+// process dispatches request with timeout
 func (q *TaskHandler) process(stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 	ctx, cancel := context.WithTimeout(context.Background(), q.timeout)
 	q.taskPool.Submit(func() {

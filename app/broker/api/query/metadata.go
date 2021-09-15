@@ -38,6 +38,8 @@ var (
 	parseSQLFunc = parseSQL
 
 	MetadataQueryPath = "/query/metadata"
+
+	errDatabaseNameRequired = errors.New("database name required")
 )
 
 var errWrongQueryStmt = errors.New("can't parse metadata query ql")
@@ -64,40 +66,50 @@ func (d *MetadataAPI) Register(route gin.IRoutes) {
 
 // Suggest handles metadata suggest query by LinQL
 func (d *MetadataAPI) Suggest(c *gin.Context) {
+	if err := d.deps.QueryLimiter.Do(func() error {
+		return d.suggestWithLimit(c)
+	}); err != nil {
+		http.Error(c, err)
+	}
+}
+
+// suggestWithLimit handles metadata suggest query by LinQL
+func (d *MetadataAPI) suggestWithLimit(c *gin.Context) error {
 	var param struct {
 		Database string `form:"db"`
 		SQL      string `form:"sql" binding:"required"`
 	}
 	err := c.ShouldBind(&param)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	metaQuery, err := parseSQLFunc(param.SQL)
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	switch metaQuery.Type {
 	case stmt.Database:
-		d.showDatabases(c)
+		if err := d.showDatabases(c); err != nil {
+			return err
+		}
 	case stmt.Namespace, stmt.Metric, stmt.Field, stmt.TagKey, stmt.TagValue:
 		if param.Database == "" {
-			http.Error(c, errors.New("database name required"))
-			return
+			return errDatabaseNameRequired
 		}
-		d.suggest(c, param.Database, metaQuery)
+		if err := d.suggest(c, param.Database, metaQuery); err != nil {
+			return err
+		}
 	default:
-		http.Error(c, errUnknownMetadataStmt)
+		return errUnknownMetadataStmt
 	}
+	return nil
 }
 
 // showDatabases shows all database names
-func (d *MetadataAPI) showDatabases(c *gin.Context) {
+func (d *MetadataAPI) showDatabases(c *gin.Context) error {
 	databases, err := d.ListDataBase()
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	var databaseNames []string
 	for _, db := range databases {
@@ -107,18 +119,18 @@ func (d *MetadataAPI) showDatabases(c *gin.Context) {
 		Type:   stmt.Database.String(),
 		Values: databaseNames,
 	})
+	return nil
 }
 
 // suggest executes the suggest query
-func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Metadata) {
+func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Metadata) error {
 	ctx, cancel := context.WithTimeout(context.Background(), d.deps.BrokerCfg.Query.Timeout.Duration())
 	defer cancel()
 
 	metaDataQuery := d.deps.QueryFactory.NewMetadataQuery(ctx, database, request)
 	values, err := metaDataQuery.WaitResponse()
 	if err != nil {
-		http.Error(c, err)
-		return
+		return err
 	}
 	switch request.Type {
 	case stmt.Field:
@@ -128,8 +140,7 @@ func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Met
 		for _, value := range values {
 			err = encoding.JSONUnmarshal([]byte(value), &fields)
 			if err != nil {
-				http.Error(c, err)
-				return
+				return err
 			}
 			for _, f := range fields {
 				result[f.Name] = f
@@ -171,6 +182,7 @@ func (d *MetadataAPI) suggest(c *gin.Context, database string, request *stmt.Met
 			Values: values,
 		})
 	}
+	return nil
 }
 
 // parseSQL parses metadata query sql

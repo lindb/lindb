@@ -33,6 +33,8 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -51,7 +53,14 @@ func TestMetadataAPI_Handle_err(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	api := NewMetadataAPI(&deps.HTTPDeps{})
+	api := NewMetadataAPI(&deps.HTTPDeps{
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metadata_test"),
+		),
+	})
 	r := gin.New()
 	api.Register(r)
 	// case 1: database name not input
@@ -89,7 +98,13 @@ func TestMetadataAPI_ShowDatabases(t *testing.T) {
 				HTTP: config.HTTP{
 					ReadTimeout: ltoml.Duration(time.Second)},
 			},
-		}},
+		},
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metadata_show_database_test"),
+		)},
 	)
 	r := gin.New()
 	api.Register(r)
@@ -121,6 +136,12 @@ func TestMetadataAPI_SuggestCommon(t *testing.T) {
 			StateMgr:     stateMgr,
 			QueryFactory: factory,
 			BrokerCfg:    &config.Broker{Query: config.Query{Timeout: ltoml.Duration(time.Second * 10)}},
+			QueryLimiter: concurrent.NewLimiter(
+				context.TODO(),
+				2,
+				time.Second*5,
+				linmetric.NewScope("metadata_suggest_common"),
+			),
 		})
 	r := gin.New()
 	api.Register(r)
