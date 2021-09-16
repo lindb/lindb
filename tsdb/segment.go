@@ -42,7 +42,7 @@ type Segment interface {
 	// BaseTime returns segment base time
 	BaseTime() int64
 	// GetDataFamily returns the data family based on timestamp
-	GetDataFamily(timestamp int64) (DataFamily, error)
+	GetOrCreateDataFamily(timestamp int64) (DataFamily, error)
 	// Close closes segment, include kv store
 	Close()
 	// getDataFamilies returns data family list by time range, return nil if not match
@@ -51,6 +51,7 @@ type Segment interface {
 
 // segment implements Segment interface
 type segment struct {
+	shard    Shard
 	baseTime int64
 	kvStore  kv.Store
 	interval timeutil.Interval
@@ -63,6 +64,7 @@ type segment struct {
 
 // newSegment returns segment, segment is wrapper of kv store
 func newSegment(
+	shard Shard,
 	segmentName string,
 	interval timeutil.Interval,
 	path string,
@@ -82,6 +84,7 @@ func newSegment(
 	}
 	familyNames := kvStore.ListFamilyNames()
 	s := &segment{
+		shard:    shard,
 		baseTime: baseTime,
 		kvStore:  kvStore,
 		interval: interval,
@@ -125,7 +128,7 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 }
 
 // GetDataFamily returns the data family based on timestamp
-func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
+func (s *segment) GetOrCreateDataFamily(timestamp int64) (DataFamily, error) {
 	calc := s.interval.Calculator()
 
 	segmentTime := calc.CalcSegmentTime(timestamp)
@@ -165,6 +168,18 @@ func (s *segment) GetDataFamily(timestamp int64) (DataFamily, error) {
 
 // Close closes segment, include kv store
 func (s *segment) Close() {
+	//TODO need flush family????
+
+	s.families.Range(func(_, value interface{}) bool {
+		family, ok := value.(DataFamily)
+		if ok {
+			if err := family.Close(); err != nil {
+				s.logger.Error("close family err", logger.String("family", family.Indicator()))
+			}
+		}
+		return true
+	})
+
 	if err := s.kvStore.Close(); err != nil {
 		s.logger.Error("close kv store error", logger.Error(err))
 	}
@@ -174,10 +189,10 @@ func (s *segment) initDataFamily(familyTime int, family kv.Family) DataFamily {
 	calc := s.interval.Calculator()
 	// create data family
 	familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
-	dataFamily := newDataFamily(s.interval, timeutil.TimeRange{
+	dataFamily := newDataFamily(s.shard, s.interval, timeutil.TimeRange{
 		Start: familyStartTime,
 		End:   calc.CalcFamilyEndTime(familyStartTime),
-	}, family)
+	}, familyStartTime, family)
 	s.families.Store(familyTime, dataFamily)
 	return dataFamily
 }

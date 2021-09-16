@@ -50,7 +50,7 @@ type Engine interface {
 	// return success when creating database's path successfully
 	// called when CreateShards without database created
 	createDatabase(databaseName string) (Database, error)
-	// CreateShards creates shards for data partition by given options
+	// CreateShards creates families for data partition by given options
 	// 1) dump engine option into local disk
 	// 2) create shard storage struct
 	CreateShards(
@@ -66,10 +66,6 @@ type Engine interface {
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// Close closes the cached time series databases
 	Close()
-
-	//FIXME stone1100
-	// databaseMetaFlusher flushes database meta periodically
-	//databaseMetaFlusher(ctx context.Context)
 }
 
 // engine implements Engine
@@ -153,7 +149,7 @@ func (e *engine) CreateShards(
 		}
 	}
 
-	// create shards for database
+	// create families for database
 	shardIDData := encoding.JSONMarshal(shardIDs)
 	if err := db.CreateShards(databaseOption, shardIDs); err != nil {
 		engineLogger.Error("failed to create shard", logger.String("shardIDs", string(shardIDData)))
@@ -192,7 +188,7 @@ func (e *engine) Close() {
 }
 
 // FlushDatabase produces a signal to workers for flushing memory database by name
-func (e *engine) FlushDatabase(ctx context.Context, name string) bool {
+func (e *engine) FlushDatabase(_ context.Context, name string) bool {
 	db, ok := e.dbSet.GetDatabase(name)
 	if !ok {
 		return false
@@ -219,23 +215,3 @@ func (e *engine) load() error {
 	}
 	return nil
 }
-
-//func (e *engine) databaseMetaFlusher(ctx context.Context) {
-//	ticker := time.NewTicker(flushMetaInterval.Load())
-//	defer ticker.Stop()
-//
-//	select {
-//	case <-ctx.Done():
-//		return
-//	case <-ticker.C:
-//	}
-//
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			return
-//		case <-ticker.C:
-//			e.flushAllDatabases(ctx)
-//		}
-//	}
-//}

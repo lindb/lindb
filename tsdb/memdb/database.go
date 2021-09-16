@@ -69,6 +69,8 @@ type MemoryDatabase interface {
 	FamilyTime() int64
 	// Uptime returns duration since created
 	Uptime() time.Duration
+	// Size returns the number of metric names.
+	Size() int
 }
 
 type memoryDBMetrics struct {
@@ -357,4 +359,9 @@ func (md *memoryDatabase) Close() error {
 
 func (md *memoryDatabase) Uptime() time.Duration {
 	return time.Duration(fasttime.UnixNano() - md.createdTime)
+}
+
+// Size returns the number of metric names.
+func (md *memoryDatabase) Size() int {
+	return md.mStores.Size()
 }

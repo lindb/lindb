@@ -39,7 +39,7 @@ func (se shardEntries) Swap(i, j int)      { se[i], se[j] = se[j], se[i] }
 // shardSet is a immutable data structure in database to provide lock-free lookup
 type shardSet struct {
 	value atomic.Value // shardEntries
-	num   atomic.Int32 // number of shards
+	num   atomic.Int32 // number of families
 }
 
 // newShardSet returns a default empty shardSet

@@ -163,6 +163,10 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 		case <-fc.ctx.Done():
 			return
 		case compressed := <-fc.ch:
+			if compressed == nil {
+				// close chan
+				continue
+			}
 			if stream == nil {
 				//TODO need set transport.defaultMaxStreamsClient???
 				stream, err = fc.newWriteStreamFn(fc.ctx, target, fc.database, &shardState, fc.familyTime, fc.fct)

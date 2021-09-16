@@ -27,7 +27,6 @@ import (
 	"github.com/shirou/gopsutil/mem"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 func TestDataFlushChecker_Start(t *testing.T) {
@@ -37,17 +36,35 @@ func TestDataFlushChecker_Start(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().NeedFlush().Return(true).AnyTimes()
-	shard.EXPECT().ShardInfo().Return("shardInfo").AnyTimes()
-	shard.EXPECT().Flush().Return(fmt.Errorf("err")).AnyTimes()
-	GetShardManager().AddShard(shard)
+	shard.EXPECT().Indicator().Return("shard").AnyTimes()
+	family1 := NewMockDataFamily(ctrl)
+	family1.EXPECT().Indicator().Return("family1").AnyTimes()
+	family1.EXPECT().IsFlushing().Return(true).AnyTimes()
+	family2 := NewMockDataFamily(ctrl)
+	family2.EXPECT().Indicator().Return("family2").AnyTimes()
+	family2.EXPECT().IsFlushing().Return(true).AnyTimes()
+	GetFamilyManager().AddFamily(family1)
+	defer GetFamilyManager().RemoveFamily(family1)
+	GetFamilyManager().AddFamily(family2)
+	defer GetFamilyManager().RemoveFamily(family2)
+
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
+	gomock.InOrder(
+		family1.EXPECT().NeedFlush().Return(true),
+		family1.EXPECT().Shard().Return(shard),
+		family2.EXPECT().NeedFlush().Return(true),
+		family2.EXPECT().Shard().Return(shard),
+		shard.EXPECT().Flush().Return(nil),
+	)
+	family1.EXPECT().Flush().Return(fmt.Errorf("err"))
+	family2.EXPECT().Flush().Return(fmt.Errorf("err"))
+	family1.EXPECT().NeedFlush().Return(false).AnyTimes()
+	family2.EXPECT().NeedFlush().Return(false).AnyTimes()
 	checker.Start()
 
 	time.Sleep(100 * time.Millisecond)
 	checker.Stop()
-	GetShardManager().RemoveShard(shard)
 }
 
 func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
@@ -56,12 +73,16 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 		memoryUsageCheckInterval.Store(time.Second)
 		ctrl.Finish()
 	}()
-	// case 1: shard is flushing
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().NeedFlush().Return(false).AnyTimes()
-	shard.EXPECT().ShardInfo().Return("shardInfo").AnyTimes()
-	shard.EXPECT().IsFlushing().Return(true).AnyTimes()
-	GetShardManager().AddShard(shard)
+	shard.EXPECT().Indicator().Return("shard").AnyTimes()
+	shard.EXPECT().Flush().Return(nil).AnyTimes()
+	// case 1: family is flushing
+	family := NewMockDataFamily(ctrl)
+	family.EXPECT().NeedFlush().Return(false).AnyTimes()
+	family.EXPECT().Indicator().Return("family1").AnyTimes()
+	family.EXPECT().IsFlushing().Return(true).AnyTimes()
+	GetFamilyManager().AddFamily(family)
+	defer GetFamilyManager().RemoveFamily(family)
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
@@ -72,25 +93,25 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	checker.Stop()
-	GetShardManager().RemoveShard(shard)
 
-	// case 2: pick biggest shard data
-	shard1 := NewMockShard(ctrl)
-	shard1.EXPECT().NeedFlush().Return(false).AnyTimes()
-	shard1.EXPECT().ShardInfo().Return("shardInfo").AnyTimes()
-	shard1.EXPECT().IsFlushing().Return(false).AnyTimes()
-	mDB1 := memdb.NewMockMemoryDatabase(ctrl)
-	mDB1.EXPECT().MemSize().Return(int64(100)).AnyTimes()
-	GetShardManager().AddShard(shard1)
+	// case 2: pick biggest family data
+	family1 := NewMockDataFamily(ctrl)
+	family1.EXPECT().NeedFlush().Return(false).AnyTimes()
+	family1.EXPECT().Indicator().Return("family").AnyTimes()
+	family1.EXPECT().IsFlushing().Return(false).AnyTimes()
+	family1.EXPECT().MemDBSize().Return(int64(100)).AnyTimes()
+	GetFamilyManager().AddFamily(family1)
+	defer GetFamilyManager().RemoveFamily(family1)
 
-	shard2 := NewMockShard(ctrl)
-	shard2.EXPECT().NeedFlush().Return(false).AnyTimes()
-	shard2.EXPECT().ShardInfo().Return("shardInfo").AnyTimes()
-	shard2.EXPECT().IsFlushing().Return(false).AnyTimes()
-	shard2.EXPECT().Flush().Return(nil).AnyTimes()
-	mDB2 := memdb.NewMockMemoryDatabase(ctrl)
-	mDB2.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
-	GetShardManager().AddShard(shard2)
+	family2 := NewMockDataFamily(ctrl)
+	family2.EXPECT().NeedFlush().Return(false).AnyTimes()
+	family2.EXPECT().Indicator().Return("family2").AnyTimes()
+	family2.EXPECT().IsFlushing().Return(false).AnyTimes()
+	family2.EXPECT().Flush().Return(nil).AnyTimes()
+	family2.EXPECT().MemDBSize().Return(int64(ignoreMemorySize) + 100).AnyTimes()
+	family2.EXPECT().Shard().Return(shard).AnyTimes()
+	GetFamilyManager().AddFamily(family2)
+	defer GetFamilyManager().RemoveFamily(family2)
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker = newDataFlushChecker(context.TODO())
@@ -103,8 +124,6 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	checker.Stop()
-	GetShardManager().RemoveShard(shard1)
-	GetShardManager().RemoveShard(shard2)
 }
 
 func TestDataFlushChecker_requestFlush(t *testing.T) {
@@ -113,18 +132,27 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 		memoryUsageCheckInterval.Store(time.Second)
 		ctrl.Finish()
 	}()
-	var shards []Shard
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().Indicator().Return("shard").AnyTimes()
+	shard.EXPECT().Flush().Return(nil).AnyTimes()
+	var families []DataFamily
 	for i := 0; i < 2; i++ {
-		shard := NewMockShard(ctrl)
-		shard.EXPECT().NeedFlush().Return(true).AnyTimes()
-		shard.EXPECT().ShardInfo().Return(fmt.Sprintf("shard-%d", i)).AnyTimes()
-		shard.EXPECT().Flush().DoAndReturn(func() error {
+		family := NewMockDataFamily(ctrl)
+		family.EXPECT().Shard().Return(shard).AnyTimes()
+		family.EXPECT().NeedFlush().Return(true).AnyTimes()
+		family.EXPECT().Indicator().Return(fmt.Sprintf("family-%d", i)).AnyTimes()
+		family.EXPECT().Flush().DoAndReturn(func() error {
 			time.Sleep(200 * time.Millisecond)
 			return fmt.Errorf("err")
 		}).AnyTimes()
-		GetShardManager().AddShard(shard)
-		shards = append(shards, shard)
+		GetFamilyManager().AddFamily(family)
+		families = append(families, family)
 	}
+	defer func() {
+		for _, family := range families {
+			GetFamilyManager().RemoveFamily(family)
+		}
+	}()
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
 	check := checker.(*dataFlushChecker)
@@ -135,15 +163,41 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 	checker.Start()
 
 	time.Sleep(100 * time.Millisecond)
+
+	checker1 := checker.(*dataFlushChecker)
+	family := NewMockDataFamily(ctrl)
+	family.EXPECT().Indicator().Return("family").MaxTimes(3)
+	checker1.requestFlushJob(&flushRequest{
+		shard:    shard,
+		families: []DataFamily{family},
+		global:   false,
+	}) // request success
+	checker1.requestFlushJob(&flushRequest{
+		shard:    shard,
+		families: []DataFamily{family},
+		global:   true,
+	}) // reject, because has pending flush job
+
 	checker.Stop()
+	checker1.requestFlushJob(&flushRequest{
+		shard:    shard,
+		families: []DataFamily{family},
+		global:   false,
+	}) // reject, because not running
 	time.Sleep(100 * time.Millisecond)
+}
 
+func TestDataFlushChecker_cancel_ctx(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().ShardInfo().Return("shardInfo").MaxTimes(3)
-	checker.requestFlushJob(shard, false) // request success
-	checker.requestFlushJob(shard, true)  // reject, because has pending flush job
-
-	for _, shard := range shards {
-		GetShardManager().AddShard(shard)
-	}
+	shard.EXPECT().Indicator().Return("shard").AnyTimes()
+	checker := newDataFlushChecker(context.TODO())
+	check := checker.(*dataFlushChecker)
+	go func() {
+		check.requestFlushJob(&flushRequest{shard: shard})
+	}()
+	checker.Stop()
 }

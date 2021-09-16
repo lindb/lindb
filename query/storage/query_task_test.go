@@ -153,32 +153,6 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), result)
 }
 
-func TestMemoryDataFilterTask_Run(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	shard := tsdb.NewMockShard(ctrl)
-	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	rs := newTimeSpanResultSet()
-	task := newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
-	// case 1: filter err
-	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err := task.Run()
-	assert.Error(t, err)
-	// case 2: filter success
-	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
-	err = task.Run()
-	assert.NoError(t, err)
-	// case 4: explain
-	task = newMemoryDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
-	shard.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
-	shard.EXPECT().ShardID().Return(models.ShardID(10))
-	err = task.Run()
-	assert.NoError(t, err)
-}
-
 func TestFileDataFilterTask_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -188,7 +162,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
 	rs := newTimeSpanResultSet()
-	task := newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
+	task := newFamilyFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	// case 1: get empty family
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil)
@@ -216,7 +190,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
 	resultSet.EXPECT().FamilyTime().Return(int64(10)).MaxTimes(2)
-	task = newFileDataFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
+	task = newFamilyFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return([]flow.FilterResultSet{resultSet}, nil)

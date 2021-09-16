@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 var (
@@ -34,34 +33,36 @@ var (
 	localReplicaBytesVec    = localReplicaScope.NewCounterVec("replica_bytes", "db", "shard")
 	localReplicaRowsVec     = localReplicaScope.NewCounterVec("replica_rows", "db", "shard")
 	localReplicaSequenceVec = localReplicaScope.NewGaugeVec("replica_sequence", "db", "shard")
+	localInvalidSequenceVec = localReplicaScope.NewCounterVec("invalid_sequence", "db", "shard")
 )
 
 type localReplicator struct {
 	replicator
 
 	shard     tsdb.Shard
-	db        memdb.MemoryDatabase
+	family    tsdb.DataFamily
 	logger    *logger.Logger
 	batchRows *metric.StorageBatchRows
 
 	block []byte
 
 	statistics struct {
-		localMaxDecodedBlock *linmetric.BoundMax
-		localReplicaCounts   *linmetric.BoundCounter
-		localReplicaBytes    *linmetric.BoundCounter
-		localReplicaRows     *linmetric.BoundCounter
-		localReplicaSequence *linmetric.BoundGauge
+		localMaxDecodedBlock    *linmetric.BoundMax
+		localReplicaCounts      *linmetric.BoundCounter
+		localReplicaBytes       *linmetric.BoundCounter
+		localReplicaRows        *linmetric.BoundCounter
+		localReplicaSequence    *linmetric.BoundGauge
+		localInvalidSequenceVec *linmetric.BoundCounter
 	}
 }
 
-func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, db memdb.MemoryDatabase) Replicator {
+func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
 	lr := &localReplicator{
 		replicator: replicator{
 			channel: channel,
 		},
 		shard:     shard,
-		db:        db,
+		family:    family,
 		batchRows: metric.NewStorageBatchRows(),
 		logger:    logger.GetLogger("replica", "LocalReplicator"),
 		block:     make([]byte, 256*1024),
@@ -73,10 +74,22 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, db memdb.M
 	lr.statistics.localReplicaBytes = localReplicaBytesVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaRows = localReplicaRowsVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaSequence = localReplicaSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
+	lr.statistics.localInvalidSequenceVec = localInvalidSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
 	return lr
 }
 
+// Replica replicas local data,
+// 1. check replica replica if valid
+// 2. uncompress/unmarshal msg
+// 3. lookup metadata
+// 4. write metric data
+// 5. commit sequence in data family
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
+	if !r.family.ValidateSequence(sequence) {
+		r.statistics.localInvalidSequenceVec.Incr()
+		return
+	}
+
 	//TODO add util
 	var err error
 	r.block, err = snappy.Decode(r.block, msg)
@@ -97,16 +110,35 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 			r.logger.Error("corrupted flat block",
 				logger.Int("message-length", len(msg)),
 				logger.Int("decoded-length", len(r.block)),
+				logger.Any("err", recovered),
 				logger.Stack(),
 			)
 		}
 		r.block = r.block[:0]
+
+		// after write need commit sequence
+		r.family.CommitSequence(sequence)
 	}()
 
 	r.batchRows.UnmarshalRows(r.block)
-	r.statistics.localReplicaRows.Add(float64(r.batchRows.Len()))
+	rowsLen := r.batchRows.Len()
+	if rowsLen == 0 {
+		return
+	}
+	r.statistics.localReplicaRows.Add(float64(rowsLen))
+	rows := r.batchRows.Rows()
 
-	if err := r.shard.WriteRows(r.batchRows.Rows()); err != nil {
+	// write metric metadata
+	if err := r.shard.WriteRows(rows); err != nil {
+		r.logger.Error("failed writing family rows",
+			logger.Int("rows", r.batchRows.Len()),
+			logger.String("database", r.shard.DatabaseName()),
+			logger.Int("shardID", int(r.shard.ShardID())),
+			logger.Error(err))
+		return
+	}
+	// write metric data
+	if err := r.family.WriteRows(rows); err != nil {
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
 			logger.String("database", r.shard.DatabaseName()),
