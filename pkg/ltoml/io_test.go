@@ -32,13 +32,8 @@ type User struct {
 	Name string
 }
 
-var testPath = "./file"
-
 func Test_Encode(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	testPath := t.TempDir()
 	user := User{Name: "LinDB"}
 	file := path.Join(testPath, "toml")
 	err := EncodeToml(file, &user)
@@ -59,9 +54,6 @@ func Test_Encode(t *testing.T) {
 }
 
 func Test_WriteConfig(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	testPath := t.TempDir()
 	assert.Nil(t, WriteConfig(path.Join(testPath, "toml"), ""))
 }

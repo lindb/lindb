@@ -29,9 +29,12 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 )
 
-var _testSequencePath = filepath.Join(testPath, replicaDir)
+func createReplicaDir(t *testing.T) string {
+	return filepath.Join(t.TempDir(), replicaDir)
+}
 
 func TestSequence_new(t *testing.T) {
+	_testSequencePath := createReplicaDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -39,7 +42,6 @@ func TestSequence_new(t *testing.T) {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		listDir = fileutil.ListDir
 		newSequenceFunc = queue.NewSequence
-		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	// create dir err
@@ -97,12 +99,12 @@ func TestSequence_new(t *testing.T) {
 }
 
 func TestSequence_getOrCreateSequence(t *testing.T) {
+	_testSequencePath := createReplicaDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	defer func() {
 		newSequenceFunc = queue.NewSequence
-		_ = fileutil.RemoveDir(testPath)
 	}()
 
 	// create seq success
@@ -126,12 +128,9 @@ func TestSequence_getOrCreateSequence(t *testing.T) {
 }
 
 func TestSequence_ack(t *testing.T) {
+	_testSequencePath := createReplicaDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
 
 	// create seq success
 	seq, err := newReplicaSequence(_testSequencePath)
@@ -159,12 +158,9 @@ func TestSequence_ack(t *testing.T) {
 }
 
 func TestReplicaSequence_Close(t *testing.T) {
+	_testSequencePath := createReplicaDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
 
 	// create seq success
 	seq, err := newReplicaSequence(_testSequencePath)

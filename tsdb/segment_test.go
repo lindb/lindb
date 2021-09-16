@@ -28,17 +28,15 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-var segPath = filepath.Join(testPath, shardDir, "2", segmentDir, timeutil.Day.String())
+func createSegPath(t *testing.T) string {
+	return filepath.Join(t.TempDir(), shardDir, "2", segmentDir, timeutil.Day.String())
+}
 
 func TestSegment_Close(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	seg, _ := s.GetOrCreateSegment("20190702")
 	seg1 := seg.(*segment)
 
@@ -52,10 +50,7 @@ func TestSegment_Close(t *testing.T) {
 }
 
 func TestSegment_GetDataFamily(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	seg, _ := s.GetOrCreateSegment("20190904")
 	now, _ := timeutil.ParseTimestamp("20190904 19:10:48", "20060102 15:04:05")
 	familyBaseTime, _ := timeutil.ParseTimestamp("20190904 19:00:00", "20060102 15:04:05")
@@ -101,10 +96,8 @@ func TestSegment_GetDataFamily(t *testing.T) {
 }
 
 func TestSegment_New(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	segPath := createSegPath(t)
+	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	now, _ := timeutil.ParseTimestamp("20190904 19:10:40", "20060102 15:04:05")
@@ -114,7 +107,7 @@ func TestSegment_New(t *testing.T) {
 	s.Close()
 
 	// reopen
-	s, err = newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	s, err = newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	f, err = s.GetDataFamily(now)
@@ -122,7 +115,7 @@ func TestSegment_New(t *testing.T) {
 	assert.NotNil(t, f)
 
 	// cannot reopen
-	s2, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	s2, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Error(t, err)
 	assert.Nil(t, s2)
 
@@ -135,7 +128,6 @@ func TestSegment_loadFamily_err(t *testing.T) {
 	defer ctrl.Finish()
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newStore = kv.NewStore
 	}()
 	kvStore := kv.NewMockStore(ctrl)
@@ -143,7 +135,7 @@ func TestSegment_loadFamily_err(t *testing.T) {
 		return kvStore, nil
 	}
 	kvStore.EXPECT().ListFamilyNames().Return([]string{"abc"})
-	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), testPath)
+	s, err := newSegment("20190904", timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	assert.Error(t, err)
 	assert.Nil(t, s)
 }

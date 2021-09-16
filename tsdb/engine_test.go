@@ -33,16 +33,19 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-var testPath = "test_data"
+var writeConfigTestLock sync.Mutex
 
-func withTestPath() {
+func withTestPath(dir string) {
 	cfg := config.GlobalStorageConfig()
-	cfg.TSDB.Dir = testPath
+	cfg.TSDB.Dir = dir
 }
 
 func TestNew(t *testing.T) {
+	writeConfigTestLock.Lock()
+	defer writeConfigTestLock.Unlock()
+
+	tmpDir := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		listDir = fileutil.ListDir
 	}()
@@ -51,7 +54,7 @@ func TestNew(t *testing.T) {
 	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	withTestPath()
+	withTestPath(tmpDir)
 
 	e, err := NewEngine()
 	assert.Error(t, err)
@@ -73,13 +76,13 @@ func TestNew(t *testing.T) {
 	db, err := e.createDatabase("test_db")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
+	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
 	assert.Equal(t, 0, db.NumOfShards())
 	e.Close()
 
 	// test load db error
 	mkDirIfNotExist = func(path string) error {
-		if path == filepath.Join(testPath, "test_db") {
+		if path == filepath.Join(tmpDir, "test_db") {
 			return fmt.Errorf("err")
 		}
 		return fileutil.MkDirIfNotExist(path)
@@ -90,13 +93,16 @@ func TestNew(t *testing.T) {
 }
 
 func TestEngine_CreateDatabase(t *testing.T) {
+	writeConfigTestLock.Lock()
+	defer writeConfigTestLock.Unlock()
+
+	tmpDir := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		decodeToml = ltoml.DecodeToml
 		newDatabaseFunc = newDatabase
 	}()
-	withTestPath()
+	withTestPath(tmpDir)
 
 	e, err := NewEngine()
 	assert.NoError(t, err)
@@ -104,7 +110,7 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	db, err := e.createDatabase("test_db")
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
+	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
 
 	_, ok := e.GetDatabase("inexist")
 	assert.False(t, ok)
@@ -127,8 +133,8 @@ func TestEngine_CreateDatabase(t *testing.T) {
 	db, ok = e.GetDatabase("test_db")
 	assert.True(t, ok)
 	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db")))
-	assert.True(t, fileutil.Exist(filepath.Join(testPath, "test_db", "OPTIONS")))
+	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
+	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db", "OPTIONS")))
 
 	// mkdir database path err
 	mkDirIfNotExist = func(path string) error {
@@ -149,14 +155,15 @@ func TestEngine_CreateDatabase(t *testing.T) {
 }
 
 func Test_Engine_Close(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	writeConfigTestLock.Lock()
+	defer writeConfigTestLock.Unlock()
+
+	tmpDir := t.TempDir()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	withTestPath()
+	withTestPath(tmpDir)
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -171,13 +178,13 @@ func Test_Engine_Close(t *testing.T) {
 }
 
 func Test_Engine_Flush_Database(t *testing.T) {
+	writeConfigTestLock.Lock()
+	defer writeConfigTestLock.Unlock()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	withTestPath()
+	withTestPath(t.TempDir())
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)

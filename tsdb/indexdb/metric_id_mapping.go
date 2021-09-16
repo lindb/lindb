@@ -18,9 +18,9 @@
 package indexdb
 
 import (
-	"go.uber.org/atomic"
+	"github.com/lindb/lindb/config"
 
-	"github.com/lindb/lindb/constants"
+	"go.uber.org/atomic"
 )
 
 // MetricIDMapping represents the metric id mapping,
@@ -58,7 +58,7 @@ func newMetricIDMapping(metricID, sequence uint32) MetricIDMapping {
 		metricID:          metricID,
 		hash2SeriesID:     make(map[uint64]uint32),
 		idSequence:        *atomic.NewUint32(sequence), // first value is 1
-		maxSeriesIDsLimit: *atomic.NewUint32(constants.DefaultMaxSeriesIDsCount),
+		maxSeriesIDsLimit: *atomic.NewUint32(uint32(config.GlobalStorageConfig().TSDB.MaxSeriesIDsNumber)),
 	}
 }
 

@@ -26,8 +26,6 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
-const testPath = "test_dp_buf"
-
 func TestDataPointBuffer_New_err(t *testing.T) {
 	defer func() {
 		mkdirFunc = fileutil.MkDirIfNotExist
@@ -35,13 +33,13 @@ func TestDataPointBuffer_New_err(t *testing.T) {
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	buf, err := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(t.TempDir())
 	assert.Error(t, err)
 	assert.Nil(t, buf)
 }
 
 func TestDataPointBuffer_AllocPage(t *testing.T) {
-	buf, err := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(t.TempDir())
 	assert.NoError(t, err)
 	for i := 0; i < 10000; i++ {
 		b, err := buf.AllocPage()
@@ -57,7 +55,7 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 		mkdirFunc = fileutil.MkDirIfNotExist
 		mapFunc = fileutil.RWMap
 	}()
-	buf, err := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(t.TempDir())
 	assert.NoError(t, err)
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
@@ -77,7 +75,7 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	// case 3: map file err
-	buf, err = newDataPointBuffer(testPath)
+	buf, err = newDataPointBuffer(t.TempDir())
 	assert.NoError(t, err)
 	b, err = buf.AllocPage()
 	assert.Error(t, err)
@@ -92,7 +90,7 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 		removeFunc = fileutil.RemoveDir
 		unmapFunc = fileutil.Unmap
 	}()
-	buf, err := newDataPointBuffer(testPath)
+	buf, err := newDataPointBuffer(t.TempDir())
 	assert.NoError(t, err)
 	b, err := buf.AllocPage()
 	assert.NoError(t, err)

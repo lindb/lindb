@@ -35,7 +35,6 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-var testKVPath = "./test_data"
 var mergerStr = "mockMergerAppend"
 
 func newMockMerger(flusher Flusher) (Merger, error) {
@@ -55,13 +54,13 @@ func TestRegisterMerger(t *testing.T) {
 
 func TestStore_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	option := DefaultStoreOption(testKVPath)
+	tmpDir := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption(tmpDir)
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
 		mkDirFunc = fileutil.MkDir
 		newVersionSetFunc = version.NewStoreVersionSet
 		newFileLockFunc = lockers.NewFileLock
-		_ = fileutil.RemoveDir(testKVPath)
 		ctrl.Finish()
 	}()
 	// case 1: create store dir err
@@ -85,7 +84,7 @@ func TestStore_New(t *testing.T) {
 	kv, err = NewStore("test_kv", option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
-	_ = fileutil.RemoveDir(testKVPath)
+	_ = fileutil.RemoveDir(tmpDir)
 	encodeTomlFunc = ltoml.EncodeToml
 	newFileLockFunc = lockers.NewFileLock
 	// case 3: new store success
@@ -122,12 +121,12 @@ func TestStore_New(t *testing.T) {
 	assert.Nil(t, nil)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
-	_ = ioutil.WriteFile(filepath.Join(testKVPath, version.Options), []byte("err"), 0644)
+	_ = ioutil.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)
 	kv, e = NewStore("test_kv", option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 	// case 7: recover version err
-	_ = fileutil.RemoveDir(testKVPath)
+	_ = fileutil.RemoveDir(tmpDir)
 	vs := version.NewMockStoreVersionSet(ctrl)
 	newVersionSetFunc = func(storePath string, storeCache table.Cache, numOfLevels int) version.StoreVersionSet {
 		return vs
@@ -141,11 +140,10 @@ func TestStore_New(t *testing.T) {
 }
 
 func TestStore_CreateFamily(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
 		newFamilyFunc = newFamily
-		_ = fileutil.RemoveDir(testKVPath)
 	}()
 
 	kv, err := NewStore("test_kv", option)
@@ -189,11 +187,10 @@ func TestStore_CreateFamily(t *testing.T) {
 }
 
 func TestStore_deleteObsoleteFiles(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
 	defer func() {
 		listDirFunc = fileutil.ListDir
 		removeFunc = os.Remove
-		_ = fileutil.RemoveDir(testKVPath)
 	}()
 
 	listDirFunc = func(path string) (strings []string, err error) {
@@ -218,11 +215,8 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 }
 
 func TestStore_Compact(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
 	option.CompactCheckInterval = 1
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-	}()
 
 	kv, err := NewStore("test_kv", option)
 	assert.NoError(t, err)
@@ -257,13 +251,10 @@ func TestStore_Compact(t *testing.T) {
 }
 
 func TestStore_Close(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
 	option.CompactCheckInterval = 1
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	kv, err := NewStore("test_kv", option)
 	assert.NoError(t, err)
@@ -279,13 +270,10 @@ func TestStore_Close(t *testing.T) {
 }
 
 func TestStore_RegisterRollup(t *testing.T) {
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
 	option.CompactCheckInterval = 1
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	kv, err := NewStore("test_kv", option)
 	assert.NoError(t, err)

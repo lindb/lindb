@@ -23,19 +23,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 func TestMapCache_GetReader(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newMMapStoreReaderFunc = newMMapStoreReader
-		_ = fileutil.RemoveDir(testKVPath)
 		ctrl.Finish()
 	}()
-	cache := NewCache(testKVPath)
+	cache := NewCache(t.TempDir())
 	// case 1: get reader err
 	newMMapStoreReaderFunc = func(path string) (r Reader, err error) {
 		return nil, fmt.Errorf("err")

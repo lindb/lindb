@@ -44,12 +44,14 @@ import (
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-var _testShard1Path = filepath.Join(testPath, shardDir, "1")
+func createShardTestDir(t *testing.T) string {
+	return filepath.Join(t.TempDir(), shardDir, "1")
+}
 
 func TestShard_New(t *testing.T) {
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		newReplicaSequenceFunc = newReplicaSequence
 		newIntervalSegmentFunc = newIntervalSegment
@@ -149,9 +151,7 @@ func TestShard_New(t *testing.T) {
 }
 
 func TestShard_GetDataFamilies(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -178,9 +178,7 @@ func mockBatchRows(m *protoMetricsV1.Metric) *metric.StorageRow {
 }
 
 func TestShard_Write(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	_testShard1Path := createShardTestDir(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -252,7 +250,7 @@ func TestShard_Write(t *testing.T) {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
 	})))
-
+	GetShardManager().RemoveShard(shardINTF)
 }
 
 func Test_familyMemDBSet(t *testing.T) {
@@ -272,9 +270,9 @@ func Test_familyMemDBSet(t *testing.T) {
 }
 
 func TestShard_Close(t *testing.T) {
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newKVStoreFunc = kv.NewStore
 		ctrl.Finish()
 	}()
@@ -338,9 +336,9 @@ func TestShard_Close(t *testing.T) {
 }
 
 func TestShard_Flush(t *testing.T) {
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newMemoryDBFunc = memdb.NewMemoryDatabase
 		ctrl.Finish()
 	}()
@@ -393,11 +391,9 @@ func TestShard_Flush(t *testing.T) {
 }
 
 func TestShard_NeedFlush(t *testing.T) {
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
 
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
@@ -462,9 +458,9 @@ func TestShard_NeedFlush(t *testing.T) {
 }
 
 func TestShard_GetOrCreateMemoryDatabase(t *testing.T) {
+	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newMemoryDBFunc = memdb.NewMemoryDatabase
 		ctrl.Finish()
 	}()

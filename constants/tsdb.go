@@ -22,10 +22,6 @@ import (
 )
 
 const (
-	// DefaultMaxSeriesIDsCount represents series count limit, uses this limit of metric-level when maxSeriesIDsLimit is not set
-	DefaultMaxSeriesIDsCount = 10000000
-	// DefaultMaxTagKeysCount represents tag key count limit, uses this limit of max tag keys of a metric
-	DefaultMaxTagKeysCount = 32
 	// DefaultMaxFieldsCount represents field count limit, uses this limit of max fields of a metric
 	DefaultMaxFieldsCount = math.MaxUint8
 	// MaxSuggestions represents the max number of suggestions count
@@ -38,13 +34,8 @@ const (
 	// If current timestamp is 2021-08-19 23:00:00, metric before 2021-08-18 23:00:00 will be dropped.
 	MetricMaxBehindDuration = 24 * 60 * 60 * 1000
 
-	// TagValueIDForTag represents tag value id placeholder for store all series ids under tag.
-	TagValueIDForTag = uint32(0)
 	// DefaultNamespace represents default namespace if not set
 	DefaultNamespace = "default-ns"
 	// SeriesIDWithoutTags represents the series ids under spec metric, but without nothing tags.
 	SeriesIDWithoutTags = uint32(0)
-
-	// EmptyValue represents the empty value.
-	EmptyValue = 0.0
 )

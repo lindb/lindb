@@ -27,42 +27,31 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
-var testPath = "test"
-var fileName = "fileName"
-
 func TestMappedPage_err(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mapFileFunc = fileutil.RWMap
 	}()
 
 	mapFileFunc = func(filePath string, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
-	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	mp, err := NewMappedPage(filepath.Join(t.TempDir(), t.Name()), 128)
 	assert.Error(t, err)
 	assert.Nil(t, mp)
 }
 
 func TestMappedPage(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
 	bytes := []byte("12345")
 
-	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	tmpDir := t.TempDir()
+	mp, err := NewMappedPage(filepath.Join(tmpDir, t.Name()), 128)
 	assert.NoError(t, err)
 
 	// copy data
 	mp.WriteBytes(bytes, 0)
 
 	assert.NoError(t, mp.Sync())
-	assert.Equal(t, filepath.Join(testPath, fileName), mp.FilePath())
+	assert.Equal(t, filepath.Join(tmpDir, t.Name()), mp.FilePath())
 	assert.NotNil(t, 128, mp.Size())
 	assert.Equal(t, bytes, mp.ReadBytes(0, 5))
 	assert.False(t, mp.Closed())
@@ -72,13 +61,7 @@ func TestMappedPage(t *testing.T) {
 }
 
 func TestMappedPage_Write_number(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
-	mp, err := NewMappedPage(filepath.Join(testPath, fileName), 128)
+	mp, err := NewMappedPage(filepath.Join(t.TempDir(), t.Name()), 128)
 	assert.NoError(t, err)
 	mp.PutUint32(10, 0)
 	mp.PutUint64(999, 8)

@@ -29,7 +29,6 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -37,9 +36,9 @@ import (
 
 func TestDatabase_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	_ = fileutil.MkDirIfNotExist(testPath)
+	tmpDir := t.TempDir()
+
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newMetadataFunc = metadb.NewMetadata
 		newKVStoreFunc = kv.NewStore
 		newShardFunc = newShard
@@ -50,7 +49,7 @@ func TestDatabase_New(t *testing.T) {
 	encodeToml = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
-	db, err := newDatabase("db", testPath, &databaseConfig{
+	db, err := newDatabase("db", tmpDir, &databaseConfig{
 		Option: option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -60,7 +59,7 @@ func TestDatabase_New(t *testing.T) {
 	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		Option: option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -71,7 +70,7 @@ func TestDatabase_New(t *testing.T) {
 		return kvStore, nil
 	}
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		Option: option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -82,7 +81,7 @@ func TestDatabase_New(t *testing.T) {
 		tagFamily kv.Family) (metadata metadb.Metadata, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		Option: option.DatabaseOption{},
 	}, nil)
 	assert.Error(t, err)
@@ -92,7 +91,7 @@ func TestDatabase_New(t *testing.T) {
 	newShardFunc = func(db Database, shardID models.ShardID, shardPath string, option option.DatabaseOption) (s Shard, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{},
 	}, nil)
@@ -100,7 +99,7 @@ func TestDatabase_New(t *testing.T) {
 	assert.Nil(t, db)
 	// case 6: create db success
 	newShardFunc = newShard
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
 	}, nil)
@@ -121,7 +120,7 @@ func TestDatabase_New(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
-	db, err = newDatabase("db", testPath, &databaseConfig{
+	db, err = newDatabase("db", tmpDir, &databaseConfig{
 		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{},
 	}, nil)
@@ -130,15 +129,15 @@ func TestDatabase_New(t *testing.T) {
 }
 
 func TestDatabase_CreateShards(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	ctrl := gomock.NewController(t)
-	_ = fileutil.MkDirIfNotExist(testPath)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newShardFunc = newShard
 		encodeToml = ltoml.EncodeToml
 		ctrl.Finish()
 	}()
-	db, err := newDatabase("db", testPath, &databaseConfig{
+	db, err := newDatabase("db", tmpDir, &databaseConfig{
 		ShardIDs: []models.ShardID{1, 2, 3},
 		Option:   option.DatabaseOption{Interval: "10s"},
 	}, nil)
@@ -232,16 +231,12 @@ func TestDatabase_FlushMeta(t *testing.T) {
 
 func TestDatabase_Flush(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	_ = fileutil.MkDirIfNotExist(testPath)
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	checker := NewMockDataFlushChecker(ctrl)
 
-	db, err := newDatabase("db", testPath, &databaseConfig{
+	db, err := newDatabase("db", t.TempDir(), &databaseConfig{
 		Option: option.DatabaseOption{},
 	}, checker)
 	assert.NoError(t, err)

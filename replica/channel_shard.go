@@ -19,7 +19,6 @@ package replica
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/lindb/lindb/config"
@@ -102,7 +101,6 @@ func (c *channel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
 	if exist {
 		return familyChannel
 	}
-	fmt.Println(familyTime)
 	familyChannel = newFamilyChannel(c.ctx, c.cfg, c.database, c.shardID, familyTime, c.fct, c.shardState, c.liveNodes)
 	c.families.InsertFamily(familyTime, familyChannel)
 	return familyChannel

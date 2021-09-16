@@ -19,6 +19,7 @@ package kv
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -36,9 +37,9 @@ func init() {
 }
 
 func TestFamily_New(t *testing.T) {
+	testKVPath := filepath.Join(t.TempDir(), "test_data")
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
 		mkDirFunc = fileutil.MkDir
 		ctrl.Finish()
 	}()
@@ -72,10 +73,8 @@ func TestFamily_New(t *testing.T) {
 }
 
 func TestFamily_Data_Write_Read(t *testing.T) {
+	testKVPath := filepath.Join(t.TempDir(), "test_data")
 	option := DefaultStoreOption(testKVPath)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-	}()
 
 	var kv, err = NewStore("test_kv", option)
 	defer func() {
@@ -102,11 +101,10 @@ func TestFamily_Data_Write_Read(t *testing.T) {
 }
 
 func TestFamily_commitEditLog(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	store := NewMockStore(ctrl)
 	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
@@ -130,11 +128,10 @@ func TestFamily_commitEditLog(t *testing.T) {
 }
 
 func TestFamily_needCompact(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	store := NewMockStore(ctrl)
 	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
@@ -160,11 +157,10 @@ func TestFamily_needCompact(t *testing.T) {
 }
 
 func TestFamily_compact(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	store := NewMockStore(ctrl)
 	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
@@ -197,10 +193,10 @@ func TestFamily_compact(t *testing.T) {
 }
 
 func TestFamily_compact_background(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newCompactJobFunc = newCompactJob
-		_ = fileutil.RemoveDir(testKVPath)
 		ctrl.Finish()
 	}()
 	store := NewMockStore(ctrl)
@@ -234,11 +230,11 @@ func TestFamily_compact_background(t *testing.T) {
 }
 
 func TestFamily_deleteObsoleteFiles(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		listDirFunc = fileutil.ListDir
 		removeDirFunc = fileutil.RemoveDir
-		_ = fileutil.RemoveDir(testKVPath)
 		ctrl.Finish()
 	}()
 	store := NewMockStore(ctrl)
