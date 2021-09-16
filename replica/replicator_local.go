@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 var (
@@ -39,6 +40,7 @@ type localReplicator struct {
 	replicator
 
 	shard     tsdb.Shard
+	db        memdb.MemoryDatabase
 	logger    *logger.Logger
 	batchRows *metric.StorageBatchRows
 
@@ -53,12 +55,13 @@ type localReplicator struct {
 	}
 }
 
-func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard) Replicator {
+func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, db memdb.MemoryDatabase) Replicator {
 	lr := &localReplicator{
 		replicator: replicator{
 			channel: channel,
 		},
 		shard:     shard,
+		db:        db,
 		batchRows: metric.NewStorageBatchRows(),
 		logger:    logger.GetLogger("replica", "LocalReplicator"),
 		block:     make([]byte, 256*1024),
@@ -106,6 +109,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	familyIterator := r.batchRows.NewFamilyIterator(r.shard.CurrentInterval())
 	for familyIterator.HasNextFamily() {
 		familyTime, rows := familyIterator.NextFamily()
+		//TODO @codingcrush use	mem db?
 		if err := r.shard.WriteRows(familyTime, rows); err != nil {
 			r.logger.Error("failed writing family rows",
 				logger.Int64("family", familyTime),

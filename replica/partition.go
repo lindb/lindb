@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 //go:generate mockgen -source=./partition.go -destination=./partition_mock.go -package=replica
@@ -62,16 +63,18 @@ type partition struct {
 	log           queue.FanOutQueue
 	shardID       models.ShardID
 	shard         tsdb.Shard
-	peers         map[string]ReplicatorPeer
-	cliFct        rpc.ClientStreamFactory
-	stateMgr      storage.StateManager
+	db            memdb.MemoryDatabase
+
+	peers    map[string]ReplicatorPeer
+	cliFct   rpc.ClientStreamFactory
+	stateMgr storage.StateManager
 
 	mutex sync.Mutex
 }
 
 // NewPartition creates a writeTask ahead log partition.
 func NewPartition(ctx context.Context,
-	shardID models.ShardID, shard tsdb.Shard,
+	shardID models.ShardID, shard tsdb.Shard, db memdb.MemoryDatabase,
 	currentNodeID models.NodeID,
 	log queue.FanOutQueue,
 	cliFct rpc.ClientStreamFactory,
@@ -82,6 +85,7 @@ func NewPartition(ctx context.Context,
 		log:           log,
 		shardID:       shardID,
 		shard:         shard,
+		db:            db,
 		currentNodeID: currentNodeID,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
@@ -188,7 +192,7 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 	}
 	if replica == p.currentNodeID {
 		// local replicator
-		replicator = newLocalReplicatorFn(&channel, p.shard)
+		replicator = newLocalReplicatorFn(&channel, p.shard, p.db)
 	} else {
 		// build remote replicator
 		replicator = newRemoteReplicatorFn(p.ctx, &channel, p.stateMgr, p.cliFct)

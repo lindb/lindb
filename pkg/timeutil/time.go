@@ -45,6 +45,7 @@ const (
 	dataTimeFormat1 = "20060102 15:04:05"
 	dataTimeFormat2 = "2006-01-02 15:04:05"
 	dataTimeFormat3 = "2006/01/02 15:04:05"
+	DataTimeFormat4 = "20060102150405"
 )
 
 // FormatTimestamp returns timestamp format based on layout
@@ -64,8 +65,10 @@ func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
 			format = dataTimeFormat2
 		case strings.Index(timestampStr, "/") > 0:
 			format = dataTimeFormat3
-		default:
+		case strings.Index(timestampStr, " ") > 0:
 			format = dataTimeFormat1
+		default:
+			format = DataTimeFormat4
 		}
 	}
 	tm, err := parseTimeFunc(format, timestampStr, time.Local)

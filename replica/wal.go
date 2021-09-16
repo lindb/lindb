@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -40,6 +41,11 @@ var (
 	newWriteAheadLog = NewWriteAheadLog
 )
 
+type partitionKey struct {
+	shardID    models.ShardID
+	familyTime int64
+}
+
 // WriteAheadLogManager represents manage all writeTask ahead log.
 type WriteAheadLogManager interface {
 	// GetOrCreateLog returns writeTask ahead log for database,
@@ -51,7 +57,7 @@ type WriteAheadLogManager interface {
 type WriteAheadLog interface {
 	// GetOrCreatePartition returns a partition of writeTask ahead log.
 	// if exist returns it, else create a new partition.
-	GetOrCreatePartition(shardID models.ShardID) (Partition, error)
+	GetOrCreatePartition(shardID models.ShardID, familyTime int64) (Partition, error)
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
@@ -110,7 +116,7 @@ type writeAheadLog struct {
 	database      string
 	cfg           config.WAL
 	currentNodeID models.NodeID
-	shardLogs     map[models.ShardID]Partition
+	shardLogs     map[partitionKey]Partition
 	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
 	stateMgr      storage.StateManager
@@ -135,17 +141,21 @@ func NewWriteAheadLog(ctx context.Context,
 		engine:        engine,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
-		shardLogs:     make(map[models.ShardID]Partition),
+		shardLogs:     make(map[partitionKey]Partition),
 	}
 }
 
 // GetOrCreatePartition returns a partition of writeTask ahead log.
 // if exist returns it, else create a new partition.
-func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition, error) {
+func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime int64) (Partition, error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	p, ok := w.shardLogs[shardID]
+	key := partitionKey{
+		shardID:    shardID,
+		familyTime: familyTime,
+	}
+	p, ok := w.shardLogs[key]
 	if ok {
 		return p, nil
 	}
@@ -153,14 +163,19 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID) (Partition,
 	if !ok {
 		return nil, errors.New("shard not exist")
 	}
-	dirPath := path.Join(w.cfg.Dir, w.database, strconv.Itoa(int(shardID)))
+	db, err := shard.GetOrCreateMemoryDatabase(familyTime)
+	if err != nil {
+		return nil, err
+	}
+	dirPath := path.Join(w.cfg.Dir, w.database, strconv.Itoa(int(shardID)), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+
 	interval := w.cfg.RemoveTaskInterval.Duration()
 
 	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit(), interval)
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartition(w.ctx, shardID, shard, w.currentNodeID, q, w.cliFct, w.stateMgr)
-	w.shardLogs[shardID] = p
+	p = NewPartition(w.ctx, shardID, shard, db, w.currentNodeID, q, w.cliFct, w.stateMgr)
+	w.shardLogs[key] = p
 	return p, nil
 }
