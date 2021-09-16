@@ -28,8 +28,8 @@ import (
 )
 
 func TestNewFactory(t *testing.T) {
+	tmpDir := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		listDirFunc = fileutil.ListDir
 		mapFileFunc = fileutil.RWMap
 	}()
@@ -37,14 +37,14 @@ func TestNewFactory(t *testing.T) {
 	listDirFunc = func(path string) ([]string, error) {
 		return nil, fmt.Errorf("err")
 	}
-	fct, err := NewFactory(testPath, 128)
+	fct, err := NewFactory(tmpDir, 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 2: list page files parse file sequence err
 	listDirFunc = func(path string) ([]string, error) {
 		return []string{"a.bat"}, nil
 	}
-	fct, err = NewFactory(testPath, 128)
+	fct, err = NewFactory(tmpDir, 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 3: create page err
@@ -54,7 +54,7 @@ func TestNewFactory(t *testing.T) {
 	mapFileFunc = func(filePath string, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
-	fct, err = NewFactory(testPath, 128)
+	fct, err = NewFactory(tmpDir, 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 4: reopen page file
@@ -62,7 +62,7 @@ func TestNewFactory(t *testing.T) {
 		return []string{"10.bat"}, nil
 	}
 	mapFileFunc = fileutil.RWMap
-	fct, err = NewFactory(testPath, 128)
+	fct, err = NewFactory(tmpDir, 128)
 	assert.NoError(t, err)
 	assert.NotNil(t, fct)
 	fct1 := fct.(*factory)
@@ -72,8 +72,8 @@ func TestNewFactory(t *testing.T) {
 }
 
 func TestFactory_AcquirePage(t *testing.T) {
+	tmpDir := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirFunc = fileutil.MkDirIfNotExist
 		mapFileFunc = fileutil.RWMap
 	}()
@@ -81,14 +81,14 @@ func TestFactory_AcquirePage(t *testing.T) {
 	mkDirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	fct, err := NewFactory(testPath, 128)
+	fct, err := NewFactory(tmpDir, 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 
 	mkDirFunc = fileutil.MkDirIfNotExist
 
 	// case 2: new factory success
-	fct, err = NewFactory(testPath, 128)
+	fct, err = NewFactory(tmpDir, 128)
 	assert.NoError(t, err)
 	assert.NotNil(t, fct)
 	// case 3: acquire page success
@@ -129,10 +129,9 @@ func TestFactory_AcquirePage(t *testing.T) {
 }
 
 func TestFactory_GetPageIDs(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	fct, err := NewFactory(testPath, 128)
+	tmpDir := t.TempDir()
+
+	fct, err := NewFactory(tmpDir, 128)
 	assert.NoError(t, err)
 	_, _ = fct.AcquirePage(0)
 	_, _ = fct.AcquirePage(4)
@@ -143,14 +142,12 @@ func TestFactory_GetPageIDs(t *testing.T) {
 }
 
 func TestFactory_Close(t *testing.T) {
+	tmpDir := t.TempDir()
 	ctrl := gomock.NewController(t)
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
-	fct, err := NewFactory(testPath, 128)
+	fct, err := NewFactory(tmpDir, 128)
 	assert.NoError(t, err)
 
 	page1 := NewMockMappedPage(ctrl)
@@ -164,20 +161,20 @@ func TestFactory_Close(t *testing.T) {
 }
 
 func TestFactory_ReleasePage(t *testing.T) {
+	tmpDir := t.TempDir()
 	ctrl := gomock.NewController(t)
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		removeFileFunc = fileutil.RemoveFile
 		ctrl.Finish()
 	}()
 
-	fct, err := NewFactory(testPath, 128)
+	fct, err := NewFactory(tmpDir, 128)
 	assert.NoError(t, err)
 	p, err := fct.AcquirePage(10)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
-	files, err := fileutil.ListDir(testPath)
+	files, err := fileutil.ListDir(tmpDir)
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 
@@ -189,7 +186,7 @@ func TestFactory_ReleasePage(t *testing.T) {
 	}
 	err = fct.ReleasePage(10)
 	assert.Error(t, err)
-	files, err = fileutil.ListDir(testPath)
+	files, err = fileutil.ListDir(tmpDir)
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 
@@ -197,7 +194,7 @@ func TestFactory_ReleasePage(t *testing.T) {
 	removeFileFunc = fileutil.RemoveFile
 	err = fct.ReleasePage(10)
 	assert.NoError(t, err)
-	files, err = fileutil.ListDir(testPath)
+	files, err = fileutil.ListDir(tmpDir)
 	assert.NoError(t, err)
 	assert.Len(t, files, 0)
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -83,7 +84,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 func TestMetricMetadata_createTag(t *testing.T) {
 	mm := newMetricMetadata(1, 0)
 	assert.Equal(t, uint32(1), mm.getMetricID())
-	for i := 1; i <= constants.DefaultMaxTagKeysCount; i++ {
+	for i := 1; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber; i++ {
 		err := mm.checkTagKeyCount()
 		assert.NoError(t, err)
 		mm.createTagKey(fmt.Sprintf("tag-%d", i), uint32(i))
@@ -92,19 +93,19 @@ func TestMetricMetadata_createTag(t *testing.T) {
 	err := mm.checkTagKeyCount()
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
 
-	for i := 1; i <= constants.DefaultMaxTagKeysCount; i++ {
+	for i := 1; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber; i++ {
 		tagKeyID, ok := mm.getTagKeyID(fmt.Sprintf("tag-%d", i))
 		assert.True(t, ok)
 		assert.Equal(t, uint32(i), tagKeyID)
 	}
-	assert.Len(t, mm.getAllTagKeys(), constants.DefaultMaxTagKeysCount)
+	assert.Len(t, mm.getAllTagKeys(), config.GlobalStorageConfig().TSDB.MaxTagKeysNumber)
 	tagKeyID, ok := mm.getTagKeyID("no-tag")
 	assert.False(t, ok)
 	assert.Equal(t, uint32(0), tagKeyID)
 
 	mm2 := newMetricMetadata(1, 0)
 	mm2.initialize(mm.getAllFields(), mm.getAllTagKeys())
-	assert.Len(t, mm2.getAllTagKeys(), constants.DefaultMaxTagKeysCount)
+	assert.Len(t, mm2.getAllTagKeys(), config.GlobalStorageConfig().TSDB.MaxTagKeysNumber)
 	err = mm.checkTagKeyCount()
 	assert.Equal(t, series.ErrTooManyTagKeys, err)
 }

@@ -21,8 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/constants"
 )
 
 func TestMetricIDMapping_GetMetricID(t *testing.T) {
@@ -53,7 +51,7 @@ func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
 	idMapping := newMetricIDMapping(10, 0)
 	seriesID := idMapping.GenSeriesID(100)
 	assert.Equal(t, uint32(1), seriesID)
-	assert.Equal(t, uint32(constants.DefaultMaxSeriesIDsCount), idMapping.GetMaxSeriesIDsLimit())
+	assert.NotZero(t, idMapping.GetMaxSeriesIDsLimit())
 	idMapping.SetMaxSeriesIDsLimit(2)
 	_ = idMapping.GenSeriesID(102)
 	seriesID = idMapping.GenSeriesID(1020)

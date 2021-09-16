@@ -27,6 +27,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
@@ -291,7 +292,7 @@ func (rb *RowBuilder) Build() ([]byte, error) {
 	if rb.simpleFieldCount == 0 && len(rb.compoundFieldValues) == 0 {
 		return nil, fmt.Errorf("simple field and compound field are both empty")
 	}
-	if rb.rowKVs.kvCount > constants.DefaultMaxTagKeysCount {
+	if rb.rowKVs.kvCount > config.GlobalStorageConfig().TSDB.MaxTagKeysNumber {
 		return nil, fmt.Errorf("too many tag pairs: %d", rb.rowKVs.kvCount)
 	}
 	for i := 0; i < rb.rowKVs.kvCount; i++ {

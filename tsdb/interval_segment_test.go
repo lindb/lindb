@@ -29,8 +29,8 @@ import (
 )
 
 func TestIntervalSegment_New(t *testing.T) {
+	segPath := createSegPath(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 	}()
 
@@ -73,9 +73,7 @@ func TestIntervalSegment_New(t *testing.T) {
 }
 
 func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	segPath := createSegPath(t)
 	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
@@ -109,10 +107,7 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 }
 
 func TestIntervalSegment_getDataFamilies(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	segment1, _ := s.GetOrCreateSegment("20190902")
 	now, _ := timeutil.ParseTimestamp("20190902 19:10:48", "20060102 15:04:05")
 	_, _ = segment1.GetDataFamily(now)

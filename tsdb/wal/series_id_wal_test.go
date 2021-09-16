@@ -28,15 +28,12 @@ import (
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
-var testSeriesWALPath = "seriesWAL"
-
 func TestNewSeriesWAL(t *testing.T) {
+	testSeriesWALPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		mkDirFunc = fileutil.MkDirIfNotExist
 		newPageFactoryFunc = page.NewFactory
-
-		_ = fileutil.RemoveDir(testSeriesWALPath)
 
 		ctrl.Finish()
 	}()
@@ -85,11 +82,10 @@ func TestNewSeriesWAL(t *testing.T) {
 }
 
 func TestSeriesWAL_Append(t *testing.T) {
+	testSeriesWALPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
-		_ = fileutil.RemoveDir(testSeriesWALPath)
-
 		ctrl.Finish()
 	}()
 	fct := page.NewMockFactory(ctrl)
@@ -141,9 +137,7 @@ func TestSeriesWAL_Append(t *testing.T) {
 }
 
 func TestSeriesWAL_Recovery(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testSeriesWALPath)
-	}()
+	testSeriesWALPath := t.TempDir()
 	wal, err := NewSeriesWAL(testSeriesWALPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, wal)
@@ -193,10 +187,10 @@ func TestSeriesWAL_Recovery(t *testing.T) {
 }
 
 func TestSeriesWAL_Recovery_err(t *testing.T) {
+	testSeriesWALPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
-		_ = fileutil.RemoveDir(testSeriesWALPath)
 
 		ctrl.Finish()
 	}()
@@ -249,9 +243,7 @@ func TestSeriesWAL_Recovery_err(t *testing.T) {
 }
 
 func TestSeriesWAL_Close(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testSeriesWALPath)
-	}()
+	testSeriesWALPath := t.TempDir()
 	wal, err := NewSeriesWAL(testSeriesWALPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, wal)

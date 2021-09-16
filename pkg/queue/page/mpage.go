@@ -119,7 +119,7 @@ func (mp *mappedPage) PutUint64(value uint64, offset int) {
 	stream.PutUint64(mp.mappedBytes, offset, value)
 }
 
-// PutUint64 puts uint64 into buffer
+// ReadUint64 puts uint64 into buffer
 func (mp *mappedPage) ReadUint64(offset int) uint64 {
 	return stream.ReadUint64(mp.mappedBytes, offset)
 }

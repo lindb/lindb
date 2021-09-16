@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 	"github.com/lindb/lindb/series/metric"
@@ -35,7 +35,7 @@ func Test_tooManyTags(t *testing.T) {
 	builder, releaseFunc := metric.NewRowBuilder()
 	defer releaseFunc(builder)
 	var tagPair []string
-	for i := 0; i <= constants.DefaultMaxTagKeysCount+1; i++ {
+	for i := 0; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber+1; i++ {
 		v := strconv.FormatInt(int64(i), 10)
 		tagPair = append(tagPair, fmt.Sprintf("%s=%s", v, v))
 	}

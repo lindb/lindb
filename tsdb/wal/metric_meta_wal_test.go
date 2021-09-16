@@ -29,14 +29,12 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-var testMetaWALPath = "metaWAL"
 var ns = "ns"
 
 func TestNewMetricMetaWAL(t *testing.T) {
+	testMetaWALPath := t.TempDir()
 	defer func() {
 		mkDirFunc = fileutil.MkDirIfNotExist
-
-		_ = fileutil.RemoveDir(testMetaWALPath)
 	}()
 
 	// case 1: make path err
@@ -69,19 +67,14 @@ func TestNewMetricMetaWAL(t *testing.T) {
 }
 
 func TestMetricMetaWAL_Append(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testMetaWALPath)
-	}()
-	mockAppendData(t)
+	mockAppendData(t, t.TempDir())
 }
 
 func TestMetricMetaWAL_Append_err(t *testing.T) {
+	testMetaWALPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testMetaWALPath)
+	defer ctrl.Finish()
 
-		ctrl.Finish()
-	}()
 	fct := page.NewMockFactory(ctrl)
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err")).MaxTimes(3)
 	wal, err := NewMetricMetaWAL(testMetaWALPath)
@@ -101,10 +94,8 @@ func TestMetricMetaWAL_Append_err(t *testing.T) {
 }
 
 func TestMetricMetaWAL_Recovery(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testMetaWALPath)
-	}()
-	mockAppendData(t)
+	testMetaWALPath := t.TempDir()
+	mockAppendData(t, testMetaWALPath)
 
 	metaWAL, err := NewMetricMetaWAL(testMetaWALPath)
 	assert.NoError(t, err)
@@ -152,13 +143,11 @@ func TestMetricMetaWAL_Recovery(t *testing.T) {
 }
 
 func TestMetricMetaWAL_Recovery_err(t *testing.T) {
+	testMetaWALPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testMetaWALPath)
+	defer ctrl.Finish()
 
-		ctrl.Finish()
-	}()
-	mockAppendData(t)
+	mockAppendData(t, testMetaWALPath)
 	wal, err := NewMetricMetaWAL(testMetaWALPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, wal)
@@ -231,8 +220,8 @@ func TestMetricMetaWAL_Recovery_err(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func mockAppendData(t *testing.T) {
-	wal, err := NewMetricMetaWAL(testMetaWALPath)
+func mockAppendData(t *testing.T, dir string) {
+	wal, err := NewMetricMetaWAL(dir)
 	assert.NoError(t, err)
 	assert.NotNil(t, wal)
 

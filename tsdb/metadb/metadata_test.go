@@ -24,16 +24,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 func TestNewMetadata(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	metadata1, err := NewMetadata(context.TODO(), "test", testPath, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, metadata1.TagMetadata())
@@ -55,11 +51,9 @@ func TestNewMetadata(t *testing.T) {
 }
 
 func TestMetadata_Flush(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	metadata1, err := NewMetadata(context.TODO(), "test", testPath, nil)
 	assert.NoError(t, err)
 	db := NewMockMetadataDatabase(ctrl)

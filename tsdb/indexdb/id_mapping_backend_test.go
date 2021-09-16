@@ -30,11 +30,9 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
-const testPath = "test"
-
 func TestIdMappingBackend_new(t *testing.T) {
+	testPath := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		seriesBucketName = []byte("s")
 		closeFunc = closeDB
 		mkDir = fileutil.MkDirIfNotExist
@@ -72,9 +70,7 @@ func TestIdMappingBackend_new(t *testing.T) {
 }
 
 func TestIdMappingBackend_mapping(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	testPath := t.TempDir()
 	backend, err := newIDMappingBackend(filepath.Join(testPath, "test"))
 	assert.NoError(t, err)
 	event := newMappingEvent()
@@ -124,8 +120,8 @@ func TestIdMappingBackend_mapping(t *testing.T) {
 }
 
 func TestIdMappingBackend_save_err(t *testing.T) {
+	testPath := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		setSequenceFunc = setSequence
 		createBucketFunc = createBucket
 		putFunc = put

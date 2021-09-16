@@ -19,9 +19,8 @@ package ltoml
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/lindb/lindb/pkg/fileutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,31 +29,26 @@ type TestCfg struct {
 	Path string `toml:"path"`
 }
 
-var cfgFile = "./test.test"
-var defaultCfgFile = "./test.test"
-
 func TestLoadConfig(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(cfgFile)
-	}()
-	assert.NotNil(t, LoadConfig(cfgFile, defaultCfgFile, &TestCfg{}))
+	cfgFile := filepath.Join(t.TempDir(), "cfg")
+	assert.NotNil(t, LoadConfig(cfgFile, cfgFile, &TestCfg{}))
 
 	f, err := os.Create(cfgFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, _ = f.WriteString("Hello World")
-	assert.NotNil(t, LoadConfig(cfgFile, defaultCfgFile, &TestCfg{}))
+	assert.NotNil(t, LoadConfig(cfgFile, cfgFile, &TestCfg{}))
 
 	_ = EncodeToml(cfgFile, &TestCfg{Path: "/data/path"})
 	cfg := TestCfg{}
-	err = LoadConfig(cfgFile, defaultCfgFile, &cfg)
+	err = LoadConfig(cfgFile, cfgFile, &cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(t, TestCfg{Path: "/data/path"}, cfg)
 
-	err = LoadConfig("", defaultCfgFile, &cfg)
+	err = LoadConfig("", cfgFile, &cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
