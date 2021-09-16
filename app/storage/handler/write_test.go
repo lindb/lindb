@@ -68,13 +68,13 @@ func TestWriteHandler_Write(t *testing.T) {
 	replicaServer.EXPECT().Context().Return(ctx).AnyTimes()
 	wal := replica.NewMockWriteAheadLog(ctrl)
 	walMgr.EXPECT().GetOrCreateLog(gomock.Any()).Return(wal).AnyTimes()
-	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	wal.EXPECT().GetOrCreatePartition(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err = r.Write(replicaServer)
 	assert.Error(t, err)
 
 	// case 6: build replica replica err
 	p := replica.NewMockPartition(ctrl)
-	wal.EXPECT().GetOrCreatePartition(gomock.Any()).Return(p, nil).AnyTimes()
+	wal.EXPECT().GetOrCreatePartition(gomock.Any(), gomock.Any()).Return(p, nil).AnyTimes()
 	p.EXPECT().BuildReplicaForLeader(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = r.Write(replicaServer)
 	assert.Error(t, err)

@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 func TestPartition_BuildReplicaRelation(t *testing.T) {
@@ -43,7 +44,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -53,7 +54,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
-	p := NewPartition(context.TODO(), 1, shard, 1, log, nil, nil)
+	p := NewPartition(context.TODO(), 1, shard, nil, 1, log, nil, nil)
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
 	assert.Error(t, err)
 
@@ -79,7 +80,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -89,7 +90,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
-	p := NewPartition(context.TODO(), 1, shard, 1, log, nil, nil)
+	p := NewPartition(context.TODO(), 1, shard, nil, 1, log, nil, nil)
 	err := p.BuildReplicaForFollower(2, 2)
 	assert.Error(t, err)
 
@@ -111,7 +112,7 @@ func TestPartition_Close(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -120,7 +121,7 @@ func TestPartition_Close(t *testing.T) {
 	}
 
 	l.EXPECT().Close().MaxTimes(2)
-	p := NewPartition(context.TODO(), 1, shard, 1, l, nil, nil)
+	p := NewPartition(context.TODO(), 1, shard, nil, 1, l, nil, nil)
 	err := p.Close()
 	assert.NoError(t, err)
 	r.EXPECT().IsReady().Return(false).AnyTimes()
@@ -136,7 +137,7 @@ func TestPartition_WriteLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 	l := queue.NewMockFanOutQueue(ctrl)
-	p := NewPartition(context.TODO(), 1, nil, 1, l, nil, nil)
+	p := NewPartition(context.TODO(), 1, nil, nil, 1, l, nil, nil)
 	l.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
 	err := p.WriteLog([]byte{1})
 	assert.Error(t, err)
@@ -151,7 +152,7 @@ func TestPartition_ReplicaLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 	l := queue.NewMockFanOutQueue(ctrl)
-	p := NewPartition(context.TODO(), 1, nil, 1, l, nil, nil)
+	p := NewPartition(context.TODO(), 1, nil, nil, 1, l, nil, nil)
 	// case 1: replica idx err
 	l.EXPECT().HeadSeq().Return(int64(8))
 	idx, err := p.ReplicaLog(10, []byte{1})
