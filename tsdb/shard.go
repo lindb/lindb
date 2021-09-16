@@ -26,26 +26,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
@@ -53,7 +47,6 @@ import (
 
 // for testing
 var (
-	newReplicaSequenceFunc = newReplicaSequence
 	newIntervalSegmentFunc = newIntervalSegment
 	newKVStoreFunc         = kv.NewStore
 	newIndexDBFunc         = indexdb.NewIndexDatabase
@@ -73,7 +66,6 @@ var (
 )
 
 const (
-	replicaDir       = "replica"
 	segmentDir       = "segment"
 	indexParentDir   = "index"
 	forwardIndexDir  = "forward"
@@ -88,40 +80,30 @@ type Shard interface {
 	DatabaseName() string
 	// ShardID returns the shard id
 	ShardID() models.ShardID
+	Path() string
 	// CurrentInterval returns current interval for metric write.
 	CurrentInterval() timeutil.Interval
-	// ShardInfo returns the unique shard info
-	ShardInfo() string
+	// Indicator returns the unique shard info
+	Indicator() string
+	// GetOrCrateDataFamily returns data family, if not exist create a new data family.
+	GetOrCrateDataFamily(familyTime int64) (DataFamily, error)
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
-	// GetOrCreateMemoryDatabase makes sure that a memory database will always be returned by given family time.
-	GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error)
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	// WriteRows writes metric rows with same family in batch
 	WriteRows(rows []metric.StorageRow) error
-	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
-	GetOrCreateSequence(replicaPeer string) (queue.Sequence, error)
-	// MemDBTotalSize returns the total size of mutable and immutable memdb
-	MemDBTotalSize() int64
-	// Flush flushes index and memory data to disk
+
 	Flush() error
-	// NeedFlush checks if shard need to flush memory data
-	NeedFlush() bool
-	// IsFlushing checks if this shard is in flushing
-	IsFlushing() bool
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
-	// DataFilter filters the data based on condition
-	flow.DataFilter
 }
 
 // shard implements Shard interface
 // directory tree:
 //    xx/shard/1/ (path)
-//    xx/shard/1/replica
 //    xx/shard/1/temp/123213123131 // time of ns
 //    xx/shard/1/meta/
 //    xx/shard/1/index/inverted/
@@ -132,10 +114,6 @@ type shard struct {
 	id           models.ShardID
 	path         string
 	option       option.DatabaseOption
-	sequence     ReplicaSequence
-
-	mutex    sync.Mutex     // mutex for update families
-	families familyMemDBSet // memory database for each family time
 
 	indexDB  indexdb.IndexDatabase
 	metadata metadb.Metadata
@@ -154,13 +132,7 @@ type shard struct {
 	logger         *logger.Logger
 
 	statistics struct {
-		writeBatches        *linmetric.BoundCounter
-		writeMetrics        *linmetric.BoundCounter
 		writeMetricFailures *linmetric.BoundCounter
-		writeFields         *linmetric.BoundCounter
-		memdbTotalSize      *linmetric.BoundGauge
-		memdbNumber         *linmetric.BoundGauge
-		memFlushTimer       *linmetric.BoundHistogram
 		indexFlushTimer     *linmetric.BoundHistogram
 	}
 }
@@ -183,17 +155,11 @@ func newShard(
 	if err := mkDirIfNotExist(shardPath); err != nil {
 		return nil, err
 	}
-	replicaSequence, err := newReplicaSequenceFunc(filepath.Join(shardPath, replicaDir))
-	if err != nil {
-		return nil, err
-	}
 	createdShard := &shard{
 		databaseName: db.Name(),
 		id:           shardID,
 		path:         shardPath,
 		option:       option,
-		sequence:     replicaSequence,
-		families:     *newFamilyMemDBSet(),
 		metadata:     db.Metadata(),
 		interval:     interval,
 		segments:     make(map[timeutil.IntervalType]IntervalSegment),
@@ -202,17 +168,12 @@ func newShard(
 	}
 	// initialize metrics
 	shardIDStr := strconv.Itoa(int(shardID))
-	createdShard.statistics.writeBatches = writeBatchesVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.writeMetrics = writeMetricsVec.WithTagValues(db.Name(), shardIDStr)
 	createdShard.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.writeFields = writeFieldsVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.memdbTotalSize = memdbTotalSizeVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.memdbNumber = memdbNumberVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.memFlushTimer = memFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
 	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
 
 	// new segment for writing
 	createdShard.segment, err = newIntervalSegmentFunc(
+		createdShard,
 		interval,
 		filepath.Join(shardPath, segmentDir, interval.Type().String()))
 
@@ -236,8 +197,6 @@ func newShard(
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	// add shard into global shard manager
-	GetShardManager().AddShard(createdShard)
 	return createdShard, nil
 }
 
@@ -247,17 +206,30 @@ func (s *shard) DatabaseName() string { return s.databaseName }
 // ShardID returns the shard id.
 func (s *shard) ShardID() models.ShardID { return s.id }
 
+func (s *shard) Path() string {
+	return s.path
+}
+
 // ShardInfo returns the unique shard info.
-func (s *shard) ShardInfo() string { return s.path }
+func (s *shard) Indicator() string { return s.path }
 
 // CurrentInterval returns current interval for metric  write.
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
 
-func (s *shard) GetOrCreateSequence(replicaPeer string) (queue.Sequence, error) {
-	return s.sequence.getOrCreateSequence(replicaPeer)
-}
-
 func (s *shard) IndexDatabase() indexdb.IndexDatabase { return s.indexDB }
+
+func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
+	segmentName := s.interval.Calculator().GetSegment(familyTime)
+	segment, err := s.segment.GetOrCreateSegment(segmentName)
+	if err != nil {
+		return nil, err
+	}
+	family, err := segment.GetOrCreateDataFamily(familyTime)
+	if err != nil {
+		return nil, err
+	}
+	return family, nil
+}
 
 func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
 	segment, ok := s.segments[intervalType]
@@ -265,61 +237,6 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 		return segment.getDataFamilies(timeRange)
 	}
 	return nil
-}
-
-// GetOrCreateMemoryDatabase returns memory database by given family time.
-func (s *shard) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
-	db, exist := s.families.GetMutableFamily(familyTime)
-	if exist {
-		return db, nil
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	// double check
-	db, exist = s.families.GetMutableFamily(familyTime)
-	if exist {
-		return db, nil
-	}
-	newDB, err := s.createMemoryDatabase(familyTime)
-	if err != nil {
-		return nil, err
-	}
-	s.families.InsertFamily(familyTime, newDB)
-	return newDB, nil
-}
-
-// Filter filters the data based on metric/time range/seriesIDs,
-// if finds data then returns the flow.FilterResultSet, else returns nil
-func (s *shard) Filter(
-	metricID uint32,
-	seriesIDs *roaring.Bitmap,
-	timeRange timeutil.TimeRange,
-	fields field.Metas,
-) (rs []flow.FilterResultSet, err error) {
-	entries := s.families.Entries()
-	for idx := range entries {
-		// check family time if in query time range
-		familyStartTime := entries[idx].familyTime
-		familyEndTime := s.interval.Calculator().CalcFamilyEndTime(familyStartTime)
-		if !timeRange.Overlap(timeutil.TimeRange{Start: familyStartTime, End: familyEndTime}) {
-			continue
-		}
-		resultSet, err := entries[idx].memDB.Filter(metricID, seriesIDs, timeRange, fields)
-		if err != nil {
-			return nil, err
-		}
-		rs = append(rs, resultSet...)
-	}
-	return
-}
-
-func (s *shard) FindMemoryDatabase() (rs []memdb.MemoryDatabase) {
-	entries := s.families.Entries()
-	for idx := range entries {
-		rs = append(rs, entries[idx].memDB)
-	}
-	return rs
 }
 
 func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
@@ -415,56 +332,12 @@ Done:
 }
 
 func (s *shard) WriteRows(rows []metric.StorageRow) error {
-	defer s.statistics.writeBatches.Incr()
-
-	if len(rows) == 0 {
-		return nil
-	}
-	intervalCalc := s.interval.Calculator()
-
-	firstTimeStamp := rows[0].Timestamp()
-	segmentTime := intervalCalc.CalcSegmentTime(firstTimeStamp)
-	family := intervalCalc.CalcFamily(firstTimeStamp, segmentTime)
-	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)
-
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {
 			s.logger.Error("failed to lookup meta of row", logger.Error(err))
 			continue
 		}
-		rows[idx].SlotIndex = uint16(intervalCalc.CalcSlot(
-			rows[idx].Timestamp(),
-			familyTime,
-			s.interval.Int64()),
-		)
 	}
-	db, err := s.GetOrCreateMemoryDatabase(familyTime)
-	if err != nil {
-		// all rows are dropped
-		s.statistics.writeMetricFailures.Add(float64(len(rows)))
-		return err
-	}
-	db.AcquireWrite()
-	defer db.CompleteWrite()
-
-	releaseFunc := db.WithLock()
-	defer releaseFunc()
-
-	for idx := range rows {
-		if !rows[idx].Writable {
-			s.statistics.writeMetricFailures.Incr()
-			continue
-		}
-		if err = db.WriteRow(&rows[idx]); err == nil {
-			s.statistics.writeMetrics.Incr()
-			s.statistics.writeFields.Add(float64(len(rows[idx].FieldIDs)))
-		} else {
-			s.statistics.writeMetricFailures.Incr()
-			s.logger.Error("failed writing row", logger.Error(err))
-		}
-	}
-	// if memdb size is above threshold, it will be put into immutable list
-	s.validateMemDBSize(familyTime, db)
 	return nil
 }
 
@@ -472,7 +345,6 @@ func (s *shard) Close() error {
 	// wait previous flush job completed
 	s.flushCondition.Wait()
 
-	GetShardManager().RemoveShard(s)
 	if s.indexDB != nil {
 		if err := s.indexDB.Close(); err != nil {
 			return err
@@ -483,105 +355,9 @@ func (s *shard) Close() error {
 			return err
 		}
 	}
-	for _, entry := range s.families.Entries() {
-		if err := s.flushMemoryDatabase(entry.memDB); err != nil {
-			return err
-		}
-	}
-	s.ackReplicaSeq()
-	return s.sequence.Close()
-}
-
-// IsFlushing checks if this shard is in flushing
-func (s *shard) IsFlushing() bool { return s.isFlushing.Load() }
-
-func (s *shard) validateMemDBSize(familyTime int64, m memdb.MemoryDatabase) {
-	// memory usage lower than threshold
-	maxMemDBSize := int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)
-	if m.MemSize() < maxMemDBSize {
-		return
-	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.families.SetFamilyImmutable(familyTime)
-
-	s.logger.Info("memdb is above memory threshold, switch to immutable",
-		logger.Any("shardID", s.id),
-		logger.String("database", s.databaseName),
-		logger.Int64("familyTime", familyTime),
-		logger.String("uptime", m.Uptime().String()),
-		logger.String("memdb-size", ltoml.Size(m.MemSize()).String()),
-		logger.Int64("max-memdb-size", maxMemDBSize),
-	)
-}
-
-func (s *shard) tryEvictMutable() {
-	// fast path, there is no expired mutable memdb
-	ttl := config.GlobalStorageConfig().TSDB.MutableMemDBTTL.Duration()
-	mutable := s.families.MutableEntries()
-	for _, entry := range mutable {
-		if entry.memDB.Uptime() > ttl {
-			goto MoveMutable
-		}
-	}
-	return
-
-MoveMutable:
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	for _, entry := range s.families.MutableEntries() {
-		if entry.memDB.Uptime() > ttl {
-			s.families.SetFamilyImmutable(entry.familyTime)
-			s.logger.Info("switch a expired mutable memdb to immutable",
-				logger.Any("shardID", s.id),
-				logger.String("database", s.databaseName),
-				logger.Int64("family", entry.familyTime),
-				logger.String("uptime", entry.memDB.Uptime().String()),
-				logger.String("mutable-memdb-ttl", ttl.String()),
-			)
-		}
-	}
-}
-
-func (s *shard) MemDBTotalSize() int64 {
-	return s.families.TotalSize()
-}
-
-// NeedFlush checks if shard need to flush memory data
-func (s *shard) NeedFlush() bool {
-	if s.IsFlushing() {
-		return false
-	}
-	s.statistics.memdbNumber.Update(float64(len(s.families.Entries())))
-	s.statistics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
-
-	s.tryEvictMutable()
-
-	cfg := config.GlobalStorageConfig()
-	// too many memdbs
-	number := len(s.families.Entries())
-	if number > cfg.TSDB.MaxMemDBNumber {
-		s.logger.Info("number of memdb is above threshold, waiting for flush",
-			logger.Any("shardID", s.id),
-			logger.String("database", s.databaseName),
-			logger.Int32("memdb-number", int32(number)),
-			logger.Int32("max-memdb-number", int32(cfg.TSDB.MaxMemDBNumber)),
-		)
-		return true
-	}
-	// total size too much
-	totalSize := s.families.TotalSize()
-	if totalSize > int64(cfg.TSDB.MaxMemDBTotalSize) {
-		s.logger.Info("total size of memdb is above threshold, waiting for flush",
-			logger.Any("shardID", s.id),
-			logger.String("database", s.databaseName),
-			logger.Int64("memdb-total-size", totalSize),
-			logger.Int64("max-memdb-total-size", int64(cfg.TSDB.MaxMemDBTotalSize)),
-		)
-		return true
-	}
-	return false
+	// close segment/flush family data
+	s.segment.Close()
+	return nil
 }
 
 // Flush flushes index and memory data to disk
@@ -618,55 +394,7 @@ func (s *shard) Flush() (err error) {
 		s.statistics.indexFlushTimer.UpdateSince(startTime)
 	}
 
-	var waitingFlushMemDB memdb.MemoryDatabase
-	immutable := s.families.ImmutableEntries()
-	// flush first immutable memdb
-	if len(immutable) > 0 {
-		waitingFlushMemDB = immutable[0].memDB
-	} else {
-		s.mutex.Lock()
-		// force picks a mutable memdb from memory
-		if evictedMutable := s.families.SetLargestMutableMemDBImmutable(); evictedMutable {
-			waitingFlushMemDB = s.families.ImmutableEntries()[0].memDB
-			s.logger.Info("forcefully switch a memdb to immutable for flushing",
-				logger.Any("shardID", s.id),
-				logger.String("database", s.databaseName),
-				logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
-				logger.Int64("memDBSize", waitingFlushMemDB.MemSize()),
-			)
-		}
-		s.mutex.Unlock()
-	}
-	if waitingFlushMemDB == nil {
-		s.logger.Warn("there is no memdb to flush", logger.Any("shardID", s.id))
-		return nil
-	}
-
-	startTime = time.Now()
-	if err := s.flushMemoryDatabase(waitingFlushMemDB); err != nil {
-		s.logger.Error("failed to flush memdb",
-			logger.Any("shardID", s.id),
-			logger.String("database", s.databaseName),
-			logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
-			logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
-		return err
-	}
-	// flush success, remove it from the immutable list
-	s.mutex.Lock()
-	s.families.RemoveHeadImmutable()
-	s.mutex.Unlock()
-
-	endTime := time.Now()
-	s.logger.Info("flush memdb successfully",
-		logger.Any("shardID", s.id),
-		logger.String("database", s.databaseName),
-		logger.String("flush-duration", endTime.Sub(startTime).String()),
-		logger.Int64("familyTime", waitingFlushMemDB.FamilyTime()),
-		logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
-	s.statistics.memFlushTimer.UpdateDuration(endTime.Sub(startTime))
-
 	//FIXME(stone1100) commit replica sequence
-	s.ackReplicaSeq()
 	return nil
 }
 
@@ -703,50 +431,4 @@ func (s *shard) initIndexDatabase() error {
 		return err
 	}
 	return nil
-}
-
-// createMemoryDatabase creates a new memory database for writing data points
-func (s *shard) createMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
-	return newMemoryDBFunc(memdb.MemoryDatabaseCfg{
-		FamilyTime: familyTime,
-		Name:       s.databaseName,
-		TempPath:   filepath.Join(s.path, filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
-	})
-}
-
-// flushMemoryDatabase flushes memory database to disk kv store
-func (s *shard) flushMemoryDatabase(memDB memdb.MemoryDatabase) error {
-	startTime := time.Now()
-	defer s.statistics.memFlushTimer.UpdateSince(startTime)
-
-	segmentName := s.interval.Calculator().GetSegment(memDB.FamilyTime())
-	segment, err := s.segment.GetOrCreateSegment(segmentName)
-	if err != nil {
-		return err
-	}
-	thisDataFamily, err := segment.GetDataFamily(memDB.FamilyTime())
-	if err != nil {
-		return err
-	}
-	dataFlusher, err := metricsdata.NewFlusher(thisDataFamily.Family().NewFlusher())
-	if err != nil {
-		return err
-	}
-	// flush family data
-	if err := memDB.FlushFamilyTo(dataFlusher); err != nil {
-		return err
-	}
-	if err := memDB.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ackReplicaSeq commits the replica sequence
-// NOTICE: if fail, maybe data will write duplicate if system restart
-func (s *shard) ackReplicaSeq() {
-	allHeads := s.sequence.getAllHeads()
-	if err := s.sequence.ack(allHeads); err != nil {
-		engineLogger.Error("ack replica sequence error", logger.String("shard", s.path), logger.Error(err))
-	}
 }

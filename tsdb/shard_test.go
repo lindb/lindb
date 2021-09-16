@@ -53,7 +53,6 @@ func TestShard_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
-		newReplicaSequenceFunc = newReplicaSequence
 		newIntervalSegmentFunc = newIntervalSegment
 		newKVStoreFunc = kv.NewStore
 		newIndexDBFunc = indexdb.NewIndexDatabase
@@ -82,23 +81,15 @@ func TestShard_New(t *testing.T) {
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 4: new replica sequence err
+	// case 4: new interval segment err
 	mkDirIfNotExist = fileutil.MkDirIfNotExist
-	newReplicaSequenceFunc = func(dirPath string) (sequence ReplicaSequence, err error) {
+	newIntervalSegmentFunc = func(_ Shard, interval timeutil.Interval, path string) (segment IntervalSegment, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 5: new interval segment err
-	newReplicaSequenceFunc = newReplicaSequence
-	newIntervalSegmentFunc = func(interval timeutil.Interval, path string) (segment IntervalSegment, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 6: new kv store err
+	// case 5: new kv store err
 	newIntervalSegmentFunc = newIntervalSegment
 	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
 		return nil, fmt.Errorf("err")
@@ -106,7 +97,7 @@ func TestShard_New(t *testing.T) {
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 7: create forward family err
+	// case 6: create forward family err
 	kvStore := kv.NewMockStore(ctrl)
 	kvStore.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
@@ -116,14 +107,14 @@ func TestShard_New(t *testing.T) {
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 8: create forward family err
+	// case 7: create forward family err
 	family := kv.NewMockFamily(ctrl)
 	kvStore.EXPECT().CreateFamily(forwardIndexDir, gomock.Any()).Return(family, nil)
 	kvStore.EXPECT().CreateFamily(invertedIndexDir, gomock.Any()).Return(nil, fmt.Errorf("err"))
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.Error(t, err)
 	assert.Nil(t, thisShard)
-	// case 9: create index db err
+	// case 8: create index db err
 	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
 	newIndexDBFunc = func(ctx context.Context, parent string,
 		metadata metadb.Metadata, forward kv.Family, inverted kv.Family,
@@ -135,19 +126,15 @@ func TestShard_New(t *testing.T) {
 	assert.Nil(t, thisShard)
 	newIndexDBFunc = indexdb.NewIndexDatabase
 
-	// case 10: create shard success
+	// case 9: create shard success
 	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
 	assert.NoError(t, err)
 	assert.NotNil(t, thisShard)
 	assert.NotNil(t, thisShard.IndexDatabase())
 	assert.Equal(t, "db", thisShard.DatabaseName())
 	assert.Equal(t, models.ShardID(1), thisShard.ShardID())
-	s, err := thisShard.GetOrCreateSequence("tes")
-	assert.NoError(t, err)
-	assert.NotNil(t, s)
 
 	assert.True(t, fileutil.Exist(_testShard1Path))
-	assert.False(t, thisShard.IsFlushing())
 }
 
 func TestShard_GetDataFamilies(t *testing.T) {
@@ -200,15 +187,8 @@ func TestShard_Write(t *testing.T) {
 	// calculate family start time and slot index
 	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
 	timestamp := timeutil.Now()
-	var interval timeutil.Interval
-	_ = interval.ValueOf("10s")
-	intervalCalc := interval.Calculator()
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)              // day
-	family := intervalCalc.CalcFamily(timestamp, segmentTime)           // hours
-	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family) // family timestamp
 	shardIns := shardINTF.(*shard)
 	shardIns.indexDB = indexDB
-	shardIns.families.InsertFamily(familyTime, mockMemDB)
 
 	// case 4: gen metric id err
 	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
@@ -250,23 +230,6 @@ func TestShard_Write(t *testing.T) {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 		}},
 	})))
-	GetShardManager().RemoveShard(shardINTF)
-}
-
-func Test_familyMemDBSet(t *testing.T) {
-	set := newFamilyMemDBSet()
-	for i := 1000; i >= 0; i -= 10 {
-		set.InsertFamily(int64(i), nil)
-	}
-
-	for i := 0; i < 1000; i += 10 {
-		_, exist := set.GetMutableFamily(int64(i))
-		assert.True(t, exist)
-		_, exist = set.GetMutableFamily(int64(i + 1))
-		assert.False(t, exist)
-		_, exist = set.GetMutableFamily(int64(i - 1))
-		assert.False(t, exist)
-	}
 }
 
 func TestShard_Close(t *testing.T) {
@@ -301,38 +264,13 @@ func TestShard_Close(t *testing.T) {
 	kvStore.EXPECT().Close().Return(fmt.Errorf("exx"))
 	err = s.Close()
 	assert.Error(t, err)
-	// case 3: flush immutable err
-	kvStore.EXPECT().Close().Return(nil).AnyTimes()
-	mutableDB := memdb.NewMockMemoryDatabase(ctrl)
-	immutableDB := memdb.NewMockMemoryDatabase(ctrl)
-	s1.families.InsertFamily(1, mutableDB)
-	s1.families.InsertFamily(2, immutableDB)
-	s1.families.SetFamilyImmutable(2)
-	mutableDB.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
-	immutableDB.EXPECT().FamilyTime().Return(int64(2)).AnyTimes()
-
-	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(fmt.Errorf("err"))
-	err = s.Close()
-	assert.Error(t, err)
-	// case 4: close success
-	mutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
-	mutableDB.EXPECT().Close().Return(nil)
-	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
-	immutableDB.EXPECT().Close().Return(nil)
-	err = s.Close()
-	assert.NoError(t, err)
-	// case 5: close memory database err
-	immutableDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
-	immutableDB.EXPECT().Close().Return(fmt.Errorf("error"))
-	err = s.Close()
-	assert.Error(t, err)
-
-	// case6, get segment error
+	// case3: close success
+	kvStore.EXPECT().Close().Return(nil)
 	mockSegment := NewMockIntervalSegment(ctrl)
 	s1.segment = mockSegment
-	mockSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("error"))
+	mockSegment.EXPECT().Close()
 	err = s.Close()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func TestShard_Flush(t *testing.T) {
@@ -360,33 +298,8 @@ func TestShard_Flush(t *testing.T) {
 	s2.isFlushing.Store(false)
 	index.EXPECT().Flush().Return(fmt.Errorf("error"))
 	assert.Error(t, s2.Flush())
-	// case3: no memdb to flush
+	// case3: flush index ok
 	index.EXPECT().Flush().Return(nil)
-	assert.NoError(t, s2.Flush())
-
-	index.EXPECT().Flush().Return(nil).AnyTimes()
-	immutableDB1 := memdb.NewMockMemoryDatabase(ctrl)
-	immutableDB1.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
-	immutableDB1.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
-	immutableDB1.EXPECT().Close().Return(nil).AnyTimes()
-	mutableDB2 := memdb.NewMockMemoryDatabase(ctrl)
-	mutableDB2.EXPECT().FamilyTime().Return(int64(2)).AnyTimes()
-	mutableDB2.EXPECT().MemSize().Return(int64(1000)).AnyTimes()
-	mutableDB2.EXPECT().Close().Return(nil).AnyTimes()
-
-	s2.families.InsertFamily(1, immutableDB1)
-	s2.families.InsertFamily(2, mutableDB2)
-	s2.families.SetFamilyImmutable(1)
-	// case4: flush first immutable error
-	immutableDB1.EXPECT().FlushFamilyTo(gomock.Any()).Return(fmt.Errorf("error"))
-	assert.Error(t, s2.Flush())
-
-	// case5, flush first immutable ok
-	immutableDB1.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
-	assert.NoError(t, s2.Flush())
-
-	// case6, move mutable to immutable
-	mutableDB2.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
 	assert.NoError(t, s2.Flush())
 }
 
@@ -406,7 +319,6 @@ func TestShard_NeedFlush(t *testing.T) {
 	s3.indexDB = index
 	// case 1: flush doing
 	s3.isFlushing.Store(true)
-	assert.False(t, s3.NeedFlush())
 	s3.isFlushing.Store(false)
 
 	db1 := memdb.NewMockMemoryDatabase(ctrl)
@@ -427,60 +339,4 @@ func TestShard_NeedFlush(t *testing.T) {
 	db6 := memdb.NewMockMemoryDatabase(ctrl)
 	db6.EXPECT().Uptime().Return(time.Second).AnyTimes()
 	db6.EXPECT().MemSize().Return(int64(config.GlobalStorageConfig().TSDB.MaxMemDBTotalSize) + 10000).AnyTimes()
-
-	s3.families.InsertFamily(1, db1)
-	s3.families.SetFamilyImmutable(1)
-	s3.families.InsertFamily(2, db2)
-	s3.families.SetFamilyImmutable(2)
-	s3.families.InsertFamily(3, db3)
-	s3.families.InsertFamily(4, db4)
-	s3.families.InsertFamily(5, db5)
-	s3.families.InsertFamily(6, db6)
-
-	// case 2: too many memdbs
-	assert.True(t, s3.NeedFlush())
-
-	// case3, size too much
-	s3.families.RemoveHeadImmutable()
-	s3.families.RemoveHeadImmutable()
-	assert.True(t, s3.NeedFlush())
-
-	// case4, no need to flush
-	s3.families.SetFamilyImmutable(3)
-	s3.families.SetFamilyImmutable(4)
-	s3.families.SetFamilyImmutable(5)
-	s3.families.SetFamilyImmutable(6)
-	s3.families.RemoveHeadImmutable()
-	s3.families.RemoveHeadImmutable()
-	s3.families.RemoveHeadImmutable()
-	s3.families.RemoveHeadImmutable()
-	assert.False(t, s3.NeedFlush())
-}
-
-func TestShard_GetOrCreateMemoryDatabase(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
-	ctrl := gomock.NewController(t)
-	defer func() {
-		newMemoryDBFunc = memdb.NewMemoryDatabase
-		ctrl.Finish()
-	}()
-	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
-		return nil, nil
-	}
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	s4 := s.(*shard)
-
-	_, err := s4.GetOrCreateMemoryDatabase(1)
-	assert.Nil(t, err)
-
-	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
-		return nil, fmt.Errorf("err")
-	}
-	_, err = s4.GetOrCreateMemoryDatabase(2)
-	assert.Error(t, err)
 }

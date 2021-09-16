@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -194,11 +195,11 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime 
 	if !ok {
 		return nil, fmt.Errorf("shard: %d not exist", shardID.Int())
 	}
-	db, err := shard.GetOrCreateMemoryDatabase(familyTime)
+	family, err := shard.GetOrCrateDataFamily(familyTime)
 	if err != nil {
 		return nil, err
 	}
-	dirPath := path.Join(w.cfg.Dir, w.database, shardID.String(), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+	dirPath := path.Join(w.cfg.Dir, w.database, strconv.Itoa(int(shardID)), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
 
 	interval := w.cfg.RemoveTaskInterval.Duration()
 
@@ -206,7 +207,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime 
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartition(w.ctx, shard, db, w.currentNodeID, q, w.cliFct, w.stateMgr)
+	p = NewPartition(w.ctx, shard, family, w.currentNodeID, q, w.cliFct, w.stateMgr)
 
 	w.insertPartition(key, p)
 	return p, nil

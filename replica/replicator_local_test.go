@@ -45,9 +45,17 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
 	shard.EXPECT().DatabaseName().Return("test-database").AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().CommitSequence(gomock.Any()).AnyTimes()
 
-	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard, nil)
+	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard, family)
 	assert.True(t, replicator.IsReady())
+	// bad sequence
+	family.EXPECT().ValidateSequence(gomock.Any()).Return(false)
+	replicator.Replica(1, []byte{1, 2, 3})
+
+	family.EXPECT().ValidateSequence(gomock.Any()).Return(true).AnyTimes()
+
 	// bad compressed data
 	replicator.Replica(1, []byte{1, 2, 3})
 	// data ok
@@ -66,7 +74,11 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	_, _ = row.WriteTo(buf)
 	var dst []byte
 	dst = snappy.Encode(dst, buf.Bytes())
-	shard.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("errj"))
+	shard.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
+	replicator.Replica(1, dst)
+
+	shard.EXPECT().WriteRows(gomock.Any()).Return(nil)
+	family.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
 	// bad data
 	dst = snappy.Encode(dst, []byte("bad-data"))

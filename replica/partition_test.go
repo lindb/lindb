@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 func TestPartition_BuildReplicaRelation(t *testing.T) {
@@ -45,7 +44,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -82,7 +81,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -115,7 +114,7 @@ func TestPartition_Close(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("test").AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ memdb.MemoryDatabase) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,

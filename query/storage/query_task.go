@@ -204,62 +204,8 @@ func (t *seriesIDsSearchTask) AfterRun() {
 	t.ctx.stats.SetShardSeriesIDsSearchStats(t.shard.ShardID(), t.result.GetCardinality(), t.cost)
 }
 
-// memoryDataFilterTask represents memory data filter task
-type memoryDataFilterTask struct {
-	baseQueryTask
-	ctx       *storageExecuteContext
-	shard     tsdb.Shard
-	metricID  uint32
-	fields    field.Metas
-	seriesIDs *roaring.Bitmap
-	timeSpan  *timeSpanResultSet
-}
-
-// newMemoryDataFilterTask creates memory data filter task
-func newMemoryDataFilterTask(
-	ctx *storageExecuteContext,
-	shard tsdb.Shard,
-	metricID uint32,
-	fields field.Metas,
-	seriesIDs *roaring.Bitmap,
-	timeSpan *timeSpanResultSet,
-) flow.QueryTask {
-	task := &memoryDataFilterTask{
-		ctx:       ctx,
-		shard:     shard,
-		metricID:  metricID,
-		fields:    fields,
-		seriesIDs: seriesIDs,
-		timeSpan:  timeSpan,
-	}
-	if ctx.query.Explain {
-		return &queryStatTask{
-			task: task,
-		}
-	}
-	return task
-}
-
-// Run executes memory database data filtering based on series ids and time range
-func (t *memoryDataFilterTask) Run() error {
-	resultSet, err := t.shard.Filter(t.metricID, t.seriesIDs, t.ctx.query.TimeRange, t.fields)
-	if err != nil {
-		return err
-	}
-	for _, rs := range resultSet {
-		t.timeSpan.addFilterResultSet(t.shard.CurrentInterval(), rs)
-	}
-	return nil
-}
-
-// AfterRun invokes after memory data filtering, collects the memory data filtering stats
-func (t *memoryDataFilterTask) AfterRun() {
-	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetShardMemoryDataFilterCost(t.shard.ShardID(), t.cost)
-}
-
-// fileDataFilterTask represents file data filtering task
-type fileDataFilterTask struct {
+// familyFilterTask represents family data filtering task
+type familyFilterTask struct {
 	baseQueryTask
 
 	ctx       *storageExecuteContext
@@ -271,12 +217,12 @@ type fileDataFilterTask struct {
 	rs *timeSpanResultSet
 }
 
-// newFileDataFilterTask creates file data filtering task
-func newFileDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
+// newFamilyFilterTask creates family data filtering task
+func newFamilyFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
 	rs *timeSpanResultSet,
 ) flow.QueryTask {
-	task := &fileDataFilterTask{
+	task := &familyFilterTask{
 		ctx:       ctx,
 		shard:     shard,
 		metricID:  metricID,
@@ -293,7 +239,7 @@ func newFileDataFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 }
 
 // Run executes file data filtering based on series ids and time range for each data family
-func (t *fileDataFilterTask) Run() error {
+func (t *familyFilterTask) Run() error {
 	families := t.shard.GetDataFamilies(t.ctx.query.Interval.Type(), t.ctx.query.TimeRange)
 	if len(families) == 0 {
 		return nil
@@ -313,7 +259,7 @@ func (t *fileDataFilterTask) Run() error {
 }
 
 // AfterRun invokes after file data filtering, collects the file data filtering stats
-func (t *fileDataFilterTask) AfterRun() {
+func (t *familyFilterTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
 	t.ctx.stats.SetShardKVDataFilterCost(t.shard.ShardID(), t.cost)
 }

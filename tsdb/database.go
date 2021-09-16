@@ -61,11 +61,11 @@ const (
 type Database interface {
 	// Name returns time series database's name
 	Name() string
-	// NumOfShards returns number of shards in time series database
+	// NumOfShards returns number of families in time series database
 	NumOfShards() int
 	// GetOption returns the data base options
 	GetOption() option.DatabaseOption
-	// CreateShards creates shards for data partition
+	// CreateShards creates families for data partition
 	CreateShards(option option.DatabaseOption, shardIDs []models.ShardID) error
 	// GetShard returns shard by given shard id
 	GetShard(shardID models.ShardID) (Shard, bool)
@@ -77,24 +77,24 @@ type Database interface {
 	Metadata() metadb.Metadata
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
-	// Flush flushes memory data of all shards to disk
+	// Flush flushes memory data of all families to disk
 	Flush() error
 }
 
-// databaseConfig represents a database configuration about config and shards
+// databaseConfig represents a database configuration about config and families
 type databaseConfig struct {
 	ShardIDs []models.ShardID      `toml:"shardIDs"`
 	Option   option.DatabaseOption `toml:"option"`
 }
 
-// database implements Database for storing shards,
+// database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
 	name         string          // database-name
 	path         string          // database root path
 	config       *databaseConfig // meta configuration
 	executorPool *ExecutorPool   // executor pool for querying task
-	mutex        sync.Mutex      // mutex for creating shards
+	mutex        sync.Mutex      // mutex for creating families
 	shardSet     shardSet        // atomic value
 	metadata     metadb.Metadata // underlying metric metadata
 	metaStore    kv.Store        // underlying meta kv store
@@ -156,7 +156,7 @@ func newDatabase(
 			}
 		}
 	}()
-	// load shards if engine is exist
+	// load families if engine is exist
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
 		for _, shardID := range db.config.ShardIDs {
@@ -192,7 +192,7 @@ func (db *database) GetOption() option.DatabaseOption {
 	return db.config.Option
 }
 
-// CreateShards creates shards for data partition
+// CreateShards creates families for data partition
 func (db *database) CreateShards(
 	option option.DatabaseOption,
 	shardIDs []models.ShardID,
@@ -317,11 +317,15 @@ func (db *database) FlushMeta() (err error) {
 	return db.metadata.Flush()
 }
 
-// Flush flushes memory data of all shards to disk
+// Flush flushes memory data of all families to disk
 func (db *database) Flush() error {
 	for _, shardEntry := range db.shardSet.Entries() {
 		shard := shardEntry.shard
-		db.flushChecker.requestFlushJob(shard, false)
+		db.flushChecker.requestFlushJob(&flushRequest{
+			shard:    shard,
+			families: GetFamilyManager().GetFamiliesByShard(shard),
+			global:   false,
+		})
 	}
 	return nil
 }

@@ -55,6 +55,8 @@ type Sequence interface {
 	SetAckSeq(seq int64)
 	// Sync syncs the Sequence to storage.
 	Sync() error
+
+	//TODO need add close method??
 }
 
 // sequence implements Sequence.

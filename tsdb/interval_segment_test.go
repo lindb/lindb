@@ -22,8 +22,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -38,7 +40,7 @@ func TestIntervalSegment_New(t *testing.T) {
 	mkDirIfNotExist = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	s, err := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, err := newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Error(t, err)
 	assert.Nil(t, s)
 	mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -47,13 +49,13 @@ func TestIntervalSegment_New(t *testing.T) {
 	listDir = func(path string) (strings []string, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, err = newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Error(t, err)
 	assert.Nil(t, s)
 	listDir = fileutil.ListDir
 
 	// case 3: create segment success
-	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, err = newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, s)
 	assert.True(t, fileutil.Exist(segPath))
@@ -61,20 +63,21 @@ func TestIntervalSegment_New(t *testing.T) {
 
 	// case 4: reopen success
 	s1, err := newSegment(
+		nil,
 		"20190903",
 		timeutil.Interval(timeutil.OneSecond*10),
 		filepath.Join(segPath, "20190903"))
 	assert.NoError(t, err)
 	assert.NotNil(t, s1)
 	// case 5: cannot re-open kv-store
-	s, err = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, err = newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 	assert.Nil(t, s)
 	assert.Error(t, err)
 }
 
 func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	segPath := createSegPath(t)
-	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, _ := newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
 	assert.NotNil(t, seg)
@@ -93,7 +96,7 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 
 	s.Close()
 
-	s, _ = newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), segPath)
+	s, _ = newIntervalSegment(nil, timeutil.Interval(timeutil.OneSecond*10), segPath)
 
 	s1, ok := s.(*intervalSegment)
 	if ok {
@@ -107,19 +110,27 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 }
 
 func TestIntervalSegment_getDataFamilies(t *testing.T) {
-	s, _ := newIntervalSegment(timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+	s, _ := newIntervalSegment(shard, timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	segment1, _ := s.GetOrCreateSegment("20190902")
 	now, _ := timeutil.ParseTimestamp("20190902 19:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetDataFamily(now)
+	_, _ = segment1.GetOrCreateDataFamily(now)
 	now, _ = timeutil.ParseTimestamp("20190902 20:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetDataFamily(now)
+	_, _ = segment1.GetOrCreateDataFamily(now)
 	now, _ = timeutil.ParseTimestamp("20190902 22:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetDataFamily(now)
+	_, _ = segment1.GetOrCreateDataFamily(now)
 	segment2, _ := s.GetOrCreateSegment("20190904")
 	now, _ = timeutil.ParseTimestamp("20190904 22:10:48", "20060102 15:04:05")
-	_, _ = segment2.GetDataFamily(now)
+	_, _ = segment2.GetOrCreateDataFamily(now)
 	now, _ = timeutil.ParseTimestamp("20190904 20:10:48", "20060102 15:04:05")
-	_, _ = segment2.GetDataFamily(now)
+	_, _ = segment2.GetOrCreateDataFamily(now)
 
 	start, _ := timeutil.ParseTimestamp("20190901 20:10:48", "20060102 15:04:05")
 	end, _ := timeutil.ParseTimestamp("20190901 22:10:48", "20060102 15:04:05")
