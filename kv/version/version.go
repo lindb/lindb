@@ -73,6 +73,10 @@ type Version interface {
 	GetRollupFiles() map[table.FileNumber]timeutil.Interval
 	// GetReferenceFiles returns the reference files under target family
 	GetReferenceFiles() map[FamilyID][]table.FileNumber
+	// Sequence set sequence number.
+	Sequence(seq int64)
+	// GetSequence returns sequence number.
+	GetSequence() int64
 }
 
 // version is snapshot for current storage metadata includes levels/sst files
@@ -82,6 +86,7 @@ type version struct {
 	fv          FamilyVersion
 	ref         atomic.Int32 // current version ref count for using
 	rollup      *rollup
+	sequence    atomic.Int64
 
 	levels []*level // each level sst files exclude level0
 }
@@ -278,6 +283,16 @@ func (v *version) GetRollupFiles() map[table.FileNumber]timeutil.Interval {
 // GetReferenceFiles returns the reference files under target family
 func (v *version) GetReferenceFiles() map[FamilyID][]table.FileNumber {
 	return v.rollup.getReferenceFiles()
+}
+
+// Sequence set sequence number.
+func (v *version) Sequence(seq int64) {
+	v.sequence.Store(seq)
+}
+
+// GetSequence returns sequence number.
+func (v *version) GetSequence() int64 {
+	return v.sequence.Load()
 }
 
 // getOverlappingInputs gets overlapping input based on level and key range,

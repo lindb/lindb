@@ -326,6 +326,11 @@ func (cf *compactFlusher) Add(key uint32, value []byte) error {
 	}
 	return nil
 }
+
+func (cf *compactFlusher) Sequence(_ int64) {
+	//do nothing
+}
+
 func (cf *compactFlusher) Commit() error {
 	panic("Commit is not allowed to call for CompactFlusher")
 }

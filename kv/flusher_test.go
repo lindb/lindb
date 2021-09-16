@@ -39,7 +39,7 @@ func TestFlusher_Add(t *testing.T) {
 	)
 	flusher := newStoreFlusher(family)
 	err := flusher.Add(uint32(10), []byte("value10"))
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
@@ -51,7 +51,7 @@ func TestFlusher_Add(t *testing.T) {
 	)
 	flusher = newStoreFlusher(family)
 	err = flusher.Add(uint32(10), []byte("value10"))
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	builder = table.NewMockBuilder(ctrl)
 	gomock.InOrder(
@@ -63,9 +63,7 @@ func TestFlusher_Add(t *testing.T) {
 	)
 	flusher = newStoreFlusher(family)
 	err = flusher.Add(uint32(10), []byte("value10"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestStoreFlusher_Commit(t *testing.T) {
@@ -80,7 +78,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	)
 	flusher := newStoreFlusher(family)
 	err := flusher.Commit()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	// empty commit edit log success
 	family = NewMockFamily(ctrl)
@@ -89,10 +87,9 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		family.EXPECT().commitEditLog(gomock.Any()).Return(true),
 	)
 	flusher = newStoreFlusher(family)
+	flusher.Sequence(10)
 	err = flusher.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
@@ -105,7 +102,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	f := flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		family.EXPECT().ID().Return(version.FamilyID(10)),
@@ -122,7 +119,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	f = flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		family.EXPECT().ID().Return(version.FamilyID(10)),
@@ -139,13 +136,12 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	f = flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 }
 
 func Test_NopFlusher(t *testing.T) {
 	nf := NewNopFlusher()
+	nf.Sequence(10)
 	assert.Nil(t, nf.Commit())
 	assert.Nil(t, nf.Add(1, nil))
 	assert.Nil(t, nf.Bytes())
