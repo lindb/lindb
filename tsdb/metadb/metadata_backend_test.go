@@ -32,11 +32,9 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-var testPath = "test"
-
 func TestMetadataBackend_new(t *testing.T) {
+	tmpDir := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDir = fileutil.MkDirIfNotExist
 		nsBucketName = []byte("ns")
 		metricBucketName = []byte("m")
@@ -44,12 +42,12 @@ func TestMetadataBackend_new(t *testing.T) {
 	}()
 
 	// test: new success
-	db, err := newMetadataBackend(testPath)
+	db, err := newMetadataBackend(tmpDir)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	// test: can't re-open
-	db1, err := newMetadataBackend(testPath)
+	db1, err := newMetadataBackend(tmpDir)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -62,7 +60,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = func(db *bbolt.DB) error {
 		return fmt.Errorf("err")
 	}
-	db1, err = newMetadataBackend(testPath)
+	db1, err = newMetadataBackend(tmpDir)
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -70,7 +68,7 @@ func TestMetadataBackend_new(t *testing.T) {
 	closeFunc = closeDB
 	nsBucketName = []byte("ns")
 	metricBucketName = []byte("")
-	db1, err = newMetadataBackend(filepath.Join(testPath, "test"))
+	db1, err = newMetadataBackend(filepath.Join(tmpDir, "test"))
 	assert.Error(t, err)
 	assert.Nil(t, db1)
 
@@ -78,16 +76,13 @@ func TestMetadataBackend_new(t *testing.T) {
 	mkDir = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	db, err = newMetadataBackend(testPath)
+	db, err = newMetadataBackend(tmpDir)
 	assert.Error(t, err)
 	assert.Nil(t, db)
 }
 
 func TestMetadataBackend_suggestNamespace(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	db := mockMetadataBackend(t, t.TempDir())
 
 	values, err := db.suggestNamespace("ns", 100)
 	assert.Equal(t, []string{"ns-1", "ns-2"}, values)
@@ -107,10 +102,7 @@ func TestMetadataBackend_suggestNamespace(t *testing.T) {
 }
 
 func TestMetadataBackend_suggestMetricName(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	db := mockMetadataBackend(t, t.TempDir())
 
 	values, err := db.suggestMetricName("ns-3", "name", 100)
 	assert.Empty(t, values)
@@ -130,10 +122,8 @@ func TestMetadataBackend_suggestMetricName(t *testing.T) {
 }
 
 func TestMetadataBackend_gen_id(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := newMockMetadataBackend(t)
+	dir := t.TempDir()
+	db := newMockMetadataBackend(t, dir)
 	assert.Equal(t, uint32(1), db.genMetricID())
 	assert.Equal(t, uint32(2), db.genMetricID())
 	assert.Equal(t, uint32(1), db.genTagKeyID())
@@ -146,7 +136,7 @@ func TestMetadataBackend_gen_id(t *testing.T) {
 	err = db.Close()
 	assert.NoError(t, err)
 	// re-open,load new tag key/metric id sequence
-	db = newMockMetadataBackend(t)
+	db = newMockMetadataBackend(t, dir)
 	assert.Equal(t, uint32(5), db.genMetricID())
 	assert.Equal(t, uint32(5), db.genTagKeyID())
 
@@ -168,10 +158,8 @@ func TestMetadataBackend_gen_id(t *testing.T) {
 }
 
 func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := mockMetadataBackend(t, testPath)
 	_, err := db.loadMetricMetadata("ns1", "name2")
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 
@@ -195,10 +183,8 @@ func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
 }
 
 func TestMetadataBackend_getTagKeyID(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := mockMetadataBackend(t, testPath)
 	metricID, _ := db.getMetricID("ns-1", "name2")
 	_, err := db.getTagKeyID(metricID, "ggg")
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
@@ -211,10 +197,8 @@ func TestMetadataBackend_getTagKeyID(t *testing.T) {
 }
 
 func TestMetadataBackend_getAllTagKeys(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := mockMetadataBackend(t, testPath)
 	_, err := db.getAllTagKeys(88)
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	values, err := db.getAllTagKeys(2)
@@ -223,10 +207,8 @@ func TestMetadataBackend_getAllTagKeys(t *testing.T) {
 }
 
 func TestMetadataBackend_getField(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := mockMetadataBackend(t, testPath)
 	_, err := db.getField(99, "f3")
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	_, err = db.getField(2, "f33")
@@ -237,10 +219,8 @@ func TestMetadataBackend_getField(t *testing.T) {
 }
 
 func TestMetadataBackend_getAllFields(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := mockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := mockMetadataBackend(t, testPath)
 	_, err := db.getAllFields(99)
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	fields, err := db.getAllFields(2)
@@ -252,10 +232,8 @@ func TestMetadataBackend_getAllFields(t *testing.T) {
 }
 
 func TestMetadataBackend_saveMetadata(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := newMockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := newMockMetadataBackend(t, testPath)
 	event := mockMetadataEvent()
 	err := db.saveMetadata(event)
 	assert.NoError(t, err)
@@ -275,12 +253,12 @@ func TestMetadataBackend_saveMetadata(t *testing.T) {
 }
 
 func TestMetadataBackend_save_err(t *testing.T) {
+	testPath := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		tagBucketName = []byte("t")
 		fieldBucketName = []byte("f")
 	}()
-	db := newMockMetadataBackend(t)
+	db := newMockMetadataBackend(t, testPath)
 	// ns is empty
 	e := newMetadataUpdateEvent()
 	e.addMetric("", "name1", 1)
@@ -322,14 +300,14 @@ func TestMetadataBackend_save_err(t *testing.T) {
 }
 
 func TestMetadataBackend_save_db_err(t *testing.T) {
+	testPath := t.TempDir()
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		tagBucketName = []byte("t")
 		fieldBucketName = []byte("f")
 		setSequenceFunc = setSequence
 		createBucketFunc = createBucket
 	}()
-	db := newMockMetadataBackend(t)
+	db := newMockMetadataBackend(t, testPath)
 
 	e := newMetadataUpdateEvent()
 	e.addField(1, field.Meta{ID: 1, Name: "aa", Type: field.MaxField})
@@ -363,26 +341,24 @@ func TestMetadataBackend_save_db_err(t *testing.T) {
 }
 
 func TestMetadataBackend_sync(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	db := newMockMetadataBackend(t)
+	testPath := t.TempDir()
+	db := newMockMetadataBackend(t, testPath)
 	err := db.sync()
 	assert.NoError(t, err)
 	err = db.Close()
 	assert.NoError(t, err)
 }
 
-func newMockMetadataBackend(t *testing.T) MetadataBackend {
-	db, err := newMetadataBackend(testPath)
+func newMockMetadataBackend(t *testing.T, dir string) MetadataBackend {
+	db, err := newMetadataBackend(dir)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
 	return db
 }
 
-func mockMetadataBackend(t *testing.T) MetadataBackend {
-	db := newMockMetadataBackend(t)
+func mockMetadataBackend(t *testing.T, dir string) MetadataBackend {
+	db := newMockMetadataBackend(t, dir)
 	event := mockMetadataEvent()
 	err := db.saveMetadata(event)
 	assert.NoError(t, err)

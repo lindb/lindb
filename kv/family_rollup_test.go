@@ -26,16 +26,14 @@ import (
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestFamily_needRollup(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	store := NewMockStore(ctrl)
 	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
@@ -64,11 +62,10 @@ func TestFamily_needRollup(t *testing.T) {
 }
 
 func TestFamily_rollup(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	store := NewMockStore(ctrl)
 	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
@@ -109,9 +106,9 @@ func TestFamily_rollup(t *testing.T) {
 }
 
 func TestFamily_doRollupWork(t *testing.T) {
+	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testKVPath)
 		newCompactJobFunc = newCompactJob
 		ctrl.Finish()
 	}()

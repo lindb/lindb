@@ -20,6 +20,7 @@ package queue
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -32,14 +33,8 @@ import (
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
-var testPath = "test"
-
 func TestQueue_Put(t *testing.T) {
-	dir := path.Join(testPath, "queue")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -106,11 +101,7 @@ func TestQueue_Put(t *testing.T) {
 }
 
 func TestQueue_Ack(t *testing.T) {
-	dir := path.Join(testPath, "queue")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -138,10 +129,9 @@ func TestQueue_Ack(t *testing.T) {
 
 func TestQueue_new_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		mkDirFunc = fileutil.MkDirIfNotExist
 		newPageFactoryFunc = page.NewFactory
 
@@ -254,21 +244,16 @@ func TestQueue_new_err(t *testing.T) {
 	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(4)
 	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
 	// remove old data
-	_ = fileutil.RemoveDir(testPath)
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(filepath.Join(t.TempDir(), t.Name()), 1024, time.Minute)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 }
 
 func TestQueue_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	pageFct := page.NewMockFactory(ctrl)
 	pageFct.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(3)
 	q, err := NewQueue(dir, 1024, time.Minute)
@@ -282,10 +267,9 @@ func TestQueue_Close(t *testing.T) {
 
 func TestQueue_reopen_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newPageFactoryFunc = page.NewFactory
 
 		ctrl.Finish()
@@ -334,13 +318,9 @@ func TestQueue_reopen_err(t *testing.T) {
 
 func TestQueue_Put_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	mockPage := page.NewMockMappedPage(ctrl)
 	mockPage.EXPECT().Sync().Return(fmt.Errorf("err")).AnyTimes()
@@ -386,13 +366,9 @@ func TestQueue_Put_err(t *testing.T) {
 
 func TestQueue_Get_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	q, err := NewQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -428,10 +404,9 @@ func TestQueue_Get_err(t *testing.T) {
 
 func TestQueue_Ack_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newPageFactoryFunc = page.NewFactory
 
 		ctrl.Finish()
@@ -458,11 +433,7 @@ func TestQueue_Ack_err(t *testing.T) {
 }
 
 func TestQueue_data_limit(t *testing.T) {
-	dir := path.Join(testPath, "queue")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 128*1024*1024, time.Second)
 	assert.NoError(t, err)
@@ -484,11 +455,7 @@ func TestQueue_data_limit(t *testing.T) {
 }
 
 func TestQueue_concurrently(t *testing.T) {
-	dir := path.Join(testPath, "queue")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 128*1024*1024, time.Second)
 	assert.NoError(t, err)
@@ -537,13 +504,10 @@ func TestQueue_concurrently(t *testing.T) {
 }
 
 func TestQueue_remove_expire_page(t *testing.T) {
-	dir := path.Join(testPath, "queue")
+	dir := path.Join(t.TempDir(), t.Name())
 	ctrl := gomock.NewController(t)
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	indexPageFct := page.NewMockFactory(ctrl)
 	dataPageFct := page.NewMockFactory(ctrl)
@@ -581,11 +545,7 @@ func TestQueue_remove_expire_page(t *testing.T) {
 }
 
 func TestQueue_big_loop(t *testing.T) {
-	dir := path.Join(testPath, "queue")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, dataPageSize*8, 500*time.Millisecond)
 	assert.NoError(t, err)

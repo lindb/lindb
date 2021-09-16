@@ -61,7 +61,7 @@ type FanOutQueue interface {
 	SetAppendSeq(seq int64)
 	// Close persists Seq meta, FanOut seq meta, release resources.
 	Close()
-	// get gets the message data by spec consume sequence
+	// get the message data by spec consume sequence
 	get(sequence int64) ([]byte, error)
 }
 
@@ -244,7 +244,7 @@ func (fq *fanOutQueue) initFanOut() error {
 	return nil
 }
 
-// FanOut represents a individual consumer with own consume seq and ack seq.
+// FanOut represents an individual consumer with own consume seq and ack seq.
 // The typical way to use FanOut is using a single go-routine to consume message,
 // and using other go-routine to ack the messages which have been processed successfully.
 type FanOut interface {
@@ -374,7 +374,7 @@ func (f *fanOut) SetHeadSeq(seq int64) error {
 }
 
 // Get retrieves the data for seq.
-// The seq must bu a valid sequence num returned by consume.
+// The seq must be a valid sequence num returned by consume.
 // Call with seq less than ackSeq has undefined result.
 // Concurrent unsafe.
 func (f *fanOut) Get(seq int64) ([]byte, error) {
@@ -427,7 +427,7 @@ func (f *fanOut) AppendSeq() int64 {
 	return f.q.HeadSeq()
 }
 
-// SetAppendSeq sets append seq(head/tail) underlying queue
+// SetSeq sets append seq(head/tail) underlying queue
 func (f *fanOut) SetSeq(seq int64) {
 	f.lock4headSeq.Lock()
 	defer f.lock4headSeq.Unlock()

@@ -26,16 +26,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
 )
 
 func BenchmarkMemoryDatabase_write(b *testing.B) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
 	db, err := NewMemoryDatabase(cfg)
 	if err != nil {
 		b.Fatal(err)
@@ -92,13 +88,9 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 }
 
 func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
 	run := func(n int) {
 		var cfg = MemoryDatabaseCfg{
-			TempPath: filepath.Join(testPath, "data_temp", fmt.Sprintf("%d", n)),
+			TempPath: filepath.Join(b.TempDir(), "data_temp", fmt.Sprintf("%d", n)),
 		}
 		db, err := NewMemoryDatabase(cfg)
 		if err != nil {

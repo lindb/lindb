@@ -23,20 +23,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-var testPath = "./tmp"
-
 func Test_NewConfig(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testPath)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-
 	// validate broker config
-	brokerCfgPath := filepath.Join(testPath, "broker.toml")
+	tmpDir := t.TempDir()
+	brokerCfgPath := filepath.Join(tmpDir, "broker.toml")
 	var brokerCfg Broker
 	// not-exist
 	assert.NotNil(t, LoadAndSetBrokerConfig("not-exist-path", "broker.toml", &brokerCfg))
@@ -53,7 +46,7 @@ func Test_NewConfig(t *testing.T) {
 	assert.Equal(t, brokerCfg.Monitor, *NewDefaultMonitor())
 
 	// validate storage config
-	storageCfgPath := filepath.Join(testPath, "storage.toml")
+	storageCfgPath := filepath.Join(tmpDir, "storage.toml")
 	var storageCfg Storage
 	// not exist
 	assert.Error(t, LoadAndSetStorageConfig("not-exist-path", "storage.toml", &storageCfg))
@@ -70,7 +63,7 @@ func Test_NewConfig(t *testing.T) {
 	assert.Equal(t, storageCfg.Monitor, *NewDefaultMonitor())
 
 	// validate standalone config
-	standaloneCfgPath := filepath.Join(testPath, "standalone.toml")
+	standaloneCfgPath := filepath.Join(tmpDir, "standalone.toml")
 	var standaloneCfg Standalone
 	// not-exist
 	assert.Error(t, LoadAndSetStandAloneConfig("not-exist-path", "standalone.toml", &standaloneCfg))

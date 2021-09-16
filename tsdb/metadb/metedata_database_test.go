@@ -29,7 +29,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -38,11 +37,11 @@ import (
 )
 
 func TestMetadataDatabase_New(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
 		createMetaWAL = wal.NewMetricMetaWAL
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -87,10 +86,10 @@ func TestMetadataDatabase_New(t *testing.T) {
 }
 
 func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -110,10 +109,10 @@ func TestMetadataDatabase_SuggestNamespace(t *testing.T) {
 }
 
 func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -133,10 +132,10 @@ func TestMetadataDatabase_SuggestMetricName(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetMetricID(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -169,10 +168,10 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetTagKey(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -239,10 +238,10 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 }
 
 func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -271,10 +270,10 @@ func TestMetadataDatabase_SuggestTagKeys(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetField(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -341,10 +340,10 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 }
 
 func TestMetadataDatabase_GenMetricID(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -388,12 +387,9 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetMetricID_wal(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	metricID, err := db.GenMetricID("ns", "metric")
@@ -417,11 +413,10 @@ func TestMetadataDatabase_GetMetricID_wal(t *testing.T) {
 }
 
 func TestMetadataDatabase_GenFieldID(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
-
 		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
@@ -473,12 +468,9 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetField_wal(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	_, _ = db.GenMetricID("ns", "metric")
@@ -503,11 +495,10 @@ func TestMetadataDatabase_GetField_wal(t *testing.T) {
 }
 
 func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
-
 		ctrl.Finish()
 	}()
 	mockBackend := NewMockMetadataBackend(ctrl)
@@ -554,12 +545,9 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 }
 
 func TestMetadataDatabase_GenTagKeyID_wal(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
 	_, _ = db.GenMetricID("ns", "metric")
@@ -584,11 +572,11 @@ func TestMetadataDatabase_GenTagKeyID_wal(t *testing.T) {
 }
 
 func TestMetadataDatabase_Close(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
 		createMetaWAL = wal.NewMetricMetaWAL
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -611,9 +599,7 @@ func TestMetadataDatabase_Close(t *testing.T) {
 }
 
 func TestMetadataDatabase_reopen(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	testPath := t.TempDir()
 
 	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
 	assert.NoError(t, err)
@@ -641,13 +627,11 @@ func TestMetadataDatabase_reopen(t *testing.T) {
 }
 
 func TestMetadataDatabase_Sync(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
+	defer ctrl.Finish()
 
-		ctrl.Finish()
-	}()
-	db := newMockMetadataDatabase(t)
+	db := newMockMetadataDatabase(t, testPath)
 	db1 := db.(*metadataDatabase)
 	mockWAL := wal.NewMockMetricMetaWAL(ctrl)
 	mockWAL.EXPECT().Sync().Return(fmt.Errorf("err"))
@@ -664,7 +648,6 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		syncInterval = 2 * timeutil.OneSecond
-		_ = fileutil.RemoveDir(testPath)
 		createMetaWAL = wal.NewMetricMetaWAL
 
 		ctrl.Finish()
@@ -681,7 +664,7 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 		return mockMetaWAL, nil
 	}
 
-	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
+	db, err := NewMetadataDatabase(context.TODO(), "test", t.TempDir())
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -693,10 +676,10 @@ func TestIndexDatabase_checkSync(t *testing.T) {
 }
 
 func TestMetadataDatabase_recovery_metric(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -744,11 +727,10 @@ func TestMetadataDatabase_recovery_metric(t *testing.T) {
 }
 
 func TestMetadataDatabase_recovery_field(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
-
 		ctrl.Finish()
 	}()
 
@@ -787,11 +769,10 @@ func TestMetadataDatabase_recovery_field(t *testing.T) {
 }
 
 func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createMetadataBackend = newMetadataBackend
-		_ = fileutil.RemoveDir(testPath)
-
 		ctrl.Finish()
 	}()
 
@@ -829,8 +810,8 @@ func TestMetadataDatabase_recovery_tagKey(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func newMockMetadataDatabase(t *testing.T) MetadataDatabase {
-	db, err := NewMetadataDatabase(context.TODO(), "test", testPath)
+func newMockMetadataDatabase(t *testing.T, dir string) MetadataDatabase {
+	db, err := NewMetadataDatabase(context.TODO(), "test", dir)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 

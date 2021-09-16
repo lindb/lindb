@@ -51,10 +51,9 @@ func randomString(length int) string {
 
 func TestFanOutQueue_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "fanOut")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newQueueFunc = NewQueue
 		mkDirFunc = fileutil.MkDirIfNotExist
 		listDirFunc = fileutil.ListDir
@@ -117,10 +116,9 @@ func TestFanOutQueue_New(t *testing.T) {
 }
 
 func TestFanOutQueue_GetOrCreateFanOut(t *testing.T) {
-	dir := path.Join(testPath, "fanOut")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newFanOutFunc = NewFanOut
 	}()
 
@@ -148,12 +146,9 @@ func TestFanOutQueue_GetOrCreateFanOut(t *testing.T) {
 
 func TestFanOutQueue_Sync(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "fanOut")
+	dir := path.Join(t.TempDir(), t.Name())
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -197,12 +192,9 @@ func TestFanOutQueue_Sync(t *testing.T) {
 
 func TestFanOut_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "fanOut")
+	dir := path.Join(t.TempDir(), t.Name())
 
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -220,10 +212,9 @@ func TestFanOut_Close(t *testing.T) {
 
 func TestFanOut_new_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(testPath, "fanOut")
+	dir := path.Join(t.TempDir(), t.Name())
 
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		newPageFactoryFunc = page.NewFactory
 		ctrl.Finish()
 	}()
@@ -248,11 +239,7 @@ func TestFanOut_new_err(t *testing.T) {
 }
 
 func TestFanOutQueue_one_consumer(t *testing.T) {
-	dir := path.Join(testPath, "fanOut")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -336,11 +323,7 @@ func TestFanOutQueue_one_consumer(t *testing.T) {
 }
 
 func TestFanOutQueue_SetHeadSeq(t *testing.T) {
-	dir := path.Join(testPath, "fanOut")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -381,11 +364,7 @@ func TestFanOutQueue_SetHeadSeq(t *testing.T) {
 }
 
 func TestFanOutQueue_multiple_consumer(t *testing.T) {
-	dir := path.Join(testPath, "fanOut")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -405,11 +384,7 @@ func TestFanOutQueue_multiple_consumer(t *testing.T) {
 }
 
 func TestFanOutQueue_SetAppendSeq(t *testing.T) {
-	dir := path.Join(testPath, "fanOut")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
 	assert.NoError(t, err)
@@ -448,11 +423,7 @@ func TestFanOutQueue_SetAppendSeq(t *testing.T) {
 }
 
 func TestFanOutQueue_concurrent_read(t *testing.T) {
-	dir := path.Join(testPath, "fanout_concurrent")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	dir := path.Join(t.TempDir(), t.Name())
 
 	msgSize := 1024
 	dataFileSize := int64(512)

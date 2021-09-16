@@ -25,16 +25,14 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
 func TestSequence_new_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	tmp := path.Join(testPath, "sequence_test")
+	tmp := path.Join(t.TempDir(), t.Name())
 	defer func() {
 		newPageFctFunc = page.NewFactory
-		_ = fileutil.RemoveDir(testPath)
 		ctrl.Finish()
 	}()
 	// case 1: new page factory err
@@ -68,11 +66,7 @@ func TestSequence_new_err(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	tmp := path.Join(testPath, "sequence_test")
-
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	tmp := path.Join(t.TempDir(), t.Name())
 
 	seq, err := NewSequence(tmp)
 	assert.NoError(t, err)

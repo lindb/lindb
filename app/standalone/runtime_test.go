@@ -27,14 +27,11 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-var testPath = "./test_data"
-
-func newDefaultStandaloneConfig() config.Standalone {
+func newDefaultStandaloneConfig(t *testing.T) config.Standalone {
 	saCfg := config.Standalone{
 		Query:       *config.NewDefaultQuery(),
 		Coordinator: *config.NewDefaultCoordinator(),
@@ -44,17 +41,14 @@ func newDefaultStandaloneConfig() config.Standalone {
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
-	saCfg.StorageBase.TSDB.Dir = testPath
+	saCfg.StorageBase.TSDB.Dir = t.TempDir()
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.Indicator = 1
 	return saCfg
 }
 
 func TestRuntime_Run(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	cfg := newDefaultStandaloneConfig()
+	cfg := newDefaultStandaloneConfig(t)
 	cfg.StorageBase.GRPC.Port = 3901
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
@@ -71,10 +65,7 @@ func TestRuntime_Run(t *testing.T) {
 }
 
 func TestRuntime_RunWithoutPusher(t *testing.T) {
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	cfg := newDefaultStandaloneConfig()
+	cfg := newDefaultStandaloneConfig(t)
 
 	cfg.StorageBase.GRPC.Port = 3901
 	cfg.Monitor.ReportInterval = ltoml.Duration(0)
@@ -88,12 +79,9 @@ func TestRuntime_RunWithoutPusher(t *testing.T) {
 
 func TestRuntime_Run_Err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-		_ = fileutil.RemoveDir(testPath)
-	}()
+	defer ctrl.Finish()
 
-	cfg := newDefaultStandaloneConfig()
+	cfg := newDefaultStandaloneConfig(t)
 	cfg.StorageBase.GRPC.Port = 3902
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
@@ -113,11 +101,9 @@ func TestRuntime_Run_Err(t *testing.T) {
 
 func TestRuntime_runServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	cfg := newDefaultStandaloneConfig()
+	defer ctrl.Finish()
+
+	cfg := newDefaultStandaloneConfig(t)
 	cfg.StorageBase.GRPC.Port = 3903
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)
@@ -136,11 +122,9 @@ func TestRuntime_runServer(t *testing.T) {
 
 func TestRuntime_cleanupState(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-		_ = fileutil.RemoveDir(testPath)
-	}()
-	cfg := newDefaultStandaloneConfig()
+	defer ctrl.Finish()
+
+	cfg := newDefaultStandaloneConfig(t)
 	cfg.StorageBase.GRPC.Port = 3904
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	s := standalone.(*runtime)

@@ -29,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/metric"
@@ -39,12 +38,10 @@ import (
 )
 
 func TestNewIndexDatabase(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
+	defer ctrl.Finish()
 
-		ctrl.Finish()
-	}()
 	mockMetadata := metadb.NewMockMetadata(ctrl)
 	mockMetadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
@@ -60,11 +57,11 @@ func TestNewIndexDatabase(t *testing.T) {
 }
 
 func TestNewIndexDatabase_err(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createBackend = newIDMappingBackend
 		createSeriesWAL = wal.NewSeriesWAL
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -99,12 +96,10 @@ func TestNewIndexDatabase_err(t *testing.T) {
 }
 
 func TestIndexDatabase_SuggestTagValues(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
+	defer ctrl.Finish()
 
-		ctrl.Finish()
-	}()
 	metaDB := metadb.NewMockMetadata(ctrl)
 	metaDB.EXPECT().DatabaseName().Return("test").AnyTimes()
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
@@ -142,11 +137,10 @@ func mockTagKeyValueIterator(kvs map[string]string) *metric.KeyValueIterator {
 }
 
 func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
@@ -164,11 +158,10 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 }
 
 func TestIndexDatabase_series_Recovery_err(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createBackend = newIDMappingBackend
-		_ = fileutil.RemoveDir(testPath)
-
 		ctrl.Finish()
 	}()
 
@@ -219,12 +212,9 @@ func TestIndexDatabase_series_Recovery_err(t *testing.T) {
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
@@ -285,9 +275,9 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		createBackend = newIDMappingBackend
 
 		ctrl.Finish()
@@ -325,11 +315,10 @@ func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
 }
 
 func TestIndexDatabase_GetGroupingContext(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
@@ -349,11 +338,9 @@ func TestIndexDatabase_GetGroupingContext(t *testing.T) {
 }
 
 func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer func() {
-		_ = fileutil.RemoveDir(testPath)
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	index := NewMockInvertedIndex(ctrl)
 	metaDB := metadb.NewMockMetadataDatabase(ctrl)
@@ -399,9 +386,9 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 }
 
 func TestIndexDatabase_Close(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-		_ = fileutil.RemoveDir(testPath)
 		createBackend = newIDMappingBackend
 		createSeriesWAL = wal.NewSeriesWAL
 		ctrl.Finish()
@@ -427,10 +414,10 @@ func TestIndexDatabase_Close(t *testing.T) {
 }
 
 func TestIndexDatabase_Flush(t *testing.T) {
+	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		createSeriesWAL = wal.NewSeriesWAL
-		_ = fileutil.RemoveDir(testPath)
 
 		ctrl.Finish()
 	}()
@@ -454,11 +441,11 @@ func TestIndexDatabase_Flush(t *testing.T) {
 }
 
 func TestIndexDatabase_checkSync(t *testing.T) {
+	testPath := t.TempDir()
 	syncInterval = 100
 	ctrl := gomock.NewController(t)
 	defer func() {
 		syncInterval = 2 * timeutil.OneSecond
-		_ = fileutil.RemoveDir(testPath)
 		createSeriesWAL = wal.NewSeriesWAL
 
 		ctrl.Finish()
