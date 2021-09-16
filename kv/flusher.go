@@ -29,24 +29,27 @@ import (
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package kv
 
-// Flusher flushes data into kv store, for big data will be split into many sst files
+// Flusher flushes data into kv store, for big data will be split into many sst files.
 type Flusher interface {
-	// StreamWriter creates a stream writer for flushing in stream
+	// StreamWriter creates a stream writer for flushing in stream.
 	StreamWriter() (table.StreamWriter, error)
 	// Add puts k/v pair
 	Add(key uint32, value []byte) error
-	// Commit flushes data and commits metadata
+	// Sequence sets write sequence number.
+	Sequence(seq int64)
+	// Commit flushes data and commits metadata.
 	Commit() error
 }
 
-// storeFlusher is family level store flusher
+// storeFlusher is family level store flusher.
 type storeFlusher struct {
 	family  Family
+	seq     int64
 	builder table.Builder
 	editLog version.EditLog
 }
 
-// newStoreFlusher create family store flusher
+// newStoreFlusher create family store flusher.
 func newStoreFlusher(family Family) Flusher {
 	return &storeFlusher{
 		family:  family,
@@ -76,6 +79,11 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 	return sf.builder.Add(key, value)
 }
 
+// Sequence sets write sequence number.
+func (sf *storeFlusher) Sequence(seq int64) {
+	sf.seq = seq
+}
+
 func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
 	if err := sf.checkBuilder(); err != nil {
 		return nil, err
@@ -83,7 +91,7 @@ func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
 	return sf.builder.StreamWriter(), nil
 }
 
-// Commit flushes data and commits metadata
+// Commit flushes data and commits metadata.
 func (sf *storeFlusher) Commit() (err error) {
 	builder := sf.builder
 	defer func() {
@@ -101,6 +109,10 @@ func (sf *storeFlusher) Commit() (err error) {
 
 		fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
 		sf.editLog.Add(version.CreateNewFile(0, fileMeta))
+	}
+	if sf.seq > 0 {
+		// only add sequence > 0
+		sf.editLog.Add(version.CreateSequence(sf.seq))
 	}
 
 	if flag := sf.family.commitEditLog(sf.editLog); !flag {
@@ -135,6 +147,9 @@ func (nf *NopFlusher) Add(_ uint32, value []byte) error {
 	nf.buffer.Reset()
 	nf.buffer.Write(value)
 	return nil
+}
+
+func (nf *NopFlusher) Sequence(_ int64) {
 }
 
 // Commit always return nil

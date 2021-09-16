@@ -231,7 +231,7 @@ func (n *nextFileNumber) Decode(v []byte) error {
 }
 
 // apply does nothing for next file number
-func (n *nextFileNumber) apply(version Version) {
+func (n *nextFileNumber) apply(_ Version) {
 	// do nothing
 }
 
@@ -401,4 +401,40 @@ func (n *deleteReferenceFile) String() string {
 // apply applies remove reference file edit log to version
 func (n *deleteReferenceFile) apply(version Version) {
 	version.DeleteReferenceFile(n.familyID, n.fileNumber)
+}
+
+// sequence represents write sequence number.
+type sequence struct {
+	seq int64
+}
+
+// CreateSequence creates a sequence number.
+func CreateSequence(seq int64) Log {
+	return &sequence{
+		seq: seq,
+	}
+}
+
+// Encode writes sequence number data into binary
+func (s *sequence) Encode() ([]byte, error) {
+	writer := stream.NewBufferWriter(nil)
+	writer.PutVarint64(s.seq)
+	return writer.Bytes()
+}
+
+// Decode reads sequence number from binary.
+func (s *sequence) Decode(v []byte) error {
+	reader := stream.NewReader(v)
+	s.seq = reader.ReadVarint64()
+	return reader.Error()
+}
+
+// apply applies sequence edit log to version.
+func (s *sequence) apply(version Version) {
+	version.Sequence(s.seq)
+}
+
+// String returns string value of sequence log.
+func (s *sequence) String() string {
+	return fmt.Sprintf("sequence:{number:%d}", s.seq)
 }

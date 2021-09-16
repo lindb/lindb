@@ -173,3 +173,21 @@ func TestDeleteReferenceFile(t *testing.T) {
 	version.EXPECT().DeleteReferenceFile(FamilyID(10), table.FileNumber(12))
 	referenceFile2.apply(version)
 }
+
+func TestSequence(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	seq := CreateSequence(10)
+	bytes, err := seq.Encode()
+	assert.NoError(t, err)
+
+	fmt.Println(seq)
+	seq2 := &sequence{}
+
+	err = seq2.Decode(bytes)
+	assert.NoError(t, err)
+	assert.Equal(t, seq, seq2)
+	version := NewMockVersion(ctrl)
+	version.EXPECT().Sequence(int64(10))
+	seq2.apply(version)
+}

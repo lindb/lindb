@@ -197,3 +197,18 @@ func TestVersion_RollupJob(t *testing.T) {
 	v.DeleteReferenceFile(10, 10)
 	assert.Equal(t, map[FamilyID][]table.FileNumber{10: {100}}, v.GetReferenceFiles())
 }
+
+func TestVersion_Sequence(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fv := NewMockFamilyVersion(ctrl)
+	vs := NewMockStoreVersionSet(ctrl)
+	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
+	fv.EXPECT().GetID().Return(FamilyID(1)).AnyTimes()
+	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
+	v := newVersion(1, fv)
+	assert.Equal(t, int64(0), v.GetSequence())
+	v.Sequence(100)
+	assert.Equal(t, int64(100), v.GetSequence())
+}
