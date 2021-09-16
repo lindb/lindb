@@ -138,7 +138,7 @@ func (r *ReplicaHandler) getReplicaStateFromCtx(ctx context.Context) (replicator
 // getOrCreatePartition returns write ahead log's partition if exist, else creates a new partition.
 func (r *ReplicaHandler) getOrCreatePartition(database string, shardID models.ShardID) (replica.Partition, error) {
 	wal := r.walMgr.GetOrCreateLog(database)
-	p, err := wal.GetOrCreatePartition(shardID)
+	p, err := wal.GetOrCreatePartition(shardID, 1) //TODO need fix
 	if err != nil {
 		return nil, err
 	}

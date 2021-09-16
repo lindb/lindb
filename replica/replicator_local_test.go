@@ -46,7 +46,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	shard.EXPECT().DatabaseName().Return("test-database").AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 
-	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard)
+	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard, nil)
 	assert.True(t, replicator.IsReady())
 	// bad compressed data
 	replicator.Replica(1, []byte{1, 2, 3})
