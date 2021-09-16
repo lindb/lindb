@@ -80,7 +80,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	shard.EXPECT().GetOrCreateMemoryDatabase(gomock.Any()).Return(nil, nil)
+	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
 	p, err = l.GetOrCreatePartition(1, 1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
@@ -90,7 +90,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		return nil, nil
 	}
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-	shard.EXPECT().GetOrCreateMemoryDatabase(gomock.Any()).Return(nil, nil)
+	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
 	p, err = l.GetOrCreatePartition(1, 1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)

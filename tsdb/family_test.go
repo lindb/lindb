@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -41,10 +42,22 @@ func TestDataFamily_BaseTime(t *testing.T) {
 		Start: 10,
 		End:   50,
 	}
-	dataFamily := newDataFamily(timeutil.Interval(timeutil.OneSecond*10), timeRange, family)
+	snapshot := version.NewMockSnapshot(ctrl)
+	v := version.NewMockVersion(ctrl)
+	v.EXPECT().GetSequence().Return(int64(10))
+	snapshot.EXPECT().GetCurrent().Return(v)
+	snapshot.EXPECT().Close()
+	family.EXPECT().GetSnapshot().Return(snapshot)
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().DatabaseName().Return("test")
+	shard.EXPECT().ShardID().Return(models.ShardID(1))
+	dataFamily := newDataFamily(shard, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
 	assert.Equal(t, timeutil.Interval(10000), dataFamily.Interval())
 	assert.NotNil(t, dataFamily.Family())
+
+	err := dataFamily.Close()
+	assert.NoError(t, err)
 }
 
 func TestDataFamily_Filter(t *testing.T) {
@@ -63,7 +76,13 @@ func TestDataFamily_Filter(t *testing.T) {
 		Start: 10,
 		End:   50,
 	}
-	dataFamily := newDataFamily(timeutil.Interval(timeutil.OneSecond*10), timeRange, family)
+	v := version.NewMockVersion(ctrl)
+	v.EXPECT().GetSequence().Return(int64(10))
+	snapshot.EXPECT().GetCurrent().Return(v)
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().DatabaseName().Return("test")
+	shard.EXPECT().ShardID().Return(models.ShardID(1))
+	dataFamily := newDataFamily(shard, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
 
 	// test find kv readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -108,5 +127,8 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err = dataFamily.Filter(uint32(10), nil, timeutil.TimeRange{}, nil)
+	assert.NoError(t, err)
+
+	err = dataFamily.Close()
 	assert.NoError(t, err)
 }

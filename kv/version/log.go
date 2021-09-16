@@ -41,6 +41,7 @@ const (
 	DeleteRollupFileLog
 	NewReferenceFileLog
 	DeleteReferenceFileLog
+	SequenceNumberLog
 )
 
 func init() {
@@ -71,6 +72,10 @@ func init() {
 	// register delete reference
 	RegisterLogType(DeleteReferenceFileLog, func() Log {
 		return &deleteReferenceFile{}
+	})
+	// register sequence number
+	RegisterLogType(SequenceNumberLog, func() Log {
+		return &sequence{}
 	})
 }
 

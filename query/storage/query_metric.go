@@ -201,16 +201,8 @@ func (e *storageExecutor) executeQuery() {
 			}
 
 			rs := newTimeSpanResultSet()
-			// 2. filter data in memory database
-			t = newMemoryDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
-			err = t.Run()
-			if err != nil && !errors.Is(err, constants.ErrNotFound) {
-				// maybe data not exist in memory database, so ignore not found err
-				e.queryFlow.Complete(err)
-				return
-			}
-			// 3. filter data each data family in shard
-			t = newFileDataFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
+			// 2. filter data each data family in shard
+			t = newFamilyFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
 			if err != nil && !errors.Is(err, constants.ErrNotFound) {
 				// maybe data not exist in shard, so ignore not found err
@@ -222,7 +214,7 @@ func (e *storageExecutor) executeQuery() {
 				return
 			}
 
-			// 5. execute group by
+			// 3. execute group by
 			e.pendingForGrouping.Inc()
 			e.queryFlow.Grouping(func() {
 				defer func() {
