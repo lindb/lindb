@@ -286,3 +286,34 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 	assert.NoError(t, err)
 
 }
+
+func Test_BrokerRowProtoConverter_deDupTags(t *testing.T) {
+	converter, releaseFunc := NewBrokerRowProtoConverter(
+		nil, nil)
+	defer releaseFunc(converter)
+
+	m := &protoMetricsV1.Metric{
+		Tags: []*protoMetricsV1.KeyValue{
+			{Key: "a", Value: "1"},
+			{Key: "b", Value: "2"},
+			{Key: "a", Value: "3"},
+			{Key: "b", Value: "4"},
+			{Key: "c", Value: "5"},
+		},
+	}
+	converter.deDupTags(m)
+	assert.EqualValues(t, []*protoMetricsV1.KeyValue{
+		{Key: "a", Value: "3"},
+		{Key: "b", Value: "4"},
+		{Key: "c", Value: "5"},
+	}, m.Tags)
+
+	m2 := &protoMetricsV1.Metric{
+		Tags: []*protoMetricsV1.KeyValue{
+			{Key: "a", Value: "1"},
+		},
+	}
+	assert.EqualValues(t, []*protoMetricsV1.KeyValue{
+		{Key: "a", Value: "1"},
+	}, m2.Tags)
+}
