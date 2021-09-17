@@ -41,7 +41,7 @@ var (
 
 func init() {
 	clientConnFct = &clientConnFactory{
-		connMap:       make(map[models.Node]*grpc.ClientConn),
+		connMap:       make(map[string]*grpc.ClientConn),
 		clientTracker: conntrack.NewGRPCClientTracker(),
 	}
 }
@@ -56,8 +56,8 @@ type ClientConnFactory interface {
 
 // clientConnFactory implements ClientConnFactory.
 type clientConnFactory struct {
-	// target -> connection
-	connMap map[models.Node]*grpc.ClientConn
+	// target's indicator -> connection
+	connMap map[string]*grpc.ClientConn
 	// lock to protect connMap
 	mu            sync.RWMutex
 	clientTracker *conntrack.GRPCClientTracker
@@ -71,8 +71,9 @@ func GetClientConnFactory() ClientConnFactory {
 // GetClientConn returns the grpc ClientConn for a target node.
 // Concurrent safe.
 func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientConn, error) {
+	indicator := target.Indicator()
 	fct.mu.RLock()
-	conn, ok := fct.connMap[target]
+	conn, ok := fct.connMap[indicator]
 	fct.mu.RUnlock()
 	if ok {
 		return conn, nil
@@ -81,7 +82,8 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 	fct.mu.Lock()
 	defer fct.mu.Unlock()
 
-	conn, ok = fct.connMap[target]
+	// double check
+	conn, ok = fct.connMap[indicator]
 	if ok {
 		return conn, nil
 	}
@@ -95,7 +97,7 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 		return nil, err
 	}
 
-	fct.connMap[target] = conn
+	fct.connMap[indicator] = conn
 	return conn, nil
 }
 
