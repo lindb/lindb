@@ -173,3 +173,49 @@ func Test_RowBuilder_BuildTo(t *testing.T) {
 	assert.Equal(t, float64(1), cf.ExplicitBounds(0))
 	assert.True(t, math.IsInf(cf.ExplicitBounds(5), 1))
 }
+
+func Test_dedupTagsThenXXHash(t *testing.T) {
+	rb := newRowBuilder()
+	_ = rb.AddTag([]byte("ccc"), []byte("a"))
+	_ = rb.AddTag([]byte("d"), []byte("b"))
+	_ = rb.AddTag([]byte("a"), []byte("c"))
+	_ = rb.AddTag([]byte("ccc"), []byte("d"))
+	_ = rb.AddTag([]byte("ccc"), []byte("e"))
+	_ = rb.AddTag([]byte("a"), []byte("f"))
+	_ = rb.AddTag([]byte("d"), []byte("g"))
+
+	hash1 := rb.dedupTagsThenXXHash()
+	assert.Equal(t, "a=f,ccc=e,d=g", rb.hashBuf.String())
+	hash2 := rb.dedupTagsThenXXHash()
+	assert.Equal(t, "a=f,ccc=e,d=g", rb.hashBuf.String())
+	assert.Equal(t, hash2, hash1)
+	assert.NotZero(t, hash2)
+}
+
+func Test_dedupTags_EmptyKVs(t *testing.T) {
+	rb := newRowBuilder()
+	hash1 := rb.dedupTagsThenXXHash()
+	assert.Equal(t, "", rb.hashBuf.String())
+	assert.Equal(t, hash1, emptyStringHash)
+}
+
+func Test_dedupTags_SortedKVs(t *testing.T) {
+	rb := newRowBuilder()
+	_ = rb.AddTag([]byte("a"), []byte("a"))
+	_ = rb.AddTag([]byte("c"), []byte("c"))
+	_ = rb.dedupTagsThenXXHash()
+	assert.Equal(t, "a=a,c=c", rb.hashBuf.String())
+}
+func Test_dedupTagsThenXXHash_One(t *testing.T) {
+	rb := newRowBuilder()
+	_ = rb.AddTag([]byte("ccc"), []byte("a"))
+	_ = rb.AddTag([]byte("ccc"), []byte("b"))
+	_ = rb.AddTag([]byte("ccc"), []byte("c"))
+	_ = rb.AddTag([]byte("ccc"), []byte("d"))
+	_ = rb.AddTag([]byte("ccc"), []byte("e"))
+	_ = rb.AddTag([]byte("ccc"), []byte("f"))
+	_ = rb.AddTag([]byte("ccc"), []byte("g"))
+
+	_ = rb.dedupTagsThenXXHash()
+	assert.Equal(t, "ccc=g", rb.hashBuf.String())
+}
