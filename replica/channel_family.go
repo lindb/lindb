@@ -164,6 +164,7 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 			return
 		case compressed := <-fc.ch:
 			if stream == nil {
+				//TODO need set transport.defaultMaxStreamsClient???
 				stream, err = fc.newWriteStreamFn(fc.ctx, target, fc.database, &shardState, fc.familyTime, fc.fct)
 				if err != nil {
 					//TODO do retry, add max retry count?
