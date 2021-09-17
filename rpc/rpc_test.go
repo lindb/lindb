@@ -38,35 +38,28 @@ var (
 )
 
 func TestClientConnFactory(t *testing.T) {
-	node1 := models.StatelessNode{
-		HostIP:   "127.0.0.1",
-		GRPCPort: 123,
-	}
-
-	node2 := models.StatelessNode{
-		HostIP:   "1.1.1.1",
-		GRPCPort: 456,
-	}
-
 	fct := GetClientConnFactory()
 
-	conn1, err := fct.GetClientConn(&node1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conn1, err := fct.GetClientConn(&models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
+	})
+	assert.NoError(t, err)
 
-	conn11, err := fct.GetClientConn(&node1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conn11, err := fct.GetClientConn(&models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
+	})
+	assert.NoError(t, err)
 
-	conn2, err := fct.GetClientConn(&node2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conn2, err := fct.GetClientConn(&models.StatelessNode{
+		HostIP:   "1.1.1.1",
+		GRPCPort: 456,
+	})
+	assert.NoError(t, err)
 
-	assert.True(t, conn1 == conn11)
-	assert.False(t, conn1 == conn2)
+	assert.Same(t, conn1, conn11)
+	assert.NotSame(t, conn1, conn2)
 }
 
 func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
