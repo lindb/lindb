@@ -18,15 +18,12 @@
 package metric
 
 import (
-	"bytes"
 	"math"
 	"strconv"
 	"testing"
 
 	"github.com/lindb/lindb/pkg/fasttime"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
 
 	"github.com/cespare/xxhash/v2"
@@ -194,99 +191,6 @@ func Test_MetricRow_WithCompoundField(t *testing.T) {
 		}
 		assert.Equal(t, 10, count)
 	}
-}
-
-func Test_BatchRows_FamilyIterator_SameFamily(t *testing.T) {
-	timestamp := fasttime.UnixMilliseconds()
-
-	// same family
-	var ml protoMetricsV1.MetricList
-	for i := 0; i < 100; i++ {
-		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(timestamp))
-	}
-	var buf bytes.Buffer
-	converter := NewProtoConverter()
-	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
-
-	br := NewStorageBatchRows()
-
-	br.UnmarshalRows(buf.Bytes())
-
-	var interval timeutil.Interval
-	_ = interval.ValueOf("10s")
-
-	itr := br.NewFamilyIterator(interval)
-	assert.True(t, itr.HasNextFamily())
-	familyTime, rows := itr.NextFamily()
-	t.Log(familyTime)
-	assert.Len(t, rows, 100)
-	assert.False(t, itr.HasNextFamily())
-
-	itr.Reset(interval)
-	assert.True(t, itr.HasNextFamily())
-	_, rows = itr.NextFamily()
-	assert.Len(t, rows, 100)
-	assert.False(t, itr.HasNextFamily())
-}
-
-func Test_BatchRows_FamilyIterator_DifferentFamily(t *testing.T) {
-	timestamp := fasttime.UnixMilliseconds()
-
-	// same family
-	var ml protoMetricsV1.MetricList
-	for i := 0; i < 30; i++ {
-		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(timestamp))
-	}
-	for i := 30; i < 50; i++ {
-		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(timestamp-timeutil.OneHour))
-	}
-	for i := 50; i < 100; i++ {
-		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(timestamp+timeutil.OneHour))
-	}
-
-	var buf bytes.Buffer
-	converter := NewProtoConverter()
-	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
-
-	br := NewStorageBatchRows()
-
-	var interval timeutil.Interval
-	_ = interval.ValueOf("10s")
-	// empty
-	itr2 := br.NewFamilyIterator(interval)
-	assert.False(t, itr2.HasNextFamily())
-	// 100 lines
-	br.UnmarshalRows(buf.Bytes())
-	assert.Len(t, br.Rows(), 100)
-
-	itr := br.NewFamilyIterator(interval)
-	// last family
-	assert.True(t, itr.HasNextFamily())
-	familyTime, rows := itr.NextFamily()
-	t.Log(familyTime)
-	assert.Len(t, rows, 20)
-	// current family
-	assert.True(t, itr.HasNextFamily())
-	familyTime, rows = itr.NextFamily()
-	t.Log(familyTime)
-	assert.Len(t, rows, 30)
-	// next family
-	assert.True(t, itr.HasNextFamily())
-	familyTime, rows = itr.NextFamily()
-	t.Log(familyTime)
-	assert.Len(t, rows, 50)
-
-	// reset batch rows
-	ml.Metrics = ml.Metrics[:30]
-	buf.Reset()
-	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
-
-	br.UnmarshalRows(buf.Bytes())
-	itr = br.NewFamilyIterator(interval)
-	assert.True(t, itr.HasNextFamily())
-	_, rows = itr.NextFamily()
-	assert.Len(t, rows, 30)
-	assert.False(t, itr.HasNextFamily())
 }
 
 func Test_HistogramConverter(t *testing.T) {
