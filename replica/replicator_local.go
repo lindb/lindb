@@ -106,17 +106,11 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	r.batchRows.UnmarshalRows(r.block)
 	r.statistics.localReplicaRows.Add(float64(r.batchRows.Len()))
 
-	familyIterator := r.batchRows.NewFamilyIterator(r.shard.CurrentInterval())
-	for familyIterator.HasNextFamily() {
-		familyTime, rows := familyIterator.NextFamily()
-		//TODO @codingcrush use	mem db?
-		if err := r.shard.WriteRows(familyTime, rows); err != nil {
-			r.logger.Error("failed writing family rows",
-				logger.Int64("family", familyTime),
-				logger.Int("rows", len(rows)),
-				logger.String("database", r.shard.DatabaseName()),
-				logger.Int("shardID", int(r.shard.ShardID())),
-				logger.Error(err))
-		}
+	if err := r.shard.WriteRows(r.batchRows.Rows()); err != nil {
+		r.logger.Error("failed writing family rows",
+			logger.Int("rows", r.batchRows.Len()),
+			logger.String("database", r.shard.DatabaseName()),
+			logger.Int("shardID", int(r.shard.ShardID())),
+			logger.Error(err))
 	}
 }

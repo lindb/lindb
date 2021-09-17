@@ -99,7 +99,7 @@ type Shard interface {
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	// WriteRows writes metric rows with same family in batch
-	WriteRows(familyTime int64, rows []metric.StorageRow) error
+	WriteRows(rows []metric.StorageRow) error
 	// GetOrCreateSequence gets the replica sequence by given remote peer if exist, else creates a new sequence
 	GetOrCreateSequence(replicaPeer string) (queue.Sequence, error)
 	// MemDBTotalSize returns the total size of mutable and immutable memdb
@@ -414,10 +414,18 @@ Done:
 	return nil
 }
 
-func (s *shard) WriteRows(familyTime int64, rows []metric.StorageRow) error {
+func (s *shard) WriteRows(rows []metric.StorageRow) error {
 	defer s.statistics.writeBatches.Incr()
 
+	if len(rows) == 0 {
+		return nil
+	}
 	intervalCalc := s.interval.Calculator()
+
+	firstTimeStamp := rows[0].Timestamp()
+	segmentTime := intervalCalc.CalcSegmentTime(firstTimeStamp)
+	family := intervalCalc.CalcFamily(firstTimeStamp, segmentTime)
+	familyTime := intervalCalc.CalcFamilyStartTime(segmentTime, family)
 
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {

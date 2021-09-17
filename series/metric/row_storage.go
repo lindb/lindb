@@ -18,9 +18,6 @@
 package metric
 
 import (
-	"sort"
-
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -50,9 +47,8 @@ func (mr *StorageRow) Unmarshal(data []byte) {
 // StorageBatchRows holds multi rows for inserting into memdb
 // It is reused in sync.Pool
 type StorageBatchRows struct {
-	appendIndex    int
-	rows           []StorageRow
-	familyIterator StorageRowFamilyIterator
+	appendIndex int
+	rows        []StorageRow
 }
 
 // NewStorageBatchRows returns write-context for batch writing.
@@ -88,98 +84,3 @@ func (br *StorageBatchRows) Less(i, j int) bool {
 }
 func (br *StorageBatchRows) Swap(i, j int)      { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
 func (br *StorageBatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }
-
-// todo: @codingcrush, remove family iterator for storage.
-
-// NewFamilyIterator provides a method for iterating data with family
-func (br *StorageBatchRows) NewFamilyIterator(interval timeutil.Interval) *StorageRowFamilyIterator {
-	br.familyIterator.batch = br
-	br.familyIterator.Reset(interval)
-	return &br.familyIterator
-}
-
-type StorageRowFamilyIterator struct {
-	groupEnd        int   // group end index
-	groupStart      int   // group start index
-	groupFamilyTime int64 // group family time
-
-	sameFamily bool
-
-	batch        *StorageBatchRows
-	intervalCalc timeutil.IntervalCalculator
-}
-
-func (itr *StorageRowFamilyIterator) HasNextFamily() bool {
-	if itr.groupEnd >= itr.batch.Len() || itr.groupStart > itr.groupEnd {
-		return false
-	}
-	if itr.sameFamily {
-		itr.groupEnd = itr.batch.Len()
-		itr.groupStart = 0
-		return true
-	}
-
-	firstTimestamp := itr.batch.rows[itr.groupEnd].Timestamp()
-	timeRange := itr.timeRangeOfTimestamp(firstTimestamp)
-	itr.groupStart = itr.groupEnd
-	itr.groupFamilyTime = itr.familyTimeOfTimestamp(firstTimestamp)
-
-	for itr.groupEnd < itr.batch.Len() {
-		if !timeRange.Contains(itr.batch.rows[itr.groupEnd].Timestamp()) {
-			break
-		}
-		itr.groupEnd++
-	}
-	return itr.groupStart < itr.groupEnd
-}
-
-func (itr *StorageRowFamilyIterator) NextFamily() (familyTime int64, rows []StorageRow) {
-	return itr.groupFamilyTime, itr.batch.rows[itr.groupStart:itr.groupEnd]
-}
-
-func (itr *StorageRowFamilyIterator) Reset(interval timeutil.Interval) {
-	itr.intervalCalc = interval.Calculator()
-	itr.groupStart = 0
-	itr.groupEnd = 0
-	itr.groupFamilyTime = 0
-	// fast path, all rows are same family
-	if itr.sameFamily = itr.isSameFamily(); itr.sameFamily {
-		return
-	}
-	// slow path, re-sort it with family time
-	if !sort.IsSorted(itr.batch) {
-		sort.Sort(itr.batch)
-	}
-}
-
-func (itr *StorageRowFamilyIterator) isSameFamily() bool {
-	if itr.batch.appendIndex <= 0 {
-		return true
-	}
-	firstTimestamp := itr.batch.rows[0].Timestamp()
-	itr.groupFamilyTime = itr.familyTimeOfTimestamp(firstTimestamp)
-	timeRange := itr.timeRangeOfTimestamp(firstTimestamp)
-	for i := 1; i < len(itr.batch.rows); i++ {
-		if !timeRange.Contains(itr.batch.rows[i].Timestamp()) {
-			return false
-		}
-	}
-	return true
-}
-
-func (itr *StorageRowFamilyIterator) familyTimeOfTimestamp(timestamp int64) int64 {
-	segmentTime := itr.intervalCalc.CalcSegmentTime(timestamp)
-	family := itr.intervalCalc.CalcFamily(timestamp, segmentTime)
-	return itr.intervalCalc.CalcFamilyStartTime(segmentTime, family)
-}
-
-func (itr *StorageRowFamilyIterator) timeRangeOfTimestamp(timestamp int64) timeutil.TimeRange {
-	segmentTime := itr.intervalCalc.CalcSegmentTime(timestamp)
-	family := itr.intervalCalc.CalcFamily(timestamp, segmentTime)
-
-	familyStartTime := itr.intervalCalc.CalcFamilyStartTime(segmentTime, family)
-	return timeutil.TimeRange{
-		Start: familyStartTime,
-		End:   itr.intervalCalc.CalcFamilyEndTime(familyStartTime),
-	}
-}
