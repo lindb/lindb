@@ -66,7 +66,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	_, _ = row.WriteTo(buf)
 	var dst []byte
 	dst = snappy.Encode(dst, buf.Bytes())
-	shard.EXPECT().WriteRows(gomock.Any(), gomock.Any()).Return(fmt.Errorf("errj"))
+	shard.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("errj"))
 	replicator.Replica(1, dst)
 	// bad data
 	dst = snappy.Encode(dst, []byte("bad-data"))
