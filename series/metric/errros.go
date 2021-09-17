@@ -23,7 +23,6 @@ import (
 )
 
 var (
-	ErrTooManyTags = errors.New("too_many_tags")
 	// ErrBadMetricPBFormat represents write bad pb format
 	ErrBadMetricPBFormat = errors.New("bad metric proto")
 	ErrMetricPBNilMetric = fmt.Errorf("%w, metric is nil", ErrBadMetricPBFormat)

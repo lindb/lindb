@@ -20,6 +20,7 @@ package metric
 import (
 	"io"
 	"math"
+	"sort"
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -78,7 +79,6 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		m.Timestamp = fasttime.UnixMilliseconds()
 	}
 	for i := 0; i < len(rc.enrichedTags); i++ {
-		// todo: dedup @codingcrush
 		m.Tags = append(m.Tags, &protoMetricsV1.KeyValue{
 			Key:   string(rc.enrichedTags[i].Key),
 			Value: string(rc.enrichedTags[i].Value),
@@ -165,12 +165,33 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	return nil
 }
 
+func (rc *BrokerRowProtoConverter) deDupTags(m *protoMetricsV1.Metric) {
+	kvs := tag.KeyValues(m.Tags)
+	if len(kvs) < 2 {
+		return
+	}
+	sort.Sort(kvs)
+	// tags with same key will keep order as they are appended after sorting
+	// high index key has higher priority
+	// use 2-pointer algorithm
+	var slow = 0
+	for high := 1; high < len(m.Tags); high++ {
+		if m.Tags[slow].Key != m.Tags[high].Key {
+			slow++
+		}
+		m.Tags[slow] = m.Tags[high]
+	}
+	m.Tags = m.Tags[:slow+1]
+}
+
 func (rc *BrokerRowProtoConverter) MarshalProtoMetricV1(m *protoMetricsV1.Metric) ([]byte, error) {
 	rc.resetForNextConverter()
 
 	if err := rc.validateMetric(m); err != nil {
 		return nil, err
 	}
+	rc.deDupTags(m)
+
 	// pre-allocate strings
 	for i := 0; i < len(m.Tags); i++ {
 		kv := m.Tags[i]

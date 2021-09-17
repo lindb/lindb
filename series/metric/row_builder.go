@@ -47,7 +47,7 @@ type rowKVs struct {
 func (items rowKVs) Len() int      { return items.kvCount }
 func (items rowKVs) Swap(i, j int) { items.kvs[i], items.kvs[j] = items.kvs[j], items.kvs[i] }
 func (items rowKVs) Less(i, j int) bool {
-	return bytes.Compare(items.kvs[i].key, items.kvs[j].key) <= 0
+	return bytes.Compare(items.kvs[i].key, items.kvs[j].key) < 0
 }
 
 type rowSimpleField struct {
@@ -107,7 +107,7 @@ func newRowBuilder() *RowBuilder {
 	return &RowBuilder{flatBuilder: flatbuffers.NewBuilder(1536)}
 }
 
-// AddKeyValue appends a key-value pair
+// AddTag appends a key-value pair
 // Return false if tag is invalid
 func (rb *RowBuilder) AddTag(key, value []byte) error {
 	if len(key) == 0 || len(value) == 0 {
@@ -237,7 +237,6 @@ func (rb *RowBuilder) Reset() {
 
 	// reset kvs context
 	rb.rowKVs.kvCount = 0
-	rb.hashBuf.Reset()
 
 	// reset simple fields context
 	rb.simpleFieldCount = 0
@@ -263,16 +262,11 @@ var (
 	emptyStringHash = xxhash.Sum64String("")
 )
 
-func (rb *RowBuilder) xxHashOfKVs() uint64 {
-	switch rb.rowKVs.kvCount {
-	case 0:
+func (rb *RowBuilder) _xxHashOfKVs() uint64 {
+	if rb.rowKVs.kvCount == 0 {
 		return emptyStringHash
-	case 1:
-	default:
-		if !sort.IsSorted(rb.rowKVs) {
-			sort.Sort(rb.rowKVs)
-		}
 	}
+	rb.hashBuf.Reset()
 	for idx := 0; idx < rb.rowKVs.kvCount; idx++ {
 		if idx >= 1 {
 			_ = rb.hashBuf.WriteByte(',')
@@ -284,7 +278,41 @@ func (rb *RowBuilder) xxHashOfKVs() uint64 {
 	return xxhash.Sum64(rb.hashBuf.Bytes())
 }
 
-// todo: @codingcrush, dedup key values, it may be overwritten by enriched tags
+// dedupTags removes duplicated tags
+func (rb *RowBuilder) dedupTagsThenXXHash() uint64 {
+	if rb.rowKVs.kvCount < 2 {
+		return rb._xxHashOfKVs()
+	}
+	if !sort.IsSorted(rb.rowKVs) {
+		sort.Sort(rb.rowKVs)
+	}
+	// fast path
+	shouldDeDup := false
+	for cursor := 1; cursor < rb.rowKVs.kvCount; cursor++ {
+		if bytes.Equal(rb.rowKVs.kvs[cursor].key, rb.rowKVs.kvs[cursor-1].key) {
+			shouldDeDup = true
+			break
+		}
+	}
+	if !shouldDeDup {
+		return rb._xxHashOfKVs()
+	}
+
+	// tags with same key will keep order as they are appended after sorting
+	// high index key has higher priority
+	// use 2-pointer algorithm
+	var slow = 0
+	for high := 1; high < rb.rowKVs.kvCount; high++ {
+		if !bytes.Equal(rb.rowKVs.kvs[slow].key, rb.rowKVs.kvs[high].key) {
+			slow++
+		}
+		rb.rowKVs.kvs[slow].value = append(rb.rowKVs.kvs[slow].value[:0], rb.rowKVs.kvs[high].value...)
+		rb.rowKVs.kvs[slow].key = append(rb.rowKVs.kvs[slow].key[:0], rb.rowKVs.kvs[high].key...)
+	}
+	rb.rowKVs.kvCount = slow + 1
+	return rb._xxHashOfKVs()
+}
+
 func (rb *RowBuilder) Build() ([]byte, error) {
 	if len(rb.metricName) == 0 {
 		return nil, fmt.Errorf("metric-name is empty")
@@ -295,6 +323,7 @@ func (rb *RowBuilder) Build() ([]byte, error) {
 	if rb.rowKVs.kvCount > config.GlobalStorageConfig().TSDB.MaxTagKeysNumber {
 		return nil, fmt.Errorf("too many tag pairs: %d", rb.rowKVs.kvCount)
 	}
+	hash := rb.dedupTagsThenXXHash()
 	for i := 0; i < rb.rowKVs.kvCount; i++ {
 		rb.keys = append(rb.keys, rb.flatBuilder.CreateByteString(rb.rowKVs.kvs[i].key))
 		rb.values = append(rb.values, rb.flatBuilder.CreateByteString(rb.rowKVs.kvs[i].value))
@@ -375,7 +404,7 @@ Serialize:
 	}
 	flatMetricsV1.MetricAddTimestamp(rb.flatBuilder, rb.timestamp)
 	flatMetricsV1.MetricAddKeyValues(rb.flatBuilder, kvs)
-	flatMetricsV1.MetricAddHash(rb.flatBuilder, rb.xxHashOfKVs())
+	flatMetricsV1.MetricAddHash(rb.flatBuilder, hash)
 	flatMetricsV1.MetricAddSimpleFields(rb.flatBuilder, fields)
 	if compoundField != 0 {
 		flatMetricsV1.MetricAddCompoundField(rb.flatBuilder, compoundField)
