@@ -24,6 +24,7 @@ var (
 	errChannelNotFound = errors.New("shard replica channel not found")
 	errInvalidShardID  = errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	errInvalidShardNum = errors.New("numOfShard should be equal or greater than original setting")
-	// ErrCanceled is the error returned when writing data ctx canceled.
-	ErrCanceled = errors.New("writeTask data ctx done")
+	// ErrFamilyChannelCanceled is the error returned when a family channel is closed.
+	ErrFamilyChannelCanceled = errors.New("family Channel is canceled")
+	ErrIngestTimeout         = errors.New("ingest timout")
 )

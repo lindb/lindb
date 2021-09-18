@@ -48,7 +48,8 @@ type remoteReplicator struct {
 }
 
 // NewRemoteReplicator creates remote replicator.
-func NewRemoteReplicator(ctx context.Context,
+func NewRemoteReplicator(
+	ctx context.Context,
 	channel *ReplicatorChannel,
 	stateMgr storage.StateManager,
 	cliFct rpc.ClientStreamFactory,
