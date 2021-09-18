@@ -19,10 +19,11 @@ package replica
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"path"
-	"strconv"
 	"sync"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -61,17 +62,20 @@ type WriteAheadLog interface {
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
-type writeAheadLogManager struct {
-	ctx           context.Context
-	cfg           config.WAL
-	currentNodeID models.NodeID
-	databaseLogs  map[string]WriteAheadLog
-	engine        tsdb.Engine
-	cliFct        rpc.ClientStreamFactory
-	stateMgr      storage.StateManager
-
-	mutex sync.Mutex
-}
+type (
+	databaseLogs         map[string]WriteAheadLog
+	writeAheadLogManager struct {
+		ctx           context.Context
+		cfg           config.WAL
+		currentNodeID models.NodeID
+		engine        tsdb.Engine
+		cliFct        rpc.ClientStreamFactory
+		stateMgr      storage.StateManager
+		// COW
+		databaseLogs atomic.Value
+		mutex        sync.Mutex
+	}
+)
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.
 func NewWriteAheadLogManager(
@@ -82,50 +86,72 @@ func NewWriteAheadLogManager(
 	cliFct rpc.ClientStreamFactory,
 	stateMgr storage.StateManager,
 ) WriteAheadLogManager {
-	return &writeAheadLogManager{
+	mgr := &writeAheadLogManager{
 		ctx:           ctx,
 		cfg:           cfg,
 		currentNodeID: currentNodeID,
 		engine:        engine,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
-
-		databaseLogs: make(map[string]WriteAheadLog),
 	}
+	mgr.databaseLogs.Store(make(databaseLogs))
+	return mgr
+}
+
+func (w *writeAheadLogManager) getLog(database string) (WriteAheadLog, bool) {
+	log, ok := w.databaseLogs.Load().(databaseLogs)[database]
+	return log, ok
+}
+
+func (w *writeAheadLogManager) insertLog(database string, newLog WriteAheadLog) {
+	oldMap := w.databaseLogs.Load().(databaseLogs)
+	newMap := make(databaseLogs)
+	for database, log := range oldMap {
+		newMap[database] = log
+	}
+	newMap[database] = newLog
+	w.databaseLogs.Store(newMap)
 }
 
 // GetOrCreateLog returns writeTask ahead log for database,
-// if exist returns it, else creates a new.
+// if exist returns it, else creates a new wal
 func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	log, ok := w.databaseLogs[database]
+	log, ok := w.getLog(database)
 	if ok {
 		return log
 	}
-	// create new, then put in cache
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if log, ok = w.getLog(database); ok {
+		return log
+	}
+
 	log = newWriteAheadLog(w.ctx, w.cfg, w.currentNodeID, database, w.engine, w.cliFct, w.stateMgr)
-	w.databaseLogs[database] = log
+	w.insertLog(database, log)
 	return log
 }
 
-// writeAheadLog implements WriteAheadLog.
-type writeAheadLog struct {
-	ctx           context.Context
-	database      string
-	cfg           config.WAL
-	currentNodeID models.NodeID
-	shardLogs     map[partitionKey]Partition
-	engine        tsdb.Engine
-	cliFct        rpc.ClientStreamFactory
-	stateMgr      storage.StateManager
+type (
+	shardLogs map[partitionKey]Partition
+	// writeAheadLog implements WriteAheadLog.
+	writeAheadLog struct {
+		ctx           context.Context
+		database      string
+		cfg           config.WAL
+		currentNodeID models.NodeID
+		engine        tsdb.Engine
+		cliFct        rpc.ClientStreamFactory
+		stateMgr      storage.StateManager
 
-	mutex sync.Mutex
-}
+		mutex     sync.Mutex
+		shardLogs atomic.Value
+	}
+)
 
 // NewWriteAheadLog creates a WriteAheadLog instance.
-func NewWriteAheadLog(ctx context.Context,
+func NewWriteAheadLog(
+	ctx context.Context,
 	cfg config.WAL,
 	currentNodeID models.NodeID,
 	database string,
@@ -133,7 +159,7 @@ func NewWriteAheadLog(ctx context.Context,
 	cliFct rpc.ClientStreamFactory,
 	stateMgr storage.StateManager,
 ) WriteAheadLog {
-	return &writeAheadLog{
+	log := &writeAheadLog{
 		ctx:           ctx,
 		currentNodeID: currentNodeID,
 		database:      database,
@@ -141,33 +167,38 @@ func NewWriteAheadLog(ctx context.Context,
 		engine:        engine,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
-		shardLogs:     make(map[partitionKey]Partition),
 	}
+	log.shardLogs.Store(make(shardLogs))
+	return log
 }
 
 // GetOrCreatePartition returns a partition of writeTask ahead log.
 // if exist returns it, else create a new partition.
 func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime int64) (Partition, error) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
 	key := partitionKey{
 		shardID:    shardID,
 		familyTime: familyTime,
 	}
-	p, ok := w.shardLogs[key]
+	p, ok := w.getPartition(key)
+	if ok {
+		return p, nil
+	}
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	p, ok = w.getPartition(key)
 	if ok {
 		return p, nil
 	}
 	shard, ok := w.engine.GetShard(w.database, shardID)
 	if !ok {
-		return nil, errors.New("shard not exist")
+		return nil, fmt.Errorf("shard: %d not exist", shardID.Int())
 	}
 	db, err := shard.GetOrCreateMemoryDatabase(familyTime)
 	if err != nil {
 		return nil, err
 	}
-	dirPath := path.Join(w.cfg.Dir, w.database, strconv.Itoa(int(shardID)), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+	dirPath := path.Join(w.cfg.Dir, w.database, shardID.String(), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
 
 	interval := w.cfg.RemoveTaskInterval.Duration()
 
@@ -175,7 +206,23 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime 
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartition(w.ctx, shardID, shard, db, w.currentNodeID, q, w.cliFct, w.stateMgr)
-	w.shardLogs[key] = p
+	p = NewPartition(w.ctx, shard, db, w.currentNodeID, q, w.cliFct, w.stateMgr)
+
+	w.insertPartition(key, p)
 	return p, nil
+}
+
+func (w *writeAheadLog) getPartition(key partitionKey) (Partition, bool) {
+	p, ok := w.shardLogs.Load().(shardLogs)[key]
+	return p, ok
+}
+
+func (w *writeAheadLog) insertPartition(key partitionKey, p Partition) {
+	oldMap := w.shardLogs.Load().(shardLogs)
+	newMap := make(shardLogs)
+	for key, partition := range oldMap {
+		newMap[key] = partition
+	}
+	newMap[key] = p
+	w.shardLogs.Store(newMap)
 }

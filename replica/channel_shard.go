@@ -82,11 +82,12 @@ func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[mod
 	//TODO need sync shard state
 	c.shardState = shardState
 	c.liveNodes = liveNodes
-	c.logger.Info("start shard write channel successfully", logger.String("db", c.database),
+	c.logger.Info("start shard write channel successfully",
+		logger.String("db", c.database),
 		logger.Any("shardID", c.shardID))
 }
 
-// GetOrCreateMemoryDatabase returns memory database by given family time.
+// GetOrCreateFamilyChannel returns family channel by given family time.
 func (c *channel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
 	familyChannel, exist := c.families.GetFamilyChannel(familyTime)
 	if exist {

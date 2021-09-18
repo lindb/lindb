@@ -27,9 +27,12 @@ import (
 // NodeID represents node identifier.
 type NodeID int
 
+func (id NodeID) Int() int       { return int(id) }
+func (id NodeID) String() string { return strconv.Itoa(int(id)) }
+
 // Node represents the node info in cluster(broker/storage).
 type Node interface {
-	// Indicator returns return node indicator's string.
+	// Indicator returns node indicator's string.
 	Indicator() string
 }
 
@@ -50,7 +53,7 @@ type StatelessNode struct {
 	OnlineTime int64  `json:"onlineTime"` // node online time(millisecond)
 }
 
-// Indicator returns return node indicator's string.
+// Indicator returns node indicator's string.
 func (n *StatelessNode) Indicator() string {
 	return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
 }
