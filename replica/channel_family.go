@@ -105,7 +105,7 @@ func newFamilyChannel(
 }
 
 // Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
-// data is wrote successfully.
+// data is written successfully.
 // Concurrent safe.
 func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) error {
 	fc.lock4write.Lock()
@@ -135,10 +135,10 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	select {
 	case fc.ch <- compressed:
 		return nil
-	case <-ctx.Done():
-		return ErrCanceled
+	case <-ctx.Done(): // timeout of http ingestion api
+		return ErrIngestTimeout
 	case <-fc.ctx.Done():
-		return ErrCanceled
+		return ErrFamilyChannelCanceled
 	}
 }
 
@@ -175,10 +175,16 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 			if err := stream.Send(*compressed); err == nil {
 				compressed.Release()
 			} else {
-				fc.logger.Error("send write request err", logger.Error(err))
+				fc.logger.Error(
+					"failed writing compressed chunk to storage",
+					logger.String("target", target.Indicator()),
+					logger.String("database", fc.database),
+					logger.Error(err))
 				if err == io.EOF {
-					if err0 := stream.Close(); err0 != nil {
-						fc.logger.Error("close write stream err, when do write request", logger.Error(err))
+					if closeError := stream.Close(); closeError != nil {
+						fc.logger.Error("failed closing write stream",
+							logger.String("target", target.Indicator()),
+							logger.Error(closeError))
 					}
 					stream = nil
 				}
@@ -231,6 +237,6 @@ func (fc *familyChannel) flushChunk() {
 	select {
 	case fc.ch <- compressed:
 	case <-fc.ctx.Done():
-		fc.logger.Warn("task has already canceled")
+		fc.logger.Warn("writer is canceled")
 	}
 }

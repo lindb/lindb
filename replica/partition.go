@@ -25,6 +25,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
@@ -68,13 +69,16 @@ type partition struct {
 	peers    map[string]ReplicatorPeer
 	cliFct   rpc.ClientStreamFactory
 	stateMgr storage.StateManager
+	logger   *logger.Logger
 
 	mutex sync.Mutex
 }
 
 // NewPartition creates a writeTask ahead log partition.
-func NewPartition(ctx context.Context,
-	shardID models.ShardID, shard tsdb.Shard, db memdb.MemoryDatabase,
+func NewPartition(
+	ctx context.Context,
+	shard tsdb.Shard,
+	db memdb.MemoryDatabase,
 	currentNodeID models.NodeID,
 	log queue.FanOutQueue,
 	cliFct rpc.ClientStreamFactory,
@@ -83,17 +87,18 @@ func NewPartition(ctx context.Context,
 	return &partition{
 		ctx:           ctx,
 		log:           log,
-		shardID:       shardID,
+		shardID:       shard.ShardID(),
 		shard:         shard,
 		db:            db,
 		currentNodeID: currentNodeID,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
 		peers:         make(map[string]ReplicatorPeer),
+		logger:        logger.GetLogger("replica", "Partition"),
 	}
 }
 
-// ReplicaLog writes msg that leader send replica msg.
+// ReplicaLog writes msg that leader sends replica msg.
 // return appended index, if success.
 func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 	appendIdx := p.log.HeadSeq()
@@ -133,7 +138,15 @@ func (p *partition) BuildReplicaForLeader(
 	}
 
 	for _, replicaNodeID := range replicas {
-		p.buildReplica(leader, replicaNodeID)
+		if err := p.buildReplica(leader, replicaNodeID); err != nil {
+			p.logger.Error(
+				"leader failed building replication channel to follower",
+				logger.String("leader", leader.String()),
+				logger.String("follower", replicaNodeID.String()),
+				logger.Error(err),
+			)
+			return err
+		}
 	}
 	return nil
 }
@@ -141,10 +154,16 @@ func (p *partition) BuildReplicaForLeader(
 // BuildReplicaForFollower builds replica relation when handle replica connection.
 func (p *partition) BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error {
 	if replica != p.currentNodeID {
-		return fmt.Errorf("replica not equals current node")
+		return fmt.Errorf("[BUG] replica not equals current node")
 	}
-	p.buildReplica(leader, replica)
-	return nil
+	err := p.buildReplica(leader, replica)
+	if err != nil {
+		p.logger.Error("follower failed building replication channel from leader",
+			logger.Int("leader", leader.Int()),
+			logger.Int("follower", replica.Int()),
+		)
+	}
+	return err
 }
 
 // Close shutdowns all replica workers.
@@ -166,19 +185,18 @@ func (p *partition) Close() error {
 }
 
 // buildReplica builds replica replication based on leader/follower node.
-func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
+func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	key := fmt.Sprintf("[%d->%d]", leader, replica)
 	_, ok := p.peers[key]
 	if ok {
 		// exist
-		return
+		return nil
 	}
 	walConsumer, err := p.log.GetOrCreateFanOut(fmt.Sprintf("%d_%d", leader, replica))
 	if err != nil {
-		//TODO add log
-		return
+		return err
 	}
 	var replicator Replicator
 	channel := ReplicatorChannel{
@@ -202,4 +220,5 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) {
 	peer := NewReplicatorPeer(replicator)
 	p.peers[key] = peer
 	peer.Startup()
+	return nil
 }

@@ -65,6 +65,7 @@ type (
 		numOfShard    atomic.Int32
 		shardChannels shardChannels
 		interval      timeutil.Interval
+		logger        *logger.Logger
 
 		statistics struct {
 			evictedCounter *linmetric.BoundCounter
@@ -83,6 +84,7 @@ func newDatabaseChannel(
 		databaseCfg: databaseCfg,
 		ctx:         ctx,
 		fct:         fct,
+		logger:      logger.GetLogger("replica", "DatabaseChannel"),
 	}
 	ch.shardChannels.value.Store(make(shard2Channel))
 
@@ -123,7 +125,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 		if !ok {
 			err = errChannelNotFound
 			// broker error, do not return to client
-			log.Error("channel not found",
+			dc.logger.Error("shardChannel not found",
 				logger.String("database", dc.databaseCfg.Name),
 				logger.Any("shardID", shardID))
 			continue
@@ -132,10 +134,12 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			familyTime, rows := familyIterator.NextFamily()
 			familyChannel := channel.GetOrCreateFamilyChannel(familyTime)
 			if err = familyChannel.Write(ctx, rows); err != nil {
-				log.Error("channel writeTask data error",
+				dc.logger.Error("failed writing rows to family channel",
 					logger.String("database", dc.databaseCfg.Name),
 					logger.Any("shardID", shardID),
-					logger.Int64("familyTime", familyTime))
+					logger.Int("rows", len(rows)),
+					logger.Int64("familyTime", familyTime),
+					logger.Error(err))
 			}
 		}
 	}

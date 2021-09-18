@@ -33,8 +33,6 @@ import (
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
 
-var log = logger.GetLogger("replica", "ChannelManager")
-
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
