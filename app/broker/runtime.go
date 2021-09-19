@@ -156,11 +156,11 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	tackClientFct := rpc.NewTaskClientFactory(r.node)
+	tackClientFct := rpc.NewTaskClientFactory(r.ctx, r.node)
 	r.factory = factory{
 		taskClient:    tackClientFct,
 		taskServer:    rpc.NewTaskServerFactory(),
-		connectionMgr: rpc.NewConnectionManager(tackClientFct), //TODO close connections
+		connectionMgr: rpc.NewConnectionManager(tackClientFct),
 	}
 
 	r.buildServiceDependency()
@@ -170,8 +170,11 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	r.stateMgr = broker.NewStateManager(r.ctx, *r.node,
-		r.factory.connectionMgr, r.factory.taskClient,
+	r.stateMgr = broker.NewStateManager(
+		r.ctx,
+		*r.node,
+		r.factory.connectionMgr,
+		r.factory.taskClient,
 		r.srv.channelManager)
 	// finally start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
@@ -270,6 +273,11 @@ func (r *runtime) Stop() {
 		r.log.Info("closed write channel successfully")
 	}
 
+	if r.factory.connectionMgr != nil {
+		_ = r.factory.connectionMgr.Close()
+	}
+	r.log.Info("close connections successfully")
+
 	// finally shutdown rpc server
 	if r.grpcServer != nil {
 		r.log.Info("stopping grpc server...")
@@ -336,7 +344,7 @@ func (r *runtime) buildServiceDependency() {
 	// todo watch stateMachine states change.
 
 	// hard code create channel first.
-	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.node))
+	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node))
 
 	taskManager := brokerQuery.NewTaskManager(
 		r.ctx,

@@ -18,6 +18,7 @@
 package rpc
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -68,7 +69,10 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 
 	handler := protoCommonV1.NewMockTaskServiceServer(ctrl)
 
-	factory := NewClientStreamFactory(&models.StatelessNode{HostIP: "127.0.0.2", GRPCPort: 9000})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	factory := NewClientStreamFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.2", GRPCPort: 9000})
 	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 9000}
 
 	client, err := factory.CreateTaskClient(&target)

@@ -33,8 +33,6 @@ import (
 
 //go:generate mockgen -source ./task_transport.go -destination=./task_transport_mock.go -package=rpc
 
-var log = logger.GetLogger("rpc", "TaskClient")
-
 // TaskClientFactory represents the task stream manage
 type TaskClientFactory interface {
 	// CreateTaskClient creates a task client stream if not exist
@@ -57,6 +55,7 @@ type taskClient struct {
 
 // taskClientFactory implements TaskClientFactory interface
 type taskClientFactory struct {
+	ctx          context.Context
 	currentNode  models.Node
 	taskReceiver TaskReceiver
 	// target node ID => client stream
@@ -65,15 +64,18 @@ type taskClientFactory struct {
 
 	newTaskServiceClientFunc func(cc *grpc.ClientConn) protoCommonV1.TaskServiceClient
 	connFct                  ClientConnFactory
+	logger                   *logger.Logger
 }
 
 // NewTaskClientFactory creates a task client factory
-func NewTaskClientFactory(currentNode models.Node) TaskClientFactory {
+func NewTaskClientFactory(ctx context.Context, currentNode models.Node) TaskClientFactory {
 	return &taskClientFactory{
+		ctx:                      ctx,
 		currentNode:              currentNode,
 		connFct:                  GetClientConnFactory(),
 		taskStreams:              make(map[string]*taskClient),
 		newTaskServiceClientFunc: protoCommonV1.NewTaskServiceClient,
+		logger:                   logger.GetLogger("rpc", "TaskClient"),
 	}
 }
 
@@ -140,7 +142,7 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 
 	if client.cli != nil {
 		if err := client.cli.CloseSend(); err != nil {
-			log.Error("close task client error", logger.Error(err))
+			f.logger.Error("close task client error", logger.Error(err))
 		}
 		client.cli = nil
 	}
@@ -163,14 +165,21 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 	var attempt int32 = 0
 	for client.running.Load() {
+		select {
+		case <-f.ctx.Done():
+			// if client is not ready, this goroutine may be blocked without ctx.Done()
+			return
+		default:
+		}
+
 		if !client.ready.Load() {
 			attempt++
-			log.Info("initializing task client",
+			f.logger.Info("initializing task client",
 				logger.String("target", client.targetID),
 				logger.Int32("attempt", attempt),
 			)
 			if err := f.initTaskClient(client); err != nil {
-				log.Error("failed to initialize task client",
+				f.logger.Error("failed to initialize task client",
 					logger.Error(err),
 					logger.String("target", client.targetID),
 					logger.Int32("attempt", attempt),
@@ -178,7 +187,7 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 				time.Sleep(time.Second)
 				continue
 			} else {
-				log.Info("initialized task client successfully",
+				f.logger.Info("initialized task client successfully",
 					logger.String("target", client.targetID),
 					logger.Int32("attempt", attempt))
 				client.ready.Store(true)
@@ -187,13 +196,13 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 		resp, err := client.cli.Recv()
 		if err != nil {
 			client.ready.Store(false)
-			log.Error("receive task error from stream", logger.Error(err))
+			// todo: suppress errors before shard assignment
+			f.logger.Error("receive task error from stream", logger.Error(err))
 			continue
 		}
 
-		err = f.taskReceiver.Receive(resp, client.targetID)
-		if err != nil {
-			log.Error("receive task response",
+		if err = f.taskReceiver.Receive(resp, client.targetID); err != nil {
+			f.logger.Error("receive task response",
 				logger.String("taskID", resp.TaskID),
 				logger.String("taskType", resp.Type.String()),
 				logger.Error(err))
@@ -223,12 +232,14 @@ type taskServerFactory struct {
 	nodeMap map[string]*taskService
 	epoch   atomic.Int64
 	lock    sync.RWMutex
+	logger  *logger.Logger
 }
 
 // NewTaskServerFactory returns the singleton server stream factory
 func NewTaskServerFactory() TaskServerFactory {
 	return &taskServerFactory{
 		nodeMap: make(map[string]*taskService),
+		logger:  logger.GetLogger("rpc", "TaskServer"),
 	}
 }
 
@@ -265,7 +276,7 @@ func (fct *taskServerFactory) Nodes() []models.Node {
 	for nodeID := range fct.nodeMap {
 		node, err := models.ParseNode(nodeID)
 		if err != nil {
-			log.Warn("parse node error", logger.Error(err))
+			fct.logger.Warn("parse node error", logger.Error(err))
 			continue
 		}
 		nodes = append(nodes, node)
