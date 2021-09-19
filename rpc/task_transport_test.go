@@ -18,6 +18,7 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -72,7 +73,7 @@ func TestTaskClientFactory(t *testing.T) {
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err")).AnyTimes()
 	taskService := protoCommonV1.NewMockTaskServiceClient(ctl)
 
-	fct := NewTaskClientFactory(&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
+	fct := NewTaskClientFactory(context.TODO(), &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
 	receiver := NewMockTaskReceiver(ctl)
 	receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	fct.SetTaskReceiver(receiver)
@@ -120,8 +121,11 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	receiver := NewMockTaskReceiver(ctrl)
-	fct := NewTaskClientFactory(&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
+	fct := NewTaskClientFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
 	fct.SetTaskReceiver(receiver)
 
 	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 321}
