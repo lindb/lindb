@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -54,12 +55,21 @@ type stateManager struct {
 	mutex sync.RWMutex
 
 	logger *logger.Logger
+
+	statistics struct {
+		nodeStartUps *linmetric.BoundCounter
+		nodeFailures *linmetric.BoundCounter
+		shardAssigns *linmetric.BoundCounter
+		panics       *linmetric.BoundCounter
+	}
 }
 
 // NewStateManager creates a StateManager instance.
-func NewStateManager(ctx context.Context,
+func NewStateManager(
+	ctx context.Context,
 	current *models.StatefulNode,
-	engine tsdb.Engine) StateManager {
+	engine tsdb.Engine,
+) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
 		ctx:     c,
@@ -70,6 +80,12 @@ func NewStateManager(ctx context.Context,
 		events:  make(chan *discovery.Event, 10),
 		logger:  logger.GetLogger("storage", "StateManager"),
 	}
+	scope := linmetric.NewScope("lindb.storage.state_manager")
+	eventVec := scope.NewCounterVec("emit_events", "type")
+	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
+	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
+	mgr.statistics.shardAssigns = eventVec.WithTagValues("shard_assigns")
+	mgr.statistics.panics = scope.NewCounter("panics")
 
 	// start consume discovery event task
 	go mgr.consumeEvent()
@@ -104,7 +120,7 @@ func (m *stateManager) consumeEvent() {
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
-			//TODO add metric
+			m.statistics.panics.Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -115,10 +131,13 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 
 	switch event.Type {
 	case discovery.NodeStartup:
+		m.statistics.nodeStartUps.Incr()
 		m.onNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
+		m.statistics.nodeFailures.Incr()
 		m.onNodeFailure(event.Key)
 	case discovery.ShardAssignmentChanged:
+		m.statistics.shardAssigns.Incr()
 		m.onShardAssignmentChange(event.Key, event.Value)
 	}
 }

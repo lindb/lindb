@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
@@ -191,8 +192,7 @@ func (r *runtime) Run() error {
 	r.master = coordinator.NewMaster(masterCfg)
 
 	// register broker node info
-	//TODO TTL default value???
-	r.registry = newRegistry(r.repo, 1)
+	r.registry = newRegistry(r.repo, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
 	if err := r.registry.Register(r.node); err != nil {
 		return fmt.Errorf("register broker node error:%s", err)
 	}
