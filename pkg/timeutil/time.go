@@ -41,7 +41,7 @@ const (
 	OneMonth = 31 * OneDay
 	// OneYear is the number of millisecond for a year
 	OneYear = 365 * OneDay
-	//TODO ????
+
 	dataTimeFormat1 = "20060102 15:04:05"
 	dataTimeFormat2 = "2006-01-02 15:04:05"
 	dataTimeFormat3 = "2006/01/02 15:04:05"
