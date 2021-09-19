@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/task"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -79,6 +80,19 @@ type stateManager struct {
 	mutex   sync.Mutex
 
 	logger *logger.Logger
+
+	statistics struct {
+		databaseChanges  *linmetric.BoundCounter
+		databaseDeletes  *linmetric.BoundCounter
+		nodeStartUps     *linmetric.BoundCounter
+		nodeFailures     *linmetric.BoundCounter
+		shardAssigns     *linmetric.BoundCounter
+		storageChanges   *linmetric.BoundCounter
+		storageDeletes   *linmetric.BoundCounter
+		panics           *linmetric.BoundCounter
+		shardElections   *linmetric.BoundCounter
+		shardElectErrors *linmetric.BoundCounter
+	}
 }
 
 // NewStateManager creates a StateManager instance.
@@ -103,6 +117,19 @@ func NewStateManager(
 		newStorageClusterFn: newStorageCluster,
 		logger:              logger.GetLogger("master", "StateManager"),
 	}
+
+	scope := linmetric.NewScope("lindb.master.state_manager")
+	eventVec := scope.NewCounterVec("emit_events", "type")
+	mgr.statistics.databaseChanges = eventVec.WithTagValues("database_changes")
+	mgr.statistics.databaseDeletes = eventVec.WithTagValues("database_deletes")
+	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
+	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
+	mgr.statistics.shardAssigns = eventVec.WithTagValues("shard_assigns")
+	mgr.statistics.storageChanges = eventVec.WithTagValues("storage_changes")
+	mgr.statistics.storageDeletes = eventVec.WithTagValues("storage_deletes")
+	mgr.statistics.panics = scope.NewCounter("panics")
+	mgr.statistics.shardElections = scope.NewCounter("shard_elections")
+	mgr.statistics.shardElectErrors = scope.NewCounter("shard_election_errors")
 
 	// start consume event then do coordinate
 	go mgr.consumeEvent()
@@ -132,7 +159,7 @@ func (m *stateManager) consumeEvent() {
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
-			//TODO add metric
+			m.statistics.panics.Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -147,18 +174,25 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	}
 	switch event.Type {
 	case discovery.StorageConfigChanged:
+		m.statistics.storageChanges.Incr()
 		m.onStorageConfigChange(event.Key, event.Value)
 	case discovery.StorageDeletion:
+		m.statistics.storageDeletes.Incr()
 		m.onStorageConfigDelete(event.Key)
 	case discovery.DatabaseConfigChanged:
+		m.statistics.databaseChanges.Incr()
 		m.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
+		m.statistics.databaseDeletes.Incr()
 		m.onDatabaseCfgDelete(event.Key)
 	case discovery.ShardAssignmentChanged:
+		m.statistics.shardAssigns.Incr()
 		m.onShardAssignmentChange(event.Key, event.Value)
 	case discovery.NodeStartup:
+		m.statistics.nodeStartUps.Incr()
 		m.onStorageNodeStartup(event.Attributes[storageNameKey], event.Key, event.Value)
 	case discovery.NodeFailure:
+		m.statistics.nodeFailures.Incr()
 		m.onStorageNodeFailure(event.Attributes[storageNameKey], event.Key)
 	}
 }
@@ -218,10 +252,11 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 	for shardID, replicas := range shardAssignment.Shards {
 		leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
 		shardState := models.ShardState{ID: shardID, Replica: *replicas}
+		m.statistics.shardElections.Incr()
 		if err != nil {
 			shardState.State = models.OfflineShard
 			shardState.Leader = models.NoLeader
-			//TODO add log and metric
+			m.statistics.shardElectErrors.Incr()
 			m.logger.Warn("elect shard leader err",
 				logger.String("db", shardAssignment.Name),
 				logger.Any("shard", shardID), logger.Error(err))
@@ -457,11 +492,11 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 		for _, shardID := range shards {
 			leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
 			shardState := shardStates[shardID]
+			m.statistics.shardElections.Incr()
 			if err != nil {
 				shardState.State = models.OfflineShard
 				shardState.Leader = models.NoLeader
-				//TODO add log and metric
-
+				m.statistics.shardElectErrors.Incr()
 				m.logger.Warn("elect shard leader err",
 					logger.String("db", shardAssignment.Name),
 					logger.Any("shard", shardID), logger.Error(err))
