@@ -91,5 +91,25 @@ export const BrokerDashboard = [
             8,
             UnitEnum.None,
         ),
+    ],
+    [
+        metric(
+            'Broker State Manager Events',
+            'select emit_events from lindb.broker.state_manager group by type',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
+            'Master State Manager Events',
+            'select emit_events from lindb.master.state_manager group by type',
+            8,
+            UnitEnum.None,
+        ),
+        metric(
+            'Master Shard Assigns',
+            'select shard_elections, shard_election_errors from lindb.master.state_manager',
+            8,
+            UnitEnum.None,
+        ),
     ]
 ]

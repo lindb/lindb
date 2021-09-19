@@ -19,6 +19,7 @@ package metric
 
 import (
 	"fmt"
+	"io"
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -26,8 +27,16 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
+var (
+	maxRowLength = 10 * 1024
+)
+
 type BrokerRowFlatDecoder struct {
-	block      []byte
+	reader  io.Reader
+	size    int // head length
+	buf     []byte
+	readLen int
+
 	rowBuilder RowBuilder
 	originRow  readOnlyRow // used for unmarshal
 
@@ -41,14 +50,18 @@ type BrokerRowFlatDecoder struct {
 var brokerRowFlatDecoderPool sync.Pool
 
 func NewBrokerRowFlatDecoder(
-	block []byte,
+	reader io.Reader,
 	namespace []byte,
 	enrichedTags tag.Tags,
 ) (
 	decoder *BrokerRowFlatDecoder,
 	releaseFunc func(decoder *BrokerRowFlatDecoder),
 ) {
-	releaseFunc = func(decoder *BrokerRowFlatDecoder) { brokerRowFlatDecoderPool.Put(decoder) }
+	releaseFunc = func(decoder *BrokerRowFlatDecoder) {
+		decoder.reader = nil
+		decoder.readLen = 0
+		brokerRowFlatDecoderPool.Put(decoder)
+	}
 	item := brokerRowFlatDecoderPool.Get()
 	if item != nil {
 		decoder = item.(*BrokerRowFlatDecoder)
@@ -56,7 +69,7 @@ func NewBrokerRowFlatDecoder(
 		decoder = &BrokerRowFlatDecoder{rowBuilder: *newRowBuilder()}
 	}
 	decoder.namespace = namespace
-	decoder.block = block
+	decoder.reader = reader
 	decoder.enrichedTags = enrichedTags
 	return decoder, releaseFunc
 }
@@ -70,26 +83,44 @@ func (itr *BrokerRowFlatDecoder) resetForNextDecode() {
 }
 
 // HasNext checks if the raw block is fully decode
-func (itr *BrokerRowFlatDecoder) HasNext() bool { return len(itr.block) > 0 }
+func (itr *BrokerRowFlatDecoder) HasNext() bool {
+	if itr.reader == nil {
+		return false
+	}
+	var scratch [flatbuffers.SizeUOffsetT]byte
+	n, err := io.ReadFull(itr.reader, scratch[:])
+	if err == io.EOF {
+		return false
+	}
+	itr.readLen += n
+	itr.size = int(flatbuffers.GetSizePrefix(scratch[:], 0))
+	return n == flatbuffers.SizeUOffsetT
+}
+
+func (itr *BrokerRowFlatDecoder) ReadLen() int { return itr.readLen }
 
 // DecodeTo decodes next flat block into BrokerRow
 func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 	itr.resetForNextDecode()
 
-	if len(itr.block) < 4 {
-		itr.block = nil
-		return fmt.Errorf("flat block too short: %d", len(itr.block))
+	if itr.size <= 0 || itr.size > maxRowLength {
+		return fmt.Errorf("invalid flat row length: %d", itr.size)
 	}
-	size := flatbuffers.GetSizePrefix(itr.block, 0)
-	partition := itr.block[flatbuffers.SizeUOffsetT : flatbuffers.SizeUOffsetT+size]
-	itr.originRow.m.Init(partition, flatbuffers.GetUOffsetT(partition))
+	if itr.size > cap(itr.buf) {
+		itr.buf = make([]byte, itr.size)
+	}
+	itr.buf = itr.buf[0:itr.size]
+	n, err := io.ReadFull(itr.reader, itr.buf)
+	if n != itr.size || err != nil {
+		return fmt.Errorf("expect length: %d, read length: %d", itr.size, n)
+	}
+	itr.readLen += n
+
+	itr.originRow.m.Init(itr.buf, flatbuffers.GetUOffsetT(itr.buf))
 
 	if err := itr.rebuild(); err != nil {
 		return err
 	}
-	defer func() {
-		itr.block = itr.block[flatbuffers.SizeUOffsetT+size:]
-	}()
 	return itr.rowBuilder.BuildTo(row)
 }
 

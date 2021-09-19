@@ -66,8 +66,14 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.NoError(t, err)
 	_, _ = buf.Write(data2)
 
-	decoder, releaseFunc := NewBrokerRowFlatDecoder(
-		buf.Bytes(),
+	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil)
+	assert.False(t, decoder.HasNext())
+	releaseFunc(decoder)
+	assert.Zero(t, decoder.ReadLen())
+
+	reader := bytes.NewReader(buf.Bytes())
+	decoder, releaseFunc = NewBrokerRowFlatDecoder(
+		reader,
 		[]byte("lindb-ns"),
 		tag.Tags{
 			tag.NewTag([]byte("a"), []byte("b")),
@@ -83,4 +89,5 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 
 	assert.False(t, decoder.HasNext())
 	assert.Error(t, decoder.DecodeTo(&row))
+	assert.Equal(t, len(buf.Bytes()), decoder.ReadLen())
 }

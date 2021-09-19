@@ -19,7 +19,7 @@ package flat
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -61,27 +61,10 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 		defer ingestCommon.PutGzipReader(gzipReader)
 		reader = gzipReader
 	}
+	bufioReader, releaseBufioReaderFunc := ingestCommon.NewBufioReader(reader)
+	defer releaseBufioReaderFunc(bufioReader)
 
-	// todo: @codingcrush, use stream chunk reader
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case len(data) < 10*1024:
-		lt10KiBCounter.Incr()
-	case len(data) < 100*1024:
-		lt100KiBCounter.Incr()
-	case len(data) < 1024*1024:
-		lt1MiBCounter.Incr()
-	case len(data) < 10*1024*1024:
-		lt10MiBCounter.Incr()
-	default:
-		gt10MiBCounter.Incr()
-	}
-
-	flatReadBytesCounter.Add(float64(len(data)))
-	batch, err := parseFlatMetric(data, enrichedTags, namespace)
+	batch, err := parseFlatMetric(reader, enrichedTags, namespace)
 	if err != nil {
 		flatCorruptedDataCounter.Incr()
 		return nil, err
@@ -94,7 +77,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 }
 
 func parseFlatMetric(
-	data []byte,
+	reader io.Reader,
 	enrichedTags tag.Tags,
 	namespace string,
 ) (
@@ -102,7 +85,11 @@ func parseFlatMetric(
 ) {
 	batch = metric.NewBrokerBatchRows()
 
-	decoder, releaseFunc := metric.NewBrokerRowFlatDecoder(data, strutil.String2ByteSlice(namespace), enrichedTags)
+	decoder, releaseFunc := metric.NewBrokerRowFlatDecoder(
+		reader,
+		strutil.String2ByteSlice(namespace),
+		enrichedTags,
+	)
 	defer releaseFunc(decoder)
 
 	defer func() {
@@ -117,5 +104,20 @@ func parseFlatMetric(
 			flatDroppedMetricCounter.Incr()
 		}
 	}
+
+	switch {
+	case decoder.ReadLen() < 10*1024:
+		lt10KiBCounter.Incr()
+	case decoder.ReadLen() < 100*1024:
+		lt100KiBCounter.Incr()
+	case decoder.ReadLen() < 1024*1024:
+		lt1MiBCounter.Incr()
+	case decoder.ReadLen() < 10*1024*1024:
+		lt10MiBCounter.Incr()
+	default:
+		gt10MiBCounter.Incr()
+	}
+	flatReadBytesCounter.Add(float64(decoder.ReadLen()))
+
 	return batch, nil
 }
