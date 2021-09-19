@@ -57,7 +57,7 @@ type Partition interface {
 	ResetReplicaIndex(idx int64)
 }
 
-// partition implements  Partition interface.
+// partition implements Partition interface.
 type partition struct {
 	ctx           context.Context
 	currentNodeID models.NodeID

@@ -22,31 +22,19 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+
+	"github.com/lindb/lindb/config"
 )
 
-// These variables are populated via the Go linker.
 var (
-	// release version, ldflags
-	version = ""
-	// binary build-time, ldflags
-	buildTime = "unknown"
 	// debug mode
 	debug = false
 	// cfg path
 	cfg = ""
 )
 
-const defaultVersion = "0.0.0"
-
-func getVersion() string {
-	if version == "" {
-		return defaultVersion
-	}
-	return version
-}
-
 func printVersion() {
-	fmt.Printf("LinDB: %v, BuildDate: %v\n", getVersion(), buildTime)
+	fmt.Printf("LinDB: %v, BuildDate: %v\n", config.Version, config.BuildTime)
 }
 
 var versionCmd = &cobra.Command{

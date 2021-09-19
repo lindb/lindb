@@ -35,8 +35,6 @@ type remoteReplicator struct {
 	ctx   context.Context
 	state ReplicatorState
 
-	//inFlight *InFlightReplica
-
 	cliFct        rpc.ClientStreamFactory
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient

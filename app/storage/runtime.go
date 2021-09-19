@@ -158,7 +158,7 @@ func (r *runtime) Run() error {
 			HostName:   hostName,
 			HTTPPort:   r.config.StorageBase.GRPC.Port + 1,
 			OnlineTime: timeutil.Now(),
-			//TODO add build version
+			Version:    config.Version,
 		},
 	}
 

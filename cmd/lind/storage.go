@@ -86,7 +86,7 @@ func serveStorage(cmd *cobra.Command, args []string) error {
 	}
 
 	// start storage server
-	storageRuntime := storage.NewStorageRuntime(getVersion(), &storageCfg)
+	storageRuntime := storage.NewStorageRuntime(config.Version, &storageCfg)
 	return run(ctx, storageRuntime, func() error {
 		newStorageCfg := config.Storage{}
 		return config.LoadAndSetStorageConfig(cfg, defaultStorageCfgFile, &newStorageCfg)
