@@ -215,6 +215,11 @@ func (r *runtime) MustRegisterStateFulNode() error {
 	)
 	// sometimes lease isn't expired when storage restarts, retry registering is necessary
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		select {
+		case <-r.ctx.Done(): // no more retries when context is done
+			return nil
+		default:
+		}
 		ok, _, err = r.repo.Elect(
 			r.ctx,
 			constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID))),
@@ -389,7 +394,7 @@ func (r *runtime) bindRPCHandlers() {
 		r.ctx,
 		r.config.StorageBase.WAL,
 		r.node.ID, r.engine,
-		rpc.NewClientStreamFactory(r.node),
+		rpc.NewClientStreamFactory(r.ctx, r.node),
 		r.stateMgr,
 	)
 	r.rpcHandler = &rpcHandler{

@@ -115,13 +115,15 @@ type ClientStreamFactory interface {
 
 // clientStreamFactory implements ClientStreamFactory.
 type clientStreamFactory struct {
+	ctx       context.Context
 	logicNode models.Node
 	connFct   ClientConnFactory
 }
 
 // NewClientStreamFactory returns a factory to get clientStream.
-func NewClientStreamFactory(logicNode models.Node) ClientStreamFactory {
+func NewClientStreamFactory(ctx context.Context, logicNode models.Node) ClientStreamFactory {
 	return &clientStreamFactory{
+		ctx:       ctx,
 		logicNode: logicNode,
 		connFct:   GetClientConnFactory(),
 	}
@@ -140,8 +142,9 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 	}
 
 	node := w.LogicNode()
-	//TODO handle context?????
-	ctx := CreateOutgoingContextWithPairs(context.TODO(), constants.RPCMetaKeyLogicNode, node.Indicator())
+	// https://pkg.go.dev/google.golang.org/grpc#ClientConn.NewStream
+	// context is the lifetime of stream
+	ctx := CreateOutgoingContextWithPairs(w.ctx, constants.RPCMetaKeyLogicNode, node.Indicator())
 	cli, err := protoCommonV1.NewTaskServiceClient(conn).Handle(ctx)
 	return cli, err
 }
