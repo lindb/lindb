@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -29,7 +30,7 @@ func printLogoWhenIsTty() {
 	if logger.IsTerminal(os.Stdout) {
 		_, _ = fmt.Fprintf(os.Stdout, logger.Cyan.Add(linDBLogo))
 		_, _ = fmt.Fprintf(os.Stdout, logger.Green.Add(" ::  LinDB  :: ")+
-			fmt.Sprintf("%22s", fmt.Sprintf("(v%s Release)", getVersion())))
+			fmt.Sprintf("%22s", fmt.Sprintf("(v%s Release)", config.Version)))
 		_, _ = fmt.Fprintf(os.Stdout, "\n\n")
 	}
 }
