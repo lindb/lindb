@@ -26,7 +26,7 @@ export const StorageDashboard = [
         UnitEnum.None,
     ),
     metric(
-      'Write Data Points',
+      'Write Data Rows',
       'select write_metrics from lindb.tsdb.shard group by db, shard',
       8,
       UnitEnum.None,
@@ -40,6 +40,12 @@ export const StorageDashboard = [
     metric(
         'Write Data Points Failures',
         'select write_metric_failures from lindb.tsdb.shard group by db, shard',
+        8,
+        UnitEnum.None,
+    ),
+    metric(
+        'Storage State Manager Events',
+        'select emit_events from lindb.storage.state_manager group by type',
         8,
         UnitEnum.None,
     ),

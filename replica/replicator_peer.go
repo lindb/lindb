@@ -107,14 +107,14 @@ func (r *replicatorRunner) loop() {
 				if err != nil {
 					//TODO add metric
 					r.logger.Warn("cannot get replica message data",
-						logger.Any("replicator", r.replicator),
+						logger.String("replicator", r.replicator.String()),
 						logger.Int64("index", seq))
 				} else {
 					r.replicator.Replica(seq, data)
 				}
 			}
 		} else {
-			r.logger.Warn("replica is not ready", logger.Any("replicator", r.replicator))
+			r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
 		}
 		if !hasData {
 			//TODO add config?
