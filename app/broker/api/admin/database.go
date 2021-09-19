@@ -108,10 +108,10 @@ func (d *DatabaseAPI) Save(c *gin.Context) {
 func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
 	if len(database.Storage) == 0 {
 		//TODO add golang tag?
-		return fmt.Errorf("storage name cannot eb empty")
+		return fmt.Errorf("storage name cannot be empty")
 	}
 	if database.NumOfShard <= 0 {
-		return fmt.Errorf("num. of shard must be > 0")
+		return fmt.Errorf("num of shard must be > 0")
 	}
 	if database.ReplicaFactor <= 0 {
 		return fmt.Errorf("replica factor must be > 0")

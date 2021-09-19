@@ -90,7 +90,7 @@ func serveStandalone(cmd *cobra.Command, args []string) error {
 	}
 
 	// run cluster as standalone mode
-	runtime := standalone.NewStandaloneRuntime(getVersion(), &standaloneCfg)
+	runtime := standalone.NewStandaloneRuntime(config.Version, &standaloneCfg)
 	return run(ctx, runtime, func() error {
 		newStandaloneCfg := config.Standalone{}
 		return config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &newStandaloneCfg)

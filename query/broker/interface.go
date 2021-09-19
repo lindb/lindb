@@ -57,8 +57,8 @@ var (
 // 2) chooses broker nodes for root and intermediate computing from all available broker nodes
 // 3) storage node as leaf computing node does filtering and atomic compute
 // 4) intermediate computing nodes are optional, only need if has group by query, does order by for grouping
-// 4) root computing node does function and expression computing ???? //TODO  need?
-// 5) finally returns result set to user  ???? //TODO  need?
+// 4) root computing node does function and expression computing
+// 5) finally returns result set to user
 //
 // NOTICE: there are some scenarios:
 // 1) some assignment shards not in query replica shards,

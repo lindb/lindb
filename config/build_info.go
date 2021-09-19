@@ -15,7 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package config
 
-type InFlightReplica struct {
-}
+// These variables are populated via the Go linker.
+var (
+	// release version, ldflags
+	Version = "unknown"
+
+	// binary build-time, ldflags
+	BuildTime = "unknown"
+)

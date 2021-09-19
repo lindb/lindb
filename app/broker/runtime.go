@@ -145,7 +145,7 @@ func (r *runtime) Run() error {
 		GRPCPort:   r.config.BrokerBase.GRPC.Port,
 		HTTPPort:   r.config.BrokerBase.HTTP.Port,
 		OnlineTime: timeutil.Now(),
-		//TODO add build version
+		Version:    config.Version,
 	}
 
 	// start state repository
