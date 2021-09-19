@@ -132,7 +132,7 @@ func (e *election) elect() {
 			log.Error("context canceled, exit elect loop")
 			return
 		}
-		log.Info("try elect master", logger.Any("node", e.node))
+		log.Info("try elect master", logger.String("node", e.node.Indicator()))
 
 		master := models.Master{Node: e.node.(*models.StatelessNode), ElectTime: timeutil.Now()}
 		masterBytes := encoding.JSONMarshal(master)

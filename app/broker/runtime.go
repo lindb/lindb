@@ -183,7 +183,7 @@ func (r *runtime) Run() error {
 		Ctx:               r.ctx,
 		Repo:              r.repo,
 		Node:              r.node,
-		TTL:               1, //TODO need config
+		TTL:               r.config.Coordinator.LeaseTTL,
 		DiscoveryFactory:  discoveryFactory,
 		ControllerFactory: task.NewControllerFactory(),
 		RepoFactory:       r.repoFactory,
