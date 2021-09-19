@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -69,6 +70,16 @@ type stateManager struct {
 	mutex  sync.RWMutex
 
 	logger *logger.Logger
+
+	statistics struct {
+		databaseChanges *linmetric.BoundCounter
+		databaseDeletes *linmetric.BoundCounter
+		nodeStartUps    *linmetric.BoundCounter
+		nodeFailures    *linmetric.BoundCounter
+		storageChanges  *linmetric.BoundCounter
+		storageDeletes  *linmetric.BoundCounter
+		panics          *linmetric.BoundCounter
+	}
 }
 
 // NewStateManager creates a broker state manager instance.
@@ -94,6 +105,15 @@ func NewStateManager(
 		logger:            logger.GetLogger("broker", "StateManager"),
 	}
 
+	scope := linmetric.NewScope("lindb.broker.state_manager")
+	eventVec := scope.NewCounterVec("emit_events", "type")
+	mgr.statistics.databaseChanges = eventVec.WithTagValues("database_changes")
+	mgr.statistics.databaseDeletes = eventVec.WithTagValues("database_deletes")
+	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
+	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
+	mgr.statistics.storageChanges = eventVec.WithTagValues("storage_changes")
+	mgr.statistics.storageDeletes = eventVec.WithTagValues("storage_deletes")
+	mgr.statistics.panics = scope.NewCounter("panics")
 	// start consume discovery event task
 	go mgr.consumeEvent()
 
@@ -127,7 +147,7 @@ func (m *stateManager) consumeEvent() {
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
-			//TODO add metric
+			m.statistics.panics.Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -138,16 +158,22 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 
 	switch event.Type {
 	case discovery.DatabaseConfigChanged:
+		m.statistics.databaseChanges.Incr()
 		m.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
+		m.statistics.databaseDeletes.Incr()
 		m.onDatabaseCfgDelete(event.Key)
 	case discovery.NodeStartup:
+		m.statistics.nodeStartUps.Incr()
 		m.onNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
+		m.statistics.nodeFailures.Incr()
 		m.onNodeFailure(event.Key)
 	case discovery.StorageStateChanged:
+		m.statistics.storageChanges.Incr()
 		m.onStorageStateChange(event.Key, event.Value)
 	case discovery.StorageDeletion:
+		m.statistics.storageDeletes.Incr()
 		m.onStorageDelete(event.Key)
 	}
 }
