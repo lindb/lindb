@@ -156,7 +156,7 @@ func (r *runtime) Run() error {
 			HostIP:     ip,
 			GRPCPort:   r.config.StorageBase.GRPC.Port,
 			HostName:   hostName,
-			HTTPPort:   r.config.StorageBase.GRPC.Port + 1,
+			HTTPPort:   r.config.StorageBase.HTTPPort,
 			OnlineTime: timeutil.Now(),
 			Version:    config.Version,
 		},
@@ -182,7 +182,7 @@ func (r *runtime) Run() error {
 		return err
 	}
 	discoveryFactory := discovery.NewFactory(r.repo)
-	// finally start all state machine
+	// finally, start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 
 	if err := r.stateMachineFactory.Start(); err != nil {
@@ -338,21 +338,24 @@ func (r *runtime) Stop() {
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
-	if !logger.IsDebug() {
+	if r.config.StorageBase.HTTPPort <= 0 {
+		r.log.Info("http server is disabled as http-port is 0")
 		return
 	}
-	port := r.node.GRPCPort + 1 //TODO need remove
-	r.log.Info("starting http server", logger.Uint16("port", port))
+	r.log.Info("starting http server", logger.Uint16("port", r.config.StorageBase.HTTPPort))
 
-	// add prometheus metric report
 	g := gin.New()
-	pprof.Register(g)
-	r.log.Info("/debug/pprof is enabled")
-	g.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
-	r.log.Info("/debug/fgprof is enabled")
+	if logger.IsDebug() {
+		pprof.Register(g)
+		r.log.Info("/debug/pprof is enabled")
+		g.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
+		r.log.Info("/debug/fgprof is enabled")
+	}
+	// self monitoring handler
+	g.GET(constants.HealthPath, monitoring.HealthHandler)
 
 	r.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
+		Addr:         fmt.Sprintf(":%d", r.config.StorageBase.HTTPPort),
 		WriteTimeout: time.Second * 120,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
@@ -408,7 +411,6 @@ func (r *runtime) bindRPCHandlers() {
 		),
 	}
 
-	//TODO add task service ??????
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)

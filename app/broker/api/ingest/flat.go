@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/ingestion/flat"
 )
 
@@ -45,6 +46,14 @@ func NewFlatWriter(deps *deps.HTTPDeps) *FlatWriter {
 
 // Register adds native write url route.
 func (nw *FlatWriter) Register(route gin.IRoutes) {
-	route.POST(FlatWritePath, nw.Write)
-	route.PUT(FlatWritePath, nw.Write)
+	route.POST(
+		FlatWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(FlatWritePath)),
+		nw.Write,
+	)
+	route.PUT(
+		FlatWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(FlatWritePath)),
+		nw.Write,
+	)
 }

@@ -19,8 +19,10 @@ package monitoring
 
 import (
 	"context"
+	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
@@ -30,6 +32,8 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+var sc *SystemCollector
 
 // SystemCollector collects the system stat
 type SystemCollector struct {
@@ -89,7 +93,7 @@ func NewSystemCollector(
 	node *models.StatelessNode,
 	role string,
 ) *SystemCollector {
-	r := &SystemCollector{
+	sc = &SystemCollector{
 		interval:        time.Second * 10,
 		netStats:        make(map[string]net.IOCountersStat),
 		netStatsUpdated: make(map[string]time.Time),
@@ -105,10 +109,10 @@ func NewSystemCollector(
 		role:                role,
 	}
 	if storage != "" {
-		r.storage = fileutil.GetExistPath(storage)
+		sc.storage = fileutil.GetExistPath(storage)
 	}
-	r.boundMetrics()
-	return r
+	sc.boundMetrics()
+	return sc
 }
 
 func (r *SystemCollector) boundMetrics() {
@@ -263,4 +267,13 @@ func (r *SystemCollector) logNetStat() {
 		r.netStats[stat.Name] = stat
 		r.netStatsUpdated[stat.Name] = time.Now()
 	}
+}
+
+// HealthHandler gathers node stat from monitor, used for health checking
+func HealthHandler(c *gin.Context) {
+	if sc == nil {
+		c.AbortWithStatus(http.StatusNoContent)
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusOK, sc.nodeStat)
 }

@@ -25,6 +25,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/http"
@@ -61,7 +62,11 @@ func NewMetadataAPI(deps *deps.HTTPDeps) *MetadataAPI {
 
 // Register adds metadata suggest url route.
 func (d *MetadataAPI) Register(route gin.IRoutes) {
-	route.GET(MetadataQueryPath, d.Suggest)
+	route.GET(
+		MetadataQueryPath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(MetadataQueryPath)),
+		d.Suggest,
+	)
 }
 
 // Suggest handles metadata suggest query by LinQL

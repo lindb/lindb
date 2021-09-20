@@ -37,11 +37,19 @@ var (
 )
 
 var (
-	httHandlerTimerVec = linmetric.
+	HttHandlerTimerVec = linmetric.
 		NewScope("lindb.broker.http_handle_duration").
-		NewHistogramVec("path", "status").
+		NewHistogramVec("path").
 		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
 )
+
+func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		defer histogram.UpdateSince(start)
+		c.Next()
+	}
+}
 
 // AccessLogMiddleware returns access log middleware
 func AccessLogMiddleware() gin.HandlerFunc {
@@ -68,17 +76,6 @@ func AccessLogMiddleware() gin.HandlerFunc {
 				logger.AccessLog.Error(requestInfo, logger.Error(c.Errors[0].Err))
 			default:
 				logger.AccessLog.Info(requestInfo)
-			}
-
-			paths := strings.Split(unescapedPath, "?")
-			if len(paths) > 0 {
-				path = paths[0]
-			}
-			// ignore admin web static js, css files
-			if strings.HasPrefix(path, "/api/") {
-				httHandlerTimerVec.
-					WithTagValues(path, strconv.Itoa(c.Writer.Status())).
-					UpdateSince(start)
 			}
 		}()
 		c.Next()

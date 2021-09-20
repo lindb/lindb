@@ -98,10 +98,11 @@ max-tagKeys = %d`,
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	Indicator int  `toml:"indicator"` // Indicator is unique id under current storage cluster.
-	GRPC      GRPC `toml:"grpc"`
-	TSDB      TSDB `toml:"tsdb"`
-	WAL       WAL  `toml:"wal"`
+	HTTPPort  uint16 `toml:"http-port"`
+	Indicator int    `toml:"indicator"` // Indicator is unique id under current storage cluster.
+	GRPC      GRPC   `toml:"grpc"`
+	TSDB      TSDB   `toml:"tsdb"`
+	WAL       WAL    `toml:"wal"`
 }
 
 // TOML returns StorageBase's toml config string
@@ -111,6 +112,9 @@ func (s *StorageBase) TOML() string {
 ## Indicator is a unique id for identifing each storage node
 ## Make sure indicator on each node is different
 indicator = %d
+## on which port http server for self monitoring is listening on
+## if sets to 0, self monitoring on admin page is disabled
+http-port = %d
 
 [storage.grpc]%s
 
@@ -118,6 +122,7 @@ indicator = %d
 
 [storage.tsdb]%s`,
 		s.Indicator,
+		s.HTTPPort,
 		s.GRPC.TOML(),
 		s.WAL.TOML(),
 		s.TSDB.TOML(),
@@ -169,6 +174,7 @@ type Storage struct {
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
 		Indicator: 1,
+		HTTPPort:  2892,
 		GRPC: GRPC{
 			Port:                 2891,
 			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 2,
