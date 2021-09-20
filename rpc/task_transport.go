@@ -151,8 +151,9 @@ func (f *taskClientFactory) initTaskClient(client *taskClient) error {
 		return err
 	}
 
-	//TODO handle context?????
-	ctx := CreateOutgoingContextWithPairs(context.TODO(), constants.RPCMetaKeyLogicNode, f.currentNode.Indicator())
+	// https://pkg.go.dev/google.golang.org/grpc#ClientConn.NewStream
+	// context is the lifetime of stream
+	ctx := CreateOutgoingContextWithPairs(f.ctx, constants.RPCMetaKeyLogicNode, f.currentNode.Indicator())
 	cli, err := f.newTaskServiceClientFunc(conn).Handle(ctx)
 	if err != nil {
 		return err
