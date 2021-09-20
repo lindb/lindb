@@ -33,6 +33,7 @@ import (
 type Channel interface {
 	SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 
+	// GetOrCreateFamilyChannel musts picks the family channel by given family time.
 	GetOrCreateFamilyChannel(familyTime int64) FamilyChannel
 
 	Stop()
