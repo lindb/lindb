@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/ingestion/influx"
 	"github.com/lindb/lindb/pkg/http"
 )
@@ -47,8 +48,16 @@ func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
 
 // Register adds influx write url route.
 func (iw *InfluxWriter) Register(route gin.IRoutes) {
-	route.PUT(InfluxWritePath, iw.Write)
-	route.POST(InfluxWritePath, iw.Write)
+	route.POST(
+		InfluxWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		iw.Write,
+	)
+	route.PUT(
+		InfluxWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		iw.Write,
+	)
 
 	route.POST(InfluxQueryPath, iw.FakeQuery)
 }
