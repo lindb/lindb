@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/ingestion/proto"
 )
 
@@ -45,6 +46,14 @@ func NewProtoWriter(deps *deps.HTTPDeps) *ProtoWriter {
 
 // Register adds native write url route.
 func (nw *ProtoWriter) Register(route gin.IRoutes) {
-	route.POST(ProtoWritePath, nw.Write)
-	route.PUT(ProtoWritePath, nw.Write)
+	route.POST(
+		ProtoWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		nw.Write,
+	)
+	route.PUT(
+		ProtoWritePath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		nw.Write,
+	)
 }

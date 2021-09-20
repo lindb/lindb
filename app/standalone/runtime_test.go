@@ -44,6 +44,7 @@ func newDefaultStandaloneConfig(t *testing.T) config.Standalone {
 	saCfg.StorageBase.TSDB.Dir = t.TempDir()
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.Indicator = 1
+	saCfg.StorageBase.HTTPPort = 3902
 	return saCfg
 }
 

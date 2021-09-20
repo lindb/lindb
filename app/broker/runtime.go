@@ -355,7 +355,7 @@ func (r *runtime) buildServiceDependency() {
 		r.config.Query.Timeout.Duration(),
 	)
 
-	//FIXME (stone100)close it????
+	// close connections in connection-manager
 	r.factory.taskClient.SetTaskReceiver(taskManager)
 
 	srv := srv{

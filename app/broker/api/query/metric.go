@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/pkg/http"
 )
 
@@ -44,7 +45,11 @@ func NewMetricAPI(deps *deps.HTTPDeps) *MetricAPI {
 
 // Register adds metric query url route.
 func (m *MetricAPI) Register(route gin.IRoutes) {
-	route.GET(MetricQueryPath, m.Search)
+	route.GET(
+		MetricQueryPath,
+		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(MetricQueryPath)),
+		m.Search,
+	)
 }
 
 // Search searches the metric data based on database and sql.

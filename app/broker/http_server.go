@@ -31,7 +31,9 @@ import (
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/conntrack"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -69,6 +71,9 @@ func (s *HTTPServer) init() {
 	// use AccessLogMiddleware to log panic error with zap
 	s.gin.Use(middleware.AccessLogMiddleware())
 	s.gin.Use(cors.Default())
+
+	// self monitoring handler
+	s.gin.GET(constants.HealthPath, monitoring.HealthHandler)
 
 	if logger.IsDebug() {
 		s.logger.Info("/debug/pprof is enabled")
