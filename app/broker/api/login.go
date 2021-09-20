@@ -51,8 +51,8 @@ func (l *LoginAPI) Register(route gin.IRoutes) {
 }
 
 // Login responses unique token
-// if use name or password is empty will responses error msg
-// if use name or password is error also will responses error msg
+// empty use name or password will responses error msg
+// invalid use name or password will responses error msg
 func (l *LoginAPI) Login(c *gin.Context) {
 	user := config.User{}
 	err := c.ShouldBind(&user)

@@ -45,8 +45,6 @@ var (
 	ErrSeriesIDNotFound        = fmt.Errorf("seriesID %w", ErrNotFound)
 	ErrDataFamilyNotFound      = fmt.Errorf("data family %w", ErrNotFound)
 
-	ErrMetricOutOfTimeRange = errors.New("metric's timestamp is out of timerange")
-
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")
 

@@ -15,11 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package lind
+package main
 
 import (
-	"github.com/lindb/lindb/cmd/lind/cli"
-
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +50,5 @@ func init() {
 		newStorageCmd(),
 		newBrokerCmd(),
 		newStandaloneCmd(),
-		cli.NewCLICmd(),
 	)
 }

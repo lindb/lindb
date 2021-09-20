@@ -22,8 +22,10 @@ build: clean-build build-frontend build-lind ## Build executable files.
 build-all: clean-frontend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside.
 
 build-lind: ## build lindb binary
-	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lind-darwin' $(LD_FLAGS) ./cmd/
-	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lind-linux' $(LD_FLAGS) ./cmd/
+	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lind-darwin' $(LD_FLAGS) ./cmd/lind
+	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lind-linux' $(LD_FLAGS) ./cmd/lind
+	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lindcli-darwin' $(LD_FLAGS) ./cmd/cli
+	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 
 
 GOLANGCI_LINT_VERSION ?= "v1.28.3"
@@ -65,8 +67,7 @@ clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm
 
 clean-build:
-	rm -f bin/lind-darwin
-	rm -f bin/lind-linux
+	rm -f bin/lin*
 
 clean-frontend-build:
 	cd web/ && make web_clean

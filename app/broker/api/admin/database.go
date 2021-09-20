@@ -151,9 +151,8 @@ func (d *DatabaseAPI) ListDataBase() ([]*models.Database, error) {
 		db := &models.Database{}
 		err = encoding.JSONUnmarshal(val.Value, db)
 		if err != nil {
-			logger.GetLogger("broker", "DatabaseAPI").
-				Warn("unmarshal data error",
-					logger.String("data", string(val.Value)))
+			d.logger.Warn("unmarshal data error",
+				logger.String("data", string(val.Value)))
 		} else {
 			db.Desc = db.String()
 			result = append(result, db)
