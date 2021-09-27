@@ -25,7 +25,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
@@ -57,7 +56,7 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 	assert.True(t, itr.HasRowsForNextShard())
 	var interval timeutil.Interval
 	_ = interval.ValueOf("10s")
-	shardID, familyItr := itr.FamilyRowsForNextShard(interval)
+	shardIdx, familyItr := itr.FamilyRowsForNextShard(interval)
 	var (
 		allRows  []BrokerRow
 		families int
@@ -68,15 +67,15 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 		families++
 		allRows = append(allRows, rows...)
 	}
-	assert.Equal(t, models.ShardID(0), shardID)
+	assert.Equal(t, 0, shardIdx)
 	assert.Len(t, allRows, 1000)
 	assert.False(t, itr.HasRowsForNextShard())
 
 	itr = brokerRows.NewShardGroupIterator(10)
 	for i := 0; i < 10; i++ {
 		assert.True(t, itr.HasRowsForNextShard())
-		shardID, familyItr = itr.FamilyRowsForNextShard(interval)
-		assert.Equal(t, models.ShardID(i), shardID)
+		shardIdx, familyItr = itr.FamilyRowsForNextShard(interval)
+		assert.Equal(t, i, shardIdx)
 		assert.True(t, familyItr.HasNextFamily())
 		_, rows := familyItr.NextFamily()
 		assert.True(t, len(rows) > 0)
@@ -161,8 +160,8 @@ func Test_BrokerBatchRows_FamilyRowsForNextShard_SingleShard(t *testing.T) {
 	itr := brokerRows.NewShardGroupIterator(1)
 	assert.True(t, itr.HasRowsForNextShard())
 
-	shardID, familyItr := itr.FamilyRowsForNextShard(interval)
-	assert.Equal(t, models.ShardID(0), shardID)
+	shardIdx, familyItr := itr.FamilyRowsForNextShard(interval)
+	assert.Equal(t, 0, shardIdx)
 
 	// last family
 	assert.True(t, familyItr.HasNextFamily())
