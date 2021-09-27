@@ -41,7 +41,7 @@ type InvertedFlusher interface {
 	FlushInvertedIndex(tagValueID uint32, seriesIDs *roaring.Bitmap) error
 	// CommitTagKey ends writing tag inverted index data in index table.
 	CommitTagKey() error
-	// Close closes the writer, this will be called after writing all tag keys.
+	// Closer closes the writer, this will be called after writing all tag keys.
 	io.Closer
 }
 

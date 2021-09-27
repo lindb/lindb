@@ -120,14 +120,15 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 	// sharding metrics to shards
 	shardingIterator := brokerBatchRows.NewShardGroupIterator(dc.numOfShard.Load())
 	for shardingIterator.HasRowsForNextShard() {
-		shardID, familyIterator := shardingIterator.FamilyRowsForNextShard(dc.interval)
+		shardIdx, familyIterator := shardingIterator.FamilyRowsForNextShard(dc.interval)
+		shardID := models.ShardID(shardIdx)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
 			err = errChannelNotFound
 			// broker error, do not return to client
 			dc.logger.Error("shardChannel not found",
 				logger.String("database", dc.databaseCfg.Name),
-				logger.Any("shardID", shardID))
+				logger.Int("shardID", shardID.Int()))
 			continue
 		}
 		for familyIterator.HasNextFamily() {
@@ -136,7 +137,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			if err = familyChannel.Write(ctx, rows); err != nil {
 				dc.logger.Error("failed writing rows to family channel",
 					logger.String("database", dc.databaseCfg.Name),
-					logger.Any("shardID", shardID),
+					logger.Int("shardID", shardID.Int()),
 					logger.Int("rows", len(rows)),
 					logger.Int64("familyTime", familyTime),
 					logger.Error(err))

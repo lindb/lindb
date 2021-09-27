@@ -37,9 +37,9 @@ type ForwardFlusher interface {
 	PrepareTagKey(tagKeyID uint32)
 	// FlushForwardIndex flushes tag value ids by bitmap container
 	FlushForwardIndex(tagValueIDs []uint32) error
-	// FlushTagKeyID ends writing series ids in tag index table.
+	// CommitTagKey ends writing series ids in tag index table.
 	CommitTagKey(seriesIDs *roaring.Bitmap) error
-	// Close closes the writer, this will be called after writing all tag keys.
+	// Closer closes the writer, this will be called after writing all tag keys.
 	io.Closer
 }
 
@@ -117,13 +117,11 @@ func (f *forwardFlusher) CommitTagKey(seriesIDs *roaring.Bitmap) error {
 	return f.kvWriter.Commit()
 }
 
-// Commit closes the writer, this will be called after writing all tag keys.
 func (f *forwardFlusher) Close() error {
 	f.reset()
 	return f.kvFlusher.Commit()
 }
 
-// reset resets the tag value ids and buf
 func (f *forwardFlusher) reset() {
 	f.tagValueIDs.Reset()
 	f.offsets.Reset()

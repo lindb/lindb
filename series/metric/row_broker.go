@@ -25,7 +25,6 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/lithammer/go-jump-consistent-hash"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -36,7 +35,7 @@ type BrokerRow struct {
 	m      flatMetricsV1.Metric
 	buffer []byte
 
-	ShardID models.ShardID
+	shardIdx int
 	// IsOutOfTimeRange marks if this row is out-of time-range
 	// data is not accessible when its set to true
 	IsOutOfTimeRange bool
@@ -100,7 +99,7 @@ func (br *BrokerBatchRows) reset() { br.rowCount = 0 }
 
 func (br *BrokerBatchRows) Len() int { return br.rowCount }
 func (br *BrokerBatchRows) Less(i, j int) bool {
-	return br.rows[i].ShardID < br.rows[j].ShardID
+	return br.rows[i].shardIdx < br.rows[j].shardIdx
 }
 func (br *BrokerBatchRows) Swap(i, j int)     { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
 func (br *BrokerBatchRows) Rows() []BrokerRow { return br.rows[:br.rowCount] }
@@ -133,7 +132,7 @@ func (br *BrokerBatchRows) TryAppend(appendFunc func(row *BrokerRow) error) erro
 
 func (br *BrokerBatchRows) NewShardGroupIterator(numOfShards int32) *BrokerBatchShardIterator {
 	for i := 0; i < br.Len(); i++ {
-		br.rows[i].ShardID = models.ShardID(jump.Hash(br.rows[i].m.Hash(), numOfShards))
+		br.rows[i].shardIdx = int(jump.Hash(br.rows[i].m.Hash(), numOfShards))
 	}
 	br.shardGroupIterator.batch = br
 	br.shardGroupIterator.Reset()
@@ -143,9 +142,9 @@ func (br *BrokerBatchRows) NewShardGroupIterator(numOfShards int32) *BrokerBatch
 // BrokerBatchShardIterator grouping broker rows with shard-id,
 // rows will be batched inserted into shard-channel for replication
 type BrokerBatchShardIterator struct {
-	groupEnd     int            // group end index
-	groupStart   int            // group start index
-	groupShardID models.ShardID // group shard id
+	groupEnd      int // group end index
+	groupStart    int // group start index
+	groupShardIdx int // group shard index in shards list
 
 	batch *BrokerBatchRows
 
@@ -157,18 +156,18 @@ func (itr *BrokerBatchShardIterator) Reset() {
 	sort.Sort(itr.batch)
 	itr.groupStart = 0
 	itr.groupEnd = 0
-	itr.groupShardID = models.ShardID(-1)
+	itr.groupShardIdx = -1
 }
 
 func (itr *BrokerBatchShardIterator) HasRowsForNextShard() bool {
 	if itr.groupEnd >= itr.batch.Len() || itr.groupStart > itr.groupEnd {
 		return false
 	}
-	itr.groupShardID = itr.batch.rows[itr.groupEnd].ShardID
+	itr.groupShardIdx = itr.batch.rows[itr.groupEnd].shardIdx
 	itr.groupStart = itr.groupEnd
 
 	for itr.groupEnd < itr.batch.Len() {
-		if !(itr.batch.rows[itr.groupEnd].ShardID == itr.groupShardID) {
+		if !(itr.batch.rows[itr.groupEnd].shardIdx == itr.groupShardIdx) {
 			break
 		}
 		itr.groupEnd++
@@ -179,14 +178,14 @@ func (itr *BrokerBatchShardIterator) HasRowsForNextShard() bool {
 func (itr *BrokerBatchShardIterator) FamilyRowsForNextShard(
 	interval timeutil.Interval,
 ) (
-	shardID models.ShardID,
+	shardIdx int,
 	familyIterator *BrokerBatchShardFamilyIterator,
 ) {
 	itr.familyIterator.reset(
 		itr.batch.rows[itr.groupStart:itr.groupEnd],
 		interval,
 	)
-	return itr.groupShardID, &itr.familyIterator
+	return itr.groupShardIdx, &itr.familyIterator
 }
 
 // BrokerBatchShardFamilyIterator grouping broker rows with families
