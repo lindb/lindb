@@ -65,6 +65,7 @@ type DataFamily interface {
 	WriteRows(rows []metric.StorageRow) error
 	ValidateSequence(seq int64) bool
 	CommitSequence(seq int64)
+	AckSequence(fn func(seq int64))
 
 	NeedFlush() bool
 	IsFlushing() bool
@@ -92,6 +93,8 @@ type dataFamily struct {
 	seq          atomic.Int64
 	immutableSeq atomic.Int64
 	persistSeq   atomic.Int64
+
+	callbacks []func(seq int64)
 
 	isFlushing     atomic.Bool    // restrict flusher concurrency
 	flushCondition sync.WaitGroup // flush condition
@@ -266,10 +269,19 @@ func (f *dataFamily) Flush() error {
 		}
 
 		// flush success, mark immutable memory database nil
+		var fns []func(seq int64)
 		f.mutex.Lock()
 		f.immutableMemDB = nil
 		f.persistSeq.Store(f.immutableSeq.Load())
+		// copy it
+		fns = append(fns, f.callbacks...)
 		f.mutex.Unlock()
+
+		// invoke sequence ack callback
+		seq := f.persistSeq.Load()
+		for _, fn := range fns {
+			fn(seq)
+		}
 
 		endTime := time.Now()
 		f.logger.Info("flush memory database successfully",
@@ -426,6 +438,12 @@ func (f *dataFamily) CommitSequence(seq int64) {
 	f.seq.Store(seq)
 }
 
+func (f *dataFamily) AckSequence(fn func(seq int64)) {
+	f.mutex.Lock()
+	f.callbacks = append(f.callbacks, fn)
+	f.mutex.Unlock()
+}
+
 // GetOrCreateMemoryDatabase returns memory database by given family time.
 func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDatabase, error) {
 	f.mutex.Lock()
@@ -478,6 +496,12 @@ func (f *dataFamily) flushMemoryDatabase(seq int64, memDB memdb.MemoryDatabase) 
 			logger.Int64("memDBSize", memDB.MemSize()))
 		return err
 	}
+
+	// invoke sequence ack callback
+	for _, fn := range f.callbacks {
+		fn(seq)
+	}
+
 	if err := memDB.Close(); err != nil {
 		// ignore close memory database err, if not maybe write duplicate data into file storage
 		f.logger.Warn("failed to close memory database",

@@ -68,6 +68,14 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		block:     make([]byte, 256*1024),
 	}
 
+	//add ack sequence callback
+	family.AckSequence(func(seq int64) {
+		lr.SetAckIndex(seq)
+		lr.logger.Info("ack local replica index",
+			logger.String("replica", lr.String()),
+			logger.Int64("sequence", seq))
+	})
+
 	shardStr := shard.ShardID().String()
 	lr.statistics.localMaxDecodedBlock = localMaxDecodedBlockVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaCounts = localReplicaCountsVec.WithTagValues(shard.DatabaseName(), shardStr)
