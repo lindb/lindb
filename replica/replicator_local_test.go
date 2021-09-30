@@ -47,6 +47,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().CommitSequence(gomock.Any()).AnyTimes()
+	family.EXPECT().AckSequence(gomock.Any())
 
 	replicator := NewLocalReplicator(&ReplicatorChannel{}, shard, family)
 	assert.True(t, replicator.IsReady())
