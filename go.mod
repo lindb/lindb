@@ -29,6 +29,7 @@ require (
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.14
 	github.com/pkg/errors v0.8.1
+	github.com/rakyll/gotest v0.0.6 // indirect
 	github.com/shirou/gopsutil v3.21.5+incompatible
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.7.0
