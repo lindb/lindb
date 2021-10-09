@@ -46,6 +46,9 @@ func TestDataPointBuffer_AllocPage(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, b)
 	}
+	assert.False(t, buf.IsDirty())
+	buf.Release()
+	assert.True(t, buf.IsDirty())
 	err = buf.Close()
 	assert.NoError(t, err)
 }
@@ -80,7 +83,6 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 	b, err = buf.AllocPage()
 	assert.Error(t, err)
 	assert.Nil(t, b)
-
 	err = buf.Close()
 	assert.NoError(t, err)
 }
@@ -95,6 +97,7 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	b, err := buf.AllocPage()
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
+	buf.Release()
 	// case 1: remove dir err
 	removeFunc = func(path string) error {
 		return fmt.Errorf("err")

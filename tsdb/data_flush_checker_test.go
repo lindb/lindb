@@ -27,6 +27,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 func TestDataFlushChecker_Start(t *testing.T) {
@@ -36,6 +37,10 @@ func TestDataFlushChecker_Start(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := NewMockShard(ctrl)
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	bufferMgr.EXPECT().GarbageCollect().AnyTimes()
+	shard.EXPECT().BufferManager().Return(bufferMgr).AnyTimes()
+
 	shard.EXPECT().Indicator().Return("shard").AnyTimes()
 	family1 := NewMockDataFamily(ctrl)
 	family1.EXPECT().Indicator().Return("family1").AnyTimes()
@@ -74,6 +79,10 @@ func TestDataFlushChecker_check_high_memory_waterMark(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := NewMockShard(ctrl)
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	bufferMgr.EXPECT().GarbageCollect().AnyTimes()
+	shard.EXPECT().BufferManager().Return(bufferMgr).AnyTimes()
+
 	shard.EXPECT().Indicator().Return("shard").AnyTimes()
 	shard.EXPECT().Flush().Return(nil).AnyTimes()
 	// case 1: family is flushing
@@ -133,6 +142,10 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 		ctrl.Finish()
 	}()
 	shard := NewMockShard(ctrl)
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	bufferMgr.EXPECT().GarbageCollect().AnyTimes()
+	shard.EXPECT().BufferManager().Return(bufferMgr).AnyTimes()
+
 	shard.EXPECT().Indicator().Return("shard").AnyTimes()
 	shard.EXPECT().Flush().Return(nil).AnyTimes()
 	var families []DataFamily

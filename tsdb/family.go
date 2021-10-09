@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"io"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -442,6 +441,9 @@ func (f *dataFamily) AckSequence(fn func(seq int64)) {
 	f.mutex.Lock()
 	f.callbacks = append(f.callbacks, fn)
 	f.mutex.Unlock()
+
+	// invoke ack sequence after register function, maybe some cases lost ack index.
+	fn(f.persistSeq.Load())
 }
 
 // GetOrCreateMemoryDatabase returns memory database by given family time.
@@ -453,7 +455,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 		newDB, err := newMemoryDBFunc(memdb.MemoryDatabaseCfg{
 			FamilyTime: familyTime,
 			Name:       f.shard.DatabaseName(),
-			TempPath:   filepath.Join(f.shard.Path(), filepath.Join(tempDir, fmt.Sprintf("%d", timeutil.Now()))),
+			BufferMgr:  f.shard.BufferManager(),
 		})
 		if err != nil {
 			return nil, err
