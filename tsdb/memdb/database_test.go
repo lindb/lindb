@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/field"
@@ -36,28 +36,28 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
-const testDBPath = "test_db"
-
-var cfg = MemoryDatabaseCfg{
-	TempPath: testDBPath,
-}
-
 func TestMemoryDatabase_New(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	defer func() {
-		mkdirFunc = fileutil.MkDirIfNotExist
+		ctrl.Finish()
 	}()
 
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf := NewMockDataPointBuffer(ctrl)
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil)
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, mdINTF)
+	buf.EXPECT().Release()
 	err = mdINTF.Close()
 	assert.NoError(t, err)
 	time.Sleep(time.Millisecond * 100)
 	assert.True(t, mdINTF.Uptime() > 0)
 
-	mkdirFunc = func(path string) error {
-		return fmt.Errorf("err")
-	}
+	bufferMgr.EXPECT().AllocBuffer().Return(nil, fmt.Errorf("err"))
 	mdINTF, err = NewMemoryDatabase(cfg)
 	assert.Error(t, err)
 	assert.Nil(t, mdINTF)
@@ -66,6 +66,15 @@ func TestMemoryDatabase_New(t *testing.T) {
 func TestMemoryDatabase_AcquireWrite(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
+	assert.NoError(t, err)
+
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
+
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, mdINTF)
@@ -98,6 +107,14 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	defer func() {
 		defer ctrl.Finish()
 	}()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
+	assert.NoError(t, err)
+
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
 	// mock
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
@@ -206,6 +223,10 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	defer func() {
 		defer ctrl.Finish()
 	}()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
 
 	// mock
 	mockMStore := NewMockmStoreINTF(ctrl)
@@ -213,13 +234,13 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	tStore := NewMocktStoreINTF(ctrl)
 	tStore.EXPECT().Capacity().Return(100).AnyTimes()
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, false).AnyTimes()
+	buf := NewMockDataPointBuffer(ctrl)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
 	// build memory-database
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
-	buf := NewMockDataPointBuffer(ctrl)
-	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
 	md := mdINTF.(*memoryDatabase)
-	md.buf = buf
 
 	// load mock
 	md.mStores.Put(uint32(1), mockMStore)
@@ -239,7 +260,7 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	row.FieldIDs = []field.ID{10}
 	assert.Error(t, md.WriteRow(row))
 
-	buf.EXPECT().Close().Return(nil)
+	buf.EXPECT().Release()
 	err = md.Close()
 	assert.NoError(t, err)
 }
@@ -247,6 +268,14 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
+	assert.NoError(t, err)
+
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	md := mdINTF.(*memoryDatabase)
@@ -273,6 +302,14 @@ func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 func TestMemoryDatabase_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
+	assert.NoError(t, err)
+
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	md := mdINTF.(*memoryDatabase)
