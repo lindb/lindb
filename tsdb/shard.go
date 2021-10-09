@@ -71,19 +71,20 @@ const (
 	forwardIndexDir  = "forward"
 	invertedIndexDir = "inverted"
 	metaDir          = "meta"
-	tempDir          = "temp"
+	bufferDir        = "buffer"
 )
 
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
-	// DatabaseName returns the database name
+	// DatabaseName returns the database name.
 	DatabaseName() string
-	// ShardID returns the shard id
+	// ShardID returns the shard id.
 	ShardID() models.ShardID
+	// Path returns shard's storage directory.
 	Path() string
 	// CurrentInterval returns current interval for metric write.
 	CurrentInterval() timeutil.Interval
-	// Indicator returns the unique shard info
+	// Indicator returns the unique shard info.
 	Indicator() string
 	// GetOrCrateDataFamily returns data family, if not exist create a new data family.
 	GetOrCrateDataFamily(familyTime int64) (DataFamily, error)
@@ -91,6 +92,7 @@ type Shard interface {
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
+	BufferManager() memdb.BufferManager
 	// WriteRows writes metric rows with same family in batch
 	WriteRows(rows []metric.StorageRow) error
 
@@ -104,7 +106,7 @@ type Shard interface {
 // shard implements Shard interface
 // directory tree:
 //    xx/shard/1/ (path)
-//    xx/shard/1/temp/123213123131 // time of ns
+//    xx/shard/1/buffer/123213123131 // time of ns
 //    xx/shard/1/meta/
 //    xx/shard/1/index/inverted/
 //    xx/shard/1/data/20191012/
@@ -115,8 +117,9 @@ type shard struct {
 	path         string
 	option       option.DatabaseOption
 
-	indexDB  indexdb.IndexDatabase
-	metadata metadb.Metadata
+	bufferMgr memdb.BufferManager
+	indexDB   indexdb.IndexDatabase
+	metadata  metadb.Metadata
 	// write accept time range
 	interval timeutil.Interval
 	// segments keeps all interval segments,
@@ -161,11 +164,15 @@ func newShard(
 		path:         shardPath,
 		option:       option,
 		metadata:     db.Metadata(),
+		bufferMgr:    memdb.NewBufferManager(filepath.Join(shardPath, bufferDir)),
 		interval:     interval,
 		segments:     make(map[timeutil.IntervalType]IntervalSegment),
 		isFlushing:   *atomic.NewBool(false),
 		logger:       logger.GetLogger("tsdb", "Shard"),
 	}
+	//try cleanup history dirty write buffer
+	createdShard.bufferMgr.Cleanup()
+
 	// initialize metrics
 	shardIDStr := strconv.Itoa(int(shardID))
 	createdShard.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(db.Name(), shardIDStr)
@@ -217,6 +224,10 @@ func (s *shard) Indicator() string { return s.path }
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
 
 func (s *shard) IndexDatabase() indexdb.IndexDatabase { return s.indexDB }
+
+func (s *shard) BufferManager() memdb.BufferManager {
+	return s.bufferMgr
+}
 
 func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
 	segmentName := s.interval.Calculator().GetSegment(familyTime)

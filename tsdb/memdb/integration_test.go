@@ -32,6 +32,10 @@ import (
 )
 
 func BenchmarkMemoryDatabase_write(b *testing.B) {
+	bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp"))
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
 	db, err := NewMemoryDatabase(cfg)
 	if err != nil {
 		b.Fatal(err)
@@ -89,8 +93,9 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 
 func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 	run := func(n int) {
+		bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp", fmt.Sprintf("%d", n)))
 		var cfg = MemoryDatabaseCfg{
-			TempPath: filepath.Join(b.TempDir(), "data_temp", fmt.Sprintf("%d", n)),
+			BufferMgr: bufferMgr,
 		}
 		db, err := NewMemoryDatabase(cfg)
 		if err != nil {

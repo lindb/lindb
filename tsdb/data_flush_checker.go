@@ -209,6 +209,9 @@ func (fc *dataFlushChecker) flushWorker() {
 func (fc *dataFlushChecker) doFlush(request *flushRequest) {
 	indicator := request.shard.Indicator()
 	defer func() {
+		// after flush, try garbage collect(write buffer)
+		request.shard.BufferManager().GarbageCollect()
+
 		if request.global {
 			fc.isWatermarkFlushing.Store(false)
 		}

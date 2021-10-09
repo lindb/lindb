@@ -89,7 +89,7 @@ func newMemoryDBMetrics(name string) *memoryDBMetrics {
 type MemoryDatabaseCfg struct {
 	FamilyTime int64
 	Name       string
-	TempPath   string
+	BufferMgr  BufferManager
 }
 
 // flushContext holds the context for flushing
@@ -118,7 +118,7 @@ type memoryDatabase struct {
 
 // NewMemoryDatabase returns a new MemoryDatabase.
 func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
-	buf, err := newDataPointBuffer(cfg.TempPath)
+	buf, err := cfg.BufferMgr.AllocBuffer()
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 func (md *memoryDatabase) Filter(
 	metricID uint32,
 	seriesIDs *roaring.Bitmap,
-	timeRange timeutil.TimeRange,
+	_ timeutil.TimeRange,
 	fields field.Metas,
 ) ([]flow.FilterResultSet, error) {
 	md.rwMutex.RLock()
@@ -352,9 +352,10 @@ func (md *memoryDatabase) MemSize() int64 {
 	return md.allocSize.Load()
 }
 
-// Close closes memory data point buffer
+// Close releases resources for current memory database.
 func (md *memoryDatabase) Close() error {
-	return md.buf.Close()
+	md.buf.Release()
+	return nil
 }
 
 func (md *memoryDatabase) Uptime() time.Duration {

@@ -43,11 +43,15 @@ const (
 	pageCount  = regionSize / pageSize
 )
 
-// DataPointBuffer represents data point temp write buffer based on memory map file
+// DataPointBuffer represents data point buffer write buffer based on memory map file
 type DataPointBuffer interface {
 	io.Closer
-	// AllocPage allocates the page buffer for writing data point
+	// AllocPage allocates the page buffer for writing data point.
 	AllocPage() (buf []byte, err error)
+	// Release marks data point buffer is dirty.
+	Release()
+	// IsDirty returns data point buffer if dirty, dirty buffer can be collect.
+	IsDirty() bool
 }
 
 // dataPointBuffer implements DataPointBuffer interface
@@ -55,9 +59,10 @@ type dataPointBuffer struct {
 	path      string
 	buf       [][]byte
 	pageIDSeq atomic.Int32
+	dirty     atomic.Bool
 }
 
-// newDataPointBuffer creates data point buffer for writing metric's point
+// newDataPointBuffer creates data point buffer for writing points of metric.
 func newDataPointBuffer(path string) (DataPointBuffer, error) {
 	if err := mkdirFunc(path); err != nil {
 		return nil, err
@@ -89,10 +94,25 @@ func (d *dataPointBuffer) AllocPage() (buf []byte, err error) {
 	return d.buf[region][offset : offset+pageSize], nil
 }
 
+// Release marks data point buffer is dirty.
+func (d *dataPointBuffer) Release() {
+	d.dirty.Store(true)
+}
+
+// IsDirty returns data point buffer if dirty, dirty buffer can be collect.
+func (d *dataPointBuffer) IsDirty() bool {
+	return d.dirty.Load()
+}
+
 // Close closes data point buffer, unmap memory map file
 func (d *dataPointBuffer) Close() error {
+	if !d.dirty.Load() {
+		memDBLogger.Error("buffer is not dirty, cannot close it",
+			logger.String("file", d.path))
+		return nil
+	}
 	if err := removeFunc(d.path); err != nil {
-		memDBLogger.Error("remove temp file in memory database err",
+		memDBLogger.Error("remove buffer file in memory database err",
 			logger.String("file", d.path), logger.Error(err))
 	}
 	for _, buf := range d.buf {
