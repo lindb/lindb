@@ -35,10 +35,11 @@ const NoLeader NodeID = -1
 
 // ReplicaState represents the relationship for a replica.
 type ReplicaState struct {
-	Database string  `json:"database"`
-	ShardID  ShardID `json:"shardId"`
-	Leader   NodeID  `json:"leader"`
-	Follower NodeID  `json:"follower"`
+	Database   string  `json:"database"`
+	ShardID    ShardID `json:"shardId"`
+	Leader     NodeID  `json:"leader"`
+	Follower   NodeID  `json:"follower"`
+	FamilyTime int64   `json:"familyTime"`
 }
 
 // ShardState represents current state of shard.

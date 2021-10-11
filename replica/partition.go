@@ -65,7 +65,7 @@ type partition struct {
 	shard         tsdb.Shard
 	family        tsdb.DataFamily
 
-	peers    map[string]ReplicatorPeer
+	peers    map[models.NodeID]ReplicatorPeer
 	cliFct   rpc.ClientStreamFactory
 	stateMgr storage.StateManager
 
@@ -93,7 +93,7 @@ func NewPartition(
 		currentNodeID: currentNodeID,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
-		peers:         make(map[string]ReplicatorPeer),
+		peers:         make(map[models.NodeID]ReplicatorPeer),
 		logger:        logger.GetLogger("replica", "Partition"),
 	}
 }
@@ -147,6 +147,12 @@ func (p *partition) BuildReplicaForLeader(
 			)
 			return err
 		}
+		p.logger.Info("build replication channel successfully",
+			logger.String("database", p.shard.DatabaseName()),
+			logger.Any("shard", p.shard.ShardID()),
+			logger.Int("leader", leader.Int()),
+			logger.Int("follower", replicaNodeID.Int()),
+		)
 	}
 	return nil
 }
@@ -163,6 +169,12 @@ func (p *partition) BuildReplicaForFollower(leader models.NodeID, replica models
 			logger.Int("follower", replica.Int()),
 		)
 	}
+	p.logger.Info("build follower replication channel successfully",
+		logger.String("database", p.shard.DatabaseName()),
+		logger.Any("shard", p.shard.ShardID()),
+		logger.Int("leader", leader.Int()),
+		logger.Int("follower", replica.Int()),
+	)
 	return err
 }
 
@@ -188,23 +200,23 @@ func (p *partition) Close() error {
 func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	key := fmt.Sprintf("[%d->%d]", leader, replica)
-	_, ok := p.peers[key]
+	_, ok := p.peers[replica]
 	if ok {
 		// exist
 		return nil
 	}
-	walConsumer, err := p.log.GetOrCreateFanOut(fmt.Sprintf("%d_%d", leader, replica))
+	walConsumer, err := p.log.GetOrCreateFanOut(fmt.Sprintf("%d", replica))
 	if err != nil {
 		return err
 	}
 	var replicator Replicator
 	channel := ReplicatorChannel{
 		State: &models.ReplicaState{
-			Database: p.shard.DatabaseName(),
-			ShardID:  p.shardID,
-			Leader:   leader,
-			Follower: replica,
+			Database:   p.shard.DatabaseName(),
+			ShardID:    p.shardID,
+			Leader:     leader,
+			Follower:   replica,
+			FamilyTime: p.family.TimeRange().Start,
 		},
 		Queue: walConsumer,
 	}
@@ -218,7 +230,7 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) er
 
 	// startup replicator peer
 	peer := NewReplicatorPeer(replicator)
-	p.peers[key] = peer
+	p.peers[replica] = peer
 	peer.Startup()
 	return nil
 }

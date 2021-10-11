@@ -69,7 +69,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 
 	// case 1: shard not exist
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
-	p, err := l.GetOrCreatePartition(1, 1)
+	p, err := l.GetOrCreatePartition(1, 1, 1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
 	// case 2: new log err
@@ -81,7 +81,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
-	p, err = l.GetOrCreatePartition(1, 1)
+	p, err = l.GetOrCreatePartition(1, 1, 1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
 	// case 3: create log ok
@@ -91,11 +91,11 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	}
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
-	p, err = l.GetOrCreatePartition(1, 1)
+	p, err = l.GetOrCreatePartition(1, 1, 1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 	// case 4: return exist one
-	p, err = l.GetOrCreatePartition(1, 1)
+	p, err = l.GetOrCreatePartition(1, 1, 1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
 }
