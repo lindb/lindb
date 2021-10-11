@@ -372,6 +372,7 @@ func (t *taskManager) Get(taskID string) TaskContext {
 // SendRequest sends the task request to target node based on node's indicator,
 // if fail, returns err
 func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error {
+	t.logger.Debug("send query task", logger.String("target", targetNodeID))
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
 		t.sentRequestFailures.Incr()

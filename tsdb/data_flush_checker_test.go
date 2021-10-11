@@ -55,13 +55,11 @@ func TestDataFlushChecker_Start(t *testing.T) {
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
-	gomock.InOrder(
-		family1.EXPECT().NeedFlush().Return(true),
-		family1.EXPECT().Shard().Return(shard),
-		family2.EXPECT().NeedFlush().Return(true),
-		family2.EXPECT().Shard().Return(shard),
-		shard.EXPECT().Flush().Return(nil),
-	)
+	family1.EXPECT().NeedFlush().Return(true)
+	family2.EXPECT().NeedFlush().Return(true)
+	shard.EXPECT().Flush().Return(nil)
+	family1.EXPECT().Shard().Return(shard)
+	family2.EXPECT().Shard().Return(shard)
 	family1.EXPECT().Flush().Return(fmt.Errorf("err"))
 	family2.EXPECT().Flush().Return(fmt.Errorf("err"))
 	family1.EXPECT().NeedFlush().Return(false).AnyTimes()

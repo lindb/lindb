@@ -61,7 +61,11 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 		return status.Error(codes.InvalidArgument, "replicas cannot be empty")
 	}
 
-	p, err := r.getOrCreatePartition(familyState.Database, familyState.Shard.ID, familyState.FamilyTime)
+	p, err := r.getOrCreatePartition(
+		familyState.Database,
+		familyState.Shard.ID,
+		familyState.FamilyTime,
+		familyState.Shard.Leader)
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do write", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
@@ -115,9 +119,10 @@ func (r *WriteHandler) getOrCreatePartition(
 	database string,
 	shardID models.ShardID,
 	familyTime int64,
+	leader models.NodeID,
 ) (replica.Partition, error) {
 	wal := r.walMgr.GetOrCreateLog(database)
-	p, err := wal.GetOrCreatePartition(shardID, familyTime)
+	p, err := wal.GetOrCreatePartition(shardID, familyTime, leader)
 	if err != nil {
 		return nil, err
 	}
