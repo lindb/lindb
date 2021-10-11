@@ -6,7 +6,8 @@ message ResetIndexRequest {
     string database = 1;
     int32 shard = 2;
     int32 leader = 3;
-    int64 appendIndex = 4;
+    int64 familyTime = 4;
+    int64 appendIndex = 5;
 }
 
 message ResetIndexResponse {
@@ -17,6 +18,7 @@ message GetReplicaAckIndexRequest {
     string database = 1;
     int32 shard = 2;
     int32 leader = 3;
+    int64 familyTime = 4;
 }
 
 message GetReplicaAckIndexResponse {

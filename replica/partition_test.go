@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -54,7 +55,9 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
-	p := NewPartition(context.TODO(), shard, nil, 1, log, nil, nil)
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
+	p := NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
 	assert.Error(t, err)
 
@@ -91,7 +94,9 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
-	p := NewPartition(context.TODO(), shard, nil, 1, log, nil, nil)
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
+	p := NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
 	err := p.BuildReplicaForFollower(2, 2)
 	assert.Error(t, err)
 
@@ -123,7 +128,9 @@ func TestPartition_Close(t *testing.T) {
 	}
 
 	l.EXPECT().Close().MaxTimes(2)
-	p := NewPartition(context.TODO(), shard, nil, 1, l, nil, nil)
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
+	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	err := p.Close()
 	assert.NoError(t, err)
 	r.EXPECT().IsReady().Return(false).AnyTimes()

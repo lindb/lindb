@@ -135,6 +135,7 @@ func (r *remoteReplicator) IsReady() bool {
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
 			Leader:      int32(r.channel.State.Leader),
+			FamilyTime:  r.channel.State.FamilyTime,
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
@@ -184,9 +185,10 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
 	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &protoReplicaV1.GetReplicaAckIndexRequest{
-		Database: r.channel.State.Database,
-		Shard:    int32(r.channel.State.ShardID),
-		Leader:   int32(r.channel.State.Leader),
+		Database:   r.channel.State.Database,
+		Shard:      int32(r.channel.State.ShardID),
+		Leader:     int32(r.channel.State.Leader),
+		FamilyTime: r.channel.State.FamilyTime,
 	})
 	if err != nil {
 		return 0, err

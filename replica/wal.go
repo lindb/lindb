@@ -46,6 +46,7 @@ var (
 type partitionKey struct {
 	shardID    models.ShardID
 	familyTime int64
+	leader     models.NodeID
 }
 
 // WriteAheadLogManager represents manage all writeTask ahead log.
@@ -59,7 +60,7 @@ type WriteAheadLogManager interface {
 type WriteAheadLog interface {
 	// GetOrCreatePartition returns a partition of writeTask ahead log.
 	// if exist returns it, else create a new partition.
-	GetOrCreatePartition(shardID models.ShardID, familyTime int64) (Partition, error)
+	GetOrCreatePartition(shardID models.ShardID, familyTime int64, leader models.NodeID) (Partition, error)
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
@@ -175,10 +176,15 @@ func NewWriteAheadLog(
 
 // GetOrCreatePartition returns a partition of writeTask ahead log.
 // if exist returns it, else create a new partition.
-func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime int64) (Partition, error) {
+func (w *writeAheadLog) GetOrCreatePartition(
+	shardID models.ShardID,
+	familyTime int64,
+	leader models.NodeID,
+) (Partition, error) {
 	key := partitionKey{
 		shardID:    shardID,
 		familyTime: familyTime,
+		leader:     leader,
 	}
 	p, ok := w.getPartition(key)
 	if ok {
@@ -187,6 +193,7 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
+	// double check
 	p, ok = w.getPartition(key)
 	if ok {
 		return p, nil
@@ -199,7 +206,13 @@ func (w *writeAheadLog) GetOrCreatePartition(shardID models.ShardID, familyTime 
 	if err != nil {
 		return nil, err
 	}
-	dirPath := path.Join(w.cfg.Dir, w.database, strconv.Itoa(int(shardID)), timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+	// wal path: base dir + database + shard + family time + leader
+	dirPath := path.Join(
+		w.cfg.Dir,
+		w.database,
+		strconv.Itoa(int(shardID)),
+		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
+		strconv.Itoa(int(leader)))
 
 	interval := w.cfg.RemoveTaskInterval.Duration()
 
