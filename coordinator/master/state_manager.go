@@ -339,8 +339,11 @@ func (m *stateManager) onStorageNodeFailure(storageName string, key string) {
 
 	cluster := m.storages[storageName]
 	s := cluster.GetState()
-
-	m.onNodeFailure(s, models.NodeID(id))
+	// 1. set node offline
+	nodeID := models.NodeID(id)
+	s.NodeOffline(nodeID)
+	// 2. do node offline state change
+	m.onNodeFailure(s, nodeID)
 
 	m.syncState(s)
 }
@@ -484,6 +487,8 @@ func (m *stateManager) onNodeStartup(state *models.StorageState, node models.Sta
 func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.NodeID) {
 	// 1. find all leaders on failure node, need do leader elect
 	leadersOnOfflineNode := state.LeadersOnNode(nodeID)
+	m.logger.Debug("leader node is offline need elect new leader for shard",
+		logger.Any("shards", leadersOnOfflineNode))
 
 	liveNodes := state.LiveNodes
 	for db, shards := range leadersOnOfflineNode {
@@ -503,6 +508,10 @@ func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.N
 			} else {
 				shardState.State = models.OnlineShard
 				shardState.Leader = leader
+				m.logger.Info("elect new leader for shard",
+					logger.String("db", shardAssignment.Name),
+					logger.Any("shard", shardID),
+					logger.Any("leader", leader))
 			}
 			shardStates[shardID] = shardState
 		}
