@@ -496,12 +496,14 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 		Key:        "/test/1",
 		Attributes: map[string]string{storageNameKey: "test"},
 	})
-	// case 4: change shard state ok
+	// case 4: change shard state ok, leader elect success
+	shardStates := map[string]map[models.ShardID]models.ShardState{"test": {1: {Leader: 1}}}
+	liveNodes := map[models.NodeID]models.StatefulNode{1: {ID: 1}, 2: {ID: 2}}
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	storage.EXPECT().GetState().Return(&models.StorageState{
 		Name:        "test",
-		LiveNodes:   map[models.NodeID]models.StatefulNode{1: {ID: 1}, 2: {ID: 2}},
-		ShardStates: map[string]map[models.ShardID]models.ShardState{"test": {1: {Leader: 1}}},
+		LiveNodes:   liveNodes,
+		ShardStates: shardStates,
 		ShardAssignments: map[string]*models.ShardAssignment{"test": {
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3, 4}}},
 		}},
@@ -513,5 +515,11 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 	})
 
 	time.Sleep(300 * time.Millisecond)
+	// get new shard state
+	mgr1.mutex.Lock()
+	assert.Equal(t, shardStates["test"][1].Leader, models.NodeID(2))
+	assert.Len(t, liveNodes, 1)
+	assert.Equal(t, liveNodes[models.NodeID(2)].ID, models.NodeID(2))
+	mgr1.mutex.Unlock()
 	mgr.Close()
 }
