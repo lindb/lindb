@@ -21,14 +21,18 @@ import (
 	"context"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 )
 
+// remoteReplicator implements Replicator interface, do remote wal replica.
 type remoteReplicator struct {
 	replicator
 
@@ -39,6 +43,9 @@ type remoteReplicator struct {
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
 	stateMgr      storage.StateManager
+
+	isSuspend *atomic.Bool
+	suspend   chan struct{}
 
 	rwMutex sync.RWMutex
 
@@ -52,15 +59,30 @@ func NewRemoteReplicator(
 	stateMgr storage.StateManager,
 	cliFct rpc.ClientStreamFactory,
 ) Replicator {
-	return &remoteReplicator{
+	r := &remoteReplicator{
 		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
 		},
-		cliFct:   cliFct,
-		stateMgr: stateMgr,
-		state:    ReplicatorInitState,
-		logger:   logger.GetLogger("replica", "RemoteReplicator"),
+		cliFct:    cliFct,
+		stateMgr:  stateMgr,
+		state:     ReplicatorInitState,
+		isSuspend: atomic.NewBool(false),
+		suspend:   make(chan struct{}),
+		logger:    logger.GetLogger("replica", "RemoteReplicator"),
+	}
+
+	// watch follower node state change
+	stateMgr.WatchNodeStateChangeEvent(channel.State.Follower, r.handleNodeStateChangeEvent)
+	return r
+}
+
+func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType) {
+	if state == models.NodeOnline {
+		if r.isSuspend.CAS(true, false) {
+			r.logger.Info("notify replicator follower node is online", logger.String("replicator", r.String()))
+			r.suspend <- struct{}{} // notify follower node online
+		}
 	}
 }
 
@@ -79,18 +101,26 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 
 	// replicator is not ready, need do init like tcp three-way handshake
-	defer r.rwMutex.Unlock()
-
-	node, ok := r.stateMgr.GetLiveNode(r.replicator.channel.State.Follower)
+	follower := r.replicator.channel.State.Follower
+	node, ok := r.stateMgr.GetLiveNode(follower)
 	if !ok {
-		r.logger.Warn("follower node is offline")
-		return false
+		r.logger.Warn("follower node is offline, need suspend replicator", logger.String("replicator", r.String()))
+
+		r.rwMutex.Unlock() // unlock
+		if r.isSuspend.CAS(false, true) {
+			<-r.suspend // wait follower node online
+		}
+		return r.IsReady() // check replicator is ready now
 	}
+
+	defer r.rwMutex.Unlock()
 	//TODO close cli/stream if re-connect???
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
 		//TODO add metric
-		r.logger.Warn("create replica service client err", logger.Error(err))
+		r.logger.Warn("create replica service client err",
+			logger.String("replicator", r.String()),
+			logger.Error(err))
 		return false
 	}
 	r.replicaCli = replicaCli
@@ -101,13 +131,17 @@ func (r *remoteReplicator) IsReady() bool {
 	r.replicaStream, err = replicaCli.Replica(ctx) //TODO add timeout ??
 	if err != nil {
 		//TODO add metric
-		r.logger.Warn("create replica service client stream err", logger.Error(err))
+		r.logger.Warn("create replica service client stream err",
+			logger.String("replicator", r.String()),
+			logger.Error(err))
 		return false
 	}
 
 	lastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
 	if err != nil {
-		r.logger.Warn("do get replica ack index err", logger.Error(err))
+		r.logger.Warn("do get replica ack index err",
+			logger.String("replicator", r.String()),
+			logger.Error(err))
 		return false
 	}
 	replicaIdx := r.ReplicaIndex() // current need replica index from current node

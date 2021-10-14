@@ -52,6 +52,8 @@ type ClientConnFactory interface {
 	// One connection for a target node.
 	// Concurrent safe.
 	GetClientConn(target models.Node) (*grpc.ClientConn, error)
+	// CloseClientConn closes client connection for spec target node.
+	CloseClientConn(target models.Node) error
 }
 
 // clientConnFactory implements ClientConnFactory.
@@ -99,6 +101,29 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 
 	fct.connMap[indicator] = conn
 	return conn, nil
+}
+
+// CloseClientConn closes client connection for spec target node.
+func (fct *clientConnFactory) CloseClientConn(target models.Node) error {
+	indicator := target.Indicator()
+
+	fct.mu.RLock()
+	conn, ok := fct.connMap[indicator]
+	fct.mu.RUnlock()
+
+	if ok {
+		// if connection exist for node
+		if err := conn.Close(); err != nil {
+			// if close err, keep it, try reconnect, maybe get some err for connection closed before reconnected
+			return err
+		}
+		// if close success, need remove connection from cache
+		fct.mu.Lock()
+		delete(fct.connMap, indicator)
+		fct.mu.Unlock()
+	}
+
+	return nil
 }
 
 // ClientStreamFactory is the factory to get ClientStream.

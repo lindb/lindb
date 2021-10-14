@@ -28,10 +28,13 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
+// for test
+var getConnFct = rpc.GetClientConnFactory
 
 // StateManager represents storage state manager, maintains storage node in memory.
 type StateManager interface {
@@ -39,6 +42,8 @@ type StateManager interface {
 
 	// GetLiveNode returns storage live node by node id, return false if not exist.
 	GetLiveNode(nodeID models.NodeID) (models.StatefulNode, bool)
+	// WatchNodeStateChangeEvent registers node state change event handle.
+	WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType))
 }
 
 // stateManager implements StateManager.
@@ -49,6 +54,7 @@ type stateManager struct {
 	engine  tsdb.Engine
 	current *models.StatefulNode
 	nodes   map[models.NodeID]models.StatefulNode // storage live nodes
+	watches map[models.NodeID][]func(state models.NodeStateType)
 
 	events chan *discovery.Event
 
@@ -78,6 +84,7 @@ func NewStateManager(
 		engine:  engine,
 		nodes:   make(map[models.NodeID]models.StatefulNode),
 		events:  make(chan *discovery.Event, 10),
+		watches: make(map[models.NodeID][]func(state models.NodeStateType)),
 		logger:  logger.GetLogger("storage", "StateManager"),
 	}
 	scope := linmetric.NewScope("lindb.storage.state_manager")
@@ -189,24 +196,45 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	}
 
 	m.nodes[node.ID] = *node
+
+	// notify node online
+	watches := m.watches[node.ID]
+	for _, handle := range watches {
+		handle(models.NodeOnline)
+	}
 }
 
 // onNodeFailure triggers when storage node offline.
 func (m *stateManager) onNodeFailure(key string) {
 	_, fileName := filepath.Split(key)
-	nodeID := fileName
 
 	m.logger.Info("node online => offline",
-		logger.String("nodeID", nodeID),
+		logger.String("nodeID", fileName),
 		logger.String("key", key))
 
-	id, err := strconv.ParseInt(nodeID, 10, 64)
+	id, err := strconv.ParseInt(fileName, 10, 64)
 	if err != nil {
 		m.logger.Error("parse offline node id err", logger.Error(err))
 		return
 	}
 
-	delete(m.nodes, models.NodeID(id))
+	nodeID := models.NodeID(id)
+	node, ok := m.nodes[nodeID]
+	if !ok {
+		// node not exist in alive node list
+		return
+	}
+	delete(m.nodes, nodeID)
+
+	// notify node offline
+	watches := m.watches[nodeID]
+	for _, handle := range watches {
+		handle(models.NodeOffline)
+	}
+	// try close offline node connection in pool
+	if err := getConnFct().CloseClientConn(&node); err != nil {
+		m.logger.Error("close connection for offline node err", logger.Error(err))
+	}
 }
 
 // GetLiveNode returns storage live node by node id, return false if not exist.
@@ -216,4 +244,18 @@ func (m *stateManager) GetLiveNode(nodeID models.NodeID) (models.StatefulNode, b
 
 	node, ok := m.nodes[nodeID]
 	return node, ok
+}
+
+// WatchNodeStateChangeEvent registers node state change event handle.
+func (m *stateManager) WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType)) {
+	if fn == nil {
+		return
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	watches := m.watches[nodeID]
+	watches = append(watches, fn)
+	m.watches[nodeID] = watches
 }
