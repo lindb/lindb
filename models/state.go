@@ -33,6 +33,14 @@ const (
 
 const NoLeader NodeID = -1
 
+// NodeStateType represents node state type
+type NodeStateType int
+
+const (
+	NodeOnline NodeStateType = iota + 1
+	NodeOffline
+)
+
 // ReplicaState represents the relationship for a replica.
 type ReplicaState struct {
 	Database   string  `json:"database"`
