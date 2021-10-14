@@ -61,6 +61,13 @@ func TestClientConnFactory(t *testing.T) {
 
 	assert.Same(t, conn1, conn11)
 	assert.NotSame(t, conn1, conn2)
+
+	// test close
+	err = fct.CloseClientConn(&models.StatelessNode{
+		HostIP:   "127.0.0.1",
+		GRPCPort: 123,
+	})
+	assert.NoError(t, err)
 }
 
 func TestClientStreamFactory_CreateTaskClient(t *testing.T) {

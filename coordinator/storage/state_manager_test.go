@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -54,9 +55,24 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 
 func TestStateManager_Node(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		getConnFct = rpc.GetClientConnFactory
+		ctrl.Finish()
+	}()
 
+	conFct := rpc.NewMockClientConnFactory(ctrl)
+	getConnFct = func() rpc.ClientConnFactory {
+		return conFct
+	}
+	conFct.EXPECT().CloseClientConn(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+
+	c := 0
 	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, nil)
+	// test register nil event handler
+	mgr.WatchNodeStateChangeEvent(models.NodeID(1), nil)
+	mgr.WatchNodeStateChangeEvent(models.NodeID(1), func(state models.NodeStateType) {
+		c++
+	})
 	// case 1: unmarshal node info err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.NodeStartup,
@@ -98,6 +114,8 @@ func TestStateManager_Node(t *testing.T) {
 	node, ok = mgr.GetLiveNode(models.NodeID(1))
 	assert.False(t, ok)
 	assert.Equal(t, models.StatefulNode{}, node)
+
+	assert.True(t, c > 0)
 
 	mgr.Close()
 }

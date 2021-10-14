@@ -20,7 +20,9 @@ package replica
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
@@ -39,6 +41,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	}()
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
 	stateMgr := storage.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
 	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true).AnyTimes()
 	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
 	q := queue.NewMockFanOut(ctrl)
@@ -116,6 +119,58 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	assert.True(t, r.IsReady())
 }
 
+func TestRemoteReplicator_NodeStateChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	cliFct := rpc.NewMockClientStreamFactory(ctrl)
+	stateMgr := storage.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
+	q := queue.NewMockFanOut(ctrl)
+	fq := queue.NewMockFanOutQueue(ctrl)
+	q.EXPECT().Queue().Return(fq).AnyTimes()
+	q.EXPECT().HeadSeq().Return(int64(11)).AnyTimes()
+	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
+	cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil).AnyTimes()
+	replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil).AnyTimes()
+	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+		AckIndex: 10,
+	}, nil).AnyTimes()
+	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	rc := &ReplicatorChannel{
+		State: &models.ReplicaState{
+			Database: "test",
+			ShardID:  0,
+			Leader:   1,
+			Follower: 2,
+		},
+		Queue: q,
+	}
+
+	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
+	// case 1: node ready
+	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true)
+	assert.True(t, r.IsReady())
+	// case 2: node online->offline
+	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, false)
+	r1 := r.(*remoteReplicator)
+	r1.rwMutex.Lock()
+	r1.state = ReplicatorInitState
+	r1.rwMutex.Unlock()
+	var wait sync.WaitGroup
+	wait.Add(1)
+	go func() {
+		// mock node online async after 100ms
+		time.Sleep(100 * time.Millisecond)
+		r1.handleNodeStateChangeEvent(models.NodeOnline)
+		wait.Done()
+	}()
+	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true)
+	assert.True(t, r.IsReady()) // wait node online
+	wait.Wait()
+}
+
 func TestRemoteReplicator_Replica(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
@@ -123,6 +178,7 @@ func TestRemoteReplicator_Replica(t *testing.T) {
 	}()
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
 	stateMgr := storage.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
 	q := queue.NewMockFanOut(ctrl)
 	rc := &ReplicatorChannel{
 		State: &models.ReplicaState{
