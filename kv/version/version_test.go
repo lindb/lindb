@@ -208,7 +208,7 @@ func TestVersion_Sequence(t *testing.T) {
 	fv.EXPECT().GetID().Return(FamilyID(1)).AnyTimes()
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
 	v := newVersion(1, fv)
-	assert.Equal(t, int64(0), v.GetSequence())
-	v.Sequence(100)
-	assert.Equal(t, int64(100), v.GetSequence())
+	assert.Equal(t, int64(0), v.GetSequences()[1])
+	v.Sequence(1, 100)
+	assert.Equal(t, int64(100), v.GetSequences()[1])
 }

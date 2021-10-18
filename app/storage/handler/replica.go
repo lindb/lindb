@@ -107,6 +107,7 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
+	r.logger.Info("build replica stream channel successful", logger.String("replica", replicaState.String()))
 	// handle replica request from stream
 	for {
 		req, err := server.Recv()
@@ -119,6 +120,8 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		}
 
 		resp := &protoReplicaV1.ReplicaResponse{}
+		r.logger.Debug("receive write ahead log replica log",
+			logger.Any("from", replicaState.Leader), logger.Int64("index", req.ReplicaIndex))
 		// write replica wal log
 		appendedIdx, err := p.ReplicaLog(req.ReplicaIndex, req.Record)
 

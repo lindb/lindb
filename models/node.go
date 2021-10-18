@@ -29,6 +29,10 @@ type NodeID int
 
 func (id NodeID) Int() int       { return int(id) }
 func (id NodeID) String() string { return strconv.Itoa(int(id)) }
+func ParseNodeID(node string) NodeID {
+	id, _ := strconv.Atoi(node)
+	return NodeID(id)
+}
 
 // Node represents the node info in cluster(broker/storage).
 type Node interface {

@@ -36,24 +36,25 @@ type Flusher interface {
 	// Add puts k/v pair
 	Add(key uint32, value []byte) error
 	// Sequence sets write sequence number.
-	Sequence(seq int64)
+	Sequence(leader int32, seq int64)
 	// Commit flushes data and commits metadata.
 	Commit() error
 }
 
 // storeFlusher is family level store flusher.
 type storeFlusher struct {
-	family  Family
-	seq     int64
-	builder table.Builder
-	editLog version.EditLog
+	family    Family
+	sequences map[int32]int64
+	builder   table.Builder
+	editLog   version.EditLog
 }
 
 // newStoreFlusher create family store flusher.
 func newStoreFlusher(family Family) Flusher {
 	return &storeFlusher{
-		family:  family,
-		editLog: version.NewEditLog(family.ID()),
+		family:    family,
+		editLog:   version.NewEditLog(family.ID()),
+		sequences: make(map[int32]int64),
 	}
 }
 
@@ -80,8 +81,8 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 }
 
 // Sequence sets write sequence number.
-func (sf *storeFlusher) Sequence(seq int64) {
-	sf.seq = seq
+func (sf *storeFlusher) Sequence(leader int32, seq int64) {
+	sf.sequences[leader] = seq
 }
 
 func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
@@ -110,9 +111,9 @@ func (sf *storeFlusher) Commit() (err error) {
 		fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
 		sf.editLog.Add(version.CreateNewFile(0, fileMeta))
 	}
-	if sf.seq > 0 {
-		// only add sequence > 0
-		sf.editLog.Add(version.CreateSequence(sf.seq))
+	for leader, seq := range sf.sequences {
+		// add sequence for each leader
+		sf.editLog.Add(version.CreateSequence(leader, seq))
 	}
 
 	if flag := sf.family.commitEditLog(sf.editLog); !flag {
@@ -149,7 +150,7 @@ func (nf *NopFlusher) Add(_ uint32, value []byte) error {
 	return nil
 }
 
-func (nf *NopFlusher) Sequence(_ int64) {
+func (nf *NopFlusher) Sequence(_ int32, _ int64) {
 }
 
 // Commit always return nil

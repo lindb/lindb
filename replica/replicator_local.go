@@ -39,6 +39,7 @@ var (
 type localReplicator struct {
 	replicator
 
+	leader    int32
 	shard     tsdb.Shard
 	family    tsdb.DataFamily
 	logger    *logger.Logger
@@ -58,6 +59,7 @@ type localReplicator struct {
 
 func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
 	lr := &localReplicator{
+		leader: int32(channel.State.Leader),
 		replicator: replicator{
 			channel: channel,
 		},
@@ -69,7 +71,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 	}
 
 	//add ack sequence callback
-	family.AckSequence(func(seq int64) {
+	family.AckSequence(lr.leader, func(seq int64) {
 		lr.SetAckIndex(seq)
 		lr.logger.Info("ack local replica index",
 			logger.String("replica", lr.String()),
@@ -83,6 +85,8 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 	lr.statistics.localReplicaRows = localReplicaRowsVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localReplicaSequence = localReplicaSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
 	lr.statistics.localInvalidSequenceVec = localInvalidSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
+
+	lr.logger.Info("start local replicator", logger.String("replica", lr.String()))
 	return lr
 }
 
@@ -93,7 +97,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 // 4. write metric data
 // 5. commit sequence in data family
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
-	if !r.family.ValidateSequence(sequence) {
+	if !r.family.ValidateSequence(r.leader, sequence) {
 		r.statistics.localInvalidSequenceVec.Incr()
 		return
 	}
@@ -125,7 +129,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		r.block = r.block[:0]
 
 		// after write need commit sequence
-		r.family.CommitSequence(sequence)
+		r.family.CommitSequence(r.leader, sequence)
 	}()
 
 	r.batchRows.UnmarshalRows(r.block)

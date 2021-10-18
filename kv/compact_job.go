@@ -327,7 +327,7 @@ func (cf *compactFlusher) Add(key uint32, value []byte) error {
 	return nil
 }
 
-func (cf *compactFlusher) Sequence(_ int64) {
+func (cf *compactFlusher) Sequence(_ int32, _ int64) {
 	//do nothing
 }
 

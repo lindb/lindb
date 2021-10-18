@@ -18,7 +18,10 @@
 package models
 
 import (
+	"strconv"
+
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 type ShardStateType int
@@ -48,6 +51,16 @@ type ReplicaState struct {
 	Leader     NodeID  `json:"leader"`
 	Follower   NodeID  `json:"follower"`
 	FamilyTime int64   `json:"familyTime"`
+}
+
+func (r ReplicaState) String() string {
+	return "[" +
+		"database:" + r.Database +
+		",shard:" + strconv.Itoa(int(r.ShardID)) +
+		",family:" + timeutil.FormatTimestamp(r.FamilyTime, timeutil.DataTimeFormat4) +
+		",from(leader):" + strconv.Itoa(int(r.Leader)) +
+		",to(follower):" + strconv.Itoa(int(r.Follower)) +
+		"]"
 }
 
 // ShardState represents current state of shard.

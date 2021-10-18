@@ -44,3 +44,7 @@ func TestDatabase_String(t *testing.T) {
 	}
 	assert.Equal(t, "create database test with shard 10, replica 1, interval 10s", database.String())
 }
+
+func TestParseShardID(t *testing.T) {
+	assert.Equal(t, ShardID(1), ParseShardID("1"))
+}

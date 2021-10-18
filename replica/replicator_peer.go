@@ -101,7 +101,10 @@ func (r *replicatorRunner) loop() {
 
 		if r.replicator.IsReady() {
 			seq := r.replicator.Consume()
-			if seq > 0 {
+			if seq >= 0 {
+				r.logger.Debug("replica write ahead log",
+					logger.String("replicator", r.replicator.String()),
+					logger.Int64("index", seq))
 				hasData = true
 				data, err := r.replicator.GetMessage(seq)
 				if err != nil {

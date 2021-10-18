@@ -177,7 +177,7 @@ func TestDeleteReferenceFile(t *testing.T) {
 func TestSequence(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	seq := CreateSequence(10)
+	seq := CreateSequence(1, 10)
 	bytes, err := seq.Encode()
 	assert.NoError(t, err)
 
@@ -188,6 +188,6 @@ func TestSequence(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, seq, seq2)
 	version := NewMockVersion(ctrl)
-	version.EXPECT().Sequence(int64(10))
+	version.EXPECT().Sequence(int32(1), int64(10))
 	seq2.apply(version)
 }
