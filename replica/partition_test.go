@@ -44,7 +44,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	r.EXPECT().String().Return("test").AnyTimes()
+	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -61,7 +61,8 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
 	assert.Error(t, err)
 
-	r.EXPECT().IsReady().Return(false).AnyTimes()
+	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
 	// ignore re-build
@@ -83,7 +84,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
-	r.EXPECT().String().Return("test").AnyTimes()
+	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -100,7 +101,8 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	err := p.BuildReplicaForFollower(2, 2)
 	assert.Error(t, err)
 
-	r.EXPECT().IsReady().Return(false).AnyTimes()
+	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForFollower(2, 1)
 	assert.NoError(t, err)
 }
@@ -118,7 +120,7 @@ func TestPartition_Close(t *testing.T) {
 	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
-	r.EXPECT().String().Return("test").AnyTimes()
+	r.EXPECT().String().Return("TestPartition_Close").AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -133,7 +135,8 @@ func TestPartition_Close(t *testing.T) {
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	err := p.Close()
 	assert.NoError(t, err)
-	r.EXPECT().IsReady().Return(false).AnyTimes()
+	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
 	err = p.Close()

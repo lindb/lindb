@@ -30,6 +30,12 @@ type ShardID int
 func (s ShardID) String() string { return strconv.Itoa(int(s)) }
 func (s ShardID) Int() int       { return int(s) }
 
+// ParseShardID returns ShardID by given shard string value.
+func ParseShardID(shard string) ShardID {
+	shardID, _ := strconv.Atoi(shard)
+	return ShardID(shardID)
+}
+
 // Database defines database config, database can include multi-cluster.
 type Database struct {
 	Name          string                `json:"name" binding:"required"` // database's name

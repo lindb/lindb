@@ -62,9 +62,9 @@ type DataFamily interface {
 	Family() kv.Family
 	// WriteRows writes metric rows with same family in batch.
 	WriteRows(rows []metric.StorageRow) error
-	ValidateSequence(seq int64) bool
-	CommitSequence(seq int64)
-	AckSequence(fn func(seq int64))
+	ValidateSequence(leader int32, seq int64) bool
+	CommitSequence(leader int32, seq int64)
+	AckSequence(leader int32, fn func(seq int64))
 
 	NeedFlush() bool
 	IsFlushing() bool
@@ -89,11 +89,12 @@ type dataFamily struct {
 	mutableMemDB   memdb.MemoryDatabase
 	immutableMemDB memdb.MemoryDatabase
 
-	seq          atomic.Int64
-	immutableSeq atomic.Int64
-	persistSeq   atomic.Int64
+	// leader => seq
+	seq          map[int32]atomic.Int64
+	immutableSeq map[int32]int64
+	persistSeq   map[int32]atomic.Int64
 
-	callbacks []func(seq int64)
+	callbacks map[int32][]func(seq int64) //leader => callback
 
 	isFlushing     atomic.Bool    // restrict flusher concurrency
 	flushCondition sync.WaitGroup // flush condition
@@ -122,13 +123,6 @@ func newDataFamily(
 	familyTime int64,
 	family kv.Family,
 ) DataFamily {
-	snapshot := family.GetSnapshot()
-	defer func() {
-		snapshot.Close()
-	}()
-	// get current persist write sequence
-	seq := snapshot.GetCurrent().GetSequence()
-
 	f := &dataFamily{
 		shard:        shard,
 		interval:     interval,
@@ -136,12 +130,24 @@ func newDataFamily(
 		timeRange:    timeRange,
 		familyTime:   familyTime,
 		family:       family,
-		seq:          *atomic.NewInt64(seq),
-		immutableSeq: *atomic.NewInt64(seq),
-		persistSeq:   *atomic.NewInt64(seq),
+		seq:          make(map[int32]atomic.Int64),
+		persistSeq:   make(map[int32]atomic.Int64),
+		callbacks:    make(map[int32][]func(seq int64)),
 
 		logger: logger.GetLogger("tsdb", "family"),
 	}
+	// get current persist write sequence
+	snapshot := family.GetSnapshot()
+	defer func() {
+		snapshot.Close()
+	}()
+	sequences := snapshot.GetCurrent().GetSequences()
+	for leader, seq := range sequences {
+		sequence := *atomic.NewInt64(seq)
+		f.seq[leader] = sequence
+		f.persistSeq[leader] = sequence
+	}
+
 	dbName := shard.DatabaseName()
 	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 
@@ -260,27 +266,34 @@ func (f *dataFamily) Flush() error {
 		waitingFlushMemDB := f.mutableMemDB
 		f.immutableMemDB = waitingFlushMemDB
 		f.mutableMemDB = nil // mark mutable memory database nil, write data will be created
-		f.immutableSeq.Store(f.seq.Load())
+		immutableSeq := make(map[int32]int64)
+		for leader, seq := range f.seq {
+			immutableSeq[leader] = seq.Load()
+		}
+		f.immutableSeq = immutableSeq
 		f.mutex.Unlock()
 
-		if err := f.flushMemoryDatabase(f.immutableSeq.Load(), waitingFlushMemDB); err != nil {
+		if err := f.flushMemoryDatabase(immutableSeq, waitingFlushMemDB); err != nil {
 			return err
 		}
 
 		// flush success, mark immutable memory database nil
-		var fns []func(seq int64)
 		f.mutex.Lock()
 		f.immutableMemDB = nil
-		f.persistSeq.Store(f.immutableSeq.Load())
-		// copy it
-		fns = append(fns, f.callbacks...)
-		f.mutex.Unlock()
-
-		// invoke sequence ack callback
-		seq := f.persistSeq.Load()
-		for _, fn := range fns {
-			fn(seq)
+		f.immutableSeq = nil
+		for leader, seq := range immutableSeq {
+			f.seq[leader] = *atomic.NewInt64(seq)
 		}
+		for leader, fns := range f.callbacks {
+			seq, ok := f.seq[leader]
+			if ok {
+				s := seq.Load()
+				for _, fn := range fns {
+					fn(s)
+				}
+			}
+		}
+		f.mutex.Unlock()
 
 		endTime := time.Now()
 		f.logger.Info("flush memory database successfully",
@@ -429,21 +442,36 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 	return nil
 }
 
-func (f *dataFamily) ValidateSequence(seq int64) bool {
-	return seq > f.seq.Load()
-}
-
-func (f *dataFamily) CommitSequence(seq int64) {
-	f.seq.Store(seq)
-}
-
-func (f *dataFamily) AckSequence(fn func(seq int64)) {
+func (f *dataFamily) ValidateSequence(leader int32, seq int64) bool {
 	f.mutex.Lock()
-	f.callbacks = append(f.callbacks, fn)
-	f.mutex.Unlock()
+	defer f.mutex.Unlock()
+	seqForLeader, ok := f.seq[leader]
+	if !ok {
+		return true
+	}
+	return seq > seqForLeader.Load()
+}
 
-	// invoke ack sequence after register function, maybe some cases lost ack index.
-	fn(f.persistSeq.Load())
+func (f *dataFamily) CommitSequence(leader int32, seq int64) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	seqForLeader := f.seq[leader]
+	seqForLeader.Store(seq)
+	f.seq[leader] = seqForLeader
+}
+
+func (f *dataFamily) AckSequence(leader int32, fn func(seq int64)) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	f.callbacks[leader] = append(f.callbacks[leader], fn)
+
+	seqForLeader, ok := f.seq[leader]
+	if ok {
+		// invoke ack sequence after register function, maybe some cases lost ack index.
+		fn(seqForLeader.Load())
+	}
 }
 
 // GetOrCreateMemoryDatabase returns memory database by given family time.
@@ -469,12 +497,16 @@ func (f *dataFamily) Close() error {
 	f.flushCondition.Wait()
 
 	if f.immutableMemDB != nil {
-		if err := f.flushMemoryDatabase(f.immutableSeq.Load(), f.immutableMemDB); err != nil {
+		if err := f.flushMemoryDatabase(f.immutableSeq, f.immutableMemDB); err != nil {
 			return err
 		}
 	}
 	if f.mutableMemDB != nil {
-		if err := f.flushMemoryDatabase(f.seq.Load(), f.mutableMemDB); err != nil {
+		sequences := make(map[int32]int64)
+		for leader, seq := range f.seq {
+			sequences[leader] = seq.Load()
+		}
+		if err := f.flushMemoryDatabase(sequences, f.mutableMemDB); err != nil {
 			return err
 		}
 	}
@@ -483,9 +515,11 @@ func (f *dataFamily) Close() error {
 	return nil
 }
 
-func (f *dataFamily) flushMemoryDatabase(seq int64, memDB memdb.MemoryDatabase) error {
+func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.MemoryDatabase) error {
 	flusher := f.family.NewFlusher()
-	flusher.Sequence(seq)
+	for leader, seq := range sequences {
+		flusher.Sequence(leader, seq)
+	}
 
 	dataFlusher, err := metricsdata.NewFlusher(flusher)
 	if err != nil {
@@ -500,8 +534,13 @@ func (f *dataFamily) flushMemoryDatabase(seq int64, memDB memdb.MemoryDatabase) 
 	}
 
 	// invoke sequence ack callback
-	for _, fn := range f.callbacks {
-		fn(seq)
+	for leader, seq := range sequences {
+		callbacks, ok := f.callbacks[leader]
+		if ok {
+			for _, fn := range callbacks {
+				fn(seq)
+			}
+		}
 	}
 
 	if err := memDB.Close(); err != nil {

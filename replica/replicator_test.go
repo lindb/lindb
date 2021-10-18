@@ -21,18 +21,21 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReplicator_String(t *testing.T) {
+	time, _ := timeutil.ParseTimestamp("2019-12-12 10:11:10")
 	r := NewReplicator(&ReplicatorChannel{
 		State: &models.ReplicaState{
-			Database: "test",
-			ShardID:  1,
-			Leader:   1,
-			Follower: 2,
+			Database:   "test",
+			ShardID:    1,
+			Leader:     1,
+			Follower:   2,
+			FamilyTime: time,
 		},
 	})
-	assert.Equal(t, "[database:test,shard:1,from(leader):1,to(follower):2]", r.String())
+	assert.Equal(t, "[database:test,shard:1,family:20191212101110,from(leader):1,to(follower):2]", r.String())
 }
