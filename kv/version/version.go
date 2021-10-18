@@ -74,9 +74,9 @@ type Version interface {
 	// GetReferenceFiles returns the reference files under target family
 	GetReferenceFiles() map[FamilyID][]table.FileNumber
 	// Sequence set sequence number.
-	Sequence(seq int64)
-	// GetSequence returns sequence number.
-	GetSequence() int64
+	Sequence(leader int32, seq int64)
+	// GetSequences returns all sequence number.
+	GetSequences() map[int32]int64
 }
 
 // version is snapshot for current storage metadata includes levels/sst files
@@ -86,7 +86,7 @@ type version struct {
 	fv          FamilyVersion
 	ref         atomic.Int32 // current version ref count for using
 	rollup      *rollup
-	sequence    atomic.Int64
+	sequences   map[int32]atomic.Int64
 
 	levels []*level // each level sst files exclude level0
 }
@@ -102,6 +102,7 @@ func newVersion(id int64, fv FamilyVersion) Version {
 		fv:          fv,
 		numOfLevels: numOfLevel,
 		rollup:      newRollup(),
+		sequences:   make(map[int32]atomic.Int64),
 	}
 	v.levels = make([]*level, numOfLevel)
 	for i := 0; i < numOfLevel; i++ {
@@ -286,13 +287,19 @@ func (v *version) GetReferenceFiles() map[FamilyID][]table.FileNumber {
 }
 
 // Sequence set sequence number.
-func (v *version) Sequence(seq int64) {
-	v.sequence.Store(seq)
+func (v *version) Sequence(leader int32, seq int64) {
+	seqForLeader := v.sequences[leader]
+	seqForLeader.Store(seq)
+	v.sequences[leader] = seqForLeader
 }
 
-// GetSequence returns sequence number.
-func (v *version) GetSequence() int64 {
-	return v.sequence.Load()
+// GetSequences returns all sequence number.
+func (v *version) GetSequences() map[int32]int64 {
+	rs := make(map[int32]int64)
+	for leader, seq := range v.sequences {
+		rs[leader] = seq.Load()
+	}
+	return rs
 }
 
 // getOverlappingInputs gets overlapping input based on level and key range,

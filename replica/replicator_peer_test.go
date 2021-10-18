@@ -19,6 +19,7 @@ package replica
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -51,10 +52,12 @@ func TestNewReplicator_runner(t *testing.T) {
 
 	replicator := NewMockReplicator(ctrl)
 	replicator.EXPECT().String().Return("str").AnyTimes()
+	peer := NewReplicatorPeer(replicator)
+	var wait sync.WaitGroup
 
 	// loop 1: no data
 	replicator.EXPECT().IsReady().Return(true)
-	replicator.EXPECT().Consume().Return(int64(0)) //no data
+	replicator.EXPECT().Consume().Return(int64(-1)) //no data
 	// loop 2: get message err
 	replicator.EXPECT().IsReady().Return(true)
 	replicator.EXPECT().Consume().Return(int64(1))                          // has data
@@ -65,9 +68,12 @@ func TestNewReplicator_runner(t *testing.T) {
 	replicator.EXPECT().GetMessage(int64(1)).Return(nil, nil) // get message
 	replicator.EXPECT().Replica(gomock.Any(), gomock.Any())   // replica
 	// other loop
-	replicator.EXPECT().IsReady().Return(false).AnyTimes()
-	peer := NewReplicatorPeer(replicator)
+	replicator.EXPECT().IsReady().DoAndReturn(func() bool {
+		wait.Done()
+		peer.Shutdown()
+		return false
+	}).AnyTimes()
 	peer.Startup()
-	time.Sleep(100 * time.Millisecond)
-	peer.Shutdown()
+	wait.Add(1)
+	wait.Wait()
 }

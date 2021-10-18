@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
@@ -49,18 +50,23 @@ type partitionKey struct {
 	leader     models.NodeID
 }
 
-// WriteAheadLogManager represents manage all writeTask ahead log.
+// WriteAheadLogManager represents manage all write ahead log.
 type WriteAheadLogManager interface {
-	// GetOrCreateLog returns writeTask ahead log for database,
+	// GetOrCreateLog returns write ahead log for database,
 	// if exist returns it, else creates a new log.
 	GetOrCreateLog(database string) WriteAheadLog
+	// recovery recoveries local history wal when server start.
+	Recovery() error
 }
 
-// WriteAheadLog represents writeTask ahead log underlying fan out queue.
+// WriteAheadLog represents write ahead log underlying fan out queue.
 type WriteAheadLog interface {
-	// GetOrCreatePartition returns a partition of writeTask ahead log.
+	// GetOrCreatePartition returns a partition of write ahead log.
 	// if exist returns it, else create a new partition.
 	GetOrCreatePartition(shardID models.ShardID, familyTime int64, leader models.NodeID) (Partition, error)
+
+	// recovery recoveries database write ahead log from local storage.
+	recovery() error
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
@@ -105,6 +111,7 @@ func (w *writeAheadLogManager) getLog(database string) (WriteAheadLog, bool) {
 	return log, ok
 }
 
+//TODO need remove log when database delete
 func (w *writeAheadLogManager) insertLog(database string, newLog WriteAheadLog) {
 	oldMap := w.databaseLogs.Load().(databaseLogs)
 	newMap := make(databaseLogs)
@@ -115,7 +122,7 @@ func (w *writeAheadLogManager) insertLog(database string, newLog WriteAheadLog) 
 	w.databaseLogs.Store(newMap)
 }
 
-// GetOrCreateLog returns writeTask ahead log for database,
+// GetOrCreateLog returns write ahead log for database,
 // if exist returns it, else creates a new wal
 func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	log, ok := w.getLog(database)
@@ -134,12 +141,32 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	return log
 }
 
+// recovery recoveries local history wal when server start.
+func (w *writeAheadLogManager) Recovery() error {
+	if !fileutil.Exist(w.cfg.Dir) {
+		return nil
+	}
+	databaseNames, err := fileutil.ListDir(w.cfg.Dir)
+	if err != nil {
+		return err
+	}
+	for _, databaseName := range databaseNames {
+		log := w.GetOrCreateLog(databaseName)
+		//
+		if err := log.recovery(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type (
 	shardLogs map[partitionKey]Partition
 	// writeAheadLog implements WriteAheadLog.
 	writeAheadLog struct {
 		ctx           context.Context
 		database      string
+		dir           string
 		cfg           config.WAL
 		currentNodeID models.NodeID
 		engine        tsdb.Engine
@@ -165,6 +192,7 @@ func NewWriteAheadLog(
 		ctx:           ctx,
 		currentNodeID: currentNodeID,
 		database:      database,
+		dir:           path.Join(cfg.Dir, database),
 		cfg:           cfg,
 		engine:        engine,
 		cliFct:        cliFct,
@@ -174,7 +202,7 @@ func NewWriteAheadLog(
 	return log
 }
 
-// GetOrCreatePartition returns a partition of writeTask ahead log.
+// GetOrCreatePartition returns a partition of write ahead log.
 // if exist returns it, else create a new partition.
 func (w *writeAheadLog) GetOrCreatePartition(
 	shardID models.ShardID,
@@ -208,8 +236,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 	}
 	// wal path: base dir + database + shard + family time + leader
 	dirPath := path.Join(
-		w.cfg.Dir,
-		w.database,
+		w.dir,
 		strconv.Itoa(int(shardID)),
 		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
 		strconv.Itoa(int(leader)))
@@ -239,4 +266,37 @@ func (w *writeAheadLog) insertPartition(key partitionKey, p Partition) {
 	}
 	newMap[key] = p
 	w.shardLogs.Store(newMap)
+}
+
+func (w *writeAheadLog) recovery() error {
+	shards, err := fileutil.ListDir(w.dir)
+	if err != nil {
+		return err
+	}
+	for _, shard := range shards {
+		families, err := fileutil.ListDir(path.Join(w.dir, shard))
+		if err != nil {
+			return err
+		}
+
+		shardID := models.ParseShardID(shard)
+		for _, family := range families {
+			leaders, err := fileutil.ListDir(path.Join(w.dir, shard, family))
+			if err != nil {
+				return err
+			}
+			familyTime, _ := timeutil.ParseTimestamp(family, timeutil.DataTimeFormat4)
+			for _, leader := range leaders {
+				leaderID := models.ParseNodeID(leader)
+				partition, err := w.GetOrCreatePartition(shardID, familyTime, leaderID)
+				if err != nil {
+					return err
+				}
+				if err = partition.recovery(leaderID); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

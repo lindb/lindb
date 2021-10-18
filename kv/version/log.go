@@ -410,19 +410,22 @@ func (n *deleteReferenceFile) apply(version Version) {
 
 // sequence represents write sequence number.
 type sequence struct {
-	seq int64
+	leader int32
+	seq    int64
 }
 
 // CreateSequence creates a sequence number.
-func CreateSequence(seq int64) Log {
+func CreateSequence(leader int32, seq int64) Log {
 	return &sequence{
-		seq: seq,
+		leader: leader,
+		seq:    seq,
 	}
 }
 
 // Encode writes sequence number data into binary
 func (s *sequence) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
+	writer.PutVarint32(s.leader)
 	writer.PutVarint64(s.seq)
 	return writer.Bytes()
 }
@@ -430,16 +433,17 @@ func (s *sequence) Encode() ([]byte, error) {
 // Decode reads sequence number from binary.
 func (s *sequence) Decode(v []byte) error {
 	reader := stream.NewReader(v)
+	s.leader = reader.ReadVarint32()
 	s.seq = reader.ReadVarint64()
 	return reader.Error()
 }
 
 // apply applies sequence edit log to version.
 func (s *sequence) apply(version Version) {
-	version.Sequence(s.seq)
+	version.Sequence(s.leader, s.seq)
 }
 
 // String returns string value of sequence log.
 func (s *sequence) String() string {
-	return fmt.Sprintf("sequence:{number:%d}", s.seq)
+	return fmt.Sprintf("sequence:{leader:%d,seq:%d}", s.leader, s.seq)
 }

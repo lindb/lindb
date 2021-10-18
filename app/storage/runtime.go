@@ -86,6 +86,7 @@ type runtime struct {
 
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            storage.StateManager
+	walMgr              replica.WriteAheadLogManager
 
 	node         *models.StatefulNode
 	server       rpc.GRPCServer
@@ -164,6 +165,19 @@ func (r *runtime) Run() error {
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
+
+	walMgr := replica.NewWriteAheadLogManager(
+		r.ctx,
+		r.config.StorageBase.WAL,
+		r.node.ID, r.engine,
+		rpc.NewClientStreamFactory(r.ctx, r.node),
+		r.stateMgr,
+	)
+	if err = walMgr.Recovery(); err != nil {
+		r.state = server.Failed
+		return err
+	}
+	r.walMgr = walMgr
 
 	// start tcp server
 	r.startTCPServer()
@@ -392,17 +406,9 @@ func (r *runtime) bindRPCHandlers() {
 		r.factory.taskServer,
 	)
 
-	//TODO modify
-	walMgr := replica.NewWriteAheadLogManager(
-		r.ctx,
-		r.config.StorageBase.WAL,
-		r.node.ID, r.engine,
-		rpc.NewClientStreamFactory(r.ctx, r.node),
-		r.stateMgr,
-	)
 	r.rpcHandler = &rpcHandler{
-		replica: handler.NewReplicaHandler(walMgr),
-		write:   handler.NewWriteHandler(walMgr),
+		replica: handler.NewReplicaHandler(r.walMgr),
+		write:   handler.NewWriteHandler(r.walMgr),
 		task: query.NewTaskHandler(
 			r.config.Query,
 			r.factory.taskServer,

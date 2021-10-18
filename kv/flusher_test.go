@@ -87,7 +87,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		family.EXPECT().commitEditLog(gomock.Any()).Return(true),
 	)
 	flusher = newStoreFlusher(family)
-	flusher.Sequence(10)
+	flusher.Sequence(1, 10)
+	flusher.Sequence(2, 20)
 	err = flusher.Commit()
 	assert.NoError(t, err)
 
@@ -141,7 +142,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 
 func Test_NopFlusher(t *testing.T) {
 	nf := NewNopFlusher()
-	nf.Sequence(10)
+	nf.Sequence(1, 10)
 	assert.Nil(t, nf.Commit())
 	assert.Nil(t, nf.Add(1, nil))
 	assert.Nil(t, nf.Bytes())

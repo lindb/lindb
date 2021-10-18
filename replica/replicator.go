@@ -20,6 +20,8 @@ package replica
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
@@ -106,6 +108,7 @@ func (r *replicator) String() string {
 	return "[" +
 		"database:" + r.channel.State.Database +
 		",shard:" + strconv.Itoa(int(r.channel.State.ShardID)) +
+		",family:" + timeutil.FormatTimestamp(r.channel.State.FamilyTime, timeutil.DataTimeFormat4) +
 		",from(leader):" + strconv.Itoa(int(r.channel.State.Leader)) +
 		",to(follower):" + strconv.Itoa(int(r.channel.State.Follower)) +
 		"]"

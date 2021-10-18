@@ -54,6 +54,7 @@ type Partition interface {
 	// ReplicaAckIndex returns the index which replica appended index.
 	ReplicaAckIndex() int64
 	ResetReplicaIndex(idx int64)
+	recovery(leader models.NodeID) error
 }
 
 // partition implements Partition interface.
@@ -147,12 +148,6 @@ func (p *partition) BuildReplicaForLeader(
 			)
 			return err
 		}
-		p.logger.Info("build replication channel successfully",
-			logger.String("database", p.shard.DatabaseName()),
-			logger.Any("shard", p.shard.ShardID()),
-			logger.Int("leader", leader.Int()),
-			logger.Int("follower", replicaNodeID.Int()),
-		)
 	}
 	return nil
 }
@@ -169,12 +164,6 @@ func (p *partition) BuildReplicaForFollower(leader models.NodeID, replica models
 			logger.Int("follower", replica.Int()),
 		)
 	}
-	p.logger.Info("build follower replication channel successfully",
-		logger.String("database", p.shard.DatabaseName()),
-		logger.Any("shard", p.shard.ShardID()),
-		logger.Int("leader", leader.Int()),
-		logger.Int("follower", replica.Int()),
-	)
 	return err
 }
 
@@ -232,5 +221,15 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) er
 	peer := NewReplicatorPeer(replicator)
 	p.peers[replica] = peer
 	peer.Startup()
+	return nil
+}
+
+func (p *partition) recovery(leader models.NodeID) error {
+	replicatorNames := p.log.FanOutNames()
+	for _, replica := range replicatorNames {
+		if err := p.buildReplica(leader, models.ParseNodeID(replica)); err != nil {
+			return err
+		}
+	}
 	return nil
 }

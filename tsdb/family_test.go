@@ -44,7 +44,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	}
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
-	v.EXPECT().GetSequence().Return(int64(10))
+	v.EXPECT().GetSequences().Return(map[int32]int64{1: 10})
 	snapshot.EXPECT().GetCurrent().Return(v)
 	snapshot.EXPECT().Close()
 	family.EXPECT().GetSnapshot().Return(snapshot)
@@ -77,7 +77,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		End:   50,
 	}
 	v := version.NewMockVersion(ctrl)
-	v.EXPECT().GetSequence().Return(int64(10))
+	v.EXPECT().GetSequences().Return(map[int32]int64{1: 10})
 	snapshot.EXPECT().GetCurrent().Return(v)
 	shard := NewMockShard(ctrl)
 	shard.EXPECT().DatabaseName().Return("test")

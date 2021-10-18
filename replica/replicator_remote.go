@@ -19,6 +19,7 @@ package replica
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -74,6 +75,8 @@ func NewRemoteReplicator(
 
 	// watch follower node state change
 	stateMgr.WatchNodeStateChangeEvent(channel.State.Follower, r.handleNodeStateChangeEvent)
+
+	r.logger.Info("start remote replicator", logger.String("replica", r.String()))
 	return r
 }
 
@@ -199,6 +202,7 @@ func (r *remoteReplicator) IsReady() bool {
 
 // Replica sends data to remote replica node.
 func (r *remoteReplicator) Replica(idx int64, msg []byte) {
+	fmt.Printf("remote: %d-%d\n", r.channel.State.Leader, idx)
 	cli := r.replicaStream
 	err := cli.Send(&protoReplicaV1.ReplicaRequest{
 		ReplicaIndex: idx,
@@ -213,6 +217,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		r.state = ReplicatorFailureState
 		return
 	}
+	//TODO need handle replica idx not equals
 	r.SetAckIndex(resp.AckIndex)
 }
 
