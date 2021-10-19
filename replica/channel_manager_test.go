@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
 )
 
@@ -39,7 +40,9 @@ func TestChannelManager_GetChannel(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	cm := NewChannelManager(context.TODO(), nil)
+	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().WatchShardStateChangeEvent(gomock.Any())
+	cm := NewChannelManager(context.TODO(), nil, stateMgr)
 
 	_, err := cm.CreateChannel(models.Database{Name: "database"}, 2, 2)
 	assert.Error(t, err)
@@ -64,7 +67,9 @@ func TestChannelManager_Write(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	cm := NewChannelManager(context.TODO(), nil)
+	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().WatchShardStateChangeEvent(gomock.Any())
+	cm := NewChannelManager(context.TODO(), nil, stateMgr)
 	err := cm.Write(context.TODO(), "database", nil)
 	assert.NoError(t, err)
 

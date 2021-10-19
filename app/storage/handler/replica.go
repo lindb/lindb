@@ -115,7 +115,7 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 			return nil
 		}
 		if err != nil {
-			r.logger.Error("get write request err", logger.Error(err))
+			r.logger.Error("receive replica request err", logger.Error(err))
 			return status.Error(codes.Internal, err.Error())
 		}
 
@@ -126,6 +126,7 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		appendedIdx, err := p.ReplicaLog(req.ReplicaIndex, req.Record)
 
 		resp.ReplicaIndex = appendedIdx
+		//TODO need set ack index
 
 		if err != nil {
 			resp.Err = err.Error()

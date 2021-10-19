@@ -163,6 +163,12 @@ func (r *runtime) Run() error {
 		connectionMgr: rpc.NewConnectionManager(tackClientFct),
 	}
 
+	r.stateMgr = broker.NewStateManager(
+		r.ctx,
+		*r.node,
+		r.factory.connectionMgr,
+		r.factory.taskClient)
+
 	r.buildServiceDependency()
 
 	// start tcp server
@@ -170,12 +176,6 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	r.stateMgr = broker.NewStateManager(
-		r.ctx,
-		*r.node,
-		r.factory.connectionMgr,
-		r.factory.taskClient,
-		r.srv.channelManager)
 	// finally start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 
@@ -344,7 +344,7 @@ func (r *runtime) buildServiceDependency() {
 	// todo watch stateMachine states change.
 
 	// hard code create channel first.
-	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node))
+	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node), r.stateMgr)
 
 	taskManager := brokerQuery.NewTaskManager(
 		r.ctx,

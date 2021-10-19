@@ -37,6 +37,10 @@ type FamilyChannel interface {
 	// ErrCanceled is returned when the channel is canceled before data is written successfully.
 	// Concurrent safe.
 	Write(ctx context.Context, rows []metric.BrokerRow) error
+	// leaderChanged notifies family channel need change leader send stream
+	leaderChanged(shardState models.ShardState,
+		liveNodes map[models.NodeID]models.StatefulNode)
+	// Stop stops the family channel.
 	Stop()
 }
 
@@ -55,17 +59,22 @@ type familyChannel struct {
 		fct rpc.ClientStreamFactory,
 	) (rpc.WriteStream, error)
 
-	fct rpc.ClientStreamFactory
+	fct           rpc.ClientStreamFactory
+	shardState    models.ShardState
+	liveNodes     map[models.NodeID]models.StatefulNode
+	currentTarget models.Node
 
 	// channel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
-	ch    chan *compressedChunk
-	chunk Chunk // buffer current writeTask metric for compress
+	ch                  chan *compressedChunk
+	leaderChangedSignal chan struct{}
+	chunk               Chunk // buffer current writeTask metric for compress
 
 	lastFlushTime      time.Time     // last flush time
 	checkFlushInterval time.Duration // interval for check flush
 	batchTimout        time.Duration // interval for flush
 
 	lock4write sync.Mutex
+	lock4meta  sync.Mutex
 	logger     *logger.Logger
 }
 
@@ -81,25 +90,27 @@ func newFamilyChannel(
 ) FamilyChannel {
 	c, cancel := context.WithCancel(ctx)
 	fc := &familyChannel{
-		ctx:                c,
-		cancel:             cancel,
-		database:           database,
-		shardID:            shardID,
-		familyTime:         familyTime,
-		fct:                fct,
-		newWriteStreamFn:   rpc.NewWriteStream,
-		ch:                 make(chan *compressedChunk, 2),
-		checkFlushInterval: time.Second,
-		batchTimout:        cfg.BatchTimeout.Duration(),
-		chunk:              newChunk(cfg.BatchBlockSize),
-		lastFlushTime:      time.Now(),
-		logger:             logger.GetLogger("replica", "FamilyChannel"),
+		ctx:                 c,
+		cancel:              cancel,
+		database:            database,
+		shardID:             shardID,
+		familyTime:          familyTime,
+		fct:                 fct,
+		shardState:          shardState,
+		liveNodes:           liveNodes,
+		newWriteStreamFn:    rpc.NewWriteStream,
+		ch:                  make(chan *compressedChunk, 2),
+		leaderChangedSignal: make(chan struct{}),
+		checkFlushInterval:  time.Second,
+		batchTimout:         cfg.BatchTimeout.Duration(),
+		chunk:               newChunk(cfg.BatchBlockSize),
+		lastFlushTime:       time.Now(),
+		logger:              logger.GetLogger("replica", "FamilyChannel"),
 	}
 
 	//TODO check target exist???
 
-	target := liveNodes[shardState.Leader]
-	go fc.writeTask(shardState, &target)
+	go fc.writeTask()
 
 	return fc
 }
@@ -123,6 +134,15 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 	return nil
 }
 
+// leaderChanged notifies family channel need change leader send stream
+func (fc *familyChannel) leaderChanged(shardState models.ShardState,
+	liveNodes map[models.NodeID]models.StatefulNode) {
+	fc.lock4meta.Lock()
+	fc.shardState = shardState
+	fc.liveNodes = liveNodes
+	fc.lock4meta.Unlock()
+}
+
 func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	if !fc.chunk.IsFull() {
 		return nil
@@ -143,7 +163,7 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 }
 
 // writeTask consumes data from chan, then appends the data into queue
-func (fc *familyChannel) writeTask(shardState models.ShardState, target models.Node) {
+func (fc *familyChannel) writeTask() {
 	// on avg 2 * limit could avoid buffer grow
 	ticker := time.NewTicker(fc.checkFlushInterval)
 	defer ticker.Stop()
@@ -162,6 +182,17 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 		select {
 		case <-fc.ctx.Done():
 			return
+		case <-fc.leaderChangedSignal:
+			fc.logger.Info("shard leader changed, need switch send stream",
+				logger.String("oldTarget", fc.currentTarget.Indicator()),
+				logger.String("database", fc.database))
+			if stream != nil {
+				// if stream isn't nil, need close old stream first.
+				if err := stream.Close(); err != nil {
+					fc.logger.Error("close write stream err when leader changed", logger.Error(err))
+				}
+				stream = nil
+			}
 		case compressed := <-fc.ch:
 			if compressed == nil {
 				// close chan
@@ -169,7 +200,12 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 			}
 			if stream == nil {
 				//TODO need set transport.defaultMaxStreamsClient???
-				stream, err = fc.newWriteStreamFn(fc.ctx, target, fc.database, &shardState, fc.familyTime, fc.fct)
+				fc.lock4meta.Lock()
+				leader := fc.liveNodes[fc.shardState.Leader]
+				shardState := fc.shardState
+				fc.currentTarget = &leader
+				fc.lock4meta.Unlock()
+				stream, err = fc.newWriteStreamFn(fc.ctx, fc.currentTarget, fc.database, &shardState, fc.familyTime, fc.fct)
 				if err != nil {
 					//TODO do retry, add max retry count?
 					//c.ch <- data
@@ -181,13 +217,13 @@ func (fc *familyChannel) writeTask(shardState models.ShardState, target models.N
 			} else {
 				fc.logger.Error(
 					"failed writing compressed chunk to storage",
-					logger.String("target", target.Indicator()),
+					logger.String("target", fc.currentTarget.Indicator()),
 					logger.String("database", fc.database),
 					logger.Error(err))
 				if err == io.EOF {
 					if closeError := stream.Close(); closeError != nil {
 						fc.logger.Error("failed closing write stream",
-							logger.String("target", target.Indicator()),
+							logger.String("target", fc.currentTarget.Indicator()),
 							logger.Error(closeError))
 					}
 					stream = nil
