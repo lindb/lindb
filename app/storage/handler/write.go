@@ -83,7 +83,7 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 			return nil
 		}
 		if err != nil {
-			r.logger.Error("get write request err", logger.Error(err))
+			r.logger.Error("receive write request err", logger.Error(err))
 			return status.Error(codes.Internal, err.Error())
 		}
 

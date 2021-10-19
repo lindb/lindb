@@ -28,7 +28,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -48,6 +47,11 @@ type StateManager interface {
 	// and chooses the leader replica if the shard has multi-replica.
 	// returns storage node => shard id list
 	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
+
+	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
+		shards map[models.ShardID]models.ShardState,
+		liveNodes map[models.NodeID]models.StatefulNode,
+	))
 }
 
 // stateManager implements StateManager.
@@ -61,10 +65,13 @@ type stateManager struct {
 	databases   map[string]models.Database      // database config
 	nodes       map[string]models.StatelessNode // broker live nodes
 
+	callbacks []func(databaseCfg models.Database,
+		shards map[models.ShardID]models.ShardState,
+		liveNodes map[models.NodeID]models.StatefulNode,
+	)
 	// connection manager
 	connectionManager rpc.ConnectionManager
 	taskClientFactory rpc.TaskClientFactory
-	cm                replica.ChannelManager
 
 	events chan *discovery.Event
 	mutex  sync.RWMutex
@@ -88,7 +95,6 @@ func NewStateManager(
 	currentNode models.StatelessNode,
 	connectionManager rpc.ConnectionManager,
 	taskClientFactory rpc.TaskClientFactory,
-	cm replica.ChannelManager,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -97,7 +103,6 @@ func NewStateManager(
 		currentNode:       currentNode,
 		connectionManager: connectionManager,
 		taskClientFactory: taskClientFactory,
-		cm:                cm,
 		storages:          make(map[string]*models.StorageState),
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
@@ -118,6 +123,17 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+func (m *stateManager) WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
+	shards map[models.ShardID]models.ShardState,
+	liveNodes map[models.NodeID]models.StatefulNode,
+)) {
+	if fn != nil {
+		m.mutex.Lock()
+		m.callbacks = append(m.callbacks, fn)
+		m.mutex.Unlock()
+	}
 }
 
 // EmitEvent emits discovery event when state changed.
@@ -287,10 +303,10 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 	// set state into cache
 	m.storages[newState.Name] = newState
 
-	//TODO need modify
-	m.buildShardAssign(newState)
+	m.logger.Info("storage state is changed successful, start notify shard state change",
+		logger.String("storage", newState.Name))
 
-	m.logger.Info("storage state is changed successful", logger.String("storage", newState.Name))
+	m.notifyShardStateChange(newState)
 }
 
 // onStorageDelete triggers when storage cluster is deletion.
@@ -390,29 +406,12 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]m
 }
 
 // buildShardAssign builds the data write channel and related shard state.
-func (m *stateManager) buildShardAssign(storageState *models.StorageState) {
+func (m *stateManager) notifyShardStateChange(storageState *models.StorageState) {
 	liveNodes := storageState.LiveNodes
 	for db, shards := range storageState.ShardStates {
 		databaseCfg := m.databases[db]
-		numOfShard := len(shards)
-		for _, shardState := range shards {
-			m.startWriteChannel(databaseCfg, numOfShard, shardState, liveNodes)
+		for _, fn := range m.callbacks {
+			fn(databaseCfg, shards, liveNodes)
 		}
 	}
-}
-
-// startWriteChannel starts data write channel for spec database's shard.
-func (m *stateManager) startWriteChannel(databaseCfg models.Database,
-	numOfShard int,
-	shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode,
-) {
-	shardID := shardState.ID
-	ch, err := m.cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
-	if err != nil {
-		m.logger.Error("create shard write channel", logger.String("db", databaseCfg.Name),
-			logger.Any("shard", shardID), logger.Error(err))
-		return
-	}
-
-	ch.SyncShardState(shardState, liveNodes)
 }

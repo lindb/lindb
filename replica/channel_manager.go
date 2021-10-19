@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -60,7 +61,8 @@ type (
 		// cancelFun to cancel context
 		cancel context.CancelFunc
 		// factory to get rpc  writeTask client
-		fct rpc.ClientStreamFactory
+		fct      rpc.ClientStreamFactory
+		stateMgr broker.StateManager
 
 		databaseChannels databaseChannels
 
@@ -73,15 +75,19 @@ type (
 func NewChannelManager(
 	ctx context.Context,
 	fct rpc.ClientStreamFactory,
+	stateMgr broker.StateManager,
 ) ChannelManager {
 	ctx, cancel := context.WithCancel(ctx)
 	cm := &channelManager{
-		ctx:    ctx,
-		cancel: cancel,
-		fct:    fct,
-		logger: logger.GetLogger("replica", "ChannelManager"),
+		ctx:      ctx,
+		cancel:   cancel,
+		fct:      fct,
+		stateMgr: stateMgr,
+		logger:   logger.GetLogger("replica", "ChannelManager"),
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
+
+	stateMgr.WatchShardStateChangeEvent(cm.handleShardStateChangeEvent)
 	return cm
 }
 
@@ -95,6 +101,24 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 		return fmt.Errorf("database [%s] not found", database)
 	}
 	return databaseChannel.Write(ctx, brokerBatchRows)
+}
+
+func (cm *channelManager) handleShardStateChangeEvent(
+	databaseCfg models.Database,
+	shards map[models.ShardID]models.ShardState,
+	liveNodes map[models.NodeID]models.StatefulNode,
+) {
+	numOfShard := len(shards)
+	for _, shardState := range shards {
+		shardID := shardState.ID
+		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
+		if err != nil {
+			cm.logger.Error("create shard write channel", logger.String("db", databaseCfg.Name),
+				logger.Any("shard", shardID), logger.Error(err))
+		} else {
+			ch.SyncShardState(shardState, liveNodes)
+		}
+	}
 }
 
 // CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
