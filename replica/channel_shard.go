@@ -80,12 +80,21 @@ func newChannel(
 }
 
 func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {
-	//TODO need sync shard state
-	c.shardState = shardState
-	c.liveNodes = liveNodes
-	c.logger.Info("start shard write channel successfully",
-		logger.String("db", c.database),
-		logger.Any("shardID", c.shardID))
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.shardState.Leader != shardState.Leader {
+		// leader change, need notify sender
+		c.shardState = shardState
+		c.liveNodes = liveNodes
+		families := c.families.Entries()
+		for _, family := range families {
+			family.leaderChanged(c.shardState, c.liveNodes)
+		}
+		c.logger.Info("shard leader changed, need switch leader sender",
+			logger.String("db", c.database),
+			logger.Any("shardID", c.shardID))
+	}
 }
 
 // GetOrCreateFamilyChannel returns family channel by given family time.

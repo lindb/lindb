@@ -19,7 +19,6 @@ package broker
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -30,17 +29,16 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 )
 
 func TestStateManager_Close(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
 	mgr.Close()
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
@@ -51,7 +49,7 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 }
 
 func TestStateManager_DatabaseConfig(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
 	// case 1: unmarshal database config err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.DatabaseConfigChanged,
@@ -97,7 +95,7 @@ func TestStateManager_Node(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := rpc.NewMockConnectionManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{HostIP: "3.3.3.3"}, cm, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{HostIP: "3.3.3.3"}, cm, nil)
 	// case 1: unmarshal node info err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.NodeStartup,
@@ -141,8 +139,8 @@ func TestStateManager_Storage(t *testing.T) {
 	defer ctrl.Finish()
 
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	cm := replica.NewMockChannelManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil, cm)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+
 	// case 1: unmarshal storage state err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageStateChanged,
@@ -204,15 +202,15 @@ func TestStateManager_ShardState(t *testing.T) {
 	defer ctrl.Finish()
 
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	cm := replica.NewMockChannelManager(ctrl)
-	channel := replica.NewMockChannel(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil, cm)
-
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	c := 0
+	mgr.WatchShardStateChangeEvent(func(_ models.Database,
+		_ map[models.ShardID]models.ShardState,
+		_ map[models.NodeID]models.StatefulNode) {
+		c++
+	})
 	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
 
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(channel, nil)
-	channel.EXPECT().SyncShardState(gomock.Any(), gomock.Any())
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
 		Key:  "/lin/storage/test",
@@ -228,7 +226,6 @@ func TestStateManager_ShardState(t *testing.T) {
 			}},
 		}),
 	})
-	cm.EXPECT().CreateChannel(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
 		Key:  "/lin/storage/test_1",
@@ -287,4 +284,6 @@ func TestStateManager_ShardState(t *testing.T) {
 	replicas, err = mgr.GetQueryableReplicas("db")
 	assert.NoError(t, err)
 	assert.Len(t, replicas, 1)
+
+	assert.True(t, c > 0)
 }
