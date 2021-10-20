@@ -238,6 +238,23 @@ func TestFanOut_new_err(t *testing.T) {
 	assert.Nil(t, fo)
 }
 
+func TestFanOut_IsEmpty(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+
+	fq, err := NewFanOutQueue(dir, 1024, time.Minute)
+	assert.NoError(t, err)
+	f1, err := fq.GetOrCreateFanOut("f1")
+	assert.NoError(t, err)
+	assert.True(t, f1.IsEmpty())
+	msg := []byte("123")
+	err = fq.Put(msg)
+	assert.NoError(t, err)
+	assert.False(t, f1.IsEmpty())
+	idx := f1.Consume()
+	f1.Ack(idx)
+	assert.True(t, f1.IsEmpty())
+}
+
 func TestFanOutQueue_one_consumer(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 

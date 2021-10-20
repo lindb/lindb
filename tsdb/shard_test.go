@@ -131,7 +131,7 @@ func TestShard_New(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, thisShard)
 	assert.NotNil(t, thisShard.IndexDatabase())
-	assert.Equal(t, "db", thisShard.DatabaseName())
+	assert.Equal(t, db, thisShard.Database())
 	assert.Equal(t, models.ShardID(1), thisShard.ShardID())
 
 	assert.True(t, fileutil.Exist(_testShard1Path))

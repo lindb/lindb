@@ -56,6 +56,7 @@ type DataFamily interface {
 	Shard() Shard
 	// Interval returns the interval data family's interval
 	Interval() timeutil.Interval
+	FamilyTime() int64
 	// TimeRange returns the data family's base time range
 	TimeRange() timeutil.TimeRange
 	// Family returns the raw kv family
@@ -148,7 +149,7 @@ func newDataFamily(
 		f.persistSeq[leader] = sequence
 	}
 
-	dbName := shard.DatabaseName()
+	dbName := shard.Database().Name()
 	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 
 	f.statistics.writeBatches = writeBatchesVec.WithTagValues(dbName, shardIDStr)
@@ -189,6 +190,10 @@ func (f *dataFamily) TimeRange() timeutil.TimeRange {
 // Family returns the kv store's family
 func (f *dataFamily) Family() kv.Family {
 	return f.family
+}
+
+func (f *dataFamily) FamilyTime() int64 {
+	return f.familyTime
 }
 
 func (f *dataFamily) NeedFlush() bool {
@@ -482,7 +487,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	if f.mutableMemDB == nil {
 		newDB, err := newMemoryDBFunc(memdb.MemoryDatabaseCfg{
 			FamilyTime: familyTime,
-			Name:       f.shard.DatabaseName(),
+			Name:       f.shard.Database().Name(),
 			BufferMgr:  f.shard.BufferManager(),
 		})
 		if err != nil {

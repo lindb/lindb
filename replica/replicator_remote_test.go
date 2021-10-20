@@ -112,11 +112,13 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	fq.EXPECT().HeadSeq().Return(int64(5))
 	q.EXPECT().HeadSeq().Return(int64(12))
 	q.EXPECT().TailSeq().Return(int64(9))
+	q.EXPECT().Ack(int64(10))
 	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 		AckIndex: 10,
 	}, nil)
 	fq.EXPECT().SetAppendSeq(int64(11))
-	q.EXPECT().SetHeadSeq(int64(11)).Return(fmt.Errorf("err"))
+	q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
+	q.EXPECT().HeadSeq().Return(int64(11))
 	assert.True(t, r.IsReady())
 	// case 9: reconnect after fail
 	r1 = r.(*remoteReplicator)
@@ -128,7 +130,9 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		AckIndex: 10,
 	}, nil)
 	fq.EXPECT().SetAppendSeq(int64(11))
-	q.EXPECT().SetHeadSeq(int64(11)).Return(fmt.Errorf("err"))
+	q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
+	q.EXPECT().Ack(int64(10))
+	q.EXPECT().HeadSeq().Return(int64(11))
 	assert.True(t, r.IsReady())
 }
 

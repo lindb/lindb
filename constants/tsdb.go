@@ -29,10 +29,12 @@ const (
 
 	// MetricMaxAheadDuration controls the global max write ahead duration.
 	// If current timestamp is 2021-08-19 23:00:00, metric after 2021-08-20 23:00:00 will be dropped.
-	MetricMaxAheadDuration = 24 * 60 * 60 * 1000
+	MetricMaxAheadDuration    = 24 * 60 * 60 * 1000
+	MetricMaxAheadDurationStr = "1d"
 	// MetricMaxBehindDuration controls the global max write behind duration.
 	// If current timestamp is 2021-08-19 23:00:00, metric before 2021-08-18 23:00:00 will be dropped.
-	MetricMaxBehindDuration = 24 * 60 * 60 * 1000
+	MetricMaxBehindDuration    = 24 * 60 * 60 * 1000
+	MetricMaxBehindDurationStr = "1d"
 
 	// DefaultNamespace represents default namespace if not set
 	DefaultNamespace = "default-ns"

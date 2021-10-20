@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -88,19 +87,11 @@ func newDatabaseChannel(
 	}
 	ch.shardChannels.value.Store(make(shard2Channel))
 
-	var ahead timeutil.Interval
-	var behind timeutil.Interval
-	_ = ahead.ValueOf(databaseCfg.Option.Ahead)
-	_ = behind.ValueOf(databaseCfg.Option.Behind)
-	ch.ahead = atomic.NewInt64(ahead.Int64())
-	ch.behind = atomic.NewInt64(behind.Int64())
+	opt := databaseCfg.Option
+	ahead, behind := (&opt).GetAcceptWritableRange()
+	ch.ahead = atomic.NewInt64(ahead)
+	ch.behind = atomic.NewInt64(behind)
 	_ = ch.interval.ValueOf(databaseCfg.Option.Interval)
-	if ch.ahead.Load() <= 0 {
-		ch.ahead.Store(constants.MetricMaxBehindDuration)
-	}
-	if ch.behind.Load() <= 0 {
-		ch.behind.Store(constants.MetricMaxAheadDuration)
-	}
 
 	ch.numOfShard.Store(numOfShard)
 	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)

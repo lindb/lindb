@@ -55,6 +55,7 @@ var cfg = config.Storage{
 		Namespace: "/test/2222",
 	},
 	StorageBase: config.StorageBase{
+		WAL:       config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
 		Indicator: 1,
 		GRPC: config.GRPC{
 			Port: 9999,

@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
@@ -49,7 +50,8 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 	) WriteAheadLog {
 		return NewMockWriteAheadLog(ctrl)
 	}
-	m := NewWriteAheadLogManager(context.TODO(), config.WAL{}, 1, nil, nil, nil)
+	m := NewWriteAheadLogManager(context.TODO(), config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
+		1, nil, nil, nil)
 	// create new
 	l := m.GetOrCreateLog("test")
 	assert.NotNil(t, l)
@@ -65,7 +67,8 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		ctrl.Finish()
 	}()
 	engine := tsdb.NewMockEngine(ctrl)
-	l := NewWriteAheadLog(context.TODO(), config.WAL{}, 1, "test", engine, nil, nil)
+	l := NewWriteAheadLog(context.TODO(), config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
+		1, "test", engine, nil, nil)
 
 	// case 1: shard not exist
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
