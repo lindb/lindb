@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -59,17 +58,15 @@ type stateManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	repoFactory       state.RepositoryFactory
-	controllerFactory task.ControllerFactory
-	stateMachineFct   *StateMachineFactory
+	repoFactory     state.RepositoryFactory
+	stateMachineFct *StateMachineFactory
 
 	masterRepo state.Repository
 	elector    ReplicaLeaderElector
 
 	newStorageClusterFn func(ctx context.Context, cfg config.StorageCluster,
 		stateMgr StateManager,
-		repoFactory state.RepositoryFactory,
-		controllerFactory task.ControllerFactory) (cluster StorageCluster, err error)
+		repoFactory state.RepositoryFactory) (cluster StorageCluster, err error)
 
 	storages  map[string]StorageCluster
 	databases map[string]models.Database
@@ -100,7 +97,6 @@ func NewStateManager(
 	ctx context.Context,
 	masterRepo state.Repository,
 	repoFactory state.RepositoryFactory,
-	controllerFactory task.ControllerFactory,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -108,7 +104,6 @@ func NewStateManager(
 		cancel:              cancel,
 		masterRepo:          masterRepo,
 		repoFactory:         repoFactory,
-		controllerFactory:   controllerFactory,
 		storages:            make(map[string]StorageCluster),
 		databases:           make(map[string]models.Database),
 		elector:             newReplicaLeaderElector(),
@@ -360,7 +355,7 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	//TODO add config
 	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
 	cfg.Config.Timeout = ltoml.Duration(5 * time.Second)
-	cluster, err := m.newStorageClusterFn(m.ctx, cfg, m, m.repoFactory, m.controllerFactory)
+	cluster, err := m.newStorageClusterFn(m.ctx, cfg, m, m.repoFactory)
 	if err != nil {
 		return err
 	}

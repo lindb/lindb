@@ -28,7 +28,6 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
@@ -36,7 +35,7 @@ import (
 )
 
 func TestStateManager_Close(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	fct := &StateMachineFactory{}
 	mgr.SetStateMachineFactory(fct)
 	assert.Equal(t, fct, mgr.GetStateMachineFactory())
@@ -45,7 +44,7 @@ func TestStateManager_Close(t *testing.T) {
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
@@ -56,7 +55,7 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 }
 
 func TestStateManager_NotRunning(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.running.Store(false)
 	// case 1: panic
@@ -73,7 +72,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	mgr := NewStateManager(context.TODO(), nil, nil, nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
 	//mgr1 := mgr.(*stateManager)
 	// case 1: unmarshal cfg err
@@ -92,7 +91,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr1.mutex.Lock()
 	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
-		controllerFactory task.ControllerFactory) (cluster StorageCluster, err error) {
+	) (cluster StorageCluster, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	mgr1.mutex.Unlock()
@@ -107,7 +106,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr1.mutex.Lock()
 	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
-		controllerFactory task.ControllerFactory) (cluster StorageCluster, err error) {
+	) (cluster StorageCluster, err error) {
 		return storage1, nil
 	}
 	mgr1.mutex.Unlock()
@@ -154,13 +153,13 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		ctrl.Finish()
 	}()
 	repo := state.NewMockRepository(ctrl)
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	storage1 := NewMockStorageCluster(ctrl)
 	mgr1.mutex.Lock()
 	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
-		controllerFactory task.ControllerFactory) (cluster StorageCluster, err error) {
+	) (cluster StorageCluster, err error) {
 		return storage1, nil
 	}
 	mgr1.mutex.Unlock()
@@ -245,7 +244,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	storage.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	elector := NewMockReplicaLeaderElector(ctrl)
 	mgr1.mutex.Lock()
@@ -295,7 +294,7 @@ func TestStateManager_createShardAssign(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	storage.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	// case 1: get live nodes err
 	storage.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
@@ -344,7 +343,7 @@ func TestStateManager_modifyShardAssign(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	storage.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	// case 1: no impl
 	assert.Panics(t, func() {
@@ -399,7 +398,7 @@ func TestStateManager_StorageNodeStartup(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	storage.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.storages["test"] = storage
@@ -462,7 +461,7 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	storage.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), repo, nil, nil)
+	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.storages["test"] = storage

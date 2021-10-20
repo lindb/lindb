@@ -88,18 +88,17 @@ type runtime struct {
 	stateMgr            storage.StateManager
 	walMgr              replica.WriteAheadLogManager
 
-	node         *models.StatefulNode
-	server       rpc.GRPCServer
-	repoFactory  state.RepositoryFactory
-	repo         state.Repository
-	taskExecutor *storage.TaskExecutor
-	factory      factory
-	engine       tsdb.Engine
-	rpcHandler   *rpcHandler
-	httpServer   *http.Server
-	queryPool    concurrent.Pool
-	pusher       monitoring.NativePusher
-	log          *logger.Logger
+	node        *models.StatefulNode
+	server      rpc.GRPCServer
+	repoFactory state.RepositoryFactory
+	repo        state.Repository
+	factory     factory
+	engine      tsdb.Engine
+	rpcHandler  *rpcHandler
+	httpServer  *http.Server
+	queryPool   concurrent.Pool
+	pusher      monitoring.NativePusher
+	log         *logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -203,9 +202,6 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("start state machines error: %s", err)
 	}
 
-	r.taskExecutor = storage.NewTaskExecutor(r.ctx, r.node, r.repo, r.engine)
-	r.taskExecutor.Run()
-
 	// start system collector
 	r.systemCollector()
 	// start stat monitoring
@@ -295,15 +291,6 @@ func (r *runtime) Stop() {
 	if r.pusher != nil {
 		r.pusher.Stop()
 		r.log.Info("stopped native linmetric pusher successfully")
-	}
-
-	if r.taskExecutor != nil {
-		r.log.Info("stopping task executor")
-		if err := r.taskExecutor.Close(); err != nil {
-			r.log.Error("stopped task executor with error", logger.Error(err))
-		} else {
-			r.log.Info("stooped task executor successfully")
-		}
 	}
 
 	// close state repo if exist
