@@ -125,8 +125,8 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		// write replica wal log
 		appendedIdx, err := p.ReplicaLog(req.ReplicaIndex, req.Record)
 
-		resp.ReplicaIndex = appendedIdx
-		//TODO need set ack index
+		resp.ReplicaIndex = req.ReplicaIndex
+		resp.AckIndex = appendedIdx
 
 		if err != nil {
 			resp.Err = err.Error()
