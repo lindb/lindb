@@ -107,9 +107,6 @@ func newFamilyChannel(
 		lastFlushTime:       time.Now(),
 		logger:              logger.GetLogger("replica", "FamilyChannel"),
 	}
-
-	//TODO check target exist???
-
 	go fc.writeTask()
 
 	return fc
@@ -168,8 +165,38 @@ func (fc *familyChannel) writeTask() {
 	ticker := time.NewTicker(fc.checkFlushInterval)
 	defer ticker.Stop()
 
+	retryBuffers := make([]*compressedChunk, 0)
+	retry := func(compressed *compressedChunk) {
+		//TODO add config
+		if len(retryBuffers) > 100 {
+			fc.logger.Error("too many retry messages, drop current message")
+		} else {
+			retryBuffers = append(retryBuffers, compressed)
+		}
+	}
+	send := func(stream rpc.WriteStream, compressed *compressedChunk) bool {
+		if err := stream.Send(*compressed); err != nil {
+			fc.logger.Error(
+				"failed writing compressed chunk to storage",
+				logger.String("target", fc.currentTarget.Indicator()),
+				logger.String("database", fc.database),
+				logger.Error(err))
+			if err == io.EOF {
+				if closeError := stream.Close(); closeError != nil {
+					fc.logger.Error("failed closing write stream",
+						logger.String("target", fc.currentTarget.Indicator()),
+						logger.Error(closeError))
+				}
+			}
+			// retry if err
+			retry(compressed)
+			return false
+		}
+		compressed.Release()
+		return true
+	}
+
 	var stream rpc.WriteStream
-	var err error
 	defer func() {
 		if stream != nil {
 			if err := stream.Close(); err != nil {
@@ -177,6 +204,7 @@ func (fc *familyChannel) writeTask() {
 			}
 		}
 	}()
+	var err error
 
 	for {
 		select {
@@ -207,29 +235,28 @@ func (fc *familyChannel) writeTask() {
 				fc.lock4meta.Unlock()
 				stream, err = fc.newWriteStreamFn(fc.ctx, fc.currentTarget, fc.database, &shardState, fc.familyTime, fc.fct)
 				if err != nil {
-					//TODO do retry, add max retry count?
-					//c.ch <- data
+					retry(compressed)
 					continue
 				}
 			}
-			if err := stream.Send(*compressed); err == nil {
-				compressed.Release()
-			} else {
-				fc.logger.Error(
-					"failed writing compressed chunk to storage",
-					logger.String("target", fc.currentTarget.Indicator()),
-					logger.String("database", fc.database),
-					logger.Error(err))
-				if err == io.EOF {
-					if closeError := stream.Close(); closeError != nil {
-						fc.logger.Error("failed closing write stream",
-							logger.String("target", fc.currentTarget.Indicator()),
-							logger.Error(closeError))
+			if send(stream, compressed) {
+				// if send ok, do pending retry message
+				if len(retryBuffers) > 0 {
+					messages := retryBuffers
+					retryBuffers = make([]*compressedChunk, 0)
+					fail := false
+					for _, msg := range messages {
+						if fail {
+							retry(msg)
+							continue
+						}
+						if !send(stream, msg) {
+							fail = true
+						}
 					}
-					stream = nil
 				}
-				//TODO do retry
-				//c.ch <- data
+			} else {
+				stream = nil
 			}
 		case <-ticker.C:
 			// check
