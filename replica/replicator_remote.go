@@ -19,7 +19,6 @@ package replica
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -202,7 +201,6 @@ func (r *remoteReplicator) IsReady() bool {
 
 // Replica sends data to remote replica node.
 func (r *remoteReplicator) Replica(idx int64, msg []byte) {
-	fmt.Printf("remote: %d-%d\n", r.channel.State.Leader, idx)
 	cli := r.replicaStream
 	err := cli.Send(&protoReplicaV1.ReplicaRequest{
 		ReplicaIndex: idx,
