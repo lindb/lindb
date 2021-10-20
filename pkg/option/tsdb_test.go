@@ -21,9 +21,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/constants"
 )
 
-func Test_DatabaseOption_Validate(t *testing.T) {
+func TestDatabaseOption_Validate(t *testing.T) {
 	databaseOption := DatabaseOption{Interval: "ad"}
 	assert.NotNil(t, databaseOption.Validate())
 	databaseOption = DatabaseOption{Interval: "-10s"}
@@ -44,4 +46,15 @@ func Test_DatabaseOption_Validate(t *testing.T) {
 	assert.NotNil(t, databaseOption.Validate())
 	databaseOption = DatabaseOption{Interval: "10s", Rollup: []string{"20s", "1m", "1h"}, Behind: "10h", Ahead: "1h"}
 	assert.Nil(t, databaseOption.Validate())
+}
+
+func TestDatabaseOption_Default(t *testing.T) {
+	databaseOption := DatabaseOption{Interval: "1m"}
+	databaseOption.Default()
+	assert.Equal(t, databaseOption.Ahead, constants.MetricMaxAheadDurationStr)
+	assert.Equal(t, databaseOption.Behind, constants.MetricMaxBehindDurationStr)
+	_, _ = databaseOption.GetAcceptWritableRange()
+	ahead, behind := databaseOption.GetAcceptWritableRange()
+	assert.Equal(t, ahead, int64(constants.MetricMaxAheadDuration))
+	assert.Equal(t, behind, int64(constants.MetricMaxBehindDuration))
 }

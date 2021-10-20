@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
@@ -54,6 +56,8 @@ type Partition interface {
 	// ReplicaAckIndex returns the index which replica appended index.
 	ReplicaAckIndex() int64
 	ResetReplicaIndex(idx int64)
+	IsExpire() bool
+	Path() string
 	recovery(leader models.NodeID) error
 }
 
@@ -75,7 +79,7 @@ type partition struct {
 	logger *logger.Logger
 }
 
-// NewPartition creates a writeTask ahead log partition.
+// NewPartition creates a writeTask ahead log partition(db+shard+family time+leader).
 func NewPartition(
 	ctx context.Context,
 	shard tsdb.Shard,
@@ -118,6 +122,29 @@ func (p *partition) ReplicaAckIndex() int64 {
 
 func (p *partition) ResetReplicaIndex(idx int64) {
 	p.log.SetAppendSeq(idx)
+}
+
+func (p *partition) Path() string {
+	return p.log.Path()
+}
+
+func (p *partition) IsExpire() bool {
+	ns := p.log.FanOutNames()
+	for _, n := range ns {
+		q, _ := p.log.GetOrCreateFanOut(n)
+		if !q.IsEmpty() {
+			return false
+		}
+	}
+	opt := p.shard.Database().GetOption()
+	ahead, _ := (&opt).GetAcceptWritableRange()
+	timeRange := p.family.TimeRange()
+	now := fasttime.UnixMilliseconds()
+	// add 15 minute buffer
+	if ahead > 0 && timeRange.End+ahead+15*time.Minute.Milliseconds() > now {
+		return false
+	}
+	return true
 }
 
 // WriteLog writes msg that leader send replica msg.
@@ -174,8 +201,8 @@ func (p *partition) Close() error {
 	for k := range p.peers {
 		r := p.peers[k]
 		go func() {
-			waiter.Done()
 			r.Shutdown()
+			waiter.Done()
 		}()
 	}
 	waiter.Wait()
@@ -201,7 +228,7 @@ func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) er
 	var replicator Replicator
 	channel := ReplicatorChannel{
 		State: &models.ReplicaState{
-			Database:   p.shard.DatabaseName(),
+			Database:   p.shard.Database().Name(),
 			ShardID:    p.shardID,
 			Leader:     leader,
 			Follower:   replica,

@@ -76,8 +76,8 @@ const (
 
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
-	// DatabaseName returns the database name.
-	DatabaseName() string
+	// Database returns the database.
+	Database() Database
 	// ShardID returns the shard id.
 	ShardID() models.ShardID
 	// Path returns shard's storage directory.
@@ -112,10 +112,10 @@ type Shard interface {
 //    xx/shard/1/data/20191012/
 //    xx/shard/1/data/20191013/
 type shard struct {
-	databaseName string
-	id           models.ShardID
-	path         string
-	option       option.DatabaseOption
+	db     Database
+	id     models.ShardID
+	path   string
+	option option.DatabaseOption
 
 	bufferMgr memdb.BufferManager
 	indexDB   indexdb.IndexDatabase
@@ -159,16 +159,16 @@ func newShard(
 		return nil, err
 	}
 	createdShard := &shard{
-		databaseName: db.Name(),
-		id:           shardID,
-		path:         shardPath,
-		option:       option,
-		metadata:     db.Metadata(),
-		bufferMgr:    memdb.NewBufferManager(filepath.Join(shardPath, bufferDir)),
-		interval:     interval,
-		segments:     make(map[timeutil.IntervalType]IntervalSegment),
-		isFlushing:   *atomic.NewBool(false),
-		logger:       logger.GetLogger("tsdb", "Shard"),
+		db:         db,
+		id:         shardID,
+		path:       shardPath,
+		option:     option,
+		metadata:   db.Metadata(),
+		bufferMgr:  memdb.NewBufferManager(filepath.Join(shardPath, bufferDir)),
+		interval:   interval,
+		segments:   make(map[timeutil.IntervalType]IntervalSegment),
+		isFlushing: *atomic.NewBool(false),
+		logger:     logger.GetLogger("tsdb", "Shard"),
 	}
 	//try cleanup history dirty write buffer
 	createdShard.bufferMgr.Cleanup()
@@ -197,7 +197,7 @@ func newShard(
 		if err = createdShard.Close(); err != nil {
 			engineLogger.Error("close shard error when create shard fail",
 				logger.Any("shardID", createdShard.id),
-				logger.String("database", createdShard.databaseName),
+				logger.String("database", createdShard.db.Name()),
 				logger.String("shard", createdShard.path), logger.Error(err))
 		}
 	}()
@@ -207,8 +207,8 @@ func newShard(
 	return createdShard, nil
 }
 
-// DatabaseName returns the database name
-func (s *shard) DatabaseName() string { return s.databaseName }
+// Database returns the database.
+func (s *shard) Database() Database { return s.db }
 
 // ShardID returns the shard id.
 func (s *shard) ShardID() models.ShardID { return s.id }
@@ -394,13 +394,13 @@ func (s *shard) Flush() (err error) {
 		if err = s.indexDB.Flush(); err != nil {
 			s.logger.Error("failed to flush indexDB ",
 				logger.Any("shardID", s.id),
-				logger.String("database", s.databaseName),
+				logger.String("database", s.db.Name()),
 				logger.Error(err))
 			return err
 		}
 		s.logger.Info("flush indexDB successfully",
 			logger.Any("shardID", s.id),
-			logger.String("database", s.databaseName),
+			logger.String("database", s.db.Name()),
 		)
 		s.statistics.indexFlushTimer.UpdateSince(startTime)
 	}

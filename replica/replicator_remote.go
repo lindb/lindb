@@ -145,16 +145,16 @@ func (r *remoteReplicator) IsReady() bool {
 		return false
 	}
 
-	lastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
+	remoteLastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
 	if err != nil {
 		r.logger.Warn("do get replica ack index err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
 		return false
 	}
-	replicaIdx := r.ReplicaIndex() // current need replica index from current node
-	nextReplicaIdx := lastReplicaAckIdx + 1
-	if nextReplicaIdx == replicaIdx {
+	localReplicaIdx := r.ReplicaIndex() // current need replica index from current node
+	nextReplicaIdx := remoteLastReplicaAckIdx + 1
+	if nextReplicaIdx == localReplicaIdx {
 		// replica index == remote replica append index, can do replicator
 		r.state = ReplicatorReadyState
 		return true
@@ -164,12 +164,12 @@ func (r *remoteReplicator) IsReady() bool {
 	appendIdx := r.AppendIndex()
 	smallestAckIdx := r.AckIndex()
 	switch {
-	case lastReplicaAckIdx < smallestAckIdx:
+	case remoteLastReplicaAckIdx < smallestAckIdx:
 		// maybe new remote replica node add in cluster or remote replica data lost.
 		needResetReplicaIdx := smallestAckIdx + 1
 		r.logger.Warn("replica node ack < current node ack, need reset remote replica node's append index",
 			logger.String("replicator", r.String()),
-			logger.Int64("lastReplicaAckIdx", lastReplicaAckIdx),
+			logger.Int64("remoteLastReplicaAckIdx", remoteLastReplicaAckIdx),
 			logger.Int64("smallestAckIdx", smallestAckIdx),
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		// send reset index request
@@ -189,20 +189,30 @@ func (r *remoteReplicator) IsReady() bool {
 		_ = r.ResetReplicaIndex(nextReplicaIdx)
 		r.state = ReplicatorReadyState
 		return true
-	case lastReplicaAckIdx > appendIdx:
+	case remoteLastReplicaAckIdx > appendIdx:
 		// new writeTask data will be lost, because leader's lost old wal data
 		r.ResetAppendIndex(nextReplicaIdx)
 	}
 	// remote replica ack idx > current ack idx, maybe ack request lost
-	_ = r.ResetReplicaIndex(nextReplicaIdx)
+	_ = r.ResetReplicaIndex(nextReplicaIdx - 1)
+	r.SetAckIndex(remoteLastReplicaAckIdx)
+	// get new local replica idx, double check if reset replica index successfully.
+	newLocalReplicaIdx := r.ReplicaIndex()
 	r.logger.Warn("remote replica ack idx != current replica idx, reset current replica idx",
 		logger.String("replicator", r.String()),
-		logger.Int64("lastReplicaAckIdx", lastReplicaAckIdx),
-		logger.Int64("replicaIdx", replicaIdx),
+		logger.Int64("remoteLastReplicaAckIdx", remoteLastReplicaAckIdx),
+		logger.Int64("oldLocalReplicaIdx", localReplicaIdx),
+		logger.Int64("newLocalReplicaIdx", newLocalReplicaIdx),
 		logger.Int64("nextReplicaIdx", nextReplicaIdx),
 	)
-	r.state = ReplicatorReadyState
-	return true
+	if newLocalReplicaIdx == nextReplicaIdx {
+		// replica index == remote replica append index, can do replicator
+		r.state = ReplicatorReadyState
+		r.logger.Info("remote replica ack idx != current replica idx, reset current replica idx successfully",
+			logger.String("replicator", r.String()))
+		return true
+	}
+	return false
 }
 
 // Replica sends data to remote replica node.
@@ -221,6 +231,10 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		r.state = ReplicatorFailureState
 		return
 	}
+	r.logger.Debug("receive replica response",
+		logger.String("replicator", r.String()),
+		logger.Int64("replicaIdx", resp.ReplicaIndex),
+		logger.Int64("ackIdx", resp.AckIndex))
 	if resp.AckIndex == resp.ReplicaIndex {
 		// if ack index = replica, need ack wal
 		r.SetAckIndex(resp.AckIndex)

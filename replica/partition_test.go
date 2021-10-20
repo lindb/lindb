@@ -40,9 +40,11 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 		newRemoteReplicatorFn = NewRemoteReplicator
 		ctrl.Finish()
 	}()
+	database := tsdb.NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	r := NewMockReplicator(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
-	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
@@ -81,9 +83,11 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 		ctrl.Finish()
 	}()
 	r := NewMockReplicator(ctrl)
+	database := tsdb.NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
@@ -115,9 +119,11 @@ func TestPartition_Close(t *testing.T) {
 		ctrl.Finish()
 	}()
 	r := NewMockReplicator(ctrl)
+	database := tsdb.NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_Close").AnyTimes()

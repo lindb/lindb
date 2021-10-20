@@ -75,16 +75,17 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		lr.SetAckIndex(seq)
 		lr.logger.Info("ack local replica index",
 			logger.String("replica", lr.String()),
-			logger.Int64("sequence", seq))
+			logger.Int64("ackIdx", seq))
 	})
 
 	shardStr := shard.ShardID().String()
-	lr.statistics.localMaxDecodedBlock = localMaxDecodedBlockVec.WithTagValues(shard.DatabaseName(), shardStr)
-	lr.statistics.localReplicaCounts = localReplicaCountsVec.WithTagValues(shard.DatabaseName(), shardStr)
-	lr.statistics.localReplicaBytes = localReplicaBytesVec.WithTagValues(shard.DatabaseName(), shardStr)
-	lr.statistics.localReplicaRows = localReplicaRowsVec.WithTagValues(shard.DatabaseName(), shardStr)
-	lr.statistics.localReplicaSequence = localReplicaSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
-	lr.statistics.localInvalidSequenceVec = localInvalidSequenceVec.WithTagValues(shard.DatabaseName(), shardStr)
+	databaseName := shard.Database().Name()
+	lr.statistics.localMaxDecodedBlock = localMaxDecodedBlockVec.WithTagValues(databaseName, shardStr)
+	lr.statistics.localReplicaCounts = localReplicaCountsVec.WithTagValues(databaseName, shardStr)
+	lr.statistics.localReplicaBytes = localReplicaBytesVec.WithTagValues(databaseName, shardStr)
+	lr.statistics.localReplicaRows = localReplicaRowsVec.WithTagValues(databaseName, shardStr)
+	lr.statistics.localReplicaSequence = localReplicaSequenceVec.WithTagValues(databaseName, shardStr)
+	lr.statistics.localInvalidSequenceVec = localInvalidSequenceVec.WithTagValues(databaseName, shardStr)
 
 	lr.logger.Info("start local replicator", logger.String("replica", lr.String()))
 	return lr
@@ -144,7 +145,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if err := r.shard.WriteRows(rows); err != nil {
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
-			logger.String("database", r.shard.DatabaseName()),
+			logger.String("database", r.shard.Database().Name()),
 			logger.Int("shardID", int(r.shard.ShardID())),
 			logger.Error(err))
 		return
@@ -153,7 +154,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if err := r.family.WriteRows(rows); err != nil {
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
-			logger.String("database", r.shard.DatabaseName()),
+			logger.String("database", r.shard.Database().Name()),
 			logger.Int("shardID", int(r.shard.ShardID())),
 			logger.Error(err))
 	}

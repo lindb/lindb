@@ -10,6 +10,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/fatih/color v1.13.0 // indirect
 	github.com/felixge/fgprof v0.9.1
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
@@ -28,6 +29,7 @@ require (
 	github.com/mattn/go-colorable v0.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.14
 	github.com/pkg/errors v0.8.1
+	github.com/rakyll/gotest v0.0.6 // indirect
 	github.com/shirou/gopsutil v3.21.5+incompatible
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.7.0
@@ -38,7 +40,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/sys v0.0.0-20211020064051-0ec99a608a1b
+	golang.org/x/sys v0.0.0-20211023085530-d6a326fbbf70
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

@@ -23,6 +23,7 @@ import (
 	"path"
 	"strconv"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
@@ -67,6 +69,7 @@ type WriteAheadLog interface {
 
 	// recovery recoveries database write ahead log from local storage.
 	recovery() error
+	destroy()
 }
 
 // writeAheadLogManager implements WriteAheadLogManager.
@@ -103,7 +106,31 @@ func NewWriteAheadLogManager(
 		stateMgr:      stateMgr,
 	}
 	mgr.databaseLogs.Store(make(databaseLogs))
+
+	mgr.garbageCollectTask()
+
 	return mgr
+}
+
+func (w *writeAheadLogManager) garbageCollect() {
+	logs := w.databaseLogs.Load().(databaseLogs)
+	for _, log := range logs {
+		log.destroy()
+	}
+}
+
+func (w *writeAheadLogManager) garbageCollectTask() {
+	go func() {
+		ticker := time.NewTicker(w.cfg.RemoveTaskInterval.Duration())
+		for {
+			select {
+			case <-ticker.C:
+				w.garbageCollect()
+			case <-w.ctx.Done():
+				return
+			}
+		}
+	}()
 }
 
 func (w *writeAheadLogManager) getLog(database string) (WriteAheadLog, bool) {
@@ -161,7 +188,8 @@ func (w *writeAheadLogManager) Recovery() error {
 }
 
 type (
-	shardLogs map[partitionKey]Partition
+	// family log = shard + family + leader
+	familyLogs map[partitionKey]Partition
 	// writeAheadLog implements WriteAheadLog.
 	writeAheadLog struct {
 		ctx           context.Context
@@ -173,8 +201,10 @@ type (
 		cliFct        rpc.ClientStreamFactory
 		stateMgr      storage.StateManager
 
-		mutex     sync.Mutex
-		shardLogs atomic.Value
+		mutex      sync.Mutex
+		familyLogs atomic.Value
+
+		logger *logger.Logger
 	}
 )
 
@@ -197,8 +227,9 @@ func NewWriteAheadLog(
 		engine:        engine,
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
+		logger:        logger.GetLogger("replica", "WriteAheadLogManager"),
 	}
-	log.shardLogs.Store(make(shardLogs))
+	log.familyLogs.Store(make(familyLogs))
 	return log
 }
 
@@ -235,11 +266,11 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		return nil, err
 	}
 	// wal path: base dir + database + shard + family time + leader
-	dirPath := path.Join(
-		w.dir,
+	dir := path.Join(
 		strconv.Itoa(int(shardID)),
 		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
 		strconv.Itoa(int(leader)))
+	dirPath := path.Join(w.dir, dir)
 
 	interval := w.cfg.RemoveTaskInterval.Duration()
 
@@ -254,18 +285,18 @@ func (w *writeAheadLog) GetOrCreatePartition(
 }
 
 func (w *writeAheadLog) getPartition(key partitionKey) (Partition, bool) {
-	p, ok := w.shardLogs.Load().(shardLogs)[key]
+	p, ok := w.familyLogs.Load().(familyLogs)[key]
 	return p, ok
 }
 
 func (w *writeAheadLog) insertPartition(key partitionKey, p Partition) {
-	oldMap := w.shardLogs.Load().(shardLogs)
-	newMap := make(shardLogs)
+	oldMap := w.familyLogs.Load().(familyLogs)
+	newMap := make(familyLogs)
 	for key, partition := range oldMap {
 		newMap[key] = partition
 	}
 	newMap[key] = p
-	w.shardLogs.Store(newMap)
+	w.familyLogs.Store(newMap)
 }
 
 func (w *writeAheadLog) recovery() error {
@@ -299,4 +330,58 @@ func (w *writeAheadLog) recovery() error {
 		}
 	}
 	return nil
+}
+
+func (w *writeAheadLog) destroy() {
+	logs := w.familyLogs.Load().(familyLogs)
+	newLogs := make(familyLogs)
+	expireLogs := make(familyLogs)
+
+	for key, log := range logs {
+		isExpire := log.IsExpire()
+		w.logger.Debug("check write ahead log if expire", logger.String("path",
+			log.Path()), logger.Any("expire", isExpire))
+		if isExpire {
+			expireLogs[key] = log
+		} else {
+			newLogs[key] = log
+		}
+	}
+
+	// set new logs
+	w.familyLogs.Store(newLogs)
+
+	for _, log := range expireLogs {
+		w.logger.Info("write ahead log is expire, need destroy it", logger.String("path", log.Path()))
+		if err := log.Close(); err != nil {
+			w.logger.Warn("close write ahead log", logger.String("path", log.Path()), logger.Error(err))
+		}
+		if err := fileutil.RemoveDir(log.Path()); err != nil {
+			w.logger.Warn("remove write ahead log dir", logger.String("path", log.Path()), logger.Error(err))
+		}
+	}
+	shards, err := fileutil.ListDir(w.dir)
+	if err != nil {
+		w.logger.Warn("list shard dir err")
+	}
+	for _, shard := range shards {
+		families, err := fileutil.ListDir(path.Join(w.dir, shard))
+		if err != nil {
+			w.logger.Warn("list family dir err")
+			continue
+		}
+		for _, family := range families {
+			leaders, err := fileutil.ListDir(path.Join(w.dir, shard, family))
+			if err != nil {
+				continue
+			}
+			if len(leaders) == 0 {
+				walPath := path.Join(w.dir, shard, family)
+				if err := fileutil.RemoveDir(walPath); err != nil {
+					w.logger.Warn("remove write ahead log err", logger.String("path", walPath))
+				}
+			}
+		}
+
+	}
 }
