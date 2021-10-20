@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
@@ -184,13 +183,12 @@ func (r *runtime) Run() error {
 	}
 
 	masterCfg := &coordinator.MasterCfg{
-		Ctx:               r.ctx,
-		Repo:              r.repo,
-		Node:              r.node,
-		TTL:               r.config.Coordinator.LeaseTTL,
-		DiscoveryFactory:  discoveryFactory,
-		ControllerFactory: task.NewControllerFactory(),
-		RepoFactory:       r.repoFactory,
+		Ctx:              r.ctx,
+		Repo:             r.repo,
+		Node:             r.node,
+		TTL:              r.config.Coordinator.LeaseTTL,
+		DiscoveryFactory: discoveryFactory,
+		RepoFactory:      r.repoFactory,
 	}
 	r.master = coordinator.NewMaster(masterCfg)
 

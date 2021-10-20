@@ -26,7 +26,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
-	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
@@ -45,9 +44,8 @@ type MasterCfg struct {
 	Repo state.Repository
 
 	// factory
-	DiscoveryFactory  discovery.Factory
-	ControllerFactory task.ControllerFactory
-	RepoFactory       state.RepositoryFactory
+	DiscoveryFactory discovery.Factory
+	RepoFactory      state.RepositoryFactory
 }
 
 // Master represents all metadata/state controller, only has one active master in broker cluster.
@@ -101,7 +99,7 @@ func (m *master) OnFailOver() error {
 	defer m.mutex.Unlock()
 
 	var err error
-	stateMgr := masterpkg.NewStateManager(m.ctx, m.cfg.Repo, m.cfg.RepoFactory, m.cfg.ControllerFactory)
+	stateMgr := masterpkg.NewStateManager(m.ctx, m.cfg.Repo, m.cfg.RepoFactory)
 	stateMachineFct := masterpkg.NewStateMachineFactory(m.ctx, m.cfg.DiscoveryFactory, stateMgr)
 	// first need set state machine factory in state manager
 	stateMgr.SetStateMachineFactory(stateMachineFct)

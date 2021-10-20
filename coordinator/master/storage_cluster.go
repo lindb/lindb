@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/coordinator/task"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -49,12 +48,6 @@ type StorageCluster interface {
 		shardAssign *models.ShardAssignment,
 		databaseOption option.DatabaseOption,
 	) error
-	// SubmitTask generates coordinator task
-	SubmitTask(
-		kind task.Kind,
-		name string,
-		params []task.ControllerTaskParam,
-	) error
 	// GetRepo returns current storage storageCluster's state repo
 	GetRepo() state.Repository
 	// Close closes storageCluster controller
@@ -63,11 +56,10 @@ type StorageCluster interface {
 
 // storageCluster implements StorageCluster controller, master will maintain multi storage storageCluster
 type storageCluster struct {
-	ctx            context.Context
-	cfg            config.StorageCluster
-	taskController task.Controller
-	storageRepo    state.Repository
-	stateMgr       StateManager
+	ctx         context.Context
+	cfg         config.StorageCluster
+	storageRepo state.Repository
+	stateMgr    StateManager
 
 	state *models.StorageState
 	sm    discovery.StateMachine
@@ -79,8 +71,7 @@ type storageCluster struct {
 func newStorageCluster(ctx context.Context,
 	cfg config.StorageCluster,
 	stateMgr StateManager,
-	repoFactory state.RepositoryFactory,
-	controllerFactory task.ControllerFactory) (cluster StorageCluster, err error) {
+	repoFactory state.RepositoryFactory) (cluster StorageCluster, err error) {
 	var storageRepo state.Repository
 	storageRepo, err = repoFactory.CreateStorageRepo(cfg.Config)
 	defer func() {
@@ -97,13 +88,12 @@ func newStorageCluster(ctx context.Context,
 	log := logger.GetLogger("coordinator", "Storage")
 
 	cluster = &storageCluster{
-		ctx:            ctx,
-		cfg:            cfg,
-		taskController: controllerFactory.CreateController(ctx, storageRepo),
-		storageRepo:    storageRepo,
-		stateMgr:       stateMgr,
-		state:          models.NewStorageState(cfg.Name),
-		logger:         log,
+		ctx:         ctx,
+		cfg:         cfg,
+		storageRepo: storageRepo,
+		stateMgr:    stateMgr,
+		state:       models.NewStorageState(cfg.Name),
+		logger:      log,
 	}
 
 	log.Info("init storage cluster success", logger.String("storage", cfg.Name))
@@ -148,21 +138,8 @@ func (c *storageCluster) GetRepo() state.Repository {
 }
 
 // FlushDatabase submits the coordinator task for flushing memory database by name
-func (c *storageCluster) FlushDatabase(databaseName string) error {
-	var params []task.ControllerTaskParam
-	taskParam := &models.DatabaseFlushTask{DatabaseName: databaseName}
-	for _, node := range c.state.LiveNodes {
-		params = append(params, task.ControllerTaskParam{
-			NodeID: node.Indicator(),
-			Params: taskParam,
-		})
-	}
-	// create create shard coordinator tasks
-	if err := c.SubmitTask(constants.FlushDatabase, databaseName, params); err != nil {
-		return err
-	}
-	c.logger.Info("submit flush database task", logger.String("storage", c.cfg.Name))
-	return nil
+func (c *storageCluster) FlushDatabase(_ string) error {
+	panic("need impl")
 }
 
 // SaveDatabaseAssignment saves database assignment in storage state repo.
@@ -184,21 +161,9 @@ func (c *storageCluster) SaveDatabaseAssignment(
 	return nil
 }
 
-// SubmitTask submits coordinator task based on kind and params into related storage storageCluster,
-// storage node will execute task if it care this task kind
-func (c *storageCluster) SubmitTask(kind task.Kind, name string, params []task.ControllerTaskParam) error {
-	return c.taskController.Submit(kind, name, params)
-}
-
 // Close stops watch, and cleanups storageCluster's metadata
 func (c *storageCluster) Close() {
 	c.logger.Info("close storage cluster state machine", logger.String("storage", c.cfg.Name))
-	if c.taskController != nil {
-		// need close task controller of current storage storageCluster
-		if err := c.taskController.Close(); err != nil {
-			c.logger.Error("close task controller", logger.String("storage", c.cfg.Name), logger.Error(err))
-		}
-	}
 	if c.sm != nil {
 		if err := c.sm.Close(); err != nil {
 			c.logger.Error("close storage node state machine of storage cluster",

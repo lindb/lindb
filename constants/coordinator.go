@@ -19,8 +19,6 @@ package constants
 
 import (
 	"fmt"
-
-	"github.com/lindb/lindb/coordinator/task"
 )
 
 // defines common constants will be used in broker and storage.
@@ -44,12 +42,6 @@ const (
 	StorageConfigPath = "/storage/config"
 	// StorageStatePath represents storage cluster's state.
 	StorageStatePath = "/storage/state"
-)
-
-// defines all task kinds
-const (
-	// FlushDatabase represents task kind which is flush memory database for storage node
-	FlushDatabase task.Kind = "flush-database"
 )
 
 // GetStorageClusterConfigPath returns path which storing config of storage cluster
