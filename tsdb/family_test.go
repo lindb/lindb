@@ -42,6 +42,8 @@ func TestDataFamily_BaseTime(t *testing.T) {
 		Start: 10,
 		End:   50,
 	}
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
 	v.EXPECT().GetSequences().Return(map[int32]int64{1: 10})
@@ -49,7 +51,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	snapshot.EXPECT().Close()
 	family.EXPECT().GetSnapshot().Return(snapshot)
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().DatabaseName().Return("test")
+	shard.EXPECT().Database().Return(database)
 	shard.EXPECT().ShardID().Return(models.ShardID(1))
 	dataFamily := newDataFamily(shard, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
@@ -68,6 +70,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		newFilterFunc = metricsdata.NewFilter
 	}()
 
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	family := kv.NewMockFamily(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
 	snapshot.EXPECT().Close().AnyTimes()
@@ -80,7 +84,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	v.EXPECT().GetSequences().Return(map[int32]int64{1: 10})
 	snapshot.EXPECT().GetCurrent().Return(v)
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().DatabaseName().Return("test")
+	shard.EXPECT().Database().Return(database)
 	shard.EXPECT().ShardID().Return(models.ShardID(1))
 	dataFamily := newDataFamily(shard, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
 

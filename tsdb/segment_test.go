@@ -56,8 +56,10 @@ func TestSegment_GetDataFamily(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	s, _ := newIntervalSegment(shard, timeutil.Interval(timeutil.OneSecond*10), createSegPath(t))
 	seg, _ := s.GetOrCreateSegment("20190904")
@@ -111,8 +113,10 @@ func TestSegment_New(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().DatabaseName().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 
 	segPath := createSegPath(t)

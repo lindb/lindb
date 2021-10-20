@@ -39,11 +39,13 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
+	database := tsdb.NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test-database").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	var interval timeutil.Interval
 	_ = interval.ValueOf("10s")
 	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
-	shard.EXPECT().DatabaseName().Return("test-database").AnyTimes()
+	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()

@@ -45,6 +45,7 @@ var (
 type FanOutQueue interface {
 	// Put puts data to tail of the queue,
 	Put(data []byte) error
+	Path() string
 	// GetOrCreateFanOut returns the FanOut if exists,
 	// otherwise creates a new FanOut with consume seq and ack seq == queue tail seq.
 	GetOrCreateFanOut(name string) (FanOut, error)
@@ -114,6 +115,10 @@ func NewFanOutQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time
 // Put puts data to tail of the queue,
 func (fq *fanOutQueue) Put(data []byte) error {
 	return fq.queue.Put(data)
+}
+
+func (fq *fanOutQueue) Path() string {
+	return fq.dirPath
 }
 
 // GetOrCreateFanOut returns the FanOut if exists,
@@ -273,6 +278,8 @@ type FanOut interface {
 	SetSeq(seq int64)
 	// Pending returns the offset between FanOut HeadSeq and FanOutQueue HeadSeq.
 	Pending() int64
+	// IsEmpty returns if fan out consumer cannot consume any data.
+	IsEmpty() bool
 	// Close persists  headSeq, tailSeq.
 	Close()
 }
@@ -411,9 +418,6 @@ func (f *fanOut) Ack(ackSeq int64) {
 
 // HeadSeq represents the next seq Consume returns.
 func (f *fanOut) HeadSeq() int64 {
-	f.lock4headSeq.RLock()
-	defer f.lock4headSeq.RUnlock()
-
 	return f.headSeq.Load() + 1
 }
 
@@ -451,6 +455,15 @@ func (f *fanOut) Pending() int64 {
 	qh := f.q.HeadSeq() - 1
 
 	return qh - fh
+}
+
+// IsEmpty returns if fan out consumer cannot consume any data.
+func (f *fanOut) IsEmpty() bool {
+	f.lock4headSeq.RLock()
+	defer f.lock4headSeq.RUnlock()
+	qh := f.q.HeadSeq() - 1
+
+	return qh == f.TailSeq()
 }
 
 // Close persists headSeq, tailSeq.

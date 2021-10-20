@@ -116,10 +116,14 @@ func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
 	if database.ReplicaFactor <= 0 {
 		return fmt.Errorf("replica factor must be > 0")
 	}
+	opt := database.Option
 	// validate time series engine option
-	if err := database.Option.Validate(); err != nil {
+	if err := opt.Validate(); err != nil {
 		return err
 	}
+	// set default value
+	(&opt).Default()
+
 	data := encoding.JSONMarshal(database)
 
 	ctx, cancel := d.deps.WithTimeout()

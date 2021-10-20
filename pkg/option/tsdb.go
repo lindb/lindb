@@ -20,6 +20,7 @@ package option
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -37,6 +38,8 @@ type DatabaseOption struct {
 
 	Index FlusherOption `toml:"index" json:"index,omitempty"` // index flusher option
 	Data  FlusherOption `toml:"data" json:"data,omitempty"`   // data flusher data
+
+	ahead, behind int64
 }
 
 // FlusherOption represents a flusher configuration for index and memory db
@@ -71,6 +74,34 @@ func (e DatabaseOption) Validate() error {
 		}
 	}
 	return nil
+}
+
+// GetAheadVal returns accept writable time range.
+func (e *DatabaseOption) GetAcceptWritableRange() (ahead, behind int64) {
+	if e.ahead <= 0 {
+		e.ahead = e.getIntervalVal(e.Ahead)
+	}
+	if e.behind <= 0 {
+		e.behind = e.getIntervalVal(e.Behind)
+	}
+	return e.ahead, e.behind
+}
+
+// getIntervalVal returns interval value.
+func (e *DatabaseOption) getIntervalVal(interval string) int64 {
+	var intervalVal timeutil.Interval
+	_ = intervalVal.ValueOf(interval)
+	return intervalVal.Int64()
+}
+
+// Default sets default value if some configuration item not set.
+func (e *DatabaseOption) Default() {
+	if e.Ahead == "" {
+		e.Ahead = constants.MetricMaxAheadDurationStr
+	}
+	if e.Behind == "" {
+		e.Behind = constants.MetricMaxBehindDurationStr
+	}
 }
 
 // validateInterval checks interval string if valid
