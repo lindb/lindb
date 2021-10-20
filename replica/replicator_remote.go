@@ -116,7 +116,13 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 
 	defer r.rwMutex.Unlock()
-	//TODO close cli/stream if re-connect???
+	if r.replicaStream != nil {
+		if err := r.replicaStream.CloseSend(); err != nil {
+			r.logger.Warn("close replica service client stream err, when reconnection",
+				logger.String("replicator", r.String()),
+				logger.Error(err))
+		}
+	}
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
 		//TODO add metric
@@ -215,8 +221,10 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		r.state = ReplicatorFailureState
 		return
 	}
-	//TODO need handle replica idx not equals
-	r.SetAckIndex(resp.AckIndex)
+	if resp.AckIndex == resp.ReplicaIndex {
+		// if ack index = replica, need ack wal
+		r.SetAckIndex(resp.AckIndex)
+	}
 }
 
 // getLastAckIdxFromReplica returns replica replica ack index.
