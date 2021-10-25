@@ -25,6 +25,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
@@ -42,6 +43,8 @@ type FamilyChannel interface {
 		liveNodes map[models.NodeID]models.StatefulNode)
 	// Stop stops the family channel.
 	Stop()
+	FamilyTime() int64
+	isExpire(ahead, behind int64) bool
 }
 
 type familyChannel struct {
@@ -175,6 +178,9 @@ func (fc *familyChannel) writeTask() {
 		}
 	}
 	send := func(stream rpc.WriteStream, compressed *compressedChunk) bool {
+		if stream == nil {
+			return false
+		}
 		if err := stream.Send(*compressed); err != nil {
 			fc.logger.Error(
 				"failed writing compressed chunk to storage",
@@ -227,7 +233,6 @@ func (fc *familyChannel) writeTask() {
 				continue
 			}
 			if stream == nil {
-				//TODO need set transport.defaultMaxStreamsClient???
 				fc.lock4meta.Lock()
 				leader := fc.liveNodes[fc.shardState.Leader]
 				shardState := fc.shardState
@@ -306,4 +311,17 @@ func (fc *familyChannel) flushChunk() {
 	case <-fc.ctx.Done():
 		fc.logger.Warn("writer is canceled")
 	}
+}
+
+func (fc *familyChannel) isExpire(ahead, _ int64) bool {
+	now := fasttime.UnixMilliseconds()
+	// add 15 minute buffer
+	if ahead > 0 && fc.lastFlushTime.Unix()*1000+ahead+15*time.Minute.Milliseconds() > now {
+		return false
+	}
+	return true
+}
+
+func (fc *familyChannel) FamilyTime() int64 {
+	return fc.familyTime
 }
