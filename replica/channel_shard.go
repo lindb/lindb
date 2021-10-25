@@ -37,6 +37,8 @@ type Channel interface {
 	GetOrCreateFamilyChannel(familyTime int64) FamilyChannel
 
 	Stop()
+
+	garbageCollect(ahead, behind int64)
 }
 
 // channel implements Channel.
@@ -122,4 +124,19 @@ func (c *channel) Stop() {
 	for _, family := range families {
 		family.Stop()
 	}
+}
+
+func (c *channel) garbageCollect(ahead, behind int64) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	families := c.families.Entries()
+	needRemovedFamilies := make(map[int64]struct{})
+	for _, family := range families {
+		if family.isExpire(ahead, behind) {
+			family.Stop()
+			needRemovedFamilies[family.FamilyTime()] = struct{}{}
+		}
+	}
+	c.families.RemoveFamilies(needRemovedFamilies)
 }
