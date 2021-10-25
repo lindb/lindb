@@ -20,6 +20,7 @@ package replica
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
@@ -60,6 +61,7 @@ type (
 		ahead         *atomic.Int64
 		behind        *atomic.Int64
 		ctx           context.Context
+		cancel        context.CancelFunc
 		fct           rpc.ClientStreamFactory
 		numOfShard    atomic.Int32
 		shardChannels shardChannels
@@ -79,9 +81,11 @@ func newDatabaseChannel(
 	numOfShard int32,
 	fct rpc.ClientStreamFactory,
 ) (DatabaseChannel, error) {
+	c, cancel := context.WithCancel(ctx)
 	ch := &databaseChannel{
 		databaseCfg: databaseCfg,
-		ctx:         ctx,
+		ctx:         c,
+		cancel:      cancel,
 		fct:         fct,
 		logger:      logger.GetLogger("replica", "DatabaseChannel"),
 	}
@@ -95,7 +99,39 @@ func newDatabaseChannel(
 
 	ch.numOfShard.Store(numOfShard)
 	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)
+
+	// start family channel garbage collect
+	ch.garbageCollectTask()
 	return ch, nil
+}
+
+func (dc *databaseChannel) garbageCollectTask() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Minute) //TODO add config
+		for {
+			select {
+			case <-ticker.C:
+				dc.garbageCollect()
+			case <-dc.ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+func (dc *databaseChannel) garbageCollect() {
+	dc.shardChannels.mu.Lock()
+	defer func() {
+		dc.cancel()
+		dc.shardChannels.mu.Unlock()
+	}()
+
+	channels := dc.shardChannels.value.Load().(shard2Channel)
+	ahead := dc.ahead.Load()
+	behind := dc.behind.Load()
+	for _, channel := range channels {
+		channel.garbageCollect(ahead, behind)
+	}
 }
 
 // Write writes the metric data into channel's buffer
@@ -167,7 +203,10 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 
 func (dc *databaseChannel) Stop() {
 	dc.shardChannels.mu.Lock()
-	defer dc.shardChannels.mu.Unlock()
+	defer func() {
+		dc.cancel()
+		dc.shardChannels.mu.Unlock()
+	}()
 
 	channels := dc.shardChannels.value.Load().(shard2Channel)
 	for _, channel := range channels {
