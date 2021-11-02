@@ -20,8 +20,26 @@ package models
 import (
 	"testing"
 
+	"github.com/lindb/lindb/pkg/encoding"
+
 	"github.com/stretchr/testify/assert"
 )
+
+func TestStorageStatus_MarshalJSON(t *testing.T) {
+	assert.Equal(t, []byte(`"Ready"`), encoding.JSONMarshal(StorageStatusReady))
+	assert.Equal(t, []byte(`"Initialize"`), encoding.JSONMarshal(StorageStatusInitialize))
+	assert.Equal(t, []byte(`"Unknown"`), encoding.JSONMarshal(StorageStatusUnknown))
+	var status StorageStatus
+	err := encoding.JSONUnmarshal([]byte(`"Ready"`), &status)
+	assert.NoError(t, err)
+	assert.Equal(t, StorageStatusReady, status)
+	err = encoding.JSONUnmarshal([]byte(`"Initialize"`), &status)
+	assert.NoError(t, err)
+	assert.Equal(t, StorageStatusInitialize, status)
+	err = encoding.JSONUnmarshal([]byte(`"Ready1"`), &status)
+	assert.NoError(t, err)
+	assert.Equal(t, StorageStatusUnknown, status)
+}
 
 func TestStorageState(t *testing.T) {
 	storageState := NewStorageState("test")

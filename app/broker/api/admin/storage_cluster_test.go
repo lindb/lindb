@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
@@ -41,9 +42,11 @@ func TestStorageClusterAPI(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockRepo := state.NewMockRepository(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 	api := NewStorageClusterAPI(&deps.HTTPDeps{
-		Ctx:  context.Background(),
-		Repo: mockRepo,
+		Ctx:      context.Background(),
+		Repo:     mockRepo,
+		StateMgr: stateMgr,
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
 				HTTP: config.HTTP{
@@ -97,6 +100,12 @@ func TestStorageClusterAPI(t *testing.T) {
 	// list ok
 	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
 		[]state.KeyValue{{Key: "", Value: []byte(`{"name": "xxx", "config": {}}`)}}, nil)
+	stateMgr.EXPECT().GetStorage("xxx").Return(nil, true)
+	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
+	assert.Equal(t, http.StatusOK, resp.Code)
+	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+		[]state.KeyValue{{Key: "", Value: []byte(`{"name": "xxx", "config": {}}`)}}, nil)
+	stateMgr.EXPECT().GetStorage("xxx").Return(nil, false)
 	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
