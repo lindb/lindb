@@ -70,18 +70,23 @@ func (ss *familyChannelSet) Entries() []FamilyChannel {
 }
 
 // RemoveFamilies removes given families from set.
-func (ss *familyChannelSet) RemoveFamilies(needRemoveFamilies map[int64]struct{}) {
+// returns removed family channel
+func (ss *familyChannelSet) RemoveFamilies(needRemoveFamilies map[int64]struct{}) []FamilyChannel {
 	if len(needRemoveFamilies) == 0 {
-		return
+		return nil
 	}
 	set := ss.value.Load().([]channelEntry)
 	dst := make([]channelEntry, 0)
+	var removed []FamilyChannel
 
 	for _, family := range set {
 		_, ok := needRemoveFamilies[family.familyTime]
 		if !ok {
 			dst = append(dst, family)
+		} else {
+			removed = append(removed, family.channel)
 		}
 	}
 	ss.value.Store(dst)
+	return removed
 }

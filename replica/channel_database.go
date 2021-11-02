@@ -122,7 +122,6 @@ func (dc *databaseChannel) garbageCollectTask() {
 func (dc *databaseChannel) garbageCollect() {
 	dc.shardChannels.mu.Lock()
 	defer func() {
-		dc.cancel()
 		dc.shardChannels.mu.Unlock()
 	}()
 
