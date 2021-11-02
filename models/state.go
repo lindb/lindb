@@ -18,8 +18,10 @@
 package models
 
 import (
+	"encoding/json"
 	"strconv"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -43,6 +45,47 @@ const (
 	NodeOnline NodeStateType = iota + 1
 	NodeOffline
 )
+
+// StorageStatus represents current storage config status.
+type StorageStatus int
+
+const (
+	StorageStatusUnknown StorageStatus = iota
+	StorageStatusInitialize
+	StorageStatusReady
+)
+
+// MarshalJSON encodes storage status.
+func (s StorageStatus) MarshalJSON() ([]byte, error) {
+	val := "Unknown"
+	switch s {
+	case StorageStatusInitialize:
+		val = "Initialize"
+	case StorageStatusReady:
+		val = "Ready"
+	}
+	return json.Marshal(&val)
+}
+
+// UnmarshalJSON decodes storage status.
+func (s *StorageStatus) UnmarshalJSON(value []byte) error {
+	switch string(value) {
+	case `"Initialize"`:
+		*s = StorageStatusInitialize
+		return nil
+	case `"Ready"`:
+		*s = StorageStatusReady
+		return nil
+	default:
+		*s = StorageStatusUnknown
+		return nil
+	}
+}
+
+type Storage struct {
+	config.StorageCluster
+	Status StorageStatus `json:"status"`
+}
 
 // ReplicaState represents the relationship for a replica.
 type ReplicaState struct {

@@ -47,6 +47,8 @@ type StateManager interface {
 	// and chooses the leader replica if the shard has multi-replica.
 	// returns storage node => shard id list
 	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
+	// GetStorage returns storage state by name.
+	GetStorage(name string) (*models.StorageState, bool)
 
 	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -351,6 +353,15 @@ func (m *stateManager) GetDatabaseCfg(databaseName string) (models.Database, boo
 
 	database, ok := m.databases[databaseName]
 	return database, ok
+}
+
+// GetStorage returns storage state by name.
+func (m *stateManager) GetStorage(name string) (*models.StorageState, bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	storage, ok := m.storages[name]
+	return storage, ok
 }
 
 // GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x

@@ -182,6 +182,10 @@ func TestStateManager_Storage(t *testing.T) {
 			}},
 		}),
 	})
+	time.Sleep(100 * time.Millisecond)
+	state, ok := mgr.GetStorage("test")
+	assert.True(t, ok)
+	assert.NotNil(t, state)
 	// case 5: remove storage
 	connectionMgr.EXPECT().CloseConnection("1.1.1.1:9000")
 	connectionMgr.EXPECT().CloseConnection("3.3.3.3:9000")
@@ -195,6 +199,9 @@ func TestStateManager_Storage(t *testing.T) {
 		Key:  "/lin/storage/test",
 	})
 	time.Sleep(time.Second)
+	state, ok = mgr.GetStorage("test")
+	assert.False(t, ok)
+	assert.Nil(t, state)
 }
 
 func TestStateManager_ShardState(t *testing.T) {
