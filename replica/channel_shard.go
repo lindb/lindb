@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -134,9 +135,17 @@ func (c *channel) garbageCollect(ahead, behind int64) {
 	needRemovedFamilies := make(map[int64]struct{})
 	for _, family := range families {
 		if family.isExpire(ahead, behind) {
-			family.Stop()
+			c.logger.Info("family channel is expire, need stop it",
+				logger.String("database", c.database),
+				logger.Any("shard", c.shardID),
+				logger.String("family", timeutil.FormatTimestamp(family.FamilyTime(), timeutil.DataTimeFormat4)))
 			needRemovedFamilies[family.FamilyTime()] = struct{}{}
 		}
 	}
-	c.families.RemoveFamilies(needRemovedFamilies)
+	removedFamilies := c.families.RemoveFamilies(needRemovedFamilies)
+	// stop family after remove, just stop removed family.
+	// maybe family will be used before remove.
+	for _, family := range removedFamilies {
+		family.Stop()
+	}
 }
