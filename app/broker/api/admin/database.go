@@ -123,6 +123,7 @@ func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
 	}
 	// set default value
 	(&opt).Default()
+	database.Option = opt // reset option after set default value
 
 	data := encoding.JSONMarshal(database)
 

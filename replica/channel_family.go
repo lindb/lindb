@@ -135,8 +135,10 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 }
 
 // leaderChanged notifies family channel need change leader send stream
-func (fc *familyChannel) leaderChanged(shardState models.ShardState,
-	liveNodes map[models.NodeID]models.StatefulNode) {
+func (fc *familyChannel) leaderChanged(
+	shardState models.ShardState,
+	liveNodes map[models.NodeID]models.StatefulNode,
+) {
 	fc.lock4meta.Lock()
 	fc.shardState = shardState
 	fc.liveNodes = liveNodes
@@ -268,6 +270,8 @@ func (fc *familyChannel) writeTask() {
 			fc.checkFlush()
 		}
 	}
+
+	//TODO write pending check after stop???
 }
 
 func (fc *familyChannel) writePendingBeforeClose() {
