@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -123,20 +124,28 @@ func (s *StorageClusterAPI) DeleteByName(c *gin.Context) {
 func (s *StorageClusterAPI) List(c *gin.Context) {
 	ctx, cancel := s.deps.WithTimeout()
 	defer cancel()
-	var clusters []*config.StorageCluster
 	data, err := s.deps.Repo.List(ctx, constants.StorageConfigPath)
 	if err != nil {
 		http.Error(c, err)
 		return
 	}
+	stateMgr := s.deps.StateMgr
+	var storages []models.Storage
 	for _, val := range data {
-		storageCluster := &config.StorageCluster{}
-		err = encoding.JSONUnmarshal(val.Value, storageCluster)
+		storage := models.Storage{}
+		err = encoding.JSONUnmarshal(val.Value, &storage)
 		if err != nil {
 			s.logger.Warn("unmarshal data error",
 				logger.String("data", string(val.Value)))
 		} else {
-			clusters = append(clusters, storageCluster)
+			_, ok := stateMgr.GetStorage(storage.Name)
+			if ok {
+				storage.Status = models.StorageStatusReady
+			} else {
+				storage.Status = models.StorageStatusInitialize
+				//TODO check storage un-health
+			}
+			storages = append(storages, storage)
 		}
 	}
 
@@ -144,5 +153,5 @@ func (s *StorageClusterAPI) List(c *gin.Context) {
 		http.Error(c, err)
 		return
 	}
-	http.OK(c, clusters)
+	http.OK(c, storages)
 }
