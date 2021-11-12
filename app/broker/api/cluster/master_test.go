@@ -36,7 +36,7 @@ func TestMasterAPI_GetMaster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	master := coordinator.NewMockMaster(ctrl)
+	master := coordinator.NewMockMasterController(ctrl)
 
 	api := NewMasterAPI(&deps.HTTPDeps{
 		Master: master,

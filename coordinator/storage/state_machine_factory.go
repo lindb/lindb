@@ -22,8 +22,27 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+// StateMachinePaths represents the paths which storage state machine need watch.
+var StateMachinePaths = make(map[string]models.StateMachineInfo)
+
+func init() {
+	StateMachinePaths["LiveNode"] = models.StateMachineInfo{
+		Path: constants.LiveNodesPath,
+		CreateState: func() interface{} {
+			return &models.StatefulNode{}
+		},
+	}
+	StateMachinePaths["ShardAssigment"] = models.StateMachineInfo{
+		Path: constants.ShardAssigmentPath,
+		CreateState: func() interface{} {
+			return &models.DatabaseAssignment{}
+		},
+	}
+}
 
 // StateMachineFactory represents storage state machine maintainer.
 type StateMachineFactory struct {

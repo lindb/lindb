@@ -45,6 +45,8 @@ type Repository interface {
 	Get(ctx context.Context, key string) ([]byte, error)
 	// List retrieves list for given prefix from repository.
 	List(ctx context.Context, prefix string) ([]KeyValue, error)
+	// WalkEntry walks each kv entry via fn for given prefix from repository.
+	WalkEntry(ctx context.Context, prefix string, fn func(key, value []byte)) error
 	// Put puts a key-value pair into repository.
 	Put(ctx context.Context, key string, val []byte) error
 	// Delete deletes value for given key from repository.

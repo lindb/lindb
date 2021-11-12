@@ -183,3 +183,9 @@ func (s *StorageState) String() string {
 	content := encoding.JSONMarshal(s)
 	return string(content)
 }
+
+/// StateMachineInfo represents state machine register info.
+type StateMachineInfo struct {
+	Path        string             `json:"path"`
+	CreateState func() interface{} `json:"-"`
+}

@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/cluster"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	"github.com/lindb/lindb/app/broker/api/metadata"
 	"github.com/lindb/lindb/app/broker/api/query"
 	"github.com/lindb/lindb/app/broker/api/state"
 	"github.com/lindb/lindb/app/broker/deps"
@@ -34,6 +35,7 @@ type API struct {
 	database        *admin.DatabaseAPI
 	flusher         *admin.DatabaseFlusherAPI
 	storage         *admin.StorageClusterAPI
+	explore         *metadata.ExploreAPI
 	brokerState     *state.BrokerAPI
 	storageState    *state.StorageAPI
 	influxIngestion *ingest.InfluxWriter
@@ -50,6 +52,7 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		database:        admin.NewDatabaseAPI(deps),
 		flusher:         admin.NewDatabaseFlusherAPI(deps),
 		storage:         admin.NewStorageClusterAPI(deps),
+		explore:         metadata.NewExploreAPI(deps),
 		brokerState:     state.NewBrokerAPI(deps),
 		storageState:    state.NewStorageAPI(deps),
 		influxIngestion: ingest.NewInfluxWriter(deps),
@@ -66,6 +69,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.database.Register(router)
 	api.flusher.Register(router)
 	api.storage.Register(router)
+	api.explore.Register(router)
 
 	api.brokerState.Register(router)
 	api.storageState.Register(router)

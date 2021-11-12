@@ -31,6 +31,26 @@ func init() {
 	gin.SetMode(gin.ReleaseMode)
 }
 
+type closeNotifyingRecorder struct {
+	*httptest.ResponseRecorder
+	closed chan bool
+}
+
+func newCloseNotifyingRecorder() *closeNotifyingRecorder {
+	return &closeNotifyingRecorder{
+		httptest.NewRecorder(),
+		make(chan bool, 1),
+	}
+}
+
+func (c *closeNotifyingRecorder) close() {
+	c.closed <- true
+}
+
+func (c *closeNotifyingRecorder) CloseNotify() <-chan bool {
+	return c.closed
+}
+
 // DoRequest does http request for test.
 func DoRequest(t *testing.T, r *gin.Engine, method string, path string, reqBody string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -41,7 +61,7 @@ func DoRequest(t *testing.T, r *gin.Engine, method string, path string, reqBody 
 	}
 	req, _ := http.NewRequest(method, path, body)
 	req.Header.Set("content-type", "application/json")
-	resp := httptest.NewRecorder()
+	resp := newCloseNotifyingRecorder()
 	r.ServeHTTP(resp, req)
-	return resp
+	return resp.ResponseRecorder
 }

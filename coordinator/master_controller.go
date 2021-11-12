@@ -31,15 +31,15 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 )
 
-//go:generate mockgen -source=./master.go -destination=./master_mock.go -package=coordinator
+//go:generate mockgen -source=./master_controller.go -destination=./master_controller_mock.go -package=coordinator
 
-var log = logger.GetLogger("coordinator", "Master")
+var log = logger.GetLogger("coordinator", "MasterController")
 
-// MasterCfg represents the config for master creating
+// MasterCfg represents the config for masterController creating
 type MasterCfg struct {
 	// basic
 	Ctx  context.Context
-	TTL  int64 // master elect keepalive ttl
+	TTL  int64 // masterController elect keepalive ttl
 	Node models.Node
 	Repo state.Repository
 
@@ -48,9 +48,9 @@ type MasterCfg struct {
 	RepoFactory      state.RepositoryFactory
 }
 
-// Master represents all metadata/state controller, only has one active master in broker cluster.
-// Master will control all storage cluster metadata, update state, then notify each broker node.
-type Master interface {
+// MasterController represents all metadata/state controller, only has one active master in broker cluster.
+// MasterController will control all storage cluster metadata, update state, then notify each broker node.
+type MasterController interface {
 	// Start starts master do election master, if success build master context,
 	// starts state machine do cluster coordinate such metadata, cluster state etc.
 	Start()
@@ -62,10 +62,12 @@ type Master interface {
 	Stop()
 	// FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
 	FlushDatabase(cluster string, databaseName string) error
+	// GetStateManager returns master's state manager.
+	GetStateManager() masterpkg.StateManager
 }
 
-// master implements master interface
-type master struct {
+// masterController implements MasterController interface
+type masterController struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -79,10 +81,10 @@ type master struct {
 	mutex sync.Mutex
 }
 
-// NewMaster create master for current node
-func NewMaster(cfg *MasterCfg) Master {
+// NewMasterController create MasterController for current node
+func NewMasterController(cfg *MasterCfg) MasterController {
 	ctx, cancel := context.WithCancel(cfg.Ctx)
-	m := &master{
+	m := &masterController{
 		cfg:    cfg,
 		ctx:    ctx,
 		cancel: cancel,
@@ -93,7 +95,7 @@ func NewMaster(cfg *MasterCfg) Master {
 }
 
 // OnFailOver invoked after master electing, current node become a new master
-func (m *master) OnFailOver() error {
+func (m *masterController) OnFailOver() error {
 	log.Info("starting master fail over")
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -108,6 +110,7 @@ func (m *master) OnFailOver() error {
 		if err != nil {
 			stateMachineFct.Stop()
 			stateMgr.Close()
+			m.stateMgr = nil
 			m.stateMachineFct = nil
 		} else {
 			m.stateMachineFct = stateMachineFct
@@ -124,7 +127,7 @@ func (m *master) OnFailOver() error {
 }
 
 // OnResignation invoked current node is master, before re-electing
-func (m *master) OnResignation() {
+func (m *masterController) OnResignation() {
 	log.Info("starting master resign")
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -140,24 +143,31 @@ func (m *master) OnResignation() {
 }
 
 // IsMaster returns current node if is master
-func (m *master) IsMaster() bool {
+func (m *masterController) IsMaster() bool {
 	return m.elect.IsMaster()
 }
 
 // GetMaster returns the current master info
-func (m *master) GetMaster() *models.Master {
+func (m *masterController) GetMaster() *models.Master {
 	return m.elect.GetMaster()
+}
+
+func (m *masterController) GetStateManager() masterpkg.StateManager {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	return m.stateMgr
 }
 
 // Start starts master do election master, if success build master context,
 // starts state machine do cluster coordinate such metadata, cluster state etc.
-func (m *master) Start() {
+func (m *masterController) Start() {
 	m.elect.Initialize()
 	m.elect.Elect()
 }
 
 // Stop stops master if current node is master, cleanup master context and stops state machine
-func (m *master) Stop() {
+func (m *masterController) Stop() {
 	// close master elect
 	m.elect.Close()
 
@@ -165,7 +175,7 @@ func (m *master) Stop() {
 }
 
 // FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
-func (m *master) FlushDatabase(cluster string, databaseName string) error {
+func (m *masterController) FlushDatabase(cluster string, databaseName string) error {
 	if m.IsMaster() {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
