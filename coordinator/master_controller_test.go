@@ -53,7 +53,7 @@ func TestMaster(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMaster(&MasterCfg{
+	master1 := NewMasterController(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
 		Node:             &node1,
@@ -70,6 +70,7 @@ func TestMaster(t *testing.T) {
 	})
 	assert.Equal(t, &node1, master1.GetMaster().Node)
 	assert.True(t, master1.IsMaster())
+	assert.NotNil(t, master1.GetStateManager())
 
 	// re-elect
 	sendEvent(eventCh, &state.Event{
@@ -89,7 +90,6 @@ func TestMaster(t *testing.T) {
 	assert.True(t, master1.IsMaster())
 
 	master1.Stop()
-	assert.False(t, master1.IsMaster())
 }
 
 func TestMaster_Fail(t *testing.T) {
@@ -110,7 +110,7 @@ func TestMaster_Fail(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMaster(&MasterCfg{
+	master1 := NewMasterController(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
 		Node:             &node1,
@@ -162,7 +162,7 @@ func TestMaster_FlushDatabase(t *testing.T) {
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 
 	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMaster(&MasterCfg{
+	master1 := NewMasterController(&MasterCfg{
 		Ctx:              context.TODO(),
 		Repo:             repo,
 		Node:             &node1,
@@ -184,7 +184,7 @@ func TestMaster_FlushDatabase(t *testing.T) {
 	err = master1.FlushDatabase("test", "test")
 	assert.Error(t, err)
 
-	m1 := master1.(*master)
+	m1 := master1.(*masterController)
 	m1.mutex.Lock()
 	statMgr := masterpkg.NewMockStateManager(ctrl)
 	m1.stateMgr = statMgr

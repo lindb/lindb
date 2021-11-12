@@ -84,7 +84,7 @@ type runtime struct {
 	srv                 srv
 	factory             factory
 	httpServer          *HTTPServer
-	master              coordinator.Master
+	master              coordinator.MasterController
 	registry            discovery.Registry
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            broker.StateManager
@@ -190,7 +190,7 @@ func (r *runtime) Run() error {
 		DiscoveryFactory: discoveryFactory,
 		RepoFactory:      r.repoFactory,
 	}
-	r.master = coordinator.NewMaster(masterCfg)
+	r.master = coordinator.NewMasterController(masterCfg)
 
 	// register broker node info
 	r.registry = newRegistry(r.repo, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))

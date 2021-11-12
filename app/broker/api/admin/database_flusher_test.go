@@ -47,7 +47,7 @@ func TestNewDatabaseFlusherAPI(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	master := coordinator.NewMockMaster(ctrl)
+	master := coordinator.NewMockMasterController(ctrl)
 	flushAPI := NewDatabaseFlusherAPI(&deps.HTTPDeps{
 		Master: master,
 	})

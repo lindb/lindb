@@ -33,7 +33,7 @@ import (
 type HTTPDeps struct {
 	Ctx       context.Context
 	BrokerCfg *config.Broker
-	Master    coordinator.Master
+	Master    coordinator.MasterController
 
 	Repo     state.Repository
 	StateMgr broker.StateManager

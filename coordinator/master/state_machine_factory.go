@@ -20,12 +20,44 @@ package master
 import (
 	"context"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
 const storageNameKey = "storageName"
+
+// StateMachinePaths represents the paths which master state machine need watch.
+var StateMachinePaths = make(map[string]models.StateMachineInfo)
+
+func init() {
+	StateMachinePaths["Master"] = models.StateMachineInfo{
+		Path: constants.MasterPath,
+		CreateState: func() interface{} {
+			return &models.Master{}
+		},
+	}
+	StateMachinePaths["DatabaseConfig"] = models.StateMachineInfo{
+		Path: constants.DatabaseConfigPath,
+		CreateState: func() interface{} {
+			return &models.Database{}
+		},
+	}
+	StateMachinePaths["StorageConfig"] = models.StateMachineInfo{
+		Path: constants.StorageStatePath,
+		CreateState: func() interface{} {
+			return &config.StorageCluster{}
+		},
+	}
+	StateMachinePaths["ShardAssigment"] = models.StateMachineInfo{
+		Path: constants.ShardAssigmentPath,
+		CreateState: func() interface{} {
+			return &models.ShardAssignment{}
+		},
+	}
+}
 
 // StateMachineFactory represents master state machine maintainer.
 type StateMachineFactory struct {

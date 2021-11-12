@@ -106,6 +106,38 @@ func (ts *testEtcdRepoSuite) TestList(c *check.C) {
 	c.Assert(2, check.Equals, len(list))
 }
 
+func (ts *testEtcdRepoSuite) TestWalkEntry(c *check.C) {
+	var rep, err = newEtcdRepository(config.RepoState{
+		Namespace: "/test/list",
+		Endpoints: ts.Cluster.Endpoints,
+	}, "nobody")
+	repo := rep.(*etcdRepository)
+	repo.timeout = time.Second * 10
+
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	home1 := &address{
+		Home: "home1",
+	}
+
+	d := encoding.JSONMarshal(home1)
+	_ = rep.Put(context.TODO(), "/test/key1", d)
+	_ = rep.Put(context.TODO(), "/test/key2", d)
+	// value is empty, will ignore
+	_ = rep.Put(context.TODO(), "/test/key3", []byte{})
+	count := 0
+	err = rep.WalkEntry(context.TODO(), "/test", func(key, value []byte) {
+		count++
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	c.Assert(2, check.Equals, count)
+}
+
 func (ts *testEtcdRepoSuite) TestNew(c *check.C) {
 	_, err := newEtcdRepository(config.RepoState{}, "nobody")
 	c.Assert(err, check.NotNil)
