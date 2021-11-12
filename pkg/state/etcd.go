@@ -104,6 +104,24 @@ func (r *etcdRepository) List(ctx context.Context, prefix string) ([]KeyValue, e
 	return result, nil
 }
 
+// WalkEntry walks each kv entry via fn for given prefix from repository.
+func (r *etcdRepository) WalkEntry(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
+	defer cancelFunc()
+	resp, err := r.client.Get(thisCtx, r.keyPath(prefix), etcdcliv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+	if len(resp.Kvs) > 0 {
+		for _, kv := range resp.Kvs {
+			if len(kv.Value) > 0 {
+				fn(kv.Key, kv.Value)
+			}
+		}
+	}
+	return nil
+}
+
 // Put puts a key-value pair into etcd
 func (r *etcdRepository) Put(ctx context.Context, key string, val []byte) error {
 	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)

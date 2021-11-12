@@ -22,8 +22,33 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+// StateMachinePaths represents the paths which broker state machine need watch.
+var StateMachinePaths = make(map[string]models.StateMachineInfo)
+
+func init() {
+	StateMachinePaths["LiveNode"] = models.StateMachineInfo{
+		Path: constants.LiveNodesPath,
+		CreateState: func() interface{} {
+			return &models.StatelessNode{}
+		},
+	}
+	StateMachinePaths["DatabaseConfig"] = models.StateMachineInfo{
+		Path: constants.DatabaseConfigPath,
+		CreateState: func() interface{} {
+			return &models.Database{}
+		},
+	}
+	StateMachinePaths["StorageState"] = models.StateMachineInfo{
+		Path: constants.StorageStatePath,
+		CreateState: func() interface{} {
+			return &models.StorageState{}
+		},
+	}
+}
 
 // stateMachineFactory implements discovery.StateMachineFactory.
 type stateMachineFactory struct {
