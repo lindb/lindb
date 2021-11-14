@@ -37,8 +37,6 @@ type API struct {
 	flusher         *admin.DatabaseFlusherAPI
 	storage         *admin.StorageClusterAPI
 	explore         *metadata.ExploreAPI
-	brokerState     *state.BrokerAPI
-	storageState    *state.StorageAPI
 	stateExplore    *state.ExploreAPI
 	metricExplore   *monitoring.ExploreAPI
 	influxIngestion *ingest.InfluxWriter
@@ -56,8 +54,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		flusher:         admin.NewDatabaseFlusherAPI(deps),
 		storage:         admin.NewStorageClusterAPI(deps),
 		explore:         metadata.NewExploreAPI(deps),
-		brokerState:     state.NewBrokerAPI(deps),
-		storageState:    state.NewStorageAPI(deps),
 		stateExplore:    state.NewExploreAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		influxIngestion: ingest.NewInfluxWriter(deps),
@@ -76,8 +72,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.storage.Register(router)
 	api.explore.Register(router)
 
-	api.brokerState.Register(router)
-	api.storageState.Register(router)
 	api.stateExplore.Register(router)
 	api.metricExplore.Register(router)
 

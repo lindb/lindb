@@ -98,3 +98,30 @@ func TestExploreAPI_Explore(t *testing.T) {
 	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=storage&names=cpu&storageName=xx", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
+
+func TestExploreAPI_ExploreLiveNode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		doRequest = defaultClient.Do
+		ctrl.Finish()
+	}()
+
+	stateMgr := broker.NewMockStateManager(ctrl)
+	api := NewExploreAPI(&deps.HTTPDeps{StateMgr: stateMgr})
+	r := gin.New()
+	api.Register(r)
+
+	// case 1: params invalid
+	resp := mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=broker1", "")
+	assert.Equal(t, http.StatusNotFound, resp.Code)
+	// case 2: broker ok
+	stateMgr.EXPECT().GetLiveNodes().Return(nil)
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=broker", "")
+	assert.Equal(t, http.StatusOK, resp.Code)
+	// case 3: storage ok
+	stateMgr.EXPECT().GetStorageList().Return(nil)
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=storage", "")
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
