@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api/query"
 	"github.com/lindb/lindb/app/broker/api/state"
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/monitoring"
 )
 
 // API represents broker http api.
@@ -38,6 +39,8 @@ type API struct {
 	explore         *metadata.ExploreAPI
 	brokerState     *state.BrokerAPI
 	storageState    *state.StorageAPI
+	stateExplore    *state.ExploreAPI
+	metricExplore   *monitoring.ExploreAPI
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
 	flatIngestion   *ingest.FlatWriter
@@ -55,6 +58,8 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		explore:         metadata.NewExploreAPI(deps),
 		brokerState:     state.NewBrokerAPI(deps),
 		storageState:    state.NewStorageAPI(deps),
+		stateExplore:    state.NewExploreAPI(deps),
+		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
 		flatIngestion:   ingest.NewFlatWriter(deps),
@@ -73,6 +78,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.brokerState.Register(router)
 	api.storageState.Register(router)
+	api.stateExplore.Register(router)
+	api.metricExplore.Register(router)
 
 	api.metadata.Register(router)
 	api.metric.Register(router)

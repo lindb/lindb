@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package http
+package middleware
 
 import (
 	"crypto/md5"

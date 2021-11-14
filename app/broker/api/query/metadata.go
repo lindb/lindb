@@ -25,10 +25,10 @@ import (
 
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/http/middleware"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
@@ -64,7 +64,7 @@ func NewMetadataAPI(deps *deps.HTTPDeps) *MetadataAPI {
 func (d *MetadataAPI) Register(route gin.IRoutes) {
 	route.GET(
 		MetadataQueryPath,
-		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(MetadataQueryPath)),
+		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(MetadataQueryPath)),
 		d.Suggest,
 	)
 }

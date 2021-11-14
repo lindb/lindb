@@ -38,6 +38,7 @@ func ParseNodeID(node string) NodeID {
 type Node interface {
 	// Indicator returns node indicator's string.
 	Indicator() string
+	HTTPAddress() string
 }
 
 type StatefulNode struct {
@@ -60,6 +61,10 @@ type StatelessNode struct {
 // Indicator returns node indicator's string.
 func (n *StatelessNode) Indicator() string {
 	return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
+}
+
+func (n *StatelessNode) HTTPAddress() string {
+	return fmt.Sprintf("http://%s:%d", n.HostIP, n.HTTPPort)
 }
 
 // ParseNode parses Node from indicator,

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
@@ -60,7 +61,7 @@ type Scope interface {
 
 type taggedSeries struct {
 	mu         sync.Mutex // lock for modifying fields
-	tagsID     uint64     // metric-name + tags
+	seriesID   uint64     // metric-name + tags
 	metricName string     // concated metric name
 	tags       tag.Tags   // unique tags
 	payload    *fieldPayload
@@ -84,9 +85,9 @@ func newTaggedSeries(metricName string, tags tag.Tags) *taggedSeries {
 		metricName: metricName,
 		tags:       tags,
 	}
-	ts.tagsID = xxhash.Sum64String(ts.metricName + string(ts.tags.AppendHashKey(nil)))
+	ts.seriesID = xxhash.Sum64String(ts.metricName + string(ts.tags.AppendHashKey(nil)))
 	// registered or replaced
-	ts = defaultRegistry.Register(ts.tagsID, ts)
+	ts = defaultRegistry.Register(ts.seriesID, ts)
 	return ts
 }
 
@@ -258,4 +259,27 @@ func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) {
 	if s.payload.histogramDelta != nil {
 		s.payload.histogramDelta.marshalToCompoundField(builder)
 	}
+}
+
+func (s *taggedSeries) toStateMetric() *models.StateMetric {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.payload == nil {
+		return nil
+	}
+
+	rs := &models.StateMetric{}
+	rs.Tags = s.tags.Map()
+
+	// convert simple fields
+	for _, sf := range s.payload.simpleFields {
+		rs.Fields = append(rs.Fields, models.StateField{
+			Name:  sf.name(),
+			Type:  sf.name(),
+			Value: sf.gather(),
+		})
+	}
+
+	return rs
 }
