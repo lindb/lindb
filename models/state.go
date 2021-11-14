@@ -184,8 +184,21 @@ func (s *StorageState) String() string {
 	return string(content)
 }
 
-/// StateMachineInfo represents state machine register info.
+// StateMachineInfo represents state machine register info.
 type StateMachineInfo struct {
 	Path        string             `json:"path"`
 	CreateState func() interface{} `json:"-"`
+}
+
+// StateMetric represents internal state metric.
+type StateMetric struct {
+	Tags   map[string]string `json:"tags"`
+	Fields []StateField      `json:"fields"`
+}
+
+// StateField represents internal state value.
+type StateField struct {
+	Name  string  `json:"name"`
+	Type  string  `json:"type"`
+	Value float64 `json:"value"`
 }

@@ -37,8 +37,8 @@ var (
 )
 
 var (
-	HttHandlerTimerVec = linmetric.
-		NewScope("lindb.broker.http_handle_duration").
+	HTTPHandlerTimerVec = linmetric.
+		NewScope("lindb.http_server.handle_duration").
 		NewHistogramVec("path").
 		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
 )

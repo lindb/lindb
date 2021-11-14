@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -36,6 +37,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/hostutil"
+	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -83,7 +85,7 @@ type runtime struct {
 	repoFactory         state.RepositoryFactory
 	srv                 srv
 	factory             factory
-	httpServer          *HTTPServer
+	httpServer          *httppkg.Server
 	master              coordinator.MasterController
 	registry            discovery.Registry
 	stateMachineFactory discovery.StateMachineFactory
@@ -96,7 +98,8 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pusher monitoring.NativePusher
+	pusher          monitoring.NativePusher
+	globalKeyValues tag.Tags
 
 	log *logger.Logger
 }
@@ -153,6 +156,10 @@ func (r *runtime) Run() error {
 		r.log.Error("failed to startStateRepo", logger.Error(err))
 		r.state = server.Failed
 		return err
+	}
+	r.globalKeyValues = tag.Tags{
+		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
+		{Key: []byte("role"), Value: []byte(constants.BrokerRole)},
 	}
 
 	tackClientFct := rpc.NewTaskClientFactory(r.ctx, r.node)
@@ -290,7 +297,7 @@ func (r *runtime) Stop() {
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
 	r.log.Info("starting HTTP server")
-	r.httpServer = NewHTTPServer(r.config.BrokerBase.HTTP)
+	r.httpServer = httppkg.NewServer(r.config.BrokerBase.HTTP, true)
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
 		Ctx:       r.ctx,
@@ -315,6 +322,7 @@ func (r *runtime) startHTTPServer() {
 			r.stateMgr,
 			r.srv.taskManager,
 		),
+		GlobalKeyValues: r.globalKeyValues,
 	})
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {
@@ -412,10 +420,7 @@ func (r *runtime) nativePusher() {
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
-		tag.Tags{
-			{Key: []byte("node"), Value: []byte(r.node.Indicator())},
-			{Key: []byte("role"), Value: []byte("broker")},
-		},
+		r.globalKeyValues,
 	)
 	go r.pusher.Start()
 }
@@ -426,5 +431,5 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		"",
-		r.node, "broker").Run()
+		r.node, constants.BrokerRole).Run()
 }

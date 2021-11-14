@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replica"
+	"github.com/lindb/lindb/series/tag"
 )
 
 // HTTPDeps represents http server handler's dependency.
@@ -43,6 +44,8 @@ type HTTPDeps struct {
 	QueryLimiter  *concurrent.Limiter
 
 	QueryFactory brokerQuery.Factory
+
+	GlobalKeyValues tag.Tags
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {

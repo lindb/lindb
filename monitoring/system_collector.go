@@ -19,10 +19,8 @@ package monitoring
 
 import (
 	"context"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
@@ -267,13 +265,4 @@ func (r *SystemCollector) logNetStat() {
 		r.netStats[stat.Name] = stat
 		r.netStatsUpdated[stat.Name] = time.Now()
 	}
-}
-
-// HealthHandler gathers node stat from monitor, used for health checking
-func HealthHandler(c *gin.Context) {
-	if sc == nil {
-		c.AbortWithStatus(http.StatusNoContent)
-		return
-	}
-	c.AbortWithStatusJSON(http.StatusOK, sc.nodeStat)
 }

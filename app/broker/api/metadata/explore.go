@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -63,9 +64,9 @@ func (d *ExploreAPI) Register(route gin.IRoutes) {
 // Explore returns explore define info.
 func (d *ExploreAPI) Explore(c *gin.Context) {
 	httppkg.OK(c, map[string]interface{}{
-		"broker":  broker.StateMachinePaths,
-		"master":  master.StateMachinePaths,
-		"storage": storage.StateMachinePaths,
+		constants.BrokerRole:  broker.StateMachinePaths,
+		constants.MasterRole:  master.StateMachinePaths,
+		constants.StorageRole: storage.StateMachinePaths,
 	})
 }
 
@@ -84,11 +85,11 @@ func (d *ExploreAPI) ExploreRepo(c *gin.Context) {
 	var stateMachineInfo models.StateMachineInfo
 	var ok bool
 	switch param.Role {
-	case "broker":
+	case constants.BrokerRole:
 		stateMachineInfo, ok = broker.StateMachinePaths[param.Type]
-	case "master":
+	case constants.MasterRole:
 		stateMachineInfo, ok = master.StateMachinePaths[param.Type]
-	case "storage":
+	case constants.StorageRole:
 		if param.StorageName == "" {
 			httppkg.Error(c, fmt.Errorf("storage name cannot be empty"))
 			return

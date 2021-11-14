@@ -21,8 +21,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/ingestion/proto"
+	"github.com/lindb/lindb/pkg/http/middleware"
 )
 
 var (
@@ -48,12 +48,12 @@ func NewProtoWriter(deps *deps.HTTPDeps) *ProtoWriter {
 func (nw *ProtoWriter) Register(route gin.IRoutes) {
 	route.POST(
 		ProtoWritePath,
-		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(ProtoWritePath)),
 		nw.Write,
 	)
 	route.PUT(
 		ProtoWritePath,
-		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(ProtoWritePath)),
 		nw.Write,
 	)
 }

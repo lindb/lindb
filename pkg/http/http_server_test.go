@@ -18,19 +18,21 @@
 package http
 
 import (
+	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/lindb/config"
+
+	"github.com/stretchr/testify/assert"
 )
 
-var tokenStr = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicGF" +
-	"zc3dvcmQiOiJhZG1pbjEyMyJ9.YbNGN0V-U5Y3xOIGNXcgbQkK2VV30UDDEZV19FN62hk"
-
-func Test_CreateToken(t *testing.T) {
-	user := config.User{UserName: "admin", Password: "admin123"}
-	token, err := CreateToken(user)
-	assert.Equal(t, true, err == nil)
-	assert.Equal(t, tokenStr, token)
+func TestNewHTTPServer(t *testing.T) {
+	s := NewServer(config.HTTP{Port: 9999}, true)
+	assert.NotNil(t, s.GetAPIRouter())
+	go func() {
+		_ = s.Run()
+	}()
+	go func() {
+		_ = s.Close(context.TODO())
+	}()
 }

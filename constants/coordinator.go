@@ -21,6 +21,13 @@ import (
 	"fmt"
 )
 
+// defines the role type of node.
+const (
+	MasterRole  = "master"
+	BrokerRole  = "broker"
+	StorageRole = "storage"
+)
+
 // defines common constants will be used in broker and storage.
 const (
 	// LiveNodesPath represents live nodes prefix path for node register.

@@ -28,7 +28,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
-	httppkg "github.com/lindb/lindb/pkg/http"
+	httppkg "github.com/lindb/lindb/pkg/http/middleware"
 )
 
 func TestLogin(t *testing.T) {
