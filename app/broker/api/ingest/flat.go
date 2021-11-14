@@ -21,8 +21,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/app/broker/middleware"
 	"github.com/lindb/lindb/ingestion/flat"
+	"github.com/lindb/lindb/pkg/http/middleware"
 )
 
 var (
@@ -48,12 +48,12 @@ func NewFlatWriter(deps *deps.HTTPDeps) *FlatWriter {
 func (nw *FlatWriter) Register(route gin.IRoutes) {
 	route.POST(
 		FlatWritePath,
-		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(FlatWritePath)),
+		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 	route.PUT(
 		FlatWritePath,
-		middleware.WithHistogram(middleware.HttHandlerTimerVec.WithTagValues(FlatWritePath)),
+		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 }

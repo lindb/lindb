@@ -26,11 +26,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/felixge/fgprof"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
-
-	"github.com/lindb/lindb/app/storage/handler"
+	rpchandler "github.com/lindb/lindb/app/storage/rpc"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -42,6 +38,7 @@ import (
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
+	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -63,8 +60,8 @@ type factory struct {
 
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
-	replica *handler.ReplicaHandler
-	write   *handler.WriteHandler
+	replica *rpchandler.ReplicaHandler
+	write   *rpchandler.WriteHandler
 	task    *query.TaskHandler
 }
 
@@ -88,17 +85,18 @@ type runtime struct {
 	stateMgr            storage.StateManager
 	walMgr              replica.WriteAheadLogManager
 
-	node        *models.StatefulNode
-	server      rpc.GRPCServer
-	repoFactory state.RepositoryFactory
-	repo        state.Repository
-	factory     factory
-	engine      tsdb.Engine
-	rpcHandler  *rpcHandler
-	httpServer  *http.Server
-	queryPool   concurrent.Pool
-	pusher      monitoring.NativePusher
-	log         *logger.Logger
+	node            *models.StatefulNode
+	server          rpc.GRPCServer
+	repoFactory     state.RepositoryFactory
+	repo            state.Repository
+	factory         factory
+	engine          tsdb.Engine
+	rpcHandler      *rpcHandler
+	httpServer      *httppkg.Server
+	queryPool       concurrent.Pool
+	pusher          monitoring.NativePusher
+	globalKeyValues tag.Tags
+	log             *logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -156,10 +154,14 @@ func (r *runtime) Run() error {
 			HostIP:     ip,
 			GRPCPort:   r.config.StorageBase.GRPC.Port,
 			HostName:   hostName,
-			HTTPPort:   r.config.StorageBase.HTTPPort,
+			HTTPPort:   r.config.StorageBase.HTTP.Port,
 			OnlineTime: timeutil.Now(),
 			Version:    config.Version,
 		},
+	}
+	r.globalKeyValues = tag.Tags{
+		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
+		{Key: []byte("role"), Value: []byte(constants.StorageRole)},
 	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
@@ -312,7 +314,7 @@ func (r *runtime) Stop() {
 
 	if r.httpServer != nil {
 		r.log.Info("stopping http server...")
-		if err := r.httpServer.Shutdown(r.ctx); err != nil {
+		if err := r.httpServer.Close(r.ctx); err != nil {
 			r.log.Error("stopped http server with error", logger.Error(err))
 		} else {
 			r.log.Info("stopped http server successfully")
@@ -339,31 +341,17 @@ func (r *runtime) Stop() {
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
-	if r.config.StorageBase.HTTPPort <= 0 {
+	if r.config.StorageBase.HTTP.Port <= 0 {
 		r.log.Info("http server is disabled as http-port is 0")
 		return
 	}
-	r.log.Info("starting http server", logger.Uint16("port", r.config.StorageBase.HTTPPort))
 
-	g := gin.New()
-	if logger.IsDebug() {
-		pprof.Register(g)
-		r.log.Info("/debug/pprof is enabled")
-		g.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
-		r.log.Info("/debug/fgprof is enabled")
-	}
-	// self monitoring handler
-	g.GET(constants.HealthPath, monitoring.HealthHandler)
+	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false)
+	explore := monitoring.NewExploreAPI(r.globalKeyValues)
+	explore.Register(r.httpServer.GetAPIRouter())
 
-	r.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", r.config.StorageBase.HTTPPort),
-		WriteTimeout: time.Second * 120,
-		ReadTimeout:  time.Second * 15,
-		IdleTimeout:  time.Second * 60,
-		Handler:      g,
-	}
 	go func() {
-		if err := r.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		if err := r.httpServer.Run(); err != http.ErrServerClosed {
 			panic(fmt.Sprintf("start http server with error: %s", err))
 		}
 		r.log.Info("http server stopped successfully")
@@ -394,8 +382,8 @@ func (r *runtime) bindRPCHandlers() {
 	)
 
 	r.rpcHandler = &rpcHandler{
-		replica: handler.NewReplicaHandler(r.walMgr),
-		write:   handler.NewWriteHandler(r.walMgr),
+		replica: rpchandler.NewReplicaHandler(r.walMgr),
+		write:   rpchandler.NewWriteHandler(r.walMgr),
 		task: query.NewTaskHandler(
 			r.config.Query,
 			r.factory.taskServer,
@@ -423,10 +411,7 @@ func (r *runtime) nativePusher() {
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
-		tag.Tags{
-			{Key: []byte("node"), Value: []byte(r.node.Indicator())},
-			{Key: []byte("role"), Value: []byte("storage")},
-		},
+		r.globalKeyValues,
 	)
 	go r.pusher.Start()
 }
@@ -438,5 +423,5 @@ func (r *runtime) systemCollector() {
 		r.ctx,
 		r.config.StorageBase.TSDB.Dir,
 		&r.node.StatelessNode,
-		"storage").Run()
+		constants.StorageRole).Run()
 }

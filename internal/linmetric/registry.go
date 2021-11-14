@@ -21,8 +21,13 @@ import (
 	"io"
 	"sync"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 )
+
+func FindMetricList(names []string) map[string][]*models.StateMetric {
+	return defaultRegistry.findMetricList(names)
+}
 
 // registry is a set of metrics
 // Metrics in this registry will be exported to lindb's native ingestion.
@@ -53,12 +58,12 @@ func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries
 func (r *registry) gatherMetricList(
 	writer io.Writer, merger func(builder *metric.RowBuilder),
 ) (count int) {
-	r.mu.Lock()
+	r.mu.RLock()
 	r.buffer = r.buffer[:0]
 	for _, nm := range r.series {
 		r.buffer = append(r.buffer, nm)
 	}
-	r.mu.Unlock()
+	r.mu.RUnlock()
 
 	builder, releaseFunc := metric.NewRowBuilder()
 	defer releaseFunc(builder)
@@ -80,4 +85,32 @@ func (r *registry) gatherMetricList(
 		count++
 	}
 	return count
+}
+
+func (r *registry) findMetricList(names []string) map[string][]*models.StateMetric {
+	nameMap := make(map[string]struct{})
+	for _, name := range names {
+		nameMap[name] = struct{}{}
+	}
+	var rs []*taggedSeries
+	r.mu.RLock()
+	for _, nm := range r.series {
+		_, ok := nameMap[nm.metricName]
+		if ok {
+			rs = append(rs, nm)
+		}
+	}
+	r.mu.RUnlock()
+
+	result := make(map[string][]*models.StateMetric)
+	for _, s := range rs {
+		metrics, ok := result[s.metricName]
+		if ok {
+			metrics = append(metrics, s.toStateMetric())
+			result[s.metricName] = metrics
+		} else {
+			result[s.metricName] = []*models.StateMetric{s.toStateMetric()}
+		}
+	}
+	return result
 }

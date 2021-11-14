@@ -25,7 +25,6 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/encoding"
-	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
 //go:generate mockgen -source=./authentication.go -destination=./authentication_mock.go -package=middleware
@@ -71,9 +70,9 @@ func (u *userAuthentication) Validate(next http.Handler) http.Handler {
 // ParseToken returns jwt claims by token
 // get secret key use Md5Encrypt method with username and password
 // then jwt parse token by secret key
-func parseToken(tokenString string, user config.User) *httppkg.CustomClaims {
-	claims := httppkg.CustomClaims{}
-	cid := httppkg.Md5Encrypt(user)
+func parseToken(tokenString string, user config.User) *CustomClaims {
+	claims := CustomClaims{}
+	cid := Md5Encrypt(user)
 	_, _ = jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
 		return cid, nil
 	})

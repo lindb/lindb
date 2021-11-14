@@ -22,11 +22,12 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/http/middleware"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
-	createTokenFn = http.CreateToken
+	createTokenFn = middleware.CreateToken
 	LoginPath     = "/login"
 )
 
