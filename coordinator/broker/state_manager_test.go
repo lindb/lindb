@@ -186,6 +186,7 @@ func TestStateManager_Storage(t *testing.T) {
 	state, ok := mgr.GetStorage("test")
 	assert.True(t, ok)
 	assert.NotNil(t, state)
+	assert.Len(t, mgr.GetStorageList(), 1)
 	// case 5: remove storage
 	connectionMgr.EXPECT().CloseConnection("1.1.1.1:9000")
 	connectionMgr.EXPECT().CloseConnection("3.3.3.3:9000")

@@ -49,6 +49,8 @@ type StateManager interface {
 	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
 	// GetStorage returns storage state by name.
 	GetStorage(name string) (*models.StorageState, bool)
+	// GetStorageList returns all storage state list.
+	GetStorageList() (rs []*models.StorageState)
 
 	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -362,6 +364,17 @@ func (m *stateManager) GetStorage(name string) (*models.StorageState, bool) {
 
 	storage, ok := m.storages[name]
 	return storage, ok
+}
+
+// GetStorageList returns all storage state list.
+func (m *stateManager) GetStorageList() (rs []*models.StorageState) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, s := range m.storages {
+		rs = append(rs, s)
+	}
+	return
 }
 
 // GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x
