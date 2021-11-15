@@ -276,7 +276,7 @@ func (s *taggedSeries) toStateMetric() *models.StateMetric {
 	for _, sf := range s.payload.simpleFields {
 		rs.Fields = append(rs.Fields, models.StateField{
 			Name:  sf.name(),
-			Type:  sf.name(),
+			Type:  sf.flatType().String(),
 			Value: sf.gather(),
 		})
 	}

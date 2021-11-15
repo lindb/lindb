@@ -57,8 +57,8 @@ func (tags Tags) Clone() Tags {
 	var newTags = make([]Tag, len(tags))
 	for idx := 0; idx < len(tags); idx++ {
 		newTags[idx] = Tag{
-			Key:   []byte(string(tags[idx].Key)),
-			Value: []byte(string(tags[idx].Value)),
+			Key:   tags[idx].Key,
+			Value: tags[idx].Value,
 		}
 	}
 	return newTags
@@ -67,7 +67,7 @@ func (tags Tags) Clone() Tags {
 func (tags Tags) Map() map[string]string {
 	m := make(map[string]string)
 	for _, ts := range tags {
-		m[string(ts.Key)] = m[string(ts.Value)]
+		m[string(ts.Key)] = string(ts.Value)
 	}
 	return m
 }
