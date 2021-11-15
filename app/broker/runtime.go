@@ -98,14 +98,15 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pusher          monitoring.NativePusher
-	globalKeyValues tag.Tags
+	pusher              monitoring.NativePusher
+	globalKeyValues     tag.Tags
+	enableSystemMonitor bool
 
 	log *logger.Logger
 }
 
 // NewBrokerRuntime creates broker runtime
-func NewBrokerRuntime(version string, config *config.Broker) server.Service {
+func NewBrokerRuntime(version string, config *config.Broker, enableSystemMonitor bool) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		version:     version,
@@ -120,7 +121,8 @@ func NewBrokerRuntime(version string, config *config.Broker) server.Service {
 			config.Query.IdleTimeout.Duration(),
 			linmetric.NewScope("lindb.concurrent", "pool_name", "broker-query"),
 		),
-		log: logger.GetLogger("broker", "Runtime"),
+		enableSystemMonitor: enableSystemMonitor,
+		log:                 logger.GetLogger("broker", "Runtime"),
 	}
 }
 
@@ -182,7 +184,7 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	// finally start all state machine
+	// finally, start all state machine
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 
 	if err := r.stateMachineFactory.Start(); err != nil {
@@ -209,8 +211,10 @@ func (r *runtime) Run() error {
 	// start http server
 	r.startHTTPServer()
 
-	// start system collector
-	r.systemCollector()
+	if r.enableSystemMonitor {
+		// start system collector
+		r.systemCollector()
+	}
 	// start stat monitoring
 	r.nativePusher()
 
