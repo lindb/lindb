@@ -34,11 +34,9 @@ import (
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
-	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/series/tag"
 )
 
 var log = logger.GetLogger("standalone", "Runtime")
@@ -77,7 +75,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				Coordinator: cfg.Coordinator,
 				BrokerBase:  cfg.BrokerBase,
 				Monitor:     config.Monitor{}, // empty to disable broker monitor
-			}),
+			}, false),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
 				Query:       cfg.Query,
@@ -115,8 +113,6 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	// start a standalone pusher
-	r.nativePusher()
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
@@ -248,29 +244,4 @@ func (r *runtime) cleanupState() error {
 		}
 	}
 	return nil
-}
-
-func (r *runtime) nativePusher() {
-	log.Info("disable pusher of both broker and storage")
-	monitorEnabled := r.cfg.Monitor.ReportInterval > 0
-	if !monitorEnabled {
-		log.Info("pusher won't start because report-interval is 0")
-		return
-	}
-	log.Info("pusher is running",
-		logger.String("interval", r.cfg.Monitor.ReportInterval.String()))
-
-	ip, _ := hostutil.GetHostIP()
-
-	r.pusher = monitoring.NewNativeProtoPusher(
-		r.ctx,
-		r.cfg.Monitor.URL,
-		r.cfg.Monitor.ReportInterval.Duration(),
-		r.cfg.Monitor.PushTimeout.Duration(),
-		tag.Tags{
-			{Key: []byte("node"), Value: []byte(ip)},
-			{Key: []byte("role"), Value: []byte("standalone")},
-		},
-	)
-	go r.pusher.Start()
 }

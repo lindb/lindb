@@ -38,4 +38,8 @@ func Test_Tags(t *testing.T) {
 	sort.Sort(tags)
 	assert.True(t, tags.needsEscape())
 	assert.Equal(t, ",host=test,ip=1.1.1.1,x\\ x=y\\,y,zone=sh", tags.String())
+
+	tags = Tags{NewTag([]byte("x x"), []byte("y,y"))}
+	m := tags.Map()
+	assert.Equal(t, map[string]string{"x x": "y,y"}, m)
 }

@@ -68,7 +68,7 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
 	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
 	cfg.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
 
-	broker := NewBrokerRuntime("test-version", &cfg)
+	broker := NewBrokerRuntime("test-version", &cfg, true)
 	err := broker.Run()
 	if err != nil {
 		c.Fatal(err)
@@ -88,7 +88,7 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 		getHostIP = hostutil.GetHostIP
 		hostName = os.Hostname
 	}()
-	broker := NewBrokerRuntime("test-version", &cfg)
+	broker := NewBrokerRuntime("test-version", &cfg, false)
 	getHostIP = func() (string, error) {
 		return "ip1", fmt.Errorf("err")
 	}
@@ -129,7 +129,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 		return smFct
 	}
 
-	broker := NewBrokerRuntime("test-version", &cfg)
+	broker := NewBrokerRuntime("test-version", &cfg, false)
 	b := broker.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	b.repoFactory = repoFactory
@@ -142,7 +142,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	repo.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil).AnyTimes()
 
-	broker = NewBrokerRuntime("test-version", &cfg)
+	broker = NewBrokerRuntime("test-version", &cfg, false)
 	b = broker.(*runtime)
 	b.repoFactory = repoFactory
 	smFct.EXPECT().Start().Return(fmt.Errorf("err"))
@@ -152,7 +152,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	assert.Error(ts.t, err)
 	broker.Stop()
 
-	broker = NewBrokerRuntime("test-version", &cfg)
+	broker = NewBrokerRuntime("test-version", &cfg, false)
 	b = broker.(*runtime)
 	b.repoFactory = repoFactory
 	smFct.EXPECT().Start().Return(nil)
