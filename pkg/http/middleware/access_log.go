@@ -51,8 +51,8 @@ func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
 	}
 }
 
-// AccessLogMiddleware returns access log middleware
-func AccessLogMiddleware() gin.HandlerFunc {
+// AccessLog returns access log middleware
+func AccessLog() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		r := c.Request
@@ -68,15 +68,7 @@ func AccessLogMiddleware() gin.HandlerFunc {
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size())
 
-			r := recover()
-			switch {
-			case r != nil:
-				logger.AccessLog.Error(requestInfo, logger.Stack())
-			case len(c.Errors) > 0:
-				logger.AccessLog.Error(requestInfo, logger.Error(c.Errors[0].Err))
-			default:
-				logger.AccessLog.Info(requestInfo)
-			}
+			logger.AccessLog.Info(requestInfo)
 		}()
 		c.Next()
 	}

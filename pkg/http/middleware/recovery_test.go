@@ -18,9 +18,7 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -29,32 +27,20 @@ import (
 	"github.com/lindb/lindb/internal/mock"
 )
 
-func TestAccessLogMiddleware(t *testing.T) {
-	defer func() {
-		pathUnescapeFunc = url.PathUnescape
-	}()
-
+func TestRecovery(t *testing.T) {
 	r := gin.New()
-	r.Use(AccessLog())
+	r.RouterGroup.GET("/panic", func(context *gin.Context) {
+		panic("panic")
+	})
+	assert.Panics(t, func() {
+		_ = mock.DoRequest(t, r, http.MethodGet, "/panic", "")
+	})
 
-	pathUnescapeFunc = func(s string) (string, error) {
-		return "err-path", fmt.Errorf("err")
-	}
-	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
-
-	pathUnescapeFunc = url.PathUnescape
-	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
-}
-
-func Test_real_ip(t *testing.T) {
-	req, _ := http.NewRequest("GET", "/health-check", nil)
-	req.Header.Add("X-Real-Ip", "real-ip")
-	assert.Equal(t, "real-ip", realIP(req))
-
-	req, _ = http.NewRequest("GET", "/health-check", nil)
-	req.Header.Add("X-Forwarded-For", "forward-ip")
-	assert.Equal(t, "forward-ip", realIP(req))
-	req, _ = http.NewRequest("GET", "/health-check", nil)
-	req.RemoteAddr = "1.1.1.1:1023"
-	assert.Equal(t, "1.1.1.1", realIP(req))
+	r = gin.New()
+	r.Use(Recovery())
+	r.RouterGroup.GET("/panic", func(context *gin.Context) {
+		panic("panic")
+	})
+	resp := mock.DoRequest(t, r, http.MethodGet, "/panic", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }

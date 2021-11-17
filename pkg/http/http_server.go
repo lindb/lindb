@@ -68,8 +68,9 @@ func NewServer(cfg config.HTTP, staticResource bool) *Server {
 // init initializes http server default router/handle/middleware.
 func (s *Server) init() {
 	// Using middlewares on group.
-	// use AccessLogMiddleware to log panic error with zap
-	s.gin.Use(middleware.AccessLogMiddleware())
+	// use AccessLog to log panic error with zap
+	s.gin.Use(middleware.AccessLog())
+	s.gin.Use(middleware.Recovery())
 	s.gin.Use(cors.Default())
 
 	if logger.IsDebug() {
