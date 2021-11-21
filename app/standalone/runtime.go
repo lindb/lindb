@@ -74,14 +74,14 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				Query:       cfg.Query,
 				Coordinator: cfg.Coordinator,
 				BrokerBase:  cfg.BrokerBase,
-				Monitor:     config.Monitor{}, // empty to disable broker monitor
+				Monitor:     cfg.Monitor,
 			}, false),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
 				Query:       cfg.Query,
 				Coordinator: cfg.Coordinator,
 				StorageBase: cfg.StorageBase,
-				Monitor:     config.Monitor{}, // empty to disable storage monitor
+				Monitor:     cfg.Monitor,
 			}),
 		cfg:         cfg,
 		initializer: bootstrap.NewClusterInitializer(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),

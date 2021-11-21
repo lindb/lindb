@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -62,6 +63,12 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		leader: int32(channel.State.Leader),
 		replicator: replicator{
 			channel: channel,
+			replicaSeqGauge: replicaSeqVec.WithTagValues(
+				channel.State.Database,
+				channel.State.ShardID.String(),
+				timeutil.FormatTimestamp(channel.State.FamilyTime, timeutil.DataTimeFormat4),
+				channel.State.Leader.String(),
+				channel.State.Follower.String()),
 		},
 		shard:     shard,
 		family:    family,

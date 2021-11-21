@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 )
@@ -63,6 +64,12 @@ func NewRemoteReplicator(
 		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
+			replicaSeqGauge: replicaSeqVec.WithTagValues(
+				channel.State.Database,
+				channel.State.ShardID.String(),
+				timeutil.FormatTimestamp(channel.State.FamilyTime, timeutil.DataTimeFormat4),
+				channel.State.Leader.String(),
+				channel.State.Follower.String()),
 		},
 		cliFct:    cliFct,
 		stateMgr:  stateMgr,

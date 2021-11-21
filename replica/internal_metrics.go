@@ -17,26 +17,10 @@
 
 package replica
 
-import (
-	"testing"
+import "github.com/lindb/lindb/internal/linmetric"
 
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
-
-	"github.com/stretchr/testify/assert"
+var (
+	replicaScope  = linmetric.NewScope("lindb.wal")
+	appendSeqVec  = replicaScope.Scope("write").NewGaugeVec("append_seq", "db", "shard", "family")
+	replicaSeqVec = replicaScope.Scope("replica").NewGaugeVec("consume_seq", "db", "shard", "family", "from", "to")
 )
-
-func TestReplicator_String(t *testing.T) {
-	time, _ := timeutil.ParseTimestamp("2019-12-12 10:11:10")
-	r := replicator{channel: &ReplicatorChannel{
-		State: &models.ReplicaState{
-			Database:   "test",
-			ShardID:    1,
-			Leader:     1,
-			Follower:   2,
-			FamilyTime: time,
-		},
-	}}
-
-	assert.Equal(t, "[database:test,shard:1,family:20191212101110,from(leader):1,to(follower):2]", r.String())
-}

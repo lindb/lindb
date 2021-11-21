@@ -51,8 +51,8 @@ type FanOutQueue interface {
 	GetOrCreateFanOut(name string) (FanOut, error)
 	// FanOutNames returns all fanOut names.
 	FanOutNames() []string
-	// Sync checks all the FanOuts tailSeqs, update the tailSeq as the smallest one.
-	// Then syncs meta data to storage.
+	// Sync checks all the FanOuts' tail sequence, update the tailSeq as the smallest one.
+	// Then syncs metadata to storage.
 	Sync()
 	// HeadSeq returns the headSeq which is the next seq for appending data.
 	HeadSeq() int64
