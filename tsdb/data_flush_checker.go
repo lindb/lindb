@@ -42,8 +42,8 @@ var (
 // DataFlushChecker represents the memory database flush checker.
 // There are 4 flush policies of the Engine as below:
 // 1. FullFlush
-//    highest priority, triggered by external API from the users.
-//    this action will blocks any other flush checkers.
+//    the highest priority, triggered by external API from the users.
+//    this action will block any other flush checkers.
 // 2. GlobalMemoryUsageChecker
 //    This checker will check the global memory usage of the host periodically,
 //    when the metric is above MemoryHighWaterMark, a `watermarkFlusher` will be spawned

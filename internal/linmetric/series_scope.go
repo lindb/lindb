@@ -261,16 +261,19 @@ func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) {
 	}
 }
 
-func (s *taggedSeries) toStateMetric() *models.StateMetric {
+func (s *taggedSeries) toStateMetric(includeTags map[string]string) *models.StateMetric {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.payload == nil {
 		return nil
 	}
-
+	tags := s.tags.Map()
+	if !isMapSubset(tags, includeTags) {
+		return nil
+	}
 	rs := &models.StateMetric{}
-	rs.Tags = s.tags.Map()
+	rs.Tags = tags
 
 	// convert simple fields
 	for _, sf := range s.payload.simpleFields {
@@ -282,4 +285,17 @@ func (s *taggedSeries) toStateMetric() *models.StateMetric {
 	}
 
 	return rs
+}
+
+// isMapSubset checks sub map if include given map.
+func isMapSubset(m, sub map[string]string) bool {
+	if len(m) < len(sub) {
+		return false
+	}
+	for k, v := range sub {
+		if vm, found := m[k]; !found || vm != v {
+			return false
+		}
+	}
+	return true
 }
