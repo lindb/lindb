@@ -25,10 +25,12 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -76,6 +78,8 @@ type partition struct {
 
 	mutex sync.Mutex
 
+	appendSeqGauge *linmetric.BoundGauge
+
 	logger *logger.Logger
 }
 
@@ -99,7 +103,11 @@ func NewPartition(
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
 		peers:         make(map[models.NodeID]ReplicatorPeer),
-		logger:        logger.GetLogger("replica", "Partition"),
+		appendSeqGauge: appendSeqVec.WithTagValues(
+			shard.Database().Name(),
+			shard.ShardID().String(),
+			timeutil.FormatTimestamp(family.FamilyTime(), timeutil.DataTimeFormat4)),
+		logger: logger.GetLogger("replica", "Partition"),
 	}
 }
 
@@ -113,6 +121,7 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 	if err := p.log.Put(msg); err != nil {
 		return -1, err
 	}
+	p.appendSeqGauge.Update(float64(appendIdx))
 	return appendIdx, nil
 }
 
@@ -147,12 +156,17 @@ func (p *partition) IsExpire() bool {
 	return true
 }
 
-// WriteLog writes msg that leader send replica msg.
+// WriteLog writes msg that leader sends replica msg.
 func (p *partition) WriteLog(msg []byte) error {
 	if len(msg) == 0 {
 		return nil
 	}
-	return p.log.Put(msg)
+	appendIdx := p.log.HeadSeq()
+	if err := p.log.Put(msg); err != nil {
+		return err
+	}
+	p.appendSeqGauge.Update(float64(appendIdx))
+	return nil
 }
 
 // BuildReplicaForLeader builds replica relation when handle writeTask connection.

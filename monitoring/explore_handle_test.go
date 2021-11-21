@@ -47,6 +47,6 @@ func TestExploreAPI_ExploreCurrent(t *testing.T) {
 		NewScope("lindb.ut").
 		NewGauge("path")
 	metric.Add(1)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath+"?names=lindb.ut", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath+"?names=lindb.ut&tags[a]=b", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }

@@ -59,9 +59,10 @@ func (d *ExploreAPI) ExploreCurrent(c *gin.Context) {
 		httppkg.Error(c, err)
 		return
 	}
+	tags := c.QueryMap("tags")
 
 	// find metric by name from default metric registry
-	rs := linmetric.FindMetricList(param.Names)
+	rs := linmetric.FindMetricList(param.Names, tags)
 	globalKeyValues := d.globalKeyValues
 	for _, metricList := range rs {
 		for _, metric := range metricList {

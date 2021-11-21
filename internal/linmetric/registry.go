@@ -25,8 +25,8 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-func FindMetricList(names []string) map[string][]*models.StateMetric {
-	return defaultRegistry.findMetricList(names)
+func FindMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
+	return defaultRegistry.findMetricList(names, includeTags)
 }
 
 // registry is a set of metrics
@@ -87,7 +87,7 @@ func (r *registry) gatherMetricList(
 	return count
 }
 
-func (r *registry) findMetricList(names []string) map[string][]*models.StateMetric {
+func (r *registry) findMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
 	nameMap := make(map[string]struct{})
 	for _, name := range names {
 		nameMap[name] = struct{}{}
@@ -104,12 +104,16 @@ func (r *registry) findMetricList(names []string) map[string][]*models.StateMetr
 
 	result := make(map[string][]*models.StateMetric)
 	for _, s := range rs {
+		stateMetric := s.toStateMetric(includeTags)
+		if stateMetric == nil {
+			continue
+		}
 		metrics, ok := result[s.metricName]
 		if ok {
-			metrics = append(metrics, s.toStateMetric())
+			metrics = append(metrics, stateMetric)
 			result[s.metricName] = metrics
 		} else {
-			result[s.metricName] = []*models.StateMetric{s.toStateMetric()}
+			result[s.metricName] = []*models.StateMetric{stateMetric}
 		}
 	}
 	return result

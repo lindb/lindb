@@ -19,8 +19,8 @@ package replica
 
 import (
 	"fmt"
-	"strconv"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -53,13 +53,8 @@ type Replicator interface {
 }
 
 type replicator struct {
-	channel *ReplicatorChannel
-}
-
-func NewReplicator(channel *ReplicatorChannel) Replicator {
-	return &replicator{
-		channel: channel,
-	}
+	channel         *ReplicatorChannel
+	replicaSeqGauge *linmetric.BoundGauge
 }
 
 func (r *replicator) Replica(_ int64, _ []byte) {
@@ -75,6 +70,7 @@ func (r *replicator) Consume() int64 {
 }
 
 func (r *replicator) GetMessage(replicaIdx int64) ([]byte, error) {
+	r.replicaSeqGauge.Update(float64(replicaIdx))
 	return r.channel.Queue.Get(replicaIdx)
 }
 
@@ -107,9 +103,9 @@ func (r *replicator) SetAckIndex(ackIdx int64) {
 func (r *replicator) String() string {
 	return "[" +
 		"database:" + r.channel.State.Database +
-		",shard:" + strconv.Itoa(int(r.channel.State.ShardID)) +
+		",shard:" + r.channel.State.ShardID.String() +
 		",family:" + timeutil.FormatTimestamp(r.channel.State.FamilyTime, timeutil.DataTimeFormat4) +
-		",from(leader):" + strconv.Itoa(int(r.channel.State.Leader)) +
-		",to(follower):" + strconv.Itoa(int(r.channel.State.Follower)) +
+		",from(leader):" + r.channel.State.Leader.String() +
+		",to(follower):" + r.channel.State.Follower.String() +
 		"]"
 }
