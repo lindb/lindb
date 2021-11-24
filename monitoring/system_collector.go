@@ -41,7 +41,6 @@ type SystemCollector struct {
 	netStats        map[string]net.IOCountersStat // interface-name as key
 	netStatsUpdated map[string]time.Time          // last updated time
 	systemStat      *models.SystemStat
-	nodeStat        *models.NodeStat
 	// used for mock
 	MemoryStatGetter    MemoryStatGetter
 	CPUStatGetter       CPUStatGetter
@@ -88,17 +87,13 @@ type SystemCollector struct {
 func NewSystemCollector(
 	ctx context.Context,
 	storage string,
-	node *models.StatelessNode,
 	role string,
 ) *SystemCollector {
 	sc = &SystemCollector{
-		interval:        time.Second * 10,
-		netStats:        make(map[string]net.IOCountersStat),
-		netStatsUpdated: make(map[string]time.Time),
-		systemStat:      &models.SystemStat{},
-		nodeStat: &models.NodeStat{
-			Node: node,
-		},
+		interval:            time.Second * 10,
+		netStats:            make(map[string]net.IOCountersStat),
+		netStatsUpdated:     make(map[string]time.Time),
+		systemStat:          &models.SystemStat{},
 		ctx:                 ctx,
 		MemoryStatGetter:    mem.VirtualMemory,
 		CPUStatGetter:       GetCPUStat,
@@ -201,8 +196,6 @@ func (r *SystemCollector) collect() {
 			r.netStatsUpdated[stat.Name] = time.Now()
 		}
 	}
-
-	r.nodeStat.System = *r.systemStat
 
 	r.logMemStat()
 	r.logDiskUsageStat()

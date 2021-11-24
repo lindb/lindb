@@ -23,9 +23,9 @@ import (
 
 // defines the role type of node.
 const (
-	MasterRole  = "master"
-	BrokerRole  = "broker"
-	StorageRole = "storage"
+	MasterRole  = "Master"
+	BrokerRole  = "Broker"
+	StorageRole = "Storage"
 )
 
 // defines common constants will be used in broker and storage.

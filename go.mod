@@ -26,7 +26,7 @@ require (
 	github.com/klauspost/compress v1.13.5
 	github.com/lindb/roaring v0.9.0
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
-	github.com/mattn/go-colorable v0.1.11 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14
 	github.com/pkg/errors v0.8.1
 	github.com/rakyll/gotest v0.0.6 // indirect
@@ -40,7 +40,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/sys v0.0.0-20211117180635-dee7805ff2e1
+	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

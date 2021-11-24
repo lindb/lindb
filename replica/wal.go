@@ -57,7 +57,9 @@ type WriteAheadLogManager interface {
 	// GetOrCreateLog returns write ahead log for database,
 	// if exist returns it, else creates a new log.
 	GetOrCreateLog(database string) WriteAheadLog
-	// recovery recoveries local history wal when server start.
+	// GetReplicaState returns replica state for given database's name.
+	GetReplicaState(database string) []models.FamilyLogReplicaState
+	// Recovery recoveries local history wal when server start.
 	Recovery() error
 }
 
@@ -66,9 +68,10 @@ type WriteAheadLog interface {
 	// GetOrCreatePartition returns a partition of write ahead log.
 	// if exist returns it, else create a new partition.
 	GetOrCreatePartition(shardID models.ShardID, familyTime int64, leader models.NodeID) (Partition, error)
-
+	getReplicaState() (rs []models.FamilyLogReplicaState)
 	// recovery recoveries database write ahead log from local storage.
 	recovery() error
+
 	destroy()
 }
 
@@ -168,7 +171,7 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	return log
 }
 
-// recovery recoveries local history wal when server start.
+// Recovery recoveries local history wal when server start.
 func (w *writeAheadLogManager) Recovery() error {
 	if !fileutil.Exist(w.cfg.Dir) {
 		return nil
@@ -183,6 +186,14 @@ func (w *writeAheadLogManager) Recovery() error {
 		if err := log.recovery(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (w *writeAheadLogManager) GetReplicaState(database string) []models.FamilyLogReplicaState {
+	log, ok := w.getLog(database)
+	if ok {
+		return log.getReplicaState()
 	}
 	return nil
 }
@@ -282,6 +293,16 @@ func (w *writeAheadLog) GetOrCreatePartition(
 
 	w.insertPartition(key, p)
 	return p, nil
+}
+
+func (w *writeAheadLog) getReplicaState() (rs []models.FamilyLogReplicaState) {
+	logs := w.familyLogs.Load().(familyLogs)
+	for k, v := range logs {
+		state := v.getReplicaState()
+		state.Leader = k.leader
+		rs = append(rs, state)
+	}
+	return
 }
 
 func (w *writeAheadLog) getPartition(key partitionKey) (Partition, bool) {

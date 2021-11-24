@@ -60,6 +60,8 @@ type Partition interface {
 	ResetReplicaIndex(idx int64)
 	IsExpire() bool
 	Path() string
+	// getReplicaState returns each family's log replica state.
+	getReplicaState() models.FamilyLogReplicaState
 	recovery(leader models.NodeID) error
 }
 
@@ -224,6 +226,32 @@ func (p *partition) Close() error {
 	// close log
 	p.log.Close()
 	return nil
+}
+
+// getReplicaState returns each family's log replica state.
+func (p *partition) getReplicaState() models.FamilyLogReplicaState {
+	replicators := p.log.FanOutNames()
+	var stateOfReplicators []models.ReplicaPeerState
+	for _, name := range replicators {
+		fanout, err := p.log.GetOrCreateFanOut(name)
+		if err != nil {
+			p.logger.Error("get fan out error when get replica state, ignore it")
+			continue
+		}
+		stateOfReplicators = append(stateOfReplicators, models.ReplicaPeerState{
+			Replicator: name,
+			Consume:    fanout.HeadSeq(),
+			ACK:        fanout.TailSeq(),
+			Pending:    fanout.Pending(),
+		})
+	}
+	rs := models.FamilyLogReplicaState{
+		ShardID:     p.shardID,
+		FamilyTime:  timeutil.FormatTimestamp(p.family.FamilyTime(), timeutil.DataTimeFormat4),
+		Append:      p.log.HeadSeq(),
+		Replicators: stateOfReplicators,
+	}
+	return rs
 }
 
 // buildReplica builds replica replication based on leader/follower node.

@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/queue"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 
@@ -81,6 +82,9 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	shard := tsdb.NewMockShard(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+	shard.EXPECT().Database().Return(db).AnyTimes()
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
@@ -88,12 +92,15 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, p)
 	// case 3: create log ok
+	log := queue.NewMockFanOutQueue(ctrl)
 	newFanOutQueue = func(dirPath string, dataSizeLimit int64,
 		removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
-		return nil, nil
+		return log, nil
 	}
 	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(family, nil)
 	p, err = l.GetOrCreatePartition(1, 1, 1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
@@ -101,4 +108,15 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	p, err = l.GetOrCreatePartition(1, 1, 1)
 	assert.NoError(t, err)
 	assert.NotNil(t, p)
+
+	// case 5: get replica state
+	log.EXPECT().FanOutNames().Return([]string{"1"})
+	fan := queue.NewMockFanOut(ctrl)
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(fan, nil)
+	fan.EXPECT().HeadSeq().Return(int64(1))
+	fan.EXPECT().TailSeq().Return(int64(1))
+	fan.EXPECT().Pending().Return(int64(1))
+	log.EXPECT().HeadSeq().Return(int64(1))
+	rs := l.getReplicaState()
+	assert.Len(t, rs, 1)
 }

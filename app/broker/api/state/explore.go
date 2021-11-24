@@ -20,6 +20,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -147,12 +148,14 @@ func (d *ExploreAPI) fetchStateData(c *gin.Context, nodes []models.Node) {
 		go func() {
 			defer wait.Done()
 			node := nodes[i]
-			req, _ := http.NewRequest("GET", node.HTTPAddress(), nil)
+			req, _ := http.NewRequest(http.MethodGet, node.HTTPAddress(), nil)
 			req.URL.Path = c.Request.URL.Path + "/current"
 			req.URL.RawQuery = params
-			rs, err := d.get(req)
-			if err == nil {
-				result[i] = rs
+			var metric map[string][]*models.StateMetric
+			if err := get(req, func(body io.Reader) error {
+				return json.NewDecoder(body).Decode(&metric)
+			}); err == nil {
+				result[i] = metric
 			}
 		}()
 	}
@@ -176,20 +179,15 @@ func (d *ExploreAPI) fetchStateData(c *gin.Context, nodes []models.Node) {
 }
 
 // get does http get request, then returns the internal metric for given target node.
-func (d *ExploreAPI) get(req *http.Request) (map[string][]*models.StateMetric, error) {
+func get(req *http.Request, decoder func(body io.Reader) error) error {
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
 
 	resp, err := doRequest(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	var metric map[string][]*models.StateMetric
-	err = json.NewDecoder(resp.Body).Decode(&metric)
-	if err != nil {
-		return nil, err
-	}
-	return metric, nil
+	return decoder(resp.Body)
 }
