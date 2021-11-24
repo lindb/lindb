@@ -49,7 +49,7 @@ func TestExploreAPI_Explore(t *testing.T) {
 	// case 1: params invalid
 	resp := mock.DoRequest(t, r, http.MethodGet, ExplorePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=broker1&names=cpu", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Broker1&names=cpu", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	// case 2: fetch err
 	stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
@@ -59,14 +59,14 @@ func TestExploreAPI_Explore(t *testing.T) {
 	doRequest = func(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("err")
 	}
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=broker&names=cpu", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Broker&names=cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	// case 3: fetch ok, resp data invalid
 	doRequest = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{Body: io.NopCloser(strings.NewReader("a"))}, nil
 	}
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=broker&names=cpu", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Broker&names=cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 4: broker success
 	buf := io.NopCloser(strings.NewReader(`{
@@ -74,18 +74,18 @@ func TestExploreAPI_Explore(t *testing.T) {
 	doRequest = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{Body: buf}, nil
 	}
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=broker&names=cpu", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Broker&names=cpu", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 5: storage name is nil, err
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=storage&names=cpu", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Storage&names=cpu", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// case 6: storage name not exist
 	stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=storage&names=cpu&storageName=xx", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Storage&names=cpu&storageName=xx", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	// case 6: storage no live node
 	stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{}, true)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=storage&names=cpu&storageName=xx", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Storage&names=cpu&storageName=xx", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 
 	// case 7: storage success
@@ -95,7 +95,7 @@ func TestExploreAPI_Explore(t *testing.T) {
 	}
 	stateMgr.EXPECT().GetStorage(gomock.Any()).
 		Return(&models.StorageState{LiveNodes: map[models.NodeID]models.StatefulNode{1: {}, 2: {}}}, true)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=storage&names=cpu&storageName=xx", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExplorePath+"?role=Storage&names=cpu&storageName=xx", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
@@ -114,14 +114,14 @@ func TestExploreAPI_ExploreLiveNode(t *testing.T) {
 	// case 1: params invalid
 	resp := mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=broker1", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=Broker1", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	// case 2: broker ok
 	stateMgr.EXPECT().GetLiveNodes().Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=broker", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=Broker", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 3: storage ok
 	stateMgr.EXPECT().GetStorageList().Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=storage", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreLiveNodePath+"?role=Storage", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }

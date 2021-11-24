@@ -435,5 +435,5 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		"",
-		r.node, constants.BrokerRole).Run()
+		constants.BrokerRole).Run()
 }

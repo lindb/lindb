@@ -38,6 +38,7 @@ type API struct {
 	storage         *admin.StorageClusterAPI
 	explore         *metadata.ExploreAPI
 	stateExplore    *state.ExploreAPI
+	replica         *state.ReplicaAPI
 	metricExplore   *monitoring.ExploreAPI
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
@@ -55,6 +56,7 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		storage:         admin.NewStorageClusterAPI(deps),
 		explore:         metadata.NewExploreAPI(deps),
 		stateExplore:    state.NewExploreAPI(deps),
+		replica:         state.NewReplicaAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
@@ -74,6 +76,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.stateExplore.Register(router)
 	api.metricExplore.Register(router)
+	api.replica.Register(router)
 
 	api.metadata.Register(router)
 	api.metric.Register(router)

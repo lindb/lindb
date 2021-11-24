@@ -40,7 +40,6 @@ func Test_NewSystemCollector(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		&models.StatelessNode{},
 		"standalone",
 	)
 
@@ -62,7 +61,6 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		&models.StatelessNode{},
 		"standalone",
 	)
 

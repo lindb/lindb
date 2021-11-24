@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	stateapi "github.com/lindb/lindb/app/storage/api/state"
 	rpchandler "github.com/lindb/lindb/app/storage/rpc"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -347,8 +348,10 @@ func (r *runtime) startHTTPServer() {
 	}
 
 	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false)
-	explore := monitoring.NewExploreAPI(r.globalKeyValues)
-	explore.Register(r.httpServer.GetAPIRouter())
+	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues)
+	exploreAPI.Register(r.httpServer.GetAPIRouter())
+	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
+	replicaAPI.Register(r.httpServer.GetAPIRouter())
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {
@@ -422,6 +425,5 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		r.config.StorageBase.TSDB.Dir,
-		&r.node.StatelessNode,
 		constants.StorageRole).Run()
 }

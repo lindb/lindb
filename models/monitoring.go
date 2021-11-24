@@ -22,43 +22,23 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-// NodeStat represents the node monitoring stat
-type NodeStat struct {
-	Node     *StatelessNode `json:"node,omitempty"`
-	System   SystemStat     `json:"system,omitempty"`
-	Replicas int            `json:"replicas"` // the number of replica under the node
-	IsDead   bool           `json:"isDead"`
+// FamilyLogReplicaState represents the family's log replica state.
+type FamilyLogReplicaState struct {
+	ShardID    ShardID `json:"shardId"`
+	FamilyTime string  `json:"familyTime"`
+	Leader     NodeID  `json:"leader"`
+
+	Append int64 `json:"append"`
+
+	Replicators []ReplicaPeerState `json:"replicators"`
 }
 
-// StorageClusterStat represents the storage cluster's stat
-type StorageClusterStat struct {
-	Name               string           `json:"name,omitempty"`
-	Nodes              []*NodeStat      `json:"nodes,omitempty"`
-	NodeStatus         NodeStatus       `json:"nodeStatus,omitempty"`
-	ReplicaStatus      ReplicaStatus    `json:"replicaStatus,omitempty"`
-	Capacity           disk.UsageStat   `json:"capacity,omitempty"`
-	DatabaseStatusList []DatabaseStatus `json:"databaseStatusList,omitempty"`
-}
-
-// DatabaseStatus represents the database's status
-type DatabaseStatus struct {
-	Config        Database      `json:"config,omitempty"`
-	ReplicaStatus ReplicaStatus `json:"replicaStatus,omitempty"`
-}
-
-// NodeStatus represents the status of cluster node
-type NodeStatus struct {
-	Total   int `json:"total"`
-	Alive   int `json:"alive"`
-	Suspect int `json:"suspect"`
-	Dead    int `json:"dead"`
-}
-
-// ReplicaStatus represents the status of replica
-type ReplicaStatus struct {
-	Total           int `json:"total"`
-	UnderReplicated int `json:"underReplicated"`
-	Unavailable     int `json:"unavailable"`
+// ReplicaPeerState represents current wal replica peer state.
+type ReplicaPeerState struct {
+	Replicator string `json:"replicator"`
+	Consume    int64  `json:"consume"`
+	ACK        int64  `json:"ack"`
+	Pending    int64  `json:"pending"`
 }
 
 // SystemStat represents the system statistics

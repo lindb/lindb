@@ -78,12 +78,12 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// not found
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=broker&type=LiveNode1", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Broker&type=LiveNode1", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 
 	// case 2: walk entry err
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=broker&type=LiveNode", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Broker&type=LiveNode", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// case 3: walk entry value format err
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -91,7 +91,7 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 			fn([]byte("key"), []byte("value"))
 			return nil
 		})
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=broker&type=LiveNode", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Broker&type=LiveNode", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 4: walk entry ok
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -99,7 +99,7 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 			fn([]byte("key"), encoding.JSONMarshal(&models.StatelessNode{HostIP: "1.1.1.1"}))
 			return nil
 		})
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=broker&type=LiveNode", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Broker&type=LiveNode", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 6: explore master
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -107,17 +107,17 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 			fn([]byte("key"), encoding.JSONMarshal(&models.Master{ElectTime: 11}))
 			return nil
 		})
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=master&type=Master", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Master&type=Master", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 7: explore storage, storage name is nil
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=storage&type=LiveNode", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Storage&type=LiveNode", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// case 8: explore storage, current master, state not found
 	master.EXPECT().IsMaster().Return(true).MaxTimes(2)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=storage&type=LiveNode1&storageName=test", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Storage&type=LiveNode1&storageName=test", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	stateMgr.EXPECT().GetStorageCluster("test").Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=storage&type=LiveNode&storageName=test", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Storage&type=LiveNode&storageName=test", "")
 	assert.Equal(t, http.StatusNotFound, resp.Code)
 	// case 9: explore storage, current master, ok
 	master.EXPECT().IsMaster().Return(true)
@@ -125,7 +125,7 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 	stateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(storage).AnyTimes()
 	storage.EXPECT().GetRepo().Return(repo)
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=storage&type=LiveNode&storageName=test", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Storage&type=LiveNode&storageName=test", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 	// case 10: explore storage, current is not master, need forward to master
 	backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +141,6 @@ func TestExploreAPI_ExploreRepo(t *testing.T) {
 
 	master.EXPECT().IsMaster().Return(false)
 	master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=storage&type=LiveNode&storageName=test", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, ExploreRepoPath+"?role=Storage&type=LiveNode&storageName=test", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }
