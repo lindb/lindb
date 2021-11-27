@@ -17,4 +17,6 @@
 
 package constants
 
-const HealthPath = "/health"
+const LF = "\n"
+
+var LBBytes = []byte(LF)

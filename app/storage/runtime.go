@@ -352,6 +352,8 @@ func (r *runtime) startHTTPServer() {
 	exploreAPI.Register(r.httpServer.GetAPIRouter())
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
 	replicaAPI.Register(r.httpServer.GetAPIRouter())
+	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
+	logAPI.Register(r.httpServer.GetAPIRouter())
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {

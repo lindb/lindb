@@ -37,7 +37,7 @@ func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
 ## Controls how HTTP Server are configured.
 ##
-## which port broker's HTTP Server is listening on 
+## port which the HTTP Server is listening on 
 port = %d
 ## maximum duration the server should keep established connections alive.
 ## Default: 2m
