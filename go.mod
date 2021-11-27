@@ -40,7 +40,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/automaxprocs v1.4.0
 	go.uber.org/zap v1.14.1
-	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab
+	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881
 	google.golang.org/grpc v1.26.0
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

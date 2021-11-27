@@ -75,6 +75,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				Coordinator: cfg.Coordinator,
 				BrokerBase:  cfg.BrokerBase,
 				Monitor:     cfg.Monitor,
+				Logging:     cfg.Logging,
 			}, false),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
@@ -82,6 +83,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				Coordinator: cfg.Coordinator,
 				StorageBase: cfg.StorageBase,
 				Monitor:     cfg.Monitor,
+				Logging:     cfg.Logging,
 			}),
 		cfg:         cfg,
 		initializer: bootstrap.NewClusterInitializer(fmt.Sprintf("http://localhost:%d", cfg.BrokerBase.HTTP.Port)),
