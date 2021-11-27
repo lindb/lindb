@@ -40,11 +40,13 @@ type API struct {
 	stateExplore    *state.ExploreAPI
 	replica         *state.ReplicaAPI
 	metricExplore   *monitoring.ExploreAPI
+	log             *monitoring.LoggerAPI
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
 	flatIngestion   *ingest.FlatWriter
 	metric          *query.MetricAPI
 	metadata        *query.MetadataAPI
+	proxy           *ReverseProxy
 }
 
 // NewAPI creates broker http api.
@@ -58,11 +60,13 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		stateExplore:    state.NewExploreAPI(deps),
 		replica:         state.NewReplicaAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
+		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
 		flatIngestion:   ingest.NewFlatWriter(deps),
 		metric:          query.NewMetricAPI(deps),
 		metadata:        query.NewMetadataAPI(deps),
+		proxy:           NewReverseProxy(),
 	}
 }
 
@@ -75,7 +79,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.explore.Register(router)
 
 	api.stateExplore.Register(router)
-	api.metricExplore.Register(router)
 	api.replica.Register(router)
 
 	api.metadata.Register(router)
@@ -83,4 +86,9 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)
 	api.flatIngestion.Register(router)
+	// monitoring
+	api.metricExplore.Register(router)
+	api.log.Register(router)
+
+	api.proxy.Register(router)
 }
