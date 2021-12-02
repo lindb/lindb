@@ -32,7 +32,7 @@ import (
 func Test_Limiter(t *testing.T) {
 	limiter := NewLimiter(
 		context.TODO(),
-		10,
+		1,
 		time.Millisecond,
 		linmetric.NewScope("test_limiter"),
 	)

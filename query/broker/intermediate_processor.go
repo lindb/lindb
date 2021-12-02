@@ -25,7 +25,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
@@ -138,7 +137,7 @@ func (p *intermediateTaskProcessor) processIntermediateTask(
 			return event.Err
 		}
 		if event.Stats != nil {
-			event.Stats.WaitCost = ltoml.Duration(time.Since(startTime))
+			event.Stats.WaitCost = time.Since(startTime).Nanoseconds()
 		}
 		taskResponse := p.makeTaskResponse(req, event)
 		return p.taskManager.SendResponse(intermediate.Parent, taskResponse)

@@ -25,7 +25,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/series"
@@ -189,10 +188,10 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 	resultSet.Stats = event.Stats
 	if resultSet.Stats != nil {
 		now := time.Now()
-		resultSet.Stats.PlanCost = ltoml.Duration(mq.endPlanTime.Sub(mq.startTime))
-		resultSet.Stats.WaitCost = ltoml.Duration(makeResultStartTime.Sub(mq.endPlanTime))
-		resultSet.Stats.ExpressCost = ltoml.Duration(now.Sub(makeResultStartTime))
-		resultSet.Stats.TotalCost = ltoml.Duration(now.Sub(mq.startTime))
+		resultSet.Stats.PlanCost = mq.endPlanTime.Sub(mq.startTime).Nanoseconds()
+		resultSet.Stats.WaitCost = makeResultStartTime.Sub(mq.endPlanTime).Nanoseconds()
+		resultSet.Stats.ExpressCost = now.Sub(makeResultStartTime).Nanoseconds()
+		resultSet.Stats.TotalCost = now.Sub(mq.startTime).Nanoseconds()
 	}
 	return resultSet
 }
