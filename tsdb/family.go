@@ -499,6 +499,9 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 }
 
 func (f *dataFamily) Close() error {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	f.flushCondition.Wait()
 
 	if f.immutableMemDB != nil {

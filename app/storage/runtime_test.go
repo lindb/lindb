@@ -58,7 +58,7 @@ var cfg = config.Storage{
 		WAL:       config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
 		Indicator: 1,
 		GRPC: config.GRPC{
-			Port: 9999,
+			Port: 7777,
 		},
 		TSDB: config.TSDB{Dir: "/tmp/test/data"},
 	}, Monitor: *config.NewDefaultMonitor(),

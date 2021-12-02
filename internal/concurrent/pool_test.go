@@ -18,7 +18,6 @@
 package concurrent
 
 import (
-	"runtime"
 	"testing"
 	"time"
 
@@ -29,10 +28,8 @@ import (
 )
 
 func Test_Pool_Submit(t *testing.T) {
-	grNum := runtime.NumGoroutine()
-	pool := NewPool("test", 2, time.Second*5, linmetric.NewScope("1"))
 	// num. of pool + 1 dispatcher, workers has not been spawned
-	assert.Equal(t, grNum+1, runtime.NumGoroutine())
+	pool := NewPool("test", 2, time.Second*5, linmetric.NewScope("1"))
 
 	var c atomic.Int32
 

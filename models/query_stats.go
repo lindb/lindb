@@ -28,10 +28,10 @@ import (
 type QueryStats struct {
 	BrokerNodes  map[string]*QueryStats   `json:"brokerNodes,omitempty"`
 	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
-	PlanCost     ltoml.Duration           `json:"planCost,omitempty"`
-	WaitCost     ltoml.Duration           `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
-	ExpressCost  ltoml.Duration           `json:"expressCost,omitempty"`
-	TotalCost    ltoml.Duration           `json:"totalCost,omitempty"` // total query cost
+	PlanCost     int64                    `json:"planCost,omitempty"`
+	WaitCost     int64                    `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
+	ExpressCost  int64                    `json:"expressCost,omitempty"`
+	TotalCost    int64                    `json:"totalCost,omitempty"` // total query cost
 }
 
 // NewQueryStats creates the query stats
@@ -54,12 +54,12 @@ func (s *QueryStats) MergeStorageTaskStats(nodeID string, stats *StorageStats) {
 
 // StorageStats represents query stats in storage side
 type StorageStats struct {
-	NetPayload            ltoml.Size                `json:"netPayload"`
-	TotalCost             ltoml.Duration            `json:"totalCost"`
-	PlanCost              ltoml.Duration            `json:"planCost"`
-	TagFilterCost         ltoml.Duration            `json:"tagFilterCost"`
-	Shards                map[ShardID]*ShardStats   `json:"shards,omitempty"`
-	CollectTagValuesStats map[string]ltoml.Duration `json:"collectTagValuesStats,omitempty"`
+	NetPayload            ltoml.Size              `json:"netPayload"`
+	TotalCost             int64                   `json:"totalCost"`
+	PlanCost              int64                   `json:"planCost"`
+	TagFilterCost         int64                   `json:"tagFilterCost"`
+	Shards                map[ShardID]*ShardStats `json:"shards,omitempty"`
+	CollectTagValuesStats map[string]int64        `json:"collectTagValuesStats,omitempty"`
 
 	start time.Time  // track search start time in storage side
 	mutex sync.Mutex // need add lock for goroutine update stats data
@@ -69,7 +69,7 @@ type StorageStats struct {
 func NewStorageStats() *StorageStats {
 	return &StorageStats{
 		Shards:                make(map[ShardID]*ShardStats),
-		CollectTagValuesStats: make(map[string]ltoml.Duration),
+		CollectTagValuesStats: make(map[string]int64),
 		start:                 time.Now(),
 	}
 }
@@ -78,21 +78,21 @@ func NewStorageStats() *StorageStats {
 func (s *StorageStats) Complete() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.TotalCost = ltoml.Duration(time.Since(s.start))
+	s.TotalCost = time.Since(s.start).Nanoseconds()
 }
 
 // SetPlanCost sets plan cost
 func (s *StorageStats) SetPlanCost(cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.PlanCost = ltoml.Duration(cost)
+	s.PlanCost = cost.Nanoseconds()
 }
 
 // SetTagFilterCost sets tag filter cost
 func (s *StorageStats) SetTagFilterCost(cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.TagFilterCost = ltoml.Duration(cost)
+	s.TagFilterCost = cost.Nanoseconds()
 }
 
 // SetShardSeriesIDsSearchStats sets shard series ids search stats
@@ -102,7 +102,7 @@ func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID ShardID, numOfSeries
 
 	stats := newShardStats()
 	stats.NumOfSeries = numOfSeries
-	stats.SeriesFilterCost = ltoml.Duration(seriesFilterCost)
+	stats.SeriesFilterCost = seriesFilterCost.Nanoseconds()
 	s.Shards[shardID] = stats
 }
 
@@ -112,7 +112,7 @@ func (s *StorageStats) SetShardMemoryDataFilterCost(shardID ShardID, cost time.D
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
 	if ok {
-		stats.MemFilterCost = ltoml.Duration(cost)
+		stats.MemFilterCost = cost.Nanoseconds()
 	}
 }
 
@@ -122,7 +122,7 @@ func (s *StorageStats) SetShardKVDataFilterCost(shardID ShardID, cost time.Durat
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
 	if ok {
-		stats.KVFilterCost = ltoml.Duration(cost)
+		stats.KVFilterCost = cost.Nanoseconds()
 	}
 }
 
@@ -132,7 +132,7 @@ func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration)
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
 	if ok {
-		stats.GroupingCost = ltoml.Duration(cost)
+		stats.GroupingCost = cost.Nanoseconds()
 	}
 }
 
@@ -160,16 +160,16 @@ func (s *StorageStats) SetShardGroupBuildStats(shardID ShardID, cost time.Durati
 func (s *StorageStats) SetCollectTagValuesStats(tagKey string, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.CollectTagValuesStats[tagKey] = ltoml.Duration(cost)
+	s.CollectTagValuesStats[tagKey] = cost.Nanoseconds()
 }
 
 // ShardStats represents the shard level stats
 type ShardStats struct {
-	SeriesFilterCost ltoml.Duration    `json:"seriesFilterCost"`
+	SeriesFilterCost int64             `json:"seriesFilterCost"`
 	NumOfSeries      uint64            `json:"numOfSeries"`
-	MemFilterCost    ltoml.Duration    `json:"memFilterCost"`
-	KVFilterCost     ltoml.Duration    `json:"kvFilterCost"`
-	GroupingCost     ltoml.Duration    `json:"groupingCost"`
+	MemFilterCost    int64             `json:"memFilterCost"`
+	KVFilterCost     int64             `json:"kvFilterCost"`
+	GroupingCost     int64             `json:"groupingCost"`
 	ScanStats        map[string]*Stats `json:"scanStats,omitempty"`
 	GroupBuildStats  *Stats            `json:"groupBuildStats,omitempty"`
 }
@@ -183,18 +183,19 @@ func newShardStats() *ShardStats {
 
 // SetScanStats sets the data scan stats in shard level
 func (s *ShardStats) SetScanStats(identifier string, cost time.Duration) {
+	costVal := cost.Nanoseconds()
 	stats, ok := s.ScanStats[identifier]
 	if ok {
 		stats.Count++
-		if stats.Max < ltoml.Duration(cost) {
-			stats.Max = ltoml.Duration(cost)
-		} else if stats.Min > ltoml.Duration(cost) {
-			stats.Min = ltoml.Duration(cost)
+		if stats.Max < costVal {
+			stats.Max = costVal
+		} else if stats.Min > costVal {
+			stats.Min = costVal
 		}
 	} else {
 		s.ScanStats[identifier] = &Stats{
-			Min:   ltoml.Duration(cost),
-			Max:   ltoml.Duration(cost),
+			Min:   costVal,
+			Max:   costVal,
 			Count: 1,
 		}
 	}
@@ -202,25 +203,26 @@ func (s *ShardStats) SetScanStats(identifier string, cost time.Duration) {
 
 // SetGroupBuildStats sets the group build stats in shard level
 func (s *ShardStats) SetGroupBuildStats(cost time.Duration) {
+	costVal := cost.Nanoseconds()
 	if s.GroupBuildStats == nil {
 		s.GroupBuildStats = &Stats{
-			Min:   ltoml.Duration(cost),
-			Max:   ltoml.Duration(cost),
+			Min:   costVal,
+			Max:   costVal,
 			Count: 1,
 		}
 	} else {
 		s.GroupBuildStats.Count++
-		if s.GroupBuildStats.Max < ltoml.Duration(cost) {
-			s.GroupBuildStats.Max = ltoml.Duration(cost)
-		} else if s.GroupBuildStats.Min > ltoml.Duration(cost) {
-			s.GroupBuildStats.Min = ltoml.Duration(cost)
+		if s.GroupBuildStats.Max < costVal {
+			s.GroupBuildStats.Max = costVal
+		} else if s.GroupBuildStats.Min > costVal {
+			s.GroupBuildStats.Min = costVal
 		}
 	}
 }
 
 // Stats represents the time stats
 type Stats struct {
-	Min   ltoml.Duration `json:"min"`
-	Max   ltoml.Duration `json:"max"`
-	Count int            `json:"count"`
+	Min   int64 `json:"min"`
+	Max   int64 `json:"max"`
+	Count int   `json:"count"`
 }

@@ -21,8 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 func TestNewQueryStats(t *testing.T) {
@@ -46,8 +44,8 @@ func TestStorageStats(t *testing.T) {
 	shard, ok := stats.Shards[10]
 	assert.False(t, ok)
 	assert.Nil(t, shard)
-	assert.Equal(t, ltoml.Duration(10), stats.PlanCost)
-	assert.Equal(t, ltoml.Duration(10), stats.TagFilterCost)
+	assert.Equal(t, int64(10), stats.PlanCost)
+	assert.Equal(t, int64(10), stats.TagFilterCost)
 
 	stats.SetShardSeriesIDsSearchStats(10, 10, 10)
 	stats.SetCollectTagValuesStats("test-1", 10)
@@ -64,16 +62,16 @@ func TestStorageStats(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, shard)
 
-	assert.Equal(t, ltoml.Duration(10), shard.SeriesFilterCost)
-	assert.Equal(t, ltoml.Duration(10), shard.MemFilterCost)
-	assert.Equal(t, ltoml.Duration(10), shard.KVFilterCost)
-	assert.Equal(t, ltoml.Duration(10), shard.GroupBuildStats.Max)
-	assert.Equal(t, ltoml.Duration(10), shard.GroupBuildStats.Min)
+	assert.Equal(t, int64(10), shard.SeriesFilterCost)
+	assert.Equal(t, int64(10), shard.MemFilterCost)
+	assert.Equal(t, int64(10), shard.KVFilterCost)
+	assert.Equal(t, int64(10), shard.GroupBuildStats.Max)
+	assert.Equal(t, int64(10), shard.GroupBuildStats.Min)
 	assert.Equal(t, 2, shard.GroupBuildStats.Count)
 	scan, ok := shard.ScanStats["id"]
 	assert.True(t, ok)
-	assert.Equal(t, ltoml.Duration(10), scan.Max)
-	assert.Equal(t, ltoml.Duration(10), scan.Min)
+	assert.Equal(t, int64(10), scan.Max)
+	assert.Equal(t, int64(10), scan.Min)
 	assert.Equal(t, 2, scan.Count)
 }
 
@@ -83,14 +81,14 @@ func TestShardStats(t *testing.T) {
 	stats.SetGroupBuildStats(20)
 	stats.SetGroupBuildStats(5)
 	assert.Equal(t, 3, stats.GroupBuildStats.Count)
-	assert.Equal(t, ltoml.Duration(5), stats.GroupBuildStats.Min)
-	assert.Equal(t, ltoml.Duration(20), stats.GroupBuildStats.Max)
+	assert.Equal(t, int64(5), stats.GroupBuildStats.Min)
+	assert.Equal(t, int64(20), stats.GroupBuildStats.Max)
 
 	stats.SetScanStats("id", 10)
 	stats.SetScanStats("id", 20)
 	stats.SetScanStats("id", 5)
 	s := stats.ScanStats["id"]
 	assert.Equal(t, 3, s.Count)
-	assert.Equal(t, ltoml.Duration(5), s.Min)
-	assert.Equal(t, ltoml.Duration(20), s.Max)
+	assert.Equal(t, int64(5), s.Min)
+	assert.Equal(t, int64(20), s.Max)
 }
