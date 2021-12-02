@@ -37,19 +37,19 @@ func init() {
 }
 
 func TestFamily_New(t *testing.T) {
-	testKVPath := filepath.Join(t.TempDir(), "test_data")
 	ctrl := gomock.NewController(t)
 	defer func() {
 		mkDirFunc = fileutil.MkDir
 		ctrl.Finish()
 	}()
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir()).AnyTimes()
 	// case 1: create family err, mkdir err
 	mkDirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "test"})
 	assert.Error(t, err)
 	assert.Nil(t, f)
 	// case 2: create family err, merge not exist
@@ -74,11 +74,11 @@ func TestFamily_New(t *testing.T) {
 
 func TestFamily_Data_Write_Read(t *testing.T) {
 	testKVPath := filepath.Join(t.TempDir(), "test_data")
-	option := DefaultStoreOption(testKVPath)
+	option := DefaultStoreOption()
 
-	var kv, err = NewStore("test_kv", option)
+	var kv, err = NewStore("test_kv", testKVPath, option)
 	defer func() {
-		_ = kv.Close()
+		_ = kv.close()
 	}()
 	assert.Nil(t, err, "cannot create kv store")
 
@@ -101,15 +101,15 @@ func TestFamily_Data_Write_Read(t *testing.T) {
 }
 
 func TestFamily_commitEditLog(t *testing.T) {
-	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir()).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
 	store.EXPECT().createFamilyVersion(gomock.Any(), gomock.Any()).Return(fv)
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "commitEditLog"})
 	assert.NoError(t, err)
 	// case 1: edit log is empty
 	assert.True(t, f.commitEditLog(version.NewEditLog(10)))
@@ -128,12 +128,12 @@ func TestFamily_commitEditLog(t *testing.T) {
 }
 
 func TestFamily_needCompact(t *testing.T) {
-	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir()).AnyTimes()
 	fv := version.NewMockFamilyVersion(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
@@ -141,7 +141,7 @@ func TestFamily_needCompact(t *testing.T) {
 	snapshot.EXPECT().GetCurrent().Return(v).AnyTimes()
 	fv.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	store.EXPECT().createFamilyVersion(gomock.Any(), gomock.Any()).Return(fv)
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "needCompact"})
 	assert.NoError(t, err)
 	// case 1: empty family
 	v.EXPECT().NumberOfFilesInLevel(gomock.Any()).Return(0)
@@ -157,12 +157,12 @@ func TestFamily_needCompact(t *testing.T) {
 }
 
 func TestFamily_compact(t *testing.T) {
-	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir())
 	fv := version.NewMockFamilyVersion(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
@@ -170,7 +170,7 @@ func TestFamily_compact(t *testing.T) {
 	snapshot.EXPECT().GetCurrent().Return(v).AnyTimes()
 	fv.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	store.EXPECT().createFamilyVersion(gomock.Any(), gomock.Any()).Return(fv)
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "compact"})
 	assert.NoError(t, err)
 	fv.EXPECT().GetAllActiveFiles().Return(nil).AnyTimes()
 	fv.EXPECT().GetLiveRollupFiles().Return(nil).AnyTimes()
@@ -193,14 +193,14 @@ func TestFamily_compact(t *testing.T) {
 }
 
 func TestFamily_compact_background(t *testing.T) {
-	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newCompactJobFunc = newCompactJob
 		ctrl.Finish()
 	}()
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir())
 	fv := version.NewMockFamilyVersion(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
@@ -208,7 +208,7 @@ func TestFamily_compact_background(t *testing.T) {
 	snapshot.EXPECT().GetCurrent().Return(v).AnyTimes()
 	fv.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	store.EXPECT().createFamilyVersion(gomock.Any(), gomock.Any()).Return(fv)
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "compact_background"})
 	assert.NoError(t, err)
 	fv.EXPECT().GetAllActiveFiles().Return(nil).AnyTimes()
 	fv.EXPECT().GetLiveRollupFiles().Return(nil).AnyTimes()
@@ -230,7 +230,6 @@ func TestFamily_compact_background(t *testing.T) {
 }
 
 func TestFamily_deleteObsoleteFiles(t *testing.T) {
-	testKVPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
 		listDirFunc = fileutil.ListDir
@@ -238,7 +237,8 @@ func TestFamily_deleteObsoleteFiles(t *testing.T) {
 		ctrl.Finish()
 	}()
 	store := NewMockStore(ctrl)
-	store.EXPECT().Option().Return(DefaultStoreOption(testKVPath)).AnyTimes()
+	store.EXPECT().Option().Return(DefaultStoreOption()).AnyTimes()
+	store.EXPECT().Path().Return(t.TempDir())
 	fv := version.NewMockFamilyVersion(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
 	v := version.NewMockVersion(ctrl)
@@ -246,7 +246,7 @@ func TestFamily_deleteObsoleteFiles(t *testing.T) {
 	snapshot.EXPECT().GetCurrent().Return(v).AnyTimes()
 	fv.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	store.EXPECT().createFamilyVersion(gomock.Any(), gomock.Any()).Return(fv)
-	f, err := newFamily(store, FamilyOption{Merger: "mockMerger"})
+	f, err := newFamily(store, FamilyOption{Merger: "mockMerger", Name: "deleteObsoleteFiles"})
 	assert.NoError(t, err)
 	f1 := f.(*family)
 	// case 1: list dir err
@@ -262,7 +262,7 @@ func TestFamily_deleteObsoleteFiles(t *testing.T) {
 	}
 	fv.EXPECT().GetAllActiveFiles().
 		Return([]*version.FileMeta{version.NewFileMeta(2, 0, 0, 0)}).AnyTimes()
-	fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber]timeutil.Interval{3: 10}).AnyTimes()
+	fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{3: {10}}).AnyTimes()
 	store.EXPECT().evictFamilyFile(gomock.Any(), table.FileNumber(1))
 	f1.deleteObsoleteFiles()
 	// case 3: delete file err

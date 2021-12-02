@@ -58,19 +58,19 @@ type Version interface {
 	// if level > numOfLevels return 0.
 	NumberOfFilesInLevel(level int) int
 	// PickL0Compaction picks level0 compaction context,
-	// if hasn't congruent compaction return nil.
+	// if it hasn't congruent compaction return nil.
 	PickL0Compaction(compactThreshold int) *Compaction
 
 	// AddRollupFile adds need rollup file and target interval
 	AddRollupFile(fileNumber table.FileNumber, interval timeutil.Interval)
 	// DeleteRollupFile removes rollup file after rollup job complete successfully
-	DeleteRollupFile(fileNumber table.FileNumber)
+	DeleteRollupFile(fileNumber table.FileNumber, interval timeutil.Interval)
 	// AddReferenceFile adds rollup reference file under target family
 	AddReferenceFile(familyID FamilyID, fileNumber table.FileNumber)
 	// DeleteReferenceFile removes rollup reference file under target family
 	DeleteReferenceFile(familyID FamilyID, fileNumber table.FileNumber)
 	// GetRollupFiles returns all need rollup files
-	GetRollupFiles() map[table.FileNumber]timeutil.Interval
+	GetRollupFiles() map[table.FileNumber][]timeutil.Interval
 	// GetReferenceFiles returns the reference files under target family
 	GetReferenceFiles() map[FamilyID][]table.FileNumber
 	// Sequence set sequence number.
@@ -177,8 +177,8 @@ func (v *version) PickL0Compaction(compactThreshold int) *Compaction {
 	 * file 4: 100~200
 	 * file 5: 400~500
 	 *
-	 * if use key for all files in level 0, final key is 1~1001, pick level 1 files is 3,4,5.
-	 * if use key for each files in level 0, final pick level 1 files is 3.
+	 * if used key for all files in level 0, final key is 1~1001, pick level 1 files is 3,4,5.
+	 * if used key for each file in level 0, final pick level 1 files is 3.
 	 */
 	levelUpInputMap := make(map[table.FileNumber]*FileMeta)
 	for _, lowInput := range levelInputs {
@@ -262,8 +262,8 @@ func (v *version) AddRollupFile(fileNumber table.FileNumber, interval timeutil.I
 }
 
 // DeleteRollupFile removes rollup file after rollup job complete successfully
-func (v *version) DeleteRollupFile(fileNumber table.FileNumber) {
-	v.rollup.removeRollupFile(fileNumber)
+func (v *version) DeleteRollupFile(fileNumber table.FileNumber, interval timeutil.Interval) {
+	v.rollup.removeRollupFile(fileNumber, interval)
 }
 
 // AddReferenceFile adds rollup reference file under target family
@@ -277,7 +277,7 @@ func (v *version) DeleteReferenceFile(familyID FamilyID, fileNumber table.FileNu
 }
 
 // GetRollupFiles returns all need rollup files
-func (v *version) GetRollupFiles() map[table.FileNumber]timeutil.Interval {
+func (v *version) GetRollupFiles() map[table.FileNumber][]timeutil.Interval {
 	return v.rollup.getRollupFiles()
 }
 

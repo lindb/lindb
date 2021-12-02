@@ -18,17 +18,46 @@
 package option
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
+// Intervals represents the list of Interval.
+type Intervals []Interval
+
+func (m Intervals) Len() int           { return len(m) }
+func (m Intervals) Less(i, j int) bool { return m[i].Interval < m[j].Interval }
+func (m Intervals) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+
+// String returns the string representation of the Intervals.
+func (m Intervals) String() string {
+	rs := make([]string, len(m))
+	for idx, i := range m {
+		rs[idx] = i.String()
+	}
+	return fmt.Sprintf("[%s]", strings.Join(rs, ","))
+}
+
+// Interval represents the database's interval option, include interval and data retention.
+type Interval struct {
+	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" binding:"required"`
+	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" binding:"required"`
+}
+
+// String returns the string representation of the Interval.
+func (m Interval) String() string {
+	return fmt.Sprintf("%s->%s", m.Interval, m.Retention)
+}
+
 // DatabaseOption represents a database option include shard ids and shard's option
 type DatabaseOption struct {
-	Interval string `toml:"interval" json:"interval,omitempty"` // write interval(the number of second)
+	// write interval(the number of second) => TTL
 	// rollup intervals(like seconds->minute->hour->day)
-	Rollup []string `toml:"rollup" json:"rollup,omitempty"`
+	Intervals Intervals `toml:"intervals" json:"intervals,omitempty" binding:"required"`
 
 	// auto create namespace
 	AutoCreateNS bool `toml:"autoCreateNS" json:"autoCreateNS,omitempty"`
@@ -50,33 +79,20 @@ type FlusherOption struct {
 
 // Validate validates engine option if valid
 func (e DatabaseOption) Validate() error {
-	if err := validateInterval(e.Interval, true); err != nil {
-		return err
+	if len(e.Intervals) == 0 {
+		return errors.New("intervals cannot be empty")
 	}
-	for _, interval := range e.Rollup {
-		if err := validateInterval(interval, true); err != nil {
-			return err
-		}
-	}
+	//TODO need remove
 	if err := validateInterval(e.Ahead, false); err != nil {
 		return err
 	}
 	if err := validateInterval(e.Behind, false); err != nil {
 		return err
 	}
-	var interval timeutil.Interval
-	_ = interval.ValueOf(e.Interval)
-	for _, intervalStr := range e.Rollup {
-		var rollupInterval timeutil.Interval
-		_ = rollupInterval.ValueOf(intervalStr)
-		if interval.Int64() >= rollupInterval.Int64() {
-			return fmt.Errorf("rollup interval must be large than write interval")
-		}
-	}
 	return nil
 }
 
-// GetAheadVal returns accept writable time range.
+// GetAcceptWritableRange returns accept writable time range.
 func (e *DatabaseOption) GetAcceptWritableRange() (ahead, behind int64) {
 	if e.ahead <= 0 {
 		e.ahead = e.getIntervalVal(e.Ahead)

@@ -29,7 +29,7 @@ type CreateShardTask struct {
 	DatabaseOption option.DatabaseOption `json:"databaseOption"` // time series database
 }
 
-// Bytes returns the create shard task's  binary data using json
+// Bytes returns the creation shard task's  binary data using json
 func (t CreateShardTask) Bytes() []byte {
 	return encoding.JSONMarshal(t)
 }

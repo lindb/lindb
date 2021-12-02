@@ -286,20 +286,22 @@ func (n *newRollupFile) String() string {
 	return fmt.Sprintf("addRollup:{fileNumber:%d,interval:%d}", n.fileNumber, n.interval)
 }
 
-// apply applies new rollup file edit log to version
+// apply writes the edit log for the files which need to rollup to version.
 func (n *newRollupFile) apply(version Version) {
 	version.AddRollupFile(n.fileNumber, n.interval)
 }
 
 // deleteRollupFile represent version edit log for delete rollup file for rollup job
 type deleteRollupFile struct {
-	fileNumber table.FileNumber // file number
+	fileNumber table.FileNumber  // file number
+	interval   timeutil.Interval // target time interval
 }
 
 // CreateDeleteRollupFile creates a remove rollup file
-func CreateDeleteRollupFile(fileNumber table.FileNumber) Log {
+func CreateDeleteRollupFile(fileNumber table.FileNumber, interval timeutil.Interval) Log {
 	return &deleteRollupFile{
 		fileNumber: fileNumber,
+		interval:   interval,
 	}
 }
 
@@ -308,6 +310,7 @@ func (d *deleteRollupFile) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 
 	writer.PutVarint64(d.fileNumber.Int64())
+	writer.PutVarint64(d.interval.Int64())
 	return writer.Bytes()
 }
 
@@ -315,6 +318,7 @@ func (d *deleteRollupFile) Encode() ([]byte, error) {
 func (d *deleteRollupFile) Decode(v []byte) error {
 	reader := stream.NewReader(v)
 	d.fileNumber = table.FileNumber(reader.ReadVarint64())
+	d.interval = timeutil.Interval(reader.ReadVarint64())
 	return reader.Error()
 }
 
@@ -325,7 +329,7 @@ func (d *deleteRollupFile) String() string {
 
 // apply applies remove rollup file edit log to version
 func (d *deleteRollupFile) apply(version Version) {
-	version.DeleteRollupFile(d.fileNumber)
+	version.DeleteRollupFile(d.fileNumber, d.interval)
 }
 
 // newReferenceFile represent version edit log for new reference file for rollup job

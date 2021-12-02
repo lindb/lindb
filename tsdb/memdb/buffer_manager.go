@@ -52,7 +52,7 @@ type bufferManager struct {
 func NewBufferManager(path string) BufferManager {
 	mgr := &bufferManager{
 		path:   path,
-		logger: logger.GetLogger("tsdb", "BufferManager"),
+		logger: logger.GetLogger("TSDB", "BufferManager"),
 	}
 	mgr.value.Store(make([]DataPointBuffer, 0))
 	return mgr

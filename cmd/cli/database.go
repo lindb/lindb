@@ -30,9 +30,10 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-func emptyCompleter(document prompt.Document) []prompt.Suggest { return nil }
+func emptyCompleter(_ prompt.Document) []prompt.Suggest { return nil }
 
 func createDatabase() {
 	database := prompt.Input("database name?: ", emptyCompleter)
@@ -71,7 +72,12 @@ func createDatabase() {
 		NumOfShard:    int(numOfShards),
 		ReplicaFactor: int(replicaFactor),
 		Option: option.DatabaseOption{
-			Interval: intervalString,
+			Intervals: option.Intervals{
+				{
+					Interval:  timeutil.Interval(10 * timeutil.OneSecond),
+					Retention: timeutil.Interval(timeutil.OneMonth),
+				},
+			},
 		},
 	}); err != nil {
 		_, _ = fmt.Fprint(os.Stderr, err)

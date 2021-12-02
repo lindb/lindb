@@ -37,7 +37,7 @@ import (
 
 //go:generate mockgen -source ./database.go -destination=./database_mock.go -package memdb
 
-var memDBLogger = logger.GetLogger("tsdb", "MemDB")
+var memDBLogger = logger.GetLogger("TSDB", "MemDB")
 
 var (
 	memDBScope               = linmetric.NewScope("lindb.tsdb.memdb")

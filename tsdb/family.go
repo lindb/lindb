@@ -43,12 +43,6 @@ import (
 
 //go:generate mockgen -source=./family.go -destination=./family_mock.go -package=tsdb
 
-// for testing
-var (
-	newReaderFunc = metricsdata.NewReader
-	newFilterFunc = metricsdata.NewFilter
-)
-
 // DataFamily represents a storage unit for time series data, support multi-version.
 type DataFamily interface {
 	// Indicator returns data family indicator's string.
@@ -135,7 +129,7 @@ func newDataFamily(
 		persistSeq:   make(map[int32]atomic.Int64),
 		callbacks:    make(map[int32][]func(seq int64)),
 
-		logger: logger.GetLogger("tsdb", "family"),
+		logger: logger.GetLogger("TSDB", "family"),
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()

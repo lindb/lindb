@@ -17,6 +17,8 @@
 
 package kv
 
+import "github.com/lindb/lindb/pkg/timeutil"
+
 // FamilyOption defines config items for family level
 type FamilyOption struct {
 	ID               int    `toml:"id"`
@@ -29,21 +31,22 @@ type FamilyOption struct {
 
 // StoreOption defines config item for store level
 type StoreOption struct {
-	Path                 string `toml:"-"`                    // ignore path field for INFO file
-	Levels               int    `toml:"levels"`               // num. of levels
-	CompactCheckInterval int    `toml:"compactCheckInterval"` // compact job check interval(number of seconds)
-	RollupCheckInterval  int    `toml:"rollupCheckInterval"`  // rollup job check interval(number of seconds)
+	Levels               int `toml:"levels"`               // num. of levels
+	CompactCheckInterval int `toml:"compactCheckInterval"` // compact job check interval(number of seconds)
+	RollupCheckInterval  int `toml:"rollupCheckInterval"`  // rollup job check interval(number of seconds)
+
+	Source timeutil.Interval   `toml:"rollup"` // optional
+	Rollup []timeutil.Interval `toml:"rollup"` // optional
 }
 
 // DefaultStoreOption builds default store option
-func DefaultStoreOption(path string) StoreOption {
+func DefaultStoreOption() StoreOption {
 	return StoreOption{
-		Path:   path,
 		Levels: 2,
 	}
 }
 
-// storeInfo stores store config option, include all family's option in this kv store
+// storeInfo represents store config option, include all family's option in this kv store
 type storeInfo struct {
 	StoreOption StoreOption             `toml:"store"`
 	Families    map[string]FamilyOption `toml:"families"`

@@ -28,7 +28,7 @@ import (
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=metadb
 
-var metaLogger = logger.GetLogger("tsdb", "MetaDB")
+var metaLogger = logger.GetLogger("TSDB", "MetaDB")
 
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
