@@ -23,9 +23,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/config"
 )
 
 func TestNewRouter(t *testing.T) {
-	r := NewAPI(&deps.HTTPDeps{})
+	r := NewAPI(&deps.HTTPDeps{BrokerCfg: &config.Broker{}})
 	r.RegisterRouter(gin.New().Group("/api"))
 }
