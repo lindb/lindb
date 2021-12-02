@@ -21,18 +21,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
@@ -44,116 +41,471 @@ import (
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-func createShardTestDir(t *testing.T) string {
-	return filepath.Join(t.TempDir(), shardDir, "1")
-}
-
 func TestShard_New(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
-		newIntervalSegmentFunc = newIntervalSegment
-		newKVStoreFunc = kv.NewStore
 		newIndexDBFunc = indexdb.NewIndexDatabase
 		newMemoryDBFunc = memdb.NewMemoryDatabase
+		newIntervalSegmentFunc = newIntervalSegment
 
+		kv.InitStoreManager(nil)
 		ctrl.Finish()
 	}()
+	storeMgr := kv.NewMockStoreManager(ctrl)
+	kv.InitStoreManager(storeMgr)
 
 	db := NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	// case 1: database option err
-	thisShard, err := newShard(db, 1, _testShard1Path, option.DatabaseOption{})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 2: interval err
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "as"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 3: create path err
-	mkDirIfNotExist = func(path string) error {
-		return fmt.Errorf("err")
-	}
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 4: new interval segment err
-	mkDirIfNotExist = fileutil.MkDirIfNotExist
-	newIntervalSegmentFunc = func(_ Shard, interval timeutil.Interval, path string) (segment IntervalSegment, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 5: new kv store err
-	newIntervalSegmentFunc = newIntervalSegment
-	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 6: create forward family err
-	kvStore := kv.NewMockStore(ctrl)
-	kvStore.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
-	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
-		return kvStore, nil
-	}
-	kvStore.EXPECT().CreateFamily(forwardIndexDir, gomock.Any()).Return(nil, fmt.Errorf("err"))
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 7: create forward family err
-	family := kv.NewMockFamily(ctrl)
-	kvStore.EXPECT().CreateFamily(forwardIndexDir, gomock.Any()).Return(family, nil)
-	kvStore.EXPECT().CreateFamily(invertedIndexDir, gomock.Any()).Return(nil, fmt.Errorf("err"))
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	// case 8: create index db err
-	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
-	newIndexDBFunc = func(ctx context.Context, parent string,
-		metadata metadb.Metadata, forward kv.Family, inverted kv.Family,
-	) (indexDatabase indexdb.IndexDatabase, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Error(t, err)
-	assert.Nil(t, thisShard)
-	newIndexDBFunc = indexdb.NewIndexDatabase
+	db.EXPECT().Metadata().Return(nil).AnyTimes()
 
-	// case 9: create shard success
-	thisShard, err = newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.NoError(t, err)
-	assert.NotNil(t, thisShard)
-	assert.NotNil(t, thisShard.IndexDatabase())
-	assert.Equal(t, db, thisShard.Database())
-	assert.Equal(t, models.ShardID(1), thisShard.ShardID())
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "create shard path err",
+			prepare: func() {
+				mkDirIfNotExist = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create interval segment err",
+			prepare: func() {
+				newIntervalSegmentFunc = func(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
+					return nil, fmt.Errorf("err")
+				}
+				db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{}}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "create shard index store err",
+			prepare: func() {
+				gomock.InOrder(
+					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+						Return(nil, fmt.Errorf("err")),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "create forward index family err",
+			prepare: func() {
+				store := kv.NewMockStore(ctrl)
+				gomock.InOrder(
+					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+						Return(store, nil),
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), //forward
+					store.EXPECT().Name().Return("test"),
+					storeMgr.EXPECT().CloseStore("test").Return(nil),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "create inverted index family err",
+			prepare: func() {
+				store := kv.NewMockStore(ctrl)
+				gomock.InOrder(
+					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+						Return(store, nil),
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil),               //forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), //inverted
+					store.EXPECT().Name().Return("test"),
+					storeMgr.EXPECT().CloseStore("test").Return(nil),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "create index db err",
+			prepare: func() {
+				newIndexDBFunc = func(ctx context.Context, parent string, metadata metadb.Metadata,
+					forwardFamily kv.Family, invertedFamily kv.Family) (indexdb.IndexDatabase, error) {
+					return nil, fmt.Errorf("err")
+				}
+				store := kv.NewMockStore(ctrl)
+				gomock.InOrder(
+					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+						Return(store, nil),
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //inverted
+					store.EXPECT().Name().Return("test"),
+					storeMgr.EXPECT().CloseStore("test").Return(fmt.Errorf("err")),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "create shard successfully",
+			prepare: func() {
+				newIndexDBFunc = func(ctx context.Context, parent string, metadata metadb.Metadata,
+					forwardFamily kv.Family, invertedFamily kv.Family) (indexdb.IndexDatabase, error) {
+					return nil, nil
+				}
+				store := kv.NewMockStore(ctrl)
+				gomock.InOrder(
+					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+						Return(store, nil),
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //inverted
+				)
+			},
+		},
+	}
 
-	assert.True(t, fileutil.Exist(_testShard1Path))
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				// mock mkdir
+				mkDirIfNotExist = func(path string) error {
+					return nil
+				}
+				newIndexDBFunc = indexdb.NewIndexDatabase
+				seq := NewMockIntervalSegment(ctrl)
+				seq.EXPECT().Close().AnyTimes()
+
+				newIntervalSegmentFunc = func(shard Shard,
+					interval timeutil.Interval,
+				) (IntervalSegment, error) {
+					return seq, nil
+				}
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			s, err := newShard(db, 1)
+			if ((err != nil) != tt.wantErr && s == nil) || (!tt.wantErr && s == nil) {
+				t.Errorf("newShard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestShard_GetDataFamilies(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db := NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	assert.Nil(t, s.GetDataFamilies(timeutil.Month, timeutil.TimeRange{}))
-	assert.Nil(t, s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{}))
-	assert.Equal(t, 0, len(s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{})))
+	segment := NewMockIntervalSegment(ctrl)
+	rollupSeg := NewMockIntervalSegment(ctrl)
+	shard := &shard{
+		interval: timeutil.Interval(10 * 1000), //10s
+		segment:  segment,
+		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			timeutil.Interval(10 * 60 * 1000): rollupSeg, //10min
+		},
+	}
+	cases := []struct {
+		name         string
+		intervalType timeutil.IntervalType
+		prepare      func()
+		assert       func(families []DataFamily)
+	}{
+		{
+			name:         "match writable segment",
+			intervalType: timeutil.Day,
+			prepare: func() {
+				segment.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 1)
+			},
+		},
+		{
+			name:         "match rollup segment",
+			intervalType: timeutil.Month,
+			prepare: func() {
+				rollupSeg.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 1)
+			},
+		},
+		{
+			name:         "not match segment",
+			intervalType: timeutil.Year,
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 0)
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			families := shard.GetDataFamilies(tt.intervalType, timeutil.TimeRange{})
+			if tt.assert != nil {
+				tt.assert(families)
+			}
+		})
+	}
 }
 
-func mockBatchRows(m *protoMetricsV1.Metric) *metric.StorageRow {
+func TestShard_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		kv.InitStoreManager(nil)
+		ctrl.Finish()
+	}()
+	storeMgr := kv.NewMockStoreManager(ctrl)
+	kv.InitStoreManager(storeMgr)
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	segment := NewMockIntervalSegment(ctrl)
+	rollupSeg := NewMockIntervalSegment(ctrl)
+	s := &shard{
+		indexDB: index,
+		segment: segment,
+		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			timeutil.Interval(10 * 60 * 1000): rollupSeg, //10min
+		},
+	}
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "close index db err",
+			prepare: func() {
+				index.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "close store err",
+			prepare: func() {
+				store := kv.NewMockStore(ctrl)
+				s.indexStore = store
+				gomock.InOrder(
+					index.EXPECT().Close().Return(nil),
+					store.EXPECT().Name().Return("test"),
+					storeMgr.EXPECT().CloseStore("test").Return(fmt.Errorf("err")),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "close segments",
+			prepare: func() {
+				gomock.InOrder(
+					index.EXPECT().Close().Return(nil),
+					segment.EXPECT().Close(),
+					rollupSeg.EXPECT().Close(),
+				)
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				s.indexStore = nil
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			if err := s.Close(); (err != nil) != tt.wantErr {
+				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestShard_Flush(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+	s := &shard{
+		indexDB: index,
+		db:      db,
+		logger:  logger.GetLogger("TSDB", "test"),
+	}
+	s.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues("test", "1")
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "flush is doing",
+			prepare: func() {
+				s.isFlushing.Store(true)
+			},
+		},
+		{
+			name: "flush index db err",
+			prepare: func() {
+				index.EXPECT().Flush().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "flush successfully",
+			prepare: func() {
+				index.EXPECT().Flush().Return(nil)
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				s.isFlushing.Store(false)
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			if err := s.Flush(); (err != nil) != tt.wantErr {
+				t.Errorf("Flush() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
+}
+
+func TestShard_Write(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("tet").AnyTimes()
+	s := &shard{
+		indexDB:  indexDB,
+		db:       db,
+		metadata: metadata,
+		logger:   logger.GetLogger("TSDB", "test"),
+	}
+	s.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues("test", "1")
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "gen metric id err",
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := s.WriteRows(mockBatchRows(&protoMetricsV1.Metric{
+				Name:      "test",
+				Timestamp: timeutil.Now(),
+				SimpleFields: []*protoMetricsV1.SimpleField{{
+					Name:  "f1",
+					Value: 1.0,
+					Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+				}},
+			}))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WriteRows() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestShard_lookupRowMeta(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("tet").AnyTimes()
+	s := &shard{
+		indexDB:  indexDB,
+		db:       db,
+		metadata: metadata,
+		logger:   logger.GetLogger("TSDB", "test"),
+	}
+	s.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues("test", "1")
+	cases := []struct {
+		name    string
+		tags    []*protoMetricsV1.KeyValue
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "gen metric id err",
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen series id err",
+			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "get old series id",
+			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+				indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(10), false, nil)
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
+				Name:      "test",
+				Timestamp: timeutil.Now(),
+				Tags:      tt.tags,
+				SimpleFields: []*protoMetricsV1.SimpleField{{
+					Name:  "f1",
+					Value: 1.0,
+					Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+				}},
+			})[0]))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WriteRows() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
 	converter := metric.NewProtoConverter()
@@ -161,182 +513,5 @@ func mockBatchRows(m *protoMetricsV1.Metric) *metric.StorageRow {
 
 	var br metric.StorageBatchRows
 	br.UnmarshalRows(buf.Bytes())
-	return &br.Rows()[0]
-}
-
-func TestShard_Write(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	db := NewMockDatabase(ctrl)
-	metadata := metadb.NewMockMetadata(ctrl)
-	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
-	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(metadata).AnyTimes()
-
-	mockMemDB := memdb.NewMockMemoryDatabase(ctrl)
-	mockMemDB.EXPECT().AcquireWrite().AnyTimes()
-	mockMemDB.EXPECT().CompleteWrite().AnyTimes()
-	mockMemDB.EXPECT().MemSize().Return(int64(100)).AnyTimes()
-	mockMemDB.EXPECT().WriteRow(gomock.Any()).Return(nil).AnyTimes()
-	// calculate family start time and slot index
-	shardINTF, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s", Behind: "1m", Ahead: "1m"})
-	timestamp := timeutil.Now()
-	shardIns := shardINTF.(*shard)
-	shardIns.indexDB = indexDB
-
-	// case 4: gen metric id err
-	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(0), fmt.Errorf("err"))
-	assert.Error(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-		SimpleFields: []*protoMetricsV1.SimpleField{{
-			Name:  "f1",
-			Value: 1.0,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		}},
-	})))
-	// case 5: gen series id err
-	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
-	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
-	assert.Error(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-		TagsHash:  9,
-		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
-		SimpleFields: []*protoMetricsV1.SimpleField{{
-			Name:  "f1",
-			Value: 1.0,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		}},
-	})))
-	// case 6: get old series id
-	metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(uint32(10), nil).AnyTimes()
-	metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-	indexDB.EXPECT().GetOrCreateSeriesID(uint32(10), gomock.Any()).Return(uint32(10), false, nil)
-	assert.NoError(t, shardIns.lookupRowMeta(mockBatchRows(&protoMetricsV1.Metric{
-		Name:      "test",
-		Timestamp: timestamp,
-		TagsHash:  11,
-		Tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
-		SimpleFields: []*protoMetricsV1.SimpleField{{
-			Name:  "f1",
-			Value: 1.0,
-			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-		}},
-	})))
-}
-
-func TestShard_Close(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
-	ctrl := gomock.NewController(t)
-	defer func() {
-		newKVStoreFunc = kv.NewStore
-		ctrl.Finish()
-	}()
-	kvStore := kv.NewMockStore(ctrl)
-	family := kv.NewMockFamily(ctrl)
-	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(family, nil).AnyTimes()
-	newKVStoreFunc = func(name string, option kv.StoreOption) (s kv.Store, err error) {
-		return kvStore, nil
-	}
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	s, _ := newShard(db, 1, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	index := indexdb.NewMockIndexDatabase(ctrl)
-	s1 := s.(*shard)
-	s1.indexDB = index
-
-	// case 1: close index err
-	index.EXPECT().Close().Return(fmt.Errorf("err"))
-	err := s.Close()
-	assert.Error(t, err)
-	// case 2: close index store err
-	index.EXPECT().Close().Return(nil).AnyTimes()
-	kvStore.EXPECT().Close().Return(fmt.Errorf("exx"))
-	err = s.Close()
-	assert.Error(t, err)
-	// case3: close success
-	kvStore.EXPECT().Close().Return(nil)
-	mockSegment := NewMockIntervalSegment(ctrl)
-	s1.segment = mockSegment
-	mockSegment.EXPECT().Close()
-	err = s.Close()
-	assert.NoError(t, err)
-}
-
-func TestShard_Flush(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
-	ctrl := gomock.NewController(t)
-	defer func() {
-		newMemoryDBFunc = memdb.NewMemoryDatabase
-		ctrl.Finish()
-	}()
-
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	s, _ := newShard(db, 2, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	index := indexdb.NewMockIndexDatabase(ctrl)
-	s2 := s.(*shard)
-	s2.indexDB = index
-
-	//// case 1: flush is doing
-	s2.isFlushing.Store(true)
-	assert.NoError(t, s2.Flush())
-	// case 2: flush index error
-	s2.isFlushing.Store(false)
-	index.EXPECT().Flush().Return(fmt.Errorf("error"))
-	assert.Error(t, s2.Flush())
-	// case3: flush index ok
-	index.EXPECT().Flush().Return(nil)
-	assert.NoError(t, s2.Flush())
-}
-
-func TestShard_NeedFlush(t *testing.T) {
-	_testShard1Path := createShardTestDir(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	s, _ := newShard(db, 2, _testShard1Path, option.DatabaseOption{Interval: "10s"})
-	index := indexdb.NewMockIndexDatabase(ctrl)
-	s3 := s.(*shard)
-	s3.indexDB = index
-	// case 1: flush doing
-	s3.isFlushing.Store(true)
-	s3.isFlushing.Store(false)
-
-	db1 := memdb.NewMockMemoryDatabase(ctrl)
-	db1.EXPECT().MemSize().Return(int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)).AnyTimes()
-	db1.EXPECT().Uptime().Return(time.Second).AnyTimes()
-	db2 := memdb.NewMockMemoryDatabase(ctrl)
-	db2.EXPECT().MemSize().Return(int64(2)).AnyTimes()
-	db2.EXPECT().Uptime().Return(time.Hour * 24).AnyTimes()
-	db3 := memdb.NewMockMemoryDatabase(ctrl)
-	db3.EXPECT().Uptime().Return(time.Second).AnyTimes()
-	db3.EXPECT().MemSize().Return(int64(3)).AnyTimes()
-	db4 := memdb.NewMockMemoryDatabase(ctrl)
-	db4.EXPECT().Uptime().Return(time.Second).AnyTimes()
-	db4.EXPECT().MemSize().Return(int64(4)).AnyTimes()
-	db5 := memdb.NewMockMemoryDatabase(ctrl)
-	db5.EXPECT().Uptime().Return(time.Second).AnyTimes()
-	db5.EXPECT().MemSize().Return(int64(5)).AnyTimes()
-	db6 := memdb.NewMockMemoryDatabase(ctrl)
-	db6.EXPECT().Uptime().Return(time.Second).AnyTimes()
-	db6.EXPECT().MemSize().Return(int64(config.GlobalStorageConfig().TSDB.MaxMemDBTotalSize) + 10000).AnyTimes()
+	return br.Rows()
 }

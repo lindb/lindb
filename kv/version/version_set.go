@@ -59,7 +59,7 @@ type StoreVersionSet interface {
 	// CreateFamilyVersion creates family version using family name,
 	// if family version exist, return exist one
 	CreateFamilyVersion(family string, familyID FamilyID) FamilyVersion
-	// GetFamilyVersion returns family version if exist, else return nil
+	// GetFamilyVersion returns family version if it existed, else return nil
 	GetFamilyVersion(family string) FamilyVersion
 
 	// newVersionID generates new version id

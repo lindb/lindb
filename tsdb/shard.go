@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -45,14 +45,6 @@ import (
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
 
-// for testing
-var (
-	newIntervalSegmentFunc = newIntervalSegment
-	newKVStoreFunc         = kv.NewStore
-	newIndexDBFunc         = indexdb.NewIndexDatabase
-	newMemoryDBFunc        = memdb.NewMemoryDatabase
-)
-
 var (
 	shardScope             = linmetric.NewScope("lindb.tsdb.shard")
 	writeMetricFailuresVec = shardScope.NewCounterVec("write_metric_failures", "db", "shard")
@@ -65,23 +57,12 @@ var (
 	indexFlushTimerVec     = shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard")
 )
 
-const (
-	segmentDir       = "segment"
-	indexParentDir   = "index"
-	forwardIndexDir  = "forward"
-	invertedIndexDir = "inverted"
-	metaDir          = "meta"
-	bufferDir        = "buffer"
-)
-
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
 	// Database returns the database.
 	Database() Database
 	// ShardID returns the shard id.
 	ShardID() models.ShardID
-	// Path returns shard's storage directory.
-	Path() string
 	// CurrentInterval returns current interval for metric write.
 	CurrentInterval() timeutil.Interval
 	// Indicator returns the unique shard info.
@@ -94,6 +75,7 @@ type Shard interface {
 	IndexDatabase() indexdb.IndexDatabase
 	BufferManager() memdb.BufferManager
 	// WriteRows writes metric rows with same family in batch
+	//TODO modify method name??
 	WriteRows(rows []metric.StorageRow) error
 
 	Flush() error
@@ -104,27 +86,20 @@ type Shard interface {
 }
 
 // shard implements Shard interface
-// directory tree:
-//    xx/shard/1/ (path)
-//    xx/shard/1/buffer/123213123131 // time of ns
-//    xx/shard/1/meta/
-//    xx/shard/1/index/inverted/
-//    xx/shard/1/data/20191012/
-//    xx/shard/1/data/20191013/
 type shard struct {
-	db     Database
-	id     models.ShardID
-	path   string
-	option option.DatabaseOption
+	db        Database
+	indicator string // => db/shard
+	id        models.ShardID
+	option    option.DatabaseOption
 
 	bufferMgr memdb.BufferManager
 	indexDB   indexdb.IndexDatabase
 	metadata  metadb.Metadata
 	// write accept time range
 	interval timeutil.Interval
-	// segments keeps all interval segments,
+	// segments keeps all rollup target interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
-	segments       map[timeutil.IntervalType]IntervalSegment
+	rollupTargets  map[timeutil.Interval]IntervalSegment
 	segment        IntervalSegment // smallest interval for writing data
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition sync.WaitGroup  // flush condition
@@ -141,54 +116,56 @@ type shard struct {
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
-// return error if fail.
+// return error if create fail.
 func newShard(
 	db Database,
 	shardID models.ShardID,
-	shardPath string,
-	option option.DatabaseOption,
 ) (Shard, error) {
 	var err error
-	if err = option.Validate(); err != nil {
-		return nil, fmt.Errorf("engine option is invalid, err: %s", err)
-	}
-	var interval timeutil.Interval
-	_ = interval.ValueOf(option.Interval)
-
+	shardPath := shardPath(db.Name(), shardID)
 	if err := mkDirIfNotExist(shardPath); err != nil {
 		return nil, err
 	}
+	dbOption := db.GetOption()
 	createdShard := &shard{
-		db:         db,
-		id:         shardID,
-		path:       shardPath,
-		option:     option,
-		metadata:   db.Metadata(),
-		bufferMgr:  memdb.NewBufferManager(filepath.Join(shardPath, bufferDir)),
-		interval:   interval,
-		segments:   make(map[timeutil.IntervalType]IntervalSegment),
-		isFlushing: *atomic.NewBool(false),
-		logger:     logger.GetLogger("tsdb", "Shard"),
+		db:            db,
+		indicator:     shardIndicator(db.Name(), shardID),
+		id:            shardID,
+		option:        dbOption,
+		metadata:      db.Metadata(),
+		bufferMgr:     memdb.NewBufferManager(shardTempBufferPath(db.Name(), shardID)),
+		rollupTargets: make(map[timeutil.Interval]IntervalSegment),
+		isFlushing:    *atomic.NewBool(false),
+		logger:        logger.GetLogger("TSDB", "Shard"),
 	}
 	//try cleanup history dirty write buffer
 	createdShard.bufferMgr.Cleanup()
+
+	// sort intervals
+	sort.Sort(dbOption.Intervals)
+
+	createdShard.interval = dbOption.Intervals[0].Interval
 
 	// initialize metrics
 	shardIDStr := strconv.Itoa(int(shardID))
 	createdShard.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(db.Name(), shardIDStr)
 	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
 
-	// new segment for writing
-	createdShard.segment, err = newIntervalSegmentFunc(
-		createdShard,
-		interval,
-		filepath.Join(shardPath, segmentDir, interval.Type().String()))
+	for idx, targetInterval := range dbOption.Intervals {
+		interval := targetInterval.Interval
+		// new segment for rollup
+		segment, err := newIntervalSegmentFunc(createdShard, interval)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		if idx == 0 {
+			// the smallest interval for writing
+			createdShard.segment = segment
+		}
+		// set rollup target segment
+		createdShard.rollupTargets[interval] = segment
 	}
-	// add writing segment into segment list
-	createdShard.segments[interval.Type()] = createdShard.segment
 
 	defer func() {
 		if err == nil {
@@ -196,9 +173,8 @@ func newShard(
 		}
 		if err = createdShard.Close(); err != nil {
 			engineLogger.Error("close shard error when create shard fail",
-				logger.Any("shardID", createdShard.id),
 				logger.String("database", createdShard.db.Name()),
-				logger.String("shard", createdShard.path), logger.Error(err))
+				logger.Any("shardID", createdShard.id), logger.Error(err))
 		}
 	}()
 	if err = createdShard.initIndexDatabase(); err != nil {
@@ -213,12 +189,8 @@ func (s *shard) Database() Database { return s.db }
 // ShardID returns the shard id.
 func (s *shard) ShardID() models.ShardID { return s.id }
 
-func (s *shard) Path() string {
-	return s.path
-}
-
-// ShardInfo returns the unique shard info.
-func (s *shard) Indicator() string { return s.path }
+// Indicator returns the unique shard info.
+func (s *shard) Indicator() string { return s.indicator }
 
 // CurrentInterval returns current interval for metric  write.
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
@@ -231,9 +203,17 @@ func (s *shard) BufferManager() memdb.BufferManager {
 
 func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
 	segmentName := s.interval.Calculator().GetSegment(familyTime)
+	// source segment
 	segment, err := s.segment.GetOrCreateSegment(segmentName)
 	if err != nil {
 		return nil, err
+	}
+	// build rollup target segment if set auto rollup interval
+	for interval, rollupSegment := range s.rollupTargets {
+		_, err = rollupSegment.GetOrCreateSegment(interval.Calculator().GetSegment(familyTime))
+		if err != nil {
+			return nil, err
+		}
 	}
 	family, err := segment.GetOrCreateDataFamily(familyTime)
 	if err != nil {
@@ -243,9 +223,15 @@ func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
 }
 
 func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
-	segment, ok := s.segments[intervalType]
-	if ok {
-		return segment.getDataFamilies(timeRange)
+	// first check query interval is writable interval
+	if s.interval.Type() == intervalType {
+		return s.segment.getDataFamilies(timeRange)
+	}
+	// then find family from rollup targets
+	for interval, rollupSegment := range s.rollupTargets {
+		if interval.Type() == intervalType {
+			return rollupSegment.getDataFamilies(timeRange)
+		}
 	}
 	return nil
 }
@@ -345,7 +331,9 @@ Done:
 func (s *shard) WriteRows(rows []metric.StorageRow) error {
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {
-			s.logger.Error("failed to lookup meta of row", logger.Error(err))
+			s.logger.Error("failed to lookup meta of row",
+				logger.String("database", s.db.Name()),
+				logger.Any("shardID", s.id), logger.Error(err))
 			continue
 		}
 	}
@@ -362,12 +350,15 @@ func (s *shard) Close() error {
 		}
 	}
 	if s.indexStore != nil {
-		if err := s.indexStore.Close(); err != nil {
+		if err := kv.GetStoreManager().CloseStore(s.indexStore.Name()); err != nil {
 			return err
 		}
 	}
 	// close segment/flush family data
 	s.segment.Close()
+	for _, rollupSegment := range s.rollupTargets {
+		rollupSegment.Close()
+	}
 	return nil
 }
 
@@ -390,20 +381,18 @@ func (s *shard) Flush() (err error) {
 	startTime := time.Now()
 	//FIXME stone1100
 	// index flush
-	if s.indexDB != nil {
-		if err = s.indexDB.Flush(); err != nil {
-			s.logger.Error("failed to flush indexDB ",
-				logger.Any("shardID", s.id),
-				logger.String("database", s.db.Name()),
-				logger.Error(err))
-			return err
-		}
-		s.logger.Info("flush indexDB successfully",
-			logger.Any("shardID", s.id),
+	if err = s.indexDB.Flush(); err != nil {
+		s.logger.Error("failed to flush indexDB ",
 			logger.String("database", s.db.Name()),
-		)
-		s.statistics.indexFlushTimer.UpdateSince(startTime)
+			logger.Any("shardID", s.id),
+			logger.Error(err))
+		return err
 	}
+	s.logger.Info("flush indexDB successfully",
+		logger.String("database", s.db.Name()),
+		logger.Any("shardID", s.id),
+	)
+	s.statistics.indexFlushTimer.UpdateSince(startTime)
 
 	//FIXME(stone1100) commit replica sequence
 	return nil
@@ -412,8 +401,7 @@ func (s *shard) Flush() (err error) {
 // initIndexDatabase initializes the index database
 func (s *shard) initIndexDatabase() error {
 	var err error
-	storeOption := kv.DefaultStoreOption(filepath.Join(s.path, indexParentDir))
-	s.indexStore, err = newKVStoreFunc(storeOption.Path, storeOption)
+	s.indexStore, err = kv.GetStoreManager().CreateStore(shardIndexIndicator(s.db.Name(), s.id), kv.DefaultStoreOption())
 	if err != nil {
 		return err
 	}
@@ -435,7 +423,7 @@ func (s *shard) initIndexDatabase() error {
 	}
 	s.indexDB, err = newIndexDBFunc(
 		context.TODO(),
-		filepath.Join(s.path, metaDir),
+		shardMetaPath(s.db.Name(), s.id),
 		s.metadata, s.forwardFamily,
 		s.invertedFamily)
 	if err != nil {

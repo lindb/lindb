@@ -20,7 +20,6 @@ package tsdb
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/config"
@@ -28,28 +27,19 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=tsdb
 
-// for testing
-var (
-	mkDirIfNotExist = fileutil.MkDirIfNotExist
-	listDir         = fileutil.ListDir
-	decodeToml      = ltoml.DecodeToml
-	newDatabaseFunc = newDatabase
-)
-
-var engineLogger = logger.GetLogger("tsdb", "Engine")
+var engineLogger = logger.GetLogger("TSDB", "Engine")
 
 // Engine represents a time series engine
 type Engine interface {
 	// createDatabase creates database instance by database's name
 	// return success when creating database's path successfully
 	// called when CreateShards without database created
-	createDatabase(databaseName string) (Database, error)
+	createDatabase(databaseName string, dbOption option.DatabaseOption) (Database, error)
 	// CreateShards creates families for data partition by given options
 	// 1) dump engine option into local disk
 	// 2) create shard storage struct
@@ -102,20 +92,16 @@ func NewEngine() (Engine, error) {
 
 // createDatabase creates database instance by database's name
 // return success when creating database's path successfully
-func (e *engine) createDatabase(databaseName string) (Database, error) {
-	dbPath := filepath.Join(config.GlobalStorageConfig().TSDB.Dir, databaseName)
-	if err := mkDirIfNotExist(dbPath); err != nil {
-		return nil, fmt.Errorf("create database[%s]'s path with error: %s", databaseName, err)
-	}
-	cfgPath := optionsPath(dbPath)
-	cfg := &databaseConfig{}
+func (e *engine) createDatabase(databaseName string, dbOption option.DatabaseOption) (Database, error) {
+	cfgPath := optionsPath(databaseName)
+	cfg := &databaseConfig{Option: dbOption}
 	if fileutil.Exist(cfgPath) {
 		if err := decodeToml(cfgPath, cfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
 		}
 	}
-	db, err := newDatabaseFunc(databaseName, dbPath, cfg, e.dataFlushChecker)
+	db, err := newDatabaseFunc(databaseName, cfg, e.dataFlushChecker)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +124,7 @@ func (e *engine) CreateShards(
 		if db, ok = e.GetDatabase(databaseName); !ok {
 			// double check
 			var err error
-			db, err = e.createDatabase(databaseName)
+			db, err = e.createDatabase(databaseName, databaseOption)
 			if err != nil {
 				engineLogger.Error("failed to create database",
 					logger.Error(err))
@@ -151,7 +137,7 @@ func (e *engine) CreateShards(
 
 	// create families for database
 	shardIDData := encoding.JSONMarshal(shardIDs)
-	if err := db.CreateShards(databaseOption, shardIDs); err != nil {
+	if err := db.CreateShards(shardIDs); err != nil {
 		engineLogger.Error("failed to create shard", logger.String("shardIDs", string(shardIDData)))
 		return err
 	}
@@ -199,7 +185,7 @@ func (e *engine) FlushDatabase(_ context.Context, name string) bool {
 	return true
 }
 
-// load loads the time series engines if exist
+// load the time series engines if exist
 func (e *engine) load() error {
 	databaseNames, err := listDir(config.GlobalStorageConfig().TSDB.Dir)
 	if err != nil {
@@ -208,7 +194,7 @@ func (e *engine) load() error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	for _, databaseName := range databaseNames {
-		_, err := e.createDatabase(databaseName)
+		_, err := e.createDatabase(databaseName, option.DatabaseOption{}) // need load config from local file
 		if err != nil {
 			return err
 		}

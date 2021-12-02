@@ -79,13 +79,13 @@ func TestDatabaseAPI_Save(t *testing.T) {
 		Storage:       "cluster-test",
 		NumOfShard:    12,
 		ReplicaFactor: 3,
-		Option:        option.DatabaseOption{Interval: "-10s"},
+		Option:        option.DatabaseOption{},
 	}
 	data := encoding.JSONMarshal(&database)
 	reps = mock.DoRequest(t, r, http.MethodPost, DatabasePath, string(data))
 	assert.Equal(t, http.StatusInternalServerError, reps.Code)
 	// put
-	database.Option = option.DatabaseOption{Interval: "10s"}
+	database.Option = option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
 	data = encoding.JSONMarshal(&database)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	reps = mock.DoRequest(t, r, http.MethodPost, DatabasePath, string(data))

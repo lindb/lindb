@@ -69,7 +69,7 @@ func Test_MetricQuery(t *testing.T) {
 
 	// case 2: storage nodes not exist
 	stateMgr.EXPECT().GetDatabaseCfg("test_db").
-		Return(models.Database{Option: option.DatabaseOption{Interval: "10s"}}, true).
+		Return(models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}}, true).
 		AnyTimes()
 	qry = newMetricQuery(context.Background(),
 		"test_db",

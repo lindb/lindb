@@ -19,7 +19,6 @@ package tsdb
 
 import (
 	"fmt"
-	"path/filepath"
 	"sync"
 
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -40,7 +39,6 @@ type IntervalSegment interface {
 // intervalSegment implements IntervalSegment interface
 type intervalSegment struct {
 	shard    Shard
-	path     string
 	interval timeutil.Interval
 	segments sync.Map
 
@@ -48,20 +46,13 @@ type intervalSegment struct {
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
-func newIntervalSegment(
-	shard Shard,
-	interval timeutil.Interval,
-	path string,
-) (
-	segment IntervalSegment,
-	err error,
-) {
+func newIntervalSegment(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
+	path := shardSegmentPath(shard.Database().Name(), shard.ShardID(), interval)
 	if err = mkDirIfNotExist(path); err != nil {
 		return segment, err
 	}
 	intervalSegment := &intervalSegment{
 		shard:    shard,
-		path:     path,
 		interval: interval,
 	}
 
@@ -79,7 +70,7 @@ func newIntervalSegment(
 		return segment, err
 	}
 	for _, segmentName := range segmentNames {
-		seg, err := newSegment(shard, segmentName, intervalSegment.interval, filepath.Join(path, segmentName))
+		seg, err := newSegmentFunc(shard, segmentName, intervalSegment.interval)
 		if err != nil {
 			err = fmt.Errorf("create segmenet error: %s", err)
 			return segment, err
@@ -101,7 +92,7 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 		defer s.mutex.Unlock()
 		segment, ok = s.getSegment(segmentName)
 		if !ok {
-			seg, err := newSegment(s.shard, segmentName, s.interval, filepath.Join(s.path, segmentName))
+			seg, err := newSegmentFunc(s.shard, segmentName, s.interval)
 			if err != nil {
 				return nil, fmt.Errorf("create segmenet error: %s", err)
 			}

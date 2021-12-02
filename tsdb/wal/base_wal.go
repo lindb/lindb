@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-var walLogger = logger.GetLogger("tsdb", "WAL")
+var walLogger = logger.GetLogger("TSDB", "WAL")
 
 var (
 	walScope                  = linmetric.NewScope("lindb.tsdb.wal")

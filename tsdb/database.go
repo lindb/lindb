@@ -21,9 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
@@ -34,7 +32,6 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
@@ -42,31 +39,16 @@ import (
 
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
 
-// for testing
-var (
-	newMetadataFunc = metadb.NewMetadata
-	newShardFunc    = newShard
-	encodeToml      = ltoml.EncodeToml
-)
-
-const (
-	options       = "OPTIONS"
-	shardDir      = "shard"
-	metricMetaDir = "metric"
-	tagMetaDir    = "tag"
-	tagValueDir   = "tag_value"
-)
-
 // Database represents an abstract time series database
 type Database interface {
 	// Name returns time series database's name
 	Name() string
 	// NumOfShards returns number of families in time series database
 	NumOfShards() int
-	// GetOption returns the data base options
+	// GetOption returns the database options
 	GetOption() option.DatabaseOption
 	// CreateShards creates families for data partition
-	CreateShards(option option.DatabaseOption, shardIDs []models.ShardID) error
+	CreateShards(shardIDs []models.ShardID) error
 	// GetShard returns shard by given shard id
 	GetShard(shardID models.ShardID) (Shard, bool)
 	// ExecutorPool returns the pool for querying tasks
@@ -91,7 +73,6 @@ type databaseConfig struct {
 // each shard represents a time series storage
 type database struct {
 	name         string          // database-name
-	path         string          // database root path
 	config       *databaseConfig // meta configuration
 	executorPool *ExecutorPool   // executor pool for querying task
 	mutex        sync.Mutex      // mutex for creating families
@@ -106,13 +87,14 @@ type database struct {
 // newDatabase creates the database instance
 func newDatabase(
 	databaseName string,
-	databasePath string,
 	cfg *databaseConfig,
 	flushChecker DataFlushChecker,
 ) (Database, error) {
+	if err := cfg.Option.Validate(); err != nil {
+		return nil, fmt.Errorf("database option is invalid, err: %s", err)
+	}
 	db := &database{
 		name:         databaseName,
-		path:         databasePath,
 		flushChecker: flushChecker,
 		config:       cfg,
 		shardSet:     *newShardSet(),
@@ -141,6 +123,9 @@ func newDatabase(
 		},
 		isFlushing: *atomic.NewBool(false),
 	}
+	if err := createDatabasePath(databaseName); err != nil {
+		return nil, err
+	}
 	if err := db.dumpDatabaseConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -156,15 +141,11 @@ func newDatabase(
 			}
 		}
 	}()
-	// load families if engine is exist
+	// load families if engine is existed
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
 		for _, shardID := range db.config.ShardIDs {
-			shard, err = newShardFunc(
-				db,
-				shardID,
-				filepath.Join(databasePath, shardDir, strconv.Itoa(int(shardID))),
-				db.config.Option)
+			shard, err = newShardFunc(db, shardID)
 			if err != nil {
 				return nil, fmt.Errorf("cannot create shard[%d] of database[%s] with error: %s",
 					shardID, databaseName, err)
@@ -194,7 +175,6 @@ func (db *database) GetOption() option.DatabaseOption {
 
 // CreateShards creates families for data partition
 func (db *database) CreateShards(
-	option option.DatabaseOption,
 	shardIDs []models.ShardID,
 ) error {
 	if len(shardIDs) == 0 {
@@ -205,7 +185,7 @@ func (db *database) CreateShards(
 		if ok {
 			continue
 		}
-		if err := db.createShard(shardID, option); err != nil {
+		if err := db.createShard(shardID); err != nil {
 			return err
 		}
 	}
@@ -213,7 +193,7 @@ func (db *database) CreateShards(
 }
 
 // createShard creates a new shard based on option
-func (db *database) createShard(shardID models.ShardID, option option.DatabaseOption) error {
+func (db *database) createShard(shardID models.ShardID) error {
 	// be careful need do mutex unlock
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -226,17 +206,16 @@ func (db *database) createShard(shardID models.ShardID, option option.DatabaseOp
 	// new shard
 	createdShard, err := newShardFunc(
 		db,
-		shardID,
-		filepath.Join(db.path, shardDir, strconv.Itoa(int(shardID))),
-		option)
+		shardID)
 	if err != nil {
 		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
 	}
 	// using new engine option
-	newCfg := &databaseConfig{Option: option, ShardIDs: db.config.ShardIDs}
+	newCfg := &databaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
 	// add new shard id
 	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
+		//TODO if dump config err, need close shard??
 		return err
 	}
 	db.shardSet.InsertShard(shardID, createdShard)
@@ -258,7 +237,7 @@ func (db *database) Close() error {
 	if err := db.metadata.Close(); err != nil {
 		return err
 	}
-	if err := db.metaStore.Close(); err != nil {
+	if err := kv.GetStoreManager().CloseStore(db.metaStore.Name()); err != nil {
 		return err
 	}
 	for _, shardEntry := range db.shardSet.Entries() {
@@ -273,10 +252,10 @@ func (db *database) Close() error {
 
 // dumpDatabaseConfig persists option info to OPTIONS file
 func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
-	cfgPath := optionsPath(db.path)
+	cfgPath := optionsPath(db.name)
 	// write store info using toml format
 	if err := encodeToml(cfgPath, newConfig); err != nil {
-		return fmt.Errorf("write engine info to file[%s] error:%s", cfgPath, err)
+		return fmt.Errorf("write engine options to file[%s] error:%s", cfgPath, err)
 	}
 	db.config = newConfig
 	return nil
@@ -284,9 +263,8 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	metaStoreOption := kv.DefaultStoreOption(filepath.Join(db.path, metaDir, tagMetaDir))
 	//FIXME close kv store if err??
-	metaStore, err := newKVStoreFunc(metaStoreOption.Path, metaStoreOption)
+	metaStore, err := kv.GetStoreManager().CreateStore(tagMetaIndicator(db.name), kv.DefaultStoreOption())
 	if err != nil {
 		return err
 	}
@@ -299,7 +277,7 @@ func (db *database) initMetadata() error {
 		return err
 	}
 	db.metaStore = metaStore
-	metadata, err := newMetadataFunc(context.TODO(), db.name, filepath.Join(db.path, metaDir, metricMetaDir), tagMetaFamily)
+	metadata, err := newMetadataFunc(context.TODO(), db.name, metricsMetaPath(db.name), tagMetaFamily)
 	if err != nil {
 		return err
 	}
@@ -328,9 +306,4 @@ func (db *database) Flush() error {
 		})
 	}
 	return nil
-}
-
-// optionsPath returns options file path
-func optionsPath(path string) string {
-	return filepath.Join(path, options)
 }

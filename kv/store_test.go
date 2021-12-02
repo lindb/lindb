@@ -55,7 +55,7 @@ func TestRegisterMerger(t *testing.T) {
 func TestStore_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	tmpDir := filepath.Join(t.TempDir(), "test_data")
-	option := DefaultStoreOption(tmpDir)
+	option := DefaultStoreOption()
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
 		mkDirFunc = fileutil.MkDir
@@ -67,7 +67,7 @@ func TestStore_New(t *testing.T) {
 	mkDirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	kv, err := NewStore("test_kv", option)
+	kv, err := NewStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	// case 2: dump store option err
@@ -81,18 +81,18 @@ func TestStore_New(t *testing.T) {
 	encodeTomlFunc = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
-	kv, err = NewStore("test_kv", option)
+	kv, err = NewStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	_ = fileutil.RemoveDir(tmpDir)
 	encodeTomlFunc = ltoml.EncodeToml
 	newFileLockFunc = lockers.NewFileLock
 	// case 3: new store success
-	kv, err = NewStore("test_kv", option)
+	kv, err = NewStore("test_kv", tmpDir, option)
 	assert.NoError(t, err)
 	assert.NotNil(t, kv, "cannot create kv store")
 	// case 4: new store fail, because try lock file err
-	_, err = NewStore("test_kv", option)
+	_, err = NewStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	kv, _ = kv.(*store)
 	kvStore, ok := kv.(*store)
@@ -102,9 +102,9 @@ func TestStore_New(t *testing.T) {
 		assert.Equal(t, 1, kvStore.familySeq, "store family id is wrong")
 	}
 	assert.True(t, ok)
-	_ = kv.Close()
+	_ = kv.close()
 	// case 5: reopen store
-	kv2, e := NewStore("test_kv", option)
+	kv2, e := NewStore("test_kv", tmpDir, option)
 	assert.NoError(t, e)
 	assert.NotNil(t, kv2, "cannot re-open kv store")
 
@@ -113,16 +113,16 @@ func TestStore_New(t *testing.T) {
 		assert.Equal(t, 1, kvStore.familySeq, "store family id is wrong")
 	}
 	assert.True(t, ok)
-	_ = kv2.Close()
+	_ = kv2.close()
 	delete(mergers, MergerType(mergerStr))
 	// case 6: decode option err
-	_, e = NewStore("test_kv", option)
+	_, e = NewStore("test_kv", tmpDir, option)
 	assert.NotNil(t, e)
 	assert.Nil(t, nil)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
 	_ = ioutil.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)
-	kv, e = NewStore("test_kv", option)
+	kv, e = NewStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 	// case 7: recover version err
@@ -134,21 +134,22 @@ func TestStore_New(t *testing.T) {
 	vs.EXPECT().Recover().Return(fmt.Errorf("err"))
 	vs.EXPECT().Destroy().Return(nil) // close store
 	vs.EXPECT().ManifestFileNumber().Return(table.FileNumber(10))
-	_, e = NewStore("test_kv", option)
+	_, e = NewStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 }
 
 func TestStore_CreateFamily(t *testing.T) {
-	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
+	path := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption()
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
 		newFamilyFunc = newFamily
 	}()
 
-	kv, err := NewStore("test_kv", option)
+	kv, err := NewStore("test_kv", path, option)
 	defer func() {
-		_ = kv.Close()
+		_ = kv.close()
 	}()
 	assert.NoError(t, err, "cannot create kv store")
 
@@ -187,7 +188,8 @@ func TestStore_CreateFamily(t *testing.T) {
 }
 
 func TestStore_deleteObsoleteFiles(t *testing.T) {
-	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
+	path := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption()
 	defer func() {
 		listDirFunc = fileutil.ListDir
 		removeFunc = os.Remove
@@ -197,9 +199,9 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	// case 1: list dir err
-	kv, err := NewStore("test_kv", option)
+	kv, err := NewStore("test_kv", path, option)
 	assert.NoError(t, err)
-	err = kv.Close()
+	err = kv.close()
 	assert.NoError(t, err)
 
 	// case 2: remove file err
@@ -207,21 +209,22 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 	removeFunc = func(name string) error {
 		return fmt.Errorf("err")
 	}
-	kv, err = NewStore("test_kv", option)
+	kv, err = NewStore("test_kv", path, option)
 	assert.NoError(t, err)
-	err = kv.Close()
+	err = kv.close()
 	assert.NoError(t, err)
 
 }
 
 func TestStore_Compact(t *testing.T) {
-	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
+	path := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption()
 	option.CompactCheckInterval = 1
 
-	kv, err := NewStore("test_kv", option)
+	kv, err := NewStore("test_kv", path, option)
 	assert.NoError(t, err)
 	defer func() {
-		_ = kv.Close()
+		_ = kv.close()
 	}()
 	f1, err2 := kv.CreateFamily("f", FamilyOption{
 		CompactThreshold: 2,
@@ -251,12 +254,13 @@ func TestStore_Compact(t *testing.T) {
 }
 
 func TestStore_Close(t *testing.T) {
-	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
+	path := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption()
 	option.CompactCheckInterval = 1
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	kv, err := NewStore("test_kv", option)
+	kv, err := NewStore("test_kv", path, option)
 	assert.NoError(t, err)
 	kv1 := kv.(*store)
 	cache := table.NewMockCache(ctrl)
@@ -265,22 +269,6 @@ func TestStore_Close(t *testing.T) {
 	vs := version.NewMockStoreVersionSet(ctrl)
 	vs.EXPECT().Destroy().Return(fmt.Errorf("err"))
 	kv1.versions = vs
-	err = kv.Close()
+	err = kv.close()
 	assert.NoError(t, err)
-}
-
-func TestStore_RegisterRollup(t *testing.T) {
-	option := DefaultStoreOption(filepath.Join(t.TempDir(), "test_data"))
-	option.CompactCheckInterval = 1
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	kv, err := NewStore("test_kv", option)
-	assert.NoError(t, err)
-	rollup := NewMockRollup(ctrl)
-	kv.RegisterRollup(10, rollup)
-	kv.RegisterRollup(10, rollup) // reject
-	rollup2, ok := kv.getRollup(10)
-	assert.True(t, ok)
-	assert.Equal(t, rollup, rollup2)
 }

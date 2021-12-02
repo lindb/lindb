@@ -48,6 +48,8 @@ type Family interface {
 	NewFlusher() Flusher
 	// GetSnapshot returns current version's snapshot
 	GetSnapshot() version.Snapshot
+
+	getStore() Store
 	// familyInfo return family info
 	familyInfo() string
 
@@ -84,7 +86,7 @@ type family struct {
 	familyVersion version.FamilyVersion
 	maxFileSize   uint32
 
-	pendingOutputs    sync.Map
+	pendingOutputs    sync.Map // keep all pending output files, includes flush/compact/rollup.
 	newCompactJobFunc func(family Family, state *compactionState, rollup Rollup) CompactJob
 
 	rolluping  atomic.Bool
@@ -95,7 +97,7 @@ type family struct {
 func newFamily(store Store, option FamilyOption) (Family, error) {
 	name := option.Name
 
-	familyPath := filepath.Join(store.Option().Path, name)
+	familyPath := filepath.Join(store.Path(), name)
 
 	if !fileutil.Exist(familyPath) {
 		if err := mkDirFunc(familyPath); err != nil {
@@ -134,6 +136,10 @@ func (f *family) ID() version.FamilyID {
 // Name return family's name
 func (f *family) Name() string {
 	return f.name
+}
+
+func (f *family) getStore() Store {
+	return f.store
 }
 
 // NewFlusher creates flusher for saving data to family.

@@ -19,6 +19,7 @@ package standalone
 
 import (
 	"fmt"
+	"path"
 	"testing"
 	"time"
 
@@ -41,11 +42,14 @@ func newDefaultStandaloneConfig(t *testing.T) config.Standalone {
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
-	saCfg.StorageBase.TSDB.Dir = t.TempDir()
+	dir := t.TempDir()
+	saCfg.StorageBase.TSDB.Dir = path.Join(dir, "data")
+	saCfg.StorageBase.WAL.Dir = path.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.Indicator = 1
 	saCfg.StorageBase.HTTP.Port = 3902
 	saCfg.StorageBase.WAL.RemoveTaskInterval = ltoml.Duration(time.Minute)
+	config.SetGlobalStorageConfig(&saCfg.StorageBase)
 	return saCfg
 }
 

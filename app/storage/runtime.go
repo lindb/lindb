@@ -36,6 +36,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -143,7 +144,11 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("failed to get server ip address, error: %s", err)
 	}
 
-	// start tsdb engine for storage server
+	kv.Options.Store(&kv.StoreOptions{
+		Dir: config.GlobalStorageConfig().TSDB.Dir,
+	})
+
+	// start TSDB engine for storage server
 	engine, err := tsdb.NewEngine()
 	if err != nil {
 		r.state = server.Failed
@@ -338,7 +343,7 @@ func (r *runtime) Stop() {
 		}
 	}
 
-	// finally shutdown rpc server
+	// finally, shutdown rpc server
 	if r.server != nil {
 		r.log.Info("stopping GRPC server...")
 		r.server.Stop()

@@ -190,7 +190,7 @@ func TestVersion_RollupJob(t *testing.T) {
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
 	v := newVersion(1, fv)
 	v.AddRollupFile(10, 3)
-	v.DeleteRollupFile(10)
+	v.DeleteRollupFile(10, 3)
 	assert.Empty(t, v.GetRollupFiles())
 	v.AddReferenceFile(10, 100)
 	v.AddReferenceFile(10, 10)

@@ -47,6 +47,7 @@ type storeFlusher struct {
 	sequences map[int32]int64
 	builder   table.Builder
 	editLog   version.EditLog
+	outputs   []table.FileNumber
 }
 
 // newStoreFlusher create family store flusher.
@@ -64,7 +65,9 @@ func (sf *storeFlusher) checkBuilder() error {
 		if err != nil {
 			return fmt.Errorf("create table build error:%s", err)
 		}
-		sf.family.addPendingOutput(builder.FileNumber())
+		fileNumber := builder.FileNumber()
+		sf.outputs = append(sf.outputs, fileNumber)
+		sf.family.addPendingOutput(fileNumber)
 		sf.builder = builder
 	}
 	return nil
@@ -114,6 +117,20 @@ func (sf *storeFlusher) Commit() (err error) {
 	for leader, seq := range sf.sequences {
 		// add sequence for each leader
 		sf.editLog.Add(version.CreateSequence(leader, seq))
+	}
+
+	// check if it needs add rollup log to target store
+	if len(sf.outputs) > 0 {
+		store := sf.family.getStore()
+		rollupTargetStores := store.Option().Rollup
+		if len(rollupTargetStores) > 0 {
+			for _, interval := range rollupTargetStores {
+				// add rollup files edit log in source version
+				for _, output := range sf.outputs {
+					sf.editLog.Add(version.CreateNewRollupFile(output, interval))
+				}
+			}
+		}
 	}
 
 	if flag := sf.family.commitEditLog(sf.editLog); !flag {

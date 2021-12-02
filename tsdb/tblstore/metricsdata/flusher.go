@@ -386,7 +386,7 @@ func (w *flusher) Close() error {
 	return w.kvFlusher.Commit()
 }
 
-// GetFieldMetas returns current metric's field metas
+// GetFieldMetas returns the file metas of current metric.
 func (w *flusher) GetFieldMetas() field.Metas {
 	return w.Level2.fieldMetas
 }

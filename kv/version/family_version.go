@@ -26,6 +26,7 @@ import (
 
 //go:generate mockgen -source=./family_version.go -destination=./family_version_mock.go -package=version
 
+// FamilyID represents internal family id.
 type FamilyID int
 
 // Int returns int value of family id
@@ -48,7 +49,7 @@ type FamilyVersion interface {
 	// GetSnapshot returns the current version's snapshot
 	GetSnapshot() Snapshot
 	// GetLiveRollupFiles returns all need rollup files
-	GetLiveRollupFiles() map[table.FileNumber]timeutil.Interval
+	GetLiveRollupFiles() map[table.FileNumber][]timeutil.Interval
 	// GetLiveReferenceFiles returns all rollup reference files
 	GetLiveReferenceFiles() map[FamilyID][]table.FileNumber
 	// removeVersion removes version from active versions
@@ -124,7 +125,7 @@ func (fv *familyVersion) GetAllActiveFiles() []*FileMeta {
 }
 
 // GetLiveRollupFiles returns all need rollup files
-func (fv *familyVersion) GetLiveRollupFiles() map[table.FileNumber]timeutil.Interval {
+func (fv *familyVersion) GetLiveRollupFiles() map[table.FileNumber][]timeutil.Interval {
 	fv.mutex.RLock()
 	defer fv.mutex.RUnlock()
 	return fv.current.GetRollupFiles()

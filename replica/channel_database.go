@@ -19,6 +19,7 @@ package replica
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -95,7 +96,10 @@ func newDatabaseChannel(
 	ahead, behind := (&opt).GetAcceptWritableRange()
 	ch.ahead = atomic.NewInt64(ahead)
 	ch.behind = atomic.NewInt64(behind)
-	_ = ch.interval.ValueOf(databaseCfg.Option.Interval)
+
+	//TODO need validation
+	sort.Sort(databaseCfg.Option.Intervals)
+	ch.interval = databaseCfg.Option.Intervals[0].Interval
 
 	ch.numOfShard.Store(numOfShard)
 	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)

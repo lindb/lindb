@@ -37,6 +37,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 var log = logger.GetLogger("standalone", "Runtime")
@@ -122,7 +123,12 @@ func (r *runtime) Run() error {
 			NumOfShard:    1,
 			ReplicaFactor: 1,
 			Option: option.DatabaseOption{
-				Interval: "10s",
+				Intervals: option.Intervals{
+					{
+						Interval:  timeutil.Interval(10 * timeutil.OneSecond),
+						Retention: timeutil.Interval(timeutil.OneMonth),
+					},
+				},
 			},
 		}); err != nil {
 			log.Error("init _internal database with error", logger.Error(err))

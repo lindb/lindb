@@ -27,7 +27,7 @@ import (
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=indexdb
 
-var indexLogger = logger.GetLogger("tsdb", "IndexDB")
+var indexLogger = logger.GetLogger("TSDB", "IndexDB")
 
 // FileIndexDatabase represents a database of index files, it is shard-level
 // it provides the abilities to filter seriesID from the index.
@@ -49,7 +49,7 @@ type IndexDatabase interface {
 	// if generate fail return err
 	GetOrCreateSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, isCreated bool, err error)
 	// BuildInvertIndex builds the inverted index for tag value => series ids,
-	// the tags is considered as a empty key-value pair while tags is nil.
+	// the tags is considered as an empty key-value pair while tags is nil.
 	BuildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
 	// Flush flushes index data to disk
 	Flush() error

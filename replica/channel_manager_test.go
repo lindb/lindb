@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 func TestChannelManager_GetChannel(t *testing.T) {
@@ -47,10 +48,14 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	_, err := cm.CreateChannel(models.Database{Name: "database"}, 2, 2)
 	assert.Error(t, err)
 
-	ch1, err := cm.CreateChannel(models.Database{Name: "database"}, 3, 0)
+	ch1, err := cm.CreateChannel(models.Database{Name: "database",
+		Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+	}, 3, 0)
 	assert.NoError(t, err)
 
-	ch111, err := cm.CreateChannel(models.Database{Name: "database"}, 3, 0)
+	ch111, err := cm.CreateChannel(models.Database{Name: "database",
+		Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+	}, 3, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, ch111, ch1)
 

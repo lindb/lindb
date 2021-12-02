@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
 	"github.com/lindb/lindb/series/metric"
@@ -35,7 +36,11 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ch, err := newDatabaseChannel(context.TODO(), models.Database{Name: "database"}, 1, nil)
+	ch, err := newDatabaseChannel(context.TODO(),
+		models.Database{
+			Name:   "database",
+			Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+		}, 1, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 
@@ -78,7 +83,11 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ch, err := newDatabaseChannel(context.TODO(), models.Database{Name: "database"}, 4, nil)
+	ch, err := newDatabaseChannel(context.TODO(),
+		models.Database{
+			Name:   "database",
+			Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+		}, 4, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 	shardCh := NewMockChannel(ctrl)

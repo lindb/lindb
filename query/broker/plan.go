@@ -76,11 +76,8 @@ func (p *brokerPlan) Plan() error {
 	p.query = qry.(*stmt.Query)
 
 	if p.query.Interval <= 0 {
-		var interval timeutil.Interval
-		if err := interval.ValueOf(p.databaseCfg.Option.Interval); err != nil {
-			return err
-		}
-		p.query.Interval = interval
+		//TODO need get by time range
+		p.query.Interval = p.databaseCfg.Option.Intervals[0].Interval
 	}
 	intervalVal := int64(p.query.Interval)
 	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, intervalVal)

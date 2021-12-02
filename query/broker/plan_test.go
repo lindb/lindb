@@ -40,33 +40,12 @@ func TestBrokerPlan_Wrong_Case(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestBrokerPlan_wrong_database_interval(t *testing.T) {
-	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
-	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
-	// no group sql
-	plan := newBrokerPlan("select f from cpu",
-		models.Database{Option: option.DatabaseOption{Interval: "s"}},
-		storageNodes, currentNode, nil)
-	err := plan.Plan()
-	assert.Error(t, err)
-}
-
-func TestBrokerPlan_quantile(t *testing.T) {
-	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
-	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
-	plan := newBrokerPlan("select quantile(0.99) from cpu",
-		models.Database{Option: option.DatabaseOption{Interval: "s"}},
-		storageNodes, currentNode, nil)
-	err := plan.Plan()
-	assert.Error(t, err)
-}
-
 func TestBrokerPlan_No_GroupBy(t *testing.T) {
 	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	// no group sql
 	plan := newBrokerPlan("select f from cpu",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes, currentNode, nil)
 	err := plan.Plan()
 	assert.NoError(t, err)
@@ -106,7 +85,7 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		oddStorageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -145,7 +124,7 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		evenStorageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -181,7 +160,7 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -219,7 +198,7 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 	// current node = active node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{currentNode})
@@ -248,7 +227,7 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 	// only one storage node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		nil)
@@ -277,7 +256,7 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 	// only one storage node
 	plan := newBrokerPlan(
 		"select f from cpu group by host",
-		models.Database{Option: option.DatabaseOption{Interval: "10s"}},
+		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{

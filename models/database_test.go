@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestNewShardAssignment(t *testing.T) {
@@ -40,9 +41,13 @@ func TestDatabase_String(t *testing.T) {
 		Name:          "test",
 		NumOfShard:    10,
 		ReplicaFactor: 1,
-		Option:        option.DatabaseOption{Interval: "10s"},
+		Option: option.DatabaseOption{
+			Intervals: option.Intervals{
+				{Interval: timeutil.Interval(10 * timeutil.OneSecond), Retention: timeutil.Interval(timeutil.OneMonth)},
+				{Interval: timeutil.Interval(10 * timeutil.OneMinute), Retention: timeutil.Interval(timeutil.OneMonth)},
+			}},
 	}
-	assert.Equal(t, "create database test with shard 10, replica 1, interval 10s", database.String())
+	assert.Equal(t, "create database test with shard 10, replica 1, intervals [10s->1M,10m->1M]", database.String())
 }
 
 func TestParseShardID(t *testing.T) {
