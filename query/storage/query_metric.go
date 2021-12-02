@@ -162,9 +162,8 @@ func (e *storageExecutor) Execute() {
 	}
 
 	option := e.database.GetOption()
-	var interval timeutil.Interval
-	_ = interval.ValueOf(option.Interval)
 	//TODO need get storage interval by query time if has rollup config
+	interval := option.Intervals[0].Interval
 	e.queryTimeRange, e.queryIntervalRatio, e.queryInterval = downSamplingTimeRange(
 		e.ctx.query.Interval, interval, e.ctx.query.TimeRange)
 

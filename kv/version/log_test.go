@@ -120,7 +120,7 @@ func TestNewRollupFile(t *testing.T) {
 func TestDeleteRollupFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	rollupFile := CreateDeleteRollupFile(12)
+	rollupFile := CreateDeleteRollupFile(12, timeutil.Interval(10))
 	bytes, err := rollupFile.Encode()
 	assert.NoError(t, err)
 
@@ -132,7 +132,7 @@ func TestDeleteRollupFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, rollupFile, rollupFile2)
 	version := NewMockVersion(ctrl)
-	version.EXPECT().DeleteRollupFile(table.FileNumber(12))
+	version.EXPECT().DeleteRollupFile(table.FileNumber(12), timeutil.Interval(10))
 	rollupFile2.apply(version)
 }
 

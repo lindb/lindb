@@ -19,6 +19,7 @@ package rpc
 
 import (
 	"io"
+	"sync"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -37,6 +38,8 @@ type connectionManager struct {
 	connections   map[string]struct{}
 	taskClientFct TaskClientFactory
 
+	mutex sync.Mutex
+
 	logger *logger.Logger
 }
 
@@ -49,6 +52,9 @@ func NewConnectionManager(taskClientFct TaskClientFactory) ConnectionManager {
 }
 
 func (m *connectionManager) CreateConnection(target models.Node) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	if err := m.taskClientFct.CreateTaskClient(target); err == nil {
 		m.logger.Info("established connection successfully",
 			logger.String("target", target.Indicator()),
@@ -64,6 +70,22 @@ func (m *connectionManager) CreateConnection(target models.Node) {
 }
 
 func (m *connectionManager) CloseConnection(target string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.closeConnection(target)
+}
+
+func (m *connectionManager) Close() error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for target := range m.connections {
+		m.closeConnection(target)
+	}
+	return nil
+}
+func (m *connectionManager) closeConnection(target string) {
 	closed, err := m.taskClientFct.CloseTaskClient(target)
 	delete(m.connections, target)
 
@@ -83,11 +105,4 @@ func (m *connectionManager) CloseConnection(target string) {
 			logger.String("target", target),
 		)
 	}
-}
-
-func (m *connectionManager) Close() error {
-	for target := range m.connections {
-		m.CloseConnection(target)
-	}
-	return nil
 }

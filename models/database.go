@@ -50,7 +50,7 @@ type Database struct {
 func (db Database) String() string {
 	result := "create database " + db.Name + " with "
 	result += "shard " + fmt.Sprintf("%d", db.NumOfShard) + ", replica " + fmt.Sprintf("%d", db.ReplicaFactor)
-	result += ", interval " + db.Option.Interval
+	result += ", intervals " + db.Option.Intervals.String()
 	return result
 }
 

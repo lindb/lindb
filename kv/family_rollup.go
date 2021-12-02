@@ -18,6 +18,8 @@
 package kv
 
 import (
+	"strconv"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/logger"
@@ -34,14 +36,44 @@ type Rollup interface {
 	IntervalRatio() uint16
 	// CalcSlot calculates the target slot based on source timestamp
 	CalcSlot(timestamp int64) uint16
-	// GetTargetFamily returns the target family based on source family name
-	GetTargetFamily(sourceFamilyName string) Family
 }
 
-// needRollup returns if need rollup source family data
+// rollup implements Rollup interface.
+type rollup struct {
+	source, target           timeutil.Interval
+	sourceFTime, targetFTime int64
+}
+
+func newRollup(source, target timeutil.Interval, sourceFTime, targetFTime int64) Rollup {
+	return &rollup{
+		source:      source,
+		target:      target,
+		sourceFTime: sourceFTime,
+		targetFTime: targetFTime,
+	}
+}
+
+func (r *rollup) GetTimestamp(slot uint16) int64 {
+	return r.sourceFTime + int64(slot)*r.source.Int64()
+}
+
+func (r *rollup) IntervalRatio() uint16 {
+	return uint16(r.target / r.source)
+}
+
+func (r *rollup) CalcSlot(timestamp int64) uint16 {
+	return uint16(r.target.Calculator().CalcSlot(timestamp, r.targetFTime, r.target.Int64()))
+}
+
+// needRollup checks if it needs rollup source family data.
 func (f *family) needRollup() bool {
 	if f.rolluping.Load() {
 		// has background rollup job running
+		return false
+	}
+	rollupTargetStores := f.store.Option().Rollup
+	if len(rollupTargetStores) == 0 {
+		// not set rollup
 		return false
 	}
 	rollupFiles := f.familyVersion.GetLiveRollupFiles()
@@ -65,7 +97,8 @@ func (f *family) needRollup() bool {
 
 // rollup does rollup in source family, need trigger target family does rollup compact job
 func (f *family) rollup() {
-	// if has background rollup job running, return it.
+	// check if it has background rollup job running already,
+	// has rollup job, return it, else do rollup job.
 	if f.rolluping.CAS(false, true) {
 		defer func() {
 			// clean up unused files, maybe some file not used
@@ -77,39 +110,75 @@ func (f *family) rollup() {
 		if len(rollupFiles) == 0 {
 			return
 		}
-		var interval timeutil.Interval
-		var sourceFiles []table.FileNumber
-		for file, i := range rollupFiles {
-			// only allow ont target rollup interval
-			interval = i
-			sourceFiles = append(sourceFiles, file)
+		rollupMap := make(map[timeutil.Interval][]table.FileNumber)
+		for file, intervals := range rollupFiles {
+			for _, interval := range intervals {
+				rollupMap[interval] = append(rollupMap[interval], file)
+			}
 		}
 
-		// do rollup job in target family
-		rollup, ok := f.store.getRollup(interval)
-		if !ok {
-			kvLogger.Warn("skip rollup because cannot get target rollup",
-				logger.String("family", f.familyInfo()),
-				logger.Int64("interval", interval.Int64()))
-			return
-		}
 		editLog := version.NewEditLog(f.ID())
-		targetFamily := rollup.GetTargetFamily(f.name)
-
-		if err := targetFamily.doRollupWork(f, rollup, sourceFiles); err != nil {
-			kvLogger.Error("do rollup work fail",
+		sourceInterval := f.store.Option().Source
+		calc := sourceInterval.Calculator()
+		segmentTime, err := calc.ParseSegmentTime(f.store.Name())
+		if err != nil {
+			kvLogger.Error("parse segment time failure, when do rollup job",
 				logger.String("family", f.familyInfo()),
-				logger.Int64("interval", interval.Int64()),
-				logger.Any("files", sourceFiles))
+				logger.Error(err))
 			return
 		}
+		fTime, err := strconv.Atoi(f.Name())
+		if err != nil {
+			kvLogger.Error("parse family time failure, when do rollup job",
+				logger.String("family", f.familyInfo()),
+				logger.Error(err))
+			return
+		}
+		familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
 
-		// after rollup job successfully, need add delete rollup file edit log
-		for _, file := range sourceFiles {
-			editLog.Add(version.CreateDeleteRollupFile(file))
+		for targetInterval, files := range rollupMap {
+			segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
+			targetStore, ok := GetStoreManager().GetStoreByName(segmentName)
+			// do rollup job in target family
+			if !ok {
+				//TODO add metric
+				kvLogger.Warn("skip rollup because cannot get target store",
+					logger.String("family", f.familyInfo()),
+					logger.String("target", segmentName),
+					logger.Int64("interval", targetInterval.Int64()))
+				continue
+			}
+			sTime := targetInterval.Calculator().CalcSegmentTime(familyStartTime)
+			fTime := targetInterval.Calculator().CalcFamily(familyStartTime, sTime)
+			fSTime := targetInterval.Calculator().CalcFamilyStartTime(sTime, fTime)
+
+			// re-use source family option
+			targetFamily, err := targetStore.CreateFamily(strconv.Itoa(fTime), f.option)
+			if err != nil {
+				kvLogger.Error("create target family failure when do rollup job",
+					logger.String("family", f.familyInfo()),
+					logger.String("target", segmentName),
+					logger.Int64("interval", targetInterval.Int64()),
+					logger.Error(err))
+				continue
+			}
+			rollup := newRollup(sourceInterval, targetInterval, familyStartTime, fSTime)
+			if err := targetFamily.doRollupWork(f, rollup, files); err != nil {
+				kvLogger.Error("do rollup work fail",
+					logger.String("family", f.familyInfo()),
+					logger.String("target", segmentName),
+					logger.Int64("interval", targetInterval.Int64()),
+					logger.Any("files", files))
+				continue
+			}
+
+			// after rollup job successfully, need add delete rollup file edit log
+			for _, file := range files {
+				editLog.Add(version.CreateDeleteRollupFile(file, targetInterval))
+			}
 		}
 
-		// finally need commit edit log
+		// finally, need commit edit log
 		f.commitEditLog(editLog)
 	}
 }
@@ -117,7 +186,7 @@ func (f *family) rollup() {
 // doRollupWork does rollup work in target family,
 // 1. reads data from source family
 // 2. merge these
-// 3. finally builds new sst files in target family
+// 3. finally, builds new sst files in target family
 func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error) {
 	if len(sourceFiles) == 0 {
 		return

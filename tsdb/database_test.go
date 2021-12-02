@@ -29,6 +29,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -36,178 +37,323 @@ import (
 
 func TestDatabase_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	tmpDir := t.TempDir()
-
 	defer func() {
-		newMetadataFunc = metadb.NewMetadata
-		newKVStoreFunc = kv.NewStore
-		newShardFunc = newShard
 		encodeToml = ltoml.EncodeToml
+		mkDirIfNotExist = fileutil.MkDirIfNotExist
+		newMetadataFunc = metadb.NewMetadata
+		kv.InitStoreManager(nil)
 		ctrl.Finish()
 	}()
-	// case 1: dump config err
-	encodeToml = func(fileName string, v interface{}) error {
-		return fmt.Errorf("err")
+
+	storeMgr := kv.NewMockStoreManager(ctrl)
+	store := kv.NewMockStore(ctrl)
+	kv.InitStoreManager(storeMgr)
+
+	cases := []struct {
+		name    string
+		cfg     *databaseConfig
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "create database path err",
+			prepare: func() {
+				mkDirIfNotExist = func(path string) error {
+					return fmt.Errorf("mkdir err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "dump config err",
+			prepare: func() {
+				encodeToml = func(fileName string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create kv store err",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
+					Return(nil, fmt.Errorf("create store err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "create kv family err",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
+				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).
+					Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "create metadata err",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
+				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
+				newMetadataFunc = func(ctx context.Context, databaseName, parent string,
+					tagFamily kv.Family) (metadata metadb.Metadata, err error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name:    "option validation fail",
+			cfg:     &databaseConfig{},
+			wantErr: true,
+		},
+		{
+			name: "create shard err",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
+				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create database successfully",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
+				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
+				metadata := metadb.NewMockMetadata(ctrl)
+				newMetadataFunc = func(ctx context.Context, databaseName, parent string,
+					tagFamily kv.Family) (metadb.Metadata, error) {
+					return metadata, nil
+				}
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, nil
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "close metadata err when create database failure",
+			prepare: func() {
+				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
+				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
+				metadata := metadb.NewMockMetadata(ctrl)
+				newMetadataFunc = func(ctx context.Context, databaseName, parent string,
+					tagFamily kv.Family) (metadb.Metadata, error) {
+					return metadata, nil
+				}
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, fmt.Errorf("err")
+				}
+				metadata.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
 	}
-	db, err := newDatabase("db", tmpDir, &databaseConfig{
-		Option: option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	encodeToml = ltoml.EncodeToml
-	// case 2: create kv store err
-	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
-		return nil, fmt.Errorf("err")
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				encodeToml = func(fileName string, v interface{}) error {
+					return nil
+				}
+				mkDirIfNotExist = func(path string) error {
+					return nil
+				}
+				newMetadataFunc = func(ctx context.Context, databaseName,
+					parent string, tagFamily kv.Family) (metadb.Metadata, error) {
+					return nil, nil
+				}
+				newShardFunc = newShard
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			cfg := &databaseConfig{
+				ShardIDs: []models.ShardID{1, 2, 3},
+				Option:   option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}},
+			}
+			if tt.cfg != nil {
+				cfg = tt.cfg
+			}
+			db, err := newDatabase("db", cfg, nil)
+			if ((err != nil) != tt.wantErr && db == nil) || (!tt.wantErr && db == nil) {
+				t.Errorf("newDatabase() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if db != nil {
+				// assert database information after create successfully
+				assert.NotNil(t, db.Metadata())
+				assert.NotNil(t, db.ExecutorPool())
+				assert.Equal(t, "db", db.Name())
+				assert.True(t, db.NumOfShards() >= 0)
+				assert.Equal(t, option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
+			}
+		})
 	}
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		Option: option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	// case 3: create family err
-	kvStore := kv.NewMockStore(ctrl)
-	newKVStoreFunc = func(name string, option kv.StoreOption) (store kv.Store, err error) {
-		return kvStore, nil
-	}
-	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		Option: option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	// case 4: new metadata err
-	kvStore.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	newMetadataFunc = func(ctx context.Context, databaseName, parent string,
-		tagFamily kv.Family) (metadata metadb.Metadata, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		Option: option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	// case 5: create shard err
-	newMetadataFunc = metadb.NewMetadata
-	newShardFunc = func(db Database, shardID models.ShardID, shardPath string, option option.DatabaseOption) (s Shard, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		ShardIDs: []models.ShardID{1, 2, 3},
-		Option:   option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	// case 6: create db success
-	newShardFunc = newShard
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		ShardIDs: []models.ShardID{1, 2, 3},
-		Option:   option.DatabaseOption{Interval: "10s"},
-	}, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	assert.NotNil(t, db.ExecutorPool())
-	assert.Equal(t, option.DatabaseOption{Interval: "10s"}, db.GetOption())
-	assert.Equal(t, 3, db.NumOfShards())
-	kvStore.EXPECT().Close().Return(nil).AnyTimes() // include shard close
-	err = db.Close()
-	assert.NoError(t, err)
-	// case 7: close metadata err when create db
-	metadata := metadb.NewMockMetadata(ctrl)
-	newMetadataFunc = func(ctx context.Context, databaseName, parent string, tagFamily kv.Family) (metadb.Metadata, error) {
-		return metadata, nil
-	}
-	newShardFunc = func(db Database, shardID models.ShardID, shardPath string, option option.DatabaseOption) (s Shard, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
-	db, err = newDatabase("db", tmpDir, &databaseConfig{
-		ShardIDs: []models.ShardID{1, 2, 3},
-		Option:   option.DatabaseOption{},
-	}, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
 }
 
 func TestDatabase_CreateShards(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newShardFunc = newShard
 		encodeToml = ltoml.EncodeToml
 		ctrl.Finish()
 	}()
-	db, err := newDatabase("db", tmpDir, &databaseConfig{
-		ShardIDs: []models.ShardID{1, 2, 3},
-		Option:   option.DatabaseOption{Interval: "10s"},
-	}, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	db := &database{
+		config:   &databaseConfig{},
+		shardSet: *newShardSet(),
+	}
+	type args struct {
+		option   option.DatabaseOption
+		shardIDs []models.ShardID
+	}
+	cases := []struct {
+		name    string
+		args    args
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name:    "shard ids cannot be empty",
+			args:    args{},
+			wantErr: true,
+		},
+		{
+			name: "create shard err",
+			args: args{option.DatabaseOption{}, []models.ShardID{4, 5, 6}},
+			prepare: func() {
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create exist shard",
+			args: args{option.DatabaseOption{}, []models.ShardID{4}},
+			prepare: func() {
+				db.shardSet.InsertShard(models.ShardID(4), nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "create shard successfully",
+			args: args{option.DatabaseOption{}, []models.ShardID{5}},
+			prepare: func() {
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, nil
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "dump option err",
+			args: args{option.DatabaseOption{}, []models.ShardID{6}},
+			prepare: func() {
+				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
+					return nil, nil
+				}
+				encodeToml = func(fileName string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+	}
 
-	// case 1: shard ids cannot be empty
-	err = db.CreateShards(option.DatabaseOption{}, nil)
-	assert.Error(t, err)
-	// case 2: create shard err
-	newShardFunc = func(db Database, shardID models.ShardID,
-		shardPath string, option option.DatabaseOption) (s Shard, err error) {
-		return nil, fmt.Errorf("err")
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newShardFunc = newShard
+				encodeToml = func(fileName string, v interface{}) error {
+					return nil
+				}
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			if err := db.CreateShards(tt.args.shardIDs); (err != nil) != tt.wantErr {
+				t.Errorf("CreateShards() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{4, 5, 6})
-	assert.Error(t, err)
-	// case 3: create exist shard
-	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{1, 2, 3})
-	assert.NoError(t, err)
-	// case 4: create shard success
-	newShardFunc = func(db Database, shardID models.ShardID,
-		shardPath string, option option.DatabaseOption) (s Shard, err error) {
-		return nil, nil
-	}
-	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{4, 5, 6})
-	assert.NoError(t, err)
-	// case 5: dump option err
-	newShardFunc = func(db Database, shardID models.ShardID,
-		shardPath string, option option.DatabaseOption) (s Shard, err error) {
-		return nil, nil
-	}
-	encodeToml = func(fileName string, v interface{}) error {
-		return fmt.Errorf("err")
-	}
-	err = db.CreateShards(option.DatabaseOption{}, []models.ShardID{9})
-	assert.Error(t, err)
-	// case 6: create exist shard
-	db1 := db.(*database)
-	err = db1.createShard(1, option.DatabaseOption{})
-	assert.NoError(t, err)
+
+	t.Run("create exist shard", func(t *testing.T) {
+		db.shardSet.InsertShard(1, nil)
+		err := db.createShard(1)
+		assert.NoError(t, err)
+	})
 }
 
 func TestDatabase_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		kv.InitStoreManager(nil)
+		ctrl.Finish()
+	}()
 
-	mockStore := kv.NewMockStore(ctrl)
+	storeMgr := kv.NewMockStoreManager(ctrl)
+	kv.InitStoreManager(storeMgr)
 	metadata := metadb.NewMockMetadata(ctrl)
 	metadata.EXPECT().Flush().Return(nil).AnyTimes()
+	store := kv.NewMockStore(ctrl)
+	store.EXPECT().Name().Return("metaStore").AnyTimes()
 	db := &database{
 		metadata:  metadata,
 		shardSet:  *newShardSet(),
-		metaStore: mockStore}
-	// case 1: close metadata err
-	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
-	err := db.Close()
-	assert.Error(t, err)
-	// case 2: close meta store err
-	metadata.EXPECT().Close().Return(nil).AnyTimes()
-	mockStore.EXPECT().Close().Return(fmt.Errorf("err"))
-	err = db.Close()
-	assert.Error(t, err)
+		metaStore: store,
+	}
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "close metadata err",
+			prepare: func() {
+				metadata.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "close meta store err",
+			prepare: func() {
+				gomock.InOrder(
+					metadata.EXPECT().Close().Return(nil),
+					storeMgr.EXPECT().CloseStore("metaStore").Return(fmt.Errorf("err")),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "close meta store err",
+			prepare: func() {
+				mockShard := NewMockShard(ctrl)
+				db.shardSet.InsertShard(models.ShardID(1), mockShard)
+				gomock.InOrder(
+					metadata.EXPECT().Close().Return(nil),
+					storeMgr.EXPECT().CloseStore("metaStore").Return(nil),
+					mockShard.EXPECT().Close().Return(fmt.Errorf("err")),
+				)
+			},
+		},
+	}
 
-	mockStore.EXPECT().Close().Return(nil)
-
-	// mock shard close error
-	mockShard := NewMockShard(ctrl)
-	mockShard.EXPECT().Close().Return(fmt.Errorf("error"))
-	db.shardSet.InsertShard(models.ShardID(1), mockShard)
-	assert.Nil(t, db.Close())
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			if err := db.Close(); (err != nil) != tt.wantErr {
+				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestDatabase_FlushMeta(t *testing.T) {
@@ -218,15 +364,42 @@ func TestDatabase_FlushMeta(t *testing.T) {
 	db := &database{
 		metadata:   metadata,
 		isFlushing: *atomic.NewBool(false)}
-	// case 1: flushing
-	db.isFlushing.Store(true)
-	err := db.FlushMeta()
-	assert.NoError(t, err)
-	// case 2: need flush meta
-	metadata.EXPECT().Flush().Return(nil)
-	db.isFlushing.Store(false)
-	err = db.FlushMeta()
-	assert.NoError(t, err)
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "meta flushing",
+			prepare: func() {
+				db.isFlushing.Store(true)
+			},
+			wantErr: false,
+		},
+		{
+			name: "need flush meta",
+			prepare: func() {
+				db.isFlushing.Store(false)
+				metadata.EXPECT().Flush().Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				db.isFlushing.Store(false)
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			if err := db.FlushMeta(); (err != nil) != tt.wantErr {
+				t.Errorf("FlushMeta() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestDatabase_Flush(t *testing.T) {
@@ -236,21 +409,20 @@ func TestDatabase_Flush(t *testing.T) {
 
 	checker := NewMockDataFlushChecker(ctrl)
 
-	db, err := newDatabase("db", t.TempDir(), &databaseConfig{
-		Option: option.DatabaseOption{},
-	}, checker)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	db1 := db.(*database)
+	db := &database{
+		shardSet:     *newShardSet(),
+		isFlushing:   *atomic.NewBool(false),
+		flushChecker: checker,
+	}
 	shard1 := NewMockShard(ctrl)
 	shard2 := NewMockShard(ctrl)
 	shard1.EXPECT().Indicator().Return("shard1").AnyTimes()
 	shard2.EXPECT().Indicator().Return("shard2").AnyTimes()
-	db1.shardSet.InsertShard(1, shard1)
-	db1.shardSet.InsertShard(2, shard2)
+	db.shardSet.InsertShard(1, shard1)
+	db.shardSet.InsertShard(2, shard2)
 	checker.EXPECT().requestFlushJob(gomock.Any())
 	checker.EXPECT().requestFlushJob(gomock.Any())
-	err = db.Flush()
+	err := db.Flush()
 	assert.NoError(t, err)
 }
 
@@ -356,7 +528,7 @@ func Benchmark_ShardSet_iterating(b *testing.B) {
 	})
 }
 
-func Benchmark_SharSet_binarySearch(b *testing.B) {
+func Benchmark_ShardSet_binarySearch(b *testing.B) {
 	set := newShardSet()
 	for i := 0; i < boundaryShardSetLen+1; i++ {
 		set.InsertShard(models.ShardID(i), nil)

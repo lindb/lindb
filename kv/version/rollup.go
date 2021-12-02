@@ -26,7 +26,8 @@ import (
 // source <=> target family reference
 type rollup struct {
 	// file number -> target interval type for raw family
-	rollupFiles map[table.FileNumber]timeutil.Interval // source family
+	rollupFiles map[table.FileNumber][]timeutil.Interval // source family
+
 	// family id -> file number for source family,
 	// reference to raw family file number, reference add after rollup successfully
 	referenceFiles map[FamilyID][]table.FileNumber // target family
@@ -35,26 +36,40 @@ type rollup struct {
 // newRollup creates the rollup job metadata
 func newRollup() *rollup {
 	return &rollup{
-		rollupFiles:    make(map[table.FileNumber]timeutil.Interval),
+		rollupFiles:    make(map[table.FileNumber][]timeutil.Interval),
 		referenceFiles: make(map[FamilyID][]table.FileNumber),
 	}
 }
 
 // addRollupFile adds need rollup file and target intervals
 func (r *rollup) addRollupFile(fileNumber table.FileNumber, interval timeutil.Interval) {
-	r.rollupFiles[fileNumber] = interval
+	r.rollupFiles[fileNumber] = append(r.rollupFiles[fileNumber], interval)
 }
 
 // removeRollupFile removes rollup file and interval after rollup job complete successfully
-func (r *rollup) removeRollupFile(fileNumber table.FileNumber) {
-	delete(r.rollupFiles, fileNumber)
+func (r *rollup) removeRollupFile(fileNumber table.FileNumber, interval timeutil.Interval) {
+	var rs []timeutil.Interval
+	intervals := r.rollupFiles[fileNumber]
+	for idx := range intervals {
+		if interval != intervals[idx] {
+			// remove completed interval
+			rs = append(rs, interval)
+		}
+	}
+	if len(rs) == 0 {
+		delete(r.rollupFiles, fileNumber)
+	} else {
+		r.rollupFiles[fileNumber] = rs
+	}
 }
 
 // getRollupFiles returns all need rollup files
-func (r *rollup) getRollupFiles() map[table.FileNumber]timeutil.Interval {
-	result := make(map[table.FileNumber]timeutil.Interval)
+func (r *rollup) getRollupFiles() map[table.FileNumber][]timeutil.Interval {
+	result := make(map[table.FileNumber][]timeutil.Interval)
 	for k, v := range r.rollupFiles {
-		result[k] = v
+		rs := make([]timeutil.Interval, len(v))
+		copy(rs, v)
+		result[k] = rs
 	}
 	return result
 }

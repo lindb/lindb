@@ -19,8 +19,11 @@ package timeutil
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 // IntervalType defines interval type
@@ -43,6 +46,25 @@ var ErrUnknownInterval = errors.New("unknown interval")
 
 // Interval is the interval value in millisecond
 type Interval int64
+
+// String returns the string representation of the interval.
+func (i Interval) String() string {
+	val := i.Int64()
+	switch {
+	case val >= OneYear:
+		return fmt.Sprintf("%dy", val/OneYear)
+	case val >= OneMonth:
+		return fmt.Sprintf("%dM", val/OneMonth)
+	case val >= OneDay:
+		return fmt.Sprintf("%dd", val/OneDay)
+	case val >= OneHour:
+		return fmt.Sprintf("%dh", val/OneHour)
+	case val >= OneMinute:
+		return fmt.Sprintf("%dm", val/OneMinute)
+	default:
+		return fmt.Sprintf("%ds", val/OneSecond)
+	}
+}
 
 // ValueOf parses the interval str, return number of interval(millisecond),
 func (i *Interval) ValueOf(intervalStr string) error {
@@ -76,6 +98,40 @@ func (i *Interval) ValueOf(intervalStr string) error {
 	}
 	*i = Interval(value * unit)
 	return nil
+}
+
+// UnmarshalText parses a TOML value into an interval value.
+// See https://github.com/BurntSushi/toml
+func (i *Interval) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		return nil
+	}
+
+	return i.ValueOf(string(text))
+}
+
+// MarshalText converts an interval to a string for decoding toml
+func (i Interval) MarshalText() (text []byte, err error) {
+	return []byte(i.String()), nil
+}
+
+// UnmarshalJSON parses a JSON value into an interval value.
+func (i *Interval) UnmarshalJSON(data []byte) (err error) {
+	var v interface{}
+	if err := jsoniter.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	switch value := v.(type) {
+	case string:
+		return i.ValueOf(value)
+	default:
+		return errors.New("invalid interval")
+	}
+}
+
+// MarshalJSON converts an interval to a string for decoding json
+func (i *Interval) MarshalJSON() (data []byte, err error) {
+	return jsoniter.Marshal(i.String())
 }
 
 func (i Interval) Int64() int64 {

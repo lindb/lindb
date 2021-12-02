@@ -20,7 +20,7 @@ package tsdb
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+	"path"
 	"sync"
 	"testing"
 
@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/option"
 )
 
 var writeConfigTestLock sync.Mutex
@@ -40,118 +41,147 @@ func withTestPath(dir string) {
 	cfg.TSDB.Dir = dir
 }
 
-func TestNew(t *testing.T) {
+func TestEngine_New(t *testing.T) {
 	writeConfigTestLock.Lock()
 	defer writeConfigTestLock.Unlock()
 
-	tmpDir := t.TempDir()
-	defer func() {
-		mkDirIfNotExist = fileutil.MkDirIfNotExist
-		listDir = fileutil.ListDir
-	}()
-
-	// test new error
-	mkDirIfNotExist = func(path string) error {
-		return fmt.Errorf("err")
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "make engine path err",
+			prepare: func() {
+				mkDirIfNotExist = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "load engine err",
+			prepare: func() {
+				listDir = func(path string) (strings []string, e error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create engine successfully",
+			prepare: func() {
+				listDir = func(path string) (strings []string, e error) {
+					return nil, nil
+				}
+			},
+		},
+		{
+			name: "create engine err because load database err",
+			prepare: func() {
+				listDir = func(path string) (strings []string, e error) {
+					return []string{"db"}, nil
+				}
+				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+					flushChecker DataFlushChecker) (Database, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
 	}
-	withTestPath(tmpDir)
 
-	e, err := NewEngine()
-	assert.Error(t, err)
-	assert.Nil(t, e)
-	mkDirIfNotExist = fileutil.MkDirIfNotExist
-
-	// test new err when load engine err
-	listDir = func(path string) (strings []string, e error) {
-		return nil, fmt.Errorf("err")
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				mkDirIfNotExist = fileutil.MkDirIfNotExist
+				listDir = fileutil.ListDir
+				newDatabaseFunc = newDatabase
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			e, err := NewEngine()
+			if ((err != nil) != tt.wantErr && e == nil) || (!tt.wantErr && e == nil) {
+				t.Errorf("NewEngine() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	e, err = NewEngine()
-	assert.Error(t, err)
-	assert.Nil(t, e)
-	listDir = fileutil.ListDir
-
-	e, err = NewEngine()
-	assert.NoError(t, err)
-
-	db, err := e.createDatabase("test_db")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
-	assert.Equal(t, 0, db.NumOfShards())
-	e.Close()
-
-	// test load db error
-	mkDirIfNotExist = func(path string) error {
-		if path == filepath.Join(tmpDir, "test_db") {
-			return fmt.Errorf("err")
-		}
-		return fileutil.MkDirIfNotExist(path)
-	}
-	e, err = NewEngine()
-	assert.Error(t, err)
-	assert.Nil(t, e)
 }
 
-func TestEngine_CreateDatabase(t *testing.T) {
+func TestEngine_createDatabase(t *testing.T) {
 	writeConfigTestLock.Lock()
 	defer writeConfigTestLock.Unlock()
-
+	ctrl := gomock.NewController(t)
 	tmpDir := t.TempDir()
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		decodeToml = ltoml.DecodeToml
-		newDatabaseFunc = newDatabase
+		ctrl.Finish()
 	}()
-	withTestPath(tmpDir)
 
-	e, err := NewEngine()
-	assert.NoError(t, err)
+	t.Run("create database successfully", func(t *testing.T) {
+		defer func() {
+			newDatabaseFunc = newDatabase
+		}()
+		mockDB := NewMockDatabase(ctrl)
+		newDatabaseFunc = func(databaseName string, cfg *databaseConfig, flushChecker DataFlushChecker) (Database, error) {
+			return mockDB, nil
+		}
+		withTestPath(path.Join(tmpDir, "new"))
+		e, err := NewEngine()
+		assert.NoError(t, err)
+		assert.NotNil(t, e)
+		db, err := e.createDatabase("test_db", option.DatabaseOption{})
+		assert.NotNil(t, db)
+		assert.NoError(t, err)
 
-	db, err := e.createDatabase("test_db")
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
+		db, ok := e.GetDatabase("test_db")
+		assert.NotNil(t, db)
+		assert.True(t, ok)
 
-	_, ok := e.GetDatabase("inexist")
-	assert.False(t, ok)
-	assert.NotNil(t, db.ExecutorPool())
+		db, ok = e.GetDatabase("db_not_exist")
+		assert.Nil(t, db)
+		assert.False(t, ok)
 
-	e.Close()
+		mockDB.EXPECT().Close()
+		e.Close()
+	})
 
-	// re-open engine, err
-	decodeToml = func(fileName string, v interface{}) error {
-		return fmt.Errorf("err")
-	}
-	e, err = NewEngine()
-	assert.Error(t, err)
-	assert.Nil(t, e)
-	decodeToml = ltoml.DecodeToml
+	t.Run("re-open", func(t *testing.T) {
+		defer func() {
+			newDatabaseFunc = newDatabase
+			listDir = fileutil.ListDir
+		}()
+		mockDB := NewMockDatabase(ctrl)
+		newDatabaseFunc = func(databaseName string, cfg *databaseConfig, flushChecker DataFlushChecker) (Database, error) {
+			return mockDB, nil
+		}
+		withTestPath(path.Join(tmpDir, "re-open"))
+		e, err := NewEngine()
+		assert.NoError(t, err)
+		assert.NotNil(t, e)
+		db, err := e.createDatabase("test_reopen_db", option.DatabaseOption{})
+		assert.NotNil(t, db)
+		assert.NoError(t, err)
+		mockDB.EXPECT().Close()
+		e.Close()
 
-	// re-open engine
-	e, err = NewEngine()
-	assert.NoError(t, err)
-	db, ok = e.GetDatabase("test_db")
-	assert.True(t, ok)
-	assert.NotNil(t, db)
-	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db")))
-	assert.True(t, fileutil.Exist(filepath.Join(tmpDir, "test_db", "OPTIONS")))
+		listDir = func(path string) ([]string, error) {
+			return []string{"test_reopen_db"}, nil
+		}
+		e, err = NewEngine()
+		assert.NoError(t, err)
+		assert.NotNil(t, e)
+		db, ok := e.GetDatabase("test_reopen_db")
+		assert.NotNil(t, db)
+		assert.True(t, ok)
 
-	// mkdir database path err
-	mkDirIfNotExist = func(path string) error {
-		return fmt.Errorf("err")
-	}
-	db, err = e.createDatabase("test_db_err")
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	mkDirIfNotExist = fileutil.MkDirIfNotExist
-	// create db err
-	newDatabaseFunc = func(databaseName string, databasePath string, cfg *databaseConfig,
-		checker DataFlushChecker) (d Database, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	db, err = e.createDatabase("test_db_err")
-	assert.Error(t, err)
-	assert.Nil(t, db)
+		db, ok = e.GetDatabase("db_not_exist")
+		assert.Nil(t, db)
+		assert.False(t, ok)
+	})
 }
 
 func Test_Engine_Close(t *testing.T) {
