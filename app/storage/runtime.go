@@ -354,6 +354,8 @@ func (r *runtime) startHTTPServer() {
 	replicaAPI.Register(r.httpServer.GetAPIRouter())
 	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
 	logAPI.Register(r.httpServer.GetAPIRouter())
+	configAPI := monitoring.NewConfigAPI(r.node, r.config)
+	configAPI.Register(r.httpServer.GetAPIRouter())
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {

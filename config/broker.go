@@ -56,7 +56,7 @@ read-timeout = "%s"`,
 }
 
 type Ingestion struct {
-	MaxConcurrency int            `toml:"max-write-concurrency"`
+	MaxConcurrency int            `toml:"max-concurrency"`
 	IngestTimeout  ltoml.Duration `toml:"ingest-timeout"`
 }
 
@@ -91,7 +91,7 @@ password = "%s"`,
 
 // Write represents config for write replication in broker.
 type Write struct {
-	BatchTimeout   ltoml.Duration `toml:"batch-timout"`
+	BatchTimeout   ltoml.Duration `toml:"batch-timeout"`
 	BatchBlockSize ltoml.Size     `toml:"batch-block-size"`
 }
 
@@ -103,7 +103,7 @@ func (rc *Write) TOML() string {
 ## even if the configured batch-size if not reached.
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
-batch-size = "%s"`,
+batch-block-size = "%s"`,
 		rc.BatchTimeout.String(),
 		rc.BatchBlockSize.String(),
 	)
@@ -174,6 +174,25 @@ type Broker struct {
 	BrokerBase  BrokerBase `toml:"broker"`
 	Monitor     Monitor    `toml:"monitor"`
 	Logging     Logging    `toml:"logging"`
+}
+
+// TOML returns broker's configuration string as toml format.
+func (b *Broker) TOML() string {
+	return fmt.Sprintf(`%s
+
+%s
+
+%s
+
+%s
+
+%s`,
+		b.Coordinator.TOML(),
+		b.Query.TOML(),
+		b.BrokerBase.TOML(),
+		b.Monitor.TOML(),
+		b.Logging.TOML(),
+	)
 }
 
 // NewDefaultBrokerTOML creates broker default toml config

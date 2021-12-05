@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replica"
@@ -33,6 +34,7 @@ import (
 // HTTPDeps represents http server handler's dependency.
 type HTTPDeps struct {
 	Ctx       context.Context
+	Node      models.Node
 	BrokerCfg *config.Broker
 	Master    coordinator.MasterController
 

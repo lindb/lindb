@@ -41,6 +41,7 @@ type API struct {
 	replica         *state.ReplicaAPI
 	metricExplore   *monitoring.ExploreAPI
 	log             *monitoring.LoggerAPI
+	config          *monitoring.ConfigAPI
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
 	flatIngestion   *ingest.FlatWriter
@@ -61,6 +62,7 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		replica:         state.NewReplicaAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
+		config:          monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
 		flatIngestion:   ingest.NewFlatWriter(deps),
@@ -89,6 +91,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	// monitoring
 	api.metricExplore.Register(router)
 	api.log.Register(router)
+	api.config.Register(router)
 
 	api.proxy.Register(router)
 }
