@@ -27,6 +27,12 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
+// Configuration represents node's configuration.
+type Configuration interface {
+	// TOML returns configuration string as toml format.
+	TOML() string
+}
+
 // RepoState represents state repository config
 type RepoState struct {
 	Namespace   string         `toml:"namespace" json:"namespace"`

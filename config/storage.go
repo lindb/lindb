@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-// TSDB represents the tsdb configuration
+// TSDB represents the tsdb configuration.
 type TSDB struct {
 	Dir                      string         `toml:"dir"`
 	MaxMemDBSize             ltoml.Size     `toml:"max-memdb-size"`
@@ -168,6 +168,25 @@ type Storage struct {
 	StorageBase StorageBase `toml:"storage"`
 	Monitor     Monitor     `toml:"monitor"`
 	Logging     Logging     `toml:"logging"`
+}
+
+// TOML returns storage's configuration string as toml format.
+func (s *Storage) TOML() string {
+	return fmt.Sprintf(`%s
+
+%s
+
+%s
+
+%s
+
+%s`,
+		s.Coordinator.TOML(),
+		s.Query.TOML(),
+		s.StorageBase.TOML(),
+		s.Monitor.TOML(),
+		s.Logging.TOML(),
+	)
 }
 
 // NewDefaultStorageBase returns a new default StorageBase struct
