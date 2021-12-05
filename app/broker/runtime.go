@@ -305,6 +305,7 @@ func (r *runtime) startHTTPServer() {
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
 		Ctx:       r.ctx,
+		Node:      r.node,
 		BrokerCfg: r.config,
 		Master:    r.master,
 		Repo:      r.repo,
