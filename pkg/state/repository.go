@@ -49,6 +49,7 @@ type Repository interface {
 	WalkEntry(ctx context.Context, prefix string, fn func(key, value []byte)) error
 	// Put puts a key-value pair into repository.
 	Put(ctx context.Context, key string, val []byte) error
+	PutWithTX(ctx context.Context, key string, val []byte, check func(oldVal []byte) error) (bool, error)
 	// Delete deletes value for given key from repository.
 	Delete(ctx context.Context, key string) error
 	// Heartbeat does heartbeat on the key with a value and ttl.
@@ -61,7 +62,7 @@ type Repository interface {
 	// Watch watches on a key. The watched events will be returned through the returned channel.
 	// fetchVal: if fetch prefix key's values for init.
 	Watch(ctx context.Context, key string, fetchVal bool) WatchEventChan
-	// WatchPrefix watches on a prefix.All of the changes who has the prefix
+	// WatchPrefix watches on a prefix. All the changes who have the prefix
 	// will be notified through the WatchEventChan channel.
 	// fetchVal: if fetch prefix key's values for init
 	WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan

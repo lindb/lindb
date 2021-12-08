@@ -38,8 +38,9 @@ type HTTPDeps struct {
 	BrokerCfg *config.Broker
 	Master    coordinator.MasterController
 
-	Repo     state.Repository
-	StateMgr broker.StateManager
+	Repo        state.Repository
+	RepoFactory state.RepositoryFactory
+	StateMgr    broker.StateManager
 
 	CM            replica.ChannelManager
 	IngestLimiter *concurrent.Limiter

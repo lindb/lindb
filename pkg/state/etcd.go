@@ -135,6 +135,33 @@ func (r *etcdRepository) Put(ctx context.Context, key string, val []byte) error 
 	return err
 }
 
+func (r *etcdRepository) PutWithTX(ctx context.Context, key string, val []byte, check func(oldVal []byte) error) (bool, error) {
+	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
+	defer cancelFunc()
+	keyPath := r.keyPath(key)
+	resp, err := r.client.Get(thisCtx, keyPath)
+	if err != nil {
+		return false, err
+	}
+	var txn etcdcliv3.Txn
+	if len(resp.Kvs) > 0 {
+		old := resp.Kvs[0]
+		if check != nil {
+			if err := check(old.Value); err != nil {
+				return false, err
+			}
+		}
+		txn = r.client.Txn(thisCtx).If(etcdcliv3.Compare(etcdcliv3.ModRevision(keyPath), "=", old.ModRevision))
+	} else {
+		txn = r.client.Txn(thisCtx).If(etcdcliv3.Compare(etcdcliv3.CreateRevision(keyPath), "=", 0))
+	}
+	putResp, err := txn.Then(etcdcliv3.OpPut(keyPath, string(val))).Commit()
+	if err != nil {
+		return false, err
+	}
+	return putResp.Succeeded, nil
+}
+
 // Delete deletes value for given key from etcd
 func (r *etcdRepository) Delete(ctx context.Context, key string) error {
 	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
@@ -159,7 +186,7 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 	ch := make(chan Closed)
 	// do keepalive/retry background
 	go func() {
-		// close closed channel, if keep alive stopped
+		// closed channel, if keep alive stopped
 		defer close(ch)
 		h.keepAlive(ctx)
 	}()
@@ -184,7 +211,7 @@ func (r *etcdRepository) Elect(
 		ch := make(chan Closed)
 		// do keepalive/retry background
 		go func() {
-			// close closed channel, if keep alive stopped
+			// closed channel, if keep alive stopped
 			defer func() {
 				close(ch)
 			}()
@@ -206,7 +233,7 @@ func (r *etcdRepository) get(ctx context.Context, key string) (*etcdcliv3.GetRes
 	return resp, nil
 }
 
-// getValue returns value of get's response
+// getValue returns value of response which got.
 func (r *etcdRepository) getValue(key string, resp *etcdcliv3.GetResponse) ([]byte, error) {
 	if len(resp.Kvs) == 0 {
 		return nil, ErrNotExist
@@ -221,17 +248,17 @@ func (r *etcdRepository) getValue(key string, resp *etcdcliv3.GetResponse) ([]by
 
 // Watch watches on a key. The watched events will be returned through the returned channel.
 //
-// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
+// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contain
 // deleted values we do not know.
 func (r *etcdRepository) Watch(ctx context.Context, key string, fetchVal bool) WatchEventChan {
 	watcher := newWatcher(ctx, r, r.keyPath(key), fetchVal)
 	return watcher.EventC
 }
 
-// WatchPrefix watches on a prefix.All of the changes who has the prefix
+// WatchPrefix watches on a prefix. All the changes who have the prefix
 // will be notified through the WatchEventChan channel.
 //
-// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contains
+// NOTE: when caller meets EventTypeAll, it must clean all previous values, since it may contain
 // deleted values we do not know.
 func (r *etcdRepository) WatchPrefix(ctx context.Context, prefixKey string, fetchVal bool) WatchEventChan {
 	watcher := newWatcher(ctx, r, r.keyPath(prefixKey), fetchVal, etcdcliv3.WithPrefix())

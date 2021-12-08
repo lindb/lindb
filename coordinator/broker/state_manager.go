@@ -163,7 +163,7 @@ func (m *stateManager) consumeEvent() {
 	}
 }
 
-// processEvent processes each events, if panic will ignore the event handle, maybe lost the state in broker.
+// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in broker.
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -286,7 +286,7 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 		for idx := range newState.LiveNodes {
 			node := newState.LiveNodes[idx]
 			liveNodesSet[node.Indicator()] = struct{}{}
-			// try create connection for live node
+			// try to create connection for live node
 			m.connectionManager.CreateConnection(&node)
 		}
 

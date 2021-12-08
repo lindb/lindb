@@ -35,8 +35,8 @@ type Configuration interface {
 
 // RepoState represents state repository config
 type RepoState struct {
-	Namespace   string         `toml:"namespace" json:"namespace"`
-	Endpoints   []string       `toml:"endpoints" json:"endpoints"`
+	Namespace   string         `toml:"namespace" json:"namespace" binding:"required"`
+	Endpoints   []string       `toml:"endpoints" json:"endpoints" binding:"required"`
 	LeaseTTL    int64          `toml:"lease-ttl" json:"leaseTTL"`
 	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
 	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
@@ -123,7 +123,6 @@ connect-timeout = "%s"`,
 
 // StorageCluster represents config of storage cluster
 type StorageCluster struct {
-	Name   string    `json:"name" binding:"required"`
 	Config RepoState `json:"config"`
 }
 

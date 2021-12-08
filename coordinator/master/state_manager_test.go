@@ -98,7 +98,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Name: "test"}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 	// case 4: start storage err
@@ -115,7 +115,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Name: "test"}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 
@@ -124,7 +124,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Name: "test"}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
 	})
 	// case 6: remove not exist storage
 	mgr.EmitEvent(&discovery.Event{
@@ -132,7 +132,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 		Key:  "/storage/test2",
 	})
 	time.Sleep(100 * time.Millisecond)
-	storage := mgr.GetStorageCluster("test")
+	storage := mgr.GetStorageCluster("/storage/test")
 	assert.NotNil(t, storage)
 	// case 7: remove storage
 	storage1.EXPECT().Close()
@@ -141,7 +141,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 		Key:  "/storage/test",
 	})
 	time.Sleep(100 * time.Millisecond)
-	storage = mgr.GetStorageCluster("test")
+	storage = mgr.GetStorageCluster("/storage/test")
 	assert.Nil(t, storage)
 
 	mgr.Close()
@@ -168,7 +168,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Name: "test"}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 
@@ -186,7 +186,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	})
 	data := encoding.JSONMarshal(&models.Database{
 		Name:          "test",
-		Storage:       "test",
+		Storage:       "/storage/test",
 		NumOfShard:    3,
 		ReplicaFactor: 2,
 		Option:        option.DatabaseOption{},

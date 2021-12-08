@@ -41,8 +41,6 @@ import (
 
 var log = logger.GetLogger("standalone", "Runtime")
 
-const storageClusterName = "standalone"
-
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {
 	version     string
@@ -118,18 +116,9 @@ func (r *runtime) Run() error {
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
-		log.Info("initializing standalone internal database")
-		if err := r.initializer.InitStorageCluster(config.StorageCluster{
-			Name:   "standalone",
-			Config: r.cfg.Coordinator}); err != nil {
-			log.Error("initialized standalone storage cluster with error", logger.Error(err))
-		} else {
-			log.Info("initialized standalone storage cluster successfully")
-		}
-
 		if err := r.initializer.InitInternalDatabase(models.Database{
 			Name:          "_internal",
-			Storage:       storageClusterName,
+			Storage:       r.cfg.Coordinator.Namespace,
 			NumOfShard:    1,
 			ReplicaFactor: 1,
 			Option: option.DatabaseOption{
@@ -146,13 +135,13 @@ func (r *runtime) Run() error {
 }
 
 func (r *runtime) runServer() error {
-	// start storage server
-	if err := r.storage.Run(); err != nil {
+	// need first start broker server, because storage need register information to broker.
+	if err := r.broker.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
-	// start broker server
-	if err := r.broker.Run(); err != nil {
+	// start storage server
+	if err := r.storage.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
