@@ -92,23 +92,23 @@ func newStorageCluster(ctx context.Context,
 		cfg:         cfg,
 		storageRepo: storageRepo,
 		stateMgr:    stateMgr,
-		state:       models.NewStorageState(cfg.Name),
+		state:       models.NewStorageState(cfg.Config.Namespace),
 		logger:      log,
 	}
 
-	log.Info("init storage cluster success", logger.String("storage", cfg.Name))
+	log.Info("init storage cluster success", logger.String("storage", cfg.Config.Namespace))
 	return cluster, nil
 }
 
 func (c *storageCluster) Start() error {
 	sm, err := c.stateMgr.GetStateMachineFactory().
-		createStorageNodeStateMachine(c.cfg.Name, discovery.NewFactory(c.storageRepo))
+		createStorageNodeStateMachine(c.cfg.Config.Namespace, discovery.NewFactory(c.storageRepo))
 	if err != nil {
 		return err
 	}
 	c.sm = sm
 
-	c.logger.Info("start storage cluster successfully", logger.String("storage", c.cfg.Name))
+	c.logger.Info("start storage cluster successfully", logger.String("storage", c.cfg.Config.Namespace))
 	return nil
 }
 
@@ -156,22 +156,22 @@ func (c *storageCluster) SaveDatabaseAssignment(
 		return err
 	}
 	c.logger.Info("save database assignment successfully",
-		logger.String("storage", c.cfg.Name),
+		logger.String("storage", c.cfg.Config.Namespace),
 		logger.String("database", shardAssign.Name))
 	return nil
 }
 
 // Close stops watch, and cleanups storageCluster's metadata
 func (c *storageCluster) Close() {
-	c.logger.Info("close storage cluster state machine", logger.String("storage", c.cfg.Name))
+	c.logger.Info("close storage cluster state machine", logger.String("storage", c.cfg.Config.Namespace))
 	if c.sm != nil {
 		if err := c.sm.Close(); err != nil {
 			c.logger.Error("close storage node state machine of storage cluster",
-				logger.String("storage", c.cfg.Name), logger.Error(err), logger.Stack())
+				logger.String("storage", c.cfg.Config.Namespace), logger.Error(err), logger.Stack())
 		}
 	}
 	if err := c.storageRepo.Close(); err != nil {
 		c.logger.Error("close state repo of storage cluster",
-			logger.String("storage", c.cfg.Name), logger.Error(err), logger.Stack())
+			logger.String("storage", c.cfg.Config.Namespace), logger.Error(err), logger.Stack())
 	}
 }

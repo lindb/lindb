@@ -18,6 +18,9 @@
 package admin
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
@@ -27,6 +30,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (
@@ -71,9 +75,29 @@ func (s *StorageClusterAPI) Create(c *gin.Context) {
 	data := encoding.JSONMarshal(storage)
 	ctx, cancel := s.deps.WithTimeout()
 	defer cancel()
-	s.logger.Info("Creating storage cluster", logger.String("config", string(data)))
-	if err := s.deps.Repo.Put(ctx, constants.GetStorageClusterConfigPath(storage.Name), data); err != nil {
+
+	storage.Config.Timeout = ltoml.Duration(time.Second)
+	storage.Config.DialTimeout = ltoml.Duration(time.Second)
+	// check storage repo config if valid
+	repo, err := s.deps.RepoFactory.CreateStorageRepo(storage.Config)
+	if err != nil {
 		http.Error(c, err)
+		return
+	}
+	err = repo.Close()
+	if err != nil {
+		http.Error(c, err)
+		return
+	}
+
+	s.logger.Info("Creating storage cluster", logger.String("config", string(data)))
+	ok, err := s.deps.Repo.PutWithTX(ctx, constants.GetStorageClusterConfigPath(storage.Config.Namespace), data, nil)
+	if err != nil {
+		http.Error(c, err)
+		return
+	}
+	if !ok {
+		http.Error(c, fmt.Errorf("create storage failure"))
 		return
 	}
 	http.NoContent(c)
@@ -138,7 +162,7 @@ func (s *StorageClusterAPI) List(c *gin.Context) {
 			s.logger.Warn("unmarshal data error",
 				logger.String("data", string(val.Value)))
 		} else {
-			_, ok := stateMgr.GetStorage(storage.Name)
+			_, ok := stateMgr.GetStorage(storage.Config.Namespace)
 			if ok {
 				storage.Status = models.StorageStatusReady
 			} else {
