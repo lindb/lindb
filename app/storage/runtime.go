@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
@@ -79,6 +80,9 @@ type runtime struct {
 	version string
 	config  *config.Storage
 
+	delayInit   time.Duration
+	initializer *bootstrap.ClusterInitializer
+
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -97,7 +101,8 @@ type runtime struct {
 	queryPool       concurrent.Pool
 	pusher          monitoring.NativePusher
 	globalKeyValues tag.Tags
-	log             *logger.Logger
+
+	log *logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -115,7 +120,9 @@ func NewStorageRuntime(version string, config *config.Storage) server.Service {
 			config.Query.QueryConcurrency,
 			config.Query.IdleTimeout.Duration(),
 			linmetric.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
-		log: logger.GetLogger("storage", "Runtime"),
+		delayInit:   time.Second,
+		initializer: bootstrap.NewClusterInitializer(config.StorageBase.BrokerEndpoint),
+		log:         logger.GetLogger("storage", "Runtime"),
 	}
 }
 
@@ -211,6 +218,15 @@ func (r *runtime) Run() error {
 	r.nativePusher()
 
 	r.state = server.Running
+
+	time.AfterFunc(r.delayInit, func() {
+		r.log.Info("starting register storage cluster in broker")
+		if err := r.initializer.InitStorageCluster(config.StorageCluster{Config: r.config.Coordinator}); err != nil {
+			r.log.Error("register storage cluster with error", logger.Error(err))
+		} else {
+			r.log.Info("register storage cluster successfully")
+		}
+	})
 	return nil
 }
 

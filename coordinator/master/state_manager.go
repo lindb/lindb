@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -291,7 +292,7 @@ func (m *stateManager) onStorageConfigDelete(key string) {
 	m.logger.Info("storage config deleted",
 		logger.String("key", key))
 
-	_, name := filepath.Split(key)
+	name := strings.TrimPrefix(key, constants.StorageConfigPath)
 
 	m.unRegister(name)
 }
@@ -343,14 +344,15 @@ func (m *stateManager) onStorageNodeFailure(storageName string, key string) {
 	m.syncState(s)
 }
 
-// register registers start storage state machine which watch storage state change.
+// register starts storage state machine which watch storage state change.
 func (m *stateManager) register(cfg config.StorageCluster) error {
-	if len(cfg.Name) == 0 {
+	name := cfg.Config.Namespace
+	if len(name) == 0 {
 		return constants.ErrNameEmpty
 	}
 
 	// shutdown old storageCluster state machine if exist
-	m.unRegister(cfg.Name)
+	m.unRegister(name)
 
 	//TODO add config
 	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
@@ -359,19 +361,19 @@ func (m *stateManager) register(cfg config.StorageCluster) error {
 	if err != nil {
 		return err
 	}
-	m.storages[cfg.Name] = cluster
+	m.storages[name] = cluster
 	// start storage cluster state machine.
 	go func() {
 		// need start storage cluster state machine in background,
 		// because maybe load too many storage nodes when state machine init, emits too many event into event chan,
-		// if chan is full, will be block, then trigger data race.
+		// if chan is full, will be blocked, then trigger data race.
 		if err := cluster.Start(); err != nil {
 			// need lock
 			m.mutex.Lock()
 			defer m.mutex.Unlock()
 
-			m.unRegister(cfg.Name)
-			m.logger.Warn("start storage cluster failure", logger.String("storage", cfg.Name), logger.Error(err))
+			m.unRegister(name)
+			m.logger.Warn("start storage cluster failure", logger.String("storage", name), logger.Error(err))
 		}
 	}()
 	return nil

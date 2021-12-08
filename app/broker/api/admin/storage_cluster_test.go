@@ -22,31 +22,36 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/internal/mock"
-	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/state"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestStorageClusterAPI(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	// prepare
+	repoFct := state.NewMockRepositoryFactory(ctrl)
 	mockRepo := state.NewMockRepository(ctrl)
 	stateMgr := broker.NewMockStateManager(ctrl)
 	api := NewStorageClusterAPI(&deps.HTTPDeps{
-		Ctx:      context.Background(),
-		Repo:     mockRepo,
-		StateMgr: stateMgr,
+		Ctx:         context.Background(),
+		Repo:        mockRepo,
+		RepoFactory: repoFct,
+		StateMgr:    stateMgr,
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
 				HTTP: config.HTTP{
@@ -58,67 +63,242 @@ func TestStorageClusterAPI(t *testing.T) {
 	r := gin.New()
 	api.Register(r)
 
-	// get request error
-	resp := mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, "{}")
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	// build test cases
+	tests := []struct {
+		name    string
+		method  string
+		url     string
+		reqBody string
+		prepare func()
+		assert  func(resp *httptest.ResponseRecorder)
+	}{
+		{"create invalid params",
+			http.MethodPost,
+			StorageClusterPath,
+			`{}`,
+			nil,
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"create storage successfully",
+			http.MethodPost,
+			StorageClusterPath,
+			`{"config":{"namespace":"test1","endpoints":["e"]}}`,
+			func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(mockRepo, nil)
+				mockRepo.EXPECT().Close().Return(nil)
+				mockRepo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNoContent, resp.Code)
+			},
+		},
+		{
+			"create storage failure with err",
+			http.MethodPost,
+			StorageClusterPath,
+			`{"config":{"namespace":"test1","endpoints":["e"]}}`,
+			func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(mockRepo, nil)
+				mockRepo.EXPECT().Close().Return(nil)
+				mockRepo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("err"))
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"create storage failure",
+			http.MethodPost,
+			StorageClusterPath,
+			`{"config":{"namespace":"test1","endpoints":["e"]}}`,
+			func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(mockRepo, nil)
+				mockRepo.EXPECT().Close().Return(nil)
+				mockRepo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"create repo failure",
+			http.MethodPost,
+			StorageClusterPath,
+			`{"config":{"namespace":"test1","endpoints":["e"]}}`,
+			func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(mockRepo, fmt.Errorf("err"))
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"close repo failure",
+			http.MethodPost,
+			StorageClusterPath,
+			`{"config":{"namespace":"test1","endpoints":["e"]}}`,
+			func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(mockRepo, nil)
+				mockRepo.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"get storage param invalid",
+			http.MethodGet,
+			StorageClusterPath + "?name=",
+			``,
+			nil,
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"get storage failure",
+			http.MethodGet,
+			StorageClusterPath + "?name=xxx",
+			``,
+			func() {
+				mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"get storage successfully, but unmarshal failure",
+			http.MethodGet,
+			StorageClusterPath + "?name=xxx",
+			``,
+			func() {
+				mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"get storage successfully",
+			http.MethodGet,
+			StorageClusterPath + "?name=xxx",
+			``,
+			func() {
+				mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			"list storage successfully, but unmarshal failure",
+			http.MethodGet,
+			ListStorageClusterPath,
+			``,
+			func() {
+				mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte("[]")}}, nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"list storage failure",
+			http.MethodGet,
+			ListStorageClusterPath,
+			``,
+			func() {
+				mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte("[]")}}, io.ErrClosedPipe)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"list storage successfully",
+			http.MethodGet,
+			ListStorageClusterPath,
+			``,
+			func() {
+				mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
+				stateMgr.EXPECT().GetStorage("xxx").Return(nil, true)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			"list storage successfully, but state not found",
+			http.MethodGet,
+			ListStorageClusterPath,
+			``,
+			func() {
+				mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
+				stateMgr.EXPECT().GetStorage("xxx").Return(nil, false)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			"delete storage param invalid",
+			http.MethodDelete,
+			StorageClusterPath,
+			``,
+			nil,
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"delete storage failure",
+			http.MethodDelete,
+			StorageClusterPath + "?name=test1",
+			``,
+			func() {
+				mockRepo.EXPECT().
+					Delete(gomock.Any(), constants.GetStorageClusterConfigPath("test1")).
+					Return(io.ErrClosedPipe)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			"delete storage successfully",
+			http.MethodDelete,
+			StorageClusterPath + "?name=test1",
+			``,
+			func() {
+				mockRepo.EXPECT().
+					Delete(gomock.Any(), constants.GetStorageClusterConfigPath("test1")).
+					Return(nil)
+			},
+			func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNoContent, resp.Code)
+			},
+		},
+	}
 
-	mockRepo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusNoContent, resp.Code)
-
-	mockRepo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	resp = mock.DoRequest(t, r, http.MethodPost, StorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// GetByName
-	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=", ``)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// repo get error
-	mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=xxx", ``)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// unmarshal error
-	mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=xxx", ``)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// ok
-	mockRepo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, StorageClusterPath+"?name=xxx", ``)
-	assert.Equal(t, http.StatusOK, resp.Code)
-
-	// List
-	// unmarshal error
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-		[]state.KeyValue{{Key: "", Value: []byte("[]")}}, nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// list error
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-		[]state.KeyValue{{Key: "", Value: []byte("[]")}}, io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// list ok
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-		[]state.KeyValue{{Key: "", Value: []byte(`{"name": "xxx", "config": {}}`)}}, nil)
-	stateMgr.EXPECT().GetStorage("xxx").Return(nil, true)
-	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusOK, resp.Code)
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-		[]state.KeyValue{{Key: "", Value: []byte(`{"name": "xxx", "config": {}}`)}}, nil)
-	stateMgr.EXPECT().GetStorage("xxx").Return(nil, false)
-	resp = mock.DoRequest(t, r, http.MethodGet, ListStorageClusterPath, `{"name":"test1"}`)
-	assert.Equal(t, http.StatusOK, resp.Code)
-
-	// DeleteByName
-	// bind error
-	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath, ``)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// delete error
-	mockRepo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
-	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath+"?name=test1", ``)
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-	// delete ok
-	mockRepo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
-	resp = mock.DoRequest(t, r, http.MethodDelete, StorageClusterPath+"?name=test1", "")
-	assert.Equal(t, http.StatusNoContent, resp.Code)
+	// run tests
+	for idx := range tests {
+		tt := tests[idx]
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			resp := mock.DoRequest(t, r, tt.method, tt.url, tt.reqBody)
+			if tt.assert != nil {
+				tt.assert(resp)
+			}
+		})
+	}
 }

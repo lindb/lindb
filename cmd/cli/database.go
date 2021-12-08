@@ -60,7 +60,6 @@ func createDatabase() {
 	}
 	initializer := bootstrap.NewClusterInitializer(brokerEndpoint)
 	if err := initializer.InitStorageCluster(config.StorageCluster{
-		Name:   database,
 		Config: cfg.Coordinator},
 	); err != nil {
 		_, _ = fmt.Fprint(os.Stderr, err)

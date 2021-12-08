@@ -304,13 +304,14 @@ func (r *runtime) startHTTPServer() {
 	r.httpServer = httppkg.NewServer(r.config.BrokerBase.HTTP, true)
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
-		Ctx:       r.ctx,
-		Node:      r.node,
-		BrokerCfg: r.config,
-		Master:    r.master,
-		Repo:      r.repo,
-		StateMgr:  r.stateMgr,
-		CM:        r.srv.channelManager,
+		Ctx:         r.ctx,
+		Node:        r.node,
+		BrokerCfg:   r.config,
+		Master:      r.master,
+		Repo:        r.repo,
+		RepoFactory: r.repoFactory,
+		StateMgr:    r.stateMgr,
+		CM:          r.srv.channelManager,
 		IngestLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
