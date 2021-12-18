@@ -47,7 +47,7 @@ type intervalSegment struct {
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
 func newIntervalSegment(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
-	path := shardSegmentPath(shard.Database().Name(), shard.ShardID(), interval)
+	path := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval)
 	if err = mkDirIfNotExist(path); err != nil {
 		return segment, err
 	}

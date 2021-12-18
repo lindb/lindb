@@ -46,7 +46,7 @@ type compactJob struct {
 	family    Family
 	state     *compactionState
 	newMerger NewMerger
-	rollup    Rollup
+	rollup    Rollup // if rollup isn't nil, need do rollup job
 }
 
 // newCompactJob creates a compaction job
@@ -63,7 +63,8 @@ func newCompactJob(family Family, state *compactionState, rollup Rollup) Compact
 func (c *compactJob) Run() error {
 	compaction := c.state.compaction
 	switch {
-	case compaction.IsTrivialMove():
+	case c.rollup == nil && compaction.IsTrivialMove():
+		// compact job can move file
 		c.moveCompaction()
 	default:
 		if err := c.mergeCompaction(); err != nil {
@@ -161,7 +162,7 @@ func (c *compactJob) doMerge() error {
 			return err
 		}
 	}
-	// if has store builder opened, need close it
+	// if it has store builder opened, need close it
 	if c.state.builder != nil {
 		if err := c.finishCompactionOutputFile(); err != nil {
 			return err
@@ -175,12 +176,17 @@ func (c *compactJob) doMerge() error {
 // 2. add output files to up level.
 // 3. commit edit log for manifest.
 func (c *compactJob) installCompactionResults() {
-	// marks compaction input files for deletion
-	c.state.compaction.MarkInputDeletes()
+	if c.rollup == nil {
+		// if it does compact job, need mark compaction input files for deletion
+		c.state.compaction.MarkInputDeletes()
+	}
 	// adds compaction outputs
 	level := c.state.compaction.GetLevel()
+	if c.rollup == nil {
+		level++ //compact job need add level
+	}
 	for _, output := range c.state.outputs {
-		c.state.compaction.AddFile(level+1, output)
+		c.state.compaction.AddFile(level, output)
 	}
 	c.family.commitEditLog(c.state.compaction.GetEditLog())
 }
@@ -220,7 +226,7 @@ func (c *compactJob) openCompactionOutputFile() error {
 // finishCompactionOutputFile closes current store builder, then generates a new file into edit log
 func (c *compactJob) finishCompactionOutputFile() (err error) {
 	builder := c.state.builder
-	// finally need cleanup store build if no error
+	// finally, need cleanup store build if no error
 	defer func() {
 		if err == nil {
 			c.state.builder = nil

@@ -276,7 +276,7 @@ func TestCompactJob_finish_output_fail(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-func TestCompactJob_merge_compact(t *testing.T) {
+func TestCompactJob_merge_rollup(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -348,13 +348,10 @@ func TestCompactJob_merge_compact(t *testing.T) {
 	assert.Equal(t, 1, len(state.outputs))
 	assert.Equal(t, *newFile, *(state.outputs[0]))
 	editLog := state.compaction.GetEditLog()
+	// rollup job, no delete edit log
 	logs := editLog.GetLogs()
-	assert.Equal(t, 5, len(logs))
-	assert.Equal(t, version.NewDeleteFile(0, 1), logs[0])
-	assert.Equal(t, version.NewDeleteFile(0, 2), logs[1])
-	assert.Equal(t, version.NewDeleteFile(1, 3), logs[2])
-	assert.Equal(t, version.NewDeleteFile(1, 4), logs[3])
-	assert.Equal(t, version.CreateNewFile(1, newFile), logs[4])
+	assert.Equal(t, 1, len(logs))
+	assert.Equal(t, version.CreateNewFile(0, newFile), logs[0])
 }
 
 func generateMockFamily(ctrl *gomock.Controller, merger NewMerger) *MockFamily {

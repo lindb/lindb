@@ -76,7 +76,7 @@ func (sm *seriesMerger) merge(
 		// compact merge: source range = target range and ratio = 1
 		// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
 		aggregation.DownSamplingMultiSeriesInto(
-			mergeCtx.targetRange, mergeCtx.ratio,
+			mergeCtx.targetRange, mergeCtx.ratio, mergeCtx.baseSlot,
 			f.Type, streams,
 			encodeStream.EmitDownSamplingValue,
 		)

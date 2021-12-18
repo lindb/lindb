@@ -190,6 +190,7 @@ func TestMerger_Rollup_Merge(t *testing.T) {
 	rollup.EXPECT().CalcSlot(int64(100)).Return(uint16(0))
 	rollup.EXPECT().GetTimestamp(uint16(15)).Return(int64(150))
 	rollup.EXPECT().CalcSlot(int64(150)).Return(uint16(0))
+	rollup.EXPECT().BaseSlot().Return(uint16(10))
 	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil).Times(4)
 	gomock.InOrder(
