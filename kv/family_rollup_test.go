@@ -190,8 +190,8 @@ func TestFamily_rollup(t *testing.T) {
 					fv.EXPECT().GetLiveRollupFiles().
 						Return(map[table.FileNumber][]timeutil.Interval{10: {5 * 60 * 1000}, 11: {5 * 60 * 1000}}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("20190703"),
-					storeMgr.EXPECT().GetStoreByName("201907").Return(nil, false),
+					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
+					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(nil, false),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
 					fv.EXPECT().GetLiveRollupFiles().Return(nil),
 				)
@@ -207,8 +207,8 @@ func TestFamily_rollup(t *testing.T) {
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("20190703"),
-					storeMgr.EXPECT().GetStoreByName("201907").Return(targetStore, true),
+					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
+					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).
 						Return(nil, fmt.Errorf("err")),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
@@ -226,8 +226,8 @@ func TestFamily_rollup(t *testing.T) {
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("20190703"),
-					storeMgr.EXPECT().GetStoreByName("201907").Return(targetStore, true),
+					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
+					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil),
 					targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(fmt.Errorf("err")),
@@ -246,8 +246,8 @@ func TestFamily_rollup(t *testing.T) {
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("20190703"),
-					storeMgr.EXPECT().GetStoreByName("201907").Return(targetStore, true),
+					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
+					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil),
 					targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 					store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil),
@@ -265,11 +265,11 @@ func TestFamily_rollup(t *testing.T) {
 					10: {5 * 60 * 1000}, 11: {5 * 60 * 60 * 1000}, // year target not found
 				})
 				store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)})
-				store.EXPECT().Name().Return("20190703")
-				storeMgr.EXPECT().GetStoreByName("201907").Return(targetStore, true)
+				store.EXPECT().Name().Return("db/shard/1/segment/day/20190703")
+				storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true)
 				targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil)
 				targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				storeMgr.EXPECT().GetStoreByName("2019").Return(nil, false) // year store not found
+				storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/year/2019").Return(nil, false) // year store not found
 				store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil)
 				fv.EXPECT().GetAllActiveFiles().Return(nil)
 				fv.EXPECT().GetLiveRollupFiles().Return(nil)
@@ -292,7 +292,6 @@ func TestFamily_rollup(t *testing.T) {
 func TestFamily_doRollupWork(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newCompactJobFunc = newCompactJob
 		ctrl.Finish()
 	}()
 	f, _ := mockFamily(t, ctrl)
@@ -329,11 +328,19 @@ func TestFamily_doRollupWork(t *testing.T) {
 			files: []table.FileNumber{10, 20, 30},
 			prepare: func() {
 				snapshot := version.NewMockSnapshot(ctrl)
+				v := version.NewMockVersion(ctrl)
+				compactJob := NewMockCompactJob(ctrl)
+				newCompactJobFunc = func(family Family, state *compactionState, rollup Rollup) CompactJob {
+					return compactJob
+				}
 				gomock.InOrder(
 					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
+					snapshot.EXPECT().GetCurrent().Return(v),
+					v.EXPECT().GetFile(0, table.FileNumber(20)).Return(nil, true),
+					compactJob.EXPECT().Run().Return(nil),
 					snapshot.EXPECT().Close(),
 				)
 			},
@@ -344,6 +351,7 @@ func TestFamily_doRollupWork(t *testing.T) {
 			files: []table.FileNumber{10, 20, 30},
 			prepare: func() {
 				snapshot := version.NewMockSnapshot(ctrl)
+				v := version.NewMockVersion(ctrl)
 				compactJob := NewMockCompactJob(ctrl)
 				newCompactJobFunc = func(family Family, state *compactionState, rollup Rollup) CompactJob {
 					return compactJob
@@ -353,6 +361,8 @@ func TestFamily_doRollupWork(t *testing.T) {
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
+					snapshot.EXPECT().GetCurrent().Return(v),
+					v.EXPECT().GetFile(0, table.FileNumber(20)).Return(nil, true),
 					compactJob.EXPECT().Run().Return(fmt.Errorf("err")),
 					snapshot.EXPECT().Close(),
 				)
@@ -364,6 +374,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newCompactJobFunc = newCompactJob
+			}()
 			if tt.prepare != nil {
 				tt.prepare()
 			}

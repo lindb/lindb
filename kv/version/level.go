@@ -57,6 +57,12 @@ func (l *level) getFiles() []*FileMeta {
 	return values
 }
 
+// getFile returns the file meta by given file number.
+func (l *level) getFile(fileNumber table.FileNumber) (*FileMeta, bool) {
+	f, ok := l.files[fileNumber]
+	return f, ok
+}
+
 // numberOfFiles returns the number of files in current level
 func (l *level) numberOfFiles() int {
 	return len(l.files)

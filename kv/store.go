@@ -62,7 +62,8 @@ type Store interface {
 	ListFamilyNames() []string
 	// Option returns the store configuration options
 	Option() StoreOption
-
+	// ForceRollup does rollup job manual.
+	ForceRollup()
 	// close closes store, then release some resource
 	close() error
 	// createFamilyVersion creates family version using family name and family id,
@@ -251,6 +252,20 @@ func (s *store) ListFamilyNames() []string {
 // Option returns the store configuration options
 func (s *store) Option() StoreOption {
 	return s.option
+}
+
+// ForceRollup does rollup job manual.
+func (s *store) ForceRollup() {
+	var families []Family
+	s.rwMutex.RLock()
+	for _, family := range s.families {
+		families = append(families, family)
+	}
+	defer s.rwMutex.RUnlock()
+
+	for _, f := range families {
+		f.rollup()
+	}
 }
 
 // close closes store, then release some resource

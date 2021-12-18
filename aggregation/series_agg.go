@@ -78,7 +78,7 @@ type seriesAggregator struct {
 
 	aggregates []FieldAggregator
 	aggSpec    AggregatorSpec
-	calc       timeutil.Calculator
+	calc       timeutil.IntervalCalculator
 
 	startTime int64
 }

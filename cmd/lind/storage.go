@@ -73,7 +73,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 	},
 }
 
-func serveStorage(cmd *cobra.Command, args []string) error {
+func serveStorage(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 
 	storageCfg := config.Storage{}

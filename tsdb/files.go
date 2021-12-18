@@ -101,12 +101,12 @@ func shardMetaPath(database string, shardID models.ShardID) string {
 	return filepath.Join(shardPath(database, shardID), metaDir)
 }
 
-// shardSegmentIndicator returns the segment name indicator information.
-func shardSegmentIndicator(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
+// ShardSegmentIndicator returns the segment name indicator information.
+func ShardSegmentIndicator(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
 	return filepath.Join(shardIndicator(database, shardID), segmentDir, interval.Type().String(), name)
 }
 
-// shardSegmentPath returns segment path in shard dir.
-func shardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
+// ShardSegmentPath returns segment path in shard dir.
+func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
 	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String())
 }

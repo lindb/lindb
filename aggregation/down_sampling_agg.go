@@ -73,7 +73,7 @@ func putFloat64Slice(sl *[]float64) {
 // data will be merged into DownSamplingResult
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
 func DownSamplingMultiSeriesInto(
-	target timeutil.SlotRange, ratio uint16,
+	target timeutil.SlotRange, ratio uint16, baseSlot uint16,
 	fieldType field.Type, decoders []*encoding.TSDDecoder,
 	emitValue func(targetPos int, value float64),
 ) {
@@ -90,7 +90,7 @@ func DownSamplingMultiSeriesInto(
 	// first loop: filled target values with inf value
 	// inf value is invalid, and won't be emitted after downsampling
 	fillInfBlock(targetValues)
-
+	bs := int(baseSlot)
 	// second loop: iterating tsd decoder
 	for _, decoder := range decoders {
 		if decoder == nil {
@@ -101,7 +101,7 @@ func DownSamplingMultiSeriesInto(
 				continue
 			}
 			value := math.Float64frombits(decoder.Value())
-			targetPos := int(movingSourceSlot/ratio) - int(target.Start)
+			targetPos := bs + int(movingSourceSlot/ratio) - int(target.Start)
 			if targetPos < 0 {
 				continue
 			}

@@ -42,6 +42,7 @@ type mergerContext struct {
 
 	targetRange, sourceRange timeutil.SlotRange
 	ratio                    uint16
+	baseSlot                 uint16
 }
 
 // merger implements kv.Merger for merging series data for each metric
@@ -165,13 +166,14 @@ func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
 	}
 	// sort by field id
 	sort.Slice(ctx.targetFields, func(i, j int) bool { return ctx.targetFields[i].ID < ctx.targetFields[j].ID })
-	// check if rollup job
 
+	// check if rollup job
 	if m.rollup != nil {
 		// calc target time slot range and interval ratio
 		ctx.targetRange.Start = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.Start))
 		ctx.targetRange.End = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.End))
 		ctx.ratio = m.rollup.IntervalRatio()
+		ctx.baseSlot = m.rollup.BaseSlot() // different family, need calc based on base slot
 	} else {
 		ctx.targetRange.Start = ctx.sourceRange.Start
 		ctx.targetRange.End = ctx.sourceRange.End
