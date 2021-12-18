@@ -68,7 +68,7 @@ func newSegment(
 	Segment,
 	error,
 ) {
-	indicator := shardSegmentIndicator(shard.Database().Name(), shard.ShardID(), interval, segmentName)
+	indicator := ShardSegmentIndicator(shard.Database().Name(), shard.ShardID(), interval, segmentName)
 	// parse base time from segment name
 	calc := interval.Calculator()
 	baseTime, err := calc.ParseSegmentTime(segmentName)
@@ -85,7 +85,7 @@ func newSegment(
 		for _, rollupInterval := range intervals {
 			rollup = append(rollup, rollupInterval.Interval)
 		}
-		storeOption.Rollup = rollup[1 : len(rollup)-1]
+		storeOption.Rollup = rollup[1:]
 		storeOption.Source = interval
 	}
 	kvStore, err := kv.GetStoreManager().CreateStore(indicator, storeOption)

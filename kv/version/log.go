@@ -283,7 +283,7 @@ func (n *newRollupFile) Decode(v []byte) error {
 
 // String returns string value of add rollup file log
 func (n *newRollupFile) String() string {
-	return fmt.Sprintf("addRollup:{fileNumber:%d,interval:%d}", n.fileNumber, n.interval)
+	return fmt.Sprintf("addRollup:{fileNumber:%d,interval:%s}", n.fileNumber, n.interval.String())
 }
 
 // apply writes the edit log for the files which need to rollup to version.
@@ -324,7 +324,7 @@ func (d *deleteRollupFile) Decode(v []byte) error {
 
 // String returns string value of delete rollup file log
 func (d *deleteRollupFile) String() string {
-	return fmt.Sprintf("deleteRollup:{fileNumber:%d}", d.fileNumber)
+	return fmt.Sprintf("deleteRollup:{fileNumber:%d,interval:%s}", d.fileNumber, d.interval.String())
 }
 
 // apply applies remove rollup file edit log to version

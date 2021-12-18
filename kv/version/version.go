@@ -37,6 +37,7 @@ type Version interface {
 	DeleteFile(level int, fileNumber table.FileNumber)
 	// GetFiles returns files by level
 	GetFiles(level int) []*FileMeta
+	GetFile(level int, fileNumber table.FileNumber) (*FileMeta, bool)
 	// GetFamilyVersion return the family version
 	GetFamilyVersion() FamilyVersion
 	// NumOfRef returns the number of reference which version be used by search/compact/rollup
@@ -218,7 +219,18 @@ func (v *version) GetAllFiles() []*FileMeta {
 
 // Clone builds new version based on current version
 func (v *version) Clone() Version {
+	//TODO need test clone all data
 	newVersion := newVersion(v.fv.GetVersionSet().newVersionID(), v.fv)
+	nv := newVersion.(*version)
+	for k, v := range v.rollup.rollupFiles {
+		nv.rollup.rollupFiles[k] = v
+	}
+	for k, v := range v.rollup.referenceFiles {
+		nv.rollup.referenceFiles[k] = v
+	}
+	for k, v := range v.sequences {
+		nv.sequences[k] = v
+	}
 	for level, value := range v.levels {
 		for _, file := range value.files {
 			newVersion.AddFile(level, file)
@@ -233,6 +245,13 @@ func (v *version) GetFiles(level int) []*FileMeta {
 		return nil
 	}
 	return v.levels[level].getFiles()
+}
+
+func (v *version) GetFile(level int, fileNumber table.FileNumber) (*FileMeta, bool) {
+	if level < 0 || level >= v.numOfLevels {
+		return nil, false
+	}
+	return v.levels[level].getFile(fileNumber)
 }
 
 // AddFiles adds file meta into spec level

@@ -263,9 +263,7 @@ func (itr *BrokerBatchShardFamilyIterator) NextFamily() (familyTime int64, rows 
 }
 
 func (itr *BrokerBatchShardFamilyIterator) familyTimeOfTimestamp(timestamp int64) int64 {
-	segmentTime := itr.intervalCalc.CalcSegmentTime(timestamp)
-	family := itr.intervalCalc.CalcFamily(timestamp, segmentTime)
-	return itr.intervalCalc.CalcFamilyStartTime(segmentTime, family)
+	return itr.intervalCalc.CalcFamilyTime(timestamp)
 }
 
 func (itr *BrokerBatchShardFamilyIterator) timeRangeOfTimestamp(timestamp int64) timeutil.TimeRange {

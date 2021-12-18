@@ -71,7 +71,7 @@ type Family interface {
 	removePendingOutput(fileNumber table.FileNumber)
 	// doRollupWork does rollup job, merge source family data to target family
 	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
-
+	rollup()
 	// deleteObsoleteFiles deletes obsolete files
 	deleteObsoleteFiles()
 }

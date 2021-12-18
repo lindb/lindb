@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	yearCalculator  Calculator = &year{}
-	monthCalculator Calculator = &month{}
-	dayCalculator   Calculator = &day{}
+	yearCalculator  IntervalCalculator = &year{}
+	monthCalculator IntervalCalculator = &month{}
+	dayCalculator   IntervalCalculator = &day{}
 )
 
 // IntervalCalculator calculates the timestamp for each interval type
@@ -37,26 +37,8 @@ type IntervalCalculator interface {
 	CalcSegmentTime(timestamp int64) int64
 	// CalcFamily calculates family base time based on given timestamp
 	CalcFamily(timestamp int64, segmentTime int64) int
-	// CalcFamilyStartTime calculates family start time based on segment time and family time
-	CalcFamilyStartTime(segmentTime int64, familyTime int) int64
-	// CalcFamilyEndTime calculates family end time based on family start time
-	CalcFamilyEndTime(familyStartTime int64) int64
-	// CalcSlot calculates field store slot index based on given timestamp and base time
-	CalcSlot(timestamp, baseTime, interval int64) int
-	// CalcTimeWindows calculates the number of time window between start and end time
-	CalcTimeWindows(start, end int64) int
-}
-
-// Calculator represents calculate timestamp for each interval type
-type Calculator interface {
-	// GetSegment returns segment name by given timestamp
-	GetSegment(timestamp int64) string
-	// ParseSegmentTime parses segment base time based on given segment name
-	ParseSegmentTime(segmentName string) (int64, error)
-	// CalcSegmentTime calculates segment base time based on given segment name
-	CalcSegmentTime(timestamp int64) int64
-	// CalcFamily calculates family base time based on given timestamp
-	CalcFamily(timestamp int64, segmentTime int64) int
+	// CalcFamilyTime calculates family base time based on given timestamp
+	CalcFamilyTime(timestamp int64) int64
 	// CalcFamilyStartTime calculates family start time based on segment time and family time
 	CalcFamilyStartTime(segmentTime int64, familyTime int) int64
 	// CalcFamilyEndTime calculates family end time based on family start time
@@ -95,6 +77,13 @@ func (d *day) CalcSegmentTime(timestamp int64) int64 {
 // CalcFamily calculates family base time based on given timestamp for day interval type
 func (d *day) CalcFamily(timestamp int64, segmentTime int64) int {
 	return int((timestamp - segmentTime) / OneHour)
+}
+
+// CalcFamilyTime calculates family base time based on given timestamp
+func (d *day) CalcFamilyTime(timestamp int64) int64 {
+	segmentTime := d.CalcSegmentTime(timestamp)
+	family := d.CalcFamily(timestamp, segmentTime)
+	return d.CalcFamilyStartTime(segmentTime, family)
 }
 
 // CalcFamilyStartTime calculates family start time based on segment time and family time for day interval type
@@ -143,6 +132,13 @@ func (m *month) CalcSegmentTime(timestamp int64) int64 {
 func (m *month) CalcFamily(timestamp int64, segmentTime int64) int {
 	t := time.Unix(timestamp/1000, 0)
 	return t.Day()
+}
+
+// CalcFamilyTime calculates family base time based on given timestamp
+func (m *month) CalcFamilyTime(timestamp int64) int64 {
+	segmentTime := m.CalcSegmentTime(timestamp)
+	family := m.CalcFamily(timestamp, segmentTime)
+	return m.CalcFamilyStartTime(segmentTime, family)
 }
 
 // CalcFamilyStartTime calculates family start time based on segment time and family for month interval type
@@ -197,6 +193,13 @@ func (y *year) CalcSegmentTime(timestamp int64) int64 {
 func (y *year) CalcFamily(timestamp int64, segmentTime int64) int {
 	t := time.Unix(timestamp/1000, 0)
 	return int(t.Month())
+}
+
+// CalcFamilyTime calculates family base time based on given timestamp
+func (y *year) CalcFamilyTime(timestamp int64) int64 {
+	segmentTime := y.CalcSegmentTime(timestamp)
+	family := y.CalcFamily(timestamp, segmentTime)
+	return y.CalcFamilyStartTime(segmentTime, family)
 }
 
 // CalcFamilyStartTime calculates family start time based on segment time and family for year interval type

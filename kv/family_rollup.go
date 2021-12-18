@@ -18,7 +18,10 @@
 package kv
 
 import (
+	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -36,6 +39,8 @@ type Rollup interface {
 	IntervalRatio() uint16
 	// CalcSlot calculates the target slot based on source timestamp
 	CalcSlot(timestamp int64) uint16
+	// BaseSlot returns base slot by source family time/target interval.
+	BaseSlot() uint16
 }
 
 // rollup implements Rollup interface.
@@ -63,6 +68,9 @@ func (r *rollup) IntervalRatio() uint16 {
 
 func (r *rollup) CalcSlot(timestamp int64) uint16 {
 	return uint16(r.target.Calculator().CalcSlot(timestamp, r.targetFTime, r.target.Int64()))
+}
+func (r *rollup) BaseSlot() uint16 {
+	return r.CalcSlot(r.sourceFTime)
 }
 
 // needRollup checks if it needs rollup source family data.
@@ -120,7 +128,9 @@ func (f *family) rollup() {
 		editLog := version.NewEditLog(f.ID())
 		sourceInterval := f.store.Option().Source
 		calc := sourceInterval.Calculator()
-		segmentTime, err := calc.ParseSegmentTime(f.store.Name())
+		storeName := f.store.Name()
+		_, segmentName := filepath.Split(storeName)
+		segmentTime, err := calc.ParseSegmentTime(segmentName)
 		if err != nil {
 			kvLogger.Error("parse segment time failure, when do rollup job",
 				logger.String("family", f.familyInfo()),
@@ -135,30 +145,31 @@ func (f *family) rollup() {
 			return
 		}
 		familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
-
+		baseDir := strings.Replace(storeName, path.Join(sourceInterval.Type().String(), segmentName), "", 1)
 		for targetInterval, files := range rollupMap {
 			segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
-			targetStore, ok := GetStoreManager().GetStoreByName(segmentName)
+			targetStoreName := path.Join(baseDir, targetInterval.Type().String(), segmentName)
+			targetStore, ok := GetStoreManager().GetStoreByName(targetStoreName)
 			// do rollup job in target family
 			if !ok {
 				//TODO add metric
 				kvLogger.Warn("skip rollup because cannot get target store",
 					logger.String("family", f.familyInfo()),
-					logger.String("target", segmentName),
-					logger.Int64("interval", targetInterval.Int64()))
+					logger.String("target", targetStoreName),
+					logger.String("interval", targetInterval.String()))
 				continue
 			}
-			sTime := targetInterval.Calculator().CalcSegmentTime(familyStartTime)
-			fTime := targetInterval.Calculator().CalcFamily(familyStartTime, sTime)
-			fSTime := targetInterval.Calculator().CalcFamilyStartTime(sTime, fTime)
+			tSegmentTime := targetInterval.Calculator().CalcSegmentTime(familyStartTime)
+			tFamilyTime := targetInterval.Calculator().CalcFamily(familyStartTime, tSegmentTime)
+			fSTime := targetInterval.Calculator().CalcFamilyStartTime(tSegmentTime, tFamilyTime)
 
 			// re-use source family option
-			targetFamily, err := targetStore.CreateFamily(strconv.Itoa(fTime), f.option)
+			targetFamily, err := targetStore.CreateFamily(strconv.Itoa(tFamilyTime), f.option)
 			if err != nil {
 				kvLogger.Error("create target family failure when do rollup job",
 					logger.String("family", f.familyInfo()),
 					logger.String("target", segmentName),
-					logger.Int64("interval", targetInterval.Int64()),
+					logger.String("interval", targetInterval.String()),
 					logger.Error(err))
 				continue
 			}
@@ -167,7 +178,7 @@ func (f *family) rollup() {
 				kvLogger.Error("do rollup work fail",
 					logger.String("family", f.familyInfo()),
 					logger.String("target", segmentName),
-					logger.Int64("interval", targetInterval.Int64()),
+					logger.String("interval", targetInterval.String()),
 					logger.Any("files", files))
 				continue
 			}
@@ -219,7 +230,15 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 	defer func() {
 		snapshot.Close()
 	}()
-	compaction := version.NewCompaction(f.ID(), -1, nil, nil)
+	v := snapshot.GetCurrent()
+	var inputFiles []*version.FileMeta
+	for fileNumber := range targetFiles {
+		fm, ok := v.GetFile(0, fileNumber)
+		if ok {
+			inputFiles = append(inputFiles, fm)
+		}
+	}
+	compaction := version.NewCompaction(f.ID(), 0, inputFiles, nil)
 
 	compactionState := newCompactionState(f.maxFileSize, snapshot, compaction)
 	compactJob := newCompactJobFunc(f, compactionState, rollup)
