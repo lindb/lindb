@@ -108,89 +108,91 @@ func (f *family) rollup() {
 	// check if it has background rollup job running already,
 	// has rollup job, return it, else do rollup job.
 	if f.rolluping.CAS(false, true) {
-		defer func() {
-			// clean up unused files, maybe some file not used
-			f.deleteObsoleteFiles()
-			f.rolluping.Store(false)
-		}()
+		go func() {
+			defer func() {
+				// clean up unused files, maybe some file not used
+				f.deleteObsoleteFiles()
+				f.rolluping.Store(false)
+			}()
 
-		rollupFiles := f.familyVersion.GetLiveRollupFiles()
-		if len(rollupFiles) == 0 {
-			return
-		}
-		rollupMap := make(map[timeutil.Interval][]table.FileNumber)
-		for file, intervals := range rollupFiles {
-			for _, interval := range intervals {
-				rollupMap[interval] = append(rollupMap[interval], file)
+			rollupFiles := f.familyVersion.GetLiveRollupFiles()
+			if len(rollupFiles) == 0 {
+				return
 			}
-		}
-
-		editLog := version.NewEditLog(f.ID())
-		sourceInterval := f.store.Option().Source
-		calc := sourceInterval.Calculator()
-		storeName := f.store.Name()
-		_, segmentName := filepath.Split(storeName)
-		segmentTime, err := calc.ParseSegmentTime(segmentName)
-		if err != nil {
-			kvLogger.Error("parse segment time failure, when do rollup job",
-				logger.String("family", f.familyInfo()),
-				logger.Error(err))
-			return
-		}
-		fTime, err := strconv.Atoi(f.Name())
-		if err != nil {
-			kvLogger.Error("parse family time failure, when do rollup job",
-				logger.String("family", f.familyInfo()),
-				logger.Error(err))
-			return
-		}
-		familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
-		baseDir := strings.Replace(storeName, path.Join(sourceInterval.Type().String(), segmentName), "", 1)
-		for targetInterval, files := range rollupMap {
-			segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
-			targetStoreName := path.Join(baseDir, targetInterval.Type().String(), segmentName)
-			targetStore, ok := GetStoreManager().GetStoreByName(targetStoreName)
-			// do rollup job in target family
-			if !ok {
-				//TODO add metric
-				kvLogger.Warn("skip rollup because cannot get target store",
-					logger.String("family", f.familyInfo()),
-					logger.String("target", targetStoreName),
-					logger.String("interval", targetInterval.String()))
-				continue
+			rollupMap := make(map[timeutil.Interval][]table.FileNumber)
+			for file, intervals := range rollupFiles {
+				for _, interval := range intervals {
+					rollupMap[interval] = append(rollupMap[interval], file)
+				}
 			}
-			tSegmentTime := targetInterval.Calculator().CalcSegmentTime(familyStartTime)
-			tFamilyTime := targetInterval.Calculator().CalcFamily(familyStartTime, tSegmentTime)
-			fSTime := targetInterval.Calculator().CalcFamilyStartTime(tSegmentTime, tFamilyTime)
 
-			// re-use source family option
-			targetFamily, err := targetStore.CreateFamily(strconv.Itoa(tFamilyTime), f.option)
+			editLog := version.NewEditLog(f.ID())
+			sourceInterval := f.store.Option().Source
+			calc := sourceInterval.Calculator()
+			storeName := f.store.Name()
+			_, segmentName := filepath.Split(storeName)
+			segmentTime, err := calc.ParseSegmentTime(segmentName)
 			if err != nil {
-				kvLogger.Error("create target family failure when do rollup job",
+				kvLogger.Error("parse segment time failure, when do rollup job",
 					logger.String("family", f.familyInfo()),
-					logger.String("target", segmentName),
-					logger.String("interval", targetInterval.String()),
 					logger.Error(err))
-				continue
+				return
 			}
-			rollup := newRollup(sourceInterval, targetInterval, familyStartTime, fSTime)
-			if err := targetFamily.doRollupWork(f, rollup, files); err != nil {
-				kvLogger.Error("do rollup work fail",
+			fTime, err := strconv.Atoi(f.Name())
+			if err != nil {
+				kvLogger.Error("parse family time failure, when do rollup job",
 					logger.String("family", f.familyInfo()),
-					logger.String("target", segmentName),
-					logger.String("interval", targetInterval.String()),
-					logger.Any("files", files))
-				continue
+					logger.Error(err))
+				return
+			}
+			familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
+			baseDir := strings.Replace(storeName, path.Join(sourceInterval.Type().String(), segmentName), "", 1)
+			for targetInterval, files := range rollupMap {
+				segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
+				targetStoreName := path.Join(baseDir, targetInterval.Type().String(), segmentName)
+				targetStore, ok := GetStoreManager().GetStoreByName(targetStoreName)
+				// do rollup job in target family
+				if !ok {
+					//TODO add metric
+					kvLogger.Warn("skip rollup because cannot get target store",
+						logger.String("family", f.familyInfo()),
+						logger.String("target", targetStoreName),
+						logger.String("interval", targetInterval.String()))
+					continue
+				}
+				tSegmentTime := targetInterval.Calculator().CalcSegmentTime(familyStartTime)
+				tFamilyTime := targetInterval.Calculator().CalcFamily(familyStartTime, tSegmentTime)
+				fSTime := targetInterval.Calculator().CalcFamilyStartTime(tSegmentTime, tFamilyTime)
+
+				// re-use source family option
+				targetFamily, err := targetStore.CreateFamily(strconv.Itoa(tFamilyTime), f.option)
+				if err != nil {
+					kvLogger.Error("create target family failure when do rollup job",
+						logger.String("family", f.familyInfo()),
+						logger.String("target", segmentName),
+						logger.String("interval", targetInterval.String()),
+						logger.Error(err))
+					continue
+				}
+				rollup := newRollup(sourceInterval, targetInterval, familyStartTime, fSTime)
+				if err := targetFamily.doRollupWork(f, rollup, files); err != nil {
+					kvLogger.Error("do rollup work fail",
+						logger.String("family", f.familyInfo()),
+						logger.String("target", segmentName),
+						logger.String("interval", targetInterval.String()),
+						logger.Any("files", files))
+					continue
+				}
+
+				// after rollup job successfully, need add delete rollup file edit log
+				for _, file := range files {
+					editLog.Add(version.CreateDeleteRollupFile(file, targetInterval))
+				}
 			}
 
-			// after rollup job successfully, need add delete rollup file edit log
-			for _, file := range files {
-				editLog.Add(version.CreateDeleteRollupFile(file, targetInterval))
-			}
-		}
-
-		// finally, need commit edit log
-		f.commitEditLog(editLog)
+			// finally, need commit edit log
+			f.commitEditLog(editLog)
+		}()
 	}
 }
 

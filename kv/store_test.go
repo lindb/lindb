@@ -67,7 +67,7 @@ func TestStore_New(t *testing.T) {
 	mkDirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	kv, err := NewStore("test_kv", tmpDir, option)
+	kv, err := newStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	// case 2: dump store option err
@@ -81,18 +81,18 @@ func TestStore_New(t *testing.T) {
 	encodeTomlFunc = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
-	kv, err = NewStore("test_kv", tmpDir, option)
+	kv, err = newStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
 	_ = fileutil.RemoveDir(tmpDir)
 	encodeTomlFunc = ltoml.EncodeToml
 	newFileLockFunc = lockers.NewFileLock
 	// case 3: new store success
-	kv, err = NewStore("test_kv", tmpDir, option)
+	kv, err = newStore("test_kv", tmpDir, option)
 	assert.NoError(t, err)
 	assert.NotNil(t, kv, "cannot create kv store")
 	// case 4: new store fail, because try lock file err
-	_, err = NewStore("test_kv", tmpDir, option)
+	_, err = newStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	kv, _ = kv.(*store)
 	kvStore, ok := kv.(*store)
@@ -104,7 +104,7 @@ func TestStore_New(t *testing.T) {
 	assert.True(t, ok)
 	_ = kv.close()
 	// case 5: reopen store
-	kv2, e := NewStore("test_kv", tmpDir, option)
+	kv2, e := newStore("test_kv", tmpDir, option)
 	assert.NoError(t, e)
 	assert.NotNil(t, kv2, "cannot re-open kv store")
 
@@ -116,13 +116,13 @@ func TestStore_New(t *testing.T) {
 	_ = kv2.close()
 	delete(mergers, MergerType(mergerStr))
 	// case 6: decode option err
-	_, e = NewStore("test_kv", tmpDir, option)
+	_, e = newStore("test_kv", tmpDir, option)
 	assert.NotNil(t, e)
 	assert.Nil(t, nil)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
 	_ = ioutil.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)
-	kv, e = NewStore("test_kv", tmpDir, option)
+	kv, e = newStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 	// case 7: recover version err
@@ -134,7 +134,7 @@ func TestStore_New(t *testing.T) {
 	vs.EXPECT().Recover().Return(fmt.Errorf("err"))
 	vs.EXPECT().Destroy().Return(nil) // close store
 	vs.EXPECT().ManifestFileNumber().Return(table.FileNumber(10))
-	_, e = NewStore("test_kv", tmpDir, option)
+	_, e = newStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 }
@@ -147,7 +147,7 @@ func TestStore_CreateFamily(t *testing.T) {
 		newFamilyFunc = newFamily
 	}()
 
-	kv, err := NewStore("test_kv", path, option)
+	kv, err := newStore("test_kv", path, option)
 	defer func() {
 		_ = kv.close()
 	}()
@@ -199,7 +199,7 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	// case 1: list dir err
-	kv, err := NewStore("test_kv", path, option)
+	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	err = kv.close()
 	assert.NoError(t, err)
@@ -209,7 +209,7 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 	removeFunc = func(name string) error {
 		return fmt.Errorf("err")
 	}
-	kv, err = NewStore("test_kv", path, option)
+	kv, err = newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	err = kv.close()
 	assert.NoError(t, err)
@@ -219,9 +219,8 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 func TestStore_Compact(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test_data")
 	option := DefaultStoreOption()
-	option.CompactCheckInterval = 1
 
-	kv, err := NewStore("test_kv", path, option)
+	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	defer func() {
 		_ = kv.close()
@@ -240,6 +239,7 @@ func TestStore_Compact(t *testing.T) {
 		commitErr := flusher.Commit()
 		assert.Nil(t, commitErr)
 	}
+	kv.compact()
 	time.Sleep(2 * time.Second)
 
 	snapshot := f1.GetSnapshot()
@@ -256,11 +256,10 @@ func TestStore_Compact(t *testing.T) {
 func TestStore_Close(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "test_data")
 	option := DefaultStoreOption()
-	option.CompactCheckInterval = 1
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	kv, err := NewStore("test_kv", path, option)
+	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	kv1 := kv.(*store)
 	cache := table.NewMockCache(ctrl)

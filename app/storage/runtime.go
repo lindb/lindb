@@ -87,6 +87,8 @@ type runtime struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	jobScheduler kv.JobScheduler
+
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            storage.StateManager
 	walMgr              replica.WriteAheadLogManager
@@ -144,9 +146,12 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("failed to get server ip address, error: %s", err)
 	}
 
-	kv.Options.Store(&kv.StoreOptions{
+	opt := kv.StoreOptions{
 		Dir: config.GlobalStorageConfig().TSDB.Dir,
-	})
+	}
+	kv.Options.Store(&opt)
+	r.jobScheduler = kv.NewJobScheduler(r.ctx, opt)
+	r.jobScheduler.Startup() // startup kv compact job scheduler
 
 	// start TSDB engine for storage server
 	engine, err := tsdb.NewEngine()
@@ -315,6 +320,10 @@ func (r *runtime) Stop() {
 	if r.pusher != nil {
 		r.pusher.Stop()
 		r.log.Info("stopped native linmetric pusher successfully")
+	}
+
+	if r.jobScheduler != nil {
+		r.jobScheduler.Shutdown()
 	}
 
 	// close state repo if exist
