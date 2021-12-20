@@ -31,9 +31,7 @@ type FamilyOption struct {
 
 // StoreOption defines config item for store level
 type StoreOption struct {
-	Levels               int `toml:"levels"`               // num. of levels
-	CompactCheckInterval int `toml:"compactCheckInterval"` // compact job check interval(number of seconds)
-	RollupCheckInterval  int `toml:"rollupCheckInterval"`  // rollup job check interval(number of seconds)
+	Levels int `toml:"levels"` // num. of levels
 
 	Source timeutil.Interval   `toml:"rollup"` // optional
 	Rollup []timeutil.Interval `toml:"rollup"` // optional

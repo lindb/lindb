@@ -76,7 +76,7 @@ func TestFamily_Data_Write_Read(t *testing.T) {
 	testKVPath := filepath.Join(t.TempDir(), "test_data")
 	option := DefaultStoreOption()
 
-	var kv, err = NewStore("test_kv", testKVPath, option)
+	var kv, err = newStore("test_kv", testKVPath, option)
 	defer func() {
 		_ = kv.close()
 	}()
