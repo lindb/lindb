@@ -19,8 +19,8 @@ package integration
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
+	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
@@ -36,7 +36,6 @@ import (
 
 func TestDatabase_Write_And_Rollup(t *testing.T) {
 	dir := t.TempDir()
-	fmt.Println(dir)
 	config.SetGlobalStorageConfig(&config.StorageBase{
 		TSDB: config.TSDB{Dir: dir},
 	})
@@ -102,6 +101,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	assert.NotNil(t, rollupTargetStore)
 
 	store.ForceRollup()
+	time.Sleep(200 * time.Millisecond)
 }
 
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {

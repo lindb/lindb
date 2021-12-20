@@ -27,7 +27,8 @@ import (
 //go:generate mockgen -source ./store_manager.go -destination=./store_manager_mock.go -package kv
 
 type StoreOptions struct {
-	Dir string // store root path
+	Dir                  string // store root path
+	CompactCheckInterval int    // compact/rollup job check interval(number of seconds)
 }
 
 var (
@@ -36,6 +37,7 @@ var (
 	Options           atomic.Value
 )
 
+// InitStoreManager initializes StoreManager.
 func InitStoreManager(storeMgr StoreManager) {
 	sManager = storeMgr
 }
@@ -56,15 +58,20 @@ func GetStoreManager() StoreManager {
 	return sManager
 }
 
+// StoreManager represents a global store manager.
 type StoreManager interface {
 	// CreateStore creates the store by name/option.
 	// NOTICE: name need include relatively path based on root path.
 	CreateStore(name string, option StoreOption) (Store, error)
-
+	// GetStoreByName returns Store by given name.
 	GetStoreByName(name string) (Store, bool)
+	// GetStores returns all Store under manager cache.
+	GetStores() []Store
+	// CloseStore closes the Store, then remove from manager cache.
 	CloseStore(name string) error
 }
 
+// storeManager implements StoreManager interface.
 type storeManager struct {
 	stores  map[string]Store
 	options StoreOptions
@@ -72,6 +79,7 @@ type storeManager struct {
 	mutex sync.Mutex
 }
 
+// newStoreManager creates a StoreManager instance.
 func newStoreManager(options StoreOptions) StoreManager {
 	return &storeManager{
 		stores:  make(map[string]Store),
@@ -79,6 +87,8 @@ func newStoreManager(options StoreOptions) StoreManager {
 	}
 }
 
+// CreateStore creates the store by name/option.
+// NOTICE: name need include relatively path based on root path.
 func (s *storeManager) CreateStore(name string, option StoreOption) (Store, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -88,7 +98,7 @@ func (s *storeManager) CreateStore(name string, option StoreOption) (Store, erro
 		return store, nil
 	}
 
-	store, err := NewStore(name, filepath.Join(s.options.Dir, name), option)
+	store, err := newStoreFunc(name, filepath.Join(s.options.Dir, name), option)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +106,7 @@ func (s *storeManager) CreateStore(name string, option StoreOption) (Store, erro
 	return store, nil
 }
 
+// GetStoreByName returns Store by given name.
 func (s *storeManager) GetStoreByName(name string) (store Store, ok bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -104,6 +115,18 @@ func (s *storeManager) GetStoreByName(name string) (store Store, ok bool) {
 	return
 }
 
+// GetStores returns all Store under manager cache.
+func (s *storeManager) GetStores() (rs []Store) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, store := range s.stores {
+		rs = append(rs, store)
+	}
+	return
+}
+
+// CloseStore closes the Store, then remove from manager cache.
 func (s *storeManager) CloseStore(name string) error {
 	store, ok := s.GetStoreByName(name)
 	if !ok {

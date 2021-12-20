@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -285,6 +286,7 @@ func TestFamily_rollup(t *testing.T) {
 				tt.prepare()
 			}
 			f.rollup()
+			time.Sleep(100 * time.Millisecond) // for waiting job completed
 		})
 	}
 }

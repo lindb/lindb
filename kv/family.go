@@ -61,6 +61,7 @@ type Family interface {
 	newTableBuilder() (table.Builder, error)
 	// needCompact returns level0 files if need do compact job
 	needCompact() bool
+	needRollup() bool
 	// compact does compaction job
 	compact()
 	// getNewMerger returns new merger function, merger need implement Merger interface

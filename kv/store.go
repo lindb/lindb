@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -46,6 +45,7 @@ var (
 	mkDirFunc         = fileutil.MkDir
 	removeFunc        = os.Remove
 	newFileLockFunc   = lockers.NewFileLock
+	newStoreFunc      = newStore
 )
 
 // Store is kv store, supporting column family, but is different from other LSM implementation.
@@ -64,7 +64,10 @@ type Store interface {
 	Option() StoreOption
 	// ForceRollup does rollup job manual.
 	ForceRollup()
-	// close closes store, then release some resource
+
+	// compact the families under store.
+	compact()
+	// close store, then release some resource
 	close() error
 	// createFamilyVersion creates family version using family name and family id,
 	// if family version exist, return exist one
@@ -98,8 +101,8 @@ type store struct {
 	cancel context.CancelFunc
 }
 
-// NewStore new store instance, need recover data if store existent
-func NewStore(name, path string, option StoreOption) (s Store, err error) {
+// newStore news store instance, need recover data if store existent
+func newStore(name, path string, option StoreOption) (s Store, err error) {
 	var info *storeInfo
 	var isCreate bool
 	if fileutil.Exist(path) {
@@ -177,9 +180,6 @@ func NewStore(name, path string, option StoreOption) (s Store, err error) {
 	if err = store1.versions.Recover(); err != nil {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
-
-	// schedule compact job
-	store1.scheduleCompactJob()
 
 	return store1, nil
 }
@@ -313,26 +313,6 @@ func (s *store) dumpStoreInfo() error {
 	return nil
 }
 
-// scheduleCompactJob schedules a compaction background job
-func (s *store) scheduleCompactJob() {
-	interval := defaultCompactCheckInterval
-	if s.option.CompactCheckInterval > 0 {
-		interval = s.option.CompactCheckInterval
-	}
-	ticker := time.NewTicker(time.Duration(interval) * time.Second)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				s.compact()
-			case <-s.ctx.Done():
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-}
-
 // compact checks if family need to do compact,
 // if it needs, does compaction job.
 func (s *store) compact() {
@@ -344,9 +324,13 @@ func (s *store) compact() {
 		i++
 	}
 	s.rwMutex.RUnlock()
+
 	for _, family := range families {
 		if family.needCompact() {
 			family.compact()
+		}
+		if family.needRollup() {
+			family.rollup()
 		}
 	}
 }
