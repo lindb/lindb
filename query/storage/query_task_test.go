@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
@@ -58,7 +59,7 @@ func TestStoragePlanTask_Run(t *testing.T) {
 	mockMetaData := metadb.NewMockMetadata(ctrl)
 	mockMetaDataBase := metadb.NewMockMetadataDatabase(ctrl)
 	mockMetaData.EXPECT().MetadataDatabase().Return(mockMetaDataBase).AnyTimes()
-	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(0), io.ErrClosedPipe).AnyTimes()
+	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), io.ErrClosedPipe).AnyTimes()
 
 	plan := &storageExecutePlan{metadata: mockMetaData, query: &stmt.Query{MetricName: ""}}
 

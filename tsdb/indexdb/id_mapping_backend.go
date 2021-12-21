@@ -22,47 +22,41 @@ import (
 	"fmt"
 	"io"
 	"path"
-	"time"
-
-	"go.etcd.io/bbolt"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/unique"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source ./id_mapping_backend.go -destination=./id_mapping_backend_mock.go -package=indexdb
 
-const MappingDB = "mapping.db"
-
 // for testing
 var (
-	mkDir            = fileutil.MkDirIfNotExist
-	closeFunc        = closeDB
-	setSequenceFunc  = setSequence
-	createBucketFunc = createBucket
-	putFunc          = put
+	mkDir        = fileutil.MkDirIfNotExist
+	newIDStoreFn = unique.NewIDStore
 )
 
-var (
-	seriesBucketName = []byte("s")
-)
+const MappingDB = "mapping"
 
 // IDMappingBackend represents the id mapping backend storage,
 // save series data(tags hash => series id) under metric
 type IDMappingBackend interface {
 	io.Closer
 	// loadMetricIDMapping loads metric id mapping include id sequence
-	loadMetricIDMapping(metricID uint32) (idMapping MetricIDMapping, err error)
+	loadMetricIDMapping(metricID metric.ID) (idMapping MetricIDMapping, err error)
 	// getSeriesID gets series id by metric id/tags hash, if not exist return constants.ErrNotFount
-	getSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, err error)
-	// saveMapping saves the id mapping event
-	saveMapping(event *mappingEvent) (err error)
+	getSeriesID(metricID metric.ID, tagsHash uint64) (seriesID uint32, err error)
+	// genSeries generates series id by metric id/tags hash.
+	genSeriesID(metricID metric.ID, tagsHash uint64, seriesID uint32) error
+	// sync the backend memory data into persist storage.
+	sync() error
 }
 
 // idMappingBackend implements IDMappingBackend interface
 type idMappingBackend struct {
-	db *bbolt.DB
+	db unique.IDStore
 }
 
 // newIDMappingBackend creates new id mapping backend storage
@@ -70,25 +64,8 @@ func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
-	db, err := bbolt.Open(path.Join(parent, MappingDB), 0600, &bbolt.Options{Timeout: 1 * time.Second, NoSync: true})
+	db, err := newIDStoreFn(path.Join(parent, MappingDB))
 	if err != nil {
-		return nil, err
-	}
-
-	err = db.Update(func(tx *bbolt.Tx) error {
-		// create series root bucket for save metric's id mapping
-		_, err := tx.CreateBucketIfNotExists(seriesBucketName)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		// close bbolt.DB if init mapping backend err
-		if e := closeFunc(db); e != nil {
-			indexLogger.Error("close bbolt.db err when create mapping backend fail",
-				logger.String("db", parent), logger.Error(e))
-		}
 		return nil, err
 	}
 	return &idMappingBackend{
@@ -96,109 +73,57 @@ func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	}, nil
 }
 
-// loadMetricIDMapping loads metric id mapping include id sequence
-func (imb *idMappingBackend) loadMetricIDMapping(metricID uint32) (idMapping MetricIDMapping, err error) {
-	var sequence uint32
-	var scratch [4]byte
-	binary.LittleEndian.PutUint32(scratch[:], metricID)
-	err = imb.db.View(func(tx *bbolt.Tx) error {
-		metricBucket := tx.Bucket(seriesBucketName).Bucket(scratch[:])
-		if metricBucket == nil {
-			return fmt.Errorf("%w, metricID: %d", constants.ErrMetricBucketNotFound, metricID)
-		}
-		sequence = uint32(metricBucket.Sequence())
-		return nil
-	})
+func (imb *idMappingBackend) loadMetricIDMapping(metricID metric.ID) (idMapping MetricIDMapping, err error) {
+	mID := metricID.MarshalBinary()
+	val, exist, err := imb.db.Get(mID)
 	if err != nil {
-		return nil, fmt.Errorf("%w, metricID: %d, loadMetricIDMapping with error: %s",
-			constants.ErrMetricBucketNotFound, metricID, err)
+		return nil, err
 	}
+	if !exist {
+		return newMetricIDMapping(metricID, 0), nil
+	}
+	sequence := binary.LittleEndian.Uint32(val)
 	return newMetricIDMapping(metricID, sequence), nil
 }
 
 // getSeriesID gets series id by metric id/tags hash, if not exist return constants.ErrNotFount
-func (imb *idMappingBackend) getSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, err error) {
-	var scratch [4]byte
-	binary.LittleEndian.PutUint32(scratch[:], metricID)
-	err = imb.db.View(func(tx *bbolt.Tx) error {
-		metricBucket := tx.Bucket(seriesBucketName).Bucket(scratch[:])
-		if metricBucket == nil {
-			return fmt.Errorf("%w, metricID: %d, tagsHash: %d",
-				constants.ErrMetricBucketNotFound, metricID, tagsHash)
-		}
-		var hash [8]byte
-		binary.LittleEndian.PutUint64(hash[:], tagsHash)
-		value := metricBucket.Get(hash[:])
-		if len(value) == 0 {
-			return fmt.Errorf("%w, metricID: %d, tagsHash: %d",
-				constants.ErrSeriesIDNotFound, metricID, tagsHash)
-		}
-		seriesID = binary.LittleEndian.Uint32(value)
-		return nil
-	})
+func (imb *idMappingBackend) getSeriesID(metricID metric.ID, tagsHash uint64) (seriesID uint32, err error) {
+	mID := metricID.MarshalBinary()
+	mIDLen := len(mID)
+	key := make([]byte, mIDLen+8)
+	copy(key, mID)
+	binary.LittleEndian.PutUint64(key[mIDLen:], tagsHash)
+	val, exist, err := imb.db.Get(key)
+	if err != nil {
+		return series.EmptySeriesID, err
+	}
+	if !exist {
+		return series.EmptySeriesID, fmt.Errorf("%w, metricID: %d, tagsHash: %d",
+			constants.ErrSeriesIDNotFound, metricID, tagsHash)
+	}
+	seriesID = binary.LittleEndian.Uint32(val)
 	return
 }
 
-// saveMapping saves the id mapping event
-func (imb *idMappingBackend) saveMapping(event *mappingEvent) (err error) {
-	err = imb.db.Update(func(tx *bbolt.Tx) error {
-		for metricID, metricEvent := range event.events {
-			var scratch [4]byte
-			binary.LittleEndian.PutUint32(scratch[:], metricID)
-			id := scratch[:]
-			root := tx.Bucket(seriesBucketName)
-			metricBucket := root.Bucket(id)
-			if metricBucket == nil {
-				// create metric bucket if metric id not exist
-				metricBucket, err = createBucketFunc(root, id)
-				if err != nil {
-					return err
-				}
-			}
-			// save series data
-			for _, seriesEvent := range metricEvent.events {
-				var seriesID [4]byte
-				var hash [8]byte
-				binary.LittleEndian.PutUint64(hash[:], seriesEvent.tagsHash)
-				binary.LittleEndian.PutUint32(seriesID[:], seriesEvent.seriesID)
-				if err = putFunc(metricBucket, hash[:], seriesID[:]); err != nil {
-					return err
-				}
-			}
-			// save metric id sequence
-			if err = setSequenceFunc(metricBucket, uint64(metricEvent.metricIDSeq)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+// genSeriesID gets series id by metric id/tags hash, if not exist return constants.ErrNotFount
+func (imb *idMappingBackend) genSeriesID(metricID metric.ID, tagsHash uint64, seriesID uint32) error {
+	mID := metricID.MarshalBinary()
+	mIDLen := len(mID)
+	key := make([]byte, mIDLen+8)
+	copy(key, mID)
+	binary.LittleEndian.PutUint64(key[mIDLen:], tagsHash)
+
+	var scratch [4]byte
+	binary.LittleEndian.PutUint32(scratch[:], seriesID)
+	return imb.db.Put(key, scratch[:])
 }
 
-// Close closes the bbolt.DB
+// Close closes the backend storage resource.
 func (imb *idMappingBackend) Close() error {
 	return imb.db.Close()
 }
 
-// closeDB closes the bbolt.DB
-func closeDB(db *bbolt.DB) error {
-	return db.Close()
-}
-
-// setSequence sets the bucket's sequence
-func setSequence(bucket *bbolt.Bucket, seq uint64) error {
-	if bucket.Sequence() < seq {
-		return bucket.SetSequence(seq)
-	}
-	return nil
-}
-
-// createBucket creates the bucket with name
-func createBucket(parentBucket *bbolt.Bucket, name []byte) (*bbolt.Bucket, error) {
-	return parentBucket.CreateBucket(name)
-}
-
-// put puts the key/value
-func put(bucket *bbolt.Bucket, key, value []byte) error {
-	return bucket.Put(key, value)
+// sync the backend memory data into persist storage.
+func (imb *idMappingBackend) sync() error {
+	return imb.db.Flush()
 }

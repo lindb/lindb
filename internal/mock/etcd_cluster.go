@@ -18,53 +18,40 @@
 package mock
 
 import (
+	"fmt"
+	"net/url"
 	"testing"
 
-	"go.etcd.io/etcd/integration"
-	"gopkg.in/check.v1"
+	"go.etcd.io/etcd/server/v3/embed"
+	"go.uber.org/zap/zapcore"
 )
 
 // EtcdCluster mock etcd cluster for testing
 type EtcdCluster struct {
-	cluster   *integration.ClusterV3
+	etcd      *embed.Etcd
 	Endpoints []string
 }
 
 // StartEtcdCluster starts integration etcd cluster
-func StartEtcdCluster(t *testing.T) *EtcdCluster {
-	cluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+func StartEtcdCluster(t *testing.T, endpoint string) *EtcdCluster {
+	cfg := embed.NewConfig()
+	lcurl, _ := url.Parse(endpoint)
+	acurl, _ := url.Parse(fmt.Sprintf("http://localhost:1%s", lcurl.Port()))
+	cfg.Dir = t.TempDir()
+	cfg.LCUrls = []url.URL{*lcurl}
+	cfg.LPUrls = []url.URL{*acurl}
+	cfg.LogLevel = zapcore.ErrorLevel.String()
+	e, err := embed.StartEtcd(cfg)
+	if err != nil {
+		panic(err)
+	}
 	return &EtcdCluster{
-		cluster:   cluster,
-		Endpoints: []string{cluster.Members[0].GRPCAddr()},
+		etcd:      e,
+		Endpoints: []string{endpoint},
 	}
 }
 
 // Terminate terminates integration etcd cluster
-func (etcd *EtcdCluster) Terminate(t *testing.T) {
-	etcd.cluster.Terminate(t)
-}
-
-// RepoTestSuite represents repo test suite init integration etcd cluster
-type RepoTestSuite struct {
-	Cluster *EtcdCluster
-}
-
-var (
-	test *testing.T
-)
-
-// Test register test suite
-func Test(t *testing.T) {
-	test = t
-	check.TestingT(t)
-}
-
-// SetUpSuite setups test suite
-func (ts *RepoTestSuite) SetUpSuite(c *check.C) {
-	ts.Cluster = StartEtcdCluster(test)
-}
-
-// TearDownSuite teardowns test suite, release resource
-func (ts *RepoTestSuite) TearDownSuite(c *check.C) {
-	ts.Cluster.Terminate(test)
+func (etcd *EtcdCluster) Terminate(_ *testing.T) {
+	etcd.etcd.Close()
 }

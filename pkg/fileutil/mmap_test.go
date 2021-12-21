@@ -24,80 +24,55 @@ import (
 	"path"
 	"testing"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-type testSuite struct {
-}
-
-var _ = check.Suite(&testSuite{})
-
-var filename = path.Join(os.TempDir(), "testdata")
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-func (ts *testSuite) TearDownTest(c *check.C) {
-	if err := os.Remove(filename); err != nil {
-		c.Error("tear down test remove tmp file error", err)
-	}
-}
-
-func (ts *testSuite) TestRead(c *check.C) {
+func TestRead(t *testing.T) {
+	filename := path.Join(t.TempDir(), "testdata")
 	file, err := os.Create(filename)
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	content := "abc123"
 
 	_, err = file.WriteString(content)
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	bys, err := Map(filename)
-	if err != nil {
-		c.Fatal(c)
-	}
-	c.Assert(len(bys), check.Equals, len(content))
-	c.Assert(bys, check.DeepEquals, []byte(content))
-
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(content), bys)
 }
 
-func (ts *testSuite) TestRWMap(c *check.C) {
+func TestRWMap(t *testing.T) {
 	var content = []byte("12345")
 	var size = 1024
+	filename := path.Join(t.TempDir(), "testdata")
 
 	mapBytes, err := RWMap(filename, size)
-	if err != nil {
-		c.Error("RWMap", err)
-	}
+	assert.NoError(t, err)
 	if Unmap(nil) != nil {
-		c.Error("unmap nil returns not nil")
+		t.Error("unmap nil returns not nil")
 	}
 
 	buffer := bytes.NewBuffer(mapBytes[:0])
 
 	if _, err := buffer.Write(content); err != nil {
-		c.Error("buffer write", err)
+		t.Error("buffer write", err)
 	}
 
 	if err := Sync(mapBytes); err != nil {
-		c.Error(err)
+		t.Error(err)
 	}
 
 	if Unmap(mapBytes) != nil {
-		c.Errorf("unmap mapBytes with error: %v", err)
+		t.Errorf("unmap mapBytes with error: %v", err)
 	}
 
 	fileContent, err := ioutil.ReadFile(filename)
 	if err != nil {
-		c.Error("read file error", err)
+		t.Error("read file error", err)
 	}
 
-	c.Assert(len(fileContent), check.Equals, size)
+	assert.Len(t, fileContent, size)
 
-	c.Assert(content, check.DeepEquals, fileContent[:len(content)])
+	assert.Equal(t, content, fileContent[0:len(content)])
 }

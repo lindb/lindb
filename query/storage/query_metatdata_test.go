@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -68,7 +69,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	exec = newStorageMetadataQuery(db, nil, &stmt.Metadata{
 		Type: stmt.TagKey,
 	})
-	metadataIndex.EXPECT().SuggestTagKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
+	metadataIndex.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(tag.Metas{{Key: "a"}}, nil)
 	result, err = exec.Execute()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)
@@ -108,7 +109,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.Metadata{
 		Type: stmt.TagValue,
 	})
-	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
 
 	result, err = exec.Execute()
 	assert.Error(t, err)

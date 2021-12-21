@@ -21,6 +21,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
@@ -36,7 +37,7 @@ func newMockDatabase(ctrl *gomock.Controller) *tsdb.MockDatabase {
 	metadata := metadb.NewMockMetadata(ctrl)
 	metadataIndex := metadb.NewMockMetadataDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
-	metadataIndex.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(10), nil).AnyTimes()
+	metadataIndex.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
 

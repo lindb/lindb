@@ -18,136 +18,221 @@
 package indexdb
 
 import (
-	"errors"
 	"fmt"
-	"path/filepath"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/unique"
+	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/metric"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestIdMappingBackend_new(t *testing.T) {
-	testPath := t.TempDir()
-	defer func() {
-		seriesBucketName = []byte("s")
-		closeFunc = closeDB
-		mkDir = fileutil.MkDirIfNotExist
-	}()
-	// case 1: new backend
-	backend, err := newIDMappingBackend(testPath)
-	assert.NoError(t, err)
-	assert.NotNil(t, backend)
-	// case 2: cannot reopen
-	backend2, err := newIDMappingBackend(testPath)
-	assert.Error(t, err)
-	assert.Nil(t, backend2)
-	err = backend.Close()
-	assert.NoError(t, err)
+func TestIDMappingBackend_New(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "make dir failure",
+			prepare: func() {
+				mkDir = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "new id store failure",
+			prepare: func() {
+				mkDir = func(path string) error {
+					return nil
+				}
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create id mapping backend successfully",
+			prepare: func() {
+				mkDir = func(path string) error {
+					return nil
+				}
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return nil, nil
+				}
+			},
+			wantErr: false,
+		},
+	}
 
-	// case 3: mock create root bucket
-	seriesBucketName = []byte("")
-	backend2, err = newIDMappingBackend(testPath)
-	assert.Error(t, err)
-	assert.Nil(t, backend2)
-	closeFunc = func(db *bbolt.DB) error {
-		return fmt.Errorf("err")
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				mkDir = fileutil.MkDirIfNotExist
+				newIDStoreFn = unique.NewIDStore
+			}()
+
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			backend, err := newIDMappingBackend(t.TempDir())
+
+			if ((err != nil) != tt.wantErr && backend == nil) || (!tt.wantErr && backend == nil) {
+				t.Errorf("newIDMappingBackend() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	seriesBucketName = []byte("")
-	backend2, err = newIDMappingBackend(testPath)
-	assert.Error(t, err)
-	assert.Nil(t, backend2)
-	// case 4: create parent err
-	mkDir = func(path string) error {
-		return fmt.Errorf("err")
-	}
-	backend, err = newIDMappingBackend(testPath)
-	assert.Error(t, err)
-	assert.Nil(t, backend)
 }
 
-func TestIdMappingBackend_mapping(t *testing.T) {
-	testPath := t.TempDir()
-	backend, err := newIDMappingBackend(filepath.Join(testPath, "test"))
-	assert.NoError(t, err)
-	event := newMappingEvent()
-	event.addSeriesID(1, 20, 200)
-	event.addSeriesID(2, 10, 100)
-	event.addSeriesID(2, 30, 300)
-	err = backend.saveMapping(event)
-	assert.NoError(t, err)
+func TestIDMappingBackend_Close_sync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	event.addSeriesID(2, 50, 50)
-	err = backend.saveMapping(event)
-	assert.NoError(t, err)
+	idStore := unique.NewMockIDStore(ctrl)
+	backend := &idMappingBackend{
+		db: idStore,
+	}
 
-	// case 1: get series
-	seriesID, err := backend.getSeriesID(2, 30)
-	assert.NoError(t, err)
-	assert.Equal(t, uint32(300), seriesID)
-	// case 2: metric id not exist
-	seriesID, err = backend.getSeriesID(4, 30)
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	assert.Equal(t, uint32(0), seriesID)
-	// case 3: series id not exist
-	seriesID, err = backend.getSeriesID(2, 300)
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	assert.Equal(t, uint32(0), seriesID)
-	// case 4: load mapping not exist
-	mapping, err := backend.loadMetricIDMapping(30)
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	assert.Nil(t, mapping)
-	// case 5: load mapping not exist
-	mapping, err = backend.loadMetricIDMapping(2)
-	assert.NoError(t, err)
-	assert.Equal(t, uint32(2), mapping.GetMetricID())
-	mapping1 := mapping.(*metricIDMapping)
-	assert.Equal(t, uint32(300), mapping1.idSequence.Load())
-
-	err = backend.Close()
-	assert.NoError(t, err)
-
-	//reopen
-	backend, _ = newIDMappingBackend(filepath.Join(testPath, "test"))
-	mapping, err = backend.loadMetricIDMapping(2)
-	assert.NoError(t, err)
-	assert.Equal(t, uint32(2), mapping.GetMetricID())
-	mapping = mapping.(*metricIDMapping)
-	assert.Equal(t, uint32(300), mapping1.idSequence.Load())
+	idStore.EXPECT().Flush().Return(fmt.Errorf("err"))
+	assert.Error(t, backend.sync())
+	idStore.EXPECT().Close().Return(nil)
+	assert.NoError(t, backend.Close())
 }
 
-func TestIdMappingBackend_save_err(t *testing.T) {
-	testPath := t.TempDir()
-	defer func() {
-		setSequenceFunc = setSequence
-		createBucketFunc = createBucket
-		putFunc = put
-	}()
-	backend, err := newIDMappingBackend(testPath)
-	assert.NoError(t, err)
-	event := newMappingEvent()
-	event.addSeriesID(1, 20, 200)
-	event.addSeriesID(2, 10, 100)
-	event.addSeriesID(2, 30, 300)
-	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
-		return fmt.Errorf("err")
-	}
-	err = backend.saveMapping(event)
-	assert.Error(t, err)
+func TestIDMappingBackend_getSeriesID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	setSequenceFunc = setSequence
-	createBucketFunc = func(parentBucket *bbolt.Bucket, name []byte) (bucket *bbolt.Bucket, err error) {
-		return nil, fmt.Errorf("err")
+	idStore := unique.NewMockIDStore(ctrl)
+	cases := []struct {
+		name    string
+		prepare func(idStore *unique.MockIDStore)
+		out     struct {
+			seriesID uint32
+			err      error
+		}
+	}{
+		{
+			name: "get series id failure from backend",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "series not found from backend",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				seriesID uint32
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				err: fmt.Errorf("%w, metricID: %d, tagsHash: %d",
+					constants.ErrSeriesIDNotFound, 2, 123),
+			},
+		},
+		{
+			name: "get series successfully",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return([]byte{2, 0, 0, 0}, true, nil)
+			},
+			out: struct {
+				seriesID uint32
+				err      error
+			}{seriesID: uint32(2), err: nil},
+		},
 	}
-	err = backend.saveMapping(event)
-	assert.Error(t, err)
-	createBucketFunc = createBucket
-	putFunc = func(bucket *bbolt.Bucket, key, value []byte) error {
-		return fmt.Errorf("err")
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &idMappingBackend{
+				db: idStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(idStore)
+			}
+
+			seriesID, err := backend.getSeriesID(metric.ID(2), 123)
+			assert.Equal(t, tt.out.seriesID, seriesID)
+			assert.Equal(t, tt.out.err, err)
+		})
 	}
-	err = backend.saveMapping(event)
-	assert.Error(t, err)
+}
+
+func TestIDMappingBackend_genSeriesID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	idStore := unique.NewMockIDStore(ctrl)
+	backend := &idMappingBackend{db: idStore}
+
+	idStore.EXPECT().Put(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	assert.Error(t, backend.genSeriesID(metric.ID(2), 123, 2))
+}
+
+func TestIDMappingBackend_loadMetricIDMapping(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	idStore := unique.NewMockIDStore(ctrl)
+
+	cases := []struct {
+		name    string
+		prepare func(idStore *unique.MockIDStore)
+		wantErr bool
+	}{
+		{
+			name: "load mapping failure from backend",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "load mapping not exist",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "load mapping, init sequence",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return([]byte{2, 0, 0, 0}, true, nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &idMappingBackend{db: idStore}
+			if tt.prepare != nil {
+				tt.prepare(idStore)
+			}
+			mapping, err := backend.loadMetricIDMapping(metric.ID(2))
+			if ((err != nil) != tt.wantErr && backend == nil) || (!tt.wantErr && mapping == nil) {
+				t.Errorf("loadMetricIDMapping() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

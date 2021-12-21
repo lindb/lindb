@@ -27,7 +27,7 @@ import (
 
 	"github.com/c-bata/go-prompt"
 	"github.com/xlab/treeprint"
-	etcdcliv3 "go.etcd.io/etcd/clientv3"
+	etcdcliv3 "go.etcd.io/etcd/client/v3"
 )
 
 type etcdContext struct {

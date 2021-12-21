@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -33,9 +34,9 @@ var metaLogger = logger.GetLogger("TSDB", "MetaDB")
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
 	// GenMetricID generates the metric id in the memory
-	GenMetricID(namespace, metricName string) (metricID uint32, err error)
+	GenMetricID(namespace, metricName string) (metricID metric.ID, err error)
 	// GenFieldID generates the field id in the memory
-	// error-case1: field type doesn't matches to before
+	// error-case1: field type doesn't match to before
 	// error-case2: there are too many fields
 	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type) (field.ID, error)
 	// GenTagKeyID generates the tag key id in the memory
@@ -46,24 +47,24 @@ type IDGenerator interface {
 type IDGetter interface {
 	// GetMetricID gets the metric id by namespace and metric name,
 	// if not exist return constants.ErrMetricIDNotFound
-	GetMetricID(namespace, metricName string) (metricID uint32, err error)
-	// GetTagKeyID gets the tag key id by namespace/metric name/tag key key,
+	GetMetricID(namespace, metricName string) (metricID metric.ID, err error)
+	// GetTagKeyID gets the tag key id by namespace/metric name/tag key,
 	// if not exist return constants.ErrTagKeyIDNotFound
 	GetTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error)
 	// GetAllTagKeys returns the all tag keys by namespace/metric name,
-	// if not exist return  constants.ErrMetricIDNotFound, constants.ErrMetricBucketNotFound
-	GetAllTagKeys(namespace, metricName string) (tags []tag.Meta, err error)
+	// if not exist return  constants.ErrMetricIDNotFound.
+	GetAllTagKeys(namespace, metricName string) (tags tag.Metas, err error)
 	// GetField gets the field meta by namespace/metric name/field name, if not exist return series.ErrNotFound
 	GetField(namespace, metricName string, fieldName field.Name) (field field.Meta, err error)
 	// GetAllFields returns the all visible fields by namespace/metric name,
 	// if not exist return series.ErrNotFound
-	GetAllFields(namespace, metricName string) (fields []field.Meta, err error)
+	GetAllFields(namespace, metricName string) (fields field.Metas, err error)
 	// GetAllHistogramFields returns histogram-fields namespace/metric name,
 	// if not exist return series.ErrNotFound
 	GetAllHistogramFields(namespace, metricName string) (fields field.Metas, err error)
 }
 
-// Metadata represents all metadata of tsdb, like metric/tag metadata
+// Metadata represents all metadata of TSDB, like metric/tag metadata
 type Metadata interface {
 	io.Closer
 	DatabaseName() string

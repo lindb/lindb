@@ -34,6 +34,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
@@ -137,7 +138,7 @@ func TestStorageExecute_Plan_Fail(t *testing.T) {
 	mockDatabase := newMockDatabase(ctrl)
 	mockMetaDataBase := metadb.NewMockMetadataDatabase(ctrl)
 	mockMetaData.EXPECT().MetadataDatabase().Return(mockMetaDataBase).AnyTimes()
-	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(uint32(0), io.ErrClosedPipe).AnyTimes()
+	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), io.ErrClosedPipe).AnyTimes()
 	newStorageExecutePlanFunc = func(namespace string, metadata metadb.Metadata, query *stmt.Query) *storageExecutePlan {
 		return &storageExecutePlan{metadata: mockMetaData, query: &stmt.Query{MetricName: ""}}
 	}
@@ -216,7 +217,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	mockDatabase.EXPECT().GetShard(models.ShardID(2)).Return(shard, true).AnyTimes()
 	mockDatabase.EXPECT().GetShard(models.ShardID(3)).Return(shard, true).AnyTimes()
 	mockDatabase.EXPECT().Metadata().Return(metadata).AnyTimes()
-	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(uint32(10), nil).AnyTimes()
+	metadataIndex.EXPECT().GetMetricID(gomock.Any(), "cpu").Return(metric.ID(10), nil).AnyTimes()
 	metadataIndex.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 		Return(field.Meta{ID: 10, Type: field.SumField}, nil).AnyTimes()
 	shard.EXPECT().IndexDatabase().Return(nil).AnyTimes()

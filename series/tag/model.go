@@ -17,12 +17,57 @@
 
 package tag
 
-import "bytes"
+import (
+	"bytes"
+
+	"github.com/lindb/lindb/pkg/stream"
+)
+
+// EmptyTagKeyID represents empty value for tag key id.
+const EmptyTagKeyID = uint32(0)
+
+// Metas implements sort.Interface, it's sorted by name
+type Metas []Meta
+
+func (fms Metas) Len() int           { return len(fms) }
+func (fms Metas) Less(i, j int) bool { return fms[i].Key < fms[j].Key }
+func (fms Metas) Swap(i, j int)      { fms[i], fms[j] = fms[j], fms[i] }
+
+func UnmarshalBinary(data []byte) (Metas, error) {
+	reader := stream.NewReader(data)
+	var fms Metas
+
+	for !reader.Empty() && reader.Error() == nil {
+		id := reader.ReadUint32()
+		keyLen := reader.ReadInt16()
+		key := reader.ReadBytes(int(keyLen))
+		fms = append(fms, Meta{ID: id, Key: string(key)})
+	}
+	return fms, reader.Error()
+}
+
+func (fms Metas) Find(tagKey string) (Meta, bool) {
+	for _, t := range fms {
+		if t.Key == tagKey {
+			return t, true
+		}
+	}
+	return Meta{}, false
+}
 
 // Meta holds the relation of tagKey and its ID
 type Meta struct {
 	Key string
 	ID  uint32
+}
+
+func (m *Meta) MarshalBinary() (data []byte, err error) {
+	var buf bytes.Buffer
+	writer := stream.NewBufferWriter(&buf)
+	writer.PutUint32(m.ID)
+	writer.PutInt16(int16(len(m.Key)))
+	writer.PutBytes([]byte(m.Key))
+	return buf.Bytes(), writer.Error()
 }
 
 // Tag represents a kv tag pair.

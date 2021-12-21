@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -181,7 +182,7 @@ func (t *seriesIDsSearchTask) Run() (err error) {
 	condition := t.ctx.query.Condition
 	var seriesIDs *roaring.Bitmap
 	if condition != nil {
-		// if get tag filter result do series ids searching
+		// if it gets tag filter result do series ids searching
 		seriesSearch := newSeriesSearchFunc(t.shard.IndexDatabase(), t.ctx.tagFilterResult, t.ctx.query.Condition)
 		seriesIDs, err = seriesSearch.Search()
 	} else {
@@ -210,7 +211,7 @@ type familyFilterTask struct {
 
 	ctx       *storageExecuteContext
 	shard     tsdb.Shard
-	metricID  uint32
+	metricID  metric.ID
 	fields    field.Metas
 	seriesIDs *roaring.Bitmap
 
@@ -219,7 +220,7 @@ type familyFilterTask struct {
 
 // newFamilyFilterTask creates family data filtering task
 func newFamilyFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	metricID uint32, fields field.Metas, seriesIDs *roaring.Bitmap,
+	metricID metric.ID, fields field.Metas, seriesIDs *roaring.Bitmap,
 	rs *timeSpanResultSet,
 ) flow.QueryTask {
 	task := &familyFilterTask{
