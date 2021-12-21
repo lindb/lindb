@@ -22,42 +22,32 @@ import (
 	"testing"
 	"time"
 
-	etcdcliv3 "go.etcd.io/etcd/clientv3"
-	"gopkg.in/check.v1"
-
 	"github.com/lindb/lindb/internal/mock"
+
+	"github.com/stretchr/testify/assert"
+	etcdcliv3 "go.etcd.io/etcd/client/v3"
 )
 
-type testHeartbeatSuite struct {
-	mock.RepoTestSuite
-}
-
-func TestHeartbeatSuite(t *testing.T) {
-	check.Suite(&testHeartbeatSuite{})
-	check.TestingT(t)
-}
-
-func (ts *testHeartbeatSuite) TestHeartBeat_keepalive_stop(c *check.C) {
+func TestHeartBeat_keepalive_stop(t *testing.T) {
+	cluster := mock.StartEtcdCluster(t, "http://localhost:9797")
+	defer cluster.Terminate(t)
 	cfg := etcdcliv3.Config{
-		Endpoints: ts.Cluster.Endpoints,
+		Endpoints: cluster.Endpoints,
 	}
 	cli, err := etcdcliv3.New(cfg)
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
+	assert.NotNil(t, cli)
+
 	key := "/test/heartbeat"
 	heartbeat := newHeartbeat(cli, key, []byte("value"), 1, true)
 	ctx, cancel := context.WithCancel(context.Background())
 	ok, err := heartbeat.grantKeepAliveLease(ctx)
-	c.Assert(ok, check.Equals, true)
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
+	assert.True(t, ok)
 
 	_, err = cli.Get(ctx, key)
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
+
 	// close heartbeat
 	cancel()
 
@@ -65,12 +55,12 @@ func (ts *testHeartbeatSuite) TestHeartBeat_keepalive_stop(c *check.C) {
 	heartbeat = newHeartbeat(cli, key, []byte("value"), 1, true)
 	ctx, cancel = context.WithCancel(context.Background())
 	ok, _ = heartbeat.grantKeepAliveLease(ctx)
-	c.Assert(ok, check.Equals, false)
+	assert.False(t, ok)
 
 	// assert lease expired
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 3)
 	ok, _ = heartbeat.grantKeepAliveLease(ctx)
-	c.Assert(ok, check.Equals, true)
+	assert.True(t, ok)
 
 	cancel()
 

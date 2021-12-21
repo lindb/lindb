@@ -27,7 +27,7 @@ import (
 )
 
 func TestNewRepo(t *testing.T) {
-	cluster := mock.StartEtcdCluster(t)
+	cluster := mock.StartEtcdCluster(t, "http://localhost:9797")
 	defer cluster.Terminate(t)
 	cfg := config.RepoState{
 		Endpoints: cluster.Endpoints,

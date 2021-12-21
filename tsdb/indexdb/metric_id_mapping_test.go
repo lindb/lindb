@@ -21,11 +21,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/series/metric"
 )
 
 func TestMetricIDMapping_GetMetricID(t *testing.T) {
 	idMapping := newMetricIDMapping(10, 0)
-	assert.Equal(t, uint32(10), idMapping.GetMetricID())
+	assert.Equal(t, metric.ID(10), idMapping.GetMetricID())
 }
 
 func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {

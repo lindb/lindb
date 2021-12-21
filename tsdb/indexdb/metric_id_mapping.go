@@ -19,15 +19,18 @@ package indexdb
 
 import (
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/series/metric"
 
 	"go.uber.org/atomic"
 )
+
+//go:generate mockgen -source ./metric_id_mapping.go -destination=./metric_id_mapping_mock.go -package=indexdb
 
 // MetricIDMapping represents the metric id mapping,
 // tag hash code => series id
 type MetricIDMapping interface {
 	// GetMetricID return the metric id
-	GetMetricID() uint32
+	GetMetricID() metric.ID
 	// GetSeriesID gets series id by tags hash, if exist return true
 	GetSeriesID(tagsHash uint64) (seriesID uint32, ok bool)
 	// GenSeriesID generates series id by tags hash, then cache new series id
@@ -44,7 +47,7 @@ type MetricIDMapping interface {
 
 // metricIDMapping implements MetricIDMapping interface
 type metricIDMapping struct {
-	metricID uint32
+	metricID metric.ID
 	// forwardIndex for storing a mapping from tag-hash to the seriesID,
 	// purpose of this index is used for fast writing
 	hash2SeriesID     map[uint64]uint32
@@ -53,7 +56,7 @@ type metricIDMapping struct {
 }
 
 // newMetricIDMapping returns a new metric id mapping
-func newMetricIDMapping(metricID, sequence uint32) MetricIDMapping {
+func newMetricIDMapping(metricID metric.ID, sequence uint32) MetricIDMapping {
 	return &metricIDMapping{
 		metricID:          metricID,
 		hash2SeriesID:     make(map[uint64]uint32),
@@ -63,7 +66,7 @@ func newMetricIDMapping(metricID, sequence uint32) MetricIDMapping {
 }
 
 // GetMetricID return the metric id
-func (mim *metricIDMapping) GetMetricID() uint32 {
+func (mim *metricIDMapping) GetMetricID() metric.ID {
 	return mim.metricID
 }
 

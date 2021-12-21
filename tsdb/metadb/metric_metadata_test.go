@@ -18,110 +18,123 @@
 package metadb
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/tag"
 )
 
 func TestMetricMetadata_createField(t *testing.T) {
-	mm := newMetricMetadata(1, 0)
-	// test: create field id
-	fieldID, err := mm.createField("f", field.SumField)
-	assert.NoError(t, err)
-	assert.Equal(t, field.ID(1), fieldID)
+	cases := []struct {
+		name    string
+		prepare func(m MetricMetadata)
+		out     struct {
+			f   field.Meta
+			err error
+		}
+	}{
+		{
+			name: "create field",
+			out: struct {
+				f   field.Meta
+				err error
+			}{
+				f: field.Meta{
+					ID:   1,
+					Type: field.SumField,
+					Name: "test",
+				},
+				err: nil,
+			},
+		},
+		{
 
-	// test: re-open metric metadata
-	mm = newMetricMetadata(1, 1)
-	fieldID, err = mm.createField("f", field.SumField)
-	assert.NoError(t, err)
-	assert.Equal(t, field.ID(2), fieldID)
-	mm.addField(field.Meta{
-		ID:   fieldID,
-		Type: field.SumField,
-		Name: "f",
-	})
+			name: "too many fields",
+			prepare: func(m MetricMetadata) {
+				m.initialize(nil, constants.DefaultMaxFieldsCount, nil)
+			},
+			out: struct {
+				f   field.Meta
+				err error
+			}{
+				f:   field.Meta{},
+				err: series.ErrTooManyFields,
+			},
+		},
+	}
 
-	// test: too many fields
-	mm = newMetricMetadata(1, 0)
-	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
-		fieldID, err = mm.createField(field.Name(fmt.Sprintf("f-%d", i)), field.SumField)
-		assert.NoError(t, err)
-		assert.Equal(t, field.ID(i), fieldID)
-		mm.addField(field.Meta{
-			ID:   fieldID,
-			Type: field.SumField,
-			Name: field.Name(fmt.Sprintf("f-%d", i)),
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			m := newMetricMetadata(metric.ID(2))
+			if tt.prepare != nil {
+				tt.prepare(m)
+			}
+			mid := m.getMetricID()
+			assert.Equal(t, metric.ID(2), mid)
+
+			f, err := m.createField("test", field.SumField)
+			assert.Equal(t, tt.out.f, f)
+			assert.Equal(t, tt.out.err, err)
+			if err == nil {
+				f1, ok := m.getField("test")
+				assert.Equal(t, tt.out.f, f1)
+				assert.True(t, ok)
+			}
 		})
 	}
-	fieldID, err = mm.createField("max-f", field.SumField)
-	assert.Equal(t, series.ErrTooManyFields, err)
-	assert.Equal(t, field.ID(0), fieldID)
+}
 
-	assert.Len(t, mm.getAllFields(), constants.DefaultMaxFieldsCount)
-
-	for i := 1; i <= constants.DefaultMaxFieldsCount; i++ {
-		f, ok := mm.getField(field.Name(fmt.Sprintf("f-%d", i)))
-		assert.True(t, ok)
-		assert.Equal(t, field.ID(i), f.ID)
+func TestMetricMetadata_getField(t *testing.T) {
+	m := newMetricMetadata(metric.ID(2))
+	sum := field.Meta{
+		ID:   field.ID(1),
+		Type: field.SumField,
+		Name: "sum",
 	}
-	_, ok := mm.getField("no-f")
-	assert.False(t, ok)
-
-	mm2 := newMetricMetadata(1, 0)
-	mm2.initialize(mm.getAllFields(), mm.getAllTagKeys())
-	assert.Len(t, mm2.getAllFields(), constants.DefaultMaxFieldsCount)
-
-	_, ok = mm2.getField("max-f")
+	m.initialize(field.Metas{
+		sum,
+		{
+			ID:   field.ID(2),
+			Type: field.HistogramField,
+			Name: "histogram",
+		},
+	}, 0, nil)
+	_, _ = m.createField("max", field.MinField)
+	f, ok := m.getField("sum")
+	assert.Equal(t, sum, f)
+	assert.True(t, ok)
+	fs := m.getAllFields()
+	assert.Len(t, fs, 3)
+	f, ok = m.getField("min")
+	assert.Equal(t, field.Meta{}, f)
 	assert.False(t, ok)
 }
 
-func TestMetricMetadata_createTag(t *testing.T) {
-	mm := newMetricMetadata(1, 0)
-	assert.Equal(t, uint32(1), mm.getMetricID())
-	for i := 1; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber; i++ {
-		err := mm.checkTagKeyCount()
-		assert.NoError(t, err)
-		mm.createTagKey(fmt.Sprintf("tag-%d", i), uint32(i))
-	}
+func TestMetricMetadata_createTagKey(t *testing.T) {
+	m := newMetricMetadata(metric.ID(2))
+	mid := m.getMetricID()
+	assert.Equal(t, metric.ID(2), mid)
 
-	err := mm.checkTagKeyCount()
-	assert.Equal(t, series.ErrTooManyTagKeys, err)
-
-	for i := 1; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber; i++ {
-		tagKeyID, ok := mm.getTagKeyID(fmt.Sprintf("tag-%d", i))
-		assert.True(t, ok)
-		assert.Equal(t, uint32(i), tagKeyID)
-	}
-	assert.Len(t, mm.getAllTagKeys(), config.GlobalStorageConfig().TSDB.MaxTagKeysNumber)
-	tagKeyID, ok := mm.getTagKeyID("no-tag")
-	assert.False(t, ok)
-	assert.Equal(t, uint32(0), tagKeyID)
-
-	mm2 := newMetricMetadata(1, 0)
-	mm2.initialize(mm.getAllFields(), mm.getAllTagKeys())
-	assert.Len(t, mm2.getAllTagKeys(), config.GlobalStorageConfig().TSDB.MaxTagKeysNumber)
-	err = mm.checkTagKeyCount()
-	assert.Equal(t, series.ErrTooManyTagKeys, err)
+	m.createTagKey("key", 1)
+	f1, ok := m.getTagKeyID("key")
+	assert.Equal(t, uint32(1), f1)
+	assert.True(t, ok)
 }
 
-func TestMetricMetadata_rollback(t *testing.T) {
-	mm := newMetricMetadata(1, 0)
-	// test: create field id
-	fieldID, err := mm.createField("f", field.SumField)
-	assert.NoError(t, err)
-	assert.Equal(t, field.ID(1), fieldID)
-	mm.rollbackFieldID(fieldID)
-	fieldID, err = mm.createField("f", field.SumField)
-	assert.NoError(t, err)
-	assert.Equal(t, field.ID(1), fieldID)
-	mm.rollbackFieldID(field.ID(0))
-	fieldID, err = mm.createField("f", field.SumField)
-	assert.NoError(t, err)
-	assert.Equal(t, field.ID(2), fieldID)
+func TestMetricMetadata_getTag(t *testing.T) {
+	m := newMetricMetadata(metric.ID(2))
+	tag1 := tag.Meta{ID: 2, Key: "key2"}
+	m.initialize(nil, 0, tag.Metas{tag1})
+	m.createTagKey("key3", 2)
+	tags := m.getAllTagKeys()
+	assert.Len(t, tags, 2)
+	tag2, ok := m.getTagKeyID("key1")
+	assert.False(t, ok)
+	assert.Equal(t, uint32(0), tag2)
 }

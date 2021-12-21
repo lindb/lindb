@@ -27,7 +27,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/field"
 )
 

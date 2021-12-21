@@ -47,7 +47,7 @@ type IndexDatabase interface {
 	// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
 	// if generate a new series id returns isCreate is true
 	// if generate fail return err
-	GetOrCreateSeriesID(metricID uint32, tagsHash uint64) (seriesID uint32, isCreated bool, err error)
+	GetOrCreateSeriesID(metricID metric.ID, tagsHash uint64) (seriesID uint32, isCreated bool, err error)
 	// BuildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as an empty key-value pair while tags is nil.
 	BuildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)

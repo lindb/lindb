@@ -28,7 +28,7 @@ import (
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/tag"
 )
 

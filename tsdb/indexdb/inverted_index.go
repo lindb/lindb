@@ -50,16 +50,16 @@ var (
 
 // InvertedIndex represents the tag's inverted index (tag values => series id list)
 type InvertedIndex interface {
-	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec metric's tag key
+	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec tag key of metric
 	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
-	// GetSeriesIDsForTag gets series ids for spec metric's tag key
+	// GetSeriesIDsForTag gets series ids for spec tag key of metric
 	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
-	// GetSeriesIDsForTags gets series ids for spec metric's tag keys
+	// GetSeriesIDsForTags gets series ids for spec tag keys of metric
 	GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error)
 	// GetGroupingContext returns the context of group by
 	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error)
 	// buildInvertIndex builds the inverted index for tag value => series ids,
-	// the tags is considered as a empty key-value pair while tags is nil.
+	// the tags is considered as an empty key-value pair while tags is nil.
 	buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
 	// Flush flushes the inverted-index of tag value id=>series ids under tag key
 	Flush() error
@@ -131,7 +131,7 @@ func (index *invertedIndex) getSeriesIDsForTag(tagKeyID uint32, snapshot version
 	})
 
 	// read data from kv store
-	// try get tag key id from kv store
+	// try to get tag key id from kv store
 	readers, err := snapshot.FindReaders(tagKeyID)
 	if err != nil {
 		// find table.Reader err, return it
@@ -151,7 +151,7 @@ func (index *invertedIndex) getSeriesIDsForTag(tagKeyID uint32, snapshot version
 	return result, nil
 }
 
-// GetSeriesIDsForTags gets series ids for spec metric's tag keys
+// GetSeriesIDsForTags gets series ids for spec tag keys of metric
 func (index *invertedIndex) GetSeriesIDsForTags(tagKeyIDs []uint32) (*roaring.Bitmap, error) {
 	// get kv store snapshot
 	snapshot := index.forwardFamily.GetSnapshot()
@@ -223,7 +223,7 @@ func (index *invertedIndex) getGroupingScanners(
 }
 
 // buildInvertIndex builds the inverted index for tag value => series ids,
-// the tags is considered as a empty key-value pair while tags is nil.
+// the tags is considered as an empty key-value pair while tags is nil.
 func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32) {
 	index.rwMutex.Lock()
 	defer index.rwMutex.Unlock()
@@ -294,14 +294,14 @@ func (index *invertedIndex) Flush() error {
 	if err := inverted.Close(); err != nil {
 		return err
 	}
-	// finally clear immutable
+	// finally, clear immutable
 	index.rwMutex.Lock()
 	index.immutable = nil
 	index.rwMutex.Unlock()
 	return nil
 }
 
-// checkFlush checks if need do flush job, if need, do switch mutable/immutable
+// checkFlush checks if it needs to do flush job, if it needs, do switch mutable/immutable
 func (index *invertedIndex) checkFlush() bool {
 	index.rwMutex.Lock()
 	defer index.rwMutex.Unlock()
@@ -320,7 +320,7 @@ func (index *invertedIndex) checkFlush() bool {
 
 // loadTagValueIDsInKV loads series ids in kv store
 func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID uint32, fn func(reader tagindex.InvertedReader) error) error {
-	// try get tag key id from kv store
+	// try to get tag key id from kv store
 	snapshot := index.invertedFamily.GetSnapshot()
 	defer snapshot.Close()
 

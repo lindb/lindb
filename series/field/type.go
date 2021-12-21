@@ -23,6 +23,9 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 )
 
+// EmptyFieldID represents empty value for field id.
+const EmptyFieldID = ID(0)
+
 // AggType represents field's aggregator type.
 type AggType uint8
 

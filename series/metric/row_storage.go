@@ -25,7 +25,7 @@ import (
 
 // StorageRow represents a metric row with meta information and fields.
 type StorageRow struct {
-	MetricID  uint32
+	MetricID  ID
 	SeriesID  uint32
 	SlotIndex uint16
 	FieldIDs  []field.ID

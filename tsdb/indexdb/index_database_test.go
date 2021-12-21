@@ -22,19 +22,17 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	"github.com/lindb/lindb/constants"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/wal"
 )
 
 func TestNewIndexDatabase(t *testing.T) {
@@ -54,45 +52,6 @@ func TestNewIndexDatabase(t *testing.T) {
 
 	err = db.Close()
 	assert.NoError(t, err)
-}
-
-func TestNewIndexDatabase_err(t *testing.T) {
-	testPath := t.TempDir()
-	ctrl := gomock.NewController(t)
-	defer func() {
-		createBackend = newIDMappingBackend
-		createSeriesWAL = wal.NewSeriesWAL
-
-		ctrl.Finish()
-	}()
-	mockMetadata := metadb.NewMockMetadata(ctrl)
-	mockMetadata.EXPECT().DatabaseName().Return("test").AnyTimes()
-
-	backend := NewMockIDMappingBackend(ctrl)
-	createBackend = func(parent string) (IDMappingBackend, error) {
-		return backend, nil
-	}
-
-	// case 1: create series wal err
-	backend.EXPECT().Close().Return(fmt.Errorf("err"))
-	createSeriesWAL = func(path string) (wal.SeriesWAL, error) {
-		return nil, fmt.Errorf("err")
-	}
-
-	db, err := NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-	// case 2: series wal recovery err
-	mockSeriesWAl := wal.NewMockSeriesWAL(ctrl)
-	createSeriesWAL = func(path string) (wal.SeriesWAL, error) {
-		return mockSeriesWAl, nil
-	}
-	backend.EXPECT().Close().Return(fmt.Errorf("err"))
-	mockSeriesWAl.EXPECT().Recovery(gomock.Any(), gomock.Any())
-	mockSeriesWAl.EXPECT().NeedRecovery().Return(true)
-	db, err = NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
 }
 
 func TestIndexDatabase_SuggestTagValues(t *testing.T) {
@@ -157,161 +116,176 @@ func TestIndexDatabase_BuildInvertIndex(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestIndexDatabase_series_Recovery_err(t *testing.T) {
-	testPath := t.TempDir()
-	ctrl := gomock.NewController(t)
-	defer func() {
-		createBackend = newIDMappingBackend
-		ctrl.Finish()
-	}()
-
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-	for i := 0; i < 11000; i++ {
-		_, isCreated, err := db.GetOrCreateSeriesID(1, uint64(i))
-		assert.NoError(t, err)
-		assert.True(t, isCreated)
-	}
-	err = db.Close()
-	assert.NoError(t, err)
-
-	backend := NewMockIDMappingBackend(ctrl)
-	backend.EXPECT().Close().Return(nil).AnyTimes()
-	createBackend = func(parent string) (IDMappingBackend, error) {
-		return backend, nil
-	}
-	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-
-	createBackend = newIDMappingBackend
-	// recovery success
-	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-
-	for i := 0; i < 100; i++ {
-		_, isCreated, err := db.GetOrCreateSeriesID(1, uint64(1000000+i))
-		assert.NoError(t, err)
-		assert.True(t, isCreated)
-	}
-	err = db.Close()
-	assert.NoError(t, err)
-
-	createBackend = func(parent string) (IDMappingBackend, error) {
-		return backend, nil
-	}
-	backend.EXPECT().saveMapping(gomock.Any()).Return(fmt.Errorf("err"))
-	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.Error(t, err)
-	assert.Nil(t, db)
-}
-
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
-	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.NoError(t, err)
-	// case 1: generate new series id and create new metric id mapping
-	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 10)
-	assert.NoError(t, err)
-	assert.True(t, isCreated)
-	assert.Equal(t, uint32(1), seriesID)
-	// case 2: get series id from memory
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 10)
-	assert.NoError(t, err)
-	assert.False(t, isCreated)
-	assert.Equal(t, uint32(1), seriesID)
-	// case 3: generate new series id from memory
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
-	assert.NoError(t, err)
-	assert.True(t, isCreated)
-	assert.Equal(t, uint32(2), seriesID)
-	// close db
-	err = db.Close()
-	assert.NoError(t, err)
-
-	// reopen
-	db, err = NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.NoError(t, err)
-	// case 4: get series id from backend
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 20)
-	assert.NoError(t, err)
-	assert.False(t, isCreated)
-	assert.Equal(t, uint32(2), seriesID)
-	// case 5: gen series id, id sequence reset from backend
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 30)
-	assert.NoError(t, err)
-	assert.True(t, isCreated)
-	assert.Equal(t, uint32(3), seriesID)
-	// case 6: append series wal err, need rollback new series id
-	mockSeriesWAl := wal.NewMockSeriesWAL(ctrl)
-	db1 := db.(*indexDatabase)
-	oldWAL := db1.seriesWAL
-	db1.seriesWAL = mockSeriesWAl
-	mockSeriesWAl.EXPECT().Append(uint32(1), uint64(50), uint32(4)).Return(fmt.Errorf("err"))
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 50)
-	assert.Error(t, err)
-	assert.False(t, isCreated)
-	assert.Equal(t, uint32(0), seriesID)
-	// add use series id => 4
-	db1.seriesWAL = oldWAL
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 50)
-	assert.NoError(t, err)
-	assert.True(t, isCreated)
-	assert.Equal(t, uint32(4), seriesID)
-
-	// close db
-	err = db.Close()
-	assert.NoError(t, err)
-}
-
-func TestIndexDatabase_GetOrCreateSeriesID_err(t *testing.T) {
-	testPath := t.TempDir()
-	ctrl := gomock.NewController(t)
-	defer func() {
-		createBackend = newIDMappingBackend
-
-		ctrl.Finish()
-	}()
-
 	backend := NewMockIDMappingBackend(ctrl)
-	createBackend = func(parent string) (IDMappingBackend, error) {
-		return backend, nil
+	mapping := NewMockMetricIDMapping(ctrl)
+	db := &indexDatabase{
+		backend: backend,
+		metricID2Mapping: map[metric.ID]MetricIDMapping{
+			2: mapping,
+		},
 	}
-	metadata := metadb.NewMockMetadata(ctrl)
-	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
-	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
-	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(1), nil).AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), testPath, metadata, nil, nil)
-	assert.NoError(t, err)
-	// case 1: load metric mapping err
-	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(nil, fmt.Errorf("err"))
-	seriesID, isCreated, err := db.GetOrCreateSeriesID(1, 30)
-	assert.Error(t, err)
-	assert.False(t, isCreated)
-	assert.Equal(t, uint32(0), seriesID)
 
-	// case 2: load series err
-	backend.EXPECT().loadMetricIDMapping(uint32(1)).Return(newMetricIDMapping(1, 0), nil)
-	backend.EXPECT().getSeriesID(uint32(1), uint64(30)).Return(uint32(0), fmt.Errorf("err"))
-	seriesID, isCreated, err = db.GetOrCreateSeriesID(1, 30)
-	assert.Error(t, err)
-	assert.False(t, isCreated)
-	assert.Equal(t, uint32(0), seriesID)
+	cases := []struct {
+		name     string
+		metricID metric.ID
+		tagsHash uint64
+		prepare  func()
+		out      struct {
+			seriesID uint32
+			isCreate bool
+			err      error
+		}
+	}{
+		{
+			name:     "get series from cache",
+			metricID: 2,
+			tagsHash: 3,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(uint32(3), true)
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: uint32(3),
+				isCreate: false,
+				err:      nil,
+			},
+		},
+		{
+			name:     "get series id failure from backend",
+			metricID: 2,
+			tagsHash: 30,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name:     "get series id successfully from backend",
+			metricID: 2,
+			tagsHash: 30,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				mapping.EXPECT().AddSeriesID(gomock.Any(), gomock.Any())
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(uint32(30), nil)
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: uint32(30),
+				isCreate: false,
+				err:      nil,
+			},
+		},
+		{
 
-	backend.EXPECT().Close().Return(nil)
-	err = db.Close()
-	assert.NoError(t, err)
+			name:     "save series id failure from backend",
+			metricID: 2,
+			tagsHash: 33,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(33))
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
+				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+
+			name:     "save series id successfully from backend",
+			metricID: 2,
+			tagsHash: 333,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(333))
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
+				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: uint32(333),
+				isCreate: true,
+				err:      nil,
+			},
+		},
+		{
+			name:     "load mapping failure",
+			metricID: 3,
+			prepare: func() {
+				backend.EXPECT().loadMetricIDMapping(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name:     "load mapping successfully",
+			metricID: 3,
+			prepare: func() {
+				mapping1 := NewMockMetricIDMapping(ctrl)
+				backend.EXPECT().loadMetricIDMapping(gomock.Any()).Return(mapping1, nil)
+				mapping1.EXPECT().AddSeriesID(gomock.Any(), gomock.Any())
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(uint32(30), nil)
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: uint32(30),
+				isCreate: false,
+				err:      nil,
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			seriesID, isCreate, err := db.GetOrCreateSeriesID(tt.metricID, tt.tagsHash)
+			assert.Equal(t, tt.out.seriesID, seriesID)
+			assert.Equal(t, tt.out.isCreate, isCreate)
+			assert.Equal(t, tt.out.err, err)
+		})
+	}
 }
 
 func TestIndexDatabase_GetGroupingContext(t *testing.T) {
@@ -389,23 +363,18 @@ func TestIndexDatabase_Close(t *testing.T) {
 	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-		createBackend = newIDMappingBackend
-		createSeriesWAL = wal.NewSeriesWAL
+		createBackendFn = newIDMappingBackend
 		ctrl.Finish()
 	}()
 
 	backend := NewMockIDMappingBackend(ctrl)
-	createBackend = func(parent string) (IDMappingBackend, error) {
+	createBackendFn = func(parent string) (IDMappingBackend, error) {
 		return backend, nil
 	}
-	mockSeriesWAL := wal.NewMockSeriesWAL(ctrl)
-	mockSeriesWAL.EXPECT().Close().Return(fmt.Errorf("err"))
 
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	db1 := db.(*indexDatabase)
-	db1.seriesWAL = mockSeriesWAL
 
 	assert.NoError(t, err)
 	backend.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -417,60 +386,26 @@ func TestIndexDatabase_Flush(t *testing.T) {
 	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-		createSeriesWAL = wal.NewSeriesWAL
 
+		createBackendFn = newIDMappingBackend
 		ctrl.Finish()
 	}()
-	mockSeriesWAL := wal.NewMockSeriesWAL(ctrl)
-	mockSeriesWAL.EXPECT().Close().Return(nil)
-	mockSeriesWAL.EXPECT().Recovery(gomock.Any(), gomock.Any())
-	mockSeriesWAL.EXPECT().NeedRecovery().Return(false).AnyTimes()
-	createSeriesWAL = func(path string) (wal.SeriesWAL, error) {
-		return mockSeriesWAL, nil
+	backend := NewMockIDMappingBackend(ctrl)
+	createBackendFn = func(parent string) (IDMappingBackend, error) {
+		return backend, nil
 	}
 
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
 	assert.NoError(t, err)
-	mockSeriesWAL.EXPECT().Sync().Return(fmt.Errorf("err"))
-	err = db.Flush()
-	assert.NoError(t, err)
-	err = db.Close()
-	assert.NoError(t, err)
-}
+	backend.EXPECT().sync().Return(nil)
+	assert.NoError(t, db.Flush())
 
-func TestIndexDatabase_checkSync(t *testing.T) {
-	testPath := t.TempDir()
-	syncInterval = 100
-	ctrl := gomock.NewController(t)
-	defer func() {
-		syncInterval = 2 * timeutil.OneSecond
-		createSeriesWAL = wal.NewSeriesWAL
+	backend.EXPECT().sync().Return(fmt.Errorf("err"))
+	assert.Error(t, db.Flush())
 
-		ctrl.Finish()
-	}()
-
-	var count atomic.Int32
-	mockSeriesWAL := wal.NewMockSeriesWAL(ctrl)
-	mockSeriesWAL.EXPECT().NeedRecovery().DoAndReturn(func() bool {
-		count.Inc()
-		return count.Load() != 1
-	}).AnyTimes()
-	mockSeriesWAL.EXPECT().Recovery(gomock.Any(), gomock.Any()).AnyTimes()
-	createSeriesWAL = func(path string) (wal.SeriesWAL, error) {
-		return mockSeriesWAL, nil
-	}
-
-	meta := metadb.NewMockMetadata(ctrl)
-	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
-	db, err := NewIndexDatabase(context.TODO(), testPath, meta, nil, nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-
-	time.Sleep(time.Second)
-
-	mockSeriesWAL.EXPECT().Close().Return(nil)
+	backend.EXPECT().Close().Return(nil)
 	err = db.Close()
 	assert.NoError(t, err)
 }

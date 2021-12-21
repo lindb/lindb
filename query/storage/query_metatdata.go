@@ -58,7 +58,14 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 	case stmt.Metric:
 		return e.database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.Prefix, limit)
 	case stmt.TagKey:
-		return e.database.Metadata().MetadataDatabase().SuggestTagKeys(req.Namespace, req.MetricName, req.Prefix, limit)
+		tagKeys, err := e.database.Metadata().MetadataDatabase().GetAllTagKeys(req.Namespace, req.MetricName)
+		if err != nil {
+			return nil, err
+		}
+		for _, tagKey := range tagKeys {
+			result = append(result, tagKey.Key)
+		}
+		return result, nil
 	case stmt.Field:
 		fields, err := e.database.Metadata().MetadataDatabase().GetAllFields(req.Namespace, req.MetricName)
 		if err != nil {

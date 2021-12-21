@@ -18,8 +18,11 @@
 package field
 
 import (
+	"bytes"
 	"sort"
 	"strings"
+
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
@@ -29,12 +32,50 @@ type Meta struct {
 	Name Name `json:"name"`
 }
 
+func (m *Meta) MarshalBinary() (data []byte, err error) {
+	var buf bytes.Buffer
+	writer := stream.NewBufferWriter(&buf)
+	writer.PutByte(byte(m.ID))
+	writer.PutByte(byte(m.Type))
+	writer.PutInt16(int16(len(m.Name)))
+	writer.PutBytes([]byte(m.Name))
+	return buf.Bytes(), writer.Error()
+}
+
 // Metas implements sort.Interface, it's sorted by name
 type Metas []Meta
 
 func (fms Metas) Len() int           { return len(fms) }
 func (fms Metas) Less(i, j int) bool { return fms[i].Name < fms[j].Name }
 func (fms Metas) Swap(i, j int)      { fms[i], fms[j] = fms[j], fms[i] }
+
+func UnmarshalBinary(data []byte) (Metas, ID, error) {
+	reader := stream.NewReader(data)
+	var max ID
+	var fms Metas
+
+	for !reader.Empty() && reader.Error() == nil {
+		id := ID(reader.ReadByte())
+		fType := Type(reader.ReadByte())
+		nameLen := reader.ReadInt16()
+		name := reader.ReadBytes(int(nameLen))
+		fms = append(fms, Meta{ID: id, Type: fType, Name: Name(name)})
+		if id > max {
+			max = id
+		}
+	}
+	return fms, max, reader.Error()
+}
+
+// Find returns Meta by given field name, if not exist returns false.
+func (fms Metas) Find(fieldName Name) (Meta, bool) {
+	for _, f := range fms {
+		if f.Name == fieldName {
+			return f, true
+		}
+	}
+	return Meta{}, false
+}
 
 // GetFromName searches the meta by fieldName, return false when not exist
 func (fms Metas) GetFromName(fieldName Name) (Meta, bool) {

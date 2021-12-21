@@ -26,7 +26,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/check.v1"
 
 	"github.com/lindb/lindb/config"
 	brokerpkg "github.com/lindb/lindb/coordinator/broker"
@@ -37,16 +36,6 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
-
-type testBrokerRuntimeSuite struct {
-	mock.RepoTestSuite
-	t *testing.T
-}
-
-func TestBrokerRuntime(t *testing.T) {
-	check.Suite(&testBrokerRuntimeSuite{t: t})
-	check.TestingT(t)
-}
 
 var cfg = config.Broker{
 	Monitor: config.Monitor{
@@ -64,36 +53,44 @@ var cfg = config.Broker{
 		},
 	}}
 
-func (ts *testBrokerRuntimeSuite) TestBrokerRun(c *check.C) {
-	cfg.Coordinator.Endpoints = ts.Cluster.Endpoints
+func TestBrokerRun(t *testing.T) {
+	cluster := mock.StartEtcdCluster(t, "http://localhost:8200")
+	defer cluster.Terminate(t)
+
+	cfg.Coordinator.Endpoints = cluster.Endpoints
 	cfg.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
+	cfg.BrokerBase.HTTP.Port = 9876
 
 	broker := NewBrokerRuntime("test-version", &cfg, true)
 	err := broker.Run()
-	if err != nil {
-		c.Fatal(err)
-	}
+	assert.NoError(t, err)
 	// wait run finish
 	time.Sleep(500 * time.Millisecond)
 
-	c.Assert(server.Running, check.Equals, broker.State())
-	c.Assert("broker", check.Equals, broker.Name())
+	assert.Equal(t, server.Running, broker.State())
+	assert.Equal(t, "broker", broker.Name())
 
 	broker.Stop()
-	c.Assert(server.Terminated, check.Equals, broker.State())
+	assert.Equal(t, server.Terminated, broker.State())
 }
 
-func (ts *testBrokerRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
+func TestBrokerRun_GetHost_Err(t *testing.T) {
+	cluster := mock.StartEtcdCluster(t, "http://localhost:8201")
+	defer cluster.Terminate(t)
+
 	defer func() {
 		getHostIP = hostutil.GetHostIP
 		hostName = os.Hostname
 	}()
+	cfg.Coordinator.Endpoints = cluster.Endpoints
+	cfg.BrokerBase.HTTP.Port = 9875
+
 	broker := NewBrokerRuntime("test-version", &cfg, false)
 	getHostIP = func() (string, error) {
 		return "ip1", fmt.Errorf("err")
 	}
 	err := broker.Run()
-	c.Assert(err, check.NotNil)
+	assert.Error(t, err)
 
 	getHostIP = func() (string, error) {
 		return "ip2", nil
@@ -101,22 +98,27 @@ func (ts *testBrokerRuntimeSuite) TestBrokerRun_GetHost_Err(c *check.C) {
 	hostName = func() (string, error) {
 		return "host", fmt.Errorf("err")
 	}
+	cfg.BrokerBase.HTTP.Port = 9874
+	broker = NewBrokerRuntime("test-version", &cfg, false)
 	err = broker.Run()
-	assert.NoError(ts.t, err)
+	assert.NoError(t, err)
 
 	broker.Stop()
-	c.Assert(server.Terminated, check.Equals, broker.State())
+	assert.Equal(t, server.Terminated, broker.State())
 }
 
-func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
-	ctrl := gomock.NewController(ts.t)
+func TestBroker_Run_Err(t *testing.T) {
+	cluster := mock.StartEtcdCluster(t, "http://localhost:8202")
+	defer cluster.Terminate(t)
+
+	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	defer func() {
 		newStateMachineFactory = brokerpkg.NewStateMachineFactory
 		newRegistry = discovery.NewRegistry
 		if err := recover(); err != nil {
-			assert.NotNil(ts.t, err)
+			assert.NotNil(t, err)
 		}
 	}()
 	smFct := discovery.NewMockStateMachineFactory(ctrl)
@@ -128,6 +130,8 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	) discovery.StateMachineFactory {
 		return smFct
 	}
+	cfg.Coordinator.Endpoints = cluster.Endpoints
+	cfg.BrokerBase.HTTP.Port = 9873
 
 	broker := NewBrokerRuntime("test-version", &cfg, false)
 	b := broker.(*runtime)
@@ -135,7 +139,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	b.repoFactory = repoFactory
 	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := broker.Run()
-	assert.Error(ts.t, err)
+	assert.Error(t, err)
 	broker.Stop()
 
 	repo := state.NewMockRepository(ctrl)
@@ -149,7 +153,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	err = broker.Run()
 	// wait run finish
 	time.Sleep(500 * time.Millisecond)
-	assert.Error(ts.t, err)
+	assert.Error(t, err)
 	broker.Stop()
 
 	broker = NewBrokerRuntime("test-version", &cfg, false)
@@ -163,7 +167,7 @@ func (ts *testBrokerRuntimeSuite) TestBroker_Run_Err(_ *check.C) {
 	}
 	registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 	err = broker.Run()
-	assert.Error(ts.t, err)
+	assert.Error(t, err)
 	// wait run finish
 	time.Sleep(500 * time.Millisecond)
 	broker.Stop()
