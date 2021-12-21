@@ -19,6 +19,7 @@ package standalone
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -28,11 +29,12 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-func newDefaultStandaloneConfig(t *testing.T) config.Standalone {
+func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 	saCfg := config.Standalone{
 		Query:       *config.NewDefaultQuery(),
 		Coordinator: *config.NewDefaultCoordinator(),
@@ -42,13 +44,16 @@ func newDefaultStandaloneConfig(t *testing.T) config.Standalone {
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
-	dir := t.TempDir()
+	dir := path.Join(os.TempDir(), "app", "standalone")
+	defer func() {
+		_ = fileutil.RemoveDir(dir)
+	}()
 	saCfg.StorageBase.TSDB.Dir = path.Join(dir, "data")
 	saCfg.StorageBase.WAL.Dir = path.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.Indicator = 1
 	saCfg.StorageBase.HTTP.Port = 3902
-	saCfg.StorageBase.WAL.RemoveTaskInterval = ltoml.Duration(time.Minute)
+	saCfg.StorageBase.WAL.RemoveTaskInterval = ltoml.Duration(10 * time.Minute)
 	config.SetGlobalStorageConfig(&saCfg.StorageBase)
 	return saCfg
 }
@@ -67,7 +72,7 @@ func TestRuntime_Run(t *testing.T) {
 	standalone.Stop()
 	assert.Equal(t, server.Terminated, standalone.State())
 	assert.Equal(t, "standalone", standalone.Name())
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(time.Second)
 }
 
 func TestRuntime_RunWithoutPusher(t *testing.T) {
@@ -81,6 +86,7 @@ func TestRuntime_RunWithoutPusher(t *testing.T) {
 
 	_ = standalone.Run()
 	standalone.Stop()
+	time.Sleep(time.Second)
 }
 
 func TestRuntime_Run_Err(t *testing.T) {

@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/pkg/ltoml"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/replica"
 )
 

@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -44,7 +45,7 @@ type storageExecutePlan struct {
 
 	fieldMetas field.Metas
 
-	metricID    uint32
+	metricID    metric.ID
 	fields      map[field.ID]*aggregation.Aggregator
 	groupByTags []tag.Meta
 

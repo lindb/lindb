@@ -317,8 +317,8 @@ func (f *dataFamily) MemDBSize() int64 {
 }
 
 // Filter filters the data based on metric/version/seriesIDs,
-// if finds data then returns the FilterResultSet, else returns nil
-func (f *dataFamily) Filter(metricID uint32,
+// if it finds data then returns the FilterResultSet, else returns nil
+func (f *dataFamily) Filter(metricID metric.ID,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 	fields field.Metas,
 ) (resultSet []flow.FilterResultSet, err error) {
@@ -335,7 +335,7 @@ func (f *dataFamily) Filter(metricID uint32,
 	return
 }
 
-func (f *dataFamily) memoryFilter(metricID uint32,
+func (f *dataFamily) memoryFilter(metricID metric.ID,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 	fields field.Metas,
 ) (resultSet []flow.FilterResultSet, err error) {
@@ -363,18 +363,19 @@ func (f *dataFamily) memoryFilter(metricID uint32,
 	return
 }
 
-func (f *dataFamily) fileFilter(metricID uint32,
+func (f *dataFamily) fileFilter(metricID metric.ID,
 	seriesIDs *roaring.Bitmap, _ timeutil.TimeRange,
 	fields field.Metas,
 ) (resultSet []flow.FilterResultSet, err error) {
 	snapShot := f.family.GetSnapshot()
 	defer func() {
 		if err != nil || len(resultSet) == 0 {
-			// if not find metrics data or has err, close snapshot directly
+			// if not find metrics data or has error, close snapshot directly
 			snapShot.Close()
 		}
 	}()
-	readers, err := snapShot.FindReaders(metricID)
+	metricKey := uint32(metricID)
+	readers, err := snapShot.FindReaders(metricKey)
 	if err != nil {
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return
@@ -382,7 +383,7 @@ func (f *dataFamily) fileFilter(metricID uint32,
 	//TODO need check time range???
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
-		value, err := reader.Get(metricID)
+		value, err := reader.Get(metricKey)
 		// metric data not found
 		if err != nil {
 			continue

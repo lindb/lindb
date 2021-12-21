@@ -145,8 +145,9 @@ func (md *memoryDatabase) metricBucketSize() int {
 }
 
 // getOrCreateMStore returns the mStore by metricHash.
-func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF) {
-	mStore, ok := md.mStores.Get(metricID)
+func (md *memoryDatabase) getOrCreateMStore(metricID metric.ID) (mStore mStoreINTF) {
+	metricKey := uint32(metricID)
+	mStore, ok := md.mStores.Get(metricKey)
 	if !ok {
 		// not found need create new metric store
 		beforeMetricBucketSize := md.metricBucketSize()
@@ -154,7 +155,7 @@ func (md *memoryDatabase) getOrCreateMStore(metricID uint32) (mStore mStoreINTF)
 		// add metric-store size
 		md.allocSize.Add(int64(mStore.Capacity()))
 		// add metric-bucket increased
-		md.mStores.Put(metricID, mStore)
+		md.mStores.Put(metricKey, mStore)
 		md.allocSize.Add(int64(md.metricBucketSize() - beforeMetricBucketSize))
 	}
 	// found metric store in current memory database
@@ -328,9 +329,9 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 }
 
 // Filter filters the data based on metric/seriesIDs,
-// if finds data then returns the flow.FilterResultSet, else returns nil
+// if it finds data then returns the flow.FilterResultSet, else returns nil
 func (md *memoryDatabase) Filter(
-	metricID uint32,
+	metricID metric.ID,
 	seriesIDs *roaring.Bitmap,
 	_ timeutil.TimeRange,
 	fields field.Metas,
@@ -338,7 +339,7 @@ func (md *memoryDatabase) Filter(
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
 
-	mStore, ok := md.mStores.Get(metricID)
+	mStore, ok := md.mStores.Get(uint32(metricID))
 	if !ok {
 		return nil, nil
 	}

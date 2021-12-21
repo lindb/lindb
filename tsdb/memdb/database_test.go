@@ -30,7 +30,7 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/metrics"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -315,7 +315,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	md := mdINTF.(*memoryDatabase)
 
 	// case 1: family not found
-	rs, err := md.Filter(uint32(3333), nil, timeutil.TimeRange{}, field.Metas{{ID: 1}})
+	rs, err := md.Filter(metric.ID(3333), nil, timeutil.TimeRange{}, field.Metas{{ID: 1}})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 	now := timeutil.Now()
@@ -328,7 +328,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
-	rs, err = md.Filter(uint32(3333), nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
+	rs, err = md.Filter(metric.ID(3333), nil, timeutil.TimeRange{Start: now - 10, End: now + 20}, field.Metas{{ID: 1}})
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
 

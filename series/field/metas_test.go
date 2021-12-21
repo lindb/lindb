@@ -71,5 +71,4 @@ func Test_Metas(t *testing.T) {
 	assert.Equal(t, "a,b", metas.String())
 	metas = metas.Insert(Meta{ID: 3, Name: "c,"})
 	assert.Equal(t, "a,b,c,", metas.String())
-
 }

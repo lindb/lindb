@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -75,7 +76,7 @@ type storageExecutor struct {
 	ctx      *storageExecuteContext
 	shards   []tsdb.Shard
 
-	metricID           uint32
+	metricID           metric.ID
 	fields             field.Metas
 	storageExecutePlan *storageExecutePlan
 

@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 
 	"github.com/c-bata/go-prompt"
-	etcdcliv3 "go.etcd.io/etcd/clientv3"
+	etcdcliv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 )
 

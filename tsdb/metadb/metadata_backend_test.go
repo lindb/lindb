@@ -18,371 +18,661 @@
 package metadb
 
 import (
-	"errors"
 	"fmt"
-	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
-func TestMetadataBackend_new(t *testing.T) {
-	tmpDir := t.TempDir()
-	defer func() {
-		mkDir = fileutil.MkDirIfNotExist
-		nsBucketName = []byte("ns")
-		metricBucketName = []byte("m")
-		closeFunc = closeDB
-	}()
+func TestNewMockMetadataBackend(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	// test: new success
-	db, err := newMetadataBackend(tmpDir)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "make storage path fail",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "new id store fail",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "new some id store fail",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				store := unique.NewMockIDStore(ctrl)
+				// close fail
+				store.EXPECT().Close().Return(fmt.Errorf("err"))
 
-	// test: can't re-open
-	db1, err := newMetadataBackend(tmpDir)
-	assert.Error(t, err)
-	assert.Nil(t, db1)
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					if strings.Contains(path, NamespaceDB) {
+						return store, nil
+					}
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "init seq fail",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				store := unique.NewMockIDStore(ctrl)
+				store.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+				// close fail
+				store.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(4)
 
-	// close db
-	err = db.Close()
-	assert.NoError(t, err)
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return store, nil
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "new backend successfully, init seq from backend storage",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				store := unique.NewMockIDStore(ctrl)
+				store.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil).MaxTimes(3)
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return store, nil
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "new backend successfully, init seq = 0",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				store := unique.NewMockIDStore(ctrl)
+				store.EXPECT().Get(gomock.Any()).Return(nil, false, nil).MaxTimes(3)
 
-	// test: create namespace bucket err
-	nsBucketName = []byte("")
-	closeFunc = func(db *bbolt.DB) error {
-		return fmt.Errorf("err")
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return store, nil
+				}
+			},
+			wantErr: false,
+		},
 	}
-	db1, err = newMetadataBackend(tmpDir)
-	assert.Error(t, err)
-	assert.Nil(t, db1)
 
-	// test: create metric bucket err
-	closeFunc = closeDB
-	nsBucketName = []byte("ns")
-	metricBucketName = []byte("")
-	db1, err = newMetadataBackend(filepath.Join(tmpDir, "test"))
-	assert.Error(t, err)
-	assert.Nil(t, db1)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				mkDirFn = fileutil.MkDirIfNotExist
+				newIDStoreFn = unique.NewIDStore
+			}()
 
-	// test: create parent path err
-	mkDir = func(path string) error {
-		return fmt.Errorf("err")
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			backend, err := newMetadataBackend(t.TempDir())
+
+			if ((err != nil) != tt.wantErr && backend == nil) || (!tt.wantErr && backend == nil) {
+				t.Errorf("newMetadataBackend() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	db, err = newMetadataBackend(tmpDir)
-	assert.Error(t, err)
-	assert.Nil(t, db)
 }
 
 func TestMetadataBackend_suggestNamespace(t *testing.T) {
-	db := mockMetadataBackend(t, t.TempDir())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	values, err := db.suggestNamespace("ns", 100)
-	assert.Equal(t, []string{"ns-1", "ns-2"}, values)
-	assert.NoError(t, err)
+	var cases = []struct {
+		name    string
+		prepare func(idStore *unique.MockIDStore)
+		out     struct {
+			ns  []string
+			err error
+		}
+	}{
+		{
+			name: "suggest failure",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().IterKeys(gomock.Any(), gomock.Any()).
+					Return(nil, fmt.Errorf("err"))
+			},
+			out: struct {
+				ns  []string
+				err error
+			}{
+				ns:  nil,
+				err: fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "suggest successfully",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().IterKeys(gomock.Any(), gomock.Any()).
+					Return([][]byte{[]byte("test"), []byte("ns")}, nil)
+			},
+			out: struct {
+				ns  []string
+				err error
+			}{
+				ns:  []string{"test", "ns"},
+				err: nil,
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			nsStore := unique.NewMockIDStore(ctrl)
+			backend := &metadataBackend{
+				namespace: nsStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(nsStore)
+			}
 
-	values, err = db.suggestNamespace("ns-2", 100)
-	assert.Equal(t, []string{"ns-2"}, values)
-	assert.NoError(t, err)
+			ns, err := backend.suggestNamespace("ns", 10)
 
-	values, err = db.suggestNamespace("ns", 1)
-	assert.Equal(t, []string{"ns-1"}, values)
-	assert.NoError(t, err)
-
-	values, err = db.suggestNamespace("aans", 1)
-	assert.Empty(t, values)
-	assert.NoError(t, err)
+			assert.Equal(t, tt.out.ns, ns)
+			assert.Equal(t, tt.out.err, err)
+		})
+	}
 }
 
 func TestMetadataBackend_suggestMetricName(t *testing.T) {
-	db := mockMetadataBackend(t, t.TempDir())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	values, err := db.suggestMetricName("ns-3", "name", 100)
-	assert.Empty(t, values)
-	assert.NoError(t, err)
+	cases := []struct {
+		name    string
+		prepare func(ns, metric *unique.MockIDStore)
+		out     struct {
+			metricNames []string
+			err         error
+		}
+	}{
+		{
+			name: "get ns id failure",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				metricNames []string
+				err         error
+			}{
+				metricNames: nil,
+				err:         fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "ns id not found",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				metricNames []string
+				err         error
+			}{
+				metricNames: nil,
+				err:         nil,
+			},
+		},
+		{
+			name: "suggest metric name failure",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				metric.EXPECT().IterKeys(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			out: struct {
+				metricNames []string
+				err         error
+			}{
+				metricNames: nil,
+				err:         fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "suggest metric name successfully",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				metric.EXPECT().IterKeys(gomock.Any(), gomock.Any()).
+					Return([][]byte{[]byte("name")}, nil)
+			},
+			out: struct {
+				metricNames []string
+				err         error
+			}{
+				metricNames: []string{"name"},
+				err:         nil,
+			},
+		},
+	}
 
-	values, err = db.suggestMetricName("ns-2", "name", 100)
-	assert.Equal(t, []string{"name2", "name3"}, values)
-	assert.NoError(t, err)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			nsStore := unique.NewMockIDStore(ctrl)
+			metricStore := unique.NewMockIDStore(ctrl)
+			backend := &metadataBackend{
+				namespace: nsStore,
+				metric:    metricStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(nsStore, metricStore)
+			}
 
-	values, err = db.suggestMetricName("ns-2", "name", 1)
-	assert.Equal(t, []string{"name2"}, values)
-	assert.NoError(t, err)
-
-	values, err = db.suggestMetricName("ns-2", "name3", 1)
-	assert.Equal(t, []string{"name3"}, values)
-	assert.NoError(t, err)
+			metricNames, err := backend.suggestMetricName("ns", "name", 10)
+			assert.Equal(t, tt.out.metricNames, metricNames)
+			assert.Equal(t, tt.out.err, err)
+		})
+	}
 }
 
-func TestMetadataBackend_gen_id(t *testing.T) {
-	dir := t.TempDir()
-	db := newMockMetadataBackend(t, dir)
-	assert.Equal(t, uint32(1), db.genMetricID())
-	assert.Equal(t, uint32(2), db.genMetricID())
-	assert.Equal(t, uint32(1), db.genTagKeyID())
-	assert.Equal(t, uint32(2), db.genTagKeyID())
+func TestMetadataBackend_getMetricID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	event := mockMetadataEvent()
-	// save metadata
-	err := db.saveMetadata(event)
-	assert.NoError(t, err)
-	err = db.Close()
-	assert.NoError(t, err)
-	// re-open,load new tag key/metric id sequence
-	db = newMockMetadataBackend(t, dir)
-	assert.Equal(t, uint32(5), db.genMetricID())
-	assert.Equal(t, uint32(5), db.genTagKeyID())
+	cases := []struct {
+		name    string
+		prepare func(ns, metric *unique.MockIDStore)
+		out     struct {
+			metricID metric.ID
+			err      error
+		}
+	}{
+		{
+			name: "get ns id failure",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				metricID metric.ID
+				err      error
+			}{
+				metricID: metric.ID(0),
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "ns id not found",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				metricID metric.ID
+				err      error
+			}{
+				metricID: metric.ID(0),
+				err:      constants.ErrMetricIDNotFound,
+			},
+		},
+		{
+			name: "get metric id failure",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				metric.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				metricID metric.ID
+				err      error
+			}{
+				metricID: metric.ID(0),
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "metric id not found",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				metric.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				metricID metric.ID
+				err      error
+			}{
+				metricID: metric.ID(0),
+				err:      constants.ErrMetricIDNotFound,
+			},
+		},
+		{
+			name: "get metric id successfully",
+			prepare: func(ns, metric *unique.MockIDStore) {
+				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				metric.EXPECT().Get(gomock.Any()).Return([]byte{2, 0, 0, 0}, true, nil)
+			},
+			out: struct {
+				metricID metric.ID
+				err      error
+			}{
+				metricID: metric.ID(2),
+				err:      nil,
+			},
+		},
+	}
 
-	// rollback metric id
-	metricID := db.genMetricID()
-	assert.Equal(t, uint32(6), metricID)
-	db.rollbackMetricID(metricID)
-	assert.Equal(t, uint32(6), db.genMetricID())
-	db.rollbackMetricID(4)
-	assert.Equal(t, uint32(7), db.genMetricID())
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			nsStore := unique.NewMockIDStore(ctrl)
+			metricStore := unique.NewMockIDStore(ctrl)
+			backend := &metadataBackend{
+				namespace: nsStore,
+				metric:    metricStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(nsStore, metricStore)
+			}
 
-	// rollback tag key id
-	tagKeyID := db.genTagKeyID()
-	assert.Equal(t, uint32(6), tagKeyID)
-	db.rollbackTagKeyID(tagKeyID)
-	assert.Equal(t, uint32(6), db.genTagKeyID())
-	db.rollbackTagKeyID(4)
-	assert.Equal(t, uint32(7), db.genTagKeyID())
+			metricID, err := backend.getMetricID("ns", "name")
+			assert.Equal(t, tt.out.metricID, metricID)
+			assert.Equal(t, tt.out.err, err)
+		})
+	}
 }
 
-func TestMetadataBackend_loadMetricMetadata(t *testing.T) {
-	testPath := t.TempDir()
-	db := mockMetadataBackend(t, testPath)
-	_, err := db.loadMetricMetadata("ns1", "name2")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
+func TestMetadataBackend_saveTagKey(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	meta, err := db.loadMetricMetadata("ns-1", "name2")
+	store := unique.NewMockIDStore(ctrl)
+	backend := &metadataBackend{
+		tagKey:           store,
+		tagKeyIDSequence: atomic.NewUint32(0),
+	}
+	f := tag.Meta{
+		ID:  1,
+		Key: "tagKey1",
+	}
+	v, err := f.MarshalBinary()
 	assert.NoError(t, err)
-	assert.Equal(t, uint32(2), meta.getMetricID())
-	assert.Equal(t, []tag.Meta{{Key: "tagKey-2", ID: 4}, {Key: "tagKey-3", ID: 3}}, meta.getAllTagKeys())
-	assert.Equal(t, []field.Meta{
-		{ID: 1, Name: "f3", Type: field.MaxField},
-		{ID: 3, Name: "f4", Type: field.SumField},
-	}, meta.getAllFields())
-	m := meta.(*metricMetadata)
-	assert.Equal(t, int32(3), m.fieldIDSeq.Load())
-	fID, err := meta.createField("f5", field.SumField)
-	assert.Equal(t, field.ID(4), fID)
+	store.EXPECT().Merge([]byte{2, 0, 0, 0}, v).Return(nil)
+	_, err = backend.saveTagKey(metric.ID(2), f.Key)
 	assert.NoError(t, err)
-
-	// test: metric id not exist
-	_, err = db.getMetricMetadata(999)
-	assert.Error(t, err)
-}
-
-func TestMetadataBackend_getTagKeyID(t *testing.T) {
-	testPath := t.TempDir()
-	db := mockMetadataBackend(t, testPath)
-	metricID, _ := db.getMetricID("ns-1", "name2")
-	_, err := db.getTagKeyID(metricID, "ggg")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-
-	_, err = db.getTagKeyID(99, "tagKey-3")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	tagKeyID, err := db.getTagKeyID(metricID, "tagKey-3")
-	assert.NoError(t, err)
-	assert.Equal(t, uint32(3), tagKeyID)
 }
 
 func TestMetadataBackend_getAllTagKeys(t *testing.T) {
-	testPath := t.TempDir()
-	db := mockMetadataBackend(t, testPath)
-	_, err := db.getAllTagKeys(88)
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	values, err := db.getAllTagKeys(2)
-	assert.NoError(t, err)
-	assert.Equal(t, []tag.Meta{{Key: "tagKey-2", ID: 4}, {Key: "tagKey-3", ID: 3}}, values)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cases := []struct {
+		name    string
+		prepare func(tagKey *unique.MockIDStore)
+		out     struct {
+			tags tag.Metas
+			err  error
+		}
+	}{
+		{
+			name: "get tag keys failure",
+			prepare: func(tagKey *unique.MockIDStore) {
+				tagKey.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				tags tag.Metas
+				err  error
+			}{
+				tags: nil,
+				err:  fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "tag keys not found",
+			prepare: func(tagKey *unique.MockIDStore) {
+				tagKey.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				tags tag.Metas
+				err  error
+			}{
+				tags: nil,
+				err:  nil,
+			},
+		},
+		{
+			name: "get tag keys ok, but unmarshal tag data failure",
+			prepare: func(tagKey *unique.MockIDStore) {
+				tagKey.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true, nil)
+			},
+			out: struct {
+				tags tag.Metas
+				err  error
+			}{
+				tags: nil,
+				err:  fmt.Errorf("EOF"),
+			},
+		},
+		{
+			name: "get tag keys successfully",
+			prepare: func(tagKey *unique.MockIDStore) {
+				var buf []byte
+				tags := tag.Metas{
+					{
+						Key: "test100",
+						ID:  100,
+					},
+					{
+						Key: "test10",
+						ID:  10,
+					},
+				}
+				for _, tag1 := range tags {
+					data, err := tag1.MarshalBinary()
+					assert.NoError(t, err)
+					buf = append(buf, data...)
+				}
+
+				tagKey.EXPECT().Get(gomock.Any()).Return(buf, true, nil)
+			},
+			out: struct {
+				tags tag.Metas
+				err  error
+			}{
+				tags: tag.Metas{
+					{
+						Key: "test100",
+						ID:  100,
+					},
+					{
+						Key: "test10",
+						ID:  10,
+					},
+				},
+				err: nil,
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			tagKeyStore := unique.NewMockIDStore(ctrl)
+			backend := &metadataBackend{
+				tagKey: tagKeyStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(tagKeyStore)
+			}
+
+			tags, err := backend.getAllTagKeys(metric.ID(2))
+			assert.Equal(t, tt.out.tags, tags)
+			assert.Equal(t, tt.out.err, err)
+		})
+	}
 }
 
-func TestMetadataBackend_getField(t *testing.T) {
-	testPath := t.TempDir()
-	db := mockMetadataBackend(t, testPath)
-	_, err := db.getField(99, "f3")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	_, err = db.getField(2, "f33")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	f, err := db.getField(2, "f3")
+func TestMetadataBackend_saveField(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := unique.NewMockIDStore(ctrl)
+	backend := &metadataBackend{
+		field: store,
+	}
+	f := field.Meta{
+		ID:   1,
+		Type: field.SumField,
+		Name: "field",
+	}
+	v, err := f.MarshalBinary()
 	assert.NoError(t, err)
-	assert.Equal(t, field.Meta{ID: 1, Name: "f3", Type: field.MaxField}, f)
+	store.EXPECT().Merge([]byte{2, 0, 0, 0}, v).Return(nil)
+	err = backend.saveField(metric.ID(2), f)
+	assert.NoError(t, err)
 }
 
 func TestMetadataBackend_getAllFields(t *testing.T) {
-	testPath := t.TempDir()
-	db := mockMetadataBackend(t, testPath)
-	_, err := db.getAllFields(99)
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-	fields, err := db.getAllFields(2)
-	assert.Equal(t, []field.Meta{
-		{ID: 1, Name: "f3", Type: field.MaxField},
-		{ID: 3, Name: "f4", Type: field.SumField},
-	}, fields)
-	assert.NoError(t, err)
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func TestMetadataBackend_saveMetadata(t *testing.T) {
-	testPath := t.TempDir()
-	db := newMockMetadataBackend(t, testPath)
-	event := mockMetadataEvent()
-	err := db.saveMetadata(event)
-	assert.NoError(t, err)
-	// save duplicate event
-	err = db.saveMetadata(event)
-	assert.NoError(t, err)
+	cases := []struct {
+		name    string
+		prepare func(field *unique.MockIDStore)
+		out     struct {
+			fields field.Metas
+			max    field.ID
+			err    error
+		}
+	}{
+		{
+			name: "get fields failure",
+			prepare: func(field *unique.MockIDStore) {
+				field.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			out: struct {
+				fields field.Metas
+				max    field.ID
+				err    error
+			}{
+				fields: nil,
+				max:    0,
+				err:    fmt.Errorf("err"),
+			},
+		},
+		{
+			name: "fields not found",
+			prepare: func(field *unique.MockIDStore) {
+				field.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			out: struct {
+				fields field.Metas
+				max    field.ID
+				err    error
+			}{
+				fields: nil,
+				max:    field.ID(0),
+				err:    nil,
+			},
+		},
+		{
+			name: "get fields ok, but unmarshal fields data failure",
+			prepare: func(field *unique.MockIDStore) {
+				field.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, true, nil)
+			},
+			out: struct {
+				fields field.Metas
+				max    field.ID
+				err    error
+			}{
+				fields: nil,
+				max:    field.ID(0),
+				err:    fmt.Errorf("EOF"),
+			},
+		},
+		{
+			name: "get fields successfully",
+			prepare: func(fieldStore *unique.MockIDStore) {
+				var buf []byte
+				fields := field.Metas{
+					{
+						Name: "field100",
+						Type: field.SumField,
+						ID:   100,
+					},
+					{
+						Name: "field10",
+						Type: field.MaxField,
+						ID:   10,
+					},
+				}
+				for _, field1 := range fields {
+					data, err := field1.MarshalBinary()
+					assert.NoError(t, err)
+					buf = append(buf, data...)
+				}
 
-	metricID, err := db.getMetricID("ns-1", "name1")
-	assert.Equal(t, uint32(1), metricID)
-	assert.NoError(t, err)
-	metricID, err = db.getMetricID("ns-2", "name3")
-	assert.Equal(t, uint32(3), metricID)
-	assert.NoError(t, err)
-
-	_, err = db.getMetricID("ns-2", "name5")
-	assert.True(t, errors.Is(err, constants.ErrNotFound))
-}
-
-func TestMetadataBackend_save_err(t *testing.T) {
-	testPath := t.TempDir()
-	defer func() {
-		tagBucketName = []byte("t")
-		fieldBucketName = []byte("f")
-	}()
-	db := newMockMetadataBackend(t, testPath)
-	// ns is empty
-	e := newMetadataUpdateEvent()
-	e.addMetric("", "name1", 1)
-	err := db.saveMetadata(e)
-	assert.Error(t, err)
-
-	// metric name is empty
-	e = newMetadataUpdateEvent()
-	e.addMetric("ns-2", "", 1)
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-
-	// tag key is empty
-	e = newMetadataUpdateEvent()
-	e.addTagKey(1, tag.Meta{Key: "", ID: 1})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-
-	// field name is empty
-	e = newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.MaxField})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-
-	// tag key bucket name is empty
-	tagBucketName = []byte("")
-	e = newMetadataUpdateEvent()
-	e.addTagKey(1, tag.Meta{Key: "empty_tag_key", ID: 1})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-
-	// field bucket name is empty
-	tagBucketName = []byte("t")
-	fieldBucketName = []byte("")
-	e = newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "", Type: field.MaxField})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-}
-
-func TestMetadataBackend_save_db_err(t *testing.T) {
-	testPath := t.TempDir()
-	defer func() {
-		tagBucketName = []byte("t")
-		fieldBucketName = []byte("f")
-		setSequenceFunc = setSequence
-		createBucketFunc = createBucket
-	}()
-	db := newMockMetadataBackend(t, testPath)
-
-	e := newMetadataUpdateEvent()
-	e.addField(1, field.Meta{ID: 1, Name: "aa", Type: field.MaxField})
-	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
-		return fmt.Errorf("err")
+				fieldStore.EXPECT().Get(gomock.Any()).Return(buf, true, nil)
+			},
+			out: struct {
+				fields field.Metas
+				max    field.ID
+				err    error
+			}{
+				fields: field.Metas{
+					{
+						Name: "field100",
+						Type: field.SumField,
+						ID:   100,
+					},
+					{
+						Name: "field10",
+						Type: field.MaxField,
+						ID:   10,
+					},
+				},
+				max: field.ID(100),
+				err: nil,
+			},
+		},
 	}
-	err := db.saveMetadata(e)
-	assert.Error(t, err)
 
-	e = newMetadataUpdateEvent()
-	e.addTagKey(1, tag.Meta{Key: "empty_tag_key", ID: 1})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			fieldStore := unique.NewMockIDStore(ctrl)
+			backend := &metadataBackend{
+				field: fieldStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare(fieldStore)
+			}
 
-	e = newMetadataUpdateEvent()
-	e.addMetric("ns", "name", 10)
-	setSequenceFunc = func(bucket *bbolt.Bucket, seq uint64) error {
-		return fmt.Errorf("err")
+			fields, max, err := backend.getAllFields(metric.ID(2))
+			assert.Equal(t, tt.out.fields, fields)
+			assert.Equal(t, tt.out.max, max)
+			assert.Equal(t, tt.out.err, err)
+		})
 	}
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-
-	setSequenceFunc = setSequence
-	createBucketFunc = func(parentBucket *bbolt.Bucket, name []byte) (bucket *bbolt.Bucket, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	e = newMetadataUpdateEvent()
-	e.addTagKey(1, tag.Meta{Key: "empty_tag_key", ID: 1})
-	err = db.saveMetadata(e)
-	assert.Error(t, err)
-}
-
-func TestMetadataBackend_sync(t *testing.T) {
-	testPath := t.TempDir()
-	db := newMockMetadataBackend(t, testPath)
-	err := db.sync()
-	assert.NoError(t, err)
-	err = db.Close()
-	assert.NoError(t, err)
-}
-
-func newMockMetadataBackend(t *testing.T, dir string) MetadataBackend {
-	db, err := newMetadataBackend(dir)
-	assert.NoError(t, err)
-	assert.NotNil(t, db)
-
-	return db
-}
-
-func mockMetadataBackend(t *testing.T, dir string) MetadataBackend {
-	db := newMockMetadataBackend(t, dir)
-	event := mockMetadataEvent()
-	err := db.saveMetadata(event)
-	assert.NoError(t, err)
-	return db
-}
-
-func mockMetadataEvent() *metadataUpdateEvent {
-	e := newMetadataUpdateEvent()
-	e.addMetric("ns-1", "name1", 1)
-	e.addMetric("ns-1", "name2", 2)
-	e.addMetric("ns-2", "name3", 3)
-	e.addMetric("ns-2", "name2", 4)
-
-	// tags
-	e.addTagKey(1, tag.Meta{Key: "tagKey-1", ID: 1})
-	e.addTagKey(1, tag.Meta{Key: "tagKey-2", ID: 2})
-	e.addTagKey(2, tag.Meta{Key: "tagKey-3", ID: 3})
-	e.addTagKey(2, tag.Meta{Key: "tagKey-2", ID: 4})
-
-	// fields
-	e.addField(1, field.Meta{ID: 1, Name: "f1", Type: field.GaugeField})
-	e.addField(1, field.Meta{ID: 2, Name: "f2", Type: field.MinField})
-	e.addField(2, field.Meta{ID: 1, Name: "f3", Type: field.MaxField})
-	e.addField(2, field.Meta{ID: 3, Name: "f4", Type: field.SumField})
-
-	return e
 }
