@@ -24,7 +24,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -34,7 +33,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-func TestNewMockMetadataBackend(t *testing.T) {
+func TestNewMetadataBackend(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -101,6 +100,23 @@ func TestNewMockMetadataBackend(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "persist cached sequence value failure",
+			prepare: func() {
+				mkDirFn = func(path string) error {
+					return nil
+				}
+				store := unique.NewMockIDStore(ctrl)
+				store.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				// close fail
+				store.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(4)
+				newIDStoreFn = func(path string) (unique.IDStore, error) {
+					return store, nil
+				}
+			},
+			wantErr: true,
+		},
+		{
 			name: "new backend successfully, init seq from backend storage",
 			prepare: func() {
 				mkDirFn = func(path string) error {
@@ -108,6 +124,7 @@ func TestNewMockMetadataBackend(t *testing.T) {
 				}
 				store := unique.NewMockIDStore(ctrl)
 				store.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil).MaxTimes(3)
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
 				newIDStoreFn = func(path string) (unique.IDStore, error) {
 					return store, nil
 				}
@@ -122,6 +139,7 @@ func TestNewMockMetadataBackend(t *testing.T) {
 				}
 				store := unique.NewMockIDStore(ctrl)
 				store.EXPECT().Get(gomock.Any()).Return(nil, false, nil).MaxTimes(3)
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(3)
 
 				newIDStoreFn = func(path string) (unique.IDStore, error) {
 					return store, nil
@@ -408,19 +426,71 @@ func TestMetadataBackend_saveTagKey(t *testing.T) {
 	defer ctrl.Finish()
 
 	store := unique.NewMockIDStore(ctrl)
-	backend := &metadataBackend{
-		tagKey:           store,
-		tagKeyIDSequence: atomic.NewUint32(0),
+	sequence := unique.NewMockSequence(ctrl)
+
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "get next sequence value failure",
+			prepare: func() {
+				sequence.EXPECT().HasNext().Return(false)
+				sequence.EXPECT().Current().Return(uint32(10))
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "store tag meta failure",
+			prepare: func() {
+				sequence.EXPECT().HasNext().Return(true)
+				sequence.EXPECT().Next().Return(uint32(10))
+				store.EXPECT().Merge(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "store tag meta successfully",
+			prepare: func() {
+				sequence.EXPECT().HasNext().Return(true)
+				sequence.EXPECT().Next().Return(uint32(10))
+				store.EXPECT().Merge(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "store tag meta successfully, cache next sequence",
+			prepare: func() {
+				sequence.EXPECT().HasNext().Return(false)
+				sequence.EXPECT().Current().Return(uint32(10)).MaxTimes(2)
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+				sequence.EXPECT().Limit(gomock.Any())
+				sequence.EXPECT().Next().Return(uint32(100))
+				store.EXPECT().Merge(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
 	}
-	f := tag.Meta{
-		ID:  1,
-		Key: "tagKey1",
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &metadataBackend{
+				tagKey:           store,
+				tagKeyIDSequence: sequence,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			_, err := backend.saveTagKey(metric.ID(2), "key")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("saveTagKey() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
-	v, err := f.MarshalBinary()
-	assert.NoError(t, err)
-	store.EXPECT().Merge([]byte{2, 0, 0, 0}, v).Return(nil)
-	_, err = backend.saveTagKey(metric.ID(2), f.Key)
-	assert.NoError(t, err)
 }
 
 func TestMetadataBackend_getAllTagKeys(t *testing.T) {
@@ -673,6 +743,260 @@ func TestMetadataBackend_getAllFields(t *testing.T) {
 			assert.Equal(t, tt.out.fields, fields)
 			assert.Equal(t, tt.out.max, max)
 			assert.Equal(t, tt.out.err, err)
+		})
+	}
+}
+
+func TestMetadataBackend_getMetricMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tagStore := unique.NewMockIDStore(ctrl)
+	fieldStore := unique.NewMockIDStore(ctrl)
+
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "get fields failure",
+			prepare: func() {
+				fieldStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "get tag keys failure",
+			prepare: func() {
+				fieldStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				tagStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "get metric metadata successfully",
+			prepare: func() {
+				fieldStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				tagStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &metadataBackend{
+				tagKey: tagStore,
+				field:  fieldStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			meta, err := backend.getMetricMetadata(metric.ID(10))
+			if ((err != nil) != tt.wantErr && meta == nil) || (!tt.wantErr && meta == nil) {
+				t.Errorf("getMetricMetadata() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	nsSequence := unique.NewMockSequence(ctrl)
+	metricSequence := unique.NewMockSequence(ctrl)
+	nsStore := unique.NewMockIDStore(ctrl)
+	metricStore := unique.NewMockIDStore(ctrl)
+	fieldStore := unique.NewMockIDStore(ctrl)
+	tagStore := unique.NewMockIDStore(ctrl)
+
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "get ns failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen ns sequence failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				nsSequence.EXPECT().HasNext().Return(false)
+				nsSequence.EXPECT().Current().Return(uint32(10))
+				nsStore.EXPECT().Put(namespaceIDSequenceKey, gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "store ns meta failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				nsSequence.EXPECT().HasNext().Return(true)
+				nsSequence.EXPECT().Next().Return(uint32(10))
+				nsStore.EXPECT().Put([]byte("ns"), []byte{10, 0, 0, 0}).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "store ns meta successfully, but get metric failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				nsSequence.EXPECT().HasNext().Return(true)
+				nsSequence.EXPECT().Next().Return(uint32(10))
+				nsStore.EXPECT().Put([]byte("ns"), []byte{10, 0, 0, 0}).Return(nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+
+			name: "get metric failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+
+			name: "get metric sequence failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				metricSequence.EXPECT().HasNext().Return(false)
+				metricSequence.EXPECT().Current().Return(uint32(10))
+				metricStore.EXPECT().Put(metricIDSequenceKey, gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "save metric meta failure",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				metricSequence.EXPECT().HasNext().Return(true)
+				metricSequence.EXPECT().Next().Return(uint32(10))
+				var key []byte
+				key = append(key, []byte{1, 0, 0, 0}...)
+				key = append(key, []byte("metric")...)
+				metricStore.EXPECT().Put(key, []byte{10, 0, 0, 0}).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "save metric meta successfully",
+			prepare: func() {
+				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				metricSequence.EXPECT().HasNext().Return(true)
+				metricSequence.EXPECT().Next().Return(uint32(10))
+				var key []byte
+				key = append(key, []byte{1, 0, 0, 0}...)
+				key = append(key, []byte("metric")...)
+				metricStore.EXPECT().Put(key, []byte{10, 0, 0, 0}).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "load metric meta successfully",
+			prepare: func() {
+				nsStore.EXPECT().Get([]byte("ns")).Return([]byte{1, 0, 0, 0}, true, nil)
+				var key []byte
+				key = append(key, []byte{1, 0, 0, 0}...)
+				key = append(key, []byte("metric")...)
+				mID := []byte{10, 0, 0, 0}
+				metricStore.EXPECT().Get(key).Return(mID, true, nil)
+				fieldStore.EXPECT().Get(mID).Return(nil, false, nil)
+				tagStore.EXPECT().Get(mID).Return(nil, false, nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &metadataBackend{
+				namespaceIDSequence: nsSequence,
+				metricIDSequence:    metricSequence,
+				namespace:           nsStore,
+				metric:              metricStore,
+				field:               fieldStore,
+				tagKey:              tagStore,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			meta, err := backend.getOrCreateMetricMetadata("ns", "metric")
+			if ((err != nil) != tt.wantErr && meta == nil) || (!tt.wantErr && meta == nil) {
+				t.Errorf("getOrCreateMetricMetadata() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMetadataBackend_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sequence := unique.NewMockSequence(ctrl)
+	store := unique.NewMockIDStore(ctrl)
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "all components release failure",
+			prepare: func() {
+				sequence.EXPECT().Current().Return(uint32(10))
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				store.EXPECT().Flush().Return(fmt.Errorf("err"))
+				store.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "all components release successfully",
+			prepare: func() {
+				sequence.EXPECT().Current().Return(uint32(10))
+				store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+				store.EXPECT().Flush().Return(nil)
+				store.EXPECT().Close().Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			backend := &metadataBackend{
+				sequences: []sequenceItem{{
+					sequence: sequence,
+					store:    store,
+					key:      tagKeyIDSequenceKey,
+				}},
+				dbs: map[string]unique.IDStore{
+					TagKeyDB: store,
+				},
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := backend.Close()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }

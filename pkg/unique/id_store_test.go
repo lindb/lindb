@@ -130,8 +130,8 @@ func TestIDStore_CRUD(t *testing.T) {
 			}
 		})
 	}
-	err = store.Close()
-	assert.NoError(t, err)
+	assert.NoError(t, store.Flush())
+	assert.NoError(t, store.Close())
 	// test re-open
 	store, err = NewIDStore(p)
 	assert.NoError(t, err)

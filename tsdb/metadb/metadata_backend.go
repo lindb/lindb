@@ -24,8 +24,8 @@ import (
 	"path"
 
 	"github.com/hashicorp/go-multierror"
-	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
@@ -58,6 +58,13 @@ var (
 
 	storageDBNames = []string{NamespaceDB, MetricDB, TagKeyDB, FieldDB}
 )
+
+// sequenceItem represents sequence metadata.
+type sequenceItem struct {
+	sequence unique.Sequence
+	store    unique.IDStore
+	key      []byte
+}
 
 // MetadataBackend represents the metadata backend storage.
 type MetadataBackend interface {
@@ -94,12 +101,13 @@ type MetadataBackend interface {
 // metadataBackend implements the MetadataBackend interface.
 type metadataBackend struct {
 	namespace, metric, tagKey, field                        unique.IDStore
-	namespaceIDSequence, metricIDSequence, tagKeyIDSequence *atomic.Uint32
+	namespaceIDSequence, metricIDSequence, tagKeyIDSequence unique.Sequence
 
-	dbs map[string]unique.IDStore
+	dbs       map[string]unique.IDStore
+	sequences []sequenceItem
 }
 
-// newMetadataBackend creates a new metadata backend storage
+// newMetadataBackend creates a new metadata backend storage.
 func newMetadataBackend(parent string) (MetadataBackend, error) {
 	var storageDBs map[string]unique.IDStore
 	var err error
@@ -126,46 +134,66 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 		field:     storageDBs[FieldDB],
 
 		dbs: storageDBs,
-
-		namespaceIDSequence: atomic.NewUint32(0),
-		metricIDSequence:    atomic.NewUint32(0),
-		tagKeyIDSequence:    atomic.NewUint32(0),
 	}
 	// init seq function
-	initSeq := func(db unique.IDStore, key []byte, seq *atomic.Uint32) error {
+	initSeq := func(db unique.IDStore, key []byte, init func(seq unique.Sequence)) error {
 		val, exist, err := db.Get(key)
 		if err != nil {
 			return err
 		}
+		sequenceInitValue := uint32(0)
 		if exist {
-			seq.Store(binary.LittleEndian.Uint32(val))
+			sequenceInitValue = binary.LittleEndian.Uint32(val)
 		}
+		cacheSize := config.GlobalStorageConfig().TSDB.MetaSequenceCache
+
+		// persist cached sequence value
+		if err := unique.SaveSequence(db, key, sequenceInitValue+cacheSize); err != nil {
+			return err
+		}
+
+		sequence := unique.NewSequence(sequenceInitValue, cacheSize)
+		init(sequence)
+		// cache all sequences
+		backend.sequences = append(backend.sequences,
+			sequenceItem{
+				sequence: sequence,
+				store:    db,
+				key:      key,
+			})
 		return nil
 	}
 	var sequences = []struct {
-		key []byte
-		db  unique.IDStore
-		seq *atomic.Uint32
+		key  []byte
+		db   unique.IDStore
+		init func(seq unique.Sequence)
 	}{
 		{
 			key: namespaceIDSequenceKey,
 			db:  backend.namespace,
-			seq: backend.namespaceIDSequence,
+			init: func(seq unique.Sequence) {
+				backend.namespaceIDSequence = seq
+			},
 		},
 		{
 			key: metricIDSequenceKey,
 			db:  backend.metric,
-			seq: backend.metricIDSequence,
+			init: func(seq unique.Sequence) {
+				backend.metricIDSequence = seq
+			},
 		},
 		{
 			key: tagKeyIDSequenceKey,
 			db:  backend.tagKey,
-			seq: backend.tagKeyIDSequence,
+			init: func(seq unique.Sequence) {
+				backend.tagKeyIDSequence = seq
+			},
 		},
 	}
 
+	// init sequence with value
 	for _, arg := range sequences {
-		if err = initSeq(arg.db, arg.key, arg.seq); err != nil {
+		if err = initSeq(arg.db, arg.key, arg.init); err != nil {
 			return nil, err
 		}
 	}
@@ -256,11 +284,13 @@ func (mb *metadataBackend) getMetricID(namespace string, metricName string) (met
 
 // saveTagKey saves the tag meta for given metric id.
 func (mb *metadataBackend) saveTagKey(metricID metric.ID, tagKey string) (uint32, error) {
-	tagKeyID := mb.tagKeyIDSequence.Inc()
+	tagKeyID, err := nextSequence(mb.tagKeyIDSequence, mb.tagKey, tagKeyIDSequenceKey)
+	if err != nil {
+		return tag.EmptyTagKeyID, err
+	}
 	tagMeta := &tag.Meta{Key: tagKey, ID: tagKeyID}
 
 	val, err := tagMeta.MarshalBinary()
-	fmt.Printf("tag key: %d, %s, %d\n", metricID, tagMeta.Key, tagMeta.ID)
 	if err != nil {
 		return tag.EmptyTagKeyID, err
 	}
@@ -319,42 +349,48 @@ func (mb *metadataBackend) getAllFields(metricID metric.ID) (fields field.Metas,
 // getOrCreateMetricMetadata creates metric metadata if not exist, else load metric metadata from backend storage.
 func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName string) (MetricMetadata, error) {
 	nsKey := []byte(namespace)
-	nsVal, exist, err := mb.namespace.Get(nsKey)
+	nsIDVal, exist, err := mb.namespace.Get(nsKey)
 	if err != nil {
 		return nil, err
 	}
 	if !exist {
 		// gen namespace id
-		nsID := mb.namespaceIDSequence.Inc()
+		nsID, err := nextSequence(mb.namespaceIDSequence, mb.namespace, namespaceIDSequenceKey)
+		if err != nil {
+			return nil, err
+		}
 		var scratch [4]byte
 		binary.LittleEndian.PutUint32(scratch[:], nsID)
-		nsVal = scratch[:]
-		if err := mb.namespace.Put(namespaceIDSequenceKey, nsVal); err != nil {
+		nsIDVal = scratch[:]
+		if err := mb.namespace.Put(nsKey, nsIDVal); err != nil {
 			return nil, err
 		}
 	}
 
 	var key []byte
-	key = append(key, nsVal...)
+	key = append(key, nsIDVal...)
 	key = append(key, metricName...)
-	metricVal, exist, err := mb.metric.Get(key)
+	metricIDVal, exist, err := mb.metric.Get(key)
 	if err != nil {
 		return nil, err
 	}
 	if !exist {
 		// gen metric id
-		metricID := mb.metricIDSequence.Inc()
+		metricID, err := nextSequence(mb.metricIDSequence, mb.metric, metricIDSequenceKey)
+		if err != nil {
+			return nil, err
+		}
 		var scratch [4]byte
 		binary.LittleEndian.PutUint32(scratch[:], metricID)
-		metricVal = scratch[:]
-		if err := mb.metric.Put(metricIDSequenceKey, metricVal); err != nil {
+		metricIDVal = scratch[:]
+		if err := mb.metric.Put(key, metricIDVal); err != nil {
 			return nil, err
 		}
 		return newMetricMetadata(metric.ID(metricID)), nil
 	}
 
 	// if metric exist, need load metric from storage
-	metricID := metric.ID(binary.LittleEndian.Uint32(metricVal))
+	metricID := metric.ID(binary.LittleEndian.Uint32(metricIDVal))
 	return mb.getMetricMetadata(metricID)
 }
 
@@ -379,6 +415,10 @@ func (mb *metadataBackend) getMetricMetadata(metricID metric.ID) (metadata Metri
 // sync the backend memory data into persist storage.
 func (mb *metadataBackend) sync() error {
 	var result error
+	if err := mb.saveSequences(); err != nil {
+		result = multierror.Append(result, err)
+	}
+
 	for _, db := range mb.dbs {
 		if err := db.Flush(); err != nil {
 			result = multierror.Append(result, err)
@@ -390,10 +430,39 @@ func (mb *metadataBackend) sync() error {
 // Close closes the backend storage.
 func (mb *metadataBackend) Close() error {
 	var result error
+	if err := mb.sync(); err != nil {
+		result = multierror.Append(result, err)
+	}
+
 	for _, db := range mb.dbs {
 		if err := db.Close(); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
 	return result
+}
+
+// saveSequences persists the current value of sequence for all sequences.
+func (mb *metadataBackend) saveSequences() error {
+	var result error
+	for _, sequence := range mb.sequences {
+		current := sequence.sequence.Current()
+		if err := unique.SaveSequence(sequence.store, sequence.key, current); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+	return result
+}
+
+// nextSequence returns next value from sequence,
+// if no data in cache, need to cache next back from storage.
+func nextSequence(seq unique.Sequence, store unique.IDStore, key []byte) (uint32, error) {
+	if !seq.HasNext() {
+		nextBatchSeriesSeq := seq.Current() + config.GlobalStorageConfig().TSDB.SeriesSequenceCache
+		if err := unique.SaveSequence(store, key, nextBatchSeriesSeq); err != nil {
+			return 0, err
+		}
+		seq.Limit(seq.Current() + config.GlobalStorageConfig().TSDB.SeriesSequenceCache)
+	}
+	return seq.Next(), nil
 }

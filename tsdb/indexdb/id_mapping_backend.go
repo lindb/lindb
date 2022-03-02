@@ -23,6 +23,7 @@ import (
 	"io"
 	"path"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/unique"
@@ -44,8 +45,10 @@ const MappingDB = "mapping"
 // save series data(tags hash => series id) under metric
 type IDMappingBackend interface {
 	io.Closer
-	// loadMetricIDMapping loads metric id mapping include id sequence
+	// loadMetricIDMapping loads metric id mapping include id sequence.
 	loadMetricIDMapping(metricID metric.ID) (idMapping MetricIDMapping, err error)
+	// saveSeriesSequence persists series sequence.
+	saveSeriesSequence(metricID metric.ID, seq uint32) error
 	// getSeriesID gets series id by metric id/tags hash, if not exist return constants.ErrNotFount
 	getSeriesID(metricID metric.ID, tagsHash uint64) (seriesID uint32, err error)
 	// genSeries generates series id by metric id/tags hash.
@@ -73,6 +76,7 @@ func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	}, nil
 }
 
+// loadMetricIDMapping loads metric id mapping include id sequence.
 func (imb *idMappingBackend) loadMetricIDMapping(metricID metric.ID) (idMapping MetricIDMapping, err error) {
 	mID := metricID.MarshalBinary()
 	val, exist, err := imb.db.Get(mID)
@@ -83,7 +87,18 @@ func (imb *idMappingBackend) loadMetricIDMapping(metricID metric.ID) (idMapping 
 		return newMetricIDMapping(metricID, 0), nil
 	}
 	sequence := binary.LittleEndian.Uint32(val)
+
+	// persist cached series sequence value
+	cacheSize := config.GlobalStorageConfig().TSDB.SeriesSequenceCache
+	if err := unique.SaveSequence(imb.db, mID, sequence+cacheSize); err != nil {
+		return nil, err
+	}
 	return newMetricIDMapping(metricID, sequence), nil
+}
+
+// saveSeriesSequence persists series sequence.
+func (imb *idMappingBackend) saveSeriesSequence(metricID metric.ID, seq uint32) error {
+	return unique.SaveSequence(imb.db, metricID.MarshalBinary(), seq)
 }
 
 // getSeriesID gets series id by metric id/tags hash, if not exist return constants.ErrNotFount
