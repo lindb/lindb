@@ -141,10 +141,7 @@ func (s *idStore) Flush() error {
 }
 
 // Close closes backend pebble db.
+// NOTICE: need flush first
 func (s *idStore) Close() error {
-	// need flush first
-	if err := s.Flush(); err != nil {
-		return err
-	}
 	return s.db.Close()
 }
