@@ -27,7 +27,9 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/unique"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
@@ -120,6 +122,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sequence := unique.NewMockSequence(ctrl)
 	backend := NewMockIDMappingBackend(ctrl)
 	mapping := NewMockMetricIDMapping(ctrl)
 	db := &indexDatabase{
@@ -195,14 +198,62 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 			},
 		},
 		{
-
 			name:     "save series id failure from backend",
 			metricID: 2,
 			tagsHash: 33,
 			prepare: func() {
 				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
 				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(33))
+				mapping.EXPECT().SeriesSequence().Return(sequence)
+				sequence.EXPECT().HasNext().Return(true)
 				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
+				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name:     "batch sequence failure from backend",
+			metricID: 2,
+			tagsHash: 3399,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				backend.EXPECT().getSeriesID(metric.ID(2), uint64(3399)).Return(series.EmptySeriesID, constants.ErrNotFound)
+				mapping.EXPECT().SeriesSequence().Return(sequence)
+				sequence.EXPECT().HasNext().Return(false)
+				sequence.EXPECT().Current().Return(uint32(20))
+				backend.EXPECT().saveSeriesSequence(metric.ID(2), 20+config.GlobalStorageConfig().TSDB.SeriesSequenceCache).Return(fmt.Errorf("err"))
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      fmt.Errorf("err"),
+			},
+		},
+		{
+			name:     "batch sequence successfully from backend, but store series id failure",
+			metricID: 2,
+			tagsHash: 339999,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				backend.EXPECT().getSeriesID(metric.ID(2), uint64(339999)).Return(series.EmptySeriesID, constants.ErrNotFound)
+				mapping.EXPECT().SeriesSequence().Return(sequence)
+				sequence.EXPECT().HasNext().Return(false)
+				sequence.EXPECT().Current().Return(uint32(20))
+				backend.EXPECT().saveSeriesSequence(metric.ID(2), 20+config.GlobalStorageConfig().TSDB.SeriesSequenceCache).Return(nil)
+				sequence.EXPECT().Limit(20 + config.GlobalStorageConfig().TSDB.SeriesSequenceCache)
+				mapping.EXPECT().GenSeriesID(gomock.Any())
 				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			out: struct {
@@ -223,6 +274,8 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 			prepare: func() {
 				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
 				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(333))
+				mapping.EXPECT().SeriesSequence().Return(sequence)
+				sequence.EXPECT().HasNext().Return(true)
 				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
 				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},

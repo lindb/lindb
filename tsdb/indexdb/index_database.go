@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
@@ -121,10 +122,19 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID metric.ID, tagsHash uint64
 	}
 	// throw err in backend storage
 	if err != nil && !errors.Is(err, constants.ErrNotFound) {
-		return 0, false, err
+		return series.EmptySeriesID, false, err
 	}
+	// check if sequence need store
+	seq := metricIDMapping.SeriesSequence()
+	if !seq.HasNext() {
+		nextBatchSeriesSeq := seq.Current() + config.GlobalStorageConfig().TSDB.SeriesSequenceCache
+		if err := db.backend.saveSeriesSequence(metricID, nextBatchSeriesSeq); err != nil {
+			return series.EmptySeriesID, false, err
+		}
+		seq.Limit(nextBatchSeriesSeq)
+	}
+
 	// generate new series id
-	// fixme: store seq
 	seriesID = metricIDMapping.GenSeriesID(tagsHash)
 	// save series id into backend
 	if err := db.backend.genSeriesID(metricID, tagsHash, seriesID); err != nil {
@@ -178,6 +188,7 @@ func (db *indexDatabase) BuildInvertIndex(
 
 // Flush flushes index data to disk
 func (db *indexDatabase) Flush() error {
+	//TODO need flush metric level time series sequence?
 	if err := db.backend.sync(); err != nil {
 		return err
 	}

@@ -214,9 +214,18 @@ func TestIDMappingBackend_loadMetricIDMapping(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "load mapping, init sequence",
+			name: "load mapping, init sequence, persist failure",
 			prepare: func(idStore *unique.MockIDStore) {
 				idStore.EXPECT().Get(gomock.Any()).Return([]byte{2, 0, 0, 0}, true, nil)
+				idStore.EXPECT().Put([]byte{2, 0, 0, 0}, gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "load mapping, init sequence, persist successfully",
+			prepare: func(idStore *unique.MockIDStore) {
+				idStore.EXPECT().Get(gomock.Any()).Return([]byte{2, 0, 0, 0}, true, nil)
+				idStore.EXPECT().Put([]byte{2, 0, 0, 0}, gomock.Any()).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -235,4 +244,16 @@ func TestIDMappingBackend_loadMetricIDMapping(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestIdMappingBackend_saveSeriesSequence(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := unique.NewMockIDStore(ctrl)
+	backend := idMappingBackend{
+		db: store,
+	}
+	store.EXPECT().Put([]byte{1, 0, 0, 0}, []byte{10, 0, 0, 0}).Return(nil)
+	assert.NoError(t, backend.saveSeriesSequence(metric.ID(1), uint32(10)))
 }
