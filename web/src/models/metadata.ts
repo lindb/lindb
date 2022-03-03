@@ -16,28 +16,32 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
+export type Storage = {
+  name: string;
+  config: {
+    namespace: string;
+    endpoints: string[];
+    dialTimeout?: string;
+    leaseTTL?: string;
+    timeout?: string;
+  };
+};
 
-export default function App() {
-  const history = useHistory();
-
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
+export interface Database {
+  name?: string;
+  storage?: string;
+  numOfShard?: number;
+  replicaFactor?: number;
+  option?: {
+    interval?: string;
+    timeWindow?: number;
+    autoCreateNS?: boolean;
+    behind?: string;
+    ahead?: string;
+    data: {
+      timeThreshold?: number;
+      sizeThreshold?: number;
+    };
+  };
+  desc?: string;
 }

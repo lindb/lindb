@@ -16,28 +16,28 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
+import { ReplicaView, DatabaseView } from "@src/components";
+import { useStorage } from "@src/hooks";
+import React from "react";
+import * as _ from "lodash-es";
 import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
 
-export default function App() {
-  const history = useHistory();
-
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+export default function DatabaseOverview() {
+  const storage = URLStore.params.get("storage");
+  const db = URLStore.params.get("db");
+  const { loading, storages } = useStorage(storage as string);
   return (
     <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
+      <DatabaseView
+        liveNodes={_.get(storages, "[0].liveNodes", {})}
+        storage={_.get(storages, "[0]", {})}
+        loading={loading}
+      />
+      {storage && (
+        <div style={{ marginTop: 12 }}>
+          <ReplicaView db={db as string} storage={storage as string} />
+        </div>
+      )}
     </>
   );
 }
