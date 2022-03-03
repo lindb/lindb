@@ -16,28 +16,27 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
+import { useEffect } from "react";
+import { reaction } from "mobx";
 import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
 
-export default function App() {
-  const history = useHistory();
-
+export function useWatchURLChange<T extends (...args: any[]) => any>(
+  callback: T
+): void {
   useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
+    callback(); // init values
+
+    const disposer = [
+      reaction(
+        () => URLStore.changed, // watch url change event
+        () => {
+          callback(); // set value after url changed
+        }
+      ),
+    ];
+    return () => {
+      disposer.forEach((d) => d());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
 }
