@@ -16,28 +16,25 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
+import { GET } from "@src/utils";
+import { Metadata, ResultSet } from "@src/models";
+import { ApiPath } from "@src/constants";
 
-export default function App() {
-  const history = useHistory();
+/**
+ *  fecth metadata data by lin query lanage.
+ *
+ *  @param params lin query lanuage
+ *  @return Metadata
+ */
+export function fetchMetadata(params: any) {
+  return GET<Metadata>(ApiPath.Metadata, params);
+}
 
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
+/**
+ * query metric data by query lanage.
+ * @param params
+ * @returns metric ResultSet
+ */
+export function queryMetric(params: any) {
+  return GET<ResultSet>(ApiPath.Metric, params);
 }

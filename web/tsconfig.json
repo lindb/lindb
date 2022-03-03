@@ -1,37 +1,36 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "baseUrl": ".",
+    "paths": {
+      "@src/*": [
+        "src/*"
+      ],
+    },
+    "target": "ESNext",
+    "useDefineForClassFields": true,
     "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
     ],
-    "experimentalDecorators": true,
-    "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
+    "allowJs": false,
+    "skipLibCheck": false,
+    "esModuleInterop": false,
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "Node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "preserve",
-    "baseUrl": "src",
-    "paths": {
-      "store/*":["store/*"],
-      "config/*":["config/*"],
-      "service/*":["service/*"],
-      "util/*":["util/*"],
-      "components/*":["components/*"],
-      "assets/*":["assets/*"],
-      "containers/*":["containers/*"],
-      "model/*":["model/*"]
-    }
+    "jsx": "react"
   },
   "include": [
-    "src/**/*"
+    "./src"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
   ]
 }

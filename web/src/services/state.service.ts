@@ -16,28 +16,26 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
+import { GET } from "@src/utils";
+import { ApiPath } from "@src/constants";
+import { Master, StateMetric, ReplicaState } from "@src/models";
 
-export default function App() {
-  const history = useHistory();
+/**
+ * get master state
+ * @returns current master for broker cluster
+ */
+export function getMaster() {
+  return GET<Master>(ApiPath.MasterState);
+}
 
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+export function exploreNodeState(params: any) {
+  return GET<any[]>(ApiPath.NodeStateExplore, params);
+}
 
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
+export function exploreState(params: any) {
+  return GET<StateMetric>(ApiPath.StateExplore, params);
+}
+
+export function getReplicaState(params: any) {
+  return GET<ReplicaState>(ApiPath.ReplicaState, params);
 }

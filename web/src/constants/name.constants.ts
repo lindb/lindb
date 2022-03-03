@@ -16,28 +16,17 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
-
-export default function App() {
-  const history = useHistory();
-
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
+export enum StateMetricName {
+  CPU = "lindb.monitor.system.cpu_stat",
+  Memory = "lindb.monitor.system.mem_stat",
+  Disk = "lindb.monitor.system.disk_usage_stats",
+  WALWrite = "lindb.wal.write",
+  WALReplica = "lindb.wal.replica",
 }
+
+export enum StateRoleName {
+  Broker = "Broker",
+  Storage = "Storage",
+}
+
+export const MonitoringDB = "_internal";

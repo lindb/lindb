@@ -16,28 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
+import { GET } from "@src/utils";
+import { ApiPath } from "@src/constants";
 
-export default function App() {
-  const history = useHistory();
-
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
+/**
+ *  Reverse proxy to target server
+ *  @param  target/path/params
+ */
+export function proxy(params: any) {
+  return GET<any>(ApiPath.Proxy, params);
 }

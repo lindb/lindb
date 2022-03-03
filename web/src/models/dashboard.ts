@@ -16,28 +16,27 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
-import React, { useEffect } from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
+import { ChartConfig } from "@src/models";
 
-export default function App() {
-  const history = useHistory();
+export type Dashboard = {
+  gutter?: number;
+  variates?: Variate[];
+  rows: {
+    panels: {
+      chart: ChartConfig;
+      span?: number;
+    }[];
+  }[];
+};
 
-  useEffect(() => {
-    // register global history in URLStore, all history operators need use URLStore.
-    URLStore.setHistory(history);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
-  );
-}
+export type Variate = {
+  db?: string;
+  ql: string;
+  tagKey: string;
+  label: string;
+  multiple?: boolean;
+  watch?: {
+    cascade?: string[];
+    clear?: string[];
+  };
+};

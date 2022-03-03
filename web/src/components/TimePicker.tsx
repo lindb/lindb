@@ -1,120 +1,133 @@
-import { Button, Col, DatePicker, Divider, Popover, Row } from 'antd'
-import { TIME_FORMAT } from 'config/config'
-import { autobind } from 'core-decorators'
-import * as React from 'react'
+/*
+Licensed to LinDB under one or more contributor
+license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright
+ownership. LinDB licenses this file to you under
+the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-const RangePicker = DatePicker.RangePicker
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+import React, { useEffect, useState } from "react";
+import {
+  Popover,
+  Button,
+  Col,
+  Row,
+  Typography,
+  Input,
+} from "@douyinfe/semi-ui";
+import { IconClock } from "@douyinfe/semi-icons";
+import { URLStore } from "@src/stores";
+import { reaction } from "mobx";
+import * as _ from "lodash-es";
+import { useWatchURLChange } from "@src/hooks";
 
-interface TimePickerProps {
-}
+const { Text, Title } = Typography;
+const defaultQuickItem = { title: "Last 1 hour", value: "now()-1h" };
 
-interface TimePickerStatus {
-}
+type QuickSelectItem = {
+  title: string;
+  value: string;
+};
 
-export default class TimePicker extends React.Component<TimePickerProps, TimePickerStatus> {
-  private timepickerCls = 'lindb-timepicker'
+const quickSelectList: QuickSelectItem[] = [
+  { title: "Last 15 min", value: "now()-15m" },
+  { title: "Last 30 min", value: "now()-30m" },
+  defaultQuickItem,
+  { title: "Last 3 hours", value: "now()-3h" },
+  { title: "Last 6 hours", value: "now()-6h" },
+  { title: "Last 12 hours", value: "now()-12h" },
+  { title: "Last 1 day", value: "now()-1d" },
+  { title: "Last 2 days", value: "now()-2d" },
+  { title: "Last 3 days", value: "now()-3d" },
+  { title: "Last 7 days", value: "now()-7d" },
+  { title: "Last 15 days", value: "now()-15d" },
+  { title: "Last 30 days", value: "now()-30d" },
+];
 
-  constructor(props: TimePickerProps) {
-    super(props)
-    this.state = {}
-  }
+export default function TimePicker() {
+  const [quick, setQuick] = useState<QuickSelectItem>(defaultQuickItem);
+  const [quickItems, setQuickItems] =
+    useState<QuickSelectItem[]>(quickSelectList);
+  const [visible, setVisible] = useState(false);
+  useWatchURLChange(() => {
+    const val = URLStore.params.get("from");
+    const quickItem = _.find(quickSelectList, { value: `${val}` });
+    setQuick(quickItem || defaultQuickItem);
+  });
 
-  /**
-   * Quick select button handle
-   */
-  @autobind
-  handleQuickSelectItemClick(value: string) {
-    // ...
-  }
-
-  /**
-   * default reference button
-   */
-  @autobind
-  renderDefaultBtn() {
-    return (
-      <Button icon="clock-circle">Last 7 Days</Button>
-    )
-  }
-
-  /**
-   * Time picker panel
-   * @return {any}
-   */
-  @autobind
-  renderTimePicker() {
-    interface QuickSelectItem {
-      title: string
-      value: string
-    }
-
-    const Hours: QuickSelectItem[] = [
-      { title: 'Last 30 min', value: 'time > now()-30m' },
-      { title: 'Last 1 hour', value: 'time > now()-1h' },
-      { title: 'Last 3 hours', value: 'time > now()-3h' },
-      { title: 'Last 6 hours', value: 'time > now()-6h' },
-      { title: 'Last 12 hours', value: 'time > now()-12h' },
-    ]
-
-    const Days: QuickSelectItem[] = [
-      { title: 'Last 1 day', value: 'time > now()-1d' },
-      { title: 'Last 2 days', value: 'time > now()-2d' },
-      { title: 'Last 3 days', value: 'time > now()-3d' },
-      { title: 'Last 7 days', value: 'time > now()-7d' },
-      { title: 'Last 15 days', value: 'time > now()-15d' },
-      { title: 'Last 30 days', value: 'time > now()-30d' },
-    ]
-
-    const renderQuickSelectItem = (items: QuickSelectItem[], span: number = 12) => {
-      const SelectItems = items.map(item => (
-        <Button key={item.value} type="link" block={true} onClick={() => this.handleQuickSelectItemClick(item.value)}>
+  const renderQuickSelectItem = (
+    items: QuickSelectItem[],
+    span: number = 12
+  ) => {
+    const SelectItems = items.map((item) => (
+      <div key={item.value} style={{ padding: 4 }}>
+        <Text
+          link
+          onClick={() => {
+            setVisible(false);
+            URLStore.changeURLParams({
+              params: { from: `${item.value}` },
+              needDelete: ["from", "to"],
+            });
+          }}
+        >
           {item.title}
-        </Button>
-      ))
-
-      return <Col span={span}>{SelectItems}</Col>
-    }
-
-    const cls = this.timepickerCls
-
-    return (
-      <div className={cls}>
-        {/* Quick Select */}
-        <Divider>Quick Select</Divider>
-        <Row>
-          {renderQuickSelectItem(Hours)}
-          {renderQuickSelectItem(Days)}
-        </Row>
-
-        {/* Time Range */}
-        <Divider>Time Range</Divider>
-        <Row>
-          <RangePicker
-            className={`${cls}-range-picker`}
-            format={TIME_FORMAT}
-            showTime={true}
-          />
-        </Row>
-        <Row justify="center">
-          <Button type="primary">Apply Range</Button>
-        </Row>
+        </Text>
       </div>
-    )
-  }
+    ));
+    return <Col span={span}>{SelectItems}</Col>;
+  };
 
-  render() {
-    const timepicker = this.renderTimePicker()
-    const defaultBtn = this.renderDefaultBtn()
-
+  /**
+   * Render current selected time
+   */
+  function renderSelectedTime() {
     return (
-      <Popover
-        trigger="click"
-        placement="bottomRight"
-        content={timepicker}
-        overlayClassName={`${this.timepickerCls}-popover`}
-      >
-        {defaultBtn}
-      </Popover>
-    )
+      <Button icon={<IconClock />} onClick={() => setVisible(true)}>
+        {quick.title}
+      </Button>
+    );
   }
+
+  function renderTimeSelectPanel() {
+    return (
+      <div style={{ width: 200 }}>
+        <Title strong heading={6}>
+          <Input
+            placeholder="Search quick ranges"
+            onChange={(val: string) => {
+              const rs = _.filter(
+                quickSelectList,
+                (item: QuickSelectItem) => item.title.indexOf(val) >= 0
+              );
+              setQuickItems(rs);
+            }}
+          />
+        </Title>
+        <Row>{renderQuickSelectItem(quickItems)}</Row>
+      </div>
+    );
+  }
+
+  return (
+    <Popover
+      showArrow
+      visible={visible}
+      trigger="click"
+      position="bottom"
+      content={renderTimeSelectPanel()}
+    >
+      {renderSelectedTime()}
+    </Popover>
+  );
 }
