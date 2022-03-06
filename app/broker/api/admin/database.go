@@ -31,8 +31,7 @@ import (
 )
 
 var (
-	DatabasePath     = "/database"
-	ListDatabasePath = "/database/list"
+	DatabasePath = "/database"
 )
 
 // DatabaseAPI represents database admin rest api
@@ -53,7 +52,6 @@ func NewDatabaseAPI(deps *deps.HTTPDeps) *DatabaseAPI {
 func (d *DatabaseAPI) Register(route gin.IRoutes) {
 	route.POST(DatabasePath, d.Save)
 	route.GET(DatabasePath, d.GetByName)
-	route.GET(ListDatabasePath, d.List)
 }
 
 // GetByName gets a database config by the name.
@@ -131,37 +129,4 @@ func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
 	defer cancel()
 	d.logger.Info("Saving Database", logger.String("config", string(data)))
 	return d.deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data)
-}
-
-// List returns all database configs
-func (d *DatabaseAPI) List(c *gin.Context) {
-	dbs, err := d.ListDataBase()
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.OK(c, dbs)
-}
-
-func (d *DatabaseAPI) ListDataBase() ([]*models.Database, error) {
-	ctx, cancel := d.deps.WithTimeout()
-	defer cancel()
-
-	var result []*models.Database
-	data, err := d.deps.Repo.List(ctx, constants.DatabaseConfigPath)
-	if err != nil {
-		return result, err
-	}
-	for _, val := range data {
-		db := &models.Database{}
-		err = encoding.JSONUnmarshal(val.Value, db)
-		if err != nil {
-			d.logger.Warn("unmarshal data error",
-				logger.String("data", string(val.Value)))
-		} else {
-			db.Desc = db.String()
-			result = append(result, db)
-		}
-	}
-	return result, nil
 }

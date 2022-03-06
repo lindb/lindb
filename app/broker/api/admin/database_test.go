@@ -19,7 +19,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -126,41 +125,5 @@ func TestDatabaseAPI_GetByName(t *testing.T) {
 	// get ok
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte(`{"name":"xxx"}`), nil)
 	reps = mock.DoRequest(t, r, http.MethodGet, DatabasePath+"?name=xxx", "")
-	assert.Equal(t, http.StatusOK, reps.Code)
-
-}
-
-func TestDatabaseService_List(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	r := gin.New()
-	repo := state.NewMockRepository(ctrl)
-	api := NewDatabaseAPI(&deps.HTTPDeps{
-		Ctx:       context.Background(),
-		Repo:      repo,
-		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)}}},
-	})
-	api.Register(r)
-
-	// get error
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	reps := mock.DoRequest(t, r, http.MethodGet, ListDatabasePath, "")
-	assert.Equal(t, http.StatusInternalServerError, reps.Code)
-
-	// get ok
-	database := models.Database{
-		Name:          "test",
-		Storage:       "cluster-test",
-		NumOfShard:    12,
-		ReplicaFactor: 3,
-	}
-	database.Desc = database.String()
-	data := encoding.JSONMarshal(&database)
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
-		{Key: "db", Value: data},
-		{Key: "err", Value: []byte{1, 2, 4}},
-	}, nil)
-	reps = mock.DoRequest(t, r, http.MethodGet, ListDatabasePath, "")
 	assert.Equal(t, http.StatusOK, reps.Code)
 }

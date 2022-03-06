@@ -18,13 +18,18 @@
 package exec
 
 import (
+	"context"
 	"errors"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	httppkg "github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/logger"
 	sqlpkg "github.com/lindb/lindb/sql"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -40,11 +45,14 @@ var (
 
 type ExecuteAPI struct {
 	deps *deps.HTTPDeps
+
+	logger *logger.Logger
 }
 
 func NewExecuteAPI(deps *deps.HTTPDeps) *ExecuteAPI {
 	return &ExecuteAPI{
-		deps: deps,
+		deps:   deps,
+		logger: logger.GetLogger("broker", "ExecuteAPI"),
 	}
 }
 
@@ -58,6 +66,9 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 
 // Execute executes lin language.
 func (e *ExecuteAPI) Execute(c *gin.Context) {
+	ctx, cancel := e.deps.WithTimeout()
+	defer cancel()
+
 	var param struct {
 		Database string `form:"db"`
 		SQL      string `form:"sql" binding:"required"`
@@ -78,8 +89,14 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 	case *stmtpkg.State:
 		// execute state query
 		result = e.execStateQuery(s)
+	case *stmtpkg.Metadata:
+		result, err = e.execMetadataQuery(ctx, s)
 	default:
 		httppkg.Error(c, errors.New("can't parse lin language"))
+		return
+	}
+	if err != nil {
+		httppkg.Error(c, err)
 		return
 	}
 	if result == nil || reflect.ValueOf(result).IsNil() {
@@ -97,4 +114,35 @@ func (e *ExecuteAPI) execStateQuery(stateStmt *stmtpkg.State) interface{} {
 	default:
 		return nil
 	}
+}
+
+// execMetadataQuery executes the metadata query.
+func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, metadataStmt *stmtpkg.Metadata) (interface{}, error) {
+	switch metadataStmt.Type {
+	case stmtpkg.Database:
+		return e.listDataBase(ctx)
+	default:
+		return nil, nil
+	}
+}
+
+// listDataBase returns database list in cluster.
+func (e *ExecuteAPI) listDataBase(ctx context.Context) ([]*models.Database, error) {
+	var result []*models.Database
+	data, err := e.deps.Repo.List(ctx, constants.DatabaseConfigPath)
+	if err != nil {
+		return result, err
+	}
+	for _, val := range data {
+		db := &models.Database{}
+		err = encoding.JSONUnmarshal(val.Value, db)
+		if err != nil {
+			e.logger.Warn("unmarshal data error",
+				logger.String("data", string(val.Value)))
+		} else {
+			db.Desc = db.String()
+			result = append(result, db)
+		}
+	}
+	return result, nil
 }
