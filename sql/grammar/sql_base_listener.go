@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.9. DO NOT EDIT.
+// Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.9.2. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -48,6 +48,12 @@ func (s *BaseSQLListener) EnterStatementList(ctx *StatementListContext) {}
 
 // ExitStatementList is called when production statementList is exited.
 func (s *BaseSQLListener) ExitStatementList(ctx *StatementListContext) {}
+
+// EnterShowMasterStmt is called when production showMasterStmt is entered.
+func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
+
+// ExitShowMasterStmt is called when production showMasterStmt is exited.
+func (s *BaseSQLListener) ExitShowMasterStmt(ctx *ShowMasterStmtContext) {}
 
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
 func (s *BaseSQLListener) EnterShowDatabaseStmt(ctx *ShowDatabaseStmtContext) {}

@@ -25,7 +25,7 @@ import { Master, StateMetric, ReplicaState } from "@src/models";
  * @returns current master for broker cluster
  */
 export function getMaster() {
-  return GET<Master>(ApiPath.MasterState);
+  return GET<Master>(ApiPath.Exec, { sql: "show master" });
 }
 
 export function exploreNodeState(params: any) {
