@@ -19,9 +19,7 @@ package query
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -36,7 +34,6 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
@@ -108,17 +105,6 @@ func TestMetadataAPI_ShowDatabases(t *testing.T) {
 	)
 	r := gin.New()
 	api.Register(r)
-
-	// list error
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, io.ErrClosedPipe)
-	resp := mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?sql=show databases", "")
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
-	// list ok
-	data, _ := json.Marshal(models.Database{Name: "test1"})
-	mockRepo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "", Value: data}}, nil)
-	resp = mock.DoRequest(t, r, http.MethodGet, MetadataQueryPath+"?sql=show databases", "")
-	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestMetadataAPI_SuggestCommon(t *testing.T) {

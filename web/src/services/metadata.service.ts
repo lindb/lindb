@@ -36,7 +36,7 @@ export function createStorage(storage: Storage) {
  * @returns all database config list.
  */
 export function findDatabaseList() {
-  return GET<Database[]>(ApiPath.DatabaseList);
+  return GET<Database[]>(ApiPath.Exec, { sql: "show databases" });
 }
 
 export function metaExplore() {

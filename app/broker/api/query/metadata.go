@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -48,15 +47,13 @@ var errUnknownMetadataStmt = errors.New("unknown metadata statement")
 
 // MetadataAPI represents metadata query api
 type MetadataAPI struct {
-	deps         *deps.HTTPDeps
-	ListDataBase func() ([]*models.Database, error)
+	deps *deps.HTTPDeps
 }
 
 // NewMetadataAPI creates database api instance
 func NewMetadataAPI(deps *deps.HTTPDeps) *MetadataAPI {
 	return &MetadataAPI{
-		deps:         deps,
-		ListDataBase: admin.NewDatabaseAPI(deps).ListDataBase,
+		deps: deps,
 	}
 }
 
@@ -93,10 +90,6 @@ func (d *MetadataAPI) suggestWithLimit(c *gin.Context) error {
 		return err
 	}
 	switch metaQuery.Type {
-	case stmt.Database:
-		if err := d.showDatabases(c); err != nil {
-			return err
-		}
 	case stmt.Namespace, stmt.Metric, stmt.Field, stmt.TagKey, stmt.TagValue:
 		if param.Database == "" {
 			return errDatabaseNameRequired
@@ -107,23 +100,6 @@ func (d *MetadataAPI) suggestWithLimit(c *gin.Context) error {
 	default:
 		return errUnknownMetadataStmt
 	}
-	return nil
-}
-
-// showDatabases shows all database names
-func (d *MetadataAPI) showDatabases(c *gin.Context) error {
-	databases, err := d.ListDataBase()
-	if err != nil {
-		return err
-	}
-	var databaseNames []string
-	for _, db := range databases {
-		databaseNames = append(databaseNames, db.Name)
-	}
-	http.OK(c, &models.Metadata{
-		Type:   stmt.Database.String(),
-		Values: databaseNames,
-	})
 	return nil
 }
 
