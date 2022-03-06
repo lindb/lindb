@@ -69,10 +69,7 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 	ctx, cancel := e.deps.WithTimeout()
 	defer cancel()
 
-	var param struct {
-		Database string `form:"db"`
-		SQL      string `form:"sql" binding:"required"`
-	}
+	param := models.ExecuteParam{}
 	err := c.ShouldBind(&param)
 	if err != nil {
 		httppkg.Error(c, err)

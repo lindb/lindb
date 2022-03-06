@@ -53,3 +53,8 @@ func TestDatabase_String(t *testing.T) {
 func TestParseShardID(t *testing.T) {
 	assert.Equal(t, ShardID(1), ParseShardID("1"))
 }
+
+func TestDatabases_ToTable(t *testing.T) {
+	assert.Empty(t, Databases{}.ToTable())
+	assert.NotEmpty(t, Databases{{Name: "test"}}.ToTable())
+}

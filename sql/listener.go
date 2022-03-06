@@ -40,6 +40,11 @@ func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 	l.stateStmt = newStateStmtParse(stmt.Master)
 }
 
+// EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
+func (l *listener) EnterCreateDatabaseStmt(c *grammar.CreateDatabaseStmtContext) {
+	panic("need impl")
+}
+
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
 func (l *listener) EnterShowDatabaseStmt(_ *grammar.ShowDatabaseStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Database)
