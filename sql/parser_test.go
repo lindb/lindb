@@ -89,3 +89,9 @@ func BenchmarkSQLParse(b *testing.B) {
 			" and region='sh') and (path='/data' or path='/home')")
 	}
 }
+
+func TestShowMaster(t *testing.T) {
+	query, err := Parse("show master")
+	assert.NoError(t, err)
+	assert.IsType(t, query, &stmt.State{})
+}

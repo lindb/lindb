@@ -44,7 +44,7 @@ func newMetaStmtParser(metadataType stmt.MetadataType) *metaStmtParser {
 	}
 }
 
-// build builds the metadata statement
+// build the metadata statement
 func (s *metaStmtParser) build() (stmt.Statement, error) {
 	if s.err != nil {
 		return nil, s.err

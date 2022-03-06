@@ -4,7 +4,8 @@ grammar SQL;
 
 statement               : statementList EOF;
 
-statementList           : showDatabaseStmt
+statementList           : showMasterStmt
+                        | showDatabaseStmt
                         | showNameSpacesStmt
                         | showMetricsStmt
                         | showFieldsStmt
@@ -12,6 +13,7 @@ statementList           : showDatabaseStmt
                         | showTagValuesStmt
                         | queryStmt;
 //meta data query statement
+showMasterStmt       : T_SHOW T_MASTER ;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
 showMetricsStmt      : T_SHOW T_METRICS (T_ON namespace)? (T_WHERE T_METRIC T_EQUAL prefix)? limitClause?;
@@ -224,6 +226,7 @@ T_FUTURE_TTL         : F U T U R E T T L                ;
 T_KILL               : K I L L                          ;
 T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
+T_MASTER             : M A S T E R                      ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;
 T_NAMESPACE          : N A M E S P A C E                ;
