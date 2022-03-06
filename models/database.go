@@ -21,8 +21,28 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+
 	"github.com/lindb/lindb/pkg/option"
 )
+
+// Databases represents the database list.
+type Databases []Database
+
+// ToTable returns database list as table if it has value, else return empty string.
+func (dbs Databases) ToTable() string {
+	if len(dbs) == 0 {
+		return ""
+	}
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Database"})
+	for i := range dbs {
+		r := dbs[i]
+		writer.AppendRow(table.Row{r.Name})
+
+	}
+	return writer.Render()
+}
 
 // ShardID represents type for shard id.
 type ShardID int
