@@ -21,7 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/api/admin"
-	"github.com/lindb/lindb/app/broker/api/cluster"
+	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/metadata"
 	"github.com/lindb/lindb/app/broker/api/query"
@@ -32,7 +32,8 @@ import (
 
 // API represents broker http api.
 type API struct {
-	master          *cluster.MasterAPI
+	execute *exec.ExecuteAPI
+
 	database        *admin.DatabaseAPI
 	flusher         *admin.DatabaseFlusherAPI
 	storage         *admin.StorageClusterAPI
@@ -53,7 +54,7 @@ type API struct {
 // NewAPI creates broker http api.
 func NewAPI(deps *deps.HTTPDeps) *API {
 	return &API{
-		master:          cluster.NewMasterAPI(deps),
+		execute:         exec.NewExecuteAPI(deps),
 		database:        admin.NewDatabaseAPI(deps),
 		flusher:         admin.NewDatabaseFlusherAPI(deps),
 		storage:         admin.NewStorageClusterAPI(deps),
@@ -74,7 +75,8 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	api.master.Register(router)
+	api.execute.Register(router)
+
 	api.database.Register(router)
 	api.flusher.Register(router)
 	api.storage.Register(router)

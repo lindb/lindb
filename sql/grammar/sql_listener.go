@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.9. DO NOT EDIT.
+// Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.9.2. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -29,6 +29,9 @@ type SQLListener interface {
 
 	// EnterStatementList is called when entering the statementList production.
 	EnterStatementList(c *StatementListContext)
+
+	// EnterShowMasterStmt is called when entering the showMasterStmt production.
+	EnterShowMasterStmt(c *ShowMasterStmtContext)
 
 	// EnterShowDatabaseStmt is called when entering the showDatabaseStmt production.
 	EnterShowDatabaseStmt(c *ShowDatabaseStmtContext)
@@ -194,6 +197,9 @@ type SQLListener interface {
 
 	// ExitStatementList is called when exiting the statementList production.
 	ExitStatementList(c *StatementListContext)
+
+	// ExitShowMasterStmt is called when exiting the showMasterStmt production.
+	ExitShowMasterStmt(c *ShowMasterStmtContext)
 
 	// ExitShowDatabaseStmt is called when exiting the showDatabaseStmt production.
 	ExitShowDatabaseStmt(c *ShowDatabaseStmtContext)

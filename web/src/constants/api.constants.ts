@@ -29,4 +29,5 @@ export enum ApiPath {
   MetaExplore = "/metadata/explore",
   RepoExplore = "/metadata/explore/repo",
   Proxy = "/proxy",
+  Exec = "/exec",
 }

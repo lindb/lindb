@@ -24,9 +24,10 @@ import (
 
 type listener struct {
 	*grammar.BaseSQLListener
-	stmt *queryStmtParse
 
-	metaStmt *metaStmtParser
+	stmt      *queryStmtParse
+	stateStmt *stateStmtParse
+	metaStmt  *metaStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -34,33 +35,38 @@ func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
 	l.stmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
 }
 
+// EnterShowMasterStmt is called when production showMasterStmt is entered.
+func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.Master)
+}
+
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
-func (l *listener) EnterShowDatabaseStmt(ctx *grammar.ShowDatabaseStmtContext) {
+func (l *listener) EnterShowDatabaseStmt(_ *grammar.ShowDatabaseStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Database)
 }
 
 // EnterShowNameSpacesStmt is called when production showNameSpacesStmt is entered.
-func (l *listener) EnterShowNameSpacesStmt(ctx *grammar.ShowNameSpacesStmtContext) {
+func (l *listener) EnterShowNameSpacesStmt(_ *grammar.ShowNameSpacesStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Namespace)
 }
 
 // EnterShowMetricsStmt is called when production showMetricsStmt is entered.
-func (l *listener) EnterShowMetricsStmt(ctx *grammar.ShowMetricsStmtContext) {
+func (l *listener) EnterShowMetricsStmt(_ *grammar.ShowMetricsStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Metric)
 }
 
 // EnterShowFieldsStmt is called when production showFieldsStmt is entered.
-func (l *listener) EnterShowFieldsStmt(ctx *grammar.ShowFieldsStmtContext) {
+func (l *listener) EnterShowFieldsStmt(_ *grammar.ShowFieldsStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.Field)
 }
 
 // EnterShowTagKeysStmt is called when production showTagKeysStmt is entered.
-func (l *listener) EnterShowTagKeysStmt(ctx *grammar.ShowTagKeysStmtContext) {
+func (l *listener) EnterShowTagKeysStmt(_ *grammar.ShowTagKeysStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.TagKey)
 }
 
 // EnterShowTagValuesStmt is called when production showTagValuesStmt is entered.
-func (l *listener) EnterShowTagValuesStmt(ctx *grammar.ShowTagValuesStmtContext) {
+func (l *listener) EnterShowTagValuesStmt(_ *grammar.ShowTagValuesStmtContext) {
 	l.metaStmt = newMetaStmtParser(stmt.TagValue)
 }
 
@@ -99,14 +105,14 @@ func (l *listener) EnterMetricName(ctx *grammar.MetricNameContext) {
 }
 
 // EnterSelectExpr is called when production selectExpr is entered.
-func (l *listener) EnterSelectExpr(ctx *grammar.SelectExprContext) {
+func (l *listener) EnterSelectExpr(_ *grammar.SelectExprContext) {
 	if l.stmt != nil {
 		l.stmt.resetExprStack()
 	}
 }
 
 // EnterWhereClause is called when production whereClause is entered.
-func (l *listener) EnterWhereClause(ctx *grammar.WhereClauseContext) {
+func (l *listener) EnterWhereClause(_ *grammar.WhereClauseContext) {
 	if l.stmt != nil {
 		l.stmt.resetExprStack()
 	}
@@ -134,7 +140,7 @@ func (l *listener) EnterFuncName(ctx *grammar.FuncNameContext) {
 }
 
 // ExitExprFunc is called when production exprFunc is exited.
-func (l *listener) ExitExprFunc(ctx *grammar.ExprFuncContext) {
+func (l *listener) ExitExprFunc(_ *grammar.ExprFuncContext) {
 	if l.stmt != nil {
 		l.stmt.completeFuncExpr()
 	}
@@ -175,7 +181,7 @@ func (l *listener) EnterTagFilterExpr(ctx *grammar.TagFilterExprContext) {
 }
 
 // ExitTagFilterExpr is called when production tagValueList is exited.
-func (l *listener) ExitTagFilterExpr(ctx *grammar.TagFilterExprContext) {
+func (l *listener) ExitTagFilterExpr(_ *grammar.TagFilterExprContext) {
 	switch {
 	case l.stmt != nil:
 		l.stmt.completeTagFilterExpr()
@@ -201,7 +207,7 @@ func (l *listener) EnterTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
 	}
 }
 
-// EnterGroupByClause is called when production groupByClause is entered.
+// EnterGroupByKey is called when production groupByClause is entered.
 func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
 	if l.stmt != nil {
 		l.stmt.visitGroupByKey(ctx)
@@ -210,10 +216,14 @@ func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
 
 // statement returns query statement, if failure return error
 func (l *listener) statement() (stmt.Statement, error) {
-	if l.stmt != nil {
+	switch {
+	case l.stmt != nil:
 		return l.stmt.build()
-	} else if l.metaStmt != nil {
+	case l.metaStmt != nil:
 		return l.metaStmt.build()
+	case l.stateStmt != nil:
+		return l.stateStmt.build()
+	default:
+		return nil, nil
 	}
-	return nil, nil
 }

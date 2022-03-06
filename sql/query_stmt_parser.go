@@ -63,7 +63,7 @@ func newQueryStmtParse(explain bool) *queryStmtParse {
 	}
 }
 
-// build builds query statement based on parse result
+// build query statement based on parse result
 func (q *queryStmtParse) build() (stmt.Statement, error) {
 	if err := q.validation(); err != nil {
 		return nil, err
