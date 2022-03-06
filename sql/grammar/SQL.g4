@@ -5,6 +5,7 @@ grammar SQL;
 statement               : statementList EOF;
 
 statementList           : showMasterStmt
+                        | createDatabaseStmt
                         | showDatabaseStmt
                         | showNameSpacesStmt
                         | showMetricsStmt
@@ -14,6 +15,7 @@ statementList           : showMasterStmt
                         | queryStmt;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
+createDatabaseStmt   : T_CREATE T_DATASBAE json;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
 showMetricsStmt      : T_SHOW T_METRICS (T_ON namespace)? (T_WHERE T_METRIC T_EQUAL prefix)? limitClause?;
@@ -119,6 +121,34 @@ exprAtom                :
                          | intNumber
                          ;
 identFilter             : T_OPEN_SB tagFilterExpr T_CLOSE_SB ;
+json
+   : value
+   ;
+
+obj
+   : '{' pair (',' pair)* '}'
+   | '{' '}'
+   ;
+
+pair
+   : STRING ':' value
+   ;
+
+arr
+   : '[' value (',' value)* ']'
+   | '[' ']'
+   ;
+
+value
+   : STRING
+   | intNumber
+   | decNumber
+   | obj
+   | arr
+   | 'true'
+   | 'false'
+   | 'null'
+   ;
 
 // Integer (positive or negative)
 intNumber               : ('-' | '+')? L_INT ;
@@ -129,7 +159,6 @@ metricName              : ident ;
 tagKey                  : ident ;
 tagValue                : ident ;
 ident                    :  (L_ID | nonReservedWords) ('.' (L_ID | nonReservedWords))* ;
-
 
 nonReservedWords      :
                           T_CREATE
@@ -209,6 +238,34 @@ nonReservedWords      :
                         | T_MONTH
                         | T_YEAR
                         ;
+
+STRING
+   : '"' (ESC | SAFECODEPOINT)* '"'
+   ;
+
+fragment ESC
+   : '\\' (["\\/bfnrt] | UNICODE)
+   ;
+fragment UNICODE
+   : 'u' HEX HEX HEX HEX
+   ;
+fragment HEX
+   : [0-9a-fA-F]
+   ;
+fragment SAFECODEPOINT
+   : ~ ["\\\u0000-\u001F]
+   ;
+
+// no leading zeros
+
+fragment EXP
+   : [Ee] [+\-]? L_INT
+   ;
+
+// \- since - means "range" inside [...]
+WS
+   : [ \t\n\r] + -> skip
+   ;
 
 // Lexer rules
 T_CREATE             : C R E A T E                      ;
@@ -319,11 +376,10 @@ T_MUL                :  '*'   ;
 T_MOD                :  '%'   ;
 
 L_ID                 : L_ID_PART ;
-L_INT                : L_DIGIT+       ;                                               // Integer
+L_INT                : L_DIGIT+;                                               // Integer
 L_DEC                : L_DIGIT+ '.' ~'.' L_DIGIT*                               // Decimal number
                      | '.' L_DIGIT+
                      ;
-WS                   : BLANK+ -> skip ;                                        //Whitespace
 
 fragment BLANK       : [ \t\r\n]      ;
 fragment L_DIGIT     : [0-9] ;

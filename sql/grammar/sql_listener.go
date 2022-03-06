@@ -33,6 +33,9 @@ type SQLListener interface {
 	// EnterShowMasterStmt is called when entering the showMasterStmt production.
 	EnterShowMasterStmt(c *ShowMasterStmtContext)
 
+	// EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
+	EnterCreateDatabaseStmt(c *CreateDatabaseStmtContext)
+
 	// EnterShowDatabaseStmt is called when entering the showDatabaseStmt production.
 	EnterShowDatabaseStmt(c *ShowDatabaseStmtContext)
 
@@ -168,6 +171,21 @@ type SQLListener interface {
 	// EnterIdentFilter is called when entering the identFilter production.
 	EnterIdentFilter(c *IdentFilterContext)
 
+	// EnterJson is called when entering the json production.
+	EnterJson(c *JsonContext)
+
+	// EnterObj is called when entering the obj production.
+	EnterObj(c *ObjContext)
+
+	// EnterPair is called when entering the pair production.
+	EnterPair(c *PairContext)
+
+	// EnterArr is called when entering the arr production.
+	EnterArr(c *ArrContext)
+
+	// EnterValue is called when entering the value production.
+	EnterValue(c *ValueContext)
+
 	// EnterIntNumber is called when entering the intNumber production.
 	EnterIntNumber(c *IntNumberContext)
 
@@ -200,6 +218,9 @@ type SQLListener interface {
 
 	// ExitShowMasterStmt is called when exiting the showMasterStmt production.
 	ExitShowMasterStmt(c *ShowMasterStmtContext)
+
+	// ExitCreateDatabaseStmt is called when exiting the createDatabaseStmt production.
+	ExitCreateDatabaseStmt(c *CreateDatabaseStmtContext)
 
 	// ExitShowDatabaseStmt is called when exiting the showDatabaseStmt production.
 	ExitShowDatabaseStmt(c *ShowDatabaseStmtContext)
@@ -335,6 +356,21 @@ type SQLListener interface {
 
 	// ExitIdentFilter is called when exiting the identFilter production.
 	ExitIdentFilter(c *IdentFilterContext)
+
+	// ExitJson is called when exiting the json production.
+	ExitJson(c *JsonContext)
+
+	// ExitObj is called when exiting the obj production.
+	ExitObj(c *ObjContext)
+
+	// ExitPair is called when exiting the pair production.
+	ExitPair(c *PairContext)
+
+	// ExitArr is called when exiting the arr production.
+	ExitArr(c *ArrContext)
+
+	// ExitValue is called when exiting the value production.
+	ExitValue(c *ValueContext)
 
 	// ExitIntNumber is called when exiting the intNumber production.
 	ExitIntNumber(c *IntNumberContext)

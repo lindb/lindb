@@ -173,7 +173,8 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	q, _ := sql.Parse("select (f1+f2)*100 as f from cpu")
+	q, err := sql.Parse("select (f1+f2)*100 as f from cpu")
+	assert.NoError(t, err)
 	query := q.(*stmt.Query)
 	expression := aggregation.NewExpression(timeutil.TimeRange{
 		Start: now,

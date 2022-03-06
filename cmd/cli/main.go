@@ -20,94 +20,149 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
-	"time"
-
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/ltoml"
+	"regexp"
+	"strings"
 
 	"github.com/c-bata/go-prompt"
-	etcdcliv3 "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc"
+	"github.com/fatih/color"
+
+	"github.com/lindb/lindb/internal/client"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 var (
-	cfgPath        string
-	brokerEndpoint string
-	cfg            coordinatorCfg
-	etcdClient     *etcdcliv3.Client
+	endpoint string
+	tokens   = []prompt.Suggest{
+		{Text: "show"},
+		{Text: "use"},
+		{Text: "master"},
+		{Text: "database"},
+		{Text: "databases"},
+		{Text: "group by"},
+		{Text: "select"},
+		{Text: "from"},
+		{Text: "where"},
+		{Text: "namespaces"},
+		{Text: "namespace"},
+		{Text: "metrics"},
+		{Text: "metric"},
+		{Text: "fields"},
+		{Text: "tag"},
+		{Text: "with"},
+		{Text: "keys"},
+		{Text: "key"},
+		{Text: "values"},
+		{Text: "and"},
+	}
+	spaces = regexp.MustCompile(`\s+`)
 )
 
-type coordinatorCfg struct {
-	Coordinator config.RepoState `toml:"coordinator"`
-}
-
 func init() {
-	flag.StringVar(&brokerEndpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
-	flag.StringVar(&cfgPath, "config", "broker.toml", "Use either toml config of broker or storage")
+	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
 }
 
 const (
-	createDatabaseSuggest = "create database"
-	showDatabaseSuggest   = "show databases"
-	etcdSuggest           = "etcd"
+	HTTPScheme = "http://"
 )
 
-func completer(d prompt.Document) []prompt.Suggest {
-	s := []prompt.Suggest{
-		{Text: "create database", Description: "Creates the database for LinDB"},
-		{Text: "show databases", Description: "Lists all databases of LinDB"},
-		{Text: "etcd", Description: "Show meta data stored in ETCD"},
-	}
-	return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
-}
-
-func parseConfig() error {
-	if cfgPath == "" {
-		return fmt.Errorf("config path is empty")
-	}
-	if err := ltoml.LoadConfig(cfgPath, "", &cfg); err != nil {
-		return fmt.Errorf("decode config file error: %s", err)
-	}
-	etcdCfg := etcdcliv3.Config{
-		Endpoints:            cfg.Coordinator.Endpoints,
-		DialTimeout:          time.Second * 5,
-		DialKeepAliveTime:    time.Second * 5,
-		DialKeepAliveTimeout: time.Second * 5,
-		DialOptions:          []grpc.DialOption{grpc.WithBlock()},
-		Username:             cfg.Coordinator.Username,
-		Password:             cfg.Coordinator.Password,
-	}
-	var err error
-	etcdClient, err = etcdcliv3.New(etcdCfg)
-	if err != nil {
-		return fmt.Errorf("create etcd client error: %s", err)
-	}
-	return nil
+func printErr(err error) {
+	fmt.Println(color.RedString("ERROR:%s", err))
 }
 
 func main() {
 	flag.Parse()
-	if err := parseConfig(); err != nil {
-		_, _ = fmt.Fprint(os.Stderr, err)
-		os.Exit(1)
+	var history []string
+
+	if !strings.HasPrefix(endpoint, HTTPScheme) {
+		endpoint = fmt.Sprintf("%s%s", HTTPScheme, endpoint)
+	}
+	endpointUrl, err := url.Parse(endpoint)
+	if err != nil {
+		printErr(err)
+		return
 	}
 
-	fmt.Println("Please select a Command ")
-	chosen := prompt.Input("> ", completer)
-	switch chosen {
-	case createDatabaseSuggest:
-		createDatabase()
-	case showDatabaseSuggest:
-	case etcdSuggest:
-		etcdCtx = &etcdContext{path: []string{cfg.Coordinator.Namespace}}
-		p := prompt.New(
-			etcdExecutor,
-			etcdCompleter,
-			prompt.OptionPrefix("[ETCD] >> "),
-			prompt.OptionLivePrefix(etcdLivePrefix),
-			prompt.OptionTitle("etcd-prompt"),
-		)
-		p.Run()
+	apiEndpoint := fmt.Sprintf("%s/api", endpoint)
+	cli := client.NewExecuteCli(apiEndpoint)
+
+	// first retry connect and get master state
+	master := &models.Master{}
+	err = cli.Execute(models.ExecuteParam{SQL: "show master"}, &master)
+	if err != nil || master.Node == nil {
+		printErr(err)
+		return
 	}
+	fmt.Println("Welcome to the LinDB.")
+	fmt.Printf("Server version: %s\n", master.Node.Version)
+
+	defer func() {
+		fmt.Println("Good Bye :)")
+	}()
+	p := prompt.New(
+		func(in string) {
+			in = strings.TrimSpace(in)
+			history = append(history, in)
+			blocks := strings.Split(spaces.ReplaceAllString(in, " "), " ")
+			switch blocks[0] {
+			case "exit":
+				os.Exit(0)
+			default:
+				stmt, err := sql.Parse(in)
+				if err != nil {
+					printErr(err)
+					return
+				}
+				var result interface{}
+				switch s := stmt.(type) {
+				case *stmtpkg.State:
+					// execute state query
+					if s.Type == stmtpkg.Master {
+						result = &models.Master{}
+					}
+				case *stmtpkg.Metadata:
+					if s.Type == stmtpkg.Database {
+						result = &models.Databases{}
+					}
+				}
+				rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: in}, result)
+				if err != nil {
+					printErr(err)
+					return
+				}
+				fmt.Println(rs)
+			}
+		},
+		func(d prompt.Document) []prompt.Suggest {
+			bc := d.TextBeforeCursor()
+			if bc == "" {
+				return nil
+			}
+			args := strings.Split(spaces.ReplaceAllString(bc, " "), " ")
+			cmdName := args[len(args)-1]
+			return prompt.FilterHasPrefix(tokens, cmdName, true)
+		},
+		prompt.OptionLivePrefix(func() (prefix string, useLivePrefix bool) {
+			return fmt.Sprintf("lin@%s> ", endpointUrl.Host), true
+		}),
+		prompt.OptionHistory(history),
+
+		prompt.OptionPrefixTextColor(prompt.DarkGreen),
+		prompt.OptionInputTextColor(prompt.DarkBlue),
+
+		prompt.OptionSuggestionBGColor(prompt.LightGray),
+		prompt.OptionSuggestionTextColor(prompt.Black),
+		prompt.OptionDescriptionBGColor(prompt.White),
+		prompt.OptionDescriptionTextColor(prompt.Black),
+
+		prompt.OptionSelectedSuggestionBGColor(prompt.DarkBlue),
+		prompt.OptionSelectedSuggestionTextColor(prompt.Black),
+		prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
+		prompt.OptionSelectedDescriptionTextColor(prompt.Black),
+	)
+
+	p.Run()
 }

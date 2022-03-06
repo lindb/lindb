@@ -55,6 +55,12 @@ func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
 // ExitShowMasterStmt is called when production showMasterStmt is exited.
 func (s *BaseSQLListener) ExitShowMasterStmt(ctx *ShowMasterStmtContext) {}
 
+// EnterCreateDatabaseStmt is called when production createDatabaseStmt is entered.
+func (s *BaseSQLListener) EnterCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) {}
+
+// ExitCreateDatabaseStmt is called when production createDatabaseStmt is exited.
+func (s *BaseSQLListener) ExitCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) {}
+
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
 func (s *BaseSQLListener) EnterShowDatabaseStmt(ctx *ShowDatabaseStmtContext) {}
 
@@ -324,6 +330,36 @@ func (s *BaseSQLListener) EnterIdentFilter(ctx *IdentFilterContext) {}
 
 // ExitIdentFilter is called when production identFilter is exited.
 func (s *BaseSQLListener) ExitIdentFilter(ctx *IdentFilterContext) {}
+
+// EnterJson is called when production json is entered.
+func (s *BaseSQLListener) EnterJson(ctx *JsonContext) {}
+
+// ExitJson is called when production json is exited.
+func (s *BaseSQLListener) ExitJson(ctx *JsonContext) {}
+
+// EnterObj is called when production obj is entered.
+func (s *BaseSQLListener) EnterObj(ctx *ObjContext) {}
+
+// ExitObj is called when production obj is exited.
+func (s *BaseSQLListener) ExitObj(ctx *ObjContext) {}
+
+// EnterPair is called when production pair is entered.
+func (s *BaseSQLListener) EnterPair(ctx *PairContext) {}
+
+// ExitPair is called when production pair is exited.
+func (s *BaseSQLListener) ExitPair(ctx *PairContext) {}
+
+// EnterArr is called when production arr is entered.
+func (s *BaseSQLListener) EnterArr(ctx *ArrContext) {}
+
+// ExitArr is called when production arr is exited.
+func (s *BaseSQLListener) ExitArr(ctx *ArrContext) {}
+
+// EnterValue is called when production value is entered.
+func (s *BaseSQLListener) EnterValue(ctx *ValueContext) {}
+
+// ExitValue is called when production value is exited.
+func (s *BaseSQLListener) ExitValue(ctx *ValueContext) {}
 
 // EnterIntNumber is called when production intNumber is entered.
 func (s *BaseSQLListener) EnterIntNumber(ctx *IntNumberContext) {}
