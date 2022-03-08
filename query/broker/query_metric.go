@@ -147,6 +147,7 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 	//TODO merge stats for cross idc query?
 	groupByKeys := mq.stmtQuery.GroupBy
 	groupByKeysLength := len(groupByKeys)
+	fieldsMap := make(map[string]struct{})
 	for _, ts := range event.SeriesList {
 		var tags map[string]string
 		if groupByKeysLength > 0 {
@@ -176,11 +177,16 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 				points.AddPoint(timeutil.CalcTimestamp(mq.stmtQuery.TimeRange.Start, slot, mq.stmtQuery.Interval), val)
 			}
 			timeSeries.AddField(fieldName, points)
+			fieldsMap[fieldName] = struct{}{}
 		}
 		mq.expression.Reset()
 	}
 
 	resultSet.MetricName = mq.stmtQuery.MetricName
+	resultSet.GroupBy = mq.stmtQuery.GroupBy
+	for fName := range fieldsMap {
+		resultSet.Fields = append(resultSet.Fields, fName)
+	}
 	resultSet.StartTime = mq.stmtQuery.TimeRange.Start
 	resultSet.EndTime = mq.stmtQuery.TimeRange.End
 	resultSet.Interval = mq.stmtQuery.Interval.Int64()
