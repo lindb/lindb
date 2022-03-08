@@ -99,9 +99,6 @@ func main() {
 	fmt.Println("Welcome to the LinDB.")
 	fmt.Printf("Server version: %s\n", master.Node.Version)
 
-	defer func() {
-		fmt.Println("Good Bye :)")
-	}()
 	p := prompt.New(
 		func(in string) {
 			in = strings.TrimSpace(in)
@@ -109,6 +106,7 @@ func main() {
 			blocks := strings.Split(spaces.ReplaceAllString(in, " "), " ")
 			switch blocks[0] {
 			case "exit":
+				fmt.Println("Good Bye :)")
 				os.Exit(0)
 			default:
 				stmt, err := sql.Parse(in)
@@ -133,6 +131,7 @@ func main() {
 					printErr(err)
 					return
 				}
+				// print result in terminal
 				fmt.Println(rs)
 			}
 		},

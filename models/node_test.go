@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestNode_Indicator(t *testing.T) {
@@ -55,4 +57,11 @@ func TestNode_ParseNode(t *testing.T) {
 
 	_, err = ParseNode(":123")
 	assert.Error(t, err)
+}
+
+func TestMaster_ToTable(t *testing.T) {
+	assert.NotEmpty(t, (&Master{
+		Node:      &StatelessNode{},
+		ElectTime: timeutil.Now(),
+	}).ToTable())
 }

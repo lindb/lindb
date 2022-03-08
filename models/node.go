@@ -22,6 +22,10 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // NodeID represents node identifier.
@@ -96,4 +100,17 @@ func ParseNode(indicator string) (Node, error) {
 type Master struct {
 	Node      *StatelessNode `json:"node"`
 	ElectTime int64          `json:"electTime"`
+}
+
+// ToTable returns master info as table.
+func (m *Master) ToTable() string {
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Desc", "Value"})
+	writer.AppendRow(table.Row{"Elect Time", timeutil.FormatTimestamp(m.ElectTime, timeutil.DataTimeFormat2)})
+	writer.AppendRow(table.Row{"Online Time", timeutil.FormatTimestamp(m.Node.OnlineTime, timeutil.DataTimeFormat2)})
+	writer.AppendRow(table.Row{"Host IP", m.Node.HostIP})
+	writer.AppendRow(table.Row{"Host Name", m.Node.HostName})
+	writer.AppendRow(table.Row{"HTTP Port", m.Node.HTTPPort})
+	writer.AppendRow(table.Row{"GRPC Port", m.Node.GRPCPort})
+	return writer.Render()
 }
