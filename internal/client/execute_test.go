@@ -25,6 +25,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -133,6 +134,18 @@ func TestExecuteCli_ExecuteAsResult(t *testing.T) {
 			},
 			assert: func(rs string) {
 				assert.True(t, strings.Contains(rs, models.Databases{{Name: "test"}}.ToTable()))
+			},
+			wantErr: false,
+		},
+		{
+			name: "object format as table",
+			rs:   &models.Master{},
+			prepare: func(rw http.ResponseWriter) {
+				rw.WriteHeader(http.StatusOK)
+				_, _ = rw.Write(encoding.JSONMarshal(&models.Master{ElectTime: timeutil.Now(), Node: &models.StatelessNode{}}))
+			},
+			assert: func(rs string) {
+				assert.True(t, strings.Contains(rs, "1 row"))
 			},
 			wantErr: false,
 		},
