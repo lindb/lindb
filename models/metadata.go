@@ -17,10 +17,31 @@
 
 package models
 
+import (
+	"github.com/jedib0t/go-pretty/v6/table"
+
+	"github.com/lindb/lindb/sql/stmt"
+)
+
 // Metadata represents metadata query result model
 type Metadata struct {
 	Type   string      `json:"type"`
 	Values interface{} `json:"values"`
+}
+
+func (m *Metadata) ToTable() (int, string) {
+	switch m.Type {
+	case stmt.Database.String():
+		writer := NewTableFormatter()
+		writer.AppendHeader(table.Row{"Database"})
+		dbs := m.Values.([]interface{})
+		for i := range dbs {
+			writer.AppendRow(table.Row{dbs[i]})
+		}
+		return len(dbs), writer.Render()
+	default:
+		return 0, ""
+	}
 }
 
 // Field represents field metadata

@@ -123,7 +123,7 @@ func main() {
 					}
 				case *stmtpkg.Metadata:
 					if s.Type == stmtpkg.Database {
-						result = &models.Databases{}
+						result = &models.Metadata{}
 					}
 				}
 				rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: in}, result)

@@ -30,9 +30,9 @@ import (
 type Databases []Database
 
 // ToTable returns database list as table if it has value, else return empty string.
-func (dbs Databases) ToTable() string {
+func (dbs Databases) ToTable() (int, string) {
 	if len(dbs) == 0 {
-		return ""
+		return 0, ""
 	}
 	writer := NewTableFormatter()
 	writer.AppendHeader(table.Row{"Database"})
@@ -41,7 +41,7 @@ func (dbs Databases) ToTable() string {
 		writer.AppendRow(table.Row{r.Name})
 
 	}
-	return writer.Render()
+	return len(dbs), writer.Render()
 }
 
 // ShardID represents type for shard id.

@@ -103,7 +103,7 @@ type Master struct {
 }
 
 // ToTable returns master info as table.
-func (m *Master) ToTable() string {
+func (m *Master) ToTable() (int, string) {
 	writer := NewTableFormatter()
 	writer.AppendHeader(table.Row{"Desc", "Value"})
 	writer.AppendRow(table.Row{"Elect Time", timeutil.FormatTimestamp(m.ElectTime, timeutil.DataTimeFormat2)})
@@ -112,5 +112,5 @@ func (m *Master) ToTable() string {
 	writer.AppendRow(table.Row{"Host Name", m.Node.HostName})
 	writer.AppendRow(table.Row{"HTTP Port", m.Node.HTTPPort})
 	writer.AppendRow(table.Row{"GRPC Port", m.Node.GRPCPort})
-	return writer.Render()
+	return 1, writer.Render()
 }
