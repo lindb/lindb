@@ -16,12 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartStatus, ChartConfig, Target, ResultSet } from "@src/models";
-import { makeObservable, observable, action, reaction, toJS } from "mobx";
+import { ChartConfig, ChartStatus, ResultSet, Target } from "@src/models";
+import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
-import { queryMetric } from "@src/services";
 import { buildLineChart } from "@src/utils";
 import * as _ from "lodash-es";
+import { action, makeObservable, observable, reaction } from "mobx";
 
 class ChartStore {
   chartStatusMap: Map<string, ChartStatus> = new Map<string, ChartStatus>(); // observe chart status
@@ -97,7 +97,7 @@ class ChartStore {
     const chart = this.charts.get(chartUniqueId);
     // console.log("chart", toJS(chart));
     _.get(chart, "targets", []).forEach((target: Target, _index: number) => {
-      queryMetric({
+      exec<ResultSet>({
         db: target!.db,
         sql: this.buildQL(target.ql, _.get(target, "watch", [])),
       })

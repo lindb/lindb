@@ -20,3 +20,4 @@ export * from "@src/services/metadata.service";
 export * from "@src/services/state.service";
 export * from "@src/services/query.service";
 export * from "@src/services/proxy.service";
+export * from "@src/services/exec.service";

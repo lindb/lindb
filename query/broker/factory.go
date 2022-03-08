@@ -42,7 +42,7 @@ func NewQueryFactory(
 func (qh *queryFactory) NewMetricQuery(
 	ctx context.Context,
 	databaseName string,
-	sql string,
+	sql *stmt.Query,
 ) MetricQuery {
 	return newMetricQuery(ctx, databaseName, sql, qh)
 }

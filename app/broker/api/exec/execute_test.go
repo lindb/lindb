@@ -32,26 +32,39 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
+	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/sql"
 )
 
-func TestExecuteAPI_show_master(t *testing.T) {
+func TestExecuteAPI_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	// prepare
+	repo := state.NewMockRepository(ctrl)
 	master := coordinator.NewMockMasterController(ctrl)
+	queryFactory := brokerQuery.NewMockFactory(ctrl)
 	api := NewExecuteAPI(&deps.HTTPDeps{
-		Ctx:    context.Background(),
-		Master: master,
+		Ctx:          context.Background(),
+		Repo:         repo,
+		Master:       master,
+		QueryFactory: queryFactory,
 		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
 			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)},
 		}},
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metric_data_search"),
+		),
 	})
 	r := gin.New()
 	api.Register(r)
@@ -102,6 +115,69 @@ func TestExecuteAPI_show_master(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
+		{
+			name:    "get database list err",
+			reqBody: `{"sql":"show databases"}`,
+			prepare: func() {
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "get database successfully, with one wrong data",
+			reqBody: `{"sql":"show databases"}`,
+			prepare: func() {
+				// get ok
+				database := models.Database{
+					Name:          "test",
+					Storage:       "cluster-test",
+					NumOfShard:    12,
+					ReplicaFactor: 3,
+				}
+				database.Desc = database.String()
+				data := encoding.JSONMarshal(&database)
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+					{Key: "db", Value: data},
+					{Key: "err", Value: []byte{1, 2, 4}},
+				}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "database name cannot be empty when query metric",
+			reqBody: `{"sql":"select f from cpu"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "query metric failure",
+			reqBody: `{"sql":"select f from mem","db":"test"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
+				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return(nil, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "query metric successfully",
+			reqBody: `{"sql":"select f from mem","db":"test"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
+				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return(&models.ResultSet{}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
 	}
 
 	for _, tt := range cases {
@@ -134,6 +210,12 @@ func TestExecuteAPI_show_databases(t *testing.T) {
 		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
 			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)},
 		}},
+		QueryLimiter: concurrent.NewLimiter(
+			context.TODO(),
+			2,
+			time.Second*5,
+			linmetric.NewScope("metric_data_search"),
+		),
 	})
 	r := gin.New()
 	api.Register(r)

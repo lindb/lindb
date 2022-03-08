@@ -49,7 +49,7 @@ func NewExecuteCli(endpoint string) *ExecuteCli {
 func (cli *ExecuteCli) Execute(param models.ExecuteParam, rs interface{}) error {
 	// send request
 	resp, err := cli.cli.R().
-		SetBody(param).
+		SetBody(&param).
 		SetHeader("Accept", "application/json").
 		Put(exec.ExecutePath)
 	if err != nil {

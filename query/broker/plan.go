@@ -21,13 +21,11 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
-	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
 // brokerPlan represents the broker execute plan
 type brokerPlan struct {
-	sql               string
 	query             *stmt.Query
 	storageNodes      map[string][]models.ShardID
 	currentBrokerNode models.StatelessNode
@@ -40,14 +38,14 @@ type brokerPlan struct {
 
 // newBrokerPlan creates broker execute plan
 func newBrokerPlan(
-	sql string,
+	query *stmt.Query,
 	databaseCfg models.Database,
 	storageNodes map[string][]models.ShardID,
 	currentBrokerNode models.StatelessNode,
 	brokerNodes []models.StatelessNode,
 ) *brokerPlan {
 	return &brokerPlan{
-		sql:               sql,
+		query:             query,
 		databaseCfg:       databaseCfg,
 		storageNodes:      storageNodes,
 		currentBrokerNode: currentBrokerNode,
@@ -67,13 +65,6 @@ func (p *brokerPlan) Plan() error {
 	if lenOfStorageNodes == 0 {
 		return query.ErrNoAvailableStorageNode
 	}
-
-	qry, err := sql.Parse(p.sql)
-	if err != nil {
-		return err
-	}
-	// set query statement
-	p.query = qry.(*stmt.Query)
 
 	if p.query.Interval <= 0 {
 		//TODO need get by time range

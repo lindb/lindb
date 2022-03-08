@@ -15,23 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package sql
+package stmt
 
-import "github.com/lindb/lindb/sql/stmt"
-
-// stateStmtParser represents show state statement parser.
-type stateStmtParser struct {
-	stateType stmt.StateType
-}
-
-// newStateStmtParse creates a show state statement parser.
-func newStateStmtParse(stateType stmt.StateType) *stateStmtParser {
-	return &stateStmtParser{
-		stateType: stateType,
-	}
-}
-
-// build returns the state statement.
-func (s *stateStmtParser) build() (stmt.Statement, error) {
-	return &stmt.State{Type: s.stateType}, nil
+// Use represents use statement.
+type Use struct {
+	Name string
 }

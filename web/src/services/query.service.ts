@@ -16,9 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { GET } from "@src/utils";
-import { Metadata, ResultSet } from "@src/models";
 import { ApiPath } from "@src/constants";
+import { Metadata } from "@src/models";
+import { GET } from "@src/utils";
 
 /**
  *  fecth metadata data by lin query lanage.
@@ -27,14 +27,5 @@ import { ApiPath } from "@src/constants";
  *  @return Metadata
  */
 export function fetchMetadata(params: any) {
-  return GET<Metadata>(ApiPath.Exec, params);
-}
-
-/**
- * query metric data by query lanage.
- * @param params
- * @returns metric ResultSet
- */
-export function queryMetric(params: any) {
-  return GET<ResultSet>(ApiPath.Metric, params);
+  return GET<Metadata>(ApiPath.Metadata, params);
 }

@@ -46,7 +46,6 @@ type API struct {
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
 	flatIngestion   *ingest.FlatWriter
-	metric          *query.MetricAPI
 	metadata        *query.MetadataAPI
 	proxy           *ReverseProxy
 }
@@ -67,7 +66,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
 		flatIngestion:   ingest.NewFlatWriter(deps),
-		metric:          query.NewMetricAPI(deps),
 		metadata:        query.NewMetadataAPI(deps),
 		proxy:           NewReverseProxy(),
 	}
@@ -86,7 +84,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.replica.Register(router)
 
 	api.metadata.Register(router)
-	api.metric.Register(router)
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)
 	api.flatIngestion.Register(router)

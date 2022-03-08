@@ -58,13 +58,15 @@ func Test_MetricQuery(t *testing.T) {
 	}
 	stateMgr.EXPECT().GetLiveNodes().Return(brokerNodes).AnyTimes()
 
+	q, err := sql.Parse("select f from cpu")
+	assert.NoError(t, err)
 	// case 1: database not found
 	qry := newMetricQuery(context.Background(),
 		"test_db",
-		"select f from cpu",
+		q.(*stmt.Query),
 		queryFactory)
 	stateMgr.EXPECT().GetDatabaseCfg("test_db").Return(models.Database{}, false)
-	_, err := qry.WaitResponse()
+	_, err = qry.WaitResponse()
 	assert.Error(t, err)
 
 	// case 2: storage nodes not exist
@@ -73,7 +75,7 @@ func Test_MetricQuery(t *testing.T) {
 		AnyTimes()
 	qry = newMetricQuery(context.Background(),
 		"test_db",
-		"select f from cpu",
+		q.(*stmt.Query),
 		queryFactory)
 	stateMgr.EXPECT().GetQueryableReplicas("test_db").Return(nil, nil)
 	_, err = qry.WaitResponse()
@@ -91,28 +93,20 @@ func Test_MetricQuery(t *testing.T) {
 	stateMgr.EXPECT().GetLiveNodes().
 		Return(brokerNodes).AnyTimes()
 
-	// bad sql
-	qry = newMetricQuery(context.Background(),
-		"test_db",
-		"select f fro",
-		queryFactory)
-	_, err = qry.WaitResponse()
-	assert.Error(t, err)
-
 	// timeout
 	eventCh1 := make(chan *series.TimeSeriesEvent)
 	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(eventCh1, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	qry = newMetricQuery(ctx,
-		"test_db", "select f from cpu",
+		"test_db", q.(*stmt.Query),
 		queryFactory)
 	time.AfterFunc(time.Millisecond*200, cancel)
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)
 
 	qry = newMetricQuery(context.Background(),
-		"test_db", "select f from cpu",
+		"test_db", q.(*stmt.Query),
 		queryFactory)
 	// has error
 	eventCh2 := make(chan *series.TimeSeriesEvent)

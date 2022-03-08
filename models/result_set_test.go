@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestResultSet(t *testing.T) {
@@ -41,4 +43,25 @@ func TestResultSet(t *testing.T) {
 		int64(10): 10.0,
 		int64(20): 10.0},
 		s.Fields["f1"])
+}
+
+func TestResultSet_ToTable(t *testing.T) {
+	rows, rs := NewResultSet().ToTable()
+	assert.Zero(t, rows)
+	assert.Empty(t, rs)
+
+	rows, rs = (&ResultSet{
+		MetricName: "cpu",
+		GroupBy:    []string{"host", "ip"},
+		Fields:     []string{"usage", "load"},
+		Series: []*Series{{
+			Tags:   map[string]string{"host": "host1", "ip": "1.1.1.1"},
+			Fields: map[string]map[int64]float64{"usage": {timeutil.Now(): 1.1}, "load": {timeutil.Now(): 1.1}},
+		}, {
+			Tags:   map[string]string{"host": "host2", "ip": "1.1.1.1"},
+			Fields: map[string]map[int64]float64{"usage": {timeutil.Now(): 1.1}, "load": {timeutil.Now(): 1.1}},
+		}},
+	}).ToTable()
+	assert.Equal(t, rows, 2)
+	assert.NotEmpty(t, rs)
 }

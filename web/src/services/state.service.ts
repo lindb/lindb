@@ -16,17 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { GET } from "@src/utils";
 import { ApiPath } from "@src/constants";
-import { Master, StateMetric, ReplicaState } from "@src/models";
-
-/**
- * get master state
- * @returns current master for broker cluster
- */
-export function getMaster() {
-  return GET<Master>(ApiPath.Exec, { sql: "show master" });
-}
+import { ReplicaState, StateMetric } from "@src/models";
+import { GET } from "@src/utils";
 
 export function exploreNodeState(params: any) {
   return GET<any[]>(ApiPath.NodeStateExplore, params);
