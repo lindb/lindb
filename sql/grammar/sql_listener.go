@@ -30,6 +30,9 @@ type SQLListener interface {
 	// EnterStatementList is called when entering the statementList production.
 	EnterStatementList(c *StatementListContext)
 
+	// EnterUseStmt is called when entering the useStmt production.
+	EnterUseStmt(c *UseStmtContext)
+
 	// EnterShowMasterStmt is called when entering the showMasterStmt production.
 	EnterShowMasterStmt(c *ShowMasterStmtContext)
 
@@ -215,6 +218,9 @@ type SQLListener interface {
 
 	// ExitStatementList is called when exiting the statementList production.
 	ExitStatementList(c *StatementListContext)
+
+	// ExitUseStmt is called when exiting the useStmt production.
+	ExitUseStmt(c *UseStmtContext)
 
 	// ExitShowMasterStmt is called when exiting the showMasterStmt production.
 	ExitShowMasterStmt(c *ShowMasterStmtContext)

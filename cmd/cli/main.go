@@ -18,6 +18,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -61,13 +62,17 @@ var (
 	spaces = regexp.MustCompile(`\s+`)
 )
 
-func init() {
-	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
-}
-
 const (
 	HTTPScheme = "http://"
 )
+
+type inputCtx struct {
+	db string
+}
+
+func init() {
+	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
+}
 
 func printErr(err error) {
 	fmt.Println(color.RedString("ERROR:%s", err))
@@ -98,6 +103,7 @@ func main() {
 	}
 	fmt.Println("Welcome to the LinDB.")
 	fmt.Printf("Server version: %s\n", master.Node.Version)
+	inputC := &inputCtx{}
 
 	p := prompt.New(
 		func(in string) {
@@ -116,6 +122,10 @@ func main() {
 				}
 				var result interface{}
 				switch s := stmt.(type) {
+				case *stmtpkg.Use:
+					inputC.db = s.Name
+					fmt.Printf("Database changed(current:%s)\n", inputC.db)
+					return
 				case *stmtpkg.State:
 					// execute state query
 					if s.Type == stmtpkg.Master {
@@ -125,8 +135,14 @@ func main() {
 					if s.Type == stmtpkg.Database {
 						result = &models.Metadata{}
 					}
+				case *stmtpkg.Query:
+					result = &models.ResultSet{}
+					if strings.TrimSpace(inputC.db) == "" {
+						printErr(errors.New("please select database(use ...)"))
+						return
+					}
 				}
-				rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: in}, result)
+				rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: in, Database: inputC.db}, result)
 				if err != nil {
 					printErr(err)
 					return

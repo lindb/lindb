@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -50,6 +51,7 @@ type ExecuteAPI struct {
 }
 
 func NewExecuteAPI(deps *deps.HTTPDeps) *ExecuteAPI {
+	//TODO add metric
 	return &ExecuteAPI{
 		deps:   deps,
 		logger: logger.GetLogger("broker", "ExecuteAPI"),
@@ -64,21 +66,27 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 	route.PUT(ExecutePath, e.Execute)
 }
 
-// Execute executes lin language.
 func (e *ExecuteAPI) Execute(c *gin.Context) {
+	if err := e.deps.QueryLimiter.Do(func() error {
+		return e.execute(c)
+	}); err != nil {
+		httppkg.Error(c, err)
+	}
+}
+
+// Execute executes lin language.
+func (e *ExecuteAPI) execute(c *gin.Context) error {
 	ctx, cancel := e.deps.WithTimeout()
 	defer cancel()
 
 	param := models.ExecuteParam{}
 	err := c.ShouldBind(&param)
 	if err != nil {
-		httppkg.Error(c, err)
-		return
+		return err
 	}
 	stmt, err := sqlParseFn(param.SQL)
 	if err != nil {
-		httppkg.Error(c, err)
-		return
+		return err
 	}
 
 	var result interface{}
@@ -88,19 +96,27 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 		result = e.execStateQuery(s)
 	case *stmtpkg.Metadata:
 		result, err = e.execMetadataQuery(ctx, s)
+	case *stmtpkg.Query:
+		if strings.TrimSpace(param.Database) == "" {
+			return errors.New("database name cannot be empty")
+		}
+		metricQuery := e.deps.QueryFactory.NewMetricQuery(ctx, param.Database, s)
+		result, err = metricQuery.WaitResponse()
+		if err != nil {
+			return err
+		}
 	default:
-		httppkg.Error(c, errors.New("can't parse lin language"))
-		return
+		return errors.New("can't parse lin language")
 	}
 	if err != nil {
-		httppkg.Error(c, err)
-		return
+		return err
 	}
 	if result == nil || reflect.ValueOf(result).IsNil() {
 		httppkg.NotFound(c)
 	} else {
 		httppkg.OK(c, result)
 	}
+	return nil
 }
 
 // execStateQuery executes the state query.

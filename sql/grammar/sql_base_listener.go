@@ -49,6 +49,12 @@ func (s *BaseSQLListener) EnterStatementList(ctx *StatementListContext) {}
 // ExitStatementList is called when production statementList is exited.
 func (s *BaseSQLListener) ExitStatementList(ctx *StatementListContext) {}
 
+// EnterUseStmt is called when production useStmt is entered.
+func (s *BaseSQLListener) EnterUseStmt(ctx *UseStmtContext) {}
+
+// ExitUseStmt is called when production useStmt is exited.
+func (s *BaseSQLListener) ExitUseStmt(ctx *UseStmtContext) {}
+
 // EnterShowMasterStmt is called when production showMasterStmt is entered.
 func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
 

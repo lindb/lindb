@@ -35,7 +35,7 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 	assert.NotNil(t, factory.NewMetricQuery(
 		context.Background(),
 		"",
-		""))
+		&stmt.Query{}))
 	assert.NotNil(t, factory.NewMetadataQuery(
 		context.Background(),
 		"",

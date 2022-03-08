@@ -5,6 +5,7 @@ grammar SQL;
 statement               : statementList EOF;
 
 statementList           : showMasterStmt
+                        | useStmt
                         | createDatabaseStmt
                         | showDatabaseStmt
                         | showNameSpacesStmt
@@ -13,6 +14,8 @@ statementList           : showMasterStmt
                         | showTagKeysStmt
                         | showTagValuesStmt
                         | queryStmt;
+
+useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
@@ -283,6 +286,7 @@ T_FUTURE_TTL         : F U T U R E T T L                ;
 T_KILL               : K I L L                          ;
 T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
+T_USE                : U S E                            ;
 T_MASTER             : M A S T E R                      ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;

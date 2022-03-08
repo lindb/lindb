@@ -22,19 +22,19 @@ import {
   IconSend,
 } from "@douyinfe/semi-icons";
 import { Button, Card, Col, Form, Row, Space } from "@douyinfe/semi-ui";
-import React, { useState, useEffect } from "react";
-import { MetadataSelect, ExplainResultView } from "@src/components";
-import { queryMetric } from "@src/services";
-import { ResultSet } from "@src/models";
-import { ChartStore } from "@src/stores";
+import { ExplainResultView, MetadataSelect } from "@src/components";
 import Metric from "@src/components/chart/Metric";
+import { ResultSet } from "@src/models";
+import { exec } from "@src/services";
+import { ChartStore } from "@src/stores";
+import React, { useEffect, useState } from "react";
 
 const chartID = "9999999999999999";
 
 export default function DataSearch() {
   const [resultSet, setResultSet] = useState<ResultSet>();
   const query = async () => {
-    const rs = await queryMetric({
+    const rs = await exec<ResultSet>({
       db: "_internal",
       sql: "explain select used_percent from lindb.monitor.system.disk_usage_stats",
     });

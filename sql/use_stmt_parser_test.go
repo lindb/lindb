@@ -17,21 +17,16 @@
 
 package sql
 
-import "github.com/lindb/lindb/sql/stmt"
+import (
+	"testing"
 
-// stateStmtParser represents show state statement parser.
-type stateStmtParser struct {
-	stateType stmt.StateType
-}
+	"github.com/stretchr/testify/assert"
 
-// newStateStmtParse creates a show state statement parser.
-func newStateStmtParse(stateType stmt.StateType) *stateStmtParser {
-	return &stateStmtParser{
-		stateType: stateType,
-	}
-}
+	"github.com/lindb/lindb/sql/stmt"
+)
 
-// build returns the state statement.
-func (s *stateStmtParser) build() (stmt.Statement, error) {
-	return &stmt.State{Type: s.stateType}, nil
+func TestUseStatement(t *testing.T) {
+	q, err := Parse("use test")
+	assert.NoError(t, err)
+	assert.Equal(t, "test", q.(*stmt.Use).Name)
 }

@@ -16,16 +16,15 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export enum ApiPath {
-  StorageList = "/storage/cluster/list",
-  Storage = "/storage/cluster",
-  DatabaseList = "/database/list",
-  Metadata = "/query/metadata",
-  NodeStateExplore = "/state/explore/alive",
-  StateExplore = "/state/explore",
-  ReplicaState = "/state/replica",
-  MetaExplore = "/metadata/explore",
-  RepoExplore = "/metadata/explore/repo",
-  Proxy = "/proxy",
-  Exec = "/exec",
+import { ApiPath } from "@src/constants";
+import { POST } from "@src/utils";
+
+/**
+ * send params to server, execute lin query language
+ *
+ * @param params lin query lanugage params
+ * @returns result of execution
+ */
+export async function exec<T>(params: object): Promise<T> {
+  return POST<T>(ApiPath.Exec, params);
 }

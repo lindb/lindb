@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import React, { useEffect, useCallback, useState } from "react";
-import { getMaster } from "@src/services";
+import { exec } from "@src/services";
 import { Master } from "@src/models";
 import { Card, Descriptions, Typography } from "@douyinfe/semi-ui";
 import moment from "moment";
@@ -29,7 +29,7 @@ export default function MasterView() {
   const getCurrentMaster = useCallback(async () => {
     try {
       setLoading(true);
-      const currentMaster = await getMaster();
+      const currentMaster = await exec<Master>({ sql: "show master" });
       setMaster(currentMaster);
     } catch (err) {
       console.log(err);

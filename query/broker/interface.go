@@ -43,20 +43,20 @@ var (
 // When returning query results the following is the order in which processing takes place:
 // 1) filtering
 // 2) Scanning
-// 3) Grouping if need
+// 3) Grouping if it needs
 // 4) Down sampling
 // 5) Aggregation
 // 6) Functions
 // 7) Expressions
-// Execute execute query
+// Execute query
 // 1) plan query language
 // 2) aggregator data from time series(memory/file/network)
 
 // BrokerExecutor represents the broker query executor,
 // 1) chooses the storage nodes that the data is relatively complete
 // 2) chooses broker nodes for root and intermediate computing from all available broker nodes
-// 3) storage node as leaf computing node does filtering and atomic compute
-// 4) intermediate computing nodes are optional, only need if has group by query, does order by for grouping
+// 3) storage node as leaf computing node does filter and atomic compute
+// 4) intermediate computing nodes are optional, only need if it has grouping query, does order by for grouping
 // 4) root computing node does function and expression computing
 // 5) finally returns result set to user
 //
@@ -84,7 +84,7 @@ type Factory interface {
 	NewMetricQuery(
 		ctx context.Context,
 		databaseName string,
-		sql string,
+		sql *stmt.Query,
 	) MetricQuery
 
 	NewMetadataQuery(

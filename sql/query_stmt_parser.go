@@ -31,8 +31,8 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-// queryStmtParse represents query statement parser using visitor
-type queryStmtParse struct {
+// queryStmtParser represents query statement parser using visitor
+type queryStmtParser struct {
 	baseStmtParser
 	explain bool
 
@@ -50,8 +50,8 @@ type queryStmtParse struct {
 }
 
 // newQueryStmtParse create a query statement parser
-func newQueryStmtParse(explain bool) *queryStmtParse {
-	return &queryStmtParse{
+func newQueryStmtParse(explain bool) *queryStmtParser {
+	return &queryStmtParser{
 		explain:    explain,
 		fieldNames: make(map[string]struct{}),
 		fieldID:    1,
@@ -64,7 +64,7 @@ func newQueryStmtParse(explain bool) *queryStmtParse {
 }
 
 // build query statement based on parse result
-func (q *queryStmtParse) build() (stmt.Statement, error) {
+func (q *queryStmtParser) build() (stmt.Statement, error) {
 	if err := q.validation(); err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (q *queryStmtParse) build() (stmt.Statement, error) {
 }
 
 // validation tests data if invalid
-func (q *queryStmtParse) validation() error {
+func (q *queryStmtParser) validation() error {
 	if q.err != nil {
 		return q.err
 	}
@@ -120,12 +120,12 @@ func (q *queryStmtParse) validation() error {
 }
 
 // resetExprStack resets expr stack for next parse fragment
-func (q *queryStmtParse) resetExprStack() {
+func (q *queryStmtParser) resetExprStack() {
 	q.exprStack = collections.NewStack()
 }
 
 // visitGroupByKey visits when production groupBy key expression is entered
-func (q *queryStmtParse) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
+func (q *queryStmtParser) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	switch {
 	case ctx.Ident() != nil:
 		tagKey := strutil.GetStringValue(ctx.Ident().GetText())
@@ -136,7 +136,7 @@ func (q *queryStmtParse) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 }
 
 // visitTimeRangeExpr visits when production timeRange expression is entered
-func (q *queryStmtParse) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
+func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
 	timeExprCtxList := ctx.AllTimeExpr()
 	for _, timeExpr := range timeExprCtxList {
 		timeExprCtx, ok := timeExpr.(*grammar.TimeExprContext)
@@ -177,7 +177,7 @@ func (q *queryStmtParse) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
 }
 
 // parseDuration parses time duration from duration string
-func (q *queryStmtParse) parseDuration(ctx grammar.IDurationLitContext) int64 {
+func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 	if ctx == nil {
 		return 0
 	}
@@ -219,7 +219,7 @@ func (q *queryStmtParse) parseDuration(ctx grammar.IDurationLitContext) int64 {
 }
 
 // visitFieldExpr visits when production field expression is entered
-func (q *queryStmtParse) visitFieldExpr(ctx *grammar.FieldExprContext) {
+func (q *queryStmtParser) visitFieldExpr(ctx *grammar.FieldExprContext) {
 	//var selectItem stmt.Expr
 	switch {
 	case ctx.ExprFunc() != nil:
@@ -238,18 +238,18 @@ func (q *queryStmtParse) visitFieldExpr(ctx *grammar.FieldExprContext) {
 }
 
 // visitAlias visits when production alias expression is entered
-func (q *queryStmtParse) visitAlias(ctx *grammar.AliasContext) {
+func (q *queryStmtParser) visitAlias(ctx *grammar.AliasContext) {
 	if len(q.selectItems) == 0 {
 		return
 	}
-	selectItem, ok := (q.selectItems[0]).(*stmt.SelectItem)
+	selectItem, ok := (q.selectItems[len(q.selectItems)-1]).(*stmt.SelectItem)
 	if ok {
 		selectItem.Alias = strutil.GetStringValue(ctx.Ident().GetText())
 	}
 }
 
 // visitFuncName visits when production function call expression is entered
-func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
+func (q *queryStmtParser) visitFuncName(ctx *grammar.FuncNameContext) {
 	if q.exprStack.Empty() {
 		return
 	}
@@ -276,7 +276,7 @@ func (q *queryStmtParse) visitFuncName(ctx *grammar.FuncNameContext) {
 }
 
 // completeFuncExpr completes a function call expression for select list
-func (q *queryStmtParse) completeFuncExpr() {
+func (q *queryStmtParser) completeFuncExpr() {
 	cur := q.exprStack.Pop()
 	if cur != nil {
 		expr, ok := cur.(stmt.Expr)
@@ -290,7 +290,7 @@ func (q *queryStmtParse) completeFuncExpr() {
 }
 
 // visitExprAtom visits when production atom expr expression is entered
-func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
+func (q *queryStmtParser) visitExprAtom(ctx *grammar.ExprAtomContext) {
 	switch {
 	case ctx.Ident() != nil:
 		val := strutil.GetStringValue(ctx.Ident().GetText())
@@ -320,7 +320,7 @@ func (q *queryStmtParse) visitExprAtom(ctx *grammar.ExprAtomContext) {
 // completeFieldExpr completes a field expr,
 // only paren and binary expr need do set expr param,
 // set func's param in complete func parse section.
-func (q *queryStmtParse) completeFieldExpr(ctx *grammar.FieldExprContext) {
+func (q *queryStmtParser) completeFieldExpr(ctx *grammar.FieldExprContext) {
 	switch {
 	case ctx.T_OPEN_P() != nil:
 	case ctx.T_MUL() != nil:
