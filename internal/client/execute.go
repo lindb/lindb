@@ -20,7 +20,6 @@ package client
 import (
 	"fmt"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -77,31 +76,18 @@ func (cli *ExecuteCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}
 	if err != nil {
 		return "", err
 	}
-	rows := getLen(rs)
+	formatter, ok := rs.(models.TableFormatter)
+	result := ""
+	rows := 0
+	if ok {
+		rows, result = formatter.ToTable()
+	}
 	if rows == 0 {
 		return fmt.Sprintf("Query OK, 0 rows affected (%s)", ltoml.Duration(cost)), nil
 	}
-	formatter, ok := rs.(models.TableFormatter)
-	result := ""
-	if ok {
-		result = formatter.ToTable() + "\n"
+	if result != "" {
+		result += "\n"
 	}
 	return fmt.Sprintf("%s%s", result,
 		fmt.Sprintf("%d rows in sets (%s)", rows, ltoml.Duration(cost))), nil
-}
-
-// getLen returns the length of v.
-func getLen(v interface{}) int {
-	objValue := reflect.ValueOf(v)
-	switch objValue.Kind() {
-	// collection types are empty when they have no element
-	case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
-		return objValue.Len()
-	case reflect.Struct:
-		return 1
-	case reflect.Ptr:
-		deref := objValue.Elem().Interface()
-		return getLen(deref)
-	}
-	return 0
 }

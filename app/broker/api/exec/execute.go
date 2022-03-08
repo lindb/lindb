@@ -124,22 +124,24 @@ func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, metadataStmt *stmtpk
 }
 
 // listDataBase returns database list in cluster.
-func (e *ExecuteAPI) listDataBase(ctx context.Context) ([]*models.Database, error) {
-	var result []*models.Database
+func (e *ExecuteAPI) listDataBase(ctx context.Context) (*models.Metadata, error) {
 	data, err := e.deps.Repo.List(ctx, constants.DatabaseConfigPath)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
+	var databaseNames []interface{}
 	for _, val := range data {
 		db := &models.Database{}
 		err = encoding.JSONUnmarshal(val.Value, db)
 		if err != nil {
 			e.logger.Warn("unmarshal data error",
 				logger.String("data", string(val.Value)))
-		} else {
-			db.Desc = db.String()
-			result = append(result, db)
+			continue
 		}
+		databaseNames = append(databaseNames, db.Name)
 	}
-	return result, nil
+	return &models.Metadata{
+		Type:   stmtpkg.Database.String(),
+		Values: databaseNames,
+	}, nil
 }

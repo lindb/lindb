@@ -27,7 +27,7 @@ import { ApiPath } from "@src/constants";
  *  @return Metadata
  */
 export function fetchMetadata(params: any) {
-  return GET<Metadata>(ApiPath.Metadata, params);
+  return GET<Metadata>(ApiPath.Exec, params);
 }
 
 /**

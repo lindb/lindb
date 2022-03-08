@@ -18,21 +18,19 @@
 package models
 
 import (
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// TableFormatter represents table formatter for displaying result in terminal.
-type TableFormatter interface {
-	// ToTable returns string value/row size for displaying result in terminal.
-	ToTable() (int, string)
-}
+func TestMetadata_ToTable(t *testing.T) {
+	rows, rs := (&Metadata{}).ToTable()
+	assert.Zero(t, rows)
+	assert.Empty(t, rs)
 
-// NewTableFormatter creates a writer for table format.
-func NewTableFormatter() table.Writer {
-	writer := table.NewWriter()
-	style := table.StyleDefault
-	style.Format.Header = text.FormatDefault
-	writer.SetStyle(style)
-	return writer
+	rows, rs = (&Metadata{Type: stmt.Database.String(), Values: []interface{}{"name"}}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
 }
