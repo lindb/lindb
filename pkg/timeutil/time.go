@@ -42,9 +42,9 @@ const (
 	// OneYear is the number of millisecond for a year
 	OneYear = 365 * OneDay
 
-	dataTimeFormat1 = "20060102 15:04:05"
-	dataTimeFormat2 = "2006-01-02 15:04:05"
-	dataTimeFormat3 = "2006/01/02 15:04:05"
+	DataTimeFormat1 = "20060102 15:04:05"
+	DataTimeFormat2 = "2006-01-02 15:04:05"
+	DataTimeFormat3 = "2006/01/02 15:04:05"
 	DataTimeFormat4 = "20060102150405"
 )
 
@@ -62,11 +62,11 @@ func ParseTimestamp(timestampStr string, layout ...string) (int64, error) {
 	} else {
 		switch {
 		case strings.Index(timestampStr, "-") > 0:
-			format = dataTimeFormat2
+			format = DataTimeFormat2
 		case strings.Index(timestampStr, "/") > 0:
-			format = dataTimeFormat3
+			format = DataTimeFormat3
 		case strings.Index(timestampStr, " ") > 0:
-			format = dataTimeFormat1
+			format = DataTimeFormat1
 		default:
 			format = DataTimeFormat4
 		}

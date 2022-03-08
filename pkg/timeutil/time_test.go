@@ -72,7 +72,7 @@ func Test_Now(t *testing.T) {
 }
 
 func Test_FormatTimestamp(t *testing.T) {
-	fmt.Println(FormatTimestamp(Now()*1000, dataTimeFormat2))
+	fmt.Println(FormatTimestamp(Now()*1000, DataTimeFormat2))
 }
 
 func TestTruncate(t *testing.T) {

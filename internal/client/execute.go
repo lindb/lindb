@@ -97,6 +97,8 @@ func getLen(v interface{}) int {
 	// collection types are empty when they have no element
 	case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
 		return objValue.Len()
+	case reflect.Struct:
+		return 1
 	case reflect.Ptr:
 		deref := objValue.Elem().Interface()
 		return getLen(deref)
