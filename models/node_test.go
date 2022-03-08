@@ -60,8 +60,10 @@ func TestNode_ParseNode(t *testing.T) {
 }
 
 func TestMaster_ToTable(t *testing.T) {
-	assert.NotEmpty(t, (&Master{
+	rows, rs := (&Master{
 		Node:      &StatelessNode{},
 		ElectTime: timeutil.Now(),
-	}).ToTable())
+	}).ToTable()
+	assert.NotEmpty(t, rs)
+	assert.Equal(t, rows, 1)
 }

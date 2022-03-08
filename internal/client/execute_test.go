@@ -18,6 +18,7 @@
 package client
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -121,7 +123,8 @@ func TestExecuteCli_ExecuteAsResult(t *testing.T) {
 				_, _ = rw.Write(encoding.JSONMarshal(&[]models.ExecuteParam{{SQL: "sql"}}))
 			},
 			assert: func(rs string) {
-				assert.True(t, strings.Contains(rs, "1 rows"))
+				fmt.Println(rs)
+				assert.True(t, strings.Contains(rs, "0 rows"))
 			},
 			wantErr: false,
 		},
@@ -133,7 +136,8 @@ func TestExecuteCli_ExecuteAsResult(t *testing.T) {
 				_, _ = rw.Write(encoding.JSONMarshal(&models.Databases{{Name: "test"}}))
 			},
 			assert: func(rs string) {
-				assert.True(t, strings.Contains(rs, models.Databases{{Name: "test"}}.ToTable()))
+				_, s := (&models.Metadata{Type: stmt.Database.String(), Values: []interface{}{"test"}}).ToTable()
+				assert.True(t, strings.Contains(rs, s))
 			},
 			wantErr: false,
 		},
