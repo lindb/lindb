@@ -18,8 +18,8 @@ under the License.
 */
 import { Form, Notification, useFormApi } from "@douyinfe/semi-ui";
 import { useWatchURLChange } from "@src/hooks";
-import { Variate } from "@src/models";
-import { fetchMetadata } from "@src/services";
+import { Metadata, Variate } from "@src/models";
+import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
@@ -79,7 +79,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
         showTagValuesSQL += where.current;
       }
 
-      const metadata = await fetchMetadata({
+      const metadata = await exec<Metadata>({
         sql: showTagValuesSQL,
         db: variate.db,
       });

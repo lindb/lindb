@@ -38,7 +38,6 @@ type metricQuery struct {
 
 	ctx      context.Context
 	database string
-	sql      string
 
 	startTime   time.Time
 	endPlanTime time.Time
@@ -52,11 +51,11 @@ type metricQuery struct {
 func newMetricQuery(
 	ctx context.Context,
 	database string,
-	sql string,
+	sql *stmt.Query,
 	queryFactory *queryFactory,
 ) MetricQuery {
 	return &metricQuery{
-		sql:          sql,
+		stmtQuery:    sql,
 		database:     database,
 		ctx:          ctx,
 		queryFactory: queryFactory,
@@ -84,7 +83,7 @@ func (mq *metricQuery) makePlan() error {
 	brokerNodes := mq.queryFactory.stateMgr.GetLiveNodes()
 
 	mq.plan = newBrokerPlan(
-		mq.sql,
+		mq.stmtQuery,
 		databaseCfg,
 		storageNodes,
 		mq.queryFactory.stateMgr.GetCurrentNode(),

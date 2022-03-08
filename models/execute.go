@@ -19,6 +19,6 @@ package models
 
 // ExecuteParam represents lin query language executor's param.
 type ExecuteParam struct {
-	Database string `form:"db"`
-	SQL      string `form:"sql" binding:"required"`
+	Database string `form:"db" json:"db"`
+	SQL      string `form:"sql" json:"sql" binding:"required"`
 }

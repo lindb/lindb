@@ -25,29 +25,27 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/query"
+	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestBrokerPlan_Wrong_Case(t *testing.T) {
-	plan := newBrokerPlan("sql", models.Database{}, nil, models.StatelessNode{}, nil)
+	plan := newBrokerPlan(&stmt.Query{}, models.Database{}, nil, models.StatelessNode{}, nil)
 	// storage nodes cannot be empty
 	err := plan.Plan()
 	assert.Equal(t, query.ErrNoAvailableStorageNode, err)
-
-	storageNodes := map[string][]models.ShardID{"1.1.1.1:8000": {1, 2, 4}}
-	// wrong sql
-	plan = newBrokerPlan("sql", models.Database{}, storageNodes, models.StatelessNode{}, nil)
-	err = plan.Plan()
-	assert.NotNil(t, err)
 }
 
 func TestBrokerPlan_No_GroupBy(t *testing.T) {
 	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}, "1.1.1.2:9000": {3, 5, 6}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	q, err := sql.Parse("select f from cpu")
+	assert.NoError(t, err)
 	// no group sql
-	plan := newBrokerPlan("select f from cpu",
+	plan := newBrokerPlan(q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes, currentNode, nil)
-	err := plan.Plan()
+	err = plan.Plan()
 	assert.NoError(t, err)
 
 	assert.Equal(t, 0, len(plan.intermediateNodes))
@@ -82,9 +80,11 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 		"1.1.1.4:9000": {10, 13, 15},
 		"1.1.1.5:9000": {11, 12, 14},
 	}
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		oddStorageNodes,
 		currentNode,
@@ -94,7 +94,7 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 			currentNode,
 			generateBrokerActiveNode("1.1.1.4", 8000),
 		})
-	err := plan.Plan()
+	err = plan.Plan()
 	assert.NoError(t, err)
 
 	assert.Equal(t, 3, len(plan.intermediateNodes))
@@ -122,8 +122,10 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 			"1.1.1.5:9000": {11, 12, 14},
 		}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		evenStorageNodes,
 		currentNode,
@@ -132,7 +134,7 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 			currentNode,
 			generateBrokerActiveNode("1.1.1.4", 8000),
 		})
-	err := plan.Plan()
+	err = plan.Plan()
 	assert.NoError(t, err)
 
 	assert.Equal(t, 2, len(plan.intermediateNodes))
@@ -158,8 +160,10 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 		"1.1.1.2:9000": {3, 5, 6},
 	}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
@@ -169,7 +173,7 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 			currentNode,
 			generateBrokerActiveNode("1.1.1.4", 8000),
 		})
-	err := plan.Plan()
+	err = plan.Plan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,14 +199,16 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	// current node = active node
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{currentNode})
-	err := plan.Plan()
+	err = plan.Plan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,13 +231,15 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
 	// only one storage node
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
 		nil)
-	err := plan.Plan()
+	err = plan.Plan()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,9 +261,11 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
+	q, err := sql.Parse("select f from cpu group by host")
+	assert.NoError(t, err)
 	// only one storage node
 	plan := newBrokerPlan(
-		"select f from cpu group by host",
+		q.(*stmt.Query),
 		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes,
 		currentNode,
@@ -265,7 +275,7 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 			currentNode,
 			generateBrokerActiveNode("1.1.1.4", 8200),
 		})
-	err := plan.Plan()
+	err = plan.Plan()
 	if err != nil {
 		t.Fatal(err)
 	}

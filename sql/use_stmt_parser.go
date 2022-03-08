@@ -17,21 +17,27 @@
 
 package sql
 
-import "github.com/lindb/lindb/sql/stmt"
+import (
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
+)
 
-// stateStmtParser represents show state statement parser.
-type stateStmtParser struct {
-	stateType stmt.StateType
+// useStmtParser represents use statement parser.
+type useStmtParser struct {
+	name string
 }
 
-// newStateStmtParse creates a show state statement parser.
-func newStateStmtParse(stateType stmt.StateType) *stateStmtParser {
-	return &stateStmtParser{
-		stateType: stateType,
-	}
+// newUseStmtParse creates a use statement parser.
+func newUseStmtParse() *useStmtParser {
+	return &useStmtParser{}
+}
+
+// visitName visits when production name expression is entered.
+func (s *useStmtParser) visitName(ctx grammar.IIdentContext) {
+	s.name = ctx.GetText()
 }
 
 // build returns the state statement.
-func (s *stateStmtParser) build() (stmt.Statement, error) {
-	return &stmt.State{Type: s.stateType}, nil
+func (s *useStmtParser) build() (stmt.Statement, error) {
+	return &stmt.Use{Name: s.name}, nil
 }

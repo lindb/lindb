@@ -25,9 +25,10 @@ import (
 type listener struct {
 	*grammar.BaseSQLListener
 
-	stmt      *queryStmtParse
-	stateStmt *stateStmtParse
+	stmt      *queryStmtParser
+	stateStmt *stateStmtParser
 	metaStmt  *metaStmtParser
+	useStmt   *useStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -43,6 +44,12 @@ func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
 func (l *listener) EnterCreateDatabaseStmt(c *grammar.CreateDatabaseStmtContext) {
 	panic("need impl")
+}
+
+// EnterUseStmt is called when production useStmt is entered.
+func (l *listener) EnterUseStmt(ctx *grammar.UseStmtContext) {
+	l.useStmt = newUseStmtParse()
+	l.useStmt.visitName(ctx.Ident())
 }
 
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
@@ -222,6 +229,8 @@ func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
 // statement returns query statement, if failure return error
 func (l *listener) statement() (stmt.Statement, error) {
 	switch {
+	case l.useStmt != nil:
+		return l.useStmt.build()
 	case l.stmt != nil:
 		return l.stmt.build()
 	case l.metaStmt != nil:
