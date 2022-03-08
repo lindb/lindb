@@ -86,7 +86,7 @@ func (e *Expression) ResultSet() map[string]*collections.FloatArray {
 	return e.resultSet
 }
 
-// prepare prepares the field store
+// prepare the field store
 func (e *Expression) prepare(timeSeries series.GroupedIterator) {
 	if timeSeries == nil {
 		return
