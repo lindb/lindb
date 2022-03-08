@@ -365,5 +365,7 @@ func (md *memoryDatabase) Uptime() time.Duration {
 
 // Size returns the number of metric names.
 func (md *memoryDatabase) Size() int {
+	md.rwMutex.RLock()
+	defer md.rwMutex.RUnlock()
 	return md.mStores.Size()
 }
