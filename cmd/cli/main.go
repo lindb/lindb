@@ -35,9 +35,27 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
+// for testing
+var (
+	urlParse      = url.Parse
+	newExecuteCli = client.NewExecuteCli
+	runPromptFn   = runPrompt
+	exit          = os.Exit
+	newPrompt     = prompt.New
+)
+
+const (
+	HTTPScheme = "http://"
+)
+
+type inputCtx struct {
+	db string
+}
+
 var (
 	endpoint string
-	tokens   = []prompt.Suggest{
+	// tokens represents suggest token.
+	tokens = []prompt.Suggest{
 		{Text: "show"},
 		{Text: "use"},
 		{Text: "master"},
@@ -59,109 +77,139 @@ var (
 		{Text: "values"},
 		{Text: "and"},
 	}
-	spaces = regexp.MustCompile(`\s+`)
+	spacesPattern = regexp.MustCompile(`\s+`)
+	inputC        = &inputCtx{}
+	query         = ""
+	live          = true
+	cli           client.ExecuteCli
 )
-
-const (
-	HTTPScheme = "http://"
-)
-
-type inputCtx struct {
-	db string
-}
 
 func init() {
 	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
 }
 
+// printErr prints error message.
 func printErr(err error) {
 	fmt.Println(color.RedString("ERROR:%s", err))
 }
 
+// executor executes command.
+func executor(in string) {
+	in = strings.TrimSpace(in)
+	if strings.HasSuffix(in, ";") {
+		query = query + in
+		live = true
+
+		defer func() {
+			// reset query input buf
+			query = ""
+		}()
+
+		query = strings.TrimSuffix(query, ";")
+		if query == "" {
+			return
+		}
+		blocks := strings.Split(spacesPattern.ReplaceAllString(query, " "), " ")
+		switch blocks[0] {
+		case "exit":
+			fmt.Println("Good Bye :)")
+			exit(0)
+			return
+		default:
+			stmt, err := sql.Parse(query)
+			if err != nil {
+				printErr(err)
+				return
+			}
+			var result interface{}
+			switch s := stmt.(type) {
+			case *stmtpkg.Use:
+				inputC.db = s.Name
+				fmt.Printf("Database changed(current:%s)\n", inputC.db)
+				return
+			case *stmtpkg.State:
+				// execute state query
+				if s.Type == stmtpkg.Master {
+					result = &models.Master{}
+				}
+			case *stmtpkg.Metadata:
+				result = &models.Metadata{}
+			case *stmtpkg.Query:
+				result = &models.ResultSet{}
+				if strings.TrimSpace(inputC.db) == "" {
+					printErr(errors.New("please select database(use ...)"))
+					return
+				}
+			}
+			rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: query, Database: inputC.db}, result)
+			if err != nil {
+				printErr(err)
+				return
+			}
+			// print result in terminal
+			fmt.Println(rs)
+		}
+		return
+	}
+
+	query += strings.TrimSuffix(in, "\r\n") + " "
+	live = false
+	return
+}
+
+// completer returns prompt suggest.
+func completer(bc string) []prompt.Suggest {
+	if bc == "" {
+		return nil
+	}
+	args := strings.Split(spacesPattern.ReplaceAllString(bc, " "), " ")
+	cmdName := args[len(args)-1]
+	return prompt.FilterHasPrefix(tokens, cmdName, true)
+}
+
 func main() {
 	flag.Parse()
-	var history []string
 
 	if !strings.HasPrefix(endpoint, HTTPScheme) {
 		endpoint = fmt.Sprintf("%s%s", HTTPScheme, endpoint)
 	}
-	endpointUrl, err := url.Parse(endpoint)
+	endpointUrl, err := urlParse(endpoint)
 	if err != nil {
 		printErr(err)
 		return
 	}
 
 	apiEndpoint := fmt.Sprintf("%s/api", endpoint)
-	cli := client.NewExecuteCli(apiEndpoint)
+	cli = newExecuteCli(apiEndpoint)
 
 	// first retry connect and get master state
 	master := &models.Master{}
-	err = cli.Execute(models.ExecuteParam{SQL: "show master"}, &master)
+	err = cli.Execute(models.ExecuteParam{SQL: "show master"}, master)
 	if err != nil || master.Node == nil {
 		printErr(err)
 		return
 	}
 	fmt.Println("Welcome to the LinDB.")
 	fmt.Printf("Server version: %s\n", master.Node.Version)
-	inputC := &inputCtx{}
+	endpointStr := fmt.Sprintf("lin@%s", endpointUrl.Host)
+	var spaces []string
+	for i := 0; i < len(endpointStr); i++ {
+		spaces = append(spaces, " ")
+	}
+	prefix := strings.Join(spaces, "")
 
-	p := prompt.New(
-		func(in string) {
-			in = strings.TrimSpace(in)
-			history = append(history, in)
-			blocks := strings.Split(spaces.ReplaceAllString(in, " "), " ")
-			switch blocks[0] {
-			case "exit":
-				fmt.Println("Good Bye :)")
-				os.Exit(0)
-			default:
-				stmt, err := sql.Parse(in)
-				if err != nil {
-					printErr(err)
-					return
-				}
-				var result interface{}
-				switch s := stmt.(type) {
-				case *stmtpkg.Use:
-					inputC.db = s.Name
-					fmt.Printf("Database changed(current:%s)\n", inputC.db)
-					return
-				case *stmtpkg.State:
-					// execute state query
-					if s.Type == stmtpkg.Master {
-						result = &models.Master{}
-					}
-				case *stmtpkg.Metadata:
-					result = &models.Metadata{}
-				case *stmtpkg.Query:
-					result = &models.ResultSet{}
-					if strings.TrimSpace(inputC.db) == "" {
-						printErr(errors.New("please select database(use ...)"))
-						return
-					}
-				}
-				rs, err := cli.ExecuteAsResult(models.ExecuteParam{SQL: in, Database: inputC.db}, result)
-				if err != nil {
-					printErr(err)
-					return
-				}
-				// print result in terminal
-				fmt.Println(rs)
-			}
+	p := newPrompt(
+		executor,
+		func(document prompt.Document) []prompt.Suggest {
+			return completer(document.TextBeforeCursor())
 		},
-		func(d prompt.Document) []prompt.Suggest {
-			bc := d.TextBeforeCursor()
-			if bc == "" {
-				return nil
+		prompt.OptionLivePrefix(func() (string, bool) {
+			if live {
+				return endpointStr + "> ", true
 			}
-			args := strings.Split(spaces.ReplaceAllString(bc, " "), " ")
-			cmdName := args[len(args)-1]
-			return prompt.FilterHasPrefix(tokens, cmdName, true)
-		},
-		prompt.OptionLivePrefix(func() (prefix string, useLivePrefix bool) {
-			return fmt.Sprintf("lin@%s> ", endpointUrl.Host), true
+			return prefix + "> ", true
 		}),
-		prompt.OptionHistory(history),
+		prompt.OptionTitle("LinDB Client"),
 
 		prompt.OptionPrefixTextColor(prompt.DarkGreen),
 		prompt.OptionInputTextColor(prompt.DarkBlue),
@@ -176,6 +224,9 @@ func main() {
 		prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
 		prompt.OptionSelectedDescriptionTextColor(prompt.Black),
 	)
+	runPromptFn(p)
+}
 
+func runPrompt(p *prompt.Prompt) {
 	p.Run()
 }
