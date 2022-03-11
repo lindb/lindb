@@ -19,10 +19,10 @@ package discovery
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -42,8 +42,9 @@ type Registry interface {
 
 // registry implements registry interface for server node register with prefix.
 type registry struct {
-	ttl  time.Duration
-	repo state.Repository
+	ttl        time.Duration
+	prefixPath string
+	repo       state.Repository
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -52,22 +53,23 @@ type registry struct {
 }
 
 // NewRegistry returns a new registry with prefix and ttl.
-func NewRegistry(repo state.Repository, ttl time.Duration) Registry {
+func NewRegistry(repo state.Repository, prefixPath string, ttl time.Duration) Registry {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &registry{
-		ttl:    ttl,
-		repo:   repo,
-		ctx:    ctx,
-		cancel: cancel,
-		log:    logger.GetLogger("coordinator", "Registry"),
+		prefixPath: prefixPath,
+		ttl:        ttl,
+		repo:       repo,
+		ctx:        ctx,
+		cancel:     cancel,
+		log:        logger.GetLogger("coordinator", "Registry"),
 	}
 }
 
 // Register registers node info, add it to active node list for discovery.
 func (r *registry) Register(node models.Node) error {
 	// register node info
-	path := constants.GetLiveNodePath(node.Indicator())
-	r.log.Info("starting register live node", logger.String("path", path))
+	path := fmt.Sprintf("%s/%s", r.prefixPath, node.Indicator())
+	r.log.Info("starting register node", logger.String("path", path))
 	// register node if fail retry it
 	go r.register(path, node)
 	return nil
@@ -75,7 +77,7 @@ func (r *registry) Register(node models.Node) error {
 
 // Deregister deregisters node info, remove it from active list.
 func (r *registry) Deregister(node models.Node) error {
-	return r.repo.Delete(r.ctx, constants.GetLiveNodePath(node.Indicator()))
+	return r.repo.Delete(r.ctx, fmt.Sprintf("%s/%s", r.prefixPath, node.Indicator()))
 }
 
 // Close closes registry, releases resources.

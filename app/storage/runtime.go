@@ -82,7 +82,7 @@ type runtime struct {
 	config  *config.Storage
 
 	delayInit   time.Duration
-	initializer *bootstrap.ClusterInitializer
+	initializer bootstrap.ClusterInitializer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -100,7 +100,7 @@ type runtime struct {
 	factory         factory
 	engine          tsdb.Engine
 	rpcHandler      *rpcHandler
-	httpServer      *httppkg.Server
+	httpServer      httppkg.Server
 	queryPool       concurrent.Pool
 	pusher          monitoring.NativePusher
 	globalKeyValues tag.Tags

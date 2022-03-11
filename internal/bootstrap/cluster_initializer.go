@@ -30,6 +30,8 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
+//go:generate mockgen -source=./cluster_initializer.go -destination=./cluster_initializer_mock.go -package=bootstrap
+
 // for testing
 var (
 	newRequest    = http.NewRequest
@@ -37,22 +39,30 @@ var (
 	doRequest     = defaultClient.Do
 )
 
+// ClusterInitializer initializes cluster(storage/internal database)
+type ClusterInitializer interface {
+	// InitStorageCluster initializes the storage cluster
+	InitStorageCluster(storageCfg config.StorageCluster) error
+	// InitInternalDatabase initializes internal database
+	InitInternalDatabase(database models.Database) error
+}
+
 const brokerAPIPrefix = "/api/"
 
-// ClusterInitializer initializes cluster(storage/internal database)
-type ClusterInitializer struct {
+// clusterInitializer implements ClusterInitializer interface.
+type clusterInitializer struct {
 	endpoint string
 }
 
 // NewClusterInitializer creates a initializer
-func NewClusterInitializer(endpoint string) *ClusterInitializer {
+func NewClusterInitializer(endpoint string) ClusterInitializer {
 	u, _ := url.Parse(endpoint)
 	u.Path = path.Join(u.Path, brokerAPIPrefix)
-	return &ClusterInitializer{endpoint: u.String()}
+	return &clusterInitializer{endpoint: u.String()}
 }
 
 // InitStorageCluster initializes the storage cluster
-func (i *ClusterInitializer) InitStorageCluster(storageCfg config.StorageCluster) error {
+func (i *clusterInitializer) InitStorageCluster(storageCfg config.StorageCluster) error {
 	reader := bytes.NewReader(encoding.JSONMarshal(&storageCfg))
 	req, err := newRequest("POST", fmt.Sprintf("%s/storage/cluster", i.endpoint), reader)
 	if err != nil {
@@ -62,7 +72,7 @@ func (i *ClusterInitializer) InitStorageCluster(storageCfg config.StorageCluster
 }
 
 // InitInternalDatabase initializes internal database
-func (i *ClusterInitializer) InitInternalDatabase(database models.Database) error {
+func (i *clusterInitializer) InitInternalDatabase(database models.Database) error {
 	reader := bytes.NewReader(encoding.JSONMarshal(&database))
 	req, err := newRequest("POST", fmt.Sprintf("%s/database", i.endpoint), reader)
 	if err != nil {

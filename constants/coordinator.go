@@ -32,15 +32,14 @@ const (
 const (
 	// LiveNodesPath represents live nodes prefix path for node register.
 	LiveNodesPath = "/live/nodes"
-	// StateNodesPath represents the state of node that node will report runtime status
-	//TODO need remove
-	StateNodesPath = "/state/nodes"
 )
 
 // defines broker level constants will be used in broker.
 const (
 	// MasterPath represents master elect path.
 	MasterPath = "/master/node"
+	// MasterElectedPath represents register path after master finished election.
+	MasterElectedPath = "/master/elected"
 	// DatabaseConfigPath represents database config path.
 	DatabaseConfigPath = "/database/config"
 	// ShardAssigmentPath represents database shard assignment.
@@ -73,9 +72,4 @@ func GetDatabaseAssignPath(name string) string {
 // GetLiveNodePath returns live node register path.
 func GetLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
-}
-
-// GetNodeMonitoringStatPath returns the node monitoring stat's path
-func GetNodeMonitoringStatPath(node string) string {
-	return fmt.Sprintf("%s/%s", StateNodesPath, node)
 }

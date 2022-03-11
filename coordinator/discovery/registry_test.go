@@ -36,7 +36,7 @@ func TestRegistry(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 
-	registry1 := NewRegistry(repo, 100)
+	registry1 := NewRegistry(repo, constants.LiveNodesPath, 100)
 
 	closedCh := make(chan state.Closed)
 
@@ -65,14 +65,14 @@ func TestRegistry(t *testing.T) {
 	err = registry1.Close()
 	assert.NoError(t, err)
 
-	registry1 = NewRegistry(repo, 100)
+	registry1 = NewRegistry(repo, constants.LiveNodesPath, 100)
 	err = registry1.Close()
 	assert.NoError(t, err)
 
 	r := registry1.(*registry)
 	r.register("/data/pant", &node)
 
-	registry1 = NewRegistry(repo, 100)
+	registry1 = NewRegistry(repo, constants.LiveNodesPath, 100)
 	r = registry1.(*registry)
 
 	// cancel ctx in timer

@@ -18,6 +18,7 @@
 package standalone
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -26,9 +27,12 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.etcd.io/etcd/server/v3/embed"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
@@ -58,100 +62,185 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 	return saCfg
 }
 
-func TestRuntime_Run(t *testing.T) {
+func TestRuntime_New(t *testing.T) {
 	cfg := newDefaultStandaloneConfig(t)
-	cfg.StorageBase.GRPC.Port = 3901
 	standalone := NewStandaloneRuntime("test-version", &cfg)
-	s := standalone.(*runtime)
-	s.delayInit = 100 * time.Millisecond
-
-	err := standalone.Run()
-	assert.Equal(t, server.Running, standalone.State())
-	assert.NoError(t, err)
-
-	standalone.Stop()
-	assert.Equal(t, server.Terminated, standalone.State())
+	assert.NotNil(t, standalone)
 	assert.Equal(t, "standalone", standalone.Name())
-	time.Sleep(time.Second)
 }
 
-func TestRuntime_RunWithoutPusher(t *testing.T) {
-	cfg := newDefaultStandaloneConfig(t)
-
-	cfg.StorageBase.GRPC.Port = 3901
-	cfg.Monitor.ReportInterval = ltoml.Duration(0)
-	standalone := NewStandaloneRuntime("test-version", &cfg)
-	s := standalone.(*runtime)
-	s.delayInit = 100 * time.Millisecond
-
-	_ = standalone.Run()
-	standalone.Stop()
-	time.Sleep(time.Second)
-}
-
-func TestRuntime_Run_Err(t *testing.T) {
+func TestRuntime_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := newDefaultStandaloneConfig(t)
-	cfg.StorageBase.GRPC.Port = 3902
-	standalone := NewStandaloneRuntime("test-version", &cfg)
-	s := standalone.(*runtime)
-	storage := server.NewMockService(ctrl)
-	s.storage = storage
-	storage.EXPECT().Run().Return(fmt.Errorf("err"))
-	err := standalone.Run()
-	assert.Error(t, err)
+	repoFct := state.NewMockRepositoryFactory(ctrl)
+	s := server.NewMockService(ctrl)
+	init := bootstrap.NewMockClusterInitializer(ctrl)
+	pusher := monitoring.NewMockNativePusher(ctrl)
+	pusher.EXPECT().Stop().AnyTimes()
+	cases := []struct {
+		name    string
+		prepare func(cfg *config.Standalone)
+		wantErr bool
+	}{
+		{
+			name: "start etcd server failure",
+			prepare: func(_ *config.Standalone) {
+				startEtcdFn = func(inCfg *embed.Config) (e *embed.Etcd, err error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create broker state failure",
+			prepare: func(cfg *config.Standalone) {
+				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
 
-	standalone = NewStandaloneRuntime("test-version", &cfg)
-	// restart etcd err
-	err = standalone.Run()
-	assert.Error(t, err)
-	storage.EXPECT().Stop().Return().AnyTimes()
-	s.Stop()
+			name: "clean up master state failure",
+			prepare: func(cfg *config.Standalone) {
+				repo := state.NewMockRepository(ctrl)
+				repo.EXPECT().Close().Return(fmt.Errorf("err"))
+				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+
+			name: "create storage state failure",
+			prepare: func(cfg *config.Standalone) {
+				repo := state.NewMockRepository(ctrl)
+				repo.EXPECT().Close().Return(nil)
+				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "list storage alive nodes failure",
+			prepare: func(cfg *config.Standalone) {
+				repo := state.NewMockRepository(ctrl)
+				repo.EXPECT().Close().Return(nil).MaxTimes(2)
+				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "delete storage alive node failure",
+			prepare: func(cfg *config.Standalone) {
+				repo := state.NewMockRepository(ctrl)
+				gomock.InOrder(
+					repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil),
+					repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
+					repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil),
+					repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/a/b"}}, nil),
+					repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")),
+					repo.EXPECT().Close().Return(fmt.Errorf("err")),
+					repo.EXPECT().Close().Return(nil),
+				)
+			},
+			wantErr: true,
+		},
+		{
+			name: "run broker failure",
+			prepare: func(cfg *config.Standalone) {
+				mockCleanState(ctrl, repoFct)
+				s.EXPECT().Run().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "run storage failure",
+			prepare: func(cfg *config.Standalone) {
+				mockCleanState(ctrl, repoFct)
+				s.EXPECT().Run().Return(nil)
+				s.EXPECT().Run().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "run storage failure",
+			prepare: func(cfg *config.Standalone) {
+				mockCleanState(ctrl, repoFct)
+				s.EXPECT().Run().Return(nil)
+				s.EXPECT().Run().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "init internal database failure",
+			prepare: func(cfg *config.Standalone) {
+				mockCleanState(ctrl, repoFct)
+				s.EXPECT().Run().Return(nil).MaxTimes(2)
+				init.EXPECT().InitInternalDatabase(gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: false,
+		},
+		{
+			name: "init internal database successfully",
+			prepare: func(cfg *config.Standalone) {
+				mockCleanState(ctrl, repoFct)
+				s.EXPECT().Run().Return(nil).MaxTimes(2)
+				init.EXPECT().InitInternalDatabase(gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				startEtcdFn = embed.StartEtcd
+			}()
+			cfg := newDefaultStandaloneConfig(t)
+			ctx, cancel := context.WithCancel(context.TODO())
+			s.EXPECT().Stop().MaxTimes(2)
+			r := &runtime{
+				ctx:         ctx,
+				cancel:      cancel,
+				cfg:         &cfg,
+				repoFactory: repoFct,
+				broker:      s,
+				storage:     s,
+				initializer: init,
+				pusher:      pusher,
+				delayInit:   time.Millisecond,
+			}
+			if tt.prepare != nil {
+				tt.prepare(r.cfg)
+			}
+			err := r.Run()
+			time.Sleep(100 * time.Millisecond)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				assert.Equal(t, server.Failed, r.State())
+			} else {
+				assert.Equal(t, server.Running, r.State())
+			}
+			r.Stop()
+			assert.Equal(t, server.Terminated, r.State())
+		})
+	}
 }
 
-func TestRuntime_runServer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cfg := newDefaultStandaloneConfig(t)
-	cfg.StorageBase.GRPC.Port = 3903
-	standalone := NewStandaloneRuntime("test-version", &cfg)
-	s := standalone.(*runtime)
-	storage := server.NewMockService(ctrl)
-	s.storage = storage
-	broker := server.NewMockService(ctrl)
-	s.broker = broker
-	storage.EXPECT().Run().Return(nil).AnyTimes()
-	broker.EXPECT().Run().Return(fmt.Errorf("err"))
-	err := s.runServer()
-	assert.Error(t, err)
-	storage.EXPECT().Stop().Return()
-	broker.EXPECT().Stop().Return()
-	s.Stop()
-}
-
-func TestRuntime_cleanupState(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	cfg := newDefaultStandaloneConfig(t)
-	cfg.StorageBase.GRPC.Port = 3904
-	standalone := NewStandaloneRuntime("test-version", &cfg)
-	s := standalone.(*runtime)
-	repoFactory := state.NewMockRepositoryFactory(ctrl)
-	s.repoFactory = repoFactory
-	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err := standalone.Run()
-	assert.Error(t, err)
-	s.Stop()
-
+func mockCleanState(ctrl *gomock.Controller, repoFct *state.MockRepositoryFactory) {
 	repo := state.NewMockRepository(ctrl)
-	repoFactory.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil).AnyTimes()
-	repoFactory.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil).AnyTimes()
-	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
-	repo.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
-	err = s.cleanupState()
-	assert.Error(t, err)
+	repo.EXPECT().Close().Return(nil).MaxTimes(2)
+	repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+	repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/a/b"}}, nil)
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 }
