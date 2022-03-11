@@ -93,7 +93,7 @@ func (index *tagIndex) buildInvertedIndex(tagValueID uint32, seriesID uint32) {
 	}
 	seriesIDs.Add(seriesID)
 
-	// build forward index, because series id is an unique id, so just put into forward index
+	// build forward index, because series id is a unique id, so just put into forward index
 	index.forward.Put(seriesID, tagValueID)
 }
 
