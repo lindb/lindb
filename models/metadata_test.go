@@ -33,4 +33,22 @@ func TestMetadata_ToTable(t *testing.T) {
 	rows, rs = (&Metadata{Type: stmt.Database.String(), Values: []interface{}{"name"}}).ToTable()
 	assert.Equal(t, rows, 1)
 	assert.NotEmpty(t, rs)
+	rows, rs = (&Metadata{Type: stmt.Namespace.String(), Values: []interface{}{"name"}}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
+	rows, rs = (&Metadata{Type: stmt.Metric.String(), Values: []interface{}{"name"}}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
+	rows, rs = (&Metadata{Type: stmt.TagKey.String(), Values: []interface{}{"name"}}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
+	rows, rs = (&Metadata{Type: stmt.TagValue.String(), Values: []interface{}{"name"}}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
+	rows, rs = (&Metadata{
+		Type:   stmt.Field.String(),
+		Values: []interface{}{map[string]interface{}{"name": "n", "Type": "sum"}},
+	}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
 }

@@ -40,7 +40,9 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestExecuteAPI_Execute(t *testing.T) {
@@ -91,6 +93,42 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		{
 			name:    "parse sql failure",
 			reqBody: `{"sql":"show a"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "unknown state statement type",
+			reqBody: `{"sql":"show master"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt.Statement, error) {
+					return &stmt.State{}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "unknown metadata statement type",
+			reqBody: `{"sql":"show master"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt.Statement, error) {
+					return &stmt.Metadata{}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "unknown lin query language statement",
+			reqBody: `{"sql":"show master"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmt.Statement, err error) {
+					return nil, nil
+				}
+			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
@@ -178,54 +216,6 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
-	}
-
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				sqlParseFn = sql.Parse
-			}()
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-			resp := mock.DoRequest(t, r, http.MethodPut, ExecutePath, tt.reqBody)
-			if tt.assert != nil {
-				tt.assert(resp)
-			}
-
-		})
-	}
-}
-
-func TestExecuteAPI_show_databases(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// prepare
-	repo := state.NewMockRepository(ctrl)
-	api := NewExecuteAPI(&deps.HTTPDeps{
-		Ctx:  context.Background(),
-		Repo: repo,
-		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
-			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)},
-		}},
-		QueryLimiter: concurrent.NewLimiter(
-			context.TODO(),
-			2,
-			time.Second*5,
-			linmetric.NewScope("metric_data_search"),
-		),
-	})
-	r := gin.New()
-	api.Register(r)
-
-	cases := []struct {
-		name    string
-		reqBody string
-		prepare func()
-		assert  func(resp *httptest.ResponseRecorder)
-	}{
 		{
 			name:    "get database list err",
 			reqBody: `{"sql":"show databases"}`,
@@ -258,6 +248,86 @@ func TestExecuteAPI_show_databases(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
+		{
+			name:    "metadata query need input database",
+			reqBody: `{"sql":"show namespaces"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "metadata query failure",
+			reqBody: `{"sql":"show namespaces","db":"db"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return(nil, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "metadata query successfully",
+			reqBody: `{"sql":"show namespaces","db":"db"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return([]string{"ns"}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show fields failure",
+			reqBody: `{"sql":"show fields from cp","db":"db"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return([]string{"ns"}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show fields successfully",
+			reqBody: `{"sql":"show fields from cp","db":"db"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				metricQuery.EXPECT().WaitResponse().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show histogram fields successfully",
+			reqBody: `{"sql":"show fields from cp","db":"db"}`,
+			prepare: func() {
+				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
+				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				// histogram
+				metricQuery.EXPECT().WaitResponse().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{
+					{Name: "test", Type: field.SumField},
+					{Name: "__bucket_0", Type: field.HistogramField},
+					{Name: "__bucket_2", Type: field.HistogramField},
+					{Name: "__bucket_3", Type: field.HistogramField},
+					{Name: "__bucket_4", Type: field.HistogramField},
+					{Name: "__bucket_99", Type: field.HistogramField},
+					{Name: "histogram_sum", Type: field.SumField},
+					{Name: "histogram_count", Type: field.SumField},
+					{Name: "histogram_min", Type: field.MinField},
+					{Name: "histogram_max", Type: field.MaxField},
+				}))}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		//show fields from cp
 	}
 
 	for _, tt := range cases {
@@ -275,5 +345,4 @@ func TestExecuteAPI_show_databases(t *testing.T) {
 			}
 		})
 	}
-
 }

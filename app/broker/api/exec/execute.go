@@ -31,25 +31,30 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/series/field"
 	sqlpkg "github.com/lindb/lindb/sql"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
+// for testing
 var (
 	sqlParseFn = sqlpkg.Parse
 )
 
 var (
 	// ExecutePath represents lin language executor's path.
-	ExecutePath = "/exec"
+	ExecutePath             = "/exec"
+	errDatabaseNameRequired = errors.New("database name cannot be empty")
 )
 
+// ExecuteAPI represent lin query language execution api.
 type ExecuteAPI struct {
 	deps *deps.HTTPDeps
 
 	logger *logger.Logger
 }
 
+// NewExecuteAPI creates a lin query language execution api.
 func NewExecuteAPI(deps *deps.HTTPDeps) *ExecuteAPI {
 	//TODO add metric
 	return &ExecuteAPI{
@@ -66,6 +71,7 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 	route.PUT(ExecutePath, e.Execute)
 }
 
+// Execute executes lin query language with limit.
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
 		return e.execute(c)
@@ -74,7 +80,7 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 	}
 }
 
-// Execute executes lin language.
+// execute lin query language.
 func (e *ExecuteAPI) execute(c *gin.Context) error {
 	ctx, cancel := e.deps.WithTimeout()
 	defer cancel()
@@ -95,10 +101,10 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		// execute state query
 		result = e.execStateQuery(s)
 	case *stmtpkg.Metadata:
-		result, err = e.execMetadataQuery(ctx, s)
+		result, err = e.execMetadataQuery(ctx, param, s)
 	case *stmtpkg.Query:
 		if strings.TrimSpace(param.Database) == "" {
-			return errors.New("database name cannot be empty")
+			return errDatabaseNameRequired
 		}
 		metricQuery := e.deps.QueryFactory.NewMetricQuery(ctx, param.Database, s)
 		result, err = metricQuery.WaitResponse()
@@ -106,7 +112,7 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 			return err
 		}
 	default:
-		return errors.New("can't parse lin language")
+		return errors.New("can't parse lin query language")
 	}
 	if err != nil {
 		return err
@@ -130,10 +136,15 @@ func (e *ExecuteAPI) execStateQuery(stateStmt *stmtpkg.State) interface{} {
 }
 
 // execMetadataQuery executes the metadata query.
-func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, metadataStmt *stmtpkg.Metadata) (interface{}, error) {
+func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, param models.ExecuteParam, metadataStmt *stmtpkg.Metadata) (interface{}, error) {
 	switch metadataStmt.Type {
 	case stmtpkg.Database:
 		return e.listDataBase(ctx)
+	case stmtpkg.Namespace, stmtpkg.Metric, stmtpkg.Field, stmtpkg.TagKey, stmtpkg.TagValue:
+		if strings.TrimSpace(param.Database) == "" {
+			return nil, errDatabaseNameRequired
+		}
+		return e.suggest(ctx, param.Database, metadataStmt)
 	default:
 		return nil, nil
 	}
@@ -160,4 +171,63 @@ func (e *ExecuteAPI) listDataBase(ctx context.Context) (*models.Metadata, error)
 		Type:   stmtpkg.Database.String(),
 		Values: databaseNames,
 	}, nil
+}
+
+// suggest executes metadata suggest query.
+func (e *ExecuteAPI) suggest(ctx context.Context, database string, request *stmtpkg.Metadata) (interface{}, error) {
+	metaDataQuery := e.deps.QueryFactory.NewMetadataQuery(ctx, database, request)
+	values, err := metaDataQuery.WaitResponse()
+	if err != nil {
+		return nil, err
+	}
+	switch request.Type {
+	case stmtpkg.Field:
+		// build field result model
+		result := make(map[field.Name]field.Meta)
+		fields := field.Metas{}
+		for _, value := range values {
+			err = encoding.JSONUnmarshal([]byte(value), &fields)
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range fields {
+				result[f.Name] = f
+			}
+		}
+		// HistogramSum(sum), HistogramCount(sum), HistogramMin(min), HistogramMax(max) is visible
+		// __bucket_{id}(HistogramField) is not visible for api,
+		// underlying histogram data is only restricted access by user via quantile function
+		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
+		var (
+			resultFields []models.Field
+			hasHistogram bool
+		)
+		for _, f := range result {
+			if f.Type != field.HistogramField {
+				resultFields = append(resultFields, models.Field{
+					Name: string(f.Name),
+					Type: f.Type.String(),
+				})
+			} else {
+				hasHistogram = true
+			}
+		}
+		//
+		if hasHistogram {
+			resultFields = append(resultFields,
+				models.Field{Name: "quantile(0.99)", Type: field.HistogramField.String()},
+				models.Field{Name: "quantile(0.95)", Type: field.HistogramField.String()},
+				models.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
+			)
+		}
+		return &models.Metadata{
+			Type:   request.Type.String(),
+			Values: resultFields,
+		}, nil
+	default:
+		return &models.Metadata{
+			Type:   request.Type.String(),
+			Values: values,
+		}, nil
+	}
 }
