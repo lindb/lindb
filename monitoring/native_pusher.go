@@ -31,6 +31,8 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
+//go:generate mockgen -source ./native_pusher.go -destination=./native_pusher_mock.go -package=monitoring
+
 var nativePushLogger = logger.GetLogger("monitoring", "Pusher")
 
 var (

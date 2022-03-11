@@ -125,7 +125,7 @@ func (e *election) GetMaster() *models.Master {
 	return nil
 }
 
-// elect elects master, start elect loop for retry when failure
+// elect master, start elect loop for retry when failure
 func (e *election) elect() {
 	for {
 		if e.ctx.Err() != nil {
