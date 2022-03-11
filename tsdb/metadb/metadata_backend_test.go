@@ -200,7 +200,7 @@ func TestMetadataBackend_suggestNamespace(t *testing.T) {
 			name: "suggest successfully",
 			prepare: func(idStore *unique.MockIDStore) {
 				idStore.EXPECT().IterKeys(gomock.Any(), gomock.Any()).
-					Return([][]byte{[]byte("test"), []byte("ns")}, nil)
+					Return([][]byte{[]byte("test"), []byte("ns"), namespaceIDSequenceKey}, nil)
 			},
 			out: struct {
 				ns  []string

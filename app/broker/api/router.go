@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/metadata"
-	"github.com/lindb/lindb/app/broker/api/query"
 	"github.com/lindb/lindb/app/broker/api/state"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/monitoring"
@@ -46,7 +45,6 @@ type API struct {
 	influxIngestion *ingest.InfluxWriter
 	protoIngestion  *ingest.ProtoWriter
 	flatIngestion   *ingest.FlatWriter
-	metadata        *query.MetadataAPI
 	proxy           *ReverseProxy
 }
 
@@ -66,7 +64,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		influxIngestion: ingest.NewInfluxWriter(deps),
 		protoIngestion:  ingest.NewProtoWriter(deps),
 		flatIngestion:   ingest.NewFlatWriter(deps),
-		metadata:        query.NewMetadataAPI(deps),
 		proxy:           NewReverseProxy(),
 	}
 }
@@ -83,7 +80,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.stateExplore.Register(router)
 	api.replica.Register(router)
 
-	api.metadata.Register(router)
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)
 	api.flatIngestion.Register(router)

@@ -29,19 +29,50 @@ type Metadata struct {
 	Values interface{} `json:"values"`
 }
 
+// ToTable returns metadata list as table if it has value, else return empty string.
 func (m *Metadata) ToTable() (int, string) {
+	writer := NewTableFormatter()
 	switch m.Type {
 	case stmt.Database.String():
-		writer := NewTableFormatter()
-		writer.AppendHeader(table.Row{"Database"})
-		dbs := m.Values.([]interface{})
-		for i := range dbs {
-			writer.AppendRow(table.Row{dbs[i]})
-		}
-		return len(dbs), writer.Render()
+		return m.toTableForStringValues(table.Row{"Database"}, writer)
+	case stmt.Namespace.String():
+		return m.toTableForStringValues(table.Row{"Namespace"}, writer)
+	case stmt.Metric.String():
+		return m.toTableForStringValues(table.Row{"Metric"}, writer)
+	case stmt.TagKey.String():
+		return m.toTableForStringValues(table.Row{"Tag Key"}, writer)
+	case stmt.TagValue.String():
+		return m.toTableForStringValues(table.Row{"Tag Value"}, writer)
+	case stmt.Field.String():
+		return m.toTableForMapValues(table.Row{"Name", "Type"}, []string{"name", "type"}, writer)
 	default:
 		return 0, ""
 	}
+}
+
+// toTableForStringValues returns table for string values.
+func (m *Metadata) toTableForStringValues(header table.Row, writer table.Writer) (int, string) {
+	writer.AppendHeader(header)
+	values := m.Values.([]interface{})
+	for i := range values {
+		writer.AppendRow(table.Row{values[i]})
+	}
+	return len(values), writer.Render()
+}
+
+// toTableForMapValues returns table for map values.
+func (m *Metadata) toTableForMapValues(header table.Row, cols []string, writer table.Writer) (int, string) {
+	writer.AppendHeader(header)
+	values := m.Values.([]interface{})
+	for _, value := range values {
+		mapValue := value.(map[string]interface{})
+		var row table.Row
+		for _, col := range cols {
+			row = append(row, mapValue[col])
+		}
+		writer.AppendRow(row)
+	}
+	return len(values), writer.Render()
 }
 
 // Field represents field metadata

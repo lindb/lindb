@@ -18,6 +18,7 @@
 package metadb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -224,6 +225,9 @@ func (mb *metadataBackend) suggestNamespace(prefix string, limit int) (namespace
 		return nil, err
 	}
 	for _, val := range values {
+		if bytes.Equal(val, namespaceIDSequenceKey) {
+			continue
+		}
 		namespaces = append(namespaces, string(val))
 	}
 	return
