@@ -21,183 +21,254 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
-func TestMaster(t *testing.T) {
+func TestNewMasterController(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	eventCh := make(chan *state.Event)
-
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(eventCh).AnyTimes()
-	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(true, nil, nil).AnyTimes()
-	discoveryFactory := discovery.NewMockFactory(ctrl)
-	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).AnyTimes()
-	discovery1.EXPECT().Close().AnyTimes()
-	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
-
-	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMasterController(&MasterCfg{
-		Ctx:              context.TODO(),
-		Repo:             repo,
-		Node:             &node1,
-		TTL:              1,
-		DiscoveryFactory: discoveryFactory,
-	})
-	master1.Start()
-	data := encoding.JSONMarshal(&models.Master{Node: &node1})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
+	dis := discovery.NewMockDiscovery(ctrl)
+	disFct := discovery.NewMockFactory(ctrl)
+	disFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(dis).AnyTimes()
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "create master controller failure",
+			prepare: func() {
+				dis.EXPECT().Discovery(true).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
 		},
-	})
-	assert.Equal(t, &node1, master1.GetMaster().Node)
-	assert.True(t, master1.IsMaster())
-	assert.NotNil(t, master1.GetStateManager())
-
-	// re-elect
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeDelete,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
+		{
+			name: "create master controller failure",
+			prepare: func() {
+				dis.EXPECT().Discovery(true).Return(nil)
+			},
+			wantErr: true,
 		},
-	})
-	assert.False(t, master1.IsMaster())
+	}
 
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
-		},
-	})
-	assert.True(t, master1.IsMaster())
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &MasterCfg{
+				Ctx:              context.TODO(),
+				DiscoveryFactory: disFct,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
 
-	master1.Stop()
+			mc, err := NewMasterController(cfg)
+			if ((err != nil) != tt.wantErr && mc == nil) || (!tt.wantErr && mc == nil) {
+				t.Errorf("NewMasterController() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
-func TestMaster_Fail(t *testing.T) {
+func TestMasterController_OnFailOver(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		newStateMgrFn = masterpkg.NewStateManager
+		ctrl.Finish()
+	}()
 
-	eventCh := make(chan *state.Event)
-
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(eventCh).AnyTimes()
-	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(true, nil, nil).AnyTimes()
 	discoveryFactory := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discovery1.EXPECT().Close().AnyTimes()
 	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+	stateMgr := masterpkg.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().Close().AnyTimes()
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any()).AnyTimes()
+	newStateMgrFn = func(ctx context.Context, masterRepo state.Repository,
+		repoFactory state.RepositoryFactory) masterpkg.StateManager {
+		return stateMgr
+	}
+	registry := discovery.NewMockRegistry(ctrl)
 
-	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMasterController(&MasterCfg{
-		Ctx:              context.TODO(),
-		Repo:             repo,
-		Node:             &node1,
-		TTL:              1,
-		DiscoveryFactory: discoveryFactory,
-	})
-	master1.Start()
-
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
-	data := encoding.JSONMarshal(&models.Master{Node: &node1})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "start state machine failure",
+			prepare: func() {
+				discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
 		},
-	})
-	assert.False(t, master1.IsMaster())
-	assert.Nil(t, master1.GetMaster())
-
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
+		{
+			name: "register master done failure",
+			prepare: func() {
+				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
+				registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
 		},
-	})
-	assert.False(t, master1.IsMaster())
-	assert.Nil(t, master1.GetMaster())
+		{
+			name: "elect master successfully",
+			prepare: func() {
+				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
+				registry.EXPECT().Register(gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+	}
 
-	master1.Stop()
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &masterController{
+				ctx: context.TODO(),
+				cfg: &MasterCfg{
+					DiscoveryFactory: discoveryFactory,
+				},
+				registry: registry,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := mc.OnFailOver()
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("OnFailOver() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil {
+				assert.NotNil(t, mc.GetStateManager())
+			}
+		})
+	}
 }
 
-func TestMaster_FlushDatabase(t *testing.T) {
+func TestMasterController_OnResignation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	eventCh := make(chan *state.Event)
+	stateMgr := masterpkg.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().Close()
+	registry := discovery.NewMockRegistry(ctrl)
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
 
-	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	repo.EXPECT().Watch(gomock.Any(), gomock.Any(), true).Return(eventCh).AnyTimes()
-	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(true, nil, nil).AnyTimes()
-	discoveryFactory := discovery.NewMockFactory(ctrl)
-	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).AnyTimes()
-	discovery1.EXPECT().Close().AnyTimes()
-	discoveryFactory.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
-
-	node1 := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
-	master1 := NewMasterController(&MasterCfg{
-		Ctx:              context.TODO(),
-		Repo:             repo,
-		Node:             &node1,
-		TTL:              1,
-		DiscoveryFactory: discoveryFactory,
-	})
-	err := master1.FlushDatabase("test", "test")
-	assert.NoError(t, err)
-
-	master1.Start()
-	data := encoding.JSONMarshal(&models.Master{Node: &node1})
-	sendEvent(eventCh, &state.Event{
-		Type: state.EventTypeModify,
-		KeyValues: []state.EventKeyValue{
-			{Key: constants.MasterPath, Value: data},
+	mc := &masterController{
+		stateMgr: stateMgr,
+		cfg: &MasterCfg{
+			Node: &models.StatelessNode{},
 		},
-	})
-	assert.True(t, master1.IsMaster())
-	err = master1.FlushDatabase("test", "test")
-	assert.Error(t, err)
-
-	m1 := master1.(*masterController)
-	m1.mutex.Lock()
-	statMgr := masterpkg.NewMockStateManager(ctrl)
-	m1.stateMgr = statMgr
-	m1.mutex.Unlock()
-
-	cluster1 := masterpkg.NewMockStorageCluster(ctrl)
-	statMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster1)
-	cluster1.EXPECT().FlushDatabase(gomock.Any()).Return(nil)
-	err = master1.FlushDatabase("test", "test")
-	assert.NoError(t, err)
+		registry:        registry,
+		stateMachineFct: masterpkg.NewStateMachineFactory(context.TODO(), nil, stateMgr),
+	}
+	mc.OnResignation()
 }
 
-func sendEvent(eventCh chan *state.Event, event *state.Event) {
-	eventCh <- event
-	time.Sleep(10 * time.Millisecond)
+func TestMasterController_Start_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	masterElect := elect.NewMockElection(ctrl)
+	mc := &masterController{
+		ctx:    ctx,
+		cancel: cancel,
+		elect:  masterElect,
+	}
+	gomock.InOrder(
+		masterElect.EXPECT().Initialize(),
+		masterElect.EXPECT().Elect(),
+	)
+	mc.Start()
+	master := &models.Master{}
+	masterElect.EXPECT().IsMaster().Return(true)
+	masterElect.EXPECT().GetMaster().Return(master)
+	assert.True(t, mc.IsMaster())
+	assert.Equal(t, master, mc.GetMaster())
+	masterElect.EXPECT().Close()
+	mc.Stop()
+}
+
+func TestMasterController_Elect_Listener(t *testing.T) {
+	mc := &masterController{}
+	// err
+	mc.OnCreate("", []byte("err"))
+	master1 := &models.Master{}
+	data := encoding.JSONMarshal(master1)
+	c := 0
+	mc.WatchMasterElected(func(master *models.Master) {
+		assert.Equal(t, master1, master)
+		c++
+	})
+	mc.OnCreate("", data)
+	assert.Equal(t, 1, c)
+
+	mc.OnDelete("")
+}
+
+func TestMasterController_FlushDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	masterElect := elect.NewMockElection(ctrl)
+	stateMgr := masterpkg.NewMockStateManager(ctrl)
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "isn't master",
+			prepare: func() {
+				masterElect.EXPECT().IsMaster().Return(false)
+			},
+			wantErr: false,
+		},
+		{
+			name: "storage not found",
+			prepare: func() {
+				masterElect.EXPECT().IsMaster().Return(true)
+				stateMgr.EXPECT().GetStorageCluster("test").Return(nil)
+			},
+			wantErr: true,
+		},
+		{
+			name: "flush database successfully",
+			prepare: func() {
+				masterElect.EXPECT().IsMaster().Return(true)
+				storage := masterpkg.NewMockStorageCluster(ctrl)
+				stateMgr.EXPECT().GetStorageCluster("test").Return(storage)
+				storage.EXPECT().FlushDatabase("db").Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &masterController{
+				elect:    masterElect,
+				stateMgr: stateMgr,
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := mc.FlushDatabase("test", "db")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FlushDatabase() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

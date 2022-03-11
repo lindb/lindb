@@ -22,7 +22,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
@@ -55,6 +58,15 @@ var (
 	hostName               = os.Hostname
 	newStateMachineFactory = broker.NewStateMachineFactory
 	newRegistry            = discovery.NewRegistry
+	newRepositoryFactory   = state.NewRepositoryFactory
+	newGRPCServer          = rpc.NewGRPCServer
+	newTaskClientFactory   = rpc.NewTaskClientFactory
+	newStateManager        = broker.NewStateManager
+	newChannelManager      = replica.NewChannelManager
+	newTaskManager         = brokerQuery.NewTaskManager
+	newMasterController    = coordinator.NewMasterController
+	newNativeProtoPusher   = monitoring.NewNativeProtoPusher
+	serveGRPCFn            = serveGRPC
 )
 
 // srv represents all services for broker
@@ -85,7 +97,7 @@ type runtime struct {
 	repoFactory         state.RepositoryFactory
 	srv                 srv
 	factory             factory
-	httpServer          *httppkg.Server
+	httpServer          httppkg.Server
 	master              coordinator.MasterController
 	registry            discovery.Registry
 	stateMachineFactory discovery.StateMachineFactory
@@ -112,7 +124,7 @@ func NewBrokerRuntime(version string, config *config.Broker, enableSystemMonitor
 		version:     version,
 		state:       server.New,
 		config:      config,
-		repoFactory: state.NewRepositoryFactory("broker"),
+		repoFactory: newRepositoryFactory("broker"),
 		ctx:         ctx,
 		cancel:      cancel,
 		queryPool: concurrent.NewPool(
@@ -164,14 +176,14 @@ func (r *runtime) Run() error {
 		{Key: []byte("role"), Value: []byte(constants.BrokerRole)},
 	}
 
-	tackClientFct := rpc.NewTaskClientFactory(r.ctx, r.node)
+	tackClientFct := newTaskClientFactory(r.ctx, r.node)
 	r.factory = factory{
 		taskClient:    tackClientFct,
 		taskServer:    rpc.NewTaskServerFactory(),
 		connectionMgr: rpc.NewConnectionManager(tackClientFct),
 	}
 
-	r.stateMgr = broker.NewStateManager(
+	r.stateMgr = newStateManager(
 		r.ctx,
 		*r.node,
 		r.factory.connectionMgr,
@@ -184,13 +196,6 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 
-	// finally, start all state machine
-	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
-
-	if err := r.stateMachineFactory.Start(); err != nil {
-		return fmt.Errorf("start state machines error: %s", err)
-	}
-
 	masterCfg := &coordinator.MasterCfg{
 		Ctx:              r.ctx,
 		Repo:             r.repo,
@@ -199,14 +204,43 @@ func (r *runtime) Run() error {
 		DiscoveryFactory: discoveryFactory,
 		RepoFactory:      r.repoFactory,
 	}
-	r.master = coordinator.NewMasterController(masterCfg)
+	r.master, err = newMasterController(masterCfg)
+	if err != nil {
+		r.state = server.Failed
+		return fmt.Errorf("create master controller error:%s", err)
+	}
 
 	// register broker node info
-	r.registry = newRegistry(r.repo, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
+	r.registry = newRegistry(r.repo, constants.LiveNodesPath, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
 	if err := r.registry.Register(r.node); err != nil {
+		r.state = server.Failed
 		return fmt.Errorf("register broker node error:%s", err)
 	}
+
+	var wait sync.WaitGroup
+	wait.Add(1)
+	var errStore atomic.Value
+
+	r.master.WatchMasterElected(func(_ *models.Master) {
+		// after 5 second when master elected, wait master state sync.
+		time.AfterFunc(5*time.Second, func() {
+			defer wait.Done()
+			// finally, start all state machine
+			r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
+			if err := r.stateMachineFactory.Start(); err != nil {
+				errStore.Store(err)
+			}
+		})
+	})
 	r.master.Start()
+
+	// waiting broker state machine started
+	wait.Wait()
+	// check if it has error when start state machine
+	if errVal := errStore.Load(); errVal != nil {
+		r.state = server.Failed
+		return fmt.Errorf("start state machines error: %v", errVal)
+	}
 
 	// start http server
 	r.startHTTPServer()
@@ -283,19 +317,23 @@ func (r *runtime) Stop() {
 	}
 
 	if r.factory.connectionMgr != nil {
-		_ = r.factory.connectionMgr.Close()
+		if err := r.factory.connectionMgr.Close(); err != nil {
+			r.log.Error("close connection manager error, when broker stop", logger.Error(err))
+		} else {
+			r.log.Info("closed connection manager successfully")
+		}
 	}
 	r.log.Info("close connections successfully")
 
-	// finally shutdown rpc server
+	// finally, shutdown rpc server
 	if r.grpcServer != nil {
 		r.log.Info("stopping grpc server...")
 		r.grpcServer.Stop()
 		r.log.Info("stopped grpc server successfully")
 	}
 
-	r.log.Info("stopped broker server successfully")
 	r.state = server.Terminated
+	r.log.Info("stopped broker server successfully")
 }
 
 // startHTTPServer starts http server for api rpcHandler
@@ -353,12 +391,10 @@ func (r *runtime) startStateRepo() error {
 
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() {
-	// todo watch stateMachine states change.
+	// create replica channel mgr.
+	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node), r.stateMgr)
 
-	// hard code create channel first.
-	cm := replica.NewChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node), r.stateMgr)
-
-	taskManager := brokerQuery.NewTaskManager(
+	taskManager := newTaskManager(
 		r.ctx,
 		r.node,
 		r.factory.taskClient,
@@ -380,20 +416,9 @@ func (r *runtime) buildServiceDependency() {
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
 	r.log.Info("starting GRPC server")
-	r.grpcServer = rpc.NewGRPCServer(r.config.BrokerBase.GRPC)
+	r.grpcServer = newGRPCServer(r.config.BrokerBase.GRPC)
 
 	// bind grpc handlers
-	r.bindGRPCHandlers()
-
-	go func() {
-		if err := r.grpcServer.Start(); err != nil {
-			panic(err)
-		}
-	}()
-}
-
-// bindGRPCHandlers binds rpc handlers, registers rpcHandler into grpc server
-func (r *runtime) bindGRPCHandlers() {
 	intermediateTaskProcessor := brokerQuery.NewIntermediateTaskProcessor(
 		r.node,
 		r.factory.taskClient,
@@ -410,6 +435,14 @@ func (r *runtime) bindGRPCHandlers() {
 	}
 
 	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.handler)
+
+	go serveGRPCFn(r.grpcServer)
+}
+
+func serveGRPC(grpc rpc.GRPCServer) {
+	if err := grpc.Start(); err != nil {
+		panic(err)
+	}
 }
 
 func (r *runtime) nativePusher() {
@@ -421,7 +454,7 @@ func (r *runtime) nativePusher() {
 	r.log.Info("pusher is running",
 		logger.String("interval", r.config.Monitor.ReportInterval.String()))
 
-	r.pusher = monitoring.NewNativeProtoPusher(
+	r.pusher = newNativeProtoPusher(
 		r.ctx,
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),

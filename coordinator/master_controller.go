@@ -21,17 +21,27 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./master_controller.go -destination=./master_controller_mock.go -package=coordinator
+
+// for testing
+var (
+	newElectionFn        = elect.NewElection
+	newRegistryFn        = discovery.NewRegistry
+	newStateMgrFn        = masterpkg.NewStateManager
+	newStateMachineFctFn = masterpkg.NewStateMachineFactory
+)
 
 var log = logger.GetLogger("coordinator", "MasterController")
 
@@ -64,6 +74,8 @@ type MasterController interface {
 	FlushDatabase(cluster string, databaseName string) error
 	// GetStateManager returns master's state manager.
 	GetStateManager() masterpkg.StateManager
+	// WatchMasterElected adds callback after master finished election.
+	WatchMasterElected(fn func(master *models.Master))
 }
 
 // masterController implements MasterController interface
@@ -77,12 +89,15 @@ type masterController struct {
 	// create by runtime
 	stateMachineFct *masterpkg.StateMachineFactory
 	elect           elect.Election
+	registry        discovery.Registry
+
+	fns []func(master *models.Master)
 
 	mutex sync.Mutex
 }
 
 // NewMasterController create MasterController for current node
-func NewMasterController(cfg *MasterCfg) MasterController {
+func NewMasterController(cfg *MasterCfg) (MasterController, error) {
 	ctx, cancel := context.WithCancel(cfg.Ctx)
 	m := &masterController{
 		cfg:    cfg,
@@ -90,8 +105,13 @@ func NewMasterController(cfg *MasterCfg) MasterController {
 		cancel: cancel,
 	}
 	// create master election
-	m.elect = elect.NewElection(ctx, cfg.Repo, cfg.Node, cfg.TTL, m)
-	return m
+	m.elect = newElectionFn(ctx, cfg.Repo, cfg.Node, cfg.TTL, m)
+	m.registry = newRegistryFn(cfg.Repo, constants.MasterElectedPath, time.Duration(cfg.TTL))
+	masterElectedDiscovery := cfg.DiscoveryFactory.CreateDiscovery(constants.MasterElectedPath, m)
+	if err := masterElectedDiscovery.Discovery(true); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // OnFailOver invoked after master electing, current node become a new master
@@ -101,8 +121,8 @@ func (m *masterController) OnFailOver() error {
 	defer m.mutex.Unlock()
 
 	var err error
-	stateMgr := masterpkg.NewStateManager(m.ctx, m.cfg.Repo, m.cfg.RepoFactory)
-	stateMachineFct := masterpkg.NewStateMachineFactory(m.ctx, m.cfg.DiscoveryFactory, stateMgr)
+	stateMgr := newStateMgrFn(m.ctx, m.cfg.Repo, m.cfg.RepoFactory)
+	stateMachineFct := newStateMachineFctFn(m.ctx, m.cfg.DiscoveryFactory, stateMgr)
 	// first need set state machine factory in state manager
 	stateMgr.SetStateMachineFactory(stateMachineFct)
 
@@ -118,11 +138,13 @@ func (m *masterController) OnFailOver() error {
 		}
 	}()
 	// start master state machine
-	err = stateMachineFct.Start()
-	if err != nil {
+	if err = stateMachineFct.Start(); err != nil {
 		return fmt.Errorf("start master state machine error:%s", err)
 	}
-
+	// register master node info after election, tell other nodes finish master election.
+	if err = m.registry.Register(m.cfg.Node); err != nil {
+		return fmt.Errorf("register elected master node error:%s", err)
+	}
 	return nil
 }
 
@@ -139,6 +161,9 @@ func (m *masterController) OnResignation() {
 
 	if m.stateMgr != nil {
 		m.stateMgr.Close()
+	}
+	if err := m.registry.Deregister(m.cfg.Node); err != nil {
+		log.Warn("unregister elected master node error", logger.Error(err))
 	}
 }
 
@@ -187,4 +212,37 @@ func (m *masterController) FlushDatabase(cluster string, databaseName string) er
 		return storage.FlushDatabase(databaseName)
 	}
 	return nil
+}
+
+// WatchMasterElected adds callback after master finished election.
+func (m *masterController) WatchMasterElected(fn func(master *models.Master)) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.fns = append(m.fns, fn)
+}
+
+// OnCreate is master finish election callback.
+func (m *masterController) OnCreate(_ string, resource []byte) {
+	log.Info("new master finished election", logger.String("node", string(resource)))
+	master := &models.Master{}
+	if err := encoding.JSONUnmarshal(resource, master); err != nil {
+		log.Warn("unmarshal elected master node error", logger.Error(err))
+		return
+	}
+	var callbackFns []func(master *models.Master)
+	m.mutex.Lock()
+	for i := range m.fns {
+		callbackFns = append(callbackFns, m.fns[i])
+	}
+	m.mutex.Unlock()
+
+	for _, fn := range callbackFns {
+		fn(master)
+	}
+}
+
+// OnDelete is master offline callback.
+func (m *masterController) OnDelete(_ string) {
+	//nothing to do
 }

@@ -39,7 +39,3 @@ func TestGetStorageClusterConfigPath(t *testing.T) {
 	assert.Equal(t, StorageConfigPath+"/name", GetStorageClusterConfigPath("name"))
 
 }
-
-func TestGetNodeMonitoringStatPath(t *testing.T) {
-	assert.Equal(t, StateNodesPath+"/1.1.1.1:port", GetNodeMonitoringStatPath("1.1.1.1:port"))
-}

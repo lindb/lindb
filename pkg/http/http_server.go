@@ -35,10 +35,22 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source ./http_server.go -destination=./http_server_mock.go -package=http
+
 const _apiRootPath = "/api"
 
 // Server represents http server with gin framework.
-type Server struct {
+type Server interface {
+	// GetAPIRouter returns api router.
+	GetAPIRouter() *gin.RouterGroup
+	// Run runs the HTTP server.
+	Run() error
+	// Close closes the server.
+	Close(ctx context.Context) error
+}
+
+// server implements Server interface.
+type server struct {
 	addr           string
 	server         http.Server
 	gin            *gin.Engine
@@ -48,8 +60,8 @@ type Server struct {
 }
 
 // NewServer creates http server.
-func NewServer(cfg config.HTTP, staticResource bool) *Server {
-	s := &Server{
+func NewServer(cfg config.HTTP, staticResource bool) Server {
+	s := &server{
 		addr:           fmt.Sprintf(":%d", cfg.Port),
 		gin:            gin.New(),
 		staticResource: staticResource,
@@ -66,7 +78,7 @@ func NewServer(cfg config.HTTP, staticResource bool) *Server {
 }
 
 // init initializes http server default router/handle/middleware.
-func (s *Server) init() {
+func (s *server) init() {
 	// Using middlewares on group.
 	// use AccessLog to log panic error with zap
 	s.gin.Use(middleware.AccessLog())
@@ -97,12 +109,12 @@ func (s *Server) init() {
 }
 
 // GetAPIRouter returns api router.
-func (s *Server) GetAPIRouter() *gin.RouterGroup {
+func (s *server) GetAPIRouter() *gin.RouterGroup {
 	return s.gin.Group(_apiRootPath)
 }
 
 // Run runs the HTTP server.
-func (s *Server) Run() error {
+func (s *server) Run() error {
 	s.logger.Info("starting http server", logger.String("addr", s.server.Addr))
 	s.server.Handler = s.gin
 	// Open listener.
@@ -114,6 +126,6 @@ func (s *Server) Run() error {
 }
 
 // Close closes the server.
-func (s *Server) Close(ctx context.Context) error {
+func (s *server) Close(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }

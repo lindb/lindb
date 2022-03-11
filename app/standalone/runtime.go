@@ -40,6 +40,10 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
+// for testing
+var (
+	startEtcdFn = embed.StartEtcd
+)
 var log = logger.GetLogger("standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode
@@ -52,7 +56,7 @@ type runtime struct {
 	broker      server.Service
 	storage     server.Service
 
-	initializer *bootstrap.ClusterInitializer
+	initializer bootstrap.ClusterInitializer
 	delayInit   time.Duration
 
 	ctx    context.Context
@@ -108,6 +112,7 @@ func (r *runtime) Run() error {
 
 	// cleanup state for previous embed etcd server state
 	if err := r.cleanupState(); err != nil {
+		r.state = server.Failed
 		return err
 	}
 	if err := r.runServer(); err != nil {
@@ -188,7 +193,7 @@ func (r *runtime) startETCD() error {
 	// always set etcd runtime to error level
 	cfg.LogLevel = zapcore.ErrorLevel.String()
 
-	e, err := embed.StartEtcd(cfg)
+	e, err := startEtcdFn(cfg)
 	if err != nil {
 		return err
 	}
@@ -196,7 +201,7 @@ func (r *runtime) startETCD() error {
 	select {
 	case <-e.Server.ReadyNotify():
 		log.Info("etcd server is ready")
-	case <-time.After(60 * time.Second):
+	case <-time.After(time.Minute):
 		e.Server.Stop() // trigger a shutdown
 		log.Error("etcd server took too long to start")
 	case err := <-e.Err():
