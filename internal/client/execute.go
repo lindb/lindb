@@ -30,23 +30,33 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
+//go:generate mockgen -source=./execute.go -destination=./execute_mock.go -package=client
+
 // ExecuteCli represents lin query language execute client.
-type ExecuteCli struct {
+type ExecuteCli interface {
+	// Execute executes lin query language, then returns execute result.
+	Execute(param models.ExecuteParam, rs interface{}) error
+	// ExecuteAsResult executes lin query language, then returns terminal result.
+	ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error)
+}
+
+// executeCli implements ExecuteCli interface.
+type executeCli struct {
 	Base
 }
 
 // NewExecuteCli creates a lin query language execute client instance.
-func NewExecuteCli(endpoint string) *ExecuteCli {
+func NewExecuteCli(endpoint string) ExecuteCli {
 	cli := resty.New()
 	cli.SetBaseURL(endpoint)
-	return &ExecuteCli{
+	return &executeCli{
 		Base{
 			cli: cli,
 		}}
 }
 
 // Execute executes lin query language, then returns execute result.
-func (cli *ExecuteCli) Execute(param models.ExecuteParam, rs interface{}) error {
+func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error {
 	// send request
 	resp, err := cli.cli.R().
 		SetBody(&param).
@@ -69,7 +79,7 @@ func (cli *ExecuteCli) Execute(param models.ExecuteParam, rs interface{}) error 
 }
 
 // ExecuteAsResult executes lin query language, then returns terminal result.
-func (cli *ExecuteCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error) {
+func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error) {
 	n := time.Now()
 	err := cli.Execute(param, rs)
 	cost := time.Since(n)

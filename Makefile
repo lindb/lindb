@@ -32,6 +32,7 @@ GOLANGCI_LINT_VERSION ?= "v1.28.3"
 
 GOMOCK_VERSION = "v1.5.0"
 
+
 gomock: ## go generate mock file.
 	go get "github.com/golang/mock/mockgen@$(GOMOCK_VERSION)"
 	go install "github.com/golang/mock/mockgen"
@@ -48,7 +49,8 @@ lint: ## run lint
 
 test-without-lint: ## Run test without lint
 	go install github.com/rakyll/gotest
-	export LOG_LEVEL="fatal" ## disable log for test
+	GIN_MODE=release
+	LOG_LEVEL=fatal ## disable log for test
 	gotest -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
 test: header lint test-without-lint ## Run test cases.
