@@ -132,9 +132,7 @@ func main() {
 						result = &models.Master{}
 					}
 				case *stmtpkg.Metadata:
-					if s.Type == stmtpkg.Database {
-						result = &models.Metadata{}
-					}
+					result = &models.Metadata{}
 				case *stmtpkg.Query:
 					result = &models.ResultSet{}
 					if strings.TrimSpace(inputC.db) == "" {
