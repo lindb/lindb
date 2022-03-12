@@ -52,6 +52,8 @@ func TestDatabase_String(t *testing.T) {
 
 func TestParseShardID(t *testing.T) {
 	assert.Equal(t, ShardID(1), ParseShardID("1"))
+	assert.Equal(t, "1", ShardID(1).String())
+	assert.Equal(t, 1, ShardID(1).Int())
 }
 
 func TestDatabases_ToTable(t *testing.T) {
@@ -61,4 +63,10 @@ func TestDatabases_ToTable(t *testing.T) {
 	rows, rs = Databases{{Name: "test"}}.ToTable()
 	assert.NotEmpty(t, rs)
 	assert.Equal(t, rows, 1)
+}
+
+func TestReplica_Contain(t *testing.T) {
+	replica := Replica{Replicas: []NodeID{1, 2}}
+	assert.True(t, replica.Contain(2))
+	assert.False(t, replica.Contain(4))
 }

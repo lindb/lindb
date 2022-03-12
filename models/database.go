@@ -35,10 +35,10 @@ func (dbs Databases) ToTable() (int, string) {
 		return 0, ""
 	}
 	writer := NewTableFormatter()
-	writer.AppendHeader(table.Row{"Database"})
+	writer.AppendHeader(table.Row{"Name", "Storage", "Desc"})
 	for i := range dbs {
 		r := dbs[i]
-		writer.AppendRow(table.Row{r.Name})
+		writer.AppendRow(table.Row{r.Name, r.Storage, r.Desc})
 
 	}
 	return len(dbs), writer.Render()

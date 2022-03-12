@@ -59,6 +59,7 @@ var (
 		{Text: "show"},
 		{Text: "use"},
 		{Text: "master"},
+		{Text: "schemas"},
 		{Text: "database"},
 		{Text: "databases"},
 		{Text: "group by"},
@@ -132,6 +133,8 @@ func executor(in string) {
 				if s.Type == stmtpkg.Master {
 					result = &models.Master{}
 				}
+			case *stmtpkg.Schemas:
+				result = &models.Databases{}
 			case *stmtpkg.Metadata:
 				result = &models.Metadata{}
 			case *stmtpkg.Query:
