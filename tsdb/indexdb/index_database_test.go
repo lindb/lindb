@@ -424,6 +424,7 @@ func TestIndexDatabase_Close(t *testing.T) {
 	createBackendFn = func(parent string) (IDMappingBackend, error) {
 		return backend, nil
 	}
+	backend.EXPECT().sync().Return(nil)
 
 	meta := metadb.NewMockMetadata(ctrl)
 	meta.EXPECT().DatabaseName().Return("test").AnyTimes()
@@ -431,6 +432,10 @@ func TestIndexDatabase_Close(t *testing.T) {
 
 	assert.NoError(t, err)
 	backend.EXPECT().Close().Return(fmt.Errorf("err"))
+	err = db.Close()
+	assert.Error(t, err)
+
+	backend.EXPECT().sync().Return(fmt.Errorf("err"))
 	err = db.Close()
 	assert.Error(t, err)
 }
@@ -457,8 +462,4 @@ func TestIndexDatabase_Flush(t *testing.T) {
 
 	backend.EXPECT().sync().Return(fmt.Errorf("err"))
 	assert.Error(t, db.Flush())
-
-	backend.EXPECT().Close().Return(nil)
-	err = db.Close()
-	assert.NoError(t, err)
 }
