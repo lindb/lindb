@@ -6,18 +6,21 @@ statement               : statementList EOF;
 
 statementList           : showMasterStmt
                         | useStmt
-                        | createDatabaseStmt
+                        | showSchemasStmt
                         | showDatabaseStmt
                         | showNameSpacesStmt
                         | showMetricsStmt
                         | showFieldsStmt
                         | showTagKeysStmt
                         | showTagValuesStmt
-                        | queryStmt;
+                        | queryStmt
+                        | createDatabaseStmt
+                        ;
 
 useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
+showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
@@ -240,6 +243,9 @@ nonReservedWords      :
                         | T_WEEK
                         | T_MONTH
                         | T_YEAR
+                        | T_USE
+                        | T_MASTER
+                        | T_SCHEMAS
                         ;
 
 STRING
@@ -288,6 +294,7 @@ T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
 T_USE                : U S E                            ;
 T_MASTER             : M A S T E R                      ;
+T_SCHEMAS            : S C H E M A S                    ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;
 T_NAMESPACE          : N A M E S P A C E                ;

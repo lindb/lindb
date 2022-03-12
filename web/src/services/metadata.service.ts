@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { GET, POST } from "@src/utils";
-import { Storage, Database } from "@src/models";
+import { Storage } from "@src/models";
 import { ApiPath } from "@src/constants";
 
 /**
@@ -30,13 +30,6 @@ export function findStorageList() {
 
 export function createStorage(storage: Storage) {
   return POST<any>(ApiPath.Storage, storage);
-}
-/**
- * find all database config list.
- * @returns all database config list.
- */
-export function findDatabaseList() {
-  return GET<Database[]>(ApiPath.Exec, { sql: "show databases" });
 }
 
 export function metaExplore() {

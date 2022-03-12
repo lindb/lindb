@@ -97,6 +97,8 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 
 	var result interface{}
 	switch s := stmt.(type) {
+	case *stmtpkg.Schemas:
+		result, err = e.listDataBases(ctx)
 	case *stmtpkg.State:
 		// execute state query
 		result = e.execStateQuery(s)
@@ -139,7 +141,18 @@ func (e *ExecuteAPI) execStateQuery(stateStmt *stmtpkg.State) interface{} {
 func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, param models.ExecuteParam, metadataStmt *stmtpkg.Metadata) (interface{}, error) {
 	switch metadataStmt.Type {
 	case stmtpkg.Database:
-		return e.listDataBase(ctx)
+		dbs, err := e.listDataBases(ctx)
+		if err != nil {
+			return nil, err
+		}
+		var databaseNames []interface{}
+		for _, db := range dbs {
+			databaseNames = append(databaseNames, db.Name)
+		}
+		return &models.Metadata{
+			Type:   stmtpkg.Database.String(),
+			Values: databaseNames,
+		}, nil
 	case stmtpkg.Namespace, stmtpkg.Metric, stmtpkg.Field, stmtpkg.TagKey, stmtpkg.TagValue:
 		if strings.TrimSpace(param.Database) == "" {
 			return nil, errDatabaseNameRequired
@@ -150,13 +163,13 @@ func (e *ExecuteAPI) execMetadataQuery(ctx context.Context, param models.Execute
 	}
 }
 
-// listDataBase returns database list in cluster.
-func (e *ExecuteAPI) listDataBase(ctx context.Context) (*models.Metadata, error) {
+// listDataBases returns database list in cluster.
+func (e *ExecuteAPI) listDataBases(ctx context.Context) ([]*models.Database, error) {
 	data, err := e.deps.Repo.List(ctx, constants.DatabaseConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	var databaseNames []interface{}
+	var dbs []*models.Database
 	for _, val := range data {
 		db := &models.Database{}
 		err = encoding.JSONUnmarshal(val.Value, db)
@@ -165,12 +178,10 @@ func (e *ExecuteAPI) listDataBase(ctx context.Context) (*models.Metadata, error)
 				logger.String("data", string(val.Value)))
 			continue
 		}
-		databaseNames = append(databaseNames, db.Name)
+		db.Desc = db.String()
+		dbs = append(dbs, db)
 	}
-	return &models.Metadata{
-		Type:   stmtpkg.Database.String(),
-		Values: databaseNames,
-	}, nil
+	return dbs, nil
 }
 
 // suggest executes metadata suggest query.

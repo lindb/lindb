@@ -186,6 +186,28 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "get all database schemas",
+			reqBody: `{"sql":"show schemas"}`,
+			prepare: func() {
+				// get ok
+				database := models.Database{
+					Name:          "test",
+					Storage:       "cluster-test",
+					NumOfShard:    12,
+					ReplicaFactor: 3,
+				}
+				database.Desc = database.String()
+				data := encoding.JSONMarshal(&database)
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+					{Key: "db", Value: data},
+					{Key: "err", Value: []byte{1, 2, 4}},
+				}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
 			name:    "database name cannot be empty when query metric",
 			reqBody: `{"sql":"select f from cpu"}`,
 			assert: func(resp *httptest.ResponseRecorder) {
