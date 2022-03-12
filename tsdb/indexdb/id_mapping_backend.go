@@ -83,17 +83,18 @@ func (imb *idMappingBackend) loadMetricIDMapping(metricID metric.ID) (idMapping 
 	if err != nil {
 		return nil, err
 	}
+	allocateSequence := func(sequence uint32) (idMapping MetricIDMapping, err error) {
+		cacheSize := config.GlobalStorageConfig().TSDB.SeriesSequenceCache
+		// persist cached series sequence value
+		if err := unique.SaveSequence(imb.db, mID, sequence+cacheSize); err != nil {
+			return nil, err
+		}
+		return newMetricIDMapping(metricID, sequence), nil
+	}
 	if !exist {
-		return newMetricIDMapping(metricID, 0), nil
+		return allocateSequence(0)
 	}
-	sequence := binary.LittleEndian.Uint32(val)
-
-	// persist cached series sequence value
-	cacheSize := config.GlobalStorageConfig().TSDB.SeriesSequenceCache
-	if err := unique.SaveSequence(imb.db, mID, sequence+cacheSize); err != nil {
-		return nil, err
-	}
-	return newMetricIDMapping(metricID, sequence), nil
+	return allocateSequence(binary.LittleEndian.Uint32(val))
 }
 
 // saveSeriesSequence persists series sequence.

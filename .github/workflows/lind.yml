@@ -46,6 +46,22 @@ jobs:
       - name: Upload
         run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
 
+  e2e-test:
+    name: E2E Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Test
+        run: make e2e
 
   build:
     name: Build-Lind
