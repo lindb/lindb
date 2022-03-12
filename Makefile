@@ -55,6 +55,14 @@ test-without-lint: ## Run test without lint
 
 test: header lint test-without-lint ## Run test cases.
 
+e2e-test:
+	go install github.com/rakyll/gotest
+	GIN_MODE=release
+	LOG_LEVEL=fatal ## disable log for test
+	gotest -v --tags=integration -race -coverprofile=coverage.out -covermode=atomic ./e2e/...
+
+e2e: header e2e-test
+
 deps:  ## Update vendor.
 	go mod verify
 	go mod tidy -v

@@ -210,6 +210,7 @@ func TestIDMappingBackend_loadMetricIDMapping(t *testing.T) {
 			name: "load mapping not exist",
 			prepare: func(idStore *unique.MockIDStore) {
 				idStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				idStore.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 			},
 			wantErr: false,
 		},

@@ -192,7 +192,7 @@ func (db *indexDatabase) Flush() error {
 	if err := db.backend.sync(); err != nil {
 		return err
 	}
-	//fixme inverted index need add wal???
+	//fixme inverted index need add wal??? flush metric metadata(sequence)
 	return db.index.Flush()
 }
 
@@ -202,8 +202,12 @@ func (db *indexDatabase) Close() error {
 	db.rwMutex.Lock()
 	defer db.rwMutex.Unlock()
 
+	if err := db.Flush(); err != nil {
+		return err
+	}
+
 	if err := db.backend.Close(); err != nil {
 		return err
 	}
-	return db.index.Flush()
+	return nil
 }

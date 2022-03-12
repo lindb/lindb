@@ -15,12 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package integration
+//go:build integration
+// +build integration
+
+package e2e
 
 import (
 	"bytes"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
@@ -30,8 +35,6 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDatabase_Write_And_Rollup(t *testing.T) {
