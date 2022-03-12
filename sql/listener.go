@@ -25,10 +25,11 @@ import (
 type listener struct {
 	*grammar.BaseSQLListener
 
-	stmt      *queryStmtParser
-	stateStmt *stateStmtParser
-	metaStmt  *metaStmtParser
-	useStmt   *useStmtParser
+	stmt        *queryStmtParser
+	stateStmt   *stateStmtParser
+	metaStmt    *metaStmtParser
+	useStmt     *useStmtParser
+	schemasStmt *schemasStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -42,8 +43,13 @@ func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 }
 
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
-func (l *listener) EnterCreateDatabaseStmt(c *grammar.CreateDatabaseStmtContext) {
+func (l *listener) EnterCreateDatabaseStmt(_ *grammar.CreateDatabaseStmtContext) {
 	panic("need impl")
+}
+
+// EnterShowSchemasStmt is called when production showSchemasStmt is entered.
+func (l *listener) EnterShowSchemasStmt(_ *grammar.ShowSchemasStmtContext) {
+	l.schemasStmt = newSchemasStmtParse()
 }
 
 // EnterUseStmt is called when production useStmt is entered.
@@ -231,6 +237,8 @@ func (l *listener) statement() (stmt.Statement, error) {
 	switch {
 	case l.useStmt != nil:
 		return l.useStmt.build()
+	case l.schemasStmt != nil:
+		return l.schemasStmt.build()
 	case l.stmt != nil:
 		return l.stmt.build()
 	case l.metaStmt != nil:

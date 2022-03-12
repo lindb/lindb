@@ -137,6 +137,13 @@ func Test_executor(t *testing.T) {
 			},
 		},
 		{
+			name: "show schemas",
+			in:   "show schemas;",
+			prepare: func() {
+				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+			},
+		},
+		{
 			name: "show namespaces",
 			in:   "show namespaces;",
 			prepare: func() {

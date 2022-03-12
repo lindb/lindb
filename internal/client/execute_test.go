@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/sql/stmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -136,7 +135,7 @@ func TestExecuteCli_ExecuteAsResult(t *testing.T) {
 				_, _ = rw.Write(encoding.JSONMarshal(&models.Databases{{Name: "test"}}))
 			},
 			assert: func(rs string) {
-				_, s := (&models.Metadata{Type: stmt.Database.String(), Values: []interface{}{"test"}}).ToTable()
+				_, s := (&models.Databases{{Name: "test"}}).ToTable()
 				assert.True(t, strings.Contains(rs, s))
 			},
 			wantErr: false,

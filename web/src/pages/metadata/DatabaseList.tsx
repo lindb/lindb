@@ -36,9 +36,9 @@ import {
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
 import { Database } from "@src/models";
-import { findDatabaseList } from "@src/services";
-import React, { useCallback, useEffect, useState } from "react";
+import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
+import React, { useCallback, useEffect, useState } from "react";
 
 const { Text } = Typography;
 
@@ -80,7 +80,7 @@ export default function DatabaseList() {
     setError("");
     setLoading(true);
     try {
-      const list = await findDatabaseList();
+      const list = await exec<Database[]>({ sql: "show schemas" });
       setDatabaseList(list || []);
     } catch (err) {
       setError(err?.message);

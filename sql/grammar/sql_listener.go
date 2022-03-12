@@ -36,6 +36,9 @@ type SQLListener interface {
 	// EnterShowMasterStmt is called when entering the showMasterStmt production.
 	EnterShowMasterStmt(c *ShowMasterStmtContext)
 
+	// EnterShowSchemasStmt is called when entering the showSchemasStmt production.
+	EnterShowSchemasStmt(c *ShowSchemasStmtContext)
+
 	// EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
 	EnterCreateDatabaseStmt(c *CreateDatabaseStmtContext)
 
@@ -224,6 +227,9 @@ type SQLListener interface {
 
 	// ExitShowMasterStmt is called when exiting the showMasterStmt production.
 	ExitShowMasterStmt(c *ShowMasterStmtContext)
+
+	// ExitShowSchemasStmt is called when exiting the showSchemasStmt production.
+	ExitShowSchemasStmt(c *ShowSchemasStmtContext)
 
 	// ExitCreateDatabaseStmt is called when exiting the createDatabaseStmt production.
 	ExitCreateDatabaseStmt(c *CreateDatabaseStmtContext)
