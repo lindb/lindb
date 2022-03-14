@@ -26,6 +26,24 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 )
 
+// DatabaseNames represents the database name list.
+type DatabaseNames []string
+
+// ToTable returns database name list as table if it has value, else return empty string.
+func (dbs DatabaseNames) ToTable() (int, string) {
+	if len(dbs) == 0 {
+		return 0, ""
+	}
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Database"})
+	for i := range dbs {
+		r := dbs[i]
+		writer.AppendRow(table.Row{r})
+
+	}
+	return len(dbs), writer.Render()
+}
+
 // Databases represents the database list.
 type Databases []Database
 

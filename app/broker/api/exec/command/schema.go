@@ -25,11 +25,31 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-// ListDataBases returns database list in cluster.
-func ListDataBases(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, _ stmt.Statement) (interface{}, error) {
+func SchemaCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+	schemaStmt := stmt.(*stmtpkg.Schema)
+	switch schemaStmt.Type {
+	case stmtpkg.DatabaseSchemaType:
+		return listDataBases(ctx, deps)
+	case stmtpkg.DatabaseNameSchemaType:
+		dbs, err := listDataBases(ctx, deps)
+		if err != nil {
+			return nil, err
+		}
+		var databaseNames []interface{}
+		databases := dbs.([]*models.Database)
+		for _, db := range databases {
+			databaseNames = append(databaseNames, db.Name)
+		}
+		return databaseNames, nil
+	}
+	return nil, nil
+}
+
+// listDataBases returns database list in cluster.
+func listDataBases(ctx context.Context, deps *deps.HTTPDeps) (interface{}, error) {
 	data, err := deps.Repo.List(ctx, constants.DatabaseConfigPath)
 	if err != nil {
 		return nil, err

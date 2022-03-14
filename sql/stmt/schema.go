@@ -17,8 +17,16 @@
 
 package stmt
 
+type SchemaType int
+
+const (
+	DatabaseNameSchemaType SchemaType = iota + 1
+	DatabaseSchemaType
+)
+
 //Schema represents show all database schemas statement.
 type Schema struct {
+	Type SchemaType
 }
 
 // StatementType returns schema query type.

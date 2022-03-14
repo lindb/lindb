@@ -48,7 +48,7 @@ func Test_MetadataQuery(t *testing.T) {
 	metaDataQuery := newMetadataQuery(
 		ctx,
 		"db",
-		&stmt.Metadata{},
+		&stmt.MetricMetadata{},
 		&queryFactory{
 			stateMgr:    stateMgr,
 			taskManager: thisTaskManager,

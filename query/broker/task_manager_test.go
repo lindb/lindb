@@ -172,13 +172,13 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 	client.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(client)
-	_, err := taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.Metadata{})
+	_, err := taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.MetricMetadata{})
 	assert.Error(t, err)
 
 	// get client error
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(nil)
-	_, err = taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.Metadata{})
+	_, err = taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.MetricMetadata{})
 	assert.Error(t, err)
 
 	// SubmitIntermediateMetricTask

@@ -52,7 +52,7 @@ func (s *metaStmtParser) build() (stmt.Statement, error) {
 	if s.limit <= 0 {
 		s.limit = 100
 	}
-	return &stmt.Metadata{
+	return &stmt.MetricMetadata{
 		Namespace:  s.namespace,
 		MetricName: s.metricName,
 		Type:       s.metadataType,

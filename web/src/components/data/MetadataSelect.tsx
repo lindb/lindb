@@ -27,13 +27,15 @@ import React, { MutableRefObject, useRef, useState } from "react";
 interface MetadataSelectProps {
   labelPosition?: "top" | "left" | "inset";
   multiple?: boolean;
+  isStringArray?: boolean;
   variate: Variate;
   placeholder?: string;
 }
 const MetadataSelect: React.FC<MetadataSelectProps> = (
   props: MetadataSelectProps
 ) => {
-  const { variate, placeholder, labelPosition, multiple } = props;
+  const { variate, placeholder, labelPosition, multiple, isStringArray } =
+    props;
   const [optionList, setOptionList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const loaded = useRef() as MutableRefObject<boolean>;
@@ -79,11 +81,16 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
         showTagValuesSQL += where.current;
       }
 
-      const metadata = await exec<Metadata>({
+      const metadata = await exec<Metadata | string[]>({
         sql: showTagValuesSQL,
         db: variate.db,
       });
-      const { values } = metadata;
+      var values: string[];
+      if (isStringArray) {
+        values = metadata as string[];
+      } else {
+        values = (metadata as Metadata).values;
+      }
       const optionList: any[] = [];
       (values || []).map((item) => {
         optionList.push({ value: item, label: item });

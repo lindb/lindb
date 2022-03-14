@@ -23,14 +23,15 @@ import (
 
 // schemasStmtParser represents show schemas statement parser.
 type schemasStmtParser struct {
+	schemaType stmt.SchemaType
 }
 
 // newSchemasStmtParse creates a show schemas statement parser.
-func newSchemasStmtParse() *schemasStmtParser {
-	return &schemasStmtParser{}
+func newSchemasStmtParse(schemaType stmt.SchemaType) *schemasStmtParser {
+	return &schemasStmtParser{schemaType: schemaType}
 }
 
 // build returns the state statement.
 func (s *schemasStmtParser) build() (stmt.Statement, error) {
-	return &stmt.Schema{}, nil
+	return &stmt.Schema{Type: s.schemaType}, nil
 }

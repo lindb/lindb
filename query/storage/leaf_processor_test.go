@@ -173,7 +173,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	assert.Error(t, err)
 
 	// test stream err
-	data := encoding.JSONMarshal(&stmt.Metadata{})
+	data := encoding.JSONMarshal(&stmt.MetricMetadata{})
 	serverStream.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	err = processor.process(context.Background(), &protoCommonV1.TaskRequest{
 		PhysicalPlan: plan,

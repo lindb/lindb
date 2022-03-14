@@ -145,8 +145,13 @@ func executor(in string) {
 					result = &models.StatelessNodes{}
 				}
 			case *stmtpkg.Schema:
-				result = &models.Databases{}
-			case *stmtpkg.Metadata:
+				switch s.Type {
+				case stmtpkg.DatabaseNameSchemaType:
+					result = &models.DatabaseNames{}
+				case stmtpkg.DatabaseSchemaType:
+					result = &models.Databases{}
+				}
+			case *stmtpkg.MetricMetadata:
 				result = &models.Metadata{}
 			case *stmtpkg.Query:
 				result = &models.ResultSet{}

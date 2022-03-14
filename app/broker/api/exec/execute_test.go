@@ -182,6 +182,40 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "get database successfully, with one wrong data",
+			reqBody: `{"sql":"show databases"}`,
+			prepare: func() {
+				// get ok
+				database := models.Database{
+					Name:          "test",
+					Storage:       "cluster-test",
+					NumOfShard:    12,
+					ReplicaFactor: 3,
+				}
+				database.Desc = database.String()
+				data := encoding.JSONMarshal(&database)
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
+					{Key: "db", Value: data},
+					{Key: "err", Value: []byte{1, 2, 4}},
+				}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "schema query, unknown metadata type",
+			reqBody: `{"sql":"show database"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Schema{}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
 			name:    "get all database schemas",
 			reqBody: `{"sql":"show schemas"}`,
 			prepare: func() {
@@ -245,44 +279,10 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:    "get database successfully, with one wrong data",
-			reqBody: `{"sql":"show databases"}`,
-			prepare: func() {
-				// get ok
-				database := models.Database{
-					Name:          "test",
-					Storage:       "cluster-test",
-					NumOfShard:    12,
-					ReplicaFactor: 3,
-				}
-				database.Desc = database.String()
-				data := encoding.JSONMarshal(&database)
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{
-					{Key: "db", Value: data},
-					{Key: "err", Value: []byte{1, 2, 4}},
-				}, nil)
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusOK, resp.Code)
-			},
-		},
-		{
 			name:    "metadata query need input database",
 			reqBody: `{"sql":"show namespaces"}`,
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "metadata query, unknown metadata type",
-			reqBody: `{"sql":"show namespaces","db":"db"}`,
-			prepare: func() {
-				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
-					return &stmtpkg.Metadata{}, nil
-				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
 		{

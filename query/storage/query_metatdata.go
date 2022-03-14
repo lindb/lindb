@@ -30,7 +30,7 @@ import (
 // metadataStorageExecutor represents the executor which executes metric metadata suggest in storage side
 type metadataStorageExecutor struct {
 	database tsdb.Database
-	request  *stmt.Metadata
+	request  *stmt.MetricMetadata
 	shardIDs []models.ShardID
 }
 
@@ -38,7 +38,7 @@ type metadataStorageExecutor struct {
 func newStorageMetadataQuery(
 	database tsdb.Database,
 	shardIDs []models.ShardID,
-	request *stmt.Metadata,
+	request *stmt.MetricMetadata,
 ) storageMetadataQuery {
 	return &metadataStorageExecutor{
 		database: database,

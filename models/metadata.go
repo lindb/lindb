@@ -33,8 +33,6 @@ type Metadata struct {
 func (m *Metadata) ToTable() (int, string) {
 	writer := NewTableFormatter()
 	switch m.Type {
-	case stmt.Database.String():
-		return m.toTableForStringValues(table.Row{"Database"}, writer)
 	case stmt.Namespace.String():
 		return m.toTableForStringValues(table.Row{"Namespace"}, writer)
 	case stmt.Metric.String():

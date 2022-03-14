@@ -90,6 +90,6 @@ type Factory interface {
 	NewMetadataQuery(
 		ctx context.Context,
 		databaseName string,
-		stmt *stmt.Metadata,
+		stmt *stmt.MetricMetadata,
 	) MetaDataQuery
 }
