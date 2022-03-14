@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.9.2. DO NOT EDIT.
 
 package grammar // SQL
@@ -44,6 +27,12 @@ type SQLListener interface {
 
 	// EnterShowReplicationStmt is called when entering the showReplicationStmt production.
 	EnterShowReplicationStmt(c *ShowReplicationStmtContext)
+
+	// EnterShowBrokerMetricStmt is called when entering the showBrokerMetricStmt production.
+	EnterShowBrokerMetricStmt(c *ShowBrokerMetricStmtContext)
+
+	// EnterShowStorageMetricStmt is called when entering the showStorageMetricStmt production.
+	EnterShowStorageMetricStmt(c *ShowStorageMetricStmtContext)
 
 	// EnterCreateStorageStmt is called when entering the createStorageStmt production.
 	EnterCreateStorageStmt(c *CreateStorageStmtContext)
@@ -116,6 +105,12 @@ type SQLListener interface {
 
 	// EnterTagValueList is called when entering the tagValueList production.
 	EnterTagValueList(c *TagValueListContext)
+
+	// EnterMetricListFilter is called when entering the metricListFilter production.
+	EnterMetricListFilter(c *MetricListFilterContext)
+
+	// EnterMetricList is called when entering the metricList production.
+	EnterMetricList(c *MetricListContext)
 
 	// EnterTimeRangeExpr is called when entering the timeRangeExpr production.
 	EnterTimeRangeExpr(c *TimeRangeExprContext)
@@ -255,6 +250,12 @@ type SQLListener interface {
 	// ExitShowReplicationStmt is called when exiting the showReplicationStmt production.
 	ExitShowReplicationStmt(c *ShowReplicationStmtContext)
 
+	// ExitShowBrokerMetricStmt is called when exiting the showBrokerMetricStmt production.
+	ExitShowBrokerMetricStmt(c *ShowBrokerMetricStmtContext)
+
+	// ExitShowStorageMetricStmt is called when exiting the showStorageMetricStmt production.
+	ExitShowStorageMetricStmt(c *ShowStorageMetricStmtContext)
+
 	// ExitCreateStorageStmt is called when exiting the createStorageStmt production.
 	ExitCreateStorageStmt(c *CreateStorageStmtContext)
 
@@ -326,6 +327,12 @@ type SQLListener interface {
 
 	// ExitTagValueList is called when exiting the tagValueList production.
 	ExitTagValueList(c *TagValueListContext)
+
+	// ExitMetricListFilter is called when exiting the metricListFilter production.
+	ExitMetricListFilter(c *MetricListFilterContext)
+
+	// ExitMetricList is called when exiting the metricList production.
+	ExitMetricList(c *MetricListContext)
 
 	// ExitTimeRangeExpr is called when exiting the timeRangeExpr production.
 	ExitTimeRangeExpr(c *TimeRangeExprContext)

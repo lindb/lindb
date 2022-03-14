@@ -19,6 +19,9 @@ package command
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/go-resty/resty/v2"
@@ -41,6 +44,28 @@ func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam
 		return deps.StateMgr.GetStorageList(), nil
 	case stmtpkg.Replication:
 		return getReplicaState(deps, stateStmt)
+	case stmtpkg.BrokerMetric:
+		liveNodes := deps.StateMgr.GetLiveNodes()
+		var nodes []models.Node
+		for idx := range liveNodes {
+			nodes = append(nodes, &liveNodes[idx])
+		}
+		return fetchMetricData(nodes, stateStmt.MetricNames)
+	case stmtpkg.StorageMetric:
+		if strings.TrimSpace(stateStmt.StorageName) == "" {
+			return nil, fmt.Errorf("storage name cannot be empty")
+		}
+		storage, ok := deps.StateMgr.GetStorage(stateStmt.StorageName)
+		if !ok {
+			return nil, nil
+		}
+		liveNodes := storage.LiveNodes
+		var nodes []models.Node
+		for id := range liveNodes {
+			n := liveNodes[id]
+			nodes = append(nodes, &n)
+		}
+		return fetchMetricData(nodes, stateStmt.MetricNames)
 	default:
 		return nil, nil
 	}
@@ -75,14 +100,14 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, erro
 		go func() {
 			defer wait.Done()
 			node := nodes[i]
-			url := node.HTTPAddress()
+			address := node.HTTPAddress()
 			var state []models.FamilyLogReplicaState
 			_, err := resty.New().R().SetQueryParams(map[string]string{"db": stmt.Database}).
 				SetHeader("Accept", "application/json").
 				SetResult(&state).
-				Get(url + "/api/state/replica")
+				Get(address + "/api/state/replica")
 			if err != nil {
-				log.Error("get replication state from storage node", logger.String("url", url), logger.Error(err))
+				log.Error("get replication state from storage node", logger.String("url", address), logger.Error(err))
 				return
 			}
 			result[i] = state
@@ -92,6 +117,57 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, erro
 	rs := make(map[string][]models.FamilyLogReplicaState)
 	for idx := range nodes {
 		rs[nodes[idx].Indicator()] = result[idx]
+	}
+	return rs, nil
+}
+
+// fetchMetricData fetches the state metric from each live nodes.
+func fetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
+	size := len(nodes)
+	if size == 0 {
+		return nil, nil
+	}
+	result := make([]map[string][]*models.StateMetric, size)
+	params := make(url.Values)
+	for _, name := range names {
+		params.Add("names", name)
+	}
+
+	var wait sync.WaitGroup
+	wait.Add(size)
+	for idx := range nodes {
+		i := idx
+		go func() {
+			defer wait.Done()
+			node := nodes[i]
+			address := node.HTTPAddress()
+			metric := make(map[string][]*models.StateMetric)
+			_, err := resty.New().R().SetQueryParamsFromValues(params).
+				SetHeader("Accept", "application/json").
+				SetResult(&metric).
+				Get(address + "/api/state/explore/current")
+			if err != nil {
+				log.Error("get current metric state from alive node", logger.String("url", address), logger.Error(err))
+				return
+			}
+			result[i] = metric
+		}()
+	}
+	wait.Wait()
+	rs := make(map[string][]*models.StateMetric)
+	for _, metricList := range result {
+		if metricList == nil {
+			continue
+		}
+		for name, list := range metricList {
+			l, ok := rs[name]
+			if ok {
+				l = append(l, list...)
+				rs[name] = l
+			} else {
+				rs[name] = list
+			}
+		}
 	}
 	return rs, nil
 }

@@ -53,6 +53,21 @@ func (l *listener) EnterShowAliveStmt(ctx *grammar.ShowAliveStmtContext) {
 	}
 }
 
+// EnterShowBrokerMetricStmt is called when production showBrokerMetricStmt is entered.
+func (l *listener) EnterShowBrokerMetricStmt(_ *grammar.ShowBrokerMetricStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.BrokerMetric)
+}
+
+// EnterShowStorageMetricStmt is called when production showStorageMetricStmt is entered.
+func (l *listener) EnterShowStorageMetricStmt(_ *grammar.ShowStorageMetricStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.StorageMetric)
+}
+
+// EnterMetricList is called when production metricList is entered.
+func (l *listener) EnterMetricList(ctx *grammar.MetricListContext) {
+	l.stateStmt.visitMetricList(ctx)
+}
+
 // EnterShowReplicationStmt is called when production showReplicationStmt is entered.
 func (l *listener) EnterShowReplicationStmt(_ *grammar.ShowReplicationStmtContext) {
 	l.stateStmt = newStateStmtParse(stmt.Replication)

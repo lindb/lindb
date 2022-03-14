@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/metadata"
-	"github.com/lindb/lindb/app/broker/api/state"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/monitoring"
 )
@@ -37,7 +36,6 @@ type API struct {
 	flusher         *admin.DatabaseFlusherAPI
 	storage         *admin.StorageClusterAPI
 	explore         *metadata.ExploreAPI
-	stateExplore    *state.ExploreAPI
 	metricExplore   *monitoring.ExploreAPI
 	log             *monitoring.LoggerAPI
 	config          *monitoring.ConfigAPI
@@ -55,7 +53,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		flusher:         admin.NewDatabaseFlusherAPI(deps),
 		storage:         admin.NewStorageClusterAPI(deps),
 		explore:         metadata.NewExploreAPI(deps),
-		stateExplore:    state.NewExploreAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:          monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
@@ -74,8 +71,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.flusher.Register(router)
 	api.storage.Register(router)
 	api.explore.Register(router)
-
-	api.stateExplore.Register(router)
 
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)

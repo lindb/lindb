@@ -7,6 +7,8 @@ statement               : statementList EOF;
 statementList           : showMasterStmt
                         | showStoragesStmt
                         | showAliveStmt
+                        | showBrokerMetricStmt
+                        | showStorageMetricStmt
                         | createStorageStmt
                         | showReplicationStmt
                         | showSchemasStmt
@@ -27,6 +29,8 @@ showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showAliveStmt        : T_SHOW T_ALIVE (T_BROKER | T_STORAGE);
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
+showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
@@ -66,6 +70,8 @@ tagFilterExpr           :
                        ;
 
 tagValueList           : tagValue (T_COMMA tagValue)*;
+metricListFilter       : T_METRIC T_IN (T_OPEN_P metricList T_CLOSE_P) ;
+metricList             : ident (T_COMMA ident)*;
 timeRangeExpr          : timeExpr (T_AND timeExpr)? ;
 timeExpr               : T_TIME binaryOperator (nowExpr | ident) ;
 

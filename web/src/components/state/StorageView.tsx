@@ -18,7 +18,7 @@ under the License.
 */
 import { Card, Descriptions, Table, Typography } from "@douyinfe/semi-ui";
 import { DiskUsageView } from "@src/components";
-import { Route, StateMetricName, StateRoleName } from "@src/constants";
+import { Route, StateMetricName } from "@src/constants";
 import { StorageState } from "@src/models";
 import * as _ from "lodash-es";
 import React from "react";
@@ -103,15 +103,11 @@ export default function StorageView(props: StorageViewProps) {
       },
     },
     {
-      title: "Capacity Usage",
+      title: "Disk Capacity Usage",
       render: (text: any, record: any, index: any) => {
         return (
           <DiskUsageView
-            params={{
-              names: [StateMetricName.Disk],
-              role: StateRoleName.Storage,
-              storageName: record.name,
-            }}
+            sql={`show storage metric where storage='${record.name}' and metric in ('${StateMetricName.Disk}')`}
           />
         );
       },

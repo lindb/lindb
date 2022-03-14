@@ -16,11 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { NodeView, StorageView, DatabaseView } from "@src/components";
-import { StateMetricName, StateRoleName } from "@src/constants";
+import { DatabaseView, NodeView, StorageView } from "@src/components";
+import { StateMetricName } from "@src/constants";
 import { useStorage } from "@src/hooks";
-import * as _ from "lodash-es";
 import { URLStore } from "@src/stores";
+import * as _ from "lodash-es";
 import React from "react";
 
 export default function StorageOverview() {
@@ -39,11 +39,7 @@ export default function StorageOverview() {
             title="Live Nodes"
             loading={loading}
             nodes={_.values(_.get(storages, "[0].liveNodes", {}))}
-            stateParams={{
-              names: [StateMetricName.CPU, StateMetricName.Memory],
-              role: StateRoleName.Storage,
-              storageName: name,
-            }}
+            sql={`show storage metric where storage='${name}' and metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`}
             style={{ marginTop: 12, marginBottom: 12 }}
           />
           <DatabaseView

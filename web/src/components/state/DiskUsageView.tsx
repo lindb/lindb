@@ -22,12 +22,12 @@ import * as _ from "lodash-es";
 import React, { useEffect, useState } from "react";
 
 interface DiskUsageViewProps {
-  params: any;
+  sql: string;
 }
 
 export default function DiskUsageView(props: DiskUsageViewProps) {
-  const { params } = props;
-  const { stateMetric } = useStateMetric(params);
+  const { sql } = props;
+  const { stateMetric } = useStateMetric(sql);
   const [stats, setStats] = useState({
     total: 0,
     used: 0,
